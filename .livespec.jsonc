@@ -47,7 +47,7 @@
       "livespec": ">=0.1.0,<1.0.0",
       // Bootstrap placeholder; the first successful cross-repo fan-out
       // rewrites this to a livespec release tag.
-      "pinned": "master"
+      "pinned": "v0.20.0"
     }
   }
 }
