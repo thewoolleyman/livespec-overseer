@@ -1,0 +1,53 @@
+// Project-local livespec configuration for livespec-overseer.
+//
+// livespec-overseer is the Control-Plane OPERATOR TOOL: a two-pane tmux
+// supervisor (the `overseerd` daemon plus a thin interactive overseer pane)
+// that watches every tracked session's context headroom, injects an
+// escalating wrap-up at threshold, and atomically restarts a session ONLY
+// once that session has declared itself ready on the filesystem.
+//
+// Repo class: `control-plane-tool` (livespec
+// SPECIFICATION/non-functional-requirements.md §"Fleet membership contract",
+// ratified v171). It is a PEER of the `console` class, never a component of
+// it: `console` ships the cockpit APPLICATION, this ships an operator TOOL.
+//
+// Unlike `console`, this class IS an ordinary pin-and-bump consumer — its
+// ruff / pyright-strict / coverage / Result-railway gates all come from
+// livespec-dev-tooling, so a dev-tooling release directly determines whether
+// this repo stays green. That is precisely why `console` could not be reused:
+// livespec-dev-tooling's `_PIN_WEB_CLASSES` is the subtraction set
+// `_ALL_CLASSES - {"console"}`.
+{
+  "template": "livespec",
+  "spec_root": "SPECIFICATION",
+  "implementation": { "plugin": "livespec-orchestrator-beads-fabro" },
+  // Credential-injection wrapper (fleet default) prefixed to the beads CLIs
+  // so a bare invocation self-heals its tenant credential projection.
+  "credential_wrapper": ["/usr/local/bin/with-livespec-env.sh", "--"],
+  // Harness declarations. NOTE these are deliberately NOT the library-style
+  // "exempt" entries livespec-runtime carries: the overseer DOES ship an
+  // operator command surface (`overseerd`, `overseer-start`), so claiming
+  // exemption on the grounds of "ships no command surface" would be false.
+  // The declaration is read twice — the fleet-time `baseline-harnesses` row
+  // only checks the object is non-empty, but the per-repo
+  // `check-plugin-resolution` Verifier reads the SHAPE, so each entry must
+  // carry a real `canonical_command` (supported) or `reason` (exempt).
+  "harnesses": {
+    "claude": {
+      "status": "supported",
+      "canonical_command": "overseer"
+    },
+    "codex": {
+      "status": "exempt",
+      "reason": "the overseer's interactive pane is driven from Claude Code; the daemon half is harness-neutral and is invoked directly as `overseerd`, not through a Codex skill surface"
+    }
+  },
+  "livespec-overseer": {
+    "compat": {
+      "livespec": ">=0.1.0,<1.0.0",
+      // Bootstrap placeholder; the first successful cross-repo fan-out
+      // rewrites this to a livespec release tag.
+      "pinned": "master"
+    }
+  }
+}

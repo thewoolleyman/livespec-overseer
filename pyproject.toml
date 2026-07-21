@@ -1,0 +1,145 @@
+# livespec-overseer — Control-Plane operator tool (repo class `control-plane-tool`).
+#
+# NOTE ON SHAPE. This file deliberately carries a FULL gate configuration rather
+# than the minimal "a pin and nothing else" shape `livespec-console-beads-fabro`
+# uses. The console is pure Rust and needs Python only to reuse the shared
+# commit-refuse hook installer; this repo IS Python, and its ruff / pyright-strict
+# / 100%-coverage gates are configured HERE. Seven config rows were relocated
+# verbatim from livespec core's pyproject when the overseer moved out; dropping
+# any of them silently retires a gate the folder earned.
+
+[project]
+name = "livespec-overseer"
+version = "0.1.0"
+description = "Control-Plane operator tool for livespec: a two-pane tmux supervisor that watches tracked sessions' context headroom, injects an escalating wrap-up at threshold, and restarts a session only once it declares itself ready. Peer of livespec-console-beads-fabro, not a component of it."
+requires-python = ">=3.10.16"
+authors = [
+    { name = "Chad Woolley", email = "thewoolleyman@gmail.com" },
+]
+license = { text = "MIT" }
+readme = "README.md"
+
+# ZERO runtime dependencies, deliberately. The supervisor is stdlib-only
+# (argparse, json, pathlib, subprocess, fcntl, re, os, sys, time, traceback,
+# dataclasses, typing, contextlib, datetime, itertools, shlex, tempfile,
+# collections) plus its own modules. It imports nothing from livespec core, no
+# Driver, and no orchestrator — which is why it could be relocated at all. Keep
+# this list empty; a new runtime dependency is a design decision, not a detail.
+dependencies = []
+
+[dependency-groups]
+# Every Python dev tool is uv-managed here (resolved into uv.lock, installed
+# into a project-local .venv via `uv sync --all-groups`). Mise pins only the
+# non-Python binaries in .mise.toml. Versions mirror livespec core's pins
+# exactly per livespec/SPECIFICATION/non-functional-requirements.md
+# §"Shared content provenance".
+dev = [
+    "ruff==0.8.6",
+    "pyright==1.1.391",
+    "pytest==8.3.4",
+    "pytest-cov==6.0.0",
+    "pytest-icdiff==0.9",
+    "pytest-xdist==3.8.0",
+    "livespec-dev-tooling",
+]
+
+[tool.uv.sources]
+# Pinned to the release that introduced this repo's own class,
+# `control-plane-tool` (livespec-dev-tooling PR #502). As a pin-CONSUMING class
+# this repo receives automatic bump-pin PRs — that participation is the whole
+# reason the `console` class could not be reused, since `_PIN_WEB_CLASSES` is
+# the subtraction set `_ALL_CLASSES - {"console"}`.
+livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git", tag = "v0.51.0" }
+
+# ---------------------------------------------------------------------------
+# Ruff — sole linter, formatter, import-sorter, complexity checker.
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+# RELOCATED ROW 1/7. Ruff resolves files by EXTENSION, so the two extensionless
+# executables (`overseerd`, `overseer-start` — Python with a shebang, invoked by
+# bare name) are invisible to it without this. They were silently unlinted for
+# months before core added this; the glob matches the folder's `overseer*`
+# naming convention rather than naming them individually.
+extend-include = ["overseer/overseer*"]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "D",       # docstring formatting — prose style is reviewed, not linted
+    "ANN",     # annotations are enforced by pyright strict, not ruff
+    "COM812",  # conflicts with the formatter
+    "ISC001",  # conflicts with the formatter
+    "TD", "FIX",  # TODO/FIXME policing is a review concern here
+    "EM", "TRY003",  # long messages at raise sites are deliberate
+    "PLR2004", # magic values: the named-constant sweep is done; residuals are local
+]
+# Domain vocabulary: the prompt glyphs Claude Code and Codex print, which this
+# tool literally parses out of real TUIs. A two-codepoint repo-wide allowance is
+# NARROWER than a per-file-ignore, which would disable RUF001/2/3 across whole
+# files and hide a genuinely confusable character introduced later.
+allowed-confusables = ["❯", "›"]
+
+[tool.ruff.lint.per-file-ignores]
+# RELOCATED ROW 2/7. The beside-tests' allowances, inheriting the product
+# `tests/**.py` rationale plus three beside-test-specific entries: SLF001
+# (testing private decision helpers directly IS the point of a beside-test),
+# ARG001/2 (signature-matching test doubles must accept args they do not use),
+# S108 (the real `/tmp` tmux socket paths are the fixture).
+"overseer/test_*.py" = ["S101", "SLF001", "ARG001", "ARG002", "S108", "PLR2004", "INP001"]
+"overseer/conftest.py" = ["INP001"]
+
+# ---------------------------------------------------------------------------
+# Pyright — strict, no pragma, no suppression.
+# ---------------------------------------------------------------------------
+
+[tool.pyright]
+# RELOCATED ROW 3/7. The folder PLUS the two extensionless executables named
+# individually — pyright's `include` also resolves by extension, so
+# `overseer` alone does NOT reach them.
+include = ["overseer", "overseer/overseer-start", "overseer/overseerd"]
+# RELOCATED ROW 4/7. Tests are not source. Repo-wide, pyright checks SOURCE and
+# the product `tests/` tree is out of scope simply by never appearing in
+# `include`. These tests live BESIDE their source, so applying the identical
+# rule takes an explicit exclude rather than an omission. This is the repo's
+# existing rule spelled out — NOT an overseer exemption.
+exclude = ["overseer/test_*.py", "overseer/conftest.py", "**/__pycache__/**"]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+
+reportUnusedCallResult = "error"
+reportImplicitOverride = "error"
+reportUninitializedInstanceVariable = "error"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportUnnecessaryCast = "error"
+reportUnnecessaryIsInstance = "error"
+reportImplicitStringConcatenation = "error"
+
+# ---------------------------------------------------------------------------
+# Pytest.
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["overseer"]
+addopts = "-q"
+
+# ---------------------------------------------------------------------------
+# Coverage — 100% statements AND branches.
+# ---------------------------------------------------------------------------
+
+[tool.coverage.run]
+source = ["overseer"]
+branch = true
+# RELOCATED ROW 5/7. Coverage measures the code under test, not the test code,
+# mirroring the pyright exclude above.
+omit = ["overseer/test_*.py", "overseer/conftest.py"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+]

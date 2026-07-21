@@ -1,0 +1,462 @@
+# Per-target matrix CI for livespec-overseer.
+#
+# Authority: livespec/SPECIFICATION/contracts.md
+#   §"Pre-commit step ordering" (c)-(d) — zero-py subsetting:
+#   master pushes + merge_group events always run the full aggregate
+#   (merge-queue safety net); pull_request events skip Python-code
+#   checks when the changeset contains zero .py files.
+#
+# Authority: livespec/SPECIFICATION/non-functional-requirements.md
+#   §"Toolchain pins" — direct tool invocations (ruff, pyright,
+#   pytest, python3) in `run:` lines are forbidden; every step
+#   delegates to `just <target>`.
+#
+# Starter scaffold: the Python-code matrix carries only the tool-
+# backed checks (lint, format, types, coverage). The metadata matrix
+# is empty. As Phase G.4 of epic li-fgqgnk migrates livespec-core's
+# dev-tooling/checks/ scripts into overseer/checks/,
+# add the corresponding `check-<slug>` target to the appropriate
+# matrix and to branch protection's required-status-checks list.
+#
+# The check matrices + check-doctor-static run in the SAME baked image the
+# Fabro sandbox uses, on the local self-hosted runner — so "green in CI" and
+# "green in sandbox" are the same environment (livespec
+# plan/fabro-ci-image-factoring). runs-on resolves from the repo variable
+# CI_RUNNER_LABELS, defaulting to the self-hosted label; set it to
+# '["ubuntu-latest"]' to reroute to GitHub-hosted when the local host is down
+# (the merge-gate fallback). setup, export-telemetry and ci-green stay
+# ubuntu-latest — the gate must stay reportable host-down and the telemetry
+# secret must never reach the runner.
+
+name: CI
+
+# uv occasionally fails when the PyPI file CDN (files.pythonhosted.org)
+# drops a wheel download mid-stream ("broken pipe"). UV_HTTP_RETRIES
+# makes uv retry the fetch in-process instead of failing the job.
+# Combined with the ~/.cache/uv actions/cache step (keyed on uv.lock)
+# every uv-sync job uses below, an unchanged lock installs from cache
+# and never contacts PyPI at all.
+env:
+  UV_HTTP_RETRIES: "5"
+  # Test-parallelism lane signal read by the justfile's `test_nprocs`
+  # (plan/fabro-ci-image-factoring cont.5). RUNNER_ENVIRONMENT does NOT
+  # propagate into container jobs, so derive the lane from the routing
+  # variable here: GitHub-hosted (CI_RUNNER_LABELS flipped to an ubuntu
+  # label) → `hosted` → pytest -n auto; the self-hosted/local lane → `local`
+  # → -n 25%-of-cores (overridable per host via LIVESPEC_TEST_PARALLELISM).
+  LIVESPEC_CI_LANE: ${{ contains(vars.CI_RUNNER_LABELS, 'ubuntu') && 'hosted' || 'local' }}
+
+# merge_group is deliberately ABSENT: no merge queue is configured for this
+# repo (verified live — zero rulesets, required_merge_queue: null; branch
+# protection requires only ci-green). Keeping the vestigial trigger would be
+# exactly the routing hole the trusted-event audit forbids, since merge_group
+# is not a fork-gated event and the matrices below are self-hosted. Re-add it
+# WITH hosted routing only if a merge queue is adopted.
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  setup:
+    name: detect-py-changes
+    runs-on: ubuntu-latest
+    outputs:
+      py_changed: ${{ steps.detect.outputs.py_changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need the base ref reachable for the PR diff below.
+          fetch-depth: 0
+
+      - name: Detect Python file changes
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -uo pipefail
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            # Full-depth fetch (checkout already set fetch-depth: 0) — a
+            # shallow `--depth=1` fetch doesn't bring in commits prior to
+            # the base ref tip, so `git diff origin/${BASE_REF}...HEAD`
+            # would intermittently fail with "no merge base" when the
+            # local clone's history didn't reach the divergence point.
+            # Keep `|| true` as a fallback: when fetch fails (auth,
+            # network) we still try the diff against whatever
+            # origin/${BASE_REF} ref the checkout already populated.
+            git fetch origin "$BASE_REF" || true
+            changeset=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+            if echo "$changeset" | grep -qE '\.py$'; then
+              echo "py_changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "py_changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "py_changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # `setup` is the change-detection GATE only — it deliberately does
+      # NO uv pre-warm. The matrix jobs `needs: setup`, so any work here
+      # sits on the critical path before check-coverage (the long pole)
+      # can start. Each matrix job restores ~/.cache/uv itself (keyed on
+      # uv.lock, with the `uv-${{ runner.os }}-` prefix restore-key) and
+      # runs its own `uv sync`, so on the common unchanged-lock run the
+      # cache already exists and every job restores it in parallel with no
+      # PyPI fetch. A serial pre-warm here would only help the first run
+      # after a lock change — and the prefix restore-key already bounds
+      # that to the delta wheels — so it is not worth taxing every run's
+      # wall-clock. See livespec-dev-tooling-7us.10.
+
+  check-python:
+    name: ${{ matrix.target }}
+    needs: setup
+    # Local self-hosted runner in the baked sandbox image (fallback: set the
+    # CI_RUNNER_LABELS repo variable to '["ubuntu-latest"]'). The container is
+    # the SAME tag the Fabro sandbox runs — that sameness collapses the
+    # green-in-CI / red-in-sandbox drift this epic exists to remove.
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","local-ci"]') }}
+    container:
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v0.50.7
+    env:
+      MISE_DATA_DIR: /root/.local/share/mise
+      MISE_NOT_FOUND_AUTO_INSTALL: "0"
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - check-lint
+          - check-format
+          - check-types
+          - check-coverage
+          # fleet-ci-aggregate-coverage (epic livespec-cf4bcu) slice 5:
+          # canonical `just check` aggregate slugs that inspect .py source
+          # (AST/style/coverage) but were not yet run in CI. The py_changed
+          # gate is correct for these — nothing to check when a PR changes
+          # no .py. Classification mirrors livespec-core PR #1034 (the same
+          # shared livespec-dev-tooling check modules).
+          - check-private-calls
+          - check-global-writes
+          - check-supervisor-discipline
+          - check-no-raise-outside-io
+          - check-no-except-outside-io
+          - check-no-fmt-directives
+          - check-public-api-result-typed
+          - check-main-guard
+          - check-wrapper-shape
+          - check-keyword-only-args
+          - check-match-keyword-only
+          - check-no-inheritance
+          - check-assert-never-exhaustiveness
+          - check-newtype-domain-primitives
+          - check-all-declared
+          - check-no-write-direct
+          - check-pbt-coverage-pure-modules
+          - check-check-mutation
+          - check-file-lloc
+          - check-no-lloc-soft-warnings
+          - check-per-file-coverage
+          - check-rop-pipeline-shape
+          - check-tests-mirror-pairing
+          - check-tests-no-subprocess-spawn
+    steps:
+      # Per-step `if:` (not job-level) so each matrix entry still
+      # reports a status check named `${{ matrix.target }}`.
+      - name: Skip when no .py changes
+        if: needs.setup.outputs.py_changed != 'true'
+        run: echo "::notice::skipped ${{ matrix.target }} — no .py changes in this PR"
+
+      - name: Checkout
+        if: needs.setup.outputs.py_changed == 'true'
+        uses: actions/checkout@v4
+
+      # GitHub-hosted routing keeps the baked `container:` image, so the
+      # workspace is checked out as the runner uid (1001) on the host while
+      # every step runs git as ROOT inside the container — git then refuses
+      # with "detected dubious ownership" (exit 128). actions/checkout adds its
+      # own safe.directory but scopes it to a temporary HOME it discards, and
+      # resolve_repo_root() (config.py) strips all GIT_* env before shelling
+      # git, so an env-var safe.directory is invisible to it. Write it to the
+      # global gitconfig ($HOME/.gitconfig, HOME=/github/home) instead so EVERY
+      # git call — including the env-scrubbed resolve_repo_root — reads it.
+      - name: Trust workspace for git (hosted container root-vs-checkout uid)
+        if: needs.setup.outputs.py_changed == 'true'
+        run: git config --global --add safe.directory '*'
+
+      # Tools are baked into the image; `mise install` is a near-no-op that just
+      # confirms the pinned versions. A fresh container does not TRUST the repo
+      # .mise.toml, so `mise trust` is required for the shims to resolve.
+      # (Replaces the mise-action install + the actions/cache uv restore — the
+      # local runner's persistent ~/.cache/uv is the cache now.)
+      - name: mise trust + install (baked tools — install is a near-no-op)
+        if: needs.setup.outputs.py_changed == 'true'
+        run: |
+          mise trust
+          mise install
+
+      - name: Install Python dev deps via uv
+        if: needs.setup.outputs.py_changed == 'true'
+        run: uv sync --all-groups
+
+      - name: just ${{ matrix.target }}
+        if: needs.setup.outputs.py_changed == 'true'
+        run: |
+          # pyright (check-types) shells out to `npm`; under the container-hooks
+          # HOME the mise npm shim busy-loops (no node registered for that HOME).
+          # Put the image's real node/npm — derived from the shim's own location,
+          # never a hardcoded image path — ahead of the shim on PATH. Harmless
+          # for the non-npm targets.
+          shims_dir="$(dirname "$(command -v npm)")"
+          node_bin="$(cd "$shims_dir/../installs/node/latest/bin" 2>/dev/null && pwd || ls -d "$shims_dir/../installs/node"/*/bin 2>/dev/null | head -1)"
+          [ -n "$node_bin" ] && export PATH="$node_bin:$PATH"
+          just ${{ matrix.target }}
+
+  # Metadata matrix runs unconditionally to preserve the repo-metadata
+  # safety net. Populate as Phase G.4 migrates claude-md-coverage,
+  # heading-coverage, no-direct-tool-invocation, check-tools, and
+  # similar repo-metadata checks.
+  #
+  # `check-aggregate-completeness` is wired here so wiring-drift fails
+  # CI directly, not just locally — added in epic li-univck Phase 3.3
+  # (work-item li-runwir) alongside the v0.4.0 self-host wiring. The
+  # full canonical aggregate is NOT yet in CI; broadening CI coverage
+  # to the remaining 35 canonical slugs is a follow-up scope decision.
+  check-metadata:
+    name: ${{ matrix.target }}
+    needs: setup
+    # Self-hosted in the baked image, same rationale as check-python above.
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","local-ci"]') }}
+    container:
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v0.50.7
+    env:
+      MISE_DATA_DIR: /root/.local/share/mise
+      MISE_NOT_FOUND_AUTO_INSTALL: "0"
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - check-aggregate-completeness
+          - check-handoff-dispatch-routing
+          - check-local-memory-drift-audit
+          # check-no-direct-destructive-cli greps the agent-facing trees
+          # for direct destructive-default CLI invocations
+          # (livespec/SPECIFICATION/non-functional-requirements.md
+          # §"Destructive-default CLI wrapping") so a violation fails CI.
+          - check-no-direct-destructive-cli
+          - check-no-shadow-ledger-body-identical
+          - check-plan-thread-anchor-declared
+          - check-primary-checkout-commit-refuse-hook-installed
+          # check-red-green-replay (no-arg) validates the COMMIT RANGE
+          # origin/master..HEAD — every non-merge commit touching product
+          # impl .py must carry EITHER the TDD-Red-*/TDD-Green-* pair
+          # shape OR the TDD-Suite-Green-* green-verified shape,
+          # regardless of subject prefix (livespec-dev-tooling v0.11.0
+          # commit-range mode). It runs unconditionally: on zero-.py PRs
+          # the range carries no product .py and trivially passes; on
+          # master pushes the range is empty.
+          - check-red-green-replay
+          # fleet-ci-aggregate-coverage (epic livespec-cf4bcu) slice 5:
+          # canonical aggregate slugs that inspect NON-.py surfaces
+          # (justfile, docs, marketplace, config, SKILL.md), need full
+          # git history, or gate CI config — so they belong in the
+          # always-run, fetch-depth:0 metadata matrix, NOT the py-gated
+          # one. check-check-coverage-incremental diffs origin/master...HEAD
+          # (needs the base ref this matrix's fetch-depth:0 provides) and
+          # spawns its own pytest, so it is self-contained here. The two
+          # world-gate checks (check-master-ci-green,
+          # check-branch-protection-alignment) are deliberately ABSENT:
+          # livespec-dev-tooling v0.37.2 excludes them from the CI-mirror
+          # requirement (they enforce at pre-push under an admin token; see
+          # livespec/.ai/ci-gate-discipline.md). Classification mirrors
+          # livespec-core PR #1034 (same shared check modules).
+          - check-claude-md-coverage
+          - check-heading-coverage
+          - check-self-hosted-routing
+          - check-source-trees-scoped-to-consumer
+          - check-vendor-manifest
+          - check-no-direct-tool-invocation
+          - check-tool-backed-check-completeness
+          - check-agents-ai-references-resolve
+          - check-canonical-recipe-fidelity
+          - check-check-coverage-incremental
+          - check-check-tools
+          - check-ci-matrix-completeness
+          - check-comment-line-anchors
+          - check-commit-pairs-source-and-test
+          - check-fleet-marketplace-relative-sources
+          - check-no-todo-registry
+          - check-partition-completeness
+          - check-plugin-resolution
+          - check-skill-invocation-paths
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history for ALL matrix entries: the
+          # check-red-green-replay range validation enumerates
+          # origin/master..HEAD and needs origin/master plus the merge
+          # base in the clone — a fetch-depth: 1 checkout would make
+          # the base unresolvable and fail the check actionably (it
+          # never silently passes). Cheap for this repo; harmless for
+          # the other metadata entries.
+          fetch-depth: 0
+
+      # Trust the workspace for git under hosted routing: the baked container
+      # runs git as ROOT over a uid-1001 checkout → "dubious ownership" (exit
+      # 128) otherwise. Written to the global gitconfig (HOME=/github/home) so
+      # even resolve_repo_root() — which strips all GIT_* env before shelling
+      # git (config.py) — reads it. See check-python for the full rationale.
+      - name: Trust workspace for git (hosted container root-vs-checkout uid)
+        run: git config --global --add safe.directory '*'
+
+      - name: mise trust + install (baked tools — install is a near-no-op)
+        run: |
+          mise trust
+          mise install
+
+      - name: Install Python dev deps via uv
+        run: uv sync --all-groups
+
+      # The shared livespec-dev-tooling commit-refuse-hook check verifies
+      # that `.git/hooks/pre-commit`, `.git/hooks/pre-push`, AND
+      # `.git/hooks/commit-msg` carry the canonical refuse-at-primary body.
+      # CI's actions/checkout clone does NOT install the hook, so we install
+      # it here — AFTER `uv sync`, so the installer module is importable —
+      # for the one matrix entry that exercises the check, by REUSING the
+      # SAME from-package installer `just bootstrap` /
+      # `just install-commit-refuse-hooks` use (the SINGLE source of the
+      # structural body; there is no repo-tracked git-hook-wrapper.sh copy
+      # any more, per convergence zs22.7.9.1). The verifier (zs22.7.9.5)
+      # asserts STRICT byte-identity of each installed hook against the
+      # package's CANONICAL_HOOK_BODY, so the body MUST come from the
+      # installer — an inline heredoc would byte-differ and fail the check.
+      # The verifier only READS the files; the hook never fires in this
+      # metadata job, so its lefthook delegation is never reached.
+      - name: Install commit-refuse hook (satisfy invariant)
+        if: matrix.target == 'check-primary-checkout-commit-refuse-hook-installed'
+        run: just install-commit-refuse-hooks
+
+      - name: just ${{ matrix.target }}
+        env:
+          # Arm the CI-matrix drift guard (epic livespec-cf4bcu slice 5):
+          # now that this repo's matrix + ci-green are complete, flip
+          # check-ci-matrix-completeness from warn (exit 0) to FAIL
+          # (exit 4), so any future canonical slug wired into `just check`
+          # but dropped from CI reddens this leg instead of silently
+          # warning. Harmless for the other metadata legs — they do not
+          # read this var.
+          LIVESPEC_FAIL_IF_CI_MATRIX_GAPS_EXIST: "true"
+        run: just ${{ matrix.target }}
+
+  # livespec core's doctor STATIC phase (reference-discipline + out-of-band
+  # invariants), wired fleet-wide per livespec epic livespec-6jfq. core ships
+  # the checker (doctor_static.py — self-contained, bare python3); this job
+  # checks core out at the tag THIS repo pins (.livespec.jsonc compat.pinned)
+  # and points the recipe at it via LIVESPEC_CORE_PLUGIN_ROOT. Its OWN job
+  # (not the matrix) because it needs a second checkout — livespec core —
+  # that no other target does.
+  check-doctor-static:
+    name: check-doctor-static
+    # Self-hosted in the baked image. The livespec-core checkout below is a
+    # fresh PUBLIC clone INSIDE the container (no host mount — containment
+    # preserved).
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","local-ci"]') }}
+    container:
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v0.50.7
+    env:
+      MISE_DATA_DIR: /root/.local/share/mise
+      MISE_NOT_FOUND_AUTO_INSTALL: "0"
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Trust the workspace for git under hosted routing: the baked container
+      # runs git as ROOT over a uid-1001 checkout → "dubious ownership" (exit
+      # 128) otherwise. Written to the global gitconfig (HOME=/github/home) so
+      # even resolve_repo_root() — which strips all GIT_* env before shelling
+      # git (config.py) — reads it. See check-python for the full rationale.
+      - name: Trust workspace for git (hosted container root-vs-checkout uid)
+        run: git config --global --add safe.directory '*'
+
+      - name: mise trust + install (baked tools — install is a near-no-op)
+        run: |
+          mise trust
+          mise install
+
+      - name: Resolve pinned livespec core ref (.livespec.jsonc compat.pinned)
+        id: corepin
+        run: |
+          pinned="$(grep -oE '"pinned"[[:space:]]*:[[:space:]]*"[^"]*"' .livespec.jsonc | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)".*/\1/')"
+          echo "ref=${pinned:-master}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout livespec core at the pinned ref
+        uses: actions/checkout@v4
+        with:
+          repository: thewoolleyman/livespec
+          ref: ${{ steps.corepin.outputs.ref }}
+          path: .livespec-core
+
+      - name: just check-doctor-static
+        run: |
+          # In a container job, github.workspace (context) may be the HOST path;
+          # $GITHUB_WORKSPACE (env) is the in-container mount, so derive the core
+          # plugin root from it to stay container-correct.
+          export LIVESPEC_CORE_PLUGIN_ROOT="${GITHUB_WORKSPACE}/.livespec-core/.claude-plugin"
+          just check-doctor-static
+
+  # Closed-loop CI telemetry: export this run's per-job timings to Honeycomb
+  # (dataset github-ci) and FAIL if Honeycomb does not accept them. The run
+  # that produced the data confirms its own telemetry landed — so a broken
+  # pipeline can't die silently (it reddens master CI and fires the existing
+  # failure notification). Master/merge_group ONLY (never PRs, so PR feedback
+  # stays fast); runs even when checks fail (!cancelled) so failed runs are
+  # observable too; excludes itself (still in_progress → no completedAt). See
+  # livespec/SPECIFICATION/non-functional-requirements.md §"CI telemetry export".
+  export-telemetry:
+    name: export-telemetry
+    needs: [setup, check-python, check-metadata]
+    if: ${{ !cancelled() && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Export CI run telemetry to Honeycomb (closed-loop verified)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          HONEYCOMB_GITHUB_CI_INGEST_KEY_LIVESPEC: ${{ secrets.HONEYCOMB_GITHUB_CI_INGEST_KEY_LIVESPEC }}
+        run: bash .github/scripts/export-ci-telemetry.sh
+
+  # fleet-ci-aggregate-coverage (epic livespec-cf4bcu) slice 5: the single
+  # all-green gate job. It `needs:` every check-bearing job and fails if any
+  # dependency failed or was cancelled — a pure GitHub-expression gate (no
+  # external action, no direct tool invocation, so it satisfies
+  # livespec/SPECIFICATION/non-functional-requirements.md §"Toolchain pins").
+  # Branch protection requires ONLY this context, so one stable name gates the
+  # whole matrix and never churns as checks are added. A SKIPPED dependency
+  # (e.g. the entire check-python matrix on a zero-.py PR) is not a failure, so
+  # ci-green stays green then. check-doctor-static is its OWN job here (not a
+  # check-metadata matrix entry, unlike livespec-core), so it is listed
+  # explicitly. export-telemetry is push/merge_group-only and NOT a gate, so it
+  # is intentionally absent from `needs:`.
+  ci-green:
+    name: ci-green
+    needs: [check-python, check-metadata, check-doctor-static]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All required checks passed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
