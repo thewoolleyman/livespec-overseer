@@ -49,5 +49,37 @@
       // rewrites this to a livespec release tag.
       "pinned": "master"
     }
+  },
+  "livespec-orchestrator-beads-fabro": {
+    "format": "beads",
+    "compat": {
+      "livespec": ">=0.1.0,<1.0.0",
+      "pinned": "master"
+    },
+    // Per-repo beads tenant CONNECTION block, read by the plugin's
+    // commands/_config.py. `prefix` == `tenant` == `database` == `server_user`
+    // is the load-bearing tenant-identity rule — all four are this repo's name.
+    //
+    // TCP-only, NO `socket` key: the dolt unix socket dir is 0750 dolt:dolt and
+    // inaccessible to this caller, so the connection must go over 127.0.0.1:3307.
+    //
+    // The tenant PASSWORD is deliberately ABSENT and never committed. It is the
+    // single shared fleet `BEADS_DOLT_PASSWORD`, supplied at bd-call time by the
+    // `credential_wrapper` above. Isolation comes from the per-tenant SQL user
+    // plus a DB-scoped grant, not from password distinctness — verified
+    // 2026-07-20 that this tenant is denied access to livespec-runtime's DB.
+    //
+    // `fake` is false so the committed config describes the REAL connection; CI
+    // sets LIVESPEC_BEADS_FAKE=1 to force the hermetic backend, since GitHub CI
+    // cannot reach the localhost dolt-server.
+    "connection": {
+      "tenant": "livespec-overseer",
+      "prefix": "livespec-overseer",
+      "database": "livespec-overseer",
+      "server_user": "livespec-overseer",
+      "server_host": "127.0.0.1",
+      "server_port": 3307,
+      "fake": false
+    }
   }
 }
