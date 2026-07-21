@@ -51,6 +51,29 @@ dev = [
 # the subtraction set `_ALL_CLASSES - {"console"}`.
 livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git", tag = "v0.51.3" }
 
+[tool.livespec_dev_tooling]
+# Role trees, declared EXPLICITLY EMPTY. Without this section the loader falls
+# back to defaults naming core's layout (`.claude-plugin/scripts/livespec`,
+# `.../io`, `.../commands`, `.../parse`, `dev-tooling`), none of which exist
+# here, and `check-source-trees-scoped-to-consumer` fails with six
+# "role is not scoped to this consumer" errors.
+#
+# Empty rather than `source_trees = ["overseer"]`, and that is a deliberate
+# ordering choice, not laziness. Declaring the tree ACTIVATES the Result-railway
+# checks (`no-raise-outside-io`, `no-except-outside-io`, `public-api-result-typed`)
+# over this package. That is Gate E of plan/overseer-productization, whose whole
+# hazard is enforcement landing before adoption — and livespec core itself
+# currently has all four of these keys empty for the same reason. Matching core
+# keeps the move behavior-preserving; arming the railway here is a separate,
+# deliberate decision with its own verification, coordinated with the
+# rop-sweep-fleet-policy thread.
+source_trees = []
+io_trees = []
+commands_trees = []
+pure_trees = []
+covered_trees = []
+supervisor_entry_files = []
+
 # ---------------------------------------------------------------------------
 # Ruff — sole linter, formatter, import-sorter, complexity checker.
 # ---------------------------------------------------------------------------
