@@ -1,0 +1,32 @@
+# Beads configuration for livespec-overseer.
+#
+# This repo's work-items live in a per-repo beads/Dolt TENANT database on the
+# shared dolt-server (tenant name "livespec-overseer"), reached via
+# livespec-orchestrator-beads-fabro.
+#
+# Committable: carries NO per-machine project_id and NO secret. `metadata.json`
+# beside this file is gitignored and REGENERABLE — project_id is server-stable,
+# so re-running `bd init --server …` in a /tmp scratch dir with this config
+# yields the identical id. NEVER run `bd init` inside a primary checkout or a
+# worktree: it auto-commits and clobbers `.beads/`.
+#
+# TCP-only, with NO `socket:` key — deliberately. `/var/lib/doltdb/` is
+# 0750 dolt:dolt and untraversable by a sandboxed caller, so every fleet tenant
+# forces TCP. (Unrelated aside for whoever reads this next: as of 2026-07-20 the
+# server was running with NO unix-socket listener at all, because a stale
+# dolt.sock blocked the bind on restart and Dolt logged it as a warning rather
+# than failing — see vps-info PR #7. TCP is the right choice regardless.)
+#
+# The tenant password is NOT here and never will be. It is the single shared
+# fleet `BEADS_DOLT_PASSWORD`, injected by the configured `credential_wrapper`
+# (`with-livespec-env.sh`). Isolation comes from the per-tenant SQL user plus a
+# DB-scoped grant, NOT from password distinctness — verified 2026-07-20: this
+# tenant is denied access to `livespec-runtime`'s database.
+
+dolt.auto-start: false
+dolt.mode: server
+dolt.server-host: 127.0.0.1
+dolt.server-port: 3307
+dolt.server-user: livespec-overseer
+dolt.database: livespec-overseer
+dolt.prefix: livespec-overseer
