@@ -57,8 +57,16 @@
       "pinned": "master"
     },
     // Per-repo beads tenant CONNECTION block, read by the plugin's
-    // commands/_config.py. `prefix` == `tenant` == `database` == `server_user`
-    // is the load-bearing tenant-identity rule — all four are this repo's name.
+    // commands/_config.py. `tenant` == `database` == `server_user` is the
+    // load-bearing tenant-identity rule — all three are this repo's name.
+    // `prefix` is a DIFFERENT thing: bd's server-stored issue-ID create-prefix
+    // (the plugin's _config.py documents it as exactly that, e.g. `bd-ib`),
+    // which `bd rename-prefix` caps at 8 characters — so the full repo name
+    // cannot be the prefix here. This tenant's server-stored prefix is
+    // `overseer` (set 2026-07-22, when the first real records minted with a
+    // scratch-dir-derived junk prefix and were renamed); ids read
+    // `overseer-<suffix>`. The value below MUST match the server-stored
+    // prefix or the plugin mints/validates against the wrong id shape.
     //
     // TCP-only, NO `socket` key: the dolt unix socket dir is 0750 dolt:dolt and
     // inaccessible to this caller, so the connection must go over 127.0.0.1:3307.
@@ -74,7 +82,7 @@
     // cannot reach the localhost dolt-server.
     "connection": {
       "tenant": "livespec-overseer",
-      "prefix": "livespec-overseer",
+      "prefix": "overseer",
       "database": "livespec-overseer",
       "server_user": "livespec-overseer",
       "server_host": "127.0.0.1",
