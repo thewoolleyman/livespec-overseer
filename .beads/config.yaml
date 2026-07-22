@@ -29,4 +29,8 @@ dolt.server-host: 127.0.0.1
 dolt.server-port: 3307
 dolt.server-user: livespec-overseer
 dolt.database: livespec-overseer
-dolt.prefix: livespec-overseer
+# `prefix` is bd's server-stored issue-ID create-prefix (`bd rename-prefix`
+# caps it at 8 characters), NOT the tenant name — ids read `overseer-<suffix>`.
+# MUST match `.livespec.jsonc`'s `connection.prefix`; the fleet
+# `beads-tenant-connection-consistency` row makes drift un-mergeable.
+dolt.prefix: overseer
