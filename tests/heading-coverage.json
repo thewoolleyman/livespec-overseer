@@ -1,0 +1,373 @@
+[
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The cardinal rule",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Out-of-band state declaration",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The supervision round",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The escalating wrap-up",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The restart",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The keep-going nudge",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The watch-set declaration",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Track discovery and the mapping store",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Session-name derivation",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Surface-only startup",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Supervised runtimes",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Non-interference with tracked work",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Notify, never block",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Fail-soft posture",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## The state file",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## The restart interlock",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## The wrap-up injection",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## The keep-going nudge",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## Durable stores",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## Daemon invocation",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## Bootstrap preconditions",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## Attention surface",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "constraints.md",
+    "heading": "## Runtime requirements",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "constraints.md",
+    "heading": "## Language and dependencies",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "constraints.md",
+    "heading": "## Determinism boundary",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "constraints.md",
+    "heading": "## Filesystem boundaries",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "constraints.md",
+    "heading": "## Atomicity and single instance",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "constraints.md",
+    "heading": "## Acting safety",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "non-functional-requirements.md",
+    "heading": "## Boundary",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "non-functional-requirements.md",
+    "heading": "## Spec",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "non-functional-requirements.md",
+    "heading": "## Contracts",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "non-functional-requirements.md",
+    "heading": "## Constraints",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "non-functional-requirements.md",
+    "heading": "## Scenarios",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A wrap-up is injected when a track crosses its threshold",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The wrap-up sharpens as context keeps falling",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A band never fires twice in one round",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A winding-down acknowledgement pauses the escalation",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A stale acknowledgement resumes escalation but authorizes nothing",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A fresh ready declaration triggers the atomic restart",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready declaration from a prior round never restarts",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready declaration is voided when its session resumes work",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An undeclared session at the danger line is reported, never restarted",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A malformed state value is surfaced and treated as no declaration",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A blocked declaration is relayed, not answered",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An idle session with context left is nudged once per episode",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unassigned plan is discovered but never auto-started",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Topics colliding across repositories get qualified session names",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The daemon refuses an unsupported host",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The daemon refuses a repository that does not ignore its scratch path",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A second daemon instance refuses to start",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A dropped resume submission is retried without a second kill",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A restart never switches a track's runtime",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unknown context reading never triggers a wrap-up",
+    "test": "TODO",
+    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+  }
+]
