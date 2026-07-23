@@ -148,8 +148,9 @@ session.
    reasoning and boundaries in `research/operator-surface.md` beside this
    handoff. The decision confirms the core-tenant items `livespec-b1uo.4`/
    `.5` (per-Driver thin bindings) unnecessary — their close stays staged
-   in livespec core. Implementation is ledger work under `overseer-3wt`;
-   groom before dispatch.
+   in livespec core. Implementation is ledger work under `overseer-3wt`,
+   groomed 2026-07-23 into the dependency-linked slices of scope item 1 —
+   compose their lanes from the ledger.
 3. **Gate E** — arm the Result-railway role keys in `pyproject.toml` once
    livespec core's `rop-sweep-fleet-policy` thread lands `cvz`. Blocked
    until then; do not pre-arm (enforcement-before-adoption is the recorded
@@ -162,8 +163,10 @@ session.
 5. **Phase 2 — ship to adopter families** (D7/D8/D9, recorded on core epic
    `livespec-b1uo`): the overseer is Control Plane; ship it as a tool an
    adopter FAMILY may run against its own declarations — never reading
-   `.livespec-fleet-manifest.jsonc` (D5). This is the thread's eventual
-   payload; everything above clears the runway.
+   `.livespec-fleet-manifest.jsonc` (D5). Shape DRAFT awaiting the
+   maintainer's cut: `research/phase-2-adopter-shipping.md` beside this
+   handoff. This is the thread's eventual payload; everything above clears
+   the runway.
 
 ## Where the history lives
 
