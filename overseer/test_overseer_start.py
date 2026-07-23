@@ -68,11 +68,9 @@ def test_daemon_command_threads_warn_percent():
     # Part 1: --warn-percent N is appended to the overseerd launch command; without
     # it the command is unchanged (default threshold applies inside overseerd).
     mod = _load()
-    assert mod._daemon_command(None) == (
-        ".claude/skills/overseer/overseerd 2> tmp/overseer/daemon.log"
-    )
+    assert mod._daemon_command(None) == "overseer/overseerd 2> tmp/overseer/daemon.log"
     assert mod._daemon_command(30) == (
-        ".claude/skills/overseer/overseerd --warn-percent 30 2> tmp/overseer/daemon.log"
+        "overseer/overseerd --warn-percent 30 2> tmp/overseer/daemon.log"
     )
 
 
@@ -184,6 +182,24 @@ def test_creates_the_daemon_marker_directory_under_the_core_root(monkeypatch, tm
     assert mod.main([], io=FakeLayout(), build_supervisor=_FakeSupervisor, core_root=tmp_path) == 0
 
     assert (tmp_path / "tmp" / "overseer").is_dir()
+
+
+def test_default_core_root_is_this_checkout_for_split_and_scratch(monkeypatch):
+    mod = _load()
+    _in_claude_tmux(monkeypatch)
+    layout = FakeLayout()
+    made_dirs = []
+
+    def fake_mkdir(self, *, parents=False, exist_ok=False):
+        made_dirs.append((self, parents, exist_ok))
+
+    monkeypatch.setattr(mod.Path, "mkdir", fake_mkdir)
+
+    assert mod.main([], io=layout, build_supervisor=_FakeSupervisor) == 0
+
+    repo_root = Path(mod.__file__).resolve().parent.parent
+    assert layout.calls[1][2] == str(repo_root)
+    assert made_dirs == [(repo_root / "tmp" / "overseer", True, True)]
 
 
 def test_is_idempotent_when_the_daemon_pane_already_exists(monkeypatch, tmp_path, capsys):
