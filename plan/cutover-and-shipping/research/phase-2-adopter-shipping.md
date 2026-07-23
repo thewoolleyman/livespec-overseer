@@ -71,8 +71,18 @@ family's own declaration file.
 ## Non-goals, bounded by standing decisions
 
 Never reads the fleet manifest (D5). Never a console component (D7 peers).
-No new ledger state, no new store paths. Not a supervision-prompt generator
-for plan threads — that idea's plane-assignment analysis (core's retired
-`plan-skill-supervisor-handoff` thread, final state `c8f422f8`) concluded
-the overseer's own non-interference contract forbids it, and this note
-inherits that conclusion.
+No new ledger state, no new store paths.
+
+**Supervision prompts — position CORRECTED 2026-07-23.** An earlier
+revision of this note read core's `plan-skill-supervisor-handoff` §10 as
+foreclosing plan-tree supervision prompts; that read came from a stale
+checkout and is SUPERSEDED by the thread's §11 (maintainer-adopted, livespec
+PR #1695): a **Control-Plane `supervise-plan` skill in THIS repo's plugin
+namespace** creates `plan/<topic>/supervisor-handoff.md` under a single
+named carve-out, writing ONLY through the target repo's own commit
+discipline (worktree → PR → merge). The DAEMON still never touches any plan
+tree — the protected property ("supervision can never dirty a tracked
+working tree") holds literally, because the attended, reviewed skill write
+is not the unattended tick loop the non-interference clause governs. So
+supervision prompts are plausibly part of what ships to adopter families,
+as a sibling slice of the operator surface (filed under `overseer-3wt`).
