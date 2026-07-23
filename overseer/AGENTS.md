@@ -35,10 +35,10 @@ Beads/Dolt + Fabro Dispatcher / dark factory), not a stopgap awaiting a
 replacement. The two are standing peers: autonomous mode runs *ready work-items*
 unattended through the ledger; the overseer keeps *interactive plan tracks*
 moving in parallel under a human driver, automating only the context-% wrap-up +
-restart mechanics. Maintain it in place. **LOCAL-ONLY and unsynced:** it lives
-under `.claude/skills/overseer/` in this repo only and is usable only from it. Do
-NOT add it to the plugin, the spec, the copier template, fleet manifests,
-conformance checks, or any other repo.
+restart mechanics. Maintain it in place. It now lives in the standalone
+`livespec-overseer` control-plane-tool repo, has its own `SPECIFICATION/`, and
+participates in the livespec fleet as an ordinary pin-consuming member. Do NOT
+copy it back into livespec core, the plugin, or the copier template.
 
 ## The evaluate() state machine
 
@@ -848,65 +848,38 @@ for the marker's edge-triggered lifecycle.
     CLI (`list` / `add` / `remove` / `unassign` / `start`, `--repo` / `--topic`
     keyword flags). It carries NO `daemon` subcommand (a dedicated executable has
     no business being a subcommand of a track CLI). The skill invokes it as
-    `uv run --no-project python .claude/skills/overseer/supervisor.py <cmd>` — a
+    `uv run --no-project python overseer/supervisor.py <cmd>` — a
     module invoked from the skill, never a supported bare `python3` path.
   Beyond `--warn-percent`, there are **no config knobs**: store
   (`~/.livespec-overseer.jsonl`) and injection-stamp
   (`~/.livespec-overseer-stamps.json`) paths are hard-coded via the `registry`
   defaults, and the watch-set is read from `~/.livespec-overseer-repos.json`
   (an absolute `$HOME` path, so it works from any cwd AND from any install
-  location — it is deliberately NOT derived from the module's own position,
-  which is what previously pinned this package to
-  `<core>/.claude/skills/overseer/`) — no `--store` / `--stamp` / `--repos` / `--repos-only` /
+  location — it is deliberately NOT derived from the module's own position) —
+  no `--store` / `--stamp` / `--repos` / `--repos-only` /
   `--manifest`, and `overseerd` takes no `--interval` / `--once` / `--recover`
   (surface-only: no startup auto-recovery). The `Supervisor` dataclass keeps
   `store_path` / `stamp_path` / `watch_repos` / `manifest_path` injectable, but
   **only the beside-tests inject them** (they redirect `registry.DEFAULT_STORE_PATH`
   for CLI isolation) — neither `overseerd` nor the module CLI exposes them.
-- **Outside the product STYLE gates; inside the TEST gate.** The beside-tests run
-  in `just check` (see the next bullet). Everything else — lint, types, coverage,
-  import contracts — still excludes the folder, by four concrete config facts (the
-  design's "PR #1109 / dev-tooling `.claude/` universe exemption" labels are
-  paraphrase for these). Bringing each of those inside is tracked as its own
-  decision in `plan/overseer-productization/`:
-  - **ruff** — `pyproject.toml` `[tool.ruff].extend-exclude` names
-    `.claude/skills/overseer/**` (ruff's repo-wide scan is the one gate whose
-    denylist must name the path; precedent `.claude/hooks/**`).
-  - **pyright** — `[tool.pyright].include` lists only `.claude-plugin/scripts`
-    and `dev-tooling`; the overseer folder is omitted, so it is never
-    type-checked.
-  - **coverage** — pytest's `testpaths = ["tests"]` means the coverage-bearing
-    product suite never collects the beside-tests, so `fail_under = 100` does not
-    apply to these modules. `check-overseer` collects them under their own target
-    WITHOUT `--cov`, precisely so that stays true.
-  - **import-linter** — `root_packages = ["livespec"]`; these modules are not
-    part of the `livespec` package, so no import contract touches them.
-  - The dev-tooling shared checks read their scope from
-    `livespec_dev_tooling.config` (`source_tree_prefixes` /
-    `target_dirs`), none of which include `.claude/skills/` — so
-    `check-claude-md-coverage` and the style checks never reach here.
-- **The beside-tests ARE a product gate — `just check-overseer` is a literal
-  member of the `just check` aggregate, so pre-commit, pre-push, and CI all run
-  them.** This reverses the folder's earlier "outside the product gates, the
-  discipline lives in the developer's hands" design. That design was wrong in
-  practice: a broken overseer change merged green with NOTHING having exercised
-  its behavior, more than once. The beside-tests are hermetic (FakeTmux, a fake
-  `/proc`, seam-injected Codex discovery) and the whole suite runs in seconds, so
-  there was never a real cost to wiring them in. Run them directly while
-  iterating:
+- **Inside this repo's product gates.** Relocation made `overseer/` an ordinary
+  first-party package in this repo. `pyproject.toml` includes `overseer` plus the
+  extensionless `overseer-start` and `overseerd` executables in strict pyright,
+  pytest collects `overseer`, and coverage measures the product modules with
+  100% statement and branch requirements while omitting only tests and
+  environment/cache paths. Ruff and the pinned `livespec-dev-tooling` checks are
+  part of the `just check` aggregate as usual for this repo class.
+- **The beside-tests ARE the product test suite here.** They are hermetic
+  (FakeTmux, a fake `/proc`, seam-injected Codex discovery) and run in seconds.
+  Run them directly while iterating:
 
   ```bash
-  uv run pytest .claude/skills/overseer/ -q
+  uv run pytest overseer -q
   ```
 
   (`conftest.py` puts the folder on `sys.path` so `import registry` / `import
   signals` / `import tmuxio` resolve when pytest collects the beside-tests.)
-  They need their own justfile target because pytest's `testpaths = ["tests"]`
-  never collects them; the target runs WITHOUT coverage, since these modules are
-  scoped out of the `fail_under = 100` gate. Lint (ruff), types (pyright), and
-  coverage remain scoped out of this folder — bringing those inside the gates is
-  the rest of the `plan/overseer-productization/` thread, and each is a separate
-  decision from this one.
+  The full local, pre-push, and CI gate is still `just check`.
 - **The COMBINED-master-state failure mode, and what now catches it.** Two overseer
   branches can merge git-clean and still leave the folder red: a concurrent change
   to shared surface (e.g. the `TMUX_TMPDIR`/`exec` wrap once added to
@@ -959,13 +932,13 @@ For a change to the invocation / config surface (this file's usual subject), the
 end-to-end check is the discovery + render path, exercised safely read-only:
 
 1. Run a **read-only render** against the real fleet:
-   `uv run --no-project python .claude/skills/overseer/supervisor.py list` — it
+   `uv run --no-project python overseer/supervisor.py list` — it
    calls `tick(act=False)`, so it discovers every declared repo's `plan/*/`,
    joins the mapping, and prints the `Status · Topic · tmux · Ctx% · Repo` table
    **without injecting or restarting anything**. This exercises the whole reshaped
    surface (module invocation, fixed store path, fleet-only watch-set) with zero
    mutation risk.
-2. Optionally observe a **brief live daemon** (`.claude/skills/overseer/overseerd
+2. Optionally observe a **brief live daemon** (`overseer/overseerd
    2> tmp/overseer/daemon.log`, stopped after a render or two) to confirm the loop
    renders and refreshes. Surface-only means it will not act on any real session
    unless that session is genuinely at threshold + certified + idle.
@@ -978,7 +951,7 @@ end-to-end check is the discovery + render path, exercised safely read-only:
    mkdir -p /tmp/ov/{home,projects/demo/plan/demo-topic}
    printf '{"repos": ["/tmp/ov/projects/demo"]}' > /tmp/ov/home/.livespec-overseer-repos.json
    touch /tmp/ov/projects/demo/plan/demo-topic/handoff.md
-   HOME=/tmp/ov/home .venv/bin/python3 .claude/skills/overseer/supervisor.py list
+   HOME=/tmp/ov/home .venv/bin/python3 overseer/supervisor.py list
    ```
 
    That redirects the watch-set AND the mapping store AND the stamp sidecar in
@@ -994,10 +967,9 @@ end-to-end check is the discovery + render path, exercised safely read-only:
    runs at all. Invoke the venv interpreter directly, as above.
 
    The SUPERSEDED recipe was to copy this whole folder into a scratch repo tree
-   (`<scratch>/<repo>/.claude/skills/overseer/`) with a scratch
-   `.livespec-fleet-manifest.jsonc` beside it, because the manifest was resolved
-   by walking up from the module file — so the only way to change the watch-set
-   was to physically move the code. Do not do that any more; it works by
+   with a scratch `.livespec-fleet-manifest.jsonc` beside it, because the manifest
+   was resolved by walking up from the module file — so the only way to change the
+   watch-set was to physically move the code. Do not do that any more; it works by
    accident at best. Two gotchas from that era still apply:
    - **Do NOT point `HOME` at a fresh empty dir to isolate the store.** `uv run`
      keys its cache off `$HOME/.cache/uv`; an empty HOME forces uv to cold-rebuild
@@ -1112,7 +1084,7 @@ claude --resume <session-id> --dangerously-skip-permissions -n <topic>
 ### Step-by-step
 
 **0. Re-establish the daemon top pane.** From the bottom (Claude) `/overseer` pane,
-re-run `.claude/skills/overseer/overseer-start` (idempotent; splits the daemon pane,
+re-run `overseer/overseer-start` (idempotent; splits the daemon pane,
 re-attaches to the surviving mapping, adopts sessions).
 
 **1. Read the surviving mapping** — it is the recipe (which topics, which tmux names,
@@ -1372,14 +1344,12 @@ does not re-learn it. Append here — do NOT scatter these.
   (re-run `overseer-start`, or kill the daemon pane and relaunch) to load it. The
   one-shot track CLI (`list`/`add`/`start`) DOES pick up new code immediately (fresh
   process per invocation).
-- **The beside-tests are the ONLY gate and neither CI nor Fabro runs them.** Live proof
-  (2026-07-19): commit `574192a8` wrapped every spawn with `unset TMUX; export
-  TMUX_TMPDIR=…; exec …` but left `test_recover_still_recreates_a_claude_track_as_claude`
-  asserting the bare command — it merged red and stayed red until this change repaired
-  it. (That spawn wrap has since been REMOVED entirely by
-  `plan/tmux-fleet-visibility/`; the lesson about the gate stands.) ALWAYS run
-  `uv run pytest .claude/skills/overseer/ -q` before pushing any overseer
-  change; a green PR here proves nothing on its own.
+- **The relocated repo's gates run the overseer suite.** The old warning that CI
+  and Fabro did not run the beside-tests is obsolete. `just check` is the single
+  local, pre-push, and CI gate; it collects the overseer tests, applies strict
+  pyright to the package and extensionless executables, and enforces coverage.
+  Run `uv run pytest overseer -q` while iterating, then `mise exec -- just check`
+  before handing off.
 
 ## Pointers
 
