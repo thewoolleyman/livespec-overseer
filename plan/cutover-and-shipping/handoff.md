@@ -67,6 +67,35 @@ proven (evidence also recorded as a comment on epic `overseer-3wt`):
   truncating `2>` redirect wiped it at restart — filed as
   `overseer-2boaoy`.
 
+### Stage-4 self-completion — capture instructions for the post-restart session
+
+The gate is expected to close ON THIS TRACK in the ordinary course: this
+repo is in the daemon's watch-set, the default injection threshold is 50%
+remaining (`registry.DEFAULT_CTX_THRESHOLD`), and the planning session runs
+below it as it winds down. When the daemon injects the escalating wrap-up,
+COMPLY with it (wind down, declare `ready` per
+`overseer/marker-protocol.md`) — the compliance IS the evidence. The
+POST-RESTART session must then promptly collect from
+`tmp/overseer/daemon.log`:
+
+1. the injection line — `injected wrap-up into
+   /data/projects/livespec-overseer::cutover-and-shipping (ctx N%, bands
+   [...])`;
+2. the restart line — `restarted
+   /data/projects/livespec-overseer::cutover-and-shipping (pane %N)`;
+3. the ABSENCE of `tmp/overseer/cutover-and-shipping/.overseer-state`
+   after that logged restart — the `ready` declaration is CONSUMED at
+   restart, so absence-after-a-logged-restart is the EXPECTED evidence
+   shape, not a missing artifact.
+
+ACCEPTANCE BAR — do not weaken it: all three, from ONE round on THIS
+track, with the injection line timestamped BEFORE the restart line. Then
+record the lines verbatim as a comment on epic `overseer-3wt`, flip this
+section from PARTIALLY proven to PROVEN, and ask the maintainer to unpin
+the rollback. Working copies under `tmp/` (e.g.
+`tmp/cutover-and-shipping-supervisor/`) are snapshots only; the DURABLE
+record is this handoff plus the ledger.
+
 The gate CLOSES when a daemon-injected wrap-up → `ready` → restart round is
 observed end-to-end, or the maintainer rules the partial proof sufficient.
 Until then, keep the rollback pinned: kill the daemon and relaunch the
@@ -77,16 +106,28 @@ byte-identical pre-seed state, recoverable from EITHER copy —
 - this repo at pin `6425828` and earlier.
 
 Operationally: the daemon's stderr log is `tmp/overseer/daemon.log` in this
-checkout (gitignored, runtime-only, and TRUNCATED on every restart until
-`overseer-2boaoy` lands — snapshot before restarting if evidence matters);
+checkout (gitignored, runtime-only; truncated only when the DAEMON
+restarts — supervised-session restarts do NOT touch it — until
+`overseer-2boaoy` lands, so snapshot before any daemon restart);
 the protocol contract is `overseer/marker-protocol.md`; the maintenance
 invariants are `overseer/AGENTS.md`. This repo is in
 `~/.livespec-overseer-repos.json`, so the daemon supervises this repo's own
-plan threads — including this one. Cross-track FACTORY turn-taking (one
-dispatch host-wide at a time, container-check before every launch) is
-coordinated in livespec core's
+plan threads — including this one.
+
+Cross-track FACTORY turn-taking, coordinated in livespec core's
 `tmp/fleet-pin-propagation-supervisor/status.log` until the orchestrator
-exclusivity item `bd-ib-sd8o` lands.
+exclusivity item `bd-ib-sd8o` lands (this track also has a dedicated
+supervisor in tmux `cutover-and-shipping-supervisor` watching the slot):
+
+- Agreed dispatch order as of 2026-07-23 ~23:00Z: x9o (running) →
+  `overseer-m5dtmj` (OURS) → factory-success-rate-remediation drain a3–a8
+  uninterrupted → `overseer-vlu5cd` (our re-queue).
+- ONE dispatch host-wide at a time; launch only after the prior track's
+  done-or-passing line AND a zero-foreign-`fabro-run-*` container check.
+- Before killing ANY fabro container: verify ownership by its run-config
+  argv (the config toml names the work item) — never by image shape,
+  timing, or assumption; `exit 137` is AMBIGUOUS between a kill and normal
+  teardown, never kill-proof.
 
 ## The rest of the scope, in rough order
 
