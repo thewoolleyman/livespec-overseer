@@ -76,23 +76,26 @@ session.
    `.claude/skills/overseer/` paths and "local-only" framing, its retired
    `not-claude` status row, marker-protocol.md's "fleet manifest" phrase).
    Doc-only, dispatchable anytime.
-3. **`/overseer` operator surface from this repo** — how the interactive
-   pane's skill ships (plugin install path). The core-tenant items
-   `livespec-b1uo.4`/`.5` (per-Driver thin bindings) are recommended
-   closed-unnecessary; whatever replaces them is THIS thread's design call.
+3. **`/overseer` operator surface from this repo** — DECIDED 2026-07-23
+   (maintainer): ships as a fleet-standard plugin plus public entry points;
+   reasoning and boundaries in `research/operator-surface.md` beside this
+   handoff. The decision confirms the core-tenant items `livespec-b1uo.4`/
+   `.5` (per-Driver thin bindings) unnecessary — their close stays staged
+   in livespec core. Implementation is ledger work under `overseer-3wt`;
+   groom before dispatch.
 4. **Gate E** — arm the Result-railway role keys in `pyproject.toml` once
    livespec core's `rop-sweep-fleet-policy` thread lands `cvz`. Blocked
    until then; do not pre-arm (enforcement-before-adoption is the recorded
    hazard).
-5. **Pin-queue hygiene** — PRs #6/#8 (duplicate livespec-v0.20.1 bumps,
-   pre-seed) are still open and cannot merge as-is; close them when the
-   freshness sweep replaces them. #10 was already superseded (dev-tooling
-   bumps have since flowed: v0.51.10 → v0.52.0 landed, #22 carries v0.52.2);
-   release-please #21 (livespec-runtime 0.11.1) awaits its normal cadence.
-6. **Public entry-point surface for the two executables** — the deferred
-   change behind the two demoted `reportPrivateUsage` warnings.
-   `overseer-y8o` landed WITHOUT it, so it stands alone now; pairs naturally
-   with scope item 3.
+5. **Pin-queue hygiene** — #6 CLOSED 2026-07-23 as the sweep-replaced
+   duplicate; #8 (freshness-sweep livespec-v0.20.1, still the latest
+   livespec release) remains the live candidate for the bootstrap
+   placeholder rewrite. Dev-tooling bumps flow normally through the pin
+   queue; release-please #21 (livespec-runtime 0.11.1) awaits its cadence.
+6. **Public entry-point surface for the two executables** — FOLDED into the
+   scope-item-3 decision (see `research/operator-surface.md`): the entry
+   points ship as part of the plugin + entry-points shape, retiring the two
+   demoted `reportPrivateUsage` waivers.
 7. **Phase 2 — ship to adopter families** (D7/D8/D9, recorded on core epic
    `livespec-b1uo`): the overseer is Control Plane; ship it as a tool an
    adopter FAMILY may run against its own declarations — never reading
