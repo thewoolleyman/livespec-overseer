@@ -49,7 +49,7 @@ def _daemon_command(warn_percent: int | None) -> str:
     ``--warn-percent N`` (the daemon-wide first-wrap-up threshold); stderr is
     redirected to the daemon log the bottom pane reads for alerts.
     """
-    base = ".claude/skills/overseer/overseerd"
+    base = "overseer/overseerd"
     if warn_percent is not None:
         base += f" --warn-percent {warn_percent}"
     return base + " 2> tmp/overseer/daemon.log"
@@ -118,8 +118,8 @@ def main(
         )
         return 1
 
-    # …/.claude/skills/overseer → the core repo root.
-    core = core_root if core_root is not None else Path(__file__).resolve().parents[3]
+    # …/overseer → this checkout root.
+    core = core_root if core_root is not None else Path(__file__).resolve().parent.parent
     layout: tmuxio.WindowLayoutDriver = io if io is not None else tmuxio.TmuxIO()
 
     # 1. Start the daemon in a TOP pane of THIS window (idempotent).
