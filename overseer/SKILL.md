@@ -22,9 +22,10 @@ description: >-
   / `winding-down` — never pane text. The daemon never auto-spawns a session for
   an UNASSIGNED plan (first launch is deliberate) and never force-kills any
   session. The overseer does NO track work, never polls tracked sessions on a
-  timer, never hand-codes. LOCAL-ONLY to this repo and usable only from it — a
-  PERMANENT, human-supervised ALTERNATE to autonomous mode (not a stopgap): not
-  part of the plugin, spec, template, or fleet, and not synced.
+  timer, never hand-codes. A PERMANENT, human-supervised ALTERNATE to autonomous
+  mode (not a stopgap): lives in this control-plane-tool repo, follows its own
+  SPECIFICATION, and participates in the livespec fleet as an ordinary
+  pin-consuming member.
 ---
 
 # Overseer — thin bottom pane for the deterministic multi-track supervisor
@@ -168,7 +169,7 @@ your interactive (BOTTOM) pane — the Claude session where `/overseer` is runni
 run:
 
 ```bash
-.claude/skills/overseer/overseer-start
+overseer/overseer-start
 ```
 
 That one command (a self-invokable `uv` script) does everything deterministically:
@@ -201,7 +202,7 @@ That one command (a self-invokable `uv` script) does everything deterministicall
 - The daemon's **stdout is the live table** in the top pane (it clears + re-renders
   each tick). Each data row is **color-coded by status** so the operator scans by hue:
   green = working, yellow = idle / waiting on a human / low on context, red = broken
-  (`session-gone` / `not-claude`), default (white/gray) = `unassigned`. (Color is
+  (`session-gone`), default (white/gray) = `unassigned`. (Color is
   TTY-only, so a piped `list` stays plain.) Its **stderr → `tmp/overseer/daemon.log`**
   — the channel this bottom pane reads to relay blocked/danger alerts. `overseer-start`'s
   own progress (pane created, sessions adopted) prints to its stderr as it runs.
@@ -209,7 +210,7 @@ That one command (a self-invokable `uv` script) does everything deterministicall
   daemon-wide default remaining-context % at which the FIRST wrap-up fires
   (default **50**). `overseer-start` accepts the same `--warn-percent N` and
   threads it into the `overseerd` launch command
-  (`.claude/skills/overseer/overseerd --warn-percent N 2> tmp/overseer/daemon.log`).
+  (`overseer/overseerd --warn-percent N 2> tmp/overseer/daemon.log`).
   `N` is an int in `[1, 99]`; a per-track `ctx_threshold` override in the mapping
   still wins over this default. Aside from `--warn-percent`, `overseerd` watches
   the whole fleet with the fixed store/stamp paths and the default loop interval,
@@ -253,7 +254,6 @@ will see:
 | `blocked:human` | a structured gate on the pane, or a `blocked: <reason>` declaration |
 | `session-gone` | the mapped tmux session no longer exists AND no live Claude session for the topic is running |
 | `live-outside-tmux` | the mapped tmux session is gone, but a live Claude session for this topic is running in a NON-tmux terminal (e.g. a bare SSH shell) — alive and working, but the daemon cannot capture/inject/respawn it. **Informational, not an alarm** (not in `NEEDS YOU`) |
-| `not-claude` | the mapped pane is not a live Claude in that repo — never keystroked |
 
 A `danger` row is a **report, not a decision the daemon will make for you**: the
 overseer will not restart an undeclared session, so a `danger` track sits there
@@ -262,7 +262,7 @@ until a human acts. See "Your job as the bottom pane" below.
 ### The `NEEDS YOU` block — the answer to "what needs attention?"
 
 Under the table the daemon prints the rows a human must actually go act on —
-`blocked:human`, `danger`, `session-gone`, `not-claude`, and any malformed state file —
+`blocked:human`, `danger`, `session-gone`, and any malformed state file —
 each with **labeled coordinates** (`topic: … | tmux: … | repo: …`) and its jump command:
 
 ```
@@ -303,7 +303,7 @@ module, not the daemon — the daemon is the `overseerd` executable), invoked vi
 the repo toolchain:
 
 ```bash
-uv run --no-project python .claude/skills/overseer/supervisor.py <cmd> [args]
+uv run --no-project python overseer/supervisor.py <cmd> [args]
 ```
 
 The repo + topic are **first-class arguments** of every track command: when the
@@ -540,12 +540,13 @@ summarizes:
 
 ---
 
-## This skill is local-only and permanent
+## This skill is repo-local and permanent
 
-It lives at `.claude/skills/overseer/` in *this* repo and is usable **only from
-this repo**. It is **not** part of the livespec plugin, the spec, the copier
-template, or any fleet-propagated surface — do not add it to manifests,
-conformance checks, or other repos. It is a **permanent, human-supervised
-alternate to autonomous mode** (the Beads/Dolt + Fabro Dispatcher), not a stopgap
-awaiting replacement: the two coexist as standing peers (see the callout near the
-top of this file). Maintain it in place — keep it thin, keep it correct.
+It lives at `overseer/SKILL.md` in the `livespec-overseer` control-plane-tool
+repo, beside the daemon and module docs it describes. This repo has its own
+`SPECIFICATION/` and participates in the livespec fleet as an ordinary
+pin-consuming member; the overseer is not copied into the livespec plugin or
+template. It is a **permanent, human-supervised alternate to autonomous mode**
+(the Beads/Dolt + Fabro Dispatcher), not a stopgap awaiting replacement: the two
+coexist as standing peers (see the callout near the top of this file). Maintain
+it in place — keep it thin, keep it correct.

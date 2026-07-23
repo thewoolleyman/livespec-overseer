@@ -73,7 +73,8 @@ restart anything (`signals.valid_token`; the row `note` reads
 ## The overseer NEVER touches `plan/`
 
 The overseer touches only its **config** (the mapping store, the injection-stamp
-sidecar, the fleet manifest) and **temp files** (`<repo>/tmp/overseer/<topic>/`).
+sidecar, and the `$HOME` watch-set declaration) and **temp files**
+(`<repo>/tmp/overseer/<topic>/`).
 It NEVER reads, writes, or hashes anything under a session's `plan/<topic>/` tree
 — the handoff and all plan-thread files are the **session's own workflow**. The
 overseer enumerates `plan/*/` DIRECTORIES to discover tracks and *points* a
