@@ -49,7 +49,7 @@ dev = [
 # this repo receives automatic bump-pin PRs — that participation is the whole
 # reason the `console` class could not be reused, since `_PIN_WEB_CLASSES` is
 # the subtraction set `_ALL_CLASSES - {"console"}`.
-livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git", tag = "v0.52.3" }
+livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git", tag = "v0.52.4" }
 
 [tool.livespec_dev_tooling]
 # Role trees, declared EXPLICITLY EMPTY. Without this section the loader falls
