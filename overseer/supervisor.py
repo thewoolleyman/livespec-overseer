@@ -626,10 +626,11 @@ class Supervisor:
     # None (not in tmux, or a test) simply disables the badge.
     own_pane: str | None = None
     _inject: dict[tuple[str, str], _InjectState] = field(default_factory=dict, init=False)
-    # Edge-trigger memory for `_alert`: track key → the last alert line emitted for it.
-    # Keeps the log an EVENT HISTORY (one line per condition entered) instead of the same
-    # line re-emitted every tick. Re-armed in `evaluate` when the track goes healthy.
-    _alerted: dict[tuple[str, str], str] = field(default_factory=dict, init=False)
+    # Edge-trigger memory for `_alert`: track key + condition → the last alert line
+    # emitted for it. Keeps the log an EVENT HISTORY (one line per condition entered)
+    # instead of the same line re-emitted every tick. Re-armed in `evaluate` when the
+    # track goes healthy.
+    _alerted: dict[tuple[str, str, str], str] = field(default_factory=dict, init=False)
     # Last window name written, so the badge is only re-sent when the count CHANGES
     # (a tmux call every tick for an unchanged name is pure noise).
     _window_name: str | None = field(default=None, init=False)
@@ -688,6 +689,7 @@ class Supervisor:
         session: str | None,
         pane: str | None,
         message: str,
+        condition: str = "default",
     ) -> None:
         """Surface a TRACK-scoped alert that always names WHERE to act.
 
@@ -714,7 +716,7 @@ class Supervisor:
         where = f"tmux session '{session}' pane {pane}" if session else "no live tmux session"
         jump = f" — jump: tmux switch-client -t {session}" if session else ""
         line = f"{topic} ({registry.repo_slug(repo)}) — {message} [{where}]{jump}"
-        key = _key(repo, topic)
+        key = (*_key(repo, topic), condition)
         if self._alerted.get(key) == line:
             return
         self._alerted[key] = line
@@ -1664,6 +1666,7 @@ class Supervisor:
                         f"{', '.join(signals.STATE_TOKENS)} — treated as no declaration "
                         f"(the track will NOT be restarted)"
                     ),
+                    condition="malformed-state",
                 )
 
         # Precedence, top to bottom. Single-capture `busy` and the human gates
@@ -1843,7 +1846,8 @@ class Supervisor:
         # time it goes bad it reports afresh rather than being suppressed as a duplicate
         # of the condition it was in hours ago.
         if act and not needs_attention(view):
-            _ = self._alerted.pop(key, None)
+            prefix = _key(repo, topic)
+            self._alerted = {k: v for k, v in self._alerted.items() if k[:2] != prefix}
         return view
 
     def _alert_non_responder(

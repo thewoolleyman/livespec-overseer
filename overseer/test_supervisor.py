@@ -3111,6 +3111,29 @@ def test_alert_reports_again_when_the_reason_changes(tmp_path):
     assert "reason two" in surfaced[1]
 
 
+def test_malformed_state_alert_is_edge_triggered_while_danger_repeats(tmp_path):
+    """A malformed state file can coexist with danger/non-response. The alerts are two
+    independent conditions, so neither may re-arm the other every tick."""
+    repo, topic = _make_plan(tmp_path)
+    session = registry.tmux_id(str(repo), topic)
+    fake = FakeTmux()
+    fake.serve(session, repo, capture=_idle_capture(ctx=13))
+    _declare(repo, topic, "working: still handling it")
+    sup = _sup(tmp_path, fake)
+    track = _mapped_track(repo, topic, session)
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        for _ in range(3):
+            assert sup.evaluate(track, act=True).status == "danger"
+
+    surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
+    malformed = [ln for ln in surfaced if "MALFORMED state file" in ln]
+    not_responding = [ln for ln in surfaced if "NOT RESPONDING" in ln]
+    assert len(malformed) == 1, surfaced
+    assert len(not_responding) == 1, surfaced
+
+
 def test_log_lines_are_timestamped(tmp_path):
     """The bottom pane answers "WHEN did this happen?" from the log, so every line must
     carry its own time — the alert lines used to carry none."""
