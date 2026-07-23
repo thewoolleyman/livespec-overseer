@@ -8,21 +8,12 @@ proceed path performs real tmux splits and is covered by live exercise, not a
 fake, since `main()` constructs its own `TmuxIO`.
 """
 
-import importlib.machinery
-import importlib.util
+import importlib
 from pathlib import Path
 
 
 def _load():
-    # `overseer-start` has no `.py` extension, so spec_from_file_location can't infer
-    # a loader — supply an explicit SourceFileLoader (loads any file as source).
-    path = Path(__file__).resolve().parent / "overseer-start"
-    loader = importlib.machinery.SourceFileLoader("overseer_start", str(path))
-    spec = importlib.util.spec_from_loader("overseer_start", loader)
-    assert spec is not None
-    mod = importlib.util.module_from_spec(spec)
-    loader.exec_module(mod)
-    return mod
+    return importlib.import_module("overseer.start")
 
 
 def test_refuses_outside_claude_code(monkeypatch, capsys):
@@ -33,7 +24,7 @@ def test_refuses_outside_claude_code(monkeypatch, capsys):
     monkeypatch.setenv("TMUX_PANE", "%9")  # in tmux, but not a Claude session
     # main([]) — pass an explicit empty argv so argparse does not read pytest's own
     # sys.argv (main now parses `--warn-percent`); no flags → the guards still run.
-    assert mod.main([]) == 1
+    assert mod.main(argv=[]) == 1
     err = capsys.readouterr().err
     assert "/overseer" in err
     assert "$CLAUDECODE" in err
@@ -45,7 +36,7 @@ def test_claude_code_guard_precedes_tmux_check(monkeypatch, capsys):
     mod = _load()
     monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.delenv("TMUX_PANE", raising=False)
-    assert mod.main([]) == 1
+    assert mod.main(argv=[]) == 1
     err = capsys.readouterr().err
     assert "Refusing to run outside Claude Code" in err
     assert "TMUX_PANE" not in err
@@ -58,7 +49,7 @@ def test_allows_when_claude_code_marker_present(monkeypatch, capsys):
     mod = _load()
     monkeypatch.setenv("CLAUDECODE", "1")
     monkeypatch.delenv("TMUX_PANE", raising=False)
-    assert mod.main([]) == 1
+    assert mod.main(argv=[]) == 1
     err = capsys.readouterr().err
     assert "$TMUX_PANE unset" in err  # reached the tmux check
     assert "Refusing to run outside Claude Code" not in err  # NOT the guard
@@ -68,10 +59,8 @@ def test_daemon_command_threads_warn_percent():
     # Part 1: --warn-percent N is appended to the overseerd launch command; without
     # it the command is unchanged (default threshold applies inside overseerd).
     mod = _load()
-    assert mod._daemon_command(None) == "overseer/overseerd 2> tmp/overseer/daemon.log"
-    assert mod._daemon_command(30) == (
-        "overseer/overseerd --warn-percent 30 2> tmp/overseer/daemon.log"
-    )
+    assert mod.daemon_command(None) == "overseerd 2> tmp/overseer/daemon.log"
+    assert mod.daemon_command(30) == "overseerd --warn-percent 30 2> tmp/overseer/daemon.log"
 
 
 def test_warn_percent_arg_parses(monkeypatch):
@@ -80,7 +69,19 @@ def test_warn_percent_arg_parses(monkeypatch):
     mod = _load()
     monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.delenv("TMUX_PANE", raising=False)
-    assert mod.main(["--warn-percent", "25"]) == 1
+    assert mod.main(argv=["--warn-percent", "25"]) == 1
+
+
+def test_overseer_start_console_entry_point_targets_importable_module():
+    module_path = Path(__file__).resolve().parent / "start.py"
+    assert module_path.is_file(), "overseer-start logic must live in importable overseer.start"
+
+    mod = importlib.import_module("overseer.start")
+    assert mod.main is not None
+    assert mod.daemon_command(None) == "overseerd 2> tmp/overseer/daemon.log"
+
+    pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+    assert 'overseer-start = "overseer.start:main"' in pyproject.read_text(encoding="utf-8")
 
 
 # --------------------------------------------------------------------------- #
@@ -157,7 +158,7 @@ def test_splits_a_daemon_pane_and_gives_it_its_height(monkeypatch, tmp_path):
     _in_claude_tmux(monkeypatch)
     layout = FakeLayout()
 
-    rc = mod.main([], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
+    rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
 
     assert rc == 0
     assert _kinds(layout) == [
@@ -179,7 +180,10 @@ def test_creates_the_daemon_marker_directory_under_the_core_root(monkeypatch, tm
     mod = _load()
     _in_claude_tmux(monkeypatch)
 
-    assert mod.main([], io=FakeLayout(), build_supervisor=_FakeSupervisor, core_root=tmp_path) == 0
+    assert (
+        mod.main(argv=[], io=FakeLayout(), build_supervisor=_FakeSupervisor, core_root=tmp_path)
+        == 0
+    )
 
     assert (tmp_path / "tmp" / "overseer").is_dir()
 
@@ -195,7 +199,7 @@ def test_default_core_root_is_this_checkout_for_split_and_scratch(monkeypatch):
 
     monkeypatch.setattr(mod.Path, "mkdir", fake_mkdir)
 
-    assert mod.main([], io=layout, build_supervisor=_FakeSupervisor) == 0
+    assert mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor) == 0
 
     repo_root = Path(mod.__file__).resolve().parent.parent
     assert layout.calls[1][2] == str(repo_root)
@@ -213,7 +217,7 @@ def test_is_idempotent_when_the_daemon_pane_already_exists(monkeypatch, tmp_path
     _in_claude_tmux(monkeypatch)
     layout = FakeLayout(titles=[mod._DAEMON_PANE_TITLE])
 
-    rc = mod.main([], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
+    rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
 
     assert rc == 0
     assert "split_window_top" not in _kinds(layout)
@@ -227,7 +231,7 @@ def test_fails_when_the_split_fails(monkeypatch, tmp_path, capsys):
     _in_claude_tmux(monkeypatch)
     layout = FakeLayout(split_result=None)
 
-    rc = mod.main([], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
+    rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
 
     assert rc == 1
     assert "FAILED to split" in capsys.readouterr().err
@@ -245,7 +249,7 @@ def test_skips_the_resize_when_the_daemon_pane_cannot_be_resolved(monkeypatch, t
     _in_claude_tmux(monkeypatch)
     layout = FakeLayout(resolves_title=False)
 
-    rc = mod.main([], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
+    rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
 
     assert rc == 0
     assert "set_pane_height_percent" not in _kinds(layout)
@@ -261,7 +265,7 @@ def test_reports_each_adopted_session_and_the_total(monkeypatch, tmp_path, capsy
 
     adopted = [_Track("sesA", "/repo/a", "alpha"), _Track("sesB", "/repo/b", "beta")]
     rc = mod.main(
-        [],
+        argv=[],
         io=FakeLayout(),
         build_supervisor=lambda: _FakeSupervisor(adopted),
         core_root=tmp_path,
@@ -281,7 +285,7 @@ def test_warn_percent_is_threaded_into_the_daemon_command(monkeypatch, tmp_path)
     layout = FakeLayout()
 
     rc = mod.main(
-        ["--warn-percent", "35"],
+        argv=["--warn-percent", "35"],
         io=layout,
         build_supervisor=_FakeSupervisor,
         core_root=tmp_path,
@@ -297,6 +301,6 @@ def test_no_warn_percent_flag_leaves_the_daemon_on_its_default(monkeypatch, tmp_
     _in_claude_tmux(monkeypatch)
     layout = FakeLayout()
 
-    assert mod.main([], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path) == 0
+    assert mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path) == 0
 
     assert "--warn-percent" not in layout.calls[1][3]
