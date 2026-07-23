@@ -12,8 +12,7 @@ failure propagation, marker/round lifecycle, read-only list, and the start guard
 
 import contextlib
 import datetime
-import importlib.machinery
-import importlib.util
+import importlib
 import io as _io
 import json
 import os
@@ -2368,7 +2367,7 @@ def test_run_daemon_uses_fleet_defaults(monkeypatch):
         def run(self, *, interval, once, recover):
             seen["args"] = (interval, once, recover)
 
-    monkeypatch.setattr(supervisor, "_build_supervisor", lambda: _RunOnlySup())
+    monkeypatch.setattr(supervisor, "build_supervisor", lambda: _RunOnlySup())
     assert supervisor.run_daemon() == 0
     assert seen["args"] == (supervisor.LOOP_INTERVAL_SECONDS, False, False)
 
@@ -2384,7 +2383,7 @@ def test_run_daemon_threads_warn_percent(monkeypatch):
         def run(self, *, interval, once, recover):
             seen.append(self.warn_percent)
 
-    monkeypatch.setattr(supervisor, "_build_supervisor", lambda: _Sup())
+    monkeypatch.setattr(supervisor, "build_supervisor", lambda: _Sup())
     assert supervisor.run_daemon(warn_percent=30) == 0
     assert seen == [30]
     assert supervisor.run_daemon() == 0  # None → the built-in default
@@ -2392,13 +2391,7 @@ def test_run_daemon_threads_warn_percent(monkeypatch):
 
 
 def _load_overseerd():
-    path = Path(supervisor.__file__).resolve().parent / "overseerd"
-    loader = importlib.machinery.SourceFileLoader("overseerd_exe", str(path))
-    spec = importlib.util.spec_from_loader("overseerd_exe", loader)
-    assert spec is not None
-    mod = importlib.util.module_from_spec(spec)
-    loader.exec_module(mod)  # the __main__ guard keeps this side-effect-free
-    return mod
+    return importlib.import_module("overseer.daemon")
 
 
 def test_overseerd_threads_and_validates_warn_percent(monkeypatch):
@@ -2413,13 +2406,32 @@ def test_overseerd_threads_and_validates_warn_percent(monkeypatch):
         return 0
 
     monkeypatch.setattr(mod.supervisor, "run_daemon", _fake_run)
-    assert mod.main(["--warn-percent", "30"]) == 0
+    assert mod.main(argv=["--warn-percent", "30"]) == 0
     assert seen["wp"] == 30
-    assert mod.main([]) == 0
+    assert mod.main(argv=[]) == 0
     assert seen["wp"] is None
     for bad in (["--warn-percent", "0"], ["--warn-percent", "100"], ["--warn-percent", "x"]):
         with pytest.raises(SystemExit):
-            mod.main(bad)
+            mod.main(argv=bad)
+
+
+def test_overseerd_console_entry_point_targets_importable_module(monkeypatch):
+    module_path = Path(supervisor.__file__).resolve().parent / "daemon.py"
+    assert module_path.is_file(), "overseerd logic must live in importable overseer.daemon"
+
+    mod = importlib.import_module("overseer.daemon")
+    seen: dict[str, object] = {}
+
+    def _fake_run(*, warn_percent=None):
+        seen["wp"] = warn_percent
+        return 0
+
+    monkeypatch.setattr(mod.supervisor, "run_daemon", _fake_run)
+    assert mod.main(argv=["--warn-percent", "30"]) == 0
+    assert seen["wp"] == 30
+
+    pyproject = Path(supervisor.__file__).resolve().parent.parent / "pyproject.toml"
+    assert 'overseerd = "overseer.daemon:main"' in pyproject.read_text(encoding="utf-8")
 
 
 def test_overseerd_executable_is_the_daemon_entrypoint():
@@ -2434,7 +2446,7 @@ def test_overseerd_executable_is_the_daemon_entrypoint():
     assert body.startswith(
         "#!/usr/bin/env -S uv run --script --no-project\n"
     ), "overseerd must carry the uv self-invoking shebang on line 1"
-    assert "supervisor.run_daemon(" in body, "overseerd must delegate to run_daemon()"
+    assert "from overseer.daemon import main" in body, "overseerd must delegate to overseer.daemon"
 
 
 def test_wrapup_message_names_the_one_state_file_and_all_three_values():
@@ -4379,7 +4391,7 @@ def test_launch_helpers_refuse_a_session_with_no_resolvable_pane(tmp_path):
     sup = _sup(tmp_path, fake)
     track = _mapped_track(repo, topic, "no-such-session")
 
-    assert sup._do_launch(track, "no-such-session") is False
+    assert sup.do_launch(track, "no-such-session") is False
     assert sup._do_codex_launch(track, "no-such-session", "aaaa-bbbb") is False
     assert not fake.has("respawn")
 
@@ -4394,7 +4406,7 @@ def test_do_launch_is_false_when_the_pane_never_becomes_claude(tmp_path):
     _on_respawn(fake, lambda s: fake.cmds.__setitem__(s, "zsh"))  # comes up a shell
     sup = _sup(tmp_path, fake)
 
-    assert sup._do_launch(_mapped_track(repo, topic, session), session) is False
+    assert sup.do_launch(_mapped_track(repo, topic, session), session) is False
     assert fake.has("respawn")  # it did try...
     assert not fake.has("paste")  # ...but never pasted into the un-verified pane
 
@@ -4561,7 +4573,7 @@ def test_build_supervisor_has_no_knobs_and_badges_its_own_tmux_pane(monkeypatch)
     this file's position on disk.
     """
     monkeypatch.setenv("TMUX_PANE", "%42")
-    sup = supervisor._build_supervisor()
+    sup = supervisor.build_supervisor()
 
     assert sup.watch_set_path == registry.DEFAULT_WATCH_SET_PATH
     assert sup.own_pane == "%42"
@@ -4569,7 +4581,7 @@ def test_build_supervisor_has_no_knobs_and_badges_its_own_tmux_pane(monkeypatch)
     assert sup.store_path is None and sup.stamp_path is None  # no --store / --stamp knobs
 
     monkeypatch.delenv("TMUX_PANE")
-    assert supervisor._build_supervisor().own_pane is None  # not under tmux → no badge
+    assert supervisor.build_supervisor().own_pane is None  # not under tmux → no badge
 
 
 def test_cli_colliding_reads_the_same_watch_set_the_daemon_does(tmp_path, monkeypatch):
@@ -4604,7 +4616,7 @@ def test_cli_list_renders_exactly_one_read_only_tick(monkeypatch):
             ticks.append(act)
             return []
 
-    monkeypatch.setattr(supervisor, "_build_supervisor", lambda: _TickOnlySup())
+    monkeypatch.setattr(supervisor, "build_supervisor", lambda: _TickOnlySup())
 
     assert supervisor.main(["list"]) == 0
     assert ticks == [False]
@@ -4623,7 +4635,7 @@ def test_cli_adopt_reports_every_adopted_session_and_the_total(monkeypatch, caps
         def adopt_sessions(self):
             return adopted
 
-    monkeypatch.setattr(supervisor, "_build_supervisor", lambda: _AdoptOnlySup())
+    monkeypatch.setattr(supervisor, "build_supervisor", lambda: _AdoptOnlySup())
 
     assert supervisor.main(["adopt"]) == 0
 

@@ -2321,7 +2321,7 @@ class Supervisor:
                     f"for {track.repo}::{track.topic}; skipping"
                 )
                 continue
-            if self._do_launch(track, session):
+            if self.do_launch(track, session):
                 recovered.append(session)
                 self._log(f"reboot-recovery recreated {session} for {track.repo}::{track.topic}")
             else:
@@ -2397,7 +2397,7 @@ class Supervisor:
             return False
         return self._await_pane(target, signals.pane_is_codex)
 
-    def _do_launch(self, track: registry.Track, session: str) -> bool:
+    def do_launch(self, track: registry.Track, session: str) -> bool:
         """Launch ``claude --dangerously-skip-permissions -n <topic>`` and paste the resume line.
 
         ``session`` is the (just-created or existing) session NAME; the pane id is
@@ -2688,7 +2688,7 @@ class Supervisor:
 # --------------------------------------------------------------------------- #
 
 
-def _build_supervisor() -> Supervisor:
+def build_supervisor() -> Supervisor:
     """Build the daemon's ``Supervisor`` for the CLI — with NO tunable surface.
 
     The invocation surface carries no watch-set / store / stamp knobs (they were
@@ -2745,9 +2745,9 @@ def run_daemon(warn_percent: int | None = None) -> int:
     skill. This function does not return (the loop runs until the process is
     killed); the ``int`` is a formality so ``overseerd`` can ``raise SystemExit``.
     """
-    supervisor = _build_supervisor()
+    supervisor = build_supervisor()
     # Set the field after building (rather than threading it through
-    # `_build_supervisor`) so the daemon keeps its single no-arg builder.
+    # `build_supervisor`) so the daemon keeps its single no-arg builder.
     supervisor.warn_percent = (
         warn_percent if warn_percent is not None else registry.DEFAULT_CTX_THRESHOLD
     )
@@ -2756,13 +2756,13 @@ def run_daemon(warn_percent: int | None = None) -> int:
 
 
 def _cmd_list(_args: argparse.Namespace) -> int:
-    sup = _build_supervisor()
+    sup = build_supervisor()
     _ = sup.tick(act=False)  # read-only render: no injection/restart
     return 0
 
 
 def _cmd_adopt(_args: argparse.Namespace) -> int:
-    adopted = _build_supervisor().adopt_sessions()
+    adopted = build_supervisor().adopt_sessions()
     for track in adopted:
         streams.write_stdout(text=f"adopted {track.tmux} → {track.repo}::{track.topic}\n")
     streams.write_stdout(text=f"adopted {len(adopted)} existing session(s)\n")
@@ -2850,12 +2850,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
                 )
             )
             return 1
-    # The SLF001 escape below: `_do_launch` is private to callers OUTSIDE this
-    # module. This is the module's own CLI entry driving the Supervisor it just
-    # built, and the underscore keeps the method's naming symmetry with its sibling
-    # `_do_codex_launch`; promoting one of the pair and not the other would be worse
-    # than this single documented access.
-    if not sup._do_launch(track, session):  # noqa: SLF001 — same-module CLI entry
+    if not sup.do_launch(track, session):
         streams.write_stderr(
             text=f"start FAILED to launch {repo}::{topic} in tmux session {session}\n"
         )
@@ -2886,7 +2881,7 @@ def main(argv: list[str] | None = None) -> int:
     dedicated `overseerd` executable (which calls `run_daemon`), not a subcommand
     here — a daemon that IS the executable has no business being a subcommand of a
     track-management CLI. No watch-set / store / stamp knobs either; those are
-    fixed (see `_build_supervisor`).
+    fixed (see `build_supervisor`).
     """
     parser = argparse.ArgumentParser(
         prog="overseer", description="livespec overseer track-management CLI"

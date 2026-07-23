@@ -27,6 +27,10 @@ readme = "README.md"
 # this list empty; a new runtime dependency is a design decision, not a detail.
 dependencies = []
 
+[project.scripts]
+overseerd = "overseer.daemon:main"
+overseer-start = "overseer.start:main"
+
 [dependency-groups]
 # Every Python dev tool is uv-managed here (resolved into uv.lock, installed
 # into a project-local .venv via `uv sync --all-groups`). Mise pins only the
@@ -201,21 +205,6 @@ reportUnnecessaryIsInstance = "error"
 # errors — a rule the code was never written against. Raising the bar is a
 # separate decision from relocating the code; do it on purpose or not at all.
 #
-# Same reasoning, different rule. `reportPrivateUsage` fires TWICE here and ZERO
-# times in core on byte-identical code, because the two gates are not actually
-# equivalent: under core's dotted `.claude/skills/overseer/` path pyright does
-# not resolve `import supervisor`, so it never learns that `_build_supervisor`
-# and `_do_launch` are private, and the finding cannot fire. Moving to a normal
-# `overseer/` directory makes the import resolvable and the finding appear.
-#
-# Both findings are REAL — `overseer-start` reaches `supervisor._build_supervisor`
-# and a caller reaches `_do_launch` across the class boundary. They are demoted
-# rather than suppressed silently, and rather than fixed inline, because
-# promoting two names to public API is a design change and this commit is a
-# RELOCATION: it must not quietly alter the gate the code was written against.
-# Fixing them properly (a public entry-point surface for the two executables) is
-# genuinely worth doing — as its own change, against its own tests.
-reportPrivateUsage = "warning"
 
 # ---------------------------------------------------------------------------
 # Pytest.
@@ -262,3 +251,10 @@ exclude_also = [
     "sys.path.insert",
     "case _:",
 ]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["overseer*"]
