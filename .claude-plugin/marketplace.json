@@ -8,7 +8,7 @@
     {
       "name": "livespec-overseer",
       "source": "./.claude-plugin",
-      "description": "Control-plane operator plugin for livespec. Exposes /livespec-overseer:overseer for the thin two-pane overseer surface over the overseerd daemon and overseer-start bootstrap."
+      "description": "Control-plane operator plugin for livespec. Exposes /livespec-overseer:overseer for the thin two-pane overseer surface and /livespec-overseer:supervise-plan for reviewed supervisor handoff creation."
     }
   ]
 }
