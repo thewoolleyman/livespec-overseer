@@ -43,7 +43,7 @@ def daemon_command(warn_percent: int | None) -> str:
     base = "overseerd"
     if warn_percent is not None:
         base += f" --warn-percent {warn_percent}"
-    return base + " 2> tmp/overseer/daemon.log"
+    return base + " 2>> tmp/overseer/daemon.log"
 
 
 _daemon_command = daemon_command

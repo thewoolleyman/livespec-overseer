@@ -59,8 +59,8 @@ def test_daemon_command_threads_warn_percent():
     # Part 1: --warn-percent N is appended to the overseerd launch command; without
     # it the command is unchanged (default threshold applies inside overseerd).
     mod = _load()
-    assert mod.daemon_command(None) == "overseerd 2> tmp/overseer/daemon.log"
-    assert mod.daemon_command(30) == "overseerd --warn-percent 30 2> tmp/overseer/daemon.log"
+    assert mod.daemon_command(None) == "overseerd 2>> tmp/overseer/daemon.log"
+    assert mod.daemon_command(30) == "overseerd --warn-percent 30 2>> tmp/overseer/daemon.log"
 
 
 def test_warn_percent_arg_parses(monkeypatch):
@@ -78,7 +78,7 @@ def test_overseer_start_console_entry_point_targets_importable_module():
 
     mod = importlib.import_module("overseer.start")
     assert mod.main is not None
-    assert mod.daemon_command(None) == "overseerd 2> tmp/overseer/daemon.log"
+    assert mod.daemon_command(None) == "overseerd 2>> tmp/overseer/daemon.log"
 
     pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
     assert 'overseer-start = "overseer.start:main"' in pyproject.read_text(encoding="utf-8")
