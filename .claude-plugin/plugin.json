@@ -1,0 +1,5 @@
+{
+  "name": "livespec-overseer",
+  "version": "0.1.0",
+  "description": "Control-plane operator plugin for livespec. Exposes /livespec-overseer:overseer for the thin two-pane overseer surface over the overseerd daemon and overseer-start bootstrap."
+}
