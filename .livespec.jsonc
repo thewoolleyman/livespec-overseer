@@ -35,7 +35,7 @@
   "harnesses": {
     "claude": {
       "status": "supported",
-      "canonical_command": "overseer"
+      "canonical_command": "livespec-overseer:overseer"
     },
     "codex": {
       "status": "exempt",

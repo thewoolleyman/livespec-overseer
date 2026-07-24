@@ -31,6 +31,25 @@ unsupported host and names the failed precondition.
 
 Claude Code and/or OpenAI Codex as the supervised agent runtimes.
 
+## Installation For An Adopter Family
+
+Install both shipped surfaces for the family that will run the overseer:
+
+1. Install the `livespec-overseer` Claude Code plugin from this repository's
+   plugin marketplace entry so the interactive command
+   `/livespec-overseer:overseer` is available.
+2. Install the `livespec-overseer` Python package into the operator
+   environment so the `overseerd` and `overseer-start` entry points are on
+   `PATH`.
+
+Run the installed tool against that family's own `$HOME` declarations. The
+watch-set is `~/.livespec-overseer-repos.json`; the mapping store is
+`~/.livespec-overseer.jsonl`. The daemon never discovers repos from
+`.livespec-fleet-manifest.jsonc`, and an adopter-family install must not point
+at this development fleet's manifest, credentials, or repos. That D5 boundary
+is part of the product contract: the fleet's manifest is only for fleet
+self-application, not shipped overseer discovery.
+
 ## The watch-set
 
 Which repos it supervises is declared in **`~/.livespec-overseer-repos.json`**:
