@@ -2615,6 +2615,19 @@ def test_table_header_column_order(tmp_path):
     assert header.split() == ["Status", "Topic", "tmux", "Ctx%", "Repo"]
 
 
+def test_render_header_includes_pinned_release_version(tmp_path):
+    """The live-state header carries the release-please maintained app semver."""
+    assert hasattr(supervisor, "APP_VERSION")
+    assert supervisor.APP_VERSION.count(".") == 2
+
+    fake = FakeTmux()
+    sup = _sup(tmp_path, fake)
+    out = _render_of(sup, [])
+
+    first_line = out.splitlines()[0].removeprefix("\x1b[3J\x1b[2J\x1b[H")
+    assert first_line.endswith(f" — 0 track(s) - {supervisor.APP_VERSION}")
+
+
 def test_table_row_cells_follow_the_header_order(tmp_path):
     """A rendered row places each value under its (reordered) header."""
     fake = FakeTmux()
