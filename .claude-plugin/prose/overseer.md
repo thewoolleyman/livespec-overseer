@@ -210,7 +210,7 @@ That one command (a self-invokable `uv` script) does everything deterministicall
   daemon-wide default remaining-context % at which the FIRST wrap-up fires
   (default **50**). `overseer-start` accepts the same `--warn-percent N` and
   threads it into the `overseerd` launch command
-  (`overseerd --warn-percent N 2> tmp/overseer/daemon.log`).
+  (`overseerd --warn-percent N 2>> tmp/overseer/daemon.log`).
   `N` is an int in `[1, 99]`; a per-track `ctx_threshold` override in the mapping
   still wins over this default. Aside from `--warn-percent`, `overseerd` watches
   the whole fleet with the fixed store/stamp paths and the default loop interval,

@@ -939,7 +939,7 @@ end-to-end check is the discovery + render path, exercised safely read-only:
    surface (module invocation, fixed store path, fleet-only watch-set) with zero
    mutation risk.
 2. Optionally observe a **brief live daemon** (`overseer/overseerd
-   2> tmp/overseer/daemon.log`, stopped after a render or two) to confirm the loop
+   2>> tmp/overseer/daemon.log`, stopped after a render or two) to confirm the loop
    renders and refreshes. Surface-only means it will not act on any real session
    unless that session is genuinely at threshold + certified + idle.
 
