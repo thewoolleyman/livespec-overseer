@@ -74,8 +74,10 @@ import registry
 import signals
 import streams
 import tmuxio
+from version import APP_VERSION
 
 __all__ = [
+    "APP_VERSION",
     "DANGER_CTX_REMAINING",
     "LOOP_INTERVAL_SECONDS",
     "RowView",
@@ -2436,7 +2438,7 @@ class Supervisor:
         """
         rows = list(rows)
         lines: list[str] = []
-        lines.append(f"overseer — {_iso_now()} — {len(rows)} track(s)")
+        lines.append(f"overseer — {_iso_now()} — {len(rows)} track(s) - {APP_VERSION}")
         header = ("Status", "Topic", "tmux", "Ctx%", "Repo")
         table: list[tuple[str, ...]] = [header]
         for row in rows:

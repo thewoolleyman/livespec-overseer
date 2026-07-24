@@ -3,7 +3,7 @@
   "release-type": "python",
   "packages": {
     ".": {
-      "package-name": "livespec-runtime",
+      "package-name": "livespec-overseer",
       "include-component-in-tag": false,
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
@@ -11,6 +11,10 @@
           "type": "toml",
           "path": "pyproject.toml",
           "jsonpath": "$.project.version"
+        },
+        {
+          "type": "generic",
+          "path": "overseer/version.py"
         },
         {
           "type": "generic",
