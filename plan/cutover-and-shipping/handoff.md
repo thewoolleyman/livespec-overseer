@@ -45,11 +45,11 @@ EVENTS on cutover day; the full original text is in this file's git history
   latent in the old code too); and it properly voided a ~23h-stale blocked
   declaration when its session resumed generating.
 
-## THE ONE REMAINING GATE — Stage-4: PARTIALLY proven; rollback stays pinned
+## STAGE-4: PROVEN — closed by observation 2026-07-24; unpin awaits the maintainer
 
-The gate is a REAL wrap-up → `ready` → restart round supervised by THIS
-repo's daemon on a live track. As of 2026-07-23 the round is PARTIALLY
-proven (evidence also recorded as a comment on epic `overseer-3wt`):
+The gate was a REAL wrap-up → `ready` → restart round supervised by THIS
+repo's daemon on a live track. BOTH legs are now observed (full verbatim
+evidence in the Stage-4 comments on epic `overseer-3wt`):
 
 - **PROVEN — the declare-ready → atomic-restart interlock.** The acting
   daemon (restarted 22:29:38Z onto post-`overseer-4dr` master `73015e1`)
@@ -59,13 +59,17 @@ proven (evidence also recorded as a comment on epic `overseer-3wt`):
   mtime 22:49:57Z) and the pane came back as a fresh session with full
   context. Restart mechanics, state consumption, and no-double-restart all
   behaved.
-- **UNPROVEN — the daemon-INJECTED wrap-up leg.** The observable log window
-  (22:29:38Z onward) contains zero `injected wrap-up into` lines
-  (`overseer/supervisor.py` `_log` format), and the restarted track's own
-  record shows a SELF-initiated wind-down ("WINDING DOWN (context limit)",
-  22:34Z). Pre-22:29Z daemon history is unrecoverable: the launch line's
-  truncating `2>` redirect wiped it at restart — filed as
-  `overseer-2boaoy`.
+- **PROVEN — the daemon-INJECTED wrap-up leg, twice over.** Two complete
+  independent rounds by the acting daemon: rop-sweep-fleet-policy
+  (injected 2026-07-23T23:31:11Z at ctx 49%, band [50]; restarted
+  23:36:26Z) and fabro-ci-image-factoring (injected 2026-07-24T01:08:35Z;
+  restarted 01:09:43Z; state dir emptied at the restart second — the
+  expected consumed-declaration shape; fresh session live). Injection
+  strictly precedes restart in both; log formats match
+  `overseer/supervisor.py` verbatim. The capture block below is RETAINED
+  as the record of the bar the evidence was collected against (its
+  "THIS track" pinning was the expected instance; the gate's recorded
+  close condition is track-agnostic and is exceeded).
 
 ### Stage-4 self-completion — capture instructions for the post-restart session
 
@@ -96,10 +100,10 @@ the rollback. Working copies under `tmp/` (e.g.
 `tmp/cutover-and-shipping-supervisor/`) are snapshots only; the DURABLE
 record is this handoff plus the ledger.
 
-The gate CLOSES when a daemon-injected wrap-up → `ready` → restart round is
-observed end-to-end, or the maintainer rules the partial proof sufficient.
-Until then, keep the rollback pinned: kill the daemon and relaunch the
-byte-identical pre-seed state, recoverable from EITHER copy —
+The gate is CLOSED by observation. ONE ruling remains: the rollback UNPIN
+is the maintainer's explicit call. Until they rule, the recipes stay
+recorded — kill the daemon and relaunch the byte-identical pre-seed state,
+recoverable from EITHER copy —
 
 - core git history: `git -C /data/projects/livespec archive f9664481~1
   .claude/skills/overseer | tar -x -C <rescue-dir>`, or
