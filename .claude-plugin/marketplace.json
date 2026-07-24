@@ -1,0 +1,14 @@
+{
+  "name": "livespec-overseer",
+  "owner": {
+    "name": "Chad Woolley",
+    "url": "https://github.com/thewoolleyman"
+  },
+  "plugins": [
+    {
+      "name": "livespec-overseer",
+      "source": "./.claude-plugin",
+      "description": "Control-plane operator plugin for livespec. Exposes /livespec-overseer:overseer for the thin two-pane overseer surface over the overseerd daemon and overseer-start bootstrap."
+    }
+  ]
+}
