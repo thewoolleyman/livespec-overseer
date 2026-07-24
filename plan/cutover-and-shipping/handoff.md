@@ -26,9 +26,23 @@ CORE-tenant epic `livespec-b1uo` stays in core per its do-not-move ruling.
   release-please-wired), the telemetry argv fix (`overseer-kfbcv4`, PR #50);
   earlier: bootstrap re-point (`overseer-y8o`), alert edge-triggering
   (`overseer-4dr`), module-doc sweep (`overseer-zvo`).
-- **Slice-5 unit 1 done:** this thread's own durable supervisor charter
-  exists at `plan/cutover-and-shipping/supervisor-handoff.md` (PR #54) —
-  also `supervise-plan`'s first live exercise.
+- **Merged + live, PARKED AT THE HUMAN ACCEPTANCE VALVE** (`ai-then-human`,
+  AI PASS; independent verification journaled on each item 2026-07-24):
+  daemon-log persistence (`overseer-2boaoy`, PR #56 — launch line `2>` →
+  `2>>`; bare append, no rotation — flagged; effective only on the next
+  daemon relaunch) and canonical-command + adopter install story
+  (`overseer-5aaeyd`, PR #58 — `livespec-overseer:overseer` reconciled, D5
+  boundary documented in README). The groomed operator-surface queue is now
+  fully merged.
+- **Slice-5 units 1+2 done:** this thread's own charter at
+  `plan/cutover-and-shipping/supervisor-handoff.md` (PR #54), and the
+  fleet-pin-propagation charter durable at core
+  `plan/fleet-pin-propagation/supervisor-handoff.md` (core PR #1717,
+  2026-07-24) — both authored via `supervise-plan`. Unit 3
+  (factory-success-rate-remediation) HALTED on the skill's precondition 4:
+  no `plan/factory-success-rate-remediation/` thread directory exists in
+  core — needs an owner decision on that charter's durable home (surfaced
+  on `overseer-tvko3z`).
 - **Factory serialization is RETIRED** (sd8o diagnosis 2026-07-24 ~07:11Z:
   no contended host resource; maintainer relay). Dispatch per the normal
   machinery; still binding forever: prove container ownership by run-config
@@ -45,25 +59,27 @@ CORE-tenant epic `livespec-b1uo` stays in core per its do-not-move ruling.
    (supervision surfaces A+B; spec-owner recommendations drafted on the
    item, including the fourth-truth-table-cell capture-offer) clears its
    preconditions: approve and dispatch via `drive --action impl:<id>`.
-2. **`overseer-5aaeyd`** (canonical-command + adopter install story) sits at
-   an auto-policy admission; the dispatcher's own pass flows it — dispatch
-   when it shows `ready`.
-3. **`overseer-tvko3z` remaining units:** migrate the two livespec-core
-   supervisor charters (fleet-pin-propagation,
-   factory-success-rate-remediation) out of core's gitignored `tmp/` using
-   the `supervise-plan` skill against CORE's PR discipline — cross-repo
-   attended work, best coordinated with those tracks' supervisors (unit-1
-   precedent and notes on the item).
+2. **Acceptance valves:** `overseer-2boaoy` (PR #56) and `overseer-5aaeyd`
+   (PR #58) await the maintainer's `accept:` — ai-then-human policy, AI
+   PASS, independent verification journaled on each item (incl. the
+   no-rotation flag on 2boaoy). Surface, never self-accept.
+3. **`overseer-tvko3z` remaining:** (a) owner decision on the
+   factory-success-rate-remediation charter's durable home — no core plan
+   thread exists, so `supervise-plan` precondition 4 fails as designed;
+   (b) tmp/-copy retirements with the owning tracks' supervisors (the
+   fleet-pin-propagation durable copy landed via core PR #1717; adoption
+   offer posted in that track's status.log). Cross-repo attended work.
 4. **Slice 4 (upstream one-liners)** — core `NFR:175` and orchestrator
    contracts thread-store mentions — may now route via
    `/livespec:propose-change` in THOSE repos (the skill they describe
    exists). Maintainer-lane; coordinate before filing cross-repo.
 5. **Maintainer rulings outstanding** (surface, never block): (a) rollback
    UNPIN post-proof — recipes below stay recorded until ruled; (b) a daemon
-   restart at their timing so the acting supervisor picks up the version
-   header and everything since 22:29Z (snapshot `tmp/overseer/daemon.log`
-   first — it truncates on daemon restart until `overseer-2boaoy` lands;
-   that item is `ready`, dispatchable anytime); (c) the Phase-2 cuts in
+   restart at their timing — it picks up everything since 22:29Z including
+   the version header, and ACTIVATES the merged append-mode log fix
+   (PR #56 is effective only on relaunch via `overseer-start`; the running
+   daemon still truncates, snapshot already taken:
+   `tmp/overseer/daemon.log.snapshot-20260724T083730Z`); (c) the Phase-2 cuts in
    `research/phase-2-adopter-shipping.md` (marketplace hosting, Codex arm,
    spec scenario).
 
