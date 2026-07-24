@@ -63,16 +63,23 @@ CORE-tenant epic `livespec-b1uo` stays in core per its do-not-move ruling.
    (PR #58) await the maintainer's `accept:` — ai-then-human policy, AI
    PASS, independent verification journaled on each item (incl. the
    no-rotation flag on 2boaoy). Surface, never self-accept.
-3. **`overseer-tvko3z` remaining:** (a) owner decision on the
-   factory-success-rate-remediation charter's durable home — no core plan
-   thread exists, so `supervise-plan` precondition 4 fails as designed;
-   (b) tmp/-copy retirements with the owning tracks' supervisors (the
-   fleet-pin-propagation durable copy landed via core PR #1717; adoption
-   offer posted in that track's status.log). Cross-repo attended work.
-4. **Slice 4 (upstream one-liners)** — core `NFR:175` and orchestrator
-   contracts thread-store mentions — may now route via
-   `/livespec:propose-change` in THOSE repos (the skill they describe
-   exists). Maintainer-lane; coordinate before filing cross-repo.
+3. **`overseer-tvko3z` remaining:** DECISION-PREPPED — memo with evidence
+   and recommendation in
+   `research/slice4-upstream-one-liners-and-unit3-home.md` beside this
+   file. The factory-success-rate-remediation thread turned out to OWN
+   its charter in the ORCHESTRATOR repo (thread archived there
+   2026-07-24, epic `bd-ib-cvgjop`, PR #934 — the item text's "in core"
+   premise is corrected on the item); recommended home is that repo's
+   `plan/archive/factory-success-rate-remediation/supervisor-handoff.md`
+   as a plain records PR (`supervise-plan` correctly refuses archived
+   threads). Awaits the needs-human resolve; tmp/-copy retirements ride
+   the same ruling (fleet-pin-propagation durable copy landed, core
+   PR #1717).
+4. **Slice 4 (upstream one-liners)** — DECISION-PREPPED: exact FIND/ADD
+   packets for core `NFR:175` and the orchestrator contracts
+   thread-store section are in the same research file. Filing stays
+   maintainer-lane via `/livespec:propose-change` in THOSE repos;
+   re-verify FIND anchors before filing.
 5. **Maintainer rulings outstanding** (surface, never block): (a) rollback
    UNPIN post-proof — recipes below stay recorded until ruled; (b) a daemon
    restart at their timing — it picks up everything since 22:29Z including
@@ -94,8 +101,10 @@ tar -x -C <rescue-dir>`, or this repo at pin `6425828`.
 Daemon: tmux `livespec-overseer:1.1`, stderr log `tmp/overseer/daemon.log`
 (truncates on DAEMON restart only). Protocol: `overseer/marker-protocol.md`.
 Invariants: `overseer/AGENTS.md`. Design reasoning beside this file:
-`research/operator-surface.md`, `research/phase-2-adopter-shipping.md`, and
-the durable supervisor charter `supervisor-handoff.md`. Cross-track
+`research/operator-surface.md`, `research/phase-2-adopter-shipping.md`,
+`research/slice4-upstream-one-liners-and-unit3-home.md` (the prepped
+maintainer yes/nos), and the durable supervisor charter
+`supervisor-handoff.md`. Cross-track
 coordination log (historical + still active): livespec core
 `tmp/fleet-pin-propagation-supervisor/status.log`. The full cutover-day and
 proving-day narrative lives in this file's git history and the epic's
