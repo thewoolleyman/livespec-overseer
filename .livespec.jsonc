@@ -47,14 +47,14 @@
       "livespec": ">=0.1.0,<1.0.0",
       // Bootstrap placeholder; the first successful cross-repo fan-out
       // rewrites this to a livespec release tag.
-      "pinned": "master"
+      "pinned": "v0.20.2"
     }
   },
   "livespec-orchestrator-beads-fabro": {
     "format": "beads",
     "compat": {
       "livespec": ">=0.1.0,<1.0.0",
-      "pinned": "master"
+      "pinned": "v0.20.2"
     },
     // Per-repo beads tenant CONNECTION block, read by the plugin's
     // commands/_config.py. `tenant` == `database` == `server_user` is the
