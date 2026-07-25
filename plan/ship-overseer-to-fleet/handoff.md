@@ -152,6 +152,44 @@ buckets need a DECISION (thin pytest wrapper over the gate, or governed removal
 with a recorded reason) — cheap in effort, but they will silently block arming
 the lever if nobody makes that call.
 
+### DO NOT DESIGN THIS FROM SCRATCH — livespec core is a finished worked example
+
+Goal 2 is not bespoke work; it is this repo's leg of a **fleet-wide** program,
+and exactly one member has completed it. Measured across the fleet 2026-07-25:
+
+| repo | registry rows | TODO | top-of-pyramid trees | lever armed |
+|---|---|---|---|---|
+| **livespec (core)** | 68 | **0** | 2 | **yes — 2 workflows** |
+| livespec-dev-tooling | 43 | 36 | 1 | no |
+| livespec-runtime | 43 | 29 | 1 | no |
+| livespec-orchestrator-beads-fabro | 86 | 63 | 1 | no |
+| livespec-driver-claude | 36 | 36 | **0** | no |
+| **livespec-overseer (this)** | **54** | **54** | **0** | no |
+
+Two things follow. First, this repo is **not an outlier in debt** — four of six
+carry heavy TODO debt — but it IS tied for furthest behind, with zero
+top-of-pyramid trees. Second, and more useful: **core has already solved every
+problem listed above**, including the gate-backed NFR rows.
+
+Copy its shape rather than reinventing:
+
+- It has the `tests/e2e` and `tests/prompts` trees this repo lacks entirely.
+- Its 68 rows map to **39 distinct tests** — mostly 1:1, with a few broad
+  top-of-pyramid tests carrying the meta/architectural headings **many-to-one**
+  (16 rows → one `test_phase3_round_trip`; 8 → `tests.prompts.livespec.test_seed`;
+  6 → `test_happy_path_minimal`). Many-to-one is explicitly permitted by the
+  direction-4 docstring.
+- **All five of its NFR rows** — the same `Boundary`/`Spec`/`Contracts`/
+  `Constraints`/`Scenarios` set that is awkward here — map to a single
+  prompts-tier test. That is the precedent for this repo's 7 undecided rows.
+
+> **Adopt the shape, not the concentration.** Sixteen headings resting on one
+> test is a lot of weight for a single verifier, and this thread's own standard
+> (Corrections: *"a verifier must be able to fail"*) says to ask what injected
+> defect would redden it. Core's mapping is rule-legal and green; that is not the
+> same as each of those 16 rules being independently pinned. Use the template,
+> then apply this thread's stricter evidence bar to what you map.
+
 - **21 `scenarios.md` rows — EXPENSIVE.** They require integration-tier-or-above
   tests. The 445 existing unit-tier tests **cannot** satisfy them, however
   thorough. This is genuinely new construction, and it is the part needing the
@@ -257,9 +295,34 @@ a green tick. Re-verify per safety routing when touched, as the NFR requires.
 
 ### Ordering constraint: goal 2 BEFORE goal 3
 
-**This is a hard dependency, not a preference.** `no_todo_registry.py` documents
-that CI sets `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST=true` **for the
-release context**. So goal 3 (auto-release) is precisely what ARMS goal 2's gate.
+**This is a hard dependency, not a preference — and it is confirmed by
+OBSERVATION, not just by reading a docstring.** `no_todo_registry.py` says CI
+sets `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST=true` for the release
+context. Checking livespec core, which is the only fleet repo that has actually
+armed it, that is exactly where it lives:
+
+- `.github/workflows/release-readiness.yml:37` — `…TODOS_EXIST: "true"`
+- `.github/workflows/release-tag.yml:48` — same, with the in-file comment
+  *"Ensures every release ships with full rule-test coverage."*
+
+**This repo has NEITHER workflow.** It carries 5 workflows (`ci`,
+`release-please`, `release-dispatch`, `bump-pin-from-dispatch`, `pin-freshness`)
+against core's 12+. So goal 3 is not merely "wire release-please for the plugin
+half" — **it means ADDING `release-readiness.yml` and `release-tag.yml`, and
+those are precisely the files that arm the lever.** The dependency is mechanical:
+the moment goal 3 lands on core's template, all outstanding registry TODOs turn
+the release path red.
+
+**A SECOND release-armed lever comes with them.** `release-tag.yml` also sets
+`LIVESPEC_RUN_MUTATION: "true"`. **This repo has never run mutation testing** —
+the variable appears only in a `justfile` comment here. Adopting core's release
+template therefore switches on mutation testing for the first time, on a suite
+that has already shipped one verifier which could not fail (PR #75). Budget for
+that: the fleet's mutation gate is the mechanical form of this thread's own "a
+verifier must be able to fail" rule, and this repo has never been subject to it.
+
+So goal 3 = release-readiness + release-tag workflows, and it gates on BOTH goal
+2's registry AND a mutation pass. Sequence accordingly.
 
 Wiring auto-release while any of the 54 TODOs remain means **the first release
 run fails CI on all outstanding rows**. Sequence accordingly:
