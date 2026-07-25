@@ -113,21 +113,37 @@ badly. Direction 4's docstring is explicit: *"This direction applies ONLY to
 `scenarios.md`; headings in `spec.md`, `contracts.md`, and `constraints.md` MAY
 be exercised by unit-tier tests."*
 
-- **The 21 `scenarios.md` rows — EXPENSIVE.** They require
-  integration-tier-or-above tests. The 225 existing unit-tier beside-tests
-  **cannot** satisfy them, no matter how thorough. This is genuinely new test
-  construction, and it is the part of goal 2 that needs the `tests/e2e` (or
-  `tests/integration`/`consumer`/`prompts`) tree that does not exist yet.
-- **The other 33 rows — PROBABLY CHEAP.** `spec.md` (14), `contracts.md` (8),
-  `constraints.md` (6) and `non-functional-requirements.md` (5) may be exercised
-  by unit-tier tests, and this repo already has **225** of them at 100%
-  statement+branch coverage. Many of these rows can likely be retired by MAPPING
-  an existing test node id into the registry rather than writing anything new.
-  Audit before assuming — some may still have no test — but do not budget them as
-  new construction by default.
+The 54 rows fall into **three** buckets, not two. Audited 2026-07-25 against the
+**445** beside-test functions this repo carries:
 
-The remaining lever-arming options for any row that resists both: a governed
-registry co-edit removing the row, with a recorded reason.
+- **21 `scenarios.md` rows — EXPENSIVE.** They require integration-tier-or-above
+  tests. The 445 existing unit-tier tests **cannot** satisfy them, however
+  thorough. This is genuinely new construction, and it is the part needing the
+  `tests/e2e` (or `integration`/`consumer`/`prompts`) tree that does not exist.
+- **28 `spec.md` / `contracts.md` / `constraints.md` rows — PROBABLY CHEAP.**
+  These accept unit-tier evidence. A keyword audit of all 27 behavioral headings
+  found **candidate tests for every single one**, from 2 (`The restart
+  interlock`, `Language and dependencies`) to 67 (`Supervised runtimes`). Median
+  is around 20. Keyword matching proves candidates EXIST, not that they are apt —
+  so confirm aptness per row — but do **not** budget these as new construction.
+  The likely work is *mapping node ids into the registry*, not writing tests.
+- **5 `non-functional-requirements.md` rows — AWKWARD, and the real snag.**
+  These are `Boundary`, `Spec`, `Contracts`, `Constraints`, `Scenarios`:
+  CONTRIBUTOR-facing meta-requirements about how the repo is developed and
+  gated, not operator-observable behavior. Their evidence is mostly `just check`
+  TARGETS (100% coverage, stdlib-only, pin-consuming gates, the red-green
+  ritual), whereas the registry maps headings to **pytest node ids**. So they do
+  not map cleanly in either direction. Decide deliberately: wrap each gate in a
+  thin pytest assertion, or retire the rows by governed registry co-edit with a
+  recorded reason. Do not let these five silently block arming the lever.
+
+> **Goal 2 is not merely a maintainer preference — the SPEC ALREADY REQUIRES IT,
+> and the repo is currently NON-CONFORMANT.** `non-functional-requirements.md`
+> §"Scenarios" states: *"Every scenario heading in `scenarios.md` maps to test
+> evidence through the repository's heading-coverage registry; a scenario's
+> evidence is integration-tier or better, never a unit-tier test."* That is
+> ratified content, and 21/21 scenario rows are `TODO`. Goal 2 closes a live
+> conformance violation against this repo's own specification.
 
 ### Ordering constraint: goal 2 BEFORE goal 3
 
@@ -356,7 +372,7 @@ state.
    - A **gap** asks *"is this MUST clause IMPLEMENTED?"* Spot-checked
      `gap-h5sj7scj` (cardinal rule, "the daemon MUST NOT infer readiness"):
      `supervisor.py` encodes it explicitly (*"`ready` is the SOLE authorization
-     for a restart"*) and 32 of the 225 beside-tests exercise ready/restart,
+     for a restart"*) and 35 of the 445 beside-tests exercise ready/restart,
      including `test_idle_at_danger_with_no_declaration_is_never_restarted` —
      the cardinal rule almost verbatim. So this gap's disposition is
      **"implemented, record it"**, not build work. That is evidence FOR the
