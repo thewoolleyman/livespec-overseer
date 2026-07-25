@@ -126,7 +126,7 @@ That variable is **set nowhere in this repo** — it appears only in a `justfile
 COMMENT, never in a workflow. So today all 54 TODOs **warn and can never fail
 CI**.
 
-### Goal 2's real size — the 21 are expensive, the 33 are probably cheap
+### Goal 2's real size — three buckets, and the awkward one is the trap
 
 All 54 rows must leave `TODO` before the lever can be armed, but they are **not
 the same kind of work**, and sizing them as one lump will overestimate goal 2
