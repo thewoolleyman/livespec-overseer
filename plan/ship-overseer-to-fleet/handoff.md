@@ -295,18 +295,56 @@ state.
 
 1. **The 7 untied spec→impl gaps** from the v002 delta. Reproduce with
    `/livespec-orchestrator-beads-fabro:detect-impl-gaps --since-version v001 --json`
-   (read-only; never mutates the store). As measured 2026-07-25, it returns
-   **seven** gap IDs and a wrapped `bd list --all --json` finds **zero**
-   work-items tied to any of them. Each gap needs a durable disposition: a filed
-   work-item under `overseer-hbr`, or a recorded finding that the spec text is
-   already satisfied. Re-run the detector before disposing — the set moves with
-   the spec.
-2. **Core epic `livespec-b1uo` and children `.1`–`.5`.** Measured 2026-07-25:
-   `livespec-b1uo` is `backlog`; `.1/.2/.3` `backlog`; `.4/.5` `blocked`. The
-   epic itself STAYS in the livespec core tenant per its own do-not-move ruling —
-   disposition here means recording the outcome, not migrating the items. Note
-   `operator-surface.md:27` already rules `.4/.5` **unnecessary**; that ruling
-   needs to be reflected in the core tenant rather than left implicit.
+   (read-only; never mutates the store). Run first-hand 2026-07-25 — it returns
+   exactly **seven**, and a `bd list --all --json` sweep of all 22 tenant items
+   finds **zero** references to any of them and zero items carrying a `gap_id`:
+
+   | gap id | location |
+   |---|---|
+   | `gap-jqszyzae` | `constraints.md` › livespec-overseer — constraints |
+   | `gap-lqxagafn` | `spec.md` › Non-interference with tracked work |
+   | `gap-mgjjuo3n` | `spec.md` › Notify, never block |
+   | `gap-pd54ut36` | `spec.md` › Supervised runtimes |
+   | `gap-h5sj7scj` | `spec.md` › The cardinal rule |
+   | `gap-opeyzo5y` | `spec.md` › The escalating wrap-up |
+   | `gap-4vy63slp` | `spec.md` › The escalating wrap-up |
+
+   **Read this set correctly before slicing it.** All seven are MUST clauses in
+   the CORE supervision contract, and the daemon already carries 100%
+   statement+branch coverage across all 12 modules, with the cardinal rule and
+   the wrap-up escalation both live-exercised (Stage-4, twice). The LIKELY
+   disposition for most is *"already implemented, recorded as satisfied"* — do
+   **not** manufacture seven slices. Re-run the detector before disposing; the
+   set is a pure function of spec text and moves when the spec is revised.
+
+   **Connection to goal 2, worth putting to the groom:** these are spec MUST
+   clauses with no tied work-item; the 54-row registry is spec headings with no
+   tied test. Same underlying condition — the spec is unverified at the top of
+   the pyramid — in two ledgers. Six of the seven sit in `spec.md`, which also
+   holds 14 of the 33 non-scenario registry TODOs. One top-of-pyramid suite
+   could discharge much of both, so doing goal 2 first may retire this as a side
+   effect.
+2. **Core epic `livespec-b1uo` and children `.1`–`.5`.** Re-verified first-hand
+   2026-07-25 against the CORE tenant: `livespec-b1uo` `backlog`; `.1/.2/.3`
+   `backlog`; `.4/.5` `blocked`. The epic STAYS in core per its own do-not-move
+   ruling — disposition means RECORDING the outcome, not migrating items.
+   **Four of the six already have determinable dispositions, none needing build
+   work** (full evidence on `overseer-hbr.2`):
+
+   - **`.1`** "move the overseer to the new livespec-overseer repo" — **DONE.**
+     This repo carries the 23-module package and the acting daemon (pid 2954933)
+     runs from it. Close as delivered.
+   - **`.3`** "decouple the shipped overseer from the fleet manifest (D5)" —
+     **DONE, verified at code level.** The shipped path
+     (`supervisor.py:2810`/`:2824`) calls only `watch_set_from_config` reading
+     `$HOME/.livespec-overseer-repos.json`; the manifest-seeded `watch_set()` is
+     **not defined anywhere** any more, and no non-test code reads
+     `.livespec-fleet-manifest.jsonc`. Close as delivered.
+   - **`.4`/`.5`** driver bindings — `operator-surface.md:27` already rules them
+     **unnecessary**. Close as such. They still read `blocked` only because that
+     ruling lives in this repo's research file and was never reflected in core.
+   - **`.2`** Linux+tmux precondition (D4) — genuinely core-side work on core's
+     own spec and gates. No disposition available from here; leave with core.
 3. **`check-no-workflow-edits` copy-drift** across the 4 carrying fleet repos.
    Single-sourcing into `livespec-dev-tooling` is dev-tooling's call, **not this
    thread's** — so this is EXPLICITLY OUT OF SCOPE here, owned by
