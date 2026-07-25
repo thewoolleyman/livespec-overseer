@@ -328,6 +328,16 @@ def default_handoff(repo: str, topic: str) -> str:
     return str(Path(repo) / "plan" / topic / "handoff.md")
 
 
+def _supervisor_handoff_path(*, repo: str, topic: str) -> Path:
+    """The single supervision artifact the daemon may existence-test.
+
+    This is the narrow spec allowance: for a track already proven to have a live matching
+    managed session, the daemon may ask whether this exact file exists. Callers must never
+    open, read, hash, or depend on its content or mtime.
+    """
+    return Path(repo) / "plan" / topic / "supervisor-handoff.md"
+
+
 def default_resume(repo: str, topic: str) -> str:
     """The first prompt pasted into a (re)started session: read the handoff."""
     return f"read {default_handoff(repo, topic)} and follow it"
@@ -413,6 +423,15 @@ def _iso_now() -> str:
 # tracked pane the alert points at — so a preview is enough and a 705-byte dump is not).
 _MAX_NOTE_IN_TABLE = 48
 _MAX_REASON_IN_ALERT = 160
+
+
+_SUPERVISION_CONDITIONS = frozenset(
+    {
+        "supervision-offer",
+        "supervision-capture-offer",
+        "supervisor-missing",
+    }
+)
 
 
 def _elide(text: str, limit: int) -> str:
@@ -1073,6 +1092,82 @@ class Supervisor:
         return self._pane_is_managed_claude(target, repo, topic, session) or self._is_codex_track(
             session, repo, topic
         )
+
+    def _supervisor_session_of(self, *, track: registry.Track) -> str:
+        """The conventional attended supervisor tmux session for ``track``."""
+        return f"{self._session_of(track)}-supervisor"
+
+    def _supervisor_running(self, *, session: str, repo: str) -> bool:
+        """True iff the derived supervisor session holds a live agent process in ``repo``.
+
+        A tmux session NAME is not liveness. Surface B must still fire when a dead shell is
+        left behind in ``<tracked>-supervisor``, so this checks live pane evidence: a
+        Claude-like pane process in the repo, or a Codex-like pane process joined to a live
+        Codex rollout in the repo.
+        """
+        if not self.tmux.session_exists(session):
+            return False
+        target = self.tmux.pane_id(session)
+        if target is None:
+            return False
+        command = self.tmux.pane_current_command(target)
+        cwd = self.tmux.pane_current_path(target)
+        if signals.pane_is_claude(command) and signals.path_in_repo(cwd, repo):
+            return True
+        if not signals.pane_is_codex(command):
+            return False
+        return any(
+            tmux == session and signals.path_in_repo(live.cwd, repo)
+            for (tmux, _name), live in self._codex.items()
+        )
+
+    def _clear_supervision_alerts(self, *, repo: str, topic: str) -> None:
+        """Re-arm supervision-offer alerts once the supervision truth table is healthy."""
+        prefix = _key(repo, topic)
+        self._alerted = {
+            key: value
+            for key, value in self._alerted.items()
+            if key[:2] != prefix or key[2] not in _SUPERVISION_CONDITIONS
+        }
+
+    def _surface_supervision_offer(self, track: registry.Track, *, act: bool) -> None:
+        """Surface the supervision truth table without replacing the row's core status."""
+        repo, topic = track.repo, track.topic
+        session = self._session_of(track)
+        supervisor_session = self._supervisor_session_of(track=track)
+        handoff_exists = _supervisor_handoff_path(repo=repo, topic=topic).exists()
+        running = self._supervisor_running(session=supervisor_session, repo=repo)
+        if handoff_exists and running:
+            if act:
+                self._clear_supervision_alerts(repo=repo, topic=topic)
+            return
+        if handoff_exists:
+            message = (
+                "supervisor handoff exists but no supervisor is running — "
+                f"start tmux session '{supervisor_session}'"
+            )
+            condition = "supervisor-missing"
+        elif running:
+            message = (
+                "supervision is running but has no durable prompt — capture it with "
+                "/livespec-overseer:supervise-plan"
+            )
+            condition = "supervision-capture-offer"
+        else:
+            message = (
+                "no supervisor handoff and no supervisor is running — run "
+                "/livespec-overseer:supervise-plan for this live track"
+            )
+            condition = "supervision-offer"
+        if act:
+            self._alert(
+                repo=repo,
+                topic=topic,
+                session=session,
+                pane=self.tmux.pane_id(session),
+                message=message,
+                condition=condition,
+            )
 
     def _pane_is_managed_claude(
         self, target: str, repo: str, topic: str, session: str | None
@@ -1794,6 +1889,7 @@ class Supervisor:
             else:
                 status = "warned"
         else:
+            self._surface_supervision_offer(track, act=act)
             # Idle at an empty prompt with the context ABOVE the wind-down threshold. If
             # the session has declared nothing, nudge it ONCE this episode to keep going
             # rather than stop early (the inverse of the wrap-up). The daemon-written
@@ -1849,7 +1945,11 @@ class Supervisor:
         # of the condition it was in hours ago.
         if act and not needs_attention(view):
             prefix = _key(repo, topic)
-            self._alerted = {k: v for k, v in self._alerted.items() if k[:2] != prefix}
+            self._alerted = {
+                key: value
+                for key, value in self._alerted.items()
+                if key[:2] != prefix or key[2] in _SUPERVISION_CONDITIONS
+            }
         return view
 
     def _alert_non_responder(
