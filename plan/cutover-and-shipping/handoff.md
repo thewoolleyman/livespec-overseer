@@ -1,7 +1,21 @@
 # Plan — cutover-and-shipping
 
-**Owning repo:** `livespec-overseer`. **Status:** OPEN — created 2026-07-23 as
-the SUCCESSOR of livespec core's `plan/archive/overseer-productization/`.
+**Owning repo:** `livespec-overseer`. **Status:** **OPEN** — created 2026-07-23
+as the SUCCESSOR of livespec core's `plan/archive/overseer-productization/`.
+
+> **THIS THREAD IS NOT DONE AND MUST NOT BE ARCHIVED.** Its cutover +
+> daemon-shipping HALF is complete, but its eventual PAYLOAD — Phase 2,
+> adopter-family shipping — is NOT built. That payload is epic
+> **`overseer-19s`**, an open CHILD of this thread's epic `overseer-3wt`
+> (which therefore reads 3/4 complete and is not closeable). The living plan
+> is `research/phase-2-adopter-shipping.md`, in THIS thread — do not relocate
+> it. See §NEXT ACTION.
+>
+> Correction of record: supervisor brief 20 (2026-07-25) directed closing the
+> epic and archiving this thread; brief 21 WITHDREW that as wrong, on the
+> grounds that archiving with Phase 2 undone is archiving incomplete work.
+> Nothing was closed or archived — no archive PR, branch, or worktree ever
+> existed, and `overseer-3wt` was never closed.
 
 **Ledger anchor:** epic `overseer-3wt` (this repo's beads tenant); children
 and lanes are READ from the ledger (`list-work-items` / `next`), never stored
@@ -11,7 +25,11 @@ CORE-tenant epic `livespec-b1uo` stays in core per its do-not-move ruling.
 
 ## Where the thread stands — 2026-07-25, after the ratify→build→restart run
 
-**The whole cold-open chain below is DONE.** In order, with evidence:
+The thread has TWO halves. **Half one — the cutover and the daemon shipping — is
+COMPLETE.** Half two — Phase 2, adopter-family shipping — is **NOT STARTED**, and
+is why this thread stays open (§NEXT ACTION).
+
+Half one's cold-open chain is DONE. In order, with evidence:
 
 1. **Build verified NOT stale** — `resolve_template.py` exit 0 on the pinned
    build `ba62d8fdd609`. The exit-78 failure that forced the restart did not
@@ -99,8 +117,10 @@ master. Keep the `2>>`.
   queue is fully merged and accepted.
 - **Slice-5 ALL THREE charters durable** (via `supervise-plan` / records
   PRs): this thread's charter `plan/cutover-and-shipping/supervisor-handoff.md`
-  (PR #54); the fleet-pin-propagation charter at core
-  `plan/fleet-pin-propagation/supervisor-handoff.md` (core PR #1717); the
+  (PR #54); the fleet-pin-propagation charter at core (landed by core PR #1717
+  at `plan/fleet-pin-propagation/`, and since MOVED to
+  `plan/archive/fleet-pin-propagation/supervisor-handoff.md` when that thread
+  archived — verified 2026-07-25); the
   factory-success-rate-remediation record (three artifacts) at
   `plan/archive/factory-success-rate-remediation/` in the ORCHESTRATOR repo
   (PR #939 — that thread archived there, epic `bd-ib-cvgjop`; the peer
@@ -114,41 +134,83 @@ master. Keep the `2>>`.
   argv via an ALL-container scan, `exit 137` is ambiguous, outcomes from
   artifacts never exit codes, timestamps via `date -u`.
 
-## NEXT ACTION
+## NEXT ACTION — GROOM PHASE 2, THEN BUILD IT
 
-**Nothing on the automatic lane.** The four-step cold-open chain (verify build →
-ratify both → build `overseer-6uobos` → restart the acting daemon) is COMPLETE;
-see "Where the thread stands" above for the evidence. The acting daemon is
-healthy on latest master at `0.11.0`.
+**Phase 2 (adopter-family shipping) is this thread's remaining payload.** It is
+epic **`overseer-19s`**, an open child of `overseer-3wt`. Nothing about it is
+started, and nothing is in flight.
 
-What remains is all maintainer-lane (next section) plus two follow-ups a future
-session MAY pick up:
+**The living plan is `research/phase-2-adopter-shipping.md`, beside this file.**
+It is a **DRAFT SHAPE**, explicitly not a cut: *"the maintainer owns every cut
+below."* Do NOT treat it as a slice list, and do NOT relocate it.
 
-1. **7 untied spec→impl gaps.** `detect-impl-gaps --since-version v001` returns 7
-   gap-ids from the v002 delta, and NO work-item is gap-tied to any of them. The
-   revise post-step `capture-impl-gaps` was deliberately NOT run to filing: it
-   would have filed 7 auto-derived items across the maintainer's groomed queue
-   without consent. Re-run it if the maintainer wants them tracked.
-2. **`check-no-workflow-edits` copy-drift.** `overseer-6uobos`'s factory run hit
-   the known `bd-ib-d6ds` blocker (the default janitor requires this recipe;
-   it was missing in 4 of 8 fleet repos, this one included) and landed the recipe
-   inline — the same authorized remedy rop-sweep used for its 4 mirrors. But each
-   carrying repo now hand-rolls its OWN variant (driver-claude two-dot,
-   dev-tooling explicit merge-base, this one three-dot plus an uncommitted-edit
-   check). Same copy-drift class already recorded for `export-ci-telemetry.sh`;
-   whether to single-source it into livespec-dev-tooling is dev-tooling's call.
+Do this, in order:
 
-### Prepped, maintainer-lane, DO NOT self-start
+1. **GROOM it into buildable, dependency-layered slices under `overseer-19s`.**
+   Use `/livespec-orchestrator-beads-fabro:groom` — a read-only drafting
+   conversation; the maintainer OWNS the cut and the acceptance, and the
+   front-end files NOTHING until approval. The draft's own three OPEN QUESTIONS
+   are maintainer calls that likely gate the cut: (a) marketplace hosting — own
+   marketplace vs. joining a family one; (b) is the Codex arm in scope for first
+   ship (`.livespec.jsonc` declares `codex: exempt` today, though the daemon half
+   is already harness-neutral); (c) does "shipped" warrant a SPECIFICATION
+   scenario (that would route through `/livespec:propose-change`, spec-side and
+   human-gated).
+2. **Then build the slices** through the normal machinery (`drive --action
+   approve:<id>` then `impl:<id>` for factory-tier work).
 
-- **`overseer-tvko3z` remaining** (needs-human resolve): the item-text "in
-  core" premise correction + the last fleet-pin tmp/-prompt sweep. Evidence
-  + recommendation in `research/slice4-upstream-one-liners-and-unit3-home.md`.
-- **Slice 4 (upstream one-liners)** — exact FIND/ADD packets for core
-  `NFR:175` and the orchestrator contracts thread-store section are in that
-  same research file. File via `/livespec:propose-change` in THOSE repos;
-  re-verify FIND anchors first. Coordinate cross-repo.
-- **Phase-2 cuts** (`research/phase-2-adopter-shipping.md`) — the
-  maintainer's separate decision; do NOT start.
+**What Phase 2 must NOT redo** — the operator surface is already shipped and
+accepted: entry points (`overseer-m5dtmj`), plugin scaffold (`overseer-tn3hmi`),
+`supervise-plan` (`overseer-myjovi`), version-in-header (`overseer-vlu5cd`),
+canonical-command + adopter install story with the D5 boundary documented in the
+README (`overseer-5aaeyd`), daemon-log persistence (`overseer-2boaoy`), and
+supervision surfaces A+B (`overseer-6uobos`). Phase 2 starts from a shipped,
+Stage-4-proven tool.
+
+**Standing bounds** (from the D-codes on core epic `livespec-b1uo`, which stays
+in core): never read the fleet manifest (D5 — the family's own
+`~/.livespec-overseer-repos.json` is the ONLY discovery input); never a console
+component (D7 peers); no new ledger state; no new store paths.
+
+### Also open, not blocking Phase 2
+
+- **`overseer-fitvmo`** (P2 bug, pending-approval) — `supervise-plan` generated
+  prompts must not stall on conflict boundaries. Filed 2026-07-25 by a different
+  session; STANDALONE, not a child of this epic. Left deliberately open.
+- **7 untied spec→impl gaps.** `detect-impl-gaps --since-version v001` returns 7
+  gap-ids from the v002 delta with no work-item tied to any. The revise post-step
+  `capture-impl-gaps` was deliberately NOT run to filing — it would have filed 7
+  auto-derived items across the groomed queue without consent. Re-run it if you
+  want them tracked.
+- **`check-no-workflow-edits` copy-drift.** `overseer-6uobos`'s factory run hit
+  the known `bd-ib-d6ds` blocker (the default janitor requires this recipe, which
+  was missing in 4 of 8 fleet repos including this one) and landed it inline —
+  the same authorized remedy rop-sweep used for its 4 mirrors. Each carrying repo
+  now hand-rolls its OWN variant. Same copy-drift class as
+  `export-ci-telemetry.sh`; single-sourcing into livespec-dev-tooling is
+  dev-tooling's call.
+
+### CLOSED — do not re-open these as work
+
+- **Slice 4 (upstream one-liners): needs NO filing.** Verified 2026-07-25 against
+  both targets' LIVE RATIFIED spec: livespec core
+  `SPECIFICATION/non-functional-requirements.md` and
+  `livespec-orchestrator-beads-fabro` `SPECIFICATION/contracts.md` each already
+  carry a **"The hosted supervision artifact."** paragraph naming
+  `plan/<topic>/supervisor-handoff.md` as a non-owned, realization-agnostic
+  artifact — introduced at ratified **core v175** and **orchestrator v048**
+  respectively. Filing the prepped FIND/ADD packets would DUPLICATE ratified
+  content. The packets in `research/slice4-upstream-one-liners-and-unit3-home.md`
+  are now historical; that file's Packet A/B sections are superseded.
+- **`overseer-tvko3z`: CLOSED** 2026-07-25. All three supervisor charters are
+  durable via their owning repos' PR discipline (livespec-overseer PR #54,
+  livespec core PR #1717, orchestrator PR #939); the last tmp/ residue
+  (core `tmp/fleet-pin-propagation-supervisor-prompt.md`) was swept after
+  verifying section-by-section that nothing durable was lost — it self-declared
+  as a superseded pointer and its unique content was volatile live-state that the
+  durable copy's `Corrections` records as deliberately left behind. The item's
+  "in core" premise was corrected on the item (unit 3's owning repo is the
+  orchestrator).
 
 ## Rollback — RETIRED 2026-07-25 (maintainer decision)
 
