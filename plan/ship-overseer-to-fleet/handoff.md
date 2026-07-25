@@ -105,10 +105,29 @@ That variable is **set nowhere in this repo** — it appears only in a `justfile
 COMMENT, never in a workflow. So today all 54 TODOs **warn and can never fail
 CI**.
 
-Goal 2's real size: **21 scenario rows need integration-tier-or-above tests**
-(direction 4), and the **remaining 33 rows must each be retired too** — either by
-mapping a real test or by a governed registry co-edit that removes the row — before
-the lever can be armed without reddening CI.
+### Goal 2's real size — the 21 are expensive, the 33 are probably cheap
+
+All 54 rows must leave `TODO` before the lever can be armed, but they are **not
+the same kind of work**, and sizing them as one lump will overestimate goal 2
+badly. Direction 4's docstring is explicit: *"This direction applies ONLY to
+`scenarios.md`; headings in `spec.md`, `contracts.md`, and `constraints.md` MAY
+be exercised by unit-tier tests."*
+
+- **The 21 `scenarios.md` rows — EXPENSIVE.** They require
+  integration-tier-or-above tests. The 225 existing unit-tier beside-tests
+  **cannot** satisfy them, no matter how thorough. This is genuinely new test
+  construction, and it is the part of goal 2 that needs the `tests/e2e` (or
+  `tests/integration`/`consumer`/`prompts`) tree that does not exist yet.
+- **The other 33 rows — PROBABLY CHEAP.** `spec.md` (14), `contracts.md` (8),
+  `constraints.md` (6) and `non-functional-requirements.md` (5) may be exercised
+  by unit-tier tests, and this repo already has **225** of them at 100%
+  statement+branch coverage. Many of these rows can likely be retired by MAPPING
+  an existing test node id into the registry rather than writing anything new.
+  Audit before assuming — some may still have no test — but do not budget them as
+  new construction by default.
+
+The remaining lever-arming options for any row that resists both: a governed
+registry co-edit removing the row, with a recorded reason.
 
 ### Ordering constraint: goal 2 BEFORE goal 3
 
@@ -331,13 +350,26 @@ state.
    **not** manufacture seven slices. Re-run the detector before disposing; the
    set is a pure function of spec text and moves when the spec is revised.
 
-   **Connection to goal 2, worth putting to the groom:** these are spec MUST
-   clauses with no tied work-item; the 54-row registry is spec headings with no
-   tied test. Same underlying condition — the spec is unverified at the top of
-   the pyramid — in two ledgers. Six of the seven sit in `spec.md`, which also
-   holds 14 of the 33 non-scenario registry TODOs. One top-of-pyramid suite
-   could discharge much of both, so doing goal 2 first may retire this as a side
-   effect.
+   **Connection to goal 2 — related, but NOT the same question.** Be precise
+   here, because conflating them mis-sizes both:
+
+   - A **gap** asks *"is this MUST clause IMPLEMENTED?"* Spot-checked
+     `gap-h5sj7scj` (cardinal rule, "the daemon MUST NOT infer readiness"):
+     `supervisor.py` encodes it explicitly (*"`ready` is the SOLE authorization
+     for a restart"*) and 32 of the 225 beside-tests exercise ready/restart,
+     including `test_idle_at_danger_with_no_declaration_is_never_restarted` —
+     the cardinal rule almost verbatim. So this gap's disposition is
+     **"implemented, record it"**, not build work. That is evidence FOR the
+     "don't manufacture seven slices" warning above, not merely a hope.
+   - A **registry row** asks *"is there a test AT THE REQUIRED TIER mapped to
+     this heading?"* For `scenarios.md` rows the answer is no and unit tests
+     cannot help (see §"Goal 2's real size").
+
+   So an implemented-and-unit-tested rule can be a satisfied GAP and still a
+   `TODO` REGISTRY ROW at the same time, with no contradiction. Six of the seven
+   gaps sit in `spec.md`, whose 14 registry rows DO accept unit-tier tests — so
+   for those, one audit pass can plausibly settle both ledgers at once. That
+   convenience does **not** extend to the 21 scenario rows.
 2. **Core epic `livespec-b1uo` and children `.1`–`.5`.** Re-verified first-hand
    2026-07-25 against the CORE tenant: `livespec-b1uo` `backlog`; `.1/.2/.3`
    `backlog`; `.4/.5` `blocked`. The epic STAYS in core per its own do-not-move
