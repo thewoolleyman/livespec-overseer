@@ -808,8 +808,15 @@ def test_dead_supervisor_tmux_name_still_offers_surface_b(tmp_path):
     fake.serve(session, repo, capture=_idle_capture(ctx=73))
     fake.serve(f"{session}-supervisor", repo, capture=_idle_capture(ctx=73), cmd="zsh")
     sup = _sup(tmp_path, fake)
-    view = sup.evaluate(_mapped_track(repo, topic, session), act=True)
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        view = sup.evaluate(_mapped_track(repo, topic, session), act=True)
     assert view.status == "idle-with-context-left"
+    # The status alone proves nothing here: the silent-healthy cell renders the SAME
+    # status. Assert the Surface B ALERT actually fired, or this sabotage check cannot
+    # fail on the very defect it exists to catch (a dead supervisor's leftover tmux
+    # session suppressing Surface B forever).
+    assert f"start tmux session '{session}-supervisor'" in err.getvalue()
+    assert err.getvalue().count("supervisor handoff exists") == 1
 
 
 def test_track_without_live_matching_session_is_silent_about_supervision(tmp_path):
