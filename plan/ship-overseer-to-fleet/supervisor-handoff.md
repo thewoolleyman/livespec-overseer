@@ -92,10 +92,19 @@ originals carried a literal `tail -N`, a bare `load-buffer`, and a
   ```
   (`-S -40` starts 40 lines back in history; do NOT pipe to `tail -N` — `-N` is a
   placeholder, and `tail` rejects it.)
-- **Short instruction:** a single
+- **Short instruction** — send the text, VERIFY, then send Enter SEPARATELY:
   ```sh
-  tmux send-keys -t ship-overseer-to-fleet -- '<one line>' Enter
+  tmux send-keys -t ship-overseer-to-fleet -- '<one line>'
+  tmux capture-pane -p -t ship-overseer-to-fleet -S -10   # confirm it landed
+  tmux send-keys -t ship-overseer-to-fleet Enter          # only after verifying
   ```
+  **Do NOT trust the one-shot `… -- '<one line>' Enter` form.** Measured
+  2026-07-26 against this thread's own worker: the trailing `Enter` argument
+  landed the text in the prompt but did **not** submit it — the instruction sat
+  queued at `❯` until `Enter` was sent as a separate call. The verify-then-Enter
+  discipline the "longer text" bullet already prescribes applies to SHORT
+  instructions too. Assuming otherwise manufactures the exact
+  idle-plus-queued-input state the next bullet warns about.
 - **Longer text** — load from a file, paste into the target pane, VERIFY, then
   send Enter as a separate step:
   ```sh
@@ -152,6 +161,68 @@ exists, ask exactly ONE maintainer-facing blocking question with the
 recommended answer first. Never convert "someone else owns X" into idling or a
 `blocked:` declaration.
 
+### Never end a turn without an armed re-entry
+
+> **ALSO required content for the prompt text `supervise-plan` GENERATES**, for
+> the same reason and under the same `overseer-fitvmo` edge. The section above
+> polices one stall mode; this one polices a DIFFERENT one, and shipping only
+> the first leaves the second fleet-wide. **Added 2026-07-26 after this thread's
+> own supervisor stalled in exactly the way described below.**
+
+The section above stops you *reasoning yourself into standing down*. It does
+nothing about the stall that actually happens more often: dispatching work,
+writing the maintainer a status report, and ending the turn. That reads like
+diligence and is indistinguishable from abandonment.
+
+**The mechanics you must internalize:**
+
+- **The worker is an EXTERNAL tmux session, not a harness-tracked background
+  task. Its completion emits NO notification.** There is no automatic path back
+  to you. If you end a turn with the worker mid-flight and nothing armed,
+  the thread is stopped until a human notices.
+- **A status report to the maintainer is not a work product that can end a
+  turn.** Supervising means the thread MOVED. Narration is not movement.
+- **"I'll keep driving" / "I'll check back" is an INTENTION, not a mechanism.**
+  Never let one end a turn.
+- **The daemon will not cover for you, and the picker is precisely why.** An
+  open `AskUserQuestion` suppresses the daemon's wrap-up injection into that
+  pane (`blocked:human`). The condition that most needs your attention is the
+  one that mutes the only other watcher. Do not model the daemon as a backstop
+  for supervisor inattention — it is structurally incapable of being one.
+
+**The procedure.** Before ending ANY turn while the worker is mid-flight, ARM a
+re-entry. In preference order:
+
+1. **A background pane watcher** — the primary mechanism. Launch it with
+   `run_in_background: true`; it exits when the worker raises a picker or goes
+   idle, and the harness re-invokes you on that exit. This is the SANCTIONED
+   polling case: you did not start the worker via `run_in_background`, so there
+   is no notification to reinvent. It greps captured pane TEXT, never process
+   argv, so it cannot self-match the way a `pgrep -f` wait-loop does.
+   ```sh
+   for _ in $(seq 1 180); do            # ~60 min ceiling, then give up loudly
+     sleep 20
+     pane=$(tmux capture-pane -p -t ship-overseer-to-fleet -S -40)
+     case "$pane" in
+       *"Enter to select"*) echo "WAKE: picker open"; exit 0 ;;
+     esac
+     case "$pane" in
+       *"esc to interrupt"*) ;;         # still working — keep waiting
+       *) echo "WAKE: worker idle"; exit 0 ;;
+     esac
+   done
+   echo "WAKE: watcher ceiling reached — worker still busy, re-arm"
+   ```
+2. **A long `ScheduleWakeup` fallback** (1200s+) in case the watcher dies. It is
+   a backstop, never the primary — do not schedule short polls beside a watcher.
+
+**Acceptance for goal 1.** A generated supervisor-handoff that omits this
+procedure has shipped a stall-prone template fleet-wide. Per `overseer-fitvmo`'s
+own standard, the regression fixture must FAIL on a generated charter that ends
+its supervisor guidance at the conflicting-lane rule — i.e. the fixture has to
+be able to tell the two stall modes apart, or it is another verifier that cannot
+fail.
+
 ## AskUserQuestion presentation rules
 
 One question per turn. Recommended option FIRST, labeled "(Recommended)". Full
@@ -184,8 +255,39 @@ For factory dispatches, additionally:
 ## Corrections
 
 Corrections to THIS supervisor role's own behavior, recorded so successors do
-not repeat them. **This log starts effectively empty — this thread has had no
-supervisor yet.** Append here; do not scatter these.
+not repeat them. Append here; do not scatter these.
+
+**This thread's own supervisor has now made an entry — the log is no longer
+empty.** (It previously read "this thread has had no supervisor yet"; that
+stopped being true on 2026-07-25.)
+
+### First-hand, 2026-07-26
+
+- **Ended a turn with the worker mid-flight and no armed re-entry — the thread
+  stopped until the maintainer intervened.** After dispatching the opening brief
+  I wrote the maintainer a status report closing with "I'll keep driving," and
+  ended the turn. The worker completed BOTH briefed tasks, corrected `handoff.md`
+  via PR #85, assembled the marketplace-hosting evidence, and raised an
+  `AskUserQuestion` carrying a fully prepared decision with a recommendation.
+  It sat unanswered. The maintainer had to say "you stalled AGAIN."
+
+  **What was NOT the cause, so successors do not fix the wrong thing:** the
+  escalation judgement was correct — marketplace hosting is on the rubric's
+  escalate list, and the worker's question was genuinely maintainer-facing and
+  genuinely finished. The rubric worked. What failed is that nothing was ever
+  going to wake the supervisor to notice the question existed.
+
+  Two aggravating details worth naming plainly. First, the brief I had just sent
+  the worker contained the sentence *"Do not leave one open unattended"* about
+  precisely this picker — so the failure was not ignorance of the hazard.
+  Second, `send-keys … Enter` had ALREADY silently failed to submit on this same
+  turn, which I noticed and reported; encountering the queued-input hazard and
+  still not arming a watcher is the tell that reporting had substituted for
+  supervising.
+
+  Fix: §"Never end a turn without an armed re-entry". Treat a turn ending with
+  the worker mid-flight as requiring a mechanism, exactly as the conflicting-lane
+  rule treats a `blocked:` declaration.
 
 Seeded from the predecessor thread's charter —
 `plan/archive/cutover-and-shipping/supervisor-handoff.md` (archived 2026-07-25)
