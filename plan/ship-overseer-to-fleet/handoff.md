@@ -134,21 +134,47 @@ badly. Direction 4's docstring is explicit: *"This direction applies ONLY to
 `scenarios.md`; headings in `spec.md`, `contracts.md`, and `constraints.md` MAY
 be exercised by unit-tier tests."*
 
-The 54 rows fall into **three** buckets, not two. Audited 2026-07-25 against the
-**445** beside-test functions this repo carries:
+The 54 rows fall into **three** buckets, not two — roughly **21 expensive / 22
+cheap / 11 awkward**, though the awkward/cheap line inside `constraints.md` needs
+per-row confirmation. Audited 2026-07-25 against the **445** beside-test
+functions this repo carries:
 
 - **21 `scenarios.md` rows — EXPENSIVE.** They require integration-tier-or-above
   tests. The 445 existing unit-tier tests **cannot** satisfy them, however
   thorough. This is genuinely new construction, and it is the part needing the
   `tests/e2e` (or `integration`/`consumer`/`prompts`) tree that does not exist.
-- **28 `spec.md` / `contracts.md` / `constraints.md` rows — PROBABLY CHEAP.**
-  These accept unit-tier evidence. A keyword audit of all 27 behavioral headings
-  found **candidate tests for every single one**, from 2 (`The restart
-  interlock`, `Language and dependencies`) to 67 (`Supervised runtimes`). Median
-  is around 20. Keyword matching proves candidates EXIST, not that they are apt —
-  so confirm aptness per row — but do **not** budget these as new construction.
-  The likely work is *mapping node ids into the registry*, not writing tests.
-- **5 `non-functional-requirements.md` rows — AWKWARD, and the real snag.**
+- **22 `spec.md` + `contracts.md` rows — CHEAP.** These state POSITIVE,
+  behavioral rules and the suite already pins them. Aptness spot-checked, not
+  just keyword-matched: `The cardinal rule` →
+  `test_restart_fires_only_on_a_declared_ready`; `The restart interlock` → the
+  stamp/mtime/void family (`test_warned_writes_stamp_before_pasting`,
+  `test_stale_marker_voided_when_busy_past_grace`); `Notify, never block` →
+  `test_every_track_alert_names_the_tmux_session_and_pane`; `The escalating
+  wrap-up` → `test_wrapup_message_names_the_one_state_file_and_all_three_values`.
+  Expect *mapping node ids into the registry*, not writing tests.
+- **6 `constraints.md` rows — MIXED, and DO NOT assume cheap.** These mostly
+  express **NEGATIVE architectural properties**, which unit tests do not
+  naturally assert. Measured:
+  - `Language and dependencies` ("no third-party imports anywhere") — **NO test
+    asserts this at all.** NFR §"Constraints" says outright it is *"enforced at
+    review and by the executables' isolated launch mode"*. There is no pytest
+    node to map.
+  - `Determinism boundary` ("holds NO semantic judgment and makes no model
+    calls") and `Filesystem boundaries` ("NEVER reads, writes, or hashes files
+    under any repository's plan tree") — same shape. The nearest evidence for
+    the latter is a **prose substring assertion** in `test_plugin_structure.py`,
+    which is not behavioral.
+  - `Runtime requirements`, `Atomicity and single instance` and `Acting safety`
+    do look genuinely testable and likely map.
+
+  > **This corrects an earlier over-claim in this file.** A keyword probe found
+  > "candidates for every heading", but two of the weakest were **not apt** on
+  > inspection — the `atomic` hits for `The restart interlock` were registry
+  > file-write tests, unrelated to the interlock. The interlock turned out fine
+  > under a better probe; `Language and dependencies` did not. **Confirm aptness
+  > per row before budgeting.** Keyword presence is not evidence.
+- **5 `non-functional-requirements.md` rows — AWKWARD, and the same snag as the
+  negative constraints above.**
   These are `Boundary`, `Spec`, `Contracts`, `Constraints`, `Scenarios`:
   CONTRIBUTOR-facing meta-requirements about how the repo is developed and
   gated, not operator-observable behavior. Their evidence is mostly `just check`
