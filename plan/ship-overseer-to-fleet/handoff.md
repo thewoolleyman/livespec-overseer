@@ -398,13 +398,32 @@ state.
    | `gap-opeyzo5y` | `spec.md` › The escalating wrap-up |
    | `gap-4vy63slp` | `spec.md` › The escalating wrap-up |
 
-   **Read this set correctly before slicing it.** All seven are MUST clauses in
-   the CORE supervision contract, and the daemon already carries 100%
-   statement+branch coverage across all 12 modules, with the cardinal rule and
-   the wrap-up escalation both live-exercised (Stage-4, twice). The LIKELY
-   disposition for most is *"already implemented, recorded as satisfied"* — do
-   **not** manufacture seven slices. Re-run the detector before disposing; the
-   set is a pure function of spec text and moves when the spec is revised.
+   **ALL SEVEN WERE AUDITED 2026-07-25. NONE needs new implementation work.**
+   This is no longer a hypothesis — each was traced to its rule text, its
+   implementing code, and its pinning test:
+
+   | gap | disposition | evidence |
+   |---|---|---|
+   | `gap-pd54ut36` | **SATISFIED (proven)** | "restart MUST resume the SAME runtime" — **sabotage-verified**: re-pointing the codex restart at the claude command turned **3** tests red |
+   | `gap-h5sj7scj` | **SATISFIED** | cardinal rule; `supervisor.py` states *"`ready` is the SOLE authorization"*; 35 ready/restart tests incl. `test_idle_at_danger_with_no_declaration_is_never_restarted` |
+   | `gap-mgjjuo3n` | **SATISFIED** | alert self-sufficiency; pinned by `test_every_track_alert_names_the_tmux_session_and_pane` |
+   | `gap-opeyzo5y` | **SATISFIED** | "MUST escalate rather than repeat"; `test_escalates_one_paste_per_band_as_ctx_drops`, `test_wrapup_escalates_from_suggestion_to_insistence`, plus band-durability tests |
+   | `gap-4vy63slp` | **SATISFIED** | "MUST tell the session concretely"; pinned almost verbatim by `test_wrapup_message_names_the_one_state_file_and_all_three_values` |
+   | `gap-lqxagafn` | **SHALLOW — read the caveat** | supervise-plan's worktree→PR write discipline. `test_supervise_plan_prose_pins_reviewed_target_repo_write_discipline` pins it — but by **substring presence in static prose** |
+   | `gap-jqszyzae` | **NOT A GAP** | it is `constraints.md`'s own PREAMBLE — *"Each one is a boundary the implementation MUST hold, stated without prescribing…"*. A detector artifact on document framing, not an implementable rule |
+
+   **The `gap-lqxagafn` caveat matters beyond this table.** A substring test on
+   prose proves the INSTRUCTION EXISTS; it cannot prove the skill OBEYS it. That
+   is exactly the gap between unit-tier and scenario-tier evidence that direction
+   4 exists to enforce, and exactly what `overseer-fitvmo` demands for the
+   generated prompt text ("tests must FAIL on wording equivalent to…"). Goal 1
+   needs behavioral evidence over GENERATED output, which no static-prose
+   assertion can supply.
+
+   So the disposition for six of seven is *record as satisfied*, and for
+   `gap-jqszyzae` *record as a detector artifact*. **Do not manufacture seven
+   slices.** Re-run the detector before disposing — the set is a pure function of
+   spec text and moves when the spec is revised.
 
    **Connection to goal 2 — related, but NOT the same question.** Be precise
    here, because conflating them mis-sizes both:
