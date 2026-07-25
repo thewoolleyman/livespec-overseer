@@ -332,8 +332,10 @@ state.
    work** (full evidence on `overseer-hbr.2`):
 
    - **`.1`** "move the overseer to the new livespec-overseer repo" — **DONE.**
-     This repo carries the 23-module package and the acting daemon (pid 2954933)
-     runs from it. Close as delivered.
+     This repo carries the full `overseer/` package (12 modules — the 8
+     substantive ones plus `__init__`/`daemon`/`streams`/`version` — all at 100%
+     statement+branch coverage, beside 10 test modules) and the acting daemon
+     (pid 2954933) runs from it. Close as delivered.
    - **`.3`** "decouple the shipped overseer from the fleet manifest (D5)" —
      **DONE, verified at code level.** The shipped path
      (`supervisor.py:2810`/`:2824`) calls only `watch_set_from_config` reading
