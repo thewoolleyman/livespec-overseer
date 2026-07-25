@@ -200,19 +200,27 @@ re-entry. In preference order:
    is no notification to reinvent. It greps captured pane TEXT, never process
    argv, so it cannot self-match the way a `pgrep -f` wait-loop does.
    ```sh
-   for _ in $(seq 1 180); do            # ~60 min ceiling, then give up loudly
+   prev=""; stable=0
+   for i in $(seq 1 180); do            # ~60 min ceiling, then give up loudly
      sleep 20
      pane=$(tmux capture-pane -p -t ship-overseer-to-fleet -S -40)
      case "$pane" in
        *"Enter to select"*) echo "WAKE: picker open"; exit 0 ;;
      esac
-     case "$pane" in
-       *"esc to interrupt"*) ;;         # still working — keep waiting
-       *) echo "WAKE: worker idle"; exit 0 ;;
-     esac
+     if [ "$pane" = "$prev" ]; then stable=$((stable+1)); else stable=0; prev="$pane"; fi
+     if [ "$stable" -ge 3 ]; then echo "WAKE: pane unchanged ~60s — idle"; exit 0; fi
    done
    echo "WAKE: watcher ceiling reached — worker still busy, re-arm"
    ```
+   **Detect busy by pane CHANGE, not by a status string.** An earlier draft of
+   this snippet tested for `"esc to interrupt"`. Measured 2026-07-26: that string
+   is not reliably present — a working Claude pane renders a spinner line like
+   `✻ Inferring… (4s · ↓ 76 tokens)` instead, so the string test reports a busy
+   worker as idle and wakes you into a false alarm every cycle. The spinner's
+   timer ticks every second, so "pane text unchanged across three consecutive
+   20s polls" separates busy from idle without depending on any TUI wording. The
+   picker check stays a string test because `Enter to select` is the picker's own
+   footer and is what you most need to catch fast.
 2. **A long `ScheduleWakeup` fallback** (1200s+) in case the watcher dies. It is
    a backstop, never the primary — do not schedule short polls beside a watcher.
 
