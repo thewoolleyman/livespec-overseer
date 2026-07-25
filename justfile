@@ -746,3 +746,25 @@ check-plan-thread-epic-parity:
 
 check-no-shadow-ledger-body-typechecks:
     uv run python -m livespec_dev_tooling.checks.no_shadow_ledger_body_typechecks
+
+check-no-workflow-edits:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    committed="$(git diff --name-only origin/master...HEAD -- .github/workflows)"
+    local_changes="$(git status --short -- .github/workflows)"
+    if [[ -n "$committed" || -n "$local_changes" ]]; then
+        {
+            echo "Factory branches must not modify .github/workflows/."
+            if [[ -n "$committed" ]]; then
+                echo
+                echo "Committed workflow changes:"
+                echo "$committed"
+            fi
+            if [[ -n "$local_changes" ]]; then
+                echo
+                echo "Local workflow changes:"
+                echo "$local_changes"
+            fi
+        } >&2
+        exit 1
+    fi
