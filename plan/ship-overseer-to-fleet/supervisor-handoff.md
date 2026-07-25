@@ -205,8 +205,14 @@ until that thread archives, then `plan/archive/cutover-and-shipping/supervisor-h
 - **Billing and account choices are the maintainer's alone.** A supervisor never
   selects a spend option on a worker's modal without explicit maintainer
   authorization.
+
+Carried from a DIFFERENT source — the **PR #75 episode**, not the predecessor
+charter (it is not in that file; recorded separately so the provenance is
+honest):
+
 - **A verifier must be able to fail.** Directly relevant to goal 2: a sabotage
   test shipped in this repo that asserted only a status the healthy case ALSO
   produced, so it passed whether or not the behavior held. It was caught by
-  mutation, not review. Before accepting any test as satisfying goal 2, ask what
-  injected defect would make it red — and prefer to see that demonstrated.
+  mutation, not review — see PR #75, *"make the dead-supervisor sabotage check
+  able to fail"* (MERGED). Before accepting any test as satisfying goal 2, ask
+  what injected defect would make it red — and prefer to see that demonstrated.

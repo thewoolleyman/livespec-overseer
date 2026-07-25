@@ -518,8 +518,13 @@ state.
 1. **The 7 untied spec→impl gaps** from the v002 delta. Reproduce with
    `/livespec-orchestrator-beads-fabro:detect-impl-gaps --since-version v001 --json`
    (read-only; never mutates the store). Run first-hand 2026-07-25 — it returns
-   exactly **seven**, and a `bd list --all --json` sweep of all 22 tenant items
-   finds **zero** references to any of them and zero items carrying a `gap_id`:
+   exactly **seven**. **At audit time — BEFORE this thread's own ledger children
+   existed — a `bd list --all --json` sweep of the then-22-item tenant found ZERO
+   references to any gap and zero items carrying a `gap_id`.** That is the
+   condition that motivated filing an anchor. It is deliberately no longer true:
+   **`overseer-hbr.2` is now that anchor** and references all seven, and the
+   tenant has grown past 22. Re-measuring will therefore NOT reproduce "zero
+   references" — check instead that every gap is anchored:
 
    | gap id | location |
    |---|---|
@@ -607,11 +612,12 @@ state.
    `livespec-dev-tooling`. Goal 6 is discharged for this item by naming that
    owner, which this line does. Do not silently re-absorb it.
 4. **`overseer-3wt`'s OWN un-migrated payload — a HARD PRECONDITION on Phase 3.**
-   Tracked as **`overseer-hbr.6`**. The predecessor epic lists five numbered
+   Tracked as **`overseer-hbr.6`**. The predecessor epic lists **SIX** numbered
    items in its description, and the predecessor plan's Phase 3 **closes that
    epic**. Verified 2026-07-25: items 1, 2 and 4 are genuinely done (4's PRs
-   #6/#8/#10 are all closed), but **items 3 and 5 are not, and no goal covers
-   them**:
+   #6/#8/#10 are all closed); **item 6** ("Phase 2 adopter-family shipping per
+   D7/D8/D9") IS covered — it is **goal 6** of this thread, via `overseer-19s`
+   closed as superseded. But **items 3 and 5 are not, and no goal covers them**:
 
    - **Item 3 — "Gate E: arm the Result-railway role keys."** This is a
      **705-finding latent CI failure**, not a config line. `just check` emits 705
