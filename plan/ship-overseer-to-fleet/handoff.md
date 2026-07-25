@@ -368,20 +368,33 @@ consumers as a `livespec-runtime` release, so this breaks **goal 5**'s pin path
 as well as goal 3. Fixing it is goal-5 work that already exists; it is not new
 scope.
 
-**A release lane is ALREADY IN FLIGHT — and the bug above ALREADY FIRED.** There
-are **TWO** open release PRs, both titled `chore(master): release 0.12.0`:
+**A release lane is ALREADY IN FLIGHT — and the bug above ALREADY FIRED.** ONE
+release PR is open, titled `chore(master): release 0.12.0`:
 
 | PR | branch component | state |
 |---|---|---|
-| **#21** | `…--components--livespec-runtime` | CONFLICTING — orphaned debris |
-| **#52** | `…--components--livespec-overseer` | MERGEABLE, green |
+| **#52** | `…--components--livespec-overseer` | **OPEN**, MERGEABLE, green |
+| **#21** | `…--components--livespec-runtime` | **CLOSED** 2026-07-25T20:08:55Z — never merged; branch deleted |
 
 The root cause is a **scaffold copy-paste that was only PARTIALLY fixed**:
 `ceaca74` scaffolded this repo with `package-name: "livespec-runtime"`, and
 `6421590` corrected it — **in `release-please-config.json` only**. PR #21 is the
 artifact release-please opened while the component was still misnamed; #52 is
-its correct successor from the day after the fix. #21 can never merge and should
-be **closed as orphaned**. The repo has **zero** tags and **zero** releases.
+its correct successor from the day after the fix. The repo has **zero** tags and
+**zero** releases.
+
+> **CORRECTION (2026-07-25, re-measured against the forge).** An earlier draft
+> of this section recorded **TWO open** release PRs and recommended that #21 "can
+> never merge and should be **closed as orphaned**". **That recommendation is
+> already DISCHARGED** — do not re-do it. Measured against the forge, not a
+> working tree: `gh pr list --state open` returns **only #52**; `gh pr view 21`
+> reports `state: CLOSED`, `closedAt: 2026-07-25T20:08:55Z`, `mergedAt: null`;
+> and `git fetch --prune` confirms
+> `refs/heads/release-please--branches--master--components--livespec-runtime`
+> is **deleted** on the remote. `overseer-hbr.9` already records the same
+> outcome. Everything else in this section re-verified and still holds: #52 is
+> OPEN and MERGEABLE, and the repo still has zero tags and zero releases
+> (`gh release list` is empty).
 
 The same scaffold residue also survives in two header comments that name the
 wrong repo — `.mise.toml:1` and `lefthook.yml:1`. Cosmetic, but sweep them with
