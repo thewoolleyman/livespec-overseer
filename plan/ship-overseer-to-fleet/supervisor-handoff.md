@@ -24,8 +24,23 @@ and report the exact expected name — do not improvise around a failure.
    only a shell is a FAILURE. Runtime identity comes from exact live process
    evidence, NEVER from a session name — a leftover session named like an agent
    proves nothing. (This is the same rule the daemon's own Surface B enforces.)
+   ```sh
+   pane_pid=$(tmux display-message -p -t ship-overseer-to-fleet '#{pane_pid}')
+   ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
+   # PASS only if a live `claude` or `codex` process appears in that tree.
+   # A lone shell (zsh/bash) with no agent child is a HALT.
+   ```
 4. **Target repo is `/data/projects/livespec-overseer`** and the supervised
    pane's cwd resolves inside it.
+   ```sh
+   pane_cwd=$(tmux display-message -p -t ship-overseer-to-fleet '#{pane_current_path}')
+   case "$(readlink -f "$pane_cwd")" in
+     /data/projects/livespec-overseer|/data/projects/livespec-overseer/*)
+       echo "PASS: $pane_cwd" ;;
+     *) echo "HALT: pane cwd $pane_cwd is outside the target repo" ;;
+   esac
+   # `readlink -f` first — a symlinked path that merely LOOKS contained is a HALT.
+   ```
 
 If the thread has no session yet, that is not a failure — it means the track is
 `unassigned` and the maintainer must start it deliberately. Report that; never
@@ -66,12 +81,31 @@ in nobody's hands. **The failure mode you are guarding against is a premature
 Sessions: `ship-overseer-to-fleet` (worker), `ship-overseer-to-fleet-supervisor`
 (you).
 
-- **Inspect read-only:**
-  `tmux capture-pane -p -t ship-overseer-to-fleet | tail -N`.
+Every command below is COPY-PASTEABLE as written. (They were not always: the
+originals carried a literal `tail -N`, a bare `load-buffer`, and a
+`paste-buffer -t` with no target — all three are hard errors. Corrected
+2026-07-25 after the Codex adversarial review of PR #78 verified they fail.)
+
+- **Inspect read-only** — last 40 lines of the worker pane:
+  ```sh
+  tmux capture-pane -p -t ship-overseer-to-fleet -S -40
+  ```
+  (`-S -40` starts 40 lines back in history; do NOT pipe to `tail -N` — `-N` is a
+  placeholder, and `tail` rejects it.)
 - **Short instruction:** a single
-  `tmux send-keys -t ship-overseer-to-fleet -- '<one line>' Enter`.
-- **Longer text:** `tmux load-buffer` then `paste-buffer -t`, and VERIFY the
-  paste landed (capture the pane) BEFORE pressing Enter.
+  ```sh
+  tmux send-keys -t ship-overseer-to-fleet -- '<one line>' Enter
+  ```
+- **Longer text** — load from a file, paste into the target pane, VERIFY, then
+  send Enter as a separate step:
+  ```sh
+  tmux load-buffer -b sup /tmp/msg.txt          # -b names the buffer; a bare
+                                                # `load-buffer` errors with
+                                                # "too few arguments"
+  tmux paste-buffer -b sup -t ship-overseer-to-fleet   # -t REQUIRES the target
+  tmux capture-pane -p -t ship-overseer-to-fleet -S -20   # confirm it landed
+  tmux send-keys -t ship-overseer-to-fleet Enter          # only after verifying
+  ```
 - **Idle-plus-queued-input means STUCK, not idle.** Check for a modal or an open
   picker before assuming the session is resting.
 - An open `AskUserQuestion` picker also SUPPRESSES the overseer daemon's wrap-up

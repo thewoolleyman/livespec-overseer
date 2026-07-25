@@ -22,18 +22,28 @@ The thread is NOT done until all six hold. Goal 6 is ABSORBED into 1–5, not ru
 beside them.
 
 1. **`supervise-plan` ACTUALLY WORKS FLEET-WIDE** — auto-installed and available
-   in EVERY fleet and adopter session, not just this repo. "Works" includes the
+   in EVERY fleet and adopter session, not just this repo. **"EVERY" means every
+   CLAUDE-harness session: `.livespec.jsonc` declares Codex EXEMPT and
+   `plan/cutover-and-shipping/research/operator-surface.md:27` records that
+   exemption as a settled ruling.** Goal 1 does NOT silently reopen Codex scope;
+   doing so needs an explicit superseding maintainer decision. "Works" includes the
    PROMPT TEXT it generates: `overseer-fitvmo` (a CHILD of `overseer-hbr`) carries
    required anti-stall guidance for the generated supervisor-handoff — see
    §"Prompt-text guidance goal 1 must incorporate".
 2. **TOP-OF-PYRAMID e2e TESTS EXIST FOR ALL SCENARIOS** in
    `SPECIFICATION/scenarios.md`, **and** the rule that they must exist is present
-   AND **enforced**.
-3. **The plugin is AUTO-RELEASED** like the other fleet plugins.
+   AND **enforced**. Arming that rule retires **the whole 54-entry
+   `tests/heading-coverage.json` registry**, not just the 21 scenario rows — see
+   §"Goal 2" for why the gate is registry-wide.
+3. **The plugin is AUTO-RELEASED** like the other fleet plugins. **Goal 3 is
+   ordered AFTER goal 2** — releasing arms goal 2's gate. See §"Ordering
+   constraint: goal 2 BEFORE goal 3".
 4. **The plugin is AUTO-INSTALLED** for the other fleet AND adopter members.
 5. **The release pin is AUTO-BUMPED** for consumers.
 6. **Phase-2 adopter-family shipping FOLDS INTO the above** — see
-   `research/phase-2-adopter-shipping.md` beside this file.
+   `research/phase-2-adopter-shipping.md` beside this file. Goal 6 also carries
+   the **residue-disposition conditions** in §"Goal 6 completion conditions",
+   which exist so this thread cannot repeat the predecessor's burial failure.
 
 ## Ground truth — measured 2026-07-25 against origin/master
 
@@ -67,17 +77,56 @@ demonstrated in a session that is not this repo's.**
   beside-tests under `overseer/` (`test_supervisor.py`, `test_signals.py`, …).
   There is no `tests/e2e`, `tests/integration`, `tests/consumer`, or
   `tests/prompts` tree.
-- All **21/21** scenario entries in `tests/heading-coverage.json` are
-  `test: "TODO"`.
+- `tests/heading-coverage.json` holds **54 entries, and ALL 54 are
+  `test: "TODO"`** — 21 from `scenarios.md`, 14 `spec.md`, 8 `contracts.md`,
+  6 `constraints.md`, 5 `non-functional-requirements.md`.
 
-**The "and enforced" clause is the subtle half.** The fleet RULE does exist here:
-`just check` wires `check-heading-coverage`, whose direction 4 requires a
-`scenarios.md` entry to map to an integration-tier-or-above test. But it accepts
-`test: "TODO"` plus a tier-acknowledging reason as compliant — which is exactly
-what all 21 entries are. The companion gate `check-no-todo-registry` is
-severity-levered by `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST`, and **that
-variable is set nowhere in this repo** — it appears only in a `justfile` COMMENT,
-never in a workflow. So today the 21 TODOs **warn and can never fail CI**.
+> **CORRECTION (2026-07-25, Codex adversarial review of PR #78).** An earlier
+> draft of this file said "all **21/21** scenario entries". That number is the
+> `scenarios.md` SUBSET, not the registry. Scoping goal 2 to 21 rows understated
+> the arming debt by **33 entries**. The measurement below is the corrected one:
+> `jq 'group_by(.spec_file)' tests/heading-coverage.json`.
+
+**The "and enforced" clause is the subtle half, and it is registry-wide.** Two
+DIFFERENT gates are in play, and conflating them is what produced the 21-vs-54
+error:
+
+- `check-heading-coverage` **direction 4** (the tier rule) applies **ONLY to
+  `scenarios.md`** — it requires a scenario entry to map to an
+  integration-tier-or-above test. It accepts `test: "TODO"` plus a
+  tier-acknowledging reason as compliant, which is exactly what those 21 rows are.
+- `check-no-todo-registry` (`livespec_dev_tooling/checks/no_todo_registry.py`) is
+  the gate the severity lever `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST`
+  controls, and it is **NOT scoped by `spec_file`**. Read the source: it walks the
+  entire array and flags *every* entry whose `test == "TODO"`. Arming the lever
+  therefore fails on **all 54**, not 21.
+
+That variable is **set nowhere in this repo** — it appears only in a `justfile`
+COMMENT, never in a workflow. So today all 54 TODOs **warn and can never fail
+CI**.
+
+Goal 2's real size: **21 scenario rows need integration-tier-or-above tests**
+(direction 4), and the **remaining 33 rows must each be retired too** — either by
+mapping a real test or by a governed registry co-edit that removes the row — before
+the lever can be armed without reddening CI.
+
+### Ordering constraint: goal 2 BEFORE goal 3
+
+**This is a hard dependency, not a preference.** `no_todo_registry.py` documents
+that CI sets `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST=true` **for the
+release context**. So goal 3 (auto-release) is precisely what ARMS goal 2's gate.
+
+Wiring auto-release while any of the 54 TODOs remain means **the first release
+run fails CI on all outstanding rows**. Sequence accordingly:
+
+1. Retire the registry TODOs (goal 2) — or land the release wiring with the lever
+   demonstrably not yet set in the release job, and arm it as the LAST step of
+   goal 2.
+2. Then wire auto-release (goal 3), and confirm the first release run is green.
+
+An earlier draft of this file called goal 2 "largely independent, can run in
+parallel" with 3/4/5. **That was wrong** — 2 and 3 are coupled through this lever.
+The groom must treat 2→3 as an ordering edge.
 
 This repo also does **not** declare `scenario_tiers` in `pyproject.toml`, so the
 documented defaults apply (`tests.e2e`, `tests.integration`, `tests.consumer`,
@@ -94,10 +143,40 @@ rule is enforced rather than merely documented.
 already versions the PACKAGE — the daemon render header shows `0.11.0`, wired by
 `overseer-vlu5cd`. What is missing is the **plugin** half: it is not wired into
 the fleet marketplace / auto-install / auto-bump path the other plugins use.
+`.claude-plugin/plugin.json` still reads version **`0.1.0`** against the package's
+`0.11.0`, because `plugin.json` is absent from release-please's `extra-files`.
+
+**`release-dispatch.yml` announces this repo under the WRONG NAME.** Line 27 says:
+
+```yaml
+source_repo: livespec-runtime
+```
+
+Every peer names ITSELF (`livespec`, `livespec-dev-tooling`,
+`livespec-driver-claude`, `livespec-orchestrator-beads-fabro`,
+`livespec-runtime` all self-name); `livespec-overseer` is the **sole mismatch** —
+an uncorrected copy-paste. A published overseer release would be announced to
+consumers as a `livespec-runtime` release, so this breaks **goal 5**'s pin path
+as well as goal 3. Fixing it is goal-5 work that already exists; it is not new
+scope.
+
+**A release lane is ALREADY IN FLIGHT.** PR **#52** — `chore(master): release
+0.12.0` — is **OPEN and MERGEABLE**, green, and versions the package manifest
+only (it does not touch `.claude-plugin/plugin.json`). The repo currently has
+**zero** git tags and **zero** GitHub releases.
+
+> **CORRECTION (2026-07-25, Codex adversarial review of PR #78).** The
+> §"NEXT ACTION" claim "Nothing is started. Nothing is in flight." is FALSE as
+> written — PR #52 is in flight. The accurate statement is that **no successor
+> slice** has started. See that section.
 
 ## NEXT ACTION — groom the six goals into slices
 
-**Nothing is started. Nothing is in flight.**
+**No successor SLICE has started.** That is not the same as "nothing is in
+flight": release PR **#52** (`chore(master): release 0.12.0`) is open and
+mergeable right now — see §"Goals 3 + 5". Check it before grooming goal 3, and
+decide deliberately whether it merges before or after the `source_repo` fix,
+since merging it as-is publishes under the wrong `source_repo`.
 
 1. **GROOM** the six goals into dependency-layered, buildable slices under
    `overseer-hbr`, via `/livespec-orchestrator-beads-fabro:groom` — a read-only
@@ -106,12 +185,19 @@ the fleet marketplace / auto-install / auto-bump path the other plugins use.
 2. **Then build** through the normal machinery (`drive --action approve:<id>`
    then `impl:<id>` for factory-tier work).
 
-Likely ordering constraint worth putting to the maintainer during the groom:
-goals 3 → 4 → 1 are plausibly a chain (a plugin must be releasable before it can
-be auto-installed, and auto-install is what makes `supervise-plan` actually
-available), while goal 2 is largely independent and can run in parallel. Goal 5
-follows 3. Do not treat that as the cut — it is a starting hypothesis for the
-maintainer to accept or replace.
+Ordering for the groom. One edge is a MEASURED HARD CONSTRAINT, the rest is
+hypothesis:
+
+- **HARD — `2 → 3`.** Auto-release arms `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST`
+  in the release context, which fails on all 54 registry TODOs. See
+  §"Ordering constraint: goal 2 BEFORE goal 3". This one is not the maintainer's
+  to accept or replace — it falls out of `no_todo_registry.py`'s source.
+- **Hypothesis — `3 → 4 → 1`** (a plugin must be releasable before it can be
+  auto-installed, and auto-install is what makes `supervise-plan` actually
+  available), with **5 following 3**. Starting hypothesis only; the maintainer
+  owns this cut.
+
+Goal 2 is **NOT** independent and must not be planned as a parallel lane.
 
 `research/phase-2-adopter-shipping.md` is a **DRAFT SHAPE**, not a slice list —
 its own text reserves every cut to the maintainer. It carries three open
@@ -192,12 +278,46 @@ Convenient reference: this thread's own `supervisor-handoff.md` already implemen
 the procedure (its §"No idle, no silent block"), so it doubles as candidate
 wording for the generated template.
 
+## Goal 6 completion conditions — the residue this thread must DISPOSE OF
+
+> **ADDED 2026-07-25 (Codex adversarial review of PR #78 — BLOCKER finding).**
+> The six goals as originally written covered the predecessor's "What it did NOT
+> do" section cleanly, but did **not** cover the residue the predecessor
+> acknowledged as "tracked elsewhere". "Elsewhere" had no anchor — which is
+> exactly the burial this thread was created to prevent. These items are now
+> completion conditions of goal 6.
+
+**A disposition is not the same as implementation work.** Each item below is
+discharged by a DURABLE, recorded decision — proving a gap is already
+implemented, or a child unnecessary, is a perfectly good disposition. What is
+NOT acceptable is leaving any of them in an unanchored "tracked elsewhere"
+state.
+
+1. **The 7 untied spec→impl gaps** from the v002 delta. Reproduce with
+   `/livespec-orchestrator-beads-fabro:detect-impl-gaps --since-version v001 --json`
+   (read-only; never mutates the store). As measured 2026-07-25, it returns
+   **seven** gap IDs and a wrapped `bd list --all --json` finds **zero**
+   work-items tied to any of them. Each gap needs a durable disposition: a filed
+   work-item under `overseer-hbr`, or a recorded finding that the spec text is
+   already satisfied. Re-run the detector before disposing — the set moves with
+   the spec.
+2. **Core epic `livespec-b1uo` and children `.1`–`.5`.** Measured 2026-07-25:
+   `livespec-b1uo` is `backlog`; `.1/.2/.3` `backlog`; `.4/.5` `blocked`. The
+   epic itself STAYS in the livespec core tenant per its own do-not-move ruling —
+   disposition here means recording the outcome, not migrating the items. Note
+   `operator-surface.md:27` already rules `.4/.5` **unnecessary**; that ruling
+   needs to be reflected in the core tenant rather than left implicit.
+3. **`check-no-workflow-edits` copy-drift** across the 4 carrying fleet repos.
+   Single-sourcing into `livespec-dev-tooling` is dev-tooling's call, **not this
+   thread's** — so this is EXPLICITLY OUT OF SCOPE here, owned by
+   `livespec-dev-tooling`. Goal 6 is discharged for this item by naming that
+   owner, which this line does. Do not silently re-absorb it.
+
 ## Also open, tracked elsewhere
 
-- **7 untied spec→impl gaps** from the v002 delta
-  (`detect-impl-gaps --since-version v001`), no work-item tied to any.
-- **`check-no-workflow-edits` copy-drift** across the 4 carrying fleet repos —
-  single-sourcing into `livespec-dev-tooling` is dev-tooling's call.
+Everything formerly listed here is now a goal-6 completion condition above — the
+section is kept only so a reader arriving from the predecessor thread's wording
+lands somewhere real instead of on a removed heading.
 
 ## Operational map
 

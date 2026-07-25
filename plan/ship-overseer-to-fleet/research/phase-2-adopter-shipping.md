@@ -3,11 +3,30 @@
 **Status: DRAFT for maintainer review** — the thread's eventual payload,
 drafted 2026-07-23 while the entry-points slice ran in the factory. Grounded
 in the recorded decisions (D5/D7/D8/D9 on core epic `livespec-b1uo`, read
-back from the core tenant before drafting) and the operator-surface decision
-(`operator-surface.md` beside this note). Nothing here is filed to the
-ledger yet — the runway (slices `overseer-m5dtmj` → `overseer-tn3hmi` →
-`overseer-5aaeyd`, plus `overseer-vlu5cd`) lands first, and the maintainer
-owns every cut below.
+back from the core tenant before drafting) and the operator-surface decision.
+
+> **CORRECTED 2026-07-25 (Codex adversarial review of PR #78).** Two claims in
+> the original header were stale the moment this file was `git mv`d here:
+>
+> - **`operator-surface.md` is NOT beside this note.** It stayed in the
+>   predecessor thread and is at
+>   `plan/cutover-and-shipping/research/operator-surface.md`, becoming
+>   `plan/archive/cutover-and-shipping/research/operator-surface.md` once that
+>   thread archives. Whether to `git mv` it here too is a maintainer call — it
+>   carries a LIVE ruling (below), so archiving it is arguably wrong, but moving
+>   it also re-points a reference in the predecessor handoff. Not moved
+>   unilaterally.
+> - **The "runway lands first" premise is spent.** All four named slices —
+>   `overseer-m5dtmj`, `overseer-tn3hmi`, `overseer-5aaeyd`, `overseer-vlu5cd` —
+>   are **CLOSED**. Nothing gates this draft behind them any more.
+>
+> **The live ruling this file depends on:** `operator-surface.md:27` records
+> "**Codex stays exempt**" per `.livespec.jsonc`, and that `livespec-b1uo.4/.5`
+> are unnecessary. `.livespec.jsonc` still declares the exemption. Reopening
+> Codex scope requires an explicit SUPERSEDING maintainer decision — it is not
+> reopened by goal 1's word "EVERY".
+
+Nothing here is filed to the ledger yet, and the maintainer owns every cut below.
 
 ## What "adopter family" means
 
