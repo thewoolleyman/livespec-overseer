@@ -9,7 +9,68 @@ here. The epic's COMMENTS carry the thread's evidence journal (Stage-4
 proofs, acceptance bases, cut routing) — read them alongside this file. The
 CORE-tenant epic `livespec-b1uo` stays in core per its do-not-move ruling.
 
-## Where the thread stands — 2026-07-24, after the proving day
+## Where the thread stands — 2026-07-25, after the ratify→build→restart run
+
+**The whole cold-open chain below is DONE.** In order, with evidence:
+
+1. **Build verified NOT stale** — `resolve_template.py` exit 0 on the pinned
+   build `ba62d8fdd609`. The exit-78 failure that forced the restart did not
+   recur.
+2. **BOTH proposals RATIFIED** — `SPECIFICATION/history/v002/` cut (PR #73).
+   doctor-static 21/21, `just check` 60/60. `proposed_changes/` is drained to
+   its README.
+3. **`overseer-6uobos` SHIPPED** — Surface A+B (PR #74 factory, PR #75 review
+   fix). Work-item closed `resolution:completed`.
+4. **ACTING DAEMON RESTARTED** — new pid, single instance, watch-set intact,
+   header now carries `0.11.0`, and `overseer-2boaoy`'s append is live-exercised.
+
+### What the restart proved (2026-07-25T06:57Z)
+
+- **`overseer-2boaoy` live-exercise COMPLETE.** Mechanically, not by eyeball:
+  the daemon's stderr fd2 flags went `0100001` (`O_WRONLY|O_LARGEFILE`, **no**
+  `O_APPEND` — the old `2>` truncate) → `0102001` (`O_APPEND` set), and the 80
+  pre-restart log lines are **byte-identical** with new lines appended below.
+  This item's last open thread is closed.
+- **`overseer-6uobos` live-exercised on the first post-restart tick**, all three
+  classes at once: `02-parameter-store-bootstrap` (homelab) hit the **fourth
+  truth-table cell** — live supervisor session + NO `supervisor-handoff.md`,
+  both verified directly — and correctly surfaced the **capture offer** rather
+  than silent-healthy. That is precisely the track the maintainer's 2026-07-24
+  decision existed to stop exempting. `worktree-location-enforcement` fired
+  plain Surface A; `console-happy-path-mvp` stayed `blocked:human`, proving the
+  supervision surfaces sit BELOW the NEEDS-YOU classes.
+
+### Two baseline corrections — do NOT re-trip on these
+
+- **Tracks are 24, not 25.** The count had already drifted to 24 *before* any
+  restart; post-restart is also 24. The older "25" is stale.
+- **`livespec-runtime` legitimately contributes 0 tracks.** Its `plan/` holds
+  ONLY `archive/`, and discovery excludes archived plans. A naive "has a `plan/`
+  dir ⇒ must have rows" check **false-alarms** here — it is NOT a shrunk
+  watch-set. Verify per-repo counts against *unarchived* plan dirs.
+
+### Method note for the next daemon restart
+
+`overseer-start` could NOT have done this, for two independent reasons, both
+verified in the code:
+
+- It is **idempotent** — `window_pane_titles(pane)` finds the existing
+  `overseer-daemon` pane and logs "leaving it", so it never relaunches and
+  therefore cannot load new code.
+- It splits its **own** `$TMUX_PANE`'s window. The planning session lives in
+  `cutover-and-shipping:1.1`, NOT the overseer window, so running it there would
+  have spawned a SECOND daemon in the wrong session — the forbidden double-launch.
+
+The working method is the one `overseer/AGENTS.md` sanctions ("kill the daemon
+pane and relaunch"): an atomic
+`tmux respawn-pane -k -t livespec-overseer:1.1 -c <repo> '.venv/bin/overseerd 2>> tmp/overseer/daemon.log'`.
+Note **bare `overseerd` is NOT on the login-shell PATH on this host** (that is
+why the acting daemon ran a script path), so `daemon_command()`'s bare
+`overseerd` would fail in a pane shell — use `.venv/bin/overseerd`, which is an
+editable-install console script resolving to the source tree, so it runs latest
+master. Keep the `2>>`.
+
+## Prehistory — 2026-07-24, after the proving day
 
 - **The cutover is PROVEN.** This repo's daemon is the acting fleet
   supervisor and both Stage-4 legs are observed: the declare-ready →
@@ -53,62 +114,29 @@ CORE-tenant epic `livespec-b1uo` stays in core per its do-not-move ruling.
   argv via an ALL-container scan, `exit 137` is ambiguous, outcomes from
   artifacts never exit codes, timestamps via `date -u`.
 
-## NEXT ACTION (cold-open: execute this from this file alone)
+## NEXT ACTION
 
-This session was restarted by the acting daemon SPECIFICALLY to load the
-pinned livespec plugin build `ba62d8fdd609` (livespec v0.20.2); the prior
-process had resolved the stale build `f93ca440b0de` at startup, which made
-`/livespec:revise` refuse with `resolve_template.py` exit 78. Do the steps
-in order:
+**Nothing on the automatic lane.** The four-step cold-open chain (verify build →
+ratify both → build `overseer-6uobos` → restart the acting daemon) is COMPLETE;
+see "Where the thread stands" above for the evidence. The acting daemon is
+healthy on latest master at `0.11.0`.
 
-1. **VERIFY THE BUILD FIRST — do not ratify on the stale build.** Resolve
-   livespec core root by reading THIS project's entry in
-   `~/.claude/plugins/installed_plugins.json` (match
-   `projectPath == /data/projects/livespec-overseer` — NOT `entries[0]`,
-   which is a different project) and run
-   `python3 <core-root>/scripts/bin/resolve_template.py --template livespec`.
-   It MUST exit `0` and print a template path. If it still reports build
-   `f93ca440b0de` / exits 78 after this fresh restart, HALT and report — that
-   is a genuine harness resolution bug to escalate, not to force around.
+What remains is all maintainer-lane (next section) plus two follow-ups a future
+session MAY pick up:
 
-2. **RATIFY BOTH PROPOSALS.** Run `/livespec:revise` and accept BOTH pending
-   proposals in `SPECIFICATION/proposed_changes/`:
-   `non-interference-attended-skill-carveout.md` (attended-skill carve-out)
-   and `supervision-existence-probe-allowance.md` (existence-only discovery
-   allowance). The §Non-interference reconciliation repair merged as **PR #70**
-   and the INDEPENDENT re-review returned **NO BLOCKERS** on the repaired
-   pair — do NOT re-review again unless `/livespec:revise` itself demands it.
-   Both proposals edit `spec.md §Non-interference` with disjoint,
-   collision-free anchors; the probe proposal also adds one `scenarios.md`
-   scenario requiring a `tests/heading-coverage.json` co-edit. This cuts
-   `SPECIFICATION/history/v002/`.
-
-3. **BUILD `overseer-6uobos` (Surface A+B).** Preconditions both clear once
-   step 2 lands: the existence-probe allowance is ratified, and the fourth
-   truth-table cell was DECIDED 2026-07-24 (Surface A as a capture-offer,
-   recorded on epic `overseer-3wt`). Per design §11.4 (read it at core
-   `plan/archive/plan-skill-supervisor-handoff/design.md:437`): liveness-gated;
-   two messages (A: live session + no `supervisor-handoff.md`; B: live
-   session + file present + NO supervisor running); edge-triggered per
-   episode (reuse the `overseer-4dr` machinery); Surface B proves "running"
-   from live process evidence, never a session name. Item is factory-tier:
-   `drive --action approve:overseer-6uobos` then
-   `drive --action impl:overseer-6uobos` under `overseer-3wt`.
-
-4. **ITEM (5) — RESTART THE ACTING DAEMON** (maintainer-decided RESTART NOW,
-   brief 17/18). LAST, high-stakes live fleet op. Pre-baseline captured
-   (verify POST-restart against it): **12-repo watch-set** (see
-   `~/.livespec-overseer-repos.json`), **single daemon** (a NEW pid, still
-   exactly one), **25 tracks discovered**, header renders
-   `overseer — <iso> — N track(s) - 0.11.0`. Sequence: (a) post a heads-up
-   to the coordination log (`date -u`); (b) stop the acting daemon cleanly
-   and relaunch from this repo on latest master via `overseer-start` (two-pane,
-   real `$HOME` watch-set) — no `kill-server`, no double-launch (confirm old
-   pid gone first); (c) verify each: new daemon healthy + single instance,
-   watch-set INTACT (a shrunk set or a second instance = HALT and report),
-   header `0.11.0`, and 2boaoy's live-exercise (the new daemon's log APPENDS,
-   prior content intact); (d) post a done line. HALT on any anomaly — a
-   broken acting daemon is worse than a delayed restart.
+1. **7 untied spec→impl gaps.** `detect-impl-gaps --since-version v001` returns 7
+   gap-ids from the v002 delta, and NO work-item is gap-tied to any of them. The
+   revise post-step `capture-impl-gaps` was deliberately NOT run to filing: it
+   would have filed 7 auto-derived items across the maintainer's groomed queue
+   without consent. Re-run it if the maintainer wants them tracked.
+2. **`check-no-workflow-edits` copy-drift.** `overseer-6uobos`'s factory run hit
+   the known `bd-ib-d6ds` blocker (the default janitor requires this recipe;
+   it was missing in 4 of 8 fleet repos, this one included) and landed the recipe
+   inline — the same authorized remedy rop-sweep used for its 4 mirrors. But each
+   carrying repo now hand-rolls its OWN variant (driver-claude two-dot,
+   dev-tooling explicit merge-base, this one three-dot plus an uncommitted-edit
+   check). Same copy-drift class already recorded for `export-ci-telemetry.sh`;
+   whether to single-source it into livespec-dev-tooling is dev-tooling's call.
 
 ### Prepped, maintainer-lane, DO NOT self-start
 
