@@ -741,6 +741,178 @@ def test_nudge_marker_is_not_an_attention_status():
     assert supervisor.needs_attention(view) is False
 
 
+def test_live_track_without_supervisor_handoff_offers_supervise_plan_once(tmp_path):
+    """Surface A: a live matching session with no durable supervisor prompt is surfaced
+    once, not re-alerted every tick."""
+    repo, topic = _make_plan(tmp_path)
+    session = registry.tmux_id(str(repo), topic)
+    fake = FakeTmux()
+    fake.serve(session, repo, capture=_idle_capture(ctx=73))
+    sup = _sup(tmp_path, fake)
+    track = _mapped_track(repo, topic, session)
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        first = sup.evaluate(track, act=True)
+        second = sup.evaluate(track, act=True)
+    assert first.status == "idle-with-context-left"
+    assert second.status == "idle-with-context-left"
+    assert "run /livespec-overseer:supervise-plan" in err.getvalue()
+    assert err.getvalue().count("run /livespec-overseer:supervise-plan") == 1
+
+
+def test_running_supervisor_without_handoff_offers_capture_once(tmp_path):
+    """Fourth truth-table cell: supervision is live but lacks a durable prompt, so the
+    operator gets a capture offer, not silence."""
+    repo, topic = _make_plan(tmp_path)
+    session = registry.tmux_id(str(repo), topic)
+    supervisor_session = f"{session}-supervisor"
+    fake = FakeTmux()
+    fake.serve(session, repo, capture=_idle_capture(ctx=73))
+    fake.serve(supervisor_session, repo, capture=_idle_capture(ctx=73), cmd="node")
+    sup = _sup(tmp_path, fake)
+    track = _mapped_track(repo, topic, session)
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        first = sup.evaluate(track, act=True)
+        second = sup.evaluate(track, act=True)
+    assert first.status == "idle-with-context-left"
+    assert second.status == "idle-with-context-left"
+    assert "supervision is running but has no durable prompt" in err.getvalue()
+    assert err.getvalue().count("supervision is running but has no durable prompt") == 1
+
+
+def test_handoff_without_running_supervisor_offers_start_once(tmp_path):
+    """Surface B: a durable supervisor prompt exists, but no live supervisor process is
+    running, so the operator is offered the start action once."""
+    repo, topic = _make_plan(tmp_path)
+    (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
+    session = registry.tmux_id(str(repo), topic)
+    fake = FakeTmux()
+    fake.serve(session, repo, capture=_idle_capture(ctx=73))
+    sup = _sup(tmp_path, fake)
+    track = _mapped_track(repo, topic, session)
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        first = sup.evaluate(track, act=True)
+        second = sup.evaluate(track, act=True)
+    assert first.status == "idle-with-context-left"
+    assert second.status == "idle-with-context-left"
+    assert f"start tmux session '{session}-supervisor'" in err.getvalue()
+    assert err.getvalue().count("supervisor handoff exists") == 1
+
+
+def test_dead_supervisor_tmux_name_still_offers_surface_b(tmp_path):
+    """A tmux session named like a supervisor is insufficient; Surface B still fires
+    unless live process evidence proves a supervisor is running."""
+    repo, topic = _make_plan(tmp_path)
+    (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
+    session = registry.tmux_id(str(repo), topic)
+    fake = FakeTmux()
+    fake.serve(session, repo, capture=_idle_capture(ctx=73))
+    fake.serve(f"{session}-supervisor", repo, capture=_idle_capture(ctx=73), cmd="zsh")
+    sup = _sup(tmp_path, fake)
+    view = sup.evaluate(_mapped_track(repo, topic, session), act=True)
+    assert view.status == "idle-with-context-left"
+
+
+def test_track_without_live_matching_session_is_silent_about_supervision(tmp_path):
+    """The supervision-artifact probe is liveness-gated: no live matching session means
+    no Surface A or B alert even when the file exists."""
+    repo, topic = _make_plan(tmp_path)
+    (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
+    fake = FakeTmux()
+    sup = _sup(tmp_path, fake)
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        view = sup.evaluate(
+            _mapped_track(repo, topic, registry.tmux_id(str(repo), topic)), act=True
+        )
+    assert view.status == "session-gone"
+    assert "supervisor" not in err.getvalue()
+
+
+def test_supervision_surfaces_do_not_preempt_blocked_or_danger(tmp_path):
+    """The offer surfaces sit below existing NEEDS-YOU classes in the precedence
+    cascade: blocked and danger keep their established statuses and alerts."""
+    repo, topic = _make_plan(tmp_path)
+    session = registry.tmux_id(str(repo), topic)
+    fake = FakeTmux()
+    fake.serve(session, repo, capture=_idle_capture(ctx=73))
+    _declare(repo, topic, "blocked: needs a decision")
+    sup = _sup(tmp_path, fake)
+    blocked = sup.evaluate(_mapped_track(repo, topic, session), act=True)
+    assert blocked.status == "blocked:human"
+
+    other_repo, other_topic = _make_plan(tmp_path, repo_name="other", topic="other")
+    other_session = registry.tmux_id(str(other_repo), other_topic)
+    fake.serve(other_session, other_repo, capture=_idle_capture(ctx=15))
+    danger = sup.evaluate(_mapped_track(other_repo, other_topic, other_session), act=True)
+    assert danger.status == "danger"
+
+
+def test_handoff_and_running_supervisor_is_silent_healthy_cell(tmp_path):
+    """When both the durable handoff and live supervisor exist, the supervision truth
+    table is healthy and falls through to the ordinary idle classification."""
+    repo, topic = _make_plan(tmp_path)
+    (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
+    session = registry.tmux_id(str(repo), topic)
+    supervisor_session = f"{session}-supervisor"
+    fake = FakeTmux()
+    fake.serve(session, repo, capture=_idle_capture(ctx=73))
+    fake.serve(supervisor_session, repo, capture=_idle_capture(ctx=73), cmd="node")
+    sup = _sup(tmp_path, fake)
+    track = _mapped_track(repo, topic, session)
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        view = sup.evaluate(track, act=True)
+        listed = sup.evaluate(track, act=False)
+    assert view.status == "idle-with-context-left"
+    assert listed.status == "idle-with-context-left"
+    assert "supervisor" not in err.getvalue()
+
+
+def test_supervisor_session_without_a_pane_is_not_running(tmp_path):
+    """A tmux session that cannot resolve to a pane is not live process evidence."""
+
+    class NoSupervisorPaneTmux(FakeTmux):
+        def pane_id(self, session):
+            if session.endswith("-supervisor"):
+                self.calls.append(("pane_id", session))
+                return None
+            return super().pane_id(session)
+
+    repo, topic = _make_plan(tmp_path)
+    (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
+    session = registry.tmux_id(str(repo), topic)
+    fake = NoSupervisorPaneTmux()
+    fake.serve(session, repo, capture=_idle_capture(ctx=73))
+    fake.sessions.add(f"{session}-supervisor")
+    sup = _sup(tmp_path, fake)
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        view = sup.evaluate(_mapped_track(repo, topic, session), act=True)
+    assert view.status == "idle-with-context-left"
+    assert "supervisor handoff exists" in err.getvalue()
+
+
+def test_codex_supervisor_process_counts_as_running(tmp_path):
+    """A Codex supervisor is running only when pane evidence and live rollout evidence
+    agree on the supervisor tmux session and repository."""
+    repo, topic = _make_plan(tmp_path)
+    session = registry.tmux_id(str(repo), topic)
+    supervisor_session = f"{session}-supervisor"
+    fake = FakeTmux()
+    fake.serve(session, repo, capture=_idle_capture(ctx=73))
+    fake.serve(supervisor_session, repo, capture=_codex_idle_capture(ctx=73), cmd="bun")
+    sup = _sup(tmp_path, fake)
+    sup._codex = {
+        (supervisor_session, f"{topic}-supervisor"): codex_sessions.CodexSession(
+            pid=123,
+            name=f"{topic}-supervisor",
+            cwd=str(repo),
+            session_id="00000000-0000-0000-0000-000000000000",
+        )
+    }
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        view = sup.evaluate(_mapped_track(repo, topic, session), act=True)
+    assert view.status == "idle-with-context-left"
+    assert "supervision is running but has no durable prompt" in err.getvalue()
+
+
 # A phrase from the SHARED wrap-up body, so it matches BOTH tones (the gentle
 # suggestion at 50/40 and the insistent shutdown demand at 30/20/10).
 _WRAPUP_SENTINEL = "Declare your state by writing ONE line"
@@ -3099,6 +3271,8 @@ def test_alert_re_arms_after_the_track_recovers(tmp_path):
     # healthy — `idle-with-context-left` (idle with room, so nudged to keep going). It is
     # NOT an attention status, so the edge-triggered alert still re-arms.
     fake.serve(session, repo, capture=_idle_capture(ctx=90))
+    (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
+    fake.serve(f"{session}-supervisor", repo, capture=_idle_capture(ctx=90), cmd="node")
     sup = _sup(tmp_path, fake)
     track = _mapped_track(repo, topic, session)
 
