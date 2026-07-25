@@ -24,8 +24,10 @@ beside them.
 1. **`supervise-plan` ACTUALLY WORKS FLEET-WIDE** — auto-installed and available
    in EVERY fleet and adopter session, not just this repo. **"EVERY" means every
    CLAUDE-harness session: `.livespec.jsonc` declares Codex EXEMPT and
-   `plan/cutover-and-shipping/research/operator-surface.md:27` records that
-   exemption as a settled ruling.** Goal 1 does NOT silently reopen Codex scope;
+   `research/operator-surface.md:27` records that exemption as a settled ruling
+   — that file is at `plan/cutover-and-shipping/research/` until the predecessor
+   archives, then `plan/archive/cutover-and-shipping/research/`.** Goal 1 does
+   NOT silently reopen Codex scope;
    doing so needs an explicit superseding maintainer decision. "Works" includes the
    PROMPT TEXT it generates: `overseer-fitvmo` (a CHILD of `overseer-hbr`) carries
    required anti-stall guidance for the generated supervisor-handoff — see
