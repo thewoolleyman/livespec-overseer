@@ -80,21 +80,22 @@ CORE-tenant epic `livespec-b1uo` stays in core per its do-not-move ruling.
    thread-store section are in the same research file. Filing stays
    maintainer-lane via `/livespec:propose-change` in THOSE repos;
    re-verify FIND anchors before filing.
-5. **Maintainer rulings outstanding** (surface, never block): (a) rollback
-   UNPIN post-proof — recipes below stay recorded until ruled; (b) a daemon
+5. **Maintainer rulings outstanding** (surface, never block): (a) a daemon
    restart at their timing — it picks up everything since 22:29Z including
    the version header, and ACTIVATES the merged append-mode log fix
    (PR #56 is effective only on relaunch via `overseer-start`; the running
    daemon still truncates, snapshot already taken:
-   `tmp/overseer/daemon.log.snapshot-20260724T083730Z`); (c) the Phase-2 cuts in
+   `tmp/overseer/daemon.log.snapshot-20260724T083730Z`); (b) the Phase-2 cuts in
    `research/phase-2-adopter-shipping.md` (marketplace hosting, Codex arm,
-   spec scenario).
+   spec scenario). The rollback ruling is RESOLVED — retired, see below.
 
-## Rollback (pinned until the maintainer unpins)
+## Rollback — RETIRED 2026-07-25 (maintainer decision)
 
-Kill the daemon and relaunch the byte-identical pre-seed state from EITHER:
-`git -C /data/projects/livespec archive f9664481~1 .claude/skills/overseer |
-tar -x -C <rescue-dir>`, or this repo at pin `6425828`.
+The maintainer ruled the cutover rollback RETIRED on the basis that
+Stage-4 is proven end-to-end twice over (relayed via supervisor brief 17,
+2026-07-25T01:12Z). The pre-seed pin is no longer maintained. The
+recovery recipes remain in this file's git history (the PR #55 revision)
+for forensic reference only.
 
 ## Operational map
 
