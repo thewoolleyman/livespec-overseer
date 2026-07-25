@@ -77,6 +77,11 @@ commands_trees = []
 pure_trees = []
 covered_trees = []
 supervisor_entry_files = []
+# Declared-empty: these roles are likewise unarmed during pre-conformance.
+target_dirs = []
+source_tree_prefixes = []
+dataclasses_tree = ""
+neutral_hook_body_path = ""
 
 # ---------------------------------------------------------------------------
 # Ruff — sole linter, formatter, import-sorter, complexity checker.
