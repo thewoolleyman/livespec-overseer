@@ -160,10 +160,24 @@ consumers as a `livespec-runtime` release, so this breaks **goal 5**'s pin path
 as well as goal 3. Fixing it is goal-5 work that already exists; it is not new
 scope.
 
-**A release lane is ALREADY IN FLIGHT.** PR **#52** — `chore(master): release
-0.12.0` — is **OPEN and MERGEABLE**, green, and versions the package manifest
-only (it does not touch `.claude-plugin/plugin.json`). The repo currently has
-**zero** git tags and **zero** GitHub releases.
+**A release lane is ALREADY IN FLIGHT — and the bug above ALREADY FIRED.** There
+are **TWO** open release PRs, both titled `chore(master): release 0.12.0`:
+
+| PR | branch component | state |
+|---|---|---|
+| **#21** | `…--components--livespec-runtime` | CONFLICTING — orphaned debris |
+| **#52** | `…--components--livespec-overseer` | MERGEABLE, green |
+
+The root cause is a **scaffold copy-paste that was only PARTIALLY fixed**:
+`ceaca74` scaffolded this repo with `package-name: "livespec-runtime"`, and
+`6421590` corrected it — **in `release-please-config.json` only**. PR #21 is the
+artifact release-please opened while the component was still misnamed; #52 is
+its correct successor from the day after the fix. #21 can never merge and should
+be **closed as orphaned**. The repo has **zero** tags and **zero** releases.
+
+The same scaffold residue also survives in two header comments that name the
+wrong repo — `.mise.toml:1` and `lefthook.yml:1`. Cosmetic, but sweep them with
+the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 
 > **CORRECTION (2026-07-25, Codex adversarial review of PR #78).** The
 > §"NEXT ACTION" claim "Nothing is started. Nothing is in flight." is FALSE as
@@ -352,6 +366,32 @@ state.
    thread's** — so this is EXPLICITLY OUT OF SCOPE here, owned by
    `livespec-dev-tooling`. Goal 6 is discharged for this item by naming that
    owner, which this line does. Do not silently re-absorb it.
+4. **`overseer-3wt`'s OWN un-migrated payload — a HARD PRECONDITION on Phase 3.**
+   Tracked as **`overseer-hbr.6`**. The predecessor epic lists five numbered
+   items in its description, and the predecessor plan's Phase 3 **closes that
+   epic**. Verified 2026-07-25: items 1, 2 and 4 are genuinely done (4's PRs
+   #6/#8/#10 are all closed), but **items 3 and 5 are not, and no goal covers
+   them**:
+
+   - **Item 3 — "Gate E: arm the Result-railway role keys."** This is a
+     **705-finding latent CI failure**, not a config line. `just check` emits 705
+     Phase-0 WARN diagnostics across 23 files, each stamped *"hard-fails once
+     this repo is flipped to the hard gate in Phase 2"*: 600 missing `*`
+     keyword-only separators, 45 banned cross-module `_`-prefixed calls, 23 files
+     with no declared semantic role, 21 modules missing `__all__`, 7 over the
+     LLOC ceiling, 7 banned process terminations outside `bin/`, 2 misc. **Same
+     pattern as goal 2's lever** — a rule that runs and reports but cannot fail,
+     so debt accrues invisibly. Worse: the flip is driven by the FLEET ROP
+     program (core `livespec-gcsn`, `livespec-h2hs`, `livespec-qgp2jt`), so an
+     upstream decision this repo does not make can turn it red.
+   - **Item 5 — the deferred public entry-point surface** for the two
+     executables (the demoted `reportPrivateUsage` findings). No successor
+     anchor.
+
+   **`overseer-3wt` MUST NOT CLOSE until 3 and 5 each have a durable
+   disposition.** Also check what the release context sets before goal 3 lands —
+   if the ROP phase flip is release-scoped like goal 2's lever, the first
+   auto-release surfaces both debts at once.
 
 ## Also open, tracked elsewhere
 
