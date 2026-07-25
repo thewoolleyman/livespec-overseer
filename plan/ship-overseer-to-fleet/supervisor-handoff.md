@@ -187,8 +187,8 @@ Corrections to THIS supervisor role's own behavior, recorded so successors do
 not repeat them. **This log starts effectively empty — this thread has had no
 supervisor yet.** Append here; do not scatter these.
 
-Seeded from the predecessor thread's charter — `plan/cutover-and-shipping/supervisor-handoff.md`
-until that thread archives, then `plan/archive/cutover-and-shipping/supervisor-handoff.md`
+Seeded from the predecessor thread's charter —
+`plan/archive/cutover-and-shipping/supervisor-handoff.md` (archived 2026-07-25)
 — carried forward because these are role-level, not track-level:
 
 - **Do not order fallback-less waits.** A hold-for-wrap-up was once ordered that

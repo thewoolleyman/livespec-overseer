@@ -2,7 +2,8 @@
 
 **Owning repo:** `livespec-overseer`. **Status:** **OPEN — nothing started.**
 Created 2026-07-25 (maintainer supervisor brief 22) as the LIVING successor of
-`plan/cutover-and-shipping/`, which archives once this thread exists.
+`plan/archive/cutover-and-shipping/` (archived 2026-07-25, once this thread
+existed).
 
 **Ledger anchor:** epic **`overseer-hbr`** (this repo's beads tenant). Children
 and lanes are READ from the ledger (`list-work-items` / `next`), never stored
@@ -25,8 +26,7 @@ beside them.
    in EVERY fleet and adopter session, not just this repo. **"EVERY" means every
    CLAUDE-harness session: `.livespec.jsonc` declares Codex EXEMPT and
    `research/operator-surface.md:27` records that exemption as a settled ruling
-   — that file is at `plan/cutover-and-shipping/research/` until the predecessor
-   archives, then `plan/archive/cutover-and-shipping/research/`.** Goal 1 does
+   — that file is at `plan/archive/cutover-and-shipping/research/`.** Goal 1 does
    NOT silently reopen Codex scope;
    doing so needs an explicit superseding maintainer decision. "Works" includes the
    PROMPT TEXT it generates: `overseer-fitvmo` (a CHILD of `overseer-hbr`) carries
@@ -447,9 +447,8 @@ adopter install story, D5 boundary documented in the README), `overseer-6uobos`
 (supervision surfaces A+B, live-exercised), plus `overseer-3o9`, `overseer-y8o`,
 `overseer-4dr`, `overseer-zvo`, `overseer-tvko3z`.
 
-Full evidence: the predecessor thread — at `plan/cutover-and-shipping/` until it
-archives, then `plan/archive/cutover-and-shipping/` (the archive move lands in
-its own PR right after this thread merges) — and the comments on epic
+Full evidence: the predecessor thread, archived 2026-07-25 at
+`plan/archive/cutover-and-shipping/` — and the comments on epic
 `overseer-3wt`.
 
 ## Standing bounds
