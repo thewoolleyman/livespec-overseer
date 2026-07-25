@@ -10,9 +10,8 @@ back from the core tenant before drafting) and the operator-surface decision.
 >
 > - **`operator-surface.md` is NOT beside this note.** It stayed in the
 >   predecessor thread and is at
->   `plan/cutover-and-shipping/research/operator-surface.md`, becoming
->   `plan/archive/cutover-and-shipping/research/operator-surface.md` once that
->   thread archives. Whether to `git mv` it here too is a maintainer call — it
+>   `plan/archive/cutover-and-shipping/research/operator-surface.md` (that
+>   thread archived 2026-07-25). Whether to `git mv` it here too is a maintainer call — it
 >   carries a LIVE ruling (below), so archiving it is arguably wrong, but moving
 >   it also re-points a reference in the predecessor handoff. Not moved
 >   unilaterally.
