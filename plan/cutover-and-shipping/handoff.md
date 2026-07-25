@@ -26,68 +26,101 @@ CORE-tenant epic `livespec-b1uo` stays in core per its do-not-move ruling.
   release-please-wired), the telemetry argv fix (`overseer-kfbcv4`, PR #50);
   earlier: bootstrap re-point (`overseer-y8o`), alert edge-triggering
   (`overseer-4dr`), module-doc sweep (`overseer-zvo`).
-- **Merged + live, PARKED AT THE HUMAN ACCEPTANCE VALVE** (`ai-then-human`,
-  AI PASS; independent verification journaled on each item 2026-07-24):
+- **Merged + live + ACCEPTED** (`acceptance → done`, supervisor-discharged
+  on independent verification; bases journaled on each item 2026-07-25):
   daemon-log persistence (`overseer-2boaoy`, PR #56 — launch line `2>` →
-  `2>>`; bare append, no rotation — flagged; effective only on the next
-  daemon relaunch) and canonical-command + adopter install story
-  (`overseer-5aaeyd`, PR #58 — `livespec-overseer:overseer` reconciled, D5
-  boundary documented in README). The groomed operator-surface queue is now
-  fully merged.
-- **Slice-5 units 1+2 done:** this thread's own charter at
-  `plan/cutover-and-shipping/supervisor-handoff.md` (PR #54), and the
-  fleet-pin-propagation charter durable at core
-  `plan/fleet-pin-propagation/supervisor-handoff.md` (core PR #1717,
-  2026-07-24) — both authored via `supervise-plan`. Unit 3
-  (factory-success-rate-remediation) HALTED on the skill's precondition 4:
-  no `plan/factory-success-rate-remediation/` thread directory exists in
-  core — needs an owner decision on that charter's durable home (surfaced
-  on `overseer-tvko3z`).
+  `2>>`; bare append, no rotation — flagged; the live-exercise of the
+  append completes at the next acting-daemon relaunch), canonical-command +
+  adopter install story (`overseer-5aaeyd`, PR #58 — `livespec-overseer:overseer`
+  reconciled, D5 boundary documented in README), and the e9j Wave-1 role-key
+  backfill (`overseer-3o9`, PR #65 — four keys declared-empty, nothing
+  armed; rule-3 two-check proof re-run green). The groomed operator-surface
+  queue is fully merged and accepted.
+- **Slice-5 ALL THREE charters durable** (via `supervise-plan` / records
+  PRs): this thread's charter `plan/cutover-and-shipping/supervisor-handoff.md`
+  (PR #54); the fleet-pin-propagation charter at core
+  `plan/fleet-pin-propagation/supervisor-handoff.md` (core PR #1717); the
+  factory-success-rate-remediation record (three artifacts) at
+  `plan/archive/factory-success-rate-remediation/` in the ORCHESTRATOR repo
+  (PR #939 — that thread archived there, epic `bd-ib-cvgjop`; the peer
+  supervisor concurred on the coordination log 2026-07-24T21:29:40Z). tmp/
+  copies retired. `overseer-tvko3z` remaining: the item-text "in core"
+  premise correction + the last fleet-pin tmp/-prompt sweep, at the
+  needs-human resolve.
 - **Factory serialization is RETIRED** (sd8o diagnosis 2026-07-24 ~07:11Z:
   no contended host resource; maintainer relay). Dispatch per the normal
   machinery; still binding forever: prove container ownership by run-config
   argv via an ALL-container scan, `exit 137` is ambiguous, outcomes from
   artifacts never exit codes, timestamps via `date -u`.
 
-## Next actions, in order
+## NEXT ACTION (cold-open: execute this from this file alone)
 
-1. **Ratification then surfaces.** The spec proposals in
-   `SPECIFICATION/proposed_changes/non-interference-attended-skill-carveout.md`
-   (attended-skill carve-out + existence-only discovery allowance) await the
-   maintainer's `/livespec:revise` pass — being surfaced by the supervisor;
-   not this session's to run unprompted. Once RATIFIED, `overseer-6uobos`
-   (supervision surfaces A+B; spec-owner recommendations drafted on the
-   item, including the fourth-truth-table-cell capture-offer) clears its
-   preconditions: approve and dispatch via `drive --action impl:<id>`.
-2. **Acceptance valves:** `overseer-2boaoy` (PR #56) and `overseer-5aaeyd`
-   (PR #58) await the maintainer's `accept:` — ai-then-human policy, AI
-   PASS, independent verification journaled on each item (incl. the
-   no-rotation flag on 2boaoy). Surface, never self-accept.
-3. **`overseer-tvko3z` remaining:** DECISION-PREPPED — memo with evidence
-   and recommendation in
-   `research/slice4-upstream-one-liners-and-unit3-home.md` beside this
-   file. The factory-success-rate-remediation thread turned out to OWN
-   its charter in the ORCHESTRATOR repo (thread archived there
-   2026-07-24, epic `bd-ib-cvgjop`, PR #934 — the item text's "in core"
-   premise is corrected on the item); recommended home is that repo's
-   `plan/archive/factory-success-rate-remediation/supervisor-handoff.md`
-   as a plain records PR (`supervise-plan` correctly refuses archived
-   threads). Awaits the needs-human resolve; tmp/-copy retirements ride
-   the same ruling (fleet-pin-propagation durable copy landed, core
-   PR #1717).
-4. **Slice 4 (upstream one-liners)** — DECISION-PREPPED: exact FIND/ADD
-   packets for core `NFR:175` and the orchestrator contracts
-   thread-store section are in the same research file. Filing stays
-   maintainer-lane via `/livespec:propose-change` in THOSE repos;
-   re-verify FIND anchors before filing.
-5. **Maintainer rulings outstanding** (surface, never block): (a) a daemon
-   restart at their timing — it picks up everything since 22:29Z including
-   the version header, and ACTIVATES the merged append-mode log fix
-   (PR #56 is effective only on relaunch via `overseer-start`; the running
-   daemon still truncates, snapshot already taken:
-   `tmp/overseer/daemon.log.snapshot-20260724T083730Z`); (b) the Phase-2 cuts in
-   `research/phase-2-adopter-shipping.md` (marketplace hosting, Codex arm,
-   spec scenario). The rollback ruling is RESOLVED — retired, see below.
+This session was restarted by the acting daemon SPECIFICALLY to load the
+pinned livespec plugin build `ba62d8fdd609` (livespec v0.20.2); the prior
+process had resolved the stale build `f93ca440b0de` at startup, which made
+`/livespec:revise` refuse with `resolve_template.py` exit 78. Do the steps
+in order:
+
+1. **VERIFY THE BUILD FIRST — do not ratify on the stale build.** Resolve
+   livespec core root by reading THIS project's entry in
+   `~/.claude/plugins/installed_plugins.json` (match
+   `projectPath == /data/projects/livespec-overseer` — NOT `entries[0]`,
+   which is a different project) and run
+   `python3 <core-root>/scripts/bin/resolve_template.py --template livespec`.
+   It MUST exit `0` and print a template path. If it still reports build
+   `f93ca440b0de` / exits 78 after this fresh restart, HALT and report — that
+   is a genuine harness resolution bug to escalate, not to force around.
+
+2. **RATIFY BOTH PROPOSALS.** Run `/livespec:revise` and accept BOTH pending
+   proposals in `SPECIFICATION/proposed_changes/`:
+   `non-interference-attended-skill-carveout.md` (attended-skill carve-out)
+   and `supervision-existence-probe-allowance.md` (existence-only discovery
+   allowance). The §Non-interference reconciliation repair merged as **PR #70**
+   and the INDEPENDENT re-review returned **NO BLOCKERS** on the repaired
+   pair — do NOT re-review again unless `/livespec:revise` itself demands it.
+   Both proposals edit `spec.md §Non-interference` with disjoint,
+   collision-free anchors; the probe proposal also adds one `scenarios.md`
+   scenario requiring a `tests/heading-coverage.json` co-edit. This cuts
+   `SPECIFICATION/history/v002/`.
+
+3. **BUILD `overseer-6uobos` (Surface A+B).** Preconditions both clear once
+   step 2 lands: the existence-probe allowance is ratified, and the fourth
+   truth-table cell was DECIDED 2026-07-24 (Surface A as a capture-offer,
+   recorded on epic `overseer-3wt`). Per design §11.4 (read it at core
+   `plan/archive/plan-skill-supervisor-handoff/design.md:437`): liveness-gated;
+   two messages (A: live session + no `supervisor-handoff.md`; B: live
+   session + file present + NO supervisor running); edge-triggered per
+   episode (reuse the `overseer-4dr` machinery); Surface B proves "running"
+   from live process evidence, never a session name. Item is factory-tier:
+   `drive --action approve:overseer-6uobos` then
+   `drive --action impl:overseer-6uobos` under `overseer-3wt`.
+
+4. **ITEM (5) — RESTART THE ACTING DAEMON** (maintainer-decided RESTART NOW,
+   brief 17/18). LAST, high-stakes live fleet op. Pre-baseline captured
+   (verify POST-restart against it): **12-repo watch-set** (see
+   `~/.livespec-overseer-repos.json`), **single daemon** (a NEW pid, still
+   exactly one), **25 tracks discovered**, header renders
+   `overseer — <iso> — N track(s) - 0.11.0`. Sequence: (a) post a heads-up
+   to the coordination log (`date -u`); (b) stop the acting daemon cleanly
+   and relaunch from this repo on latest master via `overseer-start` (two-pane,
+   real `$HOME` watch-set) — no `kill-server`, no double-launch (confirm old
+   pid gone first); (c) verify each: new daemon healthy + single instance,
+   watch-set INTACT (a shrunk set or a second instance = HALT and report),
+   header `0.11.0`, and 2boaoy's live-exercise (the new daemon's log APPENDS,
+   prior content intact); (d) post a done line. HALT on any anomaly — a
+   broken acting daemon is worse than a delayed restart.
+
+### Prepped, maintainer-lane, DO NOT self-start
+
+- **`overseer-tvko3z` remaining** (needs-human resolve): the item-text "in
+  core" premise correction + the last fleet-pin tmp/-prompt sweep. Evidence
+  + recommendation in `research/slice4-upstream-one-liners-and-unit3-home.md`.
+- **Slice 4 (upstream one-liners)** — exact FIND/ADD packets for core
+  `NFR:175` and the orchestrator contracts thread-store section are in that
+  same research file. File via `/livespec:propose-change` in THOSE repos;
+  re-verify FIND anchors first. Coordinate cross-repo.
+- **Phase-2 cuts** (`research/phase-2-adopter-shipping.md`) — the
+  maintainer's separate decision; do NOT start.
 
 ## Rollback — RETIRED 2026-07-25 (maintainer decision)
 
