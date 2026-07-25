@@ -69,6 +69,27 @@ EXISTS. But:
 **Do not write or trust any claim that the skill "works" until goal 1 is
 demonstrated in a session that is not this repo's.**
 
+**The blocker is REGISTRATION, not packaging — and it already has an owner.**
+Verified 2026-07-25: the plugin ships both skills
+(`.claude-plugin/skills/overseer/SKILL.md` and `…/supervise-plan/SKILL.md`), and
+its `marketplace.json` declares `"source": "./.claude-plugin"` — **identical to
+all four working fleet peers** (`livespec`, `livespec-driver-claude`,
+`livespec-orchestrator-beads-fabro`, `livespec-orchestrator-git-jsonl`). Nothing
+is malformed. What is missing is that `livespec-overseer` is absent from
+`~/.claude/plugins/known_marketplaces.json`, which lists 10 marketplaces.
+
+That registration step is **`livespec-cbmw`** — a **P1, still-open item in the
+livespec CORE tenant** ("Wire livespec-overseer into the fleet:
+wire-fleet-member + GitHub App install"), the direct mirror of the closed
+precedent `livespec-inxg`. **No goal references it**, which is a goal-4 scope
+leak; tracked as **`overseer-hbr.8`**.
+
+It is also **partially stale**: of its three conformance errors, `merge-settings`
+and `delete-branch-on-merge` are now RESOLVED (this repo's settings are
+byte-identical to a conformant peer). Only `app-installation` may remain — that
+one is UNVERIFIED here, since it needs a GitHub App JWT this session does not
+hold. **Re-run `check-fleet-conformance` before acting on that item.**
+
 ### Goal 2 — 21 scenarios, ZERO top-of-pyramid tests, and the rule is UNARMED
 
 - `SPECIFICATION/scenarios.md` is 236 lines carrying **21** `## Scenario:`
