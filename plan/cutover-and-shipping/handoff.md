@@ -153,7 +153,16 @@ adopter-family shipping absorbed into those.
 ## Also open, tracked in the ledger
 
 - **`overseer-fitvmo`** (P2 bug, pending-approval) — `supervise-plan` prompts must
-  not stall on conflict boundaries. Standalone; relevant to the successor's goal 1.
+  not stall on conflict boundaries. **Now a CHILD of `overseer-hbr`** (hard ledger
+  edge; same tenant), attached per supervisor brief 23 because it carries required
+  GUIDANCE FOR THE SUPERVISOR-HANDOFF PROMPT TEXT: a conflicting lane is not a
+  blocked state; the No Idle / No Silent Block procedure; IDLE-with-queued-input
+  means stuck. It is a PRECONDITION of the successor's goal 1, not a nice-to-have
+  — a skill installed everywhere that generates stall-prone prompts has shipped a
+  behavioral defect fleet-wide. Brief 23 expected it in the livespec CORE tenant;
+  it is NOT there (core searched: 567 items, keyword + recency sweeps) — it lives
+  in the livespec-overseer tenant. PR #78 carries the wiring into the new thread's
+  handoff and supervisor charter.
 - **7 untied spec→impl gaps** from the v002 delta (`detect-impl-gaps
   --since-version v001`); `capture-impl-gaps` deliberately not run to filing, since
   it would file 7 auto-derived items across the groomed queue without consent.
