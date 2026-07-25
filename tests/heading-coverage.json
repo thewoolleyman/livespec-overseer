@@ -324,6 +324,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The supervision-artifact existence probe is liveness-gated and existence-only",
+    "test": "TODO",
+    "reason": "Added by the supervision-existence-probe-allowance ratification (v002), which ratifies ahead of its implementing slice (overseer-6uobos, Surface A+B) per the adopted design's section 11.6 sequencing. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit once the probe ships."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: Topics colliding across repositories get qualified session names",
     "test": "TODO",
     "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
