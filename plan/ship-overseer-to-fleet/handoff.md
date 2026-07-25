@@ -134,10 +134,21 @@ badly. Direction 4's docstring is explicit: *"This direction applies ONLY to
 `scenarios.md`; headings in `spec.md`, `contracts.md`, and `constraints.md` MAY
 be exercised by unit-tier tests."*
 
-The 54 rows fall into **three** buckets, not two — roughly **21 expensive / 22
-cheap / 11 awkward**, though the awkward/cheap line inside `constraints.md` needs
-per-row confirmation. Audited 2026-07-25 against the **445** beside-test
-functions this repo carries:
+All 54 rows were audited individually on 2026-07-25 against the **445**
+beside-test functions this repo carries. They settle at **21 expensive / 26
+cheap / 1 removal candidate / 6 gate-backed**:
+
+| bucket | rows | what it costs |
+|---|---|---|
+| **Expensive** | 21 — all of `scenarios.md` | genuinely new integration-tier-or-above tests |
+| **Cheap** | 26 — 14 `spec.md`, 8 `contracts.md`, 3 `constraints.md`, 1 NFR | MAP an existing node id; no new test |
+| **Removal candidate** | 1 — NFR §`Boundary` | a registry row over a document preamble |
+| **Gate-backed** | 6 — 3 `constraints.md`, 3 NFR | evidence is a `just check` target, not a pytest node |
+
+Only the 21 are real construction. The 26 are bookkeeping. The 7 in the last two
+buckets need a DECISION (thin pytest wrapper over the gate, or governed removal
+with a recorded reason) — cheap in effort, but they will silently block arming
+the lever if nobody makes that call.
 
 - **21 `scenarios.md` rows — EXPENSIVE.** They require integration-tier-or-above
   tests. The 445 existing unit-tier tests **cannot** satisfy them, however
@@ -152,9 +163,28 @@ functions this repo carries:
   `test_every_track_alert_names_the_tmux_session_and_pane`; `The escalating
   wrap-up` → `test_wrapup_message_names_the_one_state_file_and_all_three_values`.
   Expect *mapping node ids into the registry*, not writing tests.
-- **6 `constraints.md` rows — MIXED, and DO NOT assume cheap.** These mostly
-  express **NEGATIVE architectural properties**, which unit tests do not
-  naturally assert. Measured:
+- **6 `constraints.md` rows — MIXED. Three cheap, three not.** Confirmed by
+  reading each rule and its candidate tests:
+  - `Acting safety` — **CHEAP**, near-perfect 1:1 mapping. The rule's four
+    suppression cases each have a test: busy → `test_busy_suppresses_injection`;
+    structured gate → `test_structured_gate_suppresses_injection`; bare shell →
+    `test_shell_pane_never_pastes`; foreign program →
+    `test_a_foreign_pane_is_session_gone_not_a_status_of_its_own`.
+  - `Atomicity and single instance` — **CHEAP.** Atomic whole-file replace is
+    pinned by `test_write_rows_is_atomic_and_skips_when_unchanged` and
+    `test_atomic_write_fail_soft_leaves_the_store_intact_and_removes_the_temp`;
+    the `flock(LOCK_EX)` singleton (`registry.py:78-89`) by
+    `test_singleton_lock_is_treated_as_contended_when_the_lockfile_cannot_be_created`
+    and `test_releasing_the_singleton_lock_frees_it_and_releasing_none_is_a_no_op`.
+  - `Runtime requirements` — **CHEAP for its behavioral half, but SPLIT.** The
+    `/proc` readers (which `claude_sessions.py:75` calls *"the ONE host
+    coupling"*) are covered by the `test_pane_pid_*` family. But its
+    "**DECLARED** requirement" half is decision **D4**, implemented by core item
+    **`livespec-b1uo.2`** — still `backlog`. Mapping the row is cheap; claiming
+    the constraint fully ENFORCED is not, and rides on a core item.
+
+  The remaining three express **NEGATIVE architectural properties**, which unit
+  tests do not naturally assert:
   - `Language and dependencies` ("no third-party imports anywhere") — **NO test
     asserts this at all.** NFR §"Constraints" says outright it is *"enforced at
     review and by the executables' isolated launch mode"*. There is no pytest
@@ -173,16 +203,28 @@ functions this repo carries:
   > file-write tests, unrelated to the interlock. The interlock turned out fine
   > under a better probe; `Language and dependencies` did not. **Confirm aptness
   > per row before budgeting.** Keyword presence is not evidence.
-- **5 `non-functional-requirements.md` rows — AWKWARD, and the same snag as the
-  negative constraints above.**
-  These are `Boundary`, `Spec`, `Contracts`, `Constraints`, `Scenarios`:
-  CONTRIBUTOR-facing meta-requirements about how the repo is developed and
-  gated, not operator-observable behavior. Their evidence is mostly `just check`
-  TARGETS (100% coverage, stdlib-only, pin-consuming gates, the red-green
-  ritual), whereas the registry maps headings to **pytest node ids**. So they do
-  not map cleanly in either direction. Decide deliberately: wrap each gate in a
-  thin pytest assertion, or retire the rows by governed registry co-edit with a
-  recorded reason. Do not let these five silently block arming the lever.
+- **5 `non-functional-requirements.md` rows — LESS awkward than first assessed.**
+  These are CONTRIBUTOR-facing meta-requirements, so their evidence tends to be
+  `just check` TARGETS while the registry maps headings to **pytest node ids**.
+  But auditing them individually, only three are genuinely stuck:
+  - `Contracts` — **CHEAP, mappable TODAY.** Its "the invocation surface stays
+    knob-free" rule is already pinned verbatim by
+    `test_cli_surface_has_no_config_knobs` and
+    `test_build_supervisor_has_no_knobs_and_badges_its_own_tmux_pane`, and its
+    "single-sourced constants" rule by the `_WRAPUP_SUGGEST_HEAD` /
+    `_WRAPUP_INSIST_HEAD` / `_WRAPUP_BODY` constants in `supervisor.py`.
+  - `Boundary` — **REMOVAL CANDIDATE.** Read it: it is pure document framing
+    ("This file carries the contributor-facing invariants… The decision rule:
+    if an operator could observe a violation, it belongs in spec.md…"). It
+    states no requirement of its own. **Exactly the same category as
+    `gap-jqszyzae`** — a registry row over a preamble. Retire by governed
+    co-edit with that reason.
+  - `Spec`, `Constraints`, `Scenarios` — gate-backed. Their evidence really is
+    check targets (100% coverage, stdlib-only, the red-green lefthook, and —
+    for `Scenarios` — `check-heading-coverage` direction 4 itself, which is
+    pleasingly circular). Wrap each in a thin pytest assertion over the gate, or
+    retire by governed co-edit. **Do not let these silently block arming the
+    lever.**
 
 **The "map existing tests" strategy is only sound if those tests can FAIL — so
 that was checked, not assumed.** `non-functional-requirements.md` §"Contracts"
