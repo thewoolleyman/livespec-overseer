@@ -137,6 +137,25 @@ The 54 rows fall into **three** buckets, not two. Audited 2026-07-25 against the
   thin pytest assertion, or retire the rows by governed registry co-edit with a
   recorded reason. Do not let these five silently block arming the lever.
 
+**The "map existing tests" strategy is only sound if those tests can FAIL — so
+that was checked, not assumed.** `non-functional-requirements.md` §"Contracts"
+requires safety-routing tests to be sabotage-verified, and this repo has already
+shipped one toothless verifier (PR #75). So the routing guard was mutation-tested
+on 2026-07-25: `_do_codex_restart`'s launch-command selection was deliberately
+re-pointed at the CLAUDE command — the exact violation
+`test_a_codex_ready_restart_never_issues_the_claude_command` exists to catch.
+
+Result: **three independent tests went red**, not one —
+`…_never_issues_the_claude_command`,
+`test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_command`,
+and `test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session`
+— with a precise assertion. The sabotage was reverted immediately and the suite
+restored to green with a zero diff.
+
+So the existing unit-tier suite has real teeth on at least this safety-critical
+path, and mapping it into the registry buys genuine evidence rather than laundering
+a green tick. Re-verify per safety routing when touched, as the NFR requires.
+
 > **Goal 2 is not merely a maintainer preference — the SPEC ALREADY REQUIRES IT,
 > and the repo is currently NON-CONFORMANT.** `non-functional-requirements.md`
 > §"Scenarios" states: *"Every scenario heading in `scenarios.md` maps to test
