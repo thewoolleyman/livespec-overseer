@@ -105,6 +105,11 @@ means observed OUTSIDE this repo.
 
 ### No idle, no silent block
 
+> This procedure is also **required content for the prompt text `supervise-plan`
+> GENERATES** — see `overseer-fitvmo`, a child of `overseer-hbr`, which was filed
+> after a real supervisor stalled exactly this way. Goal 1 is not done until the
+> generated template carries it. Treat the wording below as the reference text.
+
 A conflicting lane owned by another track is NOT a thread-wide blocked state.
 If some action is owned elsewhere: (1) stand down on that action only;
 (2) enumerate the remaining non-conflicting work; (3) drive the next concrete

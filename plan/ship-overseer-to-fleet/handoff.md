@@ -22,7 +22,10 @@ The thread is NOT done until all six hold. Goal 6 is ABSORBED into 1–5, not ru
 beside them.
 
 1. **`supervise-plan` ACTUALLY WORKS FLEET-WIDE** — auto-installed and available
-   in EVERY fleet and adopter session, not just this repo.
+   in EVERY fleet and adopter session, not just this repo. "Works" includes the
+   PROMPT TEXT it generates: `overseer-fitvmo` (a CHILD of `overseer-hbr`) carries
+   required anti-stall guidance for the generated supervisor-handoff — see
+   §"Prompt-text guidance goal 1 must incorporate".
 2. **TOP-OF-PYRAMID e2e TESTS EXIST FOR ALL SCENARIOS** in
    `SPECIFICATION/scenarios.md`, **and** the rule that they must exist is present
    AND **enforced**.
@@ -156,11 +159,41 @@ core per its own do-not-move ruling):
   ordinary pin-consuming fleet member.
 - No new ledger state; no new store paths.
 
+## Prompt-text guidance goal 1 must incorporate
+
+**`overseer-fitvmo`** (P2 bug, `pending-approval`) is a **CHILD of `overseer-hbr`**
+— a hard ledger edge, since it lives in this same tenant. It is not a generic bug:
+it carries GUIDANCE FOR THE SUPERVISOR-HANDOFF PROMPT TEXT, which is precisely what
+goal 1 must get right. Filed 2026-07-25 by the now-archived `supervisor-skill`
+session, after that supervisor treated another track's ownership of a lane as
+permission to STOP while non-conflicting work still existed.
+
+What the GENERATED prompt text must contain:
+
+- A conflicting lane is **NOT** a blocked state — say so explicitly.
+- A **No Idle / No Silent Block** decision procedure: (1) stand down ONLY on the
+  conflicting action owned by another track; (2) enumerate the remaining
+  non-conflicting work; (3) drive the next concrete safe action immediately;
+  (4) only if no legitimate non-conflicting action exists, ask exactly ONE
+  maintainer-facing blocking question, recommended answer FIRST.
+- Stale queued input: **IDLE with queued input means STUCK** — it needs a safe
+  nudge/clear/ask, not passive waiting.
+- The anti-stall rule must be PROMINENT in the generated markdown, not buried.
+- Regression fixtures must FAIL on wording equivalent to "all remaining action
+  belongs elsewhere, stand down" that lacks next-action enumeration or a
+  maintainer question.
+
+**Consequence:** goal 1 is NOT satisfied by mere availability. A skill that is
+installed everywhere but generates stall-prone prompts has shipped a behavioral
+defect fleet-wide. The groom decides whether this is its own slice or folded into
+the goal-1 slice — either way it is a PRECONDITION of goal 1's acceptance.
+
+Convenient reference: this thread's own `supervisor-handoff.md` already implements
+the procedure (its §"No idle, no silent block"), so it doubles as candidate
+wording for the generated template.
+
 ## Also open, tracked elsewhere
 
-- **`overseer-fitvmo`** (P2 bug, pending-approval) — `supervise-plan` generated
-  prompts must not stall on conflict boundaries. Standalone; relevant to goal 1's
-  "actually works" bar, so the groom should decide whether to fold it in.
 - **7 untied spec→impl gaps** from the v002 delta
   (`detect-impl-gaps --since-version v001`), no work-item tied to any.
 - **`check-no-workflow-edits` copy-drift** across the 4 carrying fleet repos —
