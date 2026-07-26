@@ -558,36 +558,42 @@ The pinned adopters' pull lane is now BUILT and the last defect blocking it is
 fixed. What remains is the acceptance the goal always needed: **observe a pinned
 adopter advance with no fleet-side push and no hand action.**
 
-> **!!! A TEMPORARY CRON RETIME IS IN FLIGHT AS OF 2026-07-26T17:28Z — IF YOU
-> ARE READING THIS, CHECK WHETHER IT WAS REVERTED. !!!**
+> **A CRON RETIME WAS RUN AND IS FULLY REVERTED — 2026-07-26. Nothing is
+> outstanding from it; this note exists so the attempt is not repeated blindly
+> and so its result is not misread.**
 >
-> Both adopters' `bump-plugin-pin.yml` had their `schedule:` changed from
-> `"37 6 * * *"` to `"45 17 * * *"` so the acceptance could be observed the same
-> day instead of the next morning. Landed as openbrain `88fe6f7` and resume
-> `47c1269`. **This is a retime, not a nudge** — the run still fires because a
-> cron came due and records `event: schedule`; a `workflow_dispatch` would not
-> have proven anything and remains prohibited.
+> Both adopters' `schedule:` was temporarily moved from `"37 6 * * *"` to
+> `"45 17 * * *"` to observe the acceptance the same day. **It produced NO run.**
+> Zero `event: schedule` runs in either repo, 39 minutes past target.
 >
-> **THE REVERT IS AN OBLIGATION, NOT A TIDY-UP.** Left in place, both adopters
-> would poll at 17:45Z daily instead of 06:37Z — silently, with every run still
-> green, which is exactly the class of defect this thread keeps paying for.
-> Restore BYTE-IDENTICALLY from the pre-test blobs and prove it with a diff
-> rather than by retyping the expression, because retyping can mask a typo in
-> the original:
+> **That is INCONCLUSIVE, not a failure of the lane, and the distinction is
+> load-bearing.** Everything under our control was verified correct: the cron
+> was live on both default branches (read back through the contents API), both
+> workflows read `state=active`, and the version gap was present. GitHub simply
+> did not run it. The control experiment is what settles the reading —
+> `bump-plugin-pin.yml` is the ONLY workflow carrying a `cron:` in either repo,
+> and `gh run list --event=schedule` is EMPTY across both repos' whole history,
+> so there is no in-repo evidence the scheduler has ever fired *anything* here.
+> A newly registered cron missing its first occurrence on an ~18-minute lead is
+> documented GitHub behaviour. **Do not cite this attempt as evidence against
+> the lane.**
 >
-> | repo | default branch | pre-test blob of `bump-plugin-pin.yml` |
-> |---|---|---|
-> | openbrain | `main` (tip `7ada224`) | `a0331862ab8c4bcfd9281aa34bef36f1ae72e309` |
-> | resume | `master` (tip `786a083`) | `a885e4053eb9edefd2096c59dad1729e42873e21` |
+> **REVERTED AND PROVEN**, restored with `git cat-file blob <hash>` rather than
+> by retyping the expression — retyping restores something plausible and would
+> mask a typo in the original:
 >
-> Verify with `git diff <blob> HEAD:.github/workflows/bump-plugin-pin.yml`,
-> which must print nothing.
+> | repo | revert commit | blob | proof |
+> |---|---|---|---|
+> | openbrain | `bdcb158` | `a0331862…` | `git diff` vs published default branch EMPTY |
+> | resume | `46ab489` | `a885e405…` | `git diff` vs published default branch EMPTY |
+>
+> Post-revert both re-read `state=active` with cron `"37 6 * * *"`.
 
 **That test is ARMED right now. Do not disturb it:**
 
 | fact | value |
 |---|---|
-| latest release | **v0.13.0**, published 2026-07-26T15:43:11Z |
+| latest release | **v0.13.1**, published 2026-07-26T18:25:09Z (v0.13.0 was 15:43:11Z) |
 | both pinned adopters | still at **v0.12.4** |
 | next scheduled pull | **06:37 UTC daily** (`cron: "37 6 * * *"` in each adopter) |
 
@@ -606,6 +612,11 @@ gh run list -R thewoolleyman/resume    --workflow=bump-plugin-pin.yml --limit 5 
 
 **The acceptance is `event: schedule`.** A `workflow_dispatch` or
 `repository_dispatch` row is not the goal, however green.
+
+**Expect the pin to land on whatever `releases/latest` returns AT RUN TIME**, not
+on a version written down here. It was v0.13.0 when this fixture was set up and
+v0.13.1 forty minutes later. The gap is what matters — both adopters are at
+v0.12.4 — so do not fail the acceptance over which newer tag it reached.
 
 This is tracked as **`overseer-hbr.25`** (`ready`, P1) — filed with
 `--no-inherit-labels` and then set to a real `WorkItemStatus`, so it corrects
