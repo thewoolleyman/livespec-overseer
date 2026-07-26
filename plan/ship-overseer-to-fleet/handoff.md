@@ -1,12 +1,13 @@
 # Plan — ship-overseer-to-fleet
 
 **Owning repo:** `livespec-overseer`. **Status:** **OPEN — BUILDING.** Goal 2's
-non-scenario registry debt is fully retired; **16 scenario rows remain** and that
-is the live work. Created 2026-07-25 (maintainer supervisor brief 22) as the
-LIVING successor of `plan/archive/cutover-and-shipping/` (archived 2026-07-25).
-Groomed 2026-07-26 into 13 filed slices; six of those plus two pre-existing
-children are DONE — see §"NEXT ACTION", which is the only section you must read
-before starting.
+TEST half is **COMPLETE**: all **54** registry rows map to a test, **0 TODO**,
+and 21 of 21 `scenarios.md` rows are pinned at integration tier. What remains of
+goal 2 is ARMING the gate (`.20`), which is also goal 3b. Created 2026-07-25
+(maintainer supervisor brief 22) as the LIVING successor of
+`plan/archive/cutover-and-shipping/` (archived 2026-07-25). Groomed 2026-07-26
+into 13 filed slices; seven of those plus two pre-existing children are DONE —
+see §"NEXT ACTION", which is the only section you must read before starting.
 
 **Ledger anchor:** epic **`overseer-hbr`** (this repo's beads tenant). Children
 and lanes are READ from the ledger (`list-work-items` / `next`), never stored
@@ -123,15 +124,19 @@ references it**, which is a goal-4 scope leak; tracked as **`overseer-hbr.8`**.
 
 > **SUPERSEDED IN PART (2026-07-26).** This subsection is the 2026-07-25 baseline
 > and is kept because the *analysis* below (the three buckets, the two-gate
-> distinction, core as the worked example) is still the right map. But its
-> NUMBERS have moved and its "ZERO top-of-pyramid tests" heading is no longer
-> true:
+> distinction, core as the worked example) is still the right map. But every
+> NUMBER in it has moved, and its "ZERO top-of-pyramid tests" heading is now
+> exactly backwards:
 >
-> - **All 33 non-scenario rows are mapped.** `.17` retired the 26 cheap rows
->   (PR #93) and `.18` the 7 awkward ones (PR #96), each sabotage-verified.
-> - **A `tests/integration/` tree now exists** with the first 5 scenario tests
->   (PR #97), so the registry stands at **16 TODO of 54**, all `scenarios.md`.
+> - **All 54 registry rows are mapped. `0` TODO.** `.17` retired the 26 cheap
+>   rows (PR #93), `.18` the 7 awkward ones (PR #96), and `.19` all 21
+>   `scenarios.md` rows across four slices (PRs #97, #100, #102, #103) — each
+>   sabotage-verified.
+> - **A `tests/integration/` tree now exists** carrying 4 modules and 22 tests,
+>   this repo's first evidence above the unit tier.
 > - The lever is still **UNARMED** — that part holds, and `.20` is still last.
+>   But it now has **nothing left to fail on**, so the `2 → 3b` edge is
+>   discharged from goal 2's side.
 >
 > Re-measure before relying on any count here.
 
@@ -446,26 +451,34 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
-## NEXT ACTION — continue `.19`; 16 scenario rows remain
+## NEXT ACTION — goal 2's TESTS are done; the board is on maintainer valves
 
-**Building is under way.** The groom ran 2026-07-26 and its 13 slices are filed as
-children `overseer-hbr.10` … `.22`. Six of them plus two pre-existing children are
-now DONE. **Your next action is `overseer-hbr.19` slice 2.**
+**`overseer-hbr.19` (S10) is COMPLETE.** All 21 `scenarios.md` rows landed across
+four slices (PRs #97, #100, #102, #103, all merged), the registry reads **0 TODO
+of 54**, and combined master is green — `just check`, 61 targets, 498 tests.
 
-### Start here
+**Your next action is a DECISION, not a build.** Every remaining slice sits at
+`pending-approval`, which is a maintainer valve; `next` ranks zero candidates by
+design while that is true. Two things are ripe:
 
-1. **Read `overseer-hbr.19`'s ledger notes first** (`bd show overseer-hbr.19`).
-   They carry the tier prefix, the harness import, the two structural
-   prerequisites already solved, and — most importantly — the method note below.
-2. **Write the next batch of scenario tests** in
-   `tests/integration/`, following `tests/integration/test_wrapup_escalation.py`.
-   Land in SLICES (≈5 scenarios per PR), not one XL branch.
-3. **Map each row** in `tests/heading-coverage.json` with its `reason` recording
-   the injected defect that reddens it.
+1. **ACCEPT `.19`** — its acceptance criteria are met and independently
+   re-measurable (see §"State on the forge"). It is not closed; acceptance is the
+   supervisor's or maintainer's leg, not the worker's.
+2. **APPROVE `.20` (S11)** — it is now UNBLOCKED in substance as well as on the
+   ledger. `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` has nothing left to
+   fail on, so arming it is a config change rather than a cleanup.
 
-**THE METHOD THAT MATTERS — name the injected defect BEFORE writing the
-assertion, then actually run it.** In slice 1, **two of five** tests initially
-passed for the wrong reason:
+   > **Budget the OTHER lever before starting `.20`.** `release-tag.yml` also
+   > sets `LIVESPEC_RUN_MUTATION: "true"`, and **this repo has never run mutation
+   > testing**. `.20` therefore switches on two gates, not one, and the second
+   > one has no measured cost here. The 31 sabotages `.19` ran are evidence the
+   > scenario tests have teeth; they are NOT evidence the 445 beside-tests
+   > survive mutmut.
+
+### The method `.19` established — carry it into `.20` and any later test work
+
+**Name the injected defect BEFORE writing the assertion, then actually run it.**
+In slice 1, **two of five** tests initially passed for the wrong reason:
 
 - A sabotage set exactly at a boundary (`_ACK_STALE_AFTER = 0.0` against an ack
   of age `0.0`, compared with `<=`) silently no-ops. That is indistinguishable
@@ -475,17 +488,34 @@ passed for the wrong reason:
   examined, so sabotaging `ready_valid` left it GREEN. It had to be restructured
   to open the round first.
 
-Two-in-five is the argument for doing this per-row, not per-batch. **Assert the
-sabotage LANDED before trusting a green result.**
+That rate did **not** recur across slices 2–4 (31 named sabotages run, 31 red),
+and the reasons are reusable:
 
-### State on the forge (measured 2026-07-26)
+- **DIFFERENTIAL setup.** Satisfy every precondition except the one under test,
+  so the assertion is about that one thing. The malformed-state test is the
+  fresh-`ready` test with one token changed; written on an already-ineligible
+  track it would pass however the token were handled.
+- **A control for every "the daemon did nothing" claim.** The three refusal tests
+  assert no wrap-up was pasted, which is worth exactly as much as the proof the
+  same fixture DOES paste one when nothing is refused. That control ships beside
+  them and is deliberately not mapped to a row.
+- **Test ORDERING by failing every gate at once.** An isolated gate test cannot
+  distinguish "checked first" from "the only one failing".
+- **Re-run the sabotages after any refactor.** Twice in this slice a mid-review
+  refactor could have defanged a verifier; both times the re-run was the right
+  call and both times it still bit.
+- **A sabotage that aborts the run early does not prove the LATER assertion.**
+  Verify that one separately rather than assuming it.
 
-- **PR #97** — `.19` slice 1, five wrap-up scenarios. **Green, mergeable, awaiting
-  the supervisor's standing merge.** Takes the registry from 21 TODO to **16**.
-  If it has merged, master shows 16; if not, rebase onto whatever master holds.
-- **PR #52** (`chore(master): release 0.12.0`) — deliberately **HELD** until
-  `.11` lands the `source_repo` fix. Do not merge it.
-- Registry on master before #97: **21 TODO of 54**, all `scenarios.md`.
+### State on the forge (measured 2026-07-26, after #103 merged)
+
+- **Registry: `0` TODO of 54.** Re-derive with
+  `jq '[.[] | select(.test == "TODO")] | length' tests/heading-coverage.json`.
+- **`tests/integration/` carries 4 modules, 22 tests** — this repo's only
+  evidence above the unit tier.
+- **PR #52** (`chore(master): release 0.12.0`) — still open and deliberately
+  **HELD** until `.11` lands the `source_repo` fix. Do not merge it.
+- The repo still has **zero tags and zero releases**; goals 3a/4/5 are untouched.
 
 ### DONE — do not redo
 
@@ -496,7 +526,7 @@ sabotage LANDED before trusting a green result.**
 | `.10` (S1) | `plugin.json` in release-please `extra-files`, version synced, two headers — PR #92 |
 | `.5` | `registry.py` docstring no longer cites the removed `watch_set` — PR #94 |
 | `.7` | the stale CAUTION block — PR #95 |
-| `.19` slice 1 | 5 of 21 scenarios — PR #97, open and green |
+| `.19` (S10) | **all 21 scenarios**, 4 slices — PRs #97, #100, #102, #103 |
 
 `.21` (S12) and `.22` (S13) carry full written dispositions in their ledger notes
 — including that **`overseer-3wt` may now close** (both items 3 and 5 disposed)
@@ -576,22 +606,26 @@ was set by hand and then read back from the ledger to verify.**
 | S7 template: BOTH stall modes | `.16` | 1 | — | |
 | S8 map the 26 cheap rows | `.17` | 2 | — | **DONE** (PR #93) |
 | S9 decide the 7 awkward rows | `.18` | 2 | — | **DONE** (PR #96) |
-| S10 21 scenario tests | `.19` | 2 | `.17`, `.18` | **IN FLIGHT** — 5/21, PR #97 |
-| S11 arm the lever, LAST | `.20` | 3b | `.19` | |
+| S10 21 scenario tests | `.19` | 2 | `.17`, `.18` | **DONE** — 21/21, PRs #97/#100/#102/#103 |
+| S11 arm the lever, LAST | `.20` | 3b | `.19` | **now substantively unblocked** |
 | S12 goal-6 dispositions | `.21` | 6 | — | |
 | S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | |
 
 **Then build** through the normal machinery (`drive --action approve:<id>` then
 `impl:<id>`). Rows without a state above are still `pending-approval` and
-unstarted. `.19` is the live one; `.21` and `.22` are unblocked and carry written
-dispositions awaiting closure decisions.
+unstarted. `.20` is the next one to approve; `.21` and `.22` are unblocked and
+carry written dispositions awaiting closure decisions.
 
 ### Ordering — BOTH edges are now MEASURED HARD CONSTRAINTS
 
-- **HARD — `2 → 3b`.** Auto-release arms `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST`
-  in the release context, which fails on all 54 registry TODOs. See
-  §"Ordering constraint: goal 2 BEFORE goal 3". Not the maintainer's to accept or
-  replace — it falls out of `no_todo_registry.py`'s source. Binds `.19 → .20`.
+- **HARD — `2 → 3b`. DISCHARGED 2026-07-26.** Auto-release arms
+  `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` in the release context, which
+  fails on every registry TODO. See §"Ordering constraint: goal 2 BEFORE goal 3".
+  It was never the maintainer's to accept or replace — it falls out of
+  `no_todo_registry.py`'s source. It bound `.19 → .20`, and `.19` has now landed
+  all 54 rows, so the constraint is satisfied rather than waived. **The
+  `LIVESPEC_RUN_MUTATION` lever that arrives in the same workflow is NOT
+  discharged** — see §"NEXT ACTION".
 - **HARD — `3a → 4`.** **PROMOTED FROM "Hypothesis" 2026-07-26 — this doc
   previously recorded it as a starting guess, and that was wrong.** Every peer
   marketplace registration pins **`ref: "release"`**; that branch exists only
