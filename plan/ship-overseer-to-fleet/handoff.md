@@ -1,7 +1,13 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **OPEN — WAITING ON MAINTAINER
-VALVES.** Goal 2's TEST half is **COMPLETE**: all **54** registry rows map to a
+**Owning repo:** `livespec-overseer`. **Status:** **OPEN — SHIPPING.** Two
+releases are published (v0.12.0, v0.12.1), `refs/heads/release` exists, goal 2's
+lever has fired green on the release path, and 15 items are closed. The single
+thing in flight is **PR #120** (`overseer-hbr.16`). Read §"NEXT ACTION" — it was
+rewritten 2026-07-26 and SUPERSEDES every "waiting on valves" statement below it.
+
+<!-- Superseded header, kept so a reader arriving from an older revision lands
+somewhere real: this previously read "OPEN — WAITING ON MAINTAINER VALVES." --> Goal 2's TEST half is **COMPLETE**: all **54** registry rows map to a
 test, **0 TODO**, and 21 of 21 `scenarios.md` rows are pinned at integration
 tier. What remains of goal 2 is ARMING the gate (`.20`), which is also goal 3b.
 **There is no buildable work queued for a worker** — every remaining slice sits
@@ -504,134 +510,98 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
-## NEXT ACTION — goal 2's TESTS are done; the board is on maintainer valves
+## NEXT ACTION — the plugin is RELEASED; `.16` is IN FLIGHT as PR #120
 
-**`overseer-hbr.19` (S10) is COMPLETE.** All 21 `scenarios.md` rows landed across
-four slices (PRs #97, #100, #102, #103, all merged), the registry reads **0 TODO
-of 54**, and combined master is green — `just check`, 61 targets, 498 tests.
+**Rewritten 2026-07-26 at wrap-up. Everything above this line that describes the
+board as "waiting on maintainer valves" is SUPERSEDED — that was true this
+morning and is not true now.**
 
-**Your next action is a DECISION, not a build.** Every remaining slice sits at
-`pending-approval`, which is a maintainer valve; `next` ranks zero candidates by
-design while that is true. Three things are ripe:
+### What changed today, in one paragraph
 
-1. **ACCEPT `.19`** — its acceptance criteria are met and independently
-   re-measurable (see §"State on the forge"). It is not closed; acceptance is the
-   supervisor's or maintainer's leg, not the worker's. **The full acceptance
-   basis is recorded on the item itself** (gate results, merged PR ancestry, the
-   31-sabotage method, and the two-tests-fixed disclosure), so whoever flips the
-   valve is deciding on facts rather than on a report.
-2. **APPROVE `.20` (S11)** — it is now UNBLOCKED in substance as well as on the
-   ledger. `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` has nothing left to
-   fail on, so arming it is a config change rather than a cleanup.
-3. ~~**DECIDE whether `.13` may ship ahead of the generator fix**~~ — **DECIDED
-   AND FILED 2026-07-26: block `.13` on `.16`.** Do not re-open it; the two
-   declined alternatives are recorded in §"Ordering" so they are not
-   re-litigated. The practical consequence is that **`.16` now gates goal 4**,
-   so the sibling thread's step 2 is on this thread's critical path even though
-   this thread still stands down on executing it.
+This repo went from zero tags, zero releases and 54/54 registry TODOs to **two
+published releases** (v0.12.0, then v0.12.1) gated by a **passing enforcement
+run**. `refs/heads/release` exists — the ref all four peer registrations pin — so
+the hard `3a → 4` edge is discharged. Goal 2's "and enforced" half is no longer a
+claim: `release-tag.yml` ran with `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST:
+true` in the job environment and passed. **Fifteen items closed.**
 
-> ### READ THIS BEFORE YOU LOOK FOR WORK — the verification sweep is DONE
->
-> A full re-measurement pass ran **2026-07-26** (session ending at `616dd39`).
-> **Do not redo it**, and do not treat its findings as unverified prose — each
-> was measured, and the corrections it produced are already merged into this
-> file (PRs #105–#108). What it settled:
->
-> | question | answer | where |
-> |---|---|---|
-> | Do the 7 v002 gaps still hold? | **Yes — reproduce exactly**, same ids and headings | `.21` |
-> | Are `.1`/`.3`'s dispositions still true? | **Yes**, re-verified at CODE level | `.21` |
-> | Is `livespec-cbmw` really discharged? | app-installation **yes**, independently | `.21` |
-> | Is goal-4 ground truth still true? | **Yes** — unregistered, 0 installs, 0 releases | `.13` |
-> | What does arming `LIVESPEC_RUN_MUTATION` cost? | **Nothing — it is a no-op here** | `.22` |
-> | Is Gate E still 705 findings? | **No — 712, and drifting upstream** | `.22` |
-> | Is item 5 (entry-point surface) satisfied? | **Appears yes**, sabotage-verified | `.22` |
->
-> **The one thing that is NOT settled and is nobody's measurement yet:** whether
-> the 445 beside-tests survive mutation. The mutation probe got a magnitude (180
-> mutants from `signals.py` alone, 97 on safety-critical predicates) but **zero
-> verdicts** — it was stopped by the nested-layout staging problem, and pushing
-> past that means wiring the repo for mutation, which is `.22`'s work.
->
-> ### SECOND SWEEP, 2026-07-26 (later session) — everything above REPRODUCED
->
-> The sweep's own advice ("a count you did not re-derive today is a guess") was
-> applied to the sweep itself. **Every number re-derived, all unchanged:**
->
-> | measurement | value | note |
-> |---|---|---|
-> | registry TODO | **0 of 54** | unchanged |
-> | `just check` | **61 targets, 498 tests, green** | unchanged |
-> | Gate E Phase-0 WARN findings | **712** | unchanged, and the category split is identical (603/45/25/23/7/7/2) |
-> | forge | 0 tags, 0 releases, no `release` branch | unchanged |
-> | open PRs | **#52, #101** — both still open | unchanged |
-> | ledger | all remaining slices `pending-approval`; `.16` still `open` | unchanged |
->
-> **Gate E did NOT drift this time, and the reason is worth recording:** the
-> previous sweep predicted PR #101 (`v0.54.19`) would move it "the moment it
-> merges". It has not merged, and the count has not moved. That is a small
-> confirmation that the pin bump is the actual driver, not elapsed time — so
-> **re-measure Gate E after #101 merges, not on a calendar.**
->
-> **Two NEW findings, neither of them a build task:**
->
-> 1. **An unfiled ordering edge** — `.13` could install a generator that has
->    never been corrected. **DECIDED the same day: block `.13` on `.16`**, now a
->    filed ledger edge. Full measurement and the two declined alternatives are
->    in §"Ordering".
-> 2. **An orphaned duplicate epic, `overseer-xbxkrv`** — see §"Ledger lifecycle".
->
-> ### If every valve is still shut when you arrive
->
-> That is NOT a blocked state and NOT a reason to idle — but it is also not a
-> licence to invent build work on `pending-approval` items. The legitimate moves,
-> in order:
->
-> 1. **Re-measure anything the maintainer is about to act on.** Numbers here go
->    stale in days, not weeks — Gate E moved 705 → 712 in one week from a routine
->    pin bump alone, and **PR #101 (`v0.54.19`) is open right now**, which will
->    move it again the moment it merges. A count you did not re-derive today is a
->    guess.
-> 2. **Hunt the same defect class this thread keeps finding** — durable records
->    carrying instructions that read runnable and are not. Two were found and
->    fixed on 2026-07-25/26 (`overseer-hbr.4`'s tmux commands; the
->    `check-fleet-conformance` re-run instruction). Assume there are more.
-> 3. **Ask ONE maintainer-facing question, recommendation first** — only if 1 and
->    2 are genuinely exhausted.
->
-> Do not stand down merely because another track owns a lane. See
-> §"No idle, no silent block" in `supervisor-handoff.md`.
+### THE ONE THING IN FLIGHT — pick this up first
 
-   > **CORRECTED 2026-07-26 by measurement — the mutation caution this section
-   > used to carry does NOT bite at `.20`'s time.** An earlier revision of this
-   > file said `release-tag.yml`'s `LIVESPEC_RUN_MUTATION: "true"` made `.20` a
-   > two-gate change with an unbudgeted second cost, and told the next reader to
-   > budget it before starting. **That was wrong, and the maintainer's
-   > measure-first decision is what caught it.** Measured against
-   > `origin/master`:
-   >
-   > ```
-   > LIVESPEC_RUN_MUTATION=true mise exec -- just check-check-mutation
-   > → "role key declared empty — sanctioned opt-out"  ·  exit 0, ~1 second
-   > ```
-   >
-   > Three independent reasons it is a no-op here, each verified at source:
-   > `pyproject.toml` declares `pure_trees = []` (deliberately unarmed during
-   > pre-conformance) and `check_mutation` gates on exactly that key; there is
-   > no `[tool.mutmut]` block at all; and mutmut is not an installed dependency.
-   > **So `.20`'s mutation risk is not a reason to delay it.**
-   >
-   > The cost is real but it belongs to **`overseer-hbr.22`** (Gate E), not
-   > here: the moment `pure_trees` is declared non-empty the check becomes
-   > ARMED, and its own contract then makes a zero-mutant run a HARD ERROR.
-   > Arming the role keys and standing up mutation testing are ONE task. Full
-   > measurement — including the magnitude (~180 mutants from `signals.py`
-   > alone) and the staging blocker that stopped it short of verdicts — is
-   > recorded on `.22`.
-   >
-   > **What stands unchanged:** the 31 sabotages `.19` ran are evidence the
-   > scenario tests have teeth; they are NOT evidence the 445 beside-tests
-   > survive mutmut. Nobody has measured that, and this probe did not either.
+**`overseer-hbr.16` is `ready` and its work is OPEN AS PR #120**
+(`feat/supervise-plan-generator-contract`). Both commits are pushed. Do NOT
+re-do it; check whether #120 merged, and if so close `.16` on that evidence.
+
+What it contains: `tests/prompts/test_generated_supervisor_handoff_contract.py`
+— a validator plus ten fixtures asserting the contract over CHARTER TEXT, not
+over prose — and the ported fix to `.claude-plugin/prose/supervise-plan.md`.
+Measured red state before the fix: the generator failed **seven of ten**
+requirements while the exemplar passed all ten. Sabotage-verified both
+directions. `just check`: 61 targets, 510 tests, green.
+
+**If PR #120 did NOT merge**, read its checks before touching anything — the
+work is complete and pushed, so the failure is the only thing to fix.
+
+### Then, in this order — the maintainer's stated sequence
+
+1. **`.13`** — register the marketplace across every consuming fleet repo:
+   `extraKnownMarketplaces` + `enabledPlugins` in each repo's checked-in
+   `.claude/settings.json`, pinned `"ref": "release"`, identical in shape to the
+   four working peers. **Cross-repo means one PR per repo — open them all.**
+   Derive the repo set from fleet membership, not memory. `.16` blocks this by a
+   filed edge, so #120 must land first.
+2. **`.15`** — goal 1 acceptance, observed OUTSIDE this repo. The whole thread's
+   point. `worktree-location-enforcement` is a live fleet session where the
+   maintainer confirmed `supervise-plan` ABSENT — the natural before/after.
+   Evidence is the skill RESOLVING there, not a settings file containing a string.
+3. **`.14`** — goal 5, under its **RESTATED** acceptance (see below).
+
+### `.14`'s acceptance was RESTATED 2026-07-26 — do not use the groomed wording
+
+OLD: "carries an overseer release through to an actual PIN BUMP."
+NEW: **"a consumer resolves the plugin at `refs/heads/release` and gets the
+release commit."**
+
+The old wording was **unachievable in any order**, and the measurement is on the
+item: peers pin `"ref": "release"`, a BRANCH ref that auto-follows and never
+opens a bump PR; no semver pin exists for the plugin; nothing in the fleet
+references `livespec-overseer` at all except livespec core's fleet-manifest
+membership entry, which is a repo-class declaration. `.13 blocks .14` is now a
+filed edge — `.13` creates the first consumer.
+
+### Still open, and what each needs
+
+| item | state | what it needs |
+|---|---|---|
+| `.16` | `ready`, **PR #120 open** | confirm merge, then close |
+| `.13` | `pending-approval` | blocked by `.16`; then one PR per consuming repo |
+| `.15` | `pending-approval` | blocked by `.13`; prove it OUTSIDE this repo |
+| `.14` | `pending-approval` | blocked by `.13`; restated acceptance above |
+| `.4` | `pending-approval` | first clause discharged; its SECOND clause (generated-prompt fixtures assert executability) is exactly what #120 delivers — **re-check it once #120 lands; it may close then** |
+| `.3` | `pending-approval` | PR #117 merged the reference fix — **verify and close** |
+| `.8` | `pending-approval` | `livespec-cbmw` disposed as fully stale on `.21`; the close is CORE-tenant, not ours |
+
+### Five core-tenant closes are justified and are NOT ours to make
+
+Recorded with evidence on `.21`: `livespec-b1uo.1` and `.3` (close as
+delivered), `.4`/`.5` (close as unnecessary), and `livespec-cbmw` (fully stale,
+all three legs). Whoever holds the core tenant can act on facts.
+
+### The valve lesson — READ BEFORE USING `drive`
+
+`approve:` moves `pending-approval → ready`; `accept:` moves `acceptance →
+done`; **there is no non-dispatching valve from `ready` to `acceptance`.** Work
+built outside the dispatch path therefore cannot walk the normal path, and
+`accept:` refuses with `invalid-source-state`. Worse, approving a COMPLETED item
+makes `next` rank it `implement` — pointing the next worker at rebuilding merged
+work. That happened to `.19` and had to be undone.
+
+**The established remedy, maintainer-approved:** close directly with
+`bd close --reason-file`, and make the reason self-justifying — quote the
+refusal, say why no valve reaches `acceptance`, and record the evidence.
+`overseer-hbr.19`'s close reason is the template. Use `--reason-file`, never
+`-r`: the reasons contain backticks and command substitution has eaten them
+before.
+
 
 ### The method `.19` established — carry it into `.20` and any later test work
 
@@ -796,18 +766,18 @@ was set by hand and then read back from the ledger to verify.**
 | slice | id | goal | blocked by | state |
 |---|---|---|---|---|
 | S1 residue, non-workflow | `.10` | 3a | — | **DONE** (PR #92) |
-| S2 workflow landing (maintainer-side) | `.11` | 3a | `.10` | |
-| S3 cut v0.12.0 → `release` branch | `.12` | 3a | `.11` | |
-| S4 register marketplace fleet-wide | `.13` | 4 | `.12`, **`.16`** | |
-| S5 consumer pin path observed | `.14` | 5 | `.12` | |
+| S2 workflow landing | `.11` | 3a | `.10` | **DONE** (PR #115) |
+| S3 cut v0.12.0 → `release` branch | `.12` | 3a | `.11` | **DONE** (PR #52; v0.12.0, then v0.12.1) |
+| S4 register marketplace fleet-wide | `.13` | 4 | `.12`, **`.16`** | next after #120 |
+| S5 consumer pin path observed | `.14` | 5 | `.12`, **`.13`** | **acceptance RESTATED** |
 | S6 goal-1 acceptance, live | `.15` | 1 | `.13`, `.16` | |
-| S7 template: BOTH stall modes | `.16` | 1 | — | **now gates `.13` too** |
+| S7 template: BOTH stall modes | `.16` | 1 | — | **IN FLIGHT — PR #120** |
 | S8 map the 26 cheap rows | `.17` | 2 | — | **DONE** (PR #93) |
 | S9 decide the 7 awkward rows | `.18` | 2 | — | **DONE** (PR #96) |
 | S10 21 scenario tests | `.19` | 2 | `.17`, `.18` | **DONE** — 21/21, PRs #97/#100/#102/#103 |
-| S11 arm the lever, LAST | `.20` | 3b | `.19` | **now substantively unblocked** |
-| S12 goal-6 dispositions | `.21` | 6 | — | |
-| S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | |
+| S11 arm the lever, LAST | `.20` | 3b | `.19` | **DONE** — fired green on the release path |
+| S12 goal-6 dispositions | `.21` | 6 | — | **DONE** |
+| S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | **DONE** — item 5 satisfied, item 3 sized |
 
 **Then build** through the normal machinery (`drive --action approve:<id>` then
 `impl:<id>`). Rows without a state above are still `pending-approval` and
