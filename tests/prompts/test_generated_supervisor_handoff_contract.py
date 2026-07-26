@@ -61,6 +61,12 @@ _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 # Patterns whose PRESENCE is the defect, rather than whose absence is.
+#
+# These match LITERALLY, so a charter that quotes one of these forms as a
+# counter-example is flagged too. That is a deliberate trade: the check stays
+# simple and cannot be talked out of a real hit by surrounding prose. Documents
+# that need to warn against a form describe it instead of reproducing it — the
+# generator prose does exactly that for the cwd-relative containment check.
 _BANNED: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("cwd-relative-plan-test", _CWD_RELATIVE_TEST_D),
     ("one-shot-send-keys-enter", _ONE_SHOT_SEND_KEYS),
