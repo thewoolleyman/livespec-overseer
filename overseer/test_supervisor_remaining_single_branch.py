@@ -47,7 +47,7 @@ def test_window_badge_is_retried_when_the_rename_fails(tmp_path):
     sup._refresh_window_name(2)
 
     assert fake.renames() == ["overseer(2!)", "overseer(2!)"]  # retried, not memoized
-    assert sup._window_name is None  # nothing recorded as written
+    assert sup.last_window_name is None  # nothing recorded as written
 
 
 def test_releasing_the_singleton_lock_frees_it_and_releasing_none_is_a_no_op(tmp_path):

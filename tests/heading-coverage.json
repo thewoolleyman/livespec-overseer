@@ -291,7 +291,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An undeclared session at the danger line is reported, never restarted",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_restarted",
-    "reason": "Integration-tier: warns a real track, then drops it across the danger line with no declaration. Asserts the report names every coordinate (topic, repo slug, tmux session, and a copy-pasteable `tmux switch-client` jump) and says `declared NOTHING` rather than the stale-ACK wording. 'No further act' is pinned as a paste count held constant across ten further observations — the crossing's own coalesced wrap-up is authorized by the threshold, so the claim is about what happens AFTER it settles. SABOTAGE-VERIFIED 2026-07-26: `DANGER_CTX_REMAINING = 0` makes the row read `warned` with no alert; reducing `_alert` to `repo::topic` reddens the coordinate assertions."
+    "reason": "Integration-tier: warns a real track, then drops it across the danger line with no declaration. Asserts the report names every coordinate (topic, repo slug, tmux session, and a copy-pasteable `tmux switch-client` jump) and says `declared NOTHING` rather than the stale-ACK wording. 'No further act' is pinned as a paste count held constant across ten further observations — the crossing's own coalesced wrap-up is authorized by the threshold, so the claim is about what happens AFTER it settles. SABOTAGE-VERIFIED 2026-07-26: `DANGER_CTX_REMAINING = 0` makes the row read `warned` with no alert; reducing `alert` to `repo::topic` reddens the coordinate assertions."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -305,7 +305,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A blocked declaration is relayed, not answered",
     "test": "tests.integration.test_discovery_and_relay.test_scenario_a_blocked_declaration_is_relayed_not_answered",
-    "reason": "Integration-tier: the pane is deliberately deep in the DANGER band, so `blocked` has to win a precedence contest rather than merely be the only thing happening — the same test above the threshold would pass even if `blocked` were checked last. Asserts the reason is relayed as stderr text naming every coordinate plus a jump command, and that the pane is neither keystroked nor respawned. SABOTAGE-VERIFIED 2026-07-26: removing the gate branch's `or blocked is not None` disjunct makes the track read `danger` and get a wrap-up pasted; reducing `_alert` to `repo::topic` reddens the coordinate assertions."
+    "reason": "Integration-tier: the pane is deliberately deep in the DANGER band, so `blocked` has to win a precedence contest rather than merely be the only thing happening — the same test above the threshold would pass even if `blocked` were checked last. Asserts the reason is relayed as stderr text naming every coordinate plus a jump command, and that the pane is neither keystroked nor respawned. SABOTAGE-VERIFIED 2026-07-26: removing the gate branch's `or blocked is not None` disjunct makes the track read `danger` and get a wrap-up pasted; reducing `alert` to `repo::topic` reddens the coordinate assertions."
   },
   {
     "spec_root": "SPECIFICATION",

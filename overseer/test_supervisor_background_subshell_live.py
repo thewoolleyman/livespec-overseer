@@ -143,14 +143,14 @@ def test_void_resets_inject_state_so_round_can_recertify(tmp_path):
     # Round 1: inject (stamp written, a band recorded) on an idle low-ctx pane.
     fake.serve(session, repo, capture=idle_capture(ctx=40))
     sup.evaluate(track, act=True)
-    assert key_for(repo, topic) in sup._inject  # in-memory last_ctx tracked
+    assert key_for(repo, topic) in sup.inject  # in-memory last_ctx tracked
     assert registry.read_notified_bands(str(repo), topic, sup.stamp_path)  # a band recorded
     # Session resumes work with a STALE marker → void (age > grace) → state popped.
     registry.write_injection_stamp(str(repo), topic, 700.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=800.0)
     fake.panes[session] = "esc to interrupt\n  Ctx: 30% left\n"  # busy
     sup.evaluate(track, act=True)
-    assert key_for(repo, topic) not in sup._inject  # inject state popped
+    assert key_for(repo, topic) not in sup.inject  # inject state popped
     # Next idle low-ctx tick opens a FRESH round: new stamp written, re-injected.
     fake.panes[session] = idle_capture(ctx=35)
     sup.evaluate(track, act=True)

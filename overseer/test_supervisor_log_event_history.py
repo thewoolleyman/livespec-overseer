@@ -196,10 +196,10 @@ def test_never_seen_is_unassigned_but_once_seen_is_session_gone(tmp_path):
 def test_an_unadopted_codex_looking_pane_is_never_restarted(tmp_path):
     """An UNADOPTED pane is never restarted, however much it looks like codex.
 
-    A `bun` pane NOT proven to be a live codex session (absent from `_codex`) is
+    A `bun` pane NOT proven to be a live codex session (absent from `live_codex`) is
     `session-gone`, and is never restarted or keystroked — even declaring `ready`.
 
-    Any codex ACT (wrap-up, restart) requires the per-tick `_codex` map to prove a real
+    Any codex ACT (wrap-up, restart) requires the per-tick `live_codex` map to prove a real
     codex session for THIS topic in THIS repo resolves to this pane; `bun` alone is far too
     generic to act on (any bun app reports `bun`). With the map empty, `_pane_is_managed`
     rejects the pane and evaluation returns `session-gone` BEFORE any act branch. This
@@ -214,7 +214,7 @@ def test_an_unadopted_codex_looking_pane_is_never_restarted(tmp_path):
     fake.serve(session, repo, capture=codex_idle_capture(ctx=40), cmd="bun")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})  # _codex EMPTY: not adopted
+    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})  # live_codex EMPTY: not adopted
     declare(repo, topic, "ready")
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)

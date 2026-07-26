@@ -324,7 +324,7 @@ RESET = "\x1b[0m"
 
 
 def adopt_codex_ready(tmp_path):
-    """A codex track adopted in `_codex`, at a valid `ready`, on an idle Codex pane.
+    """A codex track adopted in `live_codex`, at a valid `ready`, on an idle Codex pane.
 
     The shared fixture for the two restart-routing guards below: a `bun` pane showing the
     real idle Codex shape, a live CodexSession in the map (as `_refresh_codex_sessions`
@@ -340,7 +340,7 @@ def adopt_codex_ready(tmp_path):
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
     session_id = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
-    sup._codex = {
+    sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242, name=topic, cwd=str(repo), session_id=session_id
         )

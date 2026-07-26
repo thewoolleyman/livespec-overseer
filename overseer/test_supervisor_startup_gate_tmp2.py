@@ -195,7 +195,7 @@ def test_tmux_runtime_annotation_preserves_column_alignment(tmp_path):
 
 def test_evaluate_derives_claude_runtime_and_annotates_the_tmux_cell(tmp_path):
     """END-TO-END: `evaluate` derives `runtime="claude"` for a live Claude track (no
-    `_codex` entry → `is_codex` False), and the rendered tmux cell reads `<session>
+    `live_codex` entry → `is_codex` False), and the rendered tmux cell reads `<session>
     (claude)`. Sabotage target: drop `runtime=runtime` on evaluate's final RowView and
     the cell falls back to the bare session name → this goes red."""
     repo, topic = make_plan(tmp_path)

@@ -239,7 +239,7 @@ def test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_res
     INJECTED DEFECTS THAT REDDEN IT (run 2026-07-26, each reverted):
       - `DANGER_CTX_REMAINING = 0` -> the track reads `warned`, and no NOT RESPONDING
         alert is emitted at all.
-      - `_alert` reduced to `repo::topic` text -> the session/pane/jump assertions.
+      - `alert` reduced to `repo::topic` text -> the session/pane/jump assertions.
     """
     repo, topic, session, fake, sup, track = _open_round(tmp_path)
     assert not signals.state_path(str(repo), topic).exists()  # the session said nothing

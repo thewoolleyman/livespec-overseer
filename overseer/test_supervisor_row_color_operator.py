@@ -138,7 +138,7 @@ def test_needs_you_block_elides_an_over_long_reason(tmp_path):
 
 
 def test_blocked_human_alert_caps_an_over_long_reason(tmp_path, capsys):
-    """The edge-triggered `_alert` (daemon.log line) also caps the reason — a 705-byte
+    """The edge-triggered `alert` (daemon.log line) also caps the reason — a 705-byte
     `blocked:` dump must not become a 705-byte log line."""
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)

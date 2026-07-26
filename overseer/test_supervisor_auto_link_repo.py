@@ -148,7 +148,7 @@ def test_registry_busy_marks_working_despite_idle_pane(tmp_path):
     fake = FakeTmux()
     fake.serve(session, repo, capture=idle_capture(ctx=73))  # pane looks idle, high ctx
     sup = make_supervisor(tmp_path, fake)
-    sup._claude_status = {session: "busy"}  # Claude's own live self-report
+    sup.claude_status_by_session = {session: "busy"}  # Claude's own live self-report
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "working"
     assert view.note == "sub-agent (Claude busy)"
@@ -163,7 +163,7 @@ def test_registry_shell_marks_working_with_background_shell_note(tmp_path):
     fake = FakeTmux()
     fake.serve(session, repo, capture=idle_capture(ctx=73))  # pane at the prompt
     sup = make_supervisor(tmp_path, fake)
-    sup._claude_status = {session: "shell"}  # Claude: a live background command
+    sup.claude_status_by_session = {session: "shell"}  # Claude: a live background command
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "working"
     assert view.note == "background shell"
@@ -184,7 +184,7 @@ def test_adopted_claude_ignores_the_process_tree_shell_walk(tmp_path):
     sup = make_supervisor(
         tmp_path, fake, children_of=lambda pid: children.get(pid, []), comm_of=comms.get
     )
-    sup._claude_status = {session: "waiting"}  # Claude: at a user prompt, not working
+    sup.claude_status_by_session = {session: "waiting"}  # Claude: at a user prompt, not working
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "idle"  # NOT "working" — the process-walk is ignored for Claude
     assert view.note is None
@@ -203,7 +203,7 @@ def test_no_registry_status_falls_back_to_process_shell_walk(tmp_path):
     sup = make_supervisor(
         tmp_path, fake, children_of=lambda pid: children.get(pid, []), comm_of=comms.get
     )
-    sup._claude_status = {}  # no registry entry for this session (Codex)
+    sup.claude_status_by_session = {}  # no registry entry for this session (Codex)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "working"
     assert view.note == "background shell"
@@ -223,7 +223,7 @@ def test_registry_idle_is_idle_even_with_a_stray_descendant_shell(tmp_path):
         children_of=lambda pid: {100: [200]}.get(pid, []),
         comm_of={200: "bash"}.get,
     )
-    sup._claude_status = {session: "idle"}
+    sup.claude_status_by_session = {session: "idle"}
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     # Not "working" — the process-walk is ignored for Claude. (Idle above threshold with
     # no declaration is now nudged to keep going: `idle-with-context-left`, still not busy.)

@@ -48,7 +48,7 @@ def test_clear_state_logs_an_undeletable_marker_and_still_closes_the_round(tmp_p
     sup = make_supervisor(tmp_path, FakeTmux())
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     key = key_for(repo, topic)
-    sup._inject[key] = _supervisor_records.InjectState(last_ctx=30)
+    sup.inject[key] = _supervisor_records.InjectState(last_ctx=30)
     err = _io.StringIO()
 
     with contextlib.redirect_stderr(err):
@@ -58,7 +58,7 @@ def test_clear_state_logs_an_undeletable_marker_and_still_closes_the_round(tmp_p
     assert topic in err.getvalue()
     # The round still closed: the durable stamp is gone and the in-memory state popped.
     assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) is None
-    assert key not in sup._inject
+    assert key not in sup.inject
 
 
 def test_unreadable_ready_marker_leaves_the_ready_flag_as_is(tmp_path):
@@ -123,7 +123,7 @@ def test_failed_nudge_alerts_and_writes_no_marker_so_it_retries(tmp_path):
     fake.paste_ok = False  # the bracketed paste does not land
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"])
-    sup._claude_status = {session: "idle"}
+    sup.claude_status_by_session = {session: "idle"}
     track = mapped_track(repo, topic, session)
 
     sup.evaluate(track, act=True)  # stamps idle_since

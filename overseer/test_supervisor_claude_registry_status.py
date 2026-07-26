@@ -41,7 +41,7 @@ def test_refresh_claude_status_populates_the_map_from_registry(tmp_path):
     ppid = {100: 50, 50: 1}  # claude 100 → pane 50
     sup = adopt_sup(tmp_path, fake, sessions_dir, ppid, {100: "pt"})
     sup._refresh_claude_status()
-    assert sup._claude_status == {"sA": "busy"}
+    assert sup.claude_status_by_session == {"sA": "busy"}
 
 
 def test_adopt_sessions_links_by_registry_name(tmp_path):  # noqa: PLR0915 — see below
@@ -214,5 +214,5 @@ def test_refresh_and_adopt_route_codex_through_injected_seams(tmp_path):
     assert hits["pids"] and hits["fd"] and hits["cwd"]  # the injected readers were the ones hit
 
     sup._refresh_codex_sessions()
-    live = sup._codex.get(("livespec-cx", topic))
+    live = sup.live_codex.get(("livespec-cx", topic))
     assert live is not None and live.session_id == sid

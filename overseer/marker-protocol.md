@@ -352,7 +352,7 @@ pane**.
 
 Because the overseer never prompts on a track's behalf, the alert line is the
 operator's ONLY handover — so it is self-sufficient: every track-scoped alert
-(`Supervisor._alert`) names the plan **topic**, its **repo**, the tmux
+(`Supervisor.alert`) names the plan **topic**, its **repo**, the tmux
 **session** and **pane** holding it, and a copy-pasteable jump command
 (`tmux switch-client -t <session>`). A bare `repo::topic` told the operator WHAT
 was stuck but not WHERE to go.

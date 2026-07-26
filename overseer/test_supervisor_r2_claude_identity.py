@@ -96,8 +96,9 @@ def test_repoint_is_idempotent_when_the_mapping_already_matches(tmp_path):
 
 def test_claude_name_gate_is_wired_end_to_end_through_the_registry(tmp_path):
     """SF2: the R2 name gate must reject a mismatched pane through the PRODUCTION wiring
-    (registry → `_refresh_claude_status` → `_claude_names` → gate), not only when a test
-    hand-injects `_claude_names`. A registry session named `beta` in the track's tmux session
+    (registry → `_refresh_claude_status` → `claude_names_by_session` → gate), not only when a test
+    hand-injects `claude_names_by_session`. A registry session named `beta` in the track's tmux
+    session
     (topic `alpha`) → the wired gate rejects the pane → `session-gone`, no respawn."""
     repo, topic = make_plan(tmp_path, topic="alpha")
     session = registry.tmux_id(str(repo), topic)
@@ -111,7 +112,8 @@ def test_claude_name_gate_is_wired_end_to_end_through_the_registry(tmp_path):
     sup = adopt_sup(tmp_path, fake, sessions_dir, ppid, {100: "pt"})
     with contextlib.redirect_stderr(_io.StringIO()):
         sup._refresh_claude_status()  # the WIRING under test
-    assert sup._claude_names.get(session) == {"beta"}  # populated from the registry, not by hand
+    # populated from the registry, not by hand
+    assert sup.claude_names_by_session.get(session) == {"beta"}
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)  # would restart if the gate passed
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -122,14 +124,16 @@ def test_claude_name_gate_is_wired_end_to_end_through_the_registry(tmp_path):
 
 def test_helper_claude_in_the_same_tmux_does_not_flap_the_track(tmp_path):
     """SF5: a HELPER Claude sharing the track's tmux session (a second window/split) must NOT
-    shadow the track's own name and flap it to `session-gone`. With `_claude_names` a SET, the
+    shadow the track's own name and flap it to `session-gone`. With `claude_names_by_session` a
+    SET, the
     track's topic being AMONG the live names is enough to keep the pane ours."""
     repo, topic = make_plan(tmp_path, topic="alpha")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
     fake.serve(session, repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
-    sup._claude_names = {session: {"helper", "alpha"}}  # our topic present ALONGSIDE a helper
+    # our topic present ALONGSIDE a helper
+    sup.claude_names_by_session = {session: {"helper", "alpha"}}
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):

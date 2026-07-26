@@ -202,7 +202,8 @@ def test_claude_act_refuses_pane_whose_live_name_differs_from_topic(tmp_path):
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})  # empty registry → no live-outside-tmux
-    sup._claude_names = {session: {"beta"}}  # the live Claude here belongs to topic `beta`
+    # the live Claude here belongs to topic `beta`
+    sup.claude_names_by_session = {session: {"beta"}}
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)  # would restart if the gate passed
 
@@ -222,7 +223,7 @@ def test_claude_gate_allows_pane_whose_live_name_matches_topic(tmp_path):
     fake = FakeTmux()
     fake.serve(session, repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
-    sup._claude_names = {session: {"alpha"}}  # the live Claude here IS our topic
+    sup.claude_names_by_session = {session: {"alpha"}}  # the live Claude here IS our topic
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)
 

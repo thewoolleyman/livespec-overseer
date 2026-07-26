@@ -154,7 +154,7 @@ def needs_attention(row: RowView) -> bool:
         return True
     # A stranded post-respawn resume (R1) is also a NEEDS-YOU row: the daemon keeps
     # retrying the Enter, but the operator should see it — and keeping it here keeps the
-    # `_alert` edge-triggered (not re-armed) so it fires once, not every tick.
+    # `alert` edge-triggered (not re-armed) so it fires once, not every tick.
     return bool(row.note and row.note.startswith(RESUME_PENDING_NOTE))
 
 

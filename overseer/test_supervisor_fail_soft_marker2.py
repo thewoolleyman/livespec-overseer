@@ -45,7 +45,7 @@ def test_codex_restart_alerts_when_the_codex_session_vanished_before_the_respawn
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
     fake.serve(session, repo, capture=codex_idle_capture(ctx=40), cmd="bun")
-    sup = make_supervisor(tmp_path, fake)  # `_codex` left EMPTY: the session is gone
+    sup = make_supervisor(tmp_path, fake)  # `live_codex` left EMPTY: the session is gone
     marker = arm_ready_marker(repo, topic, mtime=1001.0)
     err = _io.StringIO()
 
@@ -149,7 +149,7 @@ def test_codex_track_is_rejected_when_its_live_session_runs_outside_the_repo(tmp
     fake = FakeTmux()
     fake.serve(session, repo, capture=codex_idle_capture(ctx=40), cmd="bun")
     sup = make_supervisor(tmp_path, fake)
-    sup._codex = {
+    sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242,
             name=topic,
