@@ -24,7 +24,7 @@ def test_refuses_outside_claude_code(*, monkeypatch, capsys):
     mod = _load()
     monkeypatch.delenv("CLAUDECODE", raising=False)
     monkeypatch.setenv("TMUX_PANE", "%9")  # in tmux, but not a Claude session
-    # main([]) — pass an explicit empty argv so argparse does not read pytest's own
+    # main(argv=[]) — pass an explicit empty argv so argparse does not read pytest's own
     # sys.argv (main now parses `--warn-percent`); no flags → the guards still run.
     assert mod.main(argv=[]) == 1
     err = capsys.readouterr().err
@@ -61,12 +61,15 @@ def test_daemon_command_threads_warn_percent():
     # Part 1: --warn-percent N is appended to the overseerd launch command; without
     # it the command is unchanged (default threshold applies inside overseerd).
     mod = _load()
-    assert mod.daemon_command(None) == "overseerd 2>> tmp/overseer/daemon.log"
-    assert mod.daemon_command(30) == "overseerd --warn-percent 30 2>> tmp/overseer/daemon.log"
+    assert mod.daemon_command(warn_percent=None) == "overseerd 2>> tmp/overseer/daemon.log"
+    assert (
+        mod.daemon_command(warn_percent=30)
+        == "overseerd --warn-percent 30 2>> tmp/overseer/daemon.log"
+    )
 
 
 def test_warn_percent_arg_parses(*, monkeypatch):
-    # main([--warn-percent, N]) parses the flag; with $CLAUDECODE unset the guard
+    # main(argv=[--warn-percent, N]) parses the flag; with $CLAUDECODE unset the guard
     # still short-circuits (return 1), proving the flag doesn't break arg parsing.
     mod = _load()
     monkeypatch.delenv("CLAUDECODE", raising=False)
@@ -80,7 +83,7 @@ def test_overseer_start_console_entry_point_targets_importable_module():
 
     mod = importlib.import_module("overseer.start")
     assert mod.main is not None
-    assert mod.daemon_command(None) == "overseerd 2>> tmp/overseer/daemon.log"
+    assert mod.daemon_command(warn_percent=None) == "overseerd 2>> tmp/overseer/daemon.log"
 
     pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
     assert 'overseer-start = "overseer.start:main"' in pyproject.read_text(encoding="utf-8")

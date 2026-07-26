@@ -159,7 +159,7 @@ def test_write_rows_is_atomic_and_skips_when_unchanged(*, tmp_path):
         track=registry.Track(topic="a", repo="/r", tmux="r--a"), store_path=store
     )
     before = store.stat().st_mtime_ns
-    dropped = registry.rewrite_mapping(keep=lambda _row: True, store_path=store)  # keep all
+    dropped = registry.rewrite_mapping(keep=lambda *, row: True, store_path=store)  # keep all
     assert dropped == 0
     assert store.stat().st_mtime_ns == before  # unchanged → not rewritten
 

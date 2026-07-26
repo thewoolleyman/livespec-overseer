@@ -77,7 +77,7 @@ def maybe_inject(
     ):
         for b in due:
             registry.add_notified_band(repo=repo, topic=topic, band=b, stamp_path=sup.stamp_path)
-        sup.log(f"injected wrap-up into {repo}::{topic} (ctx {eff_ctx}%, bands {due})")
+        sup.log(message=f"injected wrap-up into {repo}::{topic} (ctx {eff_ctx}%, bands {due})")
     else:
         if opened_now:
             # Roll back the just-opened round so the next tick retries cleanly.
@@ -176,7 +176,7 @@ def do_restart(
     if _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume):
         _supervisor_state.clear_state(sup=sup, track=track)
         _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
-        sup.log(f"restarted {track.repo}::{track.topic} (pane {target})")
+        sup.log(message=f"restarted {track.repo}::{track.topic} (pane {target})")
         return
     # The fresh Claude IS up, but the resume line did not submit (the fresh TUI
     # dropped the Enter). Separate the two facts the old code conflated — "is the
@@ -247,4 +247,4 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
     # The kick was submitted BY the `codex resume` argument — no separate paste step.
     _supervisor_state.clear_state(sup=sup, track=track)
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
-    sup.log(f"restarted (codex) {track.repo}::{track.topic} (pane {target})")
+    sup.log(message=f"restarted (codex) {track.repo}::{track.topic} (pane {target})")

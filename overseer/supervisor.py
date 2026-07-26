@@ -51,6 +51,7 @@ import registry
 import signals
 import streams
 import tmuxio
+from _seams import SubcommandHandler
 from _supervisor_config import DANGER_CTX_REMAINING as DANGER_CTX_REMAINING
 from _supervisor_config import LOOP_INTERVAL_SECONDS as LOOP_INTERVAL_SECONDS
 from _supervisor_config import default_gitignore_check as default_gitignore_check
@@ -117,7 +118,7 @@ def _cli_colliding() -> frozenset[str]:
     watch = registry.watch_set_from_config(
         config_path=registry.DEFAULT_WATCH_SET_PATH, extra_repos=[]
     )
-    return registry.colliding_topics(registry.discover_plans(watch_repos=watch))
+    return registry.colliding_topics(discovered=registry.discover_plans(watch_repos=watch))
 
 
 def _upsert(*, track: registry.Track) -> None:
@@ -152,13 +153,15 @@ def run_daemon(*, warn_percent: int | None = None) -> int:
     return 0
 
 
-def _cmd_list(_args: argparse.Namespace) -> int:
+def _cmd_list(*, args: argparse.Namespace) -> int:
+    del args  # `list` takes no options; the dispatch shape supplies one anyway
     sup = build_supervisor()
     _ = sup.tick(act=False)  # read-only render: no injection/restart
     return 0
 
 
-def _cmd_adopt(_args: argparse.Namespace) -> int:
+def _cmd_adopt(*, args: argparse.Namespace) -> int:
+    del args  # `adopt` takes no options; the dispatch shape supplies one anyway
     adopted = build_supervisor().adopt_sessions()
     for track in adopted:
         streams.write_stdout(text=f"adopted {track.tmux} → {track.repo}::{track.topic}\n")
@@ -166,7 +169,7 @@ def _cmd_adopt(_args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_add(args: argparse.Namespace) -> int:
+def _cmd_add(*, args: argparse.Namespace) -> int:
     repo = os.path.normpath(args.repo)
     track = registry.Track(
         topic=args.topic,
@@ -180,7 +183,7 @@ def _cmd_add(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_remove(args: argparse.Namespace) -> int:
+def _cmd_remove(*, args: argparse.Namespace) -> int:
     removed = registry.remove_mapping(
         repo=os.path.normpath(args.repo), topic=args.topic, store_path=None
     )
@@ -188,7 +191,7 @@ def _cmd_remove(args: argparse.Namespace) -> int:
     return 0
 
 
-def _cmd_start(args: argparse.Namespace) -> int:
+def _cmd_start(*, args: argparse.Namespace) -> int:
     """Surface-only, user-initiated launch. The daemon never invokes this.
 
     Guarded (B8): if the session already runs a LIVE Claude, ``start`` does NOT
@@ -272,7 +275,7 @@ def _add_track_args(*, parser: argparse.ArgumentParser) -> None:
     )
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(*, argv: list[str] | None = None) -> int:
     """The track-management CLI (`list` / `add` / `remove` / `unassign` / `start`).
 
     This is the MODULE's one-shot surface, invoked from the `/overseer` skill's
@@ -319,7 +322,8 @@ def main(argv: list[str] | None = None) -> int:
     p_start.set_defaults(func=_cmd_start)
 
     args = parser.parse_args(argv)
-    return int(args.func(args))
+    handler: SubcommandHandler = args.func
+    return int(handler(args=args))
 
 
 if __name__ == "__main__":

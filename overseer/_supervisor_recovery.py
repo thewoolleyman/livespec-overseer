@@ -81,7 +81,7 @@ def recover_missing_sessions(*, sup: Supervisor) -> list[str]:
             continue
         if do_launch(sup=sup, track=track, session=session):
             recovered.append(session)
-            sup.log(f"reboot-recovery recreated {session} for {track.repo}::{track.topic}")
+            sup.log(message=f"reboot-recovery recreated {session} for {track.repo}::{track.topic}")
         else:
             sup.surface(
                 message=f"reboot-recovery FAILED to launch {session} "
@@ -129,7 +129,7 @@ def recover_codex_track(
         return None
     if do_codex_launch(sup=sup, track=track, session=session, session_id=session_id):
         sup.log(
-            f"reboot-recovery resumed codex {session} for {track.repo}::{track.topic} "
+            message=f"reboot-recovery resumed codex {session} for {track.repo}::{track.topic} "
             f"(session {session_id})"
         )
         return session

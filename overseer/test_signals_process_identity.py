@@ -28,10 +28,10 @@ def _isolate_cwd(*, tmp_path, monkeypatch):
 
 
 def test_pane_is_claude_and_shell():
-    assert signals.pane_is_claude("node") is True
-    assert signals.pane_is_claude("claude") is True
-    assert signals.pane_is_claude("zsh") is False
-    assert signals.pane_is_claude(None) is False
+    assert signals.pane_is_claude(pane_current_command="node") is True
+    assert signals.pane_is_claude(pane_current_command="claude") is True
+    assert signals.pane_is_claude(pane_current_command="zsh") is False
+    assert signals.pane_is_claude(pane_current_command=None) is False
     assert signals.pane_is_shell(pane_current_command="zsh") is True
     assert signals.pane_is_shell(pane_current_command="bash") is True
     assert signals.pane_is_shell(pane_current_command="node") is False
@@ -98,11 +98,13 @@ def test_pane_is_codex_is_loose_and_must_never_gate_alone():
     """`bun` is the codex pane's foreground process (the launcher; the codex binary is
     its child) — and it matches ANY bun app, so this predicate is deliberately loose and
     is only ever used PAIRED with an exact live-session-map lookup."""
-    assert signals.pane_is_codex("bun") is True
-    assert signals.pane_is_codex("codex") is True
-    assert signals.pane_is_codex("node") is False  # a Claude pane is never codex
-    assert signals.pane_is_codex("zsh") is False
-    assert signals.pane_is_codex(None) is False
+    assert signals.pane_is_codex(pane_current_command="bun") is True
+    assert signals.pane_is_codex(pane_current_command="codex") is True
+    assert (
+        signals.pane_is_codex(pane_current_command="node") is False
+    )  # a Claude pane is never codex
+    assert signals.pane_is_codex(pane_current_command="zsh") is False
+    assert signals.pane_is_codex(pane_current_command=None) is False
 
 
 def test_codex_prompt_present_requires_the_codex_statusline_not_just_the_glyph():

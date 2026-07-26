@@ -32,9 +32,10 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+
+from _seams import PidToIntList, PidToOptionalInt, PidToOptionalStr
 
 __all__: list[str] = [
     "ClaudeSession",
@@ -101,7 +102,7 @@ _PPID_INDEX = 1  # stat field 4
 _STARTTIME_INDEX = 19  # stat field 22
 
 
-def proc_ppid(pid: int) -> int | None:
+def proc_ppid(*, pid: int) -> int | None:
     """The parent PID of ``pid`` from ``/proc/<pid>/stat`` (field 4), or None."""
     fields = _proc_stat_fields(pid=pid)
     if fields is None or len(fields) <= _PPID_INDEX:
@@ -112,7 +113,7 @@ def proc_ppid(pid: int) -> int | None:
         return None
 
 
-def proc_starttime(pid: int) -> str | None:
+def proc_starttime(*, pid: int) -> str | None:
     """The process start-time of ``pid`` from ``/proc/<pid>/stat`` (field 22), or None.
 
     Returned as a string to compare byte-for-byte against the registry's
@@ -130,7 +131,7 @@ def proc_starttime(pid: int) -> str | None:
 _SHELL_COMMS = frozenset({"sh", "bash", "zsh", "dash", "fish", "ksh", "tcsh", "csh"})
 
 
-def proc_comm(pid: int) -> str | None:
+def proc_comm(*, pid: int) -> str | None:
     """``/proc/<pid>/comm`` (the process's command name), or None if unreadable."""
     try:
         return (
@@ -140,7 +141,7 @@ def proc_comm(pid: int) -> str | None:
         return None
 
 
-def proc_children(pid: int) -> list[int]:
+def proc_children(*, pid: int) -> list[int]:
     """Direct child PIDs of ``pid`` via ``/proc/<pid>/task/<pid>/children`` ([] on error)."""
     try:
         data = Path(f"/proc/{pid}/task/{pid}/children").read_text(encoding="utf-8")
@@ -164,8 +165,8 @@ def proc_children(pid: int) -> list[int]:
 def has_active_subshell(
     *,
     root_pid: int,
-    children_of: Callable[[int], list[int]] = proc_children,
-    comm_of: Callable[[int], str | None] = proc_comm,
+    children_of: PidToIntList = proc_children,
+    comm_of: PidToOptionalStr = proc_comm,
     max_nodes: int = 512,
 ) -> bool:
     """True if any DESCENDANT of ``root_pid`` is a shell — a background command shell.
@@ -182,23 +183,23 @@ def has_active_subshell(
     the beside-tests drive it with fakes and never touch real ``/proc``.
     """
     seen: set[int] = set()
-    stack = list(children_of(root_pid))
+    stack = list(children_of(pid=root_pid))
     while stack and len(seen) < max_nodes:
         pid = stack.pop()
         if pid in seen:
             continue
         seen.add(pid)
-        comm = comm_of(pid)
+        comm = comm_of(pid=pid)
         if comm is not None and comm.lower() in _SHELL_COMMS:
             return True
-        stack.extend(children_of(pid))
+        stack.extend(children_of(pid=pid))
     return False
 
 
 def read_live_sessions(
     *,
     sessions_dir: str | os.PathLike[str],
-    starttime_of: Callable[[int], str | None] = proc_starttime,
+    starttime_of: PidToOptionalStr = proc_starttime,
 ) -> list[ClaudeSession]:
     """Every LIVE, named session in the registry dir.
 
@@ -228,7 +229,7 @@ def read_live_sessions(
             continue
         if not name or not cwd or proc_start is None:
             continue
-        if starttime_of(pid) != str(proc_start):
+        if starttime_of(pid=pid) != str(proc_start):
             continue  # dead PID, or reused by an unrelated process
         out.append(
             ClaudeSession(
@@ -242,7 +243,7 @@ def resolve_tmux_session(
     *,
     pid: int,
     pane_pid_to_session: dict[int, str],
-    ppid_of: Callable[[int], int | None] = proc_ppid,
+    ppid_of: PidToOptionalInt = proc_ppid,
 ) -> str | None:
     """The tmux session whose pane process-tree contains ``pid``, or None.
 
@@ -260,7 +261,7 @@ def resolve_tmux_session(
         if current in seen:
             return None
         seen.add(current)
-        parent = ppid_of(current)
+        parent = ppid_of(pid=current)
         if parent is None or parent <= 0 or parent == current:
             return None
         current = parent
@@ -271,8 +272,8 @@ def map_named_sessions(
     *,
     sessions_dir: str | os.PathLike[str],
     pane_pid_to_session: dict[int, str],
-    ppid_of: Callable[[int], int | None] = proc_ppid,
-    starttime_of: Callable[[int], str | None] = proc_starttime,
+    ppid_of: PidToOptionalInt = proc_ppid,
+    starttime_of: PidToOptionalStr = proc_starttime,
 ) -> list[tuple[str, str, str]]:
     """``[(tmux_session, name, cwd)]`` for every live named session held in tmux.
 
@@ -295,8 +296,8 @@ def status_by_tmux_session(
     *,
     sessions_dir: str | os.PathLike[str],
     pane_pid_to_session: dict[int, str],
-    ppid_of: Callable[[int], int | None] = proc_ppid,
-    starttime_of: Callable[[int], str | None] = proc_starttime,
+    ppid_of: PidToOptionalInt = proc_ppid,
+    starttime_of: PidToOptionalStr = proc_starttime,
 ) -> dict[str, str]:
     """``{tmux_session: status}`` for every live named Claude session held in tmux.
 
@@ -326,8 +327,8 @@ def names_by_tmux_session(
     *,
     sessions_dir: str | os.PathLike[str],
     pane_pid_to_session: dict[int, str],
-    ppid_of: Callable[[int], int | None] = proc_ppid,
-    starttime_of: Callable[[int], str | None] = proc_starttime,
+    ppid_of: PidToOptionalInt = proc_ppid,
+    starttime_of: PidToOptionalStr = proc_starttime,
 ) -> dict[str, set[str]]:
     """``{tmux_session: {name, ...}}`` — the set of ALL live named Claude session names in
     each tmux session.

@@ -122,7 +122,7 @@ def test_run_refuses_on_an_unsupported_host_before_ticking(*, tmp_path):
         tmp_path=tmp_path,
         fake=FakeTmux(),
         watch_repos=[str(repo)],
-        gitignore_check=lambda _r: True,
+        gitignore_check=lambda *, repo: True,
         which=lambda _name: None,
     )
     ticked: list[bool] = []
@@ -143,7 +143,7 @@ def test_the_host_gate_precedes_the_gitignore_gate(*, tmp_path):
         tmp_path=tmp_path,
         fake=FakeTmux(),
         watch_repos=[str(repo)],
-        gitignore_check=lambda _r: False,  # ALSO an offender
+        gitignore_check=lambda *, repo: False,  # ALSO an offender
         which=lambda _name: None,
     )
     with contextlib.redirect_stderr(err):
@@ -164,7 +164,7 @@ def test_run_refuses_when_tmp_not_gitignored(*, tmp_path):
     repo, _topic = make_plan(tmp_path=tmp_path)
     fake = FakeTmux()
     sup = make_supervisor(
-        tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], gitignore_check=lambda _r: False
+        tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], gitignore_check=lambda *, repo: False
     )
     assert sup.unignored_tmp_repos() == [os.path.normpath(str(repo))]
     ticked: list[bool] = []
@@ -179,7 +179,7 @@ def test_run_proceeds_when_tmp_gitignored(*, tmp_path):
     repo, _topic = make_plan(tmp_path=tmp_path)
     fake = FakeTmux()
     sup = make_supervisor(
-        tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], gitignore_check=lambda _r: True
+        tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], gitignore_check=lambda *, repo: True
     )
     assert sup.unignored_tmp_repos() == []
     ticked: list[bool] = []
@@ -191,16 +191,16 @@ def test_run_proceeds_when_tmp_gitignored(*, tmp_path):
 def test_cli_add_remove_roundtrip(*, tmp_path, monkeypatch):
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = str(tmp_path / "repo")
-    assert supervisor.main(["add", "--repo", repo, "--topic", "alpha"]) == 0
+    assert supervisor.main(argv=["add", "--repo", repo, "--topic", "alpha"]) == 0
     rows = registry.read_mapping(store_path=store)
     assert [(r.topic, r.tmux) for r in rows] == [
         ("alpha", registry.tmux_id(repo=repo, topic="alpha"))
     ]
 
-    assert supervisor.main(["add", "--repo", repo, "--topic", "alpha"]) == 0
+    assert supervisor.main(argv=["add", "--repo", repo, "--topic", "alpha"]) == 0
     assert len(registry.read_mapping(store_path=store)) == 1
 
-    assert supervisor.main(["remove", "--repo", repo, "--topic", "alpha"]) == 0
+    assert supervisor.main(argv=["remove", "--repo", repo, "--topic", "alpha"]) == 0
     assert registry.read_mapping(store_path=store) == []
 
 
@@ -208,7 +208,7 @@ def test_cli_add_names_a_bare_topic_by_default(*, tmp_path, monkeypatch):
     # With no cross-repo collision, `add` maps the session to the BARE topic name.
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = str(tmp_path / "livespec")
-    assert supervisor.main(["add", "--repo", repo, "--topic", "autonomous-mode"]) == 0
+    assert supervisor.main(argv=["add", "--repo", repo, "--topic", "autonomous-mode"]) == 0
     rows = registry.read_mapping(store_path=store)
     assert [(r.topic, r.tmux) for r in rows] == [("autonomous-mode", "autonomous-mode")]
 
@@ -219,8 +219,8 @@ def test_cli_add_single_dash_prefixes_a_cross_repo_collision(*, tmp_path, monkey
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     monkeypatch.setattr(supervisor, "_cli_colliding", lambda: frozenset({"shared"}))
     repo = str(tmp_path / "livespec")
-    assert supervisor.main(["add", "--repo", repo, "--topic", "shared"]) == 0
-    assert supervisor.main(["add", "--repo", repo, "--topic", "solo"]) == 0
+    assert supervisor.main(argv=["add", "--repo", repo, "--topic", "shared"]) == 0
+    assert supervisor.main(argv=["add", "--repo", repo, "--topic", "solo"]) == 0
     rows = {r.topic: r.tmux for r in registry.read_mapping(store_path=store)}
     assert rows["shared"] == "livespec-shared"  # colliding -> repo-qualified
     assert rows["solo"] == "solo"  # non-colliding -> bare
@@ -254,6 +254,6 @@ def test_build_rows_caches_the_cross_repo_collision_set(*, tmp_path):
 def test_cli_unassign_is_remove(*, tmp_path, monkeypatch):
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = str(tmp_path / "repo")
-    supervisor.main(["add", "--repo", repo, "--topic", "beta"])
-    assert supervisor.main(["unassign", "--repo", repo, "--topic", "beta"]) == 0
+    supervisor.main(argv=["add", "--repo", repo, "--topic", "beta"])
+    assert supervisor.main(argv=["unassign", "--repo", repo, "--topic", "beta"]) == 0
     assert registry.read_mapping(store_path=store) == []

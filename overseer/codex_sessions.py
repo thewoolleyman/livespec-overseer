@@ -47,11 +47,11 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 import jsonio
+from _seams import CommToPidList, PidToOptionalInt, PidToOptionalStr, PidToStrList
 
 # `proc_comm` is a GENERIC /proc reader that happens to live in `claude_sessions`,
 # which already hosts the runtime-agnostic readers used for Codex (`has_active_subshell`
@@ -117,7 +117,7 @@ def default_codex_home() -> Path:
 # --------------------------------------------------------------------------- #
 
 
-def proc_fd_targets(pid: int) -> list[str]:
+def proc_fd_targets(*, pid: int) -> list[str]:
     """Every open fd's target path for ``pid`` — fail-soft to [] (dead pid / EPERM)."""
     out: list[str] = []
     try:
@@ -132,7 +132,7 @@ def proc_fd_targets(pid: int) -> list[str]:
     return out
 
 
-def proc_cwd(pid: int) -> str | None:
+def proc_cwd(*, pid: int) -> str | None:
     """``/proc/<pid>/cwd`` resolved, or None if unreadable."""
     try:
         return str(Path(f"/proc/{pid}/cwd").readlink())
@@ -140,7 +140,7 @@ def proc_cwd(pid: int) -> str | None:
         return None
 
 
-def proc_pids_of_comm(comm: str) -> list[int]:
+def proc_pids_of_comm(*, comm: str) -> list[int]:
     """Every live pid whose ``/proc/<pid>/comm`` equals ``comm`` — fail-soft to []."""
     out: list[int] = []
     try:
@@ -151,7 +151,7 @@ def proc_pids_of_comm(comm: str) -> list[int]:
         if not entry.name.isdigit():
             continue
         pid = int(entry.name)
-        if proc_comm(pid) == comm:
+        if proc_comm(pid=pid) == comm:
             out.append(pid)
     return sorted(out)
 
@@ -167,16 +167,14 @@ def rollout_id(*, path: str) -> str | None:
     return match.group(1) if match else None
 
 
-def open_rollout_id(
-    *, pid: int, fd_targets_of: Callable[[int], list[str]] = proc_fd_targets
-) -> str | None:
+def open_rollout_id(*, pid: int, fd_targets_of: PidToStrList = proc_fd_targets) -> str | None:
     """The session id of the rollout ``pid`` holds OPEN, or None if it holds none.
 
     This is the pid→session link Codex otherwise lacks. A codex process keeps its own
     rollout open for the session's whole life, so the fd table is an exact, live
     pid→session id map — no cwd+recency guessing.
     """
-    for target in fd_targets_of(pid):
+    for target in fd_targets_of(pid=pid):
         found = rollout_id(path=target)
         if found is not None:
             return found
@@ -261,9 +259,9 @@ def rollout_exists(*, session_id: str, codex_home: str | os.PathLike[str] | None
 def read_live_codex_sessions(
     *,
     codex_home: str | os.PathLike[str] | None = None,
-    pids_of_comm: Callable[[str], list[int]] = proc_pids_of_comm,
-    cwd_of: Callable[[int], str | None] = proc_cwd,
-    fd_targets_of: Callable[[int], list[str]] = proc_fd_targets,
+    pids_of_comm: CommToPidList = proc_pids_of_comm,
+    cwd_of: PidToOptionalStr = proc_cwd,
+    fd_targets_of: PidToStrList = proc_fd_targets,
 ) -> list[CodexSession]:
     """Every live, NAMED Codex TUI session, joined to its topic + repo.
 
@@ -287,14 +285,14 @@ def read_live_codex_sessions(
     home = Path(codex_home) if codex_home is not None else default_codex_home()
     names = read_thread_names(codex_home=home)
     out: list[CodexSession] = []
-    for pid in pids_of_comm(CODEX_COMM):
+    for pid in pids_of_comm(comm=CODEX_COMM):
         session_id = open_rollout_id(pid=pid, fd_targets_of=fd_targets_of)
         if session_id is None:
             continue
         name = names.get(session_id)
         if not name:
             continue  # unnamed → no topic → not joinable to a plan
-        cwd = cwd_of(pid)
+        cwd = cwd_of(pid=pid)
         if not cwd:
             continue
         out.append(CodexSession(pid=pid, name=name, cwd=cwd, session_id=session_id))
@@ -305,10 +303,10 @@ def map_codex_sessions(
     *,
     pane_pid_to_session: dict[int, str],
     codex_home: str | os.PathLike[str] | None = None,
-    ppid_of: Callable[[int], int | None] = proc_ppid,
-    pids_of_comm: Callable[[str], list[int]] = proc_pids_of_comm,
-    cwd_of: Callable[[int], str | None] = proc_cwd,
-    fd_targets_of: Callable[[int], list[str]] = proc_fd_targets,
+    ppid_of: PidToOptionalInt = proc_ppid,
+    pids_of_comm: CommToPidList = proc_pids_of_comm,
+    cwd_of: PidToOptionalStr = proc_cwd,
+    fd_targets_of: PidToStrList = proc_fd_targets,
 ) -> list[tuple[str, str, str]]:
     """``[(tmux_session, name, cwd)]`` for every live NAMED codex session held in tmux.
 
@@ -343,10 +341,10 @@ def codex_by_tmux_session(
     *,
     pane_pid_to_session: dict[int, str],
     codex_home: str | os.PathLike[str] | None = None,
-    ppid_of: Callable[[int], int | None] = proc_ppid,
-    pids_of_comm: Callable[[str], list[int]] = proc_pids_of_comm,
-    cwd_of: Callable[[int], str | None] = proc_cwd,
-    fd_targets_of: Callable[[int], list[str]] = proc_fd_targets,
+    ppid_of: PidToOptionalInt = proc_ppid,
+    pids_of_comm: CommToPidList = proc_pids_of_comm,
+    cwd_of: PidToOptionalStr = proc_cwd,
+    fd_targets_of: PidToStrList = proc_fd_targets,
 ) -> dict[tuple[str, str], CodexSession]:
     """``{(tmux_session, name): CodexSession}`` for every live NAMED codex session in tmux.
 

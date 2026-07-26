@@ -172,8 +172,8 @@ def test_bg_shell_suppresses_restart(*, tmp_path):
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
-        children_of=lambda pid: children.get(pid, []),
-        comm_of=comms.get,
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: comms.get(pid),
     )
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
@@ -200,8 +200,8 @@ def test_no_bg_shell_allows_restart(*, tmp_path):
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
-        children_of=lambda pid: children.get(pid, []),
-        comm_of=comms.get,
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: comms.get(pid),
     )
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path

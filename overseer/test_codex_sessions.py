@@ -300,8 +300,8 @@ def test_open_rollout_id_picks_the_rollout_out_of_unrelated_fds():
         fake_rollout(session_id=ID_B),
         "socket:[1]",
     ]
-    assert codex_sessions.open_rollout_id(pid=1, fd_targets_of=lambda _p: fds) == ID_B
+    assert codex_sessions.open_rollout_id(pid=1, fd_targets_of=lambda *, pid: fds) == ID_B
 
 
 def test_open_rollout_id_is_none_when_no_rollout_is_held():
-    assert codex_sessions.open_rollout_id(pid=1, fd_targets_of=lambda _p: ["/dev/null"]) is None
+    assert codex_sessions.open_rollout_id(pid=1, fd_targets_of=lambda *, pid: ["/dev/null"]) is None

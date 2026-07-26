@@ -168,9 +168,9 @@ def test_gitignore_check_is_true_only_on_a_zero_exit(*, monkeypatch):
 
     monkeypatch.setattr(_supervisor_config.subprocess, "run", fake_run)
 
-    assert supervisor.default_gitignore_check("/x/repo") is True  # 0 → ignored
-    assert supervisor.default_gitignore_check("/x/repo") is False  # 1 → NOT ignored
-    assert supervisor.default_gitignore_check("/x/repo") is False  # 128 → git errored
+    assert supervisor.default_gitignore_check(repo="/x/repo") is True  # 0 → ignored
+    assert supervisor.default_gitignore_check(repo="/x/repo") is False  # 1 → NOT ignored
+    assert supervisor.default_gitignore_check(repo="/x/repo") is False  # 128 → git errored
     assert argvs[0] == ["git", "-C", "/x/repo", "check-ignore", "-q", "tmp/overseer"]
 
 
@@ -183,7 +183,7 @@ def test_gitignore_check_fails_soft_to_not_ignored_when_git_cannot_spawn(*, monk
 
     monkeypatch.setattr(_supervisor_config.subprocess, "run", boom)
 
-    assert supervisor.default_gitignore_check("/x/repo") is False
+    assert supervisor.default_gitignore_check(repo="/x/repo") is False
 
 
 def test_gitignore_check_passes_a_timeout_and_fails_soft_when_git_hangs(*, monkeypatch):
@@ -208,7 +208,7 @@ def test_gitignore_check_passes_a_timeout_and_fails_soft_when_git_hangs(*, monke
 
     monkeypatch.setattr(_supervisor_config.subprocess, "run", hang)
 
-    assert supervisor.default_gitignore_check("/x/repo") is False
+    assert supervisor.default_gitignore_check(repo="/x/repo") is False
     assert seen.get("timeout") is not None, "the git call must carry a timeout"
     assert seen["timeout"] > 0
 
@@ -295,5 +295,5 @@ def test_cli_list_renders_exactly_one_read_only_tick(*, monkeypatch):
 
     monkeypatch.setattr(supervisor, "build_supervisor", lambda: _TickOnlySup())
 
-    assert supervisor.main(["list"]) == 0
+    assert supervisor.main(argv=["list"]) == 0
     assert ticks == [False]

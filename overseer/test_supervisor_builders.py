@@ -109,7 +109,7 @@ def make_supervisor(*, tmp_path, fake, **kwargs):
     # never reached, so they need no fake. A codex-behavior test overrides these to inject
     # a simulated session (see test_refresh_and_adopt_route_codex_through_injected_seams).
     kwargs.setdefault("codex_home", str(tmp_path / "codex-home-none"))
-    kwargs.setdefault("codex_pids_of_comm", lambda _comm: [])
+    kwargs.setdefault("codex_pids_of_comm", lambda *, comm: [])
     # Hermetic host preconditions: present them as SUPPORTED so no test depends on the
     # RUNNER having tmux (or a /proc). Without these defaults the `run()` startup gate
     # would fail every existing run() test on a container without tmux installed — the
@@ -135,8 +135,8 @@ def adopt_sup(*, tmp_path, fake, sessions_dir, ppid, starttimes, **kwargs):
         tmp_path=tmp_path,
         fake=fake,
         sessions_dir=str(sessions_dir),
-        ppid_of=ppid.get,
-        starttime_of=starttimes.get,
+        ppid_of=lambda *, pid: ppid.get(pid),
+        starttime_of=lambda *, pid: starttimes.get(pid),
         **kwargs,
     )
 
@@ -208,7 +208,7 @@ def isolate_store(*, tmp_path, monkeypatch):
 
     The de-gold-plated CLI (2026-07-13) no longer exposes ``--store``; the path is
     fixed to ``registry.DEFAULT_STORE_PATH``. Tests point that module default at a
-    tmp file so a CLI ``main([...])`` never writes into the developer's real
+    tmp file so a CLI ``main(argv=[...])`` never writes into the developer's real
     ``~/.livespec-overseer.jsonl``.
     """
     store = tmp_path / "map.jsonl"

@@ -83,6 +83,7 @@ def discover_plans(
 
 
 def join(
+    *,
     discovered: Iterable[tuple[str, str, str]],
     mapping: Iterable[Track],
 ) -> list[Track]:

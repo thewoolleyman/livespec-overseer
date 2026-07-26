@@ -141,7 +141,7 @@ def test_join_left_join_fills_and_marks_unassigned(*, tmp_path):
     mapping = [
         Track(topic="mapped", repo=repo, tmux="repo:mapped", handoff=None),  # no handoff
     ]
-    rows = registry.join(discovered, mapping)
+    rows = registry.join(discovered=discovered, mapping=mapping)
     by_topic = {t.topic: t for t in rows}
 
     assert by_topic["mapped"].assigned is True
@@ -164,7 +164,7 @@ def test_join_is_repo_qualified_no_cross_link(*, tmp_path):
         (repo_b, "shared", f"{repo_b}/plan/shared/handoff.md"),
     ]
     mapping = [Track(topic="shared", repo=repo_a, tmux="repo-a:shared")]
-    rows = registry.join(discovered, mapping)
+    rows = registry.join(discovered=discovered, mapping=mapping)
     by_repo = {t.repo: t for t in rows}
     assert by_repo[repo_a].assigned is True
     assert by_repo[repo_a].tmux == "repo-a:shared"

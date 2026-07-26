@@ -121,7 +121,7 @@ def wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
     head = _WRAPUP_INSIST_HEAD if remaining <= _INSIST_AT else _WRAPUP_SUGGEST_HEAD
     return f"{head}\n\n{_WRAPUP_BODY}".format(
         n=remaining,
-        marker_dir=str(signals.marker_dir(repo, topic)),
+        marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
         state_file=str(signals.state_path(repo=repo, topic=topic)),
         handoff=default_handoff(repo=repo, topic=topic),
         repo=repo,

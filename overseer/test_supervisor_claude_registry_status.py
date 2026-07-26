@@ -73,7 +73,7 @@ def test_adopt_sessions_links_by_registry_name(*, tmp_path):  # noqa: PLR0915 �
     ppid: dict[int, int] = {}
     starttimes: dict[int, str] = {}
 
-    def live(pid, name, cwd, session, *, in_tmux=True, alive=True):
+    def live(*, pid, name, cwd, session, in_tmux=True, alive=True):
         write_session(sessions_dir=sessions_dir, pid=pid, name=name, cwd=cwd)
         if alive:
             starttimes[pid] = "pt"  # matches procStart → live
@@ -82,13 +82,21 @@ def test_adopt_sessions_links_by_registry_name(*, tmp_path):  # noqa: PLR0915 �
         if in_tmux:
             fake.pane_pids[shell] = session
 
-    live(100, "alpha", repo_a, "sesA")  # ADOPT → repo_a::alpha
-    live(200, "beta", repo_b, "sesB")  # ADOPT → repo_b::beta
-    live(300, "notaplan", repo_a, "sesN")  # skip: name not an active topic
-    live(400, "delta", "/somewhere/else", "sesD")  # skip: cwd not in a fleet repo
-    live(500, "gamma", repo_a, "sesG")  # RE-POINT: (repo_a, gamma) mapped but its session MOVED
-    live(600, "alpha", repo_a, "sesX", in_tmux=False)  # skip: not inside any tmux pane
-    live(700, "gamma", repo_a, "sesDead", alive=False)  # skip: dead PID (starttime mismatch)
+    live(pid=100, name="alpha", cwd=repo_a, session="sesA")  # ADOPT → repo_a::alpha
+    live(pid=200, name="beta", cwd=repo_b, session="sesB")  # ADOPT → repo_b::beta
+    live(pid=300, name="notaplan", cwd=repo_a, session="sesN")  # skip: name not an active topic
+    live(
+        pid=400, name="delta", cwd="/somewhere/else", session="sesD"
+    )  # skip: cwd not in a fleet repo
+    live(
+        pid=500, name="gamma", cwd=repo_a, session="sesG"
+    )  # RE-POINT: (repo_a, gamma) mapped but its session MOVED
+    live(
+        pid=600, name="alpha", cwd=repo_a, session="sesX", in_tmux=False
+    )  # skip: not inside any tmux pane
+    live(
+        pid=700, name="gamma", cwd=repo_a, session="sesDead", alive=False
+    )  # skip: dead PID (starttime mismatch)
 
     sup = adopt_sup(
         tmp_path=tmp_path,
@@ -209,15 +217,15 @@ def test_refresh_and_adopt_route_codex_through_injected_seams(*, tmp_path):
     # each recording its calls so we can assert the injected readers are the ones hit.
     hits = {"pids": [], "fd": [], "cwd": []}
 
-    def _pids(comm):
+    def _pids(*, comm):
         hits["pids"].append(comm)
         return [9000] if comm == codex_sessions.CODEX_COMM else []
 
-    def _fd(pid):
+    def _fd(*, pid):
         hits["fd"].append(pid)
         return [f"/proc/{pid}/fd/rollout-2026-07-18T00-00-00-{sid}.jsonl"] if pid == 9000 else []
 
-    def _cwd(pid):
+    def _cwd(*, pid):
         hits["cwd"].append(pid)
         return str(repo) if pid == 9000 else None
 

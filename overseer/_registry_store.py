@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 
 import jsonio
 from _registry_core import (
@@ -20,6 +20,7 @@ from _registry_core import (
     resolve_store,
     warn,
 )
+from _seams import MappingRowPredicate
 
 __all__: list[str] = [
     "append_mapping",
@@ -160,7 +161,7 @@ def append_mapping(
 
 def rewrite_mapping(
     *,
-    keep: Callable[[dict[str, object]], bool],
+    keep: MappingRowPredicate,
     store_path: str | os.PathLike[str] | None = None,
 ) -> int:
     """Rewrite the store keeping only rows where ``keep(row)`` is true.
@@ -174,7 +175,7 @@ def rewrite_mapping(
     """
     with file_lock(target=resolve_store(store_path=store_path)):
         rows = _read_rows(store_path=store_path)
-        kept = [row for row in rows if keep(row)]
+        kept = [row for row in rows if keep(row=row)]
         if len(kept) != len(rows):
             _write_rows(rows=kept, store_path=store_path)
         return len(rows) - len(kept)
@@ -189,7 +190,7 @@ def remove_mapping(
     """Remove the mapping row(s) matching ``(repo, topic)``; return the count."""
     repo_norm = norm(repo=repo)
 
-    def _keep(row: dict[str, object]) -> bool:
+    def _keep(*, row: dict[str, object]) -> bool:
         row_repo = row.get("repo")
         return not (
             isinstance(row_repo, str)

@@ -42,7 +42,7 @@ def test_start_refuses_running_claude_without_force(*, tmp_path, monkeypatch):
     fake.serve(session=session, repo=repo, capture=idle_capture())
 
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
-    rc = supervisor.main(["start", "--repo", str(repo), "--topic", topic])
+    rc = supervisor.main(argv=["start", "--repo", str(repo), "--topic", topic])
     assert rc == 0
     assert not fake.has(method="respawn")  # the live session was NOT killed
     # but the mapping was upserted
@@ -58,7 +58,7 @@ def test_start_force_respawns_running_claude(*, tmp_path, monkeypatch):
     fake.serve(session=session, repo=repo, capture=idle_capture())
 
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
-    rc = supervisor.main(["start", "--force", "--repo", str(repo), "--topic", topic])
+    rc = supervisor.main(argv=["start", "--force", "--repo", str(repo), "--topic", topic])
     assert rc == 0
     assert fake.has(method="respawn")
 
@@ -81,11 +81,11 @@ def test_cli_surface_has_no_config_knobs(*, tmp_path, monkeypatch):
     )
     for argv in rejected:
         with pytest.raises(SystemExit):
-            supervisor.main(argv)
+            supervisor.main(argv=argv)
     # The old positional form is gone; --repo and --topic are required.
     for argv in (["add", repo, "t"], ["add", "--repo", repo], ["start", "--topic", "t"]):
         with pytest.raises(SystemExit):
-            supervisor.main(argv)
+            supervisor.main(argv=argv)
 
 
 def test_run_daemon_uses_fleet_defaults(*, monkeypatch):

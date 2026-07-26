@@ -200,8 +200,8 @@ def test_adopted_claude_ignores_the_process_tree_shell_walk(*, tmp_path):
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
-        children_of=lambda pid: children.get(pid, []),
-        comm_of=comms.get,
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: comms.get(pid),
     )
     sup.claude_status_by_session = {session: "waiting"}  # Claude: at a user prompt, not working
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -222,8 +222,8 @@ def test_no_registry_status_falls_back_to_process_shell_walk(*, tmp_path):
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
-        children_of=lambda pid: children.get(pid, []),
-        comm_of=comms.get,
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: comms.get(pid),
     )
     sup.claude_status_by_session = {}  # no registry entry for this session (Codex)
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -242,8 +242,8 @@ def test_registry_idle_is_idle_even_with_a_stray_descendant_shell(*, tmp_path):
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
-        children_of=lambda pid: {100: [200]}.get(pid, []),
-        comm_of={200: "bash"}.get,
+        children_of=lambda *, pid: {100: [200]}.get(pid, []),
+        comm_of=lambda *, pid: {200: "bash"}.get(pid),
     )
     sup.claude_status_by_session = {session: "idle"}
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)

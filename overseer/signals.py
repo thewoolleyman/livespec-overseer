@@ -305,7 +305,7 @@ def is_codex_idle_input(*, capture_text: str) -> bool:
 # --------------------------------------------------------------------------- #
 
 
-def marker_dir(repo: str, topic: str) -> Path:
+def marker_dir(*, repo: str, topic: str) -> Path:
     """``<repo>/tmp/overseer/<topic>/`` — the overseer's per-track TEMP dir.
 
     The markers live under the repo's ``tmp/`` (gitignored, maintainer-owned
@@ -338,7 +338,7 @@ _DAEMON_TOKENS = (STATE_IDLE_WITH_CONTEXT_LEFT,)
 
 def state_path(*, repo: str, topic: str) -> Path:
     """``<repo>/tmp/overseer/<topic>/.overseer-state`` — the ONE indicator file."""
-    return marker_dir(repo, topic) / ".overseer-state"
+    return marker_dir(repo=repo, topic=topic) / ".overseer-state"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -433,7 +433,7 @@ _CLAUDE_COMMANDS = frozenset({"node", "claude"})
 _SHELL_COMMANDS = frozenset({"zsh", "bash", "sh", "fish", "dash", "ksh"})
 
 
-def pane_is_claude(pane_current_command: str | None) -> bool:
+def pane_is_claude(*, pane_current_command: str | None) -> bool:
     """True if ``#{pane_current_command}`` looks like a running Claude TUI."""
     cmd = (pane_current_command or "").strip().lower()
     if not cmd:
@@ -441,7 +441,7 @@ def pane_is_claude(pane_current_command: str | None) -> bool:
     return cmd in _CLAUDE_COMMANDS or "claude" in cmd
 
 
-def pane_is_codex(pane_current_command: str | None) -> bool:
+def pane_is_codex(*, pane_current_command: str | None) -> bool:
     """True if ``#{pane_current_command}`` could be a Codex TUI.
 
     DELIBERATELY LOOSE, and safe only in combination. tmux reports a codex pane's

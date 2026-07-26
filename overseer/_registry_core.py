@@ -135,6 +135,7 @@ def repo_slug(*, repo: str | os.PathLike[str]) -> str:
 
 
 def colliding_topics(
+    *,
     discovered: Iterable[tuple[str, str, str]],
 ) -> frozenset[str]:
     """Topics that appear in >=2 DISTINCT watched repos.

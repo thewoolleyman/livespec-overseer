@@ -79,7 +79,7 @@ def unignored_tmp_repos(*, sup: Supervisor) -> list[str]:
     return [
         repo
         for repo in _supervisor_discovery.resolve_watch(sup=sup)
-        if registry.repo_root_present(repo=repo) and not sup.gitignore_check(repo)
+        if registry.repo_root_present(repo=repo) and not sup.gitignore_check(repo=repo)
     ]
 
 
@@ -161,7 +161,7 @@ def run_loop(
             try:
                 _ = sup.tick(act=True)
             except KeyboardInterrupt:
-                sup.log("interrupted; exiting")
+                sup.log(message="interrupted; exiting")
                 return
             # NO per-iteration broad catch. A bug in one track's tick PROPAGATES:
             # this loop lets it out, the daemon dies with a full traceback on

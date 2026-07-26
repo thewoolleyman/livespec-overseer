@@ -130,7 +130,7 @@ ACK_STALE_AFTER = 900.0
 IDLE_NUDGE_AFTER = 3600.0  # 1 hour
 
 
-def default_gitignore_check(repo: str) -> bool:
+def default_gitignore_check(*, repo: str) -> bool:
     """True iff ``<repo>/tmp/overseer/`` is gitignored in ``repo``.
 
     Bounded by ``_GIT_TIMEOUT_SECONDS``: this runs on the START-UP path, so an

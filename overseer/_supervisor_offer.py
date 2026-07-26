@@ -52,9 +52,11 @@ def supervisor_running(*, sup: Supervisor, session: str, repo: str) -> bool:
         return False
     command = sup.tmux.pane_current_command(session=target)
     cwd = sup.tmux.pane_current_path(session=target)
-    if signals.pane_is_claude(command) and signals.path_in_repo(pane_current_path=cwd, repo=repo):
+    if signals.pane_is_claude(pane_current_command=command) and signals.path_in_repo(
+        pane_current_path=cwd, repo=repo
+    ):
         return True
-    if not signals.pane_is_codex(command):
+    if not signals.pane_is_codex(pane_current_command=command):
         return False
     return any(
         tmux == session and signals.path_in_repo(pane_current_path=live.cwd, repo=repo)
@@ -133,7 +135,7 @@ def live_session_outside_tmux(
     """
     pane_pids = sup.tmux.pane_pid_sessions()
     for live in claude_sessions.read_live_sessions(
-        sessions_dir=_supervisor_discovery.sessions_dir(sup), starttime_of=sup.starttime_of
+        sessions_dir=_supervisor_discovery.sessions_dir(sup=sup), starttime_of=sup.starttime_of
     ):
         if live.name != topic or not signals.path_in_repo(pane_current_path=live.cwd, repo=repo):
             continue

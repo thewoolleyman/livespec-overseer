@@ -69,7 +69,7 @@ def test_codex_restart_alerts_when_the_codex_session_vanished_before_the_respawn
 # --------------------------------------------------------------------------- #
 
 
-def _fleet_manifest(tmp_path, *repo_names):
+def _fleet_manifest(*repo_names, tmp_path):
     """A tmp `.livespec-fleet-manifest.jsonc` naming ``repo_names`` as fleet members.
 
     `registry.watch_set` resolves each name against the manifest repo's PARENT, so the
