@@ -1,16 +1,15 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **OPEN — GOAL 5 IS NOT MET.**
-Five of six goals hold. The
+**Owning repo:** `livespec-overseer`. **Status:** **ALL SIX GOALS MET ON
+OBSERVED EVIDENCE — goal 5's trigger fired unattended 2026-07-26T21:30Z.** The
 plugin is RELEASED (v0.13.1 at the time of writing — **re-derive with
 `gh release list`, this line has gone stale five times**), REGISTERED in all
 twelve consuming repos,
 and INSTALLED on the host for **all twelve** — nine fleet members plus all three
 adopters — with `supervise-plan` proven to RESOLVE by live exercise in eleven
-sessions that are not this repo's. **`overseer-hbr.25` is OPEN and `ready`** —
-it carries goal 5's unverified trigger. `.1`–`.24` are closed, but **`.24`
-closed on evidence that does not support its claim** — see §"GOAL 5 REOPENED".
-**Do not close `overseer-hbr`.** Read §"NEXT ACTION" — it was
+sessions that are not this repo's. **All 25 children are closed**, including
+`.25`, which closed on the observation goal 5 always needed. `.24` closed on
+evidence that did not support its claim; `.25` is the item that settled it. Read §"NEXT ACTION" — it was
 rewritten 2026-07-26 (FIFTH wrap-up) and SUPERSEDES every earlier status
 statement in this file, including the fourth wrap-up's "the thread is DONE".
 
@@ -22,6 +21,15 @@ statement in this file, including the fourth wrap-up's "the thread is DONE".
 > human pressing `workflow_dispatch`. If you are about to score this goal met a
 > third time, the question to answer first is not "did the pin advance?" but
 > **"what event advanced it, and would it have fired with nobody watching?"**
+>
+> **THE THIRD SCORING ANSWERED THAT QUESTION BEFORE MAKING THE CLAIM, WHICH IS
+> WHY IT STANDS.** On 2026-07-26 both pinned adopters advanced v0.12.4 → v0.13.1
+> on runs whose `event` is **`schedule`** — resume 21:30:29Z, openbrain
+> 21:32:45Z — the first scheduled runs either repository has ever had. resume's
+> bump PR #13 was opened by `app/resume-pr-bot` and **merged by
+> `app/resume-pr-bot`**, not by a human, which is the exact contrast with PRs #8
+> and #9 (`mergedBy: thewoolleyman`, `auto-enable-merge` = `skipped`). Nothing
+> triggered either run. Independently verified on the forge by the maintainer.
 
 <!-- Superseded headers, kept so a reader arriving from an older revision lands
 somewhere real. This has read, in order: "OPEN — WAITING ON MAINTAINER VALVES",
@@ -551,165 +559,93 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
-## NEXT ACTION — GOAL 5 REOPENED; the pull lane must be OBSERVED
+## GOAL 5 OBSERVED — all six goals now hold on measured evidence
 
-**Rewritten 2026-07-26 at the FIFTH wrap-up. It supersedes the third and fourth
-wrap-ups' "the thread is DONE; all six goals are met", which was wrong on goal
-5.**
+**Rewritten 2026-07-26 at the SIXTH wrap-up. Supersedes the fifth wrap-up's
+"GOAL 5 REOPENED", which was correct when written and is now discharged.**
 
-### WHAT IS ACTUALLY LEFT — an UNVERIFIED TRIGGER
+### The evidence chain, end to end
 
-Do not compress this into "the lane is built, someone just needs to watch it".
-That sentence was written here once, got relayed upward as "nothing to fix", and
-was wrong. The lane has three legs and only two are proven:
+**resume**
 
-| leg | state |
+| time | fact |
 |---|---|
-| mechanics — resolve, rewrite, land | **PROVEN.** openbrain's 15:23Z run resolved the latest release by PULL with its own token and landed the bump; both bumpers dry-run correctly against a newer tag with a one-line diff and the other three pins untouched |
-| auto-merge coupling | **BUILT and test-pinned** (resume #10 fixed it, #11 guards it, sabotage-verified) — but never yet exercised by a real bump pull request |
-| **the TRIGGER** | **UNVERIFIED. Zero runs with `event: schedule` have ever occurred in either adopter**, across their whole history |
+| 21:30:29Z | `bump-plugin-pin` — **`event: schedule`**, completed/success |
+| 21:30:46Z | `auto-enable-merge` on `chore/bump-livespec-overseer-pin-v0.13.1` — **`success`** |
+| — | PR **#13** opened by `app/resume-pr-bot`, auto-merge armed at open |
+| 21:36:15Z | **merged by `app/resume-pr-bot`** — not by a human |
+| — | ref `v0.12.4` → **`v0.13.1`** on `master` |
 
-**An unfired trigger is an untested trigger.** The acceptance the goal always
-needed is still owed: **observe a pinned adopter advance with no fleet-side push
-and no hand action.**
+**openbrain**
 
-> **THE SCHEDULER ON THIS ACCOUNT LAGS 86-124 MINUTES. READ THIS BEFORE
-> CHECKING ANYTHING, OR YOU WILL MISREAD AN EMPTY RESULT AS A FAILURE.**
->
-> Measured 2026-07-26 against livespec-overseer's own "Pin freshness sweep"
-> (cron `0 13 * * *`), six consecutive days, zero misses:
->
-> | date | actual start | lag |
-> |---|---|---|
-> | 07-21 | 15:00:31Z | +120 min |
-> | 07-22 | 15:00:25Z | +120 min |
-> | 07-23 | 15:04:27Z | +124 min |
-> | 07-24 | 14:49:54Z | +109 min |
-> | 07-25 | 14:27:33Z | +87 min |
-> | 07-26 | 14:26:00Z | +86 min |
->
-> **So the adopters' `37 6 * * *` cron fires between 08:03Z and 08:41Z, not at
-> 06:37Z.** Any check before ~08:45Z sees nothing and proves nothing.
->
-> **A retime experiment was run, and it was ABORTED BEFORE ITS WINDOW OPENED —
-> by the session running it, which did not know the lag figure above.** Both
-> adopters' cron was moved to `"45 17 * * *"`; at 18:24Z — 39 minutes past
-> target — it was declared "did not fire", and the cron was reverted two minutes
-> later. Against the measured lag, the earliest that run could have started was
-> **19:11Z**: the revert removed the entry 47 minutes BEFORE its window opened.
-> The attempt produced **no evidence in either direction**. Do not cite it as
-> evidence against the lane. The 30-minute allowance was invented rather than
-> measured, and the measurement was sitting in a sibling repo the whole time.
->
-> **"Scheduled Actions are disabled in the adopters" is DISPROVEN.** Both:
-> `actions.enabled=true`, `allowed_actions=all`, workflow `state=active` (the
-> 60-day inactivity auto-disable reads `disabled_inactivity`, a distinct value),
-> not archived, not disabled, pushed the same day. openbrain being private is
-> not a factor — push-triggered runs executed there that day.
->
-> The retime is **REVERTED AND PROVEN**: restored with `git cat-file blob` from
-> the pre-test blobs (`a0331862…` openbrain, `a885e405…` resume) rather than by
-> retyping the cron, and `git diff` against the published default branches is
-> empty for both. Both re-read `state=active` with cron `"37 6 * * *"`.
-
-**What is left is the TRIGGER, and it is UNVERIFIED — not merely unwitnessed.**
-The lane's mechanics are proven (resolve, rewrite and landing were all exercised
-on 2026-07-26) and its auto-merge coupling is built and test-pinned, but **zero
-runs with `event: schedule` have ever occurred in either adopter**. An unfired
-trigger is an untested trigger; do not record this as "nothing left to build".
-
-**The test is ARMED. Do not disturb it:**
-
-| fact | value |
+| time | fact |
 |---|---|
-| latest release | **v0.13.1**, published 2026-07-26T18:25:09Z (v0.13.0 was 15:43:11Z) |
-| both pinned adopters | still at **v0.12.4** |
-| next scheduled pull | **06:37 UTC daily** (`cron: "37 6 * * *"` in each adopter) |
+| 21:32:45Z | `bump-plugin-pin` — **`event: schedule`**, completed/success |
+| — | landed `a1188a2`, direct push to `main` (its own documented landing path) |
+| — | ref `v0.12.4` → **`v0.13.1`** |
 
-**DO NOT hand-bump either adopter, and do not run `bump-plugin-pin.yml` by
-`workflow_dispatch`.** Doing so consumes the gap the test needs and leaves goal 5
-unprovable for another release cycle — which is exactly how it came to be
-mis-scored twice. To accept: after 06:37 UTC, check that the scheduled run fired
-and that the pin reads v0.13.0.
+Both equal the latest release. **No fleet-side push** — the producer's fan-out
+has never delivered to any adopter and reported `delivered: 0, unauthorized: 3`
+on v0.13.0. **No `workflow_dispatch`. No hand action.** Independently verified on
+the forge by the maintainer.
 
-```
-gh run list -R thewoolleyman/openbrain --workflow=bump-plugin-pin.yml --limit 5 \
-  --json event,conclusion,createdAt
-gh run list -R thewoolleyman/resume    --workflow=bump-plugin-pin.yml --limit 5 \
-  --json event,conclusion,createdAt
-```
+### Why the auto-merge leg matters more than it looks
 
-**The acceptance is `event: schedule`.** A `workflow_dispatch` or
-`repository_dispatch` row is not the goal, however green.
+It was the one leg that could not be tested in isolation: exercising it needs a
+PR authored by `resume-pr-bot[bot]`, and that App's key lives only in resume's
+Actions secrets by NFR design. The contrast on the identical lane is the proof:
 
-**Expect the pin to land on whatever `releases/latest` returns AT RUN TIME**, not
-on a version written down here. It was v0.13.0 when this fixture was set up and
-v0.13.1 forty minutes later. The gap is what matters — both adopters are at
-v0.12.4 — so do not fail the acceptance over which newer tag it reached.
-
-This is tracked as **`overseer-hbr.25`** (`ready`, P1) — filed with
-`--no-inherit-labels` and then set to a real `WorkItemStatus`, so it corrects
-both known `bd create --parent` defects and `next` can actually rank it. The
-retraction evidence lives in `.24`'s comments.
-
-### GOAL 5 REOPENED — why `.24`'s close does not hold
-
-`overseer-hbr.24` closed on the claim that both pinned adopters "advanced
-v0.12.3 → v0.12.4 **unattended**". The pins did advance. Nothing was unattended.
-
-Measured on the run history, which is the fact `.24` never checked:
-
-| adopter | run that bumped | trigger |
+| | `auto-enable-merge` | merged by |
 |---|---|---|
-| openbrain | 2026-07-26T15:23:32Z | **`workflow_dispatch`** — a human pressed it |
-| resume | 2026-07-26T15:22:47Z | **`workflow_dispatch`** — a human pressed it |
+| PRs #8, #9 (before the fix) | **`skipped`** | `thewoolleyman` |
+| PR #13 (after the fix) | **`success`** | `app/resume-pr-bot` |
 
-**Zero `schedule` runs have ever fired in either adopter.** The earlier
-v0.12.2 → v0.12.3 advance was a hand-sent `repository_dispatch`, which `.24`
-correctly described as hand-sent and then counted as proof of the receiving half
-— fair — but no run of any kind has ever started without a person starting it.
+### THE LAG BAND IS WIDER THAN THE SAMPLE — carry this, it nearly cost the proof
 
-And the push hop is measured DEAD, not merely unproven. On v0.13.0 this repo's
-`adopter-release-dispatch.yml` reported **`delivered: 0, unauthorized: 3`**, with
-its own notice: *"No adopter is reachable by the livespec GitHub App, so no
-pinned adopter was notified of v0.13.0."* The job is GREEN and that is correct —
-an unauthorized boundary is a precondition, not a release failure — but **a green
-run with `delivered: 0` is not goal 5.** Read the summary, not the check mark.
+Measured tonight from a 20:40Z target: resume **+50 min**, openbrain **+52 min**.
+The 86–124 min band measured off `Pin freshness sweep` is an observed spread from
+ONE workflow, **not a floor and not a law**. The real range spans at least
+50–124 min.
 
-### The defect that made "unattended" impossible for resume — FIXED
+**A first attempt was aborted at +39 min and its cron reverted at +41.** Against
+tonight's +50, that attempt was killed roughly **eleven minutes** before it would
+plausibly have fired. The allowance was invented rather than measured, and it
+came within minutes of producing a confident false negative about a lane that
+works. **When waiting on a scheduled run in this fleet, wait two hours before
+calling it dead.**
 
-Worth keeping, because it is the reason the lane could never have satisfied the
-goal no matter how long anyone waited.
+### The retime, and its discharged obligation
 
-resume's bump lane opens a PULL REQUEST rather than pushing. Its
-`auto-enable-merge.yml` gated eligibility on
-`user.login == github.repository_owner` alone, so a pull request opened by
-`resume-pr-bot[bot]` was **never** given auto-merge. The lane could only ever
-notify; a human had to merge. Measured: PRs **#8** and **#9** are both
-`author: app/resume-pr-bot`, both `mergedBy: thewoolleyman`, and the
-`auto-enable-merge` runs for both branches read **`skipped`**.
+Both adopters' cron was temporarily moved to `"40 20 * * *"` so the acceptance
+could be observed the same day. **That is a retime, not a nudge** — the run still
+fires because a cron came due and records `event: schedule`; a `workflow_dispatch`
+would have proven nothing and stayed prohibited throughout.
 
-This was a live conformance violation, not a missing feature.
-`non-functional-requirements.md` §"Pull request landing automation" already
-requires eligibility for *"the repository owner **or an explicit allowlist of
-trusted automation identities**"*; only the owner half was implemented, and the
-workflow header carried the TODO inline. Closed by resume PR #10, which
-allowlists that one identity — scoped to a named bot rather than
-`endsWith(login, '[bot]')`, so a third-party App installed later is not silently
-covered. The merge gate is unchanged: auto-merge still lands only on a green
-required `check`, which runs the bumper's own refusal tests.
+**REVERTED AND PROVEN.** Restored with `git cat-file blob` from the pre-test
+blobs rather than by retyping the expression, since retyping restores something
+plausible and would mask a typo in the original:
 
-### The premise that caused all of it
+| repo | revert commit | blob | proof |
+|---|---|---|---|
+| openbrain | `b8e8c3f` | `a0331862…` | `git diff` vs published default branch EMPTY |
+| resume | `4006a7e` | `a885e405…` | `git diff` vs published default branch EMPTY |
 
-**"An adopter cannot poll — its `GITHUB_TOKEN` cannot read this private repo's
-releases."** That sentence was checked into
-`adopter-release-dispatch.yml` and into BOTH adopters' bumper headers, and every
-clause of it is false: **`livespec-overseer` is PUBLIC**, `releases/latest`
-answers 200 with no credential at all, and a private adopter reading a public
-repo is governed by the visibility of the repository being READ. The false
-premise is why the lane was built push-first, against a boundary the fleet
-manifest already documents as deliberately unauthorized. All three comments are
-corrected; do not let the dispatch-only reading come back.
+Post-revert both re-read `state=active` with cron `"37 6 * * *"`, and both refs
+remain `v0.13.1` — the revert touched only the workflow file.
+
+### What this leaves behind
+
+Guards so the lane cannot silently degrade again — resume PR **#11**
+(`verifyPinBumpLane` over schedule / `releases/latest` / allowlist, each
+sabotage-verified) and PR **#12** (read parsed `run:` bodies, not raw YAML; the
+raw scan had a **live false positive** against openbrain's real file, whose
+header comment contains `gh pr create` while its lane pushes directly).
+
+Recorded and deliberately NOT absorbed: **openbrain's bump-lane guards cannot run
+outside the lane** — it has no CI, its spec enumerates a closed pre-push list, and
+its bumper tests execute only inside the bump workflow, which cannot detect that
+the workflow did not fire. Owner is openbrain; closing it needs a
+`/livespec:propose-change` against its `constraints.md`.
 
 ### Also open — and NOT this thread's to build:
 
@@ -1040,7 +976,7 @@ bumping commit type.
 | 2 — top-of-pyramid tests, present AND enforced | **MET** — 54/54 rows mapped, lever armed, fired green on the release path |
 | 3 — auto-released | **MET** — three releases; `release-readiness.yml` + `release-tag.yml` in place |
 | 4 — auto-installed, fleet AND adopters | **MET** — 12 install records; each adopter provisions itself from an ordinary session (`.23`) |
-| 5 — release pin auto-bumped | **NOT MET — met for 10 of 12.** The `ref: "release"` consumers auto-follow, observed across a real release boundary. The two `posture: pinned` adopters have a lane that has **never fired unattended**: zero `schedule` runs, both advances `workflow_dispatch`, and resume's bump PR could not auto-merge at all until PR #10. Acceptance is armed at 06:37 UTC — see §"GOAL 5 REOPENED" |
+| 5 — release pin auto-bumped | **MET, OBSERVED.** The 10 `ref: "release"` consumers auto-follow, seen across a real release boundary. The 2 `posture: pinned` adopters advanced **v0.12.4 → v0.13.1 unattended on `event: schedule` runs** (resume 21:30:29Z, openbrain 21:32:45Z), with resume's PR #13 merged **by the bot**. No fleet push, no hand action — see §"GOAL 5 OBSERVED" |
 | 6 — phase-2 adopter shipping folds in | **MET** — dispositions on `.21`/`.22`, and its shipping arm landed as `.23` |
 
 ### Five core-tenant closes are justified and are NOT ours to make
