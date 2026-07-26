@@ -1,0 +1,116 @@
+# Release-tag workflow — runs the release-gate targets in STRICT mode on tag push.
+#
+# ADAPTED FROM livespec core's release-tag.yml (2026-07-26). Two adaptations,
+# both verified rather than assumed — see tmp/supervisor/workflow-changeset/README.md.
+#
+# 1. THE MATRIX ENTRY IS RENAMED. Core's matrix names `check-mutation`; this
+#    repo has no recipe by that name. It carries only `check-check-mutation`.
+#    That is a SPELLING difference, not a weaker gate: core's justfile defines
+#    both, with IDENTICAL bodies
+#    (`uv run python -m livespec_dev_tooling.checks.check_mutation`), and core's
+#    own comment calls `check-check-mutation` the "canonical-slug alias" for
+#    `check-mutation`. Substituting it runs the same check.
+#
+# 2. CORE'S PREMISE ABOUT `just check` DOES NOT HOLD HERE. Core's header says
+#    these targets "are NOT part of `just check` (not run per-commit); they fire
+#    only on tag push". Measured 2026-07-26 in livespec-overseer: all three are
+#    ALREADY in the 61-target `just check` aggregate and in per-commit CI's
+#    matrix. So this workflow does not make them run — it makes them STRICT.
+#    Copying core's sentence verbatim would have shipped a false claim into
+#    this repo's own workflow.
+#
+# WHAT THE THREE LEVERS ACTUALLY DO HERE — measured, not inferred:
+#
+#   - LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST — REAL AND ARMED. This is
+#     the one lever with teeth on this repo today. Sabotage-verified 2026-07-26
+#     in a throwaway worktree: flipping ONE registry row back to `test: "TODO"`
+#     made `just check-no-todo-registry` exit 1 with the lever set and exit 0
+#     with it unset, on the same tree. `no_todo_registry.py` is not phase-gated
+#     — it walks the whole array. The registry is currently 0 TODO of 54, so
+#     the gate passes today.
+#
+#   - LIVESPEC_RUN_MUTATION — VERIFIED NO-OP on this repo today. `check_mutation`
+#     gates on the `pure_trees` role key, which pyproject.toml declares
+#     EXPLICITLY EMPTY; the check logs a sanctioned opt-out and exits 0 in about
+#     a second. There is no [tool.mutmut] block and mutmut is not installed.
+#     It becomes live when overseer-hbr.22 arms the ROP role keys, not when this
+#     workflow lands.
+#
+#   - LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST — ALSO A VERIFIED NO-OP today,
+#     for a structurally identical reason, and this one was NOT anticipated.
+#     `no_lloc_soft_warnings.py` splits offenders on the `covered_trees` role
+#     key, which is likewise declared empty; everything therefore lands in the
+#     "newly git-derived coverage / Phase-0 WARN" bucket that reports
+#     `failing: false` and never fails. Proven in BOTH directions 2026-07-26:
+#     with `covered_trees = []` the armed lever exits 0, and with
+#     `covered_trees = ["overseer"]` the same armed lever exits 1 on
+#     `overseer/test_signals.py` (211 LLOC, soft band 201-250). That file is a
+#     latent release-gate failure that arms itself the moment overseer-hbr.22
+#     declares the role key. It is the single offender.
+#
+# So landing this workflow arms exactly ONE gate today and pre-wires two more
+# that overseer-hbr.22 switches on. The first release run is expected GREEN.
+#
+# The export-telemetry job ships the outcome to Honeycomb (dataset github-ci,
+# ci.workflow = "Release tag"). Script and secret both already exist here and
+# are used by ci.yml — no new secret is required. A red release gate must never
+# be silent: core lost v0.6.0..v0.6.4 to exactly that, unnoticed for ~25h.
+
+name: Release tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release-gate:
+    name: ${{ matrix.target }}
+    # ubuntu-latest for the same reason as release-readiness.yml — core keeps
+    # its release-family workflows on hosted runners, and so does this repo's
+    # existing release-please.yml.
+    runs-on: ubuntu-latest
+    env:
+      LIVESPEC_RUN_MUTATION: "true"
+      LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST: "true"
+      LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST: "true"
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - check-check-mutation
+          - check-no-todo-registry
+          - check-no-lloc-soft-warnings
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned binaries via mise
+        uses: jdx/mise-action@v2
+
+      - name: Install Python dev deps via uv
+        run: uv sync --all-groups
+
+      - name: just ${{ matrix.target }}
+        run: just ${{ matrix.target }}
+
+  export-telemetry:
+    name: export-telemetry
+    needs: [release-gate]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Export release-gate run telemetry to Honeycomb
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          HONEYCOMB_GITHUB_CI_INGEST_KEY_LIVESPEC: ${{ secrets.HONEYCOMB_GITHUB_CI_INGEST_KEY_LIVESPEC }}
+        run: bash .github/scripts/export-ci-telemetry.sh

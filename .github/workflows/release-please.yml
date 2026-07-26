@@ -3,9 +3,13 @@
 # Authority: livespec/SPECIFICATION/contracts.md §"Plugin versioning"
 #   — the documented mechanism is release-please from per-commit
 #   Conventional Commits via the release-please-action GitHub Action.
-#   The same mechanism applies to this sibling library; livespec-core
-#   has not yet wired its own release-please.yml as of v070, and
-#   livespec-runtime is the first livespec-governed repo to do so.
+#   The same mechanism applies to this control-plane tool.
+#
+#   Scaffold residue corrected 2026-07-26. This header previously read
+#   "livespec-core has not yet wired its own release-please.yml as of
+#   v070, and livespec-runtime is the first livespec-governed repo to
+#   do so." BOTH halves were false here: this repo is livespec-overseer,
+#   and livespec core carries .github/workflows/release-please.yml today.
 #
 # Behavior: on every push to master, release-please opens (or updates)
 # a release PR carrying the next-version bump per Conventional
@@ -18,8 +22,10 @@
 #   test, build, ci, revert
 #
 # When the release PR merges, release-please tags vX.Y.Z and creates
-# a GitHub Release. Phase G.5 of epic li-fgqgnk cuts the first v0.1.0
-# tag this way.
+# a GitHub Release. (Scaffold residue corrected 2026-07-26: this said
+# "Phase G.5 of epic li-fgqgnk cuts the first v0.1.0 tag this way".
+# That epic id belongs to another repo's tenant, and this repo's first
+# tag will be v0.12.0 via the held release PR #52, not v0.1.0.)
 #
 # Auth model (WI-A, work-item livespec-runtime-emz):
 #   release-please MUST authenticate via the livespec GitHub App
