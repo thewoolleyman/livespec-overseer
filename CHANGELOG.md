@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.13.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.13.0...v0.13.1) (2026-07-26)
+
+
+### Refactoring
+
+* extract the launch, recovery and lifecycle groups ([6c1a9ee](https://github.com/thewoolleyman/livespec-overseer/commit/6c1a9ee013ca8d06484a27d54b9620b35a88e3d2))
+* extract the table-rendering group into _supervisor_render ([80e6cf6](https://github.com/thewoolleyman/livespec-overseer/commit/80e6cf6c6c0d00ab407a11ae12b1e7612e7d4c2b))
+* extract the watch-set + discovery group, rehome resolve_watch ([e83853a](https://github.com/thewoolleyman/livespec-overseer/commit/e83853a1d1a0e460b4d58b1f8ef7cec6fb899a92))
+* make supervisor.py a facade over five private collaborators ([f279533](https://github.com/thewoolleyman/livespec-overseer/commit/f2795339adda800bc71ad75e98989fe30ffb13c3))
+* publicise Supervisor's shared state and diagnostics surface ([b5d0cfe](https://github.com/thewoolleyman/livespec-overseer/commit/b5d0cfe1ba9160ffad1aca3f223dcc92fcf7129e))
+* **tests:** take NoSupervisorPaneTmux off inheritance, and give its test teeth ([2e7bcdc](https://github.com/thewoolleyman/livespec-overseer/commit/2e7bcdc2197ab9087a7d4366a4735e4a72f270ca))
+
 ## [0.13.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.4...v0.13.0) (2026-07-26)
 
 
