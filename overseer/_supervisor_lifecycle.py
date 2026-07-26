@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import _supervisor_launch
+import _supervisor_discovery
 import registry
 from _supervisor_config import LOOP_INTERVAL_SECONDS
 
@@ -78,7 +78,7 @@ def unignored_tmp_repos(sup: Supervisor) -> list[str]:
     """
     return [
         repo
-        for repo in _supervisor_launch.resolve_watch(sup)
+        for repo in _supervisor_discovery.resolve_watch(sup)
         if registry.repo_root_present(repo) and not sup.gitignore_check(repo)
     ]
 
