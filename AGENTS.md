@@ -30,13 +30,16 @@ Read these beside the code before changing anything in `overseer/`:
   that must not regress, load-bearing tmux mechanics, and live-exercise
   guidance.
 
-CAUTION: those three documents predate the relocation of this package out
-of livespec core and still carry `.claude/skills/overseer/` path references
-and "local-only to this repo" framing from that era. The CODE is
-location-independent (fixed `$HOME` config paths); the `overseer-start`
-bootstrap and the doc paths are known relocation residue tracked in this
-repo's work-items ledger. Trust the code and `SPECIFICATION/` over a stale
-path in prose.
+Those three documents are CURRENT — read them as authoritative. They
+predate the relocation of this package out of livespec core, but that
+staleness was swept out (work-item `overseer-zvo`, closed). Re-measured
+2026-07-26: **zero** `.claude/skills/overseer/` path references across all
+three, and no "local-only to this repo" framing — the single `local-only`
+string in `AGENTS.md` describes the externally-sandboxed HOST, justifying a
+codex flag, and is not about the package's scope.
+
+As always `SPECIFICATION/` governs and the code is the final word on
+behavior — that is normal precedence, not a warning about these files.
 
 ## Daily commands
 
