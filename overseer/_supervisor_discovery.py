@@ -77,9 +77,9 @@ def auto_link(sup: Supervisor, track: registry.Track) -> registry.Track | None:
     repo. Returns the new mapped Track, or None if not linked.
     """
     session = registry.tmux_id(track.repo, track.topic, sup.colliding_topics)
-    if not sup.tmux.session_exists(session):
+    if not sup.tmux.session_exists(session=session):
         return None
-    path = sup.tmux.pane_current_path(session)
+    path = sup.tmux.pane_current_path(session=session)
     if not signals.path_in_repo(path, track.repo):
         return None
     linked = registry.Track(

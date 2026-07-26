@@ -206,7 +206,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
         handoff=default_handoff(repo, topic),
         resume=default_resume(repo, topic),
     )
-    if io.session_exists(session) and not force:
+    if io.session_exists(session=session) and not force:
         # Fail CLOSED (RB4): refuse to respawn-kill an existing session unless we
         # POSITIVELY know it is DEAD. Only a bare SHELL proves that — a dead session
         # reports its shell name positively, so demanding proof costs nothing, while an
@@ -221,7 +221,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
         # own stated purpose was already "fail closed on anything unproven-dead"; it just
         # enumerated the live runtimes instead of the dead one, which does not scale to a
         # second runtime and never did.
-        cmd = io.pane_current_command(session)
+        cmd = io.pane_current_command(session=session)
         if not signals.pane_is_shell(cmd):
             _upsert(track)
             streams.write_stdout(
@@ -232,12 +232,12 @@ def _cmd_start(args: argparse.Namespace) -> int:
                 )
             )
             return 0
-    if not io.session_exists(session):
-        _ = io.new_session(session, repo)
+    if not io.session_exists(session=session):
+        _ = io.new_session(name=session, cwd=repo)
         # Require the EXACT session to exist before launching (Codex re-review #3):
         # a failed `new-session` must not let `_do_launch` respawn a prefix-matched
         # sibling.
-        if not io.session_exists(session):
+        if not io.session_exists(session=session):
             streams.write_stderr(
                 text=(
                     f"start FAILED: could not create tmux session {session} "

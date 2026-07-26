@@ -62,8 +62,8 @@ def test_supervisor_session_without_a_pane_is_not_running(tmp_path):
     session = registry.tmux_id(str(repo), topic)
     supervisor_session = f"{session}-supervisor"
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
-    fake.serve(supervisor_session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73))
     fake.no_pane_sessions.add(supervisor_session)
     sup = make_supervisor(tmp_path, fake)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
@@ -79,8 +79,8 @@ def test_codex_supervisor_process_counts_as_running(tmp_path):
     session = registry.tmux_id(str(repo), topic)
     supervisor_session = f"{session}-supervisor"
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
-    fake.serve(supervisor_session, repo, capture=codex_idle_capture(ctx=73), cmd="bun")
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    fake.serve(session=supervisor_session, repo=repo, capture=codex_idle_capture(ctx=73), cmd="bun")
     sup = make_supervisor(tmp_path, fake)
     sup.live_codex = {
         (supervisor_session, f"{topic}-supervisor"): codex_sessions.CodexSession(
@@ -104,7 +104,7 @@ def test_escalates_one_paste_per_band_as_ctx_drops(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo)
+    fake.serve(session=session, repo=repo)
     sup = make_supervisor(tmp_path, fake)  # warn_percent = the default (50)
     track = mapped_track(repo, topic, session)
     counts = []
@@ -126,7 +126,9 @@ def test_multi_band_drop_coalesces_to_one_paste_marks_all(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=18))  # crosses 45,40,30,20 at once
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=18)
+    )  # crosses 45,40,30,20 at once
     sup = make_supervisor(
         tmp_path, fake, warn_percent=45
     )  # explicit threshold: decouple from the default
@@ -159,7 +161,7 @@ def test_bands_are_durable_across_daemon_restart(tmp_path):
     track = mapped_track(repo, topic, session)
 
     fake1 = FakeTmux()
-    fake1.serve(session, repo, capture=idle_capture(ctx=40))
+    fake1.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup1 = supervisor.Supervisor(
         tmux=fake1,
         store_path=store_path,
@@ -171,11 +173,11 @@ def test_bands_are_durable_across_daemon_restart(tmp_path):
     )
     sup1.evaluate(track, act=True)
     assert set(registry.read_notified_bands(str(repo), topic, stamp_path)) == {45, 40}
-    assert fake1.has("paste")
+    assert fake1.has(method="paste")
 
     # "Restart": a brand-new Supervisor on the SAME sidecar, same ctx.
     fake2 = FakeTmux()
-    fake2.serve(session, repo, capture=idle_capture(ctx=40))
+    fake2.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup2 = supervisor.Supervisor(
         tmux=fake2,
         store_path=store_path,
@@ -186,7 +188,7 @@ def test_bands_are_durable_across_daemon_restart(tmp_path):
         warn_percent=45,  # explicit threshold: decouple from the default
     )
     sup2.evaluate(track, act=True)
-    assert not fake2.has("paste")  # bands 45+40 already notified → no re-spam
+    assert not fake2.has(method="paste")  # bands 45+40 already notified → no re-spam
 
 
 def test_cleared_round_re_warns_all_bands(tmp_path):
@@ -196,7 +198,7 @@ def test_cleared_round_re_warns_all_bands(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(
         tmp_path, fake, warn_percent=45
     )  # explicit threshold: decouple from the default
@@ -215,7 +217,9 @@ def test_danger_surfaces_below_danger_line(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=15))  # <= DANGER, no ready marker
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=15)
+    )  # <= DANGER, no ready marker
     sup = make_supervisor(tmp_path, fake)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "danger"

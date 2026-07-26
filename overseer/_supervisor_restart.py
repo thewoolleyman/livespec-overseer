@@ -126,7 +126,9 @@ def do_restart(
     if is_codex:
         do_codex_restart(sup, track, target)
         return
-    if not sup.tmux.respawn_pane(target, track.repo, _supervisor_launch.launch_command(track)):
+    if not sup.tmux.respawn_pane(
+        session=target, cwd=track.repo, command=_supervisor_launch.launch_command(track)
+    ):
         sup.alert(
             repo=track.repo,
             topic=track.topic,
@@ -154,7 +156,7 @@ def do_restart(
     # gate), NEVER keystroke into it (blocker #6) — pasting + Enter would auto-accept
     # its default. Defer to the `resume_pending` retry, which reports the gate as
     # `blocked:human` and resumes once the human clears it (review SF4).
-    if signals.is_structured_gate(sup.tmux.capture_pane(target)):
+    if signals.is_structured_gate(sup.tmux.capture_pane(session=target)):
         registry.set_resume_pending(track.repo, track.topic, sup.stamp_path)
         sup.alert(
             repo=track.repo,
@@ -218,7 +220,7 @@ def do_codex_restart(sup: Supervisor, track: registry.Track, target: str) -> Non
         return
     resume = track.resume or default_resume(track.repo, track.topic)
     command = _supervisor_launch.codex_launch_command(live.session_id, resume)
-    if not sup.tmux.respawn_pane(target, track.repo, command):
+    if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
         sup.alert(
             repo=track.repo,
             topic=track.topic,

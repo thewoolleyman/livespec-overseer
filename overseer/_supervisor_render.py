@@ -163,5 +163,5 @@ def refresh_window_name(sup: Supervisor, attention: int) -> None:
     name = f"{WINDOW_NAME}({attention}!)" if attention else WINDOW_NAME
     if name == sup.last_window_name:
         return
-    if sup.tmux.rename_window(pane, name):
+    if sup.tmux.rename_window(pane=pane, name=name):
         sup.last_window_name = name

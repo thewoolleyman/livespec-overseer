@@ -105,7 +105,7 @@ def test_claude_name_gate_is_wired_end_to_end_through_the_registry(tmp_path):
     repo, topic = make_plan(tmp_path, topic="alpha")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))  # a live Claude pane
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))  # a live Claude pane
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     write_session(sessions_dir, 100, name="beta", cwd=str(repo))  # NOT our topic
@@ -121,7 +121,7 @@ def test_claude_name_gate_is_wired_end_to_end_through_the_registry(tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "session-gone"  # the WIRED name gate rejects the mismatched pane
-    assert not fake.has("respawn")
+    assert not fake.has(method="respawn")
 
 
 def test_helper_claude_in_the_same_tmux_does_not_flap_the_track(tmp_path):
@@ -132,7 +132,7 @@ def test_helper_claude_in_the_same_tmux_does_not_flap_the_track(tmp_path):
     repo, topic = make_plan(tmp_path, topic="alpha")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
     # our topic present ALONGSIDE a helper
     sup.claude_names_by_session = {session: {"helper", "alpha"}}
@@ -141,7 +141,7 @@ def test_helper_claude_in_the_same_tmux_does_not_flap_the_track(tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "restarting"  # NOT flapped to session-gone — the track is still ours
-    assert fake.has("respawn")
+    assert fake.has(method="respawn")
 
 
 def test_ambiguous_two_sessions_for_one_track_does_not_flip_flop_the_repoint(tmp_path):
@@ -179,7 +179,9 @@ def test_pending_resume_on_a_gate_reports_blocked_human_and_sends_no_enter(tmp_p
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
     fake.serve(
-        session, repo, capture="Do you want to proceed?\n❯ 1. Yes\n  2. No\n  Ctx: 90% left\n"
+        session=session,
+        repo=repo,
+        capture="Do you want to proceed?\n❯ 1. Yes\n  2. No\n  Ctx: 90% left\n",
     )
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
@@ -189,7 +191,7 @@ def test_pending_resume_on_a_gate_reports_blocked_human_and_sends_no_enter(tmp_p
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "blocked:human"
     assert not any(c[0] == "keys" for c in fake.calls)  # NEVER keystroked the gate
-    assert not fake.has("respawn")
+    assert not fake.has(method="respawn")
     assert signals.read_state(str(repo), topic).token == signals.STATE_READY  # round kept open
     assert registry.read_resume_pending(str(repo), topic, sup.stamp_path) is True
 
@@ -204,7 +206,7 @@ def test_pending_retry_does_not_false_close_on_hook_busy_with_text_in_box(tmp_pa
     fake = FakeTmux()
     # The box HOLDS the un-submitted resume text AND a hook spinner makes the pane busy.
     capture = "✻ (running SessionStart hooks… 1/2 · 3s)\n" + unsubmitted_resume_capture(ctx=90)
-    fake.serve(session, repo, capture=capture)
+    fake.serve(session=session, repo=repo, capture=capture)
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)
@@ -216,4 +218,4 @@ def test_pending_retry_does_not_false_close_on_hook_busy_with_text_in_box(tmp_pa
     assert signals.read_state(str(repo), topic).token == signals.STATE_READY  # marker KEPT
     assert registry.read_resume_pending(str(repo), topic, sup.stamp_path) is True
     assert any(c[0] == "keys" and c[2] == "Enter" for c in fake.calls)  # it DID re-send Enter
-    assert not fake.has("respawn")
+    assert not fake.has(method="respawn")

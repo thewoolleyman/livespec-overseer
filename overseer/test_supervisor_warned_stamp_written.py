@@ -44,7 +44,7 @@ def test_failed_paste_clears_stamp_and_does_not_advance(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     fake.paste_ok = False  # the bracketed paste fails
     sup = make_supervisor(tmp_path, fake)
     sup.evaluate(mapped_track(repo, topic, session), act=True)
@@ -58,12 +58,14 @@ def test_ctx_unknown_never_injects(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=None))  # idle but NO Ctx line → unknown
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=None)
+    )  # idle but NO Ctx line → unknown
     sup = make_supervisor(tmp_path, fake)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "idle"
     assert view.ctx is None
-    assert not fake.has("paste")
+    assert not fake.has(method="paste")
 
 
 def test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour(tmp_path):
@@ -75,7 +77,7 @@ def test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))  # well above threshold
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # well above threshold
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"])
     sup.claude_status_by_session = {session: "idle"}
@@ -110,7 +112,7 @@ def test_nudge_re_arms_after_the_session_takes_a_turn(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"])
     sup.claude_status_by_session = {session: "idle"}
@@ -143,7 +145,7 @@ def test_claude_waiting_is_not_nudged(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake)
     sup.claude_status_by_session = {session: "waiting"}
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
@@ -158,7 +160,7 @@ def test_nudge_never_overwrites_a_session_declaration(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake)
     sup.claude_status_by_session = {session: "idle"}
     declare(repo, topic, "blocked: waiting on a human decision (asked in prose)")
@@ -186,7 +188,7 @@ def test_stale_blocked_is_voided_when_the_session_resumes_generating(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=busy_capture())  # a real spinner: generating
+    fake.serve(session=session, repo=repo, capture=busy_capture())  # a real spinner: generating
     sup = make_supervisor(tmp_path, fake)
     declare(repo, topic, "blocked: a reason from a session that has moved on", mtime=800.0)
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -203,7 +205,7 @@ def test_fresh_blocked_survives_the_declaring_turns_own_busy_tail(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=busy_capture())
+    fake.serve(session=session, repo=repo, capture=busy_capture())
     sup = make_supervisor(tmp_path, fake)
     declare(repo, topic, "blocked: I need your call", mtime=1001.0)  # younger than the grace
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -221,7 +223,7 @@ def test_blocked_with_only_a_background_shell_is_never_voided(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))  # no spinner
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # no spinner
     sup = make_supervisor(tmp_path, fake)
     sup.claude_status_by_session = {session: "shell"}  # busy via a background command only
     declare(repo, topic, "blocked: need your call", mtime=800.0)  # old, but NOT stale

@@ -66,7 +66,7 @@ class FakeTmux:
     def pane_pid_sessions(self):
         return dict(self.pane_pids)
 
-    def serve(self, session, repo, capture=None, cmd="node"):
+    def serve(self, *, session, repo, capture=None, cmd="node"):
         """Register ``session`` as a live Claude TUI whose cwd is inside ``repo``.
 
         The identity gate (B3) requires `pane_current_command` to look like Claude
@@ -80,11 +80,11 @@ class FakeTmux:
         if capture is not None:
             self.panes[session] = capture
 
-    def session_exists(self, session):
+    def session_exists(self, *, session):
         self.calls.append(("exists", session))
         return session in self.sessions
 
-    def pane_id(self, session):
+    def pane_id(self, *, session):
         # Model pane-id resolution (RB3): return the session name itself as the
         # "pane id" for a live session (so target == name and the canned dicts,
         # keyed by name, still resolve), or None if the session is gone — or if the
@@ -94,14 +94,14 @@ class FakeTmux:
             return None
         return session if session in self.sessions else None
 
-    def pane_pid(self, session):
+    def pane_pid(self, *, session):
         # The pane's login-shell PID. Default is a nonexistent pid (real
         # proc_children → []), so bg_shell is False unless a test sets a pid here
         # and injects a fake process tree via the Supervisor's children_of/comm_of.
         self.calls.append(("pane_pid", session))
         return self.pane_pid_map.get(session, NO_SUBSHELL_PID)
 
-    def capture_pane(self, session):
+    def capture_pane(self, *, session):
         self.calls.append(("capture", session))
         val = self.panes.get(session, "")
         # A list value is a sequence of successive frames (for the settled-delta
@@ -115,7 +115,7 @@ class FakeTmux:
             return val[i] if val else ""
         return val
 
-    def pane_current_command(self, session):
+    def pane_current_command(self, *, session):
         self.calls.append(("cmd", session))
         val = self.cmds.get(session)
         # A list models a CHANGING command across successive calls (e.g. the
@@ -126,24 +126,24 @@ class FakeTmux:
             return val[i] if val else None
         return val
 
-    def pane_current_path(self, session):
+    def pane_current_path(self, *, session):
         self.calls.append(("path", session))
         return self.paths.get(session)
 
     def list_sessions(self):
         return sorted(self.sessions)
 
-    def send_keys(self, session, keys):
+    def send_keys(self, *, session, keys):
         self.calls.append(("keys", session, keys))
         return True
 
-    def bracketed_paste(self, session, text):
+    def bracketed_paste(self, *, session, text):
         self.calls.append(("paste", session, text))
         if self.on_paste is not None:
             self.on_paste(session, text)
         return self.paste_ok
 
-    def respawn_pane(self, session, cwd, command):
+    def respawn_pane(self, *, session, cwd, command):
         self.calls.append(("respawn", session, cwd, command))
         if not self.respawn_ok:
             return False
@@ -160,14 +160,14 @@ class FakeTmux:
         self.sessions.add(session)
         return True
 
-    def new_session(self, name, cwd):
+    def new_session(self, *, name, cwd):
         self.calls.append(("new", name, cwd))
         if not self.new_session_ok:
             return False  # model a failed new-session (session NOT created)
         self.sessions.add(name)
         return True
 
-    def rename_window(self, pane, name):
+    def rename_window(self, *, pane, name):
         # The attention badge on the tmux WINDOW name (`overseer` → `overseer(2!)`) —
         # the only overseer surface visible from a session the operator is attached to.
         self.calls.append(("rename_window", pane, name))
@@ -181,7 +181,7 @@ class FakeTmux:
     def renames(self):
         return [c[2] for c in self.calls if c[0] == "rename_window"]
 
-    def has(self, method):
+    def has(self, *, method):
         return any(c[0] == method for c in self.calls)
 
 
@@ -193,9 +193,14 @@ class TtyOut:
 
     def __init__(self):
         self._buf = _io.StringIO()
-
-    def write(self, text):
-        return self._buf.write(text)
+        # BOUND, not redefined. `write` implements the stdlib `IO[str]` interface,
+        # whose calling convention is POSITIONAL and not ours to change — the
+        # overseer writes through `sup.out.write(...)`, and a keyword-only `write`
+        # here would be a double that no longer matches the thing it doubles.
+        # Binding the buffer's own method keeps the interface exact and leaves no
+        # signature for `check-keyword-only-args` to flag. `flush` / `isatty` /
+        # `getvalue` need no such treatment: they take nothing but `self`.
+        self.write = self._buf.write
 
     def flush(self):
         self._buf.flush()

@@ -45,13 +45,13 @@ def supervisor_running(sup: Supervisor, *, session: str, repo: str) -> bool:
     Claude-like pane process in the repo, or a Codex-like pane process joined to a live
     Codex rollout in the repo.
     """
-    if not sup.tmux.session_exists(session):
+    if not sup.tmux.session_exists(session=session):
         return False
-    target = sup.tmux.pane_id(session)
+    target = sup.tmux.pane_id(session=session)
     if target is None:
         return False
-    command = sup.tmux.pane_current_command(target)
-    cwd = sup.tmux.pane_current_path(target)
+    command = sup.tmux.pane_current_command(session=target)
+    cwd = sup.tmux.pane_current_path(session=target)
     if signals.pane_is_claude(command) and signals.path_in_repo(cwd, repo):
         return True
     if not signals.pane_is_codex(command):
@@ -106,7 +106,7 @@ def surface_supervision_offer(sup: Supervisor, track: registry.Track, *, act: bo
             repo=repo,
             topic=topic,
             session=session,
-            pane=sup.tmux.pane_id(session),
+            pane=sup.tmux.pane_id(session=session),
             message=message,
             condition=condition,
         )

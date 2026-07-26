@@ -54,7 +54,9 @@ def test_fresh_respawn_dropped_enter_is_retried_next_tick_without_respawn(tmp_pa
     # then the un-submitted-resume box for every post-respawn capture (the last frame
     # repeats), so `_await_input_box` and every submit Enter see a box that never clears.
     idle = idle_capture(ctx=30)
-    fake.serve(session, repo, capture=[idle, idle, idle, unsubmitted_resume_capture(ctx=30)])
+    fake.serve(
+        session=session, repo=repo, capture=[idle, idle, idle, unsubmitted_resume_capture(ctx=30)]
+    )
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     marker = arm_ready_marker(repo, topic, mtime=1001.0)
@@ -74,7 +76,7 @@ def test_fresh_respawn_dropped_enter_is_retried_next_tick_without_respawn(tmp_pa
         view2 = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view2.status == "restarting"
     assert not fake.has(
-        "respawn"
+        method="respawn"
     )  # NEVER a second respawn — the retry can never escalate to a kill
     assert any(c[0] == "keys" and c[2] == "Enter" for c in fake.calls)  # it re-sent Enter
     assert not marker.exists()  # round closed only after the box cleared
@@ -89,7 +91,7 @@ def test_restart_does_not_log_success_when_resume_unsubmitted(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     fake.paste_ok = False  # the paste fails → `_submit_prompt` returns False (a clean submit-fail)
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
@@ -114,7 +116,7 @@ def test_submit_retry_never_kills_the_fresh_session(tmp_path):
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
     # A box that NEVER clears (plain string) — the retry can never succeed here.
-    fake.serve(session, repo, capture=unsubmitted_resume_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=unsubmitted_resume_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)
@@ -128,7 +130,7 @@ def test_submit_retry_never_kills_the_fresh_session(tmp_path):
         assert view.status == "restarting"
         assert view.note == _supervisor_view.RESUME_PENDING_NOTE
         assert supervisor.needs_attention(view)  # a stranded resume is a NEEDS-YOU row
-        assert not fake.has("respawn")  # NEVER a respawn on the retry path
+        assert not fake.has(method="respawn")  # NEVER a respawn on the retry path
         assert registry.read_resume_pending(str(repo), topic, sup.stamp_path) is True
         assert signals.read_state(str(repo), topic).token == signals.STATE_READY  # marker kept
 
@@ -143,7 +145,9 @@ def test_idle_pane_with_resume_pending_closes_the_round_instead_of_respawning(tm
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=95))  # empty box → the resume already landed
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=95)
+    )  # empty box → the resume already landed
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)
@@ -152,7 +156,9 @@ def test_idle_pane_with_resume_pending_closes_the_round_instead_of_respawning(tm
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "restarting"
-    assert not fake.has("respawn")  # NEVER respawn-kill the fresh session — the round just closes
+    assert not fake.has(
+        method="respawn"
+    )  # NEVER respawn-kill the fresh session — the round just closes
     assert signals.read_state(str(repo), topic) is None  # round closed (marker gone)
     assert registry.read_resume_pending(str(repo), topic, sup.stamp_path) is False
 
@@ -165,7 +171,9 @@ def test_claude_restart_success_closes_the_round_and_issues_no_second_respawn(tm
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))  # empty box → submit lands at once
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=30)
+    )  # empty box → submit lands at once
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)
@@ -177,7 +185,7 @@ def test_claude_restart_success_closes_the_round_and_issues_no_second_respawn(tm
     fake.calls.clear()
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.evaluate(mapped_track(repo, topic, session), act=True)
-    assert not fake.has("respawn")  # no re-restart of the session we just resumed
+    assert not fake.has(method="respawn")  # no re-restart of the session we just resumed
 
 
 # --------------------------------------------------------------------------- #
@@ -200,7 +208,7 @@ def test_claude_act_refuses_pane_whose_live_name_differs_from_topic(tmp_path):
     # A genuinely-live Claude pane in this tmux session, cwd in the repo — but it is
     # topic BETA's session, not our track's ALPHA. (Process + cwd both pass; only the
     # name betrays it.)
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})  # empty registry → no live-outside-tmux
@@ -212,8 +220,8 @@ def test_claude_act_refuses_pane_whose_live_name_differs_from_topic(tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "session-gone"  # not ours → routed to session-gone, like a foreign pane
-    assert not fake.has("respawn")  # never respawn-kill another topic's live Claude
-    assert not fake.has("paste")  # never keystroke into it
+    assert not fake.has(method="respawn")  # never respawn-kill another topic's live Claude
+    assert not fake.has(method="paste")  # never keystroke into it
 
 
 def test_claude_gate_allows_pane_whose_live_name_matches_topic(tmp_path):
@@ -223,7 +231,7 @@ def test_claude_gate_allows_pane_whose_live_name_matches_topic(tmp_path):
     repo, topic = make_plan(tmp_path, topic="alpha")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
     sup.claude_names_by_session = {session: {"alpha"}}  # the live Claude here IS our topic
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
@@ -232,4 +240,4 @@ def test_claude_gate_allows_pane_whose_live_name_matches_topic(tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "restarting"  # name matches → ours → the `ready` restart fires
-    assert fake.has("respawn")
+    assert fake.has(method="respawn")

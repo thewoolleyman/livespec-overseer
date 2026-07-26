@@ -43,11 +43,11 @@ def test_busy_suppresses_injection(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture="running... esc to interrupt\n  Ctx: 40% left\n")
+    fake.serve(session=session, repo=repo, capture="running... esc to interrupt\n  Ctx: 40% left\n")
     sup = make_supervisor(tmp_path, fake)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "working"
-    assert not fake.has("paste")  # busy must suppress the wrap-up injection
+    assert not fake.has(method="paste")  # busy must suppress the wrap-up injection
 
 
 def test_structured_gate_suppresses_injection(tmp_path):
@@ -55,12 +55,14 @@ def test_structured_gate_suppresses_injection(tmp_path):
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
     fake.serve(
-        session, repo, capture="Do you want to proceed?\n❯ 1. Yes\n  2. No\n  Ctx: 40% left\n"
+        session=session,
+        repo=repo,
+        capture="Do you want to proceed?\n❯ 1. Yes\n  2. No\n  Ctx: 40% left\n",
     )
     sup = make_supervisor(tmp_path, fake)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "blocked:human"
-    assert not fake.has("paste")
+    assert not fake.has(method="paste")
 
 
 def test_blocked_marker_suppresses_injection(tmp_path):
@@ -68,12 +70,14 @@ def test_blocked_marker_suppresses_injection(tmp_path):
     session = registry.tmux_id(str(repo), topic)
     declare(repo, topic, "blocked: waiting on schema call")
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))  # idle+low ctx but blocked marker
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=40)
+    )  # idle+low ctx but blocked marker
     sup = make_supervisor(tmp_path, fake)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "blocked:human"
     assert view.note == "waiting on schema call"
-    assert not fake.has("paste")
+    assert not fake.has(method="paste")
 
 
 # --------------------------------------------------------------------------- #
@@ -93,14 +97,14 @@ def test_shell_pane_never_pastes(tmp_path):
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
     # Old idle box still on screen + a shell prompt; pane command is now zsh.
-    fake.serve(session, repo, capture=idle_capture(ctx=40), cmd="zsh")
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40), cmd="zsh")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()  # isolated + empty: no live Claude anywhere
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status != "working"  # never mistaken for a live session
-    assert not fake.has("paste")
-    assert not fake.has("respawn")
+    assert not fake.has(method="paste")
+    assert not fake.has(method="respawn")
 
 
 # --------------------------------------------------------------------------- #
@@ -120,14 +124,14 @@ def test_pane_exited_to_shell_is_session_gone(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40), cmd="zsh")
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40), cmd="zsh")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()  # no live Claude for the topic
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "session-gone"
-    assert not fake.has("paste")
-    assert not fake.has("respawn")
+    assert not fake.has(method="paste")
+    assert not fake.has(method="respawn")
 
 
 def test_no_managed_pane_row_never_names_a_tmux_session(tmp_path):
@@ -144,7 +148,7 @@ def test_no_managed_pane_row_never_names_a_tmux_session(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40), cmd="zsh")
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40), cmd="zsh")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
@@ -182,14 +186,14 @@ def test_a_foreign_pane_is_session_gone_not_a_status_of_its_own(tmp_path):
     other.mkdir()
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, other, capture=idle_capture(ctx=40))  # live claude, wrong repo
+    fake.serve(session=session, repo=other, capture=idle_capture(ctx=40))  # live claude, wrong repo
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "session-gone"
     assert view.tmux is None  # never name the pane it is wrongly pointed at
-    assert not fake.has("paste")  # the identity gate still guards every act
+    assert not fake.has(method="paste")  # the identity gate still guards every act
 
 
 def test_pane_exited_to_shell_with_live_claude_outside_tmux_is_live_outside_tmux(tmp_path):
@@ -202,7 +206,7 @@ def test_pane_exited_to_shell_with_live_claude_outside_tmux_is_live_outside_tmux
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40), cmd="zsh")
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40), cmd="zsh")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     # Live registry session for the topic whose pid walks up to NO tmux pane.
@@ -211,7 +215,7 @@ def test_pane_exited_to_shell_with_live_claude_outside_tmux_is_live_outside_tmux
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "live-outside-tmux"
     assert view.note is not None and "OUTSIDE tmux" in view.note
-    assert not fake.has("paste")
+    assert not fake.has(method="paste")
 
 
 def test_identity_rechecked_before_acting_catches_shell(tmp_path):
@@ -222,7 +226,9 @@ def test_identity_rechecked_before_acting_catches_shell(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))  # idle, low ctx → would inject
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=40)
+    )  # idle, low ctx → would inject
     fake.cmds[session] = ["node", "zsh"]  # claude at top gate, shell at the re-check
     sup = make_supervisor(tmp_path, fake)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
@@ -230,7 +236,7 @@ def test_identity_rechecked_before_acting_catches_shell(tmp_path):
     # top gate classifies the settled truth. The SAFETY property (no paste into the
     # shell) is what this test exists for and is unchanged.
     assert view.status == "settling"
-    assert not fake.has("paste")  # never pasted into the shell
+    assert not fake.has(method="paste")  # never pasted into the shell
 
 
 # --------------------------------------------------------------------------- #
@@ -242,7 +248,9 @@ def test_warned_writes_stamp_before_pasting(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))  # below the default warn threshold (50)
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=40)
+    )  # below the default warn threshold (50)
     stamp_path = str(tmp_path / "stamps.json")
     seen = []
     fake.on_paste = lambda _s, _t: seen.append(

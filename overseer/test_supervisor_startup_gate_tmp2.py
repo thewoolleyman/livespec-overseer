@@ -39,7 +39,7 @@ def test_streaming_pane_is_working_not_idle(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo)
+    fake.serve(session=session, repo=repo)
     fake.panes[session] = [
         idle_capture(ctx=40, body="line one"),
         idle_capture(ctx=40, body="line one two"),
@@ -49,7 +49,7 @@ def test_streaming_pane_is_working_not_idle(tmp_path):
     registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "working"
-    assert not fake.has("paste")  # never injected despite ctx 40 <= the default 50
+    assert not fake.has(method="paste")  # never injected despite ctx 40 <= the default 50
 
 
 def test_settled_idle_pane_still_injects(tmp_path):
@@ -58,12 +58,14 @@ def test_settled_idle_pane_still_injects(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))  # identical frames → settled
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=40)
+    )  # identical frames → settled
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)])
     registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "warned"
-    assert fake.has("paste")  # settled idle + low ctx → wrap-up injected
+    assert fake.has(method="paste")  # settled idle + low ctx → wrap-up injected
 
 
 def test_submit_prompt_resends_enter_until_box_clears(tmp_path):
@@ -203,7 +205,7 @@ def test_evaluate_derives_claude_runtime_and_annotates_the_tmux_cell(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=80))  # a live Claude idle pane
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=80))  # a live Claude idle pane
     sup = make_supervisor(tmp_path, fake)
     view = sup.evaluate(mapped_track(repo, topic, session), act=False)
     assert view.runtime == "claude"

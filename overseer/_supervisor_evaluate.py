@@ -92,7 +92,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     session = _supervisor_launch.session_of(sup, track)
     key = track_key(repo, topic)
 
-    if not sup.tmux.session_exists(session):
+    if not sup.tmux.session_exists(session=session):
         # The mapped TMUX session is gone — but the work may not be. A Claude
         # session for the same plan can keep running in a NON-tmux terminal (a bare
         # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
@@ -106,7 +106,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     # falling back to a live SIBLING session (e.g. dead `livespec--overseer`
     # resolving to live `livespec--overseer-rewrite`) and, worst case,
     # `respawn-pane -k` killing it. Stable across respawn.
-    target = sup.tmux.pane_id(session)
+    target = sup.tmux.pane_id(session=session)
     if target is None:
         return _supervisor_offer.no_managed_pane_row(sup, repo=repo, topic=topic)
 

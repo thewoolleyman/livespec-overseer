@@ -82,7 +82,7 @@ def test_tick_builds_unassigned_and_mapped_rows(tmp_path):
     (repo / "plan" / "unmapped" / "handoff.md").write_text("h\n")
     session = registry.tmux_id(str(repo), "mapped")
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)])
     registry.append_mapping(mapped_track(repo, "mapped", session), sup.store_path)
 
@@ -101,15 +101,15 @@ def test_list_command_is_read_only(tmp_path):
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
     fake.serve(
-        session, repo, capture=idle_capture(ctx=40)
+        session=session, repo=repo, capture=idle_capture(ctx=40)
     )  # below threshold — would warn if acting
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)])
     registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
 
     views = sup.tick(act=False)
     assert views[0].status == "warned"  # status still derived
-    assert not fake.has("paste")  # but NO side effect
-    assert not fake.has("respawn")
+    assert not fake.has(method="paste")  # but NO side effect
+    assert not fake.has(method="respawn")
 
 
 def test_list_does_not_auto_link_or_gc(tmp_path):
@@ -118,7 +118,7 @@ def test_list_does_not_auto_link_or_gc(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)])
     # no mapping row appended → discovered plan is unassigned
     sup.tick(act=False)
@@ -163,7 +163,7 @@ def test_recover_skips_when_new_session_fails(tmp_path):
 
     recovered = sup.recover_missing_sessions()
     assert recovered == []
-    assert not fake.has("respawn")  # never respawned a prefix-matched sibling
+    assert not fake.has(method="respawn")  # never respawned a prefix-matched sibling
 
 
 def test_recover_resumes_a_codex_track_via_codex_resume(tmp_path):
@@ -185,7 +185,7 @@ def test_recover_resumes_a_codex_track_via_codex_resume(tmp_path):
     assert ("respawn", session, str(repo), expected) in fake.calls
     # THE guard: the destructive Claude command is NEVER aimed at a codex track.
     assert not any(c[0] == "respawn" and "claude" in c[3] for c in fake.calls)
-    assert not fake.has("paste")  # codex resume auto-submits the kick — no separate paste
+    assert not fake.has(method="paste")  # codex resume auto-submits the kick — no separate paste
 
 
 def test_recover_skips_and_surfaces_a_codex_track_whose_rollout_is_gone(tmp_path, capsys):
@@ -202,8 +202,10 @@ def test_recover_skips_and_surfaces_a_codex_track_whose_rollout_is_gone(tmp_path
 
     recovered = sup.recover_missing_sessions()
     assert recovered == []
-    assert not fake.has("new")  # never created the session...
-    assert not fake.has("respawn")  # ...and never launched anything (no mis-recreate as Claude)
+    assert not fake.has(method="new")  # never created the session...
+    assert not fake.has(
+        method="respawn"
+    )  # ...and never launched anything (no mis-recreate as Claude)
     err = capsys.readouterr().err
     assert topic in err and "rollout is gone" in err and "re-adopt" in err
 

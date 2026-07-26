@@ -51,14 +51,16 @@ def test_idle_at_danger_with_no_declaration_is_never_restarted(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=13))  # idle, deep in danger, no state
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=13)
+    )  # idle, deep in danger, no state
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
 
     for _ in range(20):  # tick and tick and tick — it must NEVER escalate to a kill
         view = sup.evaluate(track, act=True)
     assert view.status == "danger"
-    assert not fake.has("respawn")  # the session was NOT killed
+    assert not fake.has(method="respawn")  # the session was NOT killed
     assert not signals.state_path(str(repo), topic).exists()  # daemon wrote nothing
 
 
@@ -68,14 +70,14 @@ def test_restart_fires_only_on_a_declared_ready(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     state = declare(repo, topic, "ready", mtime=1001.0)
 
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "restarting"
-    assert fake.has("respawn")
+    assert fake.has(method="respawn")
     assert supervisor.default_resume(str(repo), topic) in fake.paste_texts()
     assert not state.exists()  # round closed
     assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) is None
@@ -88,14 +90,16 @@ def test_winding_down_ack_suppresses_the_rewarn(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=13))  # would otherwise be `danger`
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=13)
+    )  # would otherwise be `danger`
     sup = make_supervisor(tmp_path, fake)  # now() == 1000.0
     declare(repo, topic, "winding-down", mtime=1000.0)  # fresh ACK
 
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "winding-down"
-    assert not fake.has("paste")  # no re-warn pasted into a session that is wrapping up
-    assert not fake.has("respawn")  # an ACK is not a restart authorization
+    assert not fake.has(method="paste")  # no re-warn pasted into a session that is wrapping up
+    assert not fake.has(method="respawn")  # an ACK is not a restart authorization
 
 
 def test_stale_winding_down_ack_resumes_escalation_but_still_never_acts(tmp_path):
@@ -105,7 +109,7 @@ def test_stale_winding_down_ack_resumes_escalation_but_still_never_acts(tmp_path
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=13))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))
     err = _io.StringIO()
     sup = make_supervisor(tmp_path, fake)  # now() == 1000.0
     declare(repo, topic, "winding-down", mtime=1000.0 - _supervisor_config.ACK_STALE_AFTER - 1)
@@ -113,8 +117,8 @@ def test_stale_winding_down_ack_resumes_escalation_but_still_never_acts(tmp_path
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "danger"  # the stale ACK no longer protects it
-    assert fake.has("paste")  # escalation resumed
-    assert not fake.has("respawn")  # but STILL never killed
+    assert fake.has(method="paste")  # escalation resumed
+    assert not fake.has(method="respawn")  # but STILL never killed
     # The report must NOT conflate "hung mid-wrap-up" with "ignored us" — they need
     # different fixes, and this session DID acknowledge.
     out = err.getvalue()
@@ -128,15 +132,15 @@ def test_blocked_declaration_is_surfaced_and_never_restarted(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=13))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))
     sup = make_supervisor(tmp_path, fake)
     declare(repo, topic, "blocked: waiting on the schema call")
 
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "blocked:human"
     assert view.note == "waiting on the schema call"
-    assert not fake.has("paste")
-    assert not fake.has("respawn")
+    assert not fake.has(method="paste")
+    assert not fake.has(method="respawn")
 
 
 def test_one_file_cannot_be_both_ready_and_blocked(tmp_path):
@@ -146,7 +150,7 @@ def test_one_file_cannot_be_both_ready_and_blocked(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     declare(repo, topic, "ready", mtime=1001.0)
@@ -154,7 +158,7 @@ def test_one_file_cannot_be_both_ready_and_blocked(tmp_path):
 
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "blocked:human"
-    assert not fake.has("respawn")  # the superseded `ready` cannot restart it
+    assert not fake.has(method="respawn")  # the superseded `ready` cannot restart it
 
 
 def test_malformed_state_value_is_surfaced_and_never_restarts(tmp_path):
@@ -163,7 +167,7 @@ def test_malformed_state_value_is_surfaced_and_never_restarts(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     err = _io.StringIO()
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
@@ -171,7 +175,7 @@ def test_malformed_state_value_is_surfaced_and_never_restarts(tmp_path):
 
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
-    assert not fake.has("respawn")  # a typo is NOT a restart authorization
+    assert not fake.has(method="respawn")  # a typo is NOT a restart authorization
     assert "MALFORMED state file" in err.getvalue()
     assert view.note is not None and "redy" in view.note
 
@@ -183,7 +187,7 @@ def test_every_track_alert_names_the_tmux_session_and_pane(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=13))  # danger, nothing declared
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))  # danger, nothing declared
     err = _io.StringIO()
     sup = make_supervisor(tmp_path, fake)
 
@@ -208,7 +212,7 @@ def test_mapped_track_with_missing_session(tmp_path):
     sup = make_supervisor(tmp_path, fake)
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "session-gone"
-    assert not fake.has("capture")
+    assert not fake.has(method="capture")
 
 
 # --------------------------------------------------------------------------- #

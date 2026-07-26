@@ -54,7 +54,7 @@ def recover_missing_sessions(sup: Supervisor) -> list[str]:
     recovered: list[str] = []
     for track in registry.read_mapping(sup.store_path):
         session = _supervisor_launch.session_of(sup, track)
-        if sup.tmux.session_exists(session):
+        if sup.tmux.session_exists(session=session):
             continue
         # Runtime dispatch: a topic named in the persistent codex index is a CODEX track.
         # The index survives the session's death, so it is the ONLY runtime signal at cold
@@ -68,12 +68,12 @@ def recover_missing_sessions(sup: Supervisor) -> list[str]:
             if name is not None:
                 recovered.append(name)
             continue
-        _ = sup.tmux.new_session(session, track.repo)
+        _ = sup.tmux.new_session(name=session, cwd=track.repo)
         # Require the EXACT session to now exist before launching (Codex
         # re-review #3): if `new-session` failed, `_do_launch`'s pane-id
         # resolution + `respawn-pane` would target the bare name, which could
         # prefix-match a live sibling and replace IT. Fail-soft: surface + skip.
-        if not sup.tmux.session_exists(session):
+        if not sup.tmux.session_exists(session=session):
             sup.surface(
                 f"reboot-recovery: new-session did not create {session} "
                 f"for {track.repo}::{track.topic}; skipping"
@@ -118,8 +118,8 @@ def recover_codex_track(
             f"its rollout is gone (session {session_id}); relaunch it and it will re-adopt"
         )
         return None
-    _ = sup.tmux.new_session(session, track.repo)
-    if not sup.tmux.session_exists(session):
+    _ = sup.tmux.new_session(name=session, cwd=track.repo)
+    if not sup.tmux.session_exists(session=session):
         sup.surface(
             f"reboot-recovery: new-session did not create {session} "
             f"for {track.repo}::{track.topic}; skipping"
@@ -146,12 +146,12 @@ def do_codex_launch(sup: Supervisor, track: registry.Track, session: str, sessio
     reattaches directly. Returns True iff respawn succeeded and the pane became a live
     codex TUI (a failed respawn / non-codex pane surfaces via the caller).
     """
-    target = sup.tmux.pane_id(session)
+    target = sup.tmux.pane_id(session=session)
     if target is None:
         return False
     resume = track.resume or default_resume(track.repo, track.topic)
     command = _supervisor_launch.codex_launch_command(session_id, resume)
-    if not sup.tmux.respawn_pane(target, track.repo, command):
+    if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
         return False
     return _supervisor_launch.await_pane(sup, target, signals.pane_is_codex)
 
@@ -165,10 +165,12 @@ def do_launch(sup: Supervisor, track: registry.Track, session: str) -> bool:
     submitted — so callers (`recover`, `start`) can surface a failure rather
     than silently claim a launch happened (B5).
     """
-    target = sup.tmux.pane_id(session)
+    target = sup.tmux.pane_id(session=session)
     if target is None:
         return False
-    if not sup.tmux.respawn_pane(target, track.repo, _supervisor_launch.launch_command(track)):
+    if not sup.tmux.respawn_pane(
+        session=target, cwd=track.repo, command=_supervisor_launch.launch_command(track)
+    ):
         return False
     if not _supervisor_launch.await_pane(sup, target, signals.pane_is_claude):
         return False

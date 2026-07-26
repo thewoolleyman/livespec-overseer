@@ -54,7 +54,7 @@ def _warnable(tmp_path, **kwargs):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))  # below the 50% threshold
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # below the 50% threshold
     kwargs.setdefault("gitignore_check", lambda _repo: True)
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO(), **kwargs)
     registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
@@ -88,7 +88,7 @@ def _stranded_restart(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     track = mapped_track(repo, topic, session)
     on_respawn(fake, lambda s: fake.panes.__setitem__(s, unsubmitted_resume_capture(ctx=95)))
@@ -114,7 +114,9 @@ def _codex_restart_commands(tmp_path) -> list[str]:
     repo, topic = make_plan(tmp_path, topic="codex-track")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=codex_idle_capture(ctx=40, topic=topic), cmd="bun")
+    fake.serve(
+        session=session, repo=repo, capture=codex_idle_capture(ctx=40, topic=topic), cmd="bun"
+    )
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = make_supervisor(tmp_path, fake, sessions_dir=str(sessions_dir), out=_io.StringIO())
@@ -142,7 +144,7 @@ def _claude_restart_commands(tmp_path) -> tuple[str, list[str]]:
     repo, topic = make_plan(tmp_path, topic="claude-track")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     track = mapped_track(repo, topic, session)
 
@@ -206,7 +208,7 @@ def test_scenario_the_daemon_refuses_an_unsupported_host(tmp_path):
     assert "not gitignored" not in report  # ...and it PRECEDES the gitignore gate...
     assert "holds" not in report  # ...and the singleton gate
     assert wrapup_count(fake) == 0  # nothing was supervised
-    assert not fake.has("capture")
+    assert not fake.has(method="capture")
 
 
 def test_scenario_the_daemon_refuses_a_repository_that_does_not_ignore_its_scratch_path(
@@ -237,7 +239,7 @@ def test_scenario_the_daemon_refuses_a_repository_that_does_not_ignore_its_scrat
     assert str(repo) in report  # the OFFENDING repository is named...
     assert str(innocent) not in report  # ...and the innocent one is not
     assert wrapup_count(fake) == 0
-    assert not fake.has("capture")
+    assert not fake.has(method="capture")
 
 
 def test_scenario_a_second_daemon_instance_refuses_to_start(tmp_path):
@@ -271,7 +273,7 @@ def test_scenario_a_second_daemon_instance_refuses_to_start(tmp_path):
     assert "refusing to start" in contested
     assert str(sup._singleton_lock_path()) in contested  # the contested lock is NAMED
     assert wrapup_count(fake) == 0
-    assert not fake.has("capture")
+    assert not fake.has(method="capture")
 
     supervisor.Supervisor._release_singleton_lock(held)  # the first daemon exits
     _ = _run(sup)
@@ -396,7 +398,7 @@ def test_scenario_an_unknown_context_reading_never_triggers_a_wrapup(tmp_path):
     repo, topic = make_plan(tmp_path, topic="was-known")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=60))  # ABOVE the 50% threshold
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=60))  # ABOVE the 50% threshold
     out = _io.StringIO()
     sup = make_supervisor(tmp_path, fake, out=out)
     track = mapped_track(repo, topic, session)
@@ -415,7 +417,7 @@ def test_scenario_an_unknown_context_reading_never_triggers_a_wrapup(tmp_path):
 
     never, never_topic = make_plan(tmp_path, repo_name="never", topic="never-known")
     never_session = registry.tmux_id(str(never), never_topic)
-    fake.serve(never_session, never, capture=idle_capture())  # no ctx, ever
+    fake.serve(session=never_session, repo=never, capture=idle_capture())  # no ctx, ever
     with contextlib.redirect_stderr(_io.StringIO()):
         blank = sup.evaluate(mapped_track(never, never_topic, never_session), act=True)
 
