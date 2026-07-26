@@ -655,12 +655,14 @@ def watch_set_from_config(
 ) -> list[str]:
     """Compute the watch-set from the ``$HOME`` declaration rather than a manifest.
 
-    This is the manifest-free counterpart to :func:`watch_set`, and it is what
-    makes the overseer relocatable: :func:`watch_set` seeds from
-    ``.livespec-fleet-manifest.jsonc`` resolved by walking UP from this file,
-    which breaks the moment the package moves out of ``<core>/.claude/skills/``.
-    Reading an absolute ``$HOME`` path instead is position-independent, and it
-    drops the manifest dependency D5 forbids a shipped overseer from carrying.
+    This is the SOLE watch-set source, and it is what makes the overseer
+    relocatable. It REPLACED a manifest-seeded ``watch_set`` that resolved
+    ``.livespec-fleet-manifest.jsonc`` by walking UP from this file — which broke
+    the moment the package moved out of ``<core>/.claude/skills/``. That function
+    was REMOVED with the relocation and is defined nowhere in this package; no
+    non-test code reads the fleet manifest at all. Reading an absolute ``$HOME``
+    path instead is position-independent, and it drops the manifest dependency
+    D5 forbids a shipped overseer from carrying.
 
     The document is ``{"repos": ["<checkout>", ...]}``, parsed as JSONC rather
     than strict JSON: this is a HAND-EDITED operator file, so ``//`` comments
