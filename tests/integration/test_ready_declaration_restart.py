@@ -16,7 +16,7 @@ Tier: `tests.integration` is one of the documented default `scenario_tiers`
 prefixes, so `check-heading-coverage` direction 4 accepts these node ids without
 this repo having to declare `scenario_tiers` in `pyproject.toml`.
 
-The harness (`FakeTmux`, `_sup`, `_make_plan`, `_declare`) is imported from the
+The harness (`FakeTmux`, `make_supervisor`, `make_plan`, `declare`) is imported from the
 beside-test module that owns it rather than duplicated — a second FakeTmux would
 be a second thing to keep true.
 """
@@ -27,14 +27,16 @@ import contextlib
 import io as _io
 
 from overseer import registry, signals, supervisor
-from overseer.test_supervisor import (
+from overseer.test_supervisor_builders import (
+    busy_capture,
+    declare,
+    idle_capture,
+    make_plan,
+    make_supervisor,
+    mapped_track,
+)
+from overseer.test_supervisor_fakes import (
     FakeTmux,
-    _busy_capture,
-    _declare,
-    _idle_capture,
-    _make_plan,
-    _mapped_track,
-    _sup,
 )
 
 
@@ -50,15 +52,15 @@ def _open_round(tmp_path, *, ctx=40, topic="topic", clock=None, declare_first=No
     opened, for the prior-round case — so "the declaration predates this round's
     stamp" is a fact about the sequence rather than a hand-picked pair of numbers.
     """
-    repo, topic = _make_plan(tmp_path, topic=topic)
+    repo, topic = make_plan(tmp_path, topic=topic)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=_idle_capture(ctx=ctx))
+    fake.serve(session, repo, capture=idle_capture(ctx=ctx))
     now = (lambda: clock["t"]) if clock is not None else (lambda: 1000.0)
-    sup = _sup(tmp_path, fake, now=now, out=_io.StringIO())
-    track = _mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path, fake, now=now, out=_io.StringIO())
+    track = mapped_track(repo, topic, session)
     if declare_first is not None:
-        _declare(repo, topic, declare_first[0], mtime=declare_first[1])
+        declare(repo, topic, declare_first[0], mtime=declare_first[1])
 
     opened = sup.evaluate(track, act=True)
 
@@ -100,7 +102,7 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(tmp_path
       - `_launch_command` re-pointed at the codex command -> the launch-command assertion.
     """
     repo, topic, _session, fake, sup, track = _open_round(tmp_path)
-    _declare(repo, topic, signals.STATE_READY, mtime=1001.0)  # POST-dates the stamp
+    declare(repo, topic, signals.STATE_READY, mtime=1001.0)  # POST-dates the stamp
 
     view = sup.evaluate(track, act=True)
 
@@ -182,25 +184,25 @@ def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tm
     # --- younger than the grace: survives the declaring turn's own busy tail --------- #
     clock = {"t": 1000.0}
     repo, topic, session, fake, sup, track = _open_round(tmp_path, topic="young", clock=clock)
-    marker = _declare(repo, topic, signals.STATE_READY, mtime=1001.0)
+    marker = declare(repo, topic, signals.STATE_READY, mtime=1001.0)
 
-    fake.serve(session, repo, capture=_busy_capture(ctx=40))  # the declaring turn's tail
+    fake.serve(session, repo, capture=busy_capture(ctx=40))  # the declaring turn's tail
     clock["t"] = 1060.0  # age 59s, inside the 120s grace
     busy = sup.evaluate(track, act=True)
 
     assert busy.status == "working"
     assert marker.exists()  # NOT voided — this is the certifying tail
 
-    fake.serve(session, repo, capture=_idle_capture(ctx=40))  # the tail finishes
+    fake.serve(session, repo, capture=idle_capture(ctx=40))  # the tail finishes
     assert sup.evaluate(track, act=True).status == "restarting"
     assert fake.has("respawn")  # the surviving declaration was honoured
 
     # --- older than the grace: cleared instead of restarting later ------------------- #
     stale_clock = {"t": 1000.0}
     repo, topic, session, fake, sup, track = _open_round(tmp_path, topic="stale", clock=stale_clock)
-    marker = _declare(repo, topic, signals.STATE_READY, mtime=1001.0)
+    marker = declare(repo, topic, signals.STATE_READY, mtime=1001.0)
 
-    fake.serve(session, repo, capture=_busy_capture(ctx=40))  # the session resumed WORK
+    fake.serve(session, repo, capture=busy_capture(ctx=40))  # the session resumed WORK
     stale_clock["t"] = 1201.0  # age 200s, past the 120s grace
     resumed = sup.evaluate(track, act=True)
 
@@ -208,7 +210,7 @@ def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tm
     assert not marker.exists()  # the now-false declaration is cleared...
     assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) is None
 
-    fake.serve(session, repo, capture=_idle_capture(ctx=40))  # ...and going idle again
+    fake.serve(session, repo, capture=idle_capture(ctx=40))  # ...and going idle again
     assert sup.evaluate(track, act=True).status != "restarting"  # does not restart LATER
     assert not fake.has("respawn")
 
@@ -242,7 +244,7 @@ def test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_res
     repo, topic, session, fake, sup, track = _open_round(tmp_path)
     assert not signals.state_path(str(repo), topic).exists()  # the session said nothing
 
-    fake.serve(session, repo, capture=_idle_capture(ctx=13))  # crosses the danger line
+    fake.serve(session, repo, capture=idle_capture(ctx=13))  # crosses the danger line
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(track, act=True)
@@ -295,7 +297,7 @@ def test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declarat
     """
     repo, topic, session, fake, sup, track = _open_round(tmp_path)
     stamp = registry.read_injection_stamp(str(repo), topic, sup.stamp_path)
-    state = _declare(repo, topic, "redy", mtime=1001.0)  # a typo, post-dating the stamp
+    state = declare(repo, topic, "redy", mtime=1001.0)  # a typo, post-dating the stamp
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
@@ -310,7 +312,7 @@ def test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declarat
     assert state.exists()  # nothing consumed it...
     assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) == stamp  # round open
 
-    fake.serve(session, repo, capture=_idle_capture(ctx=13))  # ...and at the danger line
+    fake.serve(session, repo, capture=idle_capture(ctx=13))  # ...and at the danger line
     with contextlib.redirect_stderr(err):
         sup.evaluate(track, act=True)
 

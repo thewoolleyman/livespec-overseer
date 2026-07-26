@@ -19,7 +19,15 @@ import pathlib
 import sys
 
 from overseer import registry
-from overseer.test_supervisor import FakeTmux, _idle_capture, _make_plan, _mapped_track, _sup
+from overseer.test_supervisor_builders import (
+    idle_capture,
+    make_plan,
+    make_supervisor,
+    mapped_track,
+)
+from overseer.test_supervisor_fakes import (
+    FakeTmux,
+)
 
 _PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent
 
@@ -186,16 +194,16 @@ def test_a_supervision_tick_never_opens_a_file_under_a_plan_tree(tmp_path, monke
     SABOTAGE-VERIFIED 2026-07-26: making `Supervisor.tick` read each track's own handoff
     file turns this red naming that path; reverted to a zero diff.
     """
-    repo, topic = _make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path)
     opened = _install_plan_tree_open_audit(
         monkeypatch=monkeypatch, plan_root=(repo / "plan").resolve()
     )
 
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=_idle_capture(ctx=73))
-    sup = _sup(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO())
-    registry.append_mapping(_mapped_track(repo, topic, session), sup.store_path)
+    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO())
+    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
 
     _ = sup.tick(act=True)
 

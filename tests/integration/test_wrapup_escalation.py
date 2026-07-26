@@ -10,7 +10,7 @@ Tier: `tests.integration` is one of the documented default `scenario_tiers`
 prefixes, so `check-heading-coverage` direction 4 accepts these node ids without
 this repo having to declare `scenario_tiers` in `pyproject.toml`.
 
-The harness (`FakeTmux`, `_sup`, `_make_plan`, `_declare`) is imported from the
+The harness (`FakeTmux`, `make_supervisor`, `make_plan`, `declare`) is imported from the
 beside-test module that owns it rather than duplicated — a second FakeTmux would
 be a second thing to keep true.
 """
@@ -21,13 +21,15 @@ import contextlib
 import io as _io
 
 from overseer import registry, supervisor
-from overseer.test_supervisor import (
+from overseer.test_supervisor_builders import (
+    declare,
+    idle_capture,
+    make_plan,
+    make_supervisor,
+    mapped_track,
+)
+from overseer.test_supervisor_fakes import (
     FakeTmux,
-    _declare,
-    _idle_capture,
-    _make_plan,
-    _mapped_track,
-    _sup,
 )
 
 _STATE_FILE_HINT = ".overseer-state"
@@ -35,10 +37,10 @@ _STATE_FILE_HINT = ".overseer-state"
 
 def _track(tmp_path, *, ctx, topic="topic"):
     """A discovered, mapped, live track sitting idle at `ctx`% remaining."""
-    repo, topic = _make_plan(tmp_path, topic=topic)
+    repo, topic = make_plan(tmp_path, topic=topic)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=_idle_capture(ctx=ctx))
+    fake.serve(session, repo, capture=idle_capture(ctx=ctx))
     return repo, topic, session, fake
 
 
@@ -55,12 +57,12 @@ def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(tmp_pa
     """
     repo, topic, session, fake = _track(tmp_path, ctx=40)  # below the default 50
     stamp_at_paste = []
-    sup = _sup(tmp_path, fake, out=_io.StringIO())
+    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     fake.on_paste = lambda _s, _t: stamp_at_paste.append(
         registry.read_injection_stamp(str(repo), topic, sup.stamp_path)
     )
 
-    view = sup.evaluate(_mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(mapped_track(repo, topic, session), act=True)
 
     assert view.status == "warned"
     assert stamp_at_paste == [1000.0]  # recorded BEFORE the pane was touched
@@ -80,14 +82,14 @@ def test_scenario_the_wrapup_sharpens_as_context_keeps_falling(tmp_path):
     remaining and an insistent demand at thirty and below.
     """
     repo, topic, session, fake = _track(tmp_path, ctx=40)
-    sup = _sup(tmp_path, fake, out=_io.StringIO())
-    track = _mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
+    track = mapped_track(repo, topic, session)
 
     sup.evaluate(track, act=True)
     assert len(fake.paste_texts()) == 1
     suggestion = fake.paste_texts()[0]
 
-    fake.serve(session, repo, capture=_idle_capture(ctx=28))  # crosses into 30-and-below
+    fake.serve(session, repo, capture=idle_capture(ctx=28))  # crosses into 30-and-below
     sup.evaluate(track, act=True)
     assert len(fake.paste_texts()) == 2
     demand = fake.paste_texts()[1]
@@ -107,13 +109,13 @@ def test_scenario_a_band_never_fires_twice_in_one_round(tmp_path):
     an in-memory band set and prove nothing.
     """
     repo, topic, session, fake = _track(tmp_path, ctx=40)
-    track = _mapped_track(repo, topic, session)
+    track = mapped_track(repo, topic, session)
 
-    first = _sup(tmp_path, fake, out=_io.StringIO())
+    first = make_supervisor(tmp_path, fake, out=_io.StringIO())
     first.evaluate(track, act=True)
     assert len(fake.paste_texts()) == 1
 
-    reborn = _sup(tmp_path, fake, out=_io.StringIO())  # new process, same stores
+    reborn = make_supervisor(tmp_path, fake, out=_io.StringIO())  # new process, same stores
     reborn.evaluate(track, act=True)
 
     assert len(fake.paste_texts()) == 1  # no second wrap-up for an already-notified band
@@ -127,14 +129,14 @@ def test_scenario_a_winding_down_acknowledgement_pauses_the_escalation(tmp_path)
     never keystrokes into a session that is actively wrapping up.
     """
     repo, topic, session, fake = _track(tmp_path, ctx=40)
-    sup = _sup(tmp_path, fake, out=_io.StringIO())
-    track = _mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
+    track = mapped_track(repo, topic, session)
 
     sup.evaluate(track, act=True)
     assert len(fake.paste_texts()) == 1
 
-    _declare(repo, topic, "winding-down", mtime=1000.0)  # fresh: clock is pinned at 1000.0
-    fake.serve(session, repo, capture=_idle_capture(ctx=28))  # would otherwise cross a band
+    declare(repo, topic, "winding-down", mtime=1000.0)  # fresh: clock is pinned at 1000.0
+    fake.serve(session, repo, capture=idle_capture(ctx=28))  # would otherwise cross a band
     view = sup.evaluate(track, act=True)
 
     assert len(fake.paste_texts()) == 1  # still ONE — the acknowledgement paused it
@@ -162,20 +164,20 @@ def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_noth
     """
     repo, topic, session, fake = _track(tmp_path, ctx=28)
     clock = {"t": 1000.0}
-    sup = _sup(tmp_path, fake, now=lambda: clock["t"], out=_io.StringIO())
-    track = _mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"], out=_io.StringIO())
+    track = mapped_track(repo, topic, session)
 
     sup.evaluate(track, act=True)  # opens the round: stamp written at 1000.0
     assert len(fake.paste_texts()) == 1
     assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) == 1000.0
 
-    _declare(repo, topic, "winding-down", mtime=1001.0)  # POST-dates the stamp
+    declare(repo, topic, "winding-down", mtime=1001.0)  # POST-dates the stamp
     clock["t"] = 1000.0 + (16 * 60)  # ...and is now past the freshness window
     # Drop a band lower so "escalation resumes" is OBSERVABLE. The opening warn at 28%
     # coalesced bands 50/40/30 into its one message (several bands crossed at once
     # coalesce, per the contract), so at an unchanged 28% nothing further is due and a
     # resumed escalation would look identical to a suppressed one.
-    fake.serve(session, repo, capture=_idle_capture(ctx=18))
+    fake.serve(session, repo, capture=idle_capture(ctx=18))
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(track, act=True)
