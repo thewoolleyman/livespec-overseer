@@ -1,16 +1,21 @@
 # Overseer — maintenance guide (for the developer editing it)
 
 This is guidance for **editing the overseer**, not for running it. It is a
-DIFFERENT document from `SKILL.md`:
+DIFFERENT document from the runtime operator contract:
 
-- `SKILL.md` = the overseer **at runtime** ("when invoked, do X").
+- `.claude-plugin/prose/overseer.md` = the overseer **at runtime** ("when
+  invoked, do X"). **(Corrected 2026-07-26: this pair used to name `SKILL.md`
+  on both counts. Since the prose was extracted, `overseer/SKILL.md` is a
+  15-line compatibility pointer that explicitly says "Do not add behavior or
+  operator prose here" — so a reader sent there for the runtime contract lands
+  on a stub.)**
 - this file = guidance for the developer **changing** the overseer ("when you
   change X, preserve invariant Y, watch gotcha Z, verify via W").
 
 The overseer is a **deterministic multi-track supervisor**: a stdlib-Python
 daemon (`supervisor.py`, the top pane) that watches parallel livespec plan
 tracks across tmux sessions, plus a thin interactive Claude bottom pane
-(`SKILL.md`). The daemon acts and renders a live table; it holds NO semantic
+(`.claude-plugin/prose/overseer.md`). The daemon acts and renders a live table; it holds NO semantic
 judgment. Every "am I done / blocked?" decision is made by the tracked
 session's own LLM and expressed out-of-band on the filesystem — ONE state file
 (`<repo>/tmp/overseer/<topic>/.overseer-state`) holding one of three values
@@ -825,9 +830,13 @@ for the marker's edge-triggered lifecycle.
 
 ## Build / toolchain facts
 
-- **Stdlib-only Python, host-only.** No third-party imports; six modules
-  (`registry.py`, `signals.py`, `tmuxio.py`, `supervisor.py`, plus the session
-  readers `claude_sessions.py` and `codex_sessions.py`) plus beside-tests.
+- **Stdlib-only Python, host-only.** No third-party imports; **eight** substantive
+  modules (`registry.py`, `signals.py`, `tmuxio.py`, `supervisor.py`, `jsonio.py`,
+  `start.py`, plus the session readers `claude_sessions.py` and
+  `codex_sessions.py`) plus `__init__.py` / `daemon.py` / `streams.py` /
+  `version.py` and the beside-tests. **(Corrected 2026-07-26: this said "six
+  modules" and omitted `jsonio.py` and `start.py`. Eight is also the count the
+  repo-root `.claude/CLAUDE.md` states, so the two documents now agree.)**
   Precedent for host-only Python under `.claude/`:
   `.claude/hooks/livespec_footgun_guard.py`. Stdlib-only is now **load-bearing
   for the invocation surface too**: the `overseerd` executable carries a
@@ -887,8 +896,14 @@ for the marker's edge-triggered lifecycle.
   can invalidate the OTHER branch's assertions, which passed on its own base.
   Proven live 2026-07-18 (the codex-reboot-recovery branch was green on its base,
   red on combined master; fixed by PR #1373). CI's `push: branches: [master]` leg
-  now runs `check-overseer` against combined master after every merge, so this is
-  caught rather than silent. It is caught AFTER the merge, though — auto-merge
+  runs against combined master after every merge, so this is
+  caught rather than silent. **(Corrected 2026-07-26: this named a
+  `check-overseer` recipe, which does NOT exist in this repo — verified absent
+  from both the `justfile` and `ci.yml`. The protection is real but its carrier
+  is different: `ci.yml` does trigger on `push: branches: [master]`, and the
+  beside-tests run inside the ordinary `just check` aggregate / CI matrix. The
+  substance survived the relocation; only the recipe name was carried over from
+  livespec core, where the overseer used to live.)** It is caught AFTER the merge, though — auto-merge
   lands a PR before the master run finishes. So when landing an overseer change
   while another overseer branch is in flight, still re-run the beside-tests against
   the combined state yourself rather than trusting either PR's own green.
@@ -908,14 +923,27 @@ for the marker's edge-triggered lifecycle.
   (`test_refresh_and_adopt_route_codex_through_injected_seams`) — the proof the
   threading holds; sabotage either call site's seams and it goes red.
 - **Adding a `.py` here?** Keep it stdlib-only. The ruff `**` exclude covers new
-  files automatically, and new beside-tests are picked up by `just check-overseer`
-  (which globs the whole folder) with no wiring of their own.
+  files automatically, and new beside-tests are picked up by the ordinary
+  `just check` aggregate (pytest collects `overseer`) with no wiring of their
+  own. **(Corrected 2026-07-26: this said `just check-overseer`, a recipe that
+  does not exist here.)**
 - **The nested `.claude/CLAUDE.md -> ../AGENTS.md` symlink beside this file** is
   the repo's per-directory nested-memory convention (so Claude Code loads this
   guide when working in the folder). No structural or coverage check objects to
-  a nested `.claude/` dir inside a skill folder — verified against
-  `tests/test_plugin_distribution.py` (which only asserts `.claude-plugin/skills/`
-  is absent and the repo-root `.claude/skills` is not a symlink).
+  a nested `.claude/` dir inside a skill folder.
+
+  > **The citation that used to back that sentence was wrong in three ways, and
+  > is removed rather than repaired (2026-07-26).** It read: *"verified against
+  > `tests/test_plugin_distribution.py` (which only asserts
+  > `.claude-plugin/skills/` is absent and the repo-root `.claude/skills` is not
+  > a symlink)"*. Measured: (1) no such file exists — the real one is
+  > `overseer/test_plugin_structure.py`, a different directory AND a different
+  > basename; (2) that test asserts nothing about `.claude/skills` being a
+  > symlink — it pins the marketplace entry and both skill bindings resolving to
+  > their single-source prose; and (3) the description is BACKWARDS —
+  > `.claude-plugin/skills/` is not absent, it EXISTS and ships both
+  > `overseer/` and `supervise-plan/`. A test asserting its absence would be red.
+  > The claim above still holds; it simply has no such verifier behind it.
 
 ## How to exercise it live
 
@@ -1353,13 +1381,33 @@ does not re-learn it. Append here — do NOT scatter these.
 
 ## Pointers
 
-- `design.md` (beside the plan at `plan/overseer-rewrite/`) — the hardened
-  design, including its "Adversarial review (2026-07-12)" section (the 8 blockers
-  and why the mechanics are shaped as they are).
-- `SKILL.md` — the runtime bottom-pane contract.
+- `.claude-plugin/prose/overseer.md` — **the** runtime bottom-pane operator
+  contract, and the single source for it.
+- `SKILL.md` (beside this file) — **a 15-line compatibility POINTER, not a
+  contract.** It says so itself: *"Do not add behavior or operator prose here."*
 - `marker-protocol.md` — the escalating wrap-up + the ONE-state-file declaration
   contract (`ready` / `blocked: <reason>` / `winding-down`) and the restart
   interlock.
-- The repo-root agent-instruction guidance — the root `AGENTS.md` and its
-  `.ai/agent-disciplines` topic (the "Overseer / long-running-coordinator
-  discipline" and "Factory-dispatch over inline implementation" sections).
+
+> **Two pointers in this list were DEAD and are removed (2026-07-26).** Both
+> pointed outside this repo and neither survived the relocation:
+>
+> - **`design.md` "beside the plan at `plan/overseer-rewrite/`"** — that plan
+>   directory does not exist here, and `git ls-files` finds no `design.md`
+>   anywhere in the repo. It described the pre-relocation design doc, including
+>   its "Adversarial review (2026-07-12)" section.
+> - **the root `AGENTS.md`'s `.ai/agent-disciplines` topic** — there is no `.ai/`
+>   directory in this repo at all, and the root `AGENTS.md` contains no `.ai/`
+>   reference. Note that `doctor-agents-ai-reference-resolution` PASSES: it
+>   validates `.ai/<topic>.md` paths in the format the root file uses, and this
+>   file's prose-style mention was never in its scope. A green doctor run was not
+>   evidence for this pointer.
+>
+> `marker-protocol.md`'s Pointers section carried the same two and is corrected
+> alongside. Both are recorded rather than silently deleted, because a reader
+> arriving from the archived predecessor thread will look for them.
+
+Note the third correction in this list: `SKILL.md` was described as "the runtime
+bottom-pane contract". It has not been that since the prose was extracted to
+`.claude-plugin/prose/overseer.md` — following the old description lands a reader
+on a stub.
