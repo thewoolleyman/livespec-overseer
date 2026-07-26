@@ -1,4 +1,4 @@
-# livespec-runtime — developer-tooling pins (non-Python binaries only).
+# livespec-overseer — developer-tooling pins (non-Python binaries only).
 #
 # Authority: livespec/SPECIFICATION/non-functional-requirements.md
 #   §"Toolchain pins" — non-Python binaries (uv, just, lefthook) pin via
