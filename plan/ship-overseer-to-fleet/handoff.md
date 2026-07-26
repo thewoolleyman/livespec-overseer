@@ -9,9 +9,15 @@ and INSTALLED on the host for **all twelve** — nine fleet members plus all thr
 adopters — with `supervise-plan` proven to RESOLVE by live exercise in eleven
 sessions that are not this repo's. **All 25 children are closed**, including
 `.25`, which closed on the observation goal 5 always needed. `.24` closed on
-evidence that did not support its claim; `.25` is the item that settled it. Read §"NEXT ACTION" — it was
-rewritten 2026-07-26 (FIFTH wrap-up) and SUPERSEDES every earlier status
-statement in this file, including the fourth wrap-up's "the thread is DONE".
+evidence that did not support its claim; `.25` is the item that settled it. Read §"GOAL 5 OBSERVED" — it was
+rewritten 2026-07-26 (SIXTH wrap-up) and SUPERSEDES every earlier status
+statement in this file.
+
+> **THAT SECTION HAS BEEN RENAMED FOUR TIMES** — "NEXT ACTION", then
+> "GOAL 5 REOPENED", now "GOAL 5 OBSERVED". Older references to the earlier
+> names were repointed rather than left dangling, because a cross-reference that
+> resolves to nothing is the same defect class as `overseer-hbr.4`'s
+> non-executable commands: it reads like a pointer and is not one.
 
 > **THIS FILE HAS NOW SCORED GOAL 5 MET TWICE ON EVIDENCE THAT DID NOT SUPPORT
 > IT.** The first time, a wrap-up noted the two pinned adopters had no bump lane
@@ -45,14 +51,14 @@ the maintainer's `approve:` valve first. Created 2026-07-25 (maintainer
 supervisor brief 22) as the LIVING successor of
 `plan/archive/cutover-and-shipping/` (archived 2026-07-25). Groomed 2026-07-26
 into 13 filed slices; **all 13, plus all nine pre-existing children, are now
-DONE** — see §"NEXT ACTION", which is the only section you must read before
+DONE** — see §"GOAL 5 OBSERVED", which is the only section you must read before
 starting.
 
 **Ledger anchor:** epic **`overseer-hbr`** (this repo's beads tenant). Children
 and lanes are READ from the ledger (`list-work-items` / `next`), never stored
 here. It SUPERSEDES `overseer-19s` (the Phase-2-only epic, closed as superseded
 — absorbed here as goal 6) so there is exactly ONE anchor. **That anchor is why
-groom Step 3 was not run** — it would have closed this epic; see §"NEXT ACTION".
+groom Step 3 was not run** — it would have closed this epic; see §"GOAL 5 OBSERVED".
 
 > **Read this first:** the predecessor thread PROVED the daemon cutover and
 > BUILT the operator surface. It did NOT get that surface into anyone's hands,
@@ -114,7 +120,7 @@ re-measure before closing any goal.
 > `supervise-plan` RESOLVES in sessions that are not this repo's. The subsection
 > is kept because the *diagnosis* below — registration, not packaging — was
 > correct and is what got acted on, and because the "treat 'shipped' with
-> suspicion" instruction earned its keep twice more today (see §"NEXT ACTION" on
+> suspicion" instruction earned its keep twice more today (see §"GOAL 5 OBSERVED" on
 > registration-is-not-installation, and on the release ref predating the fix).
 > **Still true:** the three ADOPTERS are registered but not installed — `.23`.
 
@@ -150,7 +156,7 @@ is malformed. What is missing is that `livespec-overseer` is absent from
 > **currently impossible**: all four peer registrations pin **`ref: "release"`**,
 > that branch is produced by `fast-forward-release-branch.yml` on
 > `release: published`, and this repo has **no such workflow, no `release`
-> branch, and zero releases**. See the **HARD `3a → 4`** edge in §"NEXT ACTION".
+> branch, and zero releases**. See the **HARD `3a → 4`** edge in §"GOAL 5 OBSERVED".
 > Registration itself is a *tracked-file* change — `.claude/settings.json` →
 > `extraKnownMarketplaces` + `enabledPlugins`, checked in per consuming repo (six
 > fleet repos carry the identical 3-entry shape today; no copier template exists,
@@ -555,7 +561,7 @@ wrong repo — `.mise.toml:1` and `lefthook.yml:1`. Cosmetic, but sweep them wit
 the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 
 > **CORRECTION (2026-07-25, Codex adversarial review of PR #78).** The
-> §"NEXT ACTION" claim "Nothing is started. Nothing is in flight." is FALSE as
+> §"GOAL 5 OBSERVED" claim "Nothing is started. Nothing is in flight." is FALSE as
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
@@ -654,12 +660,21 @@ the workflow did not fire. Owner is openbrain; closing it needs a
 | `overseer-mim` | `pending-approval` | two livespec-dev-tooling pin-lane gaps + the fleet/adopter credential-boundary decision. Named with that owner; discharging it DELETES this repo's `adopter-release-dispatch.yml` bridge |
 | `overseer-l0f` | `pending-approval` | `uv.lock` trails `pyproject.toml` after every release; any `uv run` dirties a tracked file and no gate catches it |
 | `overseer-byvxlp` | `backlog` | the generated-prompt quality bar beyond both stall modes; owned by `plan/supervisor-prompt-quality/` |
-| **`overseer-bg2`** + 6 open children | `backlog` / `open` | **the Gate E / ROP arming work `.22` sized** — filed as real slices by the `rop-sweep-fleet-policy` track. P1, and by far the largest live body of work in this repo |
+| **`overseer-bg2`** + 3 open children (`.4`, `.9`, `.10`) | `backlog` / `open` | **the Gate E / ROP arming work `.22` sized** — owned by the `rop-sweep-fleet-policy` track, which is actively working it: it was 6 open a few hours ago |
+| `overseer-7lv` | `backlog` | `supervise-plan` residual gaps — supervisor runtime liveness and obligations. **EXTENDS `overseer-byvxlp`**; anchors `plan/supervise-plan-residual-gaps/` |
+| `overseer-hfx` | `backlog` | bring the three remaining over-ceiling files under 200 LLOC before the Phase-2 hard-gate flip |
 
-`overseer-hbr` itself is still `backlog`. **DO NOT CLOSE IT** — goal 5 is unmet
-(above), so the epic's own definition of done does not hold. That is a stronger
-reason than the earlier one, which was only that a thread should not close its
-own anchor (see §"Groom Step 3 was deliberately NOT run").
+**`overseer-hbr` is CLOSED** (2026-07-26), all six goals met on observed
+evidence. The "DO NOT CLOSE IT" instruction that stood here was discharged, not
+overridden: it existed because goal 5 was unmet, and it did its job — it stopped
+the epic closing on a summary twice. The close reason on the epic carries the
+full re-derivation of all six goals and the evidence for goal 5.
+
+> **THE COUNTS IN THE TABLE ABOVE WILL BE WRONG BY THE TIME YOU READ THEM.**
+> `overseer-bg2` went 6 open → 3 open inside one evening, and `overseer-7lv` and
+> `overseer-hfx` did not exist when the previous revision of this table was
+> written. Re-derive with `bd list`, as the note below already says. The table is
+> a snapshot, never a source.
 
 > **THE OPEN-ITEMS TABLE ABOVE WAS INCOMPLETE FOR A WHOLE WRAP-UP, AND THE OMISSION
 > WAS NOT A TIMING ARTIFACT.** The fourth wrap-up declared "THE BOARD IS CLEAR"
@@ -723,7 +738,7 @@ sessions that are not this repo's, proven by live exercise rather than by a
 settings file. Releases are published through **v0.13.0**, `refs/heads/release`
 tracks the latest, the registration is merged in all twelve consuming repos, and
 goal 2's lever fired green on the release path. **Five of six goals are met;
-goal 5 is not** — see §"GOAL 5 REOPENED". All 24 children of `overseer-hbr` are
+goal 5 is not** — see §"GOAL 5 OBSERVED". All 24 children of `overseer-hbr` are
 closed, but `.24` closed on evidence that does not support its claim.
 
 ### Goal 5 — what `overseer-hbr.24` BUILT (its close claim is retracted)
@@ -732,7 +747,7 @@ closed, but `.24` closed on evidence that does not support its claim.
 > accurate and worth keeping — the lane, the three refusals, the per-adopter
 > stacks all exist as described. Its **acceptance claim is withdrawn**: what it
 > reported as unattended was `workflow_dispatch`. The corrected reading is in
-> §"GOAL 5 REOPENED"; the retracted paragraph is left in place below, marked,
+> §"GOAL 5 OBSERVED"; the retracted paragraph is left in place below, marked,
 > because how it went wrong is more instructive than a clean deletion.
 
 **This goal was WRONGLY recorded as met once — and then a second time, by this
@@ -1041,15 +1056,16 @@ and the reasons are reusable:
 - **`tests/integration/` carries 4 modules, 22 tests**; `tests/prompts/` carries
   the generated-charter contract, **12 tests**.
 - **`just check` on master: 61 targets, green, 100% statement+branch.**
-- **Releases published through v0.13.0** (2026-07-26T15:43:11Z, from PR #139),
-  with `refs/heads/release` tracking the
-  latest. PR #52 is long since merged; the "do not merge it" instruction that
-  used to live here is spent. **Re-derive the current tag** (`gh release list`)
-  rather than trusting a number here — this line has gone stale four times, and
-  another track publishes releases too.
-- **Both pinned adopters are at `v0.12.4`, one release BEHIND — deliberately.**
-  That gap is goal 5's live acceptance fixture; see §"NEXT ACTION". Do not close
-  it by hand.
+- **Releases published through v0.13.1** (2026-07-26T18:25:09Z), with
+  `refs/heads/release` tracking the
+  latest. PR #52 and PR #139 are long since merged. **Re-derive the current tag**
+  (`gh release list`) rather than trusting a number here — this line has gone
+  stale five times, and another track publishes releases too.
+- **Both pinned adopters are at `v0.13.1`, level with the latest release** —
+  advanced by their own scheduled pulls on 2026-07-26, which is goal 5's
+  acceptance rather than a fixture awaiting one. The deliberate one-release gap
+  that used to be described here has been consumed, correctly, by the thing it
+  existed to prove. See §"GOAL 5 OBSERVED".
 - **NOTHING of this thread's is in flight.** Its worktrees were removed and its
   branches deleted after merge.
 - **Host plugin state** (the numbers goal 4 moves — re-derive against
@@ -1210,7 +1226,7 @@ was set by hand and then read back from the ledger to verify.**
 | S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | **DONE** — item 5 satisfied, item 3 sized |
 | — goal-4 ADOPTER arm | **`.23`** | 4 | — | **DONE** — homelab PR #67, openbrain + resume direct push |
 | — goal-5 PINNED-consumer bump lane | **`.24`** | 5 | `.23` | **CLOSED, claim RETRACTED** — the lane was built, but both advances were `workflow_dispatch`; goal 5 stays open. A successor carries the acceptance |
-| — goal-5 ACCEPTANCE, the only open slice | **`.25`** | 5 | `.24` | **READY** — observe a `schedule` run advance a pinned adopter to v0.13.0. `ready`, P1, zero labels |
+| — goal-5 ACCEPTANCE | **`.25`** | 5 | `.24` | **DONE** — observed: both pinned adopters advanced v0.12.4 → v0.13.1 on `event: schedule` runs, resume's PR #13 merged by the bot. Full evidence chain in its close reason |
 
 Plus `.1`–`.9`, all closed: `.1`/`.9` (the `source_repo` misnaming), `.2` (the
 goal-6 anchor), `.5`/`.7` (stale docs), `.6` (`overseer-3wt` items 3+5), and
@@ -1232,7 +1248,7 @@ the one item in this epic that did, since the maintainer declined to scope goal
   `LIVESPEC_RUN_MUTATION` lever that arrives in the same workflow is a NO-OP on
   this repo today** (`pure_trees` is declared empty, so `check_mutation` takes a
   sanctioned opt-out) — measured 2026-07-26; it does not gate `.20`. Its real
-  cost lands with `overseer-hbr.22`'s Gate E work. See §"NEXT ACTION".
+  cost lands with `overseer-hbr.22`'s Gate E work. See §"GOAL 5 OBSERVED".
 - **HARD — `3a → 4`.** **PROMOTED FROM "Hypothesis" 2026-07-26 — this doc
   previously recorded it as a starting guess, and that was wrong.** Every peer
   marketplace registration pins **`ref: "release"`**; that branch exists only
