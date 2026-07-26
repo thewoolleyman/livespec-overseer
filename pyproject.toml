@@ -56,37 +56,49 @@ dev = [
 livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git", tag = "v0.54.27" }
 
 [tool.livespec_dev_tooling]
-# Role trees, declared EXPLICITLY EMPTY. Without this section the loader falls
-# back to defaults naming core's layout (`.claude-plugin/scripts/livespec`,
-# `.../io`, `.../commands`, `.../parse`, `dev-tooling`), none of which exist
-# here, and `check-source-trees-scoped-to-consumer` fails with six
-# "role is not scoped to this consumer" errors.
+# Role trees. This section must exist at all: without it the loader falls back to
+# defaults naming core's layout (`.claude-plugin/scripts/livespec`, `.../io`,
+# `.../commands`, `.../parse`, `dev-tooling`), none of which exist here, and
+# `check-source-trees-scoped-to-consumer` fails with six "role is not scoped to
+# this consumer" errors.
 #
-# Empty rather than `source_trees = ["overseer"]`, and that is a deliberate
-# ordering choice, not laziness. Declaring the tree ACTIVATES the Result-railway
-# checks (`no-raise-outside-io`, `no-except-outside-io`, `public-api-result-typed`)
-# over this package. That is Gate E of plan/overseer-productization, whose whole
-# hazard is enforcement landing before adoption, so the blast radius must be
-# MEASURED before the keys flip — arming is tracked as `overseer-bg2.4`, which
-# depends on the LLOC split (`overseer-bg2.3`) and on the loop-iteration catch
-# being deleted (`overseer-bg2.2`), because arming before either reds master.
+# ARMED 2026-07-27 (`overseer-bg2.4`). `source_trees` and `covered_trees` name the
+# package and `file_lloc_hard_gate` is true, so >250 LLOC hard-fails here rather
+# than warning.
 #
-# HISTORY — do NOT reuse this reason. Until 2026-07-26 this block also argued that
-# "livespec core itself currently has all four of these keys empty for the same
-# reason", and that matching core kept the move behavior-preserving. That parity
-# argument has EXPIRED: core now declares `source_trees`, `io_trees`,
-# `commands_trees`, `covered_trees` and `supervisor_entry_files` non-empty, and
-# only its `pure_trees` is still empty (gated on `livespec-mutreal.1`). Core is no
-# longer where this repo is, so "match core" now argues for ARMING rather than
-# staying empty. The reason the keys are still empty is the measured blast radius
-# above — nothing else.
-source_trees = []
+# WHAT ARMING TURNED ON, so a reader knows what these two entries cost: declaring
+# `source_trees` ACTIVATES the Result-railway checks (`no-raise-outside-io`,
+# `no-except-outside-io`, `public-api-result-typed`) over this package, alongside
+# `check-keyword-only-args`, `check-private-calls`, `check-all-declared` and
+# `check-no-inheritance` at ERROR severity. That is Gate E of
+# plan/overseer-productization, whose whole hazard is enforcement landing before
+# adoption — so the blast radius was MEASURED, not assumed, and the flip waited on
+# a real zero: full `just check` 61/61 green with every key below already set.
+#
+# Reaching that zero took the whole `overseer-bg2` epic and one upstream change:
+# the loop-iteration broad catch deleted (`bg2.2`), the over-ceiling files split
+# (`bg2.3`, `overseer-hfx`), `__all__` declared on every module (`bg2.7`), the
+# inheritance-based double reshaped (`bg2.8`), the surface made keyword-only
+# (`bg2.9`, 673 diagnostics to 1), and `check-keyword-only-args` taught the
+# externally-fixed-calling-convention exception upstream in
+# `livespec-dev-tooling` v0.54.27 (`livespec-dev-tooling-2prg`), which is why the
+# pin above is not free to move backwards.
+#
+# HISTORY — do NOT resurrect either retired argument. This block first argued that
+# core had the same keys empty, so matching it kept things behavior-preserving;
+# that parity claim EXPIRED on 2026-07-26 when core armed its own. It then argued
+# that the keys stayed empty because the blast radius was unmeasured; that reason
+# expired when the radius was measured at zero. Neither is a reason to un-arm.
+source_trees = ["overseer"]
 io_trees = []
 commands_trees = []
+# Still empty, and NOT an oversight: `pure_trees` arming is gated on
+# `livespec-mutreal.1`, exactly as it is in core.
 pure_trees = []
-covered_trees = []
+covered_trees = ["overseer"]
 supervisor_entry_files = []
-# Declared-empty: these roles are likewise unarmed during pre-conformance.
+file_lloc_hard_gate = true
+# Declared-empty: these roles remain unarmed.
 target_dirs = []
 source_tree_prefixes = []
 dataclasses_tree = ""
