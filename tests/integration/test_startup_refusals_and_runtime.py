@@ -118,7 +118,7 @@ def _codex_restart_commands(tmp_path) -> list[str]:
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = make_supervisor(tmp_path, fake, sessions_dir=str(sessions_dir), out=_io.StringIO())
-    sup._codex = {
+    sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242, name=topic, cwd=str(repo), session_id=_CODEX_SESSION_ID
         )

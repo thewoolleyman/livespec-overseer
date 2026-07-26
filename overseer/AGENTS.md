@@ -237,7 +237,7 @@ for the marker's edge-triggered lifecycle.
    `<repo-slug>-<topic>` with a **single** dash (the double-dash form is retired).
    tmux session names are global while topics are unique only per repo, so the
    single-dash prefix disambiguates exactly the clashing topics and nothing else.
-   The collision set is recomputed each tick and cached on `self._colliding` (set at
+   The collision set is recomputed each tick and cached on `self.colliding_topics` (set at
    the top of `build_rows`, before adopt / auto_link / evaluate), and threaded into
    every session-name derivation (`_session_of`, `auto_link`) plus the CLI
    (`_cli_colliding` for `add` / `start`) so a session is named identically wherever
@@ -414,7 +414,7 @@ for the marker's edge-triggered lifecycle.
 
    **Reboot recovery is RUNTIME-DISPATCHED (defect #5, 2026-07-18).** `recover_missing_sessions`
    (startup only) no longer always launches the claude command. A dead codex process is absent
-   from the live `self._codex` map (no rollout fd at cold start), so the runtime is derived from
+   from the live `self.live_codex` map (no rollout fd at cold start), so the runtime is derived from
    the PERSISTENT codex index instead — `session_index.jsonl` SURVIVES the session's death. If
    the track's TOPIC names a session there (`codex_sessions.latest_session_for_thread_name`, the
    most-recent by `updated_at`), the track is CODEX: `_recover_codex_track` resumes the SAME
@@ -462,9 +462,9 @@ for the marker's edge-triggered lifecycle.
      overseer never prompts on a track's behalf, the alert line is the operator's
      ONLY handover, so it must be self-sufficient: plan topic, repo, tmux SESSION,
      PANE, and a copy-pasteable `tmux switch-client -t <session>` jump command. That
-     is what `Supervisor._alert` guarantees — route EVERY new track-scoped alert
-     through it, never a bare `_surface` with an f-string of `repo::topic` (which
-     told the operator WHAT was stuck but not WHERE to go). `_surface` remains for
+     is what `Supervisor.alert` guarantees — route EVERY new track-scoped alert
+     through it, never a bare `surface` with an f-string of `repo::topic` (which
+     told the operator WHAT was stuck but not WHERE to go). `surface` remains for
      DAEMON-level notices with no track coordinates (a failed paste retry, a
      respawn failure, the singleton-lock refusal, the gitignore refusal).
 9. **ONE state file with a VALUE — never two presence-markers.** The declaration is
@@ -531,9 +531,9 @@ for the marker's edge-triggered lifecycle.
 
     Consequences that are load-bearing, not cosmetic:
 
-    - **Every log line is timestamped** (`_log` / `_surface` prefix `iso_now()`) — a
+    - **Every log line is timestamped** (`log` / `surface` prefix `iso_now()`) — a
       history you cannot date cannot answer "when?".
-    - **Track alerts are EDGE-TRIGGERED** (`_alert`'s `_alerted` dict; re-armed in
+    - **Track alerts are EDGE-TRIGGERED** (`alert`'s `alerted` dict; re-armed in
       `evaluate` when the row goes healthy). Re-emitting an unchanged alert every tick
       buried the history under thousands of identical lines (a track blocked overnight →
       ~3,000) *and* made `tail`ing the log look like a current-state read, which is the
@@ -587,7 +587,7 @@ for the marker's edge-triggered lifecycle.
   collapsing newlines) and truncates with an ellipsis, applied at THREE call sites so no
   surface can be overrun: the table Status cell (`MAX_NOTE_IN_TABLE`, 48 — tightest,
   because the column width is load-bearing), and the `NEEDS YOU` block line + the
-  edge-triggered `_alert` daemon.log line (both `MAX_REASON_IN_ALERT`, 160 — a longer
+  edge-triggered `alert` daemon.log line (both `MAX_REASON_IN_ALERT`, 160 — a longer
   preview, since the FULL reason is in the tracked pane the line's jump command points
   at). Never render `row.note` raw onto any surface — route it through `elide`.
 - **`command tmux` semantics (`tmuxio.py`).** Every tmux call is
@@ -650,7 +650,7 @@ for the marker's edge-triggered lifecycle.
   (`claude_sessions.status_by_tmux_session`; 2026-07-15).** Claude Code writes a live
   `status` into each session's registry file (`~/.claude/sessions/<pid>.json`), and its
   four values map cleanly onto the daemon's model — recomputed each tick into
-  `Supervisor._claude_status` (`{tmux_session: status}`) by `_refresh_claude_status`, read
+  `Supervisor.claude_status_by_session` (`{tmux_session: status}`) by `_refresh_claude_status`, read
   in `evaluate`, and matched against `CLAUDE_BUSY_STATUSES = {"busy", "shell"}`:
   - **`busy`** — actively generating, OR running an in-process sub-agent (Task tool). A
     sub-agent spawns NO descendant shell and need not repaint the pane, so
@@ -730,13 +730,13 @@ for the marker's edge-triggered lifecycle.
   `_await_input_box` waits for the box to render before the FIRST paste so most restarts
   never need the retry at all.
 - **Claude identity gate `topic in names` parity + stale-mapping re-point
-  (`_pane_is_managed_claude`, `_claude_names`, `registry.repoint_tmux`; R2, 2026-07-18).**
+  (`_pane_is_managed_claude`, `claude_names_by_session`, `registry.repoint_tmux`; R2, 2026-07-18).**
   The Codex gate is pane-scoped (`_is_codex_track` requires `live.name == topic`); the
   Claude gate checked only process + cwd, so a generic reused tmux window (`livespec1`…
   cycled across topics) the store mapped to topic A but now running topic B's Claude —
   SAME repo — passed the gate and got A's wrap-up injected into B, then a `ready`
   respawn-KILLED B as A. The gate now ALSO requires a live Claude named for THIS topic to be
-  present in the pane's tmux session (`self._claude_names`, from `names_by_tmux_session` —
+  present in the pane's tmux session (`self.claude_names_by_session`, from `names_by_tmux_session` —
   the SET of ALL live Claude names in that tmux session, so a HELPER Claude sharing the
   session cannot shadow the track's own name and flap it to `session-gone`; review SF5). It
   is POSITIVE-mismatch only: reject only when the tmux session has live Claude names but NOT
@@ -1076,7 +1076,7 @@ consecutive wrong relaunches before the right one).
 |---|---|
 | The JSONL mapping `~/.livespec-overseer.jsonl` — one row per assigned track (topic ↔ tmux name ↔ repo ↔ handoff ↔ resume line). | Every tmux session / window / pane (no `tmux-resurrect` / `tmux-continuum` is installed — a server death loses the whole layout). |
 | Each Claude session's **conversation transcript**: `~/.claude/projects/<cwd-slug>/<session-id>.jsonl`, where `<cwd-slug>` is the repo path with every `/` rewritten to `-` (e.g. `/data/projects/livespec` → `-data-projects-livespec`). | Claude Code's pid-keyed live registry `~/.claude/sessions/<pid>.json` (keyed by the now-dead pid). |
-| Each Codex session's **rollout** (`~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<id>.jsonl`) AND the **codex index** (`~/.codex/session_index.jsonl`, mapping id → thread_name = topic). This is what lets `recover_missing_sessions` reverse-look-up a dead codex track's id by topic and `codex resume` it AUTOMATICALLY (defect #5) — no manual step for codex. | The running codex process + its held-open rollout fd (the LIVE signal `self._codex` derives from — gone at cold start, which is why recovery uses the surviving INDEX instead). |
+| Each Codex session's **rollout** (`~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<id>.jsonl`) AND the **codex index** (`~/.codex/session_index.jsonl`, mapping id → thread_name = topic). This is what lets `recover_missing_sessions` reverse-look-up a dead codex track's id by topic and `codex resume` it AUTOMATICALLY (defect #5) — no manual step for codex. | The running codex process + its held-open rollout fd (the LIVE signal `self.live_codex` derives from — gone at cold start, which is why recovery uses the surviving INDEX instead). |
 | Each plan's `plan/<topic>/handoff.md`. | The daemon process + its in-memory round state. |
 
 The transcript is what makes a TRUE resume possible: the tmux pane is gone, but the

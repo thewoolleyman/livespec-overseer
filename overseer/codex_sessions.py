@@ -334,7 +334,7 @@ def codex_by_tmux_session(
     """``{(tmux_session, name): CodexSession}`` for every live NAMED codex session in tmux.
 
     The twin of :func:`claude_sessions.status_by_tmux_session`, and the per-tick map the
-    supervisor keys Codex behavior off — recomputed every tick like ``_claude_status``,
+    supervisor keys Codex behavior off — recomputed every tick like ``claude_status_by_session``,
     so it is always live and self-correcting.
 
     **Why a map and not a pane-command predicate.** tmux reports a codex pane's

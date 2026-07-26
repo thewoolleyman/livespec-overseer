@@ -118,7 +118,7 @@ def test_scenario_a_blocked_declaration_is_relayed_not_answered(tmp_path):
       - the gate branch's `or blocked is not None` disjunct removed, demoting `blocked`
         below the threshold branch -> the track reads `danger`, gets a wrap-up pasted, and
         is reported as having declared NOTHING.
-      - `_alert` reduced to `repo::topic` text -> the session/pane/jump assertions.
+      - `alert` reduced to `repo::topic` text -> the session/pane/jump assertions.
     """
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
@@ -175,7 +175,7 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
     fake.serve(session, repo, capture=idle_capture(ctx=73))  # well ABOVE the threshold
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"], out=_io.StringIO())
-    sup._claude_status = {session: "idle"}  # not `waiting`: free to continue
+    sup.claude_status_by_session = {session: "idle"}  # not `waiting`: free to continue
     track = mapped_track(repo, topic, session)
 
     assert sup.evaluate(track, act=True).status == "idle-with-context-left"
@@ -193,11 +193,11 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
     sup.evaluate(track, act=True)
     assert nudge_count(fake) == 1  # same episode: not nudged again
 
-    sup._claude_status = {session: "busy"}  # the session works again
+    sup.claude_status_by_session = {session: "busy"}  # the session works again
     assert sup.evaluate(track, act=True).status == "working"
     assert signals.read_state(str(repo), topic) is None  # the marker clears...
 
-    sup._claude_status = {session: "idle"}
+    sup.claude_status_by_session = {session: "idle"}
     sup.evaluate(track, act=True)
     assert nudge_count(fake) == 1  # ...re-arming a FUTURE episode, not an immediate one
     clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1

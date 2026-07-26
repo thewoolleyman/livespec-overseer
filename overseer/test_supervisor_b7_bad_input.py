@@ -233,7 +233,7 @@ def test_build_rows_caches_the_cross_repo_collision_set(tmp_path):
         sessions_dir=str(sessions),
     )
     rows = sup.build_rows(act=False)
-    assert sup._colliding == frozenset({"shared"})
+    assert sup.colliding_topics == frozenset({"shared"})
     derived = {(r.repo, r.topic): sup._session_of(r) for r in rows}
     assert derived[(str(r1), "shared")] == "livespec-shared"
     assert derived[(str(r2), "shared")] == "other-shared"

@@ -40,7 +40,7 @@ def test_stale_blocked_is_voided_for_an_in_process_sub_agent(tmp_path):
     fake = FakeTmux()
     fake.serve(session, repo, capture=idle_capture(ctx=73))  # pane looks idle
     sup = make_supervisor(tmp_path, fake)
-    sup._claude_status = {session: "busy"}  # sub-agent running in-process
+    sup.claude_status_by_session = {session: "busy"}  # sub-agent running in-process
     declare(repo, topic, "blocked: stale", mtime=800.0)
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
@@ -56,7 +56,7 @@ def test_idle_blocked_session_is_never_voided(tmp_path):
     fake = FakeTmux()
     fake.serve(session, repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake)
-    sup._claude_status = {session: "waiting"}
+    sup.claude_status_by_session = {session: "waiting"}
     declare(repo, topic, "blocked: still waiting on you", mtime=800.0)
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)

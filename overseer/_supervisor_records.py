@@ -54,7 +54,7 @@ class Observation:
     order rather than interleaving reads with decisions.
 
     ``istate`` is deliberately the LIVE ``InjectState`` object out of
-    ``Supervisor._inject``, not a copy: the cascade mutates it (recording an
+    ``Supervisor.inject``, not a copy: the cascade mutates it (recording an
     injection round), and observation already advanced its idle-episode clock.
     """
 

@@ -76,7 +76,7 @@ def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_comm
 
 def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(tmp_path):
     """#4: two codex sessions live in ONE tmux session, each named for its own plan topic.
-    Before the (tmux, name) keying, `self._codex` kept ONE CodexSession per tmux session,
+    Before the (tmux, name) keying, `self.live_codex` kept ONE CodexSession per tmux session,
     so the SECOND track resolved to the wrong session id (or None) — its restart aimed at
     the wrong rollout and its monitoring was silently lost, invisible in the table. Keyed
     by (tmux, topic), each track's `_do_codex_restart` resolves to ITS OWN session, so each
@@ -90,7 +90,7 @@ def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(
     sup = make_supervisor(tmp_path, fake)
     id_a = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
     id_b = "019f548d-6071-7893-9c2e-472cce81da02"
-    sup._codex = {
+    sup.live_codex = {
         (shared, topic_a): codex_sessions.CodexSession(
             pid=10, name=topic_a, cwd=str(repo), session_id=id_a
         ),
@@ -178,7 +178,7 @@ def test_a_codex_track_below_threshold_gets_the_escalating_wrapup(tmp_path):
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
-    sup._codex = {
+    sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
         )
@@ -208,7 +208,7 @@ def test_a_codex_approval_gate_suppresses_the_wrapup(tmp_path):
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
-    sup._codex = {
+    sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
         )
@@ -241,7 +241,7 @@ def test_a_claude_pane_keeps_its_wrapup_when_codex_shares_its_tmux_session(tmp_p
     fake.serve(session, repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path, fake)
     # ...while a codex session for the SAME topic sits in the SAME tmux session.
-    sup._codex = {
+    sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
         )

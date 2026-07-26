@@ -37,7 +37,7 @@ def _isolate_cwd(tmp_path, monkeypatch):
 
 
 def test_evaluate_derives_codex_runtime_and_annotates_the_tmux_cell(tmp_path):
-    """END-TO-END: `evaluate` derives `runtime="codex"` for a track adopted in `_codex`
+    """END-TO-END: `evaluate` derives `runtime="codex"` for a track adopted in `live_codex`
     on a `bun` pane, and the rendered tmux cell reads `<session> (codex)`. Sabotage
     target for the Codex arm (route it to `"claude"` and this goes red)."""
     repo, topic = make_plan(tmp_path)
@@ -45,9 +45,9 @@ def test_evaluate_derives_codex_runtime_and_annotates_the_tmux_cell(tmp_path):
     fake = FakeTmux()
     fake.serve(session, repo, capture=codex_idle_capture(ctx=80, topic=topic), cmd="bun")
     sup = make_supervisor(tmp_path, fake)
-    # `_codex` is keyed by (tmux_session, name) so two codex sessions can share a tmux
+    # `live_codex` is keyed by (tmux_session, name) so two codex sessions can share a tmux
     # session (fix a24e3e13) — key this fixture the same way the other codex tests do.
-    sup._codex = {
+    sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
         )

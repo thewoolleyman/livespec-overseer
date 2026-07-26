@@ -136,7 +136,7 @@ def test_no_managed_pane_row_never_names_a_tmux_session(tmp_path):
     A leftover MAPPING to a tmux session that now holds a bare shell is not a session:
     rendering `livespec1` there asserted a live session that did not exist. The cell
     goes empty (like `unassigned`); `session-gone` alone carries "this WAS mapped and
-    is now dead", and `_alert` degrades to "no live tmux session" with no jump command
+    is now dead", and `alert` degrades to "no live tmux session" with no jump command
     (there is nowhere to jump).
     """
     repo, topic = make_plan(tmp_path)

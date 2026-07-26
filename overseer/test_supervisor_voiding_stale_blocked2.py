@@ -80,7 +80,7 @@ def test_codex_supervisor_process_counts_as_running(tmp_path):
     fake.serve(session, repo, capture=idle_capture(ctx=73))
     fake.serve(supervisor_session, repo, capture=codex_idle_capture(ctx=73), cmd="bun")
     sup = make_supervisor(tmp_path, fake)
-    sup._codex = {
+    sup.live_codex = {
         (supervisor_session, f"{topic}-supervisor"): codex_sessions.CodexSession(
             pid=123,
             name=f"{topic}-supervisor",
