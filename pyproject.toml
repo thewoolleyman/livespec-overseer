@@ -180,6 +180,18 @@ ban-relative-imports = "all"
     "SLF001", "ARG001", "ARG002",
 ]
 
+# The top-of-pyramid scenario tree (overseer-hbr.19). Same rationale as the
+# beside-tests above: these ARE tests, so `assert` is the point (S101), magic
+# comparison values are the scenario's own numbers (PLR2004), and they reach the
+# harness's private helpers deliberately (SLF001) — a second FakeTmux would be a
+# second thing to keep true. Kept as a SEPARATE entry rather than widening the
+# glob above, so the beside-test rationale and the scenario-tree rationale stay
+# independently reviewable.
+"tests/**/*.py" = [
+    "S101", "PLR2004", "PT018", "S105", "S108", "TRY003",
+    "SLF001", "ARG001", "ARG002",
+]
+
 # ---------------------------------------------------------------------------
 # Pyright — strict, no pragma, no suppression.
 # ---------------------------------------------------------------------------
@@ -216,7 +228,7 @@ reportUnnecessaryIsInstance = "error"
 # ---------------------------------------------------------------------------
 
 [tool.pytest.ini_options]
-testpaths = ["overseer"]
+testpaths = ["overseer", "tests"]
 addopts = "-q"
 
 # ---------------------------------------------------------------------------
