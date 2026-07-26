@@ -1,13 +1,17 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **OPEN — BUILDING.** Goal 2's
-TEST half is **COMPLETE**: all **54** registry rows map to a test, **0 TODO**,
-and 21 of 21 `scenarios.md` rows are pinned at integration tier. What remains of
-goal 2 is ARMING the gate (`.20`), which is also goal 3b. Created 2026-07-25
-(maintainer supervisor brief 22) as the LIVING successor of
+**Owning repo:** `livespec-overseer`. **Status:** **OPEN — WAITING ON MAINTAINER
+VALVES.** Goal 2's TEST half is **COMPLETE**: all **54** registry rows map to a
+test, **0 TODO**, and 21 of 21 `scenarios.md` rows are pinned at integration
+tier. What remains of goal 2 is ARMING the gate (`.20`), which is also goal 3b.
+**There is no buildable work queued for a worker** — every remaining slice sits
+at `pending-approval`, and a full verification sweep has already been run against
+the ones a maintainer is most likely to act on. Created 2026-07-25 (maintainer
+supervisor brief 22) as the LIVING successor of
 `plan/archive/cutover-and-shipping/` (archived 2026-07-25). Groomed 2026-07-26
 into 13 filed slices; seven of those plus two pre-existing children are DONE —
-see §"NEXT ACTION", which is the only section you must read before starting.
+see §"NEXT ACTION", which is the only section you must read before starting, and
+which tells you what IS legitimate while the valves are shut.
 
 **Ledger anchor:** epic **`overseer-hbr`** (this repo's beads tenant). Children
 and lanes are READ from the ledger (`list-work-items` / `next`), never stored
@@ -503,10 +507,57 @@ design while that is true. Two things are ripe:
 
 1. **ACCEPT `.19`** — its acceptance criteria are met and independently
    re-measurable (see §"State on the forge"). It is not closed; acceptance is the
-   supervisor's or maintainer's leg, not the worker's.
+   supervisor's or maintainer's leg, not the worker's. **The full acceptance
+   basis is recorded on the item itself** (gate results, merged PR ancestry, the
+   31-sabotage method, and the two-tests-fixed disclosure), so whoever flips the
+   valve is deciding on facts rather than on a report.
 2. **APPROVE `.20` (S11)** — it is now UNBLOCKED in substance as well as on the
    ledger. `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` has nothing left to
    fail on, so arming it is a config change rather than a cleanup.
+
+> ### READ THIS BEFORE YOU LOOK FOR WORK — the verification sweep is DONE
+>
+> A full re-measurement pass ran **2026-07-26** (session ending at `616dd39`).
+> **Do not redo it**, and do not treat its findings as unverified prose — each
+> was measured, and the corrections it produced are already merged into this
+> file (PRs #105–#108). What it settled:
+>
+> | question | answer | where |
+> |---|---|---|
+> | Do the 7 v002 gaps still hold? | **Yes — reproduce exactly**, same ids and headings | `.21` |
+> | Are `.1`/`.3`'s dispositions still true? | **Yes**, re-verified at CODE level | `.21` |
+> | Is `livespec-cbmw` really discharged? | app-installation **yes**, independently | `.21` |
+> | Is goal-4 ground truth still true? | **Yes** — unregistered, 0 installs, 0 releases | `.13` |
+> | What does arming `LIVESPEC_RUN_MUTATION` cost? | **Nothing — it is a no-op here** | `.22` |
+> | Is Gate E still 705 findings? | **No — 712, and drifting upstream** | `.22` |
+> | Is item 5 (entry-point surface) satisfied? | **Appears yes**, sabotage-verified | `.22` |
+>
+> **The one thing that is NOT settled and is nobody's measurement yet:** whether
+> the 445 beside-tests survive mutation. The mutation probe got a magnitude (180
+> mutants from `signals.py` alone, 97 on safety-critical predicates) but **zero
+> verdicts** — it was stopped by the nested-layout staging problem, and pushing
+> past that means wiring the repo for mutation, which is `.22`'s work.
+>
+> ### If every valve is still shut when you arrive
+>
+> That is NOT a blocked state and NOT a reason to idle — but it is also not a
+> licence to invent build work on `pending-approval` items. The legitimate moves,
+> in order:
+>
+> 1. **Re-measure anything the maintainer is about to act on.** Numbers here go
+>    stale in days, not weeks — Gate E moved 705 → 712 in one week from a routine
+>    pin bump alone, and **PR #101 (`v0.54.19`) is open right now**, which will
+>    move it again the moment it merges. A count you did not re-derive today is a
+>    guess.
+> 2. **Hunt the same defect class this thread keeps finding** — durable records
+>    carrying instructions that read runnable and are not. Two were found and
+>    fixed on 2026-07-25/26 (`overseer-hbr.4`'s tmux commands; the
+>    `check-fleet-conformance` re-run instruction). Assume there are more.
+> 3. **Ask ONE maintainer-facing question, recommendation first** — only if 1 and
+>    2 are genuinely exhausted.
+>
+> Do not stand down merely because another track owns a lane. See
+> §"No idle, no silent block" in `supervisor-handoff.md`.
 
    > **CORRECTED 2026-07-26 by measurement — the mutation caution this section
    > used to carry does NOT bite at `.20`'s time.** An earlier revision of this
@@ -571,14 +622,21 @@ and the reasons are reusable:
 - **A sabotage that aborts the run early does not prove the LATER assertion.**
   Verify that one separately rather than assuming it.
 
-### State on the forge (measured 2026-07-26, after #103 merged)
+### State on the forge (measured 2026-07-26 at `616dd39`, tree clean)
 
 - **Registry: `0` TODO of 54.** Re-derive with
   `jq '[.[] | select(.test == "TODO")] | length' tests/heading-coverage.json`.
 - **`tests/integration/` carries 4 modules, 22 tests** — this repo's only
   evidence above the unit tier.
-- **PR #52** (`chore(master): release 0.12.0`) — still open and deliberately
-  **HELD** until `.11` lands the `source_repo` fix. Do not merge it.
+- **`just check` on combined master: 61 targets, 498 tests, green.**
+- **NOTHING of this thread's is in flight.** No worktrees beyond the primary
+  checkout, no branches of its own, no open PRs it authored. Exactly two PRs are
+  open and **neither is yours to build on**:
+  - **PR #52** (`chore(master): release 0.12.0`) — deliberately **HELD** until
+    `.11` lands the `source_repo` fix. **Do not merge it.**
+  - **PR #101** (`chore(deps): bump livespec-dev-tooling pin to v0.54.19`) — the
+    automated pin lane, not this thread's. Worth knowing it exists: merging it
+    will move the Gate E finding count again (see `.22`).
 - The repo still has **zero tags and zero releases**; goals 3a/4/5 are untouched.
 
 ### DONE — do not redo
