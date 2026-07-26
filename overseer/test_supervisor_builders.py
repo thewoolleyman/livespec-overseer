@@ -13,9 +13,11 @@ import json
 import os
 
 import _registry_core
+import codex_sessions
 import registry
 import signals
 import supervisor
+from test_supervisor_fakes import FakeTmux
 
 # A phrase unique to the idle-with-context-left "keep going" nudge (never in the wrap-up).
 NUDGE_SENTINEL = "do NOT offer to stop"
@@ -306,3 +308,81 @@ def wrapup_count(fake):
 def write_session(sessions_dir, pid, *, name, cwd, proc_start="pt", status="idle"):
     payload = {"pid": pid, "name": name, "cwd": str(cwd), "procStart": proc_start, "status": status}
     (sessions_dir / f"{pid}.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+# --------------------------------------------------------------------------- #
+# Row color: the operator scans the live table by hue. Green = working, yellow =
+# idle/waiting-on-human, red = broken, default (uncolored) = unassigned. Color is
+# TTY-only, so it never corrupts piped `list` output or the beside-tests' plain
+# StringIO — the render gates on `out.isatty()`.
+# --------------------------------------------------------------------------- #
+
+GREEN = "\x1b[32m"
+
+RESET = "\x1b[0m"
+
+
+def adopt_codex_ready(tmp_path):
+    """A codex track adopted in `_codex`, at a valid `ready`, on an idle Codex pane.
+
+    The shared fixture for the two restart-routing guards below: a `bun` pane showing the
+    real idle Codex shape, a live CodexSession in the map (as `_refresh_codex_sessions`
+    builds each tick), and a genuinely-valid `ready` (stamp + newer marker) so evaluation
+    reaches the restart branch — the branch where a runtime-misrouted restart would fire
+    the claude command at a codex pane.
+    """
+    repo, topic = make_plan(tmp_path)
+    session = registry.tmux_id(str(repo), topic)
+    fake = FakeTmux()
+    fake.serve(session, repo, capture=codex_idle_capture(ctx=40), cmd="bun")  # a codex pane
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
+    session_id = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
+    sup._codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=4242, name=topic, cwd=str(repo), session_id=session_id
+        )
+    }
+    assert sup._is_codex_track(session, str(repo), topic, session)  # the precondition holds
+    registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
+    arm_ready_marker(repo, topic, mtime=1001.0)  # the SOLE restart authorization
+    return repo, topic, session, session_id, fake, sup
+
+
+# --------------------------------------------------------------------------- #
+# The `tmux` column annotates the session name with its RUNTIME — `livespec
+# (claude)` / `livespec1 (codex)` — so the operator can tell at a glance whether a
+# track is a Claude or a Codex session (maintainer 2026-07-18). Only a row with a
+# LIVE MANAGED pane carries a runtime; the no-managed-pane rows (`unassigned` /
+# `session-gone` / `live-outside-tmux`) render a bare `—` with no `(...)`. The
+# annotation is part of the CELL, so the column width is computed from it and
+# alignment holds.
+# --------------------------------------------------------------------------- #
+
+
+def cell_row(out, topic):
+    """The single rendered DATA line for TOPIC (skipping the header row)."""
+    return next(ln for ln in out.splitlines() if topic in ln and "Topic" not in ln)
+
+
+# --------------------------------------------------------------------------- #
+# Fail-soft marker I/O. The state file is written by the SESSION and read by the
+# daemon, so every marker read/write/delete can fail on a tick (a directory in
+# the file's place, an unwritable marker dir). Each failure must be LOGGED and
+# the surrounding decision left in its safe default — never raised out of the
+# tick, which would strand every other track the daemon is supervising.
+# --------------------------------------------------------------------------- #
+
+
+def undeletable_state_file(repo, topic):
+    """Put a DIRECTORY where the ``.overseer-state`` file belongs.
+
+    ``unlink`` on a directory always fails (``EISDIR``) for every user including
+    root, so this models an undeletable marker without a chmod the CI container
+    (which runs as root) would ignore.
+    """
+    path = signals.state_path(str(repo), topic)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.mkdir()
+    return path
