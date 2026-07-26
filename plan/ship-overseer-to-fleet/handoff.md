@@ -361,14 +361,27 @@ the release path red.
 
 **A SECOND release-armed lever comes with them.** `release-tag.yml` also sets
 `LIVESPEC_RUN_MUTATION: "true"`. **This repo has never run mutation testing** —
-the variable appears only in a `justfile` comment here. Adopting core's release
-template therefore switches on mutation testing for the first time, on a suite
-that has already shipped one verifier which could not fail (PR #75). Budget for
-that: the fleet's mutation gate is the mechanical form of this thread's own "a
-verifier must be able to fail" rule, and this repo has never been subject to it.
+the variable appears only in a `justfile` comment here.
 
-So goal 3 = release-readiness + release-tag workflows, and it gates on BOTH goal
-2's registry AND a mutation pass. Sequence accordingly.
+> **MEASURED 2026-07-26, and the conclusion is the opposite of what this
+> paragraph originally drew.** The sentence above is still true, but the
+> inference from it — that adopting core's release template "switches on
+> mutation testing for the first time" and so goal 3 "gates on a mutation pass"
+> — is **FALSE for this repo as it stands.** `check_mutation` gates on the
+> `pure_trees` role key, which `pyproject.toml` declares EXPLICITLY EMPTY; with
+> the lever armed the check logs a sanctioned opt-out and exits 0 in about a
+> second, without invoking mutmut (which is not even installed here). Setting
+> the variable inspects nothing.
+>
+> This does NOT retire the concern, it RELOCATES it. The fleet's mutation gate
+> really is the mechanical form of this thread's own "a verifier must be able to
+> fail" rule, and this repo really has never been subject to it — but it becomes
+> subject to it when **`overseer-hbr.22`** arms the ROP role keys, not when goal
+> 3 lands the workflows. Full measurement is recorded on `.22`.
+
+So goal 3 = release-readiness + release-tag workflows, and it gates on goal 2's
+registry. It does **not** gate on a mutation pass today; that edge activates with
+`.22`'s Gate E work. Sequence accordingly.
 
 Wiring auto-release while any of the 54 TODOs remain means **the first release
 run fails CI on all outstanding rows**. Sequence accordingly:
@@ -468,12 +481,36 @@ design while that is true. Two things are ripe:
    ledger. `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` has nothing left to
    fail on, so arming it is a config change rather than a cleanup.
 
-   > **Budget the OTHER lever before starting `.20`.** `release-tag.yml` also
-   > sets `LIVESPEC_RUN_MUTATION: "true"`, and **this repo has never run mutation
-   > testing**. `.20` therefore switches on two gates, not one, and the second
-   > one has no measured cost here. The 31 sabotages `.19` ran are evidence the
+   > **CORRECTED 2026-07-26 by measurement — the mutation caution this section
+   > used to carry does NOT bite at `.20`'s time.** An earlier revision of this
+   > file said `release-tag.yml`'s `LIVESPEC_RUN_MUTATION: "true"` made `.20` a
+   > two-gate change with an unbudgeted second cost, and told the next reader to
+   > budget it before starting. **That was wrong, and the maintainer's
+   > measure-first decision is what caught it.** Measured against
+   > `origin/master`:
+   >
+   > ```
+   > LIVESPEC_RUN_MUTATION=true mise exec -- just check-check-mutation
+   > → "role key declared empty — sanctioned opt-out"  ·  exit 0, ~1 second
+   > ```
+   >
+   > Three independent reasons it is a no-op here, each verified at source:
+   > `pyproject.toml` declares `pure_trees = []` (deliberately unarmed during
+   > pre-conformance) and `check_mutation` gates on exactly that key; there is
+   > no `[tool.mutmut]` block at all; and mutmut is not an installed dependency.
+   > **So `.20`'s mutation risk is not a reason to delay it.**
+   >
+   > The cost is real but it belongs to **`overseer-hbr.22`** (Gate E), not
+   > here: the moment `pure_trees` is declared non-empty the check becomes
+   > ARMED, and its own contract then makes a zero-mutant run a HARD ERROR.
+   > Arming the role keys and standing up mutation testing are ONE task. Full
+   > measurement — including the magnitude (~180 mutants from `signals.py`
+   > alone) and the staging blocker that stopped it short of verdicts — is
+   > recorded on `.22`.
+   >
+   > **What stands unchanged:** the 31 sabotages `.19` ran are evidence the
    > scenario tests have teeth; they are NOT evidence the 445 beside-tests
-   > survive mutmut.
+   > survive mutmut. Nobody has measured that, and this probe did not either.
 
 ### The method `.19` established — carry it into `.20` and any later test work
 
@@ -624,8 +661,10 @@ carry written dispositions awaiting closure decisions.
   It was never the maintainer's to accept or replace — it falls out of
   `no_todo_registry.py`'s source. It bound `.19 → .20`, and `.19` has now landed
   all 54 rows, so the constraint is satisfied rather than waived. **The
-  `LIVESPEC_RUN_MUTATION` lever that arrives in the same workflow is NOT
-  discharged** — see §"NEXT ACTION".
+  `LIVESPEC_RUN_MUTATION` lever that arrives in the same workflow is a NO-OP on
+  this repo today** (`pure_trees` is declared empty, so `check_mutation` takes a
+  sanctioned opt-out) — measured 2026-07-26; it does not gate `.20`. Its real
+  cost lands with `overseer-hbr.22`'s Gate E work. See §"NEXT ACTION".
 - **HARD — `3a → 4`.** **PROMOTED FROM "Hypothesis" 2026-07-26 — this doc
   previously recorded it as a starting guess, and that was wrong.** Every peer
   marketplace registration pins **`ref: "release"`**; that branch exists only
