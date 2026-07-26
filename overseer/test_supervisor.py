@@ -18,6 +18,7 @@ import json
 import os
 from pathlib import Path
 
+import _registry_core
 import codex_sessions
 import pytest
 import registry
@@ -2422,7 +2423,11 @@ def _isolate_store(tmp_path, monkeypatch):
     ``~/.livespec-overseer.jsonl``.
     """
     store = tmp_path / "map.jsonl"
-    monkeypatch.setattr(registry, "DEFAULT_STORE_PATH", store)
+    # Patch the module that DEFINES the default and RESOLVES it. `_store()` reads
+    # `DEFAULT_STORE_PATH` as a bare module global, so patching the `registry` facade
+    # would set an attribute nothing reads and let this CLI test append to the
+    # developer's real ~/.livespec-overseer.jsonl.
+    monkeypatch.setattr(_registry_core, "DEFAULT_STORE_PATH", store)
     # `add`/`start` now consult the real fleet manifest to detect cross-repo topic
     # collisions (for the single-dash prefix). Neutralize that read by default so a
     # CLI test is hermetic and never flakes on the host's actual fleet; a collision
