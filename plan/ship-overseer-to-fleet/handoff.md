@@ -4,10 +4,12 @@
 plugin is RELEASED (through v0.12.3), REGISTERED in all twelve consuming repos,
 and INSTALLED on the host for **all twelve** — nine fleet members plus all three
 adopters — with `supervise-plan` proven to RESOLVE by live exercise in eleven
-sessions that are not this repo's. **All 23 children of `overseer-hbr` are
-closed.** Whether to close the epic is the maintainer's call. Read §"NEXT
-ACTION" — it was rewritten 2026-07-26 (third wrap-up) and SUPERSEDES every
-earlier status statement in this file.
+sessions that are not this repo's. **All 24 children of `overseer-hbr` are
+closed**, including `.24`, which closed goal 5's pinned-consumer half after that
+goal was once wrongly scored met. Whether to close the epic is the maintainer's
+call. Read §"NEXT
+ACTION" — it was rewritten 2026-07-26 (third wrap-up, amended at the fourth) and
+SUPERSEDES every earlier status statement in this file.
 
 <!-- Superseded headers, kept so a reader arriving from an older revision lands
 somewhere real. This has read, in order: "OPEN — WAITING ON MAINTAINER VALVES",
@@ -552,11 +554,76 @@ tracks the latest, the registration is merged in all twelve consuming repos, and
 goal 2's lever fired green on the release path. **All six goals are met.** All
 23 children of `overseer-hbr` are closed.
 
+### Goal 5 — how the pinned half was closed (`overseer-hbr.24`)
+
+**This goal was WRONGLY recorded as met once.** A wrap-up noted "the two pinned
+adopters still have no bump lane" and, in the same message, scored goal 5 MET.
+The note was right; the score was not. A concrete pin that nothing advances is a
+stale pin, not a posture — goal 5 says the pin is AUTO-BUMPED **for consumers**,
+and 2 of 12 had no mechanism at all. **Do not let a caveat and a met-claim
+coexist again.**
+
+**What now exists.** Each pinned adopter carries a bump lane in its own stack —
+`scripts/bump-plugin-pin.ts` (openbrain, tsx) and the same logic in resume
+(Bun/TS) — rewriting a matching CONCRETE-version ref to the released tag. Three
+refusals are pinned by tests and each was demonstrated red under an injected
+defect:
+
+- a `release` ref is **never** rewritten — it auto-follows by design, and
+  rewriting it would silently convert a released posture into a pinned one. Ten
+  of twelve consumers pin `release`, so an indiscriminate rewrite would freeze
+  the fleet on one release.
+- a tag that is not a concrete version is never applied, so a payload carrying a
+  branch name cannot pin a consumer to a moving ref.
+- the source repo matches by full trailing name, so `livespec` cannot bump
+  `livespec-overseer`.
+
+**OBSERVED, not argued.** Both pinned adopters advanced **v0.12.3 → v0.12.4**
+unattended, on a release published by another track that nothing announced to
+them. resume landed it as PR #9 authored by `app/resume-pr-bot`; openbrain
+landed it by direct push, which is that repo's own documented landing path.
+Earlier, both had already advanced v0.12.2 → v0.12.3 from a hand-sent dispatch,
+which proved the receiving half separately.
+
+### Two premises this thread got wrong, and how they were caught
+
+**1. "An adopter cannot read a private sibling's releases."** `livespec-overseer`
+is **PUBLIC**. The pull path needs no cross-repo credential at all. The lane was
+first built dispatch-only on that wrong premise; the daily `schedule` that now
+resolves the latest release itself is what makes it work today, and it bounds
+staleness to one day even when push delivery is unavailable.
+
+**2. "The producer can just dispatch to the adopters."** It cannot. Measured
+with the livespec App token: **404** for openbrain and homelab (App not
+installed), **403 Resource not accessible by integration** for resume. That is
+by design — the fleet manifest records adopters as bringing their OWN App and
+credential wrapper, so they sit deliberately outside fleet credentials.
+
+`adopter-release-dispatch.yml` in this repo still fans out on release, because
+push is instant when authorized and the payload shape matches the fleet lane's
+exactly. It reports delivered / unauthorized / failed in its job summary and
+**exits 0 when no adopter is reachable** — an unauthorized boundary is a
+precondition, not a release failure, and a release that always shows a red X
+trains readers to ignore it. That distinction was added after a real run failed
+and would otherwise have reddened the next release.
+
+**Push remains unproven end to end**, and that is a latency optimization rather
+than the goal: the pull path is what satisfies "auto-bumped". Authorizing the
+livespec App on the adopters — or leaving them pull-only — is a maintainer
+decision about the fleet↔adopter credential boundary, recorded on
+**`overseer-mim`** along with the two livespec-dev-tooling gaps that made the
+bridge necessary (its release fan-out reads `.fleet` only; its pin autodiscovery
+has no Claude-marketplace format).
+
 ### THE BOARD IS CLEAR — nothing of this thread's is open
 
 `overseer-hbr` itself is still `backlog`; whether to close the epic is the
 maintainer's call. Two items exist outside it and are NOT this thread's work:
 
+- **`overseer-mim`** (`pending-approval`, P2) — two livespec-dev-tooling pin-lane
+  gaps plus the adopter credential-boundary decision. Named with that owner
+  rather than absorbed; discharging it deletes this repo's
+  `adopter-release-dispatch.yml` bridge.
 - **`overseer-l0f`** (`pending-approval`, P2) — `uv.lock` trails
   `pyproject.toml` after every release; any `uv run` dirties a tracked file and
   no gate catches it. Found while wrapping up; filed rather than tolerated
@@ -702,7 +769,7 @@ bumping commit type.
 | 2 — top-of-pyramid tests, present AND enforced | **MET** — 54/54 rows mapped, lever armed, fired green on the release path |
 | 3 — auto-released | **MET** — three releases; `release-readiness.yml` + `release-tag.yml` in place |
 | 4 — auto-installed, fleet AND adopters | **MET** — 12 install records; each adopter provisions itself from an ordinary session (`.23`) |
-| 5 — release pin auto-bumped | **MET** — observed across a real release boundary: `ref: "release"` consumers followed v0.12.2 → v0.12.3 unattended while the two `posture: pinned` adopters correctly held. Those two still have no bump lane |
+| 5 — release pin auto-bumped | **MET for all 12** — `ref: "release"` consumers auto-follow; the two `posture: pinned` adopters advanced **v0.12.3 → v0.12.4 unattended** on a real published release via the bump lane built for `.24`. See §"Goal 5" for what is and is not proven |
 | 6 — phase-2 adopter shipping folds in | **MET** — dispositions on `.21`/`.22`, and its shipping arm landed as `.23` |
 
 ### Five core-tenant closes are justified and are NOT ours to make
