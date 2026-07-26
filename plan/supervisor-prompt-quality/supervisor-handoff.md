@@ -6,38 +6,106 @@
 > `overseer-byvxlp` lands, regenerating this file through the skill —
 > preserving the Corrections log below — is a legitimate live exercise
 > of the epic's own acceptance.
+>
+> **2026-07-26, reinforced with evidence.** A live `supervise-plan` run
+> measured the shipped contract's HALT-first gate passing all five
+> preconditions against a worker session that did not exist. Until
+> `overseer-byvxlp` family 5 lands, generating this file would mint a
+> charter carrying that vacuous gate. See Corrections C1–C3; the
+> hardened commands below are the corrected exemplars.
+
+## Bindings
+
+Resolve and REPORT these before driving anything. This section is the
+only place live values belong; thread status lives in the ledger and
+`handoff.md`, never here.
+
+| Binding | Value |
+|---|---|
+| `repo_primary` | `/data/projects/livespec-overseer` |
+| `thread_dir` | `plan/supervisor-prompt-quality/` |
+| `worker_session` | `supervisor-prompt-quality` |
+| `supervisor_session` | `supervisor-prompt-quality-supervisor` |
+| `ledger_anchor` | epic `overseer-byvxlp` |
+| `runtime_dir` | `<repo_primary>/tmp/overseer/supervisor-prompt-quality/` (gitignored) |
+| `worker_marker` | `<runtime_dir>/.overseer-state` (the worker's, daemon-owned) |
+| `supervisor_marker` | `<runtime_dir>/.supervisor-state` (YOURS — see Obligation record) |
+| `wait_channel` | `<runtime_dir>/worker-status.log` |
+| `worktree_root` | `~/.worktrees/livespec-overseer/<branch>` |
+| default branch / merge | `master` / rebase-merge |
+| hooks / credentials | `mise exec -- git …` / `/usr/local/bin/with-livespec-env.sh -- bd …` |
+
+`/home/ubuntu/workspace/livespec-overseer` is the SAME INODE as
+`repo_primary`, not a worktree. Writing there is writing the primary
+checkout. Never treat it as a safe target.
 
 ## HALT-first preconditions
 
 Verify in order; stop on the FIRST failure and report the exact
-expected name. The one classified remedy is precondition 1's.
+expected name. Every check below is runnable as written.
 
-1. **Worker session** `supervisor-prompt-quality`:
-   `tmux has-session -t supervisor-prompt-quality`. If absent, that is
-   a bootstrap condition, not a dead-end: ask the maintainer ONE
-   recommended-first question offering to start it
-   (`tmux new-session -d -s supervisor-prompt-quality -c
-   /data/projects/livespec-overseer`, then launch the agent CLI in it),
-   then re-run checks 2–3 against the new pane.
-2. **Live AGENT, not a shell** — from process evidence, never the name:
+**tmux resolves `-t <name>` by exact match THEN PREFIX match.** Because
+`worker_session` is always a strict prefix of `supervisor_session`, a
+bare `-t "$worker_session"` silently retargets the SUPERVISOR's own
+pane. Never use the bare form. Existence is `grep -qx`; pane targets
+carry `=` AND a trailing colon (`-t '=name:'` — without the colon,
+format fields come back EMPTY, and an empty value laundered through
+`readlink -f` becomes a false PASS).
+
+```sh
+REPO=/data/projects/livespec-overseer
+W='=supervisor-prompt-quality:'          # trailing colon REQUIRED
+```
+
+1. **Worker session exists** — exact match only:
 
    ```sh
-   pane_pid=$(tmux display-message -p -t supervisor-prompt-quality '#{pane_pid}')
-   ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
+   tmux list-sessions -F '#{session_name}' | grep -qx 'supervisor-prompt-quality'
+   ```
+
+   If absent, that is a bootstrap condition, not a dead-end: ask the
+   maintainer ONE recommended-first question offering to start it
+   (`tmux new-session -d -s supervisor-prompt-quality -c "$REPO"`, then
+   launch the agent CLI in that pane), then re-run checks 2–4.
+
+2. **Worker is a DISTINCT session from you** — the check that catches a
+   prefix-match retarget even if check 1 is ever weakened:
+
+   ```sh
+   wpid=$(tmux display-message -p -t "$W" '#{pane_pid}')
+   spid=$(tmux display-message -p -t '=supervisor-prompt-quality-supervisor:' '#{pane_pid}')
+   [ -n "$wpid" ] && [ -n "$spid" ] && [ "$wpid" != "$spid" ] \
+     || echo "HALT: worker resolved to the supervisor pane"
+   ```
+
+3. **Live AGENT, not a shell** — from process evidence, never the name;
+   a leftover session named like an agent proves nothing:
+
+   ```sh
+   [ -n "$wpid" ] || { echo "HALT: empty pane_pid"; exit 1; }
+   ps -o pid=,comm=,args= --ppid "$wpid" --pid "$wpid" -H
    # PASS only on a live `claude` or `codex` process; a lone shell is FAILURE.
    ```
 
-3. **Worker cwd inside the target repo**, symlinks resolved:
+   Report which driver was found. Confirm the pid is NOT your own agent.
+
+4. **Worker cwd inside the target repo**, empty-guarded, symlinks
+   resolved. `readlink -f ""` RETURNS THE CWD with exit 0, so an
+   unguarded empty value passes containment:
 
    ```sh
-   pane_cwd=$(tmux display-message -p -t supervisor-prompt-quality '#{pane_current_path}')
-   readlink -f "$pane_cwd"   # must be /data/projects/livespec-overseer or under it
+   wcwd=$(tmux display-message -p -t "$W" '#{pane_current_path}')
+   [ -n "$wcwd" ] || { echo "HALT: empty pane_current_path"; exit 1; }
+   case "$(readlink -f -- "$wcwd")" in
+     "$REPO"|"$REPO"/*) echo "PASS: $wcwd" ;;
+     *) echo "HALT: $wcwd is outside $REPO" ;;
+   esac
    ```
 
-4. **Supervisor seat distinct:** `tmux display-message -p
+5. **Supervisor seat distinct:** `tmux display-message -p
    '#{session_name}'` expects `supervisor-prompt-quality-supervisor`; a
    different name (or no tmux) is a bootstrap condition — rename or
-   proceed noting it; HALT only if you are IN the worker session.
+   proceed noting it. HALT only if you are IN the worker session.
 
 ## Role
 
@@ -52,20 +120,43 @@ recording the basis in the close reason.
 that cannot fail. Every fixture and gate accepted here must have a
 demonstrated RED under an injected defect (the PR #75 lesson), and
 every claim about generated output must be asserted over GENERATED
-output, not static prose (`overseer-hbr.16`'s raised evidence bar).
+output, not static prose (`overseer-hbr.16`'s raised evidence bar). A
+PRECONDITION that cannot fail is the same defect as a verifier that
+cannot fail — C1 and C2 below are that defect, found in the shipped
+contract.
 
 ## How to inspect and drive
 
-- Inspect: `tmux capture-pane -p -t supervisor-prompt-quality -S -40`
-- Short: `tmux send-keys -t supervisor-prompt-quality -- '<one line>' Enter`
+- Inspect: `tmux capture-pane -p -t "$W" -S -40`
+- Short instruction — send text, VERIFY it landed, THEN Enter as a
+  SEPARATE call. The one-shot `… -- '<line>' Enter` form lands the text
+  but does NOT submit it; the instruction sits queued.
+
+  ```sh
+  tmux send-keys -t "$W" -- '<one line>'
+  tmux capture-pane -p -t "$W" | tail -8      # confirm it landed
+  tmux send-keys -t "$W" Enter                # only after verifying
+  ```
+
 - Long: named buffer, paste, VERIFY the `[Pasted text]` chip, then
   Enter as a separate step:
 
   ```sh
-  tmux load-buffer -b sup /tmp/brief.md
-  tmux paste-buffer -b sup -t supervisor-prompt-quality
-  tmux capture-pane -p -t supervisor-prompt-quality -S -20
-  tmux send-keys -t supervisor-prompt-quality Enter
+  tmux load-buffer -b spq /path/to/brief.md
+  tmux paste-buffer -b spq -t "$W"
+  tmux capture-pane -p -t "$W" | tail -8
+  tmux send-keys -t "$W" Enter
+  ```
+
+- **`-S -N` is NOT "the last N lines."** It means N lines of scrollback
+  PLUS the entire visible pane. Test for an open picker on the VISIBLE
+  PANE ONLY (`capture-pane -p` with no `-S`); testing `-S -N` output
+  matches the fresh-session trust dialog still sitting in scrollback
+  and reports a picker that closed minutes ago:
+
+  ```sh
+  tmux capture-pane -p -t "$W" | grep -q 'Enter to select\|Enter to confirm' \
+    && echo "PICKER OPEN — do not paste"
   ```
 
 - Re-check for an open picker before EVERY paste; never answer via a
@@ -74,12 +165,119 @@ output, not static prose (`overseer-hbr.16`'s raised evidence bar).
   by `stop_reason` in the newest transcript under
   `~/.claude/projects/-data-projects-livespec-overseer/`, not by
   silence; recovery from a hung turn takes TWO Escapes.
-- Never end a turn with the worker mid-flight and no armed re-entry
-  (the worker is an external tmux session; its completion emits no
-  notification, and an open picker suppresses the daemon's injection).
 - Never name a shell variable `TMUX`; never `tmux kill-server` on the
   maintainer's socket; never kill the acting overseer daemon (tmux
-  `livespec-overseer:1.1`).
+  `livespec-overseer:1.1`) — it supervises every tracked session in the
+  fleet and is the shipped product, not part of this thread.
+
+## Obligation record — write it, do not remember it
+
+The worker has `.overseer-state` and it works. You need the peer, or
+nothing survives your compaction or death: maintain
+`$supervisor_marker` and rewrite it whenever your obligations change.
+It must always answer three questions — **what am I waiting on, what
+will wake me, and what should happen if nothing does.** Enforcing
+marker discipline on the worker while keeping your own state only in
+context is the failure this section exists to stop.
+
+```sh
+mkdir -p "$REPO/tmp/overseer/supervisor-prompt-quality"
+cat > "$REPO/tmp/overseer/supervisor-prompt-quality/.supervisor-state" <<EOF
+updated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+open_obligations:
+  - id: <short-slug>
+    holder: <me|worker|peer-supervisor:SESSION|maintainer>
+    waiting_on: <the concrete event>
+    wake_mechanism: <the ARMED thing — watcher pid, ScheduleWakeup, peer reply>
+    if_nothing_happens: <the escalation, with a deadline>
+EOF
+```
+
+An obligation with `wake_mechanism: none` is a stall with a timestamp.
+
+## Never end a turn with an unarmed obligation
+
+The trigger is **ANY open obligation, whoever holds it** — not merely
+"the worker is mid-flight." A correctly PARKED worker plus a supervisor
+holding an open obligation matches no worker-centric trigger, and that
+exact shape sat 8h05m before a maintainer intervened. A status report
+is not a work product that can end a turn; "I'll check back" is an
+INTENTION, not a mechanism.
+
+The worker is an EXTERNAL tmux session — its completion emits NO
+notification. The daemon will not cover for you: an open
+`AskUserQuestion` suppresses its wrap-up injection, so the condition
+most needing attention mutes the only other watcher.
+
+Arm ONE of these per obligation before the turn ends, and record which
+in `$supervisor_marker`:
+
+**(a) Pane watcher** — for a worker mid-flight. Primary mechanism.
+Detect busy by pane CHANGE, not by a status string: a working pane
+renders a spinner that ticks every second.
+
+```sh
+prev=""; stable=0
+for i in $(seq 1 180); do                 # ~60 min, then WAKE anyway
+  sleep 20
+  pane=$(tmux capture-pane -p -t '=supervisor-prompt-quality:')   # visible only
+  case "$pane" in
+    *"Enter to select"*|*"Enter to confirm"*) echo "WAKE: picker open"; exit 0 ;;
+  esac
+  if [ "$pane" = "$prev" ]; then stable=$((stable+1)); else stable=0; prev="$pane"; fi
+  [ "$stable" -ge 3 ] && { echo "WAKE: pane unchanged ~60s — idle"; exit 0; }
+done
+echo "WAKE: watcher ceiling reached — worker still busy, RE-ARM NOW"
+```
+
+**(b) Condition watcher** — for a NON-pane event (a PR merging, a file
+appearing, a peer replying). A pane diff cannot see any of these:
+
+```sh
+for i in $(seq 1 180); do
+  sleep 20
+  if <condition-command>; then echo "WAKE: condition met"; exit 0; fi
+done
+echo "WAKE: condition watcher expired — RE-ARM NOW"
+```
+
+**(c) Long `ScheduleWakeup` (1200s+)** — backstop only, never beside a
+watcher as a short poll.
+
+**Expiry is itself a wake.** Both watchers above EXIT on ceiling with a
+`WAKE:` line rather than looping silently, so the ceiling produces a
+notification instead of leaving re-arming to your intention — the very
+failure this section forbids. Run them with `run_in_background: true`
+and do NOT spawn a second shell to poll the first; the exit
+notification IS the signal.
+
+## Cross-track handoff
+
+"A lane owned by another track is not a thread-wide block" is necessary
+and not sufficient. To hand an obligation to a peer supervisor: (1)
+state the obligation and the wake condition explicitly in the message;
+(2) get an acknowledgement that NAMES it — silence is not receipt; (3)
+confirm the peer has RECORDED it in their own marker AND that you have
+REMOVED it from yours, so it never lives in two places; (4) until (2)
+and (3) both hold, the obligation is still YOURS and still needs an
+armed wake. An obligation carrying your name inside someone else's
+record is the gap things die in — precedent:
+`livespec-console-beads-fabro-6ma`, a correctly-diagnosed P1 that sat
+six days in a tenant whose owners could not fix it.
+
+## Verification discipline
+
+- **A FILED ITEM IS A CLAIM WITH A TIMESTAMP.** Before relaying any
+  ledger item as a present-tense blocker, confirm it is still live.
+  Five P1 titles were once relayed as current; two were already dead,
+  and the framing reached a merged handoff on master.
+- **AN EXIT CODE THROUGH A PIPE IS THE LAST COMMAND'S.** `cmd | tail
+  -35; echo "EXIT=$?"` reports `tail`. The fleet rule "establish
+  outcomes from artifacts, never exit codes" is defeated by the
+  pipeline case in a way its wording does not name. Use
+  `PIPESTATUS`/`pipefail` or read the artifact.
+- Blocked claims need verifiable referents; run the startup
+  stale-state audit before trusting anything you did not just measure.
 
 ## Decision-vetting rubric
 
@@ -90,28 +288,62 @@ fleet-wide; spec ratification; billing/accounts. Everything else: the
 worker prepares the finished decision packet (evidence, options,
 recommendation, costs, what each authorizes, the exact blocked action).
 
+Never REMOVE, WEAKEN, or SKIP an existing check — that is a property of
+the change, not of any file path. Outward-facing, sensitive-path,
+second-opinion and authorization-category are NOT by themselves reasons
+to escalate; state the assumption and keep going.
+
 **No idle, no silent block:** a lane owned elsewhere (e.g. the
 `ship-overseer-to-fleet` release chain S1–S5) blocks only that action —
 enumerate remaining safe work (steps 1–3 of the thread `handoff.md`
 execution order are independent of the release chain) and drive it;
 only with nothing left, ask ONE recommended-first question.
 
-## Standing safety clauses (every brief)
+Maintainer-facing actions go through `AskUserQuestion` with the
+recommended option FIRST and labelled Recommended, every option stating
+its own cost, full repository names, and `---` as the final line before
+the picker. Batch ripe valves into one call rather than trickling them.
+
+## Standing safety clauses (repeat in every brief)
 
 - Never `--no-verify`; halt and report on hook failure.
-- Worktree → PR → rebase-merge under
-  `~/.worktrees/livespec-overseer/<branch>`; `mise exec -- git …` so
-  hooks fire; never commit on the primary checkout.
+- Worktree → PR → rebase-merge under `$worktree_root`; `mise exec --
+  git …` so hooks fire; never commit on the primary checkout.
 - Verify on the forge (`origin/master` after a fetch); artifacts, not
   exit codes; `date -u` timestamps.
 - `bd` via `/usr/local/bin/with-livespec-env.sh --`; status only from
   the ledger; never touch another session's branches or worktrees.
+- Never kill the acting overseer daemon (tmux `livespec-overseer:1.1`).
 
 ## Corrections
 
 Corrections to THIS supervisor role's own behavior — append here; a
-record that logs only the worker's mistakes is a wrong record. (None
-yet. Role-level seed corrections live in the sibling charters this
-file was modeled on: `plan/ship-overseer-to-fleet/supervisor-handoff.md`
-and `livespec-orchestrator-beads-fabro`
-`plan/dispatch-claim-liveness/supervisor-handoff.md`.)
+record that logs only the worker's mistakes is a wrong record.
+
+- **C1 (2026-07-26) — I trusted `tmux has-session` and asserted a
+  session existed that did not.** Driving this thread, I read
+  `has-session -t supervisor-prompt-quality` exiting 0 as proof the
+  worker was up. It was prefix-matching
+  `supervisor-prompt-quality-supervisor`. Worse, the follow-on `ps`
+  check then reported MY OWN agent process as the worker's live driver,
+  so the "exact live process evidence, never a session name" rule was
+  satisfied by a name match after all. Fix: existence via `grep -qx`,
+  pane targets via `-t '=name:'`, plus the explicit distinct-pane_pid
+  check (precondition 2). Generalize: when a check passes, confirm it
+  can also FAIL before believing it.
+- **C2 (2026-07-26) — my containment check false-passed on an empty
+  string.** `readlink -f ""` returns the CWD with exit 0, so a
+  `pane_current_path` that came back empty rendered as `PASS:` against
+  the repo root. Fix: guard non-empty BEFORE resolving, and
+  `readlink -f --`.
+- **C3 (2026-07-26) — I aborted a paste on a picker that had closed
+  minutes earlier.** I string-tested `capture-pane -S -15`, which
+  returns 15 lines of scrollback PLUS the whole visible pane, and
+  matched the fresh-session trust dialog in history. Cost was a wasted
+  cycle; the same bug inside a watcher would fire `WAKE: picker open`
+  on its first poll forever. Fix: picker tests read the VISIBLE PANE
+  ONLY.
+- Role-level seed corrections live in the sibling charters this file
+  was modeled on: `plan/ship-overseer-to-fleet/supervisor-handoff.md`
+  and `livespec-orchestrator-beads-fabro`
+  `plan/dispatch-claim-liveness/supervisor-handoff.md`.
