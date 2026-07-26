@@ -1,23 +1,28 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **OPEN — SHIPPING.** Two
-releases are published (v0.12.0, v0.12.1), `refs/heads/release` exists, goal 2's
-lever has fired green on the release path, and 15 items are closed. The single
-thing in flight is **PR #120** (`overseer-hbr.16`). Read §"NEXT ACTION" — it was
-rewritten 2026-07-26 and SUPERSEDES every "waiting on valves" statement below it.
+**Owning repo:** `livespec-overseer`. **Status:** **OPEN — ONE ITEM LEFT.** The
+plugin is RELEASED (v0.12.2), REGISTERED in all twelve consuming repos, and
+INSTALLED on the host for all nine fleet members, with `supervise-plan` proven
+to RESOLVE by live exercise in sessions that are not this repo's. **All 22
+original children are closed.** The one open item is **`overseer-hbr.23`** —
+goal 4's ADOPTER clause, which is unmet for a mechanical reason found while
+proving goal 1. Read §"NEXT ACTION" — it was rewritten 2026-07-26 (second
+wrap-up) and SUPERSEDES every earlier status statement in this file.
 
-<!-- Superseded header, kept so a reader arriving from an older revision lands
-somewhere real: this previously read "OPEN — WAITING ON MAINTAINER VALVES." --> Goal 2's TEST half is **COMPLETE**: all **54** registry rows map to a
-test, **0 TODO**, and 21 of 21 `scenarios.md` rows are pinned at integration
-tier. What remains of goal 2 is ARMING the gate (`.20`), which is also goal 3b.
-**There is no buildable work queued for a worker** — every remaining slice sits
-at `pending-approval`, and a full verification sweep has already been run against
-the ones a maintainer is most likely to act on. Created 2026-07-25 (maintainer
+<!-- Superseded headers, kept so a reader arriving from an older revision lands
+somewhere real. This has read, in order: "OPEN — WAITING ON MAINTAINER VALVES",
+then "OPEN — SHIPPING", now "OPEN — ONE ITEM LEFT". Goal 2's arming (`.20`),
+which an earlier version of this paragraph named as the remaining work, is
+DONE. --> Goal 2 is **COMPLETE, both halves**: all **54** registry rows map to a
+test, **0 TODO**, 21 of 21 `scenarios.md` rows are pinned at integration tier,
+and the lever fired green on the release path. Goals 1, 3 and 5 are met for the
+fleet. **The one buildable row is `.23`** (goal 4's adopter arm), and it needs
+the maintainer's `approve:` valve first. Created 2026-07-25 (maintainer
 supervisor brief 22) as the LIVING successor of
 `plan/archive/cutover-and-shipping/` (archived 2026-07-25). Groomed 2026-07-26
-into 13 filed slices; seven of those plus two pre-existing children are DONE —
-see §"NEXT ACTION", which is the only section you must read before starting, and
-which tells you what IS legitimate while the valves are shut.
+into 13 filed slices; **all 13, plus all nine pre-existing children, are now
+DONE** — see §"NEXT ACTION", which is the only section you must read before
+starting.
 
 **Ledger anchor:** epic **`overseer-hbr`** (this repo's beads tenant). Children
 and lanes are READ from the ledger (`list-work-items` / `next`), never stored
@@ -77,6 +82,17 @@ These are the numbers the goals move. Do not re-derive them to start work, but D
 re-measure before closing any goal.
 
 ### Goals 1 + 4 — the plugin is BUILT but FUNCTIONALLY UNSHIPPED
+
+> **SUPERSEDED 2026-07-26 (second wrap-up). This heading is now BACKWARDS for the
+> fleet.** The plugin is registered in all twelve consuming repos and INSTALLED
+> for the nine fleet members; `known_marketplaces.json` carries it, the cache
+> carries both skills, and `installed_plugins.json` has nine project entries.
+> `supervise-plan` RESOLVES in sessions that are not this repo's. The subsection
+> is kept because the *diagnosis* below — registration, not packaging — was
+> correct and is what got acted on, and because the "treat 'shipped' with
+> suspicion" instruction earned its keep twice more today (see §"NEXT ACTION" on
+> registration-is-not-installation, and on the release ref predating the fix).
+> **Still true:** the three ADOPTERS are registered but not installed — `.23`.
 
 `.claude-plugin/` carries `marketplace.json`, `plugin.json`, `prose/` and
 `skills/`, and `.livespec.jsonc` declares
@@ -451,6 +467,15 @@ rule is enforced rather than merely documented.
 
 ### Goals 3 + 5 — release automation is PARTIAL
 
+> **SUPERSEDED 2026-07-26 (second wrap-up).** Release automation is COMPLETE:
+> three published releases, `plugin.json` in release-please `extra-files` (it
+> bumped to 0.12.2 automatically), the `source_repo` misnaming fixed,
+> `fast-forward-release-branch.yml` advancing `refs/heads/release`, and
+> `release-readiness.yml` + `release-tag.yml` in place with goal 2's lever armed.
+> The open release PRs and the "zero tags, zero releases" measurements below are
+> HISTORY. Kept for the root-cause trace of the scaffold copy-paste, which is
+> still the best record of how a component came to be misnamed.
+
 `.github/workflows/` carries `release-please.yml`, `release-dispatch.yml`,
 `bump-pin-from-dispatch.yml`, `pin-freshness.yml` and `ci.yml`. release-please
 already versions the PACKAGE — the daemon render header shows `0.11.0`, wired by
@@ -510,75 +535,114 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
-## NEXT ACTION — the plugin is RELEASED; `.16` is IN FLIGHT as PR #120
+## NEXT ACTION — the plugin SHIPPED; ONE item is left (`.23`, the adopter arm)
 
-**Rewritten 2026-07-26 at wrap-up. Everything above this line that describes the
-board as "waiting on maintainer valves" is SUPERSEDED — that was true this
-morning and is not true now.**
+**Rewritten 2026-07-26 at the SECOND wrap-up. Every earlier status line in this
+file — "waiting on maintainer valves", "`.16` is in flight", "`.13` is next" —
+is SUPERSEDED. All 22 original children are closed.**
 
-### What changed today, in one paragraph
+### What changed, in one paragraph
 
-This repo went from zero tags, zero releases and 54/54 registry TODOs to **two
-published releases** (v0.12.0, then v0.12.1) gated by a **passing enforcement
-run**. `refs/heads/release` exists — the ref all four peer registrations pin — so
-the hard `3a → 4` edge is discharged. Goal 2's "and enforced" half is no longer a
-claim: `release-tag.yml` ran with `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST:
-true` in the job environment and passed. **Fifteen items closed.**
+The plugin went from installed-in-zero-projects to **installed in nine**, and
+`supervise-plan` now RESOLVES in sessions that are not this repo's — proven by
+live exercise, not by a settings file. Three releases are published (v0.12.0,
+v0.12.1, **v0.12.2**), `refs/heads/release` tracks the latest, the registration
+is merged in **all twelve** consuming repos, and goal 2's lever fired green on
+the release path. Goals 1, 2, 3 and 5 are met for the fleet; **goal 4's adopter
+clause is not**, and that is the whole of what remains.
 
-### THE ONE THING IN FLIGHT — pick this up first
+### THE ONE OPEN ITEM — `overseer-hbr.23`
 
-**`overseer-hbr.16` is `ready` and its work is OPEN AS PR #120**
-(`feat/supervise-plan-generator-contract`). Both commits are pushed. Do NOT
-re-do it; check whether #120 merged, and if so close `.16` on that evidence.
+**Goal 4's ADOPTER clause is unmet, for a mechanical reason found while proving
+goal 1.** All three adopters (`homelab`, `openbrain`, `resume`) carry the
+checked-in registration and **will never install from it**, because none of them
+runs the provisioner that performs the install.
 
-What it contains: `tests/prompts/test_generated_supervisor_handoff_contract.py`
-— a validator plus ten fixtures asserting the contract over CHARTER TEXT, not
-over prose — and the ported fix to `.claude-plugin/prose/supervise-plan.md`.
-Measured red state before the fix: the generator failed **seven of ten**
-requirements while the exemplar passed all ten. Sabotage-verified both
-directions. `just check`: 61 targets, 510 tests, green.
+The finding that makes this non-obvious, established by a NEGATIVE test rather
+than assumed: **Claude Code does NOT natively auto-install from checked-in
+project `extraKnownMarketplaces` + `enabledPlugins`.** A full session was run in
+`/data/projects/resume` with the registration present in its local tree; it
+reported NONE for `livespec-overseer` skills and installed nothing. The install
+is done by `livespec_dev_tooling.fleet.ensure_plugins`, wired as a SessionStart
+hook — which the nine fleet members run and the three adopters do not:
 
-**If PR #120 did NOT merge**, read its checks before touching anything — the
-work is complete and pushed, so the failure is the only thing to fix.
-
-### Then, in this order — the maintainer's stated sequence
-
-1. **`.13`** — register the marketplace across every consuming fleet repo:
-   `extraKnownMarketplaces` + `enabledPlugins` in each repo's checked-in
-   `.claude/settings.json`, pinned `"ref": "release"`, identical in shape to the
-   four working peers. **Cross-repo means one PR per repo — open them all.**
-   Derive the repo set from fleet membership, not memory. `.16` blocks this by a
-   filed edge, so #120 must land first.
-2. **`.15`** — goal 1 acceptance, observed OUTSIDE this repo. The whole thread's
-   point. `worktree-location-enforcement` is a live fleet session where the
-   maintainer confirmed `supervise-plan` ABSENT — the natural before/after.
-   Evidence is the skill RESOLVING there, not a settings file containing a string.
-3. **`.14`** — goal 5, under its **RESTATED** acceptance (see below).
-
-### `.14`'s acceptance was RESTATED 2026-07-26 — do not use the groomed wording
-
-OLD: "carries an overseer release through to an actual PIN BUMP."
-NEW: **"a consumer resolves the plugin at `refs/heads/release` and gets the
-release commit."**
-
-The old wording was **unachievable in any order**, and the measurement is on the
-item: peers pin `"ref": "release"`, a BRANCH ref that auto-follows and never
-opens a bump PR; no semver pin exists for the plugin; nothing in the fleet
-references `livespec-overseer` at all except livespec core's fleet-manifest
-membership entry, which is a repo-class declaration. `.13 blocks .14` is now a
-filed edge — `.13` creates the first consumer.
-
-### Still open, and what each needs
-
-| item | state | what it needs |
+| adopter | its SessionStart | why the entry is inert |
 |---|---|---|
-| `.16` | `ready`, **PR #120 open** | confirm merge, then close |
-| `.13` | `pending-approval` | blocked by `.16`; then one PR per consuming repo |
-| `.15` | `pending-approval` | blocked by `.13`; prove it OUTSIDE this repo |
-| `.14` | `pending-approval` | blocked by `.13`; restated acceptance above |
-| `.4` | `pending-approval` | first clause discharged; its SECOND clause (generated-prompt fixtures assert executability) is exactly what #120 delivers — **re-check it once #120 lands; it may close then** |
-| `.3` | `pending-approval` | PR #117 merged the reference fix — **verify and close** |
-| `.8` | `pending-approval` | `livespec-cbmw` disposed as fully stale on `.21`; the close is CORE-tenant, not ours |
+| `homelab` | inline loop over a **hard-coded three-plugin list** | `livespec-overseer` is not in the literal list; `livespec_dev_tooling` is not importable there |
+| `openbrain` | `./scripts/check-ci-status.sh` | a CI reporter; does no plugin work at all |
+| `resume` | `.claude/hooks/session-plugin-freshness.ts` | read-only by design — its header says it "never mutates anything" |
+
+Do **not** discharge this with a one-off manual install per adopter. That would
+turn the measurement green and leave the next adopter, and the next release,
+exactly as stranded. Each adopter brings its own harness by design, so the real
+question is that the fleet's provisioning mechanism is a FLEET-MEMBER mechanism
+and goal 4 asserts an adopter clause it was never extended to cover.
+
+### THE TWO LESSONS THIS THREAD PAID FOR TODAY — read before touching goal 4
+
+**1. REGISTRATION IS NOT INSTALLATION.** A merged `.claude/settings.json` entry
+is a DECLARATION. After all twelve PRs merged, the host still showed 10 known
+marketplaces with `livespec-overseer` absent, no cache directory, and zero
+`installed_plugins.json` keys. Never record goal 1 or goal 4 as met on the
+settings files; the maintainer caught exactly that attempt.
+
+**2. THE PROVISIONER READS THE LOCAL WORKING TREE, NOT THE FORGE.** The first
+live-exercise session installed nothing because that checkout was two commits
+behind origin/master. Eleven of twelve primary checkouts were behind after the
+sweep. **"Merged" and "available" are different facts, and only one of them is
+visible at the forge.** All were fast-forwarded (`livespec-dev-tooling` skipped
+— dirty tree, another track's — and it already carried the entry).
+
+A third, smaller one worth keeping: **first exposure in a repo takes TWO
+sessions.** Plugins load at startup, so a plugin installed BY SessionStart
+cannot appear in that same session's skill list.
+
+### How goal 1 was actually proven — the bar for any re-verification
+
+Three fresh short-lived non-interactive sessions, owned by this track. **No live
+track session was hijacked or restarted** — `worktree-location-enforcement` and
+every other attached session was left alone. Run 1 (stale checkout): nothing.
+Run 2 (after pull): the hook installed the plugin, skills not yet visible. Run 3:
+
+```text
+livespec-overseer:overseer
+livespec-overseer:supervise-plan
+```
+
+Reproduced identically in `/data/projects/livespec`, so run 3 is not an artifact
+of one repo. The skill was then INVOKED there and loaded correctly, naming its
+own thin-binding → prose contract. And the payload was checked at the byte
+level: the cached prose is `diff`-identical to
+`origin/release:.claude-plugin/prose/supervise-plan.md`.
+
+### The blocker that nearly shipped the defect anyway — a keeper
+
+`refs/heads/release` was **v0.12.1, which PREDATES PR #120**. The prose served at
+that ref was the 158-line UNCORRECTED generator. Registering pinned to
+`ref: "release"` at that moment would have installed fleet-wide exactly the
+generator the `.16 blocks .13` edge existed to prevent — **the edge satisfied on
+paper and defeated in fact.**
+
+Root cause: #120's commits were typed `test:` and `docs:`, and neither bumps
+under this repo's release-please config. **`.claude-plugin/prose/supervise-plan.md`
+is a SHIPPED artifact** — the skill `cat`s it at run time — so a change to it is
+a `fix`, never `docs`. Cleared by PR #123, which also added the last missing
+prohibition ("never kill the acting overseer daemon") and published v0.12.2.
+
+**Generalise it:** landing a fix on `master` does not ship it. Anything a
+consumer resolves through `ref: "release"` reaches them only via a version-
+bumping commit type.
+
+### Goal scorecard, measured 2026-07-26
+
+| goal | state |
+|---|---|
+| 1 — `supervise-plan` works fleet-wide | **MET for the 9 fleet members**, proven by live exercise; adopter arm rides on `.23` |
+| 2 — top-of-pyramid tests, present AND enforced | **MET** — 54/54 rows mapped, lever armed, fired green on the release path |
+| 3 — auto-released | **MET** — three releases; `release-readiness.yml` + `release-tag.yml` in place |
+| 4 — auto-installed, fleet AND adopters | **fleet MET** (9 install records); **adopters OPEN — `.23`** |
+| 5 — release pin auto-bumped | **MET for branch-ref consumers** — `gitCommitSha` == `refs/heads/release`, and the version moved automatically during provisioning; the two `posture: pinned` adopters have no bump lane, noted on `.23` |
+| 6 — phase-2 adopter shipping folds in | dispositions recorded on `.21`/`.22`; its shipping arm is now concretely `.23` |
 
 ### Five core-tenant closes are justified and are NOT ours to make
 
@@ -635,22 +699,30 @@ and the reasons are reusable:
 - **A sabotage that aborts the run early does not prove the LATER assertion.**
   Verify that one separately rather than assuming it.
 
-### State on the forge (measured 2026-07-26 at `616dd39`, tree clean)
+### State on the forge (re-measured 2026-07-26 at the second wrap-up)
 
 - **Registry: `0` TODO of 54.** Re-derive with
   `jq '[.[] | select(.test == "TODO")] | length' tests/heading-coverage.json`.
-- **`tests/integration/` carries 4 modules, 22 tests** — this repo's only
-  evidence above the unit tier.
-- **`just check` on combined master: 61 targets, 498 tests, green.**
-- **NOTHING of this thread's is in flight.** No worktrees beyond the primary
-  checkout, no branches of its own, no open PRs it authored. Exactly two PRs are
-  open and **neither is yours to build on**:
-  - **PR #52** (`chore(master): release 0.12.0`) — deliberately **HELD** until
-    `.11` lands the `source_repo` fix. **Do not merge it.**
-  - **PR #101** (`chore(deps): bump livespec-dev-tooling pin to v0.54.19`) — the
-    automated pin lane, not this thread's. Worth knowing it exists: merging it
-    will move the Gate E finding count again (see `.22`).
-- The repo still has **zero tags and zero releases**; goals 3a/4/5 are untouched.
+- **`tests/integration/` carries 4 modules, 22 tests**; `tests/prompts/` carries
+  the generated-charter contract, **12 tests**.
+- **`just check` on master: 61 targets, green, 100% statement+branch.**
+- **Three releases published** — v0.12.0, v0.12.1, **v0.12.2** — and
+  `refs/heads/release` = `74bbe7e84d02cec9423c9ad83cc65aad22e01f5e` = the v0.12.2
+  tag. PR #52 is long since merged; the "do not merge it" instruction that used
+  to live here is spent.
+- **NOTHING of this thread's is in flight.** Its worktrees were removed and its
+  branches deleted after merge.
+- **Host plugin state** (the numbers goal 4 moves — re-derive against
+  `~/.claude/plugins/`, not against any settings file):
+  - `known_marketplaces.json` — **11** entries, `livespec-overseer` PRESENT,
+    `{source: github, repo: thewoolleyman/livespec-overseer, ref: release}`.
+  - `cache/livespec-overseer/` — present, carrying BOTH skills.
+  - `installed_plugins.json` — `livespec-overseer@livespec-overseer` with **nine**
+    project entries, all at `74bbe7e84d02`. **No adopter path appears** — that is
+    `.23`.
+- **A known, benign lag:** release-please does not update `uv.lock`, so the lock
+  trails `pyproject.toml` by one version after each release and any `uv run`
+  dirties it. No gate covers it; do not mistake it for a stray edit.
 
 ### DONE — do not redo
 
@@ -662,25 +734,34 @@ and the reasons are reusable:
 | `.5` | `registry.py` docstring no longer cites the removed `watch_set` — PR #94 |
 | `.7` | the stale CAUTION block — PR #95 |
 | `.19` (S10) | **all 21 scenarios**, 4 slices — PRs #97, #100, #102, #103 |
+| `.16` (S7) | the generated-charter contract + generator fix — PR #120 |
+| `.13` (S4) | the marketplace registered in **all 12** consuming repos — livespec #1769, dev-tooling #684, driver-claude #294, driver-codex #277, orchestrator-beads-fabro #989, orchestrator-git-jsonl #416, runtime #343, console-beads-fabro #445, overseer #127, homelab #66, openbrain #7, resume #7 |
+| `.15` (S6) | goal 1 accepted by live exercise outside this repo |
+| `.14` (S5) | goal 5 accepted: `gitCommitSha` == `refs/heads/release` |
+| `.3` `.4` `.8` | disposed with evidence at the second wrap-up |
+| — | **PR #123** — `fix(supervise-plan)`: the acting-daemon prohibition, and the release that carried #120 to consumers |
 
 `.21` (S12) and `.22` (S13) carry full written dispositions in their ledger notes
 — including that **`overseer-3wt` may now close** (both items 3 and 5 disposed)
 and that **`livespec-cbmw` is fully stale and should close**. Neither has been
 closed; both are core-tenant or maintainer calls.
 
-### `.16`/S7 — THIS THREAD HAS STOOD DOWN
+### `.16`/S7 — the stand-down was WITHDRAWN, and `.16` is DONE
 
-`plan/supervisor-prompt-quality/` (epic `overseer-byvxlp`, PR #90) sequences
-`.16`'s execution as its step 2. Per the conflicting-lane rule this thread stands
-down on **that action only** — `.16` stays filed as a child of `overseer-hbr` and
-untouched. **This is not a blocked state**; everything else continues.
+**This section is kept as a record of how the conflicting-lane rule was resolved
+here; it is no longer a live constraint.** This thread previously stood down on
+`.16` because `plan/supervisor-prompt-quality/` (epic `overseer-byvxlp`, PR #90)
+sequences it as that thread's step 2. The stand-down was **withdrawn at
+maintainer direction** on the reasoning that `.16` is a CHILD of `overseer-hbr`,
+this thread's own epic — the sibling thread SEQUENCES it, it does not OWN it.
+**Coordination is by RECORDING, not by stopping**, and the record was written
+onto `.16`'s notes before the work started.
 
-**Standing down is not the same as not depending on it — and since 2026-07-26 it
-is both.** `.16` now blocks `.13`, so goal 4 waits on an action this thread does
-not perform. That combination is legitimate and is exactly what the
-conflicting-lane rule describes; what it must NOT become is a reason to idle.
-Everything else on the board — `.19`'s acceptance, `.20`, `.21`, `.22`, the
-goal-3a chain `.11 → .12` — is unaffected by this edge and remains available.
+`overseer-byvxlp` is **NOT superseded.** `.16` was the FLOOR — both stall modes
+plus fixtures that tell them apart, asserted over generated output. That epic's
+broader bar is untouched and still open: iteration-stable generic form,
+anti-drift layering, the cold-open generation gate, classified-remedy
+preconditions, wait-channel bootstrap, adopter parameterization.
 
 `overseer-fitvmo` is CLOSED and properly disposed — a maintainer-directed
 supersession into `.16` and `overseer-byvxlp`, with an explicit no-content-dropped
@@ -690,16 +771,24 @@ earlier pass queried the wrong fields and wrongly reported it as an undisposed
 burial. When checking whether something was disposed, read the whole record's
 keys.
 
-### Ledger lifecycle — repaired, with one item left
+### Ledger lifecycle — repaired, and the repair held
 
 Every child sat at beads' native `open`, which is **not** a livespec
 `WorkItemStatus`. Effect: `is_item_ready` never fired, `next` ranked zero
 candidates, and `drive --action approve` refused — dispatch was silently disabled
-for the whole epic. 16 children are now `pending-approval` (read back to verify);
-6 are `done`.
+for the whole epic. All were repaired to real statuses and read back.
 
-**`.16` is still `open`** — deliberately, since this thread stood down on it.
-Whoever picks it up must repair it the same way.
+**All 22 original children are now `closed`.** `.16` — the last one still at
+beads-native `open` — was repaired to `ready` before it was executed, and is
+closed on PR #120's merge evidence.
+
+**The `bd create --parent` defect was avoided when filing `.23`**, which is the
+first hierarchical child filed since it was documented. That command defaults
+status to beads' foreign `open` AND inherits parent labels, which is how
+`.10`–`.22` acquired a misleading `intake:triaged` marker the DoR router never
+earned. `.23` was created with `--no-inherit-labels`, then explicitly set to
+`pending-approval` and read back: **status `pending-approval`, zero labels.**
+Any future hierarchical filing must correct both the same way.
 
 **`overseer-xbxkrv` is an ORPHANED DUPLICATE of `overseer-byvxlp` and should
 CLOSE.** Found 2026-07-26 (second sweep). The two epics carry **byte-identical
@@ -723,9 +812,10 @@ the anchor. Measured:
 - Both have 0 dependencies, 0 dependents, 0 comments — closing `xbxkrv` strands
   nothing.
 
-Left OPEN deliberately, following this thread's standing precedent for `.21`
-and `.22`: **record the disposition, let a human flip the valve.** The close
-reason should name `byvxlp` as the surviving anchor.
+**RESOLVED — `overseer-xbxkrv` is now `closed`** (re-measured 2026-07-26 at the
+second wrap-up). The disposition above was recorded and a human acted on it,
+which is the precedent working as intended: record the disposition, let a human
+flip the valve. `overseer-byvxlp` is the surviving anchor and remains `backlog`.
 
 **Do not trust `intake:triaged` on `.10`–`.22`.** That marker means "the DoR gate
 saw this item". On `.1`–`.9` it is genuine (they also carry `origin:freeform`, so
@@ -768,21 +858,27 @@ was set by hand and then read back from the ledger to verify.**
 | S1 residue, non-workflow | `.10` | 3a | — | **DONE** (PR #92) |
 | S2 workflow landing | `.11` | 3a | `.10` | **DONE** (PR #115) |
 | S3 cut v0.12.0 → `release` branch | `.12` | 3a | `.11` | **DONE** (PR #52; v0.12.0, then v0.12.1) |
-| S4 register marketplace fleet-wide | `.13` | 4 | `.12`, **`.16`** | next after #120 |
-| S5 consumer pin path observed | `.14` | 5 | `.12`, **`.13`** | **acceptance RESTATED** |
-| S6 goal-1 acceptance, live | `.15` | 1 | `.13`, `.16` | |
-| S7 template: BOTH stall modes | `.16` | 1 | — | **IN FLIGHT — PR #120** |
+| S4 register marketplace fleet-wide | `.13` | 4 | `.12`, **`.16`** | **DONE** — 12 repos, 12 PRs, all merged |
+| S5 consumer pin path observed | `.14` | 5 | `.12`, **`.13`** | **DONE** under the RESTATED acceptance |
+| S6 goal-1 acceptance, live | `.15` | 1 | `.13`, `.16` | **DONE** — live exercise, 2 repos |
+| S7 template: BOTH stall modes | `.16` | 1 | — | **DONE** (PR #120) |
 | S8 map the 26 cheap rows | `.17` | 2 | — | **DONE** (PR #93) |
 | S9 decide the 7 awkward rows | `.18` | 2 | — | **DONE** (PR #96) |
 | S10 21 scenario tests | `.19` | 2 | `.17`, `.18` | **DONE** — 21/21, PRs #97/#100/#102/#103 |
 | S11 arm the lever, LAST | `.20` | 3b | `.19` | **DONE** — fired green on the release path |
 | S12 goal-6 dispositions | `.21` | 6 | — | **DONE** |
 | S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | **DONE** — item 5 satisfied, item 3 sized |
+| — goal-4 ADOPTER arm | **`.23`** | 4 | — | **OPEN — `pending-approval`, the only one** |
 
-**Then build** through the normal machinery (`drive --action approve:<id>` then
-`impl:<id>`). Rows without a state above are still `pending-approval` and
-unstarted. `.20` is the next one to approve; `.21` and `.22` are unblocked and
-carry written dispositions awaiting closure decisions.
+Plus `.1`–`.9`, all closed: `.1`/`.9` (the `source_repo` misnaming), `.2` (the
+goal-6 anchor), `.5`/`.7` (stale docs), `.6` (`overseer-3wt` items 3+5), and
+`.3`/`.4`/`.8` disposed at the second wrap-up.
+
+**`.23` was filed by this thread and is NOT approved.** It is the one row a
+worker can pick up, and it needs the maintainer's `approve:` valve first — or a
+direct close if the maintainer decides goal 4's adopter clause is out of scope
+for this thread rather than unmet. Do not silently narrow goal 4 to the fleet;
+the goal says "fleet AND adopter members", and `.23` is what keeps that honest.
 
 ### Ordering — THREE MEASURED HARD CONSTRAINTS, all now FILED
 
