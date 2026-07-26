@@ -157,8 +157,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Runtime requirements",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_the_host_gate_precedes_the_gitignore_gate",
+    "reason": "Pins both halves of the enforceable clause: on an unsupported host the daemon REFUSES to start naming the failed precondition, and that check runs BEFORE every other startup gate (asserted by making a watched repo ALSO fail the gitignore gate and confirming only 'unsupported host' is reported). CAVEAT: the constraint's other half — Linux+tmux as a DECLARED requirement rather than an unfinished portability story — is decision D4, implemented by core item livespec-b1uo.2 which is still backlog. This row's evidence covers the behavior, not that declaration."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -185,15 +185,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Atomicity and single instance",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_singleton_lock_is_treated_as_contended_when_the_lockfile_cannot_be_created",
+    "reason": "Pins the 'at most ONE daemon instance per mapping store' half via the flock singleton, fail-closed: an uncreatable lockfile is treated as CONTENDED rather than as permission to run. The whole-file atomic-replace half of this heading is pinned by the test mapped to contracts.md 'Durable stores'."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Acting safety",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_claude_act_refuses_pane_whose_live_name_differs_from_topic",
+    "reason": "Pins the heading's governing clause — every keystroke-bearing act is suppressed unless the pane is POSITIVELY IDENTIFIED as this track's supervised session. Chosen over the individual suppression tests because it is the hardest case: process and cwd both pass, only the name betrays the pane, and the act is refused even with a valid `ready` that would otherwise restart. The four never-paste cases have their own tests (busy/gate/shell/foreign) mapped nowhere else."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -213,8 +213,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "non-functional-requirements.md",
     "heading": "## Contracts",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_build_supervisor_has_no_knobs_and_badges_its_own_tmux_pane",
+    "reason": "Pins the 'invocation surface stays knob-free by design' requirement: the builder takes the watch-set from the $HOME declaration and the store/stamp paths from registry defaults, exposing no --repos, --store or --stamp knob. The sibling sabotage-verification requirement in this same section is evidenced on the constraints.md 'Supervised runtimes' row's recorded 2026-07-25 sabotage run."
   },
   {
     "spec_root": "SPECIFICATION",
