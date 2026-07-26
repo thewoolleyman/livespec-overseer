@@ -89,14 +89,14 @@ def mapped_track(repo, topic, session):
         topic=topic,
         repo=str(repo),
         tmux=session,
-        handoff=supervisor.default_handoff(str(repo), topic),
-        resume=supervisor.default_resume(str(repo), topic),
+        handoff=supervisor.default_handoff(repo=str(repo), topic=topic),
+        resume=supervisor.default_resume(repo=str(repo), topic=topic),
     )
 
 
 def key_for(repo, topic):
     """The normalized in-memory inject-state key the supervisor uses."""
-    return _supervisor_config.track_key(str(repo), topic)
+    return _supervisor_config.track_key(repo=str(repo), topic=topic)
 
 
 def make_supervisor(tmp_path, fake, **kwargs):
@@ -191,7 +191,7 @@ def declare(repo, topic, value, *, mtime=1001.0):
     parent dir does not exist yet, so create it. One file with a VALUE: there is no way
     to be simultaneously `ready` and `blocked`, which is the whole point.
     """
-    path = signals.state_path(str(repo), topic)
+    path = signals.state_path(repo=str(repo), topic=topic)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(f"{value}\n")
     os.utime(path, (mtime, mtime))
@@ -264,7 +264,7 @@ def on_respawn(fake, after):
 
 def render_of(sup, views):
     """Render VIEWS and return what the daemon printed (the table + attention block)."""
-    sup.render(views)
+    sup.render(rows=views)
     return sup.out.getvalue()
 
 
@@ -335,7 +335,7 @@ def adopt_codex_ready(tmp_path):
     the claude command at a codex pane.
     """
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun"
@@ -349,8 +349,12 @@ def adopt_codex_ready(tmp_path):
             pid=4242, name=topic, cwd=str(repo), session_id=session_id
         )
     }
-    assert sup._is_codex_track(session, str(repo), topic, session)  # the precondition holds
-    registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
+    assert sup._is_codex_track(
+        session=session, repo=str(repo), topic=topic, target=session
+    )  # the precondition holds
+    registry.write_injection_stamp(
+        repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
+    )
     arm_ready_marker(repo, topic, mtime=1001.0)  # the SOLE restart authorization
     return repo, topic, session, session_id, fake, sup
 
@@ -387,7 +391,7 @@ def undeletable_state_file(repo, topic):
     root, so this models an undeletable marker without a chmod the CI container
     (which runs as root) would ignore.
     """
-    path = signals.state_path(str(repo), topic)
+    path = signals.state_path(repo=str(repo), topic=topic)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.mkdir()
     return path

@@ -46,14 +46,16 @@ __all__: list[str] = [
 ]
 
 
-def session_of(sup: Supervisor, track: registry.Track) -> str:
+def session_of(*, sup: Supervisor, track: registry.Track) -> str:
     # A mapped track carries its real session name (`track.tmux`); only an
     # unmapped one falls back to the derived name, which must use THIS tick's
     # collision set so it matches what `start`/`auto_link` would spawn.
-    return track.tmux or registry.tmux_id(track.repo, track.topic, sup.colliding_topics)
+    return track.tmux or registry.tmux_id(
+        repo=track.repo, topic=track.topic, colliding=sup.colliding_topics
+    )
 
 
-def pane_settled(sup: Supervisor, target: str) -> bool:
+def pane_settled(*, sup: Supervisor, target: str) -> bool:
     """True if two captures ~``SETTLE_DELAY`` apart are identical (``target`` = pane id).
 
     A single capture cannot distinguish active token-streaming from idle —
@@ -63,13 +65,13 @@ def pane_settled(sup: Supervisor, target: str) -> bool:
     changing pane is treated as busy (`working`) and skipped this tick —
     over-firing busy is the safe direction.
     """
-    first = signals.strip_ansi(sup.tmux.capture_pane(session=target))
+    first = signals.strip_ansi(text=sup.tmux.capture_pane(session=target))
     sup.sleep(SETTLE_DELAY)
-    second = signals.strip_ansi(sup.tmux.capture_pane(session=target))
+    second = signals.strip_ansi(text=sup.tmux.capture_pane(session=target))
     return first == second
 
 
-def launch_command(track: registry.Track) -> str:
+def launch_command(*, track: registry.Track) -> str:
     """The Claude (re)start command: ``claude --dangerously-skip-permissions -n <topic>``.
 
     ``--dangerously-skip-permissions`` is REQUIRED (maintainer 2026-07-14): a
@@ -97,7 +99,7 @@ def launch_command(track: registry.Track) -> str:
     return f"claude --dangerously-skip-permissions -n {shlex.quote(track.topic)}"
 
 
-def codex_launch_command(session_id: str, resume: str) -> str:
+def codex_launch_command(*, session_id: str, resume: str) -> str:
     """The Codex (re)start command:
     ``codex resume --dangerously-bypass-approvals-and-sandbox <session-id> "<resume>"``.
 
@@ -127,7 +129,7 @@ def codex_launch_command(session_id: str, resume: str) -> str:
     )
 
 
-def await_pane(sup: Supervisor, target: str, is_ready: Callable[[str | None], bool]) -> bool:
+def await_pane(*, sup: Supervisor, target: str, is_ready: Callable[[str | None], bool]) -> bool:
     """Poll ``#{pane_current_command}`` until ``is_ready(cmd)``, bounded.
 
     ``target`` is the resolved pane id. Never scrape the ``❯``/``›`` prompt glyph
@@ -143,7 +145,7 @@ def await_pane(sup: Supervisor, target: str, is_ready: Callable[[str | None], bo
     return False
 
 
-def await_input_box(sup: Supervisor, target: str) -> bool:
+def await_input_box(*, sup: Supervisor, target: str) -> bool:
     """Poll until the pane renders a ready (empty) Claude input box, bounded.
 
     Used right after a respawn, BEFORE pasting the resume line: a freshly-respawned
@@ -155,13 +157,13 @@ def await_input_box(sup: Supervisor, target: str) -> bool:
     and the next-tick `resume_pending` retry recover a residual drop).
     """
     for _ in range(RESTART_POLL_MAX):
-        if signals.input_box_ready(sup.tmux.capture_pane(session=target)):
+        if signals.input_box_ready(capture_text=sup.tmux.capture_pane(session=target)):
             return True
         sup.sleep(RESTART_POLL_INTERVAL)
     return False
 
 
-def resend_enter(sup: Supervisor, target: str) -> bool:
+def resend_enter(*, sup: Supervisor, target: str) -> bool:
     """Re-send Enter (NEVER re-paste, NEVER re-respawn) until the resume submits.
 
     The retry half of the self-healing resume (R1): the resume line is ALREADY sitting
@@ -176,12 +178,12 @@ def resend_enter(sup: Supervisor, target: str) -> bool:
     for _ in range(SUBMIT_MAX_ENTERS):
         _ = sup.tmux.send_keys(session=target, keys="Enter")
         sup.sleep(SUBMIT_POLL)
-        if signals.input_box_ready(sup.tmux.capture_pane(session=target)):
+        if signals.input_box_ready(capture_text=sup.tmux.capture_pane(session=target)):
             return True
     return False
 
 
-def submit_prompt(sup: Supervisor, target: str, text: str, *, expect_codex: bool = False) -> bool:
+def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool = False) -> bool:
     """Bracketed-paste a payload, then submit it — re-sending Enter until it lands.
     Returns True iff the paste LANDED and the submit is CONFIRMED. ``target`` is the
     resolved pane id (RB3).
@@ -222,7 +224,11 @@ def submit_prompt(sup: Supervisor, target: str, text: str, *, expect_codex: bool
         _ = sup.tmux.send_keys(session=target, keys="Enter")
         sup.sleep(SUBMIT_POLL)
         capture = sup.tmux.capture_pane(session=target)
-        submitted = signals.is_busy(capture) if expect_codex else signals.input_box_ready(capture)
+        submitted = (
+            signals.is_busy(capture_text=capture)
+            if expect_codex
+            else signals.input_box_ready(capture_text=capture)
+        )
         if submitted:
             return True
     return False

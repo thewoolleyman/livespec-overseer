@@ -184,8 +184,14 @@ ban-relative-imports = "all"
 # `tests/**.py` rationale; the last three are beside-test-specific — SLF001
 # (testing private decision helpers directly IS the point of a beside-test) and
 # ARG001/2 (signature-matching test doubles must accept args they do not use).
+# S106 joins S105 on the identical rationale, and only became reachable when the
+# keyword-only sweep turned `valid_token("redy")` into `valid_token(token="redy")`:
+# ruff reads an argument NAMED `token` as a possible hardcoded credential. These are
+# the daemon's STATE tokens (`ready`, `blocked`, ...) — a fixed vocabulary the tests
+# must spell literally — not secrets. S105 was already granted for the same strings
+# in their bare-literal form; the argument form is the same fact.
 "overseer/test_*.py" = [
-    "S101", "PLR2004", "PT018", "S105", "S108", "TRY003",
+    "S101", "PLR2004", "PT018", "S105", "S106", "S108", "TRY003",
     "SLF001", "ARG001", "ARG002",
 ]
 

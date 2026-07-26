@@ -46,7 +46,7 @@ __all__: list[str] = [
 ]
 
 
-def render_table(sup: Supervisor, rows: Iterable[RowView]) -> None:
+def render_table(*, sup: Supervisor, rows: Iterable[RowView]) -> None:
     """Clear the screen and print the live ``Status · Topic · tmux · Ctx% · Repo`` table.
 
     Re-rendered from live captures every tick, and stamped with the current
@@ -69,7 +69,7 @@ def render_table(sup: Supervisor, rows: Iterable[RowView]) -> None:
         # Elide the session-authored note so an over-long / multi-line value cannot
         # blow up the Status column width or break the row (the full note still
         # reaches the NEEDS YOU block below).
-        note = elide(row.note, MAX_NOTE_IN_TABLE) if row.note else None
+        note = elide(text=row.note, limit=MAX_NOTE_IN_TABLE) if row.note else None
         table.append(
             (
                 row.status if not note else f"{row.status} ({note})",
@@ -78,9 +78,9 @@ def render_table(sup: Supervisor, rows: Iterable[RowView]) -> None:
                 # (`livespec (claude)`); the column width is computed below from THIS
                 # already-annotated string (the `max(len(...))` over `table`), so the
                 # column stays aligned — never widen it from the bare name.
-                tmux_cell(row),
+                tmux_cell(row=row),
                 "—" if row.ctx is None else f"{row.ctx}%",
-                registry.repo_slug(row.repo),
+                registry.repo_slug(repo=row.repo),
             )
         )
     widths = [max(len(r[i]) for r in table) for i in range(len(header))]
@@ -94,15 +94,15 @@ def render_table(sup: Supervisor, rows: Iterable[RowView]) -> None:
             continue
         # table[i] for i >= 1 is the projection of rows[i - 1]; tint by its raw
         # status (not the note-decorated cell text).
-        color = row_color(rows[i - 1].status) if use_color else ""
+        color = row_color(status=rows[i - 1].status) if use_color else ""
         lines.append(f"{color}{line}{ANSI_RESET}" if color else line)
-    lines.extend(attention_lines(rows))
+    lines.extend(attention_lines(rows=rows))
     # Clear scrollback + screen + home, then the table.
     _ = sup.out.write("\x1b[3J\x1b[2J\x1b[H" + "\n".join(lines) + "\n")
     sup.out.flush()
 
 
-def attention_lines(rows: list[RowView]) -> list[str]:
+def attention_lines(*, rows: list[RowView]) -> list[str]:
     """The ``NEEDS YOU`` block: the rows a human must act on, and where to go.
 
     THIS is the answer to "what needs attention?", and it lives here — in the daemon's
@@ -122,7 +122,7 @@ def attention_lines(rows: list[RowView]) -> list[str]:
     (livespec)` said WHAT but the tmux session (WHERE to go) had to be inferred from the
     jump line (maintainer 2026-07-14).
     """
-    attention = [row for row in rows if needs_attention(row)]
+    attention = [row for row in rows if needs_attention(row=row)]
     lines = [""]
     if not attention:
         lines.append("NEEDS YOU: nothing — every tracked session is healthy.")
@@ -131,14 +131,14 @@ def attention_lines(rows: list[RowView]) -> list[str]:
     for row in attention:
         # Elide the note here too: a session can write an arbitrarily long `blocked:`
         # reason, and the full text lives in the pane this line points at.
-        detail = f" — {elide(row.note, MAX_REASON_IN_ALERT)}" if row.note else ""
+        detail = f" — {elide(text=row.note, limit=MAX_REASON_IN_ALERT)}" if row.note else ""
         # Annotate the tmux coordinate with the runtime the SAME way the table does
         # (`tmux_cell`), so the operator knows whether they are jumping into a Claude
         # or a Codex pane before they do. The jump command itself stays the bare
         # session name (`tmux switch-client -t` takes no runtime).
         coords = (
-            f"topic: {row.topic} | tmux: {tmux_cell(row)} "
-            f"| repo: {registry.repo_slug(row.repo)}"
+            f"topic: {row.topic} | tmux: {tmux_cell(row=row)} "
+            f"| repo: {registry.repo_slug(repo=row.repo)}"
         )
         lines.append(f"  ! {coords} — {row.status}{detail}")
         if row.tmux:
@@ -146,7 +146,7 @@ def attention_lines(rows: list[RowView]) -> list[str]:
     return lines
 
 
-def refresh_window_name(sup: Supervisor, attention: int) -> None:
+def refresh_window_name(*, sup: Supervisor, attention: int) -> None:
     """Badge the attention count onto the tmux WINDOW name (``overseer`` → ``overseer(2!)``).
 
     The only overseer surface visible WITHOUT looking at the overseer window: tmux

@@ -161,14 +161,14 @@ def proc_pids_of_comm(comm: str) -> list[int]:
 # --------------------------------------------------------------------------- #
 
 
-def rollout_id(path: str) -> str | None:
+def rollout_id(*, path: str) -> str | None:
     """The session id embedded in a rollout FILENAME, or None if not a rollout."""
     match = _ROLLOUT_RE.search(path or "")
     return match.group(1) if match else None
 
 
 def open_rollout_id(
-    pid: int, *, fd_targets_of: Callable[[int], list[str]] = proc_fd_targets
+    *, pid: int, fd_targets_of: Callable[[int], list[str]] = proc_fd_targets
 ) -> str | None:
     """The session id of the rollout ``pid`` holds OPEN, or None if it holds none.
 
@@ -177,13 +177,13 @@ def open_rollout_id(
     pid→session id map — no cwd+recency guessing.
     """
     for target in fd_targets_of(pid):
-        found = rollout_id(target)
+        found = rollout_id(path=target)
         if found is not None:
             return found
     return None
 
 
-def _read_index_final(codex_home: str | os.PathLike[str]) -> dict[str, tuple[str, str]]:
+def _read_index_final(*, codex_home: str | os.PathLike[str]) -> dict[str, tuple[str, str]]:
     """``session_index.jsonl`` folded to ``{session id: (thread_name, updated_at)}``.
 
     The index is an APPEND log — a renamed thread appends a fresh record for the SAME id, so
@@ -203,7 +203,7 @@ def _read_index_final(codex_home: str | os.PathLike[str]) -> dict[str, tuple[str
     except (OSError, ValueError):
         return out
     for line in raw.splitlines():
-        record = jsonio.parse_object_line(line)
+        record = jsonio.parse_object_line(line=line)
         if record is None:
             continue
         session_id, name = record.get("id"), record.get("thread_name")
@@ -213,13 +213,13 @@ def _read_index_final(codex_home: str | os.PathLike[str]) -> dict[str, tuple[str
     return out
 
 
-def read_thread_names(codex_home: str | os.PathLike[str]) -> dict[str, str]:
+def read_thread_names(*, codex_home: str | os.PathLike[str]) -> dict[str, str]:
     """``session_index.jsonl`` as ``{session id: thread_name}`` (last record per id wins)."""
-    return {sid: name for sid, (name, _updated) in _read_index_final(codex_home).items()}
+    return {sid: name for sid, (name, _updated) in _read_index_final(codex_home=codex_home).items()}
 
 
 def latest_session_for_thread_name(
-    thread_name: str, *, codex_home: str | os.PathLike[str] | None = None
+    *, thread_name: str, codex_home: str | os.PathLike[str] | None = None
 ) -> str | None:
     """The session id of the most-recently-updated indexed session named ``thread_name``.
 
@@ -234,13 +234,13 @@ def latest_session_for_thread_name(
     home = Path(codex_home) if codex_home is not None else default_codex_home()
     matches = [
         (updated, sid)
-        for sid, (name, updated) in _read_index_final(home).items()
+        for sid, (name, updated) in _read_index_final(codex_home=home).items()
         if name == thread_name
     ]
     return max(matches)[1] if matches else None
 
 
-def rollout_exists(session_id: str, *, codex_home: str | os.PathLike[str] | None = None) -> bool:
+def rollout_exists(*, session_id: str, codex_home: str | os.PathLike[str] | None = None) -> bool:
     """True if a rollout file for ``session_id`` still exists under ``<codex_home>/sessions``.
 
     A rollout is ``rollout-<iso-ts>-<session id>.jsonl``, nested under ``sessions/YYYY/MM/DD/``
@@ -285,10 +285,10 @@ def read_live_codex_sessions(
     and this stays a pure, dumb join with no policy in it.
     """
     home = Path(codex_home) if codex_home is not None else default_codex_home()
-    names = read_thread_names(home)
+    names = read_thread_names(codex_home=home)
     out: list[CodexSession] = []
     for pid in pids_of_comm(CODEX_COMM):
-        session_id = open_rollout_id(pid, fd_targets_of=fd_targets_of)
+        session_id = open_rollout_id(pid=pid, fd_targets_of=fd_targets_of)
         if session_id is None:
             continue
         name = names.get(session_id)
@@ -302,8 +302,8 @@ def read_live_codex_sessions(
 
 
 def map_codex_sessions(
-    pane_pid_to_session: dict[int, str],
     *,
+    pane_pid_to_session: dict[int, str],
     codex_home: str | os.PathLike[str] | None = None,
     ppid_of: Callable[[int], int | None] = proc_ppid,
     pids_of_comm: Callable[[str], list[int]] = proc_pids_of_comm,
@@ -331,7 +331,7 @@ def map_codex_sessions(
         fd_targets_of=fd_targets_of,
     ):
         tmux_session = resolve_tmux_session(
-            session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
+            pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
         )
         if tmux_session is None:
             continue
@@ -340,8 +340,8 @@ def map_codex_sessions(
 
 
 def codex_by_tmux_session(
-    pane_pid_to_session: dict[int, str],
     *,
+    pane_pid_to_session: dict[int, str],
     codex_home: str | os.PathLike[str] | None = None,
     ppid_of: Callable[[int], int | None] = proc_ppid,
     pids_of_comm: Callable[[str], list[int]] = proc_pids_of_comm,
@@ -384,7 +384,7 @@ def codex_by_tmux_session(
         fd_targets_of=fd_targets_of,
     ):
         tmux_session = resolve_tmux_session(
-            session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
+            pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
         )
         if tmux_session is None:
             continue

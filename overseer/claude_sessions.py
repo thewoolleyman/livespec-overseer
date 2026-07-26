@@ -76,7 +76,7 @@ def default_sessions_dir() -> Path:
 # --------------------------------------------------------------------------- #
 
 
-def _proc_stat_fields(pid: int) -> list[str] | None:
+def _proc_stat_fields(*, pid: int) -> list[str] | None:
     """``/proc/<pid>/stat`` split AFTER the ``(comm)`` field, or None if unreadable.
 
     ``comm`` (field 2) can contain spaces and parentheses, so everything up to and
@@ -103,7 +103,7 @@ _STARTTIME_INDEX = 19  # stat field 22
 
 def proc_ppid(pid: int) -> int | None:
     """The parent PID of ``pid`` from ``/proc/<pid>/stat`` (field 4), or None."""
-    fields = _proc_stat_fields(pid)
+    fields = _proc_stat_fields(pid=pid)
     if fields is None or len(fields) <= _PPID_INDEX:
         return None
     try:
@@ -119,7 +119,7 @@ def proc_starttime(pid: int) -> str | None:
     ``procStart`` (also a string). None if the process is gone / unreadable — which
     the caller treats as "not live".
     """
-    fields = _proc_stat_fields(pid)
+    fields = _proc_stat_fields(pid=pid)
     if fields is None or len(fields) <= _STARTTIME_INDEX:
         return None
     return fields[_STARTTIME_INDEX]
@@ -162,8 +162,8 @@ def proc_children(pid: int) -> list[int]:
 
 
 def has_active_subshell(
-    root_pid: int,
     *,
+    root_pid: int,
     children_of: Callable[[int], list[int]] = proc_children,
     comm_of: Callable[[int], str | None] = proc_comm,
     max_nodes: int = 512,
@@ -196,8 +196,8 @@ def has_active_subshell(
 
 
 def read_live_sessions(
-    sessions_dir: str | os.PathLike[str],
     *,
+    sessions_dir: str | os.PathLike[str],
     starttime_of: Callable[[int], str | None] = proc_starttime,
 ) -> list[ClaudeSession]:
     """Every LIVE, named session in the registry dir.
@@ -239,8 +239,8 @@ def read_live_sessions(
 
 
 def resolve_tmux_session(
-    pid: int,
     *,
+    pid: int,
     pane_pid_to_session: dict[int, str],
     ppid_of: Callable[[int], int | None] = proc_ppid,
 ) -> str | None:
@@ -268,9 +268,9 @@ def resolve_tmux_session(
 
 
 def map_named_sessions(
+    *,
     sessions_dir: str | os.PathLike[str],
     pane_pid_to_session: dict[int, str],
-    *,
     ppid_of: Callable[[int], int | None] = proc_ppid,
     starttime_of: Callable[[int], str | None] = proc_starttime,
 ) -> list[tuple[str, str, str]]:
@@ -281,9 +281,9 @@ def map_named_sessions(
     follows the sorted registry files, so the mapping is deterministic.
     """
     mapped: list[tuple[str, str, str]] = []
-    for session in read_live_sessions(sessions_dir, starttime_of=starttime_of):
+    for session in read_live_sessions(sessions_dir=sessions_dir, starttime_of=starttime_of):
         tmux_session = resolve_tmux_session(
-            session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
+            pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
         )
         if tmux_session is None:
             continue
@@ -292,9 +292,9 @@ def map_named_sessions(
 
 
 def status_by_tmux_session(
+    *,
     sessions_dir: str | os.PathLike[str],
     pane_pid_to_session: dict[int, str],
-    *,
     ppid_of: Callable[[int], int | None] = proc_ppid,
     starttime_of: Callable[[int], str | None] = proc_starttime,
 ) -> dict[str, str]:
@@ -313,9 +313,9 @@ def status_by_tmux_session(
     wins, matching the sorted-file iteration order.
     """
     out: dict[str, str] = {}
-    for session in read_live_sessions(sessions_dir, starttime_of=starttime_of):
+    for session in read_live_sessions(sessions_dir=sessions_dir, starttime_of=starttime_of):
         tmux_session = resolve_tmux_session(
-            session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
+            pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
         )
         if tmux_session is not None:
             out[tmux_session] = session.status
@@ -323,9 +323,9 @@ def status_by_tmux_session(
 
 
 def names_by_tmux_session(
+    *,
     sessions_dir: str | os.PathLike[str],
     pane_pid_to_session: dict[int, str],
-    *,
     ppid_of: Callable[[int], int | None] = proc_ppid,
     starttime_of: Callable[[int], str | None] = proc_starttime,
 ) -> dict[str, set[str]]:
@@ -340,9 +340,9 @@ def names_by_tmux_session(
     tmux PID-walk join as :func:`status_by_tmux_session`.
     """
     out: dict[str, set[str]] = {}
-    for session in read_live_sessions(sessions_dir, starttime_of=starttime_of):
+    for session in read_live_sessions(sessions_dir=sessions_dir, starttime_of=starttime_of):
         tmux_session = resolve_tmux_session(
-            session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
+            pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
         )
         if tmux_session is not None:
             out.setdefault(tmux_session, set()).add(session.name)

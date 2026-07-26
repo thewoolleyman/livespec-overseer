@@ -52,12 +52,12 @@ def _warnable(tmp_path, **kwargs):
     same fixture produces once the gate passes — not merely the absence of a crash.
     """
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # below the 50% threshold
     kwargs.setdefault("gitignore_check", lambda _repo: True)
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO(), **kwargs)
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
+    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
     return repo, topic, session, fake, sup
 
 
@@ -86,7 +86,7 @@ def _stranded_restart(tmp_path):
     return value, and one that never produces the stranded box.
     """
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
@@ -94,10 +94,10 @@ def _stranded_restart(tmp_path):
     on_respawn(fake, lambda s: fake.panes.__setitem__(s, unsubmitted_resume_capture(ctx=95)))
 
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track, act=True)  # opens the round
+        sup.evaluate(track=track, act=True)  # opens the round
     declare(repo, topic, signals.STATE_READY, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):
-        restarted = sup.evaluate(track, act=True)  # respawns; the submit does NOT land
+        restarted = sup.evaluate(track=track, act=True)  # respawns; the submit does NOT land
 
     assert restarted.status == "restarting"
     return repo, topic, session, fake, sup, track
@@ -112,7 +112,7 @@ def _codex_restart_commands(tmp_path) -> list[str]:
     submit is part of what "supervised under one agent runtime" means.
     """
     repo, topic = make_plan(tmp_path, topic="codex-track")
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=codex_idle_capture(ctx=40, topic=topic), cmd="bun"
@@ -129,29 +129,31 @@ def _codex_restart_commands(tmp_path) -> list[str]:
     fake.on_paste = lambda s, _t: fake.panes.__setitem__(s, codex_busy_capture(ctx=40))
 
     with contextlib.redirect_stderr(_io.StringIO()):
-        assert sup.evaluate(track, act=True).status == "warned"  # a real, codex-submitted round
+        assert (
+            sup.evaluate(track=track, act=True).status == "warned"
+        )  # a real, codex-submitted round
 
     fake.on_paste = None
     fake.panes[session] = codex_idle_capture(ctx=40, topic=topic)
     declare(repo, topic, signals.STATE_READY, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):
-        assert sup.evaluate(track, act=True).status == "restarting"
+        assert sup.evaluate(track=track, act=True).status == "restarting"
     return _respawn_commands(fake)
 
 
 def _claude_restart_commands(tmp_path) -> tuple[str, list[str]]:
     """The Claude twin of `_codex_restart_commands`; returns `(topic, commands)`."""
     repo, topic = make_plan(tmp_path, topic="claude-track")
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     track = mapped_track(repo, topic, session)
 
-    sup.evaluate(track, act=True)
+    sup.evaluate(track=track, act=True)
     declare(repo, topic, signals.STATE_READY, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):
-        assert sup.evaluate(track, act=True).status == "restarting"
+        assert sup.evaluate(track=track, act=True).status == "restarting"
     return topic, _respawn_commands(fake)
 
 
@@ -200,7 +202,7 @@ def test_scenario_the_daemon_refuses_an_unsupported_host(tmp_path):
     try:
         report = _run(sup)
     finally:
-        supervisor.Supervisor._release_singleton_lock(held)
+        supervisor.Supervisor._release_singleton_lock(handle=held)
 
     assert "refusing to start" in report
     assert "unsupported host" in report
@@ -275,7 +277,7 @@ def test_scenario_a_second_daemon_instance_refuses_to_start(tmp_path):
     assert wrapup_count(fake) == 0
     assert not fake.has(method="capture")
 
-    supervisor.Supervisor._release_singleton_lock(held)  # the first daemon exits
+    supervisor.Supervisor._release_singleton_lock(handle=held)  # the first daemon exits
     _ = _run(sup)
 
     assert wrapup_count(fake) == 1  # ...and the refusal really was the lock's doing
@@ -312,26 +314,31 @@ def test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill(t
     """
     repo, topic, session, fake, sup, track = _stranded_restart(tmp_path)
 
-    assert registry.read_resume_pending(str(repo), topic, sup.stamp_path) is True
-    assert signals.read_state(str(repo), topic) is not None  # the marker is KEPT
+    assert (
+        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) is True
+    )
+    assert signals.read_state(repo=str(repo), topic=topic) is not None  # the marker is KEPT
 
     enters = _enters(fake, session)
     for _ in range(3):  # later cycles: submission only
         with contextlib.redirect_stderr(_io.StringIO()):
-            view = sup.evaluate(track, act=True)
+            view = sup.evaluate(track=track, act=True)
         assert view.status == "restarting"
         assert view.note == _supervisor_view.RESUME_PENDING_NOTE
-        assert supervisor.needs_attention(view)  # still visible as needing attention
+        assert supervisor.needs_attention(row=view)  # still visible as needing attention
         assert _enters(fake, session) > enters  # another Enter...
         enters = _enters(fake, session)
         assert len(_respawn_commands(fake)) == 1  # ...and NO second kill
 
     fake.panes[session] = idle_capture(ctx=95)  # the prompt finally lands
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track, act=True)
+        sup.evaluate(track=track, act=True)
 
-    assert signals.read_state(str(repo), topic) is None  # the round closes
-    assert registry.read_resume_pending(str(repo), topic, sup.stamp_path) is False
+    assert signals.read_state(repo=str(repo), topic=topic) is None  # the round closes
+    assert (
+        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is False
+    )
     assert len(_respawn_commands(fake)) == 1
 
 
@@ -396,7 +403,7 @@ def test_scenario_an_unknown_context_reading_never_triggers_a_wrapup(tmp_path):
       - the unknown cell rendered as `0%` instead of the dash -> the never-known assertion.
     """
     repo, topic = make_plan(tmp_path, topic="was-known")
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=60))  # ABOVE the 50% threshold
     out = _io.StringIO()
@@ -404,26 +411,26 @@ def test_scenario_an_unknown_context_reading_never_triggers_a_wrapup(tmp_path):
     track = mapped_track(repo, topic, session)
 
     with contextlib.redirect_stderr(_io.StringIO()):
-        known = sup.evaluate(track, act=True)
+        known = sup.evaluate(track=track, act=True)
     assert known.ctx == 60
     assert wrapup_count(fake) == 0  # above threshold: nothing due
 
     fake.panes[session] = busy_capture()  # a capture with NO `Ctx: N% left` at all
     with contextlib.redirect_stderr(_io.StringIO()):
-        unknown = sup.evaluate(track, act=True)
+        unknown = sup.evaluate(track=track, act=True)
 
     assert unknown.ctx == 60  # the last known value is KEPT...
     assert wrapup_count(fake) == 0  # ...and the unknown reading crossed nothing
 
     never, never_topic = make_plan(tmp_path, repo_name="never", topic="never-known")
-    never_session = registry.tmux_id(str(never), never_topic)
+    never_session = registry.tmux_id(repo=str(never), topic=never_topic)
     fake.serve(session=never_session, repo=never, capture=idle_capture())  # no ctx, ever
     with contextlib.redirect_stderr(_io.StringIO()):
-        blank = sup.evaluate(mapped_track(never, never_topic, never_session), act=True)
+        blank = sup.evaluate(track=mapped_track(never, never_topic, never_session), act=True)
 
     assert blank.ctx is None
     assert wrapup_count(fake) == 0
-    sup.render([blank])
+    sup.render(rows=[blank])
     rendered = next(line for line in out.getvalue().splitlines() if never_topic in line)
     assert "—" in rendered  # renders as UNKNOWN...
     assert "0%" not in rendered  # ...never as a guess

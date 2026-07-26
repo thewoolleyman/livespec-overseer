@@ -36,7 +36,7 @@ def test_start_refuses_running_claude_without_force(tmp_path, monkeypatch):
     """B8: `start` on a session already running a live Claude must NOT respawn-kill
     it — it upserts the mapping and reports; only --force respawns."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     store = isolate_store(tmp_path, monkeypatch)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture())
@@ -46,13 +46,13 @@ def test_start_refuses_running_claude_without_force(tmp_path, monkeypatch):
     assert rc == 0
     assert not fake.has(method="respawn")  # the live session was NOT killed
     # but the mapping was upserted
-    assert [(r.topic) for r in registry.read_mapping(store)] == [topic]
+    assert [(r.topic) for r in registry.read_mapping(store_path=store)] == [topic]
 
 
 def test_start_force_respawns_running_claude(tmp_path, monkeypatch):
     """B8: --force DOES respawn a running session (the explicit escape hatch)."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     isolate_store(tmp_path, monkeypatch)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture())

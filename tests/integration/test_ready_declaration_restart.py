@@ -53,7 +53,7 @@ def _open_round(tmp_path, *, ctx=40, topic="topic", clock=None, declare_first=No
     stamp" is a fact about the sequence rather than a hand-picked pair of numbers.
     """
     repo, topic = make_plan(tmp_path, topic=topic)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=ctx))
     now = (lambda: clock["t"]) if clock is not None else (lambda: 1000.0)
@@ -62,10 +62,13 @@ def _open_round(tmp_path, *, ctx=40, topic="topic", clock=None, declare_first=No
     if declare_first is not None:
         declare(repo, topic, declare_first[0], mtime=declare_first[1])
 
-    opened = sup.evaluate(track, act=True)
+    opened = sup.evaluate(track=track, act=True)
 
     assert opened.status == "warned"  # the round really did open...
-    assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) is not None
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is not None
+    )
     return repo, topic, session, fake, sup, track
 
 
@@ -104,7 +107,7 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(tmp_path
     repo, topic, _session, fake, sup, track = _open_round(tmp_path)
     declare(repo, topic, signals.STATE_READY, mtime=1001.0)  # POST-dates the stamp
 
-    view = sup.evaluate(track, act=True)
+    view = sup.evaluate(track=track, act=True)
 
     assert view.status == "restarting"
     assert len(_respawns(fake)) == 1  # ONE atomic op...
@@ -114,13 +117,16 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(tmp_path
 
     pastes = fake.paste_texts()
     assert len(pastes) == 2  # the wrap-up that opened the round, then ONE resume prompt
-    assert pastes[1] == supervisor.default_resume(str(repo), topic)
-    assert supervisor.default_handoff(str(repo), topic) in pastes[1]
+    assert pastes[1] == supervisor.default_resume(repo=str(repo), topic=topic)
+    assert supervisor.default_handoff(repo=str(repo), topic=topic) in pastes[1]
 
-    assert not signals.state_path(str(repo), topic).exists()
-    assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) is None
+    assert not signals.state_path(repo=str(repo), topic=topic).exists()
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is None
+    )
 
-    sup.evaluate(track, act=True)  # the consumed declaration must not fire again
+    sup.evaluate(track=track, act=True)  # the consumed declaration must not fire again
     assert len(_respawns(fake)) == 1
 
 
@@ -147,16 +153,19 @@ def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(tmp_path
         tmp_path,
         declare_first=(signals.STATE_READY, 999.0),  # a PRIOR round's word, then the stamp
     )
-    state = signals.state_path(str(repo), topic)
-    stamp = registry.read_injection_stamp(str(repo), topic, sup.stamp_path)
+    state = signals.state_path(repo=str(repo), topic=topic)
+    stamp = registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     assert stamp is not None and state.stat().st_mtime < stamp  # the given, now observed
 
-    view = sup.evaluate(track, act=True)
+    view = sup.evaluate(track=track, act=True)
 
     assert view.status != "restarting"
     assert not fake.has(method="respawn")
     assert state.exists()  # the interlock refused it; nothing consumed it
-    assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) == stamp
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        == stamp
+    )
 
 
 def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tmp_path):
@@ -190,13 +199,13 @@ def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tm
         session=session, repo=repo, capture=busy_capture(ctx=40)
     )  # the declaring turn's tail
     clock["t"] = 1060.0  # age 59s, inside the 120s grace
-    busy = sup.evaluate(track, act=True)
+    busy = sup.evaluate(track=track, act=True)
 
     assert busy.status == "working"
     assert marker.exists()  # NOT voided — this is the certifying tail
 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # the tail finishes
-    assert sup.evaluate(track, act=True).status == "restarting"
+    assert sup.evaluate(track=track, act=True).status == "restarting"
     assert fake.has(method="respawn")  # the surviving declaration was honoured
 
     # --- older than the grace: cleared instead of restarting later ------------------- #
@@ -206,14 +215,17 @@ def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tm
 
     fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))  # the session resumed WORK
     stale_clock["t"] = 1201.0  # age 200s, past the 120s grace
-    resumed = sup.evaluate(track, act=True)
+    resumed = sup.evaluate(track=track, act=True)
 
     assert resumed.status == "working"
     assert not marker.exists()  # the now-false declaration is cleared...
-    assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) is None
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is None
+    )
 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # ...and going idle again
-    assert sup.evaluate(track, act=True).status != "restarting"  # does not restart LATER
+    assert sup.evaluate(track=track, act=True).status != "restarting"  # does not restart LATER
     assert not fake.has(method="respawn")
 
 
@@ -244,30 +256,30 @@ def test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_res
       - `alert` reduced to `repo::topic` text -> the session/pane/jump assertions.
     """
     repo, topic, session, fake, sup, track = _open_round(tmp_path)
-    assert not signals.state_path(str(repo), topic).exists()  # the session said nothing
+    assert not signals.state_path(repo=str(repo), topic=topic).exists()  # the session said nothing
 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))  # crosses the danger line
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(track, act=True)
+        view = sup.evaluate(track=track, act=True)
     settled_pastes = len(fake.paste_texts())
 
     assert view.status == "danger"
     report = err.getvalue()
     assert "NOT RESPONDING" in report
     assert "declared NOTHING" in report  # ...distinct from a stale ACK's "hung mid-wrap-up"
-    for coordinate in (topic, registry.repo_slug(str(repo)), session):
+    for coordinate in (topic, registry.repo_slug(repo=str(repo)), session):
         assert coordinate in report
     assert f"tmux switch-client -t {session}" in report  # a copy-pasteable jump
 
     with contextlib.redirect_stderr(_io.StringIO()):
         for _ in range(10):  # tick and tick — it must never escalate to a kill
-            view = sup.evaluate(track, act=True)
+            view = sup.evaluate(track=track, act=True)
 
     assert view.status == "danger"
     assert not fake.has(method="respawn")  # no restart...
     assert len(fake.paste_texts()) == settled_pastes  # ...and no further act
-    assert not signals.state_path(str(repo), topic).exists()  # the daemon wrote nothing
+    assert not signals.state_path(repo=str(repo), topic=topic).exists()  # the daemon wrote nothing
 
 
 def test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declaration(
@@ -298,12 +310,12 @@ def test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declarat
         typo, which is the reason this scenario exists.
     """
     repo, topic, session, fake, sup, track = _open_round(tmp_path)
-    stamp = registry.read_injection_stamp(str(repo), topic, sup.stamp_path)
+    stamp = registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     state = declare(repo, topic, "redy", mtime=1001.0)  # a typo, post-dating the stamp
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(track, act=True)
+        view = sup.evaluate(track=track, act=True)
 
     report = err.getvalue()
     assert "MALFORMED state file" in report
@@ -312,12 +324,15 @@ def test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declarat
     assert view.status != "restarting"
     assert not fake.has(method="respawn")  # a typo is NOT a restart authorization
     assert state.exists()  # nothing consumed it...
-    assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) == stamp  # round open
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        == stamp
+    )  # round open
 
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=13)
     )  # ...and at the danger line
     with contextlib.redirect_stderr(err):
-        sup.evaluate(track, act=True)
+        sup.evaluate(track=track, act=True)
 
     assert "declared NOTHING" in err.getvalue()  # treated as no declaration

@@ -43,7 +43,7 @@ def test_evaluate_derives_codex_runtime_and_annotates_the_tmux_cell(tmp_path):
     on a `bun` pane, and the rendered tmux cell reads `<session> (codex)`. Sabotage
     target for the Codex arm (route it to `"claude"` and this goes red)."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=codex_idle_capture(ctx=80, topic=topic), cmd="bun"
@@ -56,7 +56,7 @@ def test_evaluate_derives_codex_runtime_and_annotates_the_tmux_cell(tmp_path):
             pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
         )
     }
-    view = sup.evaluate(mapped_track(repo, topic, session), act=False)
+    view = sup.evaluate(track=mapped_track(repo, topic, session), act=False)
     assert view.runtime == "codex"
     line = cell_row(render_of(sup, [view]), topic)
     assert f"{session} (codex)" in line
@@ -66,12 +66,12 @@ def test_evaluate_leaves_runtime_none_for_a_session_gone_row(tmp_path):
     """A track whose mapped tmux session is gone (and no live Claude for the topic) is
     `session-gone`: no pane, so no runtime — the rendered tmux cell is a bare `—`."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()  # the mapped session is NOT served → session_exists False
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()  # empty registry → no live Claude anywhere → session-gone
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
-    view = sup.evaluate(mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
     assert view.status == "session-gone"
     assert view.tmux is None
     assert view.runtime is None
@@ -86,7 +86,7 @@ def test_evaluate_leaves_runtime_none_for_an_unassigned_row(tmp_path):
     repo, topic = make_plan(tmp_path)
     sup = make_supervisor(tmp_path, FakeTmux())
     track = registry.Track.make_unassigned(repo=str(repo), topic=topic)
-    view = sup.evaluate(track, act=True)
+    view = sup.evaluate(track=track, act=True)
     assert view.status == "unassigned"
     assert view.runtime is None
 
@@ -181,10 +181,10 @@ def test_needs_attention_predicate_covers_every_attention_status():
     tuple without the block picking it up."""
     for status in supervisor.ATTENTION_STATUSES:
         row = supervisor.RowView(topic="t", repo="/r", tmux="s", ctx=1, status=status)
-        assert supervisor.needs_attention(row) is True
+        assert supervisor.needs_attention(row=row) is True
     for status in ("idle", "working", "warned", "winding-down", "settling", "unassigned"):
         row = supervisor.RowView(topic="t", repo="/r", tmux="s", ctx=99, status=status)
-        assert supervisor.needs_attention(row) is False
+        assert supervisor.needs_attention(row=row) is False
 
 
 _YELLOW = "\x1b[33m"

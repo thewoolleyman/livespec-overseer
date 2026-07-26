@@ -28,7 +28,7 @@ __all__: list[str] = [
 ]
 
 
-def write_idle_nudge_state(sup: Supervisor, track: registry.Track) -> None:
+def write_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
     """Write the daemon-owned ``idle-with-context-left`` marker to the state file.
 
     Called ONLY after the nudge paste lands, and ONLY when the file had no session
@@ -36,7 +36,7 @@ def write_idle_nudge_state(sup: Supervisor, track: registry.Track) -> None:
     ``blocked`` / ``winding-down``. It edge-triggers the single-prompt-per-episode rule
     and drives the row's ``idle-with-context-left`` status.
     """
-    path = signals.state_path(track.repo, track.topic)
+    path = signals.state_path(repo=track.repo, topic=track.topic)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         _ = path.write_text(signals.STATE_IDLE_WITH_CONTEXT_LEFT + "\n", encoding="utf-8")
@@ -44,7 +44,7 @@ def write_idle_nudge_state(sup: Supervisor, track: registry.Track) -> None:
         sup.log(f"could not write idle-nudge marker for {track.repo}::{track.topic}: {exc}")
 
 
-def clear_idle_nudge_state(sup: Supervisor, track: registry.Track) -> None:
+def clear_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
     """Clear the ``idle-with-context-left`` marker when the session leaves the idle
     episode (it went non-idle / took a turn) — re-arming a fresh nudge next episode.
 
@@ -53,11 +53,11 @@ def clear_idle_nudge_state(sup: Supervisor, track: registry.Track) -> None:
     tick is never clobbered. Unlike :meth:`_clear_state` it touches neither the
     injection stamp nor the in-memory inject state — the nudge opens no round.
     """
-    current = signals.read_state(track.repo, track.topic)
+    current = signals.read_state(repo=track.repo, topic=track.topic)
     if current is None or current.token != signals.STATE_IDLE_WITH_CONTEXT_LEFT:
         return
     try:
-        signals.state_path(track.repo, track.topic).unlink(missing_ok=True)
+        signals.state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
     # The ONLY uncovered branch in this module, and deliberately so. The read
     # above returns unless the marker is a readable regular file, so every
     # root-proof way to make `unlink` fail (a directory at the path, a file
@@ -72,12 +72,12 @@ def clear_idle_nudge_state(sup: Supervisor, track: registry.Track) -> None:
 
 
 def nudge_idle_with_context(
+    *,
     sup: Supervisor,
     track: registry.Track,
     target: str,
     eff_ctx: int,
     threshold: int,
-    *,
     is_codex: bool = False,
 ) -> None:
     """Send the single "keep going" nudge to an idle session that still has context
@@ -94,8 +94,10 @@ def nudge_idle_with_context(
     """
     repo, topic = track.repo, track.topic
     message = idle_nudge_message(remaining=eff_ctx, threshold=threshold, repo=repo, topic=topic)
-    if _supervisor_launch.submit_prompt(sup, target, message, expect_codex=is_codex):
-        write_idle_nudge_state(sup, track)
+    if _supervisor_launch.submit_prompt(
+        sup=sup, target=target, text=message, expect_codex=is_codex
+    ):
+        write_idle_nudge_state(sup=sup, track=track)
         sup.log(
             f"nudged idle-with-context-left {repo}::{topic} "
             f"(ctx {eff_ctx}% > threshold {threshold}%)"
@@ -104,16 +106,16 @@ def nudge_idle_with_context(
         sup.alert(
             repo=repo,
             topic=topic,
-            session=_supervisor_launch.session_of(sup, track),
+            session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="idle-with-context-left nudge FAILED (paste did not land); will retry",
         )
 
 
 def alert_non_responder(
+    *,
     sup: Supervisor,
     track: registry.Track,
-    *,
     session: str,
     pane: str,
     eff_ctx: int,
@@ -148,7 +150,7 @@ def alert_non_responder(
         )
     else:
         what = (
-            f"has declared NOTHING (no {signals.state_path(repo, topic).name}) — "
+            f"has declared NOTHING (no {signals.state_path(repo=repo, topic=topic).name}) — "
             f"it is ignoring the wrap-up protocol"
         )
     sup.alert(

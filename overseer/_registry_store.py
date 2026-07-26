@@ -30,13 +30,13 @@ __all__: list[str] = [
 ]
 
 
-def _read_rows(store_path: str | os.PathLike[str] | None = None) -> list[dict[str, object]]:
+def _read_rows(*, store_path: str | os.PathLike[str] | None = None) -> list[dict[str, object]]:
     """Read the mapping store as raw dicts, skipping (and naming) bad lines.
 
     Operating on raw dicts (not Tracks) for rewrite/remove preserves unknown
     keys such as ``added_at`` on the surviving rows.
     """
-    path = resolve_store(store_path)
+    path = resolve_store(store_path=store_path)
     if not path.is_file():
         return []
     try:
@@ -44,7 +44,7 @@ def _read_rows(store_path: str | os.PathLike[str] | None = None) -> list[dict[st
     # ValueError covers the UnicodeDecodeError a non-UTF-8 store raises; it is a
     # ValueError subclass, so an OSError-only handler leaked it (B7).
     except (OSError, ValueError) as exc:  # PermissionError, NFS hiccup, mid-move, non-UTF-8
-        warn(f"unreadable mapping store {path}: {exc}")
+        warn(message=f"unreadable mapping store {path}: {exc}")
         return []
     rows: list[dict[str, object]] = []
     for lineno, raw in enumerate(text.splitlines(), start=1):
@@ -54,30 +54,31 @@ def _read_rows(store_path: str | os.PathLike[str] | None = None) -> list[dict[st
         try:
             obj = json.loads(line)
         except json.JSONDecodeError as exc:
-            warn(f"skipping malformed line {lineno} in {path}: {exc}")
+            warn(message=f"skipping malformed line {lineno} in {path}: {exc}")
             continue
-        record = jsonio.as_object(obj)
+        record = jsonio.as_object(value=obj)
         if record is None:
-            warn(f"skipping non-object line {lineno} in {path}")
+            warn(message=f"skipping non-object line {lineno} in {path}")
             continue
         rows.append(record)
     return rows
 
 
 def _write_rows(
+    *,
     rows: Iterable[dict[str, object]],
     store_path: str | os.PathLike[str] | None = None,
 ) -> None:
     body = "".join(json.dumps(row) + "\n" for row in rows)
-    atomic_write(resolve_store(store_path), body)
+    atomic_write(path=resolve_store(store_path=store_path), body=body)
 
 
-def _track_from_row(row: dict[str, object]) -> Track | None:
+def _track_from_row(*, row: dict[str, object]) -> Track | None:
     """Build a mapped Track from a raw row, or None (naming the offender)."""
     topic = row.get("topic")
     repo = row.get("repo")
     if not isinstance(topic, str) or not isinstance(repo, str):
-        warn(f"skipping row missing topic/repo: {row!r}")
+        warn(message=f"skipping row missing topic/repo: {row!r}")
         return None
     # A per-track override is present ONLY if the row carries an int
     # ``ctx_threshold``; a missing (or non-int) value means "no override" → None,
@@ -87,34 +88,34 @@ def _track_from_row(row: dict[str, object]) -> Track | None:
     threshold = row.get("ctx_threshold")
     ctx_threshold = threshold if isinstance(threshold, int) else None
 
-    def _opt_str(key: str) -> str | None:
+    def _opt_str(*, key: str) -> str | None:
         value = row.get(key)
         return value if isinstance(value, str) else None
 
     return Track(
         topic=topic,
         repo=repo,
-        tmux=_opt_str("tmux"),
-        handoff=_opt_str("handoff"),
-        resume=_opt_str("resume"),
-        epic=_opt_str("epic"),
+        tmux=_opt_str(key="tmux"),
+        handoff=_opt_str(key="handoff"),
+        resume=_opt_str(key="resume"),
+        epic=_opt_str(key="epic"),
         ctx_threshold=ctx_threshold,
-        pinned_session_id=_opt_str("pinned_session_id"),
+        pinned_session_id=_opt_str(key="pinned_session_id"),
         assigned=True,
     )
 
 
-def read_mapping(store_path: str | os.PathLike[str] | None = None) -> list[Track]:
+def read_mapping(*, store_path: str | os.PathLike[str] | None = None) -> list[Track]:
     """Read the mapping store into typed Tracks (fail-soft on bad rows)."""
     tracks: list[Track] = []
-    for row in _read_rows(store_path):
-        track = _track_from_row(row)
+    for row in _read_rows(store_path=store_path):
+        track = _track_from_row(row=row)
         if track is not None:
             tracks.append(track)
     return tracks
 
 
-def _track_to_row(track: Track) -> dict[str, object]:
+def _track_to_row(*, track: Track) -> dict[str, object]:
     row: dict[str, object] = {
         "topic": track.topic,
         "repo": track.repo,
@@ -133,9 +134,9 @@ def _track_to_row(track: Track) -> dict[str, object]:
 
 
 def append_mapping(
+    *,
     track: Track,
     store_path: str | os.PathLike[str] | None = None,
-    *,
     added_at: str | None = None,
 ) -> None:
     """Append one mapping row (durable keys + optional ``added_at`` stamp).
@@ -144,20 +145,21 @@ def append_mapping(
     snapshot that predates this append and write it back, silently dropping the
     freshly-added live row (B6). Fail-soft on an OSError (B7).
     """
-    path = resolve_store(store_path)
-    row = _track_to_row(track)
+    path = resolve_store(store_path=store_path)
+    row = _track_to_row(track=track)
     if added_at is not None:
         row["added_at"] = added_at
-    with file_lock(path):
+    with file_lock(target=path):
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("a", encoding="utf-8") as handle:
                 _ = handle.write(json.dumps(row) + "\n")
         except OSError as exc:
-            warn(f"could not append to {path}: {exc}")
+            warn(message=f"could not append to {path}: {exc}")
 
 
 def rewrite_mapping(
+    *,
     keep: Callable[[dict[str, object]], bool],
     store_path: str | os.PathLike[str] | None = None,
 ) -> int:
@@ -170,32 +172,36 @@ def rewrite_mapping(
     is dropped, so a steady-state tick does not rewrite (and risk truncating) the
     store on every pass.
     """
-    with file_lock(resolve_store(store_path)):
-        rows = _read_rows(store_path)
+    with file_lock(target=resolve_store(store_path=store_path)):
+        rows = _read_rows(store_path=store_path)
         kept = [row for row in rows if keep(row)]
         if len(kept) != len(rows):
-            _write_rows(kept, store_path)
+            _write_rows(rows=kept, store_path=store_path)
         return len(rows) - len(kept)
 
 
 def remove_mapping(
+    *,
     repo: str,
     topic: str,
     store_path: str | os.PathLike[str] | None = None,
 ) -> int:
     """Remove the mapping row(s) matching ``(repo, topic)``; return the count."""
-    repo_norm = norm(repo)
+    repo_norm = norm(repo=repo)
 
     def _keep(row: dict[str, object]) -> bool:
         row_repo = row.get("repo")
         return not (
-            isinstance(row_repo, str) and norm(row_repo) == repo_norm and row.get("topic") == topic
+            isinstance(row_repo, str)
+            and norm(repo=row_repo) == repo_norm
+            and row.get("topic") == topic
         )
 
-    return rewrite_mapping(_keep, store_path)
+    return rewrite_mapping(keep=_keep, store_path=store_path)
 
 
 def repoint_tmux(
+    *,
     repo: str,
     topic: str,
     new_tmux: str,
@@ -215,20 +221,20 @@ def repoint_tmux(
     True when at least one row was re-pointed. Fail-soft on OSError (inherited from
     :func:`_write_rows`).
     """
-    repo_norm = norm(repo)
-    with file_lock(resolve_store(store_path)):
-        rows = _read_rows(store_path)
+    repo_norm = norm(repo=repo)
+    with file_lock(target=resolve_store(store_path=store_path)):
+        rows = _read_rows(store_path=store_path)
         changed = False
         for row in rows:
             row_repo = row.get("repo")
             if (
                 isinstance(row_repo, str)
-                and norm(row_repo) == repo_norm
+                and norm(repo=row_repo) == repo_norm
                 and row.get("topic") == topic
                 and row.get("tmux") != new_tmux
             ):
                 row["tmux"] = new_tmux
                 changed = True
         if changed:
-            _write_rows(rows, store_path)
+            _write_rows(rows=rows, store_path=store_path)
         return changed

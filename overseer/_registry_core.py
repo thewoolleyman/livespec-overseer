@@ -45,7 +45,7 @@ __all__: list[str] = [
 
 
 @contextlib.contextmanager
-def file_lock(target: str | os.PathLike[str]) -> Iterator[None]:
+def file_lock(*, target: str | os.PathLike[str]) -> Iterator[None]:
     """Hold an exclusive advisory lock spanning a read-modify-write of ``target``.
 
     The mapping store and the injection-stamp sidecar are read-modify-written by
@@ -64,7 +64,7 @@ def file_lock(target: str | os.PathLike[str]) -> Iterator[None]:
         handle = lock_path.open("w", encoding="utf-8")
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
     except OSError as exc:
-        warn(f"could not acquire lock {lock_path}: {exc}; proceeding unlocked")
+        warn(message=f"could not acquire lock {lock_path}: {exc}; proceeding unlocked")
         if handle is not None:
             handle.close()
             handle = None
@@ -113,12 +113,12 @@ ROW_KEYS = (
 )
 
 
-def warn(message: str) -> None:
+def warn(*, message: str) -> None:
     """Emit a fail-soft diagnostic to stderr (never crash the caller)."""
     streams.write_stderr(text=f"overseer.registry: {message}\n")
 
 
-def norm(repo: str | os.PathLike[str]) -> str:
+def norm(*, repo: str | os.PathLike[str]) -> str:
     """Normalize a repo path for join/index keys (no filesystem access).
 
     ``os.path.normpath`` collapses ``..`` and trailing slashes and does NOT
@@ -129,7 +129,7 @@ def norm(repo: str | os.PathLike[str]) -> str:
     return os.path.normpath(str(repo))
 
 
-def repo_slug(repo: str | os.PathLike[str]) -> str:
+def repo_slug(*, repo: str | os.PathLike[str]) -> str:
     """The repo-slug used to repo-qualify a tmux session id — the basename."""
     return Path(repo).name
 
@@ -148,11 +148,12 @@ def colliding_topics(
     """
     repos_by_topic: dict[str, set[str]] = {}
     for repo, topic, _ in discovered:
-        repos_by_topic.setdefault(topic, set()).add(norm(repo))
+        repos_by_topic.setdefault(topic, set()).add(norm(repo=repo))
     return frozenset(t for t, repos in repos_by_topic.items() if len(repos) > 1)
 
 
 def tmux_id(
+    *,
     repo: str | os.PathLike[str],
     topic: str,
     colliding: Collection[str] = frozenset(),
@@ -180,7 +181,7 @@ def tmux_id(
     prefixed) form is retired.
     """
     if topic in colliding:
-        return f"{repo_slug(repo)}-{topic}"
+        return f"{repo_slug(repo=repo)}-{topic}"
     return topic
 
 
@@ -237,7 +238,7 @@ class Track:
 # --------------------------------------------------------------------------- #
 
 
-def resolve_store(store_path: str | os.PathLike[str] | None) -> Path:
+def resolve_store(*, store_path: str | os.PathLike[str] | None) -> Path:
     return Path(store_path) if store_path is not None else DEFAULT_STORE_PATH
 
 
@@ -247,11 +248,11 @@ def resolve_store(store_path: str | os.PathLike[str] | None) -> Path:
 # --------------------------------------------------------------------------- #
 
 
-def resolve_stamp_store(stamp_path: str | os.PathLike[str] | None) -> Path:
+def resolve_stamp_store(*, stamp_path: str | os.PathLike[str] | None) -> Path:
     return Path(stamp_path) if stamp_path is not None else DEFAULT_STAMP_PATH
 
 
-def atomic_write(path: Path, body: str) -> None:
+def atomic_write(*, path: Path, body: str) -> None:
     """Write ``body`` to ``path`` atomically: temp file in the same dir + os.replace.
 
     A bare truncate-then-write (the old ``path.write_text``) leaves a
@@ -275,4 +276,4 @@ def atomic_write(path: Path, body: str) -> None:
                 Path(tmp_name).unlink()
             raise
     except OSError as exc:
-        warn(f"could not write {path}: {exc}")
+        warn(message=f"could not write {path}: {exc}")

@@ -160,7 +160,7 @@ def default_gitignore_check(repo: str) -> bool:
     return completed.returncode == 0
 
 
-def track_key(repo: str, topic: str) -> tuple[str, str]:
+def track_key(*, repo: str, topic: str) -> tuple[str, str]:
     """The normalized (repo, topic) in-memory state key (mirrors registry joins)."""
     return (os.path.normpath(repo), topic)
 

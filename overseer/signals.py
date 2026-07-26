@@ -60,7 +60,7 @@ _ANSI_RE = re.compile(
 )
 
 
-def strip_ansi(text: str) -> str:
+def strip_ansi(*, text: str) -> str:
     """Remove ANSI/VT escape sequences from captured pane text."""
     return _ANSI_RE.sub("", text)
 
@@ -85,11 +85,11 @@ _CTX_RE = re.compile(r"(?:Ctx:|Context)\s*(\d+)%\s*left")
 _CTX_TAIL_ROWS = 4
 
 
-def _tail_non_empty_lines(capture_text: str, n: int) -> list[str]:
+def _tail_non_empty_lines(*, capture_text: str, n: int) -> list[str]:
     """The last ``n`` ANSI-stripped, non-empty lines, in top-to-bottom order."""
     out: list[str] = []
     for raw in reversed(capture_text.splitlines()):
-        line = strip_ansi(raw).strip()
+        line = strip_ansi(text=raw).strip()
         if line:
             out.append(line)
             if len(out) >= n:
@@ -98,7 +98,7 @@ def _tail_non_empty_lines(capture_text: str, n: int) -> list[str]:
     return out
 
 
-def parse_ctx_remaining(capture_text: str) -> int | None:
+def parse_ctx_remaining(*, capture_text: str) -> int | None:
     """Remaining-context percent from the statusline, anchored + fail-closed.
 
     Scans only the last few non-empty rows (`_CTX_TAIL_ROWS`) — the statusline
@@ -110,7 +110,7 @@ def parse_ctx_remaining(capture_text: str) -> int | None:
     reading. "unknown" must NEVER count as a threshold crossing upstream.
     """
     matches: list[str] = []
-    for line in _tail_non_empty_lines(capture_text, _CTX_TAIL_ROWS):
+    for line in _tail_non_empty_lines(capture_text=capture_text, n=_CTX_TAIL_ROWS):
         matches.extend(_CTX_RE.findall(line))
     if not matches:
         return None
@@ -140,7 +140,7 @@ _BUSY_ACTIVE_RE = re.compile(
 )
 
 
-def is_busy(capture_text: str) -> bool:
+def is_busy(*, capture_text: str) -> bool:
     """True if the pane is actively working.
 
     Fires on the live active-generation spinner (`_BUSY_ACTIVE_RE`) or a
@@ -149,7 +149,7 @@ def is_busy(capture_text: str) -> bool:
     busy is the dangerous one. The lingering completed-turn summary
     (`✻ Brewed for 25s`) is deliberately NOT treated as busy.
     """
-    text = strip_ansi(capture_text)
+    text = strip_ansi(text=capture_text)
     if _WAITING_RE.search(text):
         return True
     return bool(_BUSY_ACTIVE_RE.search(text))
@@ -165,7 +165,7 @@ def is_busy(capture_text: str) -> bool:
 _GATE_CURSOR_RE = re.compile(r"[❯›]\s*\d+\.")
 
 
-def is_structured_gate(capture_text: str) -> bool:
+def is_structured_gate(*, capture_text: str) -> bool:
     """True if the pane shows a structured permission-prompt / picker gate.
 
     Best-effort. Keyed on two low-false-positive markers: a ``❯ N.`` numbered
@@ -173,7 +173,7 @@ def is_structured_gate(capture_text: str) -> bool:
     proceed`` (case-insensitive). Used to SUPPRESS injection — never keystroke
     into a gate (adversarial-review blocker #6).
     """
-    text = strip_ansi(capture_text)
+    text = strip_ansi(text=capture_text)
     if _GATE_CURSOR_RE.search(text):
         return True
     return "do you want to proceed" in text.lower()
@@ -198,17 +198,17 @@ def is_structured_gate(capture_text: str) -> bool:
 _BORDER_RE = re.compile(r"^[─—━]{3,}.*[─—━]{2,}$")
 
 
-def _is_border(line: str) -> bool:
+def _is_border(*, line: str) -> bool:
     """True if ``line`` is a box border: a pure rule OR a rule with an embedded title."""
     return _BORDER_RE.match(line) is not None
 
 
-def _is_empty_prompt(line: str) -> bool:
+def _is_empty_prompt(*, line: str) -> bool:
     """True if ``line`` is the empty idle prompt: the `❯` glyph with nothing after."""
     return line.startswith("❯") and not line[1:].strip()
 
 
-def _input_box_present(text: str) -> bool:
+def _input_box_present(*, text: str) -> bool:
     """True if an EMPTY `❯` prompt sits between two box-border lines.
 
     Scans the non-empty lines and requires an empty `❯` with a border line
@@ -219,18 +219,18 @@ def _input_box_present(text: str) -> bool:
     gate (`❯ 1.`) is not empty and not border-bracketed, so it is excluded here
     (and by :func:`is_structured_gate`).
     """
-    ne = [stripped for raw in text.splitlines() if (stripped := strip_ansi(raw).strip())]
+    ne = [stripped for raw in text.splitlines() if (stripped := strip_ansi(text=raw).strip())]
     for i, line in enumerate(ne):
-        if not _is_empty_prompt(line):
+        if not _is_empty_prompt(line=line):
             continue
-        above = i >= 1 and _is_border(ne[i - 1])
-        below = i + 1 < len(ne) and _is_border(ne[i + 1])
+        above = i >= 1 and _is_border(line=ne[i - 1])
+        below = i + 1 < len(ne) and _is_border(line=ne[i + 1])
         if above and below:
             return True
     return False
 
 
-def is_idle_input(capture_text: str) -> bool:
+def is_idle_input(*, capture_text: str) -> bool:
     """True only for a VERIFIED normal, EMPTY input state.
 
     An empty `❯` prompt box (positive structural marker) is present AND the pane
@@ -238,14 +238,14 @@ def is_idle_input(capture_text: str) -> bool:
     (see design.md, signal sources) — a blank / frozen / booting pane has no
     input box and is therefore not idle.
     """
-    if is_busy(capture_text):
+    if is_busy(capture_text=capture_text):
         return False
-    if is_structured_gate(capture_text):
+    if is_structured_gate(capture_text=capture_text):
         return False
-    return _input_box_present(capture_text)
+    return _input_box_present(text=capture_text)
 
 
-def input_box_ready(capture_text: str) -> bool:
+def input_box_ready(*, capture_text: str) -> bool:
     """True if the EMPTY `❯` input box is present (regardless of busy/gate).
 
     Unlike :func:`is_idle_input`, this does NOT require not-busy — it is the
@@ -254,7 +254,7 @@ def input_box_ready(capture_text: str) -> bool:
     still drawing its welcome screen the box holds the un-submitted paste, so
     this stays False until an Enter lands).
     """
-    return _input_box_present(capture_text)
+    return _input_box_present(text=capture_text)
 
 
 # The Codex TUI renders a DIFFERENT idle shape from Claude's `❯`-between-rules box: a
@@ -267,7 +267,7 @@ def input_box_ready(capture_text: str) -> bool:
 _CODEX_STATUSLINE_RE = re.compile(r"Context\s+\d+%\s+left")
 
 
-def codex_prompt_present(capture_text: str) -> bool:
+def codex_prompt_present(*, capture_text: str) -> bool:
     """True if the pane is a live Codex TUI sitting at its input prompt.
 
     Structural + glyph-anchored: a ``›`` input line AND a Codex statusline
@@ -276,13 +276,13 @@ def codex_prompt_present(capture_text: str) -> bool:
     placeholder problem above), so it asserts only "a Codex TUI is here"; idle-ness adds
     not-busy + not-gate (:func:`is_codex_idle_input`).
     """
-    text = strip_ansi(capture_text)
+    text = strip_ansi(text=capture_text)
     if not _CODEX_STATUSLINE_RE.search(text):
         return False
     return any(line.lstrip().startswith("›") for line in text.splitlines())
 
 
-def is_codex_idle_input(capture_text: str) -> bool:
+def is_codex_idle_input(*, capture_text: str) -> bool:
     """The Codex analogue of :func:`is_idle_input`: a Codex prompt that is neither busy
     nor a structured gate.
 
@@ -292,11 +292,11 @@ def is_codex_idle_input(capture_text: str) -> bool:
     is now a full citizen: an over-loose idle read would paste the wrap-up into a Codex
     gate.
     """
-    if is_busy(capture_text):
+    if is_busy(capture_text=capture_text):
         return False
-    if is_structured_gate(capture_text):
+    if is_structured_gate(capture_text=capture_text):
         return False
-    return codex_prompt_present(capture_text)
+    return codex_prompt_present(capture_text=capture_text)
 
 
 # --------------------------------------------------------------------------- #
@@ -336,7 +336,7 @@ STATE_TOKENS = (STATE_READY, STATE_BLOCKED, STATE_WINDING_DOWN)
 _DAEMON_TOKENS = (STATE_IDLE_WITH_CONTEXT_LEFT,)
 
 
-def state_path(repo: str, topic: str) -> Path:
+def state_path(*, repo: str, topic: str) -> Path:
     """``<repo>/tmp/overseer/<topic>/.overseer-state`` — the ONE indicator file."""
     return marker_dir(repo, topic) / ".overseer-state"
 
@@ -357,14 +357,14 @@ class TrackState:
     mtime: float
 
 
-def valid_token(token: str) -> bool:
+def valid_token(*, token: str) -> bool:
     """True iff ``token`` is a recognized state — a session-declared one
     (:data:`STATE_TOKENS`) OR the daemon-written idle-with-context-left marker.
     Only genuinely unrecognized (typo'd) tokens are surfaced as malformed."""
     return token in STATE_TOKENS or token in _DAEMON_TOKENS
 
 
-def read_state(repo: str, topic: str) -> TrackState | None:
+def read_state(*, repo: str, topic: str) -> TrackState | None:
     """Parse ``.overseer-state``; None when absent or unreadable (fail-closed).
 
     Format — the first non-empty line is ``<token>`` or ``<token>: <detail>``::
@@ -378,7 +378,7 @@ def read_state(repo: str, topic: str) -> TrackState | None:
     verbatim (lowercased) even when unknown, so the daemon can SURFACE a malformed
     value instead of silently treating it as "no state".
     """
-    path = state_path(repo, topic)
+    path = state_path(repo=repo, topic=topic)
     try:
         if not path.is_file():
             return None
@@ -394,6 +394,7 @@ def read_state(repo: str, topic: str) -> TrackState | None:
 
 
 def ready_valid(
+    *,
     repo: str,
     topic: str,
     injection_stamp: float | None,
@@ -416,7 +417,7 @@ def ready_valid(
     """
     if injection_stamp is None:
         return False
-    state = read_state(repo, topic)
+    state = read_state(repo=repo, topic=topic)
     if state is None or state.token != STATE_READY:
         return False
     return state.mtime > injection_stamp
@@ -460,12 +461,12 @@ def pane_is_codex(pane_current_command: str | None) -> bool:
 _CODEX_COMMANDS = frozenset({"codex", "bun"})
 
 
-def pane_is_shell(pane_current_command: str | None) -> bool:
+def pane_is_shell(*, pane_current_command: str | None) -> bool:
     """True if ``#{pane_current_command}`` is an interactive shell."""
     return (pane_current_command or "").strip().lower() in _SHELL_COMMANDS
 
 
-def path_in_repo(pane_current_path: str | None, repo: str | os.PathLike[str]) -> bool:
+def path_in_repo(*, pane_current_path: str | None, repo: str | os.PathLike[str]) -> bool:
     """True if ``#{pane_current_path}`` resolves inside ``repo``.
 
     Pure path prefix check (``os.path.normpath``, no symlink resolution, no fs

@@ -37,7 +37,7 @@ def declare_state(repo, topic, value, *, mtime):
     The single indicator lives at ``<repo>/tmp/overseer/<topic>/.overseer-state``, whose
     parent does not exist yet — so the helper mkdirs it.
     """
-    path = signals.state_path(str(repo), topic)
+    path = signals.state_path(repo=str(repo), topic=topic)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(value, encoding="utf-8")
     os.utime(path, (mtime, mtime))

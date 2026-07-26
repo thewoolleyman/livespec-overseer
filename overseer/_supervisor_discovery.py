@@ -43,7 +43,7 @@ __all__: list[str] = [
 ]
 
 
-def archive_gc(sup: Supervisor) -> int:
+def archive_gc(*, sup: Supervisor) -> int:
     """Drop mapping rows whose ``<repo>/plan/<topic>/`` is archived or gone."""
 
     def keep(row: dict[str, object]) -> bool:
@@ -51,21 +51,21 @@ def archive_gc(sup: Supervisor) -> int:
         topic = row.get("topic")
         if not isinstance(repo, str) or not isinstance(topic, str):
             return True  # fail-soft: never drop a row we can't evaluate
-        if not registry.repo_root_present(repo):
+        if not registry.repo_root_present(repo=repo):
             # Repo root itself unreachable (unmounted / mid-move) — KEEP the row
             # and surface, so a transient outage does not permanently drop it and
             # lose its custom overrides on the auto-link re-add (B6).
-            sup.surface(f"repo root missing for {repo}::{topic}; keeping mapping row")
+            sup.surface(message=f"repo root missing for {repo}::{topic}; keeping mapping row")
             return True
-        if registry.archived_or_gone(repo, topic):
+        if registry.archived_or_gone(repo=repo, topic=topic):
             sup.log(f"archive-GC dropping mapping row {repo}::{topic}")
             return False
         return True
 
-    return registry.rewrite_mapping(keep, sup.store_path)
+    return registry.rewrite_mapping(keep=keep, store_path=sup.store_path)
 
 
-def auto_link(sup: Supervisor, track: registry.Track) -> registry.Track | None:
+def auto_link(*, sup: Supervisor, track: registry.Track) -> registry.Track | None:
     """Link a live session to an unassigned discovered plan — safely.
 
     A link is created ONLY when a session named ``tmux_id(repo, topic)`` (the
@@ -76,25 +76,25 @@ def auto_link(sup: Supervisor, track: registry.Track) -> registry.Track | None:
     colliding topic were not repo-qualified, the pane's cwd must match the row's
     repo. Returns the new mapped Track, or None if not linked.
     """
-    session = registry.tmux_id(track.repo, track.topic, sup.colliding_topics)
+    session = registry.tmux_id(repo=track.repo, topic=track.topic, colliding=sup.colliding_topics)
     if not sup.tmux.session_exists(session=session):
         return None
     path = sup.tmux.pane_current_path(session=session)
-    if not signals.path_in_repo(path, track.repo):
+    if not signals.path_in_repo(pane_current_path=path, repo=track.repo):
         return None
     linked = registry.Track(
         topic=track.topic,
         repo=track.repo,
         tmux=session,
-        handoff=track.handoff or default_handoff(track.repo, track.topic),
-        resume=default_resume(track.repo, track.topic),
+        handoff=track.handoff or default_handoff(repo=track.repo, topic=track.topic),
+        resume=default_resume(repo=track.repo, topic=track.topic),
     )
-    registry.append_mapping(linked, sup.store_path, added_at=iso_now())
+    registry.append_mapping(track=linked, store_path=sup.store_path, added_at=iso_now())
     sup.log(f"auto-linked live session {session} → {track.repo}::{track.topic}")
     return linked
 
 
-def adopt_sessions(sup: Supervisor) -> list[registry.Track]:
+def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
     """Adopt live Claude sessions whose registry name matches an active plan topic.
 
     Run at `/overseer` startup AND every daemon tick (so a session that is
@@ -128,11 +128,11 @@ def adopt_sessions(sup: Supervisor) -> list[registry.Track]:
     derived ``tmux_id`` session (the bare topic, or ``<repo-slug>-<topic>`` on a
     cross-repo collision) the daemon itself launches.
     """
-    watch = resolve_watch(sup)
+    watch = resolve_watch(sup=sup)
     active: dict[str, set[str]] = {}
-    for repo, topic, _ in registry.discover_plans(watch):
+    for repo, topic, _ in registry.discover_plans(watch_repos=watch):
         active.setdefault(repo, set()).add(topic)
-    existing = {(t.repo, t.topic): t.tmux for t in registry.read_mapping(sup.store_path)}
+    existing = {(t.repo, t.topic): t.tmux for t in registry.read_mapping(store_path=sup.store_path)}
     pane_pids = sup.tmux.pane_pid_sessions()
     # BOTH runtimes, through ONE path. `codex_sessions.map_codex_sessions` emits the
     # same `(tmux_session, name, cwd)` triple as its Claude twin precisely so adoption
@@ -145,12 +145,12 @@ def adopt_sessions(sup: Supervisor) -> list[registry.Track]:
     # `Codex Companion Task: …` threads filter themselves out below: their names are
     # not active plan topics, so they fail the same test any non-topic name fails.
     mapped = claude_sessions.map_named_sessions(
-        sessions_dir(sup),
-        pane_pids,
+        sessions_dir=sessions_dir(sup),
+        pane_pid_to_session=pane_pids,
         ppid_of=sup.ppid_of,
         starttime_of=sup.starttime_of,
     ) + codex_sessions.map_codex_sessions(
-        pane_pids,
+        pane_pid_to_session=pane_pids,
         codex_home=sup.codex_home,
         ppid_of=sup.ppid_of,
         pids_of_comm=sup.codex_pids_of_comm,
@@ -166,13 +166,13 @@ def adopt_sessions(sup: Supervisor) -> list[registry.Track]:
     # pane correctly). Resolve repo the same way the loop does, so the counts match.
     live_keys: list[tuple[str, str]] = []
     for _session, name, cwd in mapped:
-        r = next((r for r in watch if signals.path_in_repo(cwd, r)), None)
+        r = next((r for r in watch if signals.path_in_repo(pane_current_path=cwd, repo=r)), None)
         if r is not None and name in active.get(r, set()):
             live_keys.append((r, name))
     ambiguous = {k for k, count in collections.Counter(live_keys).items() if count > 1}
     adopted: list[registry.Track] = []
     for session, name, cwd in mapped:
-        repo = next((r for r in watch if signals.path_in_repo(cwd, r)), None)
+        repo = next((r for r in watch if signals.path_in_repo(pane_current_path=cwd, repo=r)), None)
         if repo is None:
             continue
         topic = name
@@ -190,7 +190,9 @@ def adopt_sessions(sup: Supervisor) -> list[registry.Track]:
             if (
                 (repo, topic) not in ambiguous
                 and existing[(repo, topic)] != session
-                and registry.repoint_tmux(repo, topic, session, sup.store_path)
+                and registry.repoint_tmux(
+                    repo=repo, topic=topic, new_tmux=session, store_path=sup.store_path
+                )
             ):
                 sup.log(f"re-pointed {repo}::{topic} tmux {existing[(repo, topic)]} → {session}")
                 existing[(repo, topic)] = session
@@ -199,10 +201,10 @@ def adopt_sessions(sup: Supervisor) -> list[registry.Track]:
             topic=topic,
             repo=repo,
             tmux=session,
-            handoff=default_handoff(repo, topic),
-            resume=default_resume(repo, topic),
+            handoff=default_handoff(repo=repo, topic=topic),
+            resume=default_resume(repo=repo, topic=topic),
         )
-        registry.append_mapping(track, sup.store_path, added_at=iso_now())
+        registry.append_mapping(track=track, store_path=sup.store_path, added_at=iso_now())
         existing[(repo, topic)] = session
         adopted.append(track)
         sup.log(f"adopted session {session} → {repo}::{topic}")
@@ -216,7 +218,7 @@ def sessions_dir(sup: Supervisor) -> str | os.PathLike[str]:
     )
 
 
-def refresh_codex_sessions(sup: Supervisor) -> None:
+def refresh_codex_sessions(*, sup: Supervisor) -> None:
     """Recompute this tick's ``{(tmux_session, name): CodexSession}`` map (read-only).
 
     The Codex twin of :meth:`_refresh_claude_status`, and the ONLY honest way to ask
@@ -231,7 +233,7 @@ def refresh_codex_sessions(sup: Supervisor) -> None:
     codex running is the overwhelmingly common case).
     """
     sup.live_codex = codex_sessions.codex_by_tmux_session(
-        sup.tmux.pane_pid_sessions(),
+        pane_pid_to_session=sup.tmux.pane_pid_sessions(),
         codex_home=sup.codex_home,
         ppid_of=sup.ppid_of,
         pids_of_comm=sup.codex_pids_of_comm,
@@ -240,7 +242,7 @@ def refresh_codex_sessions(sup: Supervisor) -> None:
     )
 
 
-def refresh_claude_status(sup: Supervisor) -> None:
+def refresh_claude_status(*, sup: Supervisor) -> None:
     """Recompute this tick's ``{tmux_session: claude_status}`` map (read-only).
 
     Runs at the top of every ``build_rows`` — including the read-only ``list`` path —
@@ -254,15 +256,21 @@ def refresh_claude_status(sup: Supervisor) -> None:
     # `topic in names` parity check (R2) and is a SET so a helper Claude in the same tmux
     # session cannot shadow the track's name (review SF5). Both from the same registry.
     sup.claude_status_by_session = claude_sessions.status_by_tmux_session(
-        sessions_dir(sup), pane_pids, ppid_of=sup.ppid_of, starttime_of=sup.starttime_of
+        sessions_dir=sessions_dir(sup),
+        pane_pid_to_session=pane_pids,
+        ppid_of=sup.ppid_of,
+        starttime_of=sup.starttime_of,
     )
     sup.claude_names_by_session = claude_sessions.names_by_tmux_session(
-        sessions_dir(sup), pane_pids, ppid_of=sup.ppid_of, starttime_of=sup.starttime_of
+        sessions_dir=sessions_dir(sup),
+        pane_pid_to_session=pane_pids,
+        ppid_of=sup.ppid_of,
+        starttime_of=sup.starttime_of,
     )
-    refresh_codex_sessions(sup)
+    refresh_codex_sessions(sup=sup)
 
 
-def build_rows(sup: Supervisor, *, act: bool = True) -> list[registry.Track]:
+def build_rows(*, sup: Supervisor, act: bool = True) -> list[registry.Track]:
     """Discovery ⋈ mapping (the tick's row set).
 
     When ``act`` (the daemon loop) this runs archive-GC + registry adoption +
@@ -272,35 +280,37 @@ def build_rows(sup: Supervisor, *, act: bool = True) -> list[registry.Track]:
     adopt / re-link the store out from under a running daemon (adversarial code
     review 2026-07-13, blocker B6).
     """
-    refresh_claude_status(sup)
-    watch = resolve_watch(sup)
-    discovered = registry.discover_plans(watch)
+    refresh_claude_status(sup=sup)
+    watch = resolve_watch(sup=sup)
+    discovered = registry.discover_plans(watch_repos=watch)
     # Recompute the cross-repo collision set for THIS tick before any session-name
     # derivation (adopt / auto_link / evaluate → `_session_of`) runs, so they all
     # agree on which topics must be repo-qualified. Set ABOVE the `not act` return so
     # the read-only `list` path derives display names identically.
     sup.colliding_topics = registry.colliding_topics(discovered)
     if not act:
-        return registry.join(discovered, registry.read_mapping(sup.store_path))
-    _ = archive_gc(sup)
+        return registry.join(discovered, registry.read_mapping(store_path=sup.store_path))
+    _ = archive_gc(sup=sup)
     # Continuous adoption (not just at bootstrap): pick up any live Claude
     # session whose registry name is now an active topic — so a session that
     # was mid-prompt, renamed, or launched after startup is tracked within one
     # tick rather than being missed forever.
-    _ = adopt_sessions(sup)
-    rows = registry.join(discovered, registry.read_mapping(sup.store_path))
+    _ = adopt_sessions(sup=sup)
+    rows = registry.join(discovered, registry.read_mapping(store_path=sup.store_path))
     linked_any = False
     for row in rows:
-        if row.is_unassigned and auto_link(sup, row) is not None:
+        if row.is_unassigned and auto_link(sup=sup, track=row) is not None:
             linked_any = True
     if linked_any:
-        rows = registry.join(discovered, registry.read_mapping(sup.store_path))
+        rows = registry.join(discovered, registry.read_mapping(store_path=sup.store_path))
     return rows
 
 
-def resolve_watch(sup: Supervisor) -> list[str]:
+def resolve_watch(*, sup: Supervisor) -> list[str]:
     if sup.watch_repos is not None:
         return [os.path.normpath(r) for r in sup.watch_repos]
     if sup.watch_set_path is not None:
-        return registry.watch_set_from_config(sup.watch_set_path, sup.extra_repos)
+        return registry.watch_set_from_config(
+            config_path=sup.watch_set_path, extra_repos=sup.extra_repos
+        )
     return [os.path.normpath(r) for r in sup.extra_repos]

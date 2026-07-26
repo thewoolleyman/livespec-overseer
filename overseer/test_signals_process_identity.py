@@ -32,19 +32,25 @@ def test_pane_is_claude_and_shell():
     assert signals.pane_is_claude("claude") is True
     assert signals.pane_is_claude("zsh") is False
     assert signals.pane_is_claude(None) is False
-    assert signals.pane_is_shell("zsh") is True
-    assert signals.pane_is_shell("bash") is True
-    assert signals.pane_is_shell("node") is False
+    assert signals.pane_is_shell(pane_current_command="zsh") is True
+    assert signals.pane_is_shell(pane_current_command="bash") is True
+    assert signals.pane_is_shell(pane_current_command="node") is False
 
 
 def test_path_in_repo():
     repo = "/data/projects/livespec"
-    assert signals.path_in_repo("/data/projects/livespec", repo) is True  # equal
-    assert signals.path_in_repo("/data/projects/livespec/plan/x", repo) is True  # inside
+    assert (
+        signals.path_in_repo(pane_current_path="/data/projects/livespec", repo=repo) is True
+    )  # equal
+    assert (
+        signals.path_in_repo(pane_current_path="/data/projects/livespec/plan/x", repo=repo) is True
+    )  # inside
     # Sibling-prefix trap: '/data/projects/livespec-other' is NOT inside.
-    assert signals.path_in_repo("/data/projects/livespec-other", repo) is False
-    assert signals.path_in_repo("/somewhere/else", repo) is False
-    assert signals.path_in_repo(None, repo) is False
+    assert (
+        signals.path_in_repo(pane_current_path="/data/projects/livespec-other", repo=repo) is False
+    )
+    assert signals.path_in_repo(pane_current_path="/somewhere/else", repo=repo) is False
+    assert signals.path_in_repo(pane_current_path=None, repo=repo) is False
 
 
 def test_is_idle_input_accepts_renamed_titled_border():
@@ -54,14 +60,14 @@ def test_is_idle_input_accepts_renamed_titled_border():
     rule = "─" * 40
     titled = ("─" * 20) + " mytopic ──"
     renamed = f"● prior\n{titled}\n❯ \n{rule}\n  Opus | /r | Ctx: 40% left\n  ? for shortcuts\n"
-    assert signals.is_idle_input(renamed) is True
-    assert signals.input_box_ready(renamed) is True
+    assert signals.is_idle_input(capture_text=renamed) is True
+    assert signals.input_box_ready(capture_text=renamed) is True
 
 
 def test_is_idle_input_rejects_prose_around_empty_prompt():
     # Guard: an empty `❯` between ordinary prose lines (no box borders) is NOT idle.
     prose = "● Read 1 file\n❯ \nSome narration line.\n"
-    assert signals.is_idle_input(prose) is False
+    assert signals.is_idle_input(capture_text=prose) is False
 
 
 def test_parse_ctx_reads_both_runtimes_own_statuslines():
@@ -84,8 +90,8 @@ def test_parse_ctx_reads_both_runtimes_own_statuslines():
             "  gpt-5.5 high \u00b7 /data/projects/x \u00b7 Context 66% left \u00b7 some-topic",
         ]
     )
-    assert signals.parse_ctx_remaining(claude_pane) == 42
-    assert signals.parse_ctx_remaining(codex_pane) == 66
+    assert signals.parse_ctx_remaining(capture_text=claude_pane) == 42
+    assert signals.parse_ctx_remaining(capture_text=codex_pane) == 66
 
 
 def test_pane_is_codex_is_loose_and_must_never_gate_alone():
@@ -112,8 +118,8 @@ def test_codex_prompt_present_requires_the_codex_statusline_not_just_the_glyph()
             "  ? for shortcuts",
         ]
     )
-    assert signals.codex_prompt_present(claude_pane) is False
-    assert signals.is_codex_idle_input(claude_pane) is False
+    assert signals.codex_prompt_present(capture_text=claude_pane) is False
+    assert signals.is_codex_idle_input(capture_text=claude_pane) is False
 
 
 def test_is_codex_idle_input_false_while_the_codex_pane_is_busy():
@@ -127,9 +133,9 @@ def test_is_codex_idle_input_false_while_the_codex_pane_is_busy():
             "  gpt-5.5 high · /data/projects/x · Context 66% left · some-topic",
         ]
     )
-    assert signals.codex_prompt_present(busy_codex) is True  # the prompt IS present...
-    assert signals.is_busy(busy_codex) is True
-    assert signals.is_codex_idle_input(busy_codex) is False  # ...but busy wins
+    assert signals.codex_prompt_present(capture_text=busy_codex) is True  # the prompt IS present...
+    assert signals.is_busy(capture_text=busy_codex) is True
+    assert signals.is_codex_idle_input(capture_text=busy_codex) is False  # ...but busy wins
 
 
 def test_read_state_is_none_when_the_state_file_is_unreadable(tmp_path, monkeypatch):
@@ -148,8 +154,8 @@ def test_read_state_is_none_when_the_state_file_is_unreadable(tmp_path, monkeypa
         raise PermissionError(13, "Permission denied")
 
     monkeypatch.setattr(signals.Path, "read_text", _deny)
-    assert signals.read_state(str(repo), topic) is None
-    assert signals.ready_valid(str(repo), topic, injection_stamp=1000.0) is False
+    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
 
 
 def test_read_state_is_none_when_the_state_file_is_not_utf8(tmp_path):
@@ -171,18 +177,18 @@ def test_read_state_is_none_when_the_state_file_is_not_utf8(tmp_path):
     it cannot pass by mocking a raise that the production code never performs.
     """
     repo, topic = setup_track(tmp_path)
-    path = signals.state_path(str(repo), topic)
+    path = signals.state_path(repo=str(repo), topic=topic)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"\xff\xferead" + b"y\n")
 
-    assert signals.read_state(str(repo), topic) is None
-    assert signals.ready_valid(str(repo), topic, injection_stamp=1000.0) is False
+    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
 
 
 def test_only_a_shell_proves_a_pane_is_dead():
     """The rule `start`'s fail-closed guard relies on: proof of DEATH, not "not Claude".
     Enumerating the live runtimes did not scale to a second one — a live codex pane
     (`bun`) failed the Claude test and got respawn-killed."""
-    assert signals.pane_is_shell("zsh") is True
+    assert signals.pane_is_shell(pane_current_command="zsh") is True
     for live_or_unknown in ("node", "claude", "bun", "codex", "vim", None):
-        assert signals.pane_is_shell(live_or_unknown) is False
+        assert signals.pane_is_shell(pane_current_command=live_or_unknown) is False

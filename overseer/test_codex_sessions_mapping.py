@@ -103,7 +103,10 @@ def test_codex_by_tmux_session_keys_live_sessions_by_tmux_session_and_name(tmp_p
         fds={10: [fake_rollout(ID_A)], 20: [fake_rollout(ID_B)]},
     )
     by = codex_sessions.codex_by_tmux_session(
-        {101: "s-one", 202: "s-two"}, codex_home=home, ppid_of={10: 101, 20: 202}.get, **host
+        pane_pid_to_session={101: "s-one", 202: "s-two"},
+        codex_home=home,
+        ppid_of={10: 101, 20: 202}.get,
+        **host,
     )
     assert set(by) == {("s-one", "topic-a"), ("s-two", "topic-b")}
     assert by[("s-one", "topic-a")].pid == 10
@@ -124,7 +127,10 @@ def test_codex_by_tmux_session_keeps_both_when_two_share_one_tmux_session(tmp_pa
     )
     # Both codex pids resolve (via their pane pids) to the SAME tmux session "shared".
     by = codex_sessions.codex_by_tmux_session(
-        {101: "shared", 202: "shared"}, codex_home=home, ppid_of={10: 101, 20: 202}.get, **host
+        pane_pid_to_session={101: "shared", 202: "shared"},
+        codex_home=home,
+        ppid_of={10: 101, 20: 202}.get,
+        **host,
     )
     assert set(by) == {("shared", "topic-a"), ("shared", "topic-b")}
     assert by[("shared", "topic-a")].pid == 10
@@ -137,14 +143,18 @@ def test_codex_by_tmux_session_is_empty_with_no_codex_running(tmp_path):
     """The overwhelmingly common case — a fleet of Claude sessions and no codex at all.
     Must be an empty map, never an error, so `evaluate` can key off it unconditionally."""
     home = fake_index(tmp_path, [])
-    by = codex_sessions.codex_by_tmux_session({}, codex_home=home, **fake_host())
+    by = codex_sessions.codex_by_tmux_session(
+        pane_pid_to_session={}, codex_home=home, **fake_host()
+    )
     assert by == {}
 
 
 def test_codex_by_tmux_session_omits_sessions_outside_tmux(tmp_path):
     home = fake_index(tmp_path, [(ID_A, "topic-a")])
     host = fake_host(comms={10: "codex"}, cwds={10: "/x"}, fds={10: [fake_rollout(ID_A)]})
-    by = codex_sessions.codex_by_tmux_session({}, codex_home=home, ppid_of=lambda _p: None, **host)
+    by = codex_sessions.codex_by_tmux_session(
+        pane_pid_to_session={}, codex_home=home, ppid_of=lambda _p: None, **host
+    )
     assert by == {}
 
 
@@ -159,7 +169,10 @@ def test_codex_by_tmux_session_keeps_the_first_on_a_same_tmux_same_name_collisio
         fds={10: [fake_rollout(ID_A)], 20: [fake_rollout(ID_B)]},
     )
     by = codex_sessions.codex_by_tmux_session(
-        {101: "shared", 202: "shared"}, codex_home=home, ppid_of={10: 101, 20: 202}.get, **host
+        pane_pid_to_session={101: "shared", 202: "shared"},
+        codex_home=home,
+        ppid_of={10: 101, 20: 202}.get,
+        **host,
     )
     assert set(by) == {("shared", "topic-a")}
     assert by[("shared", "topic-a")].pid == 10  # the FIRST by pid order, not the last
@@ -179,7 +192,7 @@ def test_rollout_exists_is_false_when_the_sessions_tree_cannot_be_walked(monkeyp
             raise OSError(5, "Input/output error")
 
     monkeypatch.setattr(codex_sessions, "Path", lambda _path: _UnwalkableTree())
-    assert codex_sessions.rollout_exists(ID_A, codex_home="/somewhere") is False
+    assert codex_sessions.rollout_exists(session_id=ID_A, codex_home="/somewhere") is False
 
 
 # --------------------------------------------------------------------------- #
@@ -226,7 +239,7 @@ def test_proc_fd_targets_reads_the_open_fd_symlinks(tmp_path, monkeypatch):
     (fds / "3").symlink_to(fake_rollout(ID_A))
 
     assert sorted(codex_sessions.proc_fd_targets(4242)) == ["/dev/null", fake_rollout(ID_A)]
-    joined = codex_sessions.open_rollout_id(4242, fd_targets_of=codex_sessions.proc_fd_targets)
+    joined = codex_sessions.open_rollout_id(pid=4242, fd_targets_of=codex_sessions.proc_fd_targets)
     assert joined == ID_A
 
 

@@ -40,13 +40,13 @@ def test_do_launch_is_false_when_the_pane_never_becomes_claude(tmp_path):
     """B5: a respawn that lands but never yields a live Claude TUI is a FAILED launch —
     False, and the resume line is never pasted into whatever is sitting there instead."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture())
     on_respawn(fake, lambda s: fake.cmds.__setitem__(s, "zsh"))  # comes up a shell
     sup = make_supervisor(tmp_path, fake)
 
-    assert sup.do_launch(mapped_track(repo, topic, session), session) is False
+    assert sup.do_launch(track=mapped_track(repo, topic, session), session=session) is False
     assert fake.has(method="respawn")  # it did try...
     assert not fake.has(method="paste")  # ...but never pasted into the un-verified pane
 
@@ -75,7 +75,7 @@ def test_run_refuses_to_start_when_another_daemon_holds_the_store_lock(tmp_path)
         assert "refusing to start" in err.getvalue()
         assert str(sup._singleton_lock_path()) in err.getvalue()
     finally:
-        supervisor.Supervisor._release_singleton_lock(handle)
+        supervisor.Supervisor._release_singleton_lock(handle=handle)
 
 
 def test_singleton_lock_is_treated_as_contended_when_the_lockfile_cannot_be_created(tmp_path):
@@ -93,11 +93,11 @@ def test_run_with_recover_recreates_missing_sessions_before_the_first_tick(tmp_p
     """`run(recover=True)` performs startup recovery once, BEFORE the loop — so a
     post-reboot daemon has its mapped sessions back by the time the first tick renders."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()  # session absent → recovery recreates it
     fake.panes[session] = idle_capture()  # post-launch empty box so the resume confirms
     sup = make_supervisor(tmp_path, fake)
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
+    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
     ticked = []
     sup.tick = lambda *, act: ticked.append(act)  # type: ignore[assignment]  # spy
 

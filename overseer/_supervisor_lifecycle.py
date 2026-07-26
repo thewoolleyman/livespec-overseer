@@ -37,12 +37,12 @@ __all__: list[str] = [
 ]
 
 
-def singleton_lock_path(sup: Supervisor) -> Path:
+def singleton_lock_path(*, sup: Supervisor) -> Path:
     store = Path(sup.store_path) if sup.store_path is not None else registry.DEFAULT_STORE_PATH
     return Path(str(store) + ".daemon.lock")
 
 
-def acquire_singleton_lock(sup: Supervisor) -> IO[str] | None:
+def acquire_singleton_lock(*, sup: Supervisor) -> IO[str] | None:
     """Non-blocking flock on a per-store lockfile; None if another daemon holds it.
 
     Two overseer daemons on the same store double-inject and double-restart —
@@ -51,7 +51,7 @@ def acquire_singleton_lock(sup: Supervisor) -> IO[str] | None:
     store path so a scratch-store live-exercise run never contends with the
     real daemon. Fail-soft: on any OSError, return None (treat as contended).
     """
-    path = singleton_lock_path(sup)
+    path = singleton_lock_path(sup=sup)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         handle = path.open("w", encoding="utf-8")
@@ -61,14 +61,14 @@ def acquire_singleton_lock(sup: Supervisor) -> IO[str] | None:
     return handle
 
 
-def release_singleton_lock(handle: IO[str] | None) -> None:
+def release_singleton_lock(*, handle: IO[str] | None) -> None:
     if handle is not None:
         with contextlib.suppress(OSError):
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
         handle.close()
 
 
-def unignored_tmp_repos(sup: Supervisor) -> list[str]:
+def unignored_tmp_repos(*, sup: Supervisor) -> list[str]:
     """Watched repos whose ``tmp/overseer/`` is NOT gitignored (present roots only).
 
     The overseer writes its markers under each track's ``<repo>/tmp/overseer/``;
@@ -78,12 +78,12 @@ def unignored_tmp_repos(sup: Supervisor) -> list[str]:
     """
     return [
         repo
-        for repo in _supervisor_discovery.resolve_watch(sup)
-        if registry.repo_root_present(repo) and not sup.gitignore_check(repo)
+        for repo in _supervisor_discovery.resolve_watch(sup=sup)
+        if registry.repo_root_present(repo=repo) and not sup.gitignore_check(repo)
     ]
 
 
-def unsupported_host_reasons(sup: Supervisor) -> list[str]:
+def unsupported_host_reasons(*, sup: Supervisor) -> list[str]:
     """Declared host preconditions that are ABSENT here (empty list == supported).
 
     Linux + tmux is a DECLARED REQUIREMENT rather than an abstraction boundary,
@@ -107,8 +107,8 @@ def unsupported_host_reasons(sup: Supervisor) -> list[str]:
 
 
 def run_loop(
-    sup: Supervisor,
     *,
+    sup: Supervisor,
     interval: float = LOOP_INTERVAL_SECONDS,
     once: bool = False,
     recover: bool = False,
@@ -129,27 +129,30 @@ def run_loop(
     ``KeyboardInterrupt`` is caught to exit cleanly; ``SystemExit`` propagates
     (it is a BaseException).
     """
-    unsupported = unsupported_host_reasons(sup)
+    unsupported = unsupported_host_reasons(sup=sup)
     if unsupported:
         sup.surface(
-            "refusing to start: unsupported host — "
+            message="refusing to start: unsupported host — "
             + "; ".join(unsupported)
             + " (the overseer declares Linux + tmux as a REQUIREMENT and "
             "deliberately does not abstract the host boundary)"
         )
         return
-    offenders = unignored_tmp_repos(sup)
+    offenders = unignored_tmp_repos(sup=sup)
     if offenders:
         sup.surface(
-            "refusing to start: tmp/overseer/ is NOT gitignored in "
+            message="refusing to start: tmp/overseer/ is NOT gitignored in "
             + ", ".join(offenders)
             + " — add `tmp/` to each repo's .gitignore (the overseer writes markers "
             "there and must never dirty a tracked tree)"
         )
         return
-    lock = acquire_singleton_lock(sup)
+    lock = acquire_singleton_lock(sup=sup)
     if lock is None:
-        sup.surface(f"another overseer daemon holds {singleton_lock_path(sup)}; refusing to start")
+        sup.surface(
+            message=f"another overseer daemon holds {singleton_lock_path(sup=sup)}; "
+            "refusing to start"
+        )
         return
     try:
         if recover:
@@ -182,4 +185,4 @@ def run_loop(
                 return
             sup.sleep(interval)
     finally:
-        release_singleton_lock(lock)
+        release_singleton_lock(handle=lock)

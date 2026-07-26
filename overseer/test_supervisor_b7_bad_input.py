@@ -186,14 +186,16 @@ def test_cli_add_remove_roundtrip(tmp_path, monkeypatch):
     store = isolate_store(tmp_path, monkeypatch)
     repo = str(tmp_path / "repo")
     assert supervisor.main(["add", "--repo", repo, "--topic", "alpha"]) == 0
-    rows = registry.read_mapping(store)
-    assert [(r.topic, r.tmux) for r in rows] == [("alpha", registry.tmux_id(repo, "alpha"))]
+    rows = registry.read_mapping(store_path=store)
+    assert [(r.topic, r.tmux) for r in rows] == [
+        ("alpha", registry.tmux_id(repo=repo, topic="alpha"))
+    ]
 
     assert supervisor.main(["add", "--repo", repo, "--topic", "alpha"]) == 0
-    assert len(registry.read_mapping(store)) == 1
+    assert len(registry.read_mapping(store_path=store)) == 1
 
     assert supervisor.main(["remove", "--repo", repo, "--topic", "alpha"]) == 0
-    assert registry.read_mapping(store) == []
+    assert registry.read_mapping(store_path=store) == []
 
 
 def test_cli_add_names_a_bare_topic_by_default(tmp_path, monkeypatch):
@@ -201,7 +203,7 @@ def test_cli_add_names_a_bare_topic_by_default(tmp_path, monkeypatch):
     store = isolate_store(tmp_path, monkeypatch)
     repo = str(tmp_path / "livespec")
     assert supervisor.main(["add", "--repo", repo, "--topic", "autonomous-mode"]) == 0
-    rows = registry.read_mapping(store)
+    rows = registry.read_mapping(store_path=store)
     assert [(r.topic, r.tmux) for r in rows] == [("autonomous-mode", "autonomous-mode")]
 
 
@@ -213,7 +215,7 @@ def test_cli_add_single_dash_prefixes_a_cross_repo_collision(tmp_path, monkeypat
     repo = str(tmp_path / "livespec")
     assert supervisor.main(["add", "--repo", repo, "--topic", "shared"]) == 0
     assert supervisor.main(["add", "--repo", repo, "--topic", "solo"]) == 0
-    rows = {r.topic: r.tmux for r in registry.read_mapping(store)}
+    rows = {r.topic: r.tmux for r in registry.read_mapping(store_path=store)}
     assert rows["shared"] == "livespec-shared"  # colliding -> repo-qualified
     assert rows["solo"] == "solo"  # non-colliding -> bare
 
@@ -236,7 +238,7 @@ def test_build_rows_caches_the_cross_repo_collision_set(tmp_path):
     )
     rows = sup.build_rows(act=False)
     assert sup.colliding_topics == frozenset({"shared"})
-    derived = {(r.repo, r.topic): sup._session_of(r) for r in rows}
+    derived = {(r.repo, r.topic): sup._session_of(track=r) for r in rows}
     assert derived[(str(r1), "shared")] == "livespec-shared"
     assert derived[(str(r2), "shared")] == "other-shared"
     assert derived[(str(r1), "solo-a")] == "solo-a"
@@ -248,4 +250,4 @@ def test_cli_unassign_is_remove(tmp_path, monkeypatch):
     repo = str(tmp_path / "repo")
     supervisor.main(["add", "--repo", repo, "--topic", "beta"])
     assert supervisor.main(["unassign", "--repo", repo, "--topic", "beta"]) == 0
-    assert registry.read_mapping(store) == []
+    assert registry.read_mapping(store_path=store) == []

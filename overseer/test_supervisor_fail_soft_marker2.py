@@ -44,7 +44,7 @@ def test_codex_restart_alerts_when_the_codex_session_vanished_before_the_respawn
     the codex process died between the map refresh and the restart, there is no id to
     resume — so it must alert and KEEP the declaration, never respawn a guessed target."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun")
     sup = make_supervisor(tmp_path, fake)  # `live_codex` left EMPTY: the session is gone
@@ -52,7 +52,7 @@ def test_codex_restart_alerts_when_the_codex_session_vanished_before_the_respawn
     err = _io.StringIO()
 
     with contextlib.redirect_stderr(err):
-        sup._do_codex_restart(mapped_track(repo, topic, session), session)
+        sup._do_codex_restart(track=mapped_track(repo, topic, session), target=session)
 
     assert "codex session vanished before restart" in err.getvalue()
     assert session in err.getvalue()
@@ -126,7 +126,7 @@ def test_build_rows_rejoins_after_auto_link_so_the_row_is_mapped_this_tick(tmp_p
     Without the re-join the tick would evaluate the stale pre-link snapshot and render the
     plan `unassigned` for a full interval despite having just linked its live session."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.sessions.add(session)
     fake.paths[session] = str(repo / "plan" / topic)  # cwd inside the repo → linkable
@@ -147,7 +147,7 @@ def test_codex_track_is_rejected_when_its_live_session_runs_outside_the_repo(tmp
     repo, topic = make_plan(tmp_path)
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun")
     sup = make_supervisor(tmp_path, fake)
@@ -160,7 +160,9 @@ def test_codex_track_is_rejected_when_its_live_session_runs_outside_the_repo(tmp
         )
     }
 
-    assert sup._is_codex_track(session, str(repo), topic, session) is False
+    assert (
+        sup._is_codex_track(session=session, repo=str(repo), topic=topic, target=session) is False
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -173,11 +175,11 @@ def test_recover_skips_a_track_whose_session_is_already_live(tmp_path):
     """Recovery recreates only ABSENT sessions. A live one is skipped outright — the
     `session_exists` gate is what makes startup recovery safe to run at all."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture())  # the session IS live
     sup = make_supervisor(tmp_path, fake)
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
+    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
 
     assert sup.recover_missing_sessions() == []
     assert not fake.has(method="new")  # never re-created a live session...
@@ -188,11 +190,11 @@ def test_recover_surfaces_a_claude_track_whose_launch_fails(tmp_path, capsys):
     """B5: `_do_launch` returning False must be SURFACED and the track left out of the
     recovered list — never a silent claim that a session was recreated."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()  # session absent → created, then the respawn fails
     fake.respawn_ok = False
     sup = make_supervisor(tmp_path, fake)
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
+    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
 
     assert sup.recover_missing_sessions() == []
 
@@ -205,12 +207,12 @@ def test_recover_codex_skips_when_new_session_does_not_create_the_session(tmp_pa
     """Codex re-review #3, Codex arm: if `new-session` did not create the EXACT session,
     recovery must not proceed to a respawn that could target a prefix-matched sibling."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     fake = FakeTmux()
     fake.new_session_ok = False
     sup = make_supervisor(tmp_path, fake, codex_home=str(codex_home_with(tmp_path, topic, sid)))
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
+    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
 
     assert sup.recover_missing_sessions() == []
     assert not fake.has(method="respawn")
@@ -223,12 +225,12 @@ def test_recover_codex_surfaces_when_the_codex_resume_launch_fails(tmp_path, cap
     """B5, Codex arm: the session was created but `codex resume` never landed. The track
     is surfaced and NOT reported as recovered, so the operator relaunches it by hand."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
     fake = FakeTmux()
     fake.respawn_ok = False  # the session is created, but the codex respawn fails
     sup = make_supervisor(tmp_path, fake, codex_home=str(codex_home_with(tmp_path, topic, sid)))
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
+    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
 
     assert sup.recover_missing_sessions() == []
     assert fake.has(method="new")  # it got as far as creating the session...
@@ -246,6 +248,9 @@ def test_launch_helpers_refuse_a_session_with_no_resolvable_pane(tmp_path):
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, "no-such-session")
 
-    assert sup.do_launch(track, "no-such-session") is False
-    assert sup._do_codex_launch(track, "no-such-session", "aaaa-bbbb") is False
+    assert sup.do_launch(track=track, session="no-such-session") is False
+    assert (
+        sup._do_codex_launch(track=track, session="no-such-session", session_id="aaaa-bbbb")
+        is False
+    )
     assert not fake.has(method="respawn")
