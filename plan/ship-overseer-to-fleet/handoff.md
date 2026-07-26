@@ -37,6 +37,15 @@ beside them.
    `research/operator-surface.md:27` records that exemption as a settled ruling
    — that file is at `plan/archive/cutover-and-shipping/research/`.** Goal 1 does
    NOT silently reopen Codex scope;
+   <!-- operator-surface.md placement: SETTLED 2026-07-26 — it STAYS in the
+   archive and is cited by its post-archive path. That was overseer-hbr.3's open
+   question ("git mv it into the successor research tree, or leave it and cite
+   the archive path?"), and it is settled by observation rather than by a new
+   decision: it was never moved, and every surviving citation now carries the
+   archive path. HAZARD THIS LEAVES: a LIVE ruling now lives under plan/archive/.
+   If that archive is ever pruned, carry this ruling forward FIRST — the Codex
+   exemption and the livespec-b1uo.4/.5 "unnecessary" ruling both rest on it. -->
+
    doing so needs an explicit superseding maintainer decision. "Works" includes the
    PROMPT TEXT it generates: `overseer-fitvmo` (a CHILD of `overseer-hbr`) carries
    required anti-stall guidance for the generated supervisor-handoff — see
@@ -1107,9 +1116,14 @@ state.
      `$HOME/.livespec-overseer-repos.json`; the manifest-seeded `watch_set()` is
      **not defined anywhere** any more, and no non-test code reads
      `.livespec-fleet-manifest.jsonc`. Close as delivered.
-   - **`.4`/`.5`** driver bindings — `operator-surface.md:27` already rules them
-     **unnecessary**. Close as such. They still read `blocked` only because that
-     ruling lives in this repo's research file and was never reflected in core.
+   - **`.4`/`.5`** driver bindings —
+     `plan/archive/cutover-and-shipping/research/operator-surface.md:27` already
+     rules them **unnecessary**. Close as such. They still read `blocked` only
+     because that ruling lives in this repo's archived research file and was
+     never reflected in core. **(Path corrected 2026-07-26: this read a bare
+     `operator-surface.md:27`, which resolves to nothing from this file's own
+     directory — `plan/ship-overseer-to-fleet/research/operator-surface.md` does
+     not exist. It is the last unresolvable instance of that reference.)**
    - **`.2`** Linux+tmux precondition (D4) — genuinely core-side work on core's
      own spec and gates. No disposition available from here; leave with core.
 3. **`check-no-workflow-edits` copy-drift** across the 4 carrying fleet repos.
