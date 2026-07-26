@@ -132,7 +132,7 @@ def test_overseerd_threads_and_validates_warn_percent(*, monkeypatch):
     mod = _load_overseerd()
     seen: dict[str, object] = {}
 
-    def _fake_run(warn_percent=None):
+    def _fake_run(*, warn_percent=None):
         seen["wp"] = warn_percent
         return 0
 
