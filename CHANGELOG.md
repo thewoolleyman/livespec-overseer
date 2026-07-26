@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.2...v0.12.3) (2026-07-26)
+
+
+### Bug Fixes
+
+* **overseer:** bound both subprocess calls with a timeout ([cee8c83](https://github.com/thewoolleyman/livespec-overseer/commit/cee8c83d87951480642493e2ebe28fc680ad9748))
+
+
+### Refactoring
+
+* **tests:** split test_codex_sessions into join and mapping halves ([46b3112](https://github.com/thewoolleyman/livespec-overseer/commit/46b3112d13f24c4cea67d84642616f1c594d94f0))
+* **tests:** split test_tmuxio into reads and writes ([b3ffbb0](https://github.com/thewoolleyman/livespec-overseer/commit/b3ffbb002d1fa91501e7aa589f42e6e9e09c5fdc))
+
 ## [0.12.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.1...v0.12.2) (2026-07-26)
 
 
