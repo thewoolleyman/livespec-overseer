@@ -65,10 +65,7 @@ reader here keeps its own binding.
 from __future__ import annotations
 
 import collections
-import contextlib
-import fcntl
 import os
-import shlex
 import shutil
 import sys
 import time
@@ -77,6 +74,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO
 
+import _supervisor_launch
+import _supervisor_lifecycle
+import _supervisor_recovery
 import _supervisor_render
 import claude_sessions
 import codex_sessions
@@ -91,11 +91,6 @@ from _supervisor_config import (
     IDLE_NUDGE_AFTER,
     LOOP_INTERVAL_SECONDS,
     MARKER_VOID_GRACE,
-    RESTART_POLL_INTERVAL,
-    RESTART_POLL_MAX,
-    SETTLE_DELAY,
-    SUBMIT_MAX_ENTERS,
-    SUBMIT_POLL,
     SUPERVISION_CONDITIONS,
     default_gitignore_check,
     iso_now,
@@ -298,11 +293,8 @@ class Supervisor:
     # ----------------------------------------------------------------- #
 
     def _resolve_watch(self) -> list[str]:
-        if self.watch_repos is not None:
-            return [os.path.normpath(r) for r in self.watch_repos]
-        if self.watch_set_path is not None:
-            return registry.watch_set_from_config(self.watch_set_path, self.extra_repos)
-        return [os.path.normpath(r) for r in self.extra_repos]
+        """See :func:`_supervisor_launch.resolve_watch`."""
+        return _supervisor_launch.resolve_watch(self)
 
     def archive_gc(self) -> int:
         """Drop mapping rows whose ``<repo>/plan/<topic>/`` is archived or gone."""
@@ -561,10 +553,8 @@ class Supervisor:
     # ----------------------------------------------------------------- #
 
     def _session_of(self, track: registry.Track) -> str:
-        # A mapped track carries its real session name (`track.tmux`); only an
-        # unmapped one falls back to the derived name, which must use THIS tick's
-        # collision set so it matches what `start`/`auto_link` would spawn.
-        return track.tmux or registry.tmux_id(track.repo, track.topic, self.colliding_topics)
+        """See :func:`_supervisor_launch.session_of`."""
+        return _supervisor_launch.session_of(self, track)
 
     def _effective_ctx(self, key: tuple[str, str], current: int | None) -> int | None:
         """Current remaining-%, or the last known if this tick read unknown.
@@ -577,21 +567,6 @@ class Supervisor:
             state.last_ctx = current
             return current
         return state.last_ctx
-
-    def _pane_settled(self, target: str) -> bool:
-        """True if two captures ~``SETTLE_DELAY`` apart are identical (``target`` = pane id).
-
-        A single capture cannot distinguish active token-streaming from idle —
-        the live Claude TUI renders no persistent busy spinner while streaming
-        (verified 2026-07-13). Before the daemon INJECTS or RESTARTS an
-        apparently-idle track, it confirms the pane is not actively changing. A
-        changing pane is treated as busy (`working`) and skipped this tick —
-        over-firing busy is the safe direction.
-        """
-        first = signals.strip_ansi(self.tmux.capture_pane(target))
-        self.sleep(SETTLE_DELAY)
-        second = signals.strip_ansi(self.tmux.capture_pane(target))
-        return first == second
 
     def _is_codex_track(
         self, session: str | None, repo: str, topic: str, target: str | None = None
@@ -1261,7 +1236,11 @@ class Supervisor:
             # pasted) — the round is done here; the rare paste-failure re-engages via the
             # idle-with-context nudge, not a double-kick. A box holding TEXT means the Enter
             # was dropped — re-send Enter ONLY (never re-paste; the text is already there).
-            resolved = True if signals.input_box_ready(capture) else self._resend_enter(target)
+            resolved = (
+                True
+                if signals.input_box_ready(capture)
+                else _supervisor_launch.resend_enter(self, target)
+            )
             if resolved:
                 self._clear_state(track)
                 self.log(f"restart resume submitted for {repo}::{topic} (pane {target})")
@@ -1390,7 +1369,7 @@ class Supervisor:
             # Pane present but not a verified idle-input state and not busy —
             # a transient/settling capture. Wait; never act.
             status = "settling"
-        elif act and not self._pane_settled(target):
+        elif act and not _supervisor_launch.pane_settled(self, target):
             # One frame looks idle, but the pane is actively changing (streaming).
             status = "working"
         elif act and not self._pane_is_managed(target, repo, topic, session):
@@ -1660,7 +1639,7 @@ class Supervisor:
                 message="restart respawn FAILED; keeping the ready declaration so it retries",
             )
             return
-        if not self._await_pane(target, signals.pane_is_claude):
+        if not _supervisor_launch.await_pane(self, target, signals.pane_is_claude):
             self.alert(
                 repo=track.repo,
                 topic=track.topic,
@@ -1674,7 +1653,7 @@ class Supervisor:
         # which is exactly what stranded resumes live (2026-07-17). Best-effort: if the
         # box never appears in time, proceed anyway and let the submit-retry below (and
         # the next tick's `resume_pending` retry) recover.
-        _ = self._await_input_box(target)
+        _ = _supervisor_launch.await_input_box(self, target)
         # If the fresh TUI came up on a picker (a trust / update / bypass-permissions
         # gate), NEVER keystroke into it (blocker #6) — pasting + Enter would auto-accept
         # its default. Defer to the `resume_pending` retry, which reports the gate as
@@ -1751,7 +1730,7 @@ class Supervisor:
                 message="restart respawn FAILED; keeping the ready declaration so it retries",
             )
             return
-        if not self._await_pane(target, signals.pane_is_codex):
+        if not _supervisor_launch.await_pane(self, target, signals.pane_is_codex):
             self.alert(
                 repo=track.repo,
                 topic=track.topic,
@@ -1767,308 +1746,33 @@ class Supervisor:
 
     @staticmethod
     def _launch_command(track: registry.Track) -> str:
-        """The Claude (re)start command: ``claude --dangerously-skip-permissions -n <topic>``.
-
-        ``--dangerously-skip-permissions`` is REQUIRED (maintainer 2026-07-14): a
-        (re)started track must resume AUTONOMOUSLY. Without it the fresh session
-        stalls on the first permission prompt and the whole point of the
-        auto-restart — an unattended, hands-off resume — is lost. ``-n <topic>``
-        (topic shell-quoted, defensive) sets the session's display name; the resume
-        line (read the handoff) is pasted AFTER launch, since a ``claude "<prompt>"``
-        argv only pre-fills without submitting.
-
-        The command deliberately carries NO tmux env scoping — no ``unset TMUX``,
-        no ``TMUX_TMPDIR`` export. The former L1 env inversion (an agent-private
-        socket namespace prefixed onto every spawn) was REMOVED by
-        ``plan/tmux-fleet-visibility/``: it blinded every spawned agent to the real
-        fleet (producing false session-liveness claims) while failing open whenever
-        its tmpfs-backed directory vanished, and the L2 ``PreToolUse`` command
-        guards are the layer that actually distinguishes a listing from a teardown.
-        A bare ``tmux ls`` in a spawned agent MUST tell the truth; do not re-add a
-        scoping prefix here.
-
-        This is the Claude-ONLY command — it must NEVER be aimed at a codex pane (it would
-        destroy the session). ``_do_restart`` dispatches a Codex track to
-        :meth:`_codex_launch_command` instead.
-        """
-        return f"claude --dangerously-skip-permissions -n {shlex.quote(track.topic)}"
+        """See :func:`_supervisor_launch.launch_command`."""
+        return _supervisor_launch.launch_command(track)
 
     @staticmethod
     def _codex_launch_command(session_id: str, resume: str) -> str:
-        """The Codex (re)start command:
-        ``codex resume --dangerously-bypass-approvals-and-sandbox <session-id> "<resume>"``.
-
-        ``--dangerously-bypass-approvals-and-sandbox`` is the codex twin of the Claude
-        path's REQUIRED ``--dangerously-skip-permissions`` (maintainer-declared 2026-07-17):
-        without it the resumed session uses codex's default INTERACTIVE approval policy and
-        stalls at a ``› 1.`` approval picker on its first tool call — the daemon would
-        (correctly) report `blocked:human` and the "auto-restart" would not be hands-off.
-        Codex documents the flag as "intended solely for environments that are externally
-        sandboxed", which this local-only overseer host is (the whole fleet already runs
-        `claude --dangerously-skip-permissions`).
-
-        Resume by the exact UUID (never the name — "UUIDs take precedence" and a name can
-        be ambiguous / drop to a picker), which reattaches the SAME rollout so the
-        ``thread_name`` survives (adoptability). The resume line is the kick and is passed
-        as the PROMPT argument, which Codex auto-submits (verified live 2026-07-17) — so
-        unlike the Claude path there is no separate paste. Fields are shell-quoted; the
-        flag precedes the positional ``SESSION_ID``/``PROMPT`` per ``codex resume``'s usage.
-
-        Like :meth:`_launch_command`, this carries NO tmux env scoping — the L1
-        env inversion was removed by ``plan/tmux-fleet-visibility/`` (see that
-        method's docstring); do not re-add a scoping prefix here.
-        """
-        return (
-            "codex resume --dangerously-bypass-approvals-and-sandbox "
-            f"{shlex.quote(session_id)} {shlex.quote(resume)}"
-        )
-
-    def _await_pane(self, target: str, is_ready: Callable[[str | None], bool]) -> bool:
-        """Poll ``#{pane_current_command}`` until ``is_ready(cmd)``, bounded.
-
-        ``target`` is the resolved pane id. Never scrape the ``❯``/``›`` prompt glyph
-        (ambiguous shell/TUI); wait on the process identity (design). ``is_ready`` is the
-        runtime predicate — :func:`signals.pane_is_claude` for a Claude restart,
-        :func:`signals.pane_is_codex` for a Codex one. Returns False if it never became
-        that runtime.
-        """
-        for _ in range(RESTART_POLL_MAX):
-            if is_ready(self.tmux.pane_current_command(target)):
-                return True
-            self.sleep(RESTART_POLL_INTERVAL)
-        return False
-
-    def _await_input_box(self, target: str) -> bool:
-        """Poll until the pane renders a ready (empty) Claude input box, bounded.
-
-        Used right after a respawn, BEFORE pasting the resume line: a freshly-respawned
-        Claude is often still drawing its welcome/news screen, and a paste + Enter that
-        arrives then is dropped (the stranded-resume failure). Waiting for the empty `❯`
-        box (`signals.input_box_ready`) means the TUI has finished its first paint and is
-        ready to accept input. Best-effort — returns True if the box appeared, False if it
-        never did within the bound; the caller proceeds either way (the submit-verify loop
-        and the next-tick `resume_pending` retry recover a residual drop).
-        """
-        for _ in range(RESTART_POLL_MAX):
-            if signals.input_box_ready(self.tmux.capture_pane(target)):
-                return True
-            self.sleep(RESTART_POLL_INTERVAL)
-        return False
-
-    def _resend_enter(self, target: str) -> bool:
-        """Re-send Enter (NEVER re-paste, NEVER re-respawn) until the resume submits.
-
-        The retry half of the self-healing resume (R1): the resume line is ALREADY sitting
-        in the box from the prior respawn, so re-pasting would duplicate it — this only
-        re-sends Enter, bounded by `SUBMIT_MAX_ENTERS`. Submitted is confirmed by the Claude
-        box CLEARING (`signals.input_box_ready`) — the same signal `_submit_prompt` uses on
-        the Claude path — NOT by the pane going busy: a freshly-respawned session can be busy
-        for reasons unrelated to the resume (SessionStart hooks), so a busy check would
-        false-confirm an un-submitted resume (review SF3). An extra Enter on an already-empty
-        prompt is a harmless no-op.
-        """
-        for _ in range(SUBMIT_MAX_ENTERS):
-            _ = self.tmux.send_keys(target, "Enter")
-            self.sleep(SUBMIT_POLL)
-            if signals.input_box_ready(self.tmux.capture_pane(target)):
-                return True
-        return False
+        """See :func:`_supervisor_launch.codex_launch_command`."""
+        return _supervisor_launch.codex_launch_command(session_id, resume)
 
     def _submit_prompt(self, target: str, text: str, *, expect_codex: bool = False) -> bool:
-        """Bracketed-paste a payload, then submit it — re-sending Enter until it lands.
-        Returns True iff the paste LANDED and the submit is CONFIRMED. ``target`` is the
-        resolved pane id (RB3).
-
-        The paste is atomic (never fragments — blocker #2). A SINGLE Enter is
-        enough on a steady idle session, but a freshly-`respawn`-ed session is
-        often still drawing its welcome/news screen when the Enter arrives, and
-        that first Enter is dropped — leaving the resume line un-submitted and the
-        auto-restart stalled (verified live 2026-07-13). So we verify after each Enter
-        and re-send up to `SUBMIT_MAX_ENTERS` times; an extra Enter on an already-empty
-        prompt is a harmless no-op (neither TUI submits an empty message).
-
-        The confirm signal is RUNTIME-SPECIFIC because the two TUIs render differently:
-
-        - **Claude** — the empty `❯` box returns (`signals.input_box_ready`, which does
-          NOT require not-busy, so a now-working pane also reads submitted).
-        - **Codex** (`expect_codex`) — the pane goes BUSY (`signals.is_busy` matches
-          Codex's `esc to interrupt` / `Working …`). Codex has no `❯` box and its empty
-          box shows a grey rotating PLACEHOLDER indistinguishable from typed text in an
-          ANSI-stripped capture, so "box cleared" is not a usable signal; "the model
-          started responding" is (verified live 2026-07-17 — busy within ~1s of Enter).
-          Caveat (adversarial review 2026-07-17): the Codex confirm reads `is_busy` over
-          the whole capture, so a payload the daemon PASTES must not itself contain a
-          busy-marker substring (`esc to interrupt`, `· Ns ·`, `↓ N tokens`, `(running`),
-          or an UNSUBMITTED payload sitting in the composer would false-read as submitted.
-          The current wrap-up / nudge / resume texts are all clear of these; keep them so.
-
-        Returning a bool (B5): callers must know whether the payload actually
-        went in. A failed ``bracketed_paste`` is a hard False — WITHOUT it the box
-        would still read empty and a never-delivered wrap-up/resume would be
-        counted as sent (the paste-failure false-success the maintainer flagged).
-        """
-        if not self.tmux.bracketed_paste(target, text):
-            self.log(f"bracketed paste FAILED for pane {target}")
-            return False
-        self.sleep(RESTART_POLL_INTERVAL)
-        for _ in range(SUBMIT_MAX_ENTERS):
-            _ = self.tmux.send_keys(target, "Enter")
-            self.sleep(SUBMIT_POLL)
-            capture = self.tmux.capture_pane(target)
-            submitted = (
-                signals.is_busy(capture) if expect_codex else signals.input_box_ready(capture)
-            )
-            if submitted:
-                return True
-        return False
+        """See :func:`_supervisor_launch.submit_prompt`."""
+        return _supervisor_launch.submit_prompt(self, target, text, expect_codex=expect_codex)
 
     # ----------------------------------------------------------------- #
     # Reboot recovery (startup-only, never per-tick).
     # ----------------------------------------------------------------- #
 
     def recover_missing_sessions(self) -> list[str]:
-        """Recreate any mapped session that is not currently live (design).
-
-        Run ONCE at daemon startup: a fresh overseer reads the mapping, and for
-        each row whose mapped session (``_session_of``: the row's stored ``tmux``, or
-        the derived bare-topic / collision name) is gone, recreates it. Not a
-        per-tick action (a session the user deliberately kills should not be revived
-        every 10s). Returns the recovered names.
-
-        RUNTIME-DISPATCHED (defect #5, 2026-07-18). A dead codex process is absent from the
-        live ``self.live_codex`` map (there is no rollout fd at cold start), so the runtime is
-        derived from the PERSISTENT codex index instead — which SURVIVES the session's death.
-        If the track's TOPIC names a session in ``session_index.jsonl``
-        (:func:`codex_sessions.latest_session_for_thread_name`), the track is CODEX and is
-        recovered by :meth:`_recover_codex_track` — ``codex resume <id>`` reattaches the SAME
-        rollout (option c) when it still exists on disk, else a skip+surface (option b), NEVER
-        a mis-recreation as Claude. Otherwise the track is Claude and is recreated with
-        ``claude --dangerously-skip-permissions -n <topic>`` (:meth:`_launch_command`) + a
-        resume-line paste. Either way the ``session_exists`` gate means only a genuinely
-        ABSENT session is recreated, so no live session is ever killed.
-        """
-        recovered: list[str] = []
-        for track in registry.read_mapping(self.store_path):
-            session = self._session_of(track)
-            if self.tmux.session_exists(session):
-                continue
-            # Runtime dispatch: a topic named in the persistent codex index is a CODEX track.
-            # The index survives the session's death, so it is the ONLY runtime signal at cold
-            # start. `_recover_codex_track` resumes the same rollout (option c) or skips+surfaces
-            # (option b) — it NEVER falls through to the Claude path below (rollout-orphaning).
-            codex_id = codex_sessions.latest_session_for_thread_name(
-                track.topic, codex_home=self.codex_home
-            )
-            if codex_id is not None:
-                name = self._recover_codex_track(track, session, codex_id)
-                if name is not None:
-                    recovered.append(name)
-                continue
-            _ = self.tmux.new_session(session, track.repo)
-            # Require the EXACT session to now exist before launching (Codex
-            # re-review #3): if `new-session` failed, `_do_launch`'s pane-id
-            # resolution + `respawn-pane` would target the bare name, which could
-            # prefix-match a live sibling and replace IT. Fail-soft: surface + skip.
-            if not self.tmux.session_exists(session):
-                self.surface(
-                    f"reboot-recovery: new-session did not create {session} "
-                    f"for {track.repo}::{track.topic}; skipping"
-                )
-                continue
-            if self.do_launch(track, session):
-                recovered.append(session)
-                self.log(f"reboot-recovery recreated {session} for {track.repo}::{track.topic}")
-            else:
-                self.surface(
-                    f"reboot-recovery FAILED to launch {session} for {track.repo}::{track.topic}"
-                )
-        return recovered
-
-    def _recover_codex_track(
-        self, track: registry.Track, session: str, session_id: str
-    ) -> str | None:
-        """Reboot-recover a CODEX track (defect #5): resume the SAME rollout, or skip+surface.
-
-        **Option (c) — resume.** If the session's rollout still exists on disk
-        (:func:`codex_sessions.rollout_exists`), create the tmux session and respawn it with
-        ``codex resume --dangerously-bypass-approvals-and-sandbox <id> "<kick>"``
-        (:meth:`_do_codex_launch`). ``codex resume`` reattaches the SAME conversation and
-        preserves its ``thread_name``, so the daemon re-adopts the track on the next tick —
-        parity-or-better continuity vs. the Claude path's fresh-session-plus-handoff (verified
-        live 2026-07-18: a 26-day-old session reattached, thread_name intact, and — because the
-        respawn cwd is ``track.repo``, matching the session's recorded cwd — with no working-dir
-        picker).
-
-        **Option (b) — skip + surface.** If the rollout is GONE, ``codex resume`` cannot
-        reattach, so recovery SKIPS the track and surfaces it for the operator, NEVER
-        mis-recreating it as Claude (which would orphan the rollout). A relaunched codex is
-        re-adopted automatically.
-
-        Returns the recovered session name, or None on skip/failure (mirroring the Claude
-        path's ``session_exists``/launch gates).
-        """
-        if not codex_sessions.rollout_exists(session_id, codex_home=self.codex_home):
-            self.surface(
-                f"reboot-recovery: codex track {track.repo}::{track.topic} was down at boot and "
-                f"its rollout is gone (session {session_id}); relaunch it and it will re-adopt"
-            )
-            return None
-        _ = self.tmux.new_session(session, track.repo)
-        if not self.tmux.session_exists(session):
-            self.surface(
-                f"reboot-recovery: new-session did not create {session} "
-                f"for {track.repo}::{track.topic}; skipping"
-            )
-            return None
-        if self._do_codex_launch(track, session, session_id):
-            self.log(
-                f"reboot-recovery resumed codex {session} for {track.repo}::{track.topic} "
-                f"(session {session_id})"
-            )
-            return session
-        self.surface(
-            f"reboot-recovery FAILED to resume codex {session} for {track.repo}::{track.topic}"
-        )
-        return None
+        """See :func:`_supervisor_recovery.recover_missing_sessions`."""
+        return _supervisor_recovery.recover_missing_sessions(self)
 
     def _do_codex_launch(self, track: registry.Track, session: str, session_id: str) -> bool:
-        """Respawn ``session`` with ``codex resume <id> "<kick>"`` and await a live codex pane.
-
-        The codex twin of :meth:`_do_launch`, and SIMPLER: ``codex resume`` takes the kick as
-        its PROMPT argument and AUTO-SUBMITS it (verified live 2026-07-17), so there is no
-        separate resume-line paste. ``session`` is the just-created session NAME; the pane id
-        is resolved from it and every pane op targets that id (RB3). The respawn cwd is
-        ``track.repo`` — which matches the codex session's recorded cwd — so ``codex resume``
-        reattaches directly. Returns True iff respawn succeeded and the pane became a live
-        codex TUI (a failed respawn / non-codex pane surfaces via the caller).
-        """
-        target = self.tmux.pane_id(session)
-        if target is None:
-            return False
-        resume = track.resume or default_resume(track.repo, track.topic)
-        command = self._codex_launch_command(session_id, resume)
-        if not self.tmux.respawn_pane(target, track.repo, command):
-            return False
-        return self._await_pane(target, signals.pane_is_codex)
+        """See :func:`_supervisor_recovery.do_codex_launch`."""
+        return _supervisor_recovery.do_codex_launch(self, track, session, session_id)
 
     def do_launch(self, track: registry.Track, session: str) -> bool:
-        """Launch ``claude --dangerously-skip-permissions -n <topic>`` and paste the resume line.
-
-        ``session`` is the (just-created or existing) session NAME; the pane id is
-        resolved from it and every pane op targets that id (RB3). Returns True iff
-        respawn succeeded, the pane became a live Claude, and the resume line
-        submitted — so callers (`recover`, `start`) can surface a failure rather
-        than silently claim a launch happened (B5).
-        """
-        target = self.tmux.pane_id(session)
-        if target is None:
-            return False
-        if not self.tmux.respawn_pane(target, track.repo, self._launch_command(track)):
-            return False
-        if not self._await_pane(target, signals.pane_is_claude):
-            return False
-        resume = track.resume or default_resume(track.repo, track.topic)
-        return self._submit_prompt(target, resume)
+        """See :func:`_supervisor_recovery.do_launch`."""
+        return _supervisor_recovery.do_launch(self, track, session)
 
     # ----------------------------------------------------------------- #
     # Table rendering.
@@ -2101,144 +1805,28 @@ class Supervisor:
     # ----------------------------------------------------------------- #
 
     def _singleton_lock_path(self) -> Path:
-        store = (
-            Path(self.store_path) if self.store_path is not None else registry.DEFAULT_STORE_PATH
-        )
-        return Path(str(store) + ".daemon.lock")
+        """See :func:`_supervisor_lifecycle.singleton_lock_path`."""
+        return _supervisor_lifecycle.singleton_lock_path(self)
 
     def _acquire_singleton_lock(self) -> IO[str] | None:
-        """Non-blocking flock on a per-store lockfile; None if another daemon holds it.
-
-        Two overseer daemons on the same store double-inject and double-restart —
-        B's ``respawn-pane -k`` can kill the fresh session A just resumed
-        (adversarial code review 2026-07-13, blocker B6 = Codex #3). Keyed to the
-        store path so a scratch-store live-exercise run never contends with the
-        real daemon. Fail-soft: on any OSError, return None (treat as contended).
-        """
-        path = self._singleton_lock_path()
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            handle = path.open("w", encoding="utf-8")
-            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except OSError:
-            return None
-        return handle
+        """See :func:`_supervisor_lifecycle.acquire_singleton_lock`."""
+        return _supervisor_lifecycle.acquire_singleton_lock(self)
 
     @staticmethod
     def _release_singleton_lock(handle: IO[str] | None) -> None:
-        if handle is not None:
-            with contextlib.suppress(OSError):
-                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
-            handle.close()
+        """See :func:`_supervisor_lifecycle.release_singleton_lock`."""
+        _supervisor_lifecycle.release_singleton_lock(handle)
 
     def unignored_tmp_repos(self) -> list[str]:
-        """Watched repos whose ``tmp/overseer/`` is NOT gitignored (present roots only).
-
-        The overseer writes its markers under each track's ``<repo>/tmp/overseer/``;
-        if that path is not gitignored, a marker would dirty the tracked tree — the
-        exact thing the overseer must never do. A transiently-absent repo root is
-        skipped (not a violation), mirroring the GC's ``repo_root_present`` guard.
-        """
-        return [
-            repo
-            for repo in self._resolve_watch()
-            if registry.repo_root_present(repo) and not self.gitignore_check(repo)
-        ]
+        """See :func:`_supervisor_lifecycle.unignored_tmp_repos`."""
+        return _supervisor_lifecycle.unignored_tmp_repos(self)
 
     def unsupported_host_reasons(self) -> list[str]:
-        """Declared host preconditions that are ABSENT here (empty list == supported).
-
-        Linux + tmux is a DECLARED REQUIREMENT rather than an abstraction boundary,
-        so the honest failure is an immediate refusal naming what is missing — not a
-        `FileNotFoundError` surfacing several ticks deep, from whichever reader
-        happened to touch the host first. Two things are checked because two things
-        are genuinely required: `/proc` (the Claude and Codex session readers both
-        parse `/proc/<pid>/…`, and macOS has no `/proc` at all — absent, not merely
-        different), and a real `tmux` on PATH (every acting mechanic shells out to
-        it).
-        """
-        reasons: list[str] = []
-        if not Path(self.proc_root).is_dir():
-            reasons.append(
-                f"{os.fspath(self.proc_root)} is not a directory — the session readers "
-                "parse /proc/<pid>/ and macOS has no /proc at all (Linux is required)"
-            )
-        if self.which("tmux") is None:
-            reasons.append("tmux is not on PATH — every acting mechanic drives a real tmux")
-        return reasons
+        """See :func:`_supervisor_lifecycle.unsupported_host_reasons`."""
+        return _supervisor_lifecycle.unsupported_host_reasons(self)
 
     def run(
         self, *, interval: float = LOOP_INTERVAL_SECONDS, once: bool = False, recover: bool = False
     ) -> None:
-        """Run the poll loop. ``once`` runs a single tick (live-exercise/testing).
-
-        Holds a per-store singleton lock for its whole lifetime (B6).
-
-        A tick that raises is NOT caught: the exception propagates, the daemon exits
-        with a full traceback, and the process supervisor restarts it. B7's two
-        original cases — an unreadable ``plan/`` dir and a malformed store — are now
-        boundaried where they arise, by the narrow catches in
-        :func:`registry.discover_plans` and ``registry._read_rows``, so B7 is
-        discharged there rather than by a blanket guard here. What remains able to
-        reach this loop is a BUG, and a bug must not be swallowed into a loop that
-        keeps re-entering it.
-
-        ``KeyboardInterrupt`` is caught to exit cleanly; ``SystemExit`` propagates
-        (it is a BaseException).
-        """
-        unsupported = self.unsupported_host_reasons()
-        if unsupported:
-            self.surface(
-                "refusing to start: unsupported host — "
-                + "; ".join(unsupported)
-                + " (the overseer declares Linux + tmux as a REQUIREMENT and "
-                "deliberately does not abstract the host boundary)"
-            )
-            return
-        offenders = self.unignored_tmp_repos()
-        if offenders:
-            self.surface(
-                "refusing to start: tmp/overseer/ is NOT gitignored in "
-                + ", ".join(offenders)
-                + " — add `tmp/` to each repo's .gitignore (the overseer writes markers "
-                "there and must never dirty a tracked tree)"
-            )
-            return
-        lock = self._acquire_singleton_lock()
-        if lock is None:
-            self.surface(
-                f"another overseer daemon holds {self._singleton_lock_path()}; refusing to start"
-            )
-            return
-        try:
-            if recover:
-                _ = self.recover_missing_sessions()
-            while True:
-                try:
-                    _ = self.tick(act=True)
-                except KeyboardInterrupt:
-                    self.log("interrupted; exiting")
-                    return
-                # NO per-iteration broad catch. A bug in one track's tick PROPAGATES:
-                # this loop lets it out, the daemon dies with a full traceback on
-                # stderr, and the process supervisor restarts it. Deliberately not a
-                # `try`/`except` that logs and continues — a loop that swallows a bug
-                # and re-enters keeps re-reading the same bad state, so it presents as
-                # supervising while enforcing nothing.
-                #
-                # This is safe because it is NOT where environmental failures land:
-                # an unreadable `plan/` dir and a malformed store — the two cases the
-                # withdrawn catch was justified by — are boundaried narrowly in
-                # `registry.py` (`discover_plans`, `_read_rows`), and the
-                # `UnicodeDecodeError` that used to escape those handlers is caught
-                # there too. Anything reaching here is a defect, not a bad input.
-                #
-                # Do NOT reintroduce a catch here. The permission was withdrawn by
-                # maintainer ruling and the narrowing is ratified in livespec's
-                # non-functional-requirements (the supervisor-discipline rules), which
-                # no longer recognizes a loop-iteration marker at all.
-                if once:
-                    return
-                self.sleep(interval)
-        finally:
-            self._release_singleton_lock(lock)
+        """See :func:`_supervisor_lifecycle.run_loop`."""
+        _supervisor_lifecycle.run_loop(self, interval=interval, once=once, recover=recover)
