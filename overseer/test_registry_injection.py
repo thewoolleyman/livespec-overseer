@@ -2,9 +2,15 @@
 
 Split out of `test_registry.py` at the section banners it already carried, when
 that module crossed the 250-LLOC hard ceiling. This module owns the sidecar
-round-trip (repo-qualified stamps, notified bands, resume-pending) together with
-its fail-soft behavior over a corrupt, legacy, or half-shaped value — the two
-sections stay together because both are the same module surface.
+round-trip: repo-qualified stamps, notified bands, resume-pending, atomic row
+writes, and the tmux re-point.
+
+The fail-soft behaviour over a corrupt, legacy, or half-shaped value used to live
+here too, on the ground that both sections cover the same module surface. It now
+sits in `test_registry_injection_failsoft.py`: the keyword-only conversion
+(`overseer-bg2.9`) re-wrapped enough call sites to take the combined module past
+the 200-LLOC soft ceiling, and the split runs along the banner already drawn
+between them.
 
 ``import registry`` resolves via conftest.py.
 """
@@ -230,96 +236,3 @@ def test_repoint_tmux_rewrites_only_the_matching_row_and_is_idempotent(*, tmp_pa
     assert (
         registry.repoint_tmux(repo="/r", topic="missing", new_tmux="x", store_path=store) is False
     )  # no such row → no-op
-
-
-# --------------------------------------------------------------------------- #
-# Injection-stamp sidecar: fail-soft over a corrupt / legacy / half-shaped value.
-# --------------------------------------------------------------------------- #
-
-
-def test_injection_stamp_fail_soft_when_the_sidecar_is_not_a_json_object(*, tmp_path, capsys):
-    """Well-formed JSON of the WRONG shape (a bare array) is reported distinctly
-    from malformed JSON, and every reader degrades to its empty answer."""
-    stamp = tmp_path / "stamps.json"
-    stamp.write_text(json.dumps([1, 2]), encoding="utf-8")
-
-    assert registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) is None
-    assert registry.read_notified_bands(repo="/r", topic="t", stamp_path=stamp) == []
-    assert registry.read_resume_pending(repo="/r", topic="t", stamp_path=stamp) is False
-    assert "is not a JSON object" in capsys.readouterr().err
-
-
-def test_read_injection_stamp_is_none_when_the_round_dict_has_no_at(*, tmp_path):
-    """A dict-shaped value that never opened a round (no ``at``) has no timestamp —
-    but the rest of the entry is still readable, so it is not discarded wholesale."""
-    stamp = tmp_path / "stamps.json"
-    stamp.write_text(
-        json.dumps({"/r\tt": {"bands": [45], "resume_pending": True}}), encoding="utf-8"
-    )
-    assert registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) is None
-    assert registry.read_notified_bands(repo="/r", topic="t", stamp_path=stamp) == [45]
-    assert registry.read_resume_pending(repo="/r", topic="t", stamp_path=stamp) is True
-
-
-def test_read_injection_stamp_warns_and_returns_none_on_a_non_numeric_stamp(*, tmp_path, capsys):
-    """Both sidecar shapes name the offending track on an unusable ``at``. ``true``
-    is deliberately NOT numeric (jsonio.as_float rejects bool, which is an int
-    subclass), so it must not silently read back as 1.0."""
-    stamp = tmp_path / "stamps.json"
-    stamp.write_text(
-        json.dumps({"/r\tdict": {"at": True}, "/r\tlegacy": "not-a-number"}), encoding="utf-8"
-    )
-    assert registry.read_injection_stamp(repo="/r", topic="dict", stamp_path=stamp) is None
-    assert registry.read_injection_stamp(repo="/r", topic="legacy", stamp_path=stamp) is None
-
-    err = capsys.readouterr().err
-    assert "non-numeric injection stamp for /r::dict" in err
-    assert "non-numeric injection stamp for /r::legacy" in err
-
-
-def test_read_notified_bands_ignores_a_non_list_bands_member(*, tmp_path):
-    """A ``bands`` member of the wrong type reads as "nothing notified yet" without
-    costing the entry its still-usable ``at``."""
-    stamp = tmp_path / "stamps.json"
-    stamp.write_text(json.dumps({"/r\tt": {"at": 500.0, "bands": "45"}}), encoding="utf-8")
-    assert registry.read_notified_bands(repo="/r", topic="t", stamp_path=stamp) == []
-    assert registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) == 500.0
-
-
-def test_add_notified_band_on_a_track_with_no_open_round(*, tmp_path):
-    """Part 2: an absent key yields a bare bands-only entry — the band is recorded
-    without inventing an ``at`` (no round was opened, so none may certify)."""
-    stamp = tmp_path / "stamps.json"
-    registry.add_notified_band(repo="/r", topic="t", band=45, stamp_path=stamp)
-    assert registry.read_notified_bands(repo="/r", topic="t", stamp_path=stamp) == [45]
-    assert registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) is None
-
-
-def test_set_resume_pending_on_a_track_with_no_open_round(*, tmp_path):
-    """R1: the retry keys on the FLAG, not on ``at`` — an absent key is written as a
-    bare {"resume_pending": true} so the submit still retries."""
-    stamp = tmp_path / "stamps.json"
-    registry.set_resume_pending(repo="/r", topic="t", stamp_path=stamp)
-    assert registry.read_resume_pending(repo="/r", topic="t", stamp_path=stamp) is True
-    assert registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) is None
-
-
-def test_set_resume_pending_upgrades_a_legacy_bare_scalar_value(*, tmp_path):
-    """R1 back-compat: a legacy bare-float value is upgraded to the dict shape with
-    the float preserved as ``at``; a legacy bare NON-numeric value is unusable, so
-    the upgrade keeps only the flag."""
-    stamp = tmp_path / "stamps.json"
-    stamp.write_text(
-        json.dumps({"/r\tnumeric": 321.0, "/r\tjunk": "not-a-number"}), encoding="utf-8"
-    )
-    registry.set_resume_pending(repo="/r", topic="numeric", stamp_path=stamp)
-    registry.set_resume_pending(repo="/r", topic="junk", stamp_path=stamp)
-
-    assert registry.read_resume_pending(repo="/r", topic="numeric", stamp_path=stamp) is True
-    assert (
-        registry.read_injection_stamp(repo="/r", topic="numeric", stamp_path=stamp) == 321.0
-    )  # `at` preserved
-    assert registry.read_resume_pending(repo="/r", topic="junk", stamp_path=stamp) is True
-    assert (
-        registry.read_injection_stamp(repo="/r", topic="junk", stamp_path=stamp) is None
-    )  # unusable → dropped
