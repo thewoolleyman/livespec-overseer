@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-__all__ = [
+__all__: list[str] = [
     "STATE_BLOCKED",
     "STATE_IDLE_WITH_CONTEXT_LEFT",
     "STATE_READY",

@@ -10,6 +10,8 @@ import sys
 import pytest
 import streams
 
+__all__: list[str] = []
+
 
 def test_write_stdout_writes_verbatim_to_stdout(
     monkeypatch: pytest.MonkeyPatch,

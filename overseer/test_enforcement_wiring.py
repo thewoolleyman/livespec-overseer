@@ -21,6 +21,8 @@ from __future__ import annotations
 import pathlib
 import re
 
+__all__: list[str] = []
+
 _REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 _JUSTFILE = _REPO_ROOT / "justfile"
 _SPEC_ROOT = _REPO_ROOT / "SPECIFICATION"

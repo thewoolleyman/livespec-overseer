@@ -12,6 +12,8 @@ from pathlib import Path
 
 import claude_sessions
 
+__all__: list[str] = []
+
 
 def _write(directory, pid, *, name, cwd, proc_start, status="idle"):
     payload = {"pid": pid, "name": name, "cwd": cwd, "procStart": proc_start, "status": status}

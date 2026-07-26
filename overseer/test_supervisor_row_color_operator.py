@@ -30,6 +30,8 @@ from test_supervisor_fakes import (
     TtyOut,
 )
 
+__all__: list[str] = []
+
 
 @pytest.fixture(autouse=True)
 def _isolate_cwd(tmp_path, monkeypatch):

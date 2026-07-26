@@ -59,6 +59,23 @@ import jsonio
 # into a sibling module.
 from claude_sessions import proc_comm, proc_ppid, resolve_tmux_session
 
+__all__: list[str] = [
+    "CODEX_COMM",
+    "CodexSession",
+    "codex_by_tmux_session",
+    "default_codex_home",
+    "latest_session_for_thread_name",
+    "map_codex_sessions",
+    "open_rollout_id",
+    "proc_cwd",
+    "proc_fd_targets",
+    "proc_pids_of_comm",
+    "read_live_codex_sessions",
+    "read_thread_names",
+    "rollout_exists",
+    "rollout_id",
+]
+
 # `#{pane_current_command}` / `/proc/<pid>/comm` for a real Codex TUI. The launcher is
 # `bun` (`~/.bun/bin/codex`), which EXECS the vendored binary; verified live, the `bun`
 # process is the codex process's PARENT and holds NO rollout fd, so requiring an open

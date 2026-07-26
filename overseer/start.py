@@ -23,7 +23,7 @@ import streams
 import supervisor
 import tmuxio
 
-__all__ = ["daemon_command", "main"]
+__all__: list[str] = ["daemon_command", "main"]
 
 _DAEMON_PANE_TITLE = "overseer-daemon"
 

@@ -14,6 +14,8 @@ import pytest
 import signals
 from test_signals_fakes import declare_state, setup_track
 
+__all__: list[str] = []
+
 
 @pytest.fixture(autouse=True)
 def _isolate_cwd(tmp_path, monkeypatch):

@@ -16,6 +16,8 @@ No tests live here. The `test_` prefix is deliberate: coverage omits
 as product code and demand 100% coverage of a test double.
 """
 
+__all__: list[str] = ["ID_A", "ID_B", "fake_host", "fake_index", "fake_rollout"]
+
 # --------------------------------------------------------------------------- #
 # Helpers: a fake host (pids, comms, cwds, open fds) + a fake ~/.codex.
 # --------------------------------------------------------------------------- #

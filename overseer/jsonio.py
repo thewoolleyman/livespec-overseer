@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 from typing import cast
 
-__all__ = ["as_float", "as_list", "as_object", "parse_object", "parse_object_line"]
+__all__: list[str] = ["as_float", "as_list", "as_object", "parse_object", "parse_object_line"]
 
 
 def as_object(value: object) -> dict[str, object] | None:

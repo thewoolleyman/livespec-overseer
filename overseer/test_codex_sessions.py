@@ -22,6 +22,8 @@ from test_codex_sessions_fakes import (
     fake_rollout,
 )
 
+__all__: list[str] = []
+
 # --------------------------------------------------------------------------- #
 # The join: pid -> open rollout fd -> session id -> thread_name (= the topic).
 # --------------------------------------------------------------------------- #

@@ -23,7 +23,7 @@ from __future__ import annotations
 import sys
 from typing import TextIO
 
-__all__ = ["write_stderr", "write_stdout"]
+__all__: list[str] = ["write_stderr", "write_stdout"]
 
 
 def _write(*, stream: TextIO, text: str) -> None:
