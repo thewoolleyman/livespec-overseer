@@ -10,6 +10,7 @@ sections stay together because both are the same module surface.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 import registry
@@ -81,7 +82,7 @@ def test_repo_root_present_is_false_when_the_root_cannot_be_stated(tmp_path, mon
     def _deny(self):
         raise PermissionError(13, "Permission denied")
 
-    monkeypatch.setattr(registry.Path, "is_dir", _deny)
+    monkeypatch.setattr(Path, "is_dir", _deny)
     assert registry.repo_root_present(str(parent / "repo")) is False
 
 

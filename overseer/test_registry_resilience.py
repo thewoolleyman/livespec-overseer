@@ -12,8 +12,12 @@ as a user for whom a mode-stripped file is still readable.
 ``import registry`` resolves via conftest.py.
 """
 
+import fcntl
 import json
+import os
+from pathlib import Path
 
+import _registry_store
 import pytest
 import registry
 from registry import Track
@@ -42,7 +46,7 @@ def test_file_lock_proceeds_unlocked_when_the_lock_cannot_be_acquired(
     def _refuse_flock(_fd, _operation):
         raise OSError(13, "Permission denied")
 
-    monkeypatch.setattr(registry.fcntl, "flock", _refuse_flock)
+    monkeypatch.setattr(fcntl, "flock", _refuse_flock)
     registry.append_mapping(Track(topic="a", repo="/r", tmux="r-a"), store)
 
     assert [t.topic for t in registry.read_mapping(store)] == ["a"]  # write still landed
@@ -62,14 +66,14 @@ def test_file_lock_proceeds_unlocked_when_the_lock_file_cannot_be_opened(
     unwritable = tmp_path / "unwritable"
     unwritable.mkdir()
     store = unwritable / "map.jsonl"
-    real_open = registry.Path.open
+    real_open = Path.open
 
     def _deny(self, *args, **kwargs):
         if str(self).startswith(str(unwritable)):
             raise PermissionError(13, "Permission denied")
         return real_open(self, *args, **kwargs)
 
-    monkeypatch.setattr(registry.Path, "open", _deny)
+    monkeypatch.setattr(Path, "open", _deny)
     registry.append_mapping(Track(topic="a", repo="/r"), store)
     assert registry.read_mapping(store) == []  # the append itself also failed soft
 
@@ -92,7 +96,7 @@ def test_read_mapping_fail_soft_on_an_unreadable_store(tmp_path, monkeypatch, ca
     def _deny(self, *args, **kwargs):
         raise PermissionError(13, "Permission denied")
 
-    monkeypatch.setattr(registry.Path, "read_text", _deny)
+    monkeypatch.setattr(Path, "read_text", _deny)
     assert registry.read_mapping(store) == []
     assert "unreadable mapping store" in capsys.readouterr().err
 
@@ -162,8 +166,8 @@ def test_atomic_write_fail_soft_leaves_the_store_intact_and_removes_the_temp(
     def _boom(_fd):
         raise OSError(28, "No space left on device")
 
-    monkeypatch.setattr(registry.os, "fsync", _boom)
-    registry._write_rows([{"topic": "replacement", "repo": "/r"}], store)
+    monkeypatch.setattr(os, "fsync", _boom)
+    _registry_store._write_rows([{"topic": "replacement", "repo": "/r"}], store)
 
     assert [t.topic for t in registry.read_mapping(store)] == ["keep"]  # not truncated
     assert [p.name for p in tmp_path.iterdir()] == ["map.jsonl"]  # temp file cleaned up

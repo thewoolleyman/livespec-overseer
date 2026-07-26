@@ -10,7 +10,9 @@ underneath it). The store API itself lives in `test_registry.py`.
 """
 
 import json
+from pathlib import Path
 
+import _registry_discovery
 import pytest
 import registry
 from registry import Track
@@ -77,14 +79,14 @@ def test_discover_plans_fail_soft_on_an_unreadable_plan_dir(tmp_path, monkeypatc
     _make_plan(poisoned, "topic-a")
     healthy = tmp_path / "repo-healthy"
     _make_plan(healthy, "topic-b")
-    real_iterdir = registry.Path.iterdir
+    real_iterdir = Path.iterdir
 
     def _deny(self):
         if self.name == "plan" and self.parent.name == "repo-poisoned":
             raise PermissionError(13, "Permission denied")
         return real_iterdir(self)
 
-    monkeypatch.setattr(registry.Path, "iterdir", _deny)
+    monkeypatch.setattr(Path, "iterdir", _deny)
     triples = registry.discover_plans([poisoned, healthy])
 
     assert [(registry.repo_slug(r), t) for r, t, _h in triples] == [("repo-healthy", "topic-b")]
@@ -105,14 +107,14 @@ def test_discover_plans_fail_soft_on_an_unreadable_plan_child(tmp_path, monkeypa
     _make_plan(poisoned, "unstattable")
     healthy = tmp_path / "repo-healthy"
     _make_plan(healthy, "topic-b")
-    real_is_dir = registry.Path.is_dir
+    real_is_dir = Path.is_dir
 
     def _deny(self):
         if self.name == "unstattable":
             raise PermissionError(13, "Permission denied")
         return real_is_dir(self)
 
-    monkeypatch.setattr(registry.Path, "is_dir", _deny)
+    monkeypatch.setattr(Path, "is_dir", _deny)
     triples = registry.discover_plans([poisoned, healthy])
 
     assert [(registry.repo_slug(r), t) for r, t, _h in triples] == [("repo-healthy", "topic-b")]
@@ -188,7 +190,7 @@ def test_watch_set_from_config_admits_only_cloned_repos_that_carry_a_plan_dir(tm
     result = registry.watch_set_from_config(declaration)
 
     assert [registry.repo_slug(p) for p in result] == ["alpha"]
-    assert all(p == registry._norm(p) for p in result)  # normalized absolute
+    assert all(p == registry.norm(p) for p in result)  # normalized absolute
 
 
 def test_watch_set_from_config_admits_a_repo_with_no_assigned_track(tmp_path):
@@ -282,7 +284,7 @@ def test_parse_jsonc_is_string_aware_and_tolerates_trailing_comma():
         '  "items": ["a", "b",],\n'  # trailing comma
         "}\n"
     )
-    parsed = registry._parse_jsonc(text)
+    parsed = _registry_discovery._parse_jsonc(text)
     assert parsed["url"] == "http://example.com/a//b"  # // inside string preserved
     assert parsed["items"] == ["a", "b"]
 
@@ -291,7 +293,7 @@ def test_parse_jsonc_honors_backslash_escapes_inside_a_string_literal():
     # A BACKSLASH-ESCAPED quote does not end the literal, so the `//` and `/*` that
     # follow it are still INSIDE the string and must survive stripping. An escaped
     # backslash is likewise consumed as one character, not as an escape of the quote.
-    parsed = registry._parse_jsonc(r'{"a": "x\"y // z /* w */", "b": "trailing\\"}')
+    parsed = _registry_discovery._parse_jsonc(r'{"a": "x\"y // z /* w */", "b": "trailing\\"}')
     assert parsed["a"] == 'x"y // z /* w */'
     assert parsed["b"] == "trailing\\"
 
@@ -301,9 +303,9 @@ def test_strip_jsonc_comments_consumes_an_unterminated_string_literal():
     # the input, so the `//` inside it is preserved rather than treated as the
     # start of a comment. Reporting the malformed JSON is json.loads's job.
     text = '{"a": "unterminated // not-a-comment'
-    assert registry._strip_jsonc_comments(text) == text
+    assert _registry_discovery._strip_jsonc_comments(text) == text
     with pytest.raises(json.JSONDecodeError):
-        registry._parse_jsonc(text)
+        _registry_discovery._parse_jsonc(text)
 
 
 def test_archived_or_gone(tmp_path):
