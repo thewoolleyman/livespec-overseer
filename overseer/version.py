@@ -2,4 +2,4 @@
 
 __all__: list[str] = ["APP_VERSION"]
 
-APP_VERSION = "0.13.1"  # x-release-please-version
+APP_VERSION = "0.13.2"  # x-release-please-version

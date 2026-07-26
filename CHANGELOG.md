@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.13.1...v0.13.2) (2026-07-26)
+
+
+### Refactoring
+
+* convert the seams this repo owns to keyword-only Protocols ([1918f36](https://github.com/thewoolleyman/livespec-overseer/commit/1918f361d9d5767b7ce96d0562bf9546eec1ff0d))
+* declare the annotated __all__ on every overseer module ([5312cfa](https://github.com/thewoolleyman/livespec-overseer/commit/5312cfa01d156e41926fccf3d8b1300b4505c27d))
+* extract the evaluation group's collaborators from Supervisor ([d053f70](https://github.com/thewoolleyman/livespec-overseer/commit/d053f703e9a3797ba3bdc512e9df080173075932))
+* make the production surface keyword-only ([80423ca](https://github.com/thewoolleyman/livespec-overseer/commit/80423cacd640dc573eab4122aba4ae1af488236f))
+* make the test surface keyword-only ([a5b8dda](https://github.com/thewoolleyman/livespec-overseer/commit/a5b8ddab74dd8aa000ec0cf5c6200916efe9d370))
+* make the tmux surface and its double keyword-only ([58f053e](https://github.com/thewoolleyman/livespec-overseer/commit/58f053ecbe28ba03da2b2f4c4fa9162403717d7b))
+* move the decision cascade out, extracting only the R1 leg ([42ef479](https://github.com/thewoolleyman/livespec-overseer/commit/42ef4798ac79463e570823213a2bbc1c0e07a00f))
+* split test_claude_sessions.py back under the 250 LLOC hard ceiling ([a88a39e](https://github.com/thewoolleyman/livespec-overseer/commit/a88a39e8a2d72730239b367daf5e3c90eb4b9547))
+
 ## [0.13.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.13.0...v0.13.1) (2026-07-26)
 
 
