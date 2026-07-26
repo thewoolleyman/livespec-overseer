@@ -31,11 +31,11 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_supervisor_session_without_a_pane_is_not_running(tmp_path):
+def test_supervisor_session_without_a_pane_is_not_running(*, tmp_path):
     """A tmux session that cannot resolve to a pane is not live process evidence.
 
     `_supervisor_running` can answer False three independent ways: the session does not
@@ -57,7 +57,7 @@ def test_supervisor_session_without_a_pane_is_not_running(tmp_path):
     subclassing the double to override `pane_id` — the double's own seam idiom, which is
     also what keeps this out of `check-no-inheritance`.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     supervisor_session = f"{session}-supervisor"
@@ -65,23 +65,23 @@ def test_supervisor_session_without_a_pane_is_not_running(tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73))
     fake.no_pane_sessions.add(supervisor_session)
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "idle-with-context-left"
     assert "supervisor handoff exists" in err.getvalue()
 
 
-def test_codex_supervisor_process_counts_as_running(tmp_path):
+def test_codex_supervisor_process_counts_as_running(*, tmp_path):
     """A Codex supervisor is running only when pane evidence and live rollout evidence
     agree on the supervisor tmux session and repository."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     supervisor_session = f"{session}-supervisor"
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.serve(session=supervisor_session, repo=repo, capture=codex_idle_capture(ctx=73), cmd="bun")
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     sup.live_codex = {
         (supervisor_session, f"{topic}-supervisor"): codex_sessions.CodexSession(
             pid=123,
@@ -91,50 +91,50 @@ def test_codex_supervisor_process_counts_as_running(tmp_path):
         )
     }
     with contextlib.redirect_stderr(_io.StringIO()) as err:
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "idle-with-context-left"
     assert "supervision is running but has no durable prompt" in err.getvalue()
 
 
-def test_escalates_one_paste_per_band_as_ctx_drops(tmp_path):
+def test_escalates_one_paste_per_band_as_ctx_drops(*, tmp_path):
     """Part 2: warn ONCE at the threshold, then once more each time remaining
     crosses a lower 10%-band (40, 30, 20, 10) — each band at most once. Feeding
     ctx exactly at each band yields exactly one NEW wrap-up paste per band; a
     re-tick at the same low ctx (all bands already notified) adds none."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo)
-    sup = make_supervisor(tmp_path, fake)  # warn_percent = the default (50)
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)  # warn_percent = the default (50)
+    track = mapped_track(repo=repo, topic=topic, session=session)
     counts = []
     for ctx in (45, 40, 30, 20, 10):
         fake.panes[session] = idle_capture(ctx=ctx)
         sup.evaluate(track=track, act=True)
-        counts.append(wrapup_count(fake))
+        counts.append(wrapup_count(fake=fake))
     assert counts == [1, 2, 3, 4, 5]  # one new paste per band crossed
     # Same low ctx again: every band already notified → no further paste.
     fake.panes[session] = idle_capture(ctx=10)
     sup.evaluate(track=track, act=True)
-    assert wrapup_count(fake) == 5
+    assert wrapup_count(fake=fake) == 5
 
 
-def test_multi_band_drop_coalesces_to_one_paste_marks_all(tmp_path):
+def test_multi_band_drop_coalesces_to_one_paste_marks_all(*, tmp_path):
     """Part 2: several bands crossed in ONE tick coalesce into a SINGLE wrap-up
     paste, yet ALL crossed bands are marked notified so none re-fires; a later,
     lower tick fires only the newly-crossed band."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=18)
     )  # crosses 45,40,30,20 at once
     sup = make_supervisor(
-        tmp_path, fake, warn_percent=45
+        tmp_path=tmp_path, fake=fake, warn_percent=45
     )  # explicit threshold: decouple from the default
-    track = mapped_track(repo, topic, session)
+    track = mapped_track(repo=repo, topic=topic, session=session)
     view = sup.evaluate(track=track, act=True)
-    assert wrapup_count(fake) == 1  # coalesced into ONE message
+    assert wrapup_count(fake=fake) == 1  # coalesced into ONE message
     assert set(
         registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     ) == {45, 40, 30, 20}
@@ -142,7 +142,7 @@ def test_multi_band_drop_coalesces_to_one_paste_marks_all(tmp_path):
     # A still-lower tick fires only the new band (10), once.
     fake.panes[session] = idle_capture(ctx=8)
     sup.evaluate(track=track, act=True)
-    assert wrapup_count(fake) == 2
+    assert wrapup_count(fake=fake) == 2
     assert set(
         registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     ) == {
@@ -154,15 +154,15 @@ def test_multi_band_drop_coalesces_to_one_paste_marks_all(tmp_path):
     }
 
 
-def test_bands_are_durable_across_daemon_restart(tmp_path):
+def test_bands_are_durable_across_daemon_restart(*, tmp_path):
     """Part 2 durability: a band recorded in the sidecar is NOT re-injected after a
     daemon RESTART — simulated by a FRESH Supervisor (empty in-memory state) built
     on the SAME stamp_path. Escalation state lives in the durable sidecar."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     stamp_path = str(tmp_path / "stamps.json")
     store_path = str(tmp_path / "map.jsonl")
-    track = mapped_track(repo, topic, session)
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     fake1 = FakeTmux()
     fake1.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
@@ -197,18 +197,18 @@ def test_bands_are_durable_across_daemon_restart(tmp_path):
     assert not fake2.has(method="paste")  # bands 45+40 already notified → no re-spam
 
 
-def test_cleared_round_re_warns_all_bands(tmp_path):
+def test_cleared_round_re_warns_all_bands(*, tmp_path):
     """Part 2: clearing the injection stamp (as a restart does) resets BOTH the
     round timestamp and the notified bands, so a fresh round re-warns from the top
     band again."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(
-        tmp_path, fake, warn_percent=45
+        tmp_path=tmp_path, fake=fake, warn_percent=45
     )  # explicit threshold: decouple from the default
-    track = mapped_track(repo, topic, session)
+    track = mapped_track(repo=repo, topic=topic, session=session)
     sup.evaluate(track=track, act=True)
     assert set(
         registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
@@ -219,19 +219,19 @@ def test_cleared_round_re_warns_all_bands(tmp_path):
         registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) == []
     )
     sup.evaluate(track=track, act=True)  # fresh round → re-warns the crossed bands again
-    assert wrapup_count(fake) == 2  # a second wrap-up in the new round
+    assert wrapup_count(fake=fake) == 2  # a second wrap-up in the new round
     assert set(
         registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     ) == {45, 40}
 
 
-def test_danger_surfaces_below_danger_line(tmp_path):
-    repo, topic = make_plan(tmp_path)
+def test_danger_surfaces_below_danger_line(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=15)
     )  # <= DANGER, no ready marker
-    sup = make_supervisor(tmp_path, fake)
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "danger"

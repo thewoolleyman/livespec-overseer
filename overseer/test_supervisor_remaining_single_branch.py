@@ -27,11 +27,11 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_window_badge_is_retried_when_the_rename_fails(tmp_path):
+def test_window_badge_is_retried_when_the_rename_fails(*, tmp_path):
     """The badge is memoized so an unchanged count costs no tmux call — but only on
     SUCCESS. A rename that fails must not be remembered as written, or the attention count
     would be permanently absent from the window name until the count happened to change."""
@@ -43,7 +43,7 @@ def test_window_badge_is_retried_when_the_rename_fails(tmp_path):
         return False  # tmux refused the rename
 
     fake.rename_window = failing_rename
-    sup = make_supervisor(tmp_path, fake, own_pane="%1")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, own_pane="%1")
 
     sup._refresh_window_name(attention=2)
     sup._refresh_window_name(attention=2)
@@ -52,29 +52,31 @@ def test_window_badge_is_retried_when_the_rename_fails(tmp_path):
     assert sup.last_window_name is None  # nothing recorded as written
 
 
-def test_releasing_the_singleton_lock_frees_it_and_releasing_none_is_a_no_op(tmp_path):
+def test_releasing_the_singleton_lock_frees_it_and_releasing_none_is_a_no_op(*, tmp_path):
     """Release must actually free the flock (else a daemon restart could never re-acquire
     its own store's lock), and must tolerate the `None` a contended acquire returns."""
-    sup = make_supervisor(tmp_path, FakeTmux())
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
     handle = sup._acquire_singleton_lock()
     assert handle is not None
 
     supervisor.Supervisor._release_singleton_lock(handle=handle)
 
-    regained = make_supervisor(tmp_path, FakeTmux())._acquire_singleton_lock()
+    regained = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())._acquire_singleton_lock()
     assert regained is not None  # the same store's lock is genuinely free again
     supervisor.Supervisor._release_singleton_lock(handle=regained)
     # Releasing a lock that was never acquired is a safe no-op, not a crash.
     assert supervisor.Supervisor._release_singleton_lock(handle=None) is None
 
 
-def test_cli_start_respawns_a_session_proven_dead_by_its_bare_shell(tmp_path, monkeypatch, capsys):
+def test_cli_start_respawns_a_session_proven_dead_by_its_bare_shell(
+    *, tmp_path, monkeypatch, capsys
+):
     """RB4: `start` fails CLOSED, refusing to respawn-kill anything not PROVEN dead. A bare
     SHELL is that proof (a live Claude reports `node`, a live Codex `bun`), so this is the
     one no-`--force` path that may respawn an EXISTING session."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    store = isolate_store(tmp_path, monkeypatch)
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     fake = FakeTmux()
     # The session exists but its pane dropped to a shell — proven dead.
     fake.serve(session=session, repo=repo, capture=idle_capture(), cmd="zsh")

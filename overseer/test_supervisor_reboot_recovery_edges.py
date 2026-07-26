@@ -32,21 +32,24 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_do_launch_is_false_when_the_pane_never_becomes_claude(tmp_path):
+def test_do_launch_is_false_when_the_pane_never_becomes_claude(*, tmp_path):
     """B5: a respawn that lands but never yields a live Claude TUI is a FAILED launch —
     False, and the resume line is never pasted into whatever is sitting there instead."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture())
-    on_respawn(fake, lambda s: fake.cmds.__setitem__(s, "zsh"))  # comes up a shell
-    sup = make_supervisor(tmp_path, fake)
+    on_respawn(fake=fake, after=lambda s: fake.cmds.__setitem__(s, "zsh"))  # comes up a shell
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
 
-    assert sup.do_launch(track=mapped_track(repo, topic, session), session=session) is False
+    assert (
+        sup.do_launch(track=mapped_track(repo=repo, topic=topic, session=session), session=session)
+        is False
+    )
     assert fake.has(method="respawn")  # it did try...
     assert not fake.has(method="paste")  # ...but never pasted into the un-verified pane
 
@@ -57,15 +60,15 @@ def test_do_launch_is_false_when_the_pane_never_becomes_claude(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_run_refuses_to_start_when_another_daemon_holds_the_store_lock(tmp_path):
+def test_run_refuses_to_start_when_another_daemon_holds_the_store_lock(*, tmp_path):
     """B6: two daemons on one store double-inject and double-restart — B's
     `respawn-pane -k` can kill the fresh session A just resumed. The second daemon
     surfaces the contended lock path and returns WITHOUT ticking."""
-    holder = make_supervisor(tmp_path, FakeTmux())
+    holder = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
     handle = holder._acquire_singleton_lock()
     assert handle is not None
     try:
-        sup = make_supervisor(tmp_path, FakeTmux())  # same store path → same lock
+        sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())  # same store path → same lock
         ticked = []
         sup.tick = lambda *, act: ticked.append(act)  # type: ignore[assignment]  # spy
         err = _io.StringIO()
@@ -78,10 +81,10 @@ def test_run_refuses_to_start_when_another_daemon_holds_the_store_lock(tmp_path)
         supervisor.Supervisor._release_singleton_lock(handle=handle)
 
 
-def test_singleton_lock_is_treated_as_contended_when_the_lockfile_cannot_be_created(tmp_path):
+def test_singleton_lock_is_treated_as_contended_when_the_lockfile_cannot_be_created(*, tmp_path):
     """Fail-soft: any OSError acquiring the lock reads as CONTENDED (None), so a broken
     lock path refuses to start a second daemon rather than assuming it is alone."""
-    sup = make_supervisor(tmp_path, FakeTmux())
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
     blocker = tmp_path / "not-a-dir"
     blocker.write_text("a FILE where the store's parent dir belongs\n", encoding="utf-8")
     sup.store_path = str(blocker / "map.jsonl")  # mkdir of the parent must fail
@@ -89,15 +92,17 @@ def test_singleton_lock_is_treated_as_contended_when_the_lockfile_cannot_be_crea
     assert sup._acquire_singleton_lock() is None
 
 
-def test_run_with_recover_recreates_missing_sessions_before_the_first_tick(tmp_path):
+def test_run_with_recover_recreates_missing_sessions_before_the_first_tick(*, tmp_path):
     """`run(recover=True)` performs startup recovery once, BEFORE the loop — so a
     post-reboot daemon has its mapped sessions back by the time the first tick renders."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()  # session absent → recovery recreates it
     fake.panes[session] = idle_capture()  # post-launch empty box so the resume confirms
-    sup = make_supervisor(tmp_path, fake)
-    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+    )
     ticked = []
     sup.tick = lambda *, act: ticked.append(act)  # type: ignore[assignment]  # spy
 
@@ -108,12 +113,12 @@ def test_run_with_recover_recreates_missing_sessions_before_the_first_tick(tmp_p
     assert ticked == [True]  # ...and then exactly one tick
 
 
-def test_run_sleeps_between_ticks_and_exits_cleanly_on_keyboard_interrupt(tmp_path):
+def test_run_sleeps_between_ticks_and_exits_cleanly_on_keyboard_interrupt(*, tmp_path):
     """The loop paces itself with the injected `sleep(interval)` between ticks, and a
     Ctrl-C during a tick exits by RETURNING (logged) rather than propagating — so the
     `finally` releases the singleton lock instead of leaving it held."""
     slept = []
-    sup = make_supervisor(tmp_path, FakeTmux(), sleep=slept.append)
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), sleep=slept.append)
     ticks = []
 
     def tick(*, act):
@@ -139,7 +144,7 @@ def test_run_sleeps_between_ticks_and_exits_cleanly_on_keyboard_interrupt(tmp_pa
 # --------------------------------------------------------------------------- #
 
 
-def _completed(returncode):
+def _completed(*, returncode):
     """A `subprocess.CompletedProcess` reached via `_supervisor_config`, so this test
     file needs no `import subprocess` of its own.
 
@@ -150,7 +155,7 @@ def _completed(returncode):
     return _supervisor_config.subprocess.CompletedProcess(args=[], returncode=returncode)
 
 
-def test_gitignore_check_is_true_only_on_a_zero_exit(monkeypatch):
+def test_gitignore_check_is_true_only_on_a_zero_exit(*, monkeypatch):
     """`git check-ignore -q` exits 0 when ignored, 1 when not, 128 on error — so only a
     0 means ignored. Reading 128 as "ignored" would let the daemon start against a repo
     where its markers dirty the tracked tree."""
@@ -159,7 +164,7 @@ def test_gitignore_check_is_true_only_on_a_zero_exit(monkeypatch):
 
     def fake_run(argv, **_kwargs):
         argvs.append(argv)
-        return _completed(codes.pop(0))
+        return _completed(returncode=codes.pop(0))
 
     monkeypatch.setattr(_supervisor_config.subprocess, "run", fake_run)
 
@@ -169,7 +174,7 @@ def test_gitignore_check_is_true_only_on_a_zero_exit(monkeypatch):
     assert argvs[0] == ["git", "-C", "/x/repo", "check-ignore", "-q", "tmp/overseer"]
 
 
-def test_gitignore_check_fails_soft_to_not_ignored_when_git_cannot_spawn(monkeypatch):
+def test_gitignore_check_fails_soft_to_not_ignored_when_git_cannot_spawn(*, monkeypatch):
     """A spawn failure (no git on PATH) fails soft to False — "not ignored" — which makes
     the daemon REFUSE to start. Failing soft to True would be the unsafe direction."""
 
@@ -181,7 +186,7 @@ def test_gitignore_check_fails_soft_to_not_ignored_when_git_cannot_spawn(monkeyp
     assert supervisor.default_gitignore_check("/x/repo") is False
 
 
-def test_gitignore_check_passes_a_timeout_and_fails_soft_when_git_hangs(monkeypatch):
+def test_gitignore_check_passes_a_timeout_and_fails_soft_when_git_hangs(*, monkeypatch):
     """A hung `git` on the START-UP path is worse than a hung one mid-tick.
 
     This gate runs before any tick, so an unbounded hang wedges the daemon with
@@ -214,7 +219,7 @@ def test_gitignore_check_passes_a_timeout_and_fails_soft_when_git_hangs(monkeypa
 # --------------------------------------------------------------------------- #
 
 
-def test_watch_set_location_does_not_depend_on_where_this_package_lives(tmp_path):
+def test_watch_set_location_does_not_depend_on_where_this_package_lives(*, tmp_path):
     """The watch-set declaration is an ABSOLUTE `$HOME` path, independent of this module's
     position on disk. This is the property that makes the package relocatable, and it is
     the direct inverse of what the superseded implementation guaranteed.
@@ -235,7 +240,7 @@ def test_watch_set_location_does_not_depend_on_where_this_package_lives(tmp_path
     assert Path(supervisor.__file__).resolve().parent not in declared.parents
 
 
-def test_build_supervisor_has_no_knobs_and_badges_its_own_tmux_pane(monkeypatch):
+def test_build_supervisor_has_no_knobs_and_badges_its_own_tmux_pane(*, monkeypatch):
     """The de-gold-plated builder: the watch-set is the `$HOME` declaration and the store /
     stamp paths are the hard-coded registry defaults (None → the module default), with
     `own_pane` read from `$TMUX_PANE` so the window badge works without a flag.
@@ -256,7 +261,7 @@ def test_build_supervisor_has_no_knobs_and_badges_its_own_tmux_pane(monkeypatch)
     assert supervisor.build_supervisor().own_pane is None  # not under tmux → no badge
 
 
-def test_cli_colliding_reads_the_same_watch_set_the_daemon_does(tmp_path, monkeypatch):
+def test_cli_colliding_reads_the_same_watch_set_the_daemon_does(*, tmp_path, monkeypatch):
     """A one-shot `add`/`start` must name its session EXACTLY as the daemon would, so it
     computes collisions over the same `$HOME`-declared watch-set: only a topic present in
     TWO repos is repo-qualified; a topic unique to one repo stays bare.
@@ -265,9 +270,9 @@ def test_cli_colliding_reads_the_same_watch_set_the_daemon_does(tmp_path, monkey
     relocation change there is no path-deriving function left to patch, which is exactly the
     coupling that had to go.
     """
-    make_plan(tmp_path, repo_name="alpha", topic="shared")
-    make_plan(tmp_path, repo_name="alpha", topic="only-alpha")
-    make_plan(tmp_path, repo_name="beta", topic="shared")
+    make_plan(tmp_path=tmp_path, repo_name="alpha", topic="shared")
+    make_plan(tmp_path=tmp_path, repo_name="alpha", topic="only-alpha")
+    make_plan(tmp_path=tmp_path, repo_name="beta", topic="shared")
     declaration = tmp_path / "repos.json"
     declaration.write_text(
         json.dumps({"repos": [str(tmp_path / "alpha"), str(tmp_path / "beta")]}),
@@ -278,7 +283,7 @@ def test_cli_colliding_reads_the_same_watch_set_the_daemon_does(tmp_path, monkey
     assert supervisor._cli_colliding() == frozenset({"shared"})
 
 
-def test_cli_list_renders_exactly_one_read_only_tick(monkeypatch):
+def test_cli_list_renders_exactly_one_read_only_tick(*, monkeypatch):
     """`overseer list` builds the fleet Supervisor and ticks it ONCE with `act=False` —
     the advertised read-only render: no injection, no restart, no store mutation."""
     ticks = []

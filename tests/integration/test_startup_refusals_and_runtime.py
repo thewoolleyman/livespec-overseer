@@ -45,23 +45,27 @@ from overseer.test_supervisor_fakes import (
 _CODEX_SESSION_ID = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
 
 
-def _warnable(tmp_path, **kwargs):
+def _warnable(*, tmp_path, **kwargs):
     """A watched repo holding one live track that a RUNNING daemon would warn.
 
     Every refusal test uses this, so "it refused" is the absence of a wrap-up the
     same fixture produces once the gate passes — not merely the absence of a crash.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # below the 50% threshold
     kwargs.setdefault("gitignore_check", lambda _repo: True)
-    sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO(), **kwargs)
-    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
+    sup = make_supervisor(
+        tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], out=_io.StringIO(), **kwargs
+    )
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+    )
     return repo, topic, session, fake, sup
 
 
-def _run(sup) -> str:
+def _run(*, sup) -> str:
     """Run one daemon cycle, returning everything it surfaced on stderr."""
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
@@ -69,15 +73,15 @@ def _run(sup) -> str:
     return err.getvalue()
 
 
-def _respawn_commands(fake) -> list[str]:
+def _respawn_commands(*, fake) -> list[str]:
     return [call[3] for call in fake.calls if call[0] == "respawn"]
 
 
-def _enters(fake, session) -> int:
+def _enters(*, fake, session) -> int:
     return fake.calls.count(("keys", session, "Enter"))
 
 
-def _stranded_restart(tmp_path):
+def _stranded_restart(*, tmp_path):
     """Drive a real round to a restart whose fresh session DROPPED the resume Enter.
 
     The drop is modelled where it happens: a hook on the respawn leaves the pane showing a
@@ -85,17 +89,19 @@ def _stranded_restart(tmp_path):
     like. `paste_ok = False` would be a failed paste — a different fault with the same
     return value, and one that never produces the stranded box.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
-    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
-    track = mapped_track(repo, topic, session)
-    on_respawn(fake, lambda s: fake.panes.__setitem__(s, unsubmitted_resume_capture(ctx=95)))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
+    on_respawn(
+        fake=fake, after=lambda s: fake.panes.__setitem__(s, unsubmitted_resume_capture(ctx=95))
+    )
 
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.evaluate(track=track, act=True)  # opens the round
-    declare(repo, topic, signals.STATE_READY, mtime=1001.0)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):
         restarted = sup.evaluate(track=track, act=True)  # respawns; the submit does NOT land
 
@@ -103,7 +109,7 @@ def _stranded_restart(tmp_path):
     return repo, topic, session, fake, sup, track
 
 
-def _codex_restart_commands(tmp_path) -> list[str]:
+def _codex_restart_commands(*, tmp_path) -> list[str]:
     """Drive a codex track through a REAL round to its restart; return the respawn commands.
 
     The round is driven rather than seeded because a codex submit is confirmed by the pane
@@ -111,7 +117,7 @@ def _codex_restart_commands(tmp_path) -> list[str]:
     responding. A hand-seeded stamp would skip the runtime-aware submit entirely, and that
     submit is part of what "supervised under one agent runtime" means.
     """
-    repo, topic = make_plan(tmp_path, topic="codex-track")
+    repo, topic = make_plan(tmp_path=tmp_path, topic="codex-track")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
@@ -119,13 +125,15 @@ def _codex_restart_commands(tmp_path) -> list[str]:
     )
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    sup = make_supervisor(tmp_path, fake, sessions_dir=str(sessions_dir), out=_io.StringIO())
+    sup = make_supervisor(
+        tmp_path=tmp_path, fake=fake, sessions_dir=str(sessions_dir), out=_io.StringIO()
+    )
     sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242, name=topic, cwd=str(repo), session_id=_CODEX_SESSION_ID
         )
     }
-    track = mapped_track(repo, topic, session)
+    track = mapped_track(repo=repo, topic=topic, session=session)
     fake.on_paste = lambda s, _t: fake.panes.__setitem__(s, codex_busy_capture(ctx=40))
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -135,43 +143,43 @@ def _codex_restart_commands(tmp_path) -> list[str]:
 
     fake.on_paste = None
     fake.panes[session] = codex_idle_capture(ctx=40, topic=topic)
-    declare(repo, topic, signals.STATE_READY, mtime=1001.0)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):
         assert sup.evaluate(track=track, act=True).status == "restarting"
-    return _respawn_commands(fake)
+    return _respawn_commands(fake=fake)
 
 
-def _claude_restart_commands(tmp_path) -> tuple[str, list[str]]:
+def _claude_restart_commands(*, tmp_path) -> tuple[str, list[str]]:
     """The Claude twin of `_codex_restart_commands`; returns `(topic, commands)`."""
-    repo, topic = make_plan(tmp_path, topic="claude-track")
+    repo, topic = make_plan(tmp_path=tmp_path, topic="claude-track")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
-    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     sup.evaluate(track=track, act=True)
-    declare(repo, topic, signals.STATE_READY, mtime=1001.0)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):
         assert sup.evaluate(track=track, act=True).status == "restarting"
-    return topic, _respawn_commands(fake)
+    return topic, _respawn_commands(fake=fake)
 
 
-def test_scenario_the_fixture_track_is_warned_when_every_startup_gate_passes(tmp_path):
+def test_scenario_the_fixture_track_is_warned_when_every_startup_gate_passes(*, tmp_path):
     """The CONTROL for the three refusal tests below — not a scenario row of its own.
 
     Each refusal test asserts that no wrap-up was pasted. That assertion is worth exactly
     as much as the proof that this fixture pastes one when nothing is refused, and without
     it all three would pass against a daemon that never warns anything.
     """
-    _repo, _topic, _session, fake, sup = _warnable(tmp_path)
+    _repo, _topic, _session, fake, sup = _warnable(tmp_path=tmp_path)
 
-    _ = _run(sup)
+    _ = _run(sup=sup)
 
-    assert wrapup_count(fake) == 1  # the gates passed and the track really was warned
+    assert wrapup_count(fake=fake) == 1  # the gates passed and the track really was warned
 
 
-def test_scenario_the_daemon_refuses_an_unsupported_host(tmp_path):
+def test_scenario_the_daemon_refuses_an_unsupported_host(*, tmp_path):
     """Scenario: The daemon refuses an unsupported host.
 
     Given a host missing a declared runtime requirement, the daemon refuses to run, names
@@ -190,7 +198,7 @@ def test_scenario_the_daemon_refuses_an_unsupported_host(tmp_path):
         the next gate speaks instead.
     """
     repo, _topic, _session, fake, sup = _warnable(
-        tmp_path,
+        tmp_path=tmp_path,
         proc_root=str(tmp_path / "absent-proc"),  # no /proc: the declared Linux requirement
         gitignore_check=lambda _repo: False,  # ...and the SECOND gate would fail too
     )
@@ -200,7 +208,7 @@ def test_scenario_the_daemon_refuses_an_unsupported_host(tmp_path):
     held = contender._acquire_singleton_lock()
     assert held is not None
     try:
-        report = _run(sup)
+        report = _run(sup=sup)
     finally:
         supervisor.Supervisor._release_singleton_lock(handle=held)
 
@@ -209,11 +217,12 @@ def test_scenario_the_daemon_refuses_an_unsupported_host(tmp_path):
     assert "/proc" in report  # the failed precondition is NAMED
     assert "not gitignored" not in report  # ...and it PRECEDES the gitignore gate...
     assert "holds" not in report  # ...and the singleton gate
-    assert wrapup_count(fake) == 0  # nothing was supervised
+    assert wrapup_count(fake=fake) == 0  # nothing was supervised
     assert not fake.has(method="capture")
 
 
 def test_scenario_the_daemon_refuses_a_repository_that_does_not_ignore_its_scratch_path(
+    *,
     tmp_path,
 ):
     """Scenario: The daemon refuses a repository that does not ignore its scratch path.
@@ -229,22 +238,22 @@ def test_scenario_the_daemon_refuses_a_repository_that_does_not_ignore_its_scrat
       - `unignored_tmp_repos` returning `[]` -> the daemon starts and warps the track.
       - the offender list replaced by the full watch set -> the innocent repo is named too.
     """
-    repo, _topic, _session, fake, sup = _warnable(tmp_path)
-    innocent, _ = make_plan(tmp_path, repo_name="innocent", topic="other")
+    repo, _topic, _session, fake, sup = _warnable(tmp_path=tmp_path)
+    innocent, _ = make_plan(tmp_path=tmp_path, repo_name="innocent", topic="other")
     sup.watch_repos = [str(repo), str(innocent)]
     sup.gitignore_check = lambda checked: checked != str(repo)  # only `repo` offends
 
-    report = _run(sup)
+    report = _run(sup=sup)
 
     assert "refusing to start" in report
     assert "NOT gitignored" in report
     assert str(repo) in report  # the OFFENDING repository is named...
     assert str(innocent) not in report  # ...and the innocent one is not
-    assert wrapup_count(fake) == 0
+    assert wrapup_count(fake=fake) == 0
     assert not fake.has(method="capture")
 
 
-def test_scenario_a_second_daemon_instance_refuses_to_start(tmp_path):
+def test_scenario_a_second_daemon_instance_refuses_to_start(*, tmp_path):
     """Scenario: A second daemon instance refuses to start.
 
     Given a daemon already holding the singleton lock for the mapping store, a second daemon
@@ -263,27 +272,27 @@ def test_scenario_a_second_daemon_instance_refuses_to_start(tmp_path):
         acquires it and supervises the track.
       - `_singleton_lock_path` keyed to a constant instead of the store -> ditto.
     """
-    _repo, _topic, _session, fake, sup = _warnable(tmp_path)
+    _repo, _topic, _session, fake, sup = _warnable(tmp_path=tmp_path)
     first = supervisor.Supervisor(
         tmux=FakeTmux(), store_path=sup.store_path, stamp_path=sup.stamp_path
     )
     held = first._acquire_singleton_lock()
     assert held is not None
 
-    contested = _run(sup)
+    contested = _run(sup=sup)
 
     assert "refusing to start" in contested
     assert str(sup._singleton_lock_path()) in contested  # the contested lock is NAMED
-    assert wrapup_count(fake) == 0
+    assert wrapup_count(fake=fake) == 0
     assert not fake.has(method="capture")
 
     supervisor.Supervisor._release_singleton_lock(handle=held)  # the first daemon exits
-    _ = _run(sup)
+    _ = _run(sup=sup)
 
-    assert wrapup_count(fake) == 1  # ...and the refusal really was the lock's doing
+    assert wrapup_count(fake=fake) == 1  # ...and the refusal really was the lock's doing
 
 
-def test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill(tmp_path):
+def test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill(*, tmp_path):
     """Scenario: A dropped resume submission is retried without a second kill.
 
     Given a restart whose fresh session came up with the resume prompt unsubmitted, the
@@ -312,23 +321,23 @@ def test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill(t
       - `_do_restart` clearing the state on a FAILED submit -> `resume_pending` is never
         recorded, the row stops needing attention, and the stranding is hidden.
     """
-    repo, topic, session, fake, sup, track = _stranded_restart(tmp_path)
+    repo, topic, session, fake, sup, track = _stranded_restart(tmp_path=tmp_path)
 
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) is True
     )
     assert signals.read_state(repo=str(repo), topic=topic) is not None  # the marker is KEPT
 
-    enters = _enters(fake, session)
+    enters = _enters(fake=fake, session=session)
     for _ in range(3):  # later cycles: submission only
         with contextlib.redirect_stderr(_io.StringIO()):
             view = sup.evaluate(track=track, act=True)
         assert view.status == "restarting"
         assert view.note == _supervisor_view.RESUME_PENDING_NOTE
         assert supervisor.needs_attention(row=view)  # still visible as needing attention
-        assert _enters(fake, session) > enters  # another Enter...
-        enters = _enters(fake, session)
-        assert len(_respawn_commands(fake)) == 1  # ...and NO second kill
+        assert _enters(fake=fake, session=session) > enters  # another Enter...
+        enters = _enters(fake=fake, session=session)
+        assert len(_respawn_commands(fake=fake)) == 1  # ...and NO second kill
 
     fake.panes[session] = idle_capture(ctx=95)  # the prompt finally lands
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -339,10 +348,10 @@ def test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill(t
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is False
     )
-    assert len(_respawn_commands(fake)) == 1
+    assert len(_respawn_commands(fake=fake)) == 1
 
 
-def test_scenario_a_restart_never_switches_a_tracks_runtime(tmp_path):
+def test_scenario_a_restart_never_switches_a_tracks_runtime(*, tmp_path):
     """Scenario: A restart never switches a track's runtime.
 
     Both directions, because the clause is symmetric: a track supervised under one runtime is
@@ -364,19 +373,19 @@ def test_scenario_a_restart_never_switches_a_tracks_runtime(tmp_path):
         the claude command, and the claude pane the codex one.
       - `_codex_launch_command` replaced by `_launch_command` -> the codex half only.
     """
-    codex = _codex_restart_commands(tmp_path)
+    codex = _codex_restart_commands(tmp_path=tmp_path)
     assert len(codex) == 1
     assert "codex resume " in codex[0]  # resumed under the SAME runtime...
     assert _CODEX_SESSION_ID in codex[0]  # ...and the same rollout
     assert "claude " not in codex[0]  # the other runtime's command is never issued
 
-    claude_topic, claude = _claude_restart_commands(tmp_path)
+    claude_topic, claude = _claude_restart_commands(tmp_path=tmp_path)
     assert len(claude) == 1
     assert claude[0] == f"claude --dangerously-skip-permissions -n {claude_topic}"
     assert "codex" not in claude[0]
 
 
-def test_scenario_an_unknown_context_reading_never_triggers_a_wrapup(tmp_path):
+def test_scenario_an_unknown_context_reading_never_triggers_a_wrapup(*, tmp_path):
     """Scenario: An unknown context reading never triggers a wrap-up.
 
     Given a pane whose capture yields no readable remaining-context value, the last known
@@ -402,34 +411,36 @@ def test_scenario_an_unknown_context_reading_never_triggers_a_wrapup(tmp_path):
         the kept-value assertion, and the row falls to a dash mid-flight.
       - the unknown cell rendered as `0%` instead of the dash -> the never-known assertion.
     """
-    repo, topic = make_plan(tmp_path, topic="was-known")
+    repo, topic = make_plan(tmp_path=tmp_path, topic="was-known")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=60))  # ABOVE the 50% threshold
     out = _io.StringIO()
-    sup = make_supervisor(tmp_path, fake, out=out)
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=out)
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     with contextlib.redirect_stderr(_io.StringIO()):
         known = sup.evaluate(track=track, act=True)
     assert known.ctx == 60
-    assert wrapup_count(fake) == 0  # above threshold: nothing due
+    assert wrapup_count(fake=fake) == 0  # above threshold: nothing due
 
     fake.panes[session] = busy_capture()  # a capture with NO `Ctx: N% left` at all
     with contextlib.redirect_stderr(_io.StringIO()):
         unknown = sup.evaluate(track=track, act=True)
 
     assert unknown.ctx == 60  # the last known value is KEPT...
-    assert wrapup_count(fake) == 0  # ...and the unknown reading crossed nothing
+    assert wrapup_count(fake=fake) == 0  # ...and the unknown reading crossed nothing
 
-    never, never_topic = make_plan(tmp_path, repo_name="never", topic="never-known")
+    never, never_topic = make_plan(tmp_path=tmp_path, repo_name="never", topic="never-known")
     never_session = registry.tmux_id(repo=str(never), topic=never_topic)
     fake.serve(session=never_session, repo=never, capture=idle_capture())  # no ctx, ever
     with contextlib.redirect_stderr(_io.StringIO()):
-        blank = sup.evaluate(track=mapped_track(never, never_topic, never_session), act=True)
+        blank = sup.evaluate(
+            track=mapped_track(repo=never, topic=never_topic, session=never_session), act=True
+        )
 
     assert blank.ctx is None
-    assert wrapup_count(fake) == 0
+    assert wrapup_count(fake=fake) == 0
     sup.render(rows=[blank])
     rendered = next(line for line in out.getvalue().splitlines() if never_topic in line)
     assert "—" in rendered  # renders as UNKNOWN...

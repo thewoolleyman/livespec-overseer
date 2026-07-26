@@ -35,12 +35,12 @@ def test_empty_object_is_an_object_not_a_failure():
         "   ",
     ],
 )
-def test_malformed_input_is_none_never_raises(text):
+def test_malformed_input_is_none_never_raises(*, text):
     assert jsonio.parse_object(text=text) is None
 
 
 @pytest.mark.parametrize("text", ["[1, 2, 3]", '"a bare string"', "17", "null", "true"])
-def test_valid_json_that_is_not_an_object_is_none(text):
+def test_valid_json_that_is_not_an_object_is_none(*, text):
     """A bare list or scalar parses fine but is not what any caller here wants."""
     assert jsonio.parse_object(text=text) is None
 
@@ -79,7 +79,7 @@ def test_as_list_preserves_the_empty_list():
 
 
 @pytest.mark.parametrize("value", [{"a": 1}, "string", 17, None, True])
-def test_as_list_rejects_non_lists(value):
+def test_as_list_rejects_non_lists(*, value):
     assert jsonio.as_list(value=value) is None
 
 
@@ -92,18 +92,18 @@ def test_as_list_rejects_non_lists(value):
     ("value", "expected"),
     [(1, 1.0), (0, 0.0), (-3, -3.0), (1.5, 1.5), ("2.5", 2.5), ("7", 7.0), ("-0.5", -0.5)],
 )
-def test_as_float_coerces_numbers_and_numeric_strings(value, expected):
+def test_as_float_coerces_numbers_and_numeric_strings(*, value, expected):
     assert jsonio.as_float(value=value) == expected
 
 
 @pytest.mark.parametrize("value", [True, False])
-def test_as_float_rejects_bools(value):
+def test_as_float_rejects_bools(*, value):
     """`bool` is an `int` subclass: without an explicit guard `true` would become 1.0."""
     assert jsonio.as_float(value=value) is None
 
 
 @pytest.mark.parametrize("value", ["", "abc", "1.2.3", None, {"a": 1}, [1], object()])
-def test_as_float_rejects_non_numeric_values(value):
+def test_as_float_rejects_non_numeric_values(*, value):
     assert jsonio.as_float(value=value) is None
 
 

@@ -31,20 +31,20 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_malformed_state_alert_is_edge_triggered_while_danger_repeats(tmp_path):
+def test_malformed_state_alert_is_edge_triggered_while_danger_repeats(*, tmp_path):
     """A malformed state file can coexist with danger/non-response. The alerts are two
     independent conditions, so neither may re-arm the other every tick."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))
-    declare(repo, topic, "working: still handling it")
-    sup = make_supervisor(tmp_path, fake)
-    track = mapped_track(repo, topic, session)
+    declare(repo=repo, topic=topic, value="working: still handling it")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
@@ -58,19 +58,19 @@ def test_malformed_state_alert_is_edge_triggered_while_danger_repeats(tmp_path):
     assert len(not_responding) == 1, surfaced
 
 
-def test_log_lines_are_timestamped(tmp_path):
+def test_log_lines_are_timestamped(*, tmp_path):
     """The bottom pane answers "WHEN did this happen?" from the log, so every line must
     carry its own time — the alert lines used to carry none."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
-    declare(repo, topic, "blocked: x")
-    sup = make_supervisor(tmp_path, fake)
+    declare(repo=repo, topic=topic, value="blocked: x")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     line = next(ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln)
     stamp = line.split(" overseer[SURFACE]")[0]
     # Parses as the ISO-8601 instant the daemon stamps its table with.
@@ -82,19 +82,21 @@ def test_log_lines_are_timestamped(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_window_name_is_badged_with_the_attention_count(tmp_path):
+def test_window_name_is_badged_with_the_attention_count(*, tmp_path):
     """tmux renders the window name in the status bar of whatever session the operator is
     attached to — so a track that wants them is seen without switching panes."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
-    declare(repo, topic, "blocked: needs you")
+    declare(repo=repo, topic=topic, value="blocked: needs you")
     sup = make_supervisor(
-        tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
+        tmp_path=tmp_path, fake=fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
     )
     registry.append_mapping(
-        track=mapped_track(repo, topic, session), store_path=sup.store_path, added_at="t"
+        track=mapped_track(repo=repo, topic=topic, session=session),
+        store_path=sup.store_path,
+        added_at="t",
     )
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -102,17 +104,19 @@ def test_window_name_is_badged_with_the_attention_count(tmp_path):
     assert fake.window_name == "overseer(1!)"
 
 
-def test_window_name_drops_the_badge_when_nothing_needs_attention(tmp_path):
+def test_window_name_drops_the_badge_when_nothing_needs_attention(*, tmp_path):
     """The badge must CLEAR, or it becomes another stale indicator — the very bug."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=90))  # healthy
     sup = make_supervisor(
-        tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
+        tmp_path=tmp_path, fake=fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
     )
     registry.append_mapping(
-        track=mapped_track(repo, topic, session), store_path=sup.store_path, added_at="t"
+        track=mapped_track(repo=repo, topic=topic, session=session),
+        store_path=sup.store_path,
+        added_at="t",
     )
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -120,18 +124,20 @@ def test_window_name_drops_the_badge_when_nothing_needs_attention(tmp_path):
     assert fake.window_name == "overseer"
 
 
-def test_window_name_is_only_rewritten_when_the_count_changes(tmp_path):
+def test_window_name_is_only_rewritten_when_the_count_changes(*, tmp_path):
     """A tmux call every tick for an unchanged name is pure noise."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
-    declare(repo, topic, "blocked: x")
+    declare(repo=repo, topic=topic, value="blocked: x")
     sup = make_supervisor(
-        tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
+        tmp_path=tmp_path, fake=fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
     )
     registry.append_mapping(
-        track=mapped_track(repo, topic, session), store_path=sup.store_path, added_at="t"
+        track=mapped_track(repo=repo, topic=topic, session=session),
+        store_path=sup.store_path,
+        added_at="t",
     )
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -140,19 +146,21 @@ def test_window_name_is_only_rewritten_when_the_count_changes(tmp_path):
     assert fake.renames() == ["overseer(1!)"]  # written ONCE, not four times
 
 
-def test_read_only_list_never_renames_the_window(tmp_path):
+def test_read_only_list_never_renames_the_window(*, tmp_path):
     """`list` is advertised read-only, so printing a table must not rename the
     maintainer's window as a side effect."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
-    declare(repo, topic, "blocked: x")
+    declare(repo=repo, topic=topic, value="blocked: x")
     sup = make_supervisor(
-        tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
+        tmp_path=tmp_path, fake=fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
     )
     registry.append_mapping(
-        track=mapped_track(repo, topic, session), store_path=sup.store_path, added_at="t"
+        track=mapped_track(repo=repo, topic=topic, session=session),
+        store_path=sup.store_path,
+        added_at="t",
     )
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -161,7 +169,7 @@ def test_read_only_list_never_renames_the_window(tmp_path):
     assert fake.window_name is None
 
 
-def test_never_seen_is_unassigned_but_once_seen_is_session_gone(tmp_path):
+def test_never_seen_is_unassigned_but_once_seen_is_session_gone(*, tmp_path):
     """THE distinction between the two, maintainer-declared 2026-07-17:
 
         "KEEP session-gone if you've ever seen the session, only use unassigned if
@@ -176,11 +184,11 @@ def test_never_seen_is_unassigned_but_once_seen_is_session_gone(tmp_path):
     Neither row names a tmux session: `unassigned` never had one, and `session-gone`
     must not point at the bare terminal its session left behind.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     fake = FakeTmux()  # no tmux sessions exist at all
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
+    sup = adopt_sup(tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={})
 
     # NEVER seen: a discovered plan with no mapping row.
     never = registry.Track.make_unassigned(repo=str(repo), topic=topic)
@@ -190,7 +198,7 @@ def test_never_seen_is_unassigned_but_once_seen_is_session_gone(tmp_path):
 
     # SEEN once: a mapping row exists, but the session is not in any tmux now.
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    gone_view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    gone_view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert gone_view.status == "session-gone"
     assert gone_view.tmux is None
 
@@ -203,7 +211,7 @@ def test_never_seen_is_unassigned_but_once_seen_is_session_gone(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_an_unadopted_codex_looking_pane_is_never_restarted(tmp_path):
+def test_an_unadopted_codex_looking_pane_is_never_restarted(*, tmp_path):
     """An UNADOPTED pane is never restarted, however much it looks like codex.
 
     A `bun` pane NOT proven to be a live codex session (absent from `live_codex`) is
@@ -216,7 +224,7 @@ def test_an_unadopted_codex_looking_pane_is_never_restarted(tmp_path):
     guards the loose-`pane_is_codex` footgun — the adopted case (a real restart, via the
     codex command) is covered by the two sibling tests below.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     # A real codex pane: tmux reports `bun` (the launcher), NOT `codex` — the vendored
@@ -224,10 +232,12 @@ def test_an_unadopted_codex_looking_pane_is_never_restarted(tmp_path):
     fake.serve(session=session, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})  # live_codex EMPTY: not adopted
-    declare(repo, topic, "ready")
+    sup = adopt_sup(
+        tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={}
+    )  # live_codex EMPTY: not adopted
+    declare(repo=repo, topic=topic, value="ready")
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "session-gone"  # unadopted `bun` pane is not ours to act on
     assert not fake.has(method="respawn")  # no restart of a pane we cannot prove is codex
     assert not fake.has(method="paste")  # and nothing keystroked into it either

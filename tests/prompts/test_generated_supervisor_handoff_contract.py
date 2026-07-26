@@ -78,7 +78,7 @@ _BANNED: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
-def missing_requirements(charter: str) -> list[str]:
+def missing_requirements(*, charter: str) -> list[str]:
     """Return the contract requirements a generated charter FAILS to satisfy.
 
     An empty list means the charter satisfies the floor. Each returned string
@@ -101,7 +101,7 @@ def test_the_corrected_exemplar_satisfies_the_whole_contract():
     Sabotage that reddens this: delete the "Never end a turn without an armed
     re-entry" section from the exemplar.
     """
-    assert missing_requirements(_EXEMPLAR.read_text(encoding="utf-8")) == []
+    assert missing_requirements(charter=_EXEMPLAR.read_text(encoding="utf-8")) == []
 
 
 def test_the_generator_prose_instructs_every_contract_requirement():
@@ -114,7 +114,7 @@ def test_the_generator_prose_instructs_every_contract_requirement():
     Sabotage that reddens this: remove the armed-re-entry section from
     `.claude-plugin/prose/supervise-plan.md`.
     """
-    assert missing_requirements(_GENERATOR_PROSE.read_text(encoding="utf-8")) == []
+    assert missing_requirements(charter=_GENERATOR_PROSE.read_text(encoding="utf-8")) == []
 
 
 def test_a_charter_ending_at_the_conflicting_lane_rule_is_rejected():
@@ -138,7 +138,7 @@ def test_a_charter_ending_at_the_conflicting_lane_rule_is_rejected():
     ## Standing safety clauses
     Never pass --no-verify.
     """
-    missing = missing_requirements(charter)
+    missing = missing_requirements(charter=charter)
     assert "stall-mode-2-armed-re-entry" in missing
     assert "stall-mode-2-watcher-mechanism" in missing
     # ...and mode 1 is NOT reported, which is what makes the two independent.
@@ -159,7 +159,7 @@ def test_a_charter_carrying_only_the_armed_re_entry_rule_is_also_rejected():
     Recommended option first.
     Never pass --no-verify.
     """
-    missing = missing_requirements(charter)
+    missing = missing_requirements(charter=charter)
     assert "stall-mode-1-conflicting-lane" in missing
     assert "stall-mode-2-armed-re-entry" not in missing
 
@@ -179,7 +179,7 @@ def test_an_armed_re_entry_rule_with_no_mechanism_is_rejected():
     ## AskUserQuestion rules
     Recommended option first. Never pass --no-verify.
     """
-    assert "stall-mode-2-watcher-mechanism" in missing_requirements(charter)
+    assert "stall-mode-2-watcher-mechanism" in missing_requirements(charter=charter)
 
 
 def test_a_charter_with_prose_instead_of_runnable_commands_is_rejected():
@@ -197,7 +197,7 @@ def test_a_charter_with_prose_instead_of_runnable_commands_is_rejected():
     ## AskUserQuestion
     Recommended first. Never pass --no-verify.
     """
-    missing = missing_requirements(charter)
+    missing = missing_requirements(charter=charter)
     assert "executable-capture-pane" in missing
     assert "executable-live-agent-precondition" in missing
     assert "executable-repo-containment" in missing
@@ -219,7 +219,7 @@ def test_a_cwd_relative_plan_containment_check_is_rejected():
     ## AskUserQuestion
     Recommended first. Never pass --no-verify.
     """
-    assert "cwd-relative-plan-test" in missing_requirements(charter)
+    assert "cwd-relative-plan-test" in missing_requirements(charter=charter)
 
 
 def test_the_one_shot_send_keys_enter_form_is_rejected():
@@ -239,7 +239,7 @@ def test_the_one_shot_send_keys_enter_form_is_rejected():
     ## AskUserQuestion
     Recommended first. Never pass --no-verify.
     """
-    assert "one-shot-send-keys-enter" in missing_requirements(charter)
+    assert "one-shot-send-keys-enter" in missing_requirements(charter=charter)
 
 
 def test_a_charter_with_no_picker_rule_is_rejected():
@@ -257,7 +257,7 @@ def test_a_charter_with_no_picker_rule_is_rejected():
     Arm a background pane watcher.
     Never pass --no-verify.
     """
-    assert "picker-rule" in missing_requirements(charter)
+    assert "picker-rule" in missing_requirements(charter=charter)
 
 
 def test_a_charter_omitting_the_no_verify_prohibition_is_rejected():
@@ -275,7 +275,7 @@ def test_a_charter_omitting_the_no_verify_prohibition_is_rejected():
     ## AskUserQuestion presentation rules
     Recommended option first.
     """
-    assert "no-verify-prohibition" in missing_requirements(charter)
+    assert "no-verify-prohibition" in missing_requirements(charter=charter)
 
 
 def test_a_charter_omitting_the_acting_daemon_prohibition_is_rejected():
@@ -302,7 +302,7 @@ def test_a_charter_omitting_the_acting_daemon_prohibition_is_rejected():
     ## Standing safety clauses
     Never pass --no-verify. Never run kill-server on the maintainer's socket.
     """
-    assert "acting-daemon-prohibition" in missing_requirements(charter)
+    assert "acting-daemon-prohibition" in missing_requirements(charter=charter)
 
 
 def test_the_control_a_fully_conformant_charter_passes():
@@ -325,4 +325,4 @@ def test_the_control_a_fully_conformant_charter_passes():
     ## Standing safety clauses
     Never pass --no-verify. Never kill the acting overseer daemon.
     """
-    assert missing_requirements(charter) == []
+    assert missing_requirements(charter=charter) == []

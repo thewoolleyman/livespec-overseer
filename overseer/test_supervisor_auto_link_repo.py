@@ -32,17 +32,17 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_auto_link_creates_mapping_when_cwd_in_repo(tmp_path):
-    repo, topic = make_plan(tmp_path)
+def test_auto_link_creates_mapping_when_cwd_in_repo(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.sessions.add(session)
     fake.paths[session] = str(repo / "plan" / topic)  # cwd inside the repo
-    sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)])
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
 
     unassigned = registry.Track.make_unassigned(repo=str(repo), topic=topic)
     linked = sup.auto_link(track=unassigned)
@@ -59,17 +59,19 @@ def test_auto_link_creates_mapping_when_cwd_in_repo(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_missing_session_with_live_out_of_tmux_claude_is_live_outside_tmux(tmp_path):
-    repo, topic = make_plan(tmp_path)
+def test_missing_session_with_live_out_of_tmux_claude_is_live_outside_tmux(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()  # mapped tmux session NOT added → session_exists False; no panes
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     # A live registry session named for the topic, cwd in the repo, whose pid walks up
     # to NO tmux pane (pane_pids empty, ppid chain terminates) → running outside tmux.
-    write_session(sessions_dir, 100, name=topic, cwd=str(repo), status="busy")
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {100: "pt"})
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    write_session(sessions_dir=sessions_dir, pid=100, name=topic, cwd=str(repo), status="busy")
+    sup = adopt_sup(
+        tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={100: "pt"}
+    )
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "live-outside-tmux"
     assert view.note is not None
     assert "OUTSIDE tmux" in view.note
@@ -77,31 +79,41 @@ def test_missing_session_with_live_out_of_tmux_claude_is_live_outside_tmux(tmp_p
     assert not fake.has(method="capture")  # there is no pane to read
 
 
-def test_missing_session_without_any_live_claude_is_still_session_gone(tmp_path):
-    repo, topic = make_plan(tmp_path)
+def test_missing_session_without_any_live_claude_is_still_session_gone(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     # A live registry session exists, but for a DIFFERENT topic — this track is gone.
-    write_session(sessions_dir, 100, name="some-other-topic", cwd=str(repo), status="busy")
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {100: "pt"})
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    write_session(
+        sessions_dir=sessions_dir, pid=100, name="some-other-topic", cwd=str(repo), status="busy"
+    )
+    sup = adopt_sup(
+        tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={100: "pt"}
+    )
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "session-gone"
 
 
-def test_missing_session_with_the_claude_in_a_different_tmux_is_session_gone(tmp_path):
+def test_missing_session_with_the_claude_in_a_different_tmux_is_session_gone(*, tmp_path):
     """A live session for the topic that DOES resolve to a tmux session is a re-mapping
     concern, not out-of-tmux — it stays `session-gone` (this fix is scoped to no-tmux)."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()  # the mapped `session` is gone...
     fake.pane_pids = {4242: "some-other-tmux"}  # ...but the claude pid resolves to a live pane
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    write_session(sessions_dir, 100, name=topic, cwd=str(repo), status="busy")
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {100: 4242}, {100: "pt"})
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    write_session(sessions_dir=sessions_dir, pid=100, name=topic, cwd=str(repo), status="busy")
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={100: 4242},
+        starttimes={100: "pt"},
+    )
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "session-gone"
 
 
@@ -120,12 +132,12 @@ def test_live_outside_tmux_is_not_an_attention_status():
     assert "live-outside-tmux" not in supervisor.ATTENTION_STATUSES
 
 
-def test_tty_render_leaves_live_outside_tmux_uncolored(tmp_path):
+def test_tty_render_leaves_live_outside_tmux_uncolored(*, tmp_path):
     """`live-outside-tmux` is informational, not an alarm — it keeps the terminal
     default color (never red like `session-gone`)."""
-    sup = make_supervisor(tmp_path, FakeTmux(), out=TtyOut())
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), out=TtyOut())
     view = supervisor.RowView(topic="lo", repo="/r", tmux="s", ctx=None, status="live-outside-tmux")
-    line = row_line(render_of(sup, [view]), "lo")
+    line = row_line(out=render_of(sup=sup, views=[view]), topic="lo")
     assert "\x1b[3" not in line  # no SGR color introducer at all
 
 
@@ -142,43 +154,43 @@ def test_tty_render_leaves_live_outside_tmux_uncolored(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_registry_busy_marks_working_despite_idle_pane(tmp_path):
+def test_registry_busy_marks_working_despite_idle_pane(*, tmp_path):
     """A session running an in-process sub-agent looks idle — no spinner, no descendant
     shell — but Claude reports itself `busy`. That self-report must mark it `working`."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=73)
     )  # pane looks idle, high ctx
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     sup.claude_status_by_session = {session: "busy"}  # Claude's own live self-report
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
     assert view.note == "sub-agent (Claude busy)"
 
 
-def test_registry_shell_marks_working_with_background_shell_note(tmp_path):
+def test_registry_shell_marks_working_with_background_shell_note(*, tmp_path):
     """Claude reports `shell` when a live `Bash(run_in_background)` command is running while
     the pane sits at the prompt — the daemon must show `working (background shell)`, so a
     real background dispatch is never mis-read as idle."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # pane at the prompt
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     sup.claude_status_by_session = {session: "shell"}  # Claude: a live background command
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
     assert view.note == "background shell"
 
 
-def test_adopted_claude_ignores_the_process_tree_shell_walk(tmp_path):
+def test_adopted_claude_ignores_the_process_tree_shell_walk(*, tmp_path):
     """For an adopted Claude session the registry `status` is authoritative and the
     process-tree shell-walk is IGNORED: a lingering `sleep`/poll shell must not mask an
     at-prompt (`waiting`) session as working — the false-positive `working (background
     shell)` bug. (Claude would report `shell`, not `waiting`, if the shell were live work.)"""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # idle pane, high ctx
@@ -186,18 +198,21 @@ def test_adopted_claude_ignores_the_process_tree_shell_walk(tmp_path):
     children = {100: [200]}
     comms = {200: "zsh"}  # a descendant shell the process-walk would flag
     sup = make_supervisor(
-        tmp_path, fake, children_of=lambda pid: children.get(pid, []), comm_of=comms.get
+        tmp_path=tmp_path,
+        fake=fake,
+        children_of=lambda pid: children.get(pid, []),
+        comm_of=comms.get,
     )
     sup.claude_status_by_session = {session: "waiting"}  # Claude: at a user prompt, not working
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "idle"  # NOT "working" — the process-walk is ignored for Claude
     assert view.note is None
 
 
-def test_no_registry_status_falls_back_to_process_shell_walk(tmp_path):
+def test_no_registry_status_falls_back_to_process_shell_walk(*, tmp_path):
     """A session with NO Claude registry entry (Codex / unmapped) falls back to the
     runtime-agnostic process-tree shell-walk — a background shell still marks it working."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
@@ -205,30 +220,33 @@ def test_no_registry_status_falls_back_to_process_shell_walk(tmp_path):
     children = {100: [200]}
     comms = {200: "bash"}
     sup = make_supervisor(
-        tmp_path, fake, children_of=lambda pid: children.get(pid, []), comm_of=comms.get
+        tmp_path=tmp_path,
+        fake=fake,
+        children_of=lambda pid: children.get(pid, []),
+        comm_of=comms.get,
     )
     sup.claude_status_by_session = {}  # no registry entry for this session (Codex)
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
     assert view.note == "background shell"
 
 
-def test_registry_idle_is_idle_even_with_a_stray_descendant_shell(tmp_path):
+def test_registry_idle_is_idle_even_with_a_stray_descendant_shell(*, tmp_path):
     """`idle` (nothing pending) is not working; the process-walk is ignored for an adopted
     Claude session, so a stray descendant shell cannot flip it to working."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.pane_pid_map[session] = 100
     sup = make_supervisor(
-        tmp_path,
-        fake,
+        tmp_path=tmp_path,
+        fake=fake,
         children_of=lambda pid: {100: [200]}.get(pid, []),
         comm_of={200: "bash"}.get,
     )
     sup.claude_status_by_session = {session: "idle"}
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     # Not "working" — the process-walk is ignored for Claude. (Idle above threshold with
     # no declaration is now nudged to keep going: `idle-with-context-left`, still not busy.)
     assert view.status == "idle-with-context-left"

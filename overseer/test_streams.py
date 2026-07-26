@@ -14,6 +14,7 @@ __all__: list[str] = []
 
 
 def test_write_stdout_writes_verbatim_to_stdout(
+    *,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     buffer = io.StringIO()
@@ -25,6 +26,7 @@ def test_write_stdout_writes_verbatim_to_stdout(
 
 
 def test_write_stderr_writes_verbatim_to_stderr(
+    *,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     buffer = io.StringIO()
@@ -35,7 +37,7 @@ def test_write_stderr_writes_verbatim_to_stderr(
     assert buffer.getvalue() == "boom\n"
 
 
-def test_the_sinks_do_not_cross_streams(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_sinks_do_not_cross_streams(*, monkeypatch: pytest.MonkeyPatch) -> None:
     """A stdout write must not reach stderr, nor the reverse."""
     out, err = io.StringIO(), io.StringIO()
     monkeypatch.setattr(sys, "stdout", out)
@@ -48,7 +50,7 @@ def test_the_sinks_do_not_cross_streams(monkeypatch: pytest.MonkeyPatch) -> None
     assert err.getvalue() == "to-err"
 
 
-def test_no_newline_is_appended(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_no_newline_is_appended(*, monkeypatch: pytest.MonkeyPatch) -> None:
     """The caller owns line termination, so two writes concatenate."""
     buffer = io.StringIO()
     monkeypatch.setattr(sys, "stdout", buffer)
@@ -60,6 +62,7 @@ def test_no_newline_is_appended(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_the_sinks_resolve_sys_streams_at_call_time(
+    *,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Late binding is what makes the sinks substitutable.

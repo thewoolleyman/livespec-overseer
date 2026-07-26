@@ -35,11 +35,11 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_cli_adopt_reports_every_adopted_session_and_the_total(monkeypatch, capsys):
+def test_cli_adopt_reports_every_adopted_session_and_the_total(*, monkeypatch, capsys):
     """`overseer adopt` names each newly-adopted session with its (repo, topic) and then
     reports the count — the operator's confirmation that a hand-started session is now
     supervised."""
@@ -62,13 +62,13 @@ def test_cli_adopt_reports_every_adopted_session_and_the_total(monkeypatch, caps
     assert "adopted 2 existing session(s)" in out
 
 
-def test_cli_start_fails_when_the_tmux_session_cannot_be_created(tmp_path, monkeypatch, capsys):
+def test_cli_start_fails_when_the_tmux_session_cannot_be_created(*, tmp_path, monkeypatch, capsys):
     """Codex re-review #3: `new-session` failing must abort `start` with a nonzero exit —
     proceeding to `_do_launch` would respawn whatever the bare name prefix-matched. And a
     start that never launched must leave NO mapping row claiming it did."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    store = isolate_store(tmp_path, monkeypatch)
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     fake = FakeTmux()  # session absent
     fake.new_session_ok = False
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
@@ -80,12 +80,12 @@ def test_cli_start_fails_when_the_tmux_session_cannot_be_created(tmp_path, monke
     assert registry.read_mapping(store_path=store) == []  # nothing mapped
 
 
-def test_cli_start_fails_when_the_launch_does_not_land(tmp_path, monkeypatch, capsys):
+def test_cli_start_fails_when_the_launch_does_not_land(*, tmp_path, monkeypatch, capsys):
     """B5 at the CLI: `_do_launch` returning False exits nonzero and reports, rather than
     printing `started …` for a session that never came up — and again maps nothing."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    store = isolate_store(tmp_path, monkeypatch)
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     fake = FakeTmux()  # session absent → created, then the respawn fails
     fake.respawn_ok = False
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
@@ -109,23 +109,23 @@ def test_cli_start_fails_when_the_launch_does_not_land(tmp_path, monkeypatch, ca
 # --------------------------------------------------------------------------- #
 
 
-def test_read_only_list_reports_a_malformed_state_file_without_alerting(tmp_path):
+def test_read_only_list_reports_a_malformed_state_file_without_alerting(*, tmp_path):
     """A typo'd declaration still shows in the row's note under `list`, but the operator
     ALERT is an event-history line the DAEMON owns — emitting it from the read-only render
     would re-spam the log on every `list`."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    declare(repo, topic, "redy", mtime=1001.0)  # typo
+    declare(repo=repo, topic=topic, value="redy", mtime=1001.0)  # typo
     err = _io.StringIO()
 
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=False)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=False)
 
     assert view.note is not None and "redy" in view.note  # the operator still sees it
     assert "MALFORMED state file" not in err.getvalue()  # but no alert was emitted
@@ -133,20 +133,22 @@ def test_read_only_list_reports_a_malformed_state_file_without_alerting(tmp_path
     assert not fake.has(method="respawn")
 
 
-def test_read_only_list_reports_working_without_retiring_a_stale_block(tmp_path):
+def test_read_only_list_reports_working_without_retiring_a_stale_block(*, tmp_path):
     """A `blocked:` a generating session has outlived is retired by the DAEMON (it deletes
     the marker). `list` must render the same `working` row carrying that reason and leave
     the marker on disk — retiring it is a filesystem mutation, and the teeth here are that
     the identical act=True tick DOES void it."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture="esc to interrupt\n  Ctx: 40% left\n"
     )  # generating
-    sup = make_supervisor(tmp_path, fake)
-    declare(repo, topic, "blocked: waiting on a human", mtime=1.0)  # far past the grace
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    declare(
+        repo=repo, topic=topic, value="blocked: waiting on a human", mtime=1.0
+    )  # far past the grace
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     view = sup.evaluate(track=track, act=False)
 
@@ -161,21 +163,21 @@ def test_read_only_list_reports_working_without_retiring_a_stale_block(tmp_path)
     assert signals.read_state(repo=str(repo), topic=topic) is None
 
 
-def test_read_only_list_reports_restarting_without_respawning(tmp_path):
+def test_read_only_list_reports_restarting_without_respawning(*, tmp_path):
     """`restarting` is a DERIVED status — the row shows what the daemon would do next. Under
     `list` no respawn may fire and the `ready` declaration + round must survive intact, or a
     read-only render would have consumed the session's one restart authorization."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    marker = arm_ready_marker(repo, topic, mtime=1001.0)
+    marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=False)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=False)
 
     assert view.status == "restarting"
     assert not fake.has(method="respawn")  # the session was NOT killed by a `list`
@@ -187,24 +189,24 @@ def test_read_only_list_reports_restarting_without_respawning(tmp_path):
     )
 
 
-def test_read_only_list_reports_danger_without_injecting_or_alerting(tmp_path):
+def test_read_only_list_reports_danger_without_injecting_or_alerting(*, tmp_path):
     """At/below the danger line the daemon injects a wrap-up and alerts that the track is
     NOT RESPONDING. `list` shows the same `danger` row and does neither — and above all
     opens no injection round, which would move the certification anchor a later `ready`
     is compared against."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=15))  # <= DANGER_CTX_REMAINING
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     err = _io.StringIO()
 
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=False)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=False)
 
     assert view.status == "danger"
     assert err.getvalue() == ""  # no NOT RESPONDING alert from a read-only render
-    assert wrapup_count(fake) == 0  # and nothing keystroked
+    assert wrapup_count(fake=fake) == 0  # and nothing keystroked
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is None
@@ -217,19 +219,23 @@ def test_read_only_list_reports_danger_without_injecting_or_alerting(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_live_outside_tmux_note_omits_the_suffix_when_no_status_is_reported(tmp_path):
+def test_live_outside_tmux_note_omits_the_suffix_when_no_status_is_reported(*, tmp_path):
     """The live-outside-tmux note appends Claude's own self-reported status only when the
     registry actually carries one. With none reported the note stops at the pid — never a
     dangling `self-reported status ` with nothing after it."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()  # mapped tmux session absent → routes to the no-managed-pane row
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    write_session(sessions_dir, 100, name=topic, cwd=str(repo), status="")  # no self-report
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {100: "pt"})
+    write_session(
+        sessions_dir=sessions_dir, pid=100, name=topic, cwd=str(repo), status=""
+    )  # no self-report
+    sup = adopt_sup(
+        tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={100: "pt"}
+    )
 
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert view.status == "live-outside-tmux"
     assert view.note == (
@@ -238,17 +244,17 @@ def test_live_outside_tmux_note_omits_the_suffix_when_no_status_is_reported(tmp_
     assert "self-reported status" not in view.note
 
 
-def test_failed_paste_in_an_already_open_round_keeps_the_rounds_stamp(tmp_path):
+def test_failed_paste_in_an_already_open_round_keeps_the_rounds_stamp(*, tmp_path):
     """The rollback on a failed wrap-up paste applies ONLY to a round this tick just
     OPENED. A re-warn at a lower band runs inside a round opened earlier, and clearing that
     round's `at` would reset the anchor `ready_valid` compares a declaration against — so
     the stamp is left alone and only the alert fires."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # a LOWER band than 50
     fake.paste_ok = False  # the re-warn paste does not land
-    sup = make_supervisor(tmp_path, fake, warn_percent=50)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, warn_percent=50)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )  # round ALREADY open
@@ -258,7 +264,7 @@ def test_failed_paste_in_an_already_open_round_keeps_the_rounds_stamp(tmp_path):
     err = _io.StringIO()
 
     with contextlib.redirect_stderr(err):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert "wrap-up injection FAILED" in err.getvalue()
     assert (

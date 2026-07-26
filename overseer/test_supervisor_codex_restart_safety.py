@@ -35,11 +35,11 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_command(tmp_path):
+def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_command(*, tmp_path):
     """A Codex track is now a FULL CITIZEN (maintainer-declared 2026-07-17): its own `ready`
     IS honoured — but via `codex resume <id>`, NEVER the claude launch command.
 
@@ -49,14 +49,14 @@ def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_comm
     destructive bug this daemon can have is aiming `claude -n <topic>` at a codex pane; the
     routing prevents it and its sibling below pins it by sabotage.
     """
-    repo, topic, session, session_id, fake, sup = adopt_codex_ready(tmp_path)
+    repo, topic, session, session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "restarting"  # its own `ready` is honoured, not refused
     respawns = [c for c in fake.calls if c[0] == "respawn"]
     assert len(respawns) == 1
     command = respawns[0][3]
-    assert_no_tmux_scoping(command)
+    assert_no_tmux_scoping(command=command)
     assert "codex resume " in command  # the CODEX command, not claude
     assert session_id in command  # resumes the SAME session by id → adoptability survives
     # Autonomy parity with the Claude path's `--dangerously-skip-permissions`: without this
@@ -72,11 +72,11 @@ def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_comm
     assert signals.read_state(repo=str(repo), topic=topic) is None
     fake.calls.clear()
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert not fake.has(method="respawn")  # no re-restart of the session we just resumed
 
 
-def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(tmp_path):
+def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(*, tmp_path):
     """#4: two codex sessions live in ONE tmux session, each named for its own plan topic.
     Before the (tmux, name) keying, `self.live_codex` kept ONE CodexSession per tmux session,
     so the SECOND track resolved to the wrong session id (or None) — its restart aimed at
@@ -84,12 +84,12 @@ def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(
     by (tmux, topic), each track's `_do_codex_restart` resolves to ITS OWN session, so each
     respawns `codex resume <its-own-id>`. Sabotage: revert the lookup to `.get(session)`
     and the second track resolves to None → no respawn → this goes red."""
-    repo, topic_a = make_plan(tmp_path, topic="alpha")
-    _, topic_b = make_plan(tmp_path, topic="beta")
+    repo, topic_a = make_plan(tmp_path=tmp_path, topic="alpha")
+    _, topic_b = make_plan(tmp_path=tmp_path, topic="beta")
     shared = "shared-tmux"
     fake = FakeTmux()
     fake.serve(session=shared, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun")
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     id_a = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
     id_b = "019f548d-6071-7893-9c2e-472cce81da02"
     sup.live_codex = {
@@ -102,42 +102,46 @@ def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(
     }
     target = fake.pane_id(session=shared)
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup._do_codex_restart(track=mapped_track(repo, topic_a, shared), target=target)
-        sup._do_codex_restart(track=mapped_track(repo, topic_b, shared), target=target)
+        sup._do_codex_restart(
+            track=mapped_track(repo=repo, topic=topic_a, session=shared), target=target
+        )
+        sup._do_codex_restart(
+            track=mapped_track(repo=repo, topic=topic_b, session=shared), target=target
+        )
     respawn_cmds = [c[3] for c in fake.calls if c[0] == "respawn"]
     assert len(respawn_cmds) == 2  # each track resolved to a live session and respawned
     assert id_a in respawn_cmds[0] and id_b not in respawn_cmds[0]  # track alpha → A's rollout
     assert id_b in respawn_cmds[1] and id_a not in respawn_cmds[1]  # track beta → B's rollout
 
 
-def test_a_codex_restart_keeps_the_ready_marker_when_the_respawn_fails(tmp_path):
+def test_a_codex_restart_keeps_the_ready_marker_when_the_respawn_fails(*, tmp_path):
     """B5 for the Codex arm: a failed `respawn-pane` must NOT clear the `ready` marker —
     the certification is preserved so the next tick retries, never silently destroyed
     (the Codex twin of `test_restart_keeps_marker_when_respawn_fails`).
     """
-    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path)
+    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
     fake.respawn_ok = False  # the atomic respawn fails
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert signals.read_state(repo=str(repo), topic=topic) is not None  # marker KEPT for retry
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
-def test_a_codex_restart_keeps_the_ready_marker_when_the_pane_never_becomes_codex(tmp_path):
+def test_a_codex_restart_keeps_the_ready_marker_when_the_pane_never_becomes_codex(*, tmp_path):
     """B5 for the Codex arm: if the respawned pane never becomes a live Codex TUI
     (`_await_pane(pane_is_codex)` fails), the round is NOT closed — the `ready` marker is
     kept so the restart retries. Models the await-fail leg the success test's runtime
     modeling otherwise hides.
     """
-    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path)
+    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
     fake.respawn_yields_codex = False  # respawn succeeds but the pane comes up non-codex
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert signals.read_state(repo=str(repo), topic=topic) is not None  # marker KEPT for retry
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
-def test_a_codex_ready_restart_never_issues_the_claude_command(tmp_path):
+def test_a_codex_ready_restart_never_issues_the_claude_command(*, tmp_path):
     """THE sabotage-target guard: no respawn for a Codex `ready` track may carry the claude
     launch command. Aimed at a codex pane, `claude --dangerously-skip-permissions -n <topic>`
     REPLACES the codex session with a claude one and destroys it — the one destructive bug
@@ -147,17 +151,19 @@ def test_a_codex_ready_restart_never_issues_the_claude_command(tmp_path):
     `_do_restart`, or the `if is_codex:` dispatch inside it) and this goes RED, because the
     respawn command becomes `claude …`. The claude launch string must appear in NO respawn.
     """
-    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path)
-    claude_command = supervisor.Supervisor._launch_command(track=mapped_track(repo, topic, session))
+    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+    claude_command = supervisor.Supervisor._launch_command(
+        track=mapped_track(repo=repo, topic=topic, session=session)
+    )
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     respawn_commands = [c[3] for c in fake.calls if c[0] == "respawn"]
     assert respawn_commands  # it WAS restarted (full citizen)...
     assert claude_command not in respawn_commands  # ...but NEVER with the claude command
     assert not any("claude" in c for c in respawn_commands)  # belt-and-suspenders
 
 
-def test_a_codex_track_below_threshold_gets_the_escalating_wrapup(tmp_path):
+def test_a_codex_track_below_threshold_gets_the_escalating_wrapup(*, tmp_path):
     """A Codex track below its wind-down threshold receives the SAME escalating wrap-up a
     Claude track does — the change that makes Codex a full citizen. Monitor-only left a
     Codex track a passenger that ran to context exhaustion; now the daemon's only lever
@@ -167,7 +173,7 @@ def test_a_codex_track_below_threshold_gets_the_escalating_wrapup(tmp_path):
     cleared `❯` box (Codex has none). The capture frames model that: idle for the main read
     + the settle pair, then busy after the paste's Enter.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     # frames: [main, settle-1, settle-2 (== settle-1 → settled), post-Enter (busy → submitted)]
@@ -179,25 +185,25 @@ def test_a_codex_track_below_threshold_gets_the_escalating_wrapup(tmp_path):
     )
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
+    sup = adopt_sup(tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={})
     sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
         )
     }
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "warned"  # below threshold, above danger → warned (not idle)
     assert fake.has(method="paste")  # the wrap-up reached the Codex track
     assert "wind" in " ".join(fake.paste_texts()).lower()  # it IS the wrap-up text
 
 
-def test_a_codex_approval_gate_suppresses_the_wrapup(tmp_path):
+def test_a_codex_approval_gate_suppresses_the_wrapup(*, tmp_path):
     """A Codex approval / directory-trust picker (`› 1.`) must SUPPRESS the wrap-up — the
     paste would otherwise type into the `1/2` chooser. The extended gate-cursor regex
     (`[❯›]`) is what catches the `›` cursor Codex uses (Claude uses `❯`).
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     gate = (
@@ -209,19 +215,19 @@ def test_a_codex_approval_gate_suppresses_the_wrapup(tmp_path):
     fake.serve(session=session, repo=repo, capture=gate, cmd="bun")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
+    sup = adopt_sup(tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={})
     sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
             pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
         )
     }
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "blocked:human"  # a gate, not idle
     assert not fake.has(method="paste")  # nothing keystroked into the picker
 
 
-def test_a_claude_pane_keeps_its_wrapup_when_codex_shares_its_tmux_session(tmp_path):
+def test_a_claude_pane_keeps_its_wrapup_when_codex_shares_its_tmux_session(*, tmp_path):
     """A live CLAUDE track must NOT be reclassified as codex just because a codex process
     resolves into the same tmux SESSION (adversarial review, 2026-07-17).
 
@@ -236,12 +242,12 @@ def test_a_claude_pane_keeps_its_wrapup_when_codex_shares_its_tmux_session(tmp_p
     nothing surfaced. A live Claude track going quiet is the worst failure this daemon
     can have.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     # A PROVEN live Claude pane (`node`), below its wind-down threshold => must be warned.
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     # ...while a codex session for the SAME topic sits in the SAME tmux session.
     sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
@@ -252,6 +258,6 @@ def test_a_claude_pane_keeps_its_wrapup_when_codex_shares_its_tmux_session(tmp_p
         session=session, repo=str(repo), topic=topic, target=fake.pane_id(session=session)
     )  # pane is node
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "warned"  # the Claude track is still supervised...
     assert fake.has(method="paste")  # ...and still gets the wrap-up, the daemon's only lever

@@ -40,7 +40,7 @@ from overseer.test_supervisor_fakes import (
 )
 
 
-def _open_round(tmp_path, *, ctx=40, topic="topic", clock=None, declare_first=None):
+def _open_round(*, tmp_path, ctx=40, topic="topic", clock=None, declare_first=None):
     """Drive a REAL wrap-up round and return everything needed to continue it.
 
     The Supervisor observes an idle track below its threshold, which warns it and
@@ -52,15 +52,15 @@ def _open_round(tmp_path, *, ctx=40, topic="topic", clock=None, declare_first=No
     opened, for the prior-round case — so "the declaration predates this round's
     stamp" is a fact about the sequence rather than a hand-picked pair of numbers.
     """
-    repo, topic = make_plan(tmp_path, topic=topic)
+    repo, topic = make_plan(tmp_path=tmp_path, topic=topic)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=ctx))
     now = (lambda: clock["t"]) if clock is not None else (lambda: 1000.0)
-    sup = make_supervisor(tmp_path, fake, now=now, out=_io.StringIO())
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=now, out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
     if declare_first is not None:
-        declare(repo, topic, declare_first[0], mtime=declare_first[1])
+        declare(repo=repo, topic=topic, value=declare_first[0], mtime=declare_first[1])
 
     opened = sup.evaluate(track=track, act=True)
 
@@ -72,11 +72,11 @@ def _open_round(tmp_path, *, ctx=40, topic="topic", clock=None, declare_first=No
     return repo, topic, session, fake, sup, track
 
 
-def _respawns(fake):
+def _respawns(*, fake):
     return [call for call in fake.calls if call[0] == "respawn"]
 
 
-def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(tmp_path):
+def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(*, tmp_path):
     """Scenario: A fresh ready declaration triggers the atomic restart.
 
     Given a warned session that wrote `ready` AFTER this round's injection stamp, and an
@@ -104,16 +104,16 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(tmp_path
         clears the file some other way.
       - `_launch_command` re-pointed at the codex command -> the launch-command assertion.
     """
-    repo, topic, _session, fake, sup, track = _open_round(tmp_path)
-    declare(repo, topic, signals.STATE_READY, mtime=1001.0)  # POST-dates the stamp
+    repo, topic, _session, fake, sup, track = _open_round(tmp_path=tmp_path)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)  # POST-dates the stamp
 
     view = sup.evaluate(track=track, act=True)
 
     assert view.status == "restarting"
-    assert len(_respawns(fake)) == 1  # ONE atomic op...
+    assert len(_respawns(fake=fake)) == 1  # ONE atomic op...
     assert not fake.has(method="new")  # ...not a teardown and a re-create
     assert not any(call[0] == "keys" and "exit" in str(call[2]).lower() for call in fake.calls)
-    assert _respawns(fake)[0][3] == f"claude --dangerously-skip-permissions -n {topic}"
+    assert _respawns(fake=fake)[0][3] == f"claude --dangerously-skip-permissions -n {topic}"
 
     pastes = fake.paste_texts()
     assert len(pastes) == 2  # the wrap-up that opened the round, then ONE resume prompt
@@ -127,10 +127,10 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(tmp_path
     )
 
     sup.evaluate(track=track, act=True)  # the consumed declaration must not fire again
-    assert len(_respawns(fake)) == 1
+    assert len(_respawns(fake=fake)) == 1
 
 
-def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(tmp_path):
+def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(*, tmp_path):
     """Scenario: A ready declaration from a prior round never restarts.
 
     Given a state file declaring `ready` whose modification time PREDATES this round's
@@ -150,7 +150,7 @@ def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(tmp_path
     `return True`) restarts the track on the prior round's declaration.
     """
     repo, topic, _session, fake, sup, track = _open_round(
-        tmp_path,
+        tmp_path=tmp_path,
         declare_first=(signals.STATE_READY, 999.0),  # a PRIOR round's word, then the stamp
     )
     state = signals.state_path(repo=str(repo), topic=topic)
@@ -168,7 +168,7 @@ def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(tmp_path
     )
 
 
-def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tmp_path):
+def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(*, tmp_path):
     """Scenario: A ready declaration is voided when its session resumes work.
 
     Both halves of the scenario are here because they are one rule seen from two sides,
@@ -192,8 +192,10 @@ def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tm
     """
     # --- younger than the grace: survives the declaring turn's own busy tail --------- #
     clock = {"t": 1000.0}
-    repo, topic, session, fake, sup, track = _open_round(tmp_path, topic="young", clock=clock)
-    marker = declare(repo, topic, signals.STATE_READY, mtime=1001.0)
+    repo, topic, session, fake, sup, track = _open_round(
+        tmp_path=tmp_path, topic="young", clock=clock
+    )
+    marker = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
 
     fake.serve(
         session=session, repo=repo, capture=busy_capture(ctx=40)
@@ -210,8 +212,10 @@ def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tm
 
     # --- older than the grace: cleared instead of restarting later ------------------- #
     stale_clock = {"t": 1000.0}
-    repo, topic, session, fake, sup, track = _open_round(tmp_path, topic="stale", clock=stale_clock)
-    marker = declare(repo, topic, signals.STATE_READY, mtime=1001.0)
+    repo, topic, session, fake, sup, track = _open_round(
+        tmp_path=tmp_path, topic="stale", clock=stale_clock
+    )
+    marker = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
 
     fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))  # the session resumed WORK
     stale_clock["t"] = 1201.0  # age 200s, past the 120s grace
@@ -230,6 +234,7 @@ def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tm
 
 
 def test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_restarted(
+    *,
     tmp_path,
 ):
     """Scenario: An undeclared session at the danger line is reported, never restarted.
@@ -255,7 +260,7 @@ def test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_res
         alert is emitted at all.
       - `alert` reduced to `repo::topic` text -> the session/pane/jump assertions.
     """
-    repo, topic, session, fake, sup, track = _open_round(tmp_path)
+    repo, topic, session, fake, sup, track = _open_round(tmp_path=tmp_path)
     assert not signals.state_path(repo=str(repo), topic=topic).exists()  # the session said nothing
 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))  # crosses the danger line
@@ -283,6 +288,7 @@ def test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_res
 
 
 def test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declaration(
+    *,
     tmp_path,
 ):
     """Scenario: A malformed state value is surfaced and treated as no declaration.
@@ -309,9 +315,11 @@ def test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declarat
       - `read_state` coercing an unknown token to `ready` -> the track is respawned on a
         typo, which is the reason this scenario exists.
     """
-    repo, topic, session, fake, sup, track = _open_round(tmp_path)
+    repo, topic, session, fake, sup, track = _open_round(tmp_path=tmp_path)
     stamp = registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-    state = declare(repo, topic, "redy", mtime=1001.0)  # a typo, post-dating the stamp
+    state = declare(
+        repo=repo, topic=topic, value="redy", mtime=1001.0
+    )  # a typo, post-dating the stamp
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
