@@ -1,7 +1,8 @@
 """_supervisor_evaluate — phase 2 of a tick: the decision cascade.
 
 A private collaborator of :mod:`supervisor`; see that module's header for the whole
-split. This module is ONE function and the one leg extracted from it. Everything
+split. This module is ONE function, the decision cascade itself; the single leg
+extracted from it lives in :mod:`_supervisor_resume_retry`. Everything
 :func:`evaluate` decides ON is gathered by :mod:`_supervisor_observe` first, and
 everything it decides to DO is carried out by :mod:`_supervisor_restart`,
 :mod:`_supervisor_nudge`, :mod:`_supervisor_state` and :mod:`_supervisor_offer` — so
@@ -30,10 +31,9 @@ from _supervisor_config import (
     SUPERVISION_CONDITIONS,
     track_key,
 )
-from _supervisor_records import Observation
+from _supervisor_resume_retry import resume_retry
 from _supervisor_view import (
     MAX_REASON_IN_ALERT,
-    RESUME_PENDING_NOTE,
     RowView,
     elide,
     needs_attention,
@@ -42,7 +42,7 @@ from _supervisor_view import (
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["evaluate", "resume_retry"]
+__all__: list[str] = ["evaluate"]
 
 
 def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this function"
@@ -73,17 +73,19 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     or the folder — every other function in this module is still held to them.
 
     **The one authorised exception, and its exact bounds.** ONE leg — R1, the
-    self-healing resume retry — is a function (:func:`resume_retry`, same
-    module, directly below), maintainer-declared 2026-07-26. The 2026-07-19
-    ruling protects the readability of the precedence ORDER, and that survives:
-    the call sits at exactly the position the block occupied, so the cascade
-    still reads top-to-bottom in one pass. What moved is that leg's DETAIL, not
-    its place in the order. The ground was measured, not stylistic — this
-    function plus its imports could not otherwise clear the 200 LLOC SOFT
-    ceiling, and the soft band is what fails a release. NO OTHER leg may be cut
-    out on this precedent: a ruling protects its STATED property, so the test
-    for any future extraction is whether the precedence order still reads in one
-    pass here, not whether it resembles this one.
+    self-healing resume retry — is a function
+    (:func:`_supervisor_resume_retry.resume_retry`), maintainer-declared
+    2026-07-26. The 2026-07-19 ruling protects the readability of the precedence
+    ORDER, and that survives: the call sits at exactly the position the block
+    occupied, so the cascade still reads top-to-bottom in one pass. What moved
+    is that leg's DETAIL, not its place in the order. The ground was measured,
+    not stylistic — this function plus its imports could not otherwise clear the
+    200 LLOC SOFT ceiling, and the soft band is what fails a release. That leg
+    began directly below this function and now lives in its OWN module; why, and
+    what the second move cost, is on that module's header. NO OTHER leg may be
+    cut out on this precedent: a ruling protects its STATED property, so the
+    test for any future extraction is whether the precedence order still reads
+    in one pass here, not whether it resembles this one.
     """
     if track.is_unassigned:
         return RowView(topic=track.topic, repo=track.repo, tmux=None, ctx=None, status="unassigned")
@@ -157,9 +159,9 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     # R1 — self-healing resume retry. The cascade's FIRST leg, and it stays first:
     # it must intercept before the busy/idle cascade below, because a box holding the
     # un-submitted resume text reads as "not idle" and would otherwise fall to
-    # `settling` and never retry. Its detail lives in `resume_retry` (same module,
-    # directly below); the call sits at the leg's exact position so the precedence
-    # order still reads top-to-bottom here in one pass.
+    # `settling` and never retry. Its detail lives in `_supervisor_resume_retry`; the
+    # call sits at the leg's exact position so the precedence order still reads
+    # top-to-bottom here in one pass.
     retry = resume_retry(sup=sup, track=track, obs=obs, act=act, session=session, target=target)
     if retry is not None:
         return retry
@@ -388,105 +390,3 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
             if key[:2] != prefix or key[2] in SUPERVISION_CONDITIONS
         }
     return view
-
-
-def resume_retry(
-    *,
-    sup: Supervisor,
-    track: registry.Track,
-    obs: Observation,
-    act: bool,
-    session: str,
-    target: str,
-) -> RowView | None:
-    """R1 — self-healing resume retry: the cascade's first leg, or None to fall through.
-
-    A prior tick respawned the fresh Claude but its resume line did not submit (the
-    fresh TUI dropped the Enter, or the daemon died mid-restart). The round is still
-    open (marker + stamp kept), so ``ready`` is still valid — but re-entering
-    :func:`evaluate`'s ``elif ready:`` branch would RE-RESPAWN and kill the live fresh
-    session. This leg intercepts first and retries the SUBMIT ONLY: re-send Enter,
-    never a respawn (a fresh ``ready`` is the sole respawn trigger, invariant 7).
-    Codex never sets ``resume_pending`` (its ``codex resume`` auto-submits the kick),
-    so this is Claude-only by construction.
-
-    **Why this leg is a function and the rest of the cascade is not.** The ruling of
-    2026-07-19 rejected cutting the cascade into per-state helpers, because that would
-    scatter the PRECEDENCE ORDER across call sites where no reader can check it in one
-    pass. Extracting this one leg leaves that order intact: the call sits at exactly
-    the position the block occupied, so :func:`evaluate` still reads top-to-bottom as a
-    single precedence sequence. What moved is the leg's DETAIL, not its place in the
-    order (maintainer-declared 2026-07-26, on the measured ground that `evaluate` plus
-    its imports could not otherwise clear the 200 LLOC soft ceiling, and the soft band
-    is what fails a release).
-
-    The cost, named rather than hidden: this leg's THREE early exits now live here, so
-    a reader enumerating every way `evaluate` can return early opens one more function
-    — in the same module, directly below it. Returning None means "not this leg";
-    every other path returns the row that ends the tick.
-    """
-    repo, topic = track.repo, track.topic
-    if not (
-        act and registry.read_resume_pending(repo=repo, topic=topic, stamp_path=sup.stamp_path)
-    ):
-        return None
-    if obs.gate:
-        # A fresh TUI showing a picker (trust / update / bypass-permissions confirm):
-        # NEVER keystroke into a gate (blocker #6). Report it and keep the round open;
-        # the retry resumes once the human clears the gate (review SF4).
-        sup.alert(
-            repo=repo,
-            topic=topic,
-            session=session,
-            pane=target,
-            message="gate on freshly-restarted pane — answer it IN THAT PANE",
-        )
-        return RowView(
-            topic=topic,
-            repo=repo,
-            tmux=session,
-            ctx=obs.eff_ctx,
-            status="blocked:human",
-            note="structured gate on freshly-restarted pane",
-            runtime=obs.runtime,
-        )
-    # Branch on the BOX STATE, not on `busy` (review SF3): a freshly-respawned session
-    # can read busy for reasons unrelated to the resume (SessionStart hooks), so a
-    # top-level `busy` shortcut would false-close the round while the resume is still
-    # un-submitted. An EMPTY box means the resume left the box (submitted / never
-    # pasted) — the round is done here; the rare paste-failure re-engages via the
-    # idle-with-context nudge, not a double-kick. A box holding TEXT means the Enter
-    # was dropped — re-send Enter ONLY (never re-paste; the text is already there).
-    resolved = (
-        True
-        if signals.input_box_ready(capture_text=obs.capture)
-        else _supervisor_launch.resend_enter(sup=sup, target=target)
-    )
-    if resolved:
-        _supervisor_state.clear_state(sup=sup, track=track)
-        sup.log(message=f"restart resume submitted for {repo}::{topic} (pane {target})")
-        return RowView(
-            topic=topic,
-            repo=repo,
-            tmux=session,
-            ctx=obs.eff_ctx,
-            status="restarting",
-            runtime=obs.runtime,
-        )
-    # Still un-submitted: keep the round open (retry again next tick) and report it.
-    sup.alert(
-        repo=repo,
-        topic=topic,
-        session=session,
-        pane=target,
-        message=("resume line STILL not submitted after restart — retrying the Enter (no respawn)"),
-    )
-    return RowView(
-        topic=topic,
-        repo=repo,
-        tmux=session,
-        ctx=obs.eff_ctx,
-        status="restarting",
-        note=RESUME_PENDING_NOTE,
-        runtime=obs.runtime,
-    )
