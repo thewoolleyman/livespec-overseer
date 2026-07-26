@@ -1648,6 +1648,50 @@ Everything formerly listed here is now a goal-6 completion condition above — t
 section is kept only so a reader arriving from the predecessor thread's wording
 lands somewhere real instead of on a removed heading.
 
+## ARCHIVING THIS THREAD IS NOT A FREE ACTION — read before running the close step
+
+The epic is closed and the six goals hold, so the `plan` skill's archive step
+looks like the obvious next move. **It would redden `just check`.**
+
+`plan/ship-overseer-to-fleet/supervisor-handoff.md` is not only this thread's
+charter — it is a **TEST FIXTURE**:
+
+```
+tests/prompts/test_generated_supervisor_handoff_contract.py:25
+    _EXEMPLAR = _REPO_ROOT / "plan" / "ship-overseer-to-fleet" / "supervisor-handoff.md"
+:104
+    assert missing_requirements(charter=_EXEMPLAR.read_text(encoding="utf-8")) == []
+```
+
+That read is unguarded, so moving the file raises `FileNotFoundError` and the
+prompts-tier suite errors — inside the aggregate gate goal 2 armed. The exemplar
+is what pins the generated charter against a hand-written reference, which is
+precisely why `.16` could be accepted at all.
+
+**So archiving requires a deliberate co-edit**, in this order: repoint
+`_EXEMPLAR` at wherever the charter lands, re-run `just check`, and only then
+archive. Do not discover this from a red CI run.
+
+Three other documents reference this thread by path — the archived predecessor
+`plan/archive/cutover-and-shipping/handoff.md`, and the two LIVE sibling threads
+`plan/supervise-plan-residual-gaps/` and `plan/supervisor-prompt-quality/`.
+Those are prose references and degrade gracefully; the test does not.
+
+### Independent corroboration of goal 1, from outside this thread
+
+`plan/supervise-plan-residual-gaps/handoff.md` records something this file did
+not, and it strengthens goal 1's evidence rather than merely repeating it:
+
+> as of 2026-07-26 the `supervise-plan` skill RESOLVED in a session that is not
+> this repo's (`livespec-console-beads-fabro`), read cold from the plugin cache.
+> That is their goal-1 acceptance condition, observed from the outside.
+
+Worth keeping because it is **third-party**: goal 1's own acceptance (`.15`) was
+demonstrated by this track, in sessions this track started. This is a different
+thread, in a different repo, discovering the skill cold from the published cache
+and using it — the observation goal 1 wanted, made by someone with no stake in
+scoring it met.
+
 ## Operational map
 
 Supervision runs against the live fleet: daemon in tmux `livespec-overseer:1.1`,
