@@ -15,6 +15,8 @@ import os
 
 import signals
 
+__all__: list[str] = ["declare_state", "setup_track"]
+
 
 def setup_track(tmp_path):
     """A watched track: a repo with the session's own ``plan/<topic>/`` dir.

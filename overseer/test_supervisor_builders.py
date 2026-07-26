@@ -20,6 +20,8 @@ import signals
 import supervisor
 from test_supervisor_fakes import FakeTmux
 
+__all__: list[str] = []
+
 # A phrase unique to the idle-with-context-left "keep going" nudge (never in the wrap-up).
 NUDGE_SENTINEL = "do NOT offer to stop"
 

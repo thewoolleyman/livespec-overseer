@@ -29,6 +29,8 @@ from overseer.test_supervisor_fakes import (
     FakeTmux,
 )
 
+__all__: list[str] = []
+
 _PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent
 
 # Standard-library modules that can reach the network or spawn a model call.

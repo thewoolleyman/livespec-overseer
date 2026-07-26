@@ -31,6 +31,8 @@ from test_supervisor_fakes import (
     FakeTmux,
 )
 
+__all__: list[str] = []
+
 
 @pytest.fixture(autouse=True)
 def _isolate_cwd(tmp_path, monkeypatch):

@@ -14,6 +14,8 @@ import types
 
 import tmuxio
 
+__all__: list[str] = ["FakeRun", "io"]
+
 
 class FakeRun:
     """Stands in for ``subprocess.run``; records argv + stdin, returns canned result.

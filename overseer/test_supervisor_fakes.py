@@ -20,6 +20,8 @@ its own result.
 
 import io as _io
 
+__all__: list[str] = ["NO_SUBSHELL_PID", "FakeTmux", "TtyOut"]
+
 # A pid that cannot exist, so the real ``claude_sessions.proc_children`` reader
 # fails soft to ``[]`` → no descendant, no subshell. FakeTmux.pane_pid returns
 # this by default so bg-shell detection is inert unless a test opts in.

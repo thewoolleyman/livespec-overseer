@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import supervisor  # intentionally after the sys.path pin above
 
-__all__ = ["main"]
+__all__: list[str] = ["main"]
 
 # A remaining-context percent. 0 would mean "warn only once context is gone", and
 # 100 would mean "warn immediately, always" — neither is a threshold anyone wants,

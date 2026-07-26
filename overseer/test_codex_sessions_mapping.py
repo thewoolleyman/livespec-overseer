@@ -23,6 +23,8 @@ from test_codex_sessions_fakes import (
     fake_rollout,
 )
 
+__all__: list[str] = []
+
 # --------------------------------------------------------------------------- #
 # map_codex_sessions — the twin of claude_sessions.map_named_sessions, emitting the
 # SAME (tmux_session, name, cwd) triple so `adopt` can consume either runtime through

@@ -44,7 +44,7 @@ from typing import Any, Protocol
 
 import streams
 
-__all__ = ["PaneDriver", "TmuxIO", "WindowLayoutDriver"]
+__all__: list[str] = ["PaneDriver", "TmuxIO", "WindowLayoutDriver"]
 
 
 class PaneDriver(Protocol):

@@ -11,6 +11,8 @@ fake, since `main()` constructs its own `TmuxIO`.
 import importlib
 from pathlib import Path
 
+__all__: list[str] = []
+
 
 def _load():
     return importlib.import_module("overseer.start")

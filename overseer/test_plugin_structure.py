@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+__all__: list[str] = []
+
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN_ROOT = ROOT / ".claude-plugin"
 PROSE = PLUGIN_ROOT / "prose" / "overseer.md"

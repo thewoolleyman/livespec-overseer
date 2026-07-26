@@ -7,6 +7,8 @@ in the product ``tests/`` tree). ``import jsonio`` resolves via conftest.py.
 import jsonio
 import pytest
 
+__all__: list[str] = []
+
 
 def test_parses_a_json_object():
     assert jsonio.parse_object('{"a": 1, "b": "two"}') == {"a": 1, "b": "two"}
