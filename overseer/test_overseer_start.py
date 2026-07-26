@@ -18,7 +18,7 @@ def _load():
     return importlib.import_module("overseer.start")
 
 
-def test_refuses_outside_claude_code(monkeypatch, capsys):
+def test_refuses_outside_claude_code(*, monkeypatch, capsys):
     # Run by hand in a plain shell ($CLAUDECODE unset): refuse BEFORE any tmux op,
     # so no half-set-up daemon pane / bare-shell bottom pane is ever created.
     mod = _load()
@@ -32,7 +32,7 @@ def test_refuses_outside_claude_code(monkeypatch, capsys):
     assert "$CLAUDECODE" in err
 
 
-def test_claude_code_guard_precedes_tmux_check(monkeypatch, capsys):
+def test_claude_code_guard_precedes_tmux_check(*, monkeypatch, capsys):
     # The Claude-Code precondition is checked FIRST: with neither var set, the
     # message is the standalone-refusal, not the "$TMUX_PANE unset" one.
     mod = _load()
@@ -44,7 +44,7 @@ def test_claude_code_guard_precedes_tmux_check(monkeypatch, capsys):
     assert "TMUX_PANE" not in err
 
 
-def test_allows_when_claude_code_marker_present(monkeypatch, capsys):
+def test_allows_when_claude_code_marker_present(*, monkeypatch, capsys):
     # With $CLAUDECODE set but $TMUX_PANE unset, the Claude-Code guard PASSES and
     # execution falls through to the tmux-pane check — proving the guard does not
     # block a genuine Claude Code session (it stops later, for the tmux reason).
@@ -65,7 +65,7 @@ def test_daemon_command_threads_warn_percent():
     assert mod.daemon_command(30) == "overseerd --warn-percent 30 2>> tmp/overseer/daemon.log"
 
 
-def test_warn_percent_arg_parses(monkeypatch):
+def test_warn_percent_arg_parses(*, monkeypatch):
     # main([--warn-percent, N]) parses the flag; with $CLAUDECODE unset the guard
     # still short-circuits (return 1), proving the flag doesn't break arg parsing.
     mod = _load()
@@ -109,30 +109,30 @@ class FakeLayout:
         self.resolves_title = resolves_title
         self.calls = []
 
-    def window_pane_titles(self, pane):
+    def window_pane_titles(self, *, pane):
         self.calls.append(("window_pane_titles", pane))
         return list(self.titles)
 
-    def split_window_top(self, pane, cwd, command):
+    def split_window_top(self, *, pane, cwd, command):
         self.calls.append(("split_window_top", pane, cwd, command))
         return self.split_result
 
-    def set_pane_title(self, pane, title):
+    def set_pane_title(self, *, pane, title):
         self.calls.append(("set_pane_title", pane, title))
         self.titles.append(title)
         return True
 
-    def select_layout_even(self, pane):
+    def select_layout_even(self, *, pane):
         self.calls.append(("select_layout_even", pane))
         return True
 
-    def pane_by_title(self, pane, title):
+    def pane_by_title(self, *, pane, title):
         self.calls.append(("pane_by_title", pane, title))
         if not self.resolves_title:
             return None
         return "%77" if title in self.titles else None
 
-    def set_pane_height_percent(self, pane, percent):
+    def set_pane_height_percent(self, *, pane, percent):
         self.calls.append(("set_pane_height_percent", pane, percent))
         return True
 
@@ -145,25 +145,25 @@ class _FakeSupervisor:
         return list(self._adopted)
 
 
-def _in_claude_tmux(monkeypatch):
+def _in_claude_tmux(*, monkeypatch):
     monkeypatch.setenv("CLAUDECODE", "1")
     monkeypatch.setenv("TMUX_PANE", "%9")
 
 
-def _kinds(layout):
+def _kinds(*, layout):
     return [c[0] for c in layout.calls]
 
 
-def test_splits_a_daemon_pane_and_gives_it_its_height(monkeypatch, tmp_path):
+def test_splits_a_daemon_pane_and_gives_it_its_height(*, monkeypatch, tmp_path):
     """The normal first run: split, title the new pane, even the stack, then resize."""
     mod = _load()
-    _in_claude_tmux(monkeypatch)
+    _in_claude_tmux(monkeypatch=monkeypatch)
     layout = FakeLayout()
 
     rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
 
     assert rc == 0
-    assert _kinds(layout) == [
+    assert _kinds(layout=layout) == [
         "window_pane_titles",
         "split_window_top",
         "set_pane_title",
@@ -178,9 +178,9 @@ def test_splits_a_daemon_pane_and_gives_it_its_height(monkeypatch, tmp_path):
     assert layout.calls[5][2] == mod._DAEMON_PANE_HEIGHT_PERCENT
 
 
-def test_creates_the_daemon_marker_directory_under_the_core_root(monkeypatch, tmp_path):
+def test_creates_the_daemon_marker_directory_under_the_core_root(*, monkeypatch, tmp_path):
     mod = _load()
-    _in_claude_tmux(monkeypatch)
+    _in_claude_tmux(monkeypatch=monkeypatch)
 
     assert (
         mod.main(argv=[], io=FakeLayout(), build_supervisor=_FakeSupervisor, core_root=tmp_path)
@@ -190,9 +190,9 @@ def test_creates_the_daemon_marker_directory_under_the_core_root(monkeypatch, tm
     assert (tmp_path / "tmp" / "overseer").is_dir()
 
 
-def test_default_core_root_is_this_checkout_for_split_and_scratch(monkeypatch):
+def test_default_core_root_is_this_checkout_for_split_and_scratch(*, monkeypatch):
     mod = _load()
-    _in_claude_tmux(monkeypatch)
+    _in_claude_tmux(monkeypatch=monkeypatch)
     layout = FakeLayout()
     made_dirs = []
 
@@ -208,7 +208,7 @@ def test_default_core_root_is_this_checkout_for_split_and_scratch(monkeypatch):
     assert made_dirs == [(repo_root / "tmp" / "overseer", True, True)]
 
 
-def test_is_idempotent_when_the_daemon_pane_already_exists(monkeypatch, tmp_path, capsys):
+def test_is_idempotent_when_the_daemon_pane_already_exists(*, monkeypatch, tmp_path, capsys):
     """A re-run must NOT split a second daemon pane — but must still resize.
 
     The resize is deliberately kept on this path: the pane is resolved BY TITLE
@@ -216,50 +216,50 @@ def test_is_idempotent_when_the_daemon_pane_already_exists(monkeypatch, tmp_path
     was left uneven.
     """
     mod = _load()
-    _in_claude_tmux(monkeypatch)
+    _in_claude_tmux(monkeypatch=monkeypatch)
     layout = FakeLayout(titles=[mod._DAEMON_PANE_TITLE])
 
     rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
 
     assert rc == 0
-    assert "split_window_top" not in _kinds(layout)
-    assert "set_pane_height_percent" in _kinds(layout)
+    assert "split_window_top" not in _kinds(layout=layout)
+    assert "set_pane_height_percent" in _kinds(layout=layout)
     assert "already present" in capsys.readouterr().err
 
 
-def test_fails_when_the_split_fails(monkeypatch, tmp_path, capsys):
+def test_fails_when_the_split_fails(*, monkeypatch, tmp_path, capsys):
     """A failed split exits non-zero BEFORE any resize, leaving no half-set-up layout."""
     mod = _load()
-    _in_claude_tmux(monkeypatch)
+    _in_claude_tmux(monkeypatch=monkeypatch)
     layout = FakeLayout(split_result=None)
 
     rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
 
     assert rc == 1
     assert "FAILED to split" in capsys.readouterr().err
-    assert "select_layout_even" not in _kinds(layout)
-    assert "set_pane_height_percent" not in _kinds(layout)
+    assert "select_layout_even" not in _kinds(layout=layout)
+    assert "set_pane_height_percent" not in _kinds(layout=layout)
 
 
-def test_skips_the_resize_when_the_daemon_pane_cannot_be_resolved(monkeypatch, tmp_path):
+def test_skips_the_resize_when_the_daemon_pane_cannot_be_resolved(*, monkeypatch, tmp_path):
     """`pane_by_title` returning None is fail-soft: no resize, still exit 0.
 
     The bootstrap's job is done once the daemon pane exists; an unreadable title
     costs the operator some screen height, not the daemon.
     """
     mod = _load()
-    _in_claude_tmux(monkeypatch)
+    _in_claude_tmux(monkeypatch=monkeypatch)
     layout = FakeLayout(resolves_title=False)
 
     rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
 
     assert rc == 0
-    assert "set_pane_height_percent" not in _kinds(layout)
+    assert "set_pane_height_percent" not in _kinds(layout=layout)
 
 
-def test_reports_each_adopted_session_and_the_total(monkeypatch, tmp_path, capsys):
+def test_reports_each_adopted_session_and_the_total(*, monkeypatch, tmp_path, capsys):
     mod = _load()
-    _in_claude_tmux(monkeypatch)
+    _in_claude_tmux(monkeypatch=monkeypatch)
 
     class _Track:
         def __init__(self, tmux, repo, topic):
@@ -280,10 +280,10 @@ def test_reports_each_adopted_session_and_the_total(monkeypatch, tmp_path, capsy
     assert "adopted 2 existing session(s)" in err
 
 
-def test_warn_percent_is_threaded_into_the_daemon_command(monkeypatch, tmp_path):
+def test_warn_percent_is_threaded_into_the_daemon_command(*, monkeypatch, tmp_path):
     """The flag must reach `overseerd`, or the operator's threshold is silently lost."""
     mod = _load()
-    _in_claude_tmux(monkeypatch)
+    _in_claude_tmux(monkeypatch=monkeypatch)
     layout = FakeLayout()
 
     rc = mod.main(
@@ -298,9 +298,9 @@ def test_warn_percent_is_threaded_into_the_daemon_command(monkeypatch, tmp_path)
     assert "--warn-percent 35" in command
 
 
-def test_no_warn_percent_flag_leaves_the_daemon_on_its_default(monkeypatch, tmp_path):
+def test_no_warn_percent_flag_leaves_the_daemon_on_its_default(*, monkeypatch, tmp_path):
     mod = _load()
-    _in_claude_tmux(monkeypatch)
+    _in_claude_tmux(monkeypatch=monkeypatch)
     layout = FakeLayout()
 
     assert mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path) == 0

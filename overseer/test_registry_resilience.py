@@ -26,7 +26,7 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     """Every test runs with cwd inside tmp_path (repo convention)."""
     monkeypatch.chdir(tmp_path)
 
@@ -39,7 +39,7 @@ def _isolate_cwd(tmp_path, monkeypatch):
 
 
 def test_file_lock_proceeds_unlocked_when_the_lock_cannot_be_acquired(
-    tmp_path, monkeypatch, capsys
+    *, tmp_path, monkeypatch, capsys
 ):
     """B7: losing the lock race is better than losing the daemon — an unlockable
     store falls back to an UNLOCKED read-modify-write and the append still lands."""
@@ -56,7 +56,7 @@ def test_file_lock_proceeds_unlocked_when_the_lock_cannot_be_acquired(
 
 
 def test_file_lock_proceeds_unlocked_when_the_lock_file_cannot_be_opened(
-    tmp_path, monkeypatch, capsys
+    *, tmp_path, monkeypatch, capsys
 ):
     """B7: the lock sidecar failing to OPEN (no handle was ever acquired) takes the
     same unlocked fallback — the caller runs and reports, and the daemon lives.
@@ -85,7 +85,7 @@ def test_file_lock_proceeds_unlocked_when_the_lock_file_cannot_be_opened(
     assert not (unwritable / "map.jsonl.lock").exists()  # no lock sidecar was created
 
 
-def test_read_mapping_fail_soft_on_an_unreadable_store(tmp_path, monkeypatch, capsys):
+def test_read_mapping_fail_soft_on_an_unreadable_store(*, tmp_path, monkeypatch, capsys):
     """B7: a store that exists but cannot be read yields an EMPTY mapping (naming
     the offender), not a propagated PermissionError.
 
@@ -103,7 +103,7 @@ def test_read_mapping_fail_soft_on_an_unreadable_store(tmp_path, monkeypatch, ca
     assert "unreadable mapping store" in capsys.readouterr().err
 
 
-def test_read_mapping_fail_soft_on_a_non_utf8_store(tmp_path, capsys):
+def test_read_mapping_fail_soft_on_a_non_utf8_store(*, tmp_path, capsys):
     """B7 for a DIFFERENT exception class than the test above reaches.
 
     ``UnicodeDecodeError`` subclasses ``ValueError``, not ``OSError``, so the
@@ -124,7 +124,7 @@ def test_read_mapping_fail_soft_on_a_non_utf8_store(tmp_path, capsys):
     assert "unreadable mapping store" in capsys.readouterr().err
 
 
-def test_watch_set_from_config_fail_soft_on_a_non_utf8_declaration(tmp_path):
+def test_watch_set_from_config_fail_soft_on_a_non_utf8_declaration(*, tmp_path):
     """A watch-set declaration of undecodable bytes yields the extras, like unparsable
     JSON does — the daemon still supervises what it was explicitly handed.
 
@@ -143,7 +143,7 @@ def test_watch_set_from_config_fail_soft_on_a_non_utf8_declaration(tmp_path):
     assert [registry.repo_slug(repo=p) for p in result] == ["extra"]
 
 
-def test_read_injection_stamp_is_none_on_a_non_utf8_sidecar(tmp_path):
+def test_read_injection_stamp_is_none_on_a_non_utf8_sidecar(*, tmp_path):
     """An undecodable stamp sidecar reads as "no stamp", never raising.
 
     Fail-soft here is also fail-CLOSED in the safety sense: with no readable stamp
@@ -158,7 +158,7 @@ def test_read_injection_stamp_is_none_on_a_non_utf8_sidecar(tmp_path):
 
 
 def test_atomic_write_fail_soft_leaves_the_store_intact_and_removes_the_temp(
-    tmp_path, monkeypatch, capsys
+    *, tmp_path, monkeypatch, capsys
 ):
     """B6/B7: a mid-write failure must never truncate the store nor leave a ``.tmp``
     turd behind — the temp file is unlinked and the old content survives whole."""
@@ -176,7 +176,7 @@ def test_atomic_write_fail_soft_leaves_the_store_intact_and_removes_the_temp(
     assert "could not write" in capsys.readouterr().err
 
 
-def test_append_mapping_fail_soft_when_the_store_cannot_be_opened(tmp_path, capsys):
+def test_append_mapping_fail_soft_when_the_store_cannot_be_opened(*, tmp_path, capsys):
     """B7: an unopenable store path (here a DIRECTORY sitting where the file
     belongs) drops the append with a warning instead of crashing the caller."""
     store = tmp_path / "map.jsonl"

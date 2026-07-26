@@ -30,38 +30,38 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_stale_blocked_is_voided_for_an_in_process_sub_agent(tmp_path):
+def test_stale_blocked_is_voided_for_an_in_process_sub_agent(*, tmp_path):
     """Claude `busy` with no spinner (an in-process Task sub-agent) is still GENERATING —
     the session is working, not waiting — so a stale declaration is voided here too."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # pane looks idle
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     sup.claude_status_by_session = {session: "busy"}  # sub-agent running in-process
-    declare(repo, topic, "blocked: stale", mtime=800.0)
+    declare(repo=repo, topic=topic, value="blocked: stale", mtime=800.0)
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
     assert signals.read_state(repo=str(repo), topic=topic) is None  # voided
 
 
-def test_idle_blocked_session_is_never_voided(tmp_path):
+def test_idle_blocked_session_is_never_voided(*, tmp_path):
     """The load-bearing case: a session sitting blocked and NOT busy keeps its
     declaration forever and keeps alerting. Voiding is scoped to "resumed generating"."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     sup.claude_status_by_session = {session: "waiting"}
-    declare(repo, topic, "blocked: still waiting on you", mtime=800.0)
+    declare(repo=repo, topic=topic, value="blocked: still waiting on you", mtime=800.0)
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "blocked:human"
     state = signals.read_state(repo=str(repo), topic=topic)
     assert state is not None and state.token == signals.STATE_BLOCKED
@@ -76,15 +76,15 @@ def test_nudge_marker_is_not_an_attention_status():
     assert supervisor.needs_attention(row=view) is False
 
 
-def test_live_track_without_supervisor_handoff_offers_supervise_plan_once(tmp_path):
+def test_live_track_without_supervisor_handoff_offers_supervise_plan_once(*, tmp_path):
     """Surface A: a live matching session with no durable supervisor prompt is surfaced
     once, not re-alerted every tick."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
-    sup = make_supervisor(tmp_path, fake)
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    track = mapped_track(repo=repo, topic=topic, session=session)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         first = sup.evaluate(track=track, act=True)
         second = sup.evaluate(track=track, act=True)
@@ -94,17 +94,17 @@ def test_live_track_without_supervisor_handoff_offers_supervise_plan_once(tmp_pa
     assert err.getvalue().count("run /livespec-overseer:supervise-plan") == 1
 
 
-def test_running_supervisor_without_handoff_offers_capture_once(tmp_path):
+def test_running_supervisor_without_handoff_offers_capture_once(*, tmp_path):
     """Fourth truth-table cell: supervision is live but lacks a durable prompt, so the
     operator gets a capture offer, not silence."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     supervisor_session = f"{session}-supervisor"
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73), cmd="node")
-    sup = make_supervisor(tmp_path, fake)
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    track = mapped_track(repo=repo, topic=topic, session=session)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         first = sup.evaluate(track=track, act=True)
         second = sup.evaluate(track=track, act=True)
@@ -114,16 +114,16 @@ def test_running_supervisor_without_handoff_offers_capture_once(tmp_path):
     assert err.getvalue().count("supervision is running but has no durable prompt") == 1
 
 
-def test_handoff_without_running_supervisor_offers_start_once(tmp_path):
+def test_handoff_without_running_supervisor_offers_start_once(*, tmp_path):
     """Surface B: a durable supervisor prompt exists, but no live supervisor process is
     running, so the operator is offered the start action once."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
-    sup = make_supervisor(tmp_path, fake)
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    track = mapped_track(repo=repo, topic=topic, session=session)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         first = sup.evaluate(track=track, act=True)
         second = sup.evaluate(track=track, act=True)
@@ -133,18 +133,18 @@ def test_handoff_without_running_supervisor_offers_start_once(tmp_path):
     assert err.getvalue().count("supervisor handoff exists") == 1
 
 
-def test_dead_supervisor_tmux_name_still_offers_surface_b(tmp_path):
+def test_dead_supervisor_tmux_name_still_offers_surface_b(*, tmp_path):
     """A tmux session named like a supervisor is insufficient; Surface B still fires
     unless live process evidence proves a supervisor is running."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.serve(session=f"{session}-supervisor", repo=repo, capture=idle_capture(ctx=73), cmd="zsh")
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "idle-with-context-left"
     # The status alone proves nothing here: the silent-healthy cell renders the SAME
     # status. Assert the Surface B ALERT actually fired, or this sabotage check cannot
@@ -154,52 +154,57 @@ def test_dead_supervisor_tmux_name_still_offers_surface_b(tmp_path):
     assert err.getvalue().count("supervisor handoff exists") == 1
 
 
-def test_track_without_live_matching_session_is_silent_about_supervision(tmp_path):
+def test_track_without_live_matching_session_is_silent_about_supervision(*, tmp_path):
     """The supervision-artifact probe is liveness-gated: no live matching session means
     no Surface A or B alert even when the file exists."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     fake = FakeTmux()
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         view = sup.evaluate(
-            track=mapped_track(repo, topic, registry.tmux_id(repo=str(repo), topic=topic)), act=True
+            track=mapped_track(
+                repo=repo, topic=topic, session=registry.tmux_id(repo=str(repo), topic=topic)
+            ),
+            act=True,
         )
     assert view.status == "session-gone"
     assert "supervisor" not in err.getvalue()
 
 
-def test_supervision_surfaces_do_not_preempt_blocked_or_danger(tmp_path):
+def test_supervision_surfaces_do_not_preempt_blocked_or_danger(*, tmp_path):
     """The offer surfaces sit below existing NEEDS-YOU classes in the precedence
     cascade: blocked and danger keep their established statuses and alerts."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
-    declare(repo, topic, "blocked: needs a decision")
-    sup = make_supervisor(tmp_path, fake)
-    blocked = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    declare(repo=repo, topic=topic, value="blocked: needs a decision")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    blocked = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert blocked.status == "blocked:human"
 
-    other_repo, other_topic = make_plan(tmp_path, repo_name="other", topic="other")
+    other_repo, other_topic = make_plan(tmp_path=tmp_path, repo_name="other", topic="other")
     other_session = registry.tmux_id(repo=str(other_repo), topic=other_topic)
     fake.serve(session=other_session, repo=other_repo, capture=idle_capture(ctx=15))
-    danger = sup.evaluate(track=mapped_track(other_repo, other_topic, other_session), act=True)
+    danger = sup.evaluate(
+        track=mapped_track(repo=other_repo, topic=other_topic, session=other_session), act=True
+    )
     assert danger.status == "danger"
 
 
-def test_handoff_and_running_supervisor_is_silent_healthy_cell(tmp_path):
+def test_handoff_and_running_supervisor_is_silent_healthy_cell(*, tmp_path):
     """When both the durable handoff and live supervisor exist, the supervision truth
     table is healthy and falls through to the ordinary idle classification."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     supervisor_session = f"{session}-supervisor"
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73), cmd="node")
-    sup = make_supervisor(tmp_path, fake)
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    track = mapped_track(repo=repo, topic=topic, session=session)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         view = sup.evaluate(track=track, act=True)
         listed = sup.evaluate(track=track, act=False)

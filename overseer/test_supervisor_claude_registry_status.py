@@ -28,25 +28,27 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_refresh_claude_status_populates_the_map_from_registry(tmp_path):
+def test_refresh_claude_status_populates_the_map_from_registry(*, tmp_path):
     """`build_rows` recomputes `{tmux: status}` from the registry ⋈ tmux each tick, so
     `evaluate` can read a live session's status without a per-track registry read."""
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    write_session(sessions_dir, 100, name="topic", cwd="/r", status="busy")
+    write_session(sessions_dir=sessions_dir, pid=100, name="topic", cwd="/r", status="busy")
     fake = FakeTmux()
     fake.pane_pids[50] = "sA"  # pane PID 50 → tmux session sA
     ppid = {100: 50, 50: 1}  # claude 100 → pane 50
-    sup = adopt_sup(tmp_path, fake, sessions_dir, ppid, {100: "pt"})
+    sup = adopt_sup(
+        tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid=ppid, starttimes={100: "pt"}
+    )
     sup._refresh_claude_status()
     assert sup.claude_status_by_session == {"sA": "busy"}
 
 
-def test_adopt_sessions_links_by_registry_name(tmp_path):  # noqa: PLR0915 — see below
+def test_adopt_sessions_links_by_registry_name(*, tmp_path):  # noqa: PLR0915 — see below
     """adopt maps each LIVE Claude session (from ~/.claude/sessions) to a plan when
     its registry `cwd` is in a fleet repo AND its `name` is an active plan topic,
     joined to the tmux session by PID. Registry membership proves it is a claude
@@ -60,8 +62,8 @@ def test_adopt_sessions_links_by_registry_name(tmp_path):  # noqa: PLR0915 — s
     homogeneous populations instead, and hoisting the fixture to a module-level
     builder would separate each row from the assertion about it.
     """
-    repo_a, _ = make_plan(tmp_path, repo_name="repo_a", topic="alpha")
-    repo_b, _ = make_plan(tmp_path, repo_name="repo_b", topic="beta")
+    repo_a, _ = make_plan(tmp_path=tmp_path, repo_name="repo_a", topic="alpha")
+    repo_b, _ = make_plan(tmp_path=tmp_path, repo_name="repo_b", topic="beta")
     (repo_a / "plan" / "gamma").mkdir(parents=True)
     (repo_a / "plan" / "gamma" / "handoff.md").write_bytes(b"h\n")
 
@@ -72,7 +74,7 @@ def test_adopt_sessions_links_by_registry_name(tmp_path):  # noqa: PLR0915 — s
     starttimes: dict[int, str] = {}
 
     def live(pid, name, cwd, session, *, in_tmux=True, alive=True):
-        write_session(sessions_dir, pid, name=name, cwd=cwd)
+        write_session(sessions_dir=sessions_dir, pid=pid, name=name, cwd=cwd)
         if alive:
             starttimes[pid] = "pt"  # matches procStart → live
         shell = pid + 1  # the claude PID's parent is its pane's shell
@@ -89,10 +91,15 @@ def test_adopt_sessions_links_by_registry_name(tmp_path):  # noqa: PLR0915 — s
     live(700, "gamma", repo_a, "sesDead", alive=False)  # skip: dead PID (starttime mismatch)
 
     sup = adopt_sup(
-        tmp_path, fake, sessions_dir, ppid, starttimes, watch_repos=[str(repo_a), str(repo_b)]
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid=ppid,
+        starttimes=starttimes,
+        watch_repos=[str(repo_a), str(repo_b)],
     )
     registry.append_mapping(
-        track=mapped_track(repo_a, "gamma", "gamma-existing"),
+        track=mapped_track(repo=repo_a, topic="gamma", session="gamma-existing"),
         store_path=sup.store_path,
         added_at="pre",
     )
@@ -117,26 +124,33 @@ def test_adopt_sessions_links_by_registry_name(tmp_path):  # noqa: PLR0915 — s
     assert "delta" not in {topic for _repo, topic in rows}  # cwd not in a fleet repo
 
 
-def test_adopt_sessions_empty_when_no_registry_match(tmp_path):
+def test_adopt_sessions_empty_when_no_registry_match(*, tmp_path):
     """A live registry session in the repo but whose name is NOT an active topic →
     adopt returns [] and writes nothing."""
-    repo, _ = make_plan(tmp_path)  # active topic: "topic"
+    repo, _ = make_plan(tmp_path=tmp_path)  # active topic: "topic"
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     fake = FakeTmux()
     ppid, starttimes = {100: 101}, {100: "pt"}
     fake.pane_pids[101] = "s1"
-    write_session(sessions_dir, 100, name="unrelated-name", cwd=repo)
-    sup = adopt_sup(tmp_path, fake, sessions_dir, ppid, starttimes, watch_repos=[str(repo)])
+    write_session(sessions_dir=sessions_dir, pid=100, name="unrelated-name", cwd=repo)
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid=ppid,
+        starttimes=starttimes,
+        watch_repos=[str(repo)],
+    )
     assert sup.adopt_sessions() == []
     assert registry.read_mapping(store_path=sup.store_path) == []
 
 
-def test_adopt_is_continuous_across_ticks(tmp_path):
+def test_adopt_is_continuous_across_ticks(*, tmp_path):
     """adopt runs every tick via build_rows(act=True): a session not yet named as a
     plan topic at one tick is picked up on a LATER tick once its registry name
     matches — the fix for 'the daemon never re-adopted after the prompt cleared'."""
-    repo, topic = make_plan(tmp_path)  # active topic: "topic"
+    repo, topic = make_plan(tmp_path=tmp_path)  # active topic: "topic"
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     fake = FakeTmux()
@@ -144,13 +158,20 @@ def test_adopt_is_continuous_across_ticks(tmp_path):
     fake.pane_pids[101] = "s1"
 
     # Tick 1: session exists (in tmux, in the repo) but is named something else.
-    write_session(sessions_dir, 100, name="scratch", cwd=repo)
-    sup = adopt_sup(tmp_path, fake, sessions_dir, ppid, starttimes, watch_repos=[str(repo)])
+    write_session(sessions_dir=sessions_dir, pid=100, name="scratch", cwd=repo)
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid=ppid,
+        starttimes=starttimes,
+        watch_repos=[str(repo)],
+    )
     sup.build_rows(act=True)
     assert registry.read_mapping(store_path=sup.store_path) == []  # not adopted yet
 
     # Tick 2: the maintainer renamed it to the plan topic → adopted this tick.
-    write_session(sessions_dir, 100, name=topic, cwd=repo)
+    write_session(sessions_dir=sessions_dir, pid=100, name=topic, cwd=repo)
     sup.build_rows(act=True)
     rows = {(r.repo, r.topic): r.tmux for r in registry.read_mapping(store_path=sup.store_path)}
     assert rows.get((os.path.normpath(str(repo)), topic)) == "s1"
@@ -163,7 +184,7 @@ def test_adopt_is_continuous_across_ticks(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_refresh_and_adopt_route_codex_through_injected_seams(tmp_path):
+def test_refresh_and_adopt_route_codex_through_injected_seams(*, tmp_path):
     """`adopt_sessions` and `_refresh_codex_sessions` must drive Codex discovery through the
     INJECTED seams (`codex_home` / `codex_pids_of_comm` / `codex_fd_targets_of` /
     `codex_cwd_of`), never `codex_sessions`' real `/proc` scan + `~/.codex`. We wire the
@@ -172,7 +193,7 @@ def test_refresh_and_adopt_route_codex_through_injected_seams(tmp_path):
     is impossible unless every reader is the injected one (pid 9000 is not a real process),
     so it proves the threading AND that no real host state is read. Sabotage-verify: drop
     any seam from either supervisor call site and the discovery goes empty."""
-    repo, topic = make_plan(tmp_path, topic="cx")
+    repo, topic = make_plan(tmp_path=tmp_path, topic="cx")
     fake = FakeTmux()
     fake.pane_pids = {7001: "livespec-cx"}  # the codex pid's pane-pid ancestor → this tmux
     sessions_dir = tmp_path / "sessions"
@@ -201,11 +222,11 @@ def test_refresh_and_adopt_route_codex_through_injected_seams(tmp_path):
         return str(repo) if pid == 9000 else None
 
     sup = adopt_sup(
-        tmp_path,
-        fake,
-        sessions_dir,
-        {9000: 7001},  # ppid_of: pid 9000's parent is the pane pid 7001 (→ resolves to tmux)
-        {},
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={9000: 7001},  # ppid_of: pid 9000's parent is the pane pid 7001 (→ resolves to tmux)
+        starttimes={},
         watch_repos=[str(repo)],
         codex_home=str(codex_home),
         codex_pids_of_comm=_pids,

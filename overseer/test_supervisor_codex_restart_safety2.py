@@ -33,11 +33,11 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_fresh_respawn_dropped_enter_is_retried_next_tick_without_respawn(tmp_path):
+def test_fresh_respawn_dropped_enter_is_retried_next_tick_without_respawn(*, tmp_path):
     """The load-bearing self-heal: a restart whose resume Enter is DROPPED is retried on a
     later tick — re-sending Enter, NEVER a second respawn — and the round closes only once
     the box actually clears.
@@ -47,7 +47,7 @@ def test_fresh_respawn_dropped_enter_is_retried_next_tick_without_respawn(tmp_pa
     box clears on the retry's Enter. Asserts: (a) tick 1 keeps the marker + sets
     `resume_pending` and issues exactly ONE respawn; (b) tick 2 issues NO second respawn,
     re-sends Enter, and closes the round (marker + stamp gone, `resume_pending` cleared)."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     # Tick-1 frames: idle for the main read + the settle pair (reaches the restart branch),
@@ -57,14 +57,14 @@ def test_fresh_respawn_dropped_enter_is_retried_next_tick_without_respawn(tmp_pa
     fake.serve(
         session=session, repo=repo, capture=[idle, idle, idle, unsubmitted_resume_capture(ctx=30)]
     )
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    marker = arm_ready_marker(repo, topic, mtime=1001.0)
+    marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
     with contextlib.redirect_stderr(_io.StringIO()):
-        view1 = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view1 = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view1.status == "restarting"
     assert len([c for c in fake.calls if c[0] == "respawn"]) == 1  # respawned exactly once
     assert marker.exists()  # the ready marker is KEPT — the round is NOT closed on a failed submit
@@ -77,7 +77,7 @@ def test_fresh_respawn_dropped_enter_is_retried_next_tick_without_respawn(tmp_pa
     fake._cap_idx.pop(session, None)
     fake.calls.clear()
     with contextlib.redirect_stderr(_io.StringIO()):
-        view2 = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view2 = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view2.status == "restarting"
     assert not fake.has(
         method="respawn"
@@ -94,24 +94,24 @@ def test_fresh_respawn_dropped_enter_is_retried_next_tick_without_respawn(tmp_pa
     )
 
 
-def test_restart_does_not_log_success_when_resume_unsubmitted(tmp_path):
+def test_restart_does_not_log_success_when_resume_unsubmitted(*, tmp_path):
     """A failed resume-submit must NOT log a clean "restarted" success — it marks
     `resume_pending`, alerts, and keeps the marker (the fresh Claude is up but idle with an
     un-run handoff; logging success would hide the stranding the maintainer reported)."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     fake.paste_ok = False  # the paste fails → `_submit_prompt` returns False (a clean submit-fail)
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    marker = arm_ready_marker(repo, topic, mtime=1001.0)
+    marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
     log = _io.StringIO()
     with contextlib.redirect_stderr(log):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     out = log.getvalue()
     assert f"restarted {repo}::{topic}" not in out  # NO clean success line
     assert "NOT submitted" in out  # the operator IS told the resume did not land
@@ -121,28 +121,30 @@ def test_restart_does_not_log_success_when_resume_unsubmitted(tmp_path):
     )
 
 
-def test_submit_retry_never_kills_the_fresh_session(tmp_path):
+def test_submit_retry_never_kills_the_fresh_session(*, tmp_path):
     """The loop-safety property the Codex-#2 reasoning was protecting, now under the retry
     path: while a resume stays un-submitted the daemon retries the Enter every tick but
     NEVER respawns — so a still-valid `ready` can never re-fire `respawn-pane -k` and kill
     the live fresh Claude in a loop. The row stays a NEEDS-YOU report until it resumes."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     # A box that NEVER clears (plain string) — the retry can never succeed here.
     fake.serve(session=session, repo=repo, capture=unsubmitted_resume_capture(ctx=30))
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    arm_ready_marker(repo, topic, mtime=1001.0)
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     registry.set_resume_pending(
         repo=str(repo), topic=topic, stamp_path=sup.stamp_path
     )  # already respawned; resume pending
 
     for _ in range(3):
         with contextlib.redirect_stderr(_io.StringIO()):
-            view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+            view = sup.evaluate(
+                track=mapped_track(repo=repo, topic=topic, session=session), act=True
+            )
         assert view.status == "restarting"
         assert view.note == _supervisor_view.RESUME_PENDING_NOTE
         assert supervisor.needs_attention(row=view)  # a stranded resume is a NEEDS-YOU row
@@ -156,30 +158,30 @@ def test_submit_retry_never_kills_the_fresh_session(tmp_path):
         )  # marker kept
 
 
-def test_idle_pane_with_resume_pending_closes_the_round_instead_of_respawning(tmp_path):
+def test_idle_pane_with_resume_pending_closes_the_round_instead_of_respawning(*, tmp_path):
     """The sharp loop-safety case: with `resume_pending` set and a still-valid `ready`, an
     IDLE (empty-box) pane means the resume ALREADY submitted (a prior Enter, or the human) —
     so the retry branch closes the round rather than re-entering the `elif ready:` restart
     path and respawn-KILLING the fresh session. WITHOUT the retry interception this idle pane
     + valid ready would `_do_restart` → respawn: this is exactly the destructive loop the
     self-heal prevents."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=95)
     )  # empty box → the resume already landed
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    arm_ready_marker(repo, topic, mtime=1001.0)
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     registry.set_resume_pending(
         repo=str(repo), topic=topic, stamp_path=sup.stamp_path
     )  # respawned; resume outstanding
 
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "restarting"
     assert not fake.has(
         method="respawn"
@@ -191,25 +193,25 @@ def test_idle_pane_with_resume_pending_closes_the_round_instead_of_respawning(tm
     )
 
 
-def test_claude_restart_success_closes_the_round_and_issues_no_second_respawn(tmp_path):
+def test_claude_restart_success_closes_the_round_and_issues_no_second_respawn(*, tmp_path):
     """Symmetric with the Codex success-leg guard (PR #1308 review): a Claude restart whose
     resume submits cleanly closes the round (marker + stamp gone) AND issues no second
     respawn on the next tick — else a stale `ready` would respawn-KILL the fresh session
     every tick, a destructive loop. Pins both runtimes' restart success legs symmetrically."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=30)
     )  # empty box → submit lands at once
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    arm_ready_marker(repo, topic, mtime=1001.0)
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert signals.read_state(repo=str(repo), topic=topic) is None  # round closed
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
@@ -217,7 +219,7 @@ def test_claude_restart_success_closes_the_round_and_issues_no_second_respawn(tm
     )
     fake.calls.clear()
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert not fake.has(method="respawn")  # no re-restart of the session we just resumed
 
 
@@ -231,11 +233,11 @@ def test_claude_restart_success_closes_the_round_and_issues_no_second_respawn(tm
 # --------------------------------------------------------------------------- #
 
 
-def test_claude_act_refuses_pane_whose_live_name_differs_from_topic(tmp_path):
+def test_claude_act_refuses_pane_whose_live_name_differs_from_topic(*, tmp_path):
     """A pane running a live Claude for a DIFFERENT topic (same repo) is NOT ours: the gate
     rejects it on the `name != topic` proof, so the track never injects into nor respawns
     it and renders `session-gone` — even with a valid `ready` that WOULD otherwise restart."""
-    repo, topic = make_plan(tmp_path, topic="alpha")
+    repo, topic = make_plan(tmp_path=tmp_path, topic="alpha")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     # A genuinely-live Claude pane in this tmux session, cwd in the repo — but it is
@@ -244,37 +246,39 @@ def test_claude_act_refuses_pane_whose_live_name_differs_from_topic(tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})  # empty registry → no live-outside-tmux
+    sup = adopt_sup(
+        tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={}
+    )  # empty registry → no live-outside-tmux
     # the live Claude here belongs to topic `beta`
     sup.claude_names_by_session = {session: {"beta"}}
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    arm_ready_marker(repo, topic, mtime=1001.0)  # would restart if the gate passed
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)  # would restart if the gate passed
 
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "session-gone"  # not ours → routed to session-gone, like a foreign pane
     assert not fake.has(method="respawn")  # never respawn-kill another topic's live Claude
     assert not fake.has(method="paste")  # never keystroke into it
 
 
-def test_claude_gate_allows_pane_whose_live_name_matches_topic(tmp_path):
+def test_claude_gate_allows_pane_whose_live_name_matches_topic(*, tmp_path):
     """The parity check is POSITIVE-mismatch only: a matching `name == topic` (the normal
     case) still passes the gate and the track acts as before. Pairs with the refusal test so
     the check cannot be read as "reject unless proven" — it rejects only a proven mismatch."""
-    repo, topic = make_plan(tmp_path, topic="alpha")
+    repo, topic = make_plan(tmp_path=tmp_path, topic="alpha")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     sup.claude_names_by_session = {session: {"alpha"}}  # the live Claude here IS our topic
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    arm_ready_marker(repo, topic, mtime=1001.0)
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "restarting"  # name matches → ours → the `ready` restart fires
     assert fake.has(method="respawn")

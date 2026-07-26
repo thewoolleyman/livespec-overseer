@@ -28,16 +28,16 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_start_refuses_running_claude_without_force(tmp_path, monkeypatch):
+def test_start_refuses_running_claude_without_force(*, tmp_path, monkeypatch):
     """B8: `start` on a session already running a live Claude must NOT respawn-kill
     it — it upserts the mapping and reports; only --force respawns."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    store = isolate_store(tmp_path, monkeypatch)
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture())
 
@@ -49,11 +49,11 @@ def test_start_refuses_running_claude_without_force(tmp_path, monkeypatch):
     assert [(r.topic) for r in registry.read_mapping(store_path=store)] == [topic]
 
 
-def test_start_force_respawns_running_claude(tmp_path, monkeypatch):
+def test_start_force_respawns_running_claude(*, tmp_path, monkeypatch):
     """B8: --force DOES respawn a running session (the explicit escape hatch)."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    isolate_store(tmp_path, monkeypatch)
+    isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture())
 
@@ -63,12 +63,12 @@ def test_start_force_respawns_running_claude(tmp_path, monkeypatch):
     assert fake.has(method="respawn")
 
 
-def test_cli_surface_has_no_config_knobs(tmp_path, monkeypatch):
+def test_cli_surface_has_no_config_knobs(*, tmp_path, monkeypatch):
     """The de-gold-plated track-management CLI: the removed --store/--stamp/--repos/
     --repos-only/--manifest flags and the old positional repo/topic are all
     rejected; --repo/--topic are required keyword flags; and `daemon` is NO LONGER
     a subcommand (it is the dedicated `overseerd` executable)."""
-    isolate_store(tmp_path, monkeypatch)
+    isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = str(tmp_path / "repo")
     # Removed store / stamp knobs and the retired `daemon` subcommand are all
     # unrecognized now (argparse exits nonzero).
@@ -88,7 +88,7 @@ def test_cli_surface_has_no_config_knobs(tmp_path, monkeypatch):
             supervisor.main(argv)
 
 
-def test_run_daemon_uses_fleet_defaults(monkeypatch):
+def test_run_daemon_uses_fleet_defaults(*, monkeypatch):
     """`run_daemon()` (the overseerd entrypoint) starts the fleet daemon with the
     fixed defaults: the module loop interval, no single-tick, no startup recovery
     (surface-only — the daemon never auto-spawns/revives at startup)."""
@@ -103,7 +103,7 @@ def test_run_daemon_uses_fleet_defaults(monkeypatch):
     assert seen["args"] == (supervisor.LOOP_INTERVAL_SECONDS, False, False)
 
 
-def test_run_daemon_threads_warn_percent(monkeypatch):
+def test_run_daemon_threads_warn_percent(*, monkeypatch):
     """run_daemon(warn_percent=N) sets the built Supervisor's warn_percent field;
     None falls back to registry.DEFAULT_CTX_THRESHOLD."""
     seen: list[int] = []
@@ -125,7 +125,7 @@ def _load_overseerd():
     return importlib.import_module("overseer.daemon")
 
 
-def test_overseerd_threads_and_validates_warn_percent(monkeypatch):
+def test_overseerd_threads_and_validates_warn_percent(*, monkeypatch):
     """The overseerd executable parses --warn-percent (int in [1, 99]) and threads
     it into run_daemon; a missing flag passes None; out-of-range / non-int argv is
     rejected by argparse (SystemExit)."""
@@ -146,7 +146,7 @@ def test_overseerd_threads_and_validates_warn_percent(monkeypatch):
             mod.main(argv=bad)
 
 
-def test_overseerd_console_entry_point_targets_importable_module(monkeypatch):
+def test_overseerd_console_entry_point_targets_importable_module(*, monkeypatch):
     module_path = Path(supervisor.__file__).resolve().parent / "daemon.py"
     assert module_path.is_file(), "overseerd logic must live in importable overseer.daemon"
 

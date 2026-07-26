@@ -35,16 +35,16 @@ from overseer.test_supervisor_fakes import (
 _STATE_FILE_HINT = ".overseer-state"
 
 
-def _track(tmp_path, *, ctx, topic="topic"):
+def _track(*, tmp_path, ctx, topic="topic"):
     """A discovered, mapped, live track sitting idle at `ctx`% remaining."""
-    repo, topic = make_plan(tmp_path, topic=topic)
+    repo, topic = make_plan(tmp_path=tmp_path, topic=topic)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=ctx))
     return repo, topic, session, fake
 
 
-def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(tmp_path):
+def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(*, tmp_path):
     """Scenario: A wrap-up is injected when a track crosses its threshold.
 
     Then it durably records an injection stamp BEFORE touching the pane, pastes the
@@ -55,14 +55,14 @@ def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(tmp_pa
     paste callback — the only way to prove the write preceded the paste rather than
     merely both having happened by the end of the round.
     """
-    repo, topic, session, fake = _track(tmp_path, ctx=40)  # below the default 50
+    repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=40)  # below the default 50
     stamp_at_paste = []
-    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
     fake.on_paste = lambda _s, _t: stamp_at_paste.append(
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     )
 
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert view.status == "warned"
     assert stamp_at_paste == [1000.0]  # recorded BEFORE the pane was touched
@@ -75,15 +75,15 @@ def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(tmp_pa
     assert supervisor.default_handoff(repo=str(repo), topic=topic) in message
 
 
-def test_scenario_the_wrapup_sharpens_as_context_keeps_falling(tmp_path):
+def test_scenario_the_wrapup_sharpens_as_context_keeps_falling(*, tmp_path):
     """Scenario: The wrap-up sharpens as context keeps falling.
 
     Then one further wrap-up per lower band, a SUGGESTION above thirty percent
     remaining and an insistent demand at thirty and below.
     """
-    repo, topic, session, fake = _track(tmp_path, ctx=40)
-    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
-    track = mapped_track(repo, topic, session)
+    repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=40)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     sup.evaluate(track=track, act=True)
     assert len(fake.paste_texts()) == 1
@@ -101,7 +101,7 @@ def test_scenario_the_wrapup_sharpens_as_context_keeps_falling(tmp_path):
     assert "STOP AND WIND DOWN NOW" in demand
 
 
-def test_scenario_a_band_never_fires_twice_in_one_round(tmp_path):
+def test_scenario_a_band_never_fires_twice_in_one_round(*, tmp_path):
     """Scenario: A band never fires twice in one round.
 
     ...BECAUSE the notified bands are recorded DURABLY, not in daemon memory. The
@@ -110,14 +110,16 @@ def test_scenario_a_band_never_fires_twice_in_one_round(tmp_path):
     restart the scenario describes. A test that reused one Supervisor would pass on
     an in-memory band set and prove nothing.
     """
-    repo, topic, session, fake = _track(tmp_path, ctx=40)
-    track = mapped_track(repo, topic, session)
+    repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=40)
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
-    first = make_supervisor(tmp_path, fake, out=_io.StringIO())
+    first = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
     first.evaluate(track=track, act=True)
     assert len(fake.paste_texts()) == 1
 
-    reborn = make_supervisor(tmp_path, fake, out=_io.StringIO())  # new process, same stores
+    reborn = make_supervisor(
+        tmp_path=tmp_path, fake=fake, out=_io.StringIO()
+    )  # new process, same stores
     reborn.evaluate(track=track, act=True)
 
     assert len(fake.paste_texts()) == 1  # no second wrap-up for an already-notified band
@@ -126,20 +128,22 @@ def test_scenario_a_band_never_fires_twice_in_one_round(tmp_path):
     ) == {50, 40}
 
 
-def test_scenario_a_winding_down_acknowledgement_pauses_the_escalation(tmp_path):
+def test_scenario_a_winding_down_acknowledgement_pauses_the_escalation(*, tmp_path):
     """Scenario: A winding-down acknowledgement pauses the escalation.
 
     Then no further wrap-up is pasted while the acknowledgement is FRESH — the daemon
     never keystrokes into a session that is actively wrapping up.
     """
-    repo, topic, session, fake = _track(tmp_path, ctx=40)
-    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
-    track = mapped_track(repo, topic, session)
+    repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=40)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     sup.evaluate(track=track, act=True)
     assert len(fake.paste_texts()) == 1
 
-    declare(repo, topic, "winding-down", mtime=1000.0)  # fresh: clock is pinned at 1000.0
+    declare(
+        repo=repo, topic=topic, value="winding-down", mtime=1000.0
+    )  # fresh: clock is pinned at 1000.0
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=28)
     )  # would otherwise cross a band
@@ -149,7 +153,7 @@ def test_scenario_a_winding_down_acknowledgement_pauses_the_escalation(tmp_path)
     assert view.status == "winding-down"
 
 
-def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_nothing(tmp_path):
+def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_nothing(*, tmp_path):
     """Scenario: A stale acknowledgement resumes escalation but authorizes nothing.
 
     Then the escalation resumes and the track is re-reported — AND the daemon still
@@ -168,10 +172,10 @@ def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_noth
     the token is ever examined). Sabotaging `ready_valid` to accept `winding-down` left
     that draft GREEN. It is red now.
     """
-    repo, topic, session, fake = _track(tmp_path, ctx=28)
+    repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=28)
     clock = {"t": 1000.0}
-    sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"], out=_io.StringIO())
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     sup.evaluate(track=track, act=True)  # opens the round: stamp written at 1000.0
     assert len(fake.paste_texts()) == 1
@@ -180,7 +184,7 @@ def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_noth
         == 1000.0
     )
 
-    declare(repo, topic, "winding-down", mtime=1001.0)  # POST-dates the stamp
+    declare(repo=repo, topic=topic, value="winding-down", mtime=1001.0)  # POST-dates the stamp
     clock["t"] = 1000.0 + (16 * 60)  # ...and is now past the freshness window
     # Drop a band lower so "escalation resumes" is OBSERVABLE. The opening warn at 28%
     # coalesced bands 50/40/30 into its one message (several bands crossed at once

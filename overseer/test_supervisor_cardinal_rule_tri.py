@@ -31,7 +31,7 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
@@ -44,18 +44,18 @@ def _isolate_cwd(tmp_path, monkeypatch):
 # --------------------------------------------------------------------------- #
 
 
-def test_idle_at_danger_with_no_declaration_is_never_restarted(tmp_path):
+def test_idle_at_danger_with_no_declaration_is_never_restarted(*, tmp_path):
     """THE regression guard for the severe bug. A session idle at 13%, warned, wide past
     any plausible timeout, having declared NOTHING, must be SURFACED and left alone —
     never respawned. A timer cannot know a session is safe to kill."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=13)
     )  # idle, deep in danger, no state
-    sup = make_supervisor(tmp_path, fake)
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     for _ in range(20):  # tick and tick and tick — it must NEVER escalate to a kill
         view = sup.evaluate(track=track, act=True)
@@ -64,20 +64,20 @@ def test_idle_at_danger_with_no_declaration_is_never_restarted(tmp_path):
     assert not signals.state_path(repo=str(repo), topic=topic).exists()  # daemon wrote nothing
 
 
-def test_restart_fires_only_on_a_declared_ready(tmp_path):
+def test_restart_fires_only_on_a_declared_ready(*, tmp_path):
     """`ready` is the SOLE authorization. Declared → restarted immediately; the state
     file is then cleared so it cannot re-trigger."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    state = declare(repo, topic, "ready", mtime=1001.0)
+    state = declare(repo=repo, topic=topic, value="ready", mtime=1001.0)
 
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "restarting"
     assert fake.has(method="respawn")
     assert supervisor.default_resume(repo=str(repo), topic=topic) in fake.paste_texts()
@@ -88,39 +88,44 @@ def test_restart_fires_only_on_a_declared_ready(tmp_path):
     )
 
 
-def test_winding_down_ack_suppresses_the_rewarn(tmp_path):
+def test_winding_down_ack_suppresses_the_rewarn(*, tmp_path):
     """A fresh `winding-down` ACK buys patience: the session heard us and is wrapping up,
     so the daemon stops re-warning — it must never keystroke into a session that is
     actively winding down. It is NOT restarted either (only `ready` does that)."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=13)
     )  # would otherwise be `danger`
-    sup = make_supervisor(tmp_path, fake)  # now() == 1000.0
-    declare(repo, topic, "winding-down", mtime=1000.0)  # fresh ACK
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)  # now() == 1000.0
+    declare(repo=repo, topic=topic, value="winding-down", mtime=1000.0)  # fresh ACK
 
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "winding-down"
     assert not fake.has(method="paste")  # no re-warn pasted into a session that is wrapping up
     assert not fake.has(method="respawn")  # an ACK is not a restart authorization
 
 
-def test_stale_winding_down_ack_resumes_escalation_but_still_never_acts(tmp_path):
+def test_stale_winding_down_ack_resumes_escalation_but_still_never_acts(*, tmp_path):
     """An ACK must not become an infinite stall. Past `ACK_STALE_AFTER` the daemon
     resumes escalating and reports the track — but it STILL never kills it. The
     escalation is louder words, never a restart."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))
     err = _io.StringIO()
-    sup = make_supervisor(tmp_path, fake)  # now() == 1000.0
-    declare(repo, topic, "winding-down", mtime=1000.0 - _supervisor_config.ACK_STALE_AFTER - 1)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)  # now() == 1000.0
+    declare(
+        repo=repo,
+        topic=topic,
+        value="winding-down",
+        mtime=1000.0 - _supervisor_config.ACK_STALE_AFTER - 1,
+    )
 
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "danger"  # the stale ACK no longer protects it
     assert fake.has(method="paste")  # escalation resumed
     assert not fake.has(method="respawn")  # but STILL never killed
@@ -131,77 +136,79 @@ def test_stale_winding_down_ack_resumes_escalation_but_still_never_acts(tmp_path
     assert "declared NOTHING" not in out
 
 
-def test_blocked_declaration_is_surfaced_and_never_restarted(tmp_path):
+def test_blocked_declaration_is_surfaced_and_never_restarted(*, tmp_path):
     """`blocked` carries its one-line reason into the row, and the track is never
     keystroked or restarted — a human gate is the one thing the daemon must not touch."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))
-    sup = make_supervisor(tmp_path, fake)
-    declare(repo, topic, "blocked: waiting on the schema call")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    declare(repo=repo, topic=topic, value="blocked: waiting on the schema call")
 
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "blocked:human"
     assert view.note == "waiting on the schema call"
     assert not fake.has(method="paste")
     assert not fake.has(method="respawn")
 
 
-def test_one_file_cannot_be_both_ready_and_blocked(tmp_path):
+def test_one_file_cannot_be_both_ready_and_blocked(*, tmp_path):
     """The reason for ONE file with a VALUE: with two presence-markers, both could exist
     and the precedence was incidental. A single file makes the ambiguity unrepresentable
     — writing `blocked` REPLACES `ready`, so the track is blocked, full stop."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    declare(repo, topic, "ready", mtime=1001.0)
-    declare(repo, topic, "blocked: changed my mind", mtime=1002.0)  # same file, overwritten
+    declare(repo=repo, topic=topic, value="ready", mtime=1001.0)
+    declare(
+        repo=repo, topic=topic, value="blocked: changed my mind", mtime=1002.0
+    )  # same file, overwritten
 
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "blocked:human"
     assert not fake.has(method="respawn")  # the superseded `ready` cannot restart it
 
 
-def test_malformed_state_value_is_surfaced_and_never_restarts(tmp_path):
+def test_malformed_state_value_is_surfaced_and_never_restarts(*, tmp_path):
     """A typo'd value must be REPORTED, not silently ignored — and must never be read as
     readiness (fail-closed)."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     err = _io.StringIO()
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    declare(repo, topic, "redy", mtime=1001.0)  # typo
+    declare(repo=repo, topic=topic, value="redy", mtime=1001.0)  # typo
 
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert not fake.has(method="respawn")  # a typo is NOT a restart authorization
     assert "MALFORMED state file" in err.getvalue()
     assert view.note is not None and "redy" in view.note
 
 
-def test_every_track_alert_names_the_tmux_session_and_pane(tmp_path):
+def test_every_track_alert_names_the_tmux_session_and_pane(*, tmp_path):
     """Operator-facing alerts must say WHERE to act: `repo::topic` alone told the
     maintainer WHAT was stuck but not WHERE to go. Every track alert carries the tmux
     session, the pane, and a copy-pasteable jump command."""
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))  # danger, nothing declared
     err = _io.StringIO()
-    sup = make_supervisor(tmp_path, fake)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
 
     with contextlib.redirect_stderr(err):
-        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     out = err.getvalue()
     assert topic in out
     assert f"tmux session '{session}'" in out
@@ -214,12 +221,12 @@ def test_every_track_alert_names_the_tmux_session_and_pane(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_mapped_track_with_missing_session(tmp_path):
-    repo, topic = make_plan(tmp_path)
+def test_mapped_track_with_missing_session(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()  # session NOT added
-    sup = make_supervisor(tmp_path, fake)
-    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "session-gone"
     assert not fake.has(method="capture")
 
@@ -229,15 +236,15 @@ def test_mapped_track_with_missing_session(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_auto_link_refuses_different_repo(tmp_path):
-    repo, topic = make_plan(tmp_path)
+def test_auto_link_refuses_different_repo(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
     other_repo = tmp_path / "other-repo"
     other_repo.mkdir()
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.sessions.add(session)
     fake.paths[session] = str(other_repo)  # session cwd is a DIFFERENT repo
-    sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)])
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
 
     unassigned = registry.Track.make_unassigned(
         repo=str(repo), topic=topic, handoff=supervisor.default_handoff(repo=str(repo), topic=topic)

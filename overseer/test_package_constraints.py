@@ -93,7 +93,7 @@ def _install_plan_tree_open_audit(*, monkeypatch, plan_root: pathlib.Path) -> li
     """
     opened: list[str] = []
 
-    def _record(target: object) -> None:
+    def _record(*, target: object) -> None:
         try:
             resolved = pathlib.Path(str(target)).resolve()
         except (OSError, ValueError):  # pragma: no cover - defensive on odd targets
@@ -107,19 +107,19 @@ def _install_plan_tree_open_audit(*, monkeypatch, plan_root: pathlib.Path) -> li
     real_read_bytes = pathlib.Path.read_bytes
 
     def _audited_open(file, *args, **kwargs):
-        _record(file)
+        _record(target=file)
         return real_open(file, *args, **kwargs)
 
     def _audited_path_open(self, *args, **kwargs):
-        _record(self)
+        _record(target=self)
         return real_path_open(self, *args, **kwargs)
 
     def _audited_read_text(self, *args, **kwargs):
-        _record(self)
+        _record(target=self)
         return real_read_text(self, *args, **kwargs)
 
     def _audited_read_bytes(self, *args, **kwargs):
-        _record(self)
+        _record(target=self)
         return real_read_bytes(self, *args, **kwargs)
 
     monkeypatch.setattr(builtins, "open", _audited_open)
@@ -185,7 +185,7 @@ def test_the_supervision_loop_cannot_make_model_calls():
     assert reachable == {}, f"network-capable imports in a no-model-calls package: {reachable}"
 
 
-def test_a_supervision_tick_never_opens_a_file_under_a_plan_tree(tmp_path, monkeypatch):
+def test_a_supervision_tick_never_opens_a_file_under_a_plan_tree(*, tmp_path, monkeypatch):
     """The "Filesystem boundaries" rule of SPECIFICATION/constraints.md: the daemon
     "NEVER reads, writes, or hashes files under any repository's plan tree".
 
@@ -196,7 +196,7 @@ def test_a_supervision_tick_never_opens_a_file_under_a_plan_tree(tmp_path, monke
     SABOTAGE-VERIFIED 2026-07-26: making `Supervisor.tick` read each track's own handoff
     file turns this red naming that path; reverted to a zero diff.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     opened = _install_plan_tree_open_audit(
         monkeypatch=monkeypatch, plan_root=(repo / "plan").resolve()
     )
@@ -204,8 +204,10 @@ def test_a_supervision_tick_never_opens_a_file_under_a_plan_tree(tmp_path, monke
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
-    sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO())
-    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], out=_io.StringIO())
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+    )
 
     _ = sup.tick(act=True)
 

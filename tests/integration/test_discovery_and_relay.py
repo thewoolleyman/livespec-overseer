@@ -45,7 +45,7 @@ from overseer.test_supervisor_fakes import (
 _HANDOFF = "supervisor-handoff.md"
 
 
-def _plan(repo: Path, topic: str) -> None:
+def _plan(*, repo: Path, topic: str) -> None:
     """A second plan directory inside an existing repo (`make_plan` builds the first)."""
     plan = repo / "plan" / topic
     plan.mkdir(parents=True)
@@ -78,7 +78,7 @@ def _watch_handoff_access():
         probes.append(self.name)
         return originals["exists"](self, *args, **kwargs)
 
-    def forbid(verb: str):
+    def forbid(*, verb: str):
         original = originals[verb]
 
         def guard(self, *args, **kwargs):
@@ -89,7 +89,7 @@ def _watch_handoff_access():
 
     Path.exists = counting_exists
     for verb in ("open", "read_text", "read_bytes"):
-        setattr(Path, verb, forbid(verb))
+        setattr(Path, verb, forbid(verb=verb))
     try:
         yield probes
     finally:
@@ -97,7 +97,7 @@ def _watch_handoff_access():
             setattr(Path, name, original)
 
 
-def test_scenario_a_blocked_declaration_is_relayed_not_answered(tmp_path):
+def test_scenario_a_blocked_declaration_is_relayed_not_answered(*, tmp_path):
     """Scenario: A blocked declaration is relayed, not answered.
 
     Given a session that wrote `blocked` with a one-line reason: the track is relayed to the
@@ -120,16 +120,16 @@ def test_scenario_a_blocked_declaration_is_relayed_not_answered(tmp_path):
         is reported as having declared NOTHING.
       - `alert` reduced to `repo::topic` text -> the session/pane/jump assertions.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))  # deep in the danger band
-    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
-    declare(repo, topic, "blocked: waiting on the schema call")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
+    declare(repo=repo, topic=topic, value="blocked: waiting on the schema call")
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert view.status == "blocked:human"  # ...it outranks the danger band
     assert view.note == "waiting on the schema call"
@@ -145,7 +145,7 @@ def test_scenario_a_blocked_declaration_is_relayed_not_answered(tmp_path):
     assert not fake.has(method="respawn")  # ...and never restarted while blocked
 
 
-def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(tmp_path):
+def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(*, tmp_path):
     """Scenario: An idle session with context left is nudged once per episode.
 
     Walks the whole episode lifecycle on one track: below the one-hour floor nothing is
@@ -169,29 +169,29 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
       - `_clear_idle_nudge_state` made a no-op -> the marker survives the working tick and
         the second episode never re-arms.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # well ABOVE the threshold
     clock = {"t": 1000.0}
-    sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"], out=_io.StringIO())
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
     sup.claude_status_by_session = {session: "idle"}  # not `waiting`: free to continue
-    track = mapped_track(repo, topic, session)
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
-    assert nudge_count(fake) == 0  # descriptive status, but idle < 1h: NOT keystroked
+    assert nudge_count(fake=fake) == 0  # descriptive status, but idle < 1h: NOT keystroked
     assert signals.read_state(repo=str(repo), topic=topic) is None
 
     clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
-    assert nudge_count(fake) == 1  # ONE keep-going message...
-    assert wrapup_count(fake) == 0  # ...and emphatically not a wind-down wrap-up
+    assert nudge_count(fake=fake) == 1  # ONE keep-going message...
+    assert wrapup_count(fake=fake) == 0  # ...and emphatically not a wind-down wrap-up
     marker = signals.read_state(repo=str(repo), topic=topic)
     assert marker is not None and marker.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
 
     clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     sup.evaluate(track=track, act=True)
-    assert nudge_count(fake) == 1  # same episode: not nudged again
+    assert nudge_count(fake=fake) == 1  # same episode: not nudged again
 
     sup.claude_status_by_session = {session: "busy"}  # the session works again
     assert sup.evaluate(track=track, act=True).status == "working"
@@ -199,13 +199,13 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
 
     sup.claude_status_by_session = {session: "idle"}
     sup.evaluate(track=track, act=True)
-    assert nudge_count(fake) == 1  # ...re-arming a FUTURE episode, not an immediate one
+    assert nudge_count(fake=fake) == 1  # ...re-arming a FUTURE episode, not an immediate one
     clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     sup.evaluate(track=track, act=True)
-    assert nudge_count(fake) == 2
+    assert nudge_count(fake=fake) == 2
 
 
-def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(tmp_path):
+def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(*, tmp_path):
     """Scenario: An unassigned plan is discovered but never auto-started.
 
     Given a watched repository containing a plan directory with no assigned session, the
@@ -223,9 +223,9 @@ def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(tmp_pa
     the session it looks for (`new_session` when `session_exists` is False) starts a session
     for a plan nobody asked to start, and the row stops reading `unassigned`.
     """
-    repo, _topic = make_plan(tmp_path, topic="startable")
+    repo, _topic = make_plan(tmp_path=tmp_path, topic="startable")
     fake = FakeTmux()  # NO session serves this plan
-    sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO())
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], out=_io.StringIO())
 
     for _ in range(10):  # a daemon looks at a startable plan over and over
         views = sup.tick(act=True)
@@ -238,7 +238,7 @@ def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(tmp_pa
     assert registry.read_mapping(store_path=sup.store_path) == []  # and nothing was mapped
 
 
-def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(tmp_path):
+def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(*, tmp_path):
     """Scenario: The supervision-artifact existence probe is liveness-gated and existence-only.
 
     The probe MAY test whether `plan/<topic>/supervisor-handoff.md` exists; it never opens,
@@ -261,13 +261,13 @@ def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(tmp
       - the probe hoisted above the no-managed-pane return in `evaluate` -> the dead-session
         pass probes, so its count is no longer zero.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / _HANDOFF).write_text("a supervisor charter\n")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
-    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
-    track = mapped_track(repo, topic, session)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     with _watch_handoff_access() as probes, contextlib.redirect_stderr(_io.StringIO()):
         live = sup.evaluate(track=track, act=True)  # a live, matching session
@@ -284,7 +284,7 @@ def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(tmp
     assert _HANDOFF not in dead_probes  # ...means no file-level probe at all
 
 
-def test_scenario_topics_colliding_across_repositories_get_qualified_session_names(tmp_path):
+def test_scenario_topics_colliding_across_repositories_get_qualified_session_names(*, tmp_path):
     """Scenario: Topics colliding across repositories get qualified session names.
 
     Given two watched repositories that both contain the same plan topic, a derived session
@@ -310,16 +310,18 @@ def test_scenario_topics_colliding_across_repositories_get_qualified_session_nam
     an empty frozenset makes both repos derive the bare `shared`, so the qualified sessions
     are never linked and the bare one is claimed by whichever repo is discovered first.
     """
-    alpha, _ = make_plan(tmp_path, repo_name="alpha", topic="shared")
-    beta, _ = make_plan(tmp_path, repo_name="beta", topic="shared")
-    _plan(beta, "solo")  # a topic unique to ONE repo
+    alpha, _ = make_plan(tmp_path=tmp_path, repo_name="alpha", topic="shared")
+    beta, _ = make_plan(tmp_path=tmp_path, repo_name="beta", topic="shared")
+    _plan(repo=beta, topic="solo")  # a topic unique to ONE repo
 
     fake = FakeTmux()
     fake.serve(session="alpha-shared", repo=alpha, capture=idle_capture(ctx=73))
     fake.serve(session="beta-shared", repo=beta, capture=idle_capture(ctx=73))
     fake.serve(session="solo", repo=beta, capture=idle_capture(ctx=73))
     fake.serve(session="shared", repo=alpha, capture=idle_capture(ctx=73))  # the RETIRED bare name
-    sup = make_supervisor(tmp_path, fake, watch_repos=[str(alpha), str(beta)], out=_io.StringIO())
+    sup = make_supervisor(
+        tmp_path=tmp_path, fake=fake, watch_repos=[str(alpha), str(beta)], out=_io.StringIO()
+    )
 
     with contextlib.redirect_stderr(_io.StringIO()):
         _ = sup.tick(act=True)

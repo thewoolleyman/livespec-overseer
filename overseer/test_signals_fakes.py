@@ -18,7 +18,7 @@ import signals
 __all__: list[str] = ["declare_state", "setup_track"]
 
 
-def setup_track(tmp_path):
+def setup_track(*, tmp_path):
     """A watched track: a repo with the session's own ``plan/<topic>/`` dir.
 
     The overseer's markers live under ``<repo>/tmp/overseer/<topic>/`` (created by
@@ -31,7 +31,7 @@ def setup_track(tmp_path):
     return repo, topic
 
 
-def declare_state(repo, topic, value, *, mtime):
+def declare_state(*, repo, topic, value, mtime):
     """The session writes its ONE state file, creating the parent TEMP dir first.
 
     The single indicator lives at ``<repo>/tmp/overseer/<topic>/.overseer-state``, whose

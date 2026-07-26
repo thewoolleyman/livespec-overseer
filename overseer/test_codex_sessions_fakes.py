@@ -23,7 +23,7 @@ __all__: list[str] = ["ID_A", "ID_B", "fake_host", "fake_index", "fake_rollout"]
 # --------------------------------------------------------------------------- #
 
 
-def fake_index(tmp_path, records):
+def fake_index(*, tmp_path, records):
     """Write a `session_index.jsonl` with `records` (id, thread_name) pairs, in order."""
     home = tmp_path / "codex"
     home.mkdir(exist_ok=True)
@@ -35,7 +35,7 @@ def fake_index(tmp_path, records):
     return home
 
 
-def fake_rollout(session_id):
+def fake_rollout(*, session_id):
     """A rollout path of the real shape — the id is embedded in the FILENAME."""
     return f"/home/u/.codex/sessions/2026/07/16/rollout-2026-07-16T10-49-49-{session_id}.jsonl"
 

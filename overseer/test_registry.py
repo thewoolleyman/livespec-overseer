@@ -23,7 +23,7 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     """Every test runs with cwd inside tmp_path (repo convention)."""
     monkeypatch.chdir(tmp_path)
 
@@ -99,7 +99,7 @@ def test_colliding_topics_ignores_the_same_repo_seen_twice():
 # --------------------------------------------------------------------------- #
 
 
-def test_append_read_roundtrip(tmp_path):
+def test_append_read_roundtrip(*, tmp_path):
     store = tmp_path / "map.jsonl"
     registry.append_mapping(
         track=Track(
@@ -132,7 +132,7 @@ def test_append_read_roundtrip(tmp_path):
     assert tracks[1].ctx_threshold is None
 
 
-def test_ctx_threshold_none_is_omitted_explicit_int_roundtrips(tmp_path):
+def test_ctx_threshold_none_is_omitted_explicit_int_roundtrips(*, tmp_path):
     """A track with no override (ctx_threshold=None) serializes a row WITHOUT the
     key and reads back None; an explicit int serializes the key and round-trips."""
     store = tmp_path / "map.jsonl"
@@ -153,7 +153,7 @@ def test_ctx_threshold_none_is_omitted_explicit_int_roundtrips(tmp_path):
     assert by_topic["pinned"].ctx_threshold == 60
 
 
-def test_read_mapping_fail_soft_on_malformed_lines(tmp_path):
+def test_read_mapping_fail_soft_on_malformed_lines(*, tmp_path):
     store = tmp_path / "map.jsonl"
     good_a = json.dumps({"topic": "a", "repo": "/r"})
     good_b = json.dumps({"topic": "b", "repo": "/r"})
@@ -173,7 +173,7 @@ def test_read_mapping_fail_soft_on_malformed_lines(tmp_path):
     assert [t.topic for t in tracks] == ["a", "b"]
 
 
-def test_remove_mapping_is_repo_qualified(tmp_path):
+def test_remove_mapping_is_repo_qualified(*, tmp_path):
     """Same topic in two repos: removing one must not remove the other."""
     store = tmp_path / "map.jsonl"
     registry.append_mapping(
@@ -196,7 +196,7 @@ def test_remove_mapping_is_repo_qualified(tmp_path):
     assert keys == {("/data/projects/other", "shared"), ("/data/projects/livespec", "solo")}
 
 
-def test_rewrite_mapping_preserves_unknown_keys(tmp_path):
+def test_rewrite_mapping_preserves_unknown_keys(*, tmp_path):
     store = tmp_path / "map.jsonl"
     store.write_text(
         json.dumps({"topic": "a", "repo": "/r", "added_at": "2026-07-12T13:00:00Z"})

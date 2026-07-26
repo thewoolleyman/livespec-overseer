@@ -36,7 +36,7 @@ HINT = "  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents"
 SPINNER = "✻ Galloping… (running stop hooks… 1/3 · 24s · ↓ 1.4k tokens)"
 
 
-def idle_capture(ctx=None, body="", *, topic=None):
+def idle_capture(*, ctx=None, body="", topic=None):
     """The idle box. ``topic`` renders the `-n <topic>` TITLED top border (B2)."""
     status = "  Opus 4.8 (1M context) | /x/repo"
     if ctx is not None:
@@ -46,16 +46,16 @@ def idle_capture(ctx=None, body="", *, topic=None):
     return f"{head}{top}\n❯ \n{RULE}\n{status}\n{HINT}\n"
 
 
-def busy_capture(ctx=None):
+def busy_capture(*, ctx=None):
     """An actively-generating pane: the real spinner above the (idle-shaped) box."""
-    return f"● response\n{SPINNER}\n" + idle_capture(ctx)
+    return f"● response\n{SPINNER}\n" + idle_capture(ctx=ctx)
 
 
 # The REAL live idle Codex TUI shape (verified 2026-07-17, codex-cli 0.144.5): a `›`
 # input line above the Codex statusline `model · cwd · Context N% left · <name>` — NOT
 # Claude's empty-`❯`-between-rules box. An UNNAMED session shows its UUID where a named
 # one shows the thread_name; here we render the topic (a named session).
-def codex_idle_capture(ctx=None, *, topic="topic"):
+def codex_idle_capture(*, ctx=None, topic="topic"):
     status = "  gpt-5.5 high · /x/repo"
     if ctx is not None:
         status += f" · Context {ctx}% left"
@@ -63,7 +63,7 @@ def codex_idle_capture(ctx=None, *, topic="topic"):
     return f"● prior response\n› Write tests for @filename\n{status}\n"
 
 
-def codex_busy_capture(ctx=None):
+def codex_busy_capture(*, ctx=None):
     """An actively-generating Codex pane: `esc to interrupt` (what `is_busy` matches) —
     the signal `_submit_prompt(expect_codex=True)` confirms a Codex submit by."""
     status = "  gpt-5.5 high · /x/repo"
@@ -76,7 +76,7 @@ def codex_busy_capture(ctx=None):
 IDLE_BOX = idle_capture()
 
 
-def make_plan(tmp_path, repo_name="repo", topic="topic", handoff=b"HANDOFF v1\n"):
+def make_plan(*, tmp_path, repo_name="repo", topic="topic", handoff=b"HANDOFF v1\n"):
     repo = tmp_path / repo_name
     plan = repo / "plan" / topic
     plan.mkdir(parents=True)
@@ -84,7 +84,7 @@ def make_plan(tmp_path, repo_name="repo", topic="topic", handoff=b"HANDOFF v1\n"
     return repo, topic
 
 
-def mapped_track(repo, topic, session):
+def mapped_track(*, repo, topic, session):
     return registry.Track(
         topic=topic,
         repo=str(repo),
@@ -94,12 +94,12 @@ def mapped_track(repo, topic, session):
     )
 
 
-def key_for(repo, topic):
+def key_for(*, repo, topic):
     """The normalized in-memory inject-state key the supervisor uses."""
     return _supervisor_config.track_key(repo=str(repo), topic=topic)
 
 
-def make_supervisor(tmp_path, fake, **kwargs):
+def make_supervisor(*, tmp_path, fake, **kwargs):
     kwargs.setdefault("out", _io.StringIO())
     kwargs.setdefault("now", lambda: 1000.0)  # overridable: pass now=lambda: clock["t"]
     kwargs.setdefault("sleep", lambda _s: None)
@@ -130,10 +130,10 @@ def make_supervisor(tmp_path, fake, **kwargs):
 WRAPUP_SENTINEL = "Declare your state by writing ONE line"
 
 
-def adopt_sup(tmp_path, fake, sessions_dir, ppid, starttimes, **kwargs):
+def adopt_sup(*, tmp_path, fake, sessions_dir, ppid, starttimes, **kwargs):
     return make_supervisor(
-        tmp_path,
-        fake,
+        tmp_path=tmp_path,
+        fake=fake,
         sessions_dir=str(sessions_dir),
         ppid_of=ppid.get,
         starttime_of=starttimes.get,
@@ -141,12 +141,12 @@ def adopt_sup(tmp_path, fake, sessions_dir, ppid, starttimes, **kwargs):
     )
 
 
-def arm_ready_marker(repo, topic, *, mtime=1001.0):
+def arm_ready_marker(*, repo, topic, mtime=1001.0):
     """The session declares `ready` — the ONLY thing that authorizes a restart."""
-    return declare(repo, topic, signals.STATE_READY, mtime=mtime)
+    return declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=mtime)
 
 
-def assert_no_tmux_scoping(command):
+def assert_no_tmux_scoping(*, command):
     """The L1 env inversion is REMOVED (plan/tmux-fleet-visibility): a spawn
     command must carry NO tmux socket scoping, so a bare `tmux ls` in the
     spawned agent lists the real fleet. This pins the ABSENCE so the prefix
@@ -163,7 +163,7 @@ def assert_no_tmux_scoping(command):
 # --------------------------------------------------------------------------- #
 
 
-def codex_home_with(tmp_path, topic, session_id, *, rollout=True):
+def codex_home_with(*, tmp_path, topic, session_id, rollout=True):
     """A fake ~/.codex naming `session_id` for `topic`, optionally with its rollout on disk."""
     home = tmp_path / "codex-home"
     home.mkdir(exist_ok=True)
@@ -184,7 +184,7 @@ def codex_home_with(tmp_path, topic, session_id, *, rollout=True):
 # --------------------------------------------------------------------------- #
 
 
-def declare(repo, topic, value, *, mtime=1001.0):
+def declare(*, repo, topic, value, mtime=1001.0):
     """Write the session's ONE state file with ``value`` (e.g. "ready", "blocked: x").
 
     The single indicator lives at ``<repo>/tmp/overseer/<topic>/.overseer-state`` — its
@@ -203,7 +203,7 @@ def declare(repo, topic, value, *, mtime=1001.0):
 # --------------------------------------------------------------------------- #
 
 
-def isolate_store(tmp_path, monkeypatch):
+def isolate_store(*, tmp_path, monkeypatch):
     """Redirect the hard-coded mapping store at a tmp file.
 
     The de-gold-plated CLI (2026-07-13) no longer exposes ``--store``; the path is
@@ -225,7 +225,7 @@ def isolate_store(tmp_path, monkeypatch):
     return store
 
 
-def nudge_count(fake):
+def nudge_count(*, fake):
     return len([t for t in fake.paste_texts() if NUDGE_SENTINEL in t])
 
 
@@ -236,7 +236,7 @@ def nudge_count(fake):
 # --------------------------------------------------------------------------- #
 
 
-def on_respawn(fake, after):
+def on_respawn(*, fake, after):
     """Run ``after(session)`` right after a SUCCESSFUL FakeTmux respawn.
 
     Models what the pane actually BECOMES once the respawn lands — a bare shell (the
@@ -262,13 +262,13 @@ def on_respawn(fake, after):
 # --------------------------------------------------------------------------- #
 
 
-def render_of(sup, views):
+def render_of(*, sup, views):
     """Render VIEWS and return what the daemon printed (the table + attention block)."""
     sup.render(rows=views)
     return sup.out.getvalue()
 
 
-def row_line(out, topic):
+def row_line(*, out, topic):
     """The single rendered line for TOPIC (the data row, not the header)."""
     return next(ln for ln in out.splitlines() if topic in ln and "Topic" not in ln)
 
@@ -284,7 +284,7 @@ def row_line(out, topic):
 # --------------------------------------------------------------------------- #
 
 
-def unsubmitted_resume_capture(ctx=30):
+def unsubmitted_resume_capture(*, ctx=30):
     """A freshly-respawned Claude with the resume line sitting UN-submitted in the box.
 
     The box holds the pasted `read <handoff> and follow it` text (a `❯ read …` line between
@@ -299,7 +299,7 @@ def unsubmitted_resume_capture(ctx=30):
     )
 
 
-def wrapup_count(fake):
+def wrapup_count(*, fake):
     return len([t for t in fake.paste_texts() if WRAPUP_SENTINEL in t])
 
 
@@ -308,7 +308,7 @@ def wrapup_count(fake):
 # --------------------------------------------------------------------------- #
 
 
-def write_session(sessions_dir, pid, *, name, cwd, proc_start="pt", status="idle"):
+def write_session(*, sessions_dir, pid, name, cwd, proc_start="pt", status="idle"):
     payload = {"pid": pid, "name": name, "cwd": str(cwd), "procStart": proc_start, "status": status}
     (sessions_dir / f"{pid}.json").write_text(json.dumps(payload), encoding="utf-8")
 
@@ -325,7 +325,7 @@ GREEN = "\x1b[32m"
 RESET = "\x1b[0m"
 
 
-def adopt_codex_ready(tmp_path):
+def adopt_codex_ready(*, tmp_path):
     """A codex track adopted in `live_codex`, at a valid `ready`, on an idle Codex pane.
 
     The shared fixture for the two restart-routing guards below: a `bun` pane showing the
@@ -334,7 +334,7 @@ def adopt_codex_ready(tmp_path):
     reaches the restart branch — the branch where a runtime-misrouted restart would fire
     the claude command at a codex pane.
     """
-    repo, topic = make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
@@ -342,7 +342,7 @@ def adopt_codex_ready(tmp_path):
     )  # a codex pane
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
+    sup = adopt_sup(tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={})
     session_id = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
     sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
@@ -355,7 +355,7 @@ def adopt_codex_ready(tmp_path):
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    arm_ready_marker(repo, topic, mtime=1001.0)  # the SOLE restart authorization
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)  # the SOLE restart authorization
     return repo, topic, session, session_id, fake, sup
 
 
@@ -370,7 +370,7 @@ def adopt_codex_ready(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def cell_row(out, topic):
+def cell_row(*, out, topic):
     """The single rendered DATA line for TOPIC (skipping the header row)."""
     return next(ln for ln in out.splitlines() if topic in ln and "Topic" not in ln)
 
@@ -384,7 +384,7 @@ def cell_row(out, topic):
 # --------------------------------------------------------------------------- #
 
 
-def undeletable_state_file(repo, topic):
+def undeletable_state_file(*, repo, topic):
     """Put a DIRECTORY where the ``.overseer-state`` file belongs.
 
     ``unlink`` on a directory always fails (``EISDIR``) for every user including

@@ -18,7 +18,7 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
@@ -138,7 +138,7 @@ def test_is_codex_idle_input_false_while_the_codex_pane_is_busy():
     assert signals.is_codex_idle_input(capture_text=busy_codex) is False  # ...but busy wins
 
 
-def test_read_state_is_none_when_the_state_file_is_unreadable(tmp_path, monkeypatch):
+def test_read_state_is_none_when_the_state_file_is_unreadable(*, tmp_path, monkeypatch):
     """Fail-closed: a PRESENT but unreadable indicator reads as "no state", never raises —
     so an unreadable file can never authorize a restart (it is not a `ready`).
 
@@ -147,8 +147,8 @@ def test_read_state_is_none_when_the_state_file_is_unreadable(tmp_path, monkeypa
     of this test passes locally and silently stops exercising the fail-closed branch
     in CI — which is worse than no test, because this branch is a SAFETY guard.
     """
-    repo, topic = setup_track(tmp_path)
-    declare_state(repo, topic, "ready\n", mtime=1001.0)
+    repo, topic = setup_track(tmp_path=tmp_path)
+    declare_state(repo=repo, topic=topic, value="ready\n", mtime=1001.0)
 
     def _deny(self, *args, **kwargs):
         raise PermissionError(13, "Permission denied")
@@ -158,7 +158,7 @@ def test_read_state_is_none_when_the_state_file_is_unreadable(tmp_path, monkeypa
     assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
 
 
-def test_read_state_is_none_when_the_state_file_is_not_utf8(tmp_path):
+def test_read_state_is_none_when_the_state_file_is_not_utf8(*, tmp_path):
     """Fail-closed on a NON-UTF-8 indicator — a different exception class from the
     unreadable case above, and one the sibling test does not reach.
 
@@ -176,7 +176,7 @@ def test_read_state_is_none_when_the_state_file_is_not_utf8(tmp_path):
     Real bytes rather than a monkeypatch: this exercises the actual decode path, so
     it cannot pass by mocking a raise that the production code never performs.
     """
-    repo, topic = setup_track(tmp_path)
+    repo, topic = setup_track(tmp_path=tmp_path)
     path = signals.state_path(repo=str(repo), topic=topic)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"\xff\xferead" + b"y\n")

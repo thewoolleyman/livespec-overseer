@@ -23,7 +23,7 @@ __all__: list[str] = []
 
 
 @pytest.fixture(autouse=True)
-def _isolate_cwd(tmp_path, monkeypatch):
+def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
@@ -188,7 +188,7 @@ def test_is_idle_input_false_for_blank_pane():
 # --------------------------------------------------------------------------- #
 
 
-def test_state_path_is_under_tmp_overseer_never_plan(tmp_path):
+def test_state_path_is_under_tmp_overseer_never_plan(*, tmp_path):
     """The ONE indicator file resolves under ``<repo>/tmp/overseer/<topic>/``, not plan/."""
     repo = str(tmp_path / "repo")
     topic = "mytopic"
@@ -199,57 +199,61 @@ def test_state_path_is_under_tmp_overseer_never_plan(tmp_path):
     assert "plan" not in signals.state_path(repo=repo, topic=topic).parts
 
 
-def test_read_state_parses_token_and_detail(tmp_path):
+def test_read_state_parses_token_and_detail(*, tmp_path):
     """`<token>` or `<token>: <detail>` — the detail carries a blocked reason."""
-    repo, topic = setup_track(tmp_path)
-    declare_state(repo, topic, "ready\n", mtime=1001.0)
+    repo, topic = setup_track(tmp_path=tmp_path)
+    declare_state(repo=repo, topic=topic, value="ready\n", mtime=1001.0)
     st = signals.read_state(repo=str(repo), topic=topic)
     assert st is not None and st.token == "ready" and st.detail == ""
 
-    declare_state(repo, topic, "blocked: waiting on the schema call\n", mtime=1002.0)
+    declare_state(
+        repo=repo, topic=topic, value="blocked: waiting on the schema call\n", mtime=1002.0
+    )
     st = signals.read_state(repo=str(repo), topic=topic)
     assert st is not None and st.token == "blocked"
     assert st.detail == "waiting on the schema call"
 
-    declare_state(repo, topic, "  WINDING-DOWN  \n", mtime=1003.0)  # tolerant: case + whitespace
+    declare_state(
+        repo=repo, topic=topic, value="  WINDING-DOWN  \n", mtime=1003.0
+    )  # tolerant: case + whitespace
     st = signals.read_state(repo=str(repo), topic=topic)
     assert st is not None and st.token == "winding-down"
 
 
-def test_read_state_none_when_absent_and_token_validity(tmp_path):
-    repo, topic = setup_track(tmp_path)
+def test_read_state_none_when_absent_and_token_validity(*, tmp_path):
+    repo, topic = setup_track(tmp_path=tmp_path)
     assert signals.read_state(repo=str(repo), topic=topic) is None  # absent → None (fail-closed)
     for good in signals.STATE_TOKENS:
         assert signals.valid_token(token=good) is True
     assert signals.valid_token(token="redy") is False  # a typo is NOT a state
     # A malformed value is still RETURNED (so the daemon can surface it), just invalid.
-    declare_state(repo, topic, "redy\n", mtime=1001.0)
+    declare_state(repo=repo, topic=topic, value="redy\n", mtime=1001.0)
     st = signals.read_state(repo=str(repo), topic=topic)
     assert st is not None and st.token == "redy" and signals.valid_token(token=st.token) is False
 
 
-def test_ready_valid_only_on_a_fresh_ready_declaration(tmp_path):
+def test_ready_valid_only_on_a_fresh_ready_declaration(*, tmp_path):
     """`ready` is the SOLE restart authorization, and only when it is THIS round's."""
-    repo, topic = setup_track(tmp_path)
-    declare_state(repo, topic, "ready\n", mtime=1001.0)  # newer than the stamp
+    repo, topic = setup_track(tmp_path=tmp_path)
+    declare_state(repo=repo, topic=topic, value="ready\n", mtime=1001.0)  # newer than the stamp
     assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is True
 
 
-def test_ready_valid_false_when_absent_stale_unstamped_or_other_value(tmp_path):
+def test_ready_valid_false_when_absent_stale_unstamped_or_other_value(*, tmp_path):
     """Fail-closed on every path that is not an unambiguous, this-round `ready`."""
-    repo, topic = setup_track(tmp_path)
+    repo, topic = setup_track(tmp_path=tmp_path)
     # 1. Nothing declared at all — the severe-bug case: idleness is NEVER readiness.
     assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
     # 2. Declared `ready`, but STALE (older than this round's injection stamp).
-    declare_state(repo, topic, "ready\n", mtime=999.0)
+    declare_state(repo=repo, topic=topic, value="ready\n", mtime=999.0)
     assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
     # 3. Fresh `ready`, but NO injection this round → nothing to certify.
-    declare_state(repo, topic, "ready\n", mtime=1001.0)
+    declare_state(repo=repo, topic=topic, value="ready\n", mtime=1001.0)
     assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=None) is False
     # 4. The other two values are NOT readiness — one file, so they REPLACE `ready`.
     for other in ("blocked: needs a human", "winding-down"):
-        declare_state(repo, topic, other + "\n", mtime=1001.0)
+        declare_state(repo=repo, topic=topic, value=other + "\n", mtime=1001.0)
         assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
     # 5. A typo'd value is not readiness either.
-    declare_state(repo, topic, "redy\n", mtime=1001.0)
+    declare_state(repo=repo, topic=topic, value="redy\n", mtime=1001.0)
     assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
