@@ -199,8 +199,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "non-functional-requirements.md",
     "heading": "## Boundary",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_enforcement_wiring.test_every_contributor_requirement_sits_in_the_section_mirroring_its_spec_file",
+    "reason": "Pins the observable structural consequence of this section's decision rule ('in the section mirroring the file it would otherwise live in'): every NFR section other than this preamble names an NLSpec file of the spec tree. NOT RETIRED, against the inherited 'removal candidate' assessment — that called it the same category as gap-jqszyzae, but gap-jqszyzae is a document H1 preamble while this is a named section stating a routing rule with a testable consequence. livespec core, the one fleet member that finished this program, also KEPT its Boundary row and mapped it. Retiring would have needed a governed spec co-edit for no gain. SABOTAGE-VERIFIED 2026-07-26: adding a '## Deployment' section turns it red naming ['Deployment']."
   },
   {
     "spec_root": "SPECIFICATION",

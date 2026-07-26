@@ -23,6 +23,27 @@ import re
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 _JUSTFILE = _REPO_ROOT / "justfile"
+_SPEC_ROOT = _REPO_ROOT / "SPECIFICATION"
+_NFR = _SPEC_ROOT / "non-functional-requirements.md"
+
+# The NFR file's own preamble section. Every OTHER section mirrors a spec-tree
+# file, which is the structural rule the preamble states.
+_PREAMBLE_SECTION = "Boundary"
+
+# `README.md` is skill-owned and is not an NLSpec file; the NFR file does not
+# mirror itself.
+_NOT_MIRRORED = frozenset({"README.md", _NFR.name})
+
+
+def _nfr_sections() -> tuple[str, ...]:
+    source = _NFR.read_text(encoding="utf-8")
+    return tuple(re.findall(r"^## (.+)$", source, re.MULTILINE))
+
+
+def _mirrorable_spec_files() -> frozenset[str]:
+    return frozenset(
+        path.name for path in _SPEC_ROOT.glob("*.md") if path.name not in _NOT_MIRRORED
+    )
 
 
 def _aggregate_targets() -> frozenset[str]:
@@ -95,3 +116,40 @@ def test_the_scenario_tier_rule_is_wired_into_the_aggregate():
     assert (
         "check-heading-coverage" in targets
     ), "NFR Scenarios gate `check-heading-coverage` dropped from the `just check` aggregate"
+
+
+def test_every_contributor_requirement_sits_in_the_section_mirroring_its_spec_file():
+    """The "Boundary" section of SPECIFICATION/non-functional-requirements.md states the
+    file's decision rule: a requirement only a CONTRIBUTOR could observe belongs here,
+    "in the section mirroring the file it would otherwise live in".
+
+    That rule has an observable structural consequence, which is what this pins: every
+    section of the NFR file other than the preamble names an NLSpec file of the spec
+    tree, and the preamble itself is present to carry the rule.
+
+    This row was inherited as a "REMOVAL CANDIDATE — pure document framing that states
+    no requirement, the same category as gap-jqszyzae". That assessment does not survive
+    reading it. gap-jqszyzae is a document's H1 PREAMBLE; this is a named section stating
+    a routing rule with a testable consequence — and livespec core, the one fleet member
+    that finished this program, KEPT its own Boundary row and mapped it rather than
+    retiring it. Retiring would have required a governed spec co-edit for no gain.
+
+    SABOTAGE-VERIFIED 2026-07-26: adding a `## Deployment` section to the NFR file turns
+    this red naming it; reverted to a zero diff.
+    """
+    sections = _nfr_sections()
+    assert (
+        _PREAMBLE_SECTION in sections
+    ), f"the NFR preamble section '{_PREAMBLE_SECTION}' carrying the decision rule is gone"
+
+    mirrored = {name.lower() for name in _mirrorable_spec_files()}
+    unmirrored = sorted(
+        section
+        for section in sections
+        if section != _PREAMBLE_SECTION and f"{section.lower()}.md" not in mirrored
+    )
+
+    assert unmirrored == [], (
+        f"NFR sections that mirror no spec-tree file: {unmirrored} "
+        f"(expected one of {sorted(mirrored)})"
+    )
