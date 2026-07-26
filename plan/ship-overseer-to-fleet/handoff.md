@@ -2,12 +2,15 @@
 
 **Owning repo:** `livespec-overseer`. **Status:** **OPEN — GOAL 5 IS NOT MET.**
 Five of six goals hold. The
-plugin is RELEASED (through v0.13.0), REGISTERED in all twelve consuming repos,
+plugin is RELEASED (v0.13.1 at the time of writing — **re-derive with
+`gh release list`, this line has gone stale five times**), REGISTERED in all
+twelve consuming repos,
 and INSTALLED on the host for **all twelve** — nine fleet members plus all three
 adopters — with `supervise-plan` proven to RESOLVE by live exercise in eleven
-sessions that are not this repo's. All 24 children of `overseer-hbr` are closed,
-but **`.24` closed on evidence that does not support its claim** — see
-§"GOAL 5 REOPENED". **Do not close `overseer-hbr`.** Read §"NEXT ACTION" — it was
+sessions that are not this repo's. **`overseer-hbr.25` is OPEN and `ready`** —
+it carries goal 5's unverified trigger. `.1`–`.24` are closed, but **`.24`
+closed on evidence that does not support its claim** — see §"GOAL 5 REOPENED".
+**Do not close `overseer-hbr`.** Read §"NEXT ACTION" — it was
 rewritten 2026-07-26 (FIFTH wrap-up) and SUPERSEDES every earlier status
 statement in this file, including the fourth wrap-up's "the thread is DONE".
 
@@ -22,7 +25,9 @@ statement in this file, including the fourth wrap-up's "the thread is DONE".
 
 <!-- Superseded headers, kept so a reader arriving from an older revision lands
 somewhere real. This has read, in order: "OPEN — WAITING ON MAINTAINER VALVES",
-then "OPEN — SHIPPING", now "OPEN — ONE ITEM LEFT". Goal 2's arming (`.20`),
+"OPEN — SHIPPING", "OPEN — ONE ITEM LEFT", "ALL SIX GOALS MET — THE THREAD IS
+DONE" (wrong; goal 5 was scored on a human-pressed workflow_dispatch), now
+"OPEN — GOAL 5 IS NOT MET". Goal 2's arming (`.20`),
 which an earlier version of this paragraph named as the remaining work, is
 DONE. --> Goal 2 is **COMPLETE, both halves**: all **54** registry rows map to a
 test, **0 TODO**, 21 of 21 `scenarios.md` rows are pinned at integration tier,
