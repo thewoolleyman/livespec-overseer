@@ -2265,17 +2265,37 @@ def test_recover_still_recreates_a_claude_track_as_claude(tmp_path):
 # --------------------------------------------------------------------------- #
 
 
-def test_run_loop_survives_a_tick_exception(tmp_path):
-    """B7: a tick that raises is logged and the loop CONTINUES (here `once=True`
-    returns after the single, survived tick rather than propagating)."""
+def test_run_loop_lets_a_tick_exception_propagate(tmp_path):
+    """A bug in a tick PROPAGATES: the daemon exits and its supervisor restarts it.
+
+    This is the INVERSION of an earlier test that asserted the loop survived a
+    raising tick, on the B7 reasoning that a bug evaluating one track must not
+    strand the other N-1. That permission was WITHDRAWN by the maintainer ruling of
+    2026-07-26 and the narrowing is ratified in livespec `history/v176`: a daemon
+    gets no per-iteration broad catch. "Let it crash, systemd restarts" — exactly one
+    broad catch per program, in `main()`.
+
+    Inverted rather than DELETED on purpose. A deleted test silently stops proving
+    anything, so nothing would notice the catch creeping back; an inverted one pins
+    propagation as the contract.
+
+    Why this is SAFE, and why it was unsafe before: the two failure cases the old
+    docstring justified the catch with — an unreadable `plan/` dir and a malformed
+    store — are boundaried by narrow catches below (`discover_plans` and
+    `_read_rows` in `registry.py`), and the six `UnicodeDecodeError` leaks that used
+    to escape those handlers were closed first (PR #118). So a bug is now the only
+    exception class that can reach here, which is exactly the condition under which
+    crashing is correct rather than reckless.
+    """
     fake = FakeTmux()
     sup = _sup(tmp_path, fake)
 
     def boom(*, act):
-        raise RuntimeError("bad plan dir")
+        raise RuntimeError("a genuine bug in one track's tick")
 
     sup.tick = boom  # type: ignore[assignment]
-    sup.run(once=True)  # must NOT raise
+    with pytest.raises(RuntimeError, match="a genuine bug"):
+        sup.run(once=True)
 
 
 # --------------------------------------------------------------------------- #
