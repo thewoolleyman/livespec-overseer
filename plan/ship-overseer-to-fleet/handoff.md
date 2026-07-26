@@ -582,6 +582,11 @@ gh run list -R thewoolleyman/resume    --workflow=bump-plugin-pin.yml --limit 5 
 **The acceptance is `event: schedule`.** A `workflow_dispatch` or
 `repository_dispatch` row is not the goal, however green.
 
+This is tracked as **`overseer-hbr.25`** (`ready`, P1) — filed with
+`--no-inherit-labels` and then set to a real `WorkItemStatus`, so it corrects
+both known `bd create --parent` defects and `next` can actually rank it. The
+retraction evidence lives in `.24`'s comments.
+
 ### GOAL 5 REOPENED — why `.24`'s close does not hold
 
 `overseer-hbr.24` closed on the claim that both pinned adopters "advanced
@@ -1190,6 +1195,7 @@ was set by hand and then read back from the ledger to verify.**
 | S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | **DONE** — item 5 satisfied, item 3 sized |
 | — goal-4 ADOPTER arm | **`.23`** | 4 | — | **DONE** — homelab PR #67, openbrain + resume direct push |
 | — goal-5 PINNED-consumer bump lane | **`.24`** | 5 | `.23` | **CLOSED, claim RETRACTED** — the lane was built, but both advances were `workflow_dispatch`; goal 5 stays open. A successor carries the acceptance |
+| — goal-5 ACCEPTANCE, the only open slice | **`.25`** | 5 | `.24` | **READY** — observe a `schedule` run advance a pinned adopter to v0.13.0. `ready`, P1, zero labels |
 
 Plus `.1`–`.9`, all closed: `.1`/`.9` (the `source_repo` misnaming), `.2` (the
 goal-6 anchor), `.5`/`.7` (stale docs), `.6` (`overseer-3wt` items 3+5), and
