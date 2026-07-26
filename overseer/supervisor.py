@@ -61,7 +61,6 @@ import shutil
 import subprocess
 import sys
 import time
-import traceback
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -2744,11 +2743,19 @@ class Supervisor:
     ) -> None:
         """Run the poll loop. ``once`` runs a single tick (live-exercise/testing).
 
-        Holds a per-store singleton lock for its whole lifetime (B6) and wraps each
-        tick in a broad except so one bad input (an unreadable ``plan/`` dir, a
-        malformed store) is logged and the loop CONTINUES supervising the other
-        tracks rather than dying (B7). ``KeyboardInterrupt``/``SystemExit`` still
-        propagate (they are BaseException, not caught here).
+        Holds a per-store singleton lock for its whole lifetime (B6).
+
+        A tick that raises is NOT caught: the exception propagates, the daemon exits
+        with a full traceback, and the process supervisor restarts it. B7's two
+        original cases — an unreadable ``plan/`` dir and a malformed store — are now
+        boundaried where they arise, by the narrow catches in
+        :func:`registry.discover_plans` and ``registry._read_rows``, so B7 is
+        discharged there rather than by a blanket guard here. What remains able to
+        reach this loop is a BUG, and a bug must not be swallowed into a loop that
+        keeps re-entering it.
+
+        ``KeyboardInterrupt`` is caught to exit cleanly; ``SystemExit`` propagates
+        (it is a BaseException).
         """
         unsupported = self.unsupported_host_reasons()
         if unsupported:
@@ -2783,15 +2790,24 @@ class Supervisor:
                 except KeyboardInterrupt:
                     self._log("interrupted; exiting")
                     return
-                # The daemon's per-iteration resilience catch: a bug in one track's
-                # tick must not take the whole daemon down and strand every OTHER
-                # track it is supervising, so the traceback is logged in FULL and the
-                # loop continues to the next tick. It never exits — that is what
-                # makes it a loop-iteration catch rather than a supervisor boundary.
-                # The marker wording is one of the five standardized forms; `sole`
-                # here scopes to this supervision loop.
-                except Exception:  # noqa: BLE001 — sole loop-iteration bug-catcher: log traceback, continue
-                    self._log("tick error (continuing):\n" + traceback.format_exc())
+                # NO per-iteration broad catch. A bug in one track's tick PROPAGATES:
+                # this loop lets it out, the daemon dies with a full traceback on
+                # stderr, and the process supervisor restarts it. Deliberately not a
+                # `try`/`except` that logs and continues — a loop that swallows a bug
+                # and re-enters keeps re-reading the same bad state, so it presents as
+                # supervising while enforcing nothing.
+                #
+                # This is safe because it is NOT where environmental failures land:
+                # an unreadable `plan/` dir and a malformed store — the two cases the
+                # withdrawn catch was justified by — are boundaried narrowly in
+                # `registry.py` (`discover_plans`, `_read_rows`), and the
+                # `UnicodeDecodeError` that used to escape those handlers is caught
+                # there too. Anything reaching here is a defect, not a bad input.
+                #
+                # Do NOT reintroduce a catch here. The permission was withdrawn by
+                # maintainer ruling and the narrowing is ratified in livespec's
+                # non-functional-requirements (the supervisor-discipline rules), which
+                # no longer recognizes a loop-iteration marker at all.
                 if once:
                     return
                 self.sleep(interval)
