@@ -164,22 +164,22 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Language and dependencies",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_package_constraints.test_the_package_imports_only_the_standard_library",
+    "reason": "Walks every product module's AST and asserts each absolute top-level import is stdlib or a first-party sibling. NOTHING asserted this before — the NFR recorded it as enforced 'at review and by the executables isolated launch mode', i.e. by nothing executable. SABOTAGE-VERIFIED 2026-07-26 with an INSTALLED third-party module (import pytest into registry.py) so the assertion itself fires; an uninstalled one fails earlier at collection, which holds the constraint but does not exercise this test."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Determinism boundary",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_package_constraints.test_the_supervision_loop_cannot_make_model_calls",
+    "reason": "Asserts the package imports NO network-capable stdlib module (urllib/http/socket/ssl/asyncio/...). A model call needs a client; proving there is no client is stronger and more durable than auditing call sites. subprocess is deliberately excluded — constraints.md contemplates driving a real tmux. SABOTAGE-VERIFIED 2026-07-26: import urllib.request into supervisor.py turns it red naming urllib."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Filesystem boundaries",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_package_constraints.test_a_supervision_tick_never_opens_a_file_under_a_plan_tree",
+    "reason": "BEHAVIORAL evidence, which this row previously lacked entirely — the nearest thing was a substring assertion over static prose in test_plugin_structure.py, which proves a sentence exists, not that the loop obeys it. Audits builtins.open / Path.open / Path.read_text / Path.read_bytes across a real tick and asserts nothing under the plan tree was opened. Directory enumeration and existence tests are deliberately NOT hooked: the spec permits both, including the bounded supervisor-handoff.md existence probe. SABOTAGE-VERIFIED 2026-07-26: making tick() read each track's handoff turns it red."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -206,8 +206,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "non-functional-requirements.md",
     "heading": "## Spec",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_enforcement_wiring.test_the_beside_test_and_red_green_discipline_are_wired_into_the_aggregate",
+    "reason": "Gate-backed row. Asserts check-tests-mirror-pairing and check-red-green-replay are still listed in the just check aggregate. It pins the WIRING, not the verdict: re-running the gates inside the suite would be tautological, and the failure this row needs protection from is a gate being DROPPED, which leaves the requirement unenforced while everything stays green. SABOTAGE-VERIFIED 2026-07-26 by deleting check-tests-mirror-pairing from the aggregate."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -220,15 +220,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "non-functional-requirements.md",
     "heading": "## Constraints",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_enforcement_wiring.test_the_hundred_percent_coverage_gates_are_wired_into_the_aggregate",
+    "reason": "Gate-backed row. Asserts BOTH coverage gates are wired — check-coverage (package total) and check-per-file-coverage (per-module floor). Asserting only the total would let a fully-uncovered module hide behind the rest of the package. SABOTAGE-VERIFIED 2026-07-26 by deleting check-per-file-coverage from the aggregate."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "non-functional-requirements.md",
     "heading": "## Scenarios",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_enforcement_wiring.test_the_scenario_tier_rule_is_wired_into_the_aggregate",
+    "reason": "Gate-backed row, and pleasingly circular: this heading's rule IS check-heading-coverage direction 4, so the registry row for it is validated by the very check this test pins. SABOTAGE-VERIFIED 2026-07-26 by deleting check-heading-coverage from the aggregate."
   },
   {
     "spec_root": "SPECIFICATION",
