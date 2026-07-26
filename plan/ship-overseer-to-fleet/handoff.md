@@ -107,18 +107,45 @@ references it**, which is a goal-4 scope leak; tracked as **`overseer-hbr.8`**.
 > stale" with `app-installation` possibly remaining. Measured:
 >
 > - `merge-settings` and `delete-branch-on-merge` — **RESOLVED.**
->   `check-fleet-conformance`, re-run with `LIVESPEC_RUN_FLEET_CONFORMANCE=true`,
->   reports **"fleet conformance passed", 9 members, 0 blind rows**.
-> - `app-installation` — **also discharged.** The fleet GitHub App IS installed
->   on this repo: PR #52 was authored by **`app/livespec-pr-bot`**, and
->   `release-please.yml` mints the App token from `secrets.APP_ID` /
->   `APP_PRIVATE_KEY`, with "Release Please" green on master.
+>   `check-fleet-conformance` reports **"fleet conformance passed", 9 members, 0
+>   blind rows**. **Run it from `/data/projects/livespec-dev-tooling`, NOT from
+>   here** — see the correction below.
+> - `app-installation` — **also discharged, and re-confirmed 2026-07-26.** The
+>   fleet GitHub App IS installed on this repo: PR #52 is authored by
+>   **`app/livespec-pr-bot`**, and `release-please.yml:58-61` mints the App token
+>   from `secrets.APP_ID` / `APP_PRIVATE_KEY` via
+>   `actions/create-github-app-token@v1`.
 >
 > **Precision worth keeping:** the conformance run itself declares
 > `app-installation` **out-of-vantage** for the local lane (it is owned by the
 > lane running under the App installation token), so *the pass does not prove
-> that leg*. The App-bot authorship does, independently. Disposition tracked on
-> **`overseer-hbr.21`** (S12).
+> that leg*. The App-bot authorship does, independently — and that is the leg
+> you can verify from here without any conformance run at all. Disposition
+> tracked on **`overseer-hbr.21`** (S12).
+
+> **CORRECTION (2026-07-26, measured). The re-run instruction above was
+> UNFOLLOWABLE AS WRITTEN, and this is the `overseer-hbr.4` defect class again —
+> a durable record shipping an instruction that reads runnable and is not.** An
+> earlier revision said "**Re-run `check-fleet-conformance` before acting on that
+> item**" with a `LIVESPEC_RUN_FLEET_CONFORMANCE=true` lever, as though it were a
+> recipe here. It is not:
+>
+> - absent from THIS repo's justfile (the only "fleet" match is
+>   `check-fleet-marketplace-relative-sources`);
+> - absent from livespec core's **96** recipes (zero matches for "conform");
+> - absent from the pinned dev-tooling's `checks/` package (only
+>   `fleet_marketplace_relative_sources`).
+>
+> It exists **only in `livespec-dev-tooling`'s own justfile**, whose comments
+> call it a *repo-private extra*, beside `check-fleet-conformance-admin` — the
+> ADMIN-vantage lane running the rows that need admin scope "which no App-token
+> context can read", under the operator's own `gh` credentials at pre-push, and
+> deliberately absent from CI.
+>
+> **So: `cd /data/projects/livespec-dev-tooling && just check-fleet-conformance`,
+> plus the `-admin` lane for the admin-scope rows.** That also explains the
+> out-of-vantage note above — it is the check's design, not a caveat about this
+> repo.
 
 ### Goal 2 — 21 scenarios, ZERO top-of-pyramid tests, and the rule is UNARMED
 
@@ -824,10 +851,30 @@ state.
    needs behavioral evidence over GENERATED output, which no static-prose
    assertion can supply.
 
+   > **NEW MISREADING HAZARD (2026-07-26) — `.19` did NOT fix this.** This repo
+   > now advertises 22 integration-tier tests, and a reader could reasonably
+   > assume the shallow pin was swept up with them. **It was not.** Re-measured:
+   > nothing under `tests/integration/` references `supervise-plan` at all, and
+   > `gap-lqxagafn`'s only evidence is still
+   > `test_plugin_structure.py:71`. That absence is CORRECT — `supervise-plan` is
+   > not a `scenarios.md` scenario, so `.19` rightly did not cover it — but it
+   > means the caveat is exactly as live as it was on 2026-07-25. The behavioral
+   > evidence over generated output is owed by **goal 1 / `overseer-byvxlp`**,
+   > not by anything `.19` shipped.
+
    So the disposition for six of seven is *record as satisfied*, and for
    `gap-jqszyzae` *record as a detector artifact*. **Do not manufacture seven
    slices.** Re-run the detector before disposing — the set is a pure function of
    spec text and moves when the spec is revised.
+
+   > **RE-RUN DONE 2026-07-26 (`--since-version v001`): the set reproduces
+   > EXACTLY** — same seven ids, same headings, spec unmoved. The core-tenant
+   > statuses are unchanged too (`livespec-b1uo` backlog, `.1`/`.2`/`.3` backlog,
+   > `.4`/`.5` blocked), and `.1`'s and `.3`'s dispositions were re-verified at
+   > code level rather than re-read: `watch_set()` is defined nowhere, the only
+   > `.livespec-fleet-manifest.jsonc` mentions in `registry.py` are comments
+   > explaining D5, and the acting daemon is still pid 2954933 running this
+   > repo's own `.venv/bin/overseerd`. Full record on **`overseer-hbr.21`**.
 
    **Connection to goal 2 — related, but NOT the same question.** Be precise
    here, because conflating them mis-sizes both:
