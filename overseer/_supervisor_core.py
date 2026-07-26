@@ -76,8 +76,13 @@ from typing import IO
 import _supervisor_discovery
 import _supervisor_launch
 import _supervisor_lifecycle
+import _supervisor_nudge
+import _supervisor_observe
+import _supervisor_offer
 import _supervisor_recovery
 import _supervisor_render
+import _supervisor_restart
+import _supervisor_state
 import claude_sessions
 import codex_sessions
 import registry
@@ -85,24 +90,15 @@ import signals
 import streams
 import tmuxio
 from _supervisor_config import (
-    ACK_STALE_AFTER,
-    CLAUDE_BUSY_STATUSES,
     DANGER_CTX_REMAINING,
     IDLE_NUDGE_AFTER,
     LOOP_INTERVAL_SECONDS,
-    MARKER_VOID_GRACE,
     SUPERVISION_CONDITIONS,
     default_gitignore_check,
     iso_now,
     track_key,
 )
-from _supervisor_prompts import (
-    default_resume,
-    idle_nudge_message,
-    supervisor_handoff_path,
-    wrapup_message,
-)
-from _supervisor_records import InjectState, Observation
+from _supervisor_records import InjectState
 from _supervisor_view import (
     MAX_REASON_IN_ALERT,
     RESUME_PENDING_NOTE,
@@ -327,551 +323,29 @@ class Supervisor:
         """See :func:`_supervisor_launch.session_of`."""
         return _supervisor_launch.session_of(self, track)
 
-    def _effective_ctx(self, key: tuple[str, str], current: int | None) -> int | None:
-        """Current remaining-%, or the last known if this tick read unknown.
-
-        Design: unknown ⇒ keep last known, and unknown NEVER counts as a
-        threshold crossing (so a never-known track stays None and cannot warn).
-        """
-        state = self.inject.setdefault(key, InjectState())
-        if current is not None:
-            state.last_ctx = current
-            return current
-        return state.last_ctx
-
     def _is_codex_track(
         self, session: str | None, repo: str, topic: str, target: str | None = None
     ) -> bool:
-        """True iff ``target``'s pane is a live codex session for THIS plan, in THIS repo.
-
-        TWO conditions, and BOTH are load-bearing — one is exact but session-scoped, the
-        other pane-scoped but generic, and only together are they exact AND pane-scoped:
-
-        1. ``self.live_codex`` (rebuilt each tick from real codex processes holding real
-           rollouts) has a session keyed by ``(this tmux, this topic)`` whose cwd is in
-           this repo. Never a guess. Keyed by ``(tmux, name)`` — not tmux alone — so a
-           SECOND codex sharing this tmux session (a different topic) does not shadow this
-           track's own session (#4).
-        2. ``target``'s OWN pane command is codex-like. `bun` is far too generic to gate
-           on alone (any bun app matches), which is why (1) exists — but it is exactly
-           what makes this PANE-scoped.
-
-        **Why (2) was added (adversarial review, 2026-07-17).** With only (1) this was
-        session-scoped while the Claude identity gate is pane-scoped, so ANY codex process
-        resolving into a Claude track's tmux session — a `codex resume <topic>` spawned
-        from INSIDE that Claude session's own Bash tool, or a codex TUI opened in a second
-        window to dual-drive the same plan — reclassified the live CLAUDE track as codex.
-        The consequence is now DESTRUCTIVE, not merely quiet: a Codex track is a full
-        citizen (2026-07-17), so a misclassified Claude track would be restarted on its
-        `ready` via `codex resume` — the WRONG-runtime respawn that destroys the live
-        Claude session — and its wrap-up would be submit-verified as Codex (waiting for a
-        busy pane that a Claude submit need not produce). Pane-scoping (2) closes it. The
-        naming convention this very change establishes ("codex threads named after plan
-        topics") is what makes the collision reachable, so this is not exotic.
-        """
-        live = self.live_codex.get((session or "", topic))
-        if live is None:
-            return False
-        # The (tmux, topic) key already pins name == topic; only the repo remains to check.
-        if not signals.path_in_repo(live.cwd, repo):
-            return False
-        if target is None:
-            return True  # no pane to check against (callers that only have the mapping)
-        return signals.pane_is_codex(self.tmux.pane_current_command(target))
-
-    def _pane_is_managed(self, target: str, repo: str, topic: str, session: str | None) -> bool:
-        """The identity gate for EITHER runtime: is this pane OUR session, in OUR repo?
-
-        Claude via the pane's own process identity + the live session's name; Codex via
-        the live per-tick session map (`bun` is too generic to gate on). Fail-closed:
-        anything unproven is not ours.
-        """
-        return self._pane_is_managed_claude(target, repo, topic, session) or self._is_codex_track(
-            session, repo, topic
-        )
-
-    def _supervisor_session_of(self, *, track: registry.Track) -> str:
-        """The conventional attended supervisor tmux session for ``track``."""
-        return f"{self._session_of(track)}-supervisor"
-
-    def _supervisor_running(self, *, session: str, repo: str) -> bool:
-        """True iff the derived supervisor session holds a live agent process in ``repo``.
-
-        A tmux session NAME is not liveness. Surface B must still fire when a dead shell is
-        left behind in ``<tracked>-supervisor``, so this checks live pane evidence: a
-        Claude-like pane process in the repo, or a Codex-like pane process joined to a live
-        Codex rollout in the repo.
-        """
-        if not self.tmux.session_exists(session):
-            return False
-        target = self.tmux.pane_id(session)
-        if target is None:
-            return False
-        command = self.tmux.pane_current_command(target)
-        cwd = self.tmux.pane_current_path(target)
-        if signals.pane_is_claude(command) and signals.path_in_repo(cwd, repo):
-            return True
-        if not signals.pane_is_codex(command):
-            return False
-        return any(
-            tmux == session and signals.path_in_repo(live.cwd, repo)
-            for (tmux, _name), live in self.live_codex.items()
-        )
-
-    def _clear_supervision_alerts(self, *, repo: str, topic: str) -> None:
-        """Re-arm supervision-offer alerts once the supervision truth table is healthy."""
-        prefix = track_key(repo, topic)
-        self.alerted = {
-            key: value
-            for key, value in self.alerted.items()
-            if key[:2] != prefix or key[2] not in SUPERVISION_CONDITIONS
-        }
-
-    def _surface_supervision_offer(self, track: registry.Track, *, act: bool) -> None:
-        """Surface the supervision truth table without replacing the row's core status."""
-        repo, topic = track.repo, track.topic
-        session = self._session_of(track)
-        supervisor_session = self._supervisor_session_of(track=track)
-        handoff_exists = supervisor_handoff_path(repo=repo, topic=topic).exists()
-        running = self._supervisor_running(session=supervisor_session, repo=repo)
-        if handoff_exists and running:
-            if act:
-                self._clear_supervision_alerts(repo=repo, topic=topic)
-            return
-        if handoff_exists:
-            message = (
-                "supervisor handoff exists but no supervisor is running — "
-                f"start tmux session '{supervisor_session}'"
-            )
-            condition = "supervisor-missing"
-        elif running:
-            message = (
-                "supervision is running but has no durable prompt — capture it with "
-                "/livespec-overseer:supervise-plan"
-            )
-            condition = "supervision-capture-offer"
-        else:
-            message = (
-                "no supervisor handoff and no supervisor is running — run "
-                "/livespec-overseer:supervise-plan for this live track"
-            )
-            condition = "supervision-offer"
-        if act:
-            self.alert(
-                repo=repo,
-                topic=topic,
-                session=session,
-                pane=self.tmux.pane_id(session),
-                message=message,
-                condition=condition,
-            )
-
-    def _pane_is_managed_claude(
-        self, target: str, repo: str, topic: str, session: str | None
-    ) -> bool:
-        """True iff ``target``'s pane is a live Claude TUI for THIS topic, in ``repo``.
-
-        The identity gate for EVERY act (inject / restart). ``pane_is_claude`` and
-        ``path_in_repo`` exist and are tested, but the shipped daemon wired them
-        only into auto-link and the restart poll, NOT the act path — so a tracked
-        Claude that had exited to a shell (the pane retains the dead TUI's idle-box
-        frame) would get the wrap-up pasted INTO THE SHELL, where the
-        ``echo ready > …/.overseer-state`` line executes and FORGES a valid
-        declaration (adversarial code review 2026-07-13, blocker B3 = Codex #1). Gating
-        every act on process identity + cwd closes that, and hardens B1's residual
-        (a name that resolved to the wrong session would fail the cwd check).
-
-        **The ``topic in names`` parity check (R2, 2026-07-18).** The Codex gate is
-        pane-scoped (``_is_codex_track`` requires ``live.name == topic``); the Claude gate
-        was not, so a generic reused tmux window (``livespec1``…) the store maps to topic A
-        but now running topic B's Claude — same repo — passed the process+cwd check and got
-        A's wrap-up injected into B, then a ``ready`` respawn-KILLED B as A. Here a live Claude
-        named for THIS topic must be present in this pane's tmux session
-        (``self.claude_names_by_session``
-        — the SET of all live Claude names in that tmux session, so a HELPER Claude sharing the
-        session cannot shadow the track's own name; review SF5). Reject on POSITIVE proof that
-        the tmux session has live Claude names but NOT this topic's; an UNKNOWN tmux session
-        (empty set — registry miss, or a direct-``evaluate`` test that did not populate the
-        map) preserves the prior process+cwd gate — fail-soft, so a transient registry miss can
-        never flap a live track to ``session-gone``.
-
-        ``target`` is the resolved pane id (RB3), so the identity read is of the
-        exact pane, never a prefix-matched sibling.
-        """
-        if not signals.pane_is_claude(self.tmux.pane_current_command(target)):
-            return False
-        if not signals.path_in_repo(self.tmux.pane_current_path(target), repo):
-            return False
-        names = self.claude_names_by_session.get(session or "")
-        return not names or topic in names
+        """See :func:`_supervisor_observe.is_codex_track`."""
+        return _supervisor_observe.is_codex_track(self, session, repo, topic, target)
 
     def _clear_state(self, track: registry.Track) -> None:
-        """Delete a track's state file, clear its stamp, AND reset its inject state.
-
-        Used both after a successful restart and when a session that declared ``ready``
-        genuinely resumes work. ``clear_injection_stamp`` deletes the sidecar key,
-        resetting BOTH the round's ``at`` and its notified bands — so after a clear (or
-        a restart) the round fully resets and every escalation band can fire again in
-        the next round. Clearing on the FILESYSTEM (state file + stamp) makes it durable
-        across a daemon restart. It ALSO pops the in-memory ``inject`` state
-        (mirroring ``_do_restart``) so the stale ``last_ctx`` does not linger; the
-        next threshold crossing opens a clean round that writes a new stamp
-        (adversarial code re-review 2026-07-13, blocker RB2).
-        """
-        try:
-            signals.state_path(track.repo, track.topic).unlink(missing_ok=True)
-        except OSError as exc:
-            self.log(f"could not delete state file for {track.repo}::{track.topic}: {exc}")
-        registry.clear_injection_stamp(track.repo, track.topic, self.stamp_path)
-        _ = self.inject.pop(track_key(track.repo, track.topic), None)
+        """See :func:`_supervisor_state.clear_state`."""
+        _supervisor_state.clear_state(self, track)
 
     def _void_if_stale(self, track: registry.Track, *, ready: bool) -> bool:
-        """Void a stale ``ready`` declaration on a busy tick ONLY if past the grace.
-
-        Returns the (possibly cleared) ``ready`` flag. A declaration younger than
-        ``MARKER_VOID_GRACE`` is the declaring turn's own busy tail and is LEFT
-        intact (RB1); an older one means the session resumed work after declaring
-        ready, so its (now false) declaration is voided.
-        """
-        if not ready:
-            return ready
-        state = signals.read_state(track.repo, track.topic)
-        if state is None:
-            return ready  # unreadable → leave it; ready_valid already gates
-        age = self.now() - state.mtime
-        if age > MARKER_VOID_GRACE:
-            self._clear_state(track)
-            self.log(
-                f"voided stale ready declaration for {track.repo}::{track.topic} "
-                f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed work)"
-            )
-            return False
-        return ready
+        """See :func:`_supervisor_state.void_if_stale`."""
+        return _supervisor_state.void_if_stale(self, track, ready=ready)
 
     def _void_stale_blocked(
         self, track: registry.Track, blocked: str | None, *, generating: bool
     ) -> str | None:
-        """Void a ``blocked:`` declaration the session has outlived. Returns it, or None.
-
-        A session that is GENERATING is, **by observation, not waiting on a human** — so a
-        ``blocked:`` declaration still on disk is provably false. This is NOT the daemon
-        making a semantic judgment (invariant 1): it is not guessing that the session is
-        unblocked, it is reading that the session is producing tokens, which is
-        incompatible with waiting for an answer.
-
-        Why it is needed: nothing else retires a ``blocked:``. ``_clear_state`` runs only
-        on the daemon's own restart path, so a pane replaced OUT-OF-BAND (a hand-restarted
-        session, a `/clear`) inherits its predecessor's declaration — found live
-        2026-07-16, where a fresh session rendered `working (awaiting maintainer next-step
-        decision — Codex…)`, a reason written by a session that no longer existed. Left
-        alone, the dead reason also fires a false ``blocked:human`` alert the moment the
-        session goes idle.
-
-        Two bounds keep it honest, each pinned by a test:
-
-        - **``generating``, not merely ``busy``.** A session busy ONLY via a live
-          ``Bash(run_in_background)`` command (Claude ``shell``) is sitting AT ITS PROMPT
-          and can legitimately be awaiting a human while a build runs — not provably
-          stale, so never voided however old. Only a real generation spinner or Claude
-          ``busy`` (actively generating / an in-process sub-agent) qualifies.
-        - **The same ``MARKER_VOID_GRACE`` as ``ready`` (RB1).** The declaring turn's own
-          final text streams for 10-60s AFTER the write, so a young declaration must
-          survive its own busy tail — else every legitimate declaration is destroyed
-          before the pane ever goes idle.
-
-        An idle blocked session is never touched: it keeps its declaration and keeps
-        alerting, forever, until the session itself retracts it.
-        """
-        if blocked is None or not generating:
-            return blocked
-        state = signals.read_state(track.repo, track.topic)
-        if state is None or state.token != signals.STATE_BLOCKED:
-            return blocked  # unreadable, or no longer a block → leave it
-        age = self.now() - state.mtime
-        if age <= MARKER_VOID_GRACE:
-            return blocked  # the declaring turn's own tail (RB1)
-        self._clear_state(track)
-        self.log(
-            f"voided stale blocked declaration for {track.repo}::{track.topic} "
-            f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed generating)"
-        )
-        return None
+        """See :func:`_supervisor_state.void_stale_blocked`."""
+        return _supervisor_state.void_stale_blocked(self, track, blocked, generating=generating)
 
     def _write_idle_nudge_state(self, track: registry.Track) -> None:
-        """Write the daemon-owned ``idle-with-context-left`` marker to the state file.
-
-        Called ONLY after the nudge paste lands, and ONLY when the file had no session
-        declaration (guarded in :meth:`evaluate`), so it can never overwrite a ``ready`` /
-        ``blocked`` / ``winding-down``. It edge-triggers the single-prompt-per-episode rule
-        and drives the row's ``idle-with-context-left`` status.
-        """
-        path = signals.state_path(track.repo, track.topic)
-        try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            _ = path.write_text(signals.STATE_IDLE_WITH_CONTEXT_LEFT + "\n", encoding="utf-8")
-        except OSError as exc:
-            self.log(f"could not write idle-nudge marker for {track.repo}::{track.topic}: {exc}")
-
-    def _clear_idle_nudge_state(self, track: registry.Track) -> None:
-        """Clear the ``idle-with-context-left`` marker when the session leaves the idle
-        episode (it went non-idle / took a turn) — re-arming a fresh nudge next episode.
-
-        Re-reads the file immediately before unlinking and removes it ONLY if it is still
-        the daemon's own marker, so a ``ready`` / ``blocked`` the session wrote in the same
-        tick is never clobbered. Unlike :meth:`_clear_state` it touches neither the
-        injection stamp nor the in-memory inject state — the nudge opens no round.
-        """
-        current = signals.read_state(track.repo, track.topic)
-        if current is None or current.token != signals.STATE_IDLE_WITH_CONTEXT_LEFT:
-            return
-        try:
-            signals.state_path(track.repo, track.topic).unlink(missing_ok=True)
-        # The ONLY uncovered branch in this module, and deliberately so. The read
-        # above returns unless the marker is a readable regular file, so every
-        # root-proof way to make `unlink` fail (a directory at the path, a file
-        # where the parent should be) also makes that read return None and returns
-        # first. What remains is a permission-denied PARENT — and CI runs its
-        # container steps as root, where chmod denies nothing. A test would pass
-        # locally and silently stop exercising this in CI, which is worse than no
-        # test. Its sibling in `_clear_state` unlinks with no preceding read, so
-        # that one IS covered (a directory there yields EISDIR for every uid).
-        except OSError as exc:  # pragma: no cover
-            self.log(f"could not clear idle-nudge marker for {track.repo}::{track.topic}: {exc}")
-
-    def _nudge_idle_with_context(
-        self,
-        track: registry.Track,
-        target: str,
-        eff_ctx: int,
-        threshold: int,
-        *,
-        is_codex: bool = False,
-    ) -> None:
-        """Send the single "keep going" nudge to an idle session that still has context
-        left, and — only if the paste lands — write the ``idle-with-context-left`` marker
-        so it fires at most ONCE per idle episode.
-
-        The inverse of :meth:`_maybe_inject`: it fires ABOVE the threshold to keep a session
-        from stopping early, not below it to wind one down. The marker is written AFTER a
-        successful submit (as ``_maybe_inject`` marks its bands only on success), so a
-        failed paste re-nudges next tick rather than silently marking the episode handled.
-
-        ``is_codex`` selects the runtime-appropriate submit verification (a Codex submit is
-        confirmed by the pane going busy, not by a cleared ``❯`` box).
-        """
-        repo, topic = track.repo, track.topic
-        message = idle_nudge_message(remaining=eff_ctx, threshold=threshold, repo=repo, topic=topic)
-        if self._submit_prompt(target, message, expect_codex=is_codex):
-            self._write_idle_nudge_state(track)
-            self.log(
-                f"nudged idle-with-context-left {repo}::{topic} "
-                f"(ctx {eff_ctx}% > threshold {threshold}%)"
-            )
-        else:
-            self.alert(
-                repo=repo,
-                topic=topic,
-                session=self._session_of(track),
-                pane=target,
-                message="idle-with-context-left nudge FAILED (paste did not land); will retry",
-            )
-
-    def _live_session_outside_tmux(
-        self, repo: str, topic: str
-    ) -> claude_sessions.ClaudeSession | None:
-        """The live Claude registry session for ``(repo, topic)`` running OUTSIDE any
-        tmux pane, or None.
-
-        Separates a genuinely gone track from one whose mapped tmux session died while a
-        Claude session for the same plan kept working in a NON-tmux terminal (e.g. a bare
-        SSH shell). It reads the SAME registry ``adopt_sessions`` uses
-        (:func:`claude_sessions.read_live_sessions` — every live named session, tmux or
-        not), matches a session whose ``name`` is the topic and whose ``cwd`` is in the
-        repo, and returns it ONLY when it does not resolve to any tmux pane
-        (:func:`claude_sessions.resolve_tmux_session` is None). A session that resolves to
-        a DIFFERENT tmux session is deliberately NOT returned — that is a re-mapping
-        concern, not an out-of-tmux one. Such an out-of-tmux session is alive and doing
-        work but UNMANAGEABLE by the daemon (no pane to capture / inject / respawn), so
-        ``evaluate`` reports it as the informational ``live-outside-tmux`` rather than the
-        alarming ``session-gone``.
-        """
-        pane_pids = self.tmux.pane_pid_sessions()
-        for live in claude_sessions.read_live_sessions(
-            _supervisor_discovery.sessions_dir(self), starttime_of=self.starttime_of
-        ):
-            if live.name != topic or not signals.path_in_repo(live.cwd, repo):
-                continue
-            if (
-                claude_sessions.resolve_tmux_session(
-                    live.pid, pane_pid_to_session=pane_pids, ppid_of=self.ppid_of
-                )
-                is None
-            ):
-                return live
-        return None
-
-    def _no_managed_pane_row(self, *, repo: str, topic: str) -> RowView:
-        """The row for a track with NO live managed pane: ``live-outside-tmux`` or ``session-gone``.
-
-        The single home for "this track has no pane we can drive". Reached THREE ways —
-        the mapped tmux session is gone; or it survives but its session exited to a bare
-        shell; or the pane is a genuinely FOREIGN one (fails the identity gate) — all of
-        which must answer identically: they are the same fact about the track (no pane to
-        drive), and only the tmux housekeeping differs. Keeping one path also keeps the
-        live-outside-tmux fallback from being wired into just one of them (it was, and
-        the shell case reported a live session as the now-deleted ``not-claude``).
-
-        A Claude for the same plan may still be running in a NON-tmux terminal (a bare
-        SSH shell): alive and working, but unmanageable by this tmux-only daemon (no
-        pane to capture / inject / respawn). That is the informational
-        ``live-outside-tmux``, NOT the alarming ``session-gone`` — the operator should
-        not be told finished-looking work was lost when it is merely out of reach.
-
-        **Both rows report ``tmux=None``, and that is the point of the helper**
-        (maintainer-declared 2026-07-16: "it shouldn't display the session name; the
-        session doesn't exist in that panel anymore"). The ``tmux`` cell means *the tmux
-        session HOLDING this track* — an assertion about a live session, not a record of
-        the mapping. Every row reaching here has no session in that tmux session: it is
-        gone outright, or it survives holding only a bare shell, or the Claude is alive
-        somewhere outside tmux entirely. Naming it anyway rendered a live-looking
-        ``livespec1`` for a track whose session had exited — the mapping is still in the
-        store, and ``session-gone`` already says "this WAS mapped and is now dead", so
-        nothing is lost by leaving the cell empty. ``alert`` degrades on its own
-        (``no live tmux session``, no jump command — there is nowhere to jump).
-
-        (The former ``not-claude`` status — which named a foreign pane's session — was
-        DELETED, 2026-07-17; a foreign pane now routes here like any other no-managed-pane
-        case and reports ``tmux=None``. The identity gate itself is unchanged and still
-        governs every act.)
-        """
-        live = self._live_session_outside_tmux(repo, topic)
-        if live is not None:
-            note = (
-                f"live Claude session (pid {live.pid}) running OUTSIDE tmux — "
-                f"daemon cannot manage it"
-            )
-            if live.status:
-                note += f"; self-reported status {live.status}"
-            return RowView(
-                topic=topic,
-                repo=repo,
-                tmux=None,
-                ctx=None,
-                status="live-outside-tmux",
-                note=note,
-            )
-        return RowView(topic=topic, repo=repo, tmux=None, ctx=None, status="session-gone")
-
-    def _observe(
-        self, track: registry.Track, *, session: str, target: str, key: tuple[str, str]
-    ) -> Observation:
-        """Gather every fact :meth:`evaluate`'s guard cascade decides on.
-
-        Called only after the identity gate has proven ``target`` is our managed
-        pane, so every read here is safe to perform. This method DECIDES nothing:
-        it never pastes, respawns, alerts, or writes a stamp. Its one mutation is
-        advancing the track's continuous-idle clock, which is part of observing
-        how long the session has been idle rather than a decision about it.
-        """
-        repo, topic = track.repo, track.topic
-        capture = self.tmux.capture_pane(target)
-        # A pane can show an empty prompt yet still be running a
-        # `Bash(run_in_background)` command — that command runs as a DESCENDANT
-        # shell of the pane's process. A descendant shell ⇒ active background work
-        # ⇒ the session is BUSY (suppresses both injection AND restart), even
-        # though the pane text looks idle. Runtime-agnostic (walks the process
-        # tree, independent of any Claude-specific registry).
-        pane_pid = self.tmux.pane_pid(session)
-        bg_shell = pane_pid is not None and claude_sessions.has_active_subshell(
-            pane_pid, children_of=self.children_of, comm_of=self.comm_of
-        )
-        # Claude's own live self-report is AUTHORITATIVE for an adopted Claude session,
-        # and its vocabulary maps cleanly onto busy-ness (`~/.claude/sessions/<pid>.json`
-        # `status`): `busy` = actively generating / running an in-process sub-agent (which
-        # spawns no descendant shell, so the process-walk misses it); `shell` = at the
-        # prompt with a live `Bash(run_in_background)` command — Claude's OWN, accurate
-        # background-work signal; `waiting` = at a gate/prompt for the human; `idle` =
-        # nothing pending. So for a session we have adopted we IGNORE the process-tree
-        # shell-walk entirely and trust `status`: it is strictly better than the walk,
-        # which both MISSED sub-agents (false-idle) and false-fired on lingering/transient
-        # shells (false-working). `has_active_subshell` (`bg_shell`) remains ONLY the
-        # runtime-agnostic FALLBACK for a session with no registry entry (Codex).
-        # `claude_status is None` ⇒ not an adopted Claude session.
-        claude_status = self.claude_status_by_session.get(session)
-        claude_busy = claude_status in CLAUDE_BUSY_STATUSES
-        codex_fallback = claude_status is None and bg_shell
-        busy = signals.is_busy(capture) or claude_busy or codex_fallback
-        gate = signals.is_structured_gate(capture)
-        is_codex = self._is_codex_track(session, repo, topic, target)
-        # The row's RUNTIME, derived ONCE here where `is_codex` is already known, then
-        # carried onto every row below that has a live managed pane (`tmux=session`) so the
-        # table's tmux column can annotate the session name (`livespec (claude)` /
-        # `livespec1 (codex)`). Every branch reaching this point HAS a managed pane (the
-        # no-managed-pane / unassigned rows returned above with `tmux=None` and no runtime),
-        # so `claude`/`codex` is always the right binary answer here.
-        runtime = "codex" if is_codex else "claude"
-        # `is_idle_input` knows CLAUDE's prompt: an EMPTY `❯` between two rules. Codex's
-        # prompt is a `›` line above its statusline (`… · Context N% left · …`), so it
-        # needs its own STRUCTURAL detector (`is_codex_idle_input`) — NOT the coarse
-        # "not busy". A Codex track is now a full citizen that gets the wrap-up pasted in
-        # and is restarted on `ready`, so this gate is load-bearing: an over-loose idle
-        # read would let a booting pane or a Codex approval/trust picker (`› 1.`) be
-        # keystroked into. Structural idle keeps that impossible (a picker is a gate; a
-        # blank/booting pane has no `›`+statusline shape → `settling`, re-read next tick).
-        idle = signals.is_codex_idle_input(capture) if is_codex else signals.is_idle_input(capture)
-        # Ctx% is runtime-agnostic: `parse_ctx_remaining` matches BOTH statuslines
-        # (`Ctx: N% left` / `Context N% left`), so each runtime reports ITS OWN computed
-        # number and there is no occupancy formula here to get wrong.
-        current_ctx = signals.parse_ctx_remaining(capture)
-        eff_ctx = self._effective_ctx(key, current_ctx)
-
-        # Track the CONTINUOUS-idle episode for the keep-going nudge's minimum-duration gate
-        # (`IDLE_NUDGE_AFTER`). A session is "cleanly idle" only at an empty prompt AND not
-        # busy (busy folds in Claude's registry `busy`/`shell`, which an idle-looking capture
-        # misses — a sub-agent / background command is active work). The FIRST cleanly-idle
-        # tick stamps `idle_since`; ANY non-idle tick clears it, so brief activity resets the
-        # clock and only a genuinely long idle spell reaches the nudge.
-        istate = self.inject.setdefault(key, InjectState())
-        if idle and not busy:
-            if istate.idle_since is None:
-                istate.idle_since = self.now()
-        else:
-            istate.idle_since = None
-
-        stamp = registry.read_injection_stamp(repo, topic, self.stamp_path)
-
-        # The ONE indicator file (`ready` / `blocked` / `winding-down`). A single file
-        # with a VALUE — never two presence-markers, which could both exist and whose
-        # precedence was incidental rather than designed (maintainer 2026-07-14).
-        declared = signals.read_state(repo, topic)
-        malformed = declared is not None and not signals.valid_token(declared.token)
-        blocked = (
-            declared.detail or "(no reason given)"
-            if declared is not None and declared.token == signals.STATE_BLOCKED
-            else None
-        )
-        acked = (
-            declared is not None
-            and declared.token == signals.STATE_WINDING_DOWN
-            and (self.now() - declared.mtime) <= ACK_STALE_AFTER
-        )
-        return Observation(
-            capture=capture,
-            busy=busy,
-            gate=gate,
-            idle=idle,
-            is_codex=is_codex,
-            runtime=runtime,
-            codex_fallback=codex_fallback,
-            claude_status=claude_status,
-            eff_ctx=eff_ctx,
-            istate=istate,
-            declared=declared,
-            malformed=malformed,
-            blocked=blocked,
-            acked=acked,
-            ready=signals.ready_valid(repo, topic, stamp),
-        )
+        """See :func:`_supervisor_nudge.write_idle_nudge_state`."""
+        _supervisor_nudge.write_idle_nudge_state(self, track)
 
     def evaluate(  # noqa: C901,PLR0911,PLR0912,PLR0915 — see "On the size of this function"
         self, track: registry.Track, *, act: bool
@@ -915,7 +389,7 @@ class Supervisor:
             # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
             # Distinguish that live-but-unmanageable case from a genuinely gone track so
             # the operator is not falsely alarmed that finished-looking work was lost.
-            return self._no_managed_pane_row(repo=repo, topic=topic)
+            return _supervisor_offer.no_managed_pane_row(self, repo=repo, topic=topic)
 
         # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
         # A pane id is exact and never prefix/fnmatch-matched, so if the tracked
@@ -925,12 +399,12 @@ class Supervisor:
         # `respawn-pane -k` killing it. Stable across respawn.
         target = self.tmux.pane_id(session)
         if target is None:
-            return self._no_managed_pane_row(repo=repo, topic=topic)
+            return _supervisor_offer.no_managed_pane_row(self, repo=repo, topic=topic)
 
         # Identity gate (B3): the mapped session exists, but before reading its pane
         # for any ACT we confirm it is really OUR Claude in OUR repo — never
         # keystroke into a shell / wrong session / human split-pane.
-        if not self._pane_is_managed(target, repo, topic, session):
+        if not _supervisor_observe.pane_is_managed(self, target, repo, topic, session):
             # The gate stays exactly what it was — an ACT guard (never keystroke into a
             # pane not proven ours). What changed is that its answer is no longer a row
             # STATUS of its own. Whether the pane is a bare shell (our session exited) or
@@ -949,13 +423,13 @@ class Supervisor:
             # appears at all. The daemon lists PLANS, not panes: a tmux name reaches the
             # table only as a mapping's column value, and `_no_managed_pane_row` already
             # reports `tmux=None` so no dead terminal is named.
-            return self._no_managed_pane_row(repo=repo, topic=topic)
+            return _supervisor_offer.no_managed_pane_row(self, repo=repo, topic=topic)
 
         # Phase 1 — OBSERVE. Every fact the guard cascade below decides on is
         # gathered in one place, so the cascade reads as a single top-to-bottom
         # precedence order. Unpacked into locals so each guard reads the same way
         # it always has.
-        obs = self._observe(track, session=session, target=target, key=key)
+        obs = _supervisor_observe.observe(self, track, session=session, target=target, key=key)
         capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
         is_codex, runtime, codex_fallback = obs.is_codex, obs.runtime, obs.codex_fallback
         claude_status, eff_ctx, istate = obs.claude_status, obs.eff_ctx, obs.istate
@@ -1114,14 +588,14 @@ class Supervisor:
                 ready = self._void_if_stale(track, ready=ready)
                 # The session took a turn — clear any idle-with-context-left nudge marker
                 # so the NEXT idle-with-context episode re-nudges (re-arm on non-idle).
-                self._clear_idle_nudge_state(track)
+                _supervisor_nudge.clear_idle_nudge_state(self, track)
         elif gate or blocked is not None:
             status = "blocked:human"
             if act:
                 ready = self._void_if_stale(track, ready=ready)
                 # A gate / block is also "non-idle" — drop a stale nudge marker (safe: the
                 # helper re-reads and leaves a session-written `blocked` untouched).
-                self._clear_idle_nudge_state(track)
+                _supervisor_nudge.clear_idle_nudge_state(self, track)
                 detail = blocked if blocked else "structured gate on pane"
                 # The decision belongs to the TRACKED session, which is already showing
                 # it in its own pane. The overseer NOTIFIES and hands over coordinates;
@@ -1143,7 +617,7 @@ class Supervisor:
         elif act and not _supervisor_launch.pane_settled(self, target):
             # One frame looks idle, but the pane is actively changing (streaming).
             status = "working"
-        elif act and not self._pane_is_managed(target, repo, topic, session):
+        elif act and not _supervisor_observe.pane_is_managed(self, target, repo, topic, session):
             # TOCTOU re-check (Codex re-review #1): the identity gate ran at the top
             # of the tick, but capturing + the settle delay opened a window in which
             # the pane could have exited to a shell (or cd'd out of the repo). Re-
@@ -1167,22 +641,24 @@ class Supervisor:
             # it is restarted on its own `ready` exactly like a Claude one.
             status = "restarting"
             if act:
-                self._do_restart(track, target, is_codex=is_codex)
+                _supervisor_restart.do_restart(self, track, target, is_codex=is_codex)
         elif eff_ctx is not None and eff_ctx <= threshold:
             # A FRESH `winding-down` ACK buys patience: the session heard us and is
             # wrapping up, so stop re-warning (never keystroke into a session that is
             # actively winding down). A STALE ACK resumes escalating — an ACK must not
             # become an infinite stall — but still never authorizes an act.
             if act and not acked:
-                self._maybe_inject(track, target, eff_ctx, threshold, is_codex=is_codex)
+                _supervisor_restart.maybe_inject(
+                    self, track, target, eff_ctx, threshold, is_codex=is_codex
+                )
             if acked:
                 status = "winding-down"
             elif eff_ctx <= DANGER_CTX_REMAINING:
                 status = "danger"
                 if act:
-                    self._alert_non_responder(
-                        repo=repo,
-                        topic=topic,
+                    _supervisor_nudge.alert_non_responder(
+                        self,
+                        track,
                         session=session,
                         pane=target,
                         eff_ctx=eff_ctx,
@@ -1191,7 +667,7 @@ class Supervisor:
             else:
                 status = "warned"
         else:
-            self._surface_supervision_offer(track, act=act)
+            _supervisor_offer.surface_supervision_offer(self, track, act=act)
             # Idle at an empty prompt with the context ABOVE the wind-down threshold. If
             # the session has declared nothing, nudge it ONCE this episode to keep going
             # rather than stop early (the inverse of the wrap-up). The daemon-written
@@ -1227,8 +703,8 @@ class Supervisor:
                     and (self.now() - istate.idle_since) >= IDLE_NUDGE_AFTER
                 )
                 if act and not nudged_already and idle_long_enough:
-                    self._nudge_idle_with_context(
-                        track, target, eff_ctx, threshold, is_codex=is_codex
+                    _supervisor_nudge.nudge_idle_with_context(
+                        self, track, target, eff_ctx, threshold, is_codex=is_codex
                     )
             else:
                 status = "idle"
@@ -1254,266 +730,9 @@ class Supervisor:
             }
         return view
 
-    def _alert_non_responder(
-        self,
-        *,
-        repo: str,
-        topic: str,
-        session: str,
-        pane: str,
-        eff_ctx: int,
-        declared: signals.TrackState | None,
-    ) -> None:
-        """Report a track deep in the danger band that is not honouring the protocol.
-
-        This is the WHOLE response to such a session: the daemon SAYS SO, loudly, with
-        the coordinates to go fix it — and does nothing else. It does NOT restart it
-        (maintainer 2026-07-14: "NEVER forcibly restart a session that is not ready; it
-        MUST drop the indicator file for action"), because a timer cannot know whether a
-        session is safe to kill.
-
-        Two ways to get here, and the report must not conflate them (they need different
-        fixes):
-
-        - **declared nothing at all** — the session ignored an escalating wrap-up (once
-          per 10% band, insistent from 30%) telling it to ACK immediately. A session bug.
-        - **a STALE ``winding-down``** — it DID acknowledge, then never finished; the ACK
-          aged out of ``ACK_STALE_AFTER``. It is hung mid-wrap-up, not deaf.
-
-        Either way this is a DEFECT REPORT about that session, not a chore for the
-        operator to work around: the fix is to make the session honour the protocol,
-        never to have the overseer guess on its behalf.
-        """
-        if declared is not None and declared.token == signals.STATE_WINDING_DOWN:
-            age = self.now() - declared.mtime
-            what = (
-                f"ACKNOWLEDGED the wrap-up {age:.0f}s ago but never finished "
-                f"(stale `{signals.STATE_WINDING_DOWN}`; it is hung mid-wrap-up)"
-            )
-        else:
-            what = (
-                f"has declared NOTHING (no {signals.state_path(repo, topic).name}) — "
-                f"it is ignoring the wrap-up protocol"
-            )
-        self.alert(
-            repo=repo,
-            topic=topic,
-            session=session,
-            pane=pane,
-            message=(
-                f"NOT RESPONDING — ctx {eff_ctx}% left and it {what}. The overseer will "
-                f"NOT restart it: only the session may authorize that. A human must act."
-            ),
-        )
-
-    def _maybe_inject(
-        self,
-        track: registry.Track,
-        target: str,
-        eff_ctx: int,
-        threshold: int,
-        *,
-        is_codex: bool = False,
-    ) -> None:
-        """Escalating, spam-proof wrap-up injection: warn once per crossed band.
-
-        The bands are the effective ``threshold`` plus each lower 10%-band below it
-        (40 / 30 / 20 / 10). A band fires at most ONCE per round: the set of
-        already-notified bands is DURABLE (the injection-stamp sidecar), so a
-        daemon restart never re-spams a band it already sent. Multiple bands crossed
-        in one tick coalesce into a SINGLE message but mark ALL of them notified.
-
-        ``target`` is the resolved pane id (RB3). The round's ``at`` stamp is
-        written ONLY when OPENING the round (the first band of the round) — a
-        re-warn at a lower band does NOT rewrite it, so a ready marker the session
-        writes still has ``mtime > at`` and certifies, and re-warns never reset the
-        notified bands. On a paste failure that OPENED the round, the just-opened
-        round is rolled back (stamp cleared) so the next tick retries cleanly (B5).
-
-        ``is_codex`` selects the runtime-appropriate submit verification — this is the
-        change that makes the escalating wrap-up (the daemon's ONLY lever now that
-        nothing is force-killed) reach a Codex track, not just a Claude one.
-        """
-        repo, topic = track.repo, track.topic
-        bands = sorted({threshold} | {b for b in (40, 30, 20, 10) if b < threshold}, reverse=True)
-        notified = set(registry.read_notified_bands(repo, topic, self.stamp_path))
-        due = [b for b in bands if eff_ctx <= b and b not in notified]
-        if not due:
-            return
-        opened_now = registry.read_injection_stamp(repo, topic, self.stamp_path) is None
-        if opened_now:
-            # Stamp BEFORE the paste (design) so a marker the session writes has
-            # mtime > at. Only on opening — a re-warn preserves the round's at.
-            registry.write_injection_stamp(repo, topic, self.now(), self.stamp_path)
-        message = wrapup_message(remaining=eff_ctx, repo=repo, topic=topic)
-        if self._submit_prompt(target, message, expect_codex=is_codex):
-            for b in due:
-                registry.add_notified_band(repo, topic, b, self.stamp_path)
-            self.log(f"injected wrap-up into {repo}::{topic} (ctx {eff_ctx}%, bands {due})")
-        else:
-            if opened_now:
-                # Roll back the just-opened round so the next tick retries cleanly.
-                registry.clear_injection_stamp(repo, topic, self.stamp_path)
-            self.alert(
-                repo=repo,
-                topic=topic,
-                session=self._session_of(track),
-                pane=target,
-                message="wrap-up injection FAILED (paste did not land); will retry",
-            )
-
-    def _do_restart(self, track: registry.Track, target: str, *, is_codex: bool = False) -> None:
-        """Atomic restart, RUNTIME-DISPATCHED: respawn → wait for the TUI → resume → close.
-
-        ``target`` is the resolved pane id (RB3), STABLE across the respawn.
-
-        There is exactly ONE caller and exactly one authorization: the session itself
-        declared ``ready`` in its state file (``signals.ready_valid``). The daemon has
-        no other path to a restart — it never decides a session is done (maintainer
-        2026-07-14). The abrupt ``respawn-pane -k`` is safe precisely BECAUSE of that
-        declaration: the session asserted it is at a clean stopping point.
-
-        **The one destructive bug this daemon can have** is aiming the CLAUDE launch
-        command at a Codex pane — it would REPLACE the codex session with a claude one.
-        ``is_codex`` routes a Codex track to :meth:`_do_codex_restart` (``codex resume``)
-        so the claude command is never issued to a codex pane; the sabotage-verified
-        guard test (``…never issues the claude command``) pins that the routing holds.
-
-        Every tmux step is a HARD GATE (B5). If ``respawn-pane`` fails, or the pane
-        never becomes a live Claude, the daemon SURFACES the failure and RETURNS
-        WITHOUT closing the round — so the session's declaration is preserved and the
-        restart is retried, never silently destroyed.
-
-        **The submit is SELF-HEALING (R1, 2026-07-18).** The round is closed (state file
-        deleted + injection stamp cleared — B4) ONLY when the resume line actually SUBMITS.
-        A freshly-respawned TUI can DROP the Enter while still drawing its welcome screen,
-        leaving the fresh session live but idle with an un-run handoff (proven live
-        2026-07-17). On that failure this does NOT clear the marker or log "restarted" —
-        it marks a round-scoped ``resume_pending`` (``registry.set_resume_pending``) and
-        alerts, and the NEXT tick's ``evaluate`` retries the SUBMIT ONLY (``_resend_enter``
-        — never a re-respawn; a fresh ``ready`` stays the sole respawn trigger, so the retry
-        can never escalate to a kill). Separating "is the fresh Claude up?" from "did the
-        resume submit?" is the fix for the discarded-marker bug where the old code cleared
-        the marker and reported success regardless. On the SUCCESS path ``_clear_state``
-        also pops the in-memory inject state (RB2), so the redundant explicit pop is
-        belt-and-suspenders.
-        """
-        if is_codex:
-            self._do_codex_restart(track, target)
-            return
-        if not self.tmux.respawn_pane(target, track.repo, self._launch_command(track)):
-            self.alert(
-                repo=track.repo,
-                topic=track.topic,
-                session=self._session_of(track),
-                pane=target,
-                message="restart respawn FAILED; keeping the ready declaration so it retries",
-            )
-            return
-        if not _supervisor_launch.await_pane(self, target, signals.pane_is_claude):
-            self.alert(
-                repo=track.repo,
-                topic=track.topic,
-                session=self._session_of(track),
-                pane=target,
-                message="respawned pane never became Claude; keeping the ready declaration",
-            )
-            return
-        # Wait for the fresh TUI to finish its FIRST paint and render a ready (empty)
-        # input box before pasting — a half-drawn welcome/news screen DROPS the Enter,
-        # which is exactly what stranded resumes live (2026-07-17). Best-effort: if the
-        # box never appears in time, proceed anyway and let the submit-retry below (and
-        # the next tick's `resume_pending` retry) recover.
-        _ = _supervisor_launch.await_input_box(self, target)
-        # If the fresh TUI came up on a picker (a trust / update / bypass-permissions
-        # gate), NEVER keystroke into it (blocker #6) — pasting + Enter would auto-accept
-        # its default. Defer to the `resume_pending` retry, which reports the gate as
-        # `blocked:human` and resumes once the human clears it (review SF4).
-        if signals.is_structured_gate(self.tmux.capture_pane(target)):
-            registry.set_resume_pending(track.repo, track.topic, self.stamp_path)
-            self.alert(
-                repo=track.repo,
-                topic=track.topic,
-                session=self._session_of(track),
-                pane=target,
-                message="freshly-restarted pane is on a gate — not keystroking it; will retry",
-            )
-            return
-        resume = track.resume or default_resume(track.repo, track.topic)
-        if self._submit_prompt(target, resume):
-            self._clear_state(track)
-            _ = self.inject.pop(track_key(track.repo, track.topic), None)
-            self.log(f"restarted {track.repo}::{track.topic} (pane {target})")
-            return
-        # The fresh Claude IS up, but the resume line did not submit (the fresh TUI
-        # dropped the Enter). Separate the two facts the old code conflated — "is the
-        # fresh Claude up?" (yes) and "did the resume submit?" (no) — and DO NOT give up:
-        # keep the `ready` marker + stamp, record a round-scoped `resume_pending`, and let
-        # the NEXT tick retry the SUBMIT ONLY (re-send Enter, never a re-respawn — a fresh
-        # `ready` is the sole respawn trigger, so the retry can never escalate to a kill).
-        # Never log a clean "restarted" here; the alert is edge-triggered and persists (the
-        # row stays NEEDS-YOU) until the resume actually submits.
-        registry.set_resume_pending(track.repo, track.topic, self.stamp_path)
-        self.alert(
-            repo=track.repo,
-            topic=track.topic,
-            session=self._session_of(track),
-            pane=target,
-            message="resume line NOT submitted after restart — will retry the Enter (no respawn)",
-        )
-
     def _do_codex_restart(self, track: registry.Track, target: str) -> None:
-        """Atomic restart of a CODEX track: respawn with ``codex resume <id> "<kick>"``.
-
-        The Codex analogue of the Claude restart, and SIMPLER (proven live 2026-07-17):
-        ``codex resume`` takes the kick as an ARGUMENT and AUTO-SUBMITS it, so there is
-        no separate resume-line paste and no fresh-TUI submit race. It resumes the SAME
-        session by its exact UUID — codex appends to the same rollout, so the
-        ``thread_name`` (hence adoptability) survives the restart by construction. Resume
-        by UUID, never by name: "UUIDs take precedence", and a name could be ambiguous or
-        drop to a picker.
-
-        The session id comes from the live per-tick Codex map (``self.live_codex``), looked up
-        by ``(tmux, topic)`` so a second codex sharing this tmux session cannot supply the
-        WRONG session id (#4); if the session vanished between the map refresh and here,
-        the declaration is KEPT and the restart retried next tick (B5), exactly like a
-        failed respawn.
-        """
-        session = self._session_of(track)
-        live = self.live_codex.get((session, track.topic))
-        if live is None:
-            self.alert(
-                repo=track.repo,
-                topic=track.topic,
-                session=session,
-                pane=target,
-                message="codex session vanished before restart; keeping the ready declaration",
-            )
-            return
-        resume = track.resume or default_resume(track.repo, track.topic)
-        command = self._codex_launch_command(live.session_id, resume)
-        if not self.tmux.respawn_pane(target, track.repo, command):
-            self.alert(
-                repo=track.repo,
-                topic=track.topic,
-                session=session,
-                pane=target,
-                message="restart respawn FAILED; keeping the ready declaration so it retries",
-            )
-            return
-        if not _supervisor_launch.await_pane(self, target, signals.pane_is_codex):
-            self.alert(
-                repo=track.repo,
-                topic=track.topic,
-                session=session,
-                pane=target,
-                message="respawned pane never became Codex; keeping the ready declaration",
-            )
-            return
-        # The kick was submitted BY the `codex resume` argument — no separate paste step.
-        self._clear_state(track)
-        _ = self.inject.pop(track_key(track.repo, track.topic), None)
-        self.log(f"restarted (codex) {track.repo}::{track.topic} (pane {target})")
+        """See :func:`_supervisor_restart.do_codex_restart`."""
+        _supervisor_restart.do_codex_restart(self, track, target)
 
     @staticmethod
     def _launch_command(track: registry.Track) -> str:
