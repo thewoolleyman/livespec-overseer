@@ -234,36 +234,36 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A wrap-up is injected when a track crosses its threshold",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_wrapup_escalation.test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold",
+    "reason": "Integration-tier: drives a real Supervisor observe-and-act round. Asserts the stamp is readable from INSIDE the paste callback (proving write-before-paste, not merely both-by-the-end), exactly ONE paste, and that the message names the state file, all three writable values and the handoff path. SABOTAGE-VERIFIED 2026-07-26: moving the stamp write to after the paste turns it red with [None] vs [1000.0]."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The wrap-up sharpens as context keeps falling",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_wrapup_escalation.test_scenario_the_wrapup_sharpens_as_context_keeps_falling",
+    "reason": "Integration-tier. Warns at 40% then crosses into 28%, asserting the first message is a suggestion and the second the insistent demand. SABOTAGE-VERIFIED 2026-07-26: setting _INSIST_AT to 0 turns it red."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A band never fires twice in one round",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_wrapup_escalation.test_scenario_a_band_never_fires_twice_in_one_round",
+    "reason": "Integration-tier, and it pins the scenario's BECAUSE clause rather than just its Then: the Supervisor is rebuilt from scratch between observations, standing in for the daemon restart, so a band set held only in memory would re-warn. A test reusing one Supervisor would pass on in-memory state and prove nothing. SABOTAGE-VERIFIED 2026-07-26: dropping the add_notified_band persistence turns it red."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A winding-down acknowledgement pauses the escalation",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_wrapup_escalation.test_scenario_a_winding_down_acknowledgement_pauses_the_escalation",
+    "reason": "Integration-tier. A fresh acknowledgement suppresses a wrap-up that would otherwise fire on a newly-crossed band. SABOTAGE-VERIFIED 2026-07-26: setting _ACK_STALE_AFTER negative (so every ack is instantly stale) turns it red. Note a threshold of exactly 0.0 does NOT redden it — the ack's age is 0.0 and the comparison is <=, so the sabotage must go negative to land."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale acknowledgement resumes escalation but authorizes nothing",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_wrapup_escalation.test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_nothing",
+    "reason": "Integration-tier, covering BOTH halves: escalation resumes (a lower band fires and the track is re-reported on stderr) and staleness still authorizes NOTHING. The ordering is load-bearing — the round is opened FIRST so the stamp exists, and the acknowledgement post-dates it, which forces the restart interlock all the way to its token check. An earlier draft acknowledged first and never warned; it passed because the interlock short-circuited on the missing stamp, and sabotaging ready_valid to accept winding-down left it GREEN. SABOTAGE-VERIFIED 2026-07-26 after correction: that same sabotage now turns it red, as does the negative _ACK_STALE_AFTER."
   },
   {
     "spec_root": "SPECIFICATION",
