@@ -53,8 +53,9 @@ long lines wrap — any of which turns a printed sentinel into a **false match**
 **out-of-band, on the filesystem**: a file write cannot be forged by
 prompt-echo, cannot scroll off, and cannot line-wrap. Pane scraping is retained
 ONLY for the busy / idle / gate signals, where a false positive is safe (it
-merely suppresses action). See the "The certification protocol" section of
-`design.md`.
+merely suppresses action). (The "The certification protocol" section of the
+pre-relocation `design.md` carried the original rationale; that file does not
+exist in this repo — see the Pointers note at the end.)
 
 ## Why ONE file with a value, not two presence-markers
 
@@ -358,7 +359,9 @@ This self-heals: the daemon re-derives `blocked:human` from the live pane each
 tick, so when the human answers in the tracked pane, the alert simply stops.
 (Overseer-OWNED decisions — add / remove / unassign / start a track, a threshold
 — are a different matter: nobody else can answer them, so a clickable question is
-correct there. See `SKILL.md`.)
+correct there. See `.claude-plugin/prose/overseer.md`, the single-source operator
+contract. (Corrected 2026-07-26: this pointed at `SKILL.md`, which is now only a
+compatibility pointer and carries no operator prose.)
 
 ## Handoffs may adopt the `blocked:` convention
 
@@ -370,13 +373,21 @@ a restart requires a fresh `ready`, which a blocked session never writes.
 
 ## Pointers
 
-- `design.md` (beside the plan at `plan/overseer-rewrite/`) — the "Notify, never
-  block + the cardinal rule" section carries the current design; "The
-  certification protocol" and "Context-% reading" carry the original rationale
-  and the anchored, fail-closed context parse.
-- `SKILL.md` — the bottom-pane interactive overseer contract that starts the
-  daemon and relays what it reports.
+- `.claude-plugin/prose/overseer.md` — the bottom-pane interactive overseer
+  contract that starts the daemon and relays what it reports. This is the single
+  source; `SKILL.md` beside this file is only a compatibility pointer to it.
 - `AGENTS.md` — maintenance guidance for editing the overseer.
-- `.ai/agent-disciplines.md` (repo root) §"Tracked-session discipline — the
-  overseer wrap-up contract" — the same contract stated from the TRACKED
-  SESSION's side.
+
+> **Two pointers here were DEAD and are removed (2026-07-26)**, the same two
+> `AGENTS.md` carried — neither survived the relocation out of livespec core:
+>
+> - **`design.md` "beside the plan at `plan/overseer-rewrite/`"** — no such plan
+>   directory, and `git ls-files` finds no `design.md` anywhere in this repo. It
+>   held the "Notify, never block + the cardinal rule", "The certification
+>   protocol" and "Context-% reading" sections. Their surviving statements are
+>   in this file and in `AGENTS.md`.
+> - **`.ai/agent-disciplines.md` (repo root) §"Tracked-session discipline"** —
+>   there is no `.ai/` directory in this repo at all. That section stated this
+>   same contract from the TRACKED SESSION's side; the session-facing statement
+>   that actually reaches sessions today is the pasted wrap-up itself
+>   (`supervisor.py`'s `_WRAPUP_BODY`, reproduced above).
