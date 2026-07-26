@@ -933,16 +933,45 @@ state.
    closed as superseded. But **items 3 and 5 are not, and no goal covers them**:
 
    - **Item 3 — "Gate E: arm the Result-railway role keys."** This is a
-     **705-finding latent CI failure**, not a config line. `just check` emits 705
-     Phase-0 WARN diagnostics across 23 files, each stamped *"hard-fails once
-     this repo is flipped to the hard gate in Phase 2"*: 600 missing `*`
-     keyword-only separators, 45 banned cross-module `_`-prefixed calls, 23 files
-     with no declared semantic role, 21 modules missing `__all__`, 7 over the
-     LLOC ceiling, 7 banned process terminations outside `bin/`, 2 misc. **Same
-     pattern as goal 2's lever** — a rule that runs and reports but cannot fail,
-     so debt accrues invisibly. Worse: the flip is driven by the FLEET ROP
-     program (core `livespec-gcsn`, `livespec-h2hs`, `livespec-qgp2jt`), so an
-     upstream decision this repo does not make can turn it red.
+     **latent CI failure of several hundred findings**, not a config line.
+     `just check` emits Phase-0 WARN diagnostics each stamped *"hard-fails once
+     this repo is flipped to the hard gate in Phase 2"*. **Same pattern as goal
+     2's lever** — a rule that runs and reports but cannot fail, so debt accrues
+     invisibly. Worse: the flip is driven by the FLEET ROP program (core
+     `livespec-gcsn`, `livespec-h2hs`, `livespec-qgp2jt`), so an upstream
+     decision this repo does not make can turn it red.
+
+     > **DO NOT QUOTE A FIXED COUNT HERE — measured 2026-07-26, it is a MOVING
+     > TARGET.** This passage used to assert "a **705**-finding latent CI
+     > failure ... across 23 files", with a fixed category breakdown. Re-measured
+     > a week later: **712**, and — the part that matters — **not one
+     > `overseer/*.py` had changed.** `git diff --stat ec1a638..HEAD -- overseer/`
+     > is empty; the only non-docs commit in the range is a routine
+     > `chore(deps)` bump of the dev-tooling pin (v0.54.17 → v0.54.18). The
+     > entire +7 came from upstream.
+     >
+     > That turns the "upstream decision" warning above from a hypothesis into a
+     > measurement, and makes it sharper: the number drifts **on an ordinary
+     > dependency bump**, not merely on a deliberate ROP phase flip — and
+     > `pin-freshness.yml` exists precisely to keep that pin moving. Every delta
+     > in that pass was an increase.
+     >
+     > **So budget Gate E by CATEGORY and CONCENTRATION, never by a total.**
+     > Current shape: ~603 missing `*` keyword-only separators, 45 banned
+     > cross-module `_`-prefixed calls, 25 files with no declared semantic role,
+     > 23 modules missing `__all__`, 7 over the LLOC ceiling, 7 banned process
+     > terminations outside `bin/`, 2 misc. **`overseer/test_supervisor.py`
+     > alone carries 311 of them (44%)**, then `test_registry.py` 59,
+     > `supervisor.py` 56, `test_codex_sessions.py` 44, `registry.py` 43,
+     > `tmuxio.py` 40. "Retire the keyword-only separators in
+     > `test_supervisor.py`" is a stable unit of work; "retire 705 findings" was
+     > wrong within a week of being written.
+     >
+     > **`.19` contributed ZERO of these**, and the scan is why: it does not
+     > reach `tests/`. All 25 semantic-role rows are `overseer/*` plus the
+     > footgun hook; none of the four new integration modules appear. Do not
+     > attribute the move to the new test tier. Full record on
+     > **`overseer-hbr.22`**.
    - **Item 5 — the deferred public entry-point surface** for the two
      executables (the demoted `reportPrivateUsage` findings). No successor
      anchor.
