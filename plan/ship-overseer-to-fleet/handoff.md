@@ -1,16 +1,24 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **ALL SIX GOALS MET — THE
-THREAD IS DONE.** The
-plugin is RELEASED (through v0.12.4), REGISTERED in all twelve consuming repos,
+**Owning repo:** `livespec-overseer`. **Status:** **OPEN — GOAL 5 IS NOT MET.**
+Five of six goals hold. The
+plugin is RELEASED (through v0.13.0), REGISTERED in all twelve consuming repos,
 and INSTALLED on the host for **all twelve** — nine fleet members plus all three
 adopters — with `supervise-plan` proven to RESOLVE by live exercise in eleven
-sessions that are not this repo's. **All 24 children of `overseer-hbr` are
-closed**, including `.24`, which closed goal 5's pinned-consumer half after that
-goal was once wrongly scored met. Whether to close the epic is the maintainer's
-call. Read §"NEXT
-ACTION" — it was rewritten 2026-07-26 (third wrap-up, amended at the fourth) and
-SUPERSEDES every earlier status statement in this file.
+sessions that are not this repo's. All 24 children of `overseer-hbr` are closed,
+but **`.24` closed on evidence that does not support its claim** — see
+§"GOAL 5 REOPENED". **Do not close `overseer-hbr`.** Read §"NEXT ACTION" — it was
+rewritten 2026-07-26 (FIFTH wrap-up) and SUPERSEDES every earlier status
+statement in this file, including the fourth wrap-up's "the thread is DONE".
+
+> **THIS FILE HAS NOW SCORED GOAL 5 MET TWICE ON EVIDENCE THAT DID NOT SUPPORT
+> IT.** The first time, a wrap-up noted the two pinned adopters had no bump lane
+> and scored the goal met in the same message. The second time — the text you
+> are reading replaced — a lane existed and was scored met because two adopters
+> were *observed at a newer pin*, without checking WHAT MOVED THEM. It was a
+> human pressing `workflow_dispatch`. If you are about to score this goal met a
+> third time, the question to answer first is not "did the pin advance?" but
+> **"what event advanced it, and would it have fired with nobody watching?"**
 
 <!-- Superseded headers, kept so a reader arriving from an older revision lands
 somewhere real. This has read, in order: "OPEN — WAITING ON MAINTAINER VALVES",
@@ -538,43 +546,144 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
-## NEXT ACTION — the thread is DONE; all six goals are met
+## NEXT ACTION — GOAL 5 REOPENED; the pull lane must be OBSERVED
 
-**Rewritten 2026-07-26 at the THIRD wrap-up, amended at the FOURTH. Every earlier
-status line in this file — "waiting on maintainer valves", "`.16` is in flight",
-"`.13` is next", "goal 4's adopter clause is not met", "goal 5 is unmet" — is
-SUPERSEDED. All 24 children are closed.**
+**Rewritten 2026-07-26 at the FIFTH wrap-up. It supersedes the third and fourth
+wrap-ups' "the thread is DONE; all six goals are met", which was wrong on goal
+5.**
 
-### IF YOU ARE A FRESH SESSION, READ THIS AND STOP
+### WHAT IS ACTUALLY LEFT — one thing, and it is a WATCH, not a build
 
-**There is no buildable work left in this thread.** Do not look for a next slice
-— every child of `overseer-hbr` is closed and all six goals hold. The correct
-first action is to confirm that from the ledger
-(`bd list` in the `livespec-overseer` tenant), not from this file, and then ask
-the maintainer what to pick up.
+The pinned adopters' pull lane is now BUILT and the last defect blocking it is
+fixed. What remains is the acceptance the goal always needed: **observe a pinned
+adopter advance with no fleet-side push and no hand action.**
 
-Three things are open and **none of them is this thread's to build**:
+**That test is ARMED right now. Do not disturb it:**
+
+| fact | value |
+|---|---|
+| latest release | **v0.13.0**, published 2026-07-26T15:43:11Z |
+| both pinned adopters | still at **v0.12.4** |
+| next scheduled pull | **06:37 UTC daily** (`cron: "37 6 * * *"` in each adopter) |
+
+**DO NOT hand-bump either adopter, and do not run `bump-plugin-pin.yml` by
+`workflow_dispatch`.** Doing so consumes the gap the test needs and leaves goal 5
+unprovable for another release cycle — which is exactly how it came to be
+mis-scored twice. To accept: after 06:37 UTC, check that the scheduled run fired
+and that the pin reads v0.13.0.
+
+```
+gh run list -R thewoolleyman/openbrain --workflow=bump-plugin-pin.yml --limit 5 \
+  --json event,conclusion,createdAt
+gh run list -R thewoolleyman/resume    --workflow=bump-plugin-pin.yml --limit 5 \
+  --json event,conclusion,createdAt
+```
+
+**The acceptance is `event: schedule`.** A `workflow_dispatch` or
+`repository_dispatch` row is not the goal, however green.
+
+### GOAL 5 REOPENED — why `.24`'s close does not hold
+
+`overseer-hbr.24` closed on the claim that both pinned adopters "advanced
+v0.12.3 → v0.12.4 **unattended**". The pins did advance. Nothing was unattended.
+
+Measured on the run history, which is the fact `.24` never checked:
+
+| adopter | run that bumped | trigger |
+|---|---|---|
+| openbrain | 2026-07-26T15:23:32Z | **`workflow_dispatch`** — a human pressed it |
+| resume | 2026-07-26T15:22:47Z | **`workflow_dispatch`** — a human pressed it |
+
+**Zero `schedule` runs have ever fired in either adopter.** The earlier
+v0.12.2 → v0.12.3 advance was a hand-sent `repository_dispatch`, which `.24`
+correctly described as hand-sent and then counted as proof of the receiving half
+— fair — but no run of any kind has ever started without a person starting it.
+
+And the push hop is measured DEAD, not merely unproven. On v0.13.0 this repo's
+`adopter-release-dispatch.yml` reported **`delivered: 0, unauthorized: 3`**, with
+its own notice: *"No adopter is reachable by the livespec GitHub App, so no
+pinned adopter was notified of v0.13.0."* The job is GREEN and that is correct —
+an unauthorized boundary is a precondition, not a release failure — but **a green
+run with `delivered: 0` is not goal 5.** Read the summary, not the check mark.
+
+### The defect that made "unattended" impossible for resume — FIXED
+
+Worth keeping, because it is the reason the lane could never have satisfied the
+goal no matter how long anyone waited.
+
+resume's bump lane opens a PULL REQUEST rather than pushing. Its
+`auto-enable-merge.yml` gated eligibility on
+`user.login == github.repository_owner` alone, so a pull request opened by
+`resume-pr-bot[bot]` was **never** given auto-merge. The lane could only ever
+notify; a human had to merge. Measured: PRs **#8** and **#9** are both
+`author: app/resume-pr-bot`, both `mergedBy: thewoolleyman`, and the
+`auto-enable-merge` runs for both branches read **`skipped`**.
+
+This was a live conformance violation, not a missing feature.
+`non-functional-requirements.md` §"Pull request landing automation" already
+requires eligibility for *"the repository owner **or an explicit allowlist of
+trusted automation identities**"*; only the owner half was implemented, and the
+workflow header carried the TODO inline. Closed by resume PR #10, which
+allowlists that one identity — scoped to a named bot rather than
+`endsWith(login, '[bot]')`, so a third-party App installed later is not silently
+covered. The merge gate is unchanged: auto-merge still lands only on a green
+required `check`, which runs the bumper's own refusal tests.
+
+### The premise that caused all of it
+
+**"An adopter cannot poll — its `GITHUB_TOKEN` cannot read this private repo's
+releases."** That sentence was checked into
+`adopter-release-dispatch.yml` and into BOTH adopters' bumper headers, and every
+clause of it is false: **`livespec-overseer` is PUBLIC**, `releases/latest`
+answers 200 with no credential at all, and a private adopter reading a public
+repo is governed by the visibility of the repository being READ. The false
+premise is why the lane was built push-first, against a boundary the fleet
+manifest already documents as deliberately unauthorized. All three comments are
+corrected; do not let the dispatch-only reading come back.
+
+### Also open — and NOT this thread's to build:
 
 | id | state | why not ours |
 |---|---|---|
 | `overseer-mim` | `pending-approval` | two livespec-dev-tooling pin-lane gaps + the fleet/adopter credential-boundary decision. Named with that owner; discharging it DELETES this repo's `adopter-release-dispatch.yml` bridge |
 | `overseer-l0f` | `pending-approval` | `uv.lock` trails `pyproject.toml` after every release; any `uv run` dirties a tracked file and no gate catches it |
 | `overseer-byvxlp` | `backlog` | the generated-prompt quality bar beyond both stall modes; owned by `plan/supervisor-prompt-quality/` |
+| **`overseer-bg2`** + 6 open children | `backlog` / `open` | **the Gate E / ROP arming work `.22` sized** — filed as real slices by the `rop-sweep-fleet-policy` track. P1, and by far the largest live body of work in this repo |
 
-`overseer-hbr` itself is still `backlog`. **Closing the epic is the maintainer's
-call and was deliberately not taken** — this thread does not close its own anchor
-(see §"Groom Step 3 was deliberately NOT run").
+`overseer-hbr` itself is still `backlog`. **DO NOT CLOSE IT** — goal 5 is unmet
+(above), so the epic's own definition of done does not hold. That is a stronger
+reason than the earlier one, which was only that a thread should not close its
+own anchor (see §"Groom Step 3 was deliberately NOT run").
 
-### LIVE STATE A FRESH SESSION CANNOT DERIVE — release PR #139
+> **THE OPEN-ITEMS TABLE ABOVE WAS INCOMPLETE FOR A WHOLE WRAP-UP, AND THE OMISSION
+> WAS NOT A TIMING ARTIFACT.** The fourth wrap-up declared "THE BOARD IS CLEAR"
+> and listed three items. `overseer-bg2` was created at **09:10:37Z** with ten
+> children — over six hours BEFORE that wrap-up's commit (`52a9897`, 15:39:12Z).
+> `overseer-mim` (15:08Z) made the list; `overseer-bg2.10` (15:23Z) did not.
+> **Derive this table from `bd list`, never from the previous revision of it.**
+>
+> Two things to know before touching that epic. Its six open children sit at
+> beads-native **`open`**, which is not a livespec `WorkItemStatus` — `lane_of`
+> returns `open`, so `is_item_ready` is false and the livespec `next`/`drive`
+> path ranks zero of them (`bd ready` still lists them, because that is beads'
+> own predicate). It is the identical lifecycle defect this epic hit; see
+> §"Ledger lifecycle". And **`overseer-bg2.10` duplicates `overseer-l0f`** —
+> both are the `uv.lock`-trails-`pyproject.toml` drift, filed 95 minutes apart.
 
-The maintainer deliberately HELD PR #139 (`chore(master): release 0.13.0`, clean
-and mergeable) as a live end-to-end test fixture for goal 5, intending a real
-release publish to exercise producer → pinned-adopter unattended.
+### PR #139 IS MERGED — and the fixture did its job by FAILING
 
-**That rationale is DISCHARGED and was reported as such.** Goal 5 was observed
-without it: both pinned adopters advanced **v0.12.3 → v0.12.4 unattended** on a
-release another track published, via the daily PULL path. #139 can be merged
-whenever convenient.
+The maintainer had HELD PR #139 (`chore(master): release 0.13.0`) as a live
+end-to-end test fixture for goal 5, intending a real release publish to exercise
+producer → pinned-adopter unattended. A previous revision of this section called
+that rationale "DISCHARGED" on the strength of the v0.12.4 advance, and said #139
+could be merged whenever convenient. **That was the mis-scoring; the fixture was
+still needed and it was still load-bearing.**
+
+It merged at **2026-07-26T15:42:55Z**; **v0.13.0** published at 15:43:11Z. The
+fixture then returned the answer the thread had been assuming away: the fan-out
+reported **`delivered: 0, unauthorized: 3`**, so the producer → adopter push hop
+moved nothing. Holding it was right, and reading its output is what reopened
+goal 5.
 
 What merging it will and will not do, so nobody reads the result wrong:
 
@@ -591,14 +700,23 @@ What merging it will and will not do, so nobody reads the result wrong:
 The plugin went from installed-in-zero-projects to **installed in all twelve** —
 nine fleet members and all three adopters — and `supervise-plan` now RESOLVES in
 sessions that are not this repo's, proven by live exercise rather than by a
-settings file. Releases are published through **v0.12.4**, `refs/heads/release`
+settings file. Releases are published through **v0.13.0**, `refs/heads/release`
 tracks the latest, the registration is merged in all twelve consuming repos, and
-goal 2's lever fired green on the release path. **All six goals are met.** All
-23 children of `overseer-hbr` are closed.
+goal 2's lever fired green on the release path. **Five of six goals are met;
+goal 5 is not** — see §"GOAL 5 REOPENED". All 24 children of `overseer-hbr` are
+closed, but `.24` closed on evidence that does not support its claim.
 
-### Goal 5 — how the pinned half was closed (`overseer-hbr.24`)
+### Goal 5 — what `overseer-hbr.24` BUILT (its close claim is retracted)
 
-**This goal was WRONGLY recorded as met once.** A wrap-up noted "the two pinned
+> **RETRACTION 2026-07-26 (fifth wrap-up).** This section's build inventory is
+> accurate and worth keeping — the lane, the three refusals, the per-adopter
+> stacks all exist as described. Its **acceptance claim is withdrawn**: what it
+> reported as unattended was `workflow_dispatch`. The corrected reading is in
+> §"GOAL 5 REOPENED"; the retracted paragraph is left in place below, marked,
+> because how it went wrong is more instructive than a clean deletion.
+
+**This goal was WRONGLY recorded as met once — and then a second time, by this
+very section.** The first wrap-up noted "the two pinned
 adopters still have no bump lane" and, in the same message, scored goal 5 MET.
 The note was right; the score was not. A concrete pin that nothing advances is a
 stale pin, not a posture — goal 5 says the pin is AUTO-BUMPED **for consumers**,
@@ -620,20 +738,42 @@ defect:
 - the source repo matches by full trailing name, so `livespec` cannot bump
   `livespec-overseer`.
 
-**OBSERVED, not argued.** Both pinned adopters advanced **v0.12.3 → v0.12.4**
+> **~~OBSERVED, not argued.~~ RETRACTED — the paragraph below is the
+> mis-scoring itself, kept as the specimen.** Every factual clause in it is
+> true; the word doing the damage is *"unattended"*. Both advances came from a
+> **`workflow_dispatch`** a human pressed (openbrain 15:23:32Z, resume
+> 15:22:47Z). "resume landed it as PR #9" is the tell that was there to be read
+> and was not: that PR is `mergedBy: thewoolleyman`, and its `auto-enable-merge`
+> run reads `skipped`. **The lesson: an observation of STATE is not an
+> observation of MECHANISM. Two adopters sitting at a newer pin tells you the
+> rewrite works; only the trigger tells you whether anything would have moved
+> with nobody watching.**
+
+~~**OBSERVED, not argued.** Both pinned adopters advanced **v0.12.3 → v0.12.4**
 unattended, on a release published by another track that nothing announced to
 them. resume landed it as PR #9 authored by `app/resume-pr-bot`; openbrain
 landed it by direct push, which is that repo's own documented landing path.
 Earlier, both had already advanced v0.12.2 → v0.12.3 from a hand-sent dispatch,
-which proved the receiving half separately.
+which proved the receiving half separately.~~
 
 ### Two premises this thread got wrong, and how they were caught
 
 **1. "An adopter cannot read a private sibling's releases."** `livespec-overseer`
 is **PUBLIC**. The pull path needs no cross-repo credential at all. The lane was
-first built dispatch-only on that wrong premise; the daily `schedule` that now
-resolves the latest release itself is what makes it work today, and it bounds
+first built dispatch-only on that wrong premise; the daily `schedule` that
+resolves the latest release itself is what will make it work, and it bounds
 staleness to one day even when push delivery is unavailable.
+
+> **AMENDED 2026-07-26 (fifth wrap-up): "what makes it work TODAY" was the wrong
+> tense and it mattered.** The scheduled pull was BUILT that day and had **never
+> run** — first cron occurrence 06:37 UTC the following morning. Writing a
+> just-authored mechanism in the present tense is how an unexercised lane got
+> counted as a working one. Say "will fire at <time>" until a run exists.
+>
+> The false premise also survived in THREE checked-in comments after being
+> caught here — this repo's `adopter-release-dispatch.yml` and both adopters'
+> bumper headers all still asserted a poll was impossible. Correcting the plan
+> file did not correct the code. All three are fixed now.
 
 **2. "The producer can just dispatch to the adopters."** It cannot. Measured
 with the livespec App token: **404** for openbrain and homelab (App not
@@ -657,10 +797,15 @@ decision about the fleet↔adopter credential boundary, recorded on
 bridge necessary (its release fan-out reads `.fleet` only; its pin autodiscovery
 has no Claude-marketplace format).
 
-### THE BOARD IS CLEAR — nothing of this thread's is open
+### ~~THE BOARD IS CLEAR~~ — it was not, twice over
 
-`overseer-hbr` itself is still `backlog`; whether to close the epic is the
-maintainer's call. Two items exist outside it and are NOT this thread's work:
+> **SUPERSEDED 2026-07-26 (fifth wrap-up).** Wrong on both counts when written:
+> goal 5 was unmet, so this thread's own acceptance was still open; and the list
+> below omitted `overseer-bg2` and its ten children, which already existed. The
+> authoritative list is the table in §"Also open — and NOT this thread's to
+> build", derived from `bd list`. `overseer-hbr` is `backlog` and **must not be
+> closed while goal 5 is unmet.** The items below are still correctly described,
+> and are still not this thread's work:
 
 - **`overseer-mim`** (`pending-approval`, P2) — two livespec-dev-tooling pin-lane
   gaps plus the adopter credential-boundary decision. Named with that owner
@@ -811,7 +956,7 @@ bumping commit type.
 | 2 — top-of-pyramid tests, present AND enforced | **MET** — 54/54 rows mapped, lever armed, fired green on the release path |
 | 3 — auto-released | **MET** — three releases; `release-readiness.yml` + `release-tag.yml` in place |
 | 4 — auto-installed, fleet AND adopters | **MET** — 12 install records; each adopter provisions itself from an ordinary session (`.23`) |
-| 5 — release pin auto-bumped | **MET for all 12** — `ref: "release"` consumers auto-follow; the two `posture: pinned` adopters advanced **v0.12.3 → v0.12.4 unattended** on a real published release via the bump lane built for `.24`. See §"Goal 5" for what is and is not proven |
+| 5 — release pin auto-bumped | **NOT MET — met for 10 of 12.** The `ref: "release"` consumers auto-follow, observed across a real release boundary. The two `posture: pinned` adopters have a lane that has **never fired unattended**: zero `schedule` runs, both advances `workflow_dispatch`, and resume's bump PR could not auto-merge at all until PR #10. Acceptance is armed at 06:37 UTC — see §"GOAL 5 REOPENED" |
 | 6 — phase-2 adopter shipping folds in | **MET** — dispositions on `.21`/`.22`, and its shipping arm landed as `.23` |
 
 ### Five core-tenant closes are justified and are NOT ours to make
@@ -876,11 +1021,15 @@ and the reasons are reusable:
 - **`tests/integration/` carries 4 modules, 22 tests**; `tests/prompts/` carries
   the generated-charter contract, **12 tests**.
 - **`just check` on master: 61 targets, green, 100% statement+branch.**
-- **Releases published through v0.12.4**, with `refs/heads/release` tracking the
+- **Releases published through v0.13.0** (2026-07-26T15:43:11Z, from PR #139),
+  with `refs/heads/release` tracking the
   latest. PR #52 is long since merged; the "do not merge it" instruction that
   used to live here is spent. **Re-derive the current tag** (`gh release list`)
-  rather than trusting a number here — this line has gone stale three times, and
+  rather than trusting a number here — this line has gone stale four times, and
   another track publishes releases too.
+- **Both pinned adopters are at `v0.12.4`, one release BEHIND — deliberately.**
+  That gap is goal 5's live acceptance fixture; see §"NEXT ACTION". Do not close
+  it by hand.
 - **NOTHING of this thread's is in flight.** Its worktrees were removed and its
   branches deleted after merge.
 - **Host plugin state** (the numbers goal 4 moves — re-derive against
@@ -1040,7 +1189,7 @@ was set by hand and then read back from the ledger to verify.**
 | S12 goal-6 dispositions | `.21` | 6 | — | **DONE** |
 | S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | **DONE** — item 5 satisfied, item 3 sized |
 | — goal-4 ADOPTER arm | **`.23`** | 4 | — | **DONE** — homelab PR #67, openbrain + resume direct push |
-| — goal-5 PINNED-consumer bump lane | **`.24`** | 5 | `.23` | **DONE** — observed: both pinned adopters advanced v0.12.3 → v0.12.4 unattended |
+| — goal-5 PINNED-consumer bump lane | **`.24`** | 5 | `.23` | **CLOSED, claim RETRACTED** — the lane was built, but both advances were `workflow_dispatch`; goal 5 stays open. A successor carries the acceptance |
 
 Plus `.1`–`.9`, all closed: `.1`/`.9` (the `source_repo` misnaming), `.2` (the
 goal-6 anchor), `.5`/`.7` (stale docs), `.6` (`overseer-3wt` items 3+5), and
