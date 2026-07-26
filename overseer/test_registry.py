@@ -260,6 +260,60 @@ def test_read_mapping_fail_soft_on_an_unreadable_store(tmp_path, monkeypatch, ca
     assert "unreadable mapping store" in capsys.readouterr().err
 
 
+def test_read_mapping_fail_soft_on_a_non_utf8_store(tmp_path, capsys):
+    """B7 for a DIFFERENT exception class than the test above reaches.
+
+    ``UnicodeDecodeError`` subclasses ``ValueError``, not ``OSError``, so the
+    ``except OSError`` this store's read once carried let it propagate. Real bytes
+    rather than a monkeypatched raise, so the assertion exercises the genuine decode
+    path and cannot pass by mocking something production never does.
+
+    Why it must fail soft: the daemon's per-iteration broad catch used to absorb it.
+    That catch is removed under the "let it crash, systemd restarts" ruling, and a
+    corrupt store is an ENVIRONMENTAL error — left unboundaried it would exit the
+    daemon, systemd would restart it, the same bytes would be re-read, and the loop
+    would never supervise anything again.
+    """
+    store = tmp_path / "map.jsonl"
+    store.write_bytes(b'\xff\xfe{"topic": "a", "repo": "/r"}\n')
+
+    assert registry.read_mapping(store) == []
+    assert "unreadable mapping store" in capsys.readouterr().err
+
+
+def test_watch_set_from_config_fail_soft_on_a_non_utf8_declaration(tmp_path):
+    """A watch-set declaration of undecodable bytes yields the extras, like unparsable
+    JSON does — the daemon still supervises what it was explicitly handed.
+
+    Distinct from the malformed-JSON test above: that one raises
+    ``json.JSONDecodeError``, this one raises ``UnicodeDecodeError`` BEFORE any parse
+    is attempted, so the original ``(OSError, json.JSONDecodeError)`` tuple did not
+    cover it.
+    """
+    declaration = tmp_path / "repos.json"
+    declaration.write_bytes(b'\xff\xfe{"repos": []}')
+    extra = tmp_path / "extra"
+    extra.mkdir()
+
+    result = registry.watch_set_from_config(declaration, [extra])
+
+    assert [registry.repo_slug(p) for p in result] == ["extra"]
+
+
+def test_read_injection_stamp_is_none_on_a_non_utf8_sidecar(tmp_path):
+    """An undecodable stamp sidecar reads as "no stamp", never raising.
+
+    Fail-soft here is also fail-CLOSED in the safety sense: with no readable stamp
+    there is no round-open timestamp, so no ready marker can be certified fresh
+    against one, and nothing gets restarted on the strength of a corrupt file.
+    """
+    stamp = tmp_path / "stamps.json"
+    stamp.write_bytes(b'\xff\xfe{"/r\\tt": {"at": 1000.0}}')
+
+    assert registry.read_injection_stamp("/r", "t", stamp) is None
+    assert registry.read_notified_bands("/r", "t", stamp) == []
+
+
 def test_atomic_write_fail_soft_leaves_the_store_intact_and_removes_the_temp(
     tmp_path, monkeypatch, capsys
 ):

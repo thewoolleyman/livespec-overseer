@@ -169,6 +169,24 @@ def test_missing_index_is_empty_not_an_error(tmp_path):
     assert codex_sessions.read_thread_names(tmp_path / "nonexistent") == {}
 
 
+def test_non_utf8_index_is_empty_not_an_error(tmp_path):
+    """An UNDECODABLE index is empty, not a raise — the case the docstring's
+    "fail-soft throughout" promise claimed before it was true.
+
+    The malformed-line test above proves per-LINE tolerance, which cannot reach this:
+    a non-UTF-8 byte fails the whole-file decode BEFORE any line is split, and
+    ``UnicodeDecodeError`` subclasses ``ValueError``, not ``OSError``, so the read's
+    original ``except OSError`` did not catch it. Adoption and reboot-recovery both
+    route through this one parser, so the leak reached the daemon from two directions.
+    """
+    home = tmp_path / "codex"
+    home.mkdir()
+    (home / "session_index.jsonl").write_bytes(
+        b'\xff\xfe{"id": "' + _ID_A.encode() + b'", "thread_name": "good"}\n'
+    )
+    assert codex_sessions.read_thread_names(home) == {}
+
+
 # --------------------------------------------------------------------------- #
 # latest_session_for_thread_name + rollout_exists — the reboot-recovery reverse
 # lookup (defect #5). The index SURVIVES a session's death, so a dead codex track's

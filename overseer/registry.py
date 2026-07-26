@@ -274,7 +274,9 @@ def _read_rows(store_path: str | os.PathLike[str] | None = None) -> list[dict[st
         return []
     try:
         text = path.read_text(encoding="utf-8")
-    except OSError as exc:  # PermissionError, NFS hiccup, mid-move — fail-soft (B7)
+    # ValueError covers the UnicodeDecodeError a non-UTF-8 store raises; it is a
+    # ValueError subclass, so an OSError-only handler leaked it (B7).
+    except (OSError, ValueError) as exc:  # PermissionError, NFS hiccup, mid-move, non-UTF-8
         _warn(f"unreadable mapping store {path}: {exc}")
         return []
     rows: list[dict[str, object]] = []
@@ -698,7 +700,9 @@ def watch_set_from_config(
     declared: list[str] = []
     try:
         document = jsonio.as_object(_parse_jsonc(path.read_text(encoding="utf-8")))
-    except (OSError, json.JSONDecodeError) as exc:
+    # ValueError subsumes BOTH json.JSONDecodeError and the UnicodeDecodeError a
+    # non-UTF-8 watch-set raises, so the tuple gets shorter, not longer.
+    except (OSError, ValueError) as exc:
         _warn(f"unreadable/unparsable watch-set {path}: {exc}")
         document = None
     if document is not None:
@@ -775,7 +779,9 @@ def _read_stamp_data(path: Path) -> dict[str, object]:
         return {}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+    # ValueError subsumes BOTH json.JSONDecodeError and the UnicodeDecodeError a
+    # non-UTF-8 sidecar raises.
+    except (OSError, ValueError) as exc:
         _warn(f"unreadable injection-stamp sidecar {path}: {exc}")
         return {}
     stamp = jsonio.as_object(data)
