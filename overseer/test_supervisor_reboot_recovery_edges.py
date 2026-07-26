@@ -13,6 +13,7 @@ import io as _io
 import json
 from pathlib import Path
 
+import _supervisor_config
 import pytest
 import registry
 import supervisor
@@ -137,9 +138,14 @@ def test_run_sleeps_between_ticks_and_exits_cleanly_on_keyboard_interrupt(tmp_pa
 
 
 def _completed(returncode):
-    """A `subprocess.CompletedProcess` reached via the supervisor module, so this
-    test file needs no `import subprocess` of its own."""
-    return supervisor.subprocess.CompletedProcess(args=[], returncode=returncode)
+    """A `subprocess.CompletedProcess` reached via `_supervisor_config`, so this test
+    file needs no `import subprocess` of its own.
+
+    Reaching it through the module that DEFINES `default_gitignore_check` is what makes
+    the `monkeypatch.setattr` below land: the checker reads its own module global, so a
+    patch applied through the `supervisor` facade would set an attribute nothing reads
+    and let this test shell out to the developer's real `git`."""
+    return _supervisor_config.subprocess.CompletedProcess(args=[], returncode=returncode)
 
 
 def test_gitignore_check_is_true_only_on_a_zero_exit(monkeypatch):
@@ -153,7 +159,7 @@ def test_gitignore_check_is_true_only_on_a_zero_exit(monkeypatch):
         argvs.append(argv)
         return _completed(codes.pop(0))
 
-    monkeypatch.setattr(supervisor.subprocess, "run", fake_run)
+    monkeypatch.setattr(_supervisor_config.subprocess, "run", fake_run)
 
     assert supervisor.default_gitignore_check("/x/repo") is True  # 0 → ignored
     assert supervisor.default_gitignore_check("/x/repo") is False  # 1 → NOT ignored
@@ -168,7 +174,7 @@ def test_gitignore_check_fails_soft_to_not_ignored_when_git_cannot_spawn(monkeyp
     def boom(argv, **_kwargs):
         raise OSError("no git on PATH")
 
-    monkeypatch.setattr(supervisor.subprocess, "run", boom)
+    monkeypatch.setattr(_supervisor_config.subprocess, "run", boom)
 
     assert supervisor.default_gitignore_check("/x/repo") is False
 
@@ -191,9 +197,9 @@ def test_gitignore_check_passes_a_timeout_and_fails_soft_when_git_hangs(monkeypa
 
     def hang(argv, **kwargs):
         seen.update(kwargs)
-        raise supervisor.subprocess.TimeoutExpired(cmd=argv, timeout=kwargs.get("timeout"))
+        raise _supervisor_config.subprocess.TimeoutExpired(cmd=argv, timeout=kwargs.get("timeout"))
 
-    monkeypatch.setattr(supervisor.subprocess, "run", hang)
+    monkeypatch.setattr(_supervisor_config.subprocess, "run", hang)
 
     assert supervisor.default_gitignore_check("/x/repo") is False
     assert seen.get("timeout") is not None, "the git call must carry a timeout"

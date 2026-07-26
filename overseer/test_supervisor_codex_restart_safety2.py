@@ -11,6 +11,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 import contextlib
 import io as _io
 
+import _supervisor_view
 import pytest
 import registry
 import signals
@@ -123,7 +124,7 @@ def test_submit_retry_never_kills_the_fresh_session(tmp_path):
         with contextlib.redirect_stderr(_io.StringIO()):
             view = sup.evaluate(mapped_track(repo, topic, session), act=True)
         assert view.status == "restarting"
-        assert view.note == supervisor._RESUME_PENDING_NOTE
+        assert view.note == _supervisor_view.RESUME_PENDING_NOTE
         assert supervisor.needs_attention(view)  # a stranded resume is a NEEDS-YOU row
         assert not fake.has("respawn")  # NEVER a respawn on the retry path
         assert registry.read_resume_pending(str(repo), topic, sup.stamp_path) is True

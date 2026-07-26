@@ -11,6 +11,8 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 import contextlib
 import io as _io
 
+import _supervisor_config
+import _supervisor_records
 import pytest
 import registry
 import signals
@@ -46,7 +48,7 @@ def test_clear_state_logs_an_undeletable_marker_and_still_closes_the_round(tmp_p
     sup = make_supervisor(tmp_path, FakeTmux())
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     key = key_for(repo, topic)
-    sup._inject[key] = supervisor._InjectState(last_ctx=30)
+    sup._inject[key] = _supervisor_records.InjectState(last_ctx=30)
     err = _io.StringIO()
 
     with contextlib.redirect_stderr(err):
@@ -125,7 +127,7 @@ def test_failed_nudge_alerts_and_writes_no_marker_so_it_retries(tmp_path):
     track = mapped_track(repo, topic, session)
 
     sup.evaluate(track, act=True)  # stamps idle_since
-    clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(track, act=True)
@@ -135,7 +137,7 @@ def test_failed_nudge_alerts_and_writes_no_marker_so_it_retries(tmp_path):
     assert session in err.getvalue()  # the alert names where to go
     assert signals.read_state(str(repo), topic) is None  # episode NOT marked handled
     # Unmarked means un-given-up-on: the next idle tick tries the nudge again.
-    clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.evaluate(track, act=True)
     assert nudge_count(fake) == 2  # re-attempted, not silently marked handled

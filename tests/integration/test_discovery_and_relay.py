@@ -28,7 +28,7 @@ import contextlib
 import io as _io
 from pathlib import Path
 
-from overseer import registry, signals, supervisor
+from overseer import _supervisor_config, registry, signals
 from overseer.test_supervisor_builders import (
     declare,
     idle_capture,
@@ -164,7 +164,7 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
       redden here rather than silently arming a restart.
 
     INJECTED DEFECTS THAT REDDEN IT (run 2026-07-26, each reverted):
-      - `_IDLE_NUDGE_AFTER = 0.0` -> the too-soon assertion fires on the first tick.
+      - `IDLE_NUDGE_AFTER = 0.0` -> the too-soon assertion fires on the first tick.
       - the `nudged_already` guard dropped -> the same episode nudges twice.
       - `_clear_idle_nudge_state` made a no-op -> the marker survives the working tick and
         the second episode never re-arms.
@@ -182,14 +182,14 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
     assert nudge_count(fake) == 0  # descriptive status, but idle < 1h: NOT keystroked
     assert signals.read_state(str(repo), topic) is None
 
-    clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     assert sup.evaluate(track, act=True).status == "idle-with-context-left"
     assert nudge_count(fake) == 1  # ONE keep-going message...
     assert wrapup_count(fake) == 0  # ...and emphatically not a wind-down wrap-up
     marker = signals.read_state(str(repo), topic)
     assert marker is not None and marker.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
 
-    clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     sup.evaluate(track, act=True)
     assert nudge_count(fake) == 1  # same episode: not nudged again
 
@@ -200,7 +200,7 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
     sup._claude_status = {session: "idle"}
     sup.evaluate(track, act=True)
     assert nudge_count(fake) == 1  # ...re-arming a FUTURE episode, not an immediate one
-    clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     sup.evaluate(track, act=True)
     assert nudge_count(fake) == 2
 

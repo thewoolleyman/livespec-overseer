@@ -11,6 +11,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 import contextlib
 import io as _io
 
+import _supervisor_config
 import pytest
 import registry
 import signals
@@ -96,7 +97,7 @@ def test_winding_down_ack_suppresses_the_rewarn(tmp_path):
 
 
 def test_stale_winding_down_ack_resumes_escalation_but_still_never_acts(tmp_path):
-    """An ACK must not become an infinite stall. Past `_ACK_STALE_AFTER` the daemon
+    """An ACK must not become an infinite stall. Past `ACK_STALE_AFTER` the daemon
     resumes escalating and reports the track — but it STILL never kills it. The
     escalation is louder words, never a restart."""
     repo, topic = make_plan(tmp_path)
@@ -105,7 +106,7 @@ def test_stale_winding_down_ack_resumes_escalation_but_still_never_acts(tmp_path
     fake.serve(session, repo, capture=idle_capture(ctx=13))
     err = _io.StringIO()
     sup = make_supervisor(tmp_path, fake)  # now() == 1000.0
-    declare(repo, topic, "winding-down", mtime=1000.0 - supervisor._ACK_STALE_AFTER - 1)
+    declare(repo, topic, "winding-down", mtime=1000.0 - _supervisor_config.ACK_STALE_AFTER - 1)
 
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
