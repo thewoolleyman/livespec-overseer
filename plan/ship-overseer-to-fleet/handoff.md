@@ -552,11 +552,21 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 wrap-ups' "the thread is DONE; all six goals are met", which was wrong on goal
 5.**
 
-### WHAT IS ACTUALLY LEFT — one thing, and it is a WATCH, not a build
+### WHAT IS ACTUALLY LEFT — an UNVERIFIED TRIGGER
 
-The pinned adopters' pull lane is now BUILT and the last defect blocking it is
-fixed. What remains is the acceptance the goal always needed: **observe a pinned
-adopter advance with no fleet-side push and no hand action.**
+Do not compress this into "the lane is built, someone just needs to watch it".
+That sentence was written here once, got relayed upward as "nothing to fix", and
+was wrong. The lane has three legs and only two are proven:
+
+| leg | state |
+|---|---|
+| mechanics — resolve, rewrite, land | **PROVEN.** openbrain's 15:23Z run resolved the latest release by PULL with its own token and landed the bump; both bumpers dry-run correctly against a newer tag with a one-line diff and the other three pins untouched |
+| auto-merge coupling | **BUILT and test-pinned** (resume #10 fixed it, #11 guards it, sabotage-verified) — but never yet exercised by a real bump pull request |
+| **the TRIGGER** | **UNVERIFIED. Zero runs with `event: schedule` have ever occurred in either adopter**, across their whole history |
+
+**An unfired trigger is an untested trigger.** The acceptance the goal always
+needed is still owed: **observe a pinned adopter advance with no fleet-side push
+and no hand action.**
 
 > **THE SCHEDULER ON THIS ACCOUNT LAGS 86-124 MINUTES. READ THIS BEFORE
 > CHECKING ANYTHING, OR YOU WILL MISREAD AN EMPTY RESULT AS A FAILURE.**
@@ -576,7 +586,8 @@ adopter advance with no fleet-side push and no hand action.**
 > **So the adopters' `37 6 * * *` cron fires between 08:03Z and 08:41Z, not at
 > 06:37Z.** Any check before ~08:45Z sees nothing and proves nothing.
 >
-> **A retime experiment was run, and I ABORTED IT WITHOUT REALISING.** Both
+> **A retime experiment was run, and it was ABORTED BEFORE ITS WINDOW OPENED —
+> by the session running it, which did not know the lag figure above.** Both
 > adopters' cron was moved to `"45 17 * * *"`; at 18:24Z — 39 minutes past
 > target — it was declared "did not fire", and the cron was reverted two minutes
 > later. Against the measured lag, the earliest that run could have started was
