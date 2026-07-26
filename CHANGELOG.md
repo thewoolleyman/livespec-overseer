@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.13.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.4...v0.13.0) (2026-07-26)
+
+
+### Features
+
+* **ci:** fan out published releases to the fleet manifest's adopters ([0b6c4d3](https://github.com/thewoolleyman/livespec-overseer/commit/0b6c4d3abdd007143d0689b6992e750a1ac03474))
+
+
+### Bug Fixes
+
+* **ci:** treat unauthorized adopter delivery as a precondition, not a failure ([3329bca](https://github.com/thewoolleyman/livespec-overseer/commit/3329bca5898245c8658fce1cf3ec51a26c4d80ce))
+
+
+### Refactoring
+
+* split registry into core, store, discovery and stamps modules ([522b8ad](https://github.com/thewoolleyman/livespec-overseer/commit/522b8ad6dca8058b5342b394343e90e74e69582d))
+* **tests:** extract the supervisor beside-test doubles and builders ([74a0536](https://github.com/thewoolleyman/livespec-overseer/commit/74a0536c9ce094fe1b79d3ed374b34d30c7eec81))
+* **tests:** split test_registry into store, resilience, discovery, injection ([b258e7b](https://github.com/thewoolleyman/livespec-overseer/commit/b258e7b0e0a5d3f1fca58b6df0700e18cc21dcd3))
+* **tests:** split test_signals at the process-identity banner ([3922897](https://github.com/thewoolleyman/livespec-overseer/commit/39228972648bc24dfb244a01f52f6f101dc0b8da))
+* **tests:** split test_supervisor into 24 topic modules ([394df70](https://github.com/thewoolleyman/livespec-overseer/commit/394df70b55f768543fe2993f8ef9f79b3293bf3c))
+
 ## [0.12.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.3...v0.12.4) (2026-07-26)
 
 
