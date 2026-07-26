@@ -277,8 +277,8 @@ Then:
         cp {handoff} "$W/plan/{topic}/handoff.md"
         cd "$W" && mise exec -- git add plan/ && mise exec -- git commit
         mise exec -- git push && gh pr create --fill && gh pr merge --auto --rebase --delete-branch
-    Doc-only commits take the fast seven-target gate at both commit and push, so this is
-    quick. Never pass --no-verify. If a hook rejects you, fix the cause or declare
+    Doc-only commits take your repo's reduced doc-only gate at both commit and push, so
+    this is quick. Never pass --no-verify. If a hook rejects you, fix the cause or declare
     `blocked: <reason>` — do not bypass it and do not discard the file.
  3. Stop every background sub-agent and subprocess you started.
  4. Declare done, and stop:
