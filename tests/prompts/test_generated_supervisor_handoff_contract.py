@@ -22,8 +22,22 @@ import re
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_EXEMPLAR = _REPO_ROOT / "plan" / "ship-overseer-to-fleet" / "supervisor-handoff.md"
 _GENERATOR_PROSE = _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md"
+
+# The exemplar is a LIVE plan thread's charter, and a plan thread moves into
+# `plan/archive/` when it closes. An unguarded read of the live path alone made
+# archiving `ship-overseer-to-fleet` a CI-reddening act: the read raised
+# FileNotFoundError from inside the aggregate gate, for a reason that had
+# nothing to do with the contract under test. Accepting either location keeps
+# the thread's own lifecycle from breaking an unrelated verifier.
+#
+# Archiving does not weaken the pin. The exemplar is a known-good SAMPLE that
+# must satisfy the requirement list below; that list lives in this module and
+# is what actually holds the line.
+_EXEMPLAR_CANDIDATES = (
+    _REPO_ROOT / "plan" / "ship-overseer-to-fleet" / "supervisor-handoff.md",
+    _REPO_ROOT / "plan" / "archive" / "ship-overseer-to-fleet" / "supervisor-handoff.md",
+)
 
 # A cwd-relative `test -d "plan/<topic>"` passes while pointed at the WRONG repo,
 # because nothing in the skill establishes a working directory. The containment
@@ -99,9 +113,19 @@ def test_the_corrected_exemplar_satisfies_the_whole_contract():
     """The hand-written exemplar is what the generator must be able to produce.
 
     Sabotage that reddens this: delete the "Never end a turn without an armed
-    re-entry" section from the exemplar.
+    re-entry" section from the exemplar. Sabotage that reddens the LOCATOR:
+    rename both candidate paths, which must fail with the named-location message
+    rather than a bare FileNotFoundError.
     """
-    assert missing_requirements(charter=_EXEMPLAR.read_text(encoding="utf-8")) == []
+    exemplar = next((path for path in _EXEMPLAR_CANDIDATES if path.is_file()), None)
+    assert exemplar is not None, (
+        "the exemplar charter is at neither its live nor its archived location — "
+        + ", ".join(str(path) for path in _EXEMPLAR_CANDIDATES)
+        + ". This contract pins the generated charter against a hand-written one, "
+        "so if the plan thread moved again, add its new location to "
+        "_EXEMPLAR_CANDIDATES rather than deleting this assertion."
+    )
+    assert missing_requirements(charter=exemplar.read_text(encoding="utf-8")) == []
 
 
 def test_the_generator_prose_instructs_every_contract_requirement():
