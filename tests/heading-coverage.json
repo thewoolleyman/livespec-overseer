@@ -101,57 +101,57 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The state file",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_malformed_state_value_is_surfaced_and_never_restarts",
+    "reason": "Pins the contract's fail-closed rule: a value outside the table ('redy') is surfaced as MALFORMED and is never read as readiness. Aptness confirmed by reading the test, not by keyword match."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The restart interlock",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_restart_fires_only_on_a_declared_ready",
+    "reason": "Pins all three deterministic checks together: an injection stamp exists (1000.0), the token is exactly 'ready', and the state mtime (1001.0) is strictly newer than the stamp — then asserts the round closes so the declaration cannot re-trigger."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The wrap-up injection",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_warned_writes_stamp_before_pasting",
+    "reason": "Pins the contract's ordering obligation: the stamp is readable AT PASTE TIME (seen == [1000.0]), proving it is written durably BEFORE the message is pasted, so a responding declaration always post-dates it."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The keep-going nudge",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour",
+    "reason": "Pins the ALL-required preconditions: cleanly idle, continuously idle >= 1 hour, context above threshold, no declaration of its own — nudged exactly once, with the daemon's own marker written."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Durable stores",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_registry.test_atomic_write_fail_soft_leaves_the_store_intact_and_removes_the_temp",
+    "reason": "Pins the headline store properties: a mid-write failure leaves the old content whole (atomic replace, never truncated), removes the temp file, and warns rather than crashing (fail-soft degradation)."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Daemon invocation",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_cli_surface_has_no_config_knobs",
+    "reason": "Pins 'NO subcommands and exactly ONE option': the invocation surface carries no store/sidecar/watch-set path flags and no recovery or interval options."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Bootstrap preconditions",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_overseer_start.test_refuses_outside_claude_code",
+    "reason": "Pins the refusal precondition: with $CLAUDECODE unset but inside tmux, the bootstrap refuses BEFORE any tmux mutation and names the missing precondition, so no half-set-up pane is ever created."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Attention surface",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_needs_attention_predicate_covers_every_attention_status",
+    "reason": "Pins the membership rule in BOTH directions: every ATTENTION_STATUSES member needs attention, and the healthy statuses do not — its own docstring notes it guards the membership test so a new status cannot be added without the block picking it up."
   },
   {
     "spec_root": "SPECIFICATION",
