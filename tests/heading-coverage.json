@@ -3,99 +3,99 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The cardinal rule",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_idle_at_danger_with_no_declaration_is_never_restarted",
+    "reason": "Pins the rule in its NEGATIVE form, which is the load-bearing direction: a session idle at the danger line with no declaration is never restarted — the daemon does not infer readiness from idleness, a timer, or how low context has fallen."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Out-of-band state declaration",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_one_file_cannot_be_both_ready_and_blocked",
+    "reason": "Pins the ONE-file/ONE-value design directly: the ambiguity that two presence markers allowed (both existing at once) is unrepresentable when a single file holds a single first line."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The supervision round",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_cleared_round_re_warns_all_bands",
+    "reason": "Pins round closure and re-opening: clearing the injection stamp — exactly what a restart does — resets both the round timestamp and the notified bands, so a subsequent round starts fresh and every band may fire again."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The escalating wrap-up",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_wrapup_escalates_from_suggestion_to_insistence",
+    "reason": "Pins 'MUST actually escalate rather than repeat': above 30% remaining the message is a suggestion, at 30% and below an insistent demand to stop now."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The restart",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_a_codex_restart_keeps_the_ready_marker_when_the_respawn_fails",
+    "reason": "Pins the hard-gate guarantee that a declaration is never silently destroyed: a failed respawn PRESERVES the ready marker so the next observation retries."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The keep-going nudge",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_nudge_never_overwrites_a_session_declaration",
+    "reason": "Pins the clause that makes the daemon-written marker safe: the daemon removes its own value only while the file still holds it, so it can never clobber a declaration the session wrote in the meantime."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The watch-set declaration",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_registry.test_watch_set_from_config_admits_only_cloned_repos_that_carry_a_plan_dir",
+    "reason": "Pins the admission rule verbatim: an entry is admitted only when its checkout exists on disk AND contains a plan directory; a failing entry is silently inert rather than an error."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Track discovery and the mapping store",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_registry.test_discover_plans_excludes_archive",
+    "reason": "Pins the discovery rule's headline: one track per UNARCHIVED plan-topic directory, keyed on the directory existing — archived plans are excluded."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Session-name derivation",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_registry.test_tmux_id_single_dash_repo_prefix_only_on_collision",
+    "reason": "Pins the derivation exactly: the bare plan topic by default, with a <repo-slug>-<topic> single-dash qualifier added ONLY on a genuine cross-repository collision."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Surface-only startup",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_tick_builds_unassigned_and_mapped_rows",
+    "reason": "Pins 'startable, never started': a discovered plan directory with no session comes back with status 'unassigned' and tmux None — surfaced, with no session spawned for it."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Supervised runtimes",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_a_codex_ready_restart_never_issues_the_claude_command",
+    "reason": "Pins the one destructive cross-runtime failure the spec designs out — a restart must resume the SAME runtime. SABOTAGE-VERIFIED 2026-07-25: re-pointing _do_codex_restart at the CLAUDE command turned this and two sibling tests red, then was reverted to a zero diff."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Non-interference with tracked work",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_run_refuses_when_tmp_not_gitignored",
+    "reason": "Pins the startup gate that makes the whole non-interference property enforceable: the daemon verifies every watched repository ignores its scratch path and REFUSES to run if any does not, so supervision can never dirty a tracked working tree."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Notify, never block",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_every_track_alert_names_the_tmux_session_and_pane",
+    "reason": "Pins alert self-sufficiency, which is what makes a non-blocking relay usable: because the relay is the operator's only handover, every track-scoped alert names its plan topic, repository, session and pane."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Fail-soft posture",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Replace TODO with the real test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "overseer.test_supervisor.test_ctx_unknown_never_injects",
+    "reason": "Pins the posture's sharpest clause — an unknown context reading NEVER counts as a threshold crossing, so an ambiguous reading can never trigger an act."
   },
   {
     "spec_root": "SPECIFICATION",
