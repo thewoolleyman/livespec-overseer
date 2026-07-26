@@ -670,10 +670,24 @@ own anchor (see §"Groom Step 3 was deliberately NOT run").
 > Two things to know before touching that epic. Its six open children sit at
 > beads-native **`open`**, which is not a livespec `WorkItemStatus` — `lane_of`
 > returns `open`, so `is_item_ready` is false and the livespec `next`/`drive`
-> path ranks zero of them (`bd ready` still lists them, because that is beads'
-> own predicate). It is the identical lifecycle defect this epic hit; see
-> §"Ledger lifecycle". And **`overseer-bg2.10` duplicates `overseer-l0f`** —
+> path ranks zero of them. It is the identical lifecycle defect this epic hit;
+> see §"Ledger lifecycle". And **`overseer-bg2.10` duplicates `overseer-l0f`** —
 > both are the `uv.lock`-trails-`pyproject.toml` drift, filed 95 minutes apart.
+>
+> **THE TWO READINESS VOCABULARIES ARE INVERTED, and each looks authoritative.**
+> Measured 2026-07-26, same moment, same tenant:
+>
+> | probe | returns |
+> |---|---|
+> | `bd ready` | the five unblocked **`overseer-bg2`** children — and **NOT** `.25` |
+> | the livespec ranker (`bin/next.py --json`) | **only `overseer-hbr.25`** — and none of the bg2 children |
+>
+> Neither is broken. `bd ready` is beads' own predicate over its native `open`;
+> the livespec ranker requires the status to be literally `ready`
+> (`lifecycle.py:127`, `lane_of(...).name == "ready"`). So **an empty
+> `bd ready` does not mean there is no ranked work, and a rich `bd ready` does
+> not mean the dispatch path can see any of it.** Run both before concluding
+> anything about what is actionable.
 
 ### PR #139 IS MERGED — and the fixture did its job by FAILING
 
