@@ -1,9 +1,12 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **OPEN — GROOMED, nothing
-built.** Created 2026-07-25 (maintainer supervisor brief 22) as the LIVING
-successor of `plan/archive/cutover-and-shipping/` (archived 2026-07-25, once this
-thread existed). Groomed 2026-07-26 into 13 filed slices — see §"NEXT ACTION".
+**Owning repo:** `livespec-overseer`. **Status:** **OPEN — BUILDING.** Goal 2's
+non-scenario registry debt is fully retired; **16 scenario rows remain** and that
+is the live work. Created 2026-07-25 (maintainer supervisor brief 22) as the
+LIVING successor of `plan/archive/cutover-and-shipping/` (archived 2026-07-25).
+Groomed 2026-07-26 into 13 filed slices; six of those plus two pre-existing
+children are DONE — see §"NEXT ACTION", which is the only section you must read
+before starting.
 
 **Ledger anchor:** epic **`overseer-hbr`** (this repo's beads tenant). Children
 and lanes are READ from the ledger (`list-work-items` / `next`), never stored
@@ -117,6 +120,20 @@ references it**, which is a goal-4 scope leak; tracked as **`overseer-hbr.8`**.
 > **`overseer-hbr.21`** (S12).
 
 ### Goal 2 — 21 scenarios, ZERO top-of-pyramid tests, and the rule is UNARMED
+
+> **SUPERSEDED IN PART (2026-07-26).** This subsection is the 2026-07-25 baseline
+> and is kept because the *analysis* below (the three buckets, the two-gate
+> distinction, core as the worked example) is still the right map. But its
+> NUMBERS have moved and its "ZERO top-of-pyramid tests" heading is no longer
+> true:
+>
+> - **All 33 non-scenario rows are mapped.** `.17` retired the 26 cheap rows
+>   (PR #93) and `.18` the 7 awkward ones (PR #96), each sabotage-verified.
+> - **A `tests/integration/` tree now exists** with the first 5 scenario tests
+>   (PR #97), so the registry stands at **16 TODO of 54**, all `scenarios.md`.
+> - The lever is still **UNARMED** — that part holds, and `.20` is still last.
+>
+> Re-measure before relying on any count here.
 
 - `SPECIFICATION/scenarios.md` is 236 lines carrying **21** `## Scenario:`
   headings.
@@ -429,11 +446,96 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
-## NEXT ACTION — the groom is DONE; build the filed slices
+## NEXT ACTION — continue `.19`; 16 scenario rows remain
 
-**The groom ran 2026-07-26 and its 13 slices are FILED** as children
-`overseer-hbr.10` … `.22`. This section previously said "groom the six goals into
-slices"; that work is complete. The next action is to BUILD.
+**Building is under way.** The groom ran 2026-07-26 and its 13 slices are filed as
+children `overseer-hbr.10` … `.22`. Six of them plus two pre-existing children are
+now DONE. **Your next action is `overseer-hbr.19` slice 2.**
+
+### Start here
+
+1. **Read `overseer-hbr.19`'s ledger notes first** (`bd show overseer-hbr.19`).
+   They carry the tier prefix, the harness import, the two structural
+   prerequisites already solved, and — most importantly — the method note below.
+2. **Write the next batch of scenario tests** in
+   `tests/integration/`, following `tests/integration/test_wrapup_escalation.py`.
+   Land in SLICES (≈5 scenarios per PR), not one XL branch.
+3. **Map each row** in `tests/heading-coverage.json` with its `reason` recording
+   the injected defect that reddens it.
+
+**THE METHOD THAT MATTERS — name the injected defect BEFORE writing the
+assertion, then actually run it.** In slice 1, **two of five** tests initially
+passed for the wrong reason:
+
+- A sabotage set exactly at a boundary (`_ACK_STALE_AFTER = 0.0` against an ack
+  of age `0.0`, compared with `<=`) silently no-ops. That is indistinguishable
+  from a test with no teeth.
+- One test asserted "staleness authorizes nothing" but was really pinning "no
+  stamp, no restart" — the interlock short-circuited before the token was ever
+  examined, so sabotaging `ready_valid` left it GREEN. It had to be restructured
+  to open the round first.
+
+Two-in-five is the argument for doing this per-row, not per-batch. **Assert the
+sabotage LANDED before trusting a green result.**
+
+### State on the forge (measured 2026-07-26)
+
+- **PR #97** — `.19` slice 1, five wrap-up scenarios. **Green, mergeable, awaiting
+  the supervisor's standing merge.** Takes the registry from 21 TODO to **16**.
+  If it has merged, master shows 16; if not, rebase onto whatever master holds.
+- **PR #52** (`chore(master): release 0.12.0`) — deliberately **HELD** until
+  `.11` lands the `source_repo` fix. Do not merge it.
+- Registry on master before #97: **21 TODO of 54**, all `scenarios.md`.
+
+### DONE — do not redo
+
+| item | what landed |
+|---|---|
+| `.17` (S8) | all 26 cheap rows mapped — PR #93 |
+| `.18` (S9) | all 7 awkward rows, sabotage-verified — PR #96 |
+| `.10` (S1) | `plugin.json` in release-please `extra-files`, version synced, two headers — PR #92 |
+| `.5` | `registry.py` docstring no longer cites the removed `watch_set` — PR #94 |
+| `.7` | the stale CAUTION block — PR #95 |
+| `.19` slice 1 | 5 of 21 scenarios — PR #97, open and green |
+
+`.21` (S12) and `.22` (S13) carry full written dispositions in their ledger notes
+— including that **`overseer-3wt` may now close** (both items 3 and 5 disposed)
+and that **`livespec-cbmw` is fully stale and should close**. Neither has been
+closed; both are core-tenant or maintainer calls.
+
+### `.16`/S7 — THIS THREAD HAS STOOD DOWN
+
+`plan/supervisor-prompt-quality/` (epic `overseer-byvxlp`, PR #90) sequences
+`.16`'s execution as its step 2. Per the conflicting-lane rule this thread stands
+down on **that action only** — `.16` stays filed as a child of `overseer-hbr` and
+untouched. **This is not a blocked state**; everything else continues.
+
+`overseer-fitvmo` is CLOSED and properly disposed — a maintainer-directed
+supersession into `.16` and `overseer-byvxlp`, with an explicit no-content-dropped
+clause. **The disposition is in the `close_reason` field**, which is distinct from
+`resolution` and `reason` (neither of which exists as a key on that record). An
+earlier pass queried the wrong fields and wrongly reported it as an undisposed
+burial. When checking whether something was disposed, read the whole record's
+keys.
+
+### Ledger lifecycle — repaired, with one item left
+
+Every child sat at beads' native `open`, which is **not** a livespec
+`WorkItemStatus`. Effect: `is_item_ready` never fired, `next` ranked zero
+candidates, and `drive --action approve` refused — dispatch was silently disabled
+for the whole epic. 16 children are now `pending-approval` (read back to verify);
+6 are `done`.
+
+**`.16` is still `open`** — deliberately, since this thread stood down on it.
+Whoever picks it up must repair it the same way.
+
+**Do not trust `intake:triaged` on `.10`–`.22`.** That marker means "the DoR gate
+saw this item". On `.1`–`.9` it is genuine (they also carry `origin:freeform`, so
+they came through `capture-work-item`). On `.10`–`.22` it was **inherited from the
+epic's own labels** by `bd create --parent`; the router never ran. Root cause:
+`bd create --parent` is the only way to get hierarchical `.N` children — the
+`WorkItem` model has no parent field at all — but it defaults status to `open` and
+inherits parent labels. Any future hierarchical filing must correct both.
 
 ### What was filed, and the two decisions behind it
 
@@ -463,25 +565,26 @@ was set by hand and then read back from the ledger to verify.**
 
 ### The filed graph
 
-| slice | id | goal | blocked by |
-|---|---|---|---|
-| S1 residue, non-workflow | `.10` | 3a | — |
-| S2 workflow landing (maintainer-side) | `.11` | 3a | `.10` |
-| S3 cut v0.12.0 → `release` branch | `.12` | 3a | `.11` |
-| S4 register marketplace fleet-wide | `.13` | 4 | `.12` |
-| S5 consumer pin path observed | `.14` | 5 | `.12` |
-| S6 goal-1 acceptance, live | `.15` | 1 | `.13`, `.16` |
-| S7 template: BOTH stall modes | `.16` | 1 | — |
-| S8 map the 26 cheap rows | `.17` | 2 | — |
-| S9 decide the 7 awkward rows | `.18` | 2 | — |
-| S10 21 scenario tests | `.19` | 2 | `.17`, `.18` |
-| S11 arm the lever, LAST | `.20` | 3b | `.19` |
-| S12 goal-6 dispositions | `.21` | 6 | — |
-| S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — |
+| slice | id | goal | blocked by | state |
+|---|---|---|---|---|
+| S1 residue, non-workflow | `.10` | 3a | — | **DONE** (PR #92) |
+| S2 workflow landing (maintainer-side) | `.11` | 3a | `.10` | |
+| S3 cut v0.12.0 → `release` branch | `.12` | 3a | `.11` | |
+| S4 register marketplace fleet-wide | `.13` | 4 | `.12` | |
+| S5 consumer pin path observed | `.14` | 5 | `.12` | |
+| S6 goal-1 acceptance, live | `.15` | 1 | `.13`, `.16` | |
+| S7 template: BOTH stall modes | `.16` | 1 | — | |
+| S8 map the 26 cheap rows | `.17` | 2 | — | **DONE** (PR #93) |
+| S9 decide the 7 awkward rows | `.18` | 2 | — | **DONE** (PR #96) |
+| S10 21 scenario tests | `.19` | 2 | `.17`, `.18` | **IN FLIGHT** — 5/21, PR #97 |
+| S11 arm the lever, LAST | `.20` | 3b | `.19` | |
+| S12 goal-6 dispositions | `.21` | 6 | — | |
+| S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | |
 
 **Then build** through the normal machinery (`drive --action approve:<id>` then
-`impl:<id>` for factory-tier work). `.10`, `.16`, `.17`, `.18`, `.21` and `.22`
-are unblocked today.
+`impl:<id>`). Rows without a state above are still `pending-approval` and
+unstarted. `.19` is the live one; `.21` and `.22` are unblocked and carry written
+dispositions awaiting closure decisions.
 
 ### Ordering — BOTH edges are now MEASURED HARD CONSTRAINTS
 
