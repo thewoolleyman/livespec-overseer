@@ -90,6 +90,10 @@ __all__ = [
 
 # ~10s fast loop (design). Configurable via the daemon CLI ``--interval``.
 LOOP_INTERVAL_SECONDS = 10
+# Wall-clock ceiling on the one `git` call this module makes. A liveness floor, not
+# a latency budget: `git check-ignore` is a local index read that returns in
+# milliseconds, so exceeding this means git is not answering at all.
+_GIT_TIMEOUT_SECONDS = 10.0
 
 # The "danger" line, expressed in REMAINING-context percent: ~20% left ≈ 80% used.
 # At/below this with no `ready` declaration, the daemon SURFACES the track to the
@@ -388,6 +392,11 @@ def idle_nudge_message(*, remaining: int, threshold: int, repo: str, topic: str)
 def default_gitignore_check(repo: str) -> bool:
     """True iff ``<repo>/tmp/overseer/`` is gitignored in ``repo``.
 
+    Bounded by ``_GIT_TIMEOUT_SECONDS``: this runs on the START-UP path, so an
+    unbounded hang here wedges the daemon before any tick, and a restart would
+    re-enter the same hang. A timeout resolves to the same fail-soft ``False`` as a
+    spawn error.
+
     ``git -C <repo> check-ignore -q tmp/overseer`` exits 0 when the path is
     ignored, 1 when it is not, 128 on error — so only a 0 means "ignored". The
     daemon refuses to start unless every watched repo passes, because the overseer
@@ -399,8 +408,13 @@ def default_gitignore_check(repo: str) -> bool:
             ["git", "-C", repo, "check-ignore", "-q", "tmp/overseer"],  # noqa: S607 — PATH git
             capture_output=True,
             check=False,
+            timeout=_GIT_TIMEOUT_SECONDS,
         )
-    except OSError:
+    # TimeoutExpired subclasses SubprocessError, so neither OSError nor ValueError
+    # catches it. It resolves to the SAME fail-soft False as a spawn error — an
+    # unanswerable check has not proven the path is ignored, so the daemon refuses
+    # to start rather than risking a write into a tracked tree.
+    except (OSError, subprocess.TimeoutExpired):
         return False
     return completed.returncode == 0
 

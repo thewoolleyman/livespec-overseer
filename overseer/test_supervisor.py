@@ -4752,6 +4752,33 @@ def test_gitignore_check_fails_soft_to_not_ignored_when_git_cannot_spawn(monkeyp
     assert supervisor.default_gitignore_check("/x/repo") is False
 
 
+def test_gitignore_check_passes_a_timeout_and_fails_soft_when_git_hangs(monkeypatch):
+    """A hung `git` on the START-UP path is worse than a hung one mid-tick.
+
+    This gate runs before any tick, so an unbounded hang wedges the daemon with
+    nothing supervised, and under crash-and-restart a restart would re-enter the very
+    same hang. Neither the fail-soft handler nor the "let it crash" posture helps: a
+    hang raises nothing, so there is nothing to catch and nothing to crash.
+
+    `TimeoutExpired` subclasses `SubprocessError`, so it is caught only because it is
+    named explicitly — the prior `except OSError` would have let it escape. It
+    resolves to the same `False` as a spawn error, which makes the daemon REFUSE to
+    start: an unanswerable check has not proven the path is ignored, and failing soft
+    to True would be the unsafe direction.
+    """
+    seen = {}
+
+    def hang(argv, **kwargs):
+        seen.update(kwargs)
+        raise supervisor.subprocess.TimeoutExpired(cmd=argv, timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(supervisor.subprocess, "run", hang)
+
+    assert supervisor.default_gitignore_check("/x/repo") is False
+    assert seen.get("timeout") is not None, "the git call must carry a timeout"
+    assert seen["timeout"] > 0
+
+
 # --------------------------------------------------------------------------- #
 # CLI wiring: the fixed fleet manifest, the no-knob Supervisor builder, and the
 # `list` / `adopt` / failing-`start` subcommand bodies.
