@@ -16,7 +16,6 @@ runtime import cycle exists.
 
 from __future__ import annotations
 
-import os
 import shlex
 from typing import TYPE_CHECKING
 
@@ -42,18 +41,9 @@ __all__: list[str] = [
     "launch_command",
     "pane_settled",
     "resend_enter",
-    "resolve_watch",
     "session_of",
     "submit_prompt",
 ]
-
-
-def resolve_watch(sup: Supervisor) -> list[str]:
-    if sup.watch_repos is not None:
-        return [os.path.normpath(r) for r in sup.watch_repos]
-    if sup.watch_set_path is not None:
-        return registry.watch_set_from_config(sup.watch_set_path, sup.extra_repos)
-    return [os.path.normpath(r) for r in sup.extra_repos]
 
 
 def session_of(sup: Supervisor, track: registry.Track) -> str:
