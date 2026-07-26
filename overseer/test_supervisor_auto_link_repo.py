@@ -74,7 +74,7 @@ def test_missing_session_with_live_out_of_tmux_claude_is_live_outside_tmux(tmp_p
     assert view.note is not None
     assert "OUTSIDE tmux" in view.note
     assert "busy" in view.note  # the session's own self-reported status is surfaced
-    assert not fake.has("capture")  # there is no pane to read
+    assert not fake.has(method="capture")  # there is no pane to read
 
 
 def test_missing_session_without_any_live_claude_is_still_session_gone(tmp_path):
@@ -148,7 +148,9 @@ def test_registry_busy_marks_working_despite_idle_pane(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))  # pane looks idle, high ctx
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=73)
+    )  # pane looks idle, high ctx
     sup = make_supervisor(tmp_path, fake)
     sup.claude_status_by_session = {session: "busy"}  # Claude's own live self-report
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
@@ -163,7 +165,7 @@ def test_registry_shell_marks_working_with_background_shell_note(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))  # pane at the prompt
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # pane at the prompt
     sup = make_supervisor(tmp_path, fake)
     sup.claude_status_by_session = {session: "shell"}  # Claude: a live background command
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
@@ -179,7 +181,7 @@ def test_adopted_claude_ignores_the_process_tree_shell_walk(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))  # idle pane, high ctx
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # idle pane, high ctx
     fake.pane_pid_map[session] = 100
     children = {100: [200]}
     comms = {200: "zsh"}  # a descendant shell the process-walk would flag
@@ -198,7 +200,7 @@ def test_no_registry_status_falls_back_to_process_shell_walk(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.pane_pid_map[session] = 100
     children = {100: [200]}
     comms = {200: "bash"}
@@ -217,7 +219,7 @@ def test_registry_idle_is_idle_even_with_a_stray_descendant_shell(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.pane_pid_map[session] = 100
     sup = make_supervisor(
         tmp_path,

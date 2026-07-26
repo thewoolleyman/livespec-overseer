@@ -203,7 +203,7 @@ def test_a_supervision_tick_never_opens_a_file_under_a_plan_tree(tmp_path, monke
 
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO())
     registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
 

@@ -63,9 +63,9 @@ def pane_settled(sup: Supervisor, target: str) -> bool:
     changing pane is treated as busy (`working`) and skipped this tick —
     over-firing busy is the safe direction.
     """
-    first = signals.strip_ansi(sup.tmux.capture_pane(target))
+    first = signals.strip_ansi(sup.tmux.capture_pane(session=target))
     sup.sleep(SETTLE_DELAY)
-    second = signals.strip_ansi(sup.tmux.capture_pane(target))
+    second = signals.strip_ansi(sup.tmux.capture_pane(session=target))
     return first == second
 
 
@@ -137,7 +137,7 @@ def await_pane(sup: Supervisor, target: str, is_ready: Callable[[str | None], bo
     that runtime.
     """
     for _ in range(RESTART_POLL_MAX):
-        if is_ready(sup.tmux.pane_current_command(target)):
+        if is_ready(sup.tmux.pane_current_command(session=target)):
             return True
         sup.sleep(RESTART_POLL_INTERVAL)
     return False
@@ -155,7 +155,7 @@ def await_input_box(sup: Supervisor, target: str) -> bool:
     and the next-tick `resume_pending` retry recover a residual drop).
     """
     for _ in range(RESTART_POLL_MAX):
-        if signals.input_box_ready(sup.tmux.capture_pane(target)):
+        if signals.input_box_ready(sup.tmux.capture_pane(session=target)):
             return True
         sup.sleep(RESTART_POLL_INTERVAL)
     return False
@@ -174,9 +174,9 @@ def resend_enter(sup: Supervisor, target: str) -> bool:
     prompt is a harmless no-op.
     """
     for _ in range(SUBMIT_MAX_ENTERS):
-        _ = sup.tmux.send_keys(target, "Enter")
+        _ = sup.tmux.send_keys(session=target, keys="Enter")
         sup.sleep(SUBMIT_POLL)
-        if signals.input_box_ready(sup.tmux.capture_pane(target)):
+        if signals.input_box_ready(sup.tmux.capture_pane(session=target)):
             return True
     return False
 
@@ -214,14 +214,14 @@ def submit_prompt(sup: Supervisor, target: str, text: str, *, expect_codex: bool
     would still read empty and a never-delivered wrap-up/resume would be
     counted as sent (the paste-failure false-success the maintainer flagged).
     """
-    if not sup.tmux.bracketed_paste(target, text):
+    if not sup.tmux.bracketed_paste(session=target, text=text):
         sup.log(f"bracketed paste FAILED for pane {target}")
         return False
     sup.sleep(RESTART_POLL_INTERVAL)
     for _ in range(SUBMIT_MAX_ENTERS):
-        _ = sup.tmux.send_keys(target, "Enter")
+        _ = sup.tmux.send_keys(session=target, keys="Enter")
         sup.sleep(SUBMIT_POLL)
-        capture = sup.tmux.capture_pane(target)
+        capture = sup.tmux.capture_pane(session=target)
         submitted = signals.is_busy(capture) if expect_codex else signals.input_box_ready(capture)
         if submitted:
             return True

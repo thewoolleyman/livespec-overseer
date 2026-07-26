@@ -41,7 +41,7 @@ def test_malformed_state_alert_is_edge_triggered_while_danger_repeats(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=13))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))
     declare(repo, topic, "working: still handling it")
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
@@ -64,7 +64,7 @@ def test_log_lines_are_timestamped(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=50))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: x")
     sup = make_supervisor(tmp_path, fake)
 
@@ -88,7 +88,7 @@ def test_window_name_is_badged_with_the_attention_count(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=50))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: needs you")
     sup = make_supervisor(
         tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
@@ -105,7 +105,7 @@ def test_window_name_drops_the_badge_when_nothing_needs_attention(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=90))  # healthy
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=90))  # healthy
     sup = make_supervisor(
         tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
     )
@@ -121,7 +121,7 @@ def test_window_name_is_only_rewritten_when_the_count_changes(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=50))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: x")
     sup = make_supervisor(
         tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
@@ -140,7 +140,7 @@ def test_read_only_list_never_renames_the_window(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=50))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: x")
     sup = make_supervisor(
         tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
@@ -213,7 +213,7 @@ def test_an_unadopted_codex_looking_pane_is_never_restarted(tmp_path):
     fake = FakeTmux()
     # A real codex pane: tmux reports `bun` (the launcher), NOT `codex` — the vendored
     # binary is its child. Verified live 2026-07-16 on tmux session `livespec3`.
-    fake.serve(session, repo, capture=codex_idle_capture(ctx=40), cmd="bun")
+    fake.serve(session=session, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})  # live_codex EMPTY: not adopted
@@ -221,5 +221,5 @@ def test_an_unadopted_codex_looking_pane_is_never_restarted(tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "session-gone"  # unadopted `bun` pane is not ours to act on
-    assert not fake.has("respawn")  # no restart of a pane we cannot prove is codex
-    assert not fake.has("paste")  # and nothing keystroked into it either
+    assert not fake.has(method="respawn")  # no restart of a pane we cannot prove is codex
+    assert not fake.has(method="paste")  # and nothing keystroked into it either

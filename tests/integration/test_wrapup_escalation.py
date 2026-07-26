@@ -40,7 +40,7 @@ def _track(tmp_path, *, ctx, topic="topic"):
     repo, topic = make_plan(tmp_path, topic=topic)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=ctx))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=ctx))
     return repo, topic, session, fake
 
 
@@ -89,7 +89,9 @@ def test_scenario_the_wrapup_sharpens_as_context_keeps_falling(tmp_path):
     assert len(fake.paste_texts()) == 1
     suggestion = fake.paste_texts()[0]
 
-    fake.serve(session, repo, capture=idle_capture(ctx=28))  # crosses into 30-and-below
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=28)
+    )  # crosses into 30-and-below
     sup.evaluate(track, act=True)
     assert len(fake.paste_texts()) == 2
     demand = fake.paste_texts()[1]
@@ -136,7 +138,9 @@ def test_scenario_a_winding_down_acknowledgement_pauses_the_escalation(tmp_path)
     assert len(fake.paste_texts()) == 1
 
     declare(repo, topic, "winding-down", mtime=1000.0)  # fresh: clock is pinned at 1000.0
-    fake.serve(session, repo, capture=idle_capture(ctx=28))  # would otherwise cross a band
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=28)
+    )  # would otherwise cross a band
     view = sup.evaluate(track, act=True)
 
     assert len(fake.paste_texts()) == 1  # still ONE — the acknowledgement paused it
@@ -177,7 +181,7 @@ def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_noth
     # coalesced bands 50/40/30 into its one message (several bands crossed at once
     # coalesce, per the contract), so at an unchanged 28% nothing further is due and a
     # resumed escalation would look identical to a suppressed one.
-    fake.serve(session, repo, capture=idle_capture(ctx=18))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=18))
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(track, act=True)
@@ -185,5 +189,5 @@ def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_noth
     assert len(fake.paste_texts()) == 2  # escalation resumed: the 20-band fired
     assert "20%" in fake.paste_texts()[1] or "18%" in fake.paste_texts()[1]
     assert topic in err.getvalue()  # ...and the track was re-reported to the operator
-    assert not fake.has("respawn")  # ...but staleness authorized NOTHING
+    assert not fake.has(method="respawn")  # ...but staleness authorized NOTHING
     assert view.status != "restarting"

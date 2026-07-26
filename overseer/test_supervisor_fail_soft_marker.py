@@ -121,7 +121,9 @@ def test_failed_nudge_alerts_and_writes_no_marker_so_it_retries(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))  # idle, well above threshold
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=73)
+    )  # idle, well above threshold
     fake.paste_ok = False  # the bracketed paste does not land
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"])
@@ -153,7 +155,7 @@ def test_pane_that_vanishes_mid_tick_is_session_gone_and_never_acted_on(tmp_path
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()  # no live Claude for the topic outside tmux either
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
@@ -161,8 +163,8 @@ def test_pane_that_vanishes_mid_tick_is_session_gone_and_never_acted_on(tmp_path
     marker = arm_ready_marker(repo, topic, mtime=1001.0)
     exists = fake.session_exists
 
-    def vanishing_exists(name):
-        answer = exists(name)
+    def vanishing_exists(*, session):
+        answer = exists(session=session)
         fake.sessions.discard(session)  # the pane dies right after we looked
         return answer
 
@@ -172,8 +174,8 @@ def test_pane_that_vanishes_mid_tick_is_session_gone_and_never_acted_on(tmp_path
 
     assert view.status == "session-gone"
     assert view.tmux is None  # never name a session that is not there
-    assert not fake.has("respawn")  # nothing was targeted...
-    assert not fake.has("paste")
+    assert not fake.has(method="respawn")  # nothing was targeted...
+    assert not fake.has(method="paste")
     assert marker.exists()  # ...and the declaration survives for a later tick
 
 
@@ -185,7 +187,7 @@ def test_restart_keeps_the_marker_when_the_respawned_pane_never_becomes_claude(t
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     on_respawn(fake, lambda s: fake.cmds.__setitem__(s, "zsh"))  # comes up a shell
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
@@ -211,7 +213,7 @@ def test_freshly_restarted_pane_on_a_gate_pends_the_resume_instead_of_keystrokin
     session = registry.tmux_id(str(repo), topic)
     gate = "Do you want to proceed?\n❯ 1. Yes\n  2. No\n"
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     on_respawn(fake, lambda s: fake.panes.__setitem__(s, gate))  # fresh TUI opens on a gate
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
@@ -222,7 +224,7 @@ def test_freshly_restarted_pane_on_a_gate_pends_the_resume_instead_of_keystrokin
         sup.evaluate(mapped_track(repo, topic, session), act=True)
 
     assert "freshly-restarted pane is on a gate" in err.getvalue()
-    assert not fake.has("paste")  # NEVER keystroked the picker
+    assert not fake.has(method="paste")  # NEVER keystroked the picker
     assert not any(c[0] == "keys" for c in fake.calls)
     assert registry.read_resume_pending(str(repo), topic, sup.stamp_path) is True
     assert marker.exists()  # round left open for the retry

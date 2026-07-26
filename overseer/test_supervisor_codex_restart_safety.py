@@ -63,7 +63,7 @@ def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_comm
     # the resumed codex stalls at an interactive approval picker and the restart is not
     # hands-off (maintainer-declared 2026-07-17).
     assert "--dangerously-bypass-approvals-and-sandbox" in command
-    assert not fake.has("paste")  # the kick is the resume ARGUMENT — no separate paste
+    assert not fake.has(method="paste")  # the kick is the resume ARGUMENT — no separate paste
     # THE ROUND IS CLOSED on success — and this is the high-consequence property. The await
     # (`_await_pane(pane_is_codex)`, which needs FakeTmux to model the respawn as a codex
     # pane) must succeed AND `_clear_state` must delete the marker, or a stale `ready` would
@@ -73,7 +73,7 @@ def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_comm
     fake.calls.clear()
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.evaluate(mapped_track(repo, topic, session), act=True)
-    assert not fake.has("respawn")  # no re-restart of the session we just resumed
+    assert not fake.has(method="respawn")  # no re-restart of the session we just resumed
 
 
 def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(tmp_path):
@@ -88,7 +88,7 @@ def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(
     _, topic_b = make_plan(tmp_path, topic="beta")
     shared = "shared-tmux"
     fake = FakeTmux()
-    fake.serve(shared, repo, capture=codex_idle_capture(ctx=40), cmd="bun")
+    fake.serve(session=shared, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun")
     sup = make_supervisor(tmp_path, fake)
     id_a = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
     id_b = "019f548d-6071-7893-9c2e-472cce81da02"
@@ -100,7 +100,7 @@ def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(
             pid=20, name=topic_b, cwd=str(repo), session_id=id_b
         ),
     }
-    target = fake.pane_id(shared)
+    target = fake.pane_id(session=shared)
     with contextlib.redirect_stderr(_io.StringIO()):
         sup._do_codex_restart(mapped_track(repo, topic_a, shared), target)
         sup._do_codex_restart(mapped_track(repo, topic_b, shared), target)
@@ -172,8 +172,8 @@ def test_a_codex_track_below_threshold_gets_the_escalating_wrapup(tmp_path):
     fake = FakeTmux()
     # frames: [main, settle-1, settle-2 (== settle-1 → settled), post-Enter (busy → submitted)]
     fake.serve(
-        session,
-        repo,
+        session=session,
+        repo=repo,
         capture=[codex_idle_capture(ctx=40)] * 3 + [codex_busy_capture(ctx=40)],
         cmd="bun",
     )
@@ -188,7 +188,7 @@ def test_a_codex_track_below_threshold_gets_the_escalating_wrapup(tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "warned"  # below threshold, above danger → warned (not idle)
-    assert fake.has("paste")  # the wrap-up reached the Codex track
+    assert fake.has(method="paste")  # the wrap-up reached the Codex track
     assert "wind" in " ".join(fake.paste_texts()).lower()  # it IS the wrap-up text
 
 
@@ -206,7 +206,7 @@ def test_a_codex_approval_gate_suppresses_the_wrapup(tmp_path):
         "  2. No, quit\n"
         "  Context 40% left · topic\n"
     )
-    fake.serve(session, repo, capture=gate, cmd="bun")
+    fake.serve(session=session, repo=repo, capture=gate, cmd="bun")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})
@@ -218,7 +218,7 @@ def test_a_codex_approval_gate_suppresses_the_wrapup(tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "blocked:human"  # a gate, not idle
-    assert not fake.has("paste")  # nothing keystroked into the picker
+    assert not fake.has(method="paste")  # nothing keystroked into the picker
 
 
 def test_a_claude_pane_keeps_its_wrapup_when_codex_shares_its_tmux_session(tmp_path):
@@ -240,7 +240,7 @@ def test_a_claude_pane_keeps_its_wrapup_when_codex_shares_its_tmux_session(tmp_p
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
     # A PROVEN live Claude pane (`node`), below its wind-down threshold => must be warned.
-    fake.serve(session, repo, capture=idle_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path, fake)
     # ...while a codex session for the SAME topic sits in the SAME tmux session.
     sup.live_codex = {
@@ -248,8 +248,10 @@ def test_a_claude_pane_keeps_its_wrapup_when_codex_shares_its_tmux_session(tmp_p
             pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
         )
     }
-    assert not sup._is_codex_track(session, str(repo), topic, fake.pane_id(session))  # pane is node
+    assert not sup._is_codex_track(
+        session, str(repo), topic, fake.pane_id(session=session)
+    )  # pane is node
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "warned"  # the Claude track is still supervised...
-    assert fake.has("paste")  # ...and still gets the wrap-up, the daemon's only lever
+    assert fake.has(method="paste")  # ...and still gets the wrap-up, the daemon's only lever

@@ -40,7 +40,7 @@ def test_stale_blocked_is_voided_for_an_in_process_sub_agent(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))  # pane looks idle
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # pane looks idle
     sup = make_supervisor(tmp_path, fake)
     sup.claude_status_by_session = {session: "busy"}  # sub-agent running in-process
     declare(repo, topic, "blocked: stale", mtime=800.0)
@@ -56,7 +56,7 @@ def test_idle_blocked_session_is_never_voided(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake)
     sup.claude_status_by_session = {session: "waiting"}
     declare(repo, topic, "blocked: still waiting on you", mtime=800.0)
@@ -82,7 +82,7 @@ def test_live_track_without_supervisor_handoff_offers_supervise_plan_once(tmp_pa
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
@@ -101,8 +101,8 @@ def test_running_supervisor_without_handoff_offers_capture_once(tmp_path):
     session = registry.tmux_id(str(repo), topic)
     supervisor_session = f"{session}-supervisor"
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
-    fake.serve(supervisor_session, repo, capture=idle_capture(ctx=73), cmd="node")
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73), cmd="node")
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
@@ -121,7 +121,7 @@ def test_handoff_without_running_supervisor_offers_start_once(tmp_path):
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
@@ -140,8 +140,8 @@ def test_dead_supervisor_tmux_name_still_offers_surface_b(tmp_path):
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
-    fake.serve(f"{session}-supervisor", repo, capture=idle_capture(ctx=73), cmd="zsh")
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    fake.serve(session=f"{session}-supervisor", repo=repo, capture=idle_capture(ctx=73), cmd="zsh")
     sup = make_supervisor(tmp_path, fake)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
@@ -173,7 +173,7 @@ def test_supervision_surfaces_do_not_preempt_blocked_or_danger(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     declare(repo, topic, "blocked: needs a decision")
     sup = make_supervisor(tmp_path, fake)
     blocked = sup.evaluate(mapped_track(repo, topic, session), act=True)
@@ -181,7 +181,7 @@ def test_supervision_surfaces_do_not_preempt_blocked_or_danger(tmp_path):
 
     other_repo, other_topic = make_plan(tmp_path, repo_name="other", topic="other")
     other_session = registry.tmux_id(str(other_repo), other_topic)
-    fake.serve(other_session, other_repo, capture=idle_capture(ctx=15))
+    fake.serve(session=other_session, repo=other_repo, capture=idle_capture(ctx=15))
     danger = sup.evaluate(mapped_track(other_repo, other_topic, other_session), act=True)
     assert danger.status == "danger"
 
@@ -194,8 +194,8 @@ def test_handoff_and_running_supervisor_is_silent_healthy_cell(tmp_path):
     session = registry.tmux_id(str(repo), topic)
     supervisor_session = f"{session}-supervisor"
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
-    fake.serve(supervisor_session, repo, capture=idle_capture(ctx=73), cmd="node")
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73), cmd="node")
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
     with contextlib.redirect_stderr(_io.StringIO()) as err:

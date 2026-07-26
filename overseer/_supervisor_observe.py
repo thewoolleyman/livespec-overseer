@@ -84,7 +84,7 @@ def is_codex_track(
         return False
     if target is None:
         return True  # no pane to check against (callers that only have the mapping)
-    return signals.pane_is_codex(sup.tmux.pane_current_command(target))
+    return signals.pane_is_codex(sup.tmux.pane_current_command(session=target))
 
 
 def pane_is_managed(
@@ -133,9 +133,9 @@ def pane_is_managed_claude(
     ``target`` is the resolved pane id (RB3), so the identity read is of the
     exact pane, never a prefix-matched sibling.
     """
-    if not signals.pane_is_claude(sup.tmux.pane_current_command(target)):
+    if not signals.pane_is_claude(sup.tmux.pane_current_command(session=target)):
         return False
-    if not signals.path_in_repo(sup.tmux.pane_current_path(target), repo):
+    if not signals.path_in_repo(sup.tmux.pane_current_path(session=target), repo):
         return False
     names = sup.claude_names_by_session.get(session or "")
     return not names or topic in names
@@ -153,14 +153,14 @@ def observe(
     how long the session has been idle rather than a decision about it.
     """
     repo, topic = track.repo, track.topic
-    capture = sup.tmux.capture_pane(target)
+    capture = sup.tmux.capture_pane(session=target)
     # A pane can show an empty prompt yet still be running a
     # `Bash(run_in_background)` command — that command runs as a DESCENDANT
     # shell of the pane's process. A descendant shell ⇒ active background work
     # ⇒ the session is BUSY (suppresses both injection AND restart), even
     # though the pane text looks idle. Runtime-agnostic (walks the process
     # tree, independent of any Claude-specific registry).
-    pane_pid = sup.tmux.pane_pid(session)
+    pane_pid = sup.tmux.pane_pid(session=session)
     bg_shell = pane_pid is not None and claude_sessions.has_active_subshell(
         pane_pid, children_of=sup.children_of, comm_of=sup.comm_of
     )

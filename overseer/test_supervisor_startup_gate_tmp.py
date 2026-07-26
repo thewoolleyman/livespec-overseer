@@ -39,12 +39,12 @@ def test_start_refuses_running_claude_without_force(tmp_path, monkeypatch):
     session = registry.tmux_id(str(repo), topic)
     store = isolate_store(tmp_path, monkeypatch)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture())
+    fake.serve(session=session, repo=repo, capture=idle_capture())
 
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
     rc = supervisor.main(["start", "--repo", str(repo), "--topic", topic])
     assert rc == 0
-    assert not fake.has("respawn")  # the live session was NOT killed
+    assert not fake.has(method="respawn")  # the live session was NOT killed
     # but the mapping was upserted
     assert [(r.topic) for r in registry.read_mapping(store)] == [topic]
 
@@ -55,12 +55,12 @@ def test_start_force_respawns_running_claude(tmp_path, monkeypatch):
     session = registry.tmux_id(str(repo), topic)
     isolate_store(tmp_path, monkeypatch)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture())
+    fake.serve(session=session, repo=repo, capture=idle_capture())
 
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
     rc = supervisor.main(["start", "--force", "--repo", str(repo), "--topic", topic])
     assert rc == 0
-    assert fake.has("respawn")
+    assert fake.has(method="respawn")
 
 
 def test_cli_surface_has_no_config_knobs(tmp_path, monkeypatch):

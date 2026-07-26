@@ -146,7 +146,7 @@ def test_blocked_human_alert_caps_an_over_long_reason(tmp_path, capsys):
     session = registry.tmux_id(str(repo), topic)
     declare(repo, topic, "blocked: " + "y" * 400)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path, fake)
     sup.evaluate(mapped_track(repo, topic, session), act=True)
     err = capsys.readouterr().err
@@ -166,7 +166,7 @@ def test_alert_is_edge_triggered_not_repeated_every_tick(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=50))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: needs a human")
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
@@ -188,9 +188,9 @@ def test_alert_re_arms_after_the_track_recovers(tmp_path):
     # 90% remaining: comfortably above the warn threshold, so the recovered tick is
     # healthy — `idle-with-context-left` (idle with room, so nudged to keep going). It is
     # NOT an attention status, so the edge-triggered alert still re-arms.
-    fake.serve(session, repo, capture=idle_capture(ctx=90))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=90))
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
-    fake.serve(f"{session}-supervisor", repo, capture=idle_capture(ctx=90), cmd="node")
+    fake.serve(session=f"{session}-supervisor", repo=repo, capture=idle_capture(ctx=90), cmd="node")
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
 
@@ -212,7 +212,7 @@ def test_alert_reports_again_when_the_reason_changes(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=50))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
 

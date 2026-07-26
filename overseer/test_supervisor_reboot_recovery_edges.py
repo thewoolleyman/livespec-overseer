@@ -42,13 +42,13 @@ def test_do_launch_is_false_when_the_pane_never_becomes_claude(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture())
+    fake.serve(session=session, repo=repo, capture=idle_capture())
     on_respawn(fake, lambda s: fake.cmds.__setitem__(s, "zsh"))  # comes up a shell
     sup = make_supervisor(tmp_path, fake)
 
     assert sup.do_launch(mapped_track(repo, topic, session), session) is False
-    assert fake.has("respawn")  # it did try...
-    assert not fake.has("paste")  # ...but never pasted into the un-verified pane
+    assert fake.has(method="respawn")  # it did try...
+    assert not fake.has(method="paste")  # ...but never pasted into the un-verified pane
 
 
 # --------------------------------------------------------------------------- #

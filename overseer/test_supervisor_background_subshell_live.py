@@ -41,7 +41,9 @@ def test_bg_shell_at_danger_is_working_and_never_restarted(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=13))  # idle-LOOKING, deep in danger
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=13)
+    )  # idle-LOOKING, deep in danger
     fake.pane_pid_map[session] = 100
     children = {100: [200], 200: [300]}
     comms = {200: "node", 300: "bash"}  # a LIVE background shell under the pane process
@@ -51,7 +53,7 @@ def test_bg_shell_at_danger_is_working_and_never_restarted(tmp_path):
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "working"  # bg shell ⇒ busy; the danger branch is never reached
     assert view.note == "background shell"
-    assert not fake.has("respawn")  # the live background work was NOT killed
+    assert not fake.has(method="respawn")  # the live background work was NOT killed
 
 
 def test_bg_shell_sets_background_shell_note(tmp_path):
@@ -60,7 +62,9 @@ def test_bg_shell_sets_background_shell_note(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))  # idle, high ctx (no inject)
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=73)
+    )  # idle, high ctx (no inject)
     fake.pane_pid_map[session] = 100
     children = {100: [200]}
     comms = {200: "bash"}  # a bg-command shell directly under the pane process
@@ -82,7 +86,7 @@ def test_textually_busy_pane_has_no_background_shell_note(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=busy_capture(ctx=40))  # actively generating
+    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))  # actively generating
     fake.pane_pid_map[session] = 100
     children = {100: [200]}
     comms = {200: "zsh"}
@@ -104,7 +108,9 @@ def test_fresh_marker_survives_busy_certifying_tail(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture="esc to interrupt\n  Ctx: 30% left\n")  # busy tail
+    fake.serve(
+        session=session, repo=repo, capture="esc to interrupt\n  Ctx: 30% left\n"
+    )  # busy tail
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 990.0, sup.stamp_path)
     marker = arm_ready_marker(repo, topic, mtime=995.0)
@@ -122,7 +128,9 @@ def test_stale_marker_voided_when_busy_past_grace(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture="esc to interrupt\n  Ctx: 30% left\n")  # busy again
+    fake.serve(
+        session=session, repo=repo, capture="esc to interrupt\n  Ctx: 30% left\n"
+    )  # busy again
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 700.0, sup.stamp_path)
     marker = arm_ready_marker(repo, topic, mtime=800.0)
@@ -143,7 +151,7 @@ def test_void_resets_inject_state_so_round_can_recertify(tmp_path):
     sup = make_supervisor(tmp_path, fake)
     track = mapped_track(repo, topic, session)
     # Round 1: inject (stamp written, a band recorded) on an idle low-ctx pane.
-    fake.serve(session, repo, capture=idle_capture(ctx=40))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup.evaluate(track, act=True)
     assert key_for(repo, topic) in sup.inject  # in-memory last_ctx tracked
     assert registry.read_notified_bands(str(repo), topic, sup.stamp_path)  # a band recorded
@@ -163,14 +171,16 @@ def test_no_restart_when_not_idle(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture="stale scrollback with no prompt box\n")  # not idle, not busy
+    fake.serve(
+        session=session, repo=repo, capture="stale scrollback with no prompt box\n"
+    )  # not idle, not busy
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)
 
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "settling"
-    assert not fake.has("respawn")
+    assert not fake.has(method="respawn")
 
 
 def test_restart_keeps_marker_when_respawn_fails(tmp_path):
@@ -179,7 +189,7 @@ def test_restart_keeps_marker_when_respawn_fails(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     fake.respawn_ok = False  # respawn fails
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
@@ -199,7 +209,9 @@ def test_renamed_session_is_idle_and_restarts(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30, topic=topic))  # titled border
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=30, topic=topic)
+    )  # titled border
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)

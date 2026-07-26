@@ -244,8 +244,8 @@ def on_respawn(fake, after):
     """
     inner = fake.respawn_pane
 
-    def respawn(session, cwd, command):
-        landed = inner(session, cwd, command)
+    def respawn(*, session, cwd, command):
+        landed = inner(session=session, cwd=cwd, command=command)
         if landed:
             after(session)
         return landed
@@ -337,7 +337,9 @@ def adopt_codex_ready(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=codex_idle_capture(ctx=40), cmd="bun")  # a codex pane
+    fake.serve(
+        session=session, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun"
+    )  # a codex pane
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})

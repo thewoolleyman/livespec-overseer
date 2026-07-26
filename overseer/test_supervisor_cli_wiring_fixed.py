@@ -75,7 +75,7 @@ def test_cli_start_fails_when_the_tmux_session_cannot_be_created(tmp_path, monke
 
     assert supervisor.main(["start", "--repo", str(repo), "--topic", topic]) == 1
     assert ("new", session, str(repo)) in fake.calls
-    assert not fake.has("respawn")  # never respawned a prefix-matched sibling
+    assert not fake.has(method="respawn")  # never respawned a prefix-matched sibling
     assert "could not create tmux session" in capsys.readouterr().err
     assert registry.read_mapping(store) == []  # nothing mapped
 
@@ -92,7 +92,7 @@ def test_cli_start_fails_when_the_launch_does_not_land(tmp_path, monkeypatch, ca
 
     assert supervisor.main(["start", "--repo", str(repo), "--topic", topic]) == 1
     assert ("new", session, str(repo)) in fake.calls
-    assert fake.has("respawn")
+    assert fake.has(method="respawn")
 
     err = capsys.readouterr().err
     assert "start FAILED to launch" in err and session in err
@@ -116,7 +116,7 @@ def test_read_only_list_reports_a_malformed_state_file_without_alerting(tmp_path
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     declare(repo, topic, "redy", mtime=1001.0)  # typo
@@ -127,8 +127,8 @@ def test_read_only_list_reports_a_malformed_state_file_without_alerting(tmp_path
 
     assert view.note is not None and "redy" in view.note  # the operator still sees it
     assert "MALFORMED state file" not in err.getvalue()  # but no alert was emitted
-    assert not fake.has("paste")
-    assert not fake.has("respawn")
+    assert not fake.has(method="paste")
+    assert not fake.has(method="respawn")
 
 
 def test_read_only_list_reports_working_without_retiring_a_stale_block(tmp_path):
@@ -139,7 +139,9 @@ def test_read_only_list_reports_working_without_retiring_a_stale_block(tmp_path)
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture="esc to interrupt\n  Ctx: 40% left\n")  # generating
+    fake.serve(
+        session=session, repo=repo, capture="esc to interrupt\n  Ctx: 40% left\n"
+    )  # generating
     sup = make_supervisor(tmp_path, fake)
     declare(repo, topic, "blocked: waiting on a human", mtime=1.0)  # far past the grace
     track = mapped_track(repo, topic, session)
@@ -164,7 +166,7 @@ def test_read_only_list_reports_restarting_without_respawning(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     marker = arm_ready_marker(repo, topic, mtime=1001.0)
@@ -172,8 +174,8 @@ def test_read_only_list_reports_restarting_without_respawning(tmp_path):
     view = sup.evaluate(mapped_track(repo, topic, session), act=False)
 
     assert view.status == "restarting"
-    assert not fake.has("respawn")  # the session was NOT killed by a `list`
-    assert not fake.has("paste")
+    assert not fake.has(method="respawn")  # the session was NOT killed by a `list`
+    assert not fake.has(method="paste")
     assert marker.exists()  # the authorization survives for the daemon's own tick
     assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) == 1000.0
 
@@ -186,7 +188,7 @@ def test_read_only_list_reports_danger_without_injecting_or_alerting(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=15))  # <= DANGER_CTX_REMAINING
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=15))  # <= DANGER_CTX_REMAINING
     sup = make_supervisor(tmp_path, fake)
     err = _io.StringIO()
 
@@ -234,7 +236,7 @@ def test_failed_paste_in_an_already_open_round_keeps_the_rounds_stamp(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))  # a LOWER band than 50
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # a LOWER band than 50
     fake.paste_ok = False  # the re-warn paste does not land
     sup = make_supervisor(tmp_path, fake, warn_percent=50)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)  # round ALREADY open

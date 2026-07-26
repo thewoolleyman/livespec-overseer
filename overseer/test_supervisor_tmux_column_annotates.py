@@ -45,7 +45,9 @@ def test_evaluate_derives_codex_runtime_and_annotates_the_tmux_cell(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=codex_idle_capture(ctx=80, topic=topic), cmd="bun")
+    fake.serve(
+        session=session, repo=repo, capture=codex_idle_capture(ctx=80, topic=topic), cmd="bun"
+    )
     sup = make_supervisor(tmp_path, fake)
     # `live_codex` is keyed by (tmux_session, name) so two codex sessions can share a tmux
     # session (fix a24e3e13) — key this fixture the same way the other codex tests do.

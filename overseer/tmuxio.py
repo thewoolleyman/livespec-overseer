@@ -66,29 +66,29 @@ class PaneDriver(Protocol):
     which hold a concrete ``TmuxIO`` rather than reaching through this seam.
     """
 
-    def capture_pane(self, session: str) -> str: ...
+    def capture_pane(self, *, session: str) -> str: ...
 
-    def pane_id(self, session: str) -> str | None: ...
+    def pane_id(self, *, session: str) -> str | None: ...
 
-    def pane_pid(self, session: str) -> int | None: ...
+    def pane_pid(self, *, session: str) -> int | None: ...
 
-    def pane_current_command(self, session: str) -> str | None: ...
+    def pane_current_command(self, *, session: str) -> str | None: ...
 
-    def pane_current_path(self, session: str) -> str | None: ...
+    def pane_current_path(self, *, session: str) -> str | None: ...
 
-    def session_exists(self, session: str) -> bool: ...
+    def session_exists(self, *, session: str) -> bool: ...
 
     def pane_pid_sessions(self) -> dict[int, str]: ...
 
-    def send_keys(self, session: str, keys: str) -> bool: ...
+    def send_keys(self, *, session: str, keys: str) -> bool: ...
 
-    def bracketed_paste(self, session: str, text: str) -> bool: ...
+    def bracketed_paste(self, *, session: str, text: str) -> bool: ...
 
-    def respawn_pane(self, session: str, cwd: str, command: str) -> bool: ...
+    def respawn_pane(self, *, session: str, cwd: str, command: str) -> bool: ...
 
-    def new_session(self, name: str, cwd: str) -> bool: ...
+    def new_session(self, *, name: str, cwd: str) -> bool: ...
 
-    def rename_window(self, pane: str, name: str) -> bool: ...
+    def rename_window(self, *, pane: str, name: str) -> bool: ...
 
 
 class WindowLayoutDriver(Protocol):
@@ -104,17 +104,17 @@ class WindowLayoutDriver(Protocol):
     ``TmuxIO`` satisfies both structurally, being the one real implementation.
     """
 
-    def window_pane_titles(self, pane: str) -> list[str]: ...
+    def window_pane_titles(self, *, pane: str) -> list[str]: ...
 
-    def split_window_top(self, pane: str, cwd: str, command: str) -> str | None: ...
+    def split_window_top(self, *, pane: str, cwd: str, command: str) -> str | None: ...
 
-    def set_pane_title(self, pane: str, title: str) -> bool: ...
+    def set_pane_title(self, *, pane: str, title: str) -> bool: ...
 
-    def select_layout_even(self, pane: str) -> bool: ...
+    def select_layout_even(self, *, pane: str) -> bool: ...
 
-    def pane_by_title(self, pane: str, title: str) -> str | None: ...
+    def pane_by_title(self, *, pane: str, title: str) -> str | None: ...
 
-    def set_pane_height_percent(self, pane: str, percent: int) -> bool: ...
+    def set_pane_height_percent(self, *, pane: str, percent: int) -> bool: ...
 
 
 # The tmux paste buffer the injector loads into. A UNIQUE name per paste (pid +
@@ -143,7 +143,7 @@ def _next_inject_buffer() -> str:
     return f"{_INJECT_BUFFER_PREFIX}-{os.getpid()}-{next(_buffer_counter)}"
 
 
-def _warn(message: str) -> None:
+def _warn(*, message: str) -> None:
     """Fail-soft diagnostic to stderr (never crash the caller)."""
     streams.write_stderr(text=f"overseer.tmuxio: {message}\n")
 
@@ -170,7 +170,7 @@ class TmuxIO:
     # Internal: run one tmux subcommand, fail-soft.
     # ----------------------------------------------------------------- #
 
-    def _call(self, args: list[str], *, input_text: str | None = None) -> Any:
+    def _call(self, *, args: list[str], input_text: str | None = None) -> Any:
         """Run ``tmux <args>`` and return the CompletedProcess, or None on error.
 
         ``shell=False`` (argv list) bypasses any zsh ``tmux`` shim — the
@@ -189,25 +189,25 @@ class TmuxIO:
         # ValueError — so it needs naming explicitly; without it the timeout
         # above would convert a silent hang into an uncaught exception.
         except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
-            _warn(f"tmux {' '.join(args[:2])} failed to spawn: {exc}")
+            _warn(message=f"tmux {' '.join(args[:2])} failed to spawn: {exc}")
             return None
 
     @staticmethod
-    def _ok(completed: Any) -> bool:
+    def _ok(*, completed: Any) -> bool:
         return completed is not None and getattr(completed, "returncode", 1) == 0
 
     # ----------------------------------------------------------------- #
     # Reads.
     # ----------------------------------------------------------------- #
 
-    def capture_pane(self, session: str) -> str:
+    def capture_pane(self, *, session: str) -> str:
         """``tmux capture-pane -p -t <session>`` → visible pane text (``""`` on error)."""
-        completed = self._call(["capture-pane", "-p", "-t", session])
-        if not self._ok(completed):
+        completed = self._call(args=["capture-pane", "-p", "-t", session])
+        if not self._ok(completed=completed):
             return ""
         return completed.stdout
 
-    def _pane_field(self, target: str, fmt: str) -> str | None:
+    def _pane_field(self, *, target: str, fmt: str) -> str | None:
         """One RELIABLE per-pane read via ``list-panes`` (not ``display-message``).
 
         ``display-message -p -t <session>`` was observed returning EMPTY for some
@@ -220,9 +220,9 @@ class TmuxIO:
         empty value.
         """
         completed = self._call(
-            ["list-panes", "-t", target, "-F", "#{pane_id}\t#{pane_active}\t" + fmt]
+            args=["list-panes", "-t", target, "-F", "#{pane_id}\t#{pane_active}\t" + fmt]
         )
-        if not self._ok(completed):
+        if not self._ok(completed=completed):
             return None
         rows = [
             parts
@@ -241,7 +241,7 @@ class TmuxIO:
             return None
         return chosen[2].strip() or None
 
-    def pane_id(self, session: str) -> str | None:
+    def pane_id(self, *, session: str) -> str | None:
         """``#{pane_id}`` — the pane's globally-unique id (e.g. ``%5``), or None.
 
         Resolved from the (exact-verified) session name once per tick; the daemon
@@ -253,11 +253,11 @@ class TmuxIO:
         across ``respawn-pane`` (same pane, new process), so restart + resume keep
         targeting the right pane.
         """
-        return self._pane_field(session, "#{pane_id}")
+        return self._pane_field(target=session, fmt="#{pane_id}")
 
-    def pane_pid(self, session: str) -> int | None:
+    def pane_pid(self, *, session: str) -> int | None:
         """``#{pane_pid}`` — the pane's process PID (the login shell), or None."""
-        value = self._pane_field(session, "#{pane_pid}")
+        value = self._pane_field(target=session, fmt="#{pane_pid}")
         if value is None:
             return None
         try:
@@ -265,15 +265,15 @@ class TmuxIO:
         except ValueError:
             return None
 
-    def pane_current_command(self, session: str) -> str | None:
+    def pane_current_command(self, *, session: str) -> str | None:
         """``#{pane_current_command}`` — the pane's foreground command (e.g. ``node``)."""
-        return self._pane_field(session, "#{pane_current_command}")
+        return self._pane_field(target=session, fmt="#{pane_current_command}")
 
-    def pane_current_path(self, session: str) -> str | None:
+    def pane_current_path(self, *, session: str) -> str | None:
         """``#{pane_current_path}`` — the pane's working directory."""
-        return self._pane_field(session, "#{pane_current_path}")
+        return self._pane_field(target=session, fmt="#{pane_current_path}")
 
-    def session_exists(self, session: str) -> bool:
+    def session_exists(self, *, session: str) -> bool:
         """True iff a session named EXACTLY ``session`` is live.
 
         Uses exact membership in :meth:`list_sessions`, NOT ``tmux has-session -t
@@ -289,8 +289,8 @@ class TmuxIO:
 
     def list_sessions(self) -> list[str]:
         """``tmux list-sessions -F '#{session_name}'`` → names (``[]`` on error)."""
-        completed = self._call(["list-sessions", "-F", "#{session_name}"])
-        if not self._ok(completed):
+        completed = self._call(args=["list-sessions", "-F", "#{session_name}"])
+        if not self._ok(completed=completed):
             return []
         return [line for line in (completed.stdout or "").splitlines() if line.strip()]
 
@@ -304,8 +304,8 @@ class TmuxIO:
         included (a session may have several), so any pane holding the worker
         resolves. Malformed / non-integer rows are skipped fail-soft.
         """
-        completed = self._call(["list-panes", "-a", "-F", "#{pane_pid}\t#{session_name}"])
-        if not self._ok(completed):
+        completed = self._call(args=["list-panes", "-a", "-F", "#{pane_pid}\t#{session_name}"])
+        if not self._ok(completed=completed):
             return {}
         out: dict[int, str] = {}
         for line in (completed.stdout or "").splitlines():
@@ -322,15 +322,15 @@ class TmuxIO:
     # Writes.
     # ----------------------------------------------------------------- #
 
-    def send_keys(self, session: str, keys: str) -> bool:
+    def send_keys(self, *, session: str, keys: str) -> bool:
         """``tmux send-keys -t <session> <keys>`` — for a single named key (``Enter``).
 
         Used ONLY to submit a prompt AFTER a bracketed paste; never to type a
         multi-line payload key-by-key (that would fragment it — blocker #2).
         """
-        return self._ok(self._call(["send-keys", "-t", session, keys]))
+        return self._ok(completed=self._call(args=["send-keys", "-t", session, keys]))
 
-    def bracketed_paste(self, session: str, text: str) -> bool:
+    def bracketed_paste(self, *, session: str, text: str) -> bool:
         """Insert ``text`` into the pane as ONE bracketed paste (no submit).
 
         Two tmux calls: ``load-buffer -`` reads the payload from stdin into a
@@ -340,14 +340,14 @@ class TmuxIO:
         :meth:`send_keys` ``Enter`` — because ``paste-buffer`` never submits.
         """
         buffer_name = _next_inject_buffer()
-        loaded = self._call(["load-buffer", "-b", buffer_name, "-"], input_text=text)
-        if not self._ok(loaded):
-            _warn(f"load-buffer failed for session {session!r}")
+        loaded = self._call(args=["load-buffer", "-b", buffer_name, "-"], input_text=text)
+        if not self._ok(completed=loaded):
+            _warn(message=f"load-buffer failed for session {session!r}")
             return False
-        pasted = self._call(["paste-buffer", "-b", buffer_name, "-p", "-d", "-t", session])
-        return self._ok(pasted)
+        pasted = self._call(args=["paste-buffer", "-b", buffer_name, "-p", "-d", "-t", session])
+        return self._ok(completed=pasted)
 
-    def respawn_pane(self, session: str, cwd: str, command: str) -> bool:
+    def respawn_pane(self, *, session: str, cwd: str, command: str) -> bool:
         """``tmux respawn-pane -k -c <cwd> -t <session> <command>``.
 
         Atomically kills (``-k``) whatever ran in the pane and launches
@@ -355,17 +355,19 @@ class TmuxIO:
         abrupt kill is safe because the restart interlock already proved the
         handoff is written and the ready marker exists.
         """
-        return self._ok(self._call(["respawn-pane", "-k", "-c", cwd, "-t", session, command]))
+        return self._ok(
+            completed=self._call(args=["respawn-pane", "-k", "-c", cwd, "-t", session, command])
+        )
 
-    def new_session(self, name: str, cwd: str) -> bool:
+    def new_session(self, *, name: str, cwd: str) -> bool:
         """``tmux new-session -d -s <name> -c <cwd>`` — a detached session in ``cwd``."""
-        return self._ok(self._call(["new-session", "-d", "-s", name, "-c", cwd]))
+        return self._ok(completed=self._call(args=["new-session", "-d", "-s", name, "-c", cwd]))
 
     # ----------------------------------------------------------------- #
     # Two-pane bootstrap (the `/overseer` skill splits its OWN window).
     # ----------------------------------------------------------------- #
 
-    def split_window_top(self, pane: str, cwd: str, command: str) -> str | None:
+    def split_window_top(self, *, pane: str, cwd: str, command: str) -> str | None:
         """Split PANE's window; new pane ABOVE, focus stays on PANE; run COMMAND in CWD.
 
         ``-v`` splits top/bottom, ``-b`` puts the NEW pane before (above) the
@@ -376,7 +378,7 @@ class TmuxIO:
         pane id (e.g. ``%47``) or None on failure.
         """
         completed = self._call(
-            [
+            args=[
                 "split-window",
                 "-v",
                 "-b",
@@ -391,15 +393,15 @@ class TmuxIO:
                 command,
             ]
         )
-        if not self._ok(completed):
+        if not self._ok(completed=completed):
             return None
         return (completed.stdout or "").strip() or None
 
-    def set_pane_title(self, pane: str, title: str) -> bool:
+    def set_pane_title(self, *, pane: str, title: str) -> bool:
         """``tmux select-pane -t <pane> -T <title>`` — tag a pane (idempotency)."""
-        return self._ok(self._call(["select-pane", "-t", pane, "-T", title]))
+        return self._ok(completed=self._call(args=["select-pane", "-t", pane, "-T", title]))
 
-    def select_layout_even(self, pane: str) -> bool:
+    def select_layout_even(self, *, pane: str) -> bool:
         """``tmux select-layout -t <pane> even-vertical`` — restack the window evenly.
 
         A THIRD pane that was opened and later closed leaves tmux's rows
@@ -408,9 +410,9 @@ class TmuxIO:
         :meth:`set_pane_height_percent` gives the daemon its share — so the resize
         starts from a known stack rather than whatever a stray pane left behind.
         """
-        return self._ok(self._call(["select-layout", "-t", pane, "even-vertical"]))
+        return self._ok(completed=self._call(args=["select-layout", "-t", pane, "even-vertical"]))
 
-    def pane_by_title(self, pane: str, title: str) -> str | None:
+    def pane_by_title(self, *, pane: str, title: str) -> str | None:
         """The pane id in PANE's window whose title is TITLE (``None`` if absent).
 
         The idempotent-path counterpart of :meth:`window_pane_titles`: that answers
@@ -418,8 +420,8 @@ class TmuxIO:
         target the daemon pane for a resize when ``overseer-start`` re-runs and did
         not create it (so never held its id).
         """
-        completed = self._call(["list-panes", "-t", pane, "-F", "#{pane_id}\t#{pane_title}"])
-        if not self._ok(completed):
+        completed = self._call(args=["list-panes", "-t", pane, "-F", "#{pane_id}\t#{pane_title}"])
+        if not self._ok(completed=completed):
             return None
         for line in (completed.stdout or "").splitlines():
             pane_id, _, pane_title = line.partition("\t")
@@ -427,29 +429,31 @@ class TmuxIO:
                 return pane_id.strip() or None
         return None
 
-    def set_pane_height_percent(self, pane: str, percent: int) -> bool:
+    def set_pane_height_percent(self, *, pane: str, percent: int) -> bool:
         """``tmux resize-pane -t <pane> -y <percent>%`` — size PANE to a share of its window.
 
         Percentage sizes are a tmux feature (verified on 3.5a), so the split does not
         have to be recomputed in rows against a window height that changes whenever the
         terminal is resized.
         """
-        return self._ok(self._call(["resize-pane", "-t", pane, "-y", f"{percent}%"]))
+        return self._ok(completed=self._call(args=["resize-pane", "-t", pane, "-y", f"{percent}%"]))
 
-    def rename_window(self, pane: str, name: str) -> bool:
+    def rename_window(self, *, pane: str, name: str) -> bool:
         """Rename PANE's window to NAME, and PIN the name (``automatic-rename off``).
 
         Pinning is part of renaming, not an optional extra: tmux otherwise re-derives a
         window's name from its foreground command on the next tick and silently
         overwrites NAME. Both steps must succeed for the rename to hold.
         """
-        if not self._ok(self._call(["rename-window", "-t", pane, name])):
+        if not self._ok(completed=self._call(args=["rename-window", "-t", pane, name])):
             return False
-        return self._ok(self._call(["set-window-option", "-t", pane, "automatic-rename", "off"]))
+        return self._ok(
+            completed=self._call(args=["set-window-option", "-t", pane, "automatic-rename", "off"])
+        )
 
-    def window_pane_titles(self, pane: str) -> list[str]:
+    def window_pane_titles(self, *, pane: str) -> list[str]:
         """Every pane title in PANE's window (``[]`` on error) — the idempotency read."""
-        completed = self._call(["list-panes", "-t", pane, "-F", "#{pane_title}"])
-        if not self._ok(completed):
+        completed = self._call(args=["list-panes", "-t", pane, "-F", "#{pane_title}"])
+        if not self._ok(completed=completed):
             return []
         return [line for line in (completed.stdout or "").splitlines() if line.strip()]

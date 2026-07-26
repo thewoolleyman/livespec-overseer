@@ -38,8 +38,8 @@ def test_window_badge_is_retried_when_the_rename_fails(tmp_path):
     fake = FakeTmux()
     inner = fake.rename_window
 
-    def failing_rename(pane, name):
-        _ = inner(pane, name)
+    def failing_rename(*, pane, name):
+        _ = inner(pane=pane, name=name)
         return False  # tmux refused the rename
 
     fake.rename_window = failing_rename
@@ -77,13 +77,13 @@ def test_cli_start_respawns_a_session_proven_dead_by_its_bare_shell(tmp_path, mo
     store = isolate_store(tmp_path, monkeypatch)
     fake = FakeTmux()
     # The session exists but its pane dropped to a shell — proven dead.
-    fake.serve(session, repo, capture=idle_capture(), cmd="zsh")
+    fake.serve(session=session, repo=repo, capture=idle_capture(), cmd="zsh")
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
 
     assert supervisor.main(["start", "--repo", str(repo), "--topic", topic]) == 0
 
-    assert fake.has("respawn")  # the dead shell's pane WAS relaunched
-    assert not fake.has("new")  # ...in place; the session already existed
+    assert fake.has(method="respawn")  # the dead shell's pane WAS relaunched
+    assert not fake.has(method="new")  # ...in place; the session already existed
     assert supervisor.default_resume(str(repo), topic) in fake.paste_texts()
     assert [(r.topic, r.tmux) for r in registry.read_mapping(store)] == [(topic, session)]
     assert f"started {os.path.normpath(str(repo))}::{topic}" in capsys.readouterr().out

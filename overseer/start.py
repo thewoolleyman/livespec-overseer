@@ -117,20 +117,20 @@ def main(
     layout: tmuxio.WindowLayoutDriver = io if io is not None else tmuxio.TmuxIO()
 
     # 1. Start the daemon in a TOP pane of THIS window (idempotent).
-    if _DAEMON_PANE_TITLE in layout.window_pane_titles(pane):
+    if _DAEMON_PANE_TITLE in layout.window_pane_titles(pane=pane):
         streams.write_stderr(
             text="overseer-start: daemon pane already present in this window; leaving it.\n"
         )
     else:
         (core / "tmp" / "overseer").mkdir(parents=True, exist_ok=True)
         command = daemon_command(args.warn_percent)
-        new_pane = layout.split_window_top(pane, str(core), command)
+        new_pane = layout.split_window_top(pane=pane, cwd=str(core), command=command)
         if new_pane is None:
             streams.write_stderr(
                 text="overseer-start: FAILED to split the window for the daemon pane.\n"
             )
             return 1
-        _ = layout.set_pane_title(new_pane, _DAEMON_PANE_TITLE)
+        _ = layout.set_pane_title(pane=new_pane, title=_DAEMON_PANE_TITLE)
         streams.write_stderr(text=f"overseer-start: started overseerd in top pane {new_pane}.\n")
 
     # 1b. Normalize the stack (self-heals an uneven split — e.g. after a stray third
@@ -140,10 +140,10 @@ def main(
     # bottom pane is a command prompt and needs far less room. Resolve the daemon pane
     # BY TITLE rather than reusing `new_pane`, so the idempotent re-run path (where the
     # pane already existed and we never held its id) resizes it too.
-    _ = layout.select_layout_even(pane)
-    daemon_pane = layout.pane_by_title(pane, _DAEMON_PANE_TITLE)
+    _ = layout.select_layout_even(pane=pane)
+    daemon_pane = layout.pane_by_title(pane=pane, title=_DAEMON_PANE_TITLE)
     if daemon_pane is not None:
-        _ = layout.set_pane_height_percent(daemon_pane, _DAEMON_PANE_HEIGHT_PERCENT)
+        _ = layout.set_pane_height_percent(pane=daemon_pane, percent=_DAEMON_PANE_HEIGHT_PERCENT)
 
     # 2. Adopt existing worker sessions that match active plan topics.
     build = build_supervisor if build_supervisor is not None else supervisor.build_supervisor

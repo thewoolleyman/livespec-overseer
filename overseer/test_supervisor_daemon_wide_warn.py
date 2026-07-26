@@ -43,7 +43,7 @@ def test_warn_percent_default_applies_to_track_without_override(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=40))  # 40 > warn_percent 30
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # 40 > warn_percent 30
     sup = make_supervisor(tmp_path, fake, warn_percent=30)
     track = mapped_track(repo, topic, session)  # ctx_threshold defaults to None
     assert track.ctx_threshold is None
@@ -65,7 +65,7 @@ def test_explicit_ctx_threshold_overrides_warn_percent(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=55))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=55))
     sup = make_supervisor(tmp_path, fake, warn_percent=30)
     track = registry.Track(
         topic=topic,
@@ -77,7 +77,7 @@ def test_explicit_ctx_threshold_overrides_warn_percent(tmp_path):
     )
     view = sup.evaluate(track, act=True)
     assert view.status == "warned"  # 55 <= 60 override, despite warn_percent 30
-    assert fake.has("paste")
+    assert fake.has(method="paste")
 
 
 def test_claude_launch_command_carries_no_tmux_scoping(tmp_path):
@@ -104,7 +104,7 @@ def test_restart_fires_when_marker_valid_notbusy_idle(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     marker = arm_ready_marker(repo, topic, mtime=1001.0)
@@ -128,14 +128,14 @@ def test_no_restart_when_busy_even_with_valid_marker(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture="esc to interrupt\n  Ctx: 30% left\n")  # busy
+    fake.serve(session=session, repo=repo, capture="esc to interrupt\n  Ctx: 30% left\n")  # busy
     sup = make_supervisor(tmp_path, fake)
     registry.write_injection_stamp(str(repo), topic, 1000.0, sup.stamp_path)
     arm_ready_marker(repo, topic, mtime=1001.0)
 
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "working"
-    assert not fake.has("respawn")
+    assert not fake.has(method="respawn")
 
 
 # --------------------------------------------------------------------------- #
@@ -153,7 +153,9 @@ def test_bg_shell_suppresses_restart(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))  # empty box → textually idle
+    fake.serve(
+        session=session, repo=repo, capture=idle_capture(ctx=30)
+    )  # empty box → textually idle
     fake.pane_pid_map[session] = 100  # the pane's login-shell PID
     # 100 → 200 (node runtime) → 300 (node MCP server) + 400 (a bg-command shell).
     children = {100: [200], 200: [300, 400]}
@@ -170,7 +172,7 @@ def test_bg_shell_suppresses_restart(tmp_path):
     view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "working"  # bg-shell ⇒ busy ⇒ NOT restarted
     assert view.note == "background shell"  # operator sees WHY it isn't idle
-    assert not fake.has("respawn")  # the live background work is protected
+    assert not fake.has(method="respawn")  # the live background work is protected
     assert marker.exists()  # a fresh marker is untouched by the busy void check
 
 
@@ -180,7 +182,7 @@ def test_no_bg_shell_allows_restart(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=30))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     fake.pane_pid_map[session] = 100
     children = {100: [200], 200: [300]}
     comms = {200: "node", 300: "node"}  # node runtime + MCP server, no shell

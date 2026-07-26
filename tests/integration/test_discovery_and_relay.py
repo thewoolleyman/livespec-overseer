@@ -123,7 +123,7 @@ def test_scenario_a_blocked_declaration_is_relayed_not_answered(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=13))  # deep in the danger band
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))  # deep in the danger band
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     declare(repo, topic, "blocked: waiting on the schema call")
 
@@ -140,9 +140,9 @@ def test_scenario_a_blocked_declaration_is_relayed_not_answered(tmp_path):
         assert coordinate in report
     assert f"tmux switch-client -t {session}" in report
 
-    assert not fake.has("paste")  # never keystroked...
-    assert not fake.has("keys")
-    assert not fake.has("respawn")  # ...and never restarted while blocked
+    assert not fake.has(method="paste")  # never keystroked...
+    assert not fake.has(method="keys")
+    assert not fake.has(method="respawn")  # ...and never restarted while blocked
 
 
 def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(tmp_path):
@@ -172,7 +172,7 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))  # well ABOVE the threshold
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # well ABOVE the threshold
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"], out=_io.StringIO())
     sup.claude_status_by_session = {session: "idle"}  # not `waiting`: free to continue
@@ -233,8 +233,8 @@ def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(tmp_pa
     row = next(view for view in views if view.topic == "startable")
     assert row.status == "unassigned"
     assert row.tmux is None
-    assert not fake.has("new")  # no session was created for it...
-    assert not fake.has("respawn")  # ...by either launch mechanism
+    assert not fake.has(method="new")  # no session was created for it...
+    assert not fake.has(method="respawn")  # ...by either launch mechanism
     assert registry.read_mapping(sup.store_path) == []  # and nothing was mapped
 
 
@@ -265,7 +265,7 @@ def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(tmp
     (repo / "plan" / topic / _HANDOFF).write_text("a supervisor charter\n")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     track = mapped_track(repo, topic, session)
 
@@ -315,10 +315,10 @@ def test_scenario_topics_colliding_across_repositories_get_qualified_session_nam
     _plan(beta, "solo")  # a topic unique to ONE repo
 
     fake = FakeTmux()
-    fake.serve("alpha-shared", alpha, capture=idle_capture(ctx=73))
-    fake.serve("beta-shared", beta, capture=idle_capture(ctx=73))
-    fake.serve("solo", beta, capture=idle_capture(ctx=73))
-    fake.serve("shared", alpha, capture=idle_capture(ctx=73))  # the RETIRED bare name
+    fake.serve(session="alpha-shared", repo=alpha, capture=idle_capture(ctx=73))
+    fake.serve(session="beta-shared", repo=beta, capture=idle_capture(ctx=73))
+    fake.serve(session="solo", repo=beta, capture=idle_capture(ctx=73))
+    fake.serve(session="shared", repo=alpha, capture=idle_capture(ctx=73))  # the RETIRED bare name
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(alpha), str(beta)], out=_io.StringIO())
 
     with contextlib.redirect_stderr(_io.StringIO()):

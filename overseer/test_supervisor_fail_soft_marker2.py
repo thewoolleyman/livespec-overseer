@@ -46,7 +46,7 @@ def test_codex_restart_alerts_when_the_codex_session_vanished_before_the_respawn
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=codex_idle_capture(ctx=40), cmd="bun")
+    fake.serve(session=session, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun")
     sup = make_supervisor(tmp_path, fake)  # `live_codex` left EMPTY: the session is gone
     marker = arm_ready_marker(repo, topic, mtime=1001.0)
     err = _io.StringIO()
@@ -56,7 +56,7 @@ def test_codex_restart_alerts_when_the_codex_session_vanished_before_the_respawn
 
     assert "codex session vanished before restart" in err.getvalue()
     assert session in err.getvalue()
-    assert not fake.has("respawn")  # nothing respawned without a resolved session id
+    assert not fake.has(method="respawn")  # nothing respawned without a resolved session id
     assert marker.exists()
 
 
@@ -149,7 +149,7 @@ def test_codex_track_is_rejected_when_its_live_session_runs_outside_the_repo(tmp
     elsewhere.mkdir()
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=codex_idle_capture(ctx=40), cmd="bun")
+    fake.serve(session=session, repo=repo, capture=codex_idle_capture(ctx=40), cmd="bun")
     sup = make_supervisor(tmp_path, fake)
     sup.live_codex = {
         (session, topic): codex_sessions.CodexSession(
@@ -175,13 +175,13 @@ def test_recover_skips_a_track_whose_session_is_already_live(tmp_path):
     repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=idle_capture())  # the session IS live
+    fake.serve(session=session, repo=repo, capture=idle_capture())  # the session IS live
     sup = make_supervisor(tmp_path, fake)
     registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
 
     assert sup.recover_missing_sessions() == []
-    assert not fake.has("new")  # never re-created a live session...
-    assert not fake.has("respawn")  # ...and never respawn-killed it
+    assert not fake.has(method="new")  # never re-created a live session...
+    assert not fake.has(method="respawn")  # ...and never respawn-killed it
 
 
 def test_recover_surfaces_a_claude_track_whose_launch_fails(tmp_path, capsys):
@@ -213,7 +213,7 @@ def test_recover_codex_skips_when_new_session_does_not_create_the_session(tmp_pa
     registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
 
     assert sup.recover_missing_sessions() == []
-    assert not fake.has("respawn")
+    assert not fake.has(method="respawn")
 
     err = capsys.readouterr().err
     assert "new-session did not create" in err and session in err
@@ -231,8 +231,8 @@ def test_recover_codex_surfaces_when_the_codex_resume_launch_fails(tmp_path, cap
     registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
 
     assert sup.recover_missing_sessions() == []
-    assert fake.has("new")  # it got as far as creating the session...
-    assert fake.has("respawn")  # ...and attempting the resume
+    assert fake.has(method="new")  # it got as far as creating the session...
+    assert fake.has(method="respawn")  # ...and attempting the resume
 
     err = capsys.readouterr().err
     assert "FAILED to resume codex" in err and session in err
@@ -248,4 +248,4 @@ def test_launch_helpers_refuse_a_session_with_no_resolvable_pane(tmp_path):
 
     assert sup.do_launch(track, "no-such-session") is False
     assert sup._do_codex_launch(track, "no-such-session", "aaaa-bbbb") is False
-    assert not fake.has("respawn")
+    assert not fake.has(method="respawn")
