@@ -514,12 +514,12 @@ design while that is true. Three things are ripe:
 2. **APPROVE `.20` (S11)** — it is now UNBLOCKED in substance as well as on the
    ledger. `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` has nothing left to
    fail on, so arming it is a config change rather than a cleanup.
-3. **DECIDE whether `.13` may ship ahead of the generator fix** — the unfiled
-   ordering edge found on 2026-07-26; full measurement in §"Ordering". This one
-   is genuinely new, and it is the only ripe item that changes the BOARD rather
-   than a single item's status. Deciding "yes, ship first" is a perfectly good
-   answer — but it should be a decision, not a default, because today it is what
-   happens if nobody looks.
+3. ~~**DECIDE whether `.13` may ship ahead of the generator fix**~~ — **DECIDED
+   AND FILED 2026-07-26: block `.13` on `.16`.** Do not re-open it; the two
+   declined alternatives are recorded in §"Ordering" so they are not
+   re-litigated. The practical consequence is that **`.16` now gates goal 4**,
+   so the sibling thread's step 2 is on this thread's critical path even though
+   this thread still stands down on executing it.
 
 > ### READ THIS BEFORE YOU LOOK FOR WORK — the verification sweep is DONE
 >
@@ -566,9 +566,10 @@ design while that is true. Three things are ripe:
 >
 > **Two NEW findings, neither of them a build task:**
 >
-> 1. **An unfiled ordering edge** — `.13` can install a generator that has never
->    been corrected. Full measurement in §"Ordering"; it is the one item below
->    that needs a maintainer decision.
+> 1. **An unfiled ordering edge** — `.13` could install a generator that has
+>    never been corrected. **DECIDED the same day: block `.13` on `.16`**, now a
+>    filed ledger edge. Full measurement and the two declined alternatives are
+>    in §"Ordering".
 > 2. **An orphaned duplicate epic, `overseer-xbxkrv`** — see §"Ledger lifecycle".
 >
 > ### If every valve is still shut when you arrive
@@ -695,6 +696,13 @@ closed; both are core-tenant or maintainer calls.
 down on **that action only** — `.16` stays filed as a child of `overseer-hbr` and
 untouched. **This is not a blocked state**; everything else continues.
 
+**Standing down is not the same as not depending on it — and since 2026-07-26 it
+is both.** `.16` now blocks `.13`, so goal 4 waits on an action this thread does
+not perform. That combination is legitimate and is exactly what the
+conflicting-lane rule describes; what it must NOT become is a reason to idle.
+Everything else on the board — `.19`'s acceptance, `.20`, `.21`, `.22`, the
+goal-3a chain `.11 → .12` — is unaffected by this edge and remains available.
+
 `overseer-fitvmo` is CLOSED and properly disposed — a maintainer-directed
 supersession into `.16` and `overseer-byvxlp`, with an explicit no-content-dropped
 clause. **The disposition is in the `close_reason` field**, which is distinct from
@@ -781,10 +789,10 @@ was set by hand and then read back from the ledger to verify.**
 | S1 residue, non-workflow | `.10` | 3a | — | **DONE** (PR #92) |
 | S2 workflow landing (maintainer-side) | `.11` | 3a | `.10` | |
 | S3 cut v0.12.0 → `release` branch | `.12` | 3a | `.11` | |
-| S4 register marketplace fleet-wide | `.13` | 4 | `.12` | |
+| S4 register marketplace fleet-wide | `.13` | 4 | `.12`, **`.16`** | |
 | S5 consumer pin path observed | `.14` | 5 | `.12` | |
 | S6 goal-1 acceptance, live | `.15` | 1 | `.13`, `.16` | |
-| S7 template: BOTH stall modes | `.16` | 1 | — | |
+| S7 template: BOTH stall modes | `.16` | 1 | — | **now gates `.13` too** |
 | S8 map the 26 cheap rows | `.17` | 2 | — | **DONE** (PR #93) |
 | S9 decide the 7 awkward rows | `.18` | 2 | — | **DONE** (PR #96) |
 | S10 21 scenario tests | `.19` | 2 | `.17`, `.18` | **DONE** — 21/21, PRs #97/#100/#102/#103 |
@@ -797,7 +805,7 @@ was set by hand and then read back from the ledger to verify.**
 unstarted. `.20` is the next one to approve; `.21` and `.22` are unblocked and
 carry written dispositions awaiting closure decisions.
 
-### Ordering — TWO MEASURED HARD CONSTRAINTS, plus a THIRD that is UNFILED
+### Ordering — THREE MEASURED HARD CONSTRAINTS, all now FILED
 
 - **HARD — `2 → 3b`. DISCHARGED 2026-07-26.** Auto-release arms
   `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` in the release context, which
@@ -819,21 +827,23 @@ carry written dispositions awaiting closure decisions.
   **none** of the three (`git ls-remote --heads origin` shows no `release`;
   `gh release list` is empty). So goal 4 cannot be reached until a release is
   published. Binds `.12 → .13`.
-- **UNFILED — `generator quality → 4`. FOUND 2026-07-26 (second sweep); it is
-  NOT on the ledger and NEITHER thread owns it.** This is the one ordering
-  hazard the board does not encode, and it reproduces this thread's own
+- **HARD — `generator quality → 4`. FOUND AND FILED 2026-07-26 (second sweep).**
+  Found unfiled, owned by neither thread; the maintainer's answer was **add the
+  edge**, and `overseer-hbr.16 blocks overseer-hbr.13` is now on the ledger
+  (read back; `bd dep cycles` reports none). It reproduced this thread's own
   signature failure at a new location. Measured, three facts:
   - **`.13` installs the generator.** Its scope is a checked-in
     `extraKnownMarketplaces` + `enabledPlugins` entry in each consuming repo's
     `.claude/settings.json`, and the plugin ships **both** skills — so
     registering the marketplace puts `supervise-plan` into every consuming repo
     at once.
-  - **The ledger does not gate that on the generator being correct.** Read back
-    from beads, not from this file: `.13` is blocked by **`.12` only**; `.16`
-    blocks **`.15` only**; `overseer-byvxlp`'s dependency on `.16`/`.4` is
+  - **The ledger did not gate that on the generator being correct — now it
+    does.** As found: `.13` was blocked by **`.12` only**; `.16` blocked
+    **`.15` only**; and `overseer-byvxlp`'s dependency on `.16`/`.4` is
     **prose-only** (beads forbids task-blocks-epic edges — the sibling thread's
-    handoff says so outright). So the filed graph permits `.12 → .13` to land
-    with the generator untouched, and only *acceptance* (`.15`) waits.
+    handoff says so outright). So the filed graph permitted `.12 → .13` to land
+    with the generator untouched, and only *acceptance* (`.15`) waited. The new
+    edge closes that; `.13` is now blocked by `.12` **and** `.16`.
   - **The generator has never been corrected.**
     `.claude-plugin/prose/supervise-plan.md` has **exactly ONE commit**
     (`d126ccf`, its creation), while the hand-written exemplar it is supposed to
@@ -855,13 +865,30 @@ carry written dispositions awaiting closure decisions.
   prose or its binding) — so it can pass in the wrong repo.
 
   **This is not new scope for the sibling thread** — `overseer-byvxlp` and `.16`
-  already own the generator's CONTENT, and this thread stands down on that.
-  What is unowned is the **EDGE**: nothing stops `.13` shipping the defective
-  generator fleet-wide first. Goal 4 would then be structurally true (installed
-  everywhere) and functionally false (generating stall-prone, non-executable
-  charters) — the exact pairing this thread was created to prevent. **Whether to
-  add the edge is a maintainer call**, since it re-orders the board; see
-  §"NEXT ACTION".
+  already own the generator's CONTENT, and this thread stands down on that. What
+  was unowned was the **EDGE**. Without it, goal 4 would have landed structurally
+  true (installed everywhere) and functionally false (generating stall-prone,
+  non-executable charters) — the exact pairing this thread was created to
+  prevent.
+
+  **The maintainer's decision, 2026-07-26: block `.13` on `.16`.** The two
+  alternatives were declined and are recorded so they are not silently
+  re-litigated: a *minimal port* of `.4`'s commands plus both stall-mode
+  sections into the prose, without waiting for fixtures — declined because it
+  ships prose no fixture has ever reddened, the same unverified-verifier class
+  this repo was already bitten by in PR #75; and *ship `.13` first knowingly*,
+  whose honest mitigations were that `supervise-plan` is ATTENDED (a defective
+  generator only fires when a human invokes it; it auto-runs nowhere) and that
+  the registration is a checked-in `settings.json` entry and therefore
+  reversible per repo.
+
+  **Consequence for `.16`.** It is now on the critical path to goal 4, which
+  makes it materially more urgent than its P1 label conveyed. Two things about
+  it are unchanged: its status is still beads-native `open` — **not** a livespec
+  `WorkItemStatus`, so `is_item_ready` will not fire and `next` will not rank it
+  until that is repaired the same way the rest of the epic was — and **this
+  thread still stands down on executing it**. The edge stops goal 4 overtaking
+  `.16`; it does not transfer ownership from `plan/supervisor-prompt-quality/`.
 
 **The chosen path threads BETWEEN the two edges**, which is the whole point: they
 bind *different halves* of goal 3. `2 → 3` binds only the two lever-setting
@@ -876,6 +903,12 @@ gates 3b.
 **Goal 1 = availability ∧ behavior.** `.15` depends on BOTH `.13` (the plugin is
 actually installed elsewhere) and `.16` (the generated template is not
 stall-prone). Availability alone does not close goal 1.
+
+**Since 2026-07-26 that conjunction is also SEQUENCED, not merely required.**
+`.16` now blocks `.13` as well as `.15`, so behavior comes before availability
+rather than beside it. The distinction matters: previously both legs could land
+in either order and only the final acceptance noticed; now the defective leg
+cannot ship at all. See §"Ordering", third edge.
 
 ### The remaining open questions
 
