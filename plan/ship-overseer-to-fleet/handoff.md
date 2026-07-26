@@ -1,14 +1,15 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **OPEN — nothing started.**
-Created 2026-07-25 (maintainer supervisor brief 22) as the LIVING successor of
-`plan/archive/cutover-and-shipping/` (archived 2026-07-25, once this thread
-existed).
+**Owning repo:** `livespec-overseer`. **Status:** **OPEN — GROOMED, nothing
+built.** Created 2026-07-25 (maintainer supervisor brief 22) as the LIVING
+successor of `plan/archive/cutover-and-shipping/` (archived 2026-07-25, once this
+thread existed). Groomed 2026-07-26 into 13 filed slices — see §"NEXT ACTION".
 
 **Ledger anchor:** epic **`overseer-hbr`** (this repo's beads tenant). Children
 and lanes are READ from the ledger (`list-work-items` / `next`), never stored
 here. It SUPERSEDES `overseer-19s` (the Phase-2-only epic, closed as superseded
-— absorbed here as goal 6) so there is exactly ONE anchor.
+— absorbed here as goal 6) so there is exactly ONE anchor. **That anchor is why
+groom Step 3 was not run** — it would have closed this epic; see §"NEXT ACTION".
 
 > **Read this first:** the predecessor thread PROVED the daemon cutover and
 > BUILT the operator surface. It did NOT get that surface into anyone's hands,
@@ -80,17 +81,40 @@ all four working fleet peers** (`livespec`, `livespec-driver-claude`,
 is malformed. What is missing is that `livespec-overseer` is absent from
 `~/.claude/plugins/known_marketplaces.json`, which lists 10 marketplaces.
 
-That registration step is **`livespec-cbmw`** — a **P1, still-open item in the
-livespec CORE tenant** ("Wire livespec-overseer into the fleet:
-wire-fleet-member + GitHub App install"), the direct mirror of the closed
-precedent `livespec-inxg`. **No goal references it**, which is a goal-4 scope
-leak; tracked as **`overseer-hbr.8`**.
+> **CORRECTION (2026-07-26, measured).** "Absent from `known_marketplaces.json`"
+> is true but **incomplete**, and taking it as the whole blocker would send the
+> next reader at an impossible task. Registering in the peers' observed shape is
+> **currently impossible**: all four peer registrations pin **`ref: "release"`**,
+> that branch is produced by `fast-forward-release-branch.yml` on
+> `release: published`, and this repo has **no such workflow, no `release`
+> branch, and zero releases**. See the **HARD `3a → 4`** edge in §"NEXT ACTION".
+> Registration itself is a *tracked-file* change — `.claude/settings.json` →
+> `extraKnownMarketplaces` + `enabledPlugins`, checked in per consuming repo (six
+> fleet repos carry the identical 3-entry shape today; no copier template exists,
+> so it is an explicit per-repo sweep).
 
-It is also **partially stale**: of its three conformance errors, `merge-settings`
-and `delete-branch-on-merge` are now RESOLVED (this repo's settings are
-byte-identical to a conformant peer). Only `app-installation` may remain — that
-one is UNVERIFIED here, since it needs a GitHub App JWT this session does not
-hold. **Re-run `check-fleet-conformance` before acting on that item.**
+That registration step is **`livespec-cbmw`** — an item in the livespec CORE
+tenant ("Wire livespec-overseer into the fleet: wire-fleet-member + GitHub App
+install"), the direct mirror of the closed precedent `livespec-inxg`. **No goal
+references it**, which is a goal-4 scope leak; tracked as **`overseer-hbr.8`**.
+
+> **CORRECTION (2026-07-26, re-measured). `livespec-cbmw` is FULLY stale — all
+> three legs, not two — and should CLOSE.** An earlier draft called it "partially
+> stale" with `app-installation` possibly remaining. Measured:
+>
+> - `merge-settings` and `delete-branch-on-merge` — **RESOLVED.**
+>   `check-fleet-conformance`, re-run with `LIVESPEC_RUN_FLEET_CONFORMANCE=true`,
+>   reports **"fleet conformance passed", 9 members, 0 blind rows**.
+> - `app-installation` — **also discharged.** The fleet GitHub App IS installed
+>   on this repo: PR #52 was authored by **`app/livespec-pr-bot`**, and
+>   `release-please.yml` mints the App token from `secrets.APP_ID` /
+>   `APP_PRIVATE_KEY`, with "Release Please" green on master.
+>
+> **Precision worth keeping:** the conformance run itself declares
+> `app-installation` **out-of-vantage** for the local lane (it is owned by the
+> lane running under the App installation token), so *the pass does not prove
+> that leg*. The App-bot authorship does, independently. Disposition tracked on
+> **`overseer-hbr.21`** (S12).
 
 ### Goal 2 — 21 scenarios, ZERO top-of-pyramid tests, and the rule is UNARMED
 
@@ -405,45 +429,99 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
-## NEXT ACTION — groom the six goals into slices
+## NEXT ACTION — the groom is DONE; build the filed slices
 
-**No successor SLICE has started.** That is not the same as "nothing is in
-flight": release PR **#52** (`chore(master): release 0.12.0`) is open and
-mergeable right now — see §"Goals 3 + 5". Check it before grooming goal 3, and
-decide deliberately whether it merges before or after the `source_repo` fix,
-since merging it as-is publishes under the wrong `source_repo`.
+**The groom ran 2026-07-26 and its 13 slices are FILED** as children
+`overseer-hbr.10` … `.22`. This section previously said "groom the six goals into
+slices"; that work is complete. The next action is to BUILD.
 
-1. **GROOM** the six goals into dependency-layered, buildable slices under
-   `overseer-hbr`, via `/livespec-orchestrator-beads-fabro:groom` — a read-only
-   drafting conversation; **the maintainer OWNS every cut and every acceptance**,
-   and the front-end files nothing until approval.
-2. **Then build** through the normal machinery (`drive --action approve:<id>`
-   then `impl:<id>` for factory-tier work).
+### What was filed, and the two decisions behind it
 
-Ordering for the groom. One edge is a MEASURED HARD CONSTRAINT, the rest is
-hypothesis:
+**Maintainer decision 1 — marketplace hosting: PUBLISH ITS OWN.** Open question 1
+below is **CLOSED**, and it was settled by measurement rather than argument: all
+four peers (`livespec`, `livespec-driver-claude`,
+`livespec-orchestrator-beads-fabro`, `livespec-orchestrator-git-jsonl`) each
+register their **own** marketplace in `~/.claude/plugins/known_marketplaces.json`,
+one per repo. **There is no family marketplace to join.** Do not re-litigate it.
 
-- **HARD — `2 → 3`.** Auto-release arms `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST`
+**Maintainer decision 2 — MINIMAL RELEASE FIRST.** Land a narrow goal-3 slice
+(`fast-forward-release-branch.yml`, the `source_repo` fix, `plugin.json` into
+release-please `extra-files`), merge PR #52 to cut v0.12.0, then register pinned
+to `ref: "release"` — **deliberately WITHOUT `release-readiness.yml` /
+`release-tag.yml`**, so `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` stays
+unarmed and the 54 registry TODOs do not block goals 4/5/1.
+
+**Groom Step 3 was deliberately NOT run.** `file_approved_slices` ends with
+`close_regroomed_out(item_id=…)` (`groom.py:223`), and `close_regroomed_out`
+calls `require_backlog_target`, which raises unless status is exactly `backlog`
+— `overseer-hbr` **is** `backlog`, so the close would have SUCCEEDED. Running it
+would have closed the thread's declared single ledger anchor and left `.1`–`.9`
+and `overseer-fitvmo` parented to a closed epic. The maintainer chose **keep the
+epic, file as children**; the cost accepted is that the groom's automatic
+dependency linking and drain-order ranking were forgone, so **every edge below
+was set by hand and then read back from the ledger to verify.**
+
+### The filed graph
+
+| slice | id | goal | blocked by |
+|---|---|---|---|
+| S1 residue, non-workflow | `.10` | 3a | — |
+| S2 workflow landing (maintainer-side) | `.11` | 3a | `.10` |
+| S3 cut v0.12.0 → `release` branch | `.12` | 3a | `.11` |
+| S4 register marketplace fleet-wide | `.13` | 4 | `.12` |
+| S5 consumer pin path observed | `.14` | 5 | `.12` |
+| S6 goal-1 acceptance, live | `.15` | 1 | `.13`, `.16` |
+| S7 template: BOTH stall modes | `.16` | 1 | — |
+| S8 map the 26 cheap rows | `.17` | 2 | — |
+| S9 decide the 7 awkward rows | `.18` | 2 | — |
+| S10 21 scenario tests | `.19` | 2 | `.17`, `.18` |
+| S11 arm the lever, LAST | `.20` | 3b | `.19` |
+| S12 goal-6 dispositions | `.21` | 6 | — |
+| S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — |
+
+**Then build** through the normal machinery (`drive --action approve:<id>` then
+`impl:<id>` for factory-tier work). `.10`, `.16`, `.17`, `.18`, `.21` and `.22`
+are unblocked today.
+
+### Ordering — BOTH edges are now MEASURED HARD CONSTRAINTS
+
+- **HARD — `2 → 3b`.** Auto-release arms `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST`
   in the release context, which fails on all 54 registry TODOs. See
-  §"Ordering constraint: goal 2 BEFORE goal 3". This one is not the maintainer's
-  to accept or replace — it falls out of `no_todo_registry.py`'s source.
-- **Hypothesis — `3 → 4 → 1`** (a plugin must be releasable before it can be
-  auto-installed, and auto-install is what makes `supervise-plan` actually
-  available), with **5 following 3**. Starting hypothesis only; the maintainer
-  owns this cut.
+  §"Ordering constraint: goal 2 BEFORE goal 3". Not the maintainer's to accept or
+  replace — it falls out of `no_todo_registry.py`'s source. Binds `.19 → .20`.
+- **HARD — `3a → 4`.** **PROMOTED FROM "Hypothesis" 2026-07-26 — this doc
+  previously recorded it as a starting guess, and that was wrong.** Every peer
+  marketplace registration pins **`ref: "release"`**; that branch exists only
+  because each peer carries `fast-forward-release-branch.yml`, which
+  fast-forwards `refs/heads/release` to each published release tag. The
+  correlation is exact — all four registered peers carry the workflow, have the
+  branch, and are registered; `livespec-overseer` publishes a catalog but has
+  **none** of the three (`git ls-remote --heads origin` shows no `release`;
+  `gh release list` is empty). So goal 4 cannot be reached until a release is
+  published. Binds `.12 → .13`.
 
-Goal 2 is **NOT** independent and must not be planned as a parallel lane.
+**The chosen path threads BETWEEN the two edges**, which is the whole point: they
+bind *different halves* of goal 3. `2 → 3` binds only the two lever-setting
+workflows (`release-readiness.yml`, `release-tag.yml` — verified by grep to be
+the only places the fleet sets that variable); `3 → 4` needs only a published
+release. Splitting goal 3 into **3a (minimal, lever-free)** and **3b (full
+template, arms the lever)** frees goals 4, 5 and 1 from the 54-row cleanup.
 
-`research/phase-2-adopter-shipping.md` is a **DRAFT SHAPE**, not a slice list —
-its own text reserves every cut to the maintainer. It carries three open
-questions that likely gate the cut:
+Goal 2 is **NOT** independent and must not be planned as a parallel lane; it
+gates 3b.
 
-1. **Marketplace hosting** — does this repo publish its own plugin marketplace
-   (as livespec core does), or join an existing family marketplace? This one
-   probably has to be answered FIRST, because goals 3/4 depend on the answer.
-2. **Is the Codex arm in scope for first ship?** `.livespec.jsonc` declares
+**Goal 1 = availability ∧ behavior.** `.15` depends on BOTH `.13` (the plugin is
+actually installed elsewhere) and `.16` (the generated template is not
+stall-prone). Availability alone does not close goal 1.
+
+### The remaining open questions
+
+`research/phase-2-adopter-shipping.md` is a **DRAFT SHAPE**, not a slice list.
+Question 1 (marketplace hosting) is **CLOSED** — see above. Two remain:
+
+1. **Is the Codex arm in scope for first ship?** `.livespec.jsonc` declares
    `codex: exempt` today, though the daemon half is already harness-neutral.
-3. **Does "shipped" warrant a SPECIFICATION scenario?** That would route through
+2. **Does "shipped" warrant a SPECIFICATION scenario?** That would route through
    `/livespec:propose-change` — spec-side and human-gated. Note the interaction
    with goal 2: a new scenario adds a 22nd heading that itself needs a
    top-of-pyramid test and a `tests/heading-coverage.json` co-edit.
