@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.3...v0.12.4) (2026-07-26)
+
+
+### Bug Fixes
+
+* **overseer:** delete the loop-iteration broad catch; let a tick bug crash ([878fc6e](https://github.com/thewoolleyman/livespec-overseer/commit/878fc6e2aafc55f9730cd0fd7ef91f5d885761ea))
+
 ## [0.12.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.2...v0.12.3) (2026-07-26)
 
 
