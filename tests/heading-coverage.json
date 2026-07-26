@@ -269,36 +269,36 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A fresh ready declaration triggers the atomic restart",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart",
+    "reason": "Integration-tier: opens a REAL wrap-up round (which is what writes the injection stamp), then declares `ready` post-dating it. Asserts ONE respawn and no new-session / no `/exit` send-keys (atomicity as the absence of the alternatives), the claude launch command, exactly one resume prompt naming the handoff path, and that the state file plus the round's stamp are gone. A final re-tick pins that the consumed declaration cannot re-trigger. SABOTAGE-VERIFIED 2026-07-26: skipping `_clear_state` on the success path reddens the state-file assertion (and, verified on an isolated probe, the re-trigger assertion at 2 respawns != 1); re-pointing `_launch_command` at the codex command reddens the launch-command assertion."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready declaration from a prior round never restarts",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_ready_declaration_from_a_prior_round_never_restarts",
+    "reason": "Integration-tier: the declaration is written BEFORE the round is opened, so 'its mtime predates this round's stamp' is an observed consequence of the sequence rather than a hand-picked pair of numbers — the test asserts that ordering against the stamp the daemon actually wrote. Asserts the interlock refuses (no respawn, status not `restarting`) and that nothing consumes the declaration or the open round. SABOTAGE-VERIFIED 2026-07-26: dropping the mtime comparison from `signals.ready_valid` restarts the track on the prior round's declaration."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready declaration is voided when its session resumes work",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work",
+    "reason": "Integration-tier: covers BOTH halves of the scenario over real rounds and a moving clock. A declaration younger than `_MARKER_VOID_GRACE` survives the declaring turn's own busy tail and then genuinely restarts the track; one older than the grace is cleared while busy, and going idle again proves the 'instead of restarting later' clause. SABOTAGE-VERIFIED 2026-07-26: `_MARKER_VOID_GRACE = 0.0` and making the void unconditional each redden the young half; `_MARKER_VOID_GRACE = 10_000.0` reddens the stale half."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An undeclared session at the danger line is reported, never restarted",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_ready_declaration_restart.test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_restarted",
+    "reason": "Integration-tier: warns a real track, then drops it across the danger line with no declaration. Asserts the report names every coordinate (topic, repo slug, tmux session, and a copy-pasteable `tmux switch-client` jump) and says `declared NOTHING` rather than the stale-ACK wording. 'No further act' is pinned as a paste count held constant across ten further observations — the crossing's own coalesced wrap-up is authorized by the threshold, so the claim is about what happens AFTER it settles. SABOTAGE-VERIFIED 2026-07-26: `DANGER_CTX_REMAINING = 0` makes the row read `warned` with no alert; reducing `_alert` to `repo::topic` reddens the coordinate assertions."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A malformed state value is surfaced and treated as no declaration",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declaration",
+    "reason": "Integration-tier, and deliberately DIFFERENTIAL: every restart precondition is satisfied over a real round (open stamp, idle settled pane, declaration post-dating the stamp) so the only difference from the fresh-`ready` scenario is the token itself — which is what makes 'no act is authorized' a claim about the value rather than about some other unmet condition. Asserts the value is surfaced by name, the round stays open, and at the danger line the track reports as having `declared NOTHING`. SABOTAGE-VERIFIED 2026-07-26: `valid_token` accepting anything silences the surfacing; `read_state` coercing an unknown token to `ready` respawns the track on a typo."
   },
   {
     "spec_root": "SPECIFICATION",
