@@ -1,7 +1,8 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **ALL SIX GOALS MET.** The
-plugin is RELEASED (through v0.12.3), REGISTERED in all twelve consuming repos,
+**Owning repo:** `livespec-overseer`. **Status:** **ALL SIX GOALS MET — THE
+THREAD IS DONE.** The
+plugin is RELEASED (through v0.12.4), REGISTERED in all twelve consuming repos,
 and INSTALLED on the host for **all twelve** — nine fleet members plus all three
 adopters — with `supervise-plan` proven to RESOLVE by live exercise in eleven
 sessions that are not this repo's. **All 24 children of `overseer-hbr` are
@@ -539,17 +540,58 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 
 ## NEXT ACTION — the thread is DONE; all six goals are met
 
-**Rewritten 2026-07-26 at the THIRD wrap-up. Every earlier status line in this
-file — "waiting on maintainer valves", "`.16` is in flight", "`.13` is next",
-"goal 4's adopter clause is not met" — is SUPERSEDED. All 23 children are
-closed.**
+**Rewritten 2026-07-26 at the THIRD wrap-up, amended at the FOURTH. Every earlier
+status line in this file — "waiting on maintainer valves", "`.16` is in flight",
+"`.13` is next", "goal 4's adopter clause is not met", "goal 5 is unmet" — is
+SUPERSEDED. All 24 children are closed.**
+
+### IF YOU ARE A FRESH SESSION, READ THIS AND STOP
+
+**There is no buildable work left in this thread.** Do not look for a next slice
+— every child of `overseer-hbr` is closed and all six goals hold. The correct
+first action is to confirm that from the ledger
+(`bd list` in the `livespec-overseer` tenant), not from this file, and then ask
+the maintainer what to pick up.
+
+Three things are open and **none of them is this thread's to build**:
+
+| id | state | why not ours |
+|---|---|---|
+| `overseer-mim` | `pending-approval` | two livespec-dev-tooling pin-lane gaps + the fleet/adopter credential-boundary decision. Named with that owner; discharging it DELETES this repo's `adopter-release-dispatch.yml` bridge |
+| `overseer-l0f` | `pending-approval` | `uv.lock` trails `pyproject.toml` after every release; any `uv run` dirties a tracked file and no gate catches it |
+| `overseer-byvxlp` | `backlog` | the generated-prompt quality bar beyond both stall modes; owned by `plan/supervisor-prompt-quality/` |
+
+`overseer-hbr` itself is still `backlog`. **Closing the epic is the maintainer's
+call and was deliberately not taken** — this thread does not close its own anchor
+(see §"Groom Step 3 was deliberately NOT run").
+
+### LIVE STATE A FRESH SESSION CANNOT DERIVE — release PR #139
+
+The maintainer deliberately HELD PR #139 (`chore(master): release 0.13.0`, clean
+and mergeable) as a live end-to-end test fixture for goal 5, intending a real
+release publish to exercise producer → pinned-adopter unattended.
+
+**That rationale is DISCHARGED and was reported as such.** Goal 5 was observed
+without it: both pinned adopters advanced **v0.12.3 → v0.12.4 unattended** on a
+release another track published, via the daily PULL path. #139 can be merged
+whenever convenient.
+
+What merging it will and will not do, so nobody reads the result wrong:
+
+- it WILL exercise `adopter-release-dispatch.yml`'s **unauthorized** path — the
+  livespec App cannot reach any adopter, so expect a notice plus a job summary
+  reading `delivered: 0`, and a GREEN job. That is correct behavior, not a
+  failure.
+- it will NOT bump the adopters at publish time. They pick up 0.13.0 on their
+  next daily pull, or immediately via
+  `gh workflow run bump-plugin-pin.yml` in either adopter.
 
 ### What changed, in one paragraph
 
 The plugin went from installed-in-zero-projects to **installed in all twelve** —
 nine fleet members and all three adopters — and `supervise-plan` now RESOLVES in
 sessions that are not this repo's, proven by live exercise rather than by a
-settings file. Releases are published through **v0.12.3**, `refs/heads/release`
+settings file. Releases are published through **v0.12.4**, `refs/heads/release`
 tracks the latest, the registration is merged in all twelve consuming repos, and
 goal 2's lever fired green on the release path. **All six goals are met.** All
 23 children of `overseer-hbr` are closed.
@@ -834,10 +876,11 @@ and the reasons are reusable:
 - **`tests/integration/` carries 4 modules, 22 tests**; `tests/prompts/` carries
   the generated-charter contract, **12 tests**.
 - **`just check` on master: 61 targets, green, 100% statement+branch.**
-- **Three releases published** — v0.12.0, v0.12.1, **v0.12.2** — and
-  `refs/heads/release` = `74bbe7e84d02cec9423c9ad83cc65aad22e01f5e` = the v0.12.2
-  tag. PR #52 is long since merged; the "do not merge it" instruction that used
-  to live here is spent.
+- **Releases published through v0.12.4**, with `refs/heads/release` tracking the
+  latest. PR #52 is long since merged; the "do not merge it" instruction that
+  used to live here is spent. **Re-derive the current tag** (`gh release list`)
+  rather than trusting a number here — this line has gone stale three times, and
+  another track publishes releases too.
 - **NOTHING of this thread's is in flight.** Its worktrees were removed and its
   branches deleted after merge.
 - **Host plugin state** (the numbers goal 4 moves — re-derive against
@@ -845,12 +888,12 @@ and the reasons are reusable:
   - `known_marketplaces.json` — **11** entries, `livespec-overseer` PRESENT,
     `{source: github, repo: thewoolleyman/livespec-overseer, ref: release}`.
   - `cache/livespec-overseer/` — present, carrying BOTH skills.
-  - `installed_plugins.json` — `livespec-overseer@livespec-overseer` with **nine**
-    project entries, all at `74bbe7e84d02`. **No adopter path appears** — that is
-    `.23`.
+  - `installed_plugins.json` — `livespec-overseer@livespec-overseer` with
+    **twelve** project entries: all 9 fleet members and all 3 adopters.
 - **A known, benign lag:** release-please does not update `uv.lock`, so the lock
   trails `pyproject.toml` by one version after each release and any `uv run`
-  dirties it. No gate covers it; do not mistake it for a stray edit.
+  dirties it. No gate covers it; do not mistake it for a stray edit — filed as
+  `overseer-l0f`.
 
 ### DONE — do not redo
 
@@ -997,6 +1040,7 @@ was set by hand and then read back from the ledger to verify.**
 | S12 goal-6 dispositions | `.21` | 6 | — | **DONE** |
 | S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | **DONE** — item 5 satisfied, item 3 sized |
 | — goal-4 ADOPTER arm | **`.23`** | 4 | — | **DONE** — homelab PR #67, openbrain + resume direct push |
+| — goal-5 PINNED-consumer bump lane | **`.24`** | 5 | `.23` | **DONE** — observed: both pinned adopters advanced v0.12.3 → v0.12.4 unattended |
 
 Plus `.1`–`.9`, all closed: `.1`/`.9` (the `source_repo` misnaming), `.2` (the
 goal-6 anchor), `.5`/`.7` (stale docs), `.6` (`overseer-3wt` items 3+5), and
