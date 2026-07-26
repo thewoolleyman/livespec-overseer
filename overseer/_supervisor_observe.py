@@ -84,7 +84,7 @@ def is_codex_track(
         return False
     if target is None:
         return True  # no pane to check against (callers that only have the mapping)
-    return signals.pane_is_codex(sup.tmux.pane_current_command(session=target))
+    return signals.pane_is_codex(pane_current_command=sup.tmux.pane_current_command(session=target))
 
 
 def pane_is_managed(
@@ -133,7 +133,9 @@ def pane_is_managed_claude(
     ``target`` is the resolved pane id (RB3), so the identity read is of the
     exact pane, never a prefix-matched sibling.
     """
-    if not signals.pane_is_claude(sup.tmux.pane_current_command(session=target)):
+    if not signals.pane_is_claude(
+        pane_current_command=sup.tmux.pane_current_command(session=target)
+    ):
         return False
     if not signals.path_in_repo(
         pane_current_path=sup.tmux.pane_current_path(session=target), repo=repo

@@ -42,7 +42,7 @@ def test_map_codex_sessions_emits_the_same_triple_as_the_claude_twin(*, tmp_path
     mapped = codex_sessions.map_codex_sessions(
         codex_home=home,
         pane_pid_to_session={9000: "livespec3"},
-        ppid_of={4242: 9000}.get,  # the codex pid's parent IS the pane pid
+        ppid_of=lambda *, pid: {4242: 9000}.get(pid),  # the codex pid's parent IS the pane pid
         **host,
     )
     assert mapped == [("livespec3", "topic-a", "/data/projects/livespec")]
@@ -60,7 +60,7 @@ def test_map_codex_sessions_omits_a_session_not_inside_tmux(*, tmp_path):
     mapped = codex_sessions.map_codex_sessions(
         codex_home=home,
         pane_pid_to_session={},  # no tmux panes at all
-        ppid_of=lambda _p: None,
+        ppid_of=lambda *, pid: None,
         **host,
     )
     assert mapped == []
@@ -76,7 +76,7 @@ def test_map_codex_sessions_is_deterministic_across_sessions(*, tmp_path):
     mapped = codex_sessions.map_codex_sessions(
         codex_home=home,
         pane_pid_to_session={101: "s-one", 202: "s-two"},
-        ppid_of={10: 101, 20: 202}.get,
+        ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
         **host,
     )
     assert mapped == [  # pid order, like the Claude twin's sorted-registry order
@@ -105,7 +105,7 @@ def test_codex_by_tmux_session_keys_live_sessions_by_tmux_session_and_name(*, tm
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={101: "s-one", 202: "s-two"},
         codex_home=home,
-        ppid_of={10: 101, 20: 202}.get,
+        ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
         **host,
     )
     assert set(by) == {("s-one", "topic-a"), ("s-two", "topic-b")}
@@ -129,7 +129,7 @@ def test_codex_by_tmux_session_keeps_both_when_two_share_one_tmux_session(*, tmp
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={101: "shared", 202: "shared"},
         codex_home=home,
-        ppid_of={10: 101, 20: 202}.get,
+        ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
         **host,
     )
     assert set(by) == {("shared", "topic-a"), ("shared", "topic-b")}
@@ -155,7 +155,7 @@ def test_codex_by_tmux_session_omits_sessions_outside_tmux(*, tmp_path):
         comms={10: "codex"}, cwds={10: "/x"}, fds={10: [fake_rollout(session_id=ID_A)]}
     )
     by = codex_sessions.codex_by_tmux_session(
-        pane_pid_to_session={}, codex_home=home, ppid_of=lambda _p: None, **host
+        pane_pid_to_session={}, codex_home=home, ppid_of=lambda *, pid: None, **host
     )
     assert by == {}
 
@@ -175,7 +175,7 @@ def test_codex_by_tmux_session_keeps_the_first_on_a_same_tmux_same_name_collisio
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={101: "shared", 202: "shared"},
         codex_home=home,
-        ppid_of={10: 101, 20: 202}.get,
+        ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
         **host,
     )
     assert set(by) == {("shared", "topic-a")}
@@ -242,7 +242,7 @@ def test_proc_fd_targets_reads_the_open_fd_symlinks(*, tmp_path, monkeypatch):
     (fds / "0").symlink_to("/dev/null")
     (fds / "3").symlink_to(fake_rollout(session_id=ID_A))
 
-    assert sorted(codex_sessions.proc_fd_targets(4242)) == [
+    assert sorted(codex_sessions.proc_fd_targets(pid=4242)) == [
         "/dev/null",
         fake_rollout(session_id=ID_A),
     ]
@@ -259,20 +259,20 @@ def test_proc_fd_targets_skips_an_entry_that_cannot_be_readlinked(*, tmp_path, m
     fds.mkdir(parents=True)
     (fds / "0").symlink_to("/dev/null")
     (fds / "1").write_text("", encoding="utf-8")  # not a symlink → EINVAL on readlink
-    assert codex_sessions.proc_fd_targets(7) == ["/dev/null"]
+    assert codex_sessions.proc_fd_targets(pid=7) == ["/dev/null"]
 
 
 def test_proc_fd_targets_is_empty_for_a_pid_that_is_gone(*, tmp_path, monkeypatch):
     _fake_proc(tmp_path=tmp_path, monkeypatch=monkeypatch)
-    assert codex_sessions.proc_fd_targets(999999) == []
+    assert codex_sessions.proc_fd_targets(pid=999999) == []
 
 
 def test_proc_cwd_reads_the_cwd_symlink_and_is_none_when_the_pid_is_gone(*, tmp_path, monkeypatch):
     root = _fake_proc(tmp_path=tmp_path, monkeypatch=monkeypatch)
     (root / "4242").mkdir()
     (root / "4242" / "cwd").symlink_to("/data/projects/livespec")
-    assert codex_sessions.proc_cwd(4242) == "/data/projects/livespec"
-    assert codex_sessions.proc_cwd(999999) is None
+    assert codex_sessions.proc_cwd(pid=4242) == "/data/projects/livespec"
+    assert codex_sessions.proc_cwd(pid=999999) is None
 
 
 def test_proc_pids_of_comm_scans_proc_for_matching_processes(*, tmp_path, monkeypatch):
@@ -281,14 +281,16 @@ def test_proc_pids_of_comm_scans_proc_for_matching_processes(*, tmp_path, monkey
     root = _fake_proc(tmp_path=tmp_path, monkeypatch=monkeypatch)
     for name in ("20", "10", "30", "self", "cpuinfo"):
         (root / name).mkdir()
-    monkeypatch.setattr(codex_sessions, "proc_comm", {10: "codex", 20: "bun", 30: "codex"}.get)
+    monkeypatch.setattr(
+        codex_sessions, "proc_comm", lambda *, pid: {10: "codex", 20: "bun", 30: "codex"}.get(pid)
+    )
 
-    assert codex_sessions.proc_pids_of_comm("codex") == [10, 30]
-    assert codex_sessions.proc_pids_of_comm("bun") == [20]  # the launcher is NOT codex
-    assert codex_sessions.proc_pids_of_comm("node") == []
+    assert codex_sessions.proc_pids_of_comm(comm="codex") == [10, 30]
+    assert codex_sessions.proc_pids_of_comm(comm="bun") == [20]  # the launcher is NOT codex
+    assert codex_sessions.proc_pids_of_comm(comm="node") == []
 
 
 def test_proc_pids_of_comm_is_empty_when_proc_cannot_be_scanned(*, tmp_path, monkeypatch):
     """Fail-soft to []: no scannable `/proc` means "no codex running", never a raise."""
     _fake_proc(tmp_path=tmp_path, monkeypatch=monkeypatch, present=False)
-    assert codex_sessions.proc_pids_of_comm("codex") == []
+    assert codex_sessions.proc_pids_of_comm(comm="codex") == []

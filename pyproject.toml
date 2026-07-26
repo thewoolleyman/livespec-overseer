@@ -184,6 +184,11 @@ ban-relative-imports = "all"
 # `tests/**.py` rationale; the last three are beside-test-specific — SLF001
 # (testing private decision helpers directly IS the point of a beside-test) and
 # ARG001/2 (signature-matching test doubles must accept args they do not use).
+# ARG005 is the LAMBDA form of that same fact and was reached by the keyword-only
+# conversion (`overseer-bg2.9`): a seam's Protocol fixes the KEYWORD NAME, so a
+# substitute that ignores the value must still name its parameter `pid` rather than
+# `_pid`. The underscore that used to say "deliberately unused" is no longer
+# available, because the caller passes by keyword.
 # S106 joins S105 on the identical rationale, and only became reachable when the
 # keyword-only sweep turned `valid_token("redy")` into `valid_token(token="redy")`:
 # ruff reads an argument NAMED `token` as a possible hardcoded credential. These are
@@ -192,7 +197,7 @@ ban-relative-imports = "all"
 # in their bare-literal form; the argument form is the same fact.
 "overseer/test_*.py" = [
     "S101", "PLR2004", "PT018", "S105", "S106", "S108", "TRY003",
-    "SLF001", "ARG001", "ARG002",
+    "SLF001", "ARG001", "ARG002", "ARG005",
 ]
 
 # The top-of-pyramid scenario tree (overseer-hbr.19). Same rationale as the
@@ -204,7 +209,7 @@ ban-relative-imports = "all"
 # independently reviewable.
 "tests/**/*.py" = [
     "S101", "PLR2004", "PT018", "S105", "S108", "TRY003",
-    "SLF001", "ARG001", "ARG002",
+    "SLF001", "ARG001", "ARG002", "ARG005",
 ]
 
 # ---------------------------------------------------------------------------

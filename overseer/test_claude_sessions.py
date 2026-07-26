@@ -33,7 +33,9 @@ def test_read_live_sessions_keeps_live_named_drops_stale(*, tmp_path):
     _write(directory=tmp_path, pid=400, name="", cwd="/r/d", proc_start="444")  # no name → skip
     starttimes = {100: "111", 300: "999"}  # 100 matches; 300 mismatches; 200/400 absent
 
-    live = claude_sessions.read_live_sessions(sessions_dir=tmp_path, starttime_of=starttimes.get)
+    live = claude_sessions.read_live_sessions(
+        sessions_dir=tmp_path, starttime_of=lambda *, pid: starttimes.get(pid)
+    )
     assert [(s.pid, s.name, s.cwd) for s in live] == [(100, "alpha", "/r/a")]
 
 
@@ -41,14 +43,14 @@ def test_read_live_sessions_skips_malformed_files(*, tmp_path):
     (tmp_path / "bad.json").write_text("{not json", encoding="utf-8")
     _write(directory=tmp_path, pid=100, name="alpha", cwd="/r/a", proc_start="111")
     live = claude_sessions.read_live_sessions(
-        sessions_dir=tmp_path, starttime_of=lambda _pid: "111"
+        sessions_dir=tmp_path, starttime_of=lambda *, pid: "111"
     )
     assert [s.name for s in live] == ["alpha"]
 
 
 def test_read_live_sessions_missing_dir_is_empty(*, tmp_path):
     got = claude_sessions.read_live_sessions(
-        sessions_dir=tmp_path / "nope", starttime_of=lambda _pid: "x"
+        sessions_dir=tmp_path / "nope", starttime_of=lambda *, pid: "x"
     )
     assert got == []
 
@@ -57,14 +59,14 @@ def test_resolve_tmux_session_walks_parent_chain():
     # claude 100 → shell 50 (a pane PID of session "s") → init.
     ppid = {100: 50, 50: 1}
     got = claude_sessions.resolve_tmux_session(
-        pid=100, pane_pid_to_session={50: "s"}, ppid_of=ppid.get
+        pid=100, pane_pid_to_session={50: "s"}, ppid_of=lambda *, pid: ppid.get(pid)
     )
     assert got == "s"
 
 
 def test_resolve_tmux_session_pid_is_the_pane_itself():
     got = claude_sessions.resolve_tmux_session(
-        pid=50, pane_pid_to_session={50: "s"}, ppid_of=lambda _pid: None
+        pid=50, pane_pid_to_session={50: "s"}, ppid_of=lambda *, pid: None
     )
     assert got == "s"
 
@@ -72,14 +74,16 @@ def test_resolve_tmux_session_pid_is_the_pane_itself():
 def test_resolve_tmux_session_none_when_not_in_tmux():
     ppid = {100: 50, 50: 1, 1: 0}
     got = claude_sessions.resolve_tmux_session(
-        pid=100, pane_pid_to_session={999: "other"}, ppid_of=ppid.get
+        pid=100, pane_pid_to_session={999: "other"}, ppid_of=lambda *, pid: ppid.get(pid)
     )
     assert got is None
 
 
 def test_resolve_tmux_session_cycle_is_fail_soft():
     ppid = {100: 200, 200: 100}  # a cycle, and neither is a pane PID
-    got = claude_sessions.resolve_tmux_session(pid=100, pane_pid_to_session={}, ppid_of=ppid.get)
+    got = claude_sessions.resolve_tmux_session(
+        pid=100, pane_pid_to_session={}, ppid_of=lambda *, pid: ppid.get(pid)
+    )
     assert got is None
 
 
@@ -98,15 +102,17 @@ def test_map_named_sessions_joins_only_live_in_tmux(*, tmp_path):
     mapped = claude_sessions.map_named_sessions(
         sessions_dir=tmp_path,
         pane_pid_to_session=pane_pid_to_session,
-        ppid_of=ppid.get,
-        starttime_of=starttimes.get,
+        ppid_of=lambda *, pid: ppid.get(pid),
+        starttime_of=lambda *, pid: starttimes.get(pid),
     )
     assert mapped == [("sA", "alpha", "/r/a")]
 
 
 def test_read_live_sessions_carries_the_status_field(*, tmp_path):
     _write(directory=tmp_path, pid=100, name="alpha", cwd="/r/a", proc_start="111", status="busy")
-    live = claude_sessions.read_live_sessions(sessions_dir=tmp_path, starttime_of={100: "111"}.get)
+    live = claude_sessions.read_live_sessions(
+        sessions_dir=tmp_path, starttime_of=lambda *, pid: {100: "111"}.get(pid)
+    )
     assert [(s.name, s.status) for s in live] == [("alpha", "busy")]
 
 
@@ -116,7 +122,9 @@ def test_read_live_sessions_missing_status_defaults_empty(*, tmp_path):
         json.dumps({"pid": 100, "name": "alpha", "cwd": "/r/a", "procStart": "111"}),
         encoding="utf-8",
     )
-    live = claude_sessions.read_live_sessions(sessions_dir=tmp_path, starttime_of={100: "111"}.get)
+    live = claude_sessions.read_live_sessions(
+        sessions_dir=tmp_path, starttime_of=lambda *, pid: {100: "111"}.get(pid)
+    )
     assert live[0].status == ""
 
 
@@ -132,8 +140,8 @@ def test_status_by_tmux_session_keys_status_by_tmux(*, tmp_path):
     status = claude_sessions.status_by_tmux_session(
         sessions_dir=tmp_path,
         pane_pid_to_session=pane_pid_to_session,
-        ppid_of=ppid.get,
-        starttime_of=starttimes.get,
+        ppid_of=lambda *, pid: ppid.get(pid),
+        starttime_of=lambda *, pid: starttimes.get(pid),
     )
     assert status == {"sA": "busy"}  # gamma omitted (not held in any tmux pane)
 
@@ -155,19 +163,19 @@ def test_names_by_tmux_session_collects_all_names_per_tmux(*, tmp_path):
     names = claude_sessions.names_by_tmux_session(
         sessions_dir=tmp_path,
         pane_pid_to_session=pane_pid_to_session,
-        ppid_of=ppid.get,
-        starttime_of=starttimes.get,
+        ppid_of=lambda *, pid: ppid.get(pid),
+        starttime_of=lambda *, pid: starttimes.get(pid),
     )
     assert names == {"sA": {"alpha", "helper"}}  # BOTH names kept; gamma (out of tmux) omitted
 
 
 def test_proc_readers_on_this_process():
     # The real /proc readers, exercised against THIS process (safe, always present).
-    assert claude_sessions.proc_ppid(os.getpid()) == os.getppid()
-    assert claude_sessions.proc_starttime(os.getpid()) is not None
+    assert claude_sessions.proc_ppid(pid=os.getpid()) == os.getppid()
+    assert claude_sessions.proc_starttime(pid=os.getpid()) is not None
     # A PID that cannot exist → fail-soft None (never raises).
-    assert claude_sessions.proc_ppid(2**30) is None
-    assert claude_sessions.proc_starttime(2**30) is None
+    assert claude_sessions.proc_ppid(pid=2**30) is None
+    assert claude_sessions.proc_starttime(pid=2**30) is None
 
 
 # --------------------------------------------------------------------------- #
@@ -177,7 +185,7 @@ def test_proc_readers_on_this_process():
 
 def _tree(*, children, comms):
     """A pair of fake /proc readers over a static process tree."""
-    return (lambda pid: children.get(pid, [])), comms.get
+    return (lambda *, pid: children.get(pid, [])), (lambda *, pid: comms.get(pid))
 
 
 def test_has_active_subshell_true_when_direct_child_is_shell():
@@ -214,7 +222,7 @@ def test_has_active_subshell_true_for_deep_shell():
 def test_has_active_subshell_false_when_no_children():
     assert (
         claude_sessions.has_active_subshell(
-            root_pid=100, children_of=lambda _pid: [], comm_of=lambda _pid: None
+            root_pid=100, children_of=lambda *, pid: [], comm_of=lambda *, pid: None
         )
         is False
     )
@@ -243,14 +251,14 @@ def test_has_active_subshell_cycle_is_fail_soft():
 
 def test_proc_comm_and_children_on_this_process():
     # The real /proc readers, exercised against THIS process (safe, always present).
-    comm = claude_sessions.proc_comm(os.getpid())
+    comm = claude_sessions.proc_comm(pid=os.getpid())
     assert comm is not None and comm != ""
-    children = claude_sessions.proc_children(os.getpid())
+    children = claude_sessions.proc_children(pid=os.getpid())
     assert isinstance(children, list)
     assert all(isinstance(pid, int) for pid in children)
     # A PID that cannot exist → fail-soft (None / []), never raises.
-    assert claude_sessions.proc_comm(2**30) is None
-    assert claude_sessions.proc_children(2**30) == []
+    assert claude_sessions.proc_comm(pid=2**30) is None
+    assert claude_sessions.proc_children(pid=2**30) == []
 
 
 # --------------------------------------------------------------------------- #
@@ -294,8 +302,8 @@ def test_proc_readers_are_none_when_the_stat_line_has_no_comm_parens(*, tmp_path
     # None from both readers rather than a mis-split field.
     root = _fake_proc(tmp_path=tmp_path, monkeypatch=monkeypatch)
     _write_stat(root=root, pid=100, text="100 truncated-with-no-parens 12345")
-    assert claude_sessions.proc_ppid(100) is None
-    assert claude_sessions.proc_starttime(100) is None
+    assert claude_sessions.proc_ppid(pid=100) is None
+    assert claude_sessions.proc_starttime(pid=100) is None
 
 
 def test_proc_ppid_is_none_when_the_ppid_field_is_not_a_number(*, tmp_path, monkeypatch):
@@ -304,8 +312,8 @@ def test_proc_ppid_is_none_when_the_ppid_field_is_not_a_number(*, tmp_path, monk
     root = _fake_proc(tmp_path=tmp_path, monkeypatch=monkeypatch)
     fields = ["S", "not-a-pid"] + ["0"] * 17 + ["99887766"]
     _write_stat(root=root, pid=100, text="100 (cla ude) " + " ".join(fields))
-    assert claude_sessions.proc_ppid(100) is None
-    assert claude_sessions.proc_starttime(100) == "99887766"
+    assert claude_sessions.proc_ppid(pid=100) is None
+    assert claude_sessions.proc_starttime(pid=100) == "99887766"
 
 
 def test_proc_children_skips_a_non_numeric_token(*, tmp_path, monkeypatch):
@@ -315,7 +323,7 @@ def test_proc_children_skips_a_non_numeric_token(*, tmp_path, monkeypatch):
     children = root / "100" / "task" / "100"
     children.mkdir(parents=True)
     (children / "children").write_text("200 not-a-pid 300\n", encoding="utf-8")
-    assert claude_sessions.proc_children(100) == [200, 300]
+    assert claude_sessions.proc_children(pid=100) == [200, 300]
 
 
 def test_proc_children_is_empty_on_an_undecodable_children_file(*, tmp_path, monkeypatch):
@@ -332,7 +340,7 @@ def test_proc_children_is_empty_on_an_undecodable_children_file(*, tmp_path, mon
     children = root / "100" / "task" / "100"
     children.mkdir(parents=True)
     (children / "children").write_bytes(b"\xff\xfe200 300\n")
-    assert claude_sessions.proc_children(100) == []
+    assert claude_sessions.proc_children(pid=100) == []
 
 
 def test_read_live_sessions_is_fail_soft_when_the_registry_dir_cannot_be_listed(
@@ -347,7 +355,7 @@ def test_read_live_sessions_is_fail_soft_when_the_registry_dir_cannot_be_listed(
 
     monkeypatch.setattr(claude_sessions, "Path", lambda _path: _UnlistableDir())
     assert (
-        claude_sessions.read_live_sessions(sessions_dir=tmp_path, starttime_of=lambda _pid: "111")
+        claude_sessions.read_live_sessions(sessions_dir=tmp_path, starttime_of=lambda *, pid: "111")
         == []
     )
 
@@ -370,7 +378,7 @@ def test_read_live_sessions_skips_records_with_wrongly_typed_fields(*, tmp_path)
     _write(directory=tmp_path, pid=400, name="delta", cwd="/r/d", proc_start="444")
 
     live = claude_sessions.read_live_sessions(
-        sessions_dir=tmp_path, starttime_of=lambda _pid: "444"
+        sessions_dir=tmp_path, starttime_of=lambda *, pid: "444"
     )
     assert [(s.pid, s.name) for s in live] == [(400, "delta")]
 
@@ -380,6 +388,6 @@ def test_resolve_tmux_session_gives_up_after_the_bounded_parent_walk():
     # pid distinct, so the visited-set never fires) whose pane PID sits beyond the bound
     # returns None rather than climbing forever.
     got = claude_sessions.resolve_tmux_session(
-        pid=100, pane_pid_to_session={1000: "far-away"}, ppid_of=lambda pid: pid + 1
+        pid=100, pane_pid_to_session={1000: "far-away"}, ppid_of=lambda *, pid: pid + 1
     )
     assert got is None

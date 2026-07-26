@@ -46,7 +46,7 @@ __all__: list[str] = [
 def archive_gc(*, sup: Supervisor) -> int:
     """Drop mapping rows whose ``<repo>/plan/<topic>/`` is archived or gone."""
 
-    def keep(row: dict[str, object]) -> bool:
+    def keep(*, row: dict[str, object]) -> bool:
         repo = row.get("repo")
         topic = row.get("topic")
         if not isinstance(repo, str) or not isinstance(topic, str):
@@ -58,7 +58,7 @@ def archive_gc(*, sup: Supervisor) -> int:
             sup.surface(message=f"repo root missing for {repo}::{topic}; keeping mapping row")
             return True
         if registry.archived_or_gone(repo=repo, topic=topic):
-            sup.log(f"archive-GC dropping mapping row {repo}::{topic}")
+            sup.log(message=f"archive-GC dropping mapping row {repo}::{topic}")
             return False
         return True
 
@@ -90,7 +90,7 @@ def auto_link(*, sup: Supervisor, track: registry.Track) -> registry.Track | Non
         resume=default_resume(repo=track.repo, topic=track.topic),
     )
     registry.append_mapping(track=linked, store_path=sup.store_path, added_at=iso_now())
-    sup.log(f"auto-linked live session {session} → {track.repo}::{track.topic}")
+    sup.log(message=f"auto-linked live session {session} → {track.repo}::{track.topic}")
     return linked
 
 
@@ -145,7 +145,7 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
     # `Codex Companion Task: …` threads filter themselves out below: their names are
     # not active plan topics, so they fail the same test any non-topic name fails.
     mapped = claude_sessions.map_named_sessions(
-        sessions_dir=sessions_dir(sup),
+        sessions_dir=sessions_dir(sup=sup),
         pane_pid_to_session=pane_pids,
         ppid_of=sup.ppid_of,
         starttime_of=sup.starttime_of,
@@ -194,7 +194,9 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
                     repo=repo, topic=topic, new_tmux=session, store_path=sup.store_path
                 )
             ):
-                sup.log(f"re-pointed {repo}::{topic} tmux {existing[(repo, topic)]} → {session}")
+                sup.log(
+                    message=f"re-pointed {repo}::{topic} tmux {existing[(repo, topic)]} → {session}"
+                )
                 existing[(repo, topic)] = session
             continue
         track = registry.Track(
@@ -207,11 +209,11 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
         registry.append_mapping(track=track, store_path=sup.store_path, added_at=iso_now())
         existing[(repo, topic)] = session
         adopted.append(track)
-        sup.log(f"adopted session {session} → {repo}::{topic}")
+        sup.log(message=f"adopted session {session} → {repo}::{topic}")
     return adopted
 
 
-def sessions_dir(sup: Supervisor) -> str | os.PathLike[str]:
+def sessions_dir(*, sup: Supervisor) -> str | os.PathLike[str]:
     """The Claude session-registry dir (injected override, else the real ``~/.claude``)."""
     return (
         sup.sessions_dir if sup.sessions_dir is not None else claude_sessions.default_sessions_dir()
@@ -256,13 +258,13 @@ def refresh_claude_status(*, sup: Supervisor) -> None:
     # `topic in names` parity check (R2) and is a SET so a helper Claude in the same tmux
     # session cannot shadow the track's name (review SF5). Both from the same registry.
     sup.claude_status_by_session = claude_sessions.status_by_tmux_session(
-        sessions_dir=sessions_dir(sup),
+        sessions_dir=sessions_dir(sup=sup),
         pane_pid_to_session=pane_pids,
         ppid_of=sup.ppid_of,
         starttime_of=sup.starttime_of,
     )
     sup.claude_names_by_session = claude_sessions.names_by_tmux_session(
-        sessions_dir=sessions_dir(sup),
+        sessions_dir=sessions_dir(sup=sup),
         pane_pid_to_session=pane_pids,
         ppid_of=sup.ppid_of,
         starttime_of=sup.starttime_of,
@@ -287,22 +289,28 @@ def build_rows(*, sup: Supervisor, act: bool = True) -> list[registry.Track]:
     # derivation (adopt / auto_link / evaluate → `_session_of`) runs, so they all
     # agree on which topics must be repo-qualified. Set ABOVE the `not act` return so
     # the read-only `list` path derives display names identically.
-    sup.colliding_topics = registry.colliding_topics(discovered)
+    sup.colliding_topics = registry.colliding_topics(discovered=discovered)
     if not act:
-        return registry.join(discovered, registry.read_mapping(store_path=sup.store_path))
+        return registry.join(
+            discovered=discovered, mapping=registry.read_mapping(store_path=sup.store_path)
+        )
     _ = archive_gc(sup=sup)
     # Continuous adoption (not just at bootstrap): pick up any live Claude
     # session whose registry name is now an active topic — so a session that
     # was mid-prompt, renamed, or launched after startup is tracked within one
     # tick rather than being missed forever.
     _ = adopt_sessions(sup=sup)
-    rows = registry.join(discovered, registry.read_mapping(store_path=sup.store_path))
+    rows = registry.join(
+        discovered=discovered, mapping=registry.read_mapping(store_path=sup.store_path)
+    )
     linked_any = False
     for row in rows:
         if row.is_unassigned and auto_link(sup=sup, track=row) is not None:
             linked_any = True
     if linked_any:
-        rows = registry.join(discovered, registry.read_mapping(store_path=sup.store_path))
+        rows = registry.join(
+            discovered=discovered, mapping=registry.read_mapping(store_path=sup.store_path)
+        )
     return rows
 
 

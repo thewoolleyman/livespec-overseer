@@ -50,8 +50,8 @@ def test_bg_shell_at_danger_is_working_and_never_restarted(*, tmp_path):
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
-        children_of=lambda pid: children.get(pid, []),
-        comm_of=comms.get,
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: comms.get(pid),
     )
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"  # bg shell ⇒ busy; the danger branch is never reached
@@ -74,8 +74,8 @@ def test_bg_shell_sets_background_shell_note(*, tmp_path):
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
-        children_of=lambda pid: children.get(pid, []),
-        comm_of=comms.get,
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: comms.get(pid),
     )
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
@@ -96,8 +96,8 @@ def test_textually_busy_pane_has_no_background_shell_note(*, tmp_path):
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
-        children_of=lambda pid: children.get(pid, []),
-        comm_of=comms.get,
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: comms.get(pid),
     )
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"

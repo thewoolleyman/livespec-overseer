@@ -88,6 +88,14 @@ import codex_sessions
 import registry
 import streams
 import tmuxio
+from _seams import (
+    CommToPidList,
+    PidToIntList,
+    PidToOptionalInt,
+    PidToOptionalStr,
+    PidToStrList,
+    RepoPredicate,
+)
 from _supervisor_config import (
     LOOP_INTERVAL_SECONDS,
     default_gitignore_check,
@@ -136,16 +144,16 @@ class Supervisor:
     # Claude session-registry adoption seams (default: real ~/.claude/sessions + /proc;
     # the beside-tests inject a tmp registry dir + fake /proc readers).
     sessions_dir: str | os.PathLike[str] | None = None
-    ppid_of: Callable[[int], int | None] = claude_sessions.proc_ppid
-    starttime_of: Callable[[int], str | None] = claude_sessions.proc_starttime
+    ppid_of: PidToOptionalInt = claude_sessions.proc_ppid
+    starttime_of: PidToOptionalStr = claude_sessions.proc_starttime
     # Background-subshell detection seams (default: real /proc; the beside-tests
     # inject fake process-tree readers). A tracked session sitting at an empty
     # prompt but with a `Bash(run_in_background)` command still running has a
     # DESCENDANT shell under its pane process — that means active background work,
     # so the session is BUSY, not idle (never respawn-pane -k a session with live
     # background work).
-    children_of: Callable[[int], list[int]] = claude_sessions.proc_children
-    comm_of: Callable[[int], str | None] = claude_sessions.proc_comm
+    children_of: PidToIntList = claude_sessions.proc_children
+    comm_of: PidToOptionalStr = claude_sessions.proc_comm
     # Codex session-discovery seams (default: real /proc scan + ~/.codex; the beside-tests
     # inject fakes). Unlike Claude — whose candidate pids come from the injected registry
     # dir (`sessions_dir`) — Codex discovers its pids by a live `/proc` `comm==codex` scan
@@ -156,8 +164,8 @@ class Supervisor:
     # through as-is (no `_sessions_dir`-style helper needed). `ppid_of` (the tmux-join walk)
     # is shared with the Claude seam above.
     codex_home: str | os.PathLike[str] | None = None
-    codex_pids_of_comm: Callable[[str], list[int]] = codex_sessions.proc_pids_of_comm
-    codex_fd_targets_of: Callable[[int], list[str]] = codex_sessions.proc_fd_targets
+    codex_pids_of_comm: CommToPidList = codex_sessions.proc_pids_of_comm
+    codex_fd_targets_of: PidToStrList = codex_sessions.proc_fd_targets
     # Host-precondition seams (default: the real `/proc` + a real PATH lookup; the
     # beside-tests' `_sup` factory defaults them to a SUPPORTED-looking host so the
     # suite never depends on the RUNNER having tmux). Linux + tmux is a DECLARED
@@ -169,10 +177,10 @@ class Supervisor:
     # wrongly satisfy.
     proc_root: str | os.PathLike[str] = "/proc"
     which: Callable[[str], str | None] = shutil.which
-    codex_cwd_of: Callable[[int], str | None] = codex_sessions.proc_cwd
+    codex_cwd_of: PidToOptionalStr = codex_sessions.proc_cwd
     # Startup gate: `<repo>/tmp/overseer/` MUST be gitignored (the overseer only
     # writes temp files, never tracked ones). Injectable so tests fake the check.
-    gitignore_check: Callable[[str], bool] = default_gitignore_check
+    gitignore_check: RepoPredicate = default_gitignore_check
     # The daemon's OWN pane (its `$TMUX_PANE`, inherited because `overseerd` is launched
     # inside the top pane). Used only to badge the attention count onto the tmux WINDOW
     # name — the one overseer surface visible from a session the operator is attached to.
@@ -224,7 +232,7 @@ class Supervisor:
     # Diagnostics.
     # ----------------------------------------------------------------- #
 
-    def log(self, message: str) -> None:
+    def log(self, *, message: str) -> None:
         streams.write_stderr(text=f"{iso_now()} overseer: {message}\n")
 
     def surface(self, *, message: str) -> None:

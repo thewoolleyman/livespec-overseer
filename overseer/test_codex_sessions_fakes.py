@@ -48,7 +48,7 @@ def fake_host(*, comms=None, cwds=None, fds=None):
     """Injected host readers: pid→comm, pid→cwd, pid→open fd targets."""
     comms, cwds, fds = comms or {}, cwds or {}, fds or {}
     return {
-        "pids_of_comm": lambda comm: sorted(p for p, c in comms.items() if c == comm),
-        "cwd_of": cwds.get,
-        "fd_targets_of": lambda pid: fds.get(pid, []),
+        "pids_of_comm": lambda *, comm: sorted(p for p, c in comms.items() if c == comm),
+        "cwd_of": lambda *, pid: cwds.get(pid),
+        "fd_targets_of": lambda *, pid: fds.get(pid, []),
     }

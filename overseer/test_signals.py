@@ -193,7 +193,7 @@ def test_state_path_is_under_tmp_overseer_never_plan(*, tmp_path):
     repo = str(tmp_path / "repo")
     topic = "mytopic"
     expected_dir = Path(repo) / "tmp" / "overseer" / topic
-    assert signals.marker_dir(repo, topic) == expected_dir
+    assert signals.marker_dir(repo=repo, topic=topic) == expected_dir
     assert signals.state_path(repo=repo, topic=topic) == expected_dir / ".overseer-state"
     # The overseer never writes under a session's plan/ tree.
     assert "plan" not in signals.state_path(repo=repo, topic=topic).parts

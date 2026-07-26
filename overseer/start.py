@@ -33,7 +33,7 @@ _DAEMON_PANE_TITLE = "overseer-daemon"
 _DAEMON_PANE_HEIGHT_PERCENT = 66
 
 
-def daemon_command(warn_percent: int | None) -> str:
+def daemon_command(*, warn_percent: int | None) -> str:
     """The `overseerd` launch command for the daemon top pane.
 
     When ``warn_percent`` is given it is threaded through to the daemon as
@@ -123,7 +123,7 @@ def main(
         )
     else:
         (core / "tmp" / "overseer").mkdir(parents=True, exist_ok=True)
-        command = daemon_command(args.warn_percent)
+        command = daemon_command(warn_percent=args.warn_percent)
         new_pane = layout.split_window_top(pane=pane, cwd=str(core), command=command)
         if new_pane is None:
             streams.write_stderr(

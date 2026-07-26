@@ -41,7 +41,7 @@ def write_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         _ = path.write_text(signals.STATE_IDLE_WITH_CONTEXT_LEFT + "\n", encoding="utf-8")
     except OSError as exc:
-        sup.log(f"could not write idle-nudge marker for {track.repo}::{track.topic}: {exc}")
+        sup.log(message=f"could not write idle-nudge marker for {track.repo}::{track.topic}: {exc}")
 
 
 def clear_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
@@ -68,7 +68,7 @@ def clear_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
     # test. Its sibling in `_clear_state` unlinks with no preceding read, so
     # that one IS covered (a directory there yields EISDIR for every uid).
     except OSError as exc:  # pragma: no cover
-        sup.log(f"could not clear idle-nudge marker for {track.repo}::{track.topic}: {exc}")
+        sup.log(message=f"could not clear idle-nudge marker for {track.repo}::{track.topic}: {exc}")
 
 
 def nudge_idle_with_context(
@@ -99,7 +99,7 @@ def nudge_idle_with_context(
     ):
         write_idle_nudge_state(sup=sup, track=track)
         sup.log(
-            f"nudged idle-with-context-left {repo}::{topic} "
+            message=f"nudged idle-with-context-left {repo}::{topic} "
             f"(ctx {eff_ctx}% > threshold {threshold}%)"
         )
     else:

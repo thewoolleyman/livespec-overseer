@@ -41,7 +41,7 @@ def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
     try:
         signals.state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
     except OSError as exc:
-        sup.log(f"could not delete state file for {track.repo}::{track.topic}: {exc}")
+        sup.log(message=f"could not delete state file for {track.repo}::{track.topic}: {exc}")
     registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
 
@@ -63,7 +63,7 @@ def void_if_stale(*, sup: Supervisor, track: registry.Track, ready: bool) -> boo
     if age > MARKER_VOID_GRACE:
         clear_state(sup=sup, track=track)
         sup.log(
-            f"voided stale ready declaration for {track.repo}::{track.topic} "
+            message=f"voided stale ready declaration for {track.repo}::{track.topic} "
             f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed work)"
         )
         return False
@@ -114,7 +114,7 @@ def void_stale_blocked(
         return blocked  # the declaring turn's own tail (RB1)
     clear_state(sup=sup, track=track)
     sup.log(
-        f"voided stale blocked declaration for {track.repo}::{track.topic} "
+        message=f"voided stale blocked declaration for {track.repo}::{track.topic} "
         f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed generating)"
     )
     return None

@@ -464,7 +464,7 @@ def resume_retry(
     )
     if resolved:
         _supervisor_state.clear_state(sup=sup, track=track)
-        sup.log(f"restart resume submitted for {repo}::{topic} (pane {target})")
+        sup.log(message=f"restart resume submitted for {repo}::{topic} (pane {target})")
         return RowView(
             topic=topic,
             repo=repo,

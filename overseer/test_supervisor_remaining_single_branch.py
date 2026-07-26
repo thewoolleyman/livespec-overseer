@@ -82,7 +82,7 @@ def test_cli_start_respawns_a_session_proven_dead_by_its_bare_shell(
     fake.serve(session=session, repo=repo, capture=idle_capture(), cmd="zsh")
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
 
-    assert supervisor.main(["start", "--repo", str(repo), "--topic", topic]) == 0
+    assert supervisor.main(argv=["start", "--repo", str(repo), "--topic", topic]) == 0
 
     assert fake.has(method="respawn")  # the dead shell's pane WAS relaunched
     assert not fake.has(method="new")  # ...in place; the session already existed

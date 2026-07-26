@@ -54,7 +54,7 @@ def test_cli_adopt_reports_every_adopted_session_and_the_total(*, monkeypatch, c
 
     monkeypatch.setattr(supervisor, "build_supervisor", lambda: _AdoptOnlySup())
 
-    assert supervisor.main(["adopt"]) == 0
+    assert supervisor.main(argv=["adopt"]) == 0
 
     out = capsys.readouterr().out
     assert "adopted sesA → /x/repo_a::alpha" in out
@@ -73,7 +73,7 @@ def test_cli_start_fails_when_the_tmux_session_cannot_be_created(*, tmp_path, mo
     fake.new_session_ok = False
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
 
-    assert supervisor.main(["start", "--repo", str(repo), "--topic", topic]) == 1
+    assert supervisor.main(argv=["start", "--repo", str(repo), "--topic", topic]) == 1
     assert ("new", session, str(repo)) in fake.calls
     assert not fake.has(method="respawn")  # never respawned a prefix-matched sibling
     assert "could not create tmux session" in capsys.readouterr().err
@@ -90,7 +90,7 @@ def test_cli_start_fails_when_the_launch_does_not_land(*, tmp_path, monkeypatch,
     fake.respawn_ok = False
     monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
 
-    assert supervisor.main(["start", "--repo", str(repo), "--topic", topic]) == 1
+    assert supervisor.main(argv=["start", "--repo", str(repo), "--topic", topic]) == 1
     assert ("new", session, str(repo)) in fake.calls
     assert fake.has(method="respawn")
 

@@ -82,7 +82,7 @@ def test_colliding_topics_are_topics_in_two_or_more_repos():
         ("/data/projects/livespec-console-beads-fabro", "shared", "h2"),
         ("/data/projects/livespec", "solo", "h3"),
     ]
-    assert registry.colliding_topics(discovered) == frozenset({"shared"})
+    assert registry.colliding_topics(discovered=discovered) == frozenset({"shared"})
 
 
 def test_colliding_topics_ignores_the_same_repo_seen_twice():
@@ -91,7 +91,7 @@ def test_colliding_topics_ignores_the_same_repo_seen_twice():
         ("/data/projects/livespec", "dup", "h1"),
         ("/data/projects/livespec/", "dup", "h2"),
     ]
-    assert registry.colliding_topics(discovered) == frozenset()
+    assert registry.colliding_topics(discovered=discovered) == frozenset()
 
 
 # --------------------------------------------------------------------------- #
@@ -205,7 +205,9 @@ def test_rewrite_mapping_preserves_unknown_keys(*, tmp_path):
         + "\n",
         encoding="utf-8",
     )
-    dropped = registry.rewrite_mapping(keep=lambda row: row.get("topic") != "a", store_path=store)
+    dropped = registry.rewrite_mapping(
+        keep=lambda *, row: row.get("topic") != "a", store_path=store
+    )
     assert dropped == 1
 
     surviving = [json.loads(line) for line in store.read_text().splitlines() if line.strip()]

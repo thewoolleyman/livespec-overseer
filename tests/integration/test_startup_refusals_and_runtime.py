@@ -55,7 +55,7 @@ def _warnable(*, tmp_path, **kwargs):
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # below the 50% threshold
-    kwargs.setdefault("gitignore_check", lambda _repo: True)
+    kwargs.setdefault("gitignore_check", lambda *, repo: True)
     sup = make_supervisor(
         tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], out=_io.StringIO(), **kwargs
     )
@@ -200,7 +200,7 @@ def test_scenario_the_daemon_refuses_an_unsupported_host(*, tmp_path):
     repo, _topic, _session, fake, sup = _warnable(
         tmp_path=tmp_path,
         proc_root=str(tmp_path / "absent-proc"),  # no /proc: the declared Linux requirement
-        gitignore_check=lambda _repo: False,  # ...and the SECOND gate would fail too
+        gitignore_check=lambda *, repo: False,  # ...and the SECOND gate would fail too
     )
     contender = supervisor.Supervisor(  # ...and the THIRD gate is contested as well
         tmux=FakeTmux(), store_path=sup.store_path, stamp_path=sup.stamp_path
@@ -241,7 +241,10 @@ def test_scenario_the_daemon_refuses_a_repository_that_does_not_ignore_its_scrat
     repo, _topic, _session, fake, sup = _warnable(tmp_path=tmp_path)
     innocent, _ = make_plan(tmp_path=tmp_path, repo_name="innocent", topic="other")
     sup.watch_repos = [str(repo), str(innocent)]
-    sup.gitignore_check = lambda checked: checked != str(repo)  # only `repo` offends
+    # The Protocol fixes the keyword as `repo`, which shadows this test's own `repo`,
+    # so the offending path is bound first.
+    offender = str(repo)
+    sup.gitignore_check = lambda *, repo: repo != offender  # only the offender offends
 
     report = _run(sup=sup)
 

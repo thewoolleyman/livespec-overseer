@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 
 import registry
 import signals
+from _seams import PaneCommandPredicate
 from _supervisor_config import (
     RESTART_POLL_INTERVAL,
     RESTART_POLL_MAX,
@@ -30,8 +31,6 @@ from _supervisor_config import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
@@ -129,7 +128,7 @@ def codex_launch_command(*, session_id: str, resume: str) -> str:
     )
 
 
-def await_pane(*, sup: Supervisor, target: str, is_ready: Callable[[str | None], bool]) -> bool:
+def await_pane(*, sup: Supervisor, target: str, is_ready: PaneCommandPredicate) -> bool:
     """Poll ``#{pane_current_command}`` until ``is_ready(cmd)``, bounded.
 
     ``target`` is the resolved pane id. Never scrape the ``❯``/``›`` prompt glyph
@@ -139,7 +138,7 @@ def await_pane(*, sup: Supervisor, target: str, is_ready: Callable[[str | None],
     that runtime.
     """
     for _ in range(RESTART_POLL_MAX):
-        if is_ready(sup.tmux.pane_current_command(session=target)):
+        if is_ready(pane_current_command=sup.tmux.pane_current_command(session=target)):
             return True
         sup.sleep(RESTART_POLL_INTERVAL)
     return False
@@ -217,7 +216,7 @@ def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool
     counted as sent (the paste-failure false-success the maintainer flagged).
     """
     if not sup.tmux.bracketed_paste(session=target, text=text):
-        sup.log(f"bracketed paste FAILED for pane {target}")
+        sup.log(message=f"bracketed paste FAILED for pane {target}")
         return False
     sup.sleep(RESTART_POLL_INTERVAL)
     for _ in range(SUBMIT_MAX_ENTERS):
