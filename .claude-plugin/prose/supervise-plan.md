@@ -186,6 +186,14 @@ tmux send-keys -t <worker-session> Enter          # only after verifying
 Idle plus queued input means STUCK, not idle. Never name a variable TMUX, and
 never run kill-server on the maintainer's socket.
 
+**Never kill the acting overseer daemon.** It runs in tmux
+`livespec-overseer:1.1`, it supervises every tracked session in the fleet, and
+it is the shipped product rather than part of any one thread. Every other rule
+in this charter protects the one track you govern; this one is the only rule
+whose blast radius is the whole fleet, which is why the generic kill-server
+warning above does not cover it — to a reader holding broad tmux authority,
+that session looks like an ordinary one to clean up.
+
 ## Decision-vetting rubric
 
 Escalate only decisions that are genuinely BLOCKING — meaning no legitimate
@@ -261,8 +269,8 @@ before a picker.
 
 Repeat these in every instruction sent to the supervised session: never pass
 --no-verify; halt and report on hook failure; never touch another session's
-worktrees or branches; verify against the forge after a fetch, never a possibly
-stale working tree.
+worktrees or branches; never kill the acting overseer daemon; verify against
+the forge after a fetch, never a possibly stale working tree.
 
 ## Corrections
 
