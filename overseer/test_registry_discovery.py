@@ -53,7 +53,7 @@ def test_discover_plans_excludes_archive(tmp_path):
     # A stray FILE directly under plan/ must be ignored (only child DIRS are tracks).
     (repo / "plan" / "README.md").write_text("x\n", encoding="utf-8")
 
-    triples = registry.discover_plans([repo])
+    triples = registry.discover_plans(watch_repos=[repo])
     topics = [topic for _repo, topic, _handoff in triples]
     # Every plan/<topic>/ dir is a track (sorted); the literal 'archive' dir excluded.
     assert topics == ["no-handoff", "topic-a", "topic-b"]
@@ -64,7 +64,7 @@ def test_discover_plans_excludes_archive(tmp_path):
 def test_discover_plans_fail_soft_on_missing_plan_dir(tmp_path):
     repo = tmp_path / "repo-without-plan"
     repo.mkdir()
-    assert registry.discover_plans([repo]) == []
+    assert registry.discover_plans(watch_repos=[repo]) == []
 
 
 def test_discover_plans_fail_soft_on_an_unreadable_plan_dir(tmp_path, monkeypatch, capsys):
@@ -89,9 +89,11 @@ def test_discover_plans_fail_soft_on_an_unreadable_plan_dir(tmp_path, monkeypatc
         return real_iterdir(self)
 
     monkeypatch.setattr(Path, "iterdir", _deny)
-    triples = registry.discover_plans([poisoned, healthy])
+    triples = registry.discover_plans(watch_repos=[poisoned, healthy])
 
-    assert [(registry.repo_slug(r), t) for r, t, _h in triples] == [("repo-healthy", "topic-b")]
+    assert [(registry.repo_slug(repo=r), t) for r, t, _h in triples] == [
+        ("repo-healthy", "topic-b")
+    ]
     assert "unreadable plan dir" in capsys.readouterr().err
 
 
@@ -117,9 +119,11 @@ def test_discover_plans_fail_soft_on_an_unreadable_plan_child(tmp_path, monkeypa
         return real_is_dir(self)
 
     monkeypatch.setattr(Path, "is_dir", _deny)
-    triples = registry.discover_plans([poisoned, healthy])
+    triples = registry.discover_plans(watch_repos=[poisoned, healthy])
 
-    assert [(registry.repo_slug(r), t) for r, t, _h in triples] == [("repo-healthy", "topic-b")]
+    assert [(registry.repo_slug(repo=r), t) for r, t, _h in triples] == [
+        ("repo-healthy", "topic-b")
+    ]
     assert "unreadable plan child" in capsys.readouterr().err
 
 
@@ -189,10 +193,10 @@ def test_watch_set_from_config_admits_only_cloned_repos_that_carry_a_plan_dir(tm
         [alpha, tmp_path / "beta", tmp_path / "gamma"],  # beta is not cloned
     )
 
-    result = registry.watch_set_from_config(declaration)
+    result = registry.watch_set_from_config(config_path=declaration)
 
-    assert [registry.repo_slug(p) for p in result] == ["alpha"]
-    assert all(p == registry.norm(p) for p in result)  # normalized absolute
+    assert [registry.repo_slug(repo=p) for p in result] == ["alpha"]
+    assert all(p == registry.norm(repo=p) for p in result)  # normalized absolute
 
 
 def test_watch_set_from_config_admits_a_repo_with_no_assigned_track(tmp_path):
@@ -205,7 +209,9 @@ def test_watch_set_from_config_admits_a_repo_with_no_assigned_track(tmp_path):
     (fresh / "plan" / "brand-new-topic").mkdir(parents=True)
     declaration = _write_watch_set(tmp_path / "repos.json", [fresh])
 
-    assert [registry.repo_slug(p) for p in registry.watch_set_from_config(declaration)] == ["fresh"]
+    assert [
+        registry.repo_slug(repo=p) for p in registry.watch_set_from_config(config_path=declaration)
+    ] == ["fresh"]
 
 
 def test_watch_set_from_config_fail_soft_on_absent_declaration(tmp_path):
@@ -214,9 +220,9 @@ def test_watch_set_from_config_fail_soft_on_absent_declaration(tmp_path):
     extra = tmp_path / "extra"
     extra.mkdir()
 
-    result = registry.watch_set_from_config(tmp_path / "nope.json", [extra])
+    result = registry.watch_set_from_config(config_path=tmp_path / "nope.json", extra_repos=[extra])
 
-    assert [registry.repo_slug(p) for p in result] == ["extra"]
+    assert [registry.repo_slug(repo=p) for p in result] == ["extra"]
 
 
 def test_watch_set_from_config_fail_soft_on_malformed_declaration(tmp_path):
@@ -226,9 +232,9 @@ def test_watch_set_from_config_fail_soft_on_malformed_declaration(tmp_path):
     extra = tmp_path / "extra"
     extra.mkdir()
 
-    result = registry.watch_set_from_config(declaration, [extra])
+    result = registry.watch_set_from_config(config_path=declaration, extra_repos=[extra])
 
-    assert [registry.repo_slug(p) for p in result] == ["extra"]
+    assert [registry.repo_slug(repo=p) for p in result] == ["extra"]
 
 
 def test_watch_set_from_config_fail_soft_when_repos_key_is_missing_or_wrong_type(tmp_path):
@@ -239,7 +245,7 @@ def test_watch_set_from_config_fail_soft_when_repos_key_is_missing_or_wrong_type
         declaration = tmp_path / "repos.json"
         declaration.write_text(payload, encoding="utf-8")
 
-        assert registry.watch_set_from_config(declaration) == []
+        assert registry.watch_set_from_config(config_path=declaration) == []
 
 
 def test_watch_set_from_config_ignores_non_string_entries(tmp_path):
@@ -250,7 +256,9 @@ def test_watch_set_from_config_ignores_non_string_entries(tmp_path):
     declaration = tmp_path / "repos.json"
     declaration.write_text(json.dumps({"repos": [str(alpha), 17, None]}), encoding="utf-8")
 
-    assert [registry.repo_slug(p) for p in registry.watch_set_from_config(declaration)] == ["alpha"]
+    assert [
+        registry.repo_slug(repo=p) for p in registry.watch_set_from_config(config_path=declaration)
+    ] == ["alpha"]
 
 
 def test_watch_set_from_config_skips_an_extra_that_is_not_cloned(tmp_path):
@@ -261,9 +269,11 @@ def test_watch_set_from_config_skips_an_extra_that_is_not_cloned(tmp_path):
     present.mkdir()
     declaration = _write_watch_set(tmp_path / "repos.json", [])
 
-    result = registry.watch_set_from_config(declaration, [tmp_path / "absent", present])
+    result = registry.watch_set_from_config(
+        config_path=declaration, extra_repos=[tmp_path / "absent", present]
+    )
 
-    assert [registry.repo_slug(p) for p in result] == ["present"]
+    assert [registry.repo_slug(repo=p) for p in result] == ["present"]
 
 
 def test_watch_set_from_config_dedupes_a_repo_named_twice(tmp_path):
@@ -273,9 +283,9 @@ def test_watch_set_from_config_dedupes_a_repo_named_twice(tmp_path):
     (alpha / "plan").mkdir(parents=True)
     declaration = _write_watch_set(tmp_path / "repos.json", [alpha])
 
-    result = registry.watch_set_from_config(declaration, [alpha])
+    result = registry.watch_set_from_config(config_path=declaration, extra_repos=[alpha])
 
-    assert [registry.repo_slug(p) for p in result] == ["alpha"]
+    assert [registry.repo_slug(repo=p) for p in result] == ["alpha"]
 
 
 def test_parse_jsonc_is_string_aware_and_tolerates_trailing_comma():
@@ -286,7 +296,7 @@ def test_parse_jsonc_is_string_aware_and_tolerates_trailing_comma():
         '  "items": ["a", "b",],\n'  # trailing comma
         "}\n"
     )
-    parsed = _registry_discovery._parse_jsonc(text)
+    parsed = _registry_discovery._parse_jsonc(text=text)
     assert parsed["url"] == "http://example.com/a//b"  # // inside string preserved
     assert parsed["items"] == ["a", "b"]
 
@@ -295,7 +305,7 @@ def test_parse_jsonc_honors_backslash_escapes_inside_a_string_literal():
     # A BACKSLASH-ESCAPED quote does not end the literal, so the `//` and `/*` that
     # follow it are still INSIDE the string and must survive stripping. An escaped
     # backslash is likewise consumed as one character, not as an escape of the quote.
-    parsed = _registry_discovery._parse_jsonc(r'{"a": "x\"y // z /* w */", "b": "trailing\\"}')
+    parsed = _registry_discovery._parse_jsonc(text=r'{"a": "x\"y // z /* w */", "b": "trailing\\"}')
     assert parsed["a"] == 'x"y // z /* w */'
     assert parsed["b"] == "trailing\\"
 
@@ -305,18 +315,18 @@ def test_strip_jsonc_comments_consumes_an_unterminated_string_literal():
     # the input, so the `//` inside it is preserved rather than treated as the
     # start of a comment. Reporting the malformed JSON is json.loads's job.
     text = '{"a": "unterminated // not-a-comment'
-    assert _registry_discovery._strip_jsonc_comments(text) == text
+    assert _registry_discovery._strip_jsonc_comments(text=text) == text
     with pytest.raises(json.JSONDecodeError):
-        _registry_discovery._parse_jsonc(text)
+        _registry_discovery._parse_jsonc(text=text)
 
 
 def test_archived_or_gone(tmp_path):
     repo = tmp_path / "repo"
     _make_plan(repo, "live")
-    assert registry.archived_or_gone(str(repo), "live") is False
+    assert registry.archived_or_gone(repo=str(repo), topic="live") is False
     # Gone entirely.
-    assert registry.archived_or_gone(str(repo), "never-existed") is True
+    assert registry.archived_or_gone(repo=str(repo), topic="never-existed") is True
     # Moved under plan/archive/.
     archived = repo / "plan" / "archive" / "retired"
     archived.mkdir(parents=True)
-    assert registry.archived_or_gone(str(repo), "retired") is True
+    assert registry.archived_or_gone(repo=str(repo), topic="retired") is True

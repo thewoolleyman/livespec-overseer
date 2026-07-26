@@ -30,7 +30,7 @@ __all__: list[str] = [
 ]
 
 
-def recover_missing_sessions(sup: Supervisor) -> list[str]:
+def recover_missing_sessions(*, sup: Supervisor) -> list[str]:
     """Recreate any mapped session that is not currently live (design).
 
     Run ONCE at daemon startup: a fresh overseer reads the mapping, and for
@@ -52,8 +52,8 @@ def recover_missing_sessions(sup: Supervisor) -> list[str]:
     ABSENT session is recreated, so no live session is ever killed.
     """
     recovered: list[str] = []
-    for track in registry.read_mapping(sup.store_path):
-        session = _supervisor_launch.session_of(sup, track)
+    for track in registry.read_mapping(store_path=sup.store_path):
+        session = _supervisor_launch.session_of(sup=sup, track=track)
         if sup.tmux.session_exists(session=session):
             continue
         # Runtime dispatch: a topic named in the persistent codex index is a CODEX track.
@@ -61,10 +61,10 @@ def recover_missing_sessions(sup: Supervisor) -> list[str]:
         # start. `_recover_codex_track` resumes the same rollout (option c) or skips+surfaces
         # (option b) — it NEVER falls through to the Claude path below (rollout-orphaning).
         codex_id = codex_sessions.latest_session_for_thread_name(
-            track.topic, codex_home=sup.codex_home
+            thread_name=track.topic, codex_home=sup.codex_home
         )
         if codex_id is not None:
-            name = recover_codex_track(sup, track, session, codex_id)
+            name = recover_codex_track(sup=sup, track=track, session=session, session_id=codex_id)
             if name is not None:
                 recovered.append(name)
             continue
@@ -75,22 +75,23 @@ def recover_missing_sessions(sup: Supervisor) -> list[str]:
         # prefix-match a live sibling and replace IT. Fail-soft: surface + skip.
         if not sup.tmux.session_exists(session=session):
             sup.surface(
-                f"reboot-recovery: new-session did not create {session} "
+                message=f"reboot-recovery: new-session did not create {session} "
                 f"for {track.repo}::{track.topic}; skipping"
             )
             continue
-        if do_launch(sup, track, session):
+        if do_launch(sup=sup, track=track, session=session):
             recovered.append(session)
             sup.log(f"reboot-recovery recreated {session} for {track.repo}::{track.topic}")
         else:
             sup.surface(
-                f"reboot-recovery FAILED to launch {session} for {track.repo}::{track.topic}"
+                message=f"reboot-recovery FAILED to launch {session} "
+                f"for {track.repo}::{track.topic}"
             )
     return recovered
 
 
 def recover_codex_track(
-    sup: Supervisor, track: registry.Track, session: str, session_id: str
+    *, sup: Supervisor, track: registry.Track, session: str, session_id: str
 ) -> str | None:
     """Reboot-recover a CODEX track (defect #5): resume the SAME rollout, or skip+surface.
 
@@ -112,30 +113,36 @@ def recover_codex_track(
     Returns the recovered session name, or None on skip/failure (mirroring the Claude
     path's ``session_exists``/launch gates).
     """
-    if not codex_sessions.rollout_exists(session_id, codex_home=sup.codex_home):
+    if not codex_sessions.rollout_exists(session_id=session_id, codex_home=sup.codex_home):
         sup.surface(
-            f"reboot-recovery: codex track {track.repo}::{track.topic} was down at boot and "
+            message=f"reboot-recovery: codex track {track.repo}::{track.topic} "
+            f"was down at boot and "
             f"its rollout is gone (session {session_id}); relaunch it and it will re-adopt"
         )
         return None
     _ = sup.tmux.new_session(name=session, cwd=track.repo)
     if not sup.tmux.session_exists(session=session):
         sup.surface(
-            f"reboot-recovery: new-session did not create {session} "
+            message=f"reboot-recovery: new-session did not create {session} "
             f"for {track.repo}::{track.topic}; skipping"
         )
         return None
-    if do_codex_launch(sup, track, session, session_id):
+    if do_codex_launch(sup=sup, track=track, session=session, session_id=session_id):
         sup.log(
             f"reboot-recovery resumed codex {session} for {track.repo}::{track.topic} "
             f"(session {session_id})"
         )
         return session
-    sup.surface(f"reboot-recovery FAILED to resume codex {session} for {track.repo}::{track.topic}")
+    sup.surface(
+        message=f"reboot-recovery FAILED to resume codex {session} "
+        f"for {track.repo}::{track.topic}"
+    )
     return None
 
 
-def do_codex_launch(sup: Supervisor, track: registry.Track, session: str, session_id: str) -> bool:
+def do_codex_launch(
+    *, sup: Supervisor, track: registry.Track, session: str, session_id: str
+) -> bool:
     """Respawn ``session`` with ``codex resume <id> "<kick>"`` and await a live codex pane.
 
     The codex twin of :meth:`_do_launch`, and SIMPLER: ``codex resume`` takes the kick as
@@ -149,14 +156,14 @@ def do_codex_launch(sup: Supervisor, track: registry.Track, session: str, sessio
     target = sup.tmux.pane_id(session=session)
     if target is None:
         return False
-    resume = track.resume or default_resume(track.repo, track.topic)
-    command = _supervisor_launch.codex_launch_command(session_id, resume)
+    resume = track.resume or default_resume(repo=track.repo, topic=track.topic)
+    command = _supervisor_launch.codex_launch_command(session_id=session_id, resume=resume)
     if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
         return False
-    return _supervisor_launch.await_pane(sup, target, signals.pane_is_codex)
+    return _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_codex)
 
 
-def do_launch(sup: Supervisor, track: registry.Track, session: str) -> bool:
+def do_launch(*, sup: Supervisor, track: registry.Track, session: str) -> bool:
     """Launch ``claude --dangerously-skip-permissions -n <topic>`` and paste the resume line.
 
     ``session`` is the (just-created or existing) session NAME; the pane id is
@@ -169,10 +176,10 @@ def do_launch(sup: Supervisor, track: registry.Track, session: str) -> bool:
     if target is None:
         return False
     if not sup.tmux.respawn_pane(
-        session=target, cwd=track.repo, command=_supervisor_launch.launch_command(track)
+        session=target, cwd=track.repo, command=_supervisor_launch.launch_command(track=track)
     ):
         return False
-    if not _supervisor_launch.await_pane(sup, target, signals.pane_is_claude):
+    if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
         return False
-    resume = track.resume or default_resume(track.repo, track.topic)
-    return _supervisor_launch.submit_prompt(sup, target, resume)
+    resume = track.resume or default_resume(repo=track.repo, topic=track.topic)
+    return _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume)

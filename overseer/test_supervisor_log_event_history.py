@@ -39,7 +39,7 @@ def test_malformed_state_alert_is_edge_triggered_while_danger_repeats(tmp_path):
     """A malformed state file can coexist with danger/non-response. The alerts are two
     independent conditions, so neither may re-arm the other every tick."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))
     declare(repo, topic, "working: still handling it")
@@ -49,7 +49,7 @@ def test_malformed_state_alert_is_edge_triggered_while_danger_repeats(tmp_path):
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         for _ in range(3):
-            assert sup.evaluate(track, act=True).status == "danger"
+            assert sup.evaluate(track=track, act=True).status == "danger"
 
     surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
     malformed = [ln for ln in surfaced if "MALFORMED state file" in ln]
@@ -62,7 +62,7 @@ def test_log_lines_are_timestamped(tmp_path):
     """The bottom pane answers "WHEN did this happen?" from the log, so every line must
     carry its own time — the alert lines used to carry none."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: x")
@@ -70,7 +70,7 @@ def test_log_lines_are_timestamped(tmp_path):
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
-        sup.evaluate(mapped_track(repo, topic, session), act=True)
+        sup.evaluate(track=mapped_track(repo, topic, session), act=True)
     line = next(ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln)
     stamp = line.split(" overseer[SURFACE]")[0]
     # Parses as the ISO-8601 instant the daemon stamps its table with.
@@ -86,14 +86,16 @@ def test_window_name_is_badged_with_the_attention_count(tmp_path):
     """tmux renders the window name in the status bar of whatever session the operator is
     attached to — so a track that wants them is seen without switching panes."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: needs you")
     sup = make_supervisor(
         tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
     )
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path, added_at="t")
+    registry.append_mapping(
+        track=mapped_track(repo, topic, session), store_path=sup.store_path, added_at="t"
+    )
 
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.tick(act=True)
@@ -103,13 +105,15 @@ def test_window_name_is_badged_with_the_attention_count(tmp_path):
 def test_window_name_drops_the_badge_when_nothing_needs_attention(tmp_path):
     """The badge must CLEAR, or it becomes another stale indicator — the very bug."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=90))  # healthy
     sup = make_supervisor(
         tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
     )
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path, added_at="t")
+    registry.append_mapping(
+        track=mapped_track(repo, topic, session), store_path=sup.store_path, added_at="t"
+    )
 
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.tick(act=True)
@@ -119,14 +123,16 @@ def test_window_name_drops_the_badge_when_nothing_needs_attention(tmp_path):
 def test_window_name_is_only_rewritten_when_the_count_changes(tmp_path):
     """A tmux call every tick for an unchanged name is pure noise."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: x")
     sup = make_supervisor(
         tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
     )
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path, added_at="t")
+    registry.append_mapping(
+        track=mapped_track(repo, topic, session), store_path=sup.store_path, added_at="t"
+    )
 
     with contextlib.redirect_stderr(_io.StringIO()):
         for _ in range(4):
@@ -138,14 +144,16 @@ def test_read_only_list_never_renames_the_window(tmp_path):
     """`list` is advertised read-only, so printing a table must not rename the
     maintainer's window as a side effect."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: x")
     sup = make_supervisor(
         tmp_path, fake, own_pane="%7", watch_set_path=None, watch_repos=[str(repo)]
     )
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path, added_at="t")
+    registry.append_mapping(
+        track=mapped_track(repo, topic, session), store_path=sup.store_path, added_at="t"
+    )
 
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.tick(act=False)
@@ -176,13 +184,13 @@ def test_never_seen_is_unassigned_but_once_seen_is_session_gone(tmp_path):
 
     # NEVER seen: a discovered plan with no mapping row.
     never = registry.Track.make_unassigned(repo=str(repo), topic=topic)
-    never_view = sup.evaluate(never, act=True)
+    never_view = sup.evaluate(track=never, act=True)
     assert never_view.status == "unassigned"
     assert never_view.tmux is None
 
     # SEEN once: a mapping row exists, but the session is not in any tmux now.
-    session = registry.tmux_id(str(repo), topic)
-    gone_view = sup.evaluate(mapped_track(repo, topic, session), act=True)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    gone_view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
     assert gone_view.status == "session-gone"
     assert gone_view.tmux is None
 
@@ -209,7 +217,7 @@ def test_an_unadopted_codex_looking_pane_is_never_restarted(tmp_path):
     codex command) is covered by the two sibling tests below.
     """
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     # A real codex pane: tmux reports `bun` (the launcher), NOT `codex` — the vendored
     # binary is its child. Verified live 2026-07-16 on tmux session `livespec3`.
@@ -219,7 +227,7 @@ def test_an_unadopted_codex_looking_pane_is_never_restarted(tmp_path):
     sup = adopt_sup(tmp_path, fake, sessions_dir, {}, {})  # live_codex EMPTY: not adopted
     declare(repo, topic, "ready")
     with contextlib.redirect_stderr(_io.StringIO()):
-        view = sup.evaluate(mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
     assert view.status == "session-gone"  # unadopted `bun` pane is not ours to act on
     assert not fake.has(method="respawn")  # no restart of a pane we cannot prove is codex
     assert not fake.has(method="paste")  # and nothing keystroked into it either

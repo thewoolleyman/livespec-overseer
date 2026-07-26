@@ -114,18 +114,20 @@ def _cli_colliding() -> frozenset[str]:
     name it: the bare plan topic, or ``<slug>-<topic>`` only when the topic collides
     across repos.
     """
-    watch = registry.watch_set_from_config(registry.DEFAULT_WATCH_SET_PATH, [])
-    return registry.colliding_topics(registry.discover_plans(watch))
+    watch = registry.watch_set_from_config(
+        config_path=registry.DEFAULT_WATCH_SET_PATH, extra_repos=[]
+    )
+    return registry.colliding_topics(registry.discover_plans(watch_repos=watch))
 
 
-def _upsert(track: registry.Track) -> None:
+def _upsert(*, track: registry.Track) -> None:
     """Replace any existing (repo, topic) mapping row in the hard-coded store, then
     append (one row each)."""
-    _ = registry.remove_mapping(track.repo, track.topic, None)
-    registry.append_mapping(track, None, added_at=iso_now())
+    _ = registry.remove_mapping(repo=track.repo, topic=track.topic, store_path=None)
+    registry.append_mapping(track=track, store_path=None, added_at=iso_now())
 
 
-def run_daemon(warn_percent: int | None = None) -> int:
+def run_daemon(*, warn_percent: int | None = None) -> int:
     """Start the fleet daemon with fixed defaults — the ``overseerd`` entrypoint.
 
     Called by the dedicated ``overseerd`` executable: watch every fleet member
@@ -169,17 +171,19 @@ def _cmd_add(args: argparse.Namespace) -> int:
     track = registry.Track(
         topic=args.topic,
         repo=repo,
-        tmux=registry.tmux_id(repo, args.topic, _cli_colliding()),
-        handoff=default_handoff(repo, args.topic),
-        resume=default_resume(repo, args.topic),
+        tmux=registry.tmux_id(repo=repo, topic=args.topic, colliding=_cli_colliding()),
+        handoff=default_handoff(repo=repo, topic=args.topic),
+        resume=default_resume(repo=repo, topic=args.topic),
     )
-    _upsert(track)
+    _upsert(track=track)
     streams.write_stdout(text=f"added mapping {repo}::{args.topic} (tmux {track.tmux})\n")
     return 0
 
 
 def _cmd_remove(args: argparse.Namespace) -> int:
-    removed = registry.remove_mapping(os.path.normpath(args.repo), args.topic, None)
+    removed = registry.remove_mapping(
+        repo=os.path.normpath(args.repo), topic=args.topic, store_path=None
+    )
     streams.write_stdout(text=f"removed {removed} mapping row(s) for {args.repo}::{args.topic}\n")
     return 0
 
@@ -195,7 +199,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
     """
     repo = os.path.normpath(args.repo)
     topic = args.topic
-    session = registry.tmux_id(repo, topic, _cli_colliding())
+    session = registry.tmux_id(repo=repo, topic=topic, colliding=_cli_colliding())
     force = getattr(args, "force", False)
     io = tmuxio.TmuxIO()
     sup = Supervisor(tmux=io)
@@ -203,8 +207,8 @@ def _cmd_start(args: argparse.Namespace) -> int:
         topic=topic,
         repo=repo,
         tmux=session,
-        handoff=default_handoff(repo, topic),
-        resume=default_resume(repo, topic),
+        handoff=default_handoff(repo=repo, topic=topic),
+        resume=default_resume(repo=repo, topic=topic),
     )
     if io.session_exists(session=session) and not force:
         # Fail CLOSED (RB4): refuse to respawn-kill an existing session unless we
@@ -222,8 +226,8 @@ def _cmd_start(args: argparse.Namespace) -> int:
         # enumerated the live runtimes instead of the dead one, which does not scale to a
         # second runtime and never did.
         cmd = io.pane_current_command(session=session)
-        if not signals.pane_is_shell(cmd):
-            _upsert(track)
+        if not signals.pane_is_shell(pane_current_command=cmd):
+            _upsert(track=track)
             streams.write_stdout(
                 text=(
                     f"{repo}::{topic}: session {session} already running (or its identity is "
@@ -245,17 +249,17 @@ def _cmd_start(args: argparse.Namespace) -> int:
                 )
             )
             return 1
-    if not sup.do_launch(track, session):
+    if not sup.do_launch(track=track, session=session):
         streams.write_stderr(
             text=f"start FAILED to launch {repo}::{topic} in tmux session {session}\n"
         )
         return 1
-    _upsert(track)
+    _upsert(track=track)
     streams.write_stdout(text=f"started {repo}::{topic} in tmux session {session}\n")
     return 0
 
 
-def _add_track_args(parser: argparse.ArgumentParser) -> None:
+def _add_track_args(*, parser: argparse.ArgumentParser) -> None:
     """The shared ``--repo`` / ``--topic`` keyword flags for the track subcommands.
 
     Keyword (not positional) so the ``/overseer`` skill is the operator surface:
@@ -292,21 +296,21 @@ def main(argv: list[str] | None = None) -> int:
     p_adopt.set_defaults(func=_cmd_adopt)
 
     p_add = sub.add_parser("add", help="add a (repo, topic) mapping row")
-    _add_track_args(p_add)
+    _add_track_args(parser=p_add)
     p_add.set_defaults(func=_cmd_add)
 
     p_remove = sub.add_parser("remove", help="remove a (repo, topic) mapping row")
-    _add_track_args(p_remove)
+    _add_track_args(parser=p_remove)
     p_remove.set_defaults(func=_cmd_remove)
 
     # unassign is a synonym for remove: drop the mapping so the plan reverts to
     # `unassigned` (never force-kills the session — surface-only).
     p_unassign = sub.add_parser("unassign", help="detach a plan's mapping (revert to unassigned)")
-    _add_track_args(p_unassign)
+    _add_track_args(parser=p_unassign)
     p_unassign.set_defaults(func=_cmd_remove)
 
     p_start = sub.add_parser("start", help="surface-only: launch a session for a plan and map it")
-    _add_track_args(p_start)
+    _add_track_args(parser=p_start)
     _ = p_start.add_argument(
         "--force",
         action="store_true",

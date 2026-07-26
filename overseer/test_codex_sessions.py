@@ -128,7 +128,7 @@ def test_index_last_record_wins_for_a_repeated_id(tmp_path):
     """`session_index.jsonl` is an APPEND log — a renamed thread appends a new record for
     the same id, so the LAST one is current."""
     home = fake_index(tmp_path, [(ID_A, "old-name"), (ID_A, "new-name")])
-    assert codex_sessions.read_thread_names(home)[ID_A] == "new-name"
+    assert codex_sessions.read_thread_names(codex_home=home)[ID_A] == "new-name"
 
 
 def test_index_skips_malformed_lines_and_never_raises(tmp_path):
@@ -142,11 +142,11 @@ def test_index_skips_malformed_lines_and_never_raises(tmp_path):
         '{"thread_name": "no-id"}\n'
         '{"id": "x", "thread_name": ""}\n'
     )
-    assert codex_sessions.read_thread_names(home) == {ID_A: "good"}
+    assert codex_sessions.read_thread_names(codex_home=home) == {ID_A: "good"}
 
 
 def test_missing_index_is_empty_not_an_error(tmp_path):
-    assert codex_sessions.read_thread_names(tmp_path / "nonexistent") == {}
+    assert codex_sessions.read_thread_names(codex_home=tmp_path / "nonexistent") == {}
 
 
 def test_non_utf8_index_is_empty_not_an_error(tmp_path):
@@ -164,7 +164,7 @@ def test_non_utf8_index_is_empty_not_an_error(tmp_path):
     (home / "session_index.jsonl").write_bytes(
         b'\xff\xfe{"id": "' + ID_A.encode() + b'", "thread_name": "good"}\n'
     )
-    assert codex_sessions.read_thread_names(home) == {}
+    assert codex_sessions.read_thread_names(codex_home=home) == {}
 
 
 # --------------------------------------------------------------------------- #
@@ -204,7 +204,9 @@ def test_latest_session_for_thread_name_picks_the_newest_by_updated_at(tmp_path)
         ],
     )
     assert (
-        codex_sessions.latest_session_for_thread_name("cloud-local-memory-cleanup", codex_home=home)
+        codex_sessions.latest_session_for_thread_name(
+            thread_name="cloud-local-memory-cleanup", codex_home=home
+        )
         == ID_B
     )
 
@@ -213,7 +215,10 @@ def test_latest_session_for_thread_name_is_none_for_an_unknown_topic(tmp_path):
     """A topic named nowhere in the index is a CLAUDE track — the caller must NOT resume it
     as codex. None is the signal to fall through to the Claude recovery path."""
     home = _index_ts(tmp_path, [(ID_A, "some-codex-topic", "2026-07-13T10:00:00Z")])
-    assert codex_sessions.latest_session_for_thread_name("a-claude-topic", codex_home=home) is None
+    assert (
+        codex_sessions.latest_session_for_thread_name(thread_name="a-claude-topic", codex_home=home)
+        is None
+    )
 
 
 def test_latest_session_for_thread_name_honours_a_rename(tmp_path):
@@ -229,18 +234,24 @@ def test_latest_session_for_thread_name_honours_a_rename(tmp_path):
             (ID_B, "the-topic", "2026-07-13T10:30:00Z"),  # ...then was renamed TO the topic
         ],
     )
-    assert codex_sessions.latest_session_for_thread_name("the-topic", codex_home=home) == ID_B
+    assert (
+        codex_sessions.latest_session_for_thread_name(thread_name="the-topic", codex_home=home)
+        == ID_B
+    )
 
 
 def test_latest_session_for_thread_name_missing_index_is_none(tmp_path):
-    assert codex_sessions.latest_session_for_thread_name("t", codex_home=tmp_path / "nope") is None
+    assert (
+        codex_sessions.latest_session_for_thread_name(thread_name="t", codex_home=tmp_path / "nope")
+        is None
+    )
 
 
 def test_rollout_exists_finds_a_nested_rollout(tmp_path):
     home = tmp_path / "codex"
     home.mkdir()
     _write_rollout(home, ID_A)
-    assert codex_sessions.rollout_exists(ID_A, codex_home=home) is True
+    assert codex_sessions.rollout_exists(session_id=ID_A, codex_home=home) is True
 
 
 def test_rollout_exists_is_false_when_the_rollout_is_gone(tmp_path):
@@ -249,13 +260,13 @@ def test_rollout_exists_is_false_when_the_rollout_is_gone(tmp_path):
     home = tmp_path / "codex"
     home.mkdir()
     _write_rollout(home, ID_A)  # a DIFFERENT session's rollout is present
-    assert codex_sessions.rollout_exists(ID_B, codex_home=home) is False
+    assert codex_sessions.rollout_exists(session_id=ID_B, codex_home=home) is False
 
 
 def test_rollout_exists_is_false_when_the_sessions_dir_is_absent(tmp_path):
     home = tmp_path / "codex"
     home.mkdir()  # no sessions/ subtree at all
-    assert codex_sessions.rollout_exists(ID_A, codex_home=home) is False
+    assert codex_sessions.rollout_exists(session_id=ID_A, codex_home=home) is False
 
 
 # --------------------------------------------------------------------------- #
@@ -264,7 +275,7 @@ def test_rollout_exists_is_false_when_the_sessions_dir_is_absent(tmp_path):
 
 
 def test_rollout_id_is_read_from_the_filename(tmp_path):
-    assert codex_sessions.rollout_id(fake_rollout(ID_A)) == ID_A
+    assert codex_sessions.rollout_id(path=fake_rollout(ID_A)) == ID_A
 
 
 def test_non_rollout_paths_yield_no_id():
@@ -275,13 +286,13 @@ def test_non_rollout_paths_yield_no_id():
         "/home/u/.codex/sessions/rollout-no-uuid-here.jsonl",
         "",
     ):
-        assert codex_sessions.rollout_id(path) is None
+        assert codex_sessions.rollout_id(path=path) is None
 
 
 def test_open_rollout_id_picks_the_rollout_out_of_unrelated_fds():
     fds = ["/dev/urandom", "/home/u/.codex/logs_2.sqlite-wal", fake_rollout(ID_B), "socket:[1]"]
-    assert codex_sessions.open_rollout_id(1, fd_targets_of=lambda _p: fds) == ID_B
+    assert codex_sessions.open_rollout_id(pid=1, fd_targets_of=lambda _p: fds) == ID_B
 
 
 def test_open_rollout_id_is_none_when_no_rollout_is_held():
-    assert codex_sessions.open_rollout_id(1, fd_targets_of=lambda _p: ["/dev/null"]) is None
+    assert codex_sessions.open_rollout_id(pid=1, fd_targets_of=lambda _p: ["/dev/null"]) is None

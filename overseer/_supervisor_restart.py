@@ -29,12 +29,12 @@ __all__: list[str] = [
 
 
 def maybe_inject(
+    *,
     sup: Supervisor,
     track: registry.Track,
     target: str,
     eff_ctx: int,
     threshold: int,
-    *,
     is_codex: bool = False,
 ) -> None:
     """Escalating, spam-proof wrap-up injection: warn once per crossed band.
@@ -58,35 +58,41 @@ def maybe_inject(
     """
     repo, topic = track.repo, track.topic
     bands = sorted({threshold} | {b for b in (40, 30, 20, 10) if b < threshold}, reverse=True)
-    notified = set(registry.read_notified_bands(repo, topic, sup.stamp_path))
+    notified = set(registry.read_notified_bands(repo=repo, topic=topic, stamp_path=sup.stamp_path))
     due = [b for b in bands if eff_ctx <= b and b not in notified]
     if not due:
         return
-    opened_now = registry.read_injection_stamp(repo, topic, sup.stamp_path) is None
+    opened_now = (
+        registry.read_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path) is None
+    )
     if opened_now:
         # Stamp BEFORE the paste (design) so a marker the session writes has
         # mtime > at. Only on opening — a re-warn preserves the round's at.
-        registry.write_injection_stamp(repo, topic, sup.now(), sup.stamp_path)
+        registry.write_injection_stamp(
+            repo=repo, topic=topic, ts=sup.now(), stamp_path=sup.stamp_path
+        )
     message = wrapup_message(remaining=eff_ctx, repo=repo, topic=topic)
-    if _supervisor_launch.submit_prompt(sup, target, message, expect_codex=is_codex):
+    if _supervisor_launch.submit_prompt(
+        sup=sup, target=target, text=message, expect_codex=is_codex
+    ):
         for b in due:
-            registry.add_notified_band(repo, topic, b, sup.stamp_path)
+            registry.add_notified_band(repo=repo, topic=topic, band=b, stamp_path=sup.stamp_path)
         sup.log(f"injected wrap-up into {repo}::{topic} (ctx {eff_ctx}%, bands {due})")
     else:
         if opened_now:
             # Roll back the just-opened round so the next tick retries cleanly.
-            registry.clear_injection_stamp(repo, topic, sup.stamp_path)
+            registry.clear_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path)
         sup.alert(
             repo=repo,
             topic=topic,
-            session=_supervisor_launch.session_of(sup, track),
+            session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="wrap-up injection FAILED (paste did not land); will retry",
         )
 
 
 def do_restart(
-    sup: Supervisor, track: registry.Track, target: str, *, is_codex: bool = False
+    *, sup: Supervisor, track: registry.Track, target: str, is_codex: bool = False
 ) -> None:
     """Atomic restart, RUNTIME-DISPATCHED: respawn → wait for the TUI → resume → close.
 
@@ -124,24 +130,24 @@ def do_restart(
     belt-and-suspenders.
     """
     if is_codex:
-        do_codex_restart(sup, track, target)
+        do_codex_restart(sup=sup, track=track, target=target)
         return
     if not sup.tmux.respawn_pane(
-        session=target, cwd=track.repo, command=_supervisor_launch.launch_command(track)
+        session=target, cwd=track.repo, command=_supervisor_launch.launch_command(track=track)
     ):
         sup.alert(
             repo=track.repo,
             topic=track.topic,
-            session=_supervisor_launch.session_of(sup, track),
+            session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="restart respawn FAILED; keeping the ready declaration so it retries",
         )
         return
-    if not _supervisor_launch.await_pane(sup, target, signals.pane_is_claude):
+    if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
         sup.alert(
             repo=track.repo,
             topic=track.topic,
-            session=_supervisor_launch.session_of(sup, track),
+            session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="respawned pane never became Claude; keeping the ready declaration",
         )
@@ -151,25 +157,25 @@ def do_restart(
     # which is exactly what stranded resumes live (2026-07-17). Best-effort: if the
     # box never appears in time, proceed anyway and let the submit-retry below (and
     # the next tick's `resume_pending` retry) recover.
-    _ = _supervisor_launch.await_input_box(sup, target)
+    _ = _supervisor_launch.await_input_box(sup=sup, target=target)
     # If the fresh TUI came up on a picker (a trust / update / bypass-permissions
     # gate), NEVER keystroke into it (blocker #6) — pasting + Enter would auto-accept
     # its default. Defer to the `resume_pending` retry, which reports the gate as
     # `blocked:human` and resumes once the human clears it (review SF4).
-    if signals.is_structured_gate(sup.tmux.capture_pane(session=target)):
-        registry.set_resume_pending(track.repo, track.topic, sup.stamp_path)
+    if signals.is_structured_gate(capture_text=sup.tmux.capture_pane(session=target)):
+        registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
         sup.alert(
             repo=track.repo,
             topic=track.topic,
-            session=_supervisor_launch.session_of(sup, track),
+            session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="freshly-restarted pane is on a gate — not keystroking it; will retry",
         )
         return
-    resume = track.resume or default_resume(track.repo, track.topic)
-    if _supervisor_launch.submit_prompt(sup, target, resume):
-        _supervisor_state.clear_state(sup, track)
-        _ = sup.inject.pop(track_key(track.repo, track.topic), None)
+    resume = track.resume or default_resume(repo=track.repo, topic=track.topic)
+    if _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume):
+        _supervisor_state.clear_state(sup=sup, track=track)
+        _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
         sup.log(f"restarted {track.repo}::{track.topic} (pane {target})")
         return
     # The fresh Claude IS up, but the resume line did not submit (the fresh TUI
@@ -180,17 +186,17 @@ def do_restart(
     # `ready` is the sole respawn trigger, so the retry can never escalate to a kill).
     # Never log a clean "restarted" here; the alert is edge-triggered and persists (the
     # row stays NEEDS-YOU) until the resume actually submits.
-    registry.set_resume_pending(track.repo, track.topic, sup.stamp_path)
+    registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
     sup.alert(
         repo=track.repo,
         topic=track.topic,
-        session=_supervisor_launch.session_of(sup, track),
+        session=_supervisor_launch.session_of(sup=sup, track=track),
         pane=target,
         message="resume line NOT submitted after restart — will retry the Enter (no respawn)",
     )
 
 
-def do_codex_restart(sup: Supervisor, track: registry.Track, target: str) -> None:
+def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> None:
     """Atomic restart of a CODEX track: respawn with ``codex resume <id> "<kick>"``.
 
     The Codex analogue of the Claude restart, and SIMPLER (proven live 2026-07-17):
@@ -207,7 +213,7 @@ def do_codex_restart(sup: Supervisor, track: registry.Track, target: str) -> Non
     the declaration is KEPT and the restart retried next tick (B5), exactly like a
     failed respawn.
     """
-    session = _supervisor_launch.session_of(sup, track)
+    session = _supervisor_launch.session_of(sup=sup, track=track)
     live = sup.live_codex.get((session, track.topic))
     if live is None:
         sup.alert(
@@ -218,8 +224,8 @@ def do_codex_restart(sup: Supervisor, track: registry.Track, target: str) -> Non
             message="codex session vanished before restart; keeping the ready declaration",
         )
         return
-    resume = track.resume or default_resume(track.repo, track.topic)
-    command = _supervisor_launch.codex_launch_command(live.session_id, resume)
+    resume = track.resume or default_resume(repo=track.repo, topic=track.topic)
+    command = _supervisor_launch.codex_launch_command(session_id=live.session_id, resume=resume)
     if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
         sup.alert(
             repo=track.repo,
@@ -229,7 +235,7 @@ def do_codex_restart(sup: Supervisor, track: registry.Track, target: str) -> Non
             message="restart respawn FAILED; keeping the ready declaration so it retries",
         )
         return
-    if not _supervisor_launch.await_pane(sup, target, signals.pane_is_codex):
+    if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_codex):
         sup.alert(
             repo=track.repo,
             topic=track.topic,
@@ -239,6 +245,6 @@ def do_codex_restart(sup: Supervisor, track: registry.Track, target: str) -> Non
         )
         return
     # The kick was submitted BY the `codex resume` argument — no separate paste step.
-    _supervisor_state.clear_state(sup, track)
-    _ = sup.inject.pop(track_key(track.repo, track.topic), None)
+    _supervisor_state.clear_state(sup=sup, track=track)
+    _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
     sup.log(f"restarted (codex) {track.repo}::{track.topic} (pane {target})")

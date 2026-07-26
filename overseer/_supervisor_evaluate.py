@@ -46,7 +46,7 @@ __all__: list[str] = ["evaluate", "resume_retry"]
 
 
 def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this function"
-    sup: Supervisor, track: registry.Track, *, act: bool
+    *, sup: Supervisor, track: registry.Track, act: bool
 ) -> RowView:
     """Derive a track's status and (when ``act``) perform its side effects.
 
@@ -89,8 +89,8 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         return RowView(topic=track.topic, repo=track.repo, tmux=None, ctx=None, status="unassigned")
 
     repo, topic = track.repo, track.topic
-    session = _supervisor_launch.session_of(sup, track)
-    key = track_key(repo, topic)
+    session = _supervisor_launch.session_of(sup=sup, track=track)
+    key = track_key(repo=repo, topic=topic)
 
     if not sup.tmux.session_exists(session=session):
         # The mapped TMUX session is gone — but the work may not be. A Claude
@@ -98,7 +98,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
         # Distinguish that live-but-unmanageable case from a genuinely gone track so
         # the operator is not falsely alarmed that finished-looking work was lost.
-        return _supervisor_offer.no_managed_pane_row(sup, repo=repo, topic=topic)
+        return _supervisor_offer.no_managed_pane_row(sup=sup, repo=repo, topic=topic)
 
     # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
     # A pane id is exact and never prefix/fnmatch-matched, so if the tracked
@@ -108,12 +108,14 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     # `respawn-pane -k` killing it. Stable across respawn.
     target = sup.tmux.pane_id(session=session)
     if target is None:
-        return _supervisor_offer.no_managed_pane_row(sup, repo=repo, topic=topic)
+        return _supervisor_offer.no_managed_pane_row(sup=sup, repo=repo, topic=topic)
 
     # Identity gate (B3): the mapped session exists, but before reading its pane
     # for any ACT we confirm it is really OUR Claude in OUR repo — never
     # keystroke into a shell / wrong session / human split-pane.
-    if not _supervisor_observe.pane_is_managed(sup, target, repo, topic, session):
+    if not _supervisor_observe.pane_is_managed(
+        sup=sup, target=target, repo=repo, topic=topic, session=session
+    ):
         # The gate stays exactly what it was — an ACT guard (never keystroke into a
         # pane not proven ours). What changed is that its answer is no longer a row
         # STATUS of its own. Whether the pane is a bare shell (our session exited) or
@@ -132,13 +134,13 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         # appears at all. The daemon lists PLANS, not panes: a tmux name reaches the
         # table only as a mapping's column value, and `_no_managed_pane_row` already
         # reports `tmux=None` so no dead terminal is named.
-        return _supervisor_offer.no_managed_pane_row(sup, repo=repo, topic=topic)
+        return _supervisor_offer.no_managed_pane_row(sup=sup, repo=repo, topic=topic)
 
     # Phase 1 — OBSERVE. Every fact the guard cascade below decides on is
     # gathered in one place, so the cascade reads as a single top-to-bottom
     # precedence order. Unpacked into locals so each guard reads the same way
     # it always has.
-    obs = _supervisor_observe.observe(sup, track, session=session, target=target, key=key)
+    obs = _supervisor_observe.observe(sup=sup, track=track, session=session, target=target, key=key)
     capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
     is_codex, runtime, codex_fallback = obs.is_codex, obs.runtime, obs.codex_fallback
     claude_status, eff_ctx, istate = obs.claude_status, obs.eff_ctx, obs.istate
@@ -158,7 +160,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     # `settling` and never retry. Its detail lives in `resume_retry` (same module,
     # directly below); the call sits at the leg's exact position so the precedence
     # order still reads top-to-bottom here in one pass.
-    retry = resume_retry(sup, track, obs, act=act, session=session, target=target)
+    retry = resume_retry(sup=sup, track=track, obs=obs, act=act, session=session, target=target)
     if retry is not None:
         return retry
 
@@ -200,15 +202,15 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
             # false `blocked:human`. Busy via a BACKGROUND SHELL alone does NOT qualify:
             # that session is at its prompt and may genuinely still be waiting.
             blocked = _supervisor_state.void_stale_blocked(
-                sup,
-                track,
-                blocked,
-                generating=signals.is_busy(capture) or claude_status == "busy",
+                sup=sup,
+                track=track,
+                blocked=blocked,
+                generating=signals.is_busy(capture_text=capture) or claude_status == "busy",
             )
             note = blocked if blocked else None  # re-derive: the default came from `blocked`
         # When the PANE itself looks idle, the row note explains WHY it is `working`,
         # or the operator would read the idle-looking pane and distrust the status.
-        if not signals.is_busy(capture):
+        if not signals.is_busy(capture_text=capture):
             if claude_status == "shell" or codex_fallback:
                 note = "background shell"  # a live `Bash(run_in_background)` command
             # Provably always True where it stands: reaching here needs `busy` True
@@ -230,17 +232,17 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
             # Void the certification ONLY if it is past the grace — a young
             # marker is the certifying turn's own busy tail and must survive
             # (RB1); an old one means the session resumed work after certifying.
-            ready = _supervisor_state.void_if_stale(sup, track, ready=ready)
+            ready = _supervisor_state.void_if_stale(sup=sup, track=track, ready=ready)
             # The session took a turn — clear any idle-with-context-left nudge marker
             # so the NEXT idle-with-context episode re-nudges (re-arm on non-idle).
-            _supervisor_nudge.clear_idle_nudge_state(sup, track)
+            _supervisor_nudge.clear_idle_nudge_state(sup=sup, track=track)
     elif gate or blocked is not None:
         status = "blocked:human"
         if act:
-            ready = _supervisor_state.void_if_stale(sup, track, ready=ready)
+            ready = _supervisor_state.void_if_stale(sup=sup, track=track, ready=ready)
             # A gate / block is also "non-idle" — drop a stale nudge marker (safe: the
             # helper re-reads and leaves a session-written `blocked` untouched).
-            _supervisor_nudge.clear_idle_nudge_state(sup, track)
+            _supervisor_nudge.clear_idle_nudge_state(sup=sup, track=track)
             detail = blocked if blocked else "structured gate on pane"
             # The decision belongs to the TRACKED session, which is already showing
             # it in its own pane. The overseer NOTIFIES and hands over coordinates;
@@ -251,7 +253,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
                 session=session,
                 pane=target,
                 message=(
-                    f"blocked on human: {elide(detail, MAX_REASON_IN_ALERT)} "
+                    f"blocked on human: {elide(text=detail, limit=MAX_REASON_IN_ALERT)} "
                     "— answer it IN THAT PANE"
                 ),
             )
@@ -259,10 +261,12 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         # Pane present but not a verified idle-input state and not busy —
         # a transient/settling capture. Wait; never act.
         status = "settling"
-    elif act and not _supervisor_launch.pane_settled(sup, target):
+    elif act and not _supervisor_launch.pane_settled(sup=sup, target=target):
         # One frame looks idle, but the pane is actively changing (streaming).
         status = "working"
-    elif act and not _supervisor_observe.pane_is_managed(sup, target, repo, topic, session):
+    elif act and not _supervisor_observe.pane_is_managed(
+        sup=sup, target=target, repo=repo, topic=topic, session=session
+    ):
         # TOCTOU re-check (Codex re-review #1): the identity gate ran at the top
         # of the tick, but capturing + the settle delay opened a window in which
         # the pane could have exited to a shell (or cd'd out of the repo). Re-
@@ -286,7 +290,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         # it is restarted on its own `ready` exactly like a Claude one.
         status = "restarting"
         if act:
-            _supervisor_restart.do_restart(sup, track, target, is_codex=is_codex)
+            _supervisor_restart.do_restart(sup=sup, track=track, target=target, is_codex=is_codex)
     elif eff_ctx is not None and eff_ctx <= threshold:
         # A FRESH `winding-down` ACK buys patience: the session heard us and is
         # wrapping up, so stop re-warning (never keystroke into a session that is
@@ -294,7 +298,12 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         # become an infinite stall — but still never authorizes an act.
         if act and not acked:
             _supervisor_restart.maybe_inject(
-                sup, track, target, eff_ctx, threshold, is_codex=is_codex
+                sup=sup,
+                track=track,
+                target=target,
+                eff_ctx=eff_ctx,
+                threshold=threshold,
+                is_codex=is_codex,
             )
         if acked:
             status = "winding-down"
@@ -302,8 +311,8 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
             status = "danger"
             if act:
                 _supervisor_nudge.alert_non_responder(
-                    sup,
-                    track,
+                    sup=sup,
+                    track=track,
                     session=session,
                     pane=target,
                     eff_ctx=eff_ctx,
@@ -312,7 +321,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         else:
             status = "warned"
     else:
-        _supervisor_offer.surface_supervision_offer(sup, track, act=act)
+        _supervisor_offer.surface_supervision_offer(sup=sup, track=track, act=act)
         # Idle at an empty prompt with the context ABOVE the wind-down threshold. If
         # the session has declared nothing, nudge it ONCE this episode to keep going
         # rather than stop early (the inverse of the wrap-up). The daemon-written
@@ -349,7 +358,12 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
             )
             if act and not nudged_already and idle_long_enough:
                 _supervisor_nudge.nudge_idle_with_context(
-                    sup, track, target, eff_ctx, threshold, is_codex=is_codex
+                    sup=sup,
+                    track=track,
+                    target=target,
+                    eff_ctx=eff_ctx,
+                    threshold=threshold,
+                    is_codex=is_codex,
                 )
         else:
             status = "idle"
@@ -366,8 +380,8 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     # Re-arm the edge-triggered alert once the track is healthy again, so the NEXT
     # time it goes bad it reports afresh rather than being suppressed as a duplicate
     # of the condition it was in hours ago.
-    if act and not needs_attention(view):
-        prefix = track_key(repo, topic)
+    if act and not needs_attention(row=view):
+        prefix = track_key(repo=repo, topic=topic)
         sup.alerted = {
             key: value
             for key, value in sup.alerted.items()
@@ -377,10 +391,10 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
 
 
 def resume_retry(
+    *,
     sup: Supervisor,
     track: registry.Track,
     obs: Observation,
-    *,
     act: bool,
     session: str,
     target: str,
@@ -412,7 +426,9 @@ def resume_retry(
     every other path returns the row that ends the tick.
     """
     repo, topic = track.repo, track.topic
-    if not (act and registry.read_resume_pending(repo, topic, sup.stamp_path)):
+    if not (
+        act and registry.read_resume_pending(repo=repo, topic=topic, stamp_path=sup.stamp_path)
+    ):
         return None
     if obs.gate:
         # A fresh TUI showing a picker (trust / update / bypass-permissions confirm):
@@ -443,11 +459,11 @@ def resume_retry(
     # was dropped — re-send Enter ONLY (never re-paste; the text is already there).
     resolved = (
         True
-        if signals.input_box_ready(obs.capture)
-        else _supervisor_launch.resend_enter(sup, target)
+        if signals.input_box_ready(capture_text=obs.capture)
+        else _supervisor_launch.resend_enter(sup=sup, target=target)
     )
     if resolved:
-        _supervisor_state.clear_state(sup, track)
+        _supervisor_state.clear_state(sup=sup, track=track)
         sup.log(f"restart resume submitted for {repo}::{topic} (pane {target})")
         return RowView(
             topic=topic,

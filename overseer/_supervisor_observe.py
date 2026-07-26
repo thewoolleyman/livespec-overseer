@@ -33,7 +33,7 @@ __all__: list[str] = [
 ]
 
 
-def effective_ctx(sup: Supervisor, key: tuple[str, str], current: int | None) -> int | None:
+def effective_ctx(*, sup: Supervisor, key: tuple[str, str], current: int | None) -> int | None:
     """Current remaining-%, or the last known if this tick read unknown.
 
     Design: unknown ⇒ keep last known, and unknown NEVER counts as a
@@ -47,7 +47,7 @@ def effective_ctx(sup: Supervisor, key: tuple[str, str], current: int | None) ->
 
 
 def is_codex_track(
-    sup: Supervisor, session: str | None, repo: str, topic: str, target: str | None = None
+    *, sup: Supervisor, session: str | None, repo: str, topic: str, target: str | None = None
 ) -> bool:
     """True iff ``target``'s pane is a live codex session for THIS plan, in THIS repo.
 
@@ -80,7 +80,7 @@ def is_codex_track(
     if live is None:
         return False
     # The (tmux, topic) key already pins name == topic; only the repo remains to check.
-    if not signals.path_in_repo(live.cwd, repo):
+    if not signals.path_in_repo(pane_current_path=live.cwd, repo=repo):
         return False
     if target is None:
         return True  # no pane to check against (callers that only have the mapping)
@@ -88,7 +88,7 @@ def is_codex_track(
 
 
 def pane_is_managed(
-    sup: Supervisor, target: str, repo: str, topic: str, session: str | None
+    *, sup: Supervisor, target: str, repo: str, topic: str, session: str | None
 ) -> bool:
     """The identity gate for EITHER runtime: is this pane OUR session, in OUR repo?
 
@@ -96,13 +96,13 @@ def pane_is_managed(
     the live per-tick session map (`bun` is too generic to gate on). Fail-closed:
     anything unproven is not ours.
     """
-    return pane_is_managed_claude(sup, target, repo, topic, session) or is_codex_track(
-        sup, session, repo, topic
-    )
+    return pane_is_managed_claude(
+        sup=sup, target=target, repo=repo, topic=topic, session=session
+    ) or is_codex_track(sup=sup, session=session, repo=repo, topic=topic)
 
 
 def pane_is_managed_claude(
-    sup: Supervisor, target: str, repo: str, topic: str, session: str | None
+    *, sup: Supervisor, target: str, repo: str, topic: str, session: str | None
 ) -> bool:
     """True iff ``target``'s pane is a live Claude TUI for THIS topic, in ``repo``.
 
@@ -135,14 +135,16 @@ def pane_is_managed_claude(
     """
     if not signals.pane_is_claude(sup.tmux.pane_current_command(session=target)):
         return False
-    if not signals.path_in_repo(sup.tmux.pane_current_path(session=target), repo):
+    if not signals.path_in_repo(
+        pane_current_path=sup.tmux.pane_current_path(session=target), repo=repo
+    ):
         return False
     names = sup.claude_names_by_session.get(session or "")
     return not names or topic in names
 
 
 def observe(
-    sup: Supervisor, track: registry.Track, *, session: str, target: str, key: tuple[str, str]
+    *, sup: Supervisor, track: registry.Track, session: str, target: str, key: tuple[str, str]
 ) -> Observation:
     """Gather every fact :meth:`evaluate`'s guard cascade decides on.
 
@@ -162,7 +164,7 @@ def observe(
     # tree, independent of any Claude-specific registry).
     pane_pid = sup.tmux.pane_pid(session=session)
     bg_shell = pane_pid is not None and claude_sessions.has_active_subshell(
-        pane_pid, children_of=sup.children_of, comm_of=sup.comm_of
+        root_pid=pane_pid, children_of=sup.children_of, comm_of=sup.comm_of
     )
     # Claude's own live self-report is AUTHORITATIVE for an adopted Claude session,
     # and its vocabulary maps cleanly onto busy-ness (`~/.claude/sessions/<pid>.json`
@@ -179,9 +181,9 @@ def observe(
     claude_status = sup.claude_status_by_session.get(session)
     claude_busy = claude_status in CLAUDE_BUSY_STATUSES
     codex_fallback = claude_status is None and bg_shell
-    busy = signals.is_busy(capture) or claude_busy or codex_fallback
-    gate = signals.is_structured_gate(capture)
-    is_codex = is_codex_track(sup, session, repo, topic, target)
+    busy = signals.is_busy(capture_text=capture) or claude_busy or codex_fallback
+    gate = signals.is_structured_gate(capture_text=capture)
+    is_codex = is_codex_track(sup=sup, session=session, repo=repo, topic=topic, target=target)
     # The row's RUNTIME, derived ONCE here where `is_codex` is already known, then
     # carried onto every row below that has a live managed pane (`tmux=session`) so the
     # table's tmux column can annotate the session name (`livespec (claude)` /
@@ -197,12 +199,16 @@ def observe(
     # read would let a booting pane or a Codex approval/trust picker (`› 1.`) be
     # keystroked into. Structural idle keeps that impossible (a picker is a gate; a
     # blank/booting pane has no `›`+statusline shape → `settling`, re-read next tick).
-    idle = signals.is_codex_idle_input(capture) if is_codex else signals.is_idle_input(capture)
+    idle = (
+        signals.is_codex_idle_input(capture_text=capture)
+        if is_codex
+        else signals.is_idle_input(capture_text=capture)
+    )
     # Ctx% is runtime-agnostic: `parse_ctx_remaining` matches BOTH statuslines
     # (`Ctx: N% left` / `Context N% left`), so each runtime reports ITS OWN computed
     # number and there is no occupancy formula here to get wrong.
-    current_ctx = signals.parse_ctx_remaining(capture)
-    eff_ctx = effective_ctx(sup, key, current_ctx)
+    current_ctx = signals.parse_ctx_remaining(capture_text=capture)
+    eff_ctx = effective_ctx(sup=sup, key=key, current=current_ctx)
 
     # Track the CONTINUOUS-idle episode for the keep-going nudge's minimum-duration gate
     # (`IDLE_NUDGE_AFTER`). A session is "cleanly idle" only at an empty prompt AND not
@@ -217,13 +223,13 @@ def observe(
     else:
         istate.idle_since = None
 
-    stamp = registry.read_injection_stamp(repo, topic, sup.stamp_path)
+    stamp = registry.read_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path)
 
     # The ONE indicator file (`ready` / `blocked` / `winding-down`). A single file
     # with a VALUE — never two presence-markers, which could both exist and whose
     # precedence was incidental rather than designed (maintainer 2026-07-14).
-    declared = signals.read_state(repo, topic)
-    malformed = declared is not None and not signals.valid_token(declared.token)
+    declared = signals.read_state(repo=repo, topic=topic)
+    malformed = declared is not None and not signals.valid_token(token=declared.token)
     blocked = (
         declared.detail or "(no reason given)"
         if declared is not None and declared.token == signals.STATE_BLOCKED
@@ -249,5 +255,5 @@ def observe(
         malformed=malformed,
         blocked=blocked,
         acked=acked,
-        ready=signals.ready_valid(repo, topic, stamp),
+        ready=signals.ready_valid(repo=repo, topic=topic, injection_stamp=stamp),
     )

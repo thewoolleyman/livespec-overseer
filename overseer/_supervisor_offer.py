@@ -32,12 +32,12 @@ __all__: list[str] = [
 ]
 
 
-def supervisor_session_of(sup: Supervisor, *, track: registry.Track) -> str:
+def supervisor_session_of(*, sup: Supervisor, track: registry.Track) -> str:
     """The conventional attended supervisor tmux session for ``track``."""
-    return f"{_supervisor_launch.session_of(sup, track)}-supervisor"
+    return f"{_supervisor_launch.session_of(sup=sup, track=track)}-supervisor"
 
 
-def supervisor_running(sup: Supervisor, *, session: str, repo: str) -> bool:
+def supervisor_running(*, sup: Supervisor, session: str, repo: str) -> bool:
     """True iff the derived supervisor session holds a live agent process in ``repo``.
 
     A tmux session NAME is not liveness. Surface B must still fire when a dead shell is
@@ -52,19 +52,19 @@ def supervisor_running(sup: Supervisor, *, session: str, repo: str) -> bool:
         return False
     command = sup.tmux.pane_current_command(session=target)
     cwd = sup.tmux.pane_current_path(session=target)
-    if signals.pane_is_claude(command) and signals.path_in_repo(cwd, repo):
+    if signals.pane_is_claude(command) and signals.path_in_repo(pane_current_path=cwd, repo=repo):
         return True
     if not signals.pane_is_codex(command):
         return False
     return any(
-        tmux == session and signals.path_in_repo(live.cwd, repo)
+        tmux == session and signals.path_in_repo(pane_current_path=live.cwd, repo=repo)
         for (tmux, _name), live in sup.live_codex.items()
     )
 
 
-def clear_supervision_alerts(sup: Supervisor, *, repo: str, topic: str) -> None:
+def clear_supervision_alerts(*, sup: Supervisor, repo: str, topic: str) -> None:
     """Re-arm supervision-offer alerts once the supervision truth table is healthy."""
-    prefix = track_key(repo, topic)
+    prefix = track_key(repo=repo, topic=topic)
     sup.alerted = {
         key: value
         for key, value in sup.alerted.items()
@@ -72,16 +72,16 @@ def clear_supervision_alerts(sup: Supervisor, *, repo: str, topic: str) -> None:
     }
 
 
-def surface_supervision_offer(sup: Supervisor, track: registry.Track, *, act: bool) -> None:
+def surface_supervision_offer(*, sup: Supervisor, track: registry.Track, act: bool) -> None:
     """Surface the supervision truth table without replacing the row's core status."""
     repo, topic = track.repo, track.topic
-    session = _supervisor_launch.session_of(sup, track)
-    supervisor_session = supervisor_session_of(sup, track=track)
+    session = _supervisor_launch.session_of(sup=sup, track=track)
+    supervisor_session = supervisor_session_of(sup=sup, track=track)
     handoff_exists = supervisor_handoff_path(repo=repo, topic=topic).exists()
-    running = supervisor_running(sup, session=supervisor_session, repo=repo)
+    running = supervisor_running(sup=sup, session=supervisor_session, repo=repo)
     if handoff_exists and running:
         if act:
-            clear_supervision_alerts(sup, repo=repo, topic=topic)
+            clear_supervision_alerts(sup=sup, repo=repo, topic=topic)
         return
     if handoff_exists:
         message = (
@@ -113,7 +113,7 @@ def surface_supervision_offer(sup: Supervisor, track: registry.Track, *, act: bo
 
 
 def live_session_outside_tmux(
-    sup: Supervisor, repo: str, topic: str
+    *, sup: Supervisor, repo: str, topic: str
 ) -> claude_sessions.ClaudeSession | None:
     """The live Claude registry session for ``(repo, topic)`` running OUTSIDE any
     tmux pane, or None.
@@ -133,13 +133,13 @@ def live_session_outside_tmux(
     """
     pane_pids = sup.tmux.pane_pid_sessions()
     for live in claude_sessions.read_live_sessions(
-        _supervisor_discovery.sessions_dir(sup), starttime_of=sup.starttime_of
+        sessions_dir=_supervisor_discovery.sessions_dir(sup), starttime_of=sup.starttime_of
     ):
-        if live.name != topic or not signals.path_in_repo(live.cwd, repo):
+        if live.name != topic or not signals.path_in_repo(pane_current_path=live.cwd, repo=repo):
             continue
         if (
             claude_sessions.resolve_tmux_session(
-                live.pid, pane_pid_to_session=pane_pids, ppid_of=sup.ppid_of
+                pid=live.pid, pane_pid_to_session=pane_pids, ppid_of=sup.ppid_of
             )
             is None
         ):
@@ -147,7 +147,7 @@ def live_session_outside_tmux(
     return None
 
 
-def no_managed_pane_row(sup: Supervisor, *, repo: str, topic: str) -> RowView:
+def no_managed_pane_row(*, sup: Supervisor, repo: str, topic: str) -> RowView:
     """The row for a track with NO live managed pane: ``live-outside-tmux`` or ``session-gone``.
 
     The single home for "this track has no pane we can drive". Reached THREE ways —
@@ -181,7 +181,7 @@ def no_managed_pane_row(sup: Supervisor, *, repo: str, topic: str) -> RowView:
     case and reports ``tmux=None``. The identity gate itself is unchanged and still
     governs every act.)
     """
-    live = live_session_outside_tmux(sup, repo, topic)
+    live = live_session_outside_tmux(sup=sup, repo=repo, topic=topic)
     if live is not None:
         note = (
             f"live Claude session (pid {live.pid}) running OUTSIDE tmux — "

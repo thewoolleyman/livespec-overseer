@@ -122,15 +122,15 @@ def wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
     return f"{head}\n\n{_WRAPUP_BODY}".format(
         n=remaining,
         marker_dir=str(signals.marker_dir(repo, topic)),
-        state_file=str(signals.state_path(repo, topic)),
-        handoff=default_handoff(repo, topic),
+        state_file=str(signals.state_path(repo=repo, topic=topic)),
+        handoff=default_handoff(repo=repo, topic=topic),
         repo=repo,
         topic=topic,
-        slug=registry.repo_slug(repo),
+        slug=registry.repo_slug(repo=repo),
     )
 
 
-def default_handoff(repo: str, topic: str) -> str:
+def default_handoff(*, repo: str, topic: str) -> str:
     """``<repo>/plan/<topic>/handoff.md`` — the discovery-convention handoff path."""
     return str(Path(repo) / "plan" / topic / "handoff.md")
 
@@ -145,9 +145,9 @@ def supervisor_handoff_path(*, repo: str, topic: str) -> Path:
     return Path(repo) / "plan" / topic / "supervisor-handoff.md"
 
 
-def default_resume(repo: str, topic: str) -> str:
+def default_resume(*, repo: str, topic: str) -> str:
     """The first prompt pasted into a (re)started session: read the handoff."""
-    return f"read {default_handoff(repo, topic)} and follow it"
+    return f"read {default_handoff(repo=repo, topic=topic)} and follow it"
 
 
 _IDLE_NUDGE = """\
@@ -187,6 +187,6 @@ def idle_nudge_message(*, remaining: int, threshold: int, repo: str, topic: str)
     return _IDLE_NUDGE.format(
         n=remaining,
         threshold=threshold,
-        handoff=default_handoff(repo, topic),
-        state_file=str(signals.state_path(repo, topic)),
+        handoff=default_handoff(repo=repo, topic=topic),
+        state_file=str(signals.state_path(repo=repo, topic=topic)),
     )

@@ -227,7 +227,7 @@ class Supervisor:
     def log(self, message: str) -> None:
         streams.write_stderr(text=f"{iso_now()} overseer: {message}\n")
 
-    def surface(self, message: str) -> None:
+    def surface(self, *, message: str) -> None:
         """Surface a DAEMON-level alert to the operator (stderr; the bottom pane reads it).
 
         For anything scoped to a TRACK, use :meth:`alert` instead — it guarantees the
@@ -269,12 +269,12 @@ class Supervisor:
         """
         where = f"tmux session '{session}' pane {pane}" if session else "no live tmux session"
         jump = f" — jump: tmux switch-client -t {session}" if session else ""
-        line = f"{topic} ({registry.repo_slug(repo)}) — {message} [{where}]{jump}"
-        key = (*track_key(repo, topic), condition)
+        line = f"{topic} ({registry.repo_slug(repo=repo)}) — {message} [{where}]{jump}"
+        key = (*track_key(repo=repo, topic=topic), condition)
         if self.alerted.get(key) == line:
             return
         self.alerted[key] = line
-        self.surface(line)
+        self.surface(message=line)
 
     # ----------------------------------------------------------------- #
     # Watch-set + discovery ⋈ mapping.
@@ -282,85 +282,91 @@ class Supervisor:
 
     def _resolve_watch(self) -> list[str]:
         """See :func:`_supervisor_discovery.resolve_watch`."""
-        return _supervisor_discovery.resolve_watch(self)
+        return _supervisor_discovery.resolve_watch(sup=self)
 
     def archive_gc(self) -> int:
         """See :func:`_supervisor_discovery.archive_gc`."""
-        return _supervisor_discovery.archive_gc(self)
+        return _supervisor_discovery.archive_gc(sup=self)
 
-    def auto_link(self, track: registry.Track) -> registry.Track | None:
+    def auto_link(self, *, track: registry.Track) -> registry.Track | None:
         """See :func:`_supervisor_discovery.auto_link`."""
-        return _supervisor_discovery.auto_link(self, track)
+        return _supervisor_discovery.auto_link(sup=self, track=track)
 
     def adopt_sessions(self) -> list[registry.Track]:
         """See :func:`_supervisor_discovery.adopt_sessions`."""
-        return _supervisor_discovery.adopt_sessions(self)
+        return _supervisor_discovery.adopt_sessions(sup=self)
 
     def _refresh_codex_sessions(self) -> None:
         """See :func:`_supervisor_discovery.refresh_codex_sessions`."""
-        _supervisor_discovery.refresh_codex_sessions(self)
+        _supervisor_discovery.refresh_codex_sessions(sup=self)
 
     def _refresh_claude_status(self) -> None:
         """See :func:`_supervisor_discovery.refresh_claude_status`."""
-        _supervisor_discovery.refresh_claude_status(self)
+        _supervisor_discovery.refresh_claude_status(sup=self)
 
     def build_rows(self, *, act: bool = True) -> list[registry.Track]:
         """See :func:`_supervisor_discovery.build_rows`."""
-        return _supervisor_discovery.build_rows(self, act=act)
+        return _supervisor_discovery.build_rows(sup=self, act=act)
 
     # ----------------------------------------------------------------- #
     # Per-track evaluation (the state machine).
     # ----------------------------------------------------------------- #
 
-    def _session_of(self, track: registry.Track) -> str:
+    def _session_of(self, *, track: registry.Track) -> str:
         """See :func:`_supervisor_launch.session_of`."""
-        return _supervisor_launch.session_of(self, track)
+        return _supervisor_launch.session_of(sup=self, track=track)
 
     def _is_codex_track(
-        self, session: str | None, repo: str, topic: str, target: str | None = None
+        self, *, session: str | None, repo: str, topic: str, target: str | None = None
     ) -> bool:
         """See :func:`_supervisor_observe.is_codex_track`."""
-        return _supervisor_observe.is_codex_track(self, session, repo, topic, target)
+        return _supervisor_observe.is_codex_track(
+            sup=self, session=session, repo=repo, topic=topic, target=target
+        )
 
-    def _clear_state(self, track: registry.Track) -> None:
+    def _clear_state(self, *, track: registry.Track) -> None:
         """See :func:`_supervisor_state.clear_state`."""
-        _supervisor_state.clear_state(self, track)
+        _supervisor_state.clear_state(sup=self, track=track)
 
-    def _void_if_stale(self, track: registry.Track, *, ready: bool) -> bool:
+    def _void_if_stale(self, *, track: registry.Track, ready: bool) -> bool:
         """See :func:`_supervisor_state.void_if_stale`."""
-        return _supervisor_state.void_if_stale(self, track, ready=ready)
+        return _supervisor_state.void_if_stale(sup=self, track=track, ready=ready)
 
     def _void_stale_blocked(
-        self, track: registry.Track, blocked: str | None, *, generating: bool
+        self, *, track: registry.Track, blocked: str | None, generating: bool
     ) -> str | None:
         """See :func:`_supervisor_state.void_stale_blocked`."""
-        return _supervisor_state.void_stale_blocked(self, track, blocked, generating=generating)
+        return _supervisor_state.void_stale_blocked(
+            sup=self, track=track, blocked=blocked, generating=generating
+        )
 
-    def _write_idle_nudge_state(self, track: registry.Track) -> None:
+    def _write_idle_nudge_state(self, *, track: registry.Track) -> None:
         """See :func:`_supervisor_nudge.write_idle_nudge_state`."""
-        _supervisor_nudge.write_idle_nudge_state(self, track)
+        _supervisor_nudge.write_idle_nudge_state(sup=self, track=track)
 
-    def evaluate(self, track: registry.Track, *, act: bool) -> RowView:
+    def evaluate(self, *, track: registry.Track, act: bool) -> RowView:
         """See :func:`_supervisor_evaluate.evaluate`."""
-        return _supervisor_evaluate.evaluate(self, track, act=act)
+        return _supervisor_evaluate.evaluate(sup=self, track=track, act=act)
 
-    def _do_codex_restart(self, track: registry.Track, target: str) -> None:
+    def _do_codex_restart(self, *, track: registry.Track, target: str) -> None:
         """See :func:`_supervisor_restart.do_codex_restart`."""
-        _supervisor_restart.do_codex_restart(self, track, target)
+        _supervisor_restart.do_codex_restart(sup=self, track=track, target=target)
 
     @staticmethod
-    def _launch_command(track: registry.Track) -> str:
+    def _launch_command(*, track: registry.Track) -> str:
         """See :func:`_supervisor_launch.launch_command`."""
-        return _supervisor_launch.launch_command(track)
+        return _supervisor_launch.launch_command(track=track)
 
     @staticmethod
-    def _codex_launch_command(session_id: str, resume: str) -> str:
+    def _codex_launch_command(*, session_id: str, resume: str) -> str:
         """See :func:`_supervisor_launch.codex_launch_command`."""
-        return _supervisor_launch.codex_launch_command(session_id, resume)
+        return _supervisor_launch.codex_launch_command(session_id=session_id, resume=resume)
 
-    def _submit_prompt(self, target: str, text: str, *, expect_codex: bool = False) -> bool:
+    def _submit_prompt(self, *, target: str, text: str, expect_codex: bool = False) -> bool:
         """See :func:`_supervisor_launch.submit_prompt`."""
-        return _supervisor_launch.submit_prompt(self, target, text, expect_codex=expect_codex)
+        return _supervisor_launch.submit_prompt(
+            sup=self, target=target, text=text, expect_codex=expect_codex
+        )
 
     # ----------------------------------------------------------------- #
     # Reboot recovery (startup-only, never per-tick).
@@ -368,27 +374,29 @@ class Supervisor:
 
     def recover_missing_sessions(self) -> list[str]:
         """See :func:`_supervisor_recovery.recover_missing_sessions`."""
-        return _supervisor_recovery.recover_missing_sessions(self)
+        return _supervisor_recovery.recover_missing_sessions(sup=self)
 
-    def _do_codex_launch(self, track: registry.Track, session: str, session_id: str) -> bool:
+    def _do_codex_launch(self, *, track: registry.Track, session: str, session_id: str) -> bool:
         """See :func:`_supervisor_recovery.do_codex_launch`."""
-        return _supervisor_recovery.do_codex_launch(self, track, session, session_id)
+        return _supervisor_recovery.do_codex_launch(
+            sup=self, track=track, session=session, session_id=session_id
+        )
 
-    def do_launch(self, track: registry.Track, session: str) -> bool:
+    def do_launch(self, *, track: registry.Track, session: str) -> bool:
         """See :func:`_supervisor_recovery.do_launch`."""
-        return _supervisor_recovery.do_launch(self, track, session)
+        return _supervisor_recovery.do_launch(sup=self, track=track, session=session)
 
     # ----------------------------------------------------------------- #
     # Table rendering.
     # ----------------------------------------------------------------- #
 
-    def render(self, rows: Iterable[RowView]) -> None:
+    def render(self, *, rows: Iterable[RowView]) -> None:
         """Paint the live table + the ``NEEDS YOU`` block. See :mod:`_supervisor_render`."""
-        _supervisor_render.render_table(self, rows)
+        _supervisor_render.render_table(sup=self, rows=rows)
 
-    def _refresh_window_name(self, attention: int) -> None:
+    def _refresh_window_name(self, *, attention: int) -> None:
         """Badge the attention count onto the tmux window name. See :mod:`_supervisor_render`."""
-        _supervisor_render.refresh_window_name(self, attention)
+        _supervisor_render.refresh_window_name(sup=self, attention=attention)
 
     # ----------------------------------------------------------------- #
     # Tick + loop.
@@ -396,12 +404,14 @@ class Supervisor:
 
     def tick(self, *, act: bool = True) -> list[RowView]:
         """One loop iteration: build rows, evaluate each, render the table + attention block."""
-        views = [self.evaluate(track, act=act) for track in self.build_rows(act=act)]
-        self.render(views)
+        views = [self.evaluate(track=track, act=act) for track in self.build_rows(act=act)]
+        self.render(rows=views)
         # Only the DAEMON badges the window. `list` is advertised read-only, so it must
         # not rename the maintainer's window as a side effect of printing a table.
         if act:
-            self._refresh_window_name(sum(1 for view in views if needs_attention(view)))
+            self._refresh_window_name(
+                attention=sum(1 for view in views if needs_attention(row=view))
+            )
         return views
 
     # ----------------------------------------------------------------- #
@@ -410,27 +420,27 @@ class Supervisor:
 
     def _singleton_lock_path(self) -> Path:
         """See :func:`_supervisor_lifecycle.singleton_lock_path`."""
-        return _supervisor_lifecycle.singleton_lock_path(self)
+        return _supervisor_lifecycle.singleton_lock_path(sup=self)
 
     def _acquire_singleton_lock(self) -> IO[str] | None:
         """See :func:`_supervisor_lifecycle.acquire_singleton_lock`."""
-        return _supervisor_lifecycle.acquire_singleton_lock(self)
+        return _supervisor_lifecycle.acquire_singleton_lock(sup=self)
 
     @staticmethod
-    def _release_singleton_lock(handle: IO[str] | None) -> None:
+    def _release_singleton_lock(*, handle: IO[str] | None) -> None:
         """See :func:`_supervisor_lifecycle.release_singleton_lock`."""
-        _supervisor_lifecycle.release_singleton_lock(handle)
+        _supervisor_lifecycle.release_singleton_lock(handle=handle)
 
     def unignored_tmp_repos(self) -> list[str]:
         """See :func:`_supervisor_lifecycle.unignored_tmp_repos`."""
-        return _supervisor_lifecycle.unignored_tmp_repos(self)
+        return _supervisor_lifecycle.unignored_tmp_repos(sup=self)
 
     def unsupported_host_reasons(self) -> list[str]:
         """See :func:`_supervisor_lifecycle.unsupported_host_reasons`."""
-        return _supervisor_lifecycle.unsupported_host_reasons(self)
+        return _supervisor_lifecycle.unsupported_host_reasons(sup=self)
 
     def run(
         self, *, interval: float = LOOP_INTERVAL_SECONDS, once: bool = False, recover: bool = False
     ) -> None:
         """See :func:`_supervisor_lifecycle.run_loop`."""
-        _supervisor_lifecycle.run_loop(self, interval=interval, once=once, recover=recover)
+        _supervisor_lifecycle.run_loop(sup=self, interval=interval, once=once, recover=recover)

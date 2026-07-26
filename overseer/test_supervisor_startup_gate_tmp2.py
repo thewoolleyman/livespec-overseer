@@ -37,7 +37,7 @@ def test_streaming_pane_is_working_not_idle(tmp_path):
     the change between captures and classify it `working` — never injecting
     despite ctx below threshold."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo)
     fake.panes[session] = [
@@ -46,8 +46,8 @@ def test_streaming_pane_is_working_not_idle(tmp_path):
         idle_capture(ctx=40, body="line one two three"),
     ]
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)])
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
-    view = sup.evaluate(mapped_track(repo, topic, session), act=True)
+    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
+    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
     assert view.status == "working"
     assert not fake.has(method="paste")  # never injected despite ctx 40 <= the default 50
 
@@ -56,14 +56,14 @@ def test_settled_idle_pane_still_injects(tmp_path):
     """Counterpart: an idle pane NOT changing between the two settled captures
     (same frame every call) is still eligible to inject at/below threshold."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=40)
     )  # identical frames → settled
     sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)])
-    registry.append_mapping(mapped_track(repo, topic, session), sup.store_path)
-    view = sup.evaluate(mapped_track(repo, topic, session), act=True)
+    registry.append_mapping(track=mapped_track(repo, topic, session), store_path=sup.store_path)
+    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
     assert view.status == "warned"
     assert fake.has(method="paste")  # settled idle + low ctx → wrap-up injected
 
@@ -78,7 +78,7 @@ def test_submit_prompt_resends_enter_until_box_clears(tmp_path):
     not_ready = "❯ read handoff.md and follow it\n" + ("─" * 40) + "\nwelcome screen\n"
     fake.panes[session] = [not_ready, not_ready, idle_capture()]  # 3rd frame = empty box
     sup = make_supervisor(tmp_path, fake)
-    assert sup._submit_prompt(session, "read handoff.md and follow it") is True
+    assert sup._submit_prompt(target=session, text="read handoff.md and follow it") is True
     enters = [c for c in fake.calls if c[0] == "keys" and c[2] == "Enter"]
     assert len(enters) == 3  # dropped twice, submitted on the third
     assert fake.paste_texts() == ["read handoff.md and follow it"]  # pasted once
@@ -92,7 +92,7 @@ def test_submit_prompt_returns_false_on_failed_paste(tmp_path):
     fake.panes[session] = idle_capture()
     fake.paste_ok = False
     sup = make_supervisor(tmp_path, fake)
-    assert sup._submit_prompt(session, "hello") is False
+    assert sup._submit_prompt(target=session, text="hello") is False
     assert not any(c[0] == "keys" for c in fake.calls)  # no Enter sent after a failed paste
 
 
@@ -103,7 +103,7 @@ def test_submit_prompt_single_enter_when_already_ready(tmp_path):
     fake.sessions.add(session)
     fake.panes[session] = idle_capture()  # empty box → input_box_ready True at once
     sup = make_supervisor(tmp_path, fake)
-    assert sup._submit_prompt(session, "hello") is True
+    assert sup._submit_prompt(target=session, text="hello") is True
     enters = [c for c in fake.calls if c[0] == "keys" and c[2] == "Enter"]
     assert len(enters) == 1
 
@@ -203,11 +203,11 @@ def test_evaluate_derives_claude_runtime_and_annotates_the_tmux_cell(tmp_path):
     (claude)`. Sabotage target: drop `runtime=runtime` on evaluate's final RowView and
     the cell falls back to the bare session name → this goes red."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=80))  # a live Claude idle pane
     sup = make_supervisor(tmp_path, fake)
-    view = sup.evaluate(mapped_track(repo, topic, session), act=False)
+    view = sup.evaluate(track=mapped_track(repo, topic, session), act=False)
     assert view.runtime == "claude"
     line = cell_row(render_of(sup, [view]), topic)
     assert f"{session} (claude)" in line

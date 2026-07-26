@@ -121,7 +121,7 @@ def test_scenario_a_blocked_declaration_is_relayed_not_answered(tmp_path):
       - `alert` reduced to `repo::topic` text -> the session/pane/jump assertions.
     """
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=13))  # deep in the danger band
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
@@ -129,14 +129,14 @@ def test_scenario_a_blocked_declaration_is_relayed_not_answered(tmp_path):
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
 
     assert view.status == "blocked:human"  # ...it outranks the danger band
     assert view.note == "waiting on the schema call"
 
     report = err.getvalue()
     assert "waiting on the schema call" in report  # the reason itself is relayed
-    for coordinate in (topic, registry.repo_slug(str(repo)), session):
+    for coordinate in (topic, registry.repo_slug(repo=str(repo)), session):
         assert coordinate in report
     assert f"tmux switch-client -t {session}" in report
 
@@ -170,7 +170,7 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
         the second episode never re-arms.
     """
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))  # well ABOVE the threshold
     clock = {"t": 1000.0}
@@ -178,30 +178,30 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
     sup.claude_status_by_session = {session: "idle"}  # not `waiting`: free to continue
     track = mapped_track(repo, topic, session)
 
-    assert sup.evaluate(track, act=True).status == "idle-with-context-left"
+    assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
     assert nudge_count(fake) == 0  # descriptive status, but idle < 1h: NOT keystroked
-    assert signals.read_state(str(repo), topic) is None
+    assert signals.read_state(repo=str(repo), topic=topic) is None
 
     clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
-    assert sup.evaluate(track, act=True).status == "idle-with-context-left"
+    assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
     assert nudge_count(fake) == 1  # ONE keep-going message...
     assert wrapup_count(fake) == 0  # ...and emphatically not a wind-down wrap-up
-    marker = signals.read_state(str(repo), topic)
+    marker = signals.read_state(repo=str(repo), topic=topic)
     assert marker is not None and marker.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
 
     clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
-    sup.evaluate(track, act=True)
+    sup.evaluate(track=track, act=True)
     assert nudge_count(fake) == 1  # same episode: not nudged again
 
     sup.claude_status_by_session = {session: "busy"}  # the session works again
-    assert sup.evaluate(track, act=True).status == "working"
-    assert signals.read_state(str(repo), topic) is None  # the marker clears...
+    assert sup.evaluate(track=track, act=True).status == "working"
+    assert signals.read_state(repo=str(repo), topic=topic) is None  # the marker clears...
 
     sup.claude_status_by_session = {session: "idle"}
-    sup.evaluate(track, act=True)
+    sup.evaluate(track=track, act=True)
     assert nudge_count(fake) == 1  # ...re-arming a FUTURE episode, not an immediate one
     clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
-    sup.evaluate(track, act=True)
+    sup.evaluate(track=track, act=True)
     assert nudge_count(fake) == 2
 
 
@@ -235,7 +235,7 @@ def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(tmp_pa
     assert row.tmux is None
     assert not fake.has(method="new")  # no session was created for it...
     assert not fake.has(method="respawn")  # ...by either launch mechanism
-    assert registry.read_mapping(sup.store_path) == []  # and nothing was mapped
+    assert registry.read_mapping(store_path=sup.store_path) == []  # and nothing was mapped
 
 
 def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(tmp_path):
@@ -263,19 +263,19 @@ def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(tmp
     """
     repo, topic = make_plan(tmp_path)
     (repo / "plan" / topic / _HANDOFF).write_text("a supervisor charter\n")
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     track = mapped_track(repo, topic, session)
 
     with _watch_handoff_access() as probes, contextlib.redirect_stderr(_io.StringIO()):
-        live = sup.evaluate(track, act=True)  # a live, matching session
+        live = sup.evaluate(track=track, act=True)  # a live, matching session
         live_probes = list(probes)
 
         probes.clear()
         fake.sessions.clear()  # the session goes away entirely
-        dead = sup.evaluate(track, act=True)
+        dead = sup.evaluate(track=track, act=True)
         dead_probes = list(probes)
 
     assert live.status == "idle-with-context-left"  # a live tracked pane...
@@ -324,7 +324,9 @@ def test_scenario_topics_colliding_across_repositories_get_qualified_session_nam
     with contextlib.redirect_stderr(_io.StringIO()):
         _ = sup.tick(act=True)
 
-    linked = {(row.repo, row.topic): row.tmux for row in registry.read_mapping(sup.store_path)}
+    linked = {
+        (row.repo, row.topic): row.tmux for row in registry.read_mapping(store_path=sup.store_path)
+    }
     assert linked[(str(alpha), "shared")] == "alpha-shared"  # qualified, SINGLE dash
     assert linked[(str(beta), "shared")] == "beta-shared"
     assert linked[(str(beta), "solo")] == "solo"  # unique topic keeps its bare name

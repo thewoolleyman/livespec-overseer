@@ -25,7 +25,7 @@ __all__: list[str] = [
 ]
 
 
-def clear_state(sup: Supervisor, track: registry.Track) -> None:
+def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
     """Delete a track's state file, clear its stamp, AND reset its inject state.
 
     Used both after a successful restart and when a session that declared ``ready``
@@ -39,14 +39,14 @@ def clear_state(sup: Supervisor, track: registry.Track) -> None:
     (adversarial code re-review 2026-07-13, blocker RB2).
     """
     try:
-        signals.state_path(track.repo, track.topic).unlink(missing_ok=True)
+        signals.state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
     except OSError as exc:
         sup.log(f"could not delete state file for {track.repo}::{track.topic}: {exc}")
-    registry.clear_injection_stamp(track.repo, track.topic, sup.stamp_path)
-    _ = sup.inject.pop(track_key(track.repo, track.topic), None)
+    registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
+    _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
 
 
-def void_if_stale(sup: Supervisor, track: registry.Track, *, ready: bool) -> bool:
+def void_if_stale(*, sup: Supervisor, track: registry.Track, ready: bool) -> bool:
     """Void a stale ``ready`` declaration on a busy tick ONLY if past the grace.
 
     Returns the (possibly cleared) ``ready`` flag. A declaration younger than
@@ -56,12 +56,12 @@ def void_if_stale(sup: Supervisor, track: registry.Track, *, ready: bool) -> boo
     """
     if not ready:
         return ready
-    state = signals.read_state(track.repo, track.topic)
+    state = signals.read_state(repo=track.repo, topic=track.topic)
     if state is None:
         return ready  # unreadable → leave it; ready_valid already gates
     age = sup.now() - state.mtime
     if age > MARKER_VOID_GRACE:
-        clear_state(sup, track)
+        clear_state(sup=sup, track=track)
         sup.log(
             f"voided stale ready declaration for {track.repo}::{track.topic} "
             f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed work)"
@@ -71,7 +71,7 @@ def void_if_stale(sup: Supervisor, track: registry.Track, *, ready: bool) -> boo
 
 
 def void_stale_blocked(
-    sup: Supervisor, track: registry.Track, blocked: str | None, *, generating: bool
+    *, sup: Supervisor, track: registry.Track, blocked: str | None, generating: bool
 ) -> str | None:
     """Void a ``blocked:`` declaration the session has outlived. Returns it, or None.
 
@@ -106,13 +106,13 @@ def void_stale_blocked(
     """
     if blocked is None or not generating:
         return blocked
-    state = signals.read_state(track.repo, track.topic)
+    state = signals.read_state(repo=track.repo, topic=track.topic)
     if state is None or state.token != signals.STATE_BLOCKED:
         return blocked  # unreadable, or no longer a block → leave it
     age = sup.now() - state.mtime
     if age <= MARKER_VOID_GRACE:
         return blocked  # the declaring turn's own tail (RB1)
-    clear_state(sup, track)
+    clear_state(sup=sup, track=track)
     sup.log(
         f"voided stale blocked declaration for {track.repo}::{track.topic} "
         f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed generating)"

@@ -92,7 +92,9 @@ def test_adopt_sessions_links_by_registry_name(tmp_path):  # noqa: PLR0915 — s
         tmp_path, fake, sessions_dir, ppid, starttimes, watch_repos=[str(repo_a), str(repo_b)]
     )
     registry.append_mapping(
-        mapped_track(repo_a, "gamma", "gamma-existing"), sup.store_path, added_at="pre"
+        track=mapped_track(repo_a, "gamma", "gamma-existing"),
+        store_path=sup.store_path,
+        added_at="pre",
     )
 
     adopted = sup.adopt_sessions()
@@ -101,7 +103,7 @@ def test_adopt_sessions_links_by_registry_name(tmp_path):  # noqa: PLR0915 — s
         (os.path.normpath(str(repo_a)), "alpha", "sesA"),
         (os.path.normpath(str(repo_b)), "beta", "sesB"),
     ]
-    rows = {(r.repo, r.topic): r.tmux for r in registry.read_mapping(sup.store_path)}
+    rows = {(r.repo, r.topic): r.tmux for r in registry.read_mapping(store_path=sup.store_path)}
     assert rows[(os.path.normpath(str(repo_a)), "alpha")] == "sesA"  # mapped to the SESSION name
     assert rows[(os.path.normpath(str(repo_b)), "beta")] == "sesB"
     # `gamma` was already mapped, but its live named session MOVED (the store recorded
@@ -127,7 +129,7 @@ def test_adopt_sessions_empty_when_no_registry_match(tmp_path):
     write_session(sessions_dir, 100, name="unrelated-name", cwd=repo)
     sup = adopt_sup(tmp_path, fake, sessions_dir, ppid, starttimes, watch_repos=[str(repo)])
     assert sup.adopt_sessions() == []
-    assert registry.read_mapping(sup.store_path) == []
+    assert registry.read_mapping(store_path=sup.store_path) == []
 
 
 def test_adopt_is_continuous_across_ticks(tmp_path):
@@ -145,12 +147,12 @@ def test_adopt_is_continuous_across_ticks(tmp_path):
     write_session(sessions_dir, 100, name="scratch", cwd=repo)
     sup = adopt_sup(tmp_path, fake, sessions_dir, ppid, starttimes, watch_repos=[str(repo)])
     sup.build_rows(act=True)
-    assert registry.read_mapping(sup.store_path) == []  # not adopted yet
+    assert registry.read_mapping(store_path=sup.store_path) == []  # not adopted yet
 
     # Tick 2: the maintainer renamed it to the plan topic → adopted this tick.
     write_session(sessions_dir, 100, name=topic, cwd=repo)
     sup.build_rows(act=True)
-    rows = {(r.repo, r.topic): r.tmux for r in registry.read_mapping(sup.store_path)}
+    rows = {(r.repo, r.topic): r.tmux for r in registry.read_mapping(store_path=sup.store_path)}
     assert rows.get((os.path.normpath(str(repo)), topic)) == "s1"
 
 

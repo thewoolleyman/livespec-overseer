@@ -37,6 +37,7 @@ __all__: list[str] = [
 
 
 def discover_plans(
+    *,
     watch_repos: Iterable[str | os.PathLike[str]],
 ) -> list[tuple[str, str, str]]:
     """Enumerate each watched repo's ``plan/*/`` DIRECTORIES (a track per dir).
@@ -57,14 +58,14 @@ def discover_plans(
     """
     triples: list[tuple[str, str, str]] = []
     for repo in watch_repos:
-        repo_norm = norm(repo)
+        repo_norm = norm(repo=repo)
         plan_dir = Path(repo_norm) / "plan"
         try:
             if not plan_dir.is_dir():
                 continue
             children = list(plan_dir.iterdir())
         except OSError as exc:
-            warn(f"unreadable plan dir {plan_dir}: {exc}")
+            warn(message=f"unreadable plan dir {plan_dir}: {exc}")
             continue
         for child in children:
             try:
@@ -75,7 +76,7 @@ def discover_plans(
                 handoff = child / "handoff.md"
                 triples.append((repo_norm, child.name, str(handoff)))
             except OSError as exc:
-                warn(f"unreadable plan child {child}: {exc}")
+                warn(message=f"unreadable plan child {child}: {exc}")
                 continue
     triples.sort(key=lambda t: (t[0], t[1]))
     return triples
@@ -95,22 +96,22 @@ def join(
     """
     index: dict[tuple[str, str], Track] = {}
     for track in mapping:
-        index[(norm(track.repo), track.topic)] = track
+        index[(norm(repo=track.repo), track.topic)] = track
 
     result: list[Track] = []
     for repo, topic, handoff in discovered:
-        mapped = index.get((norm(repo), topic))
+        mapped = index.get((norm(repo=repo), topic))
         if mapped is None:
             result.append(Track.make_unassigned(repo=repo, topic=topic, handoff=handoff))
         elif mapped.handoff:
             result.append(mapped)
         else:
             result.append(replace(mapped, handoff=handoff))
-    result.sort(key=lambda t: (norm(t.repo), t.topic))
+    result.sort(key=lambda t: (norm(repo=t.repo), t.topic))
     return result
 
 
-def _scan_string_literal(text: str, start: int) -> int:
+def _scan_string_literal(*, text: str, start: int) -> int:
     """Index just past the JSON string literal opening at ``start``.
 
     ``text[start]`` is the opening quote. Backslash escapes are honored, so an
@@ -133,7 +134,7 @@ def _scan_string_literal(text: str, start: int) -> int:
     return n
 
 
-def _scan_line_comment(text: str, start: int) -> int:
+def _scan_line_comment(*, text: str, start: int) -> int:
     """Index of the newline ending the ``//`` comment at ``start``.
 
     The newline itself is NOT consumed, so stripping preserves line structure
@@ -143,7 +144,7 @@ def _scan_line_comment(text: str, start: int) -> int:
     return len(text) if end == -1 else end
 
 
-def _scan_block_comment(text: str, start: int) -> int:
+def _scan_block_comment(*, text: str, start: int) -> int:
     """Index just past the ``/* */`` comment opening at ``start``.
 
     An unterminated block comment consumes to the end of the input, matching
@@ -153,7 +154,7 @@ def _scan_block_comment(text: str, start: int) -> int:
     return len(text) if end == -1 else end + 2
 
 
-def _strip_jsonc_comments(text: str) -> str:
+def _strip_jsonc_comments(*, text: str) -> str:
     """Strip ``//`` line and ``/* */`` block comments, string-literal-aware.
 
     A hand-rolled scanner (not a regex) so a ``//`` or ``/*`` inside a JSON
@@ -168,27 +169,28 @@ def _strip_jsonc_comments(text: str) -> str:
     n = len(text)
     while i < n:
         if text[i] == '"':
-            end = _scan_string_literal(text, i)
+            end = _scan_string_literal(text=text, start=i)
             out.append(text[i:end])
             i = end
         elif text.startswith("//", i):
-            i = _scan_line_comment(text, i)
+            i = _scan_line_comment(text=text, start=i)
         elif text.startswith("/*", i):
-            i = _scan_block_comment(text, i)
+            i = _scan_block_comment(text=text, start=i)
         else:
             out.append(text[i])
             i += 1
     return "".join(out)
 
 
-def _parse_jsonc(text: str) -> object:
-    stripped = _strip_jsonc_comments(text)
+def _parse_jsonc(*, text: str) -> object:
+    stripped = _strip_jsonc_comments(text=text)
     # Tolerate trailing commas before a closing brace/bracket (common in JSONC).
     stripped = re.sub(r",(\s*[}\]])", r"\1", stripped)
     return json.loads(stripped)
 
 
 def watch_set_from_config(
+    *,
     config_path: str | os.PathLike[str],
     extra_repos: Iterable[str | os.PathLike[str]] = (),
 ) -> list[str]:
@@ -228,41 +230,41 @@ def watch_set_from_config(
     selected: list[str] = []
     seen: set[str] = set()
 
-    def _add(candidate: Path) -> None:
-        candidate_norm = norm(candidate)
+    def _add(*, candidate: Path) -> None:
+        candidate_norm = norm(repo=candidate)
         if candidate_norm not in seen:
             seen.add(candidate_norm)
             selected.append(candidate_norm)
 
     declared: list[str] = []
     try:
-        document = jsonio.as_object(_parse_jsonc(path.read_text(encoding="utf-8")))
+        document = jsonio.as_object(value=_parse_jsonc(text=path.read_text(encoding="utf-8")))
     # ValueError subsumes BOTH json.JSONDecodeError and the UnicodeDecodeError a
     # non-UTF-8 watch-set raises, so the tuple gets shorter, not longer.
     except (OSError, ValueError) as exc:
-        warn(f"unreadable/unparsable watch-set {path}: {exc}")
+        warn(message=f"unreadable/unparsable watch-set {path}: {exc}")
         document = None
     if document is not None:
-        entries = jsonio.as_list(document.get("repos"))
+        entries = jsonio.as_list(value=document.get("repos"))
         if entries is None:
-            warn(f"watch-set {path}: 'repos' is missing or not a list")
+            warn(message=f"watch-set {path}: 'repos' is missing or not a list")
         else:
             declared = [entry for entry in entries if isinstance(entry, str)]
 
     for name in declared:
         candidate = Path(name).expanduser()
         if candidate.is_dir() and (candidate / "plan").is_dir():
-            _add(candidate)
+            _add(candidate=candidate)
 
     for extra in extra_repos:
         candidate = Path(extra).expanduser()
         if candidate.is_dir():
-            _add(candidate)
+            _add(candidate=candidate)
 
     return selected
 
 
-def repo_root_present(repo: str) -> bool:
+def repo_root_present(*, repo: str) -> bool:
     """True if the repo checkout root itself exists as a directory.
 
     The daemon's GC preconditions on this so a TRANSIENTLY-unreachable repo (an
@@ -277,7 +279,7 @@ def repo_root_present(repo: str) -> bool:
         return False
 
 
-def archived_or_gone(repo: str, topic: str) -> bool:
+def archived_or_gone(*, repo: str, topic: str) -> bool:
     """True if ``<repo>/plan/<topic>/`` is archived or deleted (ACTIVE wins).
 
     Used by the daemon's GC to drop a mapping row whose plan has been archived or

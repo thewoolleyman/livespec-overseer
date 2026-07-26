@@ -81,7 +81,7 @@ _STATUS_COLOR = {
 }
 
 
-def row_color(status: str) -> str:
+def row_color(*, status: str) -> str:
     """The ANSI SGR prefix a row with STATUS is tinted with, or ``""`` for the
     terminal default (``unassigned`` and any unmapped status)."""
     return _STATUS_COLOR.get(status, "")
@@ -98,7 +98,7 @@ MAX_NOTE_IN_TABLE = 48
 MAX_REASON_IN_ALERT = 160
 
 
-def elide(text: str, limit: int) -> str:
+def elide(*, text: str, limit: int) -> str:
     """``text`` flattened to a single line and truncated to ``limit`` chars with a
     trailing ellipsis (the result is never longer than ``limit``).
 
@@ -140,7 +140,7 @@ class RowView:
     runtime: str | None = None
 
 
-def needs_attention(row: RowView) -> bool:
+def needs_attention(*, row: RowView) -> bool:
     """True if ROW is a track a human must go look at (the ``NEEDS YOU`` membership test).
 
     A malformed state file is matched on the NOTE rather than the status, because it does
@@ -158,7 +158,7 @@ def needs_attention(row: RowView) -> bool:
     return bool(row.note and row.note.startswith(RESUME_PENDING_NOTE))
 
 
-def tmux_cell(row: RowView) -> str:
+def tmux_cell(*, row: RowView) -> str:
     """The ``tmux`` column value: the session name annotated with its RUNTIME.
 
     A row with a live managed pane renders ``<tmux> (<runtime>)`` — ``livespec (claude)``

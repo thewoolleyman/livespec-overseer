@@ -27,32 +27,38 @@ def test_read_live_sessions_keeps_live_named_drops_stale(tmp_path):
     _write(tmp_path, 400, name="", cwd="/r/d", proc_start="444")  # no name → skip
     starttimes = {100: "111", 300: "999"}  # 100 matches; 300 mismatches; 200/400 absent
 
-    live = claude_sessions.read_live_sessions(tmp_path, starttime_of=starttimes.get)
+    live = claude_sessions.read_live_sessions(sessions_dir=tmp_path, starttime_of=starttimes.get)
     assert [(s.pid, s.name, s.cwd) for s in live] == [(100, "alpha", "/r/a")]
 
 
 def test_read_live_sessions_skips_malformed_files(tmp_path):
     (tmp_path / "bad.json").write_text("{not json", encoding="utf-8")
     _write(tmp_path, 100, name="alpha", cwd="/r/a", proc_start="111")
-    live = claude_sessions.read_live_sessions(tmp_path, starttime_of=lambda _pid: "111")
+    live = claude_sessions.read_live_sessions(
+        sessions_dir=tmp_path, starttime_of=lambda _pid: "111"
+    )
     assert [s.name for s in live] == ["alpha"]
 
 
 def test_read_live_sessions_missing_dir_is_empty(tmp_path):
-    got = claude_sessions.read_live_sessions(tmp_path / "nope", starttime_of=lambda _pid: "x")
+    got = claude_sessions.read_live_sessions(
+        sessions_dir=tmp_path / "nope", starttime_of=lambda _pid: "x"
+    )
     assert got == []
 
 
 def test_resolve_tmux_session_walks_parent_chain():
     # claude 100 → shell 50 (a pane PID of session "s") → init.
     ppid = {100: 50, 50: 1}
-    got = claude_sessions.resolve_tmux_session(100, pane_pid_to_session={50: "s"}, ppid_of=ppid.get)
+    got = claude_sessions.resolve_tmux_session(
+        pid=100, pane_pid_to_session={50: "s"}, ppid_of=ppid.get
+    )
     assert got == "s"
 
 
 def test_resolve_tmux_session_pid_is_the_pane_itself():
     got = claude_sessions.resolve_tmux_session(
-        50, pane_pid_to_session={50: "s"}, ppid_of=lambda _pid: None
+        pid=50, pane_pid_to_session={50: "s"}, ppid_of=lambda _pid: None
     )
     assert got == "s"
 
@@ -60,14 +66,14 @@ def test_resolve_tmux_session_pid_is_the_pane_itself():
 def test_resolve_tmux_session_none_when_not_in_tmux():
     ppid = {100: 50, 50: 1, 1: 0}
     got = claude_sessions.resolve_tmux_session(
-        100, pane_pid_to_session={999: "other"}, ppid_of=ppid.get
+        pid=100, pane_pid_to_session={999: "other"}, ppid_of=ppid.get
     )
     assert got is None
 
 
 def test_resolve_tmux_session_cycle_is_fail_soft():
     ppid = {100: 200, 200: 100}  # a cycle, and neither is a pane PID
-    got = claude_sessions.resolve_tmux_session(100, pane_pid_to_session={}, ppid_of=ppid.get)
+    got = claude_sessions.resolve_tmux_session(pid=100, pane_pid_to_session={}, ppid_of=ppid.get)
     assert got is None
 
 
@@ -80,14 +86,17 @@ def test_map_named_sessions_joins_only_live_in_tmux(tmp_path):
     pane_pid_to_session = {50: "sA"}  # only 100's chain reaches a pane PID
 
     mapped = claude_sessions.map_named_sessions(
-        tmp_path, pane_pid_to_session, ppid_of=ppid.get, starttime_of=starttimes.get
+        sessions_dir=tmp_path,
+        pane_pid_to_session=pane_pid_to_session,
+        ppid_of=ppid.get,
+        starttime_of=starttimes.get,
     )
     assert mapped == [("sA", "alpha", "/r/a")]
 
 
 def test_read_live_sessions_carries_the_status_field(tmp_path):
     _write(tmp_path, 100, name="alpha", cwd="/r/a", proc_start="111", status="busy")
-    live = claude_sessions.read_live_sessions(tmp_path, starttime_of={100: "111"}.get)
+    live = claude_sessions.read_live_sessions(sessions_dir=tmp_path, starttime_of={100: "111"}.get)
     assert [(s.name, s.status) for s in live] == [("alpha", "busy")]
 
 
@@ -97,7 +106,7 @@ def test_read_live_sessions_missing_status_defaults_empty(tmp_path):
         json.dumps({"pid": 100, "name": "alpha", "cwd": "/r/a", "procStart": "111"}),
         encoding="utf-8",
     )
-    live = claude_sessions.read_live_sessions(tmp_path, starttime_of={100: "111"}.get)
+    live = claude_sessions.read_live_sessions(sessions_dir=tmp_path, starttime_of={100: "111"}.get)
     assert live[0].status == ""
 
 
@@ -109,7 +118,10 @@ def test_status_by_tmux_session_keys_status_by_tmux(tmp_path):
     pane_pid_to_session = {50: "sA"}  # only 100's chain reaches a pane PID
 
     status = claude_sessions.status_by_tmux_session(
-        tmp_path, pane_pid_to_session, ppid_of=ppid.get, starttime_of=starttimes.get
+        sessions_dir=tmp_path,
+        pane_pid_to_session=pane_pid_to_session,
+        ppid_of=ppid.get,
+        starttime_of=starttimes.get,
     )
     assert status == {"sA": "busy"}  # gamma omitted (not held in any tmux pane)
 
@@ -127,7 +139,10 @@ def test_names_by_tmux_session_collects_all_names_per_tmux(tmp_path):
     pane_pid_to_session = {50: "sA", 51: "sA"}
 
     names = claude_sessions.names_by_tmux_session(
-        tmp_path, pane_pid_to_session, ppid_of=ppid.get, starttime_of=starttimes.get
+        sessions_dir=tmp_path,
+        pane_pid_to_session=pane_pid_to_session,
+        ppid_of=ppid.get,
+        starttime_of=starttimes.get,
     )
     assert names == {"sA": {"alpha", "helper"}}  # BOTH names kept; gamma (out of tmux) omitted
 
@@ -155,7 +170,8 @@ def test_has_active_subshell_true_when_direct_child_is_shell():
     # root 100 → node runtime (200) + a background-command shell (300, zsh).
     children_of, comm_of = _tree({100: [200, 300]}, {200: "node", 300: "zsh"})
     assert (
-        claude_sessions.has_active_subshell(100, children_of=children_of, comm_of=comm_of) is True
+        claude_sessions.has_active_subshell(root_pid=100, children_of=children_of, comm_of=comm_of)
+        is True
     )
 
 
@@ -163,7 +179,8 @@ def test_has_active_subshell_false_when_descendants_are_only_non_shells():
     # root 100 → node runtime (200) → an MCP server (300, node). No shell anywhere.
     children_of, comm_of = _tree({100: [200], 200: [300]}, {200: "node", 300: "node"})
     assert (
-        claude_sessions.has_active_subshell(100, children_of=children_of, comm_of=comm_of) is False
+        claude_sessions.has_active_subshell(root_pid=100, children_of=children_of, comm_of=comm_of)
+        is False
     )
 
 
@@ -171,14 +188,15 @@ def test_has_active_subshell_true_for_deep_shell():
     # A shell nested two levels down: 100 → 200 (node) → 300 (bash).
     children_of, comm_of = _tree({100: [200], 200: [300]}, {200: "node", 300: "bash"})
     assert (
-        claude_sessions.has_active_subshell(100, children_of=children_of, comm_of=comm_of) is True
+        claude_sessions.has_active_subshell(root_pid=100, children_of=children_of, comm_of=comm_of)
+        is True
     )
 
 
 def test_has_active_subshell_false_when_no_children():
     assert (
         claude_sessions.has_active_subshell(
-            100, children_of=lambda _pid: [], comm_of=lambda _pid: None
+            root_pid=100, children_of=lambda _pid: [], comm_of=lambda _pid: None
         )
         is False
     )
@@ -189,7 +207,8 @@ def test_has_active_subshell_root_itself_is_not_counted():
     # only DESCENDANTS count, never root itself.
     children_of, comm_of = _tree({}, {100: "zsh"})
     assert (
-        claude_sessions.has_active_subshell(100, children_of=children_of, comm_of=comm_of) is False
+        claude_sessions.has_active_subshell(root_pid=100, children_of=children_of, comm_of=comm_of)
+        is False
     )
 
 
@@ -197,7 +216,8 @@ def test_has_active_subshell_cycle_is_fail_soft():
     # A cycle among non-shells must TERMINATE (visited-set) and return False, no hang.
     children_of, comm_of = _tree({100: [200], 200: [100]}, {100: "node", 200: "node"})
     assert (
-        claude_sessions.has_active_subshell(100, children_of=children_of, comm_of=comm_of) is False
+        claude_sessions.has_active_subshell(root_pid=100, children_of=children_of, comm_of=comm_of)
+        is False
     )
 
 
@@ -306,7 +326,10 @@ def test_read_live_sessions_is_fail_soft_when_the_registry_dir_cannot_be_listed(
             raise OSError(5, "Input/output error")
 
     monkeypatch.setattr(claude_sessions, "Path", lambda _path: _UnlistableDir())
-    assert claude_sessions.read_live_sessions(tmp_path, starttime_of=lambda _pid: "111") == []
+    assert (
+        claude_sessions.read_live_sessions(sessions_dir=tmp_path, starttime_of=lambda _pid: "111")
+        == []
+    )
 
 
 def test_read_live_sessions_skips_records_with_wrongly_typed_fields(tmp_path):
@@ -326,7 +349,9 @@ def test_read_live_sessions_skips_records_with_wrongly_typed_fields(tmp_path):
     )
     _write(tmp_path, 400, name="delta", cwd="/r/d", proc_start="444")
 
-    live = claude_sessions.read_live_sessions(tmp_path, starttime_of=lambda _pid: "444")
+    live = claude_sessions.read_live_sessions(
+        sessions_dir=tmp_path, starttime_of=lambda _pid: "444"
+    )
     assert [(s.pid, s.name) for s in live] == [(400, "delta")]
 
 
@@ -335,6 +360,6 @@ def test_resolve_tmux_session_gives_up_after_the_bounded_parent_walk():
     # pid distinct, so the visited-set never fires) whose pane PID sits beyond the bound
     # returns None rather than climbing forever.
     got = claude_sessions.resolve_tmux_session(
-        100, pane_pid_to_session={1000: "far-away"}, ppid_of=lambda pid: pid + 1
+        pid=100, pane_pid_to_session={1000: "far-away"}, ppid_of=lambda pid: pid + 1
     )
     assert got is None

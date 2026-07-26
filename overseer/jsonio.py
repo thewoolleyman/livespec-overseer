@@ -28,7 +28,7 @@ from typing import cast
 __all__: list[str] = ["as_float", "as_list", "as_object", "parse_object", "parse_object_line"]
 
 
-def as_object(value: object) -> dict[str, object] | None:
+def as_object(*, value: object) -> dict[str, object] | None:
     """Narrow an ALREADY-PARSED JSON value to a string-keyed mapping, or None.
 
     For callers that must keep their own ``try``/``except`` around the parse —
@@ -45,7 +45,7 @@ def as_object(value: object) -> dict[str, object] | None:
     return cast("dict[str, object]", value)
 
 
-def as_list(value: object) -> list[object] | None:
+def as_list(*, value: object) -> list[object] | None:
     """Narrow an already-parsed JSON value to a list, or None if it is not one.
 
     The list sibling of :func:`as_object`, and it exists for the same reason:
@@ -59,7 +59,7 @@ def as_list(value: object) -> list[object] | None:
     return cast("list[object]", value)
 
 
-def as_float(value: object) -> float | None:
+def as_float(*, value: object) -> float | None:
     """Coerce an already-parsed JSON scalar to a float, or None if it is not numeric.
 
     JSON numbers arrive as ``int`` or ``float``; a legacy hand-edited value may be
@@ -83,7 +83,7 @@ def as_float(value: object) -> float | None:
     return None
 
 
-def parse_object(text: str) -> dict[str, object] | None:
+def parse_object(*, text: str) -> dict[str, object] | None:
     """Parse ``text`` as a JSON object.
 
     Returns None if ``text`` is malformed JSON, or is valid JSON that is not an
@@ -95,10 +95,10 @@ def parse_object(text: str) -> dict[str, object] | None:
         parsed: object = json.loads(text)
     except ValueError:
         return None
-    return as_object(parsed)
+    return as_object(value=parsed)
 
 
-def parse_object_line(line: str) -> dict[str, object] | None:
+def parse_object_line(*, line: str) -> dict[str, object] | None:
     """Parse one JSONL record, skipping blank lines.
 
     The same contract as :func:`parse_object`, plus: a line that is empty or
@@ -108,4 +108,4 @@ def parse_object_line(line: str) -> dict[str, object] | None:
     """
     if not line.strip():
         return None
-    return parse_object(line)
+    return parse_object(text=line)

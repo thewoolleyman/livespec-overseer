@@ -38,7 +38,7 @@ _STATE_FILE_HINT = ".overseer-state"
 def _track(tmp_path, *, ctx, topic="topic"):
     """A discovered, mapped, live track sitting idle at `ctx`% remaining."""
     repo, topic = make_plan(tmp_path, topic=topic)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=ctx))
     return repo, topic, session, fake
@@ -59,10 +59,10 @@ def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(tmp_pa
     stamp_at_paste = []
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     fake.on_paste = lambda _s, _t: stamp_at_paste.append(
-        registry.read_injection_stamp(str(repo), topic, sup.stamp_path)
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     )
 
-    view = sup.evaluate(mapped_track(repo, topic, session), act=True)
+    view = sup.evaluate(track=mapped_track(repo, topic, session), act=True)
 
     assert view.status == "warned"
     assert stamp_at_paste == [1000.0]  # recorded BEFORE the pane was touched
@@ -72,7 +72,7 @@ def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(tmp_pa
     assert _STATE_FILE_HINT in message
     for value in ("ready", "blocked:", "winding-down"):
         assert value in message
-    assert supervisor.default_handoff(str(repo), topic) in message
+    assert supervisor.default_handoff(repo=str(repo), topic=topic) in message
 
 
 def test_scenario_the_wrapup_sharpens_as_context_keeps_falling(tmp_path):
@@ -85,14 +85,14 @@ def test_scenario_the_wrapup_sharpens_as_context_keeps_falling(tmp_path):
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     track = mapped_track(repo, topic, session)
 
-    sup.evaluate(track, act=True)
+    sup.evaluate(track=track, act=True)
     assert len(fake.paste_texts()) == 1
     suggestion = fake.paste_texts()[0]
 
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=28)
     )  # crosses into 30-and-below
-    sup.evaluate(track, act=True)
+    sup.evaluate(track=track, act=True)
     assert len(fake.paste_texts()) == 2
     demand = fake.paste_texts()[1]
 
@@ -114,14 +114,16 @@ def test_scenario_a_band_never_fires_twice_in_one_round(tmp_path):
     track = mapped_track(repo, topic, session)
 
     first = make_supervisor(tmp_path, fake, out=_io.StringIO())
-    first.evaluate(track, act=True)
+    first.evaluate(track=track, act=True)
     assert len(fake.paste_texts()) == 1
 
     reborn = make_supervisor(tmp_path, fake, out=_io.StringIO())  # new process, same stores
-    reborn.evaluate(track, act=True)
+    reborn.evaluate(track=track, act=True)
 
     assert len(fake.paste_texts()) == 1  # no second wrap-up for an already-notified band
-    assert set(registry.read_notified_bands(str(repo), topic, reborn.stamp_path)) == {50, 40}
+    assert set(
+        registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=reborn.stamp_path)
+    ) == {50, 40}
 
 
 def test_scenario_a_winding_down_acknowledgement_pauses_the_escalation(tmp_path):
@@ -134,14 +136,14 @@ def test_scenario_a_winding_down_acknowledgement_pauses_the_escalation(tmp_path)
     sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
     track = mapped_track(repo, topic, session)
 
-    sup.evaluate(track, act=True)
+    sup.evaluate(track=track, act=True)
     assert len(fake.paste_texts()) == 1
 
     declare(repo, topic, "winding-down", mtime=1000.0)  # fresh: clock is pinned at 1000.0
     fake.serve(
         session=session, repo=repo, capture=idle_capture(ctx=28)
     )  # would otherwise cross a band
-    view = sup.evaluate(track, act=True)
+    view = sup.evaluate(track=track, act=True)
 
     assert len(fake.paste_texts()) == 1  # still ONE — the acknowledgement paused it
     assert view.status == "winding-down"
@@ -171,9 +173,12 @@ def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_noth
     sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"], out=_io.StringIO())
     track = mapped_track(repo, topic, session)
 
-    sup.evaluate(track, act=True)  # opens the round: stamp written at 1000.0
+    sup.evaluate(track=track, act=True)  # opens the round: stamp written at 1000.0
     assert len(fake.paste_texts()) == 1
-    assert registry.read_injection_stamp(str(repo), topic, sup.stamp_path) == 1000.0
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        == 1000.0
+    )
 
     declare(repo, topic, "winding-down", mtime=1001.0)  # POST-dates the stamp
     clock["t"] = 1000.0 + (16 * 60)  # ...and is now past the freshness window
@@ -184,7 +189,7 @@ def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_noth
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=18))
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(track, act=True)
+        view = sup.evaluate(track=track, act=True)
 
     assert len(fake.paste_texts()) == 2  # escalation resumed: the 20-band fired
     assert "20%" in fake.paste_texts()[1] or "18%" in fake.paste_texts()[1]

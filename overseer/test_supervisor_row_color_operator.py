@@ -143,12 +143,12 @@ def test_blocked_human_alert_caps_an_over_long_reason(tmp_path, capsys):
     """The edge-triggered `alert` (daemon.log line) also caps the reason — a 705-byte
     `blocked:` dump must not become a 705-byte log line."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     declare(repo, topic, "blocked: " + "y" * 400)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path, fake)
-    sup.evaluate(mapped_track(repo, topic, session), act=True)
+    sup.evaluate(track=mapped_track(repo, topic, session), act=True)
     err = capsys.readouterr().err
     assert "blocked on human:" in err
     assert "…" in err
@@ -164,7 +164,7 @@ def test_alert_is_edge_triggered_not_repeated_every_tick(tmp_path):
     """A track blocked overnight used to log ~3,000 identical lines, burying the history
     the bottom pane reads to answer "what happened?". One line per condition ENTERED."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     declare(repo, topic, "blocked: needs a human")
@@ -174,7 +174,7 @@ def test_alert_is_edge_triggered_not_repeated_every_tick(tmp_path):
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         for _ in range(5):  # five ticks of the SAME unchanged condition
-            assert sup.evaluate(track, act=True).status == "blocked:human"
+            assert sup.evaluate(track=track, act=True).status == "blocked:human"
     surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
     assert len(surfaced) == 1, surfaced
 
@@ -183,7 +183,7 @@ def test_alert_re_arms_after_the_track_recovers(tmp_path):
     """Edge-triggering must not SWALLOW a genuine re-entry: once a track goes healthy, the
     next time it goes bad it reports afresh."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     # 90% remaining: comfortably above the warn threshold, so the recovered tick is
     # healthy — `idle-with-context-left` (idle with room, so nudged to keep going). It is
@@ -197,11 +197,11 @@ def test_alert_re_arms_after_the_track_recovers(tmp_path):
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         state = declare(repo, topic, "blocked: first")
-        assert sup.evaluate(track, act=True).status == "blocked:human"
+        assert sup.evaluate(track=track, act=True).status == "blocked:human"
         state.unlink()  # the human answered → the track is healthy again
-        assert sup.evaluate(track, act=True).status == "idle-with-context-left"
+        assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
         declare(repo, topic, "blocked: first")  # blocks AGAIN on the same reason
-        assert sup.evaluate(track, act=True).status == "blocked:human"
+        assert sup.evaluate(track=track, act=True).status == "blocked:human"
     surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
     assert len(surfaced) == 2, surfaced  # entered, recovered, entered again
 
@@ -210,7 +210,7 @@ def test_alert_reports_again_when_the_reason_changes(tmp_path):
     """Edge-triggering is on the CONDITION, not merely on the status: a track that stays
     blocked for a DIFFERENT reason is a new event and must be reported."""
     repo, topic = make_plan(tmp_path)
-    session = registry.tmux_id(str(repo), topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=50))
     sup = make_supervisor(tmp_path, fake)
@@ -219,9 +219,9 @@ def test_alert_reports_again_when_the_reason_changes(tmp_path):
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         declare(repo, topic, "blocked: reason one")
-        sup.evaluate(track, act=True)
+        sup.evaluate(track=track, act=True)
         declare(repo, topic, "blocked: reason two")
-        sup.evaluate(track, act=True)
+        sup.evaluate(track=track, act=True)
     surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
     assert len(surfaced) == 2, surfaced
     assert "reason one" in surfaced[0]
