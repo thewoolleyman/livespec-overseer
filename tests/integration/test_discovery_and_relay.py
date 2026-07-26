@@ -17,7 +17,7 @@ Tier: `tests.integration` is one of the documented default `scenario_tiers`
 prefixes, so `check-heading-coverage` direction 4 accepts these node ids without
 this repo having to declare `scenario_tiers` in `pyproject.toml`.
 
-The harness (`FakeTmux`, `_sup`, `_make_plan`, `_declare`) is imported from the
+The harness (`FakeTmux`, `make_supervisor`, `make_plan`, `declare`) is imported from the
 beside-test module that owns it rather than duplicated — a second FakeTmux would
 be a second thing to keep true.
 """
@@ -29,22 +29,24 @@ import io as _io
 from pathlib import Path
 
 from overseer import registry, signals, supervisor
-from overseer.test_supervisor import (
+from overseer.test_supervisor_builders import (
+    declare,
+    idle_capture,
+    make_plan,
+    make_supervisor,
+    mapped_track,
+    nudge_count,
+    wrapup_count,
+)
+from overseer.test_supervisor_fakes import (
     FakeTmux,
-    _declare,
-    _idle_capture,
-    _make_plan,
-    _mapped_track,
-    _nudge_count,
-    _sup,
-    _wrapup_count,
 )
 
 _HANDOFF = "supervisor-handoff.md"
 
 
 def _plan(repo: Path, topic: str) -> None:
-    """A second plan directory inside an existing repo (`_make_plan` builds the first)."""
+    """A second plan directory inside an existing repo (`make_plan` builds the first)."""
     plan = repo / "plan" / topic
     plan.mkdir(parents=True)
     (plan / "handoff.md").write_text("h\n")
@@ -118,16 +120,16 @@ def test_scenario_a_blocked_declaration_is_relayed_not_answered(tmp_path):
         is reported as having declared NOTHING.
       - `_alert` reduced to `repo::topic` text -> the session/pane/jump assertions.
     """
-    repo, topic = _make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=_idle_capture(ctx=13))  # deep in the danger band
-    sup = _sup(tmp_path, fake, out=_io.StringIO())
-    _declare(repo, topic, "blocked: waiting on the schema call")
+    fake.serve(session, repo, capture=idle_capture(ctx=13))  # deep in the danger band
+    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
+    declare(repo, topic, "blocked: waiting on the schema call")
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
-        view = sup.evaluate(_mapped_track(repo, topic, session), act=True)
+        view = sup.evaluate(mapped_track(repo, topic, session), act=True)
 
     assert view.status == "blocked:human"  # ...it outranks the danger band
     assert view.note == "waiting on the schema call"
@@ -155,7 +157,7 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
 
     - The nudge is asserted as a NUDGE, not merely as "a paste". The wrap-up and the
       keep-going message travel the same bracketed-paste path, and they mean opposite
-      things — one says stop, the other says continue. `_wrapup_count` staying at zero is
+      things — one says stop, the other says continue. `wrapup_count` staying at zero is
       what makes this a nudge test rather than a paste test.
     - The marker is the daemon's ONLY self-authored token, and it must never look like a
       session declaration. It is checked by token, so a marker written as `ready` would
@@ -167,29 +169,29 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
       - `_clear_idle_nudge_state` made a no-op -> the marker survives the working tick and
         the second episode never re-arms.
     """
-    repo, topic = _make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path)
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=_idle_capture(ctx=73))  # well ABOVE the threshold
+    fake.serve(session, repo, capture=idle_capture(ctx=73))  # well ABOVE the threshold
     clock = {"t": 1000.0}
-    sup = _sup(tmp_path, fake, now=lambda: clock["t"], out=_io.StringIO())
+    sup = make_supervisor(tmp_path, fake, now=lambda: clock["t"], out=_io.StringIO())
     sup._claude_status = {session: "idle"}  # not `waiting`: free to continue
-    track = _mapped_track(repo, topic, session)
+    track = mapped_track(repo, topic, session)
 
     assert sup.evaluate(track, act=True).status == "idle-with-context-left"
-    assert _nudge_count(fake) == 0  # descriptive status, but idle < 1h: NOT keystroked
+    assert nudge_count(fake) == 0  # descriptive status, but idle < 1h: NOT keystroked
     assert signals.read_state(str(repo), topic) is None
 
     clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
     assert sup.evaluate(track, act=True).status == "idle-with-context-left"
-    assert _nudge_count(fake) == 1  # ONE keep-going message...
-    assert _wrapup_count(fake) == 0  # ...and emphatically not a wind-down wrap-up
+    assert nudge_count(fake) == 1  # ONE keep-going message...
+    assert wrapup_count(fake) == 0  # ...and emphatically not a wind-down wrap-up
     marker = signals.read_state(str(repo), topic)
     assert marker is not None and marker.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
 
     clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
     sup.evaluate(track, act=True)
-    assert _nudge_count(fake) == 1  # same episode: not nudged again
+    assert nudge_count(fake) == 1  # same episode: not nudged again
 
     sup._claude_status = {session: "busy"}  # the session works again
     assert sup.evaluate(track, act=True).status == "working"
@@ -197,10 +199,10 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(t
 
     sup._claude_status = {session: "idle"}
     sup.evaluate(track, act=True)
-    assert _nudge_count(fake) == 1  # ...re-arming a FUTURE episode, not an immediate one
+    assert nudge_count(fake) == 1  # ...re-arming a FUTURE episode, not an immediate one
     clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
     sup.evaluate(track, act=True)
-    assert _nudge_count(fake) == 2
+    assert nudge_count(fake) == 2
 
 
 def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(tmp_path):
@@ -221,9 +223,9 @@ def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(tmp_pa
     the session it looks for (`new_session` when `session_exists` is False) starts a session
     for a plan nobody asked to start, and the row stops reading `unassigned`.
     """
-    repo, _topic = _make_plan(tmp_path, topic="startable")
+    repo, _topic = make_plan(tmp_path, topic="startable")
     fake = FakeTmux()  # NO session serves this plan
-    sup = _sup(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO())
+    sup = make_supervisor(tmp_path, fake, watch_repos=[str(repo)], out=_io.StringIO())
 
     for _ in range(10):  # a daemon looks at a startable plan over and over
         views = sup.tick(act=True)
@@ -259,13 +261,13 @@ def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(tmp
       - the probe hoisted above the no-managed-pane return in `evaluate` -> the dead-session
         pass probes, so its count is no longer zero.
     """
-    repo, topic = _make_plan(tmp_path)
+    repo, topic = make_plan(tmp_path)
     (repo / "plan" / topic / _HANDOFF).write_text("a supervisor charter\n")
     session = registry.tmux_id(str(repo), topic)
     fake = FakeTmux()
-    fake.serve(session, repo, capture=_idle_capture(ctx=73))
-    sup = _sup(tmp_path, fake, out=_io.StringIO())
-    track = _mapped_track(repo, topic, session)
+    fake.serve(session, repo, capture=idle_capture(ctx=73))
+    sup = make_supervisor(tmp_path, fake, out=_io.StringIO())
+    track = mapped_track(repo, topic, session)
 
     with _watch_handoff_access() as probes, contextlib.redirect_stderr(_io.StringIO()):
         live = sup.evaluate(track, act=True)  # a live, matching session
@@ -308,16 +310,16 @@ def test_scenario_topics_colliding_across_repositories_get_qualified_session_nam
     an empty frozenset makes both repos derive the bare `shared`, so the qualified sessions
     are never linked and the bare one is claimed by whichever repo is discovered first.
     """
-    alpha, _ = _make_plan(tmp_path, repo_name="alpha", topic="shared")
-    beta, _ = _make_plan(tmp_path, repo_name="beta", topic="shared")
+    alpha, _ = make_plan(tmp_path, repo_name="alpha", topic="shared")
+    beta, _ = make_plan(tmp_path, repo_name="beta", topic="shared")
     _plan(beta, "solo")  # a topic unique to ONE repo
 
     fake = FakeTmux()
-    fake.serve("alpha-shared", alpha, capture=_idle_capture(ctx=73))
-    fake.serve("beta-shared", beta, capture=_idle_capture(ctx=73))
-    fake.serve("solo", beta, capture=_idle_capture(ctx=73))
-    fake.serve("shared", alpha, capture=_idle_capture(ctx=73))  # the RETIRED bare name
-    sup = _sup(tmp_path, fake, watch_repos=[str(alpha), str(beta)], out=_io.StringIO())
+    fake.serve("alpha-shared", alpha, capture=idle_capture(ctx=73))
+    fake.serve("beta-shared", beta, capture=idle_capture(ctx=73))
+    fake.serve("solo", beta, capture=idle_capture(ctx=73))
+    fake.serve("shared", alpha, capture=idle_capture(ctx=73))  # the RETIRED bare name
+    sup = make_supervisor(tmp_path, fake, watch_repos=[str(alpha), str(beta)], out=_io.StringIO())
 
     with contextlib.redirect_stderr(_io.StringIO()):
         _ = sup.tick(act=True)
