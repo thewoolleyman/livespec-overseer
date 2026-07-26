@@ -52,6 +52,11 @@ _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("picker-rule", ("askuserquestion", "recommend")),
     # The one prohibition that must survive every regeneration.
     ("no-verify-prohibition", ("--no-verify",)),
+    # The prohibition that is specific to THIS product. A supervisor charter
+    # hands its reader broad tmux authority; the acting daemon is just another
+    # tmux session to that reader, and killing it stops supervision for the
+    # WHOLE fleet, not for the one track the charter governs.
+    ("acting-daemon-prohibition", ("never kill the acting overseer daemon",)),
     # `.4`'s bar: RUNNABLE inspection commands, not prose describing them.
     ("executable-capture-pane", ("capture-pane", "-S -40")),
     # Proving the pane holds a live agent needs a real process-tree command.
@@ -273,6 +278,33 @@ def test_a_charter_omitting_the_no_verify_prohibition_is_rejected():
     assert "no-verify-prohibition" in missing_requirements(charter)
 
 
+def test_a_charter_omitting_the_acting_daemon_prohibition_is_rejected():
+    """The blast radius here is wider than any other requirement in this file.
+
+    Every other rule protects the one track the charter governs. This one
+    protects the daemon supervising the whole fleet — and a charter that grants
+    tmux authority without naming it reads as though `livespec-overseer:1.1`
+    were an ordinary session to clean up. The charter below is otherwise
+    conformant, including the generic `kill-server` warning, which is exactly
+    why the generic warning is not a substitute.
+    """
+    charter = """
+    # Supervisor Handoff - demo
+    tmux capture-pane -p -t demo -S -40
+    pane_pid=$(tmux display-message -p -t demo '#{pane_pid}')
+    readlink -f "$pane_cwd"
+    ## No idle, no silent block
+    A conflicting lane is not a blocked state; stand down on that action only.
+    ## Never end a turn without an armed re-entry
+    Arm a background pane watcher.
+    ## AskUserQuestion presentation rules
+    Recommended option first.
+    ## Standing safety clauses
+    Never pass --no-verify. Never run kill-server on the maintainer's socket.
+    """
+    assert "acting-daemon-prohibition" in missing_requirements(charter)
+
+
 def test_the_control_a_fully_conformant_charter_passes():
     """The control for every rejection above. Without it, the negative fixtures
     prove only that the validator can say no — not that it can ever say yes."""
@@ -291,6 +323,6 @@ def test_the_control_a_fully_conformant_charter_passes():
     ## AskUserQuestion presentation rules
     One question per turn, recommended option first.
     ## Standing safety clauses
-    Never pass --no-verify.
+    Never pass --no-verify. Never kill the acting overseer daemon.
     """
     assert missing_requirements(charter) == []
