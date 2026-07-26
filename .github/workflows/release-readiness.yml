@@ -1,0 +1,93 @@
+# Release-readiness canary — daily fail-mode dry-run of the release-gate
+# levers against master.
+#
+# ADAPTED FROM livespec core's release-readiness.yml (2026-07-26). Core's
+# rationale does NOT transfer unchanged, and the difference is the whole
+# reason this file needed adapting rather than copying:
+#
+#   Core says its release-gate targets are "NOT part of `just check` (not run
+#   per-commit)", so the canary is what makes them run at all outside a tag
+#   push. In livespec-overseer that premise is FALSE — measured 2026-07-26,
+#   `check-no-todo-registry` and `check-no-lloc-soft-warnings` are BOTH already
+#   in this repo's 61-target `just check` aggregate AND in per-commit CI's
+#   matrix (ci.yml). They run on every commit here.
+#
+# So what this canary adds in THIS repo is not coverage — it is SEVERITY. The
+# targets already run per-commit in their warn-by-default mode; this workflow
+# runs the same targets with the fail-mode levers set, so "master is currently
+# un-releasable" surfaces daily instead of at the next release attempt.
+#
+# The time-bomb class core built this against is real and repo-independent: a
+# registered `test: "TODO"` or a soft-band LLOC file lands green per-commit and
+# silently reddens every future release gate. Core lost v0.6.0 through v0.6.4
+# to exactly that, unnoticed, while its `release` branch sat stale.
+#
+# check-check-mutation is deliberately EXCLUDED here, mirroring core's
+# exclusion of check-mutation: it is the heavy release-only tier and the
+# release-tag workflow is where it belongs.
+#
+# The export-telemetry job ships the outcome to Honeycomb (dataset github-ci,
+# ci.workflow = "Release readiness"). Both the script
+# (.github/scripts/export-ci-telemetry.sh) and the secret
+# (HONEYCOMB_GITHUB_CI_INGEST_KEY_LIVESPEC) already exist in this repo and are
+# used by ci.yml today — verified 2026-07-26, no new secret is required.
+
+name: Release readiness
+
+on:
+  schedule:
+    # 13:47 UTC rather than core's 13:17, so the two repos' canaries do not
+    # land in the same minute. Arbitrary but deliberate.
+    - cron: '47 13 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  release-readiness:
+    name: ${{ matrix.target }}
+    # ubuntu-latest, NOT this repo's self-hosted `CI_RUNNER_LABELS` container.
+    # That matches core, which likewise keeps its release-family workflows on
+    # hosted runners while its ci.yml check matrix runs self-hosted — and it
+    # matches this repo's own release-please.yml (also ubuntu-latest).
+    runs-on: ubuntu-latest
+    env:
+      LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST: "true"
+      LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST: "true"
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - check-no-todo-registry
+          - check-no-lloc-soft-warnings
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pinned binaries via mise
+        uses: jdx/mise-action@v2
+
+      - name: Install Python dev deps via uv
+        run: uv sync --all-groups
+
+      - name: just ${{ matrix.target }}
+        run: just ${{ matrix.target }}
+
+  export-telemetry:
+    name: export-telemetry
+    needs: [release-readiness]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Export release-readiness run telemetry to Honeycomb
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          HONEYCOMB_GITHUB_CI_INGEST_KEY_LIVESPEC: ${{ secrets.HONEYCOMB_GITHUB_CI_INGEST_KEY_LIVESPEC }}
+        run: bash .github/scripts/export-ci-telemetry.sh
