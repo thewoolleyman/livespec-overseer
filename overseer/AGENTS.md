@@ -350,7 +350,7 @@ for the marker's edge-triggered lifecycle.
    earlier version of this list asserted the auto-restart was NON-NEGOTIABLE and
    that a warned track stalling idle at the danger line was **FORCE-restarted**
    after a grace (`_danger_or_force_restart` / `_STALL_RESTART_GRACE` /
-   `_InjectState.danger_idle_since`). That was a **severe bug** — the daemon killed
+   `InjectState.danger_idle_since`). That was a **severe bug** — the daemon killed
    sessions it had no way to prove were safe to kill — and all of it is **deleted
    from the code**. If you find yourself re-adding a timer, a grace, or any
    daemon-side judgment that ends in a respawn, STOP: you are reintroducing it.
@@ -386,7 +386,7 @@ for the marker's edge-triggered lifecycle.
      (`_resend_enter` — re-send Enter, NEVER a re-respawn, so it can never escalate to
      a kill; a fresh `ready` is still the sole respawn trigger), closing the round only
      once the box clears or the pane goes busy. The stranded row stays a NEEDS-YOU
-     report (`_RESUME_PENDING_NOTE`) until it resumes. See invariant 7's B5 discipline:
+     report (`RESUME_PENDING_NOTE`) until it resumes. See invariant 7's B5 discipline:
      "is the fresh Claude up?" and "did the resume submit?" are now SEPARATE facts —
      conflating them (the old `_clear_state` + "restarted" log on a failed submit) is
      the exact discarded-marker bug this replaced.
@@ -487,10 +487,10 @@ for the marker's edge-triggered lifecycle.
    (and has made no `ready`/`blocked`/`winding-down` declaration of its own), the
    daemon sends exactly ONE "keep going, don't stop with context left" nudge and
    stamps this token so it does not re-nudge every tick. **The nudge fires ONLY after
-   the session has been CONTINUOUSLY idle for at least `_IDLE_NUDGE_AFTER` (1 hour;
+   the session has been CONTINUOUSLY idle for at least `IDLE_NUDGE_AFTER` (1 hour;
    maintainer-declared 2026-07-18: it was "too aggressive, TOO SOON" and interrupted
    sessions merely between turns).** The continuous-idle clock is in-memory
-   (`_InjectState.idle_since`), stamped on the first cleanly-idle tick (empty prompt AND
+   (`InjectState.idle_since`), stamped on the first cleanly-idle tick (empty prompt AND
    not busy — `busy` folds in Claude's registry `busy`/`shell`, so a sub-agent or
    background command resets it) and cleared the moment the session is non-idle; a daemon
    restart resets it, which only ever DELAYS a nudge (the safe direction). The row still
@@ -531,7 +531,7 @@ for the marker's edge-triggered lifecycle.
 
     Consequences that are load-bearing, not cosmetic:
 
-    - **Every log line is timestamped** (`_log` / `_surface` prefix `_iso_now()`) — a
+    - **Every log line is timestamped** (`_log` / `_surface` prefix `iso_now()`) — a
       history you cannot date cannot answer "when?".
     - **Track alerts are EDGE-TRIGGERED** (`_alert`'s `_alerted` dict; re-armed in
       `evaluate` when the row goes healthy). Re-emitting an unchanged alert every tick
@@ -563,7 +563,7 @@ for the marker's edge-triggered lifecycle.
   **`rename_window` MUST also set `automatic-rename off`** — tmux otherwise re-derives a
   window's name from its foreground command on the next tick and silently overwrites the
   badge; pinning is part of renaming, not an optional extra.
-- **Row color is a TTY-only, whole-LINE affordance (`_row_color` / `_STATUS_COLOR`;
+- **Row color is a TTY-only, whole-LINE affordance (`row_color` / `_STATUS_COLOR`;
   2026-07-15).** `render` tints each DATA row by its raw status so the operator scans
   the list by hue — green = actively working (`working`/`winding-down`/`restarting`/
   `settling`), yellow = idle (`idle`/`idle-with-context-left`) / waiting on a human
@@ -579,17 +579,17 @@ for the marker's edge-triggered lifecycle.
   every `row.split()` assertion stays valid. The header + separator are never tinted.
   If you add a status token, add it to `_STATUS_COLOR` too (an unmapped status is legal
   — it just renders in the default color).
-- **Session-authored notes are ELIDED on EVERY surface (`_elide`; 2026-07-16).** A note
+- **Session-authored notes are ELIDED on EVERY surface (`elide`; 2026-07-16).** A note
   is SESSION-authored free text — a `blocked:` reason or the live-outside-tmux detail —
   that can be arbitrarily long AND multi-line, and a raw 705-byte `blocked:` value once
   blew the whole Status column out (the table sizes each column to its widest cell) and
-  broke row alignment. `_elide` flattens the note to one line (`" ".join(split())`,
+  broke row alignment. `elide` flattens the note to one line (`" ".join(split())`,
   collapsing newlines) and truncates with an ellipsis, applied at THREE call sites so no
-  surface can be overrun: the table Status cell (`_MAX_NOTE_IN_TABLE`, 48 — tightest,
+  surface can be overrun: the table Status cell (`MAX_NOTE_IN_TABLE`, 48 — tightest,
   because the column width is load-bearing), and the `NEEDS YOU` block line + the
-  edge-triggered `_alert` daemon.log line (both `_MAX_REASON_IN_ALERT`, 160 — a longer
+  edge-triggered `_alert` daemon.log line (both `MAX_REASON_IN_ALERT`, 160 — a longer
   preview, since the FULL reason is in the tracked pane the line's jump command points
-  at). Never render `row.note` raw onto any surface — route it through `_elide`.
+  at). Never render `row.note` raw onto any surface — route it through `elide`.
 - **`command tmux` semantics (`tmuxio.py`).** Every tmux call is
   `subprocess.run([...], shell=False)` with an argv LIST — no shell is spawned,
   so a user's zsh `tmux` function shim is bypassed (the `command tmux` effect).
@@ -602,7 +602,7 @@ for the marker's edge-triggered lifecycle.
 - **Bracketed-paste submission (`_submit_prompt`) — verified-submit loop, RUNTIME-AWARE.**
   Paste (`load-buffer` + `paste-buffer -p`, single- or multi-line, atomic — never type a
   payload key-by-key), then re-send `Enter` until submission is CONFIRMED, up to
-  `_SUBMIT_MAX_ENTERS`. Verified live (2026-07-13): on a STEADY idle session a single
+  `SUBMIT_MAX_ENTERS`. Verified live (2026-07-13): on a STEADY idle session a single
   `Enter` submits; but a freshly-`respawn`-ed session is often still drawing its
   welcome/news screen when the first `Enter` arrives and DROPS it, leaving the payload
   un-submitted. The verify loop fixes that (an extra `Enter` on an already-empty prompt is
@@ -644,14 +644,14 @@ for the marker's edge-triggered lifecycle.
   (`✻ Brewed for 25s`). Because streaming shows no spinner in the captured
   region, the daemon ALSO runs a two-capture **settled-delta**
   (`Supervisor._pane_settled`) before injecting/restarting an apparently-idle
-  track: two captures `_SETTLE_DELAY` apart that DIFFER ⇒ actively working ⇒
+  track: two captures `SETTLE_DELAY` apart that DIFFER ⇒ actively working ⇒
   treated as `working` and skipped. Over-firing busy is the SAFE direction.
 - **Claude registry `status` is AUTHORITATIVE for an adopted Claude session
   (`claude_sessions.status_by_tmux_session`; 2026-07-15).** Claude Code writes a live
   `status` into each session's registry file (`~/.claude/sessions/<pid>.json`), and its
   four values map cleanly onto the daemon's model — recomputed each tick into
   `Supervisor._claude_status` (`{tmux_session: status}`) by `_refresh_claude_status`, read
-  in `evaluate`, and matched against `_CLAUDE_BUSY_STATUSES = {"busy", "shell"}`:
+  in `evaluate`, and matched against `CLAUDE_BUSY_STATUSES = {"busy", "shell"}`:
   - **`busy`** — actively generating, OR running an in-process sub-agent (Task tool). A
     sub-agent spawns NO descendant shell and need not repaint the pane, so
     `has_active_subshell` AND `is_busy` both miss it — but Claude reports `busy`, so the
@@ -699,8 +699,8 @@ for the marker's edge-triggered lifecycle.
   restarts (`_clear_state` — so a declaration can never re-trigger). **`ready` is
   the SOLE restart authorization — never reshape this into "the daemon may decide
   for itself"** (invariant 7). The full contract is in `marker-protocol.md`; keep
-  it and `supervisor.py`'s `_WRAPUP_SUGGEST_HEAD` / `_WRAPUP_INSIST_HEAD` /
-  `_WRAPUP_BODY` in sync.
+  it and `_supervisor_prompts.py`'s `_WRAPUP_SUGGEST_HEAD` /
+  `_WRAPUP_INSIST_HEAD` / `_WRAPUP_BODY` in sync.
 - **Self-healing resume-submit (`registry.set_resume_pending` / `read_resume_pending`,
   `_resend_enter`; R1, 2026-07-18).** The restart respawns the fresh session and pastes the
   resume line, but a freshly-respawned TUI can DROP the Enter while still drawing its
@@ -749,10 +749,10 @@ for the marker's edge-triggered lifecycle.
   (`repoint_tmux`, idempotent + guarded so a steady-state tick never touches the store)
   instead of freezing the binding — the "re-mapping is a separate concern" the old code
   deferred was the concern.
-- **Stale-`ready` voiding (`_void_if_stale` + `_MARKER_VOID_GRACE`).** A session
+- **Stale-`ready` voiding (`_void_if_stale` + `MARKER_VOID_GRACE`).** A session
   that declares `ready` and then RESUMES work must not be restarted on that (now
   false) declaration. So on a busy/blocked tick a `ready` OLDER than
-  `_MARKER_VOID_GRACE` (120s) is cleared. Younger ones SURVIVE deliberately: the
+  `MARKER_VOID_GRACE` (120s) is cleared. Younger ones SURVIVE deliberately: the
   declaring turn's own tail (final text streaming + stop hooks) legitimately keeps
   the pane busy for a while right after the write, and voiding on ANY busy would
   destroy every legitimate declaration before the pane ever went idle (RB1).
@@ -763,7 +763,7 @@ for the marker's edge-triggered lifecycle.
   next-step decision — Codex…)`, a reason written by a session that no longer existed. Left
   alone the dead reason also fires a false `blocked:human` the moment the session goes idle.
   So a `blocked:` is voided when the session is **GENERATING** and the declaration is past
-  `_MARKER_VOID_GRACE`. **This is not the daemon judging semantics (invariant 1):** it does
+  `MARKER_VOID_GRACE`. **This is not the daemon judging semantics (invariant 1):** it does
   not guess the session is unblocked, it observes that the session is PRODUCING TOKENS,
   which is incompatible with waiting for an answer. Two bounds, each pinned by a test —
   widen neither:
@@ -778,7 +778,7 @@ for the marker's edge-triggered lifecycle.
   the blocked reason, so the void runs BEFORE the note is derived and the note is re-derived
   after; the reason only ever reached a `working` row via the spinner path anyway (the
   shell / sub-agent branches overwrite the note), which is exactly the provably-stale case.
-- **The `winding-down` ACK (`_ACK_STALE_AFTER`).** A FRESH `winding-down` (≤ 900s
+- **The `winding-down` ACK (`ACK_STALE_AFTER`).** A FRESH `winding-down` (≤ 900s
   old) suppresses further wrap-up injections — the daemon must never keystroke into
   a session that is actively wrapping up — and shows as the `winding-down` row
   status. A STALE one resumes the escalation and re-reports the track (an ACK must
@@ -831,12 +831,33 @@ for the marker's edge-triggered lifecycle.
 ## Build / toolchain facts
 
 - **Stdlib-only Python, host-only.** No third-party imports; **eight** substantive
-  modules (`registry.py`, `signals.py`, `tmuxio.py`, `supervisor.py`, `jsonio.py`,
+  module SURFACES (`registry.py`, `signals.py`, `tmuxio.py`, `supervisor.py`, `jsonio.py`,
   `start.py`, plus the session readers `claude_sessions.py` and
   `codex_sessions.py`) plus `__init__.py` / `daemon.py` / `streams.py` /
   `version.py` and the beside-tests. **(Corrected 2026-07-26: this said "six
   modules" and omitted `jsonio.py` and `start.py`. Eight is also the count the
   repo-root `.claude/CLAUDE.md` states, so the two documents now agree.)**
+  **Two of those eight surfaces are FAÇADES over a group of private collaborator
+  modules**, split when each crossed the 250-LLOC hard ceiling — so the eight is a
+  count of consumer-visible SURFACES, not of files on disk:
+  - `registry.py` → `_registry_core` / `_registry_store` / `_registry_discovery` /
+    `_registry_stamps`.
+  - `supervisor.py` → `_supervisor_core` (the `Supervisor` class) /
+    `_supervisor_config` / `_supervisor_prompts` / `_supervisor_view` /
+    `_supervisor_records`.
+
+  Each façade re-exports its whole group, so `import registry` / `import supervisor`
+  is still the entire consumer surface and no caller changed. The collaborators are
+  `_`-prefixed (a private-helper MODULE is exempt from mirror-test pairing) while their
+  shared members are PUBLIC — pyright-strict's `reportPrivateUsage` rejects importing
+  an `_`-prefixed name across modules, so a helper shared between siblings cannot stay
+  underscore-named once it leaves one file.
+
+  **Reach a constant through the module that DEFINES it, never through the façade.**
+  A façade re-export can be `monkeypatch.setattr`-ed successfully while the real
+  reader keeps its own binding — a green test over a live default. That is not
+  theoretical: it appended rows to the maintainer's real `~/.livespec-overseer.jsonl`
+  during the registry split.
   Precedent for host-only Python under `.claude/`:
   `.claude/hooks/livespec_footgun_guard.py`. Stdlib-only is now **load-bearing
   for the invocation surface too**: the `overseerd` executable carries a
@@ -852,13 +873,18 @@ for the marker's edge-triggered lifecycle.
     onto `sys.path` so `import supervisor` (and supervisor's siblings) resolve
     from any cwd. This is the ONLY thing the `/overseer` skill launches in the top
     pane.
-  - **`supervisor.py`** — a **plain module** (NO shebang, NOT executable). It
-    holds the `Supervisor` logic + `run_daemon()` + the one-shot track-management
-    CLI (`list` / `add` / `remove` / `unassign` / `start`, `--repo` / `--topic`
+  - **`supervisor.py`** — a **plain module** (NO shebang, NOT executable). It is the
+    FAÇADE over `_supervisor_core` (which holds the `Supervisor` class) and holds
+    `build_supervisor()` + `run_daemon()` + the one-shot track-management CLI
+    (`list` / `add` / `remove` / `unassign` / `start`, `--repo` / `--topic`
     keyword flags). It carries NO `daemon` subcommand (a dedicated executable has
     no business being a subcommand of a track CLI). The skill invokes it as
     `uv run --no-project python overseer/supervisor.py <cmd>` — a
     module invoked from the skill, never a supported bare `python3` path.
+    **That invocation is why `main` and the `__main__` guard stay in the façade**
+    rather than moving to a `_supervisor_cli` collaborator: the shipped operator
+    surface executes this exact file as a script, and a collaborator holding `main`
+    would need the façade to import it, closing an import cycle.
   Beyond `--warn-percent`, there are **no config knobs**: store
   (`~/.livespec-overseer.jsonl`) and injection-stamp
   (`~/.livespec-overseer-stamps.json`) paths are hard-coded via the `registry`
@@ -869,8 +895,10 @@ for the marker's edge-triggered lifecycle.
   `--manifest`, and `overseerd` takes no `--interval` / `--once` / `--recover`
   (surface-only: no startup auto-recovery). The `Supervisor` dataclass keeps
   `store_path` / `stamp_path` / `watch_repos` / `manifest_path` injectable, but
-  **only the beside-tests inject them** (they redirect `registry.DEFAULT_STORE_PATH`
-  for CLI isolation) — neither `overseerd` nor the module CLI exposes them.
+  **only the beside-tests inject them** (they redirect `DEFAULT_STORE_PATH` on
+  `_registry_core` — the module that both DEFINES and RESOLVES it — for CLI
+  isolation; patching the `registry` façade instead sets an attribute nothing reads)
+  — neither `overseerd` nor the module CLI exposes them.
 - **Inside this repo's product gates.** Relocation made `overseer/` an ordinary
   first-party package in this repo. `pyproject.toml` includes `overseer` plus the
   extensionless `overseer-start` and `overseerd` executables in strict pyright,
@@ -1367,7 +1395,8 @@ does not re-learn it. Append here — do NOT scatter these.
   "most recent with this title"; a topic with 16 title-matching candidates resolved
   unambiguously this way.
 - **`overseerd` keeps running the OLD code until you restart it.** The daemon is a
-  long-lived process; editing `supervisor.py`/`registry.py` and merging does NOT change
+  long-lived process; editing `supervisor.py`/`_supervisor_*.py`/`registry.py` and
+  merging does NOT change
   a running daemon's behavior. After landing an overseer code change, restart the daemon
   (re-run `overseer-start`, or kill the daemon pane and relaunch) to load it. The
   one-shot track CLI (`list`/`add`/`start`) DOES pick up new code immediately (fresh

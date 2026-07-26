@@ -11,10 +11,10 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 import contextlib
 import io as _io
 
+import _supervisor_config
 import pytest
 import registry
 import signals
-import supervisor
 from test_supervisor_builders import (
     busy_capture,
     declare,
@@ -67,7 +67,7 @@ def test_ctx_unknown_never_injects(tmp_path):
 def test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour(tmp_path):
     """A session idle at an empty prompt with context ABOVE the threshold and no declaration
     is nudged ONCE to keep going — but ONLY after it has been continuously idle for at least
-    `_IDLE_NUDGE_AFTER` (maintainer 2026-07-18: nudging a briefly-idle session interrupts
+    `IDLE_NUDGE_AFTER` (maintainer 2026-07-18: nudging a briefly-idle session interrupts
     active work). Below the floor it reads `idle-with-context-left` but is NOT keystroked; a
     tick past the floor nudges once, and a further idle tick does NOT re-nudge."""
     repo, topic = make_plan(tmp_path)
@@ -86,7 +86,7 @@ def test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour(tmp_path):
     assert signals.read_state(str(repo), topic) is None  # no marker written yet
 
     # Past the 1-hour floor → nudged ONCE, marker written.
-    clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     view = sup.evaluate(track, act=True)
     assert view.status == "idle-with-context-left"
     assert nudge_count(fake) == 1  # nudged once
@@ -95,7 +95,7 @@ def test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour(tmp_path):
     assert state is not None and state.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
 
     # Still idle with the marker present → single prompt: NOT re-nudged.
-    clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     view = sup.evaluate(track, act=True)
     assert view.status == "idle-with-context-left"
     assert nudge_count(fake) == 1
@@ -115,7 +115,7 @@ def test_nudge_re_arms_after_the_session_takes_a_turn(tmp_path):
     track = mapped_track(repo, topic, session)
 
     sup.evaluate(track, act=True)  # idle_since stamped
-    clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     assert sup.evaluate(track, act=True).status == "idle-with-context-left"
     assert nudge_count(fake) == 1
 
@@ -130,7 +130,7 @@ def test_nudge_re_arms_after_the_session_takes_a_turn(tmp_path):
     assert nudge_count(fake) == 1  # the new episode has not reached the floor
 
     # Past a fresh hour → a SECOND nudge (a new episode).
-    clock["t"] += supervisor._IDLE_NUDGE_AFTER + 1
+    clock["t"] += _supervisor_config.IDLE_NUDGE_AFTER + 1
     assert sup.evaluate(track, act=True).status == "idle-with-context-left"
     assert nudge_count(fake) == 2
 

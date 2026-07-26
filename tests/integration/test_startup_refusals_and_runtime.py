@@ -24,7 +24,7 @@ from __future__ import annotations
 import contextlib
 import io as _io
 
-from overseer import codex_sessions, registry, signals, supervisor
+from overseer import _supervisor_view, codex_sessions, registry, signals, supervisor
 from overseer.test_supervisor_builders import (
     busy_capture,
     codex_busy_capture,
@@ -318,7 +318,7 @@ def test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill(t
         with contextlib.redirect_stderr(_io.StringIO()):
             view = sup.evaluate(track, act=True)
         assert view.status == "restarting"
-        assert view.note == supervisor._RESUME_PENDING_NOTE
+        assert view.note == _supervisor_view.RESUME_PENDING_NOTE
         assert supervisor.needs_attention(view)  # still visible as needing attention
         assert _enters(fake, session) > enters  # another Enter...
         enters = _enters(fake, session)

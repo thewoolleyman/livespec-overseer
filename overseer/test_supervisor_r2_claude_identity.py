@@ -12,10 +12,10 @@ import contextlib
 import io as _io
 import os
 
+import _supervisor_view
 import pytest
 import registry
 import signals
-import supervisor
 from test_supervisor_builders import (
     adopt_sup,
     arm_ready_marker,
@@ -206,7 +206,7 @@ def test_pending_retry_does_not_false_close_on_hook_busy_with_text_in_box(tmp_pa
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)
     assert view.status == "restarting"
-    assert view.note == supervisor._RESUME_PENDING_NOTE  # still pending, NOT falsely closed
+    assert view.note == _supervisor_view.RESUME_PENDING_NOTE  # still pending, NOT falsely closed
     assert signals.read_state(str(repo), topic).token == signals.STATE_READY  # marker KEPT
     assert registry.read_resume_pending(str(repo), topic, sup.stamp_path) is True
     assert any(c[0] == "keys" and c[2] == "Enter" for c in fake.calls)  # it DID re-send Enter

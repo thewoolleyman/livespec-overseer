@@ -8,6 +8,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 ``import supervisor`` resolves via conftest.py.
 """
 
+import _supervisor_view
 import codex_sessions
 import pytest
 import registry
@@ -216,6 +217,6 @@ def test_tty_render_tints_broken_rows_red(tmp_path):
 
 def test_not_claude_is_gone_from_every_surface(tmp_path):
     """One guard so the jargon cannot creep back via the colour map or attention list."""
-    assert "not-claude" not in supervisor._STATUS_COLOR
+    assert "not-claude" not in _supervisor_view._STATUS_COLOR
     assert "not-claude" not in supervisor.ATTENTION_STATUSES
     assert "session-gone" in supervisor.ATTENTION_STATUSES  # still attention

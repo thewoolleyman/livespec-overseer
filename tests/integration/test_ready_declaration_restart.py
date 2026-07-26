@@ -176,10 +176,10 @@ def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(tm
       restart the track.
 
     INJECTED DEFECTS THAT REDDEN IT (run 2026-07-26, each reverted):
-      - `_MARKER_VOID_GRACE = 0.0` -> the young half's declaration is voided and the
+      - `MARKER_VOID_GRACE = 0.0` -> the young half's declaration is voided and the
         restart never fires.
-      - the void made unconditional (drop the `age > _MARKER_VOID_GRACE` guard) -> same.
-      - `_MARKER_VOID_GRACE = 10_000.0` -> the stale half is never voided and restarts.
+      - the void made unconditional (drop the `age > MARKER_VOID_GRACE` guard) -> same.
+      - `MARKER_VOID_GRACE = 10_000.0` -> the stale half is never voided and restarts.
     """
     # --- younger than the grace: survives the declaring turn's own busy tail --------- #
     clock = {"t": 1000.0}

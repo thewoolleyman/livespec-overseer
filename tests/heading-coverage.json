@@ -256,14 +256,14 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A winding-down acknowledgement pauses the escalation",
     "test": "tests.integration.test_wrapup_escalation.test_scenario_a_winding_down_acknowledgement_pauses_the_escalation",
-    "reason": "Integration-tier. A fresh acknowledgement suppresses a wrap-up that would otherwise fire on a newly-crossed band. SABOTAGE-VERIFIED 2026-07-26: setting _ACK_STALE_AFTER negative (so every ack is instantly stale) turns it red. Note a threshold of exactly 0.0 does NOT redden it — the ack's age is 0.0 and the comparison is <=, so the sabotage must go negative to land."
+    "reason": "Integration-tier. A fresh acknowledgement suppresses a wrap-up that would otherwise fire on a newly-crossed band. SABOTAGE-VERIFIED 2026-07-26: setting ACK_STALE_AFTER negative (so every ack is instantly stale) turns it red. Note a threshold of exactly 0.0 does NOT redden it — the ack's age is 0.0 and the comparison is <=, so the sabotage must go negative to land."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale acknowledgement resumes escalation but authorizes nothing",
     "test": "tests.integration.test_wrapup_escalation.test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_nothing",
-    "reason": "Integration-tier, covering BOTH halves: escalation resumes (a lower band fires and the track is re-reported on stderr) and staleness still authorizes NOTHING. The ordering is load-bearing — the round is opened FIRST so the stamp exists, and the acknowledgement post-dates it, which forces the restart interlock all the way to its token check. An earlier draft acknowledged first and never warned; it passed because the interlock short-circuited on the missing stamp, and sabotaging ready_valid to accept winding-down left it GREEN. SABOTAGE-VERIFIED 2026-07-26 after correction: that same sabotage now turns it red, as does the negative _ACK_STALE_AFTER."
+    "reason": "Integration-tier, covering BOTH halves: escalation resumes (a lower band fires and the track is re-reported on stderr) and staleness still authorizes NOTHING. The ordering is load-bearing — the round is opened FIRST so the stamp exists, and the acknowledgement post-dates it, which forces the restart interlock all the way to its token check. An earlier draft acknowledged first and never warned; it passed because the interlock short-circuited on the missing stamp, and sabotaging ready_valid to accept winding-down left it GREEN. SABOTAGE-VERIFIED 2026-07-26 after correction: that same sabotage now turns it red, as does the negative ACK_STALE_AFTER."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -284,7 +284,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready declaration is voided when its session resumes work",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work",
-    "reason": "Integration-tier: covers BOTH halves of the scenario over real rounds and a moving clock. A declaration younger than `_MARKER_VOID_GRACE` survives the declaring turn's own busy tail and then genuinely restarts the track; one older than the grace is cleared while busy, and going idle again proves the 'instead of restarting later' clause. SABOTAGE-VERIFIED 2026-07-26: `_MARKER_VOID_GRACE = 0.0` and making the void unconditional each redden the young half; `_MARKER_VOID_GRACE = 10_000.0` reddens the stale half."
+    "reason": "Integration-tier: covers BOTH halves of the scenario over real rounds and a moving clock. A declaration younger than `MARKER_VOID_GRACE` survives the declaring turn's own busy tail and then genuinely restarts the track; one older than the grace is cleared while busy, and going idle again proves the 'instead of restarting later' clause. SABOTAGE-VERIFIED 2026-07-26: `MARKER_VOID_GRACE = 0.0` and making the void unconditional each redden the young half; `MARKER_VOID_GRACE = 10_000.0` reddens the stale half."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -312,7 +312,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An idle session with context left is nudged once per episode",
     "test": "tests.integration.test_discovery_and_relay.test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode",
-    "reason": "Integration-tier: walks the whole episode lifecycle on one track — below the one-hour floor nothing is keystroked, past it exactly one keep-going message is pasted and the daemon's own marker is written, a further idle tick does not re-nudge, the session working clears the marker, and a fresh hour earns a second nudge. The paste is asserted as a NUDGE (`_wrapup_count` held at zero), since the wrap-up travels the same paste path and means the opposite; the marker is checked by TOKEN, so a marker written as `ready` would redden here rather than silently arming a restart. SABOTAGE-VERIFIED 2026-07-26: `_IDLE_NUDGE_AFTER = 0.0`, dropping the once-per-episode guard, and making `_clear_idle_nudge_state` a no-op each redden a different leg."
+    "reason": "Integration-tier: walks the whole episode lifecycle on one track — below the one-hour floor nothing is keystroked, past it exactly one keep-going message is pasted and the daemon's own marker is written, a further idle tick does not re-nudge, the session working clears the marker, and a fresh hour earns a second nudge. The paste is asserted as a NUDGE (`_wrapup_count` held at zero), since the wrap-up travels the same paste path and means the opposite; the marker is checked by TOKEN, so a marker written as `ready` would redden here rather than silently arming a restart. SABOTAGE-VERIFIED 2026-07-26: `IDLE_NUDGE_AFTER = 0.0`, dropping the once-per-episode guard, and making `_clear_idle_nudge_state` a no-op each redden a different leg."
   },
   {
     "spec_root": "SPECIFICATION",

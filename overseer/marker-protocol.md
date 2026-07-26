@@ -165,8 +165,10 @@ track sits there until a person intervenes. Do not do that to them: write the fi
 re-warn, so each escalation reflects the live value); `{marker_dir}` is
 `<repo>/tmp/overseer/<topic>/`; `{state_file}` is that directory's
 `.overseer-state`; `{handoff}` is `<repo>/plan/<topic>/handoff.md`. The exact
-strings live in `supervisor.py`'s `_WRAPUP_SUGGEST_HEAD` / `_WRAPUP_INSIST_HEAD`
-/ `_WRAPUP_BODY`; keep this block and those constants in sync if either changes.
+strings live in `_supervisor_prompts.py`'s `_WRAPUP_SUGGEST_HEAD` /
+`_WRAPUP_INSIST_HEAD` / `_WRAPUP_BODY` (re-exported through the `supervisor`
+façade as `wrapup_message`); keep this block and those constants in sync if
+either changes.
 
 **Why the message names the handoff and says the restart needs the session's own
 word.** A tracked session once refused to declare anything: its real pending work
@@ -192,7 +194,7 @@ single **keep-going nudge**, the inverse of the wrap-up.
 When a tracked session is idle, still **above** its `ctx_threshold`, **not**
 waiting on a human (its Claude registry status is not `waiting`), has made
 **no** `ready` / `blocked` / `winding-down` declaration of its own, **AND has been
-continuously idle for at least one hour** (`_IDLE_NUDGE_AFTER`), the daemon:
+continuously idle for at least one hour** (`IDLE_NUDGE_AFTER`), the daemon:
 
 1. bracketed-pastes ONE nudge message telling it to keep going (below), and
 2. writes `idle-with-context-left` to the state file **as a note to itself**, so
@@ -206,7 +208,7 @@ and resets on ANY activity (busy / a turn / a sub-agent), so only a genuinely lo
 idle spell reaches the nudge; a daemon restart resets it too, which only ever DELAYS
 a nudge — the safe direction.
 
-The nudge message (`supervisor.py`'s `_IDLE_NUDGE` / `idle_nudge_message`):
+The nudge message (`_supervisor_prompts.py`'s `_IDLE_NUDGE` / `idle_nudge_message`):
 
 ```
 You are idle at {n}% context — ABOVE the {threshold}% wind-down line, so you have room to
@@ -262,7 +264,7 @@ keep-going nudge" above):
   **Write this IMMEDIATELY on receiving the wrap-up, before anything else.** A
   **fresh** ACK suppresses further re-warns, so the daemon never keystrokes into
   a session that is actively wrapping up. A **stale** one (older than
-  `_ACK_STALE_AFTER`, 900 seconds) resumes the escalation and re-reports the
+  `ACK_STALE_AFTER`, 900 seconds) resumes the escalation and re-reports the
   track — but it STILL never authorizes the daemon to act. The ACK buys patience,
   not an indefinite stall.
 
@@ -304,7 +306,7 @@ Claude in our repo.
 
 **Stale-declaration voiding.** If a session declares `ready` and then **resumes
 work**, the daemon voids the (now false) declaration rather than restarting it
-later: on a busy or blocked tick, a `ready` older than `_MARKER_VOID_GRACE` (120
+later: on a busy or blocked tick, a `ready` older than `MARKER_VOID_GRACE` (120
 seconds) is cleared. Younger ones survive, because the declaring turn's own tail
 (final streaming + stop hooks) legitimately keeps the pane busy for a while right
 after the file is written.
@@ -390,4 +392,4 @@ a restart requires a fresh `ready`, which a blocked session never writes.
 >   there is no `.ai/` directory in this repo at all. That section stated this
 >   same contract from the TRACKED SESSION's side; the session-facing statement
 >   that actually reaches sessions today is the pasted wrap-up itself
->   (`supervisor.py`'s `_WRAPUP_BODY`, reproduced above).
+>   (`_supervisor_prompts.py`'s `_WRAPUP_BODY`, reproduced above).

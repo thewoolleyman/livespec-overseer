@@ -13,6 +13,7 @@ import json
 import os
 
 import _registry_core
+import _supervisor_config
 import codex_sessions
 import registry
 import signals
@@ -93,7 +94,7 @@ def mapped_track(repo, topic, session):
 
 def key_for(repo, topic):
     """The normalized in-memory inject-state key the supervisor uses."""
-    return supervisor._key(str(repo), topic)
+    return _supervisor_config.track_key(str(repo), topic)
 
 
 def make_supervisor(tmp_path, fake, **kwargs):
