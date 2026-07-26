@@ -304,36 +304,36 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A blocked declaration is relayed, not answered",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_discovery_and_relay.test_scenario_a_blocked_declaration_is_relayed_not_answered",
+    "reason": "Integration-tier: the pane is deliberately deep in the DANGER band, so `blocked` has to win a precedence contest rather than merely be the only thing happening — the same test above the threshold would pass even if `blocked` were checked last. Asserts the reason is relayed as stderr text naming every coordinate plus a jump command, and that the pane is neither keystroked nor respawned. SABOTAGE-VERIFIED 2026-07-26: removing the gate branch's `or blocked is not None` disjunct makes the track read `danger` and get a wrap-up pasted; reducing `_alert` to `repo::topic` reddens the coordinate assertions."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An idle session with context left is nudged once per episode",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_discovery_and_relay.test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode",
+    "reason": "Integration-tier: walks the whole episode lifecycle on one track — below the one-hour floor nothing is keystroked, past it exactly one keep-going message is pasted and the daemon's own marker is written, a further idle tick does not re-nudge, the session working clears the marker, and a fresh hour earns a second nudge. The paste is asserted as a NUDGE (`_wrapup_count` held at zero), since the wrap-up travels the same paste path and means the opposite; the marker is checked by TOKEN, so a marker written as `ready` would redden here rather than silently arming a restart. SABOTAGE-VERIFIED 2026-07-26: `_IDLE_NUDGE_AFTER = 0.0`, dropping the once-per-episode guard, and making `_clear_idle_nudge_state` a no-op each redden a different leg."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unassigned plan is discovered but never auto-started",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_discovery_and_relay.test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started",
+    "reason": "Integration-tier: drives `tick(act=True)` — the ACTING path, the only one where surface-only has content, since `act=False` cannot launch anything by construction and asserting there would be vacuous. Ten ticks rather than one: 'never auto-started' is a claim about a daemon observing the same startable plan forever, and one observation cannot tell 'never launches' from 'launches on the second look'. SABOTAGE-VERIFIED 2026-07-26: making `auto_link` create the session it fails to find starts a session for a plan nobody asked to start."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The supervision-artifact existence probe is liveness-gated and existence-only",
-    "test": "TODO",
-    "reason": "Added by the supervision-existence-probe-allowance ratification (v002), which ratifies ahead of its implementing slice (overseer-6uobos, Surface A+B) per the adopted design's section 11.6 sequencing. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit once the probe ships."
+    "test": "tests.integration.test_discovery_and_relay.test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only",
+    "reason": "Integration-tier: the two NEGATIVE clauses are asserted by instrumenting `pathlib.Path` — `open`/`read_text`/`read_bytes` raise for that one basename — because 'did not read a file' leaves no trace in a result, so a read fails hard at the moment it happens. `exists` is recorded UNFILTERED, so an empty log cannot be mistaken for a skipped probe: the assertion is that the handoff file is ABSENT from a log still showing other file work. The liveness gate is exercised by DIFFERENCE on the same repo and file — the live-session pass must probe it and the dead-session pass must not. Asserting only the absence would pass against a daemon that never probes at all, a different bug wearing the same green tick. SABOTAGE-VERIFIED 2026-07-26: making the probe `read_text()` trips the patched reader; probing from `_no_managed_pane_row` reddens the dead-session assertion."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Topics colliding across repositories get qualified session names",
-    "test": "TODO",
-    "reason": "Seeded together with the initial livespec-overseer SPECIFICATION (v001, the overseer-productization Phase 2 seed). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with such a test ID via a governed propose-change/revise loop resulting_files[] co-edit."
+    "test": "tests.integration.test_discovery_and_relay.test_scenario_topics_colliding_across_repositories_get_qualified_session_names",
+    "reason": "Integration-tier, asserted through `auto_link` rather than through `registry.tmux_id`: the unit tier already pins the naming function, and what was unpinned above it is that the daemon computes the collision set from the DISCOVERY pass and derives names with it. Real plan directories in two repos, tmux sessions served under BOTH the qualified and the retired bare name, and `tick` decides which it recognizes — serving the bare `shared` session is what gives this teeth, since a daemon ignoring the collision set would match its cwd and link it. The single dash is checked literally, because `<slug>--<topic>` would still satisfy a substring assertion. SABOTAGE-VERIFIED 2026-07-26: `colliding_topics` returning an empty frozenset links the bare session instead of the qualified one."
   },
   {
     "spec_root": "SPECIFICATION",
