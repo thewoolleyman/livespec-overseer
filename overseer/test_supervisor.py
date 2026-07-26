@@ -2644,6 +2644,28 @@ def test_wrapup_message_names_the_one_state_file_and_all_three_values():
     assert ".overseer-blocked" not in msg
 
 
+def test_wrapup_message_states_no_repo_specific_gate_size():
+    """The wrap-up is pasted into sessions across the WHOLE fleet, so it must not
+    assert a target COUNT for the doc-only gate — that number is repo-specific and is
+    therefore false somewhere no matter which value is chosen.
+
+    Measured 2026-07-26: livespec core's `check-pre-commit-doc-only` runs exactly seven
+    targets, but in livespec-overseer (and livespec-dev-tooling, and livespec-runtime)
+    the same recipe is an `exit 0` stub whose own echo reads "no repo-metadata checks
+    wired yet". Only five of core's seven even have counterparts here. The message
+    inherited "seven-target" from core, where the overseer used to live.
+
+    Sabotage that reddens this: restore the word `seven-target` to `_WRAPUP_BODY`.
+    """
+    msg = supervisor.wrapup_message(remaining=40, repo="/r", topic="t")
+    for count in ("seven-target", "seven target", "five-target", "five target"):
+        assert count not in msg
+    # The guidance itself must SURVIVE — this is about dropping a false number, not
+    # about dropping the instruction to commit the handoff through the gate.
+    assert "--no-verify" in msg
+    assert "gate" in msg
+
+
 def test_wrapup_message_says_only_the_session_authorizes_the_restart():
     """The cardinal rule must be in the message the session actually reads: it is
     restarted only when IT says `ready`, and writing nothing gets it reported — not
