@@ -18,9 +18,25 @@
 # needs one receiving lane, not two, and the fleet fix can take over
 # transparently.
 #
-# The tag is PUSHED rather than pulled on purpose: an adopter's own
-# `GITHUB_TOKEN` is scoped to that adopter and cannot read this private repo's
-# releases, so a poll-based design is not available to them.
+# THE TAG IS PUSHED AS AN OPTIMIZATION, NOT BECAUSE PULLING IS IMPOSSIBLE.
+#
+# This comment used to read: "an adopter's own `GITHUB_TOKEN` is scoped to that
+# adopter and cannot read this private repo's releases, so a poll-based design
+# is not available to them." Every clause of that is wrong, and it was
+# load-bearing wrong — it is the premise that made this push lane look like the
+# only option and left the pinned adopters with no working lane at all.
+#
+# THIS REPOSITORY IS PUBLIC. `releases/latest` answers 200 with no credential
+# whatsoever, so any adopter can resolve the newest tag with its own
+# `GITHUB_TOKEN` — including a PRIVATE adopter, since what governs the read is
+# the visibility of the repository being READ. Both pinned adopters now do
+# exactly that on a daily schedule, and that pull is what actually advances
+# their pins.
+#
+# Keep this lane anyway: when the boundary IS authorized, push turns a
+# once-a-day advance into an immediate one. But read the delivery numbers
+# honestly — on v0.13.0 this job reported `delivered: 0, unauthorized: 3`.
+# A lane that has never delivered is not the lane keeping consumers fresh.
 #
 # Reading the fleet manifest here is a HARNESS concern and does not touch the
 # daemon's discovery boundary: the supervision daemon still reads only a
