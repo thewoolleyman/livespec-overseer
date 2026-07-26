@@ -5,13 +5,19 @@ Run: ``uv run pytest .claude/skills/overseer/ -q``. No REAL tmux runs: a fake
 the exact argv tmux would be invoked with, and on fail-soft sentinels.
 """
 
+import subprocess
 import types
 
 import tmuxio
 
 
 class FakeRun:
-    """Stands in for ``subprocess.run``; records argv + stdin, returns canned result."""
+    """Stands in for ``subprocess.run``; records argv + stdin, returns canned result.
+
+    ``timeout`` is accepted and RECORDED rather than ignored: a hung tmux would
+    otherwise block the daemon forever, so every call must carry one, and a double
+    that silently swallowed the kwarg could not prove it.
+    """
 
     def __init__(self, *, returncode=0, stdout="", raises=None):
         self.returncode = returncode
@@ -19,8 +25,10 @@ class FakeRun:
         self.raises = raises
         self.calls = []
 
-    def __call__(self, argv, *, input=None, capture_output=None, text=None, check=None):
-        self.calls.append({"argv": argv, "input": input})
+    def __call__(
+        self, argv, *, input=None, capture_output=None, text=None, check=None, timeout=None
+    ):
+        self.calls.append({"argv": argv, "input": input, "timeout": timeout})
         if self.raises is not None:
             raise self.raises
         return types.SimpleNamespace(returncode=self.returncode, stdout=self.stdout, stderr="")
@@ -365,6 +373,54 @@ def test_window_pane_titles_parses_and_fail_soft():
 
 def test_missing_binary_is_fail_soft():
     io, _ = _io(raises=FileNotFoundError("tmux not found"))
+    assert io.capture_pane("s") == ""
+    assert io.session_exists("s") is False
+    assert io.list_sessions() == []
+    assert io.pane_current_command("s") is None
+    assert io.bracketed_paste("s", "x") is False
+    assert io.respawn_pane("s", "/tmp", "claude") is False
+
+
+def test_every_tmux_call_carries_a_timeout():
+    """A hung tmux must not wedge the daemon FOREVER, which no catch can prevent.
+
+    `check=False` and a fail-soft handler cover tmux EXITING badly. They do nothing
+    about tmux never exiting at all: with no `timeout=`, `subprocess.run` blocks
+    indefinitely, no exception is raised, so nothing is caught and the supervision
+    loop simply stops. That is invisible to every other guard in this module — and
+    the "let it crash, systemd restarts" doctrine cannot help either, because a hang
+    never crashes.
+
+    Asserted on EVERY read and write path rather than one, so a later method added
+    without a timeout is caught here.
+    """
+    for invoke in (
+        lambda io: io.capture_pane("s"),
+        lambda io: io.session_exists("s"),
+        lambda io: io.list_sessions(),
+        lambda io: io.pane_current_command("s"),
+        lambda io: io.bracketed_paste("s", "x"),
+        lambda io: io.respawn_pane("s", "/tmp", "claude"),
+    ):
+        io, fake = _io()
+        invoke(io)
+        assert fake.calls, "expected the fake run to be invoked"
+        for call in fake.calls:
+            timeout = call["timeout"]
+            assert timeout is not None, f"no timeout passed for argv {call['argv']}"
+            assert timeout > 0, f"non-positive timeout {timeout!r} for argv {call['argv']}"
+
+
+def test_a_timing_out_tmux_is_fail_soft():
+    """`TimeoutExpired` reaches the SAME sentinel as a missing binary.
+
+    It subclasses `SubprocessError` — NOT `OSError` and NOT `ValueError` — so the
+    handler's original `(OSError, ValueError)` tuple did not cover it. Adding a
+    timeout without widening that tuple would have converted a silent hang into an
+    uncaught exception, which under the crash-and-restart doctrine means systemd
+    restarts the daemon into the same hung tmux.
+    """
+    io, _ = _io(raises=subprocess.TimeoutExpired(cmd=["tmux", "capture-pane"], timeout=5.0))
     assert io.capture_pane("s") == ""
     assert io.session_exists("s") is False
     assert io.list_sessions() == []

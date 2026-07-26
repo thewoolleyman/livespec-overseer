@@ -23,9 +23,15 @@ Design invariants honored here (see ``design.md``):
   - **Atomic restart.** :meth:`respawn_pane` uses ``respawn-pane -k`` to replace
     the pane's process in one step — never ``/exit`` + screen-scraping a shell
     prompt (blocker #7).
-  - **Fail-soft.** A missing session, a missing tmux binary, or any non-zero
-    tmux exit returns a sentinel (``""`` / ``None`` / ``False`` / ``[]``) and
-    NEVER raises, so one bad session can never crash the daemon loop.
+  - **Fail-soft.** A missing session, a missing tmux binary, a tmux that HANGS,
+    or any non-zero tmux exit returns a sentinel (``""`` / ``None`` / ``False``
+    / ``[]``) and NEVER raises, so one bad session can never crash the daemon
+    loop.
+  - **Bounded.** Every call carries ``timeout=``. Fail-soft alone does not cover
+    a tmux that never exits: with no timeout ``subprocess.run`` blocks forever,
+    raises nothing, and the supervision loop silently stops. A hang is the one
+    failure the "let it crash, systemd restarts" posture cannot address, because
+    it never crashes.
 """
 
 from __future__ import annotations
@@ -117,6 +123,13 @@ class WindowLayoutDriver(Protocol):
 # paste (adversarial code review 2026-07-13, blocker B6: the fixed global name
 # ``overseer-inject`` raced across instances, pasting the wrong repo's text).
 # ``paste-buffer -d`` deletes the specific buffer right after paste.
+# Wall-clock ceiling on ONE tmux subcommand. Every call here is a local IPC round
+# trip to the tmux server that normally returns in milliseconds, so this is not a
+# latency budget — it is a liveness floor, generous enough that a loaded host never
+# trips it and short enough that a wedged tmux server cannot hold the supervision
+# loop past a single poll interval (LOOP_INTERVAL_SECONDS is 10). Exceeding it means
+# tmux is not answering, which is the fail-soft sentinel case, not a slow success.
+_TMUX_TIMEOUT_SECONDS = 10.0
 _INJECT_BUFFER_PREFIX = "overseer-inject"
 _buffer_counter = itertools.count()
 
@@ -170,8 +183,12 @@ class TmuxIO:
                 capture_output=True,
                 text=True,
                 check=False,
+                timeout=_TMUX_TIMEOUT_SECONDS,
             )
-        except (OSError, ValueError) as exc:
+        # TimeoutExpired subclasses SubprocessError — neither OSError nor
+        # ValueError — so it needs naming explicitly; without it the timeout
+        # above would convert a silent hang into an uncaught exception.
+        except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
             _warn(f"tmux {' '.join(args[:2])} failed to spawn: {exc}")
             return None
 
