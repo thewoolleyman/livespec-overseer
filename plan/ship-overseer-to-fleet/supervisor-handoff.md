@@ -233,10 +233,38 @@ fail.
 
 ## AskUserQuestion presentation rules
 
-One question per turn. Recommended option FIRST, labeled "(Recommended)". Full
-repository names, never abbreviations the reader must expand. `---` as the final
-line of the message before the picker (the picker overlays the last rendered
-line).
+**EVERY maintainer-facing action goes up as a PICKER — never as prose.** A
+ripe valve mentioned in a paragraph has not been asked; it has been *filed where
+the maintainer has to notice it*, which is the reporting-instead-of-supervising
+failure in a different costume. If the maintainer must decide it, it is an
+`AskUserQuestion` option set with a recommendation and a real explanation of the
+trade-off, or it has not been surfaced.
+
+Rules for the picker itself:
+
+- **Recommended option FIRST**, labeled `(Recommended)`.
+- **Every option carries its cost**, not just the recommended one's benefit. An
+  option list where only one choice has a stated downside is an argument wearing
+  a picker's clothes.
+- **Full repository and item names**, never abbreviations the reader must expand.
+- **`---` as the final line** of the message before the picker — the picker
+  overlays the last rendered line, so anything load-bearing there is lost.
+- **State what you verified yourself versus what you are relaying.** The
+  maintainer is deciding on the evidence; they need to know which parts you
+  measured.
+
+**Several ripe valves go up TOGETHER, in one call.** An earlier version of this
+section said "one question per turn". That rule produced the exact failure it
+was meant to avoid: with four valves ripe at once, three got demoted to a prose
+list and sat unasked until the maintainer objected —
+*"ALL ACTIONS FOR ME MUST BE PRESENTED AS ASK USER QUESTION PICKERS WITH
+RECOMMENDATIONS AND DETAILED EXPLANATIONS"* (2026-07-26). Batching four pickers
+in a single call worked and is now the standard. Keep one question per *topic*;
+do not ration questions per *turn*.
+
+> **Goal-1 note.** Like both anti-stall clauses, this is required content for the
+> prompt text `supervise-plan` GENERATES. A generated charter that tells its
+> supervisor to ration questions will reproduce this failure fleet-wide.
 
 ## Standing safety clauses
 
@@ -270,6 +298,32 @@ empty.** (It previously read "this thread has had no supervisor yet"; that
 stopped being true on 2026-07-25.)
 
 ### First-hand, 2026-07-26
+
+- **Reported four ripe maintainer valves as a prose list instead of asking
+  them.** Accept `.19`, approve `.20`, close `overseer-xbxkrv`, and repair
+  `.16`'s invalid status were all ripe at once. I wrote them into a summary
+  paragraph — "Four valves are ripe and all are yours" — and asked none of them.
+  The maintainer answered: *"ALL ACTIONS FOR ME MUST BE PRESENTED AS ASK USER
+  QUESTION PICKERS WITH RECOMMENDATIONS AND DETAILED EXPLANATIONS."*
+
+  **Root cause was this file's own "one question per turn" rule.** With four
+  valves ripe, that rule forces three of them into prose — so a guideline meant
+  to avoid overwhelming the maintainer instead hid decisions from them. It is the
+  same failure as the stall, one layer up: I mistook *reporting* a decision for
+  *asking* it, exactly as I earlier mistook reporting progress for supervising.
+  Presented as four pickers in one call, all four were answered immediately.
+
+  Fix: §"AskUserQuestion presentation rules", rewritten to require a picker for
+  every maintainer-facing action and to batch ripe valves together.
+
+- **Also mis-stated a cost inside a picker option.** Recommending that `.13` be
+  blocked on `.16`, I wrote that it "costs nothing on the schedule today" — true
+  of the dependency chain, false about ownership, since `.16` is executed by
+  `plan/supervisor-prompt-quality/` and the block therefore moved goal 4's
+  schedule to a lane this thread stands down on. The worker caught it after the
+  decision was made. **An option's stated cost is part of the evidence the
+  maintainer decides on; getting it wrong is a reporting failure, not a wording
+  one.** Hence the new rule that every option must carry its own cost.
 
 - **Ended a turn with the worker mid-flight and no armed re-entry — the thread
   stopped until the maintainer intervened.** After dispatching the opening brief
