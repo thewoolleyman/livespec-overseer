@@ -276,6 +276,23 @@ def test_proc_children_skips_a_non_numeric_token(tmp_path, monkeypatch):
     assert claude_sessions.proc_children(100) == [200, 300]
 
 
+def test_proc_children_is_empty_on_an_undecodable_children_file(tmp_path, monkeypatch):
+    """Defence-in-depth, and labelled as such rather than overstated.
+
+    The real kernel writes this file as ASCII pids and whitespace, so it CANNOT fail
+    to decode — this state is unreachable in production and is only constructible
+    against the fake ``/proc`` used here. The handler was widened anyway so every read
+    boundary in the package carries ONE rule, and this test pins that choice so a
+    later narrowing back to ``except OSError`` is a deliberate act rather than a
+    silent regression.
+    """
+    root = _fake_proc(tmp_path, monkeypatch)
+    children = root / "100" / "task" / "100"
+    children.mkdir(parents=True)
+    (children / "children").write_bytes(b"\xff\xfe200 300\n")
+    assert claude_sessions.proc_children(100) == []
+
+
 def test_read_live_sessions_is_fail_soft_when_the_registry_dir_cannot_be_listed(
     tmp_path, monkeypatch
 ):

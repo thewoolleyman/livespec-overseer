@@ -384,7 +384,9 @@ def read_state(repo: str, topic: str) -> TrackState | None:
             return None
         raw = path.read_text(encoding="utf-8")
         mtime = path.stat().st_mtime
-    except OSError:
+    # ValueError covers the UnicodeDecodeError a non-UTF-8 indicator raises — a
+    # ValueError subclass, so an OSError-only handler let it propagate.
+    except (OSError, ValueError):
         return None
     line = next((ln.strip() for ln in raw.splitlines() if ln.strip()), "")
     token, _, detail = line.partition(":")

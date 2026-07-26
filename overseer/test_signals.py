@@ -400,6 +400,33 @@ def test_read_state_is_none_when_the_state_file_is_unreadable(tmp_path, monkeypa
     assert signals.ready_valid(str(repo), topic, injection_stamp=1000.0) is False
 
 
+def test_read_state_is_none_when_the_state_file_is_not_utf8(tmp_path):
+    """Fail-closed on a NON-UTF-8 indicator — a different exception class from the
+    unreadable case above, and one the sibling test does not reach.
+
+    ``Path.read_text(encoding="utf-8")`` raises ``UnicodeDecodeError`` on undecodable
+    bytes. That subclasses ``ValueError``, NOT ``OSError``, so an ``except OSError``
+    handler does not catch it and the exception propagates out of ``read_state``.
+
+    This matters beyond tidiness. The daemon's per-iteration broad catch used to
+    absorb it — warn, keep supervising — but that catch is being removed under the
+    "let it crash, systemd restarts" ruling. Without this boundary the daemon would
+    exit on a corrupt indicator, systemd would restart it, the same bytes would be
+    read again, and nothing would be supervised until a human intervened. A corrupt
+    file is an ENVIRONMENTAL error, not a bug, so it fails soft here.
+
+    Real bytes rather than a monkeypatch: this exercises the actual decode path, so
+    it cannot pass by mocking a raise that the production code never performs.
+    """
+    repo, topic = _setup_track(tmp_path)
+    path = signals.state_path(str(repo), topic)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"\xff\xferead" + b"y\n")
+
+    assert signals.read_state(str(repo), topic) is None
+    assert signals.ready_valid(str(repo), topic, injection_stamp=1000.0) is False
+
+
 def test_only_a_shell_proves_a_pane_is_dead():
     """The rule `start`'s fail-closed guard relies on: proof of DEATH, not "not Claude".
     Enumerating the live runtimes did not scale to a second one — a live codex pane

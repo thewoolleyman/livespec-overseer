@@ -144,7 +144,10 @@ def proc_children(pid: int) -> list[int]:
     """Direct child PIDs of ``pid`` via ``/proc/<pid>/task/<pid>/children`` ([] on error)."""
     try:
         data = Path(f"/proc/{pid}/task/{pid}/children").read_text(encoding="utf-8")
-    except OSError:
+    # ValueError is defence-in-depth here, not a live hazard: the kernel writes this
+    # file as ASCII pids and spaces, so it cannot fail to decode. Widened anyway so
+    # every read boundary in the package carries ONE rule rather than two.
+    except (OSError, ValueError):
         return []
     out: list[int] = []
     for token in data.split():

@@ -173,13 +173,17 @@ def _read_index_final(codex_home: str | os.PathLike[str]) -> dict[str, tuple[str
     the LAST record for an id gives its final ``thread_name`` + ``updated_at`` (``""`` when
     the field is missing). The one, shared parser behind :func:`read_thread_names` (adoption)
     and :func:`latest_session_for_thread_name` (reboot recovery) so the two cannot drift.
-    Fail-soft throughout: a missing file, an unparsable line, or a record missing a usable
-    id/name is skipped, never raised.
+    Fail-soft throughout: a missing file, an UNDECODABLE file, an unparsable line, or a
+    record missing a usable id/name is skipped, never raised. The undecodable case was
+    claimed by this docstring before it was true — a non-UTF-8 index raised
+    ``UnicodeDecodeError`` straight through the ``OSError``-only handler below.
     """
     out: dict[str, tuple[str, str]] = {}
     try:
         raw = (Path(codex_home) / "session_index.jsonl").read_text(encoding="utf-8")
-    except OSError:
+    # ValueError covers the UnicodeDecodeError a non-UTF-8 index raises, which the
+    # docstring's fail-soft promise above did not actually hold for.
+    except (OSError, ValueError):
         return out
     for line in raw.splitlines():
         record = jsonio.parse_object_line(line)
