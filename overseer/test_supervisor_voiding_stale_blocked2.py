@@ -34,21 +34,35 @@ def _isolate_cwd(tmp_path, monkeypatch):
 
 
 def test_supervisor_session_without_a_pane_is_not_running(tmp_path):
-    """A tmux session that cannot resolve to a pane is not live process evidence."""
+    """A tmux session that cannot resolve to a pane is not live process evidence.
 
-    class NoSupervisorPaneTmux(FakeTmux):
-        def pane_id(self, session):
-            if session.endswith("-supervisor"):
-                self.calls.append(("pane_id", session))
-                return None
-            return super().pane_id(session)
+    `_supervisor_running` can answer False three independent ways: the session does not
+    exist, it resolves to NO PANE, or its pane process is neither Claude-like nor a
+    Codex pane joined to a live rollout. This test owns the MIDDLE leg, so the
+    supervisor session is otherwise a perfectly live supervisor — served with a
+    Claude-like `node` pane whose cwd is inside the repo — and the ONLY thing making it
+    not-running is that its pane id does not resolve.
 
+    That setup is load-bearing. An earlier version added the supervisor session to
+    `fake.sessions` WITHOUT serving it, so `pane_current_command` returned None and the
+    THIRD leg answered False on its own; the paneless override then changed nothing and
+    the test passed with it neutered — it asserted the message but proved nothing about
+    panes. Serving the session makes the paneless declaration the only cause, so
+    dropping it now flips `running` to True, takes the early return, emits no alert, and
+    reddens the second assertion.
+
+    The session is declared paneless through `FakeTmux.no_pane_sessions` rather than by
+    subclassing the double to override `pane_id` — the double's own seam idiom, which is
+    also what keeps this out of `check-no-inheritance`.
+    """
     repo, topic = make_plan(tmp_path)
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     session = registry.tmux_id(str(repo), topic)
-    fake = NoSupervisorPaneTmux()
+    supervisor_session = f"{session}-supervisor"
+    fake = FakeTmux()
     fake.serve(session, repo, capture=idle_capture(ctx=73))
-    fake.sessions.add(f"{session}-supervisor")
+    fake.serve(supervisor_session, repo, capture=idle_capture(ctx=73))
+    fake.no_pane_sessions.add(supervisor_session)
     sup = make_supervisor(tmp_path, fake)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         view = sup.evaluate(mapped_track(repo, topic, session), act=True)

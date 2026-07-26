@@ -49,6 +49,15 @@ class FakeTmux:
         # keeping every legacy test's bg_shell False unless it opts in by setting a
         # pane pid here AND injecting fake children_of/comm_of on the Supervisor.
         self.pane_pid_map = {}
+        # Sessions that EXIST but whose pane id cannot be resolved (RB3): `pane_id`
+        # returns None for these while `session_exists` still reports True. That
+        # combination is the "a tmux session that is not live process evidence" case —
+        # a supervisor session with no pane must not count as a running supervisor.
+        # A seam rather than a subclass: the repo bans inheritance in favour of
+        # composition, and every other variation this double models (`paste_ok`,
+        # `respawn_ok`, `respawn_yields_codex`, `new_session_ok`, `on_paste`) is already
+        # an opt-in attribute, so a sixth one keeps the double's one shape.
+        self.no_pane_sessions = set()
         self._cap_idx = {}
         self._cmd_idx = {}
 
@@ -76,8 +85,11 @@ class FakeTmux:
     def pane_id(self, session):
         # Model pane-id resolution (RB3): return the session name itself as the
         # "pane id" for a live session (so target == name and the canned dicts,
-        # keyed by name, still resolve), or None if the session is gone.
+        # keyed by name, still resolve), or None if the session is gone — or if the
+        # test declared the session paneless via `no_pane_sessions`.
         self.calls.append(("pane_id", session))
+        if session in self.no_pane_sessions:
+            return None
         return session if session in self.sessions else None
 
     def pane_pid(self, session):
