@@ -558,38 +558,51 @@ The pinned adopters' pull lane is now BUILT and the last defect blocking it is
 fixed. What remains is the acceptance the goal always needed: **observe a pinned
 adopter advance with no fleet-side push and no hand action.**
 
-> **A CRON RETIME WAS RUN AND IS FULLY REVERTED — 2026-07-26. Nothing is
-> outstanding from it; this note exists so the attempt is not repeated blindly
-> and so its result is not misread.**
+> **THE SCHEDULER ON THIS ACCOUNT LAGS 86-124 MINUTES. READ THIS BEFORE
+> CHECKING ANYTHING, OR YOU WILL MISREAD AN EMPTY RESULT AS A FAILURE.**
 >
-> Both adopters' `schedule:` was temporarily moved from `"37 6 * * *"` to
-> `"45 17 * * *"` to observe the acceptance the same day. **It produced NO run.**
-> Zero `event: schedule` runs in either repo, 39 minutes past target.
+> Measured 2026-07-26 against livespec-overseer's own "Pin freshness sweep"
+> (cron `0 13 * * *`), six consecutive days, zero misses:
 >
-> **That is INCONCLUSIVE, not a failure of the lane, and the distinction is
-> load-bearing.** Everything under our control was verified correct: the cron
-> was live on both default branches (read back through the contents API), both
-> workflows read `state=active`, and the version gap was present. GitHub simply
-> did not run it. The control experiment is what settles the reading —
-> `bump-plugin-pin.yml` is the ONLY workflow carrying a `cron:` in either repo,
-> and `gh run list --event=schedule` is EMPTY across both repos' whole history,
-> so there is no in-repo evidence the scheduler has ever fired *anything* here.
-> A newly registered cron missing its first occurrence on an ~18-minute lead is
-> documented GitHub behaviour. **Do not cite this attempt as evidence against
-> the lane.**
+> | date | actual start | lag |
+> |---|---|---|
+> | 07-21 | 15:00:31Z | +120 min |
+> | 07-22 | 15:00:25Z | +120 min |
+> | 07-23 | 15:04:27Z | +124 min |
+> | 07-24 | 14:49:54Z | +109 min |
+> | 07-25 | 14:27:33Z | +87 min |
+> | 07-26 | 14:26:00Z | +86 min |
 >
-> **REVERTED AND PROVEN**, restored with `git cat-file blob <hash>` rather than
-> by retyping the expression — retyping restores something plausible and would
-> mask a typo in the original:
+> **So the adopters' `37 6 * * *` cron fires between 08:03Z and 08:41Z, not at
+> 06:37Z.** Any check before ~08:45Z sees nothing and proves nothing.
 >
-> | repo | revert commit | blob | proof |
-> |---|---|---|---|
-> | openbrain | `bdcb158` | `a0331862…` | `git diff` vs published default branch EMPTY |
-> | resume | `46ab489` | `a885e405…` | `git diff` vs published default branch EMPTY |
+> **A retime experiment was run, and I ABORTED IT WITHOUT REALISING.** Both
+> adopters' cron was moved to `"45 17 * * *"`; at 18:24Z — 39 minutes past
+> target — it was declared "did not fire", and the cron was reverted two minutes
+> later. Against the measured lag, the earliest that run could have started was
+> **19:11Z**: the revert removed the entry 47 minutes BEFORE its window opened.
+> The attempt produced **no evidence in either direction**. Do not cite it as
+> evidence against the lane. The 30-minute allowance was invented rather than
+> measured, and the measurement was sitting in a sibling repo the whole time.
 >
-> Post-revert both re-read `state=active` with cron `"37 6 * * *"`.
+> **"Scheduled Actions are disabled in the adopters" is DISPROVEN.** Both:
+> `actions.enabled=true`, `allowed_actions=all`, workflow `state=active` (the
+> 60-day inactivity auto-disable reads `disabled_inactivity`, a distinct value),
+> not archived, not disabled, pushed the same day. openbrain being private is
+> not a factor — push-triggered runs executed there that day.
+>
+> The retime is **REVERTED AND PROVEN**: restored with `git cat-file blob` from
+> the pre-test blobs (`a0331862…` openbrain, `a885e405…` resume) rather than by
+> retyping the cron, and `git diff` against the published default branches is
+> empty for both. Both re-read `state=active` with cron `"37 6 * * *"`.
 
-**That test is ARMED right now. Do not disturb it:**
+**What is left is the TRIGGER, and it is UNVERIFIED — not merely unwitnessed.**
+The lane's mechanics are proven (resolve, rewrite and landing were all exercised
+on 2026-07-26) and its auto-merge coupling is built and test-pinned, but **zero
+runs with `event: schedule` have ever occurred in either adopter**. An unfired
+trigger is an untested trigger; do not record this as "nothing left to build".
+
+**The test is ARMED. Do not disturb it:**
 
 | fact | value |
 |---|---|
