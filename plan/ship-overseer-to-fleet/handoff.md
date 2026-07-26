@@ -1,13 +1,13 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **OPEN — ONE ITEM LEFT.** The
-plugin is RELEASED (v0.12.2), REGISTERED in all twelve consuming repos, and
-INSTALLED on the host for all nine fleet members, with `supervise-plan` proven
-to RESOLVE by live exercise in sessions that are not this repo's. **All 22
-original children are closed.** The one open item is **`overseer-hbr.23`** —
-goal 4's ADOPTER clause, which is unmet for a mechanical reason found while
-proving goal 1. Read §"NEXT ACTION" — it was rewritten 2026-07-26 (second
-wrap-up) and SUPERSEDES every earlier status statement in this file.
+**Owning repo:** `livespec-overseer`. **Status:** **ALL SIX GOALS MET.** The
+plugin is RELEASED (through v0.12.3), REGISTERED in all twelve consuming repos,
+and INSTALLED on the host for **all twelve** — nine fleet members plus all three
+adopters — with `supervise-plan` proven to RESOLVE by live exercise in eleven
+sessions that are not this repo's. **All 23 children of `overseer-hbr` are
+closed.** Whether to close the epic is the maintainer's call. Read §"NEXT
+ACTION" — it was rewritten 2026-07-26 (third wrap-up) and SUPERSEDES every
+earlier status statement in this file.
 
 <!-- Superseded headers, kept so a reader arriving from an older revision lands
 somewhere real. This has read, in order: "OPEN — WAITING ON MAINTAINER VALVES",
@@ -535,48 +535,109 @@ the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
-## NEXT ACTION — the plugin SHIPPED; ONE item is left (`.23`, the adopter arm)
+## NEXT ACTION — the thread is DONE; all six goals are met
 
-**Rewritten 2026-07-26 at the SECOND wrap-up. Every earlier status line in this
-file — "waiting on maintainer valves", "`.16` is in flight", "`.13` is next" —
-is SUPERSEDED. All 22 original children are closed.**
+**Rewritten 2026-07-26 at the THIRD wrap-up. Every earlier status line in this
+file — "waiting on maintainer valves", "`.16` is in flight", "`.13` is next",
+"goal 4's adopter clause is not met" — is SUPERSEDED. All 23 children are
+closed.**
 
 ### What changed, in one paragraph
 
-The plugin went from installed-in-zero-projects to **installed in nine**, and
-`supervise-plan` now RESOLVES in sessions that are not this repo's — proven by
-live exercise, not by a settings file. Three releases are published (v0.12.0,
-v0.12.1, **v0.12.2**), `refs/heads/release` tracks the latest, the registration
-is merged in **all twelve** consuming repos, and goal 2's lever fired green on
-the release path. Goals 1, 2, 3 and 5 are met for the fleet; **goal 4's adopter
-clause is not**, and that is the whole of what remains.
+The plugin went from installed-in-zero-projects to **installed in all twelve** —
+nine fleet members and all three adopters — and `supervise-plan` now RESOLVES in
+sessions that are not this repo's, proven by live exercise rather than by a
+settings file. Releases are published through **v0.12.3**, `refs/heads/release`
+tracks the latest, the registration is merged in all twelve consuming repos, and
+goal 2's lever fired green on the release path. **All six goals are met.** All
+23 children of `overseer-hbr` are closed.
 
-### THE ONE OPEN ITEM — `overseer-hbr.23`
+### THE BOARD IS CLEAR — nothing of this thread's is open
 
-**Goal 4's ADOPTER clause is unmet, for a mechanical reason found while proving
-goal 1.** All three adopters (`homelab`, `openbrain`, `resume`) carry the
-checked-in registration and **will never install from it**, because none of them
-runs the provisioner that performs the install.
+`overseer-hbr` itself is still `backlog`; whether to close the epic is the
+maintainer's call. Two items exist outside it and are NOT this thread's work:
 
-The finding that makes this non-obvious, established by a NEGATIVE test rather
-than assumed: **Claude Code does NOT natively auto-install from checked-in
-project `extraKnownMarketplaces` + `enabledPlugins`.** A full session was run in
-`/data/projects/resume` with the registration present in its local tree; it
-reported NONE for `livespec-overseer` skills and installed nothing. The install
-is done by `livespec_dev_tooling.fleet.ensure_plugins`, wired as a SessionStart
-hook — which the nine fleet members run and the three adopters do not:
+- **`overseer-l0f`** (`pending-approval`, P2) — `uv.lock` trails
+  `pyproject.toml` after every release; any `uv run` dirties a tracked file and
+  no gate catches it. Found while wrapping up; filed rather than tolerated
+  because it trains agents to `git checkout --` things they have not diagnosed.
+- **`overseer-byvxlp`** (`backlog`) — the generated-prompt quality bar beyond
+  both stall modes. Untouched and still owned by
+  `plan/supervisor-prompt-quality/`.
 
-| adopter | its SessionStart | why the entry is inert |
+### Goal 4's ADOPTER arm — how it was closed (`overseer-hbr.23`)
+
+**The filed diagnosis was incomplete, and acting on it as written would have
+shipped a still-broken mechanism.** The item said the adopters "do not run the
+provisioner", which is true but missed that homelab's loop **ran `claude plugin
+update` only** — and `update` on a plugin that was never installed does
+NOTHING. So the obvious remedy (add a fourth entry to homelab's literal list)
+would have changed nothing observable.
+
+The load-bearing fact, established by a NEGATIVE test rather than assumed:
+**Claude Code does NOT natively auto-install from checked-in project
+`extraKnownMarketplaces` + `enabledPlugins`.** A full session in
+`/data/projects/resume` with the registration present installed nothing. There
+is no passive path; a provisioning hook is required.
+
+Each adopter now has one, in its own stack, all deriving their commands from
+that repo's own committed `.claude/settings.json` — so enabling another plugin
+needs no hook edit anywhere:
+
+| adopter | what landed | how it lands |
 |---|---|---|
-| `homelab` | inline loop over a **hard-coded three-plugin list** | `livespec-overseer` is not in the literal list; `livespec_dev_tooling` is not importable there |
-| `openbrain` | `./scripts/check-ci-status.sh` | a CI reporter; does no plugin work at all |
-| `resume` | `.claude/hooks/session-plugin-freshness.ts` | read-only by design — its header says it "never mutates anything" |
+| `homelab` | `.claude/hooks/ensure_plugins.py`, stdlib-only, replacing the inline loop | PR #67, squash-merge |
+| `openbrain` | `scripts/ensure-plugins.ts`, tsx, typechecked | direct push (its protocol: no PR, pre-push hooks are the gate) |
+| `resume` | `.claude/hooks/ensure-plugins.ts`, Bun/TS, standalone per its own boundary clause | fast-forward push |
 
-Do **not** discharge this with a one-off manual install per adopter. That would
-turn the measurement green and leave the next adopter, and the next release,
-exactly as stranded. Each adopter brings its own harness by design, so the real
-question is that the fleet's provisioning mechanism is a FLEET-MEMBER mechanism
-and goal 4 asserts an adopter clause it was never extended to cover.
+**Acceptance was real sessions, not hand-run hooks.** Each adopter was reset to
+declared-but-not-installed, then ONE ordinary `claude` session provisioned it
+unaided, and a SECOND session resolved both skills. `installed_plugins.json`
+carries twelve project entries. Every adopter tree is clean afterwards.
+
+**D5 held throughout:** each provisioner reads only its OWN repo's settings.
+None reads a fleet manifest; none is a discovery input for any plugin's runtime.
+
+### Two `claude plugin` CLI hazards — read before touching any provisioner
+
+Both cost a debugging pass, both are now pinned by tests and written into the
+adopters' own docs.
+
+**1. `-s project` resolves the project from the PROCESS CWD** and ignores
+`CLAUDE_PROJECT_DIR` entirely. The first implementation inherited cwd, ran from
+elsewhere, **exited 0 and provisioned nothing** — a silent success. Pass the
+project directory as each command's cwd explicitly.
+
+**2. `install` and `uninstall` REWRITE `.claude/settings.json`** — a tracked
+file. `install` adds the `enabledPlugins` key, `uninstall` REMOVES it, and both
+re-serialize the whole file in the CLI's own canonical formatting. Two
+consequences:
+
+- Each adopter's committed file was in a different key order, so every run
+  dirtied a tracked file with a cosmetic reformat (homelab 40 lines, openbrain
+  12, resume 36). All three are now committed in the CLI's canonical shape,
+  which is a **fixed point** — verified by re-running install/update and
+  diffing. Prettier accepts either order, so no formatting gate would catch a
+  regression.
+- **`claude plugin uninstall` alone is not a valid reset.** It deletes the
+  DECLARATION along with the install, so the next hook run has nothing to act on
+  and looks broken. That mis-reset consumed the first debugging pass. Correct
+  reset: uninstall, then `git checkout -- .claude/settings.json`.
+
+### The two postures, demonstrated live and unplanned
+
+Mid-verification another track published **v0.12.3** and `refs/heads/release`
+fast-forwarded. The postures then diverged correctly with nobody touching them:
+
+| repo | posture / pin | resolved to |
+|---|---|---|
+| `homelab` + the 9 fleet members | `released` / `ref: "release"` | followed to `13bb0b94` |
+| `openbrain`, `resume` | `pinned` / `v0.12.2` | stayed at `74bbe7e8` |
+
+That is goal 5's branch-ref auto-follow **observed across a real release
+boundary**, and simultaneously the evidence that concrete pins do not drift.
+**The two pinned adopters still have no bump lane** — provisioning is fixed;
+advancing a concrete pin is a separate question no lane covers.
 
 ### THE TWO LESSONS THIS THREAD PAID FOR TODAY — read before touching goal 4
 
@@ -637,12 +698,12 @@ bumping commit type.
 
 | goal | state |
 |---|---|
-| 1 — `supervise-plan` works fleet-wide | **MET for the 9 fleet members**, proven by live exercise; adopter arm rides on `.23` |
+| 1 — `supervise-plan` works fleet-wide | **MET** — resolves in all 12 consuming repos, proven by live exercise in each |
 | 2 — top-of-pyramid tests, present AND enforced | **MET** — 54/54 rows mapped, lever armed, fired green on the release path |
 | 3 — auto-released | **MET** — three releases; `release-readiness.yml` + `release-tag.yml` in place |
-| 4 — auto-installed, fleet AND adopters | **fleet MET** (9 install records); **adopters OPEN — `.23`** |
-| 5 — release pin auto-bumped | **MET for branch-ref consumers** — `gitCommitSha` == `refs/heads/release`, and the version moved automatically during provisioning; the two `posture: pinned` adopters have no bump lane, noted on `.23` |
-| 6 — phase-2 adopter shipping folds in | dispositions recorded on `.21`/`.22`; its shipping arm is now concretely `.23` |
+| 4 — auto-installed, fleet AND adopters | **MET** — 12 install records; each adopter provisions itself from an ordinary session (`.23`) |
+| 5 — release pin auto-bumped | **MET** — observed across a real release boundary: `ref: "release"` consumers followed v0.12.2 → v0.12.3 unattended while the two `posture: pinned` adopters correctly held. Those two still have no bump lane |
+| 6 — phase-2 adopter shipping folds in | **MET** — dispositions on `.21`/`.22`, and its shipping arm landed as `.23` |
 
 ### Five core-tenant closes are justified and are NOT ours to make
 
@@ -868,17 +929,16 @@ was set by hand and then read back from the ledger to verify.**
 | S11 arm the lever, LAST | `.20` | 3b | `.19` | **DONE** — fired green on the release path |
 | S12 goal-6 dispositions | `.21` | 6 | — | **DONE** |
 | S13 `overseer-3wt` items 3 + 5 | `.22` | 6 | — | **DONE** — item 5 satisfied, item 3 sized |
-| — goal-4 ADOPTER arm | **`.23`** | 4 | — | **OPEN — `pending-approval`, the only one** |
+| — goal-4 ADOPTER arm | **`.23`** | 4 | — | **DONE** — homelab PR #67, openbrain + resume direct push |
 
 Plus `.1`–`.9`, all closed: `.1`/`.9` (the `source_repo` misnaming), `.2` (the
 goal-6 anchor), `.5`/`.7` (stale docs), `.6` (`overseer-3wt` items 3+5), and
 `.3`/`.4`/`.8` disposed at the second wrap-up.
 
-**`.23` was filed by this thread and is NOT approved.** It is the one row a
-worker can pick up, and it needs the maintainer's `approve:` valve first — or a
-direct close if the maintainer decides goal 4's adopter clause is out of scope
-for this thread rather than unmet. Do not silently narrow goal 4 to the fleet;
-the goal says "fleet AND adopter members", and `.23` is what keeps that honest.
+**`.23` went through the `approve:` valve** (pending-approval → ready, green) —
+the one item in this epic that did, since the maintainer declined to scope goal
+4's adopter clause out. Every other close in this epic is a raw
+`bd close --reason-file`, for the lifecycle reason recorded on `.19`.
 
 ### Ordering — THREE MEASURED HARD CONSTRAINTS, all now FILED
 
