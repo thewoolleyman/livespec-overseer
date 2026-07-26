@@ -30,6 +30,21 @@
 # Auth: mints the livespec GitHub App installation token, mirroring
 # release-please.yml — cross-repo `repository_dispatch` needs an identity with
 # access to the target repositories, which `GITHUB_TOKEN` does not have.
+#
+# AND THE LIVESPEC APP DOES NOT CURRENTLY HAVE THAT ACCESS. Measured against all
+# three adopters: 404 for two (App not installed) and 403 "Resource not
+# accessible by integration" for the third. That is expected rather than
+# accidental — the fleet manifest records that adopters bring their OWN GitHub
+# App and credential wrapper, so they are deliberately not under fleet
+# credentials. Granting the livespec App dispatch access on an adopter is a
+# maintainer decision about that boundary, not a wiring detail.
+#
+# So this job distinguishes two outcomes, because conflating them is how a real
+# misconfiguration would hide behind an expected one:
+#   - NO adopter is reachable -> the precondition is unmet. Emit a prominent
+#     notice and a job-summary line, and exit 0. A published release must not be
+#     reported as failed because a boundary has not been authorized yet.
+#   - SOME are reachable and a dispatch fails -> that is a fault. Fail loudly.
 
 name: Adopter release dispatch (fan-out to adopters)
 
@@ -88,24 +103,41 @@ jobs:
           if [ -z "$url" ]; then
             url="https://github.com/$OWNER/${GITHUB_REPOSITORY#*/}/releases/tag/$TAG"
           fi
+          delivered=0
+          unauthorized=0
           failed=0
           for repo in $(printf '%s' "$ADOPTERS" | jq -r '.[]'); do
             # An adopter with no receiving lane simply ignores the event, so
             # dispatching to every adopter is safe and needs no per-repo config.
-            # A single unreachable adopter must not suppress the others, so
-            # failures are collected and reported at the end.
-            if gh api -X POST "repos/$OWNER/$repo/dispatches" \
-                 -f event_type=sibling-released \
-                 -F "client_payload[source_repo]=${GITHUB_REPOSITORY#*/}" \
-                 -F "client_payload[tag]=$TAG" \
-                 -F "client_payload[release_url]=$url"; then
+            if err=$(gh api -X POST "repos/$OWNER/$repo/dispatches" \
+                       -f event_type=sibling-released \
+                       -F "client_payload[source_repo]=${GITHUB_REPOSITORY#*/}" \
+                       -F "client_payload[tag]=$TAG" \
+                       -F "client_payload[release_url]=$url" 2>&1); then
               echo "::notice::dispatched $TAG to $repo"
+              delivered=$((delivered + 1))
+            elif printf '%s' "$err" | grep -qE '"status": *"40[34]"'; then
+              # 404 = App not installed on that repo; 403 = installed without
+              # dispatch permission. Both are the unauthorized boundary, not a
+              # fault in this lane.
+              echo "::warning::$repo is not reachable by the livespec App (not authorized)"
+              unauthorized=$((unauthorized + 1))
             else
-              echo "::warning::could not dispatch to $repo"
+              echo "::warning::dispatch to $repo failed: $err"
               failed=$((failed + 1))
             fi
           done
+          {
+            echo "### Adopter release dispatch — $TAG"
+            echo ""
+            echo "- delivered: $delivered"
+            echo "- unauthorized (livespec App has no access): $unauthorized"
+            echo "- failed: $failed"
+          } >> "$GITHUB_STEP_SUMMARY"
           if [ "$failed" -gt 0 ]; then
-            echo "::error::$failed adopter dispatch(es) failed" >&2
+            echo "::error::$failed adopter dispatch(es) failed for a reason other than authorization" >&2
             exit 1
+          fi
+          if [ "$delivered" -eq 0 ] && [ "$unauthorized" -gt 0 ]; then
+            echo "::notice title=Adopter delivery not authorized::No adopter is reachable by the livespec GitHub App, so no pinned adopter was notified of $TAG. Their receiving lanes work; only this delivery hop is unauthorized. Grant the App dispatch access on the adopter repositories, or have each adopter pull with its own credentials."
           fi
