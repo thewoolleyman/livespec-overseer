@@ -558,6 +558,31 @@ The pinned adopters' pull lane is now BUILT and the last defect blocking it is
 fixed. What remains is the acceptance the goal always needed: **observe a pinned
 adopter advance with no fleet-side push and no hand action.**
 
+> **!!! A TEMPORARY CRON RETIME IS IN FLIGHT AS OF 2026-07-26T17:28Z — IF YOU
+> ARE READING THIS, CHECK WHETHER IT WAS REVERTED. !!!**
+>
+> Both adopters' `bump-plugin-pin.yml` had their `schedule:` changed from
+> `"37 6 * * *"` to `"45 17 * * *"` so the acceptance could be observed the same
+> day instead of the next morning. Landed as openbrain `88fe6f7` and resume
+> `47c1269`. **This is a retime, not a nudge** — the run still fires because a
+> cron came due and records `event: schedule`; a `workflow_dispatch` would not
+> have proven anything and remains prohibited.
+>
+> **THE REVERT IS AN OBLIGATION, NOT A TIDY-UP.** Left in place, both adopters
+> would poll at 17:45Z daily instead of 06:37Z — silently, with every run still
+> green, which is exactly the class of defect this thread keeps paying for.
+> Restore BYTE-IDENTICALLY from the pre-test blobs and prove it with a diff
+> rather than by retyping the expression, because retyping can mask a typo in
+> the original:
+>
+> | repo | default branch | pre-test blob of `bump-plugin-pin.yml` |
+> |---|---|---|
+> | openbrain | `main` (tip `7ada224`) | `a0331862ab8c4bcfd9281aa34bef36f1ae72e309` |
+> | resume | `master` (tip `786a083`) | `a885e4053eb9edefd2096c59dad1729e42873e21` |
+>
+> Verify with `git diff <blob> HEAD:.github/workflows/bump-plugin-pin.yml`,
+> which must print nothing.
+
 **That test is ARMED right now. Do not disturb it:**
 
 | fact | value |
