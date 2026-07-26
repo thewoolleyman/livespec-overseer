@@ -973,8 +973,39 @@ state.
      > attribute the move to the new test tier. Full record on
      > **`overseer-hbr.22`**.
    - **Item 5 — the deferred public entry-point surface** for the two
-     executables (the demoted `reportPrivateUsage` findings). No successor
-     anchor.
+     executables (the demoted `reportPrivateUsage` findings). Anchored on
+     **`overseer-hbr.22`**.
+
+     > **MEASURED FOR THE FIRST TIME 2026-07-26 — it looks SATISFIED, and the
+     > evidence is sabotage-verified.** This item had a description but no
+     > measurement, unlike item 3. It has one now.
+     >
+     > Both executables are **12-line thin trampolines** (`from overseer.start
+     > import main` / `from overseer.daemon import main`) with **no dotted
+     > private access and no pyright suppressions** in either — the public
+     > surface those findings were deferred pending was evidently delivered by
+     > `overseer-m5dtmj` and `overseer-dmtv6w`, both closed. Both executables ARE
+     > in pyright's scope: `[tool.pyright] include` names them individually,
+     > precisely because `include` resolves by extension and `overseer` alone
+     > would not reach them.
+     >
+     > **`just check-types` reports 0 errors — and the rule can actually fire.**
+     > "Strict mode implies `reportPrivateUsage`" is a documentation claim, so it
+     > was tested rather than trusted: injecting a cross-module private access
+     > into a pyright-included product module produced
+     > `error: "_key" is private and used outside of the module in which it is
+     > declared (reportPrivateUsage)` and failed `check-types`. Reverted; the
+     > throwaway worktree was destroyed. So the clean result is a real negative,
+     > not a silent skip.
+     >
+     > **The caveat that keeps this honest:** pyright EXCLUDES the beside-tests,
+     > so this says nothing about private usage in tests — and there is plenty.
+     > All **45** Phase-0 "banned cross-module `_`-prefixed call" findings live in
+     > `test_supervisor.py` (39) and `test_registry.py` (6), **zero** in the
+     > executables. Those are a DIFFERENT rule and remain **item 3's** debt.
+     > Conflating them is the easy mistake: closing item 5 does not reduce that
+     > 45 by one. (Those 45 were checked FIRST as candidates for item 5's
+     > "demoted findings" and are not them.)
 
    **`overseer-3wt` MUST NOT CLOSE until 3 and 5 each have a durable
    disposition.** Also check what the release context sets before goal 3 lands —
