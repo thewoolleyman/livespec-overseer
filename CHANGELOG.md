@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.0...v0.12.1) (2026-07-26)
+
+
+### Bug Fixes
+
+* **overseer:** close six UnicodeDecodeError boundary leaks ([236209c](https://github.com/thewoolleyman/livespec-overseer/commit/236209c60ccdd76722d797236c2e6bd52612a43e))
+
 ## [0.12.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.11.0...v0.12.0) (2026-07-26)
 
 
