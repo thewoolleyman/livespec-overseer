@@ -13,6 +13,32 @@
           "jsonpath": "$.project.version"
         },
         {
+          "_comment": [
+            "uv.lock carries a self-referential entry for this project, and release-please",
+            "bumping pyproject.toml without it left the lock PERMANENTLY one version behind",
+            "(overseer-bg2.10). The first `uv run` in any fresh clone or worktree then",
+            "regenerated it and left the tree dirty with a one-line restatement nobody",
+            "authored, which every session had to notice, attribute and route around.",
+            "",
+            "THE `.name.value` IN THE FILTER IS LOAD-BEARING, NOT A TYPO. release-please's",
+            "toml updater parses with a position-tracking parser that wraps every scalar as",
+            "{start, end, value}, so `@.name` is an OBJECT and `@.name=='livespec-overseer'`",
+            "never matches. The obvious-looking `$.package[?(@.name=='livespec-overseer')]",
+            ".version` was tested against this exact file and SILENTLY MATCHED NOTHING:",
+            "release-please logs 'No entries modified' at warn level and returns the content",
+            "unchanged, so a wrong path here reports success while doing nothing.",
+            "",
+            "Verified by running release-please 17.10.4's GenericToml updater against this",
+            "repo's real uv.lock before this landed: exactly ONE line changes, the one",
+            "directly under `name = \"livespec-overseer\"`, with the line count unchanged even",
+            "for a different-length version. If you edit this entry, re-run that check --",
+            "the failure mode is silence, not an error."
+          ],
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='livespec-overseer')].version"
+        },
+        {
           "type": "generic",
           "path": "overseer/version.py"
         },
