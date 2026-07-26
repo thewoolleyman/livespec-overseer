@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.1...v0.12.2) (2026-07-26)
+
+
+### Bug Fixes
+
+* **supervise-plan:** the generated charter prohibits killing the acting daemon ([adff90a](https://github.com/thewoolleyman/livespec-overseer/commit/adff90ad6ecb99fb88219631e56afcae6bd5e7f8))
+
 ## [0.12.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.12.0...v0.12.1) (2026-07-26)
 
 
