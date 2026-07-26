@@ -503,7 +503,7 @@ of 54**, and combined master is green — `just check`, 61 targets, 498 tests.
 
 **Your next action is a DECISION, not a build.** Every remaining slice sits at
 `pending-approval`, which is a maintainer valve; `next` ranks zero candidates by
-design while that is true. Two things are ripe:
+design while that is true. Three things are ripe:
 
 1. **ACCEPT `.19`** — its acceptance criteria are met and independently
    re-measurable (see §"State on the forge"). It is not closed; acceptance is the
@@ -514,6 +514,12 @@ design while that is true. Two things are ripe:
 2. **APPROVE `.20` (S11)** — it is now UNBLOCKED in substance as well as on the
    ledger. `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` has nothing left to
    fail on, so arming it is a config change rather than a cleanup.
+3. **DECIDE whether `.13` may ship ahead of the generator fix** — the unfiled
+   ordering edge found on 2026-07-26; full measurement in §"Ordering". This one
+   is genuinely new, and it is the only ripe item that changes the BOARD rather
+   than a single item's status. Deciding "yes, ship first" is a perfectly good
+   answer — but it should be a decision, not a default, because today it is what
+   happens if nobody looks.
 
 > ### READ THIS BEFORE YOU LOOK FOR WORK — the verification sweep is DONE
 >
@@ -537,6 +543,33 @@ design while that is true. Two things are ripe:
 > mutants from `signals.py` alone, 97 on safety-critical predicates) but **zero
 > verdicts** — it was stopped by the nested-layout staging problem, and pushing
 > past that means wiring the repo for mutation, which is `.22`'s work.
+>
+> ### SECOND SWEEP, 2026-07-26 (later session) — everything above REPRODUCED
+>
+> The sweep's own advice ("a count you did not re-derive today is a guess") was
+> applied to the sweep itself. **Every number re-derived, all unchanged:**
+>
+> | measurement | value | note |
+> |---|---|---|
+> | registry TODO | **0 of 54** | unchanged |
+> | `just check` | **61 targets, 498 tests, green** | unchanged |
+> | Gate E Phase-0 WARN findings | **712** | unchanged, and the category split is identical (603/45/25/23/7/7/2) |
+> | forge | 0 tags, 0 releases, no `release` branch | unchanged |
+> | open PRs | **#52, #101** — both still open | unchanged |
+> | ledger | all remaining slices `pending-approval`; `.16` still `open` | unchanged |
+>
+> **Gate E did NOT drift this time, and the reason is worth recording:** the
+> previous sweep predicted PR #101 (`v0.54.19`) would move it "the moment it
+> merges". It has not merged, and the count has not moved. That is a small
+> confirmation that the pin bump is the actual driver, not elapsed time — so
+> **re-measure Gate E after #101 merges, not on a calendar.**
+>
+> **Two NEW findings, neither of them a build task:**
+>
+> 1. **An unfiled ordering edge** — `.13` can install a generator that has never
+>    been corrected. Full measurement in §"Ordering"; it is the one item below
+>    that needs a maintainer decision.
+> 2. **An orphaned duplicate epic, `overseer-xbxkrv`** — see §"Ledger lifecycle".
 >
 > ### If every valve is still shut when you arrive
 >
@@ -681,6 +714,32 @@ for the whole epic. 16 children are now `pending-approval` (read back to verify)
 **`.16` is still `open`** — deliberately, since this thread stood down on it.
 Whoever picks it up must repair it the same way.
 
+**`overseer-xbxkrv` is an ORPHANED DUPLICATE of `overseer-byvxlp` and should
+CLOSE.** Found 2026-07-26 (second sweep). The two epics carry **byte-identical
+titles** and both sit at `backlog`, so a `bd list` reader cannot tell which is
+the anchor. Measured:
+
+- Created **23 seconds apart** — `xbxkrv` at `01:30:49Z`, `byvxlp` at
+  `01:31:12Z`. `xbxkrv` was updated once at `01:30:50Z` and never again;
+  `byvxlp` was updated at `01:32:47Z`.
+- `xbxkrv` carries **only** `origin:freeform`; `byvxlp` also carries
+  `intake:triaged`. The router finished on one of them.
+- Their descriptions differ in **exactly one paragraph**: `xbxkrv` claims
+  `depends_on overseer-hbr.16` and `overseer-hbr.4`. `byvxlp` replaces that with
+  *"beads forbids task-blocks-epic edges, so these are NOT encodable as
+  depends_on and readiness must be re-checked manually."* So `xbxkrv` is the
+  stillborn first filing, and the live record it preserves is **factually
+  wrong** — it asserts the very edge `byvxlp` exists to correct.
+- **Zero** references to `xbxkrv` anywhere in the fleet's markdown or JSON;
+  `byvxlp` is named by three plan documents, including this file and
+  `plan/supervisor-prompt-quality/`, which declares it that thread's anchor.
+- Both have 0 dependencies, 0 dependents, 0 comments — closing `xbxkrv` strands
+  nothing.
+
+Left OPEN deliberately, following this thread's standing precedent for `.21`
+and `.22`: **record the disposition, let a human flip the valve.** The close
+reason should name `byvxlp` as the surviving anchor.
+
 **Do not trust `intake:triaged` on `.10`–`.22`.** That marker means "the DoR gate
 saw this item". On `.1`–`.9` it is genuine (they also carry `origin:freeform`, so
 they came through `capture-work-item`). On `.10`–`.22` it was **inherited from the
@@ -738,7 +797,7 @@ was set by hand and then read back from the ledger to verify.**
 unstarted. `.20` is the next one to approve; `.21` and `.22` are unblocked and
 carry written dispositions awaiting closure decisions.
 
-### Ordering — BOTH edges are now MEASURED HARD CONSTRAINTS
+### Ordering — TWO MEASURED HARD CONSTRAINTS, plus a THIRD that is UNFILED
 
 - **HARD — `2 → 3b`. DISCHARGED 2026-07-26.** Auto-release arms
   `LIVESPEC_FAIL_IF_HEADING_COVERAGE_TODOS_EXIST` in the release context, which
@@ -760,6 +819,49 @@ carry written dispositions awaiting closure decisions.
   **none** of the three (`git ls-remote --heads origin` shows no `release`;
   `gh release list` is empty). So goal 4 cannot be reached until a release is
   published. Binds `.12 → .13`.
+- **UNFILED — `generator quality → 4`. FOUND 2026-07-26 (second sweep); it is
+  NOT on the ledger and NEITHER thread owns it.** This is the one ordering
+  hazard the board does not encode, and it reproduces this thread's own
+  signature failure at a new location. Measured, three facts:
+  - **`.13` installs the generator.** Its scope is a checked-in
+    `extraKnownMarketplaces` + `enabledPlugins` entry in each consuming repo's
+    `.claude/settings.json`, and the plugin ships **both** skills — so
+    registering the marketplace puts `supervise-plan` into every consuming repo
+    at once.
+  - **The ledger does not gate that on the generator being correct.** Read back
+    from beads, not from this file: `.13` is blocked by **`.12` only**; `.16`
+    blocks **`.15` only**; `overseer-byvxlp`'s dependency on `.16`/`.4` is
+    **prose-only** (beads forbids task-blocks-epic edges — the sibling thread's
+    handoff says so outright). So the filed graph permits `.12 → .13` to land
+    with the generator untouched, and only *acceptance* (`.15`) waits.
+  - **The generator has never been corrected.**
+    `.claude-plugin/prose/supervise-plan.md` has **exactly ONE commit**
+    (`d126ccf`, its creation), while the hand-written exemplar it is supposed to
+    mirror has **SEVEN**. Every correction this thread produced — `.4`'s
+    executable commands, both stall-mode procedures, the busy-detect-by-change
+    fix — landed in the exemplar and **none** of it reached the generator.
+    Re-derive with `git log --oneline -- <each path>`.
+
+  Probed against the shipped prose, these are ABSENT from what it tells the
+  generator to emit: `capture-pane`, `-S -40`, `pane_pid`, `readlink`, the
+  no-idle rule, the armed-re-entry rule, any watcher, any forge-verification
+  clause, and — notably for this product — *"never kill the acting overseer
+  daemon"*. Its `picker` mention is only the `---` presentation rule, not the
+  fact that an open picker **suppresses the daemon's own wrap-up injection**.
+  Two of `.4`'s named defects are live in it verbatim: HALT precondition 2 (live
+  agent driver) supplies **no command at all**, and precondition 4 is a bare
+  CWD-relative `test -d "plan/<topic>"` while the skill never establishes a
+  working directory anywhere (grep: zero hits for `cd`/`cwd`/`absolute` in the
+  prose or its binding) — so it can pass in the wrong repo.
+
+  **This is not new scope for the sibling thread** — `overseer-byvxlp` and `.16`
+  already own the generator's CONTENT, and this thread stands down on that.
+  What is unowned is the **EDGE**: nothing stops `.13` shipping the defective
+  generator fleet-wide first. Goal 4 would then be structurally true (installed
+  everywhere) and functionally false (generating stall-prone, non-executable
+  charters) — the exact pairing this thread was created to prevent. **Whether to
+  add the edge is a maintainer call**, since it re-orders the board; see
+  §"NEXT ACTION".
 
 **The chosen path threads BETWEEN the two edges**, which is the whole point: they
 bind *different halves* of goal 3. `2 → 3` binds only the two lever-setting
