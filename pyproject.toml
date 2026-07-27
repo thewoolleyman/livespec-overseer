@@ -90,18 +90,7 @@ livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-to
 # that the keys stayed empty because the blast radius was unmeasured; that reason
 # expired when the radius was measured at zero. Neither is a reason to un-arm.
 source_trees = ["overseer"]
-# `.claude/hooks` is this repo's ONE boundary tree, declared 2026-07-27
-# (`overseer-2wh`, child of the fleet epic `livespec-dev-tooling-hev1`). It sits
-# OUTSIDE `source_trees`, so the railway checks do not reach it today; they will
-# once `livespec-dev-tooling-i532` derives their universe from the git index,
-# and the finding they would then report is a real blind `except Exception` in
-# `livespec_footgun_guard.py`. That catch is not a defect — it is the same fact
-# the ruff `extend-exclude` below already records, that hook scripts are
-# fail-open boundary code whose blind catches and direct prints are the
-# contract. `io_trees` is the role key for that fact, and it grants exactly the
-# wholesale exemption those files need. Declaring it here rather than waiting is
-# what keeps this repo green through that migration.
-io_trees = [".claude/hooks"]
+io_trees = []
 commands_trees = []
 # Still empty, and NOT an oversight: `pure_trees` arming is gated on
 # `livespec-mutreal.1`, exactly as it is in core.
