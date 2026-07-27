@@ -203,13 +203,16 @@ tmux capture-pane -p -t "$W" | tail -8      # expect: [Pasted text #N +M lines]
 tmux send-keys -t "$W" Enter                # only after verifying
 ```
 
-Re-check for an open picker before EVERY paste. **Anchor the test
-positionally** — a substring scan matches any pane content that merely
-DISCUSSES pickers, including your own brief about picker detection (C4):
+Re-check for an open picker before EVERY paste. **Anchor the test at
+BOTH ends** — a substring scan matches any pane content that merely
+DISCUSSES pickers, including your own brief about picker detection
+(C4); and a start-only anchor still fires on a WRAPPED continuation
+line that happens to begin with the footer words (C5). A real footer
+occupies its whole line:
 
 ```sh
 tmux capture-pane -p -t "$W" | tail -8 \
-  | grep -qE '^[[:space:]]*Enter to (select|confirm)' \
+  | grep -qE '^[[:space:]]*Enter to (select|confirm)[[:space:]]*(·.*)?$' \
   && echo "PICKER OPEN — do not paste"
 ```
 
@@ -334,7 +337,7 @@ for i in $(seq 1 180); do                    # ~60 min ceiling
   pane=$(tmux capture-pane -p -t '=supervisor-prompt-quality:')   # visible only
   [ -z "$pane" ] && { echo "WAKE: pane unreadable — session may be gone"; exit 0; }
   if printf '%s\n' "$pane" | tail -8 \
-       | grep -qE '^[[:space:]]*Enter to (select|confirm)'; then
+       | grep -qE '^[[:space:]]*Enter to (select|confirm)[[:space:]]*(·.*)?$'; then
     echo "WAKE: picker open"; exit 0
   fi
   if [ "$pane" = "$prev" ]; then stable=$((stable+1)); else stable=0; prev="$pane"; fi
@@ -450,6 +453,23 @@ Regenerating this file MUST preserve every entry below.
   footer, correctly reports a busy worker. Generalize: a detector whose
   pattern can appear in the text it reads is self-triggering, and this
   thread's briefs quote picker strings constantly.
+- **C5 (2026-07-27) — my fix for C4 was itself under-anchored, and the
+  worker caught it.** C4's remedy anchored the picker test at the START
+  of a line (`^[[:space:]]*Enter to (select|confirm)`). That still fires
+  on a WRAPPED CONTINUATION LINE: when long prose wraps in the pane, a
+  continuation can begin with the footer words although no footer is
+  present. Verified after the worker raised it — the shipped start-only
+  form matches a wrapped-continuation fixture, the end-anchored form
+  does not, and the end-anchored form still matches the real footer
+  `Enter to confirm · Esc to cancel`. Fix: anchor BOTH ends
+  (`…[[:space:]]*(·.*)?$`), because a real footer occupies its whole
+  line. Note this is the THIRD iteration of one bug: C3 fixed the
+  capture's SCOPE, C4 fixed the pattern's SPECIFICITY, C5 fixed its
+  EXTENT. Each fix was verified against the case that motivated it and
+  not against the next one. Generalize: when correcting a detector, test
+  the corrected form against a FRESH adversarial case, not only against
+  the case that exposed the previous version — otherwise each round
+  buys one counter-example and ships the next defect.
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
