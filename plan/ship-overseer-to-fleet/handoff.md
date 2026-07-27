@@ -1,7 +1,9 @@
 # Plan — ship-overseer-to-fleet
 
-**Owning repo:** `livespec-overseer`. **Status:** **ALL SIX GOALS MET ON
-OBSERVED EVIDENCE — goal 5's trigger fired unattended 2026-07-26T21:30Z.** The
+**Owning repo:** `livespec-overseer`. **Status:** **DONE — epic `overseer-hbr`
+CLOSED, all six goals met on OBSERVED evidence.** Goal 5's trigger fired
+unattended 2026-07-26T21:30Z. Nothing of this thread's is buildable or in
+flight; the recommended next action is to archive it, which PR #185 made free. The
 plugin is RELEASED (v0.13.1 at the time of writing — **re-derive with
 `gh release list`, this line has gone stale five times**), REGISTERED in all
 twelve consuming repos,
@@ -9,7 +11,7 @@ and INSTALLED on the host for **all twelve** — nine fleet members plus all thr
 adopters — with `supervise-plan` proven to RESOLVE by live exercise in eleven
 sessions that are not this repo's. **All 25 children are closed**, including
 `.25`, which closed on the observation goal 5 always needed. `.24` closed on
-evidence that did not support its claim; `.25` is the item that settled it. Read §"GOAL 5 OBSERVED" — it was
+evidence that did not support its claim; `.25` is the item that settled it. Read §"THE THREAD IS DONE" — it was
 rewritten 2026-07-26 (SIXTH wrap-up) and SUPERSEDES every earlier status
 statement in this file.
 
@@ -51,14 +53,14 @@ the maintainer's `approve:` valve first. Created 2026-07-25 (maintainer
 supervisor brief 22) as the LIVING successor of
 `plan/archive/cutover-and-shipping/` (archived 2026-07-25). Groomed 2026-07-26
 into 13 filed slices; **all 13, plus all nine pre-existing children, are now
-DONE** — see §"GOAL 5 OBSERVED", which is the only section you must read before
+DONE** — see §"THE THREAD IS DONE", which is the only section you must read before
 starting.
 
 **Ledger anchor:** epic **`overseer-hbr`** (this repo's beads tenant). Children
 and lanes are READ from the ledger (`list-work-items` / `next`), never stored
 here. It SUPERSEDES `overseer-19s` (the Phase-2-only epic, closed as superseded
 — absorbed here as goal 6) so there is exactly ONE anchor. **That anchor is why
-groom Step 3 was not run** — it would have closed this epic; see §"GOAL 5 OBSERVED".
+groom Step 3 was not run** — it would have closed this epic; see §"THE THREAD IS DONE".
 
 > **Read this first:** the predecessor thread PROVED the daemon cutover and
 > BUILT the operator surface. It did NOT get that surface into anyone's hands,
@@ -120,7 +122,7 @@ re-measure before closing any goal.
 > `supervise-plan` RESOLVES in sessions that are not this repo's. The subsection
 > is kept because the *diagnosis* below — registration, not packaging — was
 > correct and is what got acted on, and because the "treat 'shipped' with
-> suspicion" instruction earned its keep twice more today (see §"GOAL 5 OBSERVED" on
+> suspicion" instruction earned its keep twice more today (see §"THE THREAD IS DONE" on
 > registration-is-not-installation, and on the release ref predating the fix).
 > **Still true:** the three ADOPTERS are registered but not installed — `.23`.
 
@@ -156,7 +158,7 @@ is malformed. What is missing is that `livespec-overseer` is absent from
 > **currently impossible**: all four peer registrations pin **`ref: "release"`**,
 > that branch is produced by `fast-forward-release-branch.yml` on
 > `release: published`, and this repo has **no such workflow, no `release`
-> branch, and zero releases**. See the **HARD `3a → 4`** edge in §"GOAL 5 OBSERVED".
+> branch, and zero releases**. See the **HARD `3a → 4`** edge in §"THE THREAD IS DONE".
 > Registration itself is a *tracked-file* change — `.claude/settings.json` →
 > `extraKnownMarketplaces` + `enabledPlugins`, checked in per consuming repo (six
 > fleet repos carry the identical 3-entry shape today; no copier template exists,
@@ -561,14 +563,59 @@ wrong repo — `.mise.toml:1` and `lefthook.yml:1`. Cosmetic, but sweep them wit
 the `source_repo` fix. Full trace on **`overseer-hbr.1`**.
 
 > **CORRECTION (2026-07-25, Codex adversarial review of PR #78).** The
-> §"GOAL 5 OBSERVED" claim "Nothing is started. Nothing is in flight." is FALSE as
+> §"THE THREAD IS DONE" claim "Nothing is started. Nothing is in flight." is FALSE as
 > written — PR #52 is in flight. The accurate statement is that **no successor
 > slice** has started. See that section.
 
-## GOAL 5 OBSERVED — all six goals now hold on measured evidence
+## THE THREAD IS DONE — epic closed, all six goals observed
 
-**Rewritten 2026-07-26 at the SIXTH wrap-up. Supersedes the fifth wrap-up's
-"GOAL 5 REOPENED", which was correct when written and is now discharged.**
+<!-- Section-title history, so older cross-references stay findable: this has
+been "NEXT ACTION", "GOAL 5 REOPENED", "GOAL 5 OBSERVED", now "THE THREAD IS
+DONE". References were repointed each time rather than left dangling. -->
+
+**Sixth and final wrap-up, 2026-07-27.** `overseer-hbr` is **CLOSED**; all 25
+children are closed. Goal 5's trigger was observed firing unattended. There is
+no buildable work left in this thread.
+
+### IF YOU ARE A FRESH SESSION
+
+**Confirm from the ledger, not from this file** — `bd list` in the
+`livespec-overseer` tenant via
+`/data/projects/1password-env-wrapper/with-livespec-env.sh`. As of
+2026-07-27T01:1xZ exactly **four items are open and NONE is this thread's**:
+
+| id | state | owner |
+|---|---|---|
+| `overseer-mim` | `pending-approval` | dev-tooling pin-lane gaps + the fleet/adopter credential-boundary decision |
+| `overseer-l0f` | `pending-approval` | `uv.lock` drift — **likely dischargeable**: `5e4e091` "have release-please update uv.lock" has since landed on master. Verify before acting |
+| `overseer-byvxlp` | `backlog` | generated-prompt quality bar; `plan/supervisor-prompt-quality/` |
+| `overseer-7lv` | `backlog` | `supervise-plan` residual gaps; `plan/supervise-plan-residual-gaps/` |
+
+**`overseer-bg2` and every one of its children are now CLOSED**, as is
+`overseer-hfx` — the `rop-sweep-fleet-policy` track finished the Gate E / ROP
+arming work while this thread wrapped up (`704f2a6` armed `source_trees` +
+`covered_trees` and hard-gated file LLOC). Earlier revisions of this file listed
+them as the largest live body of work here; that is over.
+
+### THE RECOMMENDED NEXT ACTION — archive this thread
+
+The epic is closed and **archiving is now free** (PR #185 — see
+§"ARCHIVING THIS THREAD IS NOT A FREE ACTION", whose co-edit requirement is discharged). The
+`plan` skill's archive step is the natural lifecycle close. It is a maintainer-
+facing call rather than a mechanical one, so ask rather than assume — but the
+blocker that made it unsafe is gone, and nothing else in this thread is
+pending.
+
+**Do not re-run goal 5's acceptance.** It is done, and re-running it by
+`workflow_dispatch` would prove nothing (see the trigger-vs-state lesson below).
+
+### What was left in flight: NOTHING
+
+All this session's PRs are merged — this repo's #149, #157, #159, #160, #165,
+#167, #177, #179, #185; resume #10, #11, #12, #13; openbrain `7ada224`,
+`bdcb158`, `3834e86`. Every worktree this session created has been removed and
+its branch deleted. The two adopters' crons are restored byte-identically and
+both refs read `v0.13.1`.
 
 ### The evidence chain, end to end
 
@@ -660,9 +707,9 @@ the workflow did not fire. Owner is openbrain; closing it needs a
 | `overseer-mim` | `pending-approval` | two livespec-dev-tooling pin-lane gaps + the fleet/adopter credential-boundary decision. Named with that owner; discharging it DELETES this repo's `adopter-release-dispatch.yml` bridge |
 | `overseer-l0f` | `pending-approval` | `uv.lock` trails `pyproject.toml` after every release; any `uv run` dirties a tracked file and no gate catches it |
 | `overseer-byvxlp` | `backlog` | the generated-prompt quality bar beyond both stall modes; owned by `plan/supervisor-prompt-quality/` |
-| **`overseer-bg2`** + 3 open children (`.4`, `.9`, `.10`) | `backlog` / `open` | **the Gate E / ROP arming work `.22` sized** — owned by the `rop-sweep-fleet-policy` track, which is actively working it: it was 6 open a few hours ago |
+| ~~`overseer-bg2` + children~~ | **ALL CLOSED 2026-07-27** | the Gate E / ROP arming work `.22` sized. The `rop-sweep-fleet-policy` track finished it — `704f2a6` armed `source_trees` + `covered_trees` and hard-gated file LLOC. It went 6 open → 3 open → closed inside one night |
 | `overseer-7lv` | `backlog` | `supervise-plan` residual gaps — supervisor runtime liveness and obligations. **EXTENDS `overseer-byvxlp`**; anchors `plan/supervise-plan-residual-gaps/` |
-| `overseer-hfx` | `backlog` | bring the three remaining over-ceiling files under 200 LLOC before the Phase-2 hard-gate flip |
+| ~~`overseer-hfx`~~ | **CLOSED** | the over-ceiling files; closed with the same sweep |
 
 **`overseer-hbr` is CLOSED** (2026-07-26), all six goals met on observed
 evidence. The "DO NOT CLOSE IT" instruction that stood here was discharged, not
@@ -738,7 +785,7 @@ sessions that are not this repo's, proven by live exercise rather than by a
 settings file. Releases are published through **v0.13.0**, `refs/heads/release`
 tracks the latest, the registration is merged in all twelve consuming repos, and
 goal 2's lever fired green on the release path. **Five of six goals are met;
-goal 5 is not** — see §"GOAL 5 OBSERVED". All 24 children of `overseer-hbr` are
+goal 5 is not** — see §"THE THREAD IS DONE". All 24 children of `overseer-hbr` are
 closed, but `.24` closed on evidence that does not support its claim.
 
 ### Goal 5 — what `overseer-hbr.24` BUILT (its close claim is retracted)
@@ -747,7 +794,7 @@ closed, but `.24` closed on evidence that does not support its claim.
 > accurate and worth keeping — the lane, the three refusals, the per-adopter
 > stacks all exist as described. Its **acceptance claim is withdrawn**: what it
 > reported as unattended was `workflow_dispatch`. The corrected reading is in
-> §"GOAL 5 OBSERVED"; the retracted paragraph is left in place below, marked,
+> §"THE THREAD IS DONE"; the retracted paragraph is left in place below, marked,
 > because how it went wrong is more instructive than a clean deletion.
 
 **This goal was WRONGLY recorded as met once — and then a second time, by this
@@ -991,7 +1038,7 @@ bumping commit type.
 | 2 — top-of-pyramid tests, present AND enforced | **MET** — 54/54 rows mapped, lever armed, fired green on the release path |
 | 3 — auto-released | **MET** — three releases; `release-readiness.yml` + `release-tag.yml` in place |
 | 4 — auto-installed, fleet AND adopters | **MET** — 12 install records; each adopter provisions itself from an ordinary session (`.23`) |
-| 5 — release pin auto-bumped | **MET, OBSERVED.** The 10 `ref: "release"` consumers auto-follow, seen across a real release boundary. The 2 `posture: pinned` adopters advanced **v0.12.4 → v0.13.1 unattended on `event: schedule` runs** (resume 21:30:29Z, openbrain 21:32:45Z), with resume's PR #13 merged **by the bot**. No fleet push, no hand action — see §"GOAL 5 OBSERVED" |
+| 5 — release pin auto-bumped | **MET, OBSERVED.** The 10 `ref: "release"` consumers auto-follow, seen across a real release boundary. The 2 `posture: pinned` adopters advanced **v0.12.4 → v0.13.1 unattended on `event: schedule` runs** (resume 21:30:29Z, openbrain 21:32:45Z), with resume's PR #13 merged **by the bot**. No fleet push, no hand action — see §"THE THREAD IS DONE" |
 | 6 — phase-2 adopter shipping folds in | **MET** — dispositions on `.21`/`.22`, and its shipping arm landed as `.23` |
 
 ### Five core-tenant closes are justified and are NOT ours to make
@@ -1065,7 +1112,7 @@ and the reasons are reusable:
   advanced by their own scheduled pulls on 2026-07-26, which is goal 5's
   acceptance rather than a fixture awaiting one. The deliberate one-release gap
   that used to be described here has been consumed, correctly, by the thing it
-  existed to prove. See §"GOAL 5 OBSERVED".
+  existed to prove. See §"THE THREAD IS DONE".
 - **NOTHING of this thread's is in flight.** Its worktrees were removed and its
   branches deleted after merge.
 - **Host plugin state** (the numbers goal 4 moves — re-derive against
@@ -1248,7 +1295,7 @@ the one item in this epic that did, since the maintainer declined to scope goal
   `LIVESPEC_RUN_MUTATION` lever that arrives in the same workflow is a NO-OP on
   this repo today** (`pure_trees` is declared empty, so `check_mutation` takes a
   sanctioned opt-out) — measured 2026-07-26; it does not gate `.20`. Its real
-  cost lands with `overseer-hbr.22`'s Gate E work. See §"GOAL 5 OBSERVED".
+  cost lands with `overseer-hbr.22`'s Gate E work. See §"THE THREAD IS DONE".
 - **HARD — `3a → 4`.** **PROMOTED FROM "Hypothesis" 2026-07-26 — this doc
   previously recorded it as a starting guess, and that was wrong.** Every peer
   marketplace registration pins **`ref: "release"`**; that branch exists only
@@ -1668,9 +1715,18 @@ prompts-tier suite errors — inside the aggregate gate goal 2 armed. The exempl
 is what pins the generated charter against a hand-written reference, which is
 precisely why `.16` could be accepted at all.
 
-**So archiving requires a deliberate co-edit**, in this order: repoint
+> **DISCHARGED 2026-07-27 by PR #185 — archiving is now FREE, no co-edit.**
+> The locator accepts the live path OR `plan/archive/ship-overseer-to-fleet/`,
+> and when the exemplar is at neither it fails naming both paths instead of
+> dying on a bare `FileNotFoundError`. Sabotage-verified both ways: simulated
+> archive → 12 passed; exemplar removed from both locations → the named-location
+> `AssertionError`. **The paragraph below is kept only so the hazard is
+> legible** — if a THIRD location is ever needed, extend `_EXEMPLAR_CANDIDATES`
+> rather than deleting the assertion.
+
+~~**So archiving requires a deliberate co-edit**, in this order: repoint
 `_EXEMPLAR` at wherever the charter lands, re-run `just check`, and only then
-archive. Do not discover this from a red CI run.
+archive. Do not discover this from a red CI run.~~
 
 Three other documents reference this thread by path — the archived predecessor
 `plan/archive/cutover-and-shipping/handoff.md`, and the two LIVE sibling threads
