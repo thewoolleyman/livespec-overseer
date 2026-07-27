@@ -15,6 +15,7 @@ from __future__ import annotations
 import ast
 import builtins
 import io as _io
+import json
 import pathlib
 import sys
 
@@ -212,3 +213,62 @@ def test_a_supervision_tick_never_opens_a_file_under_a_plan_tree(*, tmp_path, mo
     _ = sup.tick(act=True)
 
     assert opened == [], f"the daemon opened files under a plan tree: {opened}"
+
+
+def test_release_please_never_targets_a_python_file_and_the_version_data_ships():
+    """release-please must not rewrite any `.py`, and its data file must be packaged.
+
+    THE REGRESSION THIS EXISTS FOR, observed not hypothesised: `source_trees =
+    ["overseer"]` was armed 2026-07-27, which puts every `.py` in this package
+    into `check-red-green-replay`'s product-implementation bucket. release-please
+    is a bot — it cannot author a Red->Green pair or a green-verified leg — so its
+    release commit `a54e233`, which rewrote `overseer/version.py`, failed the gate
+    and BLOCKED release PR #180. Every other fleet member arms `source_trees` and
+    generates no `.py`; this repo was the only outlier.
+
+    The fix moved the version literal to `overseer/version.json`. This test pins
+    all three things that can independently regress it back:
+
+    1. no `extra-files` entry targets a `.py` — the actual bug;
+    2. the data file's version matches `pyproject.toml` — the drift class that
+       `uv.lock` was already bitten by (`overseer-l0f`);
+    3. the data file is declared as package-data — without it the built wheel
+       omits `version.json` and the INSTALLED console scripts raise at import,
+       while the editable install and in-tree executables keep working.
+
+    SCOPE, stated because assertion 3 is shallower than 1 and 2: it pins the
+    packaging DECLARATION, not the built artifact. Building a wheel here would
+    spawn a subprocess that `check-tests-no-subprocess-spawn` exists to prevent
+    (coverage races under the parallel dispatcher). A wheel that omits the file
+    despite a correct declaration would not be caught by this test.
+
+    SABOTAGE-VERIFIED, each independently: pointing the `extra-files` entry back
+    at `overseer/version.py` reddens (1); editing `version.json` to a different
+    version reddens (2); deleting the `[tool.setuptools.package-data]` block
+    reddens (3). All three reverted to a zero diff.
+    """
+    repo_root = _PACKAGE_ROOT.parent
+    config = json.loads((repo_root / "release-please-config.json").read_text(encoding="utf-8"))
+
+    python_targets = [
+        entry.get("path", "")
+        for package in config.get("packages", {}).values()
+        for entry in package.get("extra-files", [])
+        if isinstance(entry, dict) and str(entry.get("path", "")).endswith(".py")
+    ]
+    assert python_targets == [], (
+        "release-please targets a .py file, which check-red-green-replay will reject "
+        f"on the release commit and block the release PR: {python_targets}"
+    )
+
+    pyproject = (repo_root / "pyproject.toml").read_text(encoding="utf-8")
+    declared = json.loads((_PACKAGE_ROOT / "version.json").read_text(encoding="utf-8"))["version"]
+    assert f'version = "{declared}"' in pyproject, (
+        f"overseer/version.json says {declared!r} but pyproject.toml does not declare it — "
+        "the generated literal has drifted from its source"
+    )
+
+    assert 'overseer = ["version.json"]' in pyproject, (
+        "version.json is not declared as setuptools package-data, so the built wheel "
+        "will omit it and the installed console scripts will fail at import"
+    )
