@@ -15,7 +15,19 @@
 > reopen anything. What it does retire is this file's lag arithmetic: **the
 > observed envelope is +50 to +231 min and every ceiling ever quoted has been
 > broken.** Read `overseer-ye5` before trusting any timing bound below —
-> including §"THE LAG BAND IS WIDER THAN THE SAMPLE".
+> including §"THE LAG BAND IS WIDER THAN THE SAMPLE". The goal-5 side of it is
+> recorded in §"Goal 5 was observed TWICE", which strengthens the scorecard
+> rather than disturbing it.
+>
+> **OPERATIONAL HAZARD, still live and NOT fixed by anything in this file: the
+> LOCAL adopter checkouts go stale on every bump.** After the 10:27Z run the
+> forge read `v0.13.2` while `/data/projects/openbrain` and
+> `/data/projects/resume` still read `v0.13.1` — for hours. Reading local at
+> that moment would have said the lane was broken when it had just succeeded.
+> This is §"THE TWO LESSONS THIS THREAD PAID FOR TODAY" lesson 2 recurring, and
+> it has already cost one wasted live test. **Re-derive adopter state from the
+> forge (`gh api`), or `git merge --ff-only` first — never read the local
+> checkout.**
 
 **Owning repo:** `livespec-overseer`. **Status:** **DONE — epic `overseer-hbr`
 CLOSED, all six goals met on OBSERVED evidence.** Goal 5's trigger fired
@@ -1090,8 +1102,40 @@ bumping commit type.
 | 2 — top-of-pyramid tests, present AND enforced | **MET** — 54/54 rows mapped, lever armed, fired green on the release path |
 | 3 — auto-released | **MET** — three releases; `release-readiness.yml` + `release-tag.yml` in place |
 | 4 — auto-installed, fleet AND adopters | **MET** — 12 install records; each adopter provisions itself from an ordinary session (`.23`) |
-| 5 — release pin auto-bumped | **MET, OBSERVED.** The 10 `ref: "release"` consumers auto-follow, seen across a real release boundary. The 2 `posture: pinned` adopters advanced **v0.12.4 → v0.13.1 unattended on `event: schedule` runs** (resume 21:30:29Z, openbrain 21:32:45Z), with resume's PR #13 merged **by the bot**. No fleet push, no hand action — see §"THE THREAD IS DONE" |
+| 5 — release pin auto-bumped | **MET, OBSERVED TWICE.** The 10 `ref: "release"` consumers auto-follow, seen across a real release boundary. The 2 `posture: pinned` adopters advanced unattended on `event: schedule` runs on **two separate days** — see §"Goal 5 was observed TWICE" |
 | 6 — phase-2 adopter shipping folds in | **MET** — dispositions on `.21`/`.22`, and its shipping arm landed as `.23` |
+
+### Goal 5 was observed TWICE — and the SECOND observation is the load-bearing one
+
+**Added 2026-07-27, after this thread closed.** The scorecard originally rested
+on one day's runs. It now rests on two, and the difference is not redundancy —
+it retires the strongest remaining objection to the first observation.
+
+| # | when | cron in effect | trigger | outcome |
+|---|---|---|---|---|
+| 1 | 2026-07-26T21:30Z | **retimed** `40 20 * * *` | `event: schedule` | v0.12.4 → v0.13.1; resume PR #13 merged by `app/resume-pr-bot` |
+| 2 | **2026-07-27T10:27:58Z** | **natural production** `37 6 * * *` | `event: schedule` | v0.13.1 → **v0.13.2**; resume **PR #14** merged by `app/resume-pr-bot` at 10:33:05Z, `auto-enable-merge` **success** at 10:28:11Z; openbrain by direct push |
+
+**Why the second one matters more.** The first ran on a cron this thread had
+deliberately retimed so the acceptance could be watched the same day. That was
+legitimate — a retime is not a nudge, the run still fires because a cron came
+due — but it leaves a fair question open: *was the arrangement doing work?*
+Observation 2 answers it. Nothing about 2026-07-27 was arranged. The cron was
+the restored production `37 6 * * *`, verified byte-identical to the pre-test
+blob, and the run closed a real v0.13.1 → v0.13.2 gap that another track's
+release had opened hours earlier. **The retime is no longer load-bearing for
+this goal's acceptance.**
+
+> **AND IT WAS NEARLY SCORED AS A FAILURE.** That run fired at **+231 minutes**
+> past its target. It was declared a no-show twice before it arrived — at +150
+> min, and again at +189 min on the reasoning "past the +187 worst lag ever
+> observed". Both calls were wrong, and the second was made by a check built
+> specifically to avoid the first. **Operating rule, from the maintainer: allow
+> AT LEAST 4 HOURS before a schedule check means anything, and treat a no-show
+> inside that window as no evidence at all.** Note that +231 min is INSIDE four
+> hours — so the floor governs when to look, never when to declare death. See
+> `overseer-ye5`, which carries the full analysis and the surviving reliability
+> findings.
 
 ### Five core-tenant closes are justified and are NOT ours to make
 
