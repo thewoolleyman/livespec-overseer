@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.13.2...v0.13.3) (2026-07-27)
+
+
+### Bug Fixes
+
+* have release-please update uv.lock so it stops drifting behind pyproject ([5e4e091](https://github.com/thewoolleyman/livespec-overseer/commit/5e4e0916b0c2d9e8b8c54a389391daff1cf6f529))
+* make the run_daemon double keyword-only, matching the function it stands in for ([c3f26d0](https://github.com/thewoolleyman/livespec-overseer/commit/c3f26d0efd64da988dbd7a7692ced655b9608c6c))
+* **release:** carry the version literal in JSON so release-please rewrites no .py ([f8bb400](https://github.com/thewoolleyman/livespec-overseer/commit/f8bb40013f36b97e0746b309a3a8644edd76d3f5))
+
+
+### Refactoring
+
+* bring every file in the package under the 200 LLOC soft ceiling ([65a18c1](https://github.com/thewoolleyman/livespec-overseer/commit/65a18c161c7d297b3e12d2fbcbf3912ff07f563f))
+
 ## [0.13.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.13.1...v0.13.2) (2026-07-26)
 
 
