@@ -90,3 +90,60 @@ never `--no-verify`; status only from the ledger via the fleet
 credential wrapper; this thread archives when the LAST replacement
 slice from `overseer-byvxlp`'s groom closes — not when the epic itself
 closes, because the groom closes it as regroomed-out at filing time.
+
+---
+
+## WORKER RESUME STATE — appended 2026-07-27 by the `supervisor-prompt-quality` worker
+
+**Appended, deliberately touching nothing above.** The supervisor owns this
+file's execution order and item map and has an unmerged branch editing them
+(`origin/docs/handoff-execution-order-correction`). This section is additive and
+self-contained so the two do not collide; if a conflict does arise, **theirs
+wins** — nothing here is load-bearing for their correction.
+
+### Where the work actually is
+
+The groom of `overseer-byvxlp` is **drafted, accepted, and NOT filed.** All
+durable artifacts are in `tmp/overseer/supervisor-prompt-quality/` (gitignored,
+present in the working tree):
+
+| file | what it is |
+|---|---|
+| `groom-decision-packet.md` | the accepted packet (v3 content) — the 9-slice cut, placement, `overseer-7lv` disposition, D1–D6 |
+| `NEW-VALVE-tmux-in-ci.md` | **THE ONE OPEN BLOCKER** — read this first |
+| `REVISED-S1-S2-acceptance.md` | S1/S2 acceptance rewritten for real tmux (D4) |
+| `evidence/` | runnable proof: `test_emitted_commands_discriminate.py` (9 tests, RED-demonstrated), `red-green-harness.sh` (24 legs), `gate_red_suite.py` (6/6), `adopter_validator.py`, `coldopen_gate.py`, `proposed-contract-text-v2.md` |
+
+### Maintainer decisions already given — do not relitigate
+
+D1 canonical groom (byvxlp closes regroomed-out, 9 flat slices) · D2 defects
+first (S1, S2, then S3) · D3 `tmp/overseer/<topic>/.supervisor-state` ·
+**D4 REQUIRE REAL TMUX IN CI** (overturned both the worker's and the
+supervisor's stub recommendation) · D5 one visible-only capture.
+
+### THE NEXT ACTION, and it is blocked
+
+**Filing is HELD on one maintainer valve**, raised and not yet answered:
+`tmux is absent from CI` — established three ways (zero mentions in
+`.github/workflows/`; the sandbox image chain installs only `libatomic1`;
+`docker run … command -v tmux` → absent). D4's acceptance cannot execute
+without it.
+
+Recommendation in the valve doc: add tmux to the **shared sandbox base image**
+in `livespec-dev-tooling`, not to `ci.yml` — a CI-only install would make S1/S2
+pass in CI and fail in the Fabro sandbox they get dispatched into, which is the
+exact drift that image was factored to remove. Cost: cross-repo change (another
+track's lane), a release + pin bump, and it makes S1/S2 — layer 1, first under
+D2 — blocked on that release.
+
+**When the valve is answered:** `file_approved_slices` with the 9 slices (S1/S2
+carrying the revised acceptance) → `overseer-byvxlp` auto-closes regroomed-out →
+hand-close `overseer-7lv` with the R→id mapping. Report every id created.
+
+### Boundaries that still hold
+
+Supervisor owns `handoff.md` and the archiving of
+`plan/supervise-plan-residual-gaps/`. Do not touch branches
+`docs/supervisor-charter-hardening`, `docs/regenerate-supervisor-prompt-quality-charter`,
+or `docs/handoff-execution-order-correction`. Worktrees via
+`just worktree-create`, never raw `git worktree add`.
