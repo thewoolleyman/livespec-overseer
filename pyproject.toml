@@ -327,3 +327,16 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["overseer*"]
+
+# `version.json` carries the release version literal that `version.py` reads at
+# import. Without this it is omitted from the built wheel and the INSTALLED
+# console scripts raise FileNotFoundError on import while the editable install
+# and the in-tree executables keep working — a failure that appears only in a
+# real wheel, never in this repo's own test run. Pinned by
+# `overseer/test_package_constraints.py::test_release_please_never_targets_a_
+# python_file_and_the_version_data_ships`, which asserts this DECLARATION.
+# It deliberately does not build a wheel: that needs a subprocess, which
+# `check-tests-no-subprocess-spawn` forbids, so a wheel that omitted the file
+# despite a correct declaration would not be caught.
+[tool.setuptools.package-data]
+overseer = ["version.json"]

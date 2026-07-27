@@ -39,8 +39,23 @@
           "jsonpath": "$.package[?(@.name.value=='livespec-overseer')].version"
         },
         {
-          "type": "generic",
-          "path": "overseer/version.py"
+          "_comment": [
+            "The version literal is carried in `overseer/version.json`, NOT in",
+            "`overseer/version.py`, and this entry must never be pointed back at a",
+            "`.py` file. `source_trees = [\"overseer\"]` (armed 2026-07-27) puts every",
+            "`.py` here into check-red-green-replay's product-implementation bucket,",
+            "and release-please cannot author a Red->Green pair or a green-verified",
+            "leg. A `.py` target therefore produces a release commit that FAILS the",
+            "gate and blocks the release PR — observed on PR #180, commit a54e233,",
+            "which is why this moved. Every other fleet member arms `source_trees`",
+            "and generates no `.py`; this repo was the only outlier.",
+            "",
+            "`json` rather than `generic` because a bare data file has no comment",
+            "syntax to carry an `x-release-please-version` marker."
+          ],
+          "type": "json",
+          "path": "overseer/version.json",
+          "jsonpath": "$.version"
         },
         {
           "type": "generic",
