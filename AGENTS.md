@@ -57,3 +57,28 @@ product `.py` changes follow the red-green-replay commit ritual; never pass
 the `livespec-overseer` beads tenant (`bd` via the fleet credential
 wrapper). Durable agent guidance belongs in this file — never in any
 harness-private memory store.
+
+**Create worktrees with `just worktree-create <branch> [base_ref]`, NOT with
+`git worktree add`.** The recipe provisions the worktree-discipline pack into
+`dev-tooling/` and hydrates; raw `git worktree add` does neither, and a
+worktree without that pack **can neither commit a `.py` change nor push at
+all** — `check-primary-checkout-commit-refuse-hook-installed` fails with
+`worktree_pack_absent` in both the pre-commit and pre-push aggregates. Observed
+both ways on 2026-07-27: a `.py` commit rejected, and a DOCS-ONLY branch
+rejected at push, so do not assume the doc-only fast path exempts you.
+
+Two things make it expensive to learn the hard way. The check is only reachable
+through a full `just check`, so it fires at COMMIT or PUSH time — after the work
+is done — rather than at worktree-creation time. And the rejected `git commit`
+leaves the change STAGED, so a following `git log` shows some other track's
+commit at HEAD and reads as success. **Check `git status`, not `git log`, after
+a hook-gated commit.** To rescue an
+already-created worktree, run `just install-worktree-pack` inside it — but note
+it also writes a `worktree_discipline` key into `.livespec.jsonc`, a tracked
+file; that key only makes the existing default explicit, so discard it unless
+you mean to land it.
+
+The lifecycle has recipes for the rest too: `just worktree-hydrate`,
+`just worktree-land [base_ref]`, and `just worktree-reap [--execute]` for
+orphans. `dev-tooling/*` is gitignored and byte-verified against the package
+source — never hand-edit the installed copy.
