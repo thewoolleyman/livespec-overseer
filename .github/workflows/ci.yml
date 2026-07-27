@@ -118,7 +118,7 @@ jobs:
     # green-in-CI / red-in-sandbox drift this epic exists to remove.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","local-ci"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v0.54.28
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v0.55.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -230,7 +230,7 @@ jobs:
     # Self-hosted in the baked image, same rationale as check-python above.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","local-ci"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v0.54.28
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v0.55.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -242,6 +242,7 @@ jobs:
         target:
           - check-aggregate-completeness
           - check-handoff-dispatch-routing
+          - check-hook-trees-not-io-exempt
           - check-local-memory-drift-audit
           # check-no-direct-destructive-cli greps the agent-facing trees
           # for direct destructive-default CLI invocations
@@ -377,7 +378,7 @@ jobs:
     # preserved).
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","local-ci"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v0.54.28
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v0.55.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
