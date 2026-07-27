@@ -1,9 +1,27 @@
 # Plan — ship-overseer-to-fleet
 
+> **ARCHIVED 2026-07-27.** This thread is CLOSED and this file is HISTORY —
+> nothing in it is actionable. The archive step the status line below recommends
+> has been RUN; that is how this file came to be at
+> `plan/archive/ship-overseer-to-fleet/`. Every inbound reference was repointed
+> here in the same change, and the prompts-tier fixture resolves the exemplar at
+> this path (`_EXEMPLAR_CANDIDATES`), so nothing reddened.
+>
+> **One successor finding post-dates the close: `overseer-ye5`.** On 2026-07-27
+> the pinned adopters' scheduled pull fired at **+231 minutes** past its 06:37Z
+> target — a new record, beating the +187 ceiling that this file quotes as a
+> bound. Both adopters advanced v0.13.1 → v0.13.2 on `event: schedule` with no
+> hand action, so it is a SECOND unattended confirmation of goal 5 and does NOT
+> reopen anything. What it does retire is this file's lag arithmetic: **the
+> observed envelope is +50 to +231 min and every ceiling ever quoted has been
+> broken.** Read `overseer-ye5` before trusting any timing bound below —
+> including §"THE LAG BAND IS WIDER THAN THE SAMPLE".
+
 **Owning repo:** `livespec-overseer`. **Status:** **DONE — epic `overseer-hbr`
 CLOSED, all six goals met on OBSERVED evidence.** Goal 5's trigger fired
 unattended 2026-07-26T21:30Z. Nothing of this thread's is buildable or in
-flight; the recommended next action is to archive it, which PR #185 made free. The
+flight; the recommended next action is to archive it (**since RUN — see the
+banner above**), which PR #185 made free. The
 plugin is RELEASED (v0.13.1 at the time of writing — **re-derive with
 `gh release list`, this line has gone stale five times**), REGISTERED in all
 twelve consuming repos,
@@ -681,8 +699,25 @@ ONE workflow, **not a floor and not a law**. The real range spans at least
 tonight's +50, that attempt was killed roughly **eleven minutes** before it would
 plausibly have fired. The allowance was invented rather than measured, and it
 came within minutes of producing a confident false negative about a lane that
-works. **When waiting on a scheduled run in this fleet, wait two hours before
-calling it dead.**
+works. ~~**When waiting on a scheduled run in this fleet, wait two hours before
+calling it dead.**~~
+
+> **THAT TWO-HOUR RULE IS WRONG AND WAS ITSELF FALSIFIED — 2026-07-27,
+> `overseer-ye5`.** The adopters' cron fired at **+231 minutes** (10:27:58Z
+> against a 06:37Z target), nearly four hours, `event: schedule`, success, both
+> pins advancing v0.13.1 → v0.13.2. Anyone following the struck-through rule
+> would have called that lane dead at +120 and been wrong by 111 minutes. It
+> WAS called dead, at +189, on the reasoning "past the +187 worst ever
+> observed" — by the very run that then arrived.
+>
+> **The generalisation, which is the durable part: a scheduled trigger can only
+> be observed POSITIVELY.** Every lag ceiling is a sample maximum, hence only a
+> lower bound on the true worst case; this fleet has now broken its own ceiling
+> three times (+86 → +124 → +187 → +231). Reaching any deadline derived this
+> way proves the sample was small, never that the run was dropped. The only
+> terminal observations are (a) the run appears, or (b) the NEXT occurrence
+> arrives, making the previous one provably skipped. **Do not write another
+> numeric "wait N then call it dead" rule into this fleet's documents.**
 
 ### The retime, and its discharged obligation
 
@@ -1609,8 +1644,11 @@ state.
      because that ruling lives in this repo's archived research file and was
      never reflected in core. **(Path corrected 2026-07-26: this read a bare
      `operator-surface.md:27`, which resolves to nothing from this file's own
-     directory — `plan/ship-overseer-to-fleet/research/operator-surface.md` does
-     not exist. It is the last unresolvable instance of that reference.)**
+     directory — there is no `research/operator-surface.md` beside this file,
+     neither at its original location nor at
+     `plan/archive/ship-overseer-to-fleet/`. The ruling lives at
+     `plan/archive/cutover-and-shipping/research/operator-surface.md:27`, and
+     that is the only path that resolves.)**
    - **`.2`** Linux+tmux precondition (D4) — genuinely core-side work on core's
      own spec and gates. No disposition available from here; leave with core.
 3. **`check-no-workflow-edits` copy-drift** across the 4 carrying fleet repos.
@@ -1712,13 +1750,22 @@ Everything formerly listed here is now a goal-6 completion condition above — t
 section is kept only so a reader arriving from the predecessor thread's wording
 lands somewhere real instead of on a removed heading.
 
-## ARCHIVING THIS THREAD IS NOT A FREE ACTION — read before running the close step
+## ~~ARCHIVING THIS THREAD IS NOT A FREE ACTION~~ — DONE 2026-07-27, and it WAS free
+
+> **THE ARCHIVE HAS BEEN RUN.** This section is history: it described a hazard
+> that PR #185 had already discharged, and the archive then completed with the
+> prompts-tier suite green (12 passed) and no co-edit to the fixture. The
+> hazard analysis below is kept because it is the reason the locator accepts two
+> paths — delete the analysis and the next person will "simplify"
+> `_EXEMPLAR_CANDIDATES` back to a single path and re-arm the trap.
 
 The epic is closed and the six goals hold, so the `plan` skill's archive step
-looks like the obvious next move. **It would redden `just check`.**
+looks like the obvious next move. **It would once have reddened `just check`.**
 
-`plan/ship-overseer-to-fleet/supervisor-handoff.md` is not only this thread's
-charter — it is a **TEST FIXTURE**:
+`supervisor-handoff.md` beside this file — originally at
+`plan/ship-overseer-to-fleet/`, now at `plan/archive/ship-overseer-to-fleet/` —
+is not only this thread's charter, it is a **TEST FIXTURE**. As it stood at the
+time this warning was written:
 
 ```
 tests/prompts/test_generated_supervisor_handoff_contract.py:25

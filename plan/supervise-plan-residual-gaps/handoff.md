@@ -128,13 +128,16 @@ Supervision runs against the live fleet: daemon in tmux `livespec-overseer:1.1`
 — never kill it. The `supervise-plan` contract under repair is this repo's
 `prose/supervise-plan.md`; the version this thread was written against is
 plugin cache `e239ff4dcc93`. Sibling threads: `plan/supervisor-prompt-quality/`
-(the tie-together for `overseer-byvxlp`) and `plan/ship-overseer-to-fleet/`
-(goal 1 is fleet availability; this thread strengthens the behavioral bar and
-does not gate it).
+(the tie-together for `overseer-byvxlp`, still LIVE) and
+`plan/archive/ship-overseer-to-fleet/` — **CLOSED and archived 2026-07-27**,
+all six goals met (goal 1 was fleet availability; this thread strengthens the
+behavioral bar and never gated it).
 
-**Worth telling `ship-overseer-to-fleet`:** as of 2026-07-26 the
-`supervise-plan` skill RESOLVED in a session that is not this repo's
-(`livespec-console-beads-fabro`), read cold from the plugin cache. That is
-their goal-1 acceptance condition, observed from the outside.
+**Told, and it landed.** As of 2026-07-26 the `supervise-plan` skill RESOLVED
+in a session that is not this repo's (`livespec-console-beads-fabro`), read
+cold from the plugin cache — their goal-1 acceptance condition, observed from
+the outside. That thread recorded it in its §"Independent corroboration of goal
+1", valuing it precisely because it came from a thread with no stake in scoring
+the goal met. Nothing further is owed to it; it is closed.
 
 This thread's supervisor charter: `supervisor-handoff.md` beside this file.
