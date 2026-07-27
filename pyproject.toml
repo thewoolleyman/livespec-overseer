@@ -96,7 +96,15 @@ commands_trees = []
 # `livespec-mutreal.1`, exactly as it is in core.
 pure_trees = []
 covered_trees = ["overseer"]
-supervisor_entry_files = []
+# The PreToolUse guard hook is a supervisor entry artifact: its `main()` carries
+# the ONE fail-open boundary catch livespec non-functional-requirements.md line
+# 114 grants a hook, and the file owns the hook-protocol stdout contract that
+# `no_write_direct` otherwise bans. Listing it here is what makes both
+# exemptions legible, and it also exempts its `sys.exit` from
+# `check-supervisor-discipline`. It is deliberately NOT in `io_trees`: the same
+# clause forecloses exempting a hook tree wholesale ("There is NO 'thin repo'
+# exemption").
+supervisor_entry_files = [".claude/hooks/livespec_footgun_guard.py"]
 file_lloc_hard_gate = true
 # Declared-empty: these roles remain unarmed.
 target_dirs = []
@@ -111,14 +119,18 @@ neutral_hook_body_path = ""
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-# Copied from core. `.claude/hooks/**` is deliberately outside ruff fleet-wide:
-# hook scripts are fail-open boundary code whose blind catches and direct prints
-# are the contract, not a smell.
+# `.claude/hooks/**` USED to sit here, on the ground that hook scripts are
+# fail-open boundary code whose blind catches and direct prints are the
+# contract. The premise was right and the remedy was wrong: excluding the tree
+# took the BLE001 backstop down with it, and `check-no-except-outside-io` treats
+# an inspected-but-ruff-excluded file as an error precisely because the
+# position rule alone is half the pair. The hook now carries a marked sole
+# boundary catch and writes via `sys.stdout.write`, so it needs no exclusion at
+# all — only the narrow `PLR0911` waiver below.
 extend-exclude = [
     "**/_vendor/**",
     "**/__pycache__/**",
     "mutants/**",
-    ".claude/hooks/**",
 ]
 # RELOCATED ROW 1/7. Ruff resolves files by EXTENSION, so the two extensionless
 # executables (`overseerd`, `overseer-start` — Python with a shebang, invoked by
@@ -191,6 +203,14 @@ ban-relative-imports = "all"
 "shelve" = { msg = "arbitrary-code-execution surface on load(); use JSON / JSONC" }
 
 [tool.ruff.lint.per-file-ignores]
+# The PreToolUse guard hook, replacing the wholesale `.claude/hooks/**`
+# exclusion removed above so BLE001 stays LIVE over it and its sole fail-open
+# boundary marker is a real directive rather than a dead one. `PLR0911` alone is
+# waived: `_check_segment` returns early once per footgun pattern, and
+# collapsing those branches would reshape behavior-critical guard logic that has
+# no test coverage. Same disposition as livespec-driver-claude's `C901` waiver
+# on `no_shadow_ledger.py`.
+".claude/hooks/livespec_footgun_guard.py" = ["PLR0911"]
 # RELOCATED ROW 2/7. Copied verbatim from core's
 # `.claude/skills/overseer/test_*.py` entry. The first six inherit the product
 # `tests/**.py` rationale; the last three are beside-test-specific — SLF001
