@@ -609,6 +609,23 @@ pending.
 **Do not re-run goal 5's acceptance.** It is done, and re-running it by
 `workflow_dispatch` would prove nothing (see the trigger-vs-state lesson below).
 
+> **THE PINNED ADOPTERS WILL USUALLY LOOK ONE RELEASE BEHIND. THAT IS THE LANE
+> WORKING, NOT FAILING — and mistaking it for failure is the single most likely
+> way this settled goal gets reopened by accident.**
+>
+> They advance on a daily `37 6 * * *` cron, and this repo publishes releases
+> more often than daily. At the time of writing both adopters read `v0.13.1`
+> while the latest is already `v0.13.2`, because `v0.13.2` landed after their
+> last pull. Expect the next scheduled run to close that gap, and the one after
+> that to open a new one.
+>
+> The staleness bound is ONE DAY plus GitHub's scheduler lag, and that lag is
+> **wide**: 86–124 min measured on a sibling workflow, but +50 and +52 min on
+> the runs that actually proved this goal. **Never conclude the lane is broken
+> from a snapshot of the pins.** Read the run history instead — a
+> `bump-plugin-pin` run with `event: schedule` and conclusion `success` is the
+> lane working, whatever the pin happens to read at the moment you look.
+
 ### What was left in flight: NOTHING
 
 All this session's PRs are merged — this repo's #149, #157, #159, #160, #165,
