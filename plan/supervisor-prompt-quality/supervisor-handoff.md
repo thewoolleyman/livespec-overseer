@@ -451,6 +451,8 @@ Regenerating this file MUST preserve every entry below.
   pattern can appear in the text it reads is self-triggering, and this
   thread's briefs quote picker strings constantly.
 - Role-level seed corrections live in the sibling charters this file was
-  modeled on: `plan/ship-overseer-to-fleet/supervisor-handoff.md` and
-  `livespec-orchestrator-beads-fabro`
+  modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
+  (archived 2026-07-27 — still the reference exemplar, and still the fixture
+  `tests/prompts/test_generated_supervisor_handoff_contract.py` asserts the
+  generated charter against) and `livespec-orchestrator-beads-fabro`
   `plan/dispatch-claim-liveness/supervisor-handoff.md`.

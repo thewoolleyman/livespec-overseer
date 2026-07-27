@@ -4,9 +4,11 @@
 is finished and archived. Its ledger anchor, epic `overseer-3wt`, is closed.
 
 **Nothing here is actionable.** This file is a RECORD of what this thread
-genuinely completed and — just as importantly — what it did NOT. Every piece of
-remaining overseer work lives in the living successor thread
-**`plan/ship-overseer-to-fleet/`**, anchored by epic **`overseer-hbr`**.
+genuinely completed and — just as importantly — what it did NOT. The work it
+handed on was taken up by the successor thread
+**`plan/archive/ship-overseer-to-fleet/`**, anchored by epic **`overseer-hbr`**
+— which is itself now CLOSED (all six goals met) and archived beside this one,
+on 2026-07-27. Neither thread is live; read both as history.
 
 > **Read this before citing anything below.** This thread's defining lesson is
 > that "shipped" was recorded as TRUE while the plugin was in nobody's hands —
@@ -94,10 +96,12 @@ The plugin is **BUILT but FUNCTIONALLY UNSHIPPED**, the specification is
 **UNVERIFIED at the top of the pyramid**, and release automation is **PARTIAL**.
 
 All of it, plus Phase-2 adopter-family shipping, was handed to
-**`plan/ship-overseer-to-fleet/`** (epic **`overseer-hbr`**) as a six-goal
-definition of done: fleet-wide `supervise-plan` availability; top-of-pyramid e2e
-tests for every scenario WITH the rule enforced; auto-release; auto-install;
-auto-pin-bump; and Phase-2 shipping absorbed into those.
+**`plan/archive/ship-overseer-to-fleet/`** (epic **`overseer-hbr`**) as a
+six-goal definition of done: fleet-wide `supervise-plan` availability;
+top-of-pyramid e2e tests for every scenario WITH the rule enforced;
+auto-release; auto-install; auto-pin-bump; and Phase-2 shipping absorbed into
+those. **All six were met and that thread closed on 2026-07-27**, so the
+sentence above describes the state this thread ENDED in, not the state today.
 
 **Phase-2 / productization is explicitly OUT OF SCOPE of this thread.** Its
 former anchor `overseer-19s` is closed as *superseded* — not delivered — so
