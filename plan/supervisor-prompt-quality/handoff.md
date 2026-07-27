@@ -9,7 +9,9 @@ supervisor-handoff build-out (homelab PR #37, commit `862b4d0`).
 tenant) — the full quality bar for what `supervise-plan` GENERATES,
 carried in that epic's description. This thread TIES TOGETHER the
 existing generated-prompt items so the maintainer can execute them in
-order; it does not fork their content.
+order; it does not fork their content. After the groom the anchor is
+the filed replacement-slice set rather than the epic id, since the
+groom closes the epic as regroomed-out.
 
 ## The item map (ids cited read-only)
 
@@ -19,45 +21,50 @@ order; it does not fork their content.
   gate; placeholder discipline; classified-remedy preconditions
   (parameterized spawn posture); wait-channel bootstrap; adopter
   parameterization; the full anti-stall playbook beyond the two stall
-  modes.
-- **`overseer-hbr.16`** (S7, P1) — the FLOOR: both stall modes
-  (no-idle/no-silent-block AND never-end-a-turn-without-an-armed-
-  re-entry) with fixtures that tell them apart, asserted over GENERATED
-  output, each demonstrated RED. Unchanged by this thread. NOTE: beads
-  forbids task-blocks-epic edges, so `overseer-byvxlp`'s dependency on
-  this item and on `overseer-hbr.4` is PROSE-ONLY — re-check both
-  before calling the epic ready to groom-execute.
-- **`overseer-hbr.4`** (bug) — executable-commands bar; its fix already
-  exists on branch `docs/dod-corrections-pr78` (commit `086ee3a`) and
-  is candidate template wording.
-- **`overseer-hbr.15`** (S6, P1) — goal-1 acceptance outside this repo;
-  depends on S4 + S7 in the ledger. This thread strengthens the bar it
-  tests but does NOT gate it.
+  modes. Will be CLOSED as regroomed-out by its own groom, replaced by
+  the filed slices; this thread remains the single tie-together.
+- **`overseer-hbr.16`** (S7, P1) — **CLOSED 2026-07-26.** The FLOOR:
+  both stall modes (no-idle/no-silent-block AND
+  never-end-a-turn-without-an-armed-re-entry) with fixtures that tell
+  them apart, asserted over GENERATED output, each demonstrated RED.
+  NOTE: beads forbids task-blocks-epic edges, so `overseer-byvxlp`'s
+  dependency on this item and on `overseer-hbr.4` was PROSE-ONLY and
+  encodable nowhere. That re-check was run 2026-07-26 and the floor is
+  discharged — but this sentence is itself a claim with a timestamp, so
+  re-run it rather than trusting it.
+- **`overseer-hbr.4`** (bug) — **CLOSED 2026-07-26.**
+  Executable-commands bar. Both clauses discharged; the second by
+  PR #120 + PR #123.
+- **`overseer-hbr.15`** (S6, P1) — **CLOSED 2026-07-26.** Goal-1
+  acceptance outside this repo. This thread strengthens the bar it
+  tests but did NOT gate it.
 - **`overseer-fitvmo`** — CLOSED 2026-07-26 as superseded (stall mode 1
   restated in `overseer-hbr.16`; broader bar in `overseer-byvxlp`);
   the close reason carries the full mapping.
 
 ## Execution order (the reason this thread exists)
 
-1. **Land `overseer-hbr.4`'s existing fix** (`docs/dod-corrections-pr78`
-   @ `086ee3a`) — smallest step, and it is the corrected exemplar the
-   template wording draws from.
-2. **Execute `overseer-hbr.16`** (day-1-startable per its own text) —
-   both stall modes + the tell-them-apart fixtures over generated
-   output.
-3. **Groom `overseer-byvxlp`** (the maintainer owns the cut).
-   Indicative slice shape, not a decision: (a) template rewrite to the
-   iteration-stable two-layer form carrying the full playbook; (b) the
-   cold-open generation gate + placeholder-substitution lint wired into
-   CI and demonstrated RED under injected defects; (c) classified-remedy
-   preconditions incl. the parameterized missing-worker spawn posture +
-   wait-channel bootstrap; (d) adopter parameterization, proven by one
-   adopter-flavored generation (homelab's conventions: `main`,
-   squash-merge, POSIX hooks, its own credential wrapper, dispatch-off);
-   (e) regenerate a REAL thread's charter in this repo with Corrections
-   preserved, passing the gate.
-4. **`overseer-hbr.15`** then closes goal 1 on its own ledger
-   dependencies.
+**Re-measured against the ledger 2026-07-26.** The prose-only floor is
+DISCHARGED — `overseer-hbr.4` (executable-commands bar) and
+`overseer-hbr.16` (both stall modes + tell-them-apart fixtures) are
+both CLOSED, and `overseer-hbr.15` (goal-1 acceptance) is CLOSED too.
+beads forbids task-blocks-epic edges, so those dependencies were never
+encodable and had to be re-checked by hand; this line records that
+re-check, and a future reader should re-run it rather than trusting
+this sentence. The three steps this section used to list first, second
+and fourth were all already discharged when it still described them as
+pending — a filed item is a claim with a timestamp.
+
+1. **Groom `overseer-byvxlp`** (the maintainer owns the cut), folding
+   `overseer-7lv`'s R1–R5 residue in as replacement slices — one
+   anchor, no duplication.
+2. **Drain the approved slices by dependency layer.**
+
+Note that the groom operation CLOSES `overseer-byvxlp` itself as
+regroomed-out at filing time (`file_approved_slices` ends with
+`close_regroomed_out`, whose reason string is machine-generated and
+cannot carry narrative). So the epic closing is NOT the archive trigger
+it used to be — see Discipline.
 
 ## Reference material (all verifiable, none of it status)
 
@@ -80,5 +87,6 @@ order; it does not fork their content.
 
 Fleet-standard: worktree → PR → rebase-merge; `mise exec -- git …`;
 never `--no-verify`; status only from the ledger via the fleet
-credential wrapper; this thread archives when `overseer-byvxlp`
-closes.
+credential wrapper; this thread archives when the LAST replacement
+slice from `overseer-byvxlp`'s groom closes — not when the epic itself
+closes, because the groom closes it as regroomed-out at filing time.
