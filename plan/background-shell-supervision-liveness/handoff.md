@@ -41,15 +41,43 @@ blocker: dispatch refuses on a stale plugin build.**
 
 `drive --action impl:overseer-4xfmez.1` fails with dispatcher exit code 3:
 
-> `dispatcher plugin build is stale; executing build c878ea43f8cd predates
-> latest release c53fd50e58b6.`
+> `dispatcher plugin build is stale; executing build <bound> predates latest
+> release <latest>.`
 
 **This is NOT a human valve** — nothing awaits a decision. It is the running
 session's plugin binding being stale; skill bindings are fixed for a session's
-lifetime, so a session cannot self-remediate. **A session RESTART fixes it**:
-the project tracks the marketplace with no version pin and the SessionStart
-hook runs `claude plugin update`, so a fresh session binds to current. A bare
-`claude plugin update` from inside the stale session does NOT help.
+lifetime, so a session cannot self-remediate, and a bare `claude plugin update`
+from inside the stale session does NOT help.
+
+**One restart is NOT reliably enough — this was measured, not assumed.**
+A second session hit the identical gate one build later (bound `4b1339f75053`,
+latest `c53fd50e58b6`). The mechanism: the SessionStart hook's `claude plugin
+update` rewrites the project-scope `version` in
+`~/.claude/plugins/installed_plugins.json`, but the session has ALREADY
+resolved its skill binding to the pre-update build — the hook says so itself,
+`Restart to apply changes`. So a session whose hook performed an update runs
+the OLD build for its whole life, and only the session after it binds current.
+Verified on 2026-07-28: the `/data/projects/livespec-overseer` scope recorded
+`c53fd50e58b6` while the live skill base directory was still under
+`…/cache/…/4b1339f75053/`.
+
+**Pre-flight check — do this BEFORE dispatching, it is free.** Compare the
+build hash in the `drive` skill's own base directory against the project-scope
+version:
+
+```bash
+python3 -c "
+import json
+d=json.load(open('/home/ubuntu/.claude/plugins/installed_plugins.json'))
+for e in d['plugins']['livespec-orchestrator-beads-fabro@livespec-orchestrator-beads-fabro']:
+    if e.get('scopePath') == '/data/projects/livespec-overseer': print(e['version'])
+"
+```
+
+If that value is not the build hash in the skill's base-directory path, you are
+stale — restart instead of dispatching. The SessionStart banner is the same
+signal read live: `already at the latest version` means you are good; `updated
+from X to Y … Restart to apply changes` means THIS session is X and is stale.
 
 **Do not route around it** by hand-invoking a newer build's `dispatcher.py`
 from the plugin cache. Newer builds are on disk and do run, but substituting
@@ -57,15 +85,16 @@ your own build-picking for the harness's resolution defeats a guard that exists
 to keep stale factory logic away from the ledger — the same class of move as
 `--no-verify`.
 
-The gate refuses before acting, so nothing was left half-done: verified after
-two attempts that `.1` is still `OPEN`, `.1` and `.2` are both ready with no
-blockers, `.3`–`.6` are still correctly blocked behind the layering, and no
-factory worktree or branch was created.
+The gate refuses before acting, so nothing was left half-done — verified across
+both sessions' attempts (four total): `.1` is still `OPEN`, `.1` and `.2` are
+both ready with no blockers, `.3`–`.6` are still correctly blocked behind the
+layering, and no factory worktree or branch was created.
 
 ### So, on cold open
 
-If you are a RESTARTED session, the gate is probably already cleared — re-run
-step e below. Otherwise you are waiting on a restart, not on a human.
+Run the pre-flight check above FIRST. If it is clean, re-run step e. If it is
+stale, you are waiting on another restart, not on a human — say so and stop;
+do not burn the session re-deriving this.
 
 **Step e, when unblocked:** dispatch `overseer-4xfmez.1` first (P1, independent
 of the lanes), then `.2` (lane A foundations, which `.3`–`.6` depend on), via
