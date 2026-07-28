@@ -19,11 +19,14 @@ changes"), so it goes through the widened `livespec:propose-change` first;
 the narrow instance then implements through `impl:overseer-vyjkzw` and the
 widened lanes through sibling work-items under epic `overseer-4xfmez`.
 
-Wave 1 of the §9 gate (three reviewers so far — Fable autonomy, Fable
-safety, GPT-Codex autonomy — run from the supervisor seat over the
-PRE-note artifacts) produced 40 findings. Every one was verified against
-source by this note's author; the per-finding log, including the findings
-REFUTED by verification, is at
+Wave 1 of the §9 gate (four reviews so far — Fable autonomy, Fable
+safety, GPT-Codex autonomy, and the Fable code-truth claim table — run
+from the supervisor seat over the PRE-note artifacts) produced 40
+adversarial findings plus a 13-claim verification table (12/13 CONFIRMED
+character-for-character; its half-refutation of the mtime inventory and
+its extra findings are folded in below). Every finding was verified
+against source by this note's author; the per-finding log, including the
+findings REFUTED by verification, is at
 `tmp/overseer/background-shell-supervision-liveness/reviews/wave1-verification.md`.
 The material consequences are folded in below and marked "(wave 1)" or by
 finding id where load-bearing: the dead-predecessor voiding candidate is
@@ -66,16 +69,28 @@ re-verified this session against the acting daemon's log).
   branch (`:241`) preempted the threshold branch — no round;
 - while the session generated, the busy branch (`:198`) preempted it — no
   round — and `void_stale_blocked` (called from exactly one site, `:206`)
-  voided the now-stale declaration, **31 times** between 2026-07-25T21:28:38Z
-  and 2026-07-28T03:15:26Z, at declaration ages from 121 s to 80 728 s
-  (~22.4 h); the session then re-declared and the cycle repeated.
+  voided the now-stale declaration, **32 times and counting** (first
+  2026-07-25T21:28:38Z; the 32nd landed 2026-07-28T03:39:32Z, AFTER the
+  handoff was committed — the trap is live, and the handoff's Correction 2
+  "voided and not re-declared" is already stale), at declaration ages from
+  121 s to 80 728 s (~22.4 h); the session then re-declared and the cycle
+  repeated.
 
-The track was never in any third state, so no round could open in either
-phase. It burned to 22% with no wrap-up ever sent. Note what this incident is
-NOT: it is not the "idle blocked is never voided" permanence the first brief
-described. The declaration WAS voided, repeatedly. The trap is the precedence
-of TWO branches over the threshold branch, and it needs no permanence at all.
-A fix aimed only at voiding behavior misses it entirely.
+Across 32 observed cycles over ~54 hours the track was never in a third
+state, so no round could open in either phase; it burned to 22% with no
+wrap-up ever sent. Two framing points matter (the second from the
+code-truth pass). First, this is NOT the "idle blocked is never voided"
+permanence the first brief described — the declaration WAS voided,
+repeatedly; the trap is the precedence of TWO branches over the threshold
+branch, and it needs no permanence at all, so a fix aimed only at voiding
+behavior misses it entirely. Second, "no round can ever open" is
+EMPIRICAL about this track's observed pattern, not structural: a
+void-then-idle-WITHOUT-redeclare tick would fall through to the threshold
+branch (`:296`) and open a round — this session simply always re-declared
+before idling, 32 times running. That empirical character is an argument
+FOR outcome-keyed detection rather than against it: round-starvation
+times the outcome and self-clears the moment a round does open, so it is
+correct whether or not any particular cycle happens to break.
 
 **The unifying measurement.** Exactly one signal in the daemon carries a
 duration — `InjectState.idle_since` (`_supervisor_records.py:43`), the
@@ -102,7 +117,7 @@ out explicitly where it appears.
 
 | Fact | Where it already lives |
 |---|---|
-| Every declaration's age | `TrackState.mtime` (`signals.py:357`), returned by every `read_state` call; used today for exactly two purposes (the 900 s ACK staleness, the 120 s void grace) |
+| Every declaration's age | `TrackState.mtime` (`signals.py:357`), returned by every `read_state` call; FOUR consumers today (code-truth claim 7 corrected an earlier "exactly two"): the 900 s ACK staleness (`_supervisor_observe.py:243`), the 120 s void grace (`_supervisor_state.py:62,112`), **the restart interlock itself** — `ready_valid` requires `state.mtime > injection_stamp` (`signals.py:423`) — and the stale-ACK age `alert_non_responder` quotes (`_supervisor_nudge.py:146`) |
 | A continuous in-memory episode | `InjectState.idle_since` (`_supervisor_records.py:43`), advanced in `observe` (`_supervisor_observe.py:222–226`); the ONLY `_since` in the package |
 | Remaining context, sticky across unknown reads | `effective_ctx` (`_supervisor_observe.py:36`), storing `InjectState.last_ctx` |
 | Whether a round is open | the injection stamp (`registry.read_injection_stamp`); stamp present ⇔ round open, deleted at round close |
@@ -121,6 +136,22 @@ because the evidence already splits that way:
    declared has an age for free: `now - TrackState.mtime`. Durable across
    daemon restarts, zero new state, already read on every tick. Everything
    lane B needs rides on this.
+
+   **Interlock adjacency, stated because the mtime inventory sits beside
+   the restart authorization (code-truth claim 7).** The most consequential
+   existing mtime consumer is `ready_valid` itself: `state.mtime >
+   injection_stamp` (`signals.py:423`) is the this-round freshness half of
+   the restart interlock. Lane A's age reinterpretation cannot perturb it,
+   and the reason is structural, not incidental: every age use in this
+   note is READ-ONLY — nothing in lanes A or B writes, refreshes, or
+   deletes a declaration on the basis of its age (the one candidate that
+   would have, B3, is withdrawn; the only voids remain
+   generation-authorized, unchanged) — so the mtime ordering `ready_valid`
+   compares is never touched by anything this note adds. Any future lane
+   that mutates a declaration file must re-derive this argument before it
+   ships. Under the full-citizenship ruling the same statement covers the
+   SUPERVISOR's state file verbatim: its `ready` certifies through the
+   identical `mtime > stamp` rule under its own key (lane C).
 2. **Observed conditions: one in-memory episode clock per condition class.**
    For conditions with no disk footprint (a shell episode, a
    below-threshold spell, an idle spell), `InjectState` carries a
@@ -282,7 +313,11 @@ attention    = starving_now
   genuinely cannot open — which is precisely the defect.
 - `eff_ctx is None` never counts (the existing fail-soft rule verbatim);
   the sticky last-known value participates exactly as it already does in
-  the wrap-up branch.
+  the wrap-up branch, bounded by the staleness window below. The `is not
+  None` conjunct stays EXPLICIT in every governed restatement — the
+  handoff's abbreviation of the ratified predicate dropped it (code-truth
+  claim 5), and an implementer following the abbreviation would let a
+  never-known track fire.
 - Floor: **the same 2-hour floor as the ratified instance**
   (`STARVATION_ATTENTION_AFTER = 7200.0`), for the same reason — long
   genuine work finishes inside it, both incidents ran an order of magnitude
@@ -616,9 +651,12 @@ rather than by parallel implementation:
   PR discipline, which is exactly how spec requires that artifact to land
   — one substitution, no new prose obligations.
 - **Restart**: the identical interlock — a supervisor-round stamp, the
-  supervisor's own fresh `ready`, strict mtime ordering, idle/settled/
-  identity gates — then the same atomic respawn PRESERVING the session
-  name: `claude --dangerously-skip-permissions -n <topic>-supervisor`,
+  supervisor's own fresh `ready`, strict mtime ordering (LITERALLY the
+  same `ready_valid` — `state.mtime > injection_stamp`, `signals.py:423` —
+  evaluated under the `(repo, <topic>-supervisor)` key, per lane A's
+  interlock-adjacency statement), idle/settled/identity gates — then the
+  same atomic respawn PRESERVING the session name:
+  `claude --dangerously-skip-permissions -n <topic>-supervisor`,
   resume line `read <repo>/plan/<topic>/supervisor-handoff.md and follow
   it`. Runtime dispatch applies unchanged should a Codex supervisor exist.
   One admission guard: the RESPAWN (not the wrap-up) additionally requires
@@ -715,10 +753,13 @@ handoff's §8 resolves the adjacency.
 
 **Accepted residual (wave 1, autonomy #12).** Pair discovery keys on the
 WORKER's plan directory, so a supervisor whose plan is archived — or whose
-worker was never assigned — stays undiscoverable; the census drift (11 tmux
-`-supervisor` sessions vs 10 registry entries at handoff time, 9 now) lives
-at exactly those orphan edges. Orphan supervisors are operator hygiene, not
-supervision of an active track; recorded rather than engineered around.
+worker was never assigned — stays undiscoverable; the census drift lives at
+exactly those orphan edges (11 tmux `-supervisor` sessions vs 10 registry
+entries at handoff time; 9 tmux at this note's first draft; 8 registry
+supervisors of 26 live sessions, two at `status: shell`, at the code-truth
+pass — the numbers churn, the structural point never moves). Orphan
+supervisors are operator hygiene, not supervision of an active track;
+recorded rather than engineered around.
 
 ## Lane D — track-level progress
 
@@ -959,7 +1000,7 @@ owns, so nothing in this note ever converts an alert into a prompt.
    the idle cascade where the nudge/wrap-up machinery could keystroke into
    it. Escalate-by-age (B2) and the dead-predecessor proof (B3) replace it.
 2. **Brief 1's "permanent by construction" mechanism for incident 2 is
-   wrong in the direction that matters**: the log shows 31 voids — the
+   wrong in the direction that matters**: the log shows 32 voids — the
    declaration is repeatedly retired and re-made, and the trap is branch
    precedence, not permanence. This is why lane B alone cannot close
    incident 2 and the round-starvation clause exists.
@@ -1030,12 +1071,17 @@ Route through the WIDENED `livespec:propose-change` before any product code
   edge-triggering, clear-and-re-arm, and worker-no-act guarantees.
   Supervisor entities need no new membership entry: as full citizens their
   rows enter attention through the SAME statuses as workers.
-- **Wording obligation carried into the widened proposal** (wave 1, safety
-  #15): the filed EDIT 2's "a genuine build is never reported as a problem"
-  is a falsifiable MUST — no finite floor satisfies "never". The widened
-  wording says the floor is long enough that ordinary long-running
+- **Wording obligations carried into the widened proposal.** (i) Wave-1
+  safety #15: the filed EDIT 2's "a genuine build is never reported as a
+  problem" is a falsifiable MUST — no finite floor satisfies "never". The
+  widened wording says the floor is long enough that ordinary long-running
   background work COMPLETES inside it, and accepts the >floor genuine-build
   residual explicitly (one report-only line whose text is literally true).
+  (ii) Code-truth extra finding: the filed Motivation ¶4 misquotes the
+  spec's scope sentence as placing the "status vocabulary" outside the
+  governed contract — spec.md says "COMMAND vocabulary". The substantive
+  justification survives via "the pane's track table, its columns", but
+  the widened proposal must correct the load-bearing quote.
 
 Explicitly unchanged: the cardinal rule, the supervision round, the
 escalating wrap-up, the restart interlock, the state-file grammar, and
@@ -1132,7 +1178,11 @@ Beyond `policy-options.md` §6's nine for the ratified instance:
     constraints
     (`test_needs_attention_predicate_covers_every_attention_status`,
     `test_ctx_unknown_never_injects`) grown, not weakened, by the
-    implementing slice.
+    implementing slice. Naming nuance (code-truth claim 13): the fixture's
+    ids read `overseer.test_supervisor.*`, but the functions live in
+    `test_supervisor_tmux_column_annotates.py` and
+    `test_supervisor_warned_stamp_written.py` respectively — do not go
+    looking for them in a `test_supervisor.py`.
 
 Gate: `uv run pytest overseer -q`, then `just check`. No existing check may
 be weakened, removed, skipped, or exempted.
