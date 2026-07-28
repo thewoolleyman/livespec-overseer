@@ -110,10 +110,12 @@ def do_restart(
     so the claude command is never issued to a codex pane; the sabotage-verified
     guard test (``…never issues the claude command``) pins that the routing holds.
 
-    Every tmux step is a HARD GATE (B5). If ``respawn-pane`` fails, or the pane
-    never becomes a live Claude, the daemon SURFACES the failure and RETURNS
-    WITHOUT closing the round — so the session's declaration is preserved and the
-    restart is retried, never silently destroyed.
+    Every tmux step is a HARD GATE (B5). If ``respawn-pane`` fails, the daemon
+    SURFACES the failure and RETURNS WITHOUT closing the round — nothing was killed,
+    so the session's declaration is preserved and the restart is retried. If the
+    respawn succeeds but the recognition poll times out, the one kill authorization
+    has already been consumed: the daemon keeps the open round but marks
+    ``resume_pending`` so the next tick can recover without a second respawn.
 
     **The submit is SELF-HEALING (R1, 2026-07-18).** The round is closed (state file
     deleted + injection stamp cleared — B4) ONLY when the resume line actually SUBMITS.
@@ -144,12 +146,13 @@ def do_restart(
         )
         return
     if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
+        registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
         sup.alert(
             repo=track.repo,
             topic=track.topic,
             session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
-            message="respawned pane never became Claude; keeping the ready declaration",
+            message="respawned pane never became Claude; will retry resume without respawn",
         )
         return
     # Wait for the fresh TUI to finish its FIRST paint and render a ready (empty)
