@@ -48,6 +48,27 @@ behavior — that is normal precedence, not a warning about these files.
   pre-push, and CI gate).
 - `just check-static` — fastest-first fail-fast lint/format/types subset.
 
+## The Codex plugin surface is NESTED inside `.claude-plugin/`
+
+The Codex surface is a `.codex-plugin/` directory **inside** the existing
+`.claude-plugin/`, which hosts it — **not** a repo-root `.codex-plugin/`, a
+structure that exists in **no** fleet repo. Measured 2026-07-28:
+`livespec/.claude-plugin/.codex-plugin/plugin.json` and
+`livespec-orchestrator-beads-fabro/.claude-plugin/.codex-plugin/{plugin.json,skills/<op>/SKILL.md}`.
+
+The nested manifest mirrors its Claude sibling's `name`, `version` and
+`description` and adds `"skills": "./.codex-plugin/skills/"`; the two are kept
+in **lockstep**. Each operation gets a thin binding whose frontmatter is `name`
++ `description` only (no `allowed-tools`), and whose body resolves
+`$PLUGIN_ROOT` **explicitly** — Codex does not substitute a plugin-root token
+into SKILL prose. Both harnesses read the same harness-neutral `prose/`.
+`marketplace.json` needs no codex entry: its `source` is already
+`./.claude-plugin`, which contains the nested dir.
+
+`livespec-driver-codex` is a **different repo shape** (repo-root
+`.agents/plugins/marketplace.json`, no `.claude-plugin/`) and is **not** a model
+to copy.
+
 ## Working discipline
 
 Fleet-standard rules apply: every tracked-file change goes worktree → PR →
