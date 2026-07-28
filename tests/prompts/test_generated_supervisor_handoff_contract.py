@@ -35,6 +35,7 @@ _GENERATOR_PROSE = _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md"
 # must satisfy the requirement list below; that list lives in this module and
 # is what actually holds the line.
 _EXEMPLAR_CANDIDATES = (
+    _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md",
     _REPO_ROOT / "plan" / "ship-overseer-to-fleet" / "supervisor-handoff.md",
     _REPO_ROOT / "plan" / "archive" / "ship-overseer-to-fleet" / "supervisor-handoff.md",
 )
@@ -71,12 +72,17 @@ _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
     # tmux session to that reader, and killing it stops supervision for the
     # WHOLE fleet, not for the one track the charter governs.
     ("acting-daemon-prohibition", ("never kill the acting overseer daemon",)),
-    # `.4`'s bar: RUNNABLE inspection commands, not prose describing them.
-    ("executable-capture-pane", ("capture-pane", "-S -40")),
+    # `.4`'s bar: RUNNABLE inspection commands, not prose describing them. This
+    # is deliberately the visible-only watcher capture, not the unrelated
+    # scrollback-fed inspect command.
+    ("executable-capture-pane", ("capture-pane -p -t", "visible only")),
     # Proving the pane holds a live agent needs a real process-tree command.
     ("executable-live-agent-precondition", ("pane_pid",)),
     # Repo containment must resolve a real path.
     ("executable-repo-containment", ("readlink -f",)),
+    ("watcher-wait-channel-bootstrap", ("wait_channel", ": >")),
+    ("watcher-wait-channel-fed", ("append", "milestone")),
+    ("watcher-expiry-rearms-by-mechanism", ("WAKE:", "RE-ARM NOW")),
 )
 
 # Patterns whose PRESENCE is the defect, rather than whose absence is.
@@ -90,6 +96,8 @@ _BANNED: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("cwd-relative-plan-test", _CWD_RELATIVE_TEST_D),
     ("one-shot-send-keys-enter", _ONE_SHOT_SEND_KEYS),
 )
+
+_PICKER_FOOTER = re.compile(r"^[ \t]*Enter to (select|confirm)[ \t]*(·.*)?$", re.MULTILINE)
 
 
 def missing_requirements(*, charter: str) -> list[str]:
@@ -106,7 +114,16 @@ def missing_requirements(*, charter: str) -> list[str]:
         if not all(needle.lower() in lowered for needle in needles)
     ]
     missing.extend(name for name, pattern in _BANNED if pattern.search(charter))
+    guard_at = charter.find('[ -z "$pane" ]')
+    diff_at = charter.find('if [ "$pane" = "$prev" ]')
+    if guard_at == -1 or diff_at == -1 or diff_at < guard_at:
+        missing.append("watcher-empty-capture-guard")
     return missing
+
+
+def has_picker_footer(*, capture: str) -> bool:
+    """Return whether a visible pane capture contains a real picker footer."""
+    return _PICKER_FOOTER.search(capture) is not None
 
 
 def test_the_corrected_exemplar_satisfies_the_whole_contract():
@@ -266,6 +283,62 @@ def test_the_one_shot_send_keys_enter_form_is_rejected():
     assert "one-shot-send-keys-enter" in missing_requirements(charter=charter)
 
 
+def test_picker_footer_detection_rejects_a_wrapped_quote():
+    """A start-only anchor matches wrapped prose whose continuation begins with
+    the footer words. A real footer owns the full line, including the end."""
+    capture = """
+    The charter quotes this deliberately: the terminal can wrap before
+    Enter to select and then keep narrating why that quoted footer is unsafe.
+    """
+    assert not has_picker_footer(capture=capture)
+
+
+def test_picker_footer_detection_accepts_both_footer_forms():
+    assert has_picker_footer(capture="Enter to select")
+    assert has_picker_footer(capture="Enter to confirm · Esc to cancel")
+
+
+def test_a_watcher_without_wait_channel_bootstrap_is_rejected():
+    charter = """
+    # Supervisor Handoff - demo
+    tmux capture-pane -p -t demo # visible only
+    [ -z "$pane" ] && { echo "WAKE: pane unreadable"; exit 0; } # before the diff
+    pane_pid=$(tmux display-message -p -t demo '#{pane_pid}')
+    readlink -f "$pane_cwd"
+    wait_channel=/tmp/worker-status.log
+    Tell the worker to append to it at every milestone.
+    echo "WAKE: watcher ceiling reached — worker still busy, RE-ARM NOW"
+    ## No idle, no silent block
+    A conflicting lane is not a blocked state; stand down on that action only.
+    ## Never end a turn without an armed re-entry
+    Arm a background pane watcher.
+    ## AskUserQuestion
+    Recommended first. Never pass --no-verify. Never kill the acting overseer daemon.
+    """
+    assert "watcher-wait-channel-bootstrap" in missing_requirements(charter=charter)
+
+
+def test_a_watcher_whose_expiry_only_echoes_intention_is_rejected():
+    charter = """
+    # Supervisor Handoff - demo
+    tmux capture-pane -p -t demo # visible only
+    [ -z "$pane" ] && { echo "WAKE: pane unreadable"; exit 0; } # before the diff
+    pane_pid=$(tmux display-message -p -t demo '#{pane_pid}')
+    readlink -f "$pane_cwd"
+    wait_channel=/tmp/worker-status.log
+    : > "$wait_channel"
+    Tell the worker to append to it at every milestone.
+    echo "watcher ceiling reached — worker still busy, re-arm"
+    ## No idle, no silent block
+    A conflicting lane is not a blocked state; stand down on that action only.
+    ## Never end a turn without an armed re-entry
+    Arm a background pane watcher.
+    ## AskUserQuestion
+    Recommended first. Never pass --no-verify. Never kill the acting overseer daemon.
+    """
+    assert "watcher-expiry-rearms-by-mechanism" in missing_requirements(charter=charter)
+
+
 def test_a_charter_with_no_picker_rule_is_rejected():
     """A charter that never says maintainer-facing actions are AskUserQuestion
     calls with a recommendation produces a supervisor that asks in prose — which
@@ -338,7 +411,13 @@ def test_the_control_a_fully_conformant_charter_passes():
     pane_pid=$(tmux display-message -p -t demo '#{pane_pid}')
     case "$(readlink -f "$pane_cwd")" in /data/projects/demo|/data/projects/demo/*) ;; esac
     ## How to inspect and drive
-    tmux capture-pane -p -t demo -S -40
+    tmux capture-pane -p -t demo # visible only
+    [ -z "$pane" ] && { echo "WAKE: pane unreadable"; exit 0; } # before the diff
+    if [ "$pane" = "$prev" ]; then stable=$((stable+1)); else stable=0; prev="$pane"; fi
+    wait_channel=/tmp/worker-status.log
+    : > "$wait_channel"
+    Tell the worker to append to it at every milestone.
+    echo "WAKE: watcher ceiling reached — worker still busy, RE-ARM NOW"
     ## No idle, no silent block
     A conflicting lane owned by another track is NOT a blocked state. Stand down
     on that action only; enumerate the rest; drive the next safe action.

@@ -152,21 +152,22 @@ you are wrong.
 Every command in this section must be COPY-PASTEABLE as written. Emit the
 commands themselves, not descriptions of them.
 
-Inspect read-only — last 40 lines of the worker pane:
+Inspect read-only — a scrollback sample plus the visible worker pane:
 
 ```sh
 tmux capture-pane -p -t <worker-session> -S -40
 ```
 
-`-S -40` starts 40 lines back in history. Do NOT pipe to `tail -N` — `-N` is a
+`-S -40` starts 40 lines back in history and then includes the entire visible
+pane. It is NOT "the last 40 lines." Do NOT pipe to `tail -N` — `-N` is a
 placeholder and `tail` rejects it.
 
 Short instruction — send the text, VERIFY, then send Enter SEPARATELY:
 
 ```sh
 tmux send-keys -t <worker-session> -- '<one line>'
-tmux capture-pane -p -t <worker-session> -S -10   # confirm it landed
-tmux send-keys -t <worker-session> Enter          # only after verifying
+tmux capture-pane -p -t <worker-session> | tail -8   # confirm it landed
+tmux send-keys -t <worker-session> Enter             # only after verifying
 ```
 
 Do NOT emit the one-shot `… -- '<line>' Enter` form. Measured against a live
@@ -179,8 +180,8 @@ Longer text — load from a file, paste, VERIFY, then Enter as a separate step:
 ```sh
 tmux load-buffer -b sup /tmp/msg.txt
 tmux paste-buffer -b sup -t <worker-session>
-tmux capture-pane -p -t <worker-session> -S -20   # confirm it landed
-tmux send-keys -t <worker-session> Enter          # only after verifying
+tmux capture-pane -p -t <worker-session> | tail -8   # confirm it landed
+tmux send-keys -t <worker-session> Enter             # only after verifying
 ```
 
 Idle plus queued input means STUCK, not idle. Never name a variable TMUX, and
@@ -235,26 +236,42 @@ abandonment. Shipping only the first rule leaves the second stall fleet-wide.
 
 Before ending ANY turn while the worker is mid-flight, ARM a re-entry — a
 background pane watcher is the primary mechanism, a long `ScheduleWakeup` (1200s+)
-only a backstop:
+only a backstop. Create any named wait channel before relying on it, and tell the
+worker what feeds it; for a file channel, create it with `mkdir -p` and `: >`,
+then instruct the worker to append to it at every milestone.
 
 ```sh
-prev=""; stable=0
-for i in $(seq 1 180); do            # ~60 min ceiling, then give up loudly
+wait_channel=<absolute-target-repo>/tmp/overseer/<topic>/worker-status.log
+mkdir -p "$(dirname "$wait_channel")"
+: > "$wait_channel"
+# Tell the worker: append one line to "$wait_channel" at every milestone.
+
+prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
+for i in $(seq 1 180); do                    # ~60 min ceiling
   sleep 20
-  pane=$(tmux capture-pane -p -t <worker-session> -S -40)
-  case "$pane" in
-    *"Enter to select"*) echo "WAKE: picker open"; exit 0 ;;
-  esac
+  pane=$(tmux capture-pane -p -t <worker-session>)   # visible only
+  [ -z "$pane" ] && { echo "WAKE: pane unreadable — session may be gone"; exit 0; } # before the diff
+  if printf '%s\n' "$pane" | tail -8 \
+       | grep -qE '^[[:space:]]*Enter to (select|confirm)[[:space:]]*(·.*)?$'; then
+    echo "WAKE: picker open"; exit 0
+  fi
   if [ "$pane" = "$prev" ]; then stable=$((stable+1)); else stable=0; prev="$pane"; fi
   if [ "$stable" -ge 3 ]; then echo "WAKE: pane unchanged ~60s — idle"; exit 0; fi
 done
-echo "WAKE: watcher ceiling reached — worker still busy, re-arm"
+echo "WAKE: watcher ceiling reached — worker still busy, RE-ARM NOW"
 ```
 
 Detect busy by pane CHANGE, not by a status string: a working pane renders a
 spinner whose timer ticks every second, so "unchanged across three 20s polls"
-separates busy from idle without depending on TUI wording. The picker check stays
-a string test because `Enter to select` is the picker's own footer.
+separates busy from idle without depending on TUI wording. Use one visible-only
+capture for both the picker test and the pane diff. The picker check stays a
+string test, but it must be scoped to the last visible lines and anchored at BOTH
+ends: a substring scan matches prose that merely quotes `Enter to select`, and a
+start-only anchor can match a wrapped continuation line. A real footer owns the
+whole line and may say either `Enter to select` or `Enter to confirm`.
+
+Expiry is itself a wake. The watcher exits with a `WAKE:` line that says
+`RE-ARM NOW`; do not replace that with an echo of an intention to check later.
 
 ## AskUserQuestion presentation rules
 
