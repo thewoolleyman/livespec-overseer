@@ -2,8 +2,9 @@
 
 **Owning repo:** `livespec-overseer`. **Status: GROOMED 2026-07-28 — six slices
 cut and filed, nothing built, nothing in flight. Admission is OPEN FOR A1 ONLY,
-by an explicit maintainer decision recorded below; A2, B2 and A3 remain held,
-and B1/C1 are not in this tenant at all.**
+by an explicit maintainer decision recorded below; A2, B2 and A3 remain held.
+B1 and C1 are filed in their OWN repos' tenants — `livespec-dev-tooling-3nt9`
+and `livespec-1p31` — not here.**
 
 **Ledger anchor: the epic `overseer-az5nps` is CLOSED.** `groom` regroomed it
 out on 2026-07-28 — that is the operation's normal disposition, not a loss, and
@@ -12,23 +13,62 @@ the maintainer ruled to accept it. The anchor is now the filed slice set below.
 ### The filed slice set — READ THIS BEFORE THE LEDGER
 
 The closed epic's forwarding reason names **only the four local slices**, because
-`groom` files cross-repo slices into their own repo's tenant rather than this
-one. **The two cross-repo ids exist nowhere else in this repository's record, so
-they are written down here or they are lost.** That erasure is the burial failure
-this thread was created to prevent.
+`groom` does not file cross-repo slices into this tenant. **The two cross-repo
+items appear nowhere else in this repository's record, so this table is the only
+place they are linked back to the thread that cut them.** That erasure is the
+burial failure this thread was created to prevent — and it very nearly happened
+twice, since the ids `groom` handed over for them turned out to be unusable
+(see the boxed warning below).
 
 | slice | id | owning repo | blocked by |
 |---|---|---|---|
 | **A1** — record the codex scope supersession in `.livespec.jsonc` without asserting a capability that does not yet exist | `overseer-4km4mj` | `livespec-overseer` | — |
 | **A2** — ship the `.codex-plugin/` surface for `overseer` and `supervise-plan` | `overseer-vyie5q` | `livespec-overseer` | — |
-| **B1** — build the shared codex derive-from-settings module (the `fleet/ensure_plugins.py` twin) | **`overseer-llz4xi`** | **`livespec-dev-tooling`** — minted here, **NOT filed in this tenant** | — |
+| **B1** — build the shared codex derive-from-settings module (the `fleet/ensure_plugins.py` twin) | **`livespec-dev-tooling-3nt9`** — FILED 2026-07-28 (minted id `overseer-llz4xi` is DEAD, see below) | **`livespec-dev-tooling`** | — |
 | **B2** — replace this repo's hard-coded `ensure-codex-plugins` body with the shared delegation | `overseer-vfz5v5` | `livespec-overseer` | **B1** (`sibling_work_item`), A2 |
 | **A3** — flip `harnesses.codex` to `supported`, with a repo-local check that makes the green load-bearing | `overseer-kju6wh` | `livespec-overseer` | A1, A2 |
-| **C1** — adopt the `oh-my-codex #3024` live-session rollout policy | **`overseer-qfnjj6`** | **`livespec`** core — minted here, **NOT filed in this tenant** | — |
+| **C1** — adopt the `oh-my-codex #3024` live-session rollout policy | **`livespec-1p31`** — FILED 2026-07-28 (minted id `overseer-qfnjj6` is DEAD, see below) | **`livespec`** core | — |
 
 B2's cross-repo blocker is not visible to `bd dep tree`, which walks local edges
 only. It is recorded on B2 as
 `non_local_depends_on: [{"kind":"sibling_work_item","repo":"livespec-dev-tooling","work_item_id":"overseer-llz4xi"}]`.
+
+> ### ⚠ B2 IS PERMANENTLY BLOCKED UNTIL THAT POINTER IS REPOINTED
+>
+> **The pointer above names an id that CANNOT EXIST.** `groom.py:196` mints a
+> cross-repo slice's id with the LOCAL tenant's prefix, and bd refuses it at the
+> destination. Measured 2026-07-28, filing B1 into `livespec-dev-tooling`:
+>
+> ```
+> Error: prefix mismatch: database uses 'livespec-dev-tooling-'
+> but ID 'overseer-llz4xi' doesn't match (use --force to override)
+> ```
+>
+> Nothing was created. So B1 was filed under a NATIVE id,
+> **`livespec-dev-tooling-3nt9`**, and B2 still points at the dead one. The
+> sibling lookup fail-closes, and UNKNOWN BLOCKS. Both resolved live, side by
+> side:
+>
+> ```
+> overseer-llz4xi            -> RefStatus(value='unknown')   ← blocks FOREVER
+> livespec-dev-tooling-3nt9  -> RefStatus(value='open')      ← blocks CORRECTLY
+> ```
+>
+> Fail-closed is the CORRECT design (qiqz6b clause 1); the bug is upstream, and
+> is filed as **`bd-ib-a8zi`** (P1). **The repair in THIS repo is one command**,
+> pending maintainer/supervisor vetting because it is a raw metadata write
+> outside every documented `drive` valve:
+>
+> ```bash
+> bd update overseer-vfz5v5 --set-metadata \
+>   'non_local_depends_on=[{"kind":"sibling_work_item","repo":"livespec-dev-tooling","work_item_id":"livespec-dev-tooling-3nt9"}]'
+> ```
+>
+> `--set-metadata` is targeted, so `rank: a2` survives; plain `--metadata`
+> replaces the whole object and would drop it. **The repair UNBLOCKS NOTHING** —
+> B1 is at `backlog`, so B2 stays blocked, correctly, instead of forever.
+>
+> C1 needs no equivalent repair: no local slice depends on it.
 
 ### Current ledger state — read back 2026-07-28, not inferred
 
@@ -81,6 +121,11 @@ direction — that repo owns them, so they are recorded here by id only:
   its Step 3 example omits the required `local_repo` argument, and it never
   mentions `CrossRepoSlice`, the very mechanism that keeps B1 and C1 out of this
   tenant.
+- **`bd-ib-a8zi`** (P1) — `groom.py:196` mints cross-repo ids with the LOCAL
+  tenant prefix, so bd rejects them at the target tenant and any local slice
+  with a cross-repo dep is **permanently blocked**. Found by attempting the
+  groom's own Step 4/5 routing; see the boxed warning above for the measured
+  reproduction and this repo's one-command repair.
 
 Both were hand-filed, so the `bd create` → beads-native `open` hazard DID apply
 (unlike the groom route); both were filed `--no-inherit-labels`, explicitly set
@@ -245,10 +290,13 @@ Two things a cold-open reader should carry into that moment:
   decision and deletes a false `reason` string; it claims no Codex capability.
   Do not let a reviewer demand a live proof it was never scoped to give — that
   proof belongs to **A3**, which is still held.
-- **B1 (`overseer-llz4xi`) and C1 (`overseer-qfnjj6`) are not in this tenant.**
-  They still need filing in `livespec-dev-tooling` and `livespec` respectively,
-  and **B2 cannot honestly complete before B1 does**. Those two filings are
-  outstanding work with no owner in this repo's ledger.
+- **B1 and C1 are FILED, and not in this tenant.** B1 is
+  `livespec-dev-tooling-3nt9` (`livespec-dev-tooling`); C1 is `livespec-1p31`
+  (`livespec` core). Both at `backlog`. Their groom-minted ids
+  (`overseer-llz4xi`, `overseer-qfnjj6`) are DEAD and must not be used to look
+  them up — see the boxed warning near the top.
+- **B2 cannot honestly complete before B1 does**, and its dependency pointer is
+  still dangling pending the one-command repair.
 
 ## Why this thread's supervisor charter needed a workaround — a `supervise-plan` DEFECT, not an omission
 
