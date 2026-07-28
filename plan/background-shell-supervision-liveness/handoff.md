@@ -3,7 +3,7 @@
 > Cold-open handoff. It assumes you have read nothing and remember nothing,
 > and that you may be a different model than the session that wrote it.
 > Everything load-bearing is either stated here or cited by a path named in
-> §6. Do not treat chat history as a source of truth.
+> §5. Do not treat chat history as a source of truth.
 
 ## 1. The primary goal — read this first, it reframes everything else
 
@@ -17,210 +17,179 @@ against:
 
 Two failure modes are SYMMETRIC, and a design that commits either is wrong:
 **stalling silently**, and **surfacing noise** a human cannot act on. Judge
-every candidate against both directions. How the AskUserQuestion clause
-reconciles with the daemon's notify-never-block invariant is settled in the
-research note's cross-cutting section: the daemon owns no decisions and
-never prompts; attended seats do.
+every candidate against both directions. How that reconciles with the
+daemon's notify-never-block invariant is settled in the research note's
+cross-cutting section: the daemon owns no decisions and never prompts;
+attended seats do.
 
-## 2. What this thread is — scope, and the binding ruling
+## 2. Where this thread stands — READ BEFORE DOING ANYTHING
 
-Control-plane supervision liveness, four lanes: **A** duration as a
-first-class primitive; **B** `blocked:` liveness; **C** the supervisor as a
-tracked entity; **D** track-level progress. `shell-prolonged` (§5) is a
-ratified INSTANCE, not the deliverable.
+**The gate is discharged, the maintainer has ruled, and steps a–c are
+LANDED.** The thread is parked at exactly one place: ratification.
 
-**Maintainer ruling, 2026-07-28, BINDING:** supervisor sessions are FULL
-CITIZENS — wrap-up at worker thresholds/bands, ready-gated restart
-preserving the `-supervisor` session name, resume pointer
-`plan/<topic>/supervisor-handoff.md`; and a both-stalled pair triggers a
-guarded supervisor NUDGE (a presented human question suppresses the nudge
-and is surfaced instead). The earlier monitor-and-surface-only stance is
-OVERRULED and survives only as a rejected alternative. The ruling's one
-posture exception — the nudge may paste into a shell-classified supervisor
-under strict guards — must be stated in governed prose at the widening
-step, never hidden in implementation.
-
-## 3. Where the work stands NOW
-
-| Artifact | State |
+| Step | State |
 |---|---|
-| `research/control-plane-liveness.md` | **The design source of truth. On branch `control-plane-liveness-plan` — PR #219, DRAFT, deliberately HELD unmerged.** Investigation complete; ALL relayed §9 gate reviews verified and folded (wave 1: Fable autonomy/safety, Codex autonomy, two independently-convergent code-truth claim tables; wave 2: Fable and Codex act-path safety over lanes C/D). Its status header lists what each wave changed |
-| `tmp/overseer/background-shell-supervision-liveness/reviews/` | The raw review relays + `wave1-verification.md`, the per-finding verification log (scratch, UNTRACKED — its durable conclusions live in the note) |
-| `tmp/overseer/background-shell-supervision-liveness/drafts/` | UNFILED prep, staged while awaiting the gate judgment: `widened-proposal-draft.md` (the full step-7.2 text, decision-sensitive spots marked against the note's open-decisions numbering) and `sibling-work-items-draft.md` (the step-7.3 `bd` filings, dependency-ordered). Verify against the maintainer's batched decisions before filing either — they are prep, not decisions |
-| `research/root-cause.md`, `research/policy-options.md` | Merged, current (policy-options covers the narrow predicate only) |
-| `SPECIFICATION/proposed_changes/background-shell-liveness-attention.md` | FILED narrow (`316d69d`), NOT ratified, NOT yet widened. Wording fixes owed at widening, recorded in the note's governed-clauses section: the falsifiable "never reported" MUST; the status-vs-COMMAND-vocabulary misquote; the "Two edits"/three-labels miscount |
-| This handoff | Landed on master via the wrap-up flow; an identical copy rides PR #219's branch (the rebase-merge will reconcile them cleanly) |
+| §9 adversarial gate | **DISCHARGED** — 8 reviews, two waves, both model families, all verified and folded, zero refutations in the final round |
+| Maintainer's batched decisions | **ALL RULED 2026-07-28** — see §3 |
+| a. Research note landed | **DONE** — PR #219 merged. `research/control-plane-liveness.md` is the design source of truth, on master |
+| b. Widened proposal landed | **DONE** — PR #226 merged. `SPECIFICATION/proposed_changes/background-shell-liveness-attention.md` carries nine edits (six spec.md, three contracts.md), UNRATIFIED |
+| c. Ledger filed | **DONE** — six children under `overseer-4xfmez` (`.1`–`.6`), epic retitled and its scope description widened |
+| d. `/livespec:revise` | **NOT RUN, AND NOT YOURS TO RUN** — ratification is the maintainer's valve; the revise session gets scheduled with the maintainer from the supervisor seat |
+| e. Implementation | **BLOCKED on ratification.** No product code may land before `/livespec:revise` completes |
 
-**Gate state:** the §9 adversarial gate was run by the SUPERVISOR seat
-(never this seat). All relayed reviews are verified and folded; the worker
-report is on PR #219's comment trail. As of this writing the supervisor
-seat was about to judge the gate discharged and take the BATCHED maintainer
-decisions (the note's "Open maintainer decisions", nine items) to the
-maintainer. One item was flagged for ledger-filing CONSENT beyond the plan
-docs: the inherited restart defect (§5 below).
+**So: if you are cold-opening into this thread with nothing new in hand, you
+are waiting on the maintainer's ratification session. Do not run
+`/livespec:revise` yourself, and do not start implementing.** Check the
+ledger and the forge first (§6) in case ratification already happened.
 
-**Restart context:** the previous worker session was wound down by the
-overseer at the 50% line while those decisions were pending. FIRST ACTION
-on cold open: check for anything that arrived after this handoff was
-written — PR #219's comment trail, new files under
-`tmp/overseer/background-shell-supervision-liveness/reviews/`, and the
-ledger anchors (§9) — before doing anything else. If a supervisor relay is
-waiting, it defines your next step; if nothing new exists, you are in §7
-step 1 (awaiting the judgment) and the drafts row above is your prepared
-runway.
+## 3. The rulings — binding, do not relitigate
 
-## 4. Standing HOLDS from the supervisor seat — do not jump them
+Maintainer, 2026-07-28, via `AskUserQuestion`:
 
-1. **PR #219 stays HELD** until the supervisor seat discharges the gate.
-2. **Do NOT widen the filed proposal** until told.
-3. **Do NOT file ledger work-items or touch the epic's scope** until told.
-4. **Do NOT run `/livespec:revise`** — one ratification cycle for the whole
-   widened contract, after the gate and the maintainer's batched decisions.
-5. **Do NOT launch your own §9 reviewers** — the gate runs from the
-   supervisor seat.
+1. **Widening approved** — one ratification cycle for the whole reviewed
+   contract.
+2. **The inherited restart defect is consented for ledger filing** — filed as
+   `overseer-4xfmez.1`.
+3. **All nine recommended defaults accepted verbatim**: starvation floor
+   **7200 s** (the one shared 2 h value); token **`winddown-starved`**;
+   blocked bands **{4 h, 24 h, then daily}**; supervisor entity on the
+   **daemon-wide 50** with **no** per-track override propagation;
+   above-threshold arm **8 h** reusing **`shell-prolonged`**; continuity gap
+   by the **formula** (`gap ≥ 2 × worst-case tick under full pair load`) with
+   **900 s interim**; nudge escalation **N = 2** then the operator line,
+   **Claude-only v1**; daemon self-liveness recorded as a **future separate
+   thread**; dead-supervisor visibility per the side picked in the note.
+4. **The attended-takeover identity-hold guard SHIPS** as a designed guard,
+   not an accepted residual.
 
-The supervisor establishes your state from artifacts (forge, ledger), not
-pane prose. The held PR and its comment trail ARE the report.
+Earlier and still binding: the narrow predicate's **2-hour episode floor**
+and **`shell-prolonged`** token; supervisor sessions are **FULL CITIZENS**
+(the monitor-and-surface-only stance is overruled and survives only as a
+rejected alternative).
 
-## 5. Decisions and findings that BIND the next steps
+## 4. What is TRUE about the code, and must stay true
 
-- **Ratified narrow predicate (do not relitigate):** 2-hour episode floor;
-  `shell-prolonged` (yellow, `ATTENTION_STATUSES`, alert key
-  `prolonged-background-shell`); keep the `eff_ctx is not None` conjunct
-  EXPLICIT in every restatement.
-- **The §2 ruling** (full citizenship + nudge), as elaborated by the note:
-  entity substitution table with the offer leaf excluded; supervisor
-  wrap-up VARIANT (the worker template's commit ritual corrupts pair state
-  under either parameterization — wave-2 blocker); topic-derived pair
-  naming; derivation-level `-supervisor` reservation; canonical-path rule
-  against state-file symlink aliasing; content-immune progress under the
-  directional-evidence principle; Claude-only nudge v1 with
-  consecutive-episode escalation; in-memory nudge bookkeeping (no
-  state-file grammar change); per-track ctx-staleness surface; continuity
-  gap as a formula (900 s interim).
-- **An inherited SHIPPED defect, verified against code** and flagged to the
-  supervisor seat for ledger-filing consent: `_supervisor_restart.py:135-154`
-  — a successful respawn whose recognition poll times out retains
-  declaration+stamp, so one `ready` can authorize a SECOND kill against a
-  successor that never declared. Worker-path today; would extend to
-  supervisors. Fix shape in the note (convert to `resume_pending`,
-  consuming the kill authorization). Track its ledger state — do not
-  re-flag if already filed.
-- **Recorded rejections stand** unless the maintainer reopens them: B3
-  dead-predecessor voiding (withdrawn — `--resume` false-void +  `/clear`
-  blindness); idle-tick blocked voiding; per-session frozen-ctx detection;
-  handoff-mtime freshness ordering (violates non-interference's
-  mtime-independence); the pair-nudge marker token (one-file contention).
+Worker-side action is exactly as suppressed as it is today. Every new
+worker-side obligation in this contract is **report-only**: no shell age,
+prompt shape, timer, declaration age, or context percentage may EVER
+authorize a paste, Enter, respawn, kill, or declaration write against a
+worker. A fresh session-written `ready` remains the SOLE restart
+authorization, restated **per supervised entity** — a worker's `ready` can
+never restart its supervisor, or the reverse.
 
-## 6. Read-first chain
+The acts this contract DOES add are the maintainer-ruled supervisor paths,
+each reusing an already-ratified act shape under its full guard set: the
+supervisor wrap-up and restart are the worker's own machinery under a
+different key, and the pair nudge is the keep-going nudge's act discipline
+under strictly narrower conditions — with its one posture exception (a paste
+may land while the supervisor's only busy evidence is a background command)
+stated in governed prose rather than hidden in implementation.
+
+## 5. Read-first chain
 
 1. This file.
-2. The research note (PR #219 branch) — including its status header, §1
-   tables, clearing table, governed-clauses list, owed tests, and the
-   nine open maintainer decisions.
-3. `reviews/wave1-verification.md` beside the raw relays — the per-finding
-   verdicts, including the findings REFUTED with evidence (keep that
-   discipline: reviews are input-to-verify; your verification wins and the
-   contradiction is recorded).
-4. `research/policy-options.md`, `research/root-cause.md`.
-5. The filed proposal, then `SPECIFICATION/spec.md` + `contracts.md`
-   (especially "Fail-soft posture", "Notify, never block", "The restart
-   interlock" — its item 3 is the mtime>stamp ordering lane A's
-   read-only-age argument protects — and the three sections lane C
-   contradicts as written: restart-interlock naming, wrap-up injection,
-   session-name derivation), `overseer/marker-protocol.md`,
+2. `research/control-plane-liveness.md` (on master) — the design source of
+   truth: four lanes, every rejected alternative with its failure mode, the
+   clearing/re-arm/daemon-restart table, the owed-tests list, and the
+   rulings table.
+3. `SPECIFICATION/proposed_changes/background-shell-liveness-attention.md`
+   (on master) — the widened, UNRATIFIED proposal. Its nine edits are what
+   `/livespec:revise` will accept or reject.
+4. `tmp/overseer/background-shell-supervision-liveness/reviews/` — the raw
+   review relays, `wave1-verification.md`, and `wave3-worker-verification.md`
+   (scratch, UNTRACKED; durable conclusions are already folded into the note).
+5. `research/root-cause.md`, `research/policy-options.md` — the narrow
+   predicate only.
+6. `SPECIFICATION/spec.md` + `contracts.md`, `overseer/marker-protocol.md`,
    `overseer/AGENTS.md`.
-6. Code, cascade order: `_supervisor_observe.py`, `_supervisor_evaluate.py`
-   (resume-retry leg FIRST at :165-167, busy :198, gate/blocked :241,
-   ready :283, threshold :296, offer else-leaf :326, re-arm :385-391),
-   `_supervisor_state.py`, `_supervisor_view.py`, `_supervisor_config.py`
-   (`MARKER_VOID_GRACE` residual :109-111), `_supervisor_records.py`,
-   `_supervisor_offer.py`, `_supervisor_launch.py` (`session_of` returns
-   `track.tmux` first, :52 — the pair-naming trap), `_supervisor_restart.py`
-   (:135-154, the inherited defect), `_supervisor_prompts.py`
-   (`_WRAPUP_BODY`'s hardcoded commit ritual); `signals.py` (`ready_valid`
-   mtime>stamp :423; whole-capture `is_busy` :152-155; `state_path` plain
-   join :339-341); `_supervisor_core.py` (`alert` line-text dedup
-   :281-284); `claude_sessions.py` (`procStart` ticks-since-boot :116,
-   byte-compared :232); `_supervisor_lifecycle.py` (`run_loop` propagates
-   tick exceptions while assuming a nonexistent process supervisor).
+7. Code, cascade order: `_supervisor_observe.py`, `_supervisor_evaluate.py`
+   (resume-retry leg FIRST at `:165-167`, busy `:198`, `void_stale_blocked`
+   `:206`, gate/blocked `:241`, ready `:283`, threshold `:296`, offer
+   else-leaf `:326`, re-arm `:385-391`), `_supervisor_state.py`
+   (`void_if_stale`'s only two call sites are `evaluate:237` and `:244`),
+   `_supervisor_restart.py` (`:135-154`, the filed defect),
+   `_supervisor_launch.py` (`session_of` returns `track.tmux` first, `:52` —
+   the pair-naming trap), `_supervisor_prompts.py` (`_WRAPUP_BODY`'s
+   hardcoded copy DESTINATION), `signals.py` (`ready_valid`'s `mtime > stamp`
+   `:423`; whole-capture `is_busy` `:152-155`; `state_path` plain join
+   `:339-341`), `_supervisor_core.py` (`alert` dedups on full line text),
+   `_supervisor_view.py`, `_supervisor_config.py`, `_supervisor_records.py`,
+   `_supervisor_offer.py`.
 
-## 7. Next actions — exactly one path, gated left to right
+All `file:line` citations above were re-verified against source on
+2026-07-28.
 
-1. **Await/receive the supervisor seat's gate-discharge judgment and the
-   maintainer's batched decisions** on the note's nine open items (+ the
-   ledger consent for the inherited defect). Fold any decision that
-   changes the design into the note first.
-2. **Widen the filed proposal** — the note's "Governed clauses this
-   changes" section IS the widening spec (bounded attention + instances;
-   band escalation amending the edge-trigger sentence; full-citizen
-   supervisor entities; the pair nudge + posture exception + residuals;
-   the canonical-path rule; the derivation-level reservation; the three
-   contradicted sections; the three wording fixes). Amend EXISTING `## `
-   sections only — heading-coverage mechanically pins every spec.md
-   heading to a real test, so no new heading before the implementing
-   slice's tests.
-3. **File the widened lanes as SIBLING work-items under `overseer-4xfmez`**
-   (+ the inherited-defect item if consented) and widen the epic's
-   description. `overseer-vyjkzw` stays the narrow instance. Reach `bd`
-   via `with-livespec-env.sh bd …`; task→epic `blocks` edges are refused
-   by beads — do not manufacture one.
-4. **Run `/livespec:revise`** — one cycle, with the maintainer.
-5. **Dispatch implementation via the factory route** (`drive` action
-   `impl:overseer-vyjkzw` + the new siblings) — never implement inline
-   from a planning session.
+## 6. Ledger anchors — ids only, never copied status
 
-## 8. Outcome constraints — the original §12, amended by the ruling
+- Epic **`overseer-4xfmez`** — retitled and scope-widened to control-plane
+  supervision liveness. Children:
+  - **`.1`** the inherited restart defect (P1 bug; independent of the
+    widening — it is a shipped worker-path defect today)
+  - **`.2`** lane A foundations — **blocks `.3`–`.6`**
+  - **`.3`** the general round-starvation clause + above-threshold arm +
+    cascade amendment
+  - **`.4`** blocked age-band escalation
+  - **`.5`** lane C supervisor full citizenship
+  - **`.6`** lane D pair-stall + guarded nudge (depends on `.5`)
+- **`overseer-vyjkzw`** — stays the NARROW instance (`shell-prolonged`).
+- **`overseer-5jttov`** (`supervisor-scratch-discipline`) — adjacent,
+  non-blocking. It edits the same generated supervisor charter that lane C's
+  teach-the-protocol obligation touches; sequence those edits, do not gate.
 
-Worker-side: UNCHANGED and absolute — no shell age, prompt shape, timer,
-declaration age, or context percentage may EVER authorize a paste, Enter,
-respawn, kill, or declaration write against a WORKER; a fresh
-session-written `ready` remains the sole restart authorization; genuine
-background work and genuine human waits stay protected; every alert is
-coordinate-rich and edge-triggered under the note's alert-identity rule;
-every condition clears and re-arms per-condition; daemon-restart behavior
-is explicit and delay-only; Claude and Codex are each addressed
-explicitly, parity or divergence justified by evidence; docs, coloring,
-attention membership, and tests all agree; any new scenario lands
-atomically with its integration test and heading-coverage row.
+Reach `bd` through the fleet wrapper — `with-livespec-env.sh bd show <id>`;
+a bare `bd` is refused by the tenant. Beads refuses task→epic `blocks` edges;
+do not manufacture one. The `auto-backup failed … command denied` warning on
+every write is a known tenant defect tracked as `overseer-n04`, not a
+failure of your command.
 
-Supervisor-side, PER THE RULING: wrap-up/restart run the IDENTICAL
-interlock under the `(repo, <topic>-supervisor)` key — only the
-supervisor's own fresh `ready` restarts a supervisor, and the crossed-file
-and symlink-alias sabotage tests are owed; the pair nudge is the ONE
-bounded exception to shell-classified busy suppressing acts, under the
-full guard set (verified empty settled prompt; never generating; never
-over a gate / `waiting` / `blocked:`; never with an open round or fresh
-ACK; once per episode with counted escalation; Claude supervisors only);
-supervisor sabotage tests INVERT — prove every act fires ONLY under its
-guards, and prove the non-acts as thoroughly as the acts.
+## 7. Known-good verification results, so they are not re-derived
 
-## 9. Ledger anchors — ids only, never copied status
+Measured 2026-07-28; re-measure rather than trusting these if they matter to
+a decision, but do not assume they are stale.
 
-Planning epic **`overseer-4xfmez`** (scope-widening owed at step 7.3);
-narrow bug **`overseer-vyjkzw`** (stays narrow); adjacent non-blocking
-**`overseer-5jttov`** (`supervisor-scratch-discipline` — shares the
-generated charter file lane C's teach-the-protocol obligation touches;
-sequence edits, do not gate). The inherited restart defect may gain its
-own id — check the ledger before filing anything.
+- `uv run pytest overseer -q` — **487 passed** on master.
+- **Lane C is a coverage problem, not a detection problem.** Feeding live
+  `-supervisor` pane captures to the daemon's OWN unmodified detectors: five
+  of nine were `is_structured_gate == True` (they would render
+  `blocked:human`), three were cleanly idle with parsed ctx, one had exited
+  to a bare `zsh` (it would render `session-gone`). The same-tick render
+  showed 33 tracks, `NEEDS YOU (5)`, and **zero supervisor rows** — none of
+  the five gated supervisors among them.
+- **A gate hides the statusline**, so all five gated panes parsed
+  `ctx = None`. Expect the ctx-staleness clock to start routinely on gated
+  entities.
+- **The heading-coverage registry has 23 stale module qualifiers** (not 2, as
+  an earlier revision of the note said), and **nothing validates them**:
+  directions 1–3 of the check never resolve a node id, and the
+  `scenarios.md`-only tier direction accepts one on a **string prefix**
+  without resolving it. So "no new `## Scenario` heading ahead of its test"
+  is a discipline this thread honors deliberately — **not** something the
+  gate would catch. The 23 rows want their own hygiene work-item; it is
+  **not filed** (it is neither a widened lane nor the consented defect, so it
+  was outside the filing authorization). The prefix-acceptance gap is in the
+  pinned `livespec-dev-tooling` check, so it belongs in THAT tenant if it is
+  filed at all.
 
-## 10. Repository discipline
+## 8. Repository discipline
 
-Worktree → PR → rebase-merge for every tracked change; create worktrees
-ONLY with `just worktree-create <branch> [base_ref]`; `mise exec -- git …`
-so hooks fire; never `--no-verify`; halt and report on hook failure; never
-commit on the primary checkout; check `git status`, not `git log`, after a
-hook-gated commit; verify against the forge after a fetch; never touch
-another session's worktrees or branches; never kill the acting overseer
-daemon (tmux `livespec-overseer:1.1`). Gate: `uv run pytest overseer -q`,
-then `just check`; no existing check may be weakened, removed, skipped, or
-exempted. This thread's branch is `control-plane-liveness-plan`
-(worktree `~/.worktrees/livespec-overseer/control-plane-liveness-plan`).
+Worktree → PR → **rebase**-merge for every tracked change; create worktrees
+ONLY with `just worktree-create <branch> [base_ref]`; `mise exec -- git …` so
+hooks fire; **never** `--no-verify`; halt and report on any hook failure;
+never commit on the primary checkout; check **`git status`, not `git log`**,
+after a hook-gated commit; verify against the forge after a fetch; never
+touch another session's worktrees or branches; **never kill the acting
+overseer daemon** (tmux `livespec-overseer:1.1`). Gate: `uv run pytest
+overseer -q`, then `just check` where hooks demand it. No existing check may
+be weakened, removed, skipped, or exempted.
 
-## 11. Handoff refresh rule
+One practical note from landing PR #219: a branch carrying its own copy of
+this handoff will conflict with master's. Resolve to **master's** copy
+(`git checkout --ours <path>` during a rebase) — it is the landed one.
+
+## 9. Handoff refresh rule
 
 Keep this file self-sufficient and cold-open sufficient. Durable design
 reasoning lives in `research/`; per-finding review verdicts live in the
-scratch verification log AND, where durable, in the note; status lives on
-the PR and in the ledger; keep exactly ONE next execution path. Refresh §3
-and §7 whenever the held PR's state changes, and before declaring `ready`.
+scratch verification logs AND, where durable, in the note; status lives in
+the ledger and on the forge; keep exactly ONE next execution path. Refresh §2
+whenever a step changes state, and before declaring `ready`.
