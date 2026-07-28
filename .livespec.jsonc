@@ -39,7 +39,7 @@
     },
     "codex": {
       "status": "exempt",
-      "reason": "the overseer's interactive pane is driven from Claude Code; the daemon half is harness-neutral and is invoked directly as `overseerd`, not through a Codex skill surface"
+      "reason": "maintainer supervisor brief 17 supersedes the settled Codex-out-of-scope ruling recorded at plan/archive/cutover-and-shipping/research/operator-surface.md; the Codex parity slice in plan/codex-parity-and-rollout-safety/ will make this harness supported"
     }
   },
   "livespec-overseer": {
