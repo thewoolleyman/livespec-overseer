@@ -1,8 +1,39 @@
 # Plan — codex-parity-and-rollout-safety
 
-**Owning repo:** `livespec-overseer`. **Ledger anchor:** epic
-**`overseer-az5nps`** (this repo's beads tenant). **Status: OPEN — nothing
-built, nothing in flight. The next action is to GROOM, not to build.**
+**Owning repo:** `livespec-overseer`. **Status: GROOMED 2026-07-28 — six slices
+cut and filed, nothing built, nothing in flight. The admission valve is a
+SEPARATE valve and it is NOT open.**
+
+**Ledger anchor: the epic `overseer-az5nps` is CLOSED.** `groom` regroomed it
+out on 2026-07-28 — that is the operation's normal disposition, not a loss, and
+the maintainer ruled to accept it. The anchor is now the filed slice set below.
+
+### The filed slice set — READ THIS BEFORE THE LEDGER
+
+The closed epic's forwarding reason names **only the four local slices**, because
+`groom` files cross-repo slices into their own repo's tenant rather than this
+one. **The two cross-repo ids exist nowhere else in this repository's record, so
+they are written down here or they are lost.** That erasure is the burial failure
+this thread was created to prevent.
+
+| slice | id | owning repo | blocked by |
+|---|---|---|---|
+| **A1** — record the codex scope supersession in `.livespec.jsonc` without asserting a capability that does not yet exist | `overseer-4km4mj` | `livespec-overseer` | — |
+| **A2** — ship the `.codex-plugin/` surface for `overseer` and `supervise-plan` | `overseer-vyie5q` | `livespec-overseer` | — |
+| **B1** — build the shared codex derive-from-settings module (the `fleet/ensure_plugins.py` twin) | **`overseer-llz4xi`** | **`livespec-dev-tooling`** — minted here, **NOT filed in this tenant** | — |
+| **B2** — replace this repo's hard-coded `ensure-codex-plugins` body with the shared delegation | `overseer-vfz5v5` | `livespec-overseer` | **B1** (`sibling_work_item`), A2 |
+| **A3** — flip `harnesses.codex` to `supported`, with a repo-local check that makes the green load-bearing | `overseer-kju6wh` | `livespec-overseer` | A1, A2 |
+| **C1** — adopt the `oh-my-codex #3024` live-session rollout policy | **`overseer-qfnjj6`** | **`livespec`** core — minted here, **NOT filed in this tenant** | — |
+
+B2's cross-repo blocker is not visible to `bd dep tree`, which walks local edges
+only. It is recorded on B2 as
+`non_local_depends_on: [{"kind":"sibling_work_item","repo":"livespec-dev-tooling","work_item_id":"overseer-llz4xi"}]`.
+
+**Observed status at filing, which is NOT uniform:** A1 and A2 came out of the
+intake Definition-of-Ready router at **`ready`**; B2 and A3 at
+**`pending-approval`**. All four carry `admission:auto`. `next` ranks A1 first
+and A2 third of all implementable work in this tenant. Nothing here opens the
+admission valve — but do not assume these slices are parked.
 
 Created 2026-07-28 from maintainer supervisor brief 17. **Both problems are
 already root-caused with evidence. Do NOT re-derive either cause** — that is the
@@ -22,9 +53,10 @@ single most likely way to waste this thread's first session.
 3. `research/live-session-rollout-safety.md` — problem 2's cause, the
    `oh-my-codex #3024` precedent policy, and its live-acceptance bar.
 
-That is the whole chain. **There is deliberately no `supervisor-handoff.md` in
-this thread yet** — see §"Why this thread has no supervisor charter". Do not
-cite one until it exists.
+That is the whole chain. `supervisor-handoff.md` now also exists in this thread
+(generated 2026-07-28 02:06); it is the supervisor's charter, not part of the
+worker's read-first chain. See §"Why this thread's supervisor charter needed a
+workaround".
 
 Status is READ from the ledger, never stored here: run
 `/livespec-orchestrator-beads-fabro:list-work-items --json` and
@@ -55,20 +87,64 @@ strings while nothing resolves.
 
 | # | goal | owning repo | acceptance — all LIVE |
 |---|---|---|---|
-| 1 | **Record the scope supersession** — amend `.livespec.jsonc`'s `harnesses.codex.status` off `exempt`, citing brief 17 as the superseding decision | `livespec-overseer` | The declaration no longer contradicts the shipped behavior, and the supersession names the ruling it overrides (`plan/archive/cutover-and-shipping/research/operator-surface.md`). Gate-visible: `just check` green with the amended declaration |
+| 1 | **Record the scope supersession**, citing brief 17 as the superseding decision. Split by the groom into **A1** (record it; `harnesses.codex` STAYS `exempt`, the false `reason` string is replaced) and **A3** (flip to `supported`, once a surface exists to support) | `livespec-overseer` | **A1:** the supersession names the ruling it overrides (`plan/archive/cutover-and-shipping/research/operator-surface.md`) and lives in `.livespec.jsonc` itself, so it survives an archive prune. `just check` green — sound here ONLY because A1 claims no Codex capability. **A3 carries the live proof**, and must add the repo-local `check-codex-skill-picker` in the same change (see the gate hazard below) |
 | 2 | **Make the overseer plugin visible to Codex** — via the derive-from-settings collapse, NOT a fourth hard-coded line | `livespec-dev-tooling` (recipe); `livespec-overseer` (its own declaration) | **`supervise-plan` AND `overseer` RESOLVE and RUN in a real Codex session that is not this repo's.** Budget TWO sessions before calling a negative — first exposure needs one session to provision and a second to see it |
 | 3 | **Stop rollouts breaking live sessions** — adopt the `oh-my-codex #3024` policy: materialize new first, keep old versioned dirs by default, never delete during normal setup/update, clean up only via explicit command / TTL / liveness-aware check | **`livespec` core** (host-wide; `livespec-dev-tooling` for the recipe) | **Start a Codex session; roll a real new plugin version through the normal path WHILE IT IS ALIVE; the session still works.** A test with no live session open during the rollout proves nothing |
 
 Goal 1 is a **precondition of goal 2 shipping**, not of goal 2 being worked:
 do not ship Codex support while the repo's own declaration says Codex is exempt.
+The groom's A1/A3 split is what makes both halves of that sentence true at once
+— A1 records the decision immediately, A3 makes the capability claim only once
+there is a capability. **The supersession decision itself is settled and is not
+reopened by the split.**
+
+### The gate hazard goal 1 walks into — measured, not reasoned
+
+Goal 1's original acceptance was *"Gate-visible: `just check` green with the
+amended declaration."* **That green is unreachable as evidence, and the groom
+re-cut goal 1 on the strength of it.** Measured against
+`livespec_dev_tooling/checks/plugin_resolution.py` on 2026-07-28:
+
+- The check admits exactly two statuses, `supported` and `exempt`. Off-`exempt`
+  means `supported`, and `_parse_supported` asserts only that
+  `canonical_command` is a **non-empty string**. Any string passes.
+- For codex the module installs a **`DelegatedResolutionRunner`**
+  (`plugin_resolution.py:263`) returning `available=False` → **SKIP**, delegating
+  live proof to a **repo-local `check-codex-skill-picker`**. **This repo has no
+  such recipe** — `grep -n codex justfile` returns only `ensure-codex-plugins`.
+- `just check` runs at the default `LIVESPEC_E2E_HARNESS=mock`, where the live
+  layer never runs at all.
+
+**Green by skip in both modes.** This is the same shape as REGISTRATION IS NOT
+INSTALLATION, rebuilt at the gate layer — which is why A3 must ship the
+repo-local check alongside the flip, and prove it can go RED by removing the
+surface.
+
+### The prerequisite nobody in this chain had named
+
+**This repo ships no Codex surface at all.** `.claude-plugin/` exists; there is
+**no `.codex-plugin/` anywhere in the repo**. Nothing exists for Codex to
+resolve even once a marketplace entry is registered, so goal 2's live acceptance
+is unreachable until **A2** lands. `_plugin_structure_codex.py` does not
+generalize to this repo — it is hard-wired to marketplace `livespec-driver-codex`,
+plugin `livespec`, and an eight-operation `EXPECTED_SKILLS` set.
 
 ## Ownership — name it per child, never silently absorb
 
 | what | owner |
 |---|---|
-| the `ensure-codex-plugins` recipe | **`livespec-dev-tooling`** |
+| the SHARED codex derive-from-settings module (**B1**) | **`livespec-dev-tooling`** |
+| **each governed repo's OWN `ensure-codex-plugins` recipe body** (this repo's is `justfile:127-142`; **B2**) | **that repo** — for us, **`livespec-overseer`** |
 | the live-session rollout policy (host-wide: also hits `livespec`, `livespec-driver-codex`, `livespec-orchestrator-beads-fabro`) | **`livespec` core**, where epic `livespec-c1k9` lived |
 | `.livespec.jsonc` supersession + this repo's own acceptance | **`livespec-overseer`** |
+
+The recipe row was split on measurement, and the correction matters because it
+moves real work INTO this repo: `livespec_dev_tooling/fleet/_rows_local.py:22`
+and `justfile:76-78` both state that **"the plugin set is repo-specific, so each
+governed repo's recipe stays the single source; a member lacking either recipe
+SKIPs that row."** dev-tooling owns building the shared module; it **cannot**
+edit our recipe body for us. (`fleet/ensure_plugins.py` — the Claude side —
+is already collapsed; there is no codex twin yet.)
 
 Cite `livespec-c1k9.10` and `livespec-c1k9.14` precisely: they solved *becoming
 current at session start*. They did **NOT** address *not breaking a live
@@ -87,31 +163,44 @@ ensure-plugins recipes to the shared derive-from-settings"*.
 
 Record both; serialize neither.
 
-## NEXT ACTION — groom, do not build
+## NEXT ACTION — the groom is DONE; the admission valve is NOT open
 
-**The maintainer's directive is explicit: the plan is to RUN, the work is NOT to
-start.** Nothing in this thread may be implemented until it has been groomed
-into ready, dependency-layered slices and the maintainer opens the admission
-valve.
+`/livespec-orchestrator-beads-fabro:groom overseer-az5nps` ran on 2026-07-28 and
+the maintainer approved the cut as drafted, all six slices unchanged. **The
+maintainer approved THE CUT, not implementation.** The admission valve is a
+separate valve and it has not been opened.
 
-Run: **`/livespec-orchestrator-beads-fabro:groom overseer-az5nps`**
+The groom accepted the proposed first slice's *intent* and **re-cut its shape and
+ordering**: goal 1 became **A1** (record the supersession, keep `exempt`) plus
+**A3** (flip to `supported`, gated behind a surface that resolves and a check
+that can go red). The re-cut was driven by the measured gate hazard above — the
+original acceptance would have gone green while proving nothing. **The
+supersession decision itself was never in question and is not reopened.**
 
-**Proposed first slice, for the groom to accept or re-cut: goal 1 — the
-`.livespec.jsonc` supersession.** It is the smallest coherent unit, it is
-owned entirely by this repo (no cross-repo dependency), it is a precondition of
-goal 2 shipping, and it removes a live self-contradiction in the repo's own
-declaration. It needs no live Codex session, so it cannot be blocked by the
-very rollout hazard goal 3 exists to fix.
+When the valve opens, implementation goes through the **factory dispatch route**
+— `/livespec-orchestrator-beads-fabro:drive --action impl:<id>`, or the
+Dispatcher drain. Do **not** hand-build slices in a planning session.
 
-When slices are ready, implementation goes through the **factory dispatch
-route** — `/livespec-orchestrator-beads-fabro:drive --action impl:<id>`, or the
-Dispatcher drain. Do **not** hand-build slices in the planning session.
+Two things a cold-open reader should carry into that moment:
 
-## Why this thread has no supervisor charter — a `supervise-plan` DEFECT, not an omission
+- **A1 and A2 are already at `ready` with `admission:auto`**, and `next` ranks A1
+  first in this tenant. They are not parked behind a status.
+- **B1 (`overseer-llz4xi`) and C1 (`overseer-qfnjj6`) are not in this tenant.**
+  They need filing in `livespec-dev-tooling` and `livespec` respectively, and
+  B2 cannot honestly complete before B1 does.
+
+## Why this thread's supervisor charter needed a workaround — a `supervise-plan` DEFECT, not an omission
+
+**The charter now exists** — `supervisor-handoff.md`, generated 2026-07-28 02:06.
+**It could not be generated at thread creation**, and the record below is kept as
+the defect evidence, not as a description of the current state. The workaround
+was to start the two tmux sessions FIRST and then run the skill, which satisfies
+the gate honestly rather than by fabrication; the defect stands for the next
+thread, and is filed as **`overseer-2a1`**.
 
 Brief 17 directed that `plan/codex-parity-and-rollout-safety/supervisor-handoff.md`
-be generated by `/livespec-overseer:supervise-plan`. **It could not be, and the
-skill is behaving exactly as its own contract specifies.**
+be generated by `/livespec-overseer:supervise-plan`. At thread creation it could
+not be, **and the skill was behaving exactly as its own contract specifies.**
 
 `supervise-plan` opens with five HALT-first preconditions. Precondition 1:
 
@@ -119,8 +208,9 @@ skill is behaving exactly as its own contract specifies.**
 tmux has-session -t "codex-parity-and-rollout-safety"
 ```
 
-Run 2026-07-28: `can't find session: codex-parity-and-rollout-safety`.
-Precondition 3 (`…-supervisor`) fails identically. The contract then says:
+Run 2026-07-28 at thread creation: `can't find session:
+codex-parity-and-rollout-safety`.
+Precondition 3 (`…-supervisor`) failed identically. The contract then says:
 *"Stop on the first failure… **Do not create a missing session**, do not fall
 back to another session, and do not proceed read-only."* So the run halted and
 no session was fabricated to satisfy the check — manufacturing state to pass a
@@ -136,14 +226,15 @@ first session opens: that is the whole point of a durable charter. **As shipped,
 `supervise-plan` cannot bootstrap a charter for a newly created thread.**
 
 This is not a wording or thinness problem in generated output — nothing was
-generated. It is a gap in when the operation is usable, and it belongs to
+generated on the first attempt. It is a gap in when the operation is usable, and it belongs to
 **`overseer-7lv`** ("supervise-plan residual gaps: supervisor runtime liveness
 and obligations", now `plan/archive/supervise-plan-residual-gaps/` — that epic
 was closed 2026-07-27, folded into `overseer-byvxlp`'s groom), with the
 generated-text
 quality bar owned by **`overseer-byvxlp`**. Filed as **`overseer-2a1`**.
 
-**How to get a charter for this thread when one is wanted:** start the
+**How the charter was obtained here, and how to repeat it on the next thread:**
+start the
 supervised and supervisor tmux sessions for the topic in the normal way, with
 the supervised pane's cwd inside `/data/projects/livespec-overseer` and a live
 agent driver in it, then re-run `/livespec-overseer:supervise-plan`. All five
@@ -164,5 +255,13 @@ generated-charter contract test exists to prevent.
   broken.
 - **`bd create --parent` files children at beads-native `open`**, which is not a
   livespec `WorkItemStatus`, so `next`/`drive` rank zero of them. Any
-  hierarchical child filed for this epic must be created with
-  `--no-inherit-labels`, then explicitly set to a real status and read back.
+  hierarchical child **hand-filed** must be created with `--no-inherit-labels`,
+  then explicitly set to a real status and read back.
+  **Scope correction, measured 2026-07-28: this hazard does NOT fire on the
+  `groom` route.** `file_approved_slices` files each slice at
+  `status="pending-approval"` — a real `WorkItemStatus` — and then routes it
+  through the intake Definition-of-Ready primitive. The trap is specific to
+  hand-filing. **The read-back-after-filing discipline still applies to both
+  routes**, and it earned its keep here: the read-back is what revealed that the
+  DoR router does not leave every slice where it was filed (A1 and A2 came out at
+  `ready`, not `pending-approval`).
