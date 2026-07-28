@@ -238,9 +238,30 @@ Repeat these in every instruction sent to the supervised session:
 ## Corrections
 
 Corrections to THIS supervisor role's own behavior, recorded so successors do
-not repeat them. **This log starts empty — this thread has had no supervisor
-yet.** Append here; do not scatter these. Do not make this only a log of the
-supervised session's mistakes.
+not repeat them. Append here; do not scatter these. Do not make this only a log
+of the supervised session's mistakes.
+
+### First-hand, 2026-07-28 — from this thread's own creation
+
+- **A supervisor brief instructed the worker to run a command that cannot do
+  what the brief asked.** Brief 17 said to create this thread with
+  `/livespec-orchestrator-beads-fabro:plan codex-parity-and-rollout-safety`.
+  That form is **strict-resume-or-fail by contract** — *"There is NO fuzzy match
+  and NO accidental create-on-typo"* — so with no existing directory it fails
+  hard. **Creation happens only through the NO-ARGUMENT interview path.** The
+  worker discovered this at execution time and used the correct path.
+
+  Worth keeping because the failure is silent to the author: the brief reads as
+  precise and executable, and its defect only surfaces in the worker's hands.
+  **A supervisor writing a command into a brief has not verified that command.**
+  Prefer naming the operation and its intent and letting the worker resolve the
+  invocation, or run it yourself first.
+
+- **Reflexively delegating an instruction addressed to the supervisor.** The
+  maintainer said *"I want YOU to write a new plan using /plan and
+  /supervise-plan"*. The supervisor dispatched it to the worker instead, having
+  dispatched everything for two days, despite holding the skill itself and being
+  the session the operation charters. Read who the instruction names.
 
 Carried forward from `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
 because they are role-level rather than track-level:
