@@ -154,9 +154,14 @@ stated in governed prose rather than hidden in implementation.
    truth: four lanes, every rejected alternative with its failure mode, the
    clearing/re-arm/daemon-restart table, the owed-tests list, and the
    rulings table.
-3. `SPECIFICATION/proposed_changes/background-shell-liveness-attention.md`
-   (on master) — the widened, UNRATIFIED proposal. Its nine edits are what
-   `/livespec:revise` will accept or reject.
+3. `SPECIFICATION/spec.md` + `contracts.md` — RATIFIED v003, the governing
+   prose. The proposal is no longer in `proposed_changes/` (that directory is
+   empty); it is snapshotted with its decision record under
+   `SPECIFICATION/history/v003/`.
+3b. `research/untracked-obligation-closure.md` — REQUIRED before touching
+   `.4`, `.5`, or `.6`: the four ratified obligations gap detection cannot
+   see, their consolidated owed-test closure criteria, and the drafted
+   one-sentence epic-comment fix.
 4. `tmp/overseer/background-shell-supervision-liveness/reviews/` — the raw
    review relays, `wave1-verification.md`, and `wave3-worker-verification.md`
    (scratch, UNTRACKED; durable conclusions are already folded into the note).
@@ -245,11 +250,8 @@ a decision, but do not assume they are stale.
   maps 12 real gaps to slices and its 12/8 split is CORRECT (re-verified: the
   8 unmapped ids are genuinely pre-existing implemented clauses). The hole is
   upstream of classification: `detect_impl_gaps` emits exactly one candidate
-  per sentence containing the literal token `MUST` — measured two ways, all
-  **20 of 20** candidate fragments contain `MUST`, and candidate count equals
-  `MUST` count for every heading (Fail-soft posture 8/8, Notify-never-block
-  1/1, Session-name derivation 0/0, Supervised runtimes 3/3, keep-going nudge
-  0/0, state file 0/0, restart interlock 1/1, Attention surface 2/2).
+  per sentence containing the literal token `MUST`, so an obligation written
+  without that token is invisible to it.
 
   So four obligations ratified in v003 in indicative / RESERVED / only-when
   voice produced NO gap id: EDIT 3's age-band escalation (→ slice **`.4` has
@@ -264,14 +266,34 @@ a decision, but do not assume they are stale.
   them, so the epic can reach an empty gap set with two ratified obligations
   wholly unimplemented. Verify those slices by their OWED TESTS instead.
 
-  Two remedies were put to the supervisor seat for the maintainer and are
-  PENDING, not actioned: (b) record explicit non-gap-tracked closure criteria
-  on `.4`, `.6` and `.5`'s untracked halves — immediate, touches no governed
-  prose; and (a) later, raise those four clauses to `MUST` form in a fresh
-  propose-change — identical semantics, fixes detection for every consumer,
-  but touches ratified prose so it needs its own cycle. Amending the epic's
+  **All of this is now worked out in full, against the RATIFIED tree, in
+  `research/untracked-obligation-closure.md` — read that before touching
+  `.4`, `.5`, or `.6`.** It carries the per-heading `MUST` table, the four
+  obligations with `file:line` proof, and the consolidated owed-test closure
+  criteria for each. Two corrections it lands, both re-measured 2026-07-28:
+
+  - The per-heading arithmetic above was stated as candidates = `MUST`
+    tokens. The detector counts SENTENCES, and one sentence
+    (`spec.md:416-419`) carries four `MUST`s; Fail-soft posture is **9**
+    tokens, not 8. No conclusion changes — U1–U4 are zero-`MUST` under either
+    measure.
+  - **Remedy (b) is far narrower than stated here.** The explicit closure
+    criteria it calls for ALREADY EXIST and are correct on all three slices
+    (`.4` "Owed test 3"; `.5` "Owed tests 5 and 13's lane-C arms", naming the
+    symlink refusal; `.6` "Owed tests 6 and 13's lane-D arms"). Do not
+    re-author them. The ONE defective artifact is the **epic's traceability
+    comment**, whose mapping omits `.4` and `.6` entirely and whose final
+    sentence then prescribes the gap-id check as *the* closure check — making
+    it vacuously green for those two slices with no code written. Remedy (b)
+    is therefore ONE sentence on ONE artifact; its replacement text is drafted
+    verbatim in §4 of that file, ready to paste.
+
+  Both remedies remain PENDING, not actioned — (b) the epic-comment sentence,
+  and (a) later raising those four clauses to `MUST` form in a fresh
+  propose-change (identical semantics, fixes detection for every consumer, but
+  touches ratified prose so it needs its own cycle). Amending the epic's
   traceability comment was deliberately NOT done by the worker seat: ledger
-  writes in this thread are consent-gated. Full detail in
+  writes in this thread are consent-gated. Earlier detail in
   `reviews/wave3-worker-verification.md` §8.
 
 ## 8. Repository discipline
