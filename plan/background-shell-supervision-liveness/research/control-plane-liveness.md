@@ -64,6 +64,33 @@ worker-path defect (a retained `ready` re-authorizing a second kill after
 a recognition timeout) is confirmed against code, designed around, and
 flagged for ledger filing.
 
+**The §9 gate is DISCHARGED and the maintainer's batched decisions are IN
+(2026-07-28).** Eight reviews across two waves and both model families, all
+verified and folded, zero refutations in the final round. The maintainer
+approved widening on the recommended path, consented to filing the inherited
+restart defect as its own ledger work-item, accepted ALL NINE recommended
+defaults verbatim (§"Open maintainer decisions", now annotated with each
+ruling), and ruled that the attended-takeover identity-hold guard SHIPS as a
+designed guard rather than remaining an accepted residual. Ratification
+itself (`/livespec:revise`) stays the maintainer's own valve and is
+deliberately NOT part of the unblocked path.
+
+**A post-gate verification pass by the successor worker seat (2026-07-28) is
+folded in.** It re-verified the handoff's and the note's load-bearing
+`file:line` claims against source and confirmed them, and it corrected five
+things this note had wrong or overstated, each marked in place: the inherited
+restart defect is sharpened three ways (one-site asymmetry, a near-certain
+rather than racy second kill, an ordinary 15 s trigger) and linked to the
+takeover guard as a shared mitigation; the `_WRAPUP_BODY` blocker's real cause
+is a hardcoded copy DESTINATION rather than a parameterization choice; the
+alert-identity rule needs no change to `alert()` because text-change
+re-emission is documented intent; the heading-coverage drift is 23 rows rather
+than 2 AND nothing validates those qualifiers, with the `scenarios.md` tier
+direction accepting a node id on a string prefix without resolving it; and
+lane D's "characteristically / permanently silencing" empirical claim is
+WITHDRAWN as contradicted by measurement, the directional-evidence principle
+carrying that exclusion on its own.
+
 Where this note contradicts the supervisor's first brief or the handoff's §7
 design direction, the contradiction is deliberate and collected in
 §"Disagreements with prior briefs", each with the measurement that forced it.
@@ -245,7 +272,12 @@ Two verified mechanism facts constrain every alert this note adds:
   whose message embeds a free-running value (an age, a live %) re-emits on
   every change of that value — per-hour lines at hour granularity, per-tick
   at finer — reproducing the ~3,000-line log burial invariant 10 exists to
-  prevent.
+  prevent. **Implementation-cost correction (successor seat, 2026-07-28):
+  this text-change re-emission is DOCUMENTED INTENT, not an accident — the
+  method's own docstring says "emitted when a track ENTERS a condition (or
+  the condition's text changes)". So the quantization rule below works WITH
+  the shipped behavior and needs NO change to `alert()` itself; only
+  message construction and the per-condition re-arm change.**
 - The re-arm block (`_supervisor_evaluate.py:385-391`) drops a track's
   alert keys only when the WHOLE row is healthy (`not needs_attention`), so
   a track pinned in `NEEDS YOU` by one standing condition silently swallows
@@ -749,6 +781,17 @@ alternatives disclaim (wave-2 #7b).
   rendered message (the earlier owed-tests item pinned firing and
   interlock only — insufficient). The prior draft's "one substitution, no
   new prose obligations" claim was WRONG and is corrected here.
+
+  **Sharper cause, re-verified against the template text (successor seat,
+  2026-07-28).** The failure is not that the parameters are wrong — it is
+  that the copy DESTINATION is a hardcoded literal, independent of
+  `{handoff}`: `cp {handoff} "$W/plan/{topic}/handoff.md"`. Because the
+  destination filename `handoff.md` is not derived from `{handoff}`, NO
+  choice of `{topic}`/`{handoff}` can make the ritual correct — which is
+  precisely why BOTH parameterizations fail rather than one. `{marker_dir}`
+  and `{state_file}` DO substitute cleanly, so the defect is confined to
+  the ritual block, and the variant's minimum obligation is exact: derive
+  the copy destination, or give the variant its own ritual block.
 - **Restart**: the identical interlock — a supervisor-round stamp, the
   supervisor's own fresh `ready`, strict mtime ordering (LITERALLY the
   same `ready_valid` — `state.mtime > injection_stamp`, `signals.py:423` —
@@ -952,14 +995,26 @@ principle both wave-2 act-path reviews reached independently (fable #2,
 codex #6), now stated as a principle rather than a patch:** evidence
 over-firing is DIRECTIONAL. `is_busy` deliberately over-fires, and that is
 safe where it SUPPRESSES acts — but fed into `progress_now` it AFFIRMS
-progress, which suppresses detection, reversing the safety direction. And
-it does not merely over-fire occasionally here: a supervisor pane
-CHARACTERISTICALLY displays worker-capture dumps — spinners,
-`esc to interrupt`, token counts — as static content above its idle
-prompt, so the whole-capture scan would read progress on every tick,
-permanently silencing the pair detector, the nudge, the post-nudge
-operator line, AND the 8-hour busy-shielded arm (which uses the same
-`progress_now`). For Claude the registry `busy` covers generation
+progress, which suppresses detection, reversing the safety direction. That
+argument is sufficient on its own and needs no measurement.
+
+**The empirical amplifier this note previously carried is WITHDRAWN as
+overstated (successor-seat measurement, 2026-07-28).** The earlier wording
+claimed a supervisor pane "CHARACTERISTICALLY" displays worker-capture
+dumps, so the whole-capture scan "would read progress on every tick,
+permanently silencing" the pair detector, the nudge, the post-nudge line
+and the 8-hour arm. Measured across every live supervisor pane at one
+instant: `esc to interrupt` in **0 of 8**, `Waiting for … background` in
+**0 of 8**, and `signals.is_busy` actually firing in **0 of 9**. Four panes
+did contain a `✻` glyph, but none fires `is_busy` — the regex matches only
+the active-generation form (`✻ … (… · Ns · ↓ tokens)`) and deliberately
+excludes the lingering completed-turn summary (`✻ Brewed for 25s`), which
+is what those panes were showing. The real mechanism is narrower and
+OCCASIONAL: a supervisor that pastes a live BUSY worker's capture — one
+carrying the active-spinner shape — reads as progress for as long as that
+text is on screen. That is a genuine hazard and enough to justify
+excluding the capture arm; it is not permanent and it is not
+characteristic. No governed restatement may carry the withdrawn wording. For Claude the registry `busy` covers generation
 authoritatively and content-immune; ctx movement between known reads is
 content-immune (the ctx parse is tail-bounded). The Codex capture arm
 remains a stated residual: a Codex pane displaying spinner-like content
@@ -1182,8 +1237,45 @@ of returning bare, so the next tick's resume-retry leg (which intercepts
 BEFORE the ready branch) completes the resume without a second kill, and a
 re-kill needs a genuinely fresh `ready`. Owed tests: the
 recognition-timeout fixture proves no second respawn fires, for BOTH
-entity kinds. This is a work-item candidate under the epic INDEPENDENT of
-the widening — flagged to the supervisor seat for ledger-filing consent.
+entity kinds. Ledger filing CONSENTED by the maintainer (2026-07-28) as a
+work-item under the epic, INDEPENDENT of the widening.
+
+**Three refinements from the successor seat's independent verification
+(2026-07-28), each tightening the claim above.** (i) The root cause is a
+one-site ASYMMETRY, not a general race: three exits leave `do_restart`
+after a SUCCESSFUL respawn, and the gate exit (`:166`) and the
+submit-failure exit (`:189`) both call `set_resume_pending` while the
+recognition-timeout exit (`:146-154`) returns bare — so the R1 leg, which
+early-returns unless `read_resume_pending` is true
+(`_supervisor_resume_retry.py:81-84`), is simply not armed on the one path
+that needs it. The designed fix is therefore the missing call at one site,
+consistent with its own two siblings. (ii) The second kill is not merely
+possible but near-CERTAIN, because the timeout exit returns BEFORE the
+resume is pasted (`:175-176`): the successor is a fresh session that was
+never handed anything, so it sits idle and never goes busy or gated — and
+`void_if_stale` has exactly two live call sites, the busy branch
+(`_supervisor_evaluate.py:237`) and the gate/blocked branch (`:244`), so
+the stale `ready` can never be retired AT ANY AGE. The
+`MARKER_VOID_GRACE` residual does not bound this; the grace never gets a
+chance to apply. (iii) The trigger is ordinary: `await_pane` allows
+`RESTART_POLL_MAX × RESTART_POLL_INTERVAL` = **15 s** for a fresh session
+to be recognized, on a host measured running 26 live Claude sessions.
+Finally, the fix weakens no existing green — the one test on this path,
+`test_restart_keeps_the_marker_when_the_respawned_pane_never_becomes_claude`,
+drives the pane up as `zsh`, which the identity gate catches on the next
+tick (`session-gone`, no second kill); the DANGEROUS variant, a genuine
+but slow session, is untested. That discharges the standing
+"no existing check may be weakened" constraint for this slice up front.
+
+**This defect and the attended-takeover guard share one mitigation.** The
+guard designed under lane C — remember the registry session identity
+observed when a `ready` is first seen, hold the respawn and surface if it
+changed — also holds THIS second kill, because the recognition-timeout
+successor is necessarily a new session with a new pid. The guard does not
+make the `set_resume_pending` fix redundant (the guard surfaces; the fix
+completes the resume), but the two items are not independent, and the
+maintainer's decision to ship the guard (2026-07-28) buys strictly more
+than its own section claims.
 
 **The daemon's own liveness is a NAMED residual, not a covered lane —
 and wave 1 added CODE evidence that sharpens it (codex-autonomy #1,
@@ -1283,10 +1375,15 @@ Route through the WIDENED `livespec:propose-change` before any product code
   probe. Touches spec.md's supervision-round/wrap-up/restart language
   ("every tracked session" grows to "every supervised entity") and
   contracts.md §"The state file" (the supervisor's path joins the table).
-  Amend EXISTING sections — the heading-coverage fixture mechanically pins
-  every `## ` heading in spec.md to a real test
+  Amend EXISTING sections — the heading-coverage fixture requires every
+  `## ` heading in spec.md to carry a registry row
   (`tests/heading-coverage.json`), so the proposal may not add a heading
-  ahead of the implementing slice's tests.
+  ahead of the implementing slice's tests. (Precision, per owed-test 12's
+  measured correction: the check enforces that a heading HAS a row, not
+  that the row's node id resolves to a real test — a `scenarios.md` row is
+  accepted on a string prefix alone. The no-new-heading discipline is
+  therefore a standing constraint this thread honors, not something the
+  gate would catch.)
 - **The pair nudge and its posture exception (maintainer ruling 3)** —
   spec.md gains the both-stalled supervisor nudge obligation with its FULL
   guard set: fired only at a verified empty settled prompt, never
@@ -1441,10 +1538,42 @@ Beyond `policy-options.md` §6's nine for the ratified instance:
     fixture's ids read `overseer.test_supervisor.*`, but the functions
     live in `test_supervisor_tmux_column_annotates.py` and
     `test_supervisor_warned_stamp_written.py` respectively — stale
-    qualified names left over from the test-module split. The JSON id fix
-    belongs to the IMPLEMENTING slice, which already must grow those very
-    rows — not to the widening step, which deliberately touches no
-    heading-coverage rows.
+    qualified names left over from the test-module split.
+
+    **Scale corrected by measurement (successor seat, 2026-07-28): the
+    drift is 23 rows, not 2.** Resolving every distinct node id in all 54
+    registry rows repo-wide: **0 name a nonexistent test**, and **23 carry a
+    stale module qualifier** — every row whose function moved in the
+    test-module split. All 23 are `overseer.test_supervisor.*` or
+    `overseer.test_registry.*`; every `tests.integration.*` row is correct.
+    Because they span rows this thread never touches
+    (`test_run_refuses_when_tmp_not_gitignored`,
+    `test_singleton_lock_is_treated_as_contended…`), parking all 23 on the
+    liveness implementing slice is scope creep: they get their OWN hygiene
+    work-item. The widening step still touches no heading-coverage rows.
+
+    **Nothing is red, because nothing validates those qualifiers, and the
+    mechanism this tree's constraint cites does not exist.** Read against
+    `livespec_dev_tooling.checks.heading_coverage`: the check fails on four
+    directions — uncovered heading, orphan row, TODO without reason, and
+    the `scenarios.md`-ONLY tier direction. Directions 1–3 never resolve a
+    node id at all, so for `spec.md` / `contracts.md` / `constraints.md`
+    the `test` field is an unvalidated documentation string. And direction
+    4 accepts a `scenarios.md` entry as soon as
+    `_node_id_has_allowlisted_prefix` matches — pure string matching
+    (`test_id.startswith(prefix + ".")` against `tests.integration`,
+    `tests.e2e`, `tests.consumer`, `tests.prompts`) — and `continue`s
+    BEFORE the resolving branch (`_node_id_resolves_with_marker`) is
+    reached. This repo declares no `scenario_tiers`, so every real row
+    takes that prefix path. **A scenario row naming a plausible but
+    nonexistent `tests.integration.test_x.test_y` therefore passes the
+    gate.** The decision to add no scenario in the widening stands and is
+    unaffected — but it is protected by the standing outcome constraint and
+    by review, NOT by a mechanism, and no restatement (here, in the widened
+    proposal, or in governed prose) may claim the gate catches a missing
+    integration test. The gap is in the PINNED `livespec-dev-tooling`
+    check, so if it warrants a work-item that belongs in that tenant, not
+    under `overseer-4xfmez`.
 13. Wave-2 act-path additions: the supervisor wrap-up VARIANT pinned at
     the TEXT level (its ritual targets `supervisor-handoff.md` on a
     `wrapup-<topic>-supervisor` branch — the rendered message, not just
@@ -1469,10 +1598,14 @@ Beyond `policy-options.md` §6's nine for the ratified instance:
 Gate: `uv run pytest overseer -q`, then `just check`. No existing check may
 be weakened, removed, skipped, or exempted.
 
-## Open maintainer decisions
+## Maintainer decisions — ALL DECIDED 2026-07-28
 
-Defaults are recommended rather than derived; each is safe to change
-without reopening the design:
+Every item below was recommended rather than derived, and **the maintainer
+accepted all nine recommendations verbatim**, plus one upgrade: item 8's
+guard SHIPS as a designed guard rather than remaining an accepted residual.
+The recommendations are retained as written so the reasoning behind each
+ruling stays legible; the rulings are stated after the list. Nothing here is
+open any more — reopening one requires a new maintainer decision.
 
 1. **The starvation floor** — recommended 7200 s, equal to the ratified
    shell floor (one value in the contract, not two).
@@ -1506,3 +1639,22 @@ without reopening the design:
 9. **Whether daemon self-liveness becomes its own thread** (wave 1) — the
    in-memory-clock residual and the unobserved restart cadence, recorded
    in §"Two cross-cutting boundaries"; out of these four lanes either way.
+
+### The rulings (2026-07-28, binding)
+
+| # | Ruling |
+|---|---|
+| 1 | Starvation floor **7200 s**, the one shared 2 h value with the ratified shell floor |
+| 2 | General-clause token **`winddown-starved`** |
+| 3 | Blocked escalation bands **{4 h, 24 h, then every 24 h}** |
+| 4 | Supervisor entity runs on the **daemon-wide 50**; a worker's per-track `ctx_threshold` override does **NOT** propagate to it |
+| 5 | Above-threshold arm floor **8 h**, **reusing `shell-prolonged`** (no third token) |
+| 6 | Continuity gap by **the formula** (`gap ≥ 2 × worst-case tick under full pair load`), **900 s interim** until the measured derivation lands |
+| 7 | Pair-nudge escalation **N = 2** consecutive nudged episodes, then the operator line; **Claude-only v1** (Codex parity gated on evidence of a verifiable Codex empty-input state) |
+| 8 | **SHIP the identity-hold guard** — remember the registry identity observed when a `ready` first appears; if it changes before the act tick, HOLD the respawn and surface. Folded as a DESIGNED guard, not an accepted residual. Note it also holds the inherited restart defect's second kill (see the cross-cutting section) |
+| 9 | Daemon self-liveness recorded as a **FUTURE separate thread** — explicitly not this cycle |
+
+Additionally ruled: the inherited restart defect is **consented for ledger
+filing** as its own work-item under `overseer-4xfmez`, and dead-supervisor
+visibility ships per the side already picked in lane C (mid-round death
+alarms; no-round death surfaces only through the existing offer).
