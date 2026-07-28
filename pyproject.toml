@@ -92,9 +92,11 @@ livespec-dev-tooling = { git = "https://github.com/thewoolleyman/livespec-dev-to
 source_trees = ["overseer"]
 io_trees = []
 commands_trees = []
-# Still empty, and NOT an oversight: `pure_trees` arming is gated on
-# `livespec-mutreal.1`, exactly as it is in core.
-pure_trees = []
+# UNARMED, not not-applicable, and NOT an oversight: `pure_trees` arming is gated
+# on `livespec-mutreal.1`, exactly as it is in core. The concept applies here and
+# is switched off pending that named work, so the blocking ledger id now lives in
+# the PARSED VALUE rather than in this comment (livespec-dev-tooling-8o8e.1).
+pure_trees = { unarmed_until = "livespec-mutreal.1" }
 covered_trees = ["overseer"]
 # The PreToolUse guard hook is a supervisor entry artifact: its `main()` carries
 # the ONE fail-open boundary catch livespec non-functional-requirements.md line
@@ -106,11 +108,24 @@ covered_trees = ["overseer"]
 # exemption").
 supervisor_entry_files = [".claude/hooks/livespec_footgun_guard.py"]
 file_lloc_hard_gate = true
-# Declared-empty: these roles remain unarmed.
-target_dirs = []
-source_tree_prefixes = []
-dataclasses_tree = ""
-neutral_hook_body_path = ""
+# These four shared ONE terse "declared-empty: these roles remain unarmed" line,
+# and that word covered two materially different situations. They are now split
+# (livespec-dev-tooling-8o8e.1), each carrying its reason in the PARSED VALUE.
+#
+# CONVENTION NOT ADOPTED — the concept APPLIES and arming it would go RED today.
+# `tests/` has no `tests/overseer/` mirror tree at all (only `integration/` and
+# `prompts/`), so declaring `source_tree_prefixes` would redden
+# `tests_mirror_pairing`; and this repo carries no per-directory CLAUDE.md layout
+# for `claude_md_coverage` to walk. Neither is "does not apply here" — both are
+# conventions this repo has not adopted, which is a state that should stay
+# visible rather than hide behind an emptiness.
+target_dirs = { convention_not_adopted = "per-directory-CLAUDE.md convention not adopted; real values would redden claude_md_coverage" }
+source_tree_prefixes = { convention_not_adopted = "tests-mirror-pairing convention not adopted; this repo has no tests/overseer/ mirror tree" }
+# NOT APPLICABLE — these two genuinely do not exist here: the package carries no
+# dataclasses/schema tree, and the overseer is not a Driver so it installs no
+# neutral shared hook body. Nothing to arm, now or later.
+dataclasses_tree = { not_applicable = "the overseer package carries no dataclasses/schema tree" }
+neutral_hook_body_path = { not_applicable = "the overseer is not a Driver and installs no neutral shared hook body" }
 
 # ---------------------------------------------------------------------------
 # Ruff — sole linter, formatter, import-sorter, complexity checker.
