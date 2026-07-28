@@ -1,8 +1,9 @@
 # Plan — codex-parity-and-rollout-safety
 
 **Owning repo:** `livespec-overseer`. **Status: GROOMED 2026-07-28 — six slices
-cut and filed, nothing built, nothing in flight. The admission valve is a
-SEPARATE valve and it is NOT open.**
+cut and filed, nothing built, nothing in flight. Admission is OPEN FOR A1 ONLY,
+by an explicit maintainer decision recorded below; A2, B2 and A3 remain held,
+and B1/C1 are not in this tenant at all.**
 
 **Ledger anchor: the epic `overseer-az5nps` is CLOSED.** `groom` regroomed it
 out on 2026-07-28 — that is the operation's normal disposition, not a loss, and
@@ -29,11 +30,61 @@ B2's cross-repo blocker is not visible to `bd dep tree`, which walks local edges
 only. It is recorded on B2 as
 `non_local_depends_on: [{"kind":"sibling_work_item","repo":"livespec-dev-tooling","work_item_id":"overseer-llz4xi"}]`.
 
-**Observed status at filing, which is NOT uniform:** A1 and A2 came out of the
-intake Definition-of-Ready router at **`ready`**; B2 and A3 at
-**`pending-approval`**. All four carry `admission:auto`. `next` ranks A1 first
-and A2 third of all implementable work in this tenant. Nothing here opens the
-admission valve — but do not assume these slices are parked.
+### Current ledger state — read back 2026-07-28, not inferred
+
+| slice | id | status | admission |
+|---|---|---|---|
+| **A1** | `overseer-4km4mj` | **`ready`** — ADMITTED | `manual` |
+| A2 | `overseer-vyie5q` | `backlog` | `manual` |
+| B2 | `overseer-vfz5v5` | `pending-approval` | `manual` |
+| A3 | `overseer-kju6wh` | `pending-approval` | `manual` |
+
+`next` returns exactly one candidate from this thread: **A1**. Nothing else here
+is dispatchable. **A1 is admitted, NOT implemented** — dispatch is a separate,
+deliberate act through the factory route (see §NEXT ACTION).
+
+A1 was admitted from `backlog` with `move:overseer-4km4mj:ready`. The obvious
+primitive, `approve:<id>`, was tried FIRST and refused — *"expected
+pending-approval source state for overseer-4km4mj; found backlog"* — and
+`move_item` forbids `pending-approval` as a target by ship-guard
+(`_MOVE_ALLOWED = {backlog, ready, blocked}`), so there is **no
+`backlog → pending-approval → approve` route**. A1 keeps `admission:manual`
+deliberately: that label gates only the `pending-approval → ready` transition,
+which an operator move bypasses, and leaving it `manual` records honestly that a
+human admitted this item rather than policy auto-promoting it.
+
+### Why every slice carries `admission:manual` — a defect, now filed upstream
+
+**At filing, all four slices carried `admission:auto` and the two with no
+dependency edges (A1, A2) were promoted straight to `ready`, past a maintainer
+admission valve that was explicitly closed.** They were set back by hand:
+`set-admission:…:manual` on all four, plus `move:…:backlog` on A1 and A2, because
+the policy label alone does not hold a `ready` item.
+
+That is not this repo's bug. Measured in plugin version `c878ea43f8cd`:
+`groom.py:306` stamps `admission_policy="auto"` unconditionally on every filed
+slice; `intake_dor.py:152-159` promotes a dependency-free `pending-approval`
+slice to `ready` when the effective policy is `auto`; and
+`_dispatcher_policy_settings.py:126-127` gives the per-item stamp precedence over
+the repo default, which for this repo is the `manual` fallback
+(`_dispatcher_policy_settings.py:52`) since `.livespec.jsonc` declares no
+`dispatcher` key.
+
+**Filed in the `livespec-orchestrator-beads-fabro` tenant** at the maintainer's
+direction — that repo owns them, so they are recorded here by id only:
+
+- **`bd-ib-rhv0`** (P1) — groom hard-codes `admission_policy="auto"`, silently
+  overriding any manual-policy repo. Dependency-bearing slices carry a DELAYED
+  form of the same fault: they hold on their edges, not on policy, so they
+  auto-promote the moment their blockers clear.
+- **`bd-ib-ah2r`** (P2) — `prose/groom.md` is stale against `commands/groom.py`:
+  its Step 3 example omits the required `local_repo` argument, and it never
+  mentions `CrossRepoSlice`, the very mechanism that keeps B1 and C1 out of this
+  tenant.
+
+Both were hand-filed, so the `bd create` → beads-native `open` hazard DID apply
+(unlike the groom route); both were filed `--no-inherit-labels`, explicitly set
+to `backlog`, and read back to confirm.
 
 Created 2026-07-28 from maintainer supervisor brief 17. **Both problems are
 already root-caused with evidence. Do NOT re-derive either cause** — that is the
@@ -163,12 +214,23 @@ ensure-plugins recipes to the shared derive-from-settings"*.
 
 Record both; serialize neither.
 
-## NEXT ACTION — the groom is DONE; the admission valve is NOT open
+## NEXT ACTION — dispatch A1, and ONLY A1
 
 `/livespec-orchestrator-beads-fabro:groom overseer-az5nps` ran on 2026-07-28 and
-the maintainer approved the cut as drafted, all six slices unchanged. **The
-maintainer approved THE CUT, not implementation.** The admission valve is a
-separate valve and it has not been opened.
+the maintainer approved the cut as drafted, all six slices unchanged. Approving
+the CUT was a separate act from opening ADMISSION; the maintainer then opened
+admission **for A1 alone**.
+
+**The next concrete action is to dispatch A1 through the factory route:**
+
+```
+/livespec-orchestrator-beads-fabro:drive --action impl:overseer-4km4mj
+```
+
+That is a deliberate act for the maintainer or the supervisor to trigger. **A
+planning or grooming session must not hand-build it**, and must not dispatch A2,
+B2 or A3 — they remain held at `admission:manual`, and opening any of them is a
+maintainer decision, recorded, not an incidental side effect.
 
 The groom accepted the proposed first slice's *intent* and **re-cut its shape and
 ordering**: goal 1 became **A1** (record the supersession, keep `exempt`) plus
@@ -177,17 +239,16 @@ that can go red). The re-cut was driven by the measured gate hazard above — th
 original acceptance would have gone green while proving nothing. **The
 supersession decision itself was never in question and is not reopened.**
 
-When the valve opens, implementation goes through the **factory dispatch route**
-— `/livespec-orchestrator-beads-fabro:drive --action impl:<id>`, or the
-Dispatcher drain. Do **not** hand-build slices in a planning session.
-
 Two things a cold-open reader should carry into that moment:
 
-- **A1 and A2 are already at `ready` with `admission:auto`**, and `next` ranks A1
-  first in this tenant. They are not parked behind a status.
+- **A1's acceptance is deliberately NOT a live Codex exercise.** It records a
+  decision and deletes a false `reason` string; it claims no Codex capability.
+  Do not let a reviewer demand a live proof it was never scoped to give — that
+  proof belongs to **A3**, which is still held.
 - **B1 (`overseer-llz4xi`) and C1 (`overseer-qfnjj6`) are not in this tenant.**
-  They need filing in `livespec-dev-tooling` and `livespec` respectively, and
-  B2 cannot honestly complete before B1 does.
+  They still need filing in `livespec-dev-tooling` and `livespec` respectively,
+  and **B2 cannot honestly complete before B1 does**. Those two filings are
+  outstanding work with no owner in this repo's ledger.
 
 ## Why this thread's supervisor charter needed a workaround — a `supervise-plan` DEFECT, not an omission
 
@@ -265,3 +326,8 @@ generated-charter contract test exists to prevent.
   routes**, and it earned its keep here: the read-back is what revealed that the
   DoR router does not leave every slice where it was filed (A1 and A2 came out at
   `ready`, not `pending-approval`).
+  **Both halves are now confirmed by measurement.** Hand-filing `bd-ib-rhv0` and
+  `bd-ib-ah2r` into the `livespec-orchestrator-beads-fabro` tenant on 2026-07-28
+  landed BOTH at `Status: open`, exactly as the hazard predicts. So the trap is
+  real on the hand-filing route and absent on the groom route — and knowing which
+  route you are on is what tells you whether the discipline is required.
