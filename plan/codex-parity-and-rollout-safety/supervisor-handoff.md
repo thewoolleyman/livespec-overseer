@@ -263,6 +263,32 @@ of the supervised session's mistakes.
   dispatched everything for two days, despite holding the skill itself and being
   the session the operation charters. Read who the instruction names.
 
+### First-hand, 2026-07-28 — from grooming `overseer-az5nps`
+
+- **Asserting a gate held without measuring it.** The supervisor told both the
+  worker and the maintainer that the admission valve was closed and would hold
+  the filed slices. **It did not.** `groom.py:306` stamps
+  `admission_policy="auto"` unconditionally on every filed slice, and
+  `intake_dor.py:152-159` promotes any dependency-free slice straight to
+  `ready`; per-item policy beats the repo default at
+  `_dispatcher_policy_settings.py:126-127`, and this repo declares no
+  `dispatcher` key so its default is `manual`. **The worker's read-back caught
+  it, not the supervisor.** Measure a gate before claiming it holds.
+
+- **Vetting a finding's conclusion but not its remedy.** Finding F2 — that this
+  repo ships no Codex surface — was verified at source, and the slice was passed
+  through to the maintainer on that basis. Its proposed **remedy** was never
+  checked against fleet convention: it specified a repo-root `.codex-plugin/`, a
+  structure that exists in **no** livespec repo. The maintainer caught it. **A
+  correct diagnosis does not make the prescription correct; vet both.**
+
+- **Supplying a hazard that did not apply to the route in use.** The supervisor
+  warned that `bd create --parent` files children at beads-native `open`, so
+  `next`/`drive` rank none of them. That is true only for **hand-filing**. The
+  groom route files at `pending-approval` (`groom.py:292`) and then runs the DoR
+  intake router. The worker established this; the supervisor confirmed it at
+  source and conceded.
+
 Carried forward from `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
 because they are role-level rather than track-level:
 
