@@ -1,5 +1,12 @@
 # Research — problem 2: a plugin rollout breaks already-running Codex sessions
 
+> **ANNOTATED 2026-07-28 after the groom. The cause, the `oh-my-codex #3024`
+> precedent and the live-acceptance bar below all still hold and were not
+> re-derived.** Two ownership claims were corrected by measurement and are
+> marked inline as `[SUPERSEDED]` / `[FILED]`. Kept as the reasoning record and
+> annotated rather than rewritten; `handoff.md` carries current state and wins
+> on a conflict.
+
 **Provenance: maintainer supervisor brief 17, researched and confirmed before
 this thread existed. Do NOT re-derive it.**
 
@@ -50,8 +57,24 @@ This is **host-wide**, not an overseer concern. It affects `livespec`,
 `livespec-driver-codex` and `livespec-orchestrator-beads-fabro` equally.
 
 - The `ensure-codex-plugins` recipe lives in **`livespec-dev-tooling`**.
+
+  > **[SUPERSEDED — the recipe is per-repo.]** Measured 2026-07-28:
+  > `livespec_dev_tooling/fleet/_rows_local.py:22` and `justfile:76-78` state
+  > that each governed repo's recipe **stays the single source**;
+  > `livespec-dev-tooling` owns the shared module, not the bodies. This repo's
+  > own copy — including the three `codex plugin marketplace upgrade` calls that
+  > are this defect's TRIGGER — is at **`justfile:137-139`** within
+  > `justfile:127-142`. So every governed repo is a trigger site in its own
+  > right, which widens this problem's surface rather than narrowing it.
+
 - The problem's natural home is **livespec core**, where epic **`livespec-c1k9`**
   (fleet plugin currency) lived.
+
+  > **[FILED 2026-07-28]** as **`livespec-1p31`** in the `livespec` core tenant,
+  > at `backlog`. It is slice **C1** of the groom's six-slice cut. The
+  > groom-minted id `overseer-qfnjj6` recorded elsewhere is **DEAD** — bd
+  > rejects a foreign-prefixed id at the destination tenant (groom defect
+  > `bd-ib-a8zi`) — so look it up by `livespec-1p31` and nothing else.
 - **`livespec-c1k9.10`** and **`livespec-c1k9.14`** are its closed ancestors.
   Cite them, and cite them precisely: they solved *becoming current at session
   start*. They did **NOT** address *not breaking a live session*. This thread is
