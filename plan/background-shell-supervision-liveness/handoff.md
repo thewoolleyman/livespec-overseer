@@ -24,23 +24,56 @@ attended seats do.
 
 ## 2. Where this thread stands — READ BEFORE DOING ANYTHING
 
-**The gate is discharged, the maintainer has ruled, and steps a–c are
-LANDED.** The thread is parked at exactly one place: ratification.
+**RATIFIED. Steps a–d are LANDED. The thread is parked on ONE mechanical
+blocker: dispatch refuses on a stale plugin build.**
 
 | Step | State |
 |---|---|
 | §9 adversarial gate | **DISCHARGED** — 8 reviews, two waves, both model families, all verified and folded, zero refutations in the final round |
 | Maintainer's batched decisions | **ALL RULED 2026-07-28** — see §3 |
 | a. Research note landed | **DONE** — PR #219 merged. `research/control-plane-liveness.md` is the design source of truth, on master |
-| b. Widened proposal landed | **DONE** — PR #226 merged. `SPECIFICATION/proposed_changes/background-shell-liveness-attention.md` carries nine edits (six spec.md, three contracts.md), UNRATIFIED |
-| c. Ledger filed | **DONE** — six children under `overseer-4xfmez` (`.1`–`.6`), epic retitled and its scope description widened |
-| d. `/livespec:revise` | **NOT RUN, AND NOT YOURS TO RUN** — ratification is the maintainer's valve; the revise session gets scheduled with the maintainer from the supervisor seat |
-| e. Implementation | **BLOCKED on ratification.** No product code may land before `/livespec:revise` completes |
+| b. Widened proposal landed | **DONE** — PR #226 merged |
+| c. Ledger filed | **DONE** — six children under `overseer-4xfmez` (`.1`–`.6`), epic retitled and scope-widened |
+| d. `/livespec:revise` | **DONE — v003 RATIFIED**, PR #232, commit `ed55630` on master. `proposed_changes/` is empty; `history/v003/` holds the proposal and its decision. Decision was `modify`: the nine edits verbatim plus one counsel co-edit aligning spec.md §"The restart" with contracts.md §"The restart interlock" |
+| e. Implementation | **UNBLOCKED by ratification, BLOCKED by tooling** — see below |
 
-**So: if you are cold-opening into this thread with nothing new in hand, you
-are waiting on the maintainer's ratification session. Do not run
-`/livespec:revise` yourself, and do not start implementing.** Check the
-ledger and the forge first (§6) in case ratification already happened.
+### The one blocker: the dispatcher staleness gate
+
+`drive --action impl:overseer-4xfmez.1` fails with dispatcher exit code 3:
+
+> `dispatcher plugin build is stale; executing build c878ea43f8cd predates
+> latest release c53fd50e58b6.`
+
+**This is NOT a human valve** — nothing awaits a decision. It is the running
+session's plugin binding being stale; skill bindings are fixed for a session's
+lifetime, so a session cannot self-remediate. **A session RESTART fixes it**:
+the project tracks the marketplace with no version pin and the SessionStart
+hook runs `claude plugin update`, so a fresh session binds to current. A bare
+`claude plugin update` from inside the stale session does NOT help.
+
+**Do not route around it** by hand-invoking a newer build's `dispatcher.py`
+from the plugin cache. Newer builds are on disk and do run, but substituting
+your own build-picking for the harness's resolution defeats a guard that exists
+to keep stale factory logic away from the ledger — the same class of move as
+`--no-verify`.
+
+The gate refuses before acting, so nothing was left half-done: verified after
+two attempts that `.1` is still `OPEN`, `.1` and `.2` are both ready with no
+blockers, `.3`–`.6` are still correctly blocked behind the layering, and no
+factory worktree or branch was created.
+
+### So, on cold open
+
+If you are a RESTARTED session, the gate is probably already cleared — re-run
+step e below. Otherwise you are waiting on a restart, not on a human.
+
+**Step e, when unblocked:** dispatch `overseer-4xfmez.1` first (P1, independent
+of the lanes), then `.2` (lane A foundations, which `.3`–`.6` depend on), via
+`drive --action impl:<id>` or the Dispatcher drain if that is the fleet-current
+route. Respect the dependency layering; do not parallel-dispatch slices that
+share files. **Never implement inline from this planning seat.** If `drive` hits
+a genuine human valve (admission/approve), do NOT force it — report it to the
+supervisor seat, which batches valves to the maintainer.
 
 ## 3. The rulings — binding, do not relitigate
 
@@ -164,9 +197,9 @@ a decision, but do not assume they are stale.
   `scenarios.md`-only tier direction accepts one on a **string prefix**
   without resolving it. So "no new `## Scenario` heading ahead of its test"
   is a discipline this thread honors deliberately — **not** something the
-  gate would catch. The 23 rows want their own hygiene work-item; it is
-  **BOTH now filed**, with maintainer consent (2026-07-28), and neither
-  belongs to this epic — do not re-file them:
+  gate would catch. Two items came out of this, **BOTH now filed** with
+  maintainer consent (2026-07-28), and neither belongs to this epic — do not
+  re-file them:
   - **`overseer-knm`** (this repo's tenant, standalone task,
     `origin:freeform`) — the 23 stale registry rows. Fixture-data only: it
     rewrites each row's module component to the module that actually defines
@@ -177,6 +210,40 @@ a decision, but do not assume they are stale.
     against that repo's master and a minimal repro sketch. Note its rollout
     caveat: consumers are pinned, so a new resolving direction turns existing
     drift red for them, which makes sequencing a real design decision.
+
+- **Gap detection cannot see four of the ratified obligations — so the
+  prescribed closure check is incomplete.** The epic's traceability comment
+  maps 12 real gaps to slices and its 12/8 split is CORRECT (re-verified: the
+  8 unmapped ids are genuinely pre-existing implemented clauses). The hole is
+  upstream of classification: `detect_impl_gaps` emits exactly one candidate
+  per sentence containing the literal token `MUST` — measured two ways, all
+  **20 of 20** candidate fragments contain `MUST`, and candidate count equals
+  `MUST` count for every heading (Fail-soft posture 8/8, Notify-never-block
+  1/1, Session-name derivation 0/0, Supervised runtimes 3/3, keep-going nudge
+  0/0, state file 0/0, restart interlock 1/1, Attention surface 2/2).
+
+  So four obligations ratified in v003 in indicative / RESERVED / only-when
+  voice produced NO gap id: EDIT 3's age-band escalation (→ slice **`.4` has
+  no gap id at all**); EDIT 6's entire pair nudge including the one bounded
+  exception permitting a paste into a busy-classified supervisor (→ **`.6`
+  has none either**); EDIT 4's `-supervisor` reservation and EDIT 7's
+  canonical-path rule (→ two untracked halves of `.5`).
+
+  **Consequence: do NOT treat "re-run detect_impl_gaps; its gap ids must
+  leave the set" as the done-signal for `.4`, `.6`, or two-thirds of `.5`.**
+  Landing them changes the gap set not at all — and neither does NOT landing
+  them, so the epic can reach an empty gap set with two ratified obligations
+  wholly unimplemented. Verify those slices by their OWED TESTS instead.
+
+  Two remedies were put to the supervisor seat for the maintainer and are
+  PENDING, not actioned: (b) record explicit non-gap-tracked closure criteria
+  on `.4`, `.6` and `.5`'s untracked halves — immediate, touches no governed
+  prose; and (a) later, raise those four clauses to `MUST` form in a fresh
+  propose-change — identical semantics, fixes detection for every consumer,
+  but touches ratified prose so it needs its own cycle. Amending the epic's
+  traceability comment was deliberately NOT done by the worker seat: ledger
+  writes in this thread are consent-gated. Full detail in
+  `reviews/wave3-worker-verification.md` §8.
 
 ## 8. Repository discipline
 
