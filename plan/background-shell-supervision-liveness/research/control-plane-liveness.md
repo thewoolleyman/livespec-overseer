@@ -47,6 +47,23 @@ ruling; the overruled monitor-only stance is preserved in their
 rejected-alternatives records, and the ruling's one posture exception is
 flagged explicitly in lane D and in the governed-clauses list.
 
+**Wave 2 of the gate (two act-path safety reviews over THIS note's lanes
+C/D as folded — Fable and GPT-Codex, heavy independent convergence) is
+verified and folded.** Its material consequences: the supervisor wrap-up
+is a VARIANT, not a substitution (the "no new prose" claim was wrong);
+lane C's framing is corrected to an explicit entity substitution table
+with the offer leaf excluded; the pair/8h progress definition is
+content-immune (registry-first for Claude) under a newly stated
+directional-evidence principle; the nudge gains open-round/ACK guards, a
+consecutive-episode escalation that makes the operator line reachable,
+and ships Claude-only; the state path gains a canonical-path rule against
+symlink aliasing; the ctx-staleness bound is redesigned per-track; the
+continuity gap is re-derived as a formula (900 s interim); three more
+governed sections join the widening list; and one inherited SHIPPED
+worker-path defect (a retained `ready` re-authorizing a second kill after
+a recognition timeout) is confirmed against code, designed around, and
+flagged for ledger filing.
+
 Where this note contradicts the supervisor's first brief or the handoff's §7
 design direction, the contradiction is deliberate and collected in
 §"Disagreements with prior briefs", each with the measurement that forced it.
@@ -192,12 +209,20 @@ because the evidence already splits that way:
    its legs block (a restart poll alone is ~15 s; submit and settle delays
    add more), so a 60-second gap can be exceeded by ordinary churn — which
    would reset every episode clock every tick and silently starve every
-   floor. The gap for ALL lane-A clocks must exceed the worst-case tick
-   duration with margin; recommended **300 s** (flagged as a maintainer
-   decision), replacing the narrow predicate's proposed 60 s constant at
-   implementation time. A too-large gap only bridges genuinely separate
-   episodes into one earlier alarm on a still-true condition — the bounded
-   direction — while a too-small gap suppresses detection entirely.
+   floor. Wave 2 forced a re-DERIVATION rather than a bigger constant
+   (codex #7 measured the worst case: 33 tracks × ~15 s restart legs
+   ≈ 495 s BEFORE submit/settle delays — above this note's own first
+   300 s recommendation — and lane C up-to-DOUBLES the evaluated
+   entities, each with captures, settles, and act legs of its own). The
+   rule, stated as a formula rather than a number: the continuity window
+   MUST exceed the daemon's worst-case observation interval under FULL
+   pair load with margin — `gap ≥ 2 × worst-case tick` — derived from the
+   loop's own measured tick ceiling and re-derived whenever the entity
+   count changes materially. Interim constant until the measured
+   derivation lands: **900 s**. The too-large direction is bounded (it
+   merges genuinely separate episodes into one earlier alarm on a
+   still-true condition); the too-small direction suppresses detection
+   entirely — size accordingly.
 
    **mtime residuals, stated (wave 1).** Ages clamp to ≥ 0 (clock skew).
    A session that re-writes its declaration each turn refreshes the mtime;
@@ -391,17 +416,28 @@ facts ("blocked 26 h AND below its wind-down line — no round possible"),
 not a second free-standing line, and the ROW keeps the more specific
 status.
 
-**Last-known context must age (codex-autonomy #11, verified).**
-`effective_ctx` returns the stale last-known value indefinitely on parse
-failure, so a statusline format change would PIN every ctx gate at the
-last parsed number — above threshold, every ctx-gated mechanism in this
-note silently disarms while the table confidently displays a stale
-percentage. Bound it: a last-known value UNSEEN for longer than a bounded
-staleness window (recommended 1 h; one lane-A clock) demotes to unknown —
-failing toward silence exactly as the ratified rule requires — AND raises
-one DAEMON-level notice (`surface`, no track coordinates): "ctx unreadable
-for N tracks for over an hour" is a parser/format break, fleet-wide and
-operator-actionable, not a per-track condition.
+**Last-known context must age — redesigned once by wave 2 after its first
+form introduced a conflict (codex-autonomy #11; then wave-2 fable #6,
+verified).** `effective_ctx` returns the stale last-known value
+indefinitely on parse failure, so a statusline format change would PIN
+every ctx gate at the last parsed number while the table confidently
+displays it. The first fix (demote to unknown at 1 h + a coordinate-free
+daemon notice) violated this note's own row-projection corollary AND
+disarmed the 2-hour starvation clause for the wedged-TUI absorbing state
+(unknown at 1 h kills the clock before its floor; a frozen pane also
+fails `is_idle_input`, so the track sits in `settling` forever with no
+round). The redesign: staleness is a PER-TRACK condition with a row.
+A last-known value unseen past the window (recommended 1 h) still demotes
+to unknown for every ctx GATE (fail-toward-silence, unchanged) — but the
+track simultaneously gains a `ctx unreadable (Nh)` row note, and when the
+LAST KNOWN value was at or below the track's threshold, that row is
+ATTENTION with full coordinates: "we lost sight of a low track" is
+operator-actionable per se, and it surfaces at 1 h — EARLIER than the
+starvation floor the demotion disarms, so the wedged-TUI state trades a
+2-hour surface for a 1-hour one rather than going dark. The fleet-level
+`surface` notice fires additionally only when many tracks go stale
+together (a parser/format break). Above threshold: row note only, no
+attention.
 
 **The general clause is also the backstop for the ratified instance's own
 residuals (wave 1, safety #3/#4 — both verified TRUE).** The shell-episode
@@ -639,28 +675,80 @@ was verified against the code, and its one genuine posture conflict is
 flagged in lane D rather than silently absorbed.
 
 **The shape: the pair member is a track-shaped supervised entity keyed
-`<topic>-supervisor`.** Derived, never discovered from a plan directory:
-the `<derived-session>-supervisor` tmux session (`supervisor_session_of`
-composes the collision-aware derivation; `supervisor_running` proves pane
-process + repo containment). From there, every mechanism in the existing
-contract and in this note applies to it IDENTICALLY, by construction
-rather than by parallel implementation:
+`<topic>-supervisor`.** Derived, never discovered from a plan directory —
+and derived from the TOPIC, not from the worker's current tmux binding:
+the pair session name is `tmux_id(topic) + "-supervisor"` (collision-aware),
+NEVER `track.tmux + "-supervisor"`. Today's `supervisor_session_of`
+composes `session_of`, which returns `track.tmux` first
+(`_supervisor_launch.py:52`), so a worker adopted in a generic window
+(`livespec1`) would derive a nonexistent `livespec1-supervisor` while the
+real supervisor sits at `<topic>-supervisor` — invisible, silently
+(wave-2 #9; a change the implementing slice owes). Identity for the pair
+member additionally requires the LIVE session's registry name to equal the
+derived pair name (the R2 parity gate) — which pins an ASSUMPTION about
+the real fleet that must be verified at implementation time and made a
+charter obligation: supervise-plan launches/renames supervisors so their
+registry name is exactly `<topic>-supervisor`.
+
+From there, every MECHANISM in the existing contract applies to the entity
+— but "identical machinery, no new code" overclaims, and wave-2 #1/#7
+showed exactly where: the machinery is topic-parameterized PROSE as well
+as logic, and prose does not substitute by construction. The honest form:
+**identical mechanism under an explicit ENTITY SUBSTITUTION TABLE, plus
+one excluded leaf.** The table, exhaustively — anything topic-parameterized
+that is not in it is a defect: state file
+`tmp/overseer/<topic>-supervisor/.overseer-state`; sidecar key
+`(repo, <topic>-supervisor)`; session name `<derived>-supervisor` (respawn
+preserves it); resume line → `plan/<topic>/supervisor-handoff.md`; the
+wrap-up's `{state_file}`/`{handoff}` AND its commit-ritual block (see the
+wrap-up bullet — a VARIANT, not a substitution); the keep-going nudge's
+`{handoff}` pointer (same variant rule — the worker text would point the
+supervisor at a nonexistent `plan/<topic>-supervisor/handoff.md`). The
+EXCLUDED leaf: `surface_supervision_offer` must not run for a supervisor
+entity — verbatim reuse would derive `<topic>-supervisor-supervisor` and
+probe `plan/<topic>-supervisor/supervisor-handoff.md`, mechanically
+re-importing the supervisor-of-supervisor regress this lane's rejected
+alternatives disclaim (wave-2 #7b).
 
 - **State file**: `<repo>/tmp/overseer/<topic>-supervisor/.overseer-state`
   — its own directory under the same gitignored scratch root, so the
   one-file-one-value rule (invariant 9) holds per entity with no collision
   against the worker's file. The round sidecar keys on
   `(repo, <topic>-supervisor)` identically. The namespace reservation
-  below is what makes this key sound: no real plan topic may ever claim
-  it.
+  below is what makes this key sound lexically — and wave-2 codex #1
+  (BLOCKER, verified: `state_path` is a plain `Path` join, reads follow
+  symlinked parents) showed lexical distinctness is not PHYSICAL
+  distinctness: a session that symlinks its own state directory onto
+  another entity's aliases the file, so one entity's write satisfies
+  another entity's `ready_valid` — including a worker authorizing its own
+  supervisor's respawn. This is a cross-track weakness in the SHIPPED
+  worker protocol too (worker→worker aliasing), not a pair-specific one.
+  The hardening, designed: every state-file read used for an ACT
+  canonicalizes and compares — `actual = state_path.resolve()` must equal
+  `expected = realpath(repo)/tmp/overseer/<entity>/.overseer-state`
+  (the expected base canonicalized identically, so a legitimately
+  symlinked REPO checkout still passes); any mismatch (symlinked entity
+  dir, symlinked scratch dir, symlinked file) is treated as NO declaration
+  and surfaced by name, fail-closed — a refused alias can never restart
+  anything, and the surface tells the operator which path aliased where.
+  Joins the governed state-file contract and the owed tests.
 - **Wrap-up**: same trigger (threshold), same bands, same
-  idle-verified/settled/identity gates, same escalating message — with
-  `{state_file}` substituted to the supervisor's own file and `{handoff}`
-  to `plan/<topic>/supervisor-handoff.md`, the one artifact spec already
-  reserves for supervision and the daemon already existence-probes. The
-  wrap-up body already teaches committing the handoff through the repo's
-  PR discipline, which is exactly how spec requires that artifact to land
-  — one substitution, no new prose obligations.
+  idle-verified/settled/identity gates, same escalation gradient — but a
+  supervisor VARIANT of the message body, not a parameter substitution.
+  Wave-2 #1 (BLOCKER, verified against the template text): `_WRAPUP_BODY`
+  hardcodes the commit ritual around `{topic}`/`{handoff}` —
+  `cp {handoff} "$W/plan/{topic}/handoff.md"` on branch `wrapup-{topic}`
+  — so EITHER parameterization corrupts pair state: worker-topic +
+  supervisor-handoff pastes instructions that overwrite the WORKER's
+  `handoff.md` with the supervisor's brief via PR; `<topic>-supervisor` as
+  the topic commits into the reserved plan namespace under the wrong
+  filename while the real `supervisor-handoff.md` never updates — and the
+  existence-only respawn gate then happily resumes the STALE brief. The
+  variant's ritual targets `plan/<topic>/supervisor-handoff.md` on a
+  `wrapup-<topic>-supervisor` branch, and a TEXT-LEVEL test pins the
+  rendered message (the earlier owed-tests item pinned firing and
+  interlock only — insufficient). The prior draft's "one substitution, no
+  new prose obligations" claim was WRONG and is corrected here.
 - **Restart**: the identical interlock — a supervisor-round stamp, the
   supervisor's own fresh `ready`, strict mtime ordering (LITERALLY the
   same `ready_valid` — `state.mtime > injection_stamp`, `signals.py:423` —
@@ -674,7 +762,20 @@ rather than by parallel implementation:
   the existence probe to pass — respawning onto a missing handoff artifact
   would hand the fresh session a dead pointer, so a `ready` with no
   artifact surfaces the existing capture-offer and holds the round open,
-  exactly as a failed respawn preserves a worker's declaration.
+  exactly as a failed respawn preserves a worker's declaration. Two wave-2
+  refinements on that probe: it is RE-RUN immediately before the respawn
+  (the act-time re-check closes the probe-to-act window in which the
+  artifact could be archived or replaced — codex #5), and the suggested
+  stronger ordering — require the handoff's mtime newer than the round
+  stamp, mirroring `ready_valid` — is REJECTED with reasoning rather than
+  quietly skipped: the non-interference contract deliberately forbids any
+  content or MTIME dependence on plan-tree artifacts, and the daemon takes
+  none for worker handoffs either. Brief FRESHNESS is the supervisor's own
+  protocol obligation, enforced where the worker's is: the wrap-up
+  variant's ritual orders commit-the-handoff THEN declare `ready`, so a
+  conforming declaration postdates the committed brief by construction,
+  and a non-conforming session is a protocol defect surfaced like any
+  other. The staleness residual that remains is stated, not hidden.
 - **Threshold resolution**: the daemon-wide default (the ruling's "wrap-up
   starting at 50%"); a supervisor has no mapping-store row to carry an
   override. Whether the WORKER's per-track override should propagate to
@@ -724,11 +825,52 @@ whose derived session name collides with track `<x>`'s supervisor session,
 and adoption (registry name match + cwd containment) would then bind the
 SUPERVISOR as that track's worker — handing it the full cascade, wrap-up
 paste through `ready`-triggered `respawn-pane -k`, today, before lane C
-adds anything. Discovery MUST refuse a plan directory whose name ends in
-`-supervisor` (skipped and surfaced by name, fail-soft, like every other
-malformed input), which closes the collision for the existing machinery
-and makes the pair derivation sound in both directions. This is a
-discovery-admission rule, so it joins the governed-clauses list.
+adds anything. Wave-2 #8 moved the reservation UP a level: refusing plan
+DIRECTORIES is necessary but not sufficient — a topic literally named
+`supervisor` in two watched repos would collision-qualify to
+`<slug>-supervisor`, colliding with the pair name of topic `<slug>`
+through the derivation itself, and the CLI `add`/`start` path bypasses
+discovery wording entirely. So the rule is stated at the DERIVATION level:
+**no WORKER entity may ever derive, or be registered under, a session name
+ending in `-supervisor`** (case-insensitively, for case-insensitive
+filesystems) — enforced at discovery admission, at the collision
+qualifier, and at the CLI, each refusing and surfacing by name. This is a
+derivation/admission rule, so it joins the governed-clauses list
+(spec.md §"Session-name derivation" is one of the sections lane C amends
+anyway — see the governed list).
+
+**The predecessor-`ready` takeover race, now armed against the attended
+seat (wave-2 fable #5 — verified; the residual is already documented for
+workers in `_supervisor_config.py:109-111`).** A `ready` young enough to
+be inside the 120 s void grace survives a takeover: the maintainer
+`/clear`s the pane (same pid — the identity gate holds) or cold-opens a
+fresh session, the pane settles idle, and the next tick's interlock passes
+on the PREDECESSOR's declaration — `respawn-pane -k` destroys the
+maintainer's in-progress session. Today this is a narrow worker residual
+(a fresh cold open is usually busy at startup, and a busy tick past the
+grace voids the stale `ready`); full citizenship makes it ROUTINE
+exposure, because cold-opening SUPERVISOR seats is this very thread's
+documented workflow. The note states the residual rather than hiding it,
+and records one mitigation candidate as an open maintainer decision — an
+attended-takeover guard: remember (in-memory) the registry session
+identity observed when a `ready` is first seen, and HOLD the respawn if
+the pane's session identity has changed since, surfacing instead;
+fail-toward-holding, one remembered value, no new evidence source. The
+Codex sub-point (an unverifiable empty input box — the placeholder
+problem — means a paste can submit a human's half-typed draft) is folded
+into lane D's Claude-only-nudge recommendation.
+
+**Dead-supervisor visibility — a side is PICKED (wave-2 #13).** The pair
+member exists per LIVE member, so death makes the entity vanish rather
+than turn red — and a standing `session-gone` row per supervisor-less
+track would be ~22 rows of noise. The picked design: a supervisor death
+with NO open round surfaces through the existing offer machinery
+(`supervisor-missing` when the handoff artifact exists — with the start
+command in the alert); a supervisor that vanishes MID-ROUND (its
+`(repo, <topic>-supervisor)` stamp exists but no live member) is a
+genuine alarm — the entity died winding down, brief at risk — and gets an
+attention row until the round is resolved. Never-supervised tracks stay
+quiet; only interrupted supervision alarms.
 
 **Charter obligation (sequencing note, not a gate).** The generated
 supervisor charter must now TEACH the state-file protocol — a supervisor
@@ -799,10 +941,31 @@ runtime-agnostic. So progress is defined as a disjunction that fails toward
 "working":
 
 ```text
-progress_now = signals.is_busy(capture)        # generation spinner, either runtime
-               or claude_status == "busy"      # generating or sub-agent
-               or eff_ctx changed since the previous known reading
+progress_now = claude_status == "busy"              # authoritative: generating / sub-agent
+               or eff_ctx changed between two KNOWN reads
+               or (claude_status is None              # Codex only: no registry exists,
+                   and signals.is_busy(capture))      # the capture arm is unavoidable
 ```
+
+**Why the capture arm is EXCLUDED for adopted Claude sessions — a design
+principle both wave-2 act-path reviews reached independently (fable #2,
+codex #6), now stated as a principle rather than a patch:** evidence
+over-firing is DIRECTIONAL. `is_busy` deliberately over-fires, and that is
+safe where it SUPPRESSES acts — but fed into `progress_now` it AFFIRMS
+progress, which suppresses detection, reversing the safety direction. And
+it does not merely over-fire occasionally here: a supervisor pane
+CHARACTERISTICALLY displays worker-capture dumps — spinners,
+`esc to interrupt`, token counts — as static content above its idle
+prompt, so the whole-capture scan would read progress on every tick,
+permanently silencing the pair detector, the nudge, the post-nudge
+operator line, AND the 8-hour busy-shielded arm (which uses the same
+`progress_now`). For Claude the registry `busy` covers generation
+authoritatively and content-immune; ctx movement between known reads is
+content-immune (the ctx parse is tail-bounded). The Codex capture arm
+remains a stated residual: a Codex pane displaying spinner-like content
+stays "progressing" to these detectors — one more reason the nudge ships
+Claude-only (below). Every future detector input must be classified by the
+DIRECTION its errors fail before it is admitted.
 
 `claude_status == "shell"` is deliberately NOT progress — a shell is
 precisely the signal incident 1 proved can be dead — and idle / waiting /
@@ -864,16 +1027,47 @@ first, operator second:
 2. **No human gate**: paste ONE nudge into the SUPERVISOR (it owns
    direction), once per stall episode, under the full act discipline the
    existing keep-going nudge already uses — verified empty idle input,
-   settled pane, identity gate, never at a gate. The message names the
-   worker's coordinates, the no-progress duration, and the two honest
-   outs: resume driving, or surface/declare the human question you are
-   actually waiting on (`blocked: <reason>` — which converts the pair into
-   case 1 on the next tick).
-3. **Still stalled one floor after the nudge** (no progress from either
-   member): the report-only pair-stalled operator line, naming both panes
-   and the fact that an autonomous nudge already failed — which is
-   precisely what makes the line actionable rather than noise: the
-   autonomous remedy is exhausted, a human is genuinely owed.
+   settled pane, identity gate, never at a gate — PLUS three guards wave 2
+   added (fable #10): never while the supervisor has an OPEN ROUND or a
+   fresh `winding-down` ACK ("resume driving" must not contradict a
+   standing "STOP AND WIND DOWN"; on the same tick the wrap-up outranks
+   the nudge, and at most one paste reaches one pane per tick); and the
+   pair pass being NEW act code OUTSIDE the worker cascade, it composes
+   its own identity/TOCTOU/settled guard chain rather than inheriting the
+   cascade's by position — lane C's "no new act code" argument covers the
+   entity cascade, not this pass, and the guard composition is owed a test
+   of its own. The message names the worker's coordinates, the no-progress
+   duration, and the two honest outs: resume driving, or surface/declare
+   the human question you are actually waiting on (`blocked: <reason>` —
+   which converts the pair into case 1 on the next tick).
+   **V1 ships Claude-supervisor-only** (fable #4, codex #3, verified
+   against `signals` structure): a Codex pane's empty input box is
+   UNVERIFIABLE (the rotating placeholder is indistinguishable from typed
+   text), so a nudge could submit a human's half-typed draft, and a picker
+   the gate regex misses could have its DEFAULT selected by the paste's
+   Enter — a §12 red line. No Codex supervisors exist in the measured
+   fleet; parity waits on evidence of a verifiable Codex idle state, and
+   the divergence is justified in governed prose exactly as the
+   policy-options Codex divergence was.
+3. **Still stalled one floor after the nudge**: the report-only
+   pair-stalled operator line, naming both panes and the fact that an
+   autonomous nudge already failed. **The episode bookkeeping that makes
+   step 3 REACHABLE (fable #3, codex #6a — verified against my own first
+   formulation, which was wrong):** a nudge-answering turn is progress, so
+   it clears the raw episode — and a supervisor that answers "all good"
+   and re-arms its dead monitor would cycle the ladder at step 2 forever,
+   one paste every floor, the operator line unreachable in exactly the
+   persistent stall it exists for. So the ladder keys on a
+   CONSECUTIVE-NUDGED-EPISODES counter, not the raw episode: the counter
+   increments each time an episode ends in a nudge, RESETS only on real
+   un-stall evidence — WORKER progress (the pair's purpose), or the pair
+   staying un-stalled for longer than a floor — and at the second
+   consecutive nudged episode the ladder SKIPS the nudge and emits the
+   operator line. In-memory; a daemon restart resets the counter, which
+   only delays escalation (one extra nudge), never fabricates it. The
+   false-busy corollary (codex #6a's other direction) is closed by the
+   content-immune progress definition above: a false-busy frame can no
+   longer clear the marker mid-stall for Claude pairs.
 
 **The one posture conflict, flagged loudly rather than silently absorbed.**
 The M3 stall shape has the supervisor at registry `shell` (an armed
@@ -913,17 +1107,19 @@ Interactions that keep it quiet on healthy tracks, walked explicitly:
 - A supervisor running its reviewers is registry `busy` ⇒ progress ⇒ no
   fire, however long the review runs.
 
-**Edge-triggering the nudge.** Once per stall episode. The recommended
-carrier is the supervisor's own state file with a daemon-written marker —
-the mechanism the keep-going nudge already ratifies — but the existing
-token's name (`idle-with-context-left`) states the wrong fact for a pair
-nudge, so the state-file grammar gains ONE new daemon-written value
-(recommended `pair-stall-nudged`; authorizes nothing; cleared by the
-daemon the moment either member progresses, with the same
-never-clobber-a-session-value rule). A governed grammar extension —
-listed under governed clauses. The in-memory alternative (no new token)
-re-nudges once after a daemon restart; flagged as the fallback if the
-maintainer prefers no grammar growth.
+**Edge-triggering the nudge — the earlier grammar-token recommendation is
+WITHDRAWN (fable #10).** A prior revision recommended a new daemon-written
+state-file value; wave 2 found the contention that kills it: the
+supervisor entity's own cascade may legitimately hold
+`idle-with-context-left` in its ONE state file (an idle supervisor above
+threshold in a stalled pair is exactly the overlap case), and one file
+holds one value — two daemon markers competing for it re-creates the
+ambiguity invariant 9 exists to prevent. The nudge bookkeeping
+(once-per-episode marker AND the consecutive-nudged-episodes counter) is
+therefore IN-MEMORY, accepting the stated cost: a daemon restart forgets
+it, worth at most one repeat nudge and one delayed escalation — the
+delay direction, never fabrication. No state-file grammar change ships in
+this contract.
 
 Also refuted for the record (codex-autonomy #6): "lane D's busy-based
 predicate misses the mutual IDLE wait — both idle, neither blocked."
@@ -954,7 +1150,7 @@ nudge, not just a line.
 | Above-threshold no-progress (wave 1) | in-memory clock | first shell-classified no-progress tick | any progress tick; shell evidence ends; gap | same per-condition rule | clock resets; delay-only |
 | Blocked age + bands | on-disk mtime (no clock) | declaration write | new declaration (new mtime) resets bands; declaration cleared/voided ends episode | next declaration is a fresh episode; band keys are distinct conditions | age survives (mtime); band memory in-memory → at most one true re-statement |
 | Supervisor entity rounds (lane C, ruled) | the EXISTING durable round machinery, keyed `(repo, <topic>-supervisor)` | threshold crossing opens a round | round close on restart, exactly as a worker's | per the existing round contract | stamp + bands durable, exactly as a worker's |
-| Pair-stalled → nudge → line (ruled) | in-memory clock + a daemon-written once-per-episode marker in the supervisor's state file | first no-progress-both tick | any member progresses; any human-waiting state (→ surface instead); gap | marker cleared on progress re-arms the next episode; the operator line re-arms per condition key | clock resets; at most one repeat nudge per restart if the in-memory fallback is chosen; delay-only otherwise |
+| Pair-stalled → nudge → line (ruled) | in-memory clock + in-memory once-per-episode marker + consecutive-nudged-episodes counter (the state-file marker idea is withdrawn — one-file contention) | first no-progress-both tick (content-immune progress definition) | any member progresses; any human-waiting state (→ surface instead); open round or fresh ACK (wrap-up outranks); gap | counter resets ONLY on worker progress or durable un-stall; second nudged episode skips to the operator line; per-condition key re-arm | clock+counter reset; at most one repeat nudge and one delayed escalation; delay-only |
 | Ctx staleness bound (codex-autonomy #11) | in-memory clock per track | first unknown-parse tick after a known value | any successful parse | daemon-level notice, not a track alert | clock resets; delay-only |
 
 Every alert above is coordinate-rich (via `sup.alert` — topic, repo,
@@ -966,7 +1162,28 @@ exemption set). Every in-memory clock fails in the delay direction on
 restart, never the false-alarm direction. (The dead-predecessor void row
 that stood here is withdrawn — lane B3.)
 
-## Two cross-cutting boundaries, stated so they stop being ambient (wave 1)
+## Cross-cutting boundaries and inherited defects, stated so they stop being ambient
+
+**An inherited SHIPPED defect in the restart path, confirmed against code —
+one `ready` can authorize two kills (wave-2 codex #4, BLOCKER-classed;
+verified at `_supervisor_restart.py:135-154`).** The await-failure return
+is correct for a FAILED respawn (nothing was killed; keeping the
+declaration lets the next tick retry). But when `respawn_pane` SUCCEEDS
+and only the RECOGNITION poll times out, the predecessor is already dead —
+and the retained declaration+stamp then satisfy the interlock again on a
+later tick, so the ready branch respawn-kills the SUCCESSOR, which never
+declared anything. One declaration, two kills; repeatable while
+recognition keeps timing out. This is a WORKER-path defect in the shipped
+code today; full citizenship would extend it to supervisors verbatim. The
+fix shape, designed: the two return paths must diverge — respawn FAILED
+keeps today's semantics; respawn SUCCEEDED + recognition timeout must
+CONSUME the kill authorization, marking the round `resume_pending` instead
+of returning bare, so the next tick's resume-retry leg (which intercepts
+BEFORE the ready branch) completes the resume without a second kill, and a
+re-kill needs a genuinely fresh `ready`. Owed tests: the
+recognition-timeout fixture proves no second respawn fires, for BOTH
+entity kinds. This is a work-item candidate under the epic INDEPENDENT of
+the widening — flagged to the supervisor seat for ledger-filing consent.
 
 **The daemon's own liveness is a NAMED residual, not a covered lane —
 and wave 1 added CODE evidence that sharpens it (codex-autonomy #1,
@@ -1071,13 +1288,35 @@ Route through the WIDENED `livespec:propose-change` before any product code
   (`tests/heading-coverage.json`), so the proposal may not add a heading
   ahead of the implementing slice's tests.
 - **The pair nudge and its posture exception (maintainer ruling 3)** —
-  spec.md gains the both-stalled supervisor nudge obligation with its
-  guard set, INCLUDING the explicit statement that this is the one bounded
-  exception to shell-classified busy suppressing acts (fired only at a
-  verified empty settled prompt, never generating, never over a gate /
-  `waiting` / `blocked:`, once per episode). contracts.md §"The state
-  file" gains the one new daemon-written marker value for the nudge's
-  edge-trigger (authorizes nothing; never clobbers a session value).
+  spec.md gains the both-stalled supervisor nudge obligation with its FULL
+  guard set: fired only at a verified empty settled prompt, never
+  generating, never over a gate / `waiting` / `blocked:`, never while a
+  round is open or a fresh `winding-down` ACK stands, once per episode
+  with consecutive-episode escalation to the operator line, Claude
+  supervisors only (the Codex divergence justified by the unverifiable
+  empty-input evidence), and INCLUDING the explicit statement that this is
+  the one bounded exception to shell-classified busy suppressing acts,
+  plus the two stated residuals (prose questions invisible to the guard
+  set; the gate-regex miss). No state-file grammar change ships (the
+  earlier marker-token idea is withdrawn — nudge bookkeeping is
+  in-memory).
+- **The three sections lane C contradicts as currently written (wave-2
+  #11 — without these the widened proposal would ratify a
+  self-contradictory contract):** contracts.md §"The restart interlock"
+  (its guarantees say the fresh session is "named after its plan topic"
+  and handed `read <repo>/plan/<topic>/handoff.md` — both false for a
+  supervisor entity; they generalize to the entity's derived name and
+  resume pointer), contracts.md §"The wrap-up injection" (the message
+  obligations name the worker handoff path and the worker ritual; they
+  gain the entity-variant language), and spec.md §"Session-name
+  derivation" (a supervised session is "named after its BARE plan topic"
+  — the supervisor entity is named `<topic>-supervisor`; the section also
+  carries the derivation-level `-supervisor` reservation for workers).
+- **The state file's canonical-path rule (wave-2 codex #1)** —
+  contracts.md §"The state file" gains: a declaration is honored for an
+  ACT only when its file's canonicalized path equals the entity's
+  canonical state path (no symlinked parents, no symlinked file); an
+  aliased path is surfaced and treated as no declaration.
 - **spec.md §"Track discovery and the mapping store"** — the `-supervisor`
   namespace reservation (wave 1): discovery MUST refuse a plan directory
   whose name ends in `-supervisor`, surfaced by name, so a supervisor
@@ -1206,6 +1445,26 @@ Beyond `policy-options.md` §6's nine for the ratified instance:
     belongs to the IMPLEMENTING slice, which already must grow those very
     rows — not to the widening step, which deliberately touches no
     heading-coverage rows.
+13. Wave-2 act-path additions: the supervisor wrap-up VARIANT pinned at
+    the TEXT level (its ritual targets `supervisor-handoff.md` on a
+    `wrapup-<topic>-supervisor` branch — the rendered message, not just
+    firing/interlock); a symlinked state directory or file is refused as
+    no-declaration and surfaced (the aliased `ready` cannot restart —
+    worker→worker and worker→supervisor fixtures both); the
+    recognition-timeout respawn keeps NO second-kill authorization (both
+    entity kinds; the round converts to `resume_pending`); the pair pass
+    composes its own identity/TOCTOU/settled guards (sabotage any one and
+    it goes red); the consecutive-nudged-episodes counter reaches the
+    operator line on the second nudged episode and resets only on worker
+    progress or durable un-stall; content-immunity — a Claude supervisor
+    pane full of pasted spinner text still stalls, nudges, and escalates;
+    the pair name derives from the TOPIC (an adopted worker in a generic
+    tmux window still finds `<topic>-supervisor`); the `-supervisor`
+    reservation refuses at derivation, discovery, AND the CLI
+    (case-insensitively); a below-threshold track whose ctx goes stale
+    past the window gains the coordinate-carrying attention row; a
+    supervisor vanishing mid-round alarms, one vanishing with no open
+    round surfaces only the existing offer.
 
 Gate: `uv run pytest overseer -q`, then `just check`. No existing check may
 be weakened, removed, skipped, or exempted.
@@ -1227,16 +1486,23 @@ without reopening the design:
    ruling.
 5. **The above-threshold floor and token** (wave 1) — recommended 8 h,
    reusing `shell-prolonged`; reasoning in the above-threshold arm.
-6. **The continuity-gap value** (wave 1) — recommended 300 s for every
-   lane-A clock, sized to the worst-case tick; replaces the narrow
-   predicate's proposed 60 s at implementation time.
-7. **Pair-nudge parameters** — the marker token name (recommended
-   `pair-stall-nudged`; the in-memory fallback avoids grammar growth at
-   the cost of one repeat nudge per daemon restart), and the
-   post-nudge escalation floor before the operator line (recommended one
-   further 2 h floor). The former decision here — a post-C measurement
-   period gating the detector's arming — DISSOLVED under ruling 3's
-   mandate.
-8. **Whether daemon self-liveness becomes its own thread** (wave 1) — the
+6. **The continuity-gap derivation** (re-derived by wave 2) — the formula
+   (`gap ≥ 2 × worst-case tick under full pair load`, from the measured
+   tick ceiling) with **900 s interim**; the earlier 60 s and 300 s
+   constants are both superseded by measurement.
+7. **Pair-nudge parameters** — the escalation count N before the ladder
+   skips to the operator line (recommended **2** consecutive nudged
+   episodes), and whether Codex-supervisor parity ever ships (gated on
+   evidence of a verifiable Codex empty-input state). Two earlier
+   sub-decisions are now MADE by wave-2 findings rather than left open:
+   the nudge bookkeeping is in-memory (the marker-token idea died on the
+   one-file contention), and the detector ships with lane C (ruling 3
+   dissolved the measurement gate).
+8. **The attended-takeover guard** (wave-2 fable #5) — whether to ship
+   the in-memory session-identity hold (remember the registry identity
+   seen when a `ready` first appears; hold the respawn and surface if it
+   changes), or accept the documented grace-window residual now made
+   routine for attended supervisor seats.
+9. **Whether daemon self-liveness becomes its own thread** (wave 1) — the
    in-memory-clock residual and the unobserved restart cadence, recorded
    in §"Two cross-cutting boundaries"; out of these four lanes either way.
