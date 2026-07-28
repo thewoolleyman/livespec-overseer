@@ -103,16 +103,29 @@ wins** — nothing here is load-bearing for their correction.
 
 ### Where the work actually is
 
-The groom of `overseer-byvxlp` is **drafted, accepted, and NOT filed.** All
-durable artifacts are in `tmp/overseer/supervisor-prompt-quality/` (gitignored,
-present in the working tree):
+The groom of `overseer-byvxlp` is **FILED** (2026-07-27/28). The epic is closed
+regroomed-out and `overseer-7lv` is closed by hand carrying the R→id mapping.
+Read status from the ledger; nothing here stores it. All durable artifacts are
+in `tmp/overseer/supervisor-prompt-quality/` (gitignored, present in the
+working tree):
 
 | file | what it is |
 |---|---|
-| `groom-decision-packet.md` | the accepted packet (v3 content) — the 9-slice cut, placement, `overseer-7lv` disposition, D1–D6 |
-| `NEW-VALVE-tmux-in-ci.md` | **THE ONE OPEN BLOCKER** — read this first |
+| `FILED-RESULT.md` | **what was minted, and the dead-mint hazard** — read this first |
+| `evidence/DECISION-PACKET-v3.md` | THE ACCEPTED CUT — the 9 slices, placement, `overseer-7lv` disposition |
+| `groom-decision-packet.md` | the SUPERSEDED v1 packet. It is NOT the v3 content; an earlier revision of this table said it was, and that misattribution is the correction this row exists to carry |
 | `REVISED-S1-S2-acceptance.md` | S1/S2 acceptance rewritten for real tmux (D4) |
+| `NEW-VALVE-tmux-in-ci.md` | ANSWERED (base image). Kept for its evidence, not as an open item |
 | `evidence/` | runnable proof: `test_emitted_commands_discriminate.py` (9 tests, RED-demonstrated), `red-green-harness.sh` (24 legs), `gate_red_suite.py` (6/6), `adopter_validator.py`, `coldopen_gate.py`, `proposed-contract-text-v2.md` |
+
+**The one hazard to carry forward:** `file_approved_slices` minted
+`overseer-wc2xfe` for the cross-repo S0 slice and wrote it into S1's and S2's
+`non_local_depends_on`. **That id exists in no tenant.** The real work was
+already routed as `livespec-dev-tooling-myx7`, so both deps were repointed
+there and verified by read-back. Left alone it would have gated S1 and S2 on an
+unresolvable id — a gate that never lifts, or that resolves to nothing and
+reads as satisfied. `livespec-dev-tooling-myx7` is the DOING record;
+S0 was only ever a GATING handle and **must never be worked in this repo**.
 
 ### Maintainer decisions already given — do not relitigate
 
@@ -143,7 +156,8 @@ hand-close `overseer-7lv` with the R→id mapping. Report every id created.
 ### Boundaries that still hold
 
 Supervisor owns `handoff.md` and the archiving of
-`plan/supervise-plan-residual-gaps/`. Do not touch branches
+`plan/archive/supervise-plan-residual-gaps/` (archived — `overseer-7lv` is
+closed, folded into this thread's groom). Do not touch branches
 `docs/supervisor-charter-hardening`, `docs/regenerate-supervisor-prompt-quality-charter`,
 or `docs/handoff-execution-order-correction`. Worktrees via
 `just worktree-create`, never raw `git worktree add`.
