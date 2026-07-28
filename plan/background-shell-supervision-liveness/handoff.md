@@ -42,10 +42,9 @@ open questions, and safety constraints are in the research note.
 - Implementation bug: `overseer-vyjkzw`
 
 Read their current state from the beads-backed ledger before acting; do not
-copy status into this handoff as a shadow queue. The bug was intake-triaged to
-`pending-approval`. Its description cites the epic, but the requested native
-dependency edge was rejected because Beads forbids a task-to-epic `blocks`
-edge. Do not bypass the store to invent one.
+copy status into this handoff as a shadow queue. The bug description cites the
+epic, but the requested native dependency edge was rejected because Beads
+forbids a task-to-epic `blocks` edge. Do not bypass the store to invent one.
 
 ## Next action
 
