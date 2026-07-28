@@ -138,7 +138,9 @@ first session opens: that is the whole point of a durable charter. **As shipped,
 This is not a wording or thinness problem in generated output — nothing was
 generated. It is a gap in when the operation is usable, and it belongs to
 **`overseer-7lv`** ("supervise-plan residual gaps: supervisor runtime liveness
-and obligations", `plan/supervise-plan-residual-gaps/`), with the generated-text
+and obligations", now `plan/archive/supervise-plan-residual-gaps/` — that epic
+was closed 2026-07-27, folded into `overseer-byvxlp`'s groom), with the
+generated-text
 quality bar owned by **`overseer-byvxlp`**. Filed as **`overseer-2a1`**.
 
 **How to get a charter for this thread when one is wanted:** start the
