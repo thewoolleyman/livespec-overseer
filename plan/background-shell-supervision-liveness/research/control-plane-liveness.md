@@ -19,12 +19,13 @@ changes"), so it goes through the widened `livespec:propose-change` first;
 the narrow instance then implements through `impl:overseer-vyjkzw` and the
 widened lanes through sibling work-items under epic `overseer-4xfmez`.
 
-Wave 1 of the §9 gate (four reviews so far — Fable autonomy, Fable
-safety, GPT-Codex autonomy, and the Fable code-truth claim table — run
-from the supervisor seat over the PRE-note artifacts) produced 40
-adversarial findings plus a 13-claim verification table (12/13 CONFIRMED
-character-for-character; its half-refutation of the mtime inventory and
-its extra findings are folded in below). Every finding was verified
+Wave 1 of the §9 gate (five reviews so far — Fable autonomy, Fable
+safety, GPT-Codex autonomy, and TWO independent code-truth claim tables,
+Fable and GPT-Codex — run from the supervisor seat over the PRE-note
+artifacts) produced 40 adversarial findings plus two 13-claim
+verification tables that CONVERGED independently on the consequential
+items (the mtime inventory hiding the `ready_valid` interlock consumer;
+the 32-void recount); their deltas are folded in below. Every finding was verified
 against source by this note's author; the per-finding log, including the
 findings REFUTED by verification, is at
 `tmp/overseer/background-shell-supervision-liveness/reviews/wave1-verification.md`.
@@ -68,8 +69,9 @@ re-verified this session against the acting daemon's log).
 - while a `blocked:` declaration stood and the pane was idle, the blocked
   branch (`:241`) preempted the threshold branch — no round;
 - while the session generated, the busy branch (`:198`) preempted it — no
-  round — and `void_stale_blocked` (called from exactly one site, `:206`)
-  voided the now-stale declaration, **32 times and counting** (first
+  round — and `void_stale_blocked` (one LIVE call site, `:206`; a facade
+  wrapper with test-only callers also exists — both claim tables) voided
+  the now-stale declaration, **32 times and counting** (first
   2026-07-25T21:28:38Z; the 32nd landed 2026-07-28T03:39:32Z, AFTER the
   handoff was committed — the trap is live, and the handoff's Correction 2
   "voided and not re-declared" is already stale), at declaration ages from
@@ -118,7 +120,7 @@ out explicitly where it appears.
 | Fact | Where it already lives |
 |---|---|
 | Every declaration's age | `TrackState.mtime` (`signals.py:357`), returned by every `read_state` call; FOUR consumers today (code-truth claim 7 corrected an earlier "exactly two"): the 900 s ACK staleness (`_supervisor_observe.py:243`), the 120 s void grace (`_supervisor_state.py:62,112`), **the restart interlock itself** — `ready_valid` requires `state.mtime > injection_stamp` (`signals.py:423`) — and the stale-ACK age `alert_non_responder` quotes (`_supervisor_nudge.py:146`) |
-| A continuous in-memory episode | `InjectState.idle_since` (`_supervisor_records.py:43`), advanced in `observe` (`_supervisor_observe.py:222–226`); the ONLY `_since` in the package |
+| A continuous in-memory episode | `InjectState.idle_since` (`_supervisor_records.py:43`), advanced in `observe` (`_supervisor_observe.py:222–226`); the only `_since` FIELD in the code — the claim is field-level deliberately, since doc prose still names the deleted `danger_idle_since` (codex-codetruth E1) |
 | Remaining context, sticky across unknown reads | `effective_ctx` (`_supervisor_observe.py:36`), storing `InjectState.last_ctx` |
 | Whether a round is open | the injection stamp (`registry.read_injection_stamp`); stamp present ⇔ round open, deleted at round close |
 | "generating" as distinct from "busy" | `signals.is_busy(capture) or claude_status == "busy"` — the exact definition `evaluate` already passes to `void_stale_blocked` (`_supervisor_evaluate.py:210`) |
@@ -138,10 +140,12 @@ because the evidence already splits that way:
    lane B needs rides on this.
 
    **Interlock adjacency, stated because the mtime inventory sits beside
-   the restart authorization (code-truth claim 7).** The most consequential
-   existing mtime consumer is `ready_valid` itself: `state.mtime >
-   injection_stamp` (`signals.py:423`) is the this-round freshness half of
-   the restart interlock. Lane A's age reinterpretation cannot perturb it,
+   the restart authorization (claim 7 of BOTH code-truth tables,
+   independently converged).** The most consequential existing mtime
+   consumer is `ready_valid` itself: `state.mtime > injection_stamp`
+   (`signals.py:423`) is the this-round freshness half of the restart
+   interlock — and it is not merely code: contracts.md §"The restart
+   interlock" states the ordering in governed prose (its item 3). Lane A's age reinterpretation cannot perturb it,
    and the reason is structural, not incidental: every age use in this
    note is READ-ONLY — nothing in lanes A or B writes, refreshes, or
    deletes a declaration on the basis of its age (the one candidate that
@@ -363,7 +367,10 @@ in a GENERATING pane — cannot arise, because generating ticks keep today's
 precedence unchanged. The pinned test keeps its load-bearing assertion
 (the declaration is NEVER voided by shell-only busy) and updates its
 incidental one (the rendered status). Voiding semantics change in neither
-direction.
+direction. And the amendment slots BELOW the cascade's true first leg:
+the R1 resume-retry intercept returns before everything else
+(`_supervisor_evaluate.py:165-167` — both claim tables flag it as the
+branch worth remembering) and is untouched.
 
 **A note-priority defect, existing today (codex-autonomy #5, verified).**
 `evaluate` sets the fail-closed `BAD state file` note before the cascade
@@ -413,8 +420,12 @@ missed-busy risk (dangerous) for an attention delay (safe, now bounded by
 this clause) is the wrong exchange.
 
 **One implementation obligation on the shell-episode predicate, both arms
-(wave 1, safety #5 — verified TRUE as constructed).** The fallback disjunct
-must be `codex_fallback and is_codex`, not bare `codex_fallback`: a Claude
+(wave 1, safety #5 — verified TRUE as constructed).** To be unambiguous
+about tense: today's code does NOT conjoin this — the fallback applies on
+any registry miss (`_supervisor_observe.py:185`) — so this is a CHANGE the
+implementing slice owes, not a description of current behavior
+(codex-codetruth claim 6 concurs). The fallback disjunct must become
+`codex_fallback and is_codex`, not bare `codex_fallback`: a Claude
 session whose registry entry momentarily vanishes reads `claude_status is
 None`, and a streaming Claude renders no busy marker in the captured
 region, so any innocent descendant shell (a dev server) would otherwise
@@ -795,10 +806,17 @@ progress_now = signals.is_busy(capture)        # generation spinner, either runt
 
 `claude_status == "shell"` is deliberately NOT progress — a shell is
 precisely the signal incident 1 proved can be dead — and idle / waiting /
-gate are not progress. Recording "when did `eff_ctx` last change" is one
-small addition beside `last_ctx` (a `last_ctx_changed_at` stamp under lane
-A's rule; §7's "`InjectState.last_ctx` is already the storage" is storage of
-the VALUE only — noted in §"Disagreements").
+gate are not progress. **The state this needs, named exactly (codex-
+codetruth E3 refutes §7's "`last_ctx` is already the storage"):**
+`last_ctx` holds one integer overwritten on every known read — a
+comparison BASELINE and nothing more; the window additionally needs a
+`last_ctx_changed_at` stamp (one lane-A field) recording when a known
+read last DIFFERED from the baseline. And the claim the window supports
+is deliberately one-directional: ctx MOVEMENT proves spend; an UNCHANGED
+integer percentage never proves zero spend (quantization) — which is
+exactly why movement appears only as positive progress evidence in
+`progress_now` and no detector in this note fires on "ctx unchanged"
+alone.
 
 Two wave-1 refinements to the ctx-movement disjunct:
 
@@ -1082,6 +1100,8 @@ Route through the WIDENED `livespec:propose-change` before any product code
   governed contract — spec.md says "COMMAND vocabulary". The substantive
   justification survives via "the pane's track table, its columns", but
   the widened proposal must correct the load-bearing quote.
+  (iii) Codex-codetruth E2: the filed proposal says "Two edits" while
+  labeling EDIT 1/2/3 — the count is corrected in the widened text.
 
 Explicitly unchanged: the cardinal rule, the supervision round, the
 escalating wrap-up, the restart interlock, the state-file grammar, and
@@ -1178,11 +1198,14 @@ Beyond `policy-options.md` §6's nine for the ratified instance:
     constraints
     (`test_needs_attention_predicate_covers_every_attention_status`,
     `test_ctx_unknown_never_injects`) grown, not weakened, by the
-    implementing slice. Naming nuance (code-truth claim 13): the fixture's
-    ids read `overseer.test_supervisor.*`, but the functions live in
-    `test_supervisor_tmux_column_annotates.py` and
-    `test_supervisor_warned_stamp_written.py` respectively — do not go
-    looking for them in a `test_supervisor.py`.
+    implementing slice. Naming nuance (claim 13 of both tables): the
+    fixture's ids read `overseer.test_supervisor.*`, but the functions
+    live in `test_supervisor_tmux_column_annotates.py` and
+    `test_supervisor_warned_stamp_written.py` respectively — stale
+    qualified names left over from the test-module split. The JSON id fix
+    belongs to the IMPLEMENTING slice, which already must grow those very
+    rows — not to the widening step, which deliberately touches no
+    heading-coverage rows.
 
 Gate: `uv run pytest overseer -q`, then `just check`. No existing check may
 be weakened, removed, skipped, or exempted.
