@@ -34,6 +34,7 @@ from overseer.test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    on_respawn,
 )
 from overseer.test_supervisor_fakes import (
     FakeTmux,
@@ -74,6 +75,42 @@ def _open_round(*, tmp_path, ctx=40, topic="topic", clock=None, declare_first=No
 
 def _respawns(*, fake):
     return [call for call in fake.calls if call[0] == "respawn"]
+
+
+def test_recognition_timeout_after_successful_respawn_pends_resume_not_second_kill(*, tmp_path):
+    """A successful respawn consumes the one `ready` authorization even if the bounded
+    recognition poll times out. The next tick must resume-retry the fresh pane instead
+    of re-entering the `ready` branch and respawn-killing it."""
+    repo, topic, session, fake, sup, track = _open_round(tmp_path=tmp_path)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
+    on_respawn(
+        fake=fake, after=lambda s: fake.cmds.__setitem__(s, ["zsh"] * 30)
+    )  # fresh pane is real but not recognized before the bounded poll expires
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view1 = sup.evaluate(track=track, act=True)
+
+    assert view1.status == "restarting"
+    assert "respawned pane never became Claude" in err.getvalue()
+    assert len(_respawns(fake=fake)) == 1
+    assert (
+        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) is True
+    )
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+
+    fake.cmds[session] = "node"
+    fake.calls.clear()
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view2 = sup.evaluate(track=track, act=True)
+
+    assert view2.status == "restarting"
+    assert not fake.has(method="respawn")
+    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert (
+        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is False
+    )
 
 
 def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(*, tmp_path):
