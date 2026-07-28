@@ -165,10 +165,18 @@ a decision, but do not assume they are stale.
   without resolving it. So "no new `## Scenario` heading ahead of its test"
   is a discipline this thread honors deliberately — **not** something the
   gate would catch. The 23 rows want their own hygiene work-item; it is
-  **not filed** (it is neither a widened lane nor the consented defect, so it
-  was outside the filing authorization). The prefix-acceptance gap is in the
-  pinned `livespec-dev-tooling` check, so it belongs in THAT tenant if it is
-  filed at all.
+  **BOTH now filed**, with maintainer consent (2026-07-28), and neither
+  belongs to this epic — do not re-file them:
+  - **`overseer-knm`** (this repo's tenant, standalone task,
+    `origin:freeform`) — the 23 stale registry rows. Fixture-data only: it
+    rewrites each row's module component to the module that actually defines
+    the function, renaming and moving no test. Carries a re-derivation script
+    rather than trusting its embedded list.
+  - **`livespec-dev-tooling-r3ib`** (the DEV-TOOLING tenant, bug) — the
+    checker gap that made the drift invisible, with `file:line` coordinates
+    against that repo's master and a minimal repro sketch. Note its rollout
+    caveat: consumers are pinned, so a new resolving direction turns existing
+    drift red for them, which makes sequencing a real design decision.
 
 ## 8. Repository discipline
 
