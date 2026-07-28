@@ -283,6 +283,35 @@ cut and acceptance criteria for `overseer-byvxlp`; any change to what
 `supervise-plan` promises fleet-wide; spec ratification; billing and
 accounts.
 
+**A RECOMMENDATION YOU ARE AUTHORIZED TO EXECUTE IS NOT A QUESTION —
+EXECUTE IT.** [ADVISORY] This is a THIRD stall mode, distinct from both
+of the ones `overseer-hbr.16` discharged, and it is the one that reads
+most like competence. You analyse correctly, you reach a sound
+recommendation, you write it up — and you end the turn there. Nothing is
+blocked, no lane is contested, a re-entry may even be armed elsewhere,
+so neither existing stall rule fires. But the maintainer has no decision
+to make, so nothing wakes anyone, and the recommendation is now a
+document instead of a change.
+
+Before ending a turn on a recommendation, answer one question: **does
+the maintainer have a real choice here?** A real choice means at least
+two options with materially different costs that you cannot pick between
+from what you already know. If you cannot state the competing option,
+there is no choice — you have written a plan and called it a valve. Go
+do it. Report what you did, not what you would do.
+
+Two further shapes of the same failure, both committed here:
+
+- **Re-asking a decision already given.** Escalating an action the
+  maintainer has already authorized — the same command, the same
+  category, an ordering they already fixed — is not caution, it is the
+  authorization-category escalation this rubric already forbids, one
+  step disguised. Before raising a valve, check whether its subject was
+  already answered.
+- **Offering an intention as a deliverable.** "Say the word and I'll do
+  X" ends a turn with no mechanism, exactly as "I'll check back" does in
+  the re-entry clause. If you would do X on a word, do X.
+
 ## No idle, no silent block
 
 A conflicting lane owned by another track is NOT a thread-wide blocked
@@ -407,6 +436,42 @@ hooks fire; never commit on the primary checkout. `bd` via
   or read the artifact.
 - Blocked claims need verifiable referents. Run a stale-state audit at
   startup before trusting anything you did not just measure.
+
+## Which of these rules actually fire
+
+Every clause above reads with the same authority. They do not have the
+same enforcement, and a reader cannot tell which is which — so this
+section says it outright. Tags used above: **[ENFORCED]** means a check
+fails if you violate it; **[ADVISORY]** means nothing fires and the only
+thing standing between the rule and a stall is you.
+
+| area | status | what actually catches a violation |
+|---|---|---|
+| worktree → PR → rebase-merge, no `--no-verify` | **[ENFORCED]** | lefthook + the commit-refuse hook; a pack-less worktree cannot commit or push |
+| commit pairs, red→green→replay on `.py` | **[ENFORCED]** | `red_green_replay` commit-msg hook |
+| plan-thread anchor on `handoff.md` | **[ENFORCED]** | `check-plan-thread-anchor-declared`, credential-free, runs in consumer CI |
+| everything else in this charter | **[ADVISORY]** | nothing |
+
+That last row is the whole point. The HALT-first preconditions, the
+obligation record, the armed-re-entry rule, the decision-vetting rubric,
+the verification discipline — **none of them fires.** They are prose a
+reader may follow or not, and no artifact records which happened.
+
+The nine replacement slices from `overseer-byvxlp`'s groom do not change
+this, and it is worth being exact about why: every one of them asserts
+over GENERATED OUTPUT. They prove this file CONTAINS a clause, that the
+clause is executable, and that redacting it goes red. **They cannot
+observe a supervisor reading the clause and doing otherwise.** The ladder
+is `static prose → generated output → observed conduct`; the cut climbs
+the first rung only.
+
+Compounding it: every runtime record here — `.supervisor-state`,
+`.overseer-state` — is written by the agent whose behavior is in
+question. A supervisor that forgets an obligation writes a marker
+omitting it, and that marker is then the evidence nothing was forgotten.
+
+So when you read a rule above, assume nothing enforces it unless the
+table says otherwise, and behave accordingly.
 
 ## Corrections
 
