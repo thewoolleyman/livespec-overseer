@@ -24,8 +24,9 @@ attended seats do.
 
 ## 2. Where this thread stands — READ BEFORE DOING ANYTHING
 
-**RATIFIED. Steps a–d are LANDED. The thread is parked on ONE mechanical
-blocker: dispatch refuses on a stale plugin build.**
+**RATIFIED. Steps a–d are LANDED. Step e is IN FLIGHT: `.1` is merged and
+parked at the human acceptance valve; `.2` is admitted and waits ONLY on a
+fresh-session dispatch (a new plugin release re-tripped the staleness gate).**
 
 | Step | State |
 |---|---|
@@ -35,74 +36,119 @@ blocker: dispatch refuses on a stale plugin build.**
 | b. Widened proposal landed | **DONE** — PR #226 merged |
 | c. Ledger filed | **DONE** — six children under `overseer-4xfmez` (`.1`–`.6`), epic retitled and scope-widened |
 | d. `/livespec:revise` | **DONE — v003 RATIFIED**, PR #232, commit `ed55630` on master. `proposed_changes/` is empty; `history/v003/` holds the proposal and its decision. Decision was `modify`: the nine edits verbatim plus one counsel co-edit aligning spec.md §"The restart" with contracts.md §"The restart interlock" |
-| e. Implementation | **UNBLOCKED by ratification, BLOCKED by tooling** — see below |
+| e. Implementation | **IN FLIGHT** — `.1` merged (PR #243, `86cb0b6`), parked in `acceptance`; `.2` stored `ready`, dispatch needs a fresh session; `.3`–`.6` still `backlog` behind `.2` — see below |
 
-### The one blocker: the dispatcher staleness gate
+### Step e state, and the THREE gates a dispatch can hit
 
-`drive --action impl:overseer-4xfmez.1` fails with dispatcher exit code 3:
+**`.1` (the P1 restart defect) went through the factory GREEN on 2026-07-29:**
+PR #243, rebase-merged as `86cb0b6`, post-merge janitor green, Fabro run
+`01KYNDKJH0RHJZAMHAY9JYWW98`. It is parked in `acceptance` under
+`ai-then-human` (the AI pass verdict was PASS); the maintainer chose on
+2026-07-29 to hold it for their own review rather than accept immediately.
+The pending act is `drive --action accept:overseer-4xfmez.1` (or
+`reject:overseer-4xfmez.1:rework`). One review note: the owed fixture landed
+as `tests/integration/test_ready_declaration_restart.py`, a NEW directory —
+this repo's convention had been beside-tests in `overseer/`; the full
+`just check` aggregate accepted it.
 
-> `dispatcher plugin build is stale; executing build <bound> predates latest
-> release <latest>.`
+**`.2` is admitted (stored `ready`) and is THE next dispatch.** Its dispatch
+was refused by the staleness gate (gate 1 below) minutes after `.1` merged:
+release `822186e16544` was cut mid-session, so the dispatching session's
+`c53fd50e58b6` binding went stale. The project-scope version was re-updated
+to `822186e16544` before this handoff landed, so ONE restart should bind
+current — verify with the pre-flight, since another release can land anytime.
 
-**This is NOT a human valve** — nothing awaits a decision. It is the running
-session's plugin binding being stale; skill bindings are fixed for a session's
-lifetime, so a session cannot self-remediate, and a bare `claude plugin update`
-from inside the stale session does NOT help.
+Three DISTINCT gates refused dispatches in this thread. Know all three; only
+one of them is a human valve.
 
-**One restart is NOT reliably enough — this was measured, not assumed.**
-A second session hit the identical gate one build later (bound `4b1339f75053`,
-latest `c53fd50e58b6`). The mechanism: the SessionStart hook's `claude plugin
-update` rewrites the project-scope `version` in
-`~/.claude/plugins/installed_plugins.json`, but the session has ALREADY
-resolved its skill binding to the pre-update build — the hook says so itself,
-`Restart to apply changes`. So a session whose hook performed an update runs
-the OLD build for its whole life, and only the session after it binds current.
-Verified on 2026-07-28: the `/data/projects/livespec-overseer` scope recorded
-`c53fd50e58b6` while the live skill base directory was still under
-`…/cache/…/4b1339f75053/`.
+**Gate 1 — dispatcher staleness (exit 3, "plugin build is stale"). NOT a
+human valve; remedy is a session restart.** Skill bindings are fixed for a
+session's lifetime, so a stale session cannot self-remediate — and the
+SessionStart hook's own update does not help the session it runs in (the
+hook says so: `Restart to apply changes`; measured 2026-07-28, a hook-updated
+session ran the old build for its whole life and only the NEXT session bound
+current). Running `claude plugin update --scope project
+livespec-orchestrator-beads-fabro@livespec-orchestrator-beads-fabro` from the
+stale session DOES pre-stage the next session correctly.
 
-**Pre-flight check — do this BEFORE dispatching, it is free.** Compare the
-build hash in the `drive` skill's own base directory against the project-scope
-version:
+**Pre-flight check — do this BEFORE dispatching, it is free.** Your own
+bound hash is the `<hash>` in any loaded skill's base-directory line
+(`…/cache/…/<hash>/skills/…`) — invoke any orchestrator skill if you have
+not seen one this session. Compare it against the project-scope version
+(NOTE: the entry key is `projectPath` — an earlier revision of this snippet
+said `scopePath`, which silently prints NOTHING; the `projectPath` is the
+PRIMARY checkout `/data/projects/livespec-overseer` regardless of which
+worktree you stand in):
 
 ```bash
 python3 -c "
 import json
 d=json.load(open('/home/ubuntu/.claude/plugins/installed_plugins.json'))
 for e in d['plugins']['livespec-orchestrator-beads-fabro@livespec-orchestrator-beads-fabro']:
-    if e.get('scopePath') == '/data/projects/livespec-overseer': print(e['version'])
+    if e.get('projectPath') == '/data/projects/livespec-overseer': print(e['version'])
 "
 ```
 
-If that value is not the build hash in the skill's base-directory path, you are
-stale — restart instead of dispatching. The SessionStart banner is the same
-signal read live: `already at the latest version` means you are good; `updated
-from X to Y … Restart to apply changes` means THIS session is X and is stale.
-
-**Do not route around it** by hand-invoking a newer build's `dispatcher.py`
-from the plugin cache. Newer builds are on disk and do run, but substituting
-your own build-picking for the harness's resolution defeats a guard that exists
-to keep stale factory logic away from the ledger — the same class of move as
+If that value is not the build hash in the skill's base-directory path, you
+are stale — restart instead of dispatching. The SessionStart banner is the
+same signal read live: `already at the latest version` means you are good;
+`updated from X to Y … Restart to apply changes` means THIS session is X and
+is stale. **Do not route around the gate** by hand-invoking a newer build's
+`dispatcher.py` from the plugin cache — the same class of move as
 `--no-verify`.
 
-The gate refuses before acting, so nothing was left half-done — verified across
-both sessions' attempts (four total): `.1` is still `OPEN`, `.1` and `.2` are
-both ready with no blockers, `.3`–`.6` are still correctly blocked behind the
-layering, and no factory worktree or branch was created.
+**Gate 2 — admission: `backlog` items are NEVER dispatch candidates. THIS is
+the human valve.** The rendered lane IS the stored status (vendored
+`livespec_runtime.work_items.lifecycle.lane_of`), and this epic's children
+were ALL filed `backlog`, so the dispatcher refused `.1` with "not in the
+ready set" even though its dependency edges were clear. (An earlier revision
+of this handoff said `.1`/`.2` were "ready with no blockers" — that meant
+dependency-clear, NOT stored-`ready`.) The sanctioned admission act is the
+guarded queue-control valve `drive --action move:<id>:ready` — the
+ORCHESTRATOR plugin's spec (the `livespec-orchestrator-beads-fabro` repo's
+`SPECIFICATION/contracts.md` §"Human valve actions", NOT this repo's
+`SPECIFICATION/`) lists it for `backlog` items as "move→ready
+(admission)", and the explicit action selection IS the consent — so surface
+it to the maintainer, never self-admit. The maintainer consented 2026-07-29
+and `.1`/`.2` were moved `backlog → ready` (journaled operator human-valve
+moves). **`.3`–`.6` are STILL `backlog`** and will need the same valve, with
+fresh consent, once `.2` closes and their dependency edges clear.
+
+**Gate 3 — the host dispatch cap (exit 3, "admission cap refused"), cap 2.
+TRANSIENT; wait and retry.** Two INDEPENDENT gauges, each capped at 2, and
+BOTH need headroom: (i) non-terminal runs in `fabro ps -a --json` (terminal
+kinds: succeeded/failed/cancelled/canceled/blocked), and (ii) the slot files
+`tmp/fabro-dispatch-admission.slot{0,1}.lock` in this repo — a slot is held
+iff its recorded pid is alive (the dispatcher self-reclaims dead-pid slots).
+Other seats actively dispatch this tenant, so contention is normal; a
+refusal names the holders. Do not raise `dispatcher.host_dispatch_cap` in
+`.livespec.jsonc` to jump the queue.
 
 ### So, on cold open
 
-Run the pre-flight check above FIRST. If it is clean, re-run step e. If it is
-stale, you are waiting on another restart, not on a human — say so and stop;
-do not burn the session re-deriving this.
+Run the staleness pre-flight (gate 1) FIRST. If it is stale, you are waiting
+on another restart, not on a human — say so and stop; do not burn the session
+re-deriving this. If it is clean:
 
-**Step e, when unblocked:** dispatch `overseer-4xfmez.1` first (P1, independent
-of the lanes), then `.2` (lane A foundations, which `.3`–`.6` depend on), via
-`drive --action impl:<id>` or the Dispatcher drain if that is the fleet-current
-route. Respect the dependency layering; do not parallel-dispatch slices that
-share files. **Never implement inline from this planning seat.** If `drive` hits
-a genuine human valve (admission/approve), do NOT force it — report it to the
-supervisor seat, which batches valves to the maintainer.
+1. **Dispatch `.2`** — `drive --action impl:overseer-4xfmez.2` (it is
+   already admitted; no valve stands between you and dispatch). On a gate-3
+   cap refusal, wait for capacity and retry — do not raise the cap.
+2. **Surface `.1`'s pending acceptance** if the maintainer has not yet ruled:
+   accept, or `reject:…:rework`, on PR #243 (see the review note above).
+3. **After `.2` reaches `done`:** the next layer (`.3`, `.4`, `.5` — and `.6`
+   behind `.5`) is still `backlog`; surface the gate-2 admission valve for
+   fresh consent, then dispatch per the dependency layering — do not
+   parallel-dispatch slices that share files. **Read
+   `plan/background-shell-supervision-liveness/research/untracked-obligation-closure.md`
+   before touching `.4`, `.5`, or `.6`** (their closure is by owed tests,
+   not the gap-id check). The two §7 PENDING remedies (the epic-comment
+   sentence and the future MUST-form propose-change) are NON-blocking; they
+   ride any later consent batch.
+
+**Never implement inline from this planning seat.** If `drive` hits a
+genuine human valve, do NOT force it — surface it (an attended seat presents
+it as an `AskUserQuestion` per §1; an unattended seat reports it to the
+supervisor seat, which batches valves to the maintainer).
 
 ## 3. The rulings — binding, do not relitigate
 
@@ -150,7 +196,8 @@ stated in governed prose rather than hidden in implementation.
 ## 5. Read-first chain
 
 1. This file.
-2. `research/control-plane-liveness.md` (on master) — the design source of
+2. `plan/background-shell-supervision-liveness/research/control-plane-liveness.md`
+   (on master) — the design source of
    truth: four lanes, every rejected alternative with its failure mode, the
    clearing/re-arm/daemon-restart table, the owed-tests list, and the
    rulings table.
@@ -158,15 +205,16 @@ stated in governed prose rather than hidden in implementation.
    prose. The proposal is no longer in `proposed_changes/` (that directory is
    empty); it is snapshotted with its decision record under
    `SPECIFICATION/history/v003/`.
-3b. `research/untracked-obligation-closure.md` — REQUIRED before touching
+3b. `plan/background-shell-supervision-liveness/research/untracked-obligation-closure.md`
+   — REQUIRED before touching
    `.4`, `.5`, or `.6`: the four ratified obligations gap detection cannot
    see, their consolidated owed-test closure criteria, and the drafted
    one-sentence epic-comment fix.
 4. `tmp/overseer/background-shell-supervision-liveness/reviews/` — the raw
    review relays, `wave1-verification.md`, and `wave3-worker-verification.md`
    (scratch, UNTRACKED; durable conclusions are already folded into the note).
-5. `research/root-cause.md`, `research/policy-options.md` — the narrow
-   predicate only.
+5. `plan/background-shell-supervision-liveness/research/root-cause.md` and
+   `…/research/policy-options.md` — the narrow predicate only.
 6. `SPECIFICATION/spec.md` + `contracts.md`, `overseer/marker-protocol.md`,
    `overseer/AGENTS.md`.
 7. Code, cascade order: `_supervisor_observe.py`, `_supervisor_evaluate.py`
@@ -174,7 +222,8 @@ stated in governed prose rather than hidden in implementation.
    `:206`, gate/blocked `:241`, ready `:283`, threshold `:296`, offer
    else-leaf `:326`, re-arm `:385-391`), `_supervisor_state.py`
    (`void_if_stale`'s only two call sites are `evaluate:237` and `:244`),
-   `_supervisor_restart.py` (`:135-154`, the filed defect),
+   `_supervisor_restart.py` (the `.1` defect site — FIXED by PR #243, so its
+   coordinates below predate `86cb0b6`),
    `_supervisor_launch.py` (`session_of` returns `track.tmux` first, `:52` —
    the pair-naming trap), `_supervisor_prompts.py` (`_WRAPUP_BODY`'s
    hardcoded copy DESTINATION), `signals.py` (`ready_valid`'s `mtime > stamp`
@@ -184,7 +233,8 @@ stated in governed prose rather than hidden in implementation.
    `_supervisor_offer.py`.
 
 All `file:line` citations above were re-verified against source on
-2026-07-28.
+2026-07-28 — at `aa4411d`, BEFORE PR #243 touched `_supervisor_restart.py`;
+every other cited module is untouched by that PR.
 
 ## 6. Ledger anchors — ids only, never copied status
 
@@ -237,7 +287,9 @@ a decision, but do not assume they are stale.
   injection_stamp` at `:423`; `is_busy` searches the WHOLE stripped capture
   (`:152-155`); `state_path` is a plain `marker_dir(...) / ".overseer-state"`
   join with no canonicalization (`:339-341`) — the U4 defect coordinate.
-- **`.1`'s defect re-confirmed in source, all three exits.** The respawn-FAILED
+- **`.1`'s defect re-confirmed in source, all three exits — since FIXED by
+  PR #243 (`86cb0b6`); this bullet describes the PRE-fix source and is kept
+  as review context for the pending acceptance.** The respawn-FAILED
   exit (`_supervisor_restart.py:135-144`) alerts and returns bare — safe,
   nothing was killed. The recognition-timeout exit (`:146-154`) runs AFTER a
   successful `respawn_pane`, alerts "respawned pane never became Claude;
