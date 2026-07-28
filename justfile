@@ -580,9 +580,9 @@ check-per-file-coverage:
 
 # Baseline harness plugin-resolution Verifier: asserts each declared
 # harness in `.livespec.jsonc` `harnesses` resolves its command/skill
-# surface (or is explicitly `exempt`). livespec-overseer is a library
-# with no harness surface, so both harnesses are marked `exempt` and
-# this check passes by construction.
+# surface (or is explicitly `exempt`). livespec-overseer currently
+# declares Claude supported with a canonical command while Codex remains
+# exempt until the Codex parity slice lands its skill surface.
 check-plugin-resolution:
     uv run python -m livespec_dev_tooling.checks.plugin_resolution
 
