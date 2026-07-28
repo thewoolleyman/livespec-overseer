@@ -214,7 +214,49 @@ failure of your command.
 Measured 2026-07-28; re-measure rather than trusting these if they matter to
 a decision, but do not assume they are stale.
 
-- `uv run pytest overseer -q` — **487 passed** on master.
+- **The gate is fully green on master, RE-MEASURED after the
+  `livespec-dev-tooling` pin went to v1.0.0** (PR #234) — a major bump of the
+  enforcement tooling moved nothing. At `aa4411d`: `uv run pytest overseer -q`
+  = **487 passed**; `just check` = **all 62 targets passed**, coverage
+  **100%** (2724 statements, 608 branches, zero missed), green token written.
+  Do not re-run these to satisfy curiosity about the bump; that question is
+  answered.
+- **v003's ratification is structurally sound**, per the same `just check`
+  doctor-static phase: `out-of-band-edits` (HEAD-active matches
+  HEAD-history-vN), `version-contiguity`, `revision-to-proposed-change-pairing`
+  and `accept-decision-snapshot-consistency` all PASS.
+- **Every `file:line` coordinate in §5 was re-verified exact at `aa4411d`** —
+  navigate by them without re-deriving. Spot-proofs worth having in hand:
+  `_supervisor_evaluate.py` resume-retry leg really is FIRST (`:165-167`),
+  then busy `:198`, `void_stale_blocked` `:206`, `void_if_stale` `:237`,
+  gate/blocked `:241`, `void_if_stale` `:244`, ready `:283`, threshold
+  `:296`, offer else-leaf `:326`, re-arm `:385-391`. `void_if_stale` has
+  exactly the two live cascade call sites (`:237`, `:244`); the only other
+  reference is the `_supervisor_core.py:341` delegation wrapper, which just
+  one test drives. `signals.py`: `ready_valid`'s `state.mtime >
+  injection_stamp` at `:423`; `is_busy` searches the WHOLE stripped capture
+  (`:152-155`); `state_path` is a plain `marker_dir(...) / ".overseer-state"`
+  join with no canonicalization (`:339-341`) — the U4 defect coordinate.
+- **`.1`'s defect re-confirmed in source, all three exits.** The respawn-FAILED
+  exit (`_supervisor_restart.py:135-144`) alerts and returns bare — safe,
+  nothing was killed. The recognition-timeout exit (`:146-154`) runs AFTER a
+  successful `respawn_pane`, alerts "respawned pane never became Claude;
+  keeping the ready declaration", and returns bare with **no**
+  `set_resume_pending` — the defect. The gate exit (`:166`) and the
+  submit-failure exit (`:189`) both DO call it. And the timeout exit precedes
+  the resume computation and paste (`:175-176`), which is why the successor is
+  a fresh session that was never handed anything to do.
+- **`.5` scope item 5's "VERIFIED CAUSE" re-confirmed:**
+  `_supervisor_prompts.py:84` is literally
+  `cp {handoff} "$W/plan/{topic}/handoff.md"` — the destination basename is
+  hardcoded and independent of `{handoff}`, so no choice of
+  `{topic}`/`{handoff}` yields `supervisor-handoff.md`. It needs a VARIANT,
+  not a parameter substitution, exactly as filed. Useful head start:
+  `supervisor_handoff_path` is ALREADY a public builder in that module, so the
+  variant has its path function to hand.
+- `_supervisor_launch.py:52` — `session_of` returns `track.tmux` first, with
+  an in-code comment explaining the mapped/unmapped fallback. The pair-naming
+  trap is real and documented at the site.
 - **Lane C is a coverage problem, not a detection problem.** Feeding live
   `-supervisor` pane captures to the daemon's OWN unmodified detectors: five
   of nine were `is_structured_gate == True` (they would render
