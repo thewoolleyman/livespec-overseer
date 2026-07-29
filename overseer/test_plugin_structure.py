@@ -59,8 +59,11 @@ def test_supervise_plan_skill_binding_resolves_single_source_prose():
 def test_supervise_plan_prose_pins_fail_fast_live_session_preconditions():
     prose = SUPERVISE_PLAN_PROSE.read_text(encoding="utf-8")
 
-    assert 'tmux has-session -t "<derived-supervised-session>"' in prose
-    assert 'tmux has-session -t "<derived-supervised-session>-supervisor"' in prose
+    assert "WORKER_TARGET='=<worker-session>:'" in prose
+    assert "SUPERVISOR_TARGET='=<supervisor-session>:'" in prose
+    assert 'tmux has-session -t "$WORKER_TARGET"' in prose
+    assert 'tmux has-session -t "$SUPERVISOR_TARGET"' in prose
+    assert "REMEDY:" in prose
     assert "contains a `claude` or `codex` CLI process" in prose
     assert "only a shell" in prose
     assert "is a failure" in prose
