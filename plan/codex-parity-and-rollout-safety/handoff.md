@@ -24,6 +24,32 @@
 >
 > ## ⛔ THE A2 BLOCKER — DIAGNOSED 2026-07-29. It is a BILLING CAP, fleet-wide.
 >
+> > **⚠ CURRENCY WARNING, added 2026-07-29 ~19:15Z — READ BEFORE ACTING ON THIS
+> > SECTION.** Everything below is a MEASUREMENT and it stands as one: at
+> > **17:44Z** a run WAS created, `implement` succeeded, and Anthropic returned
+> > the spend-limit error to `review`. That happened; it is not an inference.
+> >
+> > **But the spend cap may no longer be the FIRST gate.** A sibling thread,
+> > `plan/supervisor-prompt-quality/handoff.md`, records that by **~19:01Z** a
+> > re-dispatch was failing EARLIER — at **run-config-overlay, with
+> > `fabro_run_id: null`**, on the **host Codex credential**
+> > (`codex-cred-refresh` returns `noop-not-due`, so the automated path cannot
+> > fix it). No run is created, so **the cap is never reached and never tested**:
+> > the spend limit's CURRENT status is **UNVERIFIED, not cleared.**
+> >
+> > So do not read this section as "go raise a spend limit" without first
+> > checking whether dispatch even reaches a run. That sibling thread is
+> > authoritative on the Codex-credential gate; this thread is authoritative on
+> > what `review` returned once a run existed. **Both are true at different
+> > times, and neither refutes the other.**
+> >
+> > Two consequences worth carrying:
+> > - **A dispatch that fails at run-config-overlay STILL CLAIMS the item**, with
+> >   `fabro_run_id: null`. So a `ready` → `ACTIVE` transition is NOT evidence
+> >   that a run exists. Read back status AND assignee AND `fabro ps`.
+> > - Run `01KYP93877SD` went **terminal** and is not resumable, so any advice
+> >   about resuming parked runs does not apply to it.
+>
 > **Root cause: the Anthropic credential behind the factory's `review` adapter
 > has exhausted its org monthly spend limit.** The provider says so verbatim in
 > every failed run:
