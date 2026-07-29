@@ -2,54 +2,159 @@
 
 > # ▶ RESUME HERE — session handoff, 2026-07-29
 >
-> **A1 is DONE. A2 is BLOCKED ON A REPRODUCIBLE FACTORY FAILURE, not on a
-> decision. A3 waits on A2. Everything below this box is older context that is
-> still accurate unless this box contradicts it.**
+> **A1 is DONE. A2 is BLOCKED ON A FLEET-WIDE BILLING CAP — diagnosed
+> 2026-07-29, and NOT a defect in this repo, in A2, or in the factory graph. A3
+> waits on A2 and on the new slice A4. Everything below this box is older
+> context that is still accurate unless this box contradicts it.**
 >
 > ## Slice state, read from the ledger 2026-07-29
 >
 > | slice | id | state |
 > |---|---|---|
 > | **A1** | `overseer-4km4mj` | **DONE / CLOSED.** PR **#242** merged, `ee67267e…`, verified an ancestor of `origin/master`. Content verified: `.livespec.jsonc` keeps `status: "exempt"` with a `reason` naming brief 17 **and** the archived ruling path; the stale `check-plugin-resolution` justfile comment is corrected. Maintainer accepted it through the `ai-then-human` valve; I relayed that decision, I did not self-accept. |
-> | **A2** | `overseer-vyie5q` | **`ready`, no assignee — CLEAN and ready to dispatch.** Its last run was abandoned and the claim released at wrap-up, so no stale claim remains. See the blocker below before dispatching. |
-> | **A3** | `overseer-kju6wh` | `pending-approval`, `admission:manual`. Blockers were A1 (now done) + A2 (not done). **Do not start until A2 lands.** |
+> | **A2** | `overseer-vyie5q` | **`ready`, no assignee — CLEAN**, re-verified 2026-07-29. No stale claim. **But it cannot be dispatched to green today** — see the blocker below; nothing about A2 itself needs fixing. |
+> | **A4** | `overseer-ews` | **NEW, filed 2026-07-29** at maintainer direction — `pending-approval`, `admission:manual`, `rank: a4`. Make `overseer-start` launch under Codex WITHOUT weakening the stray-hand-run refusal. See §A4 below. |
+> | **A3** | `overseer-kju6wh` | `pending-approval`, `admission:manual`. Blockers: A1 (done) + A2 (open) + **A4 (open, new)**. **Do not start until A2 AND A4 land** — see §A4 for why that ordering is correct on the merits, not merely wired. |
 > | **B2** | `overseer-vfz5v5` | `pending-approval`, `admission:manual`. **STOOD DOWN** — blocked on B1, which livespec-dev-tooling owns. Not this thread's to implement. |
 > | **B1** | `livespec-dev-tooling-3nt9` | filed in **livespec-dev-tooling**, `backlog`. Never implement here. |
 > | **C1** | `livespec-1p31` | filed in **livespec** core, `backlog`. Never implement here. |
 >
-> ## ⛔ THE A2 BLOCKER — do not re-dispatch blind
+> ## ⛔ THE A2 BLOCKER — DIAGNOSED 2026-07-29. It is a BILLING CAP, fleet-wide.
 >
-> Every Fabro run for A2 dies the same way:
+> **Root cause: the Anthropic credential behind the factory's `review` adapter
+> has exhausted its org monthly spend limit.** The provider says so verbatim in
+> every failed run:
 >
 > ```
-> node: review   failure_class: transient_infra
-> failure_signature: review|transient_infra|acp turn failed
-> graph.default_max_retries: 0     →  escalates to "Needs human" interview, run blocks
+> Internal error: You've hit your org's monthly spend limit · ask your admin
+> to raise it at claude.ai/settings/usage        { "errorKind": "rate_limit" }
 > ```
 >
-> Observed **three times**: run `01KYP4WDAT4R` twice (blocked at ~13m, retried,
-> died at **61m39s**) and run `01KYP9Z87QC3` at **7m30s**.
+> **It is not repo-specific, not A2-specific, and not transient.** Measured
+> across FIVE runs, TWO repos and FOUR work-items — every one dies at `review`:
 >
-> **CORRECTION TO A CLAIM I MADE MID-SESSION.** I told the supervisor this
-> matched `bd-ib-2nq` (the >60-min Fabro GitHub-App token-TTL bug) because the
-> first run died at 61m39s. **The 7m30s reproduction disproves that** — it is not
-> a TTL effect. Do not carry the TTL attribution forward; it was my hypothesis,
-> not a measurement, and it is wrong. What IS established: the failure is
-> **reproducible**, it is **misclassified as `transient_infra`**, and with
-> `max_retries=0` a single occurrence escalates straight to a human.
+> | run | repo / item | provider message |
+> |---|---|---|
+> | `01KYP4WDAT4R` | this repo, **A2** | org monthly spend limit |
+> | `01KYP9Z87QC3` | this repo, **A2** | org monthly spend limit |
+> | `01KYP8NDW1NF` | this repo, `overseer-4xfmez.2` | org monthly spend limit |
+> | `01KYP93877SD` | this repo, `overseer-t7qqik` | org monthly spend limit |
+> | `01KYP37TZJ9M` | **`livespec-console-beads-fabro`** | `You've hit your limit · resets Jul 31, 5am (UTC)` |
 >
-> **Retrying is known not to work** — three attempts, three identical failures.
-> Answering the interview `[1] Retry` was tried and failed. Do not loop on it.
+> **Why `review` and never `implement` — by design, not coincidence.**
+> `workflow.fabro:124`: the review node *"runs on the Claude subscription via the
+> `review_adapter` input"* (`ANTHROPIC_MODEL=claude-opus-4-8[1m] …
+> claude-agent-acp`), while `implement` runs on Codex
+> (`@zed-industries/codex-acp`) — a DIFFERENT provider on a DIFFERENT credential.
+> So `implement` completes normally and `review` dies on contact. **Any run in
+> any repo that reaches `review` fails identically.**
 >
-> **The next session's first job is to diagnose WHY the `review` node fails in
-> this repo**, then file it (orchestrator tenant — that repo owns the factory).
-> `mise exec -- just check` passes locally and the first run self-reported
-> implementing everything and passing 62 targets / 532 tests, so the failure is
-> in the review stage itself, not in the work.
+> **THE FIX IS IN NO REPO.** A maintainer must raise the limit at
+> claude.ai/settings/usage. Until then no Fabro run in the fleet passes review,
+> and **re-dispatching A2 only burns a cap slot and an `implement` run.**
+> Separately the blocked runs above sit at "Needs human" gates **holding the host
+> dispatch cap** (default 2), so slots must be cleared too — those belong to
+> OTHER tracks, so do not answer their gates on their behalf.
 >
-> The claim was already released at wrap-up, so A2 is dispatchable as-is.
-> (If a future run dies and leaves it `ACTIVE` with no live run, release it with
-> `drive --action move:overseer-vyie5q:ready` before re-dispatching.)
+> ### Two claims from the previous handoff, corrected by measurement
+>
+> - **The durations were never evidence of anything.** The review STAGE failed in
+>   **5.77s** (attempt 1) and **4.69s** (attempt 2). The 61m39s / 7m30s figures
+>   were TOTAL RUN durations dominated by `implement` (374s in the short run).
+>   This is the measurement that independently confirms the TTL retraction —
+>   **run duration correlates with nothing.** The `bd-ib-2nq` token-TTL
+>   attribution is dead; do not revive it.
+> - **`max_retries` on `review` is 1, not 0.** The GRAPH default is `0`
+>   (`workflow.fabro:49`) but the review node OVERRIDES it — `max_retries=1`
+>   (`workflow.fabro:141`) — and the events show a real auto-retry
+>   (`stage.retrying`, 3191ms delay, attempt 2). Two attempts, not one. It
+>   changes nothing: no retry count clears a spend cap. "Retrying is known not to
+>   work" STANDS, and is now EXPLAINED rather than merely observed.
+>
+> ### Why this cost a whole session: `transient_infra` is a false positive on a FILENAME
+>
+> `classify_failure_reason` (fabro `lib/crates/fabro-workflow/src/error.rs:159`)
+> substring-matches the rendered message against `TRANSIENT_INFRA_HINTS` (`:44`).
+> Simulated over the exact failure strings, **exactly one hint matches**:
+>
+> ```
+> TRANSIENT hits: ['index.crates.io']        BUDGET hits: []
+> ```
+>
+> It matches the ACP payload's `spawned_at` field —
+> `/home/ubuntu/.cargo/registry/src/index.crates.io-…/session.rs:567:14`. That
+> hint exists to catch crates.io REGISTRY OUTAGES during toolchain builds
+> (upstream's own test asserts on `"failed to fetch index.crates.io"`); here it
+> matches a Rust source path in a stack annotation and says **nothing** about the
+> failure. Note also that `"rate_limit"` (underscore, as sent) does NOT match the
+> `"rate limit"` (space) hint, and `"monthly spend limit"` matches nothing in
+> `BUDGET_EXHAUSTED_HINTS` (`:85`) — and transient is tested BEFORE budget, so a
+> path-embedded hint outranks a genuine budget signal. Absent the false positive
+> the string would classify `Deterministic` (non-retryable, escalate at once) —
+> better than today's behavior; `BudgetExhausted` would be semantically right.
+>
+> **Ownership: this is fabro's, NOT the orchestrator's.** The orchestrator's
+> `workflow.fabro` only CONSUMES the category it is handed. The classifier file
+> is **byte-identical** between `thewoolleyman/fabro` and upstream
+> `fabro-sh/fabro` (`git diff --stat upstream/main` is empty), so the defect is
+> upstream's, unmodified in the fork. `fabro` has **no beads tenant**
+> (`/data/projects/fabro/.beads` does not exist) and **the fork has GitHub issues
+> DISABLED**, so the previous handoff's instruction to "file it in the
+> orchestrator tenant" was both unexecutable and a misfiling. Supervisor ruled
+> 2026-07-29: file it against the fabro code, do NOT mint a tracking bead in
+> another repo's tenant, because that just splits the record.
+>
+> **A2 itself is clean** — read back 2026-07-29: `READY`, no assignee. Nothing
+> about A2 or this repo needs fixing; it waits on the spend limit alone.
+>
+> ## §A4 — `overseer-ews`, filed 2026-07-29: goal 2's bar was EXPANDED, not narrowed
+>
+> The `overseer` operation refuses under Codex **by design** — `overseer/start.py:94`
+> gates on `$CLAUDECODE`. Given that finding, the maintainer chose **"make the
+> daemon work under Codex"** over accepting a split acceptance bar. So the bar
+> below §"A2's live acceptance" — which caps `overseer` at *"resolves, executes,
+> then emits its documented refusal"* — **is superseded for goal 2's purposes.**
+> The `overseer` operation must GENUINELY RUN under Codex. (That older paragraph
+> still correctly describes A2's OWN bar: A2 ships bindings, not a runtime.)
+>
+> **It is much smaller than it sounds — a `start.py` slice, not a daemon rewrite.**
+> The WATCHING half is already runtime-uniform and must not be rebuilt:
+> `overseer/codex_sessions.py` already exists and is already wired;
+> `_supervisor_discovery.py:137-152` routes BOTH runtimes through ONE path;
+> `claude_sessions` and `codex_sessions.map_codex_sessions` emit the SAME shape;
+> `resolve_tmux_session` is already runtime-agnostic; the
+> pid → `/proc/<pid>/fd` → rollout filename → `session_index.jsonl` → `thread_name`
+> join was verified live 2026-07-16. **The daemon's adoption side needs NO change.**
+> `grep -rln CLAUDECODE overseer/` returns exactly TWO files — `overseer/start.py`
+> and `overseer/AGENTS.md`. Only the LAUNCH half is missing.
+>
+> **The refusal is admitted-to, never removed.** A hand-run from a plain terminal
+> must still fail loudly. `test_overseer_start.py:22-39` pins it and must be
+> EXTENDED, not loosened: keep "plain terminal refuses", add "Codex runtime
+> accepted", add "still refuses when NEITHER marker is present". The Codex-side
+> marker is to be determined **at implementation time from live evidence**, not
+> guessed. `$TMUX_PANE` stays "the ONE authority" for the tmux check — do not add
+> a second. Sweeping `overseer/AGENTS.md` and `prose/overseer.md` step 0 is part
+> of the slice, since both become FALSE once the behavior changes.
+>
+> ### The dependency shape used, and why the work ORDER changed
+>
+> Wired as **`bd dep overseer-ews --blocks overseer-kju6wh`** — a hard, LOCAL
+> blocking edge, the same shape A2→A3 already uses, and therefore visible to
+> `bd dep tree` (unlike B2's cross-repo `non_local_depends_on` pointer). Read
+> back and confirmed: A3's DEPENDS ON now lists A1 ✓, A2 ◇, **A4 ◇**.
+>
+> **A hard `blocks` edge gates A3's START, not merely its CLOSE** — beads offers
+> `blocks` (enforcing) or `relates_to` (advisory, enforcing nothing), and there is
+> no close-only primitive. So the requested "A3 must not close while A4 is open"
+> is delivered as "A3 does not open while A4 is open". **That inverts the
+> originally-stated order** (A2 → A3 → A4) **into A2 → A4 → A3**, and that
+> inversion is correct on the merits, not just convenient: A3 flips
+> `harnesses.codex` to `supported`, and shipping that claim while the `overseer`
+> operation cannot actually launch under Codex is exactly the
+> claim-a-capability-that-does-not-exist failure the A1/A3 split was cut to
+> prevent. If a supervisor wants the original order back, `bd dep remove` the
+> edge deliberately and record why.
 >
 > ## Operational facts that cost real time to learn
 >
@@ -120,7 +225,8 @@ twice, since the ids `groom` handed over for them turned out to be unusable
 | **A2** — ship the `.codex-plugin/` surface for `overseer` and `supervise-plan` | `overseer-vyie5q` | `livespec-overseer` | — |
 | **B1** — build the shared codex derive-from-settings module (the `fleet/ensure_plugins.py` twin) | **`livespec-dev-tooling-3nt9`** — FILED 2026-07-28 (minted id `overseer-llz4xi` is DEAD, see below) | **`livespec-dev-tooling`** | — |
 | **B2** — replace this repo's hard-coded `ensure-codex-plugins` body with the shared delegation | `overseer-vfz5v5` | `livespec-overseer` | **B1** (`sibling_work_item`), A2 |
-| **A3** — flip `harnesses.codex` to `supported`, with a repo-local check that makes the green load-bearing | `overseer-kju6wh` | `livespec-overseer` | A1, A2 |
+| **A4** — make `overseer-start` launch under Codex without weakening the stray-hand-run refusal | `overseer-ews` — FILED 2026-07-29, not part of the original groom cut | `livespec-overseer` | — |
+| **A3** — flip `harnesses.codex` to `supported`, with a repo-local check that makes the green load-bearing | `overseer-kju6wh` | `livespec-overseer` | A1, A2, **A4** |
 | **C1** — adopt the `oh-my-codex #3024` live-session rollout policy | **`livespec-1p31`** — FILED 2026-07-28 (minted id `overseer-qfnjj6` is DEAD, see below) | **`livespec`** core | — |
 
 B2's cross-repo blocker is not visible to `bd dep tree`, which walks local edges
