@@ -165,6 +165,53 @@ convert "someone else owns X" into idling or a `blocked:` declaration.
 elsewhere blocks this thread: goal 1 needs no Codex session at all and is always
 available.
 
+## A wait is not a question. A mechanical unblock is not a question.
+
+Measured on this thread, 2026-07-28/29, three times. Each felt like diligence
+and each was a stall the maintainer had to break by hand. These are the three
+shapes; none of them may end a turn.
+
+**1. Waiting on a shared resource is WORK, not a decision.** The host dispatch
+cap (`dispatcher.host_dispatch_cap`, default **2**) refused a dispatch because
+two other tracks held the slots. That was asked as a maintainer question with a
+"wait for a slot" option. **It should never have been asked.** Sleep, re-check,
+retry, keep going. The same applies to CI, queues, merge trains, rate limits and
+another track's in-flight run. **If the only honest answer is "wait", then WAIT
+— do not offer waiting as an option to a human.**
+
+**2. If the SUPERVISOR can perform the unblock, PERFORM IT.** The worker parked
+needing `/reload-plugins`, which an agent cannot invoke — it is a local CLI
+command, not a skill. The supervisor relayed that to the maintainer as a
+blocking question, then typed it into the worker pane itself moments later. It
+was always the supervisor's to do. **Before surfacing any block, ask: "can I do
+this from my own pane?"** Typing a slash command, sending keys, reading a file,
+fetching the forge, querying the ledger, measuring a gate — all supervisor work.
+
+**3. Never end a turn on a report while a mechanical unblock is available.** A
+status report is not a work product. If the chain is parked, the turn ends with
+an action taken or a re-entry armed — never with prose plus an intention.
+
+**The ONLY genuinely blocking questions** — the exhaustive list for this thread:
+
+- a **human valve required by policy** (an `ai-then-human` acceptance; the
+  agent executing it would be skipping the check, not satisfying it);
+- a **decision the maintainer already owns** and has not given (the cut; scope);
+- an action that would **REMOVE, WEAKEN or SKIP an existing check**, which is
+  refused rather than asked;
+- work that is **irreversible or outward-facing** beyond the thread.
+
+Anything else — resource waits, tool staleness, transient errors, another
+track's lane, "which of these two obviously-correct things first" — is driven,
+not asked. When in doubt, state the assumption, act, and report it as an
+assumption that can be corrected later.
+
+**Corollary for the worker.** Give the worker the same rule explicitly, because
+it will otherwise park and wait on the supervisor exactly as the supervisor
+parks and waits on the maintainer. A worker that ends its turn saying "tell me
+to go" has stalled the thread one level down. Instruct it: self-manage resource
+waits; if it needs an operator-only action, put that ask in ONE line at the TOP
+of a report that also contains whatever progress it made in the meantime.
+
 ## Never end a turn without an armed re-entry
 
 The section above stops a supervisor reasoning itself into standing down. This
@@ -186,26 +233,57 @@ Before ending ANY turn while the worker is mid-flight, ARM a re-entry — a
 background pane watcher is the primary mechanism, a long `ScheduleWakeup` (1200s+)
 only a backstop:
 
+Create any named wait channel BEFORE relying on it, and tell the worker what
+feeds it.
+
 ```sh
-prev=""; stable=0
+wait_channel=/data/projects/livespec-overseer/tmp/overseer/codex-parity-and-rollout-safety/worker-status.log
+mkdir -p "$(dirname "$wait_channel")"
+: > "$wait_channel"
+# Tell the worker: append one line to "$wait_channel" at every milestone.
+
+prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
 for i in $(seq 1 180); do            # ~60 min ceiling, then give up loudly
   sleep 20
-  pane=$(tmux capture-pane -p -t codex-parity-and-rollout-safety -S -40)
-  case "$(printf '%s\n' "$pane" | tail -6)" in
-    *"Enter to select · ↑/↓ to navigate"*) echo "WAKE: picker open"; exit 0 ;;
-  esac
+  pane=$(tmux capture-pane -p -t codex-parity-and-rollout-safety)   # visible only
+  [ -z "$pane" ] && { echo "WAKE: pane unreadable — session may be gone"; exit 0; }
+  if printf '%s\n' "$pane" | tail -8 \
+       | grep -qE '^[[:space:]]*Enter to (select|confirm)[[:space:]]*(·.*)?$'; then
+    echo "WAKE: picker open"; exit 0
+  fi
   if [ "$pane" = "$prev" ]; then stable=$((stable+1)); else stable=0; prev="$pane"; fi
   if [ "$stable" -ge 3 ]; then echo "WAKE: pane unchanged ~60s — idle"; exit 0; fi
 done
-echo "WAKE: watcher ceiling reached — worker still busy, re-arm"
+echo "WAKE: watcher ceiling reached — worker still busy, RE-ARM NOW"
 ```
 
 Detect busy by pane CHANGE, not by a status string: a working pane renders a
 spinner whose timer ticks every second, so "unchanged across three 20s polls"
-separates busy from idle without depending on TUI wording. **Match the picker
-footer only in the pane TAIL** — a bare `"Enter to select"` substring test
-false-positives when the worker is editing a file that contains this very
-watcher snippet, which was measured happening.
+separates busy from idle without depending on TUI wording. Use ONE visible-only
+capture for both the picker test and the pane diff, and test for an unreadable
+pane BEFORE the diff — an empty capture is a dead session, not a stable one, and
+comparing it as "unchanged" reports a vanished worker as merely idle.
+
+**Anchor the picker test at BOTH ends and scope it to the pane tail.** A bare
+`"Enter to select"` substring test false-positives when the worker is editing a
+file containing this very snippet, which was measured happening; a start-only
+anchor matches a wrapped continuation line. A real footer owns the whole line
+and may say either `Enter to select` **or** `Enter to confirm`.
+
+**The sentinel matters.** Initialise `prev` to a value no capture can equal.
+Initialising it to `""` makes the first unreadable capture compare EQUAL to it,
+which starts the stability count on a dead pane.
+
+**Expiry is itself a wake.** The ceiling branch says `RE-ARM NOW` — honour it by
+re-arming, never by echoing an intention to check later.
+
+**Watch the RIGHT signal.** A watcher polling a signal the gate does not consult
+is worse than none, because its silence reads as "still blocked". Measured here:
+a watcher polled this tenant's `active` work-items to detect dispatch capacity,
+but the host dispatch cap reads live Fabro **processes** (`fabro ps`) and per-slot
+lock files — host-global, not ledger state. It reported "still at cap" while the
+cap stood at 0 of 2. Before arming, name the exact quantity the gate reads and
+poll THAT.
 
 **Waiting on a scheduled workflow is not a short wait.** Measured on this
 account: GitHub scheduled runs fired between **+50 and +230 minutes** past their
@@ -288,6 +366,36 @@ of the supervised session's mistakes.
   groom route files at `pending-approval` (`groom.py:292`) and then runs the DoR
   intake router. The worker established this; the supervisor confirmed it at
   source and conceded.
+
+### First-hand, 2026-07-28/29 — stalls the maintainer had to break by hand
+
+These three are the reason §"A wait is not a question" exists. **The inherited
+"inventing gates" entry below already named "asking non-blocking questions" as
+"a stall with better manners", and this supervisor did it anyway** — which is
+why the rule is now a section with an exhaustive list of what genuinely blocks,
+rather than a line in a list.
+
+- **Asked permission to wait on a resource.** A dispatch was refused by the host
+  dispatch cap because two OTHER tracks held the slots. That was put to the
+  maintainer as a question whose recommended option was "wait for a slot". The
+  maintainer's response: *"why would you just stall asking me whether it is okay
+  to wait for the cap, rather than just waiting for it yourself."* **Waiting is
+  work. Never offer it as an option to a human.**
+
+- **Built a watcher on the wrong gauge, then trusted its silence.** The same cap
+  was modelled as a WIP cap over ledger `active` items; the watcher polled that
+  and reported "still at cap" while the real gauges — live Fabro processes via
+  `fabro ps`, plus per-slot lock files, both host-global — stood at 0 of 2.
+  **A watcher on a quantity the gate does not read makes a clear gate look shut.**
+  Note also `bd-ib-3zek`: the cap needs the RESOLVED engine binary, and a bare
+  `fabro` does not resolve under the credential wrapper — it silently blinds the
+  gauge. Use `/home/ubuntu/.local/bin/fabro`.
+
+- **Relayed an unblock the supervisor could perform.** The worker parked needing
+  `/reload-plugins` — an agent cannot invoke it, being a local CLI command rather
+  than a skill. The supervisor reported that upward as a blocker, and then typed
+  it into the worker pane itself minutes later. It was always the supervisor's to
+  do. **Before surfacing a block, ask whether it can be done from this pane.**
 
 Carried forward from `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
 because they are role-level rather than track-level:
