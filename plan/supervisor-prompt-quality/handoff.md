@@ -93,10 +93,68 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
-## WORKER RESUME STATE — rewritten 2026-07-29 (15:30Z) by the `supervisor-prompt-quality` worker
+## WORKER RESUME STATE — updated 2026-07-29 (19:45Z) by the `supervisor-prompt-quality` worker
 
 **Re-measure from the ledger and the forge rather than trusting any line below.**
-Every claim here is a claim with a timestamp, including this one.
+Every claim here is a claim with a timestamp, including this one. Two claims in
+the 15:30Z version went stale within hours — the blocker and S3's state — and
+both are corrected below rather than edited away.
+
+### `overseer-ejja5o` is DELIVERED — PR #286, merged
+
+The supervisor-side liveness precondition. `supervise-plan` refused to trust a
+session NAME for the worker and then trusted one for the supervisor; observed
+2026-07-28, a supervisor session created as a bare `zsh` returned PASS, so a
+session that could not supervise anything cleared the gate.
+
+Precondition 3 now resolves BOTH pids in its own block (it cannot pass on an
+unset `$pane_pid` inherited from precondition 2), guards the supervisor pid
+non-empty, guards it **distinct from the worker's pane**, and runs the same
+process-tree proof precondition 2 uses. Fixed in
+`.claude-plugin/prose/supervise-plan.md` **and** in the exemplar charter.
+
+**The exemplar carried the defect too, and that was not in the item.** Its C1
+hardening (exact `'=name:'` targeting) is a DIFFERENT defect from agent liveness.
+Adding the requirement went red on **three** legs — generator prose, exemplar, and
+the contract module's own conformant control. Fixing only the prose would have
+left the positive control red.
+
+Two rungs: `test_generated_supervisor_handoff_contract.py` (over generated
+output — a needle PLUS a structural check, because `pane_pid` is a substring of
+`supervisor_pane_pid` and the worker's own binding would otherwise satisfy it)
+and `test_supervisor_liveness_discriminates.py` (real tmux, private socket). The
+two halves fail INDEPENDENTLY in both directions, so a red verdict names which
+half broke.
+
+### ejja5o vs `overseer-2a1` — I checked, and the alarming reading was WRONG
+
+`overseer-2a1` records that 4 of 5 HALT preconditions need a live session that a
+NEW plan thread does not have yet. ejja5o tightened one of those preconditions, so
+the obvious worry is that it made 2a1 strictly worse. **Measured: it did not.**
+
+2a1's observed failure was `can't find session` — the session was ABSENT. The
+emitted block HALTs at `tmux has-session` BEFORE resolving the pid or running
+`ps`, so an absent supervisor session halts at the same check with the same
+message as before. What changed is narrow and is exactly the defect ejja5o
+closed: a supervisor session that EXISTS but holds only a bare shell used to pass
+and now HALTs. The cost lands only on 2a1's recorded workaround, which now also
+needs an agent in the supervisor pane — and that is often free, since running
+`supervise-plan` FROM the supervisor session means that session already holds the
+agent running the skill.
+
+**What ejja5o DOES do is strengthen 2a1's second candidate shape** — split the
+preconditions so artifact-only checks gate AUTHORING and live-session checks gate
+DRIVING. There are now five live-session checks against one artifact check, which
+makes the authoring/driving split the obvious cut rather than one option of three.
+**Not acted on: `overseer-2a1` is `pending-approval` and the ledger is the
+supervisor's.**
+
+### Ledger state — there are NO ready items
+
+15 backlog, 15 pending-approval, 2 active, **zero ready**. `ejja5o` was the
+top-ranked ready item and it is delivered. Nothing is hand-drivable without the
+supervisor releasing an item, and this worker does not transition, approve, or
+set-admission on anything.
 
 ### The one structural fact the previous version missed
 
@@ -110,7 +168,7 @@ valve therefore blocks 7 of 7 remaining slices rather than 1.
 |---|---|---|
 | S1 HALT preconditions that classify their failure | `overseer-ykneip` | **CLOSED** |
 | S2 wake mechanism end to end | `overseer-4do7jx` | **CLOSED** |
-| S3 iteration-stable two-layer form | `overseer-t7qqik` | **ACTIVE, CLAIMED BUT PARKED** |
+| S3 iteration-stable two-layer form | `overseer-t7qqik` | pending-approval (reset from a dead claim, twice) |
 | S4 re-entry + durable obligation record | `overseer-fl5jlp` | pending-approval, blocked on S3 |
 | S5 verification discipline | `overseer-nxaho7` | pending-approval, blocked on S3 |
 | S6 full anti-stall playbook | `overseer-kptmgl` | pending-approval, blocked on S3 |
@@ -126,18 +184,32 @@ which now has proof rather than a code read. `set-admission:<id>:manual` permane
 rewrites recorded policy for no benefit. **Do not run it.** S1/S2 read `manual` only
 because it was run on them before that was understood; the other seven are untouched.
 
-### THE BLOCKER — unchanged, and it is maintainer-side
+### THE BLOCKER — IT IS NO LONGER THE SPEND LIMIT
 
-**Fabro dispatch is dead org-wide on the monthly spend limit.** Re-confirmed
-2026-07-29 on the FRESHEST run of all 356 (`01KYP9Z87QC3`), not on the stale quote:
-`"You've hit your org's monthly spend limit"`, `errorKind: rate_limit`. The
-maintainer has taken the valve (answer: raise it).
+**This section said "the monthly spend limit" for most of 2026-07-29 and that is
+now WRONG. Do not re-assert it.** The live gate is the **host Codex credential**:
+a re-dispatch failed FAST at stage `run-config-overlay` with `fabro_run_id`
+**null**, carrying *"Host Codex credential is too short-lived for the run budget;
+run `codex login` on the orchestrator host to renew it."* `codex-cred-status`
+reports the credential present and well-formed but with `alarm true` and
+`refresh_due FALSE`, and `codex-cred-refresh` returns `noop-not-due` — outside
+the refresh guard, so codex is never invoked and **the automated path cannot fix
+it.** It needs an interactive login only the maintainer can run.
 
-**WHEN IT CLEARS, DO THIS FIRST.** S3 sits `active`/`fabro` with nothing working it,
-claimed by parked run `01KYP93877SDPHC7DVM0BXRJ33`. That state is invisible to
-`ledger-normalize` and **cannot be re-dispatched from `active`** — the run must be
-resumed or the claim reset before S3 moves. Do not wrap `dispatcher.py dispatch` in
-a short timeout; it BLOCKS for the entire life of the run.
+**CONSEQUENCE, and this is the part worth carrying:** whether the Anthropic spend
+limit is still exhausted is now **UNVERIFIED, not cleared.** No run was ever
+created, so the cap was never reached and never tested. Record it as unknown.
+A separate track (`codex-parity-and-rollout-safety`, its own PR #274) has
+independently diagnosed the billing cap across five runs, two repos and four
+work-items — **that PR is theirs, not this thread's.**
+
+**S3's parked-run advice is also retired.** Run `01KYP93877SDPHC7DVM0BXRJ33` went
+TERMINAL (`failed`/`workflow_error`), so it is not resumable. The supervisor reset
+S3 to `pending-approval` — **twice**, because a dispatch that fails at
+`run-config-overlay` still CLAIMS the item even though no run exists and
+`fabro_run_id` is null. S3 now reads `pending-approval`, `admission:auto` intact.
+Do not wrap `dispatcher.py dispatch` in a short timeout; it BLOCKS for the entire
+life of the run.
 
 ### What landed this session
 
@@ -240,7 +312,19 @@ it.** The artifacts that mattered are now TRACKED, which was the point.
   leaves the change STAGED and `git log` shows someone else's HEAD.
 - **`just worktree-reap` cannot see a rebase-merged branch as merged** (the SHA changes),
   so it skips your own worktree and offers `--force`, which would act on every other
-  track's. Remove only your own.
+  track's. Remove only your own. **Now filed as `overseer-btt` (P1)** — its merged-ness
+  test is `merge-base --is-ancestor "$wt_head" "$base_ref"` at
+  `dev-tooling/worktree-lib.sh:347`, and rebase-merge replays work as a NEW SHA, so a
+  correctly-landed branch is never an ancestor. Measured 0 to remove, 19 skipped, while
+  `needs-attention`'s hygiene lane lists those same worktrees as removable — two tools in
+  this repo disagreeing. **Do not reap them; most belong to other tracks.**
+- **A `test:` subject is not cosmetic when the `.py` bucket is tests-only.** A
+  `fix:`/`feat:` subject on a tests-only staged tree whose tests PASS is rejected as
+  `test-passed-at-red`. Markdown does not enter the `.py` bucket, so a change that fixes
+  generator prose plus its tests is still "tests-only" to the hook.
+- **Restore a sabotage from a byte copy, never `git checkout -- <file>`.** That reverts to
+  HEAD rather than to your uncommitted work, and it silently wiped a completed sweep here;
+  the next run's failure then reads as a broken test rather than a lost edit.
 
 ### Boundaries
 
