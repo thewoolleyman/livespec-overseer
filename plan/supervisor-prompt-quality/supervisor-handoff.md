@@ -83,8 +83,8 @@ an empty value laundered through `readlink -f` becomes a false PASS (C2).
      || echo "HALT: expected session 'supervisor-prompt-quality' does not exist"
    ```
 
-   Missing worker is a BOOTSTRAP condition, not a dead-end: ask the
-   maintainer ONE recommended-first question offering to start it —
+   REMEDY: missing worker is a BOOTSTRAP condition, not a dead-end. Ask
+   the maintainer ONE recommended-first question offering to start it —
 
    ```sh
    tmux new-session -d -s supervisor-prompt-quality -c "$REPO"
@@ -95,7 +95,9 @@ an empty value laundered through `readlink -f` becomes a false PASS (C2).
    — then re-run checks 2–5 against the new pane. Never auto-spawn it.
 
 2. **Worker is a DISTINCT session from you.** This check exists because
-   check 1 was defeatable; keep it even if check 1 is ever changed:
+   check 1 was defeatable; keep it even if check 1 is ever changed.
+   REMEDY: if the worker target resolves to your own pane, stop and retarget
+   before sending anything:
 
    ```sh
    wpid=$(tmux display-message -p -t "$W" '#{pane_pid}')
@@ -117,6 +119,8 @@ an empty value laundered through `readlink -f` becomes a false PASS (C2).
    ```
 
    Report which driver was found, and confirm the pid is not your own.
+   REMEDY: if no live agent appears, ask the maintainer whether to restart the
+   worker rather than treating a shell as supervised.
 
 4. **Supervisor session exists** — exact match only:
 
@@ -126,7 +130,7 @@ an empty value laundered through `readlink -f` becomes a false PASS (C2).
      || echo "HALT: expected 'supervisor-prompt-quality-supervisor'"
    ```
 
-   A different supervisor seat name (or no tmux) is a bootstrap
+   REMEDY: a different supervisor seat name (or no tmux) is a bootstrap
    condition — rename or proceed noting it. HALT only on discovering you
    are IN the worker pane.
 
@@ -134,6 +138,9 @@ an empty value laundered through `readlink -f` becomes a false PASS (C2).
    resolves inside it.** Absolute path; `readlink -f` first, because a
    symlinked path that merely LOOKS contained is a HALT — and because
    `readlink -f ""` returns the CWD with exit 0 (C2):
+
+   REMEDY: if either path check fails, choose the correct repo/topic or move
+   the worker into the target repo before supervising.
 
    ```sh
    test -d "$REPO/plan/supervisor-prompt-quality" \

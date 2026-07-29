@@ -29,16 +29,27 @@ The maintainer must name a target repository and a plan topic. If either is
 missing or ambiguous, ask one short clarifying question before doing anything
 else.
 
-The plan topic is the directory name under `plan/`. Derive the supervised tmux
+The plan topic is the directory name under `plan/`. Derive the worker tmux
 session name from the ratified livespec-overseer rule in `SPECIFICATION/spec.md`
 section "Session-name derivation": bare topic by default, repo-qualified only on
 a genuine cross-repository topic collision. Derive the supervisor session by
-appending `-supervisor` to the supervised session name.
+appending `-supervisor` to the worker session name. Bind exact tmux targets once
+and use those bindings everywhere:
+
+```sh
+WORKER_TARGET='=<worker-session>:'
+SUPERVISOR_TARGET='=<supervisor-session>:'
+```
+
+The leading `=` and trailing `:` are both required. `-t <name>` can prefix-match
+the supervisor when the worker is absent, and `-t '=name'` makes some tmux
+subcommands disagree about existence versus pane resolution.
 
 ## HALT-first preconditions
 
 Run these checks before reading or writing any target repo plan file. Stop on the
-first failure and report the failing check plus the exact expected name. Do not
+first failure, report the failing check plus the exact expected name, and include
+the literal labelled `REMEDY:` for what the operator should do next. Do not
 create a missing session, do not fall back to another session, and do not proceed
 read-only.
 
@@ -50,7 +61,9 @@ exactly the ones that used to be prose.
 1. Supervised session exists:
 
 ```bash
-tmux has-session -t "<derived-supervised-session>"
+WORKER_TARGET='=<worker-session>:'
+tmux has-session -t "$WORKER_TARGET" \
+  || { echo "HALT: expected worker session '<worker-session>'"; echo "REMEDY: ask the maintainer whether to start that worker session"; exit 1; }
 ```
 
 2. The supervised session is really a live agent session: its pane process tree
@@ -60,10 +73,14 @@ from a session name — a leftover session named like an agent proves nothing.
 Emit this, not a description of it:
 
 ```bash
-pane_pid=$(tmux display-message -p -t "<derived-supervised-session>" '#{pane_pid}')
+WORKER_TARGET='=<worker-session>:'
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+[ -n "$pane_pid" ] \
+  || { echo "HALT: empty pane_pid for '<worker-session>'"; echo "REMEDY: re-check the exact worker target and stop if it still resolves empty"; exit 1; }
 ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
 # PASS only if a live `claude` or `codex` process appears in that tree.
 # A lone shell (zsh/bash) with no agent child is a HALT.
+# REMEDY: if no live agent appears, ask the maintainer whether to restart the worker.
 ```
 
 Report which driver was found.
@@ -71,7 +88,9 @@ Report which driver was found.
 3. Supervisor session exists:
 
 ```bash
-tmux has-session -t "<derived-supervised-session>-supervisor"
+SUPERVISOR_TARGET='=<supervisor-session>:'
+tmux has-session -t "$SUPERVISOR_TARGET" \
+  || { echo "HALT: expected supervisor session '<supervisor-session>'"; echo "REMEDY: switch to the correct supervisor session or ask the maintainer to bootstrap it"; exit 1; }
 ```
 
 4. The plan thread exists INSIDE the target repo. Resolve an ABSOLUTE path. A
@@ -80,17 +99,21 @@ PASSES while pointed at the wrong repository — nothing in this skill establish
 a working directory, so the repo path must be spelled out:
 
 ```bash
-test -d "<absolute-target-repo>/plan/<topic>"
+test -d "<absolute-target-repo>/plan/<topic>" \
+  || { echo "HALT: missing plan thread <absolute-target-repo>/plan/<topic>"; echo "REMEDY: create or choose the correct plan topic before supervising"; exit 1; }
 ```
 
 5. The supervised pane's cwd resolves inside the target repo. `readlink -f`
 first — a symlinked path that merely LOOKS contained is a HALT:
 
 ```bash
-pane_cwd=$(tmux display-message -p -t "<derived-supervised-session>" '#{pane_current_path}')
-case "$(readlink -f "$pane_cwd")" in
+WORKER_TARGET='=<worker-session>:'
+pane_cwd=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_current_path}')
+[ -n "$pane_cwd" ] \
+  || { echo "HALT: empty pane_current_path for '<worker-session>'"; echo "REMEDY: re-check the exact worker target and stop if it still resolves empty"; exit 1; }
+case "$(readlink -f -- "$pane_cwd")" in
   <absolute-target-repo>|<absolute-target-repo>/*) echo "PASS: $pane_cwd" ;;
-  *) echo "HALT: pane cwd $pane_cwd is outside the target repo" ;;
+  *) echo "HALT: pane cwd $pane_cwd is outside the target repo"; echo "REMEDY: move the worker into the target repo or start the correct worker session"; exit 1 ;;
 esac
 ```
 
@@ -133,9 +156,10 @@ Use these sections, keeping every heading even when a section starts empty:
 
 ## HALT-first preconditions
 
-State the exact supervised session name, the exact supervisor session name, and
-the exact target repo path. Tell the reader to verify those sessions and the live
-agent driver before doing anything else, and to stop on the first failure.
+State the exact worker session name, the exact supervisor session name, and the
+exact target repo path. Tell the reader to verify those sessions and the live
+agent driver before doing anything else, and to stop on the first failure with a
+literal labelled `REMEDY:`.
 
 REPRODUCE the five precondition commands above verbatim, with the placeholders
 substituted. Do not paraphrase them into prose — a precondition without a command
@@ -155,7 +179,7 @@ commands themselves, not descriptions of them.
 Inspect read-only — a scrollback sample plus the visible worker pane:
 
 ```sh
-tmux capture-pane -p -t <worker-session> -S -40
+tmux capture-pane -p -t "$WORKER_TARGET" -S -40
 ```
 
 `-S -40` starts 40 lines back in history and then includes the entire visible
@@ -165,9 +189,9 @@ placeholder and `tail` rejects it.
 Short instruction — send the text, VERIFY, then send Enter SEPARATELY:
 
 ```sh
-tmux send-keys -t <worker-session> -- '<one line>'
-tmux capture-pane -p -t <worker-session> | tail -8   # confirm it landed
-tmux send-keys -t <worker-session> Enter             # only after verifying
+tmux send-keys -t "$WORKER_TARGET" -- '<one line>'
+tmux capture-pane -p -t "$WORKER_TARGET" | tail -8   # confirm it landed
+tmux send-keys -t "$WORKER_TARGET" Enter             # only after verifying
 ```
 
 Do NOT emit the one-shot `… -- '<line>' Enter` form. Measured against a live
@@ -179,9 +203,9 @@ Longer text — load from a file, paste, VERIFY, then Enter as a separate step:
 
 ```sh
 tmux load-buffer -b sup /tmp/msg.txt
-tmux paste-buffer -b sup -t <worker-session>
-tmux capture-pane -p -t <worker-session> | tail -8   # confirm it landed
-tmux send-keys -t <worker-session> Enter             # only after verifying
+tmux paste-buffer -b sup -t "$WORKER_TARGET"
+tmux capture-pane -p -t "$WORKER_TARGET" | tail -8   # confirm it landed
+tmux send-keys -t "$WORKER_TARGET" Enter             # only after verifying
 ```
 
 Idle plus queued input means STUCK, not idle. Never name a variable TMUX, and
@@ -249,7 +273,7 @@ mkdir -p "$(dirname "$wait_channel")"
 prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
 for i in $(seq 1 180); do                    # ~60 min ceiling
   sleep 20
-  pane=$(tmux capture-pane -p -t <worker-session>)   # visible only
+  pane=$(tmux capture-pane -p -t "$WORKER_TARGET")   # visible only
   [ -z "$pane" ] && { echo "WAKE: pane unreadable — session may be gone"; exit 0; } # before the diff
   if printf '%s\n' "$pane" | tail -8 \
        | grep -qE '^[[:space:]]*Enter to (select|confirm)[[:space:]]*(·.*)?$'; then

@@ -19,6 +19,7 @@ tell the two apart is a verifier that cannot fail.
 from __future__ import annotations
 
 import re
+import shlex
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -86,18 +87,134 @@ _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 # Patterns whose PRESENCE is the defect, rather than whose absence is.
-#
-# These match LITERALLY, so a charter that quotes one of these forms as a
-# counter-example is flagged too. That is a deliberate trade: the check stays
-# simple and cannot be talked out of a real hit by surrounding prose. Documents
-# that need to warn against a form describe it instead of reproducing it — the
-# generator prose does exactly that for the cwd-relative containment check.
-_BANNED: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("cwd-relative-plan-test", _CWD_RELATIVE_TEST_D),
-    ("one-shot-send-keys-enter", _ONE_SHOT_SEND_KEYS),
-)
-
+_FENCED_COMMANDS = re.compile(r"^[ \t]*```(?:bash|sh)\n(.*?)\n[ \t]*```", re.DOTALL | re.MULTILINE)
+_ASSIGNMENT = re.compile(r"^[ \t]*([A-Za-z_][A-Za-z0-9_]*)=(['\"])(.*?)\2")
+_TARGETED_TMUX_COMMANDS = {
+    "capture-pane",
+    "display-message",
+    "has-session",
+    "list-panes",
+    "paste-buffer",
+    "send-keys",
+}
 _PICKER_FOOTER = re.compile(r"^[ \t]*Enter to (select|confirm)[ \t]*(·.*)?$", re.MULTILINE)
+
+
+def _command_blocks(*, charter: str) -> list[str]:
+    return [match.group(1) for match in _FENCED_COMMANDS.finditer(charter)]
+
+
+def _logical_lines(*, block: str) -> list[str]:
+    return block.replace("\\\n", " ").splitlines()
+
+
+def _bindings_for(*, block: str) -> dict[str, str]:
+    bindings: dict[str, str] = {}
+    for line in _logical_lines(block=block):
+        match = _ASSIGNMENT.match(line)
+        if match is not None:
+            bindings[match.group(1)] = match.group(3)
+    return bindings
+
+
+def _target_token(*, parts: list[str]) -> str | None:
+    for index, part in enumerate(parts):
+        if part == "-t" and index + 1 < len(parts):
+            return parts[index + 1]
+        if part.startswith("-t") and len(part) > 2:
+            return part[2:]
+    return None
+
+
+def _resolved_target(*, token: str, bindings: dict[str, str]) -> str:
+    if token.startswith("${") and token.endswith("}"):
+        return bindings.get(token[2:-1], "")
+    if token.startswith("$"):
+        return bindings.get(token.removeprefix("$"), "")
+    return token
+
+
+def _is_exact_tmux_target(*, target: str) -> bool:
+    return target.startswith("=") and target.endswith(":") and len(target) > 2
+
+
+def banned_requirements(*, charter: str) -> list[str]:
+    """Return prohibited generated command forms found in fenced commands only."""
+    banned: list[str] = []
+    bindings: dict[str, str] = {}
+    for block in _command_blocks(charter=charter):
+        bindings.update(_bindings_for(block=block))
+        if _CWD_RELATIVE_TEST_D.search(block):
+            banned.append("cwd-relative-plan-test")
+        if _ONE_SHOT_SEND_KEYS.search(block):
+            banned.append("one-shot-send-keys-enter")
+        for line in _logical_lines(block=block):
+            try:
+                parts = shlex.split(line, comments=True)
+            except ValueError:
+                continue
+            if len(parts) < 2 or parts[0] != "tmux" or parts[1] not in _TARGETED_TMUX_COMMANDS:
+                continue
+            token = _target_token(parts=parts)
+            if token is None:
+                continue
+            target = _resolved_target(token=token, bindings=bindings)
+            if not _is_exact_tmux_target(target=target):
+                banned.append(f"non-exact-tmux-target:{parts[1]}")
+    return banned
+
+
+def _halt_precondition_blocks(*, charter: str) -> list[str]:
+    start = charter.find("## HALT-first preconditions")
+    if start == -1:
+        return []
+    rest = charter[start:]
+    end_match = re.search(r"\n## ", rest[len("## HALT-first preconditions") :])
+    section = (
+        rest
+        if end_match is None
+        else rest[: len("## HALT-first preconditions") + end_match.start()]
+    )
+    matches = list(re.finditer(r"(?m)^\s*\d+\. ", section))
+    return [
+        section[match.start() : matches[index + 1].start() if index + 1 < len(matches) else None]
+        for index, match in enumerate(matches)
+    ]
+
+
+def _missing_remedy_labels(*, charter: str) -> list[str]:
+    missing: list[str] = []
+    for index, block in enumerate(_halt_precondition_blocks(charter=charter), start=1):
+        if "REMEDY:" not in block:
+            missing.append(f"precondition-{index}-remedy")
+    return missing
+
+
+def _has_readlink_empty_guard(*, charter: str) -> bool:
+    for block in _command_blocks(charter=charter):
+        readlink_at = block.find("readlink -f")
+        if readlink_at == -1:
+            continue
+        guard_at = block.find('[ -n "$pane_cwd" ]')
+        if guard_at == -1:
+            guard_at = block.find('[ -n "$wcwd" ]')
+        if guard_at != -1 and guard_at < readlink_at and "readlink -f --" in block:
+            return True
+    return False
+
+
+def _has_pane_pid_empty_verdict(*, charter: str) -> bool:
+    for block in _command_blocks(charter=charter):
+        ps_at = block.find("ps -o pid=,comm=,args=")
+        if ps_at == -1:
+            continue
+        guard_at = block.find('[ -n "$pane_pid" ]')
+        if guard_at == -1:
+            guard_at = block.find('[ -n "$wpid" ]')
+        empty_at = block.find("empty pane_pid")
+        if guard_at != -1 and empty_at != -1 and guard_at < ps_at:
+            return True
+    return False
 
 
 def missing_requirements(*, charter: str) -> list[str]:
@@ -113,7 +230,12 @@ def missing_requirements(*, charter: str) -> list[str]:
         for name, needles in _REQUIRED
         if not all(needle.lower() in lowered for needle in needles)
     ]
-    missing.extend(name for name, pattern in _BANNED if pattern.search(charter))
+    missing.extend(banned_requirements(charter=charter))
+    missing.extend(_missing_remedy_labels(charter=charter))
+    if not _has_readlink_empty_guard(charter=charter):
+        missing.append("readlink-empty-guard")
+    if not _has_pane_pid_empty_verdict(charter=charter):
+        missing.append("pane-pid-empty-verdict")
     guard_at = charter.find('[ -z "$pane" ]')
     diff_at = charter.find('if [ "$pane" = "$prev" ]')
     if guard_at == -1 or diff_at == -1 or diff_at < guard_at:
@@ -249,10 +371,12 @@ def test_a_cwd_relative_plan_containment_check_is_rejected():
     never establishes a working directory, so this is not a hypothetical."""
     charter = """
     # Supervisor Handoff - demo
+    ```sh
     tmux capture-pane -p -t demo -S -40
     pane_pid=$(tmux display-message -p -t demo '#{pane_pid}')
     readlink -f "$pane_cwd"
     test -d "plan/<topic>"
+    ```
     ## No idle, no silent block
     A conflicting lane is not a blocked state; stand down on that action only.
     ## Never end a turn without an armed re-entry
@@ -269,10 +393,12 @@ def test_the_one_shot_send_keys_enter_form_is_rejected():
     queued at the prompt — which is the idle-plus-queued-input stall."""
     charter = """
     # Supervisor Handoff - demo
+    ```sh
     tmux capture-pane -p -t demo -S -40
     pane_pid=$(tmux display-message -p -t demo '#{pane_pid}')
     readlink -f "$pane_cwd"
     tmux send-keys -t demo -- 'do the thing' Enter
+    ```
     ## No idle, no silent block
     A conflicting lane is not a blocked state; stand down on that action only.
     ## Never end a turn without an armed re-entry
@@ -281,6 +407,102 @@ def test_the_one_shot_send_keys_enter_form_is_rejected():
     Recommended first. Never pass --no-verify.
     """
     assert "one-shot-send-keys-enter" in missing_requirements(charter=charter)
+
+
+def test_banned_form_lint_resolves_variable_bindings():
+    good = """
+    ```sh
+    W='=demo:'
+    tmux capture-pane -p -t "$W"
+    tmux send-keys -t "$W" -- 'continue'
+    ```
+    """
+    bad = """
+    ```sh
+    W='demo'
+    tmux capture-pane -p -t "$W"
+    tmux send-keys -t "$W" -- 'continue'
+    ```
+    """
+    assert banned_requirements(charter=good) == []
+    assert "non-exact-tmux-target:capture-pane" in banned_requirements(charter=bad)
+    assert "non-exact-tmux-target:send-keys" in banned_requirements(charter=bad)
+
+
+def test_banned_form_lint_covers_shell_edge_forms():
+    charter = """
+    ```sh
+    W='=demo:'
+    tmux capture-pane -p -t${W}
+    tmux list-panes -tdemo
+    tmux has-session
+    tmux send-keys -t "unterminated
+    ```
+    """
+    banned = banned_requirements(charter=charter)
+    assert "non-exact-tmux-target:list-panes" in banned
+    assert "non-exact-tmux-target:capture-pane" not in banned
+
+
+def test_banned_form_lint_scans_fenced_command_blocks_only():
+    charter = """
+    The correction names a bad form in prose: tmux send-keys -t demo -- 'x'.
+
+    ```sh
+    W='=demo:'
+    tmux send-keys -t "$W" -- 'x'
+    ```
+    """
+    assert banned_requirements(charter=charter) == []
+
+
+def test_each_halt_precondition_requires_a_literal_remedy_label():
+    charter = """
+    # Supervisor Handoff - demo
+    ## HALT-first preconditions
+    1. Worker session exists.
+
+       ```sh
+       W='=demo:'
+       tmux has-session -t "$W" || { echo "HALT"; echo "REMEDY: start it"; exit 1; }
+       ```
+
+    2. Worker is a live agent.
+
+       ```sh
+       pane_pid=$(tmux display-message -p -t "$W" '#{pane_pid}')
+       [ -n "$pane_pid" ] || { echo "HALT: empty pane_pid"; exit 1; }
+       ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
+       ```
+    ## How to inspect and drive
+    tmux capture-pane -p -t "$W" # visible only
+    [ -z "$pane" ] && { echo "WAKE"; exit 0; }
+    if [ "$pane" = "$prev" ]; then stable=$((stable+1)); else stable=0; prev="$pane"; fi
+    readlink -f -- "$pane_cwd"
+    """
+    assert "precondition-2-remedy" in missing_requirements(charter=charter)
+
+
+def test_readlink_empty_guard_is_required_before_coreutils_can_disagree():
+    charter = """
+    ```sh
+    W='=demo:'
+    pane_cwd=$(tmux display-message -p -t "$W" '#{pane_current_path}')
+    case "$(readlink -f -- "$pane_cwd")" in /repo|/repo/*) echo PASS ;; esac
+    ```
+    """
+    assert "readlink-empty-guard" in missing_requirements(charter=charter)
+
+
+def test_empty_pane_pid_must_be_a_classified_verdict():
+    charter = """
+    ```sh
+    W='=demo:'
+    pane_pid=$(tmux display-message -p -t "$W" '#{pane_pid}')
+    ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
+    ```
+    """
+    assert "pane-pid-empty-verdict" in missing_requirements(charter=charter)
 
 
 def test_picker_footer_detection_rejects_a_wrapped_quote():
@@ -408,16 +630,39 @@ def test_the_control_a_fully_conformant_charter_passes():
     charter = """
     # Supervisor Handoff - demo
     ## HALT-first preconditions
-    pane_pid=$(tmux display-message -p -t demo '#{pane_pid}')
-    case "$(readlink -f "$pane_cwd")" in /data/projects/demo|/data/projects/demo/*) ;; esac
+    1. Worker session exists.
+
+       ```sh
+       W='=demo:'
+       tmux has-session -t "$W" || { echo "HALT"; echo "REMEDY: start it"; exit 1; }
+       ```
+
+    2. Worker is a live agent.
+
+       ```sh
+       pane_pid=$(tmux display-message -p -t "$W" '#{pane_pid}')
+       [ -n "$pane_pid" ] || { echo "HALT: empty pane_pid"; echo "REMEDY: retarget"; exit 1; }
+       ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
+       ```
+
+    3. Worker cwd is contained.
+
+       ```sh
+       pane_cwd=/data/projects/demo
+       [ -n "$pane_cwd" ] \
+         || { echo "HALT: empty pane_current_path"; echo "REMEDY: retarget"; exit 1; }
+       case "$(readlink -f -- "$pane_cwd")" in /data/projects/demo|/data/projects/demo/*) ;; esac
+       ```
     ## How to inspect and drive
-    tmux capture-pane -p -t demo # visible only
+    ```sh
+    tmux capture-pane -p -t "$W" # visible only
     [ -z "$pane" ] && { echo "WAKE: pane unreadable"; exit 0; } # before the diff
     if [ "$pane" = "$prev" ]; then stable=$((stable+1)); else stable=0; prev="$pane"; fi
     wait_channel=/tmp/worker-status.log
     : > "$wait_channel"
-    Tell the worker to append to it at every milestone.
     echo "WAKE: watcher ceiling reached — worker still busy, RE-ARM NOW"
+    ```
+    Tell the worker to append to it at every milestone.
     ## No idle, no silent block
     A conflicting lane owned by another track is NOT a blocked state. Stand down
     on that action only; enumerate the rest; drive the next safe action.
