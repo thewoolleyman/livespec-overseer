@@ -1,8 +1,101 @@
 # Plan — codex-parity-and-rollout-safety
 
-**Owning repo:** `livespec-overseer`. **Status: GROOMED 2026-07-28 — six slices
-cut and filed, nothing built, nothing in flight. Admission is OPEN FOR A1 ONLY,
-by an explicit maintainer decision recorded below; A2, B2 and A3 remain held.
+> # ▶ RESUME HERE — session handoff, 2026-07-29
+>
+> **A1 is DONE. A2 is BLOCKED ON A REPRODUCIBLE FACTORY FAILURE, not on a
+> decision. A3 waits on A2. Everything below this box is older context that is
+> still accurate unless this box contradicts it.**
+>
+> ## Slice state, read from the ledger 2026-07-29
+>
+> | slice | id | state |
+> |---|---|---|
+> | **A1** | `overseer-4km4mj` | **DONE / CLOSED.** PR **#242** merged, `ee67267e…`, verified an ancestor of `origin/master`. Content verified: `.livespec.jsonc` keeps `status: "exempt"` with a `reason` naming brief 17 **and** the archived ruling path; the stale `check-plugin-resolution` justfile comment is corrected. Maintainer accepted it through the `ai-then-human` valve; I relayed that decision, I did not self-accept. |
+> | **A2** | `overseer-vyie5q` | **`ACTIVE`, claim held by a DEAD run — see the blocker below. Release the stale claim before re-dispatching.** |
+> | **A3** | `overseer-kju6wh` | `pending-approval`, `admission:manual`. Blockers were A1 (now done) + A2 (not done). **Do not start until A2 lands.** |
+> | **B2** | `overseer-vfz5v5` | `pending-approval`, `admission:manual`. **STOOD DOWN** — blocked on B1, which livespec-dev-tooling owns. Not this thread's to implement. |
+> | **B1** | `livespec-dev-tooling-3nt9` | filed in **livespec-dev-tooling**, `backlog`. Never implement here. |
+> | **C1** | `livespec-1p31` | filed in **livespec** core, `backlog`. Never implement here. |
+>
+> ## ⛔ THE A2 BLOCKER — do not re-dispatch blind
+>
+> Every Fabro run for A2 dies the same way:
+>
+> ```
+> node: review   failure_class: transient_infra
+> failure_signature: review|transient_infra|acp turn failed
+> graph.default_max_retries: 0     →  escalates to "Needs human" interview, run blocks
+> ```
+>
+> Observed **three times**: run `01KYP4WDAT4R` twice (blocked at ~13m, retried,
+> died at **61m39s**) and run `01KYP9Z87QC3` at **7m30s**.
+>
+> **CORRECTION TO A CLAIM I MADE MID-SESSION.** I told the supervisor this
+> matched `bd-ib-2nq` (the >60-min Fabro GitHub-App token-TTL bug) because the
+> first run died at 61m39s. **The 7m30s reproduction disproves that** — it is not
+> a TTL effect. Do not carry the TTL attribution forward; it was my hypothesis,
+> not a measurement, and it is wrong. What IS established: the failure is
+> **reproducible**, it is **misclassified as `transient_infra`**, and with
+> `max_retries=0` a single occurrence escalates straight to a human.
+>
+> **Retrying is known not to work** — three attempts, three identical failures.
+> Answering the interview `[1] Retry` was tried and failed. Do not loop on it.
+>
+> **The next session's first job is to diagnose WHY the `review` node fails in
+> this repo**, then file it (orchestrator tenant — that repo owns the factory).
+> `mise exec -- just check` passes locally and the first run self-reported
+> implementing everything and passing 62 targets / 532 tests, so the failure is
+> in the review stage itself, not in the work.
+>
+> To retry cleanly: release the stale claim first —
+> `drive --action move:overseer-vyie5q:ready` — then dispatch.
+>
+> ## Operational facts that cost real time to learn
+>
+> - **`ls` is aliased to long format in the interactive shell but NOT inside a
+>   script.** `ls -t <dir> | head -1` returns a bare name in a script and a full
+>   stat line inline, which silently builds a garbage path. Use `command ls`.
+> - **`ls -t` is not a currency signal anyway** — directory mtime tracks last
+>   USE, so the stale build an active session keeps touching floats to the top
+>   forever. When the staleness gate refuses, it NAMES its target
+>   (`predates latest release <X>`); that string is authoritative.
+> - **Never capture and reuse a plugin build path** — re-derive at the moment of
+>   each dispatch. Quoting the path a skill printed is still hand-resolving,
+>   because the skill binding is itself a pinned snapshot.
+> - **Check-then-dispatch on the host cap is a RACE.** Reading `fabro ps`,
+>   seeing a free slot, then dispatching loses to other tracks. Retry the
+>   dispatch itself — it is the atomic attempt. Won a slot on ~attempt 13 at 30s.
+> - **Cap semantics:** `dispatcher.host_dispatch_cap`, unset here so default 2.
+>   HOST-level; counts live Fabro processes + slot locks, NOT ledger statuses.
+>   Use the RESOLVED `/home/ubuntu/.local/bin/fabro ps` — a bare `fabro` does not
+>   resolve under the credential wrapper and reports an empty gauge for a full cap.
+>   **A cap refusal is a resource wait, never a blocker. Never raise the cap.**
+> - **Verify the CLAIM, not the command.** `drive` printed `status: failed` on a
+>   run that had claimed the item, and printed nothing wrong on a dispatch that
+>   never happened. The ledger (`status` + `assignee`) is authoritative:
+>   `ready` + no assignee means it did NOT dispatch.
+> - Long-running **background** tasks were killed externally twice; foreground
+>   calls with a long timeout were reliable.
+>
+> ## Defects filed this session
+>
+> | id | tenant | what |
+> |---|---|---|
+> | `overseer-j1r` | **this repo** | P1 — a live in-tmux track reports the red `session-gone` when its Claude registry name is DERIVED not the topic; both the match and its softener gate on the same name equality (`_supervisor_offer.py:140`, `:202`). |
+> | `bd-ib-rhv0` | orchestrator | P1 — `groom.py:306` hard-codes `admission_policy="auto"`, overriding a manual repo. |
+> | `bd-ib-ah2r` | orchestrator | P2 — `prose/groom.md` stale vs its own code. |
+> | `bd-ib-a8zi` | orchestrator | P1 — cross-repo slice ids minted with the LOCAL prefix are unfileable at the target, so a dependent slice blocks forever. |
+> | `bd-ib-97v4` | orchestrator | P2 — staleness gate compares the executing build to the newest release, but its prescribed remedy cannot move the executing build. |
+>
+> ## Still outstanding, unchanged
+>
+> **B2's cross-repo dep pointer is dangling** and needs the one-command repoint
+> in the boxed warning further down this file. It was drafted and deliberately
+> NOT applied — it is a raw `--set-metadata` write outside every documented
+> `drive` valve, so it awaits maintainer/supervisor vetting. It unblocks nothing.
+
+**Owning repo:** `livespec-overseer`. **Status: A1 DONE; A2 blocked on a
+reproducible factory `review` failure; A3 waits on A2; B2 stood down.
 B1 and C1 are filed in their OWN repos' tenants — `livespec-dev-tooling-3nt9`
 and `livespec-1p31` — not here.**
 
@@ -379,3 +472,77 @@ generated-charter contract test exists to prevent.
   landed BOTH at `Status: open`, exactly as the hazard predicts. So the trap is
   real on the hand-filing route and absent on the groom route — and knowing which
   route you are on is what tells you whether the discipline is required.
+
+## A2 BUILD SPEC — carried in from scratch, which does not survive the restart
+
+The ledger item `overseer-vyie5q` carries the trimmed description (1953 chars);
+this is the fuller working spec behind it. **The convention itself is recorded
+durably in `.claude/CLAUDE.md` §"The Codex plugin surface is NESTED inside
+`.claude-plugin/`" — read it there and do NOT re-derive it.**
+
+Three files, into the EXISTING `.claude-plugin/`:
+
+1. `.claude-plugin/.codex-plugin/plugin.json` — mirror the sibling
+   `.claude-plugin/plugin.json` `name`/`version`/`description` verbatim, plus
+   `"skills": "./.codex-plugin/skills/"`. READ the version at implementation
+   time (lockstep); never hard-code it. (`livespec` core's nested manifest has
+   NO `skills` key because it ships no skills — the key tracks reality.)
+2. `.claude-plugin/.codex-plugin/skills/overseer/SKILL.md`
+3. `.claude-plugin/.codex-plugin/skills/supervise-plan/SKILL.md`
+
+Bindings: frontmatter `name` + `description` ONLY — **no `allowed-tools`**; both
+Claude siblings carry it and it must not be copied. Description ends
+`Invoked as livespec-overseer:<op>.` Body resolves `$PLUGIN_ROOT` explicitly
+(env `LIVESPEC_OVERSEER_PLUGIN_ROOT` → validated `./.claude-plugin` under cwd →
+newest cache root under `$HOME/.codex/plugins/cache/livespec-overseer/livespec-overseer/` →
+`codex plugin list --json -m livespec-overseer`), then reads
+`$PLUGIN_ROOT/prose/<op>.md`. Mirror
+`livespec-orchestrator-beads-fabro/.claude-plugin/.codex-plugin/skills/next/SKILL.md`.
+
+**ADAPTATION TRAP:** that reference uses `./.claude-plugin/scripts/bin` as its
+marker AND final guard. **This repo has no `scripts/` dir**, so that guard can
+never pass. Use `prose` — `./.claude-plugin/prose` for the candidate test and
+`$PLUGIN_ROOT/prose/<op>.md` for the final guard (op-specific is strictly
+stronger and free). `marketplace.json` needs NO change: its `source` is already
+`./.claude-plugin`.
+
+### A2's live acceptance — and a finding that caps what it can claim
+
+Bar: **`supervise-plan` AND `overseer` RESOLVE and RUN in a real Codex session
+that is NOT this repo's** (use `/data/projects/livespec-dev-tooling`), marketplace
+hand-added as an **explicitly declared test fixture**
+(`codex plugin marketplace add thewoolleyman/livespec-overseer --ref release`;
+`codex plugin add livespec-overseer@livespec-overseer`). A `~/.codex/config.toml`
+carrying the right strings is **NOT** evidence. **Budget TWO sessions before
+calling a negative.**
+
+**`prose/overseer.md:176-181` verifies `$CLAUDECODE` and REFUSES when unset**,
+and step 3 reads Claude Code's own session registry. So under Codex the honest
+maximum for `overseer` is: resolves, binding executes, prose is read, then it
+emits its documented refusal. **That refusal is a working check — never disable
+it to make an acceptance pass.** `supervise-plan` has no such coupling and can
+run to a real precondition verdict. Do not conflate the two, and do not redefine
+the bar after seeing a result.
+
+*(Nuance: A1 replaced the old `.livespec.jsonc` exemption reason because the
+SCOPE decision changed, not because that reason was factually wrong. "The
+overseer's interactive pane is driven from Claude Code" still describes this
+coupling accurately.)*
+
+Pre-declared FALSE NEGATIVES to exclude before calling A2 failed: (1) checked in
+the provisioning session only — open a SECOND session; (2) the released ref does
+not yet contain `.codex-plugin/`, in which case the honest report is **"unproven
+pending release"**, not "failed"; (3) a stale pinned plugin cache — confirm the
+resolved `source.path` matches the version just installed.
+
+### A3's bar, carried forward
+
+A3 must demonstrate its new repo-local `check-codex-skill-picker` **RED** —
+remove the surface, show it FAILS. The reference recipe
+(`livespec-orchestrator-beads-fabro/justfile:1110`) **self-skips** when
+`CI=true` without `LIVESPEC_REQUIRE_CODEX_TUI_PICKER=1` and when the codex CLI is
+absent, so a "red" under either condition proves nothing. **Run it locally with
+codex PRESENT.** F1 stands: `plugin_resolution.py` routes codex to a
+`DelegatedResolutionRunner` → SKIP, and `just check` at the default `mock`
+harness asserts only that `canonical_command` is a non-empty string — so flipping
+to `supported` without a working repo-local check is green-by-skip in BOTH modes.
