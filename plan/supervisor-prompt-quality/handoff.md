@@ -93,133 +93,159 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
-## WORKER RESUME STATE — rewritten 2026-07-29 by the `supervisor-prompt-quality` worker
+## WORKER RESUME STATE — rewritten 2026-07-29 (15:30Z) by the `supervisor-prompt-quality` worker
 
-**Everything the previous version of this section called "the next action" is
-DONE.** It said filing was held on the tmux valve; that valve was answered, the
-groom was filed, and two PRs have since landed. Re-measure from the ledger and
-the forge rather than trusting any line below — every claim here is a claim with
-a timestamp.
+**Re-measure from the ledger and the forge rather than trusting any line below.**
+Every claim here is a claim with a timestamp, including this one.
 
-### Where the work actually is
+### The one structural fact the previous version missed
 
-**The groom is FILED and the epic is closed.** `overseer-byvxlp` closed
-regroomed-out; `overseer-7lv` hand-closed carrying the R→id mapping
-(R1,R2→S4 · R3→S8 · R4→S5 · R5→S2).
+**The remaining cut is a single serial chain, not a queue.** S4, S5, S6 and S7 all
+depend on S3 (`overseer-t7qqik`); S8 depends on S4; S9 depends on S7. The previous
+section called S3 "the head of the queue", which reads as though other slices were
+workable. They are not. **There is no filed hand-drivable slice**, and the billing
+valve therefore blocks 7 of 7 remaining slices rather than 1.
 
-| slice | id | state at 2026-07-29 |
+| slice | id | state at 2026-07-29 15:30Z |
 |---|---|---|
 | S1 HALT preconditions that classify their failure | `overseer-ykneip` | **CLOSED** |
 | S2 wake mechanism end to end | `overseer-4do7jx` | **CLOSED** |
-| S3 iteration-stable two-layer form | `overseer-t7qqik` | pending-approval, deps discharged |
-| S4 re-entry + durable obligation record | `overseer-fl5jlp` | pending-approval |
-| S5 verification discipline | `overseer-nxaho7` | pending-approval |
-| S6 full anti-stall playbook | `overseer-kptmgl` | pending-approval |
-| S7 cold-open gate + placeholder sets | `overseer-lf7ieb` | pending-approval |
-| S8 cross-track obligation handoff | `overseer-uc4l5e` | pending-approval |
-| S9 adopter parameterization | `overseer-f2lqj6` | pending-approval |
+| S3 iteration-stable two-layer form | `overseer-t7qqik` | **ACTIVE, CLAIMED BUT PARKED** |
+| S4 re-entry + durable obligation record | `overseer-fl5jlp` | pending-approval, blocked on S3 |
+| S5 verification discipline | `overseer-nxaho7` | pending-approval, blocked on S3 |
+| S6 full anti-stall playbook | `overseer-kptmgl` | pending-approval, blocked on S3 |
+| S7 cold-open gate + placeholder sets | `overseer-lf7ieb` | pending-approval, blocked on S3 |
+| S8 cross-track obligation handoff | `overseer-uc4l5e` | pending-approval, blocked on S4 |
+| S9 adopter parameterization | `overseer-f2lqj6` | pending-approval, blocked on S7 |
 
-Plus **`overseer-dk6hwi`** — the delivery remainder filed when S1/S2 closed
-having landed only their text half. **CLOSED** by the supervisor against PR #261.
+`overseer-dk6hwi` (the S1/S2 delivery remainder) is **CLOSED**.
 
-**THERE IS NO APPROVE VALVE AND NONE IS NEEDED.** These items are
-`admission:auto`; `effective_admission_policy` returns the per-item policy first,
-and the Dispatcher's selection already treats `pending-approval` as a candidate
-by projecting it to ready. `drive --action approve:<id>` REFUSES them — approve
-requires an effective-MANUAL item. Forcing it needs `set-admission:<id>:manual`
-first, which permanently rewrites recorded policy as a side effect. **Do not.**
-(S1/S2 carry `admission:manual` because that two-step WAS run on them, before it
-was understood to be unnecessary. The other seven are untouched — keep it so.)
+**THERE IS STILL NO APPROVE VALVE AND NONE IS NEEDED.** These items are
+`admission:auto`, and the Dispatcher takes them as filed — see the next section,
+which now has proof rather than a code read. `set-admission:<id>:manual` permanently
+rewrites recorded policy for no benefit. **Do not run it.** S1/S2 read `manual` only
+because it was run on them before that was understood; the other seven are untouched.
 
-### What is now proven IN THE GATE (this is the thread's whole point)
+### THE BLOCKER — unchanged, and it is maintainer-side
 
-The epic's enforcement ladder is static prose → generated output → observed
-conduct. Rung 3 now runs in `just check`, in `tests/prompts/`:
+**Fabro dispatch is dead org-wide on the monthly spend limit.** Re-confirmed
+2026-07-29 on the FRESHEST run of all 356 (`01KYP9Z87QC3`), not on the stale quote:
+`"You've hit your org's monthly spend limit"`, `errorKind: rate_limit`. The
+maintainer has taken the valve (answer: raise it).
 
-- **PR #261** (merge `eb14416b4`) — `test_emitted_commands_discriminate.py`,
-  9 tests, defect **(a)**: bare tmux targets deliver into the supervisor's own
-  pane while `-t '=<name>:'` refuses.
-- **PR #262** (merge `2dbccf46b`) — `conftest.py` (the real-tmux rig),
-  `test_repo_containment_discriminates.py` **(b)**, and
-  `test_watcher_wake_discriminates.py` **(c)/(c′)/(d)**.
+**WHEN IT CLEARS, DO THIS FIRST.** S3 sits `active`/`fabro` with nothing working it,
+claimed by parked run `01KYP93877SDPHC7DVM0BXRJ33`. That state is invisible to
+`ledger-normalize` and **cannot be re-dispatched from `active`** — the run must be
+resumed or the claim reset before S3 moves. Do not wrap `dispatcher.py dispatch` in
+a short timeout; it BLOCKS for the entire life of the run.
 
-All drive REAL tmux on private sockets. **NO SKIPS is real**: if tmux is absent
-the modules FAIL rather than skip, and the guard that enforces that carries a
-`# pragma: no cover` WITH a do-not-delete rationale — it is unreachable when tmux
-is present, so it is exactly the line a `fail_under=100` gate would otherwise
-reject.
+### What landed this session
 
-`livespec-dev-tooling-myx7` is **CLOSED** and **tmux 3.4 IS in the pinned CI
-image** (`python-v1.0.5`, digest `sha256:305aefaf…`). The green-locally /
-red-in-CI gate that blocked every execution leg is GONE.
+**PR #276 — rebase-merged, forge-verified on `origin/master` at `7efc528` after a
+fetch. 61 CI checks pass, 1 skip, 0 fail.** This is the local-first half of the
+remediation gap, chosen by the maintainer over the fleet-wide sweep.
 
-### THE NEXT ACTION — and what actually blocks it
+- `tests/prompts/test_charters_carry_no_known_defects.py` — 12 tests, 100% coverage
+  (135 statements, 52 branches, 0 missed), gating defect classes (a) bare tmux
+  target, (b) unguarded `readlink -f`, (c) history-fed picker capture, (d) `prev=""`
+  watcher init, over **every** charter in this repo.
+- The sweep of all four dirty charters to the exemplar's forms.
 
-**Fabro dispatch is dead org-wide on the monthly spend limit.** S3's run
-`01KYP93877SDPHC7DVM0BXRJ33` failed inside the implement node with
-`rate_limit / transient_infra` and escalated to `blocked/human_input_required`.
-**The supervisor holds that valve with the maintainer.** Do not dispatch, do not
-retry, do not touch S3's ledger state.
+A pytest module rather than a new `just check-<slug>`: `check-aggregate-completeness`
+makes wiring one canonical slug force wiring every other, and `tests/prompts/` is
+already an enforced surface.
 
-So: **hand-driven work in this pane is the only lane that moves.** When capacity
-returns, S3 is the head of the queue — its dependencies are discharged and it
-carries no `non_local_depends_on`.
+**THE DETECTORS READ FENCED CODE ONLY, and that is the load-bearing design choice.**
+The untracked prototype scanned whole files and counted PROSE mentions of a hazard as
+instances of it — the hand-hardened exemplar scored 3 on (b) with **zero** defective
+code, because the section intro says "readlink -f first" and Correction C2 quotes
+`readlink -f ""` while EXPLAINING the bug. A detector that fires on the documentation
+of a fix makes hardening a charter RAISE its score. The exemplar is now a **positive
+control** in the suite: any hit on it is a defect in the module, not in the charter.
 
-### THE ONE UNFILED FINDING worth carrying forward
+(c) is deliberately narrow for the same reason. A bounded `capture-pane -S -N` read is
+a legitimate inspection that the exemplar performs; only the bound
+(`pane=$(... -S -40)`) and grep-piped forms are flagged.
 
-**The cut fixes the GENERATOR and remediates none of the charters already
-emitted.** Measured 2026-07-28: grepping all nine slices for remediation language
-gives exactly one hit, in S3, and it is family 2's "regeneration must PRESERVE
-Corrections" — a property, not a sweep. Complete scan (`plan/*/`,
-`plan/archive/*/`, `.ai/`, `tmp/<session>/charter.md`): **141 bare targets, 17
-files, 7 repos**, with **six threads ARMED** — both sessions alive, defect
-dormant until the worker exits — across five repos. `ship-overseer-to-fleet` is
-the instructive one: its charter is ARCHIVED but both its sessions still run, so
-archiving a thread does NOT disarm it.
+RED demonstrated four ways, each reverted: genuinely red before the sweep (43 offences
+across 4 charters, every fixture leg green); one restored bare target reddens the gate;
+a quote-blind comment stripper reddens the gate, because real charters carry
+`'#{pane_pid}'` and truncating there MANUFACTURES a bare target; widening (c) to every
+`-S` reddens the exemplar control. **Two detector false results were found by sweeping
+REAL charters rather than by imagining cases**, and both directions are now pinned.
 
-Write-up with four costed options is in
-`tmp/overseer/supervisor-prompt-quality/GAP-no-remediation-slice.md`. **Nothing
-filed — the maintainer owns the cut.** Recommendation there: put the check in the
-gate to stop the population growing, then sweep what it exposes.
+**KNOWN LIMIT, stated rather than hidden:** inline backticked commands in PROSE are not
+scanned. `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md` line 19 still reads
+``tmux has-session -t ship-overseer-to-fleet`` inside a numbered list. That is
+deliberate — scanning prose is exactly what made the prototype unusable.
+
+### `overseer-8jg` was REFUTED and rescoped
+
+Its premise was measured false and the wrong half was in its TITLE. Retitled to the real
+bug, description replaced, acceptance rewritten; the full refutation is preserved in the
+item's NOTES (read-back asserted).
+
+- **Survives:** "approve refuses (needs manual)" — true.
+- **Refuted:** "every dispatch path refuses (not ready)". All three paths route through
+  `ready_items` -> `is_dispatch_candidate`, which does `replace(item, status="ready")`
+  and re-tests, so admission never refuses there. Only `next.py:138` uses the strict
+  predicate, which is the sole reason the state ever LOOKED terminal.
+- **Empirical, not just a code read:** S3 carries `admission:auto`, was
+  `pending-approval`, was NEVER flipped to manual — and dispatched anyway as run
+  `01KYP93877SD`, which reached the implement node before failing on billing.
+- **Real cause of the observed refusals:** the dead mint `overseer-wc2xfe` failing closed
+  as an unresolvable cross-repo sibling. The item is now about that diagnostic gap: an
+  unresolvable sibling reports bare "not in the ready set" and names neither the sibling
+  nor the fail-closed.
+
+This discharged supervisor Correction C10's corollary, which had been recorded in a
+charter and propagated nowhere — an obligation living in exactly the gap R3/S4 exist to
+close. Also re-verified C11's fix held: `non_local_depends_on` reads back as type `list`,
+not the string `"[]"`.
+
+### The remainder of the remediation gap
+
+The maintainer chose **local-first**, which is done. The fleet-wide half is NOT filed and
+remains the maintainer's cut: **130 bare targets, 18 files, 6 repos** measured 2026-07-29
+(down from 141/17/7 the previous day — the population MOVES, so re-measure rather than
+citing this). Six threads are ARMED across five repos. The write-up with four costed
+options is at `tmp/overseer/supervisor-prompt-quality/GAP-no-remediation-slice.md`.
+
+The gate that just landed is repo-local. Adopting it elsewhere is a per-repo decision and
+nothing here schedules it.
 
 ### Durable artifacts (gitignored — present in this working tree only)
 
-`tmp/overseer/supervisor-prompt-quality/` holds `FILED-RESULT.md` (what was
-minted + the dead-mint hazard), `EVIDENCE-REVERIFICATION.md`,
-`GAP-no-remediation-slice.md`, `S1-COVERAGE-MAP.md`, `S2-COVERAGE-MAP.md`,
-`LIVE-EXPOSURE-rop-sweep.md`, `worker-status.log` (the supervisor's wake
-channel), and `evidence/` — including `blast_radius.py` and
-`adopter_validator_drive.py`, both written by this thread. **A fresh clone has
-none of it.** The two artifacts that mattered most (`red-green-harness.sh`'s
-legs, and the discriminate fixture) are now TRACKED, which was the point.
+`tmp/overseer/supervisor-prompt-quality/` holds `FILED-RESULT.md`,
+`EVIDENCE-REVERIFICATION.md`, `GAP-no-remediation-slice.md`, `S1-COVERAGE-MAP.md`,
+`S2-COVERAGE-MAP.md`, `LIVE-EXPOSURE-rop-sweep.md`, `worker-status.log` (the supervisor's
+wake channel), and `evidence/` — including `blast_radius.py`, the prototype whose
+prose-scanning flaw motivated the fenced-code-only design. **A fresh clone has none of
+it.** The artifacts that mattered are now TRACKED, which was the point.
 
 ### Hazards to carry forward
 
-- **`overseer-wc2xfe` is a DEAD MINT** — `file_approved_slices` minted it for the
-  cross-repo S0 slice and wrote it into S1/S2's `non_local_depends_on`. It exists
-  in **no tenant**. Both deps were repointed to `livespec-dev-tooling-myx7` and
-  verified by read-back. S0 was only ever a GATING handle; the DOING record is
-  myx7, and S0 **must never be worked in this repo**.
-- **The commit prefix is semantically load-bearing.** `red_green_replay.py`
-  routes a tests-only staged tree whose subject matches `fix:`/`feat:` into RED
-  mode, which then REJECTS a passing test. A passing test-only change must use
-  `test:`. Red mode is also PER-FILE — one test file per commit.
-- **`PIPESTATUS` is bash; this shell is zsh** (`$pipestatus[1]`, lowercase,
-  1-indexed). The bash spelling yields an EMPTY string, which reads like a pass.
-  Prefer reading the artifact, or run inside an explicit `bash -c`.
-- **Check `git status`, not `git log`, after a hook-gated commit** — a rejected
-  commit leaves the change STAGED and `git log` shows someone else's HEAD.
-- **`just check` passing locally does not mean CI passes.** PR #262's first push
-  was green locally and failed CI twice on timing-dependent coverage. Verify
-  inside the pinned image (`docker run … python-v1.0.5`) before pushing anything
-  that touches these fixtures.
+- **`overseer-wc2xfe` is a DEAD MINT** — it exists in no tenant. Both deps were repointed
+  to `livespec-dev-tooling-myx7` and verified by read-back. S0 was only ever a GATING
+  handle; the DOING record is myx7, and S0 **must never be worked in this repo**.
+- **The commit prefix is semantically load-bearing.** A tests-only staged tree with a
+  `fix:`/`feat:` subject routes into RED mode, which REJECTS a passing test. A passing
+  test-only change must use `test:`.
+- **`git checkout -- <file>` reverts to HEAD, not to your uncommitted work.** Restoring a
+  sabotage that way during a RED demonstration silently wiped a completed sweep, and the
+  next run's failure read as a broken test. Check `git status` after restoring.
+- **`PIPESTATUS` is bash; this shell is zsh** (`$pipestatus[1]`, lowercase, 1-indexed).
+  The bash spelling yields an EMPTY string, which reads like a pass.
+- **Check `git status`, not `git log`, after a hook-gated commit** — a rejected commit
+  leaves the change STAGED and `git log` shows someone else's HEAD.
+- **`just worktree-reap` cannot see a rebase-merged branch as merged** (the SHA changes),
+  so it skips your own worktree and offers `--force`, which would act on every other
+  track's. Remove only your own.
 
 ### Boundaries
 
-The supervisor owns this file's sections ABOVE the separator, and the archiving
-of `plan/archive/supervise-plan-residual-gaps/` (already archived). Do not touch
-branches `docs/supervisor-charter-hardening`,
-`docs/regenerate-supervisor-prompt-quality-charter`, or
-`docs/handoff-execution-order-correction`. Worktrees via `just worktree-create`,
-never raw `git worktree add`. Never `--no-verify`; halt and report on hook
-failure. Never kill the acting overseer daemon in tmux `livespec-overseer:1.1`.
+The supervisor owns this file's sections ABOVE the separator. Do not touch branches
+`docs/supervisor-charter-hardening`, `docs/regenerate-supervisor-prompt-quality-charter`,
+or `docs/handoff-execution-order-correction`. Worktrees via `just worktree-create`, never
+raw `git worktree add`. Never `--no-verify`; halt and report on hook failure. Never kill
+the acting overseer daemon in tmux `livespec-overseer:1.1`.
