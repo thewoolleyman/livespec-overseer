@@ -79,6 +79,16 @@ _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("executable-capture-pane", ("capture-pane -p -t", "visible only")),
     # Proving the pane holds a live agent needs a real process-tree command.
     ("executable-live-agent-precondition", ("pane_pid",)),
+    # ...and the SUPERVISOR half needs the same proof (overseer-ejja5o). The
+    # contract refused to trust a session NAME for the worker and then trusted
+    # one for the supervisor — precondition 2's own warning, applied to the
+    # other half of the pair. Observed 2026-07-28: a supervisor session created
+    # as a bare `zsh` with no agent in it returned PASS, so a session that could
+    # not supervise anything cleared the gate. The needle is deliberately the
+    # DISTINCT variable name, because `pane_pid` is a substring of
+    # `supervisor_pane_pid` and the worker's own binding would otherwise satisfy
+    # this requirement without a single supervisor-side check existing.
+    ("executable-live-supervisor-precondition", ("supervisor_pane_pid",)),
     # Repo containment must resolve a real path.
     ("executable-repo-containment", ("readlink -f",)),
     ("watcher-wait-channel-bootstrap", ("wait_channel", ": >")),
@@ -217,6 +227,31 @@ def _has_pane_pid_empty_verdict(*, charter: str) -> bool:
     return False
 
 
+def _has_supervisor_agent_proof(*, charter: str) -> bool:
+    """The supervisor precondition must PROVE liveness, not merely mention a pid.
+
+    A needle alone is satisfiable by a charter that binds `supervisor_pane_pid`
+    and never uses it, which is the same shape of toothless check this whole
+    thread exists to remove. So require, in ONE block: the pid resolved, guarded
+    non-empty BEFORE it is used, proven DISTINCT from the worker's pane, and
+    actually fed to the process-tree command.
+
+    The distinct-pane guard is C1's lesson applied to this half. `<topic>` is a
+    strict prefix of `<topic>-supervisor`, and a target that resolves onto the
+    WORKER's pane would find the worker's live agent and report the supervisor
+    as healthy — a check passing on the wrong pane's evidence.
+    """
+    for block in _command_blocks(charter=charter):
+        ps_at = block.find('--ppid "$supervisor_pane_pid"')
+        if ps_at == -1:
+            continue
+        guard_at = block.find('[ -n "$supervisor_pane_pid" ]')
+        distinct_at = block.find('"$supervisor_pane_pid" != "$pane_pid"')
+        if guard_at != -1 and distinct_at != -1 and max(guard_at, distinct_at) < ps_at:
+            return True
+    return False
+
+
 def missing_requirements(*, charter: str) -> list[str]:
     """Return the contract requirements a generated charter FAILS to satisfy.
 
@@ -236,6 +271,8 @@ def missing_requirements(*, charter: str) -> list[str]:
         missing.append("readlink-empty-guard")
     if not _has_pane_pid_empty_verdict(charter=charter):
         missing.append("pane-pid-empty-verdict")
+    if not _has_supervisor_agent_proof(charter=charter):
+        missing.append("supervisor-agent-proof")
     guard_at = charter.find('[ -z "$pane" ]')
     diff_at = charter.find('if [ "$pane" = "$prev" ]')
     if guard_at == -1 or diff_at == -1 or diff_at < guard_at:
@@ -624,6 +661,33 @@ def test_a_charter_omitting_the_acting_daemon_prohibition_is_rejected():
     assert "acting-daemon-prohibition" in missing_requirements(charter=charter)
 
 
+def test_a_supervisor_ps_command_without_its_guards_is_rejected():
+    """The `ps` line alone must NOT satisfy the supervisor proof.
+
+    This is the toothless-check shape one level down: a charter can emit a real
+    process-tree command for the supervisor and still be unsound, because
+    without the non-empty guard an absent session yields an empty pid, and
+    without the distinct-pane guard a prefix match runs the check against the
+    WORKER's pane and finds the worker's agent.
+
+    The trailing second block is load-bearing, not padding: it forces the
+    scanner to keep looking after this block fails, which is the arc that
+    distinguishes "no conformant block yet" from "give up on the first miss".
+    """
+    charter = """
+    ```sh
+    S='=demo-supervisor:'
+    supervisor_pane_pid=$(tmux display-message -p -t "$S" '#{pane_pid}')
+    ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid" -H
+    ```
+
+    ```sh
+    echo "a later block, so the scan continues past the unguarded one"
+    ```
+    """
+    assert "supervisor-agent-proof" in missing_requirements(charter=charter)
+
+
 def test_the_control_a_fully_conformant_charter_passes():
     """The control for every rejection above. Without it, the negative fixtures
     prove only that the validator can say no — not that it can ever say yes."""
@@ -645,7 +709,20 @@ def test_the_control_a_fully_conformant_charter_passes():
        ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
        ```
 
-    3. Worker cwd is contained.
+    3. Supervisor session is a live agent too.
+
+       ```sh
+       S='=demo-supervisor:'
+       tmux has-session -t "$S" || { echo "HALT"; echo "REMEDY: bootstrap it"; exit 1; }
+       supervisor_pane_pid=$(tmux display-message -p -t "$S" '#{pane_pid}')
+       [ -n "$supervisor_pane_pid" ] \
+         || { echo "HALT: empty pane_pid"; echo "REMEDY: retarget"; exit 1; }
+       [ "$supervisor_pane_pid" != "$pane_pid" ] \
+         || { echo "HALT: same pane"; echo "REMEDY: re-check both exact targets"; exit 1; }
+       ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid" -H
+       ```
+
+    4. Worker cwd is contained.
 
        ```sh
        pane_cwd=/data/projects/demo
