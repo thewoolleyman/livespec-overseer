@@ -25,7 +25,8 @@ and report the exact expected name — do not improvise around a failure.
    evidence, NEVER from a session name — a leftover session named like an agent
    proves nothing. (This is the same rule the daemon's own Surface B enforces.)
    ```sh
-   pane_pid=$(tmux display-message -p -t ship-overseer-to-fleet '#{pane_pid}')
+WORKER_TARGET='=ship-overseer-to-fleet:'   # exact; trailing colon REQUIRED
+   pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
    ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
    # PASS only if a live `claude` or `codex` process appears in that tree.
    # A lone shell (zsh/bash) with no agent child is a HALT.
@@ -33,8 +34,11 @@ and report the exact expected name — do not improvise around a failure.
 4. **Target repo is `/data/projects/livespec-overseer`** and the supervised
    pane's cwd resolves inside it.
    ```sh
-   pane_cwd=$(tmux display-message -p -t ship-overseer-to-fleet '#{pane_current_path}')
-   case "$(readlink -f "$pane_cwd")" in
+WORKER_TARGET='=ship-overseer-to-fleet:'   # exact; trailing colon REQUIRED
+   pane_cwd=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_current_path}')
+   [ -n "$pane_cwd" ] \
+     || { echo "HALT: empty pane_current_path"; echo "REMEDY: re-check the exact target and stop if it still resolves empty"; exit 1; }
+   case "$(readlink -f -- "$pane_cwd")" in
      /data/projects/livespec-overseer|/data/projects/livespec-overseer/*)
        echo "PASS: $pane_cwd" ;;
      *) echo "HALT: pane cwd $pane_cwd is outside the target repo" ;;
@@ -88,15 +92,17 @@ originals carried a literal `tail -N`, a bare `load-buffer`, and a
 
 - **Inspect read-only** — last 40 lines of the worker pane:
   ```sh
-  tmux capture-pane -p -t ship-overseer-to-fleet -S -40
+WORKER_TARGET='=ship-overseer-to-fleet:'   # exact; trailing colon REQUIRED
+  tmux capture-pane -p -t "$WORKER_TARGET" -S -40
   ```
   (`-S -40` starts 40 lines back in history; do NOT pipe to `tail -N` — `-N` is a
   placeholder, and `tail` rejects it.)
 - **Short instruction** — send the text, VERIFY, then send Enter SEPARATELY:
   ```sh
-  tmux send-keys -t ship-overseer-to-fleet -- '<one line>'
-  tmux capture-pane -p -t ship-overseer-to-fleet -S -10   # confirm it landed
-  tmux send-keys -t ship-overseer-to-fleet Enter          # only after verifying
+WORKER_TARGET='=ship-overseer-to-fleet:'   # exact; trailing colon REQUIRED
+  tmux send-keys -t "$WORKER_TARGET" -- '<one line>'
+  tmux capture-pane -p -t "$WORKER_TARGET" -S -10   # confirm it landed
+  tmux send-keys -t "$WORKER_TARGET" Enter          # only after verifying
   ```
   **Do NOT trust the one-shot `… -- '<one line>' Enter` form.** Measured
   2026-07-26 against this thread's own worker: the trailing `Enter` argument
@@ -108,12 +114,13 @@ originals carried a literal `tail -N`, a bare `load-buffer`, and a
 - **Longer text** — load from a file, paste into the target pane, VERIFY, then
   send Enter as a separate step:
   ```sh
+WORKER_TARGET='=ship-overseer-to-fleet:'   # exact; trailing colon REQUIRED
   tmux load-buffer -b sup /tmp/msg.txt          # -b names the buffer; a bare
                                                 # `load-buffer` errors with
                                                 # "too few arguments"
-  tmux paste-buffer -b sup -t ship-overseer-to-fleet   # -t REQUIRES the target
-  tmux capture-pane -p -t ship-overseer-to-fleet -S -20   # confirm it landed
-  tmux send-keys -t ship-overseer-to-fleet Enter          # only after verifying
+  tmux paste-buffer -b sup -t "$WORKER_TARGET"   # -t REQUIRES the target
+  tmux capture-pane -p -t "$WORKER_TARGET" -S -20   # confirm it landed
+  tmux send-keys -t "$WORKER_TARGET" Enter          # only after verifying
   ```
 - **Idle-plus-queued-input means STUCK, not idle.** Check for a modal or an open
   picker before assuming the session is resting.
@@ -223,10 +230,11 @@ re-entry. In preference order:
    is no notification to reinvent. It greps captured pane TEXT, never process
    argv, so it cannot self-match the way a `pgrep -f` wait-loop does.
    ```sh
-   prev=""; stable=0
+WORKER_TARGET='=ship-overseer-to-fleet:'   # exact; trailing colon REQUIRED
+   prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
    for i in $(seq 1 180); do            # ~60 min ceiling, then give up loudly
      sleep 20
-     pane=$(tmux capture-pane -p -t ship-overseer-to-fleet -S -40)
+     pane=$(tmux capture-pane -p -t "$WORKER_TARGET")
      case "$pane" in
        *"Enter to select"*) echo "WAKE: picker open"; exit 0 ;;
      esac

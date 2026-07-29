@@ -24,7 +24,8 @@ back to another session, do not proceed read-only.
 1. Supervised session exists:
 
 ```bash
-tmux has-session -t "codex-parity-and-rollout-safety"
+WORKER_TARGET='=codex-parity-and-rollout-safety:'   # exact; trailing colon REQUIRED
+tmux has-session -t "$WORKER_TARGET"
 ```
 
 2. The supervised session is really a live agent session — its pane process tree
@@ -33,7 +34,8 @@ is a FAILURE. Runtime identity comes from exact live process evidence, NEVER
 from a session name; a leftover session named like an agent proves nothing.
 
 ```bash
-pane_pid=$(tmux display-message -p -t "codex-parity-and-rollout-safety" '#{pane_pid}')
+WORKER_TARGET='=codex-parity-and-rollout-safety:'   # exact; trailing colon REQUIRED
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
 ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
 # PASS only if a live `claude` or `codex` process appears in that tree.
 # A lone shell (zsh/bash) with no agent child is a HALT.
@@ -44,7 +46,8 @@ Report which driver was found.
 3. Supervisor session exists:
 
 ```bash
-tmux has-session -t "codex-parity-and-rollout-safety-supervisor"
+SUPERVISOR_TARGET='=codex-parity-and-rollout-safety-supervisor:'
+tmux has-session -t "$SUPERVISOR_TARGET"
 ```
 
 4. The plan thread exists INSIDE the target repo — absolute path, because
@@ -59,8 +62,11 @@ test -d "/data/projects/livespec-overseer/plan/codex-parity-and-rollout-safety"
 first — a symlinked path that merely LOOKS contained is a HALT:
 
 ```bash
-pane_cwd=$(tmux display-message -p -t "codex-parity-and-rollout-safety" '#{pane_current_path}')
-case "$(readlink -f "$pane_cwd")" in
+WORKER_TARGET='=codex-parity-and-rollout-safety:'   # exact; trailing colon REQUIRED
+pane_cwd=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_current_path}')
+[ -n "$pane_cwd" ] \
+  || { echo "HALT: empty pane_current_path"; echo "REMEDY: re-check the exact target and stop if it still resolves empty"; exit 1; }
+case "$(readlink -f -- "$pane_cwd")" in
   /data/projects/livespec-overseer|/data/projects/livespec-overseer/*) echo "PASS: $pane_cwd" ;;
   *) echo "HALT: pane cwd $pane_cwd is outside the target repo" ;;
 esac
@@ -98,7 +104,8 @@ defect class this fleet keeps rediscovering.
 Inspect read-only — last 40 lines of the worker pane:
 
 ```sh
-tmux capture-pane -p -t codex-parity-and-rollout-safety -S -40
+WORKER_TARGET='=codex-parity-and-rollout-safety:'   # exact; trailing colon REQUIRED
+tmux capture-pane -p -t "$WORKER_TARGET" -S -40
 ```
 
 `-S -40` starts 40 lines back in history. Do NOT pipe to `tail -N` — `-N` is a
@@ -107,9 +114,10 @@ placeholder and `tail` rejects it.
 Short instruction — send the text, VERIFY, then send Enter SEPARATELY:
 
 ```sh
-tmux send-keys -t codex-parity-and-rollout-safety -- '<one line>'
-tmux capture-pane -p -t codex-parity-and-rollout-safety -S -10   # confirm it landed
-tmux send-keys -t codex-parity-and-rollout-safety Enter          # only after verifying
+WORKER_TARGET='=codex-parity-and-rollout-safety:'   # exact; trailing colon REQUIRED
+tmux send-keys -t "$WORKER_TARGET" -- '<one line>'
+tmux capture-pane -p -t "$WORKER_TARGET" -S -10   # confirm it landed
+tmux send-keys -t "$WORKER_TARGET" Enter          # only after verifying
 ```
 
 Do NOT use the one-shot `… -- '<line>' Enter` form. Measured against a live
@@ -120,10 +128,11 @@ Verify-then-Enter applies to SHORT instructions, not just pasted blocks.
 Longer text — load from a file, paste, VERIFY, then Enter as a separate step:
 
 ```sh
+WORKER_TARGET='=codex-parity-and-rollout-safety:'   # exact; trailing colon REQUIRED
 tmux load-buffer -b sup /tmp/msg.txt
-tmux paste-buffer -b sup -t codex-parity-and-rollout-safety
-tmux capture-pane -p -t codex-parity-and-rollout-safety -S -20   # confirm it landed
-tmux send-keys -t codex-parity-and-rollout-safety Enter          # only after verifying
+tmux paste-buffer -b sup -t "$WORKER_TARGET"
+tmux capture-pane -p -t "$WORKER_TARGET" -S -20   # confirm it landed
+tmux send-keys -t "$WORKER_TARGET" Enter          # only after verifying
 ```
 
 Idle plus queued input means STUCK, not idle. Never name a variable `TMUX`, and
@@ -237,6 +246,7 @@ Create any named wait channel BEFORE relying on it, and tell the worker what
 feeds it.
 
 ```sh
+WORKER_TARGET='=codex-parity-and-rollout-safety:'   # exact; trailing colon REQUIRED
 wait_channel=/data/projects/livespec-overseer/tmp/overseer/codex-parity-and-rollout-safety/worker-status.log
 mkdir -p "$(dirname "$wait_channel")"
 : > "$wait_channel"
@@ -245,7 +255,7 @@ mkdir -p "$(dirname "$wait_channel")"
 prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
 for i in $(seq 1 180); do            # ~60 min ceiling, then give up loudly
   sleep 20
-  pane=$(tmux capture-pane -p -t codex-parity-and-rollout-safety)   # visible only
+  pane=$(tmux capture-pane -p -t "$WORKER_TARGET")   # visible only
   [ -z "$pane" ] && { echo "WAKE: pane unreadable — session may be gone"; exit 0; }
   if printf '%s\n' "$pane" | tail -8 \
        | grep -qE '^[[:space:]]*Enter to (select|confirm)[[:space:]]*(·.*)?$'; then

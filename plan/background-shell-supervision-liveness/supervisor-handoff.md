@@ -329,7 +329,7 @@ Arm ONE mechanism per obligation and record which in `$supervisor_marker`:
 **(a) Pane watcher** — primary for a worker mid-flight; busy = pane CHANGE:
 
 ```sh
-prev=""; stable=0
+prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
 for i in $(seq 1 180); do                    # ~60 min ceiling
   sleep 20
   pane=$(tmux capture-pane -p -t '=background-shell-supervision-liveness:')
