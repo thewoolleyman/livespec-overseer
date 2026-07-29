@@ -181,8 +181,11 @@ raising the cap in `.livespec.jsonc`.
   separate thread). The identity-hold guard SHIPS.
 - **Admissions for `.3`-`.6` are PRE-APPROVED** ("I pre-approve all of the
   admissions", 2026-07-29): admit from backlog without surfacing a picker.
-  NOT covered: acceptances — each slice's ai-then-human accept remains a
-  maintainer valve, surfaced through your seat as an `AskUserQuestion`.
+- **Acceptances are `ai-only`** as of `2ec4b99` (maintainer-directed fleet
+  standard, set the same day): slices accept on the AI verdict with no human
+  valve. `.1`'s human accept predates the switch. If a slice still parks at
+  `acceptance`, suspect a stale plugin/config binding before re-asking the
+  maintainer.
 - Worker restarts to rebind stale plugin builds: approved as a class, executed
   twice; keep the worker Fable session-only (see Bindings).
 - Implementation is dispatched, never written inline; `ready` is the sole
