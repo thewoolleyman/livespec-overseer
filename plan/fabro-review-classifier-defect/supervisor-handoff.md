@@ -23,7 +23,7 @@ to another session, do not proceed read-only.
 1. Supervised session exists:
 
 ```bash
-tmux list-sessions -F '#{session_name}' | grep -qx 'fabro-review-classifier-defect' \
+tmux list-sessions -F '#{session_name}' | grep -Fqx 'fabro-review-classifier-defect' \
   || echo "HALT: expected session 'fabro-review-classifier-defect' does not exist"
 ```
 
@@ -44,7 +44,7 @@ Report which driver was found.
 3. Supervisor session exists:
 
 ```bash
-tmux list-sessions -F '#{session_name}' | grep -qx 'fabro-review-classifier-defect-supervisor' \
+tmux list-sessions -F '#{session_name}' | grep -Fqx 'fabro-review-classifier-defect-supervisor' \
   || echo "HALT: expected session 'fabro-review-classifier-defect-supervisor' does not exist"
 WORKER_TARGET='=fabro-review-classifier-defect:'
 SUPERVISOR_TARGET='=fabro-review-classifier-defect-supervisor:'
