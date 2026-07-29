@@ -541,6 +541,34 @@ preserve every entry.
   `active` without a live run; and record the reason on the ITEM, not only in
   the supervisor marker, so the next reader is not told by a stale status that
   work is progressing.
+- **C16 (2026-07-29) — the watcher shape THIS CHARTER PRESCRIBES was killed
+  mid-flight three times, voiding the "expiry is itself a wake" guarantee.**
+  The armed-re-entry section emits `for i in $(seq 1 180)` (~60 min ceiling) and
+  rests on a promise: the watcher EXITS on ceiling with a `WAKE:` line, "so the
+  ceiling produces a notification instead of leaving re-arming to your
+  intention." **A killed watcher emits nothing.** It does not wake, it does not
+  expire, and the turn that armed it has already ended — which is precisely the
+  silent stall the section exists to prevent, reintroduced by the remedy itself.
+  Measured this session: three long credential watchers (`bef427yqn`,
+  `bxu9bcgst`, `b22xvgeh0`) were killed with no output; a deliberately SHORT
+  (~14 min) watcher of otherwise identical shape completed normally; and another
+  track's watcher stayed alive throughout, so nothing was reaping background
+  shells fleet-wide. Every pane watcher here survived too — but each woke on a
+  real condition within minutes, so none actually ran near the ceiling. Duration
+  is the implicated variable; **the exact threshold is NOT known** and is not
+  asserted here.
+  I got the cause WRONG first and am recording that, because the wrong answer was
+  the more flattering one: I blamed my own design for hammering the account-wide
+  1Password quota (~180 wrapper calls per arming) and rewrote the watcher to read
+  `~/.codex/auth.json` locally. The rewrite was worth doing on its own merits,
+  but it made ZERO wrapper calls and was killed anyway. Do not re-assert the
+  quota explanation; it is disproven.
+  PRACTICAL RULE until the threshold is known: **arm SHORT watchers (~15 min) and
+  re-arm on completion**, rather than one long one. Re-arming a completed watcher
+  is cheap and observable; a long watcher that dies silently is the one failure
+  mode this whole section is written to stop. And whenever a background task
+  disappears WITHOUT a `WAKE:` line, treat it as killed and re-arm — never assume
+  it ran.
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
