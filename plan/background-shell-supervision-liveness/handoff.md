@@ -233,11 +233,24 @@ Maintainer, 2026-07-29:
 5. **Admissions for this epic's remaining slices are PRE-APPROVED**
    (verbatim: "I pre-approve all of the admissions") — the `move:<id>:ready`
    valve for `.3`–`.6`, including any re-admission the flow needs; do NOT
-   surface admission pickers. NOT covered: acceptances (each stays a
-   per-item `ai-then-human` maintainer valve) and NEW item filings.
+   surface admission pickers. NOT covered: NEW item filings. (An earlier
+   revision of this line also excluded acceptances as `ai-then-human`
+   maintainer valves — superseded by ruling 7 below.)
 6. **"Raise the limit now"** — the org Anthropic spend limit is raised
    (ruled identically through both seats' pickers); `.2` recovery proceeds
    by redispatch.
+7. **Acceptance is fleet-standard `ai-only` — there is NO human acceptance
+   valve in this repo.** Maintainer-directed 2026-07-29: commit `2ec4b99`
+   sets `dispatcher.acceptance_mode: "ai-only"` explicitly in
+   `.livespec.jsonc` (the vendored default `ai-then-human` at
+   `_dispatcher_policy_settings.py:50` is the NON-fleet-standard value this
+   repo had silently inherited; `.1`'s human accept predates the switch).
+   Slices accept on the AI verdict post-merge. If a slice parks at
+   `acceptance` anyway, suspect a stale plugin/config binding FIRST — do
+   not manufacture a maintainer valve and do not route acceptance pickers
+   to the supervisor. Edit `.livespec.jsonc` BY HAND only: the
+   `set-config` drive surface strips its comments while reporting green
+   (tracked `bd-ib-lmi5`).
 
 ATTRIBUTION NOTE (supervisor correction, 2026-07-29): the `.2`
 abandon-and-redispatch decision and the `bd-ib-g56f` filing were the
