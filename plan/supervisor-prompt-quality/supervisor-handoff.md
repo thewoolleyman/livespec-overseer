@@ -448,6 +448,50 @@ preserve every entry.
   attention, which is scarcer. Continuing to dig is also more comfortable than
   delivering an answer that might be incomplete, which makes it the same
   avoidance as the third stall mode: motion instead of a result.
+- **C9 (2026-07-29) — I discharged two acceptance legs on merge evidence and
+  never checked whether what merged DISCHARGED the acceptance table.** Under
+  the newly-effective `ai-only` policy I accepted S1 (`overseer-ykneip`) and S2
+  (`overseer-4do7jx`) on a basis that was true as far as it went: merged-PR
+  ancestry verified against `origin/master` after a fetch, plus a green live
+  exercise. Both items' bodies demanded legs run against REAL tmux on a PRIVATE
+  socket; what landed was the tmux-free half. The split was legitimate — S1's
+  own body names it — but a legitimate split leaves a REMAINDER, and closing
+  both carriers left it with no home: the executing fixtures
+  (`test_emitted_commands_discriminate.py`, 9 tests; `red-green-harness.sh`, 24
+  legs) are UNTRACKED, in gitignored `evidence/`, and all seven remaining
+  slices grep ZERO for execution-leg language. Generalize: **"the PR merged and
+  CI is green" answers a different question from "the acceptance criteria were
+  met."** Before discharging an acceptance leg, diff what LANDED against what
+  the item's acceptance table DEMANDED — merge evidence proves delivery
+  happened, not that it was complete. Filed as `overseer-dk6hwi`.
+- **C10 (2026-07-29) — I nearly applied inherited operating guidance that was
+  wrong, and the worker caught it.** The marker I inherited prescribed a
+  two-step for moving each slice: `set-admission:<id>:manual` then
+  `approve:<id>`, recorded as "proven on S1 and S2". It is UNNECESSARY, and it
+  permanently rewrites the item's recorded admission policy as a side effect —
+  S1/S2 read as human-gated today only because it was run on them. Measured in
+  the pinned source: `next.py:138` uses the strict `lifecycle.is_item_ready`,
+  so a `pending-approval` item never ranks there and the state LOOKS terminal
+  from that surface; but `dispatcher.py` imports `is_dispatch_candidate`, which
+  rebuilds the item as `replace(item, status="ready")` and re-tests, so the
+  Dispatcher loop takes these items AS FILED. Had I followed the marker, seven
+  more items would have drifted. Generalize: **a marker's operating
+  instructions are claims with timestamps exactly as its status lines are** —
+  the verification discipline already applied to filed items applies to
+  inherited procedure, and "proven on X" means it ran, not that it was needed.
+  Corollary: `overseer-8jg`'s "every dispatch path refuses" is too strong — it
+  is true of the ready-set surfaces and false of the Dispatcher loop.
+- **C11 (2026-07-29) — a write reported success and stored the wrong type; only
+  read-back caught it.** Clearing a satisfied cross-repo gate with
+  `bd update --set-metadata non_local_depends_on='[]'` printed `✓ Updated
+  issue` and stored the STRING `"[]"`, not an empty list — `--set-metadata`
+  sets string values. The dependency reconstruction iterates that field, so a
+  string would have been walked character-wise. Fix: rewrite the whole metadata
+  object via `--metadata @file.json`, then assert the TYPE on read-back, not
+  just the value. Generalize: the charter already says establish outcomes from
+  artifacts rather than exit codes; this is the same rule one level deeper —
+  a read-back that only eyeballs the rendered value still misses a type error,
+  so check what the consumer will actually do with what you stored.
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
