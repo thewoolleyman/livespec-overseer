@@ -221,7 +221,7 @@ def test_the_control_a_genuine_visible_footer_still_wakes(
 
 
 def test_d_the_shipped_watcher_reports_idle_for_a_session_that_does_not_exist(
-    *, tmux: Tmux
+    *, tmux: Tmux, settle: Callable[[str, str], str]
 ) -> None:
     """DEFECT (d) PINNED, and it composes with the bare-target defect.
 
@@ -230,6 +230,14 @@ def test_d_the_shipped_watcher_reports_idle_for_a_session_that_does_not_exist(
     confident verdict about a worker that does not exist.
     """
     tmux("new-session", "-d", "-s", "wk-supervisor", "-x", "80", "-y", "20")
+    # SETTLE the supervisor pane before measuring. Without this the pane is
+    # still rendering its first prompt, consecutive captures differ, and the
+    # shipped watcher returns BUSY instead of IDLE — which passed locally and
+    # FAILED IN CI, where the shell is slower to draw. The defect being pinned
+    # is "reports IDLE for a session that does not exist", so the pane must be
+    # genuinely settled or the leg is measuring startup noise instead.
+    tmux("send-keys", "-t", "=wk-supervisor:", "echo SUPERVISOR_READY", "Enter")
+    settle("=wk-supervisor:", "SUPERVISOR_READY")
     assert watcher_shipped(tmux=tmux, target="wk") == _IDLE
 
 
