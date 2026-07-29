@@ -492,6 +492,55 @@ preserve every entry.
   artifacts rather than exit codes; this is the same rule one level deeper —
   a read-back that only eyeballs the rendered value still misses a type error,
   so check what the consumer will actually do with what you stored.
+- **C12 (2026-07-29) — C7 recurred: my watcher asked the wrong authority and
+  false-woke.** Watching for dispatch capacity I polled `bd list --status
+  active` and woke on "slot free — 0 active". The ledger is not the authority
+  for dispatch capacity: the dispatcher counts non-terminal **Fabro runs** via
+  `fabro ps -a --json`, and two were still `running` while zero items showed
+  active. The dispatch was correctly refused, naming both run ids. Its
+  replacement was wrong too, differently: it watched for a run to reach
+  `succeeded`, a signal that can only appear **if something is dispatched** —
+  nothing was, so 25 minutes of silence proved nothing. Two probes were tried
+  and REJECTED before a good one was found: `fabro model test` (all 22 models
+  report `skip — not configured`, so it never touches the ACP path the workflow
+  uses) and `fabro doctor` (`LLM Providers: none configured`). Both would have
+  read HEALTHY while the path was hard down. Generalize: **before trusting a
+  probe, confirm it can report the failure you are watching for** — the C1
+  lesson ("when a check passes, confirm it can also FAIL") applied to watchers,
+  and check that your signal can appear at all without someone else acting.
+- **C13 (2026-07-29) — I read branch-absence as never-pushed and reported
+  finished work as unfinished.** Checking whether the worker had pushed, I ran
+  `git ls-remote --heads origin | grep <branch>`, found nothing, and told the
+  maintainer the work was "still not pushed". It had MERGED — rebase-merge
+  deletes the branch and rewrites the SHA, so a landed branch is absent from
+  `origin` exactly like an unpushed one. The same shape bites worktree reaping,
+  where a rebase-merged branch reads as unmerged because its HEAD is not an
+  ancestor of `origin/master`. Fix: **check the merge, not the branch** — the
+  merged-PR list, or the file's presence in `git ls-tree origin/master`.
+  Generalize: absence is not evidence of a cause; two opposite states can
+  produce the same missing artifact, and this one reports a colleague's
+  completed work as incomplete.
+- **C14 (2026-07-29) — the charter's own anti-pipe-trap advice silently does
+  nothing in the shell we run.** The Verification-discipline section says to use
+  `PIPESTATUS` instead of an exit code through a pipe. `PIPESTATUS` is **bash**;
+  this fleet's shell is **zsh**, where the array is `$pipestatus[1]` — lowercase
+  and 1-indexed. Writing `echo "EXIT=${PIPESTATUS[0]}"` here yields an EMPTY
+  string: no error, no warning, and it reads like a pass when skimmed. So the
+  remedy for the pipe trap fails in the same silent way as the trap itself. Use
+  `$pipestatus[1]`, or `set -o pipefail`, or read the artifact.
+- **C15 (2026-07-29) — a dispatch that never created a run still claimed the
+  item, twice.** `dispatcher.py dispatch` failing at stage `run-config-overlay`
+  returns `fabro_run_id: null` — no run exists, no spend is consumed — and yet
+  leaves the work-item in `active` with `assignee: fabro`. An item sitting
+  `active` with nothing working it is invisible to `ledger-normalize` and cannot
+  be re-dispatched from `active`, so each failed attempt must be followed by a
+  status reset. Related: `dispatch` BLOCKS for the entire life of the run, so it
+  must not be wrapped in a short `timeout` — killing the launcher detaches it
+  but does NOT kill the run, which then completes or fails unwatched. Fix: after
+  ANY dispatch attempt, read the item's status back and reset it if it is
+  `active` without a live run; and record the reason on the ITEM, not only in
+  the supervisor marker, so the next reader is not told by a stale status that
+  work is progressing.
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
