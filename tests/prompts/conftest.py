@@ -81,10 +81,25 @@ def _wait_for_fixture(
 
     def _wait_for(target: str, needle: str) -> None:
         deadline = time.monotonic() + _SETTLE_TIMEOUT_S
+        # `no branch`, not `no cover`: the body always runs, but WHETHER the
+        # loop iterates a second time is decided by how fast the machine draws
+        # a pane. Both the sleep-then-check ordering below and this pragma
+        # exist because the same file measured 100% locally and 95% in CI —
+        # first the sleep never ran, then the loop-back arc was never taken. A
+        # gate whose verdict depends on host speed is not a gate, and the
+        # honest fix is to say the arc is timing-dependent rather than to
+        # contrive a test that forces a second iteration.
         while time.monotonic() < deadline:
-            if needle in tmux("capture-pane", "-p", "-t", target).stdout:
-                return
+            # Sleep BEFORE the check: checking first makes this line's
+            # execution depend on the sentinel not being present yet.
             time.sleep(0.05)
+            # The pragma belongs HERE, on the `if`, not on the `while` — the
+            # arc coverage reports missing is this branch's FALSE side (loop
+            # back for another poll), which is untaken whenever the sentinel is
+            # already there on the first look. Putting it on the loop header
+            # did nothing, measured twice in the pinned image.
+            if needle in tmux("capture-pane", "-p", "-t", target).stdout:  # pragma: no branch
+                return
         # COVERAGE-EXEMPT: reached only if the sentinel never appears within the
         # timeout. Returning lets the CALLER's assertion report the real pane
         # contents, which is a far better failure message than a timeout
