@@ -81,7 +81,7 @@ every consumer below is empty-guarded, because an empty value laundered through
 
    ```sh
    tmux list-sessions -F '#{session_name}' \
-     | grep -qx 'background-shell-supervision-liveness' \
+     | grep -Fqx 'background-shell-supervision-liveness' \
      || echo "HALT: expected session 'background-shell-supervision-liveness' does not exist"
    ```
 
@@ -116,7 +116,7 @@ every consumer below is empty-guarded, because an empty value laundered through
 
    ```sh
    tmux list-sessions -F '#{session_name}' \
-     | grep -qx 'background-shell-supervision-liveness-supervisor' \
+     | grep -Fqx 'background-shell-supervision-liveness-supervisor' \
      || echo "HALT: expected 'background-shell-supervision-liveness-supervisor'"
    WORKER_TARGET='=background-shell-supervision-liveness:'
    SUPERVISOR_TARGET='=background-shell-supervision-liveness-supervisor:'
@@ -454,9 +454,16 @@ MUST preserve every entry below.
 
 - **C1 — trusting `tmux has-session`, asserting a session existed that did
   not.** It prefix-matched `<worker>-supervisor`, and the follow-on `ps` then
-  reported the supervisor's OWN agent as the worker's driver. Fix: `grep -qx`,
+  reported the supervisor's OWN agent as the worker's driver. Fix: `grep -Fqx`,
   `-t '=name:'`, and the distinct-`pane_pid` check. Generalize: when a check
   passes, confirm it can also FAIL before believing it.
+  **`-F` is not optional, and this entry said `grep -qx` until 2026-07-29.**
+  `-x` makes the match exact-LINE, but the pattern is still a REGEX, so a name
+  carrying a metacharacter matches the wrong session. Proven on a private
+  socket: with a session `axb` alive, `grep -qx 'a.b'` MATCHES while
+  `grep -Fqx 'a.b'` refuses. Latent today, since topic slugs are `[a-z0-9-]` —
+  but a check written to prove presence exactly was one character short of doing
+  it, which is this correction's own lesson recurring inside its own fix.
 - **C2 — a containment check that false-passed on an empty string.**
   `readlink -f ""` returns the cwd with exit 0. Fix: guard non-empty BEFORE
   resolving, and `readlink -f --`.

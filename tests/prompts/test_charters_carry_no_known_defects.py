@@ -1,4 +1,4 @@
-"""Gate every charter IN THIS REPO against the five known defect classes.
+"""Gate every charter IN THIS REPO against the six known defect classes.
 
 The nine groom slices fix the GENERATOR, so the NEXT charter is correct. None of
 them remediates the charters already emitted, and nothing schedules regeneration
@@ -96,12 +96,32 @@ _PREV_EMPTY = re.compile(r"""prev=(?:''|""|\s*$)""", re.MULTILINE)
 #
 # Two spellings are in the wild and both count as "checks the supervisor" — the
 # bound `SUPERVISOR_TARGET='=<name>-supervisor:'` form and the
-# `list-sessions | grep -qx '<name>-supervisor'` form. Matching only one would
+# `list-sessions | grep ... '<name>-supervisor'` form. Matching only one would
 # let the other evade.
-_SUPERVISOR_CHECK = re.compile(r"SUPERVISOR_TARGET=|grep\s+-qx\s+'[^']*-supervisor'")
+#
+# THE GREP FLAGS ARE MATCHED LOOSELY, and that is a fix for a real interaction
+# bug rather than laziness. An earlier version pinned the literal `-qx`, so the
+# moment defect (f) was remediated to `-Fqx` this detector went BLIND and (e)
+# stopped firing on the very charters it had just flagged. A detector keyed to
+# the exact spelling of a DIFFERENT defect's pre-fix state is a verifier that
+# disarms itself when the other fix lands.
+_SUPERVISOR_CHECK = re.compile(r"SUPERVISOR_TARGET=|grep\s+-\S+\s+'[^']*-supervisor'")
 _SUPERVISOR_PROOF_PS = '--ppid "$supervisor_pane_pid"'
 _SUPERVISOR_PROOF_GUARD = '[ -n "$supervisor_pane_pid" ]'
 _SUPERVISOR_PROOF_DISTINCT = '"$supervisor_pane_pid" != "$pane_pid"'
+
+# (f) A session-existence test written with `grep -qx` is exact-LINE but its
+# pattern is still a REGEX, so "exact" is one character short of literal.
+# PROVEN on a private socket: with a session named `axb` alive,
+# `grep -qx 'a.b'` MATCHES and `grep -Fqx 'a.b'` refuses. Latent while topic
+# slugs stay `[a-z0-9-]`, but the check exists to prove presence EXACTLY and it
+# can say yes for a name that is not there.
+#
+# Scoped to the `list-sessions | grep -qx` idiom on purpose. The picker footer
+# test deliberately uses `grep -qE` with a real regex, and flagging that would
+# be the false-positive-on-correct-code failure that made the prototype
+# unusable as a gate.
+_LIST_SESSIONS_GREP = re.compile(r"list-sessions[^\n|]*\|[^\n]*grep\s+(-\S+)")
 
 
 def _code_blocks(*, text: str) -> list[str]:
@@ -217,6 +237,24 @@ def empty_prev_watcher_init(*, text: str) -> list[str]:
     return found
 
 
+def regex_session_existence_test(*, text: str) -> list[str]:
+    """A `list-sessions | grep` presence test whose pattern is not LITERAL.
+
+    `-x` anchors the whole line; it does not make the pattern literal. Only `-F`
+    does. A name carrying a regex metacharacter therefore matches a DIFFERENT
+    session, and the check reports present for something absent.
+    """
+    found: list[str] = []
+    for block in _code_blocks(text=text):
+        for raw in block.splitlines():
+            if _is_comment(line=raw):
+                continue
+            match = _LIST_SESSIONS_GREP.search(raw)
+            if match is not None and "F" not in match.group(1):
+                found.append(raw.strip())
+    return found
+
+
 def supervisor_trusted_by_name(*, text: str) -> list[str]:
     """A supervisor existence check with no liveness proof anywhere (ejja5o).
 
@@ -253,6 +291,7 @@ _DETECTORS = (
     ("c-history-fed-capture", history_fed_capture),
     ("d-empty-prev-watcher-init", empty_prev_watcher_init),
     ("e-supervisor-trusted-by-name", supervisor_trusted_by_name),
+    ("f-regex-session-existence-test", regex_session_existence_test),
 )
 
 
@@ -504,14 +543,20 @@ def test_the_list_sessions_spelling_is_also_in_scope():
 
     Matching only `SUPERVISOR_TARGET=` would let the `grep -qx` form through,
     and two live charters use exactly that form.
+
+    Uses `-Fqx` deliberately so this leg isolates (e). With the bare `-qx` the
+    sample would carry defect (f) as well, and the assertion would stop meaning
+    "exactly the supervisor-liveness finding".
     """
     charter = """
 ```sh
-tmux list-sessions -F '#{session_name}' | grep -qx 'demo-supervisor' \\
+tmux list-sessions -F '#{session_name}' | grep -Fqx 'demo-supervisor' \\
   || { echo "HALT"; echo "REMEDY: bootstrap it"; exit 1; }
 ```
 """
-    assert len(defects_in(text=charter)) == 1
+    assert defects_in(text=charter) == [
+        "e-supervisor-trusted-by-name: supervisor existence checked but liveness never proven"
+    ]
 
 
 def test_a_full_liveness_proof_is_not_flagged():
@@ -546,3 +591,68 @@ tmux has-session -t "$WORKER_TARGET" || { echo "HALT"; echo "REMEDY: start it"; 
 ```
 """
     assert defects_in(text=charter) == []
+
+
+def test_a_regex_session_existence_test_is_flagged():
+    """RED demonstration for (f), proven on real tmux before being written.
+
+    With a session named `axb` alive on a private socket, `grep -qx 'a.b'`
+    MATCHES and `grep -Fqx 'a.b'` refuses. `-x` anchors the whole LINE; only
+    `-F` makes the pattern literal, so a check written to prove presence exactly
+    was one character short of doing it.
+    """
+    charter = """
+```sh
+tmux list-sessions -F '#{session_name}' | grep -qx 'demo-supervisor' || exit 1
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("f-")] == [
+        "f-regex-session-existence-test: "
+        "tmux list-sessions -F '#{session_name}' | grep -qx 'demo-supervisor' || exit 1"
+    ]
+
+
+def test_the_literal_session_existence_test_is_accepted():
+    """THE CONTROL — `-F` is what the remedy needs, and it must pass."""
+    charter = """
+```sh
+tmux list-sessions -F '#{session_name}' | grep -Fqx 'demo-supervisor' || exit 1
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("f-")] == []
+
+
+def test_the_picker_footer_regex_is_not_flagged_as_a_session_test():
+    """THE FALSE-POSITIVE GUARD, and the reason (f) is scoped to `list-sessions`.
+
+    The picker test uses `grep -qE` with a DELIBERATE regex — anchored
+    alternation over the footer strings. Flagging every non-`-F` grep would
+    reject correct code, which is exactly what made the whole-file prototype
+    unusable as a gate.
+    """
+    charter = """
+```sh
+tmux capture-pane -p -t '=demo:' | tail -8 \\
+  | grep -qE '^[[:space:]]*Enter to (select|confirm)[[:space:]]*(·.*)?$'
+```
+"""
+    assert defects_in(text=charter) == []
+
+
+def test_remediating_f_does_not_disarm_e():
+    """A detector must not key on another defect's PRE-FIX spelling.
+
+    Found the hard way: `_SUPERVISOR_CHECK` originally pinned the literal `-qx`,
+    so rewriting a charter to the correct `-Fqx` made (e) stop seeing it. The
+    charter below still proves no supervisor liveness, so (e) must fire whichever
+    spelling the existence check uses — otherwise landing one fix silently
+    disarms the gate for the other.
+    """
+    for flags in ("-qx", "-Fqx", "-qFx"):
+        charter = f"""
+```sh
+tmux list-sessions -F '#{{session_name}}' | grep {flags} 'demo-supervisor' || exit 1
+```
+"""
+        found = defects_in(text=charter)
+        assert any(d.startswith("e-") for d in found), f"(e) went blind on {flags}: {found}"
