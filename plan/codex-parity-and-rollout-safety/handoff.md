@@ -3,8 +3,11 @@
 > # ▶ RESUME HERE — session handoff, 2026-07-29
 >
 > **A1 is DONE. A2 is BLOCKED ON A FLEET-WIDE BILLING CAP — diagnosed
-> 2026-07-29, and NOT a defect in this repo, in A2, or in the factory graph. A3
-> waits on A2 and on the new slice A4. Everything below this box is older
+> 2026-07-29, and NOT a defect in this repo, in A2, or in the factory graph.
+> RE-TESTED after the maintainer restored quota: it STILL fails, with the
+> provider's spend-limit message intact — so the cause is re-confirmed and the
+> raise did not reach the review adapter's credential. A3 waits on A2 and on the
+> new slice A4; the order is A2 → A4 → A3. Everything below this box is older
 > context that is still accurate unless this box contradicts it.**
 >
 > ## Slice state, read from the ledger 2026-07-29
@@ -12,7 +15,7 @@
 > | slice | id | state |
 > |---|---|---|
 > | **A1** | `overseer-4km4mj` | **DONE / CLOSED.** PR **#242** merged, `ee67267e…`, verified an ancestor of `origin/master`. Content verified: `.livespec.jsonc` keeps `status: "exempt"` with a `reason` naming brief 17 **and** the archived ruling path; the stale `check-plugin-resolution` justfile comment is corrected. Maintainer accepted it through the `ai-then-human` valve; I relayed that decision, I did not self-accept. |
-> | **A2** | `overseer-vyie5q` | **`ready`, no assignee — CLEAN**, re-verified 2026-07-29. No stale claim. **But it cannot be dispatched to green today** — see the blocker below; nothing about A2 itself needs fixing. |
+> | **A2** | `overseer-vyie5q` | **`ACTIVE`, `Assignee: fabro`** as of the 2026-07-29 re-dispatch (run `01KYQF8G2TNV`, parked at a Needs-human gate). **This claim is held by a run that cannot finish** — see the RETESTED box below. Before any future dispatch, release it with `drive --action move:overseer-vyie5q:ready` and re-read status AND assignee. Nothing about A2's own content needs fixing. |
 > | **A4** | `overseer-ews` | **NEW, filed 2026-07-29** at maintainer direction — `pending-approval`, `admission:manual`, `rank: a4`. Make `overseer-start` launch under Codex WITHOUT weakening the stray-hand-run refusal. See §A4 below. |
 > | **A3** | `overseer-kju6wh` | `pending-approval`, `admission:manual`. Blockers: A1 (done) + A2 (open) + **A4 (open, new)**. **Do not start until A2 AND A4 land** — see §A4 for why that ordering is correct on the merits, not merely wired. |
 > | **B2** | `overseer-vfz5v5` | `pending-approval`, `admission:manual`. **STOOD DOWN** — blocked on B1, which livespec-dev-tooling owns. Not this thread's to implement. |
@@ -40,6 +43,49 @@
 > | `01KYP8NDW1NF` | this repo, `overseer-4xfmez.2` | org monthly spend limit |
 > | `01KYP93877SD` | this repo, `overseer-t7qqik` | org monthly spend limit |
 > | `01KYP37TZJ9M` | **`livespec-console-beads-fabro`** | `You've hit your limit · resets Jul 31, 5am (UTC)` |
+>
+> ### ⚠ RETESTED AFTER THE MAINTAINER RESTORED QUOTA — STILL FAILS, AND THAT RE-CONFIRMS THE CAUSE
+>
+> The maintainer confirmed quota restored on 2026-07-29 and released the hold.
+> A2 was re-dispatched: run **`01KYQF8G2TNV`**. **Review failed again**, and the
+> supervisor had pre-declared that an identical failure "would disprove the
+> spend-limit diagnosis". **It does not — read the failure text, not just the
+> failure.**
+>
+> The error is NOT a generic `ACP turn failed`. At **17:44, AFTER the
+> restoration**, the provider still returns verbatim:
+>
+> ```
+> Internal error: You've hit your org's monthly spend limit · ask your admin
+> to raise it at claude.ai/settings/usage        { "errorKind": "rate_limit" }
+> ```
+>
+> If the diagnosis were wrong, that message would have disappeared when quota
+> returned. Instead Anthropic restates it. **So the DIAGNOSIS is re-confirmed and
+> the PREMISE is disproven: the raise did not reach the credential the review
+> adapter resolves.**
+>
+> The same run proves the credential boundary a second time, in one sandbox at
+> one moment: `implement` (Codex adapter) **succeeded in ~5 min**; `review`
+> (Claude adapter) **failed in 13.2s, then 7.8s on retry**.
+>
+> **The concrete lead for whoever picks this up:** the sandbox setup explicitly
+> writes `CODEX_AUTH_JSON` → `$CODEX_HOME/auth.json` for the implement adapter,
+> but there is **NO corresponding Claude auth injection step** — the review
+> adapter's Anthropic credential is inherited from the sandbox environment.
+> **So the account raised at claude.ai/settings/usage may simply not be the
+> account the review adapter resolves.** Verify that BEFORE spending another
+> dispatch; a third attempt against the same credential dies in ~13 seconds.
+>
+> Note also that **at least TWO distinct limits** are in play across the fleet's
+> runs — the org monthly spend cap (four runs) and a rolling
+> `resets Jul 31, 5am (UTC)` limit (the console run). Raising one clears neither
+> the other nor a different account.
+>
+> **A2 is left `ACTIVE` / `Assignee: fabro`** with `01KYQF8G2TNV` parked at a
+> Needs-human gate. Note that `drive` printed `status: failed` while the claim
+> DID take — the "verify the CLAIM, not the command" rule below fired again, and
+> reading the ledger is what caught it.
 >
 > **Why `review` and never `implement` — by design, not coincidence.**
 > `workflow.fabro:124`: the review node *"runs on the Claude subscription via the
