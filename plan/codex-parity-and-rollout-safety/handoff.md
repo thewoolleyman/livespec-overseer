@@ -11,7 +11,7 @@
 > | slice | id | state |
 > |---|---|---|
 > | **A1** | `overseer-4km4mj` | **DONE / CLOSED.** PR **#242** merged, `ee67267e…`, verified an ancestor of `origin/master`. Content verified: `.livespec.jsonc` keeps `status: "exempt"` with a `reason` naming brief 17 **and** the archived ruling path; the stale `check-plugin-resolution` justfile comment is corrected. Maintainer accepted it through the `ai-then-human` valve; I relayed that decision, I did not self-accept. |
-> | **A2** | `overseer-vyie5q` | **`ACTIVE`, claim held by a DEAD run — see the blocker below. Release the stale claim before re-dispatching.** |
+> | **A2** | `overseer-vyie5q` | **`ready`, no assignee — CLEAN and ready to dispatch.** Its last run was abandoned and the claim released at wrap-up, so no stale claim remains. See the blocker below before dispatching. |
 > | **A3** | `overseer-kju6wh` | `pending-approval`, `admission:manual`. Blockers were A1 (now done) + A2 (not done). **Do not start until A2 lands.** |
 > | **B2** | `overseer-vfz5v5` | `pending-approval`, `admission:manual`. **STOOD DOWN** — blocked on B1, which livespec-dev-tooling owns. Not this thread's to implement. |
 > | **B1** | `livespec-dev-tooling-3nt9` | filed in **livespec-dev-tooling**, `backlog`. Never implement here. |
@@ -47,8 +47,9 @@
 > implementing everything and passing 62 targets / 532 tests, so the failure is
 > in the review stage itself, not in the work.
 >
-> To retry cleanly: release the stale claim first —
-> `drive --action move:overseer-vyie5q:ready` — then dispatch.
+> The claim was already released at wrap-up, so A2 is dispatchable as-is.
+> (If a future run dies and leaves it `ACTIVE` with no live run, release it with
+> `drive --action move:overseer-vyie5q:ready` before re-dispatching.)
 >
 > ## Operational facts that cost real time to learn
 >
