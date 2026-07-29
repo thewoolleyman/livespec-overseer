@@ -93,71 +93,133 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
-## WORKER RESUME STATE — appended 2026-07-27 by the `supervisor-prompt-quality` worker
+## WORKER RESUME STATE — rewritten 2026-07-29 by the `supervisor-prompt-quality` worker
 
-**Appended, deliberately touching nothing above.** The supervisor owns this
-file's execution order and item map and has an unmerged branch editing them
-(`origin/docs/handoff-execution-order-correction`). This section is additive and
-self-contained so the two do not collide; if a conflict does arise, **theirs
-wins** — nothing here is load-bearing for their correction.
+**Everything the previous version of this section called "the next action" is
+DONE.** It said filing was held on the tmux valve; that valve was answered, the
+groom was filed, and two PRs have since landed. Re-measure from the ledger and
+the forge rather than trusting any line below — every claim here is a claim with
+a timestamp.
 
 ### Where the work actually is
 
-The groom of `overseer-byvxlp` is **FILED** (2026-07-27/28). The epic is closed
-regroomed-out and `overseer-7lv` is closed by hand carrying the R→id mapping.
-Read status from the ledger; nothing here stores it. All durable artifacts are
-in `tmp/overseer/supervisor-prompt-quality/` (gitignored, present in the
-working tree):
+**The groom is FILED and the epic is closed.** `overseer-byvxlp` closed
+regroomed-out; `overseer-7lv` hand-closed carrying the R→id mapping
+(R1,R2→S4 · R3→S8 · R4→S5 · R5→S2).
 
-| file | what it is |
-|---|---|
-| `FILED-RESULT.md` | **what was minted, and the dead-mint hazard** — read this first |
-| `evidence/DECISION-PACKET-v3.md` | THE ACCEPTED CUT — the 9 slices, placement, `overseer-7lv` disposition |
-| `groom-decision-packet.md` | the SUPERSEDED v1 packet. It is NOT the v3 content; an earlier revision of this table said it was, and that misattribution is the correction this row exists to carry |
-| `REVISED-S1-S2-acceptance.md` | S1/S2 acceptance rewritten for real tmux (D4) |
-| `NEW-VALVE-tmux-in-ci.md` | ANSWERED (base image). Kept for its evidence, not as an open item |
-| `evidence/` | runnable proof: `test_emitted_commands_discriminate.py` (9 tests, RED-demonstrated), `red-green-harness.sh` (24 legs), `gate_red_suite.py` (6/6), `adopter_validator.py`, `coldopen_gate.py`, `proposed-contract-text-v2.md` |
+| slice | id | state at 2026-07-29 |
+|---|---|---|
+| S1 HALT preconditions that classify their failure | `overseer-ykneip` | **CLOSED** |
+| S2 wake mechanism end to end | `overseer-4do7jx` | **CLOSED** |
+| S3 iteration-stable two-layer form | `overseer-t7qqik` | pending-approval, deps discharged |
+| S4 re-entry + durable obligation record | `overseer-fl5jlp` | pending-approval |
+| S5 verification discipline | `overseer-nxaho7` | pending-approval |
+| S6 full anti-stall playbook | `overseer-kptmgl` | pending-approval |
+| S7 cold-open gate + placeholder sets | `overseer-lf7ieb` | pending-approval |
+| S8 cross-track obligation handoff | `overseer-uc4l5e` | pending-approval |
+| S9 adopter parameterization | `overseer-f2lqj6` | pending-approval |
 
-**The one hazard to carry forward:** `file_approved_slices` minted
-`overseer-wc2xfe` for the cross-repo S0 slice and wrote it into S1's and S2's
-`non_local_depends_on`. **That id exists in no tenant.** The real work was
-already routed as `livespec-dev-tooling-myx7`, so both deps were repointed
-there and verified by read-back. Left alone it would have gated S1 and S2 on an
-unresolvable id — a gate that never lifts, or that resolves to nothing and
-reads as satisfied. `livespec-dev-tooling-myx7` is the DOING record;
-S0 was only ever a GATING handle and **must never be worked in this repo**.
+Plus **`overseer-dk6hwi`** — the delivery remainder filed when S1/S2 closed
+having landed only their text half. **CLOSED** by the supervisor against PR #261.
 
-### Maintainer decisions already given — do not relitigate
+**THERE IS NO APPROVE VALVE AND NONE IS NEEDED.** These items are
+`admission:auto`; `effective_admission_policy` returns the per-item policy first,
+and the Dispatcher's selection already treats `pending-approval` as a candidate
+by projecting it to ready. `drive --action approve:<id>` REFUSES them — approve
+requires an effective-MANUAL item. Forcing it needs `set-admission:<id>:manual`
+first, which permanently rewrites recorded policy as a side effect. **Do not.**
+(S1/S2 carry `admission:manual` because that two-step WAS run on them, before it
+was understood to be unnecessary. The other seven are untouched — keep it so.)
 
-D1 canonical groom (byvxlp closes regroomed-out, 9 flat slices) · D2 defects
-first (S1, S2, then S3) · D3 `tmp/overseer/<topic>/.supervisor-state` ·
-**D4 REQUIRE REAL TMUX IN CI** (overturned both the worker's and the
-supervisor's stub recommendation) · D5 one visible-only capture.
+### What is now proven IN THE GATE (this is the thread's whole point)
 
-### THE NEXT ACTION, and it is blocked
+The epic's enforcement ladder is static prose → generated output → observed
+conduct. Rung 3 now runs in `just check`, in `tests/prompts/`:
 
-**Filing is HELD on one maintainer valve**, raised and not yet answered:
-`tmux is absent from CI` — established three ways (zero mentions in
-`.github/workflows/`; the sandbox image chain installs only `libatomic1`;
-`docker run … command -v tmux` → absent). D4's acceptance cannot execute
-without it.
+- **PR #261** (merge `eb14416b4`) — `test_emitted_commands_discriminate.py`,
+  9 tests, defect **(a)**: bare tmux targets deliver into the supervisor's own
+  pane while `-t '=<name>:'` refuses.
+- **PR #262** (merge `2dbccf46b`) — `conftest.py` (the real-tmux rig),
+  `test_repo_containment_discriminates.py` **(b)**, and
+  `test_watcher_wake_discriminates.py` **(c)/(c′)/(d)**.
 
-Recommendation in the valve doc: add tmux to the **shared sandbox base image**
-in `livespec-dev-tooling`, not to `ci.yml` — a CI-only install would make S1/S2
-pass in CI and fail in the Fabro sandbox they get dispatched into, which is the
-exact drift that image was factored to remove. Cost: cross-repo change (another
-track's lane), a release + pin bump, and it makes S1/S2 — layer 1, first under
-D2 — blocked on that release.
+All drive REAL tmux on private sockets. **NO SKIPS is real**: if tmux is absent
+the modules FAIL rather than skip, and the guard that enforces that carries a
+`# pragma: no cover` WITH a do-not-delete rationale — it is unreachable when tmux
+is present, so it is exactly the line a `fail_under=100` gate would otherwise
+reject.
 
-**When the valve is answered:** `file_approved_slices` with the 9 slices (S1/S2
-carrying the revised acceptance) → `overseer-byvxlp` auto-closes regroomed-out →
-hand-close `overseer-7lv` with the R→id mapping. Report every id created.
+`livespec-dev-tooling-myx7` is **CLOSED** and **tmux 3.4 IS in the pinned CI
+image** (`python-v1.0.5`, digest `sha256:305aefaf…`). The green-locally /
+red-in-CI gate that blocked every execution leg is GONE.
 
-### Boundaries that still hold
+### THE NEXT ACTION — and what actually blocks it
 
-Supervisor owns `handoff.md` and the archiving of
-`plan/archive/supervise-plan-residual-gaps/` (archived — `overseer-7lv` is
-closed, folded into this thread's groom). Do not touch branches
-`docs/supervisor-charter-hardening`, `docs/regenerate-supervisor-prompt-quality-charter`,
-or `docs/handoff-execution-order-correction`. Worktrees via
-`just worktree-create`, never raw `git worktree add`.
+**Fabro dispatch is dead org-wide on the monthly spend limit.** S3's run
+`01KYP93877SDPHC7DVM0BXRJ33` failed inside the implement node with
+`rate_limit / transient_infra` and escalated to `blocked/human_input_required`.
+**The supervisor holds that valve with the maintainer.** Do not dispatch, do not
+retry, do not touch S3's ledger state.
+
+So: **hand-driven work in this pane is the only lane that moves.** When capacity
+returns, S3 is the head of the queue — its dependencies are discharged and it
+carries no `non_local_depends_on`.
+
+### THE ONE UNFILED FINDING worth carrying forward
+
+**The cut fixes the GENERATOR and remediates none of the charters already
+emitted.** Measured 2026-07-28: grepping all nine slices for remediation language
+gives exactly one hit, in S3, and it is family 2's "regeneration must PRESERVE
+Corrections" — a property, not a sweep. Complete scan (`plan/*/`,
+`plan/archive/*/`, `.ai/`, `tmp/<session>/charter.md`): **141 bare targets, 17
+files, 7 repos**, with **six threads ARMED** — both sessions alive, defect
+dormant until the worker exits — across five repos. `ship-overseer-to-fleet` is
+the instructive one: its charter is ARCHIVED but both its sessions still run, so
+archiving a thread does NOT disarm it.
+
+Write-up with four costed options is in
+`tmp/overseer/supervisor-prompt-quality/GAP-no-remediation-slice.md`. **Nothing
+filed — the maintainer owns the cut.** Recommendation there: put the check in the
+gate to stop the population growing, then sweep what it exposes.
+
+### Durable artifacts (gitignored — present in this working tree only)
+
+`tmp/overseer/supervisor-prompt-quality/` holds `FILED-RESULT.md` (what was
+minted + the dead-mint hazard), `EVIDENCE-REVERIFICATION.md`,
+`GAP-no-remediation-slice.md`, `S1-COVERAGE-MAP.md`, `S2-COVERAGE-MAP.md`,
+`LIVE-EXPOSURE-rop-sweep.md`, `worker-status.log` (the supervisor's wake
+channel), and `evidence/` — including `blast_radius.py` and
+`adopter_validator_drive.py`, both written by this thread. **A fresh clone has
+none of it.** The two artifacts that mattered most (`red-green-harness.sh`'s
+legs, and the discriminate fixture) are now TRACKED, which was the point.
+
+### Hazards to carry forward
+
+- **`overseer-wc2xfe` is a DEAD MINT** — `file_approved_slices` minted it for the
+  cross-repo S0 slice and wrote it into S1/S2's `non_local_depends_on`. It exists
+  in **no tenant**. Both deps were repointed to `livespec-dev-tooling-myx7` and
+  verified by read-back. S0 was only ever a GATING handle; the DOING record is
+  myx7, and S0 **must never be worked in this repo**.
+- **The commit prefix is semantically load-bearing.** `red_green_replay.py`
+  routes a tests-only staged tree whose subject matches `fix:`/`feat:` into RED
+  mode, which then REJECTS a passing test. A passing test-only change must use
+  `test:`. Red mode is also PER-FILE — one test file per commit.
+- **`PIPESTATUS` is bash; this shell is zsh** (`$pipestatus[1]`, lowercase,
+  1-indexed). The bash spelling yields an EMPTY string, which reads like a pass.
+  Prefer reading the artifact, or run inside an explicit `bash -c`.
+- **Check `git status`, not `git log`, after a hook-gated commit** — a rejected
+  commit leaves the change STAGED and `git log` shows someone else's HEAD.
+- **`just check` passing locally does not mean CI passes.** PR #262's first push
+  was green locally and failed CI twice on timing-dependent coverage. Verify
+  inside the pinned image (`docker run … python-v1.0.5`) before pushing anything
+  that touches these fixtures.
+
+### Boundaries
+
+The supervisor owns this file's sections ABOVE the separator, and the archiving
+of `plan/archive/supervise-plan-residual-gaps/` (already archived). Do not touch
+branches `docs/supervisor-charter-hardening`,
+`docs/regenerate-supervisor-prompt-quality-charter`, or
+`docs/handoff-execution-order-correction`. Worktrees via `just worktree-create`,
+never raw `git worktree add`. Never `--no-verify`; halt and report on hook
+failure. Never kill the acting overseer daemon in tmux `livespec-overseer:1.1`.
