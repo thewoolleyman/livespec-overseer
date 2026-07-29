@@ -25,7 +25,8 @@ another session, and do not proceed read-only.
 1. Supervised session exists:
 
 ```bash
-tmux has-session -t "supervise-plan-residual-gaps"
+WORKER_TARGET='=supervise-plan-residual-gaps:'   # exact; trailing colon REQUIRED
+tmux has-session -t "$WORKER_TARGET"
 ```
 
 2. The supervised session is really a live agent session — its pane process
@@ -34,7 +35,8 @@ shell is a FAILURE. Runtime identity comes from exact live process evidence,
 NEVER from a session name:
 
 ```bash
-pane_pid=$(tmux display-message -p -t "supervise-plan-residual-gaps" '#{pane_pid}')
+WORKER_TARGET='=supervise-plan-residual-gaps:'   # exact; trailing colon REQUIRED
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
 ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
 # PASS only if a live `claude` or `codex` process appears in that tree.
 # A lone shell (zsh/bash) with no agent child is a HALT.
@@ -45,7 +47,8 @@ Report which driver was found.
 3. Supervisor session exists:
 
 ```bash
-tmux has-session -t "supervise-plan-residual-gaps-supervisor"
+SUPERVISOR_TARGET='=supervise-plan-residual-gaps-supervisor:'
+tmux has-session -t "$SUPERVISOR_TARGET"
 ```
 
 4. The plan thread exists inside the target repo — absolute path, because a
@@ -59,8 +62,11 @@ test -d "/data/projects/livespec-overseer/plan/supervise-plan-residual-gaps"
 first — a symlinked path that merely LOOKS contained is a HALT:
 
 ```bash
-pane_cwd=$(tmux display-message -p -t "supervise-plan-residual-gaps" '#{pane_current_path}')
-case "$(readlink -f "$pane_cwd")" in
+WORKER_TARGET='=supervise-plan-residual-gaps:'   # exact; trailing colon REQUIRED
+pane_cwd=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_current_path}')
+[ -n "$pane_cwd" ] \
+  || { echo "HALT: empty pane_current_path"; echo "REMEDY: re-check the exact target and stop if it still resolves empty"; exit 1; }
+case "$(readlink -f -- "$pane_cwd")" in
   /data/projects/livespec-overseer|/data/projects/livespec-overseer/*) echo "PASS: $pane_cwd" ;;
   *) echo "HALT: pane cwd $pane_cwd is outside the target repo" ;;
 esac
@@ -101,7 +107,8 @@ Every command here is copy-pasteable as written.
 Inspect read-only — last 40 lines of the worker pane:
 
 ```sh
-tmux capture-pane -p -t supervise-plan-residual-gaps -S -40
+WORKER_TARGET='=supervise-plan-residual-gaps:'   # exact; trailing colon REQUIRED
+tmux capture-pane -p -t "$WORKER_TARGET" -S -40
 ```
 
 `-S -40` starts 40 lines back. Do NOT pipe to `tail -N` — `-N` is a placeholder
@@ -110,9 +117,10 @@ and `tail` rejects it.
 Short instruction — send the text, VERIFY, then send Enter SEPARATELY:
 
 ```sh
-tmux send-keys -t supervise-plan-residual-gaps -- '<one line>'
-tmux capture-pane -p -t supervise-plan-residual-gaps -S -10   # confirm it landed
-tmux send-keys -t supervise-plan-residual-gaps Enter          # only after verifying
+WORKER_TARGET='=supervise-plan-residual-gaps:'   # exact; trailing colon REQUIRED
+tmux send-keys -t "$WORKER_TARGET" -- '<one line>'
+tmux capture-pane -p -t "$WORKER_TARGET" -S -10   # confirm it landed
+tmux send-keys -t "$WORKER_TARGET" Enter          # only after verifying
 ```
 
 Do NOT use the one-shot `… -- '<line>' Enter` form. Measured against a live
@@ -123,10 +131,11 @@ call. This applies to SHORT instructions, not just pasted blocks.
 Longer text — load from a file, paste, VERIFY, then Enter separately:
 
 ```sh
+WORKER_TARGET='=supervise-plan-residual-gaps:'   # exact; trailing colon REQUIRED
 tmux load-buffer -b sup /tmp/msg.txt
-tmux paste-buffer -b sup -t supervise-plan-residual-gaps
-tmux capture-pane -p -t supervise-plan-residual-gaps -S -20   # confirm it landed
-tmux send-keys -t supervise-plan-residual-gaps Enter          # only after verifying
+tmux paste-buffer -b sup -t "$WORKER_TARGET"
+tmux capture-pane -p -t "$WORKER_TARGET" -S -20   # confirm it landed
+tmux send-keys -t "$WORKER_TARGET" Enter          # only after verifying
 ```
 
 A landed paste renders as `[Pasted text #N +M lines]`. Anything else means it
@@ -208,11 +217,12 @@ worker that is idle-and-gated is precisely when you are the only moving part.
 PR merge, a file appearing, or a peer replying. Match the watcher to the event:
 
 ```sh
+WORKER_TARGET='=supervise-plan-residual-gaps:'   # exact; trailing colon REQUIRED
 # Pane watcher — worker mid-flight. Detect busy by pane CHANGE, not status text.
-prev=""; stable=0
+prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
 for i in $(seq 1 180); do            # ~60 min ceiling
   sleep 20
-  pane=$(tmux capture-pane -p -t supervise-plan-residual-gaps -S -40)
+  pane=$(tmux capture-pane -p -t "$WORKER_TARGET")
   case "$pane" in
     *"Enter to select"*) echo "WAKE: picker open"; exit 0 ;;
   esac
