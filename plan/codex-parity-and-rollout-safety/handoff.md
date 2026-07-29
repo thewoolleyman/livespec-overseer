@@ -69,13 +69,34 @@
 > one moment: `implement` (Codex adapter) **succeeded in ~5 min**; `review`
 > (Claude adapter) **failed in 13.2s, then 7.8s on retry**.
 >
-> **The concrete lead for whoever picks this up:** the sandbox setup explicitly
-> writes `CODEX_AUTH_JSON` → `$CODEX_HOME/auth.json` for the implement adapter,
-> but there is **NO corresponding Claude auth injection step** — the review
-> adapter's Anthropic credential is inherited from the sandbox environment.
-> **So the account raised at claude.ai/settings/usage may simply not be the
-> account the review adapter resolves.** Verify that BEFORE spending another
-> dispatch; a third attempt against the same credential dies in ~13 seconds.
+> ### WHICH ACCOUNT IS CAPPED — traced end to end 2026-07-29
+>
+> **Corrects a weaker claim made earlier in this same session.** An initial pass
+> reported "there is NO Claude auth injection step". That was wrong as stated:
+> there is no *setup command* for it (Codex gets a visible
+> `printf %s "$CODEX_AUTH_JSON" > $CODEX_HOME/auth.json` step, which is why only
+> Codex is greppable in the event log), but there IS an env-table projection.
+> The corrected chain makes the lead STRONGER and far more specific:
+>
+> 1. The dispatch target's **`credential_wrapper`** — here
+>    `1password-env-wrapper/with-livespec-env.sh` — injects
+>    **`CLAUDE_CODE_OAUTH_TOKEN`** into the Dispatcher's process environment.
+>    Confirmed present 2026-07-29 (value withheld).
+> 2. The Dispatcher projects it into the per-run UNCOMMITTED overlay
+>    `[environments.<id>.env]` (`_dispatcher_overlay.py:218`), mode 600, deleted
+>    when the run returns (`dispatcher.py:65-83`). The committed config carries
+>    no secret value and no `{{ env }}` interpolation — interpolation provably
+>    CANNOT deliver credentials to server-mediated runs, so do not re-attempt it.
+> 3. The sandbox's `review` adapter (`claude-agent-acp`) authenticates with that
+>    token.
+>
+> **So the capped account is whichever Anthropic account owns the 1Password-stored
+> `CLAUDE_CODE_OAUTH_TOKEN` — a fleet/service credential, which is NOT necessarily
+> the interactive claude.ai account a maintainer would raise a limit on.** That is
+> the single thing to verify before spending another dispatch; a further attempt
+> against the same credential dies in ~13 seconds. (Note the wrapper also carries
+> a separate `ANTHROPIC_API_KEY_LIVESPEC_E2E`, so more than one Anthropic
+> credential exists in this fleet — raising the wrong one is an easy mistake.)
 >
 > Note also that **at least TWO distinct limits** are in play across the fleet's
 > runs — the org monthly spend cap (four runs) and a rolling
