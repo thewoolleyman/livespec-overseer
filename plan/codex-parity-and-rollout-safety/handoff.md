@@ -204,6 +204,37 @@
 > a second. Sweeping `overseer/AGENTS.md` and `prose/overseer.md` step 0 is part
 > of the slice, since both become FALSE once the behavior changes.
 >
+> ### A4 marker research — a LEAD, explicitly NOT the answer
+>
+> The slice mandates determining the Codex-side marker **at implementation time
+> from LIVE evidence**. No Codex session was running during this session, so the
+> following is **static binary evidence only** and does NOT discharge that
+> requirement. Recorded so the implementer starts ahead, not so they skip the step.
+>
+> Measured against the vendored native binary (`codex-cli 0.145.0`,
+> `vendor/x86_64-unknown-linux-musl/codex/codex`): the only `CODEX_*` names
+> present are **`CODEX_HOME`**, `CODEX_POWERSHELL_PAYLOAD`,
+> `CODEX_MANAGED_CONFIG_PATH`, `CODEX_GITHUB_PERSONAL_ACCESS_TOKEN`. There is
+> **no `CODEX_SANDBOX`, no session-id marker, and nothing analogous to
+> `$CLAUDECODE`.** So the tempting assumption — "find Codex's equivalent env
+> flag" — may have NO answer, and an implementer who assumes one exists can burn
+> a lot of time.
+>
+> Two candidate routes, with their weaknesses stated:
+>
+> 1. **`CODEX_HOME` presence** — weak. It is user- and wrapper-settable, and the
+>    Fabro sandbox sets it explicitly, so it would admit non-Codex contexts.
+> 2. **Parent-process-chain `comm == "codex"`** — stronger, and it reuses machinery
+>    this repo already has and already verified live on 2026-07-16:
+>    `codex_sessions.py` defines `CODEX_COMM = "codex"` for exactly this identification.
+>    **Caveat that must be checked live:** `codex` on PATH here is a bash wrapper that
+>    `exec`s `bun`, and `codex_sessions.py:80-83` records that the `bun` process is the
+>    codex process's PARENT — so the ancestry a child observes needs verifying, not assuming.
+>
+> Whichever route is taken, the slice's constraint is unchanged: **admit Codex as a
+> second valid runtime, never drop the runtime check**, and prove a plain terminal
+> with neither marker still refuses.
+>
 > ### The dependency shape used, and why the work ORDER changed
 >
 > Wired as **`bd dep overseer-ews --blocks overseer-kju6wh`** — a hard, LOCAL
