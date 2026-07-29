@@ -92,6 +92,20 @@ _CAPTURE_S_PIPED = re.compile(r"capture-pane[^\n|]*-S\s+-\d+[^\n]*\|[^\n]*grep")
 # exemplar seeds a sentinel that no capture can equal.
 _PREV_EMPTY = re.compile(r"""prev=(?:''|""|\s*$)""", re.MULTILINE)
 
+# (d) continued. The rule above keys on the literal name `prev`, so a watcher
+# using any other variable name evaded it — the last instance in this module of
+# keying on a spelling instead of on the property. The property is: the variable
+# the stability comparison treats as the PREVIOUS capture must be seeded with
+# something no real capture can equal. An empty seed equals the empty capture an
+# ABSENT session returns, so the watcher counts "unchanged" and reports idle for
+# a session that does not exist.
+#
+# ADDITIVE, NOT A REPLACEMENT. `_PREV_EMPTY` is retained and still checked, so
+# this cannot quietly narrow what was already caught; the name-agnostic rule only
+# adds. All six tracked charters seed a sentinel, so neither rule fires today.
+_STABILITY_CMP = re.compile(r'\[\s*"\$(\w+)"\s*=\s*"\$(\w+)"\s*\]')
+_EMPTY_SEED = re.compile(r"""^\s*(\w+)=(?:""|''|)\s*(?:;|$)""", re.MULTILINE)
+
 # (e) overseer-ejja5o. A charter that CHECKS the supervisor session must PROVE it
 # holds a live agent, not merely that a session by that name exists. Observed
 # 2026-07-28: a supervisor session created as a bare `zsh` returned PASS, so a
@@ -248,6 +262,18 @@ def history_fed_capture(*, text: str) -> list[str]:
     return found
 
 
+def _empty_seeded_comparison_vars(*, block: str) -> list[str]:
+    """Vars seeded EMPTY that a stability comparison then reads, any name."""
+    compared: set[str] = set()
+    for match in _STABILITY_CMP.finditer(block):
+        compared.update(match.groups())
+    return [
+        f"{m.group(1)}= (empty seed read by the stability comparison)"
+        for m in _EMPTY_SEED.finditer(block)
+        if m.group(1) in compared
+    ]
+
+
 def empty_prev_watcher_init(*, text: str) -> list[str]:
     """Watcher seeded with `prev=""`, which an absent session's capture equals."""
     found: list[str] = []
@@ -257,6 +283,7 @@ def empty_prev_watcher_init(*, text: str) -> list[str]:
                 continue
             if _PREV_EMPTY.search(line):
                 found.append(line.strip())
+        found.extend(_empty_seeded_comparison_vars(block=block))
     return found
 
 
@@ -710,3 +737,67 @@ case "$(realpath -- "$pane_cwd")" in /data/projects/demo) ;; esac
         'case "$(realpath -- "$pane_cwd")" in /data/projects/demo) ;; esac'
     ]
     assert [d for d in defects_in(text=guarded) if d.startswith("b-")] == []
+
+
+_WATCHER = """
+```sh
+{seed}
+for i in $(seq 1 180); do
+  pane=$(tmux capture-pane -p -t '=demo:')
+  if [ "$pane" = "{var}" ]; then stable=$((stable+1)); else stable=0; {var}="$pane"; fi
+done
+```
+"""
+
+
+def test_a_differently_named_watcher_variable_cannot_evade_the_seed_rule():
+    """THE EVASION (d) was flagged as carrying, now closed.
+
+    The original rule keyed on the literal name `prev`, so a watcher spelling it
+    anything else was invisible — the last instance in this module of keying on a
+    spelling rather than on the property. `previous=""` is the same defect: an
+    empty seed equals the empty capture an ABSENT session returns, so the watcher
+    reports idle for a session that does not exist.
+    """
+    evasive = _WATCHER.format(seed='previous=""; stable=0', var="$previous")
+    found = [d for d in defects_in(text=evasive) if d.startswith("d-")]
+    assert found == [
+        "d-empty-prev-watcher-init: previous= (empty seed read by the stability comparison)"
+    ]
+
+
+def test_a_sentinel_seed_is_accepted_under_any_variable_name():
+    """THE CONTROL, and it must hold for a renamed variable too.
+
+    Without this, a rule that flagged every seeded variable would pass the test
+    above while rejecting every correct watcher.
+    """
+    ok = _WATCHER.format(seed='previous="__NO_CAPTURE_YET__"; stable=0', var="$previous")
+    assert [d for d in defects_in(text=ok) if d.startswith("d-")] == []
+
+
+def test_the_original_literal_prev_rule_is_retained_not_replaced():
+    """ADDITIVE, not a narrowing. Both rules must still catch the shipped shape.
+
+    Widening a detector is a chance to accidentally REMOVE what it already
+    caught. `prev=""` is the exact text the fleet shipped, so it is asserted
+    directly rather than trusted to fall out of the new rule.
+    """
+    shipped = _WATCHER.format(seed='prev=""; stable=0', var="$prev")
+    found = [d for d in defects_in(text=shipped) if d.startswith("d-")]
+    assert 'd-empty-prev-watcher-init: prev=""; stable=0' in found
+
+
+def test_a_block_with_no_stability_comparison_is_not_flagged():
+    """An empty variable that no watcher reads is not this defect.
+
+    Keying on the property means an unrelated `x=""` must stay clean, or the gate
+    starts failing correct code — the failure that made the prototype unusable.
+    """
+    charter = """
+```sh
+x=""
+echo "unrelated to any watcher"
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("d-")] == []
