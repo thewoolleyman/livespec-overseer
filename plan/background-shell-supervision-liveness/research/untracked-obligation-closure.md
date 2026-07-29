@@ -91,20 +91,45 @@ signal for `.4` and `.6` having written no code.
 **Remedy (b), correctly scoped, is one sentence on one artifact** — not three
 slice rewrites.
 
+## 3b. 2026-07-29 measurement: the gap-id check is unsatisfiable for EVERY slice, not merely vacuous for two
+
+Measured the day `.1` merged (PR #243, `86cb0b6` on master):
+`detect_impl_gaps --since-version v002` still emits ALL 20 candidate ids,
+including `.1`'s mapped `gap-ekwoq4ey`. That is by construction, not a bug in
+the run: the detector's module docstring states "Gap-id derivation is a pure
+function of the spec-file path + canonical heading path + rule text", and the
+skill is "intrinsically non-mutating" — it consults neither the
+implementation nor the work-items store. A gap id leaves the emitted set ONLY
+when the SPEC text changes (or a file drops out of the since-version diff),
+NEVER because code landed.
+
+Consequence: "its mapped gap ids must leave the set" — the epic comment's
+current sentence, and this file's own §4 draft before this revision — is a
+check that can never go green for ANY slice. The gap-ledger-side closure
+signal that actually works is the one the `implement` skill prescribes:
+re-run `capture-impl-gaps` in DRY-RUN mode and require the slice's mapped
+gap ids to re-CLASSIFY as implemented (classification is the step that reads
+the code; the mechanical detect set is just the candidate universe — fixed at
+20 for v002→v003). The owed tests remain the substance; the dry-run
+re-classification is the echo.
+
 ## 4. Prepared text for the consent-gated ledger write
 
 Ledger writes in this thread are consent-gated, so this is DRAFTED, NOT
 APPLIED. When consent lands, replace the epic comment's final sentence with:
 
-> Closure check: re-run `detect_impl_gaps --since-version v002` after each
-> slice lands; its mapped gap ids must leave the set. That check is NECESSARY
-> BUT NOT SUFFICIENT, and for two slices it is VACUOUS: `.4` and `.6` have NO
-> mapped gap ids, and `.5`'s `-supervisor` reservation and canonical-path
-> halves have none either, because those four ratified obligations are written
-> without the literal token `MUST` and the detector is `MUST`-keyed. Those
-> slices close on their OWED TESTS ALONE — see
-> `research/untracked-obligation-closure.md`. An empty gap set NEVER means the
-> epic is done.
+> Closure check, per slice: verify by the slice's OWED TESTS (its ACCEPTANCE
+> line), then confirm the gap-ledger echo by re-running `capture-impl-gaps`
+> in DRY-RUN mode — the slice's mapped gap ids must re-classify as
+> implemented. Do NOT use `detect_impl_gaps` set-membership as a closure
+> signal: its gap-id set is a pure function of the spec text and never
+> shrinks when code lands (measured 2026-07-29, `.1` merged and
+> `gap-ekwoq4ey` still emits). Two slices have NO mapped gap ids at all —
+> `.4` and `.6`, plus `.5`'s `-supervisor` reservation and canonical-path
+> halves — because those ratified obligations lack the literal token `MUST`
+> and the detector is `MUST`-keyed; they close on their owed tests alone. See
+> `plan/background-shell-supervision-liveness/research/untracked-obligation-closure.md`.
+> An empty or unchanged gap set NEVER means the epic is done.
 
 ## 5. Consolidated closure criteria, per untracked obligation
 

@@ -354,11 +354,15 @@ a decision, but do not assume they are stale.
   has none either**); EDIT 4's `-supervisor` reservation and EDIT 7's
   canonical-path rule (→ two untracked halves of `.5`).
 
-  **Consequence: do NOT treat "re-run detect_impl_gaps; its gap ids must
-  leave the set" as the done-signal for `.4`, `.6`, or two-thirds of `.5`.**
-  Landing them changes the gap set not at all — and neither does NOT landing
-  them, so the epic can reach an empty gap set with two ratified obligations
-  wholly unimplemented. Verify those slices by their OWED TESTS instead.
+  **Consequence, WIDENED by measurement 2026-07-29: the gap-id
+  set-membership check is not a done-signal for ANY slice.** The detector's
+  gap-id set is a pure function of the spec text (its docstring says so) —
+  it never consults the code or the ledger, so landing a slice cannot
+  shrink it: `.1` merged and its `gap-ekwoq4ey` still emits, along with all
+  20 candidates. Verify every slice by its OWED TESTS; the gap-ledger echo,
+  where one exists, is a `capture-impl-gaps` DRY-RUN re-classifying the
+  slice's mapped ids as implemented. See the research file's §3b for the
+  measurement and the corrected §4 draft.
 
   **All of this is now worked out in full, against the RATIFIED tree, in
   `research/untracked-obligation-closure.md` — read that before touching
