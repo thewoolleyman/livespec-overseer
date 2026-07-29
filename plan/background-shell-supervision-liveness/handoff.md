@@ -24,9 +24,12 @@ attended seats do.
 
 ## 2. Where this thread stands — READ BEFORE DOING ANYTHING
 
-**RATIFIED. Steps a–d are LANDED. Step e is IN FLIGHT: `.1` is merged and
-parked at the human acceptance valve; `.2` is admitted and waits ONLY on a
-fresh-session dispatch (a new plugin release re-tripped the staleness gate).**
+**RATIFIED. Steps a–d are LANDED. Step e is IN FLIGHT and blocked in the
+FACTORY, not the code: `.1` is DONE (accepted and closed); `.2` is admitted
+and its implementation went green in a sandbox THREE times on 2026-07-29,
+but every landing attempt was killed by factory infrastructure — currently
+the gate-4 interactive `codex login`; `.3`–`.6` sit `backlog` with
+admissions PRE-APPROVED and dispatches HELD until a `.2` review passes.**
 
 | Step | State |
 |---|---|
@@ -36,30 +39,49 @@ fresh-session dispatch (a new plugin release re-tripped the staleness gate).**
 | b. Widened proposal landed | **DONE** — PR #226 merged |
 | c. Ledger filed | **DONE** — six children under `overseer-4xfmez` (`.1`–`.6`), epic retitled and scope-widened |
 | d. `/livespec:revise` | **DONE — v003 RATIFIED**, PR #232, commit `ed55630` on master. `proposed_changes/` is empty; `history/v003/` holds the proposal and its decision. Decision was `modify`: the nine edits verbatim plus one counsel co-edit aligning spec.md §"The restart" with contracts.md §"The restart interlock" |
-| e. Implementation | **IN FLIGHT** — `.1` merged (PR #243, `86cb0b6`), parked in `acceptance`; `.2` stored `ready`, dispatch needs a fresh session; `.3`–`.6` still `backlog` behind `.2` — see below |
+| e. Implementation | **IN FLIGHT** — `.1` DONE (PR #243, `86cb0b6`, accepted + CLOSED 2026-07-29); `.2` stored `ready`, three-times-green in sandboxes, blocked on the gate-4 interactive `codex login`; `.3`–`.6` `backlog`, admissions pre-approved (§3 ruling 5), dispatches held behind a passing `.2` review — see below |
 
-### Step e state, and the THREE gates a dispatch can hit
+### Step e state, and the FOUR gates a dispatch can hit
 
-**`.1` (the P1 restart defect) went through the factory GREEN on 2026-07-29:**
-PR #243, rebase-merged as `86cb0b6`, post-merge janitor green, Fabro run
-`01KYNDKJH0RHJZAMHAY9JYWW98`. It is parked in `acceptance` under
-`ai-then-human` (the AI pass verdict was PASS); the maintainer chose on
-2026-07-29 to hold it for their own review rather than accept immediately.
-The pending act is `drive --action accept:overseer-4xfmez.1` (or
-`reject:overseer-4xfmez.1:rework`). One review note: the owed fixture landed
-as `tests/integration/test_ready_declaration_restart.py`, a NEW directory —
+**`.1` (the P1 restart defect) is DONE:** PR #243, rebase-merged as
+`86cb0b6`, Fabro run `01KYNDKJH0RHJZAMHAY9JYWW98`; the maintainer accepted
+2026-07-29 and the ledger row is CLOSED. One review note that stands for
+later slices: the owed fixture landed as
+`tests/integration/test_ready_declaration_restart.py`, a NEW directory —
 this repo's convention had been beside-tests in `overseer/`; the full
 `just check` aggregate accepted it.
 
-**`.2` is admitted (stored `ready`) and is THE next dispatch.** Its dispatch
-was refused by the staleness gate (gate 1 below) minutes after `.1` merged:
-release `822186e16544` was cut mid-session, so the dispatching session's
-`c53fd50e58b6` binding went stale. The project-scope version was re-updated
-to `822186e16544` before this handoff landed, so ONE restart should bind
-current — verify with the pre-flight, since another release can land anytime.
+**`.2` is admitted (stored `ready`), its implementation is PROVEN — three
+independent sandbox runs went green through implement + janitor on
+2026-07-29 — and NOTHING has landed: every dispatch died in the factory's
+own infrastructure, never on the code.** The full post-mortem is bug
+**`bd-ib-g56f`** in the ORCHESTRATOR tenant (read it before reasoning about
+the factory). The operational summary:
 
-Three DISTINCT gates refused dispatches in this thread. Know all three; only
-one of them is a human valve.
+- Run `01KYP350T3PEMKYX87QND2WFPW` (04:47Z): implement + `just check` green
+  (commits `554b5d2`, then `a70807a` after one retry). At 05:11Z the org's
+  Anthropic MONTHLY SPEND LIMIT was crossed mid-review-turn; from then on
+  every Claude ACP launch fleet-wide fast-died in 5–8 s while codex stages
+  kept working (different billing). The R/I/A escalate interview showed only
+  "ACP turn failed" — the actionable spend-limit error sat unexposed in the
+  `stage.failed` event properties. Abandoned (supervisor-seat ruling); green
+  work discarded with the sandbox.
+- Run `01KYP8NDW1NF6D87XMXCFET3SE` (06:23Z, fresh dispatch): green again
+  (commit `fddfd48`), review fast-died identically — falsifying the
+  credential-TTL hypothesis and pinning the spend limit. It was PARKED
+  blocked on its interview awaiting the maintainer, and at EXACTLY 240m00s
+  wall the run ceiling / stall watchdog finalized it `workflow_error`,
+  destroying the sandbox and the green work. **Parked interviews do not
+  survive; answer promptly or lose the run.** (`fabro attach` exited 0 while
+  answering the dying run — verify `fabro ps` status after every answer.)
+- The maintainer ruled **"Raise the limit now"** (2026-07-29, identically
+  through both seats' pickers); capacity re-verified by probe at 15:00Z
+  (HTTP 200). The next dispatch then refused PRE-launch at
+  `run-config-overlay`: **the host codex credential was too short-lived for
+  the 4 h run budget** (gate 4 below) — where step e now stands.
+
+Four DISTINCT gates refused dispatches in this thread. Know all four; only
+one is a human VALVE (gate 2), and one more is a human ACT (gate 4).
 
 **Gate 1 — dispatcher staleness (exit 3, "plugin build is stale"). NOT a
 human valve; remedy is a session restart.** Skill bindings are fixed for a
@@ -111,8 +133,12 @@ ORCHESTRATOR plugin's spec (the `livespec-orchestrator-beads-fabro` repo's
 (admission)", and the explicit action selection IS the consent — so surface
 it to the maintainer, never self-admit. The maintainer consented 2026-07-29
 and `.1`/`.2` were moved `backlog → ready` (journaled operator human-valve
-moves). **`.3`–`.6` are STILL `backlog`** and will need the same valve, with
-fresh consent, once `.2` closes and their dependency edges clear.
+moves). **`.3`–`.6` are STILL `backlog`, and their consent is PRE-GIVEN**
+(§3 ruling 5): once `.2` closes and their edges clear, admit via the same
+valve WITHOUT surfacing pickers. The valve also serves as recovery: a dead
+dispatcher strands its item ACTIVE with no live run, and
+`move:<id>:ready` restores it — journaled, exercised three times 2026-07-29
+on `.2`.
 
 **Gate 3 — the host dispatch cap (exit 3, "admission cap refused"), cap 2.
 TRANSIENT; wait and retry.** Two INDEPENDENT gauges, each capped at 2, and
@@ -124,21 +150,53 @@ Other seats actively dispatch this tenant, so contention is normal; a
 refusal names the holders. Do not raise `dispatcher.host_dispatch_cap` in
 `.livespec.jsonc` to jump the queue.
 
+**Gate 4 — host codex credential TTL (`run-config-overlay` refusal: "Host
+Codex credential is too short-lived for the run budget; run `codex login`
+on the orchestrator host to renew it"). NOT a valve; a human ACT: an
+interactive `codex login` on this host.** The dispatcher requires the codex
+access token to outlive the 4 h run budget. `codex login` has NO
+non-interactive form, a codex exec turn does NOT rewrite the token, and
+`codex login status` does not show expiry — decode remaining life from
+`~/.codex/auth.json` (print ONLY `exp` claims, never token material). The
+Anthropic side has no equivalent pre-flight gate; it fails IN-RUN instead
+(the spend-limit story above), so probe it cheaply before dispatching:
+
+```bash
+/usr/local/bin/with-livespec-env.sh -- sh -c 'curl -s -o /dev/null -w "%{http_code}" \
+  https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY_LIVESPEC_E2E" \
+  -H "anthropic-version: 2023-06-01" -H "content-type: application/json" \
+  -d "{\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}"'
+```
+
+`200` = capacity; the spend-limit refusal names itself in the body.
+
 ### So, on cold open
 
 Run the staleness pre-flight (gate 1) FIRST. If it is stale, you are waiting
 on another restart, not on a human — say so and stop; do not burn the session
 re-deriving this. If it is clean:
 
-1. **Dispatch `.2`** — `drive --action impl:overseer-4xfmez.2` (it is
-   already admitted; no valve stands between you and dispatch). On a gate-3
-   cap refusal, wait for capacity and retry — do not raise the cap.
-2. **Surface `.1`'s pending acceptance** if the maintainer has not yet ruled:
-   accept, or `reject:…:rework`, on PR #243 (see the review note above).
-3. **After `.2` reaches `done`:** the next layer (`.3`, `.4`, `.5` — and `.6`
-   behind `.5`) is still `backlog`; surface the gate-2 admission valve for
-   fresh consent, then dispatch per the dependency layering — do not
-   parallel-dispatch slices that share files. **Read
+1. **Probe both credentials** (gate 4 + the capacity probe above). If the
+   codex token's remaining life is under the 4 h budget, the ONE unblocking
+   act is an interactive `codex login` on this host — surface it (attended:
+   `AskUserQuestion`; the `!`-prefix runs it in-session) and do the rest of
+   this list while waiting.
+2. **Dispatch `.2`** — `drive --action impl:overseer-4xfmez.2`. If the
+   ledger shows it ACTIVE with no live run, restore it first via
+   `move:overseer-4xfmez.2:ready` (see gate 2). On a gate-3 cap refusal,
+   wait and retry — do not raise the cap.
+3. **Watch the run; never park an interview.** If the R/I/A interview fires,
+   read the REAL error from `fabro events <run>` `stage.failed` properties
+   (the interview text hides it), answer promptly — a parked run dies at
+   240 m and takes its green work along — and verify the run status flipped
+   after answering.
+4. **After `.2` reaches `done`:** admit `.3`–`.6` under the PRE-APPROVED
+   consent (§3 ruling 5, no pickers) and dispatch per the layering: `.5`
+   first (priority path, depends only on `.2`), `.6` behind `.5`, `.3`/`.4`
+   as cap capacity allows — never parallel-dispatch slices that share files,
+   and **dispatches stay HELD until a `.2` review actually PASSES** (they
+   share the Claude review adapter). **Read
    `plan/background-shell-supervision-liveness/research/untracked-obligation-closure.md`
    before touching `.4`, `.5`, or `.6`** (their closure is by owed tests,
    not the gap-id check). The two §7 PENDING remedies (the epic-comment
@@ -169,6 +227,22 @@ Maintainer, 2026-07-28, via `AskUserQuestion`:
    thread**; dead-supervisor visibility per the side picked in the note.
 4. **The attended-takeover identity-hold guard SHIPS** as a designed guard,
    not an accepted residual.
+
+Maintainer, 2026-07-29:
+
+5. **Admissions for this epic's remaining slices are PRE-APPROVED**
+   (verbatim: "I pre-approve all of the admissions") — the `move:<id>:ready`
+   valve for `.3`–`.6`, including any re-admission the flow needs; do NOT
+   surface admission pickers. NOT covered: acceptances (each stays a
+   per-item `ai-then-human` maintainer valve) and NEW item filings.
+6. **"Raise the limit now"** — the org Anthropic spend limit is raised
+   (ruled identically through both seats' pickers); `.2` recovery proceeds
+   by redispatch.
+
+ATTRIBUTION NOTE (supervisor correction, 2026-07-29): the `.2`
+abandon-and-redispatch decision and the `bd-ib-g56f` filing were the
+SUPERVISOR seat's decisions under its vetting rubric, NOT maintainer
+rulings. Never record the maintainer ruling on something they have not seen.
 
 Earlier and still binding: the narrow predicate's **2-hour episode floor**
 and **`shell-prolonged`** token; supervisor sessions are **FULL CITIZENS**
@@ -252,6 +326,12 @@ every other cited module is untouched by that PR.
 - **`overseer-5jttov`** (`supervisor-scratch-discipline`) — adjacent,
   non-blocking. It edits the same generated supervisor charter that lane C's
   teach-the-protocol obligation touches; sequence those edits, do not gate.
+- **`bd-ib-g56f`** — the ORCHESTRATOR tenant (`livespec-orchestrator-beads-fabro`),
+  P1 bug: the 2026-07-29 factory-outage post-mortem (spend-limit hard-fail
+  swallowed by "ACP turn failed", `transient_infra` misclassification with a
+  per-run human interview, and the 240 m ceiling destroying parked green
+  work). Filed and twice-amended by the supervisor seat's decision. Reach it
+  by running the `bd` wrapper FROM that repo's checkout.
 
 Reach `bd` through the fleet wrapper — `with-livespec-env.sh bd show <id>`;
 a bare `bd` is refused by the tenant. Beads refuses task→epic `blocks` edges;
@@ -393,6 +473,16 @@ a decision, but do not assume they are stale.
   traceability comment was deliberately NOT done by the worker seat: ledger
   writes in this thread are consent-gated. Earlier detail in
   `reviews/wave3-worker-verification.md` §8.
+
+- **The 2026-07-29 factory-outage findings live in `bd-ib-g56f`; do not
+  re-derive them.** The short form: an org Anthropic spend limit fails every
+  Claude ACP turn hard while codex turns keep working; the workflow surfaces
+  only "ACP turn failed" (the real cause is in `stage.failed`
+  `properties.failure.causes`); parked interviews die at exactly 240m00s
+  with their sandbox; `fabro attach` exit 0 proves nothing against a dying
+  run. Three `.2` implementations went green in sandboxes that day and none
+  landed — **the code side of `.2` is derisked; the factory side was the
+  entire story.**
 
 ## 8. Repository discipline
 
