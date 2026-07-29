@@ -73,7 +73,10 @@ _BINDING = re.compile(
 )
 _TARGET = re.compile(r"-t\s+((?:'[^']*')|(?:\"[^\"]*\")|(?:\S+))")
 _TMUX_LINE = re.compile(r"\btmux\b")
-_READLINK = re.compile(r"readlink\s+-f")
+# Any path-resolution command whose empty-input behaviour is
+# implementation-dependent. `realpath` is included so an alternative
+# spelling cannot evade the guard requirement (see docstring below).
+_PATH_RESOLVE = re.compile(r"readlink\s+-f|\brealpath\b")
 _NONEMPTY_GUARD = re.compile(r"(?:test\s+-n|\[\s+-n|\[\[\s+-n|-z\s)")
 
 # Defect (c) is NOT "capture-pane -S -N appears". A bounded scrollback read is a
@@ -194,18 +197,38 @@ def _variable_name(*, token: str) -> str | None:
     return None
 
 
-def unguarded_readlink(*, text: str) -> list[str]:
-    """`readlink -f` with no non-empty guard in the preceding three lines.
+def unguarded_path_resolution(*, text: str) -> list[str]:
+    """Path resolution with no non-empty guard in the preceding three lines.
 
-    `readlink -f ""` returns the CWD with exit 0 on GNU coreutils, so a
-    containment check fed an empty `pane_current_path` renders as PASS against
-    the repo root.
+    THE ATTRIBUTION HERE WAS BACKWARDS UNTIL 2026-07-30 and the correction is the
+    reason this docstring is long. Measured on the developer host, whose
+    `readlink` and `realpath` are BOTH uutils coreutils 0.2.2:
+
+        readlink -f ""       rc=0, prints $PWD   -> FALSE PASS
+        readlink -f -- ""    rc=0, prints $PWD   -> `--` does NOT save it
+        realpath ""          rc=1                -> fails safe
+
+    So the false pass is **uutils**, not GNU — GNU exits 1 and fails safe by
+    accident. This module previously credited the false pass to GNU, which would
+    have sent a reader to the wrong platform to reproduce it. The sibling
+    `test_repo_containment_discriminates.py` had the mapping right all along;
+    this file disagreed with it, and two files in one directory disagreeing about
+    an environmental fact is how a wrong belief survives review.
+
+    What saves the emitted charter form is therefore the NON-EMPTY GUARD, not the
+    `--`. The `--` protects a leading-dash path, a different hazard.
+
+    `realpath` is matched as well as `readlink -f`. Keying only on `readlink`
+    would let an alternative spelling of the same operation evade the guard
+    requirement entirely — the identical self-disarming shape that let defect
+    (e)'s detector go blind the moment (f) was remediated. A detector must key on
+    the ABSENCE OF THE GUARD, not on one spelling of the thing being guarded.
     """
     found: list[str] = []
     for block in _code_blocks(text=text):
         lines = block.splitlines()
         for index, line in enumerate(lines):
-            if not _READLINK.search(line) or _is_comment(line=line):
+            if not _PATH_RESOLVE.search(line) or _is_comment(line=line):
                 continue
             window = "\n".join(lines[max(0, index - 3) : index + 1])
             if not _NONEMPTY_GUARD.search(window):
@@ -287,7 +310,7 @@ def supervisor_trusted_by_name(*, text: str) -> list[str]:
 
 _DETECTORS = (
     ("a-bare-tmux-target", bare_targets),
-    ("b-unguarded-readlink", unguarded_readlink),
+    ("b-unguarded-path-resolution", unguarded_path_resolution),
     ("c-history-fed-capture", history_fed_capture),
     ("d-empty-prev-watcher-init", empty_prev_watcher_init),
     ("e-supervisor-trusted-by-name", supervisor_trusted_by_name),
@@ -441,7 +464,7 @@ tmux display-message -p '#{pane_pid}' -t my-session
     ]
 
 
-def test_an_unguarded_readlink_is_flagged_and_a_guarded_one_is_not():
+def test_an_unguarded_path_resolution_is_flagged_and_a_guarded_one_is_not():
     """RED demonstration and discrimination for (b)."""
     unguarded = """
 ```sh
@@ -457,7 +480,7 @@ case "$(readlink -f -- "$pane_cwd")" in
 ```
 """
     assert defects_in(text=unguarded) == [
-        'b-unguarded-readlink: case "$(readlink -f -- "$pane_cwd")" in'
+        'b-unguarded-path-resolution: case "$(readlink -f -- "$pane_cwd")" in'
     ]
     assert defects_in(text=guarded) == []
 
@@ -656,3 +679,34 @@ tmux list-sessions -F '#{{session_name}}' | grep {flags} 'demo-supervisor' || ex
 """
         found = defects_in(text=charter)
         assert any(d.startswith("e-") for d in found), f"(e) went blind on {flags}: {found}"
+
+
+def test_realpath_cannot_evade_the_guard_requirement():
+    """The self-disarm rule applied BEFORE the evasion appears in a charter.
+
+    (b) used to key on the literal `readlink -f`, so resolving the same path with
+    `realpath` carried no guard requirement at all. That is the shape that let
+    (e) go blind when (f) landed; the lesson is to key on the ABSENCE OF THE
+    GUARD rather than on one spelling of the guarded operation.
+
+    No charter uses `realpath` today. Closing it now is cheap; discovering it
+    after a charter adopts the spelling is not.
+    """
+    unguarded = """
+```sh
+pane_cwd=$(tmux display-message -p -t '=demo:' '#{pane_current_path}')
+case "$(realpath -- "$pane_cwd")" in /data/projects/demo) ;; esac
+```
+"""
+    guarded = """
+```sh
+pane_cwd=$(tmux display-message -p -t '=demo:' '#{pane_current_path}')
+[ -n "$pane_cwd" ] || { echo "HALT"; echo "REMEDY: retarget"; exit 1; }
+case "$(realpath -- "$pane_cwd")" in /data/projects/demo) ;; esac
+```
+"""
+    assert [d for d in defects_in(text=unguarded) if d.startswith("b-")] == [
+        "b-unguarded-path-resolution: "
+        'case "$(realpath -- "$pane_cwd")" in /data/projects/demo) ;; esac'
+    ]
+    assert [d for d in defects_in(text=guarded) if d.startswith("b-")] == []
