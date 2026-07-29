@@ -85,13 +85,32 @@ ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
 
 Report which driver was found.
 
-3. Supervisor session exists:
+3. The supervisor session exists AND is really a live agent session. The same
+proof as precondition 2, for the same reason — existence by name proves nothing
+here either. A supervisor session holding only a shell is indistinguishable, to
+a name check, from a working supervisor, so the charter gets generated and
+reported as ready while nothing can act on it. Emit this, not a description of
+it:
 
 ```bash
+WORKER_TARGET='=<worker-session>:'
 SUPERVISOR_TARGET='=<supervisor-session>:'
 tmux has-session -t "$SUPERVISOR_TARGET" \
   || { echo "HALT: expected supervisor session '<supervisor-session>'"; echo "REMEDY: switch to the correct supervisor session or ask the maintainer to bootstrap it"; exit 1; }
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '#{pane_pid}')
+[ -n "$supervisor_pane_pid" ] \
+  || { echo "HALT: empty pane_pid for '<supervisor-session>'"; echo "REMEDY: re-check the exact supervisor target and stop if it still resolves empty"; exit 1; }
+[ "$supervisor_pane_pid" != "$pane_pid" ] \
+  || { echo "HALT: supervisor and worker resolve to the SAME pane"; echo "REMEDY: re-check both exact targets — a prefix match puts both names on one pane, and the worker's agent then reads as the supervisor's"; exit 1; }
+ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid" -H
+# PASS only if a live `claude` or `codex` process appears in that tree.
+# A lone shell (zsh/bash) with no agent child is a HALT.
+# REMEDY: if no live agent appears, ask the maintainer to start the agent in that session.
 ```
+
+Both pids are resolved in THIS block rather than inherited from precondition 2,
+so the check is self-contained and cannot silently pass on an unset variable.
 
 4. The plan thread exists INSIDE the target repo. Resolve an ABSOLUTE path. A
 containment check rooted at the bare `plan/` directory is cwd-relative, and it
