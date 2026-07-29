@@ -23,7 +23,8 @@ to another session, do not proceed read-only.
 1. Supervised session exists:
 
 ```bash
-tmux has-session -t "fabro-review-classifier-defect"
+tmux list-sessions -F '#{session_name}' | grep -qx 'fabro-review-classifier-defect' \
+  || echo "HALT: expected session 'fabro-review-classifier-defect' does not exist"
 ```
 
 2. The supervised session is really a live agent session — its pane process tree
@@ -32,7 +33,7 @@ a FAILURE. Runtime identity comes from exact live process evidence, NEVER from a
 session name; a leftover session named like an agent proves nothing.
 
 ```bash
-pane_pid=$(tmux display-message -p -t "fabro-review-classifier-defect" '#{pane_pid}')
+pane_pid=$(tmux display-message -p -t '=fabro-review-classifier-defect:' '#{pane_pid}')
 ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
 # PASS only if a live `claude` or `codex` process appears in that tree.
 # A lone shell (zsh/bash) with no agent child is a HALT.
@@ -43,7 +44,8 @@ Report which driver was found.
 3. Supervisor session exists:
 
 ```bash
-tmux has-session -t "fabro-review-classifier-defect-supervisor"
+tmux list-sessions -F '#{session_name}' | grep -qx 'fabro-review-classifier-defect-supervisor' \
+  || echo "HALT: expected session 'fabro-review-classifier-defect-supervisor' does not exist"
 ```
 
 4. The plan thread exists INSIDE the target repo — absolute path, because nothing
@@ -58,8 +60,9 @@ test -d "/data/projects/livespec-overseer/plan/fabro-review-classifier-defect"
 first — a symlinked path that merely LOOKS contained is a HALT:
 
 ```bash
-pane_cwd=$(tmux display-message -p -t "fabro-review-classifier-defect" '#{pane_current_path}')
-case "$(readlink -f "$pane_cwd")" in
+pane_cwd=$(tmux display-message -p -t '=fabro-review-classifier-defect:' '#{pane_current_path}')
+[ -n "$pane_cwd" ] || { echo "HALT: empty pane_current_path"; exit 1; }
+case "$(readlink -f -- "$pane_cwd")" in
   /data/projects/livespec-overseer|/data/projects/livespec-overseer/*) echo "PASS: $pane_cwd" ;;
   *) echo "HALT: pane cwd $pane_cwd is outside the target repo" ;;
 esac
@@ -101,7 +104,7 @@ diagnosis "unverified" by reading only logs.
 Inspect read-only — last 40 lines of the worker pane:
 
 ```sh
-tmux capture-pane -p -t fabro-review-classifier-defect -S -40
+tmux capture-pane -p -t '=fabro-review-classifier-defect:' -S -40
 ```
 
 `-S -40` starts 40 lines back in history. Do NOT pipe to `tail -N` — `-N` is a
@@ -110,9 +113,9 @@ placeholder and `tail` rejects it.
 Short instruction — send the text, VERIFY, then send Enter SEPARATELY:
 
 ```sh
-tmux send-keys -t fabro-review-classifier-defect -- '<one line>'
-tmux capture-pane -p -t fabro-review-classifier-defect -S -10   # confirm it landed
-tmux send-keys -t fabro-review-classifier-defect Enter          # only after verifying
+tmux send-keys -t '=fabro-review-classifier-defect:' -- '<one line>'
+tmux capture-pane -p -t '=fabro-review-classifier-defect:' -S -10   # confirm it landed
+tmux send-keys -t '=fabro-review-classifier-defect:' Enter          # only after verifying
 ```
 
 Do NOT use the one-shot `… -- '<line>' Enter` form. Measured against a live worker
@@ -124,9 +127,9 @@ Longer text — load from a file, paste, VERIFY, then Enter as a separate step:
 
 ```sh
 tmux load-buffer -b sup /tmp/msg.txt
-tmux paste-buffer -b sup -t fabro-review-classifier-defect
-tmux capture-pane -p -t fabro-review-classifier-defect -S -20   # confirm it landed
-tmux send-keys -t fabro-review-classifier-defect Enter          # only after verifying
+tmux paste-buffer -b sup -t '=fabro-review-classifier-defect:'
+tmux capture-pane -p -t '=fabro-review-classifier-defect:' -S -20   # confirm it landed
+tmux send-keys -t '=fabro-review-classifier-defect:' Enter          # only after verifying
 ```
 
 Idle plus queued input means STUCK, not idle. Never name a variable `TMUX`, and
@@ -224,7 +227,7 @@ mkdir -p "$(dirname "$wait_channel")"
 prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
 for i in $(seq 1 180); do            # ~60 min ceiling, then give up loudly
   sleep 20
-  pane=$(tmux capture-pane -p -t fabro-review-classifier-defect)   # visible only
+  pane=$(tmux capture-pane -p -t '=fabro-review-classifier-defect:')   # visible only
   [ -z "$pane" ] && { echo "WAKE: pane unreadable — session may be gone"; exit 0; }
   if printf '%s\n' "$pane" | tail -8 \
        | grep -qE '^[[:space:]]*Enter to (select|confirm)[[:space:]]*(·.*)?$'; then
