@@ -118,6 +118,18 @@ every consumer below is empty-guarded, because an empty value laundered through
    tmux list-sessions -F '#{session_name}' \
      | grep -qx 'background-shell-supervision-liveness-supervisor' \
      || echo "HALT: expected 'background-shell-supervision-liveness-supervisor'"
+   WORKER_TARGET='=background-shell-supervision-liveness:'
+   SUPERVISOR_TARGET='=background-shell-supervision-liveness-supervisor:'
+   pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+   supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '#{pane_pid}')
+   [ -n "$supervisor_pane_pid" ] \
+     || { echo "HALT: empty pane_pid for 'background-shell-supervision-liveness-supervisor'"; echo "REMEDY: re-check the exact supervisor target and stop if it still resolves empty"; exit 1; }
+   [ "$supervisor_pane_pid" != "$pane_pid" ] \
+     || { echo "HALT: supervisor and worker resolve to the SAME pane"; echo "REMEDY: re-check both exact targets — a prefix match puts both names on one pane, and the worker's agent then reads as the supervisor's"; exit 1; }
+   ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid" -H
+   # PASS only if a live `claude` or `codex` process appears in that tree.
+   # A lone shell (zsh/bash) with no agent child is a HALT.
+   # REMEDY: if no live agent appears, ask the maintainer to start the agent in that session.
    ```
 
 5. **Plan thread inside the repo, and the worker's cwd resolves inside it:**

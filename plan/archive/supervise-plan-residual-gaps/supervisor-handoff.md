@@ -49,6 +49,17 @@ Report which driver was found.
 ```bash
 SUPERVISOR_TARGET='=supervise-plan-residual-gaps-supervisor:'
 tmux has-session -t "$SUPERVISOR_TARGET"
+WORKER_TARGET='=supervise-plan-residual-gaps:'
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '#{pane_pid}')
+[ -n "$supervisor_pane_pid" ] \
+  || { echo "HALT: empty pane_pid for 'supervise-plan-residual-gaps-supervisor'"; echo "REMEDY: re-check the exact supervisor target and stop if it still resolves empty"; exit 1; }
+[ "$supervisor_pane_pid" != "$pane_pid" ] \
+  || { echo "HALT: supervisor and worker resolve to the SAME pane"; echo "REMEDY: re-check both exact targets — a prefix match puts both names on one pane, and the worker's agent then reads as the supervisor's"; exit 1; }
+ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid" -H
+# PASS only if a live `claude` or `codex` process appears in that tree.
+# A lone shell (zsh/bash) with no agent child is a HALT.
+# REMEDY: if no live agent appears, ask the maintainer to start the agent in that session.
 ```
 
 4. The plan thread exists inside the target repo — absolute path, because a

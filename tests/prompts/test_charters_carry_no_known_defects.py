@@ -1,4 +1,4 @@
-"""Gate every charter IN THIS REPO against the four known defect classes.
+"""Gate every charter IN THIS REPO against the five known defect classes.
 
 The nine groom slices fix the GENERATOR, so the NEXT charter is correct. None of
 them remediates the charters already emitted, and nothing schedules regeneration
@@ -22,6 +22,18 @@ EXPLAINING the bug. A detector that fires on the documentation of a fix makes
 hardening a charter raise its score, which is unusable as a gate. Hence
 `test_the_hardened_exemplar_is_clean` below: the exemplar is a POSITIVE CONTROL,
 and any hit on it is a defect in this module, not in the charter.
+
+WHY CLASS (e) EXISTS, AND WHY IT IS URGENT RATHER THAN TIDY. Fixing the
+generator in this repo does NOT fix the generator that RUNS. Measured
+2026-07-29 across all nine cached plugin versions under
+`~/.claude/plugins/cache/livespec-overseer/`: ZERO contain the exact-target
+mandate and ZERO contain the supervisor liveness proof. A charter generated on
+this host 17h after the exact-target fix merged still carried 12 bare targets —
+it came from the stale cache, and this gate is what turned master red on it.
+So until a release is cut, every newly generated charter arrives defective and
+hand-hardening the deployed ones is the only thing that helps. Gating the
+RUNNING generator is a release-lane question and is deliberately not attempted
+here.
 """
 
 from __future__ import annotations
@@ -76,6 +88,20 @@ _CAPTURE_S_PIPED = re.compile(r"capture-pane[^\n|]*-S\s+-\d+[^\n]*\|[^\n]*grep")
 # "unchanged" three times and reports idle for a session that does not exist. The
 # exemplar seeds a sentinel that no capture can equal.
 _PREV_EMPTY = re.compile(r"""prev=(?:''|""|\s*$)""", re.MULTILINE)
+
+# (e) overseer-ejja5o. A charter that CHECKS the supervisor session must PROVE it
+# holds a live agent, not merely that a session by that name exists. Observed
+# 2026-07-28: a supervisor session created as a bare `zsh` returned PASS, so a
+# session that could not supervise anything cleared the gate.
+#
+# Two spellings are in the wild and both count as "checks the supervisor" — the
+# bound `SUPERVISOR_TARGET='=<name>-supervisor:'` form and the
+# `list-sessions | grep -qx '<name>-supervisor'` form. Matching only one would
+# let the other evade.
+_SUPERVISOR_CHECK = re.compile(r"SUPERVISOR_TARGET=|grep\s+-qx\s+'[^']*-supervisor'")
+_SUPERVISOR_PROOF_PS = '--ppid "$supervisor_pane_pid"'
+_SUPERVISOR_PROOF_GUARD = '[ -n "$supervisor_pane_pid" ]'
+_SUPERVISOR_PROOF_DISTINCT = '"$supervisor_pane_pid" != "$pane_pid"'
 
 
 def _code_blocks(*, text: str) -> list[str]:
@@ -191,11 +217,42 @@ def empty_prev_watcher_init(*, text: str) -> list[str]:
     return found
 
 
+def supervisor_trusted_by_name(*, text: str) -> list[str]:
+    """A supervisor existence check with no liveness proof anywhere (ejja5o).
+
+    SCOPE, stated rather than hidden: this fires only on a charter that ACTUALLY
+    EMITS a supervisor check. A charter that emits none at all is not flagged
+    here — it has a different problem (no runnable precondition), and inventing
+    a precondition block for a thread that never had one is a rewrite, not a
+    remediation. Two archived charters in this repo are in that category.
+
+    The proof is required somewhere in the charter rather than inside the same
+    block, because the shipped charters spell the existence check four different
+    ways and pinning the layout would flag correct variants.
+    """
+    blocks = _code_blocks(text=text)
+    checks = [b for b in blocks if _SUPERVISOR_CHECK.search(b)]
+    if not checks:
+        return []
+    joined = "\n".join(blocks)
+    if all(
+        needle in joined
+        for needle in (
+            _SUPERVISOR_PROOF_PS,
+            _SUPERVISOR_PROOF_GUARD,
+            _SUPERVISOR_PROOF_DISTINCT,
+        )
+    ):
+        return []
+    return ["supervisor existence checked but liveness never proven"]
+
+
 _DETECTORS = (
     ("a-bare-tmux-target", bare_targets),
     ("b-unguarded-readlink", unguarded_readlink),
     ("c-history-fed-capture", history_fed_capture),
     ("d-empty-prev-watcher-init", empty_prev_watcher_init),
+    ("e-supervisor-trusted-by-name", supervisor_trusted_by_name),
 )
 
 
@@ -412,3 +469,80 @@ prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
 """
     assert defects_in(text=empty) == ['d-empty-prev-watcher-init: prev=""; stable=0']
     assert defects_in(text=sentinel) == []
+
+
+_PROOF = """
+WORKER_TARGET='=demo:'
+SUPERVISOR_TARGET='=demo-supervisor:'
+tmux has-session -t "$SUPERVISOR_TARGET"
+supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '#{pane_pid}')
+[ -n "$supervisor_pane_pid" ] || { echo "HALT"; echo "REMEDY: retarget"; exit 1; }
+[ "$supervisor_pane_pid" != "$pane_pid" ] || { echo "HALT"; echo "REMEDY: retarget"; exit 1; }
+ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid" -H
+"""
+
+
+def test_a_supervisor_checked_without_a_liveness_proof_is_flagged():
+    """RED demonstration for (e) — the shipped shape, which says yes to a shell.
+
+    Observed 2026-07-28: a supervisor session created as a bare `zsh` returned
+    PASS, so a session that could not supervise anything cleared the gate.
+    """
+    charter = """
+```sh
+SUPERVISOR_TARGET='=demo-supervisor:'
+tmux has-session -t "$SUPERVISOR_TARGET" || { echo "HALT"; echo "REMEDY: bootstrap"; exit 1; }
+```
+"""
+    assert defects_in(text=charter) == [
+        "e-supervisor-trusted-by-name: supervisor existence checked but liveness never proven"
+    ]
+
+
+def test_the_list_sessions_spelling_is_also_in_scope():
+    """ANTI-EVASION. Four spellings of the existence check ship in this repo.
+
+    Matching only `SUPERVISOR_TARGET=` would let the `grep -qx` form through,
+    and two live charters use exactly that form.
+    """
+    charter = """
+```sh
+tmux list-sessions -F '#{session_name}' | grep -qx 'demo-supervisor' \\
+  || { echo "HALT"; echo "REMEDY: bootstrap it"; exit 1; }
+```
+"""
+    assert len(defects_in(text=charter)) == 1
+
+
+def test_a_full_liveness_proof_is_not_flagged():
+    """THE CONTROL. Without it, a detector that always says yes would pass."""
+    assert defects_in(text=f"\n```sh{_PROOF}```\n") == []
+
+
+def test_a_partial_proof_is_still_flagged():
+    """The toothless shape one level down: the `ps` line without its guards.
+
+    A charter can run a real process-tree command and still be unsound — without
+    the distinct-pane guard a prefix match runs it against the WORKER's pane and
+    finds the worker's agent.
+    """
+    partial = _PROOF.replace('[ "$supervisor_pane_pid" != "$pane_pid" ]', "true")
+    assert partial != _PROOF, "fixture mutation was a no-op"
+    assert len(defects_in(text=f"\n```sh{partial}```\n")) == 1
+
+
+def test_a_charter_that_checks_no_supervisor_is_out_of_scope():
+    """THE DOCUMENTED SCOPE LIMIT, asserted rather than left implicit.
+
+    Two archived charters in this repo mention the supervisor in prose and emit
+    no supervisor command at all. They have a different problem — no runnable
+    precondition — and inventing a precondition block for a closed thread is a
+    rewrite, not a remediation. Stating the limit in a test keeps it honest.
+    """
+    charter = """
+```sh
+WORKER_TARGET='=demo:'
+tmux has-session -t "$WORKER_TARGET" || { echo "HALT"; echo "REMEDY: start it"; exit 1; }
+```
+"""
+    assert defects_in(text=charter) == []

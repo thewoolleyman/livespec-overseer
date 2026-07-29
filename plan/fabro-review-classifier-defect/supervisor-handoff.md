@@ -46,6 +46,18 @@ Report which driver was found.
 ```bash
 tmux list-sessions -F '#{session_name}' | grep -qx 'fabro-review-classifier-defect-supervisor' \
   || echo "HALT: expected session 'fabro-review-classifier-defect-supervisor' does not exist"
+WORKER_TARGET='=fabro-review-classifier-defect:'
+SUPERVISOR_TARGET='=fabro-review-classifier-defect-supervisor:'
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '#{pane_pid}')
+[ -n "$supervisor_pane_pid" ] \
+  || { echo "HALT: empty pane_pid for 'fabro-review-classifier-defect-supervisor'"; echo "REMEDY: re-check the exact supervisor target and stop if it still resolves empty"; exit 1; }
+[ "$supervisor_pane_pid" != "$pane_pid" ] \
+  || { echo "HALT: supervisor and worker resolve to the SAME pane"; echo "REMEDY: re-check both exact targets — a prefix match puts both names on one pane, and the worker's agent then reads as the supervisor's"; exit 1; }
+ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid" -H
+# PASS only if a live `claude` or `codex` process appears in that tree.
+# A lone shell (zsh/bash) with no agent child is a HALT.
+# REMEDY: if no live agent appears, ask the maintainer to start the agent in that session.
 ```
 
 4. The plan thread exists INSIDE the target repo — absolute path, because nothing
