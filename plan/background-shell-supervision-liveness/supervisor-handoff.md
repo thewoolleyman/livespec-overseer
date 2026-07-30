@@ -400,6 +400,39 @@ Corrections to THIS supervisor role's own behavior — append here. A record
 that logs only the worker's mistakes is a wrong record. Regenerating this file
 MUST preserve every entry below.
 
+### First-hand, 2026-07-30 — from the seat that closed the epic and track
+
+- **C13 — my picker detector missed an open picker and the maintainer had
+  to intervene.** The detector grepped only the last 8 pane lines for the
+  anchored "Enter to select" footer; a picker whose own footer (a 6-line
+  task list plus blanks) exceeded that window sat invisible while the
+  worker waited on me. C3's inverse: that fix bounded an over-wide capture,
+  this one under-bounded it. Fix: scan the FULL VISIBLE pane, keep the
+  both-ends anchor. Generalize with C3-C5: every window a detector reads
+  is a scope decision — test BOTH too-wide and too-narrow.
+- **C14 — I armed four defective watchers in one day, each a detector
+  never dry-run in its exact armed form.** An awk field off by one
+  (workflow, not status); a loop variable named `status` (read-only in
+  zsh — died instantly); an unpinned `pgrep -f 'fabro server tcp:'` that
+  matched a long-lived SIBLING server and false-woke on first poll — and
+  its pre-arm "dry-run" had exercised a DIFFERENT pattern than the one
+  armed. Rules: dry-run the exact armed expression byte-for-byte against
+  live state; pin process detectors to a disambiguating token (the port,
+  not the name); a dry-run of ALMOST the armed thing is a dry-run of
+  nothing.
+- **C15 — I stamped the obligation record with invented timestamps three
+  times**, including twice AFTER logging the mistake (once ~2h fast, once
+  ~10min fast, once local time read off a file listing). A record is a
+  measurement surface: stamp only from `date -u` executed in the same
+  turn, no exceptions, no inference from file mtimes.
+- **C16 — the maintainer caught me sitting on a worker question for two
+  wakes.** The worker held its archive-PR merge "on your merge-timing
+  call" and said so at the end of two consecutive reports; I read the
+  reports for status and missed the held-on-me line both times. A report
+  that ENDS with a held item addressed to you is an open obligation, not
+  narration: extract every held-on-supervisor line explicitly before
+  ending the turn's read.
+
 ### First-hand, 2026-07-29 — from the seat that regenerated this file
 
 - **C10 — I declared a wedged Codex job "alive and actively working" from a
