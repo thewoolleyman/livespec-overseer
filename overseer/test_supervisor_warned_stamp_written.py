@@ -282,8 +282,10 @@ def test_blocked_with_only_a_background_shell_is_never_voided(*, tmp_path):
     declare(
         repo=repo, topic=topic, value="blocked: need your call", mtime=800.0
     )  # old, but NOT stale
-    with contextlib.redirect_stderr(_io.StringIO()):
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-    assert view.status == "working"
+    assert view.status == "blocked:human"
+    assert view.note == "3m: need your call; background shell"
+    assert "blocked on human" in err.getvalue()
     state = signals.read_state(repo=str(repo), topic=topic)
     assert state is not None and state.token == signals.STATE_BLOCKED  # survived

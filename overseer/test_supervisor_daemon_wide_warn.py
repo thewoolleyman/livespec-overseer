@@ -8,12 +8,14 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 ``import supervisor`` resolves via conftest.py.
 """
 
+import codex_sessions
 import pytest
 import registry
 import supervisor
 from test_supervisor_builders import (
     arm_ready_marker,
     assert_no_tmux_scoping,
+    codex_idle_capture,
     idle_capture,
     make_plan,
     make_supervisor,
@@ -163,7 +165,7 @@ def test_bg_shell_suppresses_restart(*, tmp_path):
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
-        session=session, repo=repo, capture=idle_capture(ctx=30)
+        session=session, repo=repo, capture=codex_idle_capture(ctx=30, topic=topic), cmd="bun"
     )  # empty box → textually idle
     fake.pane_pid_map[session] = 100  # the pane's login-shell PID
     # 100 → 200 (node runtime) → 300 (node MCP server) + 400 (a bg-command shell).
@@ -175,6 +177,11 @@ def test_bg_shell_suppresses_restart(*, tmp_path):
         children_of=lambda *, pid: children.get(pid, []),
         comm_of=lambda *, pid: comms.get(pid),
     )
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=321, name=topic, cwd=str(repo), session_id="codex-1"
+        )
+    }
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
@@ -203,6 +210,11 @@ def test_no_bg_shell_allows_restart(*, tmp_path):
         children_of=lambda *, pid: children.get(pid, []),
         comm_of=lambda *, pid: comms.get(pid),
     )
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=321, name=topic, cwd=str(repo), session_id="codex-1"
+        )
+    }
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )

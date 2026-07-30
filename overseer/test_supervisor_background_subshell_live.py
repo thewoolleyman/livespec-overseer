@@ -8,12 +8,14 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 ``import supervisor`` resolves via conftest.py.
 """
 
+import codex_sessions
 import pytest
 import registry
 import supervisor
 from test_supervisor_builders import (
     arm_ready_marker,
     busy_capture,
+    codex_idle_capture,
     idle_capture,
     key_for,
     make_plan,
@@ -42,7 +44,7 @@ def test_bg_shell_at_danger_is_working_and_never_restarted(*, tmp_path):
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
-        session=session, repo=repo, capture=idle_capture(ctx=13)
+        session=session, repo=repo, capture=codex_idle_capture(ctx=13, topic=topic), cmd="bun"
     )  # idle-LOOKING, deep in danger
     fake.pane_pid_map[session] = 100
     children = {100: [200], 200: [300]}
@@ -53,6 +55,11 @@ def test_bg_shell_at_danger_is_working_and_never_restarted(*, tmp_path):
         children_of=lambda *, pid: children.get(pid, []),
         comm_of=lambda *, pid: comms.get(pid),
     )
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=321, name=topic, cwd=str(repo), session_id="codex-1"
+        )
+    }
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"  # bg shell ⇒ busy; the danger branch is never reached
     assert view.note == "background shell"
@@ -66,7 +73,7 @@ def test_bg_shell_sets_background_shell_note(*, tmp_path):
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(
-        session=session, repo=repo, capture=idle_capture(ctx=73)
+        session=session, repo=repo, capture=codex_idle_capture(ctx=73, topic=topic), cmd="bun"
     )  # idle, high ctx (no inject)
     fake.pane_pid_map[session] = 100
     children = {100: [200]}
@@ -77,6 +84,11 @@ def test_bg_shell_sets_background_shell_note(*, tmp_path):
         children_of=lambda *, pid: children.get(pid, []),
         comm_of=lambda *, pid: comms.get(pid),
     )
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=321, name=topic, cwd=str(repo), session_id="codex-1"
+        )
+    }
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
     assert view.note == "background shell"

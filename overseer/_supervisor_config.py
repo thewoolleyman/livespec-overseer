@@ -41,9 +41,11 @@ __all__: list[str] = [
     "RESTART_POLL_INTERVAL",
     "RESTART_POLL_MAX",
     "SETTLE_DELAY",
+    "SHELL_PROLONGED_AFTER",
     "SUBMIT_MAX_ENTERS",
     "SUBMIT_POLL",
     "SUPERVISION_CONDITIONS",
+    "WINDDOWN_STARVED_AFTER",
     "WINDOW_NAME",
     "default_gitignore_check",
     "iso_now",
@@ -144,6 +146,11 @@ CONDITION_CONTINUITY_GAP = 900.0
 # without a fresh parse. The row still reports the stale knowledge so losing sight of
 # a low-context track is visible.
 CTX_STALE_AFTER = 3600.0
+
+# Report-only liveness floors. Wind-down starvation shares the ratified 2h
+# background-shell floor; above-threshold shell-only shielding uses the ruled 8h floor.
+WINDDOWN_STARVED_AFTER = 2 * 3600.0
+SHELL_PROLONGED_AFTER = 8 * 3600.0
 
 # Standing blocked declarations escalate once at each crossed age band. Further daily
 # bands are derived from the same 24h cadence in the evaluator.

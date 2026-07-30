@@ -232,10 +232,10 @@ def observe(
     # `claude_status is None` ⇒ not an adopted Claude session.
     claude_status = sup.claude_status_by_session.get(session)
     claude_busy = claude_status in CLAUDE_BUSY_STATUSES
-    codex_fallback = claude_status is None and bg_shell
+    is_codex = is_codex_track(sup=sup, session=session, repo=repo, topic=topic, target=target)
+    codex_fallback = claude_status is None and bg_shell and is_codex
     busy = signals.is_busy(capture_text=capture) or claude_busy or codex_fallback
     gate = signals.is_structured_gate(capture_text=capture)
-    is_codex = is_codex_track(sup=sup, session=session, repo=repo, topic=topic, target=target)
     # The row's RUNTIME, derived ONCE here where `is_codex` is already known, then
     # carried onto every row below that has a live managed pane (`tmux=session`) so the
     # table's tmux column can annotate the session name (`livespec (claude)` /

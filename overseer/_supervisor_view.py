@@ -45,6 +45,8 @@ ATTENTION_STATUSES = (
     "danger",
     "ready-uncertifiable",
     "session-gone",
+    "shell-prolonged",
+    "winddown-starved",
 )
 
 # The row note a track carries while its POST-RESPAWN resume line has not yet SUBMITTED
@@ -86,6 +88,8 @@ _STATUS_COLOR = {
     "ctx-stale": _ANSI_YELLOW,
     "ready-uncertifiable": _ANSI_YELLOW,
     "session-gone": _ANSI_RED,
+    "shell-prolonged": _ANSI_YELLOW,
+    "winddown-starved": _ANSI_YELLOW,
 }
 
 
