@@ -115,6 +115,52 @@
 > > A tracked-file/worktree prohibition was in force at session end for everything
 > > except this handoff; it lapses with that session.
 > >
+> > ### ⛔ WHY A6 SHIPS A DUPLICATE OF THE PACKAGE — read this BEFORE "fixing" it
+> >
+> > **A6 copies the whole `overseer` package to `.claude-plugin/overseer/` — ~40
+> > files, kept byte-identical to `overseer/`. That is DELIBERATE and supervisor-
+> > accepted. Do not delete it, and do not "de-duplicate" it.** The instruction was
+> > to name both options and recommend one; both are named here, with the
+> > measurement that decides between them.
+> >
+> > **A packaging change CANNOT reach this surface — this is the decisive fact.**
+> > Measured on this host: the codex plugin CACHE, which is what `$PLUGIN_ROOT`
+> > resolves to at runtime, holds exactly five entries —
+> > `.codex-plugin/`, `marketplace.json`, `plugin.json`, `prose/`, `skills/`. That
+> > is the contents of `.claude-plugin/` and **nothing else from the repo.** The
+> > codex install path never builds or installs a WHEEL: it clones the repo to
+> > `~/.codex/.tmp/marketplaces/livespec-overseer/` and materializes the plugin
+> > root into `~/.codex/plugins/cache/…`. Every setuptools key —
+> > `packages.find` (`:343-344`), `package-data` (`:356-357`) and
+> > `[project.scripts]` (`:30-32`) — governs the wheel, **and nothing in the codex
+> > path consumes a wheel.** So no `pyproject.toml` edit can put a file where the
+> > launcher has to be. The packaging lever does not reach this surface at all.
+> >
+> > **The other candidate — install the console scripts host-globally at
+> > provisioning — was rejected on two counts:** it moves runnability OUTSIDE the
+> > plugin, where the plugin's own check cannot see it, and it re-introduces
+> > exactly the PATH dependency (a `uv`-via-mise shim) whose absence produced the
+> > original **exit 127**. What remains is content under `.claude-plugin/` — i.e. a
+> > copy. Its real cost is two sources of truth for ~40 files.
+> >
+> > **THE SHARPEST MEASUREMENT, which also explains why A4's fix "executed and
+> > still failed":** the marketplace CLONE is a full repo checkout and **does**
+> > contain `overseer/`; the CACHE does not. So `$PLUGIN_ROOT/../overseer/` is
+> > *correct* against the clone layout and *wrong* against the cache layout. That
+> > assumption was not careless — it was right about the wrong one of two real
+> > directories that both exist on disk.
+> >
+> > **What pays the duplication cost down is the gate, and it is why the copy is
+> > defensible where an ungated copy would not be:**
+> > `check-codex-plugin-runnable-launcher` enforces `cmp -s` byte-identity over
+> > every `overseer/*.py` in **BOTH** directions (source→plugin *and* plugin→source,
+> > so orphans are caught too), rejects unexpected subdirectories, and **EXECUTES**
+> > the launcher from a temp dir OUTSIDE the repo, grepping its output — a genuine
+> > positive control for the exact exit-127 failure that started this, not a
+> > `test -x` that proves nothing. **Silent drift is impossible.** If you ever
+> > weaken that check, the duplicate stops being defensible — remove the check and
+> > you must remove the copy too.
+> >
 > > ### ⚠ THE FACTORY WAS DOWN FOR AN HOUR AND THE CAUSE WAS A DOC — 2026-07-30
 > >
 > > Both dispatches above were **refused before any sandbox work** on the first
