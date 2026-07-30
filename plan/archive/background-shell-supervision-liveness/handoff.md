@@ -24,14 +24,32 @@ attended seats do.
 
 ## 2. Where this thread stands — READ BEFORE DOING ANYTHING
 
-**RATIFIED THROUGH v004. Steps a–e are ALL LANDED: step e is SEVEN OF SEVEN
-CLOSED as of 2026-07-30 ~08:40Z, the epic reads `7/7 complete (100%) —
-eligible for close`, and every slice's code is on master with the gate green
-there. The epic is NOT closed, and one thing blocks it: its own DONE MEANS
-owes LIVE VERIFICATION per lane, and the acting daemon still runs PRE-EPIC
-code until a rollout — a maintainer decision, prepared in §10. The
-factory-outage story and the four-gate material below are HISTORY retained
-for instinct; NO dispatch remains in this thread.**
+**THREAD CLOSED AND ARCHIVED 2026-07-30 ~09:50Z. Nothing here is a step for
+anyone.** Ratified through v004; steps a–e all landed; the epic
+`overseer-4xfmez` is **CLOSED at 7/7** with its full close-out record as the
+last comment on the epic — **that comment, not this file, is the durable
+record**, and it carries the owed-tests mapping, the gap-ledger echo, the one
+fail-soft residual, and the live-verification results per lane.
+
+DONE MEANS was discharged, including live verification: on the maintainer's
+"roll forward, act paths on" ruling the acting daemon was rolled onto this
+epic's code at 09:39:42Z, and lanes A, B and C were confirmed LIVE within
+seconds — supervisor entities rendering where the pre-epic daemon showed
+ZERO, three supervisor wrap-up act paths firing into real panes, blocked ages
+on every surface, `NEEDS YOU` 5 → 8. Lane D's pair nudge and `.3`'s two
+floors (`winddown-starved` 2 h, `shell-prolonged` 8 h) rest on tests plus a
+rolled-forward daemon that will surface them on a natural episode; they were
+deliberately NOT manufactured.
+
+One follow-up survives, non-blocking and spec-side, deliberately NOT filed as
+a ledger item: **remedy (a)** — raise the four gap-invisible ratified clauses
+to literal `MUST` form via a fresh `/livespec:propose-change` cycle, so the
+`MUST`-keyed detector can see them. Rationale in
+`research/untracked-obligation-closure.md`.
+
+Everything below is HISTORY, preserved because the corrections in it were
+expensive to learn. Read §7 before trusting any operational recipe elsewhere
+in the fleet.
 
 | Step | State |
 |---|---|
@@ -234,34 +252,21 @@ E2E-key probe passed review and was believed.
 
 ### So, on cold open
 
-**There is NO dispatch left in this thread, and nothing above is a step for
-you.** Step e is complete and its gate is green on master. The credential
-probes, the four gates and the factory-outage history are retained as
-REFERENCE for whoever inherits the next epic — do not re-run them here, and
-do not re-dispatch anything. If you doubt that, verify the LEDGER rather than
-this file: `bd show overseer-4xfmez` must read `7/7 complete (100%)`.
+**NOTHING REMAINS. The thread is closed, the epic is closed, and this
+section is kept only so a reader arriving from a stale link is not sent
+looking for work.** The credential probes, the four gates and the
+factory-outage history above are REFERENCE for whoever inherits the next
+epic — do not re-run them here. If you doubt the state, verify the LEDGER
+rather than this file: `bd show overseer-4xfmez` reads CLOSED.
 
-The ONE remaining execution path is the epic close-out. Its first item is
-maintainer-gated and the other two are not:
+The one surviving follow-up is **remedy (a)**, non-blocking and spec-side:
+raise the four gap-invisible ratified clauses to `MUST` form in a fresh
+`/livespec:propose-change` cycle. It was deliberately NOT filed as a ledger
+item — §3 ruling 5's pre-approval excludes NEW item filings.
 
-1. **The daemon rollout + live-verification decision — BLOCKING for epic
-   closure, and the only genuinely open question in this thread. Prepared in
-   §10; do not act on it unilaterally.** The epic's DONE MEANS requires
-   "live verification per lane that a stalled or shielded track cannot
-   remain silently green", and the acting daemon (tmux
-   `livespec-overseer:1.1`) still runs PRE-EPIC code, so NO lane has been
-   exercised live. Nothing else in this list waits on it.
-2. **ONE §7 remedy remains, NON-blocking: remedy (a)** — later raising the
-   four gap-invisible clauses to `MUST` form in a fresh propose-change cycle
-   (identical semantics; touches ratified prose, so it needs its own cycle).
-   **Remedy (b) is already APPLIED** — it landed 2026-07-29 04:39 as a
-   maintainer-consented superseding comment on the epic; §7 carries the
-   correction. Do not re-author it, and do not surface it as a pending
-   consent.
-3. **Then close the epic.** It is already `eligible for close` on child
-   state alone, but its DONE MEANS is not discharged until item 1 lands.
-   Closing is a ledger write and is NOT covered by §3 ruling 5 (admissions
-   only) — it needs its own consent.
+**Remedy (b) was already APPLIED** (2026-07-29 04:39, a maintainer-consented
+superseding comment on the epic); §7 carries the correction and the reason
+the stale "pending" claim was so durable. Do not re-author it.
 
 **Never implement inline from this planning seat.** If `drive` hits a
 genuine human valve, do NOT force it — surface it (an attended seat presents
@@ -697,10 +702,43 @@ scratch verification logs AND, where durable, in the note; status lives in
 the ledger and on the forge; keep exactly ONE next execution path. Refresh §2
 whenever a step changes state, and before declaring `ready`.
 
-## 10. The daemon rollout + live-verification question (PREPARED, NOT ACTED ON)
+## 10. The daemon rollout + live-verification question — ASKED AND ANSWERED
 
-Drafted 2026-07-30 for the maintainer. It is the ONE thing blocking epic
-closure, and it is a genuine decision, not a task someone forgot to do.
+**RULED 2026-07-30 ~09:26Z: option 1, "Roll forward, act paths on."
+EXECUTED 09:39:42Z. This section is kept for its reasoning and for one trap
+that cost a picker to discover; the decision itself is settled.**
+
+**The trap, for anyone who ever rolls this daemon forward again: the
+sanctioned `overseer-start` bootstrap CANNOT do it.** It is idempotent — with
+a daemon pane already present it prints "daemon pane already present in this
+window; leaving it" and restarts NOTHING, so it reports success while the old
+code keeps running. And it splits the pane that INVOKES it (`$TMUX_PANE`), so
+run from any session other than the daemon's own window it creates a SECOND
+daemon — with act paths on, two daemons supervising one fleet. The procedure
+that works is AGENTS.md's other documented form, "kill the daemon pane and
+relaunch", in its atomic one-op shape:
+
+```bash
+command tmux respawn-pane -k -c /data/projects/livespec-overseer -t <pane-id> \
+  '.venv/bin/overseerd 2>> tmp/overseer/daemon.log'
+```
+
+Three details that matter. Target the pane by its unique `%id`, not
+`session:1.1` — the daemon's window also holds a Claude pane, and an index
+that drifts kills the wrong one. Use `2>>`, NOT the `2>` the running pane's
+recorded `start_command` carried: `2>` TRUNCATES the daemon log, which is the
+HISTORY surface invariant 10 depends on. And adoption needs no bootstrap —
+AGENTS.md is explicit that adopt runs every tick in `build_rows(act=True)`,
+so re-registration self-heals within one interval.
+
+**Outcome, verified from artifacts:** pid 2706975 → 1245851, old pid gone,
+pane title preserved, the adjacent Claude pane untouched, log advancing
+(167,605 → 171,124 bytes), badge `overseer(8!)`. Within 12 s three supervisor
+wrap-ups fired live and lane C's filed defect was gone — supervisor entities
+render where the pre-epic daemon showed zero. Per-lane results are in the
+epic's close-out comment.
+
+The original framing follows, unchanged.
 
 **The facts.** All seven slices' code is on master and green there (§7). But
 the daemon that is ACTUALLY SUPERVISING right now — tmux
