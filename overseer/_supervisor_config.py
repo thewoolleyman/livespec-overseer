@@ -29,7 +29,10 @@ from datetime import datetime, timezone
 
 __all__: list[str] = [
     "ACK_STALE_AFTER",
+    "BLOCKED_AGE_ALERT_BANDS",
     "CLAUDE_BUSY_STATUSES",
+    "CONDITION_CONTINUITY_GAP",
+    "CTX_STALE_AFTER",
     "DANGER_CTX_REMAINING",
     "IDLE_NUDGE_AFTER",
     "LOOP_INTERVAL_SECONDS",
@@ -128,6 +131,21 @@ ACK_STALE_AFTER = 900.0
 # (`InjectState.idle_since`), so a daemon restart resets the clock — which only DELAYS a
 # nudge, the safe direction.
 IDLE_NUDGE_AFTER = 3600.0  # 1 hour
+
+# Continuity window for observed in-memory condition episodes. The design rule is
+# formulaic: at least twice the loop's worst-case full-load tick, re-derived when
+# entity count changes materially. Until measured derivation lands, the ruled interim
+# value is 900s; the too-small direction suppresses detection entirely.
+CONDITION_CONTINUITY_GAP = 900.0
+
+# A last-known remaining-context value stops satisfying ctx gates after this long
+# without a fresh parse. The row still reports the stale knowledge so losing sight of
+# a low-context track is visible.
+CTX_STALE_AFTER = 3600.0
+
+# Standing blocked declarations escalate once at each crossed age band. Further daily
+# bands are derived from the same 24h cadence in the evaluator.
+BLOCKED_AGE_ALERT_BANDS = (4 * 3600.0, 24 * 3600.0)
 
 
 def default_gitignore_check(*, repo: str) -> bool:
