@@ -177,6 +177,7 @@ def test_missing_binary_is_fail_soft():
     assert io.capture_pane(session="s") == ""
     assert io.session_exists(session="s") is False
     assert io.list_sessions() == []
+    assert io.pane_exists(pane="%1") is False
     assert io.pane_current_command(session="s") is None
     assert io.bracketed_paste(session="s", text="x") is False
     assert io.respawn_pane(session="s", cwd="/tmp", command="claude") is False
@@ -199,6 +200,7 @@ def test_every_tmux_call_carries_a_timeout():
         lambda io: io.capture_pane(session="s"),
         lambda io: io.session_exists(session="s"),
         lambda io: io.list_sessions(),
+        lambda io: io.pane_exists(pane="%1"),
         lambda io: io.pane_current_command(session="s"),
         lambda io: io.bracketed_paste(session="s", text="x"),
         lambda io: io.respawn_pane(session="s", cwd="/tmp", command="claude"),

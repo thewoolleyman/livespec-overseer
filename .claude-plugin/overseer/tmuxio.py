@@ -60,7 +60,7 @@ class PaneDriver(Protocol):
     :class:`TmuxIO` exposes. The narrower surface is the point: it states what a
     substitute must implement to be substitutable, so a test double is complete
     when it satisfies this and not before. The seven omitted methods
-    (``list_sessions``, ``split_window_top``, ``set_pane_title``,
+    (``list_sessions``, ``split_window_top``, ``pane_exists``, ``set_pane_title``,
     ``select_layout_even``, ``pane_by_title``, ``set_pane_height_percent``,
     ``window_pane_titles``) drive the two-pane LAYOUT from the CLI entry points,
     which hold a concrete ``TmuxIO`` rather than reaching through this seam.
@@ -107,6 +107,8 @@ class WindowLayoutDriver(Protocol):
     def window_pane_titles(self, *, pane: str) -> list[str]: ...
 
     def split_window_top(self, *, pane: str, cwd: str, command: str) -> str | None: ...
+
+    def pane_exists(self, *, pane: str) -> bool: ...
 
     def set_pane_title(self, *, pane: str, title: str) -> bool: ...
 
@@ -396,6 +398,13 @@ class TmuxIO:
         if not self._ok(completed=completed):
             return None
         return (completed.stdout or "").strip() or None
+
+    def pane_exists(self, *, pane: str) -> bool:
+        """Whether PANE is still present in the tmux server."""
+        completed = self._call(args=["list-panes", "-a", "-F", "#{pane_id}"])
+        if not self._ok(completed=completed):
+            return False
+        return pane in {line.strip() for line in (completed.stdout or "").splitlines()}
 
     def set_pane_title(self, *, pane: str, title: str) -> bool:
         """``tmux select-pane -t <pane> -T <title>`` — tag a pane (idempotency)."""

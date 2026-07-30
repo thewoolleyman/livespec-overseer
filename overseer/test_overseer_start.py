@@ -114,11 +114,9 @@ def test_daemon_command_threads_warn_percent():
     # Part 1: --warn-percent N is appended to the overseerd launch command; without
     # it the command is unchanged (default threshold applies inside overseerd).
     mod = _load()
-    assert mod.daemon_command(warn_percent=None) == "overseerd 2>> tmp/overseer/daemon.log"
-    assert (
-        mod.daemon_command(warn_percent=30)
-        == "overseerd --warn-percent 30 2>> tmp/overseer/daemon.log"
-    )
+    log_path = Path(mod.__file__).resolve().parent.parent / "tmp" / "overseer" / "daemon.log"
+    assert mod.daemon_command(warn_percent=None) == f"overseerd 2>> {log_path}"
+    assert mod.daemon_command(warn_percent=30) == f"overseerd --warn-percent 30 2>> {log_path}"
 
 
 def test_warn_percent_arg_parses(*, monkeypatch):
@@ -136,7 +134,8 @@ def test_overseer_start_console_entry_point_targets_importable_module():
 
     mod = importlib.import_module("overseer.start")
     assert mod.main is not None
-    assert mod.daemon_command(warn_percent=None) == "overseerd 2>> tmp/overseer/daemon.log"
+    log_path = Path(mod.__file__).resolve().parent.parent / "tmp" / "overseer" / "daemon.log"
+    assert mod.daemon_command(warn_percent=None) == f"overseerd 2>> {log_path}"
 
     pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
     assert 'overseer-start = "overseer.start:main"' in pyproject.read_text(encoding="utf-8")
@@ -172,6 +171,10 @@ class FakeLayout:
     def split_window_top(self, *, pane, cwd, command):
         self.calls.append(("split_window_top", pane, cwd, command))
         return self.split_result
+
+    def pane_exists(self, *, pane):
+        self.calls.append(("pane_exists", pane))
+        return True
 
     def set_pane_title(self, *, pane, title):
         self.calls.append(("set_pane_title", pane, title))
@@ -224,6 +227,7 @@ def test_splits_a_daemon_pane_and_gives_it_its_height(*, monkeypatch, tmp_path):
         "window_pane_titles",
         "split_window_top",
         "set_pane_title",
+        "pane_exists",
         "select_layout_even",
         "pane_by_title",
         "set_pane_height_percent",
@@ -232,7 +236,7 @@ def test_splits_a_daemon_pane_and_gives_it_its_height(*, monkeypatch, tmp_path):
     # idempotency check looks for on a re-run.
     assert layout.calls[1][2] == str(tmp_path)
     assert layout.calls[2][2] == mod._DAEMON_PANE_TITLE
-    assert layout.calls[5][2] == mod._DAEMON_PANE_HEIGHT_PERCENT
+    assert layout.calls[6][2] == mod._DAEMON_PANE_HEIGHT_PERCENT
 
 
 def test_creates_the_daemon_marker_directory_under_the_core_root(*, monkeypatch, tmp_path):
