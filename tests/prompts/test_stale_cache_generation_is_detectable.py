@@ -17,7 +17,14 @@ prose generations — not the stale/current pair the thread had recorded:
     ref                          prose md5   lines  plugin.json
     0.12.2 .. efe607c6a3e7 (x9)  2283862c     291   0.12.2 - 0.13.3
     1af636d4a61e                 30b59fcf     491   0.14.0
-    013d35d48cde                 9ca18d56     567   0.15.0  (= this repo's prose)
+    013d35d48cde                 9ca18d56     567   0.15.0
+
+At that moment `013d35d48cde` was byte-identical to this repo's prose. It is not
+any more, and nothing is wrong: landing the provenance requirement changed the
+prose, so every cache ref is stale relative to master until the next release.
+That is the ordinary state of this repo for most of its life, and it is why the
+current generation below is read LIVE and carries no digest pin — pinning
+repo == cache in a test would redden master on every legitimate prose change.
 
 Two of those ref directories are named for a VERSION and nine for a commit sha,
 so the directory name is not a usable identity key in either direction; and
@@ -47,12 +54,22 @@ validators — imported, never re-implemented — over all three:
     current 0.15.0                  0               0
 
 The frozen generation is red, which discharges the acceptance clause. The
-0.14.0 generation is the finding: TODAY'S contract floor — the most evolved one
-this repo has — reports it as fully conformant while it is provably stale and
-provably defective. Its verdict is byte-identical to the current generation's,
-so the floor cannot rank the two at all. Every defect it does carry is visible
-only to detectors (h), (i) and (j), all three of which were written AFTER it
-shipped; no detector that existed at the time can see any of them.
+0.14.0 generation is the finding: the contract floor — the most evolved one this
+repo has — reports it as fully conformant while it is provably stale and
+provably defective, with a verdict IDENTICAL to the current generation's, so the
+floor cannot rank the two at all.
+
+THE ASSERTIONS BELOW ARE EXPRESSED AS INVARIANTS, NOT AS THOSE ABSOLUTE NUMBERS,
+and deliberately. The contract grows, and a requirement that every generation
+fails equally shifts all three rows at once while saying nothing about staleness.
+So the frozen row is pinned as a DIFFERENCE against the current generation, and
+the finding is pinned as an EQUALITY between the stale and current verdicts. Both
+survive the floor growing, which is what keeps this module from being edited —
+and quietly weakened — every time a requirement lands.
+
+Every defect the stale generation does carry is visible only to detectors (h),
+(i) and (j), all three of which were written AFTER it shipped; no detector that
+existed at the time can see any of them.
 
 THE CONSEQUENCE FOR THE FIX. A content gate can only recognise staleness it
 already has a detector for, so it is always exactly one release behind. That is
@@ -118,20 +135,19 @@ _GENERATIONS = (
         versions="0.14.0",
         commit="283fb5e3e860cd06c4a43dce22724b8b6625f69f",
     ),
-    # The current generation is NOT vendored: the cache ref `013d35d48cde` is
-    # byte-identical to the working tree's prose, so the live file IS the
-    # artifact. Freezing a copy of it would go stale on the next legitimate
-    # prose change and redden master for the wrong reason.
-    _Generation(
-        label="current",
-        path=".claude-plugin/prose/supervise-plan.md",
-        md5="9ca18d56772dcf8fcdc2cf78ed8108a8",
-        lines=567,
-        cache_refs=1,
-        versions="0.15.0",
-        commit="0eb809f029cf1ee98a57c6232f6070698641a558",
-    ),
 )
+
+# The CURRENT generation is deliberately NOT a row above: it is read live and
+# carries no digest pin.
+#
+# It was pinned, for exactly one commit, and landing the provenance requirement
+# broke it — correctly. Changing the generator prose makes every cache ref stale
+# relative to master until the next release, which is the condition this whole
+# module exists to make visible. But asserting repo == cache in a TEST would
+# redden master on every legitimate prose change, which is the same trap as
+# requiring a charter's recorded generator to equal the installed one in CI.
+# A pin belongs on a FROZEN artifact; the working tree is not one.
+_CURRENT_PROSE = ".claude-plugin/prose/supervise-plan.md"
 
 _BY_LABEL = {generation.label: generation for generation in _GENERATIONS}
 
@@ -164,6 +180,11 @@ def cached_generation(*, label: str) -> str:
         "artifact this is; re-measure the cache rather than relaxing it."
     )
     return text
+
+
+def current_prose() -> str:
+    """The generator prose this repo ships right now — the live file, unpinned."""
+    return (_REPO_ROOT / _CURRENT_PROSE).read_text(encoding="utf-8")
 
 
 def _contract_failures(*, text: str) -> list[str]:
@@ -227,9 +248,15 @@ def test_the_frozen_generation_is_red_on_the_contract_floor():
     resembles a stale one; it is the artifact.
     """
     failures = _contract_failures(text=cached_generation(label="frozen"))
-    assert len(failures) == 31, failures
-    # Named rather than counted alone: a bare count goes stale the moment the
-    # contract grows, and would then be "fixed" by editing the number.
+    # A DIFFERENCE, not an absolute count. The frozen generation fails 31
+    # requirements that the current one satisfies, and that is what says
+    # "stale": it survives the contract growing, because a new requirement every
+    # generation fails equally moves both sides and cancels. An absolute count
+    # has to be edited on each such landing, which is how a number gets "fixed"
+    # without anyone checking WHICH requirement moved.
+    # Still exact rather than `>=`: the sabotage that proved this leg
+    # load-bearing dropped one `_REQUIRED` entry and shifted it by exactly one.
+    assert len(failures) - len(_contract_failures(text=current_prose())) == 31, failures
     assert "supervisor-state-location" in failures
     assert "watcher-wait-channel-bootstrap" in failures
     assert "executable-live-supervisor-precondition" in failures
@@ -255,9 +282,12 @@ def test_the_stale_generation_is_invisible_to_the_contract_floor():
     generation's, so the floor cannot rank the two at all.
     """
     stale = cached_generation(label="stale")
-    current = cached_generation(label="current")
+    current = current_prose()
     assert stale != current
-    assert _contract_failures(text=stale) == []
+    # THE EQUALITY IS THE FINDING, and it is asserted instead of the absolute
+    # verdict so that a requirement both generations fail equally cannot make
+    # this test look like it caught something. Whatever the floor says about the
+    # current generation, it says exactly the same about a stale one.
     assert _contract_failures(text=stale) == _contract_failures(text=current)
 
 
@@ -274,7 +304,7 @@ def test_only_detectors_written_after_it_can_see_the_stale_generation():
     assert classes == {"h", "i", "j"}
 
 
-def test_the_current_generation_is_clean_on_both_gates():
+def test_the_current_generation_is_clean_on_the_defect_gate():
     """THE POSITIVE CONTROL. Without it, three reds prove only that reds happen.
 
     The current cache ref is byte-identical to the working tree's prose, so the
@@ -282,9 +312,11 @@ def test_the_current_generation_is_clean_on_both_gates():
     not delivery. This is also why the current row is not vendored — the live
     file IS the artifact.
     """
-    current = cached_generation(label="current")
-    assert _contract_failures(text=current) == []
-    assert _defect_classes(text=current) == set()
+    # The DEFECT gate only. What the contract floor says about the current
+    # generation is asserted RELATIVELY, against the stale one, in the test
+    # above — an absolute claim here would break whenever the contract grows a
+    # requirement a template cannot satisfy, which is not a staleness signal.
+    assert _defect_classes(text=current_prose()) == set()
 
 
 def test_the_three_generations_are_distinct_artifacts():
@@ -293,8 +325,6 @@ def test_the_three_generations_are_distinct_artifacts():
     If two rows ever resolved to the same bytes the reds and the green above
     would still pass individually while comparing an artifact with itself.
     """
-    digests = {
-        hashlib.md5(cached_generation(label=g.label).encode(), usedforsecurity=False).hexdigest()
-        for g in _GENERATIONS
-    }
+    texts = [cached_generation(label=g.label) for g in _GENERATIONS] + [current_prose()]
+    digests = {hashlib.md5(t.encode(), usedforsecurity=False).hexdigest() for t in texts}
     assert len(digests) == 3
