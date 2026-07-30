@@ -32,17 +32,27 @@ forge-verified. There is **no half-finished edit** anywhere.
 > mise exec -- git fetch origin --prune && mise exec -- git merge --ff-only origin/master
 > ```
 >
-> **Master was `8cc9f03b` when this box was written, and this file was 595
-> lines.** If your copy is shorter, you are reading a stale one.
+> **STALENESS TRIPWIRE — check this against your own copy.** If this file does
+> **not** contain a **`RUNG TEN`** entry in the sweep section below, **you are
+> reading a stale copy** and must fetch before trusting anything in it.
+>
+> *(A SHA-and-line-count tripwire was tried first — "master was `8cc9f03b`, 595
+> lines" — and it went stale within two commits, because it has to be rewritten
+> every time the file changes. **Key the tripwire to CONTENT the file itself
+> asserts**, not to a counter that ages independently of it. A tripwire needing
+> maintenance to stay true is one more thing that can silently stop being true.)*
 
 > **STATE AS OF 2026-07-30, superseding the list below where they disagree.**
 >
 > - **Delivery 1 is DONE** — delivered, received and acted on; the recipient's
 >   own log is the evidence. **Delivery 2 remains outstanding and unawaited.**
-> - **The sweep reached RUNG NINE.** Rungs 1–7 and 9 returned something; **rung
->   8 was dry as scoped**. Rung nine is the one to read first — it found this
->   repo is the **fleet's sole outlier** on branch protection and it *reframed*
->   `overseer-rh1`.
+> - **The sweep reached RUNG TEN and is UNEXHAUSTED** — stopped by session
+>   budget, not by a dry rung. Nine of ten productive; **rung 8 was dry as
+>   scoped**. Read **rung nine** first (this repo is the **fleet's sole
+>   outlier** on branch protection, which *reframed* `overseer-rh1`), then
+>   **rung ten**, which bounded that drift as *specific* rather than systemic.
+>   **The METHOD lives in the FOUR RULES block in `supervisor-handoff.md`** —
+>   read that before the individual corrections; they are its instances.
 > - **The ledger is SIX items, not five** (table below is otherwise current):
 >   `overseer-dtytju`, `overseer-fs4`, `overseer-816`, `overseer-b4q`,
 >   **`overseer-rh1`** (new, rung seven), and **`overseer-knm`** (appended).
@@ -330,9 +340,39 @@ if printf '%s' "$p" | grep -q '"required_status_checks"'; then … else … fi
 **The headline stands, and stands stronger for being reproduced by a second
 party using an instrument this thread's own defect forced them to fix.**
 
+**RUNG TEN — a BOUNDED result, and the bound is the finding.** It asked whether
+the rung-nine drift was *systemic or isolated*: five protection dimensions across
+seven fleet repos. **Four of five agree** (`strict` false everywhere — the
+documented "strict MUST be OFF" invariant holds; `enforce_admins` true; no review
+requirement; no force pushes), so the drift is **specific, not neglect**.
+
+`required_linear_history` does diverge — `true` in six siblings, `false` here —
+**but it is NOT a hole**: all seven repos including this one carry
+`allow_merge_commit: false` and rebase-only, so the discipline is already
+enforced one layer down. This repo lacks the **redundant layer**, not the
+control.
+
+> **Two divergences, same repo, same subject, OPPOSITE consequences** —
+> `required_status_checks` is **live** (five contexts gate nothing);
+> `required_linear_history` is **covered**. Nothing in the two measurements
+> distinguishes them; only the follow-up question does. Hence the **converse of
+> rule 1: before calling a MISSING control a hole, check whether another control
+> already covers it.** Reporting every absent control as a hole is a finding
+> that cannot come back empty.
+
 > **The transferable move: when a rung comes back dry, re-ask an earlier rung's
 > question at a WIDER SCOPE before inventing a new question.** Rung eight's
 > dryness was a symptom of how narrowly it was cut, not of an exhausted seam.
+
+> **AND A RECURRENCE WORTH THE EMBARRASSMENT.** Rung ten was written into
+> `supervisor-handoff.md` and **not** into this file, leaving the two records
+> disagreeing about how far the sweep had gone — **the exact defect this thread
+> diagnosed earlier the same day** ("when a state changes, sweep EVERY file that
+> asserts the old state, not the one you happen to be editing"), committed by
+> the session that wrote the rule, within hours of writing it. Caught only by
+> checking both files after the merge. **Two records of one fact will drift
+> unless something forces them together; nothing here does.** That is why the
+> tripwire above is now keyed to content this file itself asserts.
 
 **`overseer-ya4` — root cause found, and it is now in the WRONG PLACE.** The
 `worktree-create` failure is **not flaky**: measured back-to-back, stdout to a
