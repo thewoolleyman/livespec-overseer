@@ -22,7 +22,23 @@ Created 2026-07-29 from `plan/codex-parity-and-rollout-safety/`, whose slice A2
 forge-verified; master tip at handoff time was `d09cfe51`. There is **no
 half-finished edit** anywhere.
 
-**The ledger — three items, all `backlog`, none groomed, none closed.** Read
+> **RESTART, 2026-07-30 — read this before the list below; it is now partly
+> superseded.** Three things changed, and one of them is a trap for the next
+> reader.
+>
+> - **A restart inherits a STALE PRIMARY CHECKOUT.** This session cold-opened
+>   on the primary checkout at `83d7efa` while master was `ae712e8b` — 22
+>   commits behind — and read a **224-line** handoff that had already been
+>   superseded by the 289-line one. The stale copy still said "the read-first
+>   chain is the whole chain", so nothing in it announced its own staleness.
+>   **`git fetch` and fast-forward the primary checkout BEFORE reading this
+>   file.** The wind-down note that predicted this failure was itself in
+>   `tmp/`, which a restart does not inherit — so it is recorded here instead.
+> - **Delivery 1 is DONE** (details at that entry).
+> - **Rung six was climbed and it was NOT dry** — `overseer-b4q`. The ledger
+>   is now **four** items.
+
+**The ledger — four items, all `backlog`, none groomed, none closed.** Read
 via `/data/projects/1password-env-wrapper/with-livespec-env.sh bd show <id>`
 (a bare `bd` is Access-denied; `bd create` has no `--status`, so hand-filed
 items land at beads-native `open` — set status explicitly and **read back**,
@@ -33,6 +49,7 @@ because the wrapper exits 0 even when the binary is missing, `overseer-1sv`):
 | `overseer-dtytju` | P2 epic — acceptance MET but **NOT general coverage** (see below) |
 | `overseer-fs4` | P2 bug — the orchestrator never consumes the failure category; cross-referenced with `bd-ib-g56f` in the **orchestrator** tenant |
 | `overseer-816` | P2 bug — the send idiom is Claude Code-specific but lives in the **generator** and the **shared protocol**, so every future charter reproduces it |
+| `overseer-b4q` | P2 bug — **filed 2026-07-30 as rung six.** `check-prose-release-hygiene` reads a path-scoped diff and cannot tell "no prose changed" from "`.claude-plugin/prose/` is gone". Measured: that path and a never-existent path return **identical** empty output. It is one of the **56 required** branch-protection contexts, so the vacuous case is a **merge gate reporting success while checking nothing** — and it is the *same* vacuous-diff shape this thread already retracted once, now in our own enforcement surface |
 
 **HUMAN-OWNED, none blocking:** closing `overseer-dtytju`; merge-and-tenant for
 `overseer-fs4` vs `bd-ib-g56f`; publication of the fabro branch; whether to fix
@@ -40,32 +57,76 @@ the generator (`overseer-816`); and **re-measuring the port arithmetic against
 upstream's LIVE tip** — the 357-line and 5-of-6 figures are as-of `854f71f2c`
 and upstream has since moved.
 
-**TWO DELIVERIES OUTSTANDING, NEITHER AWAITED — nothing is polling for either.**
+**`overseer-b4q` is NOT on that list.** It is an ordinary in-house bug in this
+repo's own justfile, it depends on nothing upstream and nothing in `fabro`, and
+unlike `overseer-fs4` it does **not** wait on a trustworthy failure category —
+so it is actionable now by the normal factory route. It is filed rather than
+fixed here only because a planning thread does not hand-build code.
 
-1. Peer notification at
-   `tmp/overseer/codex-parity-and-rollout-safety/PEER-NOTIFICATION-from-classifier-defect-supervisor.md`
-   — **file-only**; the watcher was **stood down** after two 40-minute ceilings.
-   **Deliver by hand** when that session is next seen **without** an open picker.
+**ONE DELIVERY OUTSTANDING** (was two), and it is **not awaited** — nothing is
+polling for it.
+
+1. ~~Peer notification to `codex-parity-and-rollout-safety`~~ — **DELIVERED
+   2026-07-30, submitted and confirmed on screen.** Its guard condition finally
+   came true: that session was found at an **empty prompt with no picker**, and
+   anchored-picker plus 6s-stability checks both passed before the paste. Sent
+   by the charter's own idiom — `load-buffer` → `paste-buffer -p` → **verify** →
+   `Enter` as a separate step. Two things worth reusing: `paste-buffer -p`
+   (bracketed) is what stops a multi-paragraph message from submitting its
+   first line and scattering the rest across turns; and the message opened by
+   stating **it was NOT an answer to the maintainer question that pane was
+   waiting on**, because delivering into an idle-but-blocked pane can otherwise
+   read as the approval. The durable file is unedited and still the record.
 2. Codex addendum at
    `/data/projects/fabro/tmp/ADDENDUM-second-limit-payload-found.md` —
    **DELIVERED-BY-FILE, NOT CONFIRMED-READ**; its text also sits **unsubmitted**
-   in that pane.
+   in that pane, as `[Pasted Content 1018 chars]`.
+   **Re-checked 2026-07-30 and deliberately NOT attempted.** That session was
+   measured **actively working** (pane changing) with a **live Opus 5
+   adversarial reviewer** (`claude --print --model claude-opus-5`, pid
+   `3725995`, `--max-budget-usd 15`). Keystrokes there risk `Esc`-interrupting a
+   live review in a repo this thread must not touch, and **C6's two-keystroke
+   budget was already spent** by the supervisor. The fall-back to the durable
+   file stands; leave it. A later session should re-check for **idle** before
+   even considering it.
+
+> **A trap while checking that:** `pgrep -af 'claude --print'` **self-matched**
+> this session's own shell, exactly the failure mode the global instructions
+> warn about. Harmless when listing, lethal when the next step is `kill` —
+> which is the near-miss already recorded as **C6**. Verify ownership of a pid
+> before acting on it, never just its pattern match.
 
 **Before typing into ANY pane you do not own, check that harness's submit
 idiom** — Claude Code's `Enter` does **not** submit in a Codex pane. See
 correction **C6** in `supervisor-handoff.md`, and **stop after two failed
 keystrokes**.
 
-**THE SWEEP IS UNEXHAUSTED.** Five rungs climbed — thread files → ledger → repo
-outside this thread → other tenants → other fleet repos — and **every rung
-returned something new**. Assume rung six is not dry.
+**THE SWEEP IS STILL UNEXHAUSTED — rung six was climbed and it was NOT dry.**
+Six rungs now: thread files → ledger → repo outside this thread → other tenants
+→ other fleet repos → **this repo's own enforcement surface**. Every one
+returned something new, so **assume rung seven is not dry either.**
+
+Rung six aimed the carry-forward lesson back at our own gates and found
+`overseer-b4q` above. Two notes on method, because the rung is repeatable:
+
+- **What made it findable** was searching for the *shape* rather than the
+  symptom — `git diff … -- <hardcoded path>` where an empty result takes the
+  pass branch — not for anything about prose or releases.
+- **One sibling was considered and deliberately NOT filed.**
+  `check-no-workflow-edits` (`justfile:875`) has the identical shape against
+  `.github/workflows`, but there emptiness *is* the intended success of a
+  prohibition gate and the path is pinned externally by GitHub. Recorded so a
+  later reader neither "fixes" it by symmetry nor reads its absence as an
+  oversight. **A sweep that files everything shaped alike is the same defect
+  in the other direction** — a check that cannot come back empty.
 
 **The one thing to carry forward.** The classifier bug, the vacuous `git diff`,
-the uncontrolled zero-hit grep, the under-scoped sweep and the cross-harness
-keystroke are **the same defect**: *a check that cannot fail, returning
-success.* Five instances in one day, at five levels of the stack. The remedy
-was identical every time — **give the check a way to come back empty-handed and
-mean it.**
+the uncontrolled zero-hit grep, the under-scoped sweep, the cross-harness
+keystroke — and now our **own required merge gate** (`overseer-b4q`) — are
+**the same defect**: *a check that cannot fail, returning success.* Six
+instances, at six levels of the stack, the last one in the enforcement surface
+that is supposed to catch the others. The remedy was identical every time —
+**give the check a way to come back empty-handed and mean it.**
 
 ## Read-first chain
 
