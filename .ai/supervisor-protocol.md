@@ -409,6 +409,23 @@ preserve every entry.
   mode this whole section is written to stop. And whenever a background task
   disappears WITHOUT a `WAKE:` line, treat it as killed and re-arm — never assume
   it ran.
+- **C17 (2026-07-30) — C14's own remedy has a second edge, and I hit it while
+  applying C14 correctly.** `$pipestatus` is not merely a bash-vs-zsh spelling
+  problem: **the array is CLOBBERED by the next command**, including the `echo`
+  used to print it. Read one line too late it returns that echo's status — `0` —
+  and looks exactly like a pass. Measured: `false | head -1` then an immediate
+  read gives `1`; the same read after one intervening `echo` gives `0`. So the
+  fix for the pipe trap fails in the same silent way as the trap, and in the same
+  silent way as C14's remedy — three layers of one defect. Read `$pipestatus[1]`
+  on the line IMMEDIATELY after the pipeline, or capture it into a named variable
+  within the same command (`rc=$pipestatus[1]`).
+  THE COROLLARY IS THE EXPENSIVE PART: a pipeline-derived exit status produced a
+  P1 bug report against a HEALTHY tool, and that report was ROUTED INTO ANOTHER
+  TENANT before anyone re-measured it. A measurement artifact does not stay
+  local; it becomes another team's work item. Both the supervisor and the worker
+  hit this edge independently in the same session, in opposite directions — the
+  worker by reading `$?` after a pipeline, the supervisor by reading
+  `$pipestatus[1]` one line late while refuting the worker's claim.
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
