@@ -179,8 +179,19 @@ implementation.
   `clippy --workspace --all-targets -D warnings` clean. Diff is **165
   insertions, zero deletions** — nothing deleted, loosened or `#[ignore]`d, and
   the three hint-count guards stay at 38/12/3.
-- **Landed on a branch:** `fix/classify-provider-spend-limit-not-transient`,
-  commit `a7c42204b`, on top of `d5dcd1179`. **Unpushed.**
+- **Landed on a branch:** `fix/classify-provider-spend-limit-not-transient`, a
+  single commit on top of `d5dcd1179`. **Unpushed.**
+  **The BRANCH NAME is the durable identifier — do not cite the SHA as one.**
+  An earlier version of this line named commit `a7c42204b`; that SHA is **dead**.
+  Measured read-only by the supervisor 2026-07-30, the head is now `b46a4f387`
+  — same subject, same author date, still one commit whose parent is still
+  `d5dcd1179`, i.e. the owning session **re-committed** rather than added, which
+  is what a session revising under adversarial review does. Treat any SHA here
+  as **mutable**. The base `d5dcd1179` is still accurate (still `HEAD~1`).
+  Also measured then: fabro's `main` has **moved** off `d5dcd1179` to
+  `b5885b15d`, tracking `upstream/main` — so branch and `main` are now
+  deliberately diverged, and the outstanding hunk-3 port against
+  `lib/components/` is **testable locally** in a way it previously was not.
 
 Full-workspace run: 1218 passed, 4 failed — all four are pre-existing
 `fabro-cli` `pre_tracing_bootstrap_*` flakes, **proved** by reproducing them
