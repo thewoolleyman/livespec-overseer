@@ -145,6 +145,17 @@ def _false_placeholder_claim_findings(*, text: str) -> list[str]:
     return []
 
 
+def _env_safe_bindings(*, bindings: dict[str, str]) -> dict[str, str]:
+    """Bindings whose names are usable as SHELL VARIABLE names.
+
+    The binder's table is free-form markdown, so a binding name is whatever sits
+    in backticks in the first column. Exporting one that is not an identifier
+    would put a name into the environment that no `$name` expansion can ever read
+    — silently, and looking exactly like a binding that did get through.
+    """
+    return {name: value for name, value in bindings.items() if name.replace("_", "").isalnum()}
+
+
 def _write_executable(*, path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
@@ -187,6 +198,25 @@ case "$*" in *--json*) ;; *) exit 1 ;; esac
 printf '%s\n' '{"id":"stub","status":"open"}'
 """,
     )
+    # The charter now reaches the ledger THROUGH the fleet credential wrapper,
+    # detected with `command -v`. That detection searches the WHOLE PATH, and the
+    # stub dir is only PREPENDED — so without a stub here it finds the REAL
+    # `/usr/local/bin/with-livespec-env.sh`, which attempts a real credential
+    # fetch and BLOCKS until this gate's 2-second execution deadline kills it.
+    # Observed exactly that on 2026-07-30 while deploying the wrapper fix.
+    #
+    # The stub models the wrapper HONESTLY: strip a leading `--` and exec the rest,
+    # which is what the real wrapper does once it has injected credentials. So the
+    # wrapped `bd` still resolves to the discriminating stub below and keeps its
+    # teeth. A stub that merely exited 0 would retire the ledger execution leg —
+    # the same blanket-pass mistake the `bd` stub's own comment warns against.
+    _write_executable(
+        path=bin_dir / "with-livespec-env.sh",
+        body="""#!/bin/sh
+[ "$1" = "--" ] && shift
+exec "$@"
+""",
+    )
     _write_executable(path=bin_dir / "ps", body="#!/bin/sh\nprintf '%s\n' '100 claude claude'\n")
     _write_executable(path=bin_dir / "sleep", body="#!/bin/sh\nexit 0\n")
     _write_executable(path=bin_dir / "seq", body="#!/bin/sh\nprintf '1\n'\n")
@@ -212,6 +242,20 @@ def _execution_findings(*, text: str, repo_primary: Path, tmp_path: Path) -> lis
     env = os.environ.copy()
     env["COLD_OPEN_REPO"] = str(repo_primary)
     env["PATH"] = str(_stub_path(tmp_path=tmp_path)) + os.pathsep + env["PATH"]
+    # EXPORT THE RESOLVED BINDINGS as shell variables. The charter's own Bindings
+    # section says to "resolve and REPORT these before driving anything", so a
+    # cold-open supervisor has them bound by the time it runs any block; a harness
+    # that leaves them unset is not modelling a cold open, it is modelling a
+    # supervisor who skipped the first instruction.
+    #
+    # THIS WAS LATENT UNTIL THE BOOT BLOCK LEARNED TO FAIL. The previous block read
+    # `test ! -f "$supervisor_marker" || sed ...`, and `test ! -f ""` is TRUE, so
+    # with the binding unset the block SHORT-CIRCUITED, printed nothing and exited
+    # 0 — and this gate recorded that as executing. The gate was green because the
+    # block did nothing. Now that an unset binding HALTs, the omission surfaces.
+    # A gate that asserts "exits 0" is satisfied by a command that does nothing,
+    # which is the same blind spot as a stub standing in for a working tool.
+    env.update(_env_safe_bindings(bindings=bindings))
     (tmp_path / ".ai").mkdir(exist_ok=True)
     (tmp_path / ".ai" / "supervisor-protocol.md").write_text("shared\n", encoding="utf-8")
     (repo_primary / "plan" / "supervisor-prompt-quality").mkdir(parents=True, exist_ok=True)
@@ -483,13 +527,27 @@ def test_the_ledger_stub_discriminates_a_malformed_re_measure(*, tmp_path: Path)
     must still be reported as not executing.
 
     Sabotage that reddens this: replace the stub body with `exit 0`.
+
+    THE MUTATION TARGET MOVED, and the way it moved is the point. The charter used
+    to invoke `bd show "$ledger_anchor" --json` inline; it now calls a
+    `ledger_show()` helper that detects the credential wrapper, so the literal is
+    `bd show "$1" --json` and appears TWICE — once behind the wrapper and once in
+    the bare fallback. `str.replace` mutates both, which is what we want: a
+    discriminating stub must reject a malformed re-measure on EITHER path.
+
+    The `assert text != _clean_charter()` guard below is why this was caught
+    rather than silently retired. When the charter changed shape the old literal
+    stopped matching, every mutation became a no-op, and all three cases would
+    have "passed" against an UNMUTATED charter — a test that proves nothing while
+    reporting green. That guard is doing the same job here that
+    `test_this_repo_has_charters_to_scan` does for the sibling gate.
     """
     for broken in (
         "bd show --json",  # anchor missing, option consumed as the anchor
-        'bd show "$ledger_anchor"',  # no --json, so nothing is machine-readable
-        'bd shwo "$ledger_anchor" --json',  # subcommand typo
+        'bd show "$1"',  # no --json, so nothing is machine-readable
+        'bd shwo "$1" --json',  # subcommand typo
     ):
-        text = _clean_charter().replace('bd show "$ledger_anchor" --json', broken)
+        text = _clean_charter().replace('bd show "$1" --json', broken)
         assert text != _clean_charter(), f"mutation did not apply: {broken}"
         found = cold_open_findings(
             text=text, repo_primary=_repo(tmp_path=tmp_path), tmp_path=tmp_path
@@ -497,3 +555,60 @@ def test_the_ledger_stub_discriminates_a_malformed_re_measure(*, tmp_path: Path)
         assert any(
             f.startswith("command-does-not-execute:") for f in found
         ), f"the stub accepted a malformed ledger re-measure: {broken}"
+
+
+def test_a_boot_block_whose_binding_is_unset_is_reported_as_not_executing(
+    *, tmp_path: Path
+) -> None:
+    """The binding export is LOAD-BEARING and must not be quietly removed.
+
+    A cold-open supervisor resolves the Bindings table first, so the harness binds
+    them too. Strip that and the boot block HALTs on an unset `supervisor_marker`
+    — which is the correct behaviour of the charter and must be reported here as a
+    finding, not absorbed silently.
+
+    WHY THIS TEST EXISTS AT ALL. Before the boot block learned to fail, an unset
+    binding made it short-circuit on `test ! -f ""` and exit 0, and this gate
+    called that executing. The gate asserts a block EXITS 0; a block that does
+    nothing also exits 0. This pins the one case where that difference was
+    actually observed, so a future change cannot restore the no-op and still read
+    as green.
+    """
+    text = _clean_charter()
+    bindings = _resolved_bindings(text=text, repo_primary=_repo(tmp_path=tmp_path))
+    assert "supervisor_marker" in bindings, "the binder must declare supervisor_marker"
+
+    boot_blocks = [b for b in _shell_blocks(text=text) if "$supervisor_marker" in b]
+    assert boot_blocks != [], "no block reads the supervisor marker — mutation is vacuous"
+
+    # Satisfy the block's FIRST precondition so the run reaches the marker guard.
+    # Without this the shared-layer check HALTs earlier and the test would pass for
+    # the wrong reason — a green that proves a different guard fired.
+    (tmp_path / ".ai").mkdir(exist_ok=True)
+    (tmp_path / ".ai" / "supervisor-protocol.md").write_text("shared\n", encoding="utf-8")
+
+    env = os.environ.copy()
+    env["PATH"] = str(_stub_path(tmp_path=tmp_path)) + os.pathsep + env["PATH"]
+    env.pop("supervisor_marker", None)
+    completed = subprocess.run(  # noqa: S603
+        ["bash", "-c", boot_blocks[0]],  # noqa: S607
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    assert completed.returncode != 0, "an unset marker binding must HALT, not no-op at rc 0"
+    assert "HALT: supervisor_marker is unset" in completed.stdout
+
+
+def test_a_binding_name_that_is_not_a_shell_identifier_is_not_exported() -> None:
+    """A name `$name` could never expand must not reach the environment.
+
+    Exporting it would look identical to a binding that got through, so the block
+    would fail on an unset variable while the harness believed it was bound.
+    """
+    assert _env_safe_bindings(bindings={"supervisor_marker": "/m", "not-an-ident": "x"}) == {
+        "supervisor_marker": "/m"
+    }
