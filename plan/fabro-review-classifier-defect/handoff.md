@@ -4,8 +4,28 @@
 `/data/projects/fabro`). **Ledger anchor:** epic **`overseer-dtytju`**.
 **Status: INVESTIGATION COMPLETE 2026-07-29; fabro work HANDED OFF
 2026-07-30.** All five open questions answered; a RED-then-green fix is
-prepared on an **unpushed branch** in `/data/projects/fabro`. **Nothing is
-pushed and no upstream PR or issue exists.** The publication question has been
+prepared on a branch in `/data/projects/fabro`.
+
+> **SUPERSEDED 2026-07-30 — THE PUBLICATION HOLD IS DISCHARGED.** Everything in
+> this file that says *unpushed*, *nothing is pushed*, *no PR or issue exists*,
+> or *publication is the maintainer's call* was true when written and is **now
+> FALSE**. Verified on the forge, not inferred:
+> **`fabro-sh/fabro#688` — OPEN, not draft, MERGEABLE, `+527/-4`, head
+> `3b3781888`, created 2026-07-30T14:54:22Z**, titled *"fix(workflow): stop a
+> provider spend limit classifying as transient_infra"*. The fork branch
+> `fix/classify-provider-spend-limit-not-transient` is pushed at `3b37818887c8`.
+> Upstream CI run `30565354608` completed **SUCCESS**; the owning session reports
+> **three approvals** (Fable-role, adversarial, Claude Opus 5), 175 focused and
+> 1,146 library tests passing.
+>
+> **These are marked SUPERSEDED rather than deleted** because they were stated as
+> verified facts and repeated to the maintainer — the same treatment
+> "byte-identical" got. **The epic `overseer-dtytju` is now CLOSED**; see its
+> ledger notes for what the closure does and does **not** cover.
+>
+> **UPSTREAM MERGE HAS NOT HAPPENED** and is `fabro-sh`'s call, not ours.
+
+The publication question has been
 **answered and superseded** — the maintainer routed it to a **Codex session**,
 which now owns the fabro-side work; see NEXT ACTION. **This thread must not
 touch `/data/projects/fabro`**; its remaining work is record hygiene here.
@@ -46,17 +66,22 @@ forge-verified. There is **no half-finished edit** anywhere.
 >
 > - **Delivery 1 is DONE** — delivered, received and acted on; the recipient's
 >   own log is the evidence. **Delivery 2 remains outstanding and unawaited.**
-> - **The sweep reached RUNG TEN and is UNEXHAUSTED** — stopped by session
+> - **The sweep reached RUNG ELEVEN and is UNEXHAUSTED** — stopped by session
 >   budget, not by a dry rung. Nine of ten productive; **rung 8 was dry as
 >   scoped**. Read **rung nine** first (this repo is the **fleet's sole
 >   outlier** on branch protection, which *reframed* `overseer-rh1`), then
 >   **rung ten**, which bounded that drift as *specific* rather than systemic.
 >   **The METHOD lives in the FOUR RULES block in `supervisor-handoff.md`** —
 >   read that before the individual corrections; they are its instances.
-> - **The ledger is SIX items, not five** (table below is otherwise current):
->   `overseer-dtytju`, `overseer-fs4`, `overseer-816`, `overseer-b4q`,
->   **`overseer-rh1`** (new, rung seven), and **`overseer-knm`** (appended).
->   **`overseer-ya4` is CLOSED**, routed to `livespec-dev-tooling-zi4q`.
+> - **THE EPIC `overseer-dtytju` IS CLOSED** (2026-07-30T17:50:57Z) — publication
+>   resolved via `fabro-sh/fabro#688`. **Read its close notes for what the
+>   closure does NOT cover**: upstream merge has not happened, the
+>   second-payload gap is unresolved, the retry residual is `overseer-fs4`, and
+>   the non-weakening evidence is stale.
+> - **FIVE items remain OPEN, all `backlog`:** `overseer-fs4`, `overseer-816`,
+>   `overseer-b4q`, `overseer-rh1`, **`overseer-bak`** (new, rung eleven), plus
+>   `overseer-knm` (P3). **`overseer-ya4` is CLOSED**, routed to
+>   `livespec-dev-tooling-zi4q`.
 > - **ONE THING NEEDS A HUMAN AND IS NOT BLOCKED ON THE WORKER.** The
 >   `overseer-ya4` root cause (SIGPIPE, not flakiness) was appended to the
 >   **closed** item, and **it will NOT reach `livespec-dev-tooling-zi4q` on its
@@ -86,7 +111,8 @@ because the wrapper exits 0 even when the binary is missing, `overseer-1sv`):
 
 | id | what |
 |---|---|
-| `overseer-dtytju` | P2 epic — acceptance MET but **NOT general coverage** (see below) |
+| ~~`overseer-dtytju`~~ | P2 epic — **CLOSED 2026-07-30**, publication resolved (`fabro-sh/fabro#688`). Acceptance MET but **NOT general coverage**; see the close notes for the four things the closure does **not** cover |
+| `overseer-bak` | P2 bug — **filed 2026-07-30 as rung eleven.** Nothing holds a plan thread's two records (`handoff.md`, `supervisor-handoff.md`) in agreement; **zero** modules read the charter, against a passing positive control. Reproduced twice in one day, the second time by the session that had just written the rule against it |
 | `overseer-fs4` | P2 bug — the orchestrator never consumes the failure category; cross-referenced with `bd-ib-g56f` in the **orchestrator** tenant |
 | `overseer-816` | P2 bug — the send idiom is Claude Code-specific but lives in the **generator** and the **shared protocol**, so every future charter reproduces it |
 | `overseer-rh1` | P2 bug — **filed 2026-07-30 as rung seven.** `check-branch-protection-alignment` warns (exit 0) when a CI leg stops gating merges; its leniency assumes a required `ci-green` aggregate that **this repo does not have**, and it never checks that assumption. Enforcement verified as legacy branch protection, **no rulesets** (positive control run, since an empty ruleset list is otherwise indistinguishable from an auth error) |
@@ -374,6 +400,23 @@ control.
 > unless something forces them together; nothing here does.** That is why the
 > tripwire above is now keyed to content this file itself asserts.
 
+**RUNG ELEVEN — the sweep turned on the thread's own records**, forced by that
+recurrence. Filed as **`overseer-bak`** (P2). **Measured with a positive
+control:** *zero* modules in `livespec-dev-tooling` read
+`supervisor-handoff.md`; the two plan-thread gates read `plan/*/handoff.md`
+only, and both concern the **ledger anchor** rather than agreement between the
+records. `check-plan-thread-epic-parity` is additionally **not required and
+armed-only** — it self-skips unless a RUN lever *and* a credential are present,
+neither set here. So a thread's two records are unenforced in every direction,
+while **this file is the only one a restart inherits**.
+
+> **The cleanest argument the sweep produced for structure over discipline.**
+> The drift happened **twice in one day** — once leaving the research note
+> claiming a delivered notification was "prepared, NOT delivered", which caused a
+> reader to report the wrong state to the maintainer; and once **by the session
+> that had just written the rule against it**. Discipline was present, explicit,
+> and freshly written, and it still failed.
+
 **`overseer-ya4` — root cause found, and it is now in the WRONG PLACE.** The
 `worktree-create` failure is **not flaky**: measured back-to-back, stdout to a
 **pipe** gives `rc=141` with **zero output and no worktree**, while stdout to a
@@ -627,9 +670,12 @@ not `tmp/`. Its remaining work is record hygiene here in `livespec-overseer`.
 
 Still true, and unchanged by that routing:
 
-- **Nothing is pushed.** The branch is local only; `main` is untouched.
-- **No PR and no issue exist** on `fabro-sh/fabro` or `thewoolleyman/fabro`.
-  Publication remains the maintainer's call and has still not been given.
+- ~~**Nothing is pushed.** The branch is local only; `main` is untouched.~~
+- ~~**No PR and no issue exist** on `fabro-sh/fabro` or `thewoolleyman/fabro`.
+  Publication remains the maintainer's call and has still not been given.~~
+
+> **SUPERSEDED 2026-07-30 — publication HAS happened.** `fabro-sh/fabro#688` is **OPEN, not draft, MERGEABLE, `+527/-4`, head `3b3781888`**, CI run `30565354608` SUCCESS, three approvals. Upstream **merge** has not happened and is `fabro-sh`'s call. Left in place, not deleted: these were stated as verified facts and repeated.
+
 - **Whoever takes a yes must re-express hunk 3 against `lib/components/`**
   first — see the port note above.
 
@@ -672,8 +718,21 @@ research note under "A SECOND limit payload". **Do not read "acceptance MET" as
   `clippy --workspace --all-targets -D warnings` clean. Diff is **165
   insertions, zero deletions** — nothing deleted, loosened or `#[ignore]`d, and
   the three hint-count guards stay at 38/12/3.
+
+  > **STALE — DO NOT REPEAT THIS WITHOUT RE-MEASURING (2026-07-30).** The
+  > "165 insertions / 0 deletions, nothing weakened" characterisation was
+  > measured against commit **`a7c42204b`, which no longer exists**. The PR head
+  > is **`3b3781888` at `+527/-4`** — over three times the insertions and, unlike
+  > the original, **it deletes lines**. The non-weakening claim therefore rests
+  > on a diff that is not the one under review. It was given to the maintainer
+  > repeatedly in the old form.
+  > **Nobody has re-measured it. It is NOT asserted to still hold** — treat it as
+  > OPEN until someone measures `3b3781888` and says so. This is the
+  > mutable-SHA hazard this thread already recorded, landing on its own
+  > acceptance evidence.
 - **Landed on a branch:** `fix/classify-provider-spend-limit-not-transient`, a
-  single commit on top of `d5dcd1179`. **Unpushed.**
+  single commit on top of `d5dcd1179`. ~~**Unpushed.**~~ **PUSHED** — fork
+  branch at `3b37818887c8`, PR `fabro-sh/fabro#688`.
   **The BRANCH NAME is the durable identifier — do not cite the SHA as one.**
   An earlier version of this line named commit `a7c42204b`; that SHA is **dead**.
   Measured read-only by the supervisor 2026-07-30, the head is now `b46a4f387`
@@ -690,7 +749,8 @@ Full-workspace run: 1218 passed, 4 failed — all four are pre-existing
 `fabro-cli` `pre_tracing_bootstrap_*` flakes, **proved** by reproducing them
 (six of them) on the unmodified base `d5dcd1179`.
 
-**Opening the PR to `fabro-sh/fabro` is the MAINTAINER'S call** — see NEXT
+~~**Opening the PR to `fabro-sh/fabro` is the MAINTAINER'S call**~~ — **DONE:
+#688 is open.** Superseded 2026-07-30. See NEXT
 ACTION. Filing an upstream issue was deliberately **held** for the same reason:
 this investigation exists so any report is evidence-backed rather than a guess.
 
