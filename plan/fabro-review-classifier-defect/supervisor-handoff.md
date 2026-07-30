@@ -475,6 +475,29 @@ order, each of which returned at least one further instance — and each of whic
 | **rung six (b), the plugin CACHE — the generator that actually RUNS** | the running generator **contradicts itself**: its preconditions name a `codex` worker (`:90`, `:116`) and its send section then hands over a Claude-only submit procedure (`:394`, `:396`, `:410`) with **zero** harness caveat. Recorded on `overseer-816` |
 | **rung seven, whether anything CONSUMES the verdict** | `overseer-rh1` — `check-branch-protection-alignment` warns (exit 0) when a CI leg stops gating merges. Its leniency is sound only under the single-gate model; **`ci-green` is emitted but NOT required** here, so seven contexts run without gating anything and the detector never checks its own premise. Plus an **independent verification of `overseer-b4q`**, and the `PIPESTATUS` reproduction below |
 
+| **rung seven (b), the same layer measured independently** | confirmed `ci-green` is absent from all 56 required contexts — and found `ci.yml:50-51` asserting *"verified live … branch protection requires only ci-green"*, **a comment that asserts its own verification while the fact beside it is false**. `ci.yml:26-28` then justifies a runner decision on that premise. Appended to `overseer-rh1` |
+| **rung eight, coverage registries** | **DRY — the first rung that returned nothing new.** See below; the dryness is the result |
+
+**RUNG EIGHT WAS DRY, AND SAYING SO IS THE POINT.** Every prior rung returned
+something, which creates real pressure to find something. Scoped to the
+`tests/heading-coverage.json` registry, rung eight returned **only a
+confirmation** of the already-filed `overseer-knm` (23 stale rows, exactly) and
+**no new defect**. The tempting finding — *"a coverage gate certifying coverage
+that does not exist"* — **does not survive**: all 23 pointers resolve elsewhere
+in the repo (zero dangle), and `check-heading-coverage` resolves `test` node ids
+**only** for `scenarios.md` entries, of which the 23 include **none**. The gate
+behaves exactly to contract and its exit 0 is correct.
+
+> **The lesson is the positive-control discipline in a second form: know what a
+> check CLAIMS to verify before concluding it fails to verify it.** A gate that
+> does not check X is a defect only if it says it checks X. Reading the
+> docstring is what stopped a plausible, wrong bug report — and an unfounded
+> filing would have been the same defect facing outward, a sweep that cannot
+> come back empty.
+>
+> **Scope the dryness honestly too:** one registry was swept, not every
+> coverage artifact. "Rung eight was dry" means *as scoped here*.
+
 **Rung seven is the one that shows the ladder is about ALTITUDE, not breadth.**
 Rung six (a) asked *does this gate compute the right verdict*. Rung seven asked
 *does anything read it* — and found a correctly-computed verdict (`ci-green`)
@@ -488,11 +511,20 @@ because collapsing them would hide that neither session knew the other was
 climbing. (a) came from asking *where else does this repo run a check that
 cannot fail*; (b) from asking *what does the emitted artifact actually say*.
 
-**STATE THE TERMINATION HONESTLY. This ladder STILL has not terminated** —
-**seven** rungs climbed, every one returned something new, and rung six
-returned something on **both** independent attempts. Treat it as
-**UNEXHAUSTED**. Record **which rung was reached and that it was not dry**;
-never record merely that "a sweep was done".
+**STATE THE TERMINATION HONESTLY. Eight rungs climbed; rungs one through seven
+each returned something new, and rung EIGHT was DRY as scoped.** By this
+charter's own stopping rule — *climb until a rung returns nothing new* — that
+is the first rung that met it. **Do NOT read that as "the sweep is finished".**
+Rung eight swept **one** registry; the rule wants a rung to come back empty on
+its own terms, and a narrow rung is easy to make empty by choosing it narrowly.
+Treat the ladder as **UNEXHAUSTED but no longer obviously productive**, and if
+the next rung is also dry, widen it before concluding rather than after.
+
+> **A dry rung is a RESULT and must be recorded as one.** The failure mode here
+> is not stopping too early — it is manufacturing a find to keep the streak
+> alive. Rung eight had a plausible one available and it did not survive
+> measurement; recording the non-finding is what keeps the ladder's earlier
+> entries worth believing.
 
 > **The C14 reproduction belongs to this ladder, and here is why it is filed as
 > a rung result rather than a footnote.** Verifying rung six (a) produced a new
