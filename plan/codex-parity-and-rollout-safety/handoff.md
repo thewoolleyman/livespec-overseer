@@ -134,6 +134,37 @@
 > exercise?"* — which is a far smaller maintainer call than *"narrow a bar that
 > cannot be met."* **Do not carry the unprovability ask up; it is answered.**
 >
+> ### ⚠ AND THE BAR AS PHRASED IS UNSATISFIABLE WHILE ANY DAEMON RUNS — BY DESIGN, not by host limitation
+>
+> Measured, not argued: a non-blocking `flock` on the real
+> `~/.livespec-overseer.jsonl.daemon.lock` raises **`BlockingIOError`**, so the
+> acting daemon genuinely holds it right now. `acquire_singleton_lock` is an
+> exclusive `flock` on a **per-store** file, so **every** invocation using the real
+> `$HOME` refuses while that daemon lives — from a Codex session or from anywhere
+> else. That is **invariant B6** (two daemons on one store double-inject and
+> double-restart, and B's `respawn-pane -k` can kill the fresh session A just
+> resumed), a correctness feature the thread has already agreed is right.
+>
+> **So "re-run the whole bar as ONE continuous exercise" is not something this host
+> is failing to do. It is something the bar cannot ask for while a daemon runs.**
+> Any future reader who reads the composition caveat as "we took a shortcut" has
+> the causality backwards.
+>
+> ### ✅ THE COROLLARY, AND IT RETIRES THE WORD "FORBIDDEN"
+>
+> The bar IS satisfiable in full at any moment **no** daemon holds the lock — and
+> such moments occur **routinely, with nobody killing anything**. `overseer/AGENTS.md`
+> REQUIRES a daemon restart after landing any overseer code change (*"`overseerd`
+> keeps running the OLD code until you restart it"*), and a host reboot does the
+> same.
+>
+> **So the end-to-end exercise is SCHEDULABLE — run it in the window during the next
+> daemon restart.** That is cheaper than either narrowing the bar or accepting the
+> composition, and it needs no forbidden act. **Whoever next restarts the daemon
+> should take that window**; the launch half already passes from a real Codex
+> session, so the only thing the window adds is watching the daemon come up and
+> adopt instead of refusing.
+>
 > ## Corrections made today — do NOT re-derive these, and do NOT re-break them
 >
 > - **The singleton lock WAS the cause** of the daemon pane dying. I retracted
