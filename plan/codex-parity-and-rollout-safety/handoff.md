@@ -20,7 +20,8 @@
 > | `overseer-yms` | — | CLOSED — PR #397, `b6fe98dc` |
 > | `overseer-wr8` | — | CLOSED — PR #403, `556ad8ac` |
 > | **A3** | `overseer-kju6wh` | `pending-approval`. **Admission is ALREADY GRANTED by the maintainer — do NOT re-ask.** Held only by A4's live bar. |
-> | **`overseer-jcw`** | — | **P2 `backlog`, NEW.** The gate is intermittently red. Needs admission. |
+> | ~~`overseer-jcw`~~ | — | **CLOSED 2026-07-31 as a DUPLICATE of `overseer-jdo`** (P1, open), evidence folded in first. **Its admission ask is MOOT, not answered — do not raise it.** |
+> | **`overseer-jdo`** | — | **P1 `backlog`.** The live home for the flaky gate. Still needs admission; carries the statistical acceptance. |
 > | B2 / B1 / C1 | — | unchanged; other repos' work or stood down |
 >
 > ## The four things that will bite you first
@@ -70,7 +71,7 @@
 >   manifests bump `0.15.0 → 0.16.0`. Check VALUES, not file presence: a wrong
 >   `jsonpath` fails *silently*.
 >
-> ## Two environment traps that cost real time
+> ## Four environment traps that cost real time
 >
 > - **`just worktree-create` is a coin flip** (~50% at 41 worktrees): SIGPIPE →
 >   **exit 141**, sometimes with **ZERO bytes on both streams**, so an empty log
@@ -81,9 +82,41 @@
 >   `fabro ps 2>/dev/null` cannot tell "no runs" from "fabro is broken".
 > - **zsh eats `:ready` off an action id**: `"move:$id:ready"` → `move:<id>eady`
 >   via the `:r` modifier. bash is unaffected. Use `"move:${id}"":ready"`.
-> - **The gate is intermittently red** (`overseer-jcw`): `just check` failed,
->   failed, then passed on an unchanged tree. It presents as a COVERAGE shortfall,
->   not a test failure. Re-run before believing it; never `--no-verify`.
+> - **The gate is intermittently red** (`overseer-jdo`, P1 — **not `overseer-jcw`,
+>   which was this thread's duplicate of it and is now closed**): `just check`
+>   failed, failed, then passed on an unchanged tree. Re-run before believing it;
+>   never `--no-verify`. **But the "it presents as a COVERAGE shortfall, not a
+>   test failure" line this file used to carry is TRUE OF THE LOCAL LANE ONLY** —
+>   see the correction below.
+>
+> ## Correction added 2026-07-31 — the flaky gate has TWO signatures, not one
+>
+> Folding `overseer-jcw` into `overseer-jdo` meant reading the CI log this file
+> had only ever cited by run id. That read changed the finding, and it answers
+> **`jdo`'s own stated open question** — *"whether both sightings were under the
+> hosted lane rather than local"* — with a confirmed **YES**:
+>
+> ```
+> master CI run 30566073405, headSha e1ab5051 (A6's merge), 2026-07-30T17:27:51Z
+>   attempt 1 -> FAILURE, job `check-coverage`
+>   attempt 2 -> SUCCESS, plain rerun, nothing changed
+>
+> Required test coverage of 100.0% reached. Total coverage: 100.00%
+> FAILED tests/prompts/test_watcher_wake_discriminates.py::test_c_a_footer_in_scrollback_wakes_the_shipped_watcher
+>   - AssertionError: assert equals failed
+>      -'IDLE'     +'PICKER'
+> 1 failed, 731 passed in 14.49s
+> ```
+>
+> **Coverage was 100%.** On the hosted lane this is a genuine ASSERTION failure —
+> a test that ran and answered wrong. Every LOCAL sighting is an uncovered-line
+> signature — a test that never ran. **Same target name, different symptom in
+> kind**, so a fix demonstrated on one lane must not be assumed to cover the
+> other. `731 tests in 14.49s` is the `-n auto` lane (`justfile:41`), which is
+> also the most contended condition for the seven real-tmux fixtures.
+>
+> Lane and signature only — **NOT diagnosed**, and this rules the earlier 24
+> clean runs neither in nor out.
 >
 > ---
 >
