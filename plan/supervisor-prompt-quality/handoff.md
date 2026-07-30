@@ -465,6 +465,43 @@ only the discrimination leg; removing the stub reddens only the real-layers gate
   before succeeding on the fourth, leaving no partial state each time (checked:
   no worktree, no branch, no directory). Filed as `livespec-dev-tooling-zi4q`;
   retry rather than investigate, but do not assume two attempts is the ceiling.
+  **UPDATED 2026-07-30T22:08Z — it is NOT (only) a flake, and retrying is now the
+  WRONG advice.** It failed **six consecutive times**, rc=141 every time, on the
+  same argv. The advice above would have you retry indefinitely. What actually
+  works: **invoke the library directly** —
+  `./dev-tooling/worktree-lib.sh create <branch> <base_ref>` — which succeeded
+  FIRST try, rc=0, doing the identical work (fetch, `git worktree add`, provision
+  the discipline pack, hydrate). So the fault is in the `just` wrapper layer, not
+  in the worktree machinery: `just` is closing the recipe's stdout early and the
+  script dies on SIGPIPE. Note the direct path still provisions the pack, so it
+  does NOT reintroduce the raw-`git worktree add` hazard CLAUDE.md forbids — that
+  prohibition is about the PACK, and the library is what installs it. Worth
+  re-filing on `livespec-dev-tooling-zi4q`: "intermittent, retry" and
+  "deterministic, use the library" are different bugs with different remedies.
+- **`ls` ON THIS HOST IS `lsd`, AND ITS OUTPUT IS INODE-DECORATED — so
+  `ls … | grep '^<name>'` MATCHES NOTHING, ALWAYS.** Each line begins with an inode
+  number and a permission string, not the filename, so any filename predicate
+  anchored with `^` silently returns zero. This bit a live count tonight:
+  `ls checks/ | grep -c '^_'` returned **0** helper modules when the true answer is
+  **20**, and that zero was one step from being published in a decision packet as
+  "77 check modules" when the real figure is 57. It is the
+  grep-matches-nothing hazard again, with a new vector — the shell alias, not the
+  pattern. **Use `find`, a shell glob, or `python3` `Path.glob` for any predicate
+  over FILENAMES**; keep `ls` for human reading only. Same family as the uutils
+  `readlink`/`realpath`/`date` divergences below: this host's coreutils are not
+  the ones the command name implies.
+- **THE HARNESS'S OWN "today's date" NOTICE IS LOCAL TIME, NOT UTC.** At
+  2026-07-31T00:03 local (CEST, +0200) the session was told "Today's date is now
+  2026-07-31" while **UTC was still 2026-07-30T22:03Z**. Anything stamped from that
+  ambient date during the two-hour CEST window is wrong BY A WHOLE DAY, and it is
+  wrong in the direction that looks newest — a reader sorting by date puts it after
+  work that actually followed it. This is charter correction C19 and detector (k)
+  reappearing through a THIRD vector: not `date -u -r`, and not a `Z` appended to a
+  local clock, but an ambient date supplied by the harness that never claimed to be
+  UTC and was simply assumed to be. **Every published stamp goes through
+  `date -u` or `datetime.now(timezone.utc)`, including the one you are about to
+  write in a heading.** Detector (k) cannot catch this one: there is no `date`
+  invocation in the artifact to inspect.
 
 ### Boundaries
 
