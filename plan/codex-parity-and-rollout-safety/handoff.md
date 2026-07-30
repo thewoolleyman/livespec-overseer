@@ -14,7 +14,88 @@
 > resolve+execute+run; `overseer` does NOT, and NOT for the reason this file
 > predicted — see the ⛔ box in §"A2's live acceptance". `overseer-start` is not
 > on PATH outside this repo, which makes that half of the bar unsatisfiable by
-> EITHER harness and reframes A4.** A3 waits on A4; the order is A4 → A3.
+> EITHER harness and reframes A4.**
+>
+> > ## ▶▶ START HERE — state at 2026-07-30 session end. This block WINS over anything below it.
+> >
+> > **A4 IS DONE AND MERGED. Nothing is dispatchable — every remaining local
+> > slice sits behind `admission:manual`, a policy-required human valve. Ask the
+> > maintainer for admission FIRST; do not admit anything yourself.**
+> >
+> > ### Ledger, read back 2026-07-30
+> >
+> > | slice | id | state |
+> > |---|---|---|
+> > | **A4** | `overseer-ews` | **Code DONE** — PR **#347**, commit `8bd5b91` verified on `origin/master`. Ledger reads **`READY`** (a phantom claim was released; nothing is in flight). Acceptance verified: runtime check **ADMITTED-TO, not dropped** (`_CODEX_AGENT_COMMS={codex,codex-acp}`, walking **process ancestry**); tests **EXTENDED not loosened** (originals kept, three added, one gating the `$CLAUDECODE` leak). **Its LIVE bar is UNPROVEN** — see A6. |
+> > | **A6** | `overseer-g6z` | **NEW.** `pending-approval`, `admission:manual`, `rank: a6`. Carries the revised PATH fix (1+3 together). **This is what blocks A4's live bar.** |
+> > | **A5** | `overseer-ei3` | `pending-approval`, `admission:manual`, `rank: a5`. Version-lockstep fix **+ a check that goes RED**. Advisory `relates_to` A2, **no blocking edge** (deliberate — it must not stall A4/A3). |
+> > | **A3** | `overseer-kju6wh` | `pending-approval`. **Correctly NOT dispatched.** Flipping `harnesses.codex` to `supported` while `overseer` cannot launch from another repo is the claim-a-capability-that-does-not-exist failure the A1/A3 split exists to prevent. **Hold that line.** |
+> > | `overseer-oj8` | — | CLOSED, superseded by `overseer-ei3`. **Pointer IS intact** (`metadata.superseded_by` + a 738-char `close_reason`). The record has **no top-level `superseded_by`/`reason` field**, so a reader asking for those keys gets `None` — that is a READER bug, not a lost pointer. **Do not "repair" it.** |
+> >
+> > ### Why A4's live bar fails — MEASURED, do not re-derive
+> >
+> > On release 0.15.0, `env -u CLAUDECODE`, real Codex session in another repo:
+> > `resolve=PASS, execute=PASS, run=FAIL(exit 1)` with the fix's OWN diagnostic —
+> > `overseer-start executable not found; tried $PLUGIN_ROOT/../overseer/overseer-start and PATH`.
+> > The failure MOVED from exit 127, so candidate 3 **did** run.
+> >
+> > **Root cause:** `$PLUGIN_ROOT` is the materialized contents of `.claude-plugin/`,
+> > so `$PLUGIN_ROOT/../overseer/` **does not exist** — the codex cache materializes
+> > only the plugin root, never the `overseer/` package. Explicit resolution cannot
+> > find a file that was never shipped.
+> >
+> > **MEASURED, not assumed:** a launcher copied ALONE into a simulated plugin root
+> > **fails** — `ModuleNotFoundError: No module named 'overseer'` — when run with cwd
+> > **outside** the repo. (Run with cwd *inside* the repo it appears to work; that is
+> > a **cwd confound**, not a result.) **The cache needs the PACKAGE too.**
+> >
+> > **Packaging facts (a citation I got WRONG and corrected):** `pyproject.toml:270`
+> > is **`[tool.pyright]`**'s include, NOT packaging — that wrong citation is still
+> > embedded in `overseer-g6z`'s description and should be fixed to **line 344**
+> > (`[tool.setuptools.packages.find] include = ["overseer*"]`). Further:
+> > `[tool.setuptools.package-data]` declares **only** `overseer = ["version.json"]`,
+> > so the extensionless launchers are **not shipped as files** — delivery is via
+> > `[project.scripts]` console-script entry points. **There is no packaged launcher
+> > artifact to duplicate**, which is why the recommendation is a **packaging step**
+> > over a copied shim (the copy also inherits a `uv`-via-mise-shim PATH fragility).
+> >
+> > ### Proven this session, so you need not redo it
+> >
+> > - **Negative half PROVEN on the post-A4 build, locally**: a plain shell with
+> >   BOTH `$CLAUDECODE` and `$TMUX_PANE` unset refuses, **exit 1**, with A4's new
+> >   message *"no supported agent runtime in process ancestry"*.
+> > - `supervise-plan` PASSES resolve+execute+run, re-verified free of the
+> >   `$CLAUDECODE` leak confound.
+> > - **A2's agent-skill-list evidence pre-discharges NO part of A3** (different
+> >   surface: A3's bar is TUI `/skills` picker rendering). Hold this guard.
+> >
+> > ### ⛔ RETRACTED: the "byte-identical to upstream" claim near §:218-222
+> >
+> > **It is FALSE — delete it, do not merely ref-pin it.** Measured at pinned refs
+> > with the correct path on both sides (`lib/components/…/error.rs`): fork
+> > `49b043c1a` 87,769 bytes vs upstream `4ab090cae` 67,441 bytes, **484 differing
+> > lines**. It was asserted three times on three vacuous checks — a diff of a path
+> > that does not exist upstream, then a diff of **two 0-byte files**, then a stale
+> > fork-side path after the fork also relocated to `lib/components/`. Each time an
+> > empty result was read as agreement.
+> >
+> > **The CONCLUSION still stands** — the defect is upstream's, unmodified — but on
+> > the peer thread's evidence instead: hint present at upstream `:79`, same
+> > first-match-wins ordering, same pinned test `classify_reason_index_crates_io` at
+> > upstream `:1654`. **Never restate identity for a file under active divergence**;
+> > those refs moved three times in two days. Also fix the nearby claim that the
+> > orchestrator's `workflow.fabro` "only CONSUMES the category" — **nothing**
+> > consumes it; fabro's own node-retry layer acts on it (filed `overseer-fs4`).
+> >
+> > ### Pending maintainer/supervisor decisions — the actual blockers
+> >
+> > 1. **Admission for `overseer-g6z` and `overseer-ei3`** (both `admission:manual`).
+> > 2. Correcting the `pyproject.toml:270` → 344 citation inside `overseer-g6z`.
+> >
+> > A tracked-file/worktree prohibition was in force at session end for everything
+> > except this handoff; it lapses with that session.
+>
+> A3 waits on A4; the order is A4 → A6 → A3.
 > Everything below this box is older
 > context that is still accurate unless this box contradicts it.**
 >
