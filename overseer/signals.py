@@ -45,6 +45,9 @@ __all__: list[str] = [
     "ready_valid",
     "state_path",
     "strip_ansi",
+    "supervisor_entity_topic",
+    "supervisor_topic",
+    "topic_reserved_for_supervisor",
     "valid_token",
 ]
 
@@ -334,11 +337,46 @@ STATE_WINDING_DOWN = "winding-down"
 STATE_IDLE_WITH_CONTEXT_LEFT = "idle-with-context-left"
 STATE_TOKENS = (STATE_READY, STATE_BLOCKED, STATE_WINDING_DOWN)
 _DAEMON_TOKENS = (STATE_IDLE_WITH_CONTEXT_LEFT,)
+STATE_PATH_MISMATCH = "state-path-mismatch"
+_SUPERVISOR_SUFFIX = "-supervisor"
+
+
+def topic_reserved_for_supervisor(*, topic: str) -> bool:
+    """True when a worker topic would collide with the reserved pair namespace."""
+    return topic.lower().endswith(_SUPERVISOR_SUFFIX)
+
+
+def supervisor_entity_topic(*, topic: str) -> str:
+    """The suffixed entity name for a worker topic's supervisor pair member."""
+    return f"{topic}{_SUPERVISOR_SUFFIX}"
+
+
+def supervisor_topic(*, entity_topic: str) -> str:
+    """The worker topic owned by a suffixed supervisor entity topic."""
+    if not topic_reserved_for_supervisor(topic=entity_topic):
+        return entity_topic
+    return entity_topic[: -len(_SUPERVISOR_SUFFIX)]
 
 
 def state_path(*, repo: str, topic: str) -> Path:
     """``<repo>/tmp/overseer/<topic>/.overseer-state`` — the ONE indicator file."""
     return marker_dir(repo=repo, topic=topic) / ".overseer-state"
+
+
+def _canonical_state_path_matches(*, path: Path, repo: str, topic: str) -> bool:
+    """Fail closed when the state dir or state file is a symlink escape.
+
+    The repo root itself is canonicalized before appending the fixed tmp path, so a
+    symlinked checkout still passes. The per-entity state directory and file must then
+    resolve to exactly that canonical location; a symlinked topic dir or state file does
+    not.
+    """
+    try:
+        expected = Path(repo).resolve() / "tmp" / "overseer" / topic / ".overseer-state"
+        actual = path.resolve()
+    except OSError:
+        return False
+    return actual == expected
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -382,6 +420,10 @@ def read_state(*, repo: str, topic: str) -> TrackState | None:
     try:
         if not path.is_file():
             return None
+        if not _canonical_state_path_matches(path=path, repo=repo, topic=topic):
+            return TrackState(
+                token=STATE_PATH_MISMATCH, detail=str(path), mtime=path.stat().st_mtime
+            )
         raw = path.read_text(encoding="utf-8")
         mtime = path.stat().st_mtime
     # ValueError covers the UnicodeDecodeError a non-UTF-8 indicator raises — a

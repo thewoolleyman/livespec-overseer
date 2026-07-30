@@ -16,7 +16,13 @@ import _supervisor_state
 import registry
 import signals
 from _supervisor_config import track_key
-from _supervisor_prompts import default_resume, wrapup_message
+from _supervisor_prompts import (
+    default_resume,
+    supervisor_handoff_path,
+    supervisor_resume,
+    supervisor_wrapup_message,
+    wrapup_message,
+)
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -71,7 +77,12 @@ def maybe_inject(
         registry.write_injection_stamp(
             repo=repo, topic=topic, ts=sup.now(), stamp_path=sup.stamp_path
         )
-    message = wrapup_message(remaining=eff_ctx, repo=repo, topic=topic)
+    if signals.topic_reserved_for_supervisor(topic=topic):
+        message = supervisor_wrapup_message(
+            remaining=eff_ctx, repo=repo, topic=signals.supervisor_topic(entity_topic=topic)
+        )
+    else:
+        message = wrapup_message(remaining=eff_ctx, repo=repo, topic=topic)
     if _supervisor_launch.submit_prompt(
         sup=sup, target=target, text=message, expect_codex=is_codex
     ):
@@ -131,6 +142,23 @@ def do_restart(
     also pops the in-memory inject state (RB2), so the redundant explicit pop is
     belt-and-suspenders.
     """
+    if (
+        signals.topic_reserved_for_supervisor(topic=track.topic)
+        and not supervisor_handoff_path(
+            repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
+        ).exists()
+    ):
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=_supervisor_launch.session_of(sup=sup, track=track),
+            pane=target,
+            message=(
+                "supervisor ready declared but supervisor-handoff.md is missing; " "not restarting"
+            ),
+            condition="supervisor-handoff-missing",
+        )
+        return
     if is_codex:
         do_codex_restart(sup=sup, track=track, target=target)
         return
@@ -175,7 +203,11 @@ def do_restart(
             message="freshly-restarted pane is on a gate — not keystroking it; will retry",
         )
         return
-    resume = track.resume or default_resume(repo=track.repo, topic=track.topic)
+    resume = track.resume or (
+        supervisor_resume(repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic))
+        if signals.topic_reserved_for_supervisor(topic=track.topic)
+        else default_resume(repo=track.repo, topic=track.topic)
+    )
     if _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume):
         _supervisor_state.clear_state(sup=sup, track=track)
         _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
@@ -227,7 +259,11 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
             message="codex session vanished before restart; keeping the ready declaration",
         )
         return
-    resume = track.resume or default_resume(repo=track.repo, topic=track.topic)
+    resume = track.resume or (
+        supervisor_resume(repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic))
+        if signals.topic_reserved_for_supervisor(topic=track.topic)
+        else default_resume(repo=track.repo, topic=track.topic)
+    )
     command = _supervisor_launch.codex_launch_command(session_id=live.session_id, resume=resume)
     if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
         sup.alert(

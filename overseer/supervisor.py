@@ -169,8 +169,22 @@ def _cmd_adopt(*, args: argparse.Namespace) -> int:
     return 0
 
 
+def _refuse_reserved_topic(*, repo: str, topic: str) -> bool:
+    if not signals.topic_reserved_for_supervisor(topic=topic):
+        return False
+    streams.write_stderr(
+        text=(
+            f"refusing reserved supervisor topic {repo}::{topic}; "
+            "worker topics may not end in -supervisor\n"
+        )
+    )
+    return True
+
+
 def _cmd_add(*, args: argparse.Namespace) -> int:
     repo = os.path.normpath(args.repo)
+    if _refuse_reserved_topic(repo=repo, topic=args.topic):
+        return 1
     track = registry.Track(
         topic=args.topic,
         repo=repo,
@@ -184,9 +198,10 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
 
 
 def _cmd_remove(*, args: argparse.Namespace) -> int:
-    removed = registry.remove_mapping(
-        repo=os.path.normpath(args.repo), topic=args.topic, store_path=None
-    )
+    repo = os.path.normpath(args.repo)
+    if _refuse_reserved_topic(repo=repo, topic=args.topic):
+        return 1
+    removed = registry.remove_mapping(repo=repo, topic=args.topic, store_path=None)
     streams.write_stdout(text=f"removed {removed} mapping row(s) for {args.repo}::{args.topic}\n")
     return 0
 
@@ -202,6 +217,8 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
     """
     repo = os.path.normpath(args.repo)
     topic = args.topic
+    if _refuse_reserved_topic(repo=repo, topic=topic):
+        return 1
     session = registry.tmux_id(repo=repo, topic=topic, colliding=_cli_colliding())
     force = getattr(args, "force", False)
     io = tmuxio.TmuxIO()

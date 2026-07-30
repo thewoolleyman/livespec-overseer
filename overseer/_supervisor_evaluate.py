@@ -376,7 +376,8 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         else:
             status = "warned"
     else:
-        _supervisor_offer.surface_supervision_offer(sup=sup, track=track, act=act)
+        if not signals.topic_reserved_for_supervisor(topic=topic):
+            _supervisor_offer.surface_supervision_offer(sup=sup, track=track, act=act)
         # Idle at an empty prompt with the context ABOVE the wind-down threshold. If
         # the session has declared nothing, nudge it ONCE this episode to keep going
         # rather than stop early (the inverse of the wrap-up). The daemon-written
