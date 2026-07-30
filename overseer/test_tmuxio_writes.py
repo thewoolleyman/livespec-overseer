@@ -116,6 +116,17 @@ def test_split_window_top_argv_and_pane_id():
     assert io3.split_window_top(pane="%20", cwd="/tmp", command="overseerd") is None
 
 
+def test_pane_exists_lists_all_pane_ids():
+    io, fake = _io(stdout="%20\n%47\n")
+    assert io.pane_exists(pane="%47") is True
+    assert fake.calls[0]["argv"] == ["tmux", "list-panes", "-a", "-F", "#{pane_id}"]
+
+    io2, _ = _io(stdout="%20\n%470\n")
+    assert io2.pane_exists(pane="%47") is False
+    io3, _ = _io(returncode=1)
+    assert io3.pane_exists(pane="%47") is False
+
+
 def test_set_pane_title_argv():
     io, fake = _io()
     assert io.set_pane_title(pane="%47", title="overseer-daemon") is True

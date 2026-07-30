@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -72,20 +73,57 @@ def _running_under_supported_agent() -> bool:
     )
 
 
-def daemon_command(*, warn_percent: int | None) -> str:
+def _default_daemon_log_path() -> Path:
+    """Default daemon log location beside this checkout's overseer package."""
+    return Path(__file__).resolve().parent.parent / "tmp" / "overseer" / "daemon.log"
+
+
+def daemon_command(*, warn_percent: int | None, log_path: Path | None = None) -> str:
     """The `overseerd` launch command for the daemon top pane.
 
     When ``warn_percent`` is given it is threaded through to the daemon as
     ``--warn-percent N`` (the daemon-wide first-wrap-up threshold); stderr is
-    redirected to the daemon log the bottom pane reads for alerts.
+    redirected to the daemon log the bottom pane reads for alerts. The redirect
+    target is absolute so the daemon launch never depends on the repo where the
+    operator invoked ``/overseer``.
     """
     base = "overseerd"
     if warn_percent is not None:
         base += f" --warn-percent {warn_percent}"
-    return base + " 2>> tmp/overseer/daemon.log"
+    target = log_path if log_path is not None else _default_daemon_log_path()
+    return base + f" 2>> {shlex.quote(str(target))}"
 
 
 _daemon_command = daemon_command
+
+
+def _start_daemon_pane(
+    *,
+    layout: tmuxio.WindowLayoutDriver,
+    pane: str,
+    core: Path,
+    warn_percent: int | None,
+) -> bool:
+    log_path = core / "tmp" / "overseer" / "daemon.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    command = daemon_command(warn_percent=warn_percent, log_path=log_path)
+    new_pane = layout.split_window_top(pane=pane, cwd=str(core), command=command)
+    if new_pane is None:
+        streams.write_stderr(
+            text="overseer-start: FAILED to split the window for the daemon pane.\n"
+        )
+        return False
+    _ = layout.set_pane_title(pane=new_pane, title=_DAEMON_PANE_TITLE)
+    if not layout.pane_exists(pane=new_pane):
+        streams.write_stderr(
+            text=(
+                "overseer-start: overseerd did not stay alive in the daemon pane; "
+                f"check {log_path} for startup errors.\n"
+            )
+        )
+        return False
+    streams.write_stderr(text=f"overseer-start: started overseerd in top pane {new_pane}.\n")
+    return True
 
 
 def main(
@@ -163,17 +201,13 @@ def main(
         streams.write_stderr(
             text="overseer-start: daemon pane already present in this window; leaving it.\n"
         )
-    else:
-        (core / "tmp" / "overseer").mkdir(parents=True, exist_ok=True)
-        command = daemon_command(warn_percent=args.warn_percent)
-        new_pane = layout.split_window_top(pane=pane, cwd=str(core), command=command)
-        if new_pane is None:
-            streams.write_stderr(
-                text="overseer-start: FAILED to split the window for the daemon pane.\n"
-            )
-            return 1
-        _ = layout.set_pane_title(pane=new_pane, title=_DAEMON_PANE_TITLE)
-        streams.write_stderr(text=f"overseer-start: started overseerd in top pane {new_pane}.\n")
+    elif not _start_daemon_pane(
+        layout=layout,
+        pane=pane,
+        core=core,
+        warn_percent=args.warn_percent,
+    ):
+        return 1
 
     # 1b. Normalize the stack (self-heals an uneven split — e.g. after a stray third
     # pane was opened and closed, redistributing rows), THEN give the daemon its share.
