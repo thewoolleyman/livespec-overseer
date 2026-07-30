@@ -57,16 +57,19 @@ _ONE_SHOT_SEND_KEYS = re.compile(r"send-keys[^\n]*--\s*'[^']*'\s+Enter")
 # appear). Table-driven rather than a chain of ifs so adding a requirement is a
 # one-line change and the function stays under the complexity ceiling.
 _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
-    # STALL MODE 1 — a conflicting lane is not a blocked state.
-    ("stall-mode-1-conflicting-lane", ("conflicting lane", "stand down")),
     # STALL MODE 2 — never end a turn with the worker mid-flight and nothing
     # armed. Checked separately from mode 1; see the module docstring.
     ("stall-mode-2-armed-re-entry", ("armed re-entry",)),
     # Mode 2 is only actionable if the charter names a MECHANISM. "I'll check
     # back" is an intention, and intentions are what the rule exists to reject.
     ("stall-mode-2-watcher-mechanism", ("watcher",)),
-    # Maintainer-facing actions are AskUserQuestion calls with a recommendation.
-    ("picker-rule", ("askuserquestion", "recommend")),
+    # Maintainer-facing actions are AskUserQuestion calls, not prose.
+    ("picker-rule", ("askuserquestion",)),
+    ("picker-recommended-first", ("recommended option first",)),
+    ("picker-option-costs", ("every option", "cost")),
+    ("picker-full-repository-names", ("full", "repository names")),
+    ("picker-final-line-fence", ("---", "final line")),
+    ("picker-batch-ripe-valves", ("batch", "ripe", "single call")),
     # The one prohibition that must survive every regeneration.
     ("no-verify-prohibition", ("--no-verify",)),
     # The prohibition that is specific to THIS product. A supervisor charter
@@ -282,6 +285,48 @@ def _has_supervisor_agent_proof(*, charter: str) -> bool:
     return False
 
 
+def _has_conflicting_lane_procedure(*, charter: str) -> bool:
+    """Accept the procedure, not one brittle spelling of its first verb."""
+    lowered = charter.lower()
+    has_conflict = "conflicting lane" in lowered
+    has_scope = "not a thread-wide blocked state" in lowered or "not a blocked state" in lowered
+    has_local_only = "that action only" in lowered
+    has_remaining = "enumerate" in lowered and ("remaining" in lowered or "the rest" in lowered)
+    has_next_action = "drive" in lowered and "next" in lowered and "safe action" in lowered
+    has_hard_stop = "no legitimate non-conflicting action" in lowered
+    return all(
+        (
+            has_conflict,
+            has_scope,
+            has_local_only,
+            has_remaining,
+            has_next_action,
+            has_hard_stop,
+        )
+    )
+
+
+def _has_ripe_valve_same_turn_rule(*, charter: str) -> bool:
+    """Batching may group ripe valves, but cannot defer raising them."""
+    lowered = charter.lower()
+    has_ripe_valve = "ripe valve" in lowered or "ripe valves" in lowered
+    has_same_turn = "same turn" in lowered
+    has_grouping_not_deferral = (
+        "grouping within a turn" in lowered
+        or "never deferral across turns" in lowered
+        or "not deferral across turns" in lowered
+    )
+    has_armed_wake_for_deferral = (
+        "deferred to a future turn" in lowered or "valve deferred" in lowered
+    ) and "armed wake" in lowered
+    return (
+        has_ripe_valve
+        and has_same_turn
+        and has_grouping_not_deferral
+        and has_armed_wake_for_deferral
+    )
+
+
 def combined_charter(*, layers: tuple[str, ...]) -> str:
     """Return the validator input for a layered generated handoff."""
     return "\n\n".join(layers)
@@ -331,6 +376,10 @@ def missing_requirements(*, charter: str) -> list[str]:
         missing.append("pane-pid-empty-verdict")
     if not _has_supervisor_agent_proof(charter=charter):
         missing.append("supervisor-agent-proof")
+    if not _has_conflicting_lane_procedure(charter=charter):
+        missing.append("stall-mode-1-conflicting-lane")
+    if not _has_ripe_valve_same_turn_rule(charter=charter):
+        missing.append("picker-ripe-valves-same-turn")
     guard_at = charter.find('[ -z "$pane" ]')
     diff_at = charter.find('if [ "$pane" = "$prev" ]')
     if guard_at == -1 or diff_at == -1 or diff_at < guard_at:
@@ -450,7 +499,7 @@ def test_union_validator_retarget_demonstrates_homelab_binder_shape():
             len(missing_required_needles_for_layers(layers=(homelab_shared, homelab_binder))),
         ),
     )
-    assert rows == (("homelab binder alone", 16), ("homelab shared plus binder", 10))
+    assert rows == (("homelab binder alone", 20), ("homelab shared plus binder", 15))
 
 
 def test_both_corrections_sections_survive_regeneration_byte_for_byte():
@@ -481,9 +530,15 @@ def test_a_charter_ending_at_the_conflicting_lane_rule_is_rejected():
     readlink -f "$pane_cwd"
     ## No idle, no silent block
     A conflicting lane owned by another track is NOT a blocked state. Stand down
-    on that action only, enumerate the rest, and drive the next safe action.
+    on that action only, enumerate the rest, drive the next safe action, and ask
+    only if no legitimate non-conflicting action exists.
     ## AskUserQuestion presentation rules
-    One question per turn, recommended option first.
+    Every maintainer-facing action is an AskUserQuestion call. Put the
+    recommended option first. Every option states its own cost. Use full
+    repository names. Put --- as the final line before the picker. Batch ripe
+    valves into a single call. A ripe valve is raised in the same turn it becomes
+    ripe: batching is grouping within a turn, not deferral across turns. A valve
+    deferred to a future turn requires an armed wake.
     ## Standing safety clauses
     Never pass --no-verify.
     """
@@ -883,10 +938,78 @@ def test_a_supervisor_ps_command_without_its_guards_is_rejected():
     assert "supervisor-agent-proof" in missing_requirements(charter=charter)
 
 
-def test_the_control_a_fully_conformant_charter_passes():
-    """The control for every rejection above. Without it, the negative fixtures
-    prove only that the validator can say no — not that it can ever say yes."""
-    charter = """
+def _assert_only_injected_defect(*, defect: str, charter: str) -> None:
+    assert missing_requirements(charter=charter) == [defect]
+
+
+def test_conflicting_lane_rule_accepts_a_reworded_local_pause():
+    charter = _fully_conformant_charter().replace("Stand down", "Pause", 1)
+    assert "stand down" not in charter.lower()
+    assert "stall-mode-1-conflicting-lane" not in missing_requirements(charter=charter)
+
+
+def test_conflicting_lane_rule_requires_the_next_safe_action_procedure():
+    charter = _fully_conformant_charter().replace(
+        "enumerate the remaining non-conflicting work; drive the\n"
+        "    next concrete safe action; only if no legitimate non-conflicting action\n"
+        "    exists, ask exactly one maintainer-facing blocking question.",
+        "record the conflict and wait for that owner.",
+    )
+    _assert_only_injected_defect(defect="stall-mode-1-conflicting-lane", charter=charter)
+
+
+def test_picker_recommended_first_has_its_own_red_fixture():
+    charter = _fully_conformant_charter().replace(
+        "Put the\n    recommended option first.",
+        "Choose an option order based on narrative flow.",
+    )
+    _assert_only_injected_defect(defect="picker-recommended-first", charter=charter)
+
+
+def test_picker_option_costs_has_its_own_red_fixture():
+    charter = _fully_conformant_charter().replace(
+        "Every option states its own cost.",
+        "Explain why the recommendation is useful.",
+    )
+    _assert_only_injected_defect(defect="picker-option-costs", charter=charter)
+
+
+def test_picker_full_repository_names_has_its_own_red_fixture():
+    charter = _fully_conformant_charter().replace(
+        "Use full\n    repository names.",
+        "Use short repo aliases.",
+    )
+    _assert_only_injected_defect(defect="picker-full-repository-names", charter=charter)
+
+
+def test_picker_final_line_fence_has_its_own_red_fixture():
+    charter = _fully_conformant_charter().replace(
+        "Put --- as the final line before the picker.",
+        "Put a short separator before the picker.",
+    )
+    _assert_only_injected_defect(defect="picker-final-line-fence", charter=charter)
+
+
+def test_picker_batching_has_its_own_red_fixture():
+    charter = _fully_conformant_charter().replace(
+        "Batch ripe\n    valves into a single call.",
+        "Raise ripe valves one at a time.",
+    )
+    _assert_only_injected_defect(defect="picker-batch-ripe-valves", charter=charter)
+
+
+def test_ripe_valves_must_be_sent_same_turn_not_deferred_for_batching():
+    charter = _fully_conformant_charter().replace(
+        "A ripe valve is raised in the same turn it becomes\n"
+        "    ripe: batching is grouping within a turn, not deferral across turns. A valve\n"
+        "    deferred to a future turn requires an armed wake.",
+        "A ripe valve may be held for a later turn so batching can collect more items.",
+    )
+    _assert_only_injected_defect(defect="picker-ripe-valves-same-turn", charter=charter)
+
+
+def _fully_conformant_charter() -> str:
+    return """
     # Supervisor Handoff - demo
     ## HALT-first preconditions
     1. Worker session exists.
@@ -953,7 +1076,9 @@ def test_the_control_a_fully_conformant_charter_passes():
     Tell the worker to append to it at every milestone.
     ## No idle, no silent block
     A conflicting lane owned by another track is NOT a blocked state. Stand down
-    on that action only; enumerate the rest; drive the next safe action.
+    on that action only; enumerate the remaining non-conflicting work; drive the
+    next concrete safe action; only if no legitimate non-conflicting action
+    exists, ask exactly one maintainer-facing blocking question.
     ## Obligation record
     Maintain tmp/overseer/<topic>/.supervisor-state:
       open_obligations:
@@ -967,8 +1092,18 @@ def test_the_control_a_fully_conformant_charter_passes():
     For a non-pane wait, arm a condition watcher that tests terminal state first
     from the authoritative field. On unrecognized value, wake and never silently wait.
     ## AskUserQuestion presentation rules
-    One question per turn, recommended option first.
+    Every maintainer-facing action is an AskUserQuestion call. Put the
+    recommended option first. Every option states its own cost. Use full
+    repository names. Put --- as the final line before the picker. Batch ripe
+    valves into a single call. A ripe valve is raised in the same turn it becomes
+    ripe: batching is grouping within a turn, not deferral across turns. A valve
+    deferred to a future turn requires an armed wake.
     ## Standing safety clauses
     Never pass --no-verify. Never kill the acting overseer daemon.
     """
-    assert missing_requirements(charter=charter) == []
+
+
+def test_the_control_a_fully_conformant_charter_passes():
+    """The control for every rejection above. Without it, the negative fixtures
+    prove only that the validator can say no — not that it can ever say yes."""
+    assert missing_requirements(charter=_fully_conformant_charter()) == []
