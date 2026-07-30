@@ -374,8 +374,32 @@ positive.
 (gitignored). It has **not** been sent by tmux: that supervisor's
 `AskUserQuestion` picker has been open throughout, on a maintainer question
 about admitting work. **Typing into an open picker can SELECT an option on the
-maintainer's behalf** — a decision this thread does not own. A watcher is
-waiting for the picker to clear.
+maintainer's behalf** — a decision this thread does not own.
+
+**FILE-ONLY, and NOT actively awaited. Nothing is polling; nobody will be woken
+when that picker clears.** An earlier version of this note said a watcher was
+waiting for it. **That is no longer true** — the watcher was **stood down**
+after hitting its 40-minute ceiling **twice** with no change, the picker having
+been open ~80 minutes on the same maintainer question.
+
+The reason it was stood down is itself the point: **a watcher polling a human
+decision reports "still blocked" indistinguishably from "nothing is
+watching"** — the wrong-gauge defect this thread's charter already carries
+forward. Re-arming a third time would have added confidence without adding
+signal.
+
+**So a successor must DO this, not wait for it:** deliver the notification **by
+hand** when that session is next observed **without** an open picker — and
+**check that harness's own submit idiom first, per C6**. That pane is Claude
+Code, but the `fabro` pane was not, and this thread already assumed wrongly once
+today.
+
+**The other notification — the Codex addendum — is DELIVERED-BY-FILE, NOT
+CONFIRMED-READ.** It sits at
+`/data/projects/fabro/tmp/ADDENDUM-second-limit-payload-found.md` (gitignored),
+and its text is additionally visible **unsubmitted** in that session's pane
+after the C6 keystroke failure. **Do not write that they have it** — no read
+has been confirmed.
 
 ## A SECOND limit payload — the defect is a CLASS, and the fix does not cover it
 
