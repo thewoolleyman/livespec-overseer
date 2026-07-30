@@ -415,10 +415,13 @@ wake and report the value, never silently treat it as "keep waiting".
 
 Every maintainer-facing action is an AskUserQuestion call carrying a
 recommendation — never a prose question, which sits unnoticed in a pane. One
-question per turn. Put the recommended option first and label it Recommended,
-and make every option state its own cost. Batch ripe valves into a single call
-rather than trickling them. Use full repository names. Put --- as the final line
-before a picker.
+AskUserQuestion call per turn may contain every ripe valve for that turn. Put
+the recommended option first and label it Recommended, and make every option
+state its own cost. Use full repository names. Put --- as the final line before
+a picker. Batch ripe valves into a single call rather than trickling them. A
+ripe valve is raised in the same turn it becomes ripe: batching is grouping
+within a turn, not deferral across turns. A valve deferred to a future turn
+requires an armed wake; "I will ask next turn" is an intention, not a mechanism.
 
 ## Standing safety clauses
 

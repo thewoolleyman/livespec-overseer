@@ -144,8 +144,13 @@ The boundary that does stop you: never REMOVE, WEAKEN, or SKIP an existing
 check. That is a property of the change, not of any file path.
 
 Every maintainer-facing action is an AskUserQuestion call carrying a
-recommendation. One call per turn. Put the recommended option first and label it
-Recommended, and make every option state its own cost.
+recommendation. Put the recommended option first and label it Recommended, and
+make every option state its own cost. Use full repository names. Put `---` as
+the final line before the picker. Batch ripe valves into a single call rather
+than trickling them. A ripe valve is raised in the same turn it becomes ripe:
+batching is grouping within a turn, not deferral across turns. A valve deferred
+to a future turn requires an armed wake; "I will ask next turn" is an intention,
+not a mechanism.
 
 ## No idle, no silent block
 
