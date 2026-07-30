@@ -378,3 +378,40 @@ because they are role-level rather than track-level:
   (`overseer-1sv`). Establishing that `host_dispatch_cap` *did* hit is what made
   the orchestrator measurement in `overseer-fs4` trustworthy rather than merely
   confident.
+
+### The META-LESSON over C1–C5 — this log is a SWEEP SPECIFICATION, not an incident list
+
+This sits **above** C1–C5 rather than beside them: it is how to *use* them.
+
+**Each entry names a defect CLASS. The incident that produced it is only the
+first instance found.** So reading this log is not the work — turning every
+entry into a **search over the thread's own files and commands, and running
+it**, is. Anything less leaves the majority of instances in place while the log
+makes the record *look* audited.
+
+**Measured on this thread, 2026-07-30**, which is why this is stated with a
+number rather than as advice:
+
+| how the class was cleared | classes |
+|---|---|
+| by fixing the instances someone pointed at | **2 of 5** |
+| by sweeping the whole thread for the class | **3 of 5** |
+| …of those, previously **unnamed** by anyone | **2 of 3** |
+
+Per class: **C1** behavioral, no file surface. **C2** clean — every tmux target
+already exact-form with `grep -Fqx` existence checks; the only bare form is the
+deliberate example inside C2. **C3** known instance corrected; other mechanism
+claims re-verified against source. **C4** — **three homes**: two ledger items,
+`handoff.md`, and the `upstream/main` **branch-tip** numbers being as-of a ref
+that had since moved. **C5** — corrected in the research note; no further
+instances.
+
+**The corollary that bit twice in one day:** C4 and C5 were both written from
+**memory of what I had said** rather than from a **grep of where I had said
+it**. So both survived inside files already "corrected" — C5 two files from its
+own correction, C4 scoped to one home when it had three. **Write a correction,
+then sweep for it; the writing is not the fixing.**
+
+**The sweep is cheap and the failure is silent.** A corrections log that has
+never been swept reads exactly like one that has — which is the whole reason
+this entry exists.
