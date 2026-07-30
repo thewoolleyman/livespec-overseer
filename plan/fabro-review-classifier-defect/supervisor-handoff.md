@@ -294,9 +294,10 @@ Repeat these in every instruction sent to the supervised session:
 ## Corrections
 
 Corrections to THIS supervisor role's own behavior, recorded so successors do not
-repeat them. **This log starts empty — this thread has had no supervisor yet.**
-Append here; do not scatter these. Do not make this only a log of the supervised
-session's mistakes.
+repeat them. **This thread has now been supervised for its whole life, and the
+five below are this supervisor's own — recorded because the role-level list
+alone did not prevent them.** Append here; do not scatter these. Do not make
+this only a log of the supervised session's mistakes.
 
 Carried forward from `plan/codex-parity-and-rollout-safety/supervisor-handoff.md`
 because they are role-level rather than track-level:
@@ -315,3 +316,57 @@ because they are role-level rather than track-level:
 - **Ending a turn with the worker mid-flight and no armed re-entry.**
 - **Inventing gates**, including asking non-blocking questions — each felt like
   caution and was a stall with better manners.
+
+### This thread's own — 2026-07-29 → 2026-07-30
+
+- **Offered a read-only measurement as a QUESTION instead of taking it.** Ended a
+  turn asking the maintainer "want me to take that measurement?" about a single
+  read-only grep that decided whether a work-item got filed. The carried-forward
+  list directly above already names this class — "inventing gates, including
+  asking non-blocking questions" — and I did it **one turn after citing that
+  list**. Cost: a wasted round trip, with the maintainer having to decline to
+  answer before I would act. Read-only, reversible, and decision-settling: just
+  run it.
+- **Built the watcher carrying the EXACT defect this charter was red for.** The
+  first watcher used a bare `-t fabro-review-classifier-defect`. A sibling
+  session `fabro-review-classifier-defect-supervisor` exists, so tmux prefix
+  matching means that on worker death the bare target silently retargets **the
+  supervisor's own pane** — which never goes idle — so the watcher reports
+  "busy" forever and the stall is invisible. Written minutes after reading a
+  charter whose CI failure *was* that bare-target defect. Fixed to `-t '=name:'`
+  plus a `list-sessions | grep -qx` existence check. The lesson is not "use
+  exact targets": it is that **a charter's own defect list is a checklist for
+  your own commands**, not just for its prose.
+- **Asserted an inverted mechanism from plausibility.** Wrote that the mislabel
+  "feeds the signature circuit breaker a non-code cause". It does the opposite:
+  `is_signature_tracked()` covers only `Deterministic | Structural`, so
+  `TransientInfra` keeps the failure **out** of tracking and no signature
+  accumulates. I had never read the gate. The worker caught it. Feeding the
+  breaker is what the root-cause fix **alone** would have caused — which is why
+  the correct version appeared elsewhere in the same document and contradicted
+  me.
+- **Cited a mutable SHA as a durable identifier.** Recorded `a7c42204b` in the
+  epic, in `overseer-fs4` and in maintainer reports — for a branch owned by
+  **another session**, the session whose whole job was to revise it under
+  adversarial review. It is now `b46a4f387` and every citation went dead. Name
+  the **branch**; cite a SHA only with the date measured and an explicit
+  mutability note.
+- **Stated an INFERENCE as something the record "settles".** Wrote that the run
+  record settles that the two stages resolve different credentials. Nobody read
+  credential resolution — it was inferred from which stage passed. In a thread
+  whose entire subject is a confident-but-wrong attribution, I reproduced the
+  failure mode **inside the document warning against it**. Caught on the
+  worker's fact-check, not my own. `.claude/CLAUDE.md` now carries a "several
+  Anthropic credentials" section which says to **cite** it rather than restate
+  it per thread; that is the correct home for this fact.
+
+### What WORKED — copy these, not only the avoidances
+
+- **Read `fabro inspect` first-hand instead of trusting the research note's
+  summary.** That is what produced the verbatim payload, which turned out to be
+  the entire argument in one record.
+- **Ran a POSITIVE CONTROL before believing a zero-hit grep.** A zero from a
+  search that never reached the code is indistinguishable from a real zero
+  (`overseer-1sv`). Establishing that `host_dispatch_cap` *did* hit is what made
+  the orchestrator measurement in `overseer-fs4` trustworthy rather than merely
+  confident.
