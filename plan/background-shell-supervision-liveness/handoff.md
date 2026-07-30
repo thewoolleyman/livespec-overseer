@@ -251,12 +251,13 @@ maintainer-gated and the other two are not:
    remain silently green", and the acting daemon (tmux
    `livespec-overseer:1.1`) still runs PRE-EPIC code, so NO lane has been
    exercised live. Nothing else in this list waits on it.
-2. **The two §7 PENDING remedies, as ONE consent batch, NON-blocking** — (b)
-   the epic traceability comment's defective closure sentence, whose
-   replacement text is drafted verbatim in
-   `research/untracked-obligation-closure.md` §4, and (a) later raising the
+2. **ONE §7 remedy remains, NON-blocking: remedy (a)** — later raising the
    four gap-invisible clauses to `MUST` form in a fresh propose-change cycle
    (identical semantics; touches ratified prose, so it needs its own cycle).
+   **Remedy (b) is already APPLIED** — it landed 2026-07-29 04:39 as a
+   maintainer-consented superseding comment on the epic; §7 carries the
+   correction. Do not re-author it, and do not surface it as a pending
+   consent.
 3. **Then close the epic.** It is already `eligible for close` on child
    state alone, but its DONE MEANS is not discharged until item 1 lands.
    Closing is a ledger write and is NOT covered by §3 ruling 5 (admissions
@@ -642,12 +643,24 @@ stale.
     is therefore ONE sentence on ONE artifact; its replacement text is drafted
     verbatim in §4 of that file, ready to paste.
 
-  Both remedies remain PENDING, not actioned — (b) the epic-comment sentence,
-  and (a) later raising those four clauses to `MUST` form in a fresh
-  propose-change (identical semantics, fixes detection for every consumer, but
-  touches ratified prose so it needs its own cycle). Amending the epic's
-  traceability comment was deliberately NOT done by the worker seat: ledger
-  writes in this thread are consent-gated. Earlier detail in
+  **REMEDY (b) IS APPLIED — corrected 2026-07-30 by reading the ledger, and
+  this file claimed otherwise for two days.** It landed as a superseding
+  comment on the epic dated **2026-07-29 04:39**, marked
+  "maintainer-consented", carrying §4's drafted text in substance: verify by
+  OWED TESTS, then the `capture-impl-gaps` DRY-RUN echo; do NOT use
+  `detect_impl_gaps` set-membership; `.4` and `.6` have no mapped ids and
+  close on owed tests alone; "An empty or unchanged gap set NEVER means the
+  epic is done." Nothing about the defective 2026-07-28 sentence needs
+  re-authoring — beads comments are append-only, so the correction supersedes
+  in place rather than replacing text, which is why a reader looking for an
+  EDITED comment finds the old sentence still there and wrongly concludes the
+  remedy is outstanding. Check for the superseding comment, not for edited
+  text.
+
+  **Only remedy (a) remains PENDING** — later raising those four clauses to
+  `MUST` form in a fresh propose-change (identical semantics, fixes detection
+  for every consumer, but touches ratified prose so it needs its own cycle).
+  It is NON-blocking. Earlier detail in
   `reviews/wave3-worker-verification.md` §8.
 
 - **The 2026-07-29 factory-outage findings live in `bd-ib-g56f`; do not
