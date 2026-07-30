@@ -142,6 +142,55 @@
 > > sections of this file say "ask the maintainer FIRST" — that is superseded for
 > > this track.
 > >
+> > ### ✅ A5's AUTOMATION HALF IS PROVEN IN THE FIELD — first observation possible, 2026-07-30
+> >
+> > A5 had two halves: **(a)** make release automation bump the nested manifest,
+> > and **(b)** a check that goes RED when lockstep breaks. **(b) was verified when
+> > it landed. (a) could not be — its effect is only visible on a RELEASE PR**, and
+> > none had been cut since. **Release PR #360 (`0.16.0`) is the first, and it
+> > works:**
+> >
+> > ```
+> > .claude-plugin/.codex-plugin/plugin.json   "0.15.0" -> "0.16.0"
+> > .claude-plugin/plugin.json                 "0.15.0" -> "0.16.0"
+> > ```
+> >
+> > **Both bump, to the SAME value.** Before A5, release-please touched only the
+> > sibling — which is exactly what produced the 0.15.0 / 0.13.3 skew this slice
+> > was filed for.
+> >
+> > **The causal chain is closed, not inferred:** `ad6669b` (A5's merge) added
+> > `{"type": "json", "path": ".claude-plugin/.codex-plugin/plugin.json",
+> > "jsonpath": "$.version"}` to `release-please-config.json`'s `extra-files`,
+> > and the first release PR cut afterwards bumps that file. **I checked the
+> > VALUES, not merely that both files appear in the diff** — a file can be touched
+> > for an unrelated reason.
+> >
+> > **Why that distinction is load-bearing here, in this repo's own words:** the
+> > neighbouring `uv.lock` entry carries a comment warning that a wrong `jsonpath`
+> > **fails SILENTLY** — *"release-please logs 'No entries modified' at warn level
+> > and returns the content unchanged, so a wrong path here reports success while
+> > doing nothing."* The nested-manifest entry is the same shape and would fail the
+> > same way. **What rules that out is precisely this observation: #360 actually
+> > changes the value.**
+> >
+> > **So A5's two halves now guarantee different things, and both are evidenced:**
+> > the gate catches skew AFTER it happens; the automation prevents it happening.
+> > Only the second was open, and it is now closed.
+> >
+> > ### ⚠ THE FIXTURE DEVIATION RETIRES WHEN **#360** MERGES — a named PR, not "some release"
+> >
+> > `origin/release` is still `013d35d` (0.15.0) and **does NOT carry the
+> > launcher**: `git cat-file -e origin/release:.claude-plugin/bin/overseer-start`
+> > fails, and `e1ab5051` is not an ancestor of `origin/release`. So the declared
+> > `--ref master` deviation still stands, correctly.
+> >
+> > **Its retirement condition is now a specific merge — release PR #360** — not
+> > the vague "once a release carrying `e1ab5051` is cut" this file said before.
+> > Merging it is a RELEASE decision and deliberately not the worker's. Once it
+> > lands, re-register at `--ref release` and the deviation is retired for free,
+> > with no extra prune beyond the one the release itself causes.
+> >
 > > ### ⚠ zsh EATS `:ready` OFF AN ACTION ID — and bash does not, which is why it bites HERE
 > >
 > > Building an action id by interpolation is unsafe in this fleet's shell.
@@ -646,6 +695,21 @@
 > > blocker — **retry the recipe; it succeeds within a few attempts.** Never
 > > `git worktree add` instead. Owner is `livespec-dev-tooling`; **not filed** —
 > > awaiting direction, since it is another tenant's queue.
+> >
+> > > **⚠ IT CAN FAIL COMPLETELY SILENTLY — added after being bitten again
+> > > 2026-07-30.** Two consecutive attempts returned **exit 141 with ZERO bytes**
+> > > on stdout AND stderr, then the third succeeded. Earlier failures at least
+> > > printed a few trace lines; these printed nothing at all. **So "the log is
+> > > empty" is the whole symptom** — a wrapper that logs output and ignores the
+> > > exit code sees success. **Capture `$?` explicitly and loop on it.**
+> > >
+> > > **And a C14 instance, committed by me while investigating this one:** I
+> > > reached for `EXIT=${PIPESTATUS[0]:-unknown}` and got `EXIT=unknown` — in zsh
+> > > `PIPESTATUS` is empty, so the defensive `:-` swallowed the real status
+> > > exactly as shared correction C14 says it does. **C14 was written after a
+> > > supervisor who had *read* it hit it; I had written today's note about it
+> > > and hit it anyway.** The zsh form is `$pipestatus[1]`, and the safer move is
+> > > not to pipe the command whose status you need.
 >
 > A3 waits on A4; the order is A4 → A6 → A3.
 > Everything below this box is older
