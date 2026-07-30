@@ -38,7 +38,7 @@ live status, no next actions, and no date-gated behavior.
 | `runtime_dir` | `<repo_primary>/tmp/overseer/supervisor-prompt-quality/` |
 | `supervisor_marker` | `<runtime_dir>/.supervisor-state` |
 | `wait_channel` | `<runtime_dir>/worker-status.log` |
-| `ledger_anchor` | `overseer-t7qqik` |
+| `ledger_anchor` | `overseer-d4t` |
 
 Placeholder classes declared by this binder:
 
