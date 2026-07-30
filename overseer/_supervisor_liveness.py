@@ -199,6 +199,7 @@ def surface_blocked_alerts(*, request: BlockedAlertRequest) -> set[str]:
     active_conditions = {"blocked-human"}
     sup, track, istate = request.sup, request.track, request.istate
     repo, topic = track.repo, track.topic
+    crossed = blocked_band_seconds(age=request.blocked_age or 0.0)
     if request.declaration_mtime is None:
         istate.blocked_declaration_mtime = None
         istate.blocked_entry_age_label = None
@@ -206,41 +207,42 @@ def surface_blocked_alerts(*, request: BlockedAlertRequest) -> set[str]:
     elif istate.blocked_declaration_mtime != request.declaration_mtime:
         clear_alert_conditions(sup=sup, repo=repo, topic=topic, conditions=frozenset())
         istate.blocked_declaration_mtime = request.declaration_mtime
-        istate.blocked_entry_age_label = request.blocked_age_label
-        istate.blocked_alerted_bands = set(blocked_band_seconds(age=request.blocked_age or 0.0))
+        istate.blocked_alerted_bands = set(crossed)
+        if crossed:
+            istate.blocked_entry_age_label = age_label(seconds=max(crossed))
+            active_conditions.update(f"blocked-age-{item}" for item in crossed)
+        else:
+            istate.blocked_entry_age_label = request.blocked_age_label
     for band in sorted(istate.blocked_alerted_bands):
         active_conditions.add(f"blocked-age-{band}")
 
     alert_age = istate.blocked_entry_age_label or request.blocked_age_label or "0m"
-    sup.alert(
-        repo=repo,
-        topic=topic,
-        session=request.session,
-        pane=request.pane,
-        message=(
-            f"blocked on human ({alert_age}): "
-            f"{elide(text=request.detail, limit=MAX_REASON_IN_ALERT)} "
-            "— answer it IN THAT PANE"
-        ),
-        condition="blocked-human",
-    )
+    _alert_blocked(request=request, age=alert_age, condition="blocked-human")
     if request.blocked_age is None:
         return active_conditions
-    for band in blocked_band_seconds(age=request.blocked_age):
+    for band in crossed:
         if band in istate.blocked_alerted_bands:
             continue
         istate.blocked_alerted_bands.add(band)
         active_conditions.add(f"blocked-age-{band}")
-        sup.alert(
-            repo=repo,
-            topic=topic,
-            session=request.session,
-            pane=request.pane,
-            message=(
-                f"blocked on human ({age_label(seconds=band)}): "
-                f"{elide(text=request.detail, limit=MAX_REASON_IN_ALERT)} "
-                "— answer it IN THAT PANE"
-            ),
+        _alert_blocked(
+            request=request,
+            age=age_label(seconds=band),
             condition=f"blocked-age-{band}",
         )
     return active_conditions
+
+
+def _alert_blocked(*, request: BlockedAlertRequest, age: str, condition: str) -> None:
+    request.sup.alert(
+        repo=request.track.repo,
+        topic=request.track.topic,
+        session=request.session,
+        pane=request.pane,
+        message=(
+            f"blocked on human ({age}): "
+            f"{elide(text=request.detail, limit=MAX_REASON_IN_ALERT)} "
+            "— answer it IN THAT PANE"
+        ),
+        condition=condition,
+    )
