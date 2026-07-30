@@ -488,10 +488,37 @@ silently diverging from a fleet standard that six others still follow**. The
 same measurement at single-repo scope had produced a *narrower and partly wrong*
 diagnosis.
 
-> **The transferable move: when a rung comes back dry, re-ask an EARLIER rung's
-> question at a wider scope before inventing a new question.** Dryness is more
-> often evidence that the rung was cut too small than that the seam is
-> exhausted.
+| **rung nine (b), the same measurement by a second party** | **confirmed** the outlier result with a *corrected* instrument — guarding on the response containing `"required_status_checks"` rather than on non-emptiness — and returned **instance fourteen**: the `livespec-console` row was wrong, the repo does not exist |
+
+> **The transferable move, and the most portable thing this sweep produced:
+> when a rung comes back dry, re-ask an EARLIER rung's question at a WIDER
+> SCOPE before inventing a new question.** Rung eight's dryness was an artifact
+> of how narrowly it was cut, not evidence of exhaustion. Stated as a rule:
+> **a dry rung is a HYPOTHESIS ABOUT SCOPE, not a result.** It earns the status
+> of a result only once the same question has been asked at a wider scope and
+> still come back empty.
+
+**INSTANCE FOURTEEN, and it pairs with thirteen one level apart.** Rung nine
+first reported `livespec-console` as *"no branch protection at all (404)"* and
+flagged it for another owner. **The repo does not exist**; the 404 meant "no
+such repo". The real sibling `livespec-console-beads-fabro` is `required=1` with
+`ci-green` — fleet-consistent — so the outlier headline is **strengthened**, and
+the flag is **explicitly withdrawn** rather than quietly dropped.
+
+> **Thirteen and fourteen are the same defect at two depths, and that is why
+> both are recorded.** Thirteen: a guard tested for *absence of output* rather
+> than *presence of success*, so a 404 body parsed as `0`. Fourteen: that
+> distinction was made correctly, and then **the error was mis-attributed** — a
+> 404 from a protection endpoint has at least two causes licensing **opposite**
+> conclusions (a finding about a repo, versus a typo in its name).
+> **Distinguishing "error" from "no data" is only half the discipline; the other
+> half is asking WHICH error.**
+>
+> **When an ABSENCE is the finding, confirm the SUBJECT EXISTS before reporting
+> the absence** — the same shape as the vacuous path-scoped `git diff` that
+> opened this thread. The defect has now appeared at **both ends of the same
+> investigation**, which is the strongest available argument that the remedy
+> cannot be vigilance.
 
 **RUNG EIGHT WAS DRY, AND SAYING SO IS THE POINT.** Every prior rung returned
 something, which creates real pressure to find something. Scoped to the
