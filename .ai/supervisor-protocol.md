@@ -32,10 +32,34 @@ measurement time:
 
 ```sh
 ledger_anchor='<ledger-anchor>'
-bd show "$ledger_anchor" --json \
-  || { echo "HALT: cannot re-measure ledger item '$ledger_anchor'"; echo "REMEDY: fix ledger access before using any filed status claim"; exit 1; }
+# The ledger is a per-repo TENANT database, so `bd` needs the fleet credential
+# wrapper WHERE ONE IS INSTALLED — a bare `bd` returns "Access denied" there.
+# DETECTED, never hard-coded: an adopter without the wrapper must still be able
+# to re-measure, and a hard-coded path only trades one false HALT for another.
+ledger_show() {
+  if command -v with-livespec-env.sh >/dev/null 2>&1; then
+    with-livespec-env.sh -- bd show "$1" --json
+  else
+    bd show "$1" --json
+  fi
+}
+if ! ledger_show "$ledger_anchor"; then
+  echo "HALT: cannot re-measure ledger item '$ledger_anchor'"
+  if command -v with-livespec-env.sh >/dev/null 2>&1; then
+    echo "REMEDY: the credential wrapper WAS used, so ledger access is not the suspect — check the anchor id is real and that this repo's tenant is reachable"
+  else
+    echo "REMEDY: no credential wrapper on PATH, so a BARE 'bd' ran — if this repo's ledger is a tenant database, install/expose the fleet credential wrapper; otherwise check the anchor id"
+  fi
+  exit 1
+fi
 date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
 ```
+
+The REMEDY branches on what was ACTUALLY TRIED, because a remedy naming the
+wrong cause is worse than none. The previous form emitted a bare `bd` and then
+advised "fix ledger access" — pointing the reader at a ledger that was already
+healthy, while the real fix was the wrapper. It cost a supervisor its own
+cold-open boot on 2026-07-30.
 
 A pipeline's exit code is the exit code of its last command. If the verdict
 belongs to a command before a pipe, capture that command's status before
@@ -426,6 +450,26 @@ preserve every entry.
   hit this edge independently in the same session, in opposite directions — the
   worker by reading `$?` after a pipeline, the supervisor by reading
   `$pipestatus[1]` one line late while refuting the worker's claim.
+- **C18 (2026-07-30) — I re-measured the defect and not the claim that it was
+  UNFILED, and filed a duplicate into a fleet where other tracks are working the
+  same repo.** The binder's Thread-specific Valves listed three "unfiled drifts,
+  evidence-backed, still needing routing". I dutifully re-measured each DEFECT
+  before filing — the nested Codex manifest really was `0.13.3` against `0.14.0`,
+  and I checked that against the tree. What I never re-measured was the word
+  **unfiled**. Another track had filed the same defect as `overseer-ei3` at
+  10:34:16Z, FOURTEEN MINUTES before my `overseer-oj8`, with better scope and
+  further along the valve; they closed mine as the duplicate.
+  The verification discipline in this charter says filed status is a claim with a
+  timestamp. "This is unfiled" is exactly such a claim, and an inherited list of
+  them ages the same way an item's status does — faster, in fact, because several
+  tracks measure the same repo concurrently and a fourteen-minute-old ticket is
+  entirely normal. **Search the ledger for the SUBJECT before filing anything
+  from an inherited list**; re-measuring the fact while trusting the metadata
+  about the fact is only half the discipline.
+  Generalise one step further: this is the same shape as C9. There, merge
+  evidence answered a different question from acceptance. Here, defect evidence
+  answers a different question from novelty. Verifying the thing in front of you
+  is not the same as verifying the claim that made you act on it.
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
