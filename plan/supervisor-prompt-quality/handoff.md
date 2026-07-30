@@ -13,6 +13,43 @@ order; it does not fork their content. After the groom the anchor is
 the filed replacement-slice set rather than the epic id, since the
 groom closes the epic as regroomed-out.
 
+## PHASE 2 — the nine-slice epic is DELIVERED; this is what it surfaced
+
+**`overseer-byvxlp` is CLOSED and it succeeded.** All nine slices plus
+`overseer-dk6hwi` and `overseer-ejja5o` are closed; `tests/prompts/` carries ten
+modules driving real tmux; release **0.15.0** shipped; and — measured
+2026-07-30T17:20Z — **the adopter cache on this host has refreshed to prose
+byte-identical to `origin/master`** (`md5 9ca18d56772dcf8fcdc2cf78ed8108a8`, cache
+dir `013d35d48cde`). The generator that actually RUNS now emits the fixed form,
+with zero occurrences of the wrapper-less `bd show`. That chain —
+fix → gate → release → adopter refresh → running generator — is the thing this
+thread existed to make work, and it has now been observed working end to end.
+
+**Phase-2 ledger anchor: epic `overseer-yho`.** A NEW epic rather than reopening
+`overseer-byvxlp`, deliberately: that epic's nine slices all delivered and its
+record should stay a clean completion. Reopening it to absorb follow-on work would
+blur "the cut we planned" against "what the cut revealed".
+
+| slice | what it is |
+|---|---|
+| `overseer-yho.1` | **Gate the `date -u -r` trap.** A charter emitting it reports LOCAL time labelled `Z` — a silent two-hour error under uutils coreutils. Already caused a false accusation (charter correction C19). Same shape as detector (g); add detector (k). |
+| `overseer-yho.2` | **A charter records no provenance.** Nothing distinguishes a charter emitted from a current plugin from one emitted from a stale pinned cache. Carries `overseer-d4t`'s unmet acceptance clause: demonstrate RED against a STALE-CACHE generation specifically. |
+| `overseer-yho.3` | **The fleet-wide remediation half** — 117 defects, 12 files, 5 repos, re-measured with this repo's own ten-detector gate. Maintainer's cut. |
+| `overseer-gjb` | Two module docs still assert in the present tense that there is no `.ai/` directory — fallout from this thread's own two-layer split. |
+
+**`overseer-d4t` stays open and is NOT a phase-2 slice.** Its thesis ("a generator
+fix is inert until adopters refresh") is now historically true rather than
+currently true here, but it is about adopters *in general* and its own acceptance
+clause is unmet. Its live residue is `overseer-yho.2`. Recommended disposition:
+narrow and retitle it to the detection gap, or close it and let `yho.2` carry it —
+a triager reading only its title today would act on a premise that has moved.
+
+**Routed OUT of this thread as a separate track:** the daemon-liveness pair —
+a live track reporting session-gone, and a torn-down one reporting hung
+mid-wrap-up. Epic `overseer-x29`, plan thread `plan/daemon-liveness-truth/`. They
+surfaced here but are about the daemon's runtime liveness model, not about what
+the generator emits.
+
 ## The item map (ids cited read-only)
 
 - **`overseer-byvxlp`** (epic, this thread's anchor) — the eight-family
