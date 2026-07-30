@@ -121,17 +121,26 @@ updated_at: <iso8601-utc>
 open_obligations:
   - id: <stable-short-name>
     holder: <supervisor|worker|peer|maintainer|external-system>
+    handed_to: <peer session, or none>
+    receipt_ack: <iso8601-utc when the peer acknowledged receipt, or none>
+    peer_recorded: <iso8601-utc when the peer recorded the obligation, or none>
     waiting_on: <artifact, person, session, check, or decision>
     wake_mechanism: <pane watcher|condition watcher|peer reply|timer|NONE ARMED - reason>
     if_nothing_happens: <specific escalation or re-arm action>
     timeout: <iso8601-utc deadline for timeout-and-escalate>
 ```
 
-Every open obligation MUST carry `holder`, `waiting_on`, `wake_mechanism`,
-`if_nothing_happens`, and `timeout`. An obligation whose `wake_mechanism` is
-legitimately `NONE ARMED` is not discharged; it needs the explicit `timeout`
-deadline, and that deadline is the re-entry mechanism that escalates to the
-maintainer if nothing happens.
+Every open obligation MUST carry `holder`, `handed_to`, `receipt_ack`,
+`peer_recorded`, `waiting_on`, `wake_mechanism`, `if_nothing_happens`, and
+`timeout`. A cross-track handoff is still owned by the sender until both
+confirmations are present: `receipt_ack` records the peer's acknowledgement, and
+`peer_recorded` records that the peer wrote the obligation into its own durable
+record. Do not change `holder` to the peer, and do not close the sender's
+obligation, while either confirmation is `none`; keep `holder` as yourself with
+an armed `wake_mechanism` until both timestamps are set. An obligation whose
+`wake_mechanism` is legitimately `NONE ARMED` is not discharged; it needs the
+explicit `timeout` deadline, and that deadline is the re-entry mechanism that
+escalates to the maintainer if nothing happens.
 
 ## Decision-vetting rubric
 

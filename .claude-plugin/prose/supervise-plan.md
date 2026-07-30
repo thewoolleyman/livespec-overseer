@@ -367,7 +367,11 @@ It must tell every generated supervisor to maintain
 `<repo-primary>/tmp/overseer/<topic>/.supervisor-state` as its durable
 obligation record and to read it first on a cold open. It must emit the schema
 with `open_obligations`, and every open obligation must carry `holder`,
-`waiting_on`, `wake_mechanism`, `if_nothing_happens`, and `timeout`. A
+`handed_to`, `receipt_ack`, `peer_recorded`, `waiting_on`, `wake_mechanism`,
+`if_nothing_happens`, and `timeout`. It must state the cross-track handoff
+invariant: `holder` may not change to the peer, and the sender's obligation may
+not close, until BOTH confirmations are set (`receipt_ack` and `peer_recorded`);
+until then the sender remains the holder with its own `wake_mechanism`. A
 `wake_mechanism` of `NONE ARMED` is allowed only with an explicit timeout and
 timeout-and-escalate posture.
 
