@@ -261,6 +261,7 @@ check:
         check-types
         check-coverage
         check-doctor-static
+        check-plugin-manifest-lockstep
         # Repo-local release-hygiene gate (overseer-d4t): generator
         # prose may not change without a release-triggering commit,
         # or the fix never reaches the plugin cache that generates
@@ -361,6 +362,9 @@ check-doctor-static:
       exit 1
     fi
     python3 "$core_root/scripts/bin/doctor_static.py" --project-root .
+
+check-plugin-manifest-lockstep:
+    uv run pytest tests/test_plugin_manifest_lockstep.py
 
 # `check-static` — fastest-first fail-fast helper for fast agent/dev
 # feedback (work-item livespec-dev-tooling-7us.8). Runs ONLY the cheap
