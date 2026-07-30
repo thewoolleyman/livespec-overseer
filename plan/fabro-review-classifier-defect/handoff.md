@@ -54,9 +54,24 @@ the time: 5 runs, 2 repos, 4 work-items.
 > `BudgetExhausted`. Correct for a billing cause, but **not a change** — and it
 > is precisely why part (a) of the fix exists, since `Deterministic` *is*
 > tracked.
-> **Do not read "classifier fixed" as "retry waste fixed".** Making
-> `is_retryable()` category-aware is a separate, broader change that is
-> deliberately **not** in this fix.
+> **Do not read "classifier fixed" as "retry waste fixed".**
+>
+> **And do not read the residual as one thing.** Measured 2026-07-30, it is
+> **two independent layers**, and an earlier version of this file named the
+> wrong one:
+>
+> - **fabro's per-stage retry** (`is_retryable()`) — third party, **possibly
+>   deliberate** (opaque `Handler`/`Engine` string errors are defensibly
+>   retried), **deliberately NOT filed**.
+> - **the orchestrator's re-dispatch of the work-item** — **this is the layer
+>   that burns the cap slots**, it is **in-house**, and it is filed as
+>   **`overseer-fs4`** (bug, P2). Nothing in
+>   `livespec-orchestrator-beads-fabro` consumes a run's failure category at
+>   all: zero hits repo-wide across 2685 `.py` files, against a passing
+>   positive control.
+>
+> So the cap-slot burn quoted above is the **orchestrator's**, not fabro's, and
+> making `is_retryable()` category-aware would not fix it.
 
 ## Do NOT re-derive these
 
@@ -129,9 +144,15 @@ credential, and which one matters. **Cite `.claude/CLAUDE.md` §"The fleet has
 SEVERAL Anthropic credentials"** — do not re-derive it here; that section
 exists because two threads re-derived it independently and one got it wrong.
 
-Any *further* code work (e.g. the retry residual) still goes through the
-**factory dispatch route** — `/livespec-orchestrator-beads-fabro:drive --action
-impl:<id>`, or the Dispatcher drain — never hand-built in a planning session.
+The one piece of *further* code work that is in-house and already filed is
+**`overseer-fs4`** — the orchestrator-side re-dispatch gap above. It is **not
+yet actionable**: gating on a category only means something once a run's
+failure carries a trustworthy one, and the corrected classifier is merged
+nowhere. Routing is a maintainer call; it is deliberately **not** groomed.
+
+Any further code work still goes through the **factory dispatch route** —
+`/livespec-orchestrator-beads-fabro:drive --action impl:<id>`, or the
+Dispatcher drain — never hand-built in a planning session.
 Epic `overseer-dtytju` is **not yet groomed**; run
 `/livespec-orchestrator-beads-fabro:groom overseer-dtytju` before any such
 implementation.
