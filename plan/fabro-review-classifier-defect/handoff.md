@@ -47,10 +47,16 @@ forge-verified. There is **no half-finished edit** anywhere.
 >   `overseer-dtytju`, `overseer-fs4`, `overseer-816`, `overseer-b4q`,
 >   **`overseer-rh1`** (new, rung seven), and **`overseer-knm`** (appended).
 >   **`overseer-ya4` is CLOSED**, routed to `livespec-dev-tooling-zi4q`.
-> - **TWO THINGS NEED A HUMAN AND ARE NOT BLOCKED ON THE WORKER.** (1) The
->   `overseer-ya4` root cause was appended to the **closed** item and **will not
->   reach `zi4q`**; forwarding is a cross-tenant write. (2) `livespec-console`
->   has **no branch protection at all** — recorded, not filed, wrong tenant.
+> - **ONE THING NEEDS A HUMAN AND IS NOT BLOCKED ON THE WORKER.** The
+>   `overseer-ya4` root cause (SIGPIPE, not flakiness) was appended to the
+>   **closed** item, and **it will NOT reach `livespec-dev-tooling-zi4q` on its
+>   own** — say that plainly rather than assuming the note suffices, because the
+>   evidence already carried there says *"flaky, 2 failures in 5 attempts"*,
+>   which is materially wrong. Forwarding is a **cross-tenant write** and
+>   reopening a closed item is a **maintainer call**; both were deliberately
+>   declined here.
+>   *(A second item was flagged here and is **RETRACTED** — see instance
+>   fourteen at the rung-nine table.)*
 > - **`overseer-b4q` and `overseer-rh1` are actionable now** by the normal
 >   factory route; both were deliberately **not dispatched** (admission policy
 >   is being decided in another session).
@@ -268,7 +274,7 @@ inventing a new one:
 |---|---|---|
 | `livespec`, `-dev-tooling`, `-runtime`, `-orchestrator-beads-fabro`, `-driver-claude`, `-driver-codex` | **1** each | **YES** |
 | **`livespec-overseer`** | **56** | **NO** |
-| `livespec-console` | *no branch protection at all (HTTP 404)* | — |
+| `livespec-console-beads-fabro` | **1** | **YES** |
 
 **Six siblings run the single-gate model exactly as `ci.yml` describes it. This
 repo is the sole outlier.** That **reframes `overseer-rh1`**: the `ci.yml`
@@ -279,8 +285,50 @@ to detect the outlier is the *secondary* one. It also sharpens the maintainer
 decision from "pick a model" to "adopt the fleet standard (require `ci-green`,
 drop the 56)", which additionally makes both false `ci.yml` comments true again.
 
-`livespec-console` is recorded, **not diagnosed and not filed** — different
-repo, different class, and filing it here would be a wrong-tenant record.
+> **RETRACTED — INSTANCE FOURTEEN, and it was mine.** An earlier version of this
+> table carried a row reading *"`livespec-console` — no branch protection at all
+> (HTTP 404)"*, flagged as belonging to that repo's owner. **`livespec-console`
+> DOES NOT EXIST** — `gh api repos/thewoolleyman/livespec-console` also 404s. The
+> protection 404 never meant "a repo with no protection"; it meant **"no such
+> repo"**. The real sibling is `livespec-console-beads-fabro`, which is
+> `required=1` with `ci-green` — **fleet-consistent**. So the fleet result is
+> **seven** siblings at the standard, and this repo's outlier status is
+> **strengthened**.
+>
+> **The routing flag is explicitly WITHDRAWN**, not quietly deleted: a flagged
+> non-finding costs another track real time before they discover there is
+> nothing there, and a silent deletion leaves the claim alive in anyone who
+> already read it.
+>
+> **Why this is fourteen and not a repeat of thirteen — the pairing is the
+> lesson.** On thirteen I correctly stopped a 404 body being parsed as `0`, i.e.
+> I distinguished *error* from *no data*. On fourteen I made that distinction
+> correctly and then **mis-attributed what the error MEANT**. A 404 from a
+> protection endpoint has at least two causes — no protection configured, and no
+> such repository — licensing **opposite** conclusions: one is a finding, the
+> other is a typo. **Distinguishing "error" from "no data" is only half the
+> discipline; the other half is asking WHICH error.**
+>
+> **The reusable form: when an ABSENCE is the finding, confirm the SUBJECT
+> EXISTS before reporting the absence.** That is the same shape as the vacuous
+> path-scoped `git diff` that started this thread — an empty result whose
+> subject was never there. Fourteen instances in, the defect has now appeared at
+> **both ends of the same investigation**.
+
+**RUNG NINE (b) — independently confirmed, with a corrected instrument.** A
+second party re-measured the outlier result and it **holds**: six siblings at
+`required=1` with `ci-green`, `livespec-overseer` at 56 without. They guarded on
+the response **containing `"required_status_checks"`** rather than on it being
+non-empty — deliberately adopting the fix instance thirteen argues for, which is
+why their 404 handling did not repeat mine:
+
+```sh
+p=$(gh api repos/OWNER/REPO/branches/master/protection 2>/dev/null)
+if printf '%s' "$p" | grep -q '"required_status_checks"'; then … else … fi
+```
+
+**The headline stands, and stands stronger for being reproduced by a second
+party using an instrument this thread's own defect forced them to fix.**
 
 > **The transferable move: when a rung comes back dry, re-ask an earlier rung's
 > question at a WIDER SCOPE before inventing a new question.** Rung eight's
