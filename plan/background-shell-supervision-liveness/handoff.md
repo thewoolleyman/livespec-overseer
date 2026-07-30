@@ -24,12 +24,13 @@ attended seats do.
 
 ## 2. Where this thread stands — READ BEFORE DOING ANYTHING
 
-**RATIFIED. Steps a–d are LANDED. Step e is IN FLIGHT and blocked in the
-FACTORY, not the code: `.1` is DONE (accepted and closed); `.2` is admitted
-and its implementation went green in a sandbox THREE times on 2026-07-29,
-but every landing attempt was killed by factory infrastructure — currently
-the Claude credential's exhaustion; `.3`–`.6` sit `backlog` with
-admissions PRE-APPROVED and dispatches HELD until a `.2` review passes.**
+**RATIFIED THROUGH v004. Steps a–d are LANDED and step e is FIVE-SEVENTHS
+DONE: `.1`, `.2`, `.4`, `.5`, `.7` are merged on master and CLOSED. `.3` is
+stored `ready`, awaiting ONE dispatch from a fresh-bound session — gate 1
+fired mid-tail on 2026-07-30 ~06:2xZ (release `67081674b0f3`; the
+pre-stage update was run, so the NEXT session binds current). `.6` has a
+run in flight under its pre-release dispatcher. The factory-outage story
+below is history, not the present.**
 
 | Step | State |
 |---|---|
@@ -39,7 +40,7 @@ admissions PRE-APPROVED and dispatches HELD until a `.2` review passes.**
 | b. Widened proposal landed | **DONE** — PR #226 merged |
 | c. Ledger filed | **DONE** — six children under `overseer-4xfmez` (`.1`–`.6`), epic retitled and scope-widened |
 | d. `/livespec:revise` | **DONE — v003 RATIFIED**, PR #232, commit `ed55630` on master. `proposed_changes/` is empty; `history/v003/` holds the proposal and its decision. Decision was `modify`: the nine edits verbatim plus one counsel co-edit aligning spec.md §"The restart" with contracts.md §"The restart interlock" |
-| e. Implementation | **IN FLIGHT — ALL FOUR GATES NOW CLEAR (2026-07-30)** — `.1` DONE (PR #243, `86cb0b6`, accepted + CLOSED 2026-07-29); `.2` stored `ready`, three-times-green in sandboxes, and its blocker is GONE: the maintainer rotated `CLAUDE_CODE_OAUTH_TOKEN` (probe re-verified 200) and gate 4 measures 229.6 h of codex headroom. `.3`–`.6` `backlog`, admissions pre-approved (§3 ruling 5), dispatches held behind a passing `.2` review — see below |
+| e. Implementation | **FIVE OF SEVEN CLOSED (2026-07-30)** — `.1` (PR #243, `86cb0b6`); `.2` (PR #313, `427ea8ee`, seventh dispatch); `.4` (PR #324, `fa05c58`); `.5` (PR #321 + ruled direct close, §3 ruling 10); `.7` (PR #322, `e4315acc`, built against v004, §3 ruling 9). REMAINING: `.3` stored `ready` — its first run's review-accepted fix was destroyed by the review_fix checkpoint timeout (third occurrence, `bd-ib-g56f` addendum 6) and its redispatch was refused by gate 1; `.6` run `01KYRTKFT7K8PTHN…` in flight since 06:15:55Z under the superseded-build dispatcher — see cold-open |
 
 ### Step e state, and the FOUR gates a dispatch can hit
 
@@ -51,12 +52,15 @@ later slices: the owed fixture landed as
 this repo's convention had been beside-tests in `overseer/`; the full
 `just check` aggregate accepted it.
 
-**`.2` is admitted (stored `ready`), its implementation is PROVEN — three
-independent sandbox runs went green through implement + janitor on
-2026-07-29 — and NOTHING has landed: every dispatch died in the factory's
-own infrastructure, never on the code.** The full post-mortem is bug
-**`bd-ib-g56f`** in the ORCHESTRATOR tenant (read it before reasoning about
-the factory). The operational summary:
+**`.2` IS DONE — PR #313, rebase-merged `427ea8ee`, run
+`01KYRJMD7DXFSNZG9F4NX5RNDT`, post-merge janitor green, ai-only accepted,
+ledger CLOSED — on the SEVENTH dispatch, 2026-07-30 ~04:2xZ.** The six
+dispatches before it all died in factory infrastructure, never on the code;
+the full post-mortem is bug **`bd-ib-g56f`** in the ORCHESTRATOR tenant
+(READ IT before reasoning about the factory — addenda 6–7 add the
+checkpoint-timeout mechanism and its third occurrence, the fork-salvage
+NEGATIVE, the stranded-item reconciliation gap, and the publish
+self-collision). The outage history in brief, kept for instinct:
 
 - Run `01KYP350T3PEMKYX87QND2WFPW` (04:47Z): implement + `just check` green
   (commits `554b5d2`, then `a70807a` after one retry). At 05:11Z the org's
@@ -254,26 +258,35 @@ re-deriving this. If it is clean:
    re-minting the wrapper token from a healthy org (`claude setup-token`);
    hold dispatches until the probe returns 200. Do the rest of this list
    while waiting.
-2. **Dispatch `.2`** — `drive --action impl:overseer-4xfmez.2`. If the
-   ledger shows it ACTIVE with no live run, restore it first via
-   `move:overseer-4xfmez.2:ready` (see gate 2). On a gate-3 cap refusal,
-   wait and retry — do not raise the cap further.
-3. **Watch the run; never park an interview.** If the R/I/A interview fires,
-   read the REAL error from `fabro events <run>` `stage.failed` properties
-   (the interview text hides it), answer promptly — a parked run dies at
-   240 m and takes its green work along — and verify the run status flipped
-   after answering.
-4. **After `.2` reaches `done`:** admit `.3`–`.6` under the PRE-APPROVED
-   consent (§3 ruling 5, no pickers) and dispatch per the layering: `.5`
-   first (priority path, depends only on `.2`), `.6` behind `.5`, `.3`/`.4`
-   as cap capacity allows — never parallel-dispatch slices that share files,
-   and **dispatches stay HELD until a `.2` review actually PASSES** (they
-   share the Claude review adapter). **Read
+2. **Dispatch `.3`** — stored `ready`; `drive --action impl:overseer-4xfmez.3`.
+   Context the fresh run's reviewer will likely re-derive: its first run's
+   review ACCEPTED a real finding — `_supervisor_shielded_attention.py:163`
+   hardcodes "preventing evidence: background shell", so the
+   `winddown-starved` alert can fire on a shell-less tick, violating the
+   evidence-enumeration rule — and the fix was applied, then destroyed by
+   the review_fix checkpoint timeout (that timeout has killed 2 of 2 runs
+   whose review accepted a finding; `bd-ib-g56f` addendum 6). On a gate-3
+   cap refusal, wait and retry — do not raise the cap further.
+3. **Watch every run; never park an interview.** If the R/I/A interview
+   fires, read the REAL error from `fabro events <run>` `stage.failed`
+   properties (the interview text hides it), answer promptly — a parked run
+   dies at 240 m and takes its green work along — and verify the run status
+   flipped after answering (`fabro attach` exit 0 proves nothing).
+4. **See `.6` through** — run `01KYRTKFT7K8PTHN…` (started 2026-07-30
+   06:15:55Z) was launched by a dispatcher on the superseded build
+   `856d699b5f7d`; the run itself is unaffected. If its dispatcher reports
+   green, verify the ledger row closed. If the dispatcher dies and the run
+   completes out-of-band, the item strands ACTIVE with NO sanctioned valve
+   (measured on `.5`: `impl:` refuses not-ready, `accept:` refuses
+   invalid-source-state) — the `.5` precedent (§3 ruling 10) is the shape of
+   the remedy, and each recurrence needs its own consent.
+5. **Epic close-out once `.3` and `.6` are CLOSED:** verify each slice by
+   its OWED TESTS per
    `plan/background-shell-supervision-liveness/research/untracked-obligation-closure.md`
-   before touching `.4`, `.5`, or `.6`** (their closure is by owed tests,
-   not the gap-id check). The two §7 PENDING remedies (the epic-comment
-   sentence and the future MUST-form propose-change) are NON-blocking; they
-   ride any later consent batch.
+   (`.4`/`.5`/`.6` closure is by owed tests, NOT the gap-id check), refresh
+   this §2 to the completed state, and surface the two §7 PENDING remedies
+   (the epic-comment sentence and the future MUST-form propose-change) for
+   a consent batch — they remain NON-blocking.
 
 **Never implement inline from this planning seat.** If `drive` hits a
 genuine human valve, do NOT force it — surface it (an attended seat presents
@@ -328,6 +341,29 @@ ATTRIBUTION NOTE (supervisor correction, 2026-07-29): the `.2`
 abandon-and-redispatch decision and the `bd-ib-g56f` filing were the
 SUPERVISOR seat's decisions under its vetting rubric, NOT maintainer
 rulings. Never record the maintainer ruling on something they have not seen.
+
+Maintainer, 2026-07-30:
+
+8. **The WIP cap is 4 for this repo** (PR #305, `2c7465b`) **and the epic
+   tail parallelizes**: `.3` + `.4` + `.5` dispatched simultaneously rather
+   than `.5`-first-serially, `.6` immediately after `.5` lands; sequence
+   only around real shared-file conflicts. Executed 2026-07-30. The cap
+   raise was a capacity decision — the do-not-raise-to-jump-the-queue rule
+   still stands.
+9. **`.7` is ratified and authorized**: the uncertifiable-declaration
+   proposal's ratification was delegated, cut as **v004** (PR #309,
+   `SPECIFICATION/history/v004/`), and the ~04:05Z `AskUserQuestion` ruling
+   approved dispatching `.7` immediately — that ruling IS `.7`'s admission
+   consent (it was never in ruling 5's batch; the citation lives on the
+   item's notes). Landed same-day as PR #322.
+10. **`.5`'s stranded ledger row was ruled directly closeable** (~06:1xZ
+    `AskUserQuestion`): its run completed out-of-band after its dispatcher
+    died at the publish interview (PR #321 merged 05:56:51Z, exit stage
+    succeeded) and NO sanctioned valve covers that state, so a ONE-TIME
+    direct `bd close` carrying the full authority chain in its reason was
+    authorized. Systemic gap: `bd-ib-g56f` addendum 7 / remedy 5. This is
+    precedent-SHAPED, not a general license — each recurrence needs fresh
+    consent.
 
 Earlier and still binding: the narrow predicate's **2-hour episode floor**
 and **`shell-prolonged`** token; supervisor sessions are **FULL CITIZENS**
@@ -407,6 +443,9 @@ every other cited module is untouched by that PR.
   - **`.4`** blocked age-band escalation
   - **`.5`** lane C supervisor full citizenship
   - **`.6`** lane D pair-stall + guarded nudge (depends on `.5`)
+  - **`.7`** attention for standing un-certifiable declarations (filed
+    2026-07-29 from a live incident; ratified basis v004; admission via §3
+    ruling 9; CLOSED via PR #322)
 - **`overseer-vyjkzw`** — stays the NARROW instance (`shell-prolonged`).
 - **`overseer-5jttov`** (`supervisor-scratch-discipline`) — adjacent,
   non-blocking. It edits the same generated supervisor charter that lane C's
