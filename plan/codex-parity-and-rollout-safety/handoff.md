@@ -117,6 +117,51 @@
 > > A tracked-file/worktree prohibition was in force at session end for everything
 > > except this handoff; it lapses with that session.
 > >
+> > ### ▶ e18 AND yms ARE IN FLIGHT — dispatched 2026-07-30, and the ADMISSION ROUTE CHANGED
+> >
+> > | item | run | claim, read back |
+> > |---|---|---|
+> > | `overseer-e18` (P1, the critical path) | `01KYT4NT0QFT` | `ACTIVE` + `Assignee: fabro` |
+> > | `overseer-yms` (P2) | `01KYT4P0CMBT` | `ACTIVE` + `Assignee: fabro` |
+> >
+> > Dispatched onto a base proven green — `fa730705 completed success`, not a
+> > pending run. **The committed dispatch cap here is 4**, so two in flight is well
+> > inside it; earlier notes in this file assume the default 2.
+> >
+> > > **A phantom claim was ruled OUT, not assumed away.** The first `fabro ps`
+> > > after dispatch listed only ONE run while BOTH items already read `ACTIVE` —
+> > > which is precisely this file's documented "a dispatch that fails at
+> > > run-config-overlay still CLAIMS the item" shape. Re-checked: both runs were
+> > > live, the second was simply seconds behind. **`ACTIVE` is still not evidence
+> > > of a run; `fabro ps` is.**
+> >
+> > **THE ADMISSION ROUTE CHANGED — stop routing admission to the maintainer.** The
+> > maintainer gave the supervisor a **standing authorization** to admit anything
+> > belonging to this track. So an admission ask goes to the **supervisor** and
+> > resolves in ONE hop. **The split still stands: never self-admit.** Earlier
+> > sections of this file say "ask the maintainer FIRST" — that is superseded for
+> > this track.
+> >
+> > ### ⚠ zsh EATS `:ready` OFF AN ACTION ID — and bash does not, which is why it bites HERE
+> >
+> > Building an action id by interpolation is unsafe in this fleet's shell.
+> > **Measured, both shells side by side:**
+> >
+> > ```
+> > zsh:   id=overseer-e18; echo "move:$id:ready"   ->  move:overseer-e18eady
+> > bash:  id=overseer-e18; echo "move:$id:ready"   ->  move:overseer-e18:ready
+> > zsh:   echo "move:${id}"":ready"                ->  move:overseer-e18:ready
+> > ```
+> >
+> > Unbraced `$id:r` triggers zsh's **`:r` history modifier** (strip extension),
+> > which consumes the `:r` and leaves `eady`. **bash is unaffected**, so a snippet
+> > that is correct everywhere else silently mangles here — the same class as
+> > shared correction C14 (`PIPESTATUS` is bash; this fleet runs zsh).
+> >
+> > It failed LOUDLY this time (`invalid-action-id`), and that is luck, not
+> > safety: the same mangling anywhere that accepts a malformed string would pass
+> > quietly. **Use `"move:${id}"":ready"` and echo the id before firing it.**
+> >
 > > ### ⚠ `supervisor-handoff.md` IS STALE AS OF 2026-07-30 — regenerate before trusting it
 > >
 > > The charter (`00f0cbf`) is the first thing an incoming supervisor reads, and
