@@ -336,6 +336,47 @@ unchanged. Filing was deliberately **held**: the maintainer chose a real
 investigation and a prepared fix over an unverified bug report on a third
 party's public repo.
 
+## Cross-reference — the sibling thread still asserts two things measured here
+
+`plan/codex-parity-and-rollout-safety/handoff.md` (~`:218-222`) is where this
+thread was spun out of, and it is **the original source of the vacuous
+byte-identical check**. Recorded here so the contradiction is visible from this
+side: their record is **theirs**, and this thread deliberately did not edit it.
+
+**Still asserted there, disproven here:**
+
+1. *"The classifier file is **byte-identical** … (`git diff --stat
+   upstream/main` is empty)"* — the **vacuous check**. Upstream relocated
+   `lib/crates/` → `lib/components/`, so that diff compared a path **absent
+   upstream**; emptiness proved nothing.
+2. *"The orchestrator's `workflow.fabro` only CONSUMES the category it is
+   handed"* — **inverted. Nothing consumes it.** All of `transient_infra`,
+   `budget_exhausted`, `failure_categ`, `failure_class`, `classified_failure`
+   and `node_outcomes` return **zero hits repo-wide across 2685 `.py` files**,
+   against a **passing positive control** (`host_dispatch_cap` hits at
+   `_dispatcher_loop_command.py:48,164`). Filed as **`overseer-fs4`**.
+
+**Their conclusion survives — only its evidence did not.** The defect *is*
+upstream's, unmodified: hint at upstream `:79`, same first-match-wins order,
+same pinned test `classify_reason_index_crates_io` at upstream `:1654`. Keep
+that distinction; it is the whole discipline of this thread.
+
+**What they got RIGHT, and it proved load-bearing.** Their line — *"absent the
+false positive the string would classify `Deterministic` … `BudgetExhausted`
+would be semantically right"* — was correct on **both** counts. And the
+`Deterministic` fallback turned out to matter more than it looked: it is
+**signature-tracked**, which is precisely why the fix adds a permanent-provider-
+limit hint *ahead* of the transient list rather than only suppressing the false
+positive.
+
+**Delivery status — prepared, NOT delivered.** A peer notification sits at
+`tmp/overseer/codex-parity-and-rollout-safety/PEER-NOTIFICATION-from-classifier-defect-supervisor.md`
+(gitignored). It has **not** been sent by tmux: that supervisor's
+`AskUserQuestion` picker has been open throughout, on a maintainer question
+about admitting work. **Typing into an open picker can SELECT an option on the
+maintainer's behalf** — a decision this thread does not own. A watcher is
+waiting for the picker to clear.
+
 ## A RETRACTED attribution — do not resurrect it
 
 An earlier reading blamed `bd-ib-2nq` (a >60-minute token TTL). **That is
