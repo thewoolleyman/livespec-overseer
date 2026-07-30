@@ -415,3 +415,32 @@ then sweep for it; the writing is not the fixing.**
 **The sweep is cheap and the failure is silent.** A corrections log that has
 never been swept reads exactly like one that has — which is the whole reason
 this entry exists.
+
+#### The missing half: a sweep needs a SCOPE LADDER
+
+Sweeping for the class says *what* to search for. It does not say *how far*,
+and that omission is what left **three of four** finds outside the first scope.
+
+**Climb the ladder until a rung returns nothing new.** The rungs used here, in
+order, each of which returned at least one further instance — and each of which
+**looked complete at the time it was reached**:
+
+| rung | what it caught |
+|---|---|
+| the thread's own prose files | C5's known instance |
+| **the ledger items** | a **fourth** C4 home nobody had named |
+| **the repo outside this thread** | the archived pointer to `bd-ib-g56f` |
+| **other tenants** | a live **P1** covering adjacent ground for the same target repo |
+
+**STATE THE TERMINATION HONESTLY. This ladder did NOT terminate** — the last
+rung climbed still returned something. Treat it as **UNEXHAUSTED**, not
+complete. Record **which rung was reached and that it was not dry**; never
+record merely that "a sweep was done".
+
+**The shared failure shape — the generalization this whole thread is about.**
+An under-scoped sweep, a vacuous `git diff` against a path that does not exist,
+and a zero-hit grep with no positive control are **the same defect**: a check
+that **cannot fail**, returning success. The classifier bug that started this
+thread is the same shape one level down — a substring test that could only ever
+say "transient", never "I did not look". Every false confidence recorded here
+traces back to it.
