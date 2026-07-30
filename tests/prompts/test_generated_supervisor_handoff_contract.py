@@ -24,6 +24,7 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _GENERATOR_PROSE = _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md"
+_SHARED_LAYER = _REPO_ROOT / ".ai" / "supervisor-protocol.md"
 
 # The exemplar is a LIVE plan thread's charter, and a plan thread moves into
 # `plan/archive/` when it closes. An unguarded read of the live path alone made
@@ -252,6 +253,34 @@ def _has_supervisor_agent_proof(*, charter: str) -> bool:
     return False
 
 
+def combined_charter(*, layers: tuple[str, ...]) -> str:
+    """Return the validator input for a layered generated handoff."""
+    return "\n\n".join(layers)
+
+
+def missing_requirements_for_layers(*, layers: tuple[str, ...]) -> list[str]:
+    """Return missing requirements across the union of emitted layers."""
+    return missing_requirements(charter=combined_charter(layers=layers))
+
+
+def missing_required_needles(*, charter: str) -> list[str]:
+    lowered = charter.lower()
+    return [
+        name
+        for name, needles in _REQUIRED
+        if not all(needle.lower() in lowered for needle in needles)
+    ]
+
+
+def missing_required_needles_for_layers(*, layers: tuple[str, ...]) -> list[str]:
+    return missing_required_needles(charter=combined_charter(layers=layers))
+
+
+def _corrections_section(*, text: str) -> str:
+    start = text.index("## Corrections")
+    return text[start:]
+
+
 def missing_requirements(*, charter: str) -> list[str]:
     """Return the contract requirements a generated charter FAILS to satisfy.
 
@@ -301,7 +330,13 @@ def test_the_corrected_exemplar_satisfies_the_whole_contract():
         "so if the plan thread moved again, add its new location to "
         "_EXEMPLAR_CANDIDATES rather than deleting this assertion."
     )
-    assert missing_requirements(charter=exemplar.read_text(encoding="utf-8")) == []
+    exemplar_text = exemplar.read_text(encoding="utf-8")
+    assert (
+        missing_requirements_for_layers(
+            layers=(_SHARED_LAYER.read_text(encoding="utf-8"), exemplar_text)
+        )
+        == []
+    )
 
 
 def test_the_generator_prose_instructs_every_contract_requirement():
@@ -315,6 +350,91 @@ def test_the_generator_prose_instructs_every_contract_requirement():
     `.claude-plugin/prose/supervise-plan.md`.
     """
     assert missing_requirements(charter=_GENERATOR_PROSE.read_text(encoding="utf-8")) == []
+
+
+def test_the_generator_prose_requires_two_layer_output_and_no_live_status():
+    prose = _GENERATOR_PROSE.read_text(encoding="utf-8")
+    lowered = prose.lower()
+    assert ".ai/supervisor-protocol.md" in prose
+    assert "plan/<topic>/supervisor-handoff.md" in prose
+    assert "startup bindings only" in lowered
+    assert "no live status" in lowered
+    assert "no next actions" in lowered
+    assert "no date-gated behavior" in lowered
+    assert "ledger anchor" in lowered
+
+
+def test_the_generator_prose_requires_both_corrections_layers_preserved_byte_for_byte():
+    prose = _GENERATOR_PROSE.read_text(encoding="utf-8")
+    lowered = prose.lower()
+    assert "role-level corrections" in lowered
+    assert "thread-specific corrections" in lowered
+    assert "byte-for-byte" in lowered
+    assert "preserve spelling, punctuation, code formatting, blank lines, and ordering" in lowered
+
+
+def test_layered_current_charter_is_the_iteration_stability_positive_control():
+    binder = (
+        _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md"
+    ).read_text(encoding="utf-8")
+    shared = _SHARED_LAYER.read_text(encoding="utf-8")
+    rows = (
+        ("current binder alone", len(missing_requirements(charter=binder))),
+        (
+            "current shared plus binder",
+            len(missing_requirements_for_layers(layers=(shared, binder))),
+        ),
+    )
+    assert rows[0][1] > 0
+    assert rows[1] == ("current shared plus binder", 0)
+
+
+def test_union_validator_retarget_demonstrates_homelab_binder_shape():
+    homelab_binder = """
+    # Supervisor Handoff - homelab-demo
+    ## Bindings
+    WORKER_TARGET='=homelab-demo:'
+    SUPERVISOR_TARGET='=homelab-demo-supervisor:'
+    ## HALT-first preconditions
+    ```sh
+    pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+    supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '#{pane_pid}')
+    pane_cwd=/data/projects/homelab
+    case "$(readlink -f -- "$pane_cwd")" in /data/projects/homelab|/data/projects/homelab/*) ;; esac
+    wait_channel=/tmp/homelab-status.log
+    tmux capture-pane -p -t "$WORKER_TARGET" -S -40 # visible only
+    ```
+    ## Corrections
+    Thread-specific corrections.
+    """
+    homelab_shared = """
+    You are the supervisor, not the implementer. Hand work to verify.
+    A conflicting lane owned by another track is not a blocked state; stand down.
+    Never end a turn without an armed re-entry; arm a background watcher.
+    AskUserQuestion calls carry a recommendation. Never pass --no-verify.
+    Never kill the acting overseer daemon. RE-ARM NOW on expiry.
+    """
+    rows = (
+        ("homelab binder alone", len(missing_required_needles(charter=homelab_binder))),
+        (
+            "homelab shared plus binder",
+            len(missing_required_needles_for_layers(layers=(homelab_shared, homelab_binder))),
+        ),
+    )
+    assert rows == (("homelab binder alone", 9), ("homelab shared plus binder", 3))
+
+
+def test_both_corrections_sections_survive_regeneration_byte_for_byte():
+    shared = _SHARED_LAYER.read_text(encoding="utf-8")
+    binder = (
+        _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md"
+    ).read_text(encoding="utf-8")
+    regenerated_shared = shared.replace("# Supervisor Protocol", "# Supervisor Protocol")
+    regenerated_binder = binder.replace("# Supervisor Handoff", "# Supervisor Handoff")
+    assert _corrections_section(text=regenerated_shared) == _corrections_section(text=shared)
+    assert _corrections_section(text=regenerated_binder) == _corrections_section(text=binder)
+    reformatted_shared = shared.replace("`pane_pid`", "pane_pid", 1)
+    assert _corrections_section(text=reformatted_shared) != _corrections_section(text=shared)
 
 
 def test_a_charter_ending_at_the_conflicting_lane_rule_is_rejected():
