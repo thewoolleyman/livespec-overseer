@@ -242,6 +242,20 @@ def _execution_findings(*, text: str, repo_primary: Path, tmp_path: Path) -> lis
     env = os.environ.copy()
     env["COLD_OPEN_REPO"] = str(repo_primary)
     env["PATH"] = str(_stub_path(tmp_path=tmp_path)) + os.pathsep + env["PATH"]
+    # FABRICATE HOME, for the same reason the repo and the tool stubs are
+    # fabricated: this gate asserts that emitted blocks EXECUTE, and that verdict
+    # must not depend on what the machine running it happens to have installed.
+    # The provenance block reads `$HOME/.claude/plugins/cache/...`, so with the
+    # real HOME the gate said "executes" on a developer box holding a plugin
+    # cache and "does not execute" on a CI runner without one — the same answer
+    # differing by environment, which is exactly what a static gate must not do.
+    # An empty HOME is the honest fixture: no cache, so the block takes its
+    # cannot-verify branch deterministically everywhere. What that branch SKIPS
+    # is covered by `test_provenance_check_discriminates.py`, which fabricates
+    # each cache state and runs the block against all four.
+    fabricated_home = tmp_path / "home"
+    fabricated_home.mkdir(exist_ok=True)
+    env["HOME"] = str(fabricated_home)
     # EXPORT THE RESOLVED BINDINGS as shell variables. The charter's own Bindings
     # section says to "resolve and REPORT these before driving anything", so a
     # cold-open supervisor has them bound by the time it runs any block; a harness

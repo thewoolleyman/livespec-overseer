@@ -90,7 +90,7 @@ directory name is sometimes a commit sha and sometimes a version string.
 generator_plugin='livespec-overseer'
 generator_ref='013d35d48cde'
 generator_version='0.15.0'
-generator_prose_md5='9ca18d56772dcf8fcdc2cf78ed8108a8'
+generator_prose_md5='c99d31c9b8c9229b795a209429472552'
 cache_root="$HOME/.claude/plugins/cache/$generator_plugin/$generator_plugin"
 generator_prose="$cache_root/$generator_ref/prose/supervise-plan.md"
 if [ ! -d "$cache_root" ]; then
@@ -110,6 +110,14 @@ else
   printf '%s\n' "PASS: charter provenance matches the installed generator ($installed_md5)"
 fi
 ```
+
+THIS CHARTER IS AHEAD OF THE RELEASED PLUGIN, ON PURPOSE. It records the digest
+of the generator prose IN THIS REPO, which is what it was written against. Between
+a prose change and the release that ships it, that digest differs from the one the
+cache holds, so the check HALTs here with both values named — the charter is ahead
+of the deployed generator, which is true and is exactly the drift this record
+exists to surface. It goes quiet once the release lands and the cache refreshes.
+An adopter, whose charter is generated FROM a released cache ref, sees PASS.
 
 A MISSING CACHE ROOT AND A MISSING REF ARE DIFFERENT CONDITIONS. No cache root
 at all means this is not a charter-generating host — a CI runner, or another
