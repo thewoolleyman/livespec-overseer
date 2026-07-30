@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import _supervisor_launch
+import _supervisor_liveness
 import _supervisor_nudge
 import _supervisor_observe
 import _supervisor_offer
@@ -28,16 +29,10 @@ import signals
 from _supervisor_config import (
     DANGER_CTX_REMAINING,
     IDLE_NUDGE_AFTER,
-    SUPERVISION_CONDITIONS,
     track_key,
 )
 from _supervisor_resume_retry import resume_retry
-from _supervisor_view import (
-    MAX_REASON_IN_ALERT,
-    RowView,
-    elide,
-    needs_attention,
-)
+from _supervisor_view import RowView
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -146,6 +141,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
     is_codex, runtime, codex_fallback = obs.is_codex, obs.runtime, obs.codex_fallback
     claude_status, eff_ctx, istate = obs.claude_status, obs.eff_ctx, obs.istate
+    ctx_stale_age, stale_ctx = obs.ctx_stale_age, obs.stale_ctx
     declared, malformed, blocked, acked, ready = (
         obs.declared,
         obs.malformed,
@@ -155,6 +151,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     )
 
     # Phase 2 — DECIDE.
+    active_conditions: set[str] = set()
 
     # R1 — self-healing resume retry. The cascade's FIRST leg, and it stays first:
     # it must intercept before the busy/idle cascade below, because a box holding the
@@ -168,13 +165,25 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
 
     # A per-track override (an int ``ctx_threshold``) wins; otherwise inherit
     # the daemon-wide default (``warn_percent``, set from ``--warn-percent``).
-    threshold = track.ctx_threshold if track.ctx_threshold is not None else sup.warn_percent
+    threshold = _supervisor_liveness.threshold_for(sup=sup, track=track)
 
-    # The row note defaults to the blocked reason (if any); the busy branch
-    # overrides it to "background shell" when a live background shell is the SOLE
-    # reason the pane isn't idle, so the operator can see WHY.
-    note: str | None = blocked if blocked else None
+    blocked_age = _supervisor_liveness.blocked_age(sup=sup, declared=declared)
+    blocked_age_label = (
+        _supervisor_liveness.age_label(seconds=blocked_age) if blocked_age is not None else None
+    )
+    # The row note defaults to the blocked reason with declaration age (if any); the
+    # busy branch overrides it to "background shell" when a live background shell is
+    # the SOLE reason the pane isn't idle, so the operator can see WHY.
+    note: str | None = (
+        f"{blocked_age_label}: {blocked}" if blocked and blocked_age_label is not None else blocked
+    )
+    ctx_stale_note = (
+        f"ctx unreadable ({_supervisor_liveness.age_label(seconds=ctx_stale_age)})"
+        if ctx_stale_age is not None
+        else None
+    )
     if malformed and declared is not None:
+        active_conditions.add("malformed-state")
         note = f"BAD state file: {declared.token!r}"
         if act:
             sup.alert(
@@ -209,12 +218,25 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
                 blocked=blocked,
                 generating=signals.is_busy(capture_text=capture) or claude_status == "busy",
             )
-            note = blocked if blocked else None  # re-derive: the default came from `blocked`
+            blocked_age = _supervisor_liveness.blocked_age(sup=sup, declared=declared)
+            blocked_age_label = (
+                _supervisor_liveness.age_label(seconds=blocked_age)
+                if blocked_age is not None
+                else None
+            )
+            note = (
+                f"{blocked_age_label}: {blocked}"
+                if blocked and blocked_age_label is not None
+                else blocked
+            )
         # When the PANE itself looks idle, the row note explains WHY it is `working`,
         # or the operator would read the idle-looking pane and distrust the status.
         if not signals.is_busy(capture_text=capture):
             if claude_status == "shell" or codex_fallback:
-                note = "background shell"  # a live `Bash(run_in_background)` command
+                note = _supervisor_liveness.append_note(
+                    note=note if malformed else None,
+                    extra="background shell",
+                )  # a live `Bash(run_in_background)` command
             # Provably always True where it stands: reaching here needs `busy` True
             # with `is_busy(capture)` False and the `shell`/codex-fallback arm above
             # already excluded, which leaves `claude_busy` as the only disjunct that
@@ -229,7 +251,10 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
             # the note unset. The dead arc is the cost of that safety, so it is
             # annotated rather than removed.
             elif claude_status == "busy":  # pragma: no branch
-                note = "sub-agent (Claude busy)"  # in-process sub-agent, no shell
+                note = _supervisor_liveness.append_note(
+                    note=note if malformed else None,
+                    extra="sub-agent (Claude busy)",
+                )  # in-process sub-agent, no shell
         if act:
             # Void the certification ONLY if it is past the grace — a young
             # marker is the certifying turn's own busy tail and must survive
@@ -249,16 +274,25 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
             # The decision belongs to the TRACKED session, which is already showing
             # it in its own pane. The overseer NOTIFIES and hands over coordinates;
             # it never re-asks the question itself (invariant 8).
-            sup.alert(
-                repo=repo,
-                topic=topic,
-                session=session,
-                pane=target,
-                message=(
-                    f"blocked on human: {elide(text=detail, limit=MAX_REASON_IN_ALERT)} "
-                    "— answer it IN THAT PANE"
-                ),
+            active_conditions.update(
+                _supervisor_liveness.surface_blocked_alerts(
+                    request=_supervisor_liveness.BlockedAlertRequest(
+                        sup=sup,
+                        track=track,
+                        session=session,
+                        pane=target,
+                        detail=detail,
+                        declaration_mtime=declared.mtime
+                        if blocked is not None and declared
+                        else None,
+                        blocked_age=blocked_age if blocked is not None else None,
+                        blocked_age_label=blocked_age_label if blocked is not None else None,
+                        istate=istate,
+                    )
+                )
             )
+        else:
+            active_conditions.add("blocked-human")
     elif not idle:
         # Pane present but not a verified idle-input state and not busy —
         # a transient/settling capture. Wait; never act.
@@ -293,6 +327,24 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         status = "restarting"
         if act:
             _supervisor_restart.do_restart(sup=sup, track=track, target=target, is_codex=is_codex)
+    elif ctx_stale_age is not None and stale_ctx is not None and stale_ctx <= threshold:
+        status = "ctx-stale"
+        active_conditions.add("ctx-stale")
+        note = _supervisor_liveness.append_note(note=note, extra=ctx_stale_note)
+        if act:
+            sup.alert(
+                repo=repo,
+                topic=topic,
+                session=session,
+                pane=target,
+                message=(
+                    f"context unreadable for "
+                    f"{_supervisor_liveness.age_label(seconds=ctx_stale_age)} "
+                    f"after last known {stale_ctx}% at or below {threshold}% — "
+                    "inspect the pane before acting"
+                ),
+                condition="ctx-stale",
+            )
     elif eff_ctx is not None and eff_ctx <= threshold:
         # A FRESH `winding-down` ACK buys patience: the session heard us and is
         # wrapping up, so stop re-warning (never keystroke into a session that is
@@ -311,6 +363,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
             status = "winding-down"
         elif eff_ctx <= DANGER_CTX_REMAINING:
             status = "danger"
+            active_conditions.add("default")
             if act:
                 _supervisor_nudge.alert_non_responder(
                     sup=sup,
@@ -370,6 +423,9 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         else:
             status = "idle"
 
+    if status != "ctx-stale":
+        note = _supervisor_liveness.append_note(note=note, extra=ctx_stale_note)
+
     view = RowView(
         topic=topic,
         repo=repo,
@@ -379,14 +435,10 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         note=note,
         runtime=runtime,
     )
-    # Re-arm the edge-triggered alert once the track is healthy again, so the NEXT
-    # time it goes bad it reports afresh rather than being suppressed as a duplicate
-    # of the condition it was in hours ago.
-    if act and not needs_attention(row=view):
-        prefix = track_key(repo=repo, topic=topic)
-        sup.alerted = {
-            key: value
-            for key, value in sup.alerted.items()
-            if key[:2] != prefix or key[2] in SUPERVISION_CONDITIONS
-        }
+    # Re-arm edge-triggered alerts per condition, not per row: a track can stay in
+    # NEEDS YOU for one reason while a different condition clears and must re-arm.
+    if act:
+        _supervisor_liveness.clear_alert_conditions(
+            sup=sup, repo=repo, topic=topic, conditions=frozenset(active_conditions)
+        )
     return view

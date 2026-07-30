@@ -71,6 +71,49 @@ def test_ctx_unknown_never_injects(*, tmp_path):
     assert not fake.has(method="paste")
 
 
+def test_condition_episode_continues_inside_the_gap(*, tmp_path):
+    import _supervisor_observe
+    import _supervisor_records
+
+    episode = _supervisor_records.ConditionEpisode(since=100.0, last_seen=120.0)
+    _supervisor_observe.advance_condition(episode=episode, condition_now=True, now=130.0)
+    assert episode.since == 100.0
+    assert episode.last_seen == 130.0
+
+
+def test_ctx_stale_projection_is_read_only_when_listing(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    sup.evaluate(track=track, act=True)
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=None))
+    clock["t"] += 3600.0 + 1.0
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view = sup.evaluate(track=track, act=False)
+    assert view.status == "ctx-stale"
+    assert view.ctx is None
+    assert "overseer[SURFACE]" not in err.getvalue()
+
+
+def test_stale_ctx_age_helper_returns_none_before_the_window(*, tmp_path):
+    import _supervisor_observe
+    import _supervisor_records
+
+    state = _supervisor_records.InjectState(last_ctx_seen=100.0)
+    assert (
+        _supervisor_observe.observed_stale_ctx_age(
+            state=state, current=None, eff_ctx=None, now=200.0
+        )
+        is None
+    )
+
+
 def test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour(*, tmp_path):
     """A session idle at an empty prompt with context ABOVE the threshold and no declaration
     is nudged ONCE to keep going — but ONLY after it has been continuously idle for at least

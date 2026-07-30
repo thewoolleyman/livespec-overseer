@@ -150,7 +150,7 @@ def test_blocked_human_alert_caps_an_over_long_reason(*, tmp_path, capsys):
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     err = capsys.readouterr().err
-    assert "blocked on human:" in err
+    assert "blocked on human (0m):" in err
     assert "…" in err
     assert "y" * 400 not in err
 
@@ -204,6 +204,14 @@ def test_alert_re_arms_after_the_track_recovers(*, tmp_path):
         assert sup.evaluate(track=track, act=True).status == "blocked:human"
     surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
     assert len(surfaced) == 2, surfaced  # entered, recovered, entered again
+
+
+def test_liveness_helper_edges_are_covered(*, tmp_path):
+    import _supervisor_liveness
+
+    assert _supervisor_liveness.age_label(seconds=-10.0) == "0m"
+    assert _supervisor_liveness.blocked_band_seconds(age=49 * 3600.0) == [14400, 86400, 172800]
+    assert _supervisor_liveness.append_note(note="alpha", extra="beta") == "alpha; beta"
 
 
 def test_alert_reports_again_when_the_reason_changes(*, tmp_path):

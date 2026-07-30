@@ -132,7 +132,7 @@ def test_scenario_a_blocked_declaration_is_relayed_not_answered(*, tmp_path):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert view.status == "blocked:human"  # ...it outranks the danger band
-    assert view.note == "waiting on the schema call"
+    assert view.note == "0m: waiting on the schema call"
 
     report = err.getvalue()
     assert "waiting on the schema call" in report  # the reason itself is relayed

@@ -18,32 +18,82 @@ from typing import TYPE_CHECKING
 import claude_sessions
 import registry
 import signals
-from _supervisor_config import ACK_STALE_AFTER, CLAUDE_BUSY_STATUSES
-from _supervisor_records import InjectState, Observation
+from _supervisor_config import (
+    ACK_STALE_AFTER,
+    CLAUDE_BUSY_STATUSES,
+    CONDITION_CONTINUITY_GAP,
+    CTX_STALE_AFTER,
+)
+from _supervisor_records import ConditionEpisode, InjectState, Observation
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "advance_condition",
     "effective_ctx",
     "is_codex_track",
     "observe",
+    "observed_stale_ctx_age",
     "pane_is_managed",
     "pane_is_managed_claude",
+    "update_idle_episode",
 ]
 
 
-def effective_ctx(*, sup: Supervisor, key: tuple[str, str], current: int | None) -> int | None:
-    """Current remaining-%, or the last known if this tick read unknown.
+def advance_condition(*, episode: ConditionEpisode, condition_now: bool, now: float) -> None:
+    """Apply the single observed-condition start/reset/gap rule."""
+    if condition_now:
+        if episode.since is None or (
+            episode.last_seen is not None and (now - episode.last_seen) > CONDITION_CONTINUITY_GAP
+        ):
+            episode.since = now
+        episode.last_seen = now
+        return
+    episode.since = None
+    episode.last_seen = None
 
-    Design: unknown ⇒ keep last known, and unknown NEVER counts as a
-    threshold crossing (so a never-known track stays None and cannot warn).
-    """
+
+def effective_ctx(
+    *, sup: Supervisor, key: tuple[str, str], current: int | None, now: float
+) -> int | None:
+    """Current remaining-%, last known while fresh, or unknown once stale."""
     state = sup.inject.setdefault(key, InjectState())
     if current is not None:
         state.last_ctx = current
+        state.last_ctx_seen = now
+        advance_condition(episode=state.ctx_unreadable_episode, condition_now=False, now=now)
         return current
+    if state.last_ctx is None:
+        advance_condition(episode=state.ctx_unreadable_episode, condition_now=False, now=now)
+        return None
+    advance_condition(episode=state.ctx_unreadable_episode, condition_now=True, now=now)
+    if state.last_ctx_seen is not None and (now - state.last_ctx_seen) >= CTX_STALE_AFTER:
+        return None
     return state.last_ctx
+
+
+def observed_stale_ctx_age(
+    *, state: InjectState, current: int | None, eff_ctx: int | None, now: float
+) -> float | None:
+    """Age of stale last-known ctx, or None while ctx knowledge is fresh/absent."""
+    if current is not None or eff_ctx is not None or state.last_ctx_seen is None:
+        return None
+    age = max(0.0, now - state.last_ctx_seen)
+    if age < CTX_STALE_AFTER:
+        return None
+    return age
+
+
+def update_idle_episode(*, state: InjectState, idle: bool, busy: bool, now: float) -> None:
+    """Advance the continuous-idle episode used by the keep-going nudge."""
+    if idle and not busy:
+        if state.idle_since is None:
+            state.idle_since = now
+        state.idle_last_seen = now
+        return
+    state.idle_since = None
+    state.idle_last_seen = None
 
 
 def is_codex_track(
@@ -209,8 +259,9 @@ def observe(
     # Ctx% is runtime-agnostic: `parse_ctx_remaining` matches BOTH statuslines
     # (`Ctx: N% left` / `Context N% left`), so each runtime reports ITS OWN computed
     # number and there is no occupancy formula here to get wrong.
+    now = sup.now()
     current_ctx = signals.parse_ctx_remaining(capture_text=capture)
-    eff_ctx = effective_ctx(sup=sup, key=key, current=current_ctx)
+    eff_ctx = effective_ctx(sup=sup, key=key, current=current_ctx, now=now)
 
     # Track the CONTINUOUS-idle episode for the keep-going nudge's minimum-duration gate
     # (`IDLE_NUDGE_AFTER`). A session is "cleanly idle" only at an empty prompt AND not
@@ -219,11 +270,11 @@ def observe(
     # tick stamps `idle_since`; ANY non-idle tick clears it, so brief activity resets the
     # clock and only a genuinely long idle spell reaches the nudge.
     istate = sup.inject.setdefault(key, InjectState())
-    if idle and not busy:
-        if istate.idle_since is None:
-            istate.idle_since = sup.now()
-    else:
-        istate.idle_since = None
+    update_idle_episode(state=istate, idle=idle, busy=busy, now=now)
+    ctx_stale_age = observed_stale_ctx_age(
+        state=istate, current=current_ctx, eff_ctx=eff_ctx, now=now
+    )
+    stale_ctx = istate.last_ctx if ctx_stale_age is not None else None
 
     stamp = registry.read_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path)
 
@@ -252,6 +303,8 @@ def observe(
         codex_fallback=codex_fallback,
         claude_status=claude_status,
         eff_ctx=eff_ctx,
+        ctx_stale_age=ctx_stale_age,
+        stale_ctx=stale_ctx,
         istate=istate,
         declared=declared,
         malformed=malformed,

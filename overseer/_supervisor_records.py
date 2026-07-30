@@ -12,14 +12,23 @@ Both are PUBLIC despite the private module, because pyright-strict's
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import signals
 
 __all__: list[str] = [
+    "ConditionEpisode",
     "InjectState",
     "Observation",
 ]
+
+
+@dataclass(kw_only=True)
+class ConditionEpisode:
+    """In-memory duration for one named observed condition class."""
+
+    since: float | None = None
+    last_seen: float | None = None
 
 
 @dataclass
@@ -40,7 +49,13 @@ class InjectState:
     """
 
     last_ctx: int | None = None
+    last_ctx_seen: float | None = None
     idle_since: float | None = None
+    idle_last_seen: float | None = None
+    ctx_unreadable_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
+    blocked_declaration_mtime: float | None = None
+    blocked_entry_age_label: str | None = None
+    blocked_alerted_bands: set[int] = field(default_factory=set)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -67,6 +82,8 @@ class Observation:
     codex_fallback: bool
     claude_status: str | None
     eff_ctx: int | None
+    ctx_stale_age: float | None
+    stale_ctx: int | None
     istate: InjectState
     declared: signals.TrackState | None
     malformed: bool

@@ -76,7 +76,7 @@ def test_blocked_marker_suppresses_injection(*, tmp_path):
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "blocked:human"
-    assert view.note == "waiting on schema call"
+    assert view.note == "0m: waiting on schema call"
     assert not fake.has(method="paste")
 
 

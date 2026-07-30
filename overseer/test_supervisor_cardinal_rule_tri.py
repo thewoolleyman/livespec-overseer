@@ -148,7 +148,7 @@ def test_blocked_declaration_is_surfaced_and_never_restarted(*, tmp_path):
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "blocked:human"
-    assert view.note == "waiting on the schema call"
+    assert view.note == "0m: waiting on the schema call"
     assert not fake.has(method="paste")
     assert not fake.has(method="respawn")
 
