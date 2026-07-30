@@ -19,26 +19,50 @@ Created 2026-07-29 from `plan/codex-parity-and-rollout-safety/`, whose slice A2
 `tmp/`, no transcript, no scratchpad.
 
 **Nothing is blocked on the worker.** All record work is landed and
-forge-verified; master tip at handoff time was `d09cfe51`. There is **no
-half-finished edit** anywhere.
+forge-verified. There is **no half-finished edit** anywhere.
 
-> **RESTART, 2026-07-30 — read this before the list below; it is now partly
-> superseded.** Three things changed, and one of them is a trap for the next
-> reader.
+> **DO THIS FIRST, BEFORE READING ANOTHER LINE — a restart inherits a STALE
+> PRIMARY CHECKOUT.** This session cold-opened at `83d7efa` while master was
+> `ae712e8b` — 22 commits behind — and read a **224-line** handoff superseded by
+> a 289-line one. **Nothing in the stale copy announced its own staleness**; it
+> still claimed its read-chain was complete. The note predicting this failure
+> was in `tmp/`, which a restart does not inherit, which is why it lives here:
 >
-> - **A restart inherits a STALE PRIMARY CHECKOUT.** This session cold-opened
->   on the primary checkout at `83d7efa` while master was `ae712e8b` — 22
->   commits behind — and read a **224-line** handoff that had already been
->   superseded by the 289-line one. The stale copy still said "the read-first
->   chain is the whole chain", so nothing in it announced its own staleness.
->   **`git fetch` and fast-forward the primary checkout BEFORE reading this
->   file.** The wind-down note that predicted this failure was itself in
->   `tmp/`, which a restart does not inherit — so it is recorded here instead.
-> - **Delivery 1 is DONE** (details at that entry).
-> - **Rung six was climbed and it was NOT dry** — `overseer-b4q`. The ledger
->   is now **four** items.
+> ```sh
+> mise exec -- git fetch origin --prune && mise exec -- git merge --ff-only origin/master
+> ```
+>
+> **Master was `8cc9f03b` when this box was written, and this file was 595
+> lines.** If your copy is shorter, you are reading a stale one.
 
-**The ledger — five items, all `backlog`, none groomed, none closed.** Read
+> **STATE AS OF 2026-07-30, superseding the list below where they disagree.**
+>
+> - **Delivery 1 is DONE** — delivered, received and acted on; the recipient's
+>   own log is the evidence. **Delivery 2 remains outstanding and unawaited.**
+> - **The sweep reached RUNG NINE.** Rungs 1–7 and 9 returned something; **rung
+>   8 was dry as scoped**. Rung nine is the one to read first — it found this
+>   repo is the **fleet's sole outlier** on branch protection and it *reframed*
+>   `overseer-rh1`.
+> - **The ledger is SIX items, not five** (table below is otherwise current):
+>   `overseer-dtytju`, `overseer-fs4`, `overseer-816`, `overseer-b4q`,
+>   **`overseer-rh1`** (new, rung seven), and **`overseer-knm`** (appended).
+>   **`overseer-ya4` is CLOSED**, routed to `livespec-dev-tooling-zi4q`.
+> - **TWO THINGS NEED A HUMAN AND ARE NOT BLOCKED ON THE WORKER.** (1) The
+>   `overseer-ya4` root cause was appended to the **closed** item and **will not
+>   reach `zi4q`**; forwarding is a cross-tenant write. (2) `livespec-console`
+>   has **no branch protection at all** — recorded, not filed, wrong tenant.
+> - **`overseer-b4q` and `overseer-rh1` are actionable now** by the normal
+>   factory route; both were deliberately **not dispatched** (admission policy
+>   is being decided in another session).
+>
+> **Working note that saves an hour:** `just worktree-create` / `worktree-lib.sh
+> create` **SIGPIPEs to `rc=141` with zero output and no worktree when its
+> stdout is a pipe.** Redirect stdout to a **file** and verify the
+> **postcondition**, never the exit code:
+> `test -d "$W" && test -d "$W/dev-tooling"`.
+
+**The ledger — six items; all `backlog` and none groomed, EXCEPT `overseer-ya4`
+which is now CLOSED and routed out (see the box above).** Read
 via `/data/projects/1password-env-wrapper/with-livespec-env.sh bd show <id>`
 (a bare `bd` is Access-denied; `bd create` has no `--status`, so hand-filed
 items land at beads-native `open` — set status explicitly and **read back**,
