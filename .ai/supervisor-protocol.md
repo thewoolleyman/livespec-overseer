@@ -185,6 +185,42 @@ batching is grouping within a turn, not deferral across turns. A valve deferred
 to a future turn requires an armed wake; "I will ask next turn" is an intention,
 not a mechanism.
 
+## An empty result is not a finding. Run a positive control first.
+
+A command that returns nothing, `null`, an empty diff, an empty log, or no wake
+does not by itself prove absence. Some tools return exit 0 for a pathspec that
+matches no tracked file, for a query pointed at the wrong field, or for a
+watcher polling a signal the real gate never reads. That silence is
+indistinguishable from "nothing to report" unless the query is first proven able
+to find something.
+
+Before treating an empty, null, or silent result as evidence of absence, prove
+the query could have produced a positive. Run a positive control against the
+same command shape: a file you know differs, a field you know is populated, a
+state you know is present, or a gate input you know is non-zero. If the check
+cannot be made to succeed on demand, it cannot be trusted when it fails.
+
+When a worker contradicts a supervisor assertion, start from the assumption that
+the supervisor is wrong until the exact command has been re-run with a positive
+control. The worker may have run the real command while the supervisor ran only
+a paraphrase of it.
+
+## A wait is not a question. A mechanical unblock is not a question.
+
+Waiting on a shared resource is work, not a maintainer decision. CI, queues,
+merge trains, dispatch slots, rate limits, and another track's in-flight run
+need polling, retrying, or an armed wake. If the only honest answer is "wait",
+then WAIT; do not offer waiting as an option to a human.
+
+If the SUPERVISOR can perform the unblock, PERFORM IT. Before surfacing any
+block, ask whether it can be handled from the supervisor pane: sending a slash
+command, reading a file, fetching the forge, querying the ledger, measuring a
+gate, or driving a retry is supervisor work.
+
+Never end a turn on a report while a mechanical unblock is available. A status
+report is not a work product. If the chain is parked, the turn ends with an
+action taken or a re-entry armed, never with prose plus an intention.
+
 ## No idle, no silent block
 
 A conflicting lane owned by another track is NOT a thread-wide blocked state. If

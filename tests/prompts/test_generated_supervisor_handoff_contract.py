@@ -186,6 +186,51 @@ _PICKER_FOOTER = re.compile(r"^[ \t]*Enter to (select|confirm)[ \t]*(·.*)?$", r
 _OBLIGATION_START = re.compile(r"^\s*-\s+id:\s*(?P<value>.*?)\s*$")
 _OBLIGATION_FIELD = re.compile(r"^\s+(?P<key>[a-z_]+):\s*(?P<value>.*?)\s*$")
 _PEER_HOLDER = re.compile(r"\bpeer\b", re.IGNORECASE)
+_ROLE_RULE_SECTIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "empty-result-positive-control",
+        (
+            "An empty result is not a finding. Run a positive control first.",
+            "Before treating an empty, null, or silent result",
+            "could have produced a positive",
+            "When a worker contradicts a supervisor assertion",
+        ),
+    ),
+    (
+        "wait-is-not-a-question",
+        (
+            "A wait is not a question. A mechanical unblock is not a question.",
+            "then WAIT",
+            "If the SUPERVISOR can perform the unblock, PERFORM IT",
+            "Never end a turn on a report",
+        ),
+    ),
+)
+
+
+def _level_two_sections(*, charter: str) -> dict[str, str]:
+    sections: dict[str, str] = {}
+    matches = list(re.finditer(r"(?m)^## (?P<title>.+?)\s*$", charter))
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(charter)
+        title = match.group("title")
+        sections[title] = charter[match.start() : end].rstrip()
+    return sections
+
+
+def role_rule_section_failures(*, charter: str) -> list[str]:
+    """Return role-level rule sections that were lost or structurally damaged."""
+    sections = _level_two_sections(charter=charter)
+    failures: list[str] = []
+    for name, required_lines in _ROLE_RULE_SECTIONS:
+        heading = required_lines[0]
+        body = sections.get(heading)
+        if body is None:
+            failures.append(name)
+            continue
+        if not all(line in body for line in required_lines):
+            failures.append(name)
+    return failures
 
 
 def _command_blocks(*, charter: str) -> list[str]:
@@ -602,6 +647,12 @@ def test_the_generator_prose_requires_both_corrections_layers_preserved_byte_for
     assert "preserve spelling, punctuation, code formatting, blank lines, and ordering" in lowered
 
 
+def test_the_generator_prose_requires_role_rule_sections_in_the_shared_layer():
+    prose = _GENERATOR_PROSE.read_text(encoding="utf-8")
+    assert role_rule_section_failures(charter=prose) == []
+    assert "standalone role-level ## rule sections" in prose
+
+
 def test_layered_current_charter_is_the_iteration_stability_positive_control():
     binder = (
         _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md"
@@ -616,6 +667,30 @@ def test_layered_current_charter_is_the_iteration_stability_positive_control():
     )
     assert rows[0][1] > 0
     assert rows[1] == ("current shared plus binder", 0)
+
+
+def test_shared_role_layer_carries_legacy_single_layer_role_rules():
+    shared = _SHARED_LAYER.read_text(encoding="utf-8")
+    assert role_rule_section_failures(charter=shared) == []
+
+
+def test_regenerated_role_layer_missing_a_role_rule_section_is_rejected():
+    shared = _SHARED_LAYER.read_text(encoding="utf-8")
+    sections = _level_two_sections(charter=shared)
+    damaged = shared.replace(
+        sections["An empty result is not a finding. Run a positive control first."],
+        "",
+    )
+    assert role_rule_section_failures(charter=damaged) == ["empty-result-positive-control"]
+
+
+def test_regenerated_role_layer_with_reformatted_rule_body_is_rejected():
+    shared = _SHARED_LAYER.read_text(encoding="utf-8")
+    damaged = shared.replace(
+        "If the SUPERVISOR can perform the unblock, PERFORM IT",
+        "If the supervisor can perform the unblock, perform it",
+    )
+    assert role_rule_section_failures(charter=damaged) == ["wait-is-not-a-question"]
 
 
 class _RealizationModule(Protocol):
