@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import _supervisor_launch
 import registry
 import signals
-from _supervisor_prompts import idle_nudge_message
+from _supervisor_prompts import idle_nudge_message, supervisor_idle_nudge_message
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -93,7 +93,15 @@ def nudge_idle_with_context(
     confirmed by the pane going busy, not by a cleared ``❯`` box).
     """
     repo, topic = track.repo, track.topic
-    message = idle_nudge_message(remaining=eff_ctx, threshold=threshold, repo=repo, topic=topic)
+    if signals.topic_reserved_for_supervisor(topic=topic):
+        message = supervisor_idle_nudge_message(
+            remaining=eff_ctx,
+            threshold=threshold,
+            repo=repo,
+            topic=signals.supervisor_topic(entity_topic=topic),
+        )
+    else:
+        message = idle_nudge_message(remaining=eff_ctx, threshold=threshold, repo=repo, topic=topic)
     if _supervisor_launch.submit_prompt(
         sup=sup, target=target, text=message, expect_codex=is_codex
     ):

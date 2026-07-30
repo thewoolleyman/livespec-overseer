@@ -196,3 +196,28 @@ def test_supervisor_entity_idle_does_not_offer_supervisor_of_supervisor(*, tmp_p
 
     assert view.status == "idle-with-context-left"
     assert f"{entity_topic}-supervisor" not in err.getvalue()
+
+
+def test_supervisor_entity_idle_nudge_points_at_supervisor_handoff(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    entity_topic = f"{topic}-supervisor"
+    fake = FakeTmux()
+    fake.serve(session=entity_topic, repo=repo, capture=idle_capture(ctx=80))
+    clock = {"t": 5000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    track = registry.Track(
+        topic=entity_topic,
+        repo=str(repo),
+        tmux=entity_topic,
+        resume=_supervisor_prompts.supervisor_resume(repo=str(repo), topic=topic),
+    )
+
+    assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
+    clock["t"] += 3601.0
+    view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "idle-with-context-left"
+    pasted = "\n".join(fake.paste_texts())
+    assert f"plan/{topic}/supervisor-handoff.md" in pasted
+    assert f"tmp/overseer/{entity_topic}/.overseer-state" in pasted
+    assert f"plan/{entity_topic}/handoff.md" not in pasted

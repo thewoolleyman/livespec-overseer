@@ -27,6 +27,7 @@ __all__: list[str] = [
     "default_resume",
     "idle_nudge_message",
     "supervisor_handoff_path",
+    "supervisor_idle_nudge_message",
     "supervisor_resume",
     "supervisor_wrapup_message",
     "wrapup_message",
@@ -229,4 +230,20 @@ def idle_nudge_message(*, remaining: int, threshold: int, repo: str, topic: str)
         threshold=threshold,
         handoff=default_handoff(repo=repo, topic=topic),
         state_file=str(signals.state_path(repo=repo, topic=topic)),
+    )
+
+
+def supervisor_idle_nudge_message(*, remaining: int, threshold: int, repo: str, topic: str) -> str:
+    """Keep-going nudge for a supervisor pair member.
+
+    ``topic`` is the worker topic. The supervisor entity's state marker still lives
+    under ``<topic>-supervisor``, but the durable handoff the supervisor resumes from
+    is ``plan/<topic>/supervisor-handoff.md``.
+    """
+    entity_topic = signals.supervisor_entity_topic(topic=topic)
+    return _IDLE_NUDGE.format(
+        n=remaining,
+        threshold=threshold,
+        handoff=str(supervisor_handoff_path(repo=repo, topic=topic)),
+        state_file=str(signals.state_path(repo=repo, topic=entity_topic)),
     )
