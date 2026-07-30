@@ -236,6 +236,44 @@ So seven rungs returned something and the eighth did not — the first time this
 ladder has met its own stopping rule. **That is not "finished"**; a narrow rung
 is easy to make empty by choosing it narrowly. Widen before concluding.
 
+**RUNG NINE did exactly that, and it was the most consequential rung of the
+sweep.** It re-asked *rung seven's* question at **fleet scale** instead of
+inventing a new one:
+
+| repo | required contexts | `ci-green` required |
+|---|---|---|
+| `livespec`, `-dev-tooling`, `-runtime`, `-orchestrator-beads-fabro`, `-driver-claude`, `-driver-codex` | **1** each | **YES** |
+| **`livespec-overseer`** | **56** | **NO** |
+| `livespec-console` | *no branch protection at all (HTTP 404)* | — |
+
+**Six siblings run the single-gate model exactly as `ci.yml` describes it. This
+repo is the sole outlier.** That **reframes `overseer-rh1`**: the `ci.yml`
+comment is **true of the fleet** and is inherited template prose — what drifted
+is *this repo's configuration*. The primary defect is therefore **livespec-overseer
+diverging from a fleet standard with nothing noticing**; the check's inability
+to detect the outlier is the *secondary* one. It also sharpens the maintainer
+decision from "pick a model" to "adopt the fleet standard (require `ci-green`,
+drop the 56)", which additionally makes both false `ci.yml` comments true again.
+
+`livespec-console` is recorded, **not diagnosed and not filed** — different
+repo, different class, and filing it here would be a wrong-tenant record.
+
+> **The transferable move: when a rung comes back dry, re-ask an earlier rung's
+> question at a WIDER SCOPE before inventing a new question.** Rung eight's
+> dryness was a symptom of how narrowly it was cut, not of an exhausted seam.
+
+**`overseer-ya4` — root cause found, and it is now in the WRONG PLACE.** The
+`worktree-create` failure is **not flaky**: measured back-to-back, stdout to a
+**pipe** gives `rc=141` with **zero output and no worktree**, while stdout to a
+**file** gives `rc=0` and a complete worktree. The pipe is the risk condition,
+and the workaround needs no code change. **But `overseer-ya4` was closed at
+14:09:56Z**, routed to `livespec-dev-tooling` as **`livespec-dev-tooling-zi4q`**
+under route-by-owning-component, with the evidence carried verbatim — and that
+evidence says *"flaky, 2 failures in 5 attempts"*, which this supersedes.
+**The root cause was appended to the closed `overseer-ya4`, so it will not reach
+`zi4q` on its own.** Forwarding it is a **cross-tenant write and a maintainer
+call**; it was deliberately not done here, and not reopened either.
+
 > **Rung six (b) also returned a REFUTATION, which is the more useful half and
 > the part a future reader is most likely to get wrong.** The same sweep
 > reported "8 bare `-t <…>` targets versus 0 exact ones **in what RUNS

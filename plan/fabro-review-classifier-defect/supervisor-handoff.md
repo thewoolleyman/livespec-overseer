@@ -477,6 +477,21 @@ order, each of which returned at least one further instance — and each of whic
 
 | **rung seven (b), the same layer measured independently** | confirmed `ci-green` is absent from all 56 required contexts — and found `ci.yml:50-51` asserting *"verified live … branch protection requires only ci-green"*, **a comment that asserts its own verification while the fact beside it is false**. `ci.yml:26-28` then justifies a runner decision on that premise. Appended to `overseer-rh1` |
 | **rung eight, coverage registries** | **DRY — the first rung that returned nothing new.** See below; the dryness is the result |
+| **rung nine, the SAME question asked FLEET-WIDE** | **not dry, and it reframed `overseer-rh1`.** Six sibling repos require **exactly one** context and it **is** `ci-green`; `livespec-overseer` is the **sole outlier** at 56 with `ci-green` absent. So the `ci.yml` comment is **true of the fleet** — this repo's *configuration* drifted, not the sentence. Plus a reproducible root cause for the `worktree-create` SIGPIPE |
+
+**RUNG NINE IS THE ANSWER TO RUNG EIGHT'S DRYNESS, AND IT VINDICATES THE
+WARNING WRITTEN THERE.** Rung eight was dry *because it was narrow* — one
+registry. Rung nine asked a question already asked at rung seven, but **widened
+from one repo to the fleet**, and it returned the most consequential result of
+the sweep: the defect was not "a check with lenient logic", it was **one repo
+silently diverging from a fleet standard that six others still follow**. The
+same measurement at single-repo scope had produced a *narrower and partly wrong*
+diagnosis.
+
+> **The transferable move: when a rung comes back dry, re-ask an EARLIER rung's
+> question at a wider scope before inventing a new question.** Dryness is more
+> often evidence that the rung was cut too small than that the seam is
+> exhausted.
 
 **RUNG EIGHT WAS DRY, AND SAYING SO IS THE POINT.** Every prior rung returned
 something, which creates real pressure to find something. Scoped to the
