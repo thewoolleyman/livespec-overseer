@@ -1,6 +1,93 @@
 # Plan — codex-parity-and-rollout-safety
 
-> # ▶ RESUME HERE — session handoff, 2026-07-30
+> # ▶▶▶ RESUME HERE — written at wind-down, end of 2026-07-30. THIS BLOCK WINS OVER EVERY OTHER BLOCK IN THIS FILE.
+>
+> Everything below this block is HISTORY. It is accurate as evidence and often
+> wrong as *current state* — several of its claims were corrected later the same
+> day, and the corrections are boxed in place. **Read this block for what to do;
+> read below it for why.**
+>
+> ## Nothing is in flight. Nothing is dispatchable by you. The cap is 0 of 4.
+>
+> | slice | id | state at wind-down |
+> |---|---|---|
+> | A1 | `overseer-4km4mj` | CLOSED |
+> | A2 | `overseer-vyie5q` | CLOSED |
+> | **A4** | `overseer-ews` | **`ready` — and you must NOT dispatch it (see the trap below).** Code landed long ago (PR #347, `8bd5b91`). Only its LIVE discharge is open. |
+> | A5 | `overseer-ei3` | CLOSED — PR #385, `ad6669b` |
+> | A6 | `overseer-g6z` | CLOSED — PR #386, `e1ab5051` |
+> | `overseer-e18` | — | CLOSED — PR #399, `0411f060`. **Its stated root cause was FALSE (mine); the PR is still worth having.** |
+> | `overseer-yms` | — | CLOSED — PR #397, `b6fe98dc` |
+> | `overseer-wr8` | — | CLOSED — PR #403, `556ad8ac` |
+> | **A3** | `overseer-kju6wh` | `pending-approval`. **Admission is ALREADY GRANTED by the maintainer — do NOT re-ask.** Held only by A4's live bar. |
+> | **`overseer-jcw`** | — | **P2 `backlog`, NEW.** The gate is intermittently red. Needs admission. |
+> | B2 / B1 / C1 | — | unchanged; other repos' work or stood down |
+>
+> ## The four things that will bite you first
+>
+> 1. **`next` RANKS A4 — DO NOT ACT ON IT.** It returns exactly one candidate,
+>    `implement: overseer-ews`. A4's code merged in **PR #347**; `next` ranks on
+>    status, not on whether the work exists. Dispatching burns a factory run
+>    re-implementing merged code. **A4 closes on EVIDENCE, not on a run.**
+> 2. **ADMISSION ASKS GO TO THE SUPERVISOR, NOT THE MAINTAINER.** The maintainer
+>    gave the supervisor a standing authorization for this track, so it resolves
+>    in ONE hop. **Never self-admit.** Older text below says "ask the maintainer
+>    FIRST" — superseded.
+> 3. **A4's live bar: the LAUNCH half is PROVEN, the DAEMON half is not provable
+>    on this host — and that is NOT a defect.** From a real Codex session in
+>    `/data/projects/openbrain`, `CLAUDECODE` unset: resolve/execute/run all PASS,
+>    `overseer-start` exits **0** in 463 ms and splits the pane (`%137`, then
+>    `%138` on a rerun — distinct ids). The daemon then refuses on the **singleton
+>    lock**, which is *correct behavior* while the acting daemon holds it. Proving
+>    the adopt-a-track clause would need that daemon killed (**forbidden**) or an
+>    `act=True` scratch daemon over the real fleet (**unsafe to other tracks**).
+>    **Whether the bar may be discharged anyway is a MAINTAINER decision about
+>    narrowing it — the supervisor is carrying it up. Do not absorb it.**
+> 4. **The fixture is pinned `--ref master`, a DECLARED deviation.** It retires
+>    when **release PR #360** merges (`origin/release` is still 0.15.0 and does
+>    not carry the launcher). Merging it is a release decision, not yours.
+>    Re-registering PRUNES cache dirs and breaks live Codex sessions.
+>
+> ## Corrections made today — do NOT re-derive these, and do NOT re-break them
+>
+> - **The singleton lock WAS the cause** of the daemon pane dying. I retracted
+>   that and was wrong; the retraction is itself retracted. Evidence:
+>   `<plugin_root>/tmp/overseer/daemon.log` in the codex cache, two entries.
+> - **`overseer-e18`'s root cause (cwd-relative log path) is FALSE.** The pane's
+>   cwd is set explicitly. The PR still earned its place: it added the
+>   daemon-liveness check, because `overseer-start` used to report SUCCESS for a
+>   daemon that had already died.
+> - **"The adoption code is what was verified live on 2026-07-16" is FALSE.**
+>   This repo's first commit is `ceaca74`, **2026-07-21** — it did not exist then.
+>   The path has since moved `+483/-136` on top of a `+720` relocation. **Treat
+>   that date as PROVENANCE, never CURRENCY.**
+> - **The charter-regeneration BLOCK IS LIFTED** — `overseer-wr8` moved both
+>   role-level rules into `.ai/supervisor-protocol.md`. The triage I shipped
+>   (`grep -c supervisor-protocol`) is a **SCREEN, NOT A VERDICT**: it matches
+>   headings and over-reports. Confirm any orphan **by content**. Swept all seven
+>   charters: nothing else is at risk.
+> - **A5's automation half is PROVEN in the field** on release PR #360 — both
+>   manifests bump `0.15.0 → 0.16.0`. Check VALUES, not file presence: a wrong
+>   `jsonpath` fails *silently*.
+>
+> ## Two environment traps that cost real time
+>
+> - **`just worktree-create` is a coin flip** (~50% at 41 worktrees): SIGPIPE →
+>   **exit 141**, sometimes with **ZERO bytes on both streams**, so an empty log
+>   is the whole symptom. Capture `$?` and loop. Never `git worktree add`.
+> - **`fabro ps` puts everything on STDERR when idle** — measured at wind-down:
+>   stdout **0 bytes**, stderr **74 bytes** (`No running processes found…`), exit
+>   **0**. Even with runs present the count line is on stderr. So
+>   `fabro ps 2>/dev/null` cannot tell "no runs" from "fabro is broken".
+> - **zsh eats `:ready` off an action id**: `"move:$id:ready"` → `move:<id>eady`
+>   via the `:r` modifier. bash is unaffected. Use `"move:${id}"":ready"`.
+> - **The gate is intermittently red** (`overseer-jcw`): `just check` failed,
+>   failed, then passed on an unchanged tree. It presents as a COVERAGE shortfall,
+>   not a test failure. Re-run before believing it; never `--no-verify`.
+>
+> ---
+>
+> # ▶ (HISTORY BELOW) earlier session handoff, 2026-07-30
 >
 > **A1 and A2 are both DONE. A2 landed through the FACTORY — PR #308, merge SHA
 > `dd423a38`, post-merge janitor green, all three files verified on
