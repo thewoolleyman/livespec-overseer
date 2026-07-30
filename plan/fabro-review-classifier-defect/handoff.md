@@ -37,13 +37,23 @@ the time: 5 runs, 2 repos, 4 work-items.
 > **The paragraph above overstates one thing, and the fix does NOT close it.**
 > "Each retry burning a host dispatch cap slot" is real, but the
 > misclassification does **not** cause it. `Error::is_retryable()`
-> (`error.rs:494-497`) returns `true` for `Handler`/`Engine`/`Io`
-> **unconditionally** — it never consults `FailureCategory`. So relabelling the
-> failure does **not** stop the two per-stage attempts or the cap-slot burn.
+> (`error.rs:494-497` — **branch** coordinates; `:441` on base `d5dcd1179`)
+> returns `true` for `Handler`/`Engine`/`Io` **unconditionally** — it never
+> consults `FailureCategory`. So relabelling the failure does **not** stop the
+> two per-stage attempts or the cap-slot burn.
 >
-> **What the fix does buy** is the label itself: what the operator sees, what
-> the failure-signature circuit breaker is fed, and whether `loop_restart`
-> edges unlock (they require `transient_infra`).
+> **What the fix does buy** is the label itself: what the operator sees, the
+> `context.failure_class` edge conditions, and whether `loop_restart` edges
+> unlock (they require `transient_infra`, so post-fix they are **blocked**) —
+> a loop-level reduction only, never a per-stage one.
+>
+> **Correction to an earlier version of this paragraph**, which claimed the fix
+> also changes "what the failure-signature circuit breaker is fed". **It does
+> not.** `is_signature_tracked()` covers only `Deterministic | Structural`, so
+> the failure was untracked as `TransientInfra` and stays untracked as
+> `BudgetExhausted`. Correct for a billing cause, but **not a change** — and it
+> is precisely why part (a) of the fix exists, since `Deterministic` *is*
+> tracked.
 > **Do not read "classifier fixed" as "retry waste fixed".** Making
 > `is_retryable()` category-aware is a separate, broader change that is
 > deliberately **not** in this fix.
@@ -92,17 +102,32 @@ passing**. The regex was loosened and a test now pins the masked form.
 **No silent rebase.** The RED demonstration stands on its original base
 `d5dcd1179`, and the branch targets that base.
 
-## NEXT ACTION — a maintainer decision, not more investigation
+## NEXT ACTION — the fabro work belongs to ANOTHER SESSION
 
-**The open question is publication, and only the maintainer can answer it:**
-does the prepared branch get pushed to the fork and offered as a PR to
-`fabro-sh/fabro`? That is outward-facing onto a third party's public project
-and carries the maintainer's name onto it, so it is **their call alone**.
+**The publication question has been answered and superseded.** It was neither
+"push" nor "file": the maintainer routed it to a **Codex session**, which now
+owns the fabro-side work. That session is writing the **PR description** and
+running **adversarial review** on it — an Opus 5 sub-agent and a Codex Sol
+sub-agent, briefed to look for what is wrong rather than to bless it — against
+the handoff prompt at
+`/data/projects/fabro/tmp/codex-handoff-classifier-spend-limit.md`
+(`tmp/` is gitignored there, so none of it is a tracked change).
 
-Until that answer arrives the branch stays **local and unpushed**, and **no PR
-or issue** is opened on `fabro-sh/fabro` or `thewoolleyman/fabro`. Whoever
-takes the yes should re-express hunk 3 against `lib/components/` first — see
-the port note above.
+**This thread must not touch `/data/projects/fabro` at all** — not the branch,
+not `tmp/`. Its remaining work is record hygiene here in `livespec-overseer`.
+
+Still true, and unchanged by that routing:
+
+- **Nothing is pushed.** The branch is local only; `main` is untouched.
+- **No PR and no issue exist** on `fabro-sh/fabro` or `thewoolleyman/fabro`.
+  Publication remains the maintainer's call and has still not been given.
+- **Whoever takes a yes must re-express hunk 3 against `lib/components/`**
+  first — see the port note above.
+
+On credentials: this failure is a limit on **one specific** Anthropic
+credential, and which one matters. **Cite `.claude/CLAUDE.md` §"The fleet has
+SEVERAL Anthropic credentials"** — do not re-derive it here; that section
+exists because two threads re-derived it independently and one got it wrong.
 
 Any *further* code work (e.g. the retry residual) still goes through the
 **factory dispatch route** — `/livespec-orchestrator-beads-fabro:drive --action
