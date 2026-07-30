@@ -337,6 +337,14 @@ because they are role-level rather than track-level:
   plus a `list-sessions | grep -qx` existence check. The lesson is not "use
   exact targets": it is that **a charter's own defect list is a checklist for
   your own commands**, not just for its prose.
+  **The bare target quoted just above is deliberate, and it is gate-safe —
+  measured, not assumed.** The charter-hazard gate flags that string, so a
+  correction describing the defect risks tripping the detector that catches it
+  (the documented false-positive shape this repo already hit with the "Enter to
+  select" substring test). Observed on PR **#352**, with the string in prose
+  backticks at `supervisor-handoff.md:331`: **62 SUCCESS / 1 SKIPPED**, green.
+  Do not "helpfully" mangle the example to remove a risk that was already
+  measured away — doing so destroys the one concrete illustration of the defect.
 - **Asserted an inverted mechanism from plausibility.** Wrote that the mislabel
   "feeds the signature circuit breaker a non-code cause". It does the opposite:
   `is_signature_tracked()` covers only `Deterministic | Structural`, so

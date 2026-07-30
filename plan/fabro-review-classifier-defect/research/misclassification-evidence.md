@@ -68,11 +68,33 @@ This is the false positive **caught in the act**: `index.crates.io` appears
 `transient_infra`. A 13-second deterministic provider `rate_limit` is about
 as far from "transient infra" as a failure gets.
 
-Two further facts it establishes:
+Two further things, kept deliberately apart — what the record **shows**, and
+what is **inferred from** it. An earlier version of this note presented both as
+"facts it establishes". That was wrong, and it is logged as supervisor
+correction **C5**.
 
-- **The two stages resolve DIFFERENT credentials.** `implement` ran ~5min on
-  Codex and passed; `review` died in 13.2s then 7.8s on Claude.
-- **The maintainer's raise did not reach the credential `review` uses.**
+- **SHOWN — different PROVIDERS, which is not the same claim as different
+  credentials.** `implement` ran ~5min on **Codex** and passed; `review` died
+  in 13.2s then 7.8s on **Claude**. That is a provider difference, read
+  straight off the stage records. Using it to reach a conclusion about *which
+  Anthropic credential* is a further step nobody took.
+- **DOCUMENTED, so cite rather than re-derive.** What the `review` side
+  authenticates with is already recorded: `.claude/CLAUDE.md` §"The fleet has
+  SEVERAL Anthropic credentials" states that the sandbox's `claude-agent-acp`
+  **review** adapter authenticates with `CLAUDE_CODE_OAUTH_TOKEN`
+  (`_dispatcher_credentials.py:58`). That section says explicitly to **cite**
+  it, not restate it per plan thread. It supports the review-side half; it says
+  nothing about what `implement` resolved, because `implement` was on a
+  different provider entirely.
+- **INFERRED, not measured — that the two stages resolve different Anthropic
+  credentials.** Nobody read credential resolution. It is inferred from which
+  stage passed, and it is probably true, but it is an inference and must be
+  labelled one.
+- **WELL-FOUNDED, and here is its evidence — the raise did not reach whatever
+  `review` uses.** Not asserted as a mechanism: the maintainer raised the limit,
+  and `review` then failed **again**, with the same verbatim provider text, on
+  run `01KYQF8G2TNV` dispatched afterwards. That is the observation; the
+  conclusion follows from it without needing to name a credential.
 
 **Measured, not reasoned:** replaying the exact rendered payload against all
 three hint lists shows **`index.crates.io` is the SOLE matching hint** —
@@ -354,8 +376,10 @@ three hint-count guards (`:1219` = 38, `:1224` = 12, `:1229` = 3). The fix must
 backs **every** `Handler`/`Engine` error constructor in `fabro-workflow` — all
 node types — plus `outcome.rs:81,93`; and a **single** shared
 `AgentAcpBackend` serves all ACP nodes through `BackendRouter`
-(`handler/mod.rs:298,317`). `implement` passed only because it ran on **Codex
-under a different credential**, not because it is immune.
+(`handler/mod.rs:298,317`). `implement` passed only because it ran on a
+**different provider (Codex)**, not because it is immune — the classifier is
+the same for both. Whether that also meant a different *Anthropic credential*
+is an **inference**, not a measurement; see the shown-vs-inferred split above.
 
 ## The remedy — BOTH fixes, and why neither alone is enough
 
