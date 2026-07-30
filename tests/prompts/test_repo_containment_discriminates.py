@@ -132,3 +132,60 @@ def test_the_pane_cwd_the_forms_receive_comes_from_a_real_tmux_pane(
     absent = tmux("display-message", "-p", "-t", "=nope:", "#{pane_current_path}").stdout.strip()
     assert absent == ""
     assert containment_proposed(pane_cwd=absent, repo=repo, cwd=repo) == _HALT
+
+
+def _tmux_on(socket: str, *args: str) -> subprocess.CompletedProcess[str]:
+    """Address a NAMED private socket, so a rival run can be stood up on purpose.
+
+    The `tmux` fixture deliberately hides its socket; this leg is the one place
+    that must name one, because the defect under test IS the name.
+    """
+    return subprocess.run(  # noqa: S603
+        ["tmux", "-L", socket, *args],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_the_rigs_socket_is_not_shared_with_a_concurrent_run(
+    *, tmux: Callable[..., subprocess.CompletedProcess[str]], tmp_path: Path
+) -> None:
+    """Two runs of this suite at once must not land on the SAME tmux socket.
+
+    MEASURED 2026-07-30, and this is `overseer-jcw`. The rig named its socket
+    `legs-{tmp_path.name}`, and `tmp_path.name` is the TEST's identity — byte
+    identical across separate pytest invocations (`test_..._re0` both times).
+    Unique per test and per xdist worker, as the rig's docstring says; NOT unique
+    per RUN. So two concurrent `just check` invocations on one host shared a
+    socket, the second `new-session -s wk` failed as a duplicate — silently, since
+    the helper passes `check=False` and tmux still exits 0 — and the second run
+    then read the FIRST run's pane, failing `assert live == str(repo)` at the line
+    above with two different `pytest-NNNN` roots in the diff.
+
+    That is why the symptom presented as a COVERAGE shortfall: the assertion dies
+    partway through, so the lines below it never execute, and per-file coverage
+    reports them missing rather than pytest reporting a failure people would read.
+
+    Reproduced on demand before this test existed: the leg above passed 2/2 run
+    alone and failed when two invocations were run concurrently.
+
+    Sabotage that reddens this: restore `socket = f"legs-{tmp_path.name}"` in
+    `conftest.py`. The rival below is then OUR socket, and the fixture reads the
+    rival's pane.
+    """
+    mine = tmp_path / "mine"
+    mine.mkdir()
+    theirs = tmp_path / "theirs"
+    theirs.mkdir()
+
+    # Stand in for a concurrent run of this same test in another checkout: its
+    # socket is whatever the rig derives from the test identity ALONE.
+    rival = f"legs-{tmp_path.name}"  # rig-socket-rival
+    _tmux_on(rival, "new-session", "-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(theirs))
+    try:
+        tmux("new-session", "-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(mine))
+        live = tmux("display-message", "-p", "-t", "=wk:", "#{pane_current_path}").stdout.strip()
+        assert live == str(mine)
+    finally:
+        _tmux_on(rival, "kill-server")
