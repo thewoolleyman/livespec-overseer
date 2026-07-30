@@ -392,6 +392,28 @@ preserve every entry.
   string: no error, no warning, and it reads like a pass when skimmed. So the
   remedy for the pipe trap fails in the same silent way as the trap itself. Use
   `$pipestatus[1]`, or `set -o pipefail`, or read the artifact.
+
+  **C14 IS NOW DEMONSTRATED, NOT MERELY ASSERTED (2026-07-30).** It was advice
+  without a reproduction for a day, and in that time it was hit again — by a
+  supervisor who had *read* it. Run this in any pane on this host:
+
+  ```sh
+  echo "$SHELL $ZSH_VERSION"          # /usr/bin/zsh 5.9
+  true  | true; echo "[${PIPESTATUS[0]}] [${pipestatus[1]}]"   # -> [] [0]
+  false | true; rc="${PIPESTATUS[0]:-$?}"; echo "$rc ${pipestatus[1]}"  # -> 0 1
+  ```
+
+  **The second line is the one that matters, and it is a sharper statement of
+  C14 than "the array is empty".** The pipeline's first command *failed*
+  (`pipestatus[1]` is `1`), but the defensive `:-` fallback captured `0` — the
+  status of `true`. **A guard written for safety therefore REPORTS SUCCESS WHEN
+  THE COMMAND IT GUARDS FAILED.** The emptiness is not the bug; the emptiness is
+  what makes `:-` swallow it. Any `${PIPESTATUS[...]:-…}` in this fleet is a
+  check that **cannot fail**, and it is invisible precisely because `:-` is the
+  idiom people reach for when they are being careful.
+  **So: never pair `PIPESTATUS` with a `:-` default here.** Prefer
+  `rc=$pipestatus[1]` captured on the line immediately after the pipeline (C17),
+  `set -o pipefail`, or simply do not pipe the command whose status you need.
 - **C15 (2026-07-29) — a dispatch that never created a run still claimed the
   item, twice.** `dispatcher.py dispatch` failing at stage `run-config-overlay`
   returns `fabro_run_id: null` — no run exists, no spend is consumed — and yet

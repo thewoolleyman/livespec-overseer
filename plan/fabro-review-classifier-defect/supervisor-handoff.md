@@ -473,6 +473,14 @@ order, each of which returned at least one further instance — and each of whic
 | **other fleet repos** | a **SECOND limit payload** proving the defect is a CLASS — and that the prepared fix does **not** classify it |
 | **rung six (a), this repo's own enforcement surface** | `overseer-b4q` — `check-prose-release-hygiene`, one of the **56 required** branch-protection contexts, reads a path-scoped diff where empty ⇒ pass, so it cannot tell "no prose changed" from "`.claude-plugin/prose/` moved" |
 | **rung six (b), the plugin CACHE — the generator that actually RUNS** | the running generator **contradicts itself**: its preconditions name a `codex` worker (`:90`, `:116`) and its send section then hands over a Claude-only submit procedure (`:394`, `:396`, `:410`) with **zero** harness caveat. Recorded on `overseer-816` |
+| **rung seven, whether anything CONSUMES the verdict** | `overseer-rh1` — `check-branch-protection-alignment` warns (exit 0) when a CI leg stops gating merges. Its leniency is sound only under the single-gate model; **`ci-green` is emitted but NOT required** here, so seven contexts run without gating anything and the detector never checks its own premise. Plus an **independent verification of `overseer-b4q`**, and the `PIPESTATUS` reproduction below |
+
+**Rung seven is the one that shows the ladder is about ALTITUDE, not breadth.**
+Rung six (a) asked *does this gate compute the right verdict*. Rung seven asked
+*does anything read it* — and found a correctly-computed verdict (`ci-green`)
+that nothing consumes. **A gate whose result is discarded is
+indistinguishable, at the merge boundary, from a gate that always passes.** If
+a rung feels dry, try moving up a layer rather than sideways.
 
 **Rung six was climbed TWICE, independently, by the worker and the supervisor,
 and they are different rungs.** Both are recorded above rather than merged,
@@ -481,10 +489,28 @@ climbing. (a) came from asking *where else does this repo run a check that
 cannot fail*; (b) from asking *what does the emitted artifact actually say*.
 
 **STATE THE TERMINATION HONESTLY. This ladder STILL has not terminated** —
-**six** rungs climbed, every one of them returned something new, and rung six
+**seven** rungs climbed, every one returned something new, and rung six
 returned something on **both** independent attempts. Treat it as
 **UNEXHAUSTED**. Record **which rung was reached and that it was not dry**;
 never record merely that "a sweep was done".
+
+> **The C14 reproduction belongs to this ladder, and here is why it is filed as
+> a rung result rather than a footnote.** Verifying rung six (a) produced a new
+> instance of the very defect being verified: `${PIPESTATUS[0]:-$?}` in **zsh**,
+> where the bash array does not exist, so the defensive `:-` captured the wrong
+> command's status. The verifier *happened to be right*, **which is worse than
+> being wrong** — a plausible answer from a probe that measured the wrong thing,
+> with nothing to signal it. Full runnable reproduction now sits with correction
+> **C14** in `.ai/supervisor-protocol.md`; the sharp edge is that
+> `false | true` yields a captured `0` while `pipestatus[1]` is `1`, so **a
+> guard written for safety reports success when the guarded command failed.**
+>
+> **The pattern across the last five instances is the finding.** Every one was
+> committed *while deliberately sweeping for this defect* — one with a correct
+> positive control, one via a safety idiom, one in the detector itself, one in
+> the sweep's own record. **Knowing about this defect does not confer immunity;
+> hunting it increases exposure, because hunting means running more checks.**
+> That is the argument for structural remedies over vigilance.
 
 **Rung six (b) also returned a REFUTATION, and that is the more useful half.**
 The same sweep reported a second finding — 8 bare `-t <…>` targets versus 0

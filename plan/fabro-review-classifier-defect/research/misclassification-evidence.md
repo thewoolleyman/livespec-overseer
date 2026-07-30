@@ -369,6 +369,33 @@ would be semantically right"* — was correct on **both** counts. And the
 limit hint *ahead* of the transient list rather than only suppressing the false
 positive.
 
+> **SUPERSEDED 2026-07-30 — DELIVERED, RECEIVED AND ACTED ON.** The section
+> below describes the state before delivery and is kept for provenance. Do not
+> read it as current; leaving it uncorrected already caused a reader to report
+> to the maintainer that no delivery had happened.
+>
+> **The evidence is the recipient's own log, not this thread's transcript** —
+> `tmp/overseer/codex-parity-and-rollout-safety/worker-status.log`, written by
+> them: *"PEER NOTIFICATION (fabro-review-classifier-defect) VERIFIED, not
+> accepted on faith"*; *"PEER FOLLOW-UP ADJUDICATED … BOTH their measurements
+> REPRODUCE EXACTLY at the base ref they named"*; *"MY HYPOTHESIS WAS WRONG"*;
+> *"ADOPTING THEIR ASK IN FULL"*.
+>
+> **A picker IS open on that pane again — a NEW one, opened after the
+> exchange.** Do not read a currently-open picker as evidence that no delivery
+> ever happened; that infers history from present state. Verify against the
+> durable log, which is why the log is cited above rather than a screen capture.
+>
+> **AND THE OUTCOME MOVED FURTHER THAN THIS THREAD RECORDED.** Their `:73`
+> entry **fully RETRACTS byte-identity** — not ref-pinned, *withdrawn*: at
+> pinned refs with the correct `lib/components/` path on **both** sides, fork
+> `49b043c1a` (87769 bytes) vs `upstream/main` `4ab090cae` (67441 bytes) =
+> **484 differing lines**, with fork hint counts `1/38/10/3` against upstream
+> `38/10/3` — the fork carrying an **extra hint list**, consistent with this
+> thread's own fix having landed there. So "they adopted ref-pinning" is itself
+> now stale: the claim was dropped outright, and this thread's difference
+> finding is corroborated a third time.
+
 **Delivery status — prepared, NOT delivered.** A peer notification sits at
 `tmp/overseer/codex-parity-and-rollout-safety/PEER-NOTIFICATION-from-classifier-defect-supervisor.md`
 (gitignored). It has **not** been sent by tmux: that supervisor's
