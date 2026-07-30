@@ -185,6 +185,45 @@ convert "someone else owns X" into idling or a `blocked:` declaration.
 elsewhere blocks this thread: goal 1 needs no Codex session at all and is always
 available.
 
+## An empty result is not a finding. Run a positive control first.
+
+**This is the dominant supervisor failure of this thread — FOUR instances in one
+day, every one caught by the worker or a peer, never by the supervisor.** Each
+time, a query that never actually asked the question returned nothing, and the
+nothing was read as a negative finding.
+
+| what was run | what it returned | what was concluded | the truth |
+|---|---|---|---|
+| a watcher polling this tenant's `active` work-items | never fired | "still at cap" | the host cap reads `fabro ps` + slot locks; it stood at **0 of 2** |
+| `fabro logs <run>` | only `error="ACP turn failed"` | "the spend-limit diagnosis is unverified" | it was already confirmed — structured causes live in `fabro inspect` |
+| a hand-rolled JSON reader for `superseded_by` / `reason` | `None` / empty, three times | "the pointer was never set" | the schema has no such top-level keys; it was in `metadata` + `close_reason` all along |
+| `git diff --stat upstream/main -- crates/…/error.rs` | empty, exit 0 | "byte-identical to upstream" | that pathspec matches **no tracked file**; the real ones are under `lib/…`, and there are **357 differing lines** |
+
+The `git diff` case is the cleanest specimen: a non-matching pathspec prints
+nothing and exits **0**. No error. No warning. Indistinguishable from "no
+difference" unless you already suspected it.
+
+**THE RULE: before treating an empty, null, or silent result as evidence of
+absence, prove the query could have produced a positive.** Run a positive
+control — point the same command at something you KNOW differs, at a field you
+KNOW is populated, at a state you KNOW is present. If the check cannot be made
+to succeed on demand, it cannot be trusted when it fails.
+
+Cheap positive controls for the four above: diff a file you know changed;
+`fabro inspect` a run you know failed; dump the record's ACTUAL key set before
+selecting from it (`print(list(record.keys()))`); assert the watcher's gauge is
+non-zero at a moment you know it is.
+
+**Corollary, and the reason this outranks the stall rules:** a stall is visible —
+the maintainer notices nothing is moving. A vacuous check is INVISIBLE, and it
+launders a non-measurement into a confident assertion that then propagates. All
+four of these were stated to the worker or the maintainer as fact, and two of
+them sent the worker to repair something that was already correct.
+
+**When a worker contradicts a supervisor assertion, the prior is that the
+supervisor is wrong.** It has run the command; the supervisor has run a
+paraphrase of it.
+
 ## A wait is not a question. A mechanical unblock is not a question.
 
 Measured on this thread, 2026-07-28/29, three times. Each felt like diligence
@@ -387,6 +426,42 @@ of the supervised session's mistakes.
   groom route files at `pending-approval` (`groom.py:292`) and then runs the DoR
   intake router. The worker established this; the supervisor confirmed it at
   source and conceded.
+
+### First-hand, 2026-07-30 — four vacuous checks, all asserted as fact
+
+See §"An empty result is not a finding" for the rule these produced. Logged
+individually because the pattern only became visible at the fourth.
+
+- **Watcher on a gauge the gate does not read.** Polled ledger `active` items to
+  detect dispatch capacity; the host cap reads `fabro ps` plus slot locks. It
+  reported "still at cap" against a cap of 0 of 2.
+- **`fabro logs` instead of `fabro inspect`.** Told the maintainer the
+  spend-limit diagnosis was "the worker's inference, not verified". It was
+  verified — via `inspect`, which the supervisor had not run.
+- **A JSON reader built on assumed key names.** Reported `overseer-oj8` as
+  pointerless THREE times and pushed the worker to repair it, twice. The schema
+  has no top-level `superseded_by` or `reason`; both were populated in
+  `metadata` and `close_reason` the whole time. The worker's refusal to churn
+  another track's record over it was correct.
+- **A `git diff` whose pathspec matched nothing.** Recorded "byte-identical to
+  upstream" in a research note this supervisor authored, on the strength of
+  empty output and exit 0 from a path that does not exist in that repo. There
+  are 357 differing lines. A peer thread caught it.
+
+Also from this stretch, and NOT a vacuous check — a genuine analytical error:
+
+- **A scope call that fixed the wrong layer.** Chose "resolve the executable
+  explicitly" (candidate 3) and rejected "ship it into the plugin root"
+  (candidate 1) on a two-sources-of-truth argument. But explicit resolution
+  cannot find a file that was never shipped — `overseer-start` is absent from
+  the plugin root entirely. The objection was about tidiness; the defect was
+  about existence. Revised to 1 AND 3 together after the worker measured
+  `exit 127`.
+
+- **Accusing the worker of a duplicate it did not file.** `overseer-oj8` was
+  filed independently by ANOTHER TRACK. Acting on that wrong premise, this
+  supervisor had the worker close another track's work item. Check authorship
+  before asserting it, and think twice before closing a record you do not own.
 
 ### First-hand, 2026-07-28/29 — stalls the maintainer had to break by hand
 
