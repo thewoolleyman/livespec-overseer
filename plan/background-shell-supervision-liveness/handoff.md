@@ -200,44 +200,36 @@ measured 2026-07-30 ~03:57Z:
   build's `dispatcher.py`" caution still applies to anything that
   DISPATCHES; a read-only `codex-cred-status` is not that.)
 
-The Anthropic side has no equivalent pre-flight gate; it fails IN-RUN instead
-(the spend-limit story above), so probe it cheaply before dispatching —
-**on the RIGHT credential.** Measured 2026-07-29/30 across four incidents:
-the review adapter bills the org of **`CLAUDE_CODE_OAUTH_TOKEN`** (the
-wrapper secret the workflow env hands it). Probes on
-`ANTHROPIC_API_KEY_LIVESPEC_E2E` (different org) and interactive
-`claude -p` (different credential) both returned OK while the adapter was
-hard-blocked — BOTH are documented false positives; do not trust them. The
-ONE validated probe, correct on every incident:
+The Anthropic side now has a REAL pre-flight gate, shipped 2026-07-30 as
+`bd-ib-3mbj` (orchestrator PR #1156, rebase-merged at `37f028c`): the
+Dispatcher live-probes `CLAUDE_CODE_OAUTH_TOKEN` USABILITY at
+`run-config-overlay` BEFORE the sandbox launches — a bounded Messages call
+(max 1 output token, 20 s timeout, ~$0.000013 API-price-equivalent per
+probe) — and refuses with a per-condition remedy that distinguishes absent /
+exhausted / revoked / permission-denied / unavailable. The operator check
+(the `codex-cred-status` analogue, gate 4 above) is
+`dispatcher.py claude-cred-status [--json]`; read-only, so gate 1's
+"do not hand-invoke a newer build's `dispatcher.py`" caution does not apply.
+Shipped on orchestrator master at `37f028c`; until a plugin release binds
+it, invoke from the orchestrator repo checkout. Verified on this host
+2026-07-30 ~07:25Z: `condition: "usable"`, HTTP 200, 8 input + 1 output
+tokens, against the exact wrapper credential.
 
-```bash
-/usr/local/bin/with-livespec-env.sh -- sh -c 'curl -s -o /dev/null -w "%{http_code}" \
-  https://api.anthropic.com/v1/messages \
-  -H "Authorization: Bearer $CLAUDE_CODE_OAUTH_TOKEN" \
-  -H "anthropic-beta: oauth-2025-04-20" \
-  -H "anthropic-version: 2023-06-01" -H "content-type: application/json" \
-  -d "{\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}"'
-```
-
-`200` = capacity; `429` = the adapter WILL die at review — hold dispatches.
-Ruled 2026-07-30: the wrapper token is re-minted from a healthy org
-(`claude setup-token`, maintainer act) whenever its org exhausts; full
-incident history in `bd-ib-g56f` (addenda 3–5). **Re-verified 2026-07-30
-~04:0xZ after the maintainer rotated the token: HTTP 200 with a real
-completion body.**
-
-**That this probe had to be hand-written in prose at all is a CODE gap, now
-filed as `bd-ib-3mbj` (P1, orchestrator tenant).** The Dispatcher's Claude
-credential check is presence-only —
-`check_credential_env` is `os.environ.get(CLAUDE_CODE_OAUTH_TOKEN, "") != ""`
-(`_dispatcher_credentials.py:252`) — so a token that is present but exhausted
-passes the gate and the run dies mid-review. Codex, by contrast, gets a real
-usability gate plus a non-interactive refresh (gate 4 above). When `bd-ib-3mbj`
-lands, DELETE the snippet above and cite the tool-backed check instead. The
-companion prose-gate backstop is `bd-ib-p0g6` (P3): the plan skill's Step 4
-self-sufficiency gate checks that cited paths EXIST but never that an embedded
-operational command exercises the mechanism it claims to — which is exactly how
-the E2E-key probe passed review and was believed.
+The hand-written curl probe that previously lived here is RETIRED in favor
+of that tool-backed check (acceptance criterion 5 of `bd-ib-3mbj` — the
+probe's whole story is preserved in that item and in `bd-ib-g56f` addenda
+3–5). What stays true and load-bearing: the review adapter bills the org of
+**`CLAUDE_CODE_OAUTH_TOKEN`** (the wrapper secret the workflow env hands
+it); probes on `ANTHROPIC_API_KEY_LIVESPEC_E2E` (different org) and
+interactive `claude -p` (different credential) both returned OK while the
+adapter was hard-blocked — BOTH are documented false positives, do not
+trust them; and when the token's org exhausts, the maintainer act is
+re-minting the wrapper secret from a healthy org (`claude setup-token`),
+holding dispatches until the check reports usable. The companion prose-gate
+backstop is `bd-ib-p0g6` (P3): the plan skill's Step 4 self-sufficiency
+gate checks that cited paths EXIST but never that an embedded operational
+command exercises the mechanism it claims to — which is exactly how the
+E2E-key probe passed review and was believed.
 
 ### So, on cold open
 
@@ -245,19 +237,20 @@ Run the staleness pre-flight (gate 1) FIRST. If it is stale, you are waiting
 on another restart, not on a human — say so and stop; do not burn the session
 re-deriving this. If it is clean:
 
-1. **Probe both credentials** — the codex TTL (gate 4) AND the OAuth-token
-   capacity probe above (the ONLY valid Anthropic signal; E2E-key and
-   `claude -p` probes are false positives). Both measured CLEAR on
-   2026-07-30 (~229.6 h codex headroom; OAuth probe 200 after the
-   maintainer's rotation), so expect to CONFIRM rather than to unblock — but
-   re-measure, do not assume, since both are time-dependent. If the codex
-   token is short of the 4 h budget, try the non-interactive
-   `codex-cred-refresh` FIRST and fall back to an interactive `codex login`
-   (surface it — attended: `AskUserQuestion`; the `!`-prefix runs it
-   in-session). If the OAuth probe returns 429, the maintainer act is
-   re-minting the wrapper token from a healthy org (`claude setup-token`);
-   hold dispatches until the probe returns 200. Do the rest of this list
-   while waiting.
+1. **Probe both credentials** — `dispatcher.py codex-cred-status [--json]`
+   (gate 4) AND `dispatcher.py claude-cred-status [--json]` (the tool-backed
+   Anthropic check above; E2E-key and `claude -p` probes are false
+   positives). Both measured CLEAR on 2026-07-30 (~229.6 h codex headroom;
+   claude-cred-status `usable`/200 after the maintainer's rotation), so
+   expect to CONFIRM rather than to unblock — but re-measure, do not
+   assume, since both are time-dependent. If the codex token is short of
+   the 4 h budget, try the non-interactive `codex-cred-refresh` FIRST and
+   fall back to an interactive `codex login` (surface it — attended:
+   `AskUserQuestion`; the `!`-prefix runs it in-session). If
+   claude-cred-status reports exhausted, the maintainer act is re-minting
+   the wrapper token from a healthy org (`claude setup-token`); hold
+   dispatches until it reports usable. Do the rest of this list while
+   waiting.
 2. **Dispatch `.3`** — stored `ready`; `drive --action impl:overseer-4xfmez.3`.
    Context the fresh run's reviewer will likely re-derive: its first run's
    review ACCEPTED a real finding — `_supervisor_shielded_attention.py:163`
