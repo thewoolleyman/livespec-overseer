@@ -262,16 +262,28 @@ def history_fed_capture(*, text: str) -> list[str]:
     return found
 
 
-def _empty_seeded_comparison_vars(*, block: str) -> list[str]:
-    """Vars seeded EMPTY that a stability comparison then reads, any name."""
+def _empty_seeded_comparison_lines(*, block: str) -> list[str]:
+    """Lines seeding EMPTY a var that a stability comparison then reads, any name.
+
+    Returns the offending LINE rather than the variable name, so a finding from
+    this rule is deduplicable against the literal-`prev` rule. Both rules describe
+    the SAME defect when they both fire, and reporting it twice inflated the fleet
+    exposure numbers by 2x on every affected charter — a count used to inform a
+    maintainer decision, so the double-report was not merely untidy.
+    """
     compared: set[str] = set()
     for match in _STABILITY_CMP.finditer(block):
         compared.update(match.groups())
-    return [
-        f"{m.group(1)}= (empty seed read by the stability comparison)"
-        for m in _EMPTY_SEED.finditer(block)
-        if m.group(1) in compared
-    ]
+    # The FULL line, in the same shape the literal rule reports, so the two are
+    # dedupable by string. Reporting the bare regex match instead yields
+    # `prev="";` where the literal rule yields `prev=""; stable=0`, and the
+    # dedupe then silently does nothing.
+    found: list[str] = []
+    for line in block.splitlines():
+        seed = _EMPTY_SEED.search(line)
+        if seed is not None and seed.group(1) in compared:
+            found.append(line.strip())
+    return found
 
 
 def empty_prev_watcher_init(*, text: str) -> list[str]:
@@ -283,8 +295,11 @@ def empty_prev_watcher_init(*, text: str) -> list[str]:
                 continue
             if _PREV_EMPTY.search(line):
                 found.append(line.strip())
-        found.extend(_empty_seeded_comparison_vars(block=block))
-    return found
+        found.extend(_empty_seeded_comparison_lines(block=block))
+    # DEDUPED BY LINE, order preserved. The literal rule and the property rule both
+    # fire on `prev=""`, and that is ONE defect, not two. Keeping both rules is
+    # deliberate — neither may narrow the other — but reporting both is not.
+    return list(dict.fromkeys(found))
 
 
 def regex_session_existence_test(*, text: str) -> list[str]:
@@ -761,9 +776,11 @@ def test_a_differently_named_watcher_variable_cannot_evade_the_seed_rule():
     """
     evasive = _WATCHER.format(seed='previous=""; stable=0', var="$previous")
     found = [d for d in defects_in(text=evasive) if d.startswith("d-")]
-    assert found == [
-        "d-empty-prev-watcher-init: previous= (empty seed read by the stability comparison)"
-    ]
+    assert found == ['d-empty-prev-watcher-init: previous=""; stable=0']
+    # ONE finding, not two. Both the literal-`prev` rule and the property rule
+    # describe this line; deduping by the full line is what keeps the count equal
+    # to the number of real defects.
+    assert len(found) == 1
 
 
 def test_a_sentinel_seed_is_accepted_under_any_variable_name():
