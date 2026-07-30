@@ -83,6 +83,90 @@ case "$(readlink -f -- "$pane_cwd")" in
 esac
 ```
 
+## RESUME STATE — written at wind-down 2026-07-30, read this SECOND
+
+Everything below was verified against the ledger and the forge at wind-down, not
+recalled. Where a fact was not verified it says so.
+
+### The slices
+
+| slice | id | state at wind-down |
+|---|---|---|
+| **A1** — `.livespec.jsonc` codex supersession | `overseer-4km4mj` | **CLOSED**, merged PR #242 |
+| **A2** — nested `.claude-plugin/.codex-plugin/` surface | `overseer-vyie5q` | **CLOSED**. `supervise-plan` live-**PASS**; `overseer` **UNPROVEN** |
+| **A4** — admit Codex as a second runtime in `start.py` | `overseer-ews` | `ready`. **Code LANDED** (PR #347 / `8bd5b91`). Its LIVE BAR is unproven and was blocked on A6 |
+| **A6** — ship a runnable launcher into the plugin root | `overseer-g6z` | `active`. Run SUCCEEDED → **PR #386 OPEN, auto-merge REBASE armed** |
+| **A5** — manifest lockstep + its gate | `overseer-ei3` | `active`. Run SUCCEEDED → **PR #385 OPEN, auto-merge REBASE armed** |
+| **A3** — flip `harnesses.codex` to `supported` + repo-local picker check | `overseer-kju6wh` | `pending-approval`. **Admission ALREADY GRANTED by the maintainer** — deliberately not executed because A4's live bar is unproven |
+| **B2** — collapse `ensure-codex-plugins` | `overseer-vfz5v5` | `pending-approval`, **STOOD DOWN** — blocked on B1, owned elsewhere |
+| **B1** | `livespec-dev-tooling-3nt9` | filed in **livespec-dev-tooling**. Never implement here |
+| **C1** | `livespec-1p31` | filed in **livespec** core. Never implement here |
+
+**A3's admission is already granted — do NOT re-ask for it.** The maintainer
+admitted A4 and A3 together. A3 is held only by the technical precondition that
+`overseer` cannot yet launch under Codex. Flipping `harnesses.codex` to
+`supported` before that is the claim-a-capability-that-does-not-exist failure the
+A1/A3 split was cut to prevent.
+
+### THE IMMEDIATE NEXT ACTION
+
+1. Verify PR #385 and PR #386 landed **on the forge** (both were auto-merge
+   armed with CI queued at wind-down; neither was confirmed merged).
+2. Then **A4's live bar is finally provable** — that is the entire purpose of
+   A6. `/livespec-overseer:overseer` must start the two-pane overseer **from a
+   real Codex session in a repo that is not this one**, with the daemon adopting
+   a track. Keep `env -u CLAUDECODE`.
+3. Discharge the **negative half** too: a bare terminal with NEITHER marker must
+   STILL refuse. The worker honestly called this UNPROVEN earlier because its
+   checkout ran pre-A4 code; once #386 is merged that excuse is gone.
+4. Then execute A3's already-granted admission and dispatch it.
+
+A live Codex session for steps 2–3 was left running in tmux **`codex-live-probe`**
+(cwd `/data/projects/openbrain`, NOT this repo, which is what A2/A4's bar
+requires). If it has aged out, start a fresh one — a supervisor may create it;
+only `supervise-plan` is forbidden from creating sessions.
+
+### Owed, and NOT yet done
+
+- **A6's justification paragraph.** A6 duplicates the ENTIRE `overseer` package
+  into `.claude-plugin/overseer/` (~40 files). I accepted it because its gate
+  enforces `cmp -s` byte-identity in BOTH directions, forbids stray subdirs, and
+  **executes the launcher from a temp dir outside the repo** — so silent drift is
+  impossible. But the handoff still owes ONE paragraph saying **why a duplicate
+  rather than a packaging change**. Without it a future reader will find two
+  copies of the daemon, assume an accident, and "fix" it.
+- **PR #384** ("open phase 2 of this track, and split the daemon…") was OPEN at
+  wind-down and **this supervisor did not author it**. Establish whose it is
+  before touching it.
+
+### Do NOT redo these — they are settled and measured
+
+- `overseer`'s failure is a **PATH gap**, measured under clean conditions:
+  `$PLUGIN_ROOT` resolved, prose read, then `zsh:1: command not found:
+  overseer-start`, **exit 127**, with neither marker check reached.
+  `resolve=PASS execute=PASS run=FAIL(127,PATH)`.
+- The scope call for it is **candidate 1 AND 3 together** — ship a launcher into
+  the plugin root AND resolve it explicitly from `$PLUGIN_ROOT`. Candidate 3
+  alone is insufficient: explicit resolution cannot find a file never shipped.
+- **`overseer-oj8` is closed WITH its pointer intact** — `metadata.superseded_by
+  = overseer-ei3`, plus a populated `close_reason`. It has NO top-level
+  `superseded_by`/`reason` field; that is the schema, not damage. **Do not
+  "repair" it.** It was filed by ANOTHER TRACK, not by our worker.
+- The A2 evidence is **agent skill-list resolution** via `codex exec`. A3's bar
+  is **TUI `/skills` picker RENDERING**. Different surfaces — A2 pre-discharges
+  **no** part of A3.
+- The `bd-ib-2nq` token-TTL theory is **retracted and disproven**.
+
+### Sibling thread this supervisor created
+
+`plan/fabro-review-classifier-defect/` (epic **`overseer-dtytju`**, charter PR
+#287) — the fabro classifier mislabelling a spend-limit failure as
+`transient_infra`. It has its OWN supervisor session
+(`fabro-review-classifier-defect-supervisor`) and drives independently. Do not
+work it from here. Note it already **retracted** this supervisor's
+"byte-identical to upstream" claim: the real files live under `lib/…`, not
+`crates/…`, and there are **357 differing lines**.
+
 ## Role
 
 You are the **supervisor, not the implementer**. You do not write the slices,
