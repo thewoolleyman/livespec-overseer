@@ -26,6 +26,7 @@ would be worse than a red one.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import time
@@ -88,7 +89,12 @@ def _socket(*, tmp_path: Path) -> Iterator[str]:
             "This must FAIL rather than skip: a skipped leg proves nothing, and "
             "these commands can only be judged by running them."
         )
-    name = f"disc-{tmp_path.name}"
+    # PID for the same reason as `conftest.py`'s rig, and this is the SECOND
+    # instance of that defect: `tmp_path.name` is the test's identity and repeats
+    # across runs, so two concurrent suites shared this socket and one read the
+    # other's supervisor pane. Fixing only the shared conftest left this one
+    # live — a per-module socket scheme is a per-module copy of the bug.
+    name = f"disc-{os.getpid()}-{tmp_path.name}"
     _tmux_call(
         name, "new-session", "-d", "-s", _SUPERVISOR, "-x", "80", "-y", "20", "-c", str(tmp_path)
     )
