@@ -90,7 +90,7 @@ directory name is sometimes a commit sha and sometimes a version string.
 generator_plugin='livespec-overseer'
 generator_ref='013d35d48cde'
 generator_version='0.15.0'
-generator_prose_md5='c99d31c9b8c9229b795a209429472552'
+generator_prose_md5='eaebe06065b3efa0053d6ea5932d52c0'
 cache_root="$HOME/.claude/plugins/cache/$generator_plugin/$generator_plugin"
 generator_prose="$cache_root/$generator_ref/prose/supervise-plan.md"
 if [ ! -d "$cache_root" ]; then
