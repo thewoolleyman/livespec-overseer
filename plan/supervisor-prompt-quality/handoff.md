@@ -93,45 +93,105 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
-## WORKER RESUME STATE — updated 2026-07-30 (01:15Z) by the `supervisor-prompt-quality` worker
+## WORKER RESUME STATE — rewritten 2026-07-30 (05:50Z) by the `supervisor-prompt-quality` worker
 
-### THE TOP OPEN ITEM: the generator that RUNS has none of these fixes
+**Everything below is a claim with a timestamp. Re-measure from the ledger and the
+forge before acting on any of it.** This section has been wrong about the blocker
+three separate times in two days, which is the best reason to distrust it.
 
-**Read this before doing anything else with the generator.** Fixing
+### Where the epic actually is — measured 2026-07-30 05:45Z
+
+| slice | id | state |
+|---|---|---|
+| S1 HALT preconditions classify their failure | `overseer-ykneip` | **CLOSED** |
+| S2 wake mechanism end to end | `overseer-4do7jx` | **CLOSED** |
+| S3 iteration-stable two-layer form | `overseer-t7qqik` | **CLOSED** |
+| S4 re-entry + durable obligation record | `overseer-fl5jlp` | **CLOSED** |
+| S5 verification discipline | `overseer-nxaho7` | **CLOSED** |
+| S6 full anti-stall playbook | `overseer-kptmgl` | **CLOSED** |
+| S7 cold-open gate + placeholder sets | `overseer-lf7ieb` | PR #316 **MERGED**, item still `active` |
+| S8 cross-track obligation handoff | `overseer-uc4l5e` | `active` — run in flight |
+| S9 adopter parameterization | `overseer-f2lqj6` | `pending-approval`, blocked on S7 closing |
+
+**S7's item close is the SUPERVISOR's lane, not the worker's.** `dispatch` blocks
+for the life of a run and the Bash tool caps at 20 min, so the launcher is always
+killed — which detaches without killing the run, but the launcher is also what
+merges the PR and closes the item. Each success needs finishing by hand: merge if
+CI is green, then `reconcile-merged --repo <path> --item <id>` (it REQUIRES
+`--item`; there is no sweep-all form). **Do not do this as the worker. Do not
+dispatch, transition, approve, or set-admission on anything.**
+
+### THE CHARTER IS NOW TWO LAYERS — this changes where things live
+
+S3 landed the layered form, so master carries:
+
+- **`.ai/supervisor-protocol.md`** — the shared role layer, holding all **16**
+  Corrections (C1–C16). Verified present with 16 entries.
+- **`plan/supervisor-prompt-quality/supervisor-handoff.md`** — a thin binder, now
+  **126 lines** (was ~700).
+
+S3 was **salvaged, not reimplemented**: its run completed implement and
+janitor-green then died at review before the token rotation, and the PR stage is
+downstream of review, so nothing reached the forge. The implement diff was
+recovered with `fabro dump` (`stages/002-implement@1/diff.patch`) and landed by
+hand as PR #307, with all 16 Corrections verified byte-equivalent — that patch
+deletes 581 lines from the file whose whole purpose is accumulating corrections,
+so that verification was load-bearing.
+
+**Consequence for anyone editing the charter:** role-level content goes in the
+shared layer; only bindings, thread-specific valves and the per-thread Corrections
+log belong in the binder. Both layers are read together by the validators.
+
+### THE BLOCKER WAS NEVER BILLING — carry this, it cost days
+
+The provider error text reads *"You've hit your org's monthly spend limit · ask
+your admin to raise it"*. **That message can mean an exhausted
+`CLAUDE_CODE_OAUTH_TOKEN` rather than an account budget.** Confirmed by outcome:
+review nodes started passing immediately after the token was rotated. The
+supervisor diagnosed an account budget repeatedly and escalated it on that text
+alone.
+
+Two rules follow, and the second is a mistake this thread made in writing:
+
+1. **Name WHICH credential you measured.** See `.claude/CLAUDE.md` §"The fleet has
+   SEVERAL Anthropic credentials" — cited, deliberately not restated, per that
+   section's own instruction. This handoff previously said "the Anthropic spend
+   limit is UNVERIFIED" with no credential named, which is exactly the failure that
+   section exists to prevent.
+2. **The factory path is `CLAUDE_CODE_OAUTH_TOKEN`**, not
+   `ANTHROPIC_API_KEY_LIVESPEC_E2E`. A probe on the E2E key, or on interactive
+   `claude -p`, is NOT evidence about the factory. The Dispatcher's Claude
+   pre-flight is presence-only, so a present-but-exhausted token passes and the run
+   dies mid-review.
+
+The Codex credential gate is separate and is **open**: measured 2026-07-30 03:05Z,
+`alarm false`, `refresh_due false`, expires 2026-08-08, ~9.55 days remaining
+against a ≥18000s gate.
+
+### THE TOP OPEN ITEM — the generator that RUNS still has none of these fixes
+
+**Read this before touching the generator.** Fixing
 `.claude-plugin/prose/supervise-plan.md` in this repo does NOT fix the generator
 that produces charters. Measured 2026-07-29 across **all nine** cached plugin
-versions under `~/.claude/plugins/cache/livespec-overseer/`: **zero** contain the
-exact-target mandate (S1's fix) and **zero** contain the supervisor liveness
-proof (`overseer-ejja5o`'s fix). Newest cache dir resolved with
-`find -printf '%T@ %p\n' | sort -rn`, never `ls` (C6).
+versions under `~/.claude/plugins/cache/livespec-overseer/`: **zero** carry the
+exact-target mandate and **zero** carry the supervisor liveness proof. A charter
+generated on this host ~17h after the exact-target fix merged still arrived with 12
+bare targets, from the stale `0.12.2` cache — and the charter gate is what turned
+master red on it (`ef4b098`).
 
-This is not a lone reading. Commit `ef4b098` states it while hand-hardening a
-charter to unbreak master: *"Fixing the generator in the repo does not fix the
-generator that runs."* That charter was generated from the stale `0.12.2` cache
-**~17h after** S1's fix merged, and arrived with 12 bare targets and an unguarded
-`readlink`.
+So every generator fix in this epic is **inert until a release ships**, and the
+contract test asserts an artifact that does not produce charters. This is the
+deepest form of the verifier-that-cannot-fail shape the epic exists to remove.
 
-Two consequences, both load-bearing:
+**Deliberately NOT built — it is a release-lane decision.** Three candidate shapes:
+(a) assert the INSTALLED plugin's prose satisfies the contract — cannot run in CI
+where no cache exists, and needs a no-skip answer; (b) a release-hygiene check that
+a prose change forces a version bump; (c) accept it and document the release step
+as mandatory after any prose fix. Real competing costs, so it is a genuine valve.
 
-1. **The charter gate is earning its keep already** — it is what turned master
-   red on that charter, the same day the gate landed. That is exactly the "stop
-   the population growing" case `GAP-no-remediation-slice.md` predicted.
-2. **Every generator fix in this thread is inert until a release ships.** The
-   contract test asserts the REPO's prose, which is not the artifact that
-   produces charters — the deepest form of the verifier-that-cannot-fail shape
-   this thread exists to remove, and the same REGISTRATION IS NOT INSTALLATION
-   pattern `ship-overseer-to-fleet` recorded.
+### The charter gate — SEVEN classes, all keyed on the PROPERTY
 
-**This is a maintainer/release-lane decision and was deliberately NOT built.**
-Three candidate shapes: (a) assert the INSTALLED plugin's prose satisfies the
-contract — cannot run in CI where no cache exists, and needs a no-skip answer;
-(b) a release-hygiene check that a prose change forces a version bump; (c) accept
-it and document the release step as mandatory after any prose fix. Real competing
-costs, so it is a genuine valve rather than a plan to execute.
-
-### The charter gate now covers SIX defect classes, all keyed on the PROPERTY
-
-`tests/prompts/test_charters_carry_no_known_defects.py`, in `just check`:
+`tests/prompts/test_charters_carry_no_known_defects.py`, running in `just check`:
 
 | class | keys on the ABSENCE of |
 |---|---|
@@ -141,330 +201,96 @@ costs, so it is a genuine valve rather than a plan to execute.
 | (d) empty watcher seed | a sentinel no real capture can equal |
 | (e) supervisor trusted by name | a supervisor process-tree liveness proof |
 | (f) regex session-existence test | `grep -F`, so the match is LITERAL |
+| (g) bash `PIPESTATUS` under zsh | the zsh spelling `$pipestatus[1]` |
 
 **THE DESIGN RULE THAT PRODUCED THAT COLUMN — carry it forward.** A detector must
 key on the **absence of the correct property**, never on the **presence of one
-wrong spelling**. It was learned the hard way: class (e) pinned the literal `-qx`,
-so the moment (f) was remediated to `-Fqx` the (e) detector **went blind** and
-stopped firing on the very charters it had flagged an hour earlier. A detector
-keyed to another defect's pre-fix spelling is a verifier that **disarms itself
-when the neighbouring fix lands** — a failure mode that appears only where two
-remediations meet, which is why inspecting either one alone will never find it.
-`test_remediating_f_does_not_disarm_e` pins the instance that actually happened;
-(b) and (d) were then re-keyed the same way before anything walked through them.
+wrong spelling**. Learned the hard way: (e) pinned the literal `-qx`, so the moment
+(f) was remediated to `-Fqx` the (e) detector **went blind** on the charters it had
+flagged an hour earlier. A detector keyed to another defect's pre-fix spelling
+**disarms itself when the neighbouring fix lands** — a failure mode that appears
+only where two remediations meet, so inspecting either alone will never find it.
+`test_remediating_f_does_not_disarm_e` pins the instance that happened.
 
-### Landed since 19:45Z — all merged, all forge-verified after a fetch
+Scope limits, stated rather than hidden: the detectors read **fenced code only**, so
+inline backticked commands in prose are unscanned; and (e) fires only on a charter
+that actually emits a supervisor check.
 
-- **PR #293** — gate class (e) plus the sweep of the four charters carrying it.
-- **PR #296** — gate class (f). `grep -qx` is exact-LINE but its pattern is still
-  a REGEX: proven on a private socket, with a session `axb` alive `grep -qx 'a.b'`
-  MATCHES while `grep -Fqx 'a.b'` refuses. LATENT, not live — it needs a regex
-  metacharacter in a session name and slugs are `[a-z0-9-]`. Also fixed a prose
-  Corrections entry that was PRESCRIBING the incomplete `grep -qx` as C1's remedy.
-- **PR #297** — corrected a backwards coreutils attribution and closed the
-  `realpath` evasion in (b).
-- **PR #300** — closed (d), the last spelling-keyed detector, strictly additively.
+### S7's fix, in case it recurs
 
-### An environmental fact that was recorded WRONG for days
+PR #316 was red on S7's own gate at blocks 1 and 9 with coverage at 100%. The cause
+was **none** of the three shapes it looked like: the harness's **stub set was
+incomplete**. `bd` was the only unstubbed command across all 11 blocks (7 shared +
+4 binder), so `bd show` failed and the `||` HALT branch exited 1.
 
-**This host runs uutils coreutils 0.2.2 for BOTH `readlink` and `realpath` — not
-GNU.** Measured 2026-07-30:
-
-    readlink -f ""      rc=0, prints $PWD    FALSE PASS
-    readlink -f -- ""   rc=0, prints $PWD    the `--` does NOT save it
-    realpath ""         rc=1                 fails safe
-
-So the false pass belongs to **uutils**; GNU exits 1 and fails safe by accident.
-`test_repo_containment_discriminates.py` had this mapping right all along and
-`test_charters_carry_no_known_defects.py` had it inverted — **two files in one
-directory disagreeing about an environmental fact is how a wrong belief survives
-review**, and the one that was easy to check was the wrong one. The emitted
-charter form was never unsafe: the non-empty guard is what saves it, and the `--`
-guards a leading-dash path, a different hazard. Only the explanation was wrong.
-
-**Re-measure from the ledger and the forge rather than trusting any line below.**
-Every claim here is a claim with a timestamp, including this one. Two claims in
-the 15:30Z version went stale within hours — the blocker and S3's state — and
-both are corrected below rather than edited away.
-
-### `overseer-ejja5o` is DELIVERED — PR #286, merged
-
-The supervisor-side liveness precondition. `supervise-plan` refused to trust a
-session NAME for the worker and then trusted one for the supervisor; observed
-2026-07-28, a supervisor session created as a bare `zsh` returned PASS, so a
-session that could not supervise anything cleared the gate.
-
-Precondition 3 now resolves BOTH pids in its own block (it cannot pass on an
-unset `$pane_pid` inherited from precondition 2), guards the supervisor pid
-non-empty, guards it **distinct from the worker's pane**, and runs the same
-process-tree proof precondition 2 uses. Fixed in
-`.claude-plugin/prose/supervise-plan.md` **and** in the exemplar charter.
-
-**The exemplar carried the defect too, and that was not in the item.** Its C1
-hardening (exact `'=name:'` targeting) is a DIFFERENT defect from agent liveness.
-Adding the requirement went red on **three** legs — generator prose, exemplar, and
-the contract module's own conformant control. Fixing only the prose would have
-left the positive control red.
-
-Two rungs: `test_generated_supervisor_handoff_contract.py` (over generated
-output — a needle PLUS a structural check, because `pane_pid` is a substring of
-`supervisor_pane_pid` and the worker's own binding would otherwise satisfy it)
-and `test_supervisor_liveness_discriminates.py` (real tmux, private socket). The
-two halves fail INDEPENDENTLY in both directions, so a red verdict names which
-half broke.
-
-### ejja5o vs `overseer-2a1` — I checked, and the alarming reading was WRONG
-
-`overseer-2a1` records that 4 of 5 HALT preconditions need a live session that a
-NEW plan thread does not have yet. ejja5o tightened one of those preconditions, so
-the obvious worry is that it made 2a1 strictly worse. **Measured: it did not.**
-
-2a1's observed failure was `can't find session` — the session was ABSENT. The
-emitted block HALTs at `tmux has-session` BEFORE resolving the pid or running
-`ps`, so an absent supervisor session halts at the same check with the same
-message as before. What changed is narrow and is exactly the defect ejja5o
-closed: a supervisor session that EXISTS but holds only a bare shell used to pass
-and now HALTs. The cost lands only on 2a1's recorded workaround, which now also
-needs an agent in the supervisor pane — and that is often free, since running
-`supervise-plan` FROM the supervisor session means that session already holds the
-agent running the skill.
-
-**What ejja5o DOES do is strengthen 2a1's second candidate shape** — split the
-preconditions so artifact-only checks gate AUTHORING and live-session checks gate
-DRIVING. There are now five live-session checks against one artifact check, which
-makes the authoring/driving split the obvious cut rather than one option of three.
-**Not acted on: `overseer-2a1` is `pending-approval` and the ledger is the
-supervisor's.**
-
-### Ledger state — there are NO ready items
-
-15 backlog, 15 pending-approval, 2 active, **zero ready**. `ejja5o` was the
-top-ranked ready item and it is delivered. Nothing is hand-drivable without the
-supervisor releasing an item, and this worker does not transition, approve, or
-set-admission on anything.
-
-### The one structural fact the previous version missed
-
-**The remaining cut is a single serial chain, not a queue.** S4, S5, S6 and S7 all
-depend on S3 (`overseer-t7qqik`); S8 depends on S4; S9 depends on S7. The previous
-section called S3 "the head of the queue", which reads as though other slices were
-workable. They are not. **There is no filed hand-drivable slice**, and the billing
-valve therefore blocks 7 of 7 remaining slices rather than 1.
-
-| slice | id | state at 2026-07-29 15:30Z |
-|---|---|---|
-| S1 HALT preconditions that classify their failure | `overseer-ykneip` | **CLOSED** |
-| S2 wake mechanism end to end | `overseer-4do7jx` | **CLOSED** |
-| S3 iteration-stable two-layer form | `overseer-t7qqik` | pending-approval (reset from a dead claim, twice) |
-| S4 re-entry + durable obligation record | `overseer-fl5jlp` | pending-approval, blocked on S3 |
-| S5 verification discipline | `overseer-nxaho7` | pending-approval, blocked on S3 |
-| S6 full anti-stall playbook | `overseer-kptmgl` | pending-approval, blocked on S3 |
-| S7 cold-open gate + placeholder sets | `overseer-lf7ieb` | pending-approval, blocked on S3 |
-| S8 cross-track obligation handoff | `overseer-uc4l5e` | pending-approval, blocked on S4 |
-| S9 adopter parameterization | `overseer-f2lqj6` | pending-approval, blocked on S7 |
-
-`overseer-dk6hwi` (the S1/S2 delivery remainder) is **CLOSED**.
-
-**THERE IS STILL NO APPROVE VALVE AND NONE IS NEEDED.** These items are
-`admission:auto`, and the Dispatcher takes them as filed — see the next section,
-which now has proof rather than a code read. `set-admission:<id>:manual` permanently
-rewrites recorded policy for no benefit. **Do not run it.** S1/S2 read `manual` only
-because it was run on them before that was understood; the other seven are untouched.
-
-### THE CODEX CREDENTIAL GATE HAS CLEARED — measured 2026-07-30 03:05Z
-
-**This section has now named three different blockers in two days. Re-measure
-before acting on it.** History, so the next reader can price its reliability: it
-said "the monthly spend limit" for most of 2026-07-29 (wrong), then the host
-Codex credential (right at the time), and that gate is now open.
-
-Measured read-only via `dispatcher.py codex-cred-status` — not a dispatch, not a
-retry:
-
-    present: true    malformed: false    alarm: FALSE    refresh_due: FALSE
-    expires_at_iso: 2026-08-08T17:37:28+00:00
-    remaining_seconds: 825237  (~9.55 days, against a >=18000s gate)
-
-So the earlier state — `alarm true`, ~40 min to expiry, `codex-cred-refresh`
-returning `noop-not-due` so the automated path could not fix it — is DISCHARGED.
-The interactive `codex login` that only the maintainer could run appears to have
-happened.
-
-**WHICH ANTHROPIC CREDENTIAL, because not naming it is the documented failure
-mode.** See `.claude/CLAUDE.md` §"The fleet has SEVERAL Anthropic credentials" —
-cited, deliberately not restated, per that section's own instruction. The
-spend-limit error this thread quoted came from an ACP turn inside the implement
-node, i.e. the FACTORY path, which that table maps to
-**`CLAUDE_CODE_OAUTH_TOKEN`** — *not* `ANTHROPIC_API_KEY_LIVESPEC_E2E`. This
-handoff previously said "the Anthropic spend limit is UNVERIFIED" with no
-credential named, which is exactly what that section exists to prevent; two
-threads re-derived this on 2026-07-29 and one got it wrong, costing two
-dispatches' green work.
-
-That section also records the host-side Gate 4 probe verifying 200 on 2026-07-30
-after a token rotation. **Cited, not re-run:** that probe belongs to the
-`background-shell-supervision-liveness` track, and re-deriving another thread's
-measurement is the behaviour the section was written to stop. Note its own caveat
-— the Dispatcher's Claude pre-flight is presence-only, so a present-but-exhausted
-token passes and the run dies mid-review.
-
-A separate track (`codex-parity-and-rollout-safety`, its own PR #274) has
-independently diagnosed the billing cap across five runs, two repos and four
-work-items — **that PR is theirs, not this thread's.**
-
-**S3's parked-run advice is also retired.** Run `01KYP93877SDPHC7DVM0BXRJ33` went
-TERMINAL (`failed`/`workflow_error`), so it is not resumable. The supervisor reset
-S3 to `pending-approval` — **twice**, because a dispatch that fails at
-`run-config-overlay` still CLAIMS the item even though no run exists and
-`fabro_run_id` is null. S3 now reads `pending-approval`, `admission:auto` intact.
-Do not wrap `dispatcher.py dispatch` in a short timeout; it BLOCKS for the entire
-life of the run.
-
-### What landed this session
-
-**PR #276 — rebase-merged, forge-verified on `origin/master` at `7efc528` after a
-fetch. 61 CI checks pass, 1 skip, 0 fail.** This is the local-first half of the
-remediation gap, chosen by the maintainer over the fleet-wide sweep.
-
-- `tests/prompts/test_charters_carry_no_known_defects.py` — 12 tests, 100% coverage
-  (135 statements, 52 branches, 0 missed), gating defect classes (a) bare tmux
-  target, (b) unguarded `readlink -f`, (c) history-fed picker capture, (d) `prev=""`
-  watcher init, over **every** charter in this repo.
-- The sweep of all four dirty charters to the exemplar's forms.
-
-A pytest module rather than a new `just check-<slug>`: `check-aggregate-completeness`
-makes wiring one canonical slug force wiring every other, and `tests/prompts/` is
-already an enforced surface.
-
-**THE DETECTORS READ FENCED CODE ONLY, and that is the load-bearing design choice.**
-The untracked prototype scanned whole files and counted PROSE mentions of a hazard as
-instances of it — the hand-hardened exemplar scored 3 on (b) with **zero** defective
-code, because the section intro says "readlink -f first" and Correction C2 quotes
-`readlink -f ""` while EXPLAINING the bug. A detector that fires on the documentation
-of a fix makes hardening a charter RAISE its score. The exemplar is now a **positive
-control** in the suite: any hit on it is a defect in the module, not in the charter.
-
-(c) is deliberately narrow for the same reason. A bounded `capture-pane -S -N` read is
-a legitimate inspection that the exemplar performs; only the bound
-(`pane=$(... -S -40)`) and grep-piped forms are flagged.
-
-RED demonstrated four ways, each reverted: genuinely red before the sweep (43 offences
-across 4 charters, every fixture leg green); one restored bare target reddens the gate;
-a quote-blind comment stripper reddens the gate, because real charters carry
-`'#{pane_pid}'` and truncating there MANUFACTURES a bare target; widening (c) to every
-`-S` reddens the exemplar control. **Two detector false results were found by sweeping
-REAL charters rather than by imagining cases**, and both directions are now pinned.
-
-**KNOWN LIMIT, stated rather than hidden:** inline backticked commands in PROSE are not
-scanned. `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md` line 19 still reads
-``tmux has-session -t ship-overseer-to-fleet`` inside a numbered list. That is
-deliberate — scanning prose is exactly what made the prototype unusable.
-
-### `overseer-8jg` was REFUTED and rescoped
-
-Its premise was measured false and the wrong half was in its TITLE. Retitled to the real
-bug, description replaced, acceptance rewritten; the full refutation is preserved in the
-item's NOTES (read-back asserted).
-
-- **Survives:** "approve refuses (needs manual)" — true.
-- **Refuted:** "every dispatch path refuses (not ready)". All three paths route through
-  `ready_items` -> `is_dispatch_candidate`, which does `replace(item, status="ready")`
-  and re-tests, so admission never refuses there. Only `next.py:138` uses the strict
-  predicate, which is the sole reason the state ever LOOKED terminal.
-- **Empirical, not just a code read:** S3 carries `admission:auto`, was
-  `pending-approval`, was NEVER flipped to manual — and dispatched anyway as run
-  `01KYP93877SD`, which reached the implement node before failing on billing.
-- **Real cause of the observed refusals:** the dead mint `overseer-wc2xfe` failing closed
-  as an unresolvable cross-repo sibling. The item is now about that diagnostic gap: an
-  unresolvable sibling reports bare "not in the ready set" and names neither the sibling
-  nor the fail-closed.
-
-This discharged supervisor Correction C10's corollary, which had been recorded in a
-charter and propagated nowhere — an obligation living in exactly the gap R3/S4 exist to
-close. Also re-verified C11's fix held: `non_local_depends_on` reads back as type `list`,
-not the string `"[]"`.
-
-### The remainder of the remediation gap
-
-The maintainer chose **local-first**, which is done. The fleet-wide half is NOT filed and
-remains the maintainer's cut: **130 bare targets, 18 files, 6 repos** measured 2026-07-29
-(down from 141/17/7 the previous day — the population MOVES, so re-measure rather than
-citing this). Six threads are ARMED across five repos. The write-up with four costed
-options is at `tmp/overseer/supervisor-prompt-quality/GAP-no-remediation-slice.md`.
-
-The gate that just landed is repo-local. Adopting it elsewhere is a per-repo decision and
-nothing here schedules it.
-
-### What is TRACKED versus what only exists on this host
-
-The two most valuable findings of 2026-07-29/30 — the stale-plugin-cache gap and
-the detector self-disarm rule — were reached in a **gitignored** log and would have
-died with this working tree. They are recorded above for that reason. When a
-finding is worth carrying, the handoff or a test is where it goes; the wake channel
-is a transcript, not storage. That criticism was made of this thread's own evidence
-earlier the same day, so it applies here too.
-
-### Durable artifacts (gitignored — present in this working tree only)
-
-`tmp/overseer/supervisor-prompt-quality/` holds `FILED-RESULT.md`,
-`EVIDENCE-REVERIFICATION.md`, `GAP-no-remediation-slice.md`, `S1-COVERAGE-MAP.md`,
-`S2-COVERAGE-MAP.md`, `LIVE-EXPOSURE-rop-sweep.md`, `worker-status.log` (the supervisor's
-wake channel), and `evidence/` — including `blast_radius.py`, the prototype whose
-prose-scanning flaw motivated the fenced-code-only design. **A fresh clone has none of
-it.** The artifacts that mattered are now TRACKED, which was the point.
+The gate stubs `tmux`, `ps`, `sleep`, `seq` — external-state blocks were never out
+of scope, standing in for the tool IS how the gate holds executability. Adding a
+`bd` stub keeps every block required to execute. The stub **discriminates** (a
+blanket `exit 0` would retire the execution leg for every ledger block), and the
+narrowing-free result was RED-demonstrated asymmetrically: blanket `exit 0` reddens
+only the discrimination leg; removing the stub reddens only the real-layers gate.
 
 ### Hazards to carry forward
 
-- **`overseer-wc2xfe` is a DEAD MINT** — it exists in no tenant. Both deps were repointed
-  to `livespec-dev-tooling-myx7` and verified by read-back. S0 was only ever a GATING
-  handle; the DOING record is myx7, and S0 **must never be worked in this repo**.
-- **The commit prefix is semantically load-bearing.** A tests-only staged tree with a
-  `fix:`/`feat:` subject routes into RED mode, which REJECTS a passing test. A passing
-  test-only change must use `test:`.
-- **`git checkout -- <file>` reverts to HEAD, not to your uncommitted work.** Restoring a
-  sabotage that way during a RED demonstration silently wiped a completed sweep, and the
-  next run's failure read as a broken test. Check `git status` after restoring.
-- **`PIPESTATUS` is bash; this shell is zsh** (`$pipestatus[1]`, lowercase, 1-indexed).
-  The bash spelling yields an EMPTY string, which reads like a pass.
-- **Check `git status`, not `git log`, after a hook-gated commit** — a rejected commit
-  leaves the change STAGED and `git log` shows someone else's HEAD.
-- **`just worktree-reap` cannot see a rebase-merged branch as merged** (the SHA changes),
-  so it skips your own worktree and offers `--force`, which would act on every other
-  track's. Remove only your own. **Now filed as `overseer-btt` (P1)** — its merged-ness
-  test is `merge-base --is-ancestor "$wt_head" "$base_ref"` at
-  `dev-tooling/worktree-lib.sh:347`, and rebase-merge replays work as a NEW SHA, so a
-  correctly-landed branch is never an ancestor. Measured 0 to remove, 19 skipped, while
-  `needs-attention`'s hygiene lane lists those same worktrees as removable — two tools in
-  this repo disagreeing. **Do not reap them; most belong to other tracks.**
-- **A `test:` subject is not cosmetic when the `.py` bucket is tests-only.** A
-  `fix:`/`feat:` subject on a tests-only staged tree whose tests PASS is rejected as
-  `test-passed-at-red`. Markdown does not enter the `.py` bucket, so a change that fixes
-  generator prose plus its tests is still "tests-only" to the hook.
-- **Restore a sabotage from a byte copy, never `git checkout -- <file>`.** That reverts to
-  HEAD rather than to your uncommitted work, and it silently wiped a completed sweep here;
-  the next run's failure then reads as a broken test rather than a lost edit.
-- **A GREP THAT MATCHES NOTHING IS INDISTINGUISHABLE FROM A CLEAN PASS, and this bit
-  the verification of a verifier.** A sabotage run piped through
-  `pytest ... | grep -E '^FAILED'` printed nothing, which read as "my new check is not
-  load-bearing" — one step from deleting a working check as dead code. Re-run with FULL
-  output, the sabotage reddened exactly the intended leg. The charter's pipe-exit-code
-  rule already covers this, but note WHERE it landed: not on the code under test, on the
-  step that was supposed to prove the test could fail. **When a sabotage produces no
-  output, that is the one result you must never accept without reading the artifact** —
-  a silent sabotage and a sound check look identical.
-- **Widening a detector is a chance to silently REMOVE what it already caught.** When
-  re-keying (b) and (d) from a spelling to a property, the original literal rules were
-  RETAINED and asserted directly, rather than trusted to fall out of the broader rule.
-  Prove the old shape still reddens; do not infer it.
-- **`--set-metadata` stores STRINGS.** Clearing a list-valued field with it prints
-  `✓ Updated` and stores `"[]"`, which the consumer then walks character-wise. Rewrite the
-  whole object via `--metadata @file.json` and assert the TYPE on read-back, not the
-  rendered value (Correction C11).
+- **A COMMIT REJECTED BY A HOOK LEAVES THE CHANGE STAGED, and `git log` then shows
+  someone else's HEAD.** Check `git status`, never `git log`. Hit twice; on S7 the
+  rejection was state-dependent and a clean retry succeeded, so re-run
+  `red_green_replay` in commit-msg mode directly before assuming a real objection.
+- **A `fix:`/`feat:` subject on a tests-only staged tree whose tests PASS is
+  rejected** as `test-passed-at-red`. Markdown does not enter the `.py` bucket, so a
+  change fixing generator prose plus its tests is still "tests-only" to the hook.
+  Use `test:`.
+- **A GREP THAT MATCHES NOTHING IS INDISTINGUISHABLE FROM A CLEAN PASS.** This bit
+  the verification of a verifier: a sabotage piped through `grep -E '^FAILED'`
+  printed nothing, read as "my new check is not load-bearing", one step from
+  deleting a working check as dead code. When a sabotage produces no output, read
+  the artifact — never accept the silence.
+- **Assert every scripted edit, before writing.** Two edits refused to write this
+  session — one on an anchor the formatter had reflowed, one on a stray non-ASCII
+  character typed into a replacement. An unasserted `str.replace` would have written
+  the first and corrupted the second. Writing a hazard down does not stop you
+  walking into it; the guard does.
+- **Restore a sabotage from a byte copy, never `git checkout -- <file>`** — that
+  reverts to HEAD, not to your uncommitted work, and silently wiped a completed
+  sweep here.
+- **Widening a detector is a chance to silently REMOVE what it already caught.**
+  When re-keying (b) and (d) to properties, the original literal rules were RETAINED
+  and asserted directly. Prove the old shape still reddens; do not infer it.
+- **`PIPESTATUS` is bash; this fleet runs zsh** (`$pipestatus[1]`, lowercase,
+  1-indexed). The bash spelling yields an EMPTY string, which reads like a pass.
+- **This host runs uutils coreutils 0.2.2 for both `readlink` and `realpath`, not
+  GNU.** `readlink -f ""` returns `$PWD` with rc=0 here (false pass) and `--` does
+  not save it; GNU exits 1. The non-empty guard is what saves the charter form.
+- **`just worktree-reap` cannot see a rebase-merged branch as merged** (the SHA
+  changes), so it skips your own and offers `--force`, which would act on every
+  other track's. Filed as `overseer-btt`. Remove only your own.
+- **A PR failing on `Failed to download … operation timed out` from PyPI is
+  INFRASTRUCTURE** and a legitimate rerun — not the same as re-running a flaky test
+  until it goes green.
+- **`--set-metadata` stores STRINGS.** Clearing a list field with it stores `"[]"`,
+  which the consumer walks character-wise. Use `--metadata @file.json` and assert
+  the TYPE on read-back (C11).
+- **Never wrap `dispatcher.py dispatch` in a short timeout** — it BLOCKS for the
+  life of the run. And a dispatch that fails at `run-config-overlay` still CLAIMS
+  the item with `fabro_run_id` null, which is why S3 needed resetting twice.
 
 ### Boundaries
 
-The supervisor owns this file's sections ABOVE the separator. Do not touch branches
-`docs/supervisor-charter-hardening`, `docs/regenerate-supervisor-prompt-quality-charter`,
-or `docs/handoff-execution-order-correction`. Worktrees via `just worktree-create`, never
-raw `git worktree add`. Never `--no-verify`; halt and report on hook failure. Never kill
-the acting overseer daemon in tmux `livespec-overseer:1.1`.
+The supervisor owns this file's sections ABOVE the separator, the ledger, and all
+dispatching, merging and `reconcile-merged`. The worker owns below the separator.
+Do not touch branches `docs/supervisor-charter-hardening`,
+`docs/regenerate-supervisor-prompt-quality-charter`,
+`docs/handoff-execution-order-correction`, or PR #274 and the
+`codex-parity-and-rollout-safety` track. Worktrees via `just worktree-create`,
+never raw `git worktree add` — the latter omits the discipline pack and the failure
+fires only at commit or push time. Never `--no-verify`; halt and report on hook
+failure. Never kill the acting overseer daemon in tmux `livespec-overseer:1.1`.
+
+### Durable artifacts (gitignored — this working tree only)
+
+`tmp/overseer/supervisor-prompt-quality/` holds `GAP-no-remediation-slice.md` (the
+fleet-wide remediation options, still the maintainer's cut), `FILED-RESULT.md`,
+`EVIDENCE-REVERIFICATION.md`, the S1/S2 coverage maps, `worker-status.log` (the
+supervisor's wake channel), and `evidence/`. **A fresh clone has none of it.**
+Anything worth carrying belongs here or in a test, not in the log — the wake
+channel is a transcript, not storage.
