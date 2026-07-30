@@ -500,12 +500,15 @@ so it is never stale.
 
 ---
 
-## Disciplines to hold (cross-reference, don't re-derive)
+## Disciplines to hold
 
-The coordinator self-discipline is codified in **`.ai/agent-disciplines.md`**
-(the "Overseer / long-running-coordinator discipline" and "Factory-dispatch over
-inline implementation" sections) — read those alongside this skill; this file
-summarizes:
+The bullets below are the packaged operator contract and are mandatory. In
+livespec core checkouts, **`.ai/agent-disciplines.md`** may exist as optional
+external context; this is an optional external cross-reference for the "Overseer
+/ long-running-coordinator discipline" and "Factory-dispatch over inline
+implementation" sections. The installed plugin cache does not ship that file.
+Do not search another host checkout for that file. Do not treat its absence
+under `$PLUGIN_ROOT` as a setup failure.
 
 - **Verify live state; never trust a session's self-summary.** Read git / PR /
   ledger state directly (`git show origin/master:…`, `gh pr view`, `bd show`)
