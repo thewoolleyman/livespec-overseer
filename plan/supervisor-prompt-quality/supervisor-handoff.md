@@ -74,6 +74,50 @@ Placeholder classes declared by this binder:
 - Illustrative placeholders appear only in prose that discusses a form, not in
   fenced commands.
 
+## Generator provenance
+
+This charter was produced from the generator prose whose digest is recorded
+below. Run this before driving: a charter emitted from a stale plugin cache
+carries defects the current generator no longer emits, and until this record
+existed nothing about a charter said which generation produced it.
+
+The DIGEST is the identity. The plugin, ref and version are companions for a
+human reader — six releases (0.12.2 through 0.13.3) shipped byte-identical
+prose, so a version would report six generators where there is one, and the ref
+directory name is sometimes a commit sha and sometimes a version string.
+
+```sh
+generator_plugin='livespec-overseer'
+generator_ref='013d35d48cde'
+generator_version='0.15.0'
+generator_prose_md5='9ca18d56772dcf8fcdc2cf78ed8108a8'
+cache_root="$HOME/.claude/plugins/cache/$generator_plugin/$generator_plugin"
+generator_prose="$cache_root/$generator_ref/prose/supervise-plan.md"
+if [ ! -d "$cache_root" ]; then
+  printf '%s\n' "UNVERIFIED: no plugin cache at $cache_root, so this is not a host that generates charters and provenance cannot be checked here. Recorded generator: $generator_prose_md5"
+elif [ ! -f "$generator_prose" ]; then
+  echo "HALT: the cache at $cache_root no longer holds ref $generator_ref, so the generator that emitted this charter has been replaced"
+  echo "REMEDY: regenerate this charter with supervise-plan, or re-point generator_ref at the installed ref and re-stamp generator_prose_md5 from it"
+  exit 1
+else
+  installed=$(md5sum "$generator_prose")
+  digest_rc=$?
+  [ "$digest_rc" -eq 0 ] \
+    || { echo "HALT: cannot digest the installed generator prose at $generator_prose"; echo "REMEDY: fix read access before trusting anything this charter says about its own currency"; exit 1; }
+  installed_md5=${installed%% *}
+  [ "$installed_md5" = "$generator_prose_md5" ] \
+    || { echo "HALT: this charter was emitted by generator $generator_prose_md5 but the installed generator is $installed_md5"; echo "REMEDY: regenerate this charter before driving, or re-stamp generator_prose_md5 deliberately after reading what changed between the two"; exit 1; }
+  printf '%s\n' "PASS: charter provenance matches the installed generator ($installed_md5)"
+fi
+```
+
+A MISSING CACHE ROOT AND A MISSING REF ARE DIFFERENT CONDITIONS. No cache root
+at all means this is not a charter-generating host — a CI runner, or another
+checkout — so provenance is UNVERIFIED and the check continues; HALTing there
+would make this file unreadable anywhere but the machine that produced it. A
+cache root that no longer holds the recorded ref means the generator has been
+REPLACED, which is exactly how a refresh shows up, and that HALTs.
+
 ## Thread-specific Valves
 
 - This thread's subject is generated-prompt drift. Every generated-output claim

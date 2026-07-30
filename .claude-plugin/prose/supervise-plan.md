@@ -264,6 +264,70 @@ After applying the declared concrete and composed bindings to a fixed point,
 every fenced shell command in the generated output must execute with no
 remaining generation-time placeholder. The allowed runtime slots are not errors.
 
+## Generator provenance
+
+Record WHICH generator produced this charter, and emit a check that notices when
+that stops being true. You are running from a plugin root that an adopter PINS
+and caches, so a fix to this prose is inert until that cache refreshes — and
+nothing about an emitted charter has ever said which generation it came from.
+A stale-cache emission is therefore invisible until it breaks something, and
+what it broke was master, fleet-wide.
+
+Emit the digest of the generator prose you are reading as the IDENTITY, with the
+plugin, ref and version alongside as human-readable companions. Do NOT use the
+version as the identity: six releases have shipped byte-identical prose, so a
+version reports six generators where there is one, and a prose fix that lands
+without a release bump reports an unchanged version for changed prose. The ref
+directory name is no identity either — it is sometimes a commit sha and
+sometimes a version string.
+
+Resolve these from the plugin root you actually read this file from, and emit
+them CONCRETELY. A placeholder here is not a record:
+
+```sh
+generator_plugin='<plugin-name>'
+generator_ref='<cache-ref-directory-name>'
+generator_version='<plugin.json version>'
+generator_prose_md5='<md5 of this file, 32 hex digits>'
+cache_root="$HOME/.claude/plugins/cache/$generator_plugin/$generator_plugin"
+generator_prose="$cache_root/$generator_ref/prose/supervise-plan.md"
+if [ ! -d "$cache_root" ]; then
+  printf '%s\n' "UNVERIFIED: no plugin cache at $cache_root, so this is not a host that generates charters and provenance cannot be checked here. Recorded generator: $generator_prose_md5"
+elif [ ! -f "$generator_prose" ]; then
+  echo "HALT: the cache at $cache_root no longer holds ref $generator_ref, so the generator that emitted this charter has been replaced"
+  echo "REMEDY: regenerate this charter with supervise-plan, or re-point generator_ref at the installed ref and re-stamp generator_prose_md5 from it"
+  exit 1
+else
+  installed=$(md5sum "$generator_prose")
+  digest_rc=$?
+  [ "$digest_rc" -eq 0 ] \
+    || { echo "HALT: cannot digest the installed generator prose at $generator_prose"; echo "REMEDY: fix read access before trusting anything this charter says about its own currency"; exit 1; }
+  installed_md5=${installed%% *}
+  [ "$installed_md5" = "$generator_prose_md5" ] \
+    || { echo "HALT: this charter was emitted by generator $generator_prose_md5 but the installed generator is $installed_md5"; echo "REMEDY: regenerate this charter before driving, or re-stamp generator_prose_md5 deliberately after reading what changed between the two"; exit 1; }
+  printf '%s\n' "PASS: charter provenance matches the installed generator ($installed_md5)"
+fi
+```
+
+THE TWO ABSENCE CASES ARE DIFFERENT AND MUST NOT BE CONFLATED. If the cache ROOT
+is missing, this is simply not a host that generates charters — a CI runner, or a
+teammate's checkout — and provenance cannot be checked there at all. That reports
+UNVERIFIED and continues, because HALTing would make every committed charter
+unreadable off the machine that produced it. If the cache root EXISTS but no
+longer holds the recorded ref, the generator has been replaced: a refresh lands
+under a NEW ref directory, so that is the ordinary way staleness shows up, and it
+HALTs. Reporting UNVERIFIED is not a silent pass — it names what it could not
+check and which generator it was looking for.
+
+The status of `md5sum` is captured into `digest_rc` before any use of its output,
+and the digest is trimmed with `${installed%% *}` rather than a pipe — this
+fleet's shell is zsh, where `PIPESTATUS` is empty and reads like a pass.
+
+Recording without comparing is NOT enough. A digest that is stated and never
+checked announces the charter's provenance and can never notice when it goes
+stale — the same defect as a precondition that reports a session NAME instead of
+proving a live agent.
+
 ## Thread-specific Valves
 
 Record only valves specific to this topic or target repo. Do not put role-level

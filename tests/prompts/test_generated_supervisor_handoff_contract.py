@@ -56,6 +56,41 @@ _CWD_RELATIVE_TEST_D = re.compile(r'test\s+-d\s+"?plan/')
 # separate call, after a capture confirms the text landed.
 _ONE_SHOT_SEND_KEYS = re.compile(r"send-keys[^\n]*--\s*'[^']*'\s+Enter")
 
+# A generated charter must record WHICH generator produced it, and must be able
+# to CHECK that record itself (overseer-yho.2).
+#
+# WHY THIS EXISTS. Adopters emit charters from a PINNED plugin cache, so a
+# generator fix is inert until that cache refreshes, and nothing about an emitted
+# charter says which generation it came from. That is not a coverage gap, it is
+# structural: `tests/prompts/test_stale_cache_generation_is_detectable.py`
+# measures three real cached generations and finds that TODAY's contract floor
+# reports the stale 0.14.0 one as fully conformant — a verdict identical to the
+# current generation's — while everything that does catch it was written seven
+# hours AFTER it shipped. A content gate recognises only the staleness it already
+# has a detector for, so it is permanently one release behind, and the next stale
+# generation will carry defects nobody has named yet.
+#
+# WHY A DIGEST AND NOT THE PLUGIN VERSION, which was the original suggestion.
+# Measured across eleven cache refs on 2026-07-30: six releases (0.12.2 through
+# 0.13.3) shipped BYTE-IDENTICAL generator prose, so a version stamp reports six
+# generators where there is one; and a prose fix that lands without a release
+# bump — the exact hole `check-prose-release-hygiene` exists to catch — reports
+# an UNCHANGED version for CHANGED prose. The digest has neither failure. The ref
+# directory name is no help either: it is sometimes a sha and sometimes a version
+# (`0.12.2` and `0.12.3` are real ref directories), so it is not an identity key
+# in either direction. Version and ref ride along as human-readable companions.
+#
+# WHY THE COMPARISON LIVES IN THE CHARTER RATHER THAN IN CI. The cache exists
+# only on the adopter's host, at generation and boot time; CI has none and never
+# will. Equality-in-CI would also be wrong on its own terms — a charter emitted
+# three weeks ago legitimately names an older generator, so requiring
+# recorded == current would redden every charter on every release. CI's rung is
+# to gate that the prose MANDATES the record; the comparison is a HALT-first
+# precondition the supervisor runs where the cache actually is.
+_PROVENANCE_DIGEST = re.compile(r"generator_prose_md5\s*=\s*['\"]?([0-9a-f]{32})\b")
+_PROVENANCE_DIGEST_COMMAND = re.compile(r"\b(?:md5sum|sha256sum|shasum)\b")
+_PROVENANCE_COMPARISON = re.compile(r"\$\{?generator_prose_md5\}?")
+
 
 # The contract, as data. Each entry is (requirement-name, needles-that-must-all-
 # appear). Table-driven rather than a chain of ifs so adding a requirement is a
@@ -333,6 +368,31 @@ def _has_supervisor_agent_proof(*, charter: str) -> bool:
     return False
 
 
+def _has_generator_provenance(*, charter: str) -> bool:
+    """A recorded generator digest AND an executable self-check against it.
+
+    THE PROPERTY, in three legs, rather than one spelling:
+
+    1. a REAL 32-hex digest is bound to `generator_prose_md5` — a `<placeholder>`
+       is not a record, and a version number is not one either;
+    2. a digest COMMAND appears in a fenced block, so the check is runnable
+       rather than a sentence about being runnable — `.4`'s bar;
+    3. the recorded binding is DEREFERENCED, so the value is compared against the
+       installed generator rather than merely stated.
+
+    Leg 3 is the one that carries the requirement. A charter satisfying only legs
+    1 and 2 announces its provenance and can never notice when that stops being
+    true, which is a stamp rather than a check — the same distinction as a HALT
+    precondition that reports a session NAME instead of proving a live agent.
+    """
+    blocks = "\n".join(_command_blocks(charter=charter))
+    return (
+        _PROVENANCE_DIGEST.search(blocks) is not None
+        and _PROVENANCE_DIGEST_COMMAND.search(blocks) is not None
+        and _PROVENANCE_COMPARISON.search(blocks) is not None
+    )
+
+
 def _has_conflicting_lane_procedure(*, charter: str) -> bool:
     """Accept the procedure, not one brittle spelling of its first verb."""
     lowered = charter.lower()
@@ -424,6 +484,8 @@ def missing_requirements(*, charter: str) -> list[str]:
         missing.append("pane-pid-empty-verdict")
     if not _has_supervisor_agent_proof(charter=charter):
         missing.append("supervisor-agent-proof")
+    if not _has_generator_provenance(charter=charter):
+        missing.append("generator-provenance-self-check")
     if not _has_conflicting_lane_procedure(charter=charter):
         missing.append("stall-mode-1-conflicting-lane")
     if not _has_ripe_valve_same_turn_rule(charter=charter):
@@ -475,8 +537,48 @@ def test_the_generator_prose_instructs_every_contract_requirement():
 
     Sabotage that reddens this: remove the armed-re-entry section from
     `.claude-plugin/prose/supervise-plan.md`.
+
+    ONE REQUIREMENT IS EXEMPT, AND ONLY ONE. This test works because every other
+    requirement is a fixed string the emitted charter SHARES with the template,
+    so the template satisfies the charter-level rule by carrying the same words.
+    `generator-provenance-self-check` is categorically different: its value is
+    RESOLVED PER GENERATION — the digest of the very file being read — so it
+    cannot exist in a template, and it must not, because an example digest is
+    something a generator can copy verbatim.
+
+    The exemption is asserted as an EXACT list rather than a filter, so it is not
+    a hole: if the prose ever stopped instructing any other requirement the list
+    would grow and this would fail. What the prose must say about provenance is
+    checked by `test_the_generator_prose_mandates_the_provenance_record` instead,
+    with needles — the same shape as the two-layer and Corrections prose tests.
     """
-    assert missing_requirements(charter=_GENERATOR_PROSE.read_text(encoding="utf-8")) == []
+    assert missing_requirements(charter=_GENERATOR_PROSE.read_text(encoding="utf-8")) == [
+        "generator-provenance-self-check"
+    ]
+
+
+def test_the_generator_prose_mandates_the_provenance_record():
+    """The prose-level half of the provenance rule, since the template is exempt.
+
+    Needles rather than the validator, for the reason above: a template cannot
+    carry a resolved digest. What it CAN carry, and must, is the instruction to
+    emit one, the identity choice, and the comparison.
+    """
+    prose = _GENERATOR_PROSE.read_text(encoding="utf-8")
+    # WHITESPACE-NORMALISED, not a raw substring: every phrase below spans a
+    # markdown line break in the shipped prose, and markdown gets rewrapped. A
+    # raw `in` check would fail for reflow rather than for meaning, which is a
+    # gate that reddens on formatting and teaches people to loosen it.
+    flattened = " ".join(prose.split()).lower()
+    # The record itself, and the fact that it is emitted concretely.
+    assert "generator_prose_md5" in prose
+    assert "generator_ref" in prose
+    assert "a placeholder here is not a record" in flattened
+    # The identity choice, which supersedes overseer-d4t's version proposal.
+    assert "do not use the version as the identity" in flattened
+    # The comparison — a stamp that is never checked is the defect, not the fix.
+    assert "md5sum" in prose
+    assert "recording without comparing is not enough" in flattened
 
 
 def test_the_generator_prose_requires_two_layer_output_and_no_live_status():
@@ -1263,6 +1365,24 @@ def _fully_conformant_charter() -> str:
          || { echo "HALT: empty pane_current_path"; echo "REMEDY: retarget"; exit 1; }
        case "$(readlink -f -- "$pane_cwd")" in /data/projects/demo|/data/projects/demo/*) ;; esac
        ```
+    ## Generator provenance
+    ```sh
+    generator_plugin='livespec-overseer'
+    generator_ref='013d35d48cde'
+    generator_version='0.15.0'
+    generator_prose_md5='9ca18d56772dcf8fcdc2cf78ed8108a8'
+    cache_root="$HOME/.claude/plugins/cache/$generator_plugin/$generator_plugin"
+    generator_prose="$cache_root/$generator_ref/prose/supervise-plan.md"
+    [ -f "$generator_prose" ] \
+      || { echo "HALT: generator absent"; echo "REMEDY: regenerate or re-stamp"; exit 1; }
+    installed=$(md5sum "$generator_prose")
+    digest_rc=$?
+    [ "$digest_rc" -eq 0 ] \
+      || { echo "HALT: cannot digest"; echo "REMEDY: fix read access"; exit 1; }
+    installed_md5=${installed%% *}
+    [ "$installed_md5" = "$generator_prose_md5" ] \
+      || { echo "HALT: stale generator"; echo "REMEDY: regenerate before driving"; exit 1; }
+    ```
     ## Verification Discipline
     ```sh
     ledger_anchor='demo-item'
@@ -1319,6 +1439,90 @@ def _fully_conformant_charter() -> str:
     ## Standing safety clauses
     Never pass --no-verify. Never kill the acting overseer daemon.
     """
+
+
+_PROVENANCE_CHECK = """
+    ```sh
+    generator_prose_md5='9ca18d56772dcf8fcdc2cf78ed8108a8'
+    generator_prose="$HOME/.claude/plugins/cache/p/p/013d35d48cde/prose/supervise-plan.md"
+    installed=$(md5sum "$generator_prose")
+    installed_md5=${installed%% *}
+    [ "$installed_md5" = "$generator_prose_md5" ] \
+      || { echo "HALT: stale"; echo "REMEDY: regenerate"; exit 1; }
+    ```
+"""
+
+
+def test_a_charter_recording_its_generator_and_checking_it_is_accepted():
+    """The acceptance leg: a real digest, a digest command, and a comparison."""
+    assert _has_generator_provenance(charter=_PROVENANCE_CHECK)
+
+
+def test_a_charter_that_states_its_generator_but_cannot_check_it_is_rejected():
+    """A STAMP IS NOT A CHECK, and this is the distinction that carries the rule.
+
+    The digest is recorded and never compared, so the charter announces its
+    provenance and can never notice when that stops being true. It is the same
+    shape as a precondition that reports a session NAME instead of proving a live
+    agent — observed 2026-07-28, when a supervisor session created as a bare
+    `zsh` returned PASS.
+    """
+    charter = """
+    ```sh
+    generator_prose_md5='9ca18d56772dcf8fcdc2cf78ed8108a8'
+    generator_ref='013d35d48cde'
+    ```
+    """
+    assert not _has_generator_provenance(charter=charter)
+    assert "generator-provenance-self-check" in missing_requirements(charter=charter)
+
+
+def test_a_placeholder_digest_is_not_a_provenance_record():
+    """An unsubstituted placeholder must not satisfy the rule.
+
+    This charter carries the whole comparison machinery and would EXECUTE — and
+    always mismatch. Accepting it would let the generator emit the shape of a
+    provenance record without ever resolving one, which is precisely the
+    unsubstitutable-placeholder defect the cold-open dry-runs caught.
+    """
+    charter = _PROVENANCE_CHECK.replace("9ca18d56772dcf8fcdc2cf78ed8108a8", "<generator-md5>")
+    assert not _has_generator_provenance(charter=charter)
+
+
+def test_a_version_stamp_is_not_a_provenance_record():
+    """THE FIX-SHAPE CORRECTION, pinned so it cannot quietly regress.
+
+    `overseer-d4t` originally proposed recording the plugin VERSION. Measured
+    across eleven cache refs: six releases (0.12.2 through 0.13.3) shipped
+    byte-identical prose, so a version reports six generators where there is one;
+    and a prose fix landing without a release bump reports an unchanged version
+    for changed prose. A version alone must therefore not satisfy this rule.
+    """
+    charter = """
+    ```sh
+    generator_version='0.15.0'
+    generator_ref='013d35d48cde'
+    installed=$(md5sum "$generator_prose")
+    [ "$installed" = "$generator_version" ] || { echo "HALT"; echo "REMEDY: regenerate"; exit 1; }
+    ```
+    """
+    assert not _has_generator_provenance(charter=charter)
+
+
+def test_provenance_stated_only_in_prose_does_not_satisfy_the_rule():
+    """Prose about provenance is not a provenance check — `.4`'s bar, again.
+
+    The three legs are all read from FENCED COMMANDS, so a charter that merely
+    describes recording its generator is rejected exactly like one that describes
+    its preconditions instead of emitting them.
+    """
+    charter = """
+    This charter was generated from plugin cache ref 013d35d48cde, whose prose
+    digest is 9ca18d56772dcf8fcdc2cf78ed8108a8, and a reader should md5sum the
+    installed generator and compare it against $generator_prose_md5 before
+    driving anything.
+    """
+    assert not _has_generator_provenance(charter=charter)
 
 
 def test_the_control_a_fully_conformant_charter_passes():
