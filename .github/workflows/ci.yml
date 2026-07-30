@@ -296,6 +296,12 @@ jobs:
           - check-partition-completeness
           - check-plugin-resolution
           - check-skill-invocation-paths
+          # Repo-local release-hygiene gate (overseer-d4t). It reads the
+          # COMMIT RANGE origin/master...HEAD, so it needs this matrix's
+          # fetch-depth: 0 and must NOT go in the py-gated matrix — a
+          # prose-only PR has no .py changes and would skip the one gate
+          # that exists to catch it.
+          - check-prose-release-hygiene
     steps:
       - name: Checkout
         uses: actions/checkout@v4
