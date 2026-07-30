@@ -202,7 +202,39 @@ rung seven at whether anything *consumes* it. It returned three things:
   the `PIPESTATUS`/zsh trap, now the first runnable reproduction of shared
   correction **C14** (see `.ai/supervisor-protocol.md`).
 
-Every rung returned something new, so **assume rung eight is not dry either.**
+**RUNG SEVEN (b)** — the same layer, measured independently by the supervisor,
+confirmed `ci-green` is absent from all 56 required contexts and added a worse
+finding: `ci.yml:50-51` asserts *"verified live — zero rulesets,
+required_merge_queue: null; branch protection requires only ci-green"*. **A
+comment that asserts its own verification**, whose last clause is false — and
+not uniformly false, which is what makes it dangerous: "zero rulesets" is TRUE
+(independently confirmed here with a positive control), so two true clauses lend
+credibility to the false third. `ci.yml:26-28` then justifies pinning `ci-green`
+to `ubuntu-latest` "so the gate stays reportable host-down" — which **buys
+nothing for mergeability**, since the 56 required contexts are the self-hosted
+ones. Bounded honestly: **the fallback mechanism still works** (flipping
+`CI_RUNNER_LABELS` reroutes the `check-*` jobs); what is broken is the recorded
+*model of why*, and the harm is a reader concluding mid-outage that a green
+`ci-green` means merges are fine. Appended to `overseer-rh1` rather than filed
+separately — it is the same defect at a second site, and splitting one finding
+across two items is forbidden. **Fix is maintainer-side**: factory branches must
+not touch `.github/workflows/` (the rule is real, and lives in the
+`check-no-workflow-edits` recipe — **not** in `.claude/CLAUDE.md`, whose only
+"workflows" mention is about the E2E credential).
+
+**RUNG EIGHT — DRY, and that is the result.** Scoped to
+`tests/heading-coverage.json`, it returned only a confirmation of the
+already-filed `overseer-knm` (23 stale rows, exactly) and **no new defect**. The
+tempting finding — *a coverage gate certifying coverage that does not exist* —
+**does not survive**: all 23 pointers resolve elsewhere (zero dangle), and the
+gate resolves `test` node ids **only** for `scenarios.md` entries, of which the
+23 include **none**. It behaves to contract. **Know what a check CLAIMS to
+verify before concluding it fails to verify it.** Scope the dryness honestly:
+one registry, not every coverage artifact.
+
+So seven rungs returned something and the eighth did not — the first time this
+ladder has met its own stopping rule. **That is not "finished"**; a narrow rung
+is easy to make empty by choosing it narrowly. Widen before concluding.
 
 > **Rung six (b) also returned a REFUTATION, which is the more useful half and
 > the part a future reader is most likely to get wrong.** The same sweep
@@ -252,20 +284,56 @@ failed** (C14's reproduction), and a **durable record left asserting a state
 that had changed** — are all **the same defect**: *a check that cannot fail,
 returning success.*
 
-**Eleven instances.** But the count is not the useful part — **this is:**
+**Twelve instances.** The twelfth arrived *while recording the eleventh*, and it
+is the cleanest specimen yet: a `bd update` whose note text was inlined into a
+double-quoted **zsh** string containing backticked field names. zsh executed
+them as command substitution, the words vanished from the record, and **`bd`
+reported `✓ Updated issue` and exited 0.** The write genuinely succeeded — only
+its *content* was wrong. A note about precise field references silently lost the
+field references, and nothing in the success path could tell.
 
-> **The last five were committed *while deliberately sweeping for this exact
+> **It was caught only by the mandated read-back**, which is the concrete
+> justification for `overseer-1sv`'s rule. That rule was previously defended by
+> the credential wrapper exiting 0 on a missing binary; here is a **second,
+> independent mechanism with the same signature** — a successful write with
+> wrong content. **Read-back is not belt-and-braces; it is the only step in the
+> sequence that can fail.**
+>
+> **Reusable rule:** never inline note text into the shell. Write it to a file
+> and pass `--append-notes "$(cat FILE)"` — command substitution yields the
+> file's bytes literally and backticks inside are not re-evaluated. Every note
+> in this thread written that way is intact; the one written inline is the one
+> that broke.
+
+But the count is not the useful part — **this is:**
+
+> **The last six were committed *while deliberately sweeping for this exact
 > defect*.** One had a correct positive control and still read the wrong file.
 > One was a *safety* idiom (`:-`) that created the very silence it was written
 > to prevent. One was the *detector* for the drift it failed to report. One was
-> the sweep's own record contradicting the sweep's own result.
+> the sweep's own record contradicting the sweep's own result. One was a ledger
+> write that reported success while dropping its own content. And two more were
+> verification greps that reported `MISSING` for text that was present — a
+> `case` arm that swallowed `supervisor-handoff.md` because it also ends in
+> `handoff.md`, and an unescaped `**` read as a regex quantifier.
+>
+> **Those last two are the OPPOSITE polarity and are deliberately NOT in the
+> count.** A check that falsely *fails* is loud and safe; this thread's defect
+> is one that falsely *passes*. Counting them would inflate the tally with the
+> safe direction — the same over-claiming this thread exists to police. They are
+> recorded because they share the root cause: **the result was determined by an
+> artifact of the check rather than by the thing measured.**
 >
 > **Knowing about this defect does not confer immunity to it**, and the people
-> most exposed are the ones actively hunting it, because hunting it means
-> running more checks. So the remedy cannot be vigilance. It has to be
-> structural: **give the check a way to come back empty-handed and mean it**,
-> and — rung six (b)'s sharpening — **make sure it is looking at the right
-> thing before you ask whether it came back empty.**
+> most exposed are the ones actively hunting it — **because hunting it means
+> running more checks, and every check is a candidate.** That is why the count
+> keeps growing, and it is stronger evidence than the count itself, because it
+> explains the growth rather than merely tallying it. So the remedy cannot be
+> vigilance; vigilance is what produced six of these. It has to be structural:
+> **give the check a way to come back empty-handed and mean it**; — rung six
+> (b)'s sharpening — **make sure it is looking at the right thing before you ask
+> whether it came back empty**; and — rung eight's — **know what it claims to
+> check before concluding it failed to.**
 
 ## Read-first chain
 
