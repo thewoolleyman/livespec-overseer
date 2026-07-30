@@ -24,13 +24,14 @@ attended seats do.
 
 ## 2. Where this thread stands — READ BEFORE DOING ANYTHING
 
-**RATIFIED THROUGH v004. Steps a–d are LANDED and step e is FIVE-SEVENTHS
-DONE: `.1`, `.2`, `.4`, `.5`, `.7` are merged on master and CLOSED. `.3` is
-stored `ready`, awaiting ONE dispatch from a fresh-bound session — gate 1
-fired mid-tail on 2026-07-30 ~06:2xZ (release `67081674b0f3`; the
-pre-stage update was run, so the NEXT session binds current). `.6` has a
-run in flight under its pre-release dispatcher. The factory-outage story
-below is history, not the present.**
+**RATIFIED THROUGH v004. Steps a–e are ALL LANDED: step e is SEVEN OF SEVEN
+CLOSED as of 2026-07-30 ~08:40Z, the epic reads `7/7 complete (100%) —
+eligible for close`, and every slice's code is on master with the gate green
+there. The epic is NOT closed, and one thing blocks it: its own DONE MEANS
+owes LIVE VERIFICATION per lane, and the acting daemon still runs PRE-EPIC
+code until a rollout — a maintainer decision, prepared in §10. The
+factory-outage story and the four-gate material below are HISTORY retained
+for instinct; NO dispatch remains in this thread.**
 
 | Step | State |
 |---|---|
@@ -40,7 +41,7 @@ below is history, not the present.**
 | b. Widened proposal landed | **DONE** — PR #226 merged |
 | c. Ledger filed | **DONE** — six children under `overseer-4xfmez` (`.1`–`.6`), epic retitled and scope-widened |
 | d. `/livespec:revise` | **DONE — v003 RATIFIED**, PR #232, commit `ed55630` on master. `proposed_changes/` is empty; `history/v003/` holds the proposal and its decision. Decision was `modify`: the nine edits verbatim plus one counsel co-edit aligning spec.md §"The restart" with contracts.md §"The restart interlock" |
-| e. Implementation | **FIVE OF SEVEN CLOSED (2026-07-30)** — `.1` (PR #243, `86cb0b6`); `.2` (PR #313, `427ea8ee`, seventh dispatch); `.4` (PR #324, `fa05c58`); `.5` (PR #321 + ruled direct close, §3 ruling 10); `.7` (PR #322, `e4315acc`, built against v004, §3 ruling 9). REMAINING: `.3` stored `ready` — its first run's review-accepted fix was destroyed by the review_fix checkpoint timeout (third occurrence, `bd-ib-g56f` addendum 6) and its redispatch was refused by gate 1; `.6` run `01KYRTKFT7K8PTHN…` in flight since 06:15:55Z under the superseded-build dispatcher — see cold-open |
+| e. Implementation | **SEVEN OF SEVEN CLOSED (2026-07-30)** — `.1` (PR #243, `86cb0b6`); `.2` (PR #313, `427ea8ee`, seventh dispatch); `.3` (PR #332, `8a5d8f9`, run `01KYRY50B5MY` succeeded 73m13s, ledger reconciled 08:40Z — see §7); `.4` (PR #324, `fa05c58`); `.5` (PR #321 + ruled direct close, §3 ruling 10); `.6` (PR #328, `316b724`); `.7` (PR #322, `e4315acc`, built against v004, §3 ruling 9). Gate RE-MEASURED on master at `8a5d8f9`: `uv run pytest overseer -q` = **499 passed**; `just check` = **all 63 targets passed**, coverage **100%** (5357 statements, 1048 branches, zero missed), green token written |
 
 ### Step e state, and the FOUR gates a dispatch can hit
 
@@ -233,53 +234,33 @@ E2E-key probe passed review and was believed.
 
 ### So, on cold open
 
-Run the staleness pre-flight (gate 1) FIRST. If it is stale, you are waiting
-on another restart, not on a human — say so and stop; do not burn the session
-re-deriving this. If it is clean:
+**There is NO dispatch left in this thread, and nothing above is a step for
+you.** Step e is complete and its gate is green on master. The credential
+probes, the four gates and the factory-outage history are retained as
+REFERENCE for whoever inherits the next epic — do not re-run them here, and
+do not re-dispatch anything. If you doubt that, verify the LEDGER rather than
+this file: `bd show overseer-4xfmez` must read `7/7 complete (100%)`.
 
-1. **Probe both credentials** — `dispatcher.py codex-cred-status [--json]`
-   (gate 4) AND `dispatcher.py claude-cred-status [--json]` (the tool-backed
-   Anthropic check above; E2E-key and `claude -p` probes are false
-   positives). Both measured CLEAR on 2026-07-30 (~229.6 h codex headroom;
-   claude-cred-status `usable`/200 after the maintainer's rotation), so
-   expect to CONFIRM rather than to unblock — but re-measure, do not
-   assume, since both are time-dependent. If the codex token is short of
-   the 4 h budget, try the non-interactive `codex-cred-refresh` FIRST and
-   fall back to an interactive `codex login` (surface it — attended:
-   `AskUserQuestion`; the `!`-prefix runs it in-session). If
-   claude-cred-status reports exhausted, the maintainer act is re-minting
-   the wrapper token from a healthy org (`claude setup-token`); hold
-   dispatches until it reports usable. Do the rest of this list while
-   waiting.
-2. **Dispatch `.3`** — stored `ready`; `drive --action impl:overseer-4xfmez.3`.
-   Context the fresh run's reviewer will likely re-derive: its first run's
-   review ACCEPTED a real finding — `_supervisor_shielded_attention.py:163`
-   hardcodes "preventing evidence: background shell", so the
-   `winddown-starved` alert can fire on a shell-less tick, violating the
-   evidence-enumeration rule — and the fix was applied, then destroyed by
-   the review_fix checkpoint timeout (that timeout has killed 2 of 2 runs
-   whose review accepted a finding; `bd-ib-g56f` addendum 6). On a gate-3
-   cap refusal, wait and retry — do not raise the cap further.
-3. **Watch every run; never park an interview.** If the R/I/A interview
-   fires, read the REAL error from `fabro events <run>` `stage.failed`
-   properties (the interview text hides it), answer promptly — a parked run
-   dies at 240 m and takes its green work along — and verify the run status
-   flipped after answering (`fabro attach` exit 0 proves nothing).
-4. **See `.6` through** — run `01KYRTKFT7K8PTHN…` (started 2026-07-30
-   06:15:55Z) was launched by a dispatcher on the superseded build
-   `856d699b5f7d`; the run itself is unaffected. If its dispatcher reports
-   green, verify the ledger row closed. If the dispatcher dies and the run
-   completes out-of-band, the item strands ACTIVE with NO sanctioned valve
-   (measured on `.5`: `impl:` refuses not-ready, `accept:` refuses
-   invalid-source-state) — the `.5` precedent (§3 ruling 10) is the shape of
-   the remedy, and each recurrence needs its own consent.
-5. **Epic close-out once `.3` and `.6` are CLOSED:** verify each slice by
-   its OWED TESTS per
-   `plan/background-shell-supervision-liveness/research/untracked-obligation-closure.md`
-   (`.4`/`.5`/`.6` closure is by owed tests, NOT the gap-id check), refresh
-   this §2 to the completed state, and surface the two §7 PENDING remedies
-   (the epic-comment sentence and the future MUST-form propose-change) for
-   a consent batch — they remain NON-blocking.
+The ONE remaining execution path is the epic close-out. Its first item is
+maintainer-gated and the other two are not:
+
+1. **The daemon rollout + live-verification decision — BLOCKING for epic
+   closure, and the only genuinely open question in this thread. Prepared in
+   §10; do not act on it unilaterally.** The epic's DONE MEANS requires
+   "live verification per lane that a stalled or shielded track cannot
+   remain silently green", and the acting daemon (tmux
+   `livespec-overseer:1.1`) still runs PRE-EPIC code, so NO lane has been
+   exercised live. Nothing else in this list waits on it.
+2. **The two §7 PENDING remedies, as ONE consent batch, NON-blocking** — (b)
+   the epic traceability comment's defective closure sentence, whose
+   replacement text is drafted verbatim in
+   `research/untracked-obligation-closure.md` §4, and (a) later raising the
+   four gap-invisible clauses to `MUST` form in a fresh propose-change cycle
+   (identical semantics; touches ratified prose, so it needs its own cycle).
+3. **Then close the epic.** It is already `eligible for close` on child
+   state alone, but its DONE MEANS is not discharged until item 1 lands.
+   Closing is a ledger write and is NOT covered by §3 ruling 5 (admissions
+   only) — it needs its own consent.
 
 **Never implement inline from this planning seat.** If `drive` hits a
 genuine human valve, do NOT force it — surface it (an attended seat presents
@@ -357,6 +338,21 @@ Maintainer, 2026-07-30:
     authorized. Systemic gap: `bd-ib-g56f` addendum 7 / remedy 5. This is
     precedent-SHAPED, not a general license — each recurrence needs fresh
     consent.
+
+    **MECHANISM SUPERSEDED 2026-07-30 (the ruling stands as history; do not
+    copy its remedy).** "NO sanctioned valve covers that state" was true of
+    the build in hand on `.5`. A code-backed operator valve EXISTS on
+    `67081674b0f3`: `dispatcher.py reconcile-merged --repo <path> --item <id>`
+    — "the post-merge janitor + acceptance valve for a stranded active item".
+    It resolves the merged PR itself via `gh`, runs the post-merge janitor,
+    then completes and accepts, and it JOURNALS. Use it, not a direct
+    `bd close`, on any future recurrence. It is a LEDGER operation, not a
+    fabro dispatch, so it is compatible with a run-activity freeze. Its
+    `--force` flag bypasses ONLY the live-dispatch heartbeat refusal and its
+    stated precondition is that you have CONFIRMED the original dispatcher
+    process is dead — check the pid in
+    `tmp/fabro-dispatch-admission.slot*.lock` before reaching for it, and if
+    the pid is alive do NOT force. Exercised unforced on `.3` (see §7).
 
 Earlier and still binding: the narrow predicate's **2-hour episode floor**
 and **`shell-prolonged`** token; supervisor sessions are **FULL CITIZENS**
@@ -458,8 +454,71 @@ failure of your command.
 
 ## 7. Known-good verification results, so they are not re-derived
 
-Measured 2026-07-28; re-measure rather than trusting these if they matter to
-a decision, but do not assume they are stale.
+Measured 2026-07-28 unless a bullet says otherwise; re-measure rather than
+trusting these if they matter to a decision, but do not assume they are
+stale.
+
+- **THE CLOSE-OUT VERIFICATION IS DONE (2026-07-30 ~08:40Z, at `8a5d8f9`).
+  Do not re-derive it.** Three results:
+  - **Gate green on master:** `uv run pytest overseer -q` = **499 passed**;
+    `just check` = **all 63 targets passed**, coverage **100%** (5357
+    statements, 1048 branches, zero missed), green token written. (Note the
+    `-q` run prints NO summary line in this repo's configuration — the exit
+    code and the dot count are the signal.)
+  - **Every owed test in the note's §"Tests the implementation owes" list
+    (1–13) maps to a landed test**, verified by name against master. The
+    load-bearing bound `.3` promised to preserve is intact and still named
+    `test_blocked_with_only_a_background_shell_is_never_voided`
+    (`overseer/test_supervisor_warned_stamp_written.py:271`) — PR #332
+    touched that file by 4+/2−, i.e. the incidental status assertion only,
+    exactly as the slice's scope item 4 required. Owed test 12's two
+    standing tests are GROWN structurally rather than by enumeration:
+    `test_needs_attention_predicate_covers_every_attention_status`
+    (`overseer/test_supervisor_tmux_column_annotates.py:179`) LOOPS over
+    `supervisor.ATTENTION_STATUSES`, so each new status the epic added
+    (`ctx-stale`, `ready-uncertifiable`, `shell-prolonged`,
+    `winddown-starved` — `overseer/_supervisor_view.py:43-50`) is covered
+    automatically. Lane D deliberately adds NO row status: the pair stall
+    surfaces as an alert plus the operator line, so its absence from
+    `ATTENTION_STATUSES` is by design, not a miss.
+  - **The gap-ledger echo holds.** All 14 gap ids the epic's traceability
+    comment maps to slices (`.1` 1, `.2` 3, `.3` 6, `.5` 2, `.7` 2) are
+    present in the detector's emitted set and each classifies as
+    IMPLEMENTED against landed code plus a named test. As predicted, the set
+    did NOT shrink — it GREW to **25** candidates, because it is a pure
+    function of the spec text and v003+v004 added prose. Also measured:
+    `detect_impl_gaps --since-version v004` emits an EMPTY set, which is the
+    expected reading of "live spec == v004" and agrees with doctor's
+    `out-of-band-edits` pass. `.4` and `.6` still have no mapped ids at all
+    and closed on owed tests alone, per the corrected rule.
+  - **One residual, reported rather than papered over:** owed test 2's fifth
+    arm ("daemon restart DELAYS starvation") has no dedicated assertion. The
+    property is documented at the mechanism
+    (`overseer/_supervisor_config.py:134`,
+    `overseer/_supervisor_records.py:57` — the clock is in-memory, so a
+    restart resets it, which only ever delays firing) and the sibling
+    durability arm IS pinned for the bands
+    (`test_bands_are_durable_across_daemon_restart`,
+    `overseer/test_supervisor_voiding_stale_blocked2.py:157`). The
+    unasserted direction is fail-SOFT (it can only under-fire, never
+    misfire), which is why this is a note and not a reopen.
+
+- **`.3`'s stranded ledger row was reconciled by the CODE-BACKED valve, not a
+  direct close (2026-07-30 08:40Z).** Sequence, because the shape recurs:
+  run `01KYRY50B5MY` SUCCEEDED (73m13s) and PR #332 rebase-merged at
+  08:32:16Z as `8a5d8f9205e0c7cf8dea8fe83ff2c1bf403de588`, while the fabro
+  server was being rebuilt; the row stayed ACTIVE because the dispatcher
+  never reached accept bookkeeping. The dispatcher was NOT simply dead: at
+  08:33Z pid 2998191 was alive-but-hung in `futex_do_wait` with a live child
+  `fabro run` client bound to the pre-restart socket, and it exited on its
+  own by 08:38Z — so `reconcile-merged` then passed its live-dispatch
+  heartbeat guard UNFORCED and returned `stage: done`, `status: green`,
+  "merged, post-merge janitor green". **A live-but-hung pid never
+  self-reclaims its admission slot** (the dispatcher self-reclaims only
+  DEAD-pid slots), so check pid liveness in
+  `tmp/fabro-dispatch-admission.slot*.lock` before concluding the cap is
+  exhausted. Third recurrence of the stranded-merged shape (`.5`, `.6`,
+  `.3`); systemic gap remains `bd-ib-g56f` addendum 7 / remedy 5.
 
 - **The gate is fully green on master, RE-MEASURED after the
   `livespec-dev-tooling` pin went to v1.0.0** (PR #234) — a major bump of the
@@ -624,3 +683,47 @@ reasoning lives in `research/`; per-finding review verdicts live in the
 scratch verification logs AND, where durable, in the note; status lives in
 the ledger and on the forge; keep exactly ONE next execution path. Refresh §2
 whenever a step changes state, and before declaring `ready`.
+
+## 10. The daemon rollout + live-verification question (PREPARED, NOT ACTED ON)
+
+Drafted 2026-07-30 for the maintainer. It is the ONE thing blocking epic
+closure, and it is a genuine decision, not a task someone forgot to do.
+
+**The facts.** All seven slices' code is on master and green there (§7). But
+the daemon that is ACTUALLY SUPERVISING right now — tmux
+`livespec-overseer:1.1` — is a long-running process started BEFORE this epic
+landed, so it is executing PRE-EPIC code. Every new lane is therefore proven
+only by its tests: **no lane has run against a live pane.** Meanwhile the
+epic's own DONE MEANS demands "live verification per lane that a stalled or
+shielded track cannot remain silently green while genuine background work and
+genuine human waits stay protected."
+
+**Why it cannot be quietly self-served.** Rolling the daemon forward means
+restarting the acting overseer daemon, and the standing safety clause forbids
+killing it. The restart is also not free of risk in the exact dimension this
+epic touches: the new lanes add ACT paths (the supervisor wrap-up, the
+supervisor ready-gated restart, the pair nudge). A first live exercise of act
+paths against real panes is the highest-consequence moment in the whole epic,
+and lane A/B/D clocks are in-memory (`_supervisor_config.py:134`), so a
+restart also resets every duration clock — which delays firing rather than
+misfiring, but does mean the first post-restart window observes nothing.
+
+**The shape of the decision — three defensible answers, and they are not
+equally safe:**
+
+1. **Roll forward and verify live, act paths ENABLED.** Discharges DONE MEANS
+   fully. Highest consequence: first-ever live exercise of supervisor
+   restart + pair nudge.
+2. **Roll forward in a report-only posture first** — observe the new
+   attention surfaces on real panes for a window, with the act paths not
+   yet trusted, then enable. Discharges the report-only half of DONE MEANS
+   immediately and defers the act half. Note the report-only obligations are
+   the majority of what the epic added.
+3. **Close the epic on tests alone and file live verification as its own
+   work-item.** Honest and unblocking, but it AMENDS the epic's DONE MEANS,
+   so it needs to be stated as such rather than glossed.
+
+**What NOT to do:** do not treat the green gate as live verification, and do
+not restart the acting daemon to "just try it" without the maintainer's
+answer. Whoever presents this should present it as an `AskUserQuestion` per
+§1, with the three options above and the consequence line for each.
