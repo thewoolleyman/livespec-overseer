@@ -159,17 +159,28 @@ non-interactive form, a codex exec turn does NOT rewrite the token, and
 `codex login status` does not show expiry — decode remaining life from
 `~/.codex/auth.json` (print ONLY `exp` claims, never token material). The
 Anthropic side has no equivalent pre-flight gate; it fails IN-RUN instead
-(the spend-limit story above), so probe it cheaply before dispatching:
+(the spend-limit story above), so probe it cheaply before dispatching —
+**on the RIGHT credential.** Measured 2026-07-29/30 across four incidents:
+the review adapter bills the org of **`CLAUDE_CODE_OAUTH_TOKEN`** (the
+wrapper secret the workflow env hands it). Probes on
+`ANTHROPIC_API_KEY_LIVESPEC_E2E` (different org) and interactive
+`claude -p` (different credential) both returned OK while the adapter was
+hard-blocked — BOTH are documented false positives; do not trust them. The
+ONE validated probe, correct on every incident:
 
 ```bash
 /usr/local/bin/with-livespec-env.sh -- sh -c 'curl -s -o /dev/null -w "%{http_code}" \
   https://api.anthropic.com/v1/messages \
-  -H "x-api-key: $ANTHROPIC_API_KEY_LIVESPEC_E2E" \
+  -H "Authorization: Bearer $CLAUDE_CODE_OAUTH_TOKEN" \
+  -H "anthropic-beta: oauth-2025-04-20" \
   -H "anthropic-version: 2023-06-01" -H "content-type: application/json" \
   -d "{\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}"'
 ```
 
-`200` = capacity; the spend-limit refusal names itself in the body.
+`200` = capacity; `429` = the adapter WILL die at review — hold dispatches.
+Ruled 2026-07-30: the wrapper token is re-minted from a healthy org
+(`claude setup-token`, maintainer act) whenever its org exhausts; full
+incident history in `bd-ib-g56f` (addenda 3–5).
 
 ### So, on cold open
 
@@ -177,11 +188,15 @@ Run the staleness pre-flight (gate 1) FIRST. If it is stale, you are waiting
 on another restart, not on a human — say so and stop; do not burn the session
 re-deriving this. If it is clean:
 
-1. **Probe both credentials** (gate 4 + the capacity probe above). If the
-   codex token's remaining life is under the 4 h budget, the ONE unblocking
-   act is an interactive `codex login` on this host — surface it (attended:
-   `AskUserQuestion`; the `!`-prefix runs it in-session) and do the rest of
-   this list while waiting.
+1. **Probe both credentials** — the codex TTL (gate 4) AND the OAuth-token
+   capacity probe above (the ONLY valid Anthropic signal; E2E-key and
+   `claude -p` probes are false positives). If the codex token's remaining
+   life is under the 4 h budget, the ONE unblocking act is an interactive
+   `codex login` on this host — surface it (attended: `AskUserQuestion`;
+   the `!`-prefix runs it in-session). If the OAuth probe returns 429, the
+   maintainer act is re-minting the wrapper token from a healthy org
+   (`claude setup-token`); hold dispatches until the probe returns 200. Do
+   the rest of this list while waiting.
 2. **Dispatch `.2`** — `drive --action impl:overseer-4xfmez.2`. If the
    ledger shows it ACTIVE with no live run, restore it first via
    `move:overseer-4xfmez.2:ready` (see gate 2). On a gate-3 cap refusal,
