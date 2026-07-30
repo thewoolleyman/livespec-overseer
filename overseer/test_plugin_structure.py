@@ -90,7 +90,8 @@ def test_supervise_plan_prose_pins_reviewed_target_repo_write_discipline():
 def test_overseer_operator_prose_cites_slice_1_command_names():
     prose = PROSE.read_text(encoding="utf-8")
 
-    assert "```bash\noverseer-start\n```" in prose
+    assert 'OVERSEER_START="${LIVESPEC_OVERSEER_START:-}"' in prose
+    assert '"$OVERSEER_START"' in prose
     assert "overseerd --warn-percent N 2>> tmp/overseer/daemon.log" in prose
     assert "```bash\noverseer/overseer-start\n```" not in prose
     assert "overseer/overseerd --warn-percent" not in prose

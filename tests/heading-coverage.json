@@ -143,8 +143,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Bootstrap preconditions",
-    "test": "overseer.test_overseer_start.test_refuses_outside_claude_code",
-    "reason": "Pins the refusal precondition: with $CLAUDECODE unset but inside tmux, the bootstrap refuses BEFORE any tmux mutation and names the missing precondition, so no half-set-up pane is ever created."
+    "test": "overseer.test_overseer_start.test_refuses_outside_agent_runtime",
+    "reason": "Pins the refusal precondition: with no supported agent runtime but inside tmux, the bootstrap refuses BEFORE any tmux mutation and names the missing precondition, so no half-set-up pane is ever created."
   },
   {
     "spec_root": "SPECIFICATION",

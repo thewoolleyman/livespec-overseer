@@ -1,12 +1,11 @@
 """Importable entry point for the /overseer two-pane bootstrap.
 
-This is the skill's bootstrap command — invoked BY the `/overseer` skill (via
-Claude's Bash tool) from inside the interactive Claude (bottom) pane. It is NOT a
-standalone launcher and does NOT start Claude: it splits the daemon pane beside
-the SAME Claude session that ran `/overseer`, and that session simply resumes in
-the bottom pane. Run by hand from a plain shell it would leave a bare-shell bottom
-pane (no Claude), so it REFUSES unless `$CLAUDECODE` marks a Claude Code session
-(the /overseer entry point).
+This is the skill's bootstrap command — invoked BY the `/overseer` skill from
+inside the interactive agent (bottom) pane. It is NOT a standalone launcher and
+does NOT start Claude or Codex: it splits the daemon pane beside the SAME agent
+session that ran `/overseer`, and that session simply resumes in the bottom pane.
+Run by hand from a plain shell it would leave a bare-shell bottom pane (no agent),
+so it REFUSES unless process ancestry shows a supported agent runtime.
 """
 
 from __future__ import annotations
@@ -22,6 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import streams
 import supervisor
 import tmuxio
+from _seams import PidToOptionalInt, PidToOptionalStr
+from claude_sessions import proc_comm, proc_ppid
 
 __all__: list[str] = ["daemon_command", "main"]
 
@@ -31,6 +32,44 @@ _DAEMON_PANE_TITLE = "overseer-daemon"
 # `NEEDS YOU` block — the surfaces that actually answer "what needs my attention?" —
 # so it gets the room; the bottom pane is a command prompt (maintainer 2026-07-14).
 _DAEMON_PANE_HEIGHT_PERCENT = 66
+_MAX_PARENT_WALK = 64
+_CODEX_AGENT_COMMS = frozenset({"codex", "codex-acp"})
+_CLAUDE_AGENT_COMMS = frozenset({"claude", "node"})
+
+
+def _has_supported_agent_ancestor(
+    *,
+    pid: int,
+    claudecode_present: bool,
+    comm_of: PidToOptionalStr = proc_comm,
+    ppid_of: PidToOptionalInt = proc_ppid,
+    max_hops: int = _MAX_PARENT_WALK,
+) -> bool:
+    """True when ``pid`` is descended from a supported interactive agent runtime."""
+    current = pid
+    for _ in range(max_hops):
+        comm = comm_of(pid=current)
+        if comm in _CODEX_AGENT_COMMS:
+            return True
+        if (
+            claudecode_present
+            and comm is not None
+            and (comm in _CLAUDE_AGENT_COMMS or "claude" in comm)
+        ):
+            return True
+        parent = ppid_of(pid=current)
+        if parent is None or parent <= 0 or parent == current:
+            return False
+        current = parent
+    return False
+
+
+def _running_under_supported_agent() -> bool:
+    """Whether this bootstrap was launched by a supported agent runtime."""
+    return _has_supported_agent_ancestor(
+        pid=os.getpid(),
+        claudecode_present=bool(os.environ.get("CLAUDECODE")),
+    )
 
 
 def daemon_command(*, warn_percent: int | None) -> str:
@@ -84,20 +123,22 @@ def main(
     )
     args = parser.parse_args(argv)
 
-    # 0. Refuse unless run BY the /overseer skill inside a Claude Code session.
-    # `$CLAUDECODE=1` is set in every shell Claude Code spawns for its Bash tool
-    # (and their children) — so it is present when the skill invokes this script,
-    # and absent when a human types it in a plain terminal. Without it the bottom
-    # pane is not a Claude session that will resume after the split, so splitting
-    # would leave a bare-shell bottom pane (no Claude) — the broken state this
-    # guard prevents. Refuse BEFORE splitting so no half-set-up state is created.
-    if not os.environ.get("CLAUDECODE"):
+    # 0. Refuse unless run BY the /overseer skill inside a supported agent runtime.
+    # Env markers are inherited by child processes, so `$CLAUDECODE` alone is not
+    # enough: a nested Codex launched from Claude Code inherits it. Instead walk
+    # upward through process ancestry and admit a real Claude Code or Codex ancestor.
+    # Without that, the bottom pane is not an agent session that will resume after
+    # the split, so splitting would leave a bare-shell bottom pane — the broken
+    # state this guard prevents. Refuse BEFORE splitting so no half-set-up state is
+    # created.
+    if not _running_under_supported_agent():
         streams.write_stderr(
             text=(
                 "overseer-start: this is the /overseer skill's bootstrap, not a standalone "
-                "command. Run /overseer inside a Claude session that is running in a tmux "
-                "pane — it splits the daemon pane beside THAT session; it does NOT launch "
-                "Claude. Refusing to run outside Claude Code ($CLAUDECODE unset).\n"
+                "command. Run /overseer inside a Claude Code or Codex session that is "
+                "running in a tmux pane — it splits the daemon pane beside THAT session; "
+                "it does NOT launch Claude or Codex. Refusing to run outside Claude Code "
+                "or Codex (no supported agent runtime in process ancestry).\n"
             )
         )
         return 1
@@ -107,7 +148,8 @@ def main(
         streams.write_stderr(
             text=(
                 "overseer-start: not inside a tmux pane ($TMUX_PANE unset). Run /overseer "
-                "from a Claude session that is itself running inside a tmux pane.\n"
+                "from a Claude Code or Codex session that is itself running inside a tmux "
+                "pane.\n"
             )
         )
         return 1
