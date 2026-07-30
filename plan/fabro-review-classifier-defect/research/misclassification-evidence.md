@@ -432,6 +432,29 @@ both**. What is now false is any claim that the fix classifies provider limit
 failures **generally**. The single-hint list was flagged as brittle when the
 branch was prepared; this is measured evidence of a second phrasing in the wild.
 
+### Delivery of this finding — DELIVERED-BY-FILE, **NOT CONFIRMED-READ**
+
+The addendum is at `/data/projects/fabro/tmp/ADDENDUM-second-limit-payload-found.md`
+(gitignored; no tracked file, the branch and their handoff prompt untouched).
+Its content is **also visible in their pane**, left there unsent — see
+supervisor correction **C6** for why the send was abandoned rather than
+retried.
+
+**Do not record that they have it.** Delivered by file; **not** confirmed read.
+
+State of that session when this was written: `fabro`
+(`gpt-5.6-sol`, cwd `/data/projects/fabro`) running a **three-way** review — an
+Opus 5 reviewer spawned via `claude --print --model claude-opus-5`, plus a
+Fable reviewer which had **already returned findings** that the drive-prefix
+exclusion is too narrow for **mixed-separator paths**. **No reviewer had
+returned a final verdict**, and the branch was frozen and unpushed.
+
+> **C4, vindicated a third time in one session.** The branch head has now moved
+> **three times today**: `a7c42204b` → `b46a4f387` → `3251a8aa2`. The **branch
+> name** `fix/classify-provider-spend-limit-not-transient` is the durable
+> identifier. **No SHA in this record is durable**; every one is an as-of
+> reading, and this is the clearest possible demonstration of why.
+
 ### The open design question — recorded, NOT decided
 
 A monthly **spend cap** is permanent and needs a human. A **rolling window that

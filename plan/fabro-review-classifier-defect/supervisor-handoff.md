@@ -113,6 +113,18 @@ diagnosis "unverified" by reading only logs.
 
 ## How to inspect and drive
 
+> **⚠ EVERYTHING BELOW ABOUT SENDING IS CLAUDE CODE-SPECIFIC. It does NOT
+> transfer to another harness.** The verify-then-Enter procedure was measured
+> against a **Claude Code** pane. In a Codex / `gpt-5.6-sol` pane, **`Enter`
+> does not submit**, and a footer reading "tab to queue message" does **not**
+> mean `Tab` queues a pasted buffer — it appends a
+> `[Pasted Content N chars]` placeholder instead.
+>
+> **Before typing into ANY pane you do not own:** identify the harness (its
+> footer names it), confirm that harness's submit idiom, and **stop after two
+> failed keystrokes** — fall back to a file the recipient will be pointed at.
+> See correction **C6**.
+
 Inspect read-only — last 40 lines of the worker pane:
 
 ```sh
@@ -367,6 +379,33 @@ because they are role-level rather than track-level:
   worker's fact-check, not my own. `.claude/CLAUDE.md` now carries a "several
   Anthropic credentials" section which says to **cite** it rather than restate
   it per thread; that is the correct home for this fact.
+
+- **Assumed one harness's send idiom transfers to another.** The
+  verify-then-Enter procedure in this charter is **Claude Code's**, and this
+  charter stated it as if it were universal. It is not. Sending the rung-five
+  addendum to session `fabro`, a **Codex / `gpt-5.6-sol`** pane: `Enter` did
+  **not** submit — the text sat in the prompt — and pressing `Tab`, because
+  their status line reads *"tab to queue message"*, appended a
+  `[Pasted Content 1018 chars]` placeholder rather than queuing anything. Two
+  keystrokes, neither doing what I expected, **in someone else's live pane**.
+  Before typing into ANY pane you do not own: identify the harness — its footer
+  names it — and confirm **that** harness's submit idiom. Do not carry this
+  charter's procedure across a harness boundary.
+- **What limited the damage, and is the reusable rule: STOP after two failed
+  keystrokes in a pane you do not own.** The cost of an undelivered message is
+  a message. The cost of a third guess was **an interrupted adversarial
+  review** — that pane binds `Esc` to interrupt and an Opus 5 reviewer was live
+  (pid 3796734, two background terminals). I stopped, verified afterwards that
+  their reviewer and both terminals were still running, and left the text
+  visible but unsent. When a send does not behave as expected in someone else's
+  session, **fall back to the durable channel** — a file they will be pointed
+  at — rather than escalating input.
+- **Corollary to the picker rule already recorded.** Earlier the same day I
+  correctly declined to type into a peer supervisor's **open picker**, because
+  a keystroke could select an option on the maintainer's behalf. C6 is that
+  hazard **one step out**: an open picker is the obvious case, but **any**
+  foreign pane can interpret input in ways your own harness does not. The
+  picker rule was not special — it was the visible instance of a general one.
 
 ### What WORKED — copy these, not only the avoidances
 
