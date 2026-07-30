@@ -209,6 +209,31 @@ So every generator fix in this epic is **inert until a release ships**, and the
 contract test asserts an artifact that does not produce charters. This is the
 deepest form of the verifier-that-cannot-fail shape the epic exists to remove.
 
+**RE-MEASURED 2026-07-30 05:47Z — the claim holds, and it is worse than "nine
+stale versions".** All nine cached `prose/supervise-plan.md` files are
+**BYTE-IDENTICAL** (one `md5sum`, `2283862c…`), so this is ONE frozen artifact
+under nine names, not a rollout that is merely behind. There is no gradation to
+partially credit.
+
+| probe | master | all 9 caches |
+|---|---|---|
+| `WORKER_TARGET='=` (exact-target mandate) | 6 | **0** |
+| `supervisor_pane_pid` (liveness proof) | 4 | **0** |
+| bare `-t "` targets (defect class (a)) | **0** | **4** |
+| prose length | 485 lines | 291 lines |
+
+The active version is `efe607c6a3e7` (what the session-start hook reports as "the
+latest"), and its four bare targets are at lines 53, 63, 74 and 90 — so the
+generator running on this host RIGHT NOW emits the exact defect class the charter
+gate exists to catch. Master is at `0.13.3`; **PR #244 (`chore(master): release
+0.14.0`) is OPEN and unmerged**, which is the release that would carry every fix
+in this epic to the thing that actually generates charters.
+
+**Run the positive control if you re-measure this.** A zero count from a grep is
+indistinguishable from a wrong pattern, and this exact probe returns zero on all
+nine caches — the control is that the same two patterns score 6 and 4 on master.
+Without it the measurement is worthless.
+
 **Deliberately NOT built — it is a release-lane decision.** Three candidate shapes:
 (a) assert the INSTALLED plugin's prose satisfies the contract — cannot run in CI
 where no cache exists, and needs a no-skip answer; (b) a release-hygiene check that
