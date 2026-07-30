@@ -418,6 +418,68 @@ because they are role-level rather than track-level:
   the orchestrator measurement in `overseer-fs4` trustworthy rather than merely
   confident.
 
+### THE FOUR RULES — the generalization the corrections are instances OF
+
+**Read this before the corrections below.** `C1…Cn` are **instances**; these are
+the **method** distilled over them, and the method is the part a successor can
+apply to work that looks nothing like this thread. **Each rule names the
+instance that produced it, so it can be checked rather than believed.**
+
+**RULE 1 — Give the check a way to come back empty-handed and mean it.**
+*Earned from:* the vacuous path-scoped `git diff` that opened this thread —
+`git diff --stat upstream/main -- lib/crates/…` read as "byte-identical" when it
+was empty only because upstream had relocated the path; and
+`check-prose-release-hygiene`, a **required** merge gate whose
+`git diff … -- .claude-plugin/prose` returns the same empty result for "no prose
+changed" and "the directory is gone". A check with no failing path reports
+success by construction.
+
+**RULE 2 — Make sure it is looking at the RIGHT thing before you ask whether it
+came back empty.**
+*Earned from:* the plugin-cache measurement that ran a **correct positive
+control** — 291 lines, 18 `tmux` hits — and was still wrong, because control and
+finding came from the same **three-day-stale** cache directory
+(`efe607c6a3e7`, one of eleven siblings) while the live one was `013d35d48cde`.
+**A positive control proves the search reached content, not that it reached the
+right content.** Resolve *which* artifact is live from a source of truth, never
+by name or sort order.
+
+**RULE 3 — Know what a check CLAIMS to verify before concluding it failed to.**
+*Earned from:* two opposite errors. `ci-green` computes a correct verdict that
+**nothing consumes** — it is not among the 56 required contexts, so a gate whose
+result is discarded is indistinguishable at the merge boundary from one that
+always passes. And the near-miss on `check-heading-coverage`, where "a coverage
+gate certifying coverage that does not exist" was about to be filed until its
+docstring showed it resolves `test` ids **only** for `scenarios.md` — which none
+of the 23 stale rows are. **A gate that does not check X is a defect only if it
+says it checks X.**
+
+**RULE 4 — When an ABSENCE is the finding, confirm the SUBJECT EXISTS before
+reporting the absence.**
+*Earned from:* the `livespec-console` 404, reported as "a repo with no branch
+protection" and flagged for another owner. **The repository does not exist** —
+the repo endpoint 404s too. A 404 has at least two causes licensing **opposite**
+conclusions: a finding about a repo, or a typo in its name. Its corollary, from
+verifying that very retraction: **an OCCURRENCE is not a claim** — a string
+absence cannot verify a retraction, because a correct retraction *quotes* what it
+retracts. Verify the **assertion position**, not the string.
+
+> **Why these are worth following rather than skimming — the through-line.**
+> **Fourteen instances** of *a check that cannot fail, returning success*, and
+> **six of them were committed while deliberately sweeping for that exact
+> defect** — one *with* a correct positive control, one via a **safety idiom**
+> (`${PIPESTATUS[0]:-$?}`, which reports success when the guarded command
+> failed), one in the **detector** for the drift it failed to report, one in the
+> sweep's **own record**.
+>
+> **Hunting this defect INCREASES exposure to it, because hunting means running
+> more checks, and every check is a candidate.** That is why the count kept
+> growing, and it is stronger evidence than the count itself, because it
+> explains the growth rather than tallying it.
+>
+> **So the remedy cannot be vigilance — vigilance is what produced six of
+> them.** It has to be structural, which is what these four rules are for.
+
 ### The META-LESSON over C1–C5 — this log is a SWEEP SPECIFICATION, not an incident list
 
 This sits **above** C1–C5 rather than beside them: it is how to *use* them.
@@ -614,6 +676,29 @@ YES`.
 > `.ai/supervisor-protocol.md`, but that file is the shared generator surface
 > (`overseer-816`), so promoting it is a deliberate fleet-wide act and not a
 > side effect of writing it down here.
+
+#### LADDER CLOSE — where the sweep actually stopped, and why
+
+**Nine rungs reached. UNEXHAUSTED.**
+
+**The sweep was stopped by SESSION BUDGET, not by a dry rung.** Rung nine was
+**productive** — it produced the single biggest finding of the sweep (this repo
+is the fleet's sole outlier on branch protection, which *reframed*
+`overseer-rh1`). Nobody climbed a tenth rung. **Do not read the stopping point
+as a completion.**
+
+**One precision, because it would otherwise become a false claim.** It is *not*
+true that "every rung returned something": **rung eight was DRY as scoped**
+(the `tests/heading-coverage.json` registry). Eight of the nine were productive.
+That dryness is what produced the ladder's most portable rule — **a dry rung is
+a hypothesis about scope, not a result** — since re-asking rung seven's question
+at *fleet* scale is exactly what made rung nine the biggest find. A summary that
+smoothed rung eight into "every rung returned something" would delete the very
+episode that taught the rule.
+
+**For whoever climbs rung ten:** the productive move at every altitude has been
+to ask the *same* question one layer up or one scope wider — gate → is the
+verdict consumed → is the config fleet-consistent. Widen before inventing.
 
 > **A dry rung is a RESULT and must be recorded as one.** The failure mode here
 > is not stopping too early — it is manufacturing a find to keep the streak
