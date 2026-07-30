@@ -374,6 +374,52 @@
 > > > start"*). That reproduction was sound. What was unsound was concluding it
 > > > therefore was not what happened in the probe.
 > >
+> > #### ⛔ AN OBSERVE-ONLY (`act=False`) RUN CANNOT PROVE ADOPTION — checked before running it
+> >
+> > A proposed third route — exercise the real adoption path from a Codex session
+> > with the action seam OFF, so nothing is injected — was **verified before being
+> > pointed at anything, and it does not work.** The premise *"adoption is
+> > discovery, not action"* is **false in this codebase**, and the code says so
+> > itself.
+> >
+> > `_supervisor_discovery.build_rows` returns on the `not act` path at **`:293`**,
+> > and `adopt_sessions(sup=sup)` is at **`:302`** — *after* the return. Its own
+> > docstring classes adoption as a MUTATION:
+> >
+> > > *"When `act` (the daemon loop) this runs archive-GC + **registry adoption** +
+> > > auto-link, all of which **MUTATE the store**. When NOT `act` (the `list`
+> > > command, advertised read-only) it does **NONE** … so `list` cannot silently
+> > > rewrite / GC / **adopt** / re-link the store out from under a running daemon
+> > > (adversarial code review 2026-07-13, blocker B6)."*
+> >
+> > **So the very thing the bar asks for is the thing `act=False` is built to
+> > skip.** An observe-only pass proves discovery ⋈ join — not adoption.
+> >
+> > **The safety half DID check out, and is worth keeping:** `act=False` is inert.
+> > The early return sits above every mutator, and `_supervisor_evaluate.py`,
+> > `_supervisor_offer.py` and `_supervisor_idle.py` contain **no** stamp,
+> > registry or tmux writers. That zero was taken with a **positive control** —
+> > the same symbols resolve in `_supervisor_restart.py`, `_registry_stamps.py`
+> > and `_supervisor_discovery.py` — and a negative control at 0. **An empty
+> > result is not a finding; this one has its control.**
+> >
+> > #### The adoption code is UNCHANGED since it was verified live — a fact for the bar decision, not a decision
+> >
+> > A4's filing holds a real tension: it says the pid → `/proc/<pid>/fd` → rollout
+> > → `session_index.jsonl` → `thread_name` join *"was verified LIVE on
+> > 2026-07-16"* and that *"the daemon's adoption side needs NO change"*, while its
+> > acceptance sentence still asks that the daemon adopt and supervise a track.
+> > **Do not resolve that by preferring whichever half is convenient.**
+> >
+> > What CAN be measured, and is: **none of the three landed commits touched the
+> > adoption source.** `8bd5b91` (A4) and `0411f060` (e18) do not touch it at all;
+> > `e1ab505` (A6) touches only the `.claude-plugin/` MIRROR copies — there is no
+> > bare `overseer/_supervisor_discovery.py`, `codex_sessions.py` or
+> > `claude_sessions.py` in its file list. **So the adoption code running today is
+> > the code that was verified live on 2026-07-16.** Whether that discharges the
+> > acceptance sentence is a MAINTAINER decision about narrowing a bar; it is
+> > recorded here as evidence, and deliberately not decided.
+> >
 > > #### The NEGATIVE half — DISCHARGED, with a positive control
 > >
 > > Run **directly**, never through `codex exec` (whose exit status is documented
