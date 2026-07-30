@@ -263,6 +263,48 @@
 > > > regenerates should still diff the output against the current file before
 > > > accepting it.
 > > >
+> > > ### ✅ SWEPT ACROSS ALL SEVEN CHARTERS — nothing else is at risk
+> > >
+> > > The triage above was only ever run against OUR charter, so it was run across
+> > > **every** `supervisor-handoff.md` in the repo (3 live + 4 archived).
+> > > **Result: no role-level content is at risk anywhere.**
+> > >
+> > > | charter | sections | heading-orphans | verdict |
+> > > |---|---|---|---|
+> > > | `codex-parity-and-rollout-safety` | 12 | 1 | thread-specific (`RESUME STATE`) |
+> > > | `fabro-review-classifier-defect` | 10 | 0 | clean |
+> > > | `supervisor-prompt-quality` | 7 | 0 | clean (the wr8-touched thin one) |
+> > > | `archive/background-shell-supervision-liveness` | 13 | 3 | all thread-specific |
+> > > | `archive/cutover-and-shipping` | 7 | 0 | clean |
+> > > | `archive/ship-overseer-to-fleet` | 7 | 0 | clean |
+> > > | `archive/supervise-plan-residual-gaps` | 11 | 2 | **FALSE POSITIVES — see below** |
+> > >
+> > > ### ⚠ AND THE METHOD I SHIPPED HAS A FALSE-POSITIVE MODE — found by testing it
+> > >
+> > > `archive/supervise-plan-residual-gaps` flagged `[R2] Keep your own obligation
+> > > record` and `[R3] Handing an obligation to a peer track`. Both read as
+> > > ROLE-level, so they looked like a second wr8-class loss. **They are not.**
+> > > The triage matches HEADINGS, and the shared layer carries that content under
+> > > DIFFERENT headings — by content it is richly covered on both sides:
+> > >
+> > > ```
+> > >               protocol  generator
+> > > obligation      12         9
+> > > peer            10         4
+> > > receipt          3         2
+> > > confirmation     2         1
+> > > (controls)       1        11      bogus phrase: 0 / 0
+> > > ```
+> > >
+> > > The new gate pins the same concepts independently
+> > > (`test_a_record_without_the_durable_obligation_schema_is_rejected`,
+> > > `test_a_peer_held_handoff_without_receipt_ack_confirmation_is_rejected`, …).
+> > >
+> > > **So use the heading triage as a SCREEN, never as a verdict: a heading
+> > > orphan must be confirmed BY CONTENT before it counts as a loss.** Recorded
+> > > because I put that method into this record as guidance — a tool handed to
+> > > others earns the same scrutiny as a claim, and this one over-reports.
+> > >
 > > > **Why, verified independently rather than taken on report.**
 > > > `prose/supervise-plan.md:15-24` now emits **TWO** layers — the shared
 > > > `.ai/supervisor-protocol.md` plus a *"thin per-thread binder"* that is
