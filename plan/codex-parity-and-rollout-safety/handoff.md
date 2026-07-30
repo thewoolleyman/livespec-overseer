@@ -974,3 +974,29 @@ codex PRESENT.** F1 stands: `plugin_resolution.py` routes codex to a
 `DelegatedResolutionRunner` → SKIP, and `just check` at the default `mock`
 harness asserts only that `canonical_command` is a non-empty string — so flipping
 to `supported` without a working repo-local check is green-by-skip in BOTH modes.
+
+> **Citation RE-VERIFIED CURRENT 2026-07-30 — it has not drifted.**
+> `check-codex-skill-picker` is still at
+> `livespec-orchestrator-beads-fabro/justfile:1110`, and both self-skips are
+> exactly as described above (`CI=true` without
+> `LIVESPEC_REQUIRE_CODEX_TUI_PICKER=1` → `exit 0`; `command -v codex` absent →
+> `exit 0`). Checked because a stale line reference would cost A3's implementer
+> real time; it is sound, so use it.
+>
+> **The mechanism, which was not recorded before:** the recipe runs
+> `LIVESPEC_CODEX_SKILL_PICKER=1 uv run pytest tests/e2e-cli/test_codex_skill_picker.py`,
+> and the assertion is that the **TUI `/skills` picker renders a row**
+> `drive (livespec-orchestrator-beads-fabro)`. This repo's version would assert
+> rows for `overseer` and `supervise-plan` under `livespec-overseer`.
+>
+> ### ⚠ DO NOT credit A2's live evidence against A3's bar
+>
+> A2's live work (2026-07-30) proved **agent skill-list resolution** via
+> `codex exec` — both operations appeared in the session's available skills.
+> **A3's bar is a DIFFERENT surface: TUI `/skills` picker RENDERING.** They are
+> not the same check and one does not imply the other. **A2's proof therefore
+> pre-discharges NO part of A3**, and A3 must not be treated as partly done on
+> the strength of it. What A2's result *does* establish is that the plugin
+> installs and resolves at all — so A3's check has a realistic path to a
+> legitimate green, and its RED proof remains "remove the surface, show it
+> fails, with codex PRESENT and locally".
