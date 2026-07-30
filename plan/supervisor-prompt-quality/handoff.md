@@ -420,8 +420,64 @@ blanket `exit 0` would retire the execution leg for every ledger block), and the
 narrowing-free result was RED-demonstrated asymmetrically: blanket `exit 0` reddens
 only the discrimination leg; removing the stub reddens only the real-layers gate.
 
+### `overseer-jcw` HAS TWO MECHANISMS. ONE IS FIXED; THE OTHER IS NOT — 2026-07-30T23:55Z
+
+Diagnosed and half-fixed by this thread because `tests/prompts/` is this thread's
+own deliverable. **The ledger is untouched — jcw is NOT closed, and closing or
+re-scoping it is the supervisor's lane.**
+
+**MECHANISM 1 — a shared tmux socket across concurrent runs. FIXED, PR #418.**
+The rig named its private socket `legs-{tmp_path.name}`. That is the TEST's
+identity and is byte-identical across separate pytest invocations — unique per test
+and per xdist worker exactly as its docstring claimed, **not unique per RUN**. Two
+concurrent `just check` invocations on one host therefore addressed the SAME
+`tmux -L` server; the second `new-session -s wk` failed as a duplicate **without
+being noticed** (the helpers pass `check=False` and tmux exits 0 anyway), and the
+second run read the FIRST run's pane. Reproduced on demand: the leg passes 2/2 run
+alone and one of two concurrent invocations fails at `assert live == str(repo)`
+with two different `pytest-NNNN` roots in the diff. **It dies mid-test, so the
+lines below never execute — which is why this surfaced as a COVERAGE shortfall at
+lines 130-134 rather than as a test failure.** That is jcw's reported signature
+exactly. It had a SECOND independent instance (`disc-{tmp_path.name}` in
+`test_emitted_commands_discriminate.py`) that only appeared once the shared
+conftest was fixed, so `tests/prompts/test_rig_sockets_are_run_unique.py` now gates
+the property fleet-locally.
+
+**jcw's three guessed mechanisms were all wrong** — not the shared `.coverage`, not
+generic tmux contention, and not skip-instead-of-fail, which the refuse-to-skip
+guard rules out by construction. Worth remembering before trusting the next
+plausible-sounding cause list.
+
+**MECHANISM 2 — a timing premise that external CPU load invalidates. NOT FIXED,
+and deliberately not fixed by me.**
+`test_watcher_wake_discriminates.py::test_both_forms_report_busy_while_a_pane_keeps_changing`
+fails asserting BUSY and reading IDLE. `watcher_proposed` polls every 150ms and
+declares IDLE after N identical captures; the test drives a 50ms tick, and its own
+comment states the premise — "a 50ms tick against a 150ms poll guarantees a new
+value every poll". Under enough external load the loop is descheduled and tmux
+coalesces renders, so consecutive polls compare EQUAL and IDLE wins. That comment
+already records the same failure from CPU saturation at ~1-in-5.
+
+MEASURED, so the next session does not have to re-derive it: **0 of 8 alone, 0 of 8
+under a light paired load, 2 of 8 under two FULL concurrent suites** — and after
+mechanism 1 was fixed, **every** remaining failure across 8 concurrent full-suite
+runs was this one and no socket collision appeared at all.
+
+**Why I stopped here rather than fixing it.** The fix is a choice between "a
+churning pane is ALWAYS reported BUSY" and "…is EVENTUALLY reported BUSY within a
+bounded window". That changes what a DISCRIMINATION test proves, which is a
+contract decision, not a repair. Tuning the tick until it goes green is the
+re-run-until-green habit jcw itself argues against.
+
 ### Hazards to carry forward
 
+- **A "UNIQUE" IDENTIFIER IS ONLY AS UNIQUE AS ITS NARROWEST AXIS, and the
+  docstring will tell you it is fine.** The rig above claimed uniqueness "per test
+  and per xdist worker" and was correct on both — while colliding on the axis
+  nobody named, the RUN. `pytest`'s `tmp_path.name` is stable across invocations by
+  design; only `tmp_path`'s PARENT carries the run-unique `pytest-NNNN`. When
+  something must not collide, say out loud WHICH axes it varies on, then check the
+  ones you did not list.
 - **A COMMIT REJECTED BY A HOOK LEAVES THE CHANGE STAGED, and `git log` then shows
   someone else's HEAD.** Check `git status`, never `git log`. Hit twice; on S7 the
   rejection was state-dependent and a clean retry succeeded, so re-run
