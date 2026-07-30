@@ -144,12 +144,48 @@ idiom** — Claude Code's `Enter` does **not** submit in a Codex pane. See
 correction **C6** in `supervisor-handoff.md`, and **stop after two failed
 keystrokes**.
 
-**THE SWEEP IS STILL UNEXHAUSTED — rung six was climbed and it was NOT dry.**
-Six rungs now: thread files → ledger → repo outside this thread → other tenants
-→ other fleet repos → **this repo's own enforcement surface**. Every one
-returned something new, so **assume rung seven is not dry either.**
+**THE SWEEP IS STILL UNEXHAUSTED — rung six was climbed TWICE, independently,
+and NEITHER attempt was dry.** Six rungs now: thread files → ledger → repo
+outside this thread → other tenants → other fleet repos → **rung six**, reached
+by two sessions from different directions:
 
-Rung six aimed the carry-forward lesson back at our own gates and found
+- **(a) this repo's own enforcement surface** — the worker's. Found
+  `overseer-b4q` (below).
+- **(b) the plugin CACHE, i.e. the generator that actually RUNS** — the
+  supervisor's. Found that the running generator **contradicts itself**: its
+  preconditions name a `codex` worker (`:90`, `:116`), then its send section
+  hands over a Claude-only submit procedure (`:394`, `:396`, `:410`) with
+  **zero** harness caveat. Recorded on **`overseer-816`**, with the reciprocal
+  half on **`overseer-d4t`**.
+
+They are **different rungs and both are kept** — collapsing them would hide
+that neither session knew the other was climbing. Every rung returned something
+new, so **assume rung seven is not dry either.**
+
+> **Rung six (b) also returned a REFUTATION, which is the more useful half and
+> the part a future reader is most likely to get wrong.** The same sweep
+> reported "8 bare `-t <…>` targets versus 0 exact ones **in what RUNS
+> today**". It does not survive: that count came from
+> `…/cache/…/efe607c6a3e7/`, a **2026-07-27 artifact**, one of **eleven**
+> sibling cache dirs. The **live** dir is `013d35d48cde` — resolved from
+> marketplace clone `HEAD` and independently confirmed by this session's
+> `SessionStart` hook — and it is **byte-identical to master prose** (1 bare, 1
+> exact). Charters emitted here today inherit the contradiction but **not** the
+> bare-target defect.
+>
+> **The measurement had a correct positive control and was still wrong** — 291
+> lines, 18 `tmux` hits, all true of the stale file. **A positive control
+> proves the search reached content, not that it reached the RIGHT content.**
+> Resolve *which* artifact is live before controlling for whether it is empty.
+>
+> It was also offered as confirming `overseer-d4t`'s stale-cache mechanism.
+> Measured, it is a **negative** instance — the release had reached the cache
+> the same day. Recording it as confirmation would have been a check that could
+> only ever agree: **this thread's own defect, committed while sweeping for
+> it.** `overseer-d4t` now carries that correction so nobody cites this sweep
+> as support for it.
+
+Rung six (a) aimed the carry-forward lesson back at our own gates and found
 `overseer-b4q` above. Two notes on method, because the rung is repeatable:
 
 - **What made it findable** was searching for the *shape* rather than the
@@ -165,11 +201,17 @@ Rung six aimed the carry-forward lesson back at our own gates and found
 
 **The one thing to carry forward.** The classifier bug, the vacuous `git diff`,
 the uncontrolled zero-hit grep, the under-scoped sweep, the cross-harness
-keystroke — and now our **own required merge gate** (`overseer-b4q`) — are
-**the same defect**: *a check that cannot fail, returning success.* Six
-instances, at six levels of the stack, the last one in the enforcement surface
-that is supposed to catch the others. The remedy was identical every time —
-**give the check a way to come back empty-handed and mean it.**
+keystroke, our **own required merge gate** (`overseer-b4q`), and now a
+**controlled measurement of the wrong file** (rung six (b)) — plus the `ls -d |
+tail -1` that silently captured a listing line instead of a path, and returned
+clean — are **the same defect**: *a check that cannot fail, returning success.*
+**Eight** instances now, and the last three are the instructive ones: one sits
+in the enforcement surface meant to catch the others, and two were committed
+**while deliberately sweeping for this exact defect**, one of them *with* a
+correct positive control. The remedy was identical every time — **give the
+check a way to come back empty-handed and mean it** — and rung six (b) adds the
+sharpening: **make sure it is looking at the right thing before you ask whether
+it came back empty.**
 
 ## Read-first chain
 
