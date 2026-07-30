@@ -499,6 +499,8 @@ Opus 5 reviewer spawned via `claude --print --model claude-opus-5`, plus a
 Fable reviewer which had **already returned findings** that the drive-prefix
 exclusion is too narrow for **mixed-separator paths**. **No reviewer had
 returned a final verdict**, and the branch was frozen and unpushed.
+**SUPERSEDED 2026-07-30: reviews returned APPROVED (three) and the branch is
+PUSHED at `3b37818887c8` as `fabro-sh/fabro#688`.**
 
 > **C4, vindicated a third time in one session.** The branch head has now moved
 > **three times today**: `a7c42204b` → `b46a4f387` → `3251a8aa2`. The **branch
@@ -657,6 +659,11 @@ matches **none** of the hint lists and falls to the signature-tracked
 `Deterministic` fallback — see "A SECOND limit payload" above. Do not read
 "acceptance MET" as "provider limits are classified correctly".
 
-**Opening the PR to `fabro-sh/fabro` remains the MAINTAINER'S call** — it is
+~~**Opening the PR to `fabro-sh/fabro` remains the MAINTAINER'S call**~~
+
+> **SUPERSEDED 2026-07-30 — publication HAS happened.** `fabro-sh/fabro#688` is **OPEN, not draft, MERGEABLE, `+527/-4`, head `3b3781888`**, CI run `30565354608` SUCCESS, three approvals. Upstream **merge** has not happened and is `fabro-sh`'s call. Left in place, not deleted: these were stated as verified facts and repeated.
+
+Originally: **it remained the maintainer's call** — it is
 outward-facing onto a third party's public project. The branch is prepared and
-stops there. No upstream PR and no upstream issue were opened.
+stops there. ~~No upstream PR and no upstream issue were opened.~~ **SUPERSEDED:
+`fabro-sh/fabro#688` is OPEN (head `3b3781888`, `+527/-4`, CI SUCCESS).**

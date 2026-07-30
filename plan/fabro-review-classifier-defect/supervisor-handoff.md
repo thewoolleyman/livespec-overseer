@@ -725,14 +725,81 @@ control.
 with a positive control — `livespec-overseer {"enabled": false}`, `livespec
 {"enabled": true}`. **The `?` was a query artifact, not a third state.**
 
+#### C7 and C8 — two supervisor corrections, 2026-07-30, both from the last hour
+
+**C7 — VERIFIED A PROXY, THEN CARRIED THE CONCLUSION FOR HOURS. This is the
+purest instance the whole sweep produced.** `git ls-remote --heads origin` was
+run **once**, the branch was absent, and from then on *"nothing pushed, no PR or
+issue on `fabro-sh/fabro`"* was asserted in **four maintainer reports and two
+messages to another session** — including one whose entire purpose was to tell
+that session the publication hold still applied. **`gh pr list --repo
+fabro-sh/fabro`, the actual subject of the claim, was never run.** PR #688 had
+been open since **14:54:22Z**, so the claim was false for hours while it was
+repeated.
+
+> **WHEN THE CLAIM IS ABOUT X, MEASURE X — not a proxy for X — AND RE-MEASURE
+> ANY CLAIM YOU KEEP REPEATING.** A fork branch's absence **could never have
+> observed an upstream PR**: the proxy was not merely stale, it was
+> *incapable* of detecting the condition it was guarding. That is this sweep's
+> defect in its purest form — **a guard measuring something that cannot fail in
+> the direction that matters** — and it is worse than the vacuous `git diff`,
+> which at least looked at the right repository.
+
+**C8 — REPORTED A MESSAGE DELIVERED WHEN IT WAS ONLY TYPED.** Twice, an hour
+apart, text was pasted into another session's pane, **the paste was verified to
+have landed**, and it was reported as sent. **The postcondition is SUBMITTED,
+not TYPED.** Both times it sat unsubmitted until the maintainer noticed.
+
+> **The sting is the part to keep:** this thread had **already published** *"test
+> the postcondition, never the exit code"* — as its own `overseer-ya4` diagnosis
+> — and its author violated it **within the hour**, in a different medium.
+> Knowing the rule, having just written the rule, and being the person who wrote
+> it, are all compatible with breaking it.
+> **Verification: after sending, assert the input buffer is EMPTY and the session
+> is processing. "The text is visible" is not evidence of delivery.**
+
+#### RUNG ELEVEN — the sweep turns on the thread's OWN records
+
+Rung eleven was forced by the sweep's own recurrence: rung ten landed in **this**
+file and not in `handoff.md`, so for two merged commits the charter said ten
+rungs and the handoff said nine. Filed as **`overseer-bak`** (P2).
+
+**Measured, with a positive control** (2 modules match `plan_thread`, so the
+search reached real code): **zero** modules anywhere in `livespec-dev-tooling`
+read `supervisor-handoff.md`. The two plan-thread gates read
+`plan/*/handoff.md` **only**, and both are about the **ledger anchor** —
+`check-plan-thread-anchor-declared` (a **required** context) asserts a concrete
+anchor exists; `check-plan-thread-epic-parity` (**not** required, and
+**armed-only** — it self-skips unless a RUN lever *and* a credential are present,
+neither set here) asserts the anchor is not closed.
+
+**So agreement between a thread's two records is unenforced in every
+direction** — and `handoff.md` is the **only** artifact a restart inherits. A
+divergence is therefore a restart reading a confident, well-formatted, *wrong*
+account of where the thread stands, with nothing able to signal it.
+
+> **Why this is the argument for structure over discipline, in the cleanest form
+> the sweep produced.** The drift happened **twice in one day**: once leaving the
+> research note saying a peer notification was "prepared, NOT delivered" long
+> after delivery (which caused a reader to report the wrong state to the
+> maintainer), and once **by the session that had just written the rule against
+> it**, hours later. **Discipline was present, explicit, and freshly written, and
+> it still failed.** Two records of one fact drift unless something forces them
+> together.
+
+*Recorded but explicitly NOT filed, per rule 3:* `check-plan-thread-epic-parity`
+self-skipping by default is **documented design** (keeping a credential-dependent
+check out of the blocking path), not a defect. Noted only so nobody assumes
+plan-lifecycle parity is enforced today. It is not.
+
 #### LADDER CLOSE — where the sweep actually stopped, and why
 
-**Ten rungs reached. UNEXHAUSTED.**
+**Eleven rungs reached. UNEXHAUSTED.**
 
-**The sweep was stopped by SESSION BUDGET, not by a dry rung.** Rung ten was
-**productive** — it bounded the rung-nine drift as specific rather than
-systemic, and earned a rule extension. Nobody climbed an eleventh. **Do not read
-the stopping point as a completion.**
+**The sweep was stopped by SESSION BUDGET, not by a dry rung.** Rung eleven was
+**productive** — it turned the sweep on the thread's own records and filed
+`overseer-bak`. Nobody climbed a twelfth. **Do not read the stopping point as a
+completion.**
 
 **One precision, because it would otherwise become a false claim.** It is *not*
 true that "every rung returned something": **rung eight was DRY as scoped**
