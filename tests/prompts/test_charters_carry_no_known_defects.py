@@ -1,4 +1,4 @@
-"""Gate every charter IN THIS REPO against the seven known defect classes.
+"""Gate every charter IN THIS REPO against the ten known defect classes.
 
 The nine groom slices fix the GENERATOR, so the NEXT charter is correct. None of
 them remediates the charters already emitted, and nothing schedules regeneration
@@ -43,7 +43,18 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
+# `.ai/supervisor-protocol.md` is HALF OF EVERY DEPLOYED CHARTER and was going
+# unscanned. The two-layer split moved the role contract — preconditions, the
+# ledger re-measure, the watcher shapes — out of the per-thread binder and into
+# this shared file, and the glob was never widened to follow it. So the gate went
+# on reporting a clean repo while the larger half of what a supervisor actually
+# reads was never examined. Measured 2026-07-30: it carried the (h) defect.
+#
+# This is the epic's own defect class opened by the epic's own refactor, which is
+# the third instance in this thread. A gate's SCOPE is as load-bearing as its
+# detectors: widening the detectors while the glob stays behind buys nothing.
 _CHARTER_GLOBS = (
+    ".ai/supervisor-protocol.md",
     "plan/*/supervisor-handoff.md",
     "plan/archive/*/supervisor-handoff.md",
 )
@@ -153,6 +164,56 @@ _LIST_SESSIONS_GREP = re.compile(r"list-sessions[^\n|]*\|[^\n]*grep\s+(-\S+)")
 # detector that flagged the documentation of a fix is what made the whole-file
 # prototype unusable.
 _BASH_PIPESTATUS = re.compile(r"\bPIPESTATUS\b")
+
+# (h) A ledger re-measure that CANNOT SUCCEED. This fleet's `bd` reaches a
+# per-repo TENANT database and needs the fleet credential wrapper; a bare `bd`
+# returns "Access denied". Measured 2026-07-30 in this repo: bare
+# `bd show <anchor> --json` exits 1 with Access denied, the same call through the
+# wrapper exits 0 with real JSON, and bare `bd` fails in the orchestrator tenant
+# too.
+#
+# THIS IS THE MIRROR OF (a)-(g). Every detector above catches a check that cannot
+# FAIL. This one catches a command that cannot PASS — and the shipped charter
+# then advised "REMEDY: fix ledger access", pointing the reader at a ledger that
+# was already healthy. It cost a supervisor its own cold-open boot.
+#
+# BOTH CORRECT SPELLINGS ARE ACCEPTED, because two exist in the fleet: detection
+# with a fallback (`command -v with-livespec-env.sh`), which an adopter WITHOUT a
+# wrapper needs, and a direct wrapper invocation, which is what
+# livespec-dev-tooling's rop-railway-enforcement charter already carried. A
+# hard-coded path is not required and must not be, or the gate would trade one
+# false HALT for another on an adopter that has no wrapper.
+_BD_INVOCATION = re.compile(r"(?<![-\w])bd\s+(?:show|list|update|create|close)\b")
+_WRAPPER_DETECTED = re.compile(r"command\s+-v\s+with-livespec-env\.sh")
+_WRAPPER_DIRECT = re.compile(r"with-livespec-env\.sh[^\n]*\bbd\b")
+
+# (i) A FIXED-CAP read of the supervisor marker, with no truncation notice.
+# Observed 2026-07-30: a charter emitted `sed -n '1,220p'` against a marker that
+# was 528 lines, then 697 within hours. No constant survives an append-only file.
+#
+# SILENTLY SHOWING LESS IS NOT THE HARM. The harm is SEVERING A RETRACTION FROM
+# ITS CLAIM: that marker carried an OPEN OBLIGATIONS block assigning
+# `holder: worker` inside the visible window while its retraction sat below the
+# cut, so a cold-open reader was handed a discharged obligation as live work.
+# Corrections land at the END of an append-only file, which makes a head-only
+# read the worst possible cut.
+#
+# WHAT MAKES IT PASS is the NOTICE, not the size — a bigger constant is stale
+# tomorrow. A charter that truncates must say so.
+_FIXED_CAP_READ = re.compile(r"sed\s+-n\s+['\"]?1,\s*\d+\s*p['\"]?")
+_TRUNCATION_NOTICE = re.compile(r"TRUNCATED")
+
+# (j) A marker read that SILENTLY NO-OPS when the binding is unset. `test ! -f ""`
+# is TRUE for the empty string, so `test ! -f "$m" || sed ... "$m"` short-circuits
+# and prints NOTHING at rc 0. The binding is supplied by a markdown TABLE, never
+# by a shell assignment, so a reader who pastes the block verbatim gets silence
+# and a success exit.
+#
+# This is (b)'s empty-string false-pass — the one that made `readlink -f ""`
+# resolve to the CWD and render as PASS — reappearing in a different command in
+# the same generated file. The same fix applies: guard non-empty FIRST.
+_MARKER_FILE_TEST = re.compile(r"(?:test|\[)\s+!?\s*-f\s+\"?\$\{?supervisor_marker")
+_MARKER_NONEMPTY_GUARD = re.compile(r"-[nz]\s+\"?\$\{?supervisor_marker")
 
 
 def _code_blocks(*, text: str) -> list[str]:
@@ -376,6 +437,61 @@ def supervisor_trusted_by_name(*, text: str) -> list[str]:
     return ["supervisor existence checked but liveness never proven"]
 
 
+def wrapper_less_ledger_read(*, text: str) -> list[str]:
+    """A `bd` invocation with no credential wrapper anywhere in the charter.
+
+    Document-scoped like `supervisor_trusted_by_name`, not line-scoped, and for
+    the same reason: the correct form is a `ledger_show()` helper that DETECTS the
+    wrapper once and is called later by name, so a per-line rule would flag the
+    correct call site.
+    """
+    blocks = _code_blocks(text=text)
+    invocations = [
+        raw.strip()
+        for block in blocks
+        for raw in block.splitlines()
+        if _BD_INVOCATION.search(raw) and not _is_comment(line=raw)
+    ]
+    if not invocations:
+        return []
+    joined = "\n".join(blocks)
+    if _WRAPPER_DETECTED.search(joined) or _WRAPPER_DIRECT.search(joined):
+        return []
+    return invocations
+
+
+def fixed_cap_marker_read(*, text: str) -> list[str]:
+    """A fixed-line-count marker read that never announces its own truncation."""
+    blocks = _code_blocks(text=text)
+    caps = [
+        raw.strip()
+        for block in blocks
+        for raw in block.splitlines()
+        if _FIXED_CAP_READ.search(raw) and not _is_comment(line=raw)
+    ]
+    if not caps:
+        return []
+    if _TRUNCATION_NOTICE.search("\n".join(blocks)):
+        return []
+    return caps
+
+
+def unguarded_marker_binding(*, text: str) -> list[str]:
+    """A `supervisor_marker` file test with no non-empty guard on the binding."""
+    blocks = _code_blocks(text=text)
+    tests = [
+        raw.strip()
+        for block in blocks
+        for raw in block.splitlines()
+        if _MARKER_FILE_TEST.search(raw) and not _is_comment(line=raw)
+    ]
+    if not tests:
+        return []
+    if _MARKER_NONEMPTY_GUARD.search("\n".join(blocks)):
+        return []
+    return tests
+
+
 _DETECTORS = (
     ("a-bare-tmux-target", bare_targets),
     ("b-unguarded-path-resolution", unguarded_path_resolution),
@@ -384,6 +500,9 @@ _DETECTORS = (
     ("e-supervisor-trusted-by-name", supervisor_trusted_by_name),
     ("f-regex-session-existence-test", regex_session_existence_test),
     ("g-bash-pipestatus-under-zsh", bash_pipestatus_in_zsh_fleet),
+    ("h-wrapper-less-ledger-read", wrapper_less_ledger_read),
+    ("i-fixed-cap-marker-read", fixed_cap_marker_read),
+    ("j-unguarded-marker-binding", unguarded_marker_binding),
 )
 
 
@@ -408,8 +527,12 @@ def test_this_repo_has_charters_to_scan():
     assert _charters() != []
 
 
-def test_every_charter_in_this_repo_is_free_of_the_four_known_defects():
-    """THE GATE. A charter carrying any of (a)-(d) fails here, in this repo's CI.
+def test_every_charter_in_this_repo_is_free_of_the_known_defects():
+    """THE GATE. A charter carrying any of (a)-(j) fails here, in this repo's CI.
+
+    The name carries NO COUNT on purpose. It said "four" while there were seven,
+    because a count in a name goes stale the moment a detector is added and
+    nothing forces it to be updated — the same drift class this module gates.
 
     Sabotage that reddens this: restore a bare `-t <session>` target in any
     charter under `plan/`.
@@ -888,3 +1011,121 @@ we run. `PIPESTATUS` is bash; this fleet's shell is zsh, where the array is
 string, which reads like a pass when skimmed.
 """
     assert defects_in(text=charter) == []
+
+
+# --------------------------------------------------------------------------
+# (h) the ledger read that cannot SUCCEED — the mirror of every detector above.
+# --------------------------------------------------------------------------
+
+
+def test_a_wrapper_less_ledger_read_is_flagged():
+    """The shipped form. Measured to exit 1 with "Access denied" on 2026-07-30."""
+    charter = """
+```sh
+ledger_anchor='overseer-d4t'
+bd show "$ledger_anchor" --json \\
+  || { echo "HALT: cannot re-measure"; exit 1; }
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("h-")] != []
+
+
+def test_a_detected_wrapper_with_a_bare_fallback_is_accepted():
+    """THE CONTROL. Detection must be accepted, including its bare `else` branch.
+
+    An adopter with no wrapper must still be able to re-measure, so the bare call
+    inside the fallback is CORRECT and flagging it would force a hard-coded path —
+    trading one false HALT for another.
+    """
+    charter = """
+```sh
+ledger_show() {
+  if command -v with-livespec-env.sh >/dev/null 2>&1; then
+    with-livespec-env.sh -- bd show "$1" --json
+  else
+    bd show "$1" --json
+  fi
+}
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("h-")] == []
+
+
+def test_a_direct_wrapper_invocation_is_accepted():
+    """The spelling livespec-dev-tooling's rop-railway-enforcement already used.
+
+    Two correct forms exist in the fleet and the gate must accept both, or it
+    would redden a charter that was right before this detector was written.
+    """
+    charter = """
+```sh
+/usr/local/bin/with-livespec-env.sh -- bd show livespec-dev-tooling-8o8e --json
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("h-")] == []
+
+
+def test_prose_describing_the_bare_ledger_hazard_is_not_flagged():
+    """Prose ABOUT the defect must stay clean — the C4 lesson, re-applied."""
+    charter = """
+The generator emitted `bd show "$ledger_anchor" --json` with no credential
+wrapper, so a bare `bd` returned "Access denied" and the REMEDY misdirected at a
+healthy ledger.
+"""
+    assert defects_in(text=charter) == []
+
+
+# --------------------------------------------------------------------------
+# (i) a fixed cap that hides a retraction, and (j) a read that cannot fail.
+# --------------------------------------------------------------------------
+
+
+def test_a_fixed_cap_marker_read_without_a_notice_is_flagged():
+    """`sed -n '1,220p'` against a 697-line marker showed 31.6% and said nothing."""
+    charter = """
+```sh
+test ! -f "$supervisor_marker" || sed -n '1,220p' "$supervisor_marker"
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("i-")] != []
+
+
+def test_a_truncating_read_that_announces_itself_is_accepted():
+    """THE CONTROL: the NOTICE is what makes truncation acceptable, not the size.
+
+    A bigger constant is stale tomorrow; an announced cut is not silent.
+    """
+    charter = """
+```sh
+[ -n "${supervisor_marker:-}" ] || { echo "HALT: unset"; exit 1; }
+marker_lines=$(wc -l < "$supervisor_marker")
+sed -n '1,160p' "$supervisor_marker"
+printf 'TRUNCATED: lines 161-%d of %d NOT SHOWN\\n' "$((marker_lines - 160))" "$marker_lines"
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("i-")] == []
+
+
+def test_an_unguarded_marker_binding_is_flagged():
+    """`test ! -f ""` is TRUE, so the read no-ops and still exits 0.
+
+    This is (b)'s empty-string false-pass in a different command in the same file.
+    """
+    charter = """
+```sh
+test ! -f "$supervisor_marker" || cat "$supervisor_marker"
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("j-")] != []
+
+
+def test_a_marker_binding_guarded_non_empty_first_is_accepted():
+    """THE CONTROL: guard non-empty BEFORE the file test, exactly as C2 requires."""
+    charter = """
+```sh
+[ -n "${supervisor_marker:-}" ] \\
+  || { echo "HALT: supervisor_marker is unset or empty"; exit 1; }
+test ! -f "$supervisor_marker" || cat "$supervisor_marker"
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("j-")] == []
