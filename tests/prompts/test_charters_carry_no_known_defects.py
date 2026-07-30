@@ -1,4 +1,4 @@
-"""Gate every charter IN THIS REPO against the ten known defect classes.
+"""Gate every charter IN THIS REPO against the eleven known defect classes.
 
 The nine groom slices fix the GENERATOR, so the NEXT charter is correct. None of
 them remediates the charters already emitted, and nothing schedules regeneration
@@ -214,6 +214,40 @@ _TRUNCATION_NOTICE = re.compile(r"TRUNCATED")
 # the same generated file. The same fix applies: guard non-empty FIRST.
 _MARKER_FILE_TEST = re.compile(r"(?:test|\[)\s+!?\s*-f\s+\"?\$\{?supervisor_marker")
 _MARKER_NONEMPTY_GUARD = re.compile(r"-[nz]\s+\"?\$\{?supervisor_marker")
+
+# (k) `date -u -r <file>` DOES NOT APPLY `-u`. This host runs uutils coreutils
+# 0.2.2, not GNU — the same divergence already recorded for `readlink`/`realpath`
+# in (b). Measured 2026-07-30 on `pyproject.toml`:
+#
+#     date -u -r pyproject.toml '+%Y-%m-%dT%H:%M:%SZ'  ->  2026-07-30T15:40:10Z
+#     datetime.fromtimestamp(mtime, timezone.utc)      ->  2026-07-30T13:40:10Z
+#     date -u -d @1785418810 '+%Y-%m-%dT%H:%M:%SZ'     ->  2026-07-30T13:40:10Z
+#
+# So `-r` prints LOCAL time, local is CEST, and the `Z` the charter appends is a
+# silent TWO-HOUR lie. `-d @<epoch>` honours `-u` and is correct.
+#
+# THIS IS (g)'s SHAPE AND IT HAS ALREADY BEEN WALKED THROUGH. (g) gates a command
+# correct on the fleet's documented assumptions and silently wrong on this host's
+# actual tooling, producing a value that reads like a pass. On 2026-07-30 a
+# supervisor timestamped the worker's state file with exactly this command,
+# compared it against a cache mtime read with `date -u -d @<epoch>`, and published
+# that the worker's measurement was made 69 minutes AFTER the event. The true
+# ordering was 51 minutes BEFORE — the accusation was backwards. Both values
+# carried a `Z`, so the disagreement was invisible. Recorded as correction C19.
+#
+# KEYED ON THE PROPERTY, NOT ON THE `-u -r` SPELLING: a `date` invocation that
+# reads a FILE must not claim UTC. Flag order, short-flag bundling, an attached
+# value and the `--reference` long form therefore cannot evade it, and a `-r` with
+# no `-u` at all but a literal `Z` in its format is the same lie by a shorter
+# route. An honest `date -r "$f" '+%H:%M %Z'` — local time wearing its own zone
+# name — stays clean, and so does `%Z` anywhere, because that conversion PRINTS
+# the real zone rather than asserting UTC.
+_DATE_ARGS = re.compile(r"\bdate\b((?:[ \t]+(?:'[^']*'|\"[^\"]*\"|[^\s;|&)]+))*)")
+_DATE_TOKEN = re.compile(r"'[^']*'|\"[^\"]*\"|\S+")
+_DATE_SHORT_BUNDLE = re.compile(r"\A-([A-Za-z]+)")
+_DATE_FILE_LONG = re.compile(r"\A--reference(?:=|\Z)")
+_DATE_UTC_LONG = re.compile(r"\A--(?:utc|universal)\Z")
+_DATE_UTC_LABEL = re.compile(r"(?<!%)Z|UTC")
 
 
 def _code_blocks(*, text: str) -> list[str]:
@@ -492,6 +526,54 @@ def unguarded_marker_binding(*, text: str) -> list[str]:
     return tests
 
 
+def _date_short_flags(*, token: str) -> str:
+    """The leading short-flag letters of one `date` argument, `''` if it has none.
+
+    Bundling and attached values are both in scope on purpose: `-ur`, `-ru` and
+    `-r<file>` are all the same `-r`, and matching the exact token `-r` would be
+    keying on a spelling — the failure mode that made (e) disarm itself when (f)
+    was remediated. Long options return `''` here and are matched separately.
+    """
+    match = _DATE_SHORT_BUNDLE.match(token)
+    return match.group(1) if match is not None else ""
+
+
+def _claims_utc(*, token: str) -> bool:
+    """Whether one `date` argument asserts that the printed time is UTC.
+
+    A format argument counts, not just the flag: `date -r "$f" '+%FT%TZ'` labels
+    local time `Z` without ever writing `-u`. `%Z` does NOT count — it prints the
+    real zone name, which is the honest spelling this detector must leave alone.
+    """
+    if "u" in _date_short_flags(token=token) or _DATE_UTC_LONG.match(token):
+        return True
+    bare = token.strip("'\"")
+    return bare.startswith("+") and _DATE_UTC_LABEL.search(bare) is not None
+
+
+def local_time_labelled_utc(*, text: str) -> list[str]:
+    """A `date` invocation that reads a FILE and still claims UTC (C19).
+
+    Argument runs are cut at `;`, `|`, `&` and `)` so a later command's own `-r`
+    cannot be read as this one's: `date -u '+%FT%TZ' && test -r "$f"` is clean.
+    """
+    found: list[str] = []
+    for block in _code_blocks(text=text):
+        for raw in block.splitlines():
+            if _is_comment(line=raw):
+                continue
+            for args in _DATE_ARGS.findall(_strip_trailing_comment(line=raw)):
+                tokens = _DATE_TOKEN.findall(args)
+                reads_file = any(
+                    "r" in _date_short_flags(token=token) or _DATE_FILE_LONG.match(token)
+                    for token in tokens
+                )
+                if reads_file and any(_claims_utc(token=token) for token in tokens):
+                    found.append(raw.strip())
+                    break
+    return found
+
+
 _DETECTORS = (
     ("a-bare-tmux-target", bare_targets),
     ("b-unguarded-path-resolution", unguarded_path_resolution),
@@ -503,6 +585,7 @@ _DETECTORS = (
     ("h-wrapper-less-ledger-read", wrapper_less_ledger_read),
     ("i-fixed-cap-marker-read", fixed_cap_marker_read),
     ("j-unguarded-marker-binding", unguarded_marker_binding),
+    ("k-local-time-labelled-utc", local_time_labelled_utc),
 )
 
 
@@ -1129,3 +1212,150 @@ test ! -f "$supervisor_marker" || cat "$supervisor_marker"
 ```
 """
     assert [d for d in defects_in(text=charter) if d.startswith("j-")] == []
+
+
+# --------------------------------------------------------------------------
+# (k) a file mtime printed as LOCAL time and labelled UTC — the C19 trap.
+# --------------------------------------------------------------------------
+
+
+def test_a_file_mtime_read_labelled_utc_is_flagged():
+    """RED demonstration for (k), measured on this host before being written.
+
+    `date -u -r pyproject.toml '+%Y-%m-%dT%H:%M:%SZ'` printed `15:40:10Z` while
+    the file's true UTC mtime was `13:40:10Z`. `-r` does not honour `-u` under
+    uutils coreutils, local is CEST, and the appended `Z` hides the two hours.
+    """
+    charter = """
+```sh
+worker_state_at=$(date -u -r "$supervisor_marker" '+%Y-%m-%dT%H:%M:%SZ')
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("k-")] == [
+        'k-local-time-labelled-utc: worker_state_at=$(date -u -r "$supervisor_marker" '
+        "'+%Y-%m-%dT%H:%M:%SZ')"
+    ]
+
+
+def test_the_epoch_form_that_honours_u_is_accepted():
+    """THE ACCEPTED-FORM CONTROL: `date -u -d @<epoch>` DOES apply `-u`.
+
+    Measured on the same file in the same shell: `-d @1785418810` printed
+    `13:40:10Z`, the true UTC mtime. Only the `-r` form is defective, so flagging
+    the correct remedy would leave a charter no spelling it could use.
+    """
+    charter = """
+```sh
+mtime_epoch=$(stat -c %Y "$supervisor_marker")
+worker_state_at=$(date -u -d @"$mtime_epoch" '+%Y-%m-%dT%H:%M:%SZ')
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("k-")] == []
+
+
+def test_a_plain_utc_now_is_accepted():
+    """THE SECOND ACCEPTED FORM, and the one both real charters already carry.
+
+    `.ai/supervisor-protocol.md` and this thread's binder each close their ledger
+    re-measure with `date -u '+MEASURED_AT: ...Z'`. That reads no file, so `-u` is
+    honoured and the `Z` is true — measured 2026-07-30, the only two `date` lines
+    in fenced code across all eight tracked charters.
+    """
+    charter = """
+```sh
+date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("k-")] == []
+
+
+def test_prose_documenting_the_date_trap_is_not_flagged():
+    """THE PROSE CONTROL, and it is mandatory rather than decorative.
+
+    C19 QUOTES the defective command inside `.ai/supervisor-protocol.md`, which
+    this gate scans as of PR #358. A detector that fired on it would redden the
+    charter that documents the fix — the exact property that made the whole-file
+    prototype unusable as a gate. The wording below is C19's own.
+    """
+    charter = """
+C19 — this host runs **uutils coreutils, not GNU**, and `date -u -r <file>`
+**does not apply `-u`** here: it prints LOCAL time, so the `Z` you append is a
+lie, and local being CEST makes it a silent two-hour error. I compared it against
+a cache-directory mtime read with `date -u -d @<epoch>` — which DOES honour `-u`.
+"""
+    assert defects_in(text=charter) == []
+
+
+def test_flag_order_bundling_and_the_long_form_cannot_evade_the_rule():
+    """The property is file-read-plus-UTC-claim, not the token sequence `-u -r`.
+
+    Keying on the literal spelling is what made (e) go blind the moment (f) was
+    remediated, so every arrangement of the same defect is asserted here.
+    """
+    charter = """
+```sh
+a=$(date -r "$f" -u '+%FT%TZ')
+b=$(date -ur "$f" '+%FT%TZ')
+c=$(date --utc --reference="$f" '+%FT%TZ')
+```
+"""
+    flagged = [d for d in defects_in(text=charter) if d.startswith("k-")]
+    assert len(flagged) == 3, flagged
+
+
+def test_a_z_labelled_file_read_is_flagged_without_any_u_flag():
+    """Dropping `-u` does not make it honest — the format still asserts UTC.
+
+    This is the shorter route to the same lie, and a detector demanding `-u`
+    would report the more obviously wrong charter as clean.
+    """
+    charter = """
+```sh
+stamp=$(date -r "$f" '+%Y-%m-%dT%H:%M:%SZ')
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("k-")] != []
+
+
+def test_an_honestly_labelled_local_file_read_is_accepted():
+    """THE THIRD CONTROL: `%Z` PRINTS the zone, it does not assert UTC.
+
+    A charter may legitimately show a file's local mtime as long as it says so.
+    Flagging this would be flagging correct code, and `%Z` is one character from
+    the literal `Z` the rule is about.
+    """
+    charter = """
+```sh
+printf 'marker last written: %s\\n' "$(date -r "$supervisor_marker" '+%H:%M %Z')"
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("k-")] == []
+
+
+def test_a_later_commands_own_r_flag_is_not_read_as_this_ones():
+    """Argument runs stop at a shell separator, so `test -r` next door is clean.
+
+    Without that cut the accepted form above would be flagged whenever any `-r`
+    appeared later on the line — a false positive on correct code.
+    """
+    charter = """
+```sh
+date -u '+%Y-%m-%dT%H:%M:%SZ' && test -r "$supervisor_marker"
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("k-")] == []
+
+
+def test_a_commented_out_date_trap_is_not_counted():
+    """Comments are stripped, so documenting the hazard beside the fix is safe.
+
+    Both halves matter: a full-line comment and a trailing one on a CORRECT
+    command, which is where a charter would most naturally warn about it.
+    """
+    charter = """
+```sh
+# never: date -u -r "$f" '+%FT%TZ'
+stamp=$(date -u -d @"$epoch" '+%FT%TZ')   # not date -u -r "$f" — that prints local
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("k-")] == []
