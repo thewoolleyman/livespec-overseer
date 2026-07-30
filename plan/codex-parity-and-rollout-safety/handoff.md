@@ -33,8 +33,10 @@
 > > | slice | id | state |
 > > |---|---|---|
 > > | **A4** | `overseer-ews` | **Code DONE** — PR **#347**, commit `8bd5b91` verified on `origin/master`. Ledger reads **`READY`** (a phantom claim was released; nothing is in flight). Acceptance verified: runtime check **ADMITTED-TO, not dropped** (`_CODEX_AGENT_COMMS={codex,codex-acp}`, walking **process ancestry**); tests **EXTENDED not loosened** (originals kept, three added, one gating the `$CLAUDECODE` leak). **Its LIVE bar is UNPROVEN** — see A6. |
-> > | **A6** | `overseer-g6z` | **NEW.** `pending-approval`, `admission:manual`, `rank: a6`. Carries the revised PATH fix (1+3 together). **This is what blocks A4's live bar.** |
-> > | **A5** | `overseer-ei3` | `pending-approval`, `admission:manual`, `rank: a5`. Version-lockstep fix **+ a check that goes RED**. Advisory `relates_to` A2, **no blocking edge** (deliberate — it must not stall A4/A3). |
+> > | **A6** | `overseer-g6z` | **CODE DONE, MERGED** — PR **#386**, `e1ab5051` on `origin/master` (needed a manual union rebase of `justfile`). Its launcher fix is **PROVEN LIVE**. Item still reads **`ACTIVE`**: `reconcile-merged` re-ran the post-merge janitor, which is red only on `check-master-ci-green`, a LOCAL-ONLY gate. **`overseer-e18` is now what blocks A4's live bar, not A6.** |
+> > | **A5** | `overseer-ei3` | **DONE / CLOSED** — PR **#385**, `ad6669b`, post-merge janitor green, `resolution:completed`. Its fix is visible in the field: the refreshed plugin cache reads nested **0.15.0**, in lockstep with its sibling. |
+> > | **NEW** | `overseer-e18` | **P1, `backlog`.** `overseer-start` launches the daemon with a **cwd-relative** log path, so `/overseer` from any repo lacking `tmp/overseer/` kills the daemon pane instantly and silently. **This is the whole remaining gap in A4's live bar.** |
+> > | **NEW** | `overseer-yms` | **P2, `backlog`.** `prose/overseer.md` cites `.ai/agent-disciplines.md` under `$PLUGIN_ROOT`, a path the plugin cache never contains. |
 > > | **A3** | `overseer-kju6wh` | `pending-approval`. **Correctly NOT dispatched.** Flipping `harnesses.codex` to `supported` while `overseer` cannot launch from another repo is the claim-a-capability-that-does-not-exist failure the A1/A3 split exists to prevent. **Hold that line.** |
 > > | `overseer-oj8` | — | CLOSED, superseded by `overseer-ei3`. **Pointer IS intact** (`metadata.superseded_by` + a 738-char `close_reason`). The record has **no top-level `superseded_by`/`reason` field**, so a reader asking for those keys gets `None` — that is a READER bug, not a lost pointer. **Do not "repair" it.** |
 > >
@@ -114,6 +116,103 @@
 > >
 > > A tracked-file/worktree prohibition was in force at session end for everything
 > > except this handoff; it lapses with that session.
+> >
+> > ### ▶ A4's LIVE BAR — EXERCISED 2026-07-30. The LAUNCH half PASSES; the DAEMON half fails on a NEW, measured defect.
+> >
+> > **Both slices landed: A5 `ad6669b` (item CLOSED), A6 `e1ab5051` (PR #386).**
+> > A6 needed a manual rebase — its branch went `DIRTY` on exactly one file,
+> > `justfile`, because #385 and #386 each appended a slug to the `check`
+> > aggregate. **Resolved as a UNION** — both `check-plugin-manifest-lockstep` and
+> > `check-codex-plugin-runnable-launcher` kept, since dropping either silently
+> > removes a check. Verified not just present but **EXECUTING**: `just check`
+> > shows both `::: just <slug>` banners, 65 targets green. The launcher gate was
+> > additionally **RED-demoed** — one appended byte to
+> > `.claude-plugin/overseer/signals.py` → **exit 1**; restored → **exit 0**.
+> >
+> > #### Per-stage verdicts — real Codex session, `/data/projects/openbrain`, `CLAUDECODE` UNSET
+> >
+> > | stage | verdict | evidence |
+> > |---|---|---|
+> > | resolve | **PASS** | `$PLUGIN_ROOT` → `~/.codex/plugins/cache/livespec-overseer/livespec-overseer/0.15.0`, `prose/overseer.md` read, exit 0 |
+> > | execute | **PASS** | `"$plugin_root/bin/overseer-start"` ran from the CACHE — **this is A6's fix; it was exit 127, then exit 1, now exit 0** |
+> > | run | **PASS** | `overseer-start: started overseerd in top pane %138. adopted 0 existing session(s).` **Exit 0**, in 463 ms |
+> > | two-pane split | **PASS** | pane created; **`%137` on the first run and `%138` on a second** — distinct ids, so the split is real and repeatable |
+> > | adopt | **ran, 0 new** | `adopted 0 existing session(s)` — the call executed; every track was already mapped |
+> > | **daemon survives** | **FAIL** | root cause below — and it is **not** the launcher |
+> >
+> > **The daemon dies on a CWD-RELATIVE LOG PATH.** `start.py:85` builds
+> > `overseerd 2>> tmp/overseer/daemon.log`. The split pane's cwd is the repo the
+> > operator invoked `/overseer` from, so a repo without `tmp/overseer/` cannot
+> > start the daemon at all. Measured both ways:
+> >
+> > ```
+> > cd /data/projects/openbrain && sh -c 'echo x 2>> tmp/overseer/daemon.log'
+> >   -> cannot create tmp/overseer/daemon.log: Directory nonexistent   (exit 2)
+> > /data/projects/livespec-overseer/tmp/overseer  -> EXISTS
+> > ```
+> >
+> > **It works in THIS repo and nowhere else** — which is exactly why it survived
+> > every prior exercise. And it is **SILENT**: the error goes to the pane being
+> > destroyed, while `overseer-start` reports success (exit 0) because it checks
+> > only that the split happened, not that the daemon lived. Filed **`overseer-e18`
+> > (P1)**.
+> >
+> > > **⚠ A WRONG CAUSE WAS REPORTED AND IS RETRACTED HERE.** The Codex agent
+> > > reported stage 7 as *"the pane disappeared because an overseer singleton was
+> > > already running"*, and this file had predicted the same. **Both were wrong:
+> > > `overseerd` never ran, so the lock was never reached.** The agent INFERRED it
+> > > from finding the established daemon; it did not measure it. The singleton
+> > > refusal is real and reproducible **on its own** (`overseerd` from this repo →
+> > > *"another overseer daemon holds …; refusing to start"*), which is why the two
+> > > had to be measured SEPARATELY. **The relative-path defect fires FIRST.**
+> >
+> > #### The NEGATIVE half — DISCHARGED, with a positive control
+> >
+> > Run **directly**, never through `codex exec` (whose exit status is documented
+> > to misreport):
+> >
+> > | condition | result |
+> > |---|---|
+> > | `env -u CLAUDECODE -u TMUX -u TMUX_PANE` | **exit 1** — *"Refusing to run outside Claude Code or Codex (no supported agent runtime in process ancestry)"* |
+> > | **CONTROL:** `CLAUDECODE=1`, tmux markers still unset | **exit 1 at the NEXT gate** — *"not inside a tmux pane ($TMUX_PANE unset)"* |
+> >
+> > The control is what makes the negative non-vacuous: the refusal is the
+> > **runtime gate specifically**, not a blanket refusal. Ancestry proven in the
+> > same breath — `zsh → claude → tmux: server`, a `claude` ancestor and **no**
+> > `codex` ancestor, so with `CLAUDECODE` unset both admission routes are
+> > genuinely closed. That is "neither marker", measured rather than assumed.
+> >
+> > #### Consequences for A3 — it stays HELD, and that is the right answer
+> >
+> > **A3's admission is already granted; do not re-ask.** But A3 flips
+> > `harnesses.codex` to `supported`, and `overseer` still cannot bring up a daemon
+> > from another repo. Shipping that claim now is the exact
+> > claim-a-capability-that-does-not-exist failure the A1/A3 split exists to
+> > prevent. **A3 is blocked on `overseer-e18`, not on paperwork.**
+> >
+> > #### Two more defects the live run surfaced
+> >
+> > - **`overseer-yms` (P2)** — `prose/overseer.md` step 3 sends the agent to
+> >   `$PLUGIN_ROOT/.ai/agent-disciplines.md`, which the cache never contains. The
+> >   agent "recovered" by reading `/data/projects/livespec/.ai/agent-disciplines.md`
+> >   — **which only worked because an unrelated repo happens to be checked out on
+> >   this host.** Same class as exit-127 and `overseer-e18`: resolves in a checkout,
+> >   not in the cache.
+> > - **PROBLEM 2 OF THIS THREAD REPRODUCED LIVE, incidentally.** Re-registering the
+> >   marketplace **pruned `…/cache/livespec-overseer/livespec-overseer/0.13.3`,
+> >   the directory the already-running probe session had pinned.** That is goal 3's
+> >   failure mode, observed directly rather than argued. It belongs to
+> >   **`livespec-1p31`** (C1, livespec core) — not this repo.
+> >
+> > #### ⚠ DECLARED FIXTURE DEVIATION — still in force, restore deliberately
+> >
+> > The marketplace is pinned at **`--ref master`**, not the declared `--ref
+> > release`, because A6 landed on master and `origin/release` does not carry it
+> > yet. To restore: `codex plugin marketplace remove livespec-overseer` then
+> > `add thewoolleyman/livespec-overseer --ref release`. **Do it deliberately —
+> > re-registration PRUNES cache dirs and breaks live Codex sessions**, as the
+> > bullet above demonstrates. A re-verification at the release ref is owed once a
+> > release carrying `e1ab5051` is cut.
 > >
 > > ### ⛔ WHY A6 SHIPS A DUPLICATE OF THE PACKAGE — read this BEFORE "fixing" it
 > >
