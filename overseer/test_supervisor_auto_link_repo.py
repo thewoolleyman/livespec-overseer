@@ -209,9 +209,9 @@ def test_adopted_claude_ignores_the_process_tree_shell_walk(*, tmp_path):
     assert view.note is None
 
 
-def test_no_registry_status_falls_back_to_process_shell_walk(*, tmp_path):
-    """A session with NO Claude registry entry (Codex / unmapped) falls back to the
-    runtime-agnostic process-tree shell-walk — a background shell still marks it working."""
+def test_claude_registry_miss_does_not_fall_back_to_process_shell_walk(*, tmp_path):
+    """A Claude-shaped session with a momentarily missing registry entry does not accrue
+    a false background-shell episode from the process-tree fallback."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -225,10 +225,10 @@ def test_no_registry_status_falls_back_to_process_shell_walk(*, tmp_path):
         children_of=lambda *, pid: children.get(pid, []),
         comm_of=lambda *, pid: comms.get(pid),
     )
-    sup.claude_status_by_session = {}  # no registry entry for this session (Codex)
+    sup.claude_status_by_session = {}
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-    assert view.status == "working"
-    assert view.note == "background shell"
+    assert view.status == "idle-with-context-left"
+    assert view.note is None
 
 
 def test_registry_idle_is_idle_even_with_a_stray_descendant_shell(*, tmp_path):

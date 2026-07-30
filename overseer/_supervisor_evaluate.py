@@ -17,21 +17,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_attention
+import _supervisor_blocked
+import _supervisor_busy
+import _supervisor_ctx_stale
+import _supervisor_idle
 import _supervisor_launch
 import _supervisor_liveness
-import _supervisor_nudge
 import _supervisor_observe
 import _supervisor_offer
 import _supervisor_progress
 import _supervisor_restart
-import _supervisor_state
+import _supervisor_threshold
 import registry
 import signals
-from _supervisor_config import (
-    DANGER_CTX_REMAINING,
-    IDLE_NUDGE_AFTER,
-    track_key,
-)
+from _supervisor_config import track_key
 from _supervisor_resume_retry import resume_retry
 from _supervisor_view import RowView
 
@@ -142,6 +142,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
     is_codex, codex_fallback = obs.is_codex, obs.codex_fallback
     claude_status, eff_ctx, istate = obs.claude_status, obs.eff_ctx, obs.istate
+    injection_stamp = obs.injection_stamp
     ctx_stale_age, stale_ctx = obs.ctx_stale_age, obs.stale_ctx
     declared, malformed, blocked, acked, ready = (
         obs.declared,
@@ -172,7 +173,21 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     blocked_age = _supervisor_liveness.blocked_age(sup=sup, declared=declared)
     blocked_age_label = _supervisor_liveness.age_label_or_none(seconds=blocked_age)
     blocked_note = _supervisor_liveness.blocked_note
-    # The row note defaults to the blocked reason with declaration age (if any); the
+    attention = _supervisor_attention.observe_liveness_attention(
+        request=_supervisor_attention.ObserveRequest(
+            sup=sup,
+            istate=istate,
+            capture=capture,
+            claude_status=claude_status,
+            codex_fallback=codex_fallback,
+            eff_ctx=eff_ctx,
+            threshold=threshold,
+            injection_stamp=injection_stamp,
+        )
+    )
+    generating = attention.generating
+    shell_only = attention.shell_only
+
     # busy branch overrides it to "background shell" when a live background shell is
     # the SOLE reason the pane isn't idle, so the operator can see WHY.
     note: str | None = blocked_note(blocked=blocked, blocked_age_label=blocked_age_label)
@@ -210,87 +225,71 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     # (restart / inject), the daemon first confirms the pane is SETTLED
     # (`_pane_settled`) — a single frame can't see active token-streaming, so
     # a changing pane is treated as `working` and skipped this tick.
-    if busy:
+    attention_request = _supervisor_attention.AttentionRequest(
+        sup=sup,
+        track=track,
+        session=session,
+        pane=target,
+        attention=attention,
+        idle=idle,
+        gate=gate,
+        blocked=blocked,
+        blocked_age=blocked_age,
+        act=act,
+    )
+    attention_decision = _supervisor_attention.pre_busy_attention_decision(
+        request=attention_request
+    )
+    if attention_decision is not None:
+        status = attention_decision.status
+        note = attention_decision.note
+        active_conditions.update(attention_decision.active_conditions)
+    elif busy and not ((gate or blocked is not None) and not generating):
         status = "working"
-        if act:
-            # A GENERATING session is not waiting on a human, so a `blocked:` it has
-            # outlived is provably dead — retire it before the note is derived, or the
-            # dead reason rides this row (it is the note default) and later fires a
-            # false `blocked:human`. Busy via a BACKGROUND SHELL alone does NOT qualify:
-            # that session is at its prompt and may genuinely still be waiting.
-            blocked = _supervisor_state.void_stale_blocked(
+        busy_decision = _supervisor_busy.busy(
+            request=_supervisor_busy.BusyRequest(
                 sup=sup,
                 track=track,
+                capture=capture,
+                claude_status=claude_status,
+                codex_fallback=codex_fallback,
+                generating=generating,
+                malformed=malformed,
+                note=note,
+                ready=ready,
                 blocked=blocked,
-                generating=signals.is_busy(capture_text=capture) or claude_status == "busy",
+                act=act,
             )
-            blocked_age = _supervisor_liveness.blocked_age(sup=sup, declared=declared)
-            blocked_age_label = _supervisor_liveness.age_label_or_none(seconds=blocked_age)
-            note = blocked_note(blocked=blocked, blocked_age_label=blocked_age_label)
-        # When the PANE itself looks idle, the row note explains WHY it is `working`,
-        # or the operator would read the idle-looking pane and distrust the status.
-        if not signals.is_busy(capture_text=capture):
-            if claude_status == "shell" or codex_fallback:
-                note = _supervisor_liveness.append_note(
-                    note=note if malformed else None,
-                    extra="background shell",
-                )  # a live `Bash(run_in_background)` command
-            # Provably always True where it stands: reaching here needs `busy` True
-            # with `is_busy(capture)` False and the `shell`/codex-fallback arm above
-            # already excluded, which leaves `claude_busy` as the only disjunct that
-            # can be carrying `busy` — and `CLAUDE_BUSY_STATUSES` holds exactly
-            # {"busy", "shell"}. So the else-exit is dead and branch coverage can
-            # never close it.
-            #
-            # KEPT as an `elif` rather than demoted to `else` precisely because that
-            # proof depends on the CURRENT contents of `CLAUDE_BUSY_STATUSES`, which
-            # exists to be extended. Add a third status and `else` would silently
-            # label it "sub-agent (Claude busy)" — wrong; the `elif` correctly leaves
-            # the note unset. The dead arc is the cost of that safety, so it is
-            # annotated rather than removed.
-            elif claude_status == "busy":  # pragma: no branch
-                note = _supervisor_liveness.append_note(
-                    note=note if malformed else None,
-                    extra="sub-agent (Claude busy)",
-                )  # in-process sub-agent, no shell
-        if act:
-            # Void the certification ONLY if it is past the grace — a young
-            # marker is the certifying turn's own busy tail and must survive
-            # (RB1); an old one means the session resumed work after certifying.
-            ready = _supervisor_state.void_if_stale(sup=sup, track=track, ready=ready)
-            # The session took a turn — clear any idle-with-context-left nudge marker
-            # so the NEXT idle-with-context episode re-nudges (re-arm on non-idle).
-            _supervisor_nudge.clear_idle_nudge_state(sup=sup, track=track)
+        )
+        note = busy_decision.note
+        ready = busy_decision.ready
+        blocked = busy_decision.blocked
+        blocked_age = busy_decision.blocked_age
+        blocked_age_label = busy_decision.blocked_age_label
     elif gate or blocked is not None:
         status = "blocked:human"
-        if act:
-            ready = _supervisor_state.void_if_stale(sup=sup, track=track, ready=ready)
-            # A gate / block is also "non-idle" — drop a stale nudge marker (safe: the
-            # helper re-reads and leaves a session-written `blocked` untouched).
-            _supervisor_nudge.clear_idle_nudge_state(sup=sup, track=track)
-            detail = blocked if blocked else "structured gate on pane"
-            # The decision belongs to the TRACKED session, which is already showing
-            # it in its own pane. The overseer NOTIFIES and hands over coordinates;
-            # it never re-asks the question itself (invariant 8).
-            active_conditions.update(
-                _supervisor_liveness.surface_blocked_alerts(
-                    request=_supervisor_liveness.BlockedAlertRequest(
-                        sup=sup,
-                        track=track,
-                        session=session,
-                        pane=target,
-                        detail=detail,
-                        declaration_mtime=declared.mtime
-                        if blocked is not None and declared
-                        else None,
-                        blocked_age=blocked_age if blocked is not None else None,
-                        blocked_age_label=blocked_age_label if blocked is not None else None,
-                        istate=istate,
-                    )
-                )
+        blocked_decision = _supervisor_blocked.blocked_human(
+            request=_supervisor_blocked.BlockedRequest(
+                sup=sup,
+                track=track,
+                session=session,
+                pane=target,
+                ready=ready,
+                blocked=blocked,
+                blocked_age=blocked_age,
+                blocked_age_label=blocked_age_label,
+                declared=declared,
+                istate=istate,
+                note=note,
+                shell_only=shell_only,
+                attention=attention,
+                gate=gate,
+                act=act,
             )
-        else:
-            active_conditions.add("blocked-human")
+        )
+        note = blocked_decision.note
+        ready = blocked_decision.ready
+        active_conditions.update(blocked_decision.active_conditions)
     elif not idle:
         # Pane present but not a verified idle-input state and not busy —
         # a transient/settling capture. Wait; never act.
@@ -334,98 +333,52 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         status = "ctx-stale"
         active_conditions.add("ctx-stale")
         note = _supervisor_liveness.append_note(note=note, extra=ctx_stale_note)
-        if act:
-            sup.alert(
-                repo=repo,
-                topic=topic,
-                session=session,
-                pane=target,
-                message=(
-                    f"context unreadable for "
-                    f"{_supervisor_liveness.age_label(seconds=ctx_stale_age)} "
-                    f"after last known {stale_ctx}% at or below {threshold}% — "
-                    "inspect the pane before acting"
-                ),
-                condition="ctx-stale",
-            )
-    elif eff_ctx is not None and eff_ctx <= threshold:
-        # A FRESH `winding-down` ACK buys patience: the session heard us and is
-        # wrapping up, so stop re-warning (never keystroke into a session that is
-        # actively winding down). A STALE ACK resumes escalating — an ACK must not
-        # become an infinite stall — but still never authorizes an act.
-        if act and not acked:
-            _supervisor_restart.maybe_inject(
+        _supervisor_ctx_stale.ctx_stale(
+            request=_supervisor_ctx_stale.CtxStaleRequest(
                 sup=sup,
                 track=track,
+                session=session,
+                pane=target,
+                ctx_stale_age=ctx_stale_age,
+                stale_ctx=stale_ctx,
+                threshold=threshold,
+                act=act,
+            )
+        )
+    elif eff_ctx is not None and eff_ctx <= threshold:
+        threshold_decision = _supervisor_threshold.threshold(
+            request=_supervisor_threshold.ThresholdRequest(
+                sup=sup,
+                track=track,
+                session=session,
                 target=target,
                 eff_ctx=eff_ctx,
                 threshold=threshold,
+                acked=acked,
+                declared=declared,
+                act=act,
+                is_codex=is_codex,
+                istate=istate,
+            )
+        )
+        status = threshold_decision.status
+        active_conditions.update(threshold_decision.active_conditions)
+    else:
+        status = _supervisor_idle.idle_room(
+            request=_supervisor_idle.IdleRequest(
+                sup=sup,
+                track=track,
+                target=target,
+                topic=topic,
+                eff_ctx=eff_ctx,
+                threshold=threshold,
+                declared=declared,
+                claude_status=claude_status,
+                istate=istate,
+                act=act,
                 is_codex=is_codex,
             )
-        if acked:
-            status = "winding-down"
-        elif eff_ctx <= DANGER_CTX_REMAINING:
-            status = "danger"
-            active_conditions.add("default")
-            if act:
-                _supervisor_nudge.alert_non_responder(
-                    sup=sup,
-                    track=track,
-                    session=session,
-                    pane=target,
-                    eff_ctx=eff_ctx,
-                    declared=declared,
-                )
-        else:
-            status = "warned"
-    else:
-        if not signals.topic_reserved_for_supervisor(topic=topic):
-            _supervisor_offer.surface_supervision_offer(sup=sup, track=track, act=act)
-        # Idle at an empty prompt with the context ABOVE the wind-down threshold. If
-        # the session has declared nothing, nudge it ONCE this episode to keep going
-        # rather than stop early (the inverse of the wrap-up). The daemon-written
-        # `idle-with-context-left` marker makes it single-prompt; it clears when the
-        # session next goes non-idle, re-arming a fresh nudge for the next episode.
-        nudged_already = (
-            declared is not None and declared.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
         )
-        has_context_left = eff_ctx is not None and eff_ctx > threshold
-        # Claude's own `waiting` = at a gate/prompt for the human. Even when no
-        # structured gate is visible in the capture (it scrolled, or it is a prose
-        # question a YOLO session cannot raise as a prompt), that IS "a blocking
-        # question for the human" — so it must NOT be nudged to keep going.
-        waiting_on_human = claude_status == "waiting"
-        # `eff_ctx is not None` is spelled out here as well as inside
-        # `has_context_left` so the type checker can narrow it for the
-        # `_nudge_idle_with_context` call below. It is not redundant to a reader
-        # either: a nudge needs a KNOWN remaining-context percentage to quote.
-        if (
-            eff_ctx is not None
-            and has_context_left
-            and not waiting_on_human
-            and (declared is None or nudged_already)
-        ):
-            status = "idle-with-context-left"
-            # Fire the nudge ONLY after the session has been continuously idle for at
-            # least `IDLE_NUDGE_AFTER` (maintainer 2026-07-18: the nudge was "too
-            # aggressive, TOO SOON", interrupting sessions merely between turns). The
-            # status still reads `idle-with-context-left` immediately (it is descriptive,
-            # not an attention row); only the keystroke waits for the 1-hour floor.
-            idle_long_enough = (
-                istate.idle_since is not None
-                and (sup.now() - istate.idle_since) >= IDLE_NUDGE_AFTER
-            )
-            if act and not nudged_already and idle_long_enough:
-                _supervisor_nudge.nudge_idle_with_context(
-                    sup=sup,
-                    track=track,
-                    target=target,
-                    eff_ctx=eff_ctx,
-                    threshold=threshold,
-                    is_codex=is_codex,
-                )
-        else:
-            status = "idle"
 
     if status != "ctx-stale":
         note = _supervisor_liveness.append_note(note=note, extra=ctx_stale_note)

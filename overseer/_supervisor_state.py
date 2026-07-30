@@ -112,7 +112,11 @@ def void_stale_blocked(
     age = sup.now() - state.mtime
     if age <= MARKER_VOID_GRACE:
         return blocked  # the declaring turn's own tail (RB1)
-    clear_state(sup=sup, track=track)
+    try:
+        signals.state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
+    except OSError as exc:
+        sup.log(message=f"could not delete state file for {track.repo}::{track.topic}: {exc}")
+    registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
     sup.log(
         message=f"voided stale blocked declaration for {track.repo}::{track.topic} "
         f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed generating)"
