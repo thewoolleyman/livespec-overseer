@@ -179,7 +179,15 @@ a nice-to-have.
 | offending entry | `"index.crates.io"` at **`:75`**, a bare sibling of `"dial tcp"`, `"i/o timeout"`, `"econnreset"` … |
 | matcher | `pub fn classify_failure_reason(reason: &str)` at **`:160`** |
 | consult ORDER (first match wins) | `Canceled` → **`TRANSIENT_INFRA`** → `BUDGET_EXHAUSTED` (`:85`) → `STRUCTURAL` (`:100`) → `Deterministic` fallback |
-| upstream pin | `classify_reason_index_crates_io` at **`:1605`** |
+| the pinning test | `classify_reason_index_crates_io` — **local `:1605`**, upstream `:1654` |
+
+**Every line number in this table is a coordinate in the LOCAL file at base
+`d5dcd1179`.** They shift on the fix branch (`:54` / `:85` / `:205`), and they
+are **not** upstream's — upstream's own numbers are given separately below.
+An earlier version of this table labelled the `:1605` row "upstream pin", which
+was **wrong**: `:1605` is the **local** line, and the same test sits at
+upstream `:1654`. Corrected here so the row does not send a reader to the wrong
+file.
 
 **The earlier `error.rs:44/:85/:159` pointer was RIGHT about the file** — those
 are the three hint-list declaration lines (`:159` being one line off the

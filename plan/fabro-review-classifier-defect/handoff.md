@@ -2,10 +2,13 @@
 
 **Owning repo:** `livespec-overseer` (the thread lives here; the CODE lives in
 `/data/projects/fabro`). **Ledger anchor:** epic **`overseer-dtytju`**.
-**Status: INVESTIGATION COMPLETE 2026-07-29.** All five open questions
-answered; a RED-then-green fix is prepared on an **unpushed branch** in
-`/data/projects/fabro`. **Upstream filing is NOT done and is reserved to the
-maintainer.** What remains is a publication decision, not more investigation.
+**Status: INVESTIGATION COMPLETE 2026-07-29; fabro work HANDED OFF
+2026-07-30.** All five open questions answered; a RED-then-green fix is
+prepared on an **unpushed branch** in `/data/projects/fabro`. **Nothing is
+pushed and no upstream PR or issue exists.** The publication question has been
+**answered and superseded** — the maintainer routed it to a **Codex session**,
+which now owns the fabro-side work; see NEXT ACTION. **This thread must not
+touch `/data/projects/fabro`**; its remaining work is record hygiene here.
 
 Created 2026-07-29 from `plan/codex-parity-and-rollout-safety/`, whose slice A2
 (`overseer-vyie5q`) died twice at the `review` stage before this was found.
@@ -86,6 +89,9 @@ the time: 5 runs, 2 repos, 4 work-items.
   `TRANSIENT_INFRA_HINTS`, matched by `classify_failure_reason` at `:160`. The
   old pointer named the **right file** (those are the three hint-list decl
   lines); it lacked only the crate. See the note for the full table.
+  **These are BASE `d5dcd1179` coordinates.** They shift on the fix branch,
+  where the same items sit at `:54` / `:85` / `:205` — on the branch, `:75` is
+  `"try again"`, so an unlabelled number sends a reader to the wrong line.
 
 ## Where the code is
 
