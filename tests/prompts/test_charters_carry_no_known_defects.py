@@ -1,4 +1,4 @@
-"""Gate every charter IN THIS REPO against the six known defect classes.
+"""Gate every charter IN THIS REPO against the seven known defect classes.
 
 The nine groom slices fix the GENERATOR, so the NEXT charter is correct. None of
 them remediates the charters already emitted, and nothing schedules regeneration
@@ -139,6 +139,20 @@ _SUPERVISOR_PROOF_DISTINCT = '"$supervisor_pane_pid" != "$pane_pid"'
 # be the false-positive-on-correct-code failure that made the prototype
 # unusable as a gate.
 _LIST_SESSIONS_GREP = re.compile(r"list-sessions[^\n|]*\|[^\n]*grep\s+(-\S+)")
+
+# (g) `PIPESTATUS` is BASH. This fleet's shell is zsh, where the array is
+# `$pipestatus[1]` -- lowercase and 1-INDEXED. Proven: `zsh -c 'false | true;
+# echo "${PIPESTATUS[0]}"'` prints an EMPTY string while `${pipestatus[1]}`
+# prints 1. Empty reads like a pass, so the remedy for the pipe trap fails in
+# the same silent way as the trap it is meant to catch.
+#
+# PREVENTIVE: zero charters carry this in code today. It is gated now for the
+# same reason `realpath` was -- closing a hole before a charter walks through it
+# is cheap, and discovering it afterwards is not. Fenced code only, so the
+# Corrections entries that EXPLAIN the hazard (C14 among them) stay clean; a
+# detector that flagged the documentation of a fix is what made the whole-file
+# prototype unusable.
+_BASH_PIPESTATUS = re.compile(r"\bPIPESTATUS\b")
 
 
 def _code_blocks(*, text: str) -> list[str]:
@@ -302,6 +316,18 @@ def empty_prev_watcher_init(*, text: str) -> list[str]:
     return list(dict.fromkeys(found))
 
 
+def bash_pipestatus_in_zsh_fleet(*, text: str) -> list[str]:
+    """`PIPESTATUS` used in emitted code, which is silently empty under zsh."""
+    found: list[str] = []
+    for block in _code_blocks(text=text):
+        for line in block.splitlines():
+            if _is_comment(line=line):
+                continue
+            if _BASH_PIPESTATUS.search(line):
+                found.append(line.strip())
+    return found
+
+
 def regex_session_existence_test(*, text: str) -> list[str]:
     """A `list-sessions | grep` presence test whose pattern is not LITERAL.
 
@@ -357,6 +383,7 @@ _DETECTORS = (
     ("d-empty-prev-watcher-init", empty_prev_watcher_init),
     ("e-supervisor-trusted-by-name", supervisor_trusted_by_name),
     ("f-regex-session-existence-test", regex_session_existence_test),
+    ("g-bash-pipestatus-under-zsh", bash_pipestatus_in_zsh_fleet),
 )
 
 
@@ -818,3 +845,46 @@ echo "unrelated to any watcher"
 ```
 """
     assert [d for d in defects_in(text=charter) if d.startswith("d-")] == []
+
+
+def test_bash_pipestatus_in_emitted_code_is_flagged():
+    """RED demonstration for (g), proven in both shells before being written.
+
+    `zsh -c 'false | true; echo "${PIPESTATUS[0]}"'` prints EMPTY; the same line
+    under bash prints 1. The fleet's shell is `/usr/bin/zsh`, so the bash
+    spelling makes the remedy for the pipe trap fail in the same silent way as
+    the trap — and an empty string reads like a pass.
+    """
+    charter = """
+```sh
+just check | tail -5; echo "EXIT=${PIPESTATUS[0]}"
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("g-")] == [
+        'g-bash-pipestatus-under-zsh: just check | tail -5; echo "EXIT=${PIPESTATUS[0]}"'
+    ]
+
+
+def test_the_zsh_spelling_is_accepted():
+    """THE CONTROL: `$pipestatus[1]` is correct here and must not be flagged."""
+    charter = """
+```sh
+just check | tail -5; echo "EXIT=$pipestatus[1]"
+```
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("g-")] == []
+
+
+def test_prose_explaining_the_pipestatus_hazard_is_not_flagged():
+    """Correction C14 EXPLAINS this hazard in prose and must stay clean.
+
+    Flagging it would make documenting a fix raise a charter's score — the exact
+    property that made the whole-file prototype unusable as a gate.
+    """
+    charter = """
+C14 — the charter's own anti-pipe-trap advice silently does nothing in the shell
+we run. `PIPESTATUS` is bash; this fleet's shell is zsh, where the array is
+`$pipestatus[1]`. Writing `echo "EXIT=${PIPESTATUS[0]}"` here yields an EMPTY
+string, which reads like a pass when skimmed.
+"""
+    assert defects_in(text=charter) == []

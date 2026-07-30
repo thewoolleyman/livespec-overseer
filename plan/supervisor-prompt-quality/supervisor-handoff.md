@@ -371,7 +371,12 @@ change staged and `git log` shows someone else's HEAD.
 - **A FILED ITEM IS A CLAIM WITH A TIMESTAMP.** Re-confirm any ledger item is
   still live before relaying it as a present-tense fact.
 - **AN EXIT CODE THROUGH A PIPE IS THE LAST COMMAND'S.** `cmd | tail -35; echo
-  "EXIT=$?"` reports `tail`. Use `PIPESTATUS`/`pipefail`, or read the artifact.
+  "EXIT=$?"` reports `tail`. **READ THE ARTIFACT** — that is the remedy that
+  cannot be spelled wrong. If you must read the pipe's status, this fleet's shell
+  is **zsh**: the array is `$pipestatus[1]`, lowercase and 1-INDEXED. The bash
+  spelling `${PIPESTATUS[0]}` yields an EMPTY string here — no error, no warning,
+  and empty reads like a pass. This line prescribed the bash spelling until
+  2026-07-30, which is C14 being diagnosed and then left in place.
 - **A RED GATE IS A CLAIM TOO.** Read the job log before believing the check
   name; a `check-no-direct-destructive-cli` failure here was a `pyright`
   download timeout, and the check never ran.
