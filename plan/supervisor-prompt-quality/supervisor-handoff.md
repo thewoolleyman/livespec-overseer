@@ -299,6 +299,24 @@ open obligation matches no worker-centric trigger.
   wrap-up injection into that pane, so the condition that most needs attention
   is the one that mutes the only other watcher.
 
+**READ C16 BEFORE ARMING THIS.** The watcher below is the shape this charter
+prescribes, and that exact shape was killed mid-flight THREE TIMES with no
+output, which voids the "expiry is itself a wake" guarantee the armed-re-entry
+rule rests on. A ~14 min watcher of identical shape completed normally, and
+another track's watcher stayed alive throughout, so nothing was reaping shells
+fleet-wide — **duration is implicated, and the threshold is NOT known.** No
+threshold is asserted here because none has been measured; do not invent one.
+
+What follows from that, concretely: **treat a long ceiling as unreliable rather
+than as an armed mechanism.** Prefer a shorter watcher you re-arm, and if a
+watcher produces NO output at all, that is the failure mode C16 records — not a
+still-running watcher. Do not conclude "still busy" from silence.
+
+This warning lives HERE, at the point of prescription, and not only in the
+Corrections log, because C14 was exactly the opposite: the log diagnosed a bad
+instruction and the instruction stood unchanged for a day. A reader following an
+instruction must meet its known failure where they read it.
+
 Create any named wait channel before relying on it, and tell the worker what
 feeds it:
 
@@ -309,7 +327,7 @@ mkdir -p "$(dirname "$wait_channel")"
 # Tell the worker: append one line to "$wait_channel" at every milestone.
 
 prev="__OVERSEER_NO_CAPTURE_YET__"; stable=0
-for i in $(seq 1 180); do                    # ~60 min ceiling
+for i in $(seq 1 180); do   # ~60 min ceiling — SEE C16: this length was killed 3x
   sleep 20
   pane=$(tmux capture-pane -p -t "$WORKER_TARGET")   # visible only
   [ -z "$pane" ] && { echo "WAKE: pane unreadable — session may be gone"; exit 0; } # before the diff
@@ -427,6 +445,12 @@ preserve every entry.
   after all. Fix: exact `'=name:'` targets and an explicit distinct-`pane_pid`
   check. Generalize: when a check passes, confirm it can also FAIL before
   believing it.
+  **Where that distinct-`pane_pid` check actually lives, audited 2026-07-30:** not
+  in precondition 2 as this entry's wording implies, but in precondition 3, which
+  HALTs unless `supervisor_pane_pid != pane_pid`. That DISCHARGES C1 — a
+  precondition-2 target resolving onto the supervisor's pane makes the two pids
+  equal, so precondition 3 refuses. Recorded because reading this entry alone
+  sends you looking for a check that is not where it says it is.
 - **C2 (2026-07-26) — my containment check false-passed on an empty string.**
   `readlink -f ""` returns the CWD with exit 0, so a `pane_current_path` that
   came back empty rendered as `PASS:` against the repo root. Fix: guard
