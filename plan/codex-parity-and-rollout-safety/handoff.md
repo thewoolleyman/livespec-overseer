@@ -415,10 +415,53 @@
 > > adoption source.** `8bd5b91` (A4) and `0411f060` (e18) do not touch it at all;
 > > `e1ab505` (A6) touches only the `.claude-plugin/` MIRROR copies — there is no
 > > bare `overseer/_supervisor_discovery.py`, `codex_sessions.py` or
-> > `claude_sessions.py` in its file list. **So the adoption code running today is
-> > the code that was verified live on 2026-07-16.** Whether that discharges the
-> > acceptance sentence is a MAINTAINER decision about narrowing a bar; it is
-> > recorded here as evidence, and deliberately not decided.
+> > `claude_sessions.py` in its file list.
+> >
+> > > # ⛔ THE CONCLUSION I DREW FROM THAT WAS FALSE — do not hand it to anyone
+> > >
+> > > I wrote: *"So the adoption code running today is the code that was verified
+> > > live on 2026-07-16."* **It is not, and this nearly became the basis for
+> > > closing A4.**
+> > >
+> > > **The query was adjacent to the question.** "Did these three commits touch
+> > > it?" is answered correctly — NO. The question that decides the claim is
+> > > **"what HAS touched it since 2026-07-16?"** That returns **EIGHT commits**:
+> > >
+> > > ```
+> > > 1918f36 refactor: convert the seams this repo owns to keyword-only Protocols
+> > > 80423ca refactor: make the production surface keyword-only
+> > > 58f053e refactor: make the tmux surface and its double keyword-only
+> > > 5312cfa refactor: declare the annotated __all__ on every overseer module
+> > > e83853a refactor: extract the watch-set + discovery group, rehome resolve_watch
+> > > b5d0cfe refactor: publicise Supervisor's shared state and diagnostics surface
+> > > 236209c fix(overseer): close six UnicodeDecodeError boundary leaks   <- a fix, not a refactor
+> > > ceaca74 chore: scaffold livespec-overseer (control-plane-tool)
+> > > ```
+> > >
+> > > **And the decisive one: `ceaca74` is THIS REPO'S FIRST COMMIT, dated
+> > > 2026-07-21. The repo did not exist on 2026-07-16** — that verification
+> > > happened in livespec core, before the package was relocated here.
+> > >
+> > > **Measured churn:** `+720 / -0` for the scaffold (the relocation, arriving
+> > > wholesale) and a further **`+483 / -136`** on top of it — including one
+> > > BEHAVIORAL fix (`236209c`, six UnicodeDecodeError boundary leaks) and a
+> > > 306-line extraction of the discovery group itself.
+> > >
+> > > **Pathspec positive control**, since a negative is being asserted: the
+> > > identical `git show --numstat <sha> -- <path>` form returns `+48 / -14` for
+> > > `0411f060` against `overseer/start.py`. So the empty results above are real
+> > > absences, not a malformed pathspec.
+> > >
+> > > **Same error class as the e18 mis-diagnosis, twice in one session:** a query
+> > > that is correct about its own inputs while answering a question next to the
+> > > one that mattered. Both times the fix was to ask what the WORLD did, not what
+> > > my chosen inputs did.
+> >
+> > So the honest statement is the opposite of what I first wrote: **the adoption
+> > path has been through a repo relocation plus ~483 further insertions since it
+> > was last exercised live, and has NOT been re-verified since.** Whether the bar
+> > may be discharged anyway is a MAINTAINER decision about narrowing it;
+> > deliberately not decided here.
 > >
 > > #### The NEGATIVE half — DISCHARGED, with a positive control
 > >
@@ -961,7 +1004,11 @@
 > 1. **`CODEX_HOME` presence** — weak. It is user- and wrapper-settable, and the
 >    Fabro sandbox sets it explicitly, so it would admit non-Codex contexts.
 > 2. **Parent-process-chain `comm == "codex"`** — stronger, and it reuses machinery
->    this repo already has and already verified live on 2026-07-16:
+>    this repo already has and already verified live on 2026-07-16 — **but see the
+>    ⛔ box in §"The adoption code is UNCHANGED": that verification predates this
+>    repo's existence (first commit `ceaca74`, 2026-07-21) and the code has moved
+>    ~483 lines since, so treat "verified 2026-07-16" as PROVENANCE, never as
+>    CURRENCY**:
 >    `codex_sessions.py` defines `CODEX_COMM = "codex"` for exactly this identification.
 >    **Caveat that must be checked live:** `codex` on PATH here is a bash wrapper that
 >    `exec`s `bun`, and `codex_sessions.py:80-83` records that the `bun` process is the
