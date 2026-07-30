@@ -13,6 +13,60 @@ touch `/data/projects/fabro`**; its remaining work is record hygiene here.
 Created 2026-07-29 from `plan/codex-parity-and-rollout-safety/`, whose slice A2
 (`overseer-vyie5q`) died twice at the `review` stage before this was found.
 
+## RESUME STATE — 2026-07-30 session end, read this first
+
+**This file is the ONLY thing a restarted session inherits.** Nothing in
+`tmp/`, no transcript, no scratchpad.
+
+**Nothing is blocked on the worker.** All record work is landed and
+forge-verified; master tip at handoff time was `d09cfe51`. There is **no
+half-finished edit** anywhere.
+
+**The ledger — three items, all `backlog`, none groomed, none closed.** Read
+via `/data/projects/1password-env-wrapper/with-livespec-env.sh bd show <id>`
+(a bare `bd` is Access-denied; `bd create` has no `--status`, so hand-filed
+items land at beads-native `open` — set status explicitly and **read back**,
+because the wrapper exits 0 even when the binary is missing, `overseer-1sv`):
+
+| id | what |
+|---|---|
+| `overseer-dtytju` | P2 epic — acceptance MET but **NOT general coverage** (see below) |
+| `overseer-fs4` | P2 bug — the orchestrator never consumes the failure category; cross-referenced with `bd-ib-g56f` in the **orchestrator** tenant |
+| `overseer-816` | P2 bug — the send idiom is Claude Code-specific but lives in the **generator** and the **shared protocol**, so every future charter reproduces it |
+
+**HUMAN-OWNED, none blocking:** closing `overseer-dtytju`; merge-and-tenant for
+`overseer-fs4` vs `bd-ib-g56f`; publication of the fabro branch; whether to fix
+the generator (`overseer-816`); and **re-measuring the port arithmetic against
+upstream's LIVE tip** — the 357-line and 5-of-6 figures are as-of `854f71f2c`
+and upstream has since moved.
+
+**TWO DELIVERIES OUTSTANDING, NEITHER AWAITED — nothing is polling for either.**
+
+1. Peer notification at
+   `tmp/overseer/codex-parity-and-rollout-safety/PEER-NOTIFICATION-from-classifier-defect-supervisor.md`
+   — **file-only**; the watcher was **stood down** after two 40-minute ceilings.
+   **Deliver by hand** when that session is next seen **without** an open picker.
+2. Codex addendum at
+   `/data/projects/fabro/tmp/ADDENDUM-second-limit-payload-found.md` —
+   **DELIVERED-BY-FILE, NOT CONFIRMED-READ**; its text also sits **unsubmitted**
+   in that pane.
+
+**Before typing into ANY pane you do not own, check that harness's submit
+idiom** — Claude Code's `Enter` does **not** submit in a Codex pane. See
+correction **C6** in `supervisor-handoff.md`, and **stop after two failed
+keystrokes**.
+
+**THE SWEEP IS UNEXHAUSTED.** Five rungs climbed — thread files → ledger → repo
+outside this thread → other tenants → other fleet repos — and **every rung
+returned something new**. Assume rung six is not dry.
+
+**The one thing to carry forward.** The classifier bug, the vacuous `git diff`,
+the uncontrolled zero-hit grep, the under-scoped sweep and the cross-harness
+keystroke are **the same defect**: *a check that cannot fail, returning
+success.* Five instances in one day, at five levels of the stack. The remedy
+was identical every time — **give the check a way to come back empty-handed and
+mean it.**
+
 ## Read-first chain
 
 1. This file.
