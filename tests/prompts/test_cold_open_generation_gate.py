@@ -166,6 +166,27 @@ esac
 exit 0
 """,
     )
+    # `bd` reaches the LEDGER. It is STUBBED rather than classified out of the
+    # execution leg, for exactly the reason `tmux` is: this gate's design is that
+    # every emitted block must EXECUTE, and the way it holds that for a block
+    # touching live external state is to stand in for the tool. Classifying
+    # ledger blocks out instead would stop the gate checking the one instruction
+    # the "a filed item is a claim with a timestamp" rule requires the charter to
+    # carry.
+    #
+    # DISCRIMINATING ON PURPOSE — a blanket `exit 0` would remove the teeth. The
+    # shipped form is `bd show <anchor> --json`; a missing subcommand, a missing
+    # or option-shaped anchor, or a missing `--json` all exit 1, so a malformed
+    # ledger re-measure is still reported as not executing.
+    _write_executable(
+        path=bin_dir / "bd",
+        body="""#!/bin/sh
+[ "$1" = "show" ] || exit 1
+case "$2" in "" | -*) exit 1 ;; esac
+case "$*" in *--json*) ;; *) exit 1 ;; esac
+printf '%s\n' '{"id":"stub","status":"open"}'
+""",
+    )
     _write_executable(path=bin_dir / "ps", body="#!/bin/sh\nprintf '%s\n' '100 claude claude'\n")
     _write_executable(path=bin_dir / "sleep", body="#!/bin/sh\nexit 0\n")
     _write_executable(path=bin_dir / "seq", body="#!/bin/sh\nprintf '1\n'\n")
@@ -450,3 +471,29 @@ printf '%s\n' '<condition-command>'
 
 def test_bash_is_available_for_the_execution_leg() -> None:
     assert shutil.which("bash") is not None
+
+
+def test_the_ledger_stub_discriminates_a_malformed_re_measure(*, tmp_path: Path) -> None:
+    """The `bd` stub must NOT be a blanket pass.
+
+    Standing in for a tool the harness cannot reach is how this gate keeps
+    executing external-state blocks. The risk is that the stand-in accepts
+    anything, which would silently retire the execution leg for every ledger
+    block. Each mutation below is a real way to get the re-measure wrong, and each
+    must still be reported as not executing.
+
+    Sabotage that reddens this: replace the stub body with `exit 0`.
+    """
+    for broken in (
+        "bd show --json",  # anchor missing, option consumed as the anchor
+        'bd show "$ledger_anchor"',  # no --json, so nothing is machine-readable
+        'bd shwo "$ledger_anchor" --json',  # subcommand typo
+    ):
+        text = _clean_charter().replace('bd show "$ledger_anchor" --json', broken)
+        assert text != _clean_charter(), f"mutation did not apply: {broken}"
+        found = cold_open_findings(
+            text=text, repo_primary=_repo(tmp_path=tmp_path), tmp_path=tmp_path
+        )
+        assert any(
+            f.startswith("command-does-not-execute:") for f in found
+        ), f"the stub accepted a malformed ledger re-measure: {broken}"
