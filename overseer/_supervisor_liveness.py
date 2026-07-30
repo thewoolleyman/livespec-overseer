@@ -9,10 +9,11 @@ import registry
 import signals
 from _supervisor_config import (
     BLOCKED_AGE_ALERT_BANDS,
+    CONDITION_CONTINUITY_GAP,
     SUPERVISION_CONDITIONS,
     track_key,
 )
-from _supervisor_records import InjectState
+from _supervisor_records import InjectState, Observation
 from _supervisor_view import MAX_REASON_IN_ALERT, elide
 
 if TYPE_CHECKING:
@@ -21,12 +22,15 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "BlockedAlertRequest",
     "age_label",
+    "age_label_or_none",
     "append_note",
     "blocked_age",
     "blocked_band_seconds",
+    "blocked_note",
     "clear_alert_conditions",
     "surface_blocked_alerts",
     "threshold_for",
+    "uncertifiable_ready_surface",
 ]
 
 
@@ -55,11 +59,25 @@ def age_label(*, seconds: float) -> str:
     return f"{int(clamped // _SECONDS_PER_HOUR)}h"
 
 
+def age_label_or_none(*, seconds: float | None) -> str | None:
+    """Compact age label, preserving ``None`` for absent declaration ages."""
+    return age_label(seconds=seconds) if seconds is not None else None
+
+
 def blocked_age(*, sup: Supervisor, declared: signals.TrackState | None) -> float | None:
     """Age of a blocked declaration, clamped against clock skew."""
     if declared is None or declared.token != signals.STATE_BLOCKED:
         return None
     return max(0.0, sup.now() - declared.mtime)
+
+
+def blocked_note(*, blocked: str | None, blocked_age_label: str | None) -> str | None:
+    """Row note for a blocked declaration, carrying its duration when known."""
+    if blocked is None:
+        return None
+    if blocked_age_label is None:
+        return blocked
+    return f"{blocked_age_label}: {blocked}"
 
 
 def blocked_band_seconds(*, age: float) -> list[int]:
@@ -95,6 +113,85 @@ def clear_alert_conditions(
 def threshold_for(*, sup: Supervisor, track: registry.Track) -> int:
     """Track override if present, otherwise the daemon-wide warn threshold."""
     return track.ctx_threshold if track.ctx_threshold is not None else sup.warn_percent
+
+
+def reset_uncertifiable_ready_state(*, istate: InjectState) -> None:
+    istate.uncertifiable_ready_mtime = None
+    istate.uncertifiable_ready_entry_age_label = None
+    istate.uncertifiable_ready_alerted_bands = set()
+
+
+def uncertifiable_ready_surface(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    session: str,
+    pane: str,
+    obs: Observation,
+    act: bool,
+) -> tuple[str, set[str]] | None:
+    """Return the report-only surface for a `ready` that cannot certify, if due."""
+    declared = obs.declared
+    if declared is None or declared.token != signals.STATE_READY:
+        reset_uncertifiable_ready_state(istate=obs.istate)
+        return None
+    if obs.injection_stamp is None:
+        reason = "no supervision round open"
+    elif declared.mtime <= obs.injection_stamp:
+        reason = "ready predates round stamp"
+    else:
+        reset_uncertifiable_ready_state(istate=obs.istate)
+        return None
+
+    istate = obs.istate
+    age = max(0.0, sup.now() - declared.mtime)
+    if age < CONDITION_CONTINUITY_GAP:
+        return None
+
+    active_conditions = {"ready-uncertifiable"}
+    note = f"{age_label(seconds=age)}: ready cannot certify: {reason}"
+    if not act:
+        return note, active_conditions
+
+    if istate.uncertifiable_ready_mtime != declared.mtime:
+        clear_alert_conditions(sup=sup, repo=track.repo, topic=track.topic, conditions=frozenset())
+        istate.uncertifiable_ready_mtime = declared.mtime
+        istate.uncertifiable_ready_entry_age_label = age_label(seconds=age)
+        istate.uncertifiable_ready_alerted_bands = set(blocked_band_seconds(age=age))
+    for band in blocked_band_seconds(age=age):
+        active_conditions.add(f"ready-uncertifiable-age-{band}")
+
+    alert_age = istate.uncertifiable_ready_entry_age_label or age_label(seconds=age)
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=session,
+        pane=pane,
+        message=(
+            f"ready cannot certify ({alert_age}): {reason} — "
+            "clear the state file or resolve it in that pane"
+        ),
+        condition="ready-uncertifiable",
+    )
+    new_bands = [
+        band
+        for band in blocked_band_seconds(age=age)
+        if band not in istate.uncertifiable_ready_alerted_bands
+    ]
+    istate.uncertifiable_ready_alerted_bands.update(new_bands)
+    for band in new_bands:
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=pane,
+            message=(
+                f"ready cannot certify ({age_label(seconds=band)}): {reason} — "
+                "clear the state file or resolve it in that pane"
+            ),
+            condition=f"ready-uncertifiable-age-{band}",
+        )
+    return note, active_conditions
 
 
 def surface_blocked_alerts(*, request: BlockedAlertRequest) -> set[str]:

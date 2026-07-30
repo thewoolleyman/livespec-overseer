@@ -208,10 +208,55 @@ def test_alert_re_arms_after_the_track_recovers(*, tmp_path):
 
 def test_liveness_helper_edges_are_covered(*, tmp_path):
     import _supervisor_liveness
+    import signals
+    from _supervisor_records import InjectState, Observation
 
     assert _supervisor_liveness.age_label(seconds=-10.0) == "0m"
+    assert _supervisor_liveness.blocked_note(blocked="waiting", blocked_age_label=None) == "waiting"
     assert _supervisor_liveness.blocked_band_seconds(age=49 * 3600.0) == [14400, 86400, 172800]
     assert _supervisor_liveness.append_note(note="alpha", extra="beta") == "alpha; beta"
+
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), now=lambda: 1000.0 + 901.0)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+    obs = Observation(
+        capture="",
+        busy=False,
+        gate=False,
+        idle=True,
+        is_codex=False,
+        runtime="claude",
+        codex_fallback=False,
+        claude_status="idle",
+        eff_ctx=79,
+        ctx_stale_age=None,
+        stale_ctx=None,
+        injection_stamp=None,
+        istate=InjectState(),
+        declared=signals.TrackState(token=signals.STATE_READY, detail="", mtime=1000.0),
+        malformed=False,
+        blocked=None,
+        acked=False,
+        ready=False,
+    )
+
+    surface = _supervisor_liveness.uncertifiable_ready_surface(
+        sup=sup, track=track, session=session, pane=session, obs=obs, act=False
+    )
+    assert surface == (
+        "15m: ready cannot certify: no supervision round open",
+        {"ready-uncertifiable"},
+    )
+
+    obs.istate.uncertifiable_ready_mtime = 1000.0
+    obs.istate.uncertifiable_ready_entry_age_label = "15m"
+    obs.istate.uncertifiable_ready_alerted_bands = {14400}
+    older = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), now=lambda: 1000.0 + 14401.0)
+    _note, conditions = _supervisor_liveness.uncertifiable_ready_surface(
+        sup=older, track=track, session=session, pane=session, obs=obs, act=True
+    )
+    assert "ready-uncertifiable-age-14400" in conditions
 
 
 def test_alert_reports_again_when_the_reason_changes(*, tmp_path):

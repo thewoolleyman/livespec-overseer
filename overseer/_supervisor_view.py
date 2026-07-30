@@ -39,7 +39,13 @@ __all__: list[str] = [
 # that genuinely want the operator, which is the exact failure this block exists to fix.
 # `session-gone` IS attention: a plan we have seen running is no longer in any tmux,
 # and the operator decides whether to restart or unassign it. `not-claude` is gone.
-ATTENTION_STATUSES = ("blocked:human", "ctx-stale", "danger", "session-gone")
+ATTENTION_STATUSES = (
+    "blocked:human",
+    "ctx-stale",
+    "danger",
+    "ready-uncertifiable",
+    "session-gone",
+)
 
 # The row note a track carries while its POST-RESPAWN resume line has not yet SUBMITTED
 # (R1, 2026-07-18). The daemon self-heals — it re-sends Enter every tick (never a
@@ -78,6 +84,7 @@ _STATUS_COLOR = {
     "danger": _ANSI_YELLOW,
     "blocked:human": _ANSI_YELLOW,
     "ctx-stale": _ANSI_YELLOW,
+    "ready-uncertifiable": _ANSI_YELLOW,
     "session-gone": _ANSI_RED,
 }
 

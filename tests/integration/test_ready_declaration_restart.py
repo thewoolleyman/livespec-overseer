@@ -26,7 +26,7 @@ from __future__ import annotations
 import contextlib
 import io as _io
 
-from overseer import registry, signals, supervisor
+from overseer import _supervisor_config, registry, signals, supervisor
 from overseer.test_supervisor_builders import (
     busy_capture,
     declare,
@@ -203,6 +203,98 @@ def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(*, tmp_p
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         == stamp
     )
+
+
+def _bare_ready_no_round_fixture(*, tmp_path, clock):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=79))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
+    state = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=clock["t"])
+    return repo, topic, session, fake, sup, track, state
+
+
+def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tmp_path):
+    """Scenario: An uncertifiable ready declaration is surfaced as attention.
+
+    Given a session that wrote `ready` while no supervision round is open, the interlock
+    must keep refusing it forever: no stamp means no round to certify against. Past the
+    bounded floor, though, the row must stop looking like an acting restart and become an
+    attention row naming the declaration, its age, and why it cannot certify.
+
+    INJECTED DEFECTS THAT REDDEN IT:
+      - treating a bare `ready` as plain `idle` keeps it out of NEEDS YOU and emits no
+        alert.
+      - adding the status to attention without the alert branch leaves stderr empty.
+    """
+    clock = {"t": 1000.0}
+    repo, topic, session, fake, sup, track, _state = _bare_ready_no_round_fixture(
+        tmp_path=tmp_path, clock=clock
+    )
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is None
+    )
+    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=None) is False
+
+    too_young = sup.evaluate(track=track, act=True)
+    assert too_young.status != "restarting"
+    assert not fake.has(method="respawn")
+
+    clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        surfaced = sup.evaluate(track=track, act=True)
+
+    assert surfaced.status == "ready-uncertifiable"
+    assert surfaced.note == "15m: ready cannot certify: no supervision round open"
+    assert supervisor.needs_attention(row=surfaced) is True
+    assert not fake.has(method="respawn")
+    report = err.getvalue()
+    assert "ready cannot certify (15m): no supervision round open" in report
+    for coordinate in (topic, registry.repo_slug(repo=str(repo)), session):
+        assert coordinate in report
+    assert f"tmux switch-client -t {session}" in report
+
+
+def test_uncertifiable_ready_alert_quantizes_clears_and_rearms(*, tmp_path):
+    """The report-only alert is edge-triggered, age-banded, and re-armed per episode.
+
+    INJECTED DEFECT THAT REDDENS IT: forgetting per-condition clearing prevents the later
+    episode from re-alerting after the declaration clears and a new one appears.
+    """
+    clock = {"t": 1000.0}
+    repo, topic, _session, _fake, sup, track, state = _bare_ready_no_round_fixture(
+        tmp_path=tmp_path, clock=clock
+    )
+    clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
+    err = _io.StringIO()
+
+    with contextlib.redirect_stderr(err):
+        sup.evaluate(track=track, act=True)
+        sup.evaluate(track=track, act=True)
+    assert err.getvalue().count("ready cannot certify") == 1
+
+    clock["t"] = 1000.0 + _supervisor_config.BLOCKED_AGE_ALERT_BANDS[0] + 1
+    with contextlib.redirect_stderr(err):
+        older = sup.evaluate(track=track, act=True)
+    assert older.status == "ready-uncertifiable"
+    assert "ready cannot certify (4h): no supervision round open" in err.getvalue()
+    assert err.getvalue().count("ready cannot certify") == 2
+
+    state.unlink()
+    assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
+
+    err = _io.StringIO()
+    clock["t"] = 20_000.0
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=clock["t"])
+    clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
+    with contextlib.redirect_stderr(err):
+        rearmed = sup.evaluate(track=track, act=True)
+    assert rearmed.status == "ready-uncertifiable"
+    assert err.getvalue().count("ready cannot certify") == 1
 
 
 def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(*, tmp_path):

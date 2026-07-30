@@ -250,7 +250,8 @@ will see:
 | `warned` | at/below the warn threshold, wrap-up injected, nothing declared yet |
 | `winding-down` | the session ACKed the wrap-up and is wrapping up; re-warns suppressed |
 | `danger` | at/below **20%** remaining with **nothing declared** — reported loudly, **never acted on** |
-| `restarting` | the session declared `ready`; the daemon is respawning + re-kicking it |
+| `restarting` | the session declared a certifiable `ready`; the daemon is respawning + re-kicking it |
+| `ready-uncertifiable` | the session wrote `ready`, but no interlock precondition can certify it — report-only attention |
 | `blocked:human` | a structured gate on the pane, or a `blocked: <reason>` declaration |
 | `session-gone` | the mapped tmux session no longer exists AND no live Claude session for the topic is running |
 | `live-outside-tmux` | the mapped tmux session is gone, but a live Claude session for this topic is running in a NON-tmux terminal (e.g. a bare SSH shell) — alive and working, but the daemon cannot capture/inject/respawn it. **Informational, not an alarm** (not in `NEEDS YOU`) |
@@ -262,8 +263,9 @@ until a human acts. See "Your job as the bottom pane" below.
 ### The `NEEDS YOU` block — the answer to "what needs attention?"
 
 Under the table the daemon prints the rows a human must actually go act on —
-`blocked:human`, `danger`, `session-gone`, and any malformed state file —
-each with **labeled coordinates** (`topic: … | tmux: … | repo: …`) and its jump command:
+`blocked:human`, `danger`, `ready-uncertifiable`, `session-gone`, and any
+malformed state file — each with **labeled coordinates** (`topic: … | tmux: … | repo: …`)
+and its jump command:
 
 ```
 NEEDS YOU (1):
@@ -394,6 +396,10 @@ are fixed by construction:
      is not responding to the wrap-up protocol; a human must go look at it," with
      its session + pane + jump command. (It is a **defect in that session** — it was
      told, escalatingly, exactly what to write.)
+   - **`ready-uncertifiable`** — the session wrote `ready`, but no supervision
+     round exists for it to answer, or its timestamp can never satisfy the current
+     round. It is report-only: the daemon will not restart it, and a human must clear
+     the declaration or open a sanctioned round.
    - **malformed state file** — the session wrote a value that is not one of
      `ready` / `blocked` / `winding-down`. It is treated as **no declaration** and
      reported; relay it the same way.
@@ -436,8 +442,8 @@ on a question you do not own**.
 - **A TRACK owns it** → **never** `AskUserQuestion`. The tracked session's own
   question is already up in its own pane; relay it as non-blocking text with the
   session, pane, and jump command, and let the maintainer answer it **there**. This
-  covers `blocked:human`, a `danger` non-responder, a malformed state file, and any
-  decision that belongs to the track's own work (a `groom` cut, a backlog promotion
+  covers `blocked:human`, a `danger` non-responder, `ready-uncertifiable`, a
+  malformed state file, and any decision that belongs to the track's own work (a `groom` cut, a backlog promotion
   or `pending-approval` approval, a `/livespec:*` spec ratification, that track's
   irreversible actions). Re-asking any of these here duplicates a surface that
   already exists — and the duplicate blocks.

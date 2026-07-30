@@ -305,6 +305,7 @@ def observe(
         eff_ctx=eff_ctx,
         ctx_stale_age=ctx_stale_age,
         stale_ctx=stale_ctx,
+        injection_stamp=stamp,
         istate=istate,
         declared=declared,
         malformed=malformed,
