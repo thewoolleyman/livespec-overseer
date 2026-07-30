@@ -256,7 +256,10 @@ keep-going nudge" above):
 - **`ready`** — "I am at a clean stopping point; restart me." **This is the SOLE
   restart authorization.** It counts only if its mtime is **newer than this
   round's injection stamp** (see the interlock below). Write it — do not merely
-  print the command.
+  print the command. Writing `ready` outside a daemon-opened round can never
+  restart you: there is no injection stamp for it to certify against, so the
+  daemon refuses it and, after the bounded floor, surfaces the dead-end
+  declaration to the operator instead.
 - **`blocked: <one-line reason>`** — "I need a human decision I cannot make
   myself." The track is **surfaced** to the operator, with its tmux coordinates,
   and is **never restarted and never keystroked into**.
@@ -288,7 +291,9 @@ The daemon restarts a tracked session ONLY when the state file passes ALL of
 these deterministic checks (`signals.ready_valid`):
 
 1. an **injection stamp exists** for this round (there was a wrap-up to respond
-   to) — without one there is no round to declare against;
+   to) — without one there is no round to declare against, so a bare `ready`
+   written outside a round is report-only attention after its bounded floor,
+   never a restart request;
 2. the state file's token is **exactly `ready`**; AND
 3. its **mtime is strictly newer than the injection stamp** — proving the
    declaration is from this round, not a stale one from a prior wrap-up.

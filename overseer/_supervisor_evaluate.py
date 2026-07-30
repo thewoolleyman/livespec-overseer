@@ -168,15 +168,12 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     threshold = _supervisor_liveness.threshold_for(sup=sup, track=track)
 
     blocked_age = _supervisor_liveness.blocked_age(sup=sup, declared=declared)
-    blocked_age_label = (
-        _supervisor_liveness.age_label(seconds=blocked_age) if blocked_age is not None else None
-    )
+    blocked_age_label = _supervisor_liveness.age_label_or_none(seconds=blocked_age)
+    blocked_note = _supervisor_liveness.blocked_note
     # The row note defaults to the blocked reason with declaration age (if any); the
     # busy branch overrides it to "background shell" when a live background shell is
     # the SOLE reason the pane isn't idle, so the operator can see WHY.
-    note: str | None = (
-        f"{blocked_age_label}: {blocked}" if blocked and blocked_age_label is not None else blocked
-    )
+    note: str | None = blocked_note(blocked=blocked, blocked_age_label=blocked_age_label)
     ctx_stale_note = (
         f"ctx unreadable ({_supervisor_liveness.age_label(seconds=ctx_stale_age)})"
         if ctx_stale_age is not None
@@ -199,6 +196,10 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
                 condition="malformed-state",
             )
 
+    uncertifiable_ready = _supervisor_liveness.uncertifiable_ready_surface(
+        sup=sup, track=track, session=session, pane=target, obs=obs, act=act
+    )
+
     # Precedence, top to bottom. Single-capture `busy` and the human gates
     # are checked first. For an apparently-idle track that would ACT
     # (restart / inject), the daemon first confirms the pane is SETTLED
@@ -219,16 +220,8 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
                 generating=signals.is_busy(capture_text=capture) or claude_status == "busy",
             )
             blocked_age = _supervisor_liveness.blocked_age(sup=sup, declared=declared)
-            blocked_age_label = (
-                _supervisor_liveness.age_label(seconds=blocked_age)
-                if blocked_age is not None
-                else None
-            )
-            note = (
-                f"{blocked_age_label}: {blocked}"
-                if blocked and blocked_age_label is not None
-                else blocked
-            )
+            blocked_age_label = _supervisor_liveness.age_label_or_none(seconds=blocked_age)
+            note = blocked_note(blocked=blocked, blocked_age_label=blocked_age_label)
         # When the PANE itself looks idle, the row note explains WHY it is `working`,
         # or the operator would read the idle-looking pane and distrust the status.
         if not signals.is_busy(capture_text=capture):
@@ -327,6 +320,10 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         status = "restarting"
         if act:
             _supervisor_restart.do_restart(sup=sup, track=track, target=target, is_codex=is_codex)
+    elif uncertifiable_ready is not None:
+        status = "ready-uncertifiable"
+        note, ready_conditions = uncertifiable_ready
+        active_conditions.update(ready_conditions)
     elif ctx_stale_age is not None and stale_ctx is not None and stale_ctx <= threshold:
         status = "ctx-stale"
         active_conditions.add("ctx-stale")

@@ -282,6 +282,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: An uncertifiable ready declaration is surfaced as attention",
+    "test": "tests.integration.test_ready_declaration_restart.test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention",
+    "reason": "Integration-tier: writes a bare `ready` with NO round stamp, asserts `ready_valid(..., injection_stamp=None)` is still false, proves no respawn occurs before or after the bounded floor, then checks the attention status, row note, and stderr alert carry the age, reason, and coordinates. The sibling edge test in the same file walks quantized re-alerting, clearing, and re-arm. SABOTAGE-VERIFIED in-test: treating bare `ready` as plain `idle`, adding attention without alerting, or failing to clear the alert condition reddens one of the paired assertions."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready declaration is voided when its session resumes work",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work",
     "reason": "Integration-tier: covers BOTH halves of the scenario over real rounds and a moving clock. A declaration younger than `MARKER_VOID_GRACE` survives the declaring turn's own busy tail and then genuinely restarts the track; one older than the grace is cleared while busy, and going idle again proves the 'instead of restarting later' clause. SABOTAGE-VERIFIED 2026-07-26: `MARKER_VOID_GRACE = 0.0` and making the void unconditional each redden the young half; `MARKER_VOID_GRACE = 10_000.0` reddens the stale half."

@@ -83,6 +83,18 @@ When the daemon evaluates the restart interlock
 
 Then the interlock fails and no restart occurs
 
+## Scenario: An uncertifiable ready declaration is surfaced as attention
+
+Given a state file declaring ready while no supervision round is open
+
+When the declaration stands past the bounded attention floor
+
+Then the track is surfaced to the operator with coordinates
+
+And the report names ready, its age, and why it cannot certify
+
+And the daemon performs no restart and no other act authorized by that declaration
+
 ## Scenario: A ready declaration is voided when its session resumes work
 
 Given a session that declared ready and then went busy again

@@ -56,6 +56,9 @@ class InjectState:
     blocked_declaration_mtime: float | None = None
     blocked_entry_age_label: str | None = None
     blocked_alerted_bands: set[int] = field(default_factory=set)
+    uncertifiable_ready_mtime: float | None = None
+    uncertifiable_ready_entry_age_label: str | None = None
+    uncertifiable_ready_alerted_bands: set[int] = field(default_factory=set)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -84,6 +87,7 @@ class Observation:
     eff_ctx: int | None
     ctx_stale_age: float | None
     stale_ctx: int | None
+    injection_stamp: float | None
     istate: InjectState
     declared: signals.TrackState | None
     malformed: bool
