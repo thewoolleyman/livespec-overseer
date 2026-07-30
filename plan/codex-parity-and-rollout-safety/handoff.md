@@ -69,9 +69,13 @@
 > > - **A2's agent-skill-list evidence pre-discharges NO part of A3** (different
 > >   surface: A3's bar is TUI `/skills` picker rendering). Hold this guard.
 > >
-> > ### ⛔ RETRACTED: the "byte-identical to upstream" claim near §:218-222
+> > ### ⛔ RETRACTED: the "byte-identical to upstream" claim — ✅ NOW APPLIED
 > >
-> > **It is FALSE — delete it, do not merely ref-pin it.** Measured at pinned refs
+> > **Both corrections below were APPLIED to the body on 2026-07-30** (see
+> > §"Why this cost a whole session"). Nothing is left to do here; the box is kept
+> > because the reasoning error is the instructive part, not the edit.
+> >
+> > **It was FALSE — deleted, not merely ref-pinned.** Measured at pinned refs
 > > with the correct path on both sides (`lib/components/…/error.rs`): fork
 > > `49b043c1a` 87,769 bytes vs upstream `4ab090cae` 67,441 bytes, **484 differing
 > > lines**. It was asserted three times on three vacuous checks — a diff of a path
@@ -83,9 +87,9 @@
 > > the peer thread's evidence instead: hint present at upstream `:79`, same
 > > first-match-wins ordering, same pinned test `classify_reason_index_crates_io` at
 > > upstream `:1654`. **Never restate identity for a file under active divergence**;
-> > those refs moved three times in two days. Also fix the nearby claim that the
-> > orchestrator's `workflow.fabro` "only CONSUMES the category" — **nothing**
-> > consumes it; fabro's own node-retry layer acts on it (filed `overseer-fs4`).
+> > those refs moved three times in two days. The nearby claim that the
+> > orchestrator's `workflow.fabro` "only CONSUMES the category" was corrected in
+> > the same pass — **nothing** consumes it (filed `overseer-fs4`).
 > >
 > > ### Pending maintainer/supervisor decisions — the actual blockers
 > >
@@ -297,11 +301,33 @@
 > the string would classify `Deterministic` (non-retryable, escalate at once) —
 > better than today's behavior; `BudgetExhausted` would be semantically right.
 >
-> **Ownership: this is fabro's, NOT the orchestrator's.** The orchestrator's
-> `workflow.fabro` only CONSUMES the category it is handed. The classifier file
-> is **byte-identical** between `thewoolleyman/fabro` and upstream
-> `fabro-sh/fabro` (`git diff --stat upstream/main` is empty), so the defect is
-> upstream's, unmodified in the fork. `fabro` has **no beads tenant**
+> **Ownership: this is fabro's, NOT the orchestrator's.** The defect is
+> upstream's, unmodified in the fork — evidenced by the CODE, not by file
+> identity: the `index.crates.io` hint is present at upstream `error.rs:79`, the
+> same first-match-wins ordering applies, and upstream pins the behavior with
+> `classify_reason_index_crates_io` at `:1654`.
+>
+> > **A byte-identity claim used to stand here and it was FALSE — do not restore
+> > it in any form.** Measured at pinned refs with the correct path on both sides:
+> > fork `49b043c1a` 87,769 bytes vs upstream `4ab090cae` 67,441 bytes, **484
+> > differing lines**. It had been asserted three times on three vacuous checks
+> > (a path absent upstream, then two 0-byte files, then a stale fork-side path),
+> > each empty result read as agreement. The file is under active divergence and
+> > its path moved three times in two days, so **identity is not a claim this
+> > record can carry.** The ownership conclusion is unchanged; only its evidence is.
+>
+> **And the orchestrator does not "merely consume" the category — NOTHING
+> consumes it.** Measured repo-wide 2026-07-30 across 2685 `.py` files with a
+> positive control proving the search reaches real code: `failure_categ`,
+> `transient_infra`, `budget_exhausted` and `node_outcomes` all return **zero**
+> hits. What acts on the category is fabro's own node-retry layer. The
+> consequence is a second defect, filed as **`overseer-fs4`** (P2, this tenant,
+> `backlog`): a run that dies on a PERMANENT cause is re-dispatched exactly like
+> a network flake, burning a host dispatch cap slot per retry. It is **not ready
+> to work** — gating on a category is meaningless until a trustworthy one exists,
+> which is the fabro-side fix below.
+>
+> `fabro` has **no beads tenant**
 > (`/data/projects/fabro/.beads` does not exist) and **the fork has GitHub issues
 > DISABLED**, so the previous handoff's instruction to "file it in the
 > orchestrator tenant" was both unexecutable and a misfiling. Supervisor ruled
