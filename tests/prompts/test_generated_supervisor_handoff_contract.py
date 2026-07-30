@@ -122,6 +122,8 @@ _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
         "condition-watcher-total-fallback",
         ("unrecognized value", "wake", "never silently"),
     ),
+    ("ledger-remeasurement-command", ("bd show", "MEASURED_AT")),
+    ("pipeline-status-preserved", ("tmux_rc=$?", '"$tmux_rc" -eq 0')),
 )
 
 # Patterns whose PRESENCE is the defect, rather than whose absence is.
@@ -449,6 +451,7 @@ def test_union_validator_retarget_demonstrates_homelab_binder_shape():
         ),
     )
     assert rows == (("homelab binder alone", 14), ("homelab shared plus binder", 8))
+    assert rows == (("homelab binder alone", 11), ("homelab shared plus binder", 5))
 
 
 def test_both_corrections_sections_survive_regeneration_byte_for_byte():
@@ -923,6 +926,22 @@ def test_the_control_a_fully_conformant_charter_passes():
          || { echo "HALT: empty pane_current_path"; echo "REMEDY: retarget"; exit 1; }
        case "$(readlink -f -- "$pane_cwd")" in /data/projects/demo|/data/projects/demo/*) ;; esac
        ```
+    ## Verification Discipline
+    ```sh
+    ledger_anchor='demo-item'
+    bd show "$ledger_anchor" --json \
+      || { echo "HALT: cannot re-measure ledger item '$ledger_anchor'"; \
+           echo "REMEDY: fix ledger access before using any filed status claim"; \
+           exit 1; }
+    date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
+    pane_pid=$(tmux display-message -p -t "$W" '#{pane_pid}')
+    tmux_rc=$?
+    [ "$tmux_rc" -eq 0 ] \
+      || { echo "HALT: tmux pane lookup failed for 'demo'"; \
+           echo "REMEDY: re-check the exact target before filtering its output"; \
+           exit 1; }
+    printf '%s\n' "$pane_pid" | head -1
+    ```
     ## How to inspect and drive
     ```sh
     tmux capture-pane -p -t "$W" # visible only
