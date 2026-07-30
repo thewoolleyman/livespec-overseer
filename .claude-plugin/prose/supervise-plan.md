@@ -200,8 +200,11 @@ thread-specific Corrections. Preserve spelling, punctuation, code formatting, bl
 ## Bindings
 
 Resolve and report startup bindings before driving: `repo_primary`, `thread_dir`,
-`worker_session`, `supervisor_session`, `workdir`, and the ledger anchor. Startup bindings only: no live status, no next actions, and no date-gated behavior. Live
-state stays in the ledger and the thread handoff.
+`worker_session`, `supervisor_session`, `runtime_dir`, `supervisor_marker`,
+`wait_channel`, and the ledger anchor. Bind `runtime_dir` to
+`<repo_primary>/tmp/overseer/<topic>/` and `supervisor_marker` to
+`<runtime_dir>/.supervisor-state`. Startup bindings only: no live status, no next actions, and no date-gated behavior. Live state stays in the ledger, the
+thread handoff, and the supervisor marker.
 
 ## Thread-specific Valves
 
@@ -298,6 +301,17 @@ immediately; (4) only if NO legitimate non-conflicting action exists, ask exactl
 one maintainer-facing blocking question with the recommended answer first. Never
 convert "someone else owns X" into idling or a `blocked:` declaration.
 
+## Obligation record
+
+Emit this section into `.ai/supervisor-protocol.md`, not only into the binder.
+It must tell every generated supervisor to maintain
+`<repo-primary>/tmp/overseer/<topic>/.supervisor-state` as its durable
+obligation record and to read it first on a cold open. It must emit the schema
+with `open_obligations`, and every open obligation must carry `holder`,
+`waiting_on`, `wake_mechanism`, `if_nothing_happens`, and `timeout`. A
+`wake_mechanism` of `NONE ARMED` is allowed only with an explicit timeout and
+timeout-and-escalate posture.
+
 ## Never end a turn without an armed re-entry
 
 The section above stops a supervisor reasoning itself into standing down. This
@@ -316,11 +330,12 @@ abandonment. Shipping only the first rule leaves the second stall fleet-wide.
   wrap-up injection into that pane, so the condition that most needs attention is
   the one that mutes the only other watcher.
 
-Before ending ANY turn while the worker is mid-flight, ARM a re-entry — a
-background pane watcher is the primary mechanism, a long `ScheduleWakeup` (1200s+)
-only a backstop. Create any named wait channel before relying on it, and tell the
-worker what feeds it; for a file channel, create it with `mkdir -p` and `: >`,
-then instruct the worker to append to it at every milestone.
+Before ending ANY turn while ANY open obligation remains, ARM a re-entry. For a
+worker mid-flight, a background pane watcher is the primary mechanism and a long
+`ScheduleWakeup` (1200s+) is only a backstop. Create any named wait channel
+before relying on it, and tell the worker what feeds it; for a file channel,
+create it with `mkdir -p` and `: >`, then instruct the worker to append to it at
+every milestone.
 
 ```sh
 wait_channel=<absolute-target-repo>/tmp/overseer/<topic>/worker-status.log
@@ -354,6 +369,13 @@ whole line and may say either `Enter to select` or `Enter to confirm`.
 
 Expiry is itself a wake. The watcher exits with a `WAKE:` line that says
 `RE-ARM NOW`; do not replace that with an echo of an intention to check later.
+
+For a non-pane open obligation, emit a condition watcher instead of pretending
+the pane can wake you. Poll the authoritative artifact: CI status, review gate,
+peer reply file, ledger state, job-log mtime, file existence, or another named
+producer. The watcher must test terminal state first from the authoritative field. For a PR, check `state` for `MERGED`/`CLOSED` before derived fields such
+as `mergeStateStatus`. It must carry a total fallback: an unrecognized value must
+wake and report the value, never silently treat it as "keep waiting".
 
 ## AskUserQuestion presentation rules
 

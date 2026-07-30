@@ -1,4 +1,4 @@
-"""Defects (c), (c') and (d): the wake mechanism, run for real.
+"""Defects (c), (c'), (d), and S4 condition-watcher predicates: wake mechanisms.
 
 (c)  `capture-pane -S -N` returns `min(N, scrollback)` PLUS THE ENTIRE VISIBLE
      PANE — never "the last N lines". Measured on a 20-row pane: no `-S` = 20
@@ -29,6 +29,7 @@ from collections.abc import Callable
 __all__: list[str] = []
 
 _PICKER, _IDLE, _LOST, _BUSY = "PICKER", "IDLE", "LOST", "BUSY"
+_PENDING = "PENDING"
 _POLLS = 4
 _STABLE_TO_IDLE = 3
 _VISIBLE_TAIL = 8
@@ -94,6 +95,36 @@ def watcher_proposed(*, tmux: Tmux, target: str) -> str:
             return _IDLE
         time.sleep(0.15)
     return _BUSY
+
+
+def pr_condition_watcher_shipped(*, pr: dict[str, str]) -> str:
+    """Derived-field-only PR watcher shape from the S4 live failure."""
+    match pr["mergeStateStatus"]:
+        case "CLEAN" | "UNSTABLE" | "HAS_HOOKS" | "DIRTY" | "BEHIND" | "CONFLICTING":
+            return _PENDING
+        case _:
+            return "WAKE: PR watcher expired still BLOCKED - RE-ARM or inspect checks"
+
+
+def pr_condition_watcher_proposed(*, pr: dict[str, str]) -> str:
+    """Terminal authoritative field first, then derived detail, then fail-open."""
+    match pr["state"]:
+        case "MERGED":
+            return "WAKE: PR state=MERGED"
+        case "CLOSED":
+            return "WAKE: PR state=CLOSED"
+        case "OPEN":
+            pass
+        case unknown:
+            return f"WAKE: unrecognized PR state={unknown}"
+
+    match pr["mergeStateStatus"]:
+        case "CLEAN":
+            return "WAKE: PR mergeable state=CLEAN"
+        case "UNSTABLE" | "HAS_HOOKS" | "DIRTY" | "BEHIND" | "CONFLICTING":
+            return _PENDING
+        case unknown:
+            return f"WAKE: unrecognized mergeStateStatus={unknown}"
 
 
 def _worker(*, tmux: Tmux, rows: str = "20") -> str:
@@ -291,3 +322,52 @@ def test_both_forms_report_busy_while_a_pane_keeps_changing(
     wait_for("=wk:", "TICK-1")
     assert watcher_proposed(tmux=tmux, target="=wk:") == _BUSY
     assert watcher_shipped(tmux=tmux, target="wk") == _BUSY
+
+
+def test_s4_shipped_condition_watcher_omits_the_terminal_success_state() -> None:
+    """DEFECT PINNED: a merged PR returns mergeStateStatus=UNKNOWN.
+
+    The shipped watcher switched only on mergeStateStatus, so it missed the
+    authoritative terminal success state and reported the opposite of truth.
+    """
+    pr = {"state": "MERGED", "mergeStateStatus": "UNKNOWN"}
+    assert pr_condition_watcher_shipped(pr=pr) != "WAKE: PR state=MERGED"
+
+
+def test_s4_condition_watcher_wakes_on_terminal_success_first() -> None:
+    """REMEDY. RED: restore the derived-field-only predicate -> no MERGED wake."""
+    pr = {"state": "MERGED", "mergeStateStatus": "UNKNOWN"}
+    assert pr_condition_watcher_proposed(pr=pr) == "WAKE: PR state=MERGED"
+
+
+def test_s4_condition_watcher_fails_open_on_unrecognized_values() -> None:
+    """A total fallback wakes for inspection instead of waiting silently."""
+    pr = {"state": "OPEN", "mergeStateStatus": "REVIEW_REQUIRED"}
+    assert pr_condition_watcher_proposed(pr=pr) == (
+        "WAKE: unrecognized mergeStateStatus=REVIEW_REQUIRED"
+    )
+
+
+def test_s4_shipped_condition_watcher_keeps_known_derived_states_pending() -> None:
+    pr = {"state": "OPEN", "mergeStateStatus": "DIRTY"}
+    assert pr_condition_watcher_shipped(pr=pr) == _PENDING
+
+
+def test_s4_condition_watcher_wakes_on_terminal_closed_first() -> None:
+    pr = {"state": "CLOSED", "mergeStateStatus": "UNKNOWN"}
+    assert pr_condition_watcher_proposed(pr=pr) == "WAKE: PR state=CLOSED"
+
+
+def test_s4_condition_watcher_wakes_on_unknown_authoritative_state() -> None:
+    pr = {"state": "ARCHIVED", "mergeStateStatus": "CLEAN"}
+    assert pr_condition_watcher_proposed(pr=pr) == "WAKE: unrecognized PR state=ARCHIVED"
+
+
+def test_s4_condition_watcher_wakes_on_clean_derived_state() -> None:
+    pr = {"state": "OPEN", "mergeStateStatus": "CLEAN"}
+    assert pr_condition_watcher_proposed(pr=pr) == "WAKE: PR mergeable state=CLEAN"
+
+
+def test_s4_condition_watcher_keeps_known_blocking_derived_states_pending() -> None:
+    pr = {"state": "OPEN", "mergeStateStatus": "CONFLICTING"}
+    assert pr_condition_watcher_proposed(pr=pr) == _PENDING

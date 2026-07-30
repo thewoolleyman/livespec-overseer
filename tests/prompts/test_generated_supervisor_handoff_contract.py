@@ -95,6 +95,33 @@ _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("watcher-wait-channel-bootstrap", ("wait_channel", ": >")),
     ("watcher-wait-channel-fed", ("append", "milestone")),
     ("watcher-expiry-rearms-by-mechanism", ("WAKE:", "RE-ARM NOW")),
+    # S4: generated charters must carry the supervisor's durable obligation
+    # record, not just a memory/intention to check back.
+    (
+        "supervisor-state-location",
+        ("tmp/overseer/<topic>/.supervisor-state",),
+    ),
+    (
+        "supervisor-state-open-obligation-schema",
+        (
+            "open_obligations",
+            "holder",
+            "waiting_on",
+            "wake_mechanism",
+            "if_nothing_happens",
+            "timeout",
+        ),
+    ),
+    # Re-entry is triggered by ANY open obligation, including non-pane waits.
+    ("re-entry-any-open-obligation", ("any open obligation",)),
+    (
+        "non-pane-condition-watcher",
+        ("condition watcher", "terminal state first", "authoritative field"),
+    ),
+    (
+        "condition-watcher-total-fallback",
+        ("unrecognized value", "wake", "never silently"),
+    ),
 )
 
 # Patterns whose PRESENCE is the defect, rather than whose absence is.
@@ -421,7 +448,7 @@ def test_union_validator_retarget_demonstrates_homelab_binder_shape():
             len(missing_required_needles_for_layers(layers=(homelab_shared, homelab_binder))),
         ),
     )
-    assert rows == (("homelab binder alone", 9), ("homelab shared plus binder", 3))
+    assert rows == (("homelab binder alone", 14), ("homelab shared plus binder", 8))
 
 
 def test_both_corrections_sections_survive_regeneration_byte_for_byte():
@@ -718,6 +745,52 @@ def test_a_watcher_whose_expiry_only_echoes_intention_is_rejected():
     assert "watcher-expiry-rearms-by-mechanism" in missing_requirements(charter=charter)
 
 
+def test_re_entry_restricted_to_pane_conditions_rejects_non_pane_obligations():
+    """S4 RED shape: a CI/review/peer wait is open, but no pane is mid-flight.
+
+    A pane-only trigger lets this charter end the turn after writing the record,
+    so the non-pane obligation is never re-entered.
+    """
+    charter = """
+    # Supervisor Handoff - demo
+    ## Obligation record
+    Write tmp/overseer/<topic>/.supervisor-state:
+      open_obligations:
+        - holder: supervisor
+          waiting_on: CI check on PR 9
+          wake_mechanism: condition watcher polls the check suite
+          if_nothing_happens: escalate
+          timeout: 2026-07-30T12:00:00Z
+    ## No idle, no silent block
+    A conflicting lane is not a blocked state; stand down on that action only.
+    ## Never end a turn without an armed re-entry
+    Before ending a turn while the worker is mid-flight, arm a pane watcher.
+    ## AskUserQuestion
+    Recommended first. Never pass --no-verify. Never kill the acting overseer daemon.
+    """
+    missing = missing_requirements(charter=charter)
+    assert "re-entry-any-open-obligation" in missing
+    assert "non-pane-condition-watcher" in missing
+
+
+def test_a_record_without_the_durable_obligation_schema_is_rejected():
+    charter = """
+    # Supervisor Handoff - demo
+    ## Obligation record
+    Keep notes somewhere under tmp; remember who owns each wait.
+    ## No idle, no silent block
+    A conflicting lane is not a blocked state; stand down on that action only.
+    ## Never end a turn without an armed re-entry
+    The trigger is ANY open obligation. Arm a condition watcher; test terminal state first
+    from the authoritative field. On unrecognized value, wake and never silently wait.
+    ## AskUserQuestion
+    Recommended first. Never pass --no-verify. Never kill the acting overseer daemon.
+    """
+    missing = missing_requirements(charter=charter)
+    assert "supervisor-state-location" in missing
+    assert "supervisor-state-open-obligation-schema" in missing
+
+
 def test_a_charter_with_no_picker_rule_is_rejected():
     """A charter that never says maintainer-facing actions are AskUserQuestion
     calls with a recommendation produces a supervisor that asks in prose — which
@@ -863,8 +936,18 @@ def test_the_control_a_fully_conformant_charter_passes():
     ## No idle, no silent block
     A conflicting lane owned by another track is NOT a blocked state. Stand down
     on that action only; enumerate the rest; drive the next safe action.
+    ## Obligation record
+    Maintain tmp/overseer/<topic>/.supervisor-state:
+      open_obligations:
+        - holder: supervisor
+          waiting_on: CI check on PR 9
+          wake_mechanism: condition watcher polls the check suite
+          if_nothing_happens: escalate to maintainer
+          timeout: 2026-07-30T12:00:00Z
     ## Never end a turn without an armed re-entry
-    Arm a background pane watcher before ending any turn.
+    The trigger is ANY open obligation. Arm a background pane watcher before ending any turn.
+    For a non-pane wait, arm a condition watcher that tests terminal state first
+    from the authoritative field. On unrecognized value, wake and never silently wait.
     ## AskUserQuestion presentation rules
     One question per turn, recommended option first.
     ## Standing safety clauses
