@@ -19,6 +19,10 @@ Edge selected from_node="review" to_node="escalate" label="Blocked"
 ```
 
 - Fails in **~5 seconds**, deterministically, on both attempts.
+  **Verified 2026-07-30 from this run's own stage events: 5.78s then 4.69s.**
+  Both figures in this note are correct and they are **not** in conflict —
+  they are **two different runs**. `01KYP9Z87QC3` is ~5s; `01KYQF8G2TNV`
+  (below) is 13.2s then 7.8s. Do not "correct" either into the other.
 - **Implement stages succeed** — only `review` dies.
 - Duration correlates with nothing (see "retracted" below).
 
