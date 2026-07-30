@@ -926,6 +926,21 @@ the bar after seeing a result.
 > (*"must name a target repository and a plan topic"*), creating no tmux session
 > and writing no file. **Both** operations RESOLVED in the skill list.
 >
+> > **CONFOUND CHECKED AND CLEARED — do not re-open this.** That PASS was first
+> > measured in a `codex exec` session where **`CLAUDECODE` had leaked to `1`**
+> > (see the false-accept box in §A4) — the very error class documented in this
+> > same file, so the result could not be trusted until re-tested. **Re-run with
+> > `env -u CLAUDECODE`**: the spawned shell reports `CLAUDECODE=[UNSET]` and
+> > `supervise-plan` STILL resolves, executes, reads
+> > `…/0.13.3/prose/supervise-plan.md`, and runs to its own contract (*"Which plan
+> > topic … should I supervise"*), creating no tmux session and writing no file.
+> > **So the PASS is NOT an artifact of the leak**, and it holds under a genuine
+> > standalone-equivalent Codex session.
+> >
+> > Recorded because the confound was self-inflicted and easy to miss: the leak
+> > was documented *after* the PASS was measured, which is exactly when a stale
+> > positive silently survives.
+>
 > Method, for reproducibility: `codex exec -s read-only` in
 > `/data/projects/livespec-dev-tooling` (not this repo), session
 > `019fb155-0925-7981-b51e-f27b6c787894`. Fixture hand-added and DECLARED —
