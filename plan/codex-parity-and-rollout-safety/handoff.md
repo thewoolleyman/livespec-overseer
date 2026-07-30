@@ -18,9 +18,15 @@
 >
 > > ## ▶▶ START HERE — state at 2026-07-30 session end. This block WINS over anything below it.
 > >
-> > **A4 IS DONE AND MERGED. Nothing is dispatchable — every remaining local
-> > slice sits behind `admission:manual`, a policy-required human valve. Ask the
-> > maintainer for admission FIRST; do not admit anything yourself.**
+> > **A4 IS DONE AND MERGED.**
+> >
+> > > **SUPERSEDED LATER THE SAME DAY — the admission valve was opened.** This box
+> > > used to end *"nothing is dispatchable … ask the maintainer for admission
+> > > FIRST; do not admit anything yourself."* **That instruction was followed and
+> > > is now discharged**: the maintainer ruled BOTH slices in, and **A6
+> > > (`overseer-g6z`) and A5 (`overseer-ei3`) are ADMITTED and IN FLIGHT** — see
+> > > the discharged-decisions section below for run ids and read-back. **A3
+> > > (`overseer-kju6wh`) is still held and still must not be self-admitted.**
 > >
 > > ### Ledger, read back 2026-07-30
 > >
@@ -91,13 +97,74 @@
 > > orchestrator's `workflow.fabro` "only CONSUMES the category" was corrected in
 > > the same pass — **nothing** consumes it (filed `overseer-fs4`).
 > >
-> > ### Pending maintainer/supervisor decisions — the actual blockers
+> > ### ~~Pending maintainer/supervisor decisions~~ — BOTH DISCHARGED 2026-07-30
 > >
-> > 1. **Admission for `overseer-g6z` and `overseer-ei3`** (both `admission:manual`).
-> > 2. Correcting the `pyproject.toml:270` → 344 citation inside `overseer-g6z`.
+> > 1. ~~Admission for `overseer-g6z` and `overseer-ei3`~~ — **the maintainer ruled
+> >    BOTH**, put to them independently by two askers who agreed. Both approved
+> >    through the valve (`approve:<id>`, `pending-approval → ready`) and **both
+> >    DISPATCHED**: runs `01KYSYT9AZBQ` (g6z) and `01KYSYTEJ9QR` (ei3), claims
+> >    read back **`ACTIVE` + `Assignee: fabro`**, cap 2 of 2 in use.
+> > 2. ~~The `pyproject.toml:270` → 344 citation~~ — **corrected in the ledger, and
+> >    it was worse than a wrong line.** The description told its implementer *"do
+> >    NOT hand-maintain a duplicate of a file `pyproject.toml:270` already
+> >    packages"*, and **no line packages the launchers as files at all**:
+> >    `:343-344` is `packages.find`, `:356-357` is `package-data` declaring ONLY
+> >    `overseer = ["version.json"]`, and delivery is `[project.scripts]` at
+> >    `:30-32`. So the duplicate-vs-packaging choice it posed had a false premise.
 > >
 > > A tracked-file/worktree prohibition was in force at session end for everything
 > > except this handoff; it lapses with that session.
+> >
+> > ### ⚠ THE FACTORY WAS DOWN FOR AN HOUR AND THE CAUSE WAS A DOC — 2026-07-30
+> >
+> > Both dispatches above were **refused before any sandbox work** on the first
+> > attempt, and the refusal named neither slice:
+> >
+> > ```
+> > ERROR: latest master CI is not proven green at required check `ci-green`;
+> > refusing dispatch before sandbox work.
+> > ```
+> >
+> > **Master's `check-coverage` had been red since 08:57**, across the SEVEN
+> > commits that followed, and nobody noticed. Cause: `fd5bb8a` added the first
+> > runnable C14 reproduction to `.ai/supervisor-protocol.md` — a file in
+> > `_CHARTER_GLOBS` — as a fenced `sh` block with bare `PIPESTATUS` on two
+> > non-comment lines. Detector (g) of `test_charters_carry_no_known_defects.py`
+> > exists to catch exactly that, and did. That commit's own subject was *"the
+> > defect keeps being committed by the people sweeping for it."*
+> >
+> > Fixed by **PR #380, merge `a4b26aa`**: the reproduction moved to the form the
+> > module's OWN control test blesses (`test_prose_explaining_the_pipestatus_
+> > hazard_is_not_flagged`) — inline prose, both commands and both outputs intact.
+> > **The detector was not touched.** A boxed note in the protocol records that
+> > re-fencing it reddens master.
+> >
+> > Three things worth carrying:
+> >
+> > - **A red master is a FLEET-WIDE factory outage, not one repo's badge.** No
+> >   dispatch anywhere reaches a run while it stands.
+> > - **`check-master-ci-green` cannot go green on the branch that fixes master.**
+> >   `just check` on the fix branch failed on that one target and nothing else.
+> >   It is a LOCAL-ONLY gate — not among CI's 63 jobs — and `check-pre-push` has
+> >   a doc-only fast path, so a docs fix still lands. Do not read that single
+> >   failing target as a broken fix.
+> > - **A pass from `master_ci_green` right after a merge is NOT proof.** It
+> >   returns 0 on a *pending* run — *"master CI is still pending; treating as
+> >   non-blocking"* — BY DESIGN, so it read green while the fix's run was still
+> >   `queued`. That is a deliberate non-blocking choice, **not a defect; do not
+> >   file it.** But for evidence, wait for `completed` + `success` (measured
+> >   `a4b26aa4 completed success`) before claiming a proven-green base.
+> >
+> > ### `just worktree-create` is RACY at this repo's worktree count — retry it
+> >
+> > `worktree_primary_path` is `git worktree list --porcelain | awk '…exit'` under
+> > `set -euo pipefail` (`livespec_dev_tooling/worktree_pack/worktree-lib.sh:89`).
+> > `awk` exits on the first match, `git` keeps writing, takes **SIGPIPE**, and
+> > `pipefail` turns that into **exit 141** before anything is created. Measured
+> > here at **41 worktrees: 10 failures in 20 runs.** It is a coin flip, not a
+> > blocker — **retry the recipe; it succeeds within a few attempts.** Never
+> > `git worktree add` instead. Owner is `livespec-dev-tooling`; **not filed** —
+> > awaiting direction, since it is another tenant's queue.
 >
 > A3 waits on A4; the order is A4 → A6 → A3.
 > Everything below this box is older
