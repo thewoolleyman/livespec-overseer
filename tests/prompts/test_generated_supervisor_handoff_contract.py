@@ -109,6 +109,9 @@ _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
         (
             "open_obligations",
             "holder",
+            "handed_to",
+            "receipt_ack",
+            "peer_recorded",
             "waiting_on",
             "wake_mechanism",
             "if_nothing_happens",
@@ -141,6 +144,9 @@ _TARGETED_TMUX_COMMANDS = {
     "send-keys",
 }
 _PICKER_FOOTER = re.compile(r"^[ \t]*Enter to (select|confirm)[ \t]*(·.*)?$", re.MULTILINE)
+_OBLIGATION_START = re.compile(r"^\s*-\s+id:\s*(?P<value>.*?)\s*$")
+_OBLIGATION_FIELD = re.compile(r"^\s+(?P<key>[a-z_]+):\s*(?P<value>.*?)\s*$")
+_PEER_HOLDER = re.compile(r"\bpeer\b", re.IGNORECASE)
 
 
 def _command_blocks(*, charter: str) -> list[str]:
@@ -179,6 +185,44 @@ def _resolved_target(*, token: str, bindings: dict[str, str]) -> str:
 
 def _is_exact_tmux_target(*, target: str) -> bool:
     return target.startswith("=") and target.endswith(":") and len(target) > 2
+
+
+def _obligation_records(*, charter: str) -> list[dict[str, str]]:
+    records: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    in_obligations = False
+    for line in charter.splitlines():
+        if "open_obligations:" in line:
+            in_obligations = True
+            continue
+        if not in_obligations:
+            continue
+        start = _OBLIGATION_START.match(line)
+        if start is not None:
+            current = {"id": start.group("value").strip()}
+            records.append(current)
+            continue
+        if current is None:
+            continue
+        field = _OBLIGATION_FIELD.match(line)
+        if field is None:
+            if line.strip().startswith("## "):
+                in_obligations = False
+            continue
+        current[field.group("key")] = field.group("value").strip()
+    return records
+
+
+def invalid_handoff_confirmations(*, charter: str) -> list[str]:
+    invalid: list[str] = []
+    for record in _obligation_records(charter=charter):
+        if _PEER_HOLDER.search(record.get("holder", "")) is None:
+            continue
+        if record.get("receipt_ack", "").lower() in {"", "none"}:
+            invalid.append("handoff-receipt-ack-confirmation")
+        if record.get("peer_recorded", "").lower() in {"", "none"}:
+            invalid.append("handoff-peer-recorded-confirmation")
+    return invalid
 
 
 def banned_requirements(*, charter: str) -> list[str]:
@@ -384,6 +428,7 @@ def missing_requirements(*, charter: str) -> list[str]:
     diff_at = charter.find('if [ "$pane" = "$prev" ]')
     if guard_at == -1 or diff_at == -1 or diff_at < guard_at:
         missing.append("watcher-empty-capture-guard")
+    missing.extend(invalid_handoff_confirmations(charter=charter))
     return missing
 
 
@@ -848,6 +893,98 @@ def test_a_record_without_the_durable_obligation_schema_is_rejected():
     assert "supervisor-state-open-obligation-schema" in missing
 
 
+def test_sender_held_handoff_with_missing_confirmations_remains_open():
+    charter = """
+    # Supervisor Handoff - demo
+    ## Obligation record
+    Maintain tmp/overseer/<topic>/.supervisor-state:
+      open_obligations:
+        - id: cross-track-receipt
+          holder: supervisor
+          handed_to: demo-peer
+          receipt_ack: none
+          peer_recorded: none
+          waiting_on: demo-peer to confirm the handoff
+          wake_mechanism: condition watcher polls the peer reply
+          if_nothing_happens: escalate to maintainer
+          timeout: 2026-07-30T13:00:00Z
+    """
+    assert invalid_handoff_confirmations(charter=charter) == []
+
+
+def test_a_peer_held_handoff_without_receipt_ack_confirmation_is_rejected():
+    charter = """
+    # Supervisor Handoff - demo
+    ## Obligation record
+    Maintain tmp/overseer/<topic>/.supervisor-state:
+      open_obligations:
+        - id: cross-track-receipt
+          holder: peer
+          handed_to: demo-peer
+          receipt_ack: none
+          peer_recorded: 2026-07-30T12:05:00Z
+          waiting_on: demo-peer acknowledgement
+          wake_mechanism: condition watcher polls the peer reply
+          if_nothing_happens: escalate to maintainer
+          timeout: 2026-07-30T13:00:00Z
+    """
+    missing = missing_requirements(charter=charter)
+    assert "handoff-receipt-ack-confirmation" in missing
+
+
+def test_a_peer_held_handoff_without_peer_recorded_confirmation_is_rejected():
+    charter = """
+    # Supervisor Handoff - demo
+    ## Obligation record
+    Maintain tmp/overseer/<topic>/.supervisor-state:
+      open_obligations:
+        - id: cross-track-receipt
+          holder: peer
+          handed_to: demo-peer
+          receipt_ack: 2026-07-30T12:00:00Z
+          peer_recorded: none
+          waiting_on: demo-peer to record the obligation locally
+          wake_mechanism: condition watcher polls the peer reply
+          if_nothing_happens: escalate to maintainer
+          timeout: 2026-07-30T13:00:00Z
+    ## No idle, no silent block
+    A conflicting lane is not a blocked state; stand down on that action only.
+    ## Never end a turn without an armed re-entry
+    The trigger is ANY open obligation. Arm a condition watcher; test terminal state first
+    from the authoritative field. On unrecognized value, wake and never silently wait.
+    ## AskUserQuestion
+    Recommended first. Never pass --no-verify. Never kill the acting overseer daemon.
+    """
+    missing = missing_requirements(charter=charter)
+    assert "handoff-peer-recorded-confirmation" in missing
+
+
+def test_a_peer_held_handoff_with_both_confirmations_is_accepted():
+    charter = """
+    # Supervisor Handoff - demo
+    ## Obligation record
+    Maintain tmp/overseer/<topic>/.supervisor-state:
+      open_obligations:
+        - id: cross-track-receipt
+          holder: peer
+          handed_to: demo-peer
+          receipt_ack: 2026-07-30T12:00:00Z
+          peer_recorded: 2026-07-30T12:05:00Z
+          waiting_on: demo-peer to close the transferred obligation
+          wake_mechanism: condition watcher polls the peer reply
+          if_nothing_happens: escalate to maintainer
+          timeout: 2026-07-30T13:00:00Z
+    ## No idle, no silent block
+    A conflicting lane is not a blocked state; stand down on that action only.
+    ## Never end a turn without an armed re-entry
+    The trigger is ANY open obligation. Arm a condition watcher; test terminal state first
+    from the authoritative field. On unrecognized value, wake and never silently wait.
+    ## AskUserQuestion
+    Recommended first. Never pass --no-verify. Never kill the acting overseer daemon.
+    """
+    assert invalid_handoff_confirmations(charter=charter) == []
+
+
 def test_a_charter_with_no_picker_rule_is_rejected():
     """A charter that never says maintainer-facing actions are AskUserQuestion
     calls with a recommendation produces a supervisor that asks in prose — which
@@ -1083,6 +1220,9 @@ def _fully_conformant_charter() -> str:
     Maintain tmp/overseer/<topic>/.supervisor-state:
       open_obligations:
         - holder: supervisor
+          handed_to: none
+          receipt_ack: none
+          peer_recorded: none
           waiting_on: CI check on PR 9
           wake_mechanism: condition watcher polls the check suite
           if_nothing_happens: escalate to maintainer
