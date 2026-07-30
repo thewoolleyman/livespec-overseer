@@ -594,6 +594,22 @@ pattern that another filename also satisfies; use `-F` whenever the needle
 contains `*`, `[`, `(` or `.`; and **when a marker reports missing, suspect the
 instrument before the artifact** — all three times here, the document was fine.
 
+**A fourth, from verifying a RETRACTION — and it is the one that generalizes
+furthest.** Checking that instance fourteen's false claim was gone, an
+absence-check reported it **STILL PRESENT**. It was: as a **quotation inside its
+own retraction**, which is exactly where a correct retraction puts it. The
+assertion was gone — the table row now reads `livespec-console-beads-fabro | 1 |
+YES`.
+
+> **A string-absence check CANNOT verify a retraction**, because a good
+> retraction quotes what it retracts, and a lexical test cannot tell *asserting*
+> from *quoting*. **Verify the ASSERTION POSITION, not the string:** for a table
+> claim, check whether the row still exists; for a stated fact, check the
+> sentence that states it. This is the same lesson as instance fourteen one turn
+> later — **an occurrence is not a claim, just as an absence is not a finding**;
+> in both cases the raw signal has at least two causes licensing opposite
+> conclusions, and only the structure distinguishes them.
+
 > **This rule is thread-scoped on purpose.** It is a candidate for
 > `.ai/supervisor-protocol.md`, but that file is the shared generator surface
 > (`overseer-816`), so promoting it is a deliberate fleet-wide act and not a
