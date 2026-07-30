@@ -61,6 +61,36 @@ Placeholder classes declared by this binder:
 - The current binder is a positive control for iteration stability: shared layer
   plus binder validates cleanly, while the binder alone deliberately does not.
 - Factory branches never create or update `.github/workflows/`.
+- The nine-slice generated-prompt-quality cut is DONE and its ledger items are
+  closed; do not re-open or re-drive them. Re-measure before believing that.
+- The live work is the FOLLOW-ON set, all P1 and all unanchored in `backlog`:
+  `overseer-d4t` (a generator fix is inert until each adopter refreshes its
+  pinned plugin cache — shipping 0.14.0 was necessary and NOT sufficient),
+  `overseer-jdo` (the check aggregate is flaky under concurrency; now able to
+  block every contributor because `check-prose-release-hygiene` is a required
+  branch-protection context), `overseer-1sv` (`with-livespec-env.sh` exits 0 when
+  the wrapped binary is MISSING, so "no runs" and "cannot look" are
+  indistinguishable), `overseer-btt` (`just worktree-reap` can never reap a
+  correctly-landed worktree because its test is ancestry and this fleet
+  rebase-merges), `overseer-8jg` (an unresolvable cross-repo sibling reports a
+  bare "not in the ready set" without naming it).
+- Those five have NO plan-thread anchor and NO `intake:triaged` label, so no
+  dispatch surface admits them and nothing else reports them. Deciding where they
+  belong is a maintainer cut, not a supervisor call — surface it, do not
+  self-assign it.
+- Unfiled drifts, evidence-backed, still needing routing: the nested
+  `.claude-plugin/.codex-plugin/plugin.json` stayed 0.13.3 while its sibling went
+  0.14.0 (release-please `extra-files` omits it); `SPECIFICATION/spec.md:334-336`
+  still says supervise-plan creates exactly ONE artifact when it now creates two;
+  `overseer/marker-protocol.md:397` and `overseer/AGENTS.md:1428` both assert
+  there is no `.ai/` directory, false since `57426df`.
+- The FLEET-WIDE remediation half remains the maintainer's: 130 bare targets, 18
+  files, 6 repos. Costed options are in the thread's
+  `GAP-no-remediation-slice.md`. The local half is done and gated.
+- Full narrative state, including corrections to this supervisor's own conduct
+  that are not yet role-level, lives in the supervisor marker at
+  `tmp/overseer/supervisor-prompt-quality/.supervisor-state`. Read it at boot;
+  treat every status line in it as a claim with a timestamp and re-measure.
 
 ## Verification Discipline
 
@@ -68,7 +98,7 @@ Re-measure the filed work item from the ledger before carrying forward any statu
 or acceptance claim from this file, the plan thread, or a marker:
 
 ```sh
-ledger_anchor='overseer-t7qqik'
+ledger_anchor='overseer-d4t'
 bd show "$ledger_anchor" --json \
   || { echo "HALT: cannot re-measure ledger item '$ledger_anchor'"; echo "REMEDY: fix ledger access before using any filed status claim"; exit 1; }
 date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
