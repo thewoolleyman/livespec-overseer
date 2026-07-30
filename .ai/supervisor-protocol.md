@@ -67,7 +67,7 @@ placeholder and `tail` rejects it.
 Short instruction: send the text, VERIFY it landed, then send Enter SEPARATELY:
 
 ```sh
-tmux send-keys -t "$WORKER_TARGET" -- '<one line>'
+tmux send-keys -t "$WORKER_TARGET" -- '<condition-command>'
 tmux capture-pane -p -t "$WORKER_TARGET" | tail -8   # confirm it landed
 tmux send-keys -t "$WORKER_TARGET" Enter             # only after verifying
 ```
@@ -93,7 +93,7 @@ Re-check for an open picker before EVERY paste, anchored at both ends:
 WORKER_TARGET='=<worker-session>:'
 tmux capture-pane -p -t "$WORKER_TARGET" | tail -8 \
   | grep -qE '^[[:space:]]*Enter to (select|confirm)[[:space:]]*(.*)?$' \
-  && echo "PICKER OPEN - do not paste"
+  && echo "PICKER OPEN - do not paste" || true
 ```
 
 Idle plus queued input means STUCK, not idle. Never name a variable TMUX, and

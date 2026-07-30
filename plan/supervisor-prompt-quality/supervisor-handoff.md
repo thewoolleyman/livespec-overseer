@@ -14,6 +14,13 @@ Regenerating this file MUST preserve two Corrections sections byte-for-byte:
 Live thread status is NOT in this file. It lives in the ledger, in `handoff.md`,
 and in `$supervisor_marker`. Read those first on a cold open.
 
+```sh
+test -f ".ai/supervisor-protocol.md" \
+  || { echo "HALT: missing shared supervisor protocol .ai/supervisor-protocol.md"; echo "REMEDY: regenerate the two-layer supervisor handoff before driving"; exit 1; }
+printf '%s\n' "BOOT: read .ai/supervisor-protocol.md, this binder, and the supervisor marker if it exists"
+test ! -f "$supervisor_marker" || sed -n '1,220p' "$supervisor_marker"
+```
+
 ## Bindings
 
 Resolve and REPORT these before driving anything. Startup bindings only - no
@@ -23,6 +30,7 @@ live status, no next actions, and no date-gated behavior.
 |---|---|
 | `repo_primary` | `/data/projects/livespec-overseer` |
 | `thread_dir` | `plan/supervisor-prompt-quality/` |
+| `topic` | `supervisor-prompt-quality` |
 | `worker_session` | `supervisor-prompt-quality` |
 | `supervisor_session` | `supervisor-prompt-quality-supervisor` |
 | `WORKER_TARGET` | `'=supervisor-prompt-quality:'` |
@@ -31,6 +39,17 @@ live status, no next actions, and no date-gated behavior.
 | `supervisor_marker` | `<runtime_dir>/.supervisor-state` |
 | `wait_channel` | `<runtime_dir>/worker-status.log` |
 | `ledger_anchor` | `overseer-t7qqik` |
+
+Placeholder classes declared by this binder:
+
+- Concretely bound: `repo_primary`, `thread_dir`, `topic`, `worker_session`,
+  `supervisor_session`, `WORKER_TARGET`, `SUPERVISOR_TARGET`, `ledger_anchor`.
+- Composed bindings resolved to a fixed point: `runtime_dir`,
+  `supervisor_marker`, `wait_channel`.
+- Runtime slots intentionally left for later commands: `<condition-command>`,
+  `<short-slug>`, `<branch>`.
+- Illustrative placeholders appear only in prose that discusses a form, not in
+  fenced commands.
 
 ## Thread-specific Valves
 
