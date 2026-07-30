@@ -22,6 +22,7 @@ import _supervisor_liveness
 import _supervisor_nudge
 import _supervisor_observe
 import _supervisor_offer
+import _supervisor_progress
 import _supervisor_restart
 import _supervisor_state
 import registry
@@ -139,7 +140,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     # it always has.
     obs = _supervisor_observe.observe(sup=sup, track=track, session=session, target=target, key=key)
     capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
-    is_codex, runtime, codex_fallback = obs.is_codex, obs.runtime, obs.codex_fallback
+    is_codex, codex_fallback = obs.is_codex, obs.codex_fallback
     claude_status, eff_ctx, istate = obs.claude_status, obs.eff_ctx, obs.istate
     ctx_stale_age, stale_ctx = obs.ctx_stale_age, obs.stale_ctx
     declared, malformed, blocked, acked, ready = (
@@ -151,6 +152,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     )
 
     # Phase 2 — DECIDE.
+    settled_streaming_progress = False
     active_conditions: set[str] = set()
 
     # R1 — self-healing resume retry. The cascade's FIRST leg, and it stays first:
@@ -295,6 +297,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         status = "settling"
     elif act and not _supervisor_launch.pane_settled(sup=sup, target=target):
         # One frame looks idle, but the pane is actively changing (streaming).
+        settled_streaming_progress = True
         status = "working"
     elif act and not _supervisor_observe.pane_is_managed(
         sup=sup, target=target, repo=repo, topic=topic, session=session
@@ -427,14 +430,13 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     if status != "ctx-stale":
         note = _supervisor_liveness.append_note(note=note, extra=ctx_stale_note)
 
-    view = RowView(
-        topic=topic,
-        repo=repo,
-        tmux=session,
-        ctx=eff_ctx,
+    view = _supervisor_progress.row_view(
+        track=track,
+        session=session,
         status=status,
         note=note,
-        runtime=runtime,
+        obs=obs,
+        settled_streaming_progress=settled_streaming_progress,
     )
     # Re-arm edge-triggered alerts per condition, not per row: a track can stay in
     # NEEDS YOU for one reason while a different condition clears and must re-arm.

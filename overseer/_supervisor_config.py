@@ -37,6 +37,7 @@ __all__: list[str] = [
     "IDLE_NUDGE_AFTER",
     "LOOP_INTERVAL_SECONDS",
     "MARKER_VOID_GRACE",
+    "PAIR_STALL_AFTER",
     "RESTART_POLL_INTERVAL",
     "RESTART_POLL_MAX",
     "SETTLE_DELAY",
@@ -131,6 +132,7 @@ ACK_STALE_AFTER = 900.0
 # (`InjectState.idle_since`), so a daemon restart resets the clock — which only DELAYS a
 # nudge, the safe direction.
 IDLE_NUDGE_AFTER = 3600.0  # 1 hour
+PAIR_STALL_AFTER = 7200.0  # 2 hours
 
 # Continuity window for observed in-memory condition episodes. The design rule is
 # formulaic: at least twice the loop's worst-case full-load tick, re-derived when
