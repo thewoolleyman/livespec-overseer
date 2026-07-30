@@ -79,10 +79,31 @@ whose blast radius is the whole fleet.
 
 ## Obligation record
 
-Maintain the supervisor marker, rewriting it whenever your obligations change.
-It must always answer three questions: what am I waiting on, what will wake me,
-and what happens if nothing does. An obligation with `wake_mechanism: none` is a
-stall with a timestamp.
+Maintain the supervisor marker at
+`<repo-primary>/tmp/overseer/<topic>/.supervisor-state`, rewriting it whenever
+your obligations change. On cold open, read it before relying on memory or the
+transcript. It is the durable supervisor obligation record beside the worker's
+own `.overseer-state`, and `tmp/` keeps both out of tracked history.
+
+Emit and preserve this schema:
+
+```yaml
+topic: <topic>
+updated_at: <iso8601-utc>
+open_obligations:
+  - id: <stable-short-name>
+    holder: <supervisor|worker|peer|maintainer|external-system>
+    waiting_on: <artifact, person, session, check, or decision>
+    wake_mechanism: <pane watcher|condition watcher|peer reply|timer|NONE ARMED - reason>
+    if_nothing_happens: <specific escalation or re-arm action>
+    timeout: <iso8601-utc deadline for timeout-and-escalate>
+```
+
+Every open obligation MUST carry `holder`, `waiting_on`, `wake_mechanism`,
+`if_nothing_happens`, and `timeout`. An obligation whose `wake_mechanism` is
+legitimately `NONE ARMED` is not discharged; it needs the explicit `timeout`
+deadline, and that deadline is the re-entry mechanism that escalates to the
+maintainer if nothing happens.
 
 ## Decision-vetting rubric
 
@@ -114,10 +135,10 @@ tmux session, not a harness-tracked background task. Its completion emits NO
 notification. A status report is not a work product that can end a turn.
 "I'll keep driving" / "I'll check back" is an intention, not a mechanism.
 
-Before ending any turn while an obligation remains open, arm a re-entry. A
-background pane watcher is the primary mechanism, with a long scheduled wakeup
-only as a backstop. Create any named wait channel before relying on it, and tell
-the worker what feeds it:
+Before ending any turn while an obligation remains open, arm a re-entry. For a
+worker mid-flight, a background pane watcher is the primary mechanism, with a
+long scheduled wakeup only as a backstop. Create any named wait channel before
+relying on it, and tell the worker what feeds it:
 
 ```sh
 WORKER_TARGET='=<worker-session>:'
@@ -145,6 +166,13 @@ echo "WAKE: watcher ceiling reached - worker still busy, RE-ARM NOW"
 Detect busy by pane CHANGE, not by a status string. Use one visible-only capture
 for both the picker test and the pane diff. Expiry is itself a wake: the watcher
 exits with a `WAKE:` line saying `RE-ARM NOW`.
+
+For a non-pane event, arm a condition watcher against the authoritative artifact
+instead of the pane: a CI check, forge review gate, peer session reply, job-log
+mtime, ledger state, file existence, or similar. The watcher must test terminal state first from the authoritative field. For a PR, check `state` for
+`MERGED`/`CLOSED` before consulting derived fields such as `mergeStateStatus`.
+It must also be total: an unrecognized value must wake and report the value,
+never silently treat it as "keep waiting".
 
 ## Standing safety clauses
 
