@@ -471,11 +471,56 @@ order, each of which returned at least one further instance — and each of whic
 | **the repo outside this thread** | the archived pointer to `bd-ib-g56f` |
 | **other tenants** | a live **P1** covering adjacent ground for the same target repo |
 | **other fleet repos** | a **SECOND limit payload** proving the defect is a CLASS — and that the prepared fix does **not** classify it |
+| **rung six (a), this repo's own enforcement surface** | `overseer-b4q` — `check-prose-release-hygiene`, one of the **56 required** branch-protection contexts, reads a path-scoped diff where empty ⇒ pass, so it cannot tell "no prose changed" from "`.claude-plugin/prose/` moved" |
+| **rung six (b), the plugin CACHE — the generator that actually RUNS** | the running generator **contradicts itself**: its preconditions name a `codex` worker (`:90`, `:116`) and its send section then hands over a Claude-only submit procedure (`:394`, `:396`, `:410`) with **zero** harness caveat. Recorded on `overseer-816` |
+
+**Rung six was climbed TWICE, independently, by the worker and the supervisor,
+and they are different rungs.** Both are recorded above rather than merged,
+because collapsing them would hide that neither session knew the other was
+climbing. (a) came from asking *where else does this repo run a check that
+cannot fail*; (b) from asking *what does the emitted artifact actually say*.
 
 **STATE THE TERMINATION HONESTLY. This ladder STILL has not terminated** —
-**five** rungs climbed, every one of them returned something new. Treat it as
+**six** rungs climbed, every one of them returned something new, and rung six
+returned something on **both** independent attempts. Treat it as
 **UNEXHAUSTED**. Record **which rung was reached and that it was not dry**;
 never record merely that "a sweep was done".
+
+**Rung six (b) also returned a REFUTATION, and that is the more useful half.**
+The same sweep reported a second finding — 8 bare `-t <…>` targets versus 0
+exact ones "in what RUNS today" — which did **not** survive re-measurement. It
+was taken from `…/cache/…/efe607c6a3e7/`, a **2026-07-27 build artifact**, one
+of **eleven** sibling cache dirs. The **live** dir is `013d35d48cde` (resolved
+from marketplace clone `HEAD`, and independently confirmed by this session's
+`SessionStart` hook), and it is **byte-identical to master prose** — 1 bare, 1
+exact. So charters emitted on this host today inherit the contradiction but
+**not** the bare-target defect.
+
+> **Two lessons, and the second is the one that generalizes.**
+>
+> - **A positive control proves the search reached content; it does not prove
+>   it reached the RIGHT content.** The rung-six (b) measurement ran a correct
+>   positive control — 291 lines, 18 `tmux` hits — and was still wrong, because
+>   the control and the finding were both taken from the stale file. **Resolve
+>   WHICH artifact is live before controlling for whether it is empty**, and
+>   resolve it from a source of truth (marketplace `HEAD`), never by name or by
+>   sort order when eleven siblings exist.
+> - **A negative result must be allowed to be reported as negative.** Rung six
+>   (b) was framed as confirming `overseer-d4t`'s stale-cache mechanism with "a
+>   fresh, dated count". Measured, it is a **negative** instance of that
+>   mechanism — the release had reached the cache the same day. Recording it as
+>   confirmation would have been a check that could only ever agree: this
+>   thread's own defect, committed in the act of sweeping for it. Both items now
+>   carry the correction, in both directions.
+
+**A method slip worth one line, because it is the same defect a third time.**
+The first attempt at the rung-six (b) measurement picked the cache directory
+with `ls -d … | tail -1`; this shell aliases `ls` to a long format, so the
+variable captured a listing **line** rather than a path, and every subsequent
+grep silently measured nothing and returned clean. It was caught only because
+the output looked *too* empty — not by any check. A search whose target
+resolves to garbage returns the same clean silence as a search that genuinely
+found nothing.
 
 **Rung five is the one that earns this entry its keep.** It did not find another
 stale citation — it found that the defect is a **class** rather than one string,
