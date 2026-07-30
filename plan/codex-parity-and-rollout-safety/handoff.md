@@ -1,13 +1,21 @@
 # Plan — codex-parity-and-rollout-safety
 
-> # ▶ RESUME HERE — session handoff, 2026-07-29
+> # ▶ RESUME HERE — session handoff, 2026-07-30
 >
-> **A1 is DONE. A2 is BLOCKED ON A FLEET-WIDE BILLING CAP — diagnosed
-> 2026-07-29, and NOT a defect in this repo, in A2, or in the factory graph.
-> RE-TESTED after the maintainer restored quota: it STILL fails, with the
-> provider's spend-limit message intact — so the cause is re-confirmed and the
-> raise did not reach the review adapter's credential. A3 waits on A2 and on the
-> new slice A4; the order is A2 → A4 → A3. Everything below this box is older
+> **A1 and A2 are both DONE. A2 landed through the FACTORY — PR #308, merge SHA
+> `dd423a38`, post-merge janitor green, all three files verified on
+> `origin/master`. The billing-cap diagnosis is CONFIRMED BY THE FIX: A2 passed
+> `review` on the first dispatch after the maintainer rotated
+> `CLAUDE_CODE_OAUTH_TOKEN`, having failed three times before it on that same
+> node. The credential map now lives in `.claude/CLAUDE.md` §"The fleet has
+> SEVERAL Anthropic credentials" — CITE it, do not restate it here.**
+>
+> **A2's LIVE bar was then exercised (2026-07-30): `supervise-plan` PASSES
+> resolve+execute+run; `overseer` does NOT, and NOT for the reason this file
+> predicted — see the ⛔ box in §"A2's live acceptance". `overseer-start` is not
+> on PATH outside this repo, which makes that half of the bar unsatisfiable by
+> EITHER harness and reframes A4.** A3 waits on A4; the order is A4 → A3.
+> Everything below this box is older
 > context that is still accurate unless this box contradicts it.**
 >
 > ## Slice state, read from the ledger 2026-07-29
@@ -15,14 +23,35 @@
 > | slice | id | state |
 > |---|---|---|
 > | **A1** | `overseer-4km4mj` | **DONE / CLOSED.** PR **#242** merged, `ee67267e…`, verified an ancestor of `origin/master`. Content verified: `.livespec.jsonc` keeps `status: "exempt"` with a `reason` naming brief 17 **and** the archived ruling path; the stale `check-plugin-resolution` justfile comment is corrected. Maintainer accepted it through the `ai-then-human` valve; I relayed that decision, I did not self-accept. |
-> | **A2** | `overseer-vyie5q` | **`ACTIVE`, `Assignee: fabro`** as of the 2026-07-29 re-dispatch (run `01KYQF8G2TNV`, parked at a Needs-human gate). **This claim is held by a run that cannot finish** — see the RETESTED box below. Before any future dispatch, release it with `drive --action move:overseer-vyie5q:ready` and re-read status AND assignee. Nothing about A2's own content needs fixing. |
+> | **A2** | `overseer-vyie5q` | **DONE / CLOSED 2026-07-30.** Landed through the factory: PR **#308**, merge SHA `dd423a38a094c865d752dd87e8ce2abb0c274ff9`, post-merge janitor green, `resolution:completed`. All three nested files verified present on `origin/master` — **but NOT yet on `origin/release`** (release-please PR #244 `release 0.14.0` open at time of writing), which is what a `--ref release` marketplace fixture pulls. Its STRUCTURAL acceptance is fully met; its LIVE acceptance is **half proven** — see the ⛔ box in §"A2's live acceptance". |
 > | **A4** | `overseer-ews` | **NEW, filed 2026-07-29** at maintainer direction — `pending-approval`, `admission:manual`, `rank: a4`. Make `overseer-start` launch under Codex WITHOUT weakening the stray-hand-run refusal. See §A4 below. |
 > | **A3** | `overseer-kju6wh` | `pending-approval`, `admission:manual`. Blockers: A1 (done) + A2 (open) + **A4 (open, new)**. **Do not start until A2 AND A4 land** — see §A4 for why that ordering is correct on the merits, not merely wired. |
 > | **B2** | `overseer-vfz5v5` | `pending-approval`, `admission:manual`. **STOOD DOWN** — blocked on B1, which livespec-dev-tooling owns. Not this thread's to implement. |
 > | **B1** | `livespec-dev-tooling-3nt9` | filed in **livespec-dev-tooling**, `backlog`. Never implement here. |
 > | **C1** | `livespec-1p31` | filed in **livespec** core, `backlog`. Never implement here. |
 >
-> ## ⛔ THE A2 BLOCKER — DIAGNOSED 2026-07-29. It is a BILLING CAP, fleet-wide.
+> ## ✅ THE A2 BLOCKER — DIAGNOSED 2026-07-29, RESOLVED 2026-07-30. Kept as the evidence trail.
+>
+> > **RESOLVED. Do not re-investigate.** The maintainer rotated
+> > `CLAUDE_CODE_OAUTH_TOKEN` (a `claude setup-token` re-mint from a healthy org);
+> > the validated probe returned **200**; A2 was dispatched and **passed `review`
+> > on the first attempt**, landing PR #308. Three failures before the rotation,
+> > success immediately after it, same node — **the billing-cap diagnosis is
+> > confirmed by the fix, not merely by the error text.**
+> >
+> > **The credential map is now OWNED BY `.claude/CLAUDE.md`** §"The fleet has
+> > SEVERAL Anthropic credentials — probing the wrong one is the documented
+> > failure mode". **Cite it; do not restate it per thread** — that file says so
+> > explicitly, and the duplication it warns about is what cost two dispatches
+> > (`bd-ib-g56f`). The one validated probe, and the two documented false
+> > positives (`ANTHROPIC_API_KEY_LIVESPEC_E2E`, interactive `claude -p`), live
+> > in `plan/background-shell-supervision-liveness/handoff.md` §"Gate 4".
+> >
+> > Everything below is the original evidence trail, kept because the REASONING
+> > is what generalizes: read the failure TEXT, not just the failure; a probe on
+> > the wrong credential returns 200 while the adapter is hard-blocked; and
+> > `fabro inspect` → `node_outcomes.<node>.failure.causes[]` carries provider
+> > text that `fabro logs` and `fabro events` do NOT.
 >
 > > **⚠ CURRENCY WARNING, added 2026-07-29 ~19:15Z — READ BEFORE ACTING ON THIS
 > > SECTION.** Everything below is a MEASUREMENT and it stands as one: at
@@ -230,7 +259,43 @@
 > a second. Sweeping `overseer/AGENTS.md` and `prose/overseer.md` step 0 is part
 > of the slice, since both become FALSE once the behavior changes.
 >
-> ### A4 marker research — a LEAD, explicitly NOT the answer
+> ### ✅ A4 marker research — ANCESTRY NOW DISCHARGED LIVE (2026-07-30)
+>
+> > **The live evidence the section below said it lacked now exists.** Measured
+> > against a real `codex` TUI (tmux `codex-live-probe`, cwd `/data/projects/openbrain`):
+> >
+> > ```
+> > walking UP from a real descendant:
+> >   node-MainThread  ->  codex  <== FOUND  ->  bun  ->  zsh  ->  tmux: server
+> > ```
+> >
+> > **`comm == "codex"` is encountered BEFORE `bun`.** So for A4's SELF-detection
+> > (an upward walk from the invoked process), finding `comm == "codex"` in your
+> > own ancestry **IS sufficient**. The rollout-fd discrimination
+> > `codex_sessions.py` needs exists to exclude `bun` when scanning OUTWARD
+> > across all processes, where it is a sibling candidate — it is **not** needed
+> > for an upward self-walk. **The caveat in the section below was right to raise
+> > and WRONG in its conclusion**; corrected here rather than deleted, because
+> > the reasoning error is the instructive part.
+> >
+> > **`$TMUX_PANE` is present** in the codex pane (`TMUX_PANE=%115`,
+> > `TMUX=/tmp/tmux-1000/default,564588,111`), so `start.py` step 1's existing
+> > check works under Codex and **A4 must NOT add a second tmux authority.**
+> >
+> > **NEW CAVEAT, still UNPROVEN:** one observed codex child (pid `3175932`) had a
+> > **sanitized 12-entry environment with NO `TMUX*` at all** — and its
+> > `/proc/<pid>/environ` was confirmed READABLE, so that is genuine absence, not
+> > a permissions artifact. **Env inheritance is therefore NOT uniform across
+> > codex-spawned children**, and whether a codex-spawned SHELL inherits
+> > `TMUX_PANE` is UNPROVEN. Verify that before relying on it.
+> >
+> > **AND THE BIGGER ONE — see the ⛔ box in §"A2's live acceptance":**
+> > `overseer-start` is not on PATH outside this repo, so under Codex in another
+> > repo the bootstrap dies at **exit 127 before any marker check runs**. A4 was
+> > scoped around admitting a runtime marker; **PATH precedes that**, and A4 as
+> > written does not address it.
+>
+> ### A4 marker research — the original LEAD, kept for its reasoning
 >
 > The slice mandates determining the Codex-side marker **at implementation time
 > from LIVE evidence**. No Codex session was running during this session, so the
@@ -754,6 +819,52 @@ emits its documented refusal. **That refusal is a working check — never disabl
 it to make an acceptance pass.** `supervise-plan` has no such coupling and can
 run to a real precondition verdict. Do not conflate the two, and do not redefine
 the bar after seeing a result.
+
+> ### ⛔ THAT PREDICTION IS WRONG — EXERCISED LIVE 2026-07-30
+>
+> **`overseer` never reaches the `$CLAUDECODE` refusal.** It dies earlier, and
+> for a reason that is **not Codex-specific at all**:
+>
+> ```
+> overseer-start  ->  exit 127:  command not found: overseer-start
+> ```
+>
+> The binding DID resolve `$PLUGIN_ROOT` (to the cache root
+> `~/.codex/plugins/cache/livespec-overseer/livespec-overseer/0.13.3` — the third
+> fallback, correct when cwd is another repo) and DID read `prose/overseer.md`.
+> Then the bootstrap was simply absent from PATH, so **neither the `$CLAUDECODE`
+> check nor the `$TMUX_PANE` check ever ran.**
+>
+> **Root cause:** `overseer-start` is a console script (`pyproject.toml:31-32`)
+> installed ONLY into this repo's `.venv/bin/`. It is not on PATH in a plain
+> shell and not in `~/.local/bin`. **So a session in ANY other repo — Claude
+> Code included — cannot invoke it.**
+>
+> **Consequence for the bar above, and it is structural:** *"`overseer` must
+> RESOLVE and RUN in a Codex session that is NOT this repo's"* is
+> **unsatisfiable by EITHER harness** until the bootstrap is reachable from
+> outside this repo. **PATH is the binding constraint and it PRECEDES the
+> runtime-marker question A4 was scoped around** — so A4 as currently written
+> (admit Codex as a second runtime, extend `test_overseer_start.py:22-39`) would
+> NOT fix this on its own. Whether A4's scope widens or a new slice is cut is a
+> maintainer/supervisor call; it is flagged here, not decided.
+>
+> **What DID pass, same session, same fixture:** `supervise-plan` reached
+> **RESOLVE + EXECUTE + RUN** — resolved `$PLUGIN_ROOT`, read
+> `prose/supervise-plan.md`, and stopped on its own documented contract
+> (*"must name a target repository and a plan topic"*), creating no tmux session
+> and writing no file. **Both** operations RESOLVED in the skill list.
+>
+> Method, for reproducibility: `codex exec -s read-only` in
+> `/data/projects/livespec-dev-tooling` (not this repo), session
+> `019fb155-0925-7981-b51e-f27b6c787894`. Fixture hand-added and DECLARED —
+> **deviation: `--ref master`, not `--ref release`**, because `origin/release`
+> still lacks the surface (A2 landed on master via PR #308; release-please PR
+> #244 `release 0.14.0` was still open). Installed `0.13.3`, and the resolved
+> `source.path` matched the version installed, which excludes the pre-declared
+> stale-pinned-cache false negative. **Both operations resolved in the FIRST
+> session after provisioning** — the two-session budget was not needed here,
+> which does not repeal the rule for other first exposures.
 
 *(Nuance: A1 replaced the old `.livespec.jsonc` exemption reason because the
 SCOPE decision changed, not because that reason was factually wrong. "The
