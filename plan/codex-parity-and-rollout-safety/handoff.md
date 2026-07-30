@@ -312,6 +312,38 @@
 > > ancestry correctly reports Codex while `CLAUDECODE` lies. **That is a
 > > correctness argument for the ancestry route, not merely a convenience one.**
 > >
+> > ### The two `overseer` failures are INDEPENDENT — proven 2026-07-30
+> >
+> > With PATH resolved (repo `.venv/bin` prepended) **and** `CLAUDECODE` stripped
+> > (`env -u`, simulating a genuine standalone Codex session), `overseer-start`
+> > emits its **documented refusal verbatim**:
+> >
+> > ```
+> > overseer-start: this is the /overseer skill's bootstrap, not a standalone
+> > command. … Refusing to run outside Claude Code ($CLAUDECODE unset).
+> > ```
+> >
+> > So this file's ORIGINAL prediction was **right about the refusal** and only
+> > wrong about **reachability** — PATH fails first and hides it. **Once PATH is
+> > fixed, the remaining A4 work is exactly the marker admission, nothing more.**
+> > That is a smaller and better-defined scope than "A4 does not address this"
+> > alone implies.
+> >
+> > ### ⚠ METHODOLOGICAL CAVEAT — `codex exec` MISREPORTS EXIT STATUS
+> >
+> > In that run `codex exec` reported **`EXIT=0`** for the refusal. **That is
+> > wrong.** Run directly, `overseer-start` exits **1**, and `start.py:103` is
+> > literally `return 1`. The code is correct; the harness misreported it. (A
+> > suspected guard-exits-0 defect was raised and RETRACTED on this check —
+> > recorded because verifying before reporting is what kept a non-defect out of
+> > the ledger.)
+> >
+> > **This directly threatens A4's RED proof.** A4 must *"prove a bare terminal
+> > STILL refuses"*. Anyone verifying that **through `codex exec` must NOT trust
+> > its reported exit code** — assert on the stderr refusal TEXT, or run the
+> > command directly. Trusting `EXIT=0` there would silently INVERT the RED
+> > proof: a working refusal would read as a non-refusal.
+> >
 > > ### The PATH gap's exact mechanism, for whoever scopes the fix
 > >
 > > `overseer/overseer-start` IS a file in the repo (executable, shebang) and
