@@ -395,15 +395,32 @@ preserve every entry.
 
   **C14 IS NOW DEMONSTRATED, NOT MERELY ASSERTED (2026-07-30).** It was advice
   without a reproduction for a day, and in that time it was hit again — by a
-  supervisor who had *read* it. Run this in any pane on this host:
+  supervisor who had *read* it. Run these in any pane on this host
+  (`echo "$SHELL $ZSH_VERSION"` there prints `/usr/bin/zsh 5.9`):
 
-  ```sh
-  echo "$SHELL $ZSH_VERSION"          # /usr/bin/zsh 5.9
-  true  | true; echo "[${PIPESTATUS[0]}] [${pipestatus[1]}]"   # -> [] [0]
-  false | true; rc="${PIPESTATUS[0]:-$?}"; echo "$rc ${pipestatus[1]}"  # -> 0 1
-  ```
+  1. `true  | true; echo "[${PIPESTATUS[0]}] [${pipestatus[1]}]"` → prints
+     `[] [0]`.
+  2. `false | true; rc="${PIPESTATUS[0]:-$?}"; echo "$rc ${pipestatus[1]}"` →
+     prints `0 1`.
 
-  **The second line is the one that matters, and it is a sharper statement of
+  > **These two are deliberately INLINE, not a fenced `sh` block, and putting
+  > them back in one reddens master.** Detector (g) in
+  > `tests/prompts/test_charters_carry_no_known_defects.py` scans FENCED blocks
+  > in every charter — this file included — and a bare `PIPESTATUS` on a
+  > non-comment line inside one is exactly what it is built to catch. It caught
+  > these, correctly, and the cost was not hypothetical: `check-coverage` went
+  > red on master at 08:57 on 2026-07-30, stayed red across the SEVEN commits
+  > that followed, and for that whole window every factory dispatch was refused
+  > at the Dispatcher's "latest master CI is green" pre-flight — measured on
+  > `impl:overseer-g6z` and `impl:overseer-ei3`, both refused before any sandbox
+  > work. The module's own control,
+  > `test_prose_explaining_the_pipestatus_hazard_is_not_flagged`, is the
+  > sanctioned way to write the wrong idiom down, and it is the form used here.
+  > The detector was NOT weakened to accommodate the demonstration — the
+  > demonstration was moved to the form the detector already blesses.
+  > **A reproduction of a shell hazard lives in prose.**
+
+  **The second is the one that matters, and it is a sharper statement of
   C14 than "the array is empty".** The pipeline's first command *failed*
   (`pipestatus[1]` is `1`), but the defensive `:-` fallback captured `0` — the
   status of `true`. **A guard written for safety therefore REPORTS SUCCESS WHEN
