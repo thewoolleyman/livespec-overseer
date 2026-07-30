@@ -162,18 +162,57 @@
 > > safety: the same mangling anywhere that accepts a malformed string would pass
 > > quietly. **Use `"move:${id}"":ready"` and echo the id before firing it.**
 > >
-> > ### ⛔ `supervisor-handoff.md` IS STALE — AND MUST **NOT** BE REGENERATED YET
+> > ### ⚠ `supervisor-handoff.md` IS STALE — the regeneration BLOCK is now LIFTED (was: MUST NOT)
 > >
-> > > **THE REMEDY THIS SECTION ORIGINALLY GAVE WAS WRONG, and it shipped in
-> > > `fa730705`.** It said *"regenerate before trusting it."* **Regenerating this
-> > > charter DELETES two role-level rule sections this thread paid for**, and
-> > > nothing catches the loss. Corrected here on measurement; the staleness table
-> > > below still stands.
+> > > **TWO CORRECTIONS LIVE IN THIS BOX, IN ORDER.** First: the remedy this
+> > > section originally gave — *"regenerate before trusting it"* (shipped in
+> > > `fa730705`) — was WRONG, because at that time regenerating DELETED two
+> > > role-level rule sections this thread paid for and nothing caught the loss.
+> > > Second: **`overseer-wr8` has since fixed that, so the block is lifted.**
+> > > Both are kept rather than collapsed, because the reasoning is what
+> > > generalizes. The staleness table below stands throughout.
 > > >
-> > > **TRIAGE TEST for ANY charter, one command:**
-> > > `grep -c supervisor-protocol <charter>` — **`0` means fat single-layer and
-> > > UNSAFE to regenerate.** Ours returns **0**. Correct the stale facts some
-> > > other way until **`overseer-wr8`** (P1, `ready`) lands.
+> > > **✅ `overseer-wr8` HAS LANDED — PR #403, `556ad8ac`, verified an ancestor of
+> > > `origin/master`. THE PROHIBITION IS LIFTED, and the triage test I shipped
+> > > with it is now WRONG. Both corrections are below; regeneration itself
+> > > remains the supervisor's act, not the worker's.**
+> > >
+> > > **What wr8 changed, measured:** both rule sections now live in the SHARED
+> > > layer — `.ai/supervisor-protocol.md` returns `empty result is not a finding`
+> > > **1**, `positive control` **2**, `wait is not a question` **1**, against
+> > > `armed re-entry` **1** as a positive control and a bogus phrase at **0**.
+> > > They were all `0` before.
+> > >
+> > > **MY TRIAGE TEST WAS A PROXY, AND IT NO LONGER TRACKS THE DANGER.**
+> > > `grep -c supervisor-protocol <charter>` still returns **0** for ours — it
+> > > tests *"is this a fat single-layer charter"*, which was only ever a STAND-IN
+> > > for the real question, *"does role-level content exist ONLY here?"* After
+> > > wr8 the proxy says DANGER while the danger is gone. **A heuristic that
+> > > outlives its cause is its own defect** — use the direct test instead:
+> > >
+> > > ```
+> > > enumerate the charter's `## ` sections; for each, ask whether the shared
+> > > layer carries it OR the generator emits it. Anything answering NO to both
+> > > is what regeneration would destroy.
+> > > ```
+> > >
+> > > **Run against ours, that yields exactly two charter-only sections, and
+> > > NEITHER is a loss:**
+> > > - `RESUME STATE — written at wind-down 2026-07-30` — **thread-specific and
+> > >   already stale**; refreshing it is what a regeneration is FOR.
+> > > - `AskUserQuestion presentation rules` — role-level, and it looked like a
+> > >   SECOND instance of the wr8 defect. It is not: the generator emits picker
+> > >   rules (`AskUserQuestion` ×4, `picker` ×3, `full repository names` ×1,
+> > >   against a bogus control at 0) **and** the new gate pins them with dedicated
+> > >   RED fixtures — `test_a_charter_with_no_picker_rule_is_rejected`,
+> > >   `test_picker_recommended_first_has_its_own_red_fixture`, and three more.
+> > >
+> > > **⚠ THE LIMIT OF THIS EVIDENCE, stated because today punished exactly this
+> > > gap twice:** I verified WHERE each section's content lives. **I did not run
+> > > a regeneration and diff the result.** So the claim is *"no section is
+> > > sourced only from the charter"* — NOT *"regeneration was tested"*. Whoever
+> > > regenerates should still diff the output against the current file before
+> > > accepting it.
 > > >
 > > > **Why, verified independently rather than taken on report.**
 > > > `prose/supervise-plan.md:15-24` now emits **TWO** layers — the shared
