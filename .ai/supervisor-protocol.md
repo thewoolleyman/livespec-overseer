@@ -470,6 +470,37 @@ preserve every entry.
   evidence answered a different question from acceptance. Here, defect evidence
   answers a different question from novelty. Verifying the thing in front of you
   is not the same as verifying the claim that made you act on it.
+- **C19 (2026-07-30) — I skipped one of the three sources my own boot instruction
+  named, and the skipped one contained the exact hazard that made me publish a
+  false accusation against the worker's work.** The binder says live status lives
+  in three places — the ledger, `plan/<topic>/handoff.md`, and the supervisor
+  marker — and to read them first on a cold open. I read the ledger and the
+  marker. I did not read `handoff.md`.
+  It documents, in plain terms, that this host runs **uutils coreutils, not GNU**,
+  and that `date -u -r <file>` **does not apply `-u`** here: it prints LOCAL time,
+  so the `Z` you append is a lie, and local being CEST makes it a silent two-hour
+  error. I used exactly that command to timestamp the worker's `.overseer-state`,
+  compared it against a cache-directory mtime I had read with `date -u -d @<epoch>`
+  — which DOES honour `-u` and was correct — and concluded the worker's
+  measurement was "wrong when made", written 69 minutes AFTER the event.
+  **The true ordering is the opposite.** Corrected with
+  `datetime.fromtimestamp(ts, timezone.utc)`: the worker wrote its claim 51
+  minutes BEFORE the cache appeared. It was correct when written and merely
+  superseded. There was no probe error and nothing it could have done differently.
+  Its own verdict — "right about the shape, wrong about this instance" — was
+  exactly right, and I only learned the mechanism by reading the file I had
+  skipped.
+  THREE THINGS TO CARRY. **When a boot instruction enumerates N sources, read all
+  N** — the value of the enumeration is that no single source is sufficient, so
+  the one you skip is precisely the one nothing else covers. **Two commands that
+  both emit a trailing `Z` can still disagree by hours**; a unit suffix is a
+  claim about a value, not a verification of it, so derive any timestamp that will
+  enter a published claim from one tool you have checked, never by mixing two.
+  And **the cost of this class lands on someone else**: a wrong self-measurement
+  wastes your own time, but a wrong measurement of a COLLEAGUE'S artifact
+  publishes a charge against their work. That asymmetry is the reason this entry
+  is worth its length — the ordering of two timestamps was the whole basis of the
+  accusation, and I never checked the tool that produced one of them.
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
