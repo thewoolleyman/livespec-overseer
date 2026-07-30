@@ -65,6 +65,17 @@
           "type": "json",
           "path": ".claude-plugin/plugin.json",
           "jsonpath": "$.version"
+        },
+        {
+          "_comment": [
+            "The nested Codex manifest mirrors its Claude sibling's name,",
+            "version and description. Keep this version entry beside the",
+            "Claude manifest entry above so release-please cannot bump the",
+            "host plugin while leaving `codex plugin list` stale."
+          ],
+          "type": "json",
+          "path": ".claude-plugin/.codex-plugin/plugin.json",
+          "jsonpath": "$.version"
         }
       ]
     }
