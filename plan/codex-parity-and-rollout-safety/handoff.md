@@ -26,6 +26,7 @@
 > | **A2** | `overseer-vyie5q` | **DONE / CLOSED 2026-07-30.** Landed through the factory: PR **#308**, merge SHA `dd423a38a094c865d752dd87e8ce2abb0c274ff9`, post-merge janitor green, `resolution:completed`. All three nested files verified present on `origin/master` — **but NOT yet on `origin/release`** (release-please PR #244 `release 0.14.0` open at time of writing), which is what a `--ref release` marketplace fixture pulls. Its STRUCTURAL acceptance is fully met; its LIVE acceptance is **half proven** — see the ⛔ box in §"A2's live acceptance". |
 > | **A4** | `overseer-ews` | **NEW, filed 2026-07-29** at maintainer direction — `pending-approval`, `admission:manual`, `rank: a4`. Make `overseer-start` launch under Codex WITHOUT weakening the stray-hand-run refusal. See §A4 below. |
 > | **A3** | `overseer-kju6wh` | `pending-approval`, `admission:manual`. Blockers: A1 (done) + A2 (open) + **A4 (open, new)**. **Do not start until A2 AND A4 land** — see §A4 for why that ordering is correct on the merits, not merely wired. |
+> | **A5** | `overseer-ei3` | **NEW, filed 2026-07-30** — `pending-approval`, `admission:manual`, `rank: a5`. **Version lockstep is BROKEN and enforced by nothing:** sibling `.claude-plugin/plugin.json` is **0.14.0** while nested `.codex-plugin/plugin.json` is **0.13.3**, on BOTH `origin/release` and `origin/master`. A2 shipped them aligned at 0.13.3; the release-please 0.14.0 bump updated the sibling only. Two required parts: (a) make release automation bump the nested manifest; (b) **add a check that goes RED when lockstep breaks** — acceptance is a RED demo. Dep shape: an **advisory `relates_to`** to A2 and **no blocking edge**, because the defect is independent of A4's PATH/marker work and A3's picker check; a blocking edge would stall two admitted slices for an unrelated bug. |
 > | **B2** | `overseer-vfz5v5` | `pending-approval`, `admission:manual`. **STOOD DOWN** — blocked on B1, which livespec-dev-tooling owns. Not this thread's to implement. |
 > | **B1** | `livespec-dev-tooling-3nt9` | filed in **livespec-dev-tooling**, `backlog`. Never implement here. |
 > | **C1** | `livespec-1p31` | filed in **livespec** core, `backlog`. Never implement here. |
@@ -906,6 +907,16 @@ the bar after seeing a result.
 > Then the bootstrap was simply absent from PATH, so **neither the `$CLAUDECODE`
 > check nor the `$TMUX_PANE` check ever ran.**
 >
+> > **RE-MEASURED UNDER CLEAN CONDITIONS 2026-07-30 — inference is now
+> > measurement.** Re-run against the **declared `--ref release` fixture** (no
+> > deviation) with **`env -u CLAUDECODE`** (no leak), in a real Codex session in
+> > `/data/projects/livespec-dev-tooling`: `CLAUDECODE` unset; `$PLUGIN_ROOT`
+> > resolved; `prose/overseer.md` read; then verbatim
+> > `zsh:1: command not found: overseer-start`, **exit 127**; and **neither the
+> > `$CLAUDECODE` nor the `$TMUX_PANE` check ran.** So `overseer` fails for the
+> > PATH reason **and no other** — the confounds (wrong ref, leaked marker) are
+> > both excluded. **resolve=PASS, execute=PASS, run=FAIL(127, PATH).**
+>
 > **Root cause:** `overseer-start` is a console script (`pyproject.toml:31-32`)
 > installed ONLY into this repo's `.venv/bin/`. It is not on PATH in a plain
 > shell and not in `~/.local/bin`. **So a session in ANY other repo — Claude
@@ -944,9 +955,19 @@ the bar after seeing a result.
 > Method, for reproducibility: `codex exec -s read-only` in
 > `/data/projects/livespec-dev-tooling` (not this repo), session
 > `019fb155-0925-7981-b51e-f27b6c787894`. Fixture hand-added and DECLARED —
-> **deviation: `--ref master`, not `--ref release`**, because `origin/release`
-> still lacks the surface (A2 landed on master via PR #308; release-please PR
-> #244 `release 0.14.0` was still open). Installed `0.13.3`, and the resolved
+> **at the time: `--ref master`, not `--ref release`**, because `origin/release`
+> still lacked the surface (A2 landed on master via PR #308; release-please PR
+> #244 `release 0.14.0` was still open).
+>
+> > **THAT DEVIATION IS RETIRED — 2026-07-30.** PR #244 merged, and all three
+> > files are now verified on **`origin/release`** (`1af636d`,
+> > `git cat-file -e origin/release:.claude-plugin/.codex-plugin/plugin.json`
+> > succeeds). The fixture was **re-registered at the declared
+> > `--ref release`**, so the record and the actual state now agree and no
+> > deviation stands. The `overseer` re-test below was run against that
+> > release-ref fixture.
+>
+> Installed `0.13.3`, and the resolved
 > `source.path` matched the version installed, which excludes the pre-declared
 > stale-pinned-cache false negative. **Both operations resolved in the FIRST
 > session after provisioning** — the two-session budget was not needed here,
