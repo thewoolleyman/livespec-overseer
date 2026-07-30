@@ -1,8 +1,8 @@
 """_supervisor_evaluate — phase 2 of a tick: the decision cascade.
 
 A private collaborator of :mod:`supervisor`; see that module's header for the whole
-split. This module is ONE function, the decision cascade itself; the single leg
-extracted from it lives in :mod:`_supervisor_resume_retry`. Everything
+split. This module is ONE function, the decision cascade itself; extracted
+leg details live in the neighbouring ``_supervisor_*`` branch modules. Everything
 :func:`evaluate` decides ON is gathered by :mod:`_supervisor_observe` first, and
 everything it decides to DO is carried out by :mod:`_supervisor_restart`,
 :mod:`_supervisor_nudge`, :mod:`_supervisor_state` and :mod:`_supervisor_offer` — so
@@ -58,30 +58,19 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     itself ready) is enforced by which guard comes first, not by any single
     guard in isolation.
 
-    Extracting the fact-gathering was a real seam and is done; it took the
-    function from 106 statements / 38 branches / complexity 34 down to 83 / 33
-    / 31. Going further would mean cutting the cascade itself into per-state
-    helpers, which was considered and rejected (maintainer-declared
-    2026-07-19): it would scatter the precedence order across call sites where
-    no reader can check it in one pass, and precedence is exactly what a
-    reviewer of this function needs to verify. The four complexity rules are
-    therefore suppressed HERE, on this one function, rather than for the file
-    or the folder — every other function in this module is still held to them.
+    Extracting the fact-gathering was a real seam and is done. Later extractions
+    kept the same constraint: this function still owns the readable precedence
+    ORDER, while branch modules own the side-effect detail for individual legs.
+    The test for any extraction is whether the cascade still reads top-to-bottom
+    in one pass here, not whether a helper exists elsewhere.
 
-    **The one authorised exception, and its exact bounds.** ONE leg — R1, the
-    self-healing resume retry — is a function
-    (:func:`_supervisor_resume_retry.resume_retry`), maintainer-declared
-    2026-07-26. The 2026-07-19 ruling protects the readability of the precedence
-    ORDER, and that survives: the call sits at exactly the position the block
-    occupied, so the cascade still reads top-to-bottom in one pass. What moved
-    is that leg's DETAIL, not its place in the order. The ground was measured,
-    not stylistic — this function plus its imports could not otherwise clear the
-    200 LLOC SOFT ceiling, and the soft band is what fails a release. That leg
-    began directly below this function and now lives in its OWN module; why, and
-    what the second move cost, is on that module's header. NO OTHER leg may be
-    cut out on this precedent: a ruling protects its STATED property, so the
-    test for any future extraction is whether the precedence order still reads
-    in one pass here, not whether it resembles this one.
+    **The authorised branch helpers, and their exact bounds.** The self-healing
+    resume retry, attention pre-check, busy, blocked-human, stale-context,
+    below-threshold, and idle-above-threshold details live in neighbouring
+    helpers. Each call sits at the exact position its block occupied, so the
+    cascade order remains visible here. What moved is each leg's DETAIL, not its
+    place in the order; load-bearing rationale that explains a branch remains
+    beside that branch's code.
     """
     if track.is_unassigned:
         return RowView(topic=track.topic, repo=track.repo, tmux=None, ctx=None, status="unassigned")
@@ -188,6 +177,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     generating = attention.generating
     shell_only = attention.shell_only
 
+    # The row note defaults to the blocked reason with declaration age (if any); the
     # busy branch overrides it to "background shell" when a live background shell is
     # the SOLE reason the pane isn't idle, so the operator can see WHY.
     note: str | None = blocked_note(blocked=blocked, blocked_age_label=blocked_age_label)

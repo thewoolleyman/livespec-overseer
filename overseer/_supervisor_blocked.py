@@ -71,10 +71,15 @@ def blocked_human(*, request: BlockedRequest) -> BlockedDecision:
 
     if request.act:
         ready = _supervisor_state.void_if_stale(sup=request.sup, track=request.track, ready=ready)
+        # A gate / block is also "non-idle" — drop a stale nudge marker (safe: the
+        # helper re-reads and leaves a session-written `blocked` untouched).
         _supervisor_nudge.clear_idle_nudge_state(sup=request.sup, track=request.track)
         detail = request.blocked if request.blocked else "structured gate on pane"
         if blocked_attention is not None:
             active_conditions.update(blocked_attention.active_conditions)
+        # The decision belongs to the TRACKED session, which is already showing
+        # it in its own pane. The overseer NOTIFIES and hands over coordinates;
+        # it never re-asks the question itself (invariant 8).
         active_conditions.update(
             _supervisor_liveness.surface_blocked_alerts(
                 request=_supervisor_liveness.BlockedAlertRequest(

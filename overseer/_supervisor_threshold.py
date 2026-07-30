@@ -42,6 +42,10 @@ class ThresholdRequest:
 
 def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
     active_conditions: set[str] = set()
+    # A FRESH `winding-down` ACK buys patience: the session heard us and is
+    # wrapping up, so stop re-warning (never keystroke into a session that is
+    # actively winding down). A STALE ACK resumes escalating — an ACK must not
+    # become an infinite stall — but still never authorizes an act.
     if request.act and not request.acked:
         _supervisor_restart.maybe_inject(
             sup=request.sup,
