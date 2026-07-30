@@ -1,0 +1,261 @@
+"""Report-only liveness attention for shell and wind-down starvation."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+import _supervisor_observe
+import registry
+import signals
+from _supervisor_config import SHELL_PROLONGED_AFTER, WINDDOWN_STARVED_AFTER
+from _supervisor_records import InjectState
+from _supervisor_view import MAX_REASON_IN_ALERT, elide
+
+if TYPE_CHECKING:
+    from _supervisor_core import Supervisor
+
+__all__: list[str] = [
+    "AttentionDecision",
+    "AttentionRequest",
+    "LivenessAttention",
+    "ObserveRequest",
+    "ShellAlertRequest",
+    "StarvationAlertRequest",
+    "blocked_starvation_decision",
+    "observe_liveness_attention",
+    "pre_busy_attention_decision",
+    "shell_evidence_note",
+    "starvation_evidence_note",
+    "surface_shell_prolonged_alert",
+    "surface_starvation_alert",
+]
+
+
+@dataclass(frozen=True, kw_only=True)
+class AttentionDecision:
+    status: str
+    note: str
+    active_conditions: set[str]
+
+
+@dataclass(frozen=True, kw_only=True)
+class LivenessAttention:
+    generating: bool
+    shell_only: bool
+    starving_now: bool
+    starved_due: bool
+    shell_due: bool
+    starvation_age: float | None
+    shell_age: float | None
+
+
+@dataclass(frozen=True, kw_only=True)
+class ShellAlertRequest:
+    sup: Supervisor
+    track: registry.Track
+    session: str
+    pane: str
+    age: float
+
+
+@dataclass(frozen=True, kw_only=True)
+class StarvationAlertRequest:
+    sup: Supervisor
+    track: registry.Track
+    session: str
+    pane: str
+    age: float
+    blocked: str | None
+    blocked_age: float | None
+    gate: bool
+    shell_age: float | None
+
+
+_SECONDS_PER_MINUTE = 60.0
+_SECONDS_PER_HOUR = 3600.0
+
+
+def age_label(*, seconds: float) -> str:
+    clamped = max(0.0, seconds)
+    if clamped < _SECONDS_PER_HOUR:
+        return f"{int(clamped // _SECONDS_PER_MINUTE)}m"
+    return f"{int(clamped // _SECONDS_PER_HOUR)}h"
+
+
+def shell_evidence_note(*, age: float | None = None) -> str:
+    if age is None:
+        return "background shell"
+    return f"background shell {age_label(seconds=age)}"
+
+
+@dataclass(frozen=True, kw_only=True)
+class ObserveRequest:
+    sup: Supervisor
+    istate: InjectState
+    capture: str
+    claude_status: str | None
+    codex_fallback: bool
+    eff_ctx: int | None
+    threshold: int
+    injection_stamp: float | None
+
+
+def observe_liveness_attention(*, request: ObserveRequest) -> LivenessAttention:
+    generating = signals.is_busy(capture_text=request.capture) or request.claude_status == "busy"
+    shell_only = (not signals.is_busy(capture_text=request.capture)) and (
+        request.claude_status == "shell" or request.codex_fallback
+    )
+    now = request.sup.now()
+    starving_now = (
+        request.eff_ctx is not None
+        and request.eff_ctx <= request.threshold
+        and request.injection_stamp is None
+    )
+    _supervisor_observe.advance_condition(
+        episode=request.istate.winddown_starved_episode, condition_now=starving_now, now=now
+    )
+    _supervisor_observe.advance_condition(
+        episode=request.istate.shell_episode, condition_now=shell_only, now=now
+    )
+    starvation_age = (
+        now - request.istate.winddown_starved_episode.since
+        if request.istate.winddown_starved_episode.since is not None
+        else None
+    )
+    shell_age = (
+        now - request.istate.shell_episode.since
+        if request.istate.shell_episode.since is not None
+        else None
+    )
+    return LivenessAttention(
+        generating=generating,
+        shell_only=shell_only,
+        starving_now=starving_now,
+        starved_due=starvation_age is not None and starvation_age >= WINDDOWN_STARVED_AFTER,
+        shell_due=shell_age is not None and shell_age >= SHELL_PROLONGED_AFTER,
+        starvation_age=starvation_age,
+        shell_age=shell_age,
+    )
+
+
+def starvation_evidence_note(*, request: StarvationAlertRequest) -> str:
+    parts = [f"winddown starved {age_label(seconds=request.age)}"]
+    if request.blocked is not None:
+        blocked_age = age_label(seconds=request.blocked_age or 0.0)
+        parts.append(f"blocked {blocked_age}: {request.blocked}")
+    if request.gate:
+        parts.append("visible gate")
+    if request.shell_age is not None:
+        parts.append(shell_evidence_note(age=request.shell_age))
+    return "; ".join(parts)
+
+
+def surface_starvation_alert(*, request: StarvationAlertRequest) -> set[str]:
+    note = starvation_evidence_note(request=request)
+    request.sup.alert(
+        repo=request.track.repo,
+        topic=request.track.topic,
+        session=request.session,
+        pane=request.pane,
+        message=(
+            f"wind-down starved ({age_label(seconds=request.age)}): "
+            f"{elide(text=note, limit=MAX_REASON_IN_ALERT)} — inspect that pane"
+        ),
+        condition="winddown-starved",
+    )
+    return {"winddown-starved"}
+
+
+def surface_shell_prolonged_alert(*, request: ShellAlertRequest) -> set[str]:
+    request.sup.alert(
+        repo=request.track.repo,
+        topic=request.track.topic,
+        session=request.session,
+        pane=request.pane,
+        message=(
+            f"background shell prolonged ({age_label(seconds=request.age)}): "
+            "busy solely on shell evidence with no progress — inspect that pane"
+        ),
+        condition="shell-prolonged",
+    )
+    return {"shell-prolonged"}
+
+
+@dataclass(frozen=True, kw_only=True)
+class AttentionRequest:
+    sup: Supervisor
+    track: registry.Track
+    session: str
+    pane: str
+    attention: LivenessAttention
+    idle: bool
+    gate: bool
+    blocked: str | None
+    blocked_age: float | None
+    act: bool
+
+
+def _starvation_request(*, request: AttentionRequest) -> StarvationAlertRequest:
+    return StarvationAlertRequest(
+        sup=request.sup,
+        track=request.track,
+        session=request.session,
+        pane=request.pane,
+        age=request.attention.starvation_age or 0.0,
+        blocked=request.blocked,
+        blocked_age=request.blocked_age,
+        gate=request.gate,
+        shell_age=request.attention.shell_age if request.attention.shell_only else None,
+    )
+
+
+def _starvation_conditions(*, request: StarvationAlertRequest, act: bool) -> set[str]:
+    if act:
+        return surface_starvation_alert(request=request)
+    return {"winddown-starved"}
+
+
+def pre_busy_attention_decision(*, request: AttentionRequest) -> AttentionDecision | None:
+    attention = request.attention
+    if (
+        attention.starved_due
+        and not attention.generating
+        and (not request.idle or attention.shell_only)
+        and not (request.gate or request.blocked is not None)
+    ):
+        starvation = _starvation_request(request=request)
+        return AttentionDecision(
+            status="winddown-starved",
+            note=starvation_evidence_note(request=starvation),
+            active_conditions=_starvation_conditions(request=starvation, act=request.act),
+        )
+    if attention.shell_due and attention.shell_only and not attention.starving_now:
+        shell = ShellAlertRequest(
+            sup=request.sup,
+            track=request.track,
+            session=request.session,
+            pane=request.pane,
+            age=attention.shell_age or 0.0,
+        )
+        active = (
+            surface_shell_prolonged_alert(request=shell) if request.act else {"shell-prolonged"}
+        )
+        return AttentionDecision(
+            status="shell-prolonged",
+            note=shell_evidence_note(age=attention.shell_age),
+            active_conditions=active,
+        )
+    return None
+
+
+def blocked_starvation_decision(*, request: AttentionRequest) -> AttentionDecision | None:
+    attention = request.attention
+    if not (attention.starved_due and not attention.generating):
+        return None
+    starvation = _starvation_request(request=request)
+    return AttentionDecision(
+        status="blocked:human",
+        note=starvation_evidence_note(request=starvation),
+        active_conditions=_starvation_conditions(request=starvation, act=request.act),
+    )

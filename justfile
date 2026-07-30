@@ -262,6 +262,10 @@ check:
         check-coverage
         check-doctor-static
         check-plugin-manifest-lockstep
+        # Repo-local Codex plugin runnable-artifact gate (overseer-g6z):
+        # the materialized plugin root must contain executable launchers
+        # plus the importable runtime package they need.
+        check-codex-plugin-runnable-launcher
         # Repo-local release-hygiene gate (overseer-d4t): generator
         # prose may not change without a release-triggering commit,
         # or the fix never reaches the plugin cache that generates
@@ -728,6 +732,33 @@ check-vendor-manifest:
 
 check-wrapper-shape:
     uv run python -m livespec_dev_tooling.checks.wrapper_shape
+
+check-codex-plugin-runnable-launcher:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    start=".claude-plugin/bin/overseer-start"
+    daemon=".claude-plugin/bin/overseerd"
+    plugin_pkg=".claude-plugin/overseer"
+    test -x "$start"
+    test -x "$daemon"
+    test -d "$plugin_pkg"
+    while IFS= read -r -d '' src; do
+      rel="${src#overseer/}"
+      dst="$plugin_pkg/$rel"
+      test -f "$dst"
+      cmp -s "$src" "$dst"
+    done < <(find overseer -maxdepth 1 \( -name '*.py' -o -name 'version.json' \) ! -name 'test_*.py' ! -name 'conftest.py' -print0 | sort -z)
+    while IFS= read -r -d '' dst; do
+      rel="${dst#$plugin_pkg/}"
+      test -f "overseer/$rel"
+    done < <(find "$plugin_pkg" -maxdepth 1 -type f -print0 | sort -z)
+    unexpected_dir="$(find "$plugin_pkg" -mindepth 1 -maxdepth 1 -type d ! -name __pycache__ -print -quit)"
+    test -z "$unexpected_dir"
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    repo="$(pwd)"
+    (cd "$tmp" && "$repo/$start" --help >"$tmp/overseer-start-help.out")
+    grep -F "the /overseer skill's two-pane bootstrap" "$tmp/overseer-start-help.out" >/dev/null
 
 # ---------------------------------------------------------------
 # Pre-commit aggregate — Red-mode-aware. Classifies the staged

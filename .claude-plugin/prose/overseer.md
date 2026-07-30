@@ -176,12 +176,12 @@ if [ -z "$PLUGIN_ROOT" ]; then
 fi
 OVERSEER_START="${LIVESPEC_OVERSEER_START:-}"
 if [ -z "$OVERSEER_START" ]; then
-  if [ -x "$PLUGIN_ROOT/../overseer/overseer-start" ]; then
-    OVERSEER_START="$PLUGIN_ROOT/../overseer/overseer-start"
+  if [ -x "$PLUGIN_ROOT/bin/overseer-start" ]; then
+    OVERSEER_START="$PLUGIN_ROOT/bin/overseer-start"
   elif command -v overseer-start >/dev/null 2>&1; then
     OVERSEER_START="$(command -v overseer-start)"
   else
-    echo "overseer-start executable not found; tried $PLUGIN_ROOT/../overseer/overseer-start and PATH" >&2
+    echo "overseer-start executable not found; tried $PLUGIN_ROOT/bin/overseer-start and PATH" >&2
     exit 1
   fi
 fi
