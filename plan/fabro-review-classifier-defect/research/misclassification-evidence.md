@@ -124,10 +124,47 @@ What the category **does** drive, all in production paths:
 - **Edge conditions** written as `context.failure_class=…` (`condition.rs`).
 - **What the operator sees** in `fabro inspect`.
 
-**Residual, deliberately left open:** making `is_retryable()` category-aware so
-a permanent class stops burning its stage attempts is a broader behavioural
-change that would touch every handler's retry path. It is **not** in this fix,
-and no claim is made that this fix stops the two per-stage attempts.
+### The residual is TWO layers, not one — measured 2026-07-30
+
+An earlier version of this section named a single residual: "make
+`is_retryable()` category-aware". **That was the wrong target**, and it
+mis-attributed the expensive harm. Measured, the waste splits across two
+independent layers:
+
+**Layer 1 — fabro's per-stage retry (third party).** `is_retryable()` returns
+`true` for `Handler`/`Engine`/`Io` unconditionally, so 2 attempts fire inside
+the stage regardless of category. This is **possibly deliberate**: `Handler`
+and `Engine` are opaque string errors and retrying them is a defensible
+default. It is a third party's design decision, is **not** claimed here as a
+defect, and was **deliberately not filed**.
+
+**Layer 2 — the orchestrator's re-dispatch of the work-item (in-house).**
+**This is the layer that burns host dispatch cap slots**, and it is *not*
+fabro's. Filed as **`overseer-fs4`** (bug, P2). Measured with a positive
+control first: `transient_infra`, `budget_exhausted`, `failure_categ`,
+`failure_class`, `classified_failure` and `node_outcomes` return **zero hits
+repo-wide across all 2685 `.py` files** in
+`livespec-orchestrator-beads-fabro` — while the control string
+`host_dispatch_cap` hits at `_dispatcher_loop_command.py:48,164` and
+`_dispatcher_run_commands.py:46,166`, proving the search reached real code.
+Nothing consumes a run's failure category, so a work-item whose run died on a
+permanent billing ceiling is re-dispatched exactly like a transient one.
+
+The gap is **structural, not an oversight**:
+`_needs_attention_stranded_dispatch.py` already counts attempts per
+`work_item_id` (`:79-88`), but the record it parses — `_TerminalOutcome`
+(`:31-36`) — carries `work_item_id`, `status`, `stage`, `pr_number`,
+`merge_sha` and **no failure category or reason at all**, filtering only on
+`status != "failed"` (`:112`). The reason never reaches the layer that would
+gate on it.
+
+**Correcting the attribution:** the cap-slot burn recorded near the top of this
+note is Layer 2. It is **not** caused by fabro's per-stage retry, and it would
+**not** be fixed by making `is_retryable()` category-aware. Layer 2 is fixable
+**in-house with no upstream involvement** — but only once a run's failure
+carries a trustworthy category, which is what this thread's classifier fix
+provides and which is **merged nowhere**. That ordering is the dependency, not
+a nice-to-have.
 
 ### CONFIRMED location — investigated 2026-07-29, no longer a pointer
 
