@@ -199,6 +199,9 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     uncertifiable_ready = _supervisor_liveness.uncertifiable_ready_surface(
         sup=sup, track=track, session=session, pane=target, obs=obs, act=act
     )
+    if uncertifiable_ready is not None:
+        _ready_note, ready_conditions = uncertifiable_ready
+        active_conditions.update(ready_conditions)
 
     # Precedence, top to bottom. Single-capture `busy` and the human gates
     # are checked first. For an apparently-idle track that would ACT
