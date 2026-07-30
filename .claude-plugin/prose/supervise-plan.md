@@ -197,14 +197,39 @@ with that shared layer. State that regeneration MUST preserve both Corrections
 layers byte-for-byte: the shared role-level Corrections and this binder's
 thread-specific Corrections. Preserve spelling, punctuation, code formatting, blank lines, and ordering exactly; do not normalize markdown or code spans.
 
+Emit a cold-open boot command, not a comment, so a fresh reader can run it before
+driving:
+
+```sh
+test -f ".ai/supervisor-protocol.md" \
+  || { echo "HALT: missing shared supervisor protocol .ai/supervisor-protocol.md"; echo "REMEDY: regenerate the two-layer supervisor handoff before driving"; exit 1; }
+printf '%s\n' "BOOT: read .ai/supervisor-protocol.md, this binder, and the supervisor marker if it exists"
+test ! -f "$supervisor_marker" || sed -n '1,220p' "$supervisor_marker"
+```
+
 ## Bindings
 
 Resolve and report startup bindings before driving: `repo_primary`, `thread_dir`,
-`worker_session`, `supervisor_session`, `runtime_dir`, `supervisor_marker`,
+`topic`, `worker_session`, `supervisor_session`, `runtime_dir`, `supervisor_marker`,
 `wait_channel`, and the ledger anchor. Bind `runtime_dir` to
 `<repo_primary>/tmp/overseer/<topic>/` and `supervisor_marker` to
 `<runtime_dir>/.supervisor-state`. Startup bindings only: no live status, no next actions, and no date-gated behavior. Live state stays in the ledger, the
 thread handoff, and the supervisor marker.
+
+Declare the complete placeholder set in this same section. The generated
+charter must distinguish:
+
+- concretely bound placeholders: every binding whose value is final;
+- composed bindings: every binding whose value refers to another binding and
+  therefore must be resolved transitively to a fixed point;
+- runtime slots: `<condition-command>`, `<short-slug>`, and `<branch>`, which are
+  deliberate templates and must remain unsubstituted;
+- illustrative placeholders that appear only in prose discussing a form, never
+  in fenced commands.
+
+After applying the declared concrete and composed bindings to a fixed point,
+every fenced shell command in the generated output must execute with no
+remaining generation-time placeholder. The allowed runtime slots are not errors.
 
 ## Thread-specific Valves
 
@@ -284,7 +309,7 @@ placeholder and `tail` rejects it.
 Short instruction — send the text, VERIFY, then send Enter SEPARATELY:
 
 ```sh
-tmux send-keys -t "$WORKER_TARGET" -- '<one line>'
+tmux send-keys -t "$WORKER_TARGET" -- '<condition-command>'
 tmux capture-pane -p -t "$WORKER_TARGET" | tail -8   # confirm it landed
 tmux send-keys -t "$WORKER_TARGET" Enter             # only after verifying
 ```
