@@ -377,6 +377,74 @@ about admitting work. **Typing into an open picker can SELECT an option on the
 maintainer's behalf** — a decision this thread does not own. A watcher is
 waiting for the picker to clear.
 
+## A SECOND limit payload — the defect is a CLASS, and the fix does not cover it
+
+Found 2026-07-30 on **rung five** of the sweep (other fleet repos), in
+`livespec-console-beads-fabro/plan/console-happy-path-mvp/handoff.md:817-825`.
+**That record is theirs and is not edited here — it is cited because it is
+better evidence than ours.** From that run's own event log:
+
+```
+stage.failed review — category: transient_infra
+  "Internal error: You've hit your limit · resets Jul 31, 5am (UTC)"
+```
+
+Four attempts, all four `transient_infra` / "ACP turn failed", both burned in
+34s. **So the mislabel reproduces on a second, unrelated provider message.** It
+is a **class**, not one string — a material strengthening of the case.
+
+### 1. The credential inference is now MEASURED — by someone else
+
+That thread read the **configuration**, which this thread never did: *"The
+`review` node runs on the Claude SUBSCRIPTION (`workflow.toml:85-95`,
+`review_adapter`, `CLAUDE_CODE_OAUTH_TOKEN`). `implement` survived only because
+it is overridden to Codex (`acp_adapter`) — a DIFFERENT account."*
+
+**Our labelling stays as it was.** When *this* thread made the claim it **was**
+an inference, and correction **C5** stands — it was not measured here, and
+being later vindicated does not retroactively make it evidence. What changes is
+that an independent thread has now measured it, with a config citation.
+
+This is also the **second limit KIND**: a rolling window that names its own
+reset, alongside the monthly spend cap. See `.claude/CLAUDE.md` §"The fleet has
+SEVERAL Anthropic credentials", which says to expect exactly these two and to
+**cite** rather than restate it.
+
+### 2. MEASURED GAP — the fix does not classify this payload
+
+Checked against the fix's own lists (not relayed — the list contents are quoted
+in this note and the branch commit):
+
+| list | result on `"…hit your limit · resets Jul 31, 5am (UTC)"` |
+|---|---|
+| `PERMANENT_PROVIDER_LIMIT_HINTS` (`["spend limit"]`) | **NO MATCH** |
+| `BUDGET_EXHAUSTED_HINTS` | **NO MATCH** |
+| `TRANSIENT_INFRA_HINTS` | **NO MATCH** |
+
+So post-fix, part **(b)** correctly kills the registry-path false positive and
+the payload then falls through to the **`Deterministic` fallback — which is
+signature-tracked.** That is precisely the outcome part **(a)** was added to
+prevent, so **(a)'s stated rationale does not hold for this payload**.
+
+**This is a gap in the ACCEPTANCE, not a defect in the branch.** RED-then-green
+still holds for the payload it was built against, and **(b) remains correct for
+both**. What is now false is any claim that the fix classifies provider limit
+failures **generally**. The single-hint list was flagged as brittle when the
+branch was prepared; this is measured evidence of a second phrasing in the wild.
+
+### The open design question — recorded, NOT decided
+
+A monthly **spend cap** is permanent and needs a human. A **rolling window that
+states its own reset time** genuinely clears on its own. So "retry after reset"
+may be right for the second and wrong for the first, and **one shared category
+may not fit both**.
+
+The strongest option on the table is to **stop inferring from prose entirely**
+and classify on the **structured `errorKind`** the payload already carries — the
+original payload carried `"errorKind": "rate_limit"`. Extending substring lists
+fixes **instances**; reading the structured field fixes the **class**. That is
+this thread's whole thesis, applied to its own remedy.
+
 ## A RETRACTED attribution — do not resurrect it
 
 An earlier reading blamed `bd-ib-2nq` (a >60-minute token TTL). **That is
@@ -506,6 +574,14 @@ billing failures.
 **GREEN after the fix:** `cargo test -p fabro-workflow --lib` → **1007 passed,
 0 failed** (1007 rather than 1006 because the upstream-port hazard above added
 a seventh test). `cargo +nightly-2026-04-14 fmt --check --all` clean.
+
+**SCOPE OF THIS ACCEPTANCE — it is NOT general coverage.** It is met for the
+payload the RED test was built against (`01KYQF8G2TNV`, the monthly spend cap)
+and for the registry-path false positive generally. It is **not** met for
+provider limit failures as a class: a second phrasing measured 2026-07-30
+matches **none** of the hint lists and falls to the signature-tracked
+`Deterministic` fallback — see "A SECOND limit payload" above. Do not read
+"acceptance MET" as "provider limits are classified correctly".
 
 **Opening the PR to `fabro-sh/fabro` remains the MAINTAINER'S call** — it is
 outward-facing onto a third party's public project. The branch is prepared and
