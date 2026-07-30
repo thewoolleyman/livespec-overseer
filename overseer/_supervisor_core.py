@@ -103,7 +103,7 @@ from _supervisor_config import (
     iso_now,
     track_key,
 )
-from _supervisor_records import InjectState
+from _supervisor_records import InjectState, PairStallState
 from _supervisor_view import (
     RowView,
     needs_attention,
@@ -188,6 +188,7 @@ class Supervisor:
     # None (not in tmux, or a test) simply disables the badge.
     own_pane: str | None = None
     inject: dict[tuple[str, str], InjectState] = field(default_factory=dict, init=False)
+    pair_stalls: dict[tuple[str, str], PairStallState] = field(default_factory=dict, init=False)
     # Edge-trigger memory for `alert`: track key + condition → the last alert line
     # emitted for it. Keeps the log an EVENT HISTORY (one line per condition entered)
     # instead of the same line re-emitted every tick. Re-armed in `evaluate` when the
@@ -421,6 +422,13 @@ class Supervisor:
             )
             if supervisor_view is not None:
                 views.append(supervisor_view)
+                _supervisor_pair.evaluate_pair_stall(
+                    sup=self,
+                    track=track,
+                    worker_view=views[-2],
+                    supervisor_view=supervisor_view,
+                    act=act,
+                )
         self.render(rows=views)
         # Only the DAEMON badges the window. `list` is advertised read-only, so it must
         # not rename the maintainer's window as a side effect of printing a table.

@@ -260,8 +260,15 @@ def observe(
     # (`Ctx: N% left` / `Context N% left`), so each runtime reports ITS OWN computed
     # number and there is no occupancy formula here to get wrong.
     now = sup.now()
+    istate = sup.inject.setdefault(key, InjectState())
     current_ctx = signals.parse_ctx_remaining(capture_text=capture)
+    previous_ctx = istate.last_ctx
+    ctx_changed = (
+        current_ctx is not None and previous_ctx is not None and current_ctx != previous_ctx
+    )
     eff_ctx = effective_ctx(sup=sup, key=key, current=current_ctx, now=now)
+    if ctx_changed:
+        istate.last_ctx_changed_at = now
 
     # Track the CONTINUOUS-idle episode for the keep-going nudge's minimum-duration gate
     # (`IDLE_NUDGE_AFTER`). A session is "cleanly idle" only at an empty prompt AND not
@@ -269,7 +276,6 @@ def observe(
     # misses — a sub-agent / background command is active work). The FIRST cleanly-idle
     # tick stamps `idle_since`; ANY non-idle tick clears it, so brief activity resets the
     # clock and only a genuinely long idle spell reaches the nudge.
-    istate = sup.inject.setdefault(key, InjectState())
     update_idle_episode(state=istate, idle=idle, busy=busy, now=now)
     ctx_stale_age = observed_stale_ctx_age(
         state=istate, current=current_ctx, eff_ctx=eff_ctx, now=now
@@ -303,6 +309,7 @@ def observe(
         codex_fallback=codex_fallback,
         claude_status=claude_status,
         eff_ctx=eff_ctx,
+        ctx_changed=ctx_changed,
         ctx_stale_age=ctx_stale_age,
         stale_ctx=stale_ctx,
         injection_stamp=stamp,

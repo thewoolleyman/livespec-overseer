@@ -20,6 +20,7 @@ __all__: list[str] = [
     "ConditionEpisode",
     "InjectState",
     "Observation",
+    "PairStallState",
 ]
 
 
@@ -29,6 +30,18 @@ class ConditionEpisode:
 
     since: float | None = None
     last_seen: float | None = None
+
+
+@dataclass(kw_only=True)
+class PairStallState:
+    """In-memory ladder state for one worker/supervisor pair."""
+
+    since: float | None = None
+    last_seen: float | None = None
+    nudged_this_episode: bool = False
+    last_nudged_at: float | None = None
+    consecutive_nudged_episodes: int = 0
+    unstalled_since: float | None = None
 
 
 @dataclass
@@ -50,6 +63,7 @@ class InjectState:
 
     last_ctx: int | None = None
     last_ctx_seen: float | None = None
+    last_ctx_changed_at: float | None = None
     idle_since: float | None = None
     idle_last_seen: float | None = None
     ctx_unreadable_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
@@ -85,6 +99,7 @@ class Observation:
     codex_fallback: bool
     claude_status: str | None
     eff_ctx: int | None
+    ctx_changed: bool = False
     ctx_stale_age: float | None
     stale_ctx: int | None
     injection_stamp: float | None

@@ -26,6 +26,7 @@ __all__: list[str] = [
     "default_handoff",
     "default_resume",
     "idle_nudge_message",
+    "pair_stall_nudge_message",
     "supervisor_handoff_path",
     "supervisor_idle_nudge_message",
     "supervisor_resume",
@@ -247,3 +248,25 @@ def supervisor_idle_nudge_message(*, remaining: int, threshold: int, repo: str, 
         handoff=str(supervisor_handoff_path(repo=repo, topic=topic)),
         state_file=str(signals.state_path(repo=repo, topic=entity_topic)),
     )
+
+
+def pair_stall_nudge_message(
+    *,
+    repo: str,
+    topic: str,
+    worker_session: str,
+    worker_pane: str | None,
+    stalled_seconds: float,
+) -> str:
+    """Nudge a stalled supervisor/worker pair through the supervisor pane."""
+    state_file = signals.state_path(repo=repo, topic=signals.supervisor_entity_topic(topic=topic))
+    duration = f"{stalled_seconds / 3600:.1f}h"
+    return f"""\
+Your worker/supervisor pair has shown no progress for {duration}.
+
+You own direction for this pair. Resume driving the worker now, or if the pair is
+actually waiting on a human question, surface that explicitly by declaring it out-of-band:
+    echo 'blocked: <one-line reason>' > {state_file}
+
+Worker coordinates: tmux session '{worker_session}', pane {worker_pane}.
+Worker handoff: {default_handoff(repo=repo, topic=topic)}"""

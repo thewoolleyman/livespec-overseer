@@ -146,6 +146,10 @@ class RowView:
     status: str
     note: str | None = None
     runtime: str | None = None
+    progress_now: bool = False
+    human_wait: bool = False
+    round_open: bool = False
+    acked: bool = False
 
 
 def needs_attention(*, row: RowView) -> bool:
