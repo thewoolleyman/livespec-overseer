@@ -247,16 +247,16 @@ for the marker's edge-triggered lifecycle.
    `#{pane_current_path}` resolves inside the row's repo — the cwd check, not the
    name, is what prevents two repos sharing a topic from cross-linking.
 6. **Two-pane bootstrap + `adopt` (the `/overseer` startup, 2026-07-13).** The
-   skill runs the `overseer-start` executable FIRST — and ONLY the skill does:
-   it is skill-invoked (by Claude's Bash tool), never a standalone launcher, and
-   does NOT start Claude (it splits the daemon pane beside the SAME Claude session
+   skill resolves and runs the `overseer-start` executable FIRST — and ONLY the
+   skill does: it is skill-invoked, never a standalone launcher, and does NOT
+   start Claude or Codex (it splits the daemon pane beside the SAME agent session
    that ran `/overseer`, which then resumes in the bottom pane). So it REFUSES
-   before splitting unless `$CLAUDECODE` is set (the marker Claude Code exports in
-   every Bash-tool shell) — a hand-run from a plain terminal would otherwise leave
-   a daemon pane + a bare-shell bottom pane (no Claude), the exact broken state
-   that guard prevents. It (a) detects the skill's OWN pane via `$TMUX_PANE`
-   (Claude Code inherits it — do NOT re-derive tmux membership by hand; that
-   improvisation is what falsely reported "not inside a tmux window" and grabbed a
+   before splitting unless process ancestry shows a supported Claude Code or
+   Codex runtime — a hand-run from a plain terminal would otherwise leave a
+   daemon pane + a bare-shell bottom pane (no agent), the exact broken state that
+   guard prevents. It (a) detects the skill's OWN pane via `$TMUX_PANE`
+   (Claude Code and Codex inherit it — do NOT re-derive tmux membership by hand;
+   that improvisation is what falsely reported "not inside a tmux window" and grabbed a
    separate session), (b) splits THAT window
    (`tmuxio.split_window_top` targeting `$TMUX_PANE`, idempotent via a pane titled
    `overseer-daemon`) to run `overseerd` in a TOP pane while focus stays on the

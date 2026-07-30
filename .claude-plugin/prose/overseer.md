@@ -161,25 +161,44 @@ now" ACK). See `marker-protocol.md`.
 
 **The FIRST thing you do when `/overseer` starts is run the bootstrap** — do NOT
 hand-craft any tmux command, and do NOT target another session by name. This
-script is invoked BY the skill (you, via the Bash tool), never typed by a human at
-a terminal: it splits the daemon pane beside the SAME Claude session that ran
-`/overseer` and that session resumes in the bottom pane — it does NOT launch
-Claude, so running it from a bare shell would leave a bare-shell bottom pane. From
-your interactive (BOTTOM) pane — the Claude session where `/overseer` is running —
-run:
+script is invoked BY the skill (you, via the shell tool), never typed by a human at
+a terminal: it splits the daemon pane beside the SAME Claude Code or Codex session
+that ran `/overseer` and that session resumes in the bottom pane — it does NOT
+launch Claude or Codex, so running it from a bare shell would leave a bare-shell
+bottom pane. From your interactive (BOTTOM) pane — the agent session where
+`/overseer` is running — resolve and run the bootstrap:
 
 ```bash
-overseer-start
+PLUGIN_ROOT="${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}"
+if [ -z "$PLUGIN_ROOT" ]; then
+  echo "livespec-overseer plugin root not set; expected PLUGIN_ROOT or CLAUDE_PLUGIN_ROOT" >&2
+  exit 1
+fi
+OVERSEER_START="${LIVESPEC_OVERSEER_START:-}"
+if [ -z "$OVERSEER_START" ]; then
+  if [ -x "$PLUGIN_ROOT/../overseer/overseer-start" ]; then
+    OVERSEER_START="$PLUGIN_ROOT/../overseer/overseer-start"
+  elif command -v overseer-start >/dev/null 2>&1; then
+    OVERSEER_START="$(command -v overseer-start)"
+  else
+    echo "overseer-start executable not found; tried $PLUGIN_ROOT/../overseer/overseer-start and PATH" >&2
+    exit 1
+  fi
+fi
+"$OVERSEER_START"
 ```
 
-That one command (a self-invokable `uv` script) does everything deterministically:
+That one command (a self-invokable `uv` script, or the installed console script)
+does everything deterministically:
 
-0. **Verifies it is running under Claude Code** via `$CLAUDECODE` (set in every
-   Claude Code Bash-tool shell). If unset it prints a refusal pointing back to
-   `/overseer` and exits non-zero WITHOUT splitting — so a stray hand-run from a
-   plain terminal fails loudly instead of leaving a daemon pane + bare-shell bottom
-   pane. (This is why it is skill-invoked-only; it is not a standalone launcher.)
-1. **Detects your own pane** via `$TMUX_PANE`, which this Claude session inherits.
+0. **Verifies it is running under Claude Code or Codex** by walking process
+   ancestry. `$CLAUDECODE` alone is not sufficient because env markers are
+   inherited by descendants. If no supported agent runtime is found it prints a
+   refusal pointing back to `/overseer` and exits non-zero WITHOUT splitting — so
+   a stray hand-run from a plain terminal fails loudly instead of leaving a daemon
+   pane + bare-shell bottom pane. (This is why it is skill-invoked-only; it is not
+   a standalone launcher.)
+1. **Detects your own pane** via `$TMUX_PANE`, which the agent session inherits.
    If `$TMUX_PANE` is unset it prints `not inside a tmux pane` and exits non-zero —
    only then is the session genuinely not in tmux; start it inside a tmux session
    and re-run. (Do NOT improvise a tmux check — this is the ONE authority.)
@@ -187,17 +206,18 @@ That one command (a self-invokable `uv` script) does everything deterministicall
    `overseerd`, keeping focus on your (bottom) pane. It targets `$TMUX_PANE` only,
    so the daemon pane always lands in *this* window — never in a separate session.
    It is idempotent (tags the pane `overseer-daemon`; re-running won't stack panes).
-3. **Adopts existing Claude sessions.** It reads Claude Code's own session
-   registry (`~/.claude/sessions/<pid>.json`, which carries each live session's
-   display `name` + `cwd`), joins each to its tmux session by PID, and auto-tracks
-   any whose `cwd` is inside a fleet repo AND whose `name` is an active plan topic
-   — mapping each to the tmux session holding it. The match key is that registry
-   `name`, NOT the tmux session name and NOT the `#{pane_title}` terminal title
-   (which drifts to a task summary), and NOT a screen-scrape (the old input-box
-   border vanished whenever a prompt was up). This also runs **every daemon tick**,
-   so a session that was mid-prompt, renamed, or launched later is picked up within
-   one interval. Codex sessions aren't in Claude's registry, so they're not adopted
-   yet (a known gap).
+3. **Adopts existing Claude Code and Codex sessions.** Claude Code sessions come
+   from Claude's own registry (`~/.claude/sessions/<pid>.json`, which carries each
+   live session's display `name` + `cwd`); Codex sessions come from the live
+   codex process's held-open rollout filename joined through
+   `~/.codex/session_index.jsonl`. Both paths emit the same `(tmux, name, cwd)`
+   shape, and the daemon auto-tracks any whose `cwd` is inside a fleet repo AND
+   whose `name` is an active plan topic — mapping each to the tmux session holding
+   it. The match key is the session `name`, NOT the tmux session name and NOT the
+   `#{pane_title}` terminal title (which drifts to a task summary), and NOT a
+   screen-scrape (the old input-box border vanished whenever a prompt was up).
+   This also runs **every daemon tick**, so a session that was mid-prompt, renamed,
+   or launched later is picked up within one interval.
 
 - The daemon's **stdout is the live table** in the top pane (it clears + re-renders
   each tick). Each data row is **color-coded by status** so the operator scans by hue:
