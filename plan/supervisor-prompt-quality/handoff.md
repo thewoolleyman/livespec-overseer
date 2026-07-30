@@ -93,13 +93,21 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
-## WORKER RESUME STATE — rewritten 2026-07-30 (05:50Z) by the `supervisor-prompt-quality` worker
+## WORKER RESUME STATE — re-measured 2026-07-30 05:39Z by the `supervisor-prompt-quality` worker
 
 **Everything below is a claim with a timestamp. Re-measure from the ledger and the
 forge before acting on any of it.** This section has been wrong about the blocker
 three separate times in two days, which is the best reason to distrust it.
 
-### Where the epic actually is — measured 2026-07-30 05:45Z
+**AND ITS TIMESTAMPS HAVE THEMSELVES BEEN WRONG.** The previous rewrite was
+labelled "05:50Z" and its measurement "05:45Z", but its file mtime was 05:33:50Z
+and the commit carrying it (`b671cf5`) landed 05:26:42Z — both labels postdate the
+artifact they describe. Local here is CEST (+0200), so a local-clock reading
+published with a `Z` is the likely cause; see the `date -u -r` entry under Hazards.
+Worth correcting rather than shrugging at, because "a filed item is a claim with a
+timestamp" is S5's whole point and a stamp that cannot be true undermines it.
+
+### Where the epic actually is — re-measured 2026-07-30 05:39Z
 
 | slice | id | state |
 |---|---|---|
@@ -109,15 +117,33 @@ three separate times in two days, which is the best reason to distrust it.
 | S4 re-entry + durable obligation record | `overseer-fl5jlp` | **CLOSED** |
 | S5 verification discipline | `overseer-nxaho7` | **CLOSED** |
 | S6 full anti-stall playbook | `overseer-kptmgl` | **CLOSED** |
-| S7 cold-open gate + placeholder sets | `overseer-lf7ieb` | PR #316 **MERGED**, item still `active` |
-| S8 cross-track obligation handoff | `overseer-uc4l5e` | `active` — run in flight |
-| S9 adopter parameterization | `overseer-f2lqj6` | `pending-approval`, blocked on S7 closing |
+| S7 cold-open gate + placeholder sets | `overseer-lf7ieb` | **CLOSED** |
+| S8 cross-track obligation handoff | `overseer-uc4l5e` | PR #317 **MERGED** (`57426df`), CI green, acceptance verified; item still `active` |
+| S9 adopter parameterization | `overseer-f2lqj6` | `active`, run **`01KYRQPHDMSE` in flight** |
 
-**S7's item close is the SUPERVISOR's lane, not the worker's.** `dispatch` blocks
-for the life of a run and the Bash tool caps at 20 min, so the launcher is always
-killed — which detaches without killing the run, but the launcher is also what
-merges the PR and closes the item. Each success needs finishing by hand: merge if
-CI is green, then `reconcile-merged --repo <path> --item <id>` (it REQUIRES
+**THREE OF THESE NINE MOVED between the previous rewrite and this one**, which is
+the whole argument for the re-measure instruction above: S7 was recorded as
+`active` and is CLOSED; S8 was recorded as a run in flight and had already merged;
+S9 was recorded as `pending-approval` behind S7 and is dispatched and running.
+Re-measure again rather than trusting this table.
+
+**S8's acceptance is verified discharged**, so it can be closed on evidence and
+not merely on the merge. `57426df` adds `invalid_handoff_confirmations()` wired
+into `missing_requirements()`, and four tests cover exactly the four acceptance
+legs: sender-held with both confirmations `none` stays the SENDER's obligation (no
+violation); peer-held missing `receipt_ack` rejected; peer-held missing
+`peer_recorded` rejected; peer-held with both accepted. The detector keys on the
+PROPERTY — a peer holder with an absent confirmation — not on one wrong spelling,
+so it obeys the design rule in the gate-class section below, and the strings it
+returns name WHICH confirmation is missing. `tests/prompts`: 123 passed at
+`b671cf5`.
+
+**Closing a hand-merged item is the SUPERVISOR's lane, not the worker's** — S7 is
+done, S8 is the one now waiting. `dispatch` blocks for the life of a run and the
+Bash tool caps at 20 min, so the launcher is always killed — which detaches
+without killing the run, but the launcher is also what merges the PR and closes
+the item. Each success needs finishing by hand: merge if CI is green, then
+`reconcile-merged --repo <path> --item <id>` (it REQUIRES
 `--item`; there is no sweep-all form). **Do not do this as the worker. Do not
 dispatch, transition, approve, or set-admission on anything.**
 
@@ -245,6 +271,26 @@ only the discrimination leg; removing the stub reddens only the real-layers gate
   printed nothing, read as "my new check is not load-bearing", one step from
   deleting a working check as dead code. When a sabotage produces no output, read
   the artifact — never accept the silence.
+- **`fabro` DOES NOT RESOLVE UNDER `with-livespec-env.sh`, AND THE WRAPPER STILL
+  EXITS 0.** `with-livespec-env.sh fabro ps` prints `env: 'fabro': No such file or
+  directory` and returns **rc=0**, so it lists no runs and reads as a clean
+  "nothing in flight". Call it by absolute path: `/home/ubuntu/.local/bin/fabro`.
+  **And `ps -eo cmd | grep fabro` is not a substitute** — it showed only another
+  track's `drive.py` launcher and MISSED S9's detached run entirely. On that pair
+  of false negatives this session was one step from hand-implementing a slice the
+  factory already had in flight, which is the duplicate-work version of the
+  grep-matches-nothing hazard above. Known in
+  `plan/codex-parity-and-rollout-safety` and `plan/fabro-review-classifier-defect`,
+  but it was missing HERE, where it could do this particular damage.
+- **A BLOCKED RUN PARKS AN ENGINE ON THE DISPATCH CAP INDEFINITELY, INCLUDING FOR
+  AN ITEM THAT IS ALREADY CLOSED.** Measured 05:39Z: `01KYRGQX2FES` blocked 134m on
+  `overseer-t7qqik` — S3, which is CLOSED because it landed BY HAND as PR #307, so
+  that engine is parked on work that no longer exists; and `01KYRGA3HMSE` blocked
+  141m on `overseer-vyie5q` (another track). This thread records the dispatch cap
+  as the binding constraint on the whole epic, so a blocked run is a capacity leak,
+  not just a stalled item. **Reconciling a slice by hand does not reap its run** —
+  check `fabro ps` for orphans after any hand-landing. Answering or killing a run
+  is the supervisor's lane.
 - **Assert every scripted edit, before writing.** Two edits refused to write this
   session — one on an anchor the formatter had reflowed, one on a stray non-ASCII
   character typed into a replacement. An unasserted `str.replace` would have written
@@ -261,6 +307,11 @@ only the discrimination leg; removing the stub reddens only the real-layers gate
 - **This host runs uutils coreutils 0.2.2 for both `readlink` and `realpath`, not
   GNU.** `readlink -f ""` returns `$PWD` with rc=0 here (false pass) and `--` does
   not save it; GNU exits 1. The non-empty guard is what saves the charter form.
+  **The same divergence bites `date`:** `date -u -r <file>` here does NOT apply
+  `-u` — it prints a LOCAL time, and the `Z` you then append to it is a lie. Local
+  is CEST (+0200), so that is a silent two-hour error in a published timestamp.
+  Read mtimes through Python's `datetime.fromtimestamp(ts, timezone.utc)` when the
+  value is going into a claim.
 - **`just worktree-reap` cannot see a rebase-merged branch as merged** (the SHA
   changes), so it skips your own and offers `--force`, which would act on every
   other track's. Filed as `overseer-btt`. Remove only your own.
