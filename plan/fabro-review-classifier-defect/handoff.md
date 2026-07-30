@@ -38,7 +38,7 @@ half-finished edit** anywhere.
 > - **Rung six was climbed and it was NOT dry** — `overseer-b4q`. The ledger
 >   is now **four** items.
 
-**The ledger — four items, all `backlog`, none groomed, none closed.** Read
+**The ledger — five items, all `backlog`, none groomed, none closed.** Read
 via `/data/projects/1password-env-wrapper/with-livespec-env.sh bd show <id>`
 (a bare `bd` is Access-denied; `bd create` has no `--status`, so hand-filed
 items land at beads-native `open` — set status explicitly and **read back**,
@@ -49,7 +49,8 @@ because the wrapper exits 0 even when the binary is missing, `overseer-1sv`):
 | `overseer-dtytju` | P2 epic — acceptance MET but **NOT general coverage** (see below) |
 | `overseer-fs4` | P2 bug — the orchestrator never consumes the failure category; cross-referenced with `bd-ib-g56f` in the **orchestrator** tenant |
 | `overseer-816` | P2 bug — the send idiom is Claude Code-specific but lives in the **generator** and the **shared protocol**, so every future charter reproduces it |
-| `overseer-b4q` | P2 bug — **filed 2026-07-30 as rung six.** `check-prose-release-hygiene` reads a path-scoped diff and cannot tell "no prose changed" from "`.claude-plugin/prose/` is gone". Measured: that path and a never-existent path return **identical** empty output. It is one of the **56 required** branch-protection contexts, so the vacuous case is a **merge gate reporting success while checking nothing** — and it is the *same* vacuous-diff shape this thread already retracted once, now in our own enforcement surface |
+| `overseer-rh1` | P2 bug — **filed 2026-07-30 as rung seven.** `check-branch-protection-alignment` warns (exit 0) when a CI leg stops gating merges; its leniency assumes a required `ci-green` aggregate that **this repo does not have**, and it never checks that assumption. Enforcement verified as legacy branch protection, **no rulesets** (positive control run, since an empty ruleset list is otherwise indistinguishable from an auth error) |
+| `overseer-b4q` | P2 bug — **filed 2026-07-30 as rung six (a); INDEPENDENTLY VERIFIED by a second party.** **ACTIONABLE NOW** by the normal factory route — needs no upstream and no classifier — but deliberately **NOT dispatched**: it sits outside this thread's epic and admission policy is being decided in another session. `check-prose-release-hygiene` reads a path-scoped diff and cannot tell "no prose changed" from "`.claude-plugin/prose/` is gone". Measured: that path and a never-existent path return **identical** empty output. It is one of the **56 required** branch-protection contexts, so the vacuous case is a **merge gate reporting success while checking nothing** — and it is the *same* vacuous-diff shape this thread already retracted once, now in our own enforcement surface |
 
 **HUMAN-OWNED, none blocking:** closing `overseer-dtytju`; merge-and-tenant for
 `overseer-fs4` vs `bd-ib-g56f`; publication of the fabro branch; whether to fix
@@ -112,6 +113,24 @@ polling for it.
    remedy in full: their `handoff.md` will read *"byte-identical as of
    `<fork-ref>` / `<upstream-ref>`, `<date>`"* — never bare.
 
+   > **SUPERSEDED — they went further and RETRACTED byte-identity outright.**
+   > Their own log (`:73`): at pinned refs with the correct `lib/components/`
+   > path on **both** sides, fork `49b043c1a` (87769 bytes) vs `upstream/main`
+   > `4ab090cae` (67441 bytes) = **484 differing lines**; fork hint counts
+   > `1/38/10/3` vs upstream `38/10/3`, the fork carrying an **extra hint
+   > list** — consistent with this thread's own fix having landed there. So the
+   > claim is **withdrawn, not ref-pinned**, and this thread's difference
+   > finding is corroborated a third time. *"Ref-pin it"* was the right ask and
+   > is now the weaker statement of the outcome; cite the retraction instead.
+
+   **A RECORD DEFECT OF OURS, and it is the reason this entry is verbose.**
+   `research/misclassification-evidence.md` still read *"prepared, NOT
+   delivered"* long after delivery, because `handoff.md` was updated and the
+   research note was not. A reader consequently reported to the maintainer that
+   no delivery had happened — reasonably, since the durable record said so.
+   **When a state changes, sweep EVERY file that asserts the old state, not the
+   one you happen to be editing.** Corrected there now.
+
    > **One imprecision of OURS, corrected here rather than left standing.** The
    > relayed message said upstream carries a `HEX_RE` pre-mask "that the local
    > base does not". Measured, `HEX_RE` is present in **both** — 2 occurrences
@@ -159,8 +178,31 @@ by two sessions from different directions:
   half on **`overseer-d4t`**.
 
 They are **different rungs and both are kept** — collapsing them would hide
-that neither session knew the other was climbing. Every rung returned something
-new, so **assume rung seven is not dry either.**
+that neither session knew the other was climbing.
+
+**RUNG SEVEN — climbed 2026-07-30, and it was NOT dry either.** It aimed one
+layer above rung six (a): rung six looked at gates that *compute* a verdict,
+rung seven at whether anything *consumes* it. It returned three things:
+
+- **`overseer-rh1`** (new, P2). `check-branch-protection-alignment` downgrades
+  "a CI leg is not in the required list" to a **warning, exit 0** — sound only
+  under the single-gate model, where a required `ci-green` aggregate catches it
+  anyway. **This repo does not run that model**: measured, `ci-green` is emitted
+  but **not required**, while 56 individual contexts are; `ci.yml`'s own comment
+  claims the opposite ("Branch protection requires ONLY this context"). The
+  check never asks whether the model it assumes is the one in force, so it
+  cannot fail in the one configuration where an unrequired leg is dangerous.
+  Seven contexts run without gating anything. The detector itself is in the
+  local aggregate (`justfile:195`) but **never runs in CI**.
+- **An independent second-party verification of `overseer-b4q`** — all three of
+  its claims reproduced by the supervisor separately from the worker who filed
+  it. Recorded on the item, because a self-reported and an independently
+  reproduced measurement are not the same strength of evidence.
+- **One further instance of the class, committed while verifying the first** —
+  the `PIPESTATUS`/zsh trap, now the first runnable reproduction of shared
+  correction **C14** (see `.ai/supervisor-protocol.md`).
+
+Every rung returned something new, so **assume rung eight is not dry either.**
 
 > **Rung six (b) also returned a REFUTATION, which is the more useful half and
 > the part a future reader is most likely to get wrong.** The same sweep
@@ -201,17 +243,29 @@ Rung six (a) aimed the carry-forward lesson back at our own gates and found
 
 **The one thing to carry forward.** The classifier bug, the vacuous `git diff`,
 the uncontrolled zero-hit grep, the under-scoped sweep, the cross-harness
-keystroke, our **own required merge gate** (`overseer-b4q`), and now a
-**controlled measurement of the wrong file** (rung six (b)) — plus the `ls -d |
-tail -1` that silently captured a listing line instead of a path, and returned
-clean — are **the same defect**: *a check that cannot fail, returning success.*
-**Eight** instances now, and the last three are the instructive ones: one sits
-in the enforcement surface meant to catch the others, and two were committed
-**while deliberately sweeping for this exact defect**, one of them *with* a
-correct positive control. The remedy was identical every time — **give the
-check a way to come back empty-handed and mean it** — and rung six (b) adds the
-sharpening: **make sure it is looking at the right thing before you ask whether
-it came back empty.**
+keystroke, our **own required merge gate** (`overseer-b4q`), a **controlled
+measurement of the wrong file** (rung six (b)), the `ls … | sort | tail -1` that
+picked *lexically* and so captured a three-day-stale artifact, the
+**merge-gate detector that warns instead of failing** (`overseer-rh1`), the
+`${PIPESTATUS[0]:-$?}` guard that **reports success when the command it guards
+failed** (C14's reproduction), and a **durable record left asserting a state
+that had changed** — are all **the same defect**: *a check that cannot fail,
+returning success.*
+
+**Eleven instances.** But the count is not the useful part — **this is:**
+
+> **The last five were committed *while deliberately sweeping for this exact
+> defect*.** One had a correct positive control and still read the wrong file.
+> One was a *safety* idiom (`:-`) that created the very silence it was written
+> to prevent. One was the *detector* for the drift it failed to report. One was
+> the sweep's own record contradicting the sweep's own result.
+>
+> **Knowing about this defect does not confer immunity to it**, and the people
+> most exposed are the ones actively hunting it, because hunting it means
+> running more checks. So the remedy cannot be vigilance. It has to be
+> structural: **give the check a way to come back empty-handed and mean it**,
+> and — rung six (b)'s sharpening — **make sure it is looking at the right
+> thing before you ask whether it came back empty.**
 
 ## Read-first chain
 
