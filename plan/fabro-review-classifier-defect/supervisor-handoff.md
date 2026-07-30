@@ -520,6 +520,43 @@ its own terms, and a narrow rung is easy to make empty by choosing it narrowly.
 Treat the ladder as **UNEXHAUSTED but no longer obviously productive**, and if
 the next rung is also dry, widen it before concluding rather than after.
 
+#### Verifying that a PROSE change landed: use the right instrument
+
+Every merge in this thread was forge-verified by grepping the fetched file for
+marker phrases. **That instrument produced a false `MISSING` three times, from
+three different causes, and the artifact was correct every time:**
+
+| cause | what happened |
+|---|---|
+| shell `case` fall-through | `supervisor-handoff.md` also ends in `handoff.md`, so the first arm caught it and tested the **wrong file's** markers |
+| unescaped regex metacharacter | `grep "**seven** rungs"` — `*` is a quantifier, so the literal never matched. `-F` fixes it |
+| **hard-wrapped prose** | the phrase spanned two lines with a `>` continuation, so no single-line match exists — and `-F` does **not** save you |
+
+**These are the SAFE polarity — a check that falsely fails is loud** — which is
+exactly why they are worth writing down rather than counting: they cost time,
+never correctness, so the temptation is to shrug at them and keep the broken
+instrument.
+
+**The rule.** Markdown is hard-wrapped, so **an exact-substring match against
+prose is structurally wrong** — any phrase may cross a line boundary, and a
+line-oriented tool cannot see it. **Normalize whitespace first, then match
+literally:**
+
+```python
+t = re.sub(r'\s+', ' ', path.read_text()).replace('> ', '')
+assert 'the phrase you expect' in t
+```
+
+Three corollaries, each earned: address files **explicitly**, never by a suffix
+pattern that another filename also satisfies; use `-F` whenever the needle
+contains `*`, `[`, `(` or `.`; and **when a marker reports missing, suspect the
+instrument before the artifact** — all three times here, the document was fine.
+
+> **This rule is thread-scoped on purpose.** It is a candidate for
+> `.ai/supervisor-protocol.md`, but that file is the shared generator surface
+> (`overseer-816`), so promoting it is a deliberate fleet-wide act and not a
+> side effect of writing it down here.
+
 > **A dry rung is a RESULT and must be recorded as one.** The failure mode here
 > is not stopping too early — it is manufacturing a find to keep the streak
 > alive. Rung eight had a plausible one available and it did not survive
