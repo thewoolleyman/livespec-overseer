@@ -677,19 +677,66 @@ YES`.
 > (`overseer-816`), so promoting it is a deliberate fleet-wide act and not a
 > side effect of writing it down here.
 
+#### RUNG TEN — a BOUNDED result, and the bound is the finding
+
+Rung ten took the ladder's own advice and went one layer up from rung nine:
+*"this repo's config diverges — is the drift SYSTEMIC or ISOLATED?"* Five
+protection dimensions compared across seven fleet repos, with the corrected
+instrument (guard on the response containing `"required_status_checks"`):
+
+| dimension | six siblings | `livespec-overseer` |
+|---|---|---|
+| `required_status_checks.strict` | `false` | `false` — agrees; the documented "strict MUST be OFF" invariant holds fleet-wide |
+| `enforce_admins` | `true` | `true` — agrees |
+| `required_pull_request_reviews` | none | none — agrees |
+| `allow_force_pushes` | `false` | `false` — agrees |
+| `required_linear_history` | **`true`** | **`false`** — **diverges** |
+
+**Four of five agree, so the rung-nine drift is SPECIFIC, not wholesale
+neglect** — a generalization that was easy, available, and would have been
+wrong.
+
+**The second divergence is REAL but COVERED — it is NOT a hole.** All seven
+repos, *including this one*, carry `allow_merge_commit: false`,
+`allow_rebase_merge: true`, `allow_squash_merge: false`. So the rebase-only
+discipline `CLAUDE.md` states is **already enforced here**, one layer down. What
+this repo lacks relative to its siblings is the **redundant layer**, not the
+control.
+
+> **THE CONTRAST WITH RUNG NINE IS THE POINT.** Two divergences, same repo, same
+> subject, **opposite** consequences:
+>
+> - `required_status_checks` → **LIVE**: five contexts run and gate nothing.
+> - `required_linear_history` → **COVERED**: another mechanism enforces it.
+>
+> **Nothing in the two measurements distinguishes them.** Only the follow-up
+> question does.
+>
+> **RULE EXTENSION — the converse of rule 1: before calling a MISSING control a
+> hole, check whether another control already covers it.** Rule 1 says a check
+> with no failing path reports success by construction; this is its mirror — an
+> *absent* check is a defect only if the property it would enforce is otherwise
+> unenforced. **Reporting every absent control as a hole is a finding that
+> cannot come back empty**, which is the same over-claiming this sweep has
+> refused throughout.
+
+*Also recorded rather than smoothed:* one query returned `?` for this repo's
+`required_linear_history` where another returned `false`. Re-measured directly
+with a positive control — `livespec-overseer {"enabled": false}`, `livespec
+{"enabled": true}`. **The `?` was a query artifact, not a third state.**
+
 #### LADDER CLOSE — where the sweep actually stopped, and why
 
-**Nine rungs reached. UNEXHAUSTED.**
+**Ten rungs reached. UNEXHAUSTED.**
 
-**The sweep was stopped by SESSION BUDGET, not by a dry rung.** Rung nine was
-**productive** — it produced the single biggest finding of the sweep (this repo
-is the fleet's sole outlier on branch protection, which *reframed*
-`overseer-rh1`). Nobody climbed a tenth rung. **Do not read the stopping point
-as a completion.**
+**The sweep was stopped by SESSION BUDGET, not by a dry rung.** Rung ten was
+**productive** — it bounded the rung-nine drift as specific rather than
+systemic, and earned a rule extension. Nobody climbed an eleventh. **Do not read
+the stopping point as a completion.**
 
 **One precision, because it would otherwise become a false claim.** It is *not*
 true that "every rung returned something": **rung eight was DRY as scoped**
-(the `tests/heading-coverage.json` registry). Eight of the nine were productive.
+(the `tests/heading-coverage.json` registry). Nine of the ten were productive.
 That dryness is what produced the ladder's most portable rule — **a dry rung is
 a hypothesis about scope, not a result** — since re-asking rung seven's question
 at *fleet* scale is exactly what made rung nine the biggest find. A summary that
