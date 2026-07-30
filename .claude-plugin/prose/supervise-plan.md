@@ -204,8 +204,41 @@ driving:
 test -f ".ai/supervisor-protocol.md" \
   || { echo "HALT: missing shared supervisor protocol .ai/supervisor-protocol.md"; echo "REMEDY: regenerate the two-layer supervisor handoff before driving"; exit 1; }
 printf '%s\n' "BOOT: read .ai/supervisor-protocol.md, this binder, and the supervisor marker if it exists"
-test ! -f "$supervisor_marker" || sed -n '1,220p' "$supervisor_marker"
+[ -n "${supervisor_marker:-}" ] \
+  || { echo "HALT: supervisor_marker is unset or empty"; echo "REMEDY: resolve it from this binder's bindings table before running this block — an unset marker makes the read below display NOTHING and still exit 0"; exit 1; }
+if [ ! -f "$supervisor_marker" ]; then
+  printf '%s\n' "NOTE: no supervisor marker at $supervisor_marker yet — nothing to read."
+else
+  marker_lines=$(wc -l < "$supervisor_marker")
+  if [ "$marker_lines" -le 400 ]; then
+    cat "$supervisor_marker"
+  else
+    sed -n '1,160p' "$supervisor_marker"
+    printf '\n*** TRUNCATED: lines 161-%d of %d NOT SHOWN (%d hidden). A claim above may be RETRACTED in the hidden range. Read %s in full before acting on anything above. ***\n\n' \
+      "$((marker_lines - 160))" "$marker_lines" "$((marker_lines - 320))" "$supervisor_marker"
+    sed -n "$((marker_lines - 159)),${marker_lines}p" "$supervisor_marker"
+  fi
+fi
 ```
+
+The read is WHOLE-FILE up to 400 lines and head-and-tail beyond it, and the
+truncation notice is MANDATORY whenever anything is hidden. Three measured
+reasons, all from a real marker on 2026-07-30:
+
+- **A constant cap is stale tomorrow.** The cap was `1,220p` while that marker
+  was 528 lines, then 697 within hours — 31.6% shown. No constant survives an
+  append-only file.
+- **Truncation SEVERS RETRACTIONS FROM CLAIMS.** That marker carried an
+  `OPEN OBLIGATIONS` block at line 200, inside the visible window, assigning
+  `holder: worker`; its retraction — `NO OPEN OBLIGATIONS` — sat at line 253,
+  below the cut. A cold-open reader was shown a discharged obligation as live
+  work. Silently showing less is not the harm; manufacturing a false
+  assignment is.
+- **Corrections land at the END** of an append-only marker, so the tail is the
+  highest-value region and a head-only read is the worst possible cut.
+
+Do not replace this with a larger constant: the notice, not the size, is what
+converts a silent omission into a known one.
 
 ## Bindings
 
@@ -269,10 +302,38 @@ measurement time. Emit this command with the thread's ledger anchor substituted:
 
 ```sh
 ledger_anchor='<ledger-anchor>'
-bd show "$ledger_anchor" --json \
-  || { echo "HALT: cannot re-measure ledger item '$ledger_anchor'"; echo "REMEDY: fix ledger access before using any filed status claim"; exit 1; }
+# The ledger is a per-repo tenant database, so `bd` needs the fleet credential
+# wrapper WHERE ONE IS INSTALLED — a bare `bd` returns "Access denied" there.
+# DETECTED, never hard-coded: an adopter without the wrapper must still be able
+# to re-measure, and a hard-coded path would only trade one false HALT for
+# another.
+ledger_show() {
+  if command -v with-livespec-env.sh >/dev/null 2>&1; then
+    with-livespec-env.sh -- bd show "$1" --json
+  else
+    bd show "$1" --json
+  fi
+}
+if ! ledger_show "$ledger_anchor"; then
+  echo "HALT: cannot re-measure ledger item '$ledger_anchor'"
+  if command -v with-livespec-env.sh >/dev/null 2>&1; then
+    echo "REMEDY: the credential wrapper WAS used, so ledger access is not the suspect — check the anchor id is real and that this repo's tenant is reachable"
+  else
+    echo "REMEDY: no credential wrapper on PATH, so a BARE 'bd' ran — if this repo's ledger is a tenant database, install/expose the fleet credential wrapper; otherwise check the anchor id"
+  fi
+  exit 1
+fi
 date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
 ```
+
+The REMEDY branches on what was ACTUALLY TRIED, because a remedy that names
+the wrong cause is worse than none. The previous form emitted a bare `bd` and
+then advised "fix ledger access" — pointing the reader at a ledger that was
+already healthy, while the real fix was the wrapper. Measured 2026-07-30 in
+this repo: bare `bd show <anchor> --json` exits 1 with "Access denied"; the
+same call through the wrapper exits 0 with real JSON. That is the mirror of
+this contract's usual failure — not a check that cannot fail, but a command
+that cannot PASS.
 
 Treat the JSON returned by that command as current. Treat older prose as
 historical evidence only, even when the older prose was written by this same
