@@ -4,13 +4,20 @@ Ported from `red-green-harness.sh`, whose 24 legs proved these defects on a
 private socket. The harness is not tracked and never ran in the gate; these
 fixtures put the same legs on the standing `just check` surface.
 
-Every session here lives on a PRIVATE socket (`tmux -L`), unique per test and
-per xdist worker, and is killed in a `finally`. The maintainer's default socket
-is never addressed.
+Every session here lives on a PRIVATE socket (`tmux -L`), unique per test, per
+xdist worker AND PER RUN, and is killed in a `finally`. The maintainer's default
+socket is never addressed.
+
+That "per run" was missing for a while, in the code and in this sentence, and it
+was `overseer-jcw`: the name came from `tmp_path.name` alone, which is the TEST's
+identity and is byte-identical across separate pytest invocations. Two concurrent
+`just check` runs on one host therefore shared a socket, and the second read the
+first's pane. A uniqueness claim is only as good as its narrowest axis.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import time
@@ -57,7 +64,12 @@ def _tmux_fixture(*, tmp_path: Path) -> Iterator[Callable[..., subprocess.Comple
             "tmux is required by this contract's acceptance and is absent. "
             "This must FAIL rather than skip: a skipped leg proves nothing."
         )
-    socket = f"legs-{tmp_path.name}"
+    # The PID is what makes this unique per RUN. `tmp_path.name` alone is the
+    # test's identity and repeats across invocations; under xdist the PID also
+    # separates workers, so it subsumes the axis this used to rely on. It stays
+    # STABLE within a process, which the `finally` below depends on to kill the
+    # server it actually started.
+    socket = f"legs-{os.getpid()}-{tmp_path.name}"
     try:
         yield lambda *args: _tmux(socket, *args)
     finally:
