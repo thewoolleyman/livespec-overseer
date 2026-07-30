@@ -103,3 +103,42 @@ The lifecycle has recipes for the rest too: `just worktree-hydrate`,
 `just worktree-land [base_ref]`, and `just worktree-reap [--execute]` for
 orphans. `dev-tooling/*` is gitignored and byte-verified against the package
 source — never hand-edit the installed copy.
+
+## The fleet has SEVERAL Anthropic credentials — probing the wrong one is the documented failure mode
+
+Cite this section; do not restate it per plan thread. It exists because the
+same fact was independently re-derived by two threads on 2026-07-29 and one of
+them got it wrong, costing two dispatches' green work (`bd-ib-g56f`).
+
+| Credential | Shape | Who actually uses it |
+|---|---|---|
+| `CLAUDE_CODE_OAUTH_TOKEN` | `sk-ant-oat0…` | **The factory path.** The `credential_wrapper` injects it into the Dispatcher's env; the Dispatcher projects it into the per-run mode-600 overlay; the sandbox's `claude-agent-acp` **review** adapter authenticates with it (`_dispatcher_credentials.py:58`) |
+| `ANTHROPIC_API_KEY_LIVESPEC_E2E` | `sk-ant-api0…` | The **containerized orchestrator image** as fabro's LLM provider key (`orchestrator-image/orchestrator-entrypoint.sh:64`, `FABRO_LLM_API_KEY_ENV` default), and livespec's `e2e-real.yml` |
+
+Both names are real and both are legitimately "the Anthropic key fabro uses"
+— for **different deployment shapes**. The trap is asymmetric discoverability:
+the E2E key appears in READMEs, CI workflows and four image scripts, while the
+token the host path actually bills appears in one module. Reaching for the
+greppable one is the easy mistake, and it fails SILENTLY — it returns HTTP 200
+while the credential in use is exhausted.
+
+Consequences to hold onto:
+
+- **A probe on the E2E key, or on interactive `claude -p`, is NOT evidence
+  about the factory.** Both are documented false positives (2026-07-29
+  15:00Z: probe green, adapter hard-blocked).
+- **These credentials have SEPARATE limits and may belong to different
+  accounts.** At least two limit kinds have been seen — an org monthly spend
+  cap and a rolling window. Raising one clears neither the other nor a
+  different account, so name WHICH credential you measured.
+- **The Dispatcher's own Claude check is presence-only** —
+  `os.environ.get(CLAUDE_CODE_OAUTH_TOKEN, "") != ""`
+  (`_dispatcher_credentials.py:252`) — so a present-but-exhausted token passes
+  pre-flight and the run dies mid-review. Codex, by contrast, has a real
+  usability gate plus `dispatcher.py codex-cred-refresh`. Closing that
+  asymmetry is `bd-ib-3mbj` (P1, orchestrator tenant); until it lands, the
+  host-side probe in
+  `plan/background-shell-supervision-liveness/handoff.md` §"Gate 4" is the
+  only valid signal — verified 200 on 2026-07-30 after a token rotation.
+- **Never print token material.** Presence, prefix and length are enough to
+  identify which credential you are holding.
