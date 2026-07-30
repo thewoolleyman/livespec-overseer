@@ -93,7 +93,94 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
-## WORKER RESUME STATE — updated 2026-07-29 (19:45Z) by the `supervisor-prompt-quality` worker
+## WORKER RESUME STATE — updated 2026-07-30 (01:15Z) by the `supervisor-prompt-quality` worker
+
+### THE TOP OPEN ITEM: the generator that RUNS has none of these fixes
+
+**Read this before doing anything else with the generator.** Fixing
+`.claude-plugin/prose/supervise-plan.md` in this repo does NOT fix the generator
+that produces charters. Measured 2026-07-29 across **all nine** cached plugin
+versions under `~/.claude/plugins/cache/livespec-overseer/`: **zero** contain the
+exact-target mandate (S1's fix) and **zero** contain the supervisor liveness
+proof (`overseer-ejja5o`'s fix). Newest cache dir resolved with
+`find -printf '%T@ %p\n' | sort -rn`, never `ls` (C6).
+
+This is not a lone reading. Commit `ef4b098` states it while hand-hardening a
+charter to unbreak master: *"Fixing the generator in the repo does not fix the
+generator that runs."* That charter was generated from the stale `0.12.2` cache
+**~17h after** S1's fix merged, and arrived with 12 bare targets and an unguarded
+`readlink`.
+
+Two consequences, both load-bearing:
+
+1. **The charter gate is earning its keep already** — it is what turned master
+   red on that charter, the same day the gate landed. That is exactly the "stop
+   the population growing" case `GAP-no-remediation-slice.md` predicted.
+2. **Every generator fix in this thread is inert until a release ships.** The
+   contract test asserts the REPO's prose, which is not the artifact that
+   produces charters — the deepest form of the verifier-that-cannot-fail shape
+   this thread exists to remove, and the same REGISTRATION IS NOT INSTALLATION
+   pattern `ship-overseer-to-fleet` recorded.
+
+**This is a maintainer/release-lane decision and was deliberately NOT built.**
+Three candidate shapes: (a) assert the INSTALLED plugin's prose satisfies the
+contract — cannot run in CI where no cache exists, and needs a no-skip answer;
+(b) a release-hygiene check that a prose change forces a version bump; (c) accept
+it and document the release step as mandatory after any prose fix. Real competing
+costs, so it is a genuine valve rather than a plan to execute.
+
+### The charter gate now covers SIX defect classes, all keyed on the PROPERTY
+
+`tests/prompts/test_charters_carry_no_known_defects.py`, in `just check`:
+
+| class | keys on the ABSENCE of |
+|---|---|
+| (a) bare tmux target | an exact `'=name:'` target |
+| (b) unguarded path resolution | a non-empty guard before `readlink -f`/`realpath` |
+| (c) history-fed capture | visible-only capture feeding the picker test / pane diff |
+| (d) empty watcher seed | a sentinel no real capture can equal |
+| (e) supervisor trusted by name | a supervisor process-tree liveness proof |
+| (f) regex session-existence test | `grep -F`, so the match is LITERAL |
+
+**THE DESIGN RULE THAT PRODUCED THAT COLUMN — carry it forward.** A detector must
+key on the **absence of the correct property**, never on the **presence of one
+wrong spelling**. It was learned the hard way: class (e) pinned the literal `-qx`,
+so the moment (f) was remediated to `-Fqx` the (e) detector **went blind** and
+stopped firing on the very charters it had flagged an hour earlier. A detector
+keyed to another defect's pre-fix spelling is a verifier that **disarms itself
+when the neighbouring fix lands** — a failure mode that appears only where two
+remediations meet, which is why inspecting either one alone will never find it.
+`test_remediating_f_does_not_disarm_e` pins the instance that actually happened;
+(b) and (d) were then re-keyed the same way before anything walked through them.
+
+### Landed since 19:45Z — all merged, all forge-verified after a fetch
+
+- **PR #293** — gate class (e) plus the sweep of the four charters carrying it.
+- **PR #296** — gate class (f). `grep -qx` is exact-LINE but its pattern is still
+  a REGEX: proven on a private socket, with a session `axb` alive `grep -qx 'a.b'`
+  MATCHES while `grep -Fqx 'a.b'` refuses. LATENT, not live — it needs a regex
+  metacharacter in a session name and slugs are `[a-z0-9-]`. Also fixed a prose
+  Corrections entry that was PRESCRIBING the incomplete `grep -qx` as C1's remedy.
+- **PR #297** — corrected a backwards coreutils attribution and closed the
+  `realpath` evasion in (b).
+- **PR #300** — closed (d), the last spelling-keyed detector, strictly additively.
+
+### An environmental fact that was recorded WRONG for days
+
+**This host runs uutils coreutils 0.2.2 for BOTH `readlink` and `realpath` — not
+GNU.** Measured 2026-07-30:
+
+    readlink -f ""      rc=0, prints $PWD    FALSE PASS
+    readlink -f -- ""   rc=0, prints $PWD    the `--` does NOT save it
+    realpath ""         rc=1                 fails safe
+
+So the false pass belongs to **uutils**; GNU exits 1 and fails safe by accident.
+`test_repo_containment_discriminates.py` had this mapping right all along and
+`test_charters_carry_no_known_defects.py` had it inverted — **two files in one
+directory disagreeing about an environmental fact is how a wrong belief survives
+review**, and the one that was easy to check was the wrong one. The emitted
+charter form was never unsafe: the non-empty guard is what saves it, and the `--`
+guards a leading-dash path, a different hazard. Only the explanation was wrong.
 
 **Re-measure from the ledger and the forge rather than trusting any line below.**
 Every claim here is a claim with a timestamp, including this one. Two claims in
@@ -286,6 +373,15 @@ options is at `tmp/overseer/supervisor-prompt-quality/GAP-no-remediation-slice.m
 The gate that just landed is repo-local. Adopting it elsewhere is a per-repo decision and
 nothing here schedules it.
 
+### What is TRACKED versus what only exists on this host
+
+The two most valuable findings of 2026-07-29/30 — the stale-plugin-cache gap and
+the detector self-disarm rule — were reached in a **gitignored** log and would have
+died with this working tree. They are recorded above for that reason. When a
+finding is worth carrying, the handoff or a test is where it goes; the wake channel
+is a transcript, not storage. That criticism was made of this thread's own evidence
+earlier the same day, so it applies here too.
+
 ### Durable artifacts (gitignored — present in this working tree only)
 
 `tmp/overseer/supervisor-prompt-quality/` holds `FILED-RESULT.md`,
@@ -325,6 +421,23 @@ it.** The artifacts that mattered are now TRACKED, which was the point.
 - **Restore a sabotage from a byte copy, never `git checkout -- <file>`.** That reverts to
   HEAD rather than to your uncommitted work, and it silently wiped a completed sweep here;
   the next run's failure then reads as a broken test rather than a lost edit.
+- **A GREP THAT MATCHES NOTHING IS INDISTINGUISHABLE FROM A CLEAN PASS, and this bit
+  the verification of a verifier.** A sabotage run piped through
+  `pytest ... | grep -E '^FAILED'` printed nothing, which read as "my new check is not
+  load-bearing" — one step from deleting a working check as dead code. Re-run with FULL
+  output, the sabotage reddened exactly the intended leg. The charter's pipe-exit-code
+  rule already covers this, but note WHERE it landed: not on the code under test, on the
+  step that was supposed to prove the test could fail. **When a sabotage produces no
+  output, that is the one result you must never accept without reading the artifact** —
+  a silent sabotage and a sound check look identical.
+- **Widening a detector is a chance to silently REMOVE what it already caught.** When
+  re-keying (b) and (d) from a spelling to a property, the original literal rules were
+  RETAINED and asserted directly, rather than trusted to fall out of the broader rule.
+  Prove the old shape still reddens; do not infer it.
+- **`--set-metadata` stores STRINGS.** Clearing a list-valued field with it prints
+  `✓ Updated` and stores `"[]"`, which the consumer then walks character-wise. Rewrite the
+  whole object via `--metadata @file.json` and assert the TYPE on read-back, not the
+  rendered value (Correction C11).
 
 ### Boundaries
 
