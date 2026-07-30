@@ -394,7 +394,10 @@ a restart requires a fresh `ready`, which a blocked session never writes.
 >   protocol" and "Context-% reading" sections. Their surviving statements are
 >   in this file and in `AGENTS.md`.
 > - **`.ai/agent-disciplines.md` (repo root) §"Tracked-session discipline"** —
->   there is no `.ai/` directory in this repo at all. That section stated this
+>   there was no `.ai/` directory in this repo when this pointer was removed. One
+>   EXISTS today, added 2026-07-30 by `7e246e0` for the layered supervisor
+>   prompt, and holds only `supervisor-protocol.md`; `.ai/agent-disciplines.md`
+>   still does not exist, so this removal stands. That section stated this
 >   same contract from the TRACKED SESSION's side; the session-facing statement
 >   that actually reaches sessions today is the pasted wrap-up itself
 >   (`_supervisor_prompts.py`'s `_WRAPUP_BODY`, reproduced above).

@@ -33,10 +33,19 @@ Read these beside the code before changing anything in `overseer/`:
 Those three documents are CURRENT — read them as authoritative. They
 predate the relocation of this package out of livespec core, but that
 staleness was swept out (work-item `overseer-zvo`, closed). Re-measured
-2026-07-26: **zero** `.claude/skills/overseer/` path references across all
+2026-07-30: **zero** `.claude/skills/overseer/` path references across all
 three, and no "local-only to this repo" framing — the single `local-only`
-string in `AGENTS.md` describes the externally-sandboxed HOST, justifying a
-codex flag, and is not about the package's scope.
+string in `overseer/AGENTS.md` (line 403) describes the externally-sandboxed
+HOST, justifying a codex flag, and is not about the package's scope.
+
+That date moved because the previous re-measure was not enough. It was taken
+2026-07-26, four days before `.ai/` existed, and two of these documents went on
+denying that directory's existence in the PRESENT TENSE — which a reader obeying
+the instruction above met as authoritative while working on the very directory
+being denied. Both are re-tensed, and
+`tests/test_module_docs_match_the_repo.py` now gates the claim so that premise
+cannot rot silently again. **Re-measure before refreshing this date; a
+"CURRENT" assurance is itself a claim with a timestamp.**
 
 As always `SPECIFICATION/` governs and the code is the final word on
 behavior — that is normal precedence, not a warning about these files.
