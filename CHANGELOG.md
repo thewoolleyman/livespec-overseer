@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.14.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.13.3...v0.14.0) (2026-07-30)
+
+
+### Features
+
+* add lane a liveness red tests ([427ea8e](https://github.com/thewoolleyman/livespec-overseer/commit/427ea8ee911aeff721af9cb50e61c41bb3ea84ad))
+* cover full anti-stall playbook ([e707a06](https://github.com/thewoolleyman/livespec-overseer/commit/e707a06cd3fa102d2ebeb971baa86eb1b184c4a5))
+* cover pair-stall supervisor nudge ([9afc646](https://github.com/thewoolleyman/livespec-overseer/commit/9afc646ee7ef8635ecadf6ad58d173b727e195a2))
+* enforce supervisor handoff confirmations ([57426df](https://github.com/thewoolleyman/livespec-overseer/commit/57426df7f717c24b8469e612d28ca22fe98bc99c))
+* escalate blocked declarations by age band ([fa05c58](https://github.com/thewoolleyman/livespec-overseer/commit/fa05c58774f92853c38fe249c4b405fd02094b13))
+* gate cold-open supervisor prompts ([9c03c46](https://github.com/thewoolleyman/livespec-overseer/commit/9c03c463d4f8da42cb701cdc0e4f5fae186147c8))
+* require layered supervisor prompt generation ([7e246e0](https://github.com/thewoolleyman/livespec-overseer/commit/7e246e0e3d4c7e39bb5628801a236cf68a36d635))
+* supervise pair entity ([7878992](https://github.com/thewoolleyman/livespec-overseer/commit/7878992023e55a0dd30c193bea713e8e11ce9ab1))
+* surface uncertifiable ready declarations ([283fb5e](https://github.com/thewoolleyman/livespec-overseer/commit/283fb5e3e860cd06c4a43dce22724b8b6625f69f))
+* verify adopter prompt realizations ([64cb51a](https://github.com/thewoolleyman/livespec-overseer/commit/64cb51aa0431d22afdcc31a3672acc812cf7ae75))
+
+
+### Bug Fixes
+
+* cover restart recognition timeout resume pending ([86cb0b6](https://github.com/thewoolleyman/livespec-overseer/commit/86cb0b6ef2d1daa323b47f3b17b1eaf73b4655ca))
+* harden generated supervisor prompt gates ([abb07b3](https://github.com/thewoolleyman/livespec-overseer/commit/abb07b3497480ce4a6ca46229dbdba26b8e718af))
+* harden supervisor wake contract ([9ad5b7a](https://github.com/thewoolleyman/livespec-overseer/commit/9ad5b7a6935a4c638e10f6b12f9f3182b905df29))
+* keep uncertifiable-ready alert edge-triggered ([e4315ac](https://github.com/thewoolleyman/livespec-overseer/commit/e4315acc815e7c3cb127ebc2eb2e53ac7ba448c9))
+* **plan:** harden the fabro-review-classifier-defect charter to unbreak master ([ef4b098](https://github.com/thewoolleyman/livespec-overseer/commit/ef4b0985e742b8897372df1e2b4c26994c1fa9e7))
+* **prompts:** make the wait_for rig deterministic under CI timing ([08fca98](https://github.com/thewoolleyman/livespec-overseer/commit/08fca980f1a2fb462a7635e266d81b3ab3c2e364))
+* route supervisor idle nudge handoff ([1d39639](https://github.com/thewoolleyman/livespec-overseer/commit/1d396395e7c50f1b9d80c7bef489d76570b8cf41))
+
 ## [0.13.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.13.2...v0.13.3) (2026-07-27)
 
 
