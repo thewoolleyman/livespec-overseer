@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.15.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.14.0...v0.15.0) (2026-07-30)
+
+
+### Features
+
+* admit Codex overseer startup ([8bd5b91](https://github.com/thewoolleyman/livespec-overseer/commit/8bd5b91e03c800edb9cf089a5e514e94f3a6ffb7))
+* surface liveness starvation cases ([c3d95e7](https://github.com/thewoolleyman/livespec-overseer/commit/c3d95e71adf03907d6aa822f545b1da86f25dde5))
+
+
+### Bug Fixes
+
+* make the emitted boot and ledger commands able to succeed ([2e803b8](https://github.com/thewoolleyman/livespec-overseer/commit/2e803b8175a110efb80440786885a6cd7b745a7e))
+
 ## [0.14.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.13.3...v0.14.0) (2026-07-30)
 
 
