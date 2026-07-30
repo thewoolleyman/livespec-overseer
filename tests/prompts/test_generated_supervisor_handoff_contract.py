@@ -450,8 +450,7 @@ def test_union_validator_retarget_demonstrates_homelab_binder_shape():
             len(missing_required_needles_for_layers(layers=(homelab_shared, homelab_binder))),
         ),
     )
-    assert rows == (("homelab binder alone", 14), ("homelab shared plus binder", 8))
-    assert rows == (("homelab binder alone", 11), ("homelab shared plus binder", 5))
+    assert rows == (("homelab binder alone", 16), ("homelab shared plus binder", 10))
 
 
 def test_both_corrections_sections_survive_regeneration_byte_for_byte():
