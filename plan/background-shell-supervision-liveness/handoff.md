@@ -28,7 +28,7 @@ attended seats do.
 FACTORY, not the code: `.1` is DONE (accepted and closed); `.2` is admitted
 and its implementation went green in a sandbox THREE times on 2026-07-29,
 but every landing attempt was killed by factory infrastructure — currently
-the gate-4 interactive `codex login`; `.3`–`.6` sit `backlog` with
+the Claude credential's exhaustion; `.3`–`.6` sit `backlog` with
 admissions PRE-APPROVED and dispatches HELD until a `.2` review passes.**
 
 | Step | State |
@@ -39,7 +39,7 @@ admissions PRE-APPROVED and dispatches HELD until a `.2` review passes.**
 | b. Widened proposal landed | **DONE** — PR #226 merged |
 | c. Ledger filed | **DONE** — six children under `overseer-4xfmez` (`.1`–`.6`), epic retitled and scope-widened |
 | d. `/livespec:revise` | **DONE — v003 RATIFIED**, PR #232, commit `ed55630` on master. `proposed_changes/` is empty; `history/v003/` holds the proposal and its decision. Decision was `modify`: the nine edits verbatim plus one counsel co-edit aligning spec.md §"The restart" with contracts.md §"The restart interlock" |
-| e. Implementation | **IN FLIGHT** — `.1` DONE (PR #243, `86cb0b6`, accepted + CLOSED 2026-07-29); `.2` stored `ready`, three-times-green in sandboxes, blocked on the gate-4 interactive `codex login`; `.3`–`.6` `backlog`, admissions pre-approved (§3 ruling 5), dispatches held behind a passing `.2` review — see below |
+| e. Implementation | **IN FLIGHT — ALL FOUR GATES NOW CLEAR (2026-07-30)** — `.1` DONE (PR #243, `86cb0b6`, accepted + CLOSED 2026-07-29); `.2` stored `ready`, three-times-green in sandboxes, and its blocker is GONE: the maintainer rotated `CLAUDE_CODE_OAUTH_TOKEN` (probe re-verified 200) and gate 4 measures 229.6 h of codex headroom. `.3`–`.6` `backlog`, admissions pre-approved (§3 ruling 5), dispatches held behind a passing `.2` review — see below |
 
 ### Step e state, and the FOUR gates a dispatch can hit
 
@@ -78,10 +78,18 @@ the factory). The operational summary:
   through both seats' pickers); capacity re-verified by probe at 15:00Z
   (HTTP 200). The next dispatch then refused PRE-launch at
   `run-config-overlay`: **the host codex credential was too short-lived for
-  the 4 h run budget** (gate 4 below) — where step e now stands.
+  the 4 h run budget** (gate 4 below). **Both of those are RESOLVED as of
+  2026-07-30** — see the step-e row in §2 and gate 4 below; step e is held
+  only by its own review-pass rule now.
+- **The 15:00Z "capacity re-verified (HTTP 200)" above is a KNOWN FALSE
+  POSITIVE.** That probe used `ANTHROPIC_API_KEY_LIVESPEC_E2E`, not the
+  credential the review adapter bills. It is left in the record because the
+  wrong conclusion it produced is the point; gate 4 and the probe block
+  below carry the corrected form.
 
 Four DISTINCT gates refused dispatches in this thread. Know all four; only
-one is a human VALVE (gate 2), and one more is a human ACT (gate 4).
+one is a human VALVE (gate 2). Gate 4 was described here as a human ACT —
+that is no longer accurate (see gate 4).
 
 **Gate 1 — dispatcher staleness (exit 3, "plugin build is stale"). NOT a
 human valve; remedy is a session restart.** Skill bindings are fixed for a
@@ -140,25 +148,55 @@ dispatcher strands its item ACTIVE with no live run, and
 `move:<id>:ready` restores it — journaled, exercised three times 2026-07-29
 on `.2`.
 
-**Gate 3 — the host dispatch cap (exit 3, "admission cap refused"), cap 2.
-TRANSIENT; wait and retry.** Two INDEPENDENT gauges, each capped at 2, and
+**Gate 3 — the host dispatch cap (exit 3, "admission cap refused"). This
+repo's cap is 4 as of 2026-07-30 (was 2). TRANSIENT; wait and retry.** Two
+INDEPENDENT gauges, each capped at the committed value, and
 BOTH need headroom: (i) non-terminal runs in `fabro ps -a --json` (terminal
 kinds: succeeded/failed/cancelled/canceled/blocked), and (ii) the slot files
 `tmp/fabro-dispatch-admission.slot{0,1}.lock` in this repo — a slot is held
 iff its recorded pid is alive (the dispatcher self-reclaims dead-pid slots).
 Other seats actively dispatch this tenant, so contention is normal; a
-refusal names the holders. Do not raise `dispatcher.host_dispatch_cap` in
-`.livespec.jsonc` to jump the queue.
+refusal names the holders.
+
+**The cap was raised 2 → 4 for THIS REPO ONLY on 2026-07-30 (PR #305,
+`2c7465b`), maintainer-directed.** Rationale, and the honest limit of the
+evidence, are in the `.livespec.jsonc` comment; the unexercised layer
+(same-repo collision at 4x) is filed as `bd-ib-rhap`. Two things that did NOT
+change: **the standing rule still stands — do not raise the cap to jump the
+queue.** The raise was a deliberate capacity decision, and it does not
+prioritize any track: the key is per-repo with `per_item_override: false`, so
+all tracks dispatching from this repo share it. Ordering is still the
+admission valve's job (gate 2). And **never parallel-dispatch slices that
+share files** — work partitioning, independent of host capacity.
 
 **Gate 4 — host codex credential TTL (`run-config-overlay` refusal: "Host
-Codex credential is too short-lived for the run budget; run `codex login`
-on the orchestrator host to renew it"). NOT a valve; a human ACT: an
-interactive `codex login` on this host.** The dispatcher requires the codex
-access token to outlive the 4 h run budget. `codex login` has NO
-non-interactive form, a codex exec turn does NOT rewrite the token, and
-`codex login status` does not show expiry — decode remaining life from
-`~/.codex/auth.json` (print ONLY `exp` claims, never token material). The
-Anthropic side has no equivalent pre-flight gate; it fails IN-RUN instead
+Codex credential is too short-lived for the run budget"). CLEAR as of
+2026-07-30 — this is NOT what blocks step e, and it is NOT necessarily a
+human act.** The dispatcher requires the codex ACCESS token to outlive the
+4 h run budget. Three corrections to what this section said before, each
+measured 2026-07-30 ~03:57Z:
+
+- **The gate reads `tokens.access_token`, NOT `tokens.id_token`**
+  (`_dispatcher_projection.decode_codex_access_token_exp`). In the current
+  `~/.codex/auth.json` the `id_token` IS expired (−9.3 h) while the
+  access token runs to 2026-08-08T17:37:28Z. **Do not conclude "the codex
+  credential is expired" from the `id_token`** — that is a false positive
+  waiting to happen, the same shape as the E2E-key probe below.
+- **Measured state: remaining 229.6 h, `alarm` False, `refresh_due`
+  False** — via the build's own pure assessor
+  (`_dispatcher_codex_refresh.assess_host_codex_credential`), which is the
+  authoritative check; prefer it over hand-decoding claims.
+- **"`codex login` has NO non-interactive form" is STALE.** The current
+  build (`856d699b5f7d`) ships `dispatcher.py codex-cred-status [--json]`
+  and `dispatcher.py codex-cred-refresh [--dry-run] [--json]`
+  (`commands/dispatcher.py:20-21`, dispatch table at `:267-268`), with
+  thresholds `CODEX_ALARM_THRESHOLD_SECONDS` 48 h and
+  `CODEX_REFRESH_GUARD_SECONDS` 360 s. An interactive `codex login` is the
+  fallback, not the only remedy. (Gate 1's "do not hand-invoke a newer
+  build's `dispatcher.py`" caution still applies to anything that
+  DISPATCHES; a read-only `codex-cred-status` is not that.)
+
+The Anthropic side has no equivalent pre-flight gate; it fails IN-RUN instead
 (the spend-limit story above), so probe it cheaply before dispatching —
 **on the RIGHT credential.** Measured 2026-07-29/30 across four incidents:
 the review adapter bills the org of **`CLAUDE_CODE_OAUTH_TOKEN`** (the
@@ -180,7 +218,22 @@ ONE validated probe, correct on every incident:
 `200` = capacity; `429` = the adapter WILL die at review — hold dispatches.
 Ruled 2026-07-30: the wrapper token is re-minted from a healthy org
 (`claude setup-token`, maintainer act) whenever its org exhausts; full
-incident history in `bd-ib-g56f` (addenda 3–5).
+incident history in `bd-ib-g56f` (addenda 3–5). **Re-verified 2026-07-30
+~04:0xZ after the maintainer rotated the token: HTTP 200 with a real
+completion body.**
+
+**That this probe had to be hand-written in prose at all is a CODE gap, now
+filed as `bd-ib-3mbj` (P1, orchestrator tenant).** The Dispatcher's Claude
+credential check is presence-only —
+`check_credential_env` is `os.environ.get(CLAUDE_CODE_OAUTH_TOKEN, "") != ""`
+(`_dispatcher_credentials.py:252`) — so a token that is present but exhausted
+passes the gate and the run dies mid-review. Codex, by contrast, gets a real
+usability gate plus a non-interactive refresh (gate 4 above). When `bd-ib-3mbj`
+lands, DELETE the snippet above and cite the tool-backed check instead. The
+companion prose-gate backstop is `bd-ib-p0g6` (P3): the plan skill's Step 4
+self-sufficiency gate checks that cited paths EXIST but never that an embedded
+operational command exercises the mechanism it claims to — which is exactly how
+the E2E-key probe passed review and was believed.
 
 ### So, on cold open
 
@@ -190,17 +243,21 @@ re-deriving this. If it is clean:
 
 1. **Probe both credentials** — the codex TTL (gate 4) AND the OAuth-token
    capacity probe above (the ONLY valid Anthropic signal; E2E-key and
-   `claude -p` probes are false positives). If the codex token's remaining
-   life is under the 4 h budget, the ONE unblocking act is an interactive
-   `codex login` on this host — surface it (attended: `AskUserQuestion`;
-   the `!`-prefix runs it in-session). If the OAuth probe returns 429, the
-   maintainer act is re-minting the wrapper token from a healthy org
-   (`claude setup-token`); hold dispatches until the probe returns 200. Do
-   the rest of this list while waiting.
+   `claude -p` probes are false positives). Both measured CLEAR on
+   2026-07-30 (~229.6 h codex headroom; OAuth probe 200 after the
+   maintainer's rotation), so expect to CONFIRM rather than to unblock — but
+   re-measure, do not assume, since both are time-dependent. If the codex
+   token is short of the 4 h budget, try the non-interactive
+   `codex-cred-refresh` FIRST and fall back to an interactive `codex login`
+   (surface it — attended: `AskUserQuestion`; the `!`-prefix runs it
+   in-session). If the OAuth probe returns 429, the maintainer act is
+   re-minting the wrapper token from a healthy org (`claude setup-token`);
+   hold dispatches until the probe returns 200. Do the rest of this list
+   while waiting.
 2. **Dispatch `.2`** — `drive --action impl:overseer-4xfmez.2`. If the
    ledger shows it ACTIVE with no live run, restore it first via
    `move:overseer-4xfmez.2:ready` (see gate 2). On a gate-3 cap refusal,
-   wait and retry — do not raise the cap.
+   wait and retry — do not raise the cap further.
 3. **Watch the run; never park an interview.** If the R/I/A interview fires,
    read the REAL error from `fabro events <run>` `stage.failed` properties
    (the interview text hides it), answer promptly — a parked run dies at
