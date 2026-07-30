@@ -43,6 +43,30 @@ live status, no next actions, and no date-gated behavior.
   plus binder validates cleanly, while the binder alone deliberately does not.
 - Factory branches never create or update `.github/workflows/`.
 
+## Verification Discipline
+
+Re-measure the filed work item from the ledger before carrying forward any status
+or acceptance claim from this file, the plan thread, or a marker:
+
+```sh
+ledger_anchor='overseer-t7qqik'
+bd show "$ledger_anchor" --json \
+  || { echo "HALT: cannot re-measure ledger item '$ledger_anchor'"; echo "REMEDY: fix ledger access before using any filed status claim"; exit 1; }
+date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
+```
+
+When a command's own success is the verdict, capture that status before any pipe
+used only to filter or display its output:
+
+```sh
+WORKER_TARGET='=supervisor-prompt-quality:'
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+tmux_rc=$?
+[ "$tmux_rc" -eq 0 ] \
+  || { echo "HALT: tmux pane lookup failed for 'supervisor-prompt-quality'"; echo "REMEDY: re-check the exact target before filtering its output"; exit 1; }
+printf '%s\n' "$pane_pid" | head -1
+```
+
 ## HALT-first preconditions
 
 ```sh

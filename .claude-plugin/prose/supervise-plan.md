@@ -237,6 +237,40 @@ you are wrong.
 Every command in this section must be COPY-PASTEABLE as written. Emit the
 commands themselves, not descriptions of them.
 
+Filed status is a claim with a timestamp. Before carrying forward any item
+state, dependency state, acceptance status, or "already discharged" claim from a
+handoff, marker, or plan thread, re-measure it from the ledger and state the
+measurement time. Emit this command with the thread's ledger anchor substituted:
+
+```sh
+ledger_anchor='<ledger-anchor>'
+bd show "$ledger_anchor" --json \
+  || { echo "HALT: cannot re-measure ledger item '$ledger_anchor'"; echo "REMEDY: fix ledger access before using any filed status claim"; exit 1; }
+date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
+```
+
+Treat the JSON returned by that command as current. Treat older prose as
+historical evidence only, even when the older prose was written by this same
+thread.
+
+A pipeline's exit code is the exit code of its last command. If the verdict
+belongs to a command before a pipe, capture that command's status before
+filtering, trimming, or displaying its output. Emit a status-preserving form, not
+the false-pass `tmux ... | head -1` shape:
+
+```sh
+WORKER_TARGET='=<worker-session>:'
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+tmux_rc=$?
+[ "$tmux_rc" -eq 0 ] \
+  || { echo "HALT: tmux pane lookup failed for '<worker-session>'"; echo "REMEDY: re-check the exact target before filtering its output"; exit 1; }
+printf '%s\n' "$pane_pid" | head -1
+```
+
+Pipelines whose LAST command is deliberately the verdict are fine. For example,
+`tmux list-sessions -F '#{session_name}' | grep -Fqx '<name>'` is a grep
+verdict, so the pipeline status is the check's status.
+
 Inspect read-only — a scrollback sample plus the visible worker pane:
 
 ```sh

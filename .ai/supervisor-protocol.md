@@ -25,6 +25,34 @@ you are wrong.
 
 ## How to inspect and drive
 
+Filed status is a claim with a timestamp. Before carrying forward any item
+state, dependency state, acceptance status, or "already discharged" claim from a
+handoff, marker, or plan thread, re-measure it from the ledger and state the
+measurement time:
+
+```sh
+ledger_anchor='<ledger-anchor>'
+bd show "$ledger_anchor" --json \
+  || { echo "HALT: cannot re-measure ledger item '$ledger_anchor'"; echo "REMEDY: fix ledger access before using any filed status claim"; exit 1; }
+date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
+```
+
+A pipeline's exit code is the exit code of its last command. If the verdict
+belongs to a command before a pipe, capture that command's status before
+filtering, trimming, or displaying its output:
+
+```sh
+WORKER_TARGET='=<worker-session>:'
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+tmux_rc=$?
+[ "$tmux_rc" -eq 0 ] \
+  || { echo "HALT: tmux pane lookup failed for '<worker-session>'"; echo "REMEDY: re-check the exact target before filtering its output"; exit 1; }
+printf '%s\n' "$pane_pid" | head -1
+```
+
+Pipelines whose last command is deliberately the verdict are allowed, for
+example `tmux list-sessions -F '#{session_name}' | grep -Fqx '<name>'`.
+
 Inspect read-only with an exact tmux target and visible-only capture:
 
 ```sh
