@@ -82,6 +82,31 @@ def test_pair_stall_is_content_immune_and_escalates_after_second_nudged_episode(
     assert worker_session in err.getvalue()
 
 
+def test_pair_stalled_alert_is_edge_triggered_while_episode_continues(*, tmp_path):
+    clock = {"t": 1000.0}
+    sup, fake, _repo, _topic, worker_session, _supervisor_session = paired_supervisor(
+        tmp_path=tmp_path,
+        worker_capture=idle_capture(ctx=82),
+        supervisor_capture=idle_capture(ctx=77),
+        now=lambda: clock["t"],
+    )
+    sup.claude_status_by_session = {
+        worker_session: "idle",
+    }
+
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        _ = sup.tick(act=True)
+        clock["t"] += PAIR_FLOOR + 1
+        _ = sup.tick(act=True)
+        clock["t"] += PAIR_FLOOR + 1
+        _ = sup.tick(act=True)
+        assert err.getvalue().count(PAIR_FAILED_SENTINEL) == 1
+        clock["t"] += 1
+        _ = sup.tick(act=True)
+
+    assert err.getvalue().count(PAIR_FAILED_SENTINEL) == 1
+
+
 def test_worker_progress_resets_consecutive_nudged_episode_ladder(*, tmp_path):
     clock = {"t": 1000.0}
     sup, fake, _repo, _topic, worker_session, supervisor_session = paired_supervisor(

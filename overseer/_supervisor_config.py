@@ -194,5 +194,6 @@ SUPERVISION_CONDITIONS = frozenset(
         "supervision-offer",
         "supervision-capture-offer",
         "supervisor-missing",
+        "pair-stalled",
     }
 )
