@@ -49,15 +49,25 @@ def _write_exec(*, path: Path, body: str) -> None:
     path.chmod(0o755)
 
 
-def _credential_bin(tmp_path: Path, *, with_wrapper: bool, bd_needs_credential: bool) -> Path:
+def _credential_bin(
+    tmp_path: Path,
+    *,
+    with_wrapper: bool,
+    bd_needs_credential: bool,
+    bd_returns_nothing: bool = False,
+) -> Path:
     """A PATH dir modelling the CREDENTIAL dependency, not a working tool.
 
     `bd` refuses exactly the way the real one does when the tenant credential is
     absent; the wrapper is the only thing that supplies it.
     """
-    bin_dir = tmp_path / f"bin-{with_wrapper}-{bd_needs_credential}"
+    bin_dir = tmp_path / f"bin-{with_wrapper}-{bd_needs_credential}-{bd_returns_nothing}"
     bin_dir.mkdir()
-    if bd_needs_credential:
+    if bd_returns_nothing:
+        # Succeeds while reporting nothing — an exit status that certifies a
+        # reading which never happened.
+        bd_body = "#!/bin/sh\nexit 0\n"
+    elif bd_needs_credential:
         bd_body = (
             "#!/bin/sh\n"
             'if [ -z "${FLEET_LEDGER_CREDENTIAL:-}" ]; then\n'
@@ -144,6 +154,26 @@ def test_an_adopter_whose_ledger_needs_no_wrapper_still_re_measures(tmp_path):
     result = _run(block, bin_dir=bin_dir, cwd=tmp_path)
     assert result.returncode == 0, result.stderr
     assert '"id":"demo-1"' in result.stdout
+
+
+def test_a_ledger_tool_that_exits_0_while_reporting_nothing_is_rejected(tmp_path):
+    """An empty success must not be stamped MEASURED_AT.
+
+    Exit status alone cannot tell a real reading from a tool that succeeded
+    without reporting, and the stamp is what turns the second into a filed
+    claim. Note this does NOT guard a wrapper defect: the fleet wrapper
+    propagates 127 for a missing binary (measured 2026-07-30). A widely-repeated
+    claim that it exits 0 came from reading `$?` after a PIPELINE, which yields
+    `head`'s status.
+    """
+    block = _sh_block(anchor=_LEDGER_ANCHOR).replace("<ledger-anchor>", "demo-1")
+    bin_dir = _credential_bin(
+        tmp_path, with_wrapper=True, bd_needs_credential=False, bd_returns_nothing=True
+    )
+    result = _run(block, bin_dir=bin_dir, cwd=tmp_path)
+    assert result.returncode == 1
+    assert "exited 0 but returned NOTHING" in result.stdout
+    assert "MEASURED_AT" not in result.stdout, "an empty success was stamped as a measurement"
 
 
 def test_the_emitted_ledger_block_is_wrapper_aware():

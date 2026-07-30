@@ -314,7 +314,7 @@ ledger_show() {
     bd show "$1" --json
   fi
 }
-if ! ledger_show "$ledger_anchor"; then
+if ! ledger_json="$(ledger_show "$ledger_anchor")"; then
   echo "HALT: cannot re-measure ledger item '$ledger_anchor'"
   if command -v with-livespec-env.sh >/dev/null 2>&1; then
     echo "REMEDY: the credential wrapper WAS used, so ledger access is not the suspect — check the anchor id is real and that this repo's tenant is reachable"
@@ -323,6 +323,12 @@ if ! ledger_show "$ledger_anchor"; then
   fi
   exit 1
 fi
+# EXIT STATUS IS NOT EVIDENCE. A tool that exits 0 while printing nothing would
+# let the MEASURED_AT stamp below certify a re-measurement that never happened,
+# which is this contract's own defect class wearing the remedy's clothes.
+[ -n "$ledger_json" ] \
+  || { echo "HALT: ledger re-measure for '$ledger_anchor' exited 0 but returned NOTHING"; echo "REMEDY: do not record this as a measurement — an empty success is not a reading; confirm the anchor exists and that the ledger tool is actually reporting"; exit 1; }
+printf '%s\n' "$ledger_json"
 date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
 ```
 
@@ -334,6 +340,15 @@ this repo: bare `bd show <anchor> --json` exits 1 with "Access denied"; the
 same call through the wrapper exits 0 with real JSON. That is the mirror of
 this contract's usual failure — not a check that cannot fail, but a command
 that cannot PASS.
+
+The non-empty assertion is DEFENCE IN DEPTH, and the reasoning is recorded
+because the obvious justification for it is false. The fleet credential wrapper
+does NOT exit 0 when its binary is missing — measured 2026-07-30, it propagates
+127. A widely-repeated claim that it exits 0 came from reading `$?` after a
+PIPELINE (`wrapper cmd 2>&1 | head`), which yields the exit status of `head`.
+Under zsh read `$pipestatus[1]`. So this assertion does not guard a known
+wrapper defect; it guards the general case where a ledger tool succeeds without
+reporting, which no exit status can distinguish from a real reading.
 
 Treat the JSON returned by that command as current. Treat older prose as
 historical evidence only, even when the older prose was written by this same
