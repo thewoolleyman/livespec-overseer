@@ -57,6 +57,14 @@ the generator (`overseer-816`); and **re-measuring the port arithmetic against
 upstream's LIVE tip** — the 357-line and 5-of-6 figures are as-of `854f71f2c`
 and upstream has since moved.
 
+> **Partially discharged 2026-07-30.** The peer session re-measured the **hint
+> counts** against a then-current `upstream/main` and still got **38/12/3 vs
+> 38/10/3** (see delivery 1 below), so the *divergence* survives upstream
+> advancing. That is the qualitative half only. **The 357-line and 5-of-6
+> figures themselves are still as-of `854f71f2c` and still need re-measuring**
+> — and note their run resolved `upstream/main` at ITS clock, which this file
+> cannot pin, so treat even that as as-of-unstated rather than current.
+
 **`overseer-b4q` is NOT on that list.** It is an ordinary in-house bug in this
 repo's own justfile, it depends on nothing upstream and nothing in `fabro`, and
 unlike `overseer-fs4` it does **not** wait on a trustworthy failure category —
@@ -77,6 +85,41 @@ polling for it.
    stating **it was NOT an answer to the maintainer question that pane was
    waiting on**, because delivering into an idle-but-blocked pane can otherwise
    read as the approval. The durable file is unedited and still the record.
+
+   **It produced a real exchange, and the outcome is now settled — read this
+   before re-opening the byte-identity question.** They replied that the
+   classifier files ARE byte-identical on a valid comparison, and guessed we
+   had diffed our fix branch. This thread **cannot** adjudicate that (it is
+   barred from `/data/projects/fabro`), so it argued from the record instead
+   and asked them to run it. **They did, and this thread's record stands at the
+   base ref** — independently re-measured by them:
+
+   | check | base `d5dcd1179` | `upstream/main` |
+   |---|---|---|
+   | hint counts | 38/12/3 | 38/10/3 |
+   | `HEX_RE` occurrences | 2 | 3 |
+
+   **Byte-identical files cannot pin different hint counts**, so 12-vs-10
+   settles it without appeal to any line count — a better instrument precisely
+   because it cannot be confounded by which ref was diffed. Their fix-branch
+   guess was also refuted by arithmetic already in the record: the fix is 165
+   insertions / 0 deletions and cannot produce 357 differing lines.
+
+   **Both results were true, of different refs** — theirs against the fork's
+   CURRENT tree (now tracking upstream), ours against the three-week-old base.
+   **Neither had stated an as-of ref; that was the actual bug**, and it is the
+   moving-ref defect (**C4**) landing on both threads at once. They adopted the
+   remedy in full: their `handoff.md` will read *"byte-identical as of
+   `<fork-ref>` / `<upstream-ref>`, `<date>`"* — never bare.
+
+   > **One imprecision of OURS, corrected here rather than left standing.** The
+   > relayed message said upstream carries a `HEX_RE` pre-mask "that the local
+   > base does not". Measured, `HEX_RE` is present in **both** — 2 occurrences
+   > at base, 3 upstream. The true claim is narrower: upstream has an
+   > **additional** occurrence, the pre-mask **inside the classifier path**,
+   > which is what makes hunk 3 conflict. Absent-vs-present was wrong;
+   > two-vs-three is right. The conclusion is untouched, and the decisive
+   > instrument was always the hint counts.
 2. Codex addendum at
    `/data/projects/fabro/tmp/ADDENDUM-second-limit-payload-found.md` —
    **DELIVERED-BY-FILE, NOT CONFIRMED-READ**; its text also sits **unsubmitted**
