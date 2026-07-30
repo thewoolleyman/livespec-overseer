@@ -147,6 +147,15 @@ measured and recorded below — the measurement is done, the decision is not.
 **DO NOT SELF-ASSIGN `overseer-yho.3`.** Measuring it again is fine and cheap;
 cutting it is not yours.
 
+**AND THE MEASURING IS NOW DONE — do not spend another session redoing it.** A
+2026-07-30 22:20Z session took the costing as far as it goes without deciding
+anything: the fleet edit is demonstrably near-mechanical (117 -> 25 in memory,
+all of class (a) cleared, controls passing), the highest-leverage fix in the fleet
+is ONE line clearing 10 defects in a shared layer, and option 3 reaches 94 of 117
+because `homelab` does not consume the pin. See "`overseer-yho.3` IS NOW COSTED"
+below for all five findings. What is missing is a DECISION, not a number. If you
+find yourself re-running the fleet scan, ask first what new question it answers.
+
 So, on a cold open, in this order:
 
 1. **Re-measure the ledger first** — `with-livespec-env.sh -- bd show overseer-yho
@@ -219,6 +228,54 @@ with no change to the numbers.
 The exposure is still CONCENTRATED: one repo holds 56 of 117 with 5 of 6 charters
 dirty, so a phased cut scoped to `livespec-orchestrator-beads-fabro` clears about
 half. That option post-dates the costed options in `GAP-no-remediation-slice.md`.
+
+### `overseer-yho.3` IS NOW COSTED — 2026-07-30T22:20Z, and the answer is NOT what the packet assumed
+
+**Carried here deliberately, because `GAP-no-remediation-slice.md` is GITIGNORED and
+a fresh clone has none of it.** The full working lives there while this tree exists;
+these are the conclusions that must outlive it. All read-only, using the SHIPPED
+eleven-detector module imported and called — never a grep — with per-class positive
+controls and an in-memory injection control.
+
+**1. THE EDIT IS NEARLY MECHANICAL; THE ROUTING IS ~ALL THE COST.** Class (a) alone
+is 92 of 117 (79%). Classified by target shape: **71 LITERAL** (the session name is
+ALREADY in the line — a purely syntactic rewrite that decides nothing), 9
+PLACEHOLDER, 2 `name:window.pane`, and 10 VARIABLE that collapse to **ONE** binding —
+there is exactly one distinct variable binding fleet-wide.
+
+**2. DEMONSTRATED, NOT ARGUED.** A deliberately stupid rewrite (`-t X` -> `-t '=X:'`,
+plus one added binding line), applied IN MEMORY and re-scored by the shipped gate,
+took the fleet **117 -> 25**, clearing **all 92 of class (a)**. Control: an
+unmodified re-scan afterwards still reports 117, so nothing leaked to disk. The
+residue is exactly the non-(a) classes, and even that shrinks — (b)'s 5 instances
+are ONE distinct line and (d)'s 7 are ONE distinct line, leaving ~13 genuinely
+distinct edits fleet-wide. **Limit, stated: this proves mechanically CLEARABLE PER
+THE GATE, not mechanically CORRECT.** A human should still read the diff; the claim
+is that the diff is uniform and readable, not that review is unnecessary.
+
+**3. THE SINGLE HIGHEST-LEVERAGE EDIT IN THE FLEET IS ONE LINE.**
+`livespec-orchestrator-beads-fabro/.ai/supervisor-protocol.md` uses
+`-t "$WORKER_TARGET"` ten times and **never binds it**; adding the one binding line
+this repo already ships (`WORKER_TARGET='=<worker-session>:'`) took it **10 -> 0**
+with zero other changes. It is a SHARED layer, so it fixes every thread in the repo
+holding 48% of the exposure.
+
+**4. OPTION 3 IS CHEAPER THAN COSTED BUT DOES NOT REACH EVERYTHING.**
+`livespec_dev_tooling/checks/` already ships **57** public check modules, THREE of
+which walk the plan tree, and **ZERO** read `supervisor-handoff.md` (control passed;
+independently reproduces `overseer-bak`). Our gate imports and runs unmodified from
+outside this repo. So it is a 58th module adopted by pin bump — not new
+infrastructure. **BUT `homelab` is not a pin consumer** (Rust/Nix; no
+`pyproject.toml`, no `justfile`, no `.mise.toml`) and holds **23 of 117**. So option
+3 covers 94 of 117 (80%) cheaply, and the last 23 need a different answer. The
+measurement points at **3-for-pin-consumers + 1-for-homelab**, a shape none of the
+four costed options describes.
+
+**5. 51 of 117 (44%) sit in `plan/archive/`**, which never regenerates — a direct
+argument against option 4 ("accept it; instances decay").
+
+**None of this is a decision.** Nothing was filed, nothing was cut, no other repo
+was written to. `overseer-yho.3` remains the maintainer's.
 
 ### Provenance: what landed, and the consequence it carries
 
@@ -465,19 +522,36 @@ only the discrimination leg; removing the stub reddens only the real-layers gate
   before succeeding on the fourth, leaving no partial state each time (checked:
   no worktree, no branch, no directory). Filed as `livespec-dev-tooling-zi4q`;
   retry rather than investigate, but do not assume two attempts is the ceiling.
-  **UPDATED 2026-07-30T22:08Z — it is NOT (only) a flake, and retrying is now the
-  WRONG advice.** It failed **six consecutive times**, rc=141 every time, on the
-  same argv. The advice above would have you retry indefinitely. What actually
-  works: **invoke the library directly** —
-  `./dev-tooling/worktree-lib.sh create <branch> <base_ref>` — which succeeded
-  FIRST try, rc=0, doing the identical work (fetch, `git worktree add`, provision
-  the discipline pack, hydrate). So the fault is in the `just` wrapper layer, not
-  in the worktree machinery: `just` is closing the recipe's stdout early and the
-  script dies on SIGPIPE. Note the direct path still provisions the pack, so it
-  does NOT reintroduce the raw-`git worktree add` hazard CLAUDE.md forbids — that
-  prohibition is about the PACK, and the library is what installs it. Worth
-  re-filing on `livespec-dev-tooling-zi4q`: "intermittent, retry" and
-  "deterministic, use the library" are different bugs with different remedies.
+  **ROOT-CAUSED 2026-07-30T22:20Z — it is a RACE, and here is the line.**
+  `dev-tooling/worktree-lib.sh:89`:
+
+  ```sh
+  worktree_primary_path() {
+      git worktree list --porcelain | awk '/^worktree /{print $2; exit}'
+  }
+  ```
+
+  `awk` **exits after the first match**, closing the pipe while
+  `git worktree list --porcelain` is still writing. `git` takes SIGPIPE, the
+  script's `set -o pipefail` (line 65) propagates 141, and `set -e` aborts —
+  before any output, which is why a redirected run leaves an EMPTY log (stdout is
+  block-buffered and the buffer dies with the process). Reproduced in bash under
+  `pipefail`: **4 of 8 runs returned 141**, while the identical awk WITHOUT the
+  early `exit` returned 0 on 3 of 3. That control is the proof; the alternation is
+  the race.
+  **It gets worse as the worktree count grows** — more porcelain output means more
+  chance `git` is still writing when `awk` quits. This checkout has **56**.
+  Consequences: **retry IS the correct workaround after all** (it is a coin flip;
+  it took 4 attempts, then 4 again — the same "three then success" shape
+  `zi4q` first recorded), and **an earlier note in this bullet blaming the `just`
+  wrapper for closing stdout was WRONG** — `just` is uninvolved, the library fails
+  the same way when called directly, and it only appeared otherwise because the
+  first direct call happened to win the race. Do NOT reach for
+  `git worktree add`: the fault is one line inside the library, not the library.
+  **The fix is one line and belongs in `livespec-dev-tooling`'s package source**
+  (never hand-edit the gitignored `dev-tooling/` copy): drop the `exit` and guard
+  with a flag, or read the value without a pipeline. Worth putting on
+  `livespec-dev-tooling-zi4q`, which currently records the symptom and no cause.
 - **`ls` ON THIS HOST IS `lsd`, AND ITS OUTPUT IS INODE-DECORATED — so
   `ls … | grep '^<name>'` MATCHES NOTHING, ALWAYS.** Each line begins with an inode
   number and a permission string, not the filename, so any filename predicate
