@@ -130,59 +130,75 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
-## WORKER RESUME STATE — re-measured 2026-07-30 05:39Z by the `supervisor-prompt-quality` worker
+## WORKER RESUME STATE — re-measured 2026-07-30 19:40Z by the `supervisor-prompt-quality` worker
 
 **Everything below is a claim with a timestamp. Re-measure from the ledger and the
 forge before acting on any of it.** This section has been wrong about the blocker
-three separate times in two days, which is the best reason to distrust it.
+three separate times, and its own timestamps have been wrong too — an earlier
+rewrite was labelled `05:50Z` while the commit carrying it landed `05:26:42Z`,
+because a local clock was published with a `Z`. That is charter correction C19 and
+detector (k); read mtimes through `datetime.fromtimestamp(ts, timezone.utc)`,
+never `date -u -r`, which does not apply `-u` under this host's uutils coreutils.
 
-**AND ITS TIMESTAMPS HAVE THEMSELVES BEEN WRONG.** The previous rewrite was
-labelled "05:50Z" and its measurement "05:45Z", but its file mtime was 05:33:50Z
-and the commit carrying it (`b671cf5`) landed 05:26:42Z — both labels postdate the
-artifact they describe. Local here is CEST (+0200), so a local-clock reading
-published with a `Z` is the likely cause; see the `date -u -r` entry under Hazards.
-Worth correcting rather than shrugging at, because "a filed item is a claim with a
-timestamp" is S5's whole point and a stamp that cannot be true undermines it.
-
-### Where the epic actually is — re-measured 2026-07-30 05:39Z
+### Where PHASE 2 actually is — re-measured 2026-07-30 19:40Z from the ledger
 
 | slice | id | state |
 |---|---|---|
-| S1 HALT preconditions classify their failure | `overseer-ykneip` | **CLOSED** |
-| S2 wake mechanism end to end | `overseer-4do7jx` | **CLOSED** |
-| S3 iteration-stable two-layer form | `overseer-t7qqik` | **CLOSED** |
-| S4 re-entry + durable obligation record | `overseer-fl5jlp` | **CLOSED** |
-| S5 verification discipline | `overseer-nxaho7` | **CLOSED** |
-| S6 full anti-stall playbook | `overseer-kptmgl` | **CLOSED** |
-| S7 cold-open gate + placeholder sets | `overseer-lf7ieb` | **CLOSED** |
-| S8 cross-track obligation handoff | `overseer-uc4l5e` | PR #317 **MERGED** (`57426df`), CI green, acceptance verified; item still `active` |
-| S9 adopter parameterization | `overseer-f2lqj6` | `active`, run **`01KYRQPHDMSE` in flight** |
+| Gate the `date -u -r` trap (detector k) | `overseer-yho.1` | **CLOSED** — PR #389 |
+| A charter records no provenance | `overseer-yho.2` | **CLOSED** — PR #393 + #398 |
+| Two module docs deny `.ai/` | `overseer-gjb` | **CLOSED** — PR #404 |
+| Fleet-wide remediation half | `overseer-yho.3` | `backlog` — **the maintainer's cut** |
+| epic | `overseer-yho` | `backlog` |
 
-**THREE OF THESE NINE MOVED between the previous rewrite and this one**, which is
-the whole argument for the re-measure instruction above: S7 was recorded as
-`active` and is CLOSED; S8 was recorded as a run in flight and had already merged;
-S9 was recorded as `pending-approval` behind S7 and is dispatched and running.
-Re-measure again rather than trusting this table.
+Three of the four are delivered. `overseer-yho.3` is NOT a worker task: remediating
+another repo's charters means touching tracks this thread does not own. Measuring
+it is fair game and is done below; cutting it is not.
 
-**S8's acceptance is verified discharged**, so it can be closed on evidence and
-not merely on the merge. `57426df` adds `invalid_handoff_confirmations()` wired
-into `missing_requirements()`, and four tests cover exactly the four acceptance
-legs: sender-held with both confirmations `none` stays the SENDER's obligation (no
-violation); peer-held missing `receipt_ack` rejected; peer-held missing
-`peer_recorded` rejected; peer-held with both accepted. The detector keys on the
-PROPERTY — a peer holder with an absent confirmation — not on one wrong spelling,
-so it obeys the design rule in the gate-class section below, and the strings it
-returns name WHICH confirmation is missing. `tests/prompts`: 123 passed at
-`b671cf5`.
+### The fleet measurement, re-measured 2026-07-30 19:40Z with ELEVEN detectors
 
-**Closing a hand-merged item is the SUPERVISOR's lane, not the worker's** — S7 is
-done, S8 is the one now waiting. `dispatch` blocks for the life of a run and the
-Bash tool caps at 20 min, so the launcher is always killed — which detaches
-without killing the run, but the launcher is also what merges the PR and closes
-the item. Each success needs finishing by hand: merge if CI is green, then
-`reconcile-merged --repo <path> --item <id>` (it REQUIRES
-`--item`; there is no sweep-all form). **Do not do this as the worker. Do not
-dispatch, transition, approve, or set-admission on anything.**
+The number on `overseer-yho.3` was taken at 13:00Z with the TEN-detector gate,
+before (k) existed. Re-run with the current eleven — same shipped module, not a
+grep — it is UNCHANGED:
+
+| repo | charters | dirty | defects |
+|---|---|---|---|
+| livespec-orchestrator-beads-fabro | 6 | 5 | 56 |
+| homelab | 7 | 2 | 23 |
+| livespec-dev-tooling | 3 | 2 | 18 |
+| livespec-console-beads-fabro | 1 | 1 | 15 |
+| livespec | 4 | 2 | 5 |
+| livespec-overseer | 8 | 0 | **0** |
+| **TOTAL** | **29** | **12** | **117** |
+
+By class: (a) 92, (c) 7, (d) 7, (b) 5, (h) 2, (e) 1, (f) 1, (i) 1, (j) 1, **(k) 0**.
+
+**(k) ADDS NOTHING FLEET-WIDE, and that zero is controlled.** A zero from a probe
+is indistinguishable from a broken pattern, so the trap was injected IN MEMORY
+into a real fleet charter (`livespec-orchestrator-beads-fabro`
+`plan/beads-v1-1-2-upgrade/supervisor-handoff.md`, nothing written to disk) and the
+same call returned 1. The absence is real. So the maintainer's costing is
+unchanged by (k), and the earlier "must carry all TEN detectors" now reads ELEVEN
+with no change to the numbers.
+
+The exposure is still CONCENTRATED: one repo holds 56 of 117 with 5 of 6 charters
+dirty, so a phased cut scoped to `livespec-orchestrator-beads-fabro` clears about
+half. That option post-dates the costed options in `GAP-no-remediation-slice.md`.
+
+### Provenance: what landed, and the consequence it carries
+
+`overseer-yho.2` shipped a `## Generator provenance` section in both emitted
+layers. It records `generator_plugin`, `generator_ref`, `generator_version` and
+`generator_prose_md5`, and the DIGEST is the identity — six releases (0.12.2
+through 0.13.3) shipped byte-identical prose, so a version reports six generators
+where there is one, and the ref directory name is sometimes a sha and sometimes a
+version (`0.12.2` and `0.12.3` are real ref directories).
+
+**THIS REPO'S OWN CHARTER HALTS ITS PROVENANCE PRECONDITION UNTIL THE NEXT
+RELEASE, AND THAT IS CORRECT.** It records the prose in THIS repo; the cache holds
+the last released prose; between a prose change and its release those differ, and
+the check HALTs naming both digests. Do NOT re-stamp the digest to silence it —
+that forges currency the charter does not have. It self-resolves when the release
+ships. An adopter generating from a released ref sees PASS.
 
 ### THE CHARTER IS NOW TWO LAYERS — this changes where things live
 
@@ -231,53 +247,37 @@ The Codex credential gate is separate and is **open**: measured 2026-07-30 03:05
 `alarm false`, `refresh_due false`, expires 2026-08-08, ~9.55 days remaining
 against a ≥18000s gate.
 
-### THE TOP OPEN ITEM — the generator that RUNS still has none of these fixes
+### THE STALE-CACHE CHAIN — resolved once, and re-armed by every prose change
 
-**Read this before touching the generator.** Fixing
-`.claude-plugin/prose/supervise-plan.md` in this repo does NOT fix the generator
-that produces charters. Measured 2026-07-29 across **all nine** cached plugin
-versions under `~/.claude/plugins/cache/livespec-overseer/`: **zero** carry the
-exact-target mandate and **zero** carry the supervisor liveness proof. A charter
-generated on this host ~17h after the exact-target fix merged still arrived with 12
-bare targets, from the stale `0.12.2` cache — and the charter gate is what turned
-master red on it (`ef4b098`).
+This section used to say the generator that RUNS carried none of the epic's
+fixes. That was true and is now historically resolved: 0.15.0 shipped, and at
+17:20Z the adopter cache on this host refreshed to prose byte-identical to
+`origin/master`. The chain fix → gate → release → adopter refresh → running
+generator has been observed working end to end.
 
-So every generator fix in this epic is **inert until a release ships**, and the
-contract test asserts an artifact that does not produce charters. This is the
-deepest form of the verifier-that-cannot-fail shape the epic exists to remove.
+**It re-arms on every prose change, by construction.** The moment generator prose
+lands on master, every cache ref is stale relative to it until the next release.
+That is the ordinary state of this repo for most of its life — not an incident —
+and it is why nothing here asserts `repo == cache`: such an assertion reddens
+master on every legitimate prose change.
 
-**RE-MEASURED 2026-07-30 05:47Z — the claim holds, and it is worse than "nine
-stale versions".** All nine cached `prose/supervise-plan.md` files are
-**BYTE-IDENTICAL** (one `md5sum`, `2283862c…`), so this is ONE frozen artifact
-under nine names, not a rollout that is merely behind. There is no gradation to
-partially credit.
+What is now DETECTABLE that was not: an emitted charter records the generator that
+produced it, so a stale-cache emission can be recognised as one. What is still NOT
+detectable by content alone, and this is the finding that shaped the fix: the
+contract floor reported the stale 0.14.0 generation as FULLY CONFORMANT, with a
+verdict identical to the current generation's, while everything that does catch it
+was written seven hours AFTER it shipped. A content gate recognises only the
+staleness it already has a detector for, so it is permanently one release behind.
+`tests/prompts/test_stale_cache_generation_is_detectable.py` pins that as
+invariants — the frozen row as a DIFFERENCE against the current generation, the
+finding as an EQUALITY — deliberately, so contract growth does not force edits
+here and quietly weaken them.
 
-| probe | master | all 9 caches |
-|---|---|---|
-| `WORKER_TARGET='=` (exact-target mandate) | 6 | **0** |
-| `supervisor_pane_pid` (liveness proof) | 4 | **0** |
-| bare `-t "` targets (defect class (a)) | **0** | **4** |
-| prose length | 485 lines | 291 lines |
+**Run the positive control if you re-measure any of this.** A zero from a grep is
+indistinguishable from a wrong pattern; that hazard has now bitten this thread
+four times.
 
-The active version is `efe607c6a3e7` (what the session-start hook reports as "the
-latest"), and its four bare targets are at lines 53, 63, 74 and 90 — so the
-generator running on this host RIGHT NOW emits the exact defect class the charter
-gate exists to catch. Master is at `0.13.3`; **PR #244 (`chore(master): release
-0.14.0`) is OPEN and unmerged**, which is the release that would carry every fix
-in this epic to the thing that actually generates charters.
-
-**Run the positive control if you re-measure this.** A zero count from a grep is
-indistinguishable from a wrong pattern, and this exact probe returns zero on all
-nine caches — the control is that the same two patterns score 6 and 4 on master.
-Without it the measurement is worthless.
-
-**Deliberately NOT built — it is a release-lane decision.** Three candidate shapes:
-(a) assert the INSTALLED plugin's prose satisfies the contract — cannot run in CI
-where no cache exists, and needs a no-skip answer; (b) a release-hygiene check that
-a prose change forces a version bump; (c) accept it and document the release step
-as mandatory after any prose fix. Real competing costs, so it is a genuine valve.
-
-### The charter gate — SEVEN classes, all keyed on the PROPERTY
+### The charter gate — ELEVEN classes, all keyed on the PROPERTY
 
 `tests/prompts/test_charters_carry_no_known_defects.py`, running in `just check`:
 
@@ -290,6 +290,15 @@ as mandatory after any prose fix. Real competing costs, so it is a genuine valve
 | (e) supervisor trusted by name | a supervisor process-tree liveness proof |
 | (f) regex session-existence test | `grep -F`, so the match is LITERAL |
 | (g) bash `PIPESTATUS` under zsh | the zsh spelling `$pipestatus[1]` |
+| (h) wrapper-less ledger read | the fleet credential wrapper anywhere in the charter |
+| (i) fixed-cap marker read | a truncation notice, so a cut announces itself |
+| (j) unguarded marker binding | a non-empty guard BEFORE the `-f` test |
+| (k) local time labelled UTC | a `date` that reads a file must not claim UTC |
+
+Two more gates sit beside it: `test_stale_cache_generation_is_detectable.py` runs
+the shipped validators over three REAL cached prose generations, and
+`test_provenance_check_discriminates.py` executes the emitted provenance block
+against a fabricated cache in all four of its states.
 
 **THE DESIGN RULE THAT PRODUCED THAT COLUMN — carry it forward.** A detector must
 key on the **absence of the correct property**, never on the **presence of one
@@ -386,6 +395,40 @@ only the discrimination leg; removing the stub reddens only the real-layers gate
 - **Never wrap `dispatcher.py dispatch` in a short timeout** — it BLOCKS for the
   life of the run. And a dispatch that fails at `run-config-overlay` still CLAIMS
   the item with `fabro_run_id` null, which is why S3 needed resetting twice.
+
+- **A SABOTAGE THAT PRODUCES NO RED IS UNVERIFIED, NOT PASSED.** Hit twice on
+  2026-07-30, both times the SABOTAGE failing rather than the gate: one sliced
+  from a `md5sum` line to the first `printf` in a file with two earlier
+  `printf`s, so it DUPLICATED text instead of deleting any; the other reverted
+  only the second line of a denial that wraps mid-claim, leaving "there was no"
+  intact so no defect was ever reintroduced. Both read as "my check is not
+  load-bearing". **Assert that the sabotage produced the defect BEFORE reading
+  the verdict** — the corrected form computes the finding on the sabotaged text
+  and asserts it is non-empty, then runs the gate.
+- **A PROSE RULE THAT DEPENDS ON WHERE LINES BREAK IS ONE REFLOW FROM GOING
+  BLIND.** Twice today: a set of prose needles failed because each phrase spanned
+  a markdown line break, and a detector missed the very instance it was written
+  for because that claim wraps mid-sentence. Strip blockquote markers and collapse
+  whitespace before matching prose; markdown gets rewrapped constantly.
+- **A GATE THAT INHERITS THE ENVIRONMENT IS NOT A GATE.** The cold-open gate
+  fabricates the repo, the tool stubs and the bindings but inherited the real
+  `$HOME`, so once a charter block read `$HOME/.claude/plugins/cache/...` it
+  answered "executes" on a machine holding a plugin cache and "does not execute"
+  on a CI runner without one. Same static question, different answers by machine.
+  It now fabricates `HOME`. Latent until a block first read it.
+- **`git commit --amend -F <file>` WIPES THE TDD TRAILERS the Red hook wrote.**
+  The result is a `fix:` commit carrying no evidence of its own Red. Use
+  `--amend --no-edit`, or rebuild the message with the existing `TDD-*` lines
+  appended verbatim.
+- **THE RED HOOK REFUSES TWO TEST FILES** (`red-green-replay-multi-test-file`):
+  the trailer schema's checksum field is singular. If a change needs two test
+  files, land the one that can stand alone FIRST, as its own commit, and make its
+  assertions invariant to what the second will change — otherwise the pair cannot
+  be ordered without a red commit in the middle.
+- **`just worktree-create` failed THREE consecutive times** with 141/SIGPIPE
+  before succeeding on the fourth, leaving no partial state each time (checked:
+  no worktree, no branch, no directory). Filed as `livespec-dev-tooling-zi4q`;
+  retry rather than investigate, but do not assume two attempts is the ceiling.
 
 ### Boundaries
 
