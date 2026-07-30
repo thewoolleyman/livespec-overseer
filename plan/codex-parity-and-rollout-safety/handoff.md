@@ -282,12 +282,51 @@
 > > `TMUX=/tmp/tmux-1000/default,564588,111`), so `start.py` step 1's existing
 > > check works under Codex and **A4 must NOT add a second tmux authority.**
 > >
-> > **NEW CAVEAT, still UNPROVEN:** one observed codex child (pid `3175932`) had a
-> > **sanitized 12-entry environment with NO `TMUX*` at all** — and its
-> > `/proc/<pid>/environ` was confirmed READABLE, so that is genuine absence, not
-> > a permissions artifact. **Env inheritance is therefore NOT uniform across
-> > codex-spawned children**, and whether a codex-spawned SHELL inherits
-> > `TMUX_PANE` is UNPROVEN. Verify that before relying on it.
+> > **~~NEW CAVEAT, still UNPROVEN~~ — NOW DISCHARGED, 2026-07-30.** One codex
+> > child (pid `3175932`) had a sanitized 12-entry env with no `TMUX*`, which
+> > raised the question. **Measured directly: a codex-spawned SHELL DOES inherit
+> > `TMUX_PANE`** (`TMUX_PANE=[%90]`, matching the launching pane). That
+> > sanitized child was an outlier node subprocess, **not** the shell path. So
+> > `$TMUX_PANE` is reliable under Codex and A4 needs no second tmux authority —
+> > confirmed, not inferred.
+> >
+> > ### ⚠ AND A FALSE-ACCEPT PATH IN THE CURRENT GATE — measured 2026-07-30
+> >
+> > **`$CLAUDECODE` LEAKS into a Codex session launched from inside a Claude Code
+> > session.** Measured both ways:
+> >
+> > | topology | `CLAUDECODE` |
+> > |---|---|
+> > | `codex exec` spawned from Claude Code's Bash tool | **`1`** — inherited |
+> > | genuine standalone codex (pid `3167772`, tmux, not under Claude Code) | **absent** (54 env entries) |
+> >
+> > So `start.py:94` as written would **spuriously PASS under Codex-nested-in-
+> > Claude-Code**, misidentifying the runtime. The gate is correct for a *plain
+> > terminal* and correct for a *standalone* Codex session; it is wrong for the
+> > nested case.
+> >
+> > **This is a design constraint on A4, not a curiosity: do NOT simply OR-in a
+> > second env marker.** Env markers are **inheritance-spoofable**, so any
+> > env-only scheme inherits this same false-accept. Process ancestry
+> > (`comm == "codex"`) is truthful in BOTH topologies — in the nested case
+> > ancestry correctly reports Codex while `CLAUDECODE` lies. **That is a
+> > correctness argument for the ancestry route, not merely a convenience one.**
+> >
+> > ### The PATH gap's exact mechanism, for whoever scopes the fix
+> >
+> > `overseer/overseer-start` IS a file in the repo (executable, shebang) and
+> > `pyproject.toml:270` includes it in the package — **but the codex plugin cache
+> > root does NOT ship it**, because the plugin root is `.claude-plugin/` and the
+> > `overseer/` package lives outside it. `prose/overseer.md:172` instructs a
+> > **bare `overseer-start`**, i.e. a PATH lookup that only resolves when this
+> > repo's `.venv/bin` is active.
+> >
+> > Three candidate fixes, **listed not chosen** — the scope call is the
+> > maintainer's/supervisor's:
+> > 1. ship the executable inside the plugin root;
+> > 2. install the console script globally at provisioning time;
+> > 3. have the prose resolve the executable explicitly, mirroring how the codex
+> >    binding already resolves `$PLUGIN_ROOT` — **the fleet-consistent shape**.
 > >
 > > **AND THE BIGGER ONE — see the ⛔ box in §"A2's live acceptance":**
 > > `overseer-start` is not on PATH outside this repo, so under Codex in another
