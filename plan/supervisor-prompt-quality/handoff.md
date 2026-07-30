@@ -271,21 +271,43 @@ which now has proof rather than a code read. `set-admission:<id>:manual` permane
 rewrites recorded policy for no benefit. **Do not run it.** S1/S2 read `manual` only
 because it was run on them before that was understood; the other seven are untouched.
 
-### THE BLOCKER — IT IS NO LONGER THE SPEND LIMIT
+### THE CODEX CREDENTIAL GATE HAS CLEARED — measured 2026-07-30 03:05Z
 
-**This section said "the monthly spend limit" for most of 2026-07-29 and that is
-now WRONG. Do not re-assert it.** The live gate is the **host Codex credential**:
-a re-dispatch failed FAST at stage `run-config-overlay` with `fabro_run_id`
-**null**, carrying *"Host Codex credential is too short-lived for the run budget;
-run `codex login` on the orchestrator host to renew it."* `codex-cred-status`
-reports the credential present and well-formed but with `alarm true` and
-`refresh_due FALSE`, and `codex-cred-refresh` returns `noop-not-due` — outside
-the refresh guard, so codex is never invoked and **the automated path cannot fix
-it.** It needs an interactive login only the maintainer can run.
+**This section has now named three different blockers in two days. Re-measure
+before acting on it.** History, so the next reader can price its reliability: it
+said "the monthly spend limit" for most of 2026-07-29 (wrong), then the host
+Codex credential (right at the time), and that gate is now open.
 
-**CONSEQUENCE, and this is the part worth carrying:** whether the Anthropic spend
-limit is still exhausted is now **UNVERIFIED, not cleared.** No run was ever
-created, so the cap was never reached and never tested. Record it as unknown.
+Measured read-only via `dispatcher.py codex-cred-status` — not a dispatch, not a
+retry:
+
+    present: true    malformed: false    alarm: FALSE    refresh_due: FALSE
+    expires_at_iso: 2026-08-08T17:37:28+00:00
+    remaining_seconds: 825237  (~9.55 days, against a >=18000s gate)
+
+So the earlier state — `alarm true`, ~40 min to expiry, `codex-cred-refresh`
+returning `noop-not-due` so the automated path could not fix it — is DISCHARGED.
+The interactive `codex login` that only the maintainer could run appears to have
+happened.
+
+**WHICH ANTHROPIC CREDENTIAL, because not naming it is the documented failure
+mode.** See `.claude/CLAUDE.md` §"The fleet has SEVERAL Anthropic credentials" —
+cited, deliberately not restated, per that section's own instruction. The
+spend-limit error this thread quoted came from an ACP turn inside the implement
+node, i.e. the FACTORY path, which that table maps to
+**`CLAUDE_CODE_OAUTH_TOKEN`** — *not* `ANTHROPIC_API_KEY_LIVESPEC_E2E`. This
+handoff previously said "the Anthropic spend limit is UNVERIFIED" with no
+credential named, which is exactly what that section exists to prevent; two
+threads re-derived this on 2026-07-29 and one got it wrong, costing two
+dispatches' green work.
+
+That section also records the host-side Gate 4 probe verifying 200 on 2026-07-30
+after a token rotation. **Cited, not re-run:** that probe belongs to the
+`background-shell-supervision-liveness` track, and re-deriving another thread's
+measurement is the behaviour the section was written to stop. Note its own caveat
+— the Dispatcher's Claude pre-flight is presence-only, so a present-but-exhausted
+token passes and the run dies mid-review.
+
 A separate track (`codex-parity-and-rollout-safety`, its own PR #274) has
 independently diagnosed the billing cap across five runs, two repos and four
 work-items — **that PR is theirs, not this thread's.**
