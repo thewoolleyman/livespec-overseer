@@ -42,12 +42,97 @@
 >    lock**, which is *correct behavior* while the acting daemon holds it. Proving
 >    the adopt-a-track clause would need that daemon killed (**forbidden**) or an
 >    `act=True` scratch daemon over the real fleet (**unsafe to other tracks**).
->    **Whether the bar may be discharged anyway is a MAINTAINER decision about
->    narrowing it — the supervisor is carrying it up. Do not absorb it.**
+>    ~~**Whether the bar may be discharged anyway is a MAINTAINER decision about
+>    narrowing it — the supervisor is carrying it up. Do not absorb it.**~~
+>    **⛔ THAT DILEMMA IS FALSE AND THE DAEMON HALF IS NOW PROVEN — 2026-07-31.
+>    There was a third route, and the code was built for it. See the box below.
+>    The bar does NOT need narrowing on unprovability grounds; do not carry that
+>    ask up as written.**
 > 4. **The fixture is pinned `--ref master`, a DECLARED deviation.** It retires
 >    when **release PR #360** merges (`origin/release` is still 0.15.0 and does
 >    not carry the launcher). Merging it is a release decision, not yours.
 >    Re-registering PRUNES cache dirs and breaks live Codex sessions.
+>
+> ## ⛔ A4's DAEMON HALF IS PROVEN — 2026-07-31. The "not provable here" claim was a FALSE DICHOTOMY.
+>
+> **The daemon ran `act=True` and ADOPTED A TRACK, with the real fleet provably
+> untouched.** Verbatim, from the tick's own stderr:
+>
+> ```
+> 2026-07-30T23:34:38Z overseer: adopted session adoption-probe → <scratch>/repo::adoption-probe
+> overseer — 1 track(s) - 0.15.0
+> Status  Topic           tmux                     Ctx%  Repo
+> idle    adoption-probe  adoption-probe (claude)  —     repo
+> ```
+>
+> ### The third route the dilemma missed, and it is a DESIGNED-FOR affordance
+>
+> The choice was never "kill the acting daemon" vs "run over the real fleet". A
+> daemon on a **scratch STORE** is neither. `_supervisor_lifecycle.singleton_lock_path`
+> keys the lock to the store path, and its docstring names this exact use case:
+>
+> > *"Keyed to the store path so a scratch-store live-exercise run never contends
+> > with the real daemon."*
+>
+> All three state roots are `Path.home()`-anchored — store (`_registry_core.py:91`),
+> stamps (`:92`), watch-set (`:101`) — so ONE `HOME` override redirects all of them,
+> exactly as `overseer/AGENTS.md` §"Isolation tip" already documents.
+>
+> ### Blast radius measured EMPTY — with a positive control, before anything was armed
+>
+> The same would-adopt computation, run against both watch-sets:
+>
+> ```
+> live named agent sessions on this host: 26
+> WOULD-ADOPT, scratch watch-set : 0
+> WOULD-ADOPT, REAL watch-set    : 6   <- codex-parity…, supervisor-prompt-quality,
+>                                        04-convergence-loop, console-happy-path-mvp,
+>                                        rop-railway-enforcement, beads-v1-1-2-upgrade
+> ```
+>
+> **The 0 is a real absence, not a broken query** — the identical code returns 6 on
+> the real watch-set. After starting the probe session it went to **1 (the probe
+> only)** while the real control stayed at **6**: the two sets are provably disjoint.
+> Adoption is bounded by the WATCH-SET (`adopt_sessions:131-134`), so a scratch
+> watch-set cannot reach a real track even in principle.
+>
+> ### The real fleet, before and after the act=True tick
+>
+> ```
+> real store md5 BEFORE : e49324acfcaf4be8963f8eb5e5e21cb6
+> real store md5 AFTER  : e49324acfcaf4be8963f8eb5e5e21cb6   <- byte-identical
+> real daemon lock      : untouched (mtime still 19:57:23, predating this work)
+> scratch store         : gained exactly one row, the probe
+> ```
+>
+> ### ⚠ THE RECIPE IN `overseer/AGENTS.md` IS INCOMPLETE FOR THIS, AND SILENTLY SO
+>
+> A **pure** scratch `$HOME` also redirects `claude_sessions.default_sessions_dir()`
+> (`~/.claude/sessions`) and `codex_sessions.default_codex_home()` (`~/.codex`), so
+> discovery sees **zero** sessions and adoption can never fire. That reads as
+> "adoption doesn't work" when it means "nothing was discoverable". Symlink the REAL
+> `~/.claude`, `~/.codex` and `~/.cache` into the scratch HOME — safe, because
+> adoption is bounded by the watch-set, not by the registry.
+>
+> ### What is proven, and what is NOT — the bound matters
+>
+> - **PROVEN:** the daemon acquires its own lock, passes the gitignore gate, runs
+>   `adopt_sessions` (the act=True-only path the `list` command returns before
+>   reaching), adopts, writes its store row, and renders the track.
+> - **PROVEN LIVE, separately:** the **Codex** arm of the join resolves **4** live
+>   named codex sessions through the `pid → /proc/fd → rollout → index →
+>   thread_name` chain, against **23** on the Claude arm.
+> - **NOT PROVEN:** the adopted track was a **CLAUDE** session. No **Codex** session
+>   was adopted in this exercise — its join is proven, its adoption is inferred from
+>   `adopt_sessions` summing both mappers through one path.
+> - **NOT PROVEN:** one `once=True` tick, not a sustained loop; and this was not the
+>   full bar re-run as ONE continuous exercise from a Codex session. The launch half
+>   stays separately proven.
+>
+> **CONSEQUENCE.** The remaining question is composition — *"do a separately-proven
+> launch half and a separately-proven daemon half discharge a bar phrased as one
+> exercise?"* — which is a far smaller maintainer call than *"narrow a bar that
+> cannot be met."* **Do not carry the unprovability ask up; it is answered.**
 >
 > ## Corrections made today — do NOT re-derive these, and do NOT re-break them
 >
