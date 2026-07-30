@@ -130,6 +130,42 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
+## NEXT SESSION — START HERE (written 2026-07-30 20:50Z at session end)
+
+**THERE IS NO WORKER TASK QUEUED IN THIS THREAD RIGHT NOW.** That is the single
+thing to know before doing anything, and it is a deliberate state, not an
+oversight.
+
+Phase 2 (`overseer-yho`) had four slices. Three are CLOSED and merged —
+`overseer-yho.1` (#389), `overseer-yho.2` (#393 + #398), `overseer-gjb` (#404).
+The fourth, `overseer-yho.3`, is the fleet-wide charter remediation, and it is
+**the maintainer's cut**: remediating another repo's charters means touching
+tracks this thread does not own, and it needs a decision (remediate at all;
+phased or fleet-wide) that a worker cannot make. Its costing input is already
+measured and recorded below — the measurement is done, the decision is not.
+
+**DO NOT SELF-ASSIGN `overseer-yho.3`.** Measuring it again is fine and cheap;
+cutting it is not yours.
+
+So, on a cold open, in this order:
+
+1. **Re-measure the ledger first** — `with-livespec-env.sh -- bd show overseer-yho
+   --json` and each slice. A bare `bd` returns "Access denied" in this tenant.
+   Everything in this file is a claim with a timestamp, including this sentence.
+2. **If a new slice has been filed or assigned to the worker, do that.**
+3. **If not, say so to the supervisor and stop** — report that phase 2's only
+   open slice needs a maintainer decision. Do not invent work, and do not widen
+   into another track: `codex-parity-and-rollout-safety` and
+   `daemon-liveness-truth` (`overseer-x29`) are separate tracks with their own
+   sessions.
+
+**Do not merge release PR #360** (0.15.1) or any Release Please PR.
+
+**One live consequence to expect, which looks like a bug and is not:** this
+repo's own charter now HALTs its provenance precondition, naming two different
+digests. That is correct — see "Provenance" below — and it clears when #360
+ships. Do not re-stamp the digest to silence it.
+
 ## WORKER RESUME STATE — re-measured 2026-07-30 19:40Z by the `supervisor-prompt-quality` worker
 
 **Everything below is a claim with a timestamp. Re-measure from the ledger and the
