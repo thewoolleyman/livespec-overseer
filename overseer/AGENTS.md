@@ -1425,9 +1425,18 @@ does not re-learn it. Append here — do NOT scatter these.
 >   directory does not exist here, and `git ls-files` finds no `design.md`
 >   anywhere in the repo. It described the pre-relocation design doc, including
 >   its "Adversarial review (2026-07-12)" section.
-> - **the root `AGENTS.md`'s `.ai/agent-disciplines` topic** — there is no `.ai/`
->   directory in this repo at all, and the root `AGENTS.md` contains no `.ai/`
->   reference. Note that `doctor-agents-ai-reference-resolution` PASSES: it
+> - **the root `AGENTS.md`'s `.ai/agent-disciplines` topic** — there was no
+>   `.ai/` directory in this repo when this pointer was removed, and the root
+>   `AGENTS.md` still carries no RESOLVABLE `.ai/<topic>.md` reference
+>   (re-measured 2026-07-30; it does now mention `.ai/` in prose, which this
+>   check does not resolve and must not). A
+>   `.ai/` directory EXISTS today, added by `7e246e0` for the layered supervisor
+>   prompt, and holds only `supervisor-protocol.md`; the `agent-disciplines`
+>   topic still does not exist, so this removal stands. Naming that topic with
+>   its `.md` extension HERE would break `check-agents-ai-references-resolve`,
+>   which resolves `.ai/<topic>.md` paths in any file called `AGENTS.md` — the
+>   same check this note goes on to discuss. Measured: it does.
+>   Note that `doctor-agents-ai-reference-resolution` PASSES: it
 >   validates `.ai/<topic>.md` paths in the format the root file uses, and this
 >   file's prose-style mention was never in its scope. A green doctor run was not
 >   evidence for this pointer.
