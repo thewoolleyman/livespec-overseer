@@ -179,7 +179,19 @@ Epic `overseer-dtytju` is **not yet groomed**; run
 `/livespec-orchestrator-beads-fabro:groom overseer-dtytju` before any such
 implementation.
 
-## Acceptance — MET
+## Acceptance — MET, but NOT general coverage
+
+**Read this first.** Acceptance is met for the payload the RED test was built
+against (the monthly spend cap) and for the registry-path false positive
+generally. It is **not** met for provider limit failures **as a class**: a
+second phrasing — *"You've hit your limit · resets Jul 31, 5am (UTC)"*,
+measured 2026-07-30 in a sibling repo — matches **none** of the hint lists,
+including the fix's own `PERMANENT_PROVIDER_LIMIT_HINTS`, and falls through to
+the signature-tracked `Deterministic` fallback. That is the outcome part (a)
+exists to prevent, so **(a)'s rationale does not hold for that payload**; (b)
+remains correct for both. Details and the open design question are in the
+research note under "A SECOND limit payload". **Do not read "acceptance MET" as
+"provider limits are classified correctly".**
 
 - **RED first:** `cargo test -p fabro-workflow --lib error::` → 151 passed,
   **3 failed** against the unmodified classifier, one of them on the verbatim

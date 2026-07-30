@@ -431,11 +431,18 @@ order, each of which returned at least one further instance — and each of whic
 | **the ledger items** | a **fourth** C4 home nobody had named |
 | **the repo outside this thread** | the archived pointer to `bd-ib-g56f` |
 | **other tenants** | a live **P1** covering adjacent ground for the same target repo |
+| **other fleet repos** | a **SECOND limit payload** proving the defect is a CLASS — and that the prepared fix does **not** classify it |
 
-**STATE THE TERMINATION HONESTLY. This ladder did NOT terminate** — the last
-rung climbed still returned something. Treat it as **UNEXHAUSTED**, not
-complete. Record **which rung was reached and that it was not dry**; never
-record merely that "a sweep was done".
+**STATE THE TERMINATION HONESTLY. This ladder STILL has not terminated** —
+**five** rungs climbed, every one of them returned something new. Treat it as
+**UNEXHAUSTED**. Record **which rung was reached and that it was not dry**;
+never record merely that "a sweep was done".
+
+**Rung five is the one that earns this entry its keep.** It did not find another
+stale citation — it found that the defect is a **class** rather than one string,
+and that **the prepared fix does not cover the second instance**. So the cost of
+stopping a rung early is not only an unswept record; it can be **an incomplete
+remedy shipped as a complete one**.
 
 **The shared failure shape — the generalization this whole thread is about.**
 An under-scoped sweep, a vacuous `git diff` against a path that does not exist,
