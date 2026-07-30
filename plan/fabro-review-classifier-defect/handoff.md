@@ -17,11 +17,18 @@ Created 2026-07-29 from `plan/codex-parity-and-rollout-safety/`, whose slice A2
 
 1. This file.
 2. `research/misclassification-evidence.md` — what was MEASURED, what is
-   RETRACTED, and the five open questions.
+   RETRACTED, and the five questions, **all now ANSWERED** (they are no longer
+   open; the note's own section carries the answers).
 
-That is the whole chain. Status is READ from the ledger, never stored here: run
+That is the whole chain. This file carries no checkbox queue.
+
+**WORK-ITEM status is READ from the ledger, never stored here** — run
 `/livespec-orchestrator-beads-fabro:list-work-items --json` and
-`/livespec-orchestrator-beads-fabro:next`. This file carries no checkbox queue.
+`/livespec-orchestrator-beads-fabro:next`. The narrative state at the top of
+this file describes **the investigation**, not a `WorkItemStatus`; do not read
+it as one, and do not skip the ledger because of it. Both `overseer-dtytju`
+(the epic) and `overseer-fs4` (the orchestrator-side re-dispatch gap) live
+there.
 
 ## The problem in one paragraph
 
