@@ -33,9 +33,9 @@
 > > | slice | id | state |
 > > |---|---|---|
 > > | **A4** | `overseer-ews` | **Code DONE** — PR **#347**, commit `8bd5b91` verified on `origin/master`. Ledger reads **`READY`** (a phantom claim was released; nothing is in flight). Acceptance verified: runtime check **ADMITTED-TO, not dropped** (`_CODEX_AGENT_COMMS={codex,codex-acp}`, walking **process ancestry**); tests **EXTENDED not loosened** (originals kept, three added, one gating the `$CLAUDECODE` leak). **Its LIVE bar is UNPROVEN** — see A6. |
-> > | **A6** | `overseer-g6z` | **CODE DONE, MERGED** — PR **#386**, `e1ab5051` on `origin/master` (needed a manual union rebase of `justfile`). Its launcher fix is **PROVEN LIVE**. Item still reads **`ACTIVE`**: `reconcile-merged` re-ran the post-merge janitor, which is red only on `check-master-ci-green`, a LOCAL-ONLY gate. **`overseer-e18` is now what blocks A4's live bar, not A6.** |
+> > | **A6** | `overseer-g6z` | **CODE DONE, MERGED** — PR **#386**, `e1ab5051` on `origin/master` (needed a manual union rebase of `justfile`). Its launcher fix is **PROVEN LIVE**. Item still reads **`ACTIVE`**: `reconcile-merged` re-ran the post-merge janitor, which is red only on `check-master-ci-green`, a LOCAL-ONLY gate. **A6 does not block A4's live bar. Neither, it turns out, does `overseer-e18` — see the ⛔⛔ box.** |
 > > | **A5** | `overseer-ei3` | **DONE / CLOSED** — PR **#385**, `ad6669b`, post-merge janitor green, `resolution:completed`. Its fix is visible in the field: the refreshed plugin cache reads nested **0.15.0**, in lockstep with its sibling. |
-> > | **NEW** | `overseer-e18` | **P1, `backlog`.** `overseer-start` launches the daemon with a **cwd-relative** log path, so `/overseer` from any repo lacking `tmp/overseer/` kills the daemon pane instantly and silently. **This is the whole remaining gap in A4's live bar.** |
+> > | **NEW** | `overseer-e18` | **P1. Its stated root cause is FALSE — I filed it on a mis-measurement; see the ⛔⛔ box.** Landed anyway as `0411f060`, and the run was NOT wasted: the same PR added the daemon-liveness check, which fixes the real defect that `overseer-start` reported SUCCESS for a daemon that had already died. It is **not** what blocks A4's live bar. |
 > > | **NEW** | `overseer-yms` | **P2, `backlog`.** `prose/overseer.md` cites `.ai/agent-disciplines.md` under `$PLUGIN_ROOT`, a path the plugin cache never contains. |
 > > | **A3** | `overseer-kju6wh` | `pending-approval`. **Correctly NOT dispatched.** Flipping `harnesses.codex` to `supported` while `overseer` cannot launch from another repo is the claim-a-capability-that-does-not-exist failure the A1/A3 split exists to prevent. **Hold that line.** |
 > > | `overseer-oj8` | — | CLOSED, superseded by `overseer-ei3`. **Pointer IS intact** (`metadata.superseded_by` + a 738-char `close_reason`). The record has **no top-level `superseded_by`/`reason` field**, so a reader asking for those keys gets `None` — that is a READER bug, not a lost pointer. **Do not "repair" it.** |
@@ -217,7 +217,7 @@
 > >
 > > | charter says | actually |
 > > |---|---|
-> > | A4 "blocked on A6" | **A6 is CLOSED.** A4 is blocked on **`overseer-e18`** |
+> > | A4 "blocked on A6" | **A6 is CLOSED**, and A4 is blocked by **no defect at all** — see the ⛔⛔ box |
 > > | A5 `active`, "PR #385 OPEN, auto-merge armed" | **CLOSED**, merged `ad6669b`, janitor green |
 > > | "then A4's live bar is finally provable" | **exercised** — launch half PASS, daemon half FAIL |
 > > | PR #384 "was OPEN" at wind-down | settled: **not this thread's**, merged as `4e0faba` |
@@ -281,9 +281,66 @@
 > > | run | **PASS** | `overseer-start: started overseerd in top pane %138. adopted 0 existing session(s).` **Exit 0**, in 463 ms |
 > > | two-pane split | **PASS** | pane created; **`%137` on the first run and `%138` on a second** — distinct ids, so the split is real and repeatable |
 > > | adopt | **ran, 0 new** | `adopted 0 existing session(s)` — the call executed; every track was already mapped |
-> > | **daemon survives** | **FAIL** | root cause below — and it is **not** the launcher |
+> > | **daemon survives** | **NOT PROVABLE HERE** | `overseerd` RAN and refused on the singleton lock — **correct behavior**, not a defect. See the ⛔⛔ box; the "FAIL / cwd-relative path" reading was mine and it was wrong |
 > >
-> > **The daemon dies on a CWD-RELATIVE LOG PATH.** `start.py:85` builds
+> > > # ⛔⛔ THE ROOT CAUSE BELOW IS **FALSE**. I got this wrong. Read this box first.
+> > >
+> > > **The daemon did NOT die on a cwd-relative log path. It ran, and it refused
+> > > on the SINGLETON LOCK — the cause I had "retracted".** The retraction was the
+> > > error; the Codex agent's original stage-7 report was RIGHT.
+> > >
+> > > **DECISIVE EVIDENCE — the daemon's own log, inside the plugin cache:**
+> > >
+> > > ```
+> > > ~/.codex/plugins/cache/livespec-overseer/livespec-overseer/0.15.0/tmp/overseer/daemon.log
+> > > 17:34:16Z overseer[SURFACE]: another overseer daemon holds
+> > >           /home/ubuntu/.livespec-overseer.jsonl.daemon.lock; refusing to start
+> > > 17:41:52Z overseer[SURFACE]: (same, second run)
+> > > ```
+> > >
+> > > Two entries, one per run, timestamps matching both exercises. **The file
+> > > exists**, so the redirect WORKED; **`overseerd` wrote to it**, so the daemon
+> > > RAN. Neither is compatible with "the redirect failed before overseerd
+> > > executed".
+> > >
+> > > **HOW I GOT IT WRONG, because the mechanism is the lesson.** The daemon pane
+> > > does not inherit the invoking repo's cwd — `start.py` passes it explicitly:
+> > > `split_window_top(..., cwd=str(core), ...)` where
+> > > `core = Path(__file__).resolve().parent.parent`, and the pre-fix code ALREADY
+> > > ran `(core / "tmp" / "overseer").mkdir(parents=True, exist_ok=True)` right
+> > > before the split. So the relative redirect resolved against `core`, where the
+> > > directory had just been created. **My "measurement" ran
+> > > `cd /data/projects/openbrain && sh -c '… 2>> tmp/overseer/daemon.log'` — a
+> > > true result about a directory the daemon never uses.** I measured the wrong
+> > > cwd because I ASSUMED inheritance instead of reading the call.
+> > >
+> > > **That is this thread's own recurring failure, committed by me, in the same
+> > > file where I had just written the warning for it:** a check that is correct
+> > > about its own inputs and wrong about the world. A positive control would have
+> > > caught it — *"if the redirect really failed, no daemon.log exists anywhere"*
+> > > was one `ls` away, and I never ran it.
+> > >
+> > > **WHAT `overseer-e18` AND `0411f060` ACTUALLY LEFT BEHIND — the run was not
+> > > wasted.** The absolute-log-path change is harmless robustness on a false
+> > > premise, but the SAME PR added the thing that was independently right and was
+> > > also in the filing: `overseer-start` now VERIFIES the daemon survived
+> > > (`pane_exists` → *"overseerd did not stay alive in the daemon pane; check
+> > > `<log>` for startup errors"* → exit 1). The old code reported **success for a
+> > > daemon that had already died**, which is exactly the
+> > > surface-declared/artifact-absent shape this thread keeps hitting — and it is
+> > > why I could not see the truth from `overseer-start`'s own output.
+> > >
+> > > **CONSEQUENCE FOR A4's BAR, and it is better news than the false cause was:**
+> > > the daemon half is **not blocked by a defect at all.** A second daemon
+> > > refusing while the acting daemon holds the lock is **correct behavior**. It
+> > > cannot be proven on this host without either killing the acting daemon
+> > > (forbidden) or running an `act=True` scratch daemon over the real fleet
+> > > (unsafe to other tracks — it could inject into their sessions). **So record
+> > > it as: launch half PROVEN, daemon-under-contention CORRECT, and the
+> > > adopt-a-track clause NOT PROVABLE HERE — not as a defect.**
+> >
+> > **~~The daemon dies on a CWD-RELATIVE LOG PATH.~~ (FALSE — see the box above.)**
+> > `start.py:85` builds
 > > `overseerd 2>> tmp/overseer/daemon.log`. The split pane's cwd is the repo the
 > > operator invoked `/overseer` from, so a repo without `tmp/overseer/` cannot
 > > start the daemon at all. Measured both ways:
@@ -300,14 +357,22 @@
 > > only that the split happened, not that the daemon lived. Filed **`overseer-e18`
 > > (P1)**.
 > >
-> > > **⚠ A WRONG CAUSE WAS REPORTED AND IS RETRACTED HERE.** The Codex agent
-> > > reported stage 7 as *"the pane disappeared because an overseer singleton was
-> > > already running"*, and this file had predicted the same. **Both were wrong:
-> > > `overseerd` never ran, so the lock was never reached.** The agent INFERRED it
-> > > from finding the established daemon; it did not measure it. The singleton
-> > > refusal is real and reproducible **on its own** (`overseerd` from this repo →
-> > > *"another overseer daemon holds …; refusing to start"*), which is why the two
-> > > had to be measured SEPARATELY. **The relative-path defect fires FIRST.**
+> > > **⛔ THIS RETRACTION WAS ITSELF WRONG AND IS HEREBY UN-RETRACTED.** It said:
+> > > *"The Codex agent reported stage 7 as 'the pane disappeared because an
+> > > overseer singleton was already running' … Both were wrong: `overseerd` never
+> > > ran, so the lock was never reached … The relative-path defect fires FIRST."*
+> > >
+> > > **Every sentence of that is false.** The daemon's own log inside the plugin
+> > > cache shows `overseerd` ran and refused on the lock, twice, once per run —
+> > > see the ⛔⛔ box at the head of this section. **The agent was RIGHT, I was
+> > > wrong to overrule it, and I was wrong on the confident side: I dismissed a
+> > > correct report as "an inference, not a measurement" while my own contrary
+> > > claim rested on measuring the wrong directory.**
+> > >
+> > > Keep the useful half: the singleton refusal IS independently reproducible
+> > > (`overseerd` from this repo → *"another overseer daemon holds …; refusing to
+> > > start"*). That reproduction was sound. What was unsound was concluding it
+> > > therefore was not what happened in the probe.
 > >
 > > #### The NEGATIVE half — DISCHARGED, with a positive control
 > >
