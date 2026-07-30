@@ -259,6 +259,31 @@ def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tm
     assert f"tmux switch-client -t {session}" in report
 
 
+def test_uncertifiable_ready_alert_stays_edge_triggered_behind_prior_branch(*, tmp_path):
+    """A prior cascade branch must not re-arm the uncertifiable-ready alert every tick.
+
+    INJECTED DEFECT THAT REDDENS IT: registering the condition only in the
+    ``ready-uncertifiable`` branch makes the final per-condition clear forget the
+    pre-cascade alert when ``settling`` wins, so the same declaration reports again
+    on every observation.
+    """
+    clock = {"t": 1000.0}
+    _repo, _topic, session, fake, sup, track, _state = _bare_ready_no_round_fixture(
+        tmp_path=tmp_path, clock=clock
+    )
+    fake.panes[session] = "partial turn output\nCtx: 79% left\n"
+    clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
+    err = _io.StringIO()
+
+    with contextlib.redirect_stderr(err):
+        first = sup.evaluate(track=track, act=True)
+        second = sup.evaluate(track=track, act=True)
+
+    assert first.status == "settling"
+    assert second.status == "settling"
+    assert err.getvalue().count("ready cannot certify") == 1
+
+
 def test_uncertifiable_ready_alert_quantizes_clears_and_rearms(*, tmp_path):
     """The report-only alert is edge-triggered, age-banded, and re-armed per episode.
 
