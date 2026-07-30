@@ -261,6 +261,12 @@ check:
         check-types
         check-coverage
         check-doctor-static
+        # Repo-local release-hygiene gate (overseer-d4t): generator
+        # prose may not change without a release-triggering commit,
+        # or the fix never reaches the plugin cache that generates
+        # charters. Not a canonical slug, so it belongs here rather
+        # than interleaved into the canonical block above.
+        check-prose-release-hygiene
     )
     failed=()
     ran=0
@@ -598,6 +604,90 @@ check-primary-checkout-commit-refuse-hook-installed:
 
 check-private-calls:
     uv run python -m livespec_dev_tooling.checks.private_calls
+
+# Release-hygiene gate for GENERATOR PROSE (work-item overseer-d4t;
+# shape (b) of the release-lane valve in
+# plan/supervisor-prompt-quality/handoff.md).
+#
+# WHY THIS EXISTS. Charters are generated from the INSTALLED plugin
+# cache, never from this working tree, so a prose fix reaches nobody
+# until a release ships AND adopters update. Measured 2026-07-30: all
+# nine cached `prose/supervise-plan.md` copies under
+# ~/.claude/plugins/cache/livespec-overseer/ were BYTE-IDENTICAL
+# (md5 2283862c…) while master carried 6 exact-target mandates and 4
+# supervisor-liveness proofs that NONE of them had, and the active
+# version still emitted 4 bare `-t "` tmux targets master had removed.
+#
+# WHAT IS ENFORCED. If the range changes `.claude-plugin/prose/`, the
+# range must also carry at least one commit whose conventional-commit
+# type release-please acts on. release-please bumps on feat/fix/perf/
+# revert and on a `!` breaking marker; `docs`, `test`, `chore`, `ci`,
+# `build`, `style` and `refactor` produce NO version bump, so prose
+# landed under one of those cannot trigger a release on its own. This
+# repo already carries four such commits — 3ed8667 `docs:`, 454c14d
+# `chore(prompt):`, 0b98bed `test(prompts):`, 91d83e7
+# `docs(supervise-plan):` — so this is a measured hole, not a
+# hypothetical one.
+#
+# WHAT IS *NOT* CLAIMED, stated so nobody reads more into a green.
+# This does not merge the pending release PR and does not refresh any
+# adopter's plugin cache; both remain open under overseer-d4t. It
+# closes exactly one hole: a prose change that can never produce a
+# version bump at all.
+#
+# The two refs are overridable ONLY so the gate's own fixtures can
+# drive this real recipe against synthetic repositories instead of a
+# second copy of its logic — a duplicated rule is a rule that drifts.
+check-prose-release-hygiene:
+    #!/usr/bin/env bash
+    # `set -e` is DELIBERATELY ABSENT and must stay absent: the
+    # releasing-commit count below is `grep -c`, which exits 1 when the
+    # count is zero. Under `set -e` that aborts the recipe at exactly
+    # the violation it exists to report — red for the wrong reason, with
+    # none of the operator guidance below ever printed.
+    set -uo pipefail
+    base="${PROSE_HYGIENE_BASE:-origin/master}"
+    head="${PROSE_HYGIENE_HEAD:-HEAD}"
+    prose_dir=".claude-plugin/prose"
+    if ! git rev-parse --verify --quiet "$base" >/dev/null; then
+        echo "check-prose-release-hygiene: cannot resolve base ref '$base'." >&2
+        echo "  This gate reads the commit RANGE, so it needs real history." >&2
+        echo "  A shallow clone cannot satisfy it; fetch full depth." >&2
+        exit 1
+    fi
+    changed="$(git diff --name-only "$base...$head" -- "$prose_dir")"
+    if [[ -z "$changed" ]]; then
+        echo ":: check-prose-release-hygiene — no generator prose changed in $base...$head"
+        exit 0
+    fi
+    # A releasing subject is `feat|fix|perf|revert`, with an optional
+    # (scope), or ANY type carrying the `!` breaking marker.
+    releasing="$(git log --format='%s' "$base..$head" \
+        | grep -cE '^(feat|fix|perf|revert)(\([^)]*\))?!?:|^[a-z]+(\([^)]*\))?!:')"
+    if [[ "$releasing" -gt 0 ]]; then
+        echo ":: check-prose-release-hygiene — prose changed and $releasing releasing commit(s) present"
+        exit 0
+    fi
+    {
+        echo "Generator prose changed with NO release-triggering commit in the range."
+        echo
+        echo "Changed prose:"
+        echo "$changed"
+        echo
+        echo "Commit subjects in $base..$head:"
+        git log --format='  %h %s' "$base..$head"
+        echo
+        echo "WHY THIS BLOCKS: charters are generated from the installed plugin"
+        echo "cache, not from this tree. release-please bumps the version only on"
+        echo "feat/fix/perf/revert or a '!' breaking marker, so prose landed under"
+        echo "docs/test/chore/ci/build/style/refactor ships to nobody."
+        echo
+        echo "REMEDY: re-word one commit that carries the prose change to 'fix:' or"
+        echo "'feat:' (whichever is honest), so merging it necessarily produces a"
+        echo "version bump. If the prose edit genuinely must not release, it does"
+        echo "not belong in .claude-plugin/prose/."
+    } >&2
+    exit 1
 
 check-public-api-result-typed:
     uv run python -m livespec_dev_tooling.checks.public_api_result_typed
