@@ -16,6 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import jsonio
+import signals
 from _registry_core import (
     Track,
     norm,
@@ -70,6 +71,9 @@ def discover_plans(
         for child in children:
             try:
                 if not child.is_dir() or child.name == "archive":
+                    continue
+                if signals.topic_reserved_for_supervisor(topic=child.name):
+                    warn(message=f"refusing reserved supervisor plan directory {child}")
                     continue
                 # Directory existence IS the track; the handoff path is only a
                 # conventional pointer for the resume line (never opened here).

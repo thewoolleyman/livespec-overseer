@@ -24,6 +24,7 @@ from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+import signals
 import streams
 
 __all__: list[str] = [
@@ -149,6 +150,9 @@ def colliding_topics(
     """
     repos_by_topic: dict[str, set[str]] = {}
     for repo, topic, _ in discovered:
+        if signals.topic_reserved_for_supervisor(topic=topic):
+            warn(message=f"refusing reserved supervisor topic in collision set: {repo}::{topic}")
+            continue
         repos_by_topic.setdefault(topic, set()).add(norm(repo=repo))
     return frozenset(t for t, repos in repos_by_topic.items() if len(repos) > 1)
 
@@ -181,6 +185,8 @@ def tmux_id(
     never sanitized. The predecessor ``<repo-slug>--<topic>`` (double-dash, ALWAYS
     prefixed) form is retired.
     """
+    if signals.topic_reserved_for_supervisor(topic=topic):
+        warn(message=f"refusing reserved supervisor topic for tmux derivation: {repo}::{topic}")
     if topic in colliding:
         return f"{repo_slug(repo=repo)}-{topic}"
     return topic

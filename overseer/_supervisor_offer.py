@@ -33,8 +33,15 @@ __all__: list[str] = [
 
 
 def supervisor_session_of(*, sup: Supervisor, track: registry.Track) -> str:
-    """The conventional attended supervisor tmux session for ``track``."""
-    return f"{_supervisor_launch.session_of(sup=sup, track=track)}-supervisor"
+    """The conventional attended supervisor tmux session for ``track``.
+
+    Pair naming is derived from the worker's PLAN TOPIC, not the possibly generic
+    tmux session currently hosting that worker.
+    """
+    worker_session = registry.tmux_id(
+        repo=track.repo, topic=track.topic, colliding=sup.colliding_topics
+    )
+    return signals.supervisor_entity_topic(topic=worker_session)
 
 
 def supervisor_running(*, sup: Supervisor, session: str, repo: str) -> bool:
@@ -55,7 +62,8 @@ def supervisor_running(*, sup: Supervisor, session: str, repo: str) -> bool:
     if signals.pane_is_claude(pane_current_command=command) and signals.path_in_repo(
         pane_current_path=cwd, repo=repo
     ):
-        return True
+        names = sup.claude_names_by_session.get(session)
+        return names is None or session in names
     if not signals.pane_is_codex(pane_current_command=command):
         return False
     return any(

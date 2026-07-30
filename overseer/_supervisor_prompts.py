@@ -27,6 +27,8 @@ __all__: list[str] = [
     "default_resume",
     "idle_nudge_message",
     "supervisor_handoff_path",
+    "supervisor_resume",
+    "supervisor_wrapup_message",
     "wrapup_message",
 ]
 
@@ -96,6 +98,10 @@ restarted and NOT killed — you are reported to the human as not responding, an
 track sits there until a person intervenes. Do not do that to them: write the file."""
 
 
+def _wrapup_head(*, remaining: int) -> str:
+    return _WRAPUP_INSIST_HEAD if remaining <= _INSIST_AT else _WRAPUP_SUGGEST_HEAD
+
+
 def wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
     """The wrap-up text injected when a track crosses a ctx warn band.
 
@@ -118,8 +124,7 @@ def wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
     guess a session is safe to kill, the message also makes the session's declaration the
     sole authorization: no ``ready``, no restart.
     """
-    head = _WRAPUP_INSIST_HEAD if remaining <= _INSIST_AT else _WRAPUP_SUGGEST_HEAD
-    return f"{head}\n\n{_WRAPUP_BODY}".format(
+    return f"{_wrapup_head(remaining=remaining)}\n\n{_WRAPUP_BODY}".format(
         n=remaining,
         marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
         state_file=str(signals.state_path(repo=repo, topic=topic)),
@@ -143,6 +148,41 @@ def supervisor_handoff_path(*, repo: str, topic: str) -> Path:
     open, read, hash, or depend on its content or mtime.
     """
     return Path(repo) / "plan" / topic / "supervisor-handoff.md"
+
+
+_SUPERVISOR_WRAPUP_BODY = _WRAPUP_BODY.replace(
+    '        W="$HOME/.worktrees/{slug}/wrapup-{topic}"\n'
+    '        mise exec -- git -C {repo} worktree add -b wrapup-{topic} "$W" master\n'
+    '        cp {handoff} "$W/plan/{topic}/handoff.md"',
+    '        W="$HOME/.worktrees/{slug}/wrapup-{topic}-supervisor"\n'
+    '        mise exec -- git -C {repo} worktree add -b wrapup-{topic}-supervisor "$W" master\n'
+    '        cp {handoff} "$W/plan/{topic}/supervisor-handoff.md"',
+)
+
+
+def supervisor_resume(*, repo: str, topic: str) -> str:
+    """Resume prompt for a supervisor pair member."""
+    return f"read {supervisor_handoff_path(repo=repo, topic=topic)} and follow it"
+
+
+def supervisor_wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
+    """Wrap-up text for a supervisor pair member.
+
+    The supervisor entity's state and round key use ``<topic>-supervisor``, but its
+    durable handoff artifact is the worker plan's ``supervisor-handoff.md``. This is a
+    text variant, not parameter substitution, because the commit ritual's destination
+    is a literal inside the body.
+    """
+    entity_topic = signals.supervisor_entity_topic(topic=topic)
+    return f"{_wrapup_head(remaining=remaining)}\n\n{_SUPERVISOR_WRAPUP_BODY}".format(
+        n=remaining,
+        marker_dir=str(signals.marker_dir(repo=repo, topic=entity_topic)),
+        state_file=str(signals.state_path(repo=repo, topic=entity_topic)),
+        handoff=str(supervisor_handoff_path(repo=repo, topic=topic)),
+        repo=repo,
+        topic=topic,
+        slug=registry.repo_slug(repo=repo),
+    )
 
 
 def default_resume(*, repo: str, topic: str) -> str:

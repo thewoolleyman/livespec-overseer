@@ -79,6 +79,7 @@ import _supervisor_launch
 import _supervisor_lifecycle
 import _supervisor_nudge
 import _supervisor_observe
+import _supervisor_pair
 import _supervisor_recovery
 import _supervisor_render
 import _supervisor_restart
@@ -412,7 +413,14 @@ class Supervisor:
 
     def tick(self, *, act: bool = True) -> list[RowView]:
         """One loop iteration: build rows, evaluate each, render the table + attention block."""
-        views = [self.evaluate(track=track, act=act) for track in self.build_rows(act=act)]
+        views: list[RowView] = []
+        for track in self.build_rows(act=act):
+            views.append(self.evaluate(track=track, act=act))
+            supervisor_view = _supervisor_pair.evaluate_supervisor_pair(
+                sup=self, track=track, act=act
+            )
+            if supervisor_view is not None:
+                views.append(supervisor_view)
         self.render(rows=views)
         # Only the DAEMON badges the window. `list` is advertised read-only, so it must
         # not rename the maintainer's window as a side effect of printing a table.
