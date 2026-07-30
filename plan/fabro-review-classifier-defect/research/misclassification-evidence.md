@@ -269,6 +269,19 @@ exists to police.
 | local `HEAD` | `d5dcd1179` — **2026-07-09** |
 | `upstream/main` | `854f71f2c` — **2026-07-29** |
 | gap | ~3 weeks, 357 differing lines **in this very file**, plus the `lib/crates` → `lib/components` relocation |
+
+**`upstream/main` is a MOVING REF, and every upstream number here is an AS-OF
+measurement against `854f71f2c` (2026-07-29) — not a current fact.** It has
+since moved: measured read-only by the supervisor 2026-07-30, fabro's local
+`main` now tracks upstream at `b5885b15d`. The 357-line divergence and the
+"5 of 6 hunks" port result below therefore both need **re-measuring against the
+live tip** before anyone relies on them. Citing a branch tip without its
+as-of date is the same defect as citing a mutable commit SHA as a durable
+identifier (supervisor correction **C4**) — one level up.
+
+What does **not** decay: the conclusion that the defect is present upstream
+unchanged rests on the hint entry, the consult order and the pinned test —
+none of them a line count — so upstream advancing does not disturb it.
 | hint counts | local pins 38/12/3; **upstream pins 38/10/3** — `BUDGET_EXHAUSTED_HINTS` has already diverged |
 
 Any PR to `fabro-sh/fabro` must be re-expressed against

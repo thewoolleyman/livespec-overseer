@@ -117,7 +117,16 @@ nothing. The **conclusion survives** on a real comparison against upstream's own
 file (hint at upstream `:79`, same first-wins order, same pinned test) — the
 **evidence originally cited for it did not**.
 
-**Upstream port, measured.** 5 of 6 hunks apply to
+**Upstream port, measured — AS OF `upstream/main` @ `854f71f2c`, 2026-07-29.**
+`upstream/main` is a **moving ref and it has since moved**: as measured
+read-only by the supervisor 2026-07-30, fabro's local `main` now tracks it at
+`b5885b15d`. So the "5 of 6" below, and the 357-line divergence above, are
+**as-of results against `854f71f2c`, not current facts** — re-measure against
+the live tip before relying on either. The *conclusion* (the defect is present
+upstream unchanged) rests on the hint, the order and the pinned test, none of
+which is a line-count, so it is not disturbed by upstream advancing.
+
+5 of 6 hunks apply to
 `upstream/main:lib/components/fabro-workflow/src/error.rs`. **Hunk 3 conflicts**
 — and the reason is the interesting part: upstream has **independently adopted
 this fix's own idiom**, pre-masking payload text that is not fault text (it
