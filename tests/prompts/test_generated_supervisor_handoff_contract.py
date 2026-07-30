@@ -18,9 +18,13 @@ tell the two apart is a verifier that cannot fail.
 
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import re
 import shlex
 from pathlib import Path
+from types import ModuleType
+from typing import Protocol, cast
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _GENERATOR_PROSE = _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md"
@@ -512,39 +516,113 @@ def test_layered_current_charter_is_the_iteration_stability_positive_control():
     assert rows[1] == ("current shared plus binder", 0)
 
 
-def test_union_validator_retarget_demonstrates_homelab_binder_shape():
-    homelab_binder = """
-    # Supervisor Handoff - homelab-demo
-    ## Bindings
-    WORKER_TARGET='=homelab-demo:'
-    SUPERVISOR_TARGET='=homelab-demo-supervisor:'
-    ## HALT-first preconditions
-    ```sh
-    pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
-    supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '#{pane_pid}')
-    pane_cwd=/data/projects/homelab
-    case "$(readlink -f -- "$pane_cwd")" in /data/projects/homelab|/data/projects/homelab/*) ;; esac
-    wait_channel=/tmp/homelab-status.log
-    tmux capture-pane -p -t "$WORKER_TARGET" -S -40 # visible only
-    ```
-    ## Corrections
-    Thread-specific corrections.
-    """
-    homelab_shared = """
-    You are the supervisor, not the implementer. Hand work to verify.
-    A conflicting lane owned by another track is not a blocked state; stand down.
-    Never end a turn without an armed re-entry; arm a background watcher.
-    AskUserQuestion calls carry a recommendation. Never pass --no-verify.
-    Never kill the acting overseer daemon. RE-ARM NOW on expiry.
-    """
-    rows = (
-        ("homelab binder alone", len(missing_required_needles(charter=homelab_binder))),
-        (
-            "homelab shared plus binder",
-            len(missing_required_needles_for_layers(layers=(homelab_shared, homelab_binder))),
-        ),
+class _RealizationModule(Protocol):
+    def missing_requirements(self, *, charter: str) -> list[str]: ...
+
+    def banned_requirements(self, *, charter: str) -> list[str]: ...
+
+    def non_parameterizable_requirements(self) -> frozenset[str]: ...
+
+
+def _homelab_parameterized_charter() -> str:
+    original_re_entry = """## Never end a turn without an armed re-entry
+    The trigger is ANY open obligation. Arm a background pane watcher before ending any turn.
+    For a non-pane wait, arm a condition watcher that tests terminal state first
+    from the authoritative field. On unrecognized value, wake and never silently wait."""
+    adopter_re_entry = """## Never end a turn while work remains unwatched
+    Never end a turn while any open obligation remains. Start a background pane
+    watcher before ending the turn. For a non-pane wait, start a condition watcher
+    that tests terminal state first from the authoritative field. On unrecognized value,
+    wake and never silently wait."""
+    original_safety = "Never pass --no-verify. Never kill the acting overseer daemon."
+    adopter_safety = "Never pass --no-verify. Never run kill-server on the maintainer's socket."
+    return (
+        _fully_conformant_charter()
+        .replace(original_re_entry, adopter_re_entry)
+        .replace(original_safety, adopter_safety)
+        .replace(
+            'tmux capture-pane -p -t "$W" # visible only',
+            'tmux capture-pane -p -t "$W" # visible only\n'
+            "    tmux send-keys -t \"$W\" -- 'drive the next safe action' Enter",
+        )
     )
-    assert rows == (("homelab binder alone", 20), ("homelab shared plus binder", 15))
+
+
+def _realization_module() -> _RealizationModule | None:
+    name = "overseer._prompt_realizations"
+    spec = importlib.util.find_spec(name)
+    module: ModuleType | None = None if spec is None else importlib.import_module(name)
+    return None if module is None else cast(_RealizationModule, module)
+
+
+def _realization_missing_requirements(*, charter: str) -> list[str]:
+    module = _realization_module()
+    return (
+        missing_requirements(charter=charter)
+        if module is None
+        else module.missing_requirements(charter=charter)
+    )
+
+
+def _realization_banned_requirements(*, charter: str) -> list[str]:
+    module = _realization_module()
+    return (
+        banned_requirements(charter=charter)
+        if module is None
+        else module.banned_requirements(charter=charter)
+    )
+
+
+def _realization_non_parameterizable_requirements() -> frozenset[str]:
+    module = _realization_module()
+    return frozenset() if module is None else module.non_parameterizable_requirements()
+
+
+def test_adopter_realization_clears_only_the_wording_failure():
+    """homelab satisfies the behavior while failing the literal needle.
+
+    Needle equality reports two missing required clauses plus one banned command.
+    The realization gate clears only `stall-mode-2-armed-re-entry`; the real
+    missing absolute rule and the banned one-shot command survive.
+    """
+    assert missing_required_needles_for_layers(layers=("Never pass --no-verify.",))
+    charter = _homelab_parameterized_charter()
+    assert "armed re-entry" not in charter.lower()
+    assert missing_required_needles(charter=charter) == [
+        "stall-mode-2-armed-re-entry",
+        "acting-daemon-prohibition",
+    ]
+    assert _realization_banned_requirements(charter=charter) == ["one-shot-send-keys-enter"]
+    assert _realization_missing_requirements(charter=charter) == [
+        "acting-daemon-prohibition",
+        "one-shot-send-keys-enter",
+    ]
+
+
+def test_redacting_adopter_realizations_makes_the_gate_red():
+    charter = _homelab_parameterized_charter().replace(
+        """## Never end a turn while work remains unwatched
+    Never end a turn while any open obligation remains. Start a background pane
+    watcher before ending the turn. For a non-pane wait, start a condition watcher
+    that tests terminal state first from the authoritative field. On unrecognized value,
+    wake and never silently wait.""",
+        """## Status report
+    I will check back later.""",
+    )
+    assert "stall-mode-2-armed-re-entry" in _realization_missing_requirements(charter=charter)
+
+
+def test_non_parameterizable_rules_are_enumerated_and_cannot_be_overridden():
+    charter = _fully_conformant_charter().replace(
+        "Never pass --no-verify. Never kill the acting overseer daemon.",
+        "Never pass --no-verify. Never kill the acting overseer daemon. "
+        "An adopter may restart the acting overseer daemon after confirming it is idle.",
+    )
+    assert "acting-daemon-prohibition" not in missing_required_needles(charter=charter)
+    assert "acting-daemon-override" in _realization_missing_requirements(charter=charter)
+    assert _realization_non_parameterizable_requirements() == frozenset(
+        ("acting-daemon-prohibition", "one-shot-send-keys-enter")
+    )
 
 
 def test_both_corrections_sections_survive_regeneration_byte_for_byte():
