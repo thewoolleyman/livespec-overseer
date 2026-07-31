@@ -130,11 +130,24 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
-## NEXT SESSION — START HERE (written 2026-07-30 20:50Z at session end)
+## NEXT SESSION — START HERE (written 2026-07-30 20:50Z; step 3 and the status table rewritten 2026-07-31 05:56Z after the session that followed it)
 
 **THERE IS NO WORKER TASK QUEUED IN THIS THREAD RIGHT NOW.** That is the single
 thing to know before doing anything, and it is a deliberate state, not an
-oversight.
+oversight. **It is also not a reason to stop — see step 3.**
+
+**WHERE THE THREE OPEN ITEMS STAND, as of 2026-07-31T05:56Z.** All three now sit
+with the maintainer, each with its numbers, and none is filed or closed:
+
+| item | state |
+|---|---|
+| `overseer-yho.3` | Fully COSTED. The fleet edit is near-mechanical (117 → 25 demonstrated in memory, all of class (a) cleared); the highest-leverage fix is ONE line clearing 10 defects in a shared layer; option 3 reaches 94 of 117 because `homelab` consumes no pin. **Needs a decision, not a number.** |
+| `overseer-jcw` | Mechanism 1 (shared tmux socket across concurrent runs) FIXED and gated, two instances. Mechanism 2 (a timing premise CPU starvation invalidates) COSTED, with the obvious fix eliminated by arithmetic. **Needs a contract decision.** |
+| `overseer-bak` | Gap real and reproduced from both directions; **incidence nil** (0 of 7 comparable threads drift). One local static gate landed. **Needs a scope decision.** |
+
+The only defect this thread found in itself is fixed: the charter's `ledger_anchor`
+pointed at a closed bug and now points at `overseer-yho`, gated by
+`tests/test_plan_thread_records_agree.py`.
 
 Phase 2 (`overseer-yho`) had four slices. Three are CLOSED and merged —
 `overseer-yho.1` (#389), `overseer-yho.2` (#393 + #398), `overseer-gjb` (#404).
@@ -162,11 +175,30 @@ So, on a cold open, in this order:
    --json` and each slice. A bare `bd` returns "Access denied" in this tenant.
    Everything in this file is a claim with a timestamp, including this sentence.
 2. **If a new slice has been filed or assigned to the worker, do that.**
-3. **If not, say so to the supervisor and stop** — report that phase 2's only
-   open slice needs a maintainer decision. Do not invent work, and do not widen
-   into another track: `codex-parity-and-rollout-safety` and
-   `daemon-liveness-truth` (`overseer-x29`) are separate tracks with their own
-   sessions.
+3. **If not — REPORT IT, THEN AUDIT THIS THREAD'S OWN ARTIFACTS. Do not stop.**
+   This step used to say "say so to the supervisor and stop", and following it
+   literally produced a session that delivered nothing until the overseer pushed
+   back. What followed was seven merged PRs, and every one of them came from
+   auditing what this thread already owns rather than from taking new work.
+   **There is a middle ground between self-assigning another track's slice and
+   stopping**, and it is where the value was:
+
+   - **This thread's own charter had a live defect** — `ledger_anchor` bound to a
+     CLOSED BUG, inside the block whose job is to stop stale claims, in the repo's
+     hardened exemplar. Nothing in the fleet could see it. Found by comparing the
+     thread's two records against each other, which nobody had done.
+   - **This thread's own tests had a real bug** — `overseer-jcw` mechanism 1,
+     reproduced on demand and fixed, with a second independent instance found only
+     because the whole suite was run concurrently rather than one module.
+   - **Three items the maintainer owes decisions on had no numbers.** Costing them
+     — `yho.3`, jcw mechanism 2, `bak` — needed no permission and no ledger write.
+
+   The original prohibition still stands and is not weakened: **do not file, do not
+   transition, do not close, and do not touch another track.**
+   `codex-parity-and-rollout-safety` and `daemon-liveness-truth` (`overseer-x29`)
+   have their own sessions. But "no slice is queued" is not "there is no work" —
+   it means the work is verification, measurement, and preparing decisions rather
+   than execution. **Ask what this thread has ASSERTED that nobody has CHECKED.**
 
 **Do not merge release PR #360** (0.15.1) or any Release Please PR.
 
