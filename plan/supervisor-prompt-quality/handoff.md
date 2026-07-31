@@ -802,6 +802,43 @@ owns it.
   write in a heading.** Detector (k) cannot catch this one: there is no `date`
   invocation in the artifact to inspect.
 
+### FOUR STALE CLAIMS ABOVE THE SEPARATOR — reported, NOT fixed, not mine to fix
+
+Swept 2026-07-31 against the ledger and the tree. **Recorded here, in the worker
+half, precisely because I must not edit the supervisor half** — and because the
+wake channel is a transcript, not storage, so a finding left only there
+evaporates. **A cold-open reader meets all four BEFORE reaching anything below the
+separator**, and two of them put this file in direct disagreement with itself.
+
+| # | line | the claim | measured |
+|---|---|---|---|
+| 1 | ~40 | "`overseer-d4t` stays open and is NOT a phase-2 slice" | **CLOSED 2026-07-30T19:34:35Z**, and its close reason records that the disposition that paragraph recommends was taken |
+| 2 | ~37 | "this repo's own **TEN**-detector gate" | **ELEVEN** classes; (k) landed in PR #389, and the worker half says ELEVEN in three places |
+| 3 | ~19 | "`tests/prompts/` carries **TEN** modules driving real tmux" | **TWELVE** modules; **FOUR** drive real tmux |
+| 4 | ~20-23 | "the adopter cache **has refreshed** to prose byte-identical to `origin/master`" | true at the stated 17:20Z, **false now** |
+
+**On (3)** — it conflates a total with a property, so no single number fixes it.
+The four that drive real tmux are `test_repo_containment_discriminates`,
+`test_supervisor_liveness_discriminates` and `test_watcher_wake_discriminates`
+(shared fixture) plus `test_emitted_commands_discriminate` (its own rig).
+`test_charter_boot_and_ledger_commands` and `test_cold_open_generation_gate`
+deliberately STUB tmux, and a stub is not a drive;
+`test_generated_supervisor_handoff_contract` is inspection-only (0 subprocess
+calls). Suggested: "twelve modules, four of which drive real tmux", dated.
+
+**On (4) — this one is a TENSE problem, not a wrong number, so do not re-measure
+it.** The digest is still correct for the CACHE (`013d35d48cde` still holds
+`9ca18d56…`); what moved is the REPO, to `eaebe06065b3efa0053d6ea5932d52c0` at
+commit `16706e6`, 2026-07-30T19:17:26Z. The section "THE STALE-CACHE CHAIN" below
+already explains that this **re-arms on every prose change by construction** and is
+"the ordinary state of this repo for most of its life — not an incident". So the
+sentence needs re-tensing to the past, exactly as `overseer-gjb` re-tensed the
+module docs. Re-measuring and re-stamping it would just restart the same clock.
+
+**What is NOT stale, so leave it:** all seven ledger `CLOSED` claims re-verified
+against the ledger — `byvxlp`, `dk6hwi`, `ejja5o`, `hbr.16`, `hbr.4`, `hbr.15`,
+`fitvmo` — and "release 0.15.0 shipped" (`plugin.json` reads `0.15.0`).
+
 ### Boundaries
 
 The supervisor owns this file's sections ABOVE the separator, the ledger, and all
