@@ -136,8 +136,10 @@ closes, because the groom closes it as regroomed-out at filing time.
 thing to know before doing anything, and it is a deliberate state, not an
 oversight. **It is also not a reason to stop — see step 3.**
 
-**WHERE THE THREE OPEN ITEMS STAND, as of 2026-07-31T05:56Z.** All three now sit
-with the maintainer, each with its numbers, and none is filed or closed:
+**WHERE THE THREE OPEN ITEMS STAND, as of 2026-07-31T14:36Z** (re-verified at
+session end; the fleet costing was re-run from the evidence dir and still reads
+117 → 25 / 92 cleared with its control at 117). All three sit with the
+maintainer, each with its numbers, and none is filed or closed:
 
 | item | state |
 |---|---|
@@ -148,6 +150,20 @@ with the maintainer, each with its numbers, and none is filed or closed:
 The only defect this thread found in itself is fixed: the charter's `ledger_anchor`
 pointed at a closed bug and now points at `overseer-yho`, gated by
 `tests/test_plan_thread_records_agree.py`.
+
+**NOTHING IS IN FLIGHT. The 2026-07-30/31 session landed 13 PRs / 15 commits and
+ALL ARE MERGED** (#411, #413, #418, #419, #421, #424, #425, #426, #427, #429,
+#432, #434, #437 — counted from the forge, not from memory, after a first tally of
+"12 PRs / 32 commits" proved wrong in both figures) — no open branch, no open PR,
+no worktree, no background job of mine, and **zero ledger writes all session**. So a cold open inherits a clean tree
+at `origin/master`, not a half-finished change. What that session produced, if you
+need to find it: the charter anchor fix + its gate (#421, #425); `overseer-jcw`
+mechanism 1 fixed in two modules + a property gate (#418); and the rest are this
+file — the `yho.3` costing, the jcw mechanism-2 costing, the `bak` measurement,
+four hazards, and the four-stale-claims record below. **Every number in this file
+below the separator was re-measured at session end and still holds** (7 of 7), and
+the full aggregate passes at the current `livespec-dev-tooling` pin `v1.13.6`,
+which another track bumped while that session was finishing.
 
 Phase 2 (`overseer-yho`) had four slices. Three are CLOSED and merged —
 `overseer-yho.1` (#389), `overseer-yho.2` (#393 + #398), `overseer-gjb` (#404).
