@@ -329,10 +329,31 @@ ships. An adopter generating from a released ref sees PASS.
 
 S3 landed the layered form, so master carries:
 
-- **`.ai/supervisor-protocol.md`** — the shared role layer, holding all **16**
-  Corrections (C1–C16). Verified present with 16 entries.
-- **`plan/supervisor-prompt-quality/supervisor-handoff.md`** — a thin binder, now
-  **126 lines** (was ~700).
+- **`.ai/supervisor-protocol.md`** — the shared role layer, holding **19**
+  role-level Corrections, C1–C19. Re-counted 2026-07-31 (584 lines).
+- **`plan/supervisor-prompt-quality/supervisor-handoff.md`** — the thin binder,
+  **266 lines**, carrying **1** thread-specific correction (T1). Re-counted
+  2026-07-31.
+
+**BOTH NUMBERS WERE STALE, AND THE FIRST ONE CONTRADICTED THIS FILE THREE LINES
+LOWER.** This bullet said "all **16** Corrections (C1–C16). Verified present with
+16 entries" and "a thin binder, now **126 lines**". Actual: **19** and **266**.
+The same handoff cites **C19** elsewhere — it is the `date -u -r` correction that
+detector (k) implements — so a reader trusting the count would have concluded that
+C17, C18 and C19 do not exist, while reading a sentence that depends on C19.
+
+Why it drifted, because the mechanism matters more than the correction: **a count
+is a claim with a timestamp, and it is the WORST kind** — it looks like a fact
+rather than a measurement, "Verified present with 16 entries" reads as though
+someone checked (they did, once), and appending a correction never touches the
+sentence that counts them. The `## Corrections` sections are append-only by
+design, so this drifts on EVERY append, silently, forever. **Prefer a rule that
+recounts over a number that ages**; where a number must appear, date it, as these
+two now are. Nothing gates this — the count sits in prose that no test reads.
+
+(The "all 16 Corrections verified byte-equivalent" in the S3 paragraph below is
+NOT stale: it describes what was verified when PR #307 landed, and 16 was correct
+then. Left alone deliberately — a historical measurement is not a drifted one.)
 
 S3 was **salvaged, not reimplemented**: its run completed implement and
 janitor-green then died at review before the token rotation, and the PR stage is
