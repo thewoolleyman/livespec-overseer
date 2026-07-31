@@ -501,6 +501,26 @@ under a light paired load, 2 of 8 under two FULL concurrent suites** — and aft
 mechanism 1 was fixed, **every** remaining failure across 8 concurrent full-suite
 runs was this one and no socket collision appeared at all.
 
+**CORRECTION, 2026-07-31T03:43Z — those numbers UNDERSTATE it, and the correction
+matters more than the original.** "Alone" meant a single non-xdist pytest run of
+one module. It fires in the ORDINARY `just check` AGGREGATE, with no external load
+at all: caught live on a pre-push here, on worker `[gw3]`, minutes after a
+foreground `just check` on the identical tree had passed 65/65. **The aggregate's
+own xdist parallelism is sufficient CPU load** — which is precisely what `jcw`
+reported as "run-alone passes, in-aggregate flakes", and I had read that as
+pointing at the shared `.coverage` file rather than at CPU contention.
+
+So do not treat mechanism 2 as a curiosity that needs a contrived double-load. It
+is the ordinary failure mode of `just check` on this host, it blocks pre-push, and
+because master CI feeds the Dispatcher's "latest master is green" pre-flight it can
+intermittently halt fleet dispatch.
+
+**And it presents EXACTLY as jcw described**, which is worth seeing once: the
+headline is `ERROR: Coverage failure: total of 99 is less than fail-under=100` with
+`check-per-file-coverage` and `check-coverage` named as the failing targets. The
+actual assertion failure is buried far below. Anyone reading the summary concludes
+they broke coverage. **Read for `FAILED` before believing a coverage verdict here.**
+
 **Why I stopped here rather than fixing it.** The fix is a choice between "a
 churning pane is ALWAYS reported BUSY" and "…is EVENTUALLY reported BUSY within a
 bounded window". That changes what a DISCRIMINATION test proves, which is a
