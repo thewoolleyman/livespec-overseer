@@ -527,6 +527,28 @@ bounded window". That changes what a DISCRIMINATION test proves, which is a
 contract decision, not a repair. Tuning the tick until it goes green is the
 re-run-until-green habit jcw itself argues against.
 
+**COSTED 2026-07-31T04:50Z so the decision does not need re-derivation.** The
+arithmetic first, because it eliminates the obvious answer. `_POLLS = 4`,
+`_STABLE_TO_IDLE = 3`, poll interval `0.15s`. `stable` resets to 0 on ANY change,
+so IDLE requires captures 2, 3 AND 4 to equal capture 1 — **an unchanging pane for
+~450ms**, i.e. about NINE missed 50ms ticks in a row. The pane is visible-only and
+the counter is monotonic, so equality means no new line RENDERED. That is genuine
+CPU starvation of the spinner, not a spacing problem.
+
+| option | verdict |
+|---|---|
+| **Tick faster** (`sleep 0.01`) | **CANNOT WORK, and it is the first instinct.** A descheduled process does not tick at any rate. It narrows nothing, and it would look like a fix until it flaked again. |
+| **Raise `_POLLS` / `_STABLE_TO_IDLE`** | Those are the WATCHER's parameters — the thing under test. Changing them changes the contract to make its own test pass. |
+| **Reduce parallelism** | **LEVER ALREADY SPENT.** `test_nprocs` is deliberately 25% of cores locally (4 of 18 here) precisely "so a shared host is never oversubscribed", and mechanism 2 fires anyway. The contention is HOST-WIDE — 57 worktrees, other tracks, the overseer daemon — not xdist alone. Note CI takes the other branch (`-n auto`, dedicated runner) and jcw recorded a master-CI red in this module too. |
+| **Assert EVENTUALLY-BUSY within a bounded window** | The honest repair, and the contract decision. Discrimination SURVIVES: a genuinely idle pane never changes, so it yields IDLE at every attempt — retrying cannot manufacture a false BUSY. What is lost is the stronger "always" reading. |
+| **Isolate the leg from contention** | Attractive because it changes nothing about what is asserted, but it only addresses xdist; a shared host starves it regardless. Partial at best. |
+
+**My read, not my call:** the fourth option is the only one that survives the
+arithmetic, and its cost is smaller than it first appears because the
+discrimination is asymmetric — an idle pane cannot flake INTO busy. But "always"
+becoming "eventually" is a real weakening of a contract test and the maintainer
+owns it.
+
 ### Hazards to carry forward
 
 - **A POSITIVE CONTROL ON YOUR OWN SPELLING PROVES THE REGEX COMPILES, NOT THAT IT
