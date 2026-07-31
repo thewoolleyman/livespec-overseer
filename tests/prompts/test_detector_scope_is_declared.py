@@ -31,6 +31,19 @@ that were true but written down nowhere:
 3. **A count of a document-scoped class counts FILES LACKING A PROPERTY, not
    defective lines.** Worth holding onto when reading the fleet's 117.
 
+**THE RISK IS LATENT, NOT LIVE, AND THE DIFFERENCE MATTERS.** Measured
+2026-07-31 across every scanned charter: each masked class has EXACTLY ONE
+instance in the file that masks it, and in every case the correct property
+genuinely applies to that instance. The two `bd` invocations in
+`.ai/supervisor-protocol.md` and in the exemplar are the documented-correct
+`ledger_show()` shape -- a wrapper call plus the bare fallback an adopter without
+a wrapper needs -- and the exemplar's single `(i)` read carries its truncation
+notice and its single `(j)` test its non-empty guard. **So nothing is hidden
+today.** The exposure begins the moment a file already holding the property gains
+a SECOND instance that is defective, because that one arrives unreported. Stated
+this way round on purpose: a reader who takes this module as evidence of existing
+hidden defects would go looking for something that is not there.
+
 THE LINEAGE, and why a registry rather than another pair of cases. Class (e)
 once pinned the literal `-qx`; the moment (f) was remediated to `-Fqx` the (e)
 detector went blind on charters it had flagged an hour earlier, while its own
