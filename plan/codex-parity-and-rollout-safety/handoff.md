@@ -19,7 +19,7 @@
 > | `overseer-e18` | — | CLOSED — PR #399, `0411f060`. **Its stated root cause was FALSE (mine); the PR is still worth having.** |
 > | `overseer-yms` | — | CLOSED — PR #397, `b6fe98dc` |
 > | `overseer-wr8` | — | CLOSED — PR #403, `556ad8ac` |
-> | **A3** | `overseer-kju6wh` | `pending-approval`. **Admission is ALREADY GRANTED by the maintainer — do NOT re-ask.** Held only by A4's live bar. |
+> | **A3** | `overseer-kju6wh` | `pending-approval`. **Admission is ALREADY GRANTED by the maintainer — do NOT re-ask.** ~~Held only by A4's live bar.~~ **Its CAPABILITY bar is now SATISFIED (measured 2026-07-31) — the block moved to the CHECK. See the box below.** |
 > | ~~`overseer-jcw`~~ | — | **CLOSED 2026-07-31 as a DUPLICATE of `overseer-jdo`** (P1, open), evidence folded in first. **Its admission ask is MOOT, not answered — do not raise it.** |
 > | **`overseer-jdo`** | — | **P1 `backlog`. HALF-FIXED BY ANOTHER TRACK — PR #418.** `supervisor-prompt-quality` found TWO mechanisms and fixed one (a tmux socket shared across concurrent runs). Mechanism 2 (a timing premise) is open and deliberately unfixed. **They worked it under the `overseer-jcw` id I closed into this one — the SURVIVOR CHOICE is surfaced to the supervisor, not settled.** Their diagnosis is mirrored into jdo's notes. |
 > | B2 / B1 / C1 | — | unchanged; other repos' work or stood down |
@@ -164,6 +164,70 @@
 > should take that window**; the launch half already passes from a real Codex
 > session, so the only thing the window adds is watching the daemon come up and
 > adopt instead of refusing.
+>
+> ## ✅ A3's CAPABILITY BAR IS SATISFIED — 2026-07-31. The block moved from the CLAIM to the CHECK.
+>
+> Drove a real Codex TUI (0.146.0) **by hand**, from a scratch directory that is
+> **not** this repo: `/skills` → *List skills* → typed `overseer`. Pane verbatim:
+>
+> ```
+> › @overseer
+> > livespec-overseer                   livespec-overseer                   Plugin
+>   overseer (livespec-overseer)        Start and operate the livespec tw…  Skill
+>   supervise-plan (livespec-overseer)  Create a reviewed supervisor hand…  Skill
+> ```
+>
+> Plugin row plus **both** skill rows, attributed and described. **This is the
+> right surface** — the standing guard says A2's evidence is agent-side
+> *resolution* via `codex exec` while A3's bar is TUI picker *rendering*, and that
+> A2 pre-discharges none of it. This is the picker, rendering, live.
+>
+> **WHY IT MATTERS.** A3 was held because flipping `harnesses.codex` to
+> `supported` without the capability is the claim-a-capability-that-does-not-exist
+> failure the A1/A3 split was cut to prevent. **The capability EXISTS**, so the
+> flip would state something TRUE. **Do not keep repeating "hold that line"
+> without reading this** — older text below still says A3 is held because
+> `overseer` cannot launch from another repo, and that premise is now false twice
+> over (see also A4's daemon half, proven the same day).
+>
+> **BOUNDS — this thread punishes unqualified live claims:** measured at the
+> **`--ref master`** pin (the declared deviation, cache dir `0.15.0`), so a
+> re-verification at `--ref release` is owed once **#360** merges. The marketplace
+> was **not** re-registered — that prunes cache dirs and breaks live sessions. The
+> picker was READ, not invoked from. One host, one codex version. And it was driven
+> **by hand**, so it is evidence about the CAPABILITY, **not** a demonstration that
+> any check can detect the capability's ABSENCE — A3's RED demo is still owed and
+> is a separate act.
+>
+> ### ⚠ AND THE CHECK HALF IS NOW THE HARD PART — the only same-shape template runs in NO automatic gate
+>
+> Scouted every fleet justfile for `check-codex-skill-picker`. Exactly **two**
+> repos have it; the other seven — including this one — have none.
+>
+> - **`livespec-orchestrator-beads-fabro` — COPY THIS.** Same nested
+>   `.claude-plugin/.codex-plugin/` shape as ours. `justfile:1110-1121` plus
+>   `tests/e2e-cli/test_codex_skill_picker.py` (**313 lines**), which drives a live
+>   Codex TUI over a **pty**, answers the terminal's fg/bg colour queries, types
+>   into `/skills`, strips ANSI and asserts on rendered text. **It can go RED** —
+>   `:311-313` are content assertions on the rendered picker. The port is three
+>   constants at `:32-34`: `drive`/`drive`/`orchestrator` → `overseer`/`overseer`/
+>   `livespec-overseer`. Its scratch-`CODEX_HOME` isolation (`:179-181`, `:291-295`)
+>   is worth copying verbatim.
+> - **`livespec-driver-codex` — do NOT copy.** Different repo shape, and
+>   `.claude/CLAUDE.md` says so explicitly.
+>
+> **THE TRAP, and it is exactly what A3 exists to prevent.** That template is
+> skipped by `check-pre-commit` (`:1196`), by `check-pre-push` (`:1219-1220`,
+> `:1272-1273`), **and** by CI unless `LIVESPEC_REQUIRE_CODEX_TUI_PICKER=1` — plus
+> a `pytestmark` skipif. **Four layers; it runs in no automatic gate at all**, only
+> on an explicit manual invocation. Copy it as-is and A3 ships a capability claim
+> backed by a check nobody runs — the "green by skip in both modes" shape A3's own
+> filing already names about `plugin_resolution.py`. The skips are DEFENSIBLE as a
+> **declared** deviation (a CI runner has no authenticated codex), but they must be
+> declared HERE rather than inherited silently.
+>
+> **READ, NOT RUN:** all template claims are about the code as written. I did not
+> execute their suite.
 >
 > ## Corrections made today — do NOT re-derive these, and do NOT re-break them
 >
