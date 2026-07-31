@@ -21,7 +21,7 @@
 > | `overseer-wr8` | — | CLOSED — PR #403, `556ad8ac` |
 > | **A3** | `overseer-kju6wh` | `pending-approval`. **Admission is ALREADY GRANTED by the maintainer — do NOT re-ask.** Held only by A4's live bar. |
 > | ~~`overseer-jcw`~~ | — | **CLOSED 2026-07-31 as a DUPLICATE of `overseer-jdo`** (P1, open), evidence folded in first. **Its admission ask is MOOT, not answered — do not raise it.** |
-> | **`overseer-jdo`** | — | **P1 `backlog`.** The live home for the flaky gate. Still needs admission; carries the statistical acceptance. |
+> | **`overseer-jdo`** | — | **P1 `backlog`. HALF-FIXED BY ANOTHER TRACK — PR #418.** `supervisor-prompt-quality` found TWO mechanisms and fixed one (a tmux socket shared across concurrent runs). Mechanism 2 (a timing premise) is open and deliberately unfixed. **They worked it under the `overseer-jcw` id I closed into this one — the SURVIVOR CHOICE is surfaced to the supervisor, not settled.** Their diagnosis is mirrored into jdo's notes. |
 > | B2 / B1 / C1 | — | unchanged; other repos' work or stood down |
 >
 > ## The four things that will bite you first
