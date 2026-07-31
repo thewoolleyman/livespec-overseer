@@ -29,7 +29,13 @@ that were true but written down nowhere:
    prove they still fire.
 
 3. **A count of a document-scoped class counts FILES LACKING A PROPERTY, not
-   defective lines.** Worth holding onto when reading the fleet's 117.
+   defective lines.** True, and SMALLER THAN IT SOUNDS -- measured against the
+   fleet 2026-07-31, the four document-scoped classes contribute **5 of 117
+   (4%)**, and only 2, 1, 1 and 6 of 29 fleet charters are immune to (h), (i),
+   (j) and (e) respectively. The distinction is architecturally real and
+   numerically minor: it does NOT move `overseer-yho.3`'s costing, where class
+   (a) alone is 92 of 117. Recorded with its magnitude so it is not mistaken for
+   a reason to re-open a settled measurement.
 
 **THE RISK IS LATENT, NOT LIVE, AND THE DIFFERENCE MATTERS.** Measured
 2026-07-31 across every scanned charter: each masked class has EXACTLY ONE
