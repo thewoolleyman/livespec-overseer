@@ -420,6 +420,44 @@ blanket `exit 0` would retire the execution leg for every ledger block), and the
 narrowing-free result was RED-demonstrated asymmetrically: blanket `exit 0` reddens
 only the discrimination leg; removing the stub reddens only the real-layers gate.
 
+### `overseer-bak` MEASURED: the gap is real, the INCIDENCE is nil — 2026-07-31T02:19Z
+
+`overseer-bak` establishes that nothing compares a plan thread's two durable
+records and that nothing in the fleet reads `supervisor-handoff.md` at all. Both
+reproduced here from the other direction (zero matching modules in
+`livespec_dev_tooling`, against a passing control of three `plan_thread` readers).
+What bak lacked is a COUNT. Measured read-only across `/data/projects`:
+
+| | |
+|---|---|
+| plan threads carrying BOTH records | 12 |
+| charters DECLARING a ledger anchor | 7 |
+| charters declaring none (uncomparable) | 5 |
+| **threads where the two records DISAGREE** | **0** |
+| charters carrying `## Generator provenance` | **1 of 12** |
+
+The only divergence in the fleet was THIS repo's own — `ledger_anchor='overseer-d4t'`,
+a closed bug, fixed in PR #421 and now gated. **So the gap is real and the current
+incidence is nil**, which should temper how urgently a fleet-wide comparator gets
+built. That the provenance yho.2 shipped reaches 1 charter in 12 is the same
+adopter-refresh chain `overseer-yho.3` is costed against — bak's remedy is gated on
+it too.
+
+**THE FINDING FOR WHOEVER BUILDS THE COMPARATOR, and I learned it by getting it
+wrong:** a ledger anchor has at least THREE spellings in the wild —
+`| \`ledger_anchor\` | \`x\` |` (table), `ledger_anchor='x'` (executable), and
+`- Ledger epic anchor — \`x\`` (bullet prose, homelab ×5). My first pass, written
+against this repo's spelling, reported "2 charters declare an anchor, 10 declare
+none" **with its positive control passing** — because the control only exercised
+the shape I had written the regex for. The widened extractor found 7, not 2.
+Working evidence and both runs are in
+`tmp/overseer/supervisor-prompt-quality/evidence/bak-record-drift-2026-07-31/`
+(gitignored — a fresh clone has none of it).
+
+Scope of what landed: `tests/test_plan_thread_records_agree.py` reads only this
+repo's two spellings, which is correct HERE (verified: this repo's other two
+charters declare no anchor in ANY spelling) but is NOT a fleet-ready comparator.
+
 ### `overseer-jcw` HAS TWO MECHANISMS. ONE IS FIXED; THE OTHER IS NOT — 2026-07-30T23:55Z
 
 Diagnosed and half-fixed by this thread because `tests/prompts/` is this thread's
@@ -471,6 +509,15 @@ re-run-until-green habit jcw itself argues against.
 
 ### Hazards to carry forward
 
+- **A POSITIVE CONTROL ON YOUR OWN SPELLING PROVES THE REGEX COMPILES, NOT THAT IT
+  COVERS THE WILD.** This thread's hardest-won rule is that a zero needs a control.
+  That rule has a hole: a control built from the same shape you wrote the pattern
+  for is CIRCULAR. Measured 2026-07-31 — a fleet scan reported "2 charters declare a
+  ledger anchor, 10 declare none", control GREEN, and it was wrong: five homelab
+  binders declare theirs as `- Ledger epic anchor — \`x\`` rather than this repo's
+  table/assignment forms. The widened extractor found 7. **When scanning artifacts
+  you did not author, the control must come from a FOREIGN instance** — open one of
+  the files you claim is empty and read it before believing the count.
 - **A "UNIQUE" IDENTIFIER IS ONLY AS UNIQUE AS ITS NARROWEST AXIS, and the
   docstring will tell you it is fine.** The rig above claimed uniqueness "per test
   and per xdist worker" and was correct on both — while colliding on the axis
