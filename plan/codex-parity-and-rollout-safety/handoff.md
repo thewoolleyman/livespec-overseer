@@ -1,11 +1,17 @@
 # Plan — codex-parity-and-rollout-safety
 
-> # ▶▶▶ RESUME HERE — written at wind-down, end of 2026-07-30. THIS BLOCK WINS OVER EVERY OTHER BLOCK IN THIS FILE.
+> # ▶▶▶ RESUME HERE — rewritten at wind-down, end of 2026-07-31. THIS BLOCK WINS OVER EVERY OTHER BLOCK IN THIS FILE.
 >
 > Everything below this block is HISTORY. It is accurate as evidence and often
-> wrong as *current state* — several of its claims were corrected later the same
-> day, and the corrections are boxed in place. **Read this block for what to do;
-> read below it for why.**
+> wrong as *current state* — many claims were corrected later, and the
+> corrections are boxed in place. **Read this block for what to do; read below it
+> for why.**
+>
+> **What 2026-07-31 changed, in one line each — details in the boxes below:**
+> **A4's daemon half is PROVEN** (the "not provable here" dilemma was false);
+> **A3's CAPABILITY bar is SATISFIED** (its block moved to the CHECK);
+> `overseer-jcw` was closed as a duplicate of `overseer-jdo`, which another track
+> then half-fixed; and two new items were filed. **Five PRs merged, none left open.**
 >
 > ## Nothing is in flight. Nothing is dispatchable by you. The cap is 0 of 4.
 >
@@ -13,7 +19,7 @@
 > |---|---|---|
 > | A1 | `overseer-4km4mj` | CLOSED |
 > | A2 | `overseer-vyie5q` | CLOSED |
-> | **A4** | `overseer-ews` | **`ready` — and you must NOT dispatch it (see the trap below).** Code landed long ago (PR #347, `8bd5b91`). Only its LIVE discharge is open. |
+> | **A4** | `overseer-ews` | **`ready` — and you must NOT dispatch it (see the trap below).** Code landed long ago (PR #347, `8bd5b91`). **Launch half PROVEN; daemon half PROVEN 2026-07-31.** What is left is running the bar END TO END, which is **SCHEDULABLE at the next daemon restart**, not blocked. **Read its caveat note before calling any discharge "Codex tracks are supervised".** |
 > | A5 | `overseer-ei3` | CLOSED — PR #385, `ad6669b` |
 > | A6 | `overseer-g6z` | CLOSED — PR #386, `e1ab5051` |
 > | `overseer-e18` | — | CLOSED — PR #399, `0411f060`. **Its stated root cause was FALSE (mine); the PR is still worth having.** |
@@ -23,7 +29,7 @@
 > | ~~`overseer-jcw`~~ | — | **CLOSED 2026-07-31 as a DUPLICATE of `overseer-jdo`** (P1, open), evidence folded in first. **Its admission ask is MOOT, not answered — do not raise it.** |
 > | **`overseer-jdo`** | — | **P1 `backlog`. HALF-FIXED BY ANOTHER TRACK — PR #418.** `supervisor-prompt-quality` found TWO mechanisms and fixed one (a tmux socket shared across concurrent runs). Mechanism 2 (a timing premise) is open and deliberately unfixed. **They worked it under the `overseer-jcw` id I closed into this one — the SURVIVOR CHOICE is surfaced to the supervisor, not settled.** Their diagnosis is mirrored into jdo's notes. **A THIRD mechanism was since found and REPRODUCED: `settle`/`wait_for` return silently on timeout, so a load spike is reported as a wrong answer. Read jdo's synthesis note FIRST — several of its notes correct each other.** |
 > | **`overseer-0pc`** | — | **P2 `backlog`, NEW today. Needs admission.** `overseer/AGENTS.md`'s scratch-`$HOME` isolation recipe silently blinds `~/.claude` + `~/.codex` discovery, so adoption can never fire and the empty result reads as *"adoption is broken"*. |
-> | **`overseer-mir`** | — | **P3 `backlog`, NEW today. Needs admission.** A live codex process can hold ZERO rollout fds. **Filed P1 on a misread and corrected down by me — read its retractions.** |
+> | **`overseer-mir`** | — | **P2 `backlog`, NEW. Needs admission.** *"Codex adoption's real gap is UNNAMED sessions, not unflushed fds."* **Filed P1 on a misread, corrected DOWN to P3, then re-scoped UP to P2 as the evidence grew — read its retractions, there are three.** Carries the measured **41%** adoptability finding. |
 > | B2 / B1 / C1 | — | unchanged; other repos' work or stood down |
 >
 > ## The four things that will bite you first
@@ -36,24 +42,30 @@
 >    gave the supervisor a standing authorization for this track, so it resolves
 >    in ONE hop. **Never self-admit.** Older text below says "ask the maintainer
 >    FIRST" — superseded.
-> 3. **A4's live bar: the LAUNCH half is PROVEN, the DAEMON half is not provable
->    on this host — and that is NOT a defect.** From a real Codex session in
->    `/data/projects/openbrain`, `CLAUDECODE` unset: resolve/execute/run all PASS,
->    `overseer-start` exits **0** in 463 ms and splits the pane (`%137`, then
->    `%138` on a rerun — distinct ids). The daemon then refuses on the **singleton
->    lock**, which is *correct behavior* while the acting daemon holds it. Proving
->    the adopt-a-track clause would need that daemon killed (**forbidden**) or an
->    `act=True` scratch daemon over the real fleet (**unsafe to other tracks**).
->    ~~**Whether the bar may be discharged anyway is a MAINTAINER decision about
->    narrowing it — the supervisor is carrying it up. Do not absorb it.**~~
->    **⛔ THAT DILEMMA IS FALSE AND THE DAEMON HALF IS NOW PROVEN — 2026-07-31.
->    There was a third route, and the code was built for it. See the box below.
->    The bar does NOT need narrowing on unprovability grounds; do not carry that
->    ask up as written.**
-> 4. **The fixture is pinned `--ref master`, a DECLARED deviation.** It retires
->    when **release PR #360** merges (`origin/release` is still 0.15.0 and does
->    not carry the launcher). Merging it is a release decision, not yours.
->    Re-registering PRUNES cache dirs and breaks live Codex sessions.
+> 3. **A4's live bar is NO LONGER BLOCKED — do not carry the old "unprovable" ask
+>    up.** Both halves are proven: launch (exit **0** in 463 ms from a real Codex
+>    session in another repo, pane split, distinct ids) and daemon (an `act=True`
+>    scratch-STORE daemon **adopted a track**, real fleet byte-identical before and
+>    after). The old dilemma — kill the acting daemon or run over the real fleet —
+>    was FALSE; `singleton_lock_path` keys the lock to the STORE and its docstring
+>    names that use. What remains is running it END TO END, which the singleton lock
+>    makes impossible *while any daemon runs* — **by design (invariant B6), not a
+>    host limit**. It is therefore **SCHEDULABLE: take the window at the next daemon
+>    restart**, which `overseer/AGENTS.md` requires after any overseer code change.
+>    The harness is committed at `research/daemon-adoption-harness.md`.
+> 4. **DO NOT hand-verify A3 by typing `/livespec-overseer:overseer`.** It returns
+>    *"Unrecognized command"* (measured twice, ~21h apart) and reads as "the plugin
+>    is not installed". **It IS installed** — the `/skills` picker renders it.
+>    Codex does not use Claude's `/plugin:skill` syntax. And the
+>    `canonical_command` FIELD is the **BARE** form, byte-identical to the claude
+>    entry — I filed the opposite first and corrected it; read A3's synthesis note
+>    FIRST, several of its notes correct each other.
+> 5. **The fixture is pinned `--ref master`, a DECLARED deviation.** It retires
+>    when **release PR #360** merges — still **OPEN** at wind-down, `origin/release`
+>    still 0.15.0 and not carrying the launcher. Merging it is a release decision,
+>    not yours. Re-registering PRUNES cache dirs and breaks live Codex sessions.
+>    **Every live measurement recorded today was taken at this pin**, so a
+>    re-verification at `--ref release` is owed once #360 lands.
 >
 > ## ⛔ A4's DAEMON HALF IS PROVEN — 2026-07-31. The "not provable here" claim was a FALSE DICHOTOMY.
 >
@@ -166,6 +178,40 @@
 > should take that window**; the launch half already passes from a real Codex
 > session, so the only thing the window adds is watching the daemon come up and
 > adopt instead of refusing.
+>
+> ## What to actually do next — nothing here needs a maintainer decision to START
+>
+> 1. **Ask the SUPERVISOR for admission** on `overseer-jdo` (P1, inherits jcw's
+>    ask), `overseer-0pc` (P2) and `overseer-mir` (P2). One hop; never self-admit.
+> 2. **Take the next daemon-restart window** to run A4's bar end to end (trap 3).
+>    Record WHICH bucket your probe session lands in — a `Claude Code`-originated
+>    or resumed session proves less about the ordinary path than it looks.
+> 3. **A3 is implementable the moment it is dispatched**: declare the bare
+>    `canonical_command`, port the picker check from
+>    `livespec-orchestrator-beads-fabro` (NOT `livespec-driver-codex`), and DECIDE
+>    which gates it rides in. That decision is the slice's real work.
+>
+> ### Decisions that are NOT yours, carried up and still open
+>
+> - **The `overseer-jcw` / `overseer-jdo` survivor choice.** I closed jcw into jdo
+>   while another track was mid-work under the jcw id; their commit says *"jcw is
+>   NOT closed"* and *"closing or re-scoping it is the supervisor's lane."* All
+>   evidence travels either way. **Surfaced, deliberately not reversed** —
+>   re-opening an item another track is working is churn.
+> - **B2's dangling `non_local_depends_on`** still points at the dead
+>   `overseer-llz4xi`. Re-verified: B1 (`livespec-dev-tooling-3nt9`) is still
+>   `backlog`, so the repair **unblocks nothing** and gains no urgency. Parked for
+>   vetting, as the record says.
+> - **Release PR #360** (trap 5).
+>
+> ### A peer notification is OWED
+>
+> `supervisor-prompt-quality` owns `tests/prompts/`. A **third** flaky-gate
+> mechanism was found AND reproduced against their shipped code — `settle` /
+> `wait_for` return silently on timeout — and it is recorded on `overseer-jdo`
+> with the reproduction, not raised with them directly. **Not fixed on purpose:**
+> it is a contract change against an explicit in-code decision (*"do not convert
+> this into a raise"*), the same ground on which they declined mechanism 2.
 >
 > ## ✅ A3's CAPABILITY BAR IS SATISFIED — 2026-07-31. The block moved from the CLAIM to the CHECK.
 >
