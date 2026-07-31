@@ -141,3 +141,45 @@ def test_the_extractors_fire_on_the_shapes_they_are_written_for() -> None:
 
     # A bare MENTION is not a declaration; a handoff cites many ids read-only.
     assert _declared_anchors(text="see `overseer-d4t` for the adopter argument") == []
+
+
+def test_documenting_the_defect_does_not_recreate_it() -> None:
+    """The handoff DISCUSSES anchors, including wrong ones. Prose must not count.
+
+    NOT hypothetical, and not a style point — every line below is real prose from
+    `plan/supervisor-prompt-quality/handoff.md`, written to document the very
+    defect this module gates. A shell-side version of this rule was drafted and
+    REJECTED because it fell for exactly these: `grep -iE 'ledger.{0,24}anchor'`
+    over the handoff matches the sentence recording that the anchor used to be
+    `overseer-d4t`, so a charter still bound to `overseer-d4t` would have passed a
+    check whose whole purpose is to catch that binding.
+
+    That is the same failure the charter gate carries
+    `test_prose_describing_a_hazard_is_not_counted_as_the_hazard` for, and it is
+    the reason this extractor keys on `ledger anchor` with a SPACE plus a
+    same-line backticked id: `ledger_anchor` with an underscore is how the defect
+    gets QUOTED, and `Ledger epic anchor` is a foreign spelling that appears here
+    only as quoted evidence.
+
+    Sabotage that reddens this: relax `_HANDOFF_DECLARES` to allow an underscore
+    or an intervening word.
+    """
+    quoted_defect = (
+        "The only divergence in the fleet was THIS repo's own — " "`ledger_anchor='overseer-d4t'`,"
+    )
+    assert _declared_anchors(text=quoted_defect) == []
+
+    table_row = "| charters DECLARING a ledger anchor | 7 |"
+    assert _declared_anchors(text=table_row) == []
+
+    foreign_spelling_quoted = "`- Ledger epic anchor — `x`` (bullet prose, homelab x5). My first"
+    assert _declared_anchors(text=foreign_spelling_quoted) == []
+
+    # And the live file still yields exactly the two anchors it declares — the
+    # end-to-end form of the same claim, so a future edit to the handoff that
+    # smuggles in a third cannot pass unnoticed.
+    handoff = _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "handoff.md"
+    assert _declared_anchors(text=handoff.read_text(encoding="utf-8")) == [
+        "overseer-byvxlp",
+        "overseer-yho",
+    ]
