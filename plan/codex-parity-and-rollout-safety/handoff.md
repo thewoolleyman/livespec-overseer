@@ -21,7 +21,9 @@
 > | `overseer-wr8` | — | CLOSED — PR #403, `556ad8ac` |
 > | **A3** | `overseer-kju6wh` | `pending-approval`. **Admission is ALREADY GRANTED by the maintainer — do NOT re-ask.** ~~Held only by A4's live bar.~~ **Its CAPABILITY bar is now SATISFIED (measured 2026-07-31) — the block moved to the CHECK. See the box below.** |
 > | ~~`overseer-jcw`~~ | — | **CLOSED 2026-07-31 as a DUPLICATE of `overseer-jdo`** (P1, open), evidence folded in first. **Its admission ask is MOOT, not answered — do not raise it.** |
-> | **`overseer-jdo`** | — | **P1 `backlog`. HALF-FIXED BY ANOTHER TRACK — PR #418.** `supervisor-prompt-quality` found TWO mechanisms and fixed one (a tmux socket shared across concurrent runs). Mechanism 2 (a timing premise) is open and deliberately unfixed. **They worked it under the `overseer-jcw` id I closed into this one — the SURVIVOR CHOICE is surfaced to the supervisor, not settled.** Their diagnosis is mirrored into jdo's notes. |
+> | **`overseer-jdo`** | — | **P1 `backlog`. HALF-FIXED BY ANOTHER TRACK — PR #418.** `supervisor-prompt-quality` found TWO mechanisms and fixed one (a tmux socket shared across concurrent runs). Mechanism 2 (a timing premise) is open and deliberately unfixed. **They worked it under the `overseer-jcw` id I closed into this one — the SURVIVOR CHOICE is surfaced to the supervisor, not settled.** Their diagnosis is mirrored into jdo's notes. **A THIRD mechanism was since found and REPRODUCED: `settle`/`wait_for` return silently on timeout, so a load spike is reported as a wrong answer. Read jdo's synthesis note FIRST — several of its notes correct each other.** |
+> | **`overseer-0pc`** | — | **P2 `backlog`, NEW today. Needs admission.** `overseer/AGENTS.md`'s scratch-`$HOME` isolation recipe silently blinds `~/.claude` + `~/.codex` discovery, so adoption can never fire and the empty result reads as *"adoption is broken"*. |
+> | **`overseer-mir`** | — | **P3 `backlog`, NEW today. Needs admission.** A live codex process can hold ZERO rollout fds. **Filed P1 on a misread and corrected down by me — read its retractions.** |
 > | B2 / B1 / C1 | — | unchanged; other repos' work or stood down |
 >
 > ## The four things that will bite you first
@@ -226,8 +228,41 @@
 > **declared** deviation (a CI runner has no authenticated codex), but they must be
 > declared HERE rather than inherited silently.
 >
-> **READ, NOT RUN:** all template claims are about the code as written. I did not
-> execute their suite.
+> ~~**READ, NOT RUN:** all template claims are about the code as written. I did not
+> execute their suite.~~ **SINCE RUN — it PASSES on this host, 78.33s
+> (`test_skills_picker_finds_drive_by_short_name PASSED`). The pty technique
+> works here on codex-cli 0.146.0.** (`uv run` synced that repo's venv; `git
+> status` stayed clean and `uv sync --dry-run` then reported no changes, so it
+> moved the venv INTO lockfile conformance. Disclosed because it is another
+> track's repo.)
+>
+> ### ⚠ THE `canonical_command` — write the BARE form, and do NOT hand-verify with a slash
+>
+> **Write `"canonical_command": "livespec-overseer:overseer"`** — byte-identical
+> to the claude entry at `.livespec.jsonc:38`. That is the fleet convention,
+> confirmed three ways: `_command_surface_prompt` adds `/` for claude and
+> **nothing** for codex; its docstring example shows codex unprefixed; and BOTH
+> repos that ship a working codex surface declare the same bare string for both
+> harnesses (`livespec-orchestrator-beads-fabro:34-37`,
+> `livespec-driver-codex:48-49`).
+>
+> **But do NOT hand-verify by typing `/livespec-overseer:overseer`.** Measured
+> twice, ~21h apart: *"Unrecognized command"*. That reads as "the plugin is not
+> installed" and **it is installed** — the picker renders it. Codex does not use
+> Claude's `/plugin:skill` syntax; the picker's own insertion form is
+> **`$livespec-overseer:overseer`**.
+>
+> **I filed the opposite of this first and corrected it.** A note on the slice
+> still titled *"the obvious `canonical_command` is MEASURABLY WRONG"* is
+> **reversed** by the notes after it — I measured a real thing at the surface a
+> HUMAN touches and drew a conclusion about a FIELD consumed by code I had not
+> read. **Read the slice's synthesis note first; several of its notes correct
+> each other.**
+>
+> **STILL UNKNOWN:** whether codex RESOLVES that bare string at runtime the way
+> the checker's docstring assumes, given the picker inserts a `$`. Two repos
+> declaring it proves the CONVENTION, not codex's BEHAVIOUR. The repo-local check
+> should assert the DECLARED value — that is what settles it.
 >
 > ## Corrections made today — do NOT re-derive these, and do NOT re-break them
 >
