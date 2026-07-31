@@ -61,7 +61,7 @@ live status, no next actions, and no date-gated behavior.
 | `runtime_dir` | `<repo_primary>/tmp/overseer/supervisor-prompt-quality/` |
 | `supervisor_marker` | `<runtime_dir>/.supervisor-state` |
 | `wait_channel` | `<runtime_dir>/worker-status.log` |
-| `ledger_anchor` | `overseer-d4t` |
+| `ledger_anchor` | `overseer-yho` |
 
 Placeholder classes declared by this binder:
 
@@ -173,7 +173,7 @@ Re-measure the filed work item from the ledger before carrying forward any statu
 or acceptance claim from this file, the plan thread, or a marker:
 
 ```sh
-ledger_anchor='overseer-d4t'
+ledger_anchor='overseer-yho'
 # `bd` reaches a per-repo TENANT database and needs the fleet credential wrapper
 # here; a bare `bd` returns "Access denied". DETECTED, not hard-coded, so an
 # adopter without a wrapper can still re-measure.
@@ -246,3 +246,21 @@ Thread-specific corrections live here. Regenerating this binder MUST preserve
 this section byte-for-byte, from the `## Corrections` heading through the end of
 the section. Preserve spelling, punctuation, code formatting, blank lines, and
 ordering exactly.
+
+- **T1 — `ledger_anchor` pointed at a CLOSED BUG, inside the block whose job is to
+  stop exactly that.** Measured 2026-07-31: both spellings of this binder's anchor
+  — the Bindings table and the executable `ledger_anchor='…'` in Verification
+  Discipline — read `overseer-d4t`, a **bug** closed 2026-07-30T19:34:35Z and an id
+  this thread's `handoff.md` declares nowhere. The handoff declares the epics
+  `overseer-byvxlp` and, for phase 2, `overseer-yho`. So a supervisor obeying the
+  instruction directly above it — "re-measure the filed work item from the ledger
+  before carrying forward any status or acceptance claim" — would have re-measured
+  a closed bug belonging to no phase of this thread and reported on it with
+  confidence. Corrected to `overseer-yho` in both places, matching the handoff.
+  **This is `overseer-bak` instantiated in the repo's own hardened exemplar**, and
+  nothing could see it: the eleven-class charter gate reads shell and tmux forms,
+  the two fleet plan-thread checks read `handoff.md` only, and **no check anywhere
+  in the fleet reads this file at all** (measured, against a passing control).
+  `tests/test_plan_thread_records_agree.py` now compares the two records
+  statically. **When the phase changes, this binding changes with it** — an anchor
+  is a claim with a timestamp, like every other status in this file.
