@@ -604,6 +604,33 @@ owns it.
 
 ### Hazards to carry forward
 
+- **WHEN A VERIFICATION DISAGREES WITH THE ARTIFACT, SUSPECT THE VERIFICATION
+  FIRST. Measured 2026-07-31: four for four.** This is the synthesis of the
+  individual entries below, and it is worth more than any of them, because in a
+  single session EVERY apparent defect that a check reported turned out to be the
+  CHECK's fault and not the artifact's:
+  1. `ls … | grep '^_'` returned 0 helper modules against a true 20 — `ls` is
+     `lsd` here and its output is inode-decorated, so a `^`-anchored filename
+     match can never fire.
+  2. A fleet scan reported "2 charters declare an anchor, 10 declare none",
+     positive control GREEN — the control only exercised the spelling I had
+     written the regex for. The real answer was 7.
+  3. `gh pr checks --watch` reported 0 failures before any check had REGISTERED,
+     one step from merging without CI. `fails=0` is not green unless `pass>0`.
+  4. A test-function existence scan reported 7 MISSING functions, all of which
+     were module names with `.py` stripped by my own regex.
+  And a fifth, in the other direction: a module with SEVEN tests beside a claim of
+  "all four of its states" looked like drift, and was not — four were cache states
+  and three were charter-shape checks. **Correcting it would have falsified an
+  accurate record and destroyed the distinction the module is built around.**
+
+  The operational form, because "be careful" is not a rule: **before reporting a
+  defect a check found, reproduce it by hand on the artifact itself.** Open the
+  file you just claimed was empty. Read the test NAMES before trusting their
+  count. Ask what population a number counts before deciding it is wrong. Every
+  one of the five above dissolved in under a minute of looking directly, and each
+  had already survived a control that I believed.
+
 - **A POSITIVE CONTROL ON YOUR OWN SPELLING PROVES THE REGEX COMPILES, NOT THAT IT
   COVERS THE WILD.** This thread's hardest-won rule is that a zero needs a control.
   That rule has a hole: a control built from the same shape you wrote the pattern
