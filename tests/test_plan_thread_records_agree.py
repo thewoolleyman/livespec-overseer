@@ -34,6 +34,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 __all__: list[str] = []
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -51,8 +53,45 @@ _ANCHOR_EXEC = re.compile(r"^ledger_anchor='([^']+)'", re.MULTILINE)
 _HANDOFF_DECLARES = re.compile(r"[Ll]edger anchor:?\*{0,2}[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`")
 
 
-def _charter_anchors(*, text: str) -> tuple[list[str], list[str]]:
-    return _ANCHOR_TABLE.findall(text), _ANCHOR_EXEC.findall(text)
+# The THIRD spelling, which is REAL and lives in the fleet: homelab's five
+# binders declare theirs as `- Ledger epic anchor — `x``. Without it a charter
+# using that form extracts nothing and is SILENTLY SKIPPED by the loop below —
+# the vacuous-pass shape, in the gate whose whole job is catching a stale anchor.
+#
+# Safe to add here, verified rather than assumed: no charter in this repo uses
+# OR quotes this spelling, so it cannot manufacture an anchor out of prose.
+# Dashes as ESCAPES, not literals: the linter rejects ambiguous Unicode in
+# source, and homelab uses U+2014 EM DASH here.
+_BULLET_DASHES = "\u2012\u2013\u2014\u2015-"
+_ANCHOR_BULLET = re.compile(
+    r"[Ll]edger epic anchor\s*[" + _BULLET_DASHES + r"]\s*`([a-z0-9-]+(?:\.[0-9]+)?)`"
+)
+
+
+def _charter_anchors(*, text: str) -> tuple[list[str], list[str], list[str]]:
+    return _ANCHOR_TABLE.findall(text), _ANCHOR_EXEC.findall(text), _ANCHOR_BULLET.findall(text)
+
+
+def _anchor_from(*, topic: str, table: list[str], executable: list[str], bullet: list[str]) -> str:
+    """The charter's anchor, with the table/executable PAIR still mandatory.
+
+    Split out of the loop so the bullet-only branch is reachable from a unit
+    test: this repo has no bullet-spelled charter, and a branch exercised only
+    by a file that does not exist is a branch nothing checks.
+
+    The pair strictness is deliberately NOT relaxed. A charter using the
+    table/executable form must carry BOTH and they must agree — a human reads
+    one and a supervisor runs the other. Only a charter using neither falls
+    through to the foreign spelling.
+    """
+    if table or executable:
+        assert table == executable, (
+            f"{topic}: the charter's own two anchor spellings disagree — "
+            f"table {table} vs executable {executable}. A human reads one and a "
+            f"supervisor runs the other."
+        )
+        return table[0]
+    return bullet[0]
 
 
 def _declared_anchors(*, text: str) -> list[str]:
@@ -67,16 +106,12 @@ def _threads_with_a_charter_anchor() -> list[tuple[str, str, list[str]]]:
         handoff = thread / "handoff.md"
         if not charter.is_file() or not handoff.is_file():
             continue
-        table, executable = _charter_anchors(text=charter.read_text(encoding="utf-8"))
-        if not table and not executable:
+        table, executable, bullet = _charter_anchors(text=charter.read_text(encoding="utf-8"))
+        if not table and not executable and not bullet:
             continue
-        assert table == executable, (
-            f"{thread.name}: the charter's own two anchor spellings disagree — "
-            f"table {table} vs executable {executable}. A human reads one and a "
-            f"supervisor runs the other."
-        )
+        anchor = _anchor_from(topic=thread.name, table=table, executable=executable, bullet=bullet)
         out.append(
-            (thread.name, table[0], _declared_anchors(text=handoff.read_text(encoding="utf-8")))
+            (thread.name, anchor, _declared_anchors(text=handoff.read_text(encoding="utf-8")))
         )
     return out
 
@@ -126,11 +161,12 @@ def test_the_charter_anchor_is_the_current_one_the_handoff_declares() -> None:
 
 def test_the_extractors_fire_on_the_shapes_they_are_written_for() -> None:
     """POSITIVE CONTROL. A zero from a scan is indistinguishable from a broken regex."""
-    table, executable = _charter_anchors(
+    table, executable, bullet = _charter_anchors(
         text="| `ledger_anchor` | `overseer-yho` |\n\nledger_anchor='overseer-yho'\n"
     )
     assert table == ["overseer-yho"]
     assert executable == ["overseer-yho"]
+    assert bullet == []
 
     assert _declared_anchors(
         text="**Ledger anchor:** epic **`overseer-byvxlp`** (this repo's beads"
@@ -183,3 +219,62 @@ def test_documenting_the_defect_does_not_recreate_it() -> None:
         "overseer-byvxlp",
         "overseer-yho",
     ]
+
+
+def test_the_foreign_bullet_spelling_is_read_rather_than_silently_skipped() -> None:
+    """A charter using homelab's spelling must be COMPARED, not passed over.
+
+    The loop's `continue` is the danger: a spelling the extractor cannot read is
+    indistinguishable from a charter that declares nothing, so the gate reports
+    a clean repo over a charter it never examined. That is the vacuous pass this
+    suite guards against everywhere else.
+
+    Measured 2026-07-31: this spelling is REAL — five homelab binders use it,
+    and a scan that omitted it reported 2 charters declaring an anchor fleet-wide
+    against a true 7.
+
+    Sabotage that reddens this: delete `_ANCHOR_BULLET` from `_charter_anchors`.
+    """
+    table, executable, bullet = _charter_anchors(text="- Ledger epic anchor — `homelab-x9q`\n")
+    assert (table, executable) == ([], [])
+    assert bullet == ["homelab-x9q"]
+    assert _anchor_from(topic="t", table=[], executable=[], bullet=bullet) == "homelab-x9q"
+
+
+def test_the_table_and_executable_pair_is_still_mandatory_together() -> None:
+    """Adding a third spelling must not weaken the rule for the first two.
+
+    A charter using the table/executable form has to carry BOTH and they must
+    agree; only a charter using NEITHER falls through to the foreign spelling.
+    Without this, the `or` added for the bullet would silently let a charter
+    declare a table anchor with no executable binding — readable by a human,
+    unrunnable by a supervisor.
+
+    Sabotage that reddens this: relax `_anchor_from` to `if table and executable`.
+    """
+    with pytest.raises(AssertionError, match="two anchor spellings disagree"):
+        _anchor_from(topic="t", table=["a"], executable=[], bullet=[])
+    with pytest.raises(AssertionError, match="two anchor spellings disagree"):
+        _anchor_from(topic="t", table=["a"], executable=["b"], bullet=[])
+
+
+def test_a_charter_that_merely_mentions_an_anchor_declares_none() -> None:
+    """Prose in a CHARTER must not be read as a declaration — a real near-miss.
+
+    Every line below is real text from this repo's charters. The first is why a
+    broader "looks like a declaration but did not extract" guard was DESIGNED
+    AND REJECTED: `plan/fabro-review-classifier-defect/supervisor-handoff.md`
+    discusses the ledger anchor in prose while declaring none, so a rule keyed on
+    the PHRASE would have reddened a correct charter. Measured before writing,
+    which is the only reason it was not shipped.
+
+    Sabotage that reddens this: widen `_ANCHOR_BULLET` to match the phrase
+    without requiring the dash and the backticked id.
+    """
+    mention = "`plan/*/handoff.md` **only**, and both are about the **ledger anchor** —"
+    assert _charter_anchors(text=mention) == ([], [], [])
+
+    listed_as_a_binding_name = (
+        "  `supervisor_session`, `WORKER_TARGET`, `SUPERVISOR_TARGET`, `ledger_anchor`."
+    )
+    assert _charter_anchors(text=listed_as_a_binding_name) == ([], [], [])
