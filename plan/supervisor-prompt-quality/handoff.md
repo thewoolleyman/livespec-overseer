@@ -793,20 +793,47 @@ protection is a GitHub repo setting that a pin bump cannot touch**. Confirmed:
 nothing in `.github/workflows/` or the `justfile` SETS protection, and
 `branch_protection_alignment` reads it and never mutates it.
 
-**THE GENERALISATION IS THE POINT, not these three.** Every future canonical check
-the fleet ships arrives here **non-blocking by default**, and the only thing
-standing between that and permanence is a human noticing one warning line among a
-65-target run. (They do print — 3 occurrences in this session's captured log — but
-a warning in an aggregate that ends "All 65 targets passed" is not a decision
-prompt.) **A gate that runs but cannot block is a gate that reports, and the
-adoption path has no step that promotes it.**
+**CORRECTION, WRITTEN MINUTES AFTER THE PARAGRAPH IT REPLACES — I generalised
+this wrongly, and the right version is more useful.** The first draft said "every
+future canonical check the fleet ships arrives non-blocking by default", as if it
+were inherent to the pin-bump adoption path. **It is not. It is a consequence of
+THIS repo's branch-protection style, and the rest of the fleet is already immune.**
 
-**Not fixed, and deliberately.** Changing branch protection is a repo-settings
-change with merge-blocking consequences for every open PR, and whether these three
-*should* be required is a maintainer's judgement about each check's maturity —
-`check-required-role-keys-declared` in particular may be young. What is now
-measured is that the current state is an accident of the adoption path rather than
-a decision anyone made.
+| repo | required contexts | consequence |
+|---|---|---|
+| `livespec` | **1** — `ci-green` | a new matrix entry is gated AUTOMATICALLY |
+| `livespec-dev-tooling` | **1** — `ci-green` | same |
+| **`livespec-overseer`** | **56 enumerated**, and **`ci-green` is NOT among them** | a new matrix entry is gated only if someone adds its context by hand |
+
+`ci-green` is `needs: [check-python, check-metadata, check-doctor-static]` and
+exits 1 if any of them fails — and all three "optional" targets sit inside the
+`check-metadata` matrix. **So they would already be blocking if `ci-green` were
+required here.** It is not.
+
+**THE FIX IS THEREFORE NOT "ADD THREE CONTEXTS" — IT IS "REQUIRE `ci-green`",
+which is what the rest of the fleet does.** That is one context instead of 56, it
+gates every present and future matrix entry by construction, and it makes this
+whole class of drift unrepresentable rather than merely detected. Enumerating 56
+contexts is the thing that has to be maintained by hand; `ci-green` is not.
+
+**And it re-reads the alignment check's warning correctly.** "Optional jobs are
+allowed; informational only" is the right verdict for a repo gating on `ci-green`
+— an unrequired job there really is informational. In a repo that enumerates
+contexts instead, the same warning is a genuine enforcement hole wearing the same
+words. **The check is fleet-general; the interpretation is repo-specific.**
+
+**Still not fixed, and now for a better reason.** Switching a repo's required-check
+set is a settings change affecting every open PR (there are seven), and moving from
+56 enumerated contexts to `ci-green` is a deliberate posture change, not a repair.
+**But it is a one-setting change with a fleet precedent, which is a much cheaper
+decision than the three-context version I first described.**
+
+**MY FIRST FLEET SCAN OF THIS REPORTED "70 of 70 NOT required" for `livespec` and
+similar for three others — a false alarm I nearly filed.** Those repos require
+`ci-green` alone, which transitively gates everything. A raw count of
+"matrix targets minus required contexts" cannot see a `needs:` edge, and this is
+the fourth raw-scan number this session that was wrong before it was read
+properly.
 
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
