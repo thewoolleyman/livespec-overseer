@@ -561,6 +561,30 @@ file, and comparing it against `signals.py`:
 Neither is a behaviour defect; both are the same shape as the inventory gap —
 code moved, the authoritative docs did not.
 
+**AND THE TWO CHARTER LAYERS SHARE A DUPLICATED HELPER — the concrete instance of
+the masking property this file already predicted.** The layers are read TOGETHER,
+so anything defined in both is a divergence risk. Measured: four variables and one
+function are defined in both. **Three of the four are the DESIGN, not a defect** —
+`WORKER_TARGET` and `ledger_anchor` differ exactly because the shared layer holds
+placeholders (`'=<worker-session>:'`, `'<ledger-anchor>'`) and the binder's whole
+job is to bind them (`'=supervisor-prompt-quality:'`, `'overseer-yho'`);
+`pane_pid` and `tmux_rc` agree. **But `ledger_show()` is duplicated
+BYTE-IDENTICALLY in both** (md5 `d67081bb84ac`, 7 lines), and **nothing asserts
+they agree** — the two test modules that mention it do so for other reasons.
+
+Three consequences, none urgent:
+
+  - A fix applied to one copy silently leaves the other behind, and the layers are
+    read together so the later definition wins.
+  - **It is exactly what makes (h) masked in BOTH files independently.** This
+    file's own finding says "a charter absorbs NEW defects of a document-scoped
+    class once it holds the correct form once — a genuinely wrapper-less `bd`
+    added to `.ai/supervisor-protocol.md` produces no finding". This helper is
+    that correct form, and because it is duplicated, the same immunity holds in
+    the binder too.
+  - The hardcoded-wrapper limitation found above lives in **both** copies, so an
+    adopter parameterising it for their own tenant has two places to change.
+
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
 `updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
