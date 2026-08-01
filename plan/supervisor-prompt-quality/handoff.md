@@ -169,8 +169,16 @@ ways this session — but the receipt did not. See "A GITIGNORED CAPTURE IS NOT 
 CAPTURE".
 
 **NOTHING ELSE IS IN FLIGHT.** No background jobs, **no ledger writes this
-session**, no other track touched, nothing filed, transitioned or closed. Seven
-worktrees remain on disk because their PRs are open; reap them only after landing.
+session**, no other track touched, nothing filed, transitioned or closed.
+
+**SEVEN worktrees back the seven open PRs — but this checkout carries 69
+`git worktree list` entries, so do NOT read that seven as the total.** The
+previous session's phrasing ("five worktrees remain on disk because their PRs are
+open") invited exactly that misreading and I inherited it before measuring.
+Roughly sixty are ORPHANS from landed work, which is `overseer-btt` doing what it
+says: `just worktree-reap` cannot see a rebase-merged branch as merged, so it
+skips them and offers `--force`, which would act on every other track's. Reap only
+the seven listed above, and only after they land.
 
 **WHAT THIS SESSION PRODUCED, in the order the findings matter** (all sections
 below carry their own measurements; this is the index):
@@ -1989,6 +1997,15 @@ owns it.
   porcelain output grows with every worktree, reaping orphans is the only thing
   that improves the odds, and `just worktree-reap` cannot see rebase-merged
   branches (`overseer-btt`).
+  **THIRD DATA POINT, 2026-08-01 at 69 entries: 5 attempts, then 9.** Both
+  creations this session succeeded, with no partial state either time. **So the
+  trend is NOT monotonic in the way the sentence above implies** — 69 entries
+  produced better runs than 63 did, which is what a coin flip with a
+  count-dependent bias looks like from a sample of one or two per session. The
+  useful shape is the one that has held every time: **retry, budget more attempts
+  than feels reasonable, and never read a long run of 141s as a different fault.**
+  Recorded with its sample size so the "it is getting worse" framing is not
+  over-read from three sessions of anecdote.
 - **`ls` ON THIS HOST IS `lsd`, AND ITS OUTPUT IS INODE-DECORATED — so
   `ls … | grep '^<name>'` MATCHES NOTHING, ALWAYS.** Each line begins with an inode
   number and a permission string, not the filename, so any filename predicate
