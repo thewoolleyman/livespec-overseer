@@ -676,6 +676,35 @@ executable evidence. **Do not re-run this sweep** — and if a future review add
 numbered finding, the cheap thing is to cite it in the test too, so the trace stays
 mechanical rather than resting on a doc sentence.
 
+### WHERE THIS SESSION'S YIELD ACTUALLY CAME FROM — the synthesis, and it should aim the next audit
+
+Twelve findings, and the split is stark enough to be worth acting on: **every
+CODE-side check came back clean; every PROSE-side check found something.**
+
+| checked | result |
+|---|---|
+| all 20 numbered review findings still pinned by tests | **clean** |
+| the wrap-up escalation gradient (`test_wrapup_escalates_from_suggestion_to_insistence`, both directions across 50/40/30/20/10, mutually exclusive) | **clean** |
+| `session_exists` against the prefix-match hazard | **clean — and hardened deliberately, with a test; I was wrong to doubt it** |
+| every path `SPECIFICATION/contracts.md` mandates, against the code | **clean** |
+| `overseer/AGENTS.md` runbook commands | 2 defects |
+| `overseer/AGENTS.md` module inventory | 5 named of 26 |
+| `overseer/marker-protocol.md` vs spec + code | pair state file missing; `state-path-mismatch` undocumented |
+| this handoff's own citations | 4 real misses |
+| the fleet's `justfile` recipes | 5 of 8 masked |
+| the repo-root "these docs are CURRENT" assurance | qualified |
+
+**The code in this repo is in good order and its reasons are anchored to
+executable evidence.** What drifts is everything a test does not read: prose
+inventories, cross-references, counts, and per-repo shell recipes that no
+canonical check governs. That is not a criticism of the codebase — it is where the
+next audit should be pointed, and it is the mechanised form of this thread's
+oldest lesson: **a claim nothing executes is a claim nothing maintains.**
+
+**The practical corollary, for whoever opens next:** stop re-verifying the code
+paths listed above as clean — they are measured and dated. Point the instruments
+at documents, citations, and cross-repo configuration instead.
+
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
 `updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
