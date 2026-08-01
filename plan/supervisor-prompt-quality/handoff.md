@@ -1018,6 +1018,12 @@ assigned to anyone. So this session audited what the thread owns, exactly as ste
   goes RED. Keyed on the property (every charter-shaped file on disk is scanned)
   rather than a count, so it self-adjusts as threads come and go.
 
+**SUPERSEDED 2026-08-01 — this paragraph is the 14:40Z session's record and
+reads in the PRESENT TENSE. There are now SEVEN open PRs, and "#440 is the ONLY
+one touching this file" is no longer true: #457 rewrites it, so **#440 must merge
+FIRST** (see the restart state). Everything below about the ORIGINAL five is still
+accurate for those five.**
+
 **All five PRs are left OPEN deliberately**: merging is the supervisor's lane
 per Boundaries. Their worktrees are still on disk for the same reason — reap them
 only after they land. **#440 is the ONLY one touching this file.** #441 and #445 each add a NEW
