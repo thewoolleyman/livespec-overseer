@@ -2282,6 +2282,25 @@ owns it.
   cheap and absolute: never take the date from the harness — take it from
   `date -u` or `datetime.now(timezone.utc)`, every time.**
 
+  **THIRD CONSECUTIVE NIGHT, CAUGHT LIVE — and it SHARPENS the claim rather than
+  merely repeating it.** At local `2026-08-02T00:30:32 CEST` the harness announced
+  "Today's date is now 2026-08-02" while **UTC was `2026-08-01T22:30:32Z`**
+  (`date -u` and `datetime.now(timezone.utc)` agreeing):
+
+  | | local | UTC |
+  |---|---|---|
+  | 1 | 2026-07-31T00:03 | 2026-07-30T22:03Z |
+  | 2 | 2026-08-01T00:02:59 | 2026-07-31T22:02:59Z |
+  | 3 | **2026-08-02T00:30:32** | **2026-08-01T22:30:32Z** |
+
+  **The first two both landed at ~00:02-00:03, which was weaker evidence than it
+  looked: consistent with the WINDOW hypothesis, but equally consistent with
+  something about when sessions happen to start.** This one is at **00:30**, half
+  an hour in, which separates them — the notice is wrong for the ENTIRE two-hour
+  window, not at a particular minute. **So a session opening at 00:45 or 01:50
+  local is just as affected and has no cue to suspect it.** Every stamp in this
+  session was taken from `date -u` and reads 2026-08-01, which is correct.
+
 ### STALE CLAIMS ABOVE THE SEPARATOR — reported, NOT fixed, not mine to fix
 
 **This heading said "FOUR" until 2026-08-01, when a fifth was found and the
