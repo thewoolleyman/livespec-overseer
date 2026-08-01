@@ -139,9 +139,10 @@ oversight. **It is also not a reason to stop — see step 3.**
 **RESTART STATE, rewritten 2026-08-01T10:05Z by the session that followed the
 09:15Z wind-down. READ THIS FIRST.**
 
-**SEVEN PRs ARE OPEN AND ALL ARE GREEN** — #440, #441, #445, #446, #452 from the
-previous session, plus **#456** and **#457** from this one; each 62 success / 1
-skipped / 0 failures, all `MERGEABLE/CLEAN`. **Merging them is the supervisor's
+**SIX PRs ARE OPEN** — #440, #441, #445, #446, #452 from the previous session,
+plus **#456** from this one; each 62 success / 1 skipped / 0 failures.
+**#457 IS MERGED** — it carried this file, which is why you are reading this
+session's findings at all. **Merging them is the supervisor's
 lane** — that is why they are open, not because anything is unfinished. #440 and
 #441 are behind the pin bumps (not diverged) and may want a rebase first.
 **ONE PAIR IS NOT DISJOINT — merge #440 before #457; see the next paragraph.**
@@ -2263,6 +2264,20 @@ owns it.
   porcelain output grows with every worktree, reaping orphans is the only thing
   that improves the odds, and `just worktree-reap` cannot see rebase-merged
   branches (`overseer-btt`).
+  **A LONG RUN OF 141s CAN MEAN A LEFTOVER BRANCH, NOT THE RACE — and this bullet's
+  advice was WRONG about that (found at wind-down, 2026-08-01).** This bullet says
+  each failure "leaves NO partial state (verified again: no branch, no directory)"
+  and "do not read a long run of 141s as a different fault". At wind-down a create
+  failed **60 times out of 60**. It was not the race: an earlier failed attempt had
+  left the BRANCH `wrapup-supervisor-prompt-quality` behind (no directory, so the
+  usual check missed it), and every retry then died at 141 before the real
+  "already exists" error could print — the documented empty-log mechanism hiding
+  the actual cause. **`git branch -D <name>` then retry succeeded on attempt 1.**
+  So: **after ~10 consecutive 141s, stop retrying and check
+  `git branch --list <name>` and `git worktree prune`.** Retrying harder is exactly
+  the wrong response, and the two failure modes are indistinguishable from the exit
+  code alone.
+
   **THIRD DATA POINT, 2026-08-01 at 69 entries: 5 attempts, then 9.** Both
   creations this session succeeded, with no partial state either time. **So the
   trend is NOT monotonic in the way the sentence above implies** — 69 entries
