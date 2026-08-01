@@ -321,6 +321,46 @@ required check over a failing test, to the same consumer.** The choice is not
 to take, one loud and one silent**, and the fleet's reference repo chose loud a
 month ago. Still not applied; still the supervisor's call.
 
+### HOW BIG IS THE MASKED CLASS, AND `overseer-jdo`'s OWN FLAKY TEST IS IN IT — 2026-08-01T12:45Z
+
+The masking is only interesting if the masked class is large. Measured by AST over
+all **747** test functions in this repo:
+
+| population | count | meaning |
+|---|---|---|
+| body is a SINGLE assert | **35 (5%)** | **ANY** failure is masked — nothing is left unexecuted |
+| ends ON an assert | **713 (95%)** | a failure **at that final assertion** is masked; an earlier one is caught |
+| ends on something else | 34 (5%) | — |
+
+**Read the two rows correctly, because 95% is not the answer.** Ending on an
+assert is NECESSARY but not SUFFICIENT: a test with five asserts that fails at the
+first leaves four statements unexecuted, coverage drops, and the target fails
+loudly. The masked case is a failure at a test's LAST executed statement. So the
+honest bounds are **35 tests where any failure is invisible, and up to 713 where
+the final assertion failing is invisible** — the truth for a given flake depends
+on WHERE it fails, which is not a property anyone can choose.
+
+**AND THE SPECIFIC TEST `overseer-jdo` IS ABOUT SITS IN BOTH MODES.**
+`test_both_forms_report_busy_while_a_pane_keeps_changing` has **6 statements with
+asserts at positions 4 and 5**:
+
+  - failing at assert **4** leaves statement 5 unexecuted → coverage drops → the
+    target fails → **this is the signature every sighting has recorded**;
+  - failing at assert **5** leaves nothing unexecuted → coverage holds at 100% →
+    **the board goes fully green over a failed P1 flake.**
+
+**THIS IS THE CONCRETE FORM OF WHY jdo's ACCEPTANCE CANNOT BE MEASURED YET.** Its
+bar is statistical — 20 consecutive clean runs — and clean runs are counted from a
+board that has a demonstrated blind mode **for the very test being counted**. An
+unknown fraction of any green streak may contain the failure it is meant to
+disprove, and nothing in the record distinguishes them. **The bar is not merely
+set against a stale rate (the 1/7-vs-1/40 problem already recorded); the
+denominator itself is unsound until the recipe is unmasked.**
+
+That is an argument about SEQUENCING, and it points the opposite way from the
+caution that has held the fix back: **unmasking is a precondition for measuring
+jdo, not something to do after it.**
+
 **WHAT IS STILL THE SUPERVISOR'S CALL.** Nothing here says land it. The
 consequence the previous session named is real — a strictly stronger gate does
 turn the next `overseer-jdo` flake into a red master. What has changed is that
