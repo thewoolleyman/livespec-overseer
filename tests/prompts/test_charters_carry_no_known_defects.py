@@ -627,6 +627,64 @@ def test_every_charter_in_this_repo_is_free_of_the_known_defects():
     assert {path: found for path, found in offences.items() if found} == {}
 
 
+def test_the_globs_reach_every_charter_shaped_file_in_the_repo():
+    """A NARROWED glob silently reduces coverage, and non-empty does not catch it.
+
+    `test_this_repo_has_charters_to_scan` asserts only that the set is non-empty,
+    so it still passes with ONE charter of eight. That is the weaker half of the
+    guard: it catches a glob that matches nothing, never a glob that quietly
+    stopped matching most things. This module's own docstring records why that
+    gap matters -- the two-layer split moved half of every deployed charter into
+    `.ai/supervisor-protocol.md`, the glob was not widened to follow it, and the
+    gate went on reporting a clean repo while the larger half went unexamined.
+    **A gate's SCOPE is as load-bearing as its detectors**, so the scope gets a
+    rule rather than a floor.
+
+    KEYED ON A PROPERTY, NOT A COUNT, deliberately: asserting "eight charters"
+    would drift the moment this repo grows a plan thread, and the reflex would be
+    to edit the number. The rule is that every charter-shaped file ON DISK is in
+    the scanned set, so it self-adjusts as threads come and go while still
+    failing if the globs stop reaching one.
+
+    SCOPE, stated rather than hidden. It looks under `plan/**` at ANY depth plus
+    the shared layer, which is deliberately WIDER than `_CHARTER_GLOBS`' two
+    fixed depths -- a charter added at `plan/archive/<topic>/research/` would be
+    unscanned today and this is what would say so. It does NOT look outside
+    `plan/`, which correctly ignores the gitignored working copy at
+    `tmp/<topic>-supervisor/supervisor-handoff.md` (measured: that is the only
+    charter-shaped file outside the globs, and it is untracked scratch).
+
+    Sabotage that reddens this: drop `plan/archive/*/supervisor-handoff.md` from
+    `_CHARTER_GLOBS`, which removes four charters while leaving the set non-empty.
+    """
+    scanned = {path.resolve() for path in _charters()}
+    # Both halves are GLOBS, not a path plus an `is_file()` test. A conditional
+    # here carries a branch that can never be taken while the shared layer
+    # exists, so it can never be covered; a glob over an absent file simply
+    # yields nothing and needs no branch.
+    on_disk = {path.resolve() for path in _REPO_ROOT.glob("plan/**/supervisor-handoff.md")}
+    on_disk |= {path.resolve() for path in _REPO_ROOT.glob(".ai/supervisor-protocol.md")}
+
+    unscanned = sorted(str(path.relative_to(_REPO_ROOT)) for path in on_disk - scanned)
+    assert unscanned == [], (
+        f"charter-shaped files exist that no glob reaches: {unscanned}. "
+        "Widen _CHARTER_GLOBS rather than deleting this assertion -- an "
+        "unscanned charter is indistinguishable from a clean one."
+    )
+
+
+def test_the_disk_scan_this_rule_depends_on_actually_finds_charters():
+    """POSITIVE CONTROL. If the disk scan found nothing the rule above is vacuous.
+
+    Its assertion is a SUBSET check, so an empty `on_disk` satisfies it trivially
+    and every narrowing would pass. That is the same vacuous shape the rule was
+    written to close, one level up.
+
+    Sabotage that reddens this: point the glob at a directory that does not exist.
+    """
+    assert len(list(_REPO_ROOT.glob("plan/**/supervisor-handoff.md"))) > 1
+
+
 def test_the_hardened_exemplar_is_clean():
     """POSITIVE CONTROL: a hit here is a defect in the DETECTORS, not the charter.
 
