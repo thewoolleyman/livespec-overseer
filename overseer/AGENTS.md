@@ -842,9 +842,47 @@ for the marker's edge-triggered lifecycle.
   count of consumer-visible SURFACES, not of files on disk:
   - `registry.py` → `_registry_core` / `_registry_store` / `_registry_discovery` /
     `_registry_stamps`.
-  - `supervisor.py` → `_supervisor_core` (the `Supervisor` class) /
-    `_supervisor_config` / `_supervisor_prompts` / `_supervisor_view` /
-    `_supervisor_records`.
+  - `supervisor.py` → `_supervisor_core` (the `Supervisor` class) and a GROUP
+    THAT IS NO LONGER ENUMERABLE HERE — see the correction immediately below.
+
+  > **THIS LIST WAS FIVE MODULES AND THE TRUTH IS TWENTY-SIX (measured
+  > 2026-08-01). Do not trust an enumeration in this section.** It named
+  > `_supervisor_core` / `_supervisor_config` / `_supervisor_prompts` /
+  > `_supervisor_view` / `_supervisor_records`; `ls overseer/_supervisor_*.py`
+  > returns **26**. That pair of numbers is the stable claim — re-derive both from
+  > the tree, never from this prose.
+  >
+  > As measured against the docs AS THEY STOOD BEFORE THIS NOTE, **22** private
+  > modules totalling **4,069 lines** were named nowhere in any of the three,
+  > including whole subsystems: `_supervisor_evaluate` (390),
+  > `_supervisor_discovery` (324), `_supervisor_observe` (322),
+  > `_supervisor_restart` (289), `_supervisor_pair` (267),
+  > `_supervisor_attention` (261), `_supervisor_liveness` (248).
+  >
+  > **Naming those seven here dropped the figure to 15 modules / 1,968 lines the
+  > instant this note was written, and that is worth seeing rather than hiding.**
+  > A count measured against a document you then edit is stale on arrival — the
+  > same trap this file's correction-count history records — which is exactly why
+  > the durable claim above is "5 named vs 26 on disk" and not a residue count.
+  >
+  > **Why this is worse than an out-of-date list.** The repo-root
+  > `.claude/CLAUDE.md` instructs agents to read these three documents as
+  > authoritative *before changing anything in `overseer/`*, so a maintainer
+  > arrives with a five-item map of a twenty-six-module subsystem and no signal
+  > that the rest exists. The unlisted modules trace to real shipped features
+  > (`feat: cover pair-stall supervisor nudge`, `feat: escalate blocked
+  > declarations by age band`, `feat: surface uncertifiable ready declarations`),
+  > so this is a documentation gap, not dead code.
+  >
+  > **The measurement is recorded rather than the list repaired, deliberately.**
+  > This section has already drifted once and been patched at the surface level
+  > ("Corrected 2026-07-26: this said six modules") while the collaborator list
+  > beneath it drifted four times further — which is this repo's own lesson that
+  > **a rule that recounts beats a number that ages**. Enumerate from the tree
+  > (`ls overseer/_supervisor_*.py`); do not re-add a hand-written list here.
+  > Describing what those 4,069 lines DO belongs to whoever owns the daemon's
+  > liveness/attention work (`plan/daemon-liveness-truth/`), not to the audit that
+  > measured them.
 
   Each façade re-exports its whole group, so `import registry` / `import supervisor`
   is still the entire consumer surface and no caller changed. The collaborators are
