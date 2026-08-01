@@ -588,6 +588,15 @@ file, and comparing it against `signals.py`:
    a bare `-t <topic>` prefix-match dangerous — and this host is running 14 such
    pairs right now.
 
+   **AND THE SWEEP IS CLOSED, so nobody repeats it.** Every concrete path
+   `SPECIFICATION/contracts.md` mandates was cross-checked against the code and
+   both module docs — the worker state file, the pair state file, the mapping
+   store, the injection-stamp sidecar, the watch-set declaration, and the charter.
+   **The pair state file is the ONLY one missing from the docs**; the rest are
+   covered. A negative result recorded deliberately: the question "what else has
+   the spec mandated that the docs never absorbed?" now has an answer, and it is
+   "nothing else".
+
 Neither is a behaviour defect; both are the same shape as the inventory gap —
 code moved, the authoritative docs did not.
 
