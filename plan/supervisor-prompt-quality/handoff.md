@@ -197,6 +197,7 @@ below carry their own measurements; this is the index):
 | 10 | **The pair state file is SPECIFIED and IMPLEMENTED but absent from the contract doc** — spec ↔ code ↔ doc, and only the doc lags | measured; sweep of all spec-mandated paths CLOSED (it is the only one) |
 | 11 | **A correction to #3: the DAEMON was already proof against the prefix match** (`session_exists` is exact-membership, blocker B1, tested) | my published claim was wrong and is corrected in #456 + here; **the runbook fix still stands, better justified** |
 | 12 | All **20** numbered review findings cited in the code are still pinned by tests | POSITIVE result — do not re-run |
+| 13 | **This repo requires 56 enumerated CI contexts and NOT `ci-green`**, so 3 pin-bump-added gates can be red on a merged PR. `livespec` and `livespec-dev-tooling` require `ci-green` ALONE and are immune by construction | **one-setting fix with a fleet precedent** — a posture change, so the supervisor's call |
 
 **Two PRs opened: #456** (tests + doc corrections) and **#457** (this record).
 Both 62 success / 1 skipped / 0 failures, `MERGEABLE/CLEAN`.
