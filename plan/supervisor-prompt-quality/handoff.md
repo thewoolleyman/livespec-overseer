@@ -185,7 +185,7 @@ below carry their own measurements; this is the index):
 
 | # | finding | disposition |
 |---|---|---|
-| 1 | **The masked-failure recipe is a FLEET defect that `livespec` core fixed 2026-07-01.** 3 repos guarded, 5 masked — including `livespec-dev-tooling`, which ships the fleet's gates | **decision reshaped; still the supervisor's call** |
+| 1 | **The masked-failure recipe is a FLEET defect that `livespec` core fixed 2026-07-01.** 3 repos guarded, 5 masked — including `livespec-dev-tooling`, which ships the fleet's gates. **And the masked green is a REQUIRED STATUS CHECK on master**, so it reaches branch protection and the Dispatcher pre-flight — the risk runs BOTH ways, one loud and one silent. Sweep closed fleet-wide: one shape, five one-line edits, no siblings | **decision reshaped; still the supervisor's call** |
 | 2 | The evidence for that finding (`jdo/run-2.log`) **does not exist**; finding re-derived three ways | recorded, with the missing clause in the lesson |
 | 3 | **`overseer/AGENTS.md` steered operators to a prefix-matching `respawn-pane -k`**, and `=name:` works after all | **fixed — PR #456**, and it de-risks `yho.3` |
 | 4 | The maintenance guide **maps 5 of 26** supervisor modules | measured; **PR #456** marks it, repair belongs to `overseer-x29` |
