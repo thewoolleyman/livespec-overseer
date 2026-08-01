@@ -263,6 +263,30 @@ about it per recipe — `check-per-file-coverage` is the one that carries no com
 and no guard.** So the fix really is one line, and "nine recipes are broken" would
 have been the eighth entry in the suspect-the-verification list.
 
+**THE SWEEP IS NOW FLEET-WIDE AND CLOSED — `check-per-file-coverage` IS THE ONLY
+DEFECTIVE SHAPE (measured 2026-08-01T11:55Z).** The obvious follow-up to a
+one-recipe finding is "are there siblings?", so every recipe in all **11** fleet
+justfiles was scanned for the same shape: a bash recipe with `pipefail` but no
+`-e`, where a non-final command's failure would be swallowed.
+
+**A naive reading of that scan says 22 recipes. The true answer is one shape in
+five repos, and the difference is entirely false positives** — the same trap as
+the "nine recipes" alarm and the "368 defects" number earlier in this session:
+
+  - `check-pre-commit` / `check-pre-push` place `exit $?` immediately after each
+    delegated `just` call, so the status propagates. Verified by reading
+    `livespec-runtime`'s (`just check-pre-commit-doc-only` on line 9, `exit $?`
+    on line 10) — a pairing a line-oriented scan cannot see.
+  - `check-coverage` is an `if/else` in which **both** branches end on their
+    load-bearing command. Verified byte-for-byte in `livespec-runtime` and
+    `livespec-orchestrator-git-jsonl`: identical shape, benign. A flat scan reads
+    the `if` branch's last command as "non-final" because the `else` branch
+    follows it textually.
+
+**So the maintainer's change is exactly five one-line edits, with nothing hiding
+beside them** — and that is now a measured claim rather than an assumption. **Do
+not re-run this sweep.**
+
 **WHAT IS STILL THE SUPERVISOR'S CALL.** Nothing here says land it. The
 consequence the previous session named is real — a strictly stronger gate does
 turn the next `overseer-jdo` flake into a red master. What has changed is that
