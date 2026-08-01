@@ -47,6 +47,27 @@ being denied. Both are re-tensed, and
 cannot rot silently again. **Re-measure before refreshing this date; a
 "CURRENT" assurance is itself a claim with a timestamp.**
 
+**THIRD RE-MEASURE, 2026-08-01, AND IT QUALIFIES THE ASSURANCE ABOVE — read this
+before treating `overseer/AGENTS.md` as a complete map.** The two earlier
+re-measures checked PATH references and TENSE. Checking a third thing — whether
+what the docs ENUMERATE matches what the tree HOLDS — found the architecture
+inventory badly behind: it names **five** `supervisor.py` collaborators while
+`ls overseer/_supervisor_*.py` returns **26**, and 22 private modules (~4,069
+lines) were named in none of the three documents, including whole subsystems
+(`_supervisor_evaluate`, `_supervisor_discovery`, `_supervisor_observe`,
+`_supervisor_restart`, `_supervisor_pair`, `_supervisor_attention`,
+`_supervisor_liveness`). The measurement is recorded in `overseer/AGENTS.md`
+beside that list. The gap is DOCUMENTATION, not dead code — those modules ship
+real features.
+
+**And note precisely what is and is not gated**, because the sentence above is
+narrower than it reads: `tests/test_module_docs_match_the_repo.py` gates exactly
+ONE premise — that no authoritative doc denies `.ai/` exists in the present tense.
+It does not check inventory accuracy, and nothing else does either. So these three
+documents remain the right things to read, and their INVARIANTS and mechanics are
+still authoritative; what you cannot assume is that any LIST in them is complete.
+**Enumerate from the tree.**
+
 As always `SPECIFICATION/` governs and the code is the final word on
 behavior — that is normal precedence, not a warning about these files.
 
