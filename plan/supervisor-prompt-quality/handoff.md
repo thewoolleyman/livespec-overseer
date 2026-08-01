@@ -140,11 +140,14 @@ oversight. **It is also not a reason to stop — see step 3.**
 09:15Z wind-down. READ THIS FIRST.**
 
 **SEVEN PRs ARE OPEN AND ALL ARE GREEN** — #440, #441, #445, #446, #452 from the
-previous session, plus **#456** and **#457** from this one. All `CLEAN`, and their
-file-sets are DISJOINT so none can conflict with another. **Merging them is the
-supervisor's lane** — that is why they are open, not because anything is
-unfinished. #440 and #441 are behind the pin bumps (not diverged) and may want a
-rebase first.
+previous session, plus **#456** and **#457** from this one; each 62 success / 1
+skipped / 0 failures, all `MERGEABLE/CLEAN`. **Merging them is the supervisor's
+lane** — that is why they are open, not because anything is unfinished. #440 and
+#441 are behind the pin bumps (not diverged) and may want a rebase first.
+**ONE PAIR IS NOT DISJOINT — merge #440 before #457; see the next paragraph.**
+(This sentence claimed all seven were disjoint until 13:20Z, three paragraphs
+above the measurement that refuted it. A cold open reads top-down, so the wrong
+claim came first.)
 
 **MERGE #440 BEFORE #457 — the one ordering constraint among the seven, measured
 2026-08-01T13:10Z.** All seven file-sets were compared pairwise and **exactly one
@@ -183,7 +186,7 @@ sequencing risk — the precedent it was thought to set already exists.
 **TWO CORRECTIONS TO THE PARAGRAPH THAT USED TO SIT HERE.** It said the finding
 was "captured with evidence": **the evidence is GONE.** `jdo/run-2.log` does not
 exist anywhere on this host (searched the whole of `/data/projects`, including
-all 67 worktrees). The FINDING survives — it was re-derived three independent
+every worktree — 67 at the time of that search, 69 after this session created two). The FINDING survives — it was re-derived three independent
 ways this session — but the receipt did not. See "A GITIGNORED CAPTURE IS NOT A
 CAPTURE".
 
