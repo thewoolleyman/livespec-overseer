@@ -287,6 +287,39 @@ the "nine recipes" alarm and the "368 defects" number earlier in this session:
 beside them** — and that is now a measured claim rather than an assumption. **Do
 not re-run this sweep.**
 
+### THE MASKED GREEN IS IN THE AUTHORITATIVE SIGNAL, NOT JUST LOCAL RUNS — measured 2026-08-01T12:05Z
+
+**This is the part that changes the risk calculus, and it was never checked.** The
+whole finding has been discussed as a property of `just check` on a developer
+host. It is not:
+
+  - `ci.yml` runs **one job per target** (`run: just ${{ matrix.target }}`), and
+    **`check-per-file-coverage` is in that matrix** (line 161).
+  - It is a **REQUIRED STATUS CHECK** on `master` — read from branch protection:
+    `check-per-file-coverage` is listed alongside `check-coverage`,
+    `check-check-coverage-incremental` and the rest.
+
+So the CI job invokes exactly the recipe whose status is the coverage check's. **A
+test that fails at an assertion whose lines are already covered produces a GREEN
+required status check** — the same green that satisfies branch protection for
+merges and that feeds the Dispatcher's "latest master is green" pre-flight.
+
+**STATED WITH ITS LIMIT, because the masked subset is partial, not total.** When
+the flaky test dies MID-BODY its later lines go uncovered, coverage drops, and the
+job fails — that is the sighting everyone has seen. The masked case is the other
+one: a failure at an already-covered assert. So this does not mean the board has
+been lying wholesale; it means **the board cannot be relied on to have told the
+truth**, and there is no way to bound how often from the record.
+
+**WHY IT MATTERS FOR THE DECISION.** The stated reason for not applying
+`set -euo pipefail` is that a strictly stronger gate turns the next flake into a
+red master, and master CI feeds fleet dispatch. That risk is real. **What was
+missing is the risk on the other side: the current state can present a green
+required check over a failing test, to the same consumer.** The choice is not
+"accept a new risk vs. keep things safe" — it is **which of two failure directions
+to take, one loud and one silent**, and the fleet's reference repo chose loud a
+month ago. Still not applied; still the supervisor's call.
+
 **WHAT IS STILL THE SUPERVISOR'S CALL.** Nothing here says land it. The
 consequence the previous session named is real — a strictly stronger gate does
 turn the next `overseer-jdo` flake into a red master. What has changed is that
