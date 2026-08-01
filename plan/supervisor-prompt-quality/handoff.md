@@ -644,6 +644,30 @@ Three consequences, none urgent:
   - The hardcoded-wrapper limitation found above lives in **both** copies, so an
     adopter parameterising it for their own tenant has two places to change.
 
+### EVERY NUMBERED REVIEW FINDING IN THE CODE IS STILL PINNED — a POSITIVE result, 2026-08-01T11:40Z
+
+Finding `B1` in `tmuxio.py` raised a general question worth answering once: the
+product code cites numbered adversarial-review findings all over
+(`B1`–`B8`, `R1`–`R2`, `SF1`–`SF5`, `RB1`–`RB3`, `defect #5`, `defect #6`) as the
+reason a given line is the way it is. **A citation is a dependency — so does each
+one still have a test pinning it, or have some become folklore?**
+
+**Measured across all 20: every one is covered.** 19 are traceable BY NAME from
+product code into a test module. The twentieth, `defect #6` (the Codex
+discovery-seam test isolation), is cited in `_supervisor_core.py:163` and named in
+no test — but its behaviour IS pinned by
+`test_refresh_and_adopt_route_codex_through_injected_seams`, which
+`overseer/AGENTS.md` explicitly names as the proof. **So the apparent gap is a
+naming gap, not a coverage gap** — and it dissolved in one grep, which is the
+eighth time this session that suspecting my own check first was the right move.
+
+**Recorded because a positive result nobody writes down gets re-derived.** This
+thread spends most of its effort on drift, and this is a place where the
+discipline holds completely: the reasons in this codebase are still anchored to
+executable evidence. **Do not re-run this sweep** — and if a future review adds a
+numbered finding, the cheap thing is to cite it in the test too, so the trace stays
+mechanical rather than resting on a doc sentence.
+
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
 `updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
