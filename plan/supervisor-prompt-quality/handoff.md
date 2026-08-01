@@ -162,10 +162,25 @@ pair overlaps**: #440 and #457 both list
     replays an old handoff.md commit onto a heavily rewritten file — a likely
     conflict, and a bad resolution there could revert 832 lines.
 
-**So: #440 first, then #457, and the other five in any order** (their file-sets
-are mutually disjoint — verified, not assumed). If a conflict on `handoff.md`
-appears anyway, the standing guidance still holds and is still right: **take
-master's.**
+**WHAT ACTUALLY HAPPENED AT WIND-DOWN, 2026-08-01T22:55Z — #457 LANDED FIRST, so
+#440 NOW REQUIRES A REBASE.** The wind-down session tried to merge #440 first, as
+this section directs, and the forge refused: **`GraphQL: This branch can't be
+rebased`** — #440 is behind the pin bumps and needs its branch updated before it
+can land. Updating another PR's branch is not a wind-down act, and this file HAD
+to reach master (it is the only thing the next session inherits), so **#457 was
+merged and #440 was left for the supervisor.**
+
+**THE RESOLUTION FOR #440 IS KNOWN AND SAFE — do not improvise it.** Rebase #440
+onto master; it WILL conflict on `plan/supervisor-prompt-quality/handoff.md`
+(simulated before merging: `git rebase` returned rc=1 with a CONFLICT on exactly
+that file). **Take MASTER's copy of `handoff.md` in full.** #440's version is a
+byte-identical duplicate of the OLDER content that master already carried, so
+master's side loses nothing and keeps this session's ~900 added lines. #440's
+real contribution is `tests/test_charter_correction_counts_are_current.py`, which
+is untouched by the conflict.
+
+**The other five (#441, #445, #446, #452, #456) remain mutually disjoint** —
+verified, not assumed — and can land in any order.
 
 **THIS CORRECTS A CLAIM I MADE EARLIER IN THIS SAME BLOCK.** It read "#457 is now
 the only open PR that changes this file", which I inferred from #440's empty
