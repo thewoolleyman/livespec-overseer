@@ -361,6 +361,48 @@ That is an argument about SEQUENCING, and it points the opposite way from the
 caution that has held the fix back: **unmasking is a precondition for measuring
 jdo, not something to do after it.**
 
+### THERE IS A THIRD REMEDY FORM — AND I RECOMMEND AGAINST IT, 2026-08-01T13:00Z
+
+The remedy has been discussed all session as binary: `set -uo` (masks) or
+`set -euo` (catches). **A third form exists, it is strictly more diagnostic, and
+it is still probably the wrong choice here.** All four behaviours executed, not
+argued:
+
+| form | test fails | coverage check runs? | recipe rc |
+|---|---|---|---|
+| `set -uo pipefail` (today) | swallowed | yes | **0 — masked** |
+| `set -euo pipefail` (livespec core) | aborts | **NO** | 1 |
+| capture the rc, run both, `exit $rc` | reported | **yes** | 1 |
+
+The third form is:
+
+```bash
+uv run pytest … ; rc=$?
+uv run python -m livespec_dev_tooling.checks.per_file_coverage || exit 1
+exit $rc
+```
+
+**What it buys, and it is real:** under `set -e`, a red test means
+`per_file_coverage` never runs, so that run tells you nothing about whether
+coverage ALSO regressed — and this repo's history shows the two failures are
+routinely confused for each other. The third form reports both in one pass and
+still fails. Verified: rc=1 with the coverage check having run, and rc=0 when
+tests pass.
+
+**WHY I RECOMMEND AGAINST IT ANYWAY, which is the more useful half.** This
+session's central finding is that **per-repo divergence in this exact recipe is
+what created the problem** — five repos drifted from a fix the reference repo made
+a month ago, and nothing detected it because each justfile is maintained by hand.
+Answering that with a *fourth* variant, unique to this repo and clever, recreates
+the condition. `livespec` core chose `set -euo pipefail` and wrote the rationale
+into the recipe; **matching it is worth more than the extra diagnostic**, and it
+makes the five-repo sweep a single uniform edit rather than five judgement calls.
+
+**One caveat if the third form is ever chosen anyway:** it assumes `.coverage`
+exists after a failing pytest. That holds for ordinary test FAILURES but not for a
+COLLECTION error, where `per_file_coverage` would then fail for a second,
+confusing reason. `set -euo` has no such edge.
+
 **WHAT IS STILL THE SUPERVISOR'S CALL.** Nothing here says land it. The
 consequence the previous session named is real — a strictly stronger gate does
 turn the next `overseer-jdo` flake into a red master. What has changed is that
