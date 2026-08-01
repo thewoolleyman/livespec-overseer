@@ -172,6 +172,24 @@ CAPTURE".
 session**, no other track touched, nothing filed, transitioned or closed. Seven
 worktrees remain on disk because their PRs are open; reap them only after landing.
 
+**WHAT THIS SESSION PRODUCED, in the order the findings matter** (all sections
+below carry their own measurements; this is the index):
+
+| # | finding | disposition |
+|---|---|---|
+| 1 | **The masked-failure recipe is a FLEET defect that `livespec` core fixed 2026-07-01.** 3 repos guarded, 5 masked — including `livespec-dev-tooling`, which ships the fleet's gates | **decision reshaped; still the supervisor's call** |
+| 2 | The evidence for that finding (`jdo/run-2.log`) **does not exist**; finding re-derived three ways | recorded, with the missing clause in the lesson |
+| 3 | **`overseer/AGENTS.md` steered operators to a prefix-matching `respawn-pane -k`**, and `=name:` works after all | **fixed — PR #456**, and it de-risks `yho.3` |
+| 4 | The maintenance guide **maps 5 of 26** supervisor modules | measured; **PR #456** marks it, repair belongs to `overseer-x29` |
+| 5 | Widening the corpus beyond charters adds only **4 live** instances | costing STANDS — do not re-run |
+| 6 | **(h) hardcodes one wrapper name**, so homelab's correct code scores as a defect | fleet real figure **116, not 117**; blocks the "+1" half of 3+1 |
+| 7 | A citation audit found **4 real misses**, incl. two gates described as "landed" that are unmerged | re-tensed here; one is a **fifth stale claim above the separator** |
+| 8 | An **archived-citation gate** with zero false positives by construction | **ready to land, blocked by OWNERSHIP** — 7 violations, none mine |
+| 9 | Two doc/code drifts in the cardinal contract doc + a duplicated `ledger_show()` | recorded at their real size; none urgent |
+
+**Two PRs opened: #456** (tests + three doc corrections) and **#457** (this
+record). Both 62 success / 1 skipped / 0 failures, `MERGEABLE/CLEAN`.
+
 ### THE MASKED-FAILURE RECIPE IS A FLEET DEFECT, AND `livespec` CORE FIXED IT A MONTH AGO — measured 2026-08-01T09:25Z
 
 **This changes the shape of the one decision this file says most needs a human,
