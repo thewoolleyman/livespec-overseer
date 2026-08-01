@@ -186,9 +186,17 @@ below carry their own measurements; this is the index):
 | 7 | A citation audit found **4 real misses**, incl. two gates described as "landed" that are unmerged | re-tensed here; one is a **fifth stale claim above the separator** |
 | 8 | An **archived-citation gate** with zero false positives by construction | **ready to land, blocked by OWNERSHIP** — 7 violations, none mine |
 | 9 | Two doc/code drifts in the cardinal contract doc + a duplicated `ledger_show()` | recorded at their real size; none urgent |
+| 10 | **The pair state file is SPECIFIED and IMPLEMENTED but absent from the contract doc** — spec ↔ code ↔ doc, and only the doc lags | measured; sweep of all spec-mandated paths CLOSED (it is the only one) |
+| 11 | **A correction to #3: the DAEMON was already proof against the prefix match** (`session_exists` is exact-membership, blocker B1, tested) | my published claim was wrong and is corrected in #456 + here; **the runbook fix still stands, better justified** |
+| 12 | All **20** numbered review findings cited in the code are still pinned by tests | POSITIVE result — do not re-run |
 
-**Two PRs opened: #456** (tests + three doc corrections) and **#457** (this
-record). Both 62 success / 1 skipped / 0 failures, `MERGEABLE/CLEAN`.
+**Two PRs opened: #456** (tests + doc corrections) and **#457** (this record).
+Both 62 success / 1 skipped / 0 failures, `MERGEABLE/CLEAN`.
+
+**READ ROW 11 BEFORE ROW 3.** Row 3's finding is real and its fix is landed, but
+the reason I first gave for it was wrong — I reported the daemon as merely
+"contained" when it is prefix-proof by a deliberate, tested design. The hazard is
+a RUNBOOK hazard, not a daemon one.
 
 ### THE MASKED-FAILURE RECIPE IS A FLEET DEFECT, AND `livespec` CORE FIXED IT A MONTH AGO — measured 2026-08-01T09:25Z
 
