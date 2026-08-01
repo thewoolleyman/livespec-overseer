@@ -488,6 +488,51 @@ archived handoff is a historical RECORD that should not be rewritten at all. If 
 is, the gate should scope to LIVE threads only — which reduces today's violations
 from 7 to **1**, and that one is still not mine.
 
+### THE MAINTENANCE GUIDE MAPS 5 OF 26 MODULES — 2026-08-01T11:05Z, second commit on PR #456
+
+A second instrument over the same file, and it found more than the detectors did.
+Comparing what `overseer/AGENTS.md` **enumerates** against what the tree
+**holds**:
+
+- the architecture section names **five** `supervisor.py` collaborators;
+- `ls overseer/_supervisor_*.py` returns **26**;
+- measured before the correction was written, **22 private modules / 4,069 lines**
+  were named NOWHERE across all three module docs — `_supervisor_evaluate` (390),
+  `_supervisor_discovery` (324), `_supervisor_observe` (322),
+  `_supervisor_restart` (289), `_supervisor_pair` (267), `_supervisor_attention`
+  (261), `_supervisor_liveness` (248) among them.
+
+**Hand-verified before reporting**, per this file's own rule: three of those
+return **zero** mentions across `AGENTS.md`, `marker-protocol.md` and `SKILL.md`.
+
+**WHY IT IS WORSE THAN AN OUT-OF-DATE LIST.** The repo-root `.claude/CLAUDE.md`
+instructs agents to read these three documents as authoritative *before changing
+anything in `overseer/`*. A maintainer therefore arrives with a five-item map of a
+twenty-six-module subsystem and **no signal that the rest exists**. The unlisted
+modules trace to real shipped features (`feat: cover pair-stall supervisor
+nudge`, `feat: escalate blocked declarations by age band`, `feat: surface
+uncertifiable ready declarations`), so this is a documentation gap, not dead code.
+
+**This is the same class as `overseer-gjb`** — a CLOSED slice of this very thread,
+which re-tensed two module docs that denied `.ai/` existed. That slice fixed the
+claim it was pointed at; the inventory three hundred lines away had drifted
+further and nothing looked. **`.claude/CLAUDE.md`'s "these documents are CURRENT"
+assurance is itself a claim with a timestamp**, and its own text says to
+re-measure before refreshing the date — this is what a re-measure turns up.
+
+**RECORDED, NOT REPAIRED, and the boundary is real:** describing what those 4,069
+lines DO is `plan/daemon-liveness-truth/` (`overseer-x29`) territory. The
+correction states measured facts only and tells the next reader to enumerate from
+the tree rather than trust prose.
+
+**AND IT INVALIDATED ITS OWN NUMBER — left visible deliberately.** Naming seven
+modules inside the correction dropped the residue from 22 / 4,069 to **15 /
+1,968** the instant it was written. Caught only by re-running the measurement
+AFTER editing the artifact it was measured against. So the durable claim was
+rewritten to "**5 named vs 26 on disk**", both re-derivable from the tree — a
+property, not a residue count. That is this thread's oldest lesson arriving
+unprompted in a paragraph written to apply it.
+
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
 `updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
