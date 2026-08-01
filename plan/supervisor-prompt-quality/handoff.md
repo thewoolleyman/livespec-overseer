@@ -770,6 +770,44 @@ oldest lesson: **a claim nothing executes is a claim nothing maintains.**
 paths listed above as clean — they are measured and dated. Point the instruments
 at documents, citations, and cross-repo configuration instead.
 
+### EVERY GATE ADDED BY A PIN BUMP LANDS NON-BLOCKING, AND STAYS THAT WAY — 2026-08-01T12:20Z
+
+A companion to the required-status-check finding above, and the more structural of
+the two. Comparing branch protection against the CI matrix:
+
+- **0 required checks lack a CI job** — so no merge is permanently blocked. Good.
+- **3 CI matrix targets are NOT required**, so they can be RED on a PR that merges
+  anyway: `check-hook-trees-not-io-exempt`,
+  `check-no-shadow-ledger-body-typechecks`, `check-required-role-keys-declared`.
+
+**TWO INSTRUMENTS AGREE, which is what makes this reportable rather than a guess.**
+The shipped `check-branch-protection-alignment` finds exactly the same three and
+emits them as warnings — *"optional jobs are allowed; informational only"*. So the
+state is DETECTED and TOLERATED, not hidden.
+
+**BUT IT WAS NOT CHOSEN — IT DRIFTED, and the provenance proves it.** Each of the
+three entered `ci.yml` through a `livespec-dev-tooling` **pin bump**
+(`v0.54.0`, `v0.54.13`, `v0.55.0`). Nobody decided they should be optional: the
+pin-bump path wires a new canonical check into the CI matrix, and **branch
+protection is a GitHub repo setting that a pin bump cannot touch**. Confirmed:
+nothing in `.github/workflows/` or the `justfile` SETS protection, and
+`branch_protection_alignment` reads it and never mutates it.
+
+**THE GENERALISATION IS THE POINT, not these three.** Every future canonical check
+the fleet ships arrives here **non-blocking by default**, and the only thing
+standing between that and permanence is a human noticing one warning line among a
+65-target run. (They do print — 3 occurrences in this session's captured log — but
+a warning in an aggregate that ends "All 65 targets passed" is not a decision
+prompt.) **A gate that runs but cannot block is a gate that reports, and the
+adoption path has no step that promotes it.**
+
+**Not fixed, and deliberately.** Changing branch protection is a repo-settings
+change with merge-blocking consequences for every open PR, and whether these three
+*should* be required is a maintainer's judgement about each check's maturity —
+`check-required-role-keys-declared` in particular may be young. What is now
+measured is that the current state is an accident of the adoption path rather than
+a decision anyone made.
+
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
 `updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
