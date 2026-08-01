@@ -185,7 +185,7 @@ below carry their own measurements; this is the index):
 
 | # | finding | disposition |
 |---|---|---|
-| 1 | **The masked-failure recipe is a FLEET defect that `livespec` core fixed 2026-07-01.** 3 repos guarded, 5 masked — including `livespec-dev-tooling`, which ships the fleet's gates. **And the masked green is a REQUIRED STATUS CHECK on master**, so it reaches branch protection and the Dispatcher pre-flight — the risk runs BOTH ways, one loud and one silent. Sweep closed fleet-wide: one shape, five one-line edits, no siblings | **decision reshaped; still the supervisor's call** |
+| 1 | **The masked-failure recipe is a FLEET defect that `livespec` core fixed 2026-07-01.** 3 repos guarded, 5 masked — including `livespec-dev-tooling`, which ships the fleet's gates. **And the masked green is a REQUIRED STATUS CHECK on master**, so it reaches branch protection and the Dispatcher pre-flight — the risk runs BOTH ways, one loud and one silent. Sweep closed fleet-wide: one shape, five one-line edits, no siblings. **And the sequencing REVERSES: `overseer-jdo`'s own flaky test has a masked failure mode, so unmasking is a PRECONDITION for measuring jdo, not a follow-up** | **decision reshaped; still the supervisor's call** |
 | 2 | The evidence for that finding (`jdo/run-2.log`) **does not exist**; finding re-derived three ways | recorded, with the missing clause in the lesson |
 | 3 | **`overseer/AGENTS.md` steered operators to a prefix-matching `respawn-pane -k`**, and `=name:` works after all | **fixed — PR #456**, and it de-risks `yho.3` |
 | 4 | The maintenance guide **maps 5 of 26** supervisor modules | measured; **PR #456** marks it, repair belongs to `overseer-x29` |
@@ -890,8 +890,13 @@ fails, which is the sighting everyone has seen; when it fails at an assert whose
 lines are already covered, coverage holds at 100% and the board goes green with a
 red test. **jdo's acceptance bar is statistical (20 consecutive clean runs), and
 it cannot be measured at all while the gate can hide the failures it is
-counting.** Folding this in is a ledger write on another track's item — still not
-this thread's to make.
+counting.** Measured since: jdo's own flaky test
+`test_both_forms_report_busy_while_a_pane_keeps_changing` carries asserts at
+statements **4 and 5 of 6**, so a failure at the LAST one leaves nothing
+unexecuted and is invisible — **the blind mode is demonstrated for the very test
+being counted**, not merely possible in principle. **So the order is: unmask,
+then measure.** Folding this in is a ledger write on another track's item — still
+not this thread's to make.
 
 **SESSION OF 2026-07-31T14:40Z — still true, and step 3 was followed again.** The
 ledger was re-measured first: no slice is filed or assigned to the worker,
