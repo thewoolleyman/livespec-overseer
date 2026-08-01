@@ -1380,14 +1380,24 @@ the registry, or is deliberately left waiting on the maintainer" is.
   extends another, including `supervisor-prompt-quality` /
   `supervisor-prompt-quality-supervisor` and `livespec` / `livespec-overseer`.
 
-  **NOTE — reported, NOT fixed: `tmuxio.py` targets sessions the bare way too**
-  (`capture-pane`, `send-keys`, `paste-buffer`, `respawn-pane` and `list-panes`
-  all pass `-t <session>`). It is CONTAINED rather than exploited: `evaluate`
-  classifies a missing session as `session-gone` before any act, and the R2
-  identity gate rejects a pane whose tmux session carries live Claude names but
-  not this topic's. But R2 fails SOFT on an empty name map, so the containment is
-  defence-in-depth, not a proof. Changing it is a product change to the acting
-  daemon and belongs to whoever owns that call — not to this runbook.
+  **THE DAEMON IS ALREADY PROOF AGAINST THIS, AND THE CONTRAST IS THE POINT.**
+  `tmuxio.py` does pass a bare `-t <session>` to `capture-pane`, `send-keys`,
+  `paste-buffer`, `respawn-pane` and `list-panes` — and that is SAFE BY DESIGN,
+  not by luck. `TmuxIO.session_exists` deliberately uses **exact membership in
+  `list-sessions`** rather than `has-session -t <name>`, precisely because a bare
+  `-t` prefix-matches (adversarial-review blocker B1, verified live 2026-07-13;
+  pinned by `test_session_exists_is_exact_membership_not_prefix`). Once that
+  exact-membership gate says the session is live, every later `-t <session>` call
+  resolves to it, because **an exact session name takes precedence over a prefix
+  match** — the same precedence measured above. The only residue is an inherent
+  TOCTOU window if the session dies between the check and the call.
+
+  **So the hazard this bullet describes is a RUNBOOK hazard, not a daemon one, and
+  that is exactly why the fix above matters.** A human following these steps types
+  a session name straight into `respawn-pane -k` with **no `session_exists` gate
+  in front of it** — during a recovery, when the session they are naming may well
+  be gone. The daemon earned its safety with a deliberate, tested design decision;
+  this procedure never had one. Use `'=<name>:'` and it does.
 - **Fresh session vs. existing pane.** If the tmux session is GONE, recreate it
   first (`command tmux new-session -d -s <name> -c <repo>`), then `respawn-pane -k …`
   — this mirrors the daemon's own `new_session` + `respawn_pane` split, so the shell
