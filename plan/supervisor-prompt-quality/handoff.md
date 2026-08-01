@@ -136,31 +136,201 @@ closes, because the groom closes it as regroomed-out at filing time.
 thing to know before doing anything, and it is a deliberate state, not an
 oversight. **It is also not a reason to stop — see step 3.**
 
-**RESTART STATE, written at wind-down 2026-08-01T09:15Z. READ THIS FIRST.**
+**RESTART STATE, rewritten 2026-08-01T10:05Z by the session that followed the
+09:15Z wind-down. READ THIS FIRST.**
 
-**FIVE PRs ARE OPEN AND ALL ARE GREEN** — #440, #441, #445, #446, #452; each 62
-success / 1 skipped / 0 failures, all `CLEAN`, and their file-sets are DISJOINT so
-none can conflict with another. **Merging them is the supervisor's lane** —
-that is why they are open, not because anything is unfinished. #440 and #441 are
-behind the `v1.13.8` pin bumps (not diverged) and may want a rebase first.
+**SEVEN PRs ARE OPEN AND ALL ARE GREEN** — #440, #441, #445, #446, #452 from the
+previous session, plus **#456** and **#457** from this one. All `CLEAN`, and their
+file-sets are DISJOINT so none can conflict with another. **Merging them is the
+supervisor's lane** — that is why they are open, not because anything is
+unfinished. #440 and #441 are behind the pin bumps (not diverged) and may want a
+rebase first.
 
-**#440 ALSO CARRIES THIS FILE.** If the wind-down PR landed this handoff on master
-first, #440's copy is byte-identical, so a rebase should absorb it as
-already-applied rather than conflict. **If you see a conflict on `handoff.md`,
-take master's** — it is the same content.
+**#440 CARRIES THIS FILE, AND ITS DIFF AGAINST MASTER IS NOW EMPTY.** Measured
+2026-08-01T09:20Z: `git diff origin/master pr440 -- plan/…/handoff.md` returns
+NOTHING, so the wind-down PR did land it and #440's rebase carries zero handoff
+hunks. There is nothing to conflict. #457 is now the only open PR that changes
+this file.
 
-**THE ONE THING THAT MOST NEEDS A HUMAN: `just check` can report "All 65 targets
-passed" WITH A FAILING TEST.** `justfile:589` uses `set -uo pipefail` with no
-`-e`, so a non-zero `pytest` does not abort and the recipe's status is the
-coverage check's. Captured with evidence. The fix is `set -euo pipefail`; it is
-NOT applied because it makes the next flake turn master RED, and master CI feeds
-the Dispatcher's pre-flight. **That is a sequencing decision with fleet-wide
-consequences.** Full write-up below under its own heading — read it before
-trusting any green run on this host, including the ones in this file.
+**THE ONE THING THAT MOST NEEDS A HUMAN — AND IT IS NOT A LOCAL DECISION.**
+`just check` can report "All 65 targets passed" WITH A FAILING TEST:
+`justfile:589` uses `set -uo pipefail` with no `-e`, so a non-zero `pytest` does
+not abort and the recipe's status is the coverage check's. **That framing is
+confirmed and its scope is now measured: this is a FLEET defect that `livespec`
+core already FIXED a month ago, and five of eight repos never caught up.** See
+"THE MASKED-FAILURE RECIPE IS A FLEET DEFECT" below before treating it as a
+sequencing risk — the precedent it was thought to set already exists.
 
-**NOTHING ELSE IS IN FLIGHT.** No background jobs, no ledger writes all session,
-no other track touched. Five worktrees remain on disk because their PRs are open;
-reap them only after landing.
+**TWO CORRECTIONS TO THE PARAGRAPH THAT USED TO SIT HERE.** It said the finding
+was "captured with evidence": **the evidence is GONE.** `jdo/run-2.log` does not
+exist anywhere on this host (searched the whole of `/data/projects`, including
+all 67 worktrees). The FINDING survives — it was re-derived three independent
+ways this session — but the receipt did not. See "A GITIGNORED CAPTURE IS NOT A
+CAPTURE".
+
+**NOTHING ELSE IS IN FLIGHT.** No background jobs, **no ledger writes this
+session**, no other track touched, nothing filed, transitioned or closed. Seven
+worktrees remain on disk because their PRs are open; reap them only after landing.
+
+### THE MASKED-FAILURE RECIPE IS A FLEET DEFECT, AND `livespec` CORE FIXED IT A MONTH AGO — measured 2026-08-01T09:25Z
+
+**This changes the shape of the one decision this file says most needs a human,
+so read it before weighing that decision again.** The previous session found the
+masking, diagnosed it correctly, and declined to fix it because "it makes the
+gate strictly stronger, which means the next occurrence of this flake turns
+master RED — and master CI feeds the Dispatcher's pre-flight". That reasoning
+treats `set -euo pipefail` as a NOVEL strengthening whose risk the fleet has not
+yet accepted. **It is not novel. The fleet's reference repo took that exact
+decision on 2026-07-01 and has run with it since.**
+
+`livespec/justfile` carries the fix with the identical diagnosis written above it
+as a comment — independently arrived at, a month before this thread rediscovered
+it:
+
+> `-e` (errexit) is load-bearing: without it a non-zero pytest exit is swallowed
+> by the trailing per_file_coverage command, silently reporting GREEN on a RED
+> suite.
+
+Landed in `bc5c9bce`, 2026-07-01, subject **"chore: restore green master — narrow
+README mermaid guard + unmask coverage recipe"**. The word is theirs: the recipe
+was MASKING.
+
+**THE FLEET IS SPLIT 3/5.** Of 33 git repos on disk, 11 carry a `justfile` and 8
+define `check-per-file-coverage`. All five defective ones have the identical
+two-command body (`pytest` then `per_file_coverage`), so all five mask the same way:
+
+| `set -euo pipefail` (guarded) | `set -uo pipefail` (masked) |
+|---|---|
+| `livespec` | `livespec-overseer` |
+| `livespec-driver-claude` | **`livespec-dev-tooling`** |
+| `livespec-driver-codex` | `livespec-orchestrator-beads-fabro` |
+| | `livespec-orchestrator-git-jsonl` |
+| | `livespec-runtime` |
+
+**`livespec-dev-tooling` is in the masked column, and that is the one that should
+move the decision.** It is the repo that ships the enforcement gates the whole
+fleet consumes by pin. Its own green board is subject to the same blind spot.
+
+**THE MECHANISM, EXECUTED RATHER THAN ARGUED** (this is the whole of it):
+
+    bash -c 'set -uo pipefail; false; true; echo $?'   ->  0
+    bash -c 'set -euo pipefail; false; true'           ->  1
+
+**AND A FALSE ALARM I NEARLY PUBLISHED, recorded because the negative result is
+worth as much as the finding.** NINE recipes in this repo's justfile use
+`set -uo pipefail` without `-e`, which looks like a nine-fold widening. **It is
+not: `check-per-file-coverage` is the only defective one.** Every other one either
+documents the omission deliberately (`check-prose-release-hygiene` explains that
+`grep -c` exits 1 on a zero count, so `-e` would abort at the violation it exists
+to report), ends with its load-bearing command so the status propagates
+(`check-coverage`, `changed-files`), or `exit $?`s explicitly (`check-pre-commit`,
+`check-pre-push`). **This repo is demonstrably aware of the pattern and reasons
+about it per recipe — `check-per-file-coverage` is the one that carries no comment
+and no guard.** So the fix really is one line, and "nine recipes are broken" would
+have been the eighth entry in the suspect-the-verification list.
+
+**WHAT IS STILL THE SUPERVISOR'S CALL.** Nothing here says land it. The
+consequence the previous session named is real — a strictly stronger gate does
+turn the next `overseer-jdo` flake into a red master. What has changed is that
+this is no longer a repo-local judgement about accepting a new risk: it is a
+question about **five repos being behind a fleet standard their reference
+implementation adopted a month ago**, and about whether `livespec-dev-tooling` in
+particular should be reporting green from a masked recipe. **Not filed, not
+applied, no other repo written to.**
+
+### A GITIGNORED CAPTURE IS NOT A CAPTURE — the evidence for the finding above is GONE
+
+The previous session's write-up ends: "Evidence is retained at
+`tmp/overseer/supervisor-prompt-quality/` (gitignored) as `jdo/run-2.log`."
+**Measured 2026-08-01T09:22Z: that file does not exist.** No `jdo/` directory, no
+`run-*.log` anywhere under `/data/projects`, and no file under `tmp/` mentioning
+`test_the_rigs_socket_is_not_shared_with_a_concurrent_run`. The evidence
+directory itself is intact and holds everything the inventory lists — this one
+capture is simply absent, and the wind-down was ~2 minutes before this session
+opened, so it did not decay over time.
+
+**The finding SURVIVES, and that is the important half.** It was re-derived three
+independent ways here without the log: the shell semantics executed directly, the
+recipe read at `justfile:589`, and `livespec` core's month-old independent
+diagnosis. **Do not re-open the finding; do not go looking for the log.**
+
+**The lesson the previous session drew was one clause short.** It wrote: "capture
+the FULL output of a failing aggregate BEFORE re-running... Redirect to a file;
+grep the file, not the pipe." It did exactly that — and the file still evaporated,
+because it was written into gitignored `tmp/`. **A capture that cannot survive a
+`git clean` or a fresh clone is a transcript with extra steps.** The durable
+forms are: a test that reproduces it, or the essential lines quoted into this
+file. This is the same rule this thread already applies to citations
+("a gitignored citation is a dangling dependency") arriving from the evidence
+side rather than the reader's side.
+
+### THE MODULE DOCS WERE THE THIRD UNSCANNED PROSE SURFACE — PR #456, and the corpus was NOT clean
+
+Step 3's first move ("point an existing instrument at a corpus it has never been
+run against") paid a third time. The eleven detectors had never read
+`overseer/*.md` — the documents `.claude/CLAUDE.md` calls authoritative.
+`overseer/AGENTS.md` carried **two class-(a) bare tmux targets**, both in the
+reboot-recovery runbook's "Canary ONE pane first" block: a `respawn-pane -k` and
+the `capture-pane` that confirms it.
+
+**Why this surface is worse than a charter, and why it is worth knowing beyond
+this repo.** That block is typed by a HUMAN during a fleet-wide tmux recovery —
+the one moment the session being named is GONE. tmux prefers an exact match when
+one exists, so the defect is invisible in steady state and fires ONLY in the
+recovery the runbook exists for. The command is `respawn-pane -k`, the single
+destructive operation in the system.
+
+**DEMONSTRATED on a private socket, not argued.** With only `canary-two` alive,
+`respawn-pane -k -t canary` returned **rc=0 and ran its command inside
+`canary-two`**; `-t '=canary:'` refuses it (rc=1, `can't find session: canary`).
+This host was carrying **14** session-name pairs where one name extends another,
+including `supervisor-prompt-quality` / `supervisor-prompt-quality-supervisor` and
+`livespec` / `livespec-overseer`.
+
+**THE DOC ARGUED AGAINST ITS OWN FIX, and this is the transferable part.**
+`AGENTS.md`'s gotcha list asserted that `respawn-pane` wants the BARE name and
+rejects the exact-match form. **Half true, and the half that is wrong is the
+operative half:** `=name` (no colon) does fail, but `=name:` **with the trailing
+colon** — the form the charter gate mandates — works on `respawn-pane`,
+`capture-pane`, `list-panes`, `send-keys`, `paste-buffer` and `has-session`, all
+measured. So a true observation about a near-miss spelling had been generalised
+into a rule that ruled out the safe form entirely.
+
+**THIS DE-RISKS `overseer-yho.3`.** Its costing demonstrated the fleet edit
+`-t X` → `-t '=X:'` takes 117 → 25, with the honest caveat "mechanically
+CLEARABLE PER THE GATE, not mechanically CORRECT". The single most plausible way
+that rewrite could be INCORRECT was that some tmux subcommand rejects the exact
+form — and this repo's own docs asserted exactly that about the destructive one.
+**Measured: it does not.** The remedy is universally applicable across every
+subcommand the fleet's charters use.
+
+**REPORTED, NOT FIXED — `tmuxio.py` targets sessions the bare way too**
+(`capture-pane`, `send-keys`, `paste-buffer`, `respawn-pane`, `list-panes` all
+pass `-t <session>`). **State it with its mitigations or it is alarmism:** it is
+CONTAINED — `evaluate` classifies a missing session as `session-gone` before any
+act, and the R2 identity gate rejects a pane whose tmux session carries live
+Claude names but not this topic's. **But R2 fails SOFT on an empty name map**, so
+the containment is defence-in-depth, not a proof. This is the daemon's runtime
+model, which is `overseer-x29` / `plan/daemon-liveness-truth/` territory rather
+than this thread's, and it is a product change to the ACTING daemon. Noted in
+`AGENTS.md` where whoever owns that call will read it. **No `.py` was touched.**
+
+### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
+
+`updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
+measured it. So everything under "WHAT `overseer-jdo` IS MISSING" is still
+outstanding, and there is now a THIRD item, which reframes jdo's central premise:
+
+**jdo treats "this flake always presents as a COVERAGE failure rather than a test
+failure" as a curiosity of the signature. The masking above EXPLAINS it — and
+inverts what it means.** The coverage-visible cases are the only ones caught at
+all: when the flaky test dies mid-body its later lines go uncovered and the target
+fails, which is the sighting everyone has seen; when it fails at an assert whose
+lines are already covered, coverage holds at 100% and the board goes green with a
+red test. **jdo's acceptance bar is statistical (20 consecutive clean runs), and
+it cannot be measured at all while the gate can hide the failures it is
+counting.** Folding this in is a ledger write on another track's item — still not
+this thread's to make.
 
 **SESSION OF 2026-07-31T14:40Z — still true, and step 3 was followed again.** The
 ledger was re-measured first: no slice is filed or assigned to the worker,
