@@ -146,11 +146,30 @@ supervisor's lane** — that is why they are open, not because anything is
 unfinished. #440 and #441 are behind the pin bumps (not diverged) and may want a
 rebase first.
 
-**#440 CARRIES THIS FILE, AND ITS DIFF AGAINST MASTER IS NOW EMPTY.** Measured
-2026-08-01T09:20Z: `git diff origin/master pr440 -- plan/…/handoff.md` returns
-NOTHING, so the wind-down PR did land it and #440's rebase carries zero handoff
-hunks. There is nothing to conflict. #457 is now the only open PR that changes
-this file.
+**MERGE #440 BEFORE #457 — the one ordering constraint among the seven, measured
+2026-08-01T13:10Z.** All seven file-sets were compared pairwise and **exactly one
+pair overlaps**: #440 and #457 both list
+`plan/supervisor-prompt-quality/handoff.md`.
+
+  - **#440's copy is BYTE-IDENTICAL to master's** (`git diff origin/master pr440
+    -- <handoff>` returns nothing), because the wind-down PR landed that content
+    first. So merging #440 **today** is clean — its handoff hunks are
+    already-applied no-ops.
+  - **#457 rewrites the file: +832 / −32.** If it lands FIRST, #440's rebase then
+    replays an old handoff.md commit onto a heavily rewritten file — a likely
+    conflict, and a bad resolution there could revert 832 lines.
+
+**So: #440 first, then #457, and the other five in any order** (their file-sets
+are mutually disjoint — verified, not assumed). If a conflict on `handoff.md`
+appears anyway, the standing guidance still holds and is still right: **take
+master's.**
+
+**THIS CORRECTS A CLAIM I MADE EARLIER IN THIS SAME BLOCK.** It read "#457 is now
+the only open PR that changes this file", which I inferred from #440's empty
+*diff* without checking its *file list*. A PR whose net diff is empty still
+carries the file, and `gh pr view --json files` says so. **An empty diff is not an
+absent file** — the distinction is invisible until two PRs touch the same path and
+one of them rewrites it.
 
 **THE ONE THING THAT MOST NEEDS A HUMAN — AND IT IS NOT A LOCAL DECISION.**
 `just check` can report "All 65 targets passed" WITH A FAILING TEST:
