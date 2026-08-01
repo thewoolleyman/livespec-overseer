@@ -130,11 +130,222 @@ closes, because the groom closes it as regroomed-out at filing time.
 
 ---
 
-## NEXT SESSION — START HERE (written 2026-07-30 20:50Z; step 3 and the status table rewritten 2026-07-31 05:56Z after the session that followed it)
+## NEXT SESSION — START HERE (written 2026-07-30 20:50Z; step 3 and the status table rewritten 2026-07-31 05:56Z; status table, in-flight state and step-3 evidence rewritten again 2026-07-31 17:40Z by the session that followed THAT one)
 
 **THERE IS NO WORKER TASK QUEUED IN THIS THREAD RIGHT NOW.** That is the single
 thing to know before doing anything, and it is a deliberate state, not an
 oversight. **It is also not a reason to stop — see step 3.**
+
+**RESTART STATE, written at wind-down 2026-08-01T09:15Z. READ THIS FIRST.**
+
+**FIVE PRs ARE OPEN AND ALL ARE GREEN** — #440, #441, #445, #446, #452; each 62
+success / 1 skipped / 0 failures, all `CLEAN`, and their file-sets are DISJOINT so
+none can conflict with another. **Merging them is the supervisor's lane** —
+that is why they are open, not because anything is unfinished. #440 and #441 are
+behind the `v1.13.8` pin bumps (not diverged) and may want a rebase first.
+
+**#440 ALSO CARRIES THIS FILE.** If the wind-down PR landed this handoff on master
+first, #440's copy is byte-identical, so a rebase should absorb it as
+already-applied rather than conflict. **If you see a conflict on `handoff.md`,
+take master's** — it is the same content.
+
+**THE ONE THING THAT MOST NEEDS A HUMAN: `just check` can report "All 65 targets
+passed" WITH A FAILING TEST.** `justfile:589` uses `set -uo pipefail` with no
+`-e`, so a non-zero `pytest` does not abort and the recipe's status is the
+coverage check's. Captured with evidence. The fix is `set -euo pipefail`; it is
+NOT applied because it makes the next flake turn master RED, and master CI feeds
+the Dispatcher's pre-flight. **That is a sequencing decision with fleet-wide
+consequences.** Full write-up below under its own heading — read it before
+trusting any green run on this host, including the ones in this file.
+
+**NOTHING ELSE IS IN FLIGHT.** No background jobs, no ledger writes all session,
+no other track touched. Five worktrees remain on disk because their PRs are open;
+reap them only after landing.
+
+**SESSION OF 2026-07-31T14:40Z — still true, and step 3 was followed again.** The
+ledger was re-measured first: no slice is filed or assigned to the worker,
+`overseer-yho.3` and `overseer-bak` are unchanged at `backlog`, and nothing is
+assigned to anyone. So this session audited what the thread owns, exactly as step
+3 directs, and it found two things worth a cold open's attention:
+
+- **`overseer-jcw` is CLOSED** — a duplicate of `overseer-jdo` (P1, open), closed
+  2026-07-30T22:24Z by another track's worker. Two claims in THIS half were
+  stale as a result, including one that flatly denied the close; both are
+  corrected below. **And jdo is missing this thread's two newest mechanism-2
+  findings** — see "WHAT `overseer-jdo` IS MISSING". That is the highest-value
+  item this session produced and it needs a ledger write this thread must not
+  make.
+- **The correction-count gap this file called ungated is now gated** — see "This
+  session's gate". **PR #440**, tests-only, `just check` 65/65 locally and at
+  pre-push, CI 62 success / 0 failures.
+- **The eleven detectors' REACH is now declared** — seven line-scoped, four
+  document-scoped, measured by injection. **PR #441**, tests-only. See "THE ELEVEN
+  DETECTORS DO NOT ALL MEAN THE SAME THING BY 'CLEAN'".
+- **The comparator no longer SKIPS the third anchor spelling** — **PR #446**.
+  `tests/test_plan_thread_records_agree.py` read two spellings; a charter using
+  homelab's third form extracted nothing and hit the loop's `continue`, so the
+  gate whose job is catching a stale anchor reported a clean repo over a charter
+  it never examined. The table/executable pair stays MANDATORY — only a charter
+  using neither falls through. **A broader "looks like a declaration but did not
+  extract" guard was designed and REJECTED**: it would have reddened
+  `plan/fabro-review-classifier-defect/supervisor-handoff.md`, which discusses
+  the ledger anchor in prose while declaring none. That real line is now the
+  fixture that stops the rejected design being re-attempted blindly. Still a
+  LOCAL gate — the fleet-ready comparator remains `overseer-bak`'s scope
+  decision, untouched.
+- **The GENERATOR's own prose is now gated** — the charter gate scanned charters
+  already EMITTED; nothing scanned the file they are emitted FROM. **PR #445**,
+  tests-only. Measured clean on all eleven classes first, so it lands green as a
+  REGRESSION gate. This is the same widening that paid last time: when the glob
+  finally reached `.ai/supervisor-protocol.md`, that file was carrying the (h)
+  defect. **The prose was the last unscanned surface and the most upstream one** —
+  a defect reintroduced there ships to every adopter and is caught here only once
+  somebody regenerates a charter and commits it, which nothing schedules. The
+  contract module checks what must be PRESENT, not what must be ABSENT, and the
+  cold-open gate checks that blocks EXECUTE, which a defective-but-runnable block
+  does. **`overseer.md` is deliberately OUT**, with the reasoning recorded in the
+  module: its single (a) hit is the operator console's copy-pasteable
+  `switch-client` jump command, which the daemon emits bare on purpose and under
+  test — class (a) exists because a `send-keys` prefix match types into the wrong
+  live session silently, whereas a mis-targeted `switch-client` moves a human's
+  view, which they see and undo. The rationale does not transfer.
+
+- **The charter gate's SCOPE is now a rule, not a floor** — **PR #452**.
+  `test_this_repo_has_charters_to_scan` asserts only NON-EMPTY, so it passes with
+  one charter of eight: it catches a glob matching nothing, never one that quietly
+  stopped matching most things. Demonstrated — dropping the archive glob removes
+  FOUR of eight charters and the existing guard stays **GREEN** while the new rule
+  goes RED. Keyed on the property (every charter-shaped file on disk is scanned)
+  rather than a count, so it self-adjusts as threads come and go.
+
+**All five PRs are left OPEN deliberately**: merging is the supervisor's lane
+per Boundaries. Their worktrees are still on disk for the same reason — reap them
+only after they land. **#440 is the ONLY one touching this file.** #441 and #445 each add a NEW
+module and #446 edits `tests/test_plan_thread_records_agree.py` and #452 edits
+`tests/prompts/test_charters_carry_no_known_defects.py`, each touched by no other
+branch — so the five file-sets are DISJOINT and none can conflict with another.
+(#441 IMPORTS from the module #452 edits, which is not a textual conflict; #452
+adds tests and changes no name #441 imports.) #440 and #441 are based on `a8d3d38` and are BEHIND the pin bumps (not
+diverged — `a8d3d38` is an ancestor of `origin/master`), so they may want a
+rebase before merge; #445 is on `22f0d53` and #446 on `3a42837`.
+
+Baseline measured before any edit: `just check` **65/65 green** on the clean tree
+at `a8d3d38`.
+
+**CORRECTION, AND IT REVERSES WHAT THIS PARAGRAPH SAID ALL SESSION.** It read
+"mechanism 2 did not fire" and was updated several times to say it still had not,
+across roughly forty green aggregates. **It fired at 2026-08-01T05:30Z** — a
+NEW SIGHTING for `overseer-jdo`, worth carrying because it is P1 and its
+acceptance is statistical.
+
+- **On a DOCS-ONLY change**, one markdown paragraph, no Python touched. That is
+  jdo's original description almost word for word.
+- `just check` failed `check-per-file-coverage` + `check-coverage`;
+  `just check-per-file-coverage` **standalone passed at 100%**; a re-run of the
+  full aggregate passed **65/65**. Run-alone passes, in-aggregate flakes.
+- **I CANNOT ATTRIBUTE IT TO MECHANISM 2, and will not pretend otherwise.** I
+  piped the failing run through `grep` for the summary and did not keep the body,
+  so the `FAILED` line is gone. The signature matches jdo; whether it was the
+  watcher timing premise, a socket collision, or something else is UNKNOWN.
+- **THE OPERATIONAL LESSON, which cost the attribution: capture the FULL output
+  of a failing aggregate BEFORE re-running.** The re-run destroys the evidence,
+  and the fix for a flake is the one thing you only get one chance to observe.
+  Redirect to a file; grep the file, not the pipe. Knowing to "read for `FAILED`"
+  did not help, because by then there was nothing left to read.
+
+### `just check` CAN REPORT "All 65 targets passed" WITH A FAILING TEST — found 2026-08-01T08:05Z
+
+**This is the most important thing in this section, and I found it by doubting my
+own result.** I reported "0 of 8 failed" from the block below. **That was wrong.**
+Run 2 of 8 contained:
+
+    FAILED tests/prompts/test_repo_containment_discriminates.py::test_the_rigs_socket_is_not_shared_with_a_concurrent_run
+    1 failed, 781 passed in 16.13s
+
+…and `just check` **continued to the next target and exited 0, printing "All 65
+targets passed"**. The failure was swallowed.
+
+**THE MECHANISM IS ONE MISSING CHARACTER**, `justfile:589`:
+
+```bash
+check-per-file-coverage:
+    #!/usr/bin/env bash
+    set -uo pipefail          # <- no -e
+    uv run pytest -n {{test_nprocs}} --cov ...
+    uv run python -m livespec_dev_tooling.checks.per_file_coverage
+```
+
+There is no `-e`, so a non-zero `pytest` does not abort the recipe, and the
+recipe's status is the LAST command's — the coverage check. **A test failure in
+this target is therefore invisible to the aggregate whenever per-file coverage
+still reaches 100%.**
+
+**WHY THIS REFRAMES `overseer-jdo`.** jdo records that this flake always presents
+as a COVERAGE failure rather than a test failure, and treats that as a curiosity
+of the signature. It is not: **the coverage-visible cases are the only ones that
+are caught at all.** When the flaky test dies mid-body its later lines go
+uncovered, coverage drops, and the target fails — that is the sighting everyone
+has seen. When it fails at an assert whose lines are already covered, coverage
+holds at 100% and **the board goes green with a red test**. So every green-run
+count on this host, including my own eight, is an unreliable denominator, and
+jdo's statistical acceptance cannot be measured with the gate in this state.
+
+**THE FIX IS `set -euo pipefail`, and I have NOT applied it**, deliberately: it
+makes the gate strictly stronger, which means the next occurrence of this flake
+turns master RED — and master CI feeds the Dispatcher's "latest master is green"
+pre-flight, so it can halt fleet dispatch. Landing that before jdo is resolved is
+a sequencing decision with fleet-wide consequences, not a repair. **Strongly
+recommended, and the supervisor's call.** Evidence is retained at
+`tmp/overseer/supervisor-prompt-quality/` (gitignored) as `jdo/run-2.log`.
+
+**AND THE HAZARD THAT ALMOST BURIED IT: a log with stray NUL bytes makes `grep`
+go BINARY and silently count nothing.** `run-2.log` carries 4 NULs from icdiff's
+colour codes, so `file` calls it `data` and every counting `grep` over it
+returned EMPTY rather than `0` — which read as "this run is unremarkable". Only
+`grep -a` sees it. **Use `grep -a` on any captured tool output**; this is the
+grep-matches-nothing hazard with a fourth vector — not a wrong pattern, not a
+shell alias, but the file being classified as binary.
+
+**THE 8-RUN BLOCK, RESTATED HONESTLY: 1 of 8 runs contained a failing test**,
+which the aggregate reported as green. Stated as a
+NEGATIVE result, because that is what it is, and jdo's own note already does this
+arithmetic: 8 greens is consistent with the defect being completely unchanged.
+
+    if the true per-run rate is 1/7  -> P(8 consecutive green) = 29.1%
+    if the true per-run rate is 1/40 -> P(8 consecutive green) = 81.7%
+
+**The 1/40 figure is the one this session actually supports**: roughly forty-odd
+full aggregates on this host today with **one** failure. That is a far weaker
+per-run rate than the ~1-in-7 both original sightings suggested — worth recording
+because jdo's acceptance is statistical and its bar (20 consecutive clean for 95%
+against p >= 1/7) was set against the older, higher estimate. **If the real rate
+is nearer 1/40, twenty clean runs proves much less than the packet assumes**, and
+the acceptance arithmetic should be redone against a measured rate rather than
+the first two sightings.
+
+**THE HARNESS IS THE REUSABLE PART, and it is four lines:** loop N times, redirect
+`just check` to `run-$i.log` FIRST, branch on `$?`, and grep the FILE on failure.
+Any future session can run it unchanged and add to the count instead of starting
+the sample over.
+
+**EVERY HEADLINE NUMBER THIS SESSION PUBLISHED WAS RE-CONFIRMED ON A SECOND,
+INDEPENDENT PASS AT SESSION CLOSE — 14 of 14** (2026-07-31T18:30Z): 19 role-level
+Corrections and 1 thread-specific; 11 shipped detectors over 8 charters scoring
+**0**; the contract's 31 requirements, the shared layer's 4 misses alone, the
+exemplar's **0** combined, and the prose's single documented exemption; the
+fleet's **117** with the orchestrator at 56 and this repo at 0; and the
+orchestrator shared layer's 10 going to **0** on one binding line. Written as a
+list of assertions rather than prose so the next session can re-run it rather
+than re-derive it.
+
+**WHAT WAS CHECKED AND FOUND SOUND**, recorded because a negative result nobody
+writes down gets re-derived: the charter counts (19 C-entries, 1 T-entry) agree
+with the prose; all **eleven** detectors have positive controls and none is
+blind; the charter glob is COMPLETE (the only unscanned charter-shaped file is in
+gitignored `tmp/`, and `.ai/` holds exactly the one shared layer); the
+stale-cache module is NOT host-dependent (its artifacts are vendored byte-exact
+precisely because CI has no plugin cache); and the fleet's **117 reproduced
+exactly**, every per-repo figure identical. **Do not re-derive these.**
 
 **WHERE THE THREE OPEN ITEMS STAND, as of 2026-07-31T14:36Z** (re-verified at
 session end; the fleet costing was re-run from the evidence dir and still reads
@@ -143,16 +354,23 @@ maintainer, each with its numbers, and none is filed or closed:
 
 | item | state |
 |---|---|
-| `overseer-yho.3` | Fully COSTED. The fleet edit is near-mechanical (117 → 25 demonstrated in memory, all of class (a) cleared); the highest-leverage fix is ONE line clearing 10 defects in a shared layer; option 3 reaches 94 of 117 because `homelab` consumes no pin. **Needs a decision, not a number.** |
-| `overseer-jcw` | Mechanism 1 (shared tmux socket across concurrent runs) FIXED and gated, two instances. Mechanism 2 (a timing premise CPU starvation invalidates) COSTED, with the obvious fix eliminated by arithmetic. **Needs a contract decision.** |
-| `overseer-bak` | Gap real and reproduced from both directions; **incidence nil** (0 of 7 comparable threads drift). One local static gate landed. **Needs a scope decision.** |
+| `overseer-yho.3` | Fully COSTED. The fleet edit is near-mechanical (117 → 25 demonstrated in memory, all of class (a) cleared); the highest-leverage fix is ONE line clearing 10 defects in a shared layer; option 3 reaches 94 of 117 because `homelab` consumes no pin. **Needs a decision, not a number** — and the decision is now MAKEABLE FROM THIS FILE: the four options were cited in five places and defined nowhere outside a gitignored packet, and are now carried in full under "THE FOUR OPTIONS THEMSELVES". Option 3's portability is verified standalone; the one-line 10 → 0 fix is re-verified with its control. |
+| `overseer-jcw` → **`overseer-jdo`** | **jcw is CLOSED** (2026-07-30T22:24Z, as a DUPLICATE of `overseer-jdo`; re-measured 2026-07-31T14:40Z). jdo is P1, open, and the single live home. Mechanism 1 (shared tmux socket) FIXED and gated. Mechanism 2 COSTED here — but **jdo's notes predate both the severity correction and the costing**, see "WHAT jdo IS MISSING" below. **Needs a contract decision.** |
+| `overseer-bak` | Gap real and reproduced from both directions; **incidence nil** — re-verified 2026-07-31T16:20Z, every figure reproduced (12 threads, 7 declaring, 0 disagreeing), including after another track rewrote its own handoff. Two local static gates landed; **PR #446** stops the comparator silently skipping the fleet's third anchor spelling. Live-only is 12 threads; with archives it is 26, so a comparator must say which population it means. **Needs a scope decision.** |
 
 The only defect this thread found in itself is fixed: the charter's `ledger_anchor`
 pointed at a closed bug and now points at `overseer-yho`, gated by
 `tests/test_plan_thread_records_agree.py`.
 
-**NOTHING IS IN FLIGHT. The 2026-07-30/31 session landed 13 PRs / 15 commits and
-ALL ARE MERGED** (#411, #413, #418, #419, #421, #424, #425, #426, #427, #429,
+**NOTHING WAS IN FLIGHT AT THE END OF THE 2026-07-30/31 SESSION** — but **five PRs
+are open now** (#440, #441, #445, #446, #452), all from the 14:40Z session above,
+so this paragraph is no longer the current picture and is kept as that session's
+record. (It said "PR #440 is open now" until the sweep below caught it: I wrote
+that when there was one, and four more landed after it without the sentence
+moving. **Appending never revisits what it contradicts** — the same mechanism the
+correction-count gate exists for, in a paragraph I had already edited once to fix
+exactly this.) **That session landed 13
+PRs / 15 commits and ALL ARE MERGED** (#411, #413, #418, #419, #421, #424, #425, #426, #427, #429,
 #432, #434, #437 — counted from the forge, not from memory, after a first tally of
 "12 PRs / 32 commits" proved wrong in both figures) — no open branch, no open PR,
 no worktree, no background job of mine, and **zero ledger writes all session**. So a cold open inherits a clean tree
@@ -162,7 +380,9 @@ mechanism 1 fixed in two modules + a property gate (#418); and the rest are this
 file — the `yho.3` costing, the jcw mechanism-2 costing, the `bak` measurement,
 four hazards, and the four-stale-claims record below. **Every number in this file
 below the separator was re-measured at session end and still holds** (7 of 7), and
-the full aggregate passes at the current `livespec-dev-tooling` pin `v1.13.6`,
+the full aggregate passed at the then-current `livespec-dev-tooling` pin `v1.13.6`
+(**now `v1.13.8`** — another track landed `v1.13.7` and `v1.13.8` mid-session on
+2026-07-31; re-verified 65/65 at `v1.13.8`, so the bump is clean here),
 which another track bumped while that session was finishing.
 
 Phase 2 (`overseer-yho`) had four slices. Three are CLOSED and merged —
@@ -209,6 +429,39 @@ So, on a cold open, in this order:
    - **Three items the maintainer owes decisions on had no numbers.** Costing them
      — `yho.3`, jcw mechanism 2, `bak` — needed no permission and no ledger write.
 
+   **WHAT ACTUALLY WORKED, TWICE — four moves, in the order that paid.** Step 3
+   has now been followed by two sessions (7 PRs, then 5). Both times the value came
+   from the same four moves, and none of them needs permission, a ledger write, or
+   another track:
+
+   1. **Point an EXISTING instrument at a corpus it has never been run against.**
+      The single most productive move both times. The eleven detectors had never
+      been run over the generator prose (→ PR #445), over every charter by
+      injection (→ the reach map, PR #441), or over the fleet from a standalone
+      copy. The contract validator had never been run over this repo's own
+      charters or the fleet's (→ two instruments independently naming the same
+      dominant defect). **The instruments already exist and are cheap; the corpora
+      they have not been pointed at are where the findings are.**
+   2. **Compare two records that describe the same thing.** The charter against
+      the handoff (→ the anchor defect), the handoff against the ledger (→ jcw
+      closed), a document's timestamps against the findings that postdate it (→
+      what `overseer-jdo` is missing). Nothing in the fleet does this
+      automatically, so it is always unexamined.
+   3. **Check that anything CITED actually exists durably.** This file referenced
+      "the four costed options" five times and defined them nowhere outside a
+      gitignored packet, which made the one open decision unmakeable from the
+      handoff. A citation is a dependency; a gitignored one is a dangling
+      dependency.
+   4. **Execute a claim instead of reading it.** The provenance block was
+      extracted and RUN rather than reasoned about; the gate module was COPIED
+      outside the repo and run under system python. Both confirmed prose that
+      would otherwise have stayed an assertion.
+
+   **And the discipline that stopped four bad gates shipping: measure the whole
+   corpus before writing any rule.** Three plausible gates died that way this
+   session (see Hazards), each with a false positive already sitting in the tree.
+   **A gate is not justified by being correct on the example that motivated it.**
+
    The original prohibition still stands and is not weakened: **do not file, do not
    transition, do not close, and do not touch another track.**
    `codex-parity-and-rollout-safety` and `daemon-liveness-truth` (`overseer-x29`)
@@ -216,14 +469,26 @@ So, on a cold open, in this order:
    it means the work is verification, measurement, and preparing decisions rather
    than execution. **Ask what this thread has ASSERTED that nobody has CHECKED.**
 
-**Do not merge release PR #360** (0.15.1) or any Release Please PR.
+**Do not merge release PR #360** or any Release Please PR. It now reads
+**0.16.0**, not the 0.15.1 this line used to name: Release Please RETITLES the
+same PR as commits land, so a version written into a standing instruction ages
+even though the PR number it points at never moves. Re-measured 2026-07-31T14:45Z
+— `plugin.json` and the newest tag both still read **0.15.0**, so nothing has
+shipped and the provenance HALT below still stands.
 
 **One live consequence to expect, which looks like a bug and is not:** this
 repo's own charter now HALTs its provenance precondition, naming two different
 digests. That is correct — see "Provenance" below — and it clears when #360
 ships. Do not re-stamp the digest to silence it.
 
-## WORKER RESUME STATE — re-measured 2026-07-30 19:40Z by the `supervisor-prompt-quality` worker
+## WORKER RESUME STATE — first measured 2026-07-30 19:40Z; large parts RE-VERIFIED 2026-07-31
+
+**Sections below carry their own dates and the later one wins.** Re-verified on
+2026-07-31: the fleet's 117 (reproduced exactly, per-repo identical), the
+one-line 10 → 0 fix with its on-disk control, `overseer-bak`'s whole table, the
+provenance HALT (executed, not inferred), and the gitignored artifact inventory.
+Nothing re-measured was found wrong; what changed is that `overseer-jcw` closed
+and the four remediation options are now carried here.
 
 **Everything below is a claim with a timestamp. Re-measure from the ledger and the
 forge before acting on any of it.** This section has been wrong about the blocker
@@ -275,7 +540,8 @@ with no change to the numbers.
 
 The exposure is still CONCENTRATED: one repo holds 56 of 117 with 5 of 6 charters
 dirty, so a phased cut scoped to `livespec-orchestrator-beads-fabro` clears about
-half. That option post-dates the costed options in `GAP-no-remediation-slice.md`.
+half. That option post-dates the costed options, which are now carried in full
+below under "THE FOUR OPTIONS THEMSELVES" rather than left in a gitignored file.
 
 ### `overseer-yho.3` IS NOW COSTED — 2026-07-30T22:20Z, and the answer is NOT what the packet assumed
 
@@ -308,6 +574,15 @@ this repo already ships (`WORKER_TARGET='=<worker-session>:'`) took it **10 -> 0
 with zero other changes. It is a SHARED layer, so it fixes every thread in the repo
 holding 48% of the exposure.
 
+**RE-VERIFIED 2026-07-31T17:30Z from a fresh invocation, and it is exactly as
+recorded.** 10 findings, **all of class (a)**; the file uses `"$WORKER_TARGET"`
+ten times and carries **ZERO** bindings of it; inserting the one line takes it to
+**0**; and the control — re-scoring the on-disk file afterwards — still reports
+**10**, so nothing leaked to disk. This is the most decision-relevant single
+number under `overseer-yho.3` and it has now been reproduced twice, a day apart,
+by different code paths (the second from a standalone copy of the module running
+outside this repo entirely).
+
 **4. OPTION 3 IS CHEAPER THAN COSTED BUT DOES NOT REACH EVERYTHING.**
 `livespec_dev_tooling/checks/` already ships **57** public check modules, THREE of
 which walk the plan tree, and **ZERO** read `supervisor-handoff.md` (control passed;
@@ -325,6 +600,228 @@ argument against option 4 ("accept it; instances decay").
 **None of this is a decision.** Nothing was filed, nothing was cut, no other repo
 was written to. `overseer-yho.3` remains the maintainer's.
 
+### THE FOUR OPTIONS THEMSELVES — carried here 2026-07-31T17:15Z because NOTHING DURABLE DEFINED THEM
+
+**This file cited "option 3", "option 4" and "the four costed options" in five
+places and defined them NOWHERE.** They existed only in the gitignored
+`GAP-no-remediation-slice.md`. So the single decision this thread says is
+outstanding — the one it insists needs "a decision, not a number" — **could not
+be made from this handoff at all**, and a fresh clone would have inherited five
+dangling references to a document it does not have. The numbers were carried out
+of that file and the choices they price were left behind.
+
+| # | option | original cost | verdict after the 2026-07-30 re-measure |
+|---|---|---|---|
+| 1 | **A remediation sweep** — rewrite every emitted charter to `-t '=<name>:'` | spans 5 repos, so mostly cross-repo ROUTING, not local work; the one-slice/one-ledger model fragments it | **Cheaper than it reads.** Routing being ~all the cost is CONFIRMED and quantified; the edit itself is near-mechanical (117 → 25 in memory, all of class (a) cleared). |
+| 2 | **Per-repo routing items** — one finding per owning track, no local slice | five conversations; no single place shows whether the fleet is clean | Unchanged. |
+| 3 | **A recurring CHECK instead of a sweep** — `tests/prompts/test_charters_carry_no_known_defects.py` (NOT the gitignored `blast_radius.py` prototype it was costed against) runs in each repo's CI | needs the tool productionised AND adopted per repo | **Half discharged.** The tool IS productionised, eleven classes, green here, and imports and runs unmodified from outside this repo. What remains is per-repo ADOPTION, not construction. **But it reaches only 94 of 117** — `homelab` consumes no pin. |
+| 4 | **Accept it** — the generator is fixed; instances decay as threads regenerate | an unbounded tail | **Weaker than when written.** 51 of 117 (44%) sit in `plan/archive/`, which NEVER regenerates, so waiting cannot reach nearly half the exposure. And the tail is now known to be mostly mechanical, so accepting it buys little. |
+
+**A fifth shape the packet never costed, which the measurement points at:**
+**3-for-pin-consumers + 1-for-homelab** — the check adopted by pin bump where a
+pin exists, a one-off sweep for the 23 defects in `homelab`. And a **phased first
+cut** is cheapest by a wide margin: `livespec-orchestrator-beads-fabro` alone is
+56 of 117 (48%), and its single highest-leverage fix is **one line in one shared
+file** clearing 10.
+
+The packet's own standing recommendation was **3 + 1** — the check makes the
+population visible and stops it growing, the sweep then drains what it exposes.
+**That recommendation is the packet author's, not a decision**, and it predates
+both the homelab-reach finding and the archive finding.
+
+**Still nothing filed, nothing cut, no other repo written to.**
+
+**OPTION 3's LOAD-BEARING CLAIM, VERIFIED THE HARD WAY — 2026-07-31T17:25Z.**
+"Productionised and portable" was asserted from a run INSIDE this repo. Re-tested
+properly: the module was COPIED outside the repo entirely and executed under the
+system `python3` (**3.13.7**, no venv, no `uv`, none of this repo's deps). It
+imports `re` and `pathlib` and nothing else, and it ran. Against
+`livespec-orchestrator-beads-fabro/.ai/supervisor-protocol.md` it returned **10
+findings** — independently reproducing the "one line clearing 10 defects in a
+shared layer" result from a standalone copy. **So option 3 needs no packaging
+work: the artefact is a single stdlib-only file.**
+
+**ONE ADOPTION CAVEAT, and it is cheap but real.** `_REPO_ROOT` is derived from
+`__file__` depth (`parent.parent.parent`) and `_CHARTER_GLOBS` hang off it, so a
+copy placed at a different depth scans NOTHING — the standalone run returned an
+empty charter set. An adopter must either put it at `tests/prompts/` or adjust
+`_REPO_ROOT`. **This fails LOUDLY, not silently**: `test_this_repo_has_charters_to_scan`
+asserts the set is non-empty precisely for this, so a mis-placed adoption reddens
+instead of reporting a clean repo. That vacuity guard is the difference between a
+cheap caveat and a silent no-op, and it is worth seeing that it paid off in a
+scenario nobody wrote it for.
+
+### HOW FAR THIS REPO'S CHARTERS ARE FROM THE CONTRACT — measured 2026-07-31T17:55Z, and it is MUCH closer than it looks
+
+Never measured locally before. The contract carries **31** requirements. Run over
+each charter ALONE the misses look alarming — 13 to 26 — but that is the wrong
+reading: the two-layer split moved most of the contract into
+`.ai/supervisor-protocol.md`, so a binder is not supposed to carry it. **Combined
+with the shared layer the real distance is 0 to 4.**
+
+| charter | missing (combined with the shared layer) |
+|---|---|
+| `supervisor-prompt-quality` (the exemplar) | **0 — fully conformant** |
+| `codex-parity-and-rollout-safety` | 2 — `pane-pid-empty-verdict`, `generator-provenance-self-check` |
+| `fabro-review-classifier-defect` | 2 — same two |
+| `background-shell-supervision-liveness` (archived) | 1 — `generator-provenance-self-check` |
+| `supervise-plan-residual-gaps` (archived) | 2 |
+| `ship-overseer-to-fleet` (archived) | 3 |
+| `cutover-and-shipping` (archived) | 4 — the worst, adding `readlink-empty-guard` |
+
+Across all seven: **`generator-provenance-self-check` 6×, `pane-pid-empty-verdict`
+5×, `supervisor-agent-proof` 2×, `readlink-empty-guard` 1×.**
+
+**WHY THIS MATTERS FOR THE OPEN DECISION.** Option 4 rests on "instances decay as
+threads regenerate". This says regeneration would have little left to do — the
+non-exemplar charters are **two requirements** from conformant, not twenty — so
+the cost of closing the gap by hand is far lower than the "alone" figures imply,
+and the leverage is again in the SHARED layer, the same shape as the
+orchestrator's one-line 10 → 0. It also localises `overseer-bak`'s "provenance
+reaches 1 charter in 12": here it reaches **1 in 7**, and the six that lack it
+simply predate `overseer-yho.2` and were never regenerated. That IS the
+nothing-schedules-regeneration thesis, quantified at home.
+
+**ONE ROLE-LEVEL GUARD IS STRANDED IN THE EXEMPLAR'S BINDER — reported, not fixed.**
+Four requirements are supplied ONLY by this thread's binder and not by the shared
+layer: `readlink-empty-guard`, `pane-pid-empty-verdict`, `supervisor-agent-proof`
+and `generator-provenance-self-check`. Three of those four are fine on inspection:
+
+- `generator-provenance-self-check` **must** be per-charter — its value is a
+  digest resolved per generation (see below).
+- `readlink-empty-guard` and `supervisor-agent-proof` are absent from the shared
+  layer but the two other live charters **satisfy them independently**, so
+  nothing is missing in practice.
+
+**`pane-pid-empty-verdict` is the one that is actually missing**, from BOTH other
+live charters. It is a role-level rule — guard `pane_pid` non-empty before using
+it, exactly C2's empty-string false-pass in another command — and every
+supervisor should run it, yet it exists only here. Moving it to the shared layer
+would hand it to every thread in this repo at once: **the same
+one-line-in-a-shared-layer leverage as the orchestrator's 10 → 0**, applied at
+home.
+
+**Why I did not do it, and it is not only the boundary.** The block is
+thread-bound in a way that is easy to miss: its HALT message hardcodes
+`'supervisor-prompt-quality'`, so relocating it means PARAMETERISING that string,
+not moving lines. And `.ai/supervisor-protocol.md` is read by every thread's
+supervisor including other tracks', so changing it reaches
+`codex-parity-and-rollout-safety` and `fabro-review-classifier-defect`. That is a
+maintainer's call, not an audit's.
+
+**This is the same defect class this thread already recorded in the reference
+adopter** — homelab's acting-daemon prohibition sitting in a per-thread binder
+instead of the shared layer, leaving 5 of 6 threads without a role-level rule.
+Finding one instance at home, in the hardened exemplar, is the useful part: the
+layering defect is not something only other repos have.
+
+**THE PROSE'S OWN SINGLE "MISS" IS NOT A DEFECT — do not go fix it.**
+`missing_requirements` reports `generator-provenance-self-check` against the
+generator prose, and that is correct and asserted deliberately: the value is a
+DIGEST resolved per generation, so it cannot exist in a template, and must not,
+because an example digest is something a generator would copy verbatim. The
+exemption is pinned as an EXACT one-item list rather than a filter, so it cannot
+become a hole — if the prose stopped instructing any other requirement the list
+would grow and the test would fail. The prose-level half is checked separately by
+`test_the_generator_prose_mandates_the_provenance_record`. **Measured, read, and
+left alone.**
+
+### THE SAME MEASUREMENT ACROSS THE FLEET — 2026-07-31T18:05Z, and TWO INSTRUMENTS AGREE
+
+The contract validator runs unmodified over other repos' charters, so the local
+number above has a fleet counterpart. Combined with each repo's shared layer
+where one exists:
+
+| repo | charters | shared layer? | median miss | worst |
+|---|---|---|---|---|
+| **livespec-overseer** | 7 | yes | **2** | 4 |
+| livespec-orchestrator-beads-fabro | 5 | yes | 29 | 32 |
+| livespec | 4 | **no** | 30 | 31 |
+| livespec-dev-tooling | 3 | **no** | 32 | 36 |
+| livespec-console-beads-fabro | 1 | **no** | 33 | 33 |
+| homelab | 6 | yes | 39 | 47 |
+
+**READ THE CAVEAT BEFORE THE NUMBERS.** The contract holds **31** requirements,
+yet misses run to 47 — so the returned list is NOT bounded by the requirement
+count and "39 of 31" is meaningless. `non-exact-tmux-target:*` reports **one entry
+per offending command**, so a charter with eight bare targets contributes eight.
+Requirement-level and instance-level entries are mixed in one list. This repo's
+0-4 figures are purely requirement-level because it has no instance violations at
+all, which is exactly why the two columns are not comparable across rows.
+
+**THE FINDING THAT SURVIVES THE CAVEAT, and it is the useful one: TWO INDEPENDENT
+INSTRUMENTS NAME THE SAME DOMINANT DEFECT.** The contract validator's top miss in
+the three worst repos is `non-exact-tmux-target:capture-pane` / `:send-keys` /
+`:has-session` — which is **detector class (a)**, the 92-of-117 finding, arrived
+at by a completely different mechanism. The eleven-detector gate and the
+31-requirement contract were written separately, key on different things, and
+agree on where the exposure is. That is real corroboration for
+`overseer-yho.3`'s costing, and it is the first time the two have been pointed at
+the same corpus.
+
+**SIZING THAT LEVER — and it CORRECTS the sentence below.** Simulated by combining
+each shared-layer-less repo's charters with THIS repo's shared layer. Stated
+approximation: ours carries role-level contract text plus our own bindings, so
+this is the CEILING of the lever, not a drop-in result.
+
+| repo with no shared layer | median now | with one | delta |
+|---|---|---|---|
+| `livespec` | 30 | **4** | −26 |
+| `livespec-dev-tooling` | 32 | **4** | −28 |
+| `livespec-console-beads-fabro` | 33 | 13 | −20 |
+
+**But HAVING a shared layer is not the same as having a CONFORMANT one, and that
+is the real finding.** Measuring what each existing shared layer already carries
+for its own repo:
+
+| repo | median alone | with its OWN shared layer |
+|---|---|---|
+| `livespec-overseer` | 19 | **2** |
+| `livespec-orchestrator-beads-fabro` | 32 | 29 |
+| `homelab` | 31 | **39 — WORSE** |
+
+So "three of six repos have a shared layer" **overstates it**: the orchestrator's
+buys 3, and homelab's is net NEGATIVE. **Effectively ONE repo in the fleet has a
+shared layer that carries the contract.**
+
+**WHY HOMELAB GOES UP, because the metric is the reason and it is a limit on
+everything above.** `non-exact-tmux-target:*` is INSTANCE-level, so adding text
+adds violations: homelab's shared layer brings its own bare targets with it. The
+miss count is therefore **NOT MONOTONIC** and cannot be compared across
+configurations that change how much text is being read. The −26/−28/−20 deltas
+are clean only because OUR shared layer contributes zero bare targets; they
+measure "a conformant shared layer satisfies the role-level requirements", not
+"any shared layer helps". **Do not quote these numbers without that sentence.**
+
+**THAT ASSUMPTION WAS VERIFIED, NOT ASSERTED — with a control.** Our shared layer
+scored alone: **4 misses, of which ZERO are instance-level bare-target entries**.
+And the decisive check, run per charter: adding our layer to a foreign charter
+introduced **0** new bare-target entries in `livespec`, **0** in
+`livespec-dev-tooling`, **0** in `livespec-console-beads-fabro`. So the deltas are
+clean by measurement rather than by argument. The two shared layers that DO carry
+bare targets are the orchestrator's (**8** instance entries) and homelab's
+(**9**) — which is precisely why those two repos gain nothing, or lose, from
+their own split.
+
+**AND A THIRD INSTRUMENT LANDS ON THE SAME FILE.** The orchestrator's shared
+layer showing 8 bare-target entries under the CONTRACT validator is the same
+`.ai/supervisor-protocol.md` that the DETECTOR gate scores at 10 and that one
+added binding line takes to 0. Different instruments, different counting
+granularity (8 vs 10 — the contract groups by command, the detector reports per
+line), same file, same defect, same remedy. **The single highest-leverage edit in
+the fleet has now been found independently three times.**
+
+**SECOND FINDING: only THREE of six repos have a shared layer at all.**
+`livespec`, `livespec-dev-tooling` and `livespec-console-beads-fabro` carry no
+`.ai/supervisor-protocol.md`, so every one of their charters must carry the whole
+contract alone. That is a structural reason their numbers cannot improve the way
+this repo's did — **a CONFORMANT two-layer split is the single biggest lever in the
+measurement, and five of six repos have not taken it** — three have no shared
+layer, and two have one that carries little or none of the contract. No option in the packet
+mentions it. Not a recommendation, and not mine to cut — but a maintainer
+choosing between the four options should know the cheapest local win here was
+architectural, not a sweep.
+
 ### Provenance: what landed, and the consequence it carries
 
 `overseer-yho.2` shipped a `## Generator provenance` section in both emitted
@@ -340,6 +837,32 @@ the last released prose; between a prose change and its release those differ, an
 the check HALTs naming both digests. Do NOT re-stamp the digest to silence it —
 that forges currency the charter does not have. It self-resolves when the release
 ships. An adopter generating from a released ref sees PASS.
+
+### THE PROVENANCE HALT IS LIVE AND CORRECT — executed 2026-07-31T16:45Z
+
+Not inferred from the prose: the charter's own block was EXTRACTED AND RUN. It
+HALTs at rc=1 naming both digests — recorded `eaebe06065b3…`, installed
+`9ca18d5677…` — the cache ref `013d35d48cde` still holds the released prose, and
+the cache carries the same ELEVEN refs the stale-cache module's premise records.
+So the "expect a HALT here, and do NOT re-stamp to silence it" guidance above is
+accurate and still current. Nothing to do.
+
+**AND A GATE I TALKED MYSELF OUT OF, recorded so the next session does not build
+it.** The obvious way to catch the forgery that guidance warns about — someone
+re-stamping `generator_prose_md5` to the cache's value to go quiet — is to assert
+`generator_prose_md5 == md5(.claude-plugin/prose/supervise-plan.md)`. It is
+static, needs no cache, would run in CI, and it PASSES TODAY (both are
+`eaebe06065b3…`). **It is still wrong.**
+
+A charter's provenance is a HISTORICAL record of what produced it. When generator
+prose lands without the charter being regenerated, the charter legitimately
+records the OLDER digest — it is behind, not incorrect. That gate would redden
+master on every prose change and the cheapest way to green it would be to
+re-stamp the digest WITHOUT regenerating, which is precisely the forgery the
+guidance forbids. **A gate whose easiest remedy is the defect it exists to
+prevent is worse than no gate.** The honest conclusion is that provenance
+correctness cannot be checked statically without knowing whether the charter was
+regenerated, and that fact is not recorded anywhere else.
 
 ### THE CHARTER IS NOW TWO LAYERS — this changes where things live
 
@@ -527,11 +1050,36 @@ Scope of what landed: `tests/test_plan_thread_records_agree.py` reads only this
 repo's two spellings, which is correct HERE (verified: this repo's other two
 charters declare no anchor in ANY spelling) but is NOT a fleet-ready comparator.
 
+**RE-VERIFIED 2026-07-31T16:20Z, and every figure reproduced exactly**: 12
+threads carrying both records, 7 declaring (homelab 5, orchestrator 1, this repo
+1), 5 uncomparable, **0 disagreeing**, 1 of 12 with provenance. That re-run
+matters more than a routine one because the `codex-parity-and-rollout-safety`
+track rewrote its own handoff (70 insertions) in between, and a fresh edit to one
+of a thread's two records is exactly when they diverge. They did not. **The
+nil-incidence finding survives contact with a live edit.**
+
+**NEW, AND IT CHANGES THE COMPARATOR'S SIZING: the 12 is LIVE THREADS ONLY.**
+Including `plan/archive/*/`, **26** threads carry both records — and the extra 14
+all declare no anchor, so the declaring count stays 7 while the uncomparable
+population grows from 5 to 19. Whoever builds the comparator should say which
+population they mean: scoped to live threads it covers 7 of 12, scoped to
+everything it covers 7 of 26.
+
 ### `overseer-jcw` HAS TWO MECHANISMS. ONE IS FIXED; THE OTHER IS NOT — 2026-07-30T23:55Z
 
 Diagnosed and half-fixed by this thread because `tests/prompts/` is this thread's
-own deliverable. **The ledger is untouched — jcw is NOT closed, and closing or
-re-scoping it is the supervisor's lane.**
+own deliverable. **This thread wrote no ledger entry — but jcw IS now closed**,
+and this paragraph used to deny it. Re-measured 2026-07-31T14:40Z: closed
+2026-07-30T22:24:12Z by the `codex-parity-and-rollout-safety` worker as a
+DUPLICATE of `overseer-jdo` (P1, open), which is now the single live home for
+this defect. The close reason is careful and worth reading — it folded this
+item's evidence into jdo FIRST and read it back before closing.
+
+**The claim was true when written and stopped being true the same evening**,
+which is the failure this file names on every other page: a status sentence in a
+durable record ages silently while its neighbours get re-measured. It survived
+two later edits to this very section (the 03:43Z correction and the 04:50Z
+costing) because those appended below it and never re-read the paragraph above.
 
 **MECHANISM 1 — a shared tmux socket across concurrent runs. FIXED, PR #418.**
 The rig named its private socket `legs-{tmp_path.name}`. That is the TEST's
@@ -621,9 +1169,9 @@ owns it.
 ### Hazards to carry forward
 
 - **WHEN A VERIFICATION DISAGREES WITH THE ARTIFACT, SUSPECT THE VERIFICATION
-  FIRST. Measured 2026-07-31: four for four.** This is the synthesis of the
-  individual entries below, and it is worth more than any of them, because in a
-  single session EVERY apparent defect that a check reported turned out to be the
+  FIRST. Measured 2026-07-31: SEVEN for seven, now across two sessions.** This is
+  the synthesis of the individual entries below, and it is worth more than any of
+  them, because EVERY apparent defect that a check reported turned out to be the
   CHECK's fault and not the artifact's:
   1. `ls … | grep '^_'` returned 0 helper modules against a true 20 — `ls` is
      `lsd` here and its output is inode-decorated, so a `^`-anchored filename
@@ -635,7 +1183,29 @@ owns it.
      one step from merging without CI. `fails=0` is not green unless `pass>0`.
   4. A test-function existence scan reported 7 MISSING functions, all of which
      were module names with `.py` stripped by my own regex.
-  And a fifth, in the other direction: a module with SEVEN tests beside a claim of
+  5. **2026-07-31, second session.** A grep for `new-session` reported FIVE
+     `tests/prompts/` modules driving real tmux against this file's claim of
+     four, which looked like exactly the count-drift this thread hunts. The fifth
+     was `test_rig_sockets_are_run_unique.py`, whose own docstring says **"this
+     module drives no tmux and therefore has no socket to misname"** — every hit
+     was in its prose ABOUT the defect. It is a static scanner with zero
+     subprocess calls. **The claim of four was right.** Note the shape: the
+     module is itself a detector built to avoid being fooled by prose that
+     mentions the defect, and my check was fooled by that module's prose. Had I
+     "corrected" the four to five I would have falsified an accurate record.
+  6. **The rule working, in-session.** A sabotage-verification predicate asserted
+     `t.count('"g":')==1` after deleting one of three `"g":` lines, so it read
+     as "the sabotage did not produce the defect" when the sabotage was fine and
+     the arithmetic was mine. Different vector from the five above — not a scan
+     over artifacts but the CHECK ON A CHECK — and the reason it cost a minute
+     rather than a working gate is that the assertion fired BEFORE the verdict
+     was read, which is the operational form below doing its job.
+  7. A fleet record-agreement scan reported **2** charters declaring an anchor
+     against a true **7**, with a control I had deliberately built from a
+     FOREIGN spelling passing — because I fed that spelling to the wrong
+     extractor. Detailed as its own bullet below, because the mechanism is
+     distinct from the six above and knowing them did not prevent it.
+  And a seventh, in the other direction: a module with SEVEN tests beside a claim of
   "all four of its states" looked like drift, and was not — four were cache states
   and three were charter-shape checks. **Correcting it would have falsified an
   accurate record and destroyed the distinction the module is built around.**
@@ -647,6 +1217,45 @@ owns it.
   one of the five above dissolved in under a minute of looking directly, and each
   had already survived a control that I believed.
 
+- **AND THE SHARPER FORM, WHICH CAUGHT ME 2026-07-31 ON THE VERY MEASUREMENT
+  BELOW: A CONTROL CAN EXERCISE THE RIGHT SPELLING AGAINST THE WRONG EXTRACTOR.**
+  Re-running the record-agreement scan I asserted the homelab bullet spelling in
+  a control, watched it pass, and still reported **2** charters declaring an
+  anchor against a true **7** — the identical wrong number this thread recorded
+  the first time. The reason: that spelling belongs to CHARTERS, and I was
+  applying it to `handoff.md` while the charter extractor still read only two
+  spellings. So the control proved "this regex matches this string" when the
+  claim needed was "this regex runs over the file that contains this string".
+  **A control must be routed through the SAME call path as the measurement**,
+  not merely fed the same text. Knowing the hazard below did not save me — I had
+  read it, quoted it, and walked into it anyway, which is the argument for
+  reproducing a suspicious count by hand rather than trusting any control.
+- **THREE PLAUSIBLE GATES DIED THIS SESSION, ALL KILLED BY MEASURING THE REAL
+  CORPUS BEFORE WRITING THEM — and that is the pattern, not the three.** Each
+  looked obviously correct, each would have passed on the day it was written, and
+  each had a false positive already sitting in the tree:
+  1. **`generator_prose_md5 == md5(repo prose)`**, to catch someone re-stamping
+     the digest to silence the provenance HALT. Static, CI-able, green today —
+     and **its easiest remedy is the forgery it exists to prevent**: a charter's
+     provenance legitimately lags after a prose change, so the gate reddens on
+     every prose change and the cheapest fix is re-stamping without regenerating.
+  2. **A "looks like a declaration but did not extract" guard**, to catch any
+     future unknown anchor spelling. It would have reddened
+     `plan/fabro-review-classifier-defect/supervisor-handoff.md`, which discusses
+     the ledger anchor **in prose** while declaring none.
+  3. **"No ISO-8601 `Z` timestamp under `plan/` may be in the future"**, to catch
+     the ambient-date hazard at commit time. The premise was that a full
+     `…T…:…Z` stamp is a MEASUREMENT. It is not: the one future stamp in the
+     tree is the **Codex access-token expiry**
+     (`2026-08-08T17:37:28Z`), which is legitimately in the future and uses the
+     identical form. Intent is not in the text, so no regex separates them.
+     (Bare dates are hopeless for a different reason — there are **319**.)
+  **The common shape: the false positive was always data or prose that
+  legitimately RESEMBLES the defect** — the same family the charter gate's
+  fenced-code-only rule exists for. **A gate is not justified by being correct on
+  the example that motivated it. Run it over the whole corpus first, and read
+  what it flags.** All three were killed in under five minutes each; shipping any
+  of them would have cost a red board and a bad lesson.
 - **A POSITIVE CONTROL ON YOUR OWN SPELLING PROVES THE REGEX COMPILES, NOT THAT IT
   COVERS THE WILD.** This thread's hardest-won rule is that a zero needs a control.
   That rule has a hole: a control built from the same shape you wrote the pattern
@@ -667,6 +1276,22 @@ owns it.
   someone else's HEAD.** Check `git status`, never `git log`. Hit twice; on S7 the
   rejection was state-dependent and a clean retry succeeded, so re-run
   `red_green_replay` in commit-msg mode directly before assuming a real objection.
+  **THIRD INSTANCE 2026-08-01, WITH A WORSE TAIL: the rejection was an `--amend`
+  ON AN ALREADY-PUSHED COMMIT.** The hook printed 🥊 rather than ✔️, HEAD stayed on
+  the pre-fix commit, the fix sat STAGED — and because the branch was already
+  pushed, **the REMOTE was left holding the broken version** while the local tree
+  looked like it had a pending edit. A clean retry of the identical amend
+  succeeded, then `git push --force-with-lease` was required. **After a rejected
+  amend, check what the REMOTE has, not just `git status`** — three states can
+  disagree at once (HEAD, index, origin), and only the third is invisible locally.
+- **A CONDITIONAL WHOSE FALSE BRANCH CANNOT BE TAKEN IS AN AUTOMATIC COVERAGE
+  FAILURE HERE.** `if shared.is_file():` over a file that always exists left one
+  partial branch (`663->666`) and dropped the file to 99%, failing `fail-under=100`
+  on both coverage targets. The headline read "Coverage failure", which is exactly
+  the signature `overseer-jdo` warns is easy to misread as someone else's flake —
+  it was mine, and reading for the `Missing` column rather than the headline said
+  so in seconds. **The fix is to remove the branch, not to cover it**: a glob over
+  an absent path yields nothing and needs no conditional.
 - **A `fix:`/`feat:` subject on a tests-only staged tree whose tests PASS is
   rejected** as `test-passed-at-red`. Markdown does not enter the `.py` bucket, so a
   change fixing generator prose plus its tests is still "tests-only" to the hook.
@@ -793,6 +1418,17 @@ owns it.
   (never hand-edit the gitignored `dev-tooling/` copy): drop the `exit` and guard
   with a flag, or read the value without a pipeline. Worth putting on
   `livespec-dev-tooling-zi4q`, which currently records the symptom and no cause.
+  **IT IS GETTING WORSE, AND HERE IS THE NEW DATA POINT.** Measured 2026-07-31 at
+  **63** worktrees: the second creation of the session took **14 attempts** —
+  eight consecutive 141s, then five more, succeeding on the fourteenth. The first
+  creation that same session took one. So the coin is no longer fair: at 56
+  worktrees it was 4-of-8, and the "retry three or four times" shape this bullet
+  used to describe now understates it badly. **Budget more retries than you think,
+  and do not read a long run of 141s as a different fault** — each failure still
+  leaves NO partial state (verified again: no branch, no directory). Since the
+  porcelain output grows with every worktree, reaping orphans is the only thing
+  that improves the odds, and `just worktree-reap` cannot see rebase-merged
+  branches (`overseer-btt`).
 - **`ls` ON THIS HOST IS `lsd`, AND ITS OUTPUT IS INODE-DECORATED — so
   `ls … | grep '^<name>'` MATCHES NOTHING, ALWAYS.** Each line begins with an inode
   number and a permission string, not the filename, so any filename predicate
@@ -818,6 +1454,19 @@ owns it.
   write in a heading.** Detector (k) cannot catch this one: there is no `date`
   invocation in the artifact to inspect.
 
+  **IT RECURRED EXACTLY ONE DAY LATER, AT THE SAME MINUTE — caught live.** At
+  local `2026-08-01T00:02:59 CEST` the harness announced "Today's date is now
+  2026-08-01" while **UTC was `2026-07-31T22:02:59Z`**. The first sighting was
+  local `2026-07-31T00:03`, UTC `2026-07-30T22:03Z`. **This is not an anomaly to
+  note once — it is DETERMINISTIC, and it fires every night for the two hours
+  between local midnight and UTC midnight.** Any session running in that window
+  and trusting the ambient date stamps everything a full day ahead, in the
+  direction that looks newest, so a reader sorting by date puts it after work
+  that actually followed it. Every stamp in this session was taken from `date -u`
+  and reads 2026-07-31, which the check above confirms is correct. **The rule is
+  cheap and absolute: never take the date from the harness — take it from
+  `date -u` or `datetime.now(timezone.utc)`, every time.**
+
 ### FOUR STALE CLAIMS ABOVE THE SEPARATOR — reported, NOT fixed, not mine to fix
 
 Swept 2026-07-31 against the ledger and the tree. **Recorded here, in the worker
@@ -840,7 +1489,19 @@ The four that drive real tmux are `test_repo_containment_discriminates`,
 `test_charter_boot_and_ledger_commands` and `test_cold_open_generation_gate`
 deliberately STUB tmux, and a stub is not a drive;
 `test_generated_supervisor_handoff_contract` is inspection-only (0 subprocess
-calls). Suggested: "twelve modules, four of which drive real tmux", dated.
+calls).
+
+**DO NOT ADOPT A BARE NUMBER HERE — the suggestion I first wrote was stale on
+arrival.** It read "twelve modules, four of which drive real tmux", and this
+session's own PRs (#441, #445) take `tests/prompts/` to **fourteen** the moment
+they land. The tmux figure is the stable half: both new modules are static
+scanners driving none, so **four** still holds. That is the whole lesson of the
+correction-count gate one section down, arriving unprompted in the very
+paragraph proposing a fix: **a total drifts on every addition, a property does
+not.** Suggested instead, and phrased so it cannot rot: *"`tests/prompts/`
+carries several modules, four of which drive real tmux"* — or, if a total is
+genuinely wanted, gate it the way the correction counts now are, because nothing
+reads this one.
 
 **On (4) — this one is a TENSE problem, not a wrong number, so do not re-measure
 it.** The digest is still correct for the CACHE (`013d35d48cde` still holds
@@ -854,6 +1515,152 @@ module docs. Re-measuring and re-stamping it would just restart the same clock.
 **What is NOT stale, so leave it:** all seven ledger `CLOSED` claims re-verified
 against the ledger — `byvxlp`, `dk6hwi`, `ejja5o`, `hbr.16`, `hbr.4`, `hbr.15`,
 `fitvmo` — and "release 0.15.0 shipped" (`plugin.json` reads `0.15.0`).
+
+### WHAT `overseer-jdo` IS MISSING — measured 2026-07-31T14:40Z, and it is the two NEWEST findings
+
+**The single most useful thing in this file may be invisible to the person who
+will act on it.** jcw is closed; `overseer-jdo` (P1, open) is the live home. Its
+notes are 32,100 characters and genuinely well kept — the close reason's claim
+that jcw's evidence was folded in FIRST and read back is TRUE, verified by
+reading jdo rather than trusting the reason. jdo carries mechanism 1 in full (the
+socket, `tmp_path.name`, PR #418, the `test_rig_sockets_are_run_unique` gate),
+SIGHTING 3 and SIGHTING 4, the retirement of jcw's three guessed causes, and
+mechanism 2's CONCLUSION that the fix is a contract choice.
+
+**What it does not carry is everything this thread learned after 03:14Z.** jdo
+was last updated **2026-07-31T03:14:09Z**. The severity correction in this file is
+stamped **03:43Z** (29 minutes later) and the costing **04:50Z** (96 minutes
+later). The fold-in was diligent; it simply happened first.
+
+| missing from jdo | measured | why it changes what a fixer does |
+|---|---|---|
+| the **03:43Z severity correction** | jdo's mechanism-2 note still reads "0 of 8 alone, 0 of 8 under light paired load, 2 of 8 under two FULL concurrent suites" | It frames mechanism 2 as needing a CONTRIVED DOUBLE LOAD. The correction overturns exactly that: it fires in the **ordinary `just check` aggregate with no external load**, caught on a pre-push on `[gw3]` minutes after a foreground run of the identical tree passed 65/65. A P1 reader triages "reproduce it by running two suites at once" instead of "run the gate normally". |
+| the **04:50Z arithmetic and option table** | zero occurrences of `_POLLS`, `_STABLE_TO_IDLE` or "starv" anywhere in jdo's 32,100 chars | jdo says the fix is a contract choice but not WHICH alternatives are already dead. The arithmetic (`_POLLS=4`, `_STABLE_TO_IDLE=3`, `stable` resets on any change ⇒ ~450ms unchanging pane ⇒ ~9 missed 50ms ticks) proves **"tick faster" CANNOT work** — a descheduled process does not tick at any rate — and records **"reduce parallelism" as a LEVER ALREADY SPENT** (`test_nprocs` is deliberately 25% of cores and it fires anyway). Those are the first two instincts, and both would look like a fix until they flaked again. |
+
+**Nothing was written to the ledger.** Folding these into jdo is a ledger write
+and jdo belongs to another track; both are outside this thread's lane. This is a
+REPORT. The supervisor decides whether jdo absorbs it.
+
+**The general shape, because it will recur:** an item can be superseded *between*
+your diagnosis and your write-up, and a fold-in is a SNAPSHOT — it captures the
+record as of the close, not as of the last thing you learn. When work migrates to
+another id, the newest findings are the ones most likely to be stranded, because
+they are the ones written after everybody stopped looking.
+
+### This session's gate: a correction count that cannot rot silently
+
+`tests/test_charter_correction_counts_are_current.py`. This file said "**Prefer a
+rule that recounts over a number that ages**... Nothing gates this — the count
+sits in prose that no test reads." That is now false, deliberately: the rule
+recounts.
+
+It compares the counts asserted in this handoff against the entries actually
+present in both charter layers, plus contiguity from 1 (an append that reuses or
+skips a number would satisfy a length check alone). Measured at landing: **19
+role-level entries C1–C19, 1 thread-specific entry T1** — both agreeing with the
+prose. Keyed on the ENTRY form `^- **C<n>`, never on a MENTION: the protocol
+carries an indented `**C14 IS NOW DEMONSTRATED**` note and this handoff discusses
+C19 by name, so a rule anchored to any `C<n>` at line start reports **21** where
+the truth is 19 — wrong in the direction that looks like MORE evidence. Matched
+over whitespace-COLLAPSED prose, because the count and the noun it counts sit on
+opposite sides of a line break.
+
+**Seven sabotages, each RED, each asserting the defect existed BEFORE the verdict
+was read** (stated count 19→16; stated range end C19→C18; append C20; renumber
+C19→C21; append T2; delete the counting sentence; relax the entry pattern to
+match mentions). All files restored from BYTE COPIES and verified byte-identical,
+never `git checkout --`.
+
+**That sentence said "Six" until the last edit of this session, and the drift is
+worth more than the gate.** A seventh sabotage was added, the module was
+reformatted, and the number describing them did not move — the *exact* mechanism
+this module exists to stop, inside the paragraph announcing it, within one
+session. It was caught only because the sabotage suite was RE-RUN after the
+module changed rather than trusted from the earlier run. **Evidence produced
+against an artifact you then edit is stale evidence.**
+
+**Line counts are deliberately NOT gated**, and the omission is the point: they
+change on every edit to either file, so gating them would redden unrelated work
+and train the reflex of editing a number until the gate goes green. A correction
+count changes only on append.
+
+**Appending C20 will redden this.** That is correct — update the one sentence in
+this file that states the count. Do not relax the rule.
+
+### THE ELEVEN DETECTORS DO NOT ALL MEAN THE SAME THING BY "CLEAN" — measured 2026-07-31T15:30Z
+
+**SEVEN are line-scoped; FOUR are document-scoped**, and nothing said so until
+now. Measured by injecting each defect into every real charter in this repo (8
+charters, in memory, read-only, using the shipped module):
+
+| classes | fired in |
+|---|---|
+| (a) (b) (c) (d) (f) (g) (k) | **8 of 8** |
+| (i) (j) | 7 of 8 |
+| (h) | 6 of 8 |
+| (e) | **3 of 8** |
+
+**No detector is blind** — every one fires on its own defect in isolation, which
+is the control that makes the rest of this readable. The four that fire less
+often are DOCUMENT-scoped: they return nothing once the correct property appears
+anywhere in the file's fenced blocks, however many defective lines sit beside it.
+That is DELIBERATE, and each of the four docstrings argues for it: the correct
+form is a helper detected once and called later by name, so a per-line rule would
+flag the correct call site. **This is not a bug report.** Three consequences of it
+were simply written down nowhere:
+
+1. **A charter absorbs NEW defects of a document-scoped class once it holds the
+   correct form once.** A genuinely wrapper-less `bd` call added to
+   `.ai/supervisor-protocol.md` — **half of every deployed charter** — produces
+   no finding at all, because a wrapper already appears elsewhere in it.
+2. **The hardened exemplar masks four of the eleven classes**, and is the ONLY
+   charter masking (i) and (j). So `test_the_hardened_exemplar_is_clean` cannot
+   fire for those four however broken they become. That control proves the
+   detectors do not FALSE-POSITIVE; it can never prove they still fire. The most
+   thoroughly hardened file is the most immunised one, precisely BECAUSE it
+   demonstrates every correct form.
+3. **A count of a document-scoped class counts FILES LACKING A PROPERTY, not
+   defective lines.** For (e), (h), (i) and (j) that number is not a line count
+   and does not mean what the other seven classes' numbers mean.
+
+**AND ITS MAGNITUDE, BECAUSE THE POINT ABOVE OVERSTATES ITSELF WITHOUT ONE.**
+Re-measured fleet-wide 2026-07-31T15:50Z: the four document-scoped classes
+contribute **5 of 117 (4%)**, and only **2, 1, 1 and 6 of 29** fleet charters
+are immune to (h), (i), (j) and (e) respectively. So the distinction is
+architecturally real and numerically minor. **It does NOT move `overseer-yho.3`'s
+costing** — class (a) alone is still 92 of 117 (79%) and the remediation shape is
+unchanged. Recorded with its size so nobody re-opens a settled measurement over
+a 4% effect.
+
+**That run also RE-VERIFIED the fleet numbers independently**, which is worth
+more than the new finding: 29 charters, **117** defects, 12 dirty, per-repo
+56 / 23 / 18 / 15 / 5 with this repo at **0** — every figure identical to the
+2026-07-30 19:40Z table below, reproduced from a separate invocation of the
+shipped module. The recorded costing input is sound.
+
+**THE RISK IS LATENT, NOT LIVE — measure before you go hunting.** Each masked
+class has EXACTLY ONE instance in the file that masks it, and in every case the
+correct property genuinely applies to that instance: the two `bd` invocations in
+`.ai/supervisor-protocol.md` and in the exemplar are the documented-correct
+`ledger_show()` shape (wrapper call plus the bare fallback an adopter without a
+wrapper needs), and the exemplar's single (i) read carries its truncation notice
+and its single (j) test its non-empty guard. **Nothing is hidden today.** The
+exposure begins the moment a file already holding the property gains a SECOND
+instance that is defective — that one arrives unreported. Stated this way round
+deliberately: read as "there are hidden defects", this would send the next
+session hunting for something that is not there.
+
+**Landed as `tests/prompts/test_detector_scope_is_declared.py`, PR #441**, whose
+load-bearing assertion is registry COVERAGE: a twelfth detector cannot land
+without declaring its scope in writing — the decision that was never made
+explicitly for the first eleven. Five sabotages, each RED against its own test.
+
+**Why a registry rather than another pair of cases.** This generalises
+`test_remediating_f_does_not_disarm_e`, which pins the ONE pair caught disarming.
+The deeper lesson is that **a synthetic control cannot see a reach problem,
+because it supplies the surrounding context itself** — which is exactly how (e)
+stayed green while going blind on real charters. Every control in the charter
+gate is synthetic, so this class of failure was invisible to all of them.
 
 ### Boundaries
 
@@ -875,3 +1682,23 @@ fleet-wide remediation options, still the maintainer's cut), `FILED-RESULT.md`,
 supervisor's wake channel), and `evidence/`. **A fresh clone has none of it.**
 Anything worth carrying belongs here or in a test, not in the log — the wake
 channel is a transcript, not storage.
+
+**THAT INVENTORY WAS INCOMPLETE — audited 2026-07-31T17:05Z, and the answer is
+reassuring.** The directory holds ELEVEN files plus `evidence/` and
+`pending-ledger-edits/`; the list above names six. An incomplete inventory of
+"what evaporates" is the one place an omission is invisible by construction, so
+each unlisted item was opened and read:
+
+| unlisted | state |
+|---|---|
+| `pending-ledger-edits/` (4 files) | **APPLIED 2026-07-28, and RE-VERIFIED TODAY by reading both items back**: `overseer-t7qqik` carries "IS NOW 5 OF 6" and `overseer-f2lqj6` carries "HAD NO DRIVER". Both closed. Audit trail only — **do not re-apply**, it would duplicate the block. |
+| `NEW-VALVE-tmux-in-ci.md` | **CLOSED.** Maintainer chose the base image. Verified from the ARTIFACT, not the ledger: tmux is in `livespec-dev-tooling/docker/fabro-sandbox/base/Dockerfile:77-80`, carrying the valve's own rationale in its comment. (The cited ledger id is in another tenant and is NOT readable through this repo's wrapper — the Dockerfile is the better evidence anyway.) |
+| `LIVE-EXPOSURE-rop-sweep.md` | Self-corrected within the hour; historical. |
+| `REVISED-S1-S2-acceptance.md` | S1 and S2 both closed; superseded. |
+| `groom-decision-packet.md` | The groom that produced the filed slices; historical. |
+
+**So nothing undelivered is sitting in the gitignored tree.** Every unlisted file
+carries an explicit resolved banner at its top, which is why the omission cost
+nothing this time — and is also the only reason it was cheap to check. Recorded
+rather than merely fixed, because the next reader needs the CONCLUSION ("nothing
+was lost"), not a longer list they would have to re-audit themselves.
