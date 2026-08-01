@@ -443,6 +443,51 @@ exactly this; the prose reference list was not** — and it sits under a heading
 promising everything in it is verifiable. A thread closing elsewhere in the fleet
 silently invalidates a citation here, and nothing looks.
 
+### ARCHIVING A THREAD BREAKS ITS OWN CITATIONS — a gate that is READY, sound, and NOT MINE TO LAND — 2026-08-01T10:50Z
+
+The archived prior-art citation above is not a one-off. Measured across all **9**
+handoffs in this repo: **7 citations point at `plan/<topic>/…` where the thread
+now lives at `plan/archive/<topic>/…`.**
+
+| citing file | cited | now at |
+|---|---|---|
+| `plan/archive/background-shell-supervision-liveness/handoff.md` | its own `research/control-plane-liveness.md`, `research/root-cause.md`, `research/untracked-obligation-closure.md` (×3) | same paths under `plan/archive/…` |
+| `plan/archive/ship-overseer-to-fleet/handoff.md` | `plan/ship-overseer-to-fleet/`, `plan/supervise-plan-residual-gaps/`, `…/handoff.md` (×3) | same paths under `plan/archive/…` |
+| `plan/codex-parity-and-rollout-safety/handoff.md` (**LIVE**) | `plan/background-shell-supervision-liveness/handoff.md` | `plan/archive/background-shell-supervision-liveness/handoff.md` |
+
+**SIX OF SEVEN ARE A THREAD CITING ITSELF.** Archiving moves the directory and
+every self-reference inside the handoff goes stale at once. Nothing in the
+lifecycle rewrites them, and `just worktree-*` / the archive step do not look.
+
+**THE RULE HAS NO FALSE POSITIVES, BY CONSTRUCTION — and that is the design worth
+keeping.** It fires only when `plan/archive/<topic>/<rest>` ACTUALLY EXISTS, so it
+never guesses at a repair: a citation is flagged only when the file it should
+point at is sitting right there. Contrast the naive version I tried first —
+"every backticked path must resolve" — which flagged **32 of 86 (37%)** and was
+overwhelmingly wrong, because citations are legitimately relative to the thread's
+own directory (`research/…`), to `.claude-plugin/` (`prose/…`), or to
+`/data/projects/`. **That is a fourth plausible gate killed by measuring the
+corpus first, and it died the usual way.**
+
+**WHY THIS ONE IS NOT KILLED, AND WHY I STILL DID NOT BUILD IT — the distinction
+matters, because "zero false positives" reads like a green light.** It is blocked
+by OWNERSHIP, not correctness. Landing it reddens master on 7 existing
+violations; six sit in ARCHIVED threads and the seventh is in
+`plan/codex-parity-and-rollout-safety/handoff.md`, a track this thread's
+Boundaries name explicitly as off-limits. **A gate whose only remedy is editing
+files you may not edit is not a gate you can land.**
+
+**So it is handed over rather than built, and it is cheap to finish:** the rule is
+the table above, the violation list is complete, and every repair is one word —
+insert `archive/`. Whoever owns those files can fix the 7 and land the gate in the
+same change. A live thread archiving in future would otherwise repeat this
+silently, exactly as three threads already have.
+
+**And there is a prior question a maintainer should settle first:** whether an
+archived handoff is a historical RECORD that should not be rewritten at all. If it
+is, the gate should scope to LIVE threads only — which reduces today's violations
+from 7 to **1**, and that one is still not mine.
+
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
 `updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
