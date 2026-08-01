@@ -533,6 +533,34 @@ rewritten to "**5 named vs 26 on disk**", both re-derivable from the tree — a
 property, not a residue count. That is this thread's oldest lesson arriving
 unprompted in a paragraph written to apply it.
 
+**TWO SMALLER DOC/CODE DRIFTS IN THE CARDINAL CONTRACT DOC, sized honestly so
+nobody inflates them.** `marker-protocol.md` is THE contract for the one state
+file, and comparing it against `signals.py`:
+
+1. **`state-path-mismatch` is a FOURTH state-file verdict and appears in NEITHER
+   module doc** (0 mentions in both). It is a fail-closed guard: if the per-topic
+   state dir or the state file resolves outside its canonical
+   `<repo>/tmp/overseer/<topic>/` location — a symlink escape —
+   `read_state` returns it. `valid_token` rejects it, so the fail-closed
+   behaviour is exactly as documented; what is missing is any explanation of
+   the verdict itself. **Sized honestly: the operator-facing note is
+   `BAD state file: 'state-path-mismatch'`, which names the condition, so this
+   is a "nothing to look up" gap, not a misleading one.** One inaccuracy rides
+   along: `valid_token`'s docstring says "Only genuinely unrecognized (typo'd)
+   tokens are surfaced as malformed", and a path mismatch is surfaced the same
+   way while being no typo.
+2. **The supervisor PAIR namespace is undocumented.** `signals.py` reserves the
+   `-supervisor` suffix (`_SUPERVISOR_SUFFIX`) and carries three helpers —
+   `topic_reserved_for_supervisor`, `supervisor_entity_topic`,
+   `supervisor_topic` — so a worker topic ending in `-supervisor` is a
+   recognised collision with a reserved namespace. **Zero mentions of any of the
+   three across both docs.** Worth noting beside the tmux finding above: the code
+   already models `<topic>` / `<topic>-supervisor` as a PAIR, which is exactly
+   the name shape that makes a bare `-t <topic>` prefix-match dangerous.
+
+Neither is a behaviour defect; both are the same shape as the inventory gap —
+code moved, the authoritative docs did not.
+
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
 `updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
