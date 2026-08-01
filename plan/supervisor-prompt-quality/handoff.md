@@ -322,16 +322,36 @@ form — and this repo's own docs asserted exactly that about the destructive on
 **Measured: it does not.** The remedy is universally applicable across every
 subcommand the fleet's charters use.
 
-**REPORTED, NOT FIXED — `tmuxio.py` targets sessions the bare way too**
-(`capture-pane`, `send-keys`, `paste-buffer`, `respawn-pane`, `list-panes` all
-pass `-t <session>`). **State it with its mitigations or it is alarmism:** it is
-CONTAINED — `evaluate` classifies a missing session as `session-gone` before any
-act, and the R2 identity gate rejects a pane whose tmux session carries live
-Claude names but not this topic's. **But R2 fails SOFT on an empty name map**, so
-the containment is defence-in-depth, not a proof. This is the daemon's runtime
-model, which is `overseer-x29` / `plan/daemon-liveness-truth/` territory rather
-than this thread's, and it is a product change to the ACTING daemon. Noted in
-`AGENTS.md` where whoever owns that call will read it. **No `.py` was touched.**
+**AND A CORRECTION TO MY OWN REPORT, WHICH REVERSES IT — the daemon was already
+proof against this, and I said otherwise.** This section first read: "`tmuxio.py`
+targets sessions the bare way too... CONTAINED rather than exploited... but R2
+fails SOFT on an empty name map, so the containment is defence-in-depth, **not a
+proof**", crediting `session-gone` classification and the R2 identity gate.
+**Wrong, and it undersold a deliberate design decision.**
+
+`tmuxio.py` does pass a bare `-t <session>` to five subcommands — and that is
+**SAFE BY DESIGN**. `TmuxIO.session_exists` uses **exact membership in
+`list-sessions`** rather than `has-session -t <name>`, *specifically because* a
+bare `-t` prefix-matches: adversarial-review blocker **B1**, verified live
+2026-07-13, pinned by `test_session_exists_is_exact_membership_not_prefix`. Its
+docstring carries the rest, and it is the same precedence I measured
+independently on a private socket: *"Every subsequent `-t <session>` call is then
+safe because an EXACT session name takes precedence over a prefix match."* The
+only residue is an inherent TOCTOU window if the session dies between the check
+and the call.
+
+**I suspected the artifact and the artifact was right** — this file's own rule
+arriving at my expense, and the first time in its tally that the rule fired
+against a claim already committed to a shipped doc rather than against a scan.
+Corrected in `overseer/AGENTS.md` on PR #456.
+
+**THE CORRECTION SHARPENS THE FIX RATHER THAN WEAKENING IT, which is why it is
+worth the space.** The hazard is a **RUNBOOK** hazard, not a daemon one: a human
+following the recovery steps types a session name straight into `respawn-pane -k`
+with **no `session_exists` gate in front of it**, during a recovery, when the
+session being named may well be gone. **The daemon earned its safety with a
+tested design decision; the procedure never had one.** That is a better
+justification for #456 than the one I originally wrote. **No `.py` was touched.**
 
 ### THE 117 IS CHARTER-SCOPED — I WIDENED THE CORPUS AND IT BARELY MOVES, which is the reassuring answer — 2026-08-01T10:20Z
 
