@@ -1209,10 +1209,10 @@ predecessors carrying the same title.
 **4. Canary ONE pane first.** Do not batch all of them at once — a wrong command
 wastes every pane. Respawn one and confirm the actual conversation loaded:
 ```
-command tmux respawn-pane -k -c <repo> -t <tmux-name> \
+command tmux respawn-pane -k -c <repo> -t '=<tmux-name>:' \
   "claude --resume <session-id> --dangerously-skip-permissions -n <topic>"
 sleep 15
-command tmux capture-pane -p -t <tmux-name> | tail -30
+command tmux capture-pane -p -t '=<tmux-name>:' | tail -30
 ```
 SUCCESS looks like the prior conversation's tail + an empty `❯` box + a statusline
 reading `── <topic> ──` and `Ctx: N% left`. FAILURE looks like the picker (`Search…`
@@ -1321,10 +1321,35 @@ the registry, or is deliberately left waiting on the maintainer" is.
 - **Use `command tmux`, never bare `tmux`.** A zsh `tmux` function shim errors
   `zsh: command not found: _zsh_tmux_plugin_run`; `command tmux` bypasses it (the
   same reason `tmuxio.py` shells out with an argv list rather than a shell string).
-- **`respawn-pane -t` wants the BARE session name**, e.g. `-t livespec1` — NOT the
-  `=name` exact-match form. `=livespec1` works for `has-session` / `list-panes` but
-  `respawn-pane` rejects it with `can't find pane`. Bare exact names are unambiguous
-  as long as no other session name is a prefix-extension of it.
+- **`respawn-pane -t` rejects `=name` but ACCEPTS `=name:` — use the trailing
+  colon, never a bare name. (CORRECTED 2026-08-01: this bullet used to send
+  operators to the bare form, which is the unsafe one.)** The old text's first
+  half was right and is worth keeping, because someone will rediscover it:
+  `=livespec1` really does fail, with `can't find pane: =livespec1`. But the
+  exact-match form the charter gate mandates is `'=name:'` **with the trailing
+  colon**, and that works on every subcommand this runbook and `tmuxio.py` use —
+  `respawn-pane`, `capture-pane`, `list-panes`, `send-keys`, `paste-buffer`,
+  `has-session` (all measured on this host's tmux, 2026-08-01).
+
+  **Why the old advice was dangerous — measured, not argued.** A bare `-t`
+  PREFIX-MATCHES. With only `canary-two` alive, `respawn-pane -k -t canary`
+  returned **rc=0 and ran its command inside `canary-two`**: a destructive
+  respawn landing in the wrong live session, silently. `-t '=canary:'` refuses
+  the same call (rc=1, `can't find session: canary`). tmux prefers an exact match
+  when one exists, so this fires precisely when the session you meant is GONE —
+  which is the state this entire runbook exists for. The collision is not
+  hypothetical: this host currently runs **14** session-name pairs where one name
+  extends another, including `supervisor-prompt-quality` /
+  `supervisor-prompt-quality-supervisor` and `livespec` / `livespec-overseer`.
+
+  **NOTE — reported, NOT fixed: `tmuxio.py` targets sessions the bare way too**
+  (`capture-pane`, `send-keys`, `paste-buffer`, `respawn-pane` and `list-panes`
+  all pass `-t <session>`). It is CONTAINED rather than exploited: `evaluate`
+  classifies a missing session as `session-gone` before any act, and the R2
+  identity gate rejects a pane whose tmux session carries live Claude names but
+  not this topic's. But R2 fails SOFT on an empty name map, so the containment is
+  defence-in-depth, not a proof. Changing it is a product change to the acting
+  daemon and belongs to whoever owns that call — not to this runbook.
 - **Fresh session vs. existing pane.** If the tmux session is GONE, recreate it
   first (`command tmux new-session -d -s <name> -c <repo>`), then `respawn-pane -k …`
   — this mirrors the daemon's own `new_session` + `respawn_pane` split, so the shell
