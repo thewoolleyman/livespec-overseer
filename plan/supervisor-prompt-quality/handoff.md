@@ -315,6 +315,83 @@ model, which is `overseer-x29` / `plan/daemon-liveness-truth/` territory rather
 than this thread's, and it is a product change to the ACTING daemon. Noted in
 `AGENTS.md` where whoever owns that call will read it. **No `.py` was touched.**
 
+### THE 117 IS CHARTER-SCOPED — I WIDENED THE CORPUS AND IT BARELY MOVES, which is the reassuring answer — 2026-08-01T10:20Z
+
+Finding two class-(a) instances in a MODULE DOC (#456) raised an obvious doubt
+about the open decision: **the 117 counts charters only, so does it understate the
+population `overseer-yho.3` is costed against?** Measured across **827** markdown
+files in the six fleet repos, excluding what the charter globs already cover
+(`.ai/supervisor-protocol.md` and `plan/**/supervisor-handoff.md`), collapsing
+symlinks, class (a) only:
+
+**42 additional instances — and only FOUR of them are live and remediable.**
+
+| bucket | count | disposition |
+|---|---|---|
+| vendored test FIXTURES (`tests/prompts/fixtures/cached-prose-*.md`) | **12** | **NEVER TOUCH.** Byte-exact copies of real cached prose, read by `test_stale_cache_generation_is_detectable.py:122,131`. "Fixing" them destroys the module's premise. |
+| `overseer/AGENTS.md` | 2 | already fixed by **#456** |
+| archived artifacts (`plan/archive/**`, mostly `live-adversarial-review-prompt.md`) | 24 | never regenerate — the same category as the 51-of-117 archive finding |
+| live docs on OTHER tracks | **4** | real, and not this thread's to edit |
+
+**So the charter-scoped 117 is very nearly the whole live picture, and the
+recorded costing STANDS.** Recorded as a negative result precisely so nobody
+re-runs this scan: widening the corpus was worth doing once and does not need
+doing again.
+
+**AND A NUMBER I NEARLY PUBLISHED THAT WAS WRONG BY ~9x — this is the part worth
+carrying.** The first pass ran ALL ELEVEN detectors over arbitrary fleet markdown
+and returned **368**. That number is garbage, and its failure modes are
+instructive:
+
+  - **A mermaid NODE LABEL trips (h).** `Beads["bd list / show / ready"]` inside a
+    ```mermaid fence is a diagram caption, not a command — and it sits in
+    `SPECIFICATION/history/vNNN/contracts.md`, so every historical snapshot
+    re-counts it. One label became **13** findings in one repo.
+  - **`homelab`'s own credential wrapper is unrecognised** — see below.
+  - Both are the documented shape: *the false positive was always data or prose
+    that legitimately RESEMBLES the defect.*
+
+**THE DETECTORS ARE CALIBRATED TO CHARTERS AND DO NOT GENERALISE.** Nothing said
+so. The charter gate's stated scope limits are about fenced-code-only and (e)'s
+narrowness; there is no statement that pointing the module at a wider corpus
+produces mostly noise. It does.
+
+### `bd`-WRAPPER DETECTION IS KEYED TO ONE HARDCODED NAME — and it lands on the one repo option 3 cannot reach
+
+**Executed, not read** (`_WRAPPER_DIRECT = re.compile(r"with-livespec-env\.sh[^\n]*\bbd\b")`,
+line 188):
+
+| input | (h) findings |
+|---|---|
+| `/usr/local/bin/with-livespec-env.sh -- bd show overseer-yho` | 0 |
+| `/usr/local/bin/with-homelab-env.sh -- bd show hl-3ur` | **1 — FALSE POSITIVE** |
+| `bd show overseer-yho` (the true defect) | 1 (control ARMED) |
+
+`homelab` runs its own beads tenant behind its own wrapper, so
+`with-homelab-env.sh -- bd show` is the CORRECT form there and the detector cannot
+tell it from a genuinely bare `bd`.
+
+**SIZE IT BEFORE ACTING ON IT.** homelab's 23 reproduces exactly; **1 of the 23 is
+this false positive** and **0** are genuinely wrapper-less. So the fleet's real
+figure is **116, not 117** — a 0.9% correction, recorded with its size so nobody
+re-opens a settled measurement over it.
+
+**THE ADOPTION CONSEQUENCE IS NOT 0.9%, and it is the reason this matters.**
+Option 3 adopts the gate per repo; it reaches 94 of 117 because homelab consumes
+no pin, and the packet's standing recommendation is the **3 + 1** shape whose "+1"
+is precisely homelab. **Adopting this gate into homelab flags homelab's CORRECT
+code.** And unlike the `_REPO_ROOT`-depth caveat already recorded — which fails
+LOUDLY, because `test_this_repo_has_charters_to_scan` reddens on an empty set —
+**this one fails QUIETLY and in the wrong direction**: it reports defects that are
+not there, which is the failure mode that teaches a reader to ignore a gate.
+**Parameterising the wrapper name is a precondition for the "+1" half**, and it is
+a small one.
+
+**I DID NOT CHANGE THE DETECTOR, deliberately.** The 117 is a baseline that has
+been reproduced twice a day apart and that the maintainer's costing rests on;
+moving it is the maintainer's call, not an audit's. The delta is recorded above so
+it can be applied without re-measuring.
+
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
 `updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
