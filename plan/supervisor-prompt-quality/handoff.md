@@ -224,6 +224,19 @@ below carry their own measurements; this is the index):
 **Two PRs opened: #456** (tests + doc corrections) and **#457** (this record).
 Both 62 success / 1 skipped / 0 failures, `MERGEABLE/CLEAN`.
 
+**EVERY HEADLINE NUMBER RE-CONFIRMED ON A SECOND, INDEPENDENT PASS AT SESSION
+CLOSE — 12 of 12** (2026-08-01T22:35Z), written as re-runnable assertions rather
+than prose so the next session can re-execute rather than re-derive: the **8**
+repos defining `check-per-file-coverage` splitting **5 masked / 3 guarded**;
+`livespec`'s fix at **`bc5c9bc`**; **747** test functions with **713**
+ending-on-assert and **35** single-assert; **26** `_supervisor_*.py`; the flaky
+test's **6** statements with asserts at **[4, 5]**; and branch protection
+requiring `check-per-file-coverage` while **not** requiring `ci-green`.
+
+**That last pair is the session's two findings in one assertion** — the masked
+recipe IS a required check, and the aggregate gate that would have covered the
+three optional jobs is NOT.
+
 **READ ROW 11 BEFORE ROW 3.** Row 3's finding is real and its fix is landed, but
 the reason I first gave for it was wrong — I reported the daemon as merely
 "contained" when it is prefix-proof by a deliberate, tested design. The hazard is
