@@ -567,14 +567,26 @@ file, and comparing it against `signals.py`:
    along: `valid_token`'s docstring says "Only genuinely unrecognized (typo'd)
    tokens are surfaced as malformed", and a path mismatch is surfaced the same
    way while being no typo.
-2. **The supervisor PAIR namespace is undocumented.** `signals.py` reserves the
-   `-supervisor` suffix (`_SUPERVISOR_SUFFIX`) and carries three helpers —
-   `topic_reserved_for_supervisor`, `supervisor_entity_topic`,
-   `supervisor_topic` — so a worker topic ending in `-supervisor` is a
-   recognised collision with a reserved namespace. **Zero mentions of any of the
-   three across both docs.** Worth noting beside the tmux finding above: the code
-   already models `<topic>` / `<topic>-supervisor` as a PAIR, which is exactly
-   the name shape that makes a bare `-t <topic>` prefix-match dangerous.
+2. **The supervisor PAIR state file is SPECIFIED and IMPLEMENTED but absent from
+   the contract doc — a three-way comparison, which is the strongest form this
+   check takes.**
+
+   | record | says |
+   |---|---|
+   | `SPECIFICATION/contracts.md:21` (**governs**) | "A supervisor pair member keeps its OWN state file at `<repo>/tmp/overseer/<topic>-supervisor/.overseer-state`, with the same grammar, the same writers, and the same rules as a worker's." |
+   | `overseer/signals.py` (**the final word on behavior**) | implements it — `_SUPERVISOR_SUFFIX`, `topic_reserved_for_supervisor`, `supervisor_entity_topic`, `supervisor_topic`, `state_path` |
+   | `overseer/marker-protocol.md` (**the contract doc**) | **zero** occurrences of `<topic>-supervisor`; describes "ONE file — `<repo>/tmp/overseer/<topic>/.overseer-state`" |
+
+   So the doc is behind BOTH the spec and the code, and `.claude/CLAUDE.md` sends
+   agents to exactly this document for "the cardinal rule, the one state file,
+   the restart interlock". An agent working on the pair mechanism is handed a
+   single-entity picture of a two-entity contract. **Nothing is wrong in the code
+   and nothing is wrong in the spec** — this is purely the middle record lagging.
+
+   Worth noting beside the tmux finding above: the code already models `<topic>`
+   / `<topic>-supervisor` as a PAIR, which is precisely the name shape that makes
+   a bare `-t <topic>` prefix-match dangerous — and this host is running 14 such
+   pairs right now.
 
 Neither is a behaviour defect; both are the same shape as the inventory gap —
 code moved, the authoritative docs did not.
