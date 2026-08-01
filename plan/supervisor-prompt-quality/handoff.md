@@ -392,6 +392,57 @@ been reproduced twice a day apart and that the maintainer's costing rests on;
 moving it is the maintainer's call, not an audit's. The delta is recorded above so
 it can be applied without re-measuring.
 
+### EVERY CITATION IN THIS FILE, CHECKED MECHANICALLY — 2026-08-01T10:35Z
+
+`jdo/run-2.log` being gone raised the obvious follow-up: **what else does this
+file cite that does not exist?** Extracted every backticked repo-relative path
+(16) and every `test_*` identifier (21) and resolved each against the tree.
+
+**FOUR real misses, and my scan produced THREE false positives of its own** —
+stated together because the hit rate is the honest part:
+
+| cited | verdict |
+|---|---|
+| `jdo/run-2.log` | **REAL** — gone; already written up above |
+| `plan/worktree-location-enforcement/supervisor-handoff.md` | **REAL — ARCHIVED.** See below; this one is ABOVE the separator |
+| `tests/prompts/test_detector_scope_is_declared.py` | **REAL** — PR #441 is OPEN; not on master |
+| `tests/test_charter_correction_counts_are_current.py` | **REAL** — PR #440 is OPEN; not on master |
+| `plan/beads-v1-1-2-upgrade/supervisor-handoff.md` | my scan's fault — a CROSS-REPO path; it exists in `livespec-orchestrator-beads-fabro` |
+| `SPECIFICATION/history/vNNN/contracts.md` | my scan's fault — `vNNN` is a placeholder I wrote myself |
+| `test_nprocs` | my scan's fault — a **`just` VARIABLE** (`justfile:41`), not a test |
+
+**THE TWO "LANDED" GATES ARE NOT LANDED, and the file contradicted itself about
+it.** It described `test_detector_scope_is_declared` as "**Landed as** … PR #441"
+and the correction-count gate's numbers as "Measured **at landing**", while the
+restart state four hundred lines above says those PRs are deliberately OPEN.
+Both cannot be true. **A fresh clone has neither module and neither protection**,
+which matters most for the correction-count gate: this file asserts "nothing
+gates this" is now false, when on master it is still true. Both re-tensed in this
+change — that half is in the worker's lane.
+
+**FIFTH STALE CLAIM ABOVE THE SEPARATOR — reported, NOT fixed, not mine.**
+Line ~114, inside the section headed **"Reference material (all verifiable, none
+of it status)"**:
+
+> **The generic form's prior art:** `livespec-dev-tooling`
+> `plan/worktree-location-enforcement/supervisor-handoff.md`.
+
+That path no longer exists. The thread was ARCHIVED — `968c8b7`, *"archive
+worktree-location-enforcement thread (epic 0eo closed)"* — and the charter is
+intact at **`plan/archive/worktree-location-enforcement/supervisor-handoff.md`**
+(13 KB, still titled "Generic Live-Session Supervisor Handoff", exactly the prior
+art claimed). **Nothing is lost; only the path moved.** The one-word fix is to
+insert `archive/`.
+
+**Why this one is worth more than a broken link.** This repo ALREADY LEARNED
+this lesson in code and wrote it down: `_EXEMPLAR_CANDIDATES` accepts the live
+OR the archived location, commented *"a plan thread moves into `plan/archive/`
+when it closes, and an unguarded read of the live path alone already made
+archiving a thread a CI-reddening act once."* **The gate was hardened against
+exactly this; the prose reference list was not** — and it sits under a heading
+promising everything in it is verifiable. A thread closing elsewhere in the fleet
+silently invalidates a citation here, and nothing looks.
+
 ### `overseer-jdo` HAS STILL NOT ABSORBED THE REPORT — re-measured 2026-08-01T09:16Z
 
 `updated_at` is **2026-07-31T03:14:09Z**, unchanged since the previous session
@@ -1714,7 +1765,13 @@ owns it.
   cheap and absolute: never take the date from the harness — take it from
   `date -u` or `datetime.now(timezone.utc)`, every time.**
 
-### FOUR STALE CLAIMS ABOVE THE SEPARATOR — reported, NOT fixed, not mine to fix
+### STALE CLAIMS ABOVE THE SEPARATOR — reported, NOT fixed, not mine to fix
+
+**This heading said "FOUR" until 2026-08-01, when a fifth was found and the
+number did not move on its own.** It is now a list rather than a count, for the
+reason this thread has already written down twice: a total drifts on every
+addition and a property does not. The correction-count gate (#440) exists for
+exactly this failure, and it does not reach this heading.
 
 Swept 2026-07-31 against the ledger and the tree. **Recorded here, in the worker
 half, precisely because I must not edit the supervisor half** — and because the
@@ -1728,6 +1785,7 @@ separator**, and two of them put this file in direct disagreement with itself.
 | 2 | ~37 | "this repo's own **TEN**-detector gate" | **ELEVEN** classes; (k) landed in PR #389, and the worker half says ELEVEN in three places |
 | 3 | ~19 | "`tests/prompts/` carries **TEN** modules driving real tmux" | **TWELVE** modules; **FOUR** drive real tmux |
 | 4 | ~20-23 | "the adopter cache **has refreshed** to prose byte-identical to `origin/master`" | true at the stated 17:20Z, **false now** |
+| 5 | ~114 | prior art at `livespec-dev-tooling` `plan/worktree-location-enforcement/supervisor-handoff.md` | **ARCHIVED** (`968c8b7`) — intact at `plan/archive/worktree-location-enforcement/…`; insert `archive/`. Found 2026-08-01; see "EVERY CITATION IN THIS FILE, CHECKED MECHANICALLY" |
 
 **On (3)** — it conflates a total with a property, so no single number fixes it.
 The four that drive real tmux are `test_repo_containment_discriminates`,
@@ -1796,14 +1854,18 @@ they are the ones written after everybody stopped looking.
 
 ### This session's gate: a correction count that cannot rot silently
 
-`tests/test_charter_correction_counts_are_current.py`. This file said "**Prefer a
-rule that recounts over a number that ages**... Nothing gates this — the count
-sits in prose that no test reads." That is now false, deliberately: the rule
-recounts.
+`tests/test_charter_correction_counts_are_current.py` — **PR #440, OPEN and NOT
+YET MERGED.** This file said "**Prefer a rule that recounts over a number that
+ages**... Nothing gates this — the count sits in prose that no test reads." That
+stops being true when #440 lands, not before: **the rule recounts only once the
+PR is merged, and on master today nothing still reads this count.** (Re-tensed
+2026-08-01. It read as though the gate were already in force, while the same file
+says five PRs are deliberately open — the two statements could not both be true,
+and a fresh clone has neither the module nor the protection.)
 
 It compares the counts asserted in this handoff against the entries actually
 present in both charter layers, plus contiguity from 1 (an append that reuses or
-skips a number would satisfy a length check alone). Measured at landing: **19
+skips a number would satisfy a length check alone). Measured when written: **19
 role-level entries C1–C19, 1 thread-specific entry T1** — both agreeing with the
 prose. Keyed on the ENTRY form `^- **C<n>`, never on a MENTION: the protocol
 carries an indented `**C14 IS NOW DEMONSTRATED**` note and this handoff discusses
@@ -1897,7 +1959,9 @@ instance that is defective — that one arrives unreported. Stated this way roun
 deliberately: read as "there are hidden defects", this would send the next
 session hunting for something that is not there.
 
-**Landed as `tests/prompts/test_detector_scope_is_declared.py`, PR #441**, whose
+**Written as `tests/prompts/test_detector_scope_is_declared.py`, PR #441 — OPEN,
+NOT YET MERGED** (re-tensed 2026-08-01; it said "Landed as", and the file is not
+on master, so a fresh clone looking for it finds nothing). Its
 load-bearing assertion is registry COVERAGE: a twelfth detector cannot land
 without declaring its scope in writing — the decision that was never made
 explicitly for the first eleven. Five sabotages, each RED against its own test.
