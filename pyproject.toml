@@ -313,6 +313,14 @@ omit = [
     "/tmp/*",
     "overseer/test_*.py",
     "overseer/conftest.py",
+    # The live Codex TUI picker acceptance (overseer-kju6wh) is opt-in via
+    # `LIVESPEC_CODEX_SKILL_PICKER=1`, so under an ordinary suite run pytest
+    # IMPORTS it (module lines execute) but skips every test body — leaving the
+    # bodies permanently uncovered against a 100% floor. Omitting the tier is the
+    # same treatment livespec-orchestrator-beads-fabro gives its `tests/e2e-cli/*`.
+    # This omits TEST code, never product code: coverage of `overseer/` is
+    # untouched, and the tier's own gate is `just check-codex-skill-picker`.
+    "tests/e2e-cli/*",
 ]
 
 [tool.coverage.report]

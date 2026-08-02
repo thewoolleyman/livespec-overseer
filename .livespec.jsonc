@@ -37,9 +37,31 @@
       "status": "supported",
       "canonical_command": "livespec-overseer:overseer"
     },
+    // The value is the BARE `<plugin>:<skill>` form, byte-identical to the
+    // `claude` entry above. That is the fleet convention, not an oversight:
+    // `plugin_resolution._command_surface_prompt` adds `/` for claude and adds
+    // NOTHING for codex, so the sigil is a harness rendering concern the checker
+    // owns rather than part of the stored value. Both fleet repos that ship a
+    // working codex surface declare the same string for both harnesses
+    // (livespec-orchestrator-beads-fabro, livespec-driver-codex).
+    //
+    // DO NOT hand-verify this by typing `/livespec-overseer:overseer` into a
+    // Codex TUI. Measured twice, ~21h apart: "Unrecognized command". Codex does
+    // not use Claude's `/plugin:skill` syntax and the picker's own insertion form
+    // is `$`-prefixed. That is a hand-verification hazard, not a declaration
+    // hazard, and mistaking it for one reads as "the plugin is not installed"
+    // when it is installed.
+    //
+    // WHAT KEEPS THIS HONEST. The Verifier's codex arm is a
+    // DelegatedResolutionRunner that returns available=False -> SKIP, and
+    // `_parse_supported` requires only a NON-EMPTY STRING here — so any string
+    // passes the fleet gate. The repo-local `check-codex-skill-picker` is the
+    // delegate that makes it load-bearing: it drives a live Codex TUI `/skills`
+    // picker and requires the row named by THIS value to render, so editing it to
+    // anything unbacked goes red (overseer-kju6wh).
     "codex": {
-      "status": "exempt",
-      "reason": "maintainer supervisor brief 17 supersedes the settled Codex-out-of-scope ruling recorded at plan/archive/cutover-and-shipping/research/operator-surface.md; the Codex parity slice in plan/codex-parity-and-rollout-safety/ will make this harness supported"
+      "status": "supported",
+      "canonical_command": "livespec-overseer:overseer"
     }
   },
   "livespec-overseer": {
