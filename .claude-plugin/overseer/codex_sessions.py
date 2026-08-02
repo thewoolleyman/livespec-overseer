@@ -22,10 +22,10 @@ Verified end-to-end live (2026-07-16) against a real 2-day-old codex TUI: pid 16
 → ``rollout-2026-07-12T06-19-39-019f548d-….jsonl`` → cwd ``/data/projects/openbrain``.
 See ``plan/overseer-rewrite/research/codex-ctx-and-restart-evidence.md``.
 
-**The one real precondition: only NAMED sessions are indexed** — 67 of 259 rollouts,
-live. An unnamed session carries no topic anywhere, so it cannot be joined to a plan
-and is dropped. That is a naming convention to adopt, exactly as Claude adoption
-depends on ``claude -n <topic>`` — not a defect and not a heuristic to invent around.
+**The adoption precondition: only INDEXED/NAMED sessions can be mapped to a plan.**
+An unnamed session carries no topic anywhere, so it cannot be joined to a plan. The
+supervisor surfaces live unindexed Codex sessions in watched repos as diagnostic
+``codex-unindexed`` rows; it still does not invent a topic or read transcript bodies.
 
 **Secrets caution — this module NEVER reads a rollout's contents.** Rollout ``.jsonl``
 files are full session transcripts. The join needs only the FILENAME (for the id) and
@@ -62,10 +62,12 @@ from claude_sessions import proc_comm, proc_ppid, resolve_tmux_session
 __all__: list[str] = [
     "CODEX_COMM",
     "CodexSession",
+    "UnindexedCodexSession",
     "codex_by_tmux_session",
     "default_codex_home",
     "latest_session_for_thread_name",
     "map_codex_sessions",
+    "map_unindexed_codex_sessions",
     "open_rollout_id",
     "proc_cwd",
     "proc_fd_targets",
@@ -105,6 +107,21 @@ class CodexSession:
     name: str
     cwd: str
     session_id: str
+
+
+@dataclass(frozen=True, kw_only=True)
+class UnindexedCodexSession:
+    """One live Codex process with a rollout id that has no index name.
+
+    This is not adoptable: without ``thread_name`` there is no plan topic to match.
+    It is still useful process evidence for the supervisor to show the operator when
+    it occurs inside a watched repo.
+    """
+
+    pid: int
+    cwd: str
+    session_id: str
+    tmux_session: str
 
 
 def default_codex_home() -> Path:
@@ -335,6 +352,48 @@ def map_codex_sessions(
             continue
         mapped.append((tmux_session, session.name, session.cwd))
     return mapped
+
+
+def map_unindexed_codex_sessions(
+    *,
+    pane_pid_to_session: dict[int, str],
+    codex_home: str | os.PathLike[str] | None = None,
+    ppid_of: PidToOptionalInt = proc_ppid,
+    pids_of_comm: CommToPidList = proc_pids_of_comm,
+    cwd_of: PidToOptionalStr = proc_cwd,
+    fd_targets_of: PidToStrList = proc_fd_targets,
+) -> list[UnindexedCodexSession]:
+    """Live Codex sessions that have a rollout fd but no ``session_index`` name.
+
+    These cannot be adopted because the plan topic exists only as ``thread_name`` in
+    the index. Returning them separately lets the supervisor make the gap visible
+    without weakening the exact pid→rollout→name join and without reading rollout
+    transcript contents.
+    """
+    home = Path(codex_home) if codex_home is not None else default_codex_home()
+    names = read_thread_names(codex_home=home)
+    unindexed: list[UnindexedCodexSession] = []
+    for pid in pids_of_comm(comm=CODEX_COMM):
+        session_id = open_rollout_id(pid=pid, fd_targets_of=fd_targets_of)
+        if session_id is None or names.get(session_id):
+            continue
+        cwd = cwd_of(pid=pid)
+        if not cwd:
+            continue
+        tmux_session = resolve_tmux_session(
+            pid=pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
+        )
+        if tmux_session is None:
+            continue
+        unindexed.append(
+            UnindexedCodexSession(
+                pid=pid,
+                cwd=cwd,
+                session_id=session_id,
+                tmux_session=tmux_session,
+            )
+        )
+    return unindexed
 
 
 def codex_by_tmux_session(
