@@ -233,6 +233,48 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Claude background shell does not block a guarded wrap-up",
+    "test": "TODO",
+    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: drive a Claude registry status=shell track through the full settle/recheck/paste path, then sabotage the shell-only eligibility exception."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A Codex descendant shell does not block a guarded wrap-up",
+    "test": "TODO",
+    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: drive Codex descendant-shell fallback evidence through the structural-idle settle/recheck/paste path and preserve the Codex input-safety distinction."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Generating or sub-agent-busy evidence suppresses a low-context paste",
+    "test": "TODO",
+    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: prove generating and sub-agent-busy controls remain paste-free while the shell-only cases act."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A changing pane or changed evidence cancels a pending wrap-up",
+    "test": "TODO",
+    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: mutate capture or runtime evidence between settle and the immediate pre-paste recheck and prove the act is cancelled."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Declarations, gates, and ambiguous evidence suppress a shell-only wrap-up",
+    "test": "TODO",
+    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: exercise ready, blocked, fresh winding-down, structured-gate, malformed, unavailable, and conflicting-evidence controls without a paste."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A shell-only session at the danger line is warned and reported",
+    "test": "TODO",
+    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: prove one qualified wrap-up plus report-only danger membership, with no restart, kill, or declaration write."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A wrap-up is injected when a track crosses its threshold",
     "test": "tests.integration.test_wrapup_escalation.test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold",
     "reason": "Integration-tier: drives a real Supervisor observe-and-act round. Asserts the stamp is readable from INSIDE the paste callback (proving write-before-paste, not merely both-by-the-end), exactly ONE paste, and that the message names the state file, all three writable values and the handoff path. SABOTAGE-VERIFIED 2026-07-26: moving the stamp write to after the paste turns it red with [None] vs [1000.0]."
