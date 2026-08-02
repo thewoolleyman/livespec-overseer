@@ -87,6 +87,14 @@ _SCOPE: dict[str, str] = {
     "i": _DOCUMENT_SCOPED,
     "j": _DOCUMENT_SCOPED,
     "k": _LINE_SCOPED,
+    # (l) is LINE-scoped, and the decision is worth stating rather than
+    # inheriting. A charter may legitimately ship SEVERAL busy tests — the fleet's
+    # corrected watcher runs a pane probe beside a child-process probe — so one
+    # correct test elsewhere in the file says nothing about a defective one. The
+    # document-scoped argument that carries (e), (h), (i) and (j) is that the
+    # correct form is a helper DETECTED ONCE and called later by name; a busy
+    # regex is not detected once, it is evaluated every poll, wherever it sits.
+    "l": _LINE_SCOPED,
 }
 
 # One defective line per class, in the shape the class was written for.
@@ -109,6 +117,7 @@ _DEFECT: dict[str, str] = {
     "i": 'test ! -f "$supervisor_marker" || sed -n \'1,220p\' "$supervisor_marker"',
     "j": 'test ! -f "$supervisor_marker" || cat "$supervisor_marker"',
     "k": "worker_state_at=$(date -u -r \"$m\" '+%Y-%m-%dT%H:%M:%SZ')",
+    "l": "printf '%s\\n' \"$pane\" | grep -qE '[0-9]+[hms] |tokens' && busy=1",
 }
 
 # The CORRECT property for the same class, which a document-scoped detector
@@ -145,6 +154,7 @@ _CORRECT: dict[str, str] = {
         'test ! -f "$supervisor_marker" || cat "$supervisor_marker"'
     ),
     "k": "now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+    "l": "printf '%s\\n' \"$pane\" | grep -qE 'esc to interrupt' && busy=1",
 }
 
 

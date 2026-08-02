@@ -249,6 +249,113 @@ _DATE_FILE_LONG = re.compile(r"\A--reference(?:=|\Z)")
 _DATE_UTC_LONG = re.compile(r"\A--(?:utc|universal)\Z")
 _DATE_UTC_LABEL = re.compile(r"(?<!%)Z|UTC")
 
+# (l) A WATCHER BUSY TEST THAT MATCHES AN IDLE PANE, so its idle branch is
+# unreachable and the watcher can only ever report busy. Work-item `overseer-c45`.
+#
+# Observed 2026-08-02: `rop-railway-enforcement-supervisor` reported
+# `working (background shell)` for DAYS while its worker sat motionless. Its
+# watcher had added a content grep on top of the canonical stability test:
+#
+#     grep -qE '[0-9]+[hms] |tokens|esc to interrupt|Running|Doing|…|monitor'
+#
+# An idle agent pane PERMANENTLY renders its completed-turn summary, and `14m `
+# in `Worked for 14m 56s` satisfies `[0-9]+[hms] `. So `busy=1` on every poll,
+# the loop ran its ceiling, printed "STILL BUSY, RE-ARM", and the supervisor
+# re-armed forever. SELF-SEALING: the live background shell made the session
+# report `shell` to the daemon, which by contract will not keystroke into a busy
+# pane, so the wedged watcher suppressed its own rescue.
+#
+# THE RULE IS RUN THE PATTERN, NOT MATCH THE PATTERN. `overseer-c45` asks for
+# "idle exit rests on stability alone, or at minimum any busy regex must be shown
+# NOT to match an idle pane". The first is not statically decidable in the
+# direction that matters — the CORRECTED charter also computes `busy` from a
+# content grep, it simply does not gate the idle exit with it — so a rule keyed
+# on "a content grep sits near a watcher" would flag the shape the fleet is
+# supposed to ADOPT. The second is a pure function of the pattern and a fixture,
+# and that is what this detector implements.
+#
+# THE PIPELINE IS MODELLED, NOT THE PATTERN IN ISOLATION, and that is
+# LOAD-BEARING. The corrected test is safe only BECAUSE of its `grep -v`
+# exclusion: an idle pane whose scrollback holds a completed `⎿  $ … (6m 50s)`
+# line carries the very `… (` shape the live-marker test keys on, and the
+# charter records that the 16-line window and the `⎿` exclusion "only work as a
+# PAIR". A detector that extracted `esc to interrupt|…[[:space:]]*\(` and ran it
+# against the raw fixture would flag the corrected form. So `-v` greps FILTER the
+# fixture and `tail`/`head` NARROW it, exactly as the shell would.
+#
+# THE FIXTURES ARE CAPTURED, NOT IMAGINED — live fleet panes, 2026-08-02. Both
+# renderers are represented because they differ, and the idle one carries the
+# `⎿  $ … (` hazard line on purpose.
+_IDLE_PANE_RENDER = "\n".join(
+    (
+        "  main is clean and matches origin/main; the worktree and both refs are gone.",
+        "  ⎿  $ git worktree list --porcelain | head -40 (6m 50s · 4 lines)",
+        "",
+        "─ Worked for 24m 01s ────────────────────────────────────────────────────",
+        "",
+        "✻ Worked for 14m 56s",
+        "",
+        "※ recap: the thread is fully complete; nothing remains.",
+        "                       new task? /clear to save 625.9k tokens",
+        "──────────────────────────────── 06-resilience-acceptance ──",
+        "❯ ",
+        "─────────────────────────────────────────────────────────────",
+        "  Opus 5 (1M context) | /data/projects/livespec-overseer | master | Ctx: 49% left",
+        "  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents",
+    )
+)
+
+# The other direction. A busy test that matches NOTHING satisfies this detector
+# trivially, and a watcher whose busy probe never fires wakes a supervisor into a
+# pane that is still working. This module does not gate that — a pattern's
+# reach on a BUSY pane is asserted in `test_busy_test_discriminates.py`, which is
+# where both controls live — but the fixture belongs beside its twin.
+_BUSY_PANE_RENDER = "\n".join(
+    (
+        "    … +29 lines (ctrl + t to view transcript)",
+        "",
+        "• The pre-revision static doctor is clean. I am taking the final",
+        "  measurement now and will let the CLI re-run that guard atomically.",
+        "",
+        "◦ Working (14s • esc to interrupt)",
+        "",
+        "● Running 1 shell command · 12s…",
+        "  ⎿  $ with-livespec-env.sh -- bd show livespec-dev-tooling-8sc1 (10s)",
+        "",
+        "· Roosting… (54s · ↓ 2.2k tokens)",
+    )
+)
+
+# A variable whose name says it holds a busy/working verdict. Narrow on purpose:
+# keying on "any variable assigned from a grep" would sweep in every unrelated
+# probe a charter runs.
+_BUSY_FLAG = re.compile(r"\b(?:is_)?(?:busy|working)\b\s*=", re.IGNORECASE)
+
+# A `grep` call: its flag run, then its first quoted pattern argument.
+_GREP_CALL = re.compile(r"\bgrep\b((?:[ \t]+-{1,2}[A-Za-z][A-Za-z-]*)*)[ \t]+('[^']*'|\"[^\"]*\")")
+_TAIL_HEAD = re.compile(r"\b(tail|head)\b[ \t]+-(?:n[ \t]*)?(\d+)")
+
+# POSIX bracket expressions are not Python regex. `[[:space:]]` must become
+# `[\s]` or the pattern raises rather than matching, and a detector that raised
+# on the fleet's most common busy test would be worse than one that missed it.
+_POSIX_CLASS = re.compile(r"\[:(alpha|digit|alnum|space|blank|upper|lower|punct|xdigit):\]")
+_POSIX_EXPANSION = {
+    "alpha": "a-zA-Z",
+    "digit": "0-9",
+    "alnum": "a-zA-Z0-9",
+    "space": r" \t\n\r\f\v",
+    "blank": r" \t",
+    "upper": "A-Z",
+    "lower": "a-z",
+    "punct": r"!-/:-@\[-`{-~",
+    "xdigit": "0-9A-Fa-f",
+}
+# BRE spells the operators backwards from ERE: `\|` is alternation and a bare
+# `|` is a literal pipe. Charters measured so far all use `-E`, but a `-E`-less
+# grep read AS ERE would silently over-match, so the two are translated apart.
+_BRE_ESCAPED_OP = re.compile(r"\\([|+?(){}])")
+_BRE_BARE_OP = re.compile(r"(?<!\\)([|+?(){}])")
+
 
 def _code_blocks(*, text: str) -> list[str]:
     """Every fenced block body, in document order. Prose is discarded."""
@@ -574,6 +681,167 @@ def local_time_labelled_utc(*, text: str) -> list[str]:
     return found
 
 
+def _logical_lines(*, block: str) -> list[str]:
+    """Physical lines joined across trailing backslash continuations.
+
+    A busy test routinely spans two physical lines — the fleet's corrected one
+    does — so a per-physical-line reader would see a `grep -v` with no `grep`
+    after it and draw the opposite conclusion.
+    """
+    joined: list[str] = []
+    pending = ""
+    for line in block.splitlines():
+        stripped = line.rstrip()
+        if stripped.endswith("\\"):
+            pending += stripped[:-1] + " "
+            continue
+        joined.append(pending + stripped)
+        pending = ""
+    if pending:
+        joined.append(pending)
+    return joined
+
+
+def _pipeline_segments(*, line: str) -> list[str]:
+    """Split a logical line on shell pipes, IGNORING pipes inside quotes.
+
+    A naive `line.split("|")` tears every ERE alternation apart — and the busy
+    patterns this detector exists to read are nothing BUT alternations, so the
+    naive version silently found no grep at all and reported every charter clean.
+    `||` is a control operator, not a pipe, and also ends a segment.
+    """
+    segments: list[str] = []
+    current = ""
+    quote: str | None = None
+    index = 0
+    while index < len(line):
+        char = line[index]
+        if quote is not None:
+            current += char
+            if char == quote:
+                quote = None
+        elif char in "'\"":
+            quote = char
+            current += char
+        elif char == "|":
+            segments.append(current)
+            current = ""
+            # `||` — skip the second pipe so it does not open an empty segment.
+            if line[index + 1 : index + 2] == "|":
+                index += 1
+        else:
+            current += char
+        index += 1
+    segments.append(current)
+    return segments
+
+
+def _posix_to_python(*, pattern: str, extended: bool) -> str:
+    """Translate a POSIX grep pattern into Python regex source."""
+    translated = _POSIX_CLASS.sub(lambda m: _POSIX_EXPANSION[m.group(1)], pattern)
+    if extended:
+        return translated
+    # BRE: `\(` is a group and `(` is a literal, so both spellings flip.
+    translated = _BRE_BARE_OP.sub(r"\\\1", translated)
+    return _BRE_ESCAPED_OP.sub(r"\1", translated)
+
+
+def _compiled_pattern(*, flags: str, quoted: str) -> re.Pattern[str] | None:
+    """The Python equivalent of one grep pattern, or None if it cannot be read."""
+    body = quoted[1:-1]
+    fixed = "F" in flags or "--fixed-strings" in flags
+    extended = "E" in flags or "--extended-regexp" in flags
+    source = re.escape(body) if fixed else _posix_to_python(pattern=body, extended=extended)
+    try:
+        return re.compile(source)
+    except re.error:
+        # A pattern this module cannot parse is reported as no finding rather
+        # than as a defect. Stated so the silence is a KNOWN floor: this
+        # detector under-reports on exotic patterns, and never invents one.
+        return None
+
+
+def _segment_effect(*, segment: str, lines: list[str]) -> tuple[list[str], re.Pattern[str] | None]:
+    """Apply one pipeline stage to the working line set.
+
+    Returns the narrowed lines plus the pattern that DECIDES busy, if this stage
+    is the deciding one. `grep -v` and `tail`/`head` only narrow.
+    """
+    narrowed = lines
+    for verb, count in _TAIL_HEAD.findall(segment):
+        n = int(count)
+        narrowed = narrowed[-n:] if verb == "tail" else narrowed[:n]
+    for flags, quoted in _GREP_CALL.findall(segment):
+        compiled = _compiled_pattern(flags=flags, quoted=quoted)
+        if compiled is None:
+            continue
+        if "v" in flags.replace("--", "") or "--invert-match" in flags:
+            narrowed = [line for line in narrowed if not compiled.search(line)]
+            continue
+        return narrowed, compiled
+    return narrowed, None
+
+
+def _decides_busy(*, lines: list[str], index: int) -> bool:
+    """Whether the grep on `lines[index]` is what sets the busy verdict.
+
+    True when a busy-flag assignment sits on the same logical line, or within the
+    two logical lines after it when the grep opens an `if`/`while`. That lookahead
+    is the difference between catching the defect and being evaded by reformatting
+    `... && busy=1` into a block body.
+    """
+    line = lines[index]
+    if _BUSY_FLAG.search(line) is not None:
+        return True
+    opens_block = line.lstrip().startswith(("if ", "while ")) or line.rstrip().endswith(
+        ("then", "do")
+    )
+    return opens_block and any(_BUSY_FLAG.search(nxt) for nxt in lines[index + 1 : index + 3])
+
+
+def _busy_decisions(*, block: str, pane: str) -> list[tuple[str, re.Pattern[str], list[str]]]:
+    """Each busy-deciding grep, with the pane lines still reaching it.
+
+    The pipeline is walked left to right against `pane`, so `grep -v` exclusions
+    and `tail`/`head` windows narrow the candidate lines exactly as the shell
+    would before the deciding grep sees them.
+    """
+    found: list[tuple[str, re.Pattern[str], list[str]]] = []
+    lines = _logical_lines(block=block)
+    for index, line in enumerate(lines):
+        if (
+            _is_comment(line=line)
+            or "grep" not in line
+            or not _decides_busy(lines=lines, index=index)
+        ):
+            continue
+        working = pane.splitlines()
+        for segment in _pipeline_segments(line=line):
+            working, decider = _segment_effect(segment=segment, lines=working)
+            if decider is not None:
+                found.append((line.strip(), decider, working))
+                break
+    return found
+
+
+def _busy_match_patterns(*, block: str) -> list[tuple[str, re.Pattern[str]]]:
+    """Every busy-deciding pattern in a block, with the line it came from."""
+    return [
+        (line, compiled)
+        for line, compiled, _ in _busy_decisions(block=block, pane=_IDLE_PANE_RENDER)
+    ]
+
+
+def busy_test_matches_idle_pane(*, text: str) -> list[str]:
+    """A watcher busy test that fires on an IDLE pane, so it can only say busy."""
+    return [
+        line
+        for block in _code_blocks(text=text)
+        for line, decider, reaching in _busy_decisions(block=block, pane=_IDLE_PANE_RENDER)
+        if any(decider.search(candidate) for candidate in reaching)
+    ]
+
+
 _DETECTORS = (
     ("a-bare-tmux-target", bare_targets),
     ("b-unguarded-path-resolution", unguarded_path_resolution),
@@ -586,6 +854,7 @@ _DETECTORS = (
     ("i-fixed-cap-marker-read", fixed_cap_marker_read),
     ("j-unguarded-marker-binding", unguarded_marker_binding),
     ("k-local-time-labelled-utc", local_time_labelled_utc),
+    ("l-busy-test-matches-idle-pane", busy_test_matches_idle_pane),
 )
 
 
