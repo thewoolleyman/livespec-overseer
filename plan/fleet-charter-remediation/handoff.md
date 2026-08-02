@@ -5,6 +5,9 @@
 that thread archived on 2026-08-02; it was that thread's last open slice and it
 outlived it.
 
+**Second item, adopted 2026-08-02: `overseer-c45`.** It does NOT re-open the
+phase-1 cut — see "Second item" near the end of this file before touching it.
+
 **Status is not stored here.** Read it from the ledger. `bd` needs the fleet
 credential wrapper in this tenant — a bare `bd` returns `Access denied`. Use
 `with-livespec-env.sh -- bd show overseer-yho.3 --json`.
@@ -129,6 +132,45 @@ templated `goal`, so such a token is parsed as a fabro template variable and the
 graph is rejected before any agent runs, leaving a phantom `active`/`fabro` claim
 with no run behind it. Measured 2026-08-02: `overseer-yho.3` is **clean** (zero
 tokens). `fabro ps` is the evidence of a run; `ACTIVE` never is.
+
+## Second item, adopted 2026-08-02: `overseer-c45` — the watcher-gate defect
+
+**THIS DOES NOT RE-OPEN THE PHASE-1 CUT.** The scope section above stands
+untouched: phased, `livespec-orchestrator-beads-fabro` first, 56 of 117. `c45` is
+a SECOND item that now shares this thread, not an addition to that slice, and it
+is not a precondition for it. Work phase 1 first.
+
+**What it is.** A supervisor pane reported `working (background shell)` for days
+while its worker idled, because its watcher added a content grep on top of the
+canonical stability test — and an idle Claude pane permanently shows the
+lingering completed-turn summary, which that grep matches. The idle exit could
+therefore never fire. Two asks: a `tests/prompts/` detector requiring a generated
+charter's watcher idle-exit to rest on pane stability ALONE, and a membership
+check on whether the offending charter's divergent watcher is among this thread's
+117 defects.
+
+**Why HERE and not `plan/daemon-liveness-truth/`.** The archived
+`supervisor-prompt-quality` charter suggested that thread on a symptom match: a
+pane whose reported state diverges from reality is the `overseer-j1r` /
+`overseer-mkx` family. Measured against the item's own text, both of its asks are
+charter-generator work — the detector lives in `tests/prompts/`, and the second
+ask is literally a question about `overseer-yho.3`'s sweep. It names no daemon
+module and states that the daemon reports TRUTHFULLY, so it carries no daemon
+fix at all. `overseer-x29`'s own description draws that boundary and warns that
+absorbing generator-quality work would make that epic mean "whatever the
+supervisor thread surfaced". Maintainer-decided 2026-08-02; the routing rationale
+is recorded on the item as a note.
+
+**Its ledger parent is unchanged and correct.** `overseer-c45` remains a
+`parent-child` of `overseer-yho`, exactly as `overseer-yho.3` is. Both of that
+epic's open children now live in this thread, so `overseer-yho` closes when this
+thread finishes and not before — it is open because work is open under it, not
+by oversight.
+
+**The second ask is cheap to discharge and worth doing first**, because it is a
+membership question against a measurement this thread already owns: if the
+divergent watcher was session-improvised rather than written into a charter file,
+it is out of the 117 and the sweep does not cover it.
 
 ## Discipline
 
