@@ -58,6 +58,28 @@
           "jsonpath": "$.version"
         },
         {
+          "_comment": [
+            "THE BYTE-IDENTICAL MIRROR OF `overseer/version.json` INSIDE THE PLUGIN",
+            "PACKAGE. `check-codex-plugin-runnable-launcher` requires every file in",
+            "`overseer/` to `cmp -s` against its `.claude-plugin/overseer/`",
+            "counterpart, so a bump that moves one and not the other leaves MASTER",
+            "RED — not the release PR, master, after the release merges.",
+            "",
+            "MEASURED, NOT ANTICIPATED: release 0.16.0 (c530c70) did exactly this.",
+            "`overseer/version.json` went to 0.16.0, the mirror stayed at 0.15.0, and",
+            "`just check` failed on clean master for every session in the repo. The",
+            "mirror was introduced by e1ab505 AFTER this config was written, and",
+            "nothing tied the two together, so the gap opened at the next release",
+            "rather than at the commit that caused it.",
+            "",
+            "`json` and the same jsonpath as the source entry above: the two files",
+            "must remain byte-identical, so they must be bumped by identical rules."
+          ],
+          "type": "json",
+          "path": ".claude-plugin/overseer/version.json",
+          "jsonpath": "$.version"
+        },
+        {
           "type": "generic",
           "path": "SPECIFICATION/contracts.md"
         },
