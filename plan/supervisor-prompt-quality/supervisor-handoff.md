@@ -136,32 +136,66 @@ REPLACED, which is exactly how a refresh shows up, and that HALTs.
 - The current binder is a positive control for iteration stability: shared layer
   plus binder validates cleanly, while the binder alone deliberately does not.
 - Factory branches never create or update `.github/workflows/`.
-- The nine-slice generated-prompt-quality cut is DONE and its ledger items are
-  closed; do not re-open or re-drive them. Re-measure before believing that.
-- The live work is the FOLLOW-ON set, all P1 and all unanchored in `backlog`:
-  `overseer-d4t` (a generator fix is inert until each adopter refreshes its
-  pinned plugin cache — shipping 0.14.0 was necessary and NOT sufficient),
-  `overseer-jdo` (the check aggregate is flaky under concurrency; now able to
-  block every contributor because `check-prose-release-hygiene` is a required
-  branch-protection context), `overseer-1sv` (`with-livespec-env.sh` exits 0 when
-  the wrapped binary is MISSING, so "no runs" and "cannot look" are
-  indistinguishable), `overseer-btt` (`just worktree-reap` can never reap a
-  correctly-landed worktree because its test is ancestry and this fleet
-  rebase-merges), `overseer-8jg` (an unresolvable cross-repo sibling reports a
-  bare "not in the ready set" without naming it).
-- Those five have NO plan-thread anchor and NO `intake:triaged` label, so no
-  dispatch surface admits them and nothing else reports them. Deciding where they
-  belong is a maintainer cut, not a supervisor call — surface it, do not
-  self-assign it.
-- Unfiled drifts, evidence-backed, still needing routing: the nested
-  `.claude-plugin/.codex-plugin/plugin.json` stayed 0.13.3 while its sibling went
-  0.14.0 (release-please `extra-files` omits it); `SPECIFICATION/spec.md:334-336`
-  still says supervise-plan creates exactly ONE artifact when it now creates two;
-  `overseer/marker-protocol.md:397` and `overseer/AGENTS.md:1428` both assert
-  there is no `.ai/` directory, false since `57426df`.
-- The FLEET-WIDE remediation half remains the maintainer's: 130 bare targets, 18
-  files, 6 repos. Costed options are in the thread's
-  `GAP-no-remediation-slice.md`. The local half is done and gated.
+- **THE BINDER WILL HALT ON ITS OWN PROVENANCE PRECONDITION HERE. THAT IS
+  CORRECT.** Measured 2026-08-02, true exit status 1 (read WITHOUT a pipe; through
+  one it reads 0 — C14/C19). This repo's charter records the digest of the prose
+  in THIS REPO, while the plugin cache holds the last RELEASED prose, so between a
+  prose change and its release the two differ and the check fires. That IS the
+  drift the record exists to surface; an adopter on a released ref sees PASS. It
+  self-resolves when release PR **#360 (0.16.0)** ships, which is the maintainer's.
+  **Do NOT re-stamp `generator_prose_md5` to silence it** — that forges currency
+  the charter does not have.
+- **THE NINE-SLICE CUT AND ITS PHASE-2 FOLLOW-ON ARE BOTH ESSENTIALLY DONE.
+  Re-measure before believing this.** Epic `overseer-byvxlp` closed; phase-2 epic
+  `overseer-yho` is 3 of 4 closed:
+  - `overseer-yho.1` CLOSED — detector `(k) local-time-labelled-utc`. The charter
+    gate now carries **eleven** classes, a..k.
+  - `overseer-yho.2` CLOSED — a generated charter now RECORDS and CHECKS its
+    generator by **prose digest** (not version: six releases shipped byte-identical
+    prose, and a prose fix without a release bump reports an unchanged version for
+    changed prose). The comparison is a HALT-first precondition on the ADOPTER'S
+    host, never equality in CI, which would redden every charter on every release.
+  - `overseer-gjb` CLOSED — the module docs no longer deny a directory that exists,
+    and the claim is now gated so the premise cannot rot silently again.
+  - `overseer-d4t` **CLOSED** — this thread's top open item all day. All three of
+    its asks delivered and its own acceptance clause discharged: RED against a
+    real stale-cache generation, not against repo prose.
+- **THE ONE REMAINING SLICE IS `overseer-yho.3`, AND ITS SCOPE IS ALREADY
+  DECIDED.** The maintainer chose **PHASED — `livespec-orchestrator-beads-fabro`
+  FIRST**, because that repo holds **56 of the 117** fleet defects with five of
+  its six charters dirty, so one scoped slice clears about half the exposure. Two
+  constraints ride with it: it touches ANOTHER TRACK'S REPO, so tell that track
+  before changing anything (a charter whose sessions are both live is ARMED — the
+  defect is dormant and fires when a worker exits); and it leaves **61 defects
+  across 4 repos** unaddressed, which MUST be stated on completion rather than
+  read as "the fleet is clean". Carry all ELEVEN detectors, not the seven that
+  existed when `GAP-no-remediation-slice.md` was costed. That file's 130/18/6
+  figure is SUPERSEDED by the 117/12/5 re-measure recorded beside it.
+- **THE DAEMON-LIVENESS PAIR WAS SPLIT OUT AND IS NOT YOURS.** Epic
+  `overseer-x29`, plan thread `plan/daemon-liveness-truth/`: a LIVE track
+  reporting session-gone (`overseer-j1r`) and a TORN-DOWN one reporting hung
+  mid-wrap-up (`overseer-mkx`). Same defect mirrored, but about the daemon's
+  runtime liveness model rather than what the generator emits. **The worker was
+  reassigned to that track on 2026-08-02 by maintainer ruling**, so it is live on
+  a DIFFERENT thread — do not assume it is available here.
+- Items routed OUT of this tenant by owning component, do NOT re-file them:
+  `overseer-btt` → `livespec-dev-tooling-xezh`; `overseer-1sv` →
+  `livespec-dev-tooling-1syc` (its P1 premise was REFUTED — the wrapper propagates
+  127; the real defect is that it does not propagate the caller's PATH);
+  `overseer-8jg` → `bd-ib-0kif`; the `just worktree-create` SIGPIPE →
+  `livespec-dev-tooling-zi4q`. Still open HERE and unrelated to this thread:
+  `overseer-jdo` (flaky aggregate; 24 clean runs recorded, acceptance revised to
+  20 at `-n auto` since local runs 4 workers and CI runs 18) and `overseer-n04`
+  (every `bd` write fails its auto-backup).
+- **BEFORE FILING ANYTHING FROM AN INHERITED "UNFILED" LIST, SEARCH THE LEDGER
+  FIRST.** All three drifts this binder used to list are discharged, and one of
+  them — the nested Codex manifest — was filed by ANOTHER TRACK fourteen minutes
+  before I duplicated it. "This is unfiled" is a claim with a timestamp exactly
+  like an item's status. That is charter correction **C18**.
+- One open PR of this track's remains: **#440**, needing a rebase against master's
+  `handoff.md`. Six siblings (#441, #445, #446, #452, #456, #465) were merged
+  2026-08-02 on green checks; they were opened while unsupervised and were NOT
+  reviewed line by line — that is stated rather than implied.
 - Full narrative state, including corrections to this supervisor's own conduct
   that are not yet role-level, lives in the supervisor marker at
   `tmp/overseer/supervisor-prompt-quality/.supervisor-state`. Read it at boot;
