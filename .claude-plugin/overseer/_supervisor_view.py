@@ -41,6 +41,7 @@ __all__: list[str] = [
 # and the operator decides whether to restart or unassign it. `not-claude` is gone.
 ATTENTION_STATUSES = (
     "blocked:human",
+    "codex-unindexed",
     "ctx-stale",
     "danger",
     "ready-uncertifiable",
@@ -85,6 +86,7 @@ _STATUS_COLOR = {
     "warned": _ANSI_YELLOW,
     "danger": _ANSI_YELLOW,
     "blocked:human": _ANSI_YELLOW,
+    "codex-unindexed": _ANSI_YELLOW,
     "ctx-stale": _ANSI_YELLOW,
     "ready-uncertifiable": _ANSI_YELLOW,
     "session-gone": _ANSI_RED,

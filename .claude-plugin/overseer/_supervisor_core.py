@@ -429,6 +429,7 @@ class Supervisor:
                     supervisor_view=supervisor_view,
                     act=act,
                 )
+        views.extend(_supervisor_discovery.unindexed_codex_rows(sup=self))
         self.render(rows=views)
         # Only the DAEMON badges the window. `list` is advertised read-only, so it must
         # not rename the maintainer's window as a side effect of printing a table.
