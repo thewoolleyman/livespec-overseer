@@ -49,10 +49,32 @@
 > working this same defect under the `overseer-jcw` id that was closed into this one.
 > **The survivor choice is surfaced and NOT settled.** Coordinate; do not edit their tree.
 >
-> **CHECK THIS FIRST:** PR #470 ("unmask `check-per-file-coverage` so a red suite cannot
-> report green") merged 2026-08-02 from another track. It is adjacent to jdo's newest
-> sighting — establish whether it changes what that signature means before treating the
-> notes as current.
+> **✅ THE PR #470 CHECK IS DISCHARGED — 2026-08-02, later session, and it changed the
+> reading twice over.** Full evidence is a note on `overseer-jdo` (session `8a475801`);
+> the shape, so nobody re-derives it:
+>
+> - **The "fresh sighting" note FUSED TWO RUNS.** The failing push aggregate's pytest
+>   lines were lost to a tail truncation — WHICH test died there was never observed —
+>   and the quoted `1 failed, 798 passed … 100.00%` came from the standalone diagnosis
+>   run afterwards, which under the then-masked recipe reported its target GREEN: a
+>   live in-the-wild instance of the masked class #470 was built to expose, on jdo's
+>   own flaky test. Pre-#470 local failure counts UNDERCOUNT; never pool rates across
+>   the unmask boundary.
+> - **The residual detector flake has a ROOT CAUSE — reproduced, and it is NOT socket
+>   sharing.** A post-unmask run captured the assert diff: `-'/home/ubuntu/.oh-my-zsh'`.
+>   Both cwd-reading tests sample `#{pane_current_path}` immediately after
+>   `new-session`; under load that single read lands inside zsh+oh-my-zsh startup,
+>   whose machinery runs children with cwd `$ZSH`. Probed outside the suite: 23/30
+>   fresh panes transit through `.oh-my-zsh`, 1/30 show it on the FIRST read. One
+>   cause, BOTH local signatures — a mid-body cwd assert dies as a coverage shortfall
+>   (Sighting 3's exact 130–134 line range), a last-statement one as an
+>   assertion-at-100%. **PR #418 is exculpated; mechanisms 2 and 3 stand as
+>   documented.** The fix is a PEER NEGOTIATION (`tests/prompts/` is
+>   `supervisor-prompt-quality`'s deliverable); the gate was not touched, and the
+>   never-weaken rule above is unchanged.
+> - **First sound post-unmask rate point:** ten unmasked `check-per-file-coverage`
+>   runs at `de6a7ed`, host load 39–49 on 18 cores, per-run logs kept: 9 clean, 1
+>   fail — the detector test, honestly red, diff captured.
 >
 > ## Standing rules — these are not negotiable and cost real damage when forgotten
 >
@@ -114,6 +136,16 @@
 >   bytes on both streams. Took 2, 3, 6 and 7 attempts today. **Loop on it. Never
 >   `git worktree add`** — a worktree without the discipline pack cannot push, and the
 >   doc-only path does NOT exempt you.
+>   **DIAGNOSED 2026-08-02, and looping no longer converges under load: 9/9 failures
+>   (one invoking the script directly).** The trace dies in `worktree_primary_path()` —
+>   `git worktree list --porcelain` piped into an awk that EXITS on the first line,
+>   under `pipefail`; git's next write takes SIGPIPE. It is a scheduling race, so host
+>   load 39+ makes it near-deterministic. Evidence appended to
+>   **`livespec-dev-tooling-zi4q`** (that tenant owns the pack). Until it lands, the
+>   sanctioned rescue IS the route: raw `git worktree add`, then
+>   `just install-worktree-pack` inside it, then DISCARD the `worktree_discipline` key
+>   it writes into `.livespec.jsonc` — used for this file's own PR, with the discipline
+>   hooks verified live at push time.
 > - **`lefthook run` STASHES unstaged changes**, so unstaged instrumentation silently
 >   does not execute and its absence reads as "the code never ran".
 > - **`lefthook run` CLOBBERS the primary checkout's canonical commit-refuse hooks.**
