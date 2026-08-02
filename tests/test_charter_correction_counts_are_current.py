@@ -57,9 +57,27 @@ from pathlib import Path
 __all__: list[str] = []
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _thread_file(*, rel: str) -> Path:
+    """Resolve a plan-thread file at its LIVE or ARCHIVED location.
+
+    A thread moves to `plan/archive/<topic>/` when its epic closes, so a
+    hardcoded live path is guaranteed to become invalid. This gate must keep
+    following the REAL artifact rather than a vendored copy: its whole purpose
+    is to catch drift in live prose, and a fixture would make it vacuous.
+    """
+    # Branch-free by construction: a conditional here is an unavoidable PARTIAL
+    # branch, because only one arc can ever run in a given tree state, and this
+    # repo runs fail-under=100 with branch coverage. `plan/**/` spans the live and
+    # archived locations in one pattern. An empty match raises IndexError, which
+    # is the loud failure a genuine miss should produce.
+    return sorted(_REPO_ROOT.glob(f"plan/**/{rel}"))[0]
+
+
 _PROTOCOL = _REPO_ROOT / ".ai" / "supervisor-protocol.md"
-_BINDER = _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md"
-_HANDOFF = _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "handoff.md"
+_BINDER = _thread_file(rel="supervisor-prompt-quality/supervisor-handoff.md")
+_HANDOFF = _thread_file(rel="supervisor-prompt-quality/handoff.md")
 
 # An ENTRY in a `## Corrections` list: a top-level bullet opening with the bolded
 # id. The leading `- ` is what distinguishes an entry from prose about an entry.

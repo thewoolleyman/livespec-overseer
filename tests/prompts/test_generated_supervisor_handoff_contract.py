@@ -41,7 +41,7 @@ _SHARED_LAYER = _REPO_ROOT / ".ai" / "supervisor-protocol.md"
 # must satisfy the requirement list below; that list lives in this module and
 # is what actually holds the line.
 _EXEMPLAR_CANDIDATES = (
-    _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md",
+    _REPO_ROOT / "tests" / "prompts" / "fixtures" / "exemplar-supervisor-handoff.md",
     _REPO_ROOT / "plan" / "ship-overseer-to-fleet" / "supervisor-handoff.md",
     _REPO_ROOT / "plan" / "archive" / "ship-overseer-to-fleet" / "supervisor-handoff.md",
 )
@@ -655,7 +655,7 @@ def test_the_generator_prose_requires_role_rule_sections_in_the_shared_layer():
 
 def test_layered_current_charter_is_the_iteration_stability_positive_control():
     binder = (
-        _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md"
+        _REPO_ROOT / "tests" / "prompts" / "fixtures" / "exemplar-supervisor-handoff.md"
     ).read_text(encoding="utf-8")
     shared = _SHARED_LAYER.read_text(encoding="utf-8")
     rows = (
@@ -805,7 +805,7 @@ def test_non_parameterizable_rules_are_enumerated_and_cannot_be_overridden():
 def test_both_corrections_sections_survive_regeneration_byte_for_byte():
     shared = _SHARED_LAYER.read_text(encoding="utf-8")
     binder = (
-        _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md"
+        _REPO_ROOT / "tests" / "prompts" / "fixtures" / "exemplar-supervisor-handoff.md"
     ).read_text(encoding="utf-8")
     regenerated_shared = shared.replace("# Supervisor Protocol", "# Supervisor Protocol")
     regenerated_binder = binder.replace("# Supervisor Handoff", "# Supervisor Handoff")
