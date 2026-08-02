@@ -1,6 +1,135 @@
 # Plan — codex-parity-and-rollout-safety
 
-> # ▶▶▶ RESUME HERE — rewritten at wind-down, end of 2026-07-31. THIS BLOCK WINS OVER EVERY OTHER BLOCK IN THIS FILE.
+> # ▶▶▶ RESUME HERE — rewritten 2026-08-02. THIS BLOCK WINS OVER EVERY OTHER BLOCK IN THIS FILE.
+>
+> Everything below is HISTORY: accurate as evidence, frequently wrong as *current
+> state*. **Read this block for what to do; read below it for why.**
+>
+> ## THE A-TRACK IS COMPLETE. Every slice A1–A6 is CLOSED.
+>
+> | slice | id | state |
+> |---|---|---|
+> | A1 | `overseer-4km4mj` | CLOSED |
+> | A2 | `overseer-vyie5q` | CLOSED — PR #308 |
+> | A3 | `overseer-kju6wh` | **CLOSED 2026-08-02 — PR #467, merge `858ab369`, verified an ancestor of `origin/master`. 61 CI checks green.** |
+> | A4 | `overseer-ews` | **CLOSED 2026-08-02** on the scratch-store evidence, by maintainer route (below) |
+> | A5 | `overseer-ei3` | CLOSED — PR #385 |
+> | A6 | `overseer-g6z` | CLOSED — PR #386 |
+>
+> `harnesses.codex` now reads `"status": "supported"`, `"canonical_command":
+> "livespec-overseer:overseer"` on `origin/master`, backed by the repo-local
+> `check-codex-skill-picker` — a live Codex TUI picker acceptance wired into the
+> `just check` aggregate and **demonstrated RED two ways**.
+>
+> ## The A4 decision, so nobody reopens it
+>
+> The maintainer chose: **prove adoption against a SCRATCH STORE without killing the
+> fleet daemon or touching live sessions, then close A4 on that fresh evidence,
+> narrowing nothing.** The scratch-store harness
+> (`research/daemon-adoption-harness.md`) is that evidence and is the AUTHORIZED
+> route, not a compromise.
+>
+> **DO NOT STOP THE FLEET DAEMON.** Not for ten minutes, not with a restore planned.
+> A restart being independently "owed" does not license taking it down for a proof's
+> benefit — that is its own item with its own window. The daemon at
+> `livespec-overseer:1.1` was never touched by any of this work.
+>
+> `overseer-ews`'s close_reason records what was proven AND what was not (the
+> launched daemon was not the one that adopted; the adopted track was a Claude
+> session). **Phrase any downstream claim as "the daemon CAN adopt a Codex track",
+> never "Codex tracks are supervised"** — an ordinarily-opened Codex TUI lands in
+> `session_index.jsonl` only ~41% of the time (`overseer-mir`).
+>
+> ## What is open, and it is all outside the A track
+>
+> **Admitted and `ready`, none dispatched:**
+> - **`overseer-jdo`** (P1) — the flaky check aggregate. **Another track works this
+>   under the `overseer-jcw` id I closed into it; the survivor choice is surfaced,
+>   not settled.** A THIRD sighting was recorded 2026-08-02 (below).
+> - **`overseer-0pc`** (P2) — `overseer/AGENTS.md`'s scratch-`$HOME` recipe silently
+>   blinds `~/.claude` + `~/.codex` discovery. Named in A4's close as the reason the
+>   single-run route was unavailable.
+> - **`overseer-mir`** (P2) — Codex adoption's unnamed-session gap; carries the 41%
+>   measurement. Its BODY mentions P3 as a mid-trail retraction while the ledger says
+>   P2; **the ledger is current and the body is the reasoning trail — nothing to
+>   reconcile.**
+>
+> ## Traps that still apply
+>
+> 1. **Release PR #360 is still OPEN**; `origin/release` is still `013d35d` without
+>    the launcher. Every live measurement in this thread — including A3's — was taken
+>    at the **`--ref master`** pin, the declared deviation. **A re-verification at
+>    `--ref release` is owed once #360 merges.** Merging it is a release decision.
+> 2. **Never re-register the marketplace to "refresh" it** — it prunes cache dirs and
+>    breaks live Codex sessions. A3's check is built specifically to avoid this.
+> 3. **Admission asks go to the SUPERVISOR**, who holds a standing authorization and
+>    resolves them in one hop. Never self-admit.
+> 4. **`just worktree-create` is a coin flip** (SIGPIPE → exit **141**, often with
+>    zero bytes on both streams). Loop on it; it took 3 and 6 attempts today. Never
+>    `git worktree add`.
+> 5. **The gate is intermittently red** (`overseer-jdo`). Re-run before believing it;
+>    **never `--no-verify`**, and never resolve a flake by weakening the gate.
+>
+> ## What A3 cost that a successor should not re-derive
+>
+> **The template port was NOT three constants.** Copying
+> `livespec-orchestrator-beads-fabro`'s picker test verbatim would have shipped a
+> check that is green while proving less than it claims:
+>
+> - **Its assertion shape is VACUOUS here.** It asserts skill and plugin as
+>   independent substrings — fine for `drive` vs its plugin name, broken for us
+>   because `overseer` is a **substring of** `livespec-overseer`. Assert the composed
+>   row `overseer (livespec-overseer)`.
+> - **Declaring `[marketplaces.*]` in the scratch config REBUILDS THE SHARED PLUGIN
+>   CACHE** (fresh inodes, twice). Mirroring the host's `last_updated`/`last_revision`
+>   does NOT prevent it — the host pin is a MOVING `ref = "master"`. Omit the block.
+> - **`start_new_session=True` is REQUIRED.** Without it the TUI degrades to a
+>   one-glyph-per-line renderer under lefthook's runner — every expected word present,
+>   spelled vertically. Reproduced 3/3 under lefthook vs 2/2 clean standalone, with
+>   the pty verifiably 40x120 and the environment identical. Three hypotheses died
+>   first: terminal width, `TERM`, and a quiet-window race.
+> - **Wait on CONTENT, never on QUIET.** A quiet window measures the host, not the UI.
+> - **Answer the terminal colour queries against the ACCUMULATED stream**, not the
+>   latest `os.read` chunk — an OSC query can straddle a chunk boundary.
+>
+> ## Two environment facts learned the hard way today
+>
+> - **`lefthook run` STASHES unstaged changes**, so an unstaged debug patch does not
+>   execute under the hook and its absence reads as "the code never ran". Stage
+>   instrumentation before trusting it.
+> - **Invoking `lefthook run` CLOBBERS the primary checkout's canonical commit-refuse
+>   hooks** with stock lefthook bodies; `check-primary-checkout-commit-refuse-hook-installed`
+>   then fails with `body_mismatch`. **Repair with `just install-commit-refuse-hooks`**
+>   (done — verified green). Prefer `git commit` over `lefthook run` for experiments.
+>
+> ## The commit-prefix rule this thread now has evidence for
+>
+> Red-green-replay reads **`feat:`/`fix:` on a tests-only staging as declared Red
+> intent** and requires the staged test to FAIL first. A test that asserts an
+> ALREADY-SHIPPED capability has no honest Red moment, so it must be authored under a
+> non-Red-intent prefix and takes the **green-verified leg** (full suite green,
+> `TDD-Suite-Green-*` trailers). A3's first commit attempt was `feat:` and was
+> correctly rejected with `test-passed-at-red`. This is the gate's documented path,
+> not a way around it.
+>
+> ## Decisions carried up and still open
+>
+> - **The `overseer-jcw` / `overseer-jdo` survivor choice** — surfaced, deliberately
+>   not reversed; re-opening an item another track is working is churn.
+> - **B2's dangling `non_local_depends_on`** still points at the dead
+>   `overseer-llz4xi`. B1 is still `backlog`, so the repair unblocks nothing.
+> - **Release PR #360.**
+>
+> ### A peer notification is still OWED
+>
+> `supervisor-prompt-quality` owns `tests/prompts/`. A third flaky-gate mechanism —
+> `settle`/`wait_for` returning silently on timeout — was reproduced against their
+> shipped code and recorded on `overseer-jdo` rather than raised with them. Still not
+> fixed on purpose: it is a contract change against an explicit in-code decision.
+>
+> ---
+
+> # ▶▶ (HISTORY) resume state as of 2026-07-31 — SUPERSEDED by the block above.
 >
 > Everything below this block is HISTORY. It is accurate as evidence and often
 > wrong as *current state* — many claims were corrected later, and the
