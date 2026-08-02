@@ -609,6 +609,55 @@ preserve every entry.
   not reliably in the text, which is the same family that killed four gates on
   this thread. Separate answering from asking, or do not ship the rule.
 
+- **C21 (2026-08-02) — THE PASTE-CONFIRMATION STEP THIS FILE PRESCRIBES CANNOT
+  CONFIRM A PASTE.** The send idiom above emits, twice:
+  `tmux capture-pane -p -t "$WORKER_TARGET" | tail -8   # confirm it landed`.
+  A supervisor who obeys that literally, by looking for the text it just sent,
+  gets a FALSE NEGATIVE every time. Claude Code does not render a pasted block as
+  its content — it renders a PLACEHOLDER, `[Pasted text #N +M lines]`. So the
+  content is never on screen, a grep for it returns zero, and zero reads as "the
+  paste failed".
+  MEASURED 2026-08-02 against a live peer session: buffer verified non-empty with
+  `tmux show-buffer`, `paste-buffer` issued, pane grep for the message text
+  returned **0**, and the prompt line read `❯ [Pasted text #1 +1 lines]` — landed
+  perfectly. I read the zero as failure and was one step from re-pasting into
+  ANOTHER TRACK'S live session, which is the one place a duplicate is expensive.
+  **CONFIRM A PASTE BY THE PLACEHOLDER OR BY A NON-EMPTY PROMPT LINE, NEVER BY ITS
+  TEXT.** A single-line paste may appear inline instead, so accept either shape.
+  AND THE RENDER LAGS: the pane frequently still shows the pre-paste state when
+  captured immediately after `paste-buffer`, and again immediately after `Enter`.
+  Re-capture before concluding anything; do NOT re-send. I sent a second `Enter`
+  on that assumption and it was an empty no-op only by luck.
+  This is the same shape as C2 and C6 — a check that cannot fail, and a tool whose
+  output does not mean what the command name implies — but it is worse than either
+  because THE CHARTER PRINTS IT. Every supervisor that follows the instruction
+  exactly is the one that gets the wrong answer.
+
+- **C22 (2026-08-02) — A WATCHER SLEPT THROUGH THE EVENT IT WATCHED, THEN
+  REPORTED A CONFIDENT FALSEHOOD, BECAUSE zsh DOES NOT WORD-SPLIT.** Armed on a CI
+  run, the watcher polled 28 times over 14 minutes, matched nothing, and exited
+  with `WAKE: still not terminal. RE-ARM NOW`. The run had reached
+  `completed/success` after ~89 seconds and was terminal for essentially the whole
+  window.
+  MECHANISM, measured: the loop did `set -- $row` then `st=$1`, where `$row` held
+  `"completed success 30729598699"`. **In zsh an unquoted parameter expansion does
+  NOT undergo word splitting.** So `$#` was 1, `$1` was the entire string, `st`
+  never equalled `completed`, the terminal branch never fired, and every iteration
+  fell through to `sleep`. Verified directly: `set -- $row; echo $#` prints `1`.
+  THIS IS C14'S FAMILY. C14 is `PIPESTATUS`; this is word splitting. Both are bash
+  idioms that silently do NOTHING under this fleet's zsh, and both fail in the
+  direction that reads as a pass — C14 as an empty string, this as "keep waiting".
+  Use `read -r a b c <<< "$row"`, an array, or have the probe emit ONE field.
+  HOW I NEARLY MISSED IT, and this is the transferable half: I reproduced the
+  PROBE by hand, got `MATCHED: completed success`, and treated that as exonerating
+  the watcher. The probe was never the broken part. **A control must run through
+  the SAME call path as the measurement**, not merely be fed the same input — the
+  rule already recorded on this thread, arriving again because I confirmed the
+  half that worked.
+  A watcher whose failure path is indistinguishable from "not yet" is exactly what
+  C7 and C12 are about. Distinguish "probe failed" from "not yet terminal", and
+  emit on BOTH — silence must never be the report.
+
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
