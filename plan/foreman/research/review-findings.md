@@ -6,8 +6,8 @@ by two independent adversarial reviewers — an **Opus** subagent (22 ranked
 findings) and a **GPT via Codex** run (11 ranked findings; Codex session
 `019fc11c-68c4-78c3-824b-d9b97de55a78`). This file is the durable record:
 what each found, what the coordinating session (Fable) independently
-verified, and the disposition of every finding. `brainstorm.md` §5 carries
-the resulting v2 revisions; this file carries the evidence.
+verified, and the disposition of every finding. `brainstorm.md` §4 (the v2 phasing) and
+its correction banners carry the resulting revisions; this file carries the evidence.
 
 The exercise is itself a preview of the foreman's own consensus panel — and
 its meta-lesson landed immediately: the two reviewers disagreed materially
@@ -77,14 +77,14 @@ Phase B is not sound to proceed as written: automatic valve driving, missing-
 session classification, and unmanaged work-item sessions are blocking design
 defects."
 
-Both verdicts are ACCEPTED; v2 (brainstorm §5) redefines phases A and B
+Both verdicts are ACCEPTED; v2 (brainstorm §4) redefines phases A and B
 accordingly.
 
 ## Dispositions
 
-Legend: **ADOPTED** = folded into brainstorm §5 v2 design. **RECORDED** =
+Legend: **ADOPTED** = folded into brainstorm §4 v2 design / correction banners. **RECORDED** =
 binding on a later phase's detailed design, recorded here + pointed to from
-§5. **FILED** = became a ledger work item now.
+brainstorm §4/§5. **FILED** = became a ledger work item now.
 
 ### Critical
 
@@ -144,7 +144,7 @@ binding on a later phase's detailed design, recorded here + pointed to from
 ### Major
 
 - **O7 (ADOPTED)** — own-spec conflict pass: the named amendments now
-  enumerated in brainstorm §5 (attention-ownership sentence; the
+  enumerated in brainstorm §4 (attention-ownership sentence; the
   three-files closed enumeration + snapshot; BOTH surface-only sentences
   incl. no-auto-recovery; the non-interference/attended-carve-out fork for
   an unattended reader of handoffs; the scope-statement fork — is the
