@@ -229,8 +229,29 @@ Decision matrix (as seeded):
 - 1× needs-human + 2× equivalent unblock → minority-report round: show the
   dissent to the two; if both hold → act; else → escalate.
 - anything else → escalate: re-present in the owning pane with per-reviewer
-  summaries + an updated AskUserQuestion (Codex fallback: numbered prose
-  choice).
+  summaries + an updated AskUserQuestion (Codex: see the native-picker note
+  below — the prose-choice fallback narrows to the cases the native tool
+  cannot cover).
+
+> **UPDATE (2026-08-02, maintainer; seed Addendum 2 — Codex native question
+> picker):** Codex supports a NATIVE structured question tool,
+> `request_user_input` (header/id/question/options with label+description),
+> gated behind the `default_mode_request_user_input` feature, which the
+> maintainer is enabling system/user-wide in `~/.codex/config.toml`. A
+> SKILL.md's Markdown instructions are enough to make the model emit the
+> native call. So a Codex worker CAN re-present an escalation as a real
+> picker, and the seed's "if Codex doesn't support AskUserQuestion" hedge is
+> RESOLVED for interactive Default-mode sessions. Precise scope, which Phase
+> C/D design must respect: (a) interactive CLI only — NOT `codex exec`, so
+> factory/exec contexts keep the prose fallback; (b) the feature is named
+> for DEFAULT mode, while the fleet's tracked Codex sessions run YOLO
+> (`--dangerously-bypass-approvals-and-sandbox`) — whether the tool is
+> exposed there is UNMEASURED, so the shipped marker-protocol claim ("Codex
+> in YOLO mode cannot raise a structured question") stands until a live
+> measurement says otherwise. That measurement is a named Phase D
+> experiment; if YOLO sessions do get the tool, the daemon's existing gate
+> detection already covers the rendered picker (`is_structured_gate` matches
+> the `› N.` cursor), so blocked:human classification needs no change.
 
 Design details the plan must pin down:
 - **Action equivalence** is judged by the foreman (it's an LLM; a fourth

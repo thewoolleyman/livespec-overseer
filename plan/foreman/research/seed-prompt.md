@@ -128,3 +128,28 @@ start brainstoring and working towards a plan for it.
 8. foreman should always be required to run in a `<repo>-foreman` tmux named
    exactly that - to facilitate intra-foreman communication across repos (but
    there can be an API exposed to facilitate this as well)
+
+## Addendum 2 (user, 2026-08-02, after the external-review pass)
+
+Codex CAN present native user-question prompts: the `request_user_input`
+tool, gated behind the `default_mode_request_user_input` feature (currently
+"under development", disabled by default — official source:
+codex-rs/features/src/lib.rs L235-236). The maintainer is enabling it
+system/user-wide:
+
+```toml
+# ~/.codex/config.toml
+[features]
+default_mode_request_user_input = true
+```
+
+(equivalently `codex features enable default_mode_request_user_input`; a
+one-session test uses `codex --enable default_mode_request_user_input`; a
+new Codex session is required after enabling). A SKILL.md instructs the
+model to call `request_user_input` with `header` / `id` / `question` /
+options (label + description) fields — the Markdown instructions cause the
+native tool call; no executable code is involved. Known limitations as
+captured: works in the interactive CLI, NOT `codex exec`; the feature name
+scopes it to DEFAULT mode. Update the plan's Codex-fallback assumptions
+accordingly (see brainstorm "Codex native question picker" note for the
+precise scope and the YOLO-mode measurement still owed).
