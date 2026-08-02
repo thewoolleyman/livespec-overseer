@@ -1,7 +1,13 @@
 # release-automation-gap — handoff
 
-Epic anchor: **`overseer-oijk3d`**. Read status from the ledger, never from
-this file — nothing here stores a status or a checkbox queue.
+**Ledger anchor:** epic **`overseer-oijk3d`**. Read status from the ledger,
+never from this file — nothing here stores a status or a checkbox queue.
+
+That spelling is load-bearing, not styling. `tests/test_plan_thread_records_agree.py`
+extracts a handoff's anchor declaration with a pattern keyed on the words
+*ledger anchor*; the `Epic anchor:` form this file used until 2026-08-02
+extracted nothing, which makes a thread that HAS a charter an offence rather
+than a skip and turns master red. Filed as `overseer-jtc`.
 
 ## Read-first chain
 
