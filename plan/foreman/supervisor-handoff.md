@@ -1,0 +1,440 @@
+# Supervisor Handoff - foreman
+
+## Shared Protocol
+
+Read `.ai/supervisor-protocol.md` before driving. Validate this binder together
+with that shared layer; this binder is intentionally thin and is not complete by
+itself.
+
+Regenerating this file MUST preserve two Corrections sections byte-for-byte:
+
+- `.ai/supervisor-protocol.md` `## Corrections` for role-level corrections.
+- This file's `## Corrections` for thread-specific corrections.
+
+Preserve spelling, punctuation, code formatting, blank lines, and ordering
+exactly; do not normalize markdown or code spans. A presence check is not enough
+— a prior live regeneration silently reformatted a correction by turning a bare
+identifier into a code span, and that would have passed a substring check.
+
+Live thread status is NOT in this file. It lives in the ledger, in `handoff.md`,
+and in `$supervisor_marker`. Read those first on a cold open — **all three**. On
+2026-07-30 a supervisor on a sibling thread read two of the three, skipped
+`handoff.md`, and the skipped file held the exact hazard that made it publish a
+false accusation against the worker's own work. That is role-level correction
+**C19**.
+
+```sh
+test -f ".ai/supervisor-protocol.md" \
+  || { echo "HALT: missing shared supervisor protocol .ai/supervisor-protocol.md"; echo "REMEDY: regenerate the two-layer supervisor handoff before driving"; exit 1; }
+printf '%s\n' "BOOT: read .ai/supervisor-protocol.md, this binder, and the supervisor marker if it exists"
+[ -n "${supervisor_marker:-}" ] \
+  || { echo "HALT: supervisor_marker is unset or empty"; echo "REMEDY: resolve it from the Bindings table below before running this block — an unset marker makes the read display NOTHING and still exit 0"; exit 1; }
+if [ ! -f "$supervisor_marker" ]; then
+  printf '%s\n' "NOTE: no supervisor marker at $supervisor_marker yet — nothing to read."
+else
+  marker_lines=$(wc -l < "$supervisor_marker")
+  if [ "$marker_lines" -le 400 ]; then
+    cat "$supervisor_marker"
+  else
+    sed -n '1,160p' "$supervisor_marker"
+    printf '\n*** TRUNCATED: lines 161-%d of %d NOT SHOWN (%d hidden). A claim above may be RETRACTED in the hidden range. Read %s in full before acting on anything above. ***\n\n' \
+      "$((marker_lines - 160))" "$marker_lines" "$((marker_lines - 320))" "$supervisor_marker"
+    sed -n "$((marker_lines - 159)),${marker_lines}p" "$supervisor_marker"
+  fi
+fi
+```
+
+The read is WHOLE-FILE up to 400 lines and head-and-tail beyond, and the
+truncation notice is MANDATORY whenever anything is hidden. A constant cap is
+stale tomorrow — a sibling thread's marker went 528 lines, then 697 within hours,
+so no constant survives an append-only file. And truncation SEVERS RETRACTIONS
+FROM CLAIMS: that marker carried an `OPEN OBLIGATIONS` block assigning
+`holder: worker` inside the visible window while its retraction sat below the
+cut, so a cold-open reader was handed a discharged obligation as live work.
+Silently showing less is not the harm; manufacturing a false assignment is.
+Corrections land at the END of an append-only file, which makes a head-only read
+the worst possible cut.
+
+**As of 2026-08-02T23:42Z there is no marker at that path and no `runtime_dir`
+on disk.** The block above reports that as a NOTE and continues, which is
+correct: absence at first boot is not a failure. Create the marker as soon as
+you hold your first obligation — the shared layer's `## Obligation record`
+section owns its schema.
+
+## Bindings
+
+Resolve and REPORT these before driving anything. Startup bindings only — no
+live status, no next actions, and no date-gated behavior.
+
+| Binding | Value |
+|---|---|
+| `repo_primary` | `/data/projects/livespec-overseer` |
+| `thread_dir` | `plan/foreman/` |
+| `topic` | `foreman` |
+| `worker_session` | `foreman` |
+| `supervisor_session` | `foreman-supervisor` |
+| `WORKER_TARGET` | `'=foreman:'` |
+| `SUPERVISOR_TARGET` | `'=foreman-supervisor:'` |
+| `runtime_dir` | `<repo_primary>/tmp/overseer/foreman/` |
+| `supervisor_marker` | `<runtime_dir>/.supervisor-state` |
+| `wait_channel` | `<runtime_dir>/worker-status.log` |
+| `ledger_anchor` | `overseer-z5fo4y` |
+
+Placeholder classes declared by this binder:
+
+- Concretely bound: `repo_primary`, `thread_dir`, `topic`, `worker_session`,
+  `supervisor_session`, `WORKER_TARGET`, `SUPERVISOR_TARGET`, `ledger_anchor`.
+- Composed bindings resolved to a fixed point: `runtime_dir`,
+  `supervisor_marker`, `wait_channel`.
+- Runtime slots intentionally left for later commands: `<condition-command>`,
+  `<short-slug>`, `<branch>`.
+- Illustrative placeholders appear only in prose that discusses a form, not in
+  fenced commands.
+
+The session names are the BARE topic and the topic plus `-supervisor`, per the
+ratified `SPECIFICATION/spec.md` "Session-name derivation" rule: repo-qualified
+names are for a genuine cross-repository topic collision, and this topic has
+none. Measured 2026-08-02T23:42Z across all twelve repos in
+`~/.livespec-overseer-repos.json`: `plan/foreman/` exists in
+`livespec-overseer` alone.
+
+`runtime_dir` sits under the repo's gitignore-gated `tmp/` scratch, which is
+also where this thread's own future feature writes its state
+(`<repo>/tmp/overseer/foreman/`, review finding O18). Those are the same
+directory by construction — the supervisor's marker and the eventual foreman
+runtime share a home, so do not "clean up" one and take the other with it.
+
+## Generator provenance
+
+This charter was produced from the generator prose whose digest is recorded
+below. Run this before driving: a charter emitted from a stale plugin cache
+carries defects the current generator no longer emits, and until this record
+existed nothing about a charter said which generation produced it.
+
+The DIGEST is the identity. The plugin, ref and version are companions for a
+human reader — six releases shipped byte-identical prose, so a version would
+report six generators where there is one, and the ref directory name is
+sometimes a commit sha and sometimes a version string.
+
+```sh
+generator_plugin='livespec-overseer'
+generator_ref='c530c70860d8'
+generator_version='0.16.0'
+generator_prose_md5='eaebe06065b3efa0053d6ea5932d52c0'
+cache_root="$HOME/.claude/plugins/cache/$generator_plugin/$generator_plugin"
+generator_prose="$cache_root/$generator_ref/prose/supervise-plan.md"
+if [ ! -d "$cache_root" ]; then
+  printf '%s\n' "UNVERIFIED: no plugin cache at $cache_root, so this is not a host that generates charters and provenance cannot be checked here. Recorded generator: $generator_prose_md5"
+elif [ ! -f "$generator_prose" ]; then
+  echo "HALT: the cache at $cache_root no longer holds ref $generator_ref, so the generator that emitted this charter has been replaced"
+  echo "REMEDY: regenerate this charter with supervise-plan, or re-point generator_ref at the installed ref and re-stamp generator_prose_md5 from it"
+  exit 1
+else
+  installed=$(md5sum "$generator_prose")
+  digest_rc=$?
+  [ "$digest_rc" -eq 0 ] \
+    || { echo "HALT: cannot digest the installed generator prose at $generator_prose"; echo "REMEDY: fix read access before trusting anything this charter says about its own currency"; exit 1; }
+  installed_md5=${installed%% *}
+  [ "$installed_md5" = "$generator_prose_md5" ] \
+    || { echo "HALT: this charter was emitted by generator $generator_prose_md5 but the installed generator is $installed_md5"; echo "REMEDY: regenerate this charter before driving, or re-stamp generator_prose_md5 deliberately after reading what changed between the two"; exit 1; }
+  printf '%s\n' "PASS: charter provenance matches the installed generator ($installed_md5)"
+fi
+```
+
+**THIS CHARTER PASSES ITS OWN PROVENANCE CHECK ON THIS HOST — measured
+2026-08-02T23:42Z.** The `0.16.0` release has landed, so the cached generator
+prose at ref `c530c70860d8` is byte-identical to
+`.claude-plugin/prose/supervise-plan.md` in this repo
+(`eaebe06065b3efa0053d6ea5932d52c0` both ways). The hardened exemplar carries a
+valve saying its provenance check WILL HALT because the repo was ahead of the
+released plugin; **that condition has cleared and does not cover this file**, so
+a HALT here is a real signal rather than the known-benign one.
+
+A MISSING CACHE ROOT AND A MISSING REF ARE DIFFERENT CONDITIONS. No cache root
+at all means this is not a charter-generating host — a CI runner, or another
+checkout — so provenance is UNVERIFIED and the check continues; HALTing there
+would make this file unreadable anywhere but the machine that produced it. A
+cache root that no longer holds the recorded ref means the generator has been
+REPLACED, which is exactly how a refresh shows up, and that HALTs.
+
+## Thread-specific Valves
+
+Every claim below is a measurement with a timestamp. Re-measure before carrying
+any of it forward; the Verification Discipline block is the command.
+
+- **THE WORKER ON THIS THREAD RUNS CODEX, NOT CLAUDE.** Measured
+  2026-08-02T23:42Z: worker pane pid 270839 holds
+  `bun /home/ubuntu/.bun/bin/codex --dangerously-bypass-approvals-and-sandbox`;
+  the supervisor pane holds `claude`. Both drivers are legitimate and the
+  preconditions accept either, but they are NOT interchangeable when you drive:
+  Codex has no `/livespec:*` slash-command surface, so any instruction that
+  assumes a Claude skill invocation will sit in that pane unexecuted. Report
+  which driver was found every time you re-run the preconditions — it can change
+  under you when a session is restarted.
+
+- **THE READ-FIRST CHAIN IS THREE FILES AND THEY ARE ORDERED.** `handoff.md`
+  names them: `research/seed-prompt.md` (the maintainer's verbatim requirements
+  including addendum item 8), then `research/brainstorm.md` (§3 records four
+  maintainer decisions that are FIXED inputs; §4 is the CURRENT v2 phasing and
+  its correction banners are live corrections, not history), then
+  `research/review-findings.md` (33 external adversarial findings; the per-phase
+  dispositions are BINDING and are not to be re-litigated without new evidence).
+  Cite finding ids when you reason about design here — the thread's whole
+  vocabulary is those ids.
+
+- **`handoff.md` SAYS SIX PENDING PROPOSED CHANGES. THERE ARE EIGHT.** Measured
+  2026-08-02T23:42Z in `SPECIFICATION/proposed_changes/`: the six foreman
+  proposals (`attention-ownership-superset`, `foreman-scope-governed`,
+  `operator-acts-include-foreman`, `reserved-suffix-refusal`,
+  `status-snapshot-store`, `unattended-reader-carve-out`, all authored
+  2026-08-02) plus **two that predate this thread** —
+  `gap-invisible-clauses-to-must-form.md` and
+  `supervise-plan-authors-two-layers.md`, both authored 2026-07-30 and both
+  landing after the `v004` snapshot. A `/livespec:revise` pass walks EVERYTHING
+  pending, so scoping the maintainer's cost estimate to six understates it by
+  two whole proposals. See thread correction **T1**.
+
+- **VALVE DRIVING IS A RATIFIED HUMAN ACT (review finding C1), BUT SURFACING A
+  RIPE VALVE IS NOT.** A decision the maintainer has not been shown is a stall of
+  this thread's own making. Raise every ripe valve in ONE `AskUserQuestion` in
+  the turn it becomes ripe, per the shared layer's picker rules. Once the
+  maintainer answers, RUNNING the corresponding `drive.py --action approve:<id>`
+  and the dispatch is mechanics, not a second decision.
+
+- **THE SLICE ORDER IS NOT THE SLICE NUMBERING.** Measured 2026-08-02T23:42Z,
+  epic `overseer-z5fo4y` is `backlog` and all seven items below are
+  `pending-approval`:
+  - `overseer-jgqw7d` (bug) — needs NO spec ratification; it closes a
+    spec-vs-impl gap against already-ratified `spec.md` text. It is the ONLY
+    dep edge into `.5` and the only item dispatchable before any revise pass.
+  - `.1` — PRECONDITION in its own text: `contracts.md` "Durable stores" is a
+    CLOSED three-file enumeration and `spec.md` scope must admit the new store.
+    Blocked on `status-snapshot-store` ratification.
+  - `.2` — carries no dep edge and no stated precondition, but its acceptance
+    demands "serializer identity with the snapshot writer", which is `.1`'s
+    serializer. Treat it as sequenced AFTER `.1` even though the ledger does not
+    say so. This is an inference from acceptance text, flagged as such.
+  - `.3` — composes `.1`'s snapshot output; same practical sequencing.
+  - `.4` — PRECONDITION stated verbatim: "the same SPECIFICATION amendment pass
+    as slice `.1`".
+  - `.5` — blocked on `reserved-suffix-refusal` ratification AND on the
+    `overseer-jgqw7d` dep edge.
+
+- **`overseer-n7xx67` IS NOT AN APPROVE-AND-DISPATCH ITEM.** Its own acceptance
+  requires a scenario landed "through the spec lifecycle (propose-change ->
+  revise)", and no proposal for it has been filed. Approving it puts a `ready`
+  item in front of the factory whose landing path needs an INTERACTIVE revise
+  the dispatch cannot run. File its proposal first if you want it in the same
+  pass.
+
+- **`-foreman` AS A RESERVED SUFFIX HAS A COLLISION TRAP `.5` MUST NOT WALK
+  INTO.** The shipped mechanism is `signals.topic_reserved_for_supervisor`,
+  which is `topic.lower().endswith("-supervisor")` (`overseer/signals.py:341`,
+  `:344`). The bare topic `foreman` does NOT end in `-foreman`, so this thread's
+  own worker session is safe under a HYPHENATED suffix test — but an
+  implementation that tests `endswith("foreman")` without the hyphen would
+  orphan the very worker supervising this plan. Separately, `tmux_id`'s
+  collision branch returns the repo-qualified `livespec-overseer-foreman`, which
+  DOES end in `-foreman` and which `.5` refuses by design; that is latent today
+  (no collision exists) and becomes live the moment a second watched repo grows
+  a `plan/foreman/`. Both belong in `.5`'s beside-tests.
+
+- **THE STANDING ADOPTION HAZARD IN `handoff.md` IS NARROWER THAN IT READS.**
+  It says a session registry-named `foreman` WILL be adopted as this thread's
+  worker and "do not run one". Adoption keys on EXACT equality —
+  `overseer/_supervisor_discovery.py:180` sets `topic = name` and requires
+  membership in the active-topic set — so it is about a foreman PROTOTYPE
+  session, not about this thread's legitimate worker, which is named `foreman`
+  precisely so the daemon manages it. A prototype must be named
+  `<repo-slug>-foreman` and is only safe once `.5` lands. This supervisor
+  session, `foreman-supervisor`, is not adoptable as a worker for any topic
+  (no `plan/foreman-supervisor/` exists).
+
+- **BOTH DISPATCH TRAPS IN THE REPO-ROOT `.claude/CLAUDE.md` APPLY VERBATIM.**
+  A literal double-brace template token anywhere in a work item's text makes it
+  undispatchable and leaves a PHANTOM CLAIM (`status=active, assignee=fabro`
+  while `fabro ps` shows nothing) — release it by hand, do NOT edit the item to
+  silence it. And a "dispatcher plugin build is stale" error names a remedy that
+  appears to do nothing, because a running session keeps its originally-resolved
+  plugin path; invoke the new build by ABSOLUTE PATH. All seven items above were
+  scanned for the token on 2026-08-02T23:42Z and are clean.
+
+- **`just worktree-create` FAILS AT SCALE IN THIS REPO.** Measured
+  2026-08-02T23:42Z: 81 worktrees, past the 77 at which 65 consecutive failures
+  were recorded (fix tracked as `livespec-dev-tooling-zi4q`). The proven rescue,
+  used to create this charter's own branch: `git worktree add <path> -b <branch>
+  <base>`, then `just install-worktree-pack` inside it, then discard the
+  `worktree_discipline` key it writes into the tracked `.livespec.jsonc` unless
+  you mean to land it. A worktree without that pack can neither commit a `.py`
+  change nor push at all.
+
+- **IMPLEMENTATION IS FACTORY-SIDE.** Every ledger-backed slice here is
+  dispatch-eligible; the dispatch route IS the implementation path. Do not
+  hand-code a slice inline in this pane. This thread FILES ripe work and routes
+  spec matter to the spec lifecycle.
+
+- **THE DAEMON IS OUT OF BOUNDS FOR THIS THREAD'S CHANGES** (maintainer
+  decision 3): additive snapshot plus heartbeat surfacing only. Its `evaluate()`
+  cascade, the cardinal rule, and its attention semantics do not change. Phase A
+  ships NO LLM loop (findings O16/C5).
+
+- Full narrative state, including corrections to this supervisor's own conduct
+  that are not yet role-level, lives in the supervisor marker at
+  `tmp/overseer/foreman/.supervisor-state`. Read it at boot; treat every status
+  line in it as a claim with a timestamp and re-measure.
+
+## Verification Discipline
+
+Re-measure the filed work item from the ledger before carrying forward any status
+or acceptance claim from this file, the plan thread, or a marker:
+
+```sh
+ledger_anchor='overseer-z5fo4y'
+# `bd` reaches a per-repo TENANT database and needs the fleet credential wrapper
+# here; a bare `bd` returns "Access denied". DETECTED, not hard-coded, so an
+# adopter without a wrapper can still re-measure.
+ledger_show() {
+  if command -v with-livespec-env.sh >/dev/null 2>&1; then
+    with-livespec-env.sh -- bd show "$1" --json
+  else
+    bd show "$1" --json
+  fi
+}
+if ! ledger_json="$(ledger_show "$ledger_anchor")"; then
+  echo "HALT: cannot re-measure ledger item '$ledger_anchor'"
+  if command -v with-livespec-env.sh >/dev/null 2>&1; then
+    echo "REMEDY: the credential wrapper WAS used, so ledger access is not the suspect — check the anchor id is real and that this repo's tenant is reachable"
+  else
+    echo "REMEDY: no credential wrapper on PATH, so a BARE 'bd' ran — install/expose the fleet credential wrapper, or check the anchor id"
+  fi
+  exit 1
+fi
+# EXIT STATUS IS NOT EVIDENCE. A tool that exits 0 while printing nothing would
+# let the stamp below certify a re-measurement that never happened.
+[ -n "$ledger_json" ] \
+  || { echo "HALT: ledger re-measure for '$ledger_anchor' exited 0 but returned NOTHING"; echo "REMEDY: do not record this as a measurement — an empty success is not a reading; confirm the anchor exists and that the ledger tool is actually reporting"; exit 1; }
+printf '%s\n' "$ledger_json"
+date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
+```
+
+`overseer-z5fo4y` is an EPIC, so that reading reports the cut and not the work.
+Its children are the dotted ids `overseer-z5fo4y.1` through `.5` — the epic edge
+is PROSE-ONLY because this tenant refuses task-to-epic dep edges, so the epic's
+own `dependent_count` is `0` and proves nothing about its children. Re-measure
+each child by id, plus the two items that hang off this thread without dotted
+ids: `overseer-jgqw7d` and `overseer-n7xx67`.
+
+The spec-side half of this thread's state is NOT in the ledger at all. Measure it
+from the filesystem in the same pass:
+
+```sh
+ls /data/projects/livespec-overseer/SPECIFICATION/proposed_changes/
+ls /data/projects/livespec-overseer/SPECIFICATION/history/
+date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
+```
+
+When a command's own success is the verdict, capture that status before any pipe
+used only to filter or display its output:
+
+```sh
+WORKER_TARGET='=foreman:'
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+tmux_rc=$?
+[ "$tmux_rc" -eq 0 ] \
+  || { echo "HALT: tmux pane lookup failed for 'foreman'"; echo "REMEDY: re-check the exact target before filtering its output"; exit 1; }
+printf '%s\n' "$pane_pid" | head -1
+```
+
+Inspect read-only before driving anything — a bounded scrollback sample plus the
+whole visible worker pane:
+
+```sh
+WORKER_TARGET='=foreman:'
+tmux capture-pane -p -t "$WORKER_TARGET" -S -40
+```
+
+`-S -40` starts 40 lines back in history and then includes the entire visible
+pane. It is NOT "the last 40 lines", and its history must never feed the picker
+test or the pane diff — a picker that closed minutes ago is still in the buffer.
+
+## HALT-first preconditions
+
+Worker session `foreman`; supervisor session `foreman-supervisor`; target repo
+`/data/projects/livespec-overseer`. Verify both sessions AND the live agent
+driver in each before doing anything else. Stop on the FIRST failure and act on
+the labelled `REMEDY:`. Runtime identity comes from exact live process evidence,
+NEVER from a session name — a leftover session named like an agent proves
+nothing, and on this thread the worker's driver is Codex rather than Claude, so
+the driver you find changes how you may drive it.
+
+```sh
+WORKER_TARGET='=foreman:'
+tmux has-session -t "$WORKER_TARGET" \
+  || { echo "HALT: expected worker session 'foreman'"; echo "REMEDY: ask the maintainer whether to start that worker session"; exit 1; }
+pane_pid=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_pid}')
+[ -n "$pane_pid" ] \
+  || { echo "HALT: empty pane_pid for 'foreman'"; echo "REMEDY: re-check the exact worker target and stop if it still resolves empty"; exit 1; }
+ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
+# PASS only if a live `claude` or `codex` process appears in that tree.
+# A lone shell (zsh/bash) with no agent child is a HALT.
+# REMEDY: if no live agent appears, ask the maintainer whether to restart the worker.
+
+SUPERVISOR_TARGET='=foreman-supervisor:'
+tmux has-session -t "$SUPERVISOR_TARGET" \
+  || { echo "HALT: expected supervisor session 'foreman-supervisor'"; echo "REMEDY: switch to the correct supervisor session or ask the maintainer to bootstrap it"; exit 1; }
+supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '#{pane_pid}')
+[ -n "$supervisor_pane_pid" ] \
+  || { echo "HALT: empty pane_pid for 'foreman-supervisor'"; echo "REMEDY: re-check the exact supervisor target and stop if it still resolves empty"; exit 1; }
+[ "$supervisor_pane_pid" != "$pane_pid" ] \
+  || { echo "HALT: supervisor and worker resolve to the SAME pane"; echo "REMEDY: re-check both exact targets — a prefix match puts both names on one pane, and the worker's agent then reads as the supervisor's"; exit 1; }
+ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid" -H
+# PASS only if a live `claude` or `codex` process appears in that tree.
+# A lone shell (zsh/bash) with no agent child is a HALT.
+# REMEDY: if no live agent appears, ask the maintainer to start the agent in that session.
+
+test -d "/data/projects/livespec-overseer/plan/foreman" \
+  || { echo "HALT: missing plan thread /data/projects/livespec-overseer/plan/foreman"; echo "REMEDY: create or choose the correct plan topic before supervising"; exit 1; }
+pane_cwd=$(tmux display-message -p -t "$WORKER_TARGET" '#{pane_current_path}')
+[ -n "$pane_cwd" ] \
+  || { echo "HALT: empty pane_current_path for 'foreman'"; echo "REMEDY: re-check the exact worker target and stop if it still resolves empty"; exit 1; }
+case "$(readlink -f -- "$pane_cwd")" in
+  /data/projects/livespec-overseer|/data/projects/livespec-overseer/*) echo "PASS: $pane_cwd" ;;
+  *) echo "HALT: pane cwd $pane_cwd is outside the target repo"; echo "REMEDY: move the worker into the target repo or start the correct worker session"; exit 1 ;;
+esac
+```
+
+Report which driver was found. The containment check resolves an ABSOLUTE repo
+path on purpose: a check rooted at the bare `plan/` directory is cwd-relative
+and PASSES while pointed at the wrong repository. The non-empty guard runs
+BEFORE the resolution because `readlink -f ""` returns the CWD at exit 0 on this
+host's uutils coreutils, which renders as a `PASS:` against the repo root — that
+is role-level correction **C2**.
+
+All five preconditions were measured PASS at 2026-08-02T23:42Z when this charter
+was generated: worker pane pid 270839 running codex, supervisor pane pid 2257990
+running claude, distinct panes, plan thread present, worker cwd
+`/data/projects/livespec-overseer`. That is a claim with a timestamp like every
+other — re-run the block rather than trusting this sentence.
+
+## Corrections
+
+Thread-specific corrections live here. Regenerating this binder MUST preserve
+this section byte-for-byte, from the `## Corrections` heading through the end of
+the section. Preserve spelling, punctuation, code formatting, blank lines, and
+ordering exactly.
+
+- **T1 (2026-08-02) — I was about to raise the maintainer's revise valve costed
+  at SIX proposals when eight were pending.** `handoff.md` says "The six
+  spec-side proposed changes are FILED (PR #495, 2026-08-02)", which is true
+  about what this thread filed and false about what a `/livespec:revise` pass
+  will walk. Two older proposals —
+  `gap-invisible-clauses-to-must-form.md` and
+  `supervise-plan-authors-two-layers.md`, both 2026-07-30, both after the `v004`
+  snapshot — sit in the same directory and are not this thread's. `revise` is
+  directory-scoped, not thread-scoped, so the maintainer would have been asked to
+  authorise a walk-through two proposals larger than the one described to them.
+  The general fault is mine and not the handoff's: **a count inherited from a
+  prose record is a claim with a timestamp, exactly like an item status, and the
+  directory was one `ls` away.** Re-measure a SET before quoting its SIZE in a
+  picker option, because the cost stated in an option is the thing the maintainer
+  actually consents to.
