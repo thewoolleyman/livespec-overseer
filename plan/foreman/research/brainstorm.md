@@ -147,14 +147,14 @@ context-blowup + frozen-snapshot failure — mitigations below.
 ┌────────────────────────────────────────────────────────────────────┐
 │ foreman (NEW: LLM session, one per repo, hourly /loop)             │
 │   tmux session: <repo-slug>-foreman                                │
-│   scratch/state: <repo>/tmp/foreman/                               │
+│   scratch/state: <repo>/tmp/overseer/foreman/                               │
 │   per tick:                                                        │
 │     1. read daemon snapshot (filter to own repo)                   │
 │     2. read needs_attention.py --json (own repo)                   │
 │     3. read tmp/fabro-dispatch-journal.jsonl tail                  │
-│     4. diff against tmp/foreman/fingerprint.json                   │
+│     4. diff against tmp/overseer/foreman/fingerprint.json                   │
 │     5. ACT: start missing sessions / run consensus / drive valves  │
-│     6. write tmp/foreman/status.md + NEEDS YOU section, stamped    │
+│     6. write tmp/overseer/foreman/status.md + NEEDS YOU section, stamped    │
 │     7. re-arm (loop) or exit-with-resume-question (2h unchanged)   │
 └────────────────────────────────────────────────────────────────────┘
                  │ spawns per blocked item
@@ -236,7 +236,7 @@ Design details the plan must pin down:
 - **Action equivalence** is judged by the foreman (it's an LLM; a fourth
   judge model is overkill), against normalized action sentences.
 - **Caching/budget:** verdicts recorded in
-  `tmp/foreman/consensus/<key>.json`, keyed by a fingerprint of the question
+  `tmp/overseer/foreman/consensus/<key>.json`, keyed by a fingerprint of the question
   text + item state, so an unchanged blocked state is never re-billed. Cap
   consensus rounds per item per day.
 - **Hard bounds on auto-actions:** never weaken/skip a check, never
@@ -261,12 +261,12 @@ gates), but the two attention surfaces (daemon NEEDS-YOU vs foreman
 NEEDS-YOU) must be reconciled — see Open Question 3.
 
 ### The foreman NEEDS-YOU surface (seed 6)
-Foreman writes `tmp/foreman/status.md` every tick: a stamped table of
+Foreman writes `tmp/overseer/foreman/status.md` every tick: a stamped table of
 monitored entities + a `NEEDS YOU:` section naming the tmux session holding
 each unresolved prompt, with reviewer-summary one-liners and jump commands.
 Being LLM-printed, the transcript copy ages (the frozen-snapshot lesson) — so
 the transcript always carries the timestamp and points at the file/pane as
-the live copy. Optionally a dumb `watch -n 30 cat tmp/foreman/status.md` pane
+the live copy. Optionally a dumb `watch -n 30 cat tmp/overseer/foreman/status.md` pane
 gives a genuinely live render for free (token-free, like the daemon's table).
 
 ### The loop (seed 7)
@@ -274,31 +274,61 @@ gives a genuinely live render for free (token-free, like the daemon's table).
 rule: if the fingerprint (all monitored blocked states + question texts +
 attention set) is IDENTICAL for 2 consecutive ticks AND every monitored
 session is blocked → exit the loop and raise a resume AskUserQuestion.
-Fingerprint persisted to `tmp/foreman/fingerprint.json` so a foreman restart
-doesn't reset the clock. Singleton: flock on
-`<repo>/tmp/foreman/foreman.lock` (daemon-lock precedent); entry refuses if
-pwd lacks `.livespec.jsonc` or isn't in the watch-set (D5-compliant gate).
+Fingerprint persisted to `tmp/overseer/foreman/fingerprint.json` so a foreman restart
+doesn't reset the clock.
+
+> **CORRECTION (review, O14/C5/O13/C6):** the flock singleton as originally
+> written here is not implementable by an LLM session — a Bash call's lock
+> dies when the call exits. v2: the mandated tmux session name IS the mutex,
+> backed by a pid + `/proc`-start-time lockfile (PID-reuse-safe), with a
+> small deterministic wrapper owning lock, tick scheduling, and LLM rotation
+> from a durable handoff. The exit rule is also rewritten: structured-field
+> fingerprints only, "no state change AND no foreman action for N ticks with
+> a non-empty monitored set", a hard tick budget, and exiting stops only the
+> LLM loop while a token-free watcher stays armed. See `review-findings.md`.
+
+Entry refuses if pwd lacks `.livespec.jsonc` or isn't in the watch-set
+(D5-compliant gate).
 
 **Required tmux session name (seed item 8): `<repo-slug>-foreman`, exactly.**
 The skill REFUSES to run outside a tmux session with exactly that name (check
 via `$TMUX_PANE` → session name, the overseer-start precedent — never
 improvise tmux detection). The name is a CONTRACT, not a convention: it is
 what makes every foreman discoverable and addressable by every other foreman
-(and by the human) with zero registry. Note this also keeps foreman sessions
-invisible to overseerd plan discovery by construction (they are not plan
-topics), and `-foreman` should join `-supervisor` as a reserved topic suffix
-in discovery so a plan can never collide with a foreman session name.
+(and by the human) with zero registry.
+
+> **CORRECTION (2026-08-02 external review, findings O1/O2 — the sentence
+> this replaces claimed foreman sessions are "invisible to overseerd plan
+> discovery by construction". That was FALSE in two ways.)** (1) Adoption
+> keys on the Claude REGISTRY name matched against discovered topics, not
+> the tmux session name — and `plan/foreman/` is itself a discovered topic
+> in a watched repo as of PR #489, so a session registry-named `foreman`
+> here would be adopted as the plan-thread worker, wrapped up, nudged, and
+> respawn-able into the plan handoff. The foreman's RUNTIME registry name
+> (`claude ... -n <repo-slug>-foreman`) is therefore part of the contract,
+> and adoption must refuse `-foreman`-suffixed registry names, pinned by a
+> beside-test. (2) The reservation belongs on the DERIVED session name
+> inside `tmux_id`, as a REFUSAL — the spec already mandates refusal, but
+> the shipped check only warns on the topic and never re-checks the derived
+> form, so topic `foreman` on a cross-repo collision derives exactly
+> `livespec-overseer-foreman`. That `-supervisor` gap exists today,
+> independent of the foreman, and is filed as its own work item. A reserved
+> plan DIRECTORY is refused-and-surfaced by name, never silently skipped.
+> See `review-findings.md`.
 
 ### Cross-repo coordination (seed's HOWEVER + item 8)
 Discovery is two-layered, both zero-registry:
 - **Liveness/addressing:** the mandatory `<repo-slug>-foreman` session name.
-  `tmux list-sessions` filtered to `*-foreman` IS the live-foreman roster, and
-  a peer is messaged by bracketed-pasting into its pane (the tmuxio
-  discipline: exact-match target, verify idle, paste, verified-submit). This
-  is the low-latency channel — "wake up and look at your inbox".
+  `tmux list-sessions` filtered to `*-foreman` IS the live-foreman roster.
+  **CORRECTION (review, O17):** the doorbell paste originally proposed here
+  is dropped — supervisor-protocol C21 measured that a pasted block renders
+  as `[Pasted text #N +M lines]`, so paste-confirmation false-negatives
+  every time; the tick polls the inbox instead. If latency ever justifies a
+  wake signal, confirm by placeholder/non-empty prompt line, never by
+  pasted text.
 - **Durable state/requests:** each foreman publishes
-  `<repo>/tmp/foreman/status.json` (schema-versioned) and reads
-  `<repo>/tmp/foreman/inbox/<from>-<ts>.json` requests on each tick. The
+  `<repo>/tmp/overseer/foreman/status.json` (schema-versioned) and reads
+  `<repo>/tmp/overseer/foreman/inbox/<from>-<ts>.json` requests on each tick. The
   paste channel carries no payload semantics — the inbox file is the message;
   the paste is only the doorbell. (A paste into a mid-turn LLM is lossy;
   files are not.)
@@ -367,28 +397,71 @@ rationale each option carried.
    mechanical liveness, foreman = decisions) with cross-references.
 4. **Foreman session longevity.** An hourly LLM loop accumulates context over
    days. Options: self-managed wind-down (foreman writes its own
-   `tmp/foreman/handoff.md` and restarts itself between ticks when low);
+   `tmp/overseer/foreman/handoff.md` and restarts itself between ticks when low);
    accept manual restarts; or (later) make overseerd able to track
    foreman-declared sessions.
 5. **v1 scope cut.** Suggested phasing below — is consensus in or out of v1?
 
-## 4. Proposed plan phasing
+## 4. Proposed plan phasing (v2, post-review — supersedes the v1 cut)
 
-- **Phase A — observe:** overseerd snapshot export + `list --json` +
-  beside-tests (deterministic, small, spec-amended). Foreman skill v0: entry
-  gate, singleton, hourly loop, read-report-only (status.md + NEEDS-YOU +
-  fingerprint exit rule). No acting.
-- **Phase B — act mechanically:** missing-session creation (plans, supervisor
-  pairs, work-item sessions), config-authorized drive.py valves, dispatch
-  journal triage.
-- **Phase C — consensus:** the three-model panel, verdict cache, decision
-  matrix, auto-unblock within hard bounds, minority-report round.
-- **Phase D — gate driving:** answer-existing-prompt + dismiss-and-re-present
-  mechanics (live experimentation first), Codex fallbacks.
-- **Phase E — federation:** peer status files, inbox protocol, cross-repo
-  delegation-by-filing.
+- **Phase A — observe, entirely deterministic (NO LLM loop).** overseerd
+  snapshot export (atomic per tick; failure-contained so export I/O can
+  never kill the daemon; carries schema version, daemon-instance id,
+  completed-tick generation, per-row session-identity token; `note` elided
+  at serialization) + `list --json` (table render suppressed; observation-
+  only fallback) + a `foreman-gather` CLI composing snapshot ⋈
+  `needs_attention.py --json` ⋈ dispatch-journal tail into one validated
+  JSON document + the foreman heartbeat surfaced by overseerd in
+  `NEEDS YOU` (the daemon watches the LLM, never the reverse) + a
+  token-free live render. All beside-test-pinned. Also: the `tmux_id`
+  derived-name refusal (with `-foreman` reserved) and the adoption refusal
+  of `-foreman` registry names.
+- **Phase B — the LLM foreman, acting narrowly.** Entry gate + tmux-name
+  mutex + deterministic wrapper (lock, tick scheduling, LLM rotation from
+  a durable handoff). Acts ONLY through a whitelisted `foreman-act`
+  executable: session lifecycle (behind the deterministic never-started /
+  crashed-resume / ambiguous-report classifier; absolute repo paths;
+  work-item sessions as bounded one-shots with journaled claims), filing,
+  and journal triage. Human valves are REPORT-ONLY (they are ratified
+  human acts; C1). Act-time re-verification against a fresh snapshot read.
+- **Phase C — consensus:** the three-model panel per the recorded design
+  constraints (cross-vendor pinned identities, closed action vocabulary →
+  unanimity is string equality, asymmetric non-overridable dissent,
+  `insufficient-information` verdict, dossier-only no-tool reviewers,
+  structured cache key + TTL + hard budgets).
+- **Phase D — gate driving:** answer-existing-prompt first; dismiss-and-
+  re-present only after live TUI experimentation, a daemon-honored
+  per-pane interlock, gate-state persistence with provable restoration,
+  verbatim-options preservation, and a marker-protocol amendment.
+- **Phase E — federation:** peer status files + typed atomic inbox spool
+  (allowlist, dedupe, acks, retention, sender-held obligations),
+  watch-set-identity peer resolution with collision refusal, cross-repo
+  delegation-by-filing. No doorbell paste.
 
-Spec-side: livespec-overseer SPECIFICATION amendments for the snapshot export,
-the foreman contract (a new surface peer to overseer/supervise-plan), and the
-invariant-3 wording; orchestrator-side proposal only if Open Question 2 goes
-route (a).
+Spec-side, enumerated (review O7/O12): livespec-overseer SPECIFICATION
+amendments for the snapshot export (§Durable stores' closed three-file
+enumeration), the attention-ownership sentence ("the daemon owns 'what
+needs attention now'" — decision 3's superset surface needs the clause
+amended, not just the daemon left unchanged), BOTH §Surface-only startup
+sentences (first launch AND dead-session recovery become "operator (human
+or foreman)" acts), the §Non-interference fork (an unattended foreman
+reading handoffs sits between the unattended-daemon prohibition and the
+ATTENDED supervise-plan carve-out), the scope-statement fork (whether the
+foreman is spec-governed at all), and the session-name derivation refusal.
+Orchestrator-side (decision 1, off the v1 critical path): the consensus
+tier is honestly a three-repo amendment — spec + journaled auto-
+dispositions + API-settability + console completeness check — anchored by
+a recorded maintainer design decision.
+
+## 5. External review record (2026-08-02)
+
+The full plan was adversarially reviewed by an Opus subagent (22 findings)
+and a GPT/Codex run (11 findings); every load-bearing claim was
+independently re-verified against the shipped code and contracts before
+adoption. Both verdicts accepted; the v1 Phase A/B cut was rewritten as
+above. The complete per-finding record — verification evidence,
+dispositions (adopted / recorded-for-phase / filed), and the narrowed
+items — is `review-findings.md` beside this file. Notable: the two
+reviewers converged independently on five majors and each caught real
+defects the other missed — the plan's own cross-vendor panel premise,
+previewed.
