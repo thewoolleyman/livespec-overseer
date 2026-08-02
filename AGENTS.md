@@ -172,3 +172,61 @@ Consequences to hold onto:
   only valid signal — verified 200 on 2026-07-30 after a token rotation.
 - **Never print token material.** Presence, prefix and length are enough to
   identify which credential you are holding.
+
+## Two dispatch traps whose error messages point AWAY from the fix
+
+Both were measured on 2026-08-02 while dispatching from this repo. Each fails in
+a way that makes the correct remedy look wrong, which is why they are here rather
+than only in a plan thread.
+
+### A `{{...}}` token anywhere in a work-item's text makes it UNDISPATCHABLE
+
+`drive.py --action impl:<id>` interpolates the work-item's text into the fabro
+workflow's **templated** `goal` attribute. A literal `{{name}}` in that text is
+parsed as a *fabro* template variable, finds no binding, and the graph is rejected
+before any agent runs:
+
+```
+workflow.fabro:294:32: undefined template variable `test_nprocs`
+  in graph attribute `goal` (template_undefined_variable)
+```
+
+**The token is not the workflow's** — `grep test_nprocs` over the workflow file
+returns nothing. It arrives from the ledger record. In this fleet that shape is
+common: quoting a justfile recipe as evidence is routine and **every** `just`
+recipe variable looks exactly like this (`pytest -n {{test_nprocs}}`).
+
+Measured with controls: `overseer-jdo` carried the token and failed every time;
+`overseer-0pc` and `overseer-mir` carried no `{{...}}` and both dispatched
+normally. So it is item-text-specific, not a dispatcher outage.
+
+**It also leaves a PHANTOM CLAIM** — afterwards the item reads
+`status=active, assignee=fabro` while `fabro ps` reports no running processes.
+Release it by hand before re-dispatching. `ACTIVE` is never evidence of a run;
+`fabro ps` is.
+
+**Do NOT fix this by editing the work item.** Escaping or deleting the offending
+text corrupts the item's own evidence and hides a defect that recurs on the next
+item that quotes a recipe. Tracked as `bd-ib-vv9y` (P1, orchestrator tenant).
+
+### "dispatcher plugin build is stale" names a remedy that appears to do nothing
+
+```
+ERROR: dispatcher plugin build is stale; executing build <old> predates
+latest release <new>. Run `claude plugin update ...` before dispatching.
+```
+
+Running the update (or `just ensure-plugins`) **is correct and does work** — but
+**a running session keeps its originally-resolved plugin path**, so the
+Skill-resolved `drive.py` is still the old build and re-running the same command
+reproduces the identical error. It reads as "the remedy is broken".
+
+Invoke the new build by ABSOLUTE PATH instead:
+
+```
+python3 ~/.claude/plugins/cache/livespec-orchestrator-beads-fabro/\
+livespec-orchestrator-beads-fabro/<new-build>/scripts/bin/drive.py --action impl:<id> ...
+```
+
+Confirm which build is current with `just ensure-plugins` (it prints
+`already at the latest version (<build>)`), then point at that directory.

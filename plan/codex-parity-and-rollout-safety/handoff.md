@@ -42,17 +42,36 @@
 >
 > ## What is open, and it is all outside the A track
 >
-> **Admitted and `ready`, none dispatched:**
+> **Dispatched 2026-08-02 and CLOSED — both through the factory, both verified on the forge:**
+> - **`overseer-0pc`** (P2) — CLOSED, run `01KZ04XZ50GFS8HHZXYC6FS1S3`, **PR #471,
+>   merge `cf15c2e0`**. `overseer/AGENTS.md` now carries the `ln -s ~/.claude` /
+>   `ln -s ~/.codex` lines, so the scratch-`$HOME` recipe no longer silently blinds
+>   discovery. That was the gap A4's close named as the reason the single-run route
+>   was unavailable — **it is now closed, which makes a future one-run A4-style
+>   exercise possible where it was not.**
+> - **`overseer-mir`** (P2) — CLOSED, run `01KZ05RHHC8W8VW91X2S335PJ5`, **PR #473,
+>   merge `f5d5dba5`**. Its BODY mentions P3 as a mid-trail retraction while the
+>   ledger said P2; **the ledger was current and the body is the reasoning trail —
+>   the supervisor flagged it and then withdrew the flag. Nothing to reconcile.**
+>
+> **Still open and NOT dispatchable by the factory:**
 > - **`overseer-jdo`** (P1) — the flaky check aggregate. **Another track works this
 >   under the `overseer-jcw` id I closed into it; the survivor choice is surfaced,
->   not settled.** A THIRD sighting was recorded 2026-08-02 (below).
-> - **`overseer-0pc`** (P2) — `overseer/AGENTS.md`'s scratch-`$HOME` recipe silently
->   blinds `~/.claude` + `~/.codex` discovery. Named in A4's close as the reason the
->   single-run route was unavailable.
-> - **`overseer-mir`** (P2) — Codex adoption's unnamed-session gap; carries the 41%
->   measurement. Its BODY mentions P3 as a mid-trail retraction while the ledger says
->   P2; **the ledger is current and the body is the reasoning trail — nothing to
->   reconcile.**
+>   not settled.** A THIRD sighting was recorded 2026-08-02.
+>
+>   **⛔ IT CANNOT BE DISPATCHED, FOR A REASON THAT HAS NOTHING TO DO WITH THE
+>   FLAKE.** One of its notes quotes a justfile recipe containing `{{test_nprocs}}`,
+>   and `drive.py` interpolates work-item text into a TEMPLATED fabro `goal`
+>   attribute — so the literal `{{...}}` is read as a fabro variable and the graph is
+>   rejected before any agent runs. It also leaves a **phantom claim** (`active` +
+>   `assignee=fabro` against an empty `fabro ps`), released by hand. Filed as
+>   **`bd-ib-vv9y`** (P1, orchestrator tenant). **Do NOT fix it by editing the item** —
+>   that corrupts its evidence and hides a defect that recurs on the next item quoting
+>   a recipe. Full mechanism and controls in `AGENTS.md` §"Two dispatch traps".
+>
+>   **A LOCAL Red→Green pass is NOT blocked** — the defect is in `drive.py` goal
+>   assembly, which a worktree→PR→merge route never reaches. Measured, not argued:
+>   `just check` passed repeatedly today with that note already in the ledger.
 >
 > ## Traps that still apply
 >
