@@ -94,6 +94,38 @@ def test_bg_shell_sets_background_shell_note(*, tmp_path):
     assert view.note == "background shell"
 
 
+def test_codex_startup_mcp_launch_chain_can_reach_threshold_handling(*, tmp_path):
+    """A session-lifetime MCP wrapper chain belongs to Codex startup, not task work.
+    The fallback process walk must not starve threshold handling just because that
+    long-lived launch chain remains alive."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(
+        session=session, repo=repo, capture=codex_idle_capture(ctx=40, topic=topic), cmd="bun"
+    )
+    fake.pane_pid_map[session] = 100
+    children = {100: [200], 200: [300], 300: [400], 400: [500], 500: [600]}
+    comms = {200: "codex", 300: "sh", 400: "op", 500: "bash", 600: "node"}
+    starttimes = {200: "1000", 300: "1001", 400: "1002", 500: "1003", 600: "1004"}
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: comms.get(pid),
+        starttime_of=lambda *, pid: starttimes.get(pid),
+    )
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=321, name=topic, cwd=str(repo), session_id="codex-1"
+        )
+    }
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+    assert view.status == "warned"
+    assert view.note is None
+    assert fake.has(method="paste")
+
+
 def test_textually_busy_pane_has_no_background_shell_note(*, tmp_path):
     """The note is `background shell` ONLY when a bg shell is the SOLE reason. A
     TEXTUALLY busy pane (spinner) is `working` with NO note, even when a descendant
