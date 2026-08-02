@@ -266,6 +266,12 @@ check:
         # the materialized plugin root must contain executable launchers
         # plus the importable runtime package they need.
         check-codex-plugin-runnable-launcher
+        # Repo-local live delegate for the codex `supported` declaration
+        # (overseer-kju6wh). The fleet Verifier SKIPs codex and accepts any
+        # non-empty canonical_command, so without this member the declaration
+        # is green-by-skip in both modes. Self-skips in CI and when codex is
+        # absent — see the recipe for why those deviations are declared there.
+        check-codex-skill-picker
         # Repo-local release-hygiene gate (overseer-d4t): generator
         # prose may not change without a release-triggering commit,
         # or the fix never reaches the plugin cache that generates
@@ -759,6 +765,41 @@ check-codex-plugin-runnable-launcher:
     repo="$(pwd)"
     (cd "$tmp" && "$repo/$start" --help >"$tmp/overseer-start-help.out")
     grep -F "the /overseer skill's two-pane bootstrap" "$tmp/overseer-start-help.out" >/dev/null
+
+# Repo-local live delegate for `harnesses.codex.status = "supported"`
+# (overseer-kju6wh). The fleet Verifier's codex arm is a
+# DelegatedResolutionRunner that returns available=False -> SKIP, and
+# `_parse_supported` accepts ANY non-empty `canonical_command`, so this
+# recipe is the only thing that makes that declaration load-bearing. It
+# drives a real Codex TUI over a pty into `/skills` and requires the
+# picker to render the row named by the DECLARED canonical_command.
+#
+# TWO DECLARED SKIP LAYERS, and they are deviations recorded on purpose
+# rather than inherited from the template in silence:
+#
+#   1. CI. A hosted runner has no authenticated codex and no host plugin
+#      cache, so this cannot run there. `LIVESPEC_REQUIRE_CODEX_TUI_PICKER=1`
+#      opts an authenticated runner in. The consequence is stated plainly:
+#      THE CI GREEN FOR THIS SLUG IS NOT EVIDENCE. Local `just check` is,
+#      and this repo's pre-commit and pre-push both route through it.
+#   2. No `codex` on PATH. A contributor without codex installed is not
+#      told their tree is broken.
+#
+# DELIBERATELY NOT ADDED TO THE CI MATRIX in .github/workflows/ci.yml. A
+# matrix entry that can only ever skip manufactures a green CI row that
+# reads as coverage; leaving it out keeps the skip honest and visible here.
+check-codex-skill-picker:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ "${CI:-}" == "true" && "${LIVESPEC_REQUIRE_CODEX_TUI_PICKER:-}" != "1" ]]; then
+        echo ":: check-codex-skill-picker: skipped in CI; set LIVESPEC_REQUIRE_CODEX_TUI_PICKER=1 on an authenticated Codex runner to enforce it"
+        exit 0
+    fi
+    if ! command -v codex >/dev/null 2>&1; then
+        echo ":: check-codex-skill-picker: codex CLI not found; skipping live TUI picker acceptance"
+        exit 0
+    fi
+    LIVESPEC_CODEX_SKILL_PICKER=1 uv run pytest tests/e2e-cli/test_codex_skill_picker.py -v
 
 # ---------------------------------------------------------------
 # Pre-commit aggregate — Red-mode-aware. Classifies the staged
