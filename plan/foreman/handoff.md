@@ -36,35 +36,55 @@ Filed status is a claim with a timestamp; re-measure before acting:
 
 ```sh
 /usr/local/bin/with-livespec-env.sh -- bd show overseer-z5fo4y --json
+ls SPECIFICATION/proposed_changes/
 ```
 
 (a bare `bd` in this repo returns Access denied — the wrapper is required).
-As filed on 2026-08-02: the epic is `backlog`; children `.1`–`.5` and the
+As filed on 2026-08-02: the epic is `backlog`; children `.1`–`.5`, the
 independent defect `overseer-jgqw7d` (`tmux_id` refusal gap — `.5` depends
-on it) are all `pending-approval`, awaiting the maintainer's `approve`
-valve. Valve driving is a ratified HUMAN act (review finding C1): surface
-ripe valves to the maintainer; never drive them from this thread.
+on it), and the coverage task `overseer-n7xx67` are all `pending-approval`,
+awaiting the maintainer's `approve` valve. The six spec-side proposed
+changes are FILED (PR #495, 2026-08-02) and pend in
+`SPECIFICATION/proposed_changes/` awaiting `/livespec:revise`. Valve
+driving is a ratified HUMAN act (review finding C1) — but SURFACING every
+ripe valve is THIS THREAD'S FIRST TASK, not a thing the maintainer must
+remember: a decision the maintainer has not been shown is a stall of this
+thread's own making.
 
-## NEXT ACTION
+## NEXT ACTION — open with the batched valve picker, then execute the answers
 
-File the spec-side proposed changes enumerated in `research/brainstorm.md`
-§4 ("Spec-side, enumerated") against THIS repo's `SPECIFICATION/` via the
-`/livespec:propose-change` operation — one proposed change per amendment
-topic (the snapshot store joining the closed three-file enumeration; the
-attention-ownership sentence; both §Surface-only startup sentences; the
-§Non-interference unattended-reader fork; the scope-statement fork; the
-session-name derivation refusal). File all six in ONE PR — each is its own
-`SPECIFICATION/proposed_changes/<topic>.md` file, and acceptance is
-per-file at the next `/livespec:revise` pass, so a single landing loses no
-granularity. Slices `.1` and `.4` state this ratification as their
-precondition, so it is the critical path.
+FIRST, in the resuming session's opening turns: re-measure the ledger and
+`SPECIFICATION/proposed_changes/` (the commands above), then raise ONE
+batched `AskUserQuestion` to the maintainer carrying EVERY ripe valve, each
+option stating its cost, recommended option first, full repository names,
+one call batching every ripe valve rather than a trickle, and a `---` final
+line before the picker (these are `.ai/supervisor-protocol.md`'s picker
+rules, restated here so this file stays self-sufficient):
 
-After that: slices approved by the maintainer are implemented FACTORY-SIDE —
-the dispatch route (`drive.py --action impl:<id>`, or the Dispatcher drain)
-is THE implementation path for every ledger-backed slice in this thread;
-none of them is factory-ineligible, so none is implemented inline. The two
-dispatch traps recorded in the repo-root `.claude/CLAUDE.md` §"Two dispatch
-traps" apply verbatim.
+1. **Approve + dispatch `overseer-jgqw7d` now** — it needs NO spec
+   ratification (it fixes an existing spec-vs-impl gap) and unblocks `.5`.
+   Recommended yes.
+2. **Run the `/livespec:revise` walk-through** on the six foreman proposals
+   (each carries a composition note; `.1`/`.4`/`.5` wait on ratification of
+   `status-snapshot-store`, the attention amendments, and
+   `reserved-suffix-refusal`). This operation is itself interactive —
+   per-proposal accept/modify/reject stays with the maintainer.
+3. **Approve slices `.1`–`.5`** (post-ratification) and optionally
+   `overseer-n7xx67`.
+
+On each approval answer, EXECUTE it in the same session: the corresponding
+`drive.py --action approve:<id>` then the dispatch
+(`drive.py --action impl:<id>`, or the Dispatcher drain) — approval
+expressed by the maintainer in the picker IS the human act; running the
+command is mechanics. A declined valve is recorded here and NOT re-raised
+until its inputs change. Implementation of every ledger-backed slice is
+FACTORY-SIDE — the dispatch route is THE implementation path; none of them
+is factory-ineligible, so none is implemented inline. The two dispatch
+traps recorded in the repo-root `.claude/CLAUDE.md` §"Two dispatch traps"
+apply verbatim.
+
+(The previous next action — filing the six proposed changes — is DONE, PR
+#495. Do not re-file; a same-topic re-run mints `<topic>-2.md` collisions.)
 
 ## Standing hazard — live until `.5` lands
 
