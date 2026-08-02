@@ -36,6 +36,7 @@ times in the same session. Everything outside the hook-backed rows is ADVISORY.
 |---|---|---|---|
 | fleet charter remediation | `plan/fleet-charter-remediation/` | `overseer-yho.3` | OPEN — the maintainer's cut; scope and costing already decided (phased, `livespec-orchestrator-beads-fabro` first, 56 of 117 defects). **Do not self-assign it.** |
 | rung-3 conduct gate | `plan/daemon-liveness-truth/` | `overseer-oydugu` | OPEN, `blocked: needs-human` — that verdict is correct, not an oversight |
+| watcher gate (false-busy pins the idle exit) | `plan/fleet-charter-remediation/` | `overseer-c45` | OPEN — routed 2026-08-02, see the correction below |
 
 `plan/daemon-liveness-truth/` has a **live worker** and open PRs of its own
 (`overseer-j1r`, `overseer-mkx`). It is not yours. Do not touch its branches,
@@ -52,10 +53,27 @@ to close it — *"cannot close epic: 2 open child issue(s)"*. They are:
   a supervisor pane reports "working (background shell)" forever.
 
 `--force` would have ORPHANED a live maintainer-filed item, so it was left alone.
-Its disposition is a maintainer call. Worth noting `overseer-c45` fits
-`plan/daemon-liveness-truth/` well — it is the same family as `j1r`/`mkx` (the
-system's view of a session diverging from reality) and the same family as charter
-correction **C22**.
+Its disposition was a maintainer call, and it has since been made.
+
+> **CORRECTED 2026-08-02, AFTER THIS FILE FIRST LANDED.** The sentence here used
+> to read that `overseer-c45` "fits `plan/daemon-liveness-truth/` well — it is the
+> same family as `j1r`/`mkx`". **That routing was wrong, and it was wrong in an
+> instructive way: it matched on the SYMPTOM.** A pane whose reported state
+> diverges from reality really is the `j1r`/`mkx` family, so the analogy reads
+> well. But measured against the item's own text, both of its asks are
+> charter-generator work — a `tests/prompts/` detector for the watcher idle-exit,
+> and a membership check against `overseer-yho.3`'s 117-defect sweep. It names no
+> daemon module and states that the daemon reports TRUTHFULLY, so there is no
+> daemon fix in it. `overseer-x29`'s own description draws that boundary and warns
+> against absorbing generator-quality work.
+> **It is homed in `plan/fleet-charter-remediation/`**, beside `overseer-yho.3`,
+> which also means `overseer-yho`'s two open children now share one live thread.
+> The routing rationale is recorded on the item itself, not only here.
+
+**`overseer-yho` stays open, and that is now a positive statement rather than a
+deferral.** Both its children are open work with a live thread: it closes when
+that thread finishes. Closing it sooner would hide 56 unremediated charter defects
+and an ungated watcher class behind a tidy epic.
 
 ## Two hazards worth carrying out of this track
 
