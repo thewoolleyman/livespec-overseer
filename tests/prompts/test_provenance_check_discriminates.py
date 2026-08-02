@@ -45,7 +45,7 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-_CHARTER = _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md"
+_CHARTER = _REPO_ROOT / "tests" / "prompts" / "fixtures" / "exemplar-supervisor-handoff.md"
 
 # The emitted block, taken from the REAL charter rather than restated here. A
 # copy would let the shipped block rot while this module stayed green — the

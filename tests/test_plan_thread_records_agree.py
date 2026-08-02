@@ -39,7 +39,30 @@ import pytest
 __all__: list[str] = []
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_THREADS = "plan/*/"
+
+
+def _thread_file(*, rel: str) -> Path:
+    """Resolve a plan-thread file at its LIVE or ARCHIVED location.
+
+    A thread moves to `plan/archive/<topic>/` when its epic closes, so a
+    hardcoded live path is guaranteed to become invalid. This gate must keep
+    following the REAL artifact rather than a vendored copy: its whole purpose
+    is to catch drift in live prose, and a fixture would make it vacuous.
+    """
+    # Branch-free by construction: a conditional here is an unavoidable PARTIAL
+    # branch, because only one arc can ever run in a given tree state, and this
+    # repo runs fail-under=100 with branch coverage. `plan/**/` spans the live and
+    # archived locations in one pattern. An empty match raises IndexError, which
+    # is the loud failure a genuine miss should produce.
+    return sorted(_REPO_ROOT.glob(f"plan/**/{rel}"))[0]
+
+
+# Live AND archived threads. A thread moves to `plan/archive/<topic>/` when its
+# epic closes, and an archived pair can still DISAGREE — a wrong record does not
+# become right by being archived. Scoping to live threads alone also made this
+# module vacuous the moment the only declaring thread archived, which is the
+# failure its own anti-vacuous guard exists to catch.
+_THREADS = ("plan/*/", "plan/archive/*/")
 
 # The binder states its anchor twice, and BOTH spellings are load-bearing: the
 # table is what a human reads, the assignment is what a supervisor executes. They
@@ -110,7 +133,8 @@ def _threads_with_a_charter_anchor(*, root: Path = _REPO_ROOT) -> list[tuple[str
     (2026-08-02, the codex-parity-and-rollout-safety archive, reverted).
     """
     out: list[tuple[str, str, list[str]]] = []
-    for thread in sorted(root.glob(_THREADS)):
+    threads = sorted({d for pattern in _THREADS for d in root.glob(pattern)})
+    for thread in threads:
         charter = thread / "supervisor-handoff.md"
         handoff = thread / "handoff.md"
         if not charter.is_file() or not handoff.is_file():
@@ -223,7 +247,7 @@ def test_documenting_the_defect_does_not_recreate_it() -> None:
     # And the live file still yields exactly the two anchors it declares — the
     # end-to-end form of the same claim, so a future edit to the handoff that
     # smuggles in a third cannot pass unnoticed.
-    handoff = _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "handoff.md"
+    handoff = _thread_file(rel="supervisor-prompt-quality/handoff.md")
     assert _declared_anchors(text=handoff.read_text(encoding="utf-8")) == [
         "overseer-byvxlp",
         "overseer-yho",

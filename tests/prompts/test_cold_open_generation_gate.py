@@ -18,7 +18,7 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _SHARED_LAYER = _REPO_ROOT / ".ai" / "supervisor-protocol.md"
-_BINDER = _REPO_ROOT / "plan" / "supervisor-prompt-quality" / "supervisor-handoff.md"
+_BINDER = _REPO_ROOT / "tests" / "prompts" / "fixtures" / "exemplar-supervisor-handoff.md"
 _GENERATOR_PROSE = _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md"
 
 _FENCE = re.compile(
