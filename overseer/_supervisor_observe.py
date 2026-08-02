@@ -208,15 +208,17 @@ def observe(
     """
     repo, topic = track.repo, track.topic
     capture = sup.tmux.capture_pane(session=target)
-    # A pane can show an empty prompt yet still be running a
-    # `Bash(run_in_background)` command — that command runs as a DESCENDANT
-    # shell of the pane's process. A descendant shell ⇒ active background work
-    # ⇒ the session is BUSY (suppresses both injection AND restart), even
-    # though the pane text looks idle. Runtime-agnostic (walks the process
-    # tree, independent of any Claude-specific registry).
+    # A pane can show an empty prompt yet still be running a later
+    # `Bash(run_in_background)` command — that command runs as a DESCENDANT shell
+    # of the pane's process. The shared detector ignores startup wrapper shells
+    # only when their /proc starttimes prove they belong to the runtime launch
+    # chain; later or ambiguous shell evidence remains BUSY.
     pane_pid = sup.tmux.pane_pid(session=session)
     bg_shell = pane_pid is not None and claude_sessions.has_active_subshell(
-        root_pid=pane_pid, children_of=sup.children_of, comm_of=sup.comm_of
+        root_pid=pane_pid,
+        children_of=sup.children_of,
+        comm_of=sup.comm_of,
+        starttime_of=sup.starttime_of,
     )
     # Claude's own live self-report is AUTHORITATIVE for an adopted Claude session,
     # and its vocabulary maps cleanly onto busy-ness (`~/.claude/sessions/<pid>.json`

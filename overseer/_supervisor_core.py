@@ -149,10 +149,9 @@ class Supervisor:
     starttime_of: PidToOptionalStr = claude_sessions.proc_starttime
     # Background-subshell detection seams (default: real /proc; the beside-tests
     # inject fake process-tree readers). A tracked session sitting at an empty
-    # prompt but with a `Bash(run_in_background)` command still running has a
-    # DESCENDANT shell under its pane process — that means active background work,
-    # so the session is BUSY, not idle (never respawn-pane -k a session with live
-    # background work).
+    # prompt but with a later `Bash(run_in_background)` command still running has a
+    # DESCENDANT shell under its pane process; startup wrapper shells are ignored
+    # only when their /proc starttime proves they were born with the runtime.
     children_of: PidToIntList = claude_sessions.proc_children
     comm_of: PidToOptionalStr = claude_sessions.proc_comm
     # Codex session-discovery seams (default: real /proc scan + ~/.codex; the beside-tests
