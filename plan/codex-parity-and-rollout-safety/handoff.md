@@ -1,152 +1,131 @@
 # Plan — codex-parity-and-rollout-safety
 
-> # ▶▶▶ RESUME HERE — rewritten 2026-08-02. THIS BLOCK WINS OVER EVERY OTHER BLOCK IN THIS FILE.
+> # ▶▶▶ RESUME HERE — rewritten 2026-08-02 at wind-down. THIS BLOCK WINS OVER EVERY OTHER BLOCK IN THIS FILE.
 >
 > Everything below is HISTORY: accurate as evidence, frequently wrong as *current
 > state*. **Read this block for what to do; read below it for why.**
 >
-> ## THE A-TRACK IS COMPLETE. Every slice A1–A6 is CLOSED.
+> ## THIS THREAD'S CHARTERED GOALS ARE COMPLETE. Exactly ONE work-item remains.
 >
-> | slice | id | state |
-> |---|---|---|
-> | A1 | `overseer-4km4mj` | CLOSED |
-> | A2 | `overseer-vyie5q` | CLOSED — PR #308 |
-> | A3 | `overseer-kju6wh` | **CLOSED 2026-08-02 — PR #467, merge `858ab369`, verified an ancestor of `origin/master`. 61 CI checks green.** |
-> | A4 | `overseer-ews` | **CLOSED 2026-08-02** on the scratch-store evidence, by maintainer route (below) |
-> | A5 | `overseer-ei3` | CLOSED — PR #385 |
-> | A6 | `overseer-g6z` | CLOSED — PR #386 |
+> A1–A6 all closed, plus the two evidence-completion slices. Nothing is in flight,
+> capacity is 0 of 4, no phantom claims, `origin/master` clean.
 >
-> `harnesses.codex` now reads `"status": "supported"`, `"canonical_command":
-> "livespec-overseer:overseer"` on `origin/master`, backed by the repo-local
-> `check-codex-skill-picker` — a live Codex TUI picker acceptance wired into the
-> `just check` aggregate and **demonstrated RED two ways**.
+> | item | state |
+> |---|---|
+> | A1 `overseer-4km4mj` · A2 `overseer-vyie5q` · A5 `overseer-ei3` · A6 `overseer-g6z` | CLOSED |
+> | **A3 `overseer-kju6wh`** | CLOSED — PR #467, `858ab369`. `harnesses.codex` = `supported` |
+> | **A4 `overseer-ews`** | CLOSED — scratch-store evidence, maintainer-chosen route |
+> | `overseer-0pc` | CLOSED — PR #471, `cf15c2e0` |
+> | `overseer-mir` | CLOSED — PR #473, `f5d5dba5` |
+> | **`overseer-l6b`** | CLOSED — A4's composition OBSERVED in one continuous run |
+> | **`overseer-jdo`** (P1) | **`ready` — THE ONLY THING LEFT.** See below |
 >
-> ## The A4 decision, so nobody reopens it
+> ## THE ONE REMAINING ITEM — `overseer-jdo`, and read both halves before starting
 >
-> The maintainer chose: **prove adoption against a SCRATCH STORE without killing the
-> fleet daemon or touching live sessions, then close A4 on that fresh evidence,
-> narrowing nothing.** The scratch-store harness
-> (`research/daemon-adoption-harness.md`) is that evidence and is the AUTHORIZED
-> route, not a compromise.
+> The `check` aggregate is flaky under concurrency: a target fails in the full run and
+> passes standalone.
 >
-> **DO NOT STOP THE FLEET DAEMON.** Not for ten minutes, not with a restore planned.
-> A restart being independently "owed" does not license taking it down for a proof's
-> benefit — that is its own item with its own window. The daemon at
-> `livespec-overseer:1.1` was never touched by any of this work.
+> **⛔ IT CANNOT BE DISPATCHED TO THE FACTORY, for a reason unrelated to the flake.**
+> One of its notes quotes a justfile recipe containing `{{test_nprocs}}`, and
+> `drive.py` interpolates work-item text into a TEMPLATED fabro `goal` attribute — so
+> the literal `{{...}}` is parsed as a fabro variable and the graph is rejected before
+> any agent runs. It also leaves a **phantom claim** (`active` + `assignee=fabro`
+> against an empty `fabro ps`) that must be released by hand. Filed as **`bd-ib-vv9y`**
+> (P1, orchestrator tenant). **Do NOT fix it by editing the item** — that corrupts its
+> evidence and hides a defect that recurs on the next item quoting a recipe.
 >
-> `overseer-ews`'s close_reason records what was proven AND what was not (the
-> launched daemon was not the one that adopted; the adopted track was a Claude
-> session). **Phrase any downstream claim as "the daemon CAN adopt a Codex track",
-> never "Codex tracks are supervised"** — an ordinarily-opened Codex TUI lands in
-> `session_index.jsonl` only ~41% of the time (`overseer-mir`).
+> **✅ A LOCAL Red→Green PASS IS NOT BLOCKED.** Measured, not argued: the defect is in
+> `drive.py` goal assembly, which worktree → PR → merge never reaches;
+> `check-handoff-dispatch-routing` and `check-plan-thread-epic-parity` both run GREEN
+> against the live ledger with that note present, and `just check` passed ~8 times
+> today under the same condition. **So jdo is workable NOW, locally, by hand.**
 >
-> ## What is open, and it is all outside the A track
+> **NEVER resolve this flake by weakening, skipping, retrying-away or deleting the
+> gate.** "Root cause not yet found" is an acceptable and honest outcome — say that and
+> leave the gate strict. The hard scope boundary and the facts a fix must EXPLAIN are
+> recorded on the item itself; read its notes before touching anything.
 >
-> **Dispatched 2026-08-02 and CLOSED — both through the factory, both verified on the forge:**
-> - **`overseer-0pc`** (P2) — CLOSED, run `01KZ04XZ50GFS8HHZXYC6FS1S3`, **PR #471,
->   merge `cf15c2e0`**. `overseer/AGENTS.md` now carries the `ln -s ~/.claude` /
->   `ln -s ~/.codex` lines, so the scratch-`$HOME` recipe no longer silently blinds
->   discovery. That was the gap A4's close named as the reason the single-run route
->   was unavailable — **it is now closed, which makes a future one-run A4-style
->   exercise possible where it was not.**
-> - **`overseer-mir`** (P2) — CLOSED, run `01KZ05RHHC8W8VW91X2S335PJ5`, **PR #473,
->   merge `f5d5dba5`**. Its BODY mentions P3 as a mid-trail retraction while the
->   ledger said P2; **the ledger was current and the body is the reasoning trail —
->   the supervisor flagged it and then withdrew the flag. Nothing to reconcile.**
+> **CROSS-TRACK HAZARD:** `supervisor-prompt-quality` owns `tests/prompts/` and has been
+> working this same defect under the `overseer-jcw` id that was closed into this one.
+> **The survivor choice is surfaced and NOT settled.** Coordinate; do not edit their tree.
 >
-> **Still open and NOT dispatchable by the factory:**
-> - **`overseer-jdo`** (P1) — the flaky check aggregate. **Another track works this
->   under the `overseer-jcw` id I closed into it; the survivor choice is surfaced,
->   not settled.** A THIRD sighting was recorded 2026-08-02.
+> **CHECK THIS FIRST:** PR #470 ("unmask `check-per-file-coverage` so a red suite cannot
+> report green") merged 2026-08-02 from another track. It is adjacent to jdo's newest
+> sighting — establish whether it changes what that signature means before treating the
+> notes as current.
 >
->   **⛔ IT CANNOT BE DISPATCHED, FOR A REASON THAT HAS NOTHING TO DO WITH THE
->   FLAKE.** One of its notes quotes a justfile recipe containing `{{test_nprocs}}`,
->   and `drive.py` interpolates work-item text into a TEMPLATED fabro `goal`
->   attribute — so the literal `{{...}}` is read as a fabro variable and the graph is
->   rejected before any agent runs. It also leaves a **phantom claim** (`active` +
->   `assignee=fabro` against an empty `fabro ps`), released by hand. Filed as
->   **`bd-ib-vv9y`** (P1, orchestrator tenant). **Do NOT fix it by editing the item** —
->   that corrupts its evidence and hides a defect that recurs on the next item quoting
->   a recipe. Full mechanism and controls in `AGENTS.md` §"Two dispatch traps".
+> ## Standing rules — these are not negotiable and cost real damage when forgotten
 >
->   **A LOCAL Red→Green pass is NOT blocked** — the defect is in `drive.py` goal
->   assembly, which a worktree→PR→merge route never reaches. Measured, not argued:
->   `just check` passed repeatedly today with that note already in the ledger.
->
-> ## Traps that still apply
->
-> 1. **Release PR #360 is still OPEN**; `origin/release` is still `013d35d` without
->    the launcher. Every live measurement in this thread — including A3's — was taken
->    at the **`--ref master`** pin, the declared deviation. **A re-verification at
->    `--ref release` is owed once #360 merges.** Merging it is a release decision.
-> 2. **Never re-register the marketplace to "refresh" it** — it prunes cache dirs and
->    breaks live Codex sessions. A3's check is built specifically to avoid this.
-> 3. **Admission asks go to the SUPERVISOR**, who holds a standing authorization and
+> 1. **NEVER stop, kill or restart the acting fleet daemon** (`tmux
+>    livespec-overseer:1.1`, pid 1245851 since 2026-07-30). Not to make anything
+>    provable. If a route requires it, the honest outcome is "still not observable".
+>    **It has never been stopped and does not need to be** — see l6b below.
+> 2. **Admission asks go to the SUPERVISOR**, who holds a standing authorization and
 >    resolves them in one hop. Never self-admit.
-> 4. **`just worktree-create` is a coin flip** (SIGPIPE → exit **141**, often with
->    zero bytes on both streams). Loop on it; it took 3 and 6 attempts today. Never
->    `git worktree add`.
-> 5. **The gate is intermittently red** (`overseer-jdo`). Re-run before believing it;
->    **never `--no-verify`**, and never resolve a flake by weakening the gate.
+> 3. **FILE cross-repo defects yourself, into the tenant that owns them — that needs no
+>    permission. Never ADMIT, PRIORITISE or DISPATCH in another repo's queue.** Full
+>    rule with evidence in `.ai/supervisor-protocol.md`.
+> 4. **Release PR #360 is still OPEN**; `origin/release` still lacks the launcher. Every
+>    live measurement in this thread was taken at the **`--ref master`** pin, the
+>    declared deviation. **A re-verification at `--ref release` is owed once #360
+>    merges** — it covers A3's and l6b's evidence too.
+> 5. **Never re-register the marketplace to "refresh" it** — it prunes cache dirs and
+>    breaks live Codex sessions.
+> 6. **Never `--no-verify`.** Halt and report on hook failure.
 >
-> ## What A3 cost that a successor should not re-derive
+> ## What landed durably today, so you do not re-derive it
 >
-> **The template port was NOT three constants.** Copying
-> `livespec-orchestrator-beads-fabro`'s picker test verbatim would have shipped a
-> check that is green while proving less than it claims:
+> - **`AGENTS.md` §"Two dispatch traps whose error messages point AWAY from the fix"** —
+>   the `{{...}}` dispatch defect, and the "dispatcher plugin build is stale" message
+>   whose remedy *works* but appears not to (a running session keeps its
+>   originally-resolved plugin path; invoke the new `drive.py` by ABSOLUTE PATH).
+> - **`research/daemon-adoption-harness.md` gotchas 3 and 4** — a scratch `$HOME` also
+>   hides `~/.bun` (codex will not start) and `~/.local`/`~/.config` (the launcher's
+>   `exec python3` hits an untrusted mise shim and HANGS with an EMPTY daemon log).
+>   **Gotcha 2's remedy cannot save you there** — the shipped launcher hard-codes
+>   `python3`. General lesson recorded: each layer is invisible until the previous one
+>   is fixed; **expect a fifth**.
+> - **`.ai/supervisor-protocol.md`** — the file-vs-admit rule, and *"a 'do not fix this'
+>   note that outlives its cause becomes the defect"* (every prohibition carries an
+>   expiry condition; retire the DO-NOT, keep the mechanism; verify against the FORGE).
 >
-> - **Its assertion shape is VACUOUS here.** It asserts skill and plugin as
->   independent substrings — fine for `drive` vs its plugin name, broken for us
->   because `overseer` is a **substring of** `livespec-overseer`. Assert the composed
->   row `overseer (livespec-overseer)`.
-> - **Declaring `[marketplaces.*]` in the scratch config REBUILDS THE SHARED PLUGIN
->   CACHE** (fresh inodes, twice). Mirroring the host's `last_updated`/`last_revision`
->   does NOT prevent it — the host pin is a MOVING `ref = "master"`. Omit the block.
-> - **`start_new_session=True` is REQUIRED.** Without it the TUI degrades to a
->   one-glyph-per-line renderer under lefthook's runner — every expected word present,
->   spelled vertically. Reproduced 3/3 under lefthook vs 2/2 clean standalone, with
->   the pty verifiably 40x120 and the environment identical. Three hypotheses died
->   first: terminal width, `TERM`, and a quiet-window race.
-> - **Wait on CONTENT, never on QUIET.** A quiet window measures the host, not the UI.
-> - **Answer the terminal colour queries against the ACCUMULATED stream**, not the
->   latest `os.read` chunk — an OSC query can straddle a chunk boundary.
+> ## `overseer-l6b` — what it proved, and the phrasing rule it did NOT retire
 >
-> ## Two environment facts learned the hard way today
+> A real Codex session under a scratch `$HOME` ran `bin/overseer-start`; the daemon
+> **that launch started** adopted `l6b-probe` and rendered it. Exit 0. Real store
+> md5 byte-identical before and after, real lock mtime unchanged, fleet daemon never
+> stopped. A4's inferred half is now observed. **A4 stays closed.**
 >
-> - **`lefthook run` STASHES unstaged changes**, so an unstaged debug patch does not
->   execute under the hook and its absence reads as "the code never ran". Stage
->   instrumentation before trusting it.
-> - **Invoking `lefthook run` CLOBBERS the primary checkout's canonical commit-refuse
->   hooks** with stock lefthook bodies; `check-primary-checkout-commit-refuse-hook-installed`
->   then fails with `body_mismatch`. **Repair with `just install-commit-refuse-hooks`**
->   (done — verified green). Prefer `git commit` over `lefthook run` for experiments.
+> **Still phrase downstream claims as "the daemon CAN adopt a track, launched from
+> Codex, in one continuous run" — NEVER "Codex tracks are supervised".** The adopted
+> track was a CLAUDE session, and l6b showed exactly why the Codex case is hard: the
+> live Codex session present throughout was itself **unindexed** and therefore
+> unadoptable. The daemon now renders that as a first-class `codex-unindexed` NEEDS-YOU
+> row (that is `overseer-mir`'s fix, confirmed live and by accident).
 >
-> ## The commit-prefix rule this thread now has evidence for
+> **A3's last open question is also settled:** codex RESOLVES the bare
+> `livespec-overseer:overseer` at runtime — it loaded the skill, read its prose and ran
+> the launcher to exit 0. The SLASH-prefixed form remains measured-invalid; that
+> hand-verification hazard is unchanged. Recorded on `overseer-kju6wh`.
 >
-> Red-green-replay reads **`feat:`/`fix:` on a tests-only staging as declared Red
-> intent** and requires the staged test to FAIL first. A test that asserts an
-> ALREADY-SHIPPED capability has no honest Red moment, so it must be authored under a
-> non-Red-intent prefix and takes the **green-verified leg** (full suite green,
-> `TDD-Suite-Green-*` trailers). A3's first commit attempt was `feat:` and was
-> correctly rejected with `test-passed-at-red`. This is the gate's documented path,
-> not a way around it.
+> ## Environment traps that cost real time today
 >
-> ## Decisions carried up and still open
->
-> - **The `overseer-jcw` / `overseer-jdo` survivor choice** — surfaced, deliberately
->   not reversed; re-opening an item another track is working is churn.
-> - **B2's dangling `non_local_depends_on`** still points at the dead
->   `overseer-llz4xi`. B1 is still `backlog`, so the repair unblocks nothing.
-> - **Release PR #360.**
->
-> ### A peer notification is still OWED
->
-> `supervisor-prompt-quality` owns `tests/prompts/`. A third flaky-gate mechanism —
-> `settle`/`wait_for` returning silently on timeout — was reproduced against their
-> shipped code and recorded on `overseer-jdo` rather than raised with them. Still not
-> fixed on purpose: it is a contract change against an explicit in-code decision.
+> - **`just worktree-create` is a coin flip** — SIGPIPE → **exit 141**, often with zero
+>   bytes on both streams. Took 2, 3, 6 and 7 attempts today. **Loop on it. Never
+>   `git worktree add`** — a worktree without the discipline pack cannot push, and the
+>   doc-only path does NOT exempt you.
+> - **`lefthook run` STASHES unstaged changes**, so unstaged instrumentation silently
+>   does not execute and its absence reads as "the code never ran".
+> - **`lefthook run` CLOBBERS the primary checkout's canonical commit-refuse hooks.**
+>   Repair with `just install-commit-refuse-hooks`. Prefer `git commit` for experiments.
+> - **Self-match, new surface:** an observed process ran `ps`, printing MY watcher's
+>   argv, and my pane-grep then matched its own search string. **Never grep an observed
+>   surface for a string your own observer's command line contains.**
+> - **`fabro ps` alone is NOT sufficient** to call a dispatch finished — `drive.py`
+>   outlives the fabro run doing post-merge acceptance. Check both.
 >
 > ---
+
 
 > # ▶▶ (HISTORY) resume state as of 2026-07-31 — SUPERSEDED by the block above.
 >
