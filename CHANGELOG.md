@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.16.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.15.0...v0.16.0) (2026-08-02)
+
+
+### Features
+
+* gate codex plugin launcher artifact ([e1ab505](https://github.com/thewoolleyman/livespec-overseer/commit/e1ab50510dd9820fbedf8d76390b436e81a5c8e5))
+
+
+### Bug Fixes
+
+* apply the generator's boot and ledger fixes to this repo's own charters ([814c1da](https://github.com/thewoolleyman/livespec-overseer/commit/814c1dac21108c067ceeb9ed95d9e92fd6d33fb2))
+* cover overseer-start daemon launch liveness ([0411f06](https://github.com/thewoolleyman/livespec-overseer/commit/0411f0604bace0b6d568d8ef62f9423f67afe1af))
+* **docs:** the module docs no longer deny a directory that exists ([6aacc72](https://github.com/thewoolleyman/livespec-overseer/commit/6aacc72b641c5018271d2f667b2811d237b6e117))
+* make overseer disciplines citation cache-safe ([b6fe98d](https://github.com/thewoolleyman/livespec-overseer/commit/b6fe98dca4b81e527ceaadd4e9921090ad74819b))
+* **overseer:** stop alarming when a wound-down track is torn down ([6b58092](https://github.com/thewoolleyman/livespec-overseer/commit/6b58092efc2ba02b4adc36d94042f95cea9ab09f))
+* **overseer:** stop reporting a live derived-name track as session-gone ([c61aff4](https://github.com/thewoolleyman/livespec-overseer/commit/c61aff45b702ecd78e8887d72ae60d702b4a430f))
+* **plugin:** keep Codex manifest version in release lockstep ([ad6669b](https://github.com/thewoolleyman/livespec-overseer/commit/ad6669b1253f267ae172fbcaa17da22a18280375))
+* **prompts:** preserve supervisor role rule sections ([16706e6](https://github.com/thewoolleyman/livespec-overseer/commit/16706e6d06a1b9db03cef5849b7e82165a4dd888))
+* **prompts:** restamp supervisor prompt quality provenance ([556ad8a](https://github.com/thewoolleyman/livespec-overseer/commit/556ad8acfe75795ad718d1e6712e49f65dc3bf7f))
+* **protocol:** move the C14 reproduction into prose, which is what unreddens master ([a4b26aa](https://github.com/thewoolleyman/livespec-overseer/commit/a4b26aa4987e5ae1787d12f31667a4c9e797f63c))
+* **supervise-plan:** a generated charter now records and CHECKS its generator ([eff7988](https://github.com/thewoolleyman/livespec-overseer/commit/eff7988eb3856e1f685cc7ea66812a45e5ffbf72))
+* surface unindexed codex sessions ([f5d5dba](https://github.com/thewoolleyman/livespec-overseer/commit/f5d5dba552be3482bce3d98c7030df06e8fbc141))
+* unmask check-per-file-coverage so a red suite cannot report green ([7a19939](https://github.com/thewoolleyman/livespec-overseer/commit/7a199397ab10ea5d600527e4bbe1531b4a19677f))
+
 ## [0.15.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.14.0...v0.15.0) (2026-07-30)
 
 
