@@ -53,6 +53,9 @@ mkdir -p "$P/home" "$P/repo/plan/adoption-probe" "$P/repo/tmp/overseer"
 ln -s ~/.claude "$P/home/.claude"      # real registries — see Gotcha 1
 ln -s ~/.codex  "$P/home/.codex"
 ln -s ~/.cache  "$P/home/.cache"       # uv warmth; an empty HOME cold-rebuilds and HANGS
+ln -s ~/.bun    "$P/home/.bun"         # CODEX ARM ONLY — see Gotcha 3
+ln -s ~/.local  "$P/home/.local"       # mise trust state — see Gotcha 4
+ln -s ~/.config "$P/home/.config"      # mise trust state — see Gotcha 4
 printf '{"repos": ["%s/repo"]}\n' "$P" > "$P/home/.livespec-overseer-repos.json"
 printf 'tmp/\n' > "$P/repo/.gitignore" # the daemon REFUSES to start if tmp/overseer/ is not ignored
 echo '# probe' > "$P/repo/plan/adoption-probe/handoff.md"
@@ -67,6 +70,45 @@ tmux send-keys -t adoption-probe -l 'claude --dangerously-skip-permissions -n ad
 tmux send-keys -t adoption-probe Enter
 # it stops on the trust-folder picker; read the pane, confirm `❯ 1.`, then send Enter
 ```
+
+## Gotcha 3 — a scratch `$HOME` kills `codex` before it starts
+
+The `codex` wrapper at `~/.local/bin/codex` ends with:
+
+```
+exec ~/.bun/bin/bun ~/.bun/bin/codex "$@"
+```
+
+so under a scratch `$HOME` it dies with *"No such file or directory"* and no Codex
+session exists to launch anything. Nothing to do with the overseer — it blocks the
+**Codex arm** specifically, which is why it never showed up while the harness was
+only ever driven from Claude.
+
+## Gotcha 4 — the LAUNCHER hits mise, and Gotcha 2's remedy cannot save you
+
+Gotcha 2 says to dodge mise by invoking `.venv/bin/python3` directly. That is right
+for a probe **you** write and **useless for the launch path**: the shipped
+`bin/overseer-start` hard-codes
+
+```
+exec python3 -m overseer.start
+```
+
+and on this host `python3` resolves to `~/.local/share/mise/shims/python3`. Without
+mise's trust state the shim fails — *"Config files … are not trusted"* — **before any
+overseer code runs**, and the symptom is a hung `python3 -m overseer.start` with an
+empty daemon log rather than an error you can read.
+
+Symlink `~/.local` and `~/.config` in. **Isolation still holds**, and check this
+rather than assuming it: the overseer's three state roots are DIRECT children of
+`$HOME` (`.livespec-overseer.jsonl`, its stamps, `.livespec-overseer-repos.json`), so
+they stay scratch while `.local`/`.config` resolve to the host. Re-measure
+`DEFAULT_STORE_PATH` after adding them.
+
+**The general lesson, which is why these are numbered rather than folded into one
+line: a scratch `$HOME` hides more than any recipe enumerates, and each layer is
+INVISIBLE until the one before it is fixed.** Gotcha 1 was `overseer-0pc`; 3 and 4
+only became reachable once it landed. Expect a fifth.
 
 ## Prove the blast radius is EMPTY before arming anything
 
@@ -136,3 +178,10 @@ routinely: `AGENTS.md` requires a daemon restart after landing any overseer code
 change, and a reboot does the same. **Take the next such window** — the launch half
 already passes from a real Codex session, so all it adds is watching the daemon come
 up and *adopt* instead of *refuse*.
+
+> **✅ SUPERSEDED 2026-08-02 — no window was needed.** `overseer-l6b` ran the whole
+> composition in ONE continuous exercise on the SCRATCH store, with the fleet daemon
+> never stopped: a Codex session ran `bin/overseer-start`, which started a daemon that
+> adopted `l6b-probe` (exit 0), while the real store stayed byte-identical and the real
+> lock mtime unchanged. The daemon-restart window is no longer the only route, and
+> stopping the fleet daemon remains forbidden.

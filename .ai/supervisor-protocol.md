@@ -645,3 +645,34 @@ exists* (filing — allowed), or what someone else's queue *will do next*
 A corollary for the worker, which needs saying explicitly because a worker will
 otherwise mirror the supervisor's caution one level down: **file the defect,
 then report it.** Do not hold a finding pending approval to record it.
+
+## A "do not fix this" note that outlives its cause becomes the defect
+
+Guards are written against a hazard and then keep firing after the hazard is gone.
+At that point they no longer protect anything — they block the repair they were
+written to protect, and they do it with the authority of a rule.
+
+Two specimens from this repo, both retired only when someone re-measured:
+
+- **"Do NOT regenerate this charter."** Correct when written: regeneration deleted
+  two role-level rule sections and nothing caught the loss. `overseer-wr8` promoted
+  those sections into this shared layer, so regeneration became safe — but the
+  prohibition stood, and left standing it would have permanently blocked the very
+  regeneration it existed to make safe.
+- **`grep -c supervisor-protocol <charter>` as a staleness triage.** A stand-in for
+  the real question, *"does role-level content exist ONLY here?"*. After `wr8` the
+  proxy said DANGER while the danger was gone.
+
+**So: every prohibition carries an expiry condition, and the expiry is someone's
+job.** When you write one, name what would retire it. When you read one, check
+whether that condition has already been met before you obey it — especially when it
+cites a work-item, because a closed item is exactly the signal the note is stale.
+
+**Retire the DO-NOT; keep the mechanism.** The hazard description is usually the
+durable part and worth preserving verbatim; it is the imperative that expires. Re-tense
+it to the past and head it with the measurement that retired it, so the next reader
+inherits the knowledge without inheriting the block.
+
+**And verify the retirement against the FORGE, not a local checkout.** A stale
+checkout will happily tell you the fix is absent — that failure has been committed
+here while auditing exactly this kind of claim.
