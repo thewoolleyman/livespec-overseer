@@ -184,8 +184,30 @@ _BASH_PIPESTATUS = re.compile(r"\bPIPESTATUS\b")
 # hard-coded path is not required and must not be, or the gate would trade one
 # false HALT for another on an adopter that has no wrapper.
 _BD_INVOCATION = re.compile(r"(?<![-\w])bd\s+(?:show|list|update|create|close)\b")
-_WRAPPER_DETECTED = re.compile(r"command\s+-v\s+with-livespec-env\.sh")
-_WRAPPER_DIRECT = re.compile(r"with-livespec-env\.sh[^\n]*\bbd\b")
+
+# THE WRAPPER IS A PROPERTY, NOT A NAME. This pinned the literal
+# `with-livespec-env.sh` and therefore scored `homelab`'s CORRECT charters as
+# defective — four times, across two files. `homelab` declares a different
+# wrapper (`with-homelab-env.sh`) and resolves it from its own `.livespec.jsonc`
+# instead of hard-coding any name, which is STRICTLY BETTER than the form this
+# detector demanded. The gate punished the best implementation in the fleet, and
+# it failed quietly and in the wrong direction.
+#
+# `plan/fleet-charter-remediation/` records the consequence: remediating against
+# the uncorrected rule would have meant rewriting a config-driven lookup into a
+# hard-coded name, in the one fleet repo that consumes no pin and so cannot be
+# corrected by a later release.
+#
+# A `bd` call is wrapped when the charter EITHER names a `with-<repo>-env.sh`
+# wrapper — any member's — or binds one to a VARIABLE, proves it with
+# `command -v`, and invokes `bd` THROUGH THAT SAME VARIABLE. The variable form
+# requires both halves of one binding on purpose: probing for some unrelated
+# binary must not clear the detector, or `(h)` becomes unfailable.
+_WRAPPER_NAME = r"with-[A-Za-z0-9_.-]+-env\.sh"
+_WRAPPER_DETECTED = re.compile(rf"command\s+-v\s+\"?{_WRAPPER_NAME}")
+_WRAPPER_DIRECT = re.compile(rf"{_WRAPPER_NAME}[^\n]*\bbd\b")
+_WRAPPER_VAR_DETECTED = re.compile(r"command\s+-v\s+\"?\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
+_WRAPPER_VAR_INVOKED = re.compile(r"\"?\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?\"?\s+(?:--\s+)?bd\b")
 
 # (i) A FIXED-CAP read of the supervisor marker, with no truncation notice.
 # Observed 2026-07-30: a charter emitted `sed -n '1,220p'` against a marker that
@@ -597,6 +619,11 @@ def wrapper_less_ledger_read(*, text: str) -> list[str]:
         return []
     joined = "\n".join(blocks)
     if _WRAPPER_DETECTED.search(joined) or _WRAPPER_DIRECT.search(joined):
+        return []
+    # The variable form: the binding PROVED must be the binding CALLED.
+    proved = {match.group(1) for match in _WRAPPER_VAR_DETECTED.finditer(joined)}
+    invoked = {match.group(1) for match in _WRAPPER_VAR_INVOKED.finditer(joined)}
+    if proved & invoked:
         return []
     return invocations
 
