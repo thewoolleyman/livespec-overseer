@@ -65,6 +65,13 @@ class ClaudeSession:
     name: str
     cwd: str
     status: str  # Claude's own live self-report: "busy" / "idle" / "waiting" (or "" if absent)
+    # How the display name was set. Claude writes "derived" when it AUTO-named the
+    # session from the repo directory (`livespec-overseer-01`); a session launched
+    # with an explicit `-n <topic>` carries no such marker. That distinction is the
+    # only thing separating "this is our track, merely misnamed" (overseer-j1r) from
+    # "this is a DIFFERENT topic's session in a reused window" (R2/SF5) — by name
+    # alone the two are indistinguishable. Absent ⇒ "" (explicitly named).
+    name_source: str = ""
 
 
 def default_sessions_dir() -> Path:
@@ -222,6 +229,7 @@ def read_live_sessions(
             continue
         pid = data.get("pid")
         name = data.get("name")
+        name_source = data.get("nameSource")
         cwd = data.get("cwd")
         proc_start = data.get("procStart")
         status = data.get("status")
@@ -233,7 +241,11 @@ def read_live_sessions(
             continue  # dead PID, or reused by an unrelated process
         out.append(
             ClaudeSession(
-                pid=pid, name=name, cwd=cwd, status=status if isinstance(status, str) else ""
+                pid=pid,
+                name=name,
+                cwd=cwd,
+                status=status if isinstance(status, str) else "",
+                name_source=name_source if isinstance(name_source, str) else "",
             )
         )
     return out
