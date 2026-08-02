@@ -576,6 +576,39 @@ preserve every entry.
   publishes a charge against their work. That asymmetry is the reason this entry
   is worth its length — the ordering of two timestamps was the whole basis of the
   accusation, and I never checked the tool that produced one of them.
+- **C20 (2026-08-02) — I raised four ripe maintainer decisions as PROSE, and
+  the rule I broke is the most heavily gated rule in this entire contract.**
+  Asked "what needs my direction", I answered with a numbered prose list of four
+  decisions — thread ownership, two pending corrections, a fleet-wide unmask, and
+  an unstarted slice — instead of an `AskUserQuestion` call. The maintainer had to
+  correct me.
+  WHY THIS ENTRY IS WORTH ITS LENGTH: the picker rule is not a soft convention. It
+  is policed by **six of the contract's thirty-one requirements** —
+  `picker-rule`, `picker-recommended-first`, `picker-option-costs`,
+  `picker-full-repository-names`, `picker-final-line-fence` and
+  `picker-batch-ripe-valves` — the gate asserting them is **GREEN**, this file
+  states the rule in plain words, and I had applied it CORRECTLY THREE TIMES in
+  the same session before dropping it. So this is not ignorance, drift, or a
+  charter that failed to say the thing.
+  **A RULE'S TEXT-ENFORCEMENT STRENGTH SAYS NOTHING ABOUT WHETHER IT BINDS
+  CONDUCT.** Six requirements, one green gate, zero effect at the moment it
+  mattered. That is rung 3 — observed conduct — which this epic has always
+  CONCEDED is uncovered; this entry is the first time it is DEMONSTRATED rather
+  than conceded, and on the rule with the most text behind it.
+  THE TRIGGER, WHICH IS THE TRANSFERABLE PART: the maintainer asked an OPEN-ENDED
+  question. Their prose register pulled me into answering in prose, and the four
+  valves rode along inside the answer. **A direct question from the maintainer is
+  exactly when this rule is most likely to be dropped**, because replying feels
+  like conversation rather than like opening a valve.
+  THE DISTINCTION THAT RESOLVES IT, and it is small: **ANSWERING the maintainer is
+  prose; ASKING them is a picker.** Both belong in the same turn — answer the
+  question in prose, then raise every ripe decision in one `AskUserQuestion`. The
+  presence of an answer does not discharge the valve.
+  A CAVEAT FOR ANYONE MECHANISING THIS: a naive detector keying on "prose plus a
+  question mark plus no picker" flags the legitimate answering turn too. Intent is
+  not reliably in the text, which is the same family that killed four gates on
+  this thread. Separate answering from asking, or do not ship the rule.
+
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
