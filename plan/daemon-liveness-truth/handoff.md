@@ -30,6 +30,68 @@ all different. Filing them under the prompt-quality epic would have made that ep
 mean "whatever the supervisor tripped over", which is how an epic stops being a
 cut.
 
+## MEASURED 2026-08-02: THEY DO **NOT** SHARE A ROOT — read this before the section below
+
+**The "root they probably share" section is a HYPOTHESIS, and for `overseer-j1r` it
+is wrong.** It was examined first, exactly as instructed, and the measurement went
+the other way. Recorded here rather than by editing that section, because its
+reasoning is still correct for `overseer-mkx` and the contrast is the finding.
+
+| child | actual root | does the terminal token close it? |
+|---|---|---|
+| `overseer-mkx` | state-file **lifecycle** — teardown leaves the last declaration speaking for a dead session | **plausibly yes** — the section below stands |
+| `overseer-j1r` | **registry-name provenance** — nothing to do with tokens, declarations or discovery | **no** |
+
+**`overseer-j1r` is FIXED — PR #468.** A manually-started Claude AUTO-derives its
+registry name from the repo directory (`livespec-overseer-01`,
+`"nameSource":"derived"`); a daemon-spawned one receives `-n <topic>` explicitly.
+The daemon matched on topic equality in **two** places — the identity gate
+(`_supervisor_observe.py:195`, `topic in names`) and its `live-outside-tmux`
+softener (`_supervisor_offer.py`, `live.name != topic`) — so a derived name failed
+**both**, and the row degraded straight past the informational status to
+`session-gone`, the only red status. The softener could only soften cases that had
+already matched by name, which are exactly the cases that did not need softening.
+
+**`nameSource` is the discriminator, and finding it was the whole difficulty.** By
+NAME alone, our own auto-named track (`repo-01`) and a DIFFERENT topic's session
+squatting in a reused window (R2/SF5's `beta`) are indistinguishable — both merely
+differ from the topic. Softening both would tell the operator to rename a window
+another live track is using. Only the first carries `nameSource: derived`, so the
+deliberate-name case keeps reporting the truthful `session-gone` and
+`test_claude_name_gate_is_wired_end_to_end_through_the_registry` is left **passing
+unchanged**. That test failing was the signal that the first cut was wrong.
+
+**The identity gate is UNTOUCHED** — the fix is a reporting softener, never an act
+gate, so R2/SF5's protection against injecting into and then respawn-KILLING a
+reused window is exactly as it was.
+
+**Six controls ship with the RED**, per this thread's acceptance shape: a genuinely
+absent session, an agent not in the mapped session, an explicitly-named foreign
+session, a derived-name agent in a DIFFERENT repo, and a no-keystroke assertion.
+Sabotage-verified **against the final artifact** — removing the branch reddens the
+RED test alone and leaves every control green.
+
+**A HAZARD THIS COST, worth carrying: `just check` passing locally is not evidence
+about the tree you PUSHED.** The full aggregate was green while the test module
+still lived in `overseer/`; moving it to `tests/` (required — see below) changed
+coverage, and the pre-push hook then **skipped the aggregate on a green-token
+match** (*"tree byte-identical to last green check"*), so the post-move tree was
+never fully checked locally. CI was its first real run, and it found
+`_supervisor_offer.py:177` uncovered. **After moving or renaming a file, re-run
+`just check` before pushing — the green token is keyed to the tree, and a move
+makes the previous green describe a tree that no longer exists.**
+
+**And a structural rule that is not written down anywhere else:** a change to any
+file under `overseer/` REQUIRES a paired change under `tests/**`
+(`commit_pairs_source_and_test`). The beside-tests in `overseer/` are themselves
+source to that check, so a beside-test alone does **not** satisfy it — the paired
+test must live in `tests/`. `tests/conftest.py` puts `overseer/` on `sys.path`, so
+a module moves there verbatim with no import changes.
+
+**What remains on `overseer-mkx`** is the token-vocabulary decision, which is a
+change to `marker-protocol.md` — the cardinal contract doc — and therefore the
+maintainer's, not a worker's. Nothing about mkx was touched.
+
 ## The root they probably share — examine this first
 
 Discovery keys on the **plan directory existing**, not on session liveness, so a
