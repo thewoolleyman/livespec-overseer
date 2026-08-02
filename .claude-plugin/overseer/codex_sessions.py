@@ -50,7 +50,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-import jsonio
+import codex_session_index
 from _seams import CommToPidList, PidToOptionalInt, PidToOptionalStr, PidToStrList
 
 # `proc_comm` is a GENERIC /proc reader that happens to live in `claude_sessions`,
@@ -198,39 +198,9 @@ def open_rollout_id(*, pid: int, fd_targets_of: PidToStrList = proc_fd_targets) 
     return None
 
 
-def _read_index_final(*, codex_home: str | os.PathLike[str]) -> dict[str, tuple[str, str]]:
-    """``session_index.jsonl`` folded to ``{session id: (thread_name, updated_at)}``.
-
-    The index is an APPEND log — a renamed thread appends a fresh record for the SAME id, so
-    the LAST record for an id gives its final ``thread_name`` + ``updated_at`` (``""`` when
-    the field is missing). The one, shared parser behind :func:`read_thread_names` (adoption)
-    and :func:`latest_session_for_thread_name` (reboot recovery) so the two cannot drift.
-    Fail-soft throughout: a missing file, an UNDECODABLE file, an unparsable line, or a
-    record missing a usable id/name is skipped, never raised. The undecodable case was
-    claimed by this docstring before it was true — a non-UTF-8 index raised
-    ``UnicodeDecodeError`` straight through the ``OSError``-only handler below.
-    """
-    out: dict[str, tuple[str, str]] = {}
-    try:
-        raw = (Path(codex_home) / "session_index.jsonl").read_text(encoding="utf-8")
-    # ValueError covers the UnicodeDecodeError a non-UTF-8 index raises, which the
-    # docstring's fail-soft promise above did not actually hold for.
-    except (OSError, ValueError):
-        return out
-    for line in raw.splitlines():
-        record = jsonio.parse_object_line(line=line)
-        if record is None:
-            continue
-        session_id, name = record.get("id"), record.get("thread_name")
-        updated = record.get("updated_at")
-        if isinstance(session_id, str) and isinstance(name, str) and session_id and name:
-            out[session_id] = (name, updated if isinstance(updated, str) else "")
-    return out
-
-
 def read_thread_names(*, codex_home: str | os.PathLike[str]) -> dict[str, str]:
     """``session_index.jsonl`` as ``{session id: thread_name}`` (last record per id wins)."""
-    return {sid: name for sid, (name, _updated) in _read_index_final(codex_home=codex_home).items()}
+    return codex_session_index.read_thread_names(codex_home=codex_home)
 
 
 def latest_session_for_thread_name(
@@ -247,12 +217,9 @@ def latest_session_for_thread_name(
     a track as Claude. Fail-soft: a missing/unreadable index yields None.
     """
     home = Path(codex_home) if codex_home is not None else default_codex_home()
-    matches = [
-        (updated, sid)
-        for sid, (name, updated) in _read_index_final(codex_home=home).items()
-        if name == thread_name
-    ]
-    return max(matches)[1] if matches else None
+    return codex_session_index.latest_session_for_thread_name(
+        thread_name=thread_name, codex_home=home
+    )
 
 
 def rollout_exists(*, session_id: str, codex_home: str | os.PathLike[str] | None = None) -> bool:
@@ -266,11 +233,8 @@ def rollout_exists(*, session_id: str, codex_home: str | os.PathLike[str] | None
     (which would orphan the rollout). The ``session_id`` is a UUID (no glob metacharacters), so
     it is safe to interpolate into the pattern. Fail-soft to False.
     """
-    sessions = (Path(codex_home) if codex_home is not None else default_codex_home()) / "sessions"
-    try:
-        return any(sessions.rglob(f"rollout-*-{session_id}.jsonl"))
-    except OSError:
-        return False
+    home = Path(codex_home) if codex_home is not None else default_codex_home()
+    return codex_session_index.rollout_exists(session_id=session_id, codex_home=home)
 
 
 def read_live_codex_sessions(

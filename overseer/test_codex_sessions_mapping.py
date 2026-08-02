@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import codex_session_index
 import codex_sessions
 from test_codex_sessions_fakes import (
     ID_A,
@@ -195,7 +196,7 @@ def test_rollout_exists_is_false_when_the_sessions_tree_cannot_be_walked(*, monk
         def rglob(self, _pattern):
             raise OSError(5, "Input/output error")
 
-    monkeypatch.setattr(codex_sessions, "Path", lambda _path: _UnwalkableTree())
+    monkeypatch.setattr(codex_session_index, "Path", lambda _path: _UnwalkableTree())
     assert codex_sessions.rollout_exists(session_id=ID_A, codex_home="/somewhere") is False
 
 
