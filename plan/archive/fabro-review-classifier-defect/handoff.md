@@ -2,9 +2,10 @@
 
 **Owning repo:** `livespec-overseer` (the thread lives here; the CODE lives in
 `/data/projects/fabro`). **Ledger anchor:** epic **`overseer-dtytju`**.
-**Status: INVESTIGATION COMPLETE 2026-07-29; fabro work HANDED OFF
-2026-07-30.** All five open questions answered; a RED-then-green fix is
-prepared on a branch in `/data/projects/fabro`.
+**Status: ARCHIVED 2026-08-02 on epic close.** Investigation complete
+2026-07-29; fabro work handed off 2026-07-30; published as
+`fabro-sh/fabro#688`. All five open questions answered; the RED-then-green fix
+is on a branch in `/data/projects/fabro` and in that PR.
 
 > **SUPERSEDED 2026-07-30 — THE PUBLICATION HOLD IS DISCHARGED.** Everything in
 > this file that says *unpushed*, *nothing is pushed*, *no PR or issue exists*,
@@ -27,19 +28,44 @@ prepared on a branch in `/data/projects/fabro`.
 
 The publication question has been
 **answered and superseded** — the maintainer routed it to a **Codex session**,
-which now owns the fabro-side work; see NEXT ACTION. **This thread must not
-touch `/data/projects/fabro`**; its remaining work is record hygiene here.
+which then owned the fabro-side work; see TERMINAL OUTCOME. **This thread never
+touched `/data/projects/fabro`**, and it has no remaining work — it is archived.
 
 Created 2026-07-29 from `plan/codex-parity-and-rollout-safety/`, whose slice A2
 (`overseer-vyie5q`) died twice at the `review` stage before this was found.
 
-## RESUME STATE — 2026-07-30 session end, read this first
+## ARCHIVED — nothing remains in THIS thread
 
-**This file is the ONLY thing a restarted session inherits.** Nothing in
-`tmp/`, no transcript, no scratchpad.
+**This thread is CLOSED and ARCHIVED (2026-08-02).** Its epic
+**`overseer-dtytju` is `closed`** (2026-07-30T17:50:57Z), and
+`plan/<topic>/` is active **iff** its epic is open. **There is no next action
+here.** Everything below this box is a historical record; read it for evidence
+and method, not for work.
 
-**Nothing is blocked on the worker.** All record work is landed and
-forge-verified. There is **no half-finished edit** anywhere.
+**Nothing remains in this thread — but that is not "nothing remains".** Four
+things are live and each has a durable home that is **not** this file:
+
+| still live | where it actually lives |
+|---|---|
+| **Upstream MERGE of `fabro-sh/fabro#688`** | `fabro-sh`'s call, outside this fleet. Verified 2026-08-02: **OPEN**, not draft, head `3b3781888`, `+527/-4`, 2 reviews, 1 comment. **Not merged.** |
+| orchestrator re-dispatch never reads a run's failure category | **`overseer-fs4`** (backlog) |
+| the supervisor send idiom is Claude Code-specific but stated as harness-neutral | **`overseer-816`** (backlog) |
+| `check-prose-release-hygiene` passes vacuously; `check-branch-protection-alignment` warns instead of failing | **`overseer-b4q`**, **`overseer-rh1`** (backlog) |
+
+> **ONE CLAIM IN THIS FILE IS UNVERIFIED AT THE SHIPPING HEAD — do not let it
+> evaporate on archival.** The *"165 insertions / 0 deletions, nothing deleted,
+> loosened or `#[ignore]`d, hint-count guards at 38/12/3"* property was measured
+> against commit **`a7c42204b`, which no longer exists**. The PR head is
+> **`3b3781888` at `+527/-4`** — over three times the insertions and, unlike the
+> original, **it deletes lines**. **NOBODY HAS RE-MEASURED IT.**
+> **Do not cite the 165/0 figure as describing what shipped.** It is recorded
+> here as **UNVERIFIED at `3b3781888`**, not as false and not as holding.
+
+*(Historical note, kept because the archive is a record: the section below was
+written as a live resume box for a restarted session. It no longer applies —
+there is no session to resume — but its measured content stands.)*
+
+**No half-finished edit exists anywhere.**
 
 > **DO THIS FIRST, BEFORE READING ANOTHER LINE — a restart inherits a STALE
 > PRIMARY CHECKOUT.** This session cold-opened at `83d7efa` while master was
@@ -654,19 +680,35 @@ passing**. The regex was loosened and a test now pins the masked form.
 **No silent rebase.** The RED demonstration stands on its original base
 `d5dcd1179`, and the branch targets that base.
 
-## NEXT ACTION — the fabro work belongs to ANOTHER SESSION
+## TERMINAL OUTCOME — what this thread produced, and where it ended
 
-**The publication question has been answered and superseded.** It was neither
-"push" nor "file": the maintainer routed it to a **Codex session**, which now
-owns the fabro-side work. That session is writing the **PR description** and
-running **adversarial review** on it — an Opus 5 sub-agent and a Codex Sol
-sub-agent, briefed to look for what is wrong rather than to bless it — against
-the handoff prompt at
-`/data/projects/fabro/tmp/codex-handoff-classifier-spend-limit.md`
-(`tmp/` is gitignored there, so none of it is a tracked change).
+**There is no next action in this thread.** It reached its terminal outcome and
+archived. What it produced:
 
-**This thread must not touch `/data/projects/fabro` at all** — not the branch,
-not `tmp/`. Its remaining work is record hygiene here in `livespec-overseer`.
+- **A diagnosis, measured rather than argued:** fabro's classifier labelled an
+  Anthropic org **spend-limit** failure `transient_infra` on a **false
+  positive** — `index.crates.io` matching a cargo **source path**, not a network
+  fault — so a permanent, human-actionable failure was retried as transient
+  while the true cause was masked.
+- **A RED-then-green fix**, demonstrated red first (151 passed / **3 failed**
+  against the unmodified classifier, one on the verbatim `01KYQF8G2TNV`
+  payload), then green.
+- **A published PR:** **`fabro-sh/fabro#688`**, open and approved upstream.
+  **Merging it is `fabro-sh`'s call and has not happened.**
+- **An eleven-rung sweep** for the defect class *a check that cannot fail,
+  returning success*, and the **four rules** distilled from it — both in
+  `supervisor-handoff.md`, which is the durable methodological record.
+
+**The durable record of the outcome is the epic's close-out** on
+**`overseer-dtytju`**, which states explicitly what the closure does **not**
+cover. Read that before treating the underlying problem as solved.
+
+*(Historical: the publication question was routed to a Codex session that owned
+the fabro-side work. That routing is discharged — the PR exists. This thread
+never touched `/data/projects/fabro`.)*
+
+**This thread never touched `/data/projects/fabro` at all** — not the branch,
+not `tmp/`. It has no remaining work; it is archived.
 
 Still true, and unchanged by that routing:
 
