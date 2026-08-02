@@ -1039,21 +1039,38 @@ end-to-end check is the discovery + render path, exercised safely read-only:
 
    **Isolation tip for exercising `overseerd` safely off the real fleet — this
    got MUCH simpler, and the old recipe is obsolete.** The watch-set is now an
-   absolute `$HOME` path, so isolation is just a scratch `HOME`:
+   absolute `$HOME` path, so isolation is just a scratch `HOME` plus the real
+   session registries:
 
    ```bash
-   mkdir -p /tmp/ov/{home,projects/demo/plan/demo-topic}
-   printf '{"repos": ["/tmp/ov/projects/demo"]}' > /tmp/ov/home/.livespec-overseer-repos.json
+   SCRATCH_HOME=/tmp/ov/home
+   mkdir -p "$SCRATCH_HOME" /tmp/ov/projects/demo/plan/demo-topic
+   ln -s ~/.claude "$SCRATCH_HOME/.claude"
+   ln -s ~/.codex  "$SCRATCH_HOME/.codex"
+   ln -s ~/.cache  "$SCRATCH_HOME/.cache"
+   printf '{"repos": ["/tmp/ov/projects/demo"]}' > "$SCRATCH_HOME/.livespec-overseer-repos.json"
    touch /tmp/ov/projects/demo/plan/demo-topic/handoff.md
-   HOME=/tmp/ov/home .venv/bin/python3 overseer/supervisor.py list
+   HOME="$SCRATCH_HOME" .venv/bin/python3 overseer/supervisor.py list
    ```
 
    That redirects the watch-set AND the mapping store AND the stamp sidecar in
-   one move, since all three are `$HOME`-anchored — real sessions untouched.
+   one move, since all three are `$HOME`-anchored. Session discovery is
+   `$HOME`-anchored too (`~/.claude/sessions` for Claude Code and `~/.codex`
+   for Codex), so the symlinks keep adoption able to see live sessions without
+   giving it permission to touch real tracks. Adoption is bounded by the
+   watch-set, not by the registry: `adopt_sessions` builds its active topic map
+   from `registry.discover_plans(watch_repos=resolve_watch(...))`, and a session
+   is adopted only when its registry `cwd` resolves inside a watched repo and
+   its `name` is an active discovered topic there. A scratch watch-set therefore
+   cannot reach a real track even with the real registries visible.
    Verified 2026-07-20: it renders exactly one row, `unassigned  demo-topic`,
    which also demonstrates the invariant the design turns on — a plan with NO
    assigned session is still discovered, because the watch-set is declared
-   rather than derived from the mapping store's existing rows.
+   rather than derived from the mapping store's existing rows. Do not use an
+   all-`unassigned` render as an adoption proof by itself: it is ambiguous
+   between correct isolation and a pure scratch `HOME` that blinded session
+   discovery. For the full adoption harness and blast-radius proof, see
+   `plan/codex-parity-and-rollout-safety/research/daemon-adoption-harness.md`.
 
    **Gotcha: do NOT wrap this in `mise exec` / `uv run`.** `mise` reads its own
    config out of `$HOME`, so overriding `HOME` makes it fail with
@@ -1069,9 +1086,7 @@ end-to-end check is the discovery + render path, exercised safely read-only:
      keys its cache off `$HOME/.cache/uv`; an empty HOME forces uv to cold-rebuild
      its whole environment and **hangs** (looks exactly like a daemon bug — it is
      not). If you must isolate the store off `~`, symlink the warm cache in first
-     (`ln -s ~/.cache "$SCRATCH_HOME/.cache"`), or just run with the real `$HOME`:
-     an `act=True` scratch daemon with no live scratch sessions never writes to
-     the real store (it only auto-links sessions that actually exist).
+     (`ln -s ~/.cache "$SCRATCH_HOME/.cache"`), as the recipe above does.
    - The render flushes each tick but `uv run` may swallow piped stdout when the
      process is `timeout`-SIGTERM-killed; capture with a decent timeout and read
      the streamed lines, or observe the pane directly. (Direct `python`/venv-python

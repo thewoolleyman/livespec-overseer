@@ -43,6 +43,7 @@ _MODULE_DOCS = (
     _REPO_ROOT / "overseer" / "SKILL.md",
     _REPO_ROOT / "overseer" / "AGENTS.md",
 )
+_OVERSEER_AGENTS = _REPO_ROOT / "overseer" / "AGENTS.md"
 
 # The layered supervisor prompt's shared role layer. Named explicitly rather than
 # globbing `.ai/`: an empty directory would satisfy a glob while the file that
@@ -140,3 +141,24 @@ def test_the_corrected_past_tense_wording_is_not_flagged():
         "`.ai/agent-disciplines.md` still does not exist, so the removal stands."
     )
     assert denials_of_the_ai_directory(text=corrected) == []
+
+
+def test_overseer_isolation_tip_keeps_session_discovery_visible():
+    """The scratch-HOME recipe must not silently blind adoption.
+
+    The operator guide's worked example is also the only documented safe live
+    exercise path. A pure scratch HOME correctly isolates the store but also
+    hides `~/.claude/sessions` and `~/.codex`, making adoption look broken.
+    """
+    text = _OVERSEER_AGENTS.read_text(encoding="utf-8")
+    section = text.split("**Isolation tip for exercising `overseerd`", maxsplit=1)[1].split(
+        "The daemon's diagnostics", maxsplit=1
+    )[0]
+
+    assert 'ln -s ~/.claude "$SCRATCH_HOME/.claude"' in section
+    assert 'ln -s ~/.codex  "$SCRATCH_HOME/.codex"' in section
+    assert 'ln -s ~/.cache  "$SCRATCH_HOME/.cache"' in section
+    assert "`~/.claude/sessions` for Claude Code and `~/.codex`" in section
+    assert "Adoption is bounded by the\n   watch-set, not by the registry" in section
+    assert "all-`unassigned` render" in section
+    assert "blinded session\n   discovery" in section
