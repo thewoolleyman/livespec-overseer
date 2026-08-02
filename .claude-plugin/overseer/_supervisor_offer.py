@@ -286,4 +286,36 @@ def no_managed_pane_row(*, sup: Supervisor, track: registry.Track, session: str)
             status="live-name-mismatch",
             note=note,
         )
+    declared = signals.read_state(repo=repo, topic=topic)
+    if declared is not None and declared.token == signals.STATE_WINDING_DOWN:
+        # `overseer-mkx`. The session ANNOUNCED it was wrapping up and is now gone —
+        # an orderly teardown, not a loss. Reporting it as `session-gone` (the only
+        # red status) made a completed track indistinguishable from one that died
+        # mid-work, and it stayed in `NEEDS YOU` for as long as the plan directory
+        # existed: 327 minutes, in the sighting that filed this.
+        #
+        # The discriminator was always on disk and simply unread. A track that dies
+        # WHILE WORKING has declared nothing, so it still reports `session-gone`;
+        # so does one that vanished while `blocked` (it was waiting, not finishing)
+        # or holding a `ready` (an unfinished round). Only the wind-down
+        # announcement is treated as an ending.
+        #
+        # THE TRADE, stated rather than hidden: a session that declared
+        # `winding-down` and then genuinely CRASHED now reads as an orderly
+        # wind-down. That distinction is deliberately given up — the declaration
+        # means the session had already reached a point it called safe — to keep
+        # the alarm sharp for the case that matters most, a track dying mid-work.
+        #
+        # This does NOT foreclose `overseer-mkx`'s other two options: a teardown
+        # path that clears the file, and a terminal state token, both remain open
+        # and would compose with this. It is the one that needs no change to the
+        # declaration vocabulary, which is the cardinal contract.
+        return RowView(
+            topic=topic,
+            repo=repo,
+            tmux=None,
+            ctx=None,
+            status="wound-down",
+            note="declared the wind-down and its session is gone — an orderly teardown",
+        )
     return RowView(topic=topic, repo=repo, tmux=None, ctx=None, status="session-gone")
