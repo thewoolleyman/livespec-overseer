@@ -85,7 +85,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         # SSH shell), which the tmux-only daemon cannot capture, inject, or respawn.
         # Distinguish that live-but-unmanageable case from a genuinely gone track so
         # the operator is not falsely alarmed that finished-looking work was lost.
-        return _supervisor_offer.no_managed_pane_row(sup=sup, repo=repo, topic=topic)
+        return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
 
     # Resolve the pane id ONCE and target every subsequent pane op by it (RB3).
     # A pane id is exact and never prefix/fnmatch-matched, so if the tracked
@@ -95,7 +95,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
     # `respawn-pane -k` killing it. Stable across respawn.
     target = sup.tmux.pane_id(session=session)
     if target is None:
-        return _supervisor_offer.no_managed_pane_row(sup=sup, repo=repo, topic=topic)
+        return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
 
     # Identity gate (B3): the mapped session exists, but before reading its pane
     # for any ACT we confirm it is really OUR Claude in OUR repo — never
@@ -121,7 +121,7 @@ def evaluate(  # noqa: C901, PLR0912, PLR0915 — see "On the size of this funct
         # appears at all. The daemon lists PLANS, not panes: a tmux name reaches the
         # table only as a mapping's column value, and `_no_managed_pane_row` already
         # reports `tmux=None` so no dead terminal is named.
-        return _supervisor_offer.no_managed_pane_row(sup=sup, repo=repo, topic=topic)
+        return _supervisor_offer.no_managed_pane_row(sup=sup, track=track, session=session)
 
     # Phase 1 — OBSERVE. Every fact the guard cascade below decides on is
     # gathered in one place, so the cascade reads as a single top-to-bottom
