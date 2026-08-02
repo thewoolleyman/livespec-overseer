@@ -150,3 +150,38 @@ def test_the_identity_gate_is_not_relaxed_by_the_softer_report(*, tmp_path):
     sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert not fake.has(method="paste")
     assert not fake.has(method="respawn")
+
+
+def test_a_derived_name_session_in_a_different_repo_does_not_soften_this_track(*, tmp_path):
+    """THE CROSS-REPO CONTROL. A hand-started, auto-named agent somewhere ELSE on the
+    host is not evidence about THIS track. The host runs many repos and derived names
+    are generic (`repo-01`), so without the repo scoping one stray session would
+    soften every genuinely gone track on the box — the wholesale-silencing failure
+    this module exists to prevent, arriving by a different route than the
+    mapped-session control above."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    elsewhere = tmp_path / "some-other-repo"
+    elsewhere.mkdir()
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40), cmd="node")
+    fake.pane_pids[500] = session
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(
+        sessions_dir=sessions_dir, pid=100, name=_DERIVED_NAME, cwd=str(elsewhere), status="busy"
+    )
+    _stamp_name_source(sessions_dir=sessions_dir, pid=100, name_source="derived")
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={100: 500},
+        starttimes={100: "pt"},
+    )
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup._refresh_claude_status()
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "session-gone"
