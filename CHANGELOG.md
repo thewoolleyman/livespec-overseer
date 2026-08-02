@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.16.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.16.0...v0.16.1) (2026-08-02)
+
+
+### Bug Fixes
+
+* mirror the plugin version.json, and stop the release from un-mirroring it ([0c8a218](https://github.com/thewoolleyman/livespec-overseer/commit/0c8a2188af33913023ac4cb09a61917243439ae9))
+* pin startup launch chain shell evidence ([f8e56e5](https://github.com/thewoolleyman/livespec-overseer/commit/f8e56e5b41b361755bfe3da22c9e49c56dac1ea7))
+* **release:** auto-enable release PR merge ([4c16379](https://github.com/thewoolleyman/livespec-overseer/commit/4c163796fd30103549e2b0736a110f7484f6712c))
+
 ## [0.16.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.15.0...v0.16.0) (2026-08-02)
 
 
