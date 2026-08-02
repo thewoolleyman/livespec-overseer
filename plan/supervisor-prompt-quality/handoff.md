@@ -180,8 +180,33 @@ master's side loses nothing and keeps this session's ~900 added lines. #440's
 real contribution is `tests/test_charter_correction_counts_are_current.py`, which
 is untouched by the conflict.
 
+**THAT RESOLUTION IS NOW VERIFIED BY EXECUTION, NOT BY ARGUMENT — 2026-08-01T23:58Z,
+and it closes the one question the paragraph above never asked.** #440's gate READS
+`handoff.md`: it parses the correction counts this file ASSERTS and compares them
+against the two charter layers. So "take master's copy" is not a neutral choice of
+text — it decides what the gate reads. If #457's rewrite had reworded the counting
+sentence, the prescribed resolution would have produced a REBASED, RED #440, and
+nobody would have known until after the conflict was resolved. **Tested directly:
+#440's module was extracted from the PR head and run against the CURRENT master
+tree — 7 passed, 0 failed.** The prescribed resolution is safe, and now for a
+measured reason rather than a plausible one.
+
+Two numbers in the paragraph above have moved and one materially:
+
+  - `git diff origin/master pr/440 -- handoff.md` is now **34 insertions /
+    924 deletions**, not the "~900 added lines" written at wind-down. That is the
+    concrete size of the hazard: taking #440's side deletes **924** lines of master.
+  - #440 now reads **`CONFLICTING/DIRTY`** on the forge, not merely "behind the pin
+    bumps". The forge agrees with the simulated rebase.
+  - The file list is confirmed from the forge as exactly two paths, and
+    `tests/test_charter_correction_counts_are_current.py` is confirmed ABSENT from
+    master — so the re-tensing of "landed" to "open" elsewhere in this file is
+    correct, re-measured.
+
 **The other five (#441, #445, #446, #452, #456) remain mutually disjoint** —
-verified, not assumed — and can land in any order.
+verified, not assumed — and can land in any order. **All six re-measured
+2026-08-01T23:58Z: each still 62 success / 1 skipped / 0 failures**, and the five
+still `MERGEABLE/CLEAN`.
 
 **THIS CORRECTS A CLAIM I MADE EARLIER IN THIS SAME BLOCK.** It read "#457 is now
 the only open PR that changes this file", which I inferred from #440's empty
@@ -218,8 +243,289 @@ says: `just worktree-reap` cannot see a rebase-merged branch as merged, so it
 skips them and offers `--force`, which would act on every other track's. Reap only
 the seven listed above, and only after they land.
 
-**WHAT THIS SESSION PRODUCED, in the order the findings matter** (all sections
-below carry their own measurements; this is the index):
+**RE-MEASURED 2026-08-01T23:58Z — that "seven/seven" is now SIX open PRs and 70
+entries, and the arithmetic no longer lines up.** #457 merged at wind-down, so six
+PRs are open (#440, #441, #445, #446, #452, #456) while **seven** worktrees back
+them — #457's is now an orphan of exactly the kind this paragraph describes, created
+by the same session that wrote the sentence. This session added one more worktree
+(the one carrying this change), taking `git worktree list` to **70**. **The rule is
+unchanged and is the durable half: reap only your own, only after they land.** The
+counts are restated here only because a cold open reads "seven open PRs" as current
+and would go looking for a seventh that merged.
+
+## SESSION OF 2026-08-01T23:58Z — STEP 1 RE-RUN, NOTHING QUEUED; THE HEADLINE IS THAT A GATE THIS FILE CALLED "READY" IS NOT
+
+**Step 1 was done first, as directed, and the answer is unchanged for the third
+consecutive session: NOTHING IS FILED OR ASSIGNED TO THE WORKER.** Re-measured
+from the ledger, not from this file — `overseer-yho` `backlog`; `overseer-yho.1`,
+`.2` and `overseer-gjb` `closed`; **`overseer-yho.3` `backlog`, unassigned** (still
+the maintainer's cut — do not self-assign); `overseer-d4t` `closed`. Across the
+whole tenant: **26 items, 18 `backlog`, 7 `pending-approval`, 1 `ready`, ZERO
+`in_progress`, and NOTHING assigned to anyone.** So step 3 applied and this session
+audited what the thread already owns.
+
+**`overseer-jdo` STILL HAS NOT ABSORBED THE REPORT.** `updated_at` is
+**2026-07-31T03:14:09Z** — unchanged across three sessions now, so everything under
+"WHAT `overseer-jdo` IS MISSING" is still outstanding, and the gap is now ~45 hours
+old. Still a ledger write on another track's item; still not this thread's to make.
+
+| # | finding | disposition |
+|---|---|---|
+| A | **The archived-citation gate's "ZERO FALSE POSITIVES BY CONSTRUCTION" is FALSE — the counterexample is its own violation table, and the false positive is SELF-REPRODUCING: writing this finding up created four more.** Withdraws a readiness claim this file publishes | **the claim is corrected here**; the gate is NOT ready to land as specified, and no scoping fixes it |
+| B | **This repo is the fleet's SOLE branch-protection outlier — measured across all NINE livespec-family repos, not three.** 8 of 9 require `ci-green` alone | **strengthens finding 13**; still the supervisor's call, now a cheaper one |
+| C | #440's prescribed conflict resolution **verified by EXECUTION** — its gate passes against master's rewritten `handoff.md` | recorded above, in the restart state where it is needed |
+| D | **Fourth consecutive ambient-date sighting, at 01:58 local** — the strongest data point yet, and it closes the window question | recorded; the rule is unchanged and now fully sampled |
+| E | **A NEW `overseer-jdo` sighting on a DOCS-ONLY change** — first aggregate red at coverage 99, re-run green 65/65 | recorded with its lines quoted; **attribution lost to the same piping mistake as last time** |
+
+**THREE NEGATIVE RESULTS, recorded so nobody re-runs them:** the correction counts
+have NOT drifted while their gate sits unmerged (**19 contiguous C1–C19, 1 T1,
+584/266 lines** — exactly as asserted); the ~900 lines appended since the 10:35Z
+citation audit introduced **no new citation misses** (every cross-repo and
+thread-relative citation resolves, including the `Dockerfile:77-80` tmux claim,
+verified line by line); and all six open PRs still read 62 success / 1 skipped /
+0 failures.
+
+### E. A NEW `overseer-jdo` SIGHTING, ON A DOCS-ONLY CHANGE — 2026-08-02T00:2xZ, and I lost the body the SAME WAY the last session did
+
+**jdo is P1 and its acceptance bar is statistical, so every sighting is data.** The
+first `just check` on this docs-only branch FAILED; the immediate re-run passed
+**65/65 with coverage at 100%** and `TOTAL 6175 stmts, 0 miss, 1130 branch, 0
+BrPart`. **Run-alone/re-run passes, in-aggregate flakes** — jdo's description almost
+word for word, and on a change touching **one markdown file and no Python at all**.
+
+**The essential lines, QUOTED HERE rather than left in a log, per this file's own
+"a gitignored capture is not a capture" lesson:**
+
+    Coverage failure: total of 99 is less than fail-under=100
+    error: Recipe `check-coverage` failed with exit code 2
+
+    Failed targets (2):
+      - check-per-file-coverage
+      - check-coverage
+
+**I CANNOT ATTRIBUTE IT TO A SPECIFIC TEST, and will not pretend otherwise — for
+the identical reason the last session could not.** I piped the failing aggregate
+through `tail -20` and kept only the summary, so the `FAILED` line is gone. **The
+lesson this file already records was read, quoted approvingly in my own notes, and
+then walked into within the hour** — which is the same shape as the hazard entry
+about a control that did not save the reader who had just read it. Redirect FIRST;
+never pipe a run you might need to read twice.
+
+**What CAN be said, and it is not nothing.** The failure was the COVERAGE-VISIBLE
+mode: coverage fell to 99, so a test died mid-body leaving later lines unexecuted,
+and both coverage targets failed loudly. **That is the mode this file says is the
+only one that gets caught at all** — so this sighting is consistent with mechanism 2
+and is NOT an instance of the masked class. It is one more reason the unmask
+decision is about which failures are visible, not whether they happen.
+
+**Rate contribution, stated with its sample size so nobody over-reads it: 1 failure
+in 2 full aggregates this session.** That is far too small to move the 1/7-vs-1/40
+question, and it is recorded only so the count accumulates across sessions rather
+than restarting.
+
+### A. THE ARCHIVED-CITATION GATE IS NOT READY, AND ITS OWN WRITE-UP IS THE COUNTEREXAMPLE — 2026-08-01T23:58Z
+
+This file publishes, under the heading "a gate that is READY, sound, and NOT MINE
+TO LAND":
+
+> **THE RULE HAS NO FALSE POSITIVES, BY CONSTRUCTION — and that is the design worth
+> keeping.** It fires only when `plan/archive/<topic>/<rest>` ACTUALLY EXISTS, so it
+> never guesses at a repair.
+
+**That claim is false, and it fails on this very document.** Re-running the rule
+over the same population (**9** `handoff.md` files, the recorded figure, reproduced)
+returns **10** distinct violations, not 7. The three new ones are all in
+`plan/supervisor-prompt-quality/handoff.md` — **and all three are cells of the
+violation table itself**, at lines 699–701:
+
+| line | what the rule flags | what it actually is |
+|---|---|---|
+| 700 | `plan/ship-overseer-to-fleet/` | the "cited" column of the violation table |
+| 700 | `plan/supervise-plan-residual-gaps/` | same row, same column |
+| 701 | `plan/background-shell-supervision-liveness/handoff.md` | the row reporting the LIVE violation |
+
+**Reproduced by hand before reporting**, per this file's own cardinal rule: the
+lines were opened and read, not inferred from a count.
+
+**WHAT THE CONSTRUCTION ACTUALLY GUARANTEES, which is the precise correction.**
+Firing only when `plan/archive/<topic>/<rest>` exists guarantees that a **repair
+TARGET exists** — it never proposes a path that isn't there. That is a real
+property and it is worth keeping. **It does not distinguish a citation from a
+QUOTATION**, and nothing in the rule ever could: a stale path in a table cell
+reporting the defect is textually identical to a stale path in prose depending on
+it. **And the document most certain to quote stale paths is the one that reports
+them.**
+
+Three consequences, and the second is the one that matters:
+
+1. **As specified, the gate reddens on its own write-up.** Landing it does not
+   redden 7 files — it reddens 8, and the eighth is the document specifying it.
+2. **The prescribed repair would DESTROY the evidence.** This file says "every
+   repair is one word — insert `archive/`". Applied to rows 699–701 that rewrites
+   the violation table into a table of non-violations, silently deleting the
+   finding it records. **That is strictly worse than the broken link the gate
+   exists to prevent** — the same shape as the rejected provenance gate, whose
+   "easiest remedy is the forgery it exists to prevent".
+3. **LIVE-SCOPING — this file's own proposed fix — INVERTS.** The text offers it as
+   the way to make the gate landable: "reduces today's violations from 7 to **1**".
+   Measured, live-scoped today gives **4** hits, of which **3 are the false
+   positives** and 1 is the real `codex-parity` one. So the scope chosen to make the
+   gate ownable is precisely the scope where false positives DOMINATE, 3 to 1.
+
+**I TRIED TO REPAIR THE RULE AND IT DOES NOT CLEANLY REPAIR — reported as a
+negative result so the next reader does not re-attempt it.** The plausible
+refinement is: clear a hit when the SAME LINE also names the archive counterpart
+for that topic (a line naming both is REPORTING the relationship, not depending on
+the stale path). It is principled-sounding and it **clears only 2 of the 3**. Row
+700 survives, because a table row can quote a topic OTHER than the one its own
+citing-file cell names — `plan/supervise-plan-residual-gaps/` quoted in a row whose
+subject is `ship-overseer-to-fleet`. **A heuristic that works only when the quoted
+topic happens to match the row's subject is not a rule.**
+
+**AND THE TOTALS COINCIDE MISLEADINGLY — do not read "7" as a reproduction.** The
+refined rule also returns **7**, which looks like clean agreement with the recorded
+figure. **It is a different 7.** The refinement drops one of the recorded
+ship-overseer citations (a self-report line) and adds one table artifact that
+survives. Two measurements agreeing on a total while disagreeing on the SET is the
+same trap as every count in this file: **a total is not a property.**
+
+**WHY THIS IS THE FOURTH GATE KILLED ON THE SAME ROCK, AND THE FIRST ONE THAT WAS
+ALREADY WRITTEN UP AS READY.** This file records three gates killed by measuring
+the corpus before writing them, and names their common shape: *"the false positive
+was always data or prose that legitimately RESEMBLES the defect."* The
+ISO-8601 gate died on exactly this — *"Intent is not in the text, so no regex
+separates them."* **This is a fourth instance, and the important difference is that
+it PASSED that bar and still failed.** The corpus WAS measured, at 10:50Z. The
+measurement was correct when taken.
+
+**The mechanism is that the measurement ran BEFORE the write-up existed, and the
+write-up is what introduced the false positives.** That is this file's own lesson —
+*"Evidence produced against an artifact you then edit is stale evidence"* — recorded
+for the sabotage count, recurring independently here, three hundred lines away, and
+caught by nobody at wind-down. It is also the second time this session's predecessor
+did this to itself: the module-inventory finding *"INVALIDATED ITS OWN NUMBER"* the
+instant it was written, and that one was caught only because the measurement was
+re-run after the edit. **The rule that follows is cheap: after writing up a
+measurement, RE-RUN IT AGAINST THE WRITE-UP.** Both instances would have been caught
+by one re-execution.
+
+**AND THEN THE RULE I JUST PRESCRIBED CAUGHT ME, WHICH IS THE STRONGEST EVIDENCE IN
+THIS SECTION.** Having written "after writing up a measurement, RE-RUN IT AGAINST
+THE WRITE-UP", I did — against the section you are reading:
+
+    BEFORE my edits: 12 occurrences, 10 distinct
+    AFTER  my edits: 16 occurrences, 10 distinct
+
+**Writing the paragraphs arguing that the rule flags its own violation table added
+FOUR MORE INSTANCES OF EXACTLY THAT.** My table at lines 304–306 and the sentence at
+342 quote the same stale paths, for the same reason the original table does, and the
+rule cannot tell any of them from a dependency.
+
+**This upgrades the finding rather than merely illustrating it. The false positive
+is SELF-REPRODUCING: the act of REPORTING a violation CREATES one.** That is why no
+scoping fixes it — the reporting document is exactly where the discussion has to
+live, so every write-up, every review comment and every test fixture for this gate
+manufactures fresh violations. A gate whose false-positive population grows in
+proportion to how carefully it is documented cannot be a CI gate. **Recorded as the
+reason the readiness claim is withdrawn, not as a curiosity.**
+
+**AND THE METRIC I CHOSE HID IT — a live instance of this file's oldest lesson,
+inside the section invoking that lesson.** The DISTINCT-pair count moved by
+**zero**, 10 → 10, because my four new occurrences duplicate pairs the file already
+carried. I reported "10 distinct violations, not 7" using precisely the metric that
+was blind to my own contribution. **A total is not a property**, and here the total
+was stable while the thing it was supposed to measure grew by a third. Anyone
+re-measuring this must count OCCURRENCES, not distinct pairs — the distinct figure
+is the one that reads as reassuring while the population moves underneath it.
+
+**WHAT SURVIVES, so this is a correction and not a demolition.** The underlying
+defect is REAL and unchanged: archiving a thread silently breaks its
+self-references, six of the seven recorded violations are a thread citing itself,
+and nothing in the lifecycle rewrites them. The remedy per real violation is still
+one word. **What is withdrawn is the readiness claim** — "the rule is the table
+above, the violation list is complete, cheap to finish" — because the rule as
+stated flags its own documentation and the ownership blocker was never the only
+blocker. A future implementer needs a citation/quotation distinction that the text
+does not carry; the honest options are to scope the gate to files that are not
+reporting on it (fragile, and it keys on the presence of a spelling, which this
+thread's own design rule forbids) or to accept it as a periodic audit rather than a
+CI gate. **Not built, not filed, and the ownership blocker on
+`plan/codex-parity-and-rollout-safety/handoff.md` is unchanged.**
+
+### B. THIS REPO IS THE FLEET'S SOLE BRANCH-PROTECTION OUTLIER — all NINE repos measured, 2026-08-01T23:58Z
+
+Finding 13 compared **three** repos and concluded the fix is "a one-setting change
+with a fleet precedent". **Measured across every livespec-family repo, the
+conclusion is stronger than that, and the framing should change.**
+
+| repo | required contexts | `ci-green` required? |
+|---|---|---|
+| `livespec` | 1 | yes |
+| `livespec-dev-tooling` | 1 | yes |
+| `livespec-driver-claude` | 1 | yes |
+| `livespec-driver-codex` | 1 | yes |
+| `livespec-orchestrator-beads-fabro` | 1 | yes |
+| `livespec-orchestrator-git-jsonl` | 1 | yes |
+| `livespec-runtime` | 1 | yes |
+| `livespec-console-beads-fabro` | 1 | yes |
+| **`livespec-overseer`** | **56** | **NO** |
+
+**Eight of nine require exactly `ci-green` and nothing else. This repo is the only
+one in the fleet that enumerates contexts, and the only one that does not require
+`ci-green`.** So it is not "behind two reference repos" — it is a **singleton
+against a unanimous fleet standard**, and the change is alignment rather than a
+posture choice. That is a materially cheaper decision than the one recorded.
+
+**Verified rather than assumed, because the whole point of finding 13 is that a raw
+count cannot see a `needs:` edge.** In this repo's `ci.yml`, `ci-green` is
+`needs: [check-python, check-metadata, check-doctor-static]` with `if: always()`,
+exiting 1 when any dependency reports `failure` or `cancelled`. Re-derived from the
+workflow and protection together: **59 matrix targets, 56 required, exactly 3 not
+required** — `check-hook-trees-not-io-exempt`,
+`check-no-shadow-ledger-body-typechecks`, `check-required-role-keys-declared` — and
+**0 required contexts lacking a matrix job**. Every figure in finding 13 reproduces,
+and all three unrequired targets sit inside `check-metadata`, so requiring
+`ci-green` would gate them today and every future matrix entry by construction.
+
+**Still not applied, and still the supervisor's call** — it is a settings change
+affecting six open PRs. No repo's settings were read for anything but this table,
+and none was written to.
+
+### D. THE AMBIENT-DATE HAZARD, FOURTH CONSECUTIVE NIGHT — and this one closes the question
+
+Caught live at the top of this session. The harness announced **"Today's date is
+2026-08-02"** while `date -u` read **`2026-08-01T23:58:31Z`** (local
+`2026-08-02T01:58:31 CEST`).
+
+| | local | UTC |
+|---|---|---|
+| 1 | 2026-07-31T00:03 | 2026-07-30T22:03Z |
+| 2 | 2026-08-01T00:02:59 | 2026-07-31T22:02:59Z |
+| 3 | 2026-08-02T00:30:32 | 2026-08-01T22:30:32Z |
+| 4 | **2026-08-02T01:58:31** | **2026-08-01T23:58:31Z** |
+
+**The window question is now settled by sampling both ends.** Sighting 3 moved the
+evidence off "~00:02–00:03" and the previous session correctly noted that two
+early-minute hits were equally consistent with when sessions happen to start. **This
+one lands at 01:58 local — about ninety seconds before the window CLOSES.** So the
+notice is wrong across the entire two-hour span, start to finish, and no session
+opening anywhere inside it has a cue to suspect the date it is handed. Every stamp
+in this session was taken from `date -u` and reads **2026-08-01**, one day behind
+what the harness offered.
+
+**A FOURTH DATA POINT FOR THE `worktree-create` 141 RACE, at 69 entries: NINE
+consecutive failures, then success on attempt 10.** Consistent with the recorded
+guidance and a useful calibration of it — the wind-down bullet says to stop and
+check for a leftover branch after ~10 consecutive 141s, and this run came within one
+attempt of triggering that check while being the ordinary race after all. **So "~10"
+is the right threshold but it is not a safe DIAGNOSIS on its own**: nine failures
+then success, and sixty failures from a leftover branch, are indistinguishable until
+you look. No partial state either way.
+
+**WHAT THIS SESSION PRODUCED, in the order the findings matter** — *this heading and
+the table below are the **2026-08-01T22:55Z** session's record, kept as written;
+re-tensed 2026-08-01T23:58Z because "THIS SESSION" read as the current one on a cold
+open* (all sections below carry their own measurements; this is the index):
 
 | # | finding | disposition |
 |---|---|---|
@@ -689,6 +995,15 @@ promising everything in it is verifiable. A thread closing elsewhere in the flee
 silently invalidates a citation here, and nothing looks.
 
 ### ARCHIVING A THREAD BREAKS ITS OWN CITATIONS — a gate that is READY, sound, and NOT MINE TO LAND — 2026-08-01T10:50Z
+
+> **SUPERSEDED IN PART, 2026-08-01T23:58Z — READ "A. THE ARCHIVED-CITATION GATE IS
+> NOT READY" ABOVE BEFORE ACTING ON THIS SECTION.** The DEFECT below is real and the
+> seven violations reproduce. **The "no false positives, BY CONSTRUCTION" claim in
+> this section is FALSE**: the rule flags three cells of its own violation table
+> (lines 699–701 of this file), the construction guarantees only that a repair
+> TARGET exists, and the prescribed one-word repair applied to those rows would
+> delete the evidence. The readiness claim is withdrawn; the ownership blocker is
+> unchanged.
 
 The archived prior-art citation above is not a one-off. Measured across all **9**
 handoffs in this repo: **7 citations point at `plan/<topic>/…` where the thread
