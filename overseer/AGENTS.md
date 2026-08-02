@@ -1070,7 +1070,7 @@ end-to-end check is the discovery + render path, exercised safely read-only:
    all-`unassigned` render as an adoption proof by itself: it is ambiguous
    between correct isolation and a pure scratch `HOME` that blinded session
    discovery. For the full adoption harness and blast-radius proof, see
-   `plan/codex-parity-and-rollout-safety/research/daemon-adoption-harness.md`.
+   `plan/archive/codex-parity-and-rollout-safety/research/daemon-adoption-harness.md`.
 
    **Gotcha: do NOT wrap this in `mise exec` / `uv run`.** `mise` reads its own
    config out of `$HOME`, so overriding `HOME` makes it fail with
