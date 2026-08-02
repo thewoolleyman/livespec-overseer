@@ -98,10 +98,19 @@ def _declared_anchors(*, text: str) -> list[str]:
     return _HANDOFF_DECLARES.findall(text)
 
 
-def _threads_with_a_charter_anchor() -> list[tuple[str, str, list[str]]]:
-    """(topic, charter_anchor, anchors_declared_by_handoff) for checkable threads."""
+def _threads_with_a_charter_anchor(*, root: Path = _REPO_ROOT) -> list[tuple[str, str, list[str]]]:
+    """(topic, charter_anchor, anchors_declared_by_handoff) for checkable threads.
+
+    `root` exists so every arc below is reachable from a synthetic tree — the
+    same reason `_anchor_from` was split out of this loop. Without it, which
+    arcs execute depends on which threads happen to be LIVE, and coverage
+    becomes a quantity over repo state: archiving the last live thread with
+    both files and no anchor made the no-anchor `continue` unreachable and
+    turned master's coverage gates red at 99% with every test passing
+    (2026-08-02, the codex-parity-and-rollout-safety archive, reverted).
+    """
     out: list[tuple[str, str, list[str]]] = []
-    for thread in sorted(_REPO_ROOT.glob(_THREADS)):
+    for thread in sorted(root.glob(_THREADS)):
         charter = thread / "supervisor-handoff.md"
         handoff = thread / "handoff.md"
         if not charter.is_file() or not handoff.is_file():
@@ -278,3 +287,55 @@ def test_a_charter_that_merely_mentions_an_anchor_declares_none() -> None:
         "  `supervisor_session`, `WORKER_TARGET`, `SUPERVISOR_TARGET`, `ledger_anchor`."
     )
     assert _charter_anchors(text=listed_as_a_binding_name) == ([], [], [])
+
+
+def test_every_scan_arc_is_reachable_on_a_synthetic_tree(*, tmp_path: Path) -> None:
+    """Which arcs of the thread scan execute must not depend on the LIVE plan/ set.
+
+    NOT hypothetical — measured 2026-08-02 on master. Archiving
+    `plan/codex-parity-and-rollout-safety/` (the LAST live thread carrying both
+    records while declaring no anchor) made the no-anchor `continue` in
+    `_threads_with_a_charter_anchor` unreachable: `check-coverage` and
+    `check-per-file-coverage` went RED at 99% < 100 with all 804 tests PASSING,
+    and only on master — the docs-only PR lane skips the suite jobs, so the
+    branch was green. `fabro-review-classifier-defect`'s archive had stayed
+    green purely because ours still covered the arc: musical chairs, not
+    safety. This leg drives every arc from a synthetic tree so no `git mv` of a
+    plan thread can move this module's coverage again.
+
+    SCOPE, stated because the neighbouring rule is deliberately different:
+    `test_at_least_one_thread_declares_a_charter_anchor` still quantifies over
+    the LIVE set, and must — "at least one live thread declares an anchor" is a
+    real invariant that SHOULD fail when the last anchored thread archives.
+    This leg makes coverage independent of repo state; it does not make that
+    assertion tolerate an empty set.
+
+    Sabotage that reddens this: drop the `root` parameter and glob `_REPO_ROOT`
+    unconditionally — this leg then stops reaching the no-anchor arc the moment
+    no live thread exercises it, which is exactly the 2026-08-02 shape.
+    """
+    plan = tmp_path / "plan"
+    (plan / "only-handoff").mkdir(parents=True)
+    (plan / "only-handoff" / "handoff.md").write_text("no charter beside me\n", encoding="utf-8")
+    (plan / "only-charter").mkdir()
+    (plan / "only-charter" / "supervisor-handoff.md").write_text(
+        "no handoff beside me\n", encoding="utf-8"
+    )
+    (plan / "no-anchor").mkdir()
+    (plan / "no-anchor" / "supervisor-handoff.md").write_text(
+        "a pre-layered monolith charter: prose, tmux forms, no anchor declared\n",
+        encoding="utf-8",
+    )
+    (plan / "no-anchor" / "handoff.md").write_text("thread prose only\n", encoding="utf-8")
+    (plan / "anchored").mkdir()
+    (plan / "anchored" / "supervisor-handoff.md").write_text(
+        "| `ledger_anchor` | `overseer-zz1` |\n\nledger_anchor='overseer-zz1'\n",
+        encoding="utf-8",
+    )
+    (plan / "anchored" / "handoff.md").write_text(
+        "**Ledger anchor:** epic `overseer-zz1`.\n", encoding="utf-8"
+    )
+
+    assert _threads_with_a_charter_anchor(root=tmp_path) == [
+        ("anchored", "overseer-zz1", ["overseer-zz1"])
+    ]
