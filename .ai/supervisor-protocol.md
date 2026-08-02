@@ -615,3 +615,33 @@ preserve every entry.
   `tests/prompts/test_generated_supervisor_handoff_contract.py` asserts the
   generated charter against) and `livespec-orchestrator-beads-fabro`
   `plan/dispatch-claim-liveness/supervisor-handoff.md`.
+
+## FILE cross-repo freely; never ADMIT or PRIORITISE in another repo's queue
+
+The line between the two is easy to blur, and blurring it in the cautious
+direction stalls work just as surely as blurring it in the reckless one.
+
+- **FILING** a defect into the tenant that OWNS it is *reporting*. It is normal
+  practice, it needs no permission, and it is what you do the moment you find a
+  defect that is not yours to fix. Do it yourself and tell the supervisor.
+- **ADMITTING, PRIORITISING, RE-RANKING or DISPATCHING** in another repo's queue
+  is *scheduling someone else's work*. That is theirs. Never do it, however
+  obvious the priority looks from here.
+
+**Evidence both ways, from this repo's own history.** Filing cross-repo is
+routine: `livespec-dev-tooling-3nt9` (B1) and `livespec-1p31` (C1) were both
+filed from this thread as ordinary practice. And the failure mode is real:
+`bd-ib-vv9y` — a P1 dispatcher defect discovered here — sat undelivered while
+the worker correctly refused a local workaround and then *waited for permission
+to file it*, because the supervisor had stated the rule too broadly as
+"another repo's queue is outside this track's authorization". That phrasing was
+right about admitting and wrong about filing, and the cost was a round trip on
+a P1.
+
+**The test to apply:** does the action change what someone else's queue *says
+exists* (filing — allowed), or what someone else's queue *will do next*
+(admission, priority, dispatch — not yours)?
+
+A corollary for the worker, which needs saying explicitly because a worker will
+otherwise mirror the supervisor's caution one level down: **file the defect,
+then report it.** Do not hold a finding pending approval to record it.
