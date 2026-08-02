@@ -1,29 +1,5 @@
 # Plan — codex-parity-and-rollout-safety
 
-> # ⛔ ARCHIVED 2026-08-02 — supervisor-directed wind-down. THIS STAMP WINS OVER EVERY BLOCK BELOW, INCLUDING THE RESUME BLOCK.
->
-> **WHY ARCHIVED, so this reads as lifecycle compliance and not abandonment:** the
-> thread's epic `overseer-az5nps` is CLOSED (regroomed out 2026-07-28; every
-> replacement slice closed), and an active thread pointing at a closed epic is the
-> exact drift `check-plan-thread-epic-parity` exists to flush — its remediation is
-> verbatim `git mv plan/<topic> plan/archive/<topic>`, which is this move. The
-> archive-safety of the move was MEASURED first (2026-08-02): every set-level gate
-> here excludes `plan/archive/` or globs both locations, and the one tracked path
-> reference outside `plan/` (`overseer/AGENTS.md`) was updated in the same PR.
->
-> **THIS FILE IS NO LONGER ANYONE'S READ-ON-RESUME. Every surviving obligation now
-> lives in the LEDGER, and these are the carriers:**
->
-> | carrier | state at archive | what it carries |
-> |---|---|---|
-> | **`overseer-jdo`** | P1, OPEN (`ready`), ledger-resident, NO epic linkage | The flaky-gate defect. ROOT-CAUSED for the local family (unsynchronized `pane_current_path` read caught mid-shell-startup — see its 2026-08-02 note); mechanisms 2 and 3 are the peer's contract questions. Acceptance bar DELIBERATELY UNMET: 20 clean runs at `-n auto`, measured ~1 in 10 failing under load. Peer-blocked; do not mute the gate. |
-> | **`overseer-k03`** | P2, `backlog` — deliberately UNADMITTED | The peer-negotiation channel to `supervisor-prompt-quality` (their `tests/prompts/` deliverable): the root cause, the 30-pane reproduction, the not-a-weakening argument for an eventually-consistent read, and the mechanism-3 debt named as ours. Their queue, their priority. |
-> | **`overseer-zxy`** | P2, `backlog` — deliberately UNADMITTED, trigger in its title | The #360 obligation: once release PR #360 merges, re-verify A3, A4 and l6b's live Codex evidence at `--ref release` (all of it was taken at the declared `--ref master` pin). Whoever sees #360 merge admits it; admitting earlier invites a dispatch that cannot succeed. |
-> | **`overseer-mir`** | CLOSED — but its 41.3% finding OUTLIVES this thread | The phrasing rule every downstream claim must keep: "the daemon CAN adopt a Codex track" — NEVER "Codex tracks are supervised". |
->
-> The block below was the live resume state at wind-down and is kept intact as
-> evidence, per this file's own convention.
-
 > # ▶▶▶ RESUME HERE — rewritten 2026-08-02 at wind-down. THIS BLOCK WINS OVER EVERY OTHER BLOCK IN THIS FILE.
 >
 > Everything below is HISTORY: accurate as evidence, frequently wrong as *current
