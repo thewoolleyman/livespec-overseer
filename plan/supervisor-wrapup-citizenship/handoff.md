@@ -23,16 +23,26 @@ thread changes the contract first, then the daemon.
 
 ## 2. Where this thread stands
 
-Created 2026-08-02. The epic anchor is **`overseer-blccme`**. Read live
+Created 2026-08-02. **Ledger anchor:** epic **`overseer-blccme`**. Read live
 status from the ledger —
 `list-work-items` / `bd show overseer-blccme` — never from this file; this
 handoff cites ids read-only and carries no work queue.
 
-Done so far: the reasoning note (§5, read it first) is complete and
-ratification-ready. NOT done: the spec proposed change, its review, the
-ratification, the daemon implementation, and the re-derivation of
-`overseer-vyjkzw` acceptance criterion 3. No code may change before the
-spec does.
+That anchor is spelled `Ledger anchor:` deliberately. The gate in
+`tests/test_plan_thread_records_agree.py` extracts a handoff's declaration
+with a pattern keyed on those words, and an unreadable declaration is scored
+as an OFFENCE rather than a skip once the thread has a charter — so the
+earlier "The epic anchor is" wording would have turned master RED the moment
+`supervise-plan` ran here, with a message naming the charter while the file
+needing the change was this one. Filed as `overseer-jtc`; do not re-word it.
+
+**Re-measured 2026-08-03T00:09Z, and §4 below was rewritten with it.** The
+spec phase is DONE: the narrowing ratified as **v005**, merged by PR #522 at
+commit `cc90899`, with `SPECIFICATION/history/v005/` holding the revision and
+the accepted proposal. The reasoning note (§5, read it first) remains the
+argument of record and is unchanged by ratification. STILL OPEN: the daemon
+implementation and, inside it, the re-derivation of `overseer-vyjkzw`
+acceptance criterion 3.
 
 ## 3. The contract delta in one screen
 
@@ -57,20 +67,49 @@ report-only.
 
 ## 4. The next action (exactly one)
 
-Author the spec proposed change realizing §3 via the `/livespec:propose-change`
-operation against THIS repo's `SPECIFICATION/`, sweeping every statement of
-the old letter (the sweep list is the reasoning note's §"Consequences for
-existing records"). Then: independent adversarial review by a
-separately-spawned Fable-model agent, then `/livespec:revise` with the
-maintainer. At ratification, also re-derive `overseer-vyjkzw` acceptance
-criterion 3 (its letter encodes the old contract; its intent — protect
-genuine background work — survives).
+**Finish `overseer-sfpurg` — the fail-closed evidence-change interlocks — and
+verify the result against `origin/master`, not against a PR.** The spec phase,
+the filing phase and the bulk of the implementation are discharged.
 
-AFTER ratification: file the daemon-implementation item as a CHILD of
-`overseer-blccme` via the `capture-work-item` operation (`depends_on` the
-epic; autonomy tier T2), and implement it through the FACTORY path — the
-`drive` operation (`impl:<id>`) or the Dispatcher drain under the janitor
-gate — never the in-session `implement` operation.
+Measured 2026-08-03T01:00Z:
+
+- `overseer-6mbp2q` (implement v005) produced PR **#536**, which **MERGED** at
+  00:39:03Z as `96eb0a2`, and release **0.17.0** (`4b3a300`) shipped it. Its
+  documented acceptance is met on master: 12 integration legs in
+  `tests/integration/test_shell_wrapup_v005.py`, zero remaining TODO rows in
+  `tests/heading-coverage.json`, canonical and mirrored plugin copies both
+  updated. `overseer-vyjkzw` acceptance criterion 3 was re-derived at 00:28:23Z
+  and now reads from the v005 contract, so that obligation is discharged.
+- `overseer-sfpurg` (supersede #536 with complete interlocks) is the OPEN item
+  and is in the factory. It exists because PR #536 carried a
+  `CHANGES_REQUESTED` review whose BLOCKER is real and is **still true on
+  master**: `_fresh_threshold_observation` cancels on a changed `capture` and a
+  changed `is_codex`, then re-derives `shell_only`/`blocked`/`ready` from the
+  FRESH observation alone — it never compares `claude_status`,
+  `codex_fallback` or `declared` against `request.obs`. Independently-safe is
+  not unchanged. Separately, its vocabulary guard is skipped when the status is
+  `None`, so an ABSENT Claude registry status is not distinguished from an
+  affirmative idle one.
+
+Two traps around that item, both recorded as comments on it rather than edited
+into it:
+
+1. **Its premise is stale.** It says PR #536 "will be closed unmerged" and that
+   the replacement branch must carry the entire implementation. #536 was
+   already merged six minutes before the item was filed. Treat it as a FORWARD
+   FIX ON TOP OF MASTER; a clean rebase is not evidence that work went missing.
+2. **The merge itself was a gate failure**, filed as `overseer-zfq`: the
+   blocking review landed at 00:38:24Z and the merge happened 39 seconds later,
+   then went out in a release. THE CARDINAL RULE is untouched by any of this —
+   restart still requires a fresh session-written `ready` — so this is a defect
+   to finish, not an incident to roll back.
+
+Re-measure a factory run with `mise exec -- fabro ps`, never from the ledger's
+`active` field — `ACTIVE` is a claim, a running process is evidence, and both
+`overseer-6mbp2q` and `overseer-sfpurg` still read `active` here while one of
+them is long since merged. Everything that made these T2 factory items still
+binds: implement through the `drive` operation (`impl:<id>`) or the Dispatcher
+drain under the janitor gate, never the in-session `implement` operation.
 
 Every repo artifact of this thread (the proposed change, the ratified
 snapshot, the eventual implementation) rides this repo's normal
