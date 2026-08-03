@@ -105,10 +105,32 @@ rather than assuming it: the overseer's three state roots are DIRECT children of
 they stay scratch while `.local`/`.config` resolve to the host. Re-measure
 `DEFAULT_STORE_PATH` after adding them.
 
+## Gotcha 5 — `~/.claude` is not the whole Claude configuration
+
+The release-ref re-verification (`overseer-zxy`, 2026-08-03) reached the fifth
+layer. Symlinking the real `~/.claude` registry still leaves the sibling
+`$HOME/.claude.json` absent. Claude Code 2.1.220 then enters first-run theme and
+login screens instead of opening a named session. No registry row appears, so
+the scratch would-adopt count stays zero and again looks like valid isolation.
+
+For a disposable harness, copy the host configuration into the scratch HOME with
+its mode preserved; do **not** symlink it back. Trust/onboarding state may be
+updated during startup, and a symlink would mutate the real configuration:
+
+```bash
+cp -a ~/.claude.json "$P/home/.claude.json"
+test "$(stat -c %a "$P/home/.claude.json")" = 600
+```
+
+This file is configuration, not the session registry. The real registry remains
+the `~/.claude` symlink from Gotcha 1, while the copied sibling absorbs disposable
+startup writes.
+
 **The general lesson, which is why these are numbered rather than folded into one
 line: a scratch `$HOME` hides more than any recipe enumerates, and each layer is
 INVISIBLE until the one before it is fixed.** Gotcha 1 was `overseer-0pc`; 3 and 4
-only became reachable once it landed. Expect a fifth.
+only became reachable once it landed, and 5 appeared only when the full release-ref
+composition was replayed.
 
 ## Prove the blast radius is EMPTY before arming anything
 
@@ -185,3 +207,10 @@ up and *adopt* instead of *refuse*.
 > adopted `l6b-probe` (exit 0), while the real store stayed byte-identical and the real
 > lock mtime unchanged. The daemon-restart window is no longer the only route, and
 > stopping the fleet daemon remains forbidden.
+
+> **✅ RE-VERIFIED AT `--ref release` 2026-08-03.** An isolated marketplace fixture
+> matched `origin/release` SHA `3a8c6d7` (plugin 0.17.2). The picker green + red
+> control, plain-shell refusal, and one-continuous Codex launch → scratch daemon →
+> Claude-probe adoption all passed. The real store hash, real lock mtime, and acting
+> daemon identity were unchanged. The launching Codex session rendered as
+> `codex-unindexed`, preserving the original claim bound rather than inflating it.
