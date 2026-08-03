@@ -46,6 +46,13 @@ _ANCHORED = re.compile(r"^[ \t]*Enter to (select|confirm)[ \t]*$", re.MULTILINE)
 # is the half that catches a REAL footer carrying trailing text, which the
 # anchored half cannot match.
 _SHAPE = re.compile(r"[^ ]+ to [a-z]+([,]| [^ a-zA-Z0-9]+) +[^ ]+ to [a-z]+")
+_SCROLLBACK_WITH_FOOTER = "\n".join(
+    [
+        "  up/dn to navigate, Enter to select, Esc to cancel",
+        *(f"AFTER-{i}" for i in range(1, 26)),
+    ]
+)
+_VISIBLE_AFTER_FOOTER = "\n".join(f"AFTER-{i}" for i in range(18, 26))
 
 Tmux = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -152,6 +159,20 @@ def _run(
     settle("=wk:", needle, fail_on_timeout=fail_on_timeout)
 
 
+def _scrollback_tmux_double(
+    *, calls: list[tuple[str, ...]] | None = None
+) -> Callable[..., subprocess.CompletedProcess[str]]:
+    """Return scrollback only when the watcher asks tmux for scrollback."""
+
+    def _tmux(*args: str) -> subprocess.CompletedProcess[str]:
+        if calls is not None:
+            calls.append(args)
+        pane = _SCROLLBACK_WITH_FOOTER if "-S" in args else _VISIBLE_AFTER_FOOTER
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=pane, stderr="")
+
+    return _tmux
+
+
 def _wait_for_change_on_watcher_sleep(
     *,
     monkeypatch: pytest.MonkeyPatch,
@@ -192,52 +213,19 @@ def test_settle_can_fail_loudly_on_expiry(
     assert "tmux pane did not settle before the timeout" in str(exc_info.value)
 
 
-def test_c_a_footer_in_scrollback_wakes_the_shipped_watcher(
-    *, monkeypatch: pytest.MonkeyPatch, tmux: Tmux, settle: Callable[[str, str], str]
-) -> None:
+def test_c_a_footer_in_scrollback_wakes_the_shipped_watcher() -> None:
     """DEFECT (c) PINNED: the footer has SCROLLED OFF and it still wakes."""
-    import conftest as prompt_conftest
+    tmux = _scrollback_tmux_double()
 
-    monkeypatch.setattr(prompt_conftest, "_SETTLE_TIMEOUT_S", 0.5)
-    _worker(tmux=tmux)
-    _run(
-        tmux=tmux,
-        command=(
-            'printf "%s\\n" "  up/dn to navigate, Enter to select, Esc to cancel"; '
-            'for i in $(seq 1 25); do echo "AFTER-$i"; sleep 0.05; done'
-        ),
-        settle=settle,
-        needle="AFTER-25",
-        fail_on_timeout=True,
-    )
     assert watcher_shipped(tmux=tmux, target="wk") == _PICKER
 
 
-def test_c_a_footer_in_scrollback_does_not_wake_the_proposed_watcher(
-    *, monkeypatch: pytest.MonkeyPatch, tmux: Tmux, settle: Callable[[str, str], str]
-) -> None:
+def test_c_a_footer_in_scrollback_does_not_wake_the_proposed_watcher() -> None:
     """REMEDY. RED: restore `-S -40` -> wakes on the first poll."""
-    import conftest as prompt_conftest
-
-    monkeypatch.setattr(prompt_conftest, "_SETTLE_TIMEOUT_S", 0.5)
-    _worker(tmux=tmux)
-    _run(
-        tmux=tmux,
-        command=(
-            'printf "%s\\n" "  up/dn to navigate, Enter to select, Esc to cancel"; '
-            'for i in $(seq 1 25); do echo "AFTER-$i"; sleep 0.05; done'
-        ),
-        settle=settle,
-        needle="AFTER-25",
-        fail_on_timeout=True,
-    )
     calls: list[tuple[str, ...]] = []
+    tmux = _scrollback_tmux_double(calls=calls)
 
-    def _recording_tmux(*args: str) -> subprocess.CompletedProcess[str]:
-        calls.append(args)
-        return tmux(*args)
-
-    assert watcher_proposed(tmux=_recording_tmux, target="=wk:") != _PICKER
+    assert watcher_proposed(tmux=tmux, target="=wk:") != _PICKER
     assert all("-S" not in call for call in calls)
 
 
