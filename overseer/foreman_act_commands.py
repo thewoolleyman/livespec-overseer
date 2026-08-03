@@ -16,7 +16,7 @@ from foreman_act_types import (
     ActionId,
 )
 
-__all__: list[str] = ["command_for"]
+__all__: list[str] = ["command_for", "resume_command_from_payload"]
 
 _START_ACTIONS: Final[tuple[ActionId, ...]] = (
     PLAN_START,
@@ -73,21 +73,27 @@ def _start_command(*, payload: dict[str, object]) -> list[str] | None:
     ]
 
 
-def _resume_command(*, payload: dict[str, object]) -> list[str] | None:
+def resume_command_from_payload(*, payload: dict[str, object]) -> list[str] | None:
     runtime = _str_field(payload=payload, key="runtime")
     repo = _str_field(payload=payload, key="repo")
     topic = _str_field(payload=payload, key="topic")
     session_id = _str_field(payload=payload, key="session_id")
+    handoff = _str_field(payload=payload, key="handoff_path")
     if (
         runtime != "codex" or repo is None or topic is None or session_id is None
     ):  # pragma: no cover
         return None
+    prompt = (
+        f"read {handoff} and complete this bounded one-shot work-item session"
+        if handoff is not None
+        else default_resume(repo=repo, topic=topic)
+    )
     return [
         "codex",
         "resume",
         "--dangerously-bypass-approvals-and-sandbox",
         session_id,
-        default_resume(repo=repo, topic=topic),
+        prompt,
     ]
 
 
@@ -106,4 +112,4 @@ def command_for(*, action_id: ActionId, proposal: dict[str, object]) -> list[str
         payload=resume, proposal=proposal
     ):
         return None
-    return _resume_command(payload=resume)
+    return resume_command_from_payload(payload=resume)

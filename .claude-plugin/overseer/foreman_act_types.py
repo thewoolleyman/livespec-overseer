@@ -15,6 +15,10 @@ __all__: list[str] = [
     "QUALIFYING_SESSION_START",
     "SUPERVISOR_PAIR_START",
     "WORK_ITEM_FILE",
+    "WORK_ITEM_SESSION_ACTIONS",
+    "WORK_ITEM_SESSION_FINISH",
+    "WORK_ITEM_SESSION_RESUME",
+    "WORK_ITEM_SESSION_START",
     "ActResult",
     "ActionId",
 ]
@@ -30,6 +34,9 @@ ActionId: TypeAlias = Literal[
     "qualifying_session_start",
     "supervisor_pair_start",
     "work_item_file",
+    "work_item_session_finish",
+    "work_item_session_resume",
+    "work_item_session_start",
 ]
 ActResult: TypeAlias = dict[str, object]
 
@@ -41,6 +48,14 @@ QUALIFYING_SESSION_RESUME: Final[ActionId] = "qualifying_session_resume"
 QUALIFYING_SESSION_START: Final[ActionId] = "qualifying_session_start"
 SUPERVISOR_PAIR_START: Final[ActionId] = "supervisor_pair_start"
 WORK_ITEM_FILE: Final[ActionId] = "work_item_file"
+WORK_ITEM_SESSION_FINISH: Final[ActionId] = "work_item_session_finish"
+WORK_ITEM_SESSION_RESUME: Final[ActionId] = "work_item_session_resume"
+WORK_ITEM_SESSION_START: Final[ActionId] = "work_item_session_start"
+WORK_ITEM_SESSION_ACTIONS: Final[tuple[ActionId, ...]] = (
+    WORK_ITEM_SESSION_FINISH,
+    WORK_ITEM_SESSION_RESUME,
+    WORK_ITEM_SESSION_START,
+)
 
 ACTION_IDS: Final[tuple[ActionId, ...]] = (
     BLOCKED_SESSION_ANSWER,
@@ -51,4 +66,7 @@ ACTION_IDS: Final[tuple[ActionId, ...]] = (
     QUALIFYING_SESSION_START,
     SUPERVISOR_PAIR_START,
     WORK_ITEM_FILE,
+    WORK_ITEM_SESSION_FINISH,
+    WORK_ITEM_SESSION_RESUME,
+    WORK_ITEM_SESSION_START,
 )

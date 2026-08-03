@@ -30,10 +30,15 @@ from foreman_act_types import (
     PROPOSAL_SCHEMA_VERSION,
     QUALIFYING_SESSION_RESUME,
     WORK_ITEM_FILE,
+    WORK_ITEM_SESSION_ACTIONS,
+    WORK_ITEM_SESSION_FINISH,
+    WORK_ITEM_SESSION_RESUME,
+    WORK_ITEM_SESSION_START,
     ActionId,
     ActResult,
 )
 from foreman_gather_collect import compose_document
+from foreman_work_item_sessions import act_work_item_session, is_work_item_session_action
 
 __all__: list[str] = [
     "ACTION_IDS",
@@ -43,6 +48,10 @@ __all__: list[str] = [
     "PROPOSAL_SCHEMA_VERSION",
     "QUALIFYING_SESSION_RESUME",
     "WORK_ITEM_FILE",
+    "WORK_ITEM_SESSION_ACTIONS",
+    "WORK_ITEM_SESSION_FINISH",
+    "WORK_ITEM_SESSION_RESUME",
+    "WORK_ITEM_SESSION_START",
     "ActResult",
     "ActionId",
     "act",
@@ -137,11 +146,17 @@ def _act_validated(
     run: Runner,
     file_work_item: FileWorkItem,
 ) -> ActResult:
-    refusal = revalidate_source(document=document) or revalidate_identity(
-        proposal=proposal, document=document
-    )
+    refusal = revalidate_source(document=document)
     if refusal is not None:
         result = _refused(action_id=action_id, reason=refusal)
+    elif is_work_item_session_action(action_id=action_id):
+        result = act_work_item_session(
+            action_id=action_id, proposal=proposal, document=document, run=run
+        )
+    elif (
+        identity_refusal := revalidate_identity(proposal=proposal, document=document)
+    ) is not None:
+        result = _refused(action_id=action_id, reason=identity_refusal)
     elif action_id == WORK_ITEM_FILE:
         result = _act_filing(proposal=proposal, action_id=action_id, file_work_item=file_work_item)
     elif action_id == DISPATCH_JOURNAL_RECONCILE_MERGED:

@@ -10,6 +10,7 @@ from foreman_act_types import (
     BLOCKED_SESSION_ANSWER,
     HUMAN_VALVE,
     PROPOSAL_SCHEMA_VERSION,
+    WORK_ITEM_SESSION_ACTIONS,
     ActionId,
 )
 from foreman_gather_collect import DOCUMENT_SCHEMA_VERSION
@@ -53,10 +54,12 @@ def validate_proposal(*, proposal: dict[str, object]) -> tuple[str | None, str |
         reason = "human_action_report_only"
     else:
         snapshot = _proposal_snapshot(proposal=proposal) or {}
+        row_required = action_id not in WORK_ITEM_SESSION_ACTIONS
         malformed = (
             str_field(payload=proposal, key="repo") is None
             or str_field(payload=proposal, key="topic") is None
             or int_field(payload=snapshot, key="tick_generation") is None
+            or (row_required and str_field(payload=proposal, key="session_name") is None)
         )
         if malformed:  # pragma: no cover
             reason = "malformed_proposal"
