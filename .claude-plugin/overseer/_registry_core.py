@@ -265,7 +265,7 @@ def resolve_stamp_store(*, stamp_path: str | os.PathLike[str] | None) -> Path:
     return Path(stamp_path) if stamp_path is not None else DEFAULT_STAMP_PATH
 
 
-def atomic_write(*, path: Path, body: str) -> None:
+def atomic_write(*, path: Path, body: str, raise_errors: bool = False) -> None:
     """Write ``body`` to ``path`` atomically: temp file in the same dir + os.replace.
 
     A bare truncate-then-write (the old ``path.write_text``) leaves a
@@ -273,7 +273,8 @@ def atomic_write(*, path: Path, body: str) -> None:
     rewritten every ~10s tick, so that window recurs constantly (adversarial code
     review 2026-07-13, blocker B6). ``os.replace`` is atomic on POSIX, so a reader
     always sees either the old or the new complete file, never a partial one.
-    Fail-soft: an OSError is warned, not raised (B7).
+    Fail-soft by default: an OSError is warned, not raised (B7). Callers that need
+    their own edge reporting can set ``raise_errors`` after the shared warning.
     """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -290,3 +291,5 @@ def atomic_write(*, path: Path, body: str) -> None:
             raise
     except OSError as exc:
         warn(message=f"could not write {path}: {exc}")
+        if raise_errors:
+            raise

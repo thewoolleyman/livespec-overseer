@@ -40,6 +40,7 @@ class ClaudeSession:
     name: str
     cwd: str
     status: str  # Claude's own live self-report: "busy" / "idle" / "waiting" (or "" if absent)
+    proc_start: str
     # How the display name was set. Claude writes "derived" when it AUTO-named the
     # session from the repo directory (`livespec-overseer-01`); a session launched
     # with an explicit `-n <topic>` carries no such marker. That distinction is the
@@ -96,6 +97,7 @@ def read_live_sessions(
                 name=name,
                 cwd=cwd,
                 status=status if isinstance(status, str) else "",
+                proc_start=str(proc_start),
                 name_source=name_source if isinstance(name_source, str) else "",
             )
         )
