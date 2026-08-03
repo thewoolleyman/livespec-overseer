@@ -228,6 +228,124 @@ def test_settle_can_fail_loudly_on_expiry(
     assert "tmux pane did not settle before the timeout" in str(exc_info.value)
 
 
+def test_settle_waits_through_echo_only_before_payload_output(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import conftest as prompt_conftest
+
+    echoed_command = "for i in $(seq 1 25); do echo AFTER-$i; done"
+    captures = [
+        echoed_command,
+        echoed_command,
+        echoed_command,
+        echoed_command,
+        f"{echoed_command}\nAFTER-25",
+        f"{echoed_command}\nAFTER-25",
+    ]
+
+    def _tmux(*args: str) -> subprocess.CompletedProcess[str]:
+        pane = captures.pop(0) if captures else f"{echoed_command}\nAFTER-25"
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=pane, stderr="")
+
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_COMMAND_START_TIMEOUT_S", 1.0)
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_ABSOLUTE_TIMEOUT_S", 2.0)
+
+    settled = prompt_conftest.make_settle(tmux=_tmux)(
+        "=wk:",
+        "AFTER-25",
+        fail_on_timeout=True,
+    )
+
+    assert settled.endswith("AFTER-25")
+
+
+def test_settle_fails_loudly_when_payload_never_starts_after_echo(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import conftest as prompt_conftest
+
+    now = 0.0
+    echoed_command = "for i in $(seq 1 25); do echo AFTER-$i; done"
+
+    def _monotonic() -> float:
+        return now
+
+    def _sleep(seconds: float) -> None:
+        nonlocal now
+        now += seconds
+
+    def _tmux(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=echoed_command,
+            stderr="",
+        )
+
+    monkeypatch.setattr(prompt_conftest.time, "monotonic", _monotonic)
+    monkeypatch.setattr(prompt_conftest.time, "sleep", _sleep)
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_COMMAND_START_TIMEOUT_S", 0.2)
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_ABSOLUTE_TIMEOUT_S", 1.0)
+
+    with pytest.raises(pytest.fail.Exception) as exc_info:
+        prompt_conftest.make_settle(tmux=_tmux)(
+            "=wk:",
+            "AFTER-25",
+            fail_on_timeout=True,
+        )
+
+    assert "tmux pane did not settle before the timeout" in str(exc_info.value)
+
+
+def test_settle_fails_loudly_when_a_pane_changes_forever_without_the_needle(
+    *, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import conftest as prompt_conftest
+
+    now = 0.0
+    calls = 0
+
+    def _monotonic() -> float:
+        return now
+
+    def _sleep(seconds: float) -> None:
+        nonlocal now
+        now += seconds
+
+    def _tmux(*args: str) -> subprocess.CompletedProcess[str]:
+        nonlocal calls, now
+        calls += 1
+        now += 0.03
+        if calls > 20:
+            raise AssertionError(  # pragma: no cover
+                "settle kept polling after the absolute deadline"
+            )
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=f"still-changing-{calls}",
+            stderr="",
+        )
+
+    monkeypatch.setattr(prompt_conftest.time, "monotonic", _monotonic)
+    monkeypatch.setattr(prompt_conftest.time, "sleep", _sleep)
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_COMMAND_START_TIMEOUT_S", 0.5)
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_ABSOLUTE_TIMEOUT_S", 0.2)
+
+    with pytest.raises(pytest.fail.Exception) as exc_info:
+        prompt_conftest.make_settle(tmux=_tmux)(
+            "=wk:",
+            "NEVER-APPEARS",
+            fail_on_timeout=True,
+        )
+
+    assert "tmux pane did not settle before the timeout" in str(exc_info.value)
+    assert calls < 20
+
+
 def test_c_a_footer_in_scrollback_wakes_the_shipped_watcher() -> None:
     """DEFECT (c) PINNED: the footer has SCROLLED OFF and it still wakes."""
     calls: list[tuple[str, ...]] = []
