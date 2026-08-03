@@ -264,3 +264,55 @@ livespec-orchestrator-beads-fabro/<new-build>/scripts/bin/drive.py --action impl
 
 Confirm which build is current with `just ensure-plugins` (it prints
 `already at the latest version (<build>)`), then point at that directory.
+
+## The charter gate's false positives all point ONE way — suspect the detector first
+
+`tests/prompts/test_charters_carry_no_known_defects.py` scores every supervisor
+charter in the fleet. During the 2026-08-03 fleet sweep (119 defects → 0, all six
+repos) **every** false positive it produced pointed the same direction: it flagged
+code that was **already correct**, and "fixing" the charter would have made it
+worse. Three measured instances:
+
+| what fired | the charter was actually | fixed by |
+|---|---|---|
+| `(h)` × 4 in `homelab` | resolving the wrapper from `.livespec.jsonc` — **better** than the hard-coded name the detector demanded | keying `(h)` on the wrapper PROPERTY |
+| `(h)` × 1 in the orchestrator | invoking the wrapper across a `\` **line continuation** | joining continuations before matching |
+| `(a)`+`(f)` in `homelab` | a **worked counter-example** in a block labelled `# DEMONSTRATION, not a check` | unfencing the block (see below) |
+
+**So when a charter looks wrong, prove it with a THREE-WAY CONTROL before editing
+it:** the suspect form, the same thing written differently, and a known-real
+defect. If the first two disagree, the detector is wrong. Two of the three above
+were caught exactly that way, and each would otherwise have had a session rewrite
+correct code to satisfy a broken check.
+
+**The escape for legitimate counter-examples needs NO gate change.** The detectors
+read **fenced** bodies only — `_code_blocks` matches ``` and `~~~`, nothing else.
+A charter that must SHOW a defective form as evidence puts it in an **indented
+literal block** or in prose with inline code spans, and scores zero while changing
+not one character of the demonstration. That is why this repo's own charters score
+zero while discussing every one of these hazards. **Never add a self-declared
+"skip this block" marker**: it would need its own discrimination leg and is exactly
+the thing that later gets used to silence a real finding.
+
+## Two PR mechanics that cost rework, both measured 2026-08-03
+
+**Auto-merge is enabled in several fleet repos and it RACES you.** A PR merges
+itself the moment checks go green — before you can push a follow-up commit or amend
+a title. Observed twice in one session: one PR merged a minute after a supervisor
+measured it, carrying a title that overclaimed by one defect; another merged at an
+older commit, which **orphaned** the newer commit onto the branch and cost a second
+PR to land it.
+
+**Push every commit you intend to ship BEFORE opening the PR**, and never plan to
+amend a title afterwards. When it happens anyway, correct the record with a comment
+on the merged PR rather than leaving the claim standing.
+
+**The red-green-replay ritual is ONE commit with `--amend`, not two commits.** Red
+stages the test file **alone**; Green stages the impl and amends it. The test-file
+bytes must be **byte-identical** across the pair, and exactly **one** test file may
+be staged at Red — editing the test after the Red commit invalidates the pair.
+
+**A change confined to `tests/` has no impl bucket at all**, so it never reaches
+the Green leg. It takes the **green-verified** leg instead: a single commit, a
+**non-`feat:`/`fix:`** prefix, and the full suite must pass. A `feat:` prefix there
+is rejected with `test-passed-at-red`.
