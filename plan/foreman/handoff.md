@@ -30,6 +30,78 @@ this tenant refuses task-to-epic dep edges).
    re-verified). The per-phase dispositions in it are BINDING design
    constraints; do not re-litigate a finding without new evidence.
 
+## Restart checkpoint — 2026-08-03, nine-proposal revise payload READY
+
+Tasks 03 and 04 completed the PREPARATION for the ratification pass. They did
+not run revise, commit the spec changes, push, or open a PR.
+
+The owned worktree is:
+
+```text
+/home/ubuntu/.worktrees/livespec-overseer/spec-revise-v005
+branch: spec-revise-v005
+```
+
+Its intentional working state is five modified tracked files plus the
+untracked payload:
+
+```text
+SPECIFICATION/spec.md
+SPECIFICATION/contracts.md
+SPECIFICATION/constraints.md
+SPECIFICATION/scenarios.md
+tests/heading-coverage.json
+tmp-revise-input.json
+```
+
+The ratification payload is
+`/home/ubuntu/.worktrees/livespec-overseer/spec-revise-v005/tmp-revise-input.json`
+(SHA-256
+`b8e87e29081506307e5ab2b1694a24e18474da3ef92f8a9ec3ff6b70d422bf8c`).
+It contains all nine decisions in the required cumulative order: six
+`modify`, three `accept`, zero reject. Every `resulting_files` entry carries
+complete post-edit file content, not a diff. Paths are relative to the
+configured `SPECIFICATION/` target (`spec.md`, not
+`SPECIFICATION/spec.md`); the installed v0.21.4 validator rejects the latter.
+
+Two defects in the assessment were caught and repaired under an explicit
+foreman ruling: its new MUST clauses lacked their required scenario halves.
+The payload therefore includes, and calls out in the affected
+`modifications` fields:
+
+- `## Scenario: A missing supervisor role layer halts the binder with a
+  remedy` — absent `.ai/supervisor-protocol.md` makes the binder guard halt
+  and emit a labelled remedy.
+- `## Scenario: A foreman uses the canonical name on both identity surfaces`
+  — both tmux and runtime-registry names are `<repo-slug>-foreman`; a
+  different name on either surface is unauthorized.
+
+Neither scenario required choosing anything the clauses did not settle: no
+new threshold, ordering, actor, fallback, or error path. Their
+heading-coverage entries deliberately use `test: "TODO"` because no
+integration-tier test exists yet; no test id was fabricated.
+
+Verification is already GREEN: Draft-07 schema validation against the
+installed `revise_input.schema.json`; proposal/path existence; exact
+order/counts; in-memory sequential replay from HEAD to byte-identical final
+working files; scenario introduction at decisions 3, 8, and 9; `git diff
+--check`; JSON parsing; and `just check-heading-coverage`. The full aggregate
+was deliberately not run per the loaded-host rule below.
+
+Forge was last fetched at `origin/master` `20f04e8`. The worktree branch was
+four commits behind, but `git diff HEAD..origin/master -- SPECIFICATION
+tests/heading-coverage.json` was empty: none of those upstream commits touched
+the payload's targets. Re-fetch before acting. Preserve the dirty worktree and
+payload while satisfying the revise lifecycle's stale-branch gate; do not
+reconstruct or reword the payload.
+
+**Immediate next action after restart:** resume the `/livespec:revise`
+lifecycle in that worktree using exactly `tmp-revise-input.json`, inspect the
+resulting v006 history/revision artifacts, run the lifecycle-required focused
+verification, and land the ratification through the normal worktree → PR →
+rebase-merge path. Only after v006 lands, re-measure the ledger and proceed to
+the approval/dispatch valves for `.1`–`.5` described below.
+
 ## Where the thread stands — derive live status from the ledger, not this file
 
 Filed status is a claim with a timestamp; re-measure before acting:
@@ -71,10 +143,12 @@ SURFACING every ripe valve is THIS THREAD'S FIRST TASK, not a thing the
 maintainer must remember: a decision the maintainer has not been shown is a
 stall of this thread's own making.
 
-## NEXT ACTION — the revise pass; the picker is DISCHARGED
+## NEXT ACTION — execute the prepared revise payload; the picker is DISCHARGED
 
-FIRST, in the resuming session's opening turns: re-measure the ledger and
-`SPECIFICATION/proposed_changes/` (the commands above).
+FIRST, in the resuming session's opening turns: re-fetch, verify the prepared
+worktree and payload against the checkpoint above, then re-measure the ledger
+and `SPECIFICATION/proposed_changes/` (the commands above). Do not repeat the
+assessment or rebuild the payload unless live target bytes actually changed.
 
 **The batched valve picker this section used to demand is DISCHARGED.** On
 2026-08-03 the maintainer replaced it with a standing instruction to drive
