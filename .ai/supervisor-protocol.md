@@ -658,6 +658,41 @@ preserve every entry.
   C7 and C12 are about. Distinguish "probe failed" from "not yet terminal", and
   emit on BOTH — silence must never be the report.
 
+- **C23 (2026-08-03) — I FOUND A LIVE DECISION AND SENT THE MAINTAINER TO THE
+  WORKER'S PANE TO ANSWER IT, INSTEAD OF PROXYING IT.** The worker was correctly
+  blocked on a genuinely maintainer-owned call (`overseer-x29.1`, a change to the
+  cardinal `marker-protocol.md`) and had raised it as an `AskUserQuestion` in its
+  OWN pane. I verified the block was real, then reported in prose: *"answer the
+  one in its pane."* The maintainer had to go drive the worker directly, which is
+  the one thing a supervisor exists to absorb.
+  **THE RULE WAS ALREADY HERE AND I READ IT.** This file's Decision-vetting rubric
+  says every maintainer-facing action is an `AskUserQuestion` call; the generator
+  prose adds the clause that names the exact harm — *"never a prose question,
+  **which sits unnoticed in a pane**."* I had quoted that same rubric into the
+  binder I generated hours earlier.
+  **THE REASONING THAT DEFEATED IT IS THE TRANSFERABLE PART, because it sounded
+  like restraint.** I argued that raising my own picker would duplicate the
+  worker's and that "two competing pickers for one decision is worse than none."
+  That is wrong on the fact it turns on: **the two pickers do not reach the same
+  place.** The worker's sits in a pane nobody is watching — and worse, an open
+  `AskUserQuestion` SUPPRESSES the daemon's wrap-up injection into that pane, so
+  the condition most needing attention is the one that mutes the only other
+  watcher. Mine is the only one that reaches the maintainer. Deferring to the
+  worker's picker did not avoid duplication; it chose the copy that cannot be
+  seen.
+  **PROXY IS NOT A PRESENTATION PREFERENCE, IT IS THE ROLE.** A decision surfaced
+  by the worker is still the supervisor's to carry: re-put it as your own
+  `AskUserQuestion`, with the prep done and a recommendation, and relay the answer
+  down. Never resolve a maintainer-facing question by pointing at another
+  session's UI. This is C20's family — that entry recorded raising valves as prose
+  when a picker was required, and this is the same rule failing one step further
+  out, where the picker existed but was somebody else's. **Both failures happened
+  in the turn right after correctly applying the rule.**
+  A COROLLARY WORTH KEEPING: when the worker already holds an open picker, you
+  cannot paste into that pane without corrupting the selection — so the proxy must
+  be raised BEFORE reaching for the pane, not as a fallback after finding it
+  blocked.
+
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
