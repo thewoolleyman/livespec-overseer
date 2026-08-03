@@ -81,7 +81,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     obs = _supervisor_observe.observe(sup=sup, track=track, session=session, target=target, key=key)
     capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
     codex_fallback = obs.codex_fallback
-    claude_status, istate = obs.claude_status, obs.istate
+    claude_status, eff_ctx, istate = obs.claude_status, obs.eff_ctx, obs.istate
     ctx_stale_age = obs.ctx_stale_age
     declared, malformed, blocked, ready = (
         obs.declared,
@@ -160,7 +160,11 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
         status = attention_decision.status
         note = attention_decision.note
         active_conditions.update(attention_decision.active_conditions)
-    elif busy and not ((gate or blocked is not None) and not generating):
+    elif (
+        busy
+        and (ready or not (shell_only and eff_ctx is not None and eff_ctx <= threshold))
+        and not ((gate or blocked is not None) and not generating)
+    ):
         status = "working"
         busy_decision = _supervisor_busy.busy(
             request=_supervisor_busy.BusyRequest(

@@ -34,12 +34,11 @@ def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
-def test_bg_shell_at_danger_is_working_and_never_restarted(*, tmp_path):
+def test_bg_shell_at_danger_is_warned_and_never_restarted(*, tmp_path):
     """A session deep in the danger band whose pane LOOKS idle, but which has a live
-    background shell (a `Bash(run_in_background)` build/test still running), reads
-    `working` — never `danger`, never restarted. This is the concrete case proving why
-    the daemon may not equate "idle + settled" with "safe to kill": the pane text is
-    indistinguishable from idle, yet real work is in flight."""
+    background shell (a `Bash(run_in_background)` build/test still running), may receive
+    the guarded wrap-up, but still never restarts. The pane text is indistinguishable
+    from idle, so `ready` remains the only kill authorization."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -61,8 +60,7 @@ def test_bg_shell_at_danger_is_working_and_never_restarted(*, tmp_path):
         )
     }
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-    assert view.status == "working"  # bg shell ⇒ busy; the danger branch is never reached
-    assert view.note == "background shell"
+    assert view.status == "danger"
     assert not fake.has(method="respawn")  # the live background work was NOT killed
 
 

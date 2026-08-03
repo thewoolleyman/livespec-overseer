@@ -125,13 +125,9 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
                 track=request.track,
                 session=request.session,
                 target=request.target,
-                eff_ctx=request.obs.eff_ctx,
                 threshold=request.threshold,
-                acked=request.obs.acked,
-                declared=request.obs.declared,
                 act=request.act,
-                is_codex=request.obs.is_codex,
-                istate=request.obs.istate,
+                obs=request.obs,
             )
         )
         status = threshold_decision.status

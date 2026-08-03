@@ -249,6 +249,15 @@ does everything deterministically:
   `winding-down` (the daemon never keystrokes into a session that is actively
   wrapping up), and the round resets on a restart so the bands can fire again in
   the next round.
+- **Guarded shell-only wrap-ups.** Background-shell evidence alone no longer
+  starves a low-context track. A Claude pane whose only busy evidence is registry
+  `status=shell`, or a Codex pane whose only busy evidence is the descendant-shell
+  fallback, may receive the normal wrap-up if the runtime-specific input predicate
+  is present, the pane settles unchanged, no generating/sub-agent/gate/human-wait
+  or declaration/ACK blocker exists, and the daemon's immediate pre-paste
+  re-observation still agrees. This is not restart permission: any busy evidence,
+  including shell, still blocks respawn until a fresh `ready` is certifiable after
+  the shell clears.
 
 **The watch-set + the list.** The daemon watches every repo named in
 `~/.livespec-overseer-repos.json` that has a local checkout with a `plan/` dir,
@@ -265,7 +274,7 @@ will see:
 | `unassigned` | a discovered plan with no session — startable, never auto-started |
 | `idle` | at an empty prompt with nothing for the daemon to do (context unknown, or above threshold but waiting on a human / already declared) |
 | `idle-with-context-left` | idle above the wind-down threshold, not waiting on a human, undeclared — sent ONE keep-going nudge; the daemon marks it and clears the mark when it works again |
-| `working` | busy — actively generating, or a live background shell under its pane |
+| `working` | busy — actively generating, sub-agent-busy, non-shell busy, or shell-only busy above threshold / while restart is blocked |
 | `settling` | the pane is present but not yet a verified idle state; wait |
 | `warned` | at/below the warn threshold, wrap-up injected, nothing declared yet |
 | `winding-down` | the session ACKed the wrap-up and is wrapping up; re-warns suppressed |
