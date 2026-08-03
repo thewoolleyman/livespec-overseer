@@ -574,3 +574,28 @@ that logs only the worker's mistakes is a wrong record.
   not controlled — the first against the detectors' real scope, the second
   against a multi-file numstat. **Before reporting that a construct is "in the
   corpus", check the SCOPE THE GATE ACTUALLY READS, not the file.**
+
+- **T3 (2026-08-03) — I ARMED A WATCHER ON A SIGNAL THAT COULD NOT CHANGE, AND
+  IT REPORTED NOTHING WRONG FOR 1h50m.** Waiting on this thread's own archive
+  PR, I armed a condition watcher polling `gh pr view <n> --json state`. The
+  shared layer's rule is satisfied on its face — test the TERMINAL state first,
+  from the authoritative field, with a total fallback for an unrecognised
+  value. I did all three, correctly. **The PR was nevertheless STRUCTURALLY
+  UNABLE to reach a terminal state:** auto-merge was armed and every check was
+  green, but `mergeable` was `CONFLICTING` — the branch sat 21 commits behind
+  master, and a rename-vs-modify pair conflicts in a MERGE computation while
+  rebasing perfectly cleanly. So `state` read `OPEN` and would have kept reading
+  `OPEN` until my ceiling expired, whereupon the expiry would have announced
+  "still open" as though that were news. **The maintainer noticed the stall
+  before I did.**
+  **The rule this exposes is not in the shared layer:** a terminal-state watcher
+  must also poll a REACHABILITY field, because "not finished yet" and "can never
+  finish" are the same reading on the state field alone. For a PR that is
+  `mergeable` alongside `state`; the general form is *what would have to be true
+  for this to ever finish, and is it?* Re-armed on both, and the fix itself was
+  one rebase.
+  **I ALSO CAUSED IT.** The conflict was my own `T2` PR editing
+  `plan/fleet-charter-remediation/supervisor-handoff.md` while the archive PR
+  renamed that same file. Landing a correction into a thread that is mid-archive
+  is what broke the archive — so this entry was deliberately held until after
+  the archive merged, and is written at the archived path.
