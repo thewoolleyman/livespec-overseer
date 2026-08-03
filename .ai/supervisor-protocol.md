@@ -699,6 +699,61 @@ preserve every entry.
   be raised BEFORE reaching for the pane, not as a fallback after finding it
   blocked.
 
+- **C24 (2026-08-03) — THE CHARTER I WAS TOLD TO FOLLOW WAS STALE IN THE WORKING
+  TREE, AND ITS OWN PROVENANCE BLOCK PRINTED `PASS` WHILE I READ IT.** Cold-opening
+  the `foreman` thread I read `plan/foreman/supervisor-handoff.md` off disk. The
+  primary checkout was at `ad76472`; `origin/master` was `0a184b6`. PR #636 — the
+  wind-down binder written by the previous supervisor precisely so the restart
+  would inherit correctly — had merged at 21:00:04Z, about three minutes before I
+  opened the file. I was reading the RETIRED status block.
+  **WHAT IT WOULD HAVE COST.** That block said: "REMAINING ON THIS THREAD: `.2` and
+  `.4` land, then `.3`, then archive the thread, then fleet rollout." All four
+  slices were already CLOSED, and archiving there ships half of v1, because the
+  maintainer's decision is that v1 = phases A+B. A whole PR (#623) had already been
+  spent deleting that exact sentence. Obeying the file in front of me would have
+  re-driven closed work and then archived a live thread.
+  **THE INSTRUMENT THAT SHOULD HAVE CAUGHT IT REPORTED HEALTH.** I ran the Generator
+  provenance block. It printed `PASS: charter provenance matches the installed
+  generator`. That block is the only thing in a charter that speaks to its own
+  currency, and it answers a different question — WHICH GENERATOR EMITTED THIS
+  TEXT, never WHETHER THIS FILE IS THE CURRENT ONE. (Per `overseer-u63` it does not
+  reliably answer its own question either: it compares a digest against the
+  immutable cache file it was stamped from, so the equality holds by construction.
+  A second, independent axis of the same false assurance is recorded there.)
+  **WHAT ACTUALLY CAUGHT IT** was two records disagreeing: the supervisor marker
+  named PR #636 as landed, and the file in front of me showed no sign of it. I
+  resolved the disagreement against the FORGE — `git show origin/master:<charter>` —
+  not against the working tree, which is C13's rule arriving from a new direction.
+  **CHECK IT AT BOOT, BEFORE READING THE CHARTER FOR CONTENT:**
+
+  ```sh
+  charter="plan/<topic>/supervisor-handoff.md"
+  mise exec -- git fetch origin --quiet \
+    || { echo "HALT: cannot fetch; charter currency is UNKNOWN, not confirmed"; exit 1; }
+  if mise exec -- git diff --quiet origin/master -- "$charter"; then
+    printf '%s\n' "PASS: $charter is byte-identical to origin/master"
+  else
+    echo "HALT: the charter in this working tree DIFFERS from origin/master"
+    echo "REMEDY: read the forge copy before acting on anything in it — 'git show origin/master:$charter'. If the tree is merely BEHIND, fast-forward it; if the difference is an uncommitted local edit, establish WHOSE it is before discarding — another track's in-flight work looks identical to staleness here."
+  fi
+  ```
+
+  **THE GENERALISATION, and it is the reason this entry is worth its length: A
+  CHARTER IS A CLAIM WITH A TIMESTAMP, exactly like the item statuses it orders you
+  to re-measure.** This whole contract is built on "filed status is a claim; go
+  re-measure it from the authority." Every previous staleness incident on this
+  thread — T2, C18, T5, the scope claim corrected by #623 — was caught by applying
+  that rule to the LEDGER. This one is different in kind: the stale artifact was
+  THE INSTRUMENT, so obeying the charter more carefully could not find it. A
+  restart is exactly when this bites, because the wind-down PR that describes the
+  restart is the most recently merged thing in the repo and therefore the most
+  likely to be missing from a checkout nobody has pulled.
+  **A COROLLARY FOR THE HANDOFF-WRITING END:** the previous supervisor did
+  everything right — measured the state, wrote it down, landed it as #636 — and the
+  successor still read the wrong file. Writing a durable record is not the same as
+  delivering it. If the restart inherits a working tree, the record only arrives
+  after a `git fetch`.
+
 - Role-level seed corrections live in the sibling charters this file was
   modeled on: `plan/archive/ship-overseer-to-fleet/supervisor-handoff.md`
   (archived 2026-07-27 — still the reference exemplar, and still the fixture
