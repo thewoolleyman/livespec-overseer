@@ -1,5 +1,10 @@
 # shell-evidence-truth — handoff
 
+> **ARCHIVED 2026-08-03.** This is the thread's historical opening handoff.
+> Sections 2 and 3 intentionally preserve the state and next action at open;
+> they are no longer instructions. Read `completion.md` for the landed result,
+> deployment evidence, and live re-verification.
+
 > Cold-open handoff. It assumes you have read nothing and remember nothing,
 > and that you may be a different model than the session that wrote it.
 > Everything load-bearing is either stated here or cited by a path in §5.
