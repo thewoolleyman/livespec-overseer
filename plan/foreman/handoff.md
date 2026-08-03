@@ -196,6 +196,35 @@ Then:
    the released plugin is deployed fleet-wide.** v1 is A+B; Phase C–E remain
    separate future scope.
 
+   **THAT LAST VERIFICATION HAS A KNOWN GAP ALREADY, AND A VERSION CHECK WILL
+   NOT SEE IT.** Measured 2026-08-03T20:47Z: slice `.4`'s daemon-side heartbeat
+   surfacing is MERGED BUT NOT RUNNING. `overseer/_supervisor_foreman.py` first
+   landed at 18:10:35Z (`a01d3e2`, PR #619); the ACTING daemon has been up since
+   08:34:24Z — nine and a half hours earlier — and Python caches modules at
+   import, so that process cannot hold the new code. Confirmed empirically
+   rather than inferred: the snapshot the daemon wrote seconds before this
+   measurement contains no heartbeat notion at all.
+
+   The other Phase A slices are fine, and the reason is worth knowing because it
+   tells you which future slices will have this problem: `.1`'s snapshot export
+   IS live (it landed 05:38:47Z, BEFORE that daemon started — the fresh
+   `~/.livespec-overseer-status.json` carries the ratified schema), and `.2` /
+   `.3` are CLI surfaces that get a fresh process per invocation, so they are
+   live the moment they merge. **Only DAEMON-side code can be shipped-but-not-
+   running.**
+
+   So the deployment check must test BEHAVIOUR, not a release version: read
+   `~/.livespec-overseer-status.json` and the daemon's `NEEDS YOU` block for the
+   feature itself. **Restarting the daemon is what closes the gap, and it is NOT
+   this thread's call** — it runs in tmux `livespec-overseer:1.1`, it supervises
+   every tracked session in the fleet, and the standing rule is never to kill
+   the acting daemon. Surface it; do not act on it.
+
+   This is correction C9 one step further out. C9 recorded that "the PR merged
+   and CI is green" answers a different question from "the acceptance criteria
+   were met". This adds a third question those two do not answer: **is it
+   RUNNING?**
+
 Do not resume `tmp-revise-input.json`, do not re-file any of the nine spec
 proposals, do not re-dispatch any of `.1`–`.5`, `overseer-41p` or
 `overseer-n7xx67` (all closed), do not close the epic on Phase A's completion
