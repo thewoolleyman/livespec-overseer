@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.16.2...v0.16.3) (2026-08-03)
+
+
+### Bug Fixes
+
+* refuse reserved supervisor session derivations ([7eb7484](https://github.com/thewoolleyman/livespec-overseer/commit/7eb7484badfeb5ae0ae91dd65c85a5cff94f0a96))
+
 ## [0.16.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.16.1...v0.16.2) (2026-08-03)
 
 
