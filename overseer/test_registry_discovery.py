@@ -67,6 +67,19 @@ def test_discover_plans_fail_soft_on_missing_plan_dir(*, tmp_path):
     assert registry.discover_plans(watch_repos=[repo]) == []
 
 
+def test_discover_plans_refuses_collision_derived_reserved_session_name(*, tmp_path, capsys):
+    repo_a = tmp_path / "alpha"
+    repo_b = tmp_path / "beta"
+    _make_plan(repo=repo_a, topic="supervisor")
+    _make_plan(repo=repo_b, topic="supervisor")
+
+    assert registry.discover_plans(watch_repos=[repo_a, repo_b]) == []
+
+    err = capsys.readouterr().err
+    assert "alpha-supervisor" in err
+    assert "beta-supervisor" in err
+
+
 def test_discover_plans_fail_soft_on_an_unreadable_plan_dir(*, tmp_path, monkeypatch, capsys):
     """B7: a plan/ that becomes unlistable between the is_dir check and iterdir
     (chmod, NFS hiccup, mid-clone) skips that ONE repo — every other watched repo

@@ -19,7 +19,9 @@ import jsonio
 import signals
 from _registry_core import (
     Track,
+    colliding_topics,
     norm,
+    tmux_id,
     warn,
 )
 
@@ -82,8 +84,25 @@ def discover_plans(
             except OSError as exc:
                 warn(message=f"unreadable plan child {child}: {exc}")
                 continue
-    triples.sort(key=lambda t: (t[0], t[1]))
-    return triples
+    discovered = _without_reserved_session_derivations(discovered=triples)
+    discovered.sort(key=lambda t: (t[0], t[1]))
+    return discovered
+
+
+def _without_reserved_session_derivations(
+    *,
+    discovered: list[tuple[str, str, str]],
+) -> list[tuple[str, str, str]]:
+    collisions = colliding_topics(discovered=discovered)
+    admitted: list[tuple[str, str, str]] = []
+    for repo, topic, handoff in discovered:
+        try:
+            _ = tmux_id(repo=repo, topic=topic, colliding=collisions)
+        except ValueError as exc:
+            warn(message=str(exc))
+            continue
+        admitted.append((repo, topic, handoff))
+    return admitted
 
 
 def join(

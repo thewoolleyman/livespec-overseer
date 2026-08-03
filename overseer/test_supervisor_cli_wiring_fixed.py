@@ -80,6 +80,37 @@ def test_cli_start_fails_when_the_tmux_session_cannot_be_created(*, tmp_path, mo
     assert registry.read_mapping(store_path=store) == []  # nothing mapped
 
 
+def test_cli_add_refuses_collision_derived_reserved_session_name(*, tmp_path, monkeypatch, capsys):
+    repo, topic = make_plan(tmp_path=tmp_path, topic="supervisor")
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    monkeypatch.setattr(supervisor, "_cli_colliding", lambda: frozenset({"supervisor"}))
+
+    assert supervisor.main(argv=["add", "--repo", str(repo), "--topic", topic]) == 1
+
+    err = capsys.readouterr().err
+    assert "repo-supervisor" in err
+    assert str(repo) in err
+    assert registry.read_mapping(store_path=store) == []
+
+
+def test_cli_start_refuses_collision_derived_reserved_session_name(
+    *, tmp_path, monkeypatch, capsys
+):
+    repo, topic = make_plan(tmp_path=tmp_path, topic="supervisor")
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    fake = FakeTmux()
+    monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
+    monkeypatch.setattr(supervisor, "_cli_colliding", lambda: frozenset({"supervisor"}))
+
+    assert supervisor.main(argv=["start", "--repo", str(repo), "--topic", topic]) == 1
+
+    err = capsys.readouterr().err
+    assert "repo-supervisor" in err
+    assert str(repo) in err
+    assert fake.calls == []
+    assert registry.read_mapping(store_path=store) == []
+
+
 def test_cli_start_fails_when_the_launch_does_not_land(*, tmp_path, monkeypatch, capsys):
     """B5 at the CLI: `_do_launch` returning False exits nonzero and reports, rather than
     printing `started …` for a session that never came up — and again maps nothing."""

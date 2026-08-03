@@ -181,14 +181,25 @@ def _refuse_reserved_topic(*, repo: str, topic: str) -> bool:
     return True
 
 
+def _derive_tmux_or_refuse(*, repo: str, topic: str) -> str | None:
+    try:
+        return registry.tmux_id(repo=repo, topic=topic, colliding=_cli_colliding())
+    except ValueError as exc:
+        streams.write_stderr(text=f"{exc}\n")
+        return None
+
+
 def _cmd_add(*, args: argparse.Namespace) -> int:
     repo = os.path.normpath(args.repo)
     if _refuse_reserved_topic(repo=repo, topic=args.topic):
         return 1
+    session = _derive_tmux_or_refuse(repo=repo, topic=args.topic)
+    if session is None:
+        return 1
     track = registry.Track(
         topic=args.topic,
         repo=repo,
-        tmux=registry.tmux_id(repo=repo, topic=args.topic, colliding=_cli_colliding()),
+        tmux=session,
         handoff=default_handoff(repo=repo, topic=args.topic),
         resume=default_resume(repo=repo, topic=args.topic),
     )
@@ -219,7 +230,9 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
     topic = args.topic
     if _refuse_reserved_topic(repo=repo, topic=topic):
         return 1
-    session = registry.tmux_id(repo=repo, topic=topic, colliding=_cli_colliding())
+    session = _derive_tmux_or_refuse(repo=repo, topic=topic)
+    if session is None:
+        return 1
     force = getattr(args, "force", False)
     io = tmuxio.TmuxIO()
     sup = Supervisor(tmux=io)
