@@ -339,11 +339,13 @@ STATE_TOKENS = (STATE_READY, STATE_BLOCKED, STATE_WINDING_DOWN)
 _DAEMON_TOKENS = (STATE_IDLE_WITH_CONTEXT_LEFT,)
 STATE_PATH_MISMATCH = "state-path-mismatch"
 _SUPERVISOR_SUFFIX = "-supervisor"
+_FOREMAN_SUFFIX = "-foreman"
+_RESERVED_WORKER_SUFFIXES = (_SUPERVISOR_SUFFIX, _FOREMAN_SUFFIX)
 
 
 def topic_reserved_for_supervisor(*, topic: str) -> bool:
     """True when a worker topic would collide with the reserved pair namespace."""
-    return topic.lower().endswith(_SUPERVISOR_SUFFIX)
+    return topic.lower().endswith(_RESERVED_WORKER_SUFFIXES)
 
 
 def supervisor_entity_topic(*, topic: str) -> str:

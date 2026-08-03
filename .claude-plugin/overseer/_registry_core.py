@@ -138,7 +138,8 @@ def repo_slug(*, repo: str | os.PathLike[str]) -> str:
 def _reserved_session_refusal(*, repo: str | os.PathLike[str], topic: str, session: str) -> str:
     return (
         f"refusing reserved supervisor session name {session} "
-        f"for {norm(repo=repo)}::{topic}; worker sessions may not end in -supervisor"
+        f"for {norm(repo=repo)}::{topic}; "
+        "worker sessions may not end in -supervisor or -foreman"
     )
 
 
