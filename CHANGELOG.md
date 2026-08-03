@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.18.0...v0.19.0) (2026-08-03)
+
+
+### Features
+
+* pin overseer status snapshot export ([1065ad7](https://github.com/thewoolleyman/livespec-overseer/commit/1065ad76ef822158dd0f8b841513a22319b60514))
+
 ## [0.18.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.17.2...v0.18.0) (2026-08-03)
 
 
