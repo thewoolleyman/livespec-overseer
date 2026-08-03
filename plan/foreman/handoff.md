@@ -32,7 +32,7 @@ bridge does not create parent edges — while inter-slice blockers are real
    re-verified). The per-phase dispositions in it are BINDING design
    constraints; do not re-litigate a finding without new evidence.
 
-## Restart checkpoint — 2026-08-03T19:27Z, PHASE B FOUNDATIONS LANDED; ACTING CHAIN STARTED
+## Restart checkpoint — 2026-08-03T20:00Z, CORE `foreman-act` LANDED; FILE/JOURNAL SLICE NEXT
 
 **ALL FIVE PHASE A SLICES ARE CLOSED.** `.1` (snapshot export), `.2`
 (`list --json`), `.3` (foreman-gather), `.4` (heartbeat surfacing), `.5`
@@ -58,8 +58,8 @@ The epic stays `backlog` until all six close.
 The deterministic wrapper/runtime (`overseer-by6hrx`) merged as PR #625 at
 `ee2a1a1`; the fail-closed classifier (`overseer-eqbk4h`) merged as PR #627 at
 `07bf2ae`. Both passed their post-merge janitors and closed in the ledger.
-`overseer-4opppx` is now genuinely running as Fabro
-`01KZ4HD12TAH3Z0CR4ETWPR3HN`.
+The core session-lifecycle `foreman-act` (`overseer-4opppx`) merged as PR
+#630 at `ad76472`, passed its post-merge janitor, and closed in the ledger.
 
 **A CONCURRENT RAW-FILED DUPLICATE WAS CONTAINED:** `overseer-z5fo4y.6` was created
 without `intake:triaged` after the six-slice cut and duplicates the wrapper
@@ -158,7 +158,7 @@ ls SPECIFICATION/proposed_changes/
 | `overseer-n7xx67` | **closed**, PR #600 |
 | `overseer-by6hrx` deterministic wrapper/runtime | **closed**, PR #625, `ee2a1a1`, post-merge janitor green |
 | `overseer-eqbk4h` fail-closed session classifier | **closed**, PR #627, `07bf2ae`, post-merge janitor green |
-| `overseer-4opppx` session-lifecycle `foreman-act` + fresh revalidation | **active; Fabro `01KZ4HD12TAH3Z0CR4ETWPR3HN` running** |
+| `overseer-4opppx` session-lifecycle `foreman-act` + fresh revalidation | **closed**, PR #630, `ad76472`, post-merge janitor green |
 | `overseer-wykyth` typed filing + journal-triage actions | `pending-approval`, blocked by `overseer-4opppx` |
 | `overseer-vts4lo` bounded one-shot work-item sessions | `pending-approval`, blocked by `overseer-4opppx` + `overseer-wykyth` |
 | `overseer-qp3vpb` Claude/Codex skill + end-to-end v1 binding | `pending-approval`, blocked by the wrapper and all acting/lifecycle slices |
@@ -178,18 +178,18 @@ ls SPECIFICATION/proposed_changes/
   approve valve was run, because per C10 the set-admission + approve two-step is
   unnecessary and permanently rewrites the item's recorded admission policy.
 
-## NEXT ACTION — land `foreman-act`, then drain the chain
+## NEXT ACTION — dispatch typed filing/journal actions, then drain the chain
 
 FIRST, re-fetch and re-measure the six Phase B items, `fabro ps`, current
 master, and `gh pr list --state all`; never infer run state from the ledger.
 Then:
 
-1. **Watch `overseer-4opppx` to a terminal outcome.** Reconcile forge state
-   before any retry. It was dispatched directly from effective
-   `admission:auto`; `approve` correctly refused with `invalid-source-state`,
-   so do not repeat that human valve.
-2. **Then drain `overseer-wykyth`, `overseer-vts4lo`, and finally
-   `overseer-qp3vpb` in dependency order.** The item-level `admission:auto`
+1. **Dispatch `overseer-wykyth` directly with `impl`.** Its blocker is closed
+   and its effective policy is `admission:auto`; do not run the human approve
+   valve (that correctly refused with `invalid-source-state` on the prior
+   slice).
+2. **Then drain `overseer-vts4lo`, and finally `overseer-qp3vpb` in
+   dependency order.** The item-level `admission:auto`
    labels are intentional; linked items remain `pending-approval` until their
    real edges clear and the lifecycle admits them.
 3. **Only after all six close, close/archive the epic and thread, then verify
