@@ -548,3 +548,21 @@ ordering exactly.
   THE RULE: **re-run the subject search AT THE MOMENT OF FILING, unfiltered by
   status** — not at plan time, not before the picker, not "recently". Minutes
   are enough to make it wrong.
+
+  **ADDENDUM (2026-08-03T20:50Z) — I STATED THAT RULE CORRECTLY AND THEN RAN IT
+  THROUGH A TOOL THAT FILTERS BY DEFAULT.** My searches used plain
+  `bd list --limit N --json`, and I wrote "unfiltered by status" in the code
+  comment beside them. Measured with a control: `bd list --all --limit 1000`
+  returns **191** items where the same call without `--all` returns **39**. The
+  default hides roughly four-fifths of the ledger, including everything closed
+  — and "already built, already closed" is exactly the answer a
+  did-someone-already-do-this search exists to find.
+  Worse than a static filter: **the hidden set GROWS OVER TIME**, so the same
+  search silently narrows. My duplicate-hunt an hour earlier did surface a
+  freshly-closed sibling; the identical command later did not. A query that
+  worked once is not a query that works.
+  So: pass `--all` explicitly, and prove the widening with a control
+  (`--all` count strictly greater than the default) rather than trusting the
+  flag name. This is the C1/C12 rule — *when a check passes, confirm it can also
+  FAIL* — applied to a search: **a search that cannot return the closed item
+  cannot tell you the work is already done.**
