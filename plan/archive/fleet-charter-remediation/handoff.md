@@ -4,6 +4,11 @@
 `overseer-c45` (this repo's beads tenant). Split out of
 `plan/supervisor-prompt-quality/` when that thread archived on 2026-08-02.
 
+**THIS THREAD IS CLOSED AND ARCHIVED.** It is the permanent account of a
+finished sweep, not a live handoff — every ledger anchor below is closed and
+all eight PRs are merged. The one thing still OPEN is `overseer-x1q`, filed
+from the last section of this file.
+
 **Status is not stored here.** Read it from the ledger. `bd` needs the fleet
 credential wrapper in this tenant — a bare `bd` returns `Access denied`. Use
 `with-livespec-env.sh -- bd show overseer-yho.3 --json`.
@@ -17,7 +22,7 @@ gate, `tests/prompts/test_charters_carry_no_known_defects.py`.
 |---|---|---|---|
 | `livespec-orchestrator-beads-fabro` | 55 | **0** | #1248 |
 | `homelab` | 26 | **0** | #215 |
-| `livespec-dev-tooling` | 18 | **0** | `charter-remediation` |
+| `livespec-dev-tooling` | 18 | **0** | #1140 |
 | `livespec-console-beads-fabro` | 15 | **0** | #602 |
 | `livespec` | 5 | **0** | #1919 |
 | `livespec-overseer` | 0 | **0** | — |
@@ -152,19 +157,35 @@ returns zero on a paste that landed perfectly.
 
 ## What is NOT done
 
-- **Not every PR was merged at hand-off.** Merged: `#1248`, `#1919`. Open:
-  `livespec-overseer#542` (the `(h)` continuation fix), `homelab#215`,
-  `livespec-console-beads-fabro#602`, and the `livespec-dev-tooling` PR. Verify
-  against the forge, not this list.
+- **EVERY PR IS MERGED — this section is about what the sweep did not REACH, not
+  about unfinished delivery.** Verified against the forge 2026-08-03T03:33Z:
+  `livespec-orchestrator-beads-fabro#1248`, `homelab#215`,
+  `livespec-dev-tooling#1140`, `livespec-console-beads-fabro#602`,
+  `livespec#1919`, and `livespec-overseer#542`, `#549`, `#551` — all eight MERGED.
+  An earlier draft of this bullet listed four of them as OPEN, which was true when
+  written and false within the hour. **Re-measure against the forge; do not trust
+  this list either.**
 - **`#1248` merged with an overclaiming title** ("55 defects to zero") one minute
   after a supervisor measured it as 56 → 1. The residue was the `(h)` continuation
-  false positive, so the claim becomes retroactively true once `#542` merges. A
-  correction stating the precise sequencing is posted as a comment on `#1248`.
-- **The gate cannot be adopted as CI in `homelab`** — it consumes no pin
-  (Rust/Nix, no `pyproject.toml`, no `justfile`, no `.mise.toml`). Its findings
-  come from this repo running the module against that tree, so `homelab` will
-  drift again with nothing to catch it. Per-repo adoption reaches at most the five
-  pin-consumers. **This is the single biggest hole left.**
+  false positive, and `#542` **has since merged**, so the claim is now true — but
+  it was not true at the moment it was published, which is the part worth keeping.
+  A correction stating the precise sequencing is posted as a comment on `#1248`.
+- **NOTHING ENFORCES THIS ANYWHERE BUT `livespec-overseer`, AND THAT IS BIGGER
+  THAN AN EARLIER DRAFT OF THIS FILE SAID.** The draft named `homelab` as "the
+  single biggest hole" because it consumes no pin. **Measured 2026-08-03: the hole
+  is FIVE repos, not one.** `test_charters_carry_no_known_defects.py` exists in
+  exactly one repo — a `find` across all six returns 1 copy, in `livespec-overseer`
+  — and its `_REPO_ROOT` is `Path(__file__).parent.parent.parent`, so
+  `test_every_charter_in_this_repo_is_free_of_the_known_defects` scans **only its
+  own tree**. The other five repos have **no gate at all** and every one of them
+  will drift back.
+
+  So the sweep's 119 → 0 is a **snapshot, not a ratchet.** `homelab` is merely the
+  repo that cannot be fixed by per-repo adoption (Rust/Nix — no `pyproject.toml`,
+  no `justfile`, no `.mise.toml`); the other four *could* adopt it and have not.
+  Filed as `overseer-x1q` (P1) rather than left in prose here. That item also
+  records why widening this gate's globs to scan sibling repos is the WRONG
+  shape, and that any adoption must carry the false-positive lesson with it.
 - **Nothing schedules regeneration.** This sweep fixed the emitted charters; a
   thread that never re-runs `supervise-plan` keeps whatever it was given.
 - **The corpus GREW while the sweep ran** — 33 charters at the start, 39 by the
