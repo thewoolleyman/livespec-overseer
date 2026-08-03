@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.24.0...v0.25.0) (2026-08-03)
+
+
+### Features
+
+* **foreman:** pin closed lifecycle actuator ([ad76472](https://github.com/thewoolleyman/livespec-overseer/commit/ad764723a81818ee6f6e01a280d63479b1b869de))
+
 ## [0.24.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.23.0...v0.24.0) (2026-08-03)
 
 
