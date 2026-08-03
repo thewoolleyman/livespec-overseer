@@ -23,12 +23,17 @@ import subprocess
 import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Protocol
 
 import pytest
 
 __all__: list[str] = []
 
 _SETTLE_TIMEOUT_S = 5.0
+
+
+class Settle(Protocol):
+    def __call__(self, target: str, needle: str, *, fail_on_timeout: bool = False) -> str: ...
 
 
 def _tmux(socket: str, *args: str) -> subprocess.CompletedProcess[str]:
@@ -122,9 +127,7 @@ def _wait_for_fixture(
 
 
 @pytest.fixture(name="settle")
-def _settle_fixture(
-    *, tmux: Callable[..., subprocess.CompletedProcess[str]]
-) -> Callable[[str, str], str]:
+def _settle_fixture(*, tmux: Callable[..., subprocess.CompletedProcess[str]]) -> Settle:
     """Wait until a pane contains `needle` AND stops changing.
 
     Never a fixed sleep: a fixed wait after `send-keys` races the pane's own
@@ -133,7 +136,7 @@ def _settle_fixture(
     race made an earlier version of this suite fail about one run in four.
     """
 
-    def _settle(target: str, needle: str) -> str:
+    def _settle(target: str, needle: str, *, fail_on_timeout: bool = False) -> str:
         deadline = time.monotonic() + _SETTLE_TIMEOUT_S
         previous = "\x00never-captured"
         while time.monotonic() < deadline:
@@ -142,11 +145,16 @@ def _settle_fixture(
                 return current
             previous = current
             time.sleep(0.1)
+        if fail_on_timeout:
+            pytest.fail(
+                f"tmux pane did not settle before the timeout; last capture was:\n{previous}"
+            )
         # COVERAGE-EXEMPT: reached only if a pane never settles within the
         # timeout. Unreachable on a healthy run, kept so a hung pane yields the
         # last capture instead of raising — the caller's assertion then reports
         # the actual pane contents, which is a far better failure message than
-        # a timeout traceback.
+        # a timeout traceback. Callers whose own command text can match the
+        # assertion under test may opt into the fail-closed path above.
         return previous  # pragma: no cover
 
     return _settle
