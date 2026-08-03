@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.17.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.17.0...v0.17.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* prove unavailable Claude registry suppresses paste ([d62e6a3](https://github.com/thewoolleyman/livespec-overseer/commit/d62e6a339444bb48796ef8d2034f06e6c059a459))
+* split release-tier cli wiring edge tests ([b16a5ee](https://github.com/thewoolleyman/livespec-overseer/commit/b16a5ee1fa92a26d1eb2ca8d3569cff63e5435bc))
+* split release-tier dynamic modules ([88f2e27](https://github.com/thewoolleyman/livespec-overseer/commit/88f2e273ff49800564148a91c4084f78443c631f))
+
 ## [0.17.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.16.3...v0.17.0) (2026-08-03)
 
 
