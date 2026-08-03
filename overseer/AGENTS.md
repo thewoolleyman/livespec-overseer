@@ -74,8 +74,8 @@ stateDiagram-v2
     cGone --> session_gone: no live Claude
 
     state cBusy <<choice>>
-    cBusy --> working: busy
-    cBusy --> cGate: not busy
+    cBusy --> working: non-shell busy, or shell busy above threshold / with ready
+    cBusy --> cGate: not busy, or shell-only eligible for low-context guard
 
     state cGate <<choice>>
     cGate --> blocked_human: gate or 'blocked'
@@ -657,8 +657,13 @@ for the marker's edge-triggered lifecycle.
     `has_active_subshell` AND `is_busy` both miss it — but Claude reports `busy`, so the
     daemon marks it `working` (note `"sub-agent (Claude busy)"`). [fixed false-idle]
   - **`shell`** — at the prompt with a live `Bash(run_in_background)` command. This is
-    Claude's OWN, accurate background-work signal → `working (background shell)`. [fixed
-    the autonomous-mode false-idle: a real background dispatch mis-read as idle]
+    Claude's OWN, accurate background-work signal. Above the wind-down threshold it
+    remains `working (background shell)`; at/below the threshold it may coexist with
+    the guarded wrap-up only when every idle-input, settle, declaration, gate,
+    human-wait, generation, sub-agent, and immediate recheck guard passes. It still
+    counts as busy for restart, so a `ready` declaration cannot respawn until shell
+    evidence has cleared. [fixed the autonomous-mode false-idle: a real background
+    dispatch mis-read as idle]
   - **`waiting`** — at a gate/prompt for the human. **`idle`** — nothing pending. Neither
     is busy; the session falls through to the gate/idle branches.
   For an adopted session the daemon therefore **IGNORES the process-tree shell-walk
@@ -674,11 +679,14 @@ for the marker's edge-triggered lifecycle.
   the pane process marks a session busy ONLY for a session with NO Claude registry entry
   (`claude_status is None` — Codex). It is the only busy signal that covers Codex. Its
   ORIGINAL job — blocking a force-restart of a live `Bash(run_in_background)` build — is
-  moot now that the cardinal rule forbids restart without a `ready` declaration; for
-  Claude the `shell` status supersedes it exactly and more accurately. The `/proc` readers
+  still load-bearing for the restart interlock: `ready` never respawns while descendant
+  shell evidence remains. For low-context Codex only, the same shell-only evidence may
+  coexist with the guarded wrap-up when the structural Codex prompt/statusline is present,
+  the pane settled, and the immediate pre-paste re-observation still agrees. For Claude
+  the `shell` status supersedes it exactly and more accurately. The `/proc` readers
   (`proc_children`/`proc_comm`) are injected (`children_of`/`comm_of`) so the beside-tests
-  fake them. When it is the SOLE reason a track isn't idle, the row `note` is
-  `"background shell"`.
+  fake them. Above threshold, when it is the SOLE reason a track isn't idle, the row
+  `note` is `"background shell"`.
 - **Idle-input detection (`signals.is_idle_input`).** The real idle prompt is an
   EMPTY `❯` between two horizontal rule lines (`────…`), statusline + hint below
   — NOT a `╭─╮` box with `? for shortcuts` (verified live 2026-07-13). Detect
@@ -792,14 +800,21 @@ for the marker's edge-triggered lifecycle.
   the session honour the protocol; it is NEVER to have the daemon guess on its
   behalf.
 - **State precedence** (`evaluate`, top to bottom). `working` and `blocked:human`
-  are evaluated FIRST, so an injection/keystroke is suppressed while a pane is busy
-  (including a live background shell) or showing a structured gate (permission
-  prompt / picker) — never keystroke into a gate. Then `settling` / identity
-  re-check, then `restarting` (a fresh `ready`), then the threshold branch
-  (`winding-down` on a fresh ACK, else `danger` at/below 20%, else `warned`), else
-  the idle branch. `restarting` is checked BEFORE `warned`: a fresh `ready` means the
-  session already declared it is done, so it supersedes any re-warn. The idle branch
-  itself splits: an idle session still ABOVE threshold, not `waiting` on a human, and
+  are evaluated FIRST, so an injection/keystroke is suppressed while a pane is
+  generating, sub-agent-busy, non-shell busy, carrying a `ready` while any busy
+  evidence remains, or showing a structured gate (permission prompt / picker) —
+  never keystroke into a gate. Shell-only evidence is the narrow exception to the
+  busy short-circuit: at/below threshold it may continue to the low-context branch,
+  but only through the same idle-input and settle gates plus an immediate pre-paste
+  re-observation of identity, runtime/busy kind, capture, declaration/ACK/gate state,
+  and input predicate. Any changed, unknown, malformed, conflicting, generating,
+  sub-agent, non-shell busy, human-waiting, declared, gated, or typed-input evidence
+  cancels that tick. Then `settling` / identity re-check, then `restarting` (a fresh
+  `ready`), then the threshold branch (`winding-down` on a fresh ACK, else `danger`
+  at/below 20%, else `warned`), else the idle branch. `restarting` is checked BEFORE
+  `warned`: a fresh `ready` means the session already declared it is done, so it
+  supersedes any re-warn only after busy evidence has cleared. The idle branch itself
+  splits: an idle session still ABOVE threshold, not `waiting` on a human, and
   carrying no session declaration (or already holding the marker) becomes
   `idle-with-context-left` and gets ONE keep-going nudge; anything else is plain
   `idle` (see invariant 9 for the marker lifecycle).

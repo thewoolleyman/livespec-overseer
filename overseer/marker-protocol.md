@@ -87,10 +87,23 @@ repo's `tmp/overseer/` at startup and refuses to run if any is not ignored.
 ## What the daemon injects at threshold — an ESCALATING wrap-up
 
 When a tracked session's **remaining context** falls to or below its threshold
-(`ctx_threshold`, default 50%) AND the pane is in a verified idle-input state,
-the daemon records an **injection stamp** (an epoch-seconds timestamp in the
-sidecar `~/.livespec-overseer-stamps.json`, keyed by `(repo, topic)`) and then
-**bracketed-pastes** the wrap-up message.
+(`ctx_threshold`, default 50%) AND the pane is in a verified runtime-specific
+idle-input state, the daemon records an **injection stamp** (an epoch-seconds
+timestamp in the sidecar `~/.livespec-overseer-stamps.json`, keyed by `(repo,
+topic)`) and then **bracketed-pastes** the wrap-up message.
+
+Recognized background-shell evidence is the one busy class that may coexist
+with this low-context paste. For Claude that means the adopted session's
+registry status is exactly `shell`; for Codex that means the descendant-shell
+fallback is the only busy evidence. It does not make the shell safe to kill,
+does not authorize a restart, and does not weaken the input guard: Claude still
+needs a positively empty input box, Codex still needs its structural prompt and
+statusline with no picker or generating marker, and the daemon re-reads the
+pane identity, runtime/busy evidence, capture, declaration/ACK/gate state, and
+input predicate immediately before opening the round. Any change, unknown
+status, malformed state, typed input, generating/sub-agent evidence, gate,
+human wait, `ready`, `blocked:`, or fresh `winding-down` cancels the paste for
+that tick.
 
 It fires **once per 10%-band** — the threshold itself, then each lower band
 (40 / 30 / 20 / 10) — and each band fires **at most once per round**, durably

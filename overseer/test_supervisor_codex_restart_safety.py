@@ -176,11 +176,11 @@ def test_a_codex_track_below_threshold_gets_the_escalating_wrapup(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
-    # frames: [main, settle-1, settle-2 (== settle-1 → settled), post-Enter (busy → submitted)]
+    # frames: [main, settle-1, settle-2 (== settle-1), pre-paste recheck, post-Enter busy]
     fake.serve(
         session=session,
         repo=repo,
-        capture=[codex_idle_capture(ctx=40)] * 3 + [codex_busy_capture(ctx=40)],
+        capture=[codex_idle_capture(ctx=40)] * 4 + [codex_busy_capture(ctx=40)],
         cmd="bun",
     )
     sessions_dir = tmp_path / "sessions"

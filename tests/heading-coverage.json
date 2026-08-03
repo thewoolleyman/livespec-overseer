@@ -234,43 +234,43 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A Claude background shell does not block a guarded wrap-up",
-    "test": "TODO",
-    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: drive a Claude registry status=shell track through the full settle/recheck/paste path, then sabotage the shell-only eligibility exception."
+    "test": "tests.integration.test_shell_wrapup_v005.test_claude_status_shell_allows_guarded_low_context_wrapup",
+    "reason": "Integration-tier: drives a real Supervisor act tick for a low-context Claude pane whose only busy evidence is registry status=shell. Asserts the wrap-up is pasted once, Enter is sent, the row remains shell-noted, and no restart fires. SABOTAGE-VERIFIED 2026-08-03: restoring the unconditional busy branch for shell-only evidence turns this red with status working and zero pastes."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A Codex descendant shell does not block a guarded wrap-up",
-    "test": "TODO",
-    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: drive Codex descendant-shell fallback evidence through the structural-idle settle/recheck/paste path and preserve the Codex input-safety distinction."
+    "test": "tests.integration.test_shell_wrapup_v005.test_codex_descendant_shell_allows_structural_guarded_low_context_wrapup",
+    "reason": "Integration-tier: drives a real Codex-managed pane with descendant-shell fallback evidence, structural Codex prompt/statusline, settle captures, and Codex submit confirmation. Asserts one wrap-up and no restart. SABOTAGE-VERIFIED 2026-08-03: removing the shell-only eligibility exception or the Codex structural-idle guard turns this red."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Generating or sub-agent-busy evidence suppresses a low-context paste",
-    "test": "TODO",
-    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: prove generating and sub-agent-busy controls remain paste-free while the shell-only cases act."
+    "test": "tests.integration.test_shell_wrapup_v005.test_generating_and_sub_agent_evidence_still_suppress_wrapup",
+    "reason": "Integration-tier: parameterized real Supervisor act ticks prove both textual generation and Claude registry busy/sub-agent evidence stay in working, record no stamp, paste nothing, and restart nothing while adjacent shell-only tests act. SABOTAGE-VERIFIED 2026-08-03: treating all busy evidence as shell-eligible turns the controls red."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A changing pane or changed evidence cancels a pending wrap-up",
-    "test": "TODO",
-    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: mutate capture or runtime evidence between settle and the immediate pre-paste recheck and prove the act is cancelled."
+    "test": "tests.integration.test_shell_wrapup_v005.test_pre_paste_recheck_cancels_when_capture_changes_after_settle",
+    "reason": "Integration-tier: mutates the pane capture after the settle pair and before paste, then asserts the tick cancels without a stamp or paste. SABOTAGE-VERIFIED 2026-08-03: deleting the immediate pre-paste re-observation turns this red."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Declarations, gates, and ambiguous evidence suppress a shell-only wrap-up",
-    "test": "TODO",
-    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: exercise ready, blocked, fresh winding-down, structured-gate, malformed, unavailable, and conflicting-evidence controls without a paste."
+    "test": "tests.integration.test_shell_wrapup_v005.test_declarations_suppress_shell_only_wrapup",
+    "reason": "Integration-tier: parameterized declaration controls prove blocked, fresh winding-down, and malformed state suppress shell-only wrap-up, with companion tests for ready, structured gate, missing input, unknown runtime status, and changed evidence. SABOTAGE-VERIFIED 2026-08-03: letting shell-only bypass these guards turns the row red with an unexpected paste."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A shell-only session at the danger line is warned and reported",
-    "test": "TODO",
-    "reason": "Integration-tier coverage is owed by the supervisor-wrapup-citizenship daemon implementation item: prove one qualified wrap-up plus report-only danger membership, with no restart, kill, or declaration write."
+    "test": "tests.integration.test_shell_wrapup_v005.test_shell_only_danger_wrapup_is_report_only_and_never_restarts_or_writes_state",
+    "reason": "Integration-tier: drives a shell-only low-context pane at 20%, asserts exactly one wrap-up, the danger alert text, and zero respawn/new-session/state writes. SABOTAGE-VERIFIED 2026-08-03: restoring shell-only suppression or coupling danger to a destructive act turns this red."
   },
   {
     "spec_root": "SPECIFICATION",
