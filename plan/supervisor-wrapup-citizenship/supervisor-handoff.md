@@ -371,8 +371,9 @@ date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
 ```
 
 `ledger_show` takes the id as an argument on purpose: the anchor above is the
-EPIC, and every piece of remaining work lives on the child `overseer-6mbp2q`,
-which must be re-measured the same way. Re-measure the epic as well when
+EPIC, and the work lives on its children — `overseer-6mbp2q`, merged, and
+`overseer-sfpurg`, the open repair — each of which must be re-measured the same
+way and BY ID. Re-measure the epic as well when
 reporting — a parent's own status field lagged its children by two closes on a
 sibling epic in this same tenant, so infer nothing about children from a parent's
 field, and nothing about a parent from its children.
@@ -474,10 +475,44 @@ this section byte-for-byte, from the `## Corrections` heading through the end of
 the section. Preserve spelling, punctuation, code formatting, blank lines, and
 ordering exactly.
 
-This section is EMPTY at generation (2026-08-03T00:17Z), and that is a real state
-rather than an omission: this is the thread's first charter and no supervisor has
-yet acted under it. Role-level corrections C1 onward already apply and live in
+Role-level corrections C1 onward already apply and live in
 `.ai/supervisor-protocol.md` — do not copy them down here. Record a `T<n>` entry
 the first time THIS supervisor gets something wrong on THIS thread, and record it
 about your own conduct; a section that logs only the worker's mistakes is a wrong
 record.
+
+- **T1 (2026-08-03) — I VERIFIED A GUARD IN ONE DIRECTION AND CALLED IT
+  CORRECT.** On PR #548 I read the new `_adopted_claude_status_missing`
+  predicate, asked whether it OVER-fires, satisfied myself that it did not, and
+  published a supervisor verification comment saying it was "scoped to adopted
+  panes" and correct. I never asked the opposite question. The maintainer's
+  blocking review landed 29 seconds later and named exactly what I had not
+  checked: the predicate required `request.session in
+  request.sup.claude_names_by_session`, which covers a PARTIAL registry record
+  (name present, status absent) but NOT an UNAVAILABLE registry. With both maps
+  empty, `pane_is_managed_claude` stays fail-soft on identity via process/cwd
+  proof, so the pane is still managed, the predicate returns false, and a stable
+  empty Claude prompt could still be pasted into with `claude_status=None`. PR
+  #548 was closed unmerged and replaced by #555, whose guard is unconditional —
+  `not fresh.is_codex and fresh.claude_status is None` — with a control that
+  empties BOTH maps.
+
+  Three things to carry forward, none of which is "read more carefully":
+
+  1. **A guard has two failure directions and they need separate questions.**
+     Over-firing is visible — it breaks a passing test. Under-firing is silent,
+     and on this thread silence is the whole subject: the contract being
+     implemented is about an ABSENT signal being read as a safe one. I applied
+     that thread's own lesson to the daemon's inputs and not to my own review.
+  2. **My verification read the code but not the CONTROLS.** I confirmed the new
+     test NAMES existed and matched the required repairs. I did not read what
+     `test_missing_authoritative_claude_status_...` actually SET UP — it
+     populated `claude_names_by_session`, encoding only the partial-record case.
+     A test list is not test coverage, and I had already written a valve on this
+     charter saying an empty result is not a finding without a positive control.
+  3. **Publishing the verification made it worse, not better.** I posted it to
+     counter the bypassed-review pattern in `overseer-zfq`, which was the right
+     instinct aimed at the wrong artifact: a confident supervisor sign-off on an
+     incomplete audit is a stronger false signal than no sign-off at all. If a
+     verification is worth publishing, state which directions were checked and
+     which were not, so its silence cannot be read as coverage.
