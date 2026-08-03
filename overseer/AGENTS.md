@@ -896,7 +896,8 @@ for the marker's edge-triggered lifecycle.
   > **a rule that recounts beats a number that ages**. Enumerate from the tree
   > (`ls overseer/_supervisor_*.py`); do not re-add a hand-written list here.
   > Describing what those 4,069 lines DO belongs to whoever owns the daemon's
-  > liveness/attention work (`plan/daemon-liveness-truth/`), not to the audit that
+  > liveness/attention work (`plan/archive/daemon-liveness-truth/`, archived
+  > 2026-08-03), not to the audit that
   > measured them.
 
   Each façade re-exports its whole group, so `import registry` / `import supervisor`
