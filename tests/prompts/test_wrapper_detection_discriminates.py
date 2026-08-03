@@ -106,6 +106,31 @@ def test_this_repos_wrapper_is_still_recognised() -> None:
     assert wrapper_less_ledger_read(text=_fenced(body=_THIS_REPO_LITERAL)) == []
 
 
+def test_a_wrapper_split_across_a_continuation_is_recognised() -> None:
+    """A trailing backslash does not stop a wrapper from wrapping.
+
+    `livespec-orchestrator-beads-fabro`'s live `beads-v1-1-2-upgrade` charter
+    writes the correct call across two physical lines:
+
+        with-livespec-env.sh -- \\
+          /usr/local/bin/bd show "$ledger_anchor" --json
+
+    which is the SAME COMMAND as the one-liner and was scored as a defect purely
+    because the pattern required both halves on one physical line. Measured: the
+    one-line spelling returns clean and the continued spelling returns a finding.
+    Remediating that would have meant reflowing correct shell to satisfy the
+    detector -- the same inversion `(h)`'s hard-coded name already caused once.
+
+    Sabotage that reddens this: match against the raw text instead of the
+    continuation-joined text.
+    """
+    continued = (
+        "/data/projects/1password-env-wrapper/with-livespec-env.sh -- \\\n"
+        '  /usr/local/bin/bd show "$ledger_anchor" --json'
+    )
+    assert wrapper_less_ledger_read(text=_fenced(body=continued)) == []
+
+
 def test_a_bare_bd_with_no_wrapper_is_still_a_defect() -> None:
     """THE POSITIVE CONTROL. The detector must not have been widened into silence.
 
