@@ -172,6 +172,27 @@ any of it forward; the Verification Discipline block is the command.
   which driver was found every time you re-run the preconditions — it can change
   under you when a session is restarted.
 
+  **THE WORKER IS IN A RESTART LIVELOCK AND CANNOT BE RESPAWNED — measured
+  2026-08-03T08:26–08:29Z and still true at 20:44Z, when it was at 17% context.**
+  It obeys the marker protocol correctly: at each wrap-up it writes
+  `winding-down` then `ready` and stops. It is never restarted, because the
+  daemon renders it `working (background shell)`. The busy guard in
+  `_supervisor_evaluate.evaluate` reads
+  `busy and (ready or not (shell_only and eff_ctx <= threshold)) and ...`, so
+  `ready` is the FIRST disjunct — declaring `ready` does not bypass the busy
+  branch, it GUARANTEES it; `_void_if_stale` then clears the declaration and the
+  wrap-up re-fires. The busy evidence is not work: `has_active_subshell` sees an
+  MCP server chain (`with-homelab-env.sh` -> `op run` -> `mcp-remote`) alive for
+  the session's whole life, which can never exit on its own.
+  **DO NOT "FIX" THIS BY RESTARTING THE DAEMON — that remedy is REFUTED.**
+  PR #597 rewrote exactly the deciding module and merged 07:28:08Z, so a stale
+  daemon is the obvious suspect; both the current and pre-fix versions were run
+  against the live tree and BOTH return `True`. Loading the fix changes nothing
+  here. Recorded on `overseer-t6m`; `overseer-vyjkzw` should own the fix.
+  PRACTICAL CONSEQUENCE: the worker cannot be rotated for fresh context, so it
+  will run out. Plan for it to stop permanently, and do not hand it work that
+  needs more context than it has left.
+
 - **THE READ-FIRST CHAIN IS THREE FILES AND THEY ARE ORDERED.** `handoff.md`
   names them: `research/seed-prompt.md` (the maintainer's verbatim requirements
   including addendum item 8), then `research/brainstorm.md` (§3 records four
@@ -182,9 +203,35 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **STATE AS OF 2026-08-03T20:38Z — THIS IS THE ONLY STATUS BLOCK; EVERYTHING
+- **STATE AS OF 2026-08-03T20:56Z — THIS IS THE ONLY STATUS BLOCK; EVERYTHING
   ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure before acting; the
   Verification Discipline block below is the command.
+
+  **COLD-OPEN, DO THESE THREE THINGS FIRST, IN THIS ORDER:**
+
+  1. **Read the supervisor marker** at `tmp/overseer/foreman/.supervisor-state`.
+     It survives the restart and holds the full narrative for everything
+     summarised here — including why each correction exists. The boot block at
+     the top of this file is the command.
+  2. **`tmux capture-pane -p -t '=foreman:'` — READ THE WORKER'S PANE.** It is a
+     peer that files and drives work, not a passive session. Skipping this is
+     precisely how correction T5 happened.
+  3. **Re-measure the ledger with `bd list --all`** (not bare `bd list`, which
+     hides ~4/5 of the ledger — see T5's addendum).
+
+  **MY ONE IN-FLIGHT OBLIGATION: `overseer-wykyth`.** I dispatched it MYSELF at
+  20:43Z (fabro run `01KZ4NYJ8ARX`, confirmed RUNNING at 10m33s). The item reads
+  `active`/`fabro` and that claim is REAL — corroborated by `fabro ps`, not
+  inferred from the ledger. **DO NOT RE-DISPATCH IT.** Watch it to a terminal
+  outcome and discriminate the three endings that look alike:
+  a dispatcher `failed` whose PR MERGED is `overseer-6pn` (reconcile via
+  `--status acceptance` then the accept valve, never re-run); a run reading
+  `blocked` is `human_input_required` (`bd-ib-hote`) and **must be
+  `fabro dump`ed before it is reaped** — a 240m timeout destroyed one sandbox
+  already; a run ABSENT from `fabro ps -a` entirely is queue eviction (release
+  the claim by hand, then re-dispatch).
+  I told the worker in its own pane at 20:44Z that I had taken this dispatch,
+  because its context still read "Next action: dispatch overseer-wykyth".
 
   **v006 IS RATIFIED AND MERGED** (PR #575). All nine pending proposals were
   processed in one pass: six `modify`, three `accept`, none rejected.
@@ -202,30 +249,51 @@ any of it forward; the Verification Discipline block is the command.
   | `overseer-z5fo4y.5` `-foreman` suffix | **closed**, merged `335a578` |
   | `overseer-n7xx67`, `overseer-jgqw7d`, `overseer-3hq`, `overseer-63y`, `overseer-41p` | **closed** |
 
-  **PHASE B IS ANOTHER TRACK'S WORK, AND IT IS ALREADY UNDER WAY.** Do not file
-  slices for it, do not dispatch it, do not re-rank it. Its items, none of them
-  ours:
+  **PHASE B IS THE WORKER SESSION'S WORK — and "the other track" IS my own
+  supervised worker,** measured 20:42Z from its pane. It filed every Phase B
+  item at 18:43, drove three of them to merge, closed my duplicate, and
+  maintains `handoff.md`. Treat it as a peer that acts, and coordinate with it.
 
-  | Item | State |
+  | Item | State at 20:56Z |
   |---|---|
   | `overseer-by6hrx` foreman runtime wrapper | **closed**, PR #625 |
+  | `overseer-eqbk4h` foreman session classifier | **closed** |
   | `overseer-4opppx` foreman-act session-lifecycle | **closed**, PR #630 |
-  | `overseer-wykyth` typed filing + journal triage | `pending-approval` |
-  | `overseer-vts4lo` work-item bounded one-shots | `pending-approval` |
-  | `overseer-qp3vpb` the foreman skill / v1 binding | `pending-approval` |
+  | `overseer-wykyth` typed filing + journal triage | **`active`, MY dispatch, run `01KZ4NYJ8ARX` RUNNING** |
+  | `overseer-vts4lo` work-item bounded one-shots | `pending-approval` — **the worker's, not mine** |
+  | `overseer-qp3vpb` the foreman skill / v1 binding | `pending-approval` — **the worker's, not mine** |
+
+  Before touching `vts4lo` or `qp3vpb`: re-measure, check `fabro ps` for an
+  existing claim, and read the worker's pane. Those two are its next actions.
 
   **THE EPIC STAYS OPEN. v1 = PHASES A+B** — a maintainer decision of
   2026-08-02 recorded in `overseer-z5fo4y`'s own description. Phase A is only
   the OBSERVE half. Archiving on Phase A's completion would ship half of v1,
-  and the previous version of this block said to do exactly that ("REMAINING ON
+  and an earlier version of this block said to do exactly that ("REMAINING ON
   THIS THREAD: … then archive the thread, then fleet rollout"). That sentence
   was wrong, it was inherited into `handoff.md` without being checked against
   the epic, and correcting it cost a PR (#623). **A SCOPE CLAIM IS A CLAIM WITH
   A TIMESTAMP, exactly like an item status.**
 
-  REMAINING: Phase B drains under its own track; only then close/archive the
-  epic and thread and verify fleet deployment. Phases C–E are separate future
-  scope.
+  **THE FINAL ACCEPTANCE STEP ALREADY HAS A KNOWN GAP, and a version check will
+  not see it.** Measured 20:47Z: slice `.4`'s daemon-side heartbeat surfacing is
+  MERGED BUT NOT RUNNING — `_supervisor_foreman.py` landed 18:10:35Z while the
+  acting daemon has been up since 08:34:24Z, and Python caches modules at
+  import. Confirmed empirically: the snapshot the daemon writes carries no
+  heartbeat notion. `.1` IS live (it landed before that daemon started) and
+  `.2`/`.3` are CLI surfaces with a fresh process per invocation, so **only
+  DAEMON-side code can be shipped-but-not-running**. Test BEHAVIOUR, not a
+  release version. **Restarting the daemon is NOT this thread's call** — never
+  kill the acting daemon. Full detail is in `handoff.md` (PR #635).
+
+  REMAINING: `wykyth` lands; the worker drains `vts4lo` then `qp3vpb`; only then
+  close/archive the epic and thread and verify fleet deployment against the
+  caveat above. Phases C–E are separate future scope.
+
+  **MY PRs THIS SESSION, ALL MERGED — do not re-do them:** #605 (handoff post-
+  `.1`-dedupe), #623 (Phase A complete + do-not-archive), #634 (T5 recorded in
+  Corrections + stale status block retired), #635 (the merged-is-not-running gap
+  + T5's `--all` addendum). Master was `ca63dd8` at wind-down.
 
 - **BEFORE YOU DIAGNOSE ANY DISPATCH FAILURE, READ `overseer-6pn`.** A
   dispatcher that reports `failed` while its PR MERGED is that bug, not a real
