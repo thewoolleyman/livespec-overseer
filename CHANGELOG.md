@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.16.3...v0.17.0) (2026-08-03)
+
+
+### Features
+
+* guard shell-only low-context wrapups ([96eb0a2](https://github.com/thewoolleyman/livespec-overseer/commit/96eb0a2b4e6313aa76c455e7e8b5693e31c7e680))
+
 ## [0.16.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.16.2...v0.16.3) (2026-08-03)
 
 
