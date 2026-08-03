@@ -22,8 +22,26 @@ sweep did not reach.
 The sweep took every supervisor charter in the fleet from **119 to 0**, across
 six repos, merged through `#1248`, `#1919`, `#542`, `homelab#215`,
 `livespec-console-beads-fabro#602`, `livespec-dev-tooling#1140`, `#549` and
-`#551`, and archived by `#554`. Re-measured after the archive: **0 defects
-across 41 charters**.
+`#551`, and archived by `#554`.
+
+**Re-measured 2026-08-03 ~13:05Z: 0 defects across 40 charters** — 13 in
+`livespec-overseer`, 8 in `homelab`, 7 in `livespec`, 6 in
+`livespec-orchestrator-beads-fabro`, 5 in `livespec-dev-tooling`, 1 in
+`livespec-console-beads-fabro`. Taken by importing this repo's own twelve
+detectors and three globs and applying them to every fleet repo, so the `(h)`
+wrapper-property and line-continuation corrections were both in force. It is a
+claim about `origin/master`, not about local trees: origin was re-fetched first,
+and in all six repos zero charters were dirty and zero differed from
+`origin/master`. Recorded in full on `overseer-x1q`.
+
+**That number was 41 here and 40 twelve lines below, and 40 is the right one.**
+The corpus shrank under the older count: `livespec-overseer` went 15 charters to
+13 at `5560b5e`, which retired the `daemon-liveness-truth` and
+`release-automation-gap` tombstones, taking the fleet 42 → 40. So the 41 was not
+wrong when written — it is a claim whose timestamp expired, which is the failure
+mode this thread kept recording about everyone else's numbers and then committed
+in its own summary. Quote 40, measured 2026-08-03, and re-measure before quoting
+it again.
 
 Two of the three baseline corrections were the GATE being wrong rather than the
 corpus — detector `(h)` hard-coded one wrapper name, and separately required the
@@ -44,41 +62,41 @@ That is `overseer-x1q` (P1), and it is now owned by
 **`plan/charter-gate-ratchet/`**. Resume there, not here. Separately unowned:
 nothing schedules charter REGENERATION.
 
-## ONE THING IS STILL IN FLIGHT — `livespec-overseer#611`
+## The one loose end is DISCHARGED — `#611`
 
-Added by the worker at wind-down, 2026-08-03. This is the only loose end; the
-sweep itself is finished.
+`fb50724` recorded `livespec-overseer#611` here as "STILL IN FLIGHT", with a
+**WHAT TO DO** instructing the next reader to confirm the merge and close
+`overseer-oo8`. **Both are already done, so that instruction is retired.**
+`#611` merged 2026-08-03T09:58:08Z as `aef97ce`, and `overseer-oo8` is closed —
+its other half, a `tests/prompts/conftest.py` partial branch, had already been
+fixed by another track in `021914d`.
 
-**`#611` fixes `check-pre-push`**, which decided "doc-only" from
-`git diff "${upstream}..HEAD"` where `upstream` came from `@{upstream}`. For a
-branch pushed once with `-u` and then REBASED, that is the branch's own STALE
-REMOTE REF, so the diff spans every `origin/master` commit the rebase absorbed
-and a genuinely doc-only branch is classified as a code push. Measured on this
-thread's own archive branch: **34 `.py` files changed vs the stale `@{upstream}`,
-ZERO vs `origin/master`.** It cost eight failed pushes across ~50 minutes; a bare
-`git branch --unset-upstream` then made the identical push succeed first try.
-The fix uses `origin/master...HEAD` (three dots, merge-base), matching what
-`check-changed`, `check-prose-release-hygiene` and the workflow-drift gate in the
-same justfile already use.
+`#611` fixed `check-pre-push` deciding "doc-only" from `@{upstream}` — a rebased
+branch's own stale remote ref — instead of the `origin/master` merge-base. Both
+directions were re-measured before the item was closed, and the negative one
+reproduced on the fix's own branch: against a `justfile`-only change the old
+two-dot form saw 12 files and **3 `.py`** and would have called it a code push,
+while the merge-base form saw 1 file and **0 `.py`**. The phantom `.py` files
+were entirely master's own newer commits. The positive control had to be
+fabricated with `git commit-tree`, because every branch from that era is merged
+and its remote ref pruned, so all of them now measure zero and none can tell a
+working detector from a broken one.
 
-**WHAT TO DO:** confirm `#611` merged. If it did, close `overseer-oo8` — its
-other half (a `tests/prompts/conftest.py` `155->157` partial branch) was fixed
-independently by another track in `021914d`, verified at 100% with zero partial
-branches, so nothing remains on that item. If `#611` did NOT merge, read its
-checks; it is a one-line justfile change with both directions already verified
-(doc-only branch → doc-only; a real `.py`-bearing range → still a code push).
-
-**DO NOT re-derive `overseer-oo8` from its early notes.** That item was filed
-with the wrong headline ("just check cannot pass on a loaded host"), corrected
-once when the real cause turned out to be `@{upstream}`, and corrected again when
-its second half was fixed elsewhere. The corrections are recorded on the item in
-order; read to the END of the notes before acting.
+**The two edits crossed, and that is the useful part of this record.** The
+`#611` section sat UNCOMMITTED in the primary checkout for hours — invisible to
+the respawn prompt that resolves to this very path, so a session handed this file
+never saw it. Two sessions then discharged it independently: `fb50724` committed
+the note, while this branch was rewriting the same region in past tense. Hence
+the conflict, and hence the correction — an earlier draft of this section claimed
+the note "was never committed", which was true when written and false forty
+minutes later. **A tombstone edit that stays in the working tree is not a
+handoff.** Commit it, or the next reader is told to redo finished work.
 
 ## If a fresh session receives this file
 
-Its only actions are to confirm on a freshly fetched `origin/master` that
-`plan/archive/fleet-charter-remediation/` exists, that
-`plan/charter-gate-ratchet/handoff.md` carries the remaining work, and to
-discharge the `#611` section above. There is no remediation to resume.
-Re-measure rather than trusting any number above; every one is a claim with a
-timestamp.
+Its only action is to confirm on a freshly fetched `origin/master` that
+`plan/archive/fleet-charter-remediation/` exists and that
+`plan/charter-gate-ratchet/handoff.md` carries the remaining work. There is no
+remediation to resume. Re-measure rather than trusting any number above; every
+one is a claim with a timestamp — including the re-measured 40, and including
+this sentence.
