@@ -134,12 +134,14 @@ into a working copy still makes the check exit 1.
 The acceptance run, `Release tag` on `release 0.17.1`, has **two attempts**:
 
 ```
-attempt 1  03:11:32Z  conclusion=failure
+run created_at                03:11:32Z
+attempt 1  started 03:11:32Z  concluded 03:17:24Z  failure
              check-no-lloc-soft-warnings  success
              check-no-todo-registry       success
              check-check-mutation         success
              export-telemetry             FAILURE   <- the ONLY failure
-attempt 2  03:18:10Z  conclusion=success   (all four jobs green)
+attempt 2  started 03:18:09Z  concluded 03:18:21Z  success   (all four jobs green)
+run updated_at                03:18:21Z
 ```
 
 On attempt 1 **every release gate passed and the workflow still reported
@@ -158,10 +160,19 @@ list fetched moments earlier can disagree with the run it came from. This
 thread's supervisor reported the gate still red twice off attempt 1 before
 catching it.
 
+**A retried run has four timestamps and only one of them is the answer.**
+`created_at` is when the run FIRST started — it never advances on retry, so it
+belongs to attempt 1 forever. The success happened at `updated_at`, seven
+minutes later. The first version of this note dated the green to `03:11:32Z`,
+which is `created_at`; the worker caught it. That is the same defect this very
+section warns about, committed in the section that warns about it: a run is not
+an instant, and quoting one of its timestamps as "when it passed" requires
+picking the right one.
+
 ## What actually closed it
 
 `Release tag` reached conclusion **SUCCESS** on `chore(master): release 0.17.1`
-at 2026-08-03T03:11:32Z — the first green since 2026-07-27, ending
+at 2026-08-03T**03:18:21Z** — the first green since 2026-07-27, ending
 v0.14.0, v0.15.0, v0.16.0, v0.16.1, v0.16.2, v0.16.3, v0.17.0.
 
 Hands-off merging is proven four times over: `#520` (the workflow arming its own
