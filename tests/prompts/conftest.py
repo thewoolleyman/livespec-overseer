@@ -29,26 +29,14 @@ import pytest
 
 __all__: list[str] = []
 
-# MEASURED, not guessed. `overseer-63y` made settle expiry fail LOUDLY instead of
-# returning an unsettled pane, which fixed the false verdict but left this budget
-# an open question. Answered 2026-08-03 by timing the (c) leg's own rig — an 80x20
-# pane, a fresh shell, the echoed command, then 25 lines of output — five trials at
-# `/proc/loadavg` 118 on 18 cores, which is ordinary here because the fleet runs
-# factory jobs continuously:
-#
-#     9.84s  9.34s  7.18s  8.72s  10.67s
-#
-# EVERY trial exceeded 5.0s, so the old budget could not be met on a loaded host and
-# `just check` — the pre-push hook — failed repo-wide whenever the factory was busy.
-# 30.0s is ~3x the worst observation, which leaves headroom without becoming
-# unbounded.
-#
-# THIS DOES NOT WEAKEN A CHECK. The assertions are untouched and the loud failure
-# from `overseer-63y` is preserved; a genuinely hung pane still fails, just after
-# 30s instead of 5s. What changes is only that the rig is now given enough time to
-# REACH the state it is testing, so an expiry means something is actually wrong
-# rather than that the host was busy.
-_SETTLE_TIMEOUT_S = 30.0
+# A quiet-pane deadline, not an end-to-end wall-clock budget. `overseer-63y` made
+# settle expiry fail LOUDLY instead of returning an unsettled pane, which fixed
+# the false verdict but exposed that the (c) scrollback leg could exceed this
+# value while it was still visibly printing `AFTER-*` lines on a loaded host.
+# `settle` therefore renews this budget only while the pane is still changing
+# before the requested sentinel has appeared; after the sentinel is present, the
+# same budget remains the fail-closed stability deadline.
+_SETTLE_TIMEOUT_S = 5.0
 
 
 class Settle(Protocol):
@@ -158,10 +146,15 @@ def _settle_fixture(*, tmux: Callable[..., subprocess.CompletedProcess[str]]) ->
     def _settle(target: str, needle: str, *, fail_on_timeout: bool = False) -> str:
         deadline = time.monotonic() + _SETTLE_TIMEOUT_S
         previous = "\x00never-captured"
+        saw_needle = False
         while time.monotonic() < deadline:
             current = tmux("capture-pane", "-p", "-t", target).stdout
-            if needle in current and current == previous:
+            current_has_needle = needle in current
+            if current_has_needle and current == previous:
                 return current
+            if not saw_needle and current != previous:
+                deadline = time.monotonic() + _SETTLE_TIMEOUT_S
+            saw_needle = saw_needle or current_has_needle
             previous = current
             time.sleep(0.1)
         if fail_on_timeout:
