@@ -162,6 +162,9 @@ def test_foreman_act_module_executable_and_closed_schema_exist():
         "qualifying_session_start",
         "supervisor_pair_start",
         "work_item_file",
+        "work_item_session_finish",
+        "work_item_session_resume",
+        "work_item_session_start",
     )
 
 
