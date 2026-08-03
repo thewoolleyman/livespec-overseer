@@ -239,6 +239,7 @@ def _act_resume(
         or not (_state_dir(repo=repo, work_item_id=work_item_id) / "claim.json").exists()
     ):
         return _refused(action_id=action_id, reason="missing_handoff")
+    handoff = _write_handoff(repo=repo, payload=payload) or handoff
     command = _resume_command(proposal=proposal, handoff=handoff)
     if command is None:  # pragma: no cover
         return _refused(action_id=action_id, reason="classifier_mismatch")
