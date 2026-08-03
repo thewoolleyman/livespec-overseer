@@ -37,6 +37,7 @@ from overseer.test_supervisor_builders import (
     on_respawn,
     unsubmitted_resume_capture,
     wrapup_count,
+    write_session,
 )
 from overseer.test_supervisor_fakes import (
     FakeTmux,
@@ -55,7 +56,14 @@ def _warnable(*, tmp_path, **kwargs):
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # below the 50% threshold
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(sessions_dir=sessions_dir, pid=100, name=topic, cwd=str(repo), status="idle")
+    fake.pane_pids[50] = session
     kwargs.setdefault("gitignore_check", lambda *, repo: True)
+    kwargs.setdefault("sessions_dir", str(sessions_dir))
+    kwargs.setdefault("ppid_of", lambda *, pid: 50 if pid == 100 else None)
+    kwargs.setdefault("starttime_of", lambda *, pid: "pt" if pid == 100 else None)
     sup = make_supervisor(
         tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], out=_io.StringIO(), **kwargs
     )

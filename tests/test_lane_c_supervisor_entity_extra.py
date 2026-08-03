@@ -20,6 +20,7 @@ from test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    write_session,
 )
 from test_supervisor_fakes import FakeTmux
 
@@ -81,7 +82,24 @@ def test_supervisor_low_context_uses_supervisor_wrapup_variant(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=topic, repo=repo, capture=idle_capture(ctx=80))
     fake.serve(session=f"{topic}-supervisor", repo=repo, capture=idle_capture(ctx=45))
-    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(
+        sessions_dir=sessions_dir,
+        pid=100,
+        name=f"{topic}-supervisor",
+        cwd=str(repo),
+        status="idle",
+    )
+    fake.pane_pids[50] = f"{topic}-supervisor"
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        watch_repos=[str(repo)],
+        sessions_dir=str(sessions_dir),
+        ppid_of=lambda *, pid: 50 if pid == 100 else None,
+        starttime_of=lambda *, pid: "pt" if pid == 100 else None,
+    )
     registry.append_mapping(
         track=mapped_track(repo=repo, topic=topic, session=topic),
         store_path=sup.store_path,
