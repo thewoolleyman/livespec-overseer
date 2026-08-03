@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import io as _io
 import json
 from pathlib import Path
 
@@ -250,23 +251,57 @@ def test_snapshot_reader_exposes_generation_and_mtime_for_staleness_detection(*,
     assert second.generation == first.generation + 1
 
 
-def test_snapshot_reader_fails_closed_for_unreadable_or_unknown_schema(*, tmp_path):
+def test_snapshot_reader_fails_closed_for_unreadable_unknown_or_newer_schema(*, tmp_path):
     module = snapshot_module()
     missing = tmp_path / "missing.json"
     malformed = tmp_path / "malformed.json"
     unknown_schema = tmp_path / "unknown.json"
+    newer_schema = tmp_path / "newer.json"
     bad_generation = tmp_path / "bad-generation.json"
     bool_generation = tmp_path / "bool-generation.json"
     malformed.write_text("not json", encoding="utf-8")
-    unknown_schema.write_text('{"schema_version": 2, "tick_generation": 1}', encoding="utf-8")
+    unknown_schema.write_text('{"schema_version": 0, "tick_generation": 1}', encoding="utf-8")
+    newer_schema.write_text('{"schema_version": 2, "tick_generation": 1}', encoding="utf-8")
     bad_generation.write_text('{"schema_version": 1, "tick_generation": "1"}', encoding="utf-8")
     bool_generation.write_text('{"schema_version": 1, "tick_generation": true}', encoding="utf-8")
 
     assert module.read_status_snapshot(path=missing) is None
     assert module.read_status_snapshot(path=malformed) is None
     assert module.read_status_snapshot(path=unknown_schema) is None
+    assert module.read_status_snapshot(path=newer_schema) is None
     assert module.read_status_snapshot(path=bad_generation) is None
     assert module.read_status_snapshot(path=bool_generation) is None
+
+
+def test_cli_list_json_uses_snapshot_serializer_without_table_or_ansi(
+    *, tmp_path, monkeypatch, capsys
+):
+    """`list --json` is the foreman's observation-only fallback: same row serializer as
+    the daemon snapshot, but no human table render and no ANSI terminal decoration."""
+    module = snapshot_module()
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=session),
+        store_path=sup.store_path,
+        added_at="2026-08-03T00:00:00Z",
+    )
+    expected = module.document_payload(sup=sup, rows=sup.tick(act=False))
+    sup.out = _io.StringIO()
+    monkeypatch.setattr(supervisor, "build_supervisor", lambda: sup)
+
+    assert supervisor.main(argv=["list", "--json"]) == 0
+    captured = capsys.readouterr()
+    document = json.loads(captured.out)
+
+    assert document == expected
+    assert captured.err == ""
+    assert "Topic" not in captured.out
+    assert "\x1b[" not in captured.out
+    assert sup.out.getvalue() == ""
 
 
 def test_snapshot_session_identity_covers_runtime_and_absent_session_cases(*, tmp_path):
