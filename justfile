@@ -870,17 +870,37 @@ check-pre-commit-doc-only:
     echo ":: doc-only subset (no repo-metadata checks wired yet)"
     exit 0
 
-# Skip the Python-code check subset when the pushed commits contain
-# zero `.py` changes. Falls back to `origin/master` when no upstream
-# branch is configured locally.
+# Skip the Python-code check subset when the BRANCH contributes zero
+# `.py` changes.
+#
+# KEYED ON THE MERGE-BASE WITH `origin/master`, NOT ON `@{upstream}`, and the
+# difference is not cosmetic. This asked `git diff "${upstream}..HEAD"` where
+# `upstream` came from `@{upstream}` — which for a branch pushed once with
+# `-u` and then REBASED is that branch's own STALE REMOTE REF. The diff then
+# spans every `origin/master` commit the rebase absorbed, so a genuinely
+# doc-only branch is classified as a code push.
+#
+# MEASURED 2026-08-03 on `charter-remediation-archive`, a two-markdown-file
+# branch: 34 `.py` files changed vs the stale `@{upstream}`, ZERO vs
+# `origin/master`. It ran the full aggregate and failed there for reasons that
+# had nothing to do with the push, eight times across ~50 minutes; a
+# `git branch --unset-upstream` made the identical push succeed on the first
+# try. Filed as `overseer-oo8`.
+#
+# THE OLD FORM GOT WORSE THE LONGER A DOCS PR STAYED OPEN, because each rebase
+# absorbs more of master — exactly backwards. The three-dot form asks the
+# question actually wanted, "what does this branch ADD", is independent of push
+# and rebase history, and matches what `check-changed`,
+# `check-prose-release-hygiene` and the workflow-drift gate already use.
 check-pre-push:
     #!/usr/bin/env bash
     set -uo pipefail
-    upstream=$(git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null || echo "origin/master")
-    changeset=$(git diff --name-only "${upstream}..HEAD")
+    # Three dots: diff against the MERGE-BASE, so commits that arrived on
+    # master after this branch forked are not attributed to the push.
+    changeset=$(git diff --name-only origin/master...HEAD)
     py_changed=$(echo "$changeset" | grep -E '\.py$' || true)
     if [[ -z "$py_changed" ]]; then
-        echo ":: doc-only push detected (zero .py changes vs ${upstream}): running check-pre-commit-doc-only"
+        echo ":: doc-only push detected (zero .py changes vs the origin/master merge-base): running check-pre-commit-doc-only"
         just check-pre-commit-doc-only
         exit $?
     fi
