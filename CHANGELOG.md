@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.19.0...v0.20.0) (2026-08-03)
+
+
+### Features
+
+* reserve foreman session names ([335a578](https://github.com/thewoolleyman/livespec-overseer/commit/335a5782fd4022540579a008ed7a9e560a139363))
+
 ## [0.19.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.18.0...v0.19.0) (2026-08-03)
 
 
