@@ -134,6 +134,29 @@ def test_work_item_session_create_to_terminal_cleanup_preserves_outcome(*, tmp_p
     )
 
 
+def test_work_item_session_resume_refreshes_the_durable_handoff(*, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    calls: list[list[str]] = []
+    start = proposal(repo=repo, action_id="work_item_session_start", classifier_action="start")
+    resume = proposal(
+        repo=repo,
+        action_id="work_item_session_resume",
+        classifier_action="exact_resume",
+    )
+    work_item = resume["work_item_session"]
+    assert isinstance(work_item, dict)
+    work_item["handoff"] = "fresh resume handoff\n"
+
+    assert act_with(repo=repo, proposal_payload=start, calls=calls)["outcome"] == "acted"
+    result = act_with(repo=repo, proposal_payload=resume, calls=calls)
+
+    handoff = state_dir(repo=repo) / "handoff.md"
+    assert result["reason"] == "work_item_session_resumed"
+    assert handoff.read_text(encoding="utf-8") == "fresh resume handoff\n"
+    assert str(handoff) in " ".join(calls[-1])
+
+
 def test_work_item_session_retry_after_journaled_terminal_failure(*, tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()

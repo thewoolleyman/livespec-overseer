@@ -13,6 +13,9 @@ PROSE = PLUGIN_ROOT / "prose" / "overseer.md"
 BINDING = PLUGIN_ROOT / "skills" / "overseer" / "SKILL.md"
 SUPERVISE_PLAN_PROSE = PLUGIN_ROOT / "prose" / "supervise-plan.md"
 SUPERVISE_PLAN_BINDING = PLUGIN_ROOT / "skills" / "supervise-plan" / "SKILL.md"
+FOREMAN_PROSE = PLUGIN_ROOT / "prose" / "foreman.md"
+FOREMAN_BINDING = PLUGIN_ROOT / "skills" / "foreman" / "SKILL.md"
+CODEX_FOREMAN_BINDING = PLUGIN_ROOT / ".codex-plugin" / "skills" / "foreman" / "SKILL.md"
 LEGACY_POINTER = ROOT / "overseer" / "SKILL.md"
 
 
@@ -54,6 +57,32 @@ def test_supervise_plan_skill_binding_resolves_single_source_prose():
     assert "This binding adds NO operation behavior of its own" in binding
     assert "HALT-first preconditions" in prose
     assert "HALT-first preconditions" not in binding
+
+
+def test_foreman_skill_bindings_resolve_single_source_prose_for_both_harnesses():
+    plugin = json.loads((PLUGIN_ROOT / "plugin.json").read_text(encoding="utf-8"))
+    codex_plugin = json.loads(
+        (PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )
+    prose = FOREMAN_PROSE.read_text(encoding="utf-8")
+    claude_binding = FOREMAN_BINDING.read_text(encoding="utf-8")
+    codex_binding = CODEX_FOREMAN_BINDING.read_text(encoding="utf-8")
+
+    assert plugin["description"] == codex_plugin["description"]
+    assert "/livespec-overseer:foreman" in plugin["description"]
+    assert "${CLAUDE_PLUGIN_ROOT}/prose/foreman.md" in claude_binding
+    assert 'cat "${CLAUDE_PLUGIN_ROOT}/prose/foreman.md"' in claude_binding
+    assert "LIVESPEC_OVERSEER_PLUGIN_ROOT" in codex_binding
+    assert "$PLUGIN_ROOT/prose/foreman.md" in codex_binding
+    assert 'cat "$PLUGIN_ROOT/prose/foreman.md"' in codex_binding
+    assert "This binding adds NO operation behavior of its own" in claude_binding
+    assert "This binding adds NO operation behavior of its own" in codex_binding
+    assert "<repo-slug>-foreman" in prose
+    assert "foreman-act" in prose
+    assert "Human valves" in prose
+    assert "Phase C consensus" in prose
+    assert "<repo-slug>-foreman" not in claude_binding
+    assert "<repo-slug>-foreman" not in codex_binding
 
 
 def test_supervise_plan_prose_pins_fail_fast_live_session_preconditions():
