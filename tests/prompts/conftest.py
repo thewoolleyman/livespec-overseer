@@ -37,6 +37,8 @@ __all__: list[str] = []
 # before the requested sentinel has appeared; after the sentinel is present, the
 # same budget remains the fail-closed stability deadline.
 _SETTLE_TIMEOUT_S = 5.0
+_SETTLE_COMMAND_START_TIMEOUT_S = 30.0
+_SETTLE_ABSOLUTE_TIMEOUT_S = 60.0
 
 
 class Settle(Protocol):
@@ -135,6 +137,10 @@ def _wait_for_fixture(
 
 @pytest.fixture(name="settle")
 def _settle_fixture(*, tmux: Callable[..., subprocess.CompletedProcess[str]]) -> Settle:
+    return make_settle(tmux=tmux)
+
+
+def make_settle(*, tmux: Callable[..., subprocess.CompletedProcess[str]]) -> Settle:
     """Wait until a pane contains `needle` AND stops changing.
 
     Never a fixed sleep: a fixed wait after `send-keys` races the pane's own
@@ -144,18 +150,42 @@ def _settle_fixture(*, tmux: Callable[..., subprocess.CompletedProcess[str]]) ->
     """
 
     def _settle(target: str, needle: str, *, fail_on_timeout: bool = False) -> str:
-        deadline = time.monotonic() + _SETTLE_TIMEOUT_S
+        if _SETTLE_TIMEOUT_S <= 0.0:
+            if fail_on_timeout:
+                pytest.fail(
+                    "tmux pane did not settle before the timeout; "
+                    "last capture was:\n\x00never-captured"
+                )
+            return "\x00never-captured"  # pragma: no cover
+        now = time.monotonic()
+        quiet_deadline = now + _SETTLE_TIMEOUT_S
+        pre_needle_deadline = now + max(_SETTLE_TIMEOUT_S, _SETTLE_COMMAND_START_TIMEOUT_S)
+        absolute_deadline = now + max(
+            _SETTLE_TIMEOUT_S,
+            _SETTLE_COMMAND_START_TIMEOUT_S,
+            _SETTLE_ABSOLUTE_TIMEOUT_S,
+        )
         previous = "\x00never-captured"
         saw_needle = False
-        while time.monotonic() < deadline:
+        while time.monotonic() < absolute_deadline:
             current = tmux("capture-pane", "-p", "-t", target).stdout
             current_has_needle = needle in current
             if current_has_needle and current == previous:
                 return current
-            if not saw_needle and current != previous:
-                deadline = time.monotonic() + _SETTLE_TIMEOUT_S
+            if current != previous:
+                quiet_deadline = time.monotonic() + _SETTLE_TIMEOUT_S
             saw_needle = saw_needle or current_has_needle
             previous = current
+            active_deadline = (
+                quiet_deadline
+                if saw_needle
+                else max(
+                    quiet_deadline,
+                    pre_needle_deadline,
+                )
+            )
+            if time.monotonic() >= active_deadline:
+                break
             time.sleep(0.1)
         if fail_on_timeout:
             pytest.fail(
