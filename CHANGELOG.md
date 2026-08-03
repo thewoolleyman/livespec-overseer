@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.17.1...v0.17.2) (2026-08-03)
+
+
+### Bug Fixes
+
+* ignore twinned relaunched shell argv ([669e45e](https://github.com/thewoolleyman/livespec-overseer/commit/669e45e19882f476f89cae86f05b47988e558382))
+
 ## [0.17.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.17.0...v0.17.1) (2026-08-03)
 
 
