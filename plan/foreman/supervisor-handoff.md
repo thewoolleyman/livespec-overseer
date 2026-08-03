@@ -182,7 +182,7 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **STATE AS OF 2026-08-03T09:00Z — THIS IS THE ONLY STATUS BLOCK; EVERYTHING
+- **STATE AS OF 2026-08-03T20:38Z — THIS IS THE ONLY STATUS BLOCK; EVERYTHING
   ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure before acting; the
   Verification Discipline block below is the command.
 
@@ -191,20 +191,41 @@ any of it forward; the Verification Discipline block is the command.
   `SPECIFICATION/proposed_changes/` is EMPTY. Do not re-file any of them; a
   same-topic re-run mints a `<topic>-2.md` collision.
 
-  Ledger, re-measured:
+  **PHASE A IS COMPLETE — all five slices closed:**
 
   | Item | State |
   |---|---|
-  | `overseer-z5fo4y.1` snapshot export | **closed** |
+  | `overseer-z5fo4y.1` snapshot export | **closed** (dedupe landed, PR #601) |
+  | `overseer-z5fo4y.2` `list --json` | **closed**, PR #607 (`706f23b`) |
+  | `overseer-z5fo4y.3` foreman-gather | **closed**, PR #621 (`f699678`) |
+  | `overseer-z5fo4y.4` heartbeat surfacing | **closed**, PR #619 (`a01d3e2`) |
   | `overseer-z5fo4y.5` `-foreman` suffix | **closed**, merged `335a578` |
-  | `overseer-z5fo4y.2` `list --json` | dispatched; first attempt refused pre-flight (exit 3, no claim, no PR) |
-  | `overseer-z5fo4y.4` heartbeat surfacing | dispatched; same pre-flight refusal, re-dispatched with `--json` to capture stderr |
-  | `overseer-z5fo4y.3` foreman-gather | blocked behind `.2` by a real ledger edge |
-  | `overseer-n7xx67` | **closed**, PR #600 |
-  | `overseer-jgqw7d`, `overseer-3hq`, `overseer-63y`, `overseer-41p` | **closed** |
+  | `overseer-n7xx67`, `overseer-jgqw7d`, `overseer-3hq`, `overseer-63y`, `overseer-41p` | **closed** |
 
-  REMAINING ON THIS THREAD: `.2` and `.4` land, then `.3`, then archive the
-  thread, then fleet rollout.
+  **PHASE B IS ANOTHER TRACK'S WORK, AND IT IS ALREADY UNDER WAY.** Do not file
+  slices for it, do not dispatch it, do not re-rank it. Its items, none of them
+  ours:
+
+  | Item | State |
+  |---|---|
+  | `overseer-by6hrx` foreman runtime wrapper | **closed**, PR #625 |
+  | `overseer-4opppx` foreman-act session-lifecycle | **closed**, PR #630 |
+  | `overseer-wykyth` typed filing + journal triage | `pending-approval` |
+  | `overseer-vts4lo` work-item bounded one-shots | `pending-approval` |
+  | `overseer-qp3vpb` the foreman skill / v1 binding | `pending-approval` |
+
+  **THE EPIC STAYS OPEN. v1 = PHASES A+B** — a maintainer decision of
+  2026-08-02 recorded in `overseer-z5fo4y`'s own description. Phase A is only
+  the OBSERVE half. Archiving on Phase A's completion would ship half of v1,
+  and the previous version of this block said to do exactly that ("REMAINING ON
+  THIS THREAD: … then archive the thread, then fleet rollout"). That sentence
+  was wrong, it was inherited into `handoff.md` without being checked against
+  the epic, and correcting it cost a PR (#623). **A SCOPE CLAIM IS A CLAIM WITH
+  A TIMESTAMP, exactly like an item status.**
+
+  REMAINING: Phase B drains under its own track; only then close/archive the
+  epic and thread and verify fleet deployment. Phases C–E are separate future
+  scope.
 
 - **BEFORE YOU DIAGNOSE ANY DISPATCH FAILURE, READ `overseer-6pn`.** A
   dispatcher that reports `failed` while its PR MERGED is that bug, not a real
@@ -491,3 +512,39 @@ ordering exactly.
   thing; none of them explains itself.** Run the positive control, read the job
   log, check the host — before writing the cause down anywhere a reader will
   inherit it.
+
+- **T5 (2026-08-03) — I filed FIVE duplicate work items and burned factory spend
+  on one, by breaking role-level correction C18 twenty minutes after applying
+  C18 correctly.** I measured "Phase B has no work items" at 18:32Z. That was
+  TRUE when measured. Another track filed the entire Phase B cut at
+  18:43:02–18:44:01Z. I filed mine at 19:04Z — twenty-one minutes later —
+  **without re-measuring** — then dispatched one at 19:12Z.
+  C18 is this failure verbatim, and I had read it at boot: *"Search the ledger
+  for the SUBJECT before filing anything from an inherited list"*; *"re-measuring
+  the fact while trusting the metadata about the fact is only half the
+  discipline"*. C18's own incident was a **fourteen**-minute gap; mine was
+  twenty-one. Concurrent tracks measure this repo constantly, so a
+  minutes-old "this is unfiled" is entirely normal and entirely wrong.
+  **WORSE: I APPLIED THE RULE CORRECTLY EARLIER IN THE SAME SESSION.** Finding
+  the worker livelock, I searched first, found `overseer-t6m` and
+  `overseer-vyjkzw` already covered it, and deliberately did NOT file. Then I
+  filed five duplicates on the very next filing action — the same shape as C20
+  and C23, both of which record breaking a rule in the turn right after
+  applying it. Knowing a rule and having just used it does not arm it.
+  **A SECOND, INDEPENDENT DEFECT MADE IT UNDETECTABLE: my subject search
+  filtered to non-closed items**, so it could not have found a sibling that was
+  already DONE — which is precisely the answer that should have stopped me.
+  Never status-filter a subject search; "already built" is the finding.
+  **THE MAINTAINER'S RULING WAS MADE ON MY STALE REPRESENTATION.** They chose
+  "file and dispatch all five" because I told them Phase B was unfiled. The
+  decision was sound given what I presented; the presentation was the defect.
+  Escalating with a stale premise converts my measurement error into their
+  decision, which is worse than making it alone.
+  What limited the damage was not me: the implementation agent detected the
+  duplicate itself, refused to push, and recorded a precise reason
+  (*"duplicate/no-longer-applicable: … already merged green in PR #625"*). No
+  duplicate code merged. **That is the third time on this thread a worker's
+  measurement beat the supervisor's prose** (see T2, T3).
+  THE RULE: **re-run the subject search AT THE MOMENT OF FILING, unfiltered by
+  status** — not at plan time, not before the picker, not "recently". Minutes
+  are enough to make it wrong.
