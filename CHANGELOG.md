@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.20.0...v0.20.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* inherit shell startup twin status down descendants ([420c1dc](https://github.com/thewoolleyman/livespec-overseer/commit/420c1dcee00d4a94ce425781183ae2dddf16e13f))
+
 ## [0.20.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.19.0...v0.20.0) (2026-08-03)
 
 
