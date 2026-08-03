@@ -25,6 +25,9 @@ import re
 import subprocess
 import time
 from collections.abc import Callable
+from typing import Protocol
+
+import pytest
 
 __all__: list[str] = []
 
@@ -44,6 +47,10 @@ _ANCHORED = re.compile(r"^[ \t]*Enter to (select|confirm)[ \t]*$", re.MULTILINE)
 _SHAPE = re.compile(r"[^ ]+ to [a-z]+([,]| [^ a-zA-Z0-9]+) +[^ ]+ to [a-z]+")
 
 Tmux = Callable[..., subprocess.CompletedProcess[str]]
+
+
+class Settle(Protocol):
+    def __call__(self, target: str, needle: str, *, fail_on_timeout: bool = False) -> str: ...
 
 
 def _looks_like_picker(*, pane: str) -> bool:
@@ -132,9 +139,29 @@ def _worker(*, tmux: Tmux, rows: str = "20") -> str:
     return "=wk:"
 
 
-def _run(*, tmux: Tmux, command: str, settle: Callable[[str, str], str], needle: str) -> None:
+def _run(
+    *,
+    tmux: Tmux,
+    command: str,
+    settle: Settle,
+    needle: str,
+    fail_on_timeout: bool = False,
+) -> None:
     tmux("send-keys", "-t", "=wk:", command, "Enter")
-    settle("=wk:", needle)
+    settle("=wk:", needle, fail_on_timeout=fail_on_timeout)
+
+
+def test_settle_can_fail_loudly_on_expiry(
+    *, monkeypatch: pytest.MonkeyPatch, settle: Settle
+) -> None:
+    import conftest as prompt_conftest
+
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_TIMEOUT_S", 0.0)
+
+    with pytest.raises(pytest.fail.Exception) as exc_info:
+        settle("=wk:", "NEVER-APPEARS", fail_on_timeout=True)
+
+    assert "tmux pane did not settle before the timeout" in str(exc_info.value)
 
 
 def test_c_a_footer_in_scrollback_wakes_the_shipped_watcher(
@@ -150,6 +177,7 @@ def test_c_a_footer_in_scrollback_wakes_the_shipped_watcher(
         ),
         settle=settle,
         needle="AFTER-25",
+        fail_on_timeout=True,
     )
     assert watcher_shipped(tmux=tmux, target="wk") == _PICKER
 
@@ -167,6 +195,7 @@ def test_c_a_footer_in_scrollback_does_not_wake_the_proposed_watcher(
         ),
         settle=settle,
         needle="AFTER-25",
+        fail_on_timeout=True,
     )
     assert watcher_proposed(tmux=tmux, target="=wk:") != _PICKER
 
