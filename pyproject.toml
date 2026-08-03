@@ -28,6 +28,7 @@ readme = "README.md"
 dependencies = []
 
 [project.scripts]
+foreman-gather = "overseer.foreman_gather:main"
 overseerd = "overseer.daemon:main"
 overseer-start = "overseer.start:main"
 
