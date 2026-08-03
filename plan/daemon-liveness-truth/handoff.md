@@ -150,10 +150,27 @@ it as a worker, and do not reduce it to "option 1 or option 3".
 with-livespec-env.sh -- bd show overseer-x29.1
 ```
 
+Read its NOTES, not only its description. The description's original framing
+("which of these to build — and whether option 1 alone is sufficient", and an
+acceptance clause saying a failing fix "should be closed as option 1 instead") is
+**superseded**, and the note dated 2026-08-03 says so with the measurement that
+forecloses it. The description was left intact rather than edited so the
+correction is visible rather than silent — the same reason this thread records
+corrections instead of rewriting history.
+
 **Step 2 — branch on a MECHANICAL condition, not on a judgement.** "Decided" is
 not a ledger state, so it is spelled out here: the decision has been recorded if
-and only if the item's body carries a line beginning `DECISION 2026-`. Nothing
-else counts — not the status field, not this handoff, not chat history.
+and only if `bd show overseer-x29.1` PRINTS a line beginning `DECISION 2026-`.
+Nothing else counts — not the status field, not this handoff, not chat history.
+
+```bash
+with-livespec-env.sh -- bd show overseer-x29.1 | grep -c '^DECISION 2026-'
+```
+
+The predicate is the RENDERED RECORD, not a named field, and that is deliberate:
+`bd update` can append to `--notes` but cannot append to the description, so a
+field-specific predicate would be satisfiable only by rewriting a fifty-line
+description wholesale. Notes or description — if it prints, it counts.
 
 - **No `DECISION 2026-` line** → the next action is to put the question from the
   section above to the maintainer as ONE `AskUserQuestion` call: permanent
