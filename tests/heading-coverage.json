@@ -99,6 +99,13 @@
   },
   {
     "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Fail-soft posture",
+    "test": "TODO",
+    "reason": "Added by the fail-soft-render-prohibition-scenario ratification. It pins the RENDERING half of the heading's prohibition — a structurally impossible act is never shown as restart-in-progress or as otherwise going to occur — rather than the already-covered surfacing or unknown-context halves. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The state file",
     "test": "overseer.test_supervisor.test_malformed_state_value_is_surfaced_and_never_restarts",
@@ -425,5 +432,82 @@
     "heading": "## Scenario: An unknown context reading never triggers a wrap-up",
     "test": "tests.integration.test_startup_refusals_and_runtime.test_scenario_an_unknown_context_reading_never_triggers_a_wrapup",
     "reason": "Integration-tier over two tracks, because the clauses describe different states. The track that HAD a reading takes it deliberately ABOVE the threshold, so that treating unknown as a low or zero percentage — the natural way to get this wrong — would cross and warn; below the threshold it would warn either way and prove nothing. The track that NEVER had one is where 'renders as unknown rather than a guess' is observable, and it is asserted through `Supervisor.render` rather than on `view.ctx`, because the clause is about what the OPERATOR sees: a row carrying None that printed as `0%` would satisfy a field assertion and still mislead. SABOTAGE-VERIFIED 2026-07-26: `_effective_ctx` returning the raw reading erases the last known value; rendering the unknown cell as `0%` reddens the never-known assertion."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A status snapshot writer failure does not stop supervision",
+    "test": "TODO",
+    "reason": "Added by the status-snapshot-store ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A consumer fails closed on an unknown status snapshot schema",
+    "test": "TODO",
+    "reason": "Added by the status-snapshot-store ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A missing supervisor role layer halts the binder with a remedy",
+    "test": "TODO",
+    "reason": "Co-edited as the scenario half of supervise-plan-authors-two-layers. It pins exactly the missing-role-layer half of the assessed clause: the binder guard halts and emits a labelled remedy when `.ai/supervisor-protocol.md` is absent. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A collision-derived worker name ending in foreman is refused",
+    "test": "TODO",
+    "reason": "Added by the reserved-suffix-refusal ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A reserved-name live session is not adopted as a worker",
+    "test": "TODO",
+    "reason": "Added by the reserved-suffix-refusal ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A dead track with conflicting runtime evidence is not launched",
+    "test": "TODO",
+    "reason": "Added by the operator-acts-include-foreman ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A foreman reads evidence without becoming a state-file or blocked-pane writer",
+    "test": "TODO",
+    "reason": "Added by the unattended-reader-carve-out ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A stale foreman heartbeat is surfaced as attention",
+    "test": "TODO",
+    "reason": "Added by the attention-ownership-superset ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An absent foreman heartbeat is silent",
+    "test": "TODO",
+    "reason": "Added by the attention-ownership-superset ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A foreman uses the canonical name on both identity surfaces",
+    "test": "TODO",
+    "reason": "Co-edited as the scenario half of foreman-scope-governed. It pins exactly the dual-name half of the assessed clause: `<repo-slug>-foreman` is required on both the tmux and runtime-registry surfaces, and a different name is unauthorized. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A structurally impossible act is never rendered as in progress",
+    "test": "TODO",
+    "reason": "Added by the fail-soft-render-prohibition-scenario ratification as the Given/When/Then half of the existing rendering prohibition. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit."
   }
 ]
