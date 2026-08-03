@@ -2,6 +2,7 @@
 
 import contextlib
 import io as _io
+from collections.abc import Callable
 
 import pytest
 
@@ -44,6 +45,30 @@ def _codex_shell_sup(*, tmp_path, fake, repo, topic, session):
         )
     }
     return sup
+
+
+def _assert_no_act(*, fake, repo, topic, stamp_path):
+    assert wrapup_count(fake=fake) == 0
+    assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=stamp_path) is None
+    assert not fake.has(method="keys")
+    assert not fake.has(method="respawn")
+    assert not fake.has(method="new")
+    assert signals.read_state(repo=str(repo), topic=topic) is None
+
+
+def _change_before_fresh_observe(
+    *, fake: FakeTmux, after_captures: int, change: Callable[[], None]
+) -> None:
+    original_capture = fake.capture_pane
+    seen = {"captures": 0}
+
+    def capture_pane(*, session):
+        seen["captures"] += 1
+        if seen["captures"] == after_captures:
+            change()
+        return original_capture(session=session)
+
+    fake.capture_pane = capture_pane
 
 
 def test_claude_status_shell_allows_guarded_low_context_wrapup(*, tmp_path):
@@ -207,6 +232,21 @@ def test_unknown_claude_status_cancels_before_shell_only_wrapup(*, tmp_path):
     assert not fake.has(method="respawn")
 
 
+def test_unavailable_claude_registry_cancels_before_shell_only_wrapup(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    sup.claude_status_by_session = {}
+    sup.claude_names_by_session = {}
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "settling"
+    _assert_no_act(fake=fake, repo=repo, topic=topic, stamp_path=sup.stamp_path)
+
+
 def test_pre_paste_recheck_cancels_when_capture_changes_after_settle(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -227,11 +267,62 @@ def test_pre_paste_recheck_cancels_when_capture_changes_after_settle(*, tmp_path
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert view.status == "settling"
-    assert wrapup_count(fake=fake) == 0
-    assert (
-        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is None
+    _assert_no_act(fake=fake, repo=repo, topic=topic, stamp_path=sup.stamp_path)
+
+
+def test_pre_paste_recheck_cancels_when_claude_status_changes_after_settle(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    sup.claude_status_by_session = {session: "shell"}
+    _change_before_fresh_observe(
+        fake=fake,
+        after_captures=4,
+        change=lambda: sup.claude_status_by_session.update({session: "idle"}),
     )
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "settling"
+    _assert_no_act(fake=fake, repo=repo, topic=topic, stamp_path=sup.stamp_path)
+
+
+def test_pre_paste_recheck_cancels_when_codex_fallback_changes_after_settle(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(
+        session=session,
+        repo=repo,
+        capture=[codex_idle_capture(ctx=40, topic=topic)] * 4 + [codex_busy_capture(ctx=40)],
+        cmd="bun",
+    )
+    shell_children = {100: [200]}
+    children = dict(shell_children)
+    fake.pane_pid_map[session] = 100
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        children_of=lambda *, pid: children.get(pid, []),
+        comm_of=lambda *, pid: "bash" if pid == 200 else None,
+    )
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=321, name=topic, cwd=str(repo), session_id="codex-1"
+        )
+    }
+    _change_before_fresh_observe(
+        fake=fake,
+        after_captures=4,
+        change=lambda: children.clear(),
+    )
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "settling"
+    _assert_no_act(fake=fake, repo=repo, topic=topic, stamp_path=sup.stamp_path)
 
 
 def test_pre_paste_recheck_cancels_when_identity_changes_after_settle(*, tmp_path):

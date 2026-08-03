@@ -187,6 +187,7 @@ def test_supervision_surfaces_do_not_preempt_blocked_or_danger(*, tmp_path):
     other_repo, other_topic = make_plan(tmp_path=tmp_path, repo_name="other", topic="other")
     other_session = registry.tmux_id(repo=str(other_repo), topic=other_topic)
     fake.serve(session=other_session, repo=other_repo, capture=idle_capture(ctx=15))
+    sup.claude_status_by_session[other_session] = "idle"
     danger = sup.evaluate(
         track=mapped_track(repo=other_repo, topic=other_topic, session=other_session), act=True
     )

@@ -39,6 +39,34 @@ class ThresholdRequest:
 _KNOWN_CLAUDE_STATUSES = frozenset({"busy", "idle", "shell", "waiting"})
 
 
+def _declaration_signature(*, obs: Observation) -> tuple[str, str, float] | None:
+    if obs.declared is None:
+        return None
+    return (obs.declared.token, obs.declared.detail, obs.declared.mtime)
+
+
+def _claude_status_unavailable(*, fresh: Observation) -> bool:
+    return not fresh.is_codex and fresh.claude_status is None
+
+
+def _authorization_inputs_changed(*, request: ThresholdRequest, fresh: Observation) -> bool:
+    settled = request.obs
+    return (
+        fresh.capture != settled.capture
+        or fresh.is_codex != settled.is_codex
+        or fresh.busy != settled.busy
+        or fresh.gate != settled.gate
+        or fresh.idle != settled.idle
+        or fresh.codex_fallback != settled.codex_fallback
+        or fresh.claude_status != settled.claude_status
+        or fresh.ready != settled.ready
+        or fresh.malformed != settled.malformed
+        or fresh.blocked != settled.blocked
+        or fresh.acked != settled.acked
+        or _declaration_signature(obs=fresh) != _declaration_signature(obs=settled)
+    )
+
+
 def _fresh_threshold_observation(*, request: ThresholdRequest) -> Observation | None:
     """Re-read every paste authorization input immediately before opening a round."""
     if not _supervisor_observe.pane_is_managed(
@@ -56,11 +84,11 @@ def _fresh_threshold_observation(*, request: ThresholdRequest) -> Observation | 
         target=request.target,
         key=track_key(repo=request.track.repo, topic=request.track.topic),
     )
-    if fresh.capture != request.obs.capture:
-        return None
-    if fresh.is_codex != request.obs.is_codex:
+    if _claude_status_unavailable(fresh=fresh):
         return None
     if fresh.claude_status is not None and fresh.claude_status not in _KNOWN_CLAUDE_STATUSES:
+        return None
+    if _authorization_inputs_changed(request=request, fresh=fresh):
         return None
     generating = signals.is_busy(capture_text=fresh.capture) or fresh.claude_status == "busy"
     shell_only = (not signals.is_busy(capture_text=fresh.capture)) and (
