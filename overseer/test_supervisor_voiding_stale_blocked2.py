@@ -175,6 +175,7 @@ def test_bands_are_durable_across_daemon_restart(*, tmp_path):
         sleep=lambda _s: None,
         warn_percent=45,  # explicit threshold: decouple from the default
     )
+    sup1.claude_status_by_session = {session: "idle"}
     sup1.evaluate(track=track, act=True)
     assert set(
         registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=stamp_path)
@@ -193,6 +194,7 @@ def test_bands_are_durable_across_daemon_restart(*, tmp_path):
         sleep=lambda _s: None,
         warn_percent=45,  # explicit threshold: decouple from the default
     )
+    sup2.claude_status_by_session = {session: "idle"}
     sup2.evaluate(track=track, act=True)
     assert not fake2.has(method="paste")  # bands 45+40 already notified → no re-spam
 

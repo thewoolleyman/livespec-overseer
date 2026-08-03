@@ -117,12 +117,19 @@ def make_supervisor(*, tmp_path, fake, **kwargs):
     # precondition-behavior test overrides them to simulate an unsupported host.
     kwargs.setdefault("proc_root", str(tmp_path))  # any existing dir reads as "has /proc"
     kwargs.setdefault("which", lambda _name: "/usr/bin/tmux")
-    return supervisor.Supervisor(
+    sup = supervisor.Supervisor(
         tmux=fake,
         store_path=str(tmp_path / "map.jsonl"),
         stamp_path=str(tmp_path / "stamps.json"),
         **kwargs,
     )
+    sup.claude_status_by_session = {
+        session: "idle"
+        for session in fake.sessions
+        if isinstance(command := fake.cmds.get(session), str)
+        and signals.pane_is_claude(pane_current_command=command)
+    }
+    return sup
 
 
 # A phrase from the SHARED wrap-up body, so it matches BOTH tones (the gentle
