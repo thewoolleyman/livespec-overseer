@@ -43,7 +43,7 @@ ledger_show() {
     bd show "$1" --json
   fi
 }
-if ! ledger_show "$ledger_anchor"; then
+if ! ledger_json="$(ledger_show "$ledger_anchor")"; then
   echo "HALT: cannot re-measure ledger item '$ledger_anchor'"
   if command -v with-livespec-env.sh >/dev/null 2>&1; then
     echo "REMEDY: the credential wrapper WAS used, so ledger access is not the suspect — check the anchor id is real and that this repo's tenant is reachable"
@@ -52,6 +52,12 @@ if ! ledger_show "$ledger_anchor"; then
   fi
   exit 1
 fi
+# EXIT STATUS IS NOT EVIDENCE. A tool that exits 0 while printing nothing would
+# let the MEASURED_AT stamp below certify a re-measurement that never happened,
+# which is this contract's own defect class wearing the remedy's clothes.
+[ -n "$ledger_json" ] \
+  || { echo "HALT: ledger re-measure for '$ledger_anchor' exited 0 but returned NOTHING"; echo "REMEDY: do not record this as a measurement — an empty success is not a reading; confirm the anchor exists and that the ledger tool is actually reporting"; exit 1; }
+printf '%s\n' "$ledger_json"
 date -u '+MEASURED_AT: %Y-%m-%dT%H:%M:%SZ'
 ```
 

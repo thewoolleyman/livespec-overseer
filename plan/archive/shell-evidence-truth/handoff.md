@@ -34,10 +34,22 @@ hours while its runtime's own `/ps` showed zero background terminals.
 
 ## 2. Where this thread stands
 
-Created 2026-08-02. The epic anchor is **`overseer-3zbwi3`**. Read live
-status from the ledger — `list-work-items` / `bd show overseer-3zbwi3` —
+Created 2026-08-02. **Ledger anchor:** epic **`overseer-3zbwi3`**. Read
+live status from the ledger — `list-work-items` / `bd show overseer-3zbwi3` —
 never from this file; this handoff cites ids read-only and carries no
 work queue.
+
+> **THIS THREAD IS CLOSED AND ARCHIVED (2026-08-03). THE SECTION BELOW
+> IS SUPERSEDED — READ `completion.md` AND `re-verification.md`
+> INSTEAD.** It is preserved rather than rewritten because it is the
+> record of where the thread stood when it was written, but every "NOT
+> done" item in it except one has since been delivered: the verdict
+> landed as `spec-bearing-verdict.md`, and the detector fix landed as PR
+> #518 / merge `f8e56e5`, released and deployed. The single exception is
+> the owed re-verification, which is HALF discharged — see
+> `re-verification.md` and `overseer-q3f`. A cold-open reader who stops
+> here is told that finished work is outstanding, which is the failure
+> this notice exists to prevent.
 
 Done so far: the reasoning note (§5 item 1) carries the diagnosed
 mechanism, the live process-tree evidence, the regression boundary, and
@@ -48,6 +60,13 @@ detector fix, and the owed re-verification of the
 `livespec-orchestrator-beads-fabro`).
 
 ## 3. The next action (exactly one)
+
+> **SUPERSEDED — this action was taken and its successor was taken too.**
+> The verdict below landed as `spec-bearing-verdict.md`
+> (implementation-only, no proposed change), the detector-fix child
+> `overseer-hqo5lk` was filed and dispatched through the factory, and it
+> merged as PR #518. The only live successor is `overseer-q3f`, filed
+> from `re-verification.md`.
 
 Decide **spec-bearing or implementation-only**, and route accordingly:
 sweep this repo's `SPECIFICATION/spec.md`, `SPECIFICATION/contracts.md`,
