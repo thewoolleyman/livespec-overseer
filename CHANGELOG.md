@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.16.1...v0.16.2) (2026-08-03)
+
+
+### Bug Fixes
+
+* keep plugin version data in release automation ([82657c8](https://github.com/thewoolleyman/livespec-overseer/commit/82657c83cf35b159094c699e5a5e599d8116cba0))
+
 ## [0.16.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.16.0...v0.16.1) (2026-08-02)
 
 
