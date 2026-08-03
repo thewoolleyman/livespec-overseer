@@ -40,6 +40,7 @@ def base_document(*, repo: Path, generation: int = 7) -> dict[str, object]:
                 }
             ],
         },
+        "dispatch_journal": [],
     }
 
 
@@ -83,6 +84,69 @@ def resume_proposal(*, repo: Path) -> dict[str, object]:
     return proposal
 
 
+def file_proposal(*, repo: Path, target_repo: Path | None = None) -> dict[str, object]:
+    proposal = start_proposal(repo=repo, action_id="work_item_file")
+    proposal["filing"] = {
+        "target_repo": str(target_repo or repo),
+        "title": "File the delegated fix",
+        "description": "Capture this follow-up through intake.",
+        "type": "feature",
+        "assignee": None,
+        "depends_on": [{"kind": "local", "work_item_id": "overseer-parent"}],
+        "acceptance_criteria": "Beside tests cover the behavior.",
+        "notes": "Filed by foreman-act.",
+        "spec_commitment_hint": None,
+        "checklist": {
+            "single_coherent_done": True,
+            "autonomously_verifiable": True,
+            "autonomy_tiered": True,
+            "dependency_linked": True,
+            "repo_targeted": True,
+            "above_floor": True,
+        },
+    }
+    return proposal
+
+
+def journal_record(*, work_item_id: str = "overseer-a") -> dict[str, object]:
+    return {
+        "stage": "outcome",
+        "outcome": {
+            "work_item_id": work_item_id,
+            "status": "failed",
+            "stage": "merge-poll",
+            "pr_number": 630,
+            "merge_sha": "ad76472",
+            "detail": "PR merged after the poll budget.",
+            "fabro_run_id": "01KZ4",
+        },
+    }
+
+
+def journal_document(*, repo: Path, records: list[dict[str, object]]) -> dict[str, object]:
+    document = base_document(repo=repo)
+    document["sources"] = {
+        **document["sources"],
+        "dispatch_journal": {
+            "status": "ok",
+            "path": str(repo / "tmp" / "fabro-dispatch-journal.jsonl"),
+            "records_read": len(records),
+        },
+    }
+    document["dispatch_journal"] = records
+    return document
+
+
+def reconcile_proposal(*, repo: Path, record: dict[str, object]) -> dict[str, object]:
+    proposal = start_proposal(repo=repo, action_id="dispatch_journal_reconcile_merged")
+    proposal["dispatch_journal"] = {
+        "records_read": 1,
+        "record": record,
+    }
+    proposal["dispatcher"] = {"path": str(repo / ".orchestrator" / "bin" / "dispatcher.py")}
+    return proposal
+
+
 def test_foreman_act_module_executable_and_closed_schema_exist():
     module = foreman_act()
 
@@ -91,11 +155,13 @@ def test_foreman_act_module_executable_and_closed_schema_exist():
     assert module.PROPOSAL_SCHEMA_VERSION == 1
     assert module.ACTION_IDS == (
         "blocked_session_answer",
+        "dispatch_journal_reconcile_merged",
         "human_valve",
         "plan_start",
         "qualifying_session_resume",
         "qualifying_session_start",
         "supervisor_pair_start",
+        "work_item_file",
     )
 
 
@@ -168,6 +234,8 @@ def test_refuses_stale_unknown_freeform_and_human_actions(*, tmp_path):
     cases = [
         ({**start_proposal(repo=repo), "schema_version": 2}, "unsupported_proposal_schema"),
         ({**start_proposal(repo=repo), "action_id": "invented"}, "unknown_action"),
+        ({**start_proposal(repo=repo), "command": "bd create anything"}, "free_form_command"),
+        ({**start_proposal(repo=repo), "argv": ["bd", "create"]}, "free_form_command"),
         ({**start_proposal(repo=repo), "action_id": "human_valve"}, "human_action_report_only"),
         (
             {**start_proposal(repo=repo), "action_id": "blocked_session_answer"},
@@ -197,6 +265,198 @@ def test_refuses_stale_unknown_freeform_and_human_actions(*, tmp_path):
             proposal=start_proposal(repo=repo),
             gather=lambda *, repo, snapshot_path, document=document: document,
             run=lambda *, argv: calls.append(argv) or 0,
+        )
+        assert result["outcome"] == "refused"
+        assert result["mutated"] is False
+        assert result["reason"] == reason
+    assert calls == []
+
+
+def test_typed_work_item_filing_uses_intake_seam_and_journals_result(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    filed: list[dict[str, object]] = []
+    journaled: list[dict[str, object]] = []
+
+    result = module.act(
+        proposal=file_proposal(repo=repo),
+        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        file_work_item=lambda *, request: filed.append(request) or ("overseer-new", "ready"),
+        append_journal=lambda *, repo, record: journaled.append(record),
+    )
+
+    assert result == {
+        "action_id": "work_item_file",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "filed:overseer-new:ready",
+    }
+    assert filed == [
+        {
+            "target_repo": str(repo),
+            "title": "File the delegated fix",
+            "description": "Capture this follow-up through intake.",
+            "type": "feature",
+            "assignee": None,
+            "depends_on": [{"kind": "local", "work_item_id": "overseer-parent"}],
+            "acceptance_criteria": "Beside tests cover the behavior.",
+            "notes": "Filed by foreman-act.",
+            "spec_commitment_hint": None,
+            "checklist": {
+                "single_coherent_done": True,
+                "autonomously_verifiable": True,
+                "autonomy_tiered": True,
+                "dependency_linked": True,
+                "repo_targeted": True,
+                "above_floor": True,
+            },
+        }
+    ]
+    assert journaled[-1] == {
+        "stage": "foreman-act",
+        "action_id": "work_item_file",
+        "outcome": "acted",
+        "reason": "filed:overseer-new:ready",
+        "mutated": True,
+    }
+
+
+def test_cross_repo_filing_only_files_the_target_repo(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    peer = tmp_path / "peer"
+    repo.mkdir()
+    peer.mkdir()
+    filed: list[dict[str, object]] = []
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=file_proposal(repo=repo, target_repo=peer),
+        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+        run=lambda *, argv: calls.append(argv) or 0,
+        file_work_item=lambda *, request: filed.append(request) or ("peer-new", "pending-approval"),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result["outcome"] == "acted"
+    assert result["reason"] == "filed:peer-new:pending-approval"
+    assert filed[0]["target_repo"] == str(peer)
+    assert calls == []
+
+
+def test_filing_refuses_malformed_or_unsafe_payloads_without_mutation(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    calls: list[dict[str, object]] = []
+    base = file_proposal(repo=repo)
+
+    cases = [
+        ({**base, "filing": {**base["filing"], "target_repo": "relative"}}, "malformed_filing"),
+        ({**base, "filing": {**base["filing"], "title": ""}}, "malformed_filing"),
+        (
+            {**base, "filing": {**base["filing"], "checklist": {"single_coherent_done": True}}},
+            "malformed_filing",
+        ),
+    ]
+    for proposal, reason in cases:
+        result = module.act(
+            proposal=proposal,
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 0,
+            file_work_item=lambda *, request: calls.append(request) or ("bad", "ready"),
+            append_journal=lambda *, repo, record: None,
+        )
+        assert result["outcome"] == "refused"
+        assert result["reason"] == reason
+        assert result["mutated"] is False
+    assert calls == []
+
+
+def test_dispatch_journal_reconcile_merged_is_the_only_typed_triage_command(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    dispatcher = repo / ".orchestrator" / "bin" / "dispatcher.py"
+    dispatcher.parent.mkdir(parents=True)
+    dispatcher.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    record = journal_record()
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=reconcile_proposal(repo=repo, record=record),
+        gather=lambda *, repo, snapshot_path: journal_document(repo=Path(repo), records=[record]),
+        run=lambda *, argv: calls.append(argv) or 0,
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result == {
+        "action_id": "dispatch_journal_reconcile_merged",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "reconciled_merged_dispatch",
+    }
+    assert calls == [
+        [
+            sys.executable,
+            str(dispatcher),
+            "reconcile-merged",
+            "--repo",
+            str(repo),
+            "--item",
+            "overseer-a",
+            "--json",
+        ]
+    ]
+
+
+def test_dispatch_journal_triage_refuses_stale_ambiguous_or_unsupported_records(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    record = journal_record()
+    other = journal_record(work_item_id="overseer-a")
+    other["outcome"] = {**other["outcome"], "merge_sha": "different"}
+    unsupported = {
+        "stage": "dispatch-claim-abandoned",
+        "work_item_id": "overseer-a",
+        "status": "active",
+        "reason": "no-outcome-since-ledger-admit",
+    }
+    calls: list[list[str]] = []
+
+    cases = [
+        (
+            reconcile_proposal(repo=repo, record=record),
+            journal_document(repo=repo, records=[]),
+            "journal_generation_changed",
+        ),
+        (
+            reconcile_proposal(repo=repo, record=record),
+            journal_document(repo=repo, records=[record, other]),
+            "ambiguous_dispatch_claim",
+        ),
+        (
+            reconcile_proposal(repo=repo, record=unsupported),
+            journal_document(repo=repo, records=[unsupported]),
+            "unsupported_transition",
+        ),
+        (
+            {
+                **reconcile_proposal(repo=repo, record=record),
+                "action_id": "dispatch_journal_abandon_claim",
+            },
+            journal_document(repo=repo, records=[record]),
+            "unknown_action",
+        ),
+    ]
+    for proposal, document, reason in cases:
+        result = module.act(
+            proposal=proposal,
+            gather=lambda *, repo, snapshot_path, document=document: document,
+            run=lambda *, argv: calls.append(argv) or 0,
+            append_journal=lambda *, repo, record: None,
         )
         assert result["outcome"] == "refused"
         assert result["mutated"] is False

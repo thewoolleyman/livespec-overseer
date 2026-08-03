@@ -13,31 +13,42 @@ import jsonio
 import streams
 from _supervisor_snapshot import DEFAULT_STATUS_PATH
 from foreman_act_commands import command_for
+from foreman_act_filing import FileWorkItem, file_work_item, filing_request
+from foreman_act_journal import journal_reconcile_command
+from foreman_act_record import AppendJournal, append_journal
+from foreman_act_revalidate import (
+    revalidate_identity,
+    revalidate_source,
+    str_field,
+    validate_proposal,
+)
 from foreman_act_types import (
     ACTION_IDS,
     BLOCKED_SESSION_ANSWER,
+    DISPATCH_JOURNAL_RECONCILE_MERGED,
     HUMAN_VALVE,
     PROPOSAL_SCHEMA_VERSION,
     QUALIFYING_SESSION_RESUME,
+    WORK_ITEM_FILE,
     ActionId,
     ActResult,
 )
-from foreman_gather_collect import DOCUMENT_SCHEMA_VERSION, compose_document
+from foreman_gather_collect import compose_document
 
 __all__: list[str] = [
     "ACTION_IDS",
     "BLOCKED_SESSION_ANSWER",
+    "DISPATCH_JOURNAL_RECONCILE_MERGED",
     "HUMAN_VALVE",
     "PROPOSAL_SCHEMA_VERSION",
     "QUALIFYING_SESSION_RESUME",
+    "WORK_ITEM_FILE",
     "ActResult",
     "ActionId",
     "act",
     "main",
     "run_command",
 ]
-
-_HUMAN_ACTIONS = (BLOCKED_SESSION_ANSWER, HUMAN_VALVE)
 
 
 class Gatherer(Protocol):
@@ -74,122 +85,14 @@ def _failed(*, action_id: str, reason: str) -> ActResult:
     )
 
 
-def _str_field(*, payload: dict[str, object], key: str) -> str | None:
-    value = payload.get(key)
-    return value if isinstance(value, str) else None
-
-
-def _int_field(*, payload: dict[str, object], key: str) -> int | None:
-    value = payload.get(key)
-    if isinstance(value, bool) or not isinstance(value, int):  # pragma: no cover
-        return None
-    return value
-
-
-def _known_action_id(*, value: object) -> ActionId | None:
-    if not isinstance(value, str):  # pragma: no cover
-        return None
-    return value if value in ACTION_IDS else None
-
-
-def _proposal_snapshot(*, proposal: dict[str, object]) -> dict[str, object] | None:
-    return jsonio.as_object(value=proposal.get("snapshot"))
-
-
-def _source_snapshot(*, document: dict[str, object]) -> dict[str, object] | None:
-    sources = jsonio.as_object(value=document.get("sources"))
-    if sources is None:  # pragma: no cover
-        return None
-    return jsonio.as_object(value=sources.get("snapshot"))
-
-
-def _current_snapshot(*, document: dict[str, object]) -> dict[str, object] | None:
-    return jsonio.as_object(value=document.get("snapshot"))
-
-
-def _rows(*, snapshot: dict[str, object]) -> list[dict[str, object]] | None:
-    raw_rows = jsonio.as_list(value=snapshot.get("rows"))
-    if raw_rows is None:  # pragma: no cover
-        return None
-    rows: list[dict[str, object]] = []
-    for raw in raw_rows:
-        row = jsonio.as_object(value=raw)
-        if row is None:  # pragma: no cover
-            return None
-        rows.append(row)
-    return rows
-
-
-def _matching_row(
-    *, document: dict[str, object], repo: str, topic: str
-) -> dict[str, object] | None:
-    snapshot = _current_snapshot(document=document)
-    if snapshot is None:  # pragma: no cover
-        return None
-    rows = _rows(snapshot=snapshot)
-    if rows is None:  # pragma: no cover
-        return None
-    for row in rows:
-        if row.get("repo") == repo and row.get("topic") == topic:  # pragma: no branch
-            return row
-    return None  # pragma: no cover
-
-
-def _revalidate_source(*, document: dict[str, object]) -> str | None:
-    if document.get("schema_version") != DOCUMENT_SCHEMA_VERSION:
-        return "unsupported_gather_schema"
-    source = _source_snapshot(document=document)
-    if source is None:  # pragma: no cover
-        return "snapshot_not_actable"
-    if source.get("status") != "ok" or source.get("mode") != "daemon-snapshot":
-        return "snapshot_not_actable"
-    if _current_snapshot(document=document) is None:  # pragma: no cover
-        return "snapshot_not_actable"
-    return None
-
-
-def _revalidate_identity(*, proposal: dict[str, object], document: dict[str, object]) -> str | None:
-    repo = _str_field(payload=proposal, key="repo")
-    topic = _str_field(payload=proposal, key="topic")
-    expected = _proposal_snapshot(proposal=proposal)
-    current = _current_snapshot(document=document)
-    reason = None
-    if repo is None or topic is None or expected is None or current is None:  # pragma: no cover
-        reason = "malformed_proposal"
-    elif document.get("repo") != repo:
-        reason = "repo_identity_changed"
-    elif current.get("daemon_instance_id") != expected.get("daemon_instance_id"):
-        reason = "daemon_identity_changed"
-    elif current.get("tick_generation") != expected.get("tick_generation"):
-        reason = "tick_generation_changed"
-    else:
-        row = _matching_row(document=document, repo=repo, topic=topic)
-        if row is None or row.get("session_identity") != expected.get("session_identity"):
-            reason = "session_identity_changed"
-    return reason
-
-
-def _validate_proposal(*, proposal: dict[str, object]) -> tuple[str | None, str | None]:
-    raw_action = proposal.get("action_id")
-    action_id: str | None = _known_action_id(value=raw_action)
-    reason = None
-    if proposal.get("schema_version") != PROPOSAL_SCHEMA_VERSION:
-        reason = "unsupported_proposal_schema"
-    elif action_id is None:
-        action_id = raw_action if isinstance(raw_action, str) else None
-        reason = "unknown_action"
-    elif action_id in _HUMAN_ACTIONS:
-        reason = "human_action_report_only"
-    else:
-        snapshot = _proposal_snapshot(proposal=proposal) or {}
-        malformed = (
-            _str_field(payload=proposal, key="repo") is None
-            or _str_field(payload=proposal, key="topic") is None
-            or _int_field(payload=snapshot, key="tick_generation") is None
-        )
-        if malformed:  # pragma: no cover
-            reason = "malformed_proposal"
-    return action_id, reason
+def _journal_record(*, result: ActResult) -> dict[str, object]:
+    return {
+        "stage": "foreman-act",
+        "action_id": result["action_id"],
+        "outcome": result["outcome"],
+        "reason": result["reason"],
+        "mutated": result["mutated"],
+    }
 
 
 def act(
@@ -197,15 +100,17 @@ def act(
     proposal: dict[str, object],
     run: Runner,
     gather: Gatherer = compose_document,
+    file_work_item: FileWorkItem = file_work_item,
+    append_journal: AppendJournal = append_journal,
     snapshot_path: str | Path = DEFAULT_STATUS_PATH,
 ) -> ActResult:
-    action_id, refusal = _validate_proposal(proposal=proposal)
+    action_id, refusal = validate_proposal(proposal=proposal)
     if refusal is not None:
         result = _refused(action_id=action_id, reason=refusal)
     elif action_id is None or action_id not in ACTION_IDS:  # pragma: no cover
         result = _refused(action_id=action_id, reason="unknown_action")
     else:
-        repo = _str_field(payload=proposal, key="repo")
+        repo = str_field(payload=proposal, key="repo")
         if repo is None:  # pragma: no cover
             result = _refused(action_id=action_id, reason="malformed_proposal")
         else:
@@ -213,10 +118,13 @@ def act(
                 action_id=action_id,
                 proposal=proposal,
                 repo=repo,
-                gather=gather,
+                document=gather(repo=repo, snapshot_path=snapshot_path),
                 run=run,
-                snapshot_path=snapshot_path,
+                file_work_item=file_work_item,
             )
+    repo_path = str_field(payload=proposal, key="repo")
+    if repo_path is not None:  # pragma: no branch
+        append_journal(repo=Path(repo_path), record=_journal_record(result=result))
     return result
 
 
@@ -225,18 +133,56 @@ def _act_validated(
     action_id: ActionId,
     proposal: dict[str, object],
     repo: str,
-    gather: Gatherer,
+    document: dict[str, object],
     run: Runner,
-    snapshot_path: str | Path,
+    file_work_item: FileWorkItem,
 ) -> ActResult:
-    document = gather(repo=repo, snapshot_path=snapshot_path)
-    refusal = _revalidate_source(document=document) or _revalidate_identity(
+    refusal = revalidate_source(document=document) or revalidate_identity(
         proposal=proposal, document=document
     )
-    command = None if refusal is not None else command_for(action_id=action_id, proposal=proposal)
     if refusal is not None:
         result = _refused(action_id=action_id, reason=refusal)
-    elif command is None:  # pragma: no cover
+    elif action_id == WORK_ITEM_FILE:
+        result = _act_filing(proposal=proposal, action_id=action_id, file_work_item=file_work_item)
+    elif action_id == DISPATCH_JOURNAL_RECONCILE_MERGED:
+        result = _act_journal_triage(
+            action_id=action_id, proposal=proposal, document=document, repo=repo, run=run
+        )
+    else:
+        result = _act_command(action_id=action_id, proposal=proposal, run=run)
+    return result
+
+
+def _act_filing(
+    *, proposal: dict[str, object], action_id: ActionId, file_work_item: FileWorkItem
+) -> ActResult:
+    request = filing_request(proposal=proposal)
+    if request is None:
+        return _refused(action_id=action_id, reason="malformed_filing")
+    item_id, verdict = file_work_item(request=request)
+    return _acted(action_id=action_id, reason=f"filed:{item_id}:{verdict}")
+
+
+def _act_journal_triage(
+    *,
+    action_id: ActionId,
+    proposal: dict[str, object],
+    document: dict[str, object],
+    repo: str,
+    run: Runner,
+) -> ActResult:
+    refusal, command = journal_reconcile_command(proposal=proposal, document=document, repo=repo)
+    if refusal is not None or command is None:
+        return _refused(action_id=action_id, reason=refusal or "unsupported_transition")
+    code = run(argv=command)
+    if code != 0:  # pragma: no cover
+        return _failed(action_id=action_id, reason=f"command_exit_{code}")
+    return _acted(action_id=action_id, reason="reconciled_merged_dispatch")
+
+
+def _act_command(*, action_id: ActionId, proposal: dict[str, object], run: Runner) -> ActResult:
+    command = command_for(action_id=action_id, proposal=proposal)
+    if command is None:  # pragma: no cover
         result = _refused(action_id=action_id, reason="classifier_mismatch")
     else:
         code = run(argv=command)
