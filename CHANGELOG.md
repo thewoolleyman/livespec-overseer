@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.26.0...v0.27.0) (2026-08-03)
+
+
+### Features
+
+* pin foreman work-item handoff refresh ([abeb1d3](https://github.com/thewoolleyman/livespec-overseer/commit/abeb1d345308ab3a87c7460840df557b6bb7e07b))
+
 ## [0.26.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.25.1...v0.26.0) (2026-08-03)
 
 
