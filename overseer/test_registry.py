@@ -76,6 +76,20 @@ def test_tmux_id_single_dash_repo_prefix_only_on_collision():
     )
 
 
+def test_tmux_id_refuses_topic_level_reserved_suffix_case_insensitively():
+    with pytest.raises(ValueError, match="/data/projects/livespec::Alpha-Supervisor"):
+        registry.tmux_id(repo="/data/projects/livespec", topic="Alpha-Supervisor")
+
+
+def test_tmux_id_refuses_collision_derived_reserved_suffix():
+    with pytest.raises(ValueError, match="livespec-supervisor"):
+        registry.tmux_id(
+            repo="/data/projects/livespec",
+            topic="supervisor",
+            colliding={"supervisor"},
+        )
+
+
 def test_colliding_topics_are_topics_in_two_or_more_repos():
     discovered = [
         ("/data/projects/livespec", "shared", "h1"),

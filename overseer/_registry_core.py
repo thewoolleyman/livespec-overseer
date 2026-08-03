@@ -135,6 +135,13 @@ def repo_slug(*, repo: str | os.PathLike[str]) -> str:
     return Path(repo).name
 
 
+def _reserved_session_refusal(*, repo: str | os.PathLike[str], topic: str, session: str) -> str:
+    return (
+        f"refusing reserved supervisor session name {session} "
+        f"for {norm(repo=repo)}::{topic}; worker sessions may not end in -supervisor"
+    )
+
+
 def colliding_topics(
     *,
     discovered: Iterable[tuple[str, str, str]],
@@ -185,11 +192,10 @@ def tmux_id(
     never sanitized. The predecessor ``<repo-slug>--<topic>`` (double-dash, ALWAYS
     prefixed) form is retired.
     """
-    if signals.topic_reserved_for_supervisor(topic=topic):
-        warn(message=f"refusing reserved supervisor topic for tmux derivation: {repo}::{topic}")
-    if topic in colliding:
-        return f"{repo_slug(repo=repo)}-{topic}"
-    return topic
+    session = f"{repo_slug(repo=repo)}-{topic}" if topic in colliding else topic
+    if signals.topic_reserved_for_supervisor(topic=session):
+        raise ValueError(_reserved_session_refusal(repo=repo, topic=topic, session=session))
+    return session
 
 
 @dataclass(frozen=True, kw_only=True)

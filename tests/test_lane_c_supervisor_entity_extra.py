@@ -5,6 +5,8 @@ import io as _io
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "overseer"))
 
 import _supervisor_prompts
@@ -35,11 +37,10 @@ def test_reserved_supervisor_topics_are_refused_by_discovery_and_collision(*, tm
     colliding = registry.colliding_topics(
         discovered=[(str(repo), "bad-supervisor", "x"), (str(tmp_path / "other"), "good", "x")]
     )
-    derived = registry.tmux_id(repo=str(repo), topic="bad-supervisor")
-
     assert discovered == [(str(repo), "good", str(good / "handoff.md"))]
     assert colliding == frozenset()
-    assert derived == "bad-supervisor"
+    with pytest.raises(ValueError, match="bad-supervisor"):
+        registry.tmux_id(repo=str(repo), topic="bad-supervisor")
 
 
 def test_supervisor_wrapup_text_targets_supervisor_handoff(*, tmp_path):
