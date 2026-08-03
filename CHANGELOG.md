@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.25.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.25.0...v0.25.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* **plan:** green master — C24 broke two prose gates on the way in ([5abd665](https://github.com/thewoolleyman/livespec-overseer/commit/5abd665a293a24868309d966460173a0b410b846))
+
 ## [0.25.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.24.0...v0.25.0) (2026-08-03)
 
 
