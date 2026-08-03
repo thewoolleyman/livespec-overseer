@@ -76,6 +76,7 @@ from typing import IO
 
 import _supervisor_discovery
 import _supervisor_evaluate
+import _supervisor_foreman
 import _supervisor_launch
 import _supervisor_lifecycle
 import _supervisor_nudge
@@ -439,6 +440,9 @@ class Supervisor:
                     act=act,
                 )
         views.extend(_supervisor_discovery.unindexed_codex_rows(sup=self))
+        views.extend(
+            _supervisor_foreman.foreman_rows(sup=self, repos=self._resolve_watch(), act=act)
+        )
         self.render(rows=views)
         # Only the DAEMON badges the window. `list` is advertised read-only, so it must
         # not rename the maintainer's window as a side effect of printing a table.
