@@ -1,4 +1,19 @@
-"""Claude Code registry-file parsing for live named sessions."""
+"""Claude Code registry-file parsing for live named sessions.
+
+``adopt`` must learn each running worker's topic from its Claude Code display
+name. That name is not reliably present in argv because maintained sessions can
+run as ``claude --dangerously-skip-permissions`` and be renamed later with
+``/rename``; screen-scraping the input-box border also fails whenever the pane
+shows a prompt instead of the box (verified live 2026-07-13).
+
+The robust source is Claude Code's per-session registry file at
+``~/.claude/sessions/<pid>.json``. Its shape includes the process identity and
+metadata this package needs, for example ``{"pid": 1067963, "cwd":
+"/data/projects/livespec", "name": "driver-hook-body", "status": "idle",
+"procStart": "34092476"}``. This module keeps only parseable, named entries
+whose live ``/proc/<pid>/stat`` start-time still equals ``procStart``; that
+filters dead sessions and defends against PID reuse.
+"""
 
 from __future__ import annotations
 
