@@ -6,6 +6,8 @@ import importlib
 import json
 from pathlib import Path
 
+import pytest
+
 from overseer import claude_sessions, codex_sessions, registry, supervisor
 from overseer.test_supervisor_builders import (
     declare,
@@ -190,6 +192,38 @@ def test_tick_invokes_status_snapshot_writer_once_per_completed_tick(*, tmp_path
     rows = sup.tick(act=True)
 
     assert calls == [(1, rows)]
+
+
+def test_legacy_status_snapshot_path_still_selects_snapshot_target(*, tmp_path):
+    module = snapshot_module()
+    repo, topic = make_plan(tmp_path=tmp_path)
+    status_path = tmp_path / "status.json"
+    sup, _session = make_live_mapped_supervisor(
+        tmp_path=tmp_path,
+        repo=repo,
+        topic=topic,
+        status_path=None,
+        ctx=76,
+    )
+    sup.status_snapshot_path = status_path
+
+    sup.tick(act=True)
+
+    read = module.read_status_snapshot(path=status_path)
+    assert read is not None
+    assert read.generation == 1
+
+
+def test_snapshot_atomic_write_raise_mode_reports_write_failures(*, tmp_path, monkeypatch):
+    registry_core = importlib.import_module("_registry_core")
+
+    def raising_mkstemp(*, dir, prefix, suffix):
+        raise OSError("no space")
+
+    monkeypatch.setattr(registry_core.tempfile, "mkstemp", raising_mkstemp)
+
+    with pytest.raises(OSError, match="no space"):
+        registry.atomic_write(path=tmp_path / "status.json", body="{}", raise_errors=True)
 
 
 def test_snapshot_reader_exposes_generation_and_mtime_for_staleness_detection(*, tmp_path):
