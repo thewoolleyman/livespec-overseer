@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.17.2...v0.18.0) (2026-08-03)
+
+
+### Features
+
+* add status snapshot export coverage ([f54ff05](https://github.com/thewoolleyman/livespec-overseer/commit/f54ff05b2834b0651941928362dc76d5d404fd42))
+
 ## [0.17.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.17.1...v0.17.2) (2026-08-03)
 
 
