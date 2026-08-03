@@ -53,6 +53,8 @@ _SCROLLBACK_WITH_FOOTER = "\n".join(
     ]
 )
 _VISIBLE_AFTER_FOOTER = "\n".join(f"AFTER-{i}" for i in range(18, 26))
+_SHIPPED_SCROLLBACK_CAPTURE = ("capture-pane", "-p", "-t", "wk", "-S", "-40")
+_PROPOSED_VISIBLE_CAPTURE = ("capture-pane", "-p", "-t", "=wk:")
 
 Tmux = Callable[..., subprocess.CompletedProcess[str]]
 
@@ -167,10 +169,23 @@ def _scrollback_tmux_double(
     def _tmux(*args: str) -> subprocess.CompletedProcess[str]:
         if calls is not None:
             calls.append(args)
-        pane = _SCROLLBACK_WITH_FOOTER if "-S" in args else _VISIBLE_AFTER_FOOTER
+        if args == _SHIPPED_SCROLLBACK_CAPTURE:
+            pane = _SCROLLBACK_WITH_FOOTER
+        elif args == _PROPOSED_VISIBLE_CAPTURE:
+            pane = _VISIBLE_AFTER_FOOTER
+        else:
+            raise AssertionError(f"unexpected tmux call: {args!r}")
         return subprocess.CompletedProcess(args=args, returncode=0, stdout=pane, stderr="")
 
     return _tmux
+
+
+def test_scrollback_tmux_double_rejects_unexpected_capture_contract() -> None:
+    tmux = _scrollback_tmux_double()
+
+    assert tmux(*_PROPOSED_VISIBLE_CAPTURE).stdout == _VISIBLE_AFTER_FOOTER
+    with pytest.raises(AssertionError, match="unexpected tmux call"):
+        tmux("capture-pane", "-p", "-t", "wk")
 
 
 def _wait_for_change_on_watcher_sleep(
@@ -215,9 +230,11 @@ def test_settle_can_fail_loudly_on_expiry(
 
 def test_c_a_footer_in_scrollback_wakes_the_shipped_watcher() -> None:
     """DEFECT (c) PINNED: the footer has SCROLLED OFF and it still wakes."""
-    tmux = _scrollback_tmux_double()
+    calls: list[tuple[str, ...]] = []
+    tmux = _scrollback_tmux_double(calls=calls)
 
     assert watcher_shipped(tmux=tmux, target="wk") == _PICKER
+    assert calls == [_SHIPPED_SCROLLBACK_CAPTURE]
 
 
 def test_c_a_footer_in_scrollback_does_not_wake_the_proposed_watcher() -> None:
@@ -226,7 +243,7 @@ def test_c_a_footer_in_scrollback_does_not_wake_the_proposed_watcher() -> None:
     tmux = _scrollback_tmux_double(calls=calls)
 
     assert watcher_proposed(tmux=tmux, target="=wk:") != _PICKER
-    assert all("-S" not in call for call in calls)
+    assert calls == [_PROPOSED_VISIBLE_CAPTURE] * _POLLS
 
 
 def test_cprime_a_quoted_footer_wakes_the_shipped_watcher(
