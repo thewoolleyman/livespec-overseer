@@ -182,60 +182,55 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **`handoff.md` SAYS SIX PENDING PROPOSED CHANGES. THERE ARE EIGHT.** Measured
-  2026-08-02T23:42Z in `SPECIFICATION/proposed_changes/`: the six foreman
-  proposals (`attention-ownership-superset`, `foreman-scope-governed`,
-  `operator-acts-include-foreman`, `reserved-suffix-refusal`,
-  `status-snapshot-store`, `unattended-reader-carve-out`, all authored
-  2026-08-02) plus **two that predate this thread** —
-  `gap-invisible-clauses-to-must-form.md` and
-  `supervise-plan-authors-two-layers.md`, both authored 2026-07-30 and both
-  landing after the `v004` snapshot. A `/livespec:revise` pass walks EVERYTHING
-  pending, so scoping the maintainer's cost estimate to six understates it by
-  two whole proposals. See thread correction **T1**.
+- **STATE AS OF 2026-08-03T09:00Z — THIS IS THE ONLY STATUS BLOCK; EVERYTHING
+  ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure before acting; the
+  Verification Discipline block below is the command.
 
-- **VALVE DRIVING IS A RATIFIED HUMAN ACT (review finding C1), BUT SURFACING A
-  RIPE VALVE IS NOT.** A decision the maintainer has not been shown is a stall of
-  this thread's own making. Raise every ripe valve in ONE `AskUserQuestion` in
-  the turn it becomes ripe, per the shared layer's picker rules. Once the
-  maintainer answers, RUNNING the corresponding `drive.py --action approve:<id>`
-  and the dispatch is mechanics, not a second decision.
+  **v006 IS RATIFIED AND MERGED** (PR #575). All nine pending proposals were
+  processed in one pass: six `modify`, three `accept`, none rejected.
+  `SPECIFICATION/proposed_changes/` is EMPTY. Do not re-file any of them; a
+  same-topic re-run mints a `<topic>-2.md` collision.
 
-- **THE SLICE ORDER IS NOT THE SLICE NUMBERING.** Measured 2026-08-02T23:42Z,
-  epic `overseer-z5fo4y` is `backlog` and all seven items below are
-  `pending-approval`:
-  - `overseer-jgqw7d` (bug) — **CLOSED 2026-08-03**, factory-implemented and
-    merged as `7eb7484` (PR #531). It needed no spec ratification and was the
-    only item dispatchable before any revise pass. `.5`'s dep edge is therefore
-    satisfied and `reserved-suffix-refusal` ratification is all that remains on
-    `.5`'s spec side. The merged refusal has NO live effect on the current
-    fleet: measured 2026-08-03, zero plan topics across all twelve watched
-    repos end in a reserved suffix, live or archived, and the single cross-repo
-    topic collision does not derive a refused name. It is a latent guard.
-  - `.1` — PRECONDITION in its own text: `contracts.md` "Durable stores" is a
-    CLOSED three-file enumeration and `spec.md` scope must admit the new store.
-    Blocked on `status-snapshot-store` ratification.
-  - `.2` — blocked by `.1` through a REAL ledger dep edge, and its acceptance
-    also demands "serializer identity with the snapshot writer", which is `.1`'s
-    serializer. (An earlier revision of this binder said `.2` "carries no dep
-    edge" and asked the reader to treat the sequencing as an inference. That was
-    a measurement error — see thread correction **T2**.)
-  - `.3` — blocked by `.2`, which is blocked by `.1`: a two-level dep chain in
-    the ledger, not just the practical sequencing an earlier revision claimed.
-    It also composes `.1`'s snapshot output.
-  - `.4` — PRECONDITION stated verbatim: "the same SPECIFICATION amendment pass
-    as slice `.1`".
-  - `.5` — blocked on `reserved-suffix-refusal` ratification AND on the
-    `overseer-jgqw7d` dep edge.
+  Ledger, re-measured:
 
-- **`overseer-n7xx67` IS NOT AN APPROVE-AND-DISPATCH ITEM.** Its own acceptance
-  requires a scenario landed "through the spec lifecycle (propose-change ->
-  revise)". Approving it puts a `ready` item in front of the factory whose
-  landing path needs an INTERACTIVE revise the dispatch cannot run. Its proposal
-  IS now filed: `fail-soft-render-prohibition-scenario.md`, merged 2026-08-03 as
-  `fdc4018` (PR #538), so the directory holds NINE proposals, not the eight T1
-  records. What remains for the item is the ratification plus its
-  `tests/heading-coverage.json` row.
+  | Item | State |
+  |---|---|
+  | `overseer-z5fo4y.1` snapshot export | **closed** |
+  | `overseer-z5fo4y.5` `-foreman` suffix | **closed**, merged `335a578` |
+  | `overseer-z5fo4y.2` `list --json` | dispatched; first attempt refused pre-flight (exit 3, no claim, no PR) |
+  | `overseer-z5fo4y.4` heartbeat surfacing | dispatched; same pre-flight refusal, re-dispatched with `--json` to capture stderr |
+  | `overseer-z5fo4y.3` foreman-gather | blocked behind `.2` by a real ledger edge |
+  | `overseer-n7xx67` | **closed**, PR #600 |
+  | `overseer-jgqw7d`, `overseer-3hq`, `overseer-63y`, `overseer-41p` | **closed** |
+
+  REMAINING ON THIS THREAD: `.2` and `.4` land, then `.3`, then archive the
+  thread, then fleet rollout.
+
+- **BEFORE YOU DIAGNOSE ANY DISPATCH FAILURE, READ `overseer-6pn`.** A
+  dispatcher that reports `failed` while its PR MERGED is that bug, not a real
+  failure. FIVE occurrences on this thread alone (`jgqw7d`, `63y` twice, `3hq`,
+  `n7xx67`). **Check `gh pr list --state merged` BEFORE re-dispatching**, then
+  reconcile the phantom claim (`--status acceptance`, then the `accept` valve)
+  instead of re-running the work. The root cause is the post-merge janitor
+  pulling the PRIMARY checkout: one dirty file there aborts its `git pull` and
+  fails every dispatch fleet-wide. That condition was cleared 2026-08-03; if it
+  returns, `git status` the primary before believing any dispatch failure.
+
+- **NEVER RE-RUN `drive.py` IN THE FOREGROUND TO CAPTURE STDERR.** A foreground
+  re-run IS a dispatch. Killing it on a timeout leaves a phantom claim, and
+  treating that claim as spurious leads to dispatching a third time. That is
+  exactly how TWO implementations of slice `.1` both merged (`overseer-41p`,
+  since resolved). To capture diagnostics, dispatch DETACHED with `--json`:
+  `setsid nohup ./tmp/overseer/foreman/dispatch.sh impl:<id> --json > log 2>&1 &`.
+  That wrapper also re-resolves the plugin build at call time, which matters
+  because the release train invalidated this session's build FOUR times in one
+  day.
+
+- **A CHECK'S NAME IS NOT ITS CAUSE.** `check-commit-pairs-source-and-test`
+  failed on PR #580 and the supervisor briefed a commit reshape. The job had
+  died on a **ruff download timeout before the pairing gate ever ran**. The
+  worker read the failed job's LOG, requested a rerun on the UNCHANGED branch,
+  and it went green — no defect existed. Read the job output, not the job name.
 
 - **`-foreman` AS A RESERVED SUFFIX HAS A COLLISION TRAP `.5` MUST NOT WALK
   INTO.** The shipped mechanism is `signals.topic_reserved_for_supervisor`,
@@ -466,3 +461,33 @@ ordering exactly.
   thread the worker's measurement beat the supervisor's prose, and both times the
   rule I broke was the one this binder itself states: re-measure, do not carry
   forward.
+
+- **T3 (2026-08-03) — I re-dispatched work that had already merged, and two
+  implementations of slice `.1` landed on master.** The chain: the dispatcher
+  reported failure, I re-ran `drive.py` in the FOREGROUND under a 240s timeout
+  to capture stderr, that started a second real dispatch and the timeout killed
+  the caller, I read the leftover claim as spurious and dispatched a third time.
+  Two runs completed and both auto-merged, leaving
+  `_supervisor_status_snapshot.py` and `_supervisor_snapshot.py` implementing
+  the same ratified behaviour side by side. Filed as `overseer-41p` and since
+  resolved to one module. **Every link in that chain was something I had already
+  filed** — `overseer-6pn` (a failing dispatcher whose PR merged), `overseer-1hv`
+  (no reconciliation path), and the foreground-rerun trap I wrote into the marker
+  *after* committing it. Filing a hazard is not the same as being protected from
+  it; the rule has to be checked at the moment of acting, not at the moment of
+  writing. **Check `gh pr list --state merged` before every re-dispatch.**
+
+- **T4 (2026-08-03) — three times I inferred a cause from a label instead of
+  reading one layer down, and each time a measurement refuted me.** (a) I called
+  master "red" and "fleet-blocking" from two local failures; load average was 109
+  on 18 cores against a fixed 5s tmux settle, and the same commits were green in
+  CI. (b) I filed a P1 saying the daemon never wrapped a Codex track because a
+  Codex context footer was unparseable; `signals.py` handles both renderings by
+  design and the parser returned `17` on the real pane — the true defect was an
+  unbounded suppression guard, and a Claude track in another repo was starved
+  identically. (c) I read `check-commit-pairs-source-and-test: fail` as a pairing
+  defect and briefed a commit reshape; the job had died on a ruff download
+  timeout before that gate ran. **A check, a footer, and a status line all name a
+  thing; none of them explains itself.** Run the positive control, read the job
+  log, check the host — before writing the cause down anywhere a reader will
+  inherit it.
