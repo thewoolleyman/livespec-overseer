@@ -21,6 +21,16 @@
   "template": "livespec",
   "spec_root": "SPECIFICATION",
   "implementation": { "plugin": "livespec-orchestrator-beads-fabro" },
+  // Planning/work-item-resolution registry. These targets are the repo slugs
+  // accepted by cross-tenant DependsOnEntry refs (`sibling_work_item`,
+  // `pull_request`, and `branch`).
+  "cross_repo_targets": {
+    "livespec-dev-tooling": {
+      "github_url": "https://github.com/thewoolleyman/livespec-dev-tooling",
+      "local_clone": "/data/projects/livespec-dev-tooling",
+      "default_branch": "master"
+    }
+  },
   // Credential-injection wrapper (fleet default) prefixed to the beads CLIs
   // so a bare invocation self-heals its tenant credential projection.
   "credential_wrapper": ["/usr/local/bin/with-livespec-env.sh", "--"],
