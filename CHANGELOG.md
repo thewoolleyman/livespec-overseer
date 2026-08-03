@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.20.1...v0.20.2) (2026-08-03)
+
+
+### Bug Fixes
+
+* remove duplicate status snapshot writer ([8dcff61](https://github.com/thewoolleyman/livespec-overseer/commit/8dcff61919023e07e24e7a2824c395f13d2e35ff))
+
 ## [0.20.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.20.0...v0.20.1) (2026-08-03)
 
 
