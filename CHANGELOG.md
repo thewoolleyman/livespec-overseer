@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.21.0...v0.21.1) (2026-08-03)
+
+
+### Bug Fixes
+
+* check-pre-push keyed on the merge-base, not on a branch's stale upstream ([aef97ce](https://github.com/thewoolleyman/livespec-overseer/commit/aef97ce608319dd6d8f3b3a261def3171fce6fb2))
+
 ## [0.21.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.20.2...v0.21.0) (2026-08-03)
 
 
