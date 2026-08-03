@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.21.1...v0.22.0) (2026-08-03)
+
+
+### Features
+
+* surface stale foreman heartbeats ([a01d3e2](https://github.com/thewoolleyman/livespec-overseer/commit/a01d3e2d3974822e901ea3b3965d71ae0fa644be))
+
 ## [0.21.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.21.0...v0.21.1) (2026-08-03)
 
 
