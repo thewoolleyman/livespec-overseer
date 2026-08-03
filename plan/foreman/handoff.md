@@ -40,37 +40,92 @@ ls SPECIFICATION/proposed_changes/
 ```
 
 (a bare `bd` in this repo returns Access denied — the wrapper is required).
-As filed on 2026-08-02: the epic is `backlog`; children `.1`–`.5`, the
-independent defect `overseer-jgqw7d` (`tmux_id` refusal gap — `.5` depends
-on it), and the coverage task `overseer-n7xx67` are all `pending-approval`,
-awaiting the maintainer's `approve` valve. The six spec-side proposed
-changes are FILED (PR #495, 2026-08-02) and pend in
-`SPECIFICATION/proposed_changes/` awaiting `/livespec:revise`. Valve
-driving is a ratified HUMAN act (review finding C1) — but SURFACING every
-ripe valve is THIS THREAD'S FIRST TASK, not a thing the maintainer must
-remember: a decision the maintainer has not been shown is a stall of this
-thread's own making.
 
-## NEXT ACTION — open with the batched valve picker, then execute the answers
+**As re-measured 2026-08-03**, superseding the 2026-08-02 filing below:
+
+- The epic is `backlog`; children `.1`–`.5` and the coverage task
+  `overseer-n7xx67` remain `pending-approval`.
+- **`overseer-jgqw7d` is CLOSED**, factory-implemented and merged as
+  `7eb7484` (PR #531). `.5`'s only dep edge is therefore satisfied.
+- **The slices carry REAL dep edges**, not merely practical ordering: `.2`
+  is blocked by `.1`, and `.3` by `.2` by `.1`. A dep tree is directional —
+  querying `.1` reports what blocks `.1`, never what `.1` blocks.
+- **NINE proposed changes pend, not six.** The six foreman proposals
+  (PR #495) plus two that predate this thread
+  (`gap-invisible-clauses-to-must-form`,
+  `supervise-plan-authors-two-layers`, both 2026-07-30) plus
+  `fail-soft-render-prohibition-scenario` (PR #538, `fdc4018`), which is
+  `overseer-n7xx67`'s landing path. `/livespec:revise` is
+  DIRECTORY-scoped, not thread-scoped, so a pass walks all nine.
+- **`SPECIFICATION/history/v005/` already exists** and is NOT this thread's:
+  the `supervisor-wrapup-citizenship` track ratified its own proposal at
+  `cc90899` on 2026-08-03. This thread's pass therefore produces **v006**,
+  and that ratification EDITED `spec.md`, `contracts.md`, `constraints.md`
+  and `scenarios.md` in regions several of the nine target. Re-verify every
+  anchor against current master before applying any proposal's wording.
+
+As filed on 2026-08-02 (retained for provenance): all seven ledger items
+were `pending-approval` and the six spec-side proposed changes were filed
+in PR #495. Valve driving is a ratified HUMAN act (review finding C1) — but
+SURFACING every ripe valve is THIS THREAD'S FIRST TASK, not a thing the
+maintainer must remember: a decision the maintainer has not been shown is a
+stall of this thread's own making.
+
+## NEXT ACTION — the revise pass; the picker is DISCHARGED
 
 FIRST, in the resuming session's opening turns: re-measure the ledger and
-`SPECIFICATION/proposed_changes/` (the commands above), then raise ONE
-batched `AskUserQuestion` to the maintainer carrying EVERY ripe valve, each
-option stating its cost, recommended option first, full repository names,
-one call batching every ripe valve rather than a trickle, and a `---` final
-line before the picker (these are `.ai/supervisor-protocol.md`'s picker
-rules, restated here so this file stays self-sufficient):
+`SPECIFICATION/proposed_changes/` (the commands above).
 
-1. **Approve + dispatch `overseer-jgqw7d` now** — it needs NO spec
-   ratification (it fixes an existing spec-vs-impl gap) and unblocks `.5`.
-   Recommended yes.
-2. **Run the `/livespec:revise` walk-through** on the six foreman proposals
-   (each carries a composition note; `.1`/`.4`/`.5` wait on ratification of
-   `status-snapshot-store`, the attention amendments, and
-   `reserved-suffix-refusal`). This operation is itself interactive —
-   per-proposal accept/modify/reject stays with the maintainer.
+**The batched valve picker this section used to demand is DISCHARGED.** On
+2026-08-03 the maintainer replaced it with a standing instruction to drive
+every phase autonomously — plan through implementation, archive and fleet
+deployment — and to route any genuinely blocking question to a Codex
+subsession first to test whether it truly needs them. That is a broader
+grant than any single picker answer, and it is why valve 1 was executed
+without one. **A resuming session should not re-raise the picker as if the
+decision were still open**; it should either act under that grant or, if
+the grant has lapsed, raise the valves that are still ripe. The picker
+rules themselves still bind whenever a valve IS raised (recommended option
+first, every option stating its cost, full repository names, one batched
+call, `---` as the final line before the picker — `.ai/supervisor-protocol.md`
+owns them; restated here so this file stays self-sufficient).
+
+The valves, with what became of each:
+
+1. ~~**Approve + dispatch `overseer-jgqw7d` now**~~ — **DONE 2026-08-03.**
+   Approved, factory-dispatched, merged as `7eb7484` (PR #531), item
+   CLOSED. The merged refusal has no live fleet effect: zero plan topics
+   across all twelve watched repos end in a reserved suffix, live or
+   archived. It is a latent guard.
+2. **Run the `/livespec:revise` walk-through** — now over **nine**
+   proposals, not six, and producing **v006**. Decision prep exists: read
+   `tmp/overseer/foreman/assessment-proposals.md` (gitignored scratch, so
+   re-derive it if absent) before opening the pass. It verified every
+   proposal's anchors against the real spec text and the 33 binding review
+   dispositions and returned **3 ACCEPT / 6 ACCEPT-WITH-MODIFICATION / 0
+   REJECT**, with exact replacement wording and a required application
+   order whose two hard textual constraints are:
+   `gap-invisible-clauses-to-must-form` must precede
+   `reserved-suffix-refusal`, and `supervise-plan-authors-two-layers` must
+   precede `unattended-reader-carve-out`.
+
+   Four of the six modifications are substantive rather than editorial, and
+   two of those are safety-relevant: `attention-ownership-superset`
+   specifies a heartbeat schema missing the `tick_generation` field slice
+   `.4` requires (ratifying as-written makes `.4` unimplementable against
+   its own spec), and `foreman-scope-governed` forbids the foreman only
+   four named human-valve verbs where binding finding C1 covers the entire
+   class — leaving policy edits, caps and move apparently permitted to an
+   unattended component. `unattended-reader-carve-out` proposes a scenario
+   permitting a pane answer to a BLOCKED track, contradicting ratified
+   "never restarted, never keystroked".
+
 3. **Approve slices `.1`–`.5`** (post-ratification) and optionally
-   `overseer-n7xx67`.
+   `overseer-n7xx67`. Respect the ledger dep chain: `.1` → `.2` → `.3`.
+   `.1` needs BOTH `status-snapshot-store` and the `spec.md` scope half of
+   `foreman-scope-governed`; `.4` needs `attention-ownership-superset` plus
+   `unattended-reader-carve-out` for its heartbeat home; `.5` needs only
+   `reserved-suffix-refusal` now that `overseer-jgqw7d` is closed.
 
 On each approval answer, EXECUTE it in the same session: the corresponding
 `drive.py --action approve:<id>` then the dispatch
@@ -86,15 +141,33 @@ apply verbatim.
 (The previous next action — filing the six proposed changes — is DONE, PR
 #495. Do not re-file; a same-topic re-run mints `<topic>-2.md` collisions.)
 
-## Standing hazard — live until `.5` lands
+## Standing hazard — live until `.5` lands, and NARROWER than it first read
 
 `plan/foreman/` is a discovered plan topic in a watched repo. Adoption
 matches live sessions' REGISTRY names against discovered topics, so a
 session registry-named `foreman` in this repo WILL be adopted as this
 thread's worker — wrapped up at threshold, nudged when idle, and
-respawn-able into this handoff. Do not run one. A foreman prototype session
-must be registry-named `<repo-slug>-foreman`, and even that is only safe
-after `.5`'s adoption refusal lands.
+respawn-able into this handoff.
+
+**That is about a foreman PROTOTYPE, not about this thread's own worker.**
+Adoption keys on EXACT equality (`overseer/_supervisor_discovery.py` sets
+`topic = name` and requires membership in the active-topic set), so a
+worker session named `foreman` working THIS plan thread is adopted exactly
+as intended — that is the daemon managing its own track, not a hazard. One
+has run under this handoff since 2026-08-03. A foreman PROTOTYPE is the
+thing to avoid: it must be registry-named `<repo-slug>-foreman`, and even
+that is only safe after `.5`'s adoption refusal lands.
+
+**A trap `.5`'s implementation must not walk into.** The shipped mechanism
+is `signals.topic_reserved_for_supervisor`, i.e.
+`topic.lower().endswith("-supervisor")`. The bare topic `foreman` does NOT
+end in `-foreman`, so this thread's worker is safe under a HYPHENATED test
+— but a hyphen-less `endswith("foreman")` would orphan the very worker
+supervising this plan. Separately, `tmux_id`'s collision branch derives the
+repo-qualified `livespec-overseer-foreman`, which DOES end in `-foreman`
+and which `.5` refuses by design; that is latent today (measured
+2026-08-03: no watched repo but this one holds a `plan/foreman/`) and goes
+live the moment a second one does. Both belong in `.5`'s beside-tests.
 
 ## Constraints that bind this thread — do not re-derive
 
@@ -113,7 +186,30 @@ after `.5`'s adoption refusal lands.
   as `livespec-dev-tooling-zi4q`). The proven rescue: `git worktree add
   <path> -b <branch>`, then `just install-worktree-pack` inside it, then
   discard the `worktree_discipline` key it writes into the tracked
-  `.livespec.jsonc` unless you mean to land it.
+  `.livespec.jsonc` unless you mean to land it. Still true at 81+
+  worktrees on 2026-08-03; the rescue was used for every branch this
+  session.
+
+- **REBASE BEFORE PUSHING, or a docs-only branch inherits everyone else's
+  risk.** The pre-push hook picks its subset from the diff against
+  `origin/master`. With a STALE BASE that diff sweeps in other tracks'
+  `.py` commits, so the hook runs the FULL aggregate instead of the
+  doc-only subset — measured 2026-08-03: 407 seconds and a red push for a
+  branch touching one markdown file, then 0.96 seconds and a clean push
+  after rebasing onto current master. Nothing about the failure names the
+  stale base as the cause.
+
+- **DO NOT TRUST A LOCAL FULL `just check` ON A LOADED HOST, and do not
+  add to the load.** Measured 2026-08-03T04:11Z: load average 109 on an
+  18-core host with 51 sessions. `tests/prompts/` drives real tmux panes
+  against a fixed 5-second settle budget, which cannot hold at that load,
+  so the aggregate reddens for host reasons and it does NOT look like a
+  host problem — one form is a plain test failure, the other is a COVERAGE
+  failure with no test reported failed, on a branch containing no Python.
+  A local red is not evidence about the tree; CI is the arbiter. Tracked
+  as `overseer-63y`, whose acceptance is now the timing DEPENDENCE, not
+  the reporting of its expiry (PR #547 made the expiry loud, which helps
+  diagnosis and does not remove the dependence).
 
 ## Discipline
 
