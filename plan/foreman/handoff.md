@@ -30,7 +30,49 @@ this tenant refuses task-to-epic dep edges).
    re-verified). The per-phase dispositions in it are BINDING design
    constraints; do not re-litigate a finding without new evidence.
 
-## Restart checkpoint — 2026-08-03T08:22Z, the `.1` cleanup LANDED; `.2` and `.4` are in flight
+## Restart checkpoint — 2026-08-03T18:33Z, PHASE A IS COMPLETE; PHASE B IS UNFILED
+
+**ALL FIVE PHASE A SLICES ARE CLOSED.** `.1` (snapshot export), `.2`
+(`list --json`), `.3` (foreman-gather), `.4` (heartbeat surfacing), `.5`
+(`-foreman` reserved suffix). Landed as PRs #582/#585 + #601 (dedupe), #607,
+#621, #619, #580. Re-measured from the ledger at 18:32Z.
+
+**DO NOT ARCHIVE THIS THREAD YET — and the previous version of this file told
+you to, which is the error this checkpoint exists to correct.** It said the
+remaining scope after Phase A was "archive this thread, then fleet rollout".
+That is wrong. The epic `overseer-z5fo4y`'s own record carries the maintainer
+decision of 2026-08-02: **`v1 = phases A+B` (observe, then mechanical acts)**,
+with consensus / gate-driving / federation following. Phase A is only the
+OBSERVE half. Archiving here would ship half of v1 and strand the other half
+with no carrier.
+
+**PHASE B HAS NO WORK ITEMS.** Measured 18:32Z: the only open foreman-related
+ledger records are the epic itself and four cross-track defects
+(`overseer-6pn`, `overseer-t6m`, `overseer-iwu`, `overseer-jtc`) — none of
+which is Phase B. The epic stays `backlog` precisely because it spans A+B; do
+not close it on Phase A's completion.
+
+Phase B is already SPECIFIED and its design is BINDING — see
+`research/brainstorm.md` §4, which post-dates the external review:
+the LLM foreman acting narrowly, behind an entry gate + tmux-name mutex + a
+deterministic wrapper (lock, tick scheduling, LLM rotation from a durable
+handoff), acting ONLY through a whitelisted `foreman-act` executable (session
+lifecycle behind the deterministic never-started / crashed-resume /
+ambiguous-report classifier, absolute repo paths, work-item sessions as
+bounded one-shots with journaled claims; plus filing and journal triage), with
+human valves REPORT-ONLY (C1) and act-time re-verification against a fresh
+snapshot read. So the next action is to FILE those slices, not to re-derive the
+design.
+
+**HOW THE WRONG CLAIM GOT HERE, because the mechanism matters more than the
+correction.** It came from the supervisor binder's status block ("REMAINING ON
+THIS THREAD: `.2` and `.4` land, then `.3`, then archive the thread, then fleet
+rollout") and was copied into this file without being checked against the epic.
+It is the same defect class this thread has now recorded three times — T2 (a
+ledger fact asserted, not measured), C18 (a defect re-measured while the claim
+ABOUT it was not), and T4 (a cause inferred from a label). **A scope claim is a
+claim with a timestamp exactly like an item status.** The epic was one
+`bd show` away.
 
 The previous prepared-revise checkpoint is fully discharged. The nine-proposal
 ratification landed as v006 in `47ad0e0` (PR #575), and
@@ -89,48 +131,79 @@ ls SPECIFICATION/proposed_changes/
 
 | Item | State |
 |---|---|
-| `overseer-z5fo4y` (epic) | `backlog` |
+| `overseer-z5fo4y` (epic) | `backlog` — **stays open: it spans v1 = A+B** |
 | `overseer-z5fo4y.1` snapshot export | **closed** — dedupe landed, PR #601 |
-| `overseer-z5fo4y.2` `list --json` | `ready`, unclaimed — **dispatched 08:18Z** |
-| `overseer-z5fo4y.3` foreman-gather | `pending-approval`, blocked by `.2` |
-| `overseer-z5fo4y.4` heartbeat surfacing | `ready`, unclaimed — **dispatched 08:20Z** |
+| `overseer-z5fo4y.2` `list --json` | **closed**, PR #607 (sha `706f23b`) |
+| `overseer-z5fo4y.3` foreman-gather | **closed**, PR #621 (sha `f699678`) |
+| `overseer-z5fo4y.4` heartbeat surfacing | **closed**, PR #619 (sha `a01d3e2`) |
 | `overseer-z5fo4y.5` `-foreman` suffix | **closed**, PR #580 |
 | `overseer-41p` | **closed**, PR #601 |
 | `overseer-n7xx67` | **closed**, PR #600 |
+| **Phase B** | **UNFILED — this is the remaining v1 scope** |
 
 - v006 is ratified and all nine proposal files are archived. The ratification
   prerequisite for the Phase A work is satisfied — including `.4`'s stated
   precondition (attention-surface membership ratified in `contracts.md`).
 - The earlier reconciliation work is all discharged: `.5`, `.1`, `overseer-41p`
   and `overseer-n7xx67` are closed. Nothing here needs re-dispatching.
-- The slices carry real dependency edges: `.2` is blocked by `.1`, and `.3`
-  by `.2` and `.1`. A dep tree is directional — querying `.1` reports what
-  blocks `.1`, never what `.1` blocks. With `.1` closed, `.2` and `.4` are
-  both unblocked and independent of each other; only `.3` still waits.
-- **No PR has ever existed for `.2` or `.4`** — searched all states plus a
-  branch-name sweep at 08:18Z. So neither is an `overseer-6pn` phantom, and
-  neither had already been done. Re-run that search before any re-dispatch.
+- The Phase A slices carried real dependency edges (`.2` blocked by `.1`; `.3`
+  by `.2` and `.1`), and all of them are now satisfied and closed. The durable
+  lesson, since Phase B will have edges of its own: **a dep tree is
+  directional** — querying `.1` reports what blocks `.1`, never what `.1`
+  blocks, so query the item you actually care about (that is correction T2).
+  `.3` also moved `pending-approval` -> `ready` BY ITSELF once `.2` closed; no
+  approve valve was run, because per C10 the set-admission + approve two-step is
+  unnecessary and permanently rewrites the item's recorded admission policy.
 
-## NEXT ACTION — `.2` and `.4` are dispatched and in flight; then `.3`, then archive
+## NEXT ACTION — file Phase B's slices under the epic; Phase A needs nothing
 
-FIRST, re-fetch and re-measure `.2`, `.3`, `.4`, current master, and
-`gh pr list --state merged`. Then:
+FIRST, re-fetch and re-measure the epic `overseer-z5fo4y` and its five closed
+children, plus `gh pr list --state merged` and current master. Then:
 
-1. **Land `.2` and `.4`.** Both were dispatched detached at 08:18Z / 08:20Z
-   against build `525886a4f799`. Watch them to a terminal outcome. A
-   dispatcher `failed` whose PR MERGED is `overseer-6pn`, not a real failure —
-   reconcile the claim and accept; do NOT re-run the work. A run parked at
-   `runnable` that then vanishes from `fabro ps -a` is queue eviction —
-   release the claim by hand and re-dispatch, and record which of the two it
-   was so the next reader does not diagnose the wrong one.
-2. **Then `.3` (foreman-gather).** It is `pending-approval` and blocked by
-   `.2` by a real dep edge; it becomes ripe only once `.2` closes.
-3. **Then archive this thread, then fleet rollout** — the remaining scope
-   after Phase A's slices land.
+1. **File the Phase B slices** against the epic, transcribing the cut from
+   `research/brainstorm.md` §4 and honouring the binding per-phase
+   dispositions in `research/review-findings.md` — this is transcription of a
+   reviewed design, not a fresh cut. The components §4 enumerates: the entry
+   gate + tmux-name mutex; the deterministic wrapper (lock, tick scheduling,
+   LLM rotation from a durable handoff); the whitelisted `foreman-act`
+   executable with its never-started / crashed-resume / ambiguous-report
+   classifier; filing and journal triage; act-time re-verification against a
+   fresh snapshot read. Human valves stay REPORT-ONLY (C1).
+2. **Then dispatch them in dependency order** under the standing autonomous
+   grant, exactly as Phase A's were.
+3. **Only then archive, then fleet rollout.** Archiving is gated on v1, and
+   v1 is A+B.
 
 Do not resume `tmp-revise-input.json`, do not re-file any of the nine spec
-proposals, do not re-dispatch `.1`, `.5`, `overseer-41p` or `overseer-n7xx67`
-(all closed), and do not hand-code a factory-eligible ledger item inline.
+proposals, do not re-dispatch any of `.1`–`.5`, `overseer-41p` or
+`overseer-n7xx67` (all closed), do not close the epic on Phase A's completion
+(it spans A+B), and do not hand-code a factory-eligible ledger item inline.
+
+**DISPATCH LESSONS FROM PHASE A THAT WILL RECUR IN PHASE B**, each measured
+2026-08-03 rather than inherited:
+
+- **A dispatcher `failed` is not evidence the work failed.** `.2` reported
+  `failed` at stage `merge-poll` ("PR did not reach MERGED within the poll
+  budget") while PR #607 merged fine — the budget expired because CI was red on
+  a transient forge outage. That is `overseer-6pn`. Check
+  `gh pr list --state merged`, verify the merge sha is an ancestor of
+  `origin/master`, then reconcile (`--status acceptance`, then the accept
+  valve) rather than re-running.
+- **A run can be `blocked` on human input while `drive.py` has already said
+  `failed`.** `.4`'s first attempt sat at an unwatched 3-option prompt, then
+  died on a hard 240m timeout, destroying its sandbox. `fabro inspect <run>`
+  distinguishes `blocked` / `human_input_required` from a real failure.
+  **`fabro dump <run> --output <dir>` BEFORE deciding anything** — that dump
+  was the only surviving copy of the review finding, and writing that finding
+  into the item is what made the re-dispatch pass first time.
+  Root cause filed as `bd-ib-hote` (P1, orchestrator tenant): review findings
+  are never propagated into the disposition stage's prompt.
+- **Always dispatch with `--json`.** Three plain runs reported nothing but
+  `status: failed`; only the `--json` run surfaced the stale-build stderr that
+  explained four consecutive refusals.
+- **`ACTIVE` is never evidence of a run, and neither is a `runnable` one.**
+  Confirm a run reaches `running`; a queued run can be evicted without ever
+  executing and leaves an identical-looking claim.
 
 **The batched valve picker this section used to demand is DISCHARGED.** On
 2026-08-03 the maintainer replaced it with a standing instruction to drive
