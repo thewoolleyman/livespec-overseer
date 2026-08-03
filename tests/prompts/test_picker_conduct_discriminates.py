@@ -63,7 +63,9 @@ that never cries wolf can be widened as new positives are recorded, whereas a
 recall-first gate flagging the six benign mentions above would be discounted within
 a day -- the exact fate this epic's own record predicts for advisory rules.
 
-The full measurement is `plan/daemon-liveness-truth/research/rung-3-corpus-measurement.md`.
+The full measurement is
+`plan/archive/daemon-liveness-truth/research/rung-3-corpus-measurement.md` (the thread
+archived 2026-08-03; nothing resolves this path mechanically, so it rots silently).
 """
 
 from __future__ import annotations
