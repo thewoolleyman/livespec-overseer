@@ -259,6 +259,31 @@ def test_liveness_helper_edges_are_covered(*, tmp_path):
     assert "ready-uncertifiable-age-14400" in conditions
 
 
+def test_uncertifiable_ready_renders_the_dead_end_not_restart_in_progress(*, tmp_path):
+    """A structurally impossible `ready` act is an attention state, not acting status.
+
+    The daemon can see the standing declaration, but with no open supervision round there
+    is no stamp against which to certify it. The row must name that dead end and must not
+    render as though a restart is already in progress.
+    """
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=79))
+    declare(repo=repo, topic=topic, value="ready", mtime=1000.0)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0 + 901.0)
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=False)
+    line = row_line(out=render_of(sup=sup, views=[view]), topic=topic)
+
+    assert view.status == "ready-uncertifiable"
+    assert "restarting" not in line
+    assert "restart-in-progress" not in line
+    assert "ready cannot certify" in line
+    assert "no supervision round" in line
+    assert not fake.has(method="respawn")
+
+
 def test_alert_reports_again_when_the_reason_changes(*, tmp_path):
     """Edge-triggering is on the CONDITION, not merely on the status: a track that stays
     blocked for a DIFFERENT reason is a new event and must be reported."""

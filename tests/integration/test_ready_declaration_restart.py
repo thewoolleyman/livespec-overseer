@@ -35,6 +35,8 @@ from overseer.test_supervisor_builders import (
     make_supervisor,
     mapped_track,
     on_respawn,
+    render_of,
+    row_line,
 )
 from overseer.test_supervisor_fakes import (
     FakeTmux,
@@ -252,6 +254,11 @@ def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tm
     assert surfaced.note == "15m: ready cannot certify: no supervision round open"
     assert supervisor.needs_attention(row=surfaced) is True
     assert not fake.has(method="respawn")
+    line = row_line(out=render_of(sup=sup, views=[surfaced]), topic=topic)
+    assert "restarting" not in line
+    assert "restart-in-progress" not in line
+    assert "ready cannot certify" in line
+    assert "no supervision round" in line
     report = err.getvalue()
     assert "ready cannot certify (15m): no supervision round open" in report
     for coordinate in (topic, registry.repo_slug(repo=str(repo)), session):

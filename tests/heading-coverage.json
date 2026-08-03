@@ -101,8 +101,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Fail-soft posture",
-    "test": "TODO",
-    "reason": "Added by the fail-soft-render-prohibition-scenario ratification. It pins the RENDERING half of the heading's prohibition — a structurally impossible act is never shown as restart-in-progress or as otherwise going to occur — rather than the already-covered surfacing or unknown-context halves. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit."
+    "test": "overseer.test_supervisor_row_color_operator.test_uncertifiable_ready_renders_the_dead_end_not_restart_in_progress",
+    "reason": "Pins the RENDERING half of the heading's prohibition: a structurally impossible act is never shown as restart-in-progress or as otherwise going to occur. The read-only rendered row names the certification dead end instead."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -507,7 +507,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A structurally impossible act is never rendered as in progress",
-    "test": "TODO",
-    "reason": "Added by the fail-soft-render-prohibition-scenario ratification as the Given/When/Then half of the existing rendering prohibition. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit."
+    "test": "tests.integration.test_ready_declaration_restart.test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention",
+    "reason": "Pins the Given/When/Then path at scenario tier: a standing ready declaration whose act is structurally impossible renders as ready-uncertifiable, does not render a restart-in-progress status, and names the certification dead end."
   }
 ]
