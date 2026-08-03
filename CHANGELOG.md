@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.20.2...v0.21.0) (2026-08-03)
+
+
+### Features
+
+* add JSON list CLI coverage ([706f23b](https://github.com/thewoolleyman/livespec-overseer/commit/706f23b54708f9b3e7c28c4807291ac32b8e0780))
+
 ## [0.20.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.20.1...v0.20.2) (2026-08-03)
 
 
