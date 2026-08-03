@@ -284,6 +284,15 @@ keep-going nudge" above):
   track — but it STILL never authorizes the daemon to act. The ACK buys patience,
   not an indefinite stall.
 
+  Liveness is the disambiguator. `winding-down` + a **live pane** means the
+  session acknowledged the wrap-up and is still wrapping up. `winding-down` +
+  **NO live session** means the session finished, parked, do not restart; the
+  daemon reports the quiet `wound-down` row instead of alarming as
+  `session-gone`. This is not a fourth session token and it is not restart
+  authorization. It permanently accepts the blind spot that a session which
+  declared `winding-down` and then crashed is indistinguishable from one that
+  finished cleanly.
+
 The normal sequence is therefore **two writes**: `winding-down` the moment the
 wrap-up lands, then `ready` (or `blocked: …`) when the session actually stops.
 The daemon acts on the file on its next tick.
