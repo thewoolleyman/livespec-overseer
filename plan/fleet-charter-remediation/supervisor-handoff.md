@@ -551,3 +551,26 @@ that logs only the worker's mistakes is a wrong record.
   fleet has at least one repo on `main`, and the six repos this thread touches
   do not share one convention. Disclosed to the worker in the same turn, before
   it could act on anything I had said.
+
+- **T2 (2026-08-03) — I ANSWERED `overseer-c45`'s MEMBERSHIP QUESTION WRONG, AND
+  THE ERROR WAS SCOPE: A STRING IN A FILE IS NOT A CONSTRUCT IN THE CORPUS.** I
+  grepped `rop-railway-enforcement`'s charter, found the defective busy regex,
+  and reported that the divergent watcher WAS in a charter file — inside the
+  corpus by file membership, though not among that file's scored defects. **The
+  detectors read FENCED BLOCKS ONLY** (`_code_blocks` discards everything else),
+  and every occurrence of that regex — 2 per revision across all 8 revisions
+  that carry it — sits in PROSE: a `⛔⛔ IF YOU ADD A BUSY-MARKER REGEX` caution
+  and a first-person correction entry. Prose is not in the corpus at all, so the
+  sweep could never have reached it for a reason stronger than the one I gave.
+  The worker's account — session-improvised, never committed as a watcher, the
+  charter's only record being a pure-addition warning — was right.
+  **I THEN CONTRADICTED THE WORKER AND WAS WRONG A SECOND TIME IN THE SAME
+  CHECK.** Its `+81/-0` detail looked refuted by my `--numstat` read of 39/9;
+  that commit touches three files and my `awk` paired the wrong stat row with
+  the wrong commit. `+81/-0` is exactly this file's stat in `f93fc8a`. **The
+  charter's rule held and I nearly overrode it twice in one turn:** when a
+  worker contradicts a supervisor, the supervisor is wrong until the exact
+  command has been re-run with a control. Both of my readings were greps I had
+  not controlled — the first against the detectors' real scope, the second
+  against a multi-file numstat. **Before reporting that a construct is "in the
+  corpus", check the SCOPE THE GATE ACTUALLY READS, not the file.**
