@@ -179,7 +179,9 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
         if repo is None:
             continue
         topic = name
-        if topic not in active.get(repo, set()):
+        if signals.topic_reserved_for_supervisor(topic=topic) or topic not in active.get(
+            repo, set()
+        ):
             continue
         if (repo, topic) in existing:
             # Already mapped. RE-POINT if the live named session has MOVED to a
