@@ -204,17 +204,25 @@ any of it forward; the Verification Discipline block is the command.
 - **THE SLICE ORDER IS NOT THE SLICE NUMBERING.** Measured 2026-08-02T23:42Z,
   epic `overseer-z5fo4y` is `backlog` and all seven items below are
   `pending-approval`:
-  - `overseer-jgqw7d` (bug) — needs NO spec ratification; it closes a
-    spec-vs-impl gap against already-ratified `spec.md` text. It is the ONLY
-    dep edge into `.5` and the only item dispatchable before any revise pass.
+  - `overseer-jgqw7d` (bug) — **CLOSED 2026-08-03**, factory-implemented and
+    merged as `7eb7484` (PR #531). It needed no spec ratification and was the
+    only item dispatchable before any revise pass. `.5`'s dep edge is therefore
+    satisfied and `reserved-suffix-refusal` ratification is all that remains on
+    `.5`'s spec side. The merged refusal has NO live effect on the current
+    fleet: measured 2026-08-03, zero plan topics across all twelve watched
+    repos end in a reserved suffix, live or archived, and the single cross-repo
+    topic collision does not derive a refused name. It is a latent guard.
   - `.1` — PRECONDITION in its own text: `contracts.md` "Durable stores" is a
     CLOSED three-file enumeration and `spec.md` scope must admit the new store.
     Blocked on `status-snapshot-store` ratification.
-  - `.2` — carries no dep edge and no stated precondition, but its acceptance
-    demands "serializer identity with the snapshot writer", which is `.1`'s
-    serializer. Treat it as sequenced AFTER `.1` even though the ledger does not
-    say so. This is an inference from acceptance text, flagged as such.
-  - `.3` — composes `.1`'s snapshot output; same practical sequencing.
+  - `.2` — blocked by `.1` through a REAL ledger dep edge, and its acceptance
+    also demands "serializer identity with the snapshot writer", which is `.1`'s
+    serializer. (An earlier revision of this binder said `.2` "carries no dep
+    edge" and asked the reader to treat the sequencing as an inference. That was
+    a measurement error — see thread correction **T2**.)
+  - `.3` — blocked by `.2`, which is blocked by `.1`: a two-level dep chain in
+    the ledger, not just the practical sequencing an earlier revision claimed.
+    It also composes `.1`'s snapshot output.
   - `.4` — PRECONDITION stated verbatim: "the same SPECIFICATION amendment pass
     as slice `.1`".
   - `.5` — blocked on `reserved-suffix-refusal` ratification AND on the
@@ -222,10 +230,12 @@ any of it forward; the Verification Discipline block is the command.
 
 - **`overseer-n7xx67` IS NOT AN APPROVE-AND-DISPATCH ITEM.** Its own acceptance
   requires a scenario landed "through the spec lifecycle (propose-change ->
-  revise)", and no proposal for it has been filed. Approving it puts a `ready`
-  item in front of the factory whose landing path needs an INTERACTIVE revise
-  the dispatch cannot run. File its proposal first if you want it in the same
-  pass.
+  revise)". Approving it puts a `ready` item in front of the factory whose
+  landing path needs an INTERACTIVE revise the dispatch cannot run. Its proposal
+  IS now filed: `fail-soft-render-prohibition-scenario.md`, merged 2026-08-03 as
+  `fdc4018` (PR #538), so the directory holds NINE proposals, not the eight T1
+  records. What remains for the item is the ratification plus its
+  `tests/heading-coverage.json` row.
 
 - **`-foreman` AS A RESERVED SUFFIX HAS A COLLISION TRAP `.5` MUST NOT WALK
   INTO.** The shipped mechanism is `signals.topic_reserved_for_supervisor`,
@@ -438,3 +448,21 @@ ordering exactly.
   directory was one `ls` away.** Re-measure a SET before quoting its SIZE in a
   picker option, because the cost stated in an option is the thing the maintainer
   actually consents to.
+
+- **T2 (2026-08-03) — I asserted a ledger fact I had not measured, in the very
+  binder whose job is to stop that.** This file shipped saying slice `.2`
+  "carries no dep edge and no stated precondition", and told the reader to treat
+  its ordering after `.1` as an inference from acceptance text. The ledger says
+  otherwise and always did: `.2` is blocked by `.1`, and `.3` by `.2` by `.1`,
+  as real `blocks` edges. What I actually ran was `bd dep tree` on `.1`, `.5` and
+  `overseer-n7xx67` — never on `.2` or `.3` — and a dep tree for `.1` shows what
+  blocks `.1`, not what `.1` blocks. I read three absences of an inbound edge as
+  evidence about a different item's outbound edges. **A dep tree is directional,
+  and "I saw no edge" is evidence only about the node actually queried.** Worse,
+  I labelled the guess as an inference and thereby made it look considered — a
+  flagged guess still reads as a measurement to the next supervisor. The error
+  was caught by the worker in task-02, which measured every slice by id as
+  instructed instead of inheriting my summary. That is the second time on this
+  thread the worker's measurement beat the supervisor's prose, and both times the
+  rule I broke was the one this binder itself states: re-measure, do not carry
+  forward.
