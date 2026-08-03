@@ -120,7 +120,12 @@ def identities_by_tmux_session(
     ppid_of: PidToOptionalInt = proc_ppid,
     starttime_of: PidToOptionalStr = proc_starttime,
 ) -> dict[tuple[str, str], str]:
-    """``{(tmux_session, name): identity}`` for live Claude sessions held in tmux."""
+    """``{(tmux_session, name): identity}`` for live Claude sessions held in tmux.
+
+    The snapshot needs a token that changes when the live process behind a row changes.
+    Claude's registry join already proves PID + ``procStart`` identity against ``/proc``,
+    so the token carries that verified pair plus the registry name.
+    """
     out: dict[tuple[str, str], str] = {}
     for session in read_live_sessions(sessions_dir=sessions_dir, starttime_of=starttime_of):
         tmux_session = resolve_tmux_session(

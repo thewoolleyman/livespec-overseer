@@ -47,7 +47,9 @@ from _registry_core import DEFAULT_STAMP_PATH as DEFAULT_STAMP_PATH
 from _registry_core import DEFAULT_STORE_PATH as DEFAULT_STORE_PATH
 from _registry_core import DEFAULT_WATCH_SET_PATH as DEFAULT_WATCH_SET_PATH
 from _registry_core import Track as Track
+from _registry_core import atomic_write as atomic_write
 from _registry_core import colliding_topics as colliding_topics
+from _registry_core import file_lock as file_lock
 from _registry_core import norm as norm
 from _registry_core import repo_slug as repo_slug
 from _registry_core import tmux_id as tmux_id
@@ -78,9 +80,11 @@ __all__: list[str] = [
     "add_notified_band",
     "append_mapping",
     "archived_or_gone",
+    "atomic_write",
     "clear_injection_stamp",
     "colliding_topics",
     "discover_plans",
+    "file_lock",
     "join",
     "norm",
     "read_injection_stamp",

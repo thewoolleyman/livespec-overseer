@@ -84,8 +84,8 @@ import _supervisor_pair
 import _supervisor_recovery
 import _supervisor_render
 import _supervisor_restart
+import _supervisor_snapshot
 import _supervisor_state
-import _supervisor_status_snapshot
 import claude_sessions
 import codex_sessions
 import registry
@@ -98,6 +98,7 @@ from _seams import (
     PidToOptionalStr,
     PidToStrList,
     RepoPredicate,
+    StatusWriter,
 )
 from _supervisor_config import (
     LOOP_INTERVAL_SECONDS,
@@ -135,7 +136,9 @@ class Supervisor:
     watch_repos: list[str] | None = None
     watch_set_path: str | os.PathLike[str] | None = None
     status_snapshot_path: str | os.PathLike[str] | None = None
-    status_snapshot_writer: Callable[..., None] = _supervisor_status_snapshot.write_status_snapshot
+    status_path: str | os.PathLike[str] | None = None
+    status_writer: StatusWriter = _supervisor_snapshot.default_status_writer
+    status_snapshot_writer: Callable[..., None] = _supervisor_snapshot.write_status_snapshot
     extra_repos: list[str] = field(default_factory=list)
     # Daemon-wide default warn threshold (remaining-% at which the FIRST wrap-up
     # fires) for any track WITHOUT a per-track ``ctx_threshold`` override. Set from
@@ -236,7 +239,6 @@ class Supervisor:
     # direct-`evaluate` beside-tests that don't run `build_rows` — which yields the
     # bare-topic name, the correct default for a single-repo fixture.
     colliding_topics: frozenset[str] = field(default_factory=frozenset, init=False)
-
     # ----------------------------------------------------------------- #
     # Diagnostics.
     # ----------------------------------------------------------------- #
