@@ -28,6 +28,11 @@ def snapshot_module():
     return importlib.import_module("_supervisor_snapshot")
 
 
+def test_only_canonical_snapshot_writer_module_exists():
+    assert (OVERSEER_DIR / "_supervisor_snapshot.py").is_file()
+    assert not (OVERSEER_DIR / "_supervisor_status_snapshot.py").exists()
+
+
 def make_live_mapped_supervisor(
     *,
     tmp_path,
@@ -164,6 +169,27 @@ def test_snapshot_writer_failure_is_contained_and_edge_reported(*, tmp_path, cap
     assert sup.tick_generation == 2
     assert err.count("status snapshot write failed") == 1
     assert "cannot write" in err
+
+
+def test_tick_invokes_status_snapshot_writer_once_per_completed_tick(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    calls = []
+
+    def recording_writer(*, sup, rows):
+        calls.append((sup.tick_generation, rows))
+
+    sup, _session = make_live_mapped_supervisor(
+        tmp_path=tmp_path,
+        repo=repo,
+        topic=topic,
+        status_path=tmp_path / "status.json",
+        ctx=75,
+    )
+    sup.status_snapshot_writer = recording_writer
+
+    rows = sup.tick(act=True)
+
+    assert calls == [(1, rows)]
 
 
 def test_snapshot_reader_exposes_generation_and_mtime_for_staleness_detection(*, tmp_path):
