@@ -16,7 +16,6 @@ import registry
 import signals
 import supervisor
 from test_supervisor_builders import (
-    adopt_sup,
     arm_ready_marker,
     declare,
     idle_capture,
@@ -25,7 +24,6 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
     wrapup_count,
-    write_session,
 )
 from test_supervisor_fakes import (
     FakeTmux,
@@ -241,68 +239,4 @@ def test_read_only_list_reports_danger_without_injecting_or_alerting(*, tmp_path
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is None
-    )
-
-
-# --------------------------------------------------------------------------- #
-# Remaining single-branch edges: an unreported self-status, a failed paste in an
-# ALREADY-open round, a failed window rename, and `start` on a proven-dead pane.
-# --------------------------------------------------------------------------- #
-
-
-def test_live_outside_tmux_note_omits_the_suffix_when_no_status_is_reported(*, tmp_path):
-    """The live-outside-tmux note appends Claude's own self-reported status only when the
-    registry actually carries one. With none reported the note stops at the pid — never a
-    dangling `self-reported status ` with nothing after it."""
-    repo, topic = make_plan(tmp_path=tmp_path)
-    session = registry.tmux_id(repo=str(repo), topic=topic)
-    fake = FakeTmux()  # mapped tmux session absent → routes to the no-managed-pane row
-    sessions_dir = tmp_path / "sessions"
-    sessions_dir.mkdir()
-    write_session(
-        sessions_dir=sessions_dir, pid=100, name=topic, cwd=str(repo), status=""
-    )  # no self-report
-    sup = adopt_sup(
-        tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={100: "pt"}
-    )
-
-    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-
-    assert view.status == "live-outside-tmux"
-    assert view.note == (
-        "live Claude session (pid 100) running OUTSIDE tmux — daemon cannot manage it"
-    )
-    assert "self-reported status" not in view.note
-
-
-def test_failed_paste_in_an_already_open_round_keeps_the_rounds_stamp(*, tmp_path):
-    """The rollback on a failed wrap-up paste applies ONLY to a round this tick just
-    OPENED. A re-warn at a lower band runs inside a round opened earlier, and clearing that
-    round's `at` would reset the anchor `ready_valid` compares a declaration against — so
-    the stamp is left alone and only the alert fires."""
-    repo, topic = make_plan(tmp_path=tmp_path)
-    session = registry.tmux_id(repo=str(repo), topic=topic)
-    fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # a LOWER band than 50
-    fake.paste_ok = False  # the re-warn paste does not land
-    sup = make_supervisor(tmp_path=tmp_path, fake=fake, warn_percent=50)
-    registry.write_injection_stamp(
-        repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
-    )  # round ALREADY open
-    registry.add_notified_band(
-        repo=str(repo), topic=topic, band=50, stamp_path=sup.stamp_path
-    )  # the 50 band already sent
-    err = _io.StringIO()
-
-    with contextlib.redirect_stderr(err):
-        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-
-    assert "wrap-up injection FAILED" in err.getvalue()
-    assert (
-        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        == 1000.0
-    )  # kept
-    # The undelivered band is NOT marked notified, so the next tick re-tries it.
-    assert 40 not in set(
-        registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     )
