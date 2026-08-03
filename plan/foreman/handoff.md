@@ -30,13 +30,23 @@ this tenant refuses task-to-epic dep edges).
    re-verified). The per-phase dispositions in it are BINDING design
    constraints; do not re-litigate a finding without new evidence.
 
-## Restart checkpoint — 2026-08-03, v006 and `.5` landed; `.1` cleanup is next
+## Restart checkpoint — 2026-08-03T08:22Z, the `.1` cleanup LANDED; `.2` and `.4` are in flight
 
 The previous prepared-revise checkpoint is fully discharged. The nine-proposal
 ratification landed as v006 in `47ad0e0` (PR #575), and
 `SPECIFICATION/proposed_changes/` is empty. The
 `spec-revise-v005` worktree and its payload are completed artifacts, not a
 resume target. **Do not run revise again.**
+
+**THE `.1` DUPLICATION CLEANUP IS DONE — the section below that calls it "the
+urgent unfinished state" is superseded and kept only as provenance.**
+`overseer-41p` merged as PR #601 at 07:54:27Z and closed; master `ee0fc7f`
+deletes `overseer/_supervisor_status_snapshot.py`, its `.claude-plugin` mirror
+and `tests/test_status_snapshot_export.py`, leaving `_supervisor_snapshot.py`
+as the single once-per-tick writer. `overseer-z5fo4y.1` is `closed`.
+`overseer-n7xx67` also closed (PR #600). Re-measured from the ledger and the
+forge at 08:11–08:18Z. **Do not go looking for two snapshot modules; there is
+one.**
 
 Slice `.5` also landed as `335a578` (PR #580). Task 05 investigated its only
 red forge job before touching the branch. The job's actual first-attempt
@@ -47,16 +57,22 @@ Auto-merge then landed the PR. No commit reshape, code edit, rebase, push, or
 work-item re-dispatch occurred. The ledger's `.5` note claiming a REAL pairing
 defect is therefore stale and contradicted by the forge log.
 
-The urgent unfinished state is slice `.1`: two independent implementations
-merged in `f54ff05` (PR #582) and `1065ad7` (PR #585). `overseer-41p` (P1,
-`backlog`) records the duplication and the required cleanup. Until one
-canonical snapshot writer and its matching test surface remain, `.1` is not
-complete even though its ledger record is `active`, and dependent slices must
-not advance. Do not re-dispatch `.1`; that is the mechanism that created the
-duplicate.
+**RETIRED 2026-08-03T08:11–08:18Z — kept because the mechanism is the durable
+part, re-tensed because the imperative expired.** For several hours the urgent
+unfinished state WAS slice `.1`: two independent implementations had merged, in
+`f54ff05` (PR #582) and `1065ad7` (PR #585), and `overseer-41p` (P1) recorded
+the duplication and the required cleanup. That cleanup merged as PR #601;
+`overseer-41p` and `.1` are both `closed`, and one writer remains.
+
+The mechanism that caused it still binds: **`.1` was re-dispatched after its
+work had already merged**, because a dispatcher that reports failure while its
+PR merges (`overseer-6pn`) makes "failed" useless as a signal. Three
+dispatches, two survivors. That is why the standing rule is to check
+`gh pr list --state merged` BEFORE any re-dispatch, and never to re-run
+`drive.py` in the foreground to capture stderr.
 
 No task-05 worktree or local branch was created, and no task-05 subprocess is
-still running. Forge master was last fetched at `335a578`.
+still running.
 
 ## Where the thread stands — derive live status from the ledger, not this file
 
@@ -69,49 +85,52 @@ ls SPECIFICATION/proposed_changes/
 
 (a bare `bd` in this repo returns Access denied — the wrapper is required).
 
-**As re-measured 2026-08-03 after PR #580 merged:**
+**As re-measured 2026-08-03T08:11:30Z (ledger) and 08:13Z (forge):**
 
-- The epic is `backlog`; `.1` and `.5` still read `active`/`fabro` even
-  though their forge state has moved beyond those claims. `.2`, `.3`, `.4`,
-  and `overseer-n7xx67` remain `pending-approval`.
+| Item | State |
+|---|---|
+| `overseer-z5fo4y` (epic) | `backlog` |
+| `overseer-z5fo4y.1` snapshot export | **closed** — dedupe landed, PR #601 |
+| `overseer-z5fo4y.2` `list --json` | `ready`, unclaimed — **dispatched 08:18Z** |
+| `overseer-z5fo4y.3` foreman-gather | `pending-approval`, blocked by `.2` |
+| `overseer-z5fo4y.4` heartbeat surfacing | `ready`, unclaimed — **dispatched 08:20Z** |
+| `overseer-z5fo4y.5` `-foreman` suffix | **closed**, PR #580 |
+| `overseer-41p` | **closed**, PR #601 |
+| `overseer-n7xx67` | **closed**, PR #600 |
+
 - v006 is ratified and all nine proposal files are archived. The ratification
-  prerequisite for the Phase A work is satisfied.
-- `.5` has one implementation, green CI, and a merged PR. Reconcile its stale
-  ledger record to `closed`; do not re-dispatch it and do not try to rewrite
-  its already-merged history.
-- `.1` has the opposite problem: two merged implementations. Read
-  `overseer-41p` in full, compare both implementations against the v006
-  snapshot contract, retain one canonical writer/test surface, and remove
-  the other without unpicking the survivor. Exactly one writer must be called
-  once per daemon tick. Do not close `.1` until that cleanup is forge-green.
+  prerequisite for the Phase A work is satisfied — including `.4`'s stated
+  precondition (attention-surface membership ratified in `contracts.md`).
+- The earlier reconciliation work is all discharged: `.5`, `.1`, `overseer-41p`
+  and `overseer-n7xx67` are closed. Nothing here needs re-dispatching.
 - The slices carry real dependency edges: `.2` is blocked by `.1`, and `.3`
   by `.2` and `.1`. A dep tree is directional — querying `.1` reports what
-  blocks `.1`, never what `.1` blocks.
-- `overseer-n7xx67`'s spec-side acceptance landed in v006; re-check its exact
-  ledger acceptance against the archived scenario and heading-coverage row,
-  then reconcile it rather than filing or ratifying a duplicate proposal.
+  blocks `.1`, never what `.1` blocks. With `.1` closed, `.2` and `.4` are
+  both unblocked and independent of each other; only `.3` still waits.
+- **No PR has ever existed for `.2` or `.4`** — searched all states plus a
+  branch-name sweep at 08:18Z. So neither is an `overseer-6pn` phantom, and
+  neither had already been done. Re-run that search before any re-dispatch.
 
-## NEXT ACTION — clean up duplicated `.1`; the picker is DISCHARGED
+## NEXT ACTION — `.2` and `.4` are dispatched and in flight; then `.3`, then archive
 
-FIRST, re-fetch and re-measure `overseer-41p`, `.1`–`.5`,
-`overseer-n7xx67`, PRs #575/#580/#582/#585, and current master. Then:
+FIRST, re-fetch and re-measure `.2`, `.3`, `.4`, current master, and
+`gh pr list --state merged`. Then:
 
-1. Reconcile `.5` to `closed` from PR #580's green merged evidence. The stale
-   pairing-defect note is provenance, not a reason to act on the branch.
-2. Route `overseer-41p` through the normal work-item/factory lifecycle. Its
-   implementation must choose the canonical `.1` snapshot module by the v006
-   contract, remove the loser plus its tests and mirror, and leave exactly one
-   once-per-tick writer. This is cleanup of merged duplication, not a third
-   implementation of `.1`.
-3. Keep `.1` open and `.2`/`.3` blocked until that cleanup merges green. Then
-   reconcile `.1` and advance `.2`, `.3`, and `.4` in dependency order under
-   the standing autonomous-driving grant.
-4. Verify `overseer-n7xx67` against the v006 archived scenario and coverage
-   row and reconcile it if its acceptance is already satisfied.
+1. **Land `.2` and `.4`.** Both were dispatched detached at 08:18Z / 08:20Z
+   against build `525886a4f799`. Watch them to a terminal outcome. A
+   dispatcher `failed` whose PR MERGED is `overseer-6pn`, not a real failure —
+   reconcile the claim and accept; do NOT re-run the work. A run parked at
+   `runnable` that then vanishes from `fabro ps -a` is queue eviction —
+   release the claim by hand and re-dispatch, and record which of the two it
+   was so the next reader does not diagnose the wrong one.
+2. **Then `.3` (foreman-gather).** It is `pending-approval` and blocked by
+   `.2` by a real dep edge; it becomes ripe only once `.2` closes.
+3. **Then archive this thread, then fleet rollout** — the remaining scope
+   after Phase A's slices land.
 
 Do not resume `tmp-revise-input.json`, do not re-file any of the nine spec
-proposals, do not re-dispatch `.1` or `.5`, and do not hand-code a
-factory-eligible ledger item inline.
+proposals, do not re-dispatch `.1`, `.5`, `overseer-41p` or `overseer-n7xx67`
+(all closed), and do not hand-code a factory-eligible ledger item inline.
 
 **The batched valve picker this section used to demand is DISCHARGED.** On
 2026-08-03 the maintainer replaced it with a standing instruction to drive
@@ -172,6 +191,32 @@ hyphen-less `endswith("foreman")` in a future cleanup.
   `.livespec.jsonc` unless you mean to land it. Still true at 81+
   worktrees on 2026-08-03; the rescue was used for every branch this
   session.
+
+- **MTIME IS NOT RELEASE ORDER — the dispatch wrapper resolved a STALE build
+  and refused four dispatches before anyone read its stderr.** Measured
+  2026-08-03T08:12Z. `tmp/overseer/foreman/dispatch.sh` picked "the current
+  build" as the newest cache directory by mtime. That premise is false: a
+  cache directory's mtime moves whenever anything touches it, so the cache
+  sorted
+
+  ```
+  1785744577  0.50.0        <- newest mtime, not a dispatcher build at all
+  1785742178  18e482f85b9f  <- newer mtime, OLDER release  (what it picked)
+  1785732282  525886a4f799  <- older mtime, CURRENT release (what was needed)
+  ```
+
+  Every `impl:overseer-z5fo4y.2` and `.4` dispatch was refused with exit 3 and
+  the message `dispatcher plugin build is stale; executing build 18e482f85b9f
+  predates latest release 525886a4f799`. **Only the `--json` run captured that
+  stderr** — the three plain runs reported nothing but `status: failed`, which
+  is why the cause went unread. Always dispatch with `--json`.
+
+  The wrapper now asks the AUTHORITY instead: it parses the build id out of
+  `just ensure-plugins` output — the same release the dispatcher's staleness
+  gate compares against — and HALTs rather than falling back to mtime.
+  Positive and negative controls were run before use. The old idiom also used
+  `ls`, which is aliased to `lsd` on this host, a second reason it could not
+  be trusted.
 
 - **REBASE BEFORE PUSHING, or a docs-only branch inherits everyone else's
   risk.** The pre-push hook picks its subset from the diff against
