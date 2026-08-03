@@ -45,8 +45,11 @@ module that DEFINES the constant.
 from __future__ import annotations
 
 import argparse
+import io
+import json
 import os
 
+import _supervisor_snapshot
 import registry
 import signals
 import streams
@@ -154,9 +157,22 @@ def run_daemon(*, warn_percent: int | None = None) -> int:
 
 
 def _cmd_list(*, args: argparse.Namespace) -> int:
-    del args  # `list` takes no options; the dispatch shape supplies one anyway
     sup = build_supervisor()
-    _ = sup.tick(act=False)  # read-only render: no injection/restart
+    if args.json:
+        original_out = sup.out
+        sup.out = io.StringIO()
+        try:
+            rows = sup.tick(act=False)  # read-only classify: no injection/restart
+        finally:
+            sup.out = original_out
+        body = json.dumps(
+            _supervisor_snapshot.document_payload(sup=sup, rows=rows),
+            indent=2,
+            sort_keys=True,
+        )
+        streams.write_stdout(text=f"{body}\n")
+    else:
+        _ = sup.tick(act=False)  # read-only render: no injection/restart
     return 0
 
 
@@ -321,6 +337,14 @@ def main(*, argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_list = sub.add_parser("list", help="print the current joined table once (read-only)")
+    _ = p_list.add_argument(
+        "--json",
+        action="store_true",
+        help=(
+            "emit observation-only snapshot JSON instead of the table; acting remains "
+            "disabled because freshness is unproved"
+        ),
+    )
     p_list.set_defaults(func=_cmd_list)
 
     p_adopt = sub.add_parser(
