@@ -15,7 +15,7 @@ work.
 This is a narrow verdict about evidence truth. It does not alter what the
 daemon may do once genuine background-command evidence exists. That response
 is governed separately, including the proposed suppression narrowing tracked
-by `overseer-blccme` / `plan/supervisor-wrapup-citizenship/`.
+by `overseer-blccme` / `plan/archive/supervisor-wrapup-citizenship/`.
 
 ## Sweep
 

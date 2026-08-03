@@ -93,7 +93,7 @@ not under the protocol.
    evidence are equally starved.
    (2026-08-02 postscript: that shell evidence was later diagnosed as
    session-lifetime MCP launch-chain infrastructure — not work; see
-   `plan/shell-evidence-truth/` and bug `overseer-3rk`. The session
+   `plan/archive/shell-evidence-truth/` and bug `overseer-3rk`. The session
    was truly idle, which STRENGTHENS this narrowing's case; making the
    evidence itself truthful is deliberately that separate thread's
    scope.)

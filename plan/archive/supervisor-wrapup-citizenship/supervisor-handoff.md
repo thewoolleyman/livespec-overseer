@@ -1,5 +1,8 @@
 # Supervisor Handoff - supervisor-wrapup-citizenship
 
+> Archived 2026-08-03 after the v005 contract, implementation, release, fleet
+> rollout, and live-daemon deployment completed.
+
 ## Shared Protocol
 
 Read `.ai/supervisor-protocol.md` before driving. Validate this binder together

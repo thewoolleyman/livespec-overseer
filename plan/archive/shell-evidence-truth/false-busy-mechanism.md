@@ -120,7 +120,7 @@ reading busy. What it removes is a systematic, *certain* false positive
 - **`overseer-3rk`** — the defect record this thread anchors around
   (filed 2026-08-02, before this thread existed; cite it, do not
   re-file).
-- **`overseer-blccme` / `plan/supervisor-wrapup-citizenship/`** —
+- **`overseer-blccme` / `plan/archive/supervisor-wrapup-citizenship/`** —
   complementary, deliberately separate: that thread changes what the
   daemon may DO given true busy evidence (inject at a settled,
   shell-only-busy prompt); this thread makes the evidence TRUE. Either
@@ -131,7 +131,7 @@ reading busy. What it removes is a systematic, *certain* false positive
 - **`overseer-x6d`** — report-only low-context surfacing for generating
   panes; untouched by evidence truth.
 - **Owed correction, discharged in this thread's opening change-set:**
-  `plan/supervisor-wrapup-citizenship/contract-narrowing.md` evidence
+  `plan/archive/supervisor-wrapup-citizenship/contract-narrowing.md` evidence
   item 5 described this session as "busy solely on background-shell
   evidence"; that evidence is now known to be launch-chain
   infrastructure. The item is annotated rather than rewritten — the
