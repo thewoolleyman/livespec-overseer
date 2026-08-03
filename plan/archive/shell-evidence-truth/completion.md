@@ -64,3 +64,16 @@ actual mid-session shell work still counts busy. The focused suite also passed
 42 tests across `overseer/test_claude_sessions.py`,
 `overseer/test_supervisor_background_subshell_live.py`, and
 `tests/test_hqo5lk_shell_launch_chain.py` on merged master.
+
+**CORRECTION 2026-08-03T00:55Z — this section claims more coverage than it
+has, and `re-verification.md` records the measurement.** The owed
+re-verification named the `beads-v1-1-2-upgrade` worker/supervisor PAIR; the
+list above reports the worker only. Re-measured against the released detector,
+`beads-v1-1-2-upgrade-supervisor` still returns `has_active_subshell=True` on
+pure MCP launch plumbing — the same Cloudflare `mcp-remote` chain as the
+ignored startup one, byte-identical argv, relaunched 64 hours into the session
+and therefore past the startup margin. That is the mid-session-relaunch hard
+case this thread deliberately left resolving to busy, so it is not a defect in
+what shipped; it is a residual that is now observed in the fleet rather than
+predicted. Tracked as `overseer-q3f`. Read this section as: the worker half
+cleared, the supervisor half did not.
