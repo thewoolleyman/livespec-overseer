@@ -36,6 +36,7 @@ _PENDING = "PENDING"
 _POLLS = 4
 _STABLE_TO_IDLE = 3
 _VISIBLE_TAIL = 8
+_PANE_CHANGE_TIMEOUT_S = 5.0
 
 # END-anchored: a wrapped continuation line can BEGIN with "Enter to select"
 # (measured — the echoed command wrapped at that exact column), so anchoring
@@ -149,6 +150,33 @@ def _run(
 ) -> None:
     tmux("send-keys", "-t", "=wk:", command, "Enter")
     settle("=wk:", needle, fail_on_timeout=fail_on_timeout)
+
+
+def _wait_for_change_on_watcher_sleep(
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+    tmux: Tmux,
+    target: str,
+) -> None:
+    """Make watcher sleeps observe pane progress instead of assuming cadence."""
+    real_sleep = time.sleep
+
+    def _sleep_until_changed(seconds: float) -> None:
+        previous = tmux("capture-pane", "-p", "-t", target).stdout
+        deadline = time.monotonic() + max(seconds, _PANE_CHANGE_TIMEOUT_S)
+        while time.monotonic() < deadline:
+            real_sleep(0.05)
+            current = tmux("capture-pane", "-p", "-t", target).stdout
+            if current != previous:
+                return
+        # COVERAGE-EXEMPT: reached only if a deliberately changing pane stops
+        # advancing before the deadline. Healthy runs prove the positive path;
+        # this timeout makes a rig failure loud instead of returning IDLE.
+        pytest.fail(  # pragma: no cover
+            "tmux pane did not change during watcher sleep; " f"last capture was:\n{previous}"
+        )
+
+    monkeypatch.setattr(time, "sleep", _sleep_until_changed)
 
 
 def test_settle_can_fail_loudly_on_expiry(
@@ -308,7 +336,11 @@ def test_d_the_proposed_watcher_reports_target_lost(*, tmux: Tmux) -> None:
 
 
 def test_both_forms_report_busy_while_a_pane_keeps_changing(
-    *, tmux: Tmux, settle: Callable[[str, str], str], wait_for: Callable[[str, str], None]
+    *,
+    monkeypatch: pytest.MonkeyPatch,
+    tmux: Tmux,
+    settle: Callable[[str, str], str],
+    wait_for: Callable[[str, str], None],
 ) -> None:
     """Neither form may call a WORKING agent idle.
 
@@ -332,13 +364,12 @@ def test_both_forms_report_busy_while_a_pane_keeps_changing(
     #     idle by observation;
     #   THROTTLED — a full-speed spinner saturates the CPU it shares with the
     #     observer and tmux coalesces renders, so captures repeat and IDLE
-    #     wins anyway (flaked ~1-in-5). A 50ms tick against a 150ms poll
-    #     guarantees a new value every poll without starving anything.
+    #     wins anyway (flaked ~1-in-5).
     tmux(
         "send-keys",
         "-t",
         "=wk:",
-        "i=0; while :; do i=$((i+1)); echo TICK-$i; sleep 0.05; done",
+        "i=0; while :; do i=$((i+1)); echo TICK-$i; sleep 0.6; done",
         "Enter",
     )
     # Wait for `TICK-1`, NOT `TICK-`. The pane also renders the ECHOED COMMAND,
@@ -349,8 +380,19 @@ def test_both_forms_report_busy_while_a_pane_keeps_changing(
     # fooled by text that MENTIONS the thing rather than by the thing — and it
     # bit the sentinel guarding the test for it.
     wait_for("=wk:", "TICK-1")
+    _wait_for_change_on_watcher_sleep(monkeypatch=monkeypatch, tmux=tmux, target="=wk:")
     assert watcher_proposed(tmux=tmux, target="=wk:") == _BUSY
     assert watcher_shipped(tmux=tmux, target="wk") == _BUSY
+
+
+def test_both_forms_report_idle_while_a_pane_stays_static(
+    *, tmux: Tmux, settle: Callable[[str, str], str]
+) -> None:
+    """CONTROL: the busy leg must still discriminate from a static pane."""
+    _worker(tmux=tmux)
+    _run(tmux=tmux, command="echo STATIC", settle=settle, needle="STATIC")
+    assert watcher_proposed(tmux=tmux, target="=wk:") == _IDLE
+    assert watcher_shipped(tmux=tmux, target="wk") == _IDLE
 
 
 def test_s4_shipped_condition_watcher_omits_the_terminal_success_state() -> None:
