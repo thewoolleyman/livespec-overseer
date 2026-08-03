@@ -10,6 +10,7 @@ import _claude_sessions_registry
 from _claude_sessions_registry import ClaudeSession, default_sessions_dir
 from _claude_sessions_subshell import has_active_subshell
 from _claude_sessions_tmux import (
+    identities_by_tmux_session,
     map_named_sessions,
     names_by_tmux_session,
     resolve_tmux_session,
@@ -21,6 +22,7 @@ __all__: list[str] = [
     "ClaudeSession",
     "default_sessions_dir",
     "has_active_subshell",
+    "identities_by_tmux_session",
     "map_named_sessions",
     "names_by_tmux_session",
     "proc_children",

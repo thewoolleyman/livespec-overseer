@@ -68,6 +68,7 @@ import os
 import shutil
 import sys
 import time
+import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -84,6 +85,7 @@ import _supervisor_recovery
 import _supervisor_render
 import _supervisor_restart
 import _supervisor_state
+import _supervisor_status_snapshot
 import claude_sessions
 import codex_sessions
 import registry
@@ -132,6 +134,8 @@ class Supervisor:
     stamp_path: str | os.PathLike[str] | None = None
     watch_repos: list[str] | None = None
     watch_set_path: str | os.PathLike[str] | None = None
+    status_snapshot_path: str | os.PathLike[str] | None = None
+    status_snapshot_writer: Callable[..., None] = _supervisor_status_snapshot.write_status_snapshot
     extra_repos: list[str] = field(default_factory=list)
     # Daemon-wide default warn threshold (remaining-% at which the FIRST wrap-up
     # fires) for any track WITHOUT a per-track ``ctx_threshold`` override. Set from
@@ -186,6 +190,9 @@ class Supervisor:
     # name — the one overseer surface visible from a session the operator is attached to.
     # None (not in tmux, or a test) simply disables the badge.
     own_pane: str | None = None
+    daemon_instance_id: str = field(default_factory=lambda: uuid.uuid4().hex, init=False)
+    tick_generation: int = field(default=0, init=False)
+    status_snapshot_failed: bool = field(default=False, init=False)
     inject: dict[tuple[str, str], InjectState] = field(default_factory=dict, init=False)
     pair_stalls: dict[tuple[str, str], PairStallState] = field(default_factory=dict, init=False)
     # Edge-trigger memory for `alert`: track key + condition → the last alert line
@@ -213,6 +220,7 @@ class Supervisor:
     # Claude's registry) and in direct-`evaluate` beside-tests that don't set it — an unknown
     # tmux session preserves the prior repo+process gate (fail-soft).
     claude_names_by_session: dict[str, set[str]] = field(default_factory=dict, init=False)
+    claude_identity_by_session: dict[tuple[str, str], str] = field(default_factory=dict, init=False)
     # {tmux_session: CodexSession} for every live NAMED codex session, recomputed each
     # tick beside claude_status_by_session. Membership IS the exact answer to "is this pane
     # Codex?" — the pane command says `bun` (the launcher), which is too generic to
@@ -436,6 +444,15 @@ class Supervisor:
             self._refresh_window_name(
                 attention=sum(1 for view in views if needs_attention(row=view))
             )
+            self.tick_generation += 1
+            try:
+                self.status_snapshot_writer(sup=self, rows=views)
+            except OSError as exc:
+                if not self.status_snapshot_failed:
+                    self.surface(message=f"status snapshot write failed: {exc}")
+                self.status_snapshot_failed = True
+            else:
+                self.status_snapshot_failed = False
         return views
 
     # ----------------------------------------------------------------- #

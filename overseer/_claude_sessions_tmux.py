@@ -17,6 +17,7 @@ from _claude_sessions_registry import read_live_sessions
 from _seams import PidToOptionalInt, PidToOptionalStr
 
 __all__: list[str] = [
+    "identities_by_tmux_session",
     "map_named_sessions",
     "names_by_tmux_session",
     "resolve_tmux_session",
@@ -109,6 +110,26 @@ def status_by_tmux_session(
         )
         if tmux_session is not None:
             out[tmux_session] = session.status
+    return out
+
+
+def identities_by_tmux_session(
+    *,
+    sessions_dir: str | os.PathLike[str],
+    pane_pid_to_session: dict[int, str],
+    ppid_of: PidToOptionalInt = proc_ppid,
+    starttime_of: PidToOptionalStr = proc_starttime,
+) -> dict[tuple[str, str], str]:
+    """``{(tmux_session, name): identity}`` for live Claude sessions held in tmux."""
+    out: dict[tuple[str, str], str] = {}
+    for session in read_live_sessions(sessions_dir=sessions_dir, starttime_of=starttime_of):
+        tmux_session = resolve_tmux_session(
+            pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
+        )
+        if tmux_session is not None:
+            out[(tmux_session, session.name)] = (
+                f"claude:{session.pid}:{session.proc_start}:{session.name}"
+            )
     return out
 
 
