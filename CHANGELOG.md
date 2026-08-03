@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.22.0...v0.23.0) (2026-08-03)
+
+
+### Features
+
+* pin foreman gather composition ([f699678](https://github.com/thewoolleyman/livespec-overseer/commit/f699678a1c06c3f69f44126541be38f617bb6151))
+
 ## [0.22.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.21.1...v0.22.0) (2026-08-03)
 
 
