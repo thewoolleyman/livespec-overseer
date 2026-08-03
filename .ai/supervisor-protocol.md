@@ -727,14 +727,20 @@ preserve every entry.
   **CHECK IT AT BOOT, BEFORE READING THE CHARTER FOR CONTENT:**
 
   ```sh
+  repo_primary='<repo-primary>'
   charter="plan/<topic>/supervisor-handoff.md"
-  mise exec -- git fetch origin --quiet \
-    || { echo "HALT: cannot fetch; charter currency is UNKNOWN, not confirmed"; exit 1; }
-  if mise exec -- git diff --quiet origin/master -- "$charter"; then
+  # REPORT-ONLY BY CONSTRUCTION — every path exits 0, and that is deliberate
+  # rather than lax. A difference here is not always staleness: it is equally a
+  # colleague's uncommitted work, or your own in-flight edit to this very file.
+  # Exiting non-zero would also redden this gate on EVERY pull request that
+  # touches a charter, including the one that lands this correction.
+  if ! mise exec -- git -C "$repo_primary" fetch origin --quiet 2>/dev/null; then
+    printf '%s\n' "UNVERIFIED: cannot reach the forge from here, so this charter's currency is UNKNOWN rather than confirmed. Do not read that as PASS."
+  elif mise exec -- git -C "$repo_primary" diff --quiet origin/master -- "$charter"; then
     printf '%s\n' "PASS: $charter is byte-identical to origin/master"
   else
-    echo "HALT: the charter in this working tree DIFFERS from origin/master"
-    echo "REMEDY: read the forge copy before acting on anything in it — 'git show origin/master:$charter'. If the tree is merely BEHIND, fast-forward it; if the difference is an uncommitted local edit, establish WHOSE it is before discarding — another track's in-flight work looks identical to staleness here."
+    printf '%s\n' "STALE-OR-LOCAL: $charter DIFFERS from origin/master — do NOT act on its status block yet"
+    printf '%s\n' "REMEDY: read the forge copy first — 'git -C $repo_primary show origin/master:$charter'. If the tree is merely BEHIND, fast-forward it; if the difference is an uncommitted local edit, establish WHOSE it is before discarding — another track's in-flight work looks identical to staleness here."
   fi
   ```
 
@@ -748,6 +754,24 @@ preserve every entry.
   restart is exactly when this bites, because the wind-down PR that describes the
   restart is the most recently merged thing in the repo and therefore the most
   likely to be missing from a checkout nobody has pulled.
+  **C24 REDDENED MASTER ON THE WAY IN, AND THE MECHANISM BELONGS HERE BECAUSE IT
+  IS THIS ENTRY'S OWN CLASS.** The commit that landed C24 was verified — two
+  charter gates, 107 tests, green — and it still broke `check-coverage` on master
+  at 21:12Z, which refuses every factory dispatch fleet-wide until it is fixed. It
+  broke two rules that no charter test I ran covers: appending a correction makes
+  `test_charter_correction_counts_are_current` fail until the ONE prose sentence
+  stating the count is updated (that is the gate working as designed, and the fix
+  is the sentence, never the rule), and the fenced block above exited `1` under
+  `test_cold_open_generation_gate`, which EXECUTES every fenced `sh` block in this
+  file under stubs where the forge is unreachable. Hence the report-only shape.
+  **THE PART THAT GENERALISES: A DOCS-ONLY CHANGE DOES NOT RUN THE TESTS THAT GATE
+  DOCS.** Both hooks announced `doc-only mode detected (zero .py files staged):
+  running just check-pre-commit-doc-only` and skipped the aggregate — so `just
+  check-coverage`, which is where prose gates like the two above actually live,
+  never ran locally. Green hooks on a docs-only branch are evidence about a
+  SUBSET. When a change touches a charter, a count, or a fenced block, run `just
+  check-coverage` explicitly before pushing; the hook will not do it for you.
+
   **A COROLLARY FOR THE HANDOFF-WRITING END:** the previous supervisor did
   everything right — measured the state, wrote it down, landed it as #636 — and the
   successor still read the wrong file. Writing a durable record is not the same as
