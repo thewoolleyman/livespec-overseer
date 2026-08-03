@@ -1,0 +1,57 @@
+#!/usr/bin/env -S uv run --script --no-project
+"""Executable facade for the deterministic foreman runtime wrapper."""
+
+import argparse
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from overseer import claude_sessions, registry, streams, tmuxio
+from overseer.foreman_gather_collect import compose_document
+from overseer.foreman_runtime import ForemanRuntime, entry_gate
+from overseer.foreman_runtime_lock import ForemanLock
+from overseer.foreman_runtime_state import LOCK_FILE, runtime_dir
+
+
+def _real_sessions():
+    return claude_sessions.read_live_sessions(sessions_dir=claude_sessions.default_sessions_dir())
+
+
+def main(*, argv=None):
+    parser = argparse.ArgumentParser(prog="foreman-runtime")
+    _ = parser.add_argument("--repo", default=str(Path.cwd()))
+    _ = parser.add_argument("--watch-set-path", default=str(registry.DEFAULT_WATCH_SET_PATH))
+    args = parser.parse_args(argv)
+    repo = Path(args.repo).resolve()
+    gate = entry_gate(
+        repo=repo,
+        cwd=Path.cwd(),
+        watch_set_path=args.watch_set_path,
+        tmux=tmuxio.TmuxIO(),
+        sessions=_real_sessions(),
+    )
+    if not gate.ok:
+        streams.write_stderr(text=f"foreman-runtime: {gate.reason}\n")
+        return 1
+    acquired = ForemanLock(path=runtime_dir(repo=repo) / LOCK_FILE).acquire(
+        pid=os.getpid(),
+        start_time=claude_sessions.proc_starttime(pid=os.getpid()) or "",
+        start_time_of=claude_sessions.proc_starttime,
+    )
+    if not acquired.acquired:
+        streams.write_stderr(text=f"foreman-runtime: {acquired.reason}\n")
+        return 1
+    document = compose_document(repo=repo, list_json_command=None)
+    result = ForemanRuntime(repo=repo, now=lambda: datetime.now(tz=timezone.utc).timestamp()).step(
+        document=document
+    )
+    streams.write_stdout(text=json.dumps(result.__dict__, sort_keys=True) + "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
