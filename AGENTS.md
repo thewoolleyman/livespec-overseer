@@ -209,6 +209,40 @@ Release it by hand before re-dispatching. `ACTIVE` is never evidence of a run;
 text corrupts the item's own evidence and hides a defect that recurs on the next
 item that quotes a recipe. Tracked as `bd-ib-vv9y` (P1, orchestrator tenant).
 
+### A PHANTOM CLAIM HAS A SECOND CAUSE, and this section used to imply only one
+
+The `{{...}}` trap above is not the only way an item ends up `status=active,
+assignee=fabro` with nothing behind it. **A QUEUED RUN CAN BE EVICTED WITHOUT EVER
+EXECUTING**, and it leaves exactly the same wreckage.
+
+Measured 2026-08-03 dispatching `overseer-x29.1`: `drive.py` exited **0**, and
+`fabro ps` showed the run as `runnable` — queued behind three in-flight runs.
+It never started. Some minutes later it was absent from `fabro ps -a`
+**entirely** — not `failed`, not `succeeded`, no record at all — while the item
+still read `active`/`fabro`. A sibling queued run in the same window
+(`livespec-dev-tooling-uzwqm6`) disappeared identically, so it is a queue
+property, not an item property.
+
+**Tell the two causes apart before diagnosing**, because the remedies differ:
+
+| symptom | `{{...}}` trap | queue eviction |
+|---|---|---|
+| `drive.py` exit code | non-zero, immediate | **0** |
+| error text | `template_undefined_variable` naming a token | none |
+| `fabro ps` right after | never lists the run | lists it as `runnable` |
+| `fabro ps -a` later | never lists the run | run is **absent entirely** |
+| remedy | fix the dispatcher defect; do NOT edit the item | release the claim and re-dispatch |
+
+**A `drive.py` exit of 0 is NOT evidence that work started** — it means the
+request was accepted. Confirm with `fabro ps` that a run exists, and confirm again
+that it reaches `running`; a run parked at `runnable` has not begun and may never.
+
+The rule the two share is the one already stated above: `ACTIVE` is never evidence
+of a run, `fabro ps` is. Release the claim by hand (`--status ready`, clear the
+assignee) before re-dispatching, and record WHY in the item so the next reader does
+not attribute an eviction to the `{{...}}` defect and go looking for a token that
+was never there.
+
 ### "dispatcher plugin build is stale" names a remedy that appears to do nothing
 
 ```
