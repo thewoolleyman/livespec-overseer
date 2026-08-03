@@ -12,9 +12,11 @@ PEER of the overseer daemon: the daemon stays the deterministic mechanical
 layer (unchanged, including its `NEEDS YOU`), and the foreman builds the
 semantic decision-routing layer on top of a new read-only daemon snapshot.
 
-Ledger anchor: `overseer-z5fo4y` (epic). Its children are the Phase A
-slices `overseer-z5fo4y.1` – `.5` (dotted ids; the epic edge is prose-only —
-this tenant refuses task-to-epic dep edges).
+Ledger anchor: `overseer-z5fo4y` (epic). Its Phase A children are
+`overseer-z5fo4y.1` – `.5`; its Phase B children are the six random-id slices
+listed in the checkpoint below. Every epic edge is prose-only — this tenant's
+bridge does not create parent edges — while inter-slice blockers are real
+`blocks` edges.
 
 ## Read-first chain (in this order, all beside this file)
 
@@ -30,7 +32,7 @@ this tenant refuses task-to-epic dep edges).
    re-verified). The per-phase dispositions in it are BINDING design
    constraints; do not re-litigate a finding without new evidence.
 
-## Restart checkpoint — 2026-08-03T18:33Z, PHASE A IS COMPLETE; PHASE B IS UNFILED
+## Restart checkpoint — 2026-08-03T18:52Z, PHASE A IS COMPLETE; PHASE B IS FILED AND STARTED
 
 **ALL FIVE PHASE A SLICES ARE CLOSED.** `.1` (snapshot export), `.2`
 (`list --json`), `.3` (foreman-gather), `.4` (heartbeat surfacing), `.5`
@@ -46,13 +48,21 @@ with consensus / gate-driving / federation following. Phase A is only the
 OBSERVE half. Archiving here would ship half of v1 and strand the other half
 with no carrier.
 
-**PHASE B HAS NO WORK ITEMS.** Measured 18:32Z: the only open foreman-related
-ledger records are the epic itself and four cross-track defects
-(`overseer-6pn`, `overseer-t6m`, `overseer-iwu`, `overseer-jtc`) — none of
-which is Phase B. The epic stays `backlog` precisely because it spans A+B; do
-not close it on Phase A's completion.
+**PHASE B NOW HAS SIX INTAKE-TRIAGED FACTORY SLICES.** They were transcribed
+from the already-reviewed Phase B design through the `capture-work-item`
+store + six-gate intake seam at 18:45–18:47Z, not filed with raw `bd create`.
+The two independent foundations are `ready`; every integration slice is
+`pending-approval` with real `blocks` edges. The epic stays `backlog` until
+all six close.
 
-Phase B is already SPECIFIED and its design is BINDING — see
+The first two factory runs are live: `overseer-by6hrx` reached `running` as
+Fabro run `01KZ4F91X0F35QM90MDVNQ77DX`; `overseer-eqbk4h` reached `running` as
+run `01KZ4FF2CAXDVGN082AKK8JEE7`.
+Both were dispatched with current authoritative build `b9c8904b5ad4` and
+`--json`. Re-measure both; a later ledger claim without a Fabro run is not
+execution evidence.
+
+Phase B was already SPECIFIED and its design is BINDING — see
 `research/brainstorm.md` §4, which post-dates the external review:
 the LLM foreman acting narrowly, behind an entry gate + tmux-name mutex + a
 deterministic wrapper (lock, tick scheduling, LLM rotation from a durable
@@ -61,18 +71,18 @@ lifecycle behind the deterministic never-started / crashed-resume /
 ambiguous-report classifier, absolute repo paths, work-item sessions as
 bounded one-shots with journaled claims; plus filing and journal triage), with
 human valves REPORT-ONLY (C1) and act-time re-verification against a fresh
-snapshot read. So the next action is to FILE those slices, not to re-derive the
-design.
+snapshot read. The ledger cut preserves that design; do not re-cut or groom it
+unless a factory run returns concrete non-convergence evidence.
 
-**HOW THE WRONG CLAIM GOT HERE, because the mechanism matters more than the
-correction.** It came from the supervisor binder's status block ("REMAINING ON
-THIS THREAD: `.2` and `.4` land, then `.3`, then archive the thread, then fleet
-rollout") and was copied into this file without being checked against the epic.
-It is the same defect class this thread has now recorded three times — T2 (a
-ledger fact asserted, not measured), C18 (a defect re-measured while the claim
-ABOUT it was not), and T4 (a cause inferred from a label). **A scope claim is a
-claim with a timestamp exactly like an item status.** The epic was one
-`bd show` away.
+**HOW THE WRONG ARCHIVE CLAIM GOT HERE, because the mechanism matters more
+than the correction.** It came from the supervisor binder's status block
+("REMAINING ON THIS THREAD: `.2` and `.4` land, then `.3`, then archive the
+thread, then fleet rollout") and was copied into this file without being
+checked against the epic. It is the same defect class this thread has now
+recorded three times — T2 (a ledger fact asserted, not measured), C18 (a
+defect re-measured while the claim ABOUT it was not), and T4 (a cause inferred
+from a label). **A scope claim is a claim with a timestamp exactly like an item
+status.** The epic was one `bd show` away.
 
 The previous prepared-revise checkpoint is fully discharged. The nine-proposal
 ratification landed as v006 in `47ad0e0` (PR #575), and
@@ -127,7 +137,7 @@ ls SPECIFICATION/proposed_changes/
 
 (a bare `bd` in this repo returns Access denied — the wrapper is required).
 
-**As re-measured 2026-08-03T08:11:30Z (ledger) and 08:13Z (forge):**
+**As re-measured 2026-08-03T18:52Z (ledger/Fabro):**
 
 | Item | State |
 |---|---|
@@ -139,7 +149,12 @@ ls SPECIFICATION/proposed_changes/
 | `overseer-z5fo4y.5` `-foreman` suffix | **closed**, PR #580 |
 | `overseer-41p` | **closed**, PR #601 |
 | `overseer-n7xx67` | **closed**, PR #600 |
-| **Phase B** | **UNFILED — this is the remaining v1 scope** |
+| `overseer-by6hrx` deterministic wrapper/runtime | **active; Fabro `01KZ4F91X0F35QM90MDVNQ77DX` running** |
+| `overseer-eqbk4h` fail-closed session classifier | **active; Fabro `01KZ4FF2CAXDVGN082AKK8JEE7` running** |
+| `overseer-4opppx` session-lifecycle `foreman-act` + fresh revalidation | `pending-approval`, blocked by `overseer-eqbk4h` |
+| `overseer-wykyth` typed filing + journal-triage actions | `pending-approval`, blocked by `overseer-4opppx` |
+| `overseer-vts4lo` bounded one-shot work-item sessions | `pending-approval`, blocked by `overseer-4opppx` + `overseer-wykyth` |
+| `overseer-qp3vpb` Claude/Codex skill + end-to-end v1 binding | `pending-approval`, blocked by the wrapper and all acting/lifecycle slices |
 
 - v006 is ratified and all nine proposal files are archived. The ratification
   prerequisite for the Phase A work is satisfied — including `.4`'s stated
@@ -155,24 +170,24 @@ ls SPECIFICATION/proposed_changes/
   approve valve was run, because per C10 the set-admission + approve two-step is
   unnecessary and permanently rewrites the item's recorded admission policy.
 
-## NEXT ACTION — file Phase B's slices under the epic; Phase A needs nothing
+## NEXT ACTION — land the two Phase B foundations, then drain the dependency chain
 
-FIRST, re-fetch and re-measure the epic `overseer-z5fo4y` and its five closed
-children, plus `gh pr list --state merged` and current master. Then:
+FIRST, re-fetch and re-measure the six Phase B items, `fabro ps`, current
+master, and `gh pr list --state all`; never infer run state from the ledger.
+Then:
 
-1. **File the Phase B slices** against the epic, transcribing the cut from
-   `research/brainstorm.md` §4 and honouring the binding per-phase
-   dispositions in `research/review-findings.md` — this is transcription of a
-   reviewed design, not a fresh cut. The components §4 enumerates: the entry
-   gate + tmux-name mutex; the deterministic wrapper (lock, tick scheduling,
-   LLM rotation from a durable handoff); the whitelisted `foreman-act`
-   executable with its never-started / crashed-resume / ambiguous-report
-   classifier; filing and journal triage; act-time re-verification against a
-   fresh snapshot read. Human valves stay REPORT-ONLY (C1).
-2. **Then dispatch them in dependency order** under the standing autonomous
-   grant, exactly as Phase A's were.
-3. **Only then archive, then fleet rollout.** Archiving is gated on v1, and
-   v1 is A+B.
+1. **Watch `overseer-by6hrx` and `overseer-eqbk4h` to terminal outcomes.**
+   Reconcile forge state before any retry. Accept merged green work; if a run
+   fails with a recoverable review finding, preserve that finding in the
+   ledger before re-dispatch.
+2. **Admit/dispatch `overseer-4opppx` after the classifier closes.** Then
+   drain `overseer-wykyth`, `overseer-vts4lo`, and finally
+   `overseer-qp3vpb` in dependency order. The item-level `admission:auto`
+   labels are intentional; linked items remain `pending-approval` until their
+   real edges clear and the lifecycle admits them.
+3. **Only after all six close, close/archive the epic and thread, then verify
+   the released plugin is deployed fleet-wide.** v1 is A+B; Phase C–E remain
+   separate future scope.
 
 Do not resume `tmp-revise-input.json`, do not re-file any of the nine spec
 proposals, do not re-dispatch any of `.1`–`.5`, `overseer-41p` or
