@@ -2018,8 +2018,8 @@ regenerated, and that fact is not recorded anywhere else.
 
 S3 landed the layered form, so master carries:
 
-- **`.ai/supervisor-protocol.md`** — the shared role layer, holding **23**
-  role-level Corrections, C1–C23. Re-counted 2026-08-03 (762 lines).
+- **`.ai/supervisor-protocol.md`** — the shared role layer, holding **24**
+  role-level Corrections, C1–C24. Re-counted 2026-08-03 (847 lines).
 - **`plan/supervisor-prompt-quality/supervisor-handoff.md`** — the thin binder,
   **266 lines**, carrying **1** thread-specific correction (T1). Re-counted
   2026-07-31.
