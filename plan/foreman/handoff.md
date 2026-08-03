@@ -32,7 +32,7 @@ bridge does not create parent edges — while inter-slice blockers are real
    re-verified). The per-phase dispositions in it are BINDING design
    constraints; do not re-litigate a finding without new evidence.
 
-## Restart checkpoint — 2026-08-03T18:52Z, PHASE A IS COMPLETE; PHASE B IS FILED AND STARTED
+## Restart checkpoint — 2026-08-03T19:27Z, PHASE B FOUNDATIONS LANDED; ACTING CHAIN STARTED
 
 **ALL FIVE PHASE A SLICES ARE CLOSED.** `.1` (snapshot export), `.2`
 (`list --json`), `.3` (foreman-gather), `.4` (heartbeat surfacing), `.5`
@@ -51,16 +51,22 @@ with no carrier.
 **PHASE B NOW HAS SIX INTAKE-TRIAGED FACTORY SLICES.** They were transcribed
 from the already-reviewed Phase B design through the `capture-work-item`
 store + six-gate intake seam at 18:45–18:47Z, not filed with raw `bd create`.
-The two independent foundations are `ready`; every integration slice is
-`pending-approval` with real `blocks` edges. The epic stays `backlog` until
-all six close.
+The two independent foundations are closed; the first integration slice is
+active; every later slice remains `pending-approval` with real `blocks` edges.
+The epic stays `backlog` until all six close.
 
-The first two factory runs are live: `overseer-by6hrx` reached `running` as
-Fabro run `01KZ4F91X0F35QM90MDVNQ77DX`; `overseer-eqbk4h` reached `running` as
-run `01KZ4FF2CAXDVGN082AKK8JEE7`.
-Both were dispatched with current authoritative build `b9c8904b5ad4` and
-`--json`. Re-measure both; a later ledger claim without a Fabro run is not
-execution evidence.
+The deterministic wrapper/runtime (`overseer-by6hrx`) merged as PR #625 at
+`ee2a1a1`; the fail-closed classifier (`overseer-eqbk4h`) merged as PR #627 at
+`07bf2ae`. Both passed their post-merge janitors and closed in the ledger.
+`overseer-4opppx` is now genuinely running as Fabro
+`01KZ4HD12TAH3Z0CR4ETWPR3HN`.
+
+**A CONCURRENT RAW-FILED DUPLICATE EXISTS:** `overseer-z5fo4y.6` was created
+without `intake:triaged` after the six-slice cut and duplicates the wrapper
+scope already merged in #625. Its run `01KZ4GWPDG0ARJ5Z9F2YVECJ0N` was
+interrupted/steered at 19:26Z with the merge evidence and an explicit command
+not to publish. Confirm it terminates without a PR, then close it as
+duplicate/no-longer-applicable. Do not touch its worktree or branch directly.
 
 Phase B was already SPECIFIED and its design is BINDING — see
 `research/brainstorm.md` §4, which post-dates the external review:
@@ -137,7 +143,7 @@ ls SPECIFICATION/proposed_changes/
 
 (a bare `bd` in this repo returns Access denied — the wrapper is required).
 
-**As re-measured 2026-08-03T18:52Z (ledger/Fabro):**
+**As re-measured 2026-08-03T19:27Z (ledger/Fabro/forge):**
 
 | Item | State |
 |---|---|
@@ -149,12 +155,13 @@ ls SPECIFICATION/proposed_changes/
 | `overseer-z5fo4y.5` `-foreman` suffix | **closed**, PR #580 |
 | `overseer-41p` | **closed**, PR #601 |
 | `overseer-n7xx67` | **closed**, PR #600 |
-| `overseer-by6hrx` deterministic wrapper/runtime | **active; Fabro `01KZ4F91X0F35QM90MDVNQ77DX` running** |
-| `overseer-eqbk4h` fail-closed session classifier | **active; Fabro `01KZ4FF2CAXDVGN082AKK8JEE7` running** |
-| `overseer-4opppx` session-lifecycle `foreman-act` + fresh revalidation | `pending-approval`, blocked by `overseer-eqbk4h` |
+| `overseer-by6hrx` deterministic wrapper/runtime | **closed**, PR #625, `ee2a1a1`, post-merge janitor green |
+| `overseer-eqbk4h` fail-closed session classifier | **closed**, PR #627, `07bf2ae`, post-merge janitor green |
+| `overseer-4opppx` session-lifecycle `foreman-act` + fresh revalidation | **active; Fabro `01KZ4HD12TAH3Z0CR4ETWPR3HN` running** |
 | `overseer-wykyth` typed filing + journal-triage actions | `pending-approval`, blocked by `overseer-4opppx` |
 | `overseer-vts4lo` bounded one-shot work-item sessions | `pending-approval`, blocked by `overseer-4opppx` + `overseer-wykyth` |
 | `overseer-qp3vpb` Claude/Codex skill + end-to-end v1 binding | `pending-approval`, blocked by the wrapper and all acting/lifecycle slices |
+| `overseer-z5fo4y.6` raw-filed wrapper duplicate | **active duplicate; run steered to stop without publishing** |
 
 - v006 is ratified and all nine proposal files are archived. The ratification
   prerequisite for the Phase A work is satisfied — including `.4`'s stated
@@ -170,22 +177,24 @@ ls SPECIFICATION/proposed_changes/
   approve valve was run, because per C10 the set-admission + approve two-step is
   unnecessary and permanently rewrites the item's recorded admission policy.
 
-## NEXT ACTION — land the two Phase B foundations, then drain the dependency chain
+## NEXT ACTION — land `foreman-act`, contain the duplicate, then drain the chain
 
 FIRST, re-fetch and re-measure the six Phase B items, `fabro ps`, current
 master, and `gh pr list --state all`; never infer run state from the ledger.
 Then:
 
-1. **Watch `overseer-by6hrx` and `overseer-eqbk4h` to terminal outcomes.**
-   Reconcile forge state before any retry. Accept merged green work; if a run
-   fails with a recoverable review finding, preserve that finding in the
-   ledger before re-dispatch.
-2. **Admit/dispatch `overseer-4opppx` after the classifier closes.** Then
-   drain `overseer-wykyth`, `overseer-vts4lo`, and finally
-   `overseer-qp3vpb` in dependency order. The item-level `admission:auto`
+1. **Watch `overseer-4opppx` to a terminal outcome.** Reconcile forge state
+   before any retry. It was dispatched directly from effective
+   `admission:auto`; `approve` correctly refused with `invalid-source-state`,
+   so do not repeat that human valve.
+2. **Contain `overseer-z5fo4y.6`.** Confirm the steered duplicate run opens no
+   PR, preserve #625/`ee2a1a1` as its replacement evidence, and close the raw
+   record as duplicate/no-longer-applicable. Never implement or merge it.
+3. **Then drain `overseer-wykyth`, `overseer-vts4lo`, and finally
+   `overseer-qp3vpb` in dependency order.** The item-level `admission:auto`
    labels are intentional; linked items remain `pending-approval` until their
    real edges clear and the lifecycle admits them.
-3. **Only after all six close, close/archive the epic and thread, then verify
+4. **Only after all six close, close/archive the epic and thread, then verify
    the released plugin is deployed fleet-wide.** v1 is A+B; Phase C–E remain
    separate future scope.
 
