@@ -14,6 +14,11 @@ than a skip and turns master red. Filed as `overseer-jtc`.
 1. This file.
 2. `plan/release-automation-gap/research/how-the-gap-was-found.md` — why the
    defect was invisible for days, and the reasoning that is expensive to redo.
+3. `plan/release-automation-gap/research/what-the-fix-taught.md` — what the
+   FIXING found, which was the larger half: the audit that found the gap was
+   itself under-tested and missed two more repos; arming is not retroactive; an
+   enumeration is a snapshot while the command is the acceptance; and the
+   release gate's own conclusion is not a pure function of release readiness.
 
 That is the whole chain. Everything else is in the ledger.
 
