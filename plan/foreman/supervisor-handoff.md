@@ -203,12 +203,20 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **STATE AS OF 2026-08-03T20:56Z — THIS IS THE ONLY STATUS BLOCK; EVERYTHING
+- **STATE AS OF 2026-08-03T21:50Z — THIS IS THE ONLY STATUS BLOCK; EVERYTHING
   ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure before acting; the
   Verification Discipline block below is the command.
 
-  **COLD-OPEN, DO THESE THREE THINGS FIRST, IN THIS ORDER:**
+  **COLD-OPEN, DO THESE FOUR THINGS FIRST, IN THIS ORDER:**
 
+  0. **`git fetch` AND CHECK THAT THIS FILE IS THE CURRENT ONE** before reading
+     it for content. On 2026-08-03 a restart read this binder off a checkout
+     three minutes behind the forge and got the RETIRED status block, which said
+     to land four already-closed slices and then archive a half-finished v1. The
+     Generator provenance block printed `PASS` throughout — it answers which
+     generator emitted the text, never whether this copy is current. Role-level
+     correction **C24** carries the runnable check. A charter is a claim with a
+     timestamp exactly like the item statuses it tells you to re-measure.
   1. **Read the supervisor marker** at `tmp/overseer/foreman/.supervisor-state`.
      It survives the restart and holds the full narrative for everything
      summarised here — including why each correction exists. The boot block at
@@ -219,8 +227,9 @@ any of it forward; the Verification Discipline block is the command.
   3. **Re-measure the ledger with `bd list --all`** (not bare `bd list`, which
      hides ~4/5 of the ledger — see T5's addendum).
 
-  **MY ONE IN-FLIGHT OBLIGATION: `overseer-wykyth`.** I dispatched it MYSELF at
-  20:43Z (fabro run `01KZ4NYJ8ARX`, confirmed RUNNING at 10m33s). The item reads
+  **MY ONE IN-FLIGHT OBLIGATION: `overseer-vts4lo`.** I dispatched it MYSELF at
+  21:32:29Z, detached with `--json` (fabro run
+  `01KZ4RQCN9PPFNHD2DA1GK6ZVK`, confirmed RUNNING). The item reads
   `active`/`fabro` and that claim is REAL — corroborated by `fabro ps`, not
   inferred from the ledger. **DO NOT RE-DISPATCH IT.** Watch it to a terminal
   outcome and discriminate the three endings that look alike:
@@ -230,8 +239,27 @@ any of it forward; the Verification Discipline block is the command.
   `fabro dump`ed before it is reaped** — a 240m timeout destroyed one sandbox
   already; a run ABSENT from `fabro ps -a` entirely is queue eviction (release
   the claim by hand, then re-dispatch).
-  I told the worker in its own pane at 20:44Z that I had taken this dispatch,
-  because its context still read "Next action: dispatch overseer-wykyth".
+  I told the worker in its own pane at 21:31Z that I had taken this dispatch.
+
+  **USE THE FULL 26-CHARACTER RUN ID WHEN YOU PROBE IT — `fabro ps` TRUNCATES.**
+  The table shows `01KZ4RQCN9PP`; the real id is
+  `01KZ4RQCN9PPFNHD2DA1GK6ZVK`. An equality probe built from the DISPLAYED id
+  matches nothing, forever, and that reads as ABSENT — the queue-eviction shape
+  — which would have you release a REAL claim on a RUNNING job and dispatch it a
+  second time. That is the T3 double-implementation chain entered through a
+  truncated string. `status` is also an OBJECT: the field is `.status.kind`.
+  Both were caught by controlling the probe before arming it (see **T6**).
+
+  **WHY THE SUPERVISOR IS DRIVING `vts4lo` AND `qp3vpb` AT ALL**, when this
+  block used to call them "the worker's, not mine": the worker has DECLARED
+  `ready` and is idle at a clean checkpoint. `ready` means *restart me*, and the
+  daemon never will — that is the livelock recorded above. Resuming it by paste
+  would spend its last ~17% with no ability to hand off if it runs dry
+  mid-flight. Dispatching is factory-side regardless: the work happens in a
+  sandbox and the only pane cost is dispatch/watch/reconcile. This is NOT a new
+  maintainer decision — the Phase B cut and its dispatch order were ruled on
+  2026-08-03 — it is execution of that ruling. **Coordinate in the worker's pane
+  FIRST every time; that is the whole of T5.**
 
   **v006 IS RATIFIED AND MERGED** (PR #575). All nine pending proposals were
   processed in one pass: six `modify`, three `accept`, none rejected.
@@ -286,14 +314,23 @@ any of it forward; the Verification Discipline block is the command.
   release version. **Restarting the daemon is NOT this thread's call** — never
   kill the acting daemon. Full detail is in `handoff.md` (PR #635).
 
-  REMAINING: `wykyth` lands; the worker drains `vts4lo` then `qp3vpb`; only then
+  REMAINING, re-measured 21:50Z: `vts4lo` lands, then `qp3vpb`; only then
   close/archive the epic and thread and verify fleet deployment against the
   caveat above. Phases C–E are separate future scope.
+
+  **`qp3vpb` IS BLOCKED BY A REAL EDGE, NOT BY CONVENTION** — measured from its
+  OWN dep tree at 21:51Z (a dep tree is directional; T2): it is blocked by
+  `vts4lo` (active), plus `4opppx` and `by6hrx` (both closed). Do not batch the
+  two dispatches. `wykyth` is **closed**: PR #638 merged 21:26:49Z (`cd1cd3f`),
+  post-merge janitor green, dispatcher exited on its own with no phantom claim.
 
   **MY PRs THIS SESSION, ALL MERGED — do not re-do them:** #605 (handoff post-
   `.1`-dedupe), #623 (Phase A complete + do-not-archive), #634 (T5 recorded in
   Corrections + stale status block retired), #635 (the merged-is-not-running gap
-  + T5's `--all` addendum). Master was `ca63dd8` at wind-down.
+  + T5's `--all` addendum). Master was `ca63dd8` at that wind-down.
+  **THE RESTART'S PRs:** #637 (role-level C24, the stale-charter correction —
+  **this one reddened master for ten minutes**, see T6), #639 (the fix that
+  restored it), and this one. Master reached `cd1cd3f` after `wykyth` landed.
 
 - **BEFORE YOU DIAGNOSE ANY DISPATCH FAILURE, READ `overseer-6pn`.** A
   dispatcher that reports `failed` while its PR MERGED is that bug, not a real
@@ -634,3 +671,65 @@ ordering exactly.
   flag name. This is the C1/C12 rule — *when a check passes, confirm it can also
   FAIL* — applied to a search: **a search that cannot return the closed item
   cannot tell you the work is already done.**
+
+- **T6 (2026-08-03) — I REDDENED MASTER WITH A CORRECTION ABOUT FALSE ASSURANCE,
+  AND EVERY LAYER I USED TO CHECK MY WORK REPORTED SUCCESS WITHOUT LOOKING.**
+  PR #637 landed role-level **C24** and broke `check-coverage` and
+  `check-per-file-coverage` on master at 21:12:32Z. A red master refuses EVERY
+  factory dispatch fleet-wide at the dispatcher's green-master pre-flight — the
+  C14 precedent, where a charter edit held the fleet across seven commits — and
+  it simultaneously blocked PR #638, the `wykyth` work I was supervising. So a
+  correction written to protect the next supervisor blocked the thread it was
+  written on. Red for about ten minutes; fixed forward by PR #639 with neither
+  gate weakened. Both breaks were gates working exactly as designed: appending a
+  correction reddens `test_charter_correction_counts_are_current` until the ONE
+  prose sentence stating the count is updated, and
+  `tests/prompts/test_cold_open_generation_gate.py` **executes** every fenced
+  `sh` block in `.ai/supervisor-protocol.md` under stubs where the forge is
+  unreachable, so a block ending `|| exit 1` exits 1.
+  **THE FIRST FALSE ASSURANCE — WHY IT REACHED MASTER.** I wrote "verified, both
+  charter gates green (107 tests)" and believed it. Both hooks printed
+  `doc-only mode detected (zero .py files staged): running
+  just check-pre-commit-doc-only` and **skipped the aggregate**. The prose gates
+  that caught this live in `just check-coverage`, which never ran locally.
+  **A DOCS-ONLY CHANGE DOES NOT RUN THE TESTS THAT GATE DOCS.** This is distinct
+  from the repo-root CLAUDE.md note that a doc-only branch is still REFUSED at
+  push without the worktree pack: that is about permission to push, this is
+  about what gets checked once you may.
+  **THE SECOND — AND IT NEARLY PUT A FALSE "VERIFIED" IN THE FIX ITSELF.**
+  Re-running `just check-coverage` after editing returned `rc=0`, and I was one
+  step from citing it. Its first line: `reading existing .coverage (produced by
+  check-per-file-coverage); no duplicate suite run`. It re-read stale coverage
+  data and ran no tests. `rc=0` there is a statement about a PREVIOUS run.
+  Caught only because a `grep` for "passed" came back EMPTY and I treated the
+  empty result as a question rather than a pass. **To verify a tree, run the
+  SUITE (`uv run pytest`), not a recipe that may legitimately decide it has
+  nothing to do.**
+  **THE THIRD, ON A PROBE — AND IT IS THE MOST TRANSFERABLE.** My first watcher
+  tested dispatcher liveness with `ps -eww -o args= | grep -F '<pattern>'`, and
+  its POSITIVE control failed against a process I had just seen alive. Cause:
+  `ps` captures the harness's OWN invocation, whose argv holds the entire script
+  — including every pattern the script searches for — so a deliberately
+  IMPOSSIBLE pattern "matched" too. `/usr/bin/grep` gave the same answer, ruling
+  out this host's `grep`→ugrep shim. That is the global `pgrep -f` self-match
+  trap wearing new clothes: not the matcher finding itself, but the command line
+  containing the needle. **THE FIX IS STRUCTURAL: run watchers FROM A FILE, and
+  HARDCODE their patterns inside it** — a pattern passed as an argument lands
+  right back in argv and restores the bug. Then the corrected probe failed its
+  positive control AGAIN, and that time it was true: the dispatcher had exited.
+  **A broken probe and a true negative are indistinguishable until the probe is
+  controlled.**
+  A FOURTH, CAUGHT BEFORE IT COST ANYTHING, recorded because it is the same
+  family and the cheapest to hit: `fabro ps` **truncates the 26-character ULID**
+  to 12. An equality probe built from the displayed id matches nothing forever
+  and reads as ABSENT — the queue-eviction shape — which would release a REAL
+  claim on a RUNNING job and dispatch it again (T3). `status` is an OBJECT
+  (`.status.kind`), so a string compare silently never matches either. Both were
+  found by running positive AND negative controls before arming, plus a
+  truncation control that DEMONSTRATES the displayed id failing to match.
+  **THE SHAPE, since it is now four deep:** C24 says a charter's `PASS` can be
+  uninformative; the hooks' PASS was uninformative; the recipe's `rc=0` was
+  uninformative; the probe's match was uninformative. The shared layer already
+  says *an empty result is not a finding*. **This generalises it: a SUCCESSFUL
+  result is not a finding either, unless you know what the check actually
+  examined.** Ask what a green thing looked at before you spend it as evidence.
