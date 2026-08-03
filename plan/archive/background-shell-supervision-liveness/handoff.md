@@ -114,8 +114,8 @@ Four DISTINCT gates refused dispatches in this thread. Know all four; only
 one is a human VALVE (gate 2). Gate 4 was described here as a human ACT —
 that is no longer accurate (see gate 4).
 
-**Gate 1 — dispatcher staleness (exit 3, "plugin build is stale"). NOT a
-human valve; remedy is a session restart.** Skill bindings are fixed for a
+**Gate 1 — dispatcher staleness (exit 3, "plugin build is stale"). HISTORICAL
+restart-only ruling, superseded for dispatch on 2026-08-03.** Skill bindings are fixed for a
 session's lifetime, so a stale session cannot self-remediate — and the
 SessionStart hook's own update does not help the session it runs in (the
 hook says so: `Restart to apply changes`; measured 2026-07-28, a hook-updated
@@ -142,13 +142,17 @@ for e in d['plugins']['livespec-orchestrator-beads-fabro@livespec-orchestrator-b
 "
 ```
 
-If that value is not the build hash in the skill's base-directory path, you
-are stale — restart instead of dispatching. The SessionStart banner is the
+If that value is not the build hash in the skill's base-directory path, the
+session is stale. This archived thread originally prescribed restart instead of
+dispatching; repo-root `.claude/CLAUDE.md` now supersedes that with
+dispatch-time absolute-path resolution. The SessionStart banner is the
 same signal read live: `already at the latest version` means you are good;
 `updated from X to Y … Restart to apply changes` means THIS session is X and
-is stale. **Do not route around the gate** by hand-invoking a newer build's
-`dispatcher.py` from the plugin cache — the same class of move as
-`--no-verify`.
+is stale. **Retired dispatch guidance, 2026-08-03:** this paragraph used to
+forbid hand-invoking a newer plugin-cache dispatcher as a `--no-verify`-class
+move. That ruling is superseded by repo-root `.claude/CLAUDE.md`: dispatch-time
+absolute-path resolution to the current build is sanctioned after
+`just ensure-plugins` or `claude plugin update` has installed that build.
 
 **Gate 2 — admission: `backlog` items are NEVER dispatch candidates. THIS is
 the human valve.** The rendered lane IS the stored status (vendored

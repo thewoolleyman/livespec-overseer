@@ -255,6 +255,14 @@ Running the update (or `just ensure-plugins`) **is correct and does work** — b
 Skill-resolved `drive.py` is still the old build and re-running the same command
 reproduces the identical error. It reads as "the remedy is broken".
 
+**Ruling, measured 2026-08-03:** dispatch-time absolute-path resolution is the
+sanctioned remedy for an already-updated-but-stale session. It does not bypass
+the stale-build gate; it uses the build that the gate itself names as current.
+Session restart remains acceptable, but it is not required before routine
+dispatch. The older Gate 1 sentence in
+`plan/archive/background-shell-supervision-liveness/handoff.md` that equated this
+with `--no-verify` is retired for dispatch commands.
+
 Invoke the new build by ABSOLUTE PATH instead:
 
 ```
