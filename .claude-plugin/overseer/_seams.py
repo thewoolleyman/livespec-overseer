@@ -41,6 +41,7 @@ __all__: list[str] = [
     "MappingRowPredicate",
     "PaneCommandPredicate",
     "PidToIntList",
+    "PidToOptionalBytes",
     "PidToOptionalInt",
     "PidToOptionalStr",
     "PidToStrList",
@@ -53,6 +54,12 @@ class PidToOptionalInt(Protocol):
     """Read one integer fact about a process, or None when it cannot be read."""
 
     def __call__(self, *, pid: int) -> int | None: ...
+
+
+class PidToOptionalBytes(Protocol):
+    """Read one byte-string fact about a process, or None when it cannot be read."""
+
+    def __call__(self, *, pid: int) -> bytes | None: ...
 
 
 class PidToOptionalStr(Protocol):

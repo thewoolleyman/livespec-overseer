@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from _claude_sessions_proc import proc_children, proc_comm, proc_starttime
-from _seams import PidToIntList, PidToOptionalStr
+from _claude_sessions_proc import proc_children, proc_cmdline, proc_comm, proc_starttime
+from _seams import PidToIntList, PidToOptionalBytes, PidToOptionalStr
 
 __all__: list[str] = [
     "has_active_subshell",
@@ -50,12 +50,71 @@ def _runtime_starttime_ticks(
     return min(starts) if starts else None
 
 
+def _descendant_shell_pids(
+    *,
+    root_pid: int,
+    direct_children: list[int],
+    children_of: PidToIntList,
+    comm_of: PidToOptionalStr,
+    max_nodes: int,
+) -> list[int]:
+    seen: set[int] = set()
+    shell_pids: list[int] = []
+    stack = list(direct_children)
+    while stack and len(seen) < max_nodes:
+        pid = stack.pop()
+        if pid in seen:
+            continue
+        seen.add(pid)
+        if pid == root_pid:
+            stack.extend(children_of(pid=pid))
+            continue
+        comm = comm_of(pid=pid)
+        if comm is not None and comm.lower() in _SHELL_COMMS:
+            shell_pids.append(pid)
+        stack.extend(children_of(pid=pid))
+    return shell_pids
+
+
+def _shell_argvs_by_starttime(
+    *,
+    shell_pids: list[int],
+    baseline: int,
+    starttime_of: PidToOptionalStr,
+    cmdline_of: PidToOptionalBytes,
+) -> tuple[set[bytes], list[int]] | None:
+    startup_shell_argvs: set[bytes] = set()
+    late_shell_pids: list[int] = []
+    for pid in shell_pids:
+        shell_start = _starttime_ticks(value=starttime_of(pid=pid))
+        if shell_start is None or shell_start < baseline:
+            return None
+        if shell_start - baseline > STARTUP_SHELL_MARGIN_TICKS:
+            late_shell_pids.append(pid)
+            continue
+        shell_argv = cmdline_of(pid=pid)
+        if shell_argv is not None:
+            startup_shell_argvs.add(shell_argv)
+    return startup_shell_argvs, late_shell_pids
+
+
+def _late_shell_has_startup_twin(
+    *,
+    pid: int,
+    startup_shell_argvs: set[bytes],
+    cmdline_of: PidToOptionalBytes,
+) -> bool:
+    shell_argv = cmdline_of(pid=pid)
+    return shell_argv is not None and shell_argv in startup_shell_argvs
+
+
 def has_active_subshell(
     *,
     root_pid: int,
     children_of: PidToIntList = proc_children,
     comm_of: PidToOptionalStr = proc_comm,
     starttime_of: PidToOptionalStr = proc_starttime,
+    cmdline_of: PidToOptionalBytes = proc_cmdline,
     max_nodes: int = 512,
 ) -> bool:
     """True if a DESCENDANT shell is later task work, not runtime startup plumbing.
@@ -74,21 +133,13 @@ def has_active_subshell(
     with fakes and never touch real ``/proc``.
     """
     direct_children = list(children_of(pid=root_pid))
-    seen: set[int] = set()
-    shell_pids: list[int] = []
-    stack = list(direct_children)
-    while stack and len(seen) < max_nodes:
-        pid = stack.pop()
-        if pid in seen:
-            continue
-        seen.add(pid)
-        if pid == root_pid:
-            stack.extend(children_of(pid=pid))
-            continue
-        comm = comm_of(pid=pid)
-        if comm is not None and comm.lower() in _SHELL_COMMS:
-            shell_pids.append(pid)
-        stack.extend(children_of(pid=pid))
+    shell_pids = _descendant_shell_pids(
+        root_pid=root_pid,
+        direct_children=direct_children,
+        children_of=children_of,
+        comm_of=comm_of,
+        max_nodes=max_nodes,
+    )
     if not shell_pids:
         return False
     baseline = _runtime_starttime_ticks(
@@ -96,10 +147,20 @@ def has_active_subshell(
     )
     if baseline is None:
         return True
-    for pid in shell_pids:
-        shell_start = _starttime_ticks(value=starttime_of(pid=pid))
-        if shell_start is None or shell_start < baseline:
-            return True
-        if shell_start - baseline > STARTUP_SHELL_MARGIN_TICKS:
+    classified = _shell_argvs_by_starttime(
+        shell_pids=shell_pids,
+        baseline=baseline,
+        starttime_of=starttime_of,
+        cmdline_of=cmdline_of,
+    )
+    if classified is None:
+        return True
+    startup_shell_argvs, late_shell_pids = classified
+    for pid in late_shell_pids:
+        if not _late_shell_has_startup_twin(
+            pid=pid,
+            startup_shell_argvs=startup_shell_argvs,
+            cmdline_of=cmdline_of,
+        ):
             return True
     return False

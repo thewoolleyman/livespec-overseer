@@ -14,6 +14,7 @@ None/[] rather than raising.
 import json
 from pathlib import Path
 
+import _claude_sessions_proc
 import claude_sessions
 
 __all__: list[str] = []
@@ -56,6 +57,7 @@ def _fake_proc(*, tmp_path, monkeypatch):
         return Path(text)
 
     monkeypatch.setattr(claude_sessions, "Path", _redirect)
+    monkeypatch.setattr(_claude_sessions_proc, "Path", _redirect)
     return root
 
 
@@ -109,6 +111,16 @@ def test_proc_children_is_empty_on_an_undecodable_children_file(*, tmp_path, mon
     children.mkdir(parents=True)
     (children / "children").write_bytes(b"\xff\xfe200 300\n")
     assert claude_sessions.proc_children(pid=100) == []
+
+
+def test_proc_cmdline_returns_raw_bytes_and_none_for_empty(*, tmp_path, monkeypatch):
+    root = _fake_proc(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    proc = root / "100"
+    proc.mkdir(parents=True)
+    (proc / "cmdline").write_bytes(b"bash\x00-lc\x00exec npx -y mcp-remote\x00")
+    assert claude_sessions.proc_cmdline(pid=100) == b"bash\x00-lc\x00exec npx -y mcp-remote\x00"
+    (proc / "cmdline").write_bytes(b"")
+    assert claude_sessions.proc_cmdline(pid=100) is None
 
 
 def test_read_live_sessions_is_fail_soft_when_the_registry_dir_cannot_be_listed(

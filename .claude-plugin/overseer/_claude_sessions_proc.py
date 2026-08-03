@@ -14,6 +14,7 @@ from pathlib import Path
 
 __all__: list[str] = [
     "proc_children",
+    "proc_cmdline",
     "proc_comm",
     "proc_ppid",
     "proc_starttime",
@@ -87,6 +88,15 @@ def proc_comm(*, pid: int) -> str | None:
         )
     except OSError:
         return None
+
+
+def proc_cmdline(*, pid: int) -> bytes | None:
+    """Raw ``/proc/<pid>/cmdline`` bytes, or None if unreadable or empty."""
+    try:
+        data = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:
+        return None
+    return data or None
 
 
 def proc_children(*, pid: int) -> list[int]:

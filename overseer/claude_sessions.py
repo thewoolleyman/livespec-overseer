@@ -24,6 +24,7 @@ __all__: list[str] = [
     "map_named_sessions",
     "names_by_tmux_session",
     "proc_children",
+    "proc_cmdline",
     "proc_comm",
     "proc_ppid",
     "proc_starttime",
@@ -51,6 +52,11 @@ def proc_starttime(*, pid: int) -> str | None:
 def proc_comm(*, pid: int) -> str | None:
     _sync_reader_paths()
     return _claude_sessions_proc.proc_comm(pid=pid)
+
+
+def proc_cmdline(*, pid: int) -> bytes | None:
+    _sync_reader_paths()
+    return _claude_sessions_proc.proc_cmdline(pid=pid)
 
 
 def proc_children(*, pid: int) -> list[int]:
