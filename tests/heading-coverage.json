@@ -256,7 +256,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A changing pane or changed evidence cancels a pending wrap-up",
     "test": "tests.integration.test_shell_wrapup_v005.test_pre_paste_recheck_cancels_when_capture_changes_after_settle",
-    "reason": "Integration-tier: mutates the pane capture after the settle pair and before paste, then asserts the tick cancels without a stamp or paste. SABOTAGE-VERIFIED 2026-08-03: deleting the immediate pre-paste re-observation turns this red."
+    "reason": "Integration-tier: mutates the pane capture, Claude shell status, and Codex descendant-shell fallback after the settle pair and before paste, then asserts each tick cancels without a stamp, paste, Enter, restart, spawn, or state write. SABOTAGE-VERIFIED 2026-08-03: deleting the immediate pre-paste re-observation or only proving the fresh observation is independently safe turns these red."
   },
   {
     "spec_root": "SPECIFICATION",
