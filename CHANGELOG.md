@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.25.1...v0.26.0) (2026-08-03)
+
+
+### Features
+
+* bound foreman work item sessions ([7102f8d](https://github.com/thewoolleyman/livespec-overseer/commit/7102f8d31574b03934ff8323fc33f4c751ccb5bd))
+* pin foreman typed file and triage acts ([cd1cd3f](https://github.com/thewoolleyman/livespec-overseer/commit/cd1cd3fa71ca1837e6477258a63936124c496234))
+
 ## [0.25.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.25.0...v0.25.1) (2026-08-03)
 
 
