@@ -67,3 +67,29 @@ def test_relaunched_launch_chain_with_identical_startup_argv_twin_is_not_busy():
         )
         is False
     )
+
+
+def test_deep_late_shell_under_twinned_late_wrapper_is_not_busy():
+    assert (
+        _has_active_subshell(
+            cmdlines={
+                300: _WRAPPER_ARGV,
+                700: _WRAPPER_ARGV,
+                900: _MCP_ARGV,
+            }
+        )
+        is False
+    )
+
+
+def test_deep_late_shell_without_twinned_late_ancestor_stays_busy():
+    assert (
+        _has_active_subshell(
+            cmdlines={
+                300: _WRAPPER_ARGV,
+                700: b"bash\x00-lc\x00exec something-else\x00",
+                900: _MCP_ARGV,
+            }
+        )
+        is True
+    )

@@ -57,9 +57,10 @@ def _descendant_shell_pids(
     children_of: PidToIntList,
     comm_of: PidToOptionalStr,
     max_nodes: int,
-) -> list[int]:
+) -> tuple[list[int], dict[int, int]]:
     seen: set[int] = set()
     shell_pids: list[int] = []
+    parent_by_pid = {pid: root_pid for pid in direct_children}
     stack = list(direct_children)
     while stack and len(seen) < max_nodes:
         pid = stack.pop()
@@ -72,8 +73,11 @@ def _descendant_shell_pids(
         comm = comm_of(pid=pid)
         if comm is not None and comm.lower() in _SHELL_COMMS:
             shell_pids.append(pid)
-        stack.extend(children_of(pid=pid))
-    return shell_pids
+        children = children_of(pid=pid)
+        for child_pid in children:
+            _ = parent_by_pid.setdefault(child_pid, pid)
+        stack.extend(children)
+    return shell_pids, parent_by_pid
 
 
 def _shell_argvs_by_starttime(
@@ -108,6 +112,22 @@ def _late_shell_has_startup_twin(
     return shell_argv is not None and shell_argv in startup_shell_argvs
 
 
+def _has_twinned_late_shell_ancestor(
+    *,
+    pid: int,
+    parent_by_pid: dict[int, int],
+    twinned_late_shell_pids: set[int],
+) -> bool:
+    ancestor = parent_by_pid.get(pid)
+    seen: set[int] = set()
+    while ancestor is not None and ancestor not in seen:
+        if ancestor in twinned_late_shell_pids:
+            return True
+        seen.add(ancestor)
+        ancestor = parent_by_pid.get(ancestor)
+    return False
+
+
 def has_active_subshell(
     *,
     root_pid: int,
@@ -133,7 +153,7 @@ def has_active_subshell(
     with fakes and never touch real ``/proc``.
     """
     direct_children = list(children_of(pid=root_pid))
-    shell_pids = _descendant_shell_pids(
+    shell_pids, parent_by_pid = _descendant_shell_pids(
         root_pid=root_pid,
         direct_children=direct_children,
         children_of=children_of,
@@ -156,11 +176,22 @@ def has_active_subshell(
     if classified is None:
         return True
     startup_shell_argvs, late_shell_pids = classified
-    for pid in late_shell_pids:
-        if not _late_shell_has_startup_twin(
+    twinned_late_shell_pids = {
+        pid
+        for pid in late_shell_pids
+        if _late_shell_has_startup_twin(
             pid=pid,
             startup_shell_argvs=startup_shell_argvs,
             cmdline_of=cmdline_of,
+        )
+    }
+    for pid in late_shell_pids:
+        if pid in twinned_late_shell_pids:
+            continue
+        if not _has_twinned_late_shell_ancestor(
+            pid=pid,
+            parent_by_pid=parent_by_pid,
+            twinned_late_shell_pids=twinned_late_shell_pids,
         ):
             return True
     return False
