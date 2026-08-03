@@ -193,15 +193,18 @@ def test_settle_can_fail_loudly_on_expiry(
 
 
 def test_c_a_footer_in_scrollback_wakes_the_shipped_watcher(
-    *, tmux: Tmux, settle: Callable[[str, str], str]
+    *, monkeypatch: pytest.MonkeyPatch, tmux: Tmux, settle: Callable[[str, str], str]
 ) -> None:
     """DEFECT (c) PINNED: the footer has SCROLLED OFF and it still wakes."""
+    import conftest as prompt_conftest
+
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_TIMEOUT_S", 0.5)
     _worker(tmux=tmux)
     _run(
         tmux=tmux,
         command=(
             'printf "%s\\n" "  up/dn to navigate, Enter to select, Esc to cancel"; '
-            'for i in $(seq 1 25); do echo "AFTER-$i"; done'
+            'for i in $(seq 1 25); do echo "AFTER-$i"; sleep 0.05; done'
         ),
         settle=settle,
         needle="AFTER-25",
@@ -211,21 +214,31 @@ def test_c_a_footer_in_scrollback_wakes_the_shipped_watcher(
 
 
 def test_c_a_footer_in_scrollback_does_not_wake_the_proposed_watcher(
-    *, tmux: Tmux, settle: Callable[[str, str], str]
+    *, monkeypatch: pytest.MonkeyPatch, tmux: Tmux, settle: Callable[[str, str], str]
 ) -> None:
     """REMEDY. RED: restore `-S -40` -> wakes on the first poll."""
+    import conftest as prompt_conftest
+
+    monkeypatch.setattr(prompt_conftest, "_SETTLE_TIMEOUT_S", 0.5)
     _worker(tmux=tmux)
     _run(
         tmux=tmux,
         command=(
             'printf "%s\\n" "  up/dn to navigate, Enter to select, Esc to cancel"; '
-            'for i in $(seq 1 25); do echo "AFTER-$i"; done'
+            'for i in $(seq 1 25); do echo "AFTER-$i"; sleep 0.05; done'
         ),
         settle=settle,
         needle="AFTER-25",
         fail_on_timeout=True,
     )
-    assert watcher_proposed(tmux=tmux, target="=wk:") != _PICKER
+    calls: list[tuple[str, ...]] = []
+
+    def _recording_tmux(*args: str) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return tmux(*args)
+
+    assert watcher_proposed(tmux=_recording_tmux, target="=wk:") != _PICKER
+    assert all("-S" not in call for call in calls)
 
 
 def test_cprime_a_quoted_footer_wakes_the_shipped_watcher(
