@@ -34,6 +34,7 @@ name its parameter identically, because the caller passes it by keyword.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 from typing import Protocol
 
 __all__: list[str] = [
@@ -46,6 +47,7 @@ __all__: list[str] = [
     "PidToOptionalStr",
     "PidToStrList",
     "RepoPredicate",
+    "StatusWriter",
     "SubcommandHandler",
 ]
 
@@ -109,6 +111,12 @@ class MappingRowPredicate(Protocol):
     """Decide whether a mapping-store row survives a rewrite."""
 
     def __call__(self, *, row: dict[str, object]) -> bool: ...
+
+
+class StatusWriter(Protocol):
+    """Write a serialized status snapshot body to its target path."""
+
+    def __call__(self, *, path: Path, body: str) -> None: ...
 
 
 class SubcommandHandler(Protocol):
