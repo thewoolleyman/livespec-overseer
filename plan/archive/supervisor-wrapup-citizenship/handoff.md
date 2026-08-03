@@ -117,7 +117,7 @@ worktree → PR → rebase-merge discipline, as the thread's own opening did.
 
 ## 5. Read-first chain (all committed in this repo, livespec-overseer)
 
-1. `plan/supervisor-wrapup-citizenship/contract-narrowing.md` — the whole
+1. `plan/archive/supervisor-wrapup-citizenship/contract-narrowing.md` — the whole
    argument: ruling, evidence, current-contract citations, delta, safety
    case, drift-sweep list.
 2. `SPECIFICATION/spec.md` §"Fail-soft posture" AND §"The keep-going
@@ -136,3 +136,30 @@ worktree → PR → rebase-merge discipline, as the thread's own opening did.
 
 Ledger ids to read live (never stored here): `overseer-blccme` (this
 thread's epic), `overseer-vyjkzw`, `overseer-x6d`, `overseer-4xfmez`.
+
+## 6. Completion record (2026-08-03)
+
+This thread is complete and archived. The stale next action above is retained
+as handoff history; the shipped result is:
+
+- Livespec v005 was ratified through PR #522. It permits guarded wrap-up
+  injection only for a low-context, affirmative shell-only, idle and settled
+  pane, with a same-tick re-observation of every authorization input. Unknown
+  or unavailable runtime status fails closed. Restart interlocks, the cardinal
+  `ready` rule, `danger` report-only behavior, and the pair nudge are unchanged.
+- PR #536 supplied the initial v005 implementation. PR #550 removed the full
+  201–250 LLOC population without changing behavior. PR #561 then landed the
+  complete fail-closed evidence-change interlocks on top of that split; the
+  conflicted PR #555 and its earlier partial predecessors were closed
+  unmerged as superseded.
+- Releases v0.17.1 and v0.17.2 contain the implementation. v0.17.2 is the
+  final deployment target for this record; its release-tag strict gates,
+  release-branch fast-forward, and sibling fan-out all completed green.
+- All nine fleet project registrations and the three adopter registrations
+  were reconciled to v0.17.2 (`3a8c6d76316a`). Openbrain and resume advanced
+  their concrete pins to v0.17.2; homelab and the fleet members follow the
+  `release` channel. The Codex plugin cache also contains v0.17.2.
+- The live daemon was restarted in the exact `livespec-overseer` tmux daemon
+  pane `%54` from the released checkout and verified as one long-lived
+  `overseerd` process reporting application version 0.17.2. The adjacent
+  Claude pane `%1` was not touched.

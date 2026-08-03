@@ -74,7 +74,7 @@ sweep this repo's `SPECIFICATION/spec.md`, `SPECIFICATION/contracts.md`,
 (`.claude-plugin/prose/overseer.md`, `overseer/marker-protocol.md`) for
 clauses that DEFINE what counts as background-shell / busy EVIDENCE
 (as opposed to clauses prescribing the response to it — those belong to
-`plan/supervisor-wrapup-citizenship/`). Record the verdict as a research
+`plan/archive/supervisor-wrapup-citizenship/`). Record the verdict as a research
 note in this thread. If any ratified clause must narrow, author the
 proposed change via the `/livespec:propose-change` operation
 (independent Fable-model review, then `/livespec:revise`) BEFORE any
@@ -120,7 +120,7 @@ existing `children_of`/`comm_of` pattern.
 3. `SPECIFICATION/spec.md` §"Fail-soft posture" — the over-fire-busy
    posture the fix must respect (and §"The keep-going nudge" if the
    sweep reaches evidence definitions there).
-4. `plan/supervisor-wrapup-citizenship/handoff.md` — the complementary,
+4. `plan/archive/supervisor-wrapup-citizenship/handoff.md` — the complementary,
    deliberately separate suppression-narrowing thread (epic
    `overseer-blccme`); neither thread blocks the other.
 
