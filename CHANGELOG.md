@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.23.0...v0.24.0) (2026-08-03)
+
+
+### Features
+
+* add foreman runtime wrapper ([ee2a1a1](https://github.com/thewoolleyman/livespec-overseer/commit/ee2a1a136499a79d22efc3dca71b8df1a17cde09))
+* add foreman session lifecycle classifier ([07bf2ae](https://github.com/thewoolleyman/livespec-overseer/commit/07bf2aee5bf79597797469bdac709aef1dc3aeac))
+
 ## [0.23.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.22.0...v0.23.0) (2026-08-03)
 
 
