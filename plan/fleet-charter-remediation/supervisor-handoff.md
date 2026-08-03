@@ -168,43 +168,71 @@ not exempt from it. On THIS thread that rule has teeth the others lack: the
 thread's entire subject is a NUMBER, and the number moved between the handoff's
 reading and this charter's.
 
-- **THE CORPUS IS 124, NOT THE 117 THE HANDOFF RECORDS. Re-measured
-  2026-08-02T23:47:46Z** by importing the shipped module
+- **THE CORPUS IS 120, NOT THE 117 THE HANDOFF RECORDS. Re-measured
+  2026-08-03T00:02:31Z** by importing the shipped module
   (`tests/prompts/test_charters_carry_no_known_defects.py`) and calling
   `defects_in`, never a grep, over the same three globs the gate itself uses:
 
-  | repo | charters | dirty | defects |
-  |---|---|---|---|
-  | `livespec-orchestrator-beads-fabro` | 6 | 5 | **56** |
-  | `homelab` | 7 | 4 | 30 |
-  | `livespec-dev-tooling` | 5 | 2 | 18 |
-  | `livespec-console-beads-fabro` | 1 | 1 | 15 |
-  | `livespec` | 6 | 2 | 5 |
-  | `livespec-overseer` | 9 | 0 | **0** |
-  | **total** | **34** | **14** | **124** |
+  | repo | charters | defects |
+  |---|---|---|
+  | `livespec-orchestrator-beads-fabro` | 6 | **56** |
+  | `homelab` | 7 | 26 |
+  | `livespec-dev-tooling` | 5 | 18 |
+  | `livespec-console-beads-fabro` | 1 | 15 |
+  | `livespec` | 6 | 5 |
+  | `livespec-overseer` | 9 | **0** |
+  | **total** | **34** | **120** |
 
-  By class: (a) 95, (c) 7, (d) 7, (b) 5, (h) 5, (f) 2, (e) 1, (i) 1, (j) 1,
-  (g) 0, (k) 0. **THE DRIFT IS THE POINT, not a correction to the handoff.** The
-  corpus GREW by five charters in two days because live threads keep generating
-  charters, so this is a MOVING TARGET and any plan that spends its budget before
-  re-measuring is costing the wrong number. `homelab` moved most (23 → 30, and
-  2 dirty → 4). Note also that (h) went 2 → 5 and (k) is still 0.
-- **PHASE 1 IS UNCHANGED BY THAT DRIFT, WHICH IS WHY THE CUT SURVIVES.**
+  By class: (a) 95, (c) 7, (d) 7, (b) 5, (f) 2, (e) 1, (h) 1, (i) 1, (j) 1,
+  (g) 0, (k) 0, (l) 0.
+- **THE NUMBER DRIFTS ON TWO INDEPENDENT AXES, AND BOTH MOVED DURING THIS
+  CHARTER'S OWN GENERATION.** Do not conflate them.
+  - **The CORPUS drifts.** Fifteen minutes earlier the same call returned
+    **124**, and two days earlier the handoff recorded **117** over 29 charters.
+    Live threads keep generating charters, so the denominator grows on its own.
+  - **The GATE drifts too, and that is the axis nobody was watching.** The 124
+    was scored by an ELEVEN-detector set. While this charter was being written,
+    detector (h) was parameterised off its hardcoded wrapper name and detector
+    (l) was added, so the current set is TWELVE. The (h) fix alone removed four
+    FALSE POSITIVES, all in `homelab` (30 → 26), and took (h) from 5 to 1
+    fleet-wide. **So 124 → 120 is not four defects being fixed; it is four
+    defects that were never there.** A count is meaningless without naming the
+    detector set that produced it — always say which, as this bullet does.
+- **DETECTOR (l) SCORES ZERO FLEET-WIDE AND THAT ZERO IS CONTROLLED.** Injecting
+  the historic defective busy test into a REAL fleet charter in memory makes (l)
+  fire once; the corrected `rop-railway-enforcement` charter scores 0; a re-read
+  from disk afterwards still scores 0, so nothing leaked. Reported as absence
+  only because the query was first proven able to produce a positive.
+- **PHASE 1 IS UNCHANGED BY EITHER DRIFT, WHICH IS WHY THE CUT SURVIVES.**
   `livespec-orchestrator-beads-fabro` is still **56**, still 5 of its 6
-  charters. What changed is the REMAINDER: after phase 1 the fleet holds **68**
-  across 4 repos, not the 61 the handoff states. Say 68, re-measured, when you
-  report what remains.
+  charters, under both detector sets. What changed is the REMAINDER: after
+  phase 1 the fleet holds **64** across 4 repos, not the 61 the handoff states.
+  Say 64, re-measured, with the detector set named, when you report what remains.
 - **THE SCOPE IS DECIDED. DO NOT RE-OPEN IT.** Phased,
   `livespec-orchestrator-beads-fabro` first — the maintainer's cut, recorded in
   `handoff.md`. Re-deriving it is the single most likely way this thread wastes a
   session, because the measurement is interesting and the cut looks re-litigable
   every time the number moves. It is not.
-- **ONE LINE IN ANOTHER REPO'S SHARED LAYER IS THE HIGHEST-LEVERAGE EDIT IN THE
-  FLEET.** `livespec-orchestrator-beads-fabro/.ai/supervisor-protocol.md` uses
-  a worker-target variable ten times and never binds it; adding the binding line
-  this repo already ships takes that file **10 → 0**. It is a SHARED layer, so
-  one line reaches every thread in the repo holding 45% of the exposure.
-  Confirmed still 10 at 2026-08-02T23:47:46Z.
+- **THE ONE-LINE SHARED-LAYER EDIT IS REAL, BUT ITS LEVERAGE CLAIM IS FALSE AND
+  `handoff.md` STATES THE FALSE VERSION.** `livespec-orchestrator-beads-fabro/
+  .ai/supervisor-protocol.md` uses a worker-target variable ten times and never
+  binds it; adding the binding line this repo already ships takes that file
+  **10 → 0**, confirmed still 10 at 2026-08-03T00:02Z. What is NOT true is that
+  a shared-layer fix therefore reaches every thread in that repo. Measured with
+  a positive control: **only 1 of that repo's 5 charters
+  (`plan/beads-v1-1-2-upgrade/`) references the shared layer at all.** The other
+  four — including all three archived ones, which hold 43 of the 56 — reference
+  it ZERO times. They are pre-layering MONOLITHS and inherit nothing. Positive
+  control for the probe: the same search against
+  `livespec-overseer/plan/daemon-liveness-truth/supervisor-handoff.md` returns
+  7, so a zero here is a real zero and not a broken query. **So the one line is
+  10 of 56 (18%), not 48% of the fleet, and it reaches exactly ONE downstream
+  charter by reference.** The cut is unaffected — all five files still need
+  editing — but do not repeat the leverage sentence. **Credit where it is due:
+  `retire-host-dispatch-cap-supervisor` spotted this from inside the other repo
+  and deliberately WITHHELD it because this thread's cross-repo notice asked for
+  objections only.** A notice that invites only objections will not surface a
+  correction; word the next one to invite both.
 - **THIS BINDER IS ITSELF INSIDE THE CORPUS IT REMEDIATES.** `plan/*/
   supervisor-handoff.md` is one of the gate's three globs, so every edit to this
   file is scored by the same eleven detectors, in this repo's own CI, at
