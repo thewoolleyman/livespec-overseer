@@ -1,4 +1,11 @@
-"""Host /proc readers for Claude and Codex session discovery."""
+"""Host ``/proc`` readers for Claude and Codex session discovery.
+
+This is the process-table coupling for the session registry and tmux joins:
+parent PID, process start-time, command name, and direct children. Callers accept
+these readers as injectable callables so the beside-tests drive PID identity,
+PID-reuse, and descendant-shell cases with fakes instead of touching the host's
+real ``/proc`` tree or ``~/.claude`` registry.
+"""
 
 from __future__ import annotations
 

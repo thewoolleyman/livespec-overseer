@@ -1,4 +1,12 @@
-"""Join live Claude registry sessions to owning tmux sessions."""
+"""Join live Claude registry sessions to owning tmux sessions.
+
+After registry parsing proves a Claude PID is live, the supervisor maps it to
+the tmux session whose pane process-tree contains that PID. The join walks from
+the Claude process up to a known tmux pane PID, producing screen-independent
+``(tmux_session, name, cwd)`` data that still works while the pane is at a user
+prompt or otherwise rendering no input box. The parent-chain and start-time
+readers are injected, keeping this join deterministic under tests.
+"""
 
 from __future__ import annotations
 
