@@ -617,7 +617,12 @@ def wrapper_less_ledger_read(*, text: str) -> list[str]:
     ]
     if not invocations:
         return []
-    joined = "\n".join(blocks)
+    # CONTINUATION-JOINED, because a trailing backslash does not stop a wrapper
+    # from wrapping. The live `beads-v1-1-2-upgrade` charter writes the correct
+    # call as `with-livespec-env.sh -- \` + `  bd show ...`, which is the SAME
+    # command as the one-liner and was scored as a defect purely because both
+    # halves were required on one physical line.
+    joined = "\n".join("\n".join(_logical_lines(block=block)) for block in blocks)
     if _WRAPPER_DETECTED.search(joined) or _WRAPPER_DIRECT.search(joined):
         return []
     # The variable form: the binding PROVED must be the binding CALLED.
