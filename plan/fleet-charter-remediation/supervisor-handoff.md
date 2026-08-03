@@ -524,10 +524,30 @@ this section byte-for-byte, from the `## Corrections` heading through the end of
 the section. Preserve spelling, punctuation, code formatting, blank lines, and
 ordering exactly.
 
-This section is EMPTY at generation (2026-08-02T23:47Z), and that is a real
-state rather than an omission: this is the thread's first charter and no
-supervisor has yet acted under it. Role-level corrections C1 onward already
-apply and live in `.ai/supervisor-protocol.md` — do not copy them down here.
-Record a `T<n>` entry the first time THIS supervisor gets something wrong on
-THIS thread, and record it about your own conduct; a section that logs only the
-worker's mistakes is a wrong record.
+This section was EMPTY at generation (2026-08-02T23:47Z), which was a real state
+rather than an omission: no supervisor had yet acted under it. Role-level
+corrections C1 onward already apply and live in `.ai/supervisor-protocol.md` —
+do not copy them down here. Record a `T<n>` entry when THIS supervisor gets
+something wrong on THIS thread, and record it about your own conduct; a section
+that logs only the worker's mistakes is a wrong record.
+
+- **T1 (2026-08-03) — I SCORED A REPO AGAINST A BRANCH THAT DOES NOT EXIST, AND
+  MY TOOLING REPORTED THE MISSING REF AS A CLEAN FILE.** Verifying the worker's
+  `homelab` remediation, I diffed defect counts between `origin/master` and the
+  PR branch. **`homelab`'s default branch is `main`.** `git show
+  origin/master:<file>` returned an EMPTY STRING, my script scored empty text as
+  zero defects, and the result read `0 -> 2` — which says the worker's branch
+  ADDED two defects to a clean file. The true reading is `26 -> 2`. I was one
+  step from sending that as a finding against a colleague's correct work.
+  **This is this thread's own first rule turned back on me:** an empty result is
+  not a finding, and I ran no positive control on the BASE ref — only on the
+  branch ref, which was readable, which is exactly what made the failure look
+  like data. The tell was there and I nearly walked past it: a repo cannot go
+  from a clean shared layer to a dirty one in a remediation PR. **Two durable
+  fixes, both applied.** Treat an unreadable ref as an ERROR, never as clean
+  input — a scoring script must assert its inputs are non-empty before it
+  compares them. And resolve a repo's default branch from the forge
+  (`gh repo view --json defaultBranchRef`) rather than assuming `master`; this
+  fleet has at least one repo on `main`, and the six repos this thread touches
+  do not share one convention. Disclosed to the worker in the same turn, before
+  it could act on anything I had said.
