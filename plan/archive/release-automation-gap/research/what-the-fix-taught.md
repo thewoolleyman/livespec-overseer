@@ -197,6 +197,23 @@ instead emitted a green "verified" claim would have been the exact vacuous-green
 shape this thread exists to stop. The thread's handoff routes `zxy` to factory
 dispatch; that routing is wrong and the work must be done in-session on the host.
 
+That host-side work completed against an isolated marketplace registered
+explicitly at `--ref release`, matching freshly fetched `origin/release` SHA
+`3a8c6d7` (plugin 0.17.2). The real picker passed and its surface-removal control
+failed; a plain-shell tmux control refused with exit 1; and a real Codex session
+started a scratch daemon that adopted and rendered one named Claude probe in one
+continuous run. The launching Codex session rendered as `codex-unindexed` and
+was not adopted, so the result stays bounded. Real store hash, daemon-lock mtime,
+and acting daemon identity were unchanged.
+
+The isolated fixture avoided a global marketplace re-registration while many
+Codex sessions were live. That was part of the acceptance, not convenience:
+global re-registration prunes versioned cache paths and can break those sessions.
+The exercise also found the fifth scratch-HOME layer, now recorded in the
+committed adoption harness: symlinking real `~/.claude` does not supply its
+sibling `~/.claude.json`, so a fresh probe enters onboarding instead of becoming
+discoverable.
+
 ## The common shape
 
 Every defect in this thread is one of two moves:
