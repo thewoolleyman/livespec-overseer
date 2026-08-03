@@ -61,12 +61,13 @@ The deterministic wrapper/runtime (`overseer-by6hrx`) merged as PR #625 at
 `overseer-4opppx` is now genuinely running as Fabro
 `01KZ4HD12TAH3Z0CR4ETWPR3HN`.
 
-**A CONCURRENT RAW-FILED DUPLICATE EXISTS:** `overseer-z5fo4y.6` was created
+**A CONCURRENT RAW-FILED DUPLICATE WAS CONTAINED:** `overseer-z5fo4y.6` was created
 without `intake:triaged` after the six-slice cut and duplicates the wrapper
 scope already merged in #625. Its run `01KZ4GWPDG0ARJ5Z9F2YVECJ0N` was
 interrupted/steered at 19:26Z with the merge evidence and an explicit command
-not to publish. Confirm it terminates without a PR, then close it as
-duplicate/no-longer-applicable. Do not touch its worktree or branch directly.
+not to publish. It terminated failed without a PR, and the record closed at
+19:31Z with `resolution:duplicate` and #625/`ee2a1a1` as replacement evidence.
+No worktree or branch was touched directly.
 
 Phase B was already SPECIFIED and its design is BINDING — see
 `research/brainstorm.md` §4, which post-dates the external review:
@@ -161,7 +162,7 @@ ls SPECIFICATION/proposed_changes/
 | `overseer-wykyth` typed filing + journal-triage actions | `pending-approval`, blocked by `overseer-4opppx` |
 | `overseer-vts4lo` bounded one-shot work-item sessions | `pending-approval`, blocked by `overseer-4opppx` + `overseer-wykyth` |
 | `overseer-qp3vpb` Claude/Codex skill + end-to-end v1 binding | `pending-approval`, blocked by the wrapper and all acting/lifecycle slices |
-| `overseer-z5fo4y.6` raw-filed wrapper duplicate | **active duplicate; run steered to stop without publishing** |
+| `overseer-z5fo4y.6` raw-filed wrapper duplicate | **closed `resolution:duplicate`; no PR; replaced by #625** |
 
 - v006 is ratified and all nine proposal files are archived. The ratification
   prerequisite for the Phase A work is satisfied — including `.4`'s stated
@@ -177,7 +178,7 @@ ls SPECIFICATION/proposed_changes/
   approve valve was run, because per C10 the set-admission + approve two-step is
   unnecessary and permanently rewrites the item's recorded admission policy.
 
-## NEXT ACTION — land `foreman-act`, contain the duplicate, then drain the chain
+## NEXT ACTION — land `foreman-act`, then drain the chain
 
 FIRST, re-fetch and re-measure the six Phase B items, `fabro ps`, current
 master, and `gh pr list --state all`; never infer run state from the ledger.
@@ -187,14 +188,11 @@ Then:
    before any retry. It was dispatched directly from effective
    `admission:auto`; `approve` correctly refused with `invalid-source-state`,
    so do not repeat that human valve.
-2. **Contain `overseer-z5fo4y.6`.** Confirm the steered duplicate run opens no
-   PR, preserve #625/`ee2a1a1` as its replacement evidence, and close the raw
-   record as duplicate/no-longer-applicable. Never implement or merge it.
-3. **Then drain `overseer-wykyth`, `overseer-vts4lo`, and finally
+2. **Then drain `overseer-wykyth`, `overseer-vts4lo`, and finally
    `overseer-qp3vpb` in dependency order.** The item-level `admission:auto`
    labels are intentional; linked items remain `pending-approval` until their
    real edges clear and the lifecycle admits them.
-4. **Only after all six close, close/archive the epic and thread, then verify
+3. **Only after all six close, close/archive the epic and thread, then verify
    the released plugin is deployed fleet-wide.** v1 is A+B; Phase C–E remain
    separate future scope.
 
