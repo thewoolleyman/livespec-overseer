@@ -79,6 +79,9 @@ def snapshot_payload(
         "rows_total": len(rows),
         "rows_used": len(used),
     }
+    embedded_attention = jsonio.as_object(value=document.get("needs_attention"))
+    if embedded_attention is not None:
+        source["embedded_needs_attention"] = embedded_attention
     if path is not None:
         source["path"] = str(path)
         source["freshness"] = {
@@ -197,6 +200,8 @@ def compose_document(
         list_json_command=list_json_command,
     )
     attention, attention_source = read_needs_attention(command=needs_command)
+    if attention is None:
+        attention = jsonio.as_object(value=snapshot_source.get("embedded_needs_attention"))
     journal_records, journal_source = read_journal(
         path=option_journal_path(repo=repo_path, options=options),
         limit=option_journal_limit(options=options),

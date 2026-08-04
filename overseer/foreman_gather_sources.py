@@ -55,7 +55,8 @@ def parse_repo_config(*, repo: Path) -> dict[str, object] | None:
 def default_needs_attention_command(*, repo: Path) -> list[str] | None:
     script = repo / "needs_attention.py"
     if not script.is_file():
-        return None
+        fixture = repo / "attention.json"
+        return ["/bin/cat", str(fixture)] if fixture.is_file() else None
     config = parse_repo_config(repo=repo)
     wrapper = string_list(value=config.get("credential_wrapper")) if config is not None else None
     prefix = wrapper if wrapper is not None else []

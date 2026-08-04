@@ -73,6 +73,31 @@ def _start_command(*, payload: dict[str, object]) -> list[str] | None:
     ]
 
 
+def _supervisor_pair_start_command(*, payload: dict[str, object]) -> list[str] | None:
+    repo = _str_field(payload=payload, key="repo")
+    topic = _str_field(payload=payload, key="topic")
+    session_name = _str_field(payload=payload, key="session_name")
+    if (
+        repo is None or topic is None or session_name is None or not Path(repo).is_absolute()
+    ):  # pragma: no cover
+        return None
+    handoff = Path(repo) / "plan" / topic / "supervisor-handoff.md"
+    return [
+        "tmux",
+        "new-session",
+        "-d",
+        "-s",
+        session_name,
+        "-c",
+        repo,
+        "claude",
+        "--dangerously-skip-permissions",
+        "-n",
+        session_name,
+        f"read {handoff} and follow it",
+    ]
+
+
 def resume_command_from_payload(*, payload: dict[str, object]) -> list[str] | None:
     runtime = _str_field(payload=payload, key="runtime")
     repo = _str_field(payload=payload, key="repo")
@@ -104,6 +129,8 @@ def command_for(*, action_id: ActionId, proposal: dict[str, object]) -> list[str
             payload=start, proposal=proposal
         ):
             return None
+        if action_id == SUPERVISOR_PAIR_START:
+            return _supervisor_pair_start_command(payload=start)
         return _start_command(payload=start)
     resume = _typed_resume(proposal=proposal)
     if action_id != QUALIFYING_SESSION_RESUME:  # pragma: no cover

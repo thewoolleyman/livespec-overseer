@@ -198,6 +198,47 @@ def test_snapshot_fallback_is_marked_observation_only(*, tmp_path):
     assert document["snapshot"]["daemon_instance_id"] == "cli"
 
 
+def test_embedded_and_fixture_attention_feed_needs_you_render(*, tmp_path):
+    module = foreman_gather()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    snapshot_path = tmp_path / "status.json"
+    attention = {
+        "schema_version": 1,
+        "items": [{"id": "overseer-b", "kind": "approve", "tmux": "beta", "title": "approve me"}],
+    }
+    write_json(
+        path=snapshot_path,
+        payload={
+            "schema_version": 1,
+            "daemon_instance_id": "daemon-1",
+            "tick_generation": 1,
+            "rows": [{"repo": str(repo), "topic": "beta", "tmux": "beta"}],
+            "needs_attention": attention,
+        },
+    )
+
+    embedded = module.compose_document(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        needs_attention_command=None,
+        journal_path=repo / "tmp" / "fabro-dispatch-journal.jsonl",
+    )
+
+    assert embedded["needs_attention"] == attention
+    assert "\nNEEDS YOU:\n  overseer-b | beta | approve | approve me\n" in (
+        module.render_document(document=embedded)
+    )
+
+    (repo / "attention.json").write_text(json.dumps(attention), encoding="utf-8")
+    fixture = module.compose_document(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        journal_path=repo / "tmp" / "fabro-dispatch-journal.jsonl",
+    )
+    assert fixture["needs_attention"] == attention
+
+
 def test_unreachable_inputs_are_skipped_and_named(*, tmp_path):
     module = foreman_gather()
     repo = tmp_path / "repo"

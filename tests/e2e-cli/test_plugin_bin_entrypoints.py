@@ -29,6 +29,13 @@ class ForemanActContext:
     path: Path
 
 
+@dataclass(frozen=True, kw_only=True)
+class ForemanE2EContext:
+    act: ForemanActContext
+    sessions_dir: Path
+    snapshot: dict[str, object]
+
+
 def _scrubbed_env() -> dict[str, str]:
     removed = {"PYTHONPATH", "COVERAGE_PROCESS_START"}
     env = {
@@ -260,6 +267,19 @@ def _plan_start_snapshot(*, repo: Path, topic: str) -> dict[str, object]:
     return snapshot
 
 
+def _with_snapshot_identity(
+    *, proposal: dict[str, object], daemon_instance_id: str, tick_generation: int
+) -> dict[str, object]:
+    return {
+        **proposal,
+        "snapshot": {
+            **dict(proposal["snapshot"]),
+            "daemon_instance_id": daemon_instance_id,
+            "tick_generation": tick_generation,
+        },
+    }
+
+
 def _tmux(*, socket: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
         ["tmux", "-S", str(socket), *args],  # noqa: S607
@@ -321,6 +341,22 @@ def _write_fake_claude(*, path: Path) -> None:
     launcher.chmod(0o755)
 
 
+def _write_fake_codex(*, path: Path) -> None:
+    launcher = path / "codex"
+    log = path / "fake-codex-argv.jsonl"
+    launcher.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys, time\n"
+        "from pathlib import Path\n"
+        f"log = Path({json.dumps(str(log))})\n"
+        "log.open('a', encoding='utf-8').write(json.dumps(sys.argv[1:]) + '\\n')\n"
+        "print('CODEX_READY', flush=True)\n"
+        "time.sleep(60)\n",
+        encoding="utf-8",
+    )
+    launcher.chmod(0o755)
+
+
 def _run_foreman_act(
     *,
     context: ForemanActContext,
@@ -352,6 +388,353 @@ def _run_foreman_act(
         text=True,
         timeout=30.0,
     )
+
+
+def _run_foreman_runtime(
+    *,
+    plugin_root: Path,
+    repo: Path,
+    home: Path,
+    socket: Path,
+    snapshot: dict[str, object],
+    now: float,
+) -> subprocess.CompletedProcess[str]:
+    snapshot_path = home / "runtime-status.json"
+    snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+    env = {
+        **_scrubbed_env(),
+        "HOME": str(home),
+        "TMUX": f"{socket},0,0",
+    }
+    return subprocess.run(  # noqa: S603
+        [
+            str(plugin_root / "bin" / "foreman-runtime"),
+            "--repo",
+            str(repo),
+            "--watch-set-path",
+            str(home / ".livespec-overseer-repos.json"),
+            "--snapshot-path",
+            str(snapshot_path),
+            "--now-epoch",
+            str(now),
+        ],
+        cwd=repo,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30.0,
+    )
+
+
+def _render_foreman_document(
+    *, plugin_root: Path, repo: Path, snapshot: dict[str, object], attention: dict[str, object]
+) -> str:
+    snapshot_path = repo / "status.json"
+    attention_path = repo / "attention.json"
+    snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+    attention_path.write_text(json.dumps(attention), encoding="utf-8")
+    completed = subprocess.run(  # noqa: S603
+        [
+            str(plugin_root / "bin" / "foreman-gather"),
+            "--repo",
+            str(repo),
+            "--snapshot-path",
+            str(snapshot_path),
+            "--journal-path",
+            str(repo / "tmp" / "fabro-dispatch-journal.jsonl"),
+            "--render",
+        ],
+        cwd=repo,
+        env={
+            **_scrubbed_env(),
+            "PATH": os.environ["PATH"],
+            "PYTHONPATH": "",
+        },
+        input=None,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=15.0,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return completed.stdout
+
+
+def _foreman_e2e_context(*, tmp_path: Path) -> ForemanE2EContext:
+    plugin_root = _materialize_overseer_plugin(cache=tmp_path / "home" / ".claude/plugins/cache")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "plan" / "alpha").mkdir(parents=True)
+    (repo / "plan" / "alpha" / "handoff.md").write_text("alpha handoff\n", encoding="utf-8")
+    (repo / "plan" / "beta").mkdir(parents=True)
+    (repo / "plan" / "beta" / "supervisor-handoff.md").write_text(
+        "beta supervisor handoff\n", encoding="utf-8"
+    )
+    (repo / "tmp").mkdir()
+    home = tmp_path / "runtime-home"
+    sessions_dir = home / ".claude" / "sessions"
+    sessions_dir.mkdir(parents=True)
+    (home / ".livespec-overseer-repos.json").write_text(
+        json.dumps({"repos": [str(repo)]}) + "\n", encoding="utf-8"
+    )
+    _write_fake_claude(path=tmp_path)
+    _write_fake_codex(path=tmp_path)
+    return ForemanE2EContext(
+        act=ForemanActContext(
+            plugin_root=plugin_root,
+            repo=repo,
+            home=home,
+            socket=tmp_path / "tmux.sock",
+            path=tmp_path,
+        ),
+        sessions_dir=sessions_dir,
+        snapshot=_foreman_e2e_snapshot(repo=repo),
+    )
+
+
+def _foreman_e2e_snapshot(*, repo: Path) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "daemon_instance_id": "daemon-e2e",
+        "tick_generation": 1,
+        "written_at": "2026-08-04T08:00:00Z",
+        "rows": [
+            {
+                "repo": str(repo),
+                "topic": "alpha",
+                "tmux": "alpha",
+                "runtime": "codex",
+                "status": "session-gone",
+                "session_identity": f"none:{repo}:alpha",
+            },
+            {
+                "repo": str(repo),
+                "topic": "beta",
+                "tmux": "beta-supervisor",
+                "runtime": "codex",
+                "status": "session-gone",
+                "session_identity": f"none:{repo}:beta-supervisor",
+            },
+        ],
+    }
+
+
+def _e2e_plan_start_proposal(*, repo: Path, topic: str) -> dict[str, object]:
+    return _with_snapshot_identity(
+        proposal=_plan_start_proposal(repo=repo, topic=topic),
+        daemon_instance_id="daemon-e2e",
+        tick_generation=1,
+    )
+
+
+def _e2e_supervisor_pair_proposal(*, repo: Path) -> dict[str, object]:
+    proposal = _e2e_plan_start_proposal(repo=repo, topic="beta")
+    proposal["action_id"] = "supervisor_pair_start"
+    proposal["session_name"] = "beta-supervisor"
+    snapshot = proposal["snapshot"]
+    assert isinstance(snapshot, dict)
+    snapshot["session_identity"] = f"none:{repo}:beta-supervisor"
+    classifier = proposal["classifier"]
+    assert isinstance(classifier, dict)
+    start = classifier["start"]
+    assert isinstance(start, dict)
+    start["session_name"] = "beta-supervisor"
+    return proposal
+
+
+def _e2e_attention() -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "generated_at": "2026-08-04T08:00:00Z",
+        "items": [
+            {
+                "id": "overseer-e2e7",
+                "kind": "work-item",
+                "session_name": "overseer-e2e7",
+                "title": "needs human-facing session",
+            }
+        ],
+    }
+
+
+def _e2e_work_item_proposal(*, repo: Path) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "action_id": "work_item_session_start",
+        "repo": str(repo),
+        "topic": "overseer-e2e7",
+        "session_name": "overseer-e2e7",
+        "snapshot": {"daemon_instance_id": "daemon-e2e", "tick_generation": 1},
+        "classifier": {"action": "start"},
+        "work_item_session": {
+            "work_item_id": "overseer-e2e7",
+            "session_name": "overseer-e2e7",
+            "handoff": "bounded one-shot handoff\n",
+        },
+    }
+
+
+def _assert_plan_and_supervisor_sessions(*, context: ForemanE2EContext) -> None:
+    plan = _run_foreman_act(
+        context=context.act,
+        proposal=_e2e_plan_start_proposal(repo=context.act.repo, topic="alpha"),
+        snapshot=context.snapshot,
+    )
+    assert plan.returncode == 0, plan.stderr
+    assert json.loads(plan.stdout)["reason"] == "started"
+    assert _tmux(socket=context.act.socket, args=["has-session", "-t", "=alpha"]).returncode == 0
+
+    supervisor = _run_foreman_act(
+        context=context.act,
+        proposal=_e2e_supervisor_pair_proposal(repo=context.act.repo),
+        snapshot=context.snapshot,
+    )
+    assert supervisor.returncode == 0, supervisor.stderr
+    assert json.loads(supervisor.stdout)["reason"] == "started"
+    assert (
+        _tmux(socket=context.act.socket, args=["has-session", "-t", "=beta-supervisor"]).returncode
+        == 0
+    )
+
+
+def _assert_work_item_lifecycle(*, context: ForemanE2EContext) -> None:
+    proposal = _e2e_work_item_proposal(repo=context.act.repo)
+    attention = _e2e_attention()
+    snapshot = {**context.snapshot, "rows": [], "needs_attention": attention}
+    started = _run_foreman_act(context=context.act, proposal=proposal, snapshot=snapshot)
+    assert started.returncode == 0, started.stderr
+    assert json.loads(started.stdout)["reason"] == "work_item_session_started"
+    assert (
+        _tmux(socket=context.act.socket, args=["has-session", "-t", "=overseer-e2e7"]).returncode
+        == 0
+    )
+    state_dir = context.act.repo / "tmp" / "overseer" / "foreman" / "work-items" / "overseer-e2e7"
+    assert json.loads((state_dir / "claim.json").read_text(encoding="utf-8")) == {
+        "attempt": 1,
+        "session_name": "overseer-e2e7",
+        "work_item_id": "overseer-e2e7",
+    }
+    assert (state_dir / "handoff.md").read_text(encoding="utf-8") == ("bounded one-shot handoff\n")
+    finish = {**proposal, "action_id": "work_item_session_finish"}
+    finish_payload = finish["work_item_session"]
+    assert isinstance(finish_payload, dict)
+    finish_payload["terminal"] = {"status": "completed", "reason": "done"}
+    finished = _run_foreman_act(context=context.act, proposal=finish, snapshot=snapshot)
+    assert finished.returncode == 0, finished.stderr
+    assert json.loads(finished.stdout)["reason"] == "work_item_session_completed"
+    assert not (state_dir / "claim.json").exists()
+    outcome = json.loads((state_dir / "outcome.json").read_text(encoding="utf-8"))
+    assert outcome["status"] == "completed"
+
+
+def _assert_lifecycle_sabotage_discriminates(*, context: ForemanE2EContext) -> None:
+    occupied = _run_foreman_act(
+        context=context.act,
+        proposal=_e2e_plan_start_proposal(repo=context.act.repo, topic="alpha"),
+        snapshot=context.snapshot,
+    )
+    assert json.loads(occupied.stdout)["reason"] == "tmux_session_occupied"
+    ambiguous = {
+        **_e2e_supervisor_pair_proposal(repo=context.act.repo),
+        "snapshot": {"daemon_instance_id": "other", "tick_generation": 1},
+    }
+    refused = _run_foreman_act(context=context.act, proposal=ambiguous, snapshot=context.snapshot)
+    assert json.loads(refused.stdout)["reason"] == "daemon_identity_changed"
+
+
+def _assert_needs_you_render(*, context: ForemanE2EContext) -> None:
+    rendered = _render_foreman_document(
+        plugin_root=context.act.plugin_root,
+        repo=context.act.repo,
+        snapshot=context.snapshot,
+        attention=_e2e_attention(),
+    )
+    expected = (
+        "\nNEEDS YOU:\n"
+        "  overseer-e2e7 | overseer-e2e7 | work-item | needs human-facing session\n"
+    )
+    assert expected in rendered
+    resolved = _render_foreman_document(
+        plugin_root=context.act.plugin_root,
+        repo=context.act.repo,
+        snapshot=context.snapshot,
+        attention={"schema_version": 1, "items": []},
+    )
+    assert "\nNEEDS YOU:\n  none\n" in resolved
+
+
+def _register_foreman_session(*, context: ForemanE2EContext) -> None:
+    created = _tmux(
+        socket=context.act.socket,
+        args=[
+            "new-session",
+            "-d",
+            "-s",
+            "repo-foreman",
+            "-c",
+            str(context.act.repo),
+            "sleep 60",
+        ],
+    )
+    assert created.returncode == 0, created.stderr
+    pane_pid = _pane_pid(socket=context.act.socket, session="repo-foreman")
+    proc_start = (Path("/proc") / pane_pid / "stat").read_text(encoding="utf-8").split()[21]
+    (context.sessions_dir / f"{pane_pid}.json").write_text(
+        json.dumps(
+            {
+                "pid": int(pane_pid),
+                "name": "repo-foreman",
+                "cwd": str(context.act.repo),
+                "status": "idle",
+                "procStart": proc_start,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _runtime_result(
+    *, context: ForemanE2EContext, snapshot: dict[str, object], now: float
+) -> dict[str, object]:
+    completed = _run_foreman_runtime(
+        plugin_root=context.act.plugin_root,
+        repo=context.act.repo,
+        home=context.act.home,
+        socket=context.act.socket,
+        snapshot=snapshot,
+        now=now,
+    )
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout)
+
+
+def _runtime_state(*, context: ForemanE2EContext, name: str) -> dict[str, object]:
+    return json.loads(
+        (context.act.repo / "tmp" / "overseer" / "foreman" / name).read_text(encoding="utf-8")
+    )
+
+
+def _assert_runtime_cadence(*, context: ForemanE2EContext) -> None:
+    _register_foreman_session(context=context)
+    snapshot = {**context.snapshot, "rows": [context.snapshot["rows"][0]]}
+    first = _runtime_result(context=context, snapshot=snapshot, now=1000.0)
+    assert first == {
+        "action_taken": False,
+        "exit_reason": None,
+        "llm_tick": True,
+        "tick_generation": 1,
+    }
+    assert _runtime_state(context=context, name="runtime.json")["next_llm_tick_at"] == 4600.0
+    assert _runtime_result(context=context, snapshot=snapshot, now=1001.0)["exit_reason"] is None
+    changed = {**snapshot, "tick_generation": 2}
+    assert _runtime_result(context=context, snapshot=changed, now=4600.0)["exit_reason"] is None
+    assert _runtime_result(context=context, snapshot=changed, now=8200.0)["exit_reason"] == (
+        "converged"
+    )
+    assert _runtime_state(context=context, name="heartbeat.json")["tick_interval_seconds"] == 3600
+    assert _runtime_state(context=context, name="runtime.json")["last_generation_fingerprint"]
 
 
 def _assert_classifier_reports_occupied_name() -> None:
@@ -579,3 +962,15 @@ def test_foreman_act_refuses_exact_occupied_tmux_start_from_shipped_artifact(*, 
         assert "beta" in _registry_topics(store=home / ".livespec-overseer.jsonl")
     finally:
         _tmux(socket=socket, args=["kill-server"])
+
+
+def test_shipped_foreman_e2e_covers_seed_session_attention_and_cadence(*, tmp_path):
+    context = _foreman_e2e_context(tmp_path=tmp_path)
+    try:
+        _assert_plan_and_supervisor_sessions(context=context)
+        _assert_work_item_lifecycle(context=context)
+        _assert_lifecycle_sabotage_discriminates(context=context)
+        _assert_needs_you_render(context=context)
+        _assert_runtime_cadence(context=context)
+    finally:
+        _tmux(socket=context.act.socket, args=["kill-server"])

@@ -206,6 +206,51 @@ def test_plan_start_uses_absolute_overseer_start_command(*, tmp_path):
     ]
 
 
+def test_supervisor_pair_start_uses_exact_tmux_session_and_supervisor_handoff(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    proposal = start_proposal(repo=repo, action_id="supervisor_pair_start")
+    proposal["session_name"] = "alpha-supervisor"
+    snapshot = proposal["snapshot"]
+    assert isinstance(snapshot, dict)
+    snapshot["session_identity"] = f"none:{repo}:alpha-supervisor"
+    classifier = proposal["classifier"]
+    assert isinstance(classifier, dict)
+    start = classifier["start"]
+    assert isinstance(start, dict)
+    start["session_name"] = "alpha-supervisor"
+    document = base_document(repo=repo)
+    row = document["snapshot"]["rows"][0]
+    assert isinstance(row, dict)
+    row["session_identity"] = f"none:{repo}:alpha-supervisor"
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=proposal,
+        gather=lambda *, repo, snapshot_path: document,
+        run=lambda *, argv: calls.append(argv) or 0,
+    )
+
+    assert result["reason"] == "started"
+    assert calls == [
+        [
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            "alpha-supervisor",
+            "-c",
+            str(repo),
+            "claude",
+            "--dangerously-skip-permissions",
+            "-n",
+            "alpha-supervisor",
+            f"read {repo / 'plan' / 'alpha' / 'supervisor-handoff.md'} and follow it",
+        ]
+    ]
+
+
 def test_resume_uses_exact_codex_session_id_and_prompt(*, tmp_path):
     module = foreman_act()
     repo = tmp_path / "repo"
