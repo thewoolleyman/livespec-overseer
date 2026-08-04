@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.3...v0.27.4) (2026-08-04)
+
+
+### Bug Fixes
+
+* **plan:** reopen the foreman thread — v1 was never proven to run ([a10e00a](https://github.com/thewoolleyman/livespec-overseer/commit/a10e00aad34330db14e9a397bb456ecbc2a055f9))
+
 ## [0.27.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.2...v0.27.3) (2026-08-04)
 
 
