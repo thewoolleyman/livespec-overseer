@@ -67,6 +67,16 @@ advised "fix ledger access" — pointing the reader at a ledger that was already
 healthy, while the real fix was the wrapper. It cost a supervisor its own
 cold-open boot on 2026-07-30.
 
+Treat the JSON that command returns as current, and older prose as historical
+evidence only — even when the older prose was written by this same thread.
+
+Do not tell the worker to write `ready` unless the overseer daemon has opened a
+supervision round for it. A bare `ready` outside a round cannot restart the
+worker: no injection stamp exists for the declaration to certify against, so it
+surfaces later as report-only attention for the operator to clear or reconcile.
+Instructing a worker to declare outside a round therefore does not speed a
+restart up; it manufactures an item for a human to reconcile later.
+
 A pipeline's exit code is the exit code of its last command. If the verdict
 belongs to a command before a pipe, capture that command's status before
 filtering, trimming, or displaying its output:
