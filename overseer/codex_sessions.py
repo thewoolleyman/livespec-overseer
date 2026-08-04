@@ -69,6 +69,7 @@ __all__: list[str] = [
     "map_codex_sessions",
     "map_unindexed_codex_sessions",
     "open_rollout_id",
+    "open_rollout_ids",
     "proc_cwd",
     "proc_fd_targets",
     "proc_pids_of_comm",
@@ -184,18 +185,30 @@ def rollout_id(*, path: str) -> str | None:
     return match.group(1) if match else None
 
 
-def open_rollout_id(*, pid: int, fd_targets_of: PidToStrList = proc_fd_targets) -> str | None:
-    """The session id of the rollout ``pid`` holds OPEN, or None if it holds none.
+def open_rollout_ids(*, pid: int, fd_targets_of: PidToStrList = proc_fd_targets) -> list[str]:
+    """The session ids of all rollout files ``pid`` holds OPEN, in fd iteration order.
 
-    This is the pid→session link Codex otherwise lacks. A codex process keeps its own
-    rollout open for the session's whole life, so the fd table is an exact, live
-    pid→session id map — no cwd+recency guessing.
+    This is the structural liveness link Codex otherwise lacks. The fd table can hold
+    more than one rollout, so callers must decide which id is meaningful for their
+    purpose instead of treating the first fd as the process identity.
     """
+    ids: list[str] = []
     for target in fd_targets_of(pid=pid):
         found = rollout_id(path=target)
         if found is not None:
-            return found
-    return None
+            ids.append(found)
+    return ids
+
+
+def open_rollout_id(*, pid: int, fd_targets_of: PidToStrList = proc_fd_targets) -> str | None:
+    """The first rollout id ``pid`` holds OPEN, or None if it holds none.
+
+    Kept for callers/tests that need only the structural fact that a rollout fd is open.
+    Identity selection for named sessions must use :func:`open_rollout_ids` and prefer an
+    indexed id.
+    """
+    ids = open_rollout_ids(pid=pid, fd_targets_of=fd_targets_of)
+    return ids[0] if ids else None
 
 
 def read_thread_names(*, codex_home: str | os.PathLike[str]) -> dict[str, str]:
@@ -267,12 +280,17 @@ def read_live_codex_sessions(
     names = read_thread_names(codex_home=home)
     out: list[CodexSession] = []
     for pid in pids_of_comm(comm=CODEX_COMM):
-        session_id = open_rollout_id(pid=pid, fd_targets_of=fd_targets_of)
+        session_id = next(
+            (
+                rollout
+                for rollout in open_rollout_ids(pid=pid, fd_targets_of=fd_targets_of)
+                if names.get(rollout)
+            ),
+            None,
+        )
         if session_id is None:
             continue
-        name = names.get(session_id)
-        if not name:
-            continue  # unnamed → no topic → not joinable to a plan
+        name = names[session_id]
         cwd = cwd_of(pid=pid)
         if not cwd:
             continue
@@ -338,9 +356,10 @@ def map_unindexed_codex_sessions(
     names = read_thread_names(codex_home=home)
     unindexed: list[UnindexedCodexSession] = []
     for pid in pids_of_comm(comm=CODEX_COMM):
-        session_id = open_rollout_id(pid=pid, fd_targets_of=fd_targets_of)
-        if session_id is None or names.get(session_id):
+        rollout_ids = open_rollout_ids(pid=pid, fd_targets_of=fd_targets_of)
+        if not rollout_ids or any(names.get(session_id) for session_id in rollout_ids):
             continue
+        session_id = rollout_ids[0]
         cwd = cwd_of(pid=pid)
         if not cwd:
             continue
