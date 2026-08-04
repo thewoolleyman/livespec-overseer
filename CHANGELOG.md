@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.29.0...v0.29.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* validate consensus panel pins ([57dc723](https://github.com/thewoolleyman/livespec-overseer/commit/57dc7233b5d2499b443132bbd11df6775e554d61))
+
 ## [0.29.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.28.1...v0.29.0) (2026-08-04)
 
 
