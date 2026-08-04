@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.28.0...v0.28.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* cover occupied foreman start refusal ([b054b43](https://github.com/thewoolleyman/livespec-overseer/commit/b054b43009f0c2875693243fa62d57a0f2be0c68))
+
 ## [0.28.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.6...v0.28.0) (2026-08-04)
 
 
