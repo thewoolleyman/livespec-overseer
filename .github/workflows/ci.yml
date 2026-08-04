@@ -118,7 +118,7 @@ jobs:
     # green-in-CI / red-in-sandbox drift this epic exists to remove.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","local-ci"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.17.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.19.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -230,7 +230,7 @@ jobs:
     # Self-hosted in the baked image, same rationale as check-python above.
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","local-ci"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.17.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.19.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
@@ -252,6 +252,7 @@ jobs:
           - check-no-shadow-ledger-body-identical
           - check-no-shadow-ledger-body-typechecks
           - check-plan-thread-anchor-declared
+          - check-plan-thread-no-tombstone
           - check-primary-checkout-commit-refuse-hook-installed
           # check-red-green-replay (no-arg) validates the COMMIT RANGE
           # origin/master..HEAD — every non-merge commit touching product
@@ -280,6 +281,7 @@ jobs:
           - check-heading-coverage
           - check-required-role-keys-declared
           - check-self-hosted-routing
+          - check-shell-quality
           - check-source-trees-scoped-to-consumer
           - check-vendor-manifest
           - check-no-direct-tool-invocation
@@ -384,7 +386,7 @@ jobs:
     # preserved).
     runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["self-hosted","local-ci"]') }}
     container:
-      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.17.1
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.19.0
     env:
       MISE_DATA_DIR: /root/.local/share/mise
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
