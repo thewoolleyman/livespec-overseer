@@ -203,134 +203,111 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **STATE AS OF 2026-08-03T21:50Z — THIS IS THE ONLY STATUS BLOCK; EVERYTHING
-  ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure before acting; the
-  Verification Discipline block below is the command.
+- **STATE AS OF 2026-08-04T06:45Z — THE THREAD IS REOPENED. THIS IS THE ONLY
+  STATUS BLOCK; EVERYTHING ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure
+  before acting; the Verification Discipline block below is the command.
 
-  **COLD-OPEN, DO THESE FOUR THINGS FIRST, IN THIS ORDER:**
+  **COLD-OPEN, DO THESE FIVE THINGS FIRST, IN THIS ORDER:**
 
-  0. **`git fetch` AND CHECK THAT THIS FILE IS THE CURRENT ONE** before reading
-     it for content. On 2026-08-03 a restart read this binder off a checkout
-     three minutes behind the forge and got the RETIRED status block, which said
-     to land four already-closed slices and then archive a half-finished v1. The
-     Generator provenance block printed `PASS` throughout — it answers which
-     generator emitted the text, never whether this copy is current. Role-level
-     correction **C24** carries the runnable check. A charter is a claim with a
-     timestamp exactly like the item statuses it tells you to re-measure.
-  1. **Read the supervisor marker** at `tmp/overseer/foreman/.supervisor-state`.
-     It survives the restart and holds the full narrative for everything
-     summarised here — including why each correction exists. The boot block at
-     the top of this file is the command.
-  2. **`tmux capture-pane -p -t '=foreman:'` — READ THE WORKER'S PANE.** It is a
-     peer that files and drives work, not a passive session. Skipping this is
-     precisely how correction T5 happened.
-  3. **Re-measure the ledger with `bd list --all`** (not bare `bd list`, which
-     hides ~4/5 of the ledger — see T5's addendum).
+  0. **`git fetch` AND CHECK THIS FILE IS CURRENT** before reading it for
+     content — role-level correction **C24** carries the runnable check. A
+     charter is a claim with a timestamp.
+  1. **READ `plan/foreman/research/seed-prompt.md` IN FULL.** It is the
+     maintainer's VERBATIM intent — requirements 1–7 plus addenda 8 and 2.
+     **The previous supervisor never read it across an entire session while
+     driving this thread to a false "done".** Then `research/brainstorm.md` §3–§4
+     and `research/review-findings.md` for the binding dispositions.
+  2. **Read the supervisor marker** at `tmp/overseer/foreman/.supervisor-state`
+     — full narrative behind every summary here.
+  3. **`tmux capture-pane -p -t '=foreman:'` — READ THE WORKER'S PANE.** Read the
+     **HEAD**, not the tail: the pane is ~107 lines and a fresh prompt sits at
+     the TOP, so `| tail` renders a healthy session as blank (T7).
+  4. **Re-measure the ledger with `bd list --all`** (bare `bd list` hides ~4/5).
 
-  **MY ONE IN-FLIGHT OBLIGATION: `overseer-vts4lo`.** I dispatched it MYSELF at
-  21:32:29Z, detached with `--json` (fabro run
-  `01KZ4RQCN9PPFNHD2DA1GK6ZVK`, confirmed RUNNING). The item reads
-  `active`/`fabro` and that claim is REAL — corroborated by `fabro ps`, not
-  inferred from the ledger. **DO NOT RE-DISPATCH IT.** Watch it to a terminal
-  outcome and discriminate the three endings that look alike:
-  a dispatcher `failed` whose PR MERGED is `overseer-6pn` (reconcile via
-  `--status acceptance` then the accept valve, never re-run); a run reading
-  `blocked` is `human_input_required` (`bd-ib-hote`) and **must be
-  `fabro dump`ed before it is reaped** — a 240m timeout destroyed one sandbox
-  already; a run ABSENT from `fabro ps -a` entirely is queue eviction (release
-  the claim by hand, then re-dispatch).
-  I told the worker in its own pane at 21:31Z that I had taken this dispatch.
+  **WHY THIS THREAD WAS REOPENED — v1 WAS NEVER PROVEN TO RUN.** It was archived
+  on unit-green. The maintainer then invoked `/livespec-overseer:foreman` for the
+  first time and **both shipped executables are dead on arrival**:
 
-  **USE THE FULL 26-CHARACTER RUN ID WHEN YOU PROBE IT — `fabro ps` TRUNCATES.**
-  The table shows `01KZ4RQCN9PP`; the real id is
-  `01KZ4RQCN9PPFNHD2DA1GK6ZVK`. An equality probe built from the DISPLAYED id
-  matches nothing, forever, and that reads as ABSENT — the queue-eviction shape
-  — which would have you release a REAL claim on a RUNNING job and dispatch it a
-  second time. That is the T3 double-implementation chain entered through a
-  truncated string. `status` is also an OBJECT: the field is `.status.kind`.
-  Both were caught by controlling the probe before arming it (see **T6**).
+  ```
+  $PLUGIN_ROOT/bin/foreman-runtime -> ModuleNotFoundError: '_claude_sessions_proc'
+  $PLUGIN_ROOT/bin/foreman-act     -> ModuleNotFoundError: 'jsonio'
+  ```
 
-  **WHY THE SUPERVISOR IS DRIVING `vts4lo` AND `qp3vpb` AT ALL**, when this
-  block used to call them "the worker's, not mine": the worker has DECLARED
-  `ready` and is idle at a clean checkpoint. `ready` means *restart me*, and the
-  daemon never will — that is the livelock recorded above. Resuming it by paste
-  would spend its last ~17% with no ability to hand off if it runs dry
-  mid-flight. Dispatching is factory-side regardless: the work happens in a
-  sandbox and the only pane cost is dispatch/watch/reconcile. This is NOT a new
-  maintainer decision — the Phase B cut and its dispatch order were ruled on
-  2026-08-03 — it is execution of that ruling. **Coordinate in the worker's pane
-  FIRST every time; that is the whole of T5.**
+  Reproduced on cache build `0.27.2`, on `ff2644d0fc8e`, and on the repo-side
+  `.claude-plugin/bin/` copy. Both pin only the plugin ROOT onto `sys.path` then
+  `from overseer import …`, while every module flat-imports its private siblings.
+  The working siblings go through `python3 -m overseer.daemon`; `bin/overseerd
+  --help` prints usage, which is the clean control.
 
-  **v006 IS RATIFIED AND MERGED** (PR #575). All nine pending proposals were
-  processed in one pass: six `modify`, three `accept`, none rejected.
-  `SPECIFICATION/proposed_changes/` is EMPTY. Do not re-file any of them; a
-  same-topic re-run mints a `<topic>-2.md` collision.
+  **Eleven closed slices, 983 tests, 100% coverage, two releases, a post-merge
+  janitor and a live daemon restart ALL passed over a product that cannot
+  start**, because every acceptance leg was satisfied by beside-tests that
+  `sys.path.insert` the package dir and import modules directly. **NOTHING EVER
+  EXECUTED A SHIPPED ENTRYPOINT.**
 
-  **PHASE A IS COMPLETE — all five slices closed:**
+  **EXIT CONDITION FOR THIS REOPENING — e2e tests that EXECUTE the shipped
+  artifacts and demonstrate the seed-prompt requirements working.** Unit tests
+  with injected fakes do not count; they are what produced the false "done".
+  **DO NOT ARCHIVE THIS THREAD AGAIN ON UNIT-GREEN.**
 
-  | Item | State |
+  **THE BIGGEST GAP AGAINST INTENT IS REQUIREMENT 5, AND IT IS NOT BUILT.** The
+  Fable + Opus + GPT-sol consensus panel — all-three-agree auto-action, the
+  minority-report override, and the fallback that presents each reviewer's
+  summary plus an AskUserQuestion in the blocked session — is the ENGINE for seed
+  goals 2 and 3. It was deferred as "Phase C", and the shipped prose says "Do not
+  add Phase C consensus", with `human_valve` and `blocked_session_answer` hard-
+  refused as `human_action_report_only`. So today the foreman can only REPORT
+  blocked items, which is exactly the escalation load the seed asked to remove.
+  **Restoring it reverses a deferral the maintainer should own: DRAFT the cut and
+  RAISE IT as a picker; do not file it unilaterally.**
+
+  **STATE, measured 06:41–06:45Z:**
+
+  | Thing | State |
   |---|---|
-  | `overseer-z5fo4y.1` snapshot export | **closed** (dedupe landed, PR #601) |
-  | `overseer-z5fo4y.2` `list --json` | **closed**, PR #607 (`706f23b`) |
-  | `overseer-z5fo4y.3` foreman-gather | **closed**, PR #621 (`f699678`) |
-  | `overseer-z5fo4y.4` heartbeat surfacing | **closed**, PR #619 (`a01d3e2`) |
-  | `overseer-z5fo4y.5` `-foreman` suffix | **closed**, merged `335a578` |
-  | `overseer-n7xx67`, `overseer-jgqw7d`, `overseer-3hq`, `overseer-63y`, `overseer-41p` | **closed** |
+  | `plan/foreman/` | **un-archived**, PR #660 merged 06:20:20Z |
+  | epic `overseer-z5fo4y` | **reopened** to `backlog`, reason on the item |
+  | `overseer-6fm` (P0, e2e entrypoint gate) | run `01KZ5Q5SPXYPVGY84678VCPBC6` **SUCCEEDED** (16m); **PR #662 OPEN**, 0 failed / 2 pending; item still `active`/`fabro` with the dispatcher in merge-poll |
+  | worker session `foreman` | **respawned fresh**, ~85% ctx, codex `gpt-5.6-sol`, `default_mode_request_user_input` ENABLED; driving from `tmp/overseer/foreman/worker-brief.md` |
+  | `origin/master` | `af2e3af` |
 
-  **PHASE B IS THE WORKER SESSION'S WORK — and "the other track" IS my own
-  supervised worker,** measured 20:42Z from its pane. It filed every Phase B
-  item at 18:43, drove three of them to merge, closed my duplicate, and
-  maintains `handoff.md`. Treat it as a peer that acts, and coordinate with it.
+  **THE IMMEDIATE NEXT ACTION: watch PR #662 to MERGED, then PROVE IT BY RUNNING
+  THE SHIPPED BINARY** — `$PLUGIN_ROOT/bin/foreman-runtime` and `bin/foreman-act`
+  must start under a **scrubbed environment with no `PYTHONPATH`**. Unit-green is
+  NOT the proof. `just ensure-plugins` first, because the cache must carry the
+  fix before the binary you run is the fixed one.
 
-  | Item | State at 20:56Z |
-  |---|---|
-  | `overseer-by6hrx` foreman runtime wrapper | **closed**, PR #625 |
-  | `overseer-eqbk4h` foreman session classifier | **closed** |
-  | `overseer-4opppx` foreman-act session-lifecycle | **closed**, PR #630 |
-  | `overseer-wykyth` typed filing + journal triage | **`active`, MY dispatch, run `01KZ4NYJ8ARX` RUNNING** |
-  | `overseer-vts4lo` work-item bounded one-shots | `pending-approval` — **the worker's, not mine** |
-  | `overseer-qp3vpb` the foreman skill / v1 binding | `pending-approval` — **the worker's, not mine** |
+  **THE WORKER OWNS THESE FOUR — do NOT file them yourself (T5):**
 
-  Before touching `vts4lo` or `qp3vpb`: re-measure, check `fabro ps` for an
-  existing claim, and read the worker's pane. Those two are its next actions.
+  1. `work_item_file` cannot complete through the actuator: the filing subprocess
+     raises `ModuleNotFoundError: livespec_orchestrator_beads_fabro`. Also
+     `append_journal` sits AFTER the raising call in `act()`, so **a failed
+     filing leaves no audit trace at all**.
+  2. `classify_session_lifecycle` would **START INTO AN OCCUPIED tmux session** —
+     it special-cases only `unassigned` and `_matching_live` keys purely on the
+     registry name. Measured: `charter-gate-ratchet` returns `action=start` while
+     its tmux holds a live Claude (pid 1741876). Destructive; only the prose
+     boundary kept it from firing.
+  3. E2E proof for seed requirements 3, 4, 6, 7 (per-work-item sessions named
+     exactly after the item; auto-created sessions; the `NEEDS YOU` summary; the
+     hourly loop — whose 2-consecutive-identical-states exit ALREADY exists as
+     `converged_ticks=2` returning `exit_reason`, so prove it end to end).
+  4. Requirement 5 — **draft and RAISE, do not file.**
 
-  **THE EPIC STAYS OPEN. v1 = PHASES A+B** — a maintainer decision of
-  2026-08-02 recorded in `overseer-z5fo4y`'s own description. Phase A is only
-  the OBSERVE half. Archiving on Phase A's completion would ship half of v1,
-  and an earlier version of this block said to do exactly that ("REMAINING ON
-  THIS THREAD: … then archive the thread, then fleet rollout"). That sentence
-  was wrong, it was inherited into `handoff.md` without being checked against
-  the epic, and correcting it cost a PR (#623). **A SCOPE CLAIM IS A CLAIM WITH
-  A TIMESTAMP, exactly like an item status.**
+  **A REPO-WIDE DISPATCH BLOCKER I CLEARED — expect its shape again.** The first
+  dispatch was refused by a **pre-dispatch LEDGER check**, not by anything about
+  the item: `depends-on-ref-wellformedness` found `overseer-e723tt` carrying
+  `{"kind":"cross-repo","ref":"…#…"}`. Accepted kinds are `local`,
+  `sibling_work_item`, `pull_request`, `branch`. **ONE malformed entry on ONE
+  unrelated item blocks EVERY dispatch in the tenant.** Fixed by rewriting the
+  whole metadata object via `--metadata @file.json` (never `--set-metadata`, C11)
+  after validating the replacement THROUGH THE REAL PARSER. Read dispatcher
+  stderr before blaming your own item.
 
-  **THE FINAL ACCEPTANCE STEP ALREADY HAS A KNOWN GAP, and a version check will
-  not see it.** Measured 20:47Z: slice `.4`'s daemon-side heartbeat surfacing is
-  MERGED BUT NOT RUNNING — `_supervisor_foreman.py` landed 18:10:35Z while the
-  acting daemon has been up since 08:34:24Z, and Python caches modules at
-  import. Confirmed empirically: the snapshot the daemon writes carries no
-  heartbeat notion. `.1` IS live (it landed before that daemon started) and
-  `.2`/`.3` are CLI surfaces with a fresh process per invocation, so **only
-  DAEMON-side code can be shipped-but-not-running**. Test BEHAVIOUR, not a
-  release version. **Restarting the daemon is NOT this thread's call** — never
-  kill the acting daemon. Full detail is in `handoff.md` (PR #635).
-
-  REMAINING, re-measured 21:50Z: `vts4lo` lands, then `qp3vpb`; only then
-  close/archive the epic and thread and verify fleet deployment against the
-  caveat above. Phases C–E are separate future scope.
-
-  **`qp3vpb` IS BLOCKED BY A REAL EDGE, NOT BY CONVENTION** — measured from its
-  OWN dep tree at 21:51Z (a dep tree is directional; T2): it is blocked by
-  `vts4lo` (active), plus `4opppx` and `by6hrx` (both closed). Do not batch the
-  two dispatches. `wykyth` is **closed**: PR #638 merged 21:26:49Z (`cd1cd3f`),
-  post-merge janitor green, dispatcher exited on its own with no phantom claim.
-
-  **MY PRs THIS SESSION, ALL MERGED — do not re-do them:** #605 (handoff post-
-  `.1`-dedupe), #623 (Phase A complete + do-not-archive), #634 (T5 recorded in
-  Corrections + stale status block retired), #635 (the merged-is-not-running gap
-  + T5's `--all` addendum). Master was `ca63dd8` at that wind-down.
-  **THE RESTART'S PRs:** #637 (role-level C24, the stale-charter correction —
-  **this one reddened master for ten minutes**, see T6), #639 (the fix that
-  restored it), and this one. Master reached `cd1cd3f` after `wykyth` landed.
+  **MY PRs, ALL MERGED — do not re-do them:** #605, #623, #634, #635, #637
+  (role-level C24 — this one reddened master for ten minutes, see T6), #639,
+  #642, #648, #654, #660 (the reopening). Prior sessions' history is in the
+  superseded blocks below and in the marker.
 
 - **BEFORE YOU DIAGNOSE ANY DISPATCH FAILURE, READ `overseer-6pn`.** A
   dispatcher that reports `failed` while its PR MERGED is that bug, not a real
@@ -733,3 +710,46 @@ ordering exactly.
   says *an empty result is not a finding*. **This generalises it: a SUCCESSFUL
   result is not a finding either, unless you know what the check actually
   examined.** Ask what a green thing looked at before you spend it as evidence.
+
+- **T7 (2026-08-04) — I DROVE THIS THREAD TO A FALSE "DONE" WITHOUT EVER READING
+  THE REQUIREMENTS OR EVER RUNNING THE PRODUCT.** The maintainer found both, in
+  one sentence, by invoking the skill.
+  **FAILURE ONE: I never read the seed prompt.** This binder's own read-first
+  chain names three files — `research/seed-prompt.md`, `brainstorm.md`,
+  `review-findings.md`. Across an entire session I read NONE of them, while
+  dispatching eleven slices, closing an epic, archiving the thread and reporting
+  v1 complete. That is role-level **C19** verbatim ("when a boot instruction
+  enumerates N sources, read all N"), and C19 is in the shared layer I read at
+  boot. Having finally read it: **requirement 5, the Fable/Opus/GPT-sol consensus
+  panel, is the ENGINE for goals 2 and 3 and was never built** — so the thing the
+  maintainer actually asked for did not exist while I called it done. **A plan's
+  acceptance is the SEED's requirements, not the ledger's slice titles.** I was
+  auditing the slices against each other and never against the ask.
+  **FAILURE TWO: no test ever executed a shipped artifact.** Both `bin/`
+  executables raise `ModuleNotFoundError` before any logic runs. Every acceptance
+  leg read "beside tests prove X", and every one of those tests
+  `sys.path.insert`s the package dir and imports modules directly. 983 tests,
+  100% coverage, two releases, a post-merge janitor and a live daemon restart all
+  passed over a product that cannot start. **I even verified the DAEMON's new
+  code behaviourally, with three controls, and never once ran the foreman's own
+  binary** — so I demonstrated I knew the difference between shipped and running,
+  and applied it to the component I happened to be thinking about.
+  **THIS IS T6 ONE LAYER OUT, AND T6 SHOULD HAVE CAUGHT IT.** T6 says a
+  successful result is not a finding unless you know what the check examined. I
+  wrote that sentence and then accepted "beside tests prove X" eleven times
+  without once asking what those tests import. **When an acceptance criterion
+  says a test proves something, read the test's IMPORTS, not its name.**
+  **THE STRUCTURAL FIX, not a resolution to try harder:** `overseer-6fm` adds a
+  gate that EXECUTES every file in `bin/` as a subprocess under a scrubbed
+  environment, enumerated from the tree so a future executable is covered the day
+  it lands, with a sabotage control so it cannot pass vacuously.
+  **THREE TMUX MECHANICS I ALSO GOT WRONG while restarting the worker**, each of
+  which cost real time: (a) `tmux respawn-pane -k` WITHOUT a command re-runs the
+  pane's ORIGINAL command — it does NOT give you a shell, so every following
+  `send-keys` lands in the agent's composer as a PROMPT; I twice made the worker
+  launch a NESTED codex that way. (b) `capture-pane | tail` on a ~107-line pane
+  shows only trailing blanks, because a fresh prompt sits at the TOP — I
+  diagnosed a healthy session as dead. **Read the HEAD.** (c) a large paste
+  arrives in CHUNKS and can settle INCOMPLETE (4088 of 5075 chars, stable across
+  four polls). **Put a long brief in a FILE and send a one-line pointer** — the
+  same idiom the daemon's own resume line uses.
