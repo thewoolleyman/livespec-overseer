@@ -8,13 +8,16 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "overseer"))
 
-from overseer import claude_sessions, registry, streams, tmuxio
-from overseer.foreman_gather_collect import compose_document
-from overseer.foreman_runtime import ForemanRuntime, entry_gate
-from overseer.foreman_runtime_lock import ForemanLock
-from overseer.foreman_runtime_state import LOCK_FILE, runtime_dir
+import claude_sessions
+import registry
+import streams
+import tmuxio
+from foreman_gather_collect import compose_document
+from foreman_runtime import ForemanRuntime, entry_gate
+from foreman_runtime_lock import ForemanLock
+from foreman_runtime_state import LOCK_FILE, runtime_dir
 
 
 def _real_sessions():
