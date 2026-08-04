@@ -534,6 +534,7 @@ check-pbt-coverage-pure-modules:
 # amend), so no ambient env-var read is needed here (epic li-cvaudit,
 # cvredmd).
 check-per-file-coverage:
+    just check-coverage
     uv run python -m livespec_dev_tooling.checks.per_file_coverage
 
 # Baseline harness plugin-resolution Verifier: asserts each declared
