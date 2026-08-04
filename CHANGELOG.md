@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.0...v0.27.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* classify node-fronted codex tracks exactly ([a9e20ac](https://github.com/thewoolleyman/livespec-overseer/commit/a9e20acb89a782942e87409563cf4fdc07208e5e))
+
 ## [0.27.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.26.0...v0.27.0) (2026-08-03)
 
 
