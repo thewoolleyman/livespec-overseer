@@ -97,32 +97,70 @@ trap below), `overseer-3i43qx` (the `overseer-y26` description repair, done host
 `livespec-dev-tooling-rowxc6` (the check), `livespec-dev-tooling-q6oob4` (the
 epic-parity tenant-prefix bug, merged `e81cde7`).
 
-**Three spec proposals are MERGED and REVIEWED, awaiting ratification only:**
-`overseer-ihwyin`, `livespec-zp5mkd`, `bd-ib-xhcqbc`. Each sits at
-`SPECIFICATION/proposed_changes/plan-thread-tombstone-ban.md` in its repo.
+**All three spec changes are RATIFIED:** `livespec-zp5mkd` (core, v194),
+`overseer-ihwyin` (this repo, v008), `bd-ib-xhcqbc` (orchestrator, v057, carrying the
+`prose/plan.md` co-edit). The ban is now written into the guidance every adopter
+inherits, into this repo's own discovery contract, and into the operation prose an agent
+reads at archive time.
 
 **`livespec-fvhvui` is GROOMED** into nine measured per-repo slices, each filed in its
 OWN tenant. The index is in that epic's notes. One has landed
 (`livespec-driver-codex-g5a`).
 
-## Why nothing is ratified yet — a decision, not an oversight
+## All three are RATIFIED — and this section previously said the opposite
 
-`/livespec:revise` enumerates EVERY pending file in `proposed_changes/` and forces an
-accept / modify / reject decision on each. **There is no defer.** All three target
-repos also hold ANOTHER thread's in-flight proposal —
-`codex-yolo-structured-question-protocol.md` here,
-`drift-acceptance-consensus-carveout.md` in the orchestrator (whose owning thread had an
-open PR mid-drafting at the time), and the drift-acceptance proposal in core.
+`livespec` **v194**, `livespec-overseer` **v008**, `livespec-orchestrator-beads-fabro`
+**v057**, the last carrying the `prose/plan.md` co-edit via `resulting_files[]`. Doctor
+static is 21 findings / 0 non-pass in each.
 
-Ratifying ours therefore means disposing of theirs: accepting spec text this thread did
-not write and whose thread has not finished it, or rejecting live work.
+**An earlier revision of this handoff said ratification was blocked and declined it on
+principle. That was WRONG, and the error is a shape worth remembering.** I had read
+SKILL.md's INTERACTIVE PROSE — its Step 3 enumerate-all / Step 5 decide-each walkthrough
+— and concluded the tooling forces an accept/modify/reject on every pending proposal, so
+ratifying ours meant disposing of a sibling thread's in-flight work. Then I verified the
+wrapper instead of the walkthrough:
 
-Moving the sibling file aside, revising, and restoring it works mechanically and was
-DECLINED ON PRINCIPLE. This is the thread whose whole subject is that a clever
-workaround which disarms a mechanism is worse than the condition it papers over; doing
-exactly that to its own ratification would be the same error in a mirror. **Do not
-reach for it later either.** Ratify when a revise pass can legitimately dispose of
-everything pending in that tree.
+- `revise.py` and its helpers never `glob` / `iterdir` / `listdir` `proposed_changes/`.
+  The payload is the wrapper's entire universe.
+- `_validate_proposal_topics_exist` checks only that topics NAMED IN THE PAYLOAD resolve
+  to files. It never checks the reverse, and its own docstring treats a partial pass as
+  the expected case ("the topic was already processed in a prior revise pass").
+- `revise_input.schema.json` sets `decisions.minItems: 1` — a floor, not a completeness
+  requirement.
+- No doctor static check requires full-directory coverage;
+  `proposed_changes_and_history_dirs` only asserts both directories EXIST.
+
+So a payload naming ONE topic is the wrapper's ordinary contract. It is categorically
+different from the file-shuffling this section used to weigh: nothing reads, moves or
+disposes of the sibling proposal — it simply is not in the payload. Confirmed
+empirically in all three repos: after each pass the other threads' proposals are
+byte-identical and still pending.
+
+**A DOCUMENTED UX PROCEDURE IS NOT AN ENFORCED GATE.** Read the wrapper before
+concluding the tooling forbids something. That is the same discipline this thread
+applied to everything else and I failed to apply here.
+
+### The ratification evidence is cryptographically bound — three things that cost a cycle each
+
+`ratification_evidence.content_digest` is NOT a hash of the proposal. It is sha256 over
+uint64-BE length-prefixed proposal bytes, then each `resulting_files[]` entry's
+length-prefixed path and content, sorted by path. The reviewer's verdict is therefore
+bound to the proposal AND THE EXACT FINAL BYTES.
+
+That is a good design and it caught a real defect in this very pass. A third review
+comparing LANDED BYTES against the cleared clause found four words of framing I had
+silently reintroduced while re-flowing prose into the target file's house style — words
+a previous round had asked be deleted. No normative shift, but it contradicted the
+proposal's own "nothing else is to be landed" instruction. **Patching the active file
+was not an option**: the `vNNN` snapshot and the recorded digest would then describe
+bytes that no longer exist. The pass was redone from master so the digest covers what
+actually lands. If you ever need to amend a ratified clause, redo the pass; do not edit
+the active file.
+
+Two smaller constraints: `reviewer_identity` MUST EQUAL `reviewer_model`, and that value
+must match `ratification_reviewer_model` in `.livespec.jsonc` where the key is present
+(`livespec` sets `fable`; `livespec-overseer` does not set it, so the model check is
+skipped but the identity/model equality still applies).
 
 ## What review caught — read before editing any of the three proposals
 
@@ -162,9 +200,9 @@ directly; retained in the orchestrator proposal, deleted from core's.
 | `overseer-3i43qx` | overseer | **closed** | strike remedy 1 from `overseer-y26` |
 | `livespec-dev-tooling-rowxc6` | dev-tooling | **closed** | the `plan_thread_no_tombstone` check |
 | `livespec-dev-tooling-q6oob4` | dev-tooling | **closed** | `plan_thread_epic_parity` tenant prefix |
-| `overseer-ihwyin` | overseer | proposed, awaiting revise | the ban into this repo's `spec.md` |
-| `livespec-zp5mkd` | livespec | proposed, awaiting revise | the ban into core's Planning Lane guidance |
-| `bd-ib-xhcqbc` | orchestrator | proposed, awaiting revise | the realization spec + `prose/plan.md` Step 5 |
+| `overseer-ihwyin` | overseer | **RATIFIED** (v008) | the ban into this repo's `spec.md` |
+| `livespec-zp5mkd` | livespec | **RATIFIED** (v194) | the ban into core's Planning Lane guidance |
+| `bd-ib-xhcqbc` | orchestrator | **RATIFIED** (v057) | the realization spec + `prose/plan.md` Step 5 |
 | `overseer-e723tt` | overseer | **BLOCKED** on `overseer-jct` | re-derive the `_prefer_archived` tiebreak |
 | `livespec-fvhvui` | livespec | groomed, 1 of 9 slices landed | fleet fan-out of `plan_lifecycle_anchor` |
 
@@ -208,8 +246,9 @@ been passing VACUOUSLY, scanning essentially nothing. The violations were always
   correct; it just means parity can never be the primary guard.
 - **Narrowing `plan_thread_no_tombstone`** so it distinguishes a stub from a retired-slug
   reuse. Structurally impossible without content sniffing. The prose moved instead.
-- **Moving a sibling proposal aside to ratify ours alone.** See §"Why nothing is
-  ratified yet".
+- **Moving a sibling proposal aside to ratify ours alone.** Still rejected — but note
+  the SANCTIONED route is a scoped `--revise-json` payload naming only your topic, which
+  touches nothing else. See §"All three are RATIFIED".
 
 ## Traps that have already cost turns — all measured, none hypothetical
 
@@ -281,11 +320,9 @@ Then, in rough order of value:
 1. **`overseer-jct`** — clear the 123 result-typed violations. Nothing `.py` can land in
    this repo until it is done, including `overseer-e723tt`. Expect it to need grooming
    into per-module slices; the `overseer-bg2` precedent is cited on the item.
-2. **Ratify the three spec proposals** once each tree's other pending proposals can be
-   legitimately disposed of in the same revise pass.
-3. **`livespec-fvhvui`'s remaining eight slices**, cheapest first, measuring repo health
+2. **`livespec-fvhvui`'s remaining eight slices**, cheapest first, measuring repo health
    before scheduling each.
-4. **`livespec-akg7k5`** is what stands between core and enforcement. Not this thread's
+3. **`livespec-akg7k5`** is what stands between core and enforcement. Not this thread's
    work, but it is this thread's last unenforced repo.
 
 **Implementation route is the FACTORY PATH** — the Dispatcher drain, or an operator
@@ -302,8 +339,8 @@ started.
 ## Closing this thread
 
 **This thread stays UN-ARCHIVED, and that is disposition 1 of its own rule, working.**
-Its epic has open children — a hard blocker in `overseer-jct`, three unratified spec
-changes, and a groomed fan-out epic with eight slices left. The rule says: leave the
+Its epic has open children — a hard blocker in `overseer-jct` and a groomed fan-out epic
+with eight slices left. The rule says: leave the
 plan un-archived until its blockers are resolved, or transfer them all first. It is not
 finished, so it is not archived.
 
