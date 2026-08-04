@@ -1,5 +1,50 @@
 # Plan — foreman
 
+## Checkpoint 2026-08-04T07:18Z — entrypoints PROVEN DEPLOYED; Phase C+D RULED IN
+
+Two things changed since the reopening block below was written. Both are
+measurements, not summaries; re-measure before carrying either forward.
+
+**1. THE ENTRYPOINT DEFECT IS PROVEN FIXED IN THE ARTIFACT A USER RUNS.**
+Release `v0.27.5` (`c35dea6`, PR #664, merged 06:51:54Z) contains the fix
+`c6ace4b`. Every file in the released cache build `c35dea62368f`'s `bin/` —
+enumerated from the tree, not from a list — was EXECUTED under
+`env -u PYTHONPATH` at 06:56:40Z: `foreman-act`, `foreman-runtime`,
+`overseer-start` and `overseerd` all exit 0 and print usage. The negative
+control is what makes that meaningful: the prior build `af2e3af9aa61` (v0.27.4)
+is still on disk and the identical commands still exit 1 with
+`ModuleNotFoundError` on both foreman binaries. **This closes the ENTRYPOINT
+question only — it says nothing about the seed requirements, which are still
+the reopening's exit condition.**
+
+**2. THE MAINTAINER RULED AT 07:12Z: BUILD PHASE C+D NOW.** Seed requirement 5 —
+the Fable/Opus/GPT-sol consensus panel with the minority-report override — is
+now IN scope, together with the gate-driving layer needed to auto-act or
+re-present a blocked prompt, and the cross-repo spec amendments that reverse the
+report-only disposition (review finding C1). **The shipped "do not add Phase C
+consensus" prose and the `human_action_report_only` refusal are SUPERSEDED by
+that ruling.** As of 07:18Z **no Phase C or Phase D work item exists** — the
+decision is recorded on the epic and nothing carries it, which is precisely how
+requirement 5 was lost the first time. Filing that cut is the highest-value next
+action; the design is already binding in `research/brainstorm.md`, so it is
+transcription rather than invention.
+
+**Live items, re-measured 07:18Z:**
+
+| Item | State |
+|---|---|
+| `overseer-6fm` e2e entrypoint gate | **closed**, released in v0.27.5, proven above |
+| `overseer-gxzv5v` actuator filing + journal defect | **`active`/`fabro`**, run `01KZ5RWXGN67` confirmed `running`. Do NOT re-dispatch. |
+| `overseer-5f2pfj` occupied-session classifier | `pending-approval`, deliberately held until `gxzv5v` lands |
+| `overseer-mqpgs7` E2E for seed requirements 3/4/6/7 | `pending-approval`, blocked by BOTH `5f2pfj` and `gxzv5v` |
+| `overseer-6eo` (NEW, P1) | the daemon reports this thread's own LIVE worker as `session-gone`, so nothing is supervising it — no wrap-up, no restart |
+
+**WHILE `overseer-6eo` IS OPEN, THE WORKER GETS NO WRAP-UP.** The daemon's fresh
+snapshot reports `topic=foreman` as `session-gone` with `runtime=null` because
+the session's codex rollout post-dates the last write of
+`~/.codex/session_index.jsonl`. A supervised session must NOT wait for a wrap-up
+injection that is not coming; self-checkpoint into the ledger instead.
+
 ## Status: REOPENED 2026-08-04T06:20Z — v1 WAS NEVER PROVEN TO RUN
 
 **The archive below was wrong, and the maintainer caught it by running the
