@@ -89,9 +89,14 @@ def _acted(*, action_id: str, reason: str) -> ActResult:
 
 
 def _failed(*, action_id: str, reason: str) -> ActResult:
-    return _result(  # pragma: no cover
-        action_id=action_id, outcome="failed", reason=reason, mutated=False
-    )
+    return _result(action_id=action_id, outcome="failed", reason=reason, mutated=False)
+
+
+def _bounded_reason(*, prefix: str, reason: str, limit: int = 180) -> str:
+    bounded = f"{prefix}:{reason}"
+    if len(bounded) <= limit:
+        return bounded
+    return bounded[: limit - 3] + "..."
 
 
 def _journal_record(*, result: ActResult) -> dict[str, object]:
@@ -174,7 +179,13 @@ def _act_filing(
     request = filing_request(proposal=proposal)
     if request is None:
         return _refused(action_id=action_id, reason="malformed_filing")
-    item_id, verdict = file_work_item(request=request)
+    try:
+        item_id, verdict = file_work_item(request=request)
+    except RuntimeError as exc:
+        return _failed(
+            action_id=action_id,
+            reason=_bounded_reason(prefix="filing_subprocess_failed", reason=str(exc)),
+        )
     return _acted(action_id=action_id, reason=f"filed:{item_id}:{verdict}")
 
 

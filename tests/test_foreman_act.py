@@ -21,6 +21,13 @@ def foreman_act():
     return importlib.import_module("foreman_act")
 
 
+def foreman_act_filing():
+    assert (OVERSEER_DIR / "foreman_act_filing.py").is_file()
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("foreman_act_filing")
+
+
 def base_document(*, repo: Path, generation: int = 7) -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -324,6 +331,117 @@ def test_typed_work_item_filing_uses_intake_seam_and_journals_result(*, tmp_path
         "reason": "filed:overseer-new:ready",
         "mutated": True,
     }
+
+
+def test_failed_work_item_filing_returns_failed_result_and_journals_attempt(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    journaled: list[dict[str, object]] = []
+
+    def fail_filing(*, request: dict[str, object]):
+        _ = request
+        msg = "filing subprocess failed because imports were unavailable"
+        raise RuntimeError(msg)
+
+    result = module.act(
+        proposal=file_proposal(repo=repo),
+        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        file_work_item=fail_filing,
+        append_journal=lambda *, repo, record: journaled.append(record),
+    )
+
+    assert result == {
+        "action_id": "work_item_file",
+        "mutated": False,
+        "outcome": "failed",
+        "reason": (
+            "filing_subprocess_failed:" "filing subprocess failed because imports were unavailable"
+        ),
+    }
+    assert journaled[-1] == {
+        "stage": "foreman-act",
+        "action_id": "work_item_file",
+        "outcome": "failed",
+        "reason": (
+            "filing_subprocess_failed:" "filing subprocess failed because imports were unavailable"
+        ),
+        "mutated": False,
+    }
+
+    result = module.act(
+        proposal=file_proposal(repo=repo),
+        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        file_work_item=lambda *, request: (_ for _ in ()).throw(RuntimeError("x" * 240)),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result["outcome"] == "failed"
+    assert isinstance(result["reason"], str)
+    assert len(result["reason"]) == 180
+    assert result["reason"].endswith("...")
+
+
+def test_filing_bootstrap_resolves_configured_and_cache_plugin_roots(*, tmp_path, monkeypatch):
+    module = foreman_act_filing()
+    configured = tmp_path / "configured"
+    cache = tmp_path / "home" / ".claude" / "plugins" / "cache"
+    plugin_root = cache / "livespec-overseer" / "livespec-overseer" / "test-build"
+    discovered = (
+        cache
+        / "livespec-orchestrator-beads-fabro"
+        / "livespec-orchestrator-beads-fabro"
+        / "test-build"
+    )
+    empty_candidate = (
+        plugin_root.parent
+        / "livespec-orchestrator-beads-fabro"
+        / "livespec-orchestrator-beads-fabro"
+    )
+    empty_candidate.mkdir(parents=True)
+    for root in (configured, discovered):
+        (root / "scripts" / "livespec_orchestrator_beads_fabro").mkdir(parents=True)
+        (root / "scripts" / "_vendor" / "livespec_runtime").mkdir(parents=True)
+    (plugin_root / "overseer").mkdir(parents=True)
+
+    monkeypatch.setenv("LIVESPEC_ORCHESTRATOR_PLUGIN_ROOT", str(configured))
+    assert module._configured_orchestrator_root() == configured
+    assert module._orchestrator_plugin_root() == configured
+    assert module._filing_pythonpath_entries() == [
+        str(configured / "scripts"),
+        str(configured / "scripts" / "_vendor"),
+    ]
+
+    monkeypatch.setenv("LIVESPEC_ORCHESTRATOR_PLUGIN_ROOT", str(tmp_path / "missing"))
+    assert module._configured_orchestrator_root() is None
+    monkeypatch.delenv("LIVESPEC_ORCHESTRATOR_PLUGIN_ROOT")
+    monkeypatch.setattr(module, "__file__", str(plugin_root / "overseer" / "foreman_act_filing.py"))
+    assert module._cache_root_candidates(plugin_root=plugin_root) == [
+        empty_candidate,
+        cache / "livespec-orchestrator-beads-fabro" / "livespec-orchestrator-beads-fabro",
+    ]
+    assert module._orchestrator_plugin_root() == discovered
+
+
+def test_filing_bootstrap_env_preserves_inherited_pythonpath(*, tmp_path, monkeypatch):
+    module = foreman_act_filing()
+    root = tmp_path / "orchestrator"
+    (root / "scripts" / "livespec_orchestrator_beads_fabro").mkdir(parents=True)
+    (root / "scripts" / "_vendor" / "livespec_runtime").mkdir(parents=True)
+
+    monkeypatch.setenv("LIVESPEC_ORCHESTRATOR_PLUGIN_ROOT", str(root))
+    monkeypatch.setenv("PYTHONPATH", "caller")
+    env = module._filing_env()
+    assert env["PYTHONPATH"] == (f"{root / 'scripts'}:{root / 'scripts' / '_vendor'}:caller")
+
+    monkeypatch.delenv("LIVESPEC_ORCHESTRATOR_PLUGIN_ROOT")
+    monkeypatch.delenv("PYTHONPATH")
+    monkeypatch.setattr(module, "__file__", str(tmp_path / "overseer" / "foreman_act_filing.py"))
+    assert module._orchestrator_plugin_root() is None
+    assert module._filing_pythonpath_entries() == []
+    assert "PYTHONPATH" not in module._filing_env()
 
 
 def test_cross_repo_filing_only_files_the_target_repo(*, tmp_path):
