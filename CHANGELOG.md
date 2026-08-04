@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.30.2...v0.30.3) (2026-08-04)
+
+
+### Bug Fixes
+
+* **just:** make check-per-file-coverage a dependency, not a second command ([3b9165d](https://github.com/thewoolleyman/livespec-overseer/commit/3b9165dfb0708b8d08dad202019da2a9b472f06e))
+
 ## [0.30.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.30.1...v0.30.2) (2026-08-04)
 
 
