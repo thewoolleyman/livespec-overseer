@@ -22,6 +22,7 @@ __all__: list[str] = [
     "PanelLimits",
     "TypedAction",
     "VerdictKind",
+    "construct_model_identities",
 ]
 
 PANEL_SCHEMA_VERSION: Final[int] = 1
@@ -35,23 +36,69 @@ DEFAULT_STATE_DIR: Final[Path] = Path("tmp/overseer/foreman")
 
 VerdictKind: TypeAlias = Literal["unblock", "needs-human", "insufficient-information"]
 TypedAction: TypeAlias = dict[str, object]
+ModelIdentity: TypeAlias = dict[str, str]
 
-MODEL_IDENTITIES: Final[tuple[dict[str, str], ...]] = (
-    {
-        "reviewer_id": "fable",
-        "vendor": "anthropic",
-        "model": "claude-fable-5-20260804",
-    },
-    {
-        "reviewer_id": "gemini",
-        "vendor": "google",
-        "model": "gemini-2.5-pro-20250617",
-    },
-    {
-        "reviewer_id": "gpt",
-        "vendor": "openai",
-        "model": "gpt-5-codex-20260804",
-    },
+VERIFIED_MODEL_RESOLUTIONS: Final[dict[tuple[str, str], str]] = {
+    ("anthropic", "claude-fable-5"): "anthropic/claude-fable-5",
+    ("anthropic", "claude-opus-5"): "anthropic/claude-opus-5",
+    ("anthropic", "claude-sonnet-5"): "anthropic/claude-sonnet-5",
+    ("openai", "gpt-5.6-sol"): "openai/gpt-5.6-sol",
+}
+
+
+def resolved_model_identity(*, identity: ModelIdentity) -> str:
+    reviewer_id = identity["reviewer_id"]
+    vendor = identity["vendor"]
+    model = identity["model"]
+    resolved = VERIFIED_MODEL_RESOLUTIONS.get((vendor, model))
+    if resolved is None:
+        msg = f"unresolvable pinned model identity for reviewer {reviewer_id}: {vendor}/{model}"
+        raise ValueError(msg)
+    return resolved
+
+
+def require_one_non_anthropic(*, identities: tuple[ModelIdentity, ...]) -> None:
+    non_anthropic_count = sum(1 for identity in identities if identity["vendor"] != "anthropic")
+    if non_anthropic_count != 1:
+        msg = "consensus panel must have exactly one non-Anthropic reviewer"
+        raise ValueError(msg)
+
+
+def construct_model_identities(
+    *, identities: tuple[ModelIdentity, ...]
+) -> tuple[ModelIdentity, ...]:
+    resolved_models: set[str] = set()
+    constructed: list[ModelIdentity] = []
+    for identity in identities:
+        resolved_model = resolved_model_identity(identity=identity)
+        if resolved_model in resolved_models:
+            msg = f"duplicate resolved model identity: {resolved_model}"
+            raise ValueError(msg)
+        resolved_models.add(resolved_model)
+        constructed.append(dict(identity))
+    result = tuple(constructed)
+    require_one_non_anthropic(identities=result)
+    return result
+
+
+MODEL_IDENTITIES: Final[tuple[ModelIdentity, ...]] = construct_model_identities(
+    identities=(
+        {
+            "reviewer_id": "fable",
+            "vendor": "anthropic",
+            "model": "claude-fable-5",
+        },
+        {
+            "reviewer_id": "opus",
+            "vendor": "anthropic",
+            "model": "claude-opus-5",
+        },
+        {
+            "reviewer_id": "gpt-sol",
+            "vendor": "openai",
+            "model": "gpt-5.6-sol",
+        },
+    )
 )
 
 ACTION_ID_SET: Final[frozenset[ActionId]] = frozenset(
