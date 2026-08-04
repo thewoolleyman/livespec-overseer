@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.5...v0.27.6) (2026-08-04)
+
+
+### Bug Fixes
+
+* file foreman work items from shipped plugin ([fd9364e](https://github.com/thewoolleyman/livespec-overseer/commit/fd9364eaf358bd4ea8baa7be292c7d20a69ec954))
+
 ## [0.27.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.4...v0.27.5) (2026-08-04)
 
 
