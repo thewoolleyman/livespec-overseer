@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.29.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.28.1...v0.29.0) (2026-08-04)
+
+
+### Features
+
+* prove shipped foreman seed lifecycle e2e ([d2359a8](https://github.com/thewoolleyman/livespec-overseer/commit/d2359a8ef914c1f9f49b2934da5c8aa045082a2a))
+
 ## [0.28.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.28.0...v0.28.1) (2026-08-04)
 
 
