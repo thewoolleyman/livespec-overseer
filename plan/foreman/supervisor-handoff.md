@@ -271,11 +271,27 @@ any of it forward; the Verification Discipline block is the command.
   | worker session `foreman` | **respawned fresh**, ~85% ctx, codex `gpt-5.6-sol`, `default_mode_request_user_input` ENABLED; driving from `tmp/overseer/foreman/worker-brief.md` |
   | `origin/master` | `af2e3af` |
 
-  **THE IMMEDIATE NEXT ACTION: watch PR #662 to MERGED, then PROVE IT BY RUNNING
-  THE SHIPPED BINARY** — `$PLUGIN_ROOT/bin/foreman-runtime` and `bin/foreman-act`
-  must start under a **scrubbed environment with no `PYTHONPATH`**. Unit-green is
-  NOT the proof. `just ensure-plugins` first, because the cache must carry the
-  fix before the binary you run is the fixed one.
+  **PR #662 MERGED 06:47:14Z AND THE FIX IS PROVEN IN-REPO — measured 06:52Z,
+  BY RUNNING THE BINARY, not by unit-green.** Under a scrubbed environment
+  (`env -u PYTHONPATH`), against the repo's own shipped copy at `c6ace4b`:
+
+  ```
+  ./.claude-plugin/bin/foreman-runtime --help -> usage: foreman-runtime [-h] [--repo REPO] ...
+  ./.claude-plugin/bin/foreman-act     --help -> usage: foreman-act [-h] --proposal PROPOSAL ...
+  ```
+
+  The fix pins `parent.parent / "overseer"` — the package's OWN directory —
+  which is the correct shape.
+
+  **THE IMMEDIATE NEXT ACTION: IT IS MERGED BUT NOT RELEASED, SO THE SHIPPED
+  ARTIFACT IS STILL BROKEN.** Measured in the same pass: `just ensure-plugins`
+  reports the cache "already at the latest version (`af2e3af9aa61`, v0.27.4)",
+  which PRE-DATES #662, and both binaries in that cache STILL traceback with
+  `ModuleNotFoundError`. So: **wait for the release to cut, `just
+  ensure-plugins`, then RE-PROVE against the CACHE build** — that is the artifact
+  a user actually runs, and only that proof closes this. This is the same
+  merged-is-not-running distinction slice `.4` taught, one layer out: here it is
+  merged-is-not-RELEASED. Do not report the in-repo pass as the deployment proof.
 
   **THE WORKER OWNS THESE FOUR — do NOT file them yourself (T5):**
 
