@@ -509,5 +509,61 @@
     "heading": "## Scenario: A structurally impossible act is never rendered as in progress",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention",
     "reason": "Pins the Given/When/Then path at scenario tier: a standing ready declaration whose act is structurally impossible renders as ready-uncertifiable, does not render a restart-in-progress status, and names the certification dead end."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## The foreman valve disposition",
+    "test": "TODO",
+    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Declares the wire surface for a setting ratified ahead of its implementation: enumerated values, the report-only safe default, fail-closed on an unrecognized value, observability without invoking the foreman, and the prohibition on the foreman setting its own disposition. No test pins it yet because no code reads the key yet; replace TODO through the implementing slice (overseer-ym6) rather than by pointing at an unrelated existing test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A unanimous panel verdict under the consensus disposition acts and is journaled first",
+    "test": "TODO",
+    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A decision human-gated by design stays escalated even under a unanimous panel",
+    "test": "TODO",
+    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Unavailable or disagreeing consensus evidence escalates and mutates nothing",
+    "test": "TODO",
+    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A tree declaring no valve disposition acts on nothing",
+    "test": "TODO",
+    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An absent valve-disposition key resolves to the safe default",
+    "test": "TODO",
+    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unrecognized valve-disposition value fails closed and is surfaced",
+    "test": "TODO",
+    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The effective valve disposition is readable without invoking the foreman",
+    "test": "TODO",
+    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
   }
 ]
