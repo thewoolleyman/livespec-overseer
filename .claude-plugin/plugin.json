@@ -1,5 +1,5 @@
 {
   "name": "livespec-overseer",
-  "version": "0.27.4",
+  "version": "0.27.5",
   "description": "Control-plane operator plugin for livespec. Exposes /livespec-overseer:overseer for the thin two-pane overseer surface, /livespec-overseer:supervise-plan for reviewed supervisor handoff creation, and /livespec-overseer:foreman for the bounded Phase B foreman loop."
 }

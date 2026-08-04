@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.4...v0.27.5) (2026-08-04)
+
+
+### Bug Fixes
+
+* execute shipped plugin bin entrypoints ([c6ace4b](https://github.com/thewoolleyman/livespec-overseer/commit/c6ace4bda9003d9050c0852b655f0450f9ba6afa))
+
 ## [0.27.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.3...v0.27.4) (2026-08-04)
 
 
