@@ -19,6 +19,7 @@ from foreman_session_types import (
     REPORT_REASONS,
     STALE_NAMESAKE,
     START,
+    TMUX_SESSION_OCCUPIED,
     ForemanSessionAction,
     ForemanSessionDecision,
     IndexedSessionEvidence,
@@ -44,6 +45,7 @@ __all__: list[str] = [
     "REPORT_REASONS",
     "STALE_NAMESAKE",
     "START",
+    "TMUX_SESSION_OCCUPIED",
     "ForemanSessionAction",
     "ForemanSessionDecision",
     "IndexedSessionEvidence",
@@ -186,9 +188,15 @@ def _classify_absolute(
     snapshot: SnapshotEvidence,
     live_sessions: Sequence[LiveSessionEvidence],
     indexed_sessions: Sequence[IndexedSessionEvidence],
+    occupied_tmux_sessions: Sequence[str],
 ) -> ForemanSessionDecision:
-    if snapshot.status == "unassigned":
-        return _report(reason=INTENTIONALLY_UNASSIGNED)
+    preflight = _absolute_preflight_report(
+        coordinates=coordinates,
+        snapshot=snapshot,
+        occupied_tmux_sessions=occupied_tmux_sessions,
+    )
+    if preflight is not None:
+        return preflight
 
     live_exact, live_stale = _matching_live(coordinates=coordinates, live_sessions=live_sessions)
     indexed_exact, indexed_stale = _matching_index(
@@ -212,12 +220,26 @@ def _classify_absolute(
     )
 
 
+def _absolute_preflight_report(
+    *,
+    coordinates: SessionCoordinates,
+    snapshot: SnapshotEvidence,
+    occupied_tmux_sessions: Sequence[str],
+) -> ForemanSessionDecision | None:
+    if snapshot.status == "unassigned":
+        return _report(reason=INTENTIONALLY_UNASSIGNED)
+    if coordinates.session_name in occupied_tmux_sessions:
+        return _report(reason=TMUX_SESSION_OCCUPIED, details=(coordinates.session_name,))
+    return None
+
+
 def classify_session_lifecycle(
     *,
     coordinates: SessionCoordinates,
     snapshot: SnapshotEvidence,
     live_sessions: Sequence[LiveSessionEvidence],
     indexed_sessions: Sequence[IndexedSessionEvidence],
+    occupied_tmux_sessions: Sequence[str] = (),
 ) -> ForemanSessionDecision:
     """Classify a foreman lifecycle act from exact runtime/index evidence.
 
@@ -232,4 +254,5 @@ def classify_session_lifecycle(
         snapshot=snapshot,
         live_sessions=live_sessions,
         indexed_sessions=indexed_sessions,
+        occupied_tmux_sessions=occupied_tmux_sessions,
     )

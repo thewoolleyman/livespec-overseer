@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import importlib
+import inspect
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
 
 __all__: list[str] = []
@@ -14,6 +18,15 @@ __all__: list[str] = []
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_BIN = ROOT / ".claude-plugin" / "bin"
 PLUGIN_ROOT = ROOT / ".claude-plugin"
+
+
+@dataclass(frozen=True, kw_only=True)
+class ForemanActContext:
+    plugin_root: Path
+    repo: Path
+    home: Path
+    socket: Path
+    path: Path
 
 
 def _scrubbed_env() -> dict[str, str]:
@@ -213,6 +226,213 @@ def _work_item_file_proposal(*, repo: Path) -> dict[str, object]:
     }
 
 
+def _plan_start_proposal(*, repo: Path, topic: str) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "action_id": "plan_start",
+        "repo": str(repo),
+        "topic": topic,
+        "session_name": topic,
+        "snapshot": {
+            "daemon_instance_id": "daemon-1",
+            "tick_generation": 7,
+            "session_identity": f"none:{repo}:{topic}",
+        },
+        "classifier": {
+            "action": "start",
+            "start": {"repo": str(repo), "topic": topic, "session_name": topic},
+        },
+    }
+
+
+def _plan_start_snapshot(*, repo: Path, topic: str) -> dict[str, object]:
+    snapshot = _status_snapshot(repo=repo)
+    rows = snapshot["rows"]
+    assert isinstance(rows, list)
+    rows[0] = {
+        "repo": str(repo),
+        "topic": topic,
+        "tmux": topic,
+        "runtime": "codex",
+        "status": "session-gone",
+        "session_identity": f"none:{repo}:{topic}",
+    }
+    return snapshot
+
+
+def _tmux(*, socket: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # noqa: S603
+        ["tmux", "-S", str(socket), *args],  # noqa: S607
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=15.0,
+    )
+
+
+def _pane_pid(*, socket: Path, session: str) -> str:
+    completed = _tmux(
+        socket=socket,
+        args=["display-message", "-p", "-t", session, "#{pane_pid}"],
+    )
+    assert completed.returncode == 0, completed.stderr
+    return completed.stdout.strip()
+
+
+def _registry_topics(*, store: Path) -> set[str]:
+    records = [
+        json.loads(line) for line in store.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    return {topic for record in records if isinstance(topic := record.get("topic"), str)}
+
+
+def _write_fake_claude(*, path: Path) -> None:
+    script = path / "fake_claude.py"
+    script.write_text(
+        textwrap.dedent(
+            """
+            import sys
+            from pathlib import Path
+
+            print("─── alpha ──")
+            print("❯")
+            print("──────")
+            sys.stdout.flush()
+            log = Path(sys.argv[1])
+            for line in sys.stdin:
+                with log.open("a", encoding="utf-8") as handle:
+                    handle.write(line)
+                print("─── alpha ──")
+                print("❯")
+                print("──────")
+                sys.stdout.flush()
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    launcher = path / "claude"
+    log = path / "fake-claude-input.log"
+    launcher.write_text(
+        "#!/usr/bin/env bash\n"
+        f"exec -a claude /usr/bin/python3 -u {shlex.quote(str(script))} "
+        f'{shlex.quote(str(log))} "$@"\n',
+        encoding="utf-8",
+    )
+    launcher.chmod(0o755)
+
+
+def _run_foreman_act(
+    *,
+    context: ForemanActContext,
+    proposal: dict[str, object],
+    snapshot: dict[str, object],
+) -> subprocess.CompletedProcess[str]:
+    proposal_path = context.path / f"{proposal['topic']}-proposal.json"
+    snapshot_path = context.path / f"{proposal['topic']}-snapshot.json"
+    proposal_path.write_text(json.dumps(proposal), encoding="utf-8")
+    snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+    env = {
+        **_scrubbed_env(),
+        "HOME": str(context.home),
+        "PATH": f"{context.path}:{os.environ['PATH']}",
+        "TMUX": f"{context.socket},0,0",
+    }
+    return subprocess.run(  # noqa: S603
+        [
+            str(context.plugin_root / "bin" / "foreman-act"),
+            "--proposal",
+            str(proposal_path),
+            "--snapshot-path",
+            str(snapshot_path),
+        ],
+        cwd=context.repo,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30.0,
+    )
+
+
+def _assert_classifier_reports_occupied_name() -> None:
+    classifier = importlib.import_module("foreman_session_classifier")
+    signature = inspect.signature(classifier.classify_session_lifecycle)
+    assert "occupied_tmux_sessions" in signature.parameters
+    decision = classifier.classify_session_lifecycle(
+        coordinates=classifier.SessionCoordinates(
+            repo="/data/projects/livespec-overseer",
+            topic="foreman",
+            session_name="charter-gate-ratchet",
+        ),
+        snapshot=classifier.SnapshotEvidence(
+            status="session-gone",
+            runtime="codex",
+            session_identity="none:/data/projects/livespec-overseer:foreman",
+        ),
+        live_sessions=(
+            classifier.LiveSessionEvidence(
+                runtime="codex",
+                repo="/data/projects/livespec-overseer",
+                session_name="unrelated-live-name",
+                session_id="019fc11c-68c4-78c3-824b-d9b97de55a78",
+            ),
+        ),
+        indexed_sessions=(
+            classifier.IndexedSessionEvidence(
+                runtime="codex",
+                repo="/data/projects/livespec-overseer",
+                session_name="unrelated-index-name",
+                session_id="119fc11c-68c4-78c3-824b-d9b97de55a78",
+                transcript_path="/home/me/.codex/sessions/2026/08/03/ignored.jsonl",
+            ),
+        ),
+        occupied_tmux_sessions=("charter-gate-ratchet",),
+    )
+    assert decision.action == classifier.REPORT_ONLY
+    assert decision.report is not None
+    assert decision.report.reason == classifier.TMUX_SESSION_OCCUPIED
+
+
+def _assert_act_refuses_occupied_start(*, repo: Path) -> None:
+    module = importlib.import_module("foreman_act")
+    original_tmux = module.tmuxio.TmuxIO
+    calls: list[list[str]] = []
+
+    class OccupiedTmux:
+        def session_exists(self, *, session: str) -> bool:
+            return session == "alpha"
+
+    document = {
+        "schema_version": 1,
+        "repo": str(repo),
+        "sources": {"snapshot": {"status": "ok", "mode": "daemon-snapshot"}},
+        "snapshot": _plan_start_snapshot(repo=repo, topic="alpha"),
+        "dispatch_journal": [],
+    }
+    module.tmuxio.TmuxIO = OccupiedTmux
+    try:
+        result = module.act(
+            proposal=_plan_start_proposal(repo=repo, topic="alpha"),
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: calls.append(argv) or 0,
+        )
+    finally:
+        module.tmuxio.TmuxIO = original_tmux
+
+    assert result == {
+        "action_id": "plan_start",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "tmux_session_occupied",
+    }
+    assert calls == []
+
+
+def _assert_foreman_start_guards_report_occupied_name(*, repo: Path) -> None:
+    _assert_classifier_reports_occupied_name()
+    _assert_act_refuses_occupied_start(repo=repo)
+
+
 def test_every_plugin_bin_entrypoint_executes_help_from_clean_environment():
     entrypoints = sorted(path for path in PLUGIN_BIN.iterdir() if path.is_file())
     assert entrypoints, "plugin bin directory must ship executable entrypoints"
@@ -292,3 +512,70 @@ def test_foreman_act_files_work_item_from_plugin_cache_without_caller_pythonpath
         "reason": "filed:overseer-filed:ready",
         "mutated": True,
     }
+
+
+def test_foreman_act_refuses_exact_occupied_tmux_start_from_shipped_artifact(*, tmp_path):
+    plugin_root = _materialize_overseer_plugin(cache=tmp_path / "home" / ".claude/plugins/cache")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _assert_foreman_start_guards_report_occupied_name(repo=repo)
+    home = tmp_path / "act-home"
+    home.mkdir()
+    socket = tmp_path / "tmux.sock"
+    _write_fake_claude(path=tmp_path)
+    context = ForemanActContext(
+        plugin_root=plugin_root,
+        repo=repo,
+        home=home,
+        socket=socket,
+        path=tmp_path,
+    )
+    occupied_log = tmp_path / "occupied-input.log"
+    occupied = (
+        "python3 -u -c 'import sys, pathlib; "
+        'print("OCCUPIED_READY", flush=True); '
+        f"p=pathlib.Path({json.dumps(str(occupied_log))}); "
+        '[p.open("a", encoding="utf-8").write(line) for line in sys.stdin]\''
+    )
+    try:
+        created = _tmux(
+            socket=socket,
+            args=["new-session", "-d", "-s", "alpha", "-c", str(repo), occupied],
+        )
+        assert created.returncode == 0, created.stderr
+        before_pid = _pane_pid(socket=socket, session="alpha")
+
+        occupied_result = _run_foreman_act(
+            context=context,
+            proposal=_plan_start_proposal(repo=repo, topic="alpha"),
+            snapshot=_plan_start_snapshot(repo=repo, topic="alpha"),
+        )
+
+        assert occupied_result.returncode == 0, occupied_result.stderr
+        assert json.loads(occupied_result.stdout) == {
+            "action_id": "plan_start",
+            "mutated": False,
+            "outcome": "refused",
+            "reason": "tmux_session_occupied",
+        }
+        assert _pane_pid(socket=socket, session="alpha") == before_pid
+        assert not occupied_log.exists()
+        assert not (home / ".livespec-overseer.jsonl").exists()
+
+        absent_result = _run_foreman_act(
+            context=context,
+            proposal=_plan_start_proposal(repo=repo, topic="beta"),
+            snapshot=_plan_start_snapshot(repo=repo, topic="beta"),
+        )
+
+        assert absent_result.returncode == 0, absent_result.stderr
+        assert json.loads(absent_result.stdout) == {
+            "action_id": "plan_start",
+            "mutated": True,
+            "outcome": "acted",
+            "reason": "started",
+        }
+        assert _tmux(socket=socket, args=["has-session", "-t", "=beta"]).returncode == 0
+        assert "beta" in _registry_topics(store=home / ".livespec-overseer.jsonl")
+    finally:
+        _tmux(socket=socket, args=["kill-server"])

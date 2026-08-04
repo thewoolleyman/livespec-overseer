@@ -18,6 +18,7 @@ __all__: list[str] = [
     "REPORT_REASONS",
     "STALE_NAMESAKE",
     "START",
+    "TMUX_SESSION_OCCUPIED",
     "ForemanSessionAction",
     "ForemanSessionDecision",
     "IndexedSessionEvidence",
@@ -39,6 +40,7 @@ ReportReason: TypeAlias = Literal[
     "missing_transcript",
     "relative_repo_refused",
     "stale_namesake",
+    "tmux_session_occupied",
 ]
 
 EXACT_RESUME: Final[ForemanSessionAction] = "exact_resume"
@@ -57,6 +59,7 @@ INTENTIONALLY_UNASSIGNED: Final[ReportReason] = "intentionally_unassigned"
 MISSING_TRANSCRIPT: Final[ReportReason] = "missing_transcript"
 RELATIVE_REPO_REFUSED: Final[ReportReason] = "relative_repo_refused"
 STALE_NAMESAKE: Final[ReportReason] = "stale_namesake"
+TMUX_SESSION_OCCUPIED: Final[ReportReason] = "tmux_session_occupied"
 REPORT_REASONS: Final[tuple[ReportReason, ...]] = (
     ALREADY_LIVE,
     AMBIGUOUS_IDENTITY,
@@ -65,6 +68,7 @@ REPORT_REASONS: Final[tuple[ReportReason, ...]] = (
     MISSING_TRANSCRIPT,
     RELATIVE_REPO_REFUSED,
     STALE_NAMESAKE,
+    TMUX_SESSION_OCCUPIED,
 )
 
 
