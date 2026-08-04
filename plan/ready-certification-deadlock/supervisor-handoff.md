@@ -242,13 +242,34 @@ calling the pack's own function with only the crashing resolver replaced, which
 runs the real provisioning and hydrate steps rather than a raw
 `git worktree add` (a worktree without the pack can neither commit nor push):
 
+**IT MUST RUN UNDER BASH.** This fleet's interactive shell is zsh, and running
+the block there yields a WORSE outcome than the failure it works around: zsh does
+not word-split an unquoted `$pack_files`, so
+`worktree_provision_pack_from_primary` receives one four-name string, reports
+`BLOCKED`, and leaves a PACK-LESS worktree behind. That worktree looks fine and
+then refuses to commit or push much later, with an error naming the missing hook
+rather than the shell. Run it as a bash script, not by pasting the body into your
+shell:
+
 ```sh
+cat > /tmp/overseer-mkwt.sh <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
 cd /data/projects/livespec-overseer
 # shellcheck source=/dev/null
 . ./dev-tooling/worktree-lib.sh
 # Ground truth, measured from `git worktree list --porcelain | head -1`.
 worktree_primary_path() { printf '%s\n' '/data/projects/livespec-overseer'; }
-worktree_create '<branch>' origin/master
+worktree_create "$1" origin/master
+SH
+bash /tmp/overseer-mkwt.sh '<branch>'
+```
+
+Then CONFIRM the pack actually arrived, because its absence is silent:
+
+```sh
+ls /home/ubuntu/.worktrees/livespec-overseer/'<branch>'/dev-tooling/ \
+  || { echo "HALT: pack-less worktree — the provision step was skipped"; echo "REMEDY: re-run the block under bash; a zsh run reports BLOCKED and leaves this state"; exit 1; }
 ```
 
 This substitutes a correct constant for a crashing resolver; it weakens no check,
@@ -422,6 +443,29 @@ this section byte-for-byte, from the `## Corrections` heading through the end of
 the section. Preserve spelling, punctuation, code formatting, blank lines, and
 ordering exactly.
 
-No thread-specific corrections recorded yet. Record corrections to THIS
-supervisor's own conduct here, not the worker's mistakes; role-level corrections
-belong in `.ai/supervisor-protocol.md` so every binder inherits them.
+Record corrections to THIS supervisor's own conduct here, not the worker's
+mistakes; role-level corrections belong in `.ai/supervisor-protocol.md` so every
+binder inherits them.
+
+- **T1 (2026-08-04) — I published a runnable block I had never run in the form I
+  published it, and it fails WORSE than the defect it works around.** V5's
+  worktree workaround shipped as a bare ``sh`` block with no shell named. I had
+  executed the same lines from a `#!/usr/bin/env bash` script, so it worked for
+  me; pasted into this fleet's actual interactive shell, zsh, it does not.
+  zsh does not word-split an unquoted `$pack_files`, so
+  `worktree_provision_pack_from_primary` receives ONE four-name string, reports
+  `BLOCKED`, and leaves a PACK-LESS worktree. That is worse than the exit-141
+  failure V5 exists to route around: 141 is loud and immediate, while this is
+  silent and surfaces much later at commit or push time with an error naming a
+  missing hook rather than the shell. The worker found it by running the
+  published form; I had verified the *effect* on my own machine and mistaken
+  that for verifying the *artifact*.
+  **THE GENERALISATION, and it is why this is worth its length: THE THING THAT
+  SHIPS IS THE TEXT, NOT THE OUTCOME I GOT.** A command verified in a different
+  shell, a different cwd, or a wrapper script is an untested command in the form
+  a reader will use. This is the same defect class this charter polices in
+  others — a check that cannot fail, a precondition without a command — arriving
+  as a command that cannot succeed. Where a block's shell is load-bearing, name
+  it in the block and add an assertion the reader can run, because a silent
+  wrong result is the failure mode a fenced block is least able to report. V5
+  now carries both.
