@@ -320,6 +320,34 @@ def test_minority_report_override_is_reachable_with_seed_panel(*, tmp_path: Path
     assert held["dissent"]["reviewer_id"] == "fable"
 
 
+def test_minority_report_refuses_when_unblockers_disagree(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = minority_report()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    opus = panel[1]
+    gpt_sol = panel[2]
+    fable = panel[0]
+    assert isinstance(fable, dict)
+    assert isinstance(opus, dict)
+    assert isinstance(gpt_sol, dict)
+    fable["action"] = safe_action(action_id="work_item_file")
+    opus["action"] = safe_action(action_id="work_item_file")
+    gpt_sol["action"] = safe_action(action_id="plan_start")
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="split unblockers"),
+        responses=payload,
+        state_dir=tmp_path / "state-split-unblockers",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "typed_action_disagreement"
+    assert "minority_report_round" not in result
+
+
 def test_minority_report_refuses_hard_risk_and_unsafe_actions(*, tmp_path: Path):
     consensus = module("foreman_consensus")
     repo = tmp_path / "repo"

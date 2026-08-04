@@ -199,6 +199,33 @@ def test_anthropic_minority_report_holds_without_claiming_unanimity(*, tmp_path:
     assert result["minority_report_round"]["held_by"] == ["opus", "gpt-sol"]
 
 
+def test_anthropic_minority_report_refuses_split_unblockers(*, tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    reviewer_payload = _minority_report()
+    panel = reviewer_payload["reviewers"]
+    assert isinstance(panel, list)
+    opus = panel[1]
+    gpt_sol = panel[2]
+    fable = panel[0]
+    assert isinstance(fable, dict)
+    assert isinstance(opus, dict)
+    assert isinstance(gpt_sol, dict)
+    fable["action"] = _safe_action(action_id="work_item_file")
+    opus["action"] = _safe_action(action_id="work_item_file")
+    gpt_sol["action"] = _safe_action(action_id="plan_start")
+
+    result = _run_panel(
+        tmp_path=tmp_path,
+        request=_request(repo=repo, question="Can either bounded action proceed?"),
+        reviewers=reviewer_payload,
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "typed_action_disagreement"
+    assert "minority_report_round" not in result
+
+
 def test_minority_report_is_refused_before_round_for_unsafe_or_non_typed_actions(*, tmp_path: Path):
     repo = tmp_path / "repo"
     repo.mkdir()
