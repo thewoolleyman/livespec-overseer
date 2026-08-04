@@ -295,6 +295,7 @@ jobs:
           - check-no-todo-registry
           - check-partition-completeness
           - check-plugin-resolution
+          - check-shell-quality
           - check-skill-invocation-paths
           # Repo-local release-hygiene gate (overseer-d4t). It reads the
           # COMMIT RANGE origin/master...HEAD, so it needs this matrix's
