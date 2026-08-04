@@ -228,16 +228,22 @@ def matrix_result(
     actions: list[dict[str, object]],
 ) -> dict[str, object]:
     canonical = {canonical_json(value=action) for action in actions}
+    unblocker_canonical = {
+        canonical_json(value=typed_action(action=reviewer.get("action")) or {})
+        for reviewer in unblockers
+    }
     if not needs_human and len(canonical) == _ONE:
         return unanimous(action=actions[0], request=request, reviewers=reviewers)
-    if len(needs_human) == _ONE and len(unblockers) == _TWO and len(canonical) == _TWO:
-        return minority_override(
-            request=request,
-            reviewers=reviewers,
-            responses=responses,
-            dissent=needs_human[0],
-            unblockers=unblockers,
-        )
+    if len(needs_human) == _ONE and len(unblockers) == _TWO:
+        if len(unblocker_canonical) == _ONE and len(canonical) == _TWO:
+            return minority_override(
+                request=request,
+                reviewers=reviewers,
+                responses=responses,
+                dissent=needs_human[0],
+                unblockers=unblockers,
+            )
+        return escalation(reason="typed_action_disagreement", request=request, reviewers=reviewers)
     if needs_human:
         return escalation(reason="needs_human", request=request, reviewers=reviewers)
     return escalation(reason="typed_action_disagreement", request=request, reviewers=reviewers)
