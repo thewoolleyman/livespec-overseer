@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.1...v0.27.2) (2026-08-04)
+
+
+### Bug Fixes
+
+* prefer indexed codex rollout fd ([dfc0faf](https://github.com/thewoolleyman/livespec-overseer/commit/dfc0faf9f78c620b8c99d0c5c5a1e7893c8d3f91))
+
 ## [0.27.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.0...v0.27.1) (2026-08-04)
 
 
