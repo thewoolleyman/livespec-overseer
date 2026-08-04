@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.30.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.29.1...v0.30.0) (2026-08-04)
+
+
+### Features
+
+* add minority consensus report tests ([7f6ff92](https://github.com/thewoolleyman/livespec-overseer/commit/7f6ff9269cabc2201b7ef30635ce839971ebfb77))
+
+
+### Bug Fixes
+
+* require minority unblocker action agreement ([ec778b2](https://github.com/thewoolleyman/livespec-overseer/commit/ec778b2ef792d08be9f64a8268f707f853fb2916))
+
 ## [0.29.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.29.0...v0.29.1) (2026-08-04)
 
 
