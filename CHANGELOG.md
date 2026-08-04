@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.30.1...v0.30.2) (2026-08-04)
+
+
+### Bug Fixes
+
+* **plan:** declare ready-certification-deadlock's ledger anchor canonically ([242385f](https://github.com/thewoolleyman/livespec-overseer/commit/242385f25f9758a4876083a1febb0be99f44414c))
+
 ## [0.30.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.30.0...v0.30.1) (2026-08-04)
 
 
