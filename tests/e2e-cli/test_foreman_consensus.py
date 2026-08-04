@@ -28,6 +28,7 @@ def _request(*, repo: Path, question: str = "Should I run the formatter now?") -
         "blocked_question": question,
         "repo": str(repo),
         "topic": "alpha",
+        "tmux": "repo-alpha",
         "item_id": "overseer-a7c",
         "repo_revision": "abc123",
         "item_revision": "rank:7/status:blocked",
@@ -50,6 +51,38 @@ def _typed_reviewers(*, action_id: str = "work_item_file") -> dict[str, object]:
             {"reviewer_id": "gpt-sol", "verdict": "unblock", "action": action},
         ]
     }
+
+
+def _safe_action(*, action_id: str = "work_item_file") -> dict[str, object]:
+    return {
+        "action_id": action_id,
+        "params": {"target": "overseer-next"},
+        "reversible": True,
+        "rollback": {"bounded": True},
+    }
+
+
+def _minority_report(
+    *, dissent_id: str = "fable", action: object | None = None
+) -> dict[str, object]:
+    held_action = action or _safe_action()
+    reviewer_payload = _typed_reviewers()
+    panel = reviewer_payload["reviewers"]
+    assert isinstance(panel, list)
+    for reviewer in panel:
+        assert isinstance(reviewer, dict)
+        reviewer["action"] = held_action
+        if reviewer["reviewer_id"] == dissent_id:
+            reviewer["verdict"] = "needs-human"
+            reviewer["action"] = {"action_id": "human_valve", "params": {"reason": "hard call"}}
+    reviewer_payload["minority_report_round"] = {
+        "dissent_reviewer_id": dissent_id,
+        "holders": [
+            {"reviewer_id": "opus", "holds": True},
+            {"reviewer_id": "gpt-sol", "holds": True},
+        ],
+    }
+    return reviewer_payload
 
 
 def _run_panel(
@@ -143,6 +176,85 @@ def test_non_anthropic_needs_human_dissent_is_non_overridable(*, tmp_path: Path)
     assert result["outcome"] == "escalate"
     assert result["reason"] == "non_anthropic_needs_human_dissent"
     assert result["dissent"]["reviewer_id"] == "gpt-sol"
+
+
+def test_anthropic_minority_report_holds_without_claiming_unanimity(*, tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    result = _run_panel(
+        tmp_path=tmp_path,
+        request=_request(repo=repo, question="Can this bounded action proceed?"),
+        reviewers=_minority_report(),
+    )
+
+    assert result["outcome"] == "minority_override"
+    assert result["outcome"] != "unanimous"
+    assert result["reason"] == "minority_report_both_holders_confirmed"
+    assert result["action"] == {
+        "action_id": "work_item_file",
+        "params": {"target": "overseer-next"},
+    }
+    assert result["dissent"]["reviewer_id"] == "fable"
+    assert result["minority_report_round"]["held_by"] == ["opus", "gpt-sol"]
+
+
+def test_minority_report_is_refused_before_round_for_unsafe_or_non_typed_actions(*, tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    irreversible = _run_panel(
+        tmp_path=tmp_path,
+        request=_request(repo=repo, question="Irreversible?"),
+        reviewers=_minority_report(
+            action={
+                "action_id": "work_item_file",
+                "params": {"target": "overseer-next"},
+                "reversible": False,
+                "rollback": {"bounded": True},
+            }
+        ),
+    )
+    assert irreversible["outcome"] == "escalate"
+    assert irreversible["reason"] == "minority_action_not_reversible"
+    assert "minority_report_round" not in irreversible
+
+    non_typed = _run_panel(
+        tmp_path=tmp_path,
+        request=_request(repo=repo, question="Non typed?"),
+        reviewers=_minority_report(action="just do the safe thing"),
+    )
+    assert non_typed["outcome"] == "escalate"
+    assert non_typed["reason"] == "free_form_action"
+    assert "minority_report_round" not in non_typed
+
+
+def test_escalation_presentation_names_tmux_session_and_reviewer_summaries(*, tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    split = _typed_reviewers(action_id="work_item_file")
+    panel = split["reviewers"]
+    assert isinstance(panel, list)
+    last = panel[2]
+    assert isinstance(last, dict)
+    last["action"] = {"action_id": "plan_start", "params": {"target": "overseer-next"}}
+
+    result = _run_panel(
+        tmp_path=tmp_path,
+        request=_request(repo=repo, question="Which action should proceed?"),
+        reviewers=split,
+    )
+
+    assert result["outcome"] == "escalate"
+    presentation = result["presentation"]
+    assert presentation["surface"] == "NEEDS YOU"
+    assert presentation["tmux"] == "repo-alpha"
+    assert presentation["updated_choice"]["action_id"] == "human_valve"
+    assert [summary["reviewer_id"] for summary in presentation["reviewers"]] == [
+        "fable",
+        "opus",
+        "gpt-sol",
+    ]
 
 
 def test_reviewer_prompts_omit_escalation_minimizing_framing(*, tmp_path: Path):
