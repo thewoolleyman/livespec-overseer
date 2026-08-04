@@ -181,5 +181,6 @@ def do_launch(*, sup: Supervisor, track: registry.Track, session: str) -> bool:
         return False
     if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
         return False
+    _ = _supervisor_launch.await_input_box(sup=sup, target=target)
     resume = track.resume or default_resume(repo=track.repo, topic=track.topic)
     return _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume)

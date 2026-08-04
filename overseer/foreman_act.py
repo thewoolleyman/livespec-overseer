@@ -11,6 +11,7 @@ from typing import Protocol
 
 import jsonio
 import streams
+import tmuxio
 from _supervisor_snapshot import DEFAULT_STATUS_PATH
 from foreman_act_commands import command_for
 from foreman_act_filing import FileWorkItem, file_work_item, filing_request
@@ -27,8 +28,11 @@ from foreman_act_types import (
     BLOCKED_SESSION_ANSWER,
     DISPATCH_JOURNAL_RECONCILE_MERGED,
     HUMAN_VALVE,
+    PLAN_START,
     PROPOSAL_SCHEMA_VERSION,
     QUALIFYING_SESSION_RESUME,
+    QUALIFYING_SESSION_START,
+    SUPERVISOR_PAIR_START,
     WORK_ITEM_FILE,
     WORK_ITEM_SESSION_ACTIONS,
     WORK_ITEM_SESSION_FINISH,
@@ -68,6 +72,13 @@ class Gatherer(Protocol):
 
 class Runner(Protocol):
     def __call__(self, *, argv: list[str]) -> int: ...
+
+
+_START_ACTIONS: tuple[ActionId, ...] = (
+    PLAN_START,
+    QUALIFYING_SESSION_START,
+    SUPERVISOR_PAIR_START,
+)
 
 
 def _result(*, action_id: str | None, outcome: str, reason: str, mutated: bool) -> ActResult:
@@ -162,6 +173,10 @@ def _act_validated(
         identity_refusal := revalidate_identity(proposal=proposal, document=document)
     ) is not None:
         result = _refused(action_id=action_id, reason=identity_refusal)
+    elif (
+        start_refusal := _revalidate_start_tmux_occupancy(action_id=action_id, proposal=proposal)
+    ) is not None:
+        result = _refused(action_id=action_id, reason=start_refusal)
     elif action_id == WORK_ITEM_FILE:
         result = _act_filing(proposal=proposal, action_id=action_id, file_work_item=file_work_item)
     elif action_id == DISPATCH_JOURNAL_RECONCILE_MERGED:
@@ -171,6 +186,19 @@ def _act_validated(
     else:
         result = _act_command(action_id=action_id, proposal=proposal, run=run)
     return result
+
+
+def _revalidate_start_tmux_occupancy(
+    *, action_id: ActionId, proposal: dict[str, object]
+) -> str | None:
+    if action_id not in _START_ACTIONS:
+        return None
+    session_name = str_field(payload=proposal, key="session_name")
+    if session_name is None:  # pragma: no cover
+        return "malformed_proposal"
+    if tmuxio.TmuxIO().session_exists(session=session_name):
+        return "tmux_session_occupied"
+    return None
 
 
 def _act_filing(
@@ -224,7 +252,9 @@ def _act_command(*, action_id: ActionId, proposal: dict[str, object], run: Runne
 
 
 def run_command(*, argv: list[str]) -> int:
-    completed = subprocess.run(argv, check=False)  # noqa: S603  # pragma: no cover
+    completed = subprocess.run(  # noqa: S603  # pragma: no cover
+        argv, check=False, stdout=subprocess.DEVNULL
+    )
     return int(completed.returncode)  # pragma: no cover
 
 
