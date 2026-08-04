@@ -1,5 +1,73 @@
 # Plan — foreman
 
+## Checkpoint 2026-08-04T13:17Z — WIND-DOWN: Phase C CLOSED; ratification chosen, not yet executed
+
+This is the newest resume block and supersedes every older status table below.
+Re-fetch and re-measure before acting.
+
+**THE REOPENED WORK THROUGH PHASE C IS CLOSED AND RELEASED.** The entrypoint
+gate and the seed-3/4/6/7 shipped-artifact E2E are closed, as are both live-tick
+defects (`overseer-gxzv5v`, `overseer-5f2pfj`). Phase C is now fully closed:
+
+- `overseer-a7c` panel core — PR #668, closed and released.
+- `overseer-xbn` model-pin correction — PR #675, closed and released.
+- `overseer-ncx` minority-report round — Fabro
+  `01KZ679ZJM93EH05HF184EP1QZ`, PR #681, merge
+  `ec778b2ef792d08be9f64a8268f707f853fb2916`; 62 checks succeeded and two
+  skipped, fetched `origin/master` ancestry verified, post-merge janitor green,
+  ledger closed. Supervisor reports it released in v0.30.0. **Do not
+  re-dispatch it.**
+
+**THE ONLY THREAD GATE IS NOW THE MAINTAINER REVISE PASS.** PR #679 merged the
+proposal
+`SPECIFICATION/proposed_changes/foreman-consensus-decision-policy.md`. It was
+still present at the last filesystem measurement, so it was not ratified.
+At wind-down the native picker asked whether to ratify now or defer; the
+maintainer selected **Ratify now (Recommended)**. That answer is authorization,
+not evidence that `/livespec:revise` ran. On resume:
+
+1. Fetch first, then check `SPECIFICATION/proposed_changes/` and the newest
+   `SPECIFICATION/history/vNNN/`.
+2. If the proposal is still present, route the actual maintainer
+   `/livespec:revise` pass. Do not re-file PR #679 and do not claim ratification
+   from the picker answer.
+3. Do not start Phase D implementation until ratification is measured.
+
+**PHASE D ORDER AND OWNERSHIP AFTER RATIFICATION:**
+
+- `overseer-ym6` is `ready`/P1 but the supervisor binder explicitly says it is
+  supervisor-owned and **not a factory dispatch**; it is cross-repo spec/config
+  lifecycle work. Do not send it to Fabro.
+- `overseer-afn` is `ready`; acceptance leg 1 is DONE and positive: in this
+  genuine Codex YOLO session the native `request_user_input` tool was available,
+  was actually called, rendered a picker, and was answered externally. The
+  exact evidence is on the item. Legs 2–3 and the marker-protocol amendment
+  remain; preserve the `codex exec` prose fallback and the general `blocked:`
+  escape hatch.
+- `overseer-0fy` follows `ncx` + `ym6`; `overseer-ctc` follows the completed
+  Phase D slices and is the requirement-5 shipped-artifact E2E exit condition.
+- **Do not run the foreman product before `ctc`.** The supervisor made that an
+  explicit ordering constraint, even though the earlier classifier defect is
+  fixed.
+
+**`overseer-6eo` REMAINS OPEN P1 BUT ITS LIVE IMPACT NARROWED.** It is still
+`backlog`, unassigned, and not admitted; do not change queue state merely to
+keep busy. The same original pane/PIDs and rollout remained live, but
+`~/.codex/session_index.jsonl` eventually added that rollout at
+10:59:47Z (about 4h22m after rollout birth), and the fresh daemon snapshot at
+12:12:03Z reported this topic `working`, `runtime=codex`, `tmux=foreman`. The
+daemon then successfully injected `idle-with-context-left`. This refutes the
+end-of-session-only indexing hypothesis, but the exact write trigger is still
+unestablished and none of the RED/gone-control/real-tmux acceptance is built.
+The measured narrowing is recorded on the item; do not close it.
+
+**Nothing owned by this worker is in flight at wind-down.** The unrelated
+factory run `overseer-cdhdlv` belonged to another track and was not touched.
+No foreman runtime was started, no supervisor-owned Phase D item was
+dispatched, and no background watcher or sub-agent remains. Durable ledger
+comments on `overseer-z5fo4y`, `overseer-ncx`, `overseer-afn`, `overseer-ym6`,
+and `overseer-6eo` carry the evidence behind this checkpoint.
+
 ## Checkpoint 2026-08-04T07:18Z — entrypoints PROVEN DEPLOYED; Phase C+D RULED IN
 
 Two things changed since the reopening block below was written. Both are
