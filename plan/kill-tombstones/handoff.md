@@ -107,15 +107,94 @@ reads at archive time.
 OWN tenant. The index is in that epic's notes. One has landed
 (`livespec-driver-codex-g5a`).
 
+## The fan-out slices were filed WITHOUT INTAKE — measured 2026-08-04 ~17:00
+
+This arrived as a cross-track receipt from `governed-repo-bootstrap` about ONE slice,
+and re-measuring turned it into a class. **The `/groom` pass that cut
+`livespec-fvhvui` into nine slices filed them with `metadata = null` (so no rank) and
+without `intake:triaged`.** Audited across all nine tenants:
+
+| slice | tenant | status | rank | `intake:triaged` |
+|---|---|---|---|---|
+| `dolt-server-d8w` | dolt-server | **ready** | **a1** | **yes** — repaired, see below |
+| `bd-gj-9tf` | orchestrator-git-jsonl | backlog | — | **no** |
+| `bd-ib-ud0y` | orchestrator-beads-fabro | backlog | — | **no** |
+| `livespec-console-beads-fabro-0c5` | console-beads-fabro | backlog | — | **no** |
+| `livespec-driver-claude-zbw` | driver-claude | backlog | — | **no** |
+| `livespec-rh2y` | livespec | backlog | — | **no** |
+| `livespec-runtime-acq` | runtime | **ready** | — | **no** |
+| `overseer-2i9` | overseer | backlog | — | **no** |
+| `livespec-driver-codex-g5a` | driver-codex | closed | — | no (closed) |
+
+**Seven open slices still carry the defect.** Note `livespec-runtime-acq` is already
+`ready` with no rank at all — so a ranked drain cannot order it against its siblings.
+
+**Why this is worth a section rather than a shrug.** Nothing in this thread noticed;
+it surfaced only because `governed-repo-bootstrap` ran a ledger-rank probe (its B5
+acceptance) and tripped over `dolt-server-d8w`. A defect that is invisible until an
+unrelated track happens to assert on it will be found one slice at a time, by
+whichever track pays for it. Repair the remaining seven deliberately.
+
+**`dolt-server-d8w` is REPAIRED** — intake DoR run and applied 2026-08-04 ~16:55:
+`metadata.rank = a1` (a FREE slot between the `a0` bootstrap cluster and
+`dolt-server-wgy` at `a3`, so **no sibling rank moved** and no tenant-wide migrate or
+rebalance was run), `intake:triaged` added, status routed `backlog` → **`ready`**, and
+the full DoR record appended to its notes. Read-back over all ten tenant rows confirms
+nothing else changed.
+
+**Do NOT bulk-apply this to the other seven.** The `d8w` DoR was worth running because
+it CORRECTED THE ITEM, and only a per-repo measurement finds that class of error:
+
+- Its stated blocker had already cleared — `dolt-server` PR #42 ("bump the dev-tooling
+  pin to v1.19.0 and wire the tombstone check") is MERGED. That is what made `ready`
+  the honest routing rather than leaving it in `backlog`.
+- **Its central premise was wrong in the dangerous direction.** The item says one
+  handoff has "no anchor" and advises FILING an epic if a thread genuinely lacks one.
+  Measured: `plan/governed-repo-bootstrap/handoff.md:4` already declares a concrete,
+  resolving epic — "The ledger status anchor is epic `dolt-server-3ychlx`" — and that
+  epic exists. It is invisible to `plan_thread_anchor_declared` only because it is
+  written as PROSE instead of the literal bold `Ledger anchor:` form the extraction
+  regex requires. **The repair is a one-line reformat**; following the item's own
+  advice would have filed a duplicate epic. Same trap already recorded in this repo's
+  `.claude/CLAUDE.md`.
+
+Each slice's description came from the same forge-API scan, so **expect the same
+prose-vs-literal confusion in the other seven** — a repo reported as "anchorless" may
+have a perfectly good anchor written the wrong way. Re-measure locally per repo before
+repairing, exactly as each slice already tells you to.
+
+Incidental, for whoever mutates that tenant next: `bd` printed
+`Warning: auto-backup failed: … command denied to user 'dolt-server'@'%'`. The write
+succeeded and verified on read-back, but that tenant's backup credential is failing.
+Not this thread's to fix.
+
 ## All three are RATIFIED — and this section previously said the opposite
 
 `livespec` **v194** (MERGED), `livespec-overseer` **v008** (MERGED), and
 `livespec-orchestrator-beads-fabro` **v057** — the last carrying the `prose/plan.md`
-co-edit via `resulting_files[]`, and **still OPEN as PR #1302** at wind-down, clean and
-awaiting CI. Doctor static is 21 findings / 0 non-pass in each. **First thing on
-resume: check whether #1302 merged.** If it did, ratification is complete in all three
-trees and nothing here needs doing. If it went red, its branch is
-`ratify-tombstone-ban`.
+co-edit via `resulting_files[]`. Doctor static is 21 findings / 0 non-pass in each.
+
+**RESOLVED 2026-08-04 ~17:00 — PR #1302 MERGED** at `2026-08-04T16:33:59Z`
+("chore(spec): revise — ratify the plan-thread tombstone ban (v057)"). The
+"first thing on resume" question this section used to pose is **answered and
+discharged**: ratification is complete in all three trees, and next-action item 0
+below needs nothing further.
+
+**BUT THE LEDGER DOES NOT AGREE, and the close depends on it.** Re-measured the same
+minute, all three items still read **`blocked`** with `blocked-reason:needs-human`:
+
+| item | tenant | spec revision | ledger status |
+|---|---|---|---|
+| `livespec-zp5mkd` | livespec | v194 merged | **`blocked`** |
+| `overseer-ihwyin` | overseer | v008 merged | **`blocked`** |
+| `bd-ib-xhcqbc` | orchestrator | v057 merged (PR #1302) | **`blocked`** |
+
+The work is DONE and the records say it is not. §"Closing this thread" requires that
+every child be closed or transferred before this thread archives, so these three
+stale rows are a hard blocker on the close — and worse, anything reading the ledger
+rather than this file will conclude the spec work is still pending and may re-do it.
+**Close them against their merged revisions.** They are human-gated `spec-change`
+items, so that is a maintainer action, not a factory dispatch.
 
 ### Two rendering defects the byte-level review caught — expect this class again
 
@@ -356,14 +435,22 @@ is a claim with a timestamp.
 
 Then, in rough order of value:
 
-0. **Check PR #1302** (`livespec-orchestrator-beads-fabro`, branch `ratify-tombstone-ban`).
-   It was clean and pending CI at wind-down. Merged → ratification is complete in all
-   three trees. Red → fix it; it is the last piece of this thread's spec work.
+0. ~~**Check PR #1302**~~ — **DONE 2026-08-04 ~17:00. It MERGED** at
+   `2026-08-04T16:33:59Z`. Ratification is complete in all three trees. Nothing further
+   here. **But see §"All three are RATIFIED": all three items still read `blocked` in
+   their ledgers and must be CLOSED against their merged revisions** — a maintainer
+   action, and a hard blocker on this thread's own close.
 1. **`overseer-jct`** — clear the 123 result-typed violations. Nothing `.py` can land in
    this repo until it is done, including `overseer-e723tt`. Expect it to need grooming
    into per-module slices; the `overseer-bg2` precedent is cited on the item.
 2. **`livespec-fvhvui`'s remaining eight slices**, cheapest first, measuring repo health
-   before scheduling each. **This epic is MORE load-bearing than it looks.** The ban's
+   before scheduling each. **Run an intake DoR on each before scheduling it** — seven of
+   the eight still have `metadata = null` (no rank) and no `intake:triaged`, and one
+   (`livespec-runtime-acq`) is already `ready` with no rank, so a ranked drain cannot
+   order it. `dolt-server-d8w` is done and is the worked example; see §"The fan-out
+   slices were filed WITHOUT INTAKE", including why its DoR corrected the item and why
+   you should expect the same prose-vs-literal anchor confusion in the others.
+   **This epic is MORE load-bearing than it looks.** The ban's
    new "never move an archived thread back without reopening its epic" MUST is correct
    but UNENFORCED — no credential-free check can see epic state, so it leans on
    `plan_thread_epic_parity`, which is armed-only and dark in 11 of 12 repos. Its
