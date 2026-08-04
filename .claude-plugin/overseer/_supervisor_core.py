@@ -95,6 +95,7 @@ import tmuxio
 from _seams import (
     CommToPidList,
     PidToIntList,
+    PidToOptionalBytes,
     PidToOptionalInt,
     PidToOptionalStr,
     PidToStrList,
@@ -155,6 +156,7 @@ class Supervisor:
     sessions_dir: str | os.PathLike[str] | None = None
     ppid_of: PidToOptionalInt = claude_sessions.proc_ppid
     starttime_of: PidToOptionalStr = claude_sessions.proc_starttime
+    cmdline_of: PidToOptionalBytes = claude_sessions.proc_cmdline
     # Background-subshell detection seams (default: real /proc; the beside-tests
     # inject fake process-tree readers). A tracked session sitting at an empty
     # prompt but with a later `Bash(run_in_background)` command still running has a

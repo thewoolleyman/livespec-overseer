@@ -13,6 +13,7 @@ decision.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import claude_sessions
@@ -96,22 +97,41 @@ def update_idle_episode(*, state: InjectState, idle: bool, busy: bool, now: floa
     state.idle_last_seen = None
 
 
+def _cmdline_names_codex_launcher(*, cmdline: bytes | None) -> bool:
+    """True when a process argv names the Codex launcher as an argument."""
+    if cmdline is None:
+        return False
+    argv = [part.decode(errors="replace") for part in cmdline.split(b"\x00") if part]
+    return any(Path(arg).name == "codex" for arg in argv[1:])
+
+
+def _target_pane_is_codex(*, sup: Supervisor, target: str) -> bool:
+    """Pane-scoped Codex evidence for ambiguous tmux foreground commands."""
+    command = sup.tmux.pane_current_command(session=target)
+    if signals.pane_is_codex(pane_current_command=command):
+        return True
+    pane_pid = sup.tmux.pane_pid(session=target) or -1
+    return _cmdline_names_codex_launcher(cmdline=sup.cmdline_of(pid=pane_pid))
+
+
 def is_codex_track(
     *, sup: Supervisor, session: str | None, repo: str, topic: str, target: str | None = None
 ) -> bool:
     """True iff ``target``'s pane is a live codex session for THIS plan, in THIS repo.
 
     TWO conditions, and BOTH are load-bearing — one is exact but session-scoped, the
-    other pane-scoped but generic, and only together are they exact AND pane-scoped:
+    other pane-scoped, and only together are they exact AND pane-scoped:
 
     1. ``self.live_codex`` (rebuilt each tick from real codex processes holding real
        rollouts) has a session keyed by ``(this tmux, this topic)`` whose cwd is in
        this repo. Never a guess. Keyed by ``(tmux, name)`` — not tmux alone — so a
        SECOND codex sharing this tmux session (a different topic) does not shadow this
        track's own session (#4).
-    2. ``target``'s OWN pane command is codex-like. `bun` is far too generic to gate
-       on alone (any bun app matches), which is why (1) exists — but it is exactly
-       what makes this PANE-scoped.
+    2. ``target``'s OWN pane carries Codex process identity: either a codex-like
+       foreground command (`bun` / `codex`) or exact argv naming the Codex launcher
+       when tmux reports the foreground as ambiguous `node`. `bun` and `node` are far
+       too generic to gate on alone, which is why (1) exists — but this pane read is
+       what makes the exact session evidence PANE-scoped.
 
     **Why (2) was added (adversarial review, 2026-07-17).** With only (1) this was
     session-scoped while the Claude identity gate is pane-scoped, so ANY codex process
@@ -134,7 +154,7 @@ def is_codex_track(
         return False
     if target is None:
         return True  # no pane to check against (callers that only have the mapping)
-    return signals.pane_is_codex(pane_current_command=sup.tmux.pane_current_command(session=target))
+    return _target_pane_is_codex(sup=sup, target=target)
 
 
 def pane_is_managed(
