@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,6 +23,11 @@ FiledWorkItem = tuple[str, str]
 
 class FileWorkItem(Protocol):
     def __call__(self, *, request: dict[str, object]) -> FiledWorkItem: ...
+
+
+_ORCHESTRATOR_PLUGIN = "livespec-orchestrator-beads-fabro"
+_ORCHESTRATOR_PACKAGE = "livespec_orchestrator_beads_fabro"
+_RUNTIME_PACKAGE = "livespec_runtime"
 
 
 def _str_field(*, payload: dict[str, object], key: str) -> str | None:
@@ -109,6 +115,61 @@ def filing_request(*, proposal: dict[str, object]) -> dict[str, object] | None:
     }
 
 
+def _is_orchestrator_plugin_root(*, path: Path) -> bool:
+    scripts = path / "scripts"
+    return (scripts / _ORCHESTRATOR_PACKAGE).is_dir() and (
+        scripts / "_vendor" / _RUNTIME_PACKAGE
+    ).is_dir()
+
+
+def _cache_root_candidates(*, plugin_root: Path) -> list[Path]:
+    candidates: list[Path] = []
+    for ancestor in plugin_root.parents:
+        candidate = ancestor / _ORCHESTRATOR_PLUGIN / _ORCHESTRATOR_PLUGIN
+        if candidate.is_dir():
+            candidates.append(candidate)
+    return candidates
+
+
+def _configured_orchestrator_root() -> Path | None:
+    value = os.environ.get("LIVESPEC_ORCHESTRATOR_PLUGIN_ROOT")
+    if value is None or value == "":
+        return None
+    path = Path(value)
+    return path if _is_orchestrator_plugin_root(path=path) else None
+
+
+def _orchestrator_plugin_root() -> Path | None:
+    configured = _configured_orchestrator_root()
+    if configured is not None:
+        return configured
+    plugin_root = Path(__file__).resolve().parent.parent
+    for cache_root in _cache_root_candidates(plugin_root=plugin_root):
+        matches = sorted(
+            child for child in cache_root.iterdir() if _is_orchestrator_plugin_root(path=child)
+        )
+        if matches:
+            return matches[-1]
+    return None
+
+
+def _filing_pythonpath_entries() -> list[str]:
+    root = _orchestrator_plugin_root()
+    if root is None:
+        return []
+    scripts = root / "scripts"
+    return [str(scripts), str(scripts / "_vendor")]
+
+
+def _filing_env() -> dict[str, str]:
+    env = os.environ.copy()
+    entries = _filing_pythonpath_entries()
+    if entries:
+        inherited = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = os.pathsep.join([*entries, inherited] if inherited else entries)
+    return env
+
+
 def file_work_item(*, request: dict[str, object]) -> FiledWorkItem:  # pragma: no cover
     """File a freeform item, then route it through the shared six-gate intake seam."""
     target_repo = str(request["target_repo"])
@@ -119,6 +180,7 @@ def file_work_item(*, request: dict[str, object]) -> FiledWorkItem:  # pragma: n
         capture_output=True,
         check=False,
         cwd=target_repo,
+        env=_filing_env(),
     )
     if completed.returncode != 0:  # pragma: no cover
         msg = completed.stderr.strip() or f"filing subprocess exited {completed.returncode}"
