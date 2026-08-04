@@ -37,8 +37,25 @@ is loaded.
 The synthetic heartbeat was removed afterwards; it was report-only by design
 ("never authorizes a daemon act"), so nothing could act on it.
 
-**Resume nothing from this file.** The live-path tombstone at
-`plan/foreman/handoff.md` explains why a respawn prompt may still name that path.
+**Resume nothing from this file.**
+
+**A LIVE-PATH TOMBSTONE WAS ADDED AT ARCHIVE TIME AND HAS BEEN REMOVED — it was
+the wrong remedy and it caused a worse problem.** `plan/foreman/handoff.md`
+existed briefly so a stale respawn prompt would resolve to something true.
+`_registry_discovery.archived_or_gone` returns False whenever
+`plan/<topic>/` is a directory ("active plan present — wins over any same-named
+archive"), so the stub made this finished thread read as ACTIVE:
+`_supervisor_discovery.archive_gc` could never drop its mapping row, and the
+daemon went on nudging, wrap-up-injecting and restarting an archived track.
+Measured here — with the stub in place, `archived_or_gone(topic="foreman")` was
+`False`, the row was still in `~/.livespec-overseer.jsonl`, and the worker sat at
+`ready-uncertifiable` on 17% context. The same mistake was measured on two other
+threads, which were injected and RESTARTED after archiving.
+
+**The clean `git mv` is the whole remedy.** With `plan/foreman/` gone,
+`archived_or_gone` returns True, `archive_gc` drops the mapping row, and the
+respawn hazard cannot fire because no row remains to respawn from. The hazard is
+closed by the GC, not by a stub — which also refutes remedy 1 on `overseer-y26`.
 
 ## What this thread is
 
