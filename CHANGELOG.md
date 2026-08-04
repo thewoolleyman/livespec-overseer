@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.2...v0.27.3) (2026-08-04)
+
+
+### Bug Fixes
+
+* **plan:** remove the foreman tombstone — it orphaned the track in the overseer ([c80aa52](https://github.com/thewoolleyman/livespec-overseer/commit/c80aa525504308469aaf12226996642eae7f5c4b))
+
 ## [0.27.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.1...v0.27.2) (2026-08-04)
 
 
