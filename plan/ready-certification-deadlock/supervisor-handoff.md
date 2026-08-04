@@ -490,3 +490,23 @@ binder inherits them.
   "new branch" on a second push was suspicious, verified against the FORGE
   rather than the local tree, and cherry-picked its delta onto a fresh branch
   off current master rather than trying to re-target a rebase-merged branch.
+
+- **T3 (2026-08-04) — THE ADVERSARIAL REVIEW REFUTED MY OWN VERIFICATION (F8),
+  2026-08-04T16:19Z.** I twice reported the band-exhaustion premise as
+  "corroborated by an INDEPENDENT CONTROL": that foreman's band sets SHRINK
+  across daemon.log ([50,40,30,20] x8 -> [50,40] x6 -> [50] x4) and "a band set
+  cannot shrink within one round". THAT LEMMA IS FALSE. The log prints the DUE
+  set (_supervisor_restart.py:66-68,91), not the notified set, and a due set
+  legitimately shrinks within a round as bands fire. My "independent control"
+  was the same wrong inference the worker made, re-derived — not an independent
+  check at all. Two agents reaching one conclusion by one flawed route is
+  CONFIRMATION, not corroboration, and I presented it as the latter.
+  The CONCLUSION survives on a stronger lemma the reviewer supplied: band 50
+  appears in 41/41 injections, and a once-per-round band cannot fire 41 times in
+  one round. So the stamp WAS cleared repeatedly — but my proof of it was wrong
+  and my confidence in it was unearned.
+  WHAT I SHOULD HAVE DONE: before calling a control independent, ask what the
+  logged value MEANS, not just whether the numbers move the way my hypothesis
+  predicts. I read a shrinking sequence, matched it to "bands reset", and never
+  checked which set was being printed. A control that shares the suspect's
+  assumption is not a control.
