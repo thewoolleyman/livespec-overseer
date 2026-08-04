@@ -33,10 +33,10 @@ the fix must preserve all four intents while breaking the deadlock.
 
 ## 2. Where this thread stands
 
-Created 2026-08-04. The epic anchor is **`overseer-er6ikw`**. Read live
-status from the ledger — `list-work-items` / `bd show overseer-er6ikw` —
-never from this file; this handoff cites ids read-only and carries no
-work queue.
+Created 2026-08-04. **Ledger anchor:** epic **`overseer-er6ikw`** (this
+repo's beads tenant). Read live status from the ledger —
+`list-work-items` / `bd show overseer-er6ikw` — never from this file;
+this handoff cites ids read-only and carries no work queue.
 
 Done so far: the reasoning note (§5 item 1) carries the observed
 timeline, the deadlock triangle, the four design intents each edge
