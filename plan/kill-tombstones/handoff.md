@@ -109,9 +109,48 @@ OWN tenant. The index is in that epic's notes. One has landed
 
 ## All three are RATIFIED — and this section previously said the opposite
 
-`livespec` **v194**, `livespec-overseer` **v008**, `livespec-orchestrator-beads-fabro`
-**v057**, the last carrying the `prose/plan.md` co-edit via `resulting_files[]`. Doctor
-static is 21 findings / 0 non-pass in each.
+`livespec` **v194** (MERGED), `livespec-overseer` **v008** (MERGED), and
+`livespec-orchestrator-beads-fabro` **v057** — the last carrying the `prose/plan.md`
+co-edit via `resulting_files[]`, and **still OPEN as PR #1302** at wind-down, clean and
+awaiting CI. Doctor static is 21 findings / 0 non-pass in each. **First thing on
+resume: check whether #1302 merged.** If it did, ratification is complete in all three
+trees and nothing here needs doing. If it went red, its branch is
+`ratify-tombstone-ban`.
+
+### Two rendering defects the byte-level review caught — expect this class again
+
+Neither came from the clause. Both came from RENDERING it into a target file, and
+neither was visible by reading:
+
+- **A line-wrap split the `capture-work-item` code span.** `textwrap` breaks on hyphens
+  by default, and CommonMark renders a newline INSIDE a code span as a SPACE — so the
+  ratified contract would have named the operation "capture- work-item", and a
+  single-line grep for the real token would have missed it. Fix: `break_on_hyphens=False`
+  plus an assertion that no inserted line carries an ODD backtick count. Note the file's
+  PRE-EXISTING multi-line spans (`` `bd` `` / `` `update` ``) are fine — there the
+  rendered space is correct because the text is two words.
+- **The prose rendering dropped a CONDITIONAL.** The contract permits epic-reopening only
+  "if the new work genuinely continues the old thread"; the operative-voice prose offered
+  it flat. Since an agent reads the prose and not `contracts.md`, that would have handed
+  anyone wanting a retired slug a sanctioned way to resurrect a finished thread to steal
+  it. A rendering into a different voice is a REWRITE — diff it against the clause
+  claim-by-claim, not by eye.
+
+### `reviewed_at` must name the review that saw the FINAL bytes
+
+`ratification_evidence.content_digest` binds the reviewer's verdict to the proposal AND
+the exact resulting-file bytes, so the timestamp beside it must come from the review that
+saw THOSE bytes. A byte-level review can only ever post-date the bytes it checks, so the
+order is **build → review the built bytes → capture that timestamp → run revise**.
+
+v194 and v008 each recorded a timestamp ONE ROUND EARLY — naming the review that cleared
+the PROPOSAL rather than the landed file. The substance was verified sound both times
+(independently and by the reviewer), but the trail was imprecise; both merged before it
+was noticed, so the correction is recorded as a comment on each PR naming the review that
+does cover the merged bytes. **v057 was done in the correct order**, and before running
+its pass the rebuild was asserted BYTE-IDENTICAL to the reviewed commit — without that
+assertion, "redo with the new timestamp" silently risks landing different bytes under a
+verdict that saw the old ones, which is the same error one layer up.
 
 **An earlier revision of this handoff said ratification was blocked and declined it on
 principle. That was WRONG, and the error is a shape worth remembering.** I had read
@@ -317,11 +356,20 @@ is a claim with a timestamp.
 
 Then, in rough order of value:
 
+0. **Check PR #1302** (`livespec-orchestrator-beads-fabro`, branch `ratify-tombstone-ban`).
+   It was clean and pending CI at wind-down. Merged → ratification is complete in all
+   three trees. Red → fix it; it is the last piece of this thread's spec work.
 1. **`overseer-jct`** — clear the 123 result-typed violations. Nothing `.py` can land in
    this repo until it is done, including `overseer-e723tt`. Expect it to need grooming
    into per-module slices; the `overseer-bg2` precedent is cited on the item.
 2. **`livespec-fvhvui`'s remaining eight slices**, cheapest first, measuring repo health
-   before scheduling each.
+   before scheduling each. **This epic is MORE load-bearing than it looks.** The ban's
+   new "never move an archived thread back without reopening its epic" MUST is correct
+   but UNENFORCED — no credential-free check can see epic state, so it leans on
+   `plan_thread_epic_parity`, which is armed-only and dark in 11 of 12 repos. Its
+   tenant-prefix bug is fixed (`livespec-dev-tooling-q6oob4`, merged `e81cde7`), so
+   arming it per repo is exactly what these slices do. Until then that MUST is prose
+   only.
 3. **`livespec-akg7k5`** is what stands between core and enforcement. Not this thread's
    work, but it is this thread's last unenforced repo.
 
