@@ -907,3 +907,52 @@ ordering exactly.
   action, and here the action was destructive-adjacent — a control key sent into
   a live peer session on a false premise, which is one keystroke away from C21's
   near-miss of re-pasting into another track's pane.
+
+- **T9 (2026-08-04) — I EXECUTED ARBITRARY COMMANDS OUT OF MY OWN PROSE, THEN
+  KILLED MY OWN SHELL TRYING TO CLEAN IT UP. Two textbook shell traps, back to
+  back, one of which is written down in the instructions I had already read.**
+  **(a) BACKTICKS IN A DOUBLE-QUOTED SHELL STRING ARE COMMAND SUBSTITUTION.** I
+  wrote a ledger note that quoted two identifiers in backticks — a `codex exec`
+  invocation and the `blocked:` token — inside a double-quoted
+  `bd update --append-notes "…"` argument. The shell did exactly what it is
+  specified to do: it RAN them. A real `codex exec` process started and hung
+  reading a prompt from stdin, the `bd` write never happened, and the whole call
+  sat until the 600s tool timeout. **The failure announced itself in the one line
+  of output — `Reading prompt from stdin...` — which is not a `bd` message at
+  all.** Read the output you got, not the output you expected.
+  Every earlier `--append-notes` call in this session succeeded only because it
+  happened to contain no backticks. That is luck, not technique, and prose about
+  shell tooling is exactly the text most likely to contain them.
+  **THE FIX IS STRUCTURAL, not "escape more carefully":** build note text with a
+  QUOTED heredoc (`<<'EOF'`) into a file, then pass `"$(cat file)"`.
+  Command-substitution OUTPUT is not re-scanned, so backticks inside it are
+  inert. Verified working immediately afterwards, with a read-back.
+  **(b) `pkill -f '<pattern>'` MATCHED ITS OWN SHELL AND KILLED IT.** Cleaning up
+  the hung process, I ran `pkill -f 'codex exec'`. The harness's own invocation
+  carries that pattern in its argv, so `pkill` matched itself; the call died with
+  exit 144. **This is the self-match trap stated verbatim in the global operating
+  instructions, which I had read at boot.** Knowing a rule and having read it
+  recently does not arm it — the same shape as T5, C20 and C23, all of which
+  record breaking a rule shortly after applying or reading it.
+  **WHAT MADE IT SURVIVABLE WAS THE MEASUREMENT, NOT THE CARE.** I verified the
+  blast radius immediately rather than assuming it was contained: the worker was
+  alive on the SAME pids (3096957/3096987) and the acting daemon was alive at pid
+  1842709 with a snapshot 20 seconds fresh at tick 1342 — so it was still
+  TICKING, not merely present. Neither of those processes carries `codex exec` in
+  its argv, which is why they survived; had the pattern been `codex` I would have
+  killed this repo's own worker, and a broader one could have reached the daemon,
+  whose blast radius is the whole fleet.
+  **THE RULE: never `pkill`/`pgrep -f` a pattern that can appear in your own
+  command line.** Resolve an exact pid first and kill that, or match on something
+  structurally absent from the invocation. And after ANY kill by pattern, prove
+  what survived by pid — a kill is the one operation where an unexamined success
+  and a catastrophe look identical.
+  **A THIRD, SMALLER MECHANIC FROM THE SAME SESSION, recorded because it wasted
+  two round trips:** a `tmux send-keys` of roughly a thousand characters or more
+  renders in the Codex composer as a `[Pasted Content N chars]` chip, and the
+  FIRST `Enter` does NOT submit it — a second `Enter` does. The pane shows no
+  `Working` indicator in between, which is the reliable discriminator between
+  "not submitted yet" and "submitted and still rendering". Check for that
+  indicator before concluding either way; and note this does NOT contradict C21's
+  warning against re-sending, because there the composer was empty and here it
+  demonstrably still held the text.
