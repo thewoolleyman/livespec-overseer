@@ -50,6 +50,32 @@ def reviewers(*, action: object | None = None) -> dict[str, object]:
     }
 
 
+def safe_action(*, action_id: str = "work_item_file") -> dict[str, object]:
+    return {
+        "action_id": action_id,
+        "params": {"target": "overseer-next"},
+        "reversible": True,
+        "rollback": {"bounded": True},
+    }
+
+
+def minority_report(*, action: object | None = None) -> dict[str, object]:
+    payload = reviewers(action=action or safe_action())
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    fable = panel[0]
+    assert isinstance(fable, dict)
+    fable["verdict"] = "needs-human"
+    fable["action"] = {"action_id": "human_valve", "params": {"reason": "hard call"}}
+    payload["minority_report_round"] = {
+        "holders": [
+            {"reviewer_id": "opus", "holds": True},
+            {"reviewer_id": "gpt-sol", "holds": True},
+        ],
+    }
+    return payload
+
+
 def test_model_identities_are_verified_seed_panel_and_fail_loudly():
     types = module("foreman_consensus_types")
 
@@ -265,8 +291,8 @@ def test_minority_report_override_is_reachable_with_seed_panel(*, tmp_path: Path
     consensus = module("foreman_consensus")
     repo = tmp_path / "repo"
     repo.mkdir()
-    minority_report = reviewers()
-    panel = minority_report["reviewers"]
+    first_pass = reviewers()
+    panel = first_pass["reviewers"]
     assert isinstance(panel, list)
     fable = panel[0]
     assert isinstance(fable, dict)
@@ -275,13 +301,195 @@ def test_minority_report_override_is_reachable_with_seed_panel(*, tmp_path: Path
 
     result = consensus.consensus(
         request=request(repo=repo, question="anthropic minority report"),
-        responses=minority_report,
+        responses=first_pass,
         state_dir=tmp_path / "state-minority-report",
     )
 
     assert result["outcome"] == "escalate"
     assert result["reason"] == "needs_human"
     assert "dissent" not in result
+
+    held = consensus.consensus(
+        request=request(repo=repo, question="anthropic minority report held"),
+        responses=minority_report(),
+        state_dir=tmp_path / "state-minority-report-held",
+    )
+    assert held["outcome"] == "minority_override"
+    assert held["reason"] == "minority_report_both_holders_confirmed"
+    assert held["minority_report_round"]["held_by"] == ["opus", "gpt-sol"]
+    assert held["dissent"]["reviewer_id"] == "fable"
+
+
+def test_minority_report_refuses_hard_risk_and_unsafe_actions(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    hard_risk = minority_report()
+    hard_panel = hard_risk["reviewers"]
+    assert isinstance(hard_panel, list)
+    dissent = hard_panel[0]
+    assert isinstance(dissent, dict)
+    dissent["hard_risk"] = True
+    hard = consensus.consensus(
+        request=request(repo=repo, question="hard risk"),
+        responses=hard_risk,
+        state_dir=tmp_path / "state-hard",
+    )
+    assert hard["outcome"] == "escalate"
+    assert hard["reason"] == "hard_risk_dissent"
+
+    irreversible = consensus.consensus(
+        request=request(repo=repo, question="irreversible"),
+        responses=minority_report(
+            action={
+                "action_id": "work_item_file",
+                "params": {"target": "overseer-next"},
+                "reversible": False,
+                "rollback": {"bounded": True},
+            }
+        ),
+        state_dir=tmp_path / "state-irreversible",
+    )
+    assert irreversible["outcome"] == "escalate"
+    assert irreversible["reason"] == "minority_action_not_reversible"
+
+    unbounded = consensus.consensus(
+        request=request(repo=repo, question="unbounded"),
+        responses=minority_report(
+            action={
+                "action_id": "work_item_file",
+                "params": {"target": "overseer-next"},
+                "reversible": True,
+                "rollback": {"bounded": False},
+            }
+        ),
+        state_dir=tmp_path / "state-unbounded",
+    )
+    assert unbounded["outcome"] == "escalate"
+    assert unbounded["reason"] == "minority_action_not_rollback_bounded"
+
+    legacy_bounded = consensus.consensus(
+        request=request(repo=repo, question="legacy bounded flag"),
+        responses=minority_report(
+            action={
+                "action_id": "work_item_file",
+                "params": {"target": "overseer-next"},
+                "reversible": True,
+                "rollback_bounded": True,
+            }
+        ),
+        state_dir=tmp_path / "state-legacy-bounded",
+    )
+    assert legacy_bounded["outcome"] == "minority_override"
+
+
+def test_minority_report_refuses_non_holding_round(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    not_held = minority_report()
+    round_payload = not_held["minority_report_round"]
+    assert isinstance(round_payload, dict)
+    holders = round_payload["holders"]
+    assert isinstance(holders, list)
+    first = holders[0]
+    assert isinstance(first, dict)
+    first["holds"] = False
+    holders.append({"reviewer_id": "stranger", "holds": True})
+    refused = consensus.consensus(
+        request=request(repo=repo, question="not held"),
+        responses=not_held,
+        state_dir=tmp_path / "state-not-held",
+    )
+    assert refused["outcome"] == "escalate"
+    assert refused["reason"] == "minority_report_not_held"
+
+
+def test_multiple_needs_human_votes_escalate_without_minority_round(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    for index in (0, 1):
+        reviewer = panel[index]
+        assert isinstance(reviewer, dict)
+        reviewer["verdict"] = "needs-human"
+        reviewer["action"] = {"action_id": "human_valve", "params": {"reason": "architecture"}}
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="two dissents"),
+        responses=payload,
+        state_dir=tmp_path / "state-two-dissents",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "needs_human"
+
+
+def test_escalation_presentation_names_prompt_session_and_reviewer_summaries(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    split = reviewers()
+    panel = split["reviewers"]
+    assert isinstance(panel, list)
+    last = panel[2]
+    assert isinstance(last, dict)
+    last["action"] = {"action_id": "plan_start", "params": {"target": "overseer-next"}}
+
+    result = consensus.consensus(
+        request={**request(repo=repo, question="which action?"), "tmux": "repo-alpha"},
+        responses=split,
+        state_dir=tmp_path / "state-presentation",
+    )
+
+    assert result["outcome"] == "escalate"
+    presentation = result["presentation"]
+    assert presentation["surface"] == "NEEDS YOU"
+    assert presentation["tmux"] == "repo-alpha"
+    assert presentation["updated_choice"]["action_id"] == "human_valve"
+    assert [summary["reviewer_id"] for summary in presentation["reviewers"]] == [
+        "fable",
+        "opus",
+        "gpt-sol",
+    ]
+
+
+def test_presentation_falls_back_to_snapshot_session_and_topic():
+    present = module("foreman_consensus_present")
+
+    snapshot = present.presentation(
+        request={"topic": "alpha", "snapshot": {"session_name": "snap-alpha"}},
+        reviewers=[
+            {
+                "reviewer_id": "fable",
+                "verdict": "needs-human",
+                "action": "free form",
+                "rationale": "Architecture boundary.",
+            }
+        ],
+        action={"action_id": "human_valve", "params": {}},
+    )
+    assert snapshot["tmux"] == "snap-alpha"
+    assert snapshot["reviewers"][0]["action_id"] == "untyped"
+    assert snapshot["reviewers"][0]["summary"] == "Architecture boundary."
+
+    topic = present.presentation(
+        request={"topic": "alpha", "snapshot": "bad"},
+        reviewers=[
+            {
+                "reviewer_id": "opus",
+                "verdict": "unblock",
+                "action": {"action_id": 7, "params": {}},
+            }
+        ],
+        action={"action_id": "human_valve", "params": {}},
+    )
+    assert topic["tmux"] == "alpha"
+    assert topic["reviewers"][0]["action_id"] == "untyped"
 
 
 def test_insufficient_information_is_a_first_class_escalation(*, tmp_path: Path):
