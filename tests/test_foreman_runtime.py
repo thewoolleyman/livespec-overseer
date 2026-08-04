@@ -145,25 +145,46 @@ def test_convergence_requires_non_empty_set_no_change_and_no_action(*, tmp_path)
     module = foreman_runtime()
     repo = make_repo(tmp_path=tmp_path)
     config = module.ForemanConfig(converged_ticks=2)
-    actions = [False, True, False, False]
+    actions = [False, False, True, False, False]
+    clock = {"now": 10.0}
     runtime = module.ForemanRuntime(
         repo=repo,
-        now=lambda: 10.0,
+        now=lambda: clock["now"],
         config=config,
         llm_tick=lambda *, document: actions.pop(0),
     )
 
     empty = runtime.step(document={"snapshot": {"rows": []}})
     assert empty.exit_reason is None
+    clock["now"] = 3610.0
     first = runtime.step(document={"snapshot": {"rows": [{"topic": "a", "status": "idle"}]}})
     assert first.exit_reason is None
+    clock["now"] = 7210.0
     action = runtime.step(document={"snapshot": {"rows": [{"topic": "a", "status": "idle"}]}})
     assert action.action_taken is True
     assert action.exit_reason is None
+    clock["now"] = 10810.0
     no_change = runtime.step(document={"snapshot": {"rows": [{"topic": "a", "status": "idle"}]}})
     assert no_change.exit_reason is None
+    clock["now"] = 14410.0
     converged = runtime.step(document={"snapshot": {"rows": [{"topic": "a", "status": "idle"}]}})
     assert converged.exit_reason == "converged"
+
+
+def test_unchanged_token_free_observation_preserves_stable_tick_without_converging(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    clock = {"now": 10.0}
+    runtime = module.ForemanRuntime(repo=repo, now=lambda: clock["now"])
+    document = {"snapshot": {"rows": [{"topic": "a", "status": "idle"}]}}
+
+    first = runtime.step(document=document)
+    immediate = runtime.step(document=document)
+
+    assert first.llm_tick is True
+    assert immediate.llm_tick is False
+    assert immediate.exit_reason is None
+    assert state_json(repo=repo)["stable_ticks"] == 1
 
 
 def test_token_free_generation_watcher_reenters_after_llm_loop_exit(*, tmp_path):

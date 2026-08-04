@@ -99,12 +99,14 @@ class ForemanRuntime:
         state = self._read_state()
         tick_generation = _int_state(value=state.get("tick_generation")) + 1
         doc = foreman_document(payload=document)
-        due = (
-            _float_state(value=state.get("next_llm_tick_at")) <= self.now()
-            or _int_state(value=state.get("stable_ticks")) >= 1
-        )
+        due = _float_state(value=state.get("next_llm_tick_at")) <= self.now()
         action_taken = self.llm_tick(document=doc) if due else False
-        stable_ticks = self._stable_ticks(state=state, document=doc, action_taken=action_taken)
+        stable_ticks = self._stable_ticks(
+            state=state,
+            document=doc,
+            action_taken=action_taken,
+            scheduled_tick=due,
+        )
         self._write_state(
             state={
                 "tick_generation": tick_generation,
@@ -125,12 +127,19 @@ class ForemanRuntime:
         )
 
     def _stable_ticks(
-        self, *, state: dict[str, object], document: ForemanDocument, action_taken: bool
+        self,
+        *,
+        state: dict[str, object],
+        document: ForemanDocument,
+        action_taken: bool,
+        scheduled_tick: bool,
     ) -> int:
         if not document.monitored_entities or action_taken:
             return 0
         if state.get("last_fingerprint") != document.fingerprint:
-            return 1
+            return 1 if scheduled_tick else 0
+        if not scheduled_tick:
+            return _int_state(value=state.get("stable_ticks"))
         return _int_state(value=state.get("stable_ticks")) + 1
 
     def _exit_reason(

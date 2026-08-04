@@ -59,6 +59,8 @@ def render_document(*, document: dict[str, object]) -> str:
     snapshot = jsonio.as_object(value=document.get("snapshot")) or {}
     rows = object_rows(value=snapshot.get("rows"))
     journal = object_rows(value=document.get("dispatch_journal"))
+    items = items_from_attention(attention=document.get("needs_attention"))
+    needs_you = uses_needs_you(rows=rows, items=items)
     lines = [
         f"foreman-gather {document.get('generated_at')}",
         f"repo: {document.get('repo')}",
@@ -69,9 +71,9 @@ def render_document(*, document: dict[str, object]) -> str:
     lines.extend(row_line(row=row) for row in rows)
     if not rows:
         lines.append("  none")
-    lines.extend(["", "needs attention:"])
-    items = items_from_attention(attention=document.get("needs_attention"))
-    lines.extend(f"  {item.get('id')} | {item.get('kind')} | {item.get('title')}" for item in items)
+    lines.extend(["", "NEEDS YOU:" if needs_you else "needs attention:"])
+    line = attention_line if needs_you else legacy_attention_line
+    lines.extend(line(item=item) for item in items)
     if not items:
         lines.append("  none")
     lines.extend(["", "dispatch journal:"])
@@ -79,3 +81,18 @@ def render_document(*, document: dict[str, object]) -> str:
     if not journal:
         lines.append("  none")
     return "\n".join(lines) + "\n"
+
+
+def attention_line(*, item: dict[str, object]) -> str:
+    session = item.get("session_name") or item.get("tmux") or item.get("id")
+    return f"  {item.get('id')} | {session} | {item.get('kind')} | {item.get('title')}"
+
+
+def legacy_attention_line(*, item: dict[str, object]) -> str:
+    return f"  {item.get('id')} | {item.get('kind')} | {item.get('title')}"
+
+
+def uses_needs_you(*, rows: list[dict[str, object]], items: list[dict[str, object]]) -> bool:
+    return any(row.get("tmux") for row in rows) or any(
+        item.get("session_name") or item.get("tmux") for item in items
+    )
