@@ -7,6 +7,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
 
 __all__: list[str] = []
@@ -42,10 +44,112 @@ def reviewers(*, action: object | None = None) -> dict[str, object]:
     return {
         "reviewers": [
             {"reviewer_id": "fable", "verdict": "unblock", "action": typed},
-            {"reviewer_id": "gemini", "verdict": "unblock", "action": typed},
-            {"reviewer_id": "gpt", "verdict": "unblock", "action": typed},
+            {"reviewer_id": "opus", "verdict": "unblock", "action": typed},
+            {"reviewer_id": "gpt-sol", "verdict": "unblock", "action": typed},
         ]
     }
+
+
+def test_model_identities_are_verified_seed_panel_and_fail_loudly():
+    types = module("foreman_consensus_types")
+
+    assert types.MODEL_IDENTITIES == (
+        {
+            "reviewer_id": "fable",
+            "vendor": "anthropic",
+            "model": "claude-fable-5",
+        },
+        {
+            "reviewer_id": "opus",
+            "vendor": "anthropic",
+            "model": "claude-opus-5",
+        },
+        {
+            "reviewer_id": "gpt-sol",
+            "vendor": "openai",
+            "model": "gpt-5.6-sol",
+        },
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "^unresolvable pinned model identity for reviewer fable: "
+            "anthropic/claude-fable-5-20260804$"
+        ),
+    ):
+        types.construct_model_identities(
+            identities=(
+                {
+                    "reviewer_id": "fable",
+                    "vendor": "anthropic",
+                    "model": "claude-fable-5-20260804",
+                },
+                {
+                    "reviewer_id": "opus",
+                    "vendor": "anthropic",
+                    "model": "claude-opus-5",
+                },
+                {
+                    "reviewer_id": "gpt-sol",
+                    "vendor": "openai",
+                    "model": "gpt-5.6-sol",
+                },
+            )
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="^duplicate resolved model identity: anthropic/claude-fable-5$",
+    ):
+        types.construct_model_identities(
+            identities=(
+                {
+                    "reviewer_id": "fable",
+                    "vendor": "anthropic",
+                    "model": "claude-fable-5",
+                },
+                {
+                    "reviewer_id": "opus",
+                    "vendor": "anthropic",
+                    "model": "claude-fable-5",
+                },
+                {
+                    "reviewer_id": "gpt-sol",
+                    "vendor": "openai",
+                    "model": "gpt-5.6-sol",
+                },
+            )
+        )
+
+    with pytest.raises(
+        ValueError,
+        match="^consensus panel must have exactly one non-Anthropic reviewer$",
+    ):
+        types.construct_model_identities(
+            identities=(
+                {
+                    "reviewer_id": "fable",
+                    "vendor": "anthropic",
+                    "model": "claude-fable-5",
+                },
+                {
+                    "reviewer_id": "opus",
+                    "vendor": "anthropic",
+                    "model": "claude-opus-5",
+                },
+                {
+                    "reviewer_id": "sonnet",
+                    "vendor": "anthropic",
+                    "model": "claude-sonnet-5",
+                },
+            )
+        )
+
+    non_anthropic = [
+        identity for identity in types.MODEL_IDENTITIES if identity["vendor"] != "anthropic"
+    ]
+    assert [identity["reviewer_id"] for identity in non_anthropic] == ["gpt-sol"]
 
 
 def test_consensus_module_executable_schema_and_typed_unanimity(*, tmp_path: Path):
@@ -142,10 +246,10 @@ def test_needs_human_escalates_and_non_anthropic_dissent_is_non_overridable(*, t
     non_anthro = reviewers()
     non_anthro_panel = non_anthro["reviewers"]
     assert isinstance(non_anthro_panel, list)
-    gemini = non_anthro_panel[1]
-    assert isinstance(gemini, dict)
-    gemini["verdict"] = "needs-human"
-    gemini["action"] = {"action_id": "human_valve", "params": {"reason": "architecture"}}
+    gpt_sol = non_anthro_panel[2]
+    assert isinstance(gpt_sol, dict)
+    gpt_sol["verdict"] = "needs-human"
+    gpt_sol["action"] = {"action_id": "human_valve", "params": {"reason": "architecture"}}
 
     non_anthro_result = consensus.consensus(
         request=request(repo=repo, question="non anthro dissent"),
@@ -154,7 +258,30 @@ def test_needs_human_escalates_and_non_anthropic_dissent_is_non_overridable(*, t
     )
     assert non_anthro_result["outcome"] == "escalate"
     assert non_anthro_result["reason"] == "non_anthropic_needs_human_dissent"
-    assert non_anthro_result["dissent"]["reviewer_id"] == "gemini"
+    assert non_anthro_result["dissent"]["reviewer_id"] == "gpt-sol"
+
+
+def test_minority_report_override_is_reachable_with_seed_panel(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    minority_report = reviewers()
+    panel = minority_report["reviewers"]
+    assert isinstance(panel, list)
+    fable = panel[0]
+    assert isinstance(fable, dict)
+    fable["verdict"] = "needs-human"
+    fable["action"] = {"action_id": "human_valve", "params": {"reason": "architecture"}}
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="anthropic minority report"),
+        responses=minority_report,
+        state_dir=tmp_path / "state-minority-report",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "needs_human"
+    assert "dissent" not in result
 
 
 def test_insufficient_information_is_a_first_class_escalation(*, tmp_path: Path):
@@ -199,12 +326,12 @@ def test_panel_shape_identity_and_verdict_validation_escalate(*, tmp_path: Path)
                     "action": {"action_id": "work_item_file", "params": {}},
                 },
                 {
-                    "reviewer_id": "gemini",
+                    "reviewer_id": "opus",
                     "verdict": "unblock",
                     "action": {"action_id": "work_item_file", "params": {}},
                 },
                 {
-                    "reviewer_id": "gpt",
+                    "reviewer_id": "gpt-sol",
                     "verdict": "unblock",
                     "action": {"action_id": "work_item_file", "params": {}},
                 },
@@ -226,12 +353,12 @@ def test_panel_shape_identity_and_verdict_validation_escalate(*, tmp_path: Path)
                     "action": {"action_id": "work_item_file", "params": {}},
                 },
                 {
-                    "reviewer_id": "gemini",
+                    "reviewer_id": "opus",
                     "verdict": "unblock",
                     "action": {"action_id": "work_item_file", "params": {}},
                 },
                 {
-                    "reviewer_id": "gpt",
+                    "reviewer_id": "gpt-sol",
                     "verdict": "unblock",
                     "action": {"action_id": "work_item_file", "params": {}},
                 },

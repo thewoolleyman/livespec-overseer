@@ -46,8 +46,8 @@ def _typed_reviewers(*, action_id: str = "work_item_file") -> dict[str, object]:
     return {
         "reviewers": [
             {"reviewer_id": "fable", "verdict": "unblock", "action": action},
-            {"reviewer_id": "gemini", "verdict": "unblock", "action": action},
-            {"reviewer_id": "gpt", "verdict": "unblock", "action": action},
+            {"reviewer_id": "opus", "verdict": "unblock", "action": action},
+            {"reviewer_id": "gpt-sol", "verdict": "unblock", "action": action},
         ]
     }
 
@@ -133,7 +133,7 @@ def test_non_anthropic_needs_human_dissent_is_non_overridable(*, tmp_path: Path)
     reviewers = _typed_reviewers()
     panel = reviewers["reviewers"]
     assert isinstance(panel, list)
-    dissent = panel[1]
+    dissent = panel[2]
     assert isinstance(dissent, dict)
     dissent["verdict"] = "needs-human"
     dissent["action"] = {"action_id": "human_valve", "params": {"reason": "architecture"}}
@@ -142,7 +142,7 @@ def test_non_anthropic_needs_human_dissent_is_non_overridable(*, tmp_path: Path)
 
     assert result["outcome"] == "escalate"
     assert result["reason"] == "non_anthropic_needs_human_dissent"
-    assert result["dissent"]["reviewer_id"] == "gemini"
+    assert result["dissent"]["reviewer_id"] == "gpt-sol"
 
 
 def test_reviewer_prompts_omit_escalation_minimizing_framing(*, tmp_path: Path):
