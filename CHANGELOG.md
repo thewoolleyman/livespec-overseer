@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.28.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.6...v0.28.0) (2026-08-04)
+
+
+### Features
+
+* add foreman consensus panel artifact tests ([7243155](https://github.com/thewoolleyman/livespec-overseer/commit/72431550971ab86b4c68cf4b79794d9ef6f06a38))
+
 ## [0.27.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.27.5...v0.27.6) (2026-08-04)
 
 
