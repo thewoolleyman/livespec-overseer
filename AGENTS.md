@@ -134,6 +134,38 @@ The lifecycle has recipes for the rest too: `just worktree-hydrate`,
 orphans. `dev-tooling/*` is gitignored and byte-verified against the package
 source — never hand-edit the installed copy.
 
+**`just worktree-create` is currently DEAD IN THIS REPO, and it fails SILENTLY.**
+Measured 2026-08-04 (`livespec-dev-tooling-3pre`): it exits **141** printing
+nothing but `error: Recipe worktree-create failed on line 25 with exit code 141`.
+`worktree_primary_path` pipes `git worktree list --porcelain` into
+`awk '/^worktree /{print $2; exit}'` under `set -euo pipefail`; once the porcelain
+output needs more than one write, awk's early exit SIGPIPEs git and pipefail
+promotes 141, aborting inside a command substitution before the first `echo`. It is
+a SIZE threshold, not flakiness — this repo has 123 worktrees / 21545 bytes and
+fails; repos at ~1.5–2.7 KB work. Passing an explicit `base_ref` does NOT help; the
+SIGPIPE precedes base-ref resolution. Until it is fixed, use the documented rescue:
+`git worktree add -b <branch> <dest> origin/master`, then
+`just install-worktree-pack` inside it, then discard the `worktree_discipline` key.
+
+**Re-run `just install-worktree-pack` in ANY worktree created across a pin bump.**
+`worktree-create` provisions the pack by COPYING it from the PRIMARY checkout, whose
+copy came from the pin the primary resolved. A worktree on a branch that BUMPS the
+pin resolves the NEW package, whose canonical pack bodies differ — and the pack is
+byte-verified, so the worktree is born failing. Measured twice on 2026-08-04
+(`livespec-dev-tooling-ov9o`), and the failures NAME THE WRONG THING:
+`check-shell-quality` reports `just-interpolation` against recipes named
+`worktree-create`/`worktree-land`/`worktree-reap`, which arrive via
+`import? 'dev-tooling/worktree.just'` and are therefore attributed to the consumer's
+own `justfile`. Both repos went red-to-green on that one command with no other edit.
+Note also that `worktree_pack_body_mismatch`'s hint says to run `just bootstrap`,
+which is the wrong verb in a LINKED worktree.
+
+**`just worktree-reap` essentially never fires here** (`livespec-dev-tooling-teje`):
+it judges merged-ness by ANCESTRY into `origin/master`, which is false for every
+branch under this fleet's rebase-merge-only flow. A dry run on 2026-08-04 reported
+17 worktrees, 0 removable, several genuinely landed. That accumulation is what
+eventually trips the SIGPIPE above, so the two defects compound.
+
 ## The fleet has SEVERAL Anthropic credentials — probing the wrong one is the documented failure mode
 
 Cite this section; do not restate it per plan thread. It exists because the
@@ -173,11 +205,20 @@ Consequences to hold onto:
 - **Never print token material.** Presence, prefix and length are enough to
   identify which credential you are holding.
 
-## Two dispatch traps whose error messages point AWAY from the fix
+## Dispatch traps whose error messages point AWAY from the fix
 
-Both were measured on 2026-08-02 while dispatching from this repo. Each fails in
+Measured 2026-08-02 and 2026-08-04 while dispatching from this repo. Each fails in
 a way that makes the correct remedy look wrong, which is why they are here rather
 than only in a plan thread.
+
+**Check the target repo's MASTER CI before diagnosing any dispatch failure.** The
+Dispatcher refuses before any sandbox work with `latest master CI is not proven
+green at required check ci-green`, naming the failing run. A red master blocks
+EVERY dispatch in that repo and the refusal says nothing about your item, so it
+reads as a problem with the item. Measured 2026-08-04: this repo's master was red
+for hours — one plan handoff declared its ledger anchor as prose ("The epic anchor
+is `x`") where the gate's regex requires the literal "ledger anchor" phrase before
+the backticked id, so `test_plan_thread_records_agree` failed. One line fixed it.
 
 ### A `{{...}}` token anywhere in a work-item's text makes it UNDISPATCHABLE
 
@@ -242,6 +283,58 @@ of a run, `fabro ps` is. Release the claim by hand (`--status ready`, clear the
 assignee) before re-dispatching, and record WHY in the item so the next reader does
 not attribute an eviction to the `{{...}}` defect and go looking for a token that
 was never there.
+
+### A THIRD CAUSE, and unlike the two above it leaves NO phantom claim
+
+Measured 2026-08-04. An item whose THREAD MEMBERSHIP was filed as a cross-repo
+`depends_on` is permanently undispatchable:
+
+```
+ERROR: requested work-item(s) not in the ready set: <id>
+```
+
+`drive.py` exits **1** and the dispatcher exits **3**. No fabro run is created at
+all, so there is nothing to find in `fabro ps` and — unlike both traps above — the
+item is left with NO phantom claim. That absence is the discriminator.
+
+The cause is that `store._depends_on_from_edges` reconstructs
+`metadata.non_local_depends_on` into `WorkItem.depends_on`, and the ranker excludes
+any candidate with a dep that does not resolve CLOSED —
+`_dispatcher_loop_selection.is_dispatch_candidate` applies the same test to a
+`pending-approval` item by projecting it to `ready` first. So an anchor link pointing
+at the item's own PARENT EPIC is circular by construction: an epic cannot close
+before its children. It is also unresolvable independent of status whenever the
+consuming repo's `cross_repo_targets` manifest has no entry for the sibling repo —
+and an unresolvable sibling FAILS CLOSED.
+
+Measured with a three-way control against the plugin's own selector: as-filed → not
+a candidate; the identical item with the single `depends_on` entry stripped →
+candidate; a known-ready item → candidate.
+
+**Thread membership belongs in the item TEXT, never in a dependency edge.** The
+`Read first` block already carries it. Remedy: `bd update <id> --unset-metadata
+non_local_depends_on`, and record why. A GENUINE cross-repo dependency is fine — but
+check the consuming repo's `cross_repo_targets` actually lists the sibling, or it
+will fail closed forever.
+
+| | `{{...}}` token | queue eviction | anchor-as-dependency |
+|---|---|---|---|
+| `drive.py` exit | non-zero, immediate | **0** | **1** (dispatcher 3) |
+| error text | `template_undefined_variable` | none | `not in the ready set` |
+| `fabro ps` after | never lists it | lists `runnable` | never lists it |
+| phantom claim | yes | yes | **no** |
+
+### A LEDGER-EDIT item can never be factory-dispatched
+
+Measured 2026-08-04. If an item's deliverable is a beads mutation rather than a repo
+change, no sandboxed agent can satisfy it: the fabro sandbox has no `bd` on PATH, no
+`/usr/local/bin/bd`, no `BEADS_DOLT_PASSWORD` and no `.beads/metadata.json`, and the
+assignment forbids writing a `.beads/` directory, so the documented recovery path is
+closed too. The run reports the blocker honestly and parks at
+`blocked(human_input_required)`, holding a claim until force-removed.
+
+Tier such items supervisor/host and do them with the credential wrapper. The tell at
+filing time: the acceptance is phrased as `bd show <id>` reading a certain way.
 
 ### "dispatcher plugin build is stale" names a remedy that appears to do nothing
 
