@@ -172,7 +172,22 @@ any of it forward; the Verification Discipline block is the command.
   which driver was found every time you re-run the preconditions — it can change
   under you when a session is restarted.
 
-  **THE WORKER IS IN A RESTART LIVELOCK AND CANNOT BE RESPAWNED — measured
+  **THE RESTART-LIVELOCK CLAIM BELOW IS REFUTED FOR THIS SESSION — RE-MEASURED
+  2026-08-04T13:21Z. Read this before planning around a worker you believe cannot
+  be restarted.** The worker declared `ready` at 13:21:34Z and the daemon
+  respawned it at **13:21:53Z — nineteen seconds** — as
+  `codex resume … 019fcb7d-… read plan/foreman/handoff.md and follow it`, coming
+  back at 75% context from 28%. A wrap-up injection had also arrived at 13:10:49Z,
+  which independently refutes the neighbouring claim that this track is
+  `session-gone` and gets no wrap-up. **Both standing worker-health warnings in
+  this binder were stale, and inheriting them would have had this session plan
+  around a worker it wrongly believed was terminal.** The MECHANISM below is
+  preserved verbatim because it is real and may recur — it is the imperative that
+  expired, not the description. `overseer-t6m`/`overseer-vyzkzw` and
+  `overseer-6eo` remain OPEN and their acceptance is unmet; only their stated
+  impact on this track has lapsed. Re-measure before trusting either direction.
+
+  **THE ORIGINAL CLAIM, PRESERVED — measured
   2026-08-03T08:26–08:29Z and still true at 20:44Z, when it was at 17% context.**
   It obeys the marker protocol correctly: at each wrap-up it writes
   `winding-down` then `ready` and stops. It is never restarted, because the
@@ -203,9 +218,12 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **STATE AS OF 2026-08-04T06:45Z — THE THREAD IS REOPENED. THIS IS THE ONLY
-  STATUS BLOCK; EVERYTHING ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure
-  before acting; the Verification Discipline block below is the command.
+- **STATE AS OF 2026-08-04T14:17Z — THE THREAD IS REOPENED AND PHASE D IS
+  UNGATED. THIS IS THE ONLY STATUS BLOCK; EVERYTHING ELSE IN THIS FILE IS
+  STANDING GUIDANCE.** Re-measure before acting; the Verification Discipline
+  block below is the command. **Two standing worker-health warnings in this file
+  were REFUTED on 2026-08-04 (see the retirement notice above) — a health claim
+  ages exactly like an item status.**
 
   **COLD-OPEN, DO THESE SIX THINGS FIRST, IN THIS ORDER:**
 
@@ -264,35 +282,61 @@ any of it forward; the Verification Discipline block is the command.
   round (`overseer-ncx`) was in flight at wind-down. What remains is the
   RATIFICATION plus the wiring — see the state table.
 
-  **STATE, re-measured 2026-08-04T11:37Z AT WIND-DOWN. This supersedes every
-  earlier reading in this file.**
+  **STATE, re-measured 2026-08-04T14:12Z. This supersedes every earlier reading
+  in this file, including the 11:37Z wind-down table it replaces.**
 
   | Thing | State |
   |---|---|
   | `plan/foreman/` | **un-archived**, live |
   | epic `overseer-z5fo4y` | `backlog` (open) |
-  | `origin/master` | `646f53e`; latest release **v0.29.1** |
+  | `origin/master` | `c57d928` (**`v007` ratified**); latest release **v0.30.0** |
+  | `SPECIFICATION/proposed_changes/` | **EMPTY** but for its `README.md` — nothing pending |
   | `overseer-6fm` entrypoint gate | **closed**, released |
   | `overseer-gxzv5v` actuator filing defect | **closed**, PR #665 |
   | `overseer-5f2pfj` occupied-session classifier | **closed**, PR #670, released v0.28.1 |
   | `overseer-mqpgs7` E2E for seed reqs 3/4/6/7 | **closed**, PR #672, released v0.29.0 |
   | `overseer-a7c` Phase C core (the panel) | **closed**, PR #668, released |
   | `overseer-xbn` panel pin correction | **closed**, PR #675 |
-  | `overseer-ncx` minority-report round | **`active`/`fabro`, run `01KZ679ZJM93EH05HF184EP1QZ` still `running` at 11:45:15Z (~38m), NO PR yet** — real claim, dispatcher alive at wind-down. **DO NOT RE-DISPATCH; reconcile per next-action 2.** |
-  | `overseer-ym6` Phase D foundation | `ready`, **re-scoped** — see below |
+  | `overseer-ncx` minority-report round | **CLOSED** — its ORIGINAL run finished green (PR #681, merge `ec778b2`, released `0.30.0`). Correctly never re-dispatched. **PHASE C IS COMPLETE.** |
+  | `overseer-ym6` Phase D foundation | `ready`; **spec half DISCHARGED by `v007`** — only the WIRING remains, and it IS factory-dispatchable |
   | `overseer-afn` Codex picker surface | `ready`; **leg 1 MEASURED, positive** |
-  | `overseer-0fy` gate driving | `backlog`, blocked by `ncx` + `ym6` |
-  | `overseer-ctc` E2E for requirement 5 | `backlog`, blocked by all of the above |
-  | `overseer-6eo` (P1) | open: the daemon reports this thread's own LIVE worker as `session-gone` |
-  | worker session `foreman` | alive, codex, **57% ctx** (it COMPACTED itself from 15%), its assigned lane COMPLETE |
+  | `overseer-0fy` gate driving | `backlog`, now gated on **`ym6` alone** (`ncx` closed) |
+  | `overseer-ctc` E2E for requirement 5 | `backlog`, blocked by all of the above; **the exit condition** |
+  | `overseer-6eo` (P1) | OPEN and unmet, but **its stated impact on this track has LAPSED** — a wrap-up reached this worker at 13:10:49Z |
+  | worker session `foreman` | alive, codex, **RESTARTED 13:21:53Z**, 75%→57% ctx, lane complete, told Phase D is open |
 
-  **THE SINGLE MOST IMPORTANT PENDING THING: PR #679 IS MERGED AND AWAITS THE
-  MAINTAINER'S `/livespec:revise` PASS.** It filed
-  `SPECIFICATION/proposed_changes/foreman-consensus-decision-policy.md` (verified
-  present in `git ls-tree origin/master`, not just the working tree). **That
-  ratification is the gate on BOTH this thread's Phase D and the `livespec`
-  thread's Increment 3.** Nothing else unblocks them. Do not re-file it; check
-  whether it has been revised, and if it has, proceed to the WIRING.
+  **THAT RATIFICATION IS DONE — `v007` IS MERGED. 2026-08-04T14:10:54Z, PR #688,
+  merge `c57d928`.** This paragraph used to name PR #679's pending
+  `/livespec:revise` pass as the single most important open thing; it is
+  discharged. Verified against the FORGE after a fetch, not the working tree:
+  `SPECIFICATION/history/v007/` is in `git ls-tree origin/master`,
+  `proposed_changes/` holds only its `README.md`, the self-retiring sentence has
+  **zero** occurrences in master's `spec.md`, and the ratified policy is present.
+  **PHASE D IS UNGATED.** Do not re-run revise and do not re-file the proposal.
+
+  Three things about that pass are worth inheriting rather than re-deriving:
+
+  - **The blocker was a PRECONDITION, not the decision.**
+    `no_stale_revise_branches` failed on three `spec/*` branches that were
+    rebase-merge leftovers (C13's shape — a landed branch is not an ancestor of
+    `origin/master`). `--skip-stale-branch-check` was available and was REFUSED,
+    because skipping a check is this contract's one stop-boundary. The branches
+    were deleted behind backup refs at `refs/backup/2026-08-04/`, and the check
+    then passed on its own merits.
+  - **RATIFYING AHEAD OF IMPLEMENTATION IS SUPPORTED — use `test: "TODO"`.**
+    `check-heading-coverage` demands a registry entry for every `##` heading and
+    an INTEGRATION-tier test for every `## Scenario:`. No integration test exists
+    for the consensus panel, so the eight new headings were unlandable until they
+    were registered as `"test": "TODO"` with a non-empty `reason` (and, for
+    scenarios, a reason that explicitly acknowledges the tier requirement). Ten
+    such entries already existed. **Never point a new heading at an unrelated
+    existing test to make that gate green.**
+  - **THE INDEPENDENT REVIEW CAUGHT A REAL DEFECT, so do not treat it as
+    ceremony.** The first pass returned BLOCKERS: `contracts.md` cited
+    `spec.md §"The foreman"`, a heading that does not exist — an invented anchor
+    that read plausibly. Corrected, digest recomputed, re-reviewed to NO
+    BLOCKERS. `just check`'s `doctor-anchor-reference-resolution` would also have
+    caught it; the review caught it first and cheaper.
 
   **THE DEPLOYMENT PROOF IS DISCHARGED — 2026-08-04T06:56:40Z, AGAINST THE
   RELEASED CACHE BUILD, AND CONTROLLED BOTH WAYS.** The previous version of this
@@ -389,21 +433,35 @@ any of it forward; the Verification Discipline block is the command.
 
   **NEXT ACTIONS, IN ORDER, FOR THE SESSION THAT INHERITS THIS:**
 
-  1. **Check whether PR #679's proposal has been REVISED** (`ls
-     SPECIFICATION/proposed_changes/` — empty means it ratified; a new
-     `history/vNNN/` confirms). That ratification gates everything below.
-  2. **Reconcile `overseer-ncx`.** It was RUNNING at wind-down. Check `gh pr list
-     --state merged` FIRST (overseer-6pn), then three-way discriminate:
-     failed-with-merged-PR = reconcile not re-dispatch; blocked = `fabro dump`
-     FIRST; absent from `fabro ps -a` = eviction.
-  3. **`ym6` is MINE and is NOT a factory dispatch** — its work is a spec
-     amendment in ANOTHER repo's lifecycle, which a single-repo sandbox cannot
-     execute. See the re-scoping note below.
+  1. ~~Check whether PR #679's proposal has been REVISED.~~ **DONE — `v007`
+     merged 2026-08-04T14:10:54Z (PR #688).** Phase D is ungated.
+  2. ~~Reconcile `overseer-ncx`.~~ **DONE — it completed on its ORIGINAL run.**
+     Run `01KZ679ZJM93EH05HF184EP1QZ` reported green, PR #681, merge `ec778b2`,
+     janitor green, released as `0.30.0`. It was never a phantom claim and was
+     correctly NOT re-dispatched. **Phase C is COMPLETE**: `a7c`, `xbn`, `ncx`
+     all closed.
+  3. **`ym6`'s SPEC HALF IS DISCHARGED BY `v007`** — its acceptance leg 1 reads
+     "the spec amendment filed through the `/livespec:` lifecycle in the OWNING
+     repo", the owning repo is THIS one, and both the filing (#679) and the
+     ratification (#688) have happened. **Leg 1's wording is now misleading
+     rather than outstanding; the item is annotated.** What remains is the
+     WIRING — reading the ratified key with report-only as the fail-closed
+     effective value, surfacing an unrecognized value, making the effective value
+     observable without invoking the foreman, refusing self-setting, plus leg 2's
+     journal-before-act RED test and leg 3's opt-in control. That is ordinary
+     code in this repo, so it IS factory-dispatchable; the old "not a factory
+     dispatch" framing died with the three-repo re-scoping.
   4. **`afn` leg 1 is DONE and positive**; legs 2–3 and the marker-protocol
      amendment remain.
-  5. Then `0fy`, then `ctc`. `ctc` is the exit condition — and it is where the
-     foreman finally gets RUN. **Do not run the product before then**; that is a
-     deliberate ordering, not an oversight.
+  5. Then `0fy` — now gated on `ym6` ALONE, since `ncx` is closed — then `ctc`.
+     `ctc` is the exit condition, and it is where the foreman finally gets RUN.
+     **Do not run the product before then**; that is a deliberate ordering, not
+     an oversight.
+  6. **Post-step `capture-impl-gaps` (revise prose Step 13) has NOT been run**,
+     deliberately: gaps belong against ratified bytes, and `overseer-ym6` already
+     carries this exact implementation, so running it blind risks the duplicate
+     this thread has already filed twice (T5, C18). Run it, but search the
+     subject `--all`-unfiltered first and expect `ym6` to be the answer.
 
   **`overseer-ym6` WAS RE-SCOPED AT 11:2xZ AND ITS OLD TITLE WAS WRONG.** It used
   to read "a THREE-REPO reversal of the needs-human guarantee". **There is no
@@ -418,6 +476,30 @@ any of it forward; the Verification Discipline block is the command.
   valid configuration but unavailable evidence escalates; NO PANEL WAS BUILT OR
   STUBBED". **The panel was always the missing piece, and `a7c` built it.** The
   maintainer identified this; I had it wrong. Do not restore the old framing.
+
+  **BUT THAT RETRACTION IS ITSELF TOO BROAD IN EXACTLY ONE PLACE, AND THE PEER
+  TRACK CAUGHT IT — 2026-08-04T11:31Z, absorbed here 13:25Z.** The floor clause's
+  own enumeration reads: *"A decision that is human-gated BY DESIGN — **drift
+  acceptance**, a spec-change slice, a regroom / backlog bounce, or a
+  `human-only` acceptance — MUST stay escalated even when the Dispatcher is fully
+  confident."* **Drift acceptance is named INSIDE the floor, not below it.** So
+  `drift_acceptance_mode: consensus` genuinely does contradict that clause until
+  the clause itself is amended. The general retraction stands; drift is the
+  exception. Note how each side reached a wrong answer one artifact apart: I
+  quoted the contract from a work item's DESCRIPTION, and they accepted my
+  retraction's framing until they opened `contracts.md` themselves.
+  **NEITHER HALF IS OURS TO CARRY.** `bd-ib-qek6`
+  (`livespec-orchestrator-beads-fabro`, `backlog`) amends the floor for drift
+  acceptance ONLY, preserving every other floor verbatim; `livespec-jvdvx4.5`
+  (`livespec`) carries core's drift-doctrine sentence and the
+  `spec_governance.drift_acceptance_mode` key. Both were filed by the peer track
+  into their OWNING tenants. They must agree, and **neither may ratify claiming
+  the other already did.** `v007` deliberately did not touch drift: it keeps
+  drift acceptance inside the hard floors and binds the floor CATEGORIES by
+  reference rather than restating them, so it pre-empts nothing.
+  **THE O12 FOUR-PLACE LIST ON `overseer-ym6` IS NOT COMPLETE** — `livespec` is a
+  fifth place, carried by `livespec-jvdvx4.5`. Do not read that enumeration as
+  exhaustive.
 
   **A REPO-WIDE DISPATCH BLOCKER I CLEARED — expect its shape again.** The first
   dispatch was refused by a **pre-dispatch LEDGER check**, not by anything about
@@ -490,11 +572,24 @@ any of it forward; the Verification Discipline block is the command.
   dispatch in the tenant.
 
   Their standing valve was "the key must not ship armed-able before the consensus
-  panel exists". **It exists now**, so their Increment 3 is gated only on this
-  repo ratifying PR #679's proposal. I acknowledged their notification in writing
-  at `/data/projects/livespec/tmp/overseer/spec-side-autonomy/INBOX-from-livespec-overseer-foreman.md`
-  and told them I will notify them when the ratification lands. **That promise is
-  inherited by whoever reads this.**
+  panel exists". **It exists now**, and the ratification it was waiting on has
+  LANDED as `v007`.
+
+  **THE NOTIFY-ON-RATIFICATION PROMISE IS DISCHARGED — 2026-08-04T14:12Z.** It
+  had been inherited across three supervisor sessions. Delivered on BOTH channels
+  they named: appended to
+  `/data/projects/livespec/tmp/overseer/spec-side-autonomy/INBOX-from-livespec-overseer-foreman.md`
+  and one line to their `worker-status.log`, naming the version (`v007`), the
+  merge commit (`c57d928`), that drift stays inside the floors so `bd-ib-qek6` is
+  not pre-empted, and the caveat that this is ratified AHEAD of implementation —
+  so if they need the foreman to actually ACT, that is gated on `overseer-ym6`,
+  not on `v007`. **Do not re-send it; do not re-promise it.**
+
+  **THEIR REPLY 2 (11:31Z) SAT UNACKNOWLEDGED THROUGH A WIND-DOWN** and is ACKed
+  as of 13:25Z. Its substance is a correction to this binder and is folded in
+  above — drift acceptance is named INSIDE the floor. **Check the INBOX at every
+  cold open (step 3); a reply can arrive between a predecessor's last read and
+  their wind-down, which is exactly what happened here.**
 
 - **BEFORE YOU DIAGNOSE ANY DISPATCH FAILURE, READ `overseer-6pn`.** A
   dispatcher that reports `failed` while its PR MERGED is that bug, not a real
@@ -554,9 +649,22 @@ any of it forward; the Verification Discipline block is the command.
   plugin path; invoke the new build by ABSOLUTE PATH. All seven items above were
   scanned for the token on 2026-08-02T23:42Z and are clean.
 
-- **`just worktree-create` FAILS AT SCALE IN THIS REPO.** Measured
-  2026-08-02T23:42Z: 81 worktrees, past the 77 at which 65 consecutive failures
-  were recorded (fix tracked as `livespec-dev-tooling-zi4q`). The proven rescue,
+- **`just worktree-create` FAILS AT SCALE IN THIS REPO — AND SO DOES
+  `just worktree-reap`, WHICH MAKES IT SELF-REINFORCING. Re-measured
+  2026-08-04T13:18–13:23Z at 121 WORKTREES:** both recipes exit **141**
+  (128+13 = SIGPIPE), `worktree-create` at recipe line 25 and `worktree-reap` at
+  line 39. **The sanctioned remedy for having too many worktrees is the recipe
+  that the number of worktrees breaks**, so the condition can only worsen
+  unattended. The root-cause item `livespec-dev-tooling-2oip`
+  ("`worktree_primary_path` dies of SIGPIPE past ~4KB of `git worktree list`
+  output") was **CLOSED 2026-08-03T18:35Z on this exact signature**, so this is a
+  regression or an incomplete fix — reported there as a comment (not reopened;
+  their queue's next action is theirs). Compounding it,
+  `livespec-dev-tooling-xezh` records that reap's merged-ness test is ANCESTRY,
+  which under this fleet's mandatory rebase-merge can never recognise a correctly
+  landed worktree — so nothing is ever reaped and the list only grows.
+  **The binder previously cited only `livespec-dev-tooling-zi4q` and only
+  `worktree-create`, at 81 worktrees.** The proven rescue,
   used to create this charter's own branch: `git worktree add <path> -b <branch>
   <base>`, then `just install-worktree-pack` inside it, then discard the
   `worktree_discipline` key it writes into the tracked `.livespec.jsonc` unless
@@ -1059,3 +1167,70 @@ ordering exactly.
   obedience could not have saved me.** Cold-open step 3 now names it. When you
   add a channel by which other tracks can reach you, add it to the boot chain in
   the same change, or you have built a mailbox nobody opens.
+
+- **T11 (2026-08-04) — THE WORKER WAS DEAD ON A REVOKED TOKEN, THE BANNER'S OWN
+  REMEDY WOULD HAVE MADE IT WORSE FOR EVERY OTHER SESSION ON THE HOST, AND THE
+  FIX WAS A PLAIN RETRY.** Cold-opening, I found the worker pane showing, twice:
+  *"Your access token could not be refreshed because your refresh token was
+  revoked. Please log out and sign in again."* Its 13:10:50Z turn — the daemon's
+  wrap-up injection — hit `task_complete` **0.9 seconds** later, i.e. aborted
+  before doing anything, and it had written no `.overseer-state` at all. That is
+  the wrap-up text's own "you are reported to the human as not responding" case.
+  **THE BANNER NAMES A REMEDY THAT POINTS AWAY FROM THE FIX, and following it
+  would have caused a second, larger outage.** `~/.codex/auth.json` is SHARED by
+  every Codex session on this host — there were a dozen live. Its `last_refresh`
+  read **13:13:00Z**, i.e. a SIBLING session had rotated the refresh token
+  successfully *after* this worker's attempt failed. The credential ON DISK was
+  fresh the whole time. This is a refresh-token **ROTATION RACE**: the worker held
+  a stale token in memory, a sibling rotated it, and the server correctly rejected
+  the old one. Logging out and signing in again would have rotated it AGAIN and
+  broken every other live Codex session — including two other tracks' workers.
+  **THE FIX WAS ONE SHORT MESSAGE.** I sent a retry instruction; the worker
+  re-read the on-disk credential, acknowledged, wrote `winding-down`, updated and
+  committed its handoff (PR #684), and declared `ready`. No re-auth, no restart,
+  no maintainer.
+  **HOW TO TELL, BEFORE ACTING:** read `last_refresh` in `~/.codex/auth.json` and
+  compare it against when the failure occurred (the rollout file's tail gives the
+  exact turn timing). A `last_refresh` NEWER than the failure means a sibling
+  already repaired the credential and a retry will work. Only a `last_refresh`
+  that is stale, or a genuinely absent/short-lived token, argues for re-auth.
+  Never print token material — presence, prefix and length are enough.
+  THE FAMILY: this is the repo-root CLAUDE.md's *"a remedy that appears to do
+  nothing"* trap wearing new clothes, and its cousin C13 — an error message names
+  a cause, and a cause is not an explanation. It is also T4 exactly: **a banner,
+  like a check name and a status line, names a thing and does not explain
+  itself.** The cheap discriminating read took one command.
+
+- **T12 (2026-08-04) — THE DAEMON'S OWN WRAP-UP INSTRUCTION DIRTIES THE PRIMARY
+  CHECKOUT BY DESIGN, AND THAT IS THE CONDITION `overseer-6pn` SAYS FAILS EVERY
+  DISPATCH FLEET-WIDE.** The maintainer caught this as "wrote a handoff doc to
+  the primary checkout".
+  **WHAT WAS ACTUALLY THERE, because the alarming reading was the wrong one.**
+  `git status` showed one modified file, `plan/foreman/handoff.md`, **unstaged and
+  uncommitted**, and `git log origin/master..HEAD` was EMPTY — nothing had been
+  committed to the primary and the commit-refuse hook was never bypassed. The
+  file was **byte-identical to `origin/master`** (SHA-256 both ways, with a
+  positive control proving the diff could report a difference). The worker had
+  written it, then committed it correctly through a worktree as PR #684, which
+  merged. The primary was simply two commits BEHIND, so already-landed content
+  rendered as a local modification. The repair was a fast-forward; nothing was
+  discarded and nothing was lost.
+  **THE MECHANISM IS THE WRAP-UP TEXT ITSELF, so it recurs every wind-down.** The
+  daemon's injected instruction says, in order: (1) *"UPDATE
+  `plan/<topic>/handoff.md` to match"* — which is the PRIMARY checkout, because
+  that is where the session is — and only then (2) create a worktree, `cp` the
+  file across, and commit THERE. Step 1 necessarily dirties the primary, and
+  nothing in the ritual cleans it up afterwards.
+  **WHY THAT IS NOT COSMETIC.** `overseer-6pn` records that the post-merge
+  janitor pulls the PRIMARY checkout and that **one dirty file there aborts its
+  `git pull` and fails every dispatch fleet-wide**. So the sanctioned wind-down
+  ritual manufactures, once per wind-down, exactly the state that halts the
+  factory for every repo. It also sets up C24's trap: the successor cold-opens on
+  a primary that is behind, and reads a stale charter.
+  **WHAT TO DO:** after any wind-down, `git status` the primary and fast-forward
+  it. **Check `git status`, not `git log`** — the repo-root CLAUDE.md already says
+  this for hook-gated commits, and it applies here for the opposite reason: `git
+  log` looked perfectly healthy while the tree was dirty. And before discarding
+  anything, prove WHOSE the edit is: compare the working file against
+  `origin/master` by hash, not by `git diff` against a stale HEAD, which reports a
+  landed change as a local one.
