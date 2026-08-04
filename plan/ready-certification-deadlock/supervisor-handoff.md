@@ -469,3 +469,24 @@ binder inherits them.
   it in the block and add an assertion the reader can run, because a silent
   wrong result is the failure mode a fenced block is least able to report. V5
   now carries both.
+
+- **T2 (2026-08-04) — I read a one-instant measurement as a standing fact and
+  told the worker it had time it did not have.** Before handing over the
+  sequencing constraint I measured PR #701 as `autoMerge=no, checks pending`
+  and wrote "auto-merge is off and three checks are pending, so there is time,
+  but do not plan to amend after a merge". The first clause was false the
+  moment after I measured it: this repo runs an `enable-auto-merge` workflow,
+  and `app/livespec-pr-bot` turned auto-merge ON once checks went green. #701
+  merged at 16:02:04Z carrying only its first commit, orphaning the worker's
+  constraint commit onto the branch and costing a second PR (#704) to land it.
+  **THE GENERALISATION: auto-merge state is a CLAIM WITH A TIMESTAMP, exactly
+  like an item status — and unlike an item status it is changed by a BOT on a
+  timer I do not control.** The repo-level rule already in CLAUDE.md ("push
+  every commit you intend to ship BEFORE opening the PR") is the real remedy;
+  I quoted a live reading as if it superseded that rule. Never derive "there
+  is time to amend" from an autoMerge reading. My own second clause was right
+  and I should have stopped there.
+  Worth recording that the WORKER handled the consequence correctly: it noticed
+  "new branch" on a second push was suspicious, verified against the FORGE
+  rather than the local tree, and cherry-picked its delta onto a fresh branch
+  off current master rather than trying to re-target a rebase-merged branch.
