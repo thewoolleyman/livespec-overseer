@@ -1,6 +1,66 @@
 # Plan — foreman
 
-## Status: COMPLETE AND ARCHIVED — v1 (phases A+B) shipped 2026-08-04
+## Status: REOPENED 2026-08-04T06:20Z — v1 WAS NEVER PROVEN TO RUN
+
+**The archive below was wrong, and the maintainer caught it by running the
+product.** The first real invocation of `/livespec-overseer:foreman` in a
+correctly-named session found that **both shipped executables are dead on
+arrival**:
+
+```
+$PLUGIN_ROOT/bin/foreman-runtime  -> ModuleNotFoundError: No module named '_claude_sessions_proc'
+$PLUGIN_ROOT/bin/foreman-act      -> ModuleNotFoundError: No module named 'jsonio'
+```
+
+Reproduced independently on cache build `0.27.2`, on `ff2644d0fc8e`, and on the
+repo-side `.claude-plugin/bin/` copy. Both pin only the plugin ROOT onto
+`sys.path` and then `from overseer import …`, but every module flat-imports its
+private siblings (`import jsonio`, `import _claude_sessions_proc`). The sibling
+executables do not have this defect because `bin/overseerd` and
+`bin/overseer-start` go through `python3 -m overseer.daemon`, and `daemon.py`
+self-pins its own directory. The one tick that appeared to work only proceeded
+under an out-of-contract `PYTHONPATH=$PLUGIN_ROOT/overseer`.
+
+**HOW ELEVEN CLOSED SLICES, 983 GREEN TESTS AND 100% COVERAGE MISSED THIS.**
+Every acceptance leg was satisfied by beside-tests that `sys.path.insert` the
+package directory and import modules directly. **Nothing ever executed a shipped
+entrypoint.** So the unit behaviour was real and the product could not start —
+and both release gates, the post-merge janitor, and a live daemon restart all
+passed over it. A test that never runs the artifact the user runs proves the
+artifact's *logic*, not the artifact.
+
+**THE GOVERNING REQUIREMENT WAS NEVER TESTED END TO END, AND THAT IS THE POINT.**
+`research/seed-prompt.md` is the maintainer's verbatim intent. Requirement 5 —
+the Fable/Opus/GPT-sol consensus panel with the minority-report override — is
+the engine for goals 2 and 3 (spend the maintainer's attention only on decisions
+that are genuinely theirs). It was deferred as "Phase C" and is NOT BUILT, so
+today the foreman can only *report* blocked items, which is the escalation load
+the seed asked to remove. Requirement 7's loop, requirement 6's `NEEDS YOU`,
+requirement 3's per-work-item tmux sessions and requirement 4's auto-created
+sessions have no end-to-end proof either.
+
+**EXIT CONDITION FOR THIS REOPENING: e2e tests that execute the shipped
+artifacts and demonstrate the seed-prompt requirements actually working.** Not
+unit tests with injected fakes. Do not archive this thread again on unit-green.
+
+Three defects the first live tick surfaced, all reproduced:
+
+1. **Shipped executables cannot start** (blocking) — above.
+2. **`work_item_file` cannot complete** (blocking) — the filing subprocess runs
+   `[sys.executable, "-c", …]` under a `--no-project` uv shebang and raises
+   `ModuleNotFoundError: No module named 'livespec_orchestrator_beads_fabro'`;
+   that package lives only in the orchestrator plugin's `scripts/` dir and
+   nothing puts it on the path. Worse, `append_journal` sits AFTER the raising
+   call in `act()`, so **a failed filing leaves no audit trace at all**.
+3. **The classifier would start into an OCCUPIED tmux session** (latent,
+   destructive) — `classify_session_lifecycle` special-cases only `unassigned`
+   and `_matching_live` keys purely on the registry name. Measured live:
+   `charter-gate-ratchet` returns `action=start` while its tmux session holds a
+   live Claude (pid 1741876). Only the prose boundary kept this from firing.
+
+---
+
+## Superseded status block — v1 (phases A+B) shipped 2026-08-04
 
 Closed `2026-08-04T01:2xZ`. The epic `overseer-z5fo4y` is CLOSED and all
 **eleven** children are closed: Phase A `.1`–`.5`, Phase B `overseer-by6hrx`,
