@@ -261,15 +261,18 @@ any of it forward; the Verification Discipline block is the command.
   **Restoring it reverses a deferral the maintainer should own: DRAFT the cut and
   RAISE IT as a picker; do not file it unilaterally.**
 
-  **STATE, measured 06:41–06:45Z:**
+  **STATE, re-measured 06:55–07:15Z (supersedes the 06:41–06:45Z reading):**
 
   | Thing | State |
   |---|---|
   | `plan/foreman/` | **un-archived**, PR #660 merged 06:20:20Z |
   | epic `overseer-z5fo4y` | **reopened** to `backlog`, reason on the item |
-  | `overseer-6fm` (P0, e2e entrypoint gate) | run `01KZ5Q5SPXYPVGY84678VCPBC6` **SUCCEEDED** (16m); **PR #662 OPEN**, 0 failed / 2 pending; item still `active`/`fabro` with the dispatcher in merge-poll |
-  | worker session `foreman` | **respawned fresh**, ~85% ctx, codex `gpt-5.6-sol`, `default_mode_request_user_input` ENABLED; driving from `tmp/overseer/foreman/worker-brief.md` |
-  | `origin/master` | `af2e3af` |
+  | `overseer-6fm` (P0, e2e entrypoint gate) | **CLOSED**; PR #662 merged 06:47:14Z and RELEASED in v0.27.5 |
+  | `overseer-gxzv5v` (the `work_item_file` defect, item 1 below) | **`active`/`fabro`, run `01KZ5RWXGN67` CONFIRMED `running`** — the WORKER dispatched it. Real claim, not phantom. Do not re-dispatch. |
+  | `overseer-5f2pfj` (the occupied-session classifier, item 2 below) | **FILED** `pending-approval` by the worker, with live tmux evidence; it is deliberately holding dispatch until `gxzv5v` lands |
+  | `overseer-6eo` (P1, NEW — see below) | filed 07:05Z: the daemon cannot see this thread's own live worker |
+  | worker session `foreman` | alive, codex `gpt-5.6-sol`, **17% ctx and falling**, and **UNSUPERVISED** — see `overseer-6eo` |
+  | `origin/master` | `3bdb29a`; released tag **v0.27.5** = `c35dea6` |
 
   **PR #662 MERGED 06:47:14Z AND THE FIX IS PROVEN IN-REPO — measured 06:52Z,
   BY RUNNING THE BINARY, not by unit-green.** Under a scrubbed environment
@@ -283,32 +286,100 @@ any of it forward; the Verification Discipline block is the command.
   The fix pins `parent.parent / "overseer"` — the package's OWN directory —
   which is the correct shape.
 
-  **THE IMMEDIATE NEXT ACTION: IT IS MERGED BUT NOT RELEASED, SO THE SHIPPED
-  ARTIFACT IS STILL BROKEN.** Measured in the same pass: `just ensure-plugins`
-  reports the cache "already at the latest version (`af2e3af9aa61`, v0.27.4)",
-  which PRE-DATES #662, and both binaries in that cache STILL traceback with
-  `ModuleNotFoundError`. So: **wait for the release to cut, `just
-  ensure-plugins`, then RE-PROVE against the CACHE build** — that is the artifact
-  a user actually runs, and only that proof closes this. This is the same
-  merged-is-not-running distinction slice `.4` taught, one layer out: here it is
-  merged-is-not-RELEASED. Do not report the in-repo pass as the deployment proof.
+  **THE DEPLOYMENT PROOF IS DISCHARGED — 2026-08-04T06:56:40Z, AGAINST THE
+  RELEASED CACHE BUILD, AND CONTROLLED BOTH WAYS.** The previous version of this
+  paragraph told the reader to wait for the release and then re-prove; the
+  release cut as PR #664 at 06:51:54Z (tag `v0.27.5` = `c35dea6`, and
+  `git merge-base --is-ancestor c6ace4b c35dea6` confirms the entrypoint fix is
+  IN it), `just ensure-plugins` reports the cache at `c35dea62368f`, and every
+  file in that build's `bin/` — enumerated from the TREE with `find`, not from a
+  list, so a future executable is covered the day it lands — was EXECUTED under
+  `env -u PYTHONPATH`:
+
+      foreman-act      rc=0    usage: foreman-act [-h] --proposal PROPOSAL ...
+      foreman-runtime  rc=0    usage: foreman-runtime [-h] [--repo REPO] ...
+      overseer-start   rc=0    usage: overseer-start [-h] [--warn-percent N]
+      overseerd        rc=0    usage: overseerd [-h] [--warn-percent N]
+
+  **THE NEGATIVE CONTROL IS WHAT MAKES THAT MEAN ANYTHING** (T6: a successful
+  result is not a finding unless you know what the check examined). The prior
+  build `af2e3af9aa61` (v0.27.4) is still on disk, so the identical command shape
+  was run against it: `foreman-act` exits 1 on `ModuleNotFoundError: No module
+  named 'jsonio'` and `foreman-runtime` exits 1 on `No module named
+  '_claude_sessions_proc'`. The check CAN fail. It did not.
+
+  **DO NOT RE-RUN THIS AS IF IT WERE OPEN, and do not read it as more than it
+  is.** It closes the ENTRYPOINT question only. The reopening's exit condition is
+  e2e proof of the SEED REQUIREMENTS, and that is untouched by this.
+
+  **THE MAINTAINER RULED ON REQUIREMENT 5 AT 07:12Z: BUILD PHASE C+D NOW.** The
+  worker drafted the cut and raised it as a picker in its OWN pane; per C23 the
+  supervisor PROXIED it rather than pointing the maintainer at that pane, and
+  relayed the answer back down by selecting the matching option there. So
+  requirement 5 is now IN the reopened thread's exit condition: the pinned
+  Fable/Opus/GPT-sol panel, the minority-report override, typed auto-actions, the
+  blocked-pane interlock, the Codex native-picker fallback, and the cross-repo
+  spec amendments needed to reverse the report-only disposition (review finding
+  C1) across `livespec-overseer`, `livespec-orchestrator-beads-fabro` and
+  `livespec`. **The standing "do not add Phase C consensus" prose and the
+  `human_action_report_only` refusal are now SUPERSEDED by this ruling** — that
+  is a deferral the maintainer has explicitly reversed, so do not re-apply it as
+  if it still bound.
+
+  **WHY THE ORIGINAL PLAN MISSED REQUIREMENT 5, since the mechanism matters more
+  than the blame and it will recur.** It was never overlooked: `brainstorm.md`
+  specifies the panel completely, and maintainer decision 4 deliberately scoped
+  it out with `v1 = phases A+B`. The defect is that **Phases C, D and E existed
+  ONLY as prose bullets in a research document and were never cut into ledger
+  items**, while completion was computed entirely from ledger state. So a
+  deferral written in prose and a completion measured in the ledger could never
+  meet, and the unbuilt majority was invisible to every instrument that decided
+  the thread was done. Each check was internally consistent and every one
+  answered *did we do what the epic said* — none answered *does the epic say what
+  the seed asked*. **A phase with no ledger representation does not exist to any
+  process that measures the ledger. Give every deferred phase a carrier, or the
+  deferral becomes a silent cancellation.**
 
   **THE WORKER OWNS THESE FOUR — do NOT file them yourself (T5):**
 
-  1. `work_item_file` cannot complete through the actuator: the filing subprocess
-     raises `ModuleNotFoundError: livespec_orchestrator_beads_fabro`. Also
-     `append_journal` sits AFTER the raising call in `act()`, so **a failed
-     filing leaves no audit trace at all**.
-  2. `classify_session_lifecycle` would **START INTO AN OCCUPIED tmux session** —
-     it special-cases only `unassigned` and `_matching_live` keys purely on the
-     registry name. Measured: `charter-gate-ratchet` returns `action=start` while
-     its tmux holds a live Claude (pid 1741876). Destructive; only the prose
-     boundary kept it from firing.
-  3. E2E proof for seed requirements 3, 4, 6, 7 (per-work-item sessions named
-     exactly after the item; auto-created sessions; the `NEEDS YOU` summary; the
-     hourly loop — whose 2-consecutive-identical-states exit ALREADY exists as
-     `converged_ticks=2` returning `exit_reason`, so prove it end to end).
-  4. Requirement 5 — **draft and RAISE, do not file.**
+  1. **FILED as `overseer-gxzv5v` and IN FLIGHT** (run `01KZ5RWXGN67`, confirmed
+     `running` 06:58Z). `work_item_file` cannot complete through the actuator: the
+     filing subprocess raises `ModuleNotFoundError:
+     livespec_orchestrator_beads_fabro`. Also `append_journal` sits AFTER the
+     raising call in `act()`, so **a failed filing leaves no audit trace at all**.
+  2. **FILED as `overseer-5f2pfj`**, `pending-approval`, held by the worker until
+     `gxzv5v` lands. `classify_session_lifecycle` would **START INTO AN OCCUPIED
+     tmux session** — it special-cases only `unassigned` and `_matching_live` keys
+     purely on the registry name. Measured: `charter-gate-ratchet` returns
+     `action=start` while its tmux holds a live Claude (pid 1741876). Destructive;
+     only the prose boundary kept it from firing.
+  3. **FILED as `overseer-mqpgs7`** — "E2E: shipped foreman fulfills seed
+     requirements 3, 4, 6, and 7" — created 07:01:04Z, `pending-approval`, blocked
+     by BOTH `overseer-5f2pfj` and `overseer-gxzv5v` (verified by querying
+     `mqpgs7`'s OWN dep tree, not its blockers' — T2). Covers per-work-item
+     sessions named exactly after the item; auto-created sessions; the `NEEDS YOU`
+     summary; and the hourly loop — whose 2-consecutive-identical-states exit
+     ALREADY exists as `converged_ticks=2` returning `exit_reason`, so that leg is
+     a PROOF, not a build.
+
+     **A T5 NEAR-MISS WORTH THE THREE LINES, because it happened to the
+     supervisor writing this file.** An unfiltered `--all` subject search at
+     06:58Z returned nothing for this subject, and that reading was TRUE. The
+     worker filed `mqpgs7` at 07:01:04Z — three minutes later. The sentence
+     "still unfiled" was written into this binder at 07:15Z and was already false;
+     it was caught only by re-measuring before the commit landed. **Minutes are
+     enough. Re-measure a "this is unfiled" claim at the moment you WRITE it, not
+     only at the moment you file.**
+  4. **RULED 07:12Z — BUILD PHASE C+D NOW, AND NO C/D ITEM EXISTS YET.** Measured
+     07:18Z with an unfiltered `--all` search: zero Phase C or Phase D work items
+     are filed. The decision is recorded on the epic `overseer-z5fo4y` and nothing
+     carries it. **THAT IS EXACTLY THE FAILURE MODE THAT LOST REQUIREMENT 5 THE
+     FIRST TIME** — a phase that lives only in prose is invisible to every process
+     that measures the ledger. **Filing the C+D cut is the single highest-value
+     next action on this thread.** The design is already written and binding
+     (`brainstorm.md` §"The consensus panel (seed 5)" and §"Gate-driving
+     mechanics (seed 5e)", plus Phase C/D in §4), so this is transcription, not
+     invention.
 
   **A REPO-WIDE DISPATCH BLOCKER I CLEARED — expect its shape again.** The first
   dispatch was refused by a **pre-dispatch LEDGER check**, not by anything about
@@ -324,6 +395,44 @@ any of it forward; the Verification Discipline block is the command.
   (role-level C24 — this one reddened master for ten minutes, see T6), #639,
   #642, #648, #654, #660 (the reopening). Prior sessions' history is in the
   superseded blocks below and in the marker.
+
+- **THE DAEMON CANNOT SEE THIS THREAD'S OWN LIVE WORKER, SO NOTHING IS
+  SUPERVISING IT — filed 07:05Z as `overseer-6eo` (P1).** Measured against a
+  FRESH snapshot (written_at 07:04:04Z, tick 721, 57 rows): `topic=foreman` reads
+  `status=session-gone, tmux=null, runtime=null, ctx=null,
+  session_identity="none:/data/projects/livespec-overseer:foreman"` while the
+  tmux session is alive and working. **`session-gone` means NO wrap-up injection
+  and NO restart**, so the worker runs to zero context with no wind-down and the
+  supervision layer never notices.
+
+  MECHANISM, measured to the file: the codex process holds EXACTLY ONE rollout
+  fd, `019fcb7d-8b6b-7461-b86f-e6fc67876603`, created 06:37:24Z, while
+  `~/.codex/session_index.jsonl` holds 183 rows and was last written 05:22:23Z —
+  75 minutes EARLIER. `map_codex_sessions` resolves no `thread_name` and drops
+  the process. The mapping store DOES carry the row and it names `tmux: foreman`,
+  so the daemon holds a correct topic-to-tmux binding and still reports GONE.
+
+  **NOT the three closed neighbours, and check this before re-deriving:**
+  `overseer-159` was TWO rollouts with the wrong one picked (this holds ONE, the
+  right one); `overseer-mir` was ZERO rollout fds and its impact claim was
+  explicitly RETRACTED (this DEMONSTRATES that retracted impact on a live track);
+  `overseer-j1r` was the CLAUDE path and `nameSource: derived`. j1r is the
+  instructive one — it fixed this exact operator-facing harm for Claude with a
+  softener, on the stated principle that the operator should not be told
+  finished-looking work was lost when it is merely out of reach. **The codex path
+  has no equivalent softener**, so an unresolvable rollout degrades straight past
+  every informational status to the daemon's ONLY red one.
+
+  **NOT a fleet-wide outage, and the control is why that is known:** the same
+  snapshot resolves `runtime=codex` for 10 rows. A first pass looked for the
+  index under `~/.codex/sessions/`, found nothing, and was forming a fleet-wide
+  claim; the runtime-distribution control refuted it before it reached anything
+  durable. **An absence is not a finding until the query is proven able to find
+  something** — and the index is at `~/.codex/session_index.jsonl`.
+
+  PRACTICAL CONSEQUENCE FOR DRIVING: while this is open, the supervisor is the
+  ONLY thing watching this worker. Arm a pane watcher and tell the worker
+  explicitly that no wrap-up is coming, because it will otherwise wait for one.
 
 - **BEFORE YOU DIAGNOSE ANY DISPATCH FAILURE, READ `overseer-6pn`.** A
   dispatcher that reports `failed` while its PR MERGED is that bug, not a real
@@ -769,3 +878,32 @@ ordering exactly.
   arrives in CHUNKS and can settle INCOMPLETE (4088 of 5075 chars, stable across
   four polls). **Put a long brief in a FILE and send a one-line pointer** — the
   same idiom the daemon's own resume line uses.
+
+- **T8 (2026-08-04) — I READ A RENDERING AS A MEASUREMENT, AND THE "FIX" I
+  REACHED FOR MADE IT WORSE. THIS PARTLY CORRECTS T7(c) ABOVE.** Pasting a
+  2765-char note into the Codex worker, the composer rendered
+  `[Pasted Content 1018 chars]`. I polled four times, saw it stable, and
+  concluded the paste had TRUNCATED — which is exactly what T7(c) taught me to
+  expect. I then sent `tmux send-keys C-u` to clear it. **`C-u` did not clear the
+  composer**, and a second chip appeared beside the first, so the pane then read
+  `[Pasted Content 1018 chars][Pasted Content 1020 chars]` and I had made the
+  state worse while believing I was repairing it.
+  **THE CHIPS ARE A COLLAPSED RENDERING, NOT A LENGTH REPORT.** Once I typed an
+  ordinary trailing line, the composer EXPANDED and ended on the note's true last
+  line — the content had been complete the whole time, and 1018+1020 is not the
+  content's length in any sense. The subsequent submission confirmed it: the full
+  note, every section, is in the worker's transcript.
+  **SO T7(c) IS RIGHT ABOUT THE REMEDY AND WRONG ABOUT THE DIAGNOSTIC.** Putting
+  a long brief in a FILE and sending a one-line pointer remains correct and is
+  what I did. But "stable across four polls" is NOT evidence of truncation,
+  because the number being polled is not a measurement of anything. **Do not
+  derive a byte count from a UI chip, and do not send control keys to a composer
+  on the strength of one.** If you doubt a paste, add a trailing line and read
+  what the composer expands to, or verify from the receiving side after
+  submission — never from the chip.
+  THE FAMILY THIS BELONGS TO IS T6's: a successful-looking readout is not a
+  finding unless you know what produced it. T6 was about a green result that had
+  examined nothing; this is about a NUMBER that measured nothing. Both invite
+  action, and here the action was destructive-adjacent — a control key sent into
+  a live peer session on a false premise, which is one keystroke away from C21's
+  near-miss of re-pasting into another track's pane.
