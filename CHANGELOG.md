@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.30.0...v0.30.1) (2026-08-04)
+
+
+### Bug Fixes
+
+* restore per-file coverage prep ([291082b](https://github.com/thewoolleyman/livespec-overseer/commit/291082bf3cfa8efa1ad4111b03b571aa6bacefe7))
+
 ## [0.30.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.29.1...v0.30.0) (2026-08-04)
 
 
