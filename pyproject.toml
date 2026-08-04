@@ -29,6 +29,7 @@ dependencies = []
 
 [project.scripts]
 foreman-act = "overseer.foreman_act:main"
+foreman-consensus = "overseer.foreman_consensus:main"
 foreman-gather = "overseer.foreman_gather:main"
 overseerd = "overseer.daemon:main"
 overseer-start = "overseer.start:main"
