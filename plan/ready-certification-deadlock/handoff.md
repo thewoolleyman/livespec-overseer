@@ -14,9 +14,15 @@ waiting hours for a maintainer. Today the certification triangle
 deadlocks: certifying a `ready` needs an open supervision round; a
 round opens only when a wrap-up band injects and every band fires at
 most once per round; the round resets only on a restart; a restart
-needs a certified `ready`. The v004 remedy — "a human must clear the
+needs a certified `ready`. The shipped prose's remedy
+(`.claude-plugin/prose/overseer.md`) — "a human must clear the
 declaration or open a sanctioned round" — has no mechanical way to open
-that round, so every instance is a maintainer interrupt. Observed on
+that round, so every instance is a maintainer interrupt. The v004
+change itself went further than a remedy: it RECORDED, as an explicitly
+unratified design question, whether a session should have a sanctioned
+way to request its own restart outside a round, deferring any such
+affordance to "its own future proposed change" — this thread authors
+exactly that change. Observed on
 the `foreman` track 2026-08-04: 7+ hours in `NEEDS YOU` at 17% context
 with a sincere `ready` on disk (full timeline in §5 item 1).
 
@@ -44,10 +50,17 @@ daemon implementation.
 Author the spec proposed change via the `/livespec:propose-change`
 operation against THIS repo's `SPECIFICATION/`, in two steps inside
 that one action: FIRST re-derive from the daemon source which step
-closes the supervision round after a void (the void itself, or a
-separate expiry — start from the round/stamp handling reachable from
-`overseer/_supervisor_threshold.py` and the certification path that
-emits "ready cannot certify: no supervision round open"), then draft
+cleared the round's injection stamp after the void. Start from
+`overseer/_supervisor_liveness.py` — the OWNER of the certification
+refusal: it emits "ready cannot certify: no supervision round open"
+when the observation's injection stamp is absent — and from
+`overseer/_supervisor_restart.py` (one hop from
+`_supervisor_threshold.py`), which handles round-open and round-close.
+Known discrepancy to resolve first: `_supervisor_restart.py` documents
+the round as closing "ONLY when the resume line actually SUBMITS", and
+`SPECIFICATION/spec.md` §"The supervision round" says it closes on
+restart — yet foreman's stamp was cleared with NO restart ever logged,
+so a third path is clearing it (candidate: the void handling). Then draft
 the change choosing among the three candidate cuts in the reasoning
 note (§"Candidate fix directions") — or a better one the code reading
 reveals — sweeping every ratified statement of the interlock/round
@@ -79,16 +92,24 @@ require a verified settled idle prompt at restart time.
 1. `plan/ready-certification-deadlock/deadlock-mechanism.md` — the
    observed foreman timeline, the triangle, the intents to preserve,
    the three candidate cuts.
-2. `SPECIFICATION/spec.md` §"The escalating wrap-up" and §"The
-   restart" — the ratified round/interlock contract being amended.
-3. `SPECIFICATION/history/v004/proposed_changes/uncertifiable-declaration-attention.md`
+2. `SPECIFICATION/spec.md` §"The supervision round" (the round-open /
+   round-close sentence that is the deadlock's third edge), §"The
+   escalating wrap-up", §"The restart", and §"Fail-soft posture" (where
+   the v004 surfacing clause landed) — the ratified round/interlock
+   contract being amended.
+3. `SPECIFICATION/contracts.md` §"The restart interlock" — the two
+   numbered certification preconditions being amended (first-class,
+   not a side sweep).
+4. `SPECIFICATION/history/v004/proposed_changes/uncertifiable-declaration-attention.md`
    (and its `-revision.md` beside it) — the change that added the
-   report-only surfacing and named the human-only remedy this thread
-   mechanizes.
-4. `overseer/_supervisor_threshold.py` and `overseer/marker-protocol.md`
-   — the wrap-up branch and the shipped marker-protocol prose (sweep
-   targets alongside `SPECIFICATION/contracts.md`,
-   `SPECIFICATION/scenarios.md`, and `.claude-plugin/prose/overseer.md`).
+   report-only surfacing and recorded the deferred design question
+   this thread answers.
+5. `overseer/_supervisor_liveness.py` (the certification refusal),
+   `overseer/_supervisor_threshold.py` (the wrap-up branch),
+   `overseer/_supervisor_restart.py` (round-open/round-close stamp
+   handling), and `overseer/marker-protocol.md` — code + shipped
+   marker-protocol prose (sweep targets alongside
+   `SPECIFICATION/scenarios.md` and `.claude-plugin/prose/overseer.md`).
 
 Ledger ids to read live (never stored here): `overseer-er6ikw` (this
 thread's epic), `overseer-mgg` (sibling restart-leg defect),

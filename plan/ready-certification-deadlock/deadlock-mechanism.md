@@ -34,11 +34,17 @@ thread's epic is the anchor. Read ids' live state from the ledger.
 After a void with bands exhausted, every edge of that triangle is
 closed: the session can re-declare forever and never be certifiable,
 the daemon can never re-warn, and the restart is unreachable without a
-human. The daemon's own status string names the resulting state
-(`ready cannot certify: no supervision round open`); the executor of
-this thread MUST re-derive from code which step actually closes the
-round after a void (the void itself, or round expiry) before drafting
-the spec change.
+human. The daemon's own status string names the resulting state —
+`ready cannot certify: no supervision round open`, emitted by
+`overseer/_supervisor_liveness.py` when the observation carries no
+injection stamp. The executor of this thread MUST re-derive from code
+which step actually cleared the stamp after the void, with this known
+discrepancy as the lead: `overseer/_supervisor_restart.py` documents
+round-close as happening "ONLY when the resume line actually SUBMITS",
+and `SPECIFICATION/spec.md` §"The supervision round" says the round
+closes on restart — yet foreman's stamp was cleared with NO restart
+ever logged for the track. A third path is clearing it (candidate: the
+void handling); identify it before drafting the spec change.
 
 ## Why each edge exists — the intent the fix must preserve
 
@@ -61,13 +67,18 @@ contract decision rather than a code patch.
 The v004 `uncertifiable-declaration-attention` change (see
 `SPECIFICATION/history/v004/proposed_changes/uncertifiable-declaration-attention.md`
 and its `-revision.md`) added the report-only surfacing — the
-`ready-uncertifiable` status and `NEEDS YOU` membership — with the
-stated remedy "a human must clear the declaration or open a sanctioned
-round". But NO mechanical path to "open a sanctioned round" exists, so
-the remedy is always a maintainer intervention. Two shipped changes
-raise the frequency: the `supervisor-wrapup-citizenship` narrowing
+`ready-uncertifiable` status and `NEEDS YOU` membership. (The remedy
+sentence "a human must clear the declaration or open a sanctioned
+round" is the SHIPPED PROSE's, in `.claude-plugin/prose/overseer.md` —
+not v004's own text.) NO mechanical path to "open a sanctioned round"
+exists, so the remedy is always a maintainer intervention. v004 in fact
+went further: it RECORDED, as an explicitly unratified design question,
+whether a session should have a sanctioned way to request its own
+restart outside a round — deferring any such affordance to "its own
+future proposed change". That deferral is the mandate this thread
+executes. Meanwhile the `supervisor-wrapup-citizenship` narrowing
 (epic `overseer-blccme`, closed 2026-08-03) makes wrap-ups land more
-often, so more rounds, more voids, more exhaustions.
+often — more rounds, more voids, more exhaustions.
 
 ## Candidate fix directions (contract-bearing; decide in the proposed change)
 
