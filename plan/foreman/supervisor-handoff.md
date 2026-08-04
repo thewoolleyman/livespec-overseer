@@ -207,7 +207,7 @@ any of it forward; the Verification Discipline block is the command.
   STATUS BLOCK; EVERYTHING ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure
   before acting; the Verification Discipline block below is the command.
 
-  **COLD-OPEN, DO THESE FIVE THINGS FIRST, IN THIS ORDER:**
+  **COLD-OPEN, DO THESE SIX THINGS FIRST, IN THIS ORDER:**
 
   0. **`git fetch` AND CHECK THIS FILE IS CURRENT** before reading it for
      content — role-level correction **C24** carries the runnable check. A
@@ -219,10 +219,17 @@ any of it forward; the Verification Discipline block is the command.
      and `research/review-findings.md` for the binding dispositions.
   2. **Read the supervisor marker** at `tmp/overseer/foreman/.supervisor-state`
      — full narrative behind every summary here.
-  3. **`tmux capture-pane -p -t '=foreman:'` — READ THE WORKER'S PANE.** Read the
+  3. **`ls tmp/overseer/foreman/INBOX*` AND READ EVERY ONE.** Peer tracks
+     deliver cross-track notifications as `INBOX-from-<repo>-<topic>.md` files
+     in THIS thread's runtime directory. **This step exists because it was
+     missing**, and on 2026-08-04 a `livespec` notification sat unread there for
+     over two hours while this supervisor filed a six-slice cut it was directly
+     about — see **T10**. An inbox is a source like any other; a boot chain that
+     does not name it cannot be obeyed into reading it.
+  4. **`tmux capture-pane -p -t '=foreman:'` — READ THE WORKER'S PANE.** Read the
      **HEAD**, not the tail: the pane is ~107 lines and a fresh prompt sits at
      the TOP, so `| tail` renders a healthy session as blank (T7).
-  4. **Re-measure the ledger with `bd list --all`** (bare `bd list` hides ~4/5).
+  5. **Re-measure the ledger with `bd list --all`** (bare `bd list` hides ~4/5).
 
   **WHY THIS THREAD WAS REOPENED — v1 WAS NEVER PROVEN TO RUN.** It was archived
   on unit-green. The maintainer then invoked `/livespec-overseer:foreman` for the
@@ -250,41 +257,42 @@ any of it forward; the Verification Discipline block is the command.
   with injected fakes do not count; they are what produced the false "done".
   **DO NOT ARCHIVE THIS THREAD AGAIN ON UNIT-GREEN.**
 
-  **THE BIGGEST GAP AGAINST INTENT IS REQUIREMENT 5, AND IT IS NOT BUILT.** The
-  Fable + Opus + GPT-sol consensus panel — all-three-agree auto-action, the
-  minority-report override, and the fallback that presents each reviewer's
-  summary plus an AskUserQuestion in the blocked session — is the ENGINE for seed
-  goals 2 and 3. It was deferred as "Phase C", and the shipped prose says "Do not
-  add Phase C consensus", with `human_valve` and `blocked_session_answer` hard-
-  refused as `human_action_report_only`. So today the foreman can only REPORT
-  blocked items, which is exactly the escalation load the seed asked to remove.
-  **Restoring it reverses a deferral the maintainer should own: DRAFT the cut and
-  RAISE IT as a picker; do not file it unilaterally.**
+  **REQUIREMENT 5 WAS THE BIGGEST GAP AND IT IS NOW LARGELY BUILT — this
+  paragraph used to say "IT IS NOT BUILT" and that is retired.** The maintainer
+  ruled at 07:12Z to build Phase C+D; the panel core (`overseer-a7c`) and the pin
+  correction (`overseer-xbn`) are CLOSED and RELEASED, and the minority-report
+  round (`overseer-ncx`) was in flight at wind-down. What remains is the
+  RATIFICATION plus the wiring — see the state table.
 
-  **STATE, re-measured 06:55–07:15Z (supersedes the 06:41–06:45Z reading):**
+  **STATE, re-measured 2026-08-04T11:37Z AT WIND-DOWN. This supersedes every
+  earlier reading in this file.**
 
   | Thing | State |
   |---|---|
-  | `plan/foreman/` | **un-archived**, PR #660 merged 06:20:20Z |
-  | epic `overseer-z5fo4y` | **reopened** to `backlog`, reason on the item |
-  | `overseer-6fm` (P0, e2e entrypoint gate) | **CLOSED**; PR #662 merged 06:47:14Z and RELEASED in v0.27.5 |
-  | `overseer-gxzv5v` (the `work_item_file` defect, item 1 below) | **`active`/`fabro`, run `01KZ5RWXGN67` CONFIRMED `running`** — the WORKER dispatched it. Real claim, not phantom. Do not re-dispatch. |
-  | `overseer-5f2pfj` (the occupied-session classifier, item 2 below) | **FILED** `pending-approval` by the worker, with live tmux evidence; it is deliberately holding dispatch until `gxzv5v` lands |
-  | `overseer-6eo` (P1, NEW — see below) | filed 07:05Z: the daemon cannot see this thread's own live worker |
-  | worker session `foreman` | alive, codex `gpt-5.6-sol`, **17% ctx and falling**, and **UNSUPERVISED** — see `overseer-6eo` |
-  | `origin/master` | `3bdb29a`; released tag **v0.27.5** = `c35dea6` |
+  | `plan/foreman/` | **un-archived**, live |
+  | epic `overseer-z5fo4y` | `backlog` (open) |
+  | `origin/master` | `646f53e`; latest release **v0.29.1** |
+  | `overseer-6fm` entrypoint gate | **closed**, released |
+  | `overseer-gxzv5v` actuator filing defect | **closed**, PR #665 |
+  | `overseer-5f2pfj` occupied-session classifier | **closed**, PR #670, released v0.28.1 |
+  | `overseer-mqpgs7` E2E for seed reqs 3/4/6/7 | **closed**, PR #672, released v0.29.0 |
+  | `overseer-a7c` Phase C core (the panel) | **closed**, PR #668, released |
+  | `overseer-xbn` panel pin correction | **closed**, PR #675 |
+  | `overseer-ncx` minority-report round | **`active`/`fabro`, run `01KZ679ZJM93EH05HF184EP1QZ` still `running` at 11:45:15Z (~38m), NO PR yet** — real claim, dispatcher alive at wind-down. **DO NOT RE-DISPATCH; reconcile per next-action 2.** |
+  | `overseer-ym6` Phase D foundation | `ready`, **re-scoped** — see below |
+  | `overseer-afn` Codex picker surface | `ready`; **leg 1 MEASURED, positive** |
+  | `overseer-0fy` gate driving | `backlog`, blocked by `ncx` + `ym6` |
+  | `overseer-ctc` E2E for requirement 5 | `backlog`, blocked by all of the above |
+  | `overseer-6eo` (P1) | open: the daemon reports this thread's own LIVE worker as `session-gone` |
+  | worker session `foreman` | alive, codex, **57% ctx** (it COMPACTED itself from 15%), its assigned lane COMPLETE |
 
-  **PR #662 MERGED 06:47:14Z AND THE FIX IS PROVEN IN-REPO — measured 06:52Z,
-  BY RUNNING THE BINARY, not by unit-green.** Under a scrubbed environment
-  (`env -u PYTHONPATH`), against the repo's own shipped copy at `c6ace4b`:
-
-  ```
-  ./.claude-plugin/bin/foreman-runtime --help -> usage: foreman-runtime [-h] [--repo REPO] ...
-  ./.claude-plugin/bin/foreman-act     --help -> usage: foreman-act [-h] --proposal PROPOSAL ...
-  ```
-
-  The fix pins `parent.parent / "overseer"` — the package's OWN directory —
-  which is the correct shape.
+  **THE SINGLE MOST IMPORTANT PENDING THING: PR #679 IS MERGED AND AWAITS THE
+  MAINTAINER'S `/livespec:revise` PASS.** It filed
+  `SPECIFICATION/proposed_changes/foreman-consensus-decision-policy.md` (verified
+  present in `git ls-tree origin/master`, not just the working tree). **That
+  ratification is the gate on BOTH this thread's Phase D and the `livespec`
+  thread's Increment 3.** Nothing else unblocks them. Do not re-file it; check
+  whether it has been revised, and if it has, proceed to the WIRING.
 
   **THE DEPLOYMENT PROOF IS DISCHARGED — 2026-08-04T06:56:40Z, AGAINST THE
   RELEASED CACHE BUILD, AND CONTROLLED BOTH WAYS.** The previous version of this
@@ -370,16 +378,46 @@ any of it forward; the Verification Discipline block is the command.
      it was caught only by re-measuring before the commit landed. **Minutes are
      enough. Re-measure a "this is unfiled" claim at the moment you WRITE it, not
      only at the moment you file.**
-  4. **RULED 07:12Z — BUILD PHASE C+D NOW, AND NO C/D ITEM EXISTS YET.** Measured
-     07:18Z with an unfiltered `--all` search: zero Phase C or Phase D work items
-     are filed. The decision is recorded on the epic `overseer-z5fo4y` and nothing
-     carries it. **THAT IS EXACTLY THE FAILURE MODE THAT LOST REQUIREMENT 5 THE
-     FIRST TIME** — a phase that lives only in prose is invisible to every process
-     that measures the ledger. **Filing the C+D cut is the single highest-value
-     next action on this thread.** The design is already written and binding
-     (`brainstorm.md` §"The consensus panel (seed 5)" and §"Gate-driving
-     mechanics (seed 5e)", plus Phase C/D in §4), so this is transcription, not
-     invention.
+  4. **RULED 07:12Z — BUILD PHASE C+D NOW. THE CUT IS FILED; ITEMS 1–3 ABOVE ARE
+     ALL CLOSED.** Six slices were transcribed from the binding design (NOT
+     invented): `a7c` core panel, `ncx` minority-report, `ym6` Phase D
+     foundation, `0fy` gate driving, `afn` Codex picker, `ctc` requirement-5 E2E.
+     Edges were wired AFTER creation — `bd create --deps blocks:X` reads INVERTED
+     and produced a fully reversed chain the last time Phase B was cut — using
+     `bd dep <blocker> --blocks <blocked>`, then verified by querying EACH item's
+     OWN tree (T2). `bd dep cycles` reports none.
+
+  **NEXT ACTIONS, IN ORDER, FOR THE SESSION THAT INHERITS THIS:**
+
+  1. **Check whether PR #679's proposal has been REVISED** (`ls
+     SPECIFICATION/proposed_changes/` — empty means it ratified; a new
+     `history/vNNN/` confirms). That ratification gates everything below.
+  2. **Reconcile `overseer-ncx`.** It was RUNNING at wind-down. Check `gh pr list
+     --state merged` FIRST (overseer-6pn), then three-way discriminate:
+     failed-with-merged-PR = reconcile not re-dispatch; blocked = `fabro dump`
+     FIRST; absent from `fabro ps -a` = eviction.
+  3. **`ym6` is MINE and is NOT a factory dispatch** — its work is a spec
+     amendment in ANOTHER repo's lifecycle, which a single-repo sandbox cannot
+     execute. See the re-scoping note below.
+  4. **`afn` leg 1 is DONE and positive**; legs 2–3 and the marker-protocol
+     amendment remain.
+  5. Then `0fy`, then `ctc`. `ctc` is the exit condition — and it is where the
+     foreman finally gets RUN. **Do not run the product before then**; that is a
+     deliberate ordering, not an oversight.
+
+  **`overseer-ym6` WAS RE-SCOPED AT 11:2xZ AND ITS OLD TITLE WAS WRONG.** It used
+  to read "a THREE-REPO reversal of the needs-human guarantee". **There is no
+  reversal and no contradiction.** I had quoted the orchestrator contract from a
+  work item's DESCRIPTION instead of reading `contracts.md`; the actual clause
+  (1932-1944) states a FLOOR OVER POLICY SETTINGS — "no policy setting MAY
+  auto-dispose a truly-unresolvable decision" — not a ban on config-selected
+  autonomy, and it constrains THE DISPATCHER specifically. `livespec` already
+  ratified the same shape as **v193**: `revise_decision_mode`
+  (`manual|delegated|consensus`, safe default `manual`) with
+  `requires_revise_decision_input` owning the hard floors, and "consensus is
+  valid configuration but unavailable evidence escalates; NO PANEL WAS BUILT OR
+  STUBBED". **The panel was always the missing piece, and `a7c` built it.** The
+  maintainer identified this; I had it wrong. Do not restore the old framing.
 
   **A REPO-WIDE DISPATCH BLOCKER I CLEARED — expect its shape again.** The first
   dispatch was refused by a **pre-dispatch LEDGER check**, not by anything about
@@ -433,6 +471,30 @@ any of it forward; the Verification Discipline block is the command.
   PRACTICAL CONSEQUENCE FOR DRIVING: while this is open, the supervisor is the
   ONLY thing watching this worker. Arm a pane watcher and tell the worker
   explicitly that no wrap-up is coming, because it will otherwise wait for one.
+
+- **THIS THREAD HAS A LIVE PEER TRACK AND AN AGREED BOUNDARY — do not duplicate
+  it and do not file into its tenant.** `livespec` repo, plan thread
+  `plan/spec-side-autonomy/`, tmux sessions `spec-side-autonomy` (codex) and
+  `spec-side-autonomy-supervisor` (claude), epic `livespec-jvdvx4`.
+
+      plan/foreman/            OWNS the foreman and the consensus panel implementation
+      plan/spec-side-autonomy/ OWNS the core-owned spec_governance lever design
+
+  Neither closes into the other. **`livespec`'s half of the work — its
+  drift-doctrine sentence and the `spec_governance.drift_acceptance_mode` key
+  (`human | consensus`, default `human`, and it NEVER accepts `delegated`) — is
+  THEIRS.** `overseer-ym6` cross-links `livespec-jvdvx4` in prose and must not
+  carry it. **Do not add a metadata dep edge for that cross-link**: this tenant's
+  `depends-on-ref-wellformedness` accepts only `local`, `sibling_work_item`,
+  `pull_request` and `branch`, and one malformed `cross-repo` entry blocks EVERY
+  dispatch in the tenant.
+
+  Their standing valve was "the key must not ship armed-able before the consensus
+  panel exists". **It exists now**, so their Increment 3 is gated only on this
+  repo ratifying PR #679's proposal. I acknowledged their notification in writing
+  at `/data/projects/livespec/tmp/overseer/spec-side-autonomy/INBOX-from-livespec-overseer-foreman.md`
+  and told them I will notify them when the ratification lands. **That promise is
+  inherited by whoever reads this.**
 
 - **BEFORE YOU DIAGNOSE ANY DISPATCH FAILURE, READ `overseer-6pn`.** A
   dispatcher that reports `failed` while its PR MERGED is that bug, not a real
@@ -956,3 +1018,44 @@ ordering exactly.
   indicator before concluding either way; and note this does NOT contradict C21's
   warning against re-sending, because there the composer was empty and here it
   demonstrably still held the text.
+
+- **T10 (2026-08-04) — I ASSERTED A CROSS-REPO CONTRADICTION FROM A WORK ITEM'S
+  PARAPHRASE, ALMOST FILED A SPEC REVERSAL ON IT, AND MISSED A PEER'S MESSAGE
+  SITTING IN MY OWN DIRECTORY. The maintainer caught all of it in one question.**
+  **THE SUBSTANTIVE ERROR.** I read `bd-ib-vntx65`'s DESCRIPTION, which quotes the
+  orchestrator's `contracts.md`, and concluded that `overseer-ym6` proposed
+  reversing a ratified guarantee. I titled the item that way, wrote it into the
+  item's notes, and raised a maintainer picker asking how to scope the reversal.
+  **Reading `contracts.md:1932-1944` directly shows something narrower and
+  differently shaped**: "No policy setting MAY auto-dispose a truly-unresolvable
+  decision… The Dispatcher MUST NOT auto-resolve a `blocked_reason: needs-human`
+  item." That is a FLOOR OVER POLICY SETTINGS — it presupposes config-selected
+  autonomy and bounds it — and it names THE DISPATCHER, not every actor. Below
+  the floor it is exactly config, which is what the maintainer said and I had not
+  verified. `livespec` had already ratified that very pattern as **v193**, with
+  `consensus` valid as configuration and the PANEL deliberately left unbuilt —
+  the piece this thread had just built. **There was no contradiction to resolve.**
+  **THE RULE I BROKE IS ONE THIS FILE ALREADY STATES.** T4 says a check, a footer
+  and a status line all NAME a thing and none explains itself; C18 says verifying
+  the thing in front of you is not verifying the claim that made you act on it.
+  A work item quoting a spec is a PARAPHRASE OF AN AUTHORITY, not the authority.
+  **Read the spec, not the ticket about the spec** — especially before proposing
+  to change it, because a proposal filed on a misread is a misread with a PR
+  number and someone else's revise pass behind it.
+  **WHAT STOPPED IT WAS NOT ME.** I had already searched the peer tenant and
+  written the finding down; I was one tool call from filing. The maintainer asked
+  whether config fields dissolved the conflict. **A picker raised on a premise I
+  had not verified would have converted my error into their decision** — T5's
+  exact shape, one repo further out.
+  **THE SECOND FAILURE, AND IT IS STRUCTURAL RATHER THAN CARELESS.** The peer
+  track had written me a cross-track notification at 09:05Z, into
+  `tmp/overseer/foreman/INBOX-from-livespec-spec-side-autonomy.md` — MY OWN
+  runtime directory, the same directory as the marker I read at boot. It sat
+  unread for over two hours while I filed a six-slice cut it was directly about,
+  and their supervisor's handoff correctly recorded it as UNACKNOWLEDGED. **My
+  boot chain enumerates the ledger, `handoff.md` and the marker; it does not
+  enumerate an inbox.** C19 says read all N sources a boot instruction names —
+  this is one layer earlier: **the enumeration itself was incomplete, so
+  obedience could not have saved me.** Cold-open step 3 now names it. When you
+  add a channel by which other tracks can reach you, add it to the boot chain in
+  the same change, or you have built a mailbox nobody opens.
