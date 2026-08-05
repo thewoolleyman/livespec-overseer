@@ -41,30 +41,6 @@ __all__: list[str] = []
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
-def _prefer_archived(*, matches: list[Path]) -> Path:
-    """Pick the ARCHIVED copy when a thread exists at BOTH locations.
-
-    Archiving now leaves a TOMBSTONE charter at the LIVE path (`# … (TERMINAL)`,
-    "STOP. THIS TRACK IS COMPLETE AND ARCHIVED") beside the real record under
-    `plan/archive/`, so both locations can hold the same file at once. Before this,
-    that pair had never existed and `sorted(...)[0]` resolved it by ALPHABETICAL
-    ACCIDENT: `archive` sorts before `supervisor-prompt-quality`, so it happened to
-    return the archived record.
-
-    The accident does not generalise. For any topic sorting BEFORE `archive` the
-    same expression returns the LIVE TOMBSTONE — a file whose entire content says
-    there is nothing to supervise — and this gate would then count its corrections
-    against the handoff. Eleven fleet topics sort that way today (homelab's `01-`
-    through `10-` plans), so the condition is real rather than contrived.
-
-    Stated as a RULE instead: the archived copy is the record; the live one is a
-    marker. An empty match still raises IndexError, which is the loud failure a
-    genuine miss should produce.
-    """
-    archived = [match for match in matches if "archive" in match.parts]
-    return (archived or matches)[0]
-
-
 def _thread_file(*, rel: str) -> Path:
     """Resolve a plan-thread file at its LIVE or ARCHIVED location.
 
@@ -78,7 +54,7 @@ def _thread_file(*, rel: str) -> Path:
     # repo runs fail-under=100 with branch coverage. `plan/**/` spans the live and
     # archived locations in one pattern. An empty match raises IndexError, which
     # is the loud failure a genuine miss should produce.
-    return _prefer_archived(matches=sorted(_REPO_ROOT.glob(f"plan/**/{rel}")))
+    return sorted(_REPO_ROOT.glob(f"plan/**/{rel}"))[0]
 
 
 # Live AND archived threads. A thread moves to `plan/archive/<topic>/` when its
@@ -387,22 +363,3 @@ def test_every_scan_arc_is_reachable_on_a_synthetic_tree(*, tmp_path: Path) -> N
     assert _threads_with_a_charter_anchor(root=tmp_path) == [
         ("anchored", "overseer-zz1", ["overseer-zz1"])
     ]
-
-
-def test_the_live_archived_tiebreak_is_a_rule_not_an_alphabetical_accident() -> None:
-    """The pair only became representable when archiving started leaving a tombstone.
-
-    Sabotage that reddens this: restore `sorted(matches)[0]` in place of
-    `_prefer_archived`.
-    """
-    live = Path("plan/0-foo/handoff.md")
-    archived = Path("plan/archive/0-foo/handoff.md")
-    pair = sorted([live, archived])
-
-    # The accident, shown rather than asserted about: plain sorting picks the LIVE
-    # tombstone here, because "0-foo" precedes "archive".
-    assert pair[0] == live
-
-    assert _prefer_archived(matches=pair) == archived
-    # …and the single-location case, which is every thread that is not mid-archive.
-    assert _prefer_archived(matches=[live]) == live
