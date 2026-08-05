@@ -5,6 +5,15 @@
 
 Measured 2026-08-04. Re-measure before quoting any of it.
 
+> **PARTIALLY SUPERSEDED — read `handoff.md` §"What is DONE" first.** This file was
+> written BEFORE the ban was executed. Two of its premises have since changed: the
+> both-present detector it calls "missing" **shipped** in v1.19.0, and the
+> `plan_lifecycle_anchor` arming table below is a snapshot whose fan-out is now
+> groomed into nine per-repo slices, each with its own measured repair list. The
+> ARGUMENTS here are still the right ones — that is why the check was built this way
+> — but every COUNT and every STATUS in it is a 2026-08-04 claim. Where this file and
+> the handoff disagree, the handoff and the ledger win.
+
 ## The headline: the gate already exists and is DARK in the repo that had the tombstones
 
 `livespec-dev-tooling` already ships **two** plan-lifecycle checks, and
@@ -89,9 +98,27 @@ regex, because a tombstone declares no anchor at all — `_same_tenant_anchor`
 finds nothing and the file is skipped. The two checks are complementary and
 neither alone is sufficient.
 
-## The missing check — the both-present detector
+## The missing check — the both-present detector — **HAS SHIPPED**
 
-Neither existing check names the tombstone condition directly. The cheapest,
+> **STATUS 2026-08-05: this section is a DESIGN RATIONALE, not an open request.**
+> The check exists: `livespec_dev_tooling/checks/plan_thread_no_tombstone.py`,
+> released in **v1.19.0** (`livespec-dev-tooling-rowxc6`, PR #1255). It was built
+> exactly as argued below — structural, fail-closed, no opt-in lever — and it is
+> wired on master in **9 of the 10** pin-consuming fleet repos. Only `livespec` core
+> is not yet enforcing, blocked by its own `check-shell-quality` violations
+> (`livespec-akg7k5`), which is not this thread's work. Read on for WHY it is shaped
+> the way it is; do not read it as something still to be built.
+>
+> **A caution its siblings earned the hard way.** The sibling check
+> `plan_thread_anchor_declared` turned out to REJECT handoffs that already declare a
+> concrete, resolving epic id, failing them on formatting alone — a bold-wrapped id or
+> one followed by a comma. 15 of 27 live fleet threads are false positives under it.
+> That is `livespec-dev-tooling-1ysu` (P1). The lesson generalises to any detector in
+> this family: **prove a suspected violation with a three-way control — the suspect
+> form, the same thing written differently, and a known-real defect — before
+> "repairing" anything.** If the first two disagree, the detector is wrong.
+
+Neither existing check named the tombstone condition directly. The cheapest,
 static, credential-free, unambiguous signature is:
 
 > A topic that exists at BOTH `plan/<topic>/` and `plan/archive/<topic>/`

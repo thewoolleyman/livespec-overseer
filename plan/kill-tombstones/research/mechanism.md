@@ -213,11 +213,25 @@ manual row removal is needed, and hand-editing `~/.livespec-overseer.jsonl` to
 pre-empt the GC is forbidden anyway (it is shared fleet state, and editing it
 hides the condition).
 
-Corroborated by this thread 2026-08-04: the mapping store holds **15 rows with
-exactly ONE dangling entry** — `foreman`, the one remaining tombstone. Every
-other archived topic (`fleet-charter-remediation`, `release-automation-gap`,
-`daemon-liveness-truth`, `supervisor-prompt-quality`) has already been GC'd with
-no human action.
+Corroborated by this thread 2026-08-04: the mapping store held **15 rows with
+exactly ONE dangling entry** — `foreman`. Every other archived topic
+(`fleet-charter-remediation`, `release-automation-gap`, `daemon-liveness-truth`,
+`supervisor-prompt-quality`) had already been GC'd with no human action.
+
+> **RE-MEASURED 2026-08-05 — both numbers moved, and the dangling row is now a
+> DIFFERENT topic in a DIFFERENT repo.** The store holds **23 rows** with **one**
+> dangling `handoff` path, and it is **`planning-lane-redesign` →
+> `/data/projects/livespec/plan/planning-lane-redesign/handoff.md`**. The `foreman`
+> row is present and its handoff RESOLVES — it is a live thread, not a stub.
+>
+> That new dangling row is worth more than a correction: it is a **live instance of
+> the exact defect window described above** — a plan directory that still exists but
+> no longer contains its `handoff.md`. It is not a tombstone (nothing is at
+> `plan/archive/planning-lane-redesign/`), so the both-present detector cannot see
+> it, and `archived_or_gone` returns `False` because the directory is present. It is
+> precisely what `overseer-y26`'s **remedy 2** — a store-side assertion that every
+> row's `handoff` path and `resume` target resolves — exists to catch, and it is
+> currently caught by nothing. Re-measure before quoting either count.
 
 ### THE TRAP: the daemon reads the PRIMARY CHECKOUT'S WORKING TREE, not git
 
@@ -243,24 +257,37 @@ assuming — the fleet does not share one convention.
 
 ## Corrected inventory — how many tombstones actually remain
 
-A same-day report to this thread named `release-automation-gap` and
-`daemon-liveness-truth` as surviving live instances. **Re-measured 2026-08-04
-against a freshly fetched `origin/master`: that is stale — both were already
-retired at `5560b5e`.** Live-path test:
+### THE ANSWER IS NOW ZERO — and the table below is RETAINED ONLY AS HISTORY
 
-| topic | `plan/<topic>/` | `plan/archive/<topic>/` |
-|---|---|---|
-| `foreman` | **YES — tombstone** | YES |
-| `fleet-charter-remediation` | no | YES |
-| `release-automation-gap` | no | YES |
-| `daemon-liveness-truth` | no | YES |
-| `supervisor-prompt-quality` | no | YES |
+**Re-measured 2026-08-05 across every directory under `/data/projects` carrying a
+`plan/` tree: NO topic exists at both `plan/<topic>/` and `plan/archive/<topic>/`.
+Zero tombstones remain, fleet-wide.** The shipped
+`plan_thread_no_tombstone` check also exits 0 in this repo, so the claim is confirmed
+BY THE GATE and not only by inspection.
 
-`git grep -l "COMPLETE AND ARCHIVED" origin/master -- 'plan/*'`, excluding
-`plan/archive/`, returns exactly one path: **`plan/foreman/handoff.md`**. That is
-the whole remaining purge in this repo, and no other fleet member or adopter
-carries one (checked: all nine fleet members plus `openbrain`, `resume`,
-`homelab`).
+**`plan/foreman/` IS A LIVE THREAD. DO NOT DELETE IT.** The row for it in the table
+below is the single most dangerous stale claim this thread ever wrote, because acting
+on it destroys a 35 KB `handoff.md` plus a 79 KB `supervisor-handoff.md` mid-flight.
+The stub was removed by `c80aa52`; the thread was then legitimately REOPENED by
+`a10e00a` and has been worked since. `plan/archive/foreman/` **does not exist**, so
+even the archived column below is wrong today.
+
+The table as it read on 2026-08-04, kept because the history of the correction matters:
+
+| topic | `plan/<topic>/` | `plan/archive/<topic>/` | **status 2026-08-05** |
+|---|---|---|---|
+| `foreman` | ~~YES — tombstone~~ | ~~YES~~ | **live thread; archive absent — NOT a tombstone** |
+| `fleet-charter-remediation` | no | YES | unchanged |
+| `release-automation-gap` | no | YES | unchanged |
+| `daemon-liveness-truth` | no | YES | unchanged |
+| `supervisor-prompt-quality` | no | YES | unchanged |
+
+**The wording-based control still holds, and it is why the content-sniffing detector
+stays rejected.** `git grep -l "COMPLETE AND ARCHIVED" origin/master -- 'plan/*'`,
+excluding `plan/archive/`, returns exactly **three** paths — and all three are **this
+ban's own documents** (`plan/kill-tombstones/handoff.md` and these two research files).
+A detector keyed on the phrase would fire on the documents that forbid the pattern and
+on nothing else.
 
 **Both-present is the tombstone signature.** A topic that is simultaneously live
 and archived is the cheapest, credential-free, unambiguous detector — see
