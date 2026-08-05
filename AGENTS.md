@@ -317,12 +317,38 @@ non_local_depends_on`, and record why. A GENUINE cross-repo dependency is fine �
 check the consuming repo's `cross_repo_targets` actually lists the sibling, or it
 will fail closed forever.
 
-| | `{{...}}` token | queue eviction | anchor-as-dependency |
-|---|---|---|---|
-| `drive.py` exit | non-zero, immediate | **0** | **1** (dispatcher 3) |
-| error text | `template_undefined_variable` | none | `not in the ready set` |
-| `fabro ps` after | never lists it | lists `runnable` | never lists it |
-| phantom claim | yes | yes | **no** |
+### A FOURTH SHAPE: the run SUCCEEDED and the item was never transitioned
+
+Measured 2026-08-05 on `overseer-5oap`. **This is the dangerous member of the
+family, because its symptom is IDENTICAL to a queue eviction while its remedy is
+the EXACT OPPOSITE.** The item reads `status=active, assignee=fabro` and
+`fabro ps` does not list it — the textbook eviction signature. Following the
+eviction remedy there (release the claim, re-dispatch) would RE-RUN work that had
+already merged and shipped.
+
+What actually happened: run `01KZ84FG43SF` ran 56m57s, **succeeded**, its PR
+merged, and the change went out in a release. Only the ledger transition never
+happened.
+
+**`fabro ps -a` IS THE DISCRIMINATOR, and it is the only one.** An evicted run is
+absent from `ps -a` entirely; a completed one is listed there as `succeeded`. The
+live `fabro ps` view cannot separate them, because both are simply gone from it.
+
+So the rule "`ACTIVE` is never evidence of a run, `fabro ps` is" needs one more
+turn of the screw: **the ABSENCE of a run from `fabro ps` is not evidence that no
+run happened.** Check `ps -a`, and check the forge for a merged PR naming the
+item, before releasing any claim. The remedy here is to CLOSE the item with the
+verification recorded — never to re-dispatch.
+
+| | `{{...}}` token | queue eviction | anchor-as-dependency | succeeded-untransitioned |
+|---|---|---|---|---|
+| `drive.py` exit | non-zero, immediate | **0** | **1** (dispatcher 3) | **0** |
+| error text | `template_undefined_variable` | none | `not in the ready set` | none |
+| `fabro ps` after | never lists it | lists `runnable` | never lists it | ran, then gone |
+| `fabro ps -a` later | never lists it | **absent entirely** | never lists it | **`succeeded`** |
+| work landed | no | no | no | **yes — PR merged** |
+| phantom claim | yes | yes | **no** | yes |
+| remedy | fix the defect | release + re-dispatch | unset the dep edge | **close it** |
 
 ### A LEDGER-EDIT item can never be factory-dispatched
 
