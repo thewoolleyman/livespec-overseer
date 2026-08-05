@@ -27,6 +27,7 @@ import _supervisor_evaluate_target
 import _supervisor_liveness
 import _supervisor_observe
 import _supervisor_progress
+import foreman_pane_claim
 import registry
 import signals
 from _supervisor_resume_retry import resume_retry
@@ -161,6 +162,20 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
         status = attention_decision.status
         note = attention_decision.note
         active_conditions.update(attention_decision.active_conditions)
+    elif (
+        foreman_claim := foreman_pane_claim.active_pane_claim(
+            repo=repo, topic=topic, session=session, pane=target, now=sup.now()
+        )
+    ) is not None:
+        status = "blocked:human"
+        note = _supervisor_liveness.append_note(
+            note=note,
+            extra=(
+                "foreman owns this pane"
+                f" ({foreman_claim.runtime}, {foreman_claim.question_fingerprint})"
+            ),
+        )
+        active_conditions.add("blocked-human")
     elif (
         busy
         and (ready or not (shell_only and eff_ctx is not None and eff_ctx <= threshold))
