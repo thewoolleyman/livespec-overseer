@@ -235,14 +235,35 @@ any of it forward; the Verification Discipline block is the command.
       overseer-ym6   run 01KZ817KD05M  succeeded  ->  PR #724 MERGED, item still
                                                       `active`/`fabro`
 
-  **`ym6` IS NOT A PHANTOM CLAIM — DO NOT RECONCILE IT AS ONE.** Its PR merged
-  and its dispatcher (pid 3167293) was still ALIVE in the post-merge janitor
-  stage at wind-down, which is exactly the shape that is legitimately `active`.
-  Re-measure: if the janitor has since closed it, nothing is owed. If the
-  dispatcher has EXITED with the item still `active`, THEN it is `overseer-6pn`
-  — check `gh pr list --state merged` (PR #724 is already known merged),
-  reconcile via `--status acceptance` then the `accept` valve, and record WHY on
-  the item. **NEVER re-dispatch: the work is on master.**
+  **`ym6` WAS A STRANDED CLAIM AND IS NOW RECONCILED AND CLOSED — 05:06:41Z.**
+  The discriminator this binder named FIRED while the wind-down was still
+  running, which is why it is recorded as resolved rather than conditional. All
+  four legs were measured before anything was touched: item `active`/`fabro` with
+  no `closed_at`; PR #724 **MERGED** (`ce1357de`) — checked FIRST; **no live
+  fabro run**; and the dispatcher (pid 3167293) **EXITED**. A dispatcher ALIVE
+  with the item active is legitimate post-merge-janitor behaviour and is NOT a
+  phantom; the dispatcher EXITING with the item still active is `overseer-6pn`.
+  Reconciled the documented way — reason recorded on the ITEM, `--status
+  acceptance`, then the `accept` valve (`acceptance -> done`). **The work was
+  already on master; re-dispatching would have put a second implementation of a
+  landed slice there, which is T3's exact chain.**
+
+  **PHASE D IS COMPLETE. `overseer-0fy` IS NOW THE ONLY THING BEFORE THE EXIT
+  CONDITION, AND IT IS `ready` AND UNBLOCKED.** Its blockers (`ncx`, `ym6`) are
+  both closed — verified from `0fy`'s OWN dep tree (T2). I promoted it from
+  `backlog` to `ready` because the dispatcher's `--item` path draws from the
+  ready set, so an item with all blockers closed but still `backlog` reads as
+  terminal while being perfectly dispatchable; that is the same promotion `a7c`
+  and `ym6` each had before dispatch.
+  **I DELIBERATELY DID NOT DISPATCH IT.** A run started as I stop would be
+  unwatched, and an unwatched dispatch is how a claim goes stranded — which is
+  the very thing reconciled two paragraphs up. **Re-measure, then dispatch, and
+  arm the watcher BEFORE the run gets going**; `tmp/overseer/foreman/watch-ym6-dispatch.sh`
+  is the template, with the id hardcoded INSIDE the file rather than passed as an
+  argument (T6/T9).
+  After `0fy` comes **`ctc` — the exit condition, and the reason this thread was
+  reopened.** It is where the foreman is finally RUN end to end against the
+  SHIPPED artifact. Do not archive this thread on unit-green again.
 
   **DO NOT RE-ARM the dispatch watchers.** Both runs reached a terminal state, so
   `tmp/overseer/foreman/watch-{ym6,afn}-dispatch.sh` have nothing left to watch.
@@ -326,9 +347,9 @@ any of it forward; the Verification Discipline block is the command.
   | `overseer-a7c` Phase C core (the panel) | **closed**, PR #668, released |
   | `overseer-xbn` panel pin correction | **closed**, PR #675 |
   | `overseer-ncx` minority-report round | **CLOSED** — its ORIGINAL run finished green (PR #681, merge `ec778b2`, released `0.30.0`). Correctly never re-dispatched. **PHASE C IS COMPLETE.** |
-  | `overseer-ym6` Phase D foundation | **PR #724 MERGED**; item still `active`/`fabro` with its dispatcher alive in the post-merge stage. NOT a phantom. Re-measure, never re-dispatch |
+  | `overseer-ym6` Phase D foundation | **CLOSED 05:06:41Z** — PR #724 merged, stranded claim reconciled via `acceptance` -> `accept` valve |
   | `overseer-afn` Codex question surface | **CLOSED** — PR #722 merged, janitor green |
-  | `overseer-0fy` gate driving | `backlog`, gated on **`ym6` alone**; the last thing before `ctc` |
+  | `overseer-0fy` gate driving | **`ready`, UNBLOCKED, NOT dispatched** — the only thing before `ctc` |
   | `overseer-ctc` E2E for requirement 5 | `backlog`; needs **`0fy` AND `afn`** — verified from `ctc`'s OWN dep tree, not its blockers' (T2). **The exit condition** |
   | `overseer-6eo` (P1) | OPEN and unmet, but **its stated impact on this track has LAPSED** — a wrap-up reached this worker at 13:10:49Z |
   | worker session `foreman` | alive, codex, **restarted TWICE** (13:21:53Z and again overnight); at **88% context** at 04:38Z, lane complete, needs nothing |
