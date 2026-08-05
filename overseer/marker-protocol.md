@@ -237,8 +237,8 @@ That marker clears as soon as you take another turn (the daemon clears it when i
 working again); you may also `rm {state_file}` yourself.
 
 If you are NOT free to continue — you are WAITING ON A HUMAN (you asked a question or hit a
-decision you cannot make, and cannot raise a prompt, e.g. Codex in YOLO mode) — then say so
-out-of-band so the operator is alerted, INSTEAD of sitting idle:
+decision you cannot make, and cannot get it answered through a structured prompt here) — then
+say so out-of-band so the operator is alerted, INSTEAD of sitting idle:
     echo 'blocked: <one-line reason>' > {state_file}
 ```
 
@@ -253,10 +253,32 @@ removes the file when it still holds `idle-with-context-left`, so it can never
 clobber a `ready` / `blocked` / `winding-down` the session wrote in the meantime.
 
 The nudge's escape hatch is the existing `blocked:` token: a session that is
-genuinely waiting on a human but can only say so in prose (Codex in YOLO mode
-cannot raise a structured question) is told to write `blocked: <reason>`, which
-surfaces the track to the operator instead of leaving it to be nudged onward. See
+genuinely waiting on a human and cannot get that decision answered through an
+available structured gate is told to write `blocked: <reason>`, which surfaces
+the track to the operator instead of leaving it to be nudged onward. See
 "Handoffs may adopt the `blocked:` convention" below.
+
+**This passage used to justify the hatch with "Codex in YOLO mode cannot raise a
+structured question." THAT JUSTIFICATION IS REFUTED — measured 2026-08-04.** A
+native structured picker rendered and completed in a session whose argv is
+verified as `codex --dangerously-bypass-approvals-and-sandbox`, so it was
+genuinely YOLO rather than a Default-mode look-alike, with the
+`default_mode_request_user_input` feature enabled. The observation was taken by
+capturing that pane FROM OUTSIDE rather than by asking the model what happened —
+a model that declined to call a tool can describe "not offered" and "chose not
+to" equally fluently, whereas a rendered picker can only exist if the tool was
+offered AND called.
+
+**ONLY THE JUSTIFICATION IS RETIRED. THE ESCAPE HATCH ITSELF STAYS, and deleting
+it would turn a documentation correction into a supervision regression.** Three
+reasons it is still load-bearing: `codex exec` is headless and offers no picker
+at all; not every human decision is expressible as a multiple-choice question;
+and the feature is "under development" and can be withdrawn. Accordingly,
+`SPECIFICATION/spec.md` §"Out-of-band state declaration" now requires
+structured-question capability to be derived from LIVE GATE EVIDENCE rather than
+inferred from a runtime name, launch mode, or approval/sandbox policy — and
+forbids making the `blocked:` declaration conditional on such a feature being
+enabled, suitable, or available in the current harness.
 
 ## What a tracked session must WRITE
 
