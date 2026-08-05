@@ -52,10 +52,10 @@ def base_document(*, repo: Path) -> dict[str, object]:
     }
 
 
-def valve_proposal(*, repo: Path) -> dict[str, object]:
+def valve_proposal(*, repo: Path, action_id: str = "human_valve") -> dict[str, object]:
     return {
         "schema_version": 1,
-        "action_id": "human_valve",
+        "action_id": action_id,
         "repo": str(repo),
         "topic": "alpha",
         "session_name": "alpha",
@@ -174,6 +174,28 @@ def test_absent_config_keeps_human_valves_report_only_byte_identical(*, tmp_path
     assert calls == []
 
 
+def test_blocked_session_answer_consensus_refusals_keep_requested_action_id(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    calls: list[list[str]] = []
+
+    result = foreman_act.act(
+        proposal=valve_proposal(repo=repo, action_id="blocked_session_answer"),
+        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+        run=lambda *, argv: calls.append(argv) or 0,
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "human_action_report_only",
+    }
+    assert calls == []
+
+
 def test_consensus_disposition_journals_before_acting(*, tmp_path):
     foreman_act = module("foreman_act")
     repo = tmp_path / "repo"
@@ -201,6 +223,26 @@ def test_consensus_disposition_journals_before_acting(*, tmp_path):
     assert journaled[0]["panel_outcome"] == "unanimous"
     assert journaled[0]["authorized_action_id"] == "plan_start"
     assert len(journaled[0]["reviewers"]) == 3
+
+
+def test_blocked_session_answer_consensus_audit_records_requested_action_id(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    write_config(repo=repo, value="consensus")
+    journaled: list[dict[str, object]] = []
+
+    result = foreman_act.act(
+        proposal=valve_proposal(repo=repo, action_id="blocked_session_answer"),
+        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+        run=lambda *, argv: 0,
+        consensus_panel=lambda *, request, responses: unanimous_panel_result(),
+        append_journal=lambda *, repo, record: journaled.append(record),
+    )
+
+    assert result["outcome"] == "acted"
+    assert journaled[0]["stage"] == "foreman-consensus-act"
+    assert journaled[0]["action_id"] == "blocked_session_answer"
+    assert journaled[0]["authorized_action_id"] == "plan_start"
 
 
 def test_consensus_floors_and_missing_evidence_escalate_without_mutation(*, tmp_path):

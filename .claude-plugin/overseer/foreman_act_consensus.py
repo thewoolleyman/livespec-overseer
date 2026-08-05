@@ -81,11 +81,15 @@ def _consensus_evidence(
 
 
 def _audit_record(
-    *, proposal: dict[str, object], verdict: dict[str, object], action_id: ActionId
+    *,
+    proposal: dict[str, object],
+    verdict: dict[str, object],
+    requested_action_id: ActionId,
+    authorized_action_id: ActionId,
 ) -> dict[str, object]:
     return {
         "stage": "foreman-consensus-act",
-        "action_id": HUMAN_VALVE,
+        "action_id": requested_action_id,
         "governing_setting": f"{CONFIG_KEY}={CONSENSUS}",
         "repo": proposal.get("repo"),
         "topic": proposal.get("topic"),
@@ -94,7 +98,7 @@ def _audit_record(
         "panel_cache_key": verdict.get("cache_key"),
         "reviewers": verdict.get("reviewers"),
         "models": verdict.get("models"),
-        "authorized_action_id": action_id,
+        "authorized_action_id": authorized_action_id,
         "verdict": verdict,
     }
 
@@ -117,6 +121,7 @@ def _authorized_panel_action(*, verdict: dict[str, object]) -> tuple[ActionId | 
 
 def prepare_consensus_action(
     *,
+    action_id: ActionId,
     proposal: dict[str, object],
     disposition: dict[str, object],
     consensus_panel: ConsensusPanel,
@@ -126,26 +131,31 @@ def prepare_consensus_action(
         reason = "human_action_report_only"
         if disposition.get("recognized") is False:  # pragma: no cover
             reason = "unrecognized_foreman_valve_disposition"
-        return None, _refused(action_id=HUMAN_VALVE, reason=reason)
+        return None, _refused(action_id=action_id, reason=reason)
     category = _valve_category(proposal=proposal)
     if category in _HARD_FLOORS:
-        return None, _refused(action_id=HUMAN_VALVE, reason=f"hard_floor:{category}")
+        return None, _refused(action_id=action_id, reason=f"hard_floor:{category}")
     evidence = _consensus_evidence(proposal=proposal)
     if evidence is None:
-        return None, _refused(action_id=HUMAN_VALVE, reason="consensus_evidence_unavailable")
+        return None, _refused(action_id=action_id, reason="consensus_evidence_unavailable")
     request, responses = evidence
     verdict = consensus_panel(request=request, responses=responses)
-    action_id, refusal = _authorized_panel_action(verdict=verdict)
-    if refusal is not None or action_id is None:  # pragma: no cover
-        return None, _refused(action_id=HUMAN_VALVE, reason=refusal or "consensus_unavailable")
+    authorized_action_id, refusal = _authorized_panel_action(verdict=verdict)
+    if refusal is not None or authorized_action_id is None:  # pragma: no cover
+        return None, _refused(action_id=action_id, reason=refusal or "consensus_unavailable")
     try:
         append_journal(
             repo=Path(str(proposal["repo"])),
-            record=_audit_record(proposal=proposal, verdict=verdict, action_id=action_id),
+            record=_audit_record(
+                proposal=proposal,
+                verdict=verdict,
+                requested_action_id=action_id,
+                authorized_action_id=authorized_action_id,
+            ),
         )
     except OSError:
-        return None, _refused(action_id=HUMAN_VALVE, reason="journal_append_failed")
-    return action_id, None
+        return None, _refused(action_id=action_id, reason="journal_append_failed")
+    return authorized_action_id, None
 
 
 def act_journal_triage(
