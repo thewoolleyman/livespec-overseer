@@ -405,7 +405,8 @@ Filing them was the deliverable; fixing them is not this thread's scope.
 | `livespec-dev-tooling-teje` | dev-tooling | `worktree-reap` judges merged-ness by ancestry — false for EVERY branch under rebase-merge. 17 worktrees, 0 removable. |
 | `livespec-dev-tooling-3pre` | dev-tooling | `worktree_primary_path` SIGPIPEs under `pipefail`; `just worktree-create` dies silently with exit 141 in any repo with enough worktrees. |
 | `livespec-dev-tooling-i655` | dev-tooling | `subagent_stop_guard` resolves the PR by local branch name, wedging on a rebase-merged branch pushed under a different name. |
-| `livespec-dev-tooling-1ysu` | dev-tooling | **`plan_thread_anchor_declared` rejects concrete anchors on FORMATTING alone** — a bold-wrapped or punctuation-followed id fails. 15 of 27 fleet threads are false positives, including this very handoff. Blocks 3 `livespec-fvhvui` slices. |
+| `livespec-dev-tooling-1ysu` | dev-tooling | **`plan_thread_anchor_declared` rejects concrete anchors on FORMATTING alone** — a bold-wrapped or punctuation-followed id fails. 15 of 27 fleet threads are false positives, including this very handoff. Blocks 3 `livespec-fvhvui` slices. **DISPATCHED**, run `01KZ83PFEW2S`. |
+| `bd-ib-5tyn` | orchestrator | **A queued fabro run outlives its work-item's closure and is never reaped.** One has been `runnable` **51 hours** against an item closed two days ago. It occupies a queue position, and if it ever starts it dispatches an agent against completed work. |
 
 **`overseer-jct` deserves reading in full before anyone touches `.py` here.** The 123
 violations are NOT new code and NOT a regression. Controlled measurement, identical
@@ -574,13 +575,29 @@ Then, in rough order of value:
    `overseer-e723tt` is unblocked and **DISPATCHED**. Do not close `overseer-jct` — the
    violations are real — but stop treating it as a gate, and do not groom it into
    per-module slices on the strength of the old framing.
-3. **`livespec-fvhvui`'s four `ready` slices.** Intake is DONE on all nine — every slice
-   has a rank, `intake:triaged`, and a routing decision backed by a per-repo measurement
-   run with the shipped check itself. **Take `livespec-runtime-acq` first: zero live plan
-   threads, so nothing to repair, nothing to wire, one flag to set.** Then `bd-gj-9tf`
-   (1 genuine repair), `livespec-rh2y` (4), `bd-ib-ud0y` (6). The other three are
-   `blocked` behind `1ysu` and must NOT be dispatched — their "repairs" are correct
-   documents. See §"The fan-out intake" for the per-slice numbers.
+3. **`livespec-fvhvui`'s four `ready` slices — HELD ON PURPOSE, not forgotten.** Intake
+   is DONE on all nine: every slice has a rank, `intake:triaged`, and a routing decision
+   backed by a per-repo measurement run with the shipped check itself. **Take
+   `livespec-runtime-acq` first: zero live plan threads, so nothing to repair, nothing
+   to wire, one flag to set** — and `livespec-runtime` master `ci-green` is
+   `completed success`, so it is dispatchable the moment there is capacity. Then
+   `bd-gj-9tf` (1 genuine repair), `livespec-rh2y` (4), `bd-ib-ud0y` (6). The other
+   three are `blocked` behind `1ysu` and must NOT be dispatched — their "repairs" are
+   correct documents. See §"The fan-out intake" for the per-slice numbers.
+
+   **Why held:** at the time of writing the fabro queue was at **four `running` plus one
+   wedged `runnable`**, and two of the four are this thread's own dispatches (`1ysu`,
+   `overseer-e723tt`). Adding a fifth would park it at `runnable`, which is precisely
+   the state that gets evicted without executing and leaves a phantom
+   `active`/`fabro` claim to release by hand. **Check `fabro ps` for a free slot before
+   dispatching these** — the work is ready, the queue was not.
+
+   **The wedged run is itself a filed defect, `bd-ib-5tyn`.** `01KZ2P36KXCK` has been
+   `runnable` for **51 hours** naming `livespec-dev-tooling-5u4rvy`, an item that has
+   been **`closed` since 2026-08-03T04:24:43Z**. A queued run outlived its item's
+   closure and nothing reaps it. If it ever starts it dispatches an agent against
+   finished work. It surfaced only because this thread read `fabro ps` to decide whether
+   there was capacity — nothing reports it.
    **This epic is MORE load-bearing than it looks.** The ban's
    new "never move an archived thread back without reopening its epic" MUST is correct
    but UNENFORCED — no credential-free check can see epic state, so it leans on
