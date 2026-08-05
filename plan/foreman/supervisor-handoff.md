@@ -261,6 +261,49 @@ any of it forward; the Verification Discipline block is the command.
   arm the watcher BEFORE the run gets going**; `tmp/overseer/foreman/watch-ym6-dispatch.sh`
   is the template, with the id hardcoded INSIDE the file rather than passed as an
   argument (T6/T9).
+
+  **`0fy` IS STILL NOT DISPATCHED AS OF 2026-08-05T05:35Z, AND THE REASON CHANGED
+  — IT IS NOW HELD ON FACTORY CAPACITY, NOT ON THE WIND-DOWN. IT IS ALSO
+  ANNOTATED; READ THE ITEM BEFORE YOU DISPATCH IT.** Re-measured at 05:22Z: the
+  fabro queue was at **4 `running` plus 1 wedged `runnable`**, and a fifth
+  dispatch parks at `runnable` — which is the state that gets **evicted without
+  executing** and leaves a phantom `active`/`fabro` claim, the second of the three
+  phantom-claim causes in the repo-root `CLAUDE.md`. **CHECK `fabro ps` FOR A FREE
+  SLOT BEFORE DISPATCHING ANYTHING FROM THIS THREAD.** Note `fabro` is NOT on the
+  credential wrapper's PATH — call it directly — and its JSON `status` is an
+  OBJECT (`.status.kind`), so a string compare against it silently never matches
+  (T6).
+  **DO NOT SPLIT "WAIT FOR A SLOT" FROM "DISPATCH" INTO TWO STEPS — THE WINDOW IS
+  SHORTER THAN THE PRE-FLIGHT.** Measured 05:39Z: a capacity watcher woke on
+  `running=3`, and by the time the pre-flight re-checks finished the queue was
+  back to `running=4`. The abort was correct and the design was not. Use
+  `tmp/overseer/foreman/wait-and-dispatch-0fy.sh`, which polls, re-verifies the
+  item is still `ready`/unassigned, and dispatches with **nothing in between**;
+  `tmp/overseer/foreman/watch-dispatch-capacity.sh` is the observe-only variant
+  and will lose this race if you drive it by hand.
+  **This is not my caution alone**: the `kill-tombstones` track measured the same
+  queue and HELD ITS OWN FOUR READY SLICES for the same reason (commit
+  `27e604b`), and the wedged run is filed as `bd-ib-5tyn` — `runnable` for 51
+  hours against an item closed two days earlier, occupying a queue position that
+  nothing reaps. **Do not "fix" that by cancelling it: it is another repo's run,
+  and cancelling changes what someone else's queue WILL DO NEXT, which is the
+  boundary the shared layer draws.**
+
+  **THE ITEM'S ACCEPTANCE WAS REVIEWED AS THE SANDBOX AGENT WOULD READ IT (T13)
+  AND IT IS ANNOTATED ON THE LEDGER. Two of its five legs do not mean what they
+  say.** Leg 1 — a RED test refusing an act when the pane identity token changed —
+  is **ALREADY DISCHARGED**: `revalidate_identity`
+  (`overseer/foreman_act_revalidate.py`) already refuses on
+  `session_identity_changed` plus repo/daemon/tick, and
+  `tests/test_foreman_act.py:633` asserts all four. A cold agent would have built
+  a second mechanism, which is T3's exact chain. Leg 3's "both runtimes" **cannot
+  mean live agent TUIs** — real tmux on a private socket IS established practice
+  here (`tests/e2e-cli/`, `tests/prompts/`), but no test launches a real `claude`
+  or `codex`; the stand-in is a scripted fake process, and a headless sandbox has
+  credentials for neither. Legs 2/3/4/5 are genuinely unbuilt: the daemon-honored
+  interlock does not exist anywhere, verified with a positive control proving the
+  same query shape matches in those files.
+
   After `0fy` comes **`ctc` — the exit condition, and the reason this thread was
   reopened.** It is where the foreman is finally RUN end to end against the
   SHIPPED artifact. Do not archive this thread on unit-green again.
@@ -352,7 +395,7 @@ any of it forward; the Verification Discipline block is the command.
   | `overseer-0fy` gate driving | **`ready`, UNBLOCKED, NOT dispatched** — the only thing before `ctc` |
   | `overseer-ctc` E2E for requirement 5 | `backlog`; needs **`0fy` AND `afn`** — verified from `ctc`'s OWN dep tree, not its blockers' (T2). **The exit condition** |
   | `overseer-6eo` (P1) | OPEN and unmet, but **its stated impact on this track has LAPSED** — a wrap-up reached this worker at 13:10:49Z |
-  | worker session `foreman` | alive, codex, **restarted TWICE** (13:21:53Z and again overnight); at **88% context** at 04:38Z, lane complete, needs nothing |
+  | worker session `foreman` | alive, codex, restarted **ONCE** (13:21:53Z) and **NOT** again — the later recovery to **88% context** was the runtime COMPACTING ITSELF in-process, not a respawn (T15). Lane complete, needs nothing |
 
   **THAT RATIFICATION IS DONE — `v007` IS MERGED. 2026-08-04T14:10:54Z, PR #688,
   merge `c57d928`.** This paragraph used to name PR #679's pending
@@ -1393,3 +1436,71 @@ ordering exactly.
   green, exit 0), then the aggregate again (All 68 targets passed, green token
   written), and confirm with a control that the failure grep CAN match — it
   matched on the failing run and found nothing on the green one.
+
+- **T15 (2026-08-05) — I INHERITED A "RESTARTED TWICE" CLAIM THAT WAS A
+  MISATTRIBUTION, AND THE THING THAT ACTUALLY HAPPENED BREAKS AN ASSUMPTION TWO
+  THREADS ARE REASONING FROM.** The binder's state table said the worker was
+  "restarted TWICE (13:21:53Z and again overnight); at 88% context at 04:38Z".
+  Measured at cold open: the pane pid is **2484970 and its process start time is
+  13:21:53Z 2026-08-04** — unchanged. There was no second respawn. What the
+  predecessor saw was real (the session genuinely went from ~16% to 88% headroom)
+  and the cause was not: the pane carries the literal line `• Context compacted`
+  and its footer reads `Context 88% left`. **THE CODEX RUNTIME COMPACTED ITS OWN
+  CONTEXT IN-PROCESS.**
+  **WHY THIS IS WORTH A CORRECTION RATHER THAN A QUIET EDIT.** Two live threads
+  are reasoning about this exact session. The `ready-certification-deadlock`
+  thread was handed it as a reproduction, and a supervisor who believes the daemon
+  restarted this worker overnight concludes the deadlock cleared itself. It did
+  not: **two more sincere `ready` declarations were consumed with no respawn**,
+  and the snapshot still reads `declaration=null`. Compaction erased the
+  CONSEQUENCE (the session never ran to zero and stopped) while leaving the defect
+  exactly where it was. A defect that reproduces and then destroys its own most
+  visible symptom is the hardest kind to keep believed, which is why the datum was
+  reported to them on both channels rather than kept here.
+  **THE GENERALISABLE PART: `ctx` IS NOT A MONOTONIC COUNTDOWN ON A LIVE
+  SESSION.** This track went 16 → 88 on one unbroken pid. Any model, fixture, or
+  test that assumes context only decreases between restarts cannot reproduce what
+  happened here, and any diagnosis that reads a context RECOVERY as evidence of a
+  RESTART will attribute a runtime action to the daemon. **The discriminator is
+  free and takes one command: compare the pane's process start time against the
+  restart you think occurred.** A pid is evidence; a percentage is not.
+  This is T4's family — a footer, a check name and a status line each NAME a thing
+  and none explains itself — arriving on the one number this whole supervision
+  contract is built around.
+
+- **T15b (2026-08-05) — THE CORRECT ACTION WAS TO NOT TAKE THE ACTION I WAS TOLD
+  TO TAKE, AND A PEER TRACK HAD ALREADY PROVED IT.** My binder's next action was
+  unambiguous: re-measure `overseer-0fy`, dispatch it, arm the watcher. I
+  re-measured and then did **not** dispatch, because the measurement said not to —
+  the fabro queue stood at 4 `running` plus 1 wedged `runnable`, and a fifth
+  dispatch parks at `runnable`, the state that is evicted without ever executing
+  and leaves a phantom claim to release by hand.
+  **THE INSTRUCTION WAS RIGHT WHEN WRITTEN AND THE PRECONDITION IT NEVER NAMED
+  HAD CHANGED.** "Dispatch it" silently assumes a slot exists. Nothing in the
+  binder said to check, because when it was written the thread's own two runs were
+  the queue. **An instruction inherits the world its author measured.**
+  **WHAT MADE THIS CHEAP WAS READING SOMEONE ELSE'S COMMIT.** `origin/master` had
+  moved one commit under me, from a track I am not on; fast-forwarding the primary
+  (T12) put `plan/kill-tombstones/handoff.md` in front of me, and it recorded that
+  they had measured the same queue and **deliberately held four ready slices** for
+  exactly this reason, plus the zombie run as `bd-ib-5tyn`. I did not have to
+  discover the hazard, only to notice that a neighbour had already paid for it.
+  **Fast-forwarding the primary is not housekeeping; it is how a fleet member
+  learns what the fleet learned.**
+  **AND THE UNBLOCK THAT LOOKED AVAILABLE WAS NOT MINE.** The wedged run has been
+  `runnable` for 51 hours against an item closed two days ago; cancelling it would
+  free the queue for everyone. It is another repo's run, and the shared layer's
+  test settles it — cancelling changes what someone else's queue WILL DO NEXT,
+  which is theirs. Filing it was allowed and had already been done. **The rule
+  that a wait is not a maintainer question does not license reaching into another
+  queue to end the wait.**
+  **AND THE RACE IS THE REUSABLE PART.** I first built an observe-only capacity
+  watcher, was woken correctly on `running=3`, and lost the slot during my own
+  pre-flight — it was back to 4 within about a minute. The instinct is to poll
+  faster; that is wrong, because the gap is not the poll interval but the
+  CHECK-THEN-ACT gap. **On a contended shared resource, the verification must sit
+  inside the loop immediately before the action, with nothing between them.** The
+  residual race — another actor claiming the item between the ledger read and the
+  dispatch — is the one the dispatcher itself settles, refusing cleanly with exit
+  3 and no claim rather than double-dispatching. C7 and C12 say ask the right
+  authority; this adds *and ask it at the right MOMENT*.
