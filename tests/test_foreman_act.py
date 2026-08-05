@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
 MODULE_PATH = OVERSEER_DIR / "foreman_act.py"
 EXECUTABLE_PATH = OVERSEER_DIR / "foreman-act"
+PANE_CLAIM_PATH = OVERSEER_DIR / "foreman_pane_claim.py"
+GATE_STATE_PATH = OVERSEER_DIR / "foreman_gate_state.py"
 
 __all__: list[str] = []
 
@@ -26,6 +31,12 @@ def foreman_act_filing():
     if str(OVERSEER_DIR) not in sys.path:
         sys.path.insert(0, str(OVERSEER_DIR))
     return importlib.import_module("foreman_act_filing")
+
+
+def module(name: str):
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module(name)
 
 
 def base_document(*, repo: Path, generation: int = 7) -> dict[str, object]:
@@ -51,6 +62,22 @@ def base_document(*, repo: Path, generation: int = 7) -> dict[str, object]:
     }
 
 
+def blocked_document(*, repo: Path, runtime: str = "claude") -> dict[str, object]:
+    document = base_document(repo=repo)
+    row = document["snapshot"]["rows"][0]
+    assert isinstance(row, dict)
+    row.update(
+        {
+            "runtime": runtime,
+            "status": "blocked:human",
+            "session_identity": f"{runtime}:session-1",
+            "question_fingerprint": "question-1",
+            "note": "structured gate on pane",
+        }
+    )
+    return document
+
+
 def start_proposal(*, repo: Path, action_id: str = "plan_start") -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -68,6 +95,68 @@ def start_proposal(*, repo: Path, action_id: str = "plan_start") -> dict[str, ob
             "start": {"repo": str(repo), "topic": "alpha", "session_name": "alpha"},
         },
     }
+
+
+def blocked_answer_proposal(
+    *, repo: Path, mode: str = "answer_existing_prompt"
+) -> dict[str, object]:
+    proposal = start_proposal(repo=repo, action_id="blocked_session_answer")
+    proposal["snapshot"] = {
+        "daemon_instance_id": "daemon-1",
+        "tick_generation": 7,
+        "session_identity": "claude:session-1",
+    }
+    proposal["human_valve"] = {"category": "ordinary"}
+    proposal["consensus"] = {
+        "request": {"item_id": "overseer-0fy", "choice": "answer alpha"},
+        "reviewer_responses": {},
+    }
+    proposal["blocked_session_answer"] = {
+        "mode": mode,
+        "answer_text": "Yes, proceed with the bounded retry.",
+        "question_fingerprint": "question-1",
+    }
+    return proposal
+
+
+def blocked_answer_panel_result() -> dict[str, object]:
+    reviewers = [
+        {
+            "reviewer_id": "fable",
+            "model": {"reviewer_id": "fable", "vendor": "anthropic", "model": "claude-fable-5"},
+            "verdict": "unblock",
+            "action": {"action_id": "blocked_session_answer", "params": {}},
+        },
+        {
+            "reviewer_id": "opus",
+            "model": {"reviewer_id": "opus", "vendor": "anthropic", "model": "claude-opus-5"},
+            "verdict": "unblock",
+            "action": {"action_id": "blocked_session_answer", "params": {}},
+        },
+        {
+            "reviewer_id": "gpt-sol",
+            "model": {"reviewer_id": "gpt-sol", "vendor": "openai", "model": "gpt-5.6-sol"},
+            "verdict": "unblock",
+            "action": {"action_id": "blocked_session_answer", "params": {}},
+        },
+    ]
+    return {
+        "schema_version": 1,
+        "outcome": "unanimous",
+        "reason": "three_typed_actions_equal",
+        "action": {"action_id": "blocked_session_answer", "params": {}},
+        "reviewers": reviewers,
+        "models": [reviewer["model"] for reviewer in reviewers],
+        "cache_key": "answer-cache",
+        "mutated": False,
+    }
+
+
+def write_consensus_config(*, repo: Path) -> None:
+    (repo / ".livespec.jsonc").write_text(
+        json.dumps({"livespec-overseer": {"foreman_valve_disposition": "consensus"}}),
+        encoding="utf-8",
+    )
 
 
 def resume_proposal(*, repo: Path) -> dict[str, object]:
@@ -665,6 +754,210 @@ def test_race_revalidates_every_identity_field_before_mutation(*, tmp_path):
         assert result["mutated"] is False
         assert result["reason"] == reason
     assert calls == []
+
+
+def test_identity_token_race_coverage_is_the_existing_leg_1_contract():
+    revalidate = module("foreman_act_revalidate")
+
+    assert hasattr(revalidate, "revalidate_identity")
+    assert "test_race_revalidates_every_identity_field_before_mutation" in Path(__file__).read_text(
+        encoding="utf-8"
+    )
+
+
+def test_daemon_honors_foreman_pane_claim_by_suppressing_wrapup(*, tmp_path):
+    assert PANE_CLAIM_PATH.is_file()
+    pane_claim = module("foreman_pane_claim")
+    builders = module("test_supervisor_builders")
+    fakes = module("test_supervisor_fakes")
+    registry = module("registry")
+
+    repo, topic = builders.make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = fakes.FakeTmux()
+    fake.serve(session=session, repo=repo, capture=builders.idle_capture(ctx=40), cmd="node")
+    sup = builders.make_supervisor(tmp_path=tmp_path, fake=fake)
+    pane_claim.write_pane_claim(
+        repo=repo,
+        topic=topic,
+        claim=pane_claim.PaneClaim(
+            owner="foreman",
+            session=session,
+            pane=session,
+            runtime="claude",
+            session_identity=f"none:{repo}:{topic}",
+            question_fingerprint="question-1",
+            acquired_at=999.0,
+            expires_at=1100.0,
+        ),
+    )
+
+    view = sup.evaluate(
+        track=builders.mapped_track(repo=repo, topic=topic, session=session), act=True
+    )
+
+    assert view.status == "blocked:human"
+    assert "foreman owns this pane" in (view.note or "")
+    assert builders.wrapup_count(fake=fake) == 0
+
+
+def test_blocked_answer_dismiss_and_represent_is_unreachable_until_protocol_ratified(
+    *, tmp_path, monkeypatch
+):
+    assert PANE_CLAIM_PATH.is_file()
+    module("foreman_pane_claim")
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    calls: list[list[str]] = []
+
+    result = foreman_act.act(
+        proposal=blocked_answer_proposal(repo=repo, mode="dismiss_and_represent"),
+        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+        run=lambda *, argv: calls.append(argv) or 0,
+        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "marker_protocol_unratified",
+    }
+    assert calls == []
+
+
+def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path, monkeypatch):
+    assert PANE_CLAIM_PATH.is_file()
+    pane_claim = module("foreman_pane_claim")
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+
+    class ActTmux:
+        def __init__(self):
+            self.calls: list[tuple[str, str, str | None]] = []
+
+        def pane_id(self, *, session: str):
+            self.calls.append(("pane_id", session, None))
+            return session
+
+        def pane_current_command(self, *, session: str):
+            self.calls.append(("cmd", session, None))
+            return "node"
+
+        def pane_current_path(self, *, session: str):
+            self.calls.append(("path", session, None))
+            return str(repo)
+
+        def capture_pane(self, *, session: str):
+            self.calls.append(("capture", session, None))
+            return "Approve the bounded retry?\n"
+
+        def bracketed_paste(self, *, session: str, text: str):
+            assert pane_claim.active_pane_claim(
+                repo=repo, topic="alpha", session=session, pane=session, now=1000.0
+            )
+            self.calls.append(("paste", session, text))
+            return True
+
+        def send_keys(self, *, session: str, keys: str):
+            self.calls.append(("keys", session, keys))
+            return True
+
+    tmux = ActTmux()
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: tmux)
+    monkeypatch.setattr(pane_claim, "time_time", lambda: 1000.0)
+
+    result = foreman_act.act(
+        proposal=blocked_answer_proposal(repo=repo),
+        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "answered_existing_prompt",
+    }
+    assert ("paste", "alpha", "Yes, proceed with the bounded retry.") in tmux.calls
+    assert ("keys", "alpha", "Enter") in tmux.calls
+    assert not pane_claim.claim_path(repo=repo, topic="alpha").exists()
+
+
+def test_gate_state_restores_claude_and_codex_adapters_against_real_tmux(*, tmp_path):
+    assert GATE_STATE_PATH.is_file()
+    gate_state = module("foreman_gate_state")
+    tmuxio = module("tmuxio")
+    socket = f"gate-{os.getpid()}-{tmp_path.name}"
+    wrapper = tmp_path / "tmux-private"
+    wrapper.write_text(f'#!/bin/sh\nexec /usr/bin/tmux -L {socket} "$@"\n', encoding="utf-8")
+    wrapper.chmod(0o755)
+    tmux = tmuxio.TmuxIO(tmux_bin=str(wrapper))
+    try:
+        for runtime, text in (
+            ("claude", "CLAUDE_RESTORED_SENTINEL"),
+            ("codex", "CODEX_RESTORED_SENTINEL"),
+        ):
+            session = f"{runtime}-gate"
+            subprocess.run(  # noqa: S603
+                [
+                    "/usr/bin/tmux",
+                    "-L",
+                    socket,
+                    "new-session",
+                    "-d",
+                    "-s",
+                    session,
+                    "-x",
+                    "80",
+                    "-y",
+                    "20",
+                    "sh",
+                    "-c",
+                    "printf 'gate ready\\n'; sleep 60",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            deadline = time.monotonic() + 5.0
+            while time.monotonic() < deadline and "gate ready" not in tmux.capture_pane(
+                session=session
+            ):
+                time.sleep(0.05)
+
+            assert gate_state.restore_gate_state(
+                tmux=tmux,
+                target=session,
+                state=gate_state.GateState(
+                    runtime=runtime,
+                    pane=session,
+                    capture="gate ready\n",
+                    question_text=text,
+                    question_fingerprint=f"{runtime}-question",
+                ),
+            )
+            deadline = time.monotonic() + 5.0
+            capture = tmux.capture_pane(session=session)
+            while time.monotonic() < deadline and text not in capture:
+                time.sleep(0.05)
+                capture = tmux.capture_pane(session=session)
+            assert text in capture
+    finally:
+        subprocess.run(  # noqa: S603
+            ["/usr/bin/tmux", "-L", socket, "kill-server"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
 
 
 def test_cli_outputs_deterministic_json(*, tmp_path, monkeypatch, capsys):

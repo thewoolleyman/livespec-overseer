@@ -10,6 +10,7 @@ from foreman_act_consensus import act_journal_triage
 from foreman_act_filing import FileWorkItem, filing_request
 from foreman_act_revalidate import revalidate_identity, str_field
 from foreman_act_types import (
+    BLOCKED_SESSION_ANSWER,
     DISPATCH_JOURNAL_RECONCILE_MERGED,
     PLAN_START,
     QUALIFYING_SESSION_RESUME,
@@ -19,6 +20,7 @@ from foreman_act_types import (
     ActionId,
     ActResult,
 )
+from foreman_blocked_answer import act_blocked_session_answer
 from foreman_work_item_sessions import act_work_item_session, is_work_item_session_action
 
 __all__: list[str] = ["Runner", "act_authorized"]
@@ -130,6 +132,8 @@ def act_authorized(
         start_refusal := _revalidate_start_tmux_occupancy(action_id=action_id, proposal=proposal)
     ) is not None:
         result = _refused(action_id=action_id, reason=start_refusal)
+    elif action_id == BLOCKED_SESSION_ANSWER:
+        result = act_blocked_session_answer(proposal=proposal, document=document, repo=repo)
     elif action_id == WORK_ITEM_FILE:
         result = _act_filing(proposal=proposal, action_id=action_id, file_work_item=file_work_item)
     elif action_id == DISPATCH_JOURNAL_RECONCILE_MERGED:  # pragma: no cover
