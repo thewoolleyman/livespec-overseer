@@ -72,22 +72,42 @@ anything an agent writes outside SCM and the ledger, and that generalization may
 be correct — but it is a **different, larger thread** and must not be absorbed
 here without an explicit decision. Name it if you find it; do not take it.
 
-## Status — regroomed and closed
+## Status — goal 3 done; goals 1 and 2 filed but NOT started. THIS THREAD IS ACTIVE, NOT ARCHIVED.
 
-`overseer-5jttov` has been groomed: it is **closed** (`resolution:
-no-longer-applicable`, regroomed out), replaced by two independent, `ready`,
-factory-tier children —
+`overseer-5jttov` was groomed and is `status: done` / `resolution:
+no-longer-applicable` — administratively retired because its content was split
+into two replacement ledger items. **That status transition is not evidence
+that any work shipped.** As of last check, both replacements are `status:
+ready`, unassigned, undispatched — zero code written, zero PRs opened:
 
 - `overseer-otjmoh` — goal 2, the `tmp/supervisor/` enforcement check.
 - `overseer-m4o33z` — goal 1, the charter rule + corollaries.
 
-Goal 3 is done in-thread (see the read-first chain above) and was never filed
-to the ledger — it is not factory-dispatchable (see the goals table).
+Goal 3 is measured and landed in-thread (see the read-first chain above) and
+was never filed to the ledger — it is not factory-dispatchable (see the goals
+table).
 
-Per this repo's plan-thread lifecycle rule, a thread is active iff its epic is
-open; `overseer-5jttov` is now closed, so this thread archives to
-`plan/archive/supervisor-scratch-discipline/` in the same change that lands
-this refresh. Reopening `overseer-5jttov` would unarchive it.
+**Do not archive this thread** until goals 1 and 2 are each implemented,
+merged to `master`, and (if this repo cuts a release for the change) shipped
+in a release and confirmed working — not merely filed, not merely
+"dispatched," and not merely pointed at by a ledger item whose status says
+something terminal. An epic/work-item's ledger STATUS is never evidence of
+real-world completion by itself; only a merged PR, green CI on `master`, and
+(where a release applies) a shipped-and-verified artifact are.
+
+**Corrects a live incident (2026-08-05):** an earlier revision of this
+handoff archived this thread to `plan/archive/` in the same commit that filed
+goals 1 and 2 as `ready` — before either was dispatched, implemented, or
+merged — reasoning that "the epic is closed, and this repo's plan-thread rule
+says archived iff epic-closed." That inference conflated a *procedural*
+epic closure (groom's regroom-out: the original ticket is retired because its
+content moved to new tickets) with a *completion* closure (the work described
+is actually done). The PR merged (repo auto-merge) before the mistake was
+caught; corrected in a follow-up PR the same day. The underlying rule text
+this came from — and whether it needs correcting fleet-wide, since `plan` and
+`groom` are shared `livespec-orchestrator-beads-fabro` operations — is a
+separate, larger question the maintainer is tracking outside this thread; do
+not silently absorb that fix here.
 
 ## Next action
 
@@ -101,4 +121,8 @@ in either order (they are independent, no `depends_on` between them):
 /livespec-orchestrator-beads-fabro:drive --action impl:overseer-m4o33z
 ```
 
-Do not hand-code implementation inline in a planning session.
+Do not hand-code implementation inline in a planning session. **Once both are
+merged** (and released/deployed, if applicable), re-open this handoff and
+update this Status section with real evidence (PR links, merge commits,
+release tag) before considering archival — and re-run the plan operation's
+handoff self-sufficiency gate before archiving, same as any other refresh.
