@@ -194,17 +194,45 @@ Running the intake DoR on all nine turned up something much bigger than the inta
 **All nine now carry a rank and `intake:triaged`, and each is routed on its own
 measurement** (2026-08-04):
 
-| slice | tenant | rank | routed | measured live threads |
+**SCOREBOARD RE-MEASURED 2026-08-05 ~21:40Z — 2 of 9 landed, 3 ready, 4 blocked.**
+
+| slice | tenant | rank | status | measured live threads |
 |---|---|---|---|---|
-| `livespec-runtime-acq` | runtime | `a3` | **ready** | **0 threads — flag flips green today. Cheapest; take it first.** |
-| `bd-gj-9tf` | orchestrator-git-jsonl | `a1` | **ready** | 1 genuine repair, 0 false positives |
-| `bd-ib-ud0y` | orchestrator-beads-fabro | `a3` | **ready** | 6 genuine, 2 false positives |
-| `livespec-rh2y` | livespec | `a2` | **ready** | 4 genuine, 1 false positive |
-| `dolt-server-d8w` | dolt-server | `a1` | **ready** | 1 false positive (see below) |
-| `overseer-2i9` | overseer | `a3` | **blocked** | 1 genuine, **4 false positives** |
-| `livespec-driver-claude-zbw` | driver-claude | `a1` | **blocked** | 0 genuine, **1 false positive** |
-| `livespec-console-beads-fabro-0c5` | console-beads-fabro | `a5` | **blocked** | 0 genuine, **7 false positives** |
-| `livespec-driver-codex-g5a` | driver-codex | — | closed | landed earlier |
+| `livespec-driver-codex-g5a` | driver-codex | — | **CLOSED** | landed earlier |
+| `livespec-runtime-acq` | runtime | `a3` | **CLOSED 08-05** | 0 threads — one-line flip, PR #480 |
+| `dolt-server-d8w` | dolt-server | `a1` | ready | 1 false positive (see below) |
+| `bd-ib-ud0y` | orchestrator-beads-fabro | `a3` | ready | 6 genuine, 2 false positives |
+| `livespec-rh2y` | livespec | `a2` | ready | 4 genuine, 1 false positive |
+| `bd-gj-9tf` | orchestrator-git-jsonl | `a1` | **BLOCKED — needs-human** | 1 genuine repair, 0 false positives — **but see below** |
+| `overseer-2i9` | overseer | `a3` | blocked on `1ysu` | 1 genuine, **4 false positives** |
+| `livespec-driver-claude-zbw` | driver-claude | `a1` | blocked on `1ysu` | 0 genuine, **1 false positive** |
+| `livespec-console-beads-fabro-0c5` | console-beads-fabro | `a5` | blocked on `1ysu` | 0 genuine, **7 false positives** |
+
+**`livespec-runtime-acq` LANDED and is the model for the cheap ones.** PR #480 added one
+line — `plan_lifecycle_anchor = true` — and touched no handoff, correctly, because that
+repo has zero live plan threads. Its acceptance is worth copying: it confirmed
+`just check-plan-thread-anchor-declared` passed **without self-skip output**. Exit 0
+alone proves nothing there — the check self-skips and exits 0 when the flag is off, so
+the *absence of the skip line* is what proves it is armed.
+
+**`bd-gj-9tf` IS NOT FACTORY-DISPATCHABLE AS CUT — a genuinely useful discovery.** Its
+run ended `blocked` / `human_input_required`, and the agent was RIGHT: *"Cannot repair
+plan/make-git-jsonl-real/handoff.md without a concrete resolving bd-gj epic id. The
+sandbox lacks bd, LIVESPEC_BD_PATH, BEADS_DOLT_PASSWORD…"* It refused to fabricate an
+id, which is exactly what its own description demands.
+
+Confirmed host-side, which the sandbox could not do: **the thread genuinely has no
+epic** — the `bd-gj` tenant holds five items and **zero** of `issue_type=epic`, and the
+handoff's anchor line reads a literal `epic **TO BE` placeholder. So the repair requires
+**filing an epic**, which is a ledger write no sandbox can perform, and whose scope is a
+planning decision for that thread's owner. Routed `blocked`/`needs-human`; once the epic
+exists this becomes cheap and safely dispatchable.
+
+**The general lesson for the remaining slices:** a slice whose repair needs a LEDGER
+WRITE cannot be factory-dispatched at all, however small the diff looks. Check each
+remaining slice's repair list for that shape before sending it — `livespec-rh2y` has two
+threads with no anchor line at all and one with **no `handoff.md`**, so at least some of
+it may be the same class.
 
 Every rank went into a FREE slot in its own tenant, so **no sibling rank moved** and no
 tenant-wide migrate or rebalance was run anywhere. No cross-repo dependency EDGE was
