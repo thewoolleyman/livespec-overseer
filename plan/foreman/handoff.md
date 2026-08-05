@@ -1,5 +1,84 @@
 # Plan — foreman
 
+## Checkpoint 2026-08-05T03:33Z — WIND-DOWN: v007 RATIFIED; AFN proposal filed, ratification supervisor-owned
+
+This is the newest resume block and supersedes every older status statement
+below. Fetch and re-measure the forge, ledger, and Fabro before acting.
+
+**PHASE C IS CLOSED. THE PHASE D POLICY FOUNDATION IS RATIFIED.** PR #688
+rebase-merged as `c57d928a48b27d75521f7f7d2785605dbd08dcfd` at
+2026-08-04T14:10:54Z. `SPECIFICATION/history/v007/` is present and the
+self-retiring report-only clause is gone. The ratified policy has a
+`report-only` safe default, the consensus disposition, hard human floors,
+journal-first action, and fail-closed escalation. Do not re-run that revise or
+re-file its proposal.
+
+**THIS WORKER TOOK `overseer-afn` AND FILED ITS CONTRACT AMENDMENT.** It
+announced ownership in the pane before acting so the supervisor would not
+duplicate the slice. PR #689 (`d719038`) rebase-merged as
+`5d6bc70ad59665758402b9ea71556bd744595896` at 2026-08-04T14:21:11Z, with all
+checks green. It filed
+`SPECIFICATION/proposed_changes/codex-yolo-structured-question-protocol.md`.
+The proposal makes structured-question capability depend on live gate evidence
+rather than the YOLO label while preserving all of these load-bearing paths:
+
+- the general `blocked: <reason>` escape hatch;
+- the `codex exec` / headless prose fallback;
+- structured-gate suppression of daemon pastes; and
+- the restart prohibition for a blocked declaration.
+
+Static propose-change checks passed. The LLM doctor found no defect in the new
+proposal; its only subjective drift was the already-known v007 policy-to-code
+gap carried by supervisor-owned `overseer-ym6`, so no duplicate item was filed.
+Two comments on `overseer-afn` carry the exact PR/merge evidence. The beads
+comment write succeeded and was read back authoritatively; its secondary
+auto-backup warned that the tenant user cannot register `backup_export`, which
+did not undo the comment.
+
+**THE MAINTAINER RULED `RATIFY NOW`, AND THE SUPERVISOR OWNS EXECUTION.** The
+supervisor proxied the worker's picker because an open picker suppresses daemon
+wrap-up. The maintainer also ruled that the two false examples at
+`overseer/marker-protocol.md` around lines 240 and 256–257 must be corrected in
+the SAME change: that module document sits outside `SPECIFICATION/`, so revise
+alone cannot update it. The supervisor explicitly owns the revise pass plus
+that marker-protocol correction. **Do not run revise, create a revise worktree,
+or edit marker-protocol.md.**
+
+Final authority measurement at 2026-08-05T03:33Z: `origin/master` was
+`bb78a14`; `SPECIFICATION/history/v008/` exists for an unrelated tombstone-ban
+ratification, while `SPECIFICATION/proposed_changes/` still contains the afn
+proposal, an unrelated `post-void-ready-certification.md`, and README. No
+marker-protocol correction commit or afn ratification PR was visible. Therefore
+the supervisor-owned work was still pending at that measurement. On resume,
+fetch and inspect the newest history/proposals and forge before saying whether
+it landed; do not race it.
+
+**AFN MEASUREMENT STATUS:** acceptance leg 1 is positive and leg 2 is also
+satisfied: an external pane capture observed the native picker itself, proving
+the tool was offered and called rather than merely described by the model.
+Acceptance leg 3 — execute the prose fallback through real `codex exec` —
+remains unexecuted. This assignment explicitly said **do not launch any nested
+Codex session**, so this worker did not run that probe. A successor must preserve
+that prohibition unless the maintainer explicitly changes it; never substitute
+a unit import or prose inspection for the required real-harness evidence.
+
+**PHASE D OWNERSHIP/ORDER REMAINS:**
+
+- `overseer-ym6` is supervisor-owned and not a factory dispatch. Its spec leg is
+  discharged by v007; remaining work is the config-key read, journal-writing
+  RED test, opt-in control, and panel wiring. Do not duplicate it.
+- `overseer-0fy` is gated only by ym6 now that ncx is closed.
+- `overseer-ctc` is the shipped-artifact requirement-5 exit and the first point
+  at which the foreman product may be run. Do not start the product earlier.
+- `overseer-6eo` remains a separate open P1 with the narrowed evidence recorded
+  in the previous checkpoint; do not admit it merely to stay busy.
+
+No Fabro run, foreman runtime, sub-agent, or background subprocess was started
+by this worker. The merged proposal worktree
+`~/.worktrees/livespec-overseer/spec/codex-yolo-structured-question-protocol`
+was clean at wind-down and its remote branch was already deleted; it is a
+completed artifact, not a resume target.
+
 ## Checkpoint 2026-08-04T13:17Z — WIND-DOWN: Phase C CLOSED; ratification chosen, not yet executed
 
 This is the newest resume block and supersedes every older status table below.
