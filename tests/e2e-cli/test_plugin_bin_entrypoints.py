@@ -357,6 +357,34 @@ def _write_fake_codex(*, path: Path) -> None:
     launcher.chmod(0o755)
 
 
+def _write_blocked_claude(*, path: Path) -> Path:
+    launcher = path / "claude"
+    shutil.copy2("/usr/bin/python3", launcher)
+    launcher.chmod(0o755)
+    log = path / "blocked-claude-input.log"
+    script = path / "blocked_claude.py"
+    script.write_text(
+        textwrap.dedent(
+            """
+            import sys
+            from pathlib import Path
+
+            log = Path(sys.argv[1])
+            print("Approve the bounded retry?")
+            print("❯ 1. Yes, proceed")
+            print("  2. No, stop")
+            sys.stdout.flush()
+            for line in sys.stdin:
+                with log.open("a", encoding="utf-8") as handle:
+                    handle.write(line)
+                print("ANSWER_RECEIVED", flush=True)
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    return log
+
+
 def _run_foreman_act(
     *,
     context: ForemanActContext,
@@ -461,6 +489,69 @@ def _render_foreman_document(
     return completed.stdout
 
 
+def _run_foreman_gather(
+    *, plugin_root: Path, repo: Path, snapshot: dict[str, object]
+) -> dict[str, object]:
+    snapshot_path = repo / "status.json"
+    snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+    completed = subprocess.run(  # noqa: S603
+        [
+            str(plugin_root / "bin" / "foreman-gather"),
+            "--repo",
+            str(repo),
+            "--snapshot-path",
+            str(snapshot_path),
+            "--journal-path",
+            str(repo / "tmp" / "fabro-dispatch-journal.jsonl"),
+        ],
+        cwd=repo,
+        env={**_scrubbed_env(), "PYTHONPATH": ""},
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=15.0,
+    )
+    assert completed.returncode == 0, completed.stderr
+    parsed = json.loads(completed.stdout)
+    assert isinstance(parsed, dict)
+    return parsed
+
+
+def _run_foreman_consensus(
+    *,
+    plugin_root: Path,
+    repo: Path,
+    request: dict[str, object],
+    reviewers: dict[str, object],
+    state_dir: Path,
+) -> dict[str, object]:
+    request_path = repo / f"{request['item_id']}-request.json"
+    reviewers_path = repo / f"{request['item_id']}-reviewers.json"
+    request_path.write_text(json.dumps(request), encoding="utf-8")
+    reviewers_path.write_text(json.dumps(reviewers), encoding="utf-8")
+    completed = subprocess.run(  # noqa: S603
+        [
+            str(plugin_root / "bin" / "foreman-consensus"),
+            "--request",
+            str(request_path),
+            "--reviewer-responses",
+            str(reviewers_path),
+            "--state-dir",
+            str(state_dir),
+        ],
+        cwd=repo,
+        env={**_scrubbed_env(), "PYTHONPATH": ""},
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=15.0,
+    )
+    assert completed.returncode == 0, completed.stderr
+    parsed = json.loads(completed.stdout)
+    assert isinstance(parsed, dict)
+    return parsed
+
+
 def _foreman_e2e_context(*, tmp_path: Path) -> ForemanE2EContext:
     plugin_root = _materialize_overseer_plugin(cache=tmp_path / "home" / ".claude/plugins/cache")
     repo = tmp_path / "repo"
@@ -555,6 +646,114 @@ def _e2e_attention() -> dict[str, object]:
                 "title": "needs human-facing session",
             }
         ],
+    }
+
+
+def _blocked_attention() -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "generated_at": "2026-08-05T22:10:00Z",
+        "items": [
+            {
+                "id": "overseer-ctc",
+                "kind": "blocked-session",
+                "session_name": "blocked-alpha",
+                "tmux": "blocked-alpha",
+                "title": "blocked on bounded retry approval",
+            }
+        ],
+    }
+
+
+def _blocked_snapshot(*, repo: Path) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "daemon_instance_id": "daemon-e2e",
+        "tick_generation": 5,
+        "written_at": "2026-08-05T22:10:00Z",
+        "needs_attention": _blocked_attention(),
+        "rows": [
+            {
+                "repo": str(repo),
+                "topic": "blocked-alpha",
+                "tmux": "blocked-alpha",
+                "runtime": "claude",
+                "status": "blocked:human",
+                "session_identity": "claude:blocked-alpha-session",
+                "question_fingerprint": "question-alpha",
+                "note": "structured gate on pane",
+            }
+        ],
+    }
+
+
+def _blocked_consensus_request(
+    *, repo: Path, question: str = "Should the blocked alpha session proceed?"
+) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "blocked_question": question,
+        "repo": str(repo),
+        "topic": "blocked-alpha",
+        "tmux": "blocked-alpha",
+        "item_id": "overseer-ctc",
+        "repo_revision": "abc123",
+        "item_revision": "status:blocked/rank:seed-5",
+        "handoff_or_work_item": "Answer the existing blocked prompt only if consensus holds.",
+        "repo_context": "livespec-overseer shipped-plugin E2E",
+        "snapshot": {
+            "daemon_instance_id": "daemon-e2e",
+            "tick_generation": 5,
+            "session_identity": "claude:blocked-alpha-session",
+        },
+    }
+
+
+def _blocked_answer_reviewers(*, dissent: bool = False) -> dict[str, object]:
+    action = {
+        "action_id": "blocked_session_answer",
+        "params": {"mode": "answer_existing_prompt"},
+    }
+    reviewers: list[dict[str, object]] = [
+        {"reviewer_id": "fable", "verdict": "unblock", "action": action},
+        {"reviewer_id": "opus", "verdict": "unblock", "action": action},
+        {"reviewer_id": "gpt-sol", "verdict": "unblock", "action": action},
+    ]
+    if dissent:
+        reviewers[2] = {
+            "reviewer_id": "gpt-sol",
+            "verdict": "needs-human",
+            "action": {"action_id": "human_valve", "params": {"reason": "cross-vendor veto"}},
+        }
+    return {"reviewers": reviewers}
+
+
+def _blocked_answer_proposal(
+    *,
+    repo: Path,
+    request: dict[str, object],
+    reviewers: dict[str, object],
+    answer: str = "Yes, proceed with the bounded retry.",
+) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "action_id": "blocked_session_answer",
+        "repo": str(repo),
+        "topic": "blocked-alpha",
+        "session_name": "blocked-alpha",
+        "snapshot": {
+            "daemon_instance_id": "daemon-e2e",
+            "tick_generation": 5,
+            "session_identity": "claude:blocked-alpha-session",
+        },
+        "classifier": {"action": "answer_existing_prompt"},
+        "human_valve": {"category": "ordinary"},
+        "consensus": {"request": request, "reviewer_responses": reviewers},
+        "blocked_session_answer": {
+            "mode": "answer_existing_prompt",
+            "answer_text": answer,
+            "question_fingerprint": "question-alpha",
+        },
     }
 
 
@@ -662,6 +861,151 @@ def _assert_needs_you_render(*, context: ForemanE2EContext) -> None:
         attention={"schema_version": 1, "items": []},
     )
     assert "\nNEEDS YOU:\n  none\n" in resolved
+
+
+def _prepare_blocked_session(*, context: ForemanE2EContext) -> tuple[Path, dict[str, object]]:
+    log = _write_blocked_claude(path=context.act.path)
+    (context.act.repo / ".livespec.jsonc").write_text(
+        json.dumps({"livespec-overseer": {"foreman_valve_disposition": "consensus"}}),
+        encoding="utf-8",
+    )
+    created = _tmux(
+        socket=context.act.socket,
+        args=[
+            "new-session",
+            "-d",
+            "-s",
+            "blocked-alpha",
+            "-c",
+            str(context.act.repo),
+            str(context.act.path / "claude"),
+            "-u",
+            str(context.act.path / "blocked_claude.py"),
+            str(log),
+        ],
+    )
+    assert created.returncode == 0, created.stderr
+    snapshot = _blocked_snapshot(repo=context.act.repo)
+    (context.act.repo / "attention.json").write_text(
+        json.dumps(_blocked_attention()), encoding="utf-8"
+    )
+    return log, snapshot
+
+
+def _assert_blocked_dossier_and_attention(
+    *, context: ForemanE2EContext, snapshot: dict[str, object]
+) -> None:
+    dossier = _run_foreman_gather(
+        plugin_root=context.act.plugin_root, repo=context.act.repo, snapshot=snapshot
+    )
+    rows = dossier["snapshot"]["rows"]
+    assert isinstance(rows, list)
+    assert rows[0]["status"] == "blocked:human"
+    assert rows[0]["tmux"] == "blocked-alpha"
+    assert dossier["needs_attention"] == _blocked_attention()
+    rendered = _render_foreman_document(
+        plugin_root=context.act.plugin_root,
+        repo=context.act.repo,
+        snapshot=snapshot,
+        attention=_blocked_attention(),
+    )
+    assert "\nNEEDS YOU:\n  overseer-ctc | blocked-alpha | blocked-session | " in rendered
+
+
+def _assert_unanimous_blocked_answer_act(
+    *, context: ForemanE2EContext, snapshot: dict[str, object], log: Path
+) -> None:
+    request = _blocked_consensus_request(repo=context.act.repo)
+    reviewers = _blocked_answer_reviewers()
+    verdict = _run_foreman_consensus(
+        plugin_root=context.act.plugin_root,
+        repo=context.act.repo,
+        request=request,
+        reviewers=reviewers,
+        state_dir=context.act.repo / "tmp" / "panel-state",
+    )
+    assert verdict["outcome"] == "unanimous"
+    assert verdict["action"] == {
+        "action_id": "blocked_session_answer",
+        "params": {"mode": "answer_existing_prompt"},
+    }
+    assert [model["vendor"] for model in verdict["models"]] == ["anthropic", "anthropic", "openai"]
+    assert [model["model"] for model in verdict["models"]] == [
+        "claude-fable-5",
+        "claude-opus-5",
+        "gpt-5.6-sol",
+    ]
+
+    acted = _run_foreman_act(
+        context=context.act,
+        proposal=_blocked_answer_proposal(
+            repo=context.act.repo, request=request, reviewers=reviewers
+        ),
+        snapshot=snapshot,
+    )
+    assert acted.returncode == 0, acted.stderr
+    assert json.loads(acted.stdout) == {
+        "action_id": "blocked_session_answer",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "answered_existing_prompt",
+    }
+    assert "Yes, proceed with the bounded retry.\n" in log.read_text(encoding="utf-8")
+    journal = [
+        json.loads(line)
+        for line in (context.act.repo / "tmp" / "fabro-dispatch-journal.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert journal[-2]["stage"] == "foreman-consensus-act"
+    assert journal[-2]["authorized_action_id"] == "blocked_session_answer"
+    assert journal[-2]["panel_outcome"] == "unanimous"
+    assert journal[-1]["stage"] == "foreman-act"
+    assert journal[-1]["reason"] == "answered_existing_prompt"
+
+
+def _assert_blocked_consensus_sabotage_refuses(
+    *, context: ForemanE2EContext, snapshot: dict[str, object], log: Path
+) -> None:
+    sabotage_request = _blocked_consensus_request(
+        repo=context.act.repo,
+        question="Should a non-Anthropic dissent be overridden?",
+    )
+    sabotage_reviewers = _blocked_answer_reviewers(dissent=True)
+    sabotage_verdict = _run_foreman_consensus(
+        plugin_root=context.act.plugin_root,
+        repo=context.act.repo,
+        request=sabotage_request,
+        reviewers=sabotage_reviewers,
+        state_dir=context.act.repo / "tmp" / "sabotage-panel-state",
+    )
+    assert sabotage_verdict["outcome"] == "escalate"
+    assert sabotage_verdict["reason"] == "non_anthropic_needs_human_dissent"
+    refused = _run_foreman_act(
+        context=context.act,
+        proposal=_blocked_answer_proposal(
+            repo=context.act.repo,
+            request=sabotage_request,
+            reviewers=sabotage_reviewers,
+            answer="SABOTAGE SHOULD NOT PASTE",
+        ),
+        snapshot=snapshot,
+    )
+    assert refused.returncode == 0, refused.stderr
+    assert json.loads(refused.stdout) == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "consensus_not_unanimous:non_anthropic_needs_human_dissent",
+    }
+    assert "SABOTAGE SHOULD NOT PASTE" not in log.read_text(encoding="utf-8")
+
+
+def _assert_blocked_consensus_chain(*, context: ForemanE2EContext) -> None:
+    log, snapshot = _prepare_blocked_session(context=context)
+    _assert_blocked_dossier_and_attention(context=context, snapshot=snapshot)
+    _assert_unanimous_blocked_answer_act(context=context, snapshot=snapshot, log=log)
+    _assert_blocked_consensus_sabotage_refuses(context=context, snapshot=snapshot, log=log)
 
 
 def _register_foreman_session(*, context: ForemanE2EContext) -> None:
@@ -969,6 +1313,7 @@ def test_shipped_foreman_e2e_covers_seed_session_attention_and_cadence(*, tmp_pa
     try:
         _assert_plan_and_supervisor_sessions(context=context)
         _assert_work_item_lifecycle(context=context)
+        _assert_blocked_consensus_chain(context=context)
         _assert_lifecycle_sabotage_discriminates(context=context)
         _assert_needs_you_render(context=context)
         _assert_runtime_cadence(context=context)
