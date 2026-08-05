@@ -16,6 +16,8 @@ gitignored directory with zero durable backing.
 2. `research/what-was-in-tmp-supervisor.md` — the audit, the three specific
    hazards, the disposition already applied, and the CI-blindness constraint
    that shapes any fix.
+3. `research/brief-mirroring-verification.md` — goal 3's measurement: the
+   per-brief mirroring trace and the brief-14/brief-18 count discrepancy.
 
 That is the whole chain.
 
@@ -51,7 +53,7 @@ is that convention already failed once.
 |---|---|---|
 | 1 | **The rule ships in the generated supervisor charter**, so every future supervisor inherits it rather than rediscovering it | The prose contract `.claude-plugin/prose/supervise-plan.md` carries the rule and both corollaries, and a fixture over GENERATED output goes RED when the rule is absent — demonstrated red, not asserted |
 | 2 | **An enforcement check that can actually fail** — `tmp/supervisor/` contains only `*.json`; `tmp/supervisor/briefs/` contains only briefs; nothing else anywhere beneath it | A planted violation (a stray `.md` at top level, a non-brief under `briefs/`) turns the check RED, demonstrated. The check must state in its own output that it is LOCAL-ONLY and cannot fire in CI, because `tmp/` is gitignored |
-| 3 | **Verify the existing briefs are already mirrored** — the audit asserts "mostly mirrored" from knowledge, not from measurement | Each of the 18 briefs' load-bearing content is traced to a landed artifact (ledger id, tracked file, or merged PR) or is landed. Report the count found unmirrored — **a nonzero answer is the expected outcome, not a failure**; one is already known (see research §1) |
+| 3 | **Verify the existing briefs are already mirrored** — the audit asserts "mostly mirrored" from knowledge, not from measurement | **Done.** See `research/brief-mirroring-verification.md`: 16 of 16 present briefs traced to a landed artifact; 0 unmirrored (the handoff's "nonzero is expected" was itself an unmeasured guess). `brief-14.md`/`brief-18.md` from the claimed 18 do not exist on disk — unexplained, flagged as open. This measurement could not run factory-side — it reads the gitignored, local-only `tmp/supervisor/briefs/`, which no sandbox clone has — so it ran host-side in the planning session instead of being filed to the ledger |
 
 ## Ordering
 
@@ -70,9 +72,33 @@ anything an agent writes outside SCM and the ledger, and that generalization may
 be correct — but it is a **different, larger thread** and must not be absorbed
 here without an explicit decision. Name it if you find it; do not take it.
 
+## Status — regroomed and closed
+
+`overseer-5jttov` has been groomed: it is **closed** (`resolution:
+no-longer-applicable`, regroomed out), replaced by two independent, `ready`,
+factory-tier children —
+
+- `overseer-otjmoh` — goal 2, the `tmp/supervisor/` enforcement check.
+- `overseer-m4o33z` — goal 1, the charter rule + corollaries.
+
+Goal 3 is done in-thread (see the read-first chain above) and was never filed
+to the ledger — it is not factory-dispatchable (see the goals table).
+
+Per this repo's plan-thread lifecycle rule, a thread is active iff its epic is
+open; `overseer-5jttov` is now closed, so this thread archives to
+`plan/archive/supervisor-scratch-discipline/` in the same change that lands
+this refresh. Reopening `overseer-5jttov` would unarchive it.
+
 ## Next action
 
-**Groom `overseer-5jttov`**, then dispatch ready children through the factory
-path: `/livespec-orchestrator-beads-fabro:drive --action approve:<id>` followed
-by `--action impl:<id>`. Do not hand-code implementation inline in a planning
-session.
+Dispatch the two filed children through the factory path — one command per id,
+in either order (they are independent, no `depends_on` between them):
+
+```text
+/livespec-orchestrator-beads-fabro:drive --action approve:overseer-otjmoh
+/livespec-orchestrator-beads-fabro:drive --action impl:overseer-otjmoh
+/livespec-orchestrator-beads-fabro:drive --action approve:overseer-m4o33z
+/livespec-orchestrator-beads-fabro:drive --action impl:overseer-m4o33z
+```
+
+Do not hand-code implementation inline in a planning session.
