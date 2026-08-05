@@ -194,7 +194,70 @@ Running the intake DoR on all nine turned up something much bigger than the inta
 **All nine now carry a rank and `intake:triaged`, and each is routed on its own
 measurement** (2026-08-04):
 
-**SCOREBOARD RE-MEASURED 2026-08-05 ~21:40Z — 2 of 9 landed, 3 ready, 4 blocked.**
+**SCOREBOARD RE-MEASURED 2026-08-06 — 3 of 9 LANDED. `livespec-dev-tooling-1ysu` HAS
+MERGED, so nothing is blocked on it any more.** The table below is the 08-05 snapshot;
+this block supersedes it.
+
+| slice | status now | what remains |
+|---|---|---|
+| `livespec-driver-codex-g5a` | **closed** | — |
+| `livespec-runtime-acq` | **closed** | — one-line flip, PR #480 |
+| `livespec-rh2y` | **CLOSED 08-06** | — PR #2060; its 5 failing threads went to **0** |
+| `livespec-console-beads-fabro-0c5` | **ready** (was blocked) | 7 mechanical relabels + wire the recipe |
+| `dolt-server-d8w` | ready | 1 false positive — re-measure, may now be a pure flip |
+| `bd-ib-ud0y` | ready | 6 threads |
+| `bd-gj-9tf` | blocked/needs-human | **no epic exists** — needs a ledger write |
+| `overseer-2i9` | blocked/needs-human | 2 mechanical + **1 closed-epic decision** |
+| `livespec-driver-claude-zbw` | blocked/needs-human | **1 closed-epic decision** |
+
+**Fleet-wide the fix cut failing threads from 27 to 18**, measured by running the FIXED
+check over every live plan thread in all seven target repos.
+
+### The remaining failures split into three classes — and only one is mechanical
+
+Re-measuring after the fix is what separated them. Do not treat "fails the check" as one
+kind of work:
+
+1. **Mechanical relabel — safe to dispatch.** `livespec-console-beads-fabro-0c5` is 7 of
+   7, and #1304 *decided* that question rather than leaving it open: its remediation now
+   says `**Epic anchor:**` is "a repo-side label deviation, not an accepted alias". All
+   seven already name resolving ids, so no ledger write. `foreman` and
+   `resume-submit-integrity` in `overseer-2i9` are the same class.
+2. **Needs a LEDGER WRITE — cannot be factory-dispatched at all.** `bd-gj-9tf`: the
+   thread has no epic and the sandbox has no `bd`.
+3. **Needs a LIFECYCLE DECISION — and relabelling would actively hide a violation.**
+   `livespec-driver-claude-zbw`'s `work-item-state-machine` names
+   `livespec-driver-claude-wqyfbj`, which **resolves but is CLOSED**;
+   `overseer-2i9`'s `charter-gate-ratchet` names `overseer-x1q`, **closed and
+   regroomed-out**. Both are LIVE threads whose epic is CLOSED — this thread's own
+   ratified sharpening calls that "the tombstone condition wearing a different name".
+   **Giving them a well-formed anchor pointing at a closed epic would make the static
+   check pass while leaving the violation in place**, and would set up
+   `plan_thread_epic_parity` to fail the moment it is armed. Either cite the successor
+   epic, reopen, or archive the thread whole.
+
+**That third class is the important one for this thread**, because it is the ban's own
+subject matter surfacing inside its enforcement fan-out: a green static check is not
+evidence the lifecycle invariant holds.
+
+### The fix has a REGRESSION — filed, not reverted
+
+Adversarially reviewing #1304 against the original control matrix found the five target
+shapes correctly fixed and every placeholder shape still failing — **but the module lost
+its FIRST-MATCH guarantee while its docstring still asserts it.** Folding the concreteness
+pattern into the capture means a non-conforming first occurrence no longer matches, so
+`search()` skips it and accepts a later one. Measured on `origin/master`: a handoff whose
+real anchor is a placeholder but which *documents the required form later* now returns the
+example id and **PASSES**, where the shipped `v1.19.x` returned `None` and **FAILED**.
+
+That is realistic here — the remediation string tells authors the form, and this thread's
+own handoff and research files each quote it several times. Filed as
+**`livespec-dev-tooling-qh0e`** (P1, ready) with the reproduction, and raised on the PR.
+**Do not revert #1304** — the five shapes are genuinely fixed; repair first-match on top.
+
+---
+
+**Superseded 08-05 snapshot — 2 of 9 landed, 3 ready, 4 blocked:**
 
 | slice | tenant | rank | status | measured live threads |
 |---|---|---|---|---|
