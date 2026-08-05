@@ -514,57 +514,57 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The foreman valve disposition",
-    "test": "TODO",
-    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Declares the wire surface for a setting ratified ahead of its implementation: enumerated values, the report-only safe default, fail-closed on an unrecognized value, observability without invoking the foreman, and the prohibition on the foreman setting its own disposition. No test pins it yet because no code reads the key yet; replace TODO through the implementing slice (overseer-ym6) rather than by pointing at an unrelated existing test."
+    "test": "tests.integration.test_foreman_valve_disposition.test_effective_valve_disposition_is_readable_and_fails_closed",
+    "reason": "Integration-tier: reads the governed repository's livespec configuration through the standalone resolver, proves absent and wrong-typed values resolve to report-only, proves consensus is recognized, proves an unrecognized value resolves to report-only while surfacing a warning, and exercises the read-only CLI so the effective value is observable without running the foreman."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A unanimous panel verdict under the consensus disposition acts and is journaled first",
-    "test": "TODO",
-    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+    "test": "tests.integration.test_foreman_valve_disposition.test_consensus_disposition_journals_before_acting",
+    "reason": "Integration-tier: configures the governed repo for consensus, supplies unanimous cross-vendor panel evidence, and asserts the audit journal append naming the governing setting, reviewers, panel verdict, and authorized action occurs before the underlying act is invoked."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A decision human-gated by design stays escalated even under a unanimous panel",
-    "test": "TODO",
-    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+    "test": "tests.integration.test_foreman_valve_disposition.test_consensus_floors_and_missing_evidence_escalate_without_mutation",
+    "reason": "Integration-tier: configures consensus and then marks the valve as human-gated by design; even with the acting path otherwise wired, the hard-floor refusal is asserted with no underlying command invocation."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Unavailable or disagreeing consensus evidence escalates and mutates nothing",
-    "test": "TODO",
-    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+    "test": "tests.integration.test_foreman_valve_disposition.test_consensus_floors_and_missing_evidence_escalate_without_mutation",
+    "reason": "Integration-tier: exercises the consensus-on but evidence-missing control and asserts the result is a refused escalation with mutated=false and no command invocation; the sibling journal-failure test covers the journal-unavailable half of the same escalation family."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A tree declaring no valve disposition acts on nothing",
-    "test": "TODO",
-    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+    "test": "tests.integration.test_foreman_valve_disposition.test_absent_config_keeps_human_valves_report_only_byte_identical",
+    "reason": "Integration-tier: leaves the governed repo with no foreman valve-disposition key and asserts the human-valve proposal still returns the pre-policy report-only refusal shape byte-for-byte while invoking no underlying action."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An absent valve-disposition key resolves to the safe default",
-    "test": "TODO",
-    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+    "test": "tests.integration.test_foreman_valve_disposition.test_effective_valve_disposition_is_readable_and_fails_closed",
+    "reason": "Integration-tier: covers the resolver controls for absent and wrong-typed key values resolving to the report-only safe default, proving omission does not arm the acting path."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unrecognized valve-disposition value fails closed and is surfaced",
-    "test": "TODO",
-    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+    "test": "tests.integration.test_foreman_valve_disposition.test_effective_valve_disposition_is_readable_and_fails_closed",
+    "reason": "Integration-tier: writes an unrecognized valve-disposition value, proves the effective value remains report-only rather than coerced, and asserts the resolver surfaces an explicit unrecognized-value warning."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The effective valve disposition is readable without invoking the foreman",
-    "test": "TODO",
-    "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+    "test": "tests.integration.test_foreman_valve_disposition.test_effective_valve_disposition_is_readable_and_fails_closed",
+    "reason": "Integration-tier: exercises the standalone read-only CLI against a governed repository carrying the setting and asserts the printed effective value matches the value the actuator will use."
   },
   {
     "spec_root": "SPECIFICATION",

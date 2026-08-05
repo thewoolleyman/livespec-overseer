@@ -9,16 +9,19 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Protocol
 
+import foreman_act_dispatch
 import jsonio
 import streams
 import tmuxio
 from _supervisor_snapshot import DEFAULT_STATUS_PATH
-from foreman_act_commands import command_for
-from foreman_act_filing import FileWorkItem, file_work_item, filing_request
-from foreman_act_journal import journal_reconcile_command
+from foreman_act_consensus import (
+    ConsensusPanel,
+    prepare_consensus_action,
+)
+from foreman_act_dispatch import Runner
+from foreman_act_filing import FileWorkItem, file_work_item
 from foreman_act_record import AppendJournal, append_journal
 from foreman_act_revalidate import (
-    revalidate_identity,
     revalidate_source,
     str_field,
     validate_proposal,
@@ -28,11 +31,8 @@ from foreman_act_types import (
     BLOCKED_SESSION_ANSWER,
     DISPATCH_JOURNAL_RECONCILE_MERGED,
     HUMAN_VALVE,
-    PLAN_START,
     PROPOSAL_SCHEMA_VERSION,
     QUALIFYING_SESSION_RESUME,
-    QUALIFYING_SESSION_START,
-    SUPERVISOR_PAIR_START,
     WORK_ITEM_FILE,
     WORK_ITEM_SESSION_ACTIONS,
     WORK_ITEM_SESSION_FINISH,
@@ -41,8 +41,9 @@ from foreman_act_types import (
     ActionId,
     ActResult,
 )
+from foreman_consensus import consensus
 from foreman_gather_collect import compose_document
-from foreman_work_item_sessions import act_work_item_session, is_work_item_session_action
+from foreman_valve_policy import effective_valve_disposition
 
 __all__: list[str] = [
     "ACTION_IDS",
@@ -70,17 +71,6 @@ class Gatherer(Protocol):
     ) -> dict[str, object]: ...
 
 
-class Runner(Protocol):
-    def __call__(self, *, argv: list[str]) -> int: ...
-
-
-_START_ACTIONS: tuple[ActionId, ...] = (
-    PLAN_START,
-    QUALIFYING_SESSION_START,
-    SUPERVISOR_PAIR_START,
-)
-
-
 def _result(*, action_id: str | None, outcome: str, reason: str, mutated: bool) -> ActResult:
     result: ActResult = {
         "action_id": action_id,
@@ -93,21 +83,6 @@ def _result(*, action_id: str | None, outcome: str, reason: str, mutated: bool) 
 
 def _refused(*, action_id: str | None, reason: str) -> ActResult:
     return _result(action_id=action_id, outcome="refused", reason=reason, mutated=False)
-
-
-def _acted(*, action_id: str, reason: str) -> ActResult:
-    return _result(action_id=action_id, outcome="acted", reason=reason, mutated=True)
-
-
-def _failed(*, action_id: str, reason: str) -> ActResult:
-    return _result(action_id=action_id, outcome="failed", reason=reason, mutated=False)
-
-
-def _bounded_reason(*, prefix: str, reason: str, limit: int = 180) -> str:
-    bounded = f"{prefix}:{reason}"
-    if len(bounded) <= limit:
-        return bounded
-    return bounded[: limit - 3] + "..."
 
 
 def _journal_record(*, result: ActResult) -> dict[str, object]:
@@ -127,7 +102,7 @@ def act(
     gather: Gatherer = compose_document,
     file_work_item: FileWorkItem = file_work_item,
     append_journal: AppendJournal = append_journal,
-    snapshot_path: str | Path = DEFAULT_STATUS_PATH,
+    consensus_panel: ConsensusPanel = consensus,
 ) -> ActResult:
     action_id, refusal = validate_proposal(proposal=proposal)
     if refusal is not None:
@@ -142,13 +117,13 @@ def act(
             result = _act_validated(
                 action_id=action_id,
                 proposal=proposal,
-                repo=repo,
-                document=gather(repo=repo, snapshot_path=snapshot_path),
+                document=gather(repo=repo, snapshot_path=DEFAULT_STATUS_PATH),
                 run=run,
                 file_work_item=file_work_item,
+                consensus_seams=(append_journal, consensus_panel),
             )
     repo_path = str_field(payload=proposal, key="repo")
-    if repo_path is not None:  # pragma: no branch
+    if repo_path is not None and result["reason"] != "journal_append_failed":  # pragma: no branch
         append_journal(repo=Path(repo_path), record=_journal_record(result=result))
     return result
 
@@ -157,96 +132,44 @@ def _act_validated(
     *,
     action_id: ActionId,
     proposal: dict[str, object],
-    repo: str,
     document: dict[str, object],
     run: Runner,
     file_work_item: FileWorkItem,
+    consensus_seams: tuple[AppendJournal, ConsensusPanel],
 ) -> ActResult:
+    repo = str_field(payload=proposal, key="repo") or ""
+    append_journal, consensus_panel = consensus_seams
     refusal = revalidate_source(document=document)
     if refusal is not None:
         result = _refused(action_id=action_id, reason=refusal)
-    elif is_work_item_session_action(action_id=action_id):
-        result = act_work_item_session(
-            action_id=action_id, proposal=proposal, document=document, run=run
+    elif action_id in (BLOCKED_SESSION_ANSWER, HUMAN_VALVE):
+        authorized, valve_refusal = prepare_consensus_action(
+            proposal=proposal,
+            disposition=effective_valve_disposition(repo=Path(repo)),
+            consensus_panel=consensus_panel,
+            append_journal=append_journal,
         )
-    elif (
-        identity_refusal := revalidate_identity(proposal=proposal, document=document)
-    ) is not None:
-        result = _refused(action_id=action_id, reason=identity_refusal)
-    elif (
-        start_refusal := _revalidate_start_tmux_occupancy(action_id=action_id, proposal=proposal)
-    ) is not None:
-        result = _refused(action_id=action_id, reason=start_refusal)
-    elif action_id == WORK_ITEM_FILE:
-        result = _act_filing(proposal=proposal, action_id=action_id, file_work_item=file_work_item)
-    elif action_id == DISPATCH_JOURNAL_RECONCILE_MERGED:
-        result = _act_journal_triage(
-            action_id=action_id, proposal=proposal, document=document, repo=repo, run=run
-        )
-    else:
-        result = _act_command(action_id=action_id, proposal=proposal, run=run)
-    return result
-
-
-def _revalidate_start_tmux_occupancy(
-    *, action_id: ActionId, proposal: dict[str, object]
-) -> str | None:
-    if action_id not in _START_ACTIONS:
-        return None
-    session_name = str_field(payload=proposal, key="session_name")
-    if session_name is None:  # pragma: no cover
-        return "malformed_proposal"
-    if tmuxio.TmuxIO().session_exists(session=session_name):
-        return "tmux_session_occupied"
-    return None
-
-
-def _act_filing(
-    *, proposal: dict[str, object], action_id: ActionId, file_work_item: FileWorkItem
-) -> ActResult:
-    request = filing_request(proposal=proposal)
-    if request is None:
-        return _refused(action_id=action_id, reason="malformed_filing")
-    try:
-        item_id, verdict = file_work_item(request=request)
-    except RuntimeError as exc:
-        return _failed(
-            action_id=action_id,
-            reason=_bounded_reason(prefix="filing_subprocess_failed", reason=str(exc)),
-        )
-    return _acted(action_id=action_id, reason=f"filed:{item_id}:{verdict}")
-
-
-def _act_journal_triage(
-    *,
-    action_id: ActionId,
-    proposal: dict[str, object],
-    document: dict[str, object],
-    repo: str,
-    run: Runner,
-) -> ActResult:
-    refusal, command = journal_reconcile_command(proposal=proposal, document=document, repo=repo)
-    if refusal is not None or command is None:
-        return _refused(action_id=action_id, reason=refusal or "unsupported_transition")
-    code = run(argv=command)
-    if code != 0:  # pragma: no cover
-        return _failed(action_id=action_id, reason=f"command_exit_{code}")
-    return _acted(action_id=action_id, reason="reconciled_merged_dispatch")
-
-
-def _act_command(*, action_id: ActionId, proposal: dict[str, object], run: Runner) -> ActResult:
-    command = command_for(action_id=action_id, proposal=proposal)
-    if command is None:  # pragma: no cover
-        result = _refused(action_id=action_id, reason="classifier_mismatch")
-    else:
-        code = run(argv=command)
-        result = (
-            _acted(
-                action_id=action_id,
-                reason="resumed" if action_id == QUALIFYING_SESSION_RESUME else "started",
+        if valve_refusal is not None or authorized is None:
+            result = valve_refusal or _refused(action_id=action_id, reason="consensus_unavailable")
+        else:
+            foreman_act_dispatch.tmuxio = tmuxio
+            result = foreman_act_dispatch.act_authorized(
+                action_id=authorized,
+                proposal=proposal,
+                document=document,
+                repo=repo,
+                run=run,
+                file_work_item=file_work_item,
             )
-            if code == 0
-            else _failed(action_id=action_id, reason=f"command_exit_{code}")
+    else:
+        foreman_act_dispatch.tmuxio = tmuxio
+        result = foreman_act_dispatch.act_authorized(
+            action_id=action_id,
+            proposal=proposal,
+            document=document,
+            repo=repo,
+            run=run,
+            file_work_item=file_work_item,
         )
     return result
 
@@ -269,15 +192,17 @@ def main(*, argv: Sequence[str] | None = None) -> int:
     _ = parser.add_argument("--snapshot-path", default=str(DEFAULT_STATUS_PATH))
     args = parser.parse_args(argv)
     proposal = _load_proposal(path=Path(args.proposal))
+
+    def cli_gather(
+        *, repo: str | Path, snapshot_path: str | Path = DEFAULT_STATUS_PATH
+    ) -> dict[str, object]:
+        _ = snapshot_path
+        return compose_document(repo=repo, snapshot_path=args.snapshot_path)
+
     result = (
         _refused(action_id=None, reason="malformed_proposal")  # pragma: no cover
         if proposal is None
-        else act(
-            proposal=proposal,
-            run=run_command,
-            gather=compose_document,
-            snapshot_path=args.snapshot_path,
-        )
+        else act(proposal=proposal, run=run_command, gather=cli_gather)
     )
     streams.write_stdout(text=json.dumps(result, indent=2, sort_keys=True) + "\n")
     return 0
