@@ -317,6 +317,12 @@ omit = [
     "/tmp/*",
     "overseer/test_*.py",
     "overseer/conftest.py",
+    "tests/test_*.py",
+    "tests/conftest.py",
+    "tests/integration/test_*.py",
+    "tests/integration/conftest.py",
+    "tests/prompts/test_*.py",
+    "tests/prompts/conftest.py",
     # The live Codex TUI picker acceptance (overseer-kju6wh) is opt-in via
     # `LIVESPEC_CODEX_SKILL_PICKER=1`, so under an ordinary suite run pytest
     # IMPORTS it (module lines execute) but skips every test body — leaving the
