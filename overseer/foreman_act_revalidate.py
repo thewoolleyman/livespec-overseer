@@ -7,8 +7,6 @@ from typing import Final
 import jsonio
 from foreman_act_types import (
     ACTION_IDS,
-    BLOCKED_SESSION_ANSWER,
-    HUMAN_VALVE,
     PROPOSAL_SCHEMA_VERSION,
     WORK_ITEM_SESSION_ACTIONS,
     ActionId,
@@ -23,7 +21,6 @@ __all__: list[str] = [
     "validate_proposal",
 ]
 
-_HUMAN_ACTIONS: Final[tuple[ActionId, ...]] = (BLOCKED_SESSION_ANSWER, HUMAN_VALVE)
 _FREEFORM_COMMAND_FIELDS: Final[tuple[str, ...]] = ("argv", "command", "shell")
 
 
@@ -50,8 +47,6 @@ def validate_proposal(*, proposal: dict[str, object]) -> tuple[str | None, str |
     elif action_id is None:
         action_id = raw_action if isinstance(raw_action, str) else None
         reason = "unknown_action"
-    elif action_id in _HUMAN_ACTIONS:
-        reason = "human_action_report_only"
     else:
         snapshot = _proposal_snapshot(proposal=proposal) or {}
         row_required = action_id not in WORK_ITEM_SESSION_ACTIONS
