@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.30.3...v0.31.0) (2026-08-05)
+
+
+### Features
+
+* cover foreman valve disposition policy ([eff5013](https://github.com/thewoolleyman/livespec-overseer/commit/eff5013a666d971ea8517ead6aa021c7e4f06b8d))
+
 ## [0.30.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.30.2...v0.30.3) (2026-08-04)
 
 
