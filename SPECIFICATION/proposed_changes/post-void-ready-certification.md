@@ -54,7 +54,7 @@ Amend `SPECIFICATION/contracts.md` §"Durable stores", the round-sidecar bullet.
 
 Amend `SPECIFICATION/scenarios.md` §"Scenario: A ready declaration is voided when its session resumes work". It MUST gain two outcome lines: that the round's durable record survives the void, and that the round's already-notified escalation bands are NOT reset, so a band already sent is not re-sent merely because a declaration was voided.
 
-A new scenario MUST be added to `SPECIFICATION/scenarios.md` pinning the observed spam defect directly:
+Two new scenarios MUST be added to `SPECIFICATION/scenarios.md`. The first pins the observed spam defect directly:
 
     ## Scenario: Repeated voiding never re-sends an already-notified band
 
@@ -65,6 +65,18 @@ A new scenario MUST be added to `SPECIFICATION/scenarios.md` pinning the observe
     Then no escalation band already notified in the open round is sent again
 
     And the round's durable record and notified bands survive every void
+
+The second pins the un-opening carve-out required above. It is enumerated here deliberately: the carve-out is normative text introduced by this finding, and behavior introduced without a scenario is malformed under the authoring discipline — an amendment carrying a scenario this proposal never mandated is equally malformed, so the two MUST be kept in correspondence rather than left to a reviewer to reconcile:
+
+    ## Scenario: A round whose opening wrap-up never landed is un-opened
+
+    Given a track at its wind-down threshold whose injection stamp was just recorded
+
+    When the opening wrap-up paste fails to land
+
+    Then the daemon deletes the stamp it just wrote and leaves the track un-rounded
+
+    And a ready declaration written afterwards certifies nothing
 
 The corresponding `tests/heading-coverage.json` link MUST be added atomically with the new scenario, per `non-functional-requirements.md` §"Scenarios".
 
@@ -188,7 +200,13 @@ Scoping matters and is deliberate. A track that has never been in a round has no
 
 **That scoping MUST be stated as a property of the TRACK, not of the declarer, because the floor cannot distinguish them and it would be false to claim otherwise.** A void record is evidence that a wrap-up was delivered to that track and answered on it. It is NOT evidence that the session declaring today is the session that received it. The gap is reachable and is documented as occurring in this fleet: a supervised session replaced OUT-OF-BAND — hand-restarted, cleared, or respawned after a crash — leaves its successor occupying the same pane under the same derived name, inheriting the predecessor's state-file directory, and passing the full identity gate. The successor writes `ready` after the predecessor's void instant, certifies against a floor established by a wrap-up it never received, and is killed at whatever context it holds. Under shipped behavior the first void closes that window by deleting the round record; under this proposal nothing but a restart closes it.
 
-The remedy is NOT a new principle. `contracts.md` §"The restart interlock" already ratifies the right one — "a declaration authorizes the restart of the session that wrote it, never of whatever session later occupies that pane" — and holds the restart when the observed identity "has changed since the `ready` was first seen". That test is scoped to the observation window, so a successor's own first-seen declaration passes it trivially. The specification MUST widen the anchor: the daemon MUST record the identity of the session live at the pane when a round is OPENED and when a declaration is VOIDED, and a declaration MUST NOT certify when the identity live at the pane differs from the identity recorded against the floor it is certifying against. A differing identity MUST hold the restart and surface the track, exactly as the existing identity rule requires. The daemon already derives a `session_identity` token "sufficient for a consumer to detect that the session behind a row changed" for the status snapshot (`contracts.md` §"Durable stores"), so this binds an existing observable rather than inventing one.
+The remedy is NOT a new principle. `contracts.md` §"The restart interlock" already ratifies the right one — "a declaration authorizes the restart of the session that wrote it, never of whatever session later occupies that pane" — and holds the restart when the observed identity "has changed since the `ready` was first seen". That test is scoped to the observation window, so a successor's own first-seen declaration passes it trivially. The specification MUST widen the anchor, and it MUST do so in a form that names exactly ONE recording instant, because an anchor with two instants and one storage slot is ambiguous in a way that is not merely untidy — see immediately below. The daemon already derives a `session_identity` token "sufficient for a consumer to detect that the session behind a row changed" for the status snapshot (`contracts.md` §"Durable stores"), so this binds an existing observable rather than inventing one.
+
+**The anchor MUST be the ROUND-OPEN identity, and the reason is a failure worse than the deadlock this change exists to fix.** A specification that required the identity to be recorded "when a round is OPENED and when a declaration is VOIDED", while defining a single stored identity, would be satisfied by an implementation that OVERWRITES the identity at each void. Under that reading the following sequence kills a session that never received a wrap-up. A round opens for session A and the wrap-up is delivered to A. A is replaced OUT OF BAND — hand-restarted, cleared, or respawned after a crash — by session B, which inherits A's state-file directory and passes the identity gate. A's now-inherited `ready` is voided on a busy observation, and the daemon records the void instant together with the identity live at the pane, which is B. The floor is now the void instant and the identity backing it is B. B later writes `ready` at a settled idle prompt, every precondition passes because live B matches recorded B, and B is atomically killed — having received no wrap-up, and having answered nothing.
+
+That outcome is strictly worse than the deadlock this proposal exists to remove. The deadlock leaves a session STUCK and reports it; this would DESTROY a live session's process at a moment it never asserted was safe, on an authorization the protocol never issued to it. Pre-amendment text forbids it only incidentally — the void closes the round, so a successor can certify nothing — and this proposal removes exactly that incidental protection. Anyone maintaining this clause later needs to know that, or the ambiguity comes back as a simplification.
+
+The unambiguous form: the daemon MUST record the identity of the session live at the pane WHEN A ROUND IS OPENED, and at no other instant. That round-open identity is the identity every certification against that round is tested against, and a void MUST NOT overwrite, clear, or otherwise rewrite it. Where a void is observed with a live identity DIFFERING from the round-open identity, the daemon MUST surface the track and MUST NOT establish a certifiable floor from that void: the session that would answer it is not the session that was asked. A declaration MUST NOT certify when the identity live at the pane differs from the round-open identity, an identity that cannot be determined MUST be treated as differing, and a record carrying no identity at all MUST fail the check rather than be read as matching.
 
 This also resolves, at its root, the residual named in the finding on the paste predicate above: what makes an inherited declaration dangerous is not that it is uncertifiable but that it belongs to a session that no longer exists. An identity-bound declaration is recognizable as inherited, which is the fact both findings need and neither could express while a declaration was anonymous.
 
@@ -206,9 +224,11 @@ The exclusion of a voided declaration MUST be stated as a property of the RECORD
 
 **The specification MUST NOT claim that the floor alone carries the one-declaration-one-kill guarantee, because it does not, and two different mechanisms carry it on two different paths.** On the VOID path the guarantee rests on a disjunction: either the state-file delete succeeds, or the floor record succeeds. Both are fail-soft storage operations under §"Fail-soft posture", so the honest statement is that a voided declaration is excluded whenever EITHER succeeded — which is the same degree of redundancy the daemon has today, where either the delete or the round-close must succeed, and is neither better nor worse. Where BOTH fail in the same observation, the declaration survives with an unraised floor; that outcome MUST be surfaced as an attention condition rather than described as impossible. On the RESTART path the guarantee is carried by the deletion of the round record, exactly as it is today: the floor is CLEARED at restart, not raised, so it plays no part. Restating the guarantee as floor-carried would put a falsehood into the contract.
 
-The daemon MUST record the void instant durably, in the round sidecar, so the floor survives a daemon restart. `SPECIFICATION/contracts.md` §"Durable stores" MUST be amended so the round-sidecar value carries the void instant AND the recorded session identity, alongside the round timestamp, the notified bands, and the round-scoped resume-pending flag. The restart MUST clear both together with the rest of the key, so no floor and no identity outlives its round.
+The daemon MUST record the void instant durably, in the round sidecar, so the floor survives a daemon restart. `SPECIFICATION/contracts.md` §"Durable stores" MUST be amended so the round-sidecar value carries the void instant AND the ROUND-OPEN session identity, alongside the round timestamp, the notified bands, and the round-scoped resume-pending flag. The section MUST state the write discipline for each, because that is where the ambiguity would otherwise live: the round-open identity is written ONCE, when the round opens, and is never rewritten for the life of that round; the void instant MAY be raised repeatedly within the round. The restart MUST clear both together with the rest of the key, so no floor and no identity outlives its round. A record carrying a round timestamp but NO identity — including the legacy bare-number value the section already tolerates — MUST NOT certify anything; it fails closed rather than being read as matching whatever session is live.
 
-`SPECIFICATION/contracts.md` §"The restart interlock" MUST carry the identity binding as a precondition in its own right: a declaration MUST NOT certify when the session identity live at the pane differs from the identity recorded against the floor being certified against. A differing identity MUST hold the restart and surface the track rather than failing silently, and an identity that cannot be determined MUST be treated as differing — fail-closed, per §"Fail-soft posture".
+`SPECIFICATION/contracts.md` §"The restart interlock" MUST carry the identity binding as a precondition in its own right: a declaration MUST NOT certify when the session identity live at the pane differs from the ROUND-OPEN identity recorded for that round. A differing identity MUST hold the restart and surface the track rather than failing silently; an identity that cannot be determined, and a record with no identity, MUST both be treated as differing — fail-closed, per §"Fail-soft posture". The same section MUST state that a void observed with a live identity differing from the round-open identity establishes NO certifiable floor and MUST surface the track.
+
+`SPECIFICATION/contracts.md` §"Attention surface" MUST be co-amended in the same change, because that section declares its own enumeration "authoritative, self-refreshing, and complete on its own terms" and this proposal adds conditions the daemon MUST surface. Its mechanical-attention membership MUST gain: a track whose state-file delete AND floor record both failed in the same observation, which is the case where surfacing is the ONLY remaining guard against honoring a voided declaration; a track whose round record is malformed under the certification-floor rules; and a track whose void was observed under an identity differing from its round-open identity. All three are report-only and MUST NOT authorize any act, like every other member.
 
 Amend `SPECIFICATION/spec.md` §"The supervision round" to state that a round's certification floor MAY rise within the round — when a declaration is voided — and that a rising floor never re-opens a band, never authorizes a paste, and never resets the notified bands.
 
@@ -216,19 +236,33 @@ Amend `SPECIFICATION/spec.md` §"The cardinal rule" with an explicit non-weakeni
 
 Acting on a passed interlock MUST remain gated on the live pane evidence contracts.md §"The restart interlock" already requires — a verified empty idle input state, a settled pane, no busy signals including no background-shell evidence, and a positive identity check. A session that oscillates between declaring and resuming work is therefore still never killed mid-work: the settled-idle gate at restart time is what protects it, and this finding does not relax it.
 
-Five scenarios MUST be added to `SPECIFICATION/scenarios.md`. The first two pin the identity binding:
+Six scenarios MUST be added to `SPECIFICATION/scenarios.md`. The first three pin the identity binding, and the first two are the SAME hazard in the two orderings that a single scenario would not distinguish — replacement after the void, and replacement before it. The second is the one that a round-open anchor is required to catch:
 
     ## Scenario: A successor session never certifies against its predecessor's floor
 
     Given a track whose declaration was voided, leaving a certification floor
 
-    And the supervised session at that pane was replaced out of band
+    And the supervised session at that pane was replaced out of band after that void
 
     When the successor session writes ready after that floor
 
-    Then the interlock holds, because the identity at the pane differs from the identity recorded against the floor
+    Then the interlock holds, because the identity at the pane differs from the round-open identity
 
     And the track is surfaced to the operator rather than restarted
+
+    ## Scenario: A session replaced before the void never inherits a certifiable floor
+
+    Given a round opened for a session that received the wrap-up
+
+    And that session was replaced out of band before its declaration was voided
+
+    When the daemon voids the inherited declaration and the successor later writes ready
+
+    Then no certifiable floor was established by that void
+
+    And the interlock holds, because the identity at the pane differs from the round-open identity
+
+    And the successor is surfaced rather than restarted, having received no wrap-up
 
     ## Scenario: An undeterminable session identity fails the interlock closed
 
