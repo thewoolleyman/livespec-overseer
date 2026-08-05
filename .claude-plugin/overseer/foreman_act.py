@@ -144,6 +144,7 @@ def _act_validated(
         result = _refused(action_id=action_id, reason=refusal)
     elif action_id in (BLOCKED_SESSION_ANSWER, HUMAN_VALVE):
         authorized, valve_refusal = prepare_consensus_action(
+            action_id=action_id,
             proposal=proposal,
             disposition=effective_valve_disposition(repo=Path(repo)),
             consensus_panel=consensus_panel,
