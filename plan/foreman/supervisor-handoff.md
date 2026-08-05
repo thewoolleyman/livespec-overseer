@@ -218,12 +218,84 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **STATE AS OF 2026-08-05T04:38Z — BOTH RATIFICATIONS HAVE LANDED AND TWO
-  PHASE-D SLICES ARE RUNNING IN THE FACTORY RIGHT NOW. THIS IS THE ONLY STATUS
-  BLOCK; EVERYTHING ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure before
-  acting; the Verification Discipline block below is the command. **Two standing
-  worker-health warnings in this file were REFUTED on 2026-08-04 (see the
-  retirement notice above) — a health claim ages exactly like an item status.**
+- **STATE AS OF 2026-08-05T23:30Z — EVERY EPIC CHILD IS CLOSED INCLUDING THE EXIT
+  CONDITION, AND THE THREAD IS STILL NOT DONE. THIS IS THE ONLY STATUS BLOCK;
+  EVERYTHING BELOW IT IS STANDING GUIDANCE.** Re-measure before acting.
+
+  **DO THIS FIRST — THERE IS UNPUSHED WORK IN A WORKTREE AND A CLAIM I HOLD.**
+
+      item      overseer-5dbc   status=active  assignee=supervisor   <- MINE, not fabro's
+      branch    fix/foreman-prose-consensus-reachable
+      commit    fd87279  "docs(plugin): unfence the consensus tier the foreman already ships"
+      worktree  $HOME/.worktrees/livespec-overseer/foreman-prose
+      push      LAUNCHED 23:14Z, running the full pre-push aggregate, NOT CONFIRMED
+
+  I ran out of context mid-push. **Check the forge FIRST**
+  (`git ls-remote --heads origin fix/foreman-prose-consensus-reachable`). If the
+  branch is absent, the commit is still safe in that worktree — **re-push it, open
+  the PR, and do NOT re-implement.** `just check` passed all 68 targets on that
+  tree before the commit, and the full suite is green. If the worktree is gone,
+  the commit is unreachable and the work must be redone; that is the same
+  destroyed-work shape as `bd-ib-6o6h`.
+  The claim is assignee `supervisor`, NOT `fabro`, so none of the phantom-claim
+  discriminators apply — it is mine and I am handing it over. Either finish it or
+  release it to `ready`; do not leave it `active` with nobody working it.
+
+  **WHAT LANDED, AND IT IS THE REASON THE THREAD WAS REOPENED.**
+
+      overseer-0fy   CLOSED  PR #750, merge 1e316b2   (dispatched TWICE — see T15b)
+      overseer-ctc   CLOSED  PR #753, merge a5a1a18   THE EXIT CONDITION
+
+  **`ctc` IS VERIFIED, NOT MERELY REPORTED GREEN**, which is the distinction this
+  whole reopening exists for. Measured by me, not inherited: the merged bytes
+  execute the shipped `.claude-plugin/bin/*` (gather → consensus → act) under a
+  scrubbed env with `PYTHONPATH=""`; journal-before-act is asserted as ORDERING
+  (`journal[-2].stage == "foreman-consensus-act"` then
+  `journal[-1].stage == "foreman-act"`), not presence; the sabotage helper is
+  reached from a REAL test — all 345 added lines are helpers, so "is anything
+  calling this?" was a live question. I then RAN it (1 passed, 13.99s) and PROVED
+  IT CAN FAIL: stubbing `bin/foreman-consensus` to exit 3 turns it RED. Done in a
+  throwaway worktree so it could not dirty the primary (T12).
+
+  **AND THE PRODUCT ITSELF RUNS. I stopped reasoning and executed it:**
+
+      foreman-runtime  -> {"action_taken": false, "exit_reason": null, "llm_tick": true, "tick_generation": 2}
+      foreman-gather   -> 17.7 KB document, 5 live sessions correctly observed
+
+  **THEN THE SEED AUDIT FOUND A P1 THAT EVERY INSTRUMENT REPORTED AS DONE.** With
+  the ledger empty I did NOT archive; I re-read the seed and asked, per
+  requirement, whether the SHIPPED product does it. It did not.
+  `.claude-plugin/prose/foreman.md` in RELEASE 0.33.0 — cut AFTER Phases C and D
+  landed — said *"This is the Phase A+B v1 foreman only"*, *"Human valves and
+  blocked-session answers are report-only"*, and *"Do not add Phase C consensus,
+  Phase D gate driving"*. That prose is not documentation: `SKILL.md` is a thin
+  binding with NO behaviour that delegates the whole operator contract to it and
+  says to execute it end-to-end, and per seed requirement 7 the foreman is an LLM
+  SESSION — so the prose IS the control flow. Meanwhile `foreman_valve_policy.py`
+  ships the ratified `report-only | consensus` key. **The two directly
+  contradicted, and a foreman obeying its own instructions could never invoke the
+  panel this thread spent its reopening building.**
+  Nothing caught it because `ctc`'s E2E drives the executables as SUBPROCESSES and
+  proves the chain works; **nothing drives the SKILL/prose path, because that path
+  is executed by an LLM and there is no harness for it.** Filed `overseer-5dbc`,
+  then fixed it myself rather than waiting on a factory queue (master `ci-green`
+  never registered on head `b4d1683`, so the armed dispatcher ceilinged without
+  dispatching — no race occurred, and I had claimed the item anyway).
+  **An existing assertion is WHY it shipped**: `overseer/test_plugin_structure.py`
+  asserted `"Phase C consensus" in prose`, which FORCED the prose to keep
+  forbidding the shipped tier. It is RE-POINTED, never deleted, at strictly more
+  specific claims. The new gate executes the shipped resolver and is controlled
+  both ways: reinstating the exact 0.33.0 line turns it RED.
+
+  **DO NOT ARCHIVE ON `5dbc` CLOSING EITHER. RE-RUN THE SAME AUDIT.** Read
+  `research/seed-prompt.md` requirements 1–7 plus addenda 8 and 2 and ask, for
+  each, whether the SHIPPED product does it — not whether a slice closed. That is
+  the question no instrument here answers, and it is how requirement 5 was lost
+  through an entire archived v1.
+
+  **Two standing worker-health warnings in this file were REFUTED on 2026-08-04
+  (see the retirement notice above) — a health claim ages exactly like an item
+  status.**
 
   **BOTH PHASE-D SLICES LANDED DURING THE WIND-DOWN. RE-MEASURED
   2026-08-05T04:57:41Z — this supersedes the "two runs in flight" paragraph that
@@ -1570,3 +1642,69 @@ ordering exactly.
   defects surfaced within three minutes of real data and neither was visible in the
   source. Arm it, read its first wake sceptically, and assume an early wake is your
   bug before it is the world's.
+
+- **T17 (2026-08-05) — THE WIND-DOWN RITUAL ITSELF ALMOST MADE ME COMMIT A
+  REVERSION, BECAUSE THE DAEMON HARDCODES ONE WORKTREE PATH AND PREDECESSORS
+  LEAVE IT BEHIND.** The injected wrap-up text says to create
+  `$HOME/.worktrees/livespec-overseer/wrapup-<topic>` and copy the handoff across.
+  I guarded with `[ -d "$W" ] || git worktree add ...` — and the directory ALREADY
+  EXISTED, from a predecessor's wind-down, sitting on branch
+  `wrapup-foreman-supervisor` at commit `bca7eb8` with a **months-superseded**
+  binder checked out. The guard silently skipped creation and handed me a stale
+  tree. `wrapup-foreman-supervisor-2` was taken as well, so this had already
+  happened at least once before.
+  **WHAT IT WOULD HAVE COST:** `git diff` showed **284 insertions** — including
+  the restart-livelock block that was REFUTED and deliberately retired. Copying
+  the handoff in and committing would have re-published a retired hazard as
+  current guidance and reverted every correction landed since.
+  **WHAT CAUGHT IT** was not care, it was a routine check: I diffed the new
+  worktree's binder against the primary and against `origin/master` before
+  editing, expecting "identical", and got NO. **A fresh worktree that is not
+  identical to the ref you asked for is not fresh.**
+  THE RULE: **never reuse a wrap-up worktree path, and never guard its creation
+  with a bare existence test.** Use a unique name (a dated slug works), or verify
+  `git diff --quiet origin/master -- <file>` before touching anything. The ritual
+  is run once per wind-down by a session that will not see the next one, so its
+  leftovers accumulate exactly where the next wind-down is told to write.
+
+- **T17b (2026-08-05) — TWO MORE WATCHER DEFECTS, BOTH FROM INLINING PYTHON IN
+  SHELL, BOTH CAUGHT BY CONTROLS RATHER THAN BY READING.** This is the third and
+  fourth this session (T16b holds the first two), and they share one remedy.
+  **(a) BACKTICKS INSIDE A DOUBLE-QUOTED `python3 -c "..."` ARE COMMAND
+  SUBSTITUTION.** A COMMENT I wrote inside an inlined parser quoted an identifier
+  in backticks; the shell ran it and every poll printed `failed: command not
+  found`. That is T9(a) verbatim — committed again *by the comment explaining the
+  previous fix*. The python still parsed, so the watcher kept working and merely
+  screamed; a less lucky expansion would have corrupted the program.
+  **(b) `cmd | python3 - <<'PY'` SILENTLY DISCARDS THE PIPE.** `python3 -` reads
+  its PROGRAM from stdin and a heredoc REDIRECTS stdin, so the program arrives and
+  the piped JSON never does; `json.load(sys.stdin)` sees an empty stream. The
+  watcher would have reported PROBE FAILED on every poll. **The sibling ps-dump
+  parser in the same file survives the identical-looking shape only because it
+  takes its input as an ARGUMENT and opens the file itself** — the two blocks look
+  alike and only one works, which is why reading did not find it.
+  THE REMEDY IS ONE LINE: **put the python in a FILE.** Nothing in a file is
+  scanned by the shell, and nothing redirects its stdin. Three of the four
+  watcher defects this session came from inlining. And the standing rule stays:
+  **a watcher's first arming is an experiment, not a deployment** — every one of
+  the four surfaced within minutes of live data and none was visible in the source.
+
+- **T17c (2026-08-05) — THE AUDIT THAT FOUND THE P1 IS THE ONE NOTHING ASKS FOR,
+  AND IT MUST BE RUN AT EXACTLY THE MOMENT IT FEELS UNNECESSARY.** When
+  `overseer-ctc` closed, every child of the epic was closed, the exit condition was
+  independently verified with a sabotage control, and the ledger was empty. Every
+  instrument said done. **That is precisely the state in which v1 was archived over
+  a product that could not start.** So instead of archiving I re-read
+  `research/seed-prompt.md` and asked, per requirement, whether the SHIPPED product
+  does it — and found that the shipped prose forbade the consensus tier the
+  product ships (`overseer-5dbc`, P1, in RELEASE 0.33.0).
+  **THE STRUCTURAL POINT, which generalises past this thread:** the gap lived in
+  the LLM-instruction half of the product, and every gate here tests the
+  deterministic half. `ctc`'s E2E proves the executables work; nothing asks whether
+  the shipped instructions permit CALLING them, because that path is executed by a
+  model and there is no harness for it. **Where a product is part program and part
+  prompt, the prompt is the half with no tests — audit it by hand, deliberately,
+  and gate what you can.**
+  A completion measured in the ledger and a requirement written in prose can never
+  meet on their own. Someone has to carry one to the other, and the only moment
+  anyone is willing to is right before archiving.
