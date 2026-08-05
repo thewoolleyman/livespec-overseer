@@ -5,6 +5,37 @@
 > Everything load-bearing is either stated here or cited by a path in §6.
 > Do not treat chat history as a source of truth. Rewritten 2026-08-05.
 
+## 0. CLOSED — 2026-08-05T21:20Z. Both halves shipped.
+
+This thread is DONE and archived. Nothing below is a live instruction; §3's
+"next action" is finished work, kept for the record rather than to be acted on.
+
+- **Contract half:** `SPECIFICATION/history/v010` (PR #721, `816cff7`).
+- **Daemon half:** PR #738, from factory run `01KZ84FG43SF` (56m57s, succeeded).
+  All 11 v010 scenarios carry integration-tier pinning tests; zero TODO
+  placeholders remain for them.
+- **The deferred operator-prose obligation was DISCHARGED**, which was the
+  condition the ratification review attached to its NO BLOCKERS verdict:
+  `overseer/marker-protocol.md` now states the four-precondition interlock over
+  a certification floor with the round-open identity, and
+  `.claude-plugin/prose/overseer.md` replaced "a human must clear the
+  declaration or open a sanctioned round" with the mechanical path, keeping the
+  human remedy only for a track that was never in a round, has a malformed
+  round record, or shows a differing/undeterminable identity.
+- **Ledger:** `overseer-5oap` closed; epic `overseer-er6ikw` closed.
+- **Carried forward, and tracked nowhere else:** `overseer-y8n6` (P3) holds the
+  two spec-side residuals the review deferred — no named attention member for a
+  FAILED un-open, and the non-monotonic divergence between "the void instant MAY
+  be raised repeatedly" and "the most recent such void". Both fail closed today.
+
+**One footnote that outlived this thread and is worth the search that finds it:**
+`overseer-5oap` sat at `status=active, assignee=fabro` with `fabro ps` not
+listing it — the textbook queue-eviction signature — while its work had already
+merged and shipped. That is the "succeeded-untransitioned" fourth dispatch trap,
+now in the repo `CLAUDE.md`. `fabro ps -a` is the only discriminator: an evicted
+run is absent there, a completed one reads `succeeded`. The remedy is to CLOSE
+the item, never to re-dispatch.
+
 ## 1. The primary goal
 
 Give an uncertifiable `ready` a MECHANICAL recovery path, so a session that
@@ -19,7 +50,7 @@ The thread is CONTRACT-BEARING: the spec change is ratified FIRST, and the
 daemon implementation runs through the FACTORY path afterwards. **Do not edit
 `overseer/*.py` on this thread** — that work belongs to the dispatched child.
 
-## 2. Where this stands — measured 2026-08-05T04:45Z; re-measure before acting
+## 2. Where this stood — measured 2026-08-05T04:45Z, before the daemon half landed
 
 **THE SPEC CHANGE IS RATIFIED.** `SPECIFICATION/history/v010` is on master
 (PR #721, merge commit `816cff7`), `proposed_changes/` is empty of this thread's
@@ -39,7 +70,7 @@ and both blockers were fixed in the proposal by #718. The second attempt — fre
 re-derivation against current master, fresh reviewer, `NO BLOCKERS` — is what
 landed as v010.
 
-## 3. The next action (exactly one)
+## 3. The next action as it stood before closure (DONE — see §0)
 
 **Dispatch `overseer-5oap` through the FACTORY path**, then supervise it:
 
@@ -157,10 +188,10 @@ reviewer caught exactly this and blocked the first ratification.
    — the full reasoning behind every clause, including the two BINDING
    sequencing constraints that forbid decomposing the implementation.
    Its `-revision.md` sibling carries the ratification evidence.
-3. `plan/ready-certification-deadlock/deadlock-mechanism.md` — the corrected
+3. `plan/archive/ready-certification-deadlock/deadlock-mechanism.md` — the corrected
    mechanism. Its superseded band-exhaustion text is preserved deliberately,
    because that is how this failure reads from outside.
-4. `plan/ready-certification-deadlock/supervisor-handoff.md` — the supervision
+4. `plan/archive/ready-certification-deadlock/supervisor-handoff.md` — the supervision
    charter: valves V1-V7 and thread corrections T1-T3.
 5. `tmp/overseer/ready-certification-deadlock/worker-status.log` — the milestone
    trail; `.supervisor-state` — the supervisor marker.

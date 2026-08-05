@@ -569,7 +569,7 @@ claim. Tier such items supervisor/host.
 **A RED MASTER BLOCKS EVERY DISPATCH IN A REPO.** The Dispatcher refuses with
 `latest master CI is not proven green at required check ci-green` before any sandbox
 work. This repo's master was red for hours because
-`plan/ready-certification-deadlock/`'s charter bound `ledger_anchor = overseer-er6ikw`
+`plan/archive/ready-certification-deadlock/`'s charter bound `ledger_anchor = overseer-er6ikw`
 while its handoff declared that id only as prose — the gate's regex requires the literal
 "ledger anchor" phrase before the backticked id. One line fixed it (PR #693). **Check
 master health before scheduling any dispatch.**

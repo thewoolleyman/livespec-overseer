@@ -573,7 +573,7 @@ any of it forward; the Verification Discipline block is the command.
      directory holds someone else's proposal:
 
      It was 38 KB, it belonged to the SEPARATE live thread
-     `plan/ready-certification-deadlock/` (epic `overseer-er6ikw`, both tmux
+     `plan/archive/ready-certification-deadlock/` (epic `overseer-er6ikw`, both tmux
      sessions alive), and it carries an explicit binding sequencing constraint —
      one of its findings says in terms "MUST NOT be implemented on its own".
      `/livespec:revise` is DIRECTORY-scoped, so a pass run for one of YOUR
@@ -712,7 +712,7 @@ any of it forward; the Verification Discipline block is the command.
   their wind-down, which is exactly what happened here.**
 
 - **THERE IS A SECOND PEER TRACK, IN THIS REPO, AND THIS THREAD'S WORKER IS ITS
-  LIVE REPRODUCTION.** `plan/ready-certification-deadlock/` (epic
+  LIVE REPRODUCTION.** `plan/archive/ready-certification-deadlock/` (epic
   `overseer-er6ikw`, both tmux sessions alive) owns the uncertifiable-`ready`
   deadlock. Its handoff already cites THIS track's 2026-08-03 instance.
   **A SECOND OCCURRENCE HAPPENED HERE ON 2026-08-05 AND IT CARRIES A
