@@ -510,3 +510,28 @@ binder inherits them.
   predicts. I read a shrinking sequence, matched it to "bands reset", and never
   checked which set was being printed. A control that shares the suspect's
   assumption is not a control.
+
+- **T4 (2026-08-05) — my own watcher reported a working session as idle, and I
+  pasted into it.** The pane watcher this charter prescribes detects busy by
+  PANE CHANGE, deliberately, so it does not depend on TUI wording. Mine reported
+  `unchanged ~60s — idle` while the worker was actively generating
+  (`Canoodling… 1m 50s`, mid-`worktree_create`). I believed it, re-checked with
+  the SAME broken capture, concluded "stall", and pasted a nudge into a
+  generating pane — the one hazard this charter warns about most consistently,
+  committed not by ignoring the rule but because the instrument lied.
+  **CAUSE:** `tmux capture-pane -p -t "$target"` does not include the region
+  where this TUI renders its spinner. If the CHANGING part of the pane is
+  outside the capture, an actively-generating session is byte-identical across
+  polls and reads as idle. `tmux capture-pane -p -E - -t "$target"` reaches it;
+  verified by diffing the two forms against a known-busy pane.
+  **THE GENERALISATION: a busy-by-change detector is only as wide as its
+  capture, and nothing in the rule says which capture makes the change visible.**
+  The rule was right and the thing it rested on was wrong — the same shape as
+  T1, where a correct command was published in a form that could not run. Prefer
+  an AFFIRMATIVE busy marker where one exists (`Spinning|Wandering|Canoodling|
+  esc to interrupt`) and treat pane-diff as the fallback, so a missed marker
+  costs a delay rather than a false idle.
+  **AND THE ASYMMETRY IS THE POINT: a false IDLE is far worse than a false BUSY.**
+  False busy costs a wait. False idle pastes into a generating session, where it
+  can corrupt input or interleave with the agent's own turn. Tune the detector
+  so its failures land on the safe side.
