@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.31.0...v0.32.0) (2026-08-05)
+
+
+### Features
+
+* implement v010 ready certification floor ([b25d8f5](https://github.com/thewoolleyman/livespec-overseer/commit/b25d8f507cadffea18b7f7ffd0f18e597b95df45))
+
 ## [0.31.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.30.3...v0.31.0) (2026-08-05)
 
 
