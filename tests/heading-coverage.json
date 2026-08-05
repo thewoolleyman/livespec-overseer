@@ -565,5 +565,19 @@
     "heading": "## Scenario: The effective valve disposition is readable without invoking the foreman",
     "test": "TODO",
     "reason": "Added by the foreman-consensus-decision-policy ratification (v007). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-ym6."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A bypass-launched interactive session rendering a native picker is a structured gate",
+    "test": "TODO",
+    "reason": "Added by the codex-yolo-structured-question-protocol ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-afn."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session with no available structured surface may still declare blocked",
+    "test": "TODO",
+    "reason": "Added by the codex-yolo-structured-question-protocol ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-afn."
   }
 ]
