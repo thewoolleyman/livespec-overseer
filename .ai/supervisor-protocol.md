@@ -139,11 +139,55 @@ tmux capture-pane -p -t "$WORKER_TARGET" | tail -8 \
 Idle plus queued input means STUCK, not idle. Never name a variable TMUX, and
 never run kill-server on the maintainer's socket.
 
-**Never kill the acting overseer daemon.** It runs in tmux
-`livespec-overseer:1.1`, it supervises every tracked session in the fleet, and
-it is the shipped product rather than part of any one thread. Every other rule
-in this charter protects the one track you govern; this one is the only rule
-whose blast radius is the whole fleet.
+**Never kill the acting overseer daemon.** It supervises every tracked session in
+the fleet and is the shipped product rather than part of any one thread. Every
+other rule in this charter protects the one track you govern; this one is the
+only rule whose blast radius is the whole fleet.
+
+**IDENTIFY IT BY PROCESS, NEVER BY PANE INDEX.** This rule used to name
+`livespec-overseer:1.1`, and that went stale in the worst possible direction on
+2026-08-05: the daemon was restarted to deploy a release, its old pane closed
+when the process exited, tmux RENUMBERED the surviving pane into `1.1`, and the
+daemon came back as `1.2`. For a while the rule with fleet-wide blast radius was
+protecting a Claude agent session while the real daemon sat at the index nobody
+was told to protect. A pane index is a position, not an identity, and tmux
+reassigns positions whenever a pane dies — which is exactly what a restart does.
+This is the same principle the HALT-first preconditions already apply to
+sessions: runtime identity comes from live process evidence, never from a name
+or a position.
+
+Resolve it before acting near it:
+
+```sh
+daemon_pane=""
+panes=$(tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} #{pane_pid}' 2>/dev/null)
+while read -r target pid; do
+  [ -n "$pid" ] || continue
+  if ps -p "$pid" -o args= 2>/dev/null | grep -q 'bin/overseerd'; then
+    daemon_pane="$target (pid $pid)"
+  fi
+done <<PANES
+$panes
+PANES
+if [ -n "$daemon_pane" ]; then
+  printf '%s\n' "DAEMON PANE: $daemon_pane — never send keys or signals here"
+else
+  printf '%s\n' "NOTE: no acting overseer daemon pane found. The fleet may be UNSUPERVISED — confirm rather than assume, because an absent daemon looks exactly like a quiet one."
+fi
+```
+
+Two things in that block are deliberate, and both were found by RUNNING it
+rather than reasoning about it:
+
+- **It resolves through PANE pids, not a bare process scan.** The obvious form,
+  `ps -eo pid=,args= | grep '[o]verseerd'`, also matches the shell you are
+  running the check FROM, because that shell's own argv contains the string. The
+  `[o]` bracket stops grep matching itself; it does nothing about the wrapper
+  around it. Pane pids cannot self-match.
+- **It always exits 0.** The natural `... | while read ...; do ... && echo ...; done`
+  form exits non-zero whenever the LAST pane examined is not the daemon, which is
+  the normal case. A charter's fenced blocks are executed by the cold-open gate,
+  so a block that reports correctly and exits 1 still reddens master.
 
 ## Obligation record
 
