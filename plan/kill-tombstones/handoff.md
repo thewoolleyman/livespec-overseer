@@ -92,16 +92,37 @@ dispatch preflight AND has no gate, so it needed a pin bump and wiring together.
 `livespec-akg7k5`'s work, not this thread's; the coupling and one cheap fix pattern are
 recorded on that item.
 
-**Closed children:** `overseer-5nuir3` (the purge — satisfied by another route; see the
-trap below), `overseer-3i43qx` (the `overseer-y26` description repair, done host-side),
-`livespec-dev-tooling-rowxc6` (the check), `livespec-dev-tooling-q6oob4` (the
-epic-parity tenant-prefix bug, merged `e81cde7`).
+**EIGHT OF THE NINE CHILDREN ARE CLOSED — measured 2026-08-05.** The only open child is
+`livespec-fvhvui`, the fleet fan-out epic. Closed: `overseer-5nuir3` (the purge —
+satisfied by another route; see the trap below), `overseer-3i43qx` (the `overseer-y26`
+description repair, done host-side), `livespec-dev-tooling-rowxc6` (the check),
+`livespec-dev-tooling-q6oob4` (the epic-parity tenant-prefix bug, merged `e81cde7`),
+the three spec changes below, and **`overseer-e723tt`**.
 
-**All three spec changes are RATIFIED:** `livespec-zp5mkd` (core, v194),
+**`overseer-e723tt` is DONE** — factory run `01KZ856YY7SY`, PR #733, merged as
+`1717236` "chore(tests): remove archived tiebreak". Branch 1 was taken and the reason
+recorded in the commit body, as the item required; `_prefer_archived` and its test are
+gone from `tests/` on master (the one remaining repo-wide hit is inside a recorded-session
+JSONL **fixture**, which is data and correctly untouched). **One residual, not a defect:**
+`_thread_file` now falls back to `sorted(...)[0]`, which for a topic sorting before
+`archive` would return the LIVE copy if a both-present pair ever existed. That is
+acceptable only because `plan_thread_no_tombstone` runs in the SAME aggregate and fails
+such a tree loudly first — **the guard moved, it did not disappear. If that check is ever
+weakened or unwired, revisit this.**
+
+**All three spec changes are RATIFIED and now CLOSED:** `livespec-zp5mkd` (core, v194),
 `overseer-ihwyin` (this repo, v008), `bd-ib-xhcqbc` (orchestrator, v057, carrying the
 `prose/plan.md` co-edit). The ban is now written into the guidance every adopter
 inherits, into this repo's own discovery contract, and into the operation prose an agent
 reads at archive time.
+
+**A pattern this thread hit FOUR times in one day, so treat it as the norm rather than
+bad luck: WORK MERGES AND THE LEDGER DOES NOT NOTICE.** All three spec items sat
+`blocked` for hours after their revisions merged, and `overseer-e723tt` sat
+`active`/`fabro` after PR #733 had already merged. **A merged PR is not a closed item.**
+Anything reading the ledger rather than this file will conclude finished work is still
+pending and may re-do it. Close the item in the same motion as the merge, and when you
+inherit this thread, re-measure the ledger against the forge before believing either.
 
 **`livespec-fvhvui` is GROOMED** into nine measured per-repo slices, each filed in its
 OWN tenant. The index is in that epic's notes. One has landed
@@ -495,6 +516,33 @@ about:
 
 ## Traps that have already cost turns — all measured, none hypothetical
 
+**`drive.py`'s EXIT CODE IS UNRELIABLE IN BOTH DIRECTIONS. Measured 2026-08-05 on
+`overseer-e723tt`.** The fleet already documents that **exit 0 is not evidence work
+started**. This thread measured the converse, which is worse because it invites you to
+throw away completed work:
+
+```
+# drive — impl:overseer-e723tt
+- status: **failed**
+- dispatcher exit code: 1
+- Dispatcher did not report green for overseer-e723tt.
+```
+
+**Every word of that is misleading.** The fabro run `01KZ856YY7SY` **succeeded** in
+14m16s, opened **PR #733**, and the PR **merged cleanly** as `1717236` with the full
+aggregate green. The work is on master and verified there.
+
+The likely mechanism: the dispatcher waits for a green signal within its own window,
+and the PR's `ci-green` was still `pending` when it gave up; auto-merge landed it
+afterwards. So the dispatcher reported on ITS OWN WAIT, not on the run.
+
+**A session that trusts this reports the item as failed, re-dispatches it, and burns a
+run against work that is already merged — or marks it blocked and strands it.** The rule
+is unchanged and now cuts both ways: **`fabro ps` (and `fabro ps -a`) is the evidence of
+a run; the forge is the evidence of the outcome. `drive.py`'s exit code is evidence of
+neither.** Before acting on a dispatch failure, check `fabro ps -a` for the run's real
+terminal state and `gh pr list` for a branch it may already have landed.
+
 **`plan/foreman/` IS A LIVE THREAD, NOT A TOMBSTONE.** The stub was removed at
 `c80aa52` and the thread REOPENED at `a10e00a`. `overseer-5nuir3`'s stated acceptance
 ("`plan/foreman/` absent from the primary checkout") would have DESTROYED live work — it
@@ -622,10 +670,20 @@ started.
 ## Closing this thread
 
 **This thread stays UN-ARCHIVED, and that is disposition 1 of its own rule, working.**
-Its epic has open children — a hard blocker in `overseer-jct` and a groomed fan-out epic
-with eight slices left. The rule says: leave the
-plan un-archived until its blockers are resolved, or transfer them all first. It is not
-finished, so it is not archived.
+Re-measured 2026-08-05: **eight of nine children are closed** and the epic has exactly
+ONE open child — `livespec-fvhvui`, the groomed fan-out, with eight slices left (four
+`ready`, three `blocked` behind `livespec-dev-tooling-1ysu`, one landed). The rule says:
+leave the plan un-archived until its blockers are resolved, or transfer them all first.
+It is not finished, so it is not archived.
+
+**Note what did NOT happen, because it is the whole point of this thread.** The
+temptation at eight-of-nine is to declare victory, archive, and leave a note at the live
+path explaining that one child is still open. That note is a tombstone. The correct move
+is the one taken here: the directory stays whole and live at `plan/kill-tombstones/`,
+and its epic stays open, until `livespec-fvhvui` is closed or explicitly transferred.
+
+`overseer-jct` is **no longer a blocker** — see §"`overseer-jct` is cleared". Any older
+sentence in this file that calls it one is superseded.
 
 When it does close, either every child is closed or the survivors are transferred to a
 live thread or work-item first. Then
