@@ -853,28 +853,50 @@ interpolation token, and confirm the target repo's master CI is green. `fabro ps
 evidence of a run; a `drive.py` exit of 0 means the request was accepted, not that work
 started.
 
-## Closing this thread
+## CLOSED AND ARCHIVED — 2026-08-06, by disposition 2 of its own rule
 
-**This thread stays UN-ARCHIVED, and that is disposition 1 of its own rule, working.**
-Re-measured 2026-08-05: **eight of nine children are closed** and the epic has exactly
-ONE open child — `livespec-fvhvui`, the groomed fan-out, with eight slices left (four
-`ready`, three `blocked` behind `livespec-dev-tooling-1ysu`, one landed). The rule says:
-leave the plan un-archived until its blockers are resolved, or transfer them all first.
-It is not finished, so it is not archived.
+**This thread is DONE.** Its epic `overseer-7zhfdr` is CLOSED and the whole directory
+moved to `plan/archive/kill-tombstones/` in one `git mv`, leaving **nothing** at the live
+path. If you are reading this anywhere other than under `plan/archive/`, something has
+gone wrong.
 
-**Note what did NOT happen, because it is the whole point of this thread.** The
-temptation at eight-of-nine is to declare victory, archive, and leave a note at the live
-path explaining that one child is still open. That note is a tombstone. The correct move
-is the one taken here: the directory stays whole and live at `plan/kill-tombstones/`,
-and its epic stays open, until `livespec-fvhvui` is closed or explicitly transferred.
+**What was delivered.** The tombstone ban is ratified in all three trees (`livespec`
+v194, `livespec-overseer` v008, `livespec-orchestrator-beads-fabro` v057 incl. the
+`prose/plan.md` co-edit). `plan_thread_no_tombstone` shipped in `livespec-dev-tooling`
+v1.19.0 — structural, fail-closed, no opt-in lever — and enforces on master in 9 of the
+10 pin-consuming repos. Zero tombstones remain fleet-wide. All four local children plus
+both `livespec-dev-tooling` children are closed.
 
-`overseer-jct` is **no longer a blocker** — see §"`overseer-jct` is cleared". Any older
-sentence in this file that calls it one is superseded.
+**It closed by DISPOSITION 2, and the distinction matters.** An earlier revision of this
+section said the thread would stay un-archived while `livespec-fvhvui` was open. That
+defaulted to disposition 1 without testing disposition 2, which is the rule's *other*
+sanctioned exit: transfer every survivor to a live work-item, then archive whole.
+`livespec-fvhvui` was transferred out — the parent-child edge removed deliberately, with
+the reason recorded on both items. It qualifies on its own terms: a groomed epic in the
+`livespec` tenant, nine slices each in its own tenant, each carrying a rank,
+`intake:triaged` and a measured routing decision, and it is a **different subject**
+(arming `plan_lifecycle_anchor`, a sibling check) that needs no plan thread to proceed.
 
-When it does close, either every child is closed or the survivors are transferred to a
-live thread or work-item first. Then
-`git mv plan/kill-tombstones plan/archive/kill-tombstones` — whole directory, nothing
-left behind, and the epic CLOSED in the same motion so the lifecycle binding holds.
-**If you find yourself wanting to leave a note at the live path, that is the exact
-impulse this thread exists to forbid** — and as of v1.19.0,
-`check-plan-thread-no-tombstone` will fail your build if you try.
+**Every other survivor is likewise an independently tracked work-item**, each with its
+evidence recorded on the item rather than here:
+
+| item | what it carries |
+|---|---|
+| `overseer-y26` (P1) | the ROOT CAUSE — the respawn prompt resolves a computed LIVE path an archive deletes. **Unfixed, and it is why the ban gets re-derived** — see §"THE BAN'S FIRST LIVE CATCH" |
+| `livespec-fvhvui` | the fleet fan-out: 3 of 9 slices closed, 3 ready, 3 needs-human |
+| `livespec-dev-tooling-qh0e` (P1) | the first-match regression introduced by the `1ysu` fix |
+| `bd-ib-5tyn` | a queued fabro run outlives its item's closure and is never reaped |
+| `overseer-jct` | the 123 result-typed violations — **unenforced, not fixed**; they return when `livespec-mutreal.1` arms `pure_trees` |
+
+**Archiving was checked for safety first, not assumed.** This is a WORKER track: the
+directory holds only `handoff.md` and `research/`, with **no `supervisor-handoff.md`**, so
+the `supervisor-handoff-missing` refusal cannot strand a pane — which is exactly the
+failure that produced the live tombstone in `livespec-dev-tooling` recorded above. A clean
+whole-directory `git mv` makes `archived_or_gone` return True, `archive_gc` drops the
+mapping row, and there is no row left to respawn from a dangling path.
+
+**And note what was NOT done, because it is the whole point of this thread.** The
+temptation on closing with an epic still open elsewhere is to leave a note at the live
+path explaining where the work went. **That note is a tombstone.** The transfer went into
+the ledger items above; the live path is empty. As of v1.19.0
+`check-plan-thread-no-tombstone` would have failed the build for trying.
