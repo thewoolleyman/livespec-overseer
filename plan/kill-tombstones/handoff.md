@@ -56,6 +56,65 @@ tombstone condition wearing a different name. **That sharpening came from
 adversarial review and is the most important correction of the session — see
 §"What review caught".**
 
+## THE BAN'S FIRST LIVE CATCH — and it proves the root cause is still open
+
+**Measured 2026-08-05 ~21:15Z in `livespec-dev-tooling`.** A tombstone was written
+**~13 hours after the ban was ratified in all three trees**, by an author who knew
+exactly what they were doing and explained why. This is the single most instructive
+event in this thread's life, and it changes what "done" means here.
+
+**What exists:** an **UNTRACKED** `plan/fleet-shell-quality-enforcement/` holding one
+file, `supervisor-handoff.md` (14 KB), created ~3 minutes AFTER PR #1296 archived that
+thread. **`origin/master` is CLEAN** — the `git mv` was whole-directory and correct, and
+the live path does not exist in git. The stub lives only in the working tree.
+
+**The shipped check CATCHES IT.** `plan_thread_no_tombstone` **exits 1** in that repo
+and names the pair. So `just check` there is RED — on an untracked artifact, because the
+check reads the FILESYSTEM, not git.
+
+### Why it was written — the ban did not close the pressure that creates tombstones
+
+The file's own text:
+
+> the overseer respawns this pane with exactly one prompt — *read
+> `plan/fleet-shell-quality-enforcement/supervisor-handoff.md` and follow it*. That path
+> was REMOVED by the archive … Had this file not been recreated, the next supervisor
+> would have booted into a dangling path with NOTHING. So this is a deliberate terminal
+> stub, not an un-archiving of the thread.
+
+That is **`overseer-y26`, verbatim** — the supervisor half, where
+`supervisor_handoff_path()` computes a FIXED LIVE path that knows nothing about
+`plan/archive/`. **The ban says do not leave a stub. It does not say what to do when the
+respawn prompt names a path the archive deleted.** Until `overseer-y26` is fixed, every
+archived *supervised* thread reproduces this pressure, and a competent agent will keep
+re-deriving the workaround — exactly as `enforcement-inventory.md` predicted.
+
+### The author checked a gate — just not the one that fires
+
+They wrote: *"**It is safe:** `check-plan-thread-epic-parity` globs `*/handoff.md`, not
+`supervisor-handoff.md`, so this file does not make the archived thread read as
+active."* **That is TRUE** — verified, that check does not fire.
+
+But `plan_thread_no_tombstone` is **DIRECTORY-LEVEL**: it intersects directory names
+under `plan/` with those under `plan/archive/` and **never looks inside**. The filename
+is irrelevant. So a careful, gate-aware safety analysis still missed it.
+
+**This vindicates the structural detector over the rejected content-sniffing one.** A
+wording-based check could have been argued around in good faith — "this is boot
+scaffolding, not a record", and the author would have had a point. The directory-level
+test cannot be negotiated with, and it caught a case its own author had reasoned was
+safe. That design choice was the right one, and this is the evidence.
+
+### What NOT to do about it
+
+**Do not delete that file reflexively.** It is another session's live boot scaffolding,
+it is untracked so it cannot reach master, and its own text says to remove it once the
+maintainer stops respawning that track. Deleting it out from under a running supervisor
+strands that pane. **The fix is `overseer-y26`** — make the respawn prompt resolve a
+thread's binder at EITHER `plan/<topic>/` or `plan/archive/<topic>/`, so an archived
+thread boots to its real archived binder and no stub is ever needed. The full
+measurement is recorded on `overseer-y26`.
+
 ## Why, in one paragraph
 
 A tombstone keeps a finished thread registered as a live overseer track, and it
@@ -516,6 +575,29 @@ about:
 
 ## Traps that have already cost turns — all measured, none hypothetical
 
+**A FAILED RUN CAN BURN 4 HOURS AND PRODUCE NOTHING, AND THE ITEM STILL READS `active`.**
+Measured 2026-08-05 on `livespec-dev-tooling-1ysu`: run `01KZ83PFEW2S` **failed after
+exactly 240m00s** with **no branch, no PR, no commit**, leaving the item
+`active`/`fabro` — a textbook phantom claim. Released by hand and re-dispatched.
+
+`fabro inspect <run-id>` is the tool that explains it, and it named **three chained
+failures** — worth knowing because only one of them is transient:
+
+| stage | what `inspect` reported | class |
+|---|---|---|
+| `review` | `failure_signature: review\|transient_infra\|acp turn failed` | **transient** — the review adapter runs `claude-opus-4-8[1m]`; this coincided with an Anthropic usage limit that also parked the dispatching session ~14h |
+| `escalate` | `stall watchdog: node "escalate" had no activity for 7200s` | consequence of the above |
+| push | `git push failed: livespec: refusing commit/push at primary checkout; use a worktree` | **DETERMINISTIC — will recur for other items** |
+
+**The push refusal is the one to act on.** The fleet's own primary-checkout guard
+refused the run's push. The goal text explicitly warns the agent never to `cd` to the
+dispatcher's host-side checkout, so a run pushing from there is a workflow-side problem
+that is not specific to this item and will bite the next dispatch too.
+
+**So: `fabro inspect` before re-dispatching anything that failed.** A blind re-dispatch
+against a deterministic failure burns another run. And note this sits alongside the
+`drive.py` exit-code trap below — the exit code told you nothing useful in either case.
+
 **`drive.py`'s EXIT CODE IS UNRELIABLE IN BOTH DIRECTIONS. Measured 2026-08-05 on
 `overseer-e723tt`.** The fleet already documents that **exit 0 is not evidence work
 started**. This thread measured the converse, which is worse because it invites you to
@@ -613,17 +695,30 @@ Then, in rough order of value:
    `overseer-ihwyin` (v008) and `bd-ib-xhcqbc` (v057) are now **CLOSED**, each against
    its merged revision after verifying the clause is actually present in the target
    file. **All of this thread's spec work is complete.**
+0. **`overseer-y26` is now the thread's most important open dependency**, ahead of
+   everything below. It is no longer a theoretical root cause: a tombstone was written
+   against it **13 hours after the ban was ratified** — see §"THE BAN'S FIRST LIVE
+   CATCH". Until the respawn prompt resolves a binder at EITHER the live or the archived
+   path, every archived supervised thread recreates the pressure and the ban gets
+   re-derived around. **`livespec-dev-tooling`'s local `just check` is RED right now**
+   because of it.
 1. **`livespec-dev-tooling-1ysu`** (P1) — the `plan_thread_anchor_declared`
    over-rejection. **It gates most of the fan-out**: 15 of 27 failing threads are
-   false positives, and three slices are `blocked` behind it. **DISPATCHED 2026-08-05**,
-   fabro run `01KZ83PFEW2S`, `running` in `/data/projects/livespec-dev-tooling`.
-   Do not re-dispatch; check `fabro ps` before assuming anything about it.
+   false positives, and three slices are `blocked` behind it.
+   **First dispatch FAILED** — run `01KZ83PFEW2S`, 240m00s, nothing produced, phantom
+   claim released by hand. Diagnosis is in §"Traps": a transient review-adapter failure
+   plus a **deterministic** primary-checkout push refusal. **RE-DISPATCHED 2026-08-05
+   ~21:22Z.** The defect is still present on master (`plan_thread_anchor_declared.py:54`
+   at `847fa45`), so the item needs no re-cutting. **If it fails the same way again, do
+   NOT just re-dispatch a third time** — check the review adapter's credential and
+   whether the run is operating at a primary checkout.
 2. ~~**`overseer-jct`**~~ — **IT NO LONGER BLOCKS ANYTHING. Its title is now false.**
    See §"`overseer-jct` is cleared" below. `.py` changes CAN land in this repo today;
    `overseer-e723tt` is unblocked and **DISPATCHED**. Do not close `overseer-jct` — the
    violations are real — but stop treating it as a gate, and do not groom it into
    per-module slices on the strength of the old framing.
-3. **`livespec-fvhvui`'s four `ready` slices — HELD ON PURPOSE, not forgotten.** Intake
+3. **`livespec-fvhvui`'s four `ready` slices — `livespec-runtime-acq` is DISPATCHED
+   (2026-08-05 ~21:24Z); the other three await queue capacity.** Intake
    is DONE on all nine: every slice has a rank, `intake:triaged`, and a routing decision
    backed by a per-repo measurement run with the shipped check itself. **Take
    `livespec-runtime-acq` first: zero live plan threads, so nothing to repair, nothing
