@@ -579,5 +579,82 @@
     "heading": "## Scenario: A session with no available structured surface may still declare blocked",
     "test": "TODO",
     "reason": "Added by the codex-yolo-structured-question-protocol ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-afn."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Repeated voiding never re-sends an already-notified band",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A round whose opening wrap-up never landed is un-opened",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A declaration on a track that was never in a round is surfaced, not healed",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A standing uncertifiable declaration does not suppress the below-threshold branch",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pane carrying a standing declaration is never pasted into",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A successor session never certifies against its predecessor's floor",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session replaced before the void never inherits a certifiable floor",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An undeterminable session identity fails the interlock closed",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready declaration written after a void certifies without a new round",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A voided declaration never certifies against its own void",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A ready declaration on a track that was never in a round certifies nothing",
+    "test": "TODO",
+    "reason": "Added by the post-void-ready-certification ratification (v010). Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; no such test can exist yet because the daemon implementation is deliberately deferred to the factory-dispatched child of overseer-er6ikw that this ratification authorizes. Replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
   }
 ]
