@@ -340,15 +340,59 @@ run happened.** Check `ps -a`, and check the forge for a merged PR naming the
 item, before releasing any claim. The remedy here is to CLOSE the item with the
 verification recorded — never to re-dispatch.
 
-| | `{{...}}` token | queue eviction | anchor-as-dependency | succeeded-untransitioned |
-|---|---|---|---|---|
-| `drive.py` exit | non-zero, immediate | **0** | **1** (dispatcher 3) | **0** |
-| error text | `template_undefined_variable` | none | `not in the ready set` | none |
-| `fabro ps` after | never lists it | lists `runnable` | never lists it | ran, then gone |
-| `fabro ps -a` later | never lists it | **absent entirely** | never lists it | **`succeeded`** |
-| work landed | no | no | no | **yes — PR merged** |
-| phantom claim | yes | yes | **no** | yes |
-| remedy | fix the defect | release + re-dispatch | unset the dep edge | **close it** |
+### A FIFTH SHAPE: the work was DONE and GREEN, and the run destroyed it
+
+Measured 2026-08-05 on `overseer-0fy`, run `01KZ87W6RNDMNSGBT7YKWZDM8N`. **This is
+the most expensive member of the family, because the dispatcher reports `failed`
+about work that had already succeeded.**
+
+    05:56Z  dispatched
+    ~06:33Z the AGENT FINISHED: `just check` 68/68 at 100% coverage, commit-msg
+            hook re-ran the full suite green, committed as 4de441e.
+            Then, verbatim: "No push/PR performed."
+            Then: "Needs human: the loop cannot auto-resolve this work-item"
+                  [R] Retry / [I] Re-implement from scratch / [A] Abandon
+            Then: "Interview ended without an answer."  Dispatcher exits `failed`.
+    ~09:56Z the RUN hits its 4-hour ceiling still waiting for input.
+
+Afterwards the commit is unreachable — `git cat-file -t 4de441e` returns "Not a
+valid object name", the run's scratch directory holds only logs, and fabro
+executes remotely. Roughly four hours of green work, gone.
+
+**THE DISPATCHER'S EXIT IS NOT A REAP, AND THAT GAP IS THE RESCUE WINDOW.** The
+dispatcher gave up at ~37 minutes; the run stayed live and blocking for another
+**3.4 hours**. `fabro attach <run>` accepts "a running or finished workflow run",
+so the interview was answerable that whole time by anyone who knew it existed.
+Retry / Re-implement / Abandon are **supervisor-grade** choices, not
+maintainer-grade ones. So the failure was not the loop asking — it was that
+nothing was listening.
+
+**WHAT TO DO.** Watch for the interview, not just for the terminal state: a
+terminal-state watcher wakes you at the END of the rescue window, which is exactly
+too late. Grep the dispatch log for `Needs human`, `Interview ended`, or `cannot
+auto-resolve` and treat a hit as urgent. Annotate dispatched items to PUSH AND OPEN
+A PR (draft if need be) BEFORE raising any blocking question — unpushed work behind
+an unanswered question is unrecoverable. Filed as `bd-ib-6o6h` (orchestrator).
+
+**A SIZING WARNING ON THE ITEM IS NOT THE CAUSE HERE.** The dispatcher warned this
+item was 1959 chars with 5 enumerated parts and might exceed one unattended turn;
+the agent completed it in ~37 minutes anyway. It was not too big to implement, it
+was too big to FINISH UNATTENDED. Splitting fixes neither defect.
+
+| | double-brace token | queue eviction | anchor-as-dependency | succeeded-untransitioned | interview-destroyed |
+|---|---|---|---|---|---|
+| `drive.py` exit | non-zero, immediate | **0** | **1** (dispatcher 3) | **0** | non-zero |
+| error text | `template_undefined_variable` | none | `not in the ready set` | none | `Interview ended without an answer` |
+| `fabro ps` after | never lists it | lists `runnable` | never lists it | ran, then gone | ran, then gone |
+| `fabro ps -a` later | never lists it | **absent entirely** | never lists it | **`succeeded`** | **`failed`, wall = the full ceiling** |
+| work landed | no | no | no | **yes — PR merged** | **no — done but never pushed** |
+| phantom claim | yes | yes | **no** | yes | yes |
+| remedy | fix the defect | release + re-dispatch | unset the dep edge | **close it** | **release + re-dispatch; the work is gone** |
+
+The last two columns are the pair to keep straight: both ran and both are absent
+from the live `fabro ps`, but one merged its work and must be CLOSED while the
+other destroyed its work and must be REDONE. `fabro ps -a` separates them —
+`succeeded` versus `failed` — and the forge confirms it.
 
 ### A LEDGER-EDIT item can never be factory-dispatched
 
