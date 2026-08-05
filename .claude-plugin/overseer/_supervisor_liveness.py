@@ -135,13 +135,10 @@ def uncertifiable_ready_surface(
     if declared is None or declared.token != signals.STATE_READY:
         reset_uncertifiable_ready_state(istate=obs.istate)
         return None
-    if obs.injection_stamp is None:
-        reason = "no supervision round open"
-    elif declared.mtime <= obs.injection_stamp:
-        reason = "ready predates round stamp"
-    else:
+    if obs.ready_uncertifiable_reason is None:
         reset_uncertifiable_ready_state(istate=obs.istate)
         return None
+    reason = obs.ready_uncertifiable_reason
 
     istate = obs.istate
     age = max(0.0, sup.now() - declared.mtime)

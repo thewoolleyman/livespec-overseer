@@ -58,6 +58,10 @@ from _registry_discovery import discover_plans as discover_plans
 from _registry_discovery import join as join
 from _registry_discovery import repo_root_present as repo_root_present
 from _registry_discovery import watch_set_from_config as watch_set_from_config
+from _registry_rounds import RoundRecord as RoundRecord
+from _registry_rounds import read_round_open_identity as read_round_open_identity
+from _registry_rounds import read_round_record as read_round_record
+from _registry_rounds import record_ready_void as record_ready_void
 from _registry_stamps import add_notified_band as add_notified_band
 from _registry_stamps import clear_injection_stamp as clear_injection_stamp
 from _registry_stamps import read_injection_stamp as read_injection_stamp
@@ -76,6 +80,7 @@ __all__: list[str] = [
     "DEFAULT_STAMP_PATH",
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
+    "RoundRecord",
     "Track",
     "add_notified_band",
     "append_mapping",
@@ -91,6 +96,9 @@ __all__: list[str] = [
     "read_mapping",
     "read_notified_bands",
     "read_resume_pending",
+    "read_round_open_identity",
+    "read_round_record",
+    "record_ready_void",
     "remove_mapping",
     "repo_root_present",
     "repo_slug",

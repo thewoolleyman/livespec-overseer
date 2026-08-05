@@ -44,6 +44,22 @@ class IdleRequest:
     act: bool
 
 
+def _apply_uncertifiable_ready(
+    *,
+    status: str,
+    note: str | None,
+    active_conditions: set[str],
+    uncertifiable_ready: tuple[str, set[str]] | None,
+) -> tuple[str, str | None]:
+    if uncertifiable_ready is None:
+        return status, note
+    ready_note, ready_conditions = uncertifiable_ready
+    active_conditions.update(ready_conditions)
+    if status == "warned":
+        return "ready-uncertifiable", ready_note
+    return status, ready_note
+
+
 def idle_decision(*, request: IdleRequest) -> IdleDecision:
     active_conditions: set[str] = set()
     settled_streaming_progress = False
@@ -94,10 +110,6 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
                 target=request.target,
                 is_codex=request.obs.is_codex,
             )
-    elif request.uncertifiable_ready is not None:
-        status = "ready-uncertifiable"
-        note, ready_conditions = request.uncertifiable_ready
-        active_conditions.update(ready_conditions)
     elif (
         request.obs.ctx_stale_age is not None
         and request.obs.stale_ctx is not None
@@ -132,6 +144,16 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         )
         status = threshold_decision.status
         active_conditions.update(threshold_decision.active_conditions)
+        status, note = _apply_uncertifiable_ready(
+            status=status,
+            note=note,
+            active_conditions=active_conditions,
+            uncertifiable_ready=request.uncertifiable_ready,
+        )
+    elif request.uncertifiable_ready is not None:
+        status = "ready-uncertifiable"
+        note, ready_conditions = request.uncertifiable_ready
+        active_conditions.update(ready_conditions)
     else:
         status = _supervisor_idle.idle_room(
             request=_supervisor_idle.IdleRequest(

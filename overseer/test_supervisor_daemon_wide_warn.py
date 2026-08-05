@@ -111,7 +111,10 @@ def test_restart_fires_when_marker_valid_notbusy_idle(*, tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
-        repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
+        repo=str(repo),
+        topic=topic,
+        ts=1000.0,
+        stamp_path=sup.stamp_path,
     )
     marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
@@ -140,7 +143,11 @@ def test_no_restart_when_busy_even_with_valid_marker(*, tmp_path):
     fake.serve(session=session, repo=repo, capture="esc to interrupt\n  Ctx: 30% left\n")  # busy
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     registry.write_injection_stamp(
-        repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
+        repo=str(repo),
+        topic=topic,
+        ts=1000.0,
+        session_identity="codex:codex-1",
+        stamp_path=sup.stamp_path,
     )
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
@@ -183,7 +190,11 @@ def test_bg_shell_suppresses_restart(*, tmp_path):
         )
     }
     registry.write_injection_stamp(
-        repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
+        repo=str(repo),
+        topic=topic,
+        ts=1000.0,
+        session_identity="codex:codex-1",
+        stamp_path=sup.stamp_path,
     )
     marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)  # valid + fresh
 

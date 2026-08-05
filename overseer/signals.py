@@ -441,17 +441,21 @@ def ready_valid(
     *,
     repo: str,
     topic: str,
-    injection_stamp: float | None,
+    certification_floor: float | None = None,
+    malformed_round_reason: str | None = None,
+    round_session_identity: str | None = None,
+    live_session_identity: str | None = None,
 ) -> bool:
     """The restart authorization — the ONLY thing that may restart a session.
 
     True only when ALL hold:
 
-    1. an injection stamp exists for this round (``injection_stamp`` is not None) —
-       without a recorded injection there is no round to certify,
+    1. a certification floor exists for this round (``certification_floor`` is not
+       None) and the round record is well-formed,
     2. the state file declares exactly ``ready``, AND
-    3. its mtime is strictly newer than ``injection_stamp`` (this round, not a
-       stale declaration from a prior wrap-up).
+    3. its mtime is strictly newer than ``certification_floor`` (this round, and
+       newer than any ready void within it),
+    4. the identity live at the pane matches the round-open identity.
 
     The daemon NEVER infers readiness. A session that is merely idle — however long,
     however low on context — is NOT ready: "idle + settled" is not "safe to kill" (a
@@ -459,12 +463,18 @@ def ready_valid(
     while it waits on a human in another pane). Only the session knows, so only the
     session may say so. Any absent/unreadable/other-valued file → False (fail-closed).
     """
-    if injection_stamp is None:
+    if (
+        certification_floor is None
+        or malformed_round_reason is not None
+        or round_session_identity is None
+        or live_session_identity is None
+        or live_session_identity != round_session_identity
+    ):
         return False
     state = read_state(repo=repo, topic=topic)
     if state is None or state.token != STATE_READY:
         return False
-    return state.mtime > injection_stamp
+    return state.mtime > certification_floor
 
 
 # --------------------------------------------------------------------------- #

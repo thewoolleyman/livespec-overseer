@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_ready
 import claude_sessions
 import registry
 import signals
@@ -304,8 +305,6 @@ def observe(
     )
     stale_ctx = istate.last_ctx if ctx_stale_age is not None else None
 
-    stamp = registry.read_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path)
-
     # The ONE indicator file (`ready` / `blocked` / `winding-down`). A single file
     # with a VALUE — never two presence-markers, which could both exist and whose
     # precedence was incidental rather than designed (maintainer 2026-07-14).
@@ -321,6 +320,14 @@ def observe(
         and declared.token == signals.STATE_WINDING_DOWN
         and (sup.now() - declared.mtime) <= ACK_STALE_AFTER
     )
+    round_obs = _supervisor_ready.round_observation(
+        sup=sup,
+        repo=repo,
+        topic=topic,
+        session=session,
+        runtime=runtime,
+        declared=declared,
+    )
     return Observation(
         capture=capture,
         busy=busy,
@@ -334,11 +341,14 @@ def observe(
         ctx_changed=ctx_changed,
         ctx_stale_age=ctx_stale_age,
         stale_ctx=stale_ctx,
-        injection_stamp=stamp,
+        injection_stamp=round_obs.record.at,
+        round_record=round_obs.record,
+        session_identity=round_obs.session_identity,
+        ready_uncertifiable_reason=round_obs.ready_uncertifiable_reason,
         istate=istate,
         declared=declared,
         malformed=malformed,
         blocked=blocked,
         acked=acked,
-        ready=signals.ready_valid(repo=repo, topic=topic, injection_stamp=stamp),
+        ready=round_obs.ready,
     )

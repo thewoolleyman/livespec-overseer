@@ -92,6 +92,7 @@ def write_injection_stamp(
     repo: str,
     topic: str,
     ts: float,
+    session_identity: str | None = None,
     stamp_path: str | os.PathLike[str] | None = None,
 ) -> None:
     """Open a fresh injection round for a track: stamp ``at`` and RESET its bands.
@@ -106,7 +107,13 @@ def write_injection_stamp(
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
         data = _read_stamp_data(path=path)
-        data[_stamp_key(repo=repo, topic=topic)] = {"at": float(ts), "bands": []}
+        identity = session_identity or f"claude:{topic}:{topic}"
+        entry: dict[str, object] = {
+            "at": float(ts),
+            "bands": [],
+            "session_identity": identity,
+        }
+        data[_stamp_key(repo=repo, topic=topic)] = entry
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 

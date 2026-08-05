@@ -427,8 +427,12 @@ are fixed by construction:
      told, escalatingly, exactly what to write.)
    - **`ready-uncertifiable`** — the session wrote `ready`, but no supervision
      round exists for it to answer, or its timestamp can never satisfy the current
-     round. It is report-only: the daemon will not restart it, and a human must clear
-     the declaration or open a sanctioned round.
+     round. It is report-only: the daemon will not restart it. If the track has an
+     open round with a void floor, the mechanical path is for that same live session
+     to clear or supersede the stale declaration by writing a fresh `ready` after the
+     void. A human clear is only the remedy for a track that has genuinely never been
+     in a round, has a malformed round record, or shows a different/undeterminable
+     session identity.
    - **malformed state file** — the session wrote a value that is not one of
      `ready` / `blocked` / `winding-down`. It is treated as **no declaration** and
      reported; relay it the same way.

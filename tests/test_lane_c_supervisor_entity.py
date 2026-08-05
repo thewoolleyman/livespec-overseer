@@ -62,4 +62,13 @@ def test_symlinked_state_file_is_refused(*, tmp_path):
 
     assert parsed is not None
     assert parsed.token == "state-path-mismatch"
-    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=0.0) is False
+    assert (
+        signals.ready_valid(
+            repo=str(repo),
+            topic=topic,
+            certification_floor=0.0,
+            round_session_identity="claude:s:t",
+            live_session_identity="claude:s:t",
+        )
+        is False
+    )

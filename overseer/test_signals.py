@@ -20,6 +20,17 @@ import signals
 from test_signals_fakes import declare_state, setup_track
 
 __all__: list[str] = []
+_IDENTITY = "claude:s:t"
+
+
+def _ready_valid(*, repo: str, topic: str, floor: float | None) -> bool:
+    return signals.ready_valid(
+        repo=repo,
+        topic=topic,
+        certification_floor=floor,
+        round_session_identity=_IDENTITY,
+        live_session_identity=_IDENTITY,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -236,24 +247,24 @@ def test_ready_valid_only_on_a_fresh_ready_declaration(*, tmp_path):
     """`ready` is the SOLE restart authorization, and only when it is THIS round's."""
     repo, topic = setup_track(tmp_path=tmp_path)
     declare_state(repo=repo, topic=topic, value="ready\n", mtime=1001.0)  # newer than the stamp
-    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is True
+    assert _ready_valid(repo=str(repo), topic=topic, floor=1000.0) is True
 
 
 def test_ready_valid_false_when_absent_stale_unstamped_or_other_value(*, tmp_path):
     """Fail-closed on every path that is not an unambiguous, this-round `ready`."""
     repo, topic = setup_track(tmp_path=tmp_path)
     # 1. Nothing declared at all — the severe-bug case: idleness is NEVER readiness.
-    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
+    assert _ready_valid(repo=str(repo), topic=topic, floor=1000.0) is False
     # 2. Declared `ready`, but STALE (older than this round's injection stamp).
     declare_state(repo=repo, topic=topic, value="ready\n", mtime=999.0)
-    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
+    assert _ready_valid(repo=str(repo), topic=topic, floor=1000.0) is False
     # 3. Fresh `ready`, but NO injection this round → nothing to certify.
     declare_state(repo=repo, topic=topic, value="ready\n", mtime=1001.0)
-    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=None) is False
+    assert _ready_valid(repo=str(repo), topic=topic, floor=None) is False
     # 4. The other two values are NOT readiness — one file, so they REPLACE `ready`.
     for other in ("blocked: needs a human", "winding-down"):
         declare_state(repo=repo, topic=topic, value=other + "\n", mtime=1001.0)
-        assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
+        assert _ready_valid(repo=str(repo), topic=topic, floor=1000.0) is False
     # 5. A typo'd value is not readiness either.
     declare_state(repo=repo, topic=topic, value="redy\n", mtime=1001.0)
-    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
+    assert _ready_valid(repo=str(repo), topic=topic, floor=1000.0) is False

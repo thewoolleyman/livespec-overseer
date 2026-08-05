@@ -188,7 +188,7 @@ def test_uncertified_ready_declaration_suppresses_shell_only_wrapup(*, tmp_path)
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
-    assert view.status == "settling"
+    assert view.status == "warned"
     assert wrapup_count(fake=fake) == 0
     assert marker.exists()
     assert not fake.has(method="respawn")

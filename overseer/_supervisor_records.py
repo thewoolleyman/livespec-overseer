@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import registry
 import signals
 
 __all__: list[str] = [
@@ -105,6 +106,9 @@ class Observation:
     ctx_stale_age: float | None
     stale_ctx: int | None
     injection_stamp: float | None
+    round_record: registry.RoundRecord
+    session_identity: str | None
+    ready_uncertifiable_reason: str | None
     istate: InjectState
     declared: signals.TrackState | None
     malformed: bool

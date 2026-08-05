@@ -39,9 +39,8 @@ def test_fresh_marker_survives_busy_certifying_tail(*, tmp_path):
 
 
 def test_stale_marker_voided_when_busy_past_grace(*, tmp_path):
-    """RB1/B4: an OLD ready marker (age > grace) seen busy means the session
-    genuinely resumed work after certifying — void it durably (marker + stamp +
-    inject state). now()=1000, stamp=700, marker mtime=800 → age 200s > grace."""
+    """An OLD ready marker (age > grace) seen busy means the session genuinely
+    resumed work after certifying — void the declaration but keep the round open."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -55,16 +54,11 @@ def test_stale_marker_voided_when_busy_past_grace(*, tmp_path):
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
     assert not marker.exists()  # certification voided (stale)
-    assert (
-        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is None
-    )
+    assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
 
 def test_void_resets_inject_state_so_round_can_recertify(*, tmp_path):
-    """RB2: after a void, the in-memory inject state is popped AND the durable stamp
-    + notified bands are cleared, so the NEXT threshold crossing opens a fresh round
-    that writes a new stamp — else the wedged round would never re-certify."""
+    """After a ready void, the in-memory state and durable notified bands survive."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -78,19 +72,19 @@ def test_void_resets_inject_state_so_round_can_recertify(*, tmp_path):
     assert registry.read_notified_bands(
         repo=str(repo), topic=topic, stamp_path=sup.stamp_path
     )  # a band recorded
-    # Session resumes work with a STALE marker → void (age > grace) → state popped.
+    # Session resumes work with a STALE marker → declaration voided, round preserved.
     registry.write_injection_stamp(repo=str(repo), topic=topic, ts=700.0, stamp_path=sup.stamp_path)
     arm_ready_marker(repo=repo, topic=topic, mtime=800.0)
     fake.panes[session] = "esc to interrupt\n  Ctx: 30% left\n"  # busy
     sup.evaluate(track=track, act=True)
-    assert key_for(repo=repo, topic=topic) not in sup.inject  # inject state popped
-    # Next idle low-ctx tick opens a FRESH round: new stamp written, re-injected.
+    assert key_for(repo=repo, topic=topic) in sup.inject
+    # Next idle low-ctx tick sees no due band from the still-open round.
     fake.panes[session] = idle_capture(ctx=35)
     sup.claude_status_by_session = {session: "idle"}
     sup.evaluate(track=track, act=True)
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        == 1000.0
+        == 700.0
     )
 
 
