@@ -413,6 +413,64 @@ Python sources: **0 violations under pin v1.18.0, 123 under v1.19.1.** The check
 UNIVERSE widened — v1.19 removed its `pure_trees` role-absence gate — so this repo had
 been passing VACUOUSLY, scanning essentially nothing. The violations were always there.
 
+## `overseer-jct` is CLEARED — and this thread's last local child is dispatched
+
+Measured 2026-08-05. **`overseer-jct` no longer blocks anything, and its title — "123
+unshadowed violations block every `.py` push in this repo" — is now false.** Every
+statement in this thread that treated it as a hard gate is superseded.
+
+| measurement | result |
+|---|---|
+| dev-tooling pin (`pyproject.toml:59`, `uv.lock` agrees) | **v1.19.6** |
+| `just check-public-api-result-typed` | **exit 0** |
+| — what it emits | `role=pure_trees`, `role_key_spelling=unarmed_until`, `ledger_id=livespec-mutreal.1` |
+| full `just check` in a clean worktree with the pack | **All 68 targets passed**, green token written |
+| full `just check` on the PRIMARY checkout | 2 failures, **both artifacts** — see below |
+
+**The two primary-checkout failures are NOT real, and chasing them costs a turn.**
+`check-primary-checkout-commit-refuse-hook-installed` and `check-shell-quality` both
+fail on the primary checkout because it is not a pack-provisioned worktree;
+`check-shell-quality` **exits 0** in a proper worktree. Measure repo health in a
+worktree, never on the primary checkout.
+
+**Nobody weakened the check to achieve this, and that matters** — `overseer-jct`'s own
+notes forbid "fixing" it by narrowing the check or unsetting `source_trees`. What
+happened instead: v1.19.1 removed the `pure_trees` role-absence gate, which widened the
+scan universe and produced the 123; a later release up to v1.19.6 honours this repo's
+`pure_trees = { unarmed_until = "livespec-mutreal.1" }` declaration again. That
+declaration is **pre-existing and principled**, introduced by `2ccf9ba` (a config
+role-key spelling migration) with the comment "UNARMED, not not-applicable, and NOT an
+oversight … exactly as it is in core". `source_trees = ["overseer"]` is untouched.
+
+**So the violations are unenforced, not fixed.** They still exist in the sources and
+return the moment `livespec-mutreal.1` arms `pure_trees`. Re-scope `overseer-jct` to
+"clear them before that arming", or park it behind that work — **do not close it**, and
+do not groom it into per-module slices on the old blocking framing.
+
+**The general lesson, which this thread has now hit twice in one day:** a pin bump
+silently changed whether a check binds this repo — in the widening direction on 08-04
+(0 → 123 violations on identical sources) and in the narrowing direction by 08-05.
+Neither change came from this repo. **Re-measure a blocker before you plan around it;
+"it blocked yesterday" is not evidence it blocks today.**
+
+### `overseer-e723tt` — unblocked, and one trap removed on the way
+
+This thread's last local child is now `ready` (rank `a4`) and **DISPATCHED** —
+fabro run **`01KZ856YY7SY`**, confirmed `running` in `/data/projects/livespec-overseer`,
+not merely claimed. Two things were in its way, and only one was the one everybody knew
+about:
+
+1. The `overseer-jct` blocking edge, now removed as measured above.
+2. **`metadata.non_local_depends_on` naming `livespec-dev-tooling-rowxc6` — which would
+   have made it permanently undispatchable.** `store._depends_on_from_edges`
+   reconstructs that key into `WorkItem.depends_on`, and the ranker excludes any
+   candidate whose dep does not resolve CLOSED; an unresolvable sibling FAILS CLOSED
+   whenever the consuming repo's `cross_repo_targets` manifest lacks an entry for it,
+   giving `requested work-item(s) not in the ready set` with **no phantom claim** to
+   show for it. The dependency was discharged anyway — `rowxc6` closed, its check
+   shipped in v1.19.0 — so the key is unset and the context lives in the item's text,
+   where thread membership belongs.
+
 ## Explicitly rejected — do not propose these again
 
 - **Making `registry.archived_or_gone` file-level.** Its directory-first precedence is
@@ -506,13 +564,16 @@ Then, in rough order of value:
    `overseer-ihwyin` (v008) and `bd-ib-xhcqbc` (v057) are now **CLOSED**, each against
    its merged revision after verifying the clause is actually present in the target
    file. **All of this thread's spec work is complete.**
-1. **`livespec-dev-tooling-1ysu`** (P1, NEW) — the `plan_thread_anchor_declared`
-   over-rejection. **It now gates most of the fan-out**: 15 of 27 failing threads are
-   false positives, and three slices are `blocked` behind it. Fixing it is likely to
-   shrink the remaining fan-out work substantially. See §"The fan-out intake".
-2. **`overseer-jct`** — clear the 123 result-typed violations. Nothing `.py` can land in
-   this repo until it is done, including `overseer-e723tt`. Expect it to need grooming
-   into per-module slices; the `overseer-bg2` precedent is cited on the item.
+1. **`livespec-dev-tooling-1ysu`** (P1) — the `plan_thread_anchor_declared`
+   over-rejection. **It gates most of the fan-out**: 15 of 27 failing threads are
+   false positives, and three slices are `blocked` behind it. **DISPATCHED 2026-08-05**,
+   fabro run `01KZ83PFEW2S`, `running` in `/data/projects/livespec-dev-tooling`.
+   Do not re-dispatch; check `fabro ps` before assuming anything about it.
+2. ~~**`overseer-jct`**~~ — **IT NO LONGER BLOCKS ANYTHING. Its title is now false.**
+   See §"`overseer-jct` is cleared" below. `.py` changes CAN land in this repo today;
+   `overseer-e723tt` is unblocked and **DISPATCHED**. Do not close `overseer-jct` — the
+   violations are real — but stop treating it as a gate, and do not groom it into
+   per-module slices on the strength of the old framing.
 3. **`livespec-fvhvui`'s four `ready` slices.** Intake is DONE on all nine — every slice
    has a rank, `intake:triaged`, and a routing decision backed by a per-repo measurement
    run with the shipped check itself. **Take `livespec-runtime-acq` first: zero live plan
