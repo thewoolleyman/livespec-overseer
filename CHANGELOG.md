@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.32.0...v0.33.0) (2026-08-05)
+
+
+### Features
+
+* prove foreman pane interlock acting path ([1e316b2](https://github.com/thewoolleyman/livespec-overseer/commit/1e316b2c9d0267466ebba44b76b446079304c4d5))
+
 ## [0.32.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.31.0...v0.32.0) (2026-08-05)
 
 
