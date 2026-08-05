@@ -272,6 +272,26 @@ ls /home/ubuntu/.worktrees/livespec-overseer/'<branch>'/dev-tooling/ \
   || { echo "HALT: pack-less worktree — the provision step was skipped"; echo "REMEDY: re-run the block under bash; a zsh run reports BLOCKED and leaves this state"; exit 1; }
 ```
 
+**TWO RESCUES NOW EXIST, AND `.claude/CLAUDE.md` IS THE FLEET-LEVEL ONE.** Since
+this valve was written, the defect was documented repo-wide (as
+`livespec-dev-tooling-3pre`) with a different sanctioned remedy: a plain
+`git worktree add -b <branch> <dest> origin/master`, then
+`just install-worktree-pack` inside it, then discard the `worktree_discipline`
+key that recipe writes into the tracked `.livespec.jsonc`. Prefer that when in
+doubt — a fleet-level instruction outranks a thread's valve, and a reader who
+follows only one document should follow that one.
+
+State the evidence honestly rather than defending the local form: the
+source-and-override block above was measured working FIVE times on 2026-08-04/05
+in this repo, each time producing a worktree whose `dev-tooling/` pack was
+present and whose commits and pushes passed every hook. Its advantages are that
+it runs the pack's OWN `worktree_provision_pack_from_primary` and hydrate rather
+than reconstructing them, and that it touches no tracked file, so there is no
+`.livespec.jsonc` key to remember to discard. **What is NOT measured is the
+CLAUDE.md form — this thread never ran it.** So this is a preference supported by
+evidence on one side only, not a comparison; do not read it as a claim that the
+fleet form is worse.
+
 This substitutes a correct constant for a crashing resolver; it weakens no check,
 and `just check` plus every hook still runs unchanged on the resulting commit.
 
