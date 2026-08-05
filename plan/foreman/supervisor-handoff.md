@@ -1504,3 +1504,69 @@ ordering exactly.
   dispatch — is the one the dispatcher itself settles, refusing cleanly with exit
   3 and no claim rather than double-dispatching. C7 and C12 say ask the right
   authority; this adds *and ask it at the right MOMENT*.
+
+- **T16 (2026-08-05) — I SAT PARKED AT A STALE MODAL FOR FIFTEEN HOURS AND A
+  COMPLETE, GREEN IMPLEMENTATION WAS DESTROYED WHILE I DID. NOTHING IN THIS SYSTEM
+  WATCHES THE SUPERVISOR.** The maintainer found it and restarted me.
+  **WHAT IT COST, which is the part that matters.** I dispatched `overseer-0fy` at
+  05:56Z with a terminal-state watcher armed and then stopped responding. The agent
+  FINISHED — `just check` 68/68 at 100% coverage, full suite re-run green by the
+  commit-msg hook, committed as `4de441e` — then reported "No push/PR performed",
+  raised "Needs human: the loop cannot auto-resolve this work-item", and recorded
+  "Interview ended without an answer." The dispatcher gave up at ~06:33Z; the run
+  sat waiting for input until its 4-hour ceiling at ~09:56Z. `fabro attach` accepts
+  a running OR finished run, so there was a **3.4-hour rescue window** in which
+  Retry/Re-implement/Abandon — a supervisor-grade choice, not a maintainer-grade
+  one — would have saved it. Nobody was listening. The commit is unrecoverable.
+  This is now a fifth dispatch trap, in the repo-root operating manual and filed as
+  `bd-ib-6o6h`.
+  **THE STRUCTURAL FINDING IS THE TRANSFERABLE ONE: NOTHING WATCHES THE
+  SUPERVISOR.** Every watcher this thread has ever armed points at the worker pane
+  or at the factory. Measured: no script under `tmp/overseer/foreman/` targets
+  `=foreman-supervisor:`, and the daemon tracks `topic=foreman` — the WORKER. The
+  supervisor is not a tracked session at all. So a supervisor that stops responding
+  is invisible to every instrument here, while continuing to hold every obligation
+  in its marker. That is T10's shape one level up: **a channel nobody opens, except
+  the channel is me.** The armed-re-entry discipline protects the WORK from a
+  supervisor who ends a turn; it does nothing about a supervisor who never takes
+  the next one.
+  **TWO INSTRUMENTATION FACTS FROM THE OUTAGE, sourced from the maintainer's
+  measurement and attributed as theirs rather than restated as mine (C19).**
+  (a) That dialog ends in "Enter to confirm", not "Enter to select", so a sweep
+  keyed only on the picker marker files a BLOCKED session as IDLE — theirs did, for
+  hours. Measured by me in response: THIS repo's shared protocol is already safe,
+  anchoring on `Enter to (select|confirm)` at both call sites, so the vulnerable
+  sweep is elsewhere and the fix is not ours to make here.
+  (b) **A limit banner in scrollback is not evidence of a CURRENT limit.** Its own
+  stated reset had passed roughly fourteen hours earlier. They proved execution
+  worked rather than inferring it, by probing a peer session at the identical modal
+  and having it run `date -u`. Check the stated reset against the clock before
+  believing a banner; a modal outlives its condition. (c) Selecting "Switch to
+  usage credits" is purely informational — it prints a settings URL and changes
+  nothing; nothing was purchased and no plan changed.
+  THE FAMILY IS T6's, arriving from the far side: T6 says a SUCCESSFUL result is
+  not a finding unless you know what it examined. This says **a BLOCKING result is
+  not a finding either** — a modal asserting you cannot proceed is a claim with a
+  timestamp, exactly like an item status, and this one was fourteen hours stale.
+
+- **T16b (2026-08-05) — THE WATCHER I BUILT TO CATCH THE PREVIOUS FAILURE FAILED
+  TWICE ON ITS FIRST ARMING, AND BOTH FAILURES WERE MINE.** Re-dispatching `0fy` I
+  armed a watcher that selected the run by GOAL TEXT and took the newest match. I
+  had even written a comment asserting the sort made attempt 2 win. It fired within
+  three minutes reporting the new run dead — it had matched **attempt 1's terminal
+  `failed` row from fifteen hours earlier**, because at the first poll attempt 2 had
+  not yet appeared in `fabro ps -a`. **A sort cannot disambiguate rows that do not
+  exist yet.** Fixed by keying on the exact run id, which is unambiguous the moment
+  the run exists.
+  **THE SECOND DEFECT WAS THE SAFETY RULE EATING ITSELF.** I had made the watcher
+  TOTAL — an unrecognised status kind must wake and report rather than be treated as
+  "keep waiting" — which is right, and C22's lesson. But `starting` appeared in no
+  branch, so a perfectly normal transient state fell straight to the unknown-value
+  arm and would have false-woken immediately. **Being total over unknown values is
+  correct; misclassifying a NORMAL value as unknown is the same bug wearing the
+  safety rule's clothes.** Caught by a control that enumerated every state fabro can
+  report and asserted each is classified — not by rereading the script.
+  THE RULE: **a watcher's first arming is an experiment, not a deployment.** Both
+  defects surfaced within three minutes of real data and neither was visible in the
+  source. Arm it, read its first wake sceptically, and assume an early wake is your
+  bug before it is the world's.
