@@ -225,26 +225,32 @@ any of it forward; the Verification Discipline block is the command.
   worker-health warnings in this file were REFUTED on 2026-08-04 (see the
   retirement notice above) — a health claim ages exactly like an item status.**
 
-  **THE FIRST THING TO DO ON A COLD OPEN IS NOT TO DISPATCH ANYTHING.** Two runs
-  were in flight at wind-down and BOTH claims are REAL:
+  **BOTH PHASE-D SLICES LANDED DURING THE WIND-DOWN. RE-MEASURED
+  2026-08-05T04:57:41Z — this supersedes the "two runs in flight" paragraph that
+  shipped minutes earlier in PR #725, which was true when written and false
+  within the hour.** That is this thread's most-repeated failure mode arriving one
+  more time (T5, C18): minutes are enough.
 
-      overseer-ym6   fabro 01KZ817KD05M   running   37m35s at 04:38:23Z
-      overseer-afn   fabro 01KZ83CQ38A6   starting  32s     at 04:38:23Z
+      overseer-afn   run 01KZ83CQ38A6  succeeded  ->  PR #722 MERGED, item CLOSED
+      overseer-ym6   run 01KZ817KD05M  succeeded  ->  PR #724 MERGED, item still
+                                                      `active`/`fabro`
 
-  Both read `active`/`fabro` in the ledger, and both are corroborated by
-  `fabro ps` — that is what makes them real rather than phantom. **DO NOT
-  RE-DISPATCH EITHER.** Reconcile per the discipline below: check
-  `gh pr list --state merged` FIRST (`overseer-6pn`: a dispatcher that reports
-  `failed` while its PR MERGED is that bug, not a real failure), then
-  three-way discriminate — failed-with-merged-PR = reconcile not re-dispatch;
-  blocked = `fabro dump` FIRST; absent from `fabro ps -a` = eviction, release the
-  claim by hand and record WHY on the item.
+  **`ym6` IS NOT A PHANTOM CLAIM — DO NOT RECONCILE IT AS ONE.** Its PR merged
+  and its dispatcher (pid 3167293) was still ALIVE in the post-merge janitor
+  stage at wind-down, which is exactly the shape that is legitimately `active`.
+  Re-measure: if the janitor has since closed it, nothing is owed. If the
+  dispatcher has EXITED with the item still `active`, THEN it is `overseer-6pn`
+  — check `gh pr list --state merged` (PR #724 is already known merged),
+  reconcile via `--status acceptance` then the `accept` valve, and record WHY on
+  the item. **NEVER re-dispatch: the work is on master.**
 
-  Watchers were armed on both dispatch logs and were stopped at wind-down, so
-  **NOTHING IS WATCHING THEM NOW — re-arm before doing anything else.** The
-  scripts are `tmp/overseer/foreman/watch-ym6-dispatch.sh` and
-  `watch-afn-dispatch.sh`; each hardcodes its own id, reads the dispatch log,
-  and distinguishes queued-or-running from evicted.
+  **DO NOT RE-ARM the dispatch watchers.** Both runs reached a terminal state, so
+  `tmp/overseer/foreman/watch-{ym6,afn}-dispatch.sh` have nothing left to watch.
+
+  **WHAT THIS UNBLOCKS.** `overseer-0fy` was gated on `ym6` alone and `ctc` needs
+  `0fy` AND `afn` — `afn` is now closed, so once `ym6` closes, `0fy` is the only
+  thing between this thread and `ctc`, the exit condition where the foreman
+  finally gets RUN.
 
   **COLD-OPEN, DO THESE SIX THINGS FIRST, IN THIS ORDER:**
 
@@ -311,8 +317,8 @@ any of it forward; the Verification Discipline block is the command.
   | `plan/foreman/` | **un-archived**, live |
   | epic `overseer-z5fo4y` | `backlog` (open) |
   | `origin/master` | `84cf51b`; CI **green** |
-  | ratified spec | **`v009`** is latest (`v007` = the consensus policy, `v009` = evidence-based Codex questions) |
-  | `SPECIFICATION/proposed_changes/` | holds `post-void-ready-certification.md` — **ANOTHER THREAD'S, do not process it** (see below) |
+  | ratified spec | **`v010`** is latest. `v007` = the consensus policy (mine), `v009` = evidence-based Codex questions (mine), **`v010` = the post-void certification floor, ratified by the `ready-certification-deadlock` thread as PR #721** |
+  | `SPECIFICATION/proposed_changes/` | **EMPTY** but for its `README.md`. The peer proposal this binder warned against processing was ratified BY ITS OWN THREAD, which is the correct outcome and the reason it was left pending |
   | `overseer-6fm` entrypoint gate | **closed**, released |
   | `overseer-gxzv5v` actuator filing defect | **closed**, PR #665 |
   | `overseer-5f2pfj` occupied-session classifier | **closed**, PR #670, released v0.28.1 |
@@ -320,9 +326,9 @@ any of it forward; the Verification Discipline block is the command.
   | `overseer-a7c` Phase C core (the panel) | **closed**, PR #668, released |
   | `overseer-xbn` panel pin correction | **closed**, PR #675 |
   | `overseer-ncx` minority-report round | **CLOSED** — its ORIGINAL run finished green (PR #681, merge `ec778b2`, released `0.30.0`). Correctly never re-dispatched. **PHASE C IS COMPLETE.** |
-  | `overseer-ym6` Phase D foundation | **`active`/`fabro`, run `01KZ817KD05M` RUNNING — real claim. DO NOT RE-DISPATCH.** Spec half discharged by `v007`; the WIRING is what is running |
-  | `overseer-afn` Codex question surface | **`active`/`fabro`, run `01KZ83CQ38A6` starting — real claim. DO NOT RE-DISPATCH.** Legs 1-2 MEASURED and discharged, marker-protocol claim AMENDED by `v009`; only leg 3 remains |
-  | `overseer-0fy` gate driving | `backlog`, gated on **`ym6` alone** (`ncx` closed) |
+  | `overseer-ym6` Phase D foundation | **PR #724 MERGED**; item still `active`/`fabro` with its dispatcher alive in the post-merge stage. NOT a phantom. Re-measure, never re-dispatch |
+  | `overseer-afn` Codex question surface | **CLOSED** — PR #722 merged, janitor green |
+  | `overseer-0fy` gate driving | `backlog`, gated on **`ym6` alone**; the last thing before `ctc` |
   | `overseer-ctc` E2E for requirement 5 | `backlog`; needs **`0fy` AND `afn`** — verified from `ctc`'s OWN dep tree, not its blockers' (T2). **The exit condition** |
   | `overseer-6eo` (P1) | OPEN and unmet, but **its stated impact on this track has LAPSED** — a wrap-up reached this worker at 13:10:49Z |
   | worker session `foreman` | alive, codex, **restarted TWICE** (13:21:53Z and again overnight); at **88% context** at 04:38Z, lane complete, needs nothing |
@@ -496,8 +502,13 @@ any of it forward; the Verification Discipline block is the command.
      this thread has already filed twice (T5, C18). Run it, but search the
      subject `--all`-unfiltered first and expect `ym6` to be the answer.
 
-  7. **DO NOT PROCESS `SPECIFICATION/proposed_changes/post-void-ready-certification.md`.**
-     It is 38 KB, it belongs to the SEPARATE live thread
+  7. ~~DO NOT PROCESS `post-void-ready-certification.md`.~~ **MOOT — its OWN
+     thread ratified it as `v010` (PR #721) at 04:5xZ, which is exactly the
+     outcome leaving it pending was protecting.** `proposed_changes/` is now
+     empty. The reasoning is kept below because the SHAPE recurs every time this
+     directory holds someone else's proposal:
+
+     It was 38 KB, it belonged to the SEPARATE live thread
      `plan/ready-certification-deadlock/` (epic `overseer-er6ikw`, both tmux
      sessions alive), and it carries an explicit binding sequencing constraint —
      one of its findings says in terms "MUST NOT be implemented on its own".
