@@ -43,7 +43,7 @@ from overseer.test_supervisor_fakes import (
 )
 
 
-def _open_round(*, tmp_path, ctx=40, topic="topic", clock=None, declare_first=None):
+def _open_round(*, tmp_path, ctx=40, topic="topic", clock=None):
     """Drive a REAL wrap-up round and return everything needed to continue it.
 
     The Supervisor observes an idle track below its threshold, which warns it and
@@ -51,9 +51,6 @@ def _open_round(*, tmp_path, ctx=40, topic="topic", clock=None, declare_first=No
     then write the state file with an mtime relative to that stamp, exactly as a
     supervised session does.
 
-    ``declare_first`` writes a ``(value, mtime)`` state file BEFORE the round is
-    opened, for the prior-round case — so "the declaration predates this round's
-    stamp" is a fact about the sequence rather than a hand-picked pair of numbers.
     """
     repo, topic = make_plan(tmp_path=tmp_path, topic=topic)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -62,9 +59,6 @@ def _open_round(*, tmp_path, ctx=40, topic="topic", clock=None, declare_first=No
     now = (lambda: clock["t"]) if clock is not None else (lambda: 1000.0)
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=now, out=_io.StringIO())
     track = mapped_track(repo=repo, topic=topic, session=session)
-    if declare_first is not None:
-        declare(repo=repo, topic=topic, value=declare_first[0], mtime=declare_first[1])
-
     opened = sup.evaluate(track=track, act=True)
 
     assert opened.status == "warned"  # the round really did open...
@@ -188,10 +182,8 @@ def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(*, tmp_p
     comparison from `signals.ready_valid` (`return state.mtime > injection_stamp` ->
     `return True`) restarts the track on the prior round's declaration.
     """
-    repo, topic, _session, fake, sup, track = _open_round(
-        tmp_path=tmp_path,
-        declare_first=(signals.STATE_READY, 999.0),  # a PRIOR round's word, then the stamp
-    )
+    repo, topic, _session, fake, sup, track = _open_round(tmp_path=tmp_path)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=999.0)
     state = signals.state_path(repo=str(repo), topic=topic)
     stamp = registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     assert stamp is not None and state.stat().st_mtime < stamp  # the given, now observed
@@ -239,7 +231,16 @@ def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tm
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is None
     )
-    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=None) is False
+    assert (
+        signals.ready_valid(
+            repo=str(repo),
+            topic=topic,
+            certification_floor=None,
+            round_session_identity=None,
+            live_session_identity="claude:s:t",
+        )
+        is False
+    )
 
     too_young = sup.evaluate(track=track, act=True)
     assert too_young.status != "restarting"
@@ -384,10 +385,7 @@ def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(*,
 
     assert resumed.status == "working"
     assert not marker.exists()  # the now-false declaration is cleared...
-    assert (
-        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is None
-    )
+    assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # ...and going idle again
     assert sup.evaluate(track=track, act=True).status != "restarting"  # does not restart LATER

@@ -72,7 +72,11 @@ def test_node_fronted_codex_track_uses_exact_launcher_identity_for_runtime_and_r
 
     assert sup._is_codex_track(session=session, repo=str(repo), topic=topic, target=session)
     registry.write_injection_stamp(
-        repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
+        repo=str(repo),
+        topic=topic,
+        ts=1000.0,
+        session_identity=f"codex:{_CODEX_SESSION_ID}",
+        stamp_path=sup.stamp_path,
     )
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     with contextlib.redirect_stderr(_io.StringIO()):

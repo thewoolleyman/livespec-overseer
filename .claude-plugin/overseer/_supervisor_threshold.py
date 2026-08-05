@@ -95,9 +95,7 @@ def _fresh_threshold_observation(*, request: ThresholdRequest) -> Observation | 
         fresh.claude_status == "shell" or fresh.codex_fallback
     )
     blocked = fresh.declared is not None and fresh.declared.token == signals.STATE_BLOCKED
-    ready = fresh.ready or (
-        shell_only and fresh.declared is not None and fresh.declared.token == signals.STATE_READY
-    )
+    ready = fresh.declared is not None and fresh.declared.token == signals.STATE_READY
     if (
         fresh.eff_ctx is None
         or fresh.eff_ctx > request.threshold
@@ -123,7 +121,8 @@ def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
     # wrapping up, so stop re-warning (never keystroke into a session that is
     # actively winding down). A STALE ACK resumes escalating — an ACK must not
     # become an infinite stall — but still never authorizes an act.
-    if request.act and not obs.acked and not obs.malformed:
+    raw_ready = obs.declared is not None and obs.declared.token == signals.STATE_READY
+    if request.act and not obs.acked and not obs.malformed and not raw_ready:
         fresh = _fresh_threshold_observation(request=request)
         if fresh is None:
             return ThresholdDecision(status="settling", active_conditions=active_conditions)

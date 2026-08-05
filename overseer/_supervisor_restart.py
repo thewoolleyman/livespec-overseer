@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import _supervisor_launch
+import _supervisor_ready
 import _supervisor_state
 import registry
 import signals
@@ -74,8 +75,27 @@ def maybe_inject(
     if opened_now:
         # Stamp BEFORE the paste (design) so a marker the session writes has
         # mtime > at. Only on opening — a re-warn preserves the round's at.
+        session = _supervisor_launch.session_of(sup=sup, track=track)
+        runtime = "codex" if is_codex else "claude"
+        identity = _supervisor_ready.session_identity(
+            sup=sup, session=session, topic=topic, runtime=runtime
+        )
+        if identity is None:
+            sup.alert(
+                repo=repo,
+                topic=topic,
+                session=session,
+                pane=target,
+                message="wrap-up round NOT opened; session identity could not be determined",
+                condition="round-identity-undetermined",
+            )
+            return
         registry.write_injection_stamp(
-            repo=repo, topic=topic, ts=sup.now(), stamp_path=sup.stamp_path
+            repo=repo,
+            topic=topic,
+            ts=sup.now(),
+            session_identity=identity,
+            stamp_path=sup.stamp_path,
         )
     if signals.topic_reserved_for_supervisor(topic=topic):
         message = supervisor_wrapup_message(

@@ -290,11 +290,13 @@ keep-going nudge" above):
 
 - **`ready`** — "I am at a clean stopping point; restart me." **This is the SOLE
   restart authorization.** It counts only if its mtime is **newer than this
-  round's injection stamp** (see the interlock below). Write it — do not merely
-  print the command. Writing `ready` outside a daemon-opened round can never
-  restart you: there is no injection stamp for it to certify against, so the
-  daemon refuses it and, after the bounded floor, surfaces the dead-end
-  declaration to the operator instead.
+  round's certification floor** (see the interlock below). Write it — do not
+  merely print the command. A `ready` written on a track that genuinely has no
+  daemon-opened round can never restart you: there is no floor to certify
+  against, so the daemon refuses it and, after the bounded floor, surfaces the
+  dead-end declaration to the operator instead. A track whose earlier `ready`
+  was voided inside an open round is different: write `ready` again after the
+  void and the new declaration can certify against the raised floor.
 - **`blocked: <one-line reason>`** — "I need a human decision I cannot make
   myself." The track is **surfaced** to the operator, with its tmux coordinates,
   and is **never restarted and never keystroked into**.
@@ -334,31 +336,42 @@ scratchpad and withhold the declaration.
 The daemon restarts a tracked session ONLY when the state file passes ALL of
 these deterministic checks (`signals.ready_valid`):
 
-1. an **injection stamp exists** for this round (there was a wrap-up to respond
-   to) — without one there is no round to declare against, so a bare `ready`
-   written outside a round is report-only attention after its bounded floor,
-   never a restart request;
-2. the state file's token is **exactly `ready`**; AND
-3. its **mtime is strictly newer than the injection stamp** — proving the
-   declaration is from this round, not a stale one from a prior wrap-up.
+1. a **certification floor exists**, anchored on a usable injection stamp for
+   this round (there was a wrap-up to respond to). The floor is the injection
+   stamp, or, after a stale `ready` is voided inside that round, the later of
+   the stamp and the most recent ready-void instant;
+2. the state file's token is **exactly `ready`**;
+3. its **mtime is strictly newer than the certification floor** — proving the
+   declaration is from this round and newer than any declaration already voided
+   inside it; AND
+4. the session identity live at the pane matches the **round-open identity**
+   recorded when the wrap-up round was opened.
 
 Any absent, unreadable, or other-valued file makes the check **False**
-(fail-closed). Beyond the token, the file's contents are not inspected — no
-handoff hash — because the handoff (and everything under `plan/`) is the
+(fail-closed). A malformed round record, a missing round-open identity (including
+a legacy bare-number sidecar value), an undeterminable live identity, or a
+different live identity also makes the check **False** and is surfaced rather
+than guessed through. Beyond the token, the file's contents are not inspected —
+no handoff hash — because the handoff (and everything under `plan/`) is the
 session's own business, which the overseer must never read or hash. The daemon
 **deletes the state file** as it restarts (`_clear_state`, which also clears the
-round's stamp + notified bands), so a declaration can never re-trigger. The
-restart is additionally gated on: no busy markers (including no live background
-shell under the pane's process), a verified idle-input pane, a **settled** pane
-(two captures compared), and a process-identity check that the pane really is our
-Claude in our repo.
+round's sidecar key: stamp, notified bands, void floor, and identity), so a
+declaration can never re-trigger. The restart is additionally gated on: no busy
+markers (including no live background shell under the pane's process), a verified
+idle-input pane, a **settled** pane (two captures compared), and a process-
+identity check that the pane really is our session in our repo.
 
 **Stale-declaration voiding.** If a session declares `ready` and then **resumes
 work**, the daemon voids the (now false) declaration rather than restarting it
 later: on a busy or blocked tick, a `ready` older than `MARKER_VOID_GRACE` (120
 seconds) is cleared. Younger ones survive, because the declaring turn's own tail
 (final streaming + stop hooks) legitimately keeps the pane busy for a while right
-after the file is written.
+after the file is written. Voiding clears the declaration only: it does **not**
+close the delivered round and does **not** reset the notified escalation bands.
+For a stale `ready`, the daemon records the ready-void instant before deleting
+the state file, raising the certification floor so that same declaration cannot
+be honored later if the delete fails. A later `ready` written by the same
+round-open session can certify without a new wrap-up.
 
 ## The restart mechanics (unchanged — only the trigger changed)
 

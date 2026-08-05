@@ -20,9 +20,19 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "clear_state",
+    "delete_state_file",
     "void_if_stale",
     "void_stale_blocked",
 ]
+
+
+def delete_state_file(*, sup: Supervisor, track: registry.Track) -> bool:
+    try:
+        signals.state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
+    except OSError as exc:
+        sup.log(message=f"could not delete state file for {track.repo}::{track.topic}: {exc}")
+        return False
+    return True
 
 
 def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
@@ -38,10 +48,7 @@ def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
     next threshold crossing opens a clean round that writes a new stamp
     (adversarial code re-review 2026-07-13, blocker RB2).
     """
-    try:
-        signals.state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
-    except OSError as exc:
-        sup.log(message=f"could not delete state file for {track.repo}::{track.topic}: {exc}")
+    _ = delete_state_file(sup=sup, track=track)
     registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
 
@@ -61,7 +68,17 @@ def void_if_stale(*, sup: Supervisor, track: registry.Track, ready: bool) -> boo
         return ready  # unreadable → leave it; ready_valid already gates
     age = sup.now() - state.mtime
     if age > MARKER_VOID_GRACE:
-        clear_state(sup=sup, track=track)
+        floor_recorded = _record_ready_void(sup=sup, track=track, state=state)
+        deleted = delete_state_file(sup=sup, track=track)
+        if not floor_recorded and not deleted:
+            sup.alert(
+                repo=track.repo,
+                topic=track.topic,
+                session=track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic),
+                pane=track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic),
+                message="ready void failed to record its floor AND delete the declaration",
+                condition="ready-void-both-writes-failed",
+            )
         sup.log(
             message=f"voided stale ready declaration for {track.repo}::{track.topic} "
             f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed work)"
@@ -112,13 +129,49 @@ def void_stale_blocked(
     age = sup.now() - state.mtime
     if age <= MARKER_VOID_GRACE:
         return blocked  # the declaring turn's own tail (RB1)
-    try:
-        signals.state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
-    except OSError as exc:
-        sup.log(message=f"could not delete state file for {track.repo}::{track.topic}: {exc}")
-    registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
+    _ = delete_state_file(sup=sup, track=track)
     sup.log(
         message=f"voided stale blocked declaration for {track.repo}::{track.topic} "
         f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed generating)"
     )
     return None
+
+
+def _record_ready_void(
+    *, sup: Supervisor, track: registry.Track, state: signals.TrackState
+) -> bool:
+    record = registry.read_round_record(
+        repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
+    )
+    if record.session_identity is not None:
+        live_identity = _live_identity_for_void(sup=sup, track=track)
+        if live_identity != record.session_identity:
+            sup.alert(
+                repo=track.repo,
+                topic=track.topic,
+                session=track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic),
+                pane=track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic),
+                message="ready void observed under a different session identity; floor not raised",
+                condition="ready-void-identity-mismatch",
+            )
+            return False
+    try:
+        return registry.record_ready_void(
+            repo=track.repo,
+            topic=track.topic,
+            ts=sup.now(),
+            floor_min=state.mtime + MARKER_VOID_GRACE,
+            stamp_path=sup.stamp_path,
+        )
+    except OSError as exc:
+        sup.log(message=f"could not record ready void for {track.repo}::{track.topic}: {exc}")
+        return False
+
+
+def _live_identity_for_void(*, sup: Supervisor, track: registry.Track) -> str | None:
+    session = track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic)
+    live = sup.live_codex.get((session, track.topic))
+    if live is not None:
+        return f"codex:{live.session_id}"
+    identity = sup.claude_identity_by_session.get((session, track.topic))
+    return identity if identity is not None else f"claude:{session}:{track.topic}"

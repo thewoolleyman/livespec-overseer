@@ -157,7 +157,16 @@ def test_read_state_is_none_when_the_state_file_is_unreadable(*, tmp_path, monke
 
     monkeypatch.setattr(signals.Path, "read_text", _deny)
     assert signals.read_state(repo=str(repo), topic=topic) is None
-    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
+    assert (
+        signals.ready_valid(
+            repo=str(repo),
+            topic=topic,
+            certification_floor=1000.0,
+            round_session_identity="claude:s:t",
+            live_session_identity="claude:s:t",
+        )
+        is False
+    )
 
 
 def test_read_state_is_none_when_the_state_file_is_not_utf8(*, tmp_path):
@@ -184,7 +193,16 @@ def test_read_state_is_none_when_the_state_file_is_not_utf8(*, tmp_path):
     path.write_bytes(b"\xff\xferead" + b"y\n")
 
     assert signals.read_state(repo=str(repo), topic=topic) is None
-    assert signals.ready_valid(repo=str(repo), topic=topic, injection_stamp=1000.0) is False
+    assert (
+        signals.ready_valid(
+            repo=str(repo),
+            topic=topic,
+            certification_floor=1000.0,
+            round_session_identity="claude:s:t",
+            live_session_identity="claude:s:t",
+        )
+        is False
+    )
 
 
 def test_only_a_shell_proves_a_pane_is_dead():

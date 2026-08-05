@@ -28,6 +28,7 @@ import _supervisor_liveness
 import _supervisor_observe
 import _supervisor_progress
 import registry
+import signals
 from _supervisor_resume_retry import resume_retry
 from _supervisor_view import RowView
 
@@ -176,7 +177,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
                 generating=generating,
                 malformed=malformed,
                 note=note,
-                ready=ready,
+                ready=declared is not None and declared.token == signals.STATE_READY,
                 blocked=blocked,
                 act=act,
             )
@@ -194,7 +195,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
                 track=track,
                 session=session,
                 pane=target,
-                ready=ready,
+                ready=declared is not None and declared.token == signals.STATE_READY,
                 blocked=blocked,
                 blocked_age=blocked_age,
                 blocked_age_label=blocked_age_label,
