@@ -218,12 +218,33 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **STATE AS OF 2026-08-04T14:17Z — THE THREAD IS REOPENED AND PHASE D IS
-  UNGATED. THIS IS THE ONLY STATUS BLOCK; EVERYTHING ELSE IN THIS FILE IS
-  STANDING GUIDANCE.** Re-measure before acting; the Verification Discipline
-  block below is the command. **Two standing worker-health warnings in this file
-  were REFUTED on 2026-08-04 (see the retirement notice above) — a health claim
-  ages exactly like an item status.**
+- **STATE AS OF 2026-08-05T04:38Z — BOTH RATIFICATIONS HAVE LANDED AND TWO
+  PHASE-D SLICES ARE RUNNING IN THE FACTORY RIGHT NOW. THIS IS THE ONLY STATUS
+  BLOCK; EVERYTHING ELSE IN THIS FILE IS STANDING GUIDANCE.** Re-measure before
+  acting; the Verification Discipline block below is the command. **Two standing
+  worker-health warnings in this file were REFUTED on 2026-08-04 (see the
+  retirement notice above) — a health claim ages exactly like an item status.**
+
+  **THE FIRST THING TO DO ON A COLD OPEN IS NOT TO DISPATCH ANYTHING.** Two runs
+  were in flight at wind-down and BOTH claims are REAL:
+
+      overseer-ym6   fabro 01KZ817KD05M   running   37m35s at 04:38:23Z
+      overseer-afn   fabro 01KZ83CQ38A6   starting  32s     at 04:38:23Z
+
+  Both read `active`/`fabro` in the ledger, and both are corroborated by
+  `fabro ps` — that is what makes them real rather than phantom. **DO NOT
+  RE-DISPATCH EITHER.** Reconcile per the discipline below: check
+  `gh pr list --state merged` FIRST (`overseer-6pn`: a dispatcher that reports
+  `failed` while its PR MERGED is that bug, not a real failure), then
+  three-way discriminate — failed-with-merged-PR = reconcile not re-dispatch;
+  blocked = `fabro dump` FIRST; absent from `fabro ps -a` = eviction, release the
+  claim by hand and record WHY on the item.
+
+  Watchers were armed on both dispatch logs and were stopped at wind-down, so
+  **NOTHING IS WATCHING THEM NOW — re-arm before doing anything else.** The
+  scripts are `tmp/overseer/foreman/watch-ym6-dispatch.sh` and
+  `watch-afn-dispatch.sh`; each hardcodes its own id, reads the dispatch log,
+  and distinguishes queued-or-running from evicted.
 
   **COLD-OPEN, DO THESE SIX THINGS FIRST, IN THIS ORDER:**
 
@@ -282,15 +303,16 @@ any of it forward; the Verification Discipline block is the command.
   round (`overseer-ncx`) was in flight at wind-down. What remains is the
   RATIFICATION plus the wiring — see the state table.
 
-  **STATE, re-measured 2026-08-04T14:12Z. This supersedes every earlier reading
-  in this file, including the 11:37Z wind-down table it replaces.**
+  **STATE, re-measured 2026-08-05T04:38Z. This supersedes every earlier reading
+  in this file, including the 14:12Z table it replaces.**
 
   | Thing | State |
   |---|---|
   | `plan/foreman/` | **un-archived**, live |
   | epic `overseer-z5fo4y` | `backlog` (open) |
-  | `origin/master` | `c57d928` (**`v007` ratified**); latest release **v0.30.0** |
-  | `SPECIFICATION/proposed_changes/` | **EMPTY** but for its `README.md` — nothing pending |
+  | `origin/master` | `84cf51b`; CI **green** |
+  | ratified spec | **`v009`** is latest (`v007` = the consensus policy, `v009` = evidence-based Codex questions) |
+  | `SPECIFICATION/proposed_changes/` | holds `post-void-ready-certification.md` — **ANOTHER THREAD'S, do not process it** (see below) |
   | `overseer-6fm` entrypoint gate | **closed**, released |
   | `overseer-gxzv5v` actuator filing defect | **closed**, PR #665 |
   | `overseer-5f2pfj` occupied-session classifier | **closed**, PR #670, released v0.28.1 |
@@ -298,12 +320,12 @@ any of it forward; the Verification Discipline block is the command.
   | `overseer-a7c` Phase C core (the panel) | **closed**, PR #668, released |
   | `overseer-xbn` panel pin correction | **closed**, PR #675 |
   | `overseer-ncx` minority-report round | **CLOSED** — its ORIGINAL run finished green (PR #681, merge `ec778b2`, released `0.30.0`). Correctly never re-dispatched. **PHASE C IS COMPLETE.** |
-  | `overseer-ym6` Phase D foundation | `ready`; **spec half DISCHARGED by `v007`** — only the WIRING remains, and it IS factory-dispatchable |
-  | `overseer-afn` Codex picker surface | `ready`; **leg 1 MEASURED, positive** |
-  | `overseer-0fy` gate driving | `backlog`, now gated on **`ym6` alone** (`ncx` closed) |
-  | `overseer-ctc` E2E for requirement 5 | `backlog`, blocked by all of the above; **the exit condition** |
+  | `overseer-ym6` Phase D foundation | **`active`/`fabro`, run `01KZ817KD05M` RUNNING — real claim. DO NOT RE-DISPATCH.** Spec half discharged by `v007`; the WIRING is what is running |
+  | `overseer-afn` Codex question surface | **`active`/`fabro`, run `01KZ83CQ38A6` starting — real claim. DO NOT RE-DISPATCH.** Legs 1-2 MEASURED and discharged, marker-protocol claim AMENDED by `v009`; only leg 3 remains |
+  | `overseer-0fy` gate driving | `backlog`, gated on **`ym6` alone** (`ncx` closed) |
+  | `overseer-ctc` E2E for requirement 5 | `backlog`; needs **`0fy` AND `afn`** — verified from `ctc`'s OWN dep tree, not its blockers' (T2). **The exit condition** |
   | `overseer-6eo` (P1) | OPEN and unmet, but **its stated impact on this track has LAPSED** — a wrap-up reached this worker at 13:10:49Z |
-  | worker session `foreman` | alive, codex, **RESTARTED 13:21:53Z**, 75%→57% ctx, lane complete, told Phase D is open |
+  | worker session `foreman` | alive, codex, **restarted TWICE** (13:21:53Z and again overnight); at **88% context** at 04:38Z, lane complete, needs nothing |
 
   **THAT RATIFICATION IS DONE — `v007` IS MERGED. 2026-08-04T14:10:54Z, PR #688,
   merge `c57d928`.** This paragraph used to name PR #679's pending
@@ -440,6 +462,17 @@ any of it forward; the Verification Discipline block is the command.
      janitor green, released as `0.30.0`. It was never a phantom claim and was
      correctly NOT re-dispatched. **Phase C is COMPLETE**: `a7c`, `xbn`, `ncx`
      all closed.
+  2b. **A SECOND RATIFICATION LANDED TOO — `v009`, PR #717, merge `332aa3a`,
+     2026-08-05T03:53:45Z.** It corrects the refuted "Codex in YOLO mode cannot
+     raise a structured question" claim: capability MUST now be derived from LIVE
+     GATE EVIDENCE, never inferred from a runtime name, launch mode, or
+     approval/sandbox policy. **The `blocked:` escape hatch was deliberately NOT
+     deleted or narrowed** — only its justification was retired — because
+     `codex exec` is headless with no picker, not every human decision is
+     multiple-choice, and the feature can be withdrawn. The same commit corrected
+     `overseer/marker-protocol.md`, the CARDINAL doc, which sits OUTSIDE
+     `SPECIFICATION/` so no revise pass can ever reach it.
+
   3. **`ym6`'s SPEC HALF IS DISCHARGED BY `v007`** — its acceptance leg 1 reads
      "the spec amendment filed through the `/livespec:` lifecycle in the OWNING
      repo", the owning repo is THIS one, and both the filing (#679) and the
@@ -462,6 +495,18 @@ any of it forward; the Verification Discipline block is the command.
      carries this exact implementation, so running it blind risks the duplicate
      this thread has already filed twice (T5, C18). Run it, but search the
      subject `--all`-unfiltered first and expect `ym6` to be the answer.
+
+  7. **DO NOT PROCESS `SPECIFICATION/proposed_changes/post-void-ready-certification.md`.**
+     It is 38 KB, it belongs to the SEPARATE live thread
+     `plan/ready-certification-deadlock/` (epic `overseer-er6ikw`, both tmux
+     sessions alive), and it carries an explicit binding sequencing constraint —
+     one of its findings says in terms "MUST NOT be implemented on its own".
+     `/livespec:revise` is DIRECTORY-scoped, so a pass run for one of YOUR
+     proposals will walk it too unless the payload names only your decision.
+     **That is safe and proven**: the CLI requires `proposed_changes/` to be
+     NON-EMPTY, not fully processed, and `v009` left this exact file pending and
+     byte-identical (blob `edf6c483` before and after). Name only your own
+     decision, then VERIFY afterwards that the other file is untouched.
 
   **`overseer-ym6` WAS RE-SCOPED AT 11:2xZ AND ITS OLD TITLE WAS WRONG.** It used
   to read "a THREE-REPO reversal of the needs-human guarantee". **There is no
@@ -590,6 +635,28 @@ any of it forward; the Verification Discipline block is the command.
   above — drift acceptance is named INSIDE the floor. **Check the INBOX at every
   cold open (step 3); a reply can arrive between a predecessor's last read and
   their wind-down, which is exactly what happened here.**
+
+- **THERE IS A SECOND PEER TRACK, IN THIS REPO, AND THIS THREAD'S WORKER IS ITS
+  LIVE REPRODUCTION.** `plan/ready-certification-deadlock/` (epic
+  `overseer-er6ikw`, both tmux sessions alive) owns the uncertifiable-`ready`
+  deadlock. Its handoff already cites THIS track's 2026-08-03 instance.
+  **A SECOND OCCURRENCE HAPPENED HERE ON 2026-08-05 AND IT CARRIES A
+  DISCRIMINATOR THEY DID NOT HAVE.** At 03:55:47Z the worker held a sincere
+  `ready`, idle, on pane pid 2484970 — and was NOT respawned. But a `ready` on
+  that SAME session had been honoured in NINETEEN SECONDS at 13:21:53Z the day
+  before, returning it to 75% context. **So the condition is INTERMITTENT, not
+  permanent.** That refutes both over-strong models: "this session can never be
+  restarted", and "the daemon never sees the declaration" — it demonstrably saw
+  and cleared one, and the snapshot then read `declaration=null`.
+  **I REPORTED, I DID NOT FILE.** They own the subject and have a PENDING
+  proposal about it; filing would have been C18/T5 exactly. Delivered to
+  `tmp/overseer/ready-certification-deadlock/INBOX-from-livespec-overseer-foreman.md`
+  and one line in their `worker-status.log`, asserting NO mechanism claim because
+  I did not read `_void_if_stale` and that analysis is theirs.
+  **AN OFFER IS OUTSTANDING AND UNANSWERED:** I offered to HOLD the worker in the
+  reproducing state for them to observe rather than letting it wind down. If they
+  reply asking for that, honour it. Otherwise the worker takes the normal path —
+  and it already has, twice.
 
 - **BEFORE YOU DIAGNOSE ANY DISPATCH FAILURE, READ `overseer-6pn`.** A
   dispatcher that reports `failed` while its PR MERGED is that bug, not a real
@@ -1234,3 +1301,63 @@ ordering exactly.
   anything, prove WHOSE the edit is: compare the working file against
   `origin/master` by hash, not by `git diff` against a stale HEAD, which reports a
   landed change as a local one.
+
+- **T13 (2026-08-05) — TWO ITEMS WERE ONE COMMAND AWAY FROM BEING DISPATCHED
+  WITH BODIES THAT ORDERED WORK THAT WAS ALREADY DONE, AND ONE OF THEM ORDERED A
+  MEASUREMENT ITS SANDBOX STRUCTURALLY CANNOT INTERPRET.** An item's ACCEPTANCE
+  TEXT ages exactly like its status, and nothing re-measures it — the ledger
+  updates `status`, never the prose.
+  **`overseer-ym6`** still read "the spec amendment filed through the
+  `/livespec:` lifecycle in the OWNING repo" as acceptance leg 1. That was
+  discharged by `v007`: the owning repo is this one, the filing was PR #679 and
+  the ratification PR #688. A sandbox agent reading it would have re-filed a
+  proposed change that was already ratified.
+  **`overseer-afn` was worse, and this is the transferable half.** Its body said
+  the marker-protocol claim "STANDS until a live measurement says otherwise" and
+  made that measurement the slice's FIRST deliverable. The claim was refuted on
+  2026-08-04 and amended by `v009`. But the deeper hazard is that **the fabro
+  sandbox is HEADLESS and the feature is scoped to the INTERACTIVE CLI**, so a
+  re-run there would have produced a NEGATIVE that measured THE HARNESS, not the
+  feature — a false negative indistinguishable from a real finding. That is
+  precisely the confusion the item's own leg 2 exists to prevent, and the item
+  would have walked its agent into it.
+  **THE FIX THAT GENERALISES: before dispatching, read the item's ACCEPTANCE as
+  if you were the sandbox agent, and ask two questions — is any leg already
+  discharged, and can this environment even produce an interpretable result for
+  each leg?** Where the answer is no, annotate the item BEFORE dispatch with an
+  explicit stop-and-escalate instruction, and correct a title that names retired
+  work. Both were annotated and `afn` was retitled; the annotation tells the
+  agent to REPORT a dispute rather than measure, because "produce a fresh
+  negative from the wrong environment and record it as a finding" is the failure
+  mode.
+  This is C9's family — "the PR merged and CI is green" answers a different
+  question from "the acceptance criteria were met" — arriving from the opposite
+  direction: here the acceptance criteria were met and the TEXT never noticed.
+
+- **T14 (2026-08-05) — TWO TOOLING HAZARDS THAT BOTH FAIL AS A PASS, caught by
+  controls rather than by care.**
+  **(a) `status` IS A READ-ONLY VARIABLE IN zsh.** Building a CI watcher I wrote
+  `status=${row%%|*}`, and the control died with `read-only variable: status`.
+  Under this fleet's zsh, `$status` is a reserved alias for `$?`. A watcher whose
+  first assignment aborts emits NO `WAKE:` line at all — the exact silent death
+  C16 is about, where a killed watcher is indistinguishable from one that never
+  fired. The script's shebang is bash, where the name is legal, so it would
+  probably have survived; **"probably" is not a control**. Renamed to
+  `run_status` and verified with `bash -n`. THE RULE: never name a shell variable
+  `status` here, and run a watcher's parser once by hand before arming it — this
+  is C14 and C22's family, bash idioms that silently do nothing under zsh.
+  **(b) THE FIRST `just check` IN A FRESH WORKTREE FAILS ON `check-coverage`,
+  AND RE-RUNNING THE RECIPE ALONE "PASSES" WITHOUT TESTING ANYTHING.** Measured
+  while landing `v009`: `just check` reported `Failed targets (1): check-coverage`.
+  Re-running `just check-coverage` returned **rc=0**, and its FIRST LINE was
+  `:: check-coverage: reading existing .coverage (produced by
+  check-per-file-coverage); no duplicate suite run`. **That rc=0 is a statement
+  about a PREVIOUS run — it executed no tests.** This is T6 verbatim, met in the
+  wild rather than recalled, and it is the shape that would let a false
+  "verified" reach a commit message.
+  The cause is ORDERING: in a brand-new worktree `check-coverage` runs before
+  `check-per-file-coverage` has produced a `.coverage` to read. **The remedy is
+  not to re-run the recipe until it passes.** Run the SUITE (`uv run pytest` —
+  green, exit 0), then the aggregate again (All 68 targets passed, green token
+  written), and confirm with a control that the failure grep CAN match — it
+  matched on the failing run and found nothing on the green one.
