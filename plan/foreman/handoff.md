@@ -1,5 +1,33 @@
 # Plan — foreman
 
+## Checkpoint 2026-08-05T04:42Z — overseer-afn leg 3 measured in real `codex exec`
+
+This is the newest AFN status block and supersedes the older AFN statement below
+that leg 3 remained unexecuted.
+
+**ACCEPTANCE LEG 3 IS DISCHARGED.** A real headless `codex exec` probe ran on
+2026-08-05T04:40Z through `npx -y @openai/codex@0.146.0 exec`, because no
+`codex` binary was present on the sandbox PATH. The invocation reported
+`OpenAI Codex v0.146.0`, `approval: never`, `sandbox: danger-full-access`, and
+workdir `/workspace/livespec-overseer`, so the measured harness was headless
+`codex exec`, not the interactive TUI picker surface measured for legs 1 and 2.
+
+The probe simulated a supervised session that needed an unanswerable human
+choice and instructed it to use the marker-protocol prose fallback. The session
+wrote exactly one line under the repo's ignored temp tree:
+
+```
+tmp/overseer/overseer-afn-codex-exec-probe/.overseer-state
+blocked: needs human choice between release train A and B.
+```
+
+Verification after the run: `wc -l` returned `1`, `git check-ignore -v` matched
+`.gitignore:2:tmp/`, and `git status --short` stayed clean. The model did not
+render or rely on a structured picker; it wrote the out-of-band `blocked:`
+declaration, which is the fallback this leg exists to prove. Do not rerun the
+interactive YOLO exposure measurement; legs 1 and 2 were already discharged by
+external pane capture and v009/marker-protocol ratification.
+
 ## Checkpoint 2026-08-05T03:33Z — WIND-DOWN: v007 RATIFIED; AFN proposal filed, ratification supervisor-owned
 
 This is the newest resume block and supersedes every older status statement
