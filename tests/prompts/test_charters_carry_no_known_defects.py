@@ -38,8 +38,9 @@ here.
 
 from __future__ import annotations
 
+import json
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
@@ -187,27 +188,78 @@ _BD_INVOCATION = re.compile(r"(?<![-\w])bd\s+(?:show|list|update|create|close)\b
 
 # THE WRAPPER IS A PROPERTY, NOT A NAME. This pinned the literal
 # `with-livespec-env.sh` and therefore scored `homelab`'s CORRECT charters as
-# defective — four times, across two files. `homelab` declares a different
-# wrapper (`with-homelab-env.sh`) and resolves it from its own `.livespec.jsonc`
-# instead of hard-coding any name, which is STRICTLY BETTER than the form this
-# detector demanded. The gate punished the best implementation in the fleet, and
-# it failed quietly and in the wrong direction.
+# defective — four times, across two files. `homelab` declared a different
+# wrapper and resolved it from its own `.livespec.jsonc` instead of hard-coding
+# any name, which is STRICTLY BETTER than the form this detector demanded. The
+# gate punished the best implementation in the fleet, and it failed quietly and
+# in the wrong direction.
 #
 # `plan/fleet-charter-remediation/` records the consequence: remediating against
 # the uncorrected rule would have meant rewriting a config-driven lookup into a
 # hard-coded name, in the one fleet repo that consumes no pin and so cannot be
 # corrected by a later release.
 #
-# A `bd` call is wrapped when the charter EITHER names a `with-<repo>-env.sh`
-# wrapper — any member's — or binds one to a VARIABLE, proves it with
-# `command -v`, and invokes `bd` THROUGH THAT SAME VARIABLE. The variable form
-# requires both halves of one binding on purpose: probing for some unrelated
-# binary must not clear the detector, or `(h)` becomes unfailable.
+# THE FIRST FIX WIDENED THE LITERAL INTO A NAME PATTERN, AND THAT WAS STILL A
+# NAME. `with-[...]-env\.sh` is a convention, not a contract, and `homelab`
+# left the convention: its `credential_wrapper` is now a multi-element
+# scoped-injection argv headed by `with-homelab-aws.sh` — an `-aws.sh`, not an
+# `-env.sh`. Measured 2026-08-06: the pattern below scored that CORRECT
+# invocation as a defect, which is the ORIGINAL false positive returning under
+# a new spelling. Widening the pattern again (`-(env|aws)\.sh`) would buy one
+# more rename and re-arm the same trap, so the resolution does not name at all:
+#
+# A `bd` call is wrapped when the charter EITHER
+#   * invokes `bd` through the wrapper THE REPO ITSELF DECLARES in its own
+#     `.livespec.jsonc` — resolved at scan time, whatever it is called, and
+#     however many argv elements it has;
+#   * or names a `with-<repo>-env.sh` wrapper — any member's — which remains a
+#     real fleet convention and a regression control, no longer the only key;
+#   * or binds one to a VARIABLE, proves it with `command -v`, and invokes `bd`
+#     THROUGH THAT SAME VARIABLE.
+# The variable form requires both halves of one binding on purpose: probing for
+# some unrelated binary must not clear the detector, or `(h)` becomes unfailable.
 _WRAPPER_NAME = r"with-[A-Za-z0-9_.-]+-env\.sh"
 _WRAPPER_DETECTED = re.compile(rf"command\s+-v\s+\"?{_WRAPPER_NAME}")
 _WRAPPER_DIRECT = re.compile(rf"{_WRAPPER_NAME}[^\n]*\bbd\b")
 _WRAPPER_VAR_DETECTED = re.compile(r"command\s+-v\s+\"?\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
 _WRAPPER_VAR_INVOKED = re.compile(r"\"?\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?\"?\s+(?:--\s+)?bd\b")
+
+_JSONC_COMMENT = re.compile(r"^\s*//.*$", flags=re.MULTILINE)
+
+
+def declared_wrapper_tokens(*, repo_root: Path = _REPO_ROOT) -> frozenset[str]:
+    """The wrapper THIS repo declares, as spellings a charter might use.
+
+    Read from `.livespec.jsonc` at scan time rather than pinned here, so a repo
+    that renames or restructures its wrapper does not become defective by
+    default. Only the HEAD of the argv is a wrapper: the remaining elements are
+    that wrapper's own flags (`--role`, `--bind`, `--`) and would match far too
+    much. Both the declared path and its basename are returned, because charters
+    legitimately write either.
+
+    An empty set is the honest answer for a repo that declares no wrapper — an
+    adopter without one must not be scored against a wrapper it does not have,
+    and the other two clauses still apply.
+    """
+    config = repo_root / ".livespec.jsonc"
+    if not config.is_file():
+        return frozenset()
+    declared = json.loads(_JSONC_COMMENT.sub("", config.read_text(encoding="utf-8"))).get(
+        "credential_wrapper"
+    )
+    if not isinstance(declared, list) or not declared:
+        return frozenset()
+    head = str(declared[0])
+    return frozenset({head, PurePosixPath(head).name})
+
+
+def _declared_wrapper_wraps(*, joined: str, tokens: frozenset[str]) -> bool:
+    """A declared wrapper token precedes a `bd` call on the same logical line."""
+    return any(
+        _BD_INVOCATION.search(line) and any(token in line for token in tokens)
+        for line in joined.splitlines()
+    )
+
 
 # (i) A FIXED-CAP read of the supervisor marker, with no truncation notice.
 # Observed 2026-07-30: a charter emitted `sed -n '1,220p'` against a marker that
@@ -600,7 +652,9 @@ def supervisor_trusted_by_name(*, text: str) -> list[str]:
     return ["supervisor existence checked but liveness never proven"]
 
 
-def wrapper_less_ledger_read(*, text: str) -> list[str]:
+def wrapper_less_ledger_read(
+    *, text: str, wrapper_tokens: frozenset[str] | None = None
+) -> list[str]:
     """A `bd` invocation with no credential wrapper anywhere in the charter.
 
     Document-scoped like `supervisor_trusted_by_name`, not line-scoped, and for
@@ -623,6 +677,13 @@ def wrapper_less_ledger_read(*, text: str) -> list[str]:
     # command as the one-liner and was scored as a defect purely because both
     # halves were required on one physical line.
     joined = "\n".join("\n".join(_logical_lines(block=block)) for block in blocks)
+    # The wrapper THIS repo declares, whatever it is named. Resolved first,
+    # because it is the only clause that survives a repo renaming its wrapper —
+    # which `homelab` did, out of the `-env.sh` convention the pattern below
+    # encodes and into a multi-element scoped-injection argv.
+    tokens = declared_wrapper_tokens() if wrapper_tokens is None else wrapper_tokens
+    if tokens and _declared_wrapper_wraps(joined=joined, tokens=tokens):
+        return []
     if _WRAPPER_DETECTED.search(joined) or _WRAPPER_DIRECT.search(joined):
         return []
     # The variable form: the binding PROVED must be the binding CALLED.
