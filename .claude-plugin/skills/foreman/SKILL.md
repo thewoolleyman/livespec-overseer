@@ -1,7 +1,7 @@
 ---
 name: foreman
 description: >-
-  Run the bounded Phase B livespec foreman loop for the current repository.
+  Run the bounded livespec foreman operator loop for the current repository.
   Invoke as /livespec-overseer:foreman.
 allowed-tools: Bash, Read
 ---

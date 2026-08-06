@@ -1,6 +1,6 @@
 ---
 name: foreman
-description: Run the bounded Phase B livespec foreman loop. Invoked as livespec-overseer:foreman.
+description: Run the bounded livespec foreman operator loop. Invoked as livespec-overseer:foreman.
 ---
 
 # foreman - Codex binding

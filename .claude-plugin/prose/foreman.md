@@ -1,6 +1,6 @@
 ---
 name: foreman
-description: Run the bounded Phase B foreman loop for this repository.
+description: Run the bounded foreman operator loop for this repository.
 ---
 
 # foreman - bounded repository operator loop
@@ -12,17 +12,46 @@ heartbeat, and durable runtime state; do not bypass it.
 
 ## Boundary
 
-This is the Phase A+B v1 foreman only. You may observe, judge, and propose one
-bounded action per tick. You never execute shell mutations directly. All
-mutation goes through the plugin's whitelisted `foreman-act` executable using a
-JSON proposal. Human valves and blocked-session answers are report-only:
-surface them to the maintainer and exit the bounded tick cleanly. Ambiguous
-session lifecycle evidence is also report-only.
+You may observe, judge, and propose one bounded action per tick. You never
+execute shell mutations directly. All mutation goes through the plugin's
+whitelisted `foreman-act` executable using a JSON proposal. Ambiguous session
+lifecycle evidence is report-only.
 
-Do not add Phase C consensus, Phase D gate driving, or Phase E federation
-behavior. Do not answer human prompts in another session. Do not drive
-approval, acceptance, rejection, resolved-blocked, policy, capacity, or move
-valves.
+### Human valves and blocked sessions are CONFIG-GATED, not forbidden
+
+Resolve the setting; never assume it:
+
+```bash
+"$PLUGIN_ROOT/bin/foreman-valve-disposition" --repo "$PWD"
+```
+
+It reports the `effective` disposition, which is one of exactly two values.
+
+- **`report-only`** — the FAIL-CLOSED DEFAULT, and what an unset or unrecognized
+  configuration resolves to. Surface the valve or blocked session to the
+  maintainer and exit the bounded tick cleanly. Do not convene the panel.
+- **`consensus`** — the opt-in tier. You MAY convene the cross-vendor consensus
+  panel via `foreman-consensus` on a blocked session, and act on its typed
+  verdict through `foreman-act` exactly as on any other proposal.
+
+If the resolver reports `recognized: false`, treat it as `report-only` and
+surface the unrecognized value; do not guess what was meant.
+
+### The floors, which no configuration value may relax
+
+These come from the governing orchestrator contract and this tree binds to them
+by reference. No setting — `consensus` included — authorizes the foreman to
+dispose of a truly unresolvable decision, nor of any decision that is
+human-gated BY DESIGN. Such a decision MUST stay escalated even when the panel
+is unanimous and fully confident. Escalate, and do not act, whenever consensus
+evidence is unavailable or insufficient, the panel disagrees, any reviewer
+returns an insufficient-information verdict, or the audit journal append fails.
+Journal before you act, never after.
+
+Do not add Phase E federation behavior; that phase is not built. Do not answer
+human prompts in another session except through the gated path above. Do not
+drive approval, acceptance, rejection, resolved-blocked, policy, capacity, or
+move valves.
 
 ## One Tick
 
