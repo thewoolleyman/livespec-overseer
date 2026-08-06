@@ -153,6 +153,7 @@ def test_composes_canonical_document_from_snapshot_attention_and_journal(*, tmp_
                     "runtime": "codex",
                     "session_identity": "codex:abc",
                     "status": "warned",
+                    "supervisor_handoff": "missing",
                     "tmux": "alpha",
                     "topic": "plan-a",
                 }
@@ -167,6 +168,71 @@ def test_composes_canonical_document_from_snapshot_attention_and_journal(*, tmp_
         },
         "dispatch_journal": [{"action": "impl:overseer-a", "at": "2026-08-03T08:02:00Z"}],
     }
+
+
+def test_snapshot_rows_carry_supervisor_handoff_presence(*, tmp_path):
+    module = foreman_gather()
+    collect = foreman_gather_collect()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "plan" / "with-supervisor").mkdir(parents=True)
+    (repo / "plan" / "with-supervisor" / "supervisor-handoff.md").write_text(
+        "supervise this\n", encoding="utf-8"
+    )
+    (repo / "plan" / "without-supervisor").mkdir(parents=True)
+    snapshot_path = tmp_path / "status.json"
+    write_json(
+        path=snapshot_path,
+        payload={
+            "schema_version": 1,
+            "daemon_instance_id": "daemon-1",
+            "tick_generation": 7,
+            "written_at": "2026-08-03T08:00:00Z",
+            "rows": [
+                {
+                    "repo": str(repo),
+                    "topic": "with-supervisor",
+                    "status": "session-gone",
+                },
+                {
+                    "repo": str(repo),
+                    "topic": "without-supervisor",
+                    "status": "session-gone",
+                },
+            ],
+        },
+    )
+
+    document = module.compose_document(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        needs_attention_command=None,
+        journal_path=repo / "tmp" / "fabro-dispatch-journal.jsonl",
+        now=lambda: "2026-08-03T08:03:00Z",
+    )
+
+    rows = document["snapshot"]["rows"]
+    assert rows == [
+        {
+            "repo": str(repo),
+            "status": "session-gone",
+            "supervisor_handoff": "present",
+            "topic": "with-supervisor",
+        },
+        {
+            "repo": str(repo),
+            "status": "session-gone",
+            "supervisor_handoff": "missing",
+            "topic": "without-supervisor",
+        },
+    ]
+    assert collect.supervisor_handoff_state(repo=repo, topic=None) == "unknown"
+    assert "with-supervisor | session-gone | ctx=None | human_wait=no | supervisor=present" in (
+        module.render_document(document=document)
+    )
+    assert "without-supervisor | session-gone | ctx=None | human_wait=no | supervisor=missing" in (
+        module.render_document(document=document)
+    )
 
 
 def test_snapshot_fallback_is_marked_observation_only(*, tmp_path):

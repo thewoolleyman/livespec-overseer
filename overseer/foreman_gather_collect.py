@@ -66,7 +66,11 @@ def snapshot_payload(
 ) -> tuple[dict[str, object], dict[str, object]]:
     rows = validated_snapshot(document=document, source_name="status")
     repo_text = str(repo)
-    used = [row for row in rows if row.get("repo") == repo_text]
+    used = [
+        row_with_supervisor_handoff(repo=repo, row=row)
+        for row in rows
+        if row.get("repo") == repo_text
+    ]
     snapshot = {
         "daemon_instance_id": document.get("daemon_instance_id"),
         "tick_generation": document.get("tick_generation"),
@@ -90,6 +94,19 @@ def snapshot_payload(
             "written_at": document.get("written_at"),
         }
     return snapshot, source
+
+
+def supervisor_handoff_state(*, repo: Path, topic: object) -> str:
+    if not isinstance(topic, str) or topic == "":
+        return "unknown"
+    path = repo / "plan" / topic / "supervisor-handoff.md"
+    return "present" if path.is_file() else "missing"
+
+
+def row_with_supervisor_handoff(*, repo: Path, row: dict[str, object]) -> dict[str, object]:
+    enriched = dict(row)
+    enriched["supervisor_handoff"] = supervisor_handoff_state(repo=repo, topic=row.get("topic"))
+    return enriched
 
 
 def read_snapshot(
