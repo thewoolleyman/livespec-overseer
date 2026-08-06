@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.1...v0.33.2) (2026-08-06)
+
+
+### Bug Fixes
+
+* **plugin:** carry foreman loop exits in contract ([4acd5ce](https://github.com/thewoolleyman/livespec-overseer/commit/4acd5ceb71d17fe901ad5812487f02591f9022a5))
+
 ## [0.33.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.0...v0.33.1) (2026-08-06)
 
 
