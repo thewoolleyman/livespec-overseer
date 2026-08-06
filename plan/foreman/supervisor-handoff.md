@@ -218,28 +218,54 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **STATE AS OF 2026-08-05T23:30Z — EVERY EPIC CHILD IS CLOSED INCLUDING THE EXIT
-  CONDITION, AND THE THREAD IS STILL NOT DONE. THIS IS THE ONLY STATUS BLOCK;
-  EVERYTHING BELOW IT IS STANDING GUIDANCE.** Re-measure before acting.
+- **STATE AS OF 2026-08-06T11:05Z — `5dbc` LANDED, AND THE SEED AUDIT IMMEDIATELY
+  FOUND THE NEXT GAP OF THE SAME CLASS, WHICH IS NOW DISPATCHED. THIS IS THE ONLY
+  STATUS BLOCK; EVERYTHING BELOW IT IS STANDING GUIDANCE.** Re-measure before
+  acting.
 
-  **DO THIS FIRST — THERE IS UNPUSHED WORK IN A WORKTREE AND A CLAIM I HOLD.**
+  **THE INHERITED "DO THIS FIRST" IS DISCHARGED.** `overseer-5dbc` is CLOSED:
+  PR #765, merge `6ad1b3a`, 10:51:14Z, `ci-green` SUCCESS. Verified from
+  `origin/master` after a fetch with a negative control — the forbidding 0.33.0
+  line now has **zero** occurrences on master. **The work was RECOVERED from the
+  worktree, never re-implemented.**
 
-      item      overseer-5dbc   status=active  assignee=supervisor   <- MINE, not fabro's
-      branch    fix/foreman-prose-consensus-reachable
-      commit    fd87279  "docs(plugin): unfence the consensus tier the foreman already ships"
-      worktree  $HOME/.worktrees/livespec-overseer/foreman-prose
-      push      LAUNCHED 23:14Z, running the full pre-push aggregate, NOT CONFIRMED
+  **DO THIS FIRST — A RUN IS IN FLIGHT AND ITS RESCUE WINDOW IS THE THING THAT
+  MATTERS.**
 
-  I ran out of context mid-push. **Check the forge FIRST**
-  (`git ls-remote --heads origin fix/foreman-prose-consensus-reachable`). If the
-  branch is absent, the commit is still safe in that worktree — **re-push it, open
-  the PR, and do NOT re-implement.** `just check` passed all 68 targets on that
-  tree before the commit, and the full suite is green. If the worktree is gone,
-  the commit is unreachable and the work must be redone; that is the same
-  destroyed-work shape as `bd-ib-6o6h`.
-  The claim is assignee `supervisor`, NOT `fabro`, so none of the phantom-claim
-  discriminators apply — it is mine and I am handing it over. Either finish it or
-  release it to `ready`; do not leave it `active` with nobody working it.
+      item   overseer-67wh   P1   status=active  assignee=fabro
+      run    01KZBBH64PCXFQMVZXYN9XWQ2T   dispatched 10:57:57Z, reached `running`
+      watch  tmp/overseer/foreman/watch-67wh.sh
+
+  That watcher looks for the **INTERVIEW** (`Needs human` / `Interview ended` /
+  `cannot auto-resolve`) as well as the terminal state, because a terminal-state
+  watcher wakes at the END of the rescue window — which is how a complete green
+  implementation was destroyed on `overseer-0fy` (**T16**, `bd-ib-6o6h`). If it
+  reports `INTERVIEW OPEN`, answer it via `fabro attach` immediately;
+  Retry / Re-implement / Abandon is a **supervisor**-grade choice. If it reports
+  `ABSENT`, check the forge for a merged PR **before** releasing the claim
+  (the succeeded-untransitioned shape). Re-arm it on ceiling.
+
+  **THE PREDECESSOR'S PUSH WAS NEVER DEAD — IT WAS WEDGED ON A PAGER FOR TEN
+  HOURS, AND TWO DEFECTS CAME OUT OF IT.** The inherited marker recorded "the
+  `git push` process: GONE". It was alive at pid 332870 with 10h18m of wall
+  clock, stopped inside `check-prose-release-hygiene` at
+  `git log … | /usr/bin/less`. That `git log` sits in the recipe's FAILURE block,
+  so reaching it means the gate had already REJECTED: `docs(plugin):` is a
+  non-releasing prefix on a `.claude-plugin/prose/` change, and prose landed
+  under `docs:` **ships to nobody** — `5dbc`'s own defect class one layer out.
+  lefthook runs hooks under a PTY, so git paged the remedy into a reader that
+  does not exist. Filed as `overseer-zluq` (P1).
+  **ALWAYS `export GIT_PAGER=cat` BEFORE ANY PUSH FROM THIS REPO.** A pre-push
+  that appears to run for hours is this, not a slow suite.
+
+  **TWO GATES FIGHT OVER THE COMMIT PREFIX ON ANY PROSE CHANGE. Expect it.**
+  `check-prose-release-hygiene` demands `feat|fix|perf|revert` on
+  `.claude-plugin/prose/**`; `red_green_replay` case 3 rejects a `feat:`/`fix:`
+  subject on a tests-only `.py` change whose tests PASS at Red. No single prefix
+  satisfies both. **Split it:** prose + manifests as `fix:` carrying NO `.py`
+  (replay case 1 is prefix-agnostic), tests as a separate non-fix commit on the
+  green-verified leg. **Prose first**, or the tests assert against bytes that do
+  not exist yet. Landed that way as `a576f36` + `b605075`.
 
   **WHAT LANDED, AND IT IS THE REASON THE THREAD WAS REOPENED.**
 
@@ -447,6 +473,13 @@ any of it forward; the Verification Discipline block is the command.
 
   **STATE, re-measured 2026-08-05T04:38Z. This supersedes every earlier reading
   in this file, including the 14:12Z table it replaces.**
+
+  > **AND IT IS ITSELF SUPERSEDED BY THE 2026-08-06T11:05Z BLOCK AT THE TOP OF
+  > THIS SECTION.** Since this table was taken, `0fy`, `ctc` and `5dbc` all
+  > CLOSED, and two P1s were filed that it cannot mention: `overseer-67wh` (the
+  > requirement-7 loop and the omitted action classes — **dispatched**, run
+  > `01KZBBH64PCXFQMVZXYN9XWQ2T`) and `overseer-zluq` (the pager wedge). Every
+  > row below is a claim with a timestamp; re-measure with `bd list --all`.
 
   | Thing | State |
   |---|---|
@@ -1708,3 +1741,48 @@ ordering exactly.
   A completion measured in the ledger and a requirement written in prose can never
   meet on their own. Someone has to carry one to the other, and the only moment
   anyone is willing to is right before archiving.
+
+- **T18 (2026-08-06) — I HANDED MY SUCCESSOR A CAUSE I HAD INFERRED FROM SILENCE,
+  AND IT WAS WRONG IN THE DIRECTION THAT COSTS THE MOST.** My wind-down marker
+  stated, as a measurement, "the `git push` process: GONE" and built its whole
+  recovery instruction on that. The process was **alive** — pid 332870, 10h18m of
+  wall clock — and one `ps -eo etime=` at cold open said so.
+  **A WEDGED PROCESS AND A DEAD ONE PRODUCE THE IDENTICAL ABSENCE OF OUTPUT.** I
+  saw no output, saw the branch missing from the forge, and wrote down "died". The
+  true state was `check-prose-release-hygiene` blocked forever at
+  `git log … | /usr/bin/less`, because lefthook runs hooks under a PTY and git
+  pages. So the gate had ALREADY DECIDED TO REJECT and was writing its remedy —
+  the exact instructions needed — into a pager nobody could read.
+  **THE WRONG CAUSE WAS MORE EXPENSIVE THAN NO CAUSE.** "The push died" invites
+  re-pushing, which is what I told my successor to do; the second push wedged
+  identically and raced the first on the same worktree. Had the marker said "the
+  push has produced no output for N hours, cause unknown", the first move would
+  have been to look at the process — which is the move that solved it in one
+  command. **A handoff that names a cause forecloses the diagnosis. Record the
+  OBSERVATION and label the inference as one.**
+  THE FAMILY IS **T6**'s, from the far side, and it now has three members on this
+  thread: T6 says a SUCCESSFUL result is not a finding unless you know what it
+  examined; T16 says a BLOCKING result is not one either; this says **a SILENT
+  result is not a finding either** — silence has at least two causes and they
+  demand opposite remedies. The shared layer's "an empty result is not a finding"
+  is the same rule, and I broke it about a process rather than a query.
+  **A SECOND, INDEPENDENT LESSON FROM THE SAME HOUR, and it is about how a
+  requirement gets closed while unbuilt.** Re-running the seed audit found that
+  requirement 7's loop has NO carrier in the shipped contract — `exit_reason` is
+  computed, printed, and consumed by nothing. It was believed done because
+  `overseer-mqpgs7` reasoned that the converged exit "ALREADY exists as
+  `converged_ticks=2` returning `exit_reason`, so that leg is a PROOF, not a
+  build." The proof was performed correctly and **proves the wrong proposition**:
+  its only coverage is a UNIT test importing `ForemanRuntime` directly, and that
+  the FIELD is computed says nothing about whether the PRODUCT exits its loop and
+  asks, because the component that would do so is an LLM reading prose that never
+  mentions the field. **A "this already exists, so it is a proof not a build"
+  judgement must name WHICH PROPOSITION the proof establishes** — otherwise it
+  converts an unbuilt requirement into a closed one, which is this thread's
+  founding failure with a different noun. Filed as `overseer-67wh` (P1).
+  A THIRD, SMALL ONE, recorded because it will waste a turn: the
+  `github_rate_limit_guard` hook denies a command when its `_LOOP_OR_SLEEP` regex
+  matches alongside a GitHub read, and that regex matches the bare word `select`.
+  A **jq** `select(...)` filter therefore false-positives as a shell `select`
+  loop, and `--cache` does not help because the deny fires first. Filter with
+  `grep` instead.
