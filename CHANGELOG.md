@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.2...v0.33.3) (2026-08-06)
+
+
+### Bug Fixes
+
+* expose foreman supervisor handoff evidence ([5e3bad4](https://github.com/thewoolleyman/livespec-overseer/commit/5e3bad4aaf182cc8a241d27d88e4fbab0cbe4020))
+
 ## [0.33.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.1...v0.33.2) (2026-08-06)
 
 
