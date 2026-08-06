@@ -80,7 +80,19 @@ def test_foreman_skill_bindings_resolve_single_source_prose_for_both_harnesses()
     assert "<repo-slug>-foreman" in prose
     assert "foreman-act" in prose
     assert "Human valves" in prose
-    assert "Phase C consensus" in prose
+    # This line used to read `assert "Phase C consensus" in prose`, which pinned the
+    # phrase "Do not add Phase C consensus". That boundary was deliberately reversed:
+    # the maintainer ruled to build Phases C and D, both shipped, and v007 ratified
+    # the report-only/consensus tier. Left as-is the assertion FORCED the prose to
+    # keep forbidding the tier the product ships, which made the consensus panel
+    # unreachable in release 0.33.0 (overseer-5dbc).
+    # It is REPLACED, not deleted, and by strictly more specific claims: the prose
+    # must route the valve through the shipped resolver, name both tier values, and
+    # still fence off the one phase that genuinely is not built.
+    assert "foreman-valve-disposition" in prose
+    assert "report-only" in prose
+    assert "consensus" in prose
+    assert "Phase E federation" in prose
     assert "<repo-slug>-foreman" not in claude_binding
     assert "<repo-slug>-foreman" not in codex_binding
 
