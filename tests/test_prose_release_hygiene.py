@@ -27,6 +27,7 @@ Neither leg can be deleted without one of those pairs collapsing.
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -111,6 +112,46 @@ def _run_gate(repo: Path, *, base: str = "basepoint") -> subprocess.CompletedPro
     )
 
 
+def _run_gate_under_pty_with_blocking_pager(
+    repo: Path, *, pager: Path, timeout_seconds: float = 2.0
+) -> tuple[int | None, str]:
+    """Run the real recipe under a TTY with a pager that would hang if invoked."""
+    env = {**os.environ, "PROSE_HYGIENE_BASE": "basepoint", "PAGER": str(pager)}
+    env.pop("GIT_PAGER", None)
+    command = " ".join(
+        (
+            "just",
+            "--justfile",
+            shlex.quote(str(_JUSTFILE)),
+            "--working-directory",
+            shlex.quote(str(repo)),
+            "check-prose-release-hygiene",
+        )
+    )
+    try:
+        result = subprocess.run(  # noqa: S603
+            ["script", "-q", "-e", "-c", command, "/dev/null"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        return None, _timeout_output(exc)
+    return result.returncode, result.stdout + result.stderr
+
+
+def _timeout_output(exc: subprocess.TimeoutExpired[str]) -> str:
+    output = ""
+    for stream in (exc.stdout, exc.stderr):
+        if isinstance(stream, bytes):
+            output += stream.decode(errors="replace")
+        elif stream is not None:
+            output += stream
+    return output
+
+
 def test_prose_changed_under_a_docs_subject_is_rejected(tmp_path):
     repo = _make_repo(tmp_path, "docs", subject=_HISTORICAL_NON_RELEASING[0], touch_prose=True)
     result = _run_gate(repo)
@@ -177,3 +218,19 @@ def test_an_unresolvable_base_ref_fails_loudly_rather_than_skipping(tmp_path):
     assert result.returncode == 1
     assert "cannot resolve base ref" in result.stderr
     assert "shallow" in result.stderr
+
+
+def test_rejection_under_a_tty_cannot_block_on_the_git_pager(tmp_path):
+    """RED: plain `git log` in the failure block invokes the pager and hangs."""
+    repo = _make_repo(tmp_path, "pager", subject=_HISTORICAL_NON_RELEASING[0], touch_prose=True)
+    pager = tmp_path / "blocking-pager.sh"
+    pager.write_text("#!/usr/bin/env bash\necho PAGER-INVOKED >&2\nsleep 60\n")
+    pager.chmod(0o755)
+
+    returncode, output = _run_gate_under_pty_with_blocking_pager(repo, pager=pager)
+
+    assert returncode == 1, output
+    assert "PAGER-INVOKED" not in output
+    assert "NO release-triggering commit" in output
+    assert "Commit subjects in basepoint..HEAD:" in output
+    assert "REMEDY:" in output
