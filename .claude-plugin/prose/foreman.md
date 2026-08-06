@@ -69,6 +69,15 @@ move valves.
    `dispatch_journal_reconcile_merged`, `work_item_session_start`,
    `work_item_session_resume`, `work_item_session_finish`,
    `blocked_session_answer`, and `human_valve`.
+
+   `supervisor_pair_start` is warranted only from gather evidence: the snapshot
+   row for the tracked plan has `supervisor_handoff: "missing"` for the
+   conventional `plan/<topic>/supervisor-handoff.md`, and the operator asked for
+   that tracked plan to receive a supervisor pair. A missing handoff is a
+   proposal precondition, not permission to start sessions directly; report-only
+   remains the fallback when the row is absent, ambiguous, already
+   `supervisor_handoff: "present"`, or otherwise not revalidated by
+   `foreman-act`.
 4. Before acting, call `foreman-act` with the proposal. It performs fresh
    revalidation against the newest gather document. If it refuses, report the
    refusal; do not retry by hand.

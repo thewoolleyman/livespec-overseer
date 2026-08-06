@@ -13,11 +13,15 @@ import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+from foreman_act_types import SUPERVISOR_PAIR_START
+
 __all__: list[str] = []
 
 ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_BIN = ROOT / ".claude-plugin" / "bin"
 PLUGIN_ROOT = ROOT / ".claude-plugin"
+FOREMAN_PROSE = PLUGIN_ROOT / "prose" / "foreman.md"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -863,6 +867,59 @@ def _assert_needs_you_render(*, context: ForemanE2EContext) -> None:
     assert "\nNEEDS YOU:\n  none\n" in resolved
 
 
+def _assert_supervisor_handoff_signal_from_shipped_gather(*, context: ForemanE2EContext) -> None:
+    document = _run_foreman_gather(
+        plugin_root=context.act.plugin_root,
+        repo=context.act.repo,
+        snapshot=context.snapshot,
+    )
+    rendered = _render_foreman_document(
+        plugin_root=context.act.plugin_root,
+        repo=context.act.repo,
+        snapshot=context.snapshot,
+        attention={"schema_version": 1, "items": []},
+    )
+
+    def assert_distinguishable(*, rows: list[dict[str, object]], text: str) -> None:
+        by_topic = {str(row.get("topic")): row for row in rows}
+        assert by_topic["alpha"]["supervisor_handoff"] == "missing"
+        assert by_topic["beta"]["supervisor_handoff"] == "present"
+        assert "alpha | session-gone | ctx=None | human_wait=no | supervisor=missing" in text
+        assert "beta | session-gone | ctx=None | human_wait=no | supervisor=present" in text
+
+    snapshot = document["snapshot"]
+    assert isinstance(snapshot, dict)
+    rows = snapshot["rows"]
+    assert isinstance(rows, list)
+    assert all(isinstance(row, dict) for row in rows)
+    assert_distinguishable(rows=rows, text=rendered)
+
+    stripped_rows = [
+        {key: value for key, value in row.items() if key != "supervisor_handoff"} for row in rows
+    ]
+    with pytest.raises(KeyError):
+        assert_distinguishable(rows=stripped_rows, text=rendered)
+
+
+def _supervisor_pair_guidance_errors(*, text: str) -> list[str]:
+    required = (
+        SUPERVISOR_PAIR_START,
+        "supervisor_handoff",
+        "missing",
+        "plan/<topic>/supervisor-handoff.md",
+        "operator asked",
+    )
+    return [term for term in required if term not in text]
+
+
+def _assert_supervisor_pair_contract_guidance_is_tree_derived() -> None:
+    text = FOREMAN_PROSE.read_text(encoding="utf-8")
+
+    assert _supervisor_pair_guidance_errors(text=text) == []
+    sabotaged = text.replace("supervisor_handoff", "")
+    assert _supervisor_pair_guidance_errors(text=sabotaged) == ["supervisor_handoff"]
+
+
 def _prepare_blocked_session(*, context: ForemanE2EContext) -> tuple[Path, dict[str, object]]:
     log = _write_blocked_claude(path=context.act.path)
     (context.act.repo / ".livespec.jsonc").write_text(
@@ -1316,6 +1373,8 @@ def test_shipped_foreman_e2e_covers_seed_session_attention_and_cadence(*, tmp_pa
         _assert_blocked_consensus_chain(context=context)
         _assert_lifecycle_sabotage_discriminates(context=context)
         _assert_needs_you_render(context=context)
+        _assert_supervisor_handoff_signal_from_shipped_gather(context=context)
+        _assert_supervisor_pair_contract_guidance_is_tree_derived()
         _assert_runtime_cadence(context=context)
     finally:
         _tmux(socket=context.act.socket, args=["kill-server"])

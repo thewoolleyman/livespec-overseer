@@ -34,10 +34,14 @@ def row_line(*, row: dict[str, object]) -> str:
     note = row.get("note")
     note_text = str(note) if isinstance(note, str) and note else "-"
     human_wait = "yes" if row.get("human_wait") is True else "no"
-    return (
+    line = (
         f"  {row.get('topic')} | {row.get('status')} | "
-        f"ctx={row.get('ctx')} | human_wait={human_wait} | {note_text}"
+        f"ctx={row.get('ctx')} | human_wait={human_wait}"
     )
+    supervisor_handoff = row.get("supervisor_handoff")
+    if isinstance(supervisor_handoff, str):
+        line = f"{line} | supervisor={supervisor_handoff}"
+    return f"{line} | {note_text}"
 
 
 def items_from_attention(*, attention: object) -> list[dict[str, object]]:
