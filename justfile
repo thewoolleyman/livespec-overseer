@@ -632,7 +632,7 @@ check-prose-release-hygiene:
         echo "$changed"
         echo
         echo "Commit subjects in $base..$head:"
-        git log --format='  %h %s' "$base..$head"
+        git --no-pager log --format='  %h %s' "$base..$head"
         echo
         echo "WHY THIS BLOCKS: charters are generated from the installed plugin"
         echo "cache, not from this tree. release-please bumps the version only on"
