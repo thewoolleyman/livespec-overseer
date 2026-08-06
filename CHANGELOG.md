@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.0...v0.33.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* **plugin:** unfence the consensus tier the foreman already ships ([999b2d9](https://github.com/thewoolleyman/livespec-overseer/commit/999b2d9397a7bae1b918938ce80a5b5ea240f602))
+
 ## [0.33.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.32.0...v0.33.0) (2026-08-05)
 
 
