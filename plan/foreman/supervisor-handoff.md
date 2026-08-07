@@ -162,15 +162,23 @@ REPLACED, which is exactly how a refresh shows up, and that HALTs.
 Every claim below is a measurement with a timestamp. Re-measure before carrying
 any of it forward; the Verification Discipline block is the command.
 
-- **THE WORKER ON THIS THREAD RUNS CODEX, NOT CLAUDE.** Measured
-  2026-08-02T23:42Z: worker pane pid 270839 holds
-  `bun /home/ubuntu/.bun/bin/codex --dangerously-bypass-approvals-and-sandbox`;
-  the supervisor pane holds `claude`. Both drivers are legitimate and the
-  preconditions accept either, but they are NOT interchangeable when you drive:
-  Codex has no `/livespec:*` slash-command surface, so any instruction that
-  assumes a Claude skill invocation will sit in that pane unexecuted. Report
-  which driver was found every time you re-run the preconditions — it can change
-  under you when a session is restarted.
+- **THE WORKER RAN CODEX. IT NOW RUNS CLAUDE — RE-MEASURED 2026-08-07T21:0xZ.
+  This entry's own closing sentence predicted exactly this, and it still went
+  stale for a day.** The pane holds **Claude Code v2.1.224, Sonnet 5**, in this
+  repo, at 91% context; it was restarted from under a previous supervisor. The
+  original measurement (2026-08-02T23:42Z, pane pid 270839 running
+  `bun … codex --dangerously-bypass-approvals-and-sandbox`) was true when taken.
+
+  **THE MECHANISM IS PRESERVED BECAUSE IT IS STILL LOAD-BEARING; ONLY THE VERDICT
+  EXPIRED.** Both drivers are legitimate and the preconditions accept either, but
+  they are NOT interchangeable when you drive: Codex has no `/livespec:*`
+  slash-command surface, so an instruction assuming a Claude skill invocation
+  sits unexecuted in a Codex pane — and, symmetrically, guidance written for a
+  Codex worker (native `request_user_input`, no slash commands) is wrong for the
+  Claude one now in place. **Report which driver you found every time you re-run
+  the preconditions, and never inherit the answer from this file.** A driver is a
+  claim with a timestamp exactly like an item status, and this one is now on its
+  second value.
 
   **THE RESTART-LIVELOCK CLAIM BELOW IS REFUTED FOR THIS SESSION — RE-MEASURED
   2026-08-04T13:21Z. Read this before planning around a worker you believe cannot
@@ -218,32 +226,83 @@ any of it forward; the Verification Discipline block is the command.
   Cite finding ids when you reason about design here — the thread's whole
   vocabulary is those ids.
 
-- **STATE AS OF 2026-08-06T11:05Z — `5dbc` LANDED, AND THE SEED AUDIT IMMEDIATELY
-  FOUND THE NEXT GAP OF THE SAME CLASS, WHICH IS NOW DISPATCHED. THIS IS THE ONLY
-  STATUS BLOCK; EVERYTHING BELOW IT IS STANDING GUIDANCE.** Re-measure before
-  acting.
+- **STATE AS OF 2026-08-07T21:10Z — THE SHIPPED FOREMAN HAS NOW BEEN OBSERVED
+  RUNNING END TO END AS AN LLM SESSION, AND THE THREE FIXES THIS THREAD LANDED
+  ARE VISIBLY WORKING IN IT. THIS IS THE ONLY STATUS BLOCK; EVERYTHING BELOW IT
+  IS STANDING GUIDANCE.** Re-measure before acting.
 
-  **THE INHERITED "DO THIS FIRST" IS DISCHARGED.** `overseer-5dbc` is CLOSED:
-  PR #765, merge `6ad1b3a`, 10:51:14Z, `ci-green` SUCCESS. Verified from
-  `origin/master` after a fetch with a negative control — the forbidding 0.33.0
-  line now has **zero** occurrences on master. **The work was RECOVERED from the
-  worktree, never re-implemented.**
+  **READ THIS FIRST — IT IS THE EXIT CONDITION'S EVIDENCE, AND IT WAS FOUND, NOT
+  PRODUCED.** The worker pane (now Claude, see the driver valve) was handed
+  `plan/foreman/handoff.md`, invoked `Skill(livespec-overseer:foreman)`, and ran
+  one bounded tick. From its own pane:
 
-  **DO THIS FIRST — A RUN IS IN FLIGHT AND ITS RESCUE WINDOW IS THE THING THAT
-  MATTERS.**
+  1. *"Human-valve disposition resolved to report-only (the fail-closed
+     default)"* — **`overseer-5dbc` working.** It RESOLVED the tier through the
+     shipped executable. Before PR #765 the contract told it that tier did not
+     exist.
+  2. *"Per the contract's 'Loop Carrier' section, this should run under the
+     harness /loop skill at the hourly default interval, stopping only when
+     foreman-runtime reports a non-null exit_reason. Want me to start that hourly
+     loop now?"* — **`overseer-67wh` working, and completely.** It found the
+     carrier, knew the cadence, knew the exit signal BY NAME, and raised the
+     resume question as a picker; the maintainer answered "Just this one tick"
+     and it obeyed. Before PR #768 the shipped contract mentioned `exit_reason`
+     **zero** times.
+  3. *"No supervisor_pair_start precondition was met (no explicit ask +
+     missing-handoff row together), so I did not start one."* — **`overseer-jk4u`
+     working.**
+  4. It independently diagnosed `overseer-1gig`'s failure to the same cause the
+     supervisor did, from the dispatch journal, unprompted.
 
-      item   overseer-67wh   P1   status=active  assignee=fabro
-      run    01KZBBH64PCXFQMVZXYN9XWQ2T   dispatched 10:57:57Z, reached `running`
-      watch  tmp/overseer/foreman/watch-67wh.sh
+  The tick correctly took **no** action and said why: every attention item was
+  human-gated or ambiguous-evidence, both report-only per the boundary. That is
+  the fail-closed default behaving exactly as `v007` requires.
 
-  That watcher looks for the **INTERVIEW** (`Needs human` / `Interview ended` /
-  `cannot auto-resolve`) as well as the terminal state, because a terminal-state
-  watcher wakes at the END of the rescue window — which is how a complete green
-  implementation was destroyed on `overseer-0fy` (**T16**, `bd-ib-6o6h`). If it
-  reports `INTERVIEW OPEN`, answer it via `fabro attach` immediately;
-  Retry / Re-implement / Abandon is a **supervisor**-grade choice. If it reports
-  `ABSENT`, check the forge for a merged PR **before** releasing the claim
-  (the succeeded-untransitioned shape). Re-arm it on ceiling.
+  **THAT CONJUNCTION IN (3) ALSO CORRECTS A FILING OF MINE.**
+  `supervisor_pair_start` requires an explicit ask **AND** a missing-handoff row.
+  The `foreman-supervisor` false positive filed as `overseer-1gig` supplies only
+  the second conjunct, so it cannot fire on its own — the defect is real but
+  **not live-dangerous**, and I filed it at a severity that overstates the
+  present risk. Recorded on the item as a measurement, not silently re-ranked.
+
+  **`overseer-5dbc` IS CLOSED:** PR #765, merge `6ad1b3a`, `ci-green` SUCCESS,
+  verified from `origin/master` with a negative control — the forbidding 0.33.0
+  line has **zero** occurrences on master, and `v0.33.1` SHIPPED the fix (checked
+  at the TAG, not the merge, because the defect was "this ships to nobody"). **The
+  work was RECOVERED from a worktree, never re-implemented.**
+
+  **ALSO CLOSED SINCE:** `overseer-67wh` (PR #768, `2b113d1`), `overseer-zluq`
+  (PR #770, `327734b`), `overseer-jk4u` (PR #771, `5e3bad4`). The binder itself
+  landed as PR #767, and PR #779 retired a stale credential claim in `AGENTS.md`.
+
+  **STILL OPEN: `overseer-1gig`, `ready`, unassigned, TWICE-REFUSED.** Attempt 1
+  failed at 29 minutes — the Green-amend hook could not commit, filed upstream as
+  `livespec-dev-tooling-sc0z`. Attempt 2 was refused **before sandbox launch** on
+  `CLAUDE_CODE_OAUTH_TOKEN` exhaustion (HTTP 429). Both phantom claims were
+  released by hand. **That is a WAIT, not a question** — re-dispatch when the
+  credential recovers, and expect to release the claim again if refused. Only an
+  org *spend* cap (as opposed to a rolling window) is a maintainer decision.
+  The item carries three annotations; read them before dispatching.
+
+  **NO RUN IS IN FLIGHT AS OF 2026-08-07T21:10Z. Every watcher this session armed
+  reached a terminal state and emitted its `WAKE:` line; none is left running.**
+  `tmp/overseer/foreman/watch-{67wh,zluq,770,771,1gig}.sh` have nothing to watch —
+  do NOT re-arm them.
+
+  **WHEN YOU DO DISPATCH, ARM AN INTERVIEW WATCHER BEFORE THE RUN GETS GOING.**
+  The pattern is `tmp/overseer/foreman/watch-1gig.sh` with its parser
+  `parse-1gig.py`: it looks for the **INTERVIEW** (`Needs human` /
+  `Interview ended` / `cannot auto-resolve`) as well as the terminal state,
+  because a terminal-state watcher wakes at the END of the rescue window — which
+  is how a complete green implementation was destroyed on `overseer-0fy`
+  (**T16**, `bd-ib-6o6h`). Keyed on the full 26-char ULID from `--json`, never the
+  12-char form `fabro ps` displays. **The PARSER emits the decision line and the
+  shell only pattern-matches it** — do not let the shell judge with `grep -qv`,
+  which resolves to a shell function on this host and fails in the keep-waiting
+  direction. If it reports `INTERVIEW OPEN`, answer via `fabro attach`
+  immediately; Retry / Re-implement / Abandon is a **supervisor**-grade choice. If
+  it reports `ABSENT`, check the forge for a merged PR **before** releasing the
+  claim (the succeeded-untransitioned shape).
 
   **THE PREDECESSOR'S PUSH WAS NEVER DEAD — IT WAS WEDGED ON A PAGER FOR TEN
   HOURS, AND TWO DEFECTS CAME OUT OF IT.** The inherited marker recorded "the
@@ -1785,4 +1844,41 @@ ordering exactly.
   matches alongside a GitHub read, and that regex matches the bare word `select`.
   A **jq** `select(...)` filter therefore false-positives as a shell `select`
   loop, and `--cache` does not help because the deny fires first. Filter with
-  `grep` instead.
+  `grep` instead. Measured further on 2026-08-07: it also fires on ORDINARY
+  ENGLISH PROSE — the word "for" in a PR body, and a heredoc writing a purely
+  LOCAL file whose text merely mentions a PR command. Rewording "for ten hours" to
+  "over ten hours" made the identical command pass. Compose prose with an editor
+  tool rather than a shell heredoc, and never put a GitHub command and English
+  prose in the same tool call. Reported on `livespec-driver-claude-mu5`.
+
+- **T19 (2026-08-07) — THE THREAD'S MOST IMPORTANT EVIDENCE SAT IN THE WORKER'S
+  PANE FOR HOURS AND I ONLY LOOKED BECAUSE THE DAEMON NAGGED ME.** This reopening
+  exists to produce proof that the SHIPPED foreman RUNS. That proof arrived while
+  I was busy filing, dispatching and re-dispatching, and I did not see it until an
+  idle notice said the PAIR had shown no progress and I re-ran cold-open step 4.
+  **WHAT WAS THERE.** The worker had invoked `Skill(livespec-overseer:foreman)`
+  and executed a bounded tick demonstrating all three of this session's fixes
+  working end to end — the valve disposition RESOLVED through the shipped
+  executable (`5dbc`), the loop carrier found with its exit signal named and the
+  resume question raised as a picker (`67wh`), and the supervisor-pair
+  precondition reasoned about (`jk4u`). Nothing I could have written would have
+  been better evidence, and I produced none of it.
+  **THE FAILURE IS A BOOT-CHAIN ONE, NOT AN ATTENTION ONE, WHICH IS WHY IT EARNS A
+  CORRECTION.** Cold-open step 4 says to read the worker's pane. I ran the full
+  chain at the START of the session and never returned to that step across many
+  turns, because every later turn was driven by a watcher notification about the
+  FACTORY. **Every instrument I armed pointed at fabro; none pointed at the pane
+  where the product actually runs.** That is T16's finding — nothing watches the
+  supervisor — rotated one notch: nothing was watching the WORKER either, and the
+  worker was the one doing the interesting thing.
+  **THE SECOND HALF: THE DRIVER CHANGED AND MY BINDER SAID OTHERWISE.** The valve
+  above asserted the worker runs Codex. It now runs Claude, restarted from under a
+  predecessor. That entry's own final sentence warns this can change under you and
+  to re-report it every time — and it still went a day stale, because nobody
+  re-ran the precondition that would have caught it. **A precondition block is not
+  a boot ritual; it is a measurement that decays.** Re-run it when the pair has
+  been quiet, not only at cold open.
+  THE RULE: **when a notification wakes you, handle what it was about, then go
+  look at the thing nothing is watching.** Twice this session I looked at
+  something no watcher pointed at — the ten-hour push, and this pane — and both
+  times it was the most valuable thing in the turn.
