@@ -193,15 +193,32 @@ Consequences to hold onto:
   accounts.** At least two limit kinds have been seen — an org monthly spend
   cap and a rolling window. Raising one clears neither the other nor a
   different account, so name WHICH credential you measured.
-- **The Dispatcher's own Claude check is presence-only** —
-  `os.environ.get(CLAUDE_CODE_OAUTH_TOKEN, "") != ""`
-  (`_dispatcher_credentials.py:252`) — so a present-but-exhausted token passes
-  pre-flight and the run dies mid-review. Codex, by contrast, has a real
-  usability gate plus `dispatcher.py codex-cred-refresh`. Closing that
-  asymmetry is `bd-ib-3mbj` (P1, orchestrator tenant); until it lands, the
-  host-side probe in
-  `plan/background-shell-supervision-liveness/handoff.md` §"Gate 4" is the
-  only valid signal — verified 200 on 2026-07-30 after a token rotation.
+- **The Dispatcher's Claude check WAS presence-only. IT IS NOT ANY MORE, and the
+  remedy this entry used to prescribe is retired.** Observed directly on
+  2026-08-07 while dispatching `overseer-1gig`: the dispatch was refused **before
+  sandbox launch**, at stage `run-config-overlay`, with
+
+      C-mode dispatch refused before sandbox launch: CLAUDE_CODE_OAUTH_TOKEN is
+      exhausted or rate-limited (HTTP 429, rate_limit_error).
+      Observed condition: exhausted.
+
+  That is a real usability gate, symmetric to the Codex one, and `bd-ib-3mbj` —
+  the item that closed the asymmetry — reads `acceptance` in the orchestrator
+  tenant. **So a present-but-exhausted token no longer passes pre-flight, and a
+  run no longer dies mid-review from this cause.** Do NOT reach for the host-side
+  probe in `plan/archive/background-shell-supervision-liveness/handoff.md`
+  §"Gate 4" as "the only valid signal": the dispatcher now reports the condition
+  itself, names the credential, and consumes no spend doing it.
+
+  **THE DESCRIPTION IS RETIRED; THE MECHANICS ARE NOT.** Three things still hold,
+  and they are why this entry keeps its length. The refusal is a **wait, not a
+  question** — a rolling limit clears on its own and must never be escalated as a
+  maintainer decision, though an org *spend* cap genuinely is theirs. The refusal
+  still leaves the work-item `active` with assignee `fabro` even though
+  `fabro_run_id` is `null` and no run exists, so **release the claim by hand after
+  any refused dispatch**. And the credential it names is `CLAUDE_CODE_OAUTH_TOKEN`,
+  the factory path — a probe against `ANTHROPIC_API_KEY_LIVESPEC_E2E` or
+  interactive `claude -p` remains a documented false positive.
 - **Never print token material.** Presence, prefix and length are enough to
   identify which credential you are holding.
 
