@@ -250,6 +250,7 @@ check:
         # is green-by-skip in both modes. Self-skips in CI and when codex is
         # absent — see the recipe for why those deviations are declared there.
         check-codex-skill-picker
+        check-spec-governance-default-block
         # Repo-local release-hygiene gate (overseer-d4t): generator
         # prose may not change without a release-triggering commit,
         # or the fix never reaches the plugin cache that generates
@@ -713,6 +714,9 @@ check-codex-plugin-runnable-launcher:
 # reads as coverage; leaving it out keeps the skip honest and visible here.
 check-codex-skill-picker:
     scripts/check-codex-skill-picker.sh
+
+check-spec-governance-default-block:
+    uv run python scripts/check-spec-governance-default-block.py
 
 # ---------------------------------------------------------------
 # Pre-commit aggregate — Red-mode-aware. Classifies the staged
