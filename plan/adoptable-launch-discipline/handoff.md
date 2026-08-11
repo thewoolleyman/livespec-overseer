@@ -31,8 +31,10 @@ recoverable from the index by topic), Codex fresh launch immediate
 ## 2. Where this thread stands
 
 Created 2026-08-11. The epic anchor is **`overseer-fjhsj3`**. Read live
-status from the ledger — `list-work-items` / `bd show overseer-fjhsj3` —
-never from this file; this handoff cites ids read-only and carries no
+status from the ledger — `list-work-items`, or the credential-wrapped
+ledger read `source /data/projects/1password-env-wrapper/with-livespec-env.sh
+bd -C /data/projects/livespec-overseer show overseer-fjhsj3` (a BARE `bd`
+fails with Access denied in these tenants) — never from this file; this handoff cites ids read-only and carries no
 work queue.
 
 Done so far: the reasoning note (§5 item 1) carries the audit-sized
@@ -57,7 +59,14 @@ do not duplicate); optionally (c) productizing the audit as a standing
 cause-side check, which is a maintainer scope call. File approved
 slices as CHILDREN of `overseer-fjhsj3` via the `capture-work-item`
 operation (`depends_on` the epic; autonomy tier T2 — the fleet's
-dispatch-after-ratification tier), implemented through the FACTORY
+dispatch-after-ratification tier). CROSS-TENANT HAZARD at this exact
+step: a slice filed in a FOREIGN tenant (front (a) is inherently
+multi-repo) must NOT `depends_on` an `overseer-` id — no consuming
+repo lists `livespec-overseer` in `cross_repo_targets`, so the
+reference resolves UNKNOWN and fails closed FOREVER (the documented
+`plan/charter-gate-ratchet/` failure that left three of eight slices
+permanently undispatchable). Let each tenant mint its own id and
+record the ordering in slice TEXT. Slices land through the FACTORY
 path — the `drive` operation (`impl:<id>`) or the Dispatcher drain —
 never the in-session `implement` operation.
 
@@ -82,10 +91,17 @@ worktree → PR → rebase-merge discipline.
   adoption keys on registry-name == plan topic. A deliberately
   topic-named agent inside a differently-named tmux session (live
   precedent: tmux `homelab` holding claude `01-homelab-aws-account`)
-  is a WORKING mapping the gate must not flag.
+  is a WORKING mapping the gate must not flag. Any detector on this
+  axis needs BOTH a must-pass exemplar (the case above) and a
+  must-flag counterpart, per the charter-gate corpus's
+  three-way-control discipline — all four false positives that gate
+  family has ever produced flagged already-correct content.
 - Live-repair keystrokes (`/rename`) are never sent into a pane
   showing a structured gate (a picker consumes keystrokes) — the
-  2026-08-11 audit's gated-skip discipline.
+  2026-08-11 audit's gated-skip discipline. The detection predicate is
+  `signals.is_structured_gate` (`overseer/signals.py`): a `❯ N.` /
+  `› N.` numbered cursor or the literal permission question; check the
+  capture BEFORE typing.
 - The conformance gate fails charters at GENERATION/check time; it
   never blocks or kills a live mis-launched session (those surface
   through the daemon's existing `session-gone` / `codex-unindexed`
@@ -95,9 +111,11 @@ worktree → PR → rebase-merge discipline.
 
 1. `plan/adoptable-launch-discipline/launch-idioms-and-gate.md` — the
    audit-sized problem, the idioms, the two fronts, the non-rule.
-2. `overseer/claude_sessions.py` and `overseer/codex_sessions.py` — the
-   exact adoption joins the discipline serves (registry name;
-   session-index thread name).
+2. `overseer/claude_sessions.py` (a re-export facade — the registry
+   join itself lives in `overseer/_claude_sessions_registry.py`, read
+   that too) and `overseer/codex_sessions.py` — the exact adoption
+   joins the discipline serves (registry name; session-index thread
+   name).
 3. `plan/charter-gate-ratchet/handoff.md` — the adjacent thread owning
    charter-gate MECHANICS this thread's enforcement front plugs into.
 4. `overseer/_supervisor_launch.py` — the daemon's own correct launch
