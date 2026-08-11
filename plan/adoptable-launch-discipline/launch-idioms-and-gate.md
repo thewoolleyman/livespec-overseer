@@ -42,7 +42,11 @@ charter/bootstrap-driven launches by workers and supervisors.
   --dangerously-bypass-approvals-and-sandbox <session-id> "<kick>"` —
   reattaches the SAME rollout, thread name survives. **Codex, fresh
   launch**: immediately `/rename <topic>` in the TUI so
-  `session_index.jsonl` gains the record. The session id for a resume
+  `session_index.jsonl` gains the record (verified live 2026-08-11 on
+  `beads-v1-1-2-upgrade`: the rename registered in the index and the
+  session's own statusline within seconds — with the one caveat that
+  the submit Enter can be swallowed, the `overseer-mgg` family, so
+  verify the composer cleared). The session id for a resume
   is recoverable from the index by topic
   (`codex_sessions.latest_session_for_thread_name`).
 - The idioms are RUNTIME-SPECIFIC and must be stated separately;
@@ -53,7 +57,8 @@ charter/bootstrap-driven launches by workers and supervisors.
 
 1. **Charter/protocol content**: the supervisor-protocol layer
    (`.ai/supervisor-protocol.md` in each target repo) and the charter/
-   supervisor-handoff generator in THIS repo state the per-runtime
+   supervisor-handoff generator in THIS repo
+   (`overseer/_supervisor_prompts.py`) state the per-runtime
    adoptable-launch idiom verbatim wherever they instruct launching or
    restarting an agent session — worker restarts by supervisors, sub
    session spawns, bootstrap launches. `overseer-daj`'s acceptance
