@@ -164,8 +164,25 @@
     // identical to agreement. Maintainer-directed 2026-07-29: every governed
     // repo is "ai-only".
     //   acceptance_mode: "ai-only" — post-merge acceptance without a human.
-    // `auto_approve_ready` is deliberately NOT set here: it is a different
-    // lever (admission, not acceptance) and was not part of that direction.
+    // Admission policy. `auto_approve_ready` is a DIFFERENT lever from
+    // acceptance above: it governs whether a `pending-approval` item is
+    // admitted to the ready set without a human, not what happens after a
+    // merge. It was previously left unset here — noted at the time as simply
+    // out of scope for the 2026-07-29 acceptance direction rather than as a
+    // considered opt-out — which meant the resolver default applied and every
+    // item in this repo waited at the admission gate for a person. That made
+    // livespec-overseer the ONLY governed repo where `pending-approval` was a
+    // real human valve, so the fleet-wide guidance "pending-approval is not a
+    // human valve" was inverted here and had to be special-cased by anyone
+    // dispatching against this tenant.
+    //   auto_approve_ready: true — admission without a human.
+    // Maintainer-directed 2026-08-11, when the overseer-pfpfty realization
+    // chain (overseer-pfpfty.1 through .5) was filed and its head slice sat
+    // unstartable behind that gate. This is a REPO-WIDE change: it admits every
+    // future item in this tenant, not only that chain. The human controls that
+    // remain are unaffected — `blocked-reason:needs-human` items (such as
+    // overseer-pfpfty.2, the ratification valve) are still held, and
+    // acceptance_mode above still governs post-merge disposition.
     //
     // Host-level dispatch concurrency. Maintainer-directed 2026-07-30: raise
     // this repo's committed cap from the resolver default 2 to 4. The key is a
@@ -215,6 +232,7 @@
     // every comment here while reporting green — tracked as bd-ib-lmi5.
     "dispatcher": {
       "acceptance_mode": "ai-only",
+      "auto_approve_ready": true,
       "host_dispatch_cap": 4
     }
   }
