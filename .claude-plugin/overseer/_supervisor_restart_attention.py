@@ -127,11 +127,6 @@ def post_respawn_decision(
 ) -> RowView | None:
     """Handle post-respawn recovery/reporting before the normal cascade."""
     _ = _restart_never_worked_age(sup=sup, track=track, obs=obs)
-    if act and obs.istate.restart_never_worked_episode.since is None:
-        _clear_restart_never_worked_alert(sup=sup, track=track)
-    retry = resume_retry(sup=sup, track=track, obs=obs, act=act, session=session, target=target)
-    if retry is not None:
-        return retry
     decision = _restart_never_worked(
         sup=sup,
         track=track,
@@ -140,14 +135,19 @@ def post_respawn_decision(
         pane=target,
         act=act,
     )
-    if decision is None:
-        return None
-    view, active_conditions = decision
-    if act:
-        _supervisor_liveness.clear_alert_conditions(
-            sup=sup,
-            repo=track.repo,
-            topic=track.topic,
-            conditions=frozenset(active_conditions),
-        )
-    return view
+    if decision is not None:
+        view, active_conditions = decision
+        if act:
+            _supervisor_liveness.clear_alert_conditions(
+                sup=sup,
+                repo=track.repo,
+                topic=track.topic,
+                conditions=frozenset(active_conditions),
+            )
+        return view
+    if act and obs.istate.restart_never_worked_episode.since is None:
+        _clear_restart_never_worked_alert(sup=sup, track=track)
+    retry = resume_retry(sup=sup, track=track, obs=obs, act=act, session=session, target=target)
+    if retry is not None:
+        return retry
+    return None
