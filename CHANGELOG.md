@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.1...v0.34.2) (2026-08-12)
+
+
+### Bug Fixes
+
+* detect stranded restart without retry marker ([deb5e89](https://github.com/thewoolleyman/livespec-overseer/commit/deb5e8988c5f2afd42621168d1f81a489e141b5e))
+
 ## [0.34.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.0...v0.34.1) (2026-08-12)
 
 
