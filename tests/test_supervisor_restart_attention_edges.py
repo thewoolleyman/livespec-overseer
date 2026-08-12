@@ -7,8 +7,9 @@ from pathlib import Path
 
 import _supervisor_view
 import registry
+import signals
 import supervisor
-from test_supervisor_builders import make_plan, make_supervisor, mapped_track
+from test_supervisor_builders import arm_ready_marker, make_plan, make_supervisor, mapped_track
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -87,6 +88,34 @@ def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retr
     fake.panes[session] = _capture_with_resume(resume=resume, ctx=100)
     rearmed = sup.evaluate(track=track, act=True)
     assert rearmed.status == "settling"
+
+
+def test_due_restart_never_worked_attention_does_not_retry_or_clear_round(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
+    clock = {"now": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"], own_pane="%7")
+    _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    assert sup.evaluate(track=track, act=True).status == "settling"
+    registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
+    fake.calls.clear()
+    clock["now"] += 61.0
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        due = sup.evaluate(track=track, act=True)
+    assert due.status == "restart-never-worked"
+    assert supervisor.needs_attention(row=due) is True
+    assert not any(call[0] == "keys" for call in fake.calls)
+    assert not fake.has(method="respawn")
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_READY
+    assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
 
 def test_restart_never_worked_attention_clears_on_busy_and_rearms(*, tmp_path):
