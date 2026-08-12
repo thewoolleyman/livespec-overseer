@@ -62,8 +62,8 @@ def _restart_never_worked_age(
         if recorded is not None
         else default_resume(repo=track.repo, topic=track.topic)
     )
-    no_context_consumed = obs.eff_ctx is not None and (
-        obs.eff_ctx == recorded.ctx
+    no_context_consumed = obs.current_ctx is not None and (
+        obs.current_ctx == recorded.ctx
         if recorded is not None
         else obs.istate.last_ctx_changed_at is None
     )

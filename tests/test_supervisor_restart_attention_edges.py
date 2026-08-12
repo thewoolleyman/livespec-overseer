@@ -6,23 +6,33 @@ import json
 from pathlib import Path
 
 import _supervisor_launch
+import _supervisor_records
 import _supervisor_view
 import registry
 import signals
 import supervisor
-from test_supervisor_builders import arm_ready_marker, make_plan, make_supervisor, mapped_track
+from test_supervisor_builders import (
+    arm_ready_marker,
+    key_for,
+    make_plan,
+    make_supervisor,
+    mapped_track,
+)
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
 
 
-def _capture_with_resume(*, resume: str, ctx: int) -> str:
+def _capture_with_resume(*, resume: str, ctx: int | None) -> str:
+    status = "  Opus 4.8 (1M context) | /x/repo"
+    if ctx is not None:
+        status += f" | Ctx: {ctx}% left"
     return (
         "● welcome\n"
         "────────────────────────────────────────\n"
         f"❯ {resume}\n"
         "────────────────────────────────────────\n"
-        f"  Opus 4.8 (1M context) | /x/repo | Ctx: {ctx}% left\n"
+        f"{status}\n"
         "  ⏵⏵ bypass permissions on\n"
     )
 
@@ -74,6 +84,32 @@ def test_restart_never_worked_read_only_evaluation_reports_without_alerting(*, t
     assert due.status == "restart-never-worked"
     assert supervisor.needs_attention(row=due) is True
     assert sup.alerted == {}
+
+
+def test_unreadable_fresh_context_cannot_prove_restart_never_worked(*, tmp_path):
+    """A cached ctx value is not proof that a fresh session consumed nothing."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=None))
+    clock = {"now": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"], own_pane="%7")
+    state = sup.inject.setdefault(
+        key_for(repo=repo, topic=topic), _supervisor_records.InjectState()
+    )
+    state.last_ctx = 100
+    state.last_ctx_seen = 999.0
+    _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    assert sup.evaluate(track=track, act=True).status == "settling"
+    clock["now"] += 61.0
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        due = sup.evaluate(track=track, act=True)
+    assert due.status == "settling"
+    assert supervisor.needs_attention(row=due) is False
 
 
 def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retry(*, tmp_path):

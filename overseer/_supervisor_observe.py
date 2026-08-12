@@ -337,6 +337,7 @@ def observe(
         runtime=runtime,
         codex_fallback=codex_fallback,
         claude_status=claude_status,
+        current_ctx=current_ctx,
         eff_ctx=eff_ctx,
         ctx_changed=ctx_changed,
         ctx_stale_age=ctx_stale_age,
