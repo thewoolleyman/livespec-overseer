@@ -45,9 +45,11 @@ slices below; the epic anchor remains `overseer-fjhsj3`.
 
 Local livespec-overseer slices:
 
-- `overseer-rf6qg3` — core generator/protocol content — `ready`.
-- `overseer-464iib` — existing charter-gate-ratchet enforcement —
-  `pending-approval`, dependent on `overseer-rf6qg3`.
+- `overseer-rf6qg3` — core generator/protocol content — **closed** after
+  merged PR #811 and the follow-up handoff PR #813.
+- `overseer-464iib` — existing charter-gate-ratchet enforcement — `ready`;
+  implementation is committed locally as `50156a6` and has not yet been
+  pushed or opened as a PR.
 
 Repo-local protocol slices, each filed in its own tenant with ordering kept
 in prose rather than a cross-tenant dependency edge:
@@ -58,31 +60,32 @@ in prose rather than a cross-tenant dependency edge:
 - `bd-ib-e7qesr` in livespec-orchestrator-beads-fabro — `ready`.
 - `livespec-dev-tooling-tqu55m` in livespec-dev-tooling — `ready`.
 
-The core slice is implemented in the worktree branch
-`implement-adoptable-launch-discipline`. The maintainer explicitly directed
-in-session implementation after two factory preflight refusals reported the
-factory `CLAUDE_CODE_OAUTH_TOKEN` exhausted/rate-limited before sandbox launch;
-no factory run was created. The implementation adds the runtime-specific
-launch/restart contract to both prose layers and generated-output tests. The
-red/green commit is `fix: enforce adoptable runtime launch contract`; the
-targeted contract suite passes. The handoff and PR still need to be landed,
-then `overseer-rf6qg3` needs its completion recorded. No enforcement
-implementation or spec sweep has been performed. The defect's live comment
-remains the evidence anchor: 51 panes, 20 unadoptable agents (18 Claude
-launches missing `-n`, 2 unnamed Codex threads).
+The core slice is implemented and merged from the worktree branch
+`implement-adoptable-launch-discipline`; its generator/protocol changes add the
+runtime-specific launch/restart contract to both prose layers and generated-
+output tests. The maintainer explicitly directed in-session implementation of
+the enforcement slice after the factory `CLAUDE_CODE_OAUTH_TOKEN` remained
+exhausted/rate-limited before sandbox launch; no factory run was created. The
+enforcement commit `50156a6` extends the existing charter-defect registry with
+class `(m)`, including red/green controls for an incomplete contract,
+reformatted correct content, a differently named tmux session, and structured-
+gate `/rename` safety. `just check` passed all 70 targets, with 1112 tests
+passing in the aggregate suite. No daemon behavior or spec sweep was changed.
+The defect's live comment remains the evidence anchor: 51 panes, 20
+unadoptable agents (18 Claude launches missing `-n`, 2 unnamed Codex threads).
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
-THE next action on resume: **land the in-session core implementation and close
-`overseer-rf6qg3` with the maintainer-directed execution reason**. Then drive
-`overseer-464iib`, followed by the three already-ready foreign protocol
-slices. The homelab slice needs its normal tenant admission step before
-dispatch. This thread exists to pull the approved replacement work forward;
-do not re-groom or re-file `overseer-daj`.
+THE next action on resume: **push the committed enforcement slice, open and
+rebase-merge its PR, then close `overseer-464iib` with the maintainer-directed
+execution reason**. Then drive the three already-ready foreign protocol slices.
+The homelab slice needs its normal tenant admission step before dispatch. This
+thread exists to pull the approved replacement work forward; do not re-groom or
+re-file `overseer-daj`.
 
 The approved dependency layers are:
 
-1. **Core content, target `livespec-overseer`:** update the actual charter
+1. **Core content, target `livespec-overseer` — DONE:** update the actual charter
    generator, `.claude-plugin/prose/supervise-plan.md`, and this repo's
    `.ai/supervisor-protocol.md` with separate Claude fresh/live-repair and
    Codex resume/fresh-launch idioms. Preserve the exact adoption join, the
@@ -94,7 +97,8 @@ The approved dependency layers are:
    console has supervisor handoffs but no shared protocol file. Each foreign
    tenant must mint its own id; do not add a `depends_on` edge to an
    `overseer-` id. Record ordering in each slice's text.
-3. **Enforcement, cross-linked to `plan/charter-gate-ratchet/`:** extend
+3. **Enforcement, cross-linked to `plan/charter-gate-ratchet/` — IMPLEMENTED
+   LOCALLY, LANDING NEXT:** extend
    its existing detector machinery, rather than creating a second gate, so
    a launch/restart leg omitting the runtime-specific idiom fails. Require
    a must-flag defect, a must-pass differently-written correct form, a
