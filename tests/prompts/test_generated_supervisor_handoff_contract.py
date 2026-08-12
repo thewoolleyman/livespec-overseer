@@ -697,6 +697,45 @@ def test_the_generator_prose_requires_role_rule_sections_in_the_shared_layer():
     assert "standalone role-level ## rule sections" in prose
 
 
+def test_the_adoptable_runtime_contract_is_emitted_in_both_layers():
+    """The runtime-specific adoption join must survive generation."""
+    required = (
+        "Adoptable runtime launch and restart",
+        "claude --dangerously-skip-permissions -n <topic>",
+        "/rename <topic>",
+        "codex resume",
+        "--dangerously-bypass-approvals-and-sandbox <session-id>",
+        "session_index.jsonl",
+        "thread_name",
+        "tmux session name is not an adoption key",
+        "signals.is_structured_gate",
+    )
+    layers = (
+        _GENERATOR_PROSE.read_text(encoding="utf-8"),
+        _SHARED_LAYER.read_text(encoding="utf-8"),
+    )
+    for layer in layers:
+        flattened = " ".join(layer.split())
+        assert all(needle in flattened for needle in required), [
+            needle for needle in required if needle not in layer
+        ]
+
+
+def test_the_adoptable_runtime_contract_keeps_tmux_and_daemon_boundaries():
+    """The adoption fix must not turn into fuzzy or live daemon behavior."""
+    text = "\n".join(
+        (
+            _GENERATOR_PROSE.read_text(encoding="utf-8"),
+            _SHARED_LAYER.read_text(encoding="utf-8"),
+        )
+    ).lower()
+    assert "daemon's own launch paths unchanged" in text
+    assert "fuzzy matching" in text
+    assert "tmux-name matching" in text
+    assert "live killing" in text
+    assert "blocking" in text
+
+
 def test_layered_current_charter_is_the_iteration_stability_positive_control():
     binder = (
         _REPO_ROOT / "tests" / "prompts" / "fixtures" / "exemplar-supervisor-handoff.md"
