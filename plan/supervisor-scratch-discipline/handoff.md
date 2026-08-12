@@ -217,9 +217,14 @@ new PR).
 - `livespec-dev-tooling-q3emww` (pre-existing, found independently by another
   thread the same day as the homelab incident) — fixes the converse gap: an
   archived thread whose anchor epic is still open passes green today.
-  **NOT DONE. Run `01KZSPSTPFX6` FAILED, and its work was DESTROYED — see
-  "The q3emww loss and its credential root cause" below before you touch it.
-  It still reads `ACTIVE`/`fabro`: that is a PHANTOM CLAIM, not a live run.**
+  **Run `01KZSPSTPFX6` failed and was reaped, but its work was NOT lost: the
+  patch was recovered with `fabro dump` and is IN REVIEW, unchanged, as
+  `livespec-dev-tooling` PR #1368 (commit `a8d4692`) — open with gates green
+  at the time of writing, NOT yet merged. Confirm the merge before treating
+  this item as done; that is this thread's whole standard.** Red leg
+  hook-confirmed, Green amend and push gates each 66/66 targets. The phantom
+  claim was released 2026-08-12. See "The q3emww loss" below — it is now a
+  recovery story, not a loss.
 - `livespec-dev-tooling-5asgvm` — fixes THIS incident's specific gap:
   descendant-completion checking (an archived thread whose anchor closed via
   regroom-out, with live undisposed replacement descendants, passes green
@@ -337,22 +342,50 @@ nothing pushed.
 
 ## Next action
 
-1. Land `q3emww`'s RECOVERED patch (`fabro dump 01KZSPSTPFX6 -o <dir>`, then
-   `stages/002-implement@1/diff.patch`) through the normal worktree → PR flow
-   in `livespec-dev-tooling`, rather than re-dispatching and paying for the
-   same work twice. It applied cleanly to master as of 2026-08-12; re-check
-   before relying on that.
-2. Once `q3emww` has a merged PR, dispatch `livespec-dev-tooling-5asgvm`
-   (command above) so its implementer can see `q3emww`'s shipped shape.
+1. **Confirm `livespec-dev-tooling` PR #1368 merged**, then close
+   `q3emww`. The recovered patch (`a8d4692`) was opened 2026-08-12 with both
+   gates green; it was recovered from the dead run rather than reimplemented.
+   The recovery technique is now written up in this repo's `AGENTS.md` "fifth
+   shape" entry (PRs #840, #841 — both MERGED), which previously told every
+   session that such work was destroyed.
+2. Dispatch `livespec-dev-tooling-5asgvm` (command above) now that `q3emww`'s
+   shipped shape exists for its implementer to compose with. The item is
+   already annotated with that shape and with the push-a-draft-PR-before-
+   escalating rule; **this is real factory spend, so it is a maintainer
+   go/no-go, not an automatic step.**
 3. Consider filing the two credential defects surfaced above: (a) fabro should
    refresh the installation token during long runs — the actual root cause;
    (b) `master_ci_green` should treat a 401 as *invalid credential →
-   environmental*, distinct from a failed-while-credentialed API call.
-4. Only once `q3emww` AND `5asgvm` have real merged PRs: replace this whole
-   "Status"/"Dispatch outcome"/"premature-archival incident"/"q3emww loss"
-   section with a short completion summary citing every PR, and only THEN
-   consider archiving — re-running the plan operation's handoff
-   self-sufficiency gate first, same as any other refresh.
+   environmental*, distinct from a failed-while-credentialed API call. **Weigh
+   (b) carefully rather than filing it reflexively:** that check's present-but-
+   invalid hard-failure is a DELIBERATE design decision, documented in its own
+   docstring, taken to close a hole where an outage routed a credentialed
+   caller onto the fail-soft path. Narrowing it to 401-only is defensible, but
+   it is a design change with a real trade-off, not an obvious bug — and this
+   repo's charter-gate experience is that "the detector is wrong" is usually
+   the wrong first guess.
+4. **A THIRD DEFECT WAS FOUND WHILE LANDING (1) AND IS ALREADY FILED:**
+   `livespec-dev-tooling-ivd8`. `plan_thread_epic_parity` decides whether to
+   examine a thread by regex-matching the handoff's anchor PROSE, and silently
+   skips it — no warning, exit 0 — when that fails. Measured with the real
+   check, armed, changing only formatting: as-filed → silent pass; anchor line
+   reformatted → fires with `epic_status: closed`. Fleet-wide, **39 of 49
+   active plan threads (80%) are never examined**, three repos at zero. It is
+   orthogonal to `q3emww` and `5asgvm` — it drops the thread before either
+   assertion runs, so neither fix helps on those 39.
+   **This thread is itself a live instance of BOTH `5asgvm` and `ivd8`:** its
+   anchor `overseer-5jttov` is closed procedurally (regroom-out) while its work
+   continued, and its own handoff is one of the 39 the check cannot see. Note
+   the hazard if `ivd8` is fixed alone: the check would then start firing on
+   this thread with the remediation "the plan thread is complete — archive it",
+   which is exactly the premature-archival error recorded above.
+5. Only once `5asgvm` has a real merged PR (`q3emww` now does): replace this
+   whole "Status"/"Dispatch outcome"/"premature-archival incident"/"q3emww
+   loss" section with a short completion summary citing every PR, and only
+   THEN consider archiving — re-running the plan operation's handoff
+   self-sufficiency gate first, same as any other refresh. `ivd8` is a
+   separate thread's problem and must NOT be absorbed here; name it and leave
+   it, per the scope boundary above.
 
 Do not hand-code implementation inline in a planning session — the factory
 path (`drive --action impl:<id>`) is the only implementation path for any of
