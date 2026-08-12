@@ -22,35 +22,42 @@ Round 1 of the independent adversarial review (2026-08-12) returned six
 blockers. Round 2 (2026-08-12) confirmed four of them fully cleared, one cleared
 in substance, one only PARTIALLY cleared, and found four NEW defects introduced
 by the fixes themselves. Round 4 (2026-08-12) re-derived all four round-2
-blockers as genuinely cleared and confirmed all 24 replace-targets verbatim and
-tree-wide-unique, and found three NEW defects — all three in the round-3
-amendment text, and two of them junction defects visible only after applying the
-edits. Amendments are marked inline as `[R1-n]`, `[R2-n]` and `[R4-n]` against
-the blocker they answer, and summarized in §"What round 1 changed",
-§"What round 2 changed" and §"What round 4 changed".
+blockers as genuinely cleared and confirmed all 24 then-current replace-targets
+verbatim and tree-wide-unique, and found three NEW defects — all three in the
+round-3 amendment text, and two of them junction defects visible only after
+applying the edits. Round 5 (2026-08-12), performed by Fable 5, confirmed all
+three round-4 blockers genuinely cleared, all 25 then-current replace-targets
+verbatim and tree-wide-unique with non-no-op mutation controls, all 25 applying
+in memory, heading-coverage simulation clean, and the `.9` -> `.2` -> `.4`
+ledger graph live; it found one NEW defect, an orphaned intra-section referent
+left behind by the bounded-probe retirement. Amendments are marked inline as
+`[R1-n]`, `[R2-n]`, `[R4-n]` and `[R5-n]` against the blocker they answer, and
+summarized in §"What round 1 changed", §"What round 2 changed", §"What round 4
+changed" and §"What round 5 changed".
 
 **The ratification record names the model that performed each review round, and
 no blanket value is honest for this history** `[R4-3]`. Rounds 1 and 2 were
 performed by Opus 5 under maintainer-authorized one-off deviations from the
 Fable-model requirement — round 2's authorization was given explicitly as a
 SECOND one-off that repeats the round-1 deviation rather than closing it. Round 4
-was performed by Fable 5, the model `AGENTS.md` requires, closing the deviation.
-An earlier revision of this section instructed that the record MUST read
-`reviewer_model: opus` and never `fable`; that instruction was accurate only
-while every extant review was Opus, and it expired when this Fable round was
-commissioned. Attesting `opus` for a round Fable performed is the same defect as
-attesting `fable` for a round Opus performed — correction T1 in either
-direction — and it is the one thing here no CLI can catch, because the revise
-flow validates field SHAPE, not truth.
+and round 5 were performed by Fable 5, the model `AGENTS.md` requires, closing
+the deviation. An earlier revision of this section instructed that the record
+MUST read `reviewer_model: opus` and never `fable`; that instruction was
+accurate only while every extant review was Opus, and it expired when the first
+Fable round was commissioned. Attesting `opus` for a round Fable performed is the
+same defect as attesting `fable` for a round Opus performed — correction T1 in
+either direction — and it is the one thing here no CLI can catch, because the
+revise flow validates field SHAPE, not truth.
 
 Because rounds 1 and 2 shared one instrument, round 2 deliberately varied the
 METHOD rather than relying on the reviewer differing: it simulated applying all
 24 replacements in memory and swept the RESULT, and two of its four blockers
-were visible only that way. Round 4 — a genuinely different instrument — found
-two of its three blockers the same way. Every revision since has been verified
-that way, this one included: see §"Verification method". Target-matching alone
-provably cannot see the junction class, because target and replacement are each
-individually correct and only their seam with the surviving text is wrong.
+were visible only that way. Rounds 4 and 5 — a genuinely different instrument —
+found two of round 4's three blockers and round 5's sole blocker the same way.
+Every revision since has been verified that way, this one included: see
+§"Verification method". Target-matching alone provably cannot see the junction
+class, because target and replacement are each individually correct and only
+their seam with the surviving text is wrong.
 
 ### Summary
 
@@ -95,7 +102,7 @@ plan-thread vocabulary to the ratified `plan` vocabulary — the artifact is a
 **plan**; the Planning Lane is the Spec-Plane convention that governs it. The
 four are identified by the verbatim text quoted in EDIT 4 rather than by line
 number: a `spec.md` line number is not stable against other lanes landing, and
-the v011 ratification moved all four between round 2 and this revision.
+the v011 ratification moved all four between rounds 1 and 2.
 
 One `## ` heading in `scenarios.md` is RENAMED and one is ADDED, so ratification
 DOES owe a `tests/heading-coverage.json` co-edit; it is specified in full in
@@ -160,6 +167,21 @@ the original proposal.
 | 1 | §"Ratification sequencing"'s two load-bearing claims about `overseer-pfpfty.9` both failed re-derivation: "at the moment a track is discovered or assigned — the same mechanism this proposal describes in EDIT 3" named the daemon's discovery pass, which EDIT 3 expressly bars; and "contradicts no clause of the CURRENT spec" was false, since the live persisted-facts ONLY-enumeration excludes a populated epic id — proven by this proposal's own EDIT 4 amending that enumeration to admit it. | The section now states the population moment as EDIT 3 states it — at ASSIGNMENT, never on the daemon's discovery pass — and drops the "discovered or" arm. The neutrality claim is replaced by the true and still-sufficient one: population changes no read-first behavior, no respawn prompt and no daemon decision, but it DOES put a populated `epic` ahead of the enumeration amendment that legalizes it, which is exactly why the accept must follow `.9` immediately or land with it, not merely eventually. |
 | 2 | EDIT 3 grounded the foreman's anchor-read on §"Non-interference with tracked work" paraphrased as permitting reads "solely as evidence", eliding that clause's actual restriction — "solely as EVIDENCE for its own decision-routing" — which recording an epic id for the daemon's respawn prompt is not. A junction defect: target and replacement each individually correct, the seam with the SURVIVING paragraph wrong. | EDIT 5 now amends that surviving paragraph in the SAME payload, widening its enumerated purposes from one to exactly two so the second is the duty EDIT 3 assigns; `solely` stays exclusive and the write prohibitions are untouched. EDIT 3's citation is re-grounded on the amended grant, and the actor/moment wobble in the same clause is fixed: the row comes into being at assignment, the obligation attaches to whichever surface performs it, no surface is declared the assigner, and the unreadable-anchor case is stated. |
 | 3 | §"Amendment history" instructed that the ratification record "MUST therefore read `reviewer_model: opus`, never `fable`" — accurate only while every extant review was Opus, and expired the moment this Fable round was commissioned. Followed literally it mandated a false attestation about the very review the accept gates on. | Replaced with the per-round rule: the record names the model that performed each round (1 and 2: Opus 5, under maintainer-authorized one-off deviations; 4: Fable 5, the model `AGENTS.md` requires), and no blanket value is honest for this history. Round 4 is recorded in the same section. |
+
+### What round 5 changed
+
+Round 5 was performed by Fable 5. It confirmed all three round-4 blockers
+genuinely cleared; all 25 then-current replace-targets verbatim and
+tree-wide-unique with non-no-op mutation controls; all 25 applied in memory;
+heading-coverage simulation clean; and the `.9` -> `.2` -> `.4` ledger graph
+verified live. It found one new defect: the tombstone-prohibition rationale
+paragraph in `spec.md` still asserted that "the one bounded existence probe
+stated above" exists, even though EDIT 3 and EDIT 5 remove both bounded-probe
+carve-outs from the applied result.
+
+| # | Round-5 blocker | Amendment |
+|---|---|---|
+| 1 | The tombstone-prohibition rationale paragraph kept an orphaned intra-section referent to "the one bounded existence probe stated above", so the applied spec would both retire the discovery probe and assert its continued existence. | EDIT 3 now also replaces that rationale paragraph with probe-free wording: discovery enumerates directories and performs no file-level probe inside any plan directory. |
 
 ### Ratification sequencing
 
@@ -226,19 +248,23 @@ three questions of it, not two: what vanished that should have stayed, what
 stayed that should have vanished, and what is now ADJACENT that was never
 adjacent before.
 
-**Target count, stated because it changed** `[R4-2]`. Rounds 1 through 4 verified
-**24** replace-targets. This revision adds a **25th** — the surviving foreman
-paragraph in §"Non-interference with tracked work", which EDIT 5 must now amend
-so that the purpose EDIT 3 relies on is actually granted. Historical statements
-elsewhere in this document that cite 24 describe the rounds in which 24 was the
-whole set and are left accurate as written; the current set is 25.
+**Target count, stated because it changed** `[R4-2]` `[R5-1]`. Round 1 verified
+**19** replace-targets. Rounds 2 through 4 verified **24** replace-targets. The
+round-4 revision added a **25th** — the surviving foreman paragraph in
+§"Non-interference with tracked work", which EDIT 5 amends so that the purpose
+EDIT 3 relies on is actually granted. This revision adds a **26th** — the
+surviving tombstone-prohibition rationale paragraph in §"Track discovery and the
+mapping store", which EDIT 3 must now amend so the bounded-probe assertion does
+not survive the two edits that retire the probe. Historical statements elsewhere
+in this document that cite 24 or 25 describe the rounds in which that count was
+the whole set and are left accurate as written; the current set is 26.
 
 ### Proposed Changes
 
 Seven edits. Replace-targets are quoted verbatim and are self-locating; line
 numbers are deliberately not used as anchors, because other lanes landing move
-them — the v011 ratification moved all four EDIT 4 anchors between round 2 and
-this revision without touching a single quoted byte.
+them — the v011 ratification moved all four EDIT 4 anchors between rounds 1 and
+2 without touching a single quoted byte.
 
 EDIT 1 (spec.md §"The supervision round"). Replace the stale example in the
 undelivered-wrap-up paragraph:
@@ -323,6 +349,22 @@ with:
 > handles by refusing the respawn and preserving the declaration. The daemon
 > consumes the recorded value and never reads the anchor itself. The discovery
 > path performs no file-level probe inside a plan directory.
+
+In the tombstone-prohibition rationale paragraph in the same section, replace
+the bounded-probe referent that would otherwise survive as an orphan after this
+edit removes the carve-out `[R5-1]`:
+
+> This prohibition is load-bearing because of how discovery works. The
+> archived-or-deleted test keys on the DIRECTORY alone, and discovery
+> enumerates directories (the one bounded existence probe stated above
+> notwithstanding).
+
+with:
+
+> This prohibition is load-bearing because of how discovery works. The
+> archived-or-deleted test keys on the DIRECTORY alone, and discovery
+> enumerates directories, performing no file-level probe inside any plan
+> directory.
 
 EDIT 4 (spec.md §"Track discovery and the mapping store" and §"Session-name
 derivation"). Apply the ratified `plan` vocabulary to the four term-bearing
