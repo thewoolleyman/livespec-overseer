@@ -179,6 +179,15 @@ inherit: role, driving mechanics, decision rules, no-idle/no-silent-block,
 armed re-entry, standing safety clauses, and role-level Corrections.
 `plan/<topic>/supervisor-handoff.md` is only the binder for this thread.
 
+Emit a `## Supervisor scratch discipline` section into
+`.ai/supervisor-protocol.md`, not only into the binder. Only JSON can live in
+tmp/supervisor/, and the only place prose can live is tmp/supervisor/briefs/,
+which should ONLY hold briefs for the supervised session to read. A brief may
+CITE but never CONTAIN: anything load-bearing must be landed first as a ledger
+item, research note, or charter Corrections entry, and the brief then points at
+it. A changeset is never an artifact: a staged set of file changes with diffs
+and intent held for review is a branch and a PR, never a hand-rolled directory.
+
 The binder is a prompt for the supervisor session. It must be specific to the
 target repo and topic, but it must not duplicate target-repo work that belongs to
 the supervised session and must not duplicate shared role rules from
@@ -520,6 +529,17 @@ not close, until BOTH confirmations are set (`receipt_ack` and `peer_recorded`);
 until then the sender remains the holder with its own `wake_mechanism`. A
 `wake_mechanism` of `NONE ARMED` is allowed only with an explicit timeout and
 timeout-and-escalate posture.
+
+## Supervisor scratch discipline
+
+Emit this section into `.ai/supervisor-protocol.md`, not only into the binder.
+Only JSON can live in tmp/supervisor/, and the only place prose can live is
+tmp/supervisor/briefs/, which should ONLY hold briefs for the supervised session
+to read. A brief may CITE but never CONTAIN: anything load-bearing must be landed
+first as a ledger item, research note, or charter Corrections entry, and the
+brief then points at it. A changeset is never an artifact: a staged set of file
+changes with diffs and intent held for review is a branch and a PR, never a
+hand-rolled directory.
 
 ## Never end a turn without an armed re-entry
 

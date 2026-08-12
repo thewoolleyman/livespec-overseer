@@ -226,6 +226,16 @@ an armed `wake_mechanism` until both timestamps are set. An obligation whose
 explicit `timeout` deadline, and that deadline is the re-entry mechanism that
 escalates to the maintainer if nothing happens.
 
+## Supervisor scratch discipline
+
+Only JSON can live in tmp/supervisor/, and the only place prose can live is
+tmp/supervisor/briefs/, which should ONLY hold briefs for the supervised session
+to read. A brief may CITE but never CONTAIN: anything load-bearing must be landed
+first as a ledger item, research note, or charter Corrections entry, and the
+brief then points at it. A changeset is never an artifact: a staged set of file
+changes with diffs and intent held for review is a branch and a PR, never a
+hand-rolled directory.
+
 ## Decision-vetting rubric
 
 Escalate only decisions that are genuinely BLOCKING: no legitimate action can

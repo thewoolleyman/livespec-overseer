@@ -480,6 +480,49 @@ def _has_ripe_valve_same_turn_rule(*, charter: str) -> bool:
     )
 
 
+_SCRATCH_DISCIPLINE_REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "tmp-supervisor-json-only",
+        (
+            "only json can live in tmp/supervisor/",
+            "only place prose can live is tmp/supervisor/briefs/",
+            "only hold briefs for the supervised session to read",
+        ),
+    ),
+    (
+        "tmp-supervisor-briefs-cite-not-contain",
+        (
+            "brief may cite but never contain",
+            "anything load-bearing must be landed first",
+            "ledger item",
+            "research note",
+            "corrections entry",
+            "points at it",
+        ),
+    ),
+    (
+        "tmp-supervisor-changeset-is-branch-pr",
+        (
+            "changeset is never an artifact",
+            "staged set of file changes",
+            "diffs and intent",
+            "branch and a pr",
+            "hand-rolled directory",
+        ),
+    ),
+)
+
+
+def scratch_discipline_failures(*, charter: str) -> list[str]:
+    """Return missing tmp/supervisor discipline clauses."""
+    lowered = " ".join(charter.lower().split())
+    return [
+        name
+        for name, needles in _SCRATCH_DISCIPLINE_REQUIRED
+        if not all(needle in lowered for needle in needles)
+    ]
+
+
 def combined_charter(*, layers: tuple[str, ...]) -> str:
     """Return the validator input for a layered generated handoff."""
     return "\n\n".join(layers)
@@ -535,6 +578,7 @@ def missing_requirements(*, charter: str) -> list[str]:
         missing.append("stall-mode-1-conflicting-lane")
     if not _has_ripe_valve_same_turn_rule(charter=charter):
         missing.append("picker-ripe-valves-same-turn")
+    missing.extend(scratch_discipline_failures(charter=charter))
     guard_at = charter.find('[ -z "$pane" ]')
     diff_at = charter.find('if [ "$pane" = "$prev" ]')
     if guard_at == -1 or diff_at == -1 or diff_at < guard_at:
@@ -813,6 +857,45 @@ def test_both_corrections_sections_survive_regeneration_byte_for_byte():
     assert _corrections_section(text=regenerated_binder) == _corrections_section(text=binder)
     reformatted_shared = shared.replace("`pane_pid`", "pane_pid", 1)
     assert _corrections_section(text=reformatted_shared) != _corrections_section(text=shared)
+
+
+def test_supervisor_scratch_discipline_is_required_in_generated_charters():
+    assert scratch_discipline_failures(charter=_fully_conformant_charter()) == []
+
+
+def test_missing_supervisor_scratch_json_rule_is_rejected():
+    charter = _fully_conformant_charter().replace(
+        "Only JSON can live in tmp/supervisor/, and the only place prose can live is\n"
+        "    tmp/supervisor/briefs/, which should ONLY hold briefs for the supervised session\n"
+        "    to read.",
+        "tmp/supervisor/ may hold scratch files for the supervisor.",
+    )
+    assert scratch_discipline_failures(charter=charter) == ["tmp-supervisor-json-only"]
+    assert "tmp-supervisor-json-only" in missing_requirements(charter=charter)
+
+
+def test_missing_supervisor_brief_cite_not_contain_corollary_is_rejected():
+    charter = _fully_conformant_charter().replace(
+        "A brief may CITE but never CONTAIN: anything load-bearing must be landed\n"
+        "    first as a ledger item, research note, or charter Corrections entry, and the\n"
+        "    brief then points at it.",
+        "A brief may include whatever context the supervised session needs.",
+    )
+    assert scratch_discipline_failures(charter=charter) == [
+        "tmp-supervisor-briefs-cite-not-contain"
+    ]
+    assert "tmp-supervisor-briefs-cite-not-contain" in missing_requirements(charter=charter)
+
+
+def test_missing_supervisor_changeset_is_branch_pr_corollary_is_rejected():
+    charter = _fully_conformant_charter().replace(
+        "A changeset is never an artifact: a staged set of file\n"
+        "    changes with diffs and intent held for review is a branch and a PR, never a\n"
+        "    hand-rolled directory.",
+        "A changeset may be saved as a review artifact under tmp/supervisor/.",
+    )
+    assert scratch_discipline_failures(charter=charter) == ["tmp-supervisor-changeset-is-branch-pr"]
+    assert "tmp-supervisor-changeset-is-branch-pr" in missing_requirements(charter=charter)
 
 
 def test_a_charter_ending_at_the_conflicting_lane_rule_is_rejected():
@@ -1500,6 +1583,14 @@ def _fully_conformant_charter() -> str:
           wake_mechanism: condition watcher polls the check suite
           if_nothing_happens: escalate to maintainer
           timeout: 2026-07-30T12:00:00Z
+    ## Supervisor scratch discipline
+    Only JSON can live in tmp/supervisor/, and the only place prose can live is
+    tmp/supervisor/briefs/, which should ONLY hold briefs for the supervised session
+    to read. A brief may CITE but never CONTAIN: anything load-bearing must be landed
+    first as a ledger item, research note, or charter Corrections entry, and the
+    brief then points at it. A changeset is never an artifact: a staged set of file
+    changes with diffs and intent held for review is a branch and a PR, never a
+    hand-rolled directory.
     ## Never end a turn without an armed re-entry
     The trigger is ANY open obligation. Arm a background pane watcher before ending any turn.
     For a non-pane wait, arm a condition watcher that tests terminal state first
