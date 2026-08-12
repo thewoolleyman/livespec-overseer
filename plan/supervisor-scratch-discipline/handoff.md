@@ -251,31 +251,60 @@ refused because `check-master-ci-green` and the real-repo test inside
 `will_retry: false`; the Retry/Re-implement/Abandon interview opened at
 02:05:26Z and NOBODY ANSWERED IT; the run burned to its 4-hour ceiling and was
 reaped. The branch `feat/livespec-dev-tooling-q3emww` was never pushed and no
-PR exists, so ~81 minutes of complete, coverage-green work is gone.
+PR exists.
+
+**BUT THE WORK IS NOT GONE — THAT CLAIM, WHICH THIS FILE MADE ON 2026-08-12 AND
+WHICH `.claude/CLAUDE.md`'s "fifth shape" STILL MAKES, IS WRONG.** `fabro dump
+<run> -o <dir>` exports a reaped run's durable state, and
+`stages/002-implement@1/diff.patch` holds the complete implementation.
+Recovered for this run: `livespec_dev_tooling/checks/plan_thread_epic_parity.py`
+plus `tests/.../test_plan_thread_epic_parity.py`, 244 patch lines, and it
+**applies cleanly to current `livespec-dev-tooling` master**. It contains
+exactly what the acceptance demanded — an `archive/**/handoff.md` scan
+(`_ARCHIVED_HANDOFF_GLOB`, the converse direction nothing scanned before) and
+the demonstrated-failing fixture `test_armed_archived_open_epic_fails`.
+
+So the remedy for a run reaped mid-interview is **dump it first**, not redo it.
+The dump also works on old runs — it was used here on a 2026-08-09 run — so
+retention is not the constraint.
 
 **Root cause of the 401 — it is NOT a broken or revoked credential, and it is
 NOT specific to this item.** Fabro authenticates to GitHub with a **GitHub App
 installation token** (`fabro secret list` → `GITHUB_APP_PRIVATE_KEY`;
 `~/.fabro/settings.toml` → `[server.integrations.github] app_id`). GitHub caps
-those at **60 minutes**, and the token is minted **once per run**. Any run still
-working past ~60 minutes gets 401 on GitHub API calls, while its git/push path
-keeps working.
+those at 60 minutes. The credential the AGENT holds inside its own long-lived
+session goes stale on a long run; a freshly-started stage gets a working one.
 
 Measured, over the last 30 runs — exactly TWO contain a genuine
-`Bad credentials` string, and both are the long ones:
+`Bad credentials` string, and both are long runs where **the AGENT itself ran
+`just check` from inside its own session**:
 
-| run | item | 401 at | outcome |
-|---|---|---|---|
-| `01KZSPSTPFX6` | `q3emww` | **+81.0 min** into the run | failed |
-| `01KZSKQKYNPK` | `bd-ib-mrqoy2.5` | **+68.4 min** into the run | failed |
+| run | item | 401 at | who ran the check | outcome |
+|---|---|---|---|---|
+| `01KZSPSTPFX6` | `q3emww` | **+81.0 min** into the run | the agent, in-session | failed |
+| `01KZSKQKYNPK` | `bd-ib-mrqoy2.5` | **+68.4 min** into the run | the agent, in-session | failed |
 
 Every run that finished under 60 minutes passed the same check — the four
-dispatched by this thread ran 9/19/21 min and all passed it. Two details pin
-the mechanism down. `01KZSKQKYNPK` hit 401 at only **+40.4 min into its stage**
-but +68.4 into the RUN, so **the expiry clock tracks the run, not the stage**.
-And `bd-ib-mrqoy2.5` was re-dispatched, finished in **24m35s, and SUCCEEDED**
-(`01KZSSNNNZDG`) — same item, same code, same credential, passing only because
-it stayed inside the hour.
+dispatched by this thread ran 9/19/21 min and all passed it. `bd-ib-mrqoy2.5`
+was re-dispatched, finished in **24m35s, and SUCCEEDED** (`01KZSSNNNZDG`) —
+same item, same code, same credential.
+
+**AN EARLIER REVISION OF THIS FILE CLAIMED THE RULE IS SIMPLY "the token is
+minted once per run and dies at 60 minutes, so keep runs under an hour". THAT
+IS REFUTED — DO NOT ACT ON IT.** The disproof is run `01KZKT8CE9MQ`
+(2026-08-09, same repo): its **janitor** stage ran the full `just check` from
++73.8 to +109.7 min and `check-master-ci-green` passed in 3.1s at **+73.9 min**,
+well past the hour. That it genuinely VERIFIED rather than skipped is provable
+from the module's own shape — every skip path calls `log.warning`, the green
+path returns 0 silently, and the recovered janitor log contains **no** check
+output at all beside `exit_code: 0`. In the same run the agent's own `just
+check` runs were at +1 min and +37.5 min, both inside the hour.
+
+So the discriminator that fits ALL THREE observations is **who runs the check
+and how old their session is**, not raw run elapsed time: an agent working past
+the hour inside one session fails, while a fresh command stage started past the
+hour succeeds. The exact TTL/refresh mechanism is NOT established, and this
+entry deliberately stops short of asserting one.
 
 **Why a present-but-expired token HARD-FAILS instead of skipping.**
 `livespec_dev_tooling/checks/master_ci_green.py` fail-softs only when a
@@ -288,24 +317,31 @@ presence≠validity trap `.claude/CLAUDE.md` documents for
 nothing about master's real CI state, but the check cannot tell that from an
 outage.
 
-**One control that does NOT fit, recorded honestly:** run `01KZKT8CE9MQ`
-(2026-08-09, same repo) ran its full `just check` janitor from +73.8 to
-+109.7 min and PASSED. Either its `master-ci-green` skipped because no
-credential was present in that sandbox, or the token was still valid then. The
-janitor output is a content-addressed blob that was not locatable under
-`~/.fabro/storage`, so this was left unresolved rather than explained away.
+**The control that once "did not fit" is now RESOLVED, and resolving it is what
+overturned the 60-minute story above.** An earlier revision recorded run
+`01KZKT8CE9MQ` as unexplained because its janitor output was "a
+content-addressed blob not locatable under `~/.fabro/storage`". That was a
+search failure, not an absence: **`fabro dump <run> -o <dir>` exports it**, as
+`stages/003-janitor@1/output.log`. Read it before calling any run's internals
+unavailable — the same command is what recovered q3emww's lost patch.
 
-**Before re-dispatching `q3emww`:** release the phantom claim by hand
-(`--status ready`, clear the assignee) and record why — a `failed` run that
-never pushed leaves the same `ACTIVE`/`fabro` wreckage as a queue eviction.
-Then keep the re-dispatch UNDER ~60 MINUTES of agent work, or it will hit the
-identical wall. Annotating the item to PUSH AND OPEN A DRAFT PR BEFORE raising
-any blocking question is what actually protects the work.
+**`q3emww`'s phantom claim is already released** (status `ready`, assignee
+cleared, root cause appended to the item, 2026-08-12). Do not release it again.
+
+**Prefer RECOVERY over re-dispatch for `q3emww`.** Its implementation exists and
+applies cleanly to current master (see above); re-dispatching would pay for the
+same work twice and re-run the same risk. Whichever path is taken, annotating
+the item to PUSH AND OPEN A DRAFT PR BEFORE raising any blocking question is
+what actually protects future work — the item's own escalation happened with
+nothing pushed.
 
 ## Next action
 
-1. Release the phantom claim on `livespec-dev-tooling-q3emww` and re-dispatch
-   it, sized to stay inside the 60-minute token window.
+1. Land `q3emww`'s RECOVERED patch (`fabro dump 01KZSPSTPFX6 -o <dir>`, then
+   `stages/002-implement@1/diff.patch`) through the normal worktree → PR flow
+   in `livespec-dev-tooling`, rather than re-dispatching and paying for the
+   same work twice. It applied cleanly to master as of 2026-08-12; re-check
+   before relying on that.
 2. Once `q3emww` has a merged PR, dispatch `livespec-dev-tooling-5asgvm`
    (command above) so its implementer can see `q3emww`'s shipped shape.
 3. Consider filing the two credential defects surfaced above: (a) fabro should
