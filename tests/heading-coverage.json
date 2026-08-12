@@ -656,5 +656,12 @@
     "heading": "## Scenario: A ready declaration on a track that was never in a round certifies nothing",
     "test": "tests.integration.test_post_void_certification_floor.test_scenario_ready_on_never_rounded_track_certifies_nothing",
     "reason": "Integration-tier v010 post-void certification-floor pin: drives the supervisor/round interlock path for this ratified scenario and replaces the implementation-slice TODO from overseer-5oap."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A restarted session that never begins work is surfaced without a second kill",
+    "test": "TODO",
+    "reason": "No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
   }
 ]
