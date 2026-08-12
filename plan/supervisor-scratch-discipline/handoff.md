@@ -65,6 +65,45 @@ Suggested first slice: **goal 2**. It is the smallest, it makes the rule
 self-policing on the machine where the risk lives, and it converts every future
 violation from a judgement call into a red check.
 
+## Verification lessons from this thread's own execution — read before quoting a number
+
+This thread's standard is "mechanical or demonstrated-red". Executing it on
+2026-08-12 produced a clean split worth stating, because it repeated three
+times in one day:
+
+**Every single-instance demonstration held. Every extrapolation from one
+instance to a population was wrong, and always in the same direction —
+overstating scope.**
+
+| what was demonstrated by hand | held? | what was extrapolated | outcome |
+|---|---|---|---|
+| planted violations turn the `tmp/supervisor/` check red; a legitimate tree stays green | yes | — | — |
+| deleting the rule from the real shared layer reddens the charter contract | yes | — | — |
+| reformatting ONE anchor line flips the armed parity check from silent pass to firing | yes | "39 of 49 threads (80%) never examined" | wrong — 30 of 49; an intermediate "7" was wrong too |
+| two dead runs' patches recovered from `fabro dump` | yes | "the work is always recoverable" | wrong — a run whose commit failed has no `diff.patch` |
+| a 401 killed a long run at +81 min | yes | "the token dies at 60 min; keep runs under an hour" | wrong — refuted by a janitor verifying at +73.9 min |
+| `livespec-overseer`'s current plugin build is empty | yes | "2 of 3 plugin builds are empty" | wrong — one is |
+
+Three specific traps, all of which produced a confident wrong number:
+
+- **`find … | wc -l` returns `0` for an ABSENT directory exactly as for an
+  empty one.** That is how "the `livespec` plugin build is empty" happened: the
+  path measured was a different marketplace's namespace and did not exist.
+  Distinguish absent from empty explicitly.
+- **"Not examined" and "defectively not examined" are different populations.**
+  The parity check deliberately ignores cross-tenant anchors, so counting
+  everything it skips inflates the defect.
+- **A classifier written to confirm a hypothesis inherits the hypothesis.**
+  The "7" correction searched for the literal phrase `ledger anchor` and so
+  could not see homelab's `Ledger epic anchor:` — 13 threads it should have
+  counted.
+
+The practical rule: **a demonstration proves the mechanism; it does not size
+the population.** Sizing needs its own measurement, with its own control, and
+the two should be reported separately so one can be wrong without discrediting
+the other. Every wrong number above is left visible in this file rather than
+quietly replaced, because the counting error is the part worth learning from.
+
 ## Scope boundary — do not silently widen
 
 The maintainer scoped this to `tmp/supervisor/`. The same hazard exists for
