@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.2...v0.34.3) (2026-08-12)
+
+
+### Bug Fixes
+
+* keep restart-never-worked attention report-only ([aec745a](https://github.com/thewoolleyman/livespec-overseer/commit/aec745a207d2a42223fc8eb5e46a8f2891bb021f))
+
 ## [0.34.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.1...v0.34.2) (2026-08-12)
 
 
