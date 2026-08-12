@@ -78,12 +78,23 @@ merged; no implementation work remains in this repo-local slice.
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
-THE next action on resume: **admit and drive the three already-ready foreign
-protocol slices**. The homelab slice needs its normal tenant admission step
-before dispatch; record each foreign PR and ledger closure in its own tenant.
-Then perform the planned ratified-clause sweep before any additional rollout
-work. This thread exists to pull the approved replacement work forward; do not
-re-groom or re-file `overseer-daj`.
+The three ready foreign protocol slices were dispatched on 2026-08-12 after
+successful latest-master checks. Fabro confirmed these live runs: livespec
+`livespec-y4xn2k` → `01KZTCFXJ8P7`, livespec-orchestrator-beads-fabro
+`bd-ib-e7qesr` → `01KZTCFVFGKR`, and livespec-dev-tooling
+`livespec-dev-tooling-tqu55m` → `01KZTCJ4F0PK`; all were `running` at the
+checkpoint. Their ledger rows are `active`/`fabro` while the store has not yet
+filled `fabro_run_id`; use `fabro ps` and `fabro ps -a` as the run authority.
+
+THE next action on resume: **monitor those three runs to terminal state**.
+For each successful run, locate the foreign PR, verify it is merged, and close
+the item in its own tenant with the PR/merge evidence. For a failed or vanished
+run, apply the dispatcher-family discriminators in `AGENTS.md` before releasing
+or re-dispatching a claim. The homelab slice remains `pending-approval` and
+needs its normal tenant admission step before dispatch. Then perform the
+planned ratified-clause sweep before any additional rollout work. This thread
+exists to pull the approved replacement work forward; do not re-groom or
+re-file `overseer-daj`.
 
 The approved dependency layers are:
 
