@@ -51,8 +51,8 @@ is that convention already failed once.
 
 | # | goal | acceptance |
 |---|---|---|
-| 1 | **The rule ships in the generated supervisor charter**, so every future supervisor inherits it rather than rediscovering it | The prose contract `.claude-plugin/prose/supervise-plan.md` carries the rule and both corollaries, and a fixture over GENERATED output goes RED when the rule is absent — demonstrated red, not asserted |
-| 2 | **An enforcement check that can actually fail** — `tmp/supervisor/` contains only `*.json`; `tmp/supervisor/briefs/` contains only briefs; nothing else anywhere beneath it | A planted violation (a stray `.md` at top level, a non-brief under `briefs/`) turns the check RED, demonstrated. The check must state in its own output that it is LOCAL-ONLY and cannot fire in CI, because `tmp/` is gitignored |
+| 1 | **The rule ships in the generated supervisor charter**, so every future supervisor inherits it rather than rediscovering it | **Done — PR #797, `dc8e22d`, released `v0.34.0`; demonstrated red (see Status).** The prose contract `.claude-plugin/prose/supervise-plan.md` carries the rule and both corollaries, and a fixture over GENERATED output goes RED when the rule is absent — demonstrated red, not asserted |
+| 2 | **An enforcement check that can actually fail** — `tmp/supervisor/` contains only `*.json`; `tmp/supervisor/briefs/` contains only briefs; nothing else anywhere beneath it | **Done — PR #795, `134fdca`; three planted violations demonstrated red (see Status).** A planted violation (a stray `.md` at top level, a non-brief under `briefs/`) turns the check RED, demonstrated. The check must state in its own output that it is LOCAL-ONLY and cannot fire in CI, because `tmp/` is gitignored |
 | 3 | **Verify the existing briefs are already mirrored** — the audit asserts "mostly mirrored" from knowledge, not from measurement | **Done.** See `research/brief-mirroring-verification.md`: 16 of 16 present briefs traced to a landed artifact; 0 unmirrored (the handoff's "nonzero is expected" was itself an unmeasured guess). `brief-14.md`/`brief-18.md` from the claimed 18 do not exist on disk — unexplained, flagged as open. This measurement could not run factory-side — it reads the gitignored, local-only `tmp/supervisor/briefs/`, which no sandbox clone has — so it ran host-side in the planning session instead of being filed to the ledger |
 
 ## Ordering
@@ -72,7 +72,7 @@ anything an agent writes outside SCM and the ledger, and that generalization may
 be correct — but it is a **different, larger thread** and must not be absorbed
 here without an explicit decision. Name it if you find it; do not take it.
 
-## Status — 2026-08-12. Goal 3 done. Goals 1 and 2 DISPATCHED, in flight. THIS THREAD IS ACTIVE, NOT ARCHIVED.
+## Status — 2026-08-12. Goals 1, 2, 3 DONE and VERIFIED. THIS THREAD IS ACTIVE, NOT ARCHIVED — two fleet-wide fix items remain.
 
 `overseer-5jttov` was groomed and is `status: done` / `resolution:
 no-longer-applicable` — administratively retired because its content was split
@@ -85,75 +85,70 @@ Goal 3 is measured and landed in-thread (see the read-first chain above) and
 was never filed to the ledger — it is not factory-dispatchable (see the goals
 table).
 
-**Do not archive this thread** until goals 1 and 2 are each implemented,
-merged to `master`, and (if this repo cuts a release for the change) shipped
-in a release and confirmed working. An epic/work-item's ledger STATUS is
+**Do not archive this thread.** Goals 1 and 2 are now implemented, merged to
+`master`, released, and confirmed working (evidence below) — but the two
+fleet-wide fix items this thread's own incident created,
+`livespec-dev-tooling-q3emww` and `livespec-dev-tooling-5asgvm`, are NOT done,
+and archiving before they are would repeat the exact error recorded below. An
+epic/work-item's ledger STATUS is
 never evidence of real-world completion by itself; only a merged PR, green
 CI on `master`, and (where a release applies) a shipped-and-verified
 artifact are. **This is not theoretical — see "The premature-archival
 incident and fleet-wide fix" below: this exact thread was already archived
 prematurely once, on this exact reasoning error, and had to be corrected.**
 
-### Dispatch status — both goals are RUNNING as live Fabro factory runs right now
+### Dispatch outcome — goals 1 and 2 LANDED, RELEASED, and independently verified
 
-Dispatched 2026-08-12 via `/livespec-orchestrator-beads-fabro:drive --action
-impl:<id>`. **First attempt failed** with `dispatcher exit code: 3,
-"Dispatcher did not report green"` — this was NOT a real implementation
-failure; it was the documented "dispatcher plugin build is stale" trap (the
-session's resolved plugin path predated the latest release). Master CI was
-confirmed green on both repos at the time, ruling out the more common
-red-master cause. **Remedy applied:** re-invoked `drive.py` by absolute path
-at the current build
-(`~/.claude/plugins/cache/livespec-orchestrator-beads-fabro/livespec-orchestrator-beads-fabro/441050295f31/scripts/bin/drive.py`
-— confirm this is still current with `just ensure-plugins` before trusting
-the path; a newer build may exist by the time you read this). That
-re-dispatch succeeded in creating real runs:
+Dispatched 2026-08-12 via `drive.py` invoked by ABSOLUTE PATH at the current
+build (the first attempt died on the documented "dispatcher plugin build is
+stale" trap, which a running session cannot clear by updating the plugin —
+`.claude/CLAUDE.md` covers the remedy). Both runs succeeded and both PRs are
+merged:
 
-| item | Fabro run id (at dispatch time) | status at dispatch time |
-|---|---|---|
-| `overseer-otjmoh` | `01KZSPRJCQQX` | running |
-| `overseer-m4o33z` | `01KZSPRNWA8E` | running |
+| goal | item | run | PR | merge commit | released in |
+|---|---|---|---|---|---|
+| 2 | `overseer-otjmoh` | `01KZSPRJCQQX` | **#795 MERGED** | `134fdca` | `v0.34.2` |
+| 1 | `overseer-m4o33z` | `01KZSPRNWA8E` | **#797 MERGED** | `dc8e22d` | `v0.34.0` |
 
-(Two more items in sibling repos were dispatched in the same batch — see "The
-premature-archival incident and fleet-wide fix" below for the full cross-repo
-picture: `bd-ib-ycihm7` and `livespec-dev-tooling-q3emww`.)
+Master CI green for goal 2 at run `31551850194`.
 
-**These are independent, server-side Fabro runs — they do NOT depend on any
-Claude Code session staying alive.** Confirmed live: killing this session's
-local `drive.py` polling subprocess (via `TaskStop`) did not affect the
-Fabro runs' `running` status or reset their duration counters. So this
-session's wind-down does not abandon them.
+**Neither was taken on trust — both were re-verified against the SHIPPED
+artifact, because this thread exists precisely because "the rule is written
+down" is not acceptance.** The verification ran in throwaway detached
+worktrees; nothing was done in the primary checkout.
 
-**On resume, do this first, before anything else:**
+Goal 2, `scripts/check-tmp-supervisor-discipline.sh` (wired into the `check`
+aggregate at `justfile:254`):
 
-```bash
-/home/ubuntu/.local/bin/fabro ps -a
-```
+| planted violation | result |
+|---|---|
+| stray `.md` at `tmp/supervisor/` top level | RED, exit 1, names the file |
+| non-brief `.txt` under `briefs/` | RED, exit 1 |
+| subdirectory under `briefs/` | RED, exit 1 |
+| legitimate tree (`state.json` + `brief-01.md`) | GREEN, exit 0 |
+| no `tmp/supervisor/` at all | GREEN, exit 0 |
 
-Check `overseer-otjmoh` and `overseer-m4o33z` specifically. Per this fleet's
-own documented dispatch traps (`.claude/CLAUDE.md` §"Dispatch traps whose
-error messages point AWAY from the fix"):
+It discriminates in BOTH directions and prints its LOCAL-ONLY/CI-blindness
+caveat on every run. Run against the real local `tmp/supervisor/`: passes.
 
-- **If still `running`/`starting`**: just wait, or check back later. Do not
-  re-dispatch.
-- **If `succeeded` in `fabro ps -a`**: check whether a PR merged (`gh pr list
-  --repo thewoolleyman/livespec-overseer --state merged --search
-  "overseer-otjmoh"` or similar) before assuming it's actually landed — a
-  `succeeded` run whose item was never ledger-transitioned is a documented
-  trap (`CLAUDE.md`'s "fourth shape"). If it merged, update this Status
-  section with the PR number and merge evidence.
-- **If `failed`**: read why (`fabro attach <run-id>` or the run's own
-  output) before re-dispatching. A `failed` run may have hit a stuck
-  interview — check whether real work was lost or whether it's simply
-  blocked on a question a human now needs to answer.
-- **Absent from `fabro ps -a` entirely** (neither `running` nor listed as
-  terminal): possible queue eviction (another documented trap) — check the
-  ledger item's status; if it reads `active`/assigned but no run exists
-  anywhere, that's a phantom claim — release it by hand and re-dispatch.
+Goal 1, the rule + both corollaries in `.claude-plugin/prose/supervise-plan.md`
+and the shared layer `.ai/supervisor-protocol.md`, pinned by
+`tests/prompts/test_generated_supervisor_handoff_contract.py` (58 tests green
+on the branch). Demonstrated red by mutating the REAL files:
 
-**Do not trust the ledger item's `status` field alone for either item.**
-Verify against `fabro ps -a` and the actual PR/merge state, exactly as this
-whole thread's central lesson demands.
+| mutation | result |
+|---|---|
+| delete the rule from `.ai/supervisor-protocol.md` | RED — 2 tests fail, exactly 3 missing requirements |
+| alter the rule in `.claude-plugin/prose/supervise-plan.md` | RED — the md5 provenance pin catches ANY prose edit |
+
+The contract asserts over CHARTER TEXT (real shared layer + real exemplar) and
+over the real generator prose — not only over a synthetic in-test string — so a
+charter that merely *mentions* the rule cannot pass while omitting it. Confirmed
+present in the released tag: `v0.34.2` carries the rule in both files.
+
+**Do not trust a ledger `status` field for any of this.** Every claim above is
+backed by a merge commit, a CI run id, or a demonstrated red — which is the
+standard this whole thread exists to enforce.
 
 ## The premature-archival incident and fleet-wide fix (2026-08-05 through 2026-08-12)
 
@@ -205,14 +200,16 @@ systemic, not a one-off. Recorded as corroborating evidence directly on the
 fix item via `bd update --append-notes` (non-destructive ledger note, not a
 new PR).
 
-**Ledger items filed for the actual fix (cross-repo, all `ready`):**
+**Ledger items filed for the actual fix (cross-repo):**
 - `bd-ib-ycihm7` (`livespec-orchestrator-beads-fabro`) — correct the
-  prose/spec text. **Dispatched 2026-08-12, run `01KZSPRVF9E2`** — check
-  `fabro ps -a` same as goals 1/2 above.
+  prose/spec text. **DONE: run `01KZSPRVF9E2` succeeded, PR #1354 merged
+  2026-08-12T01:10:04Z as `dc7bf0e`.**
 - `livespec-dev-tooling-q3emww` (pre-existing, found independently by another
   thread the same day as the homelab incident) — fixes the converse gap: an
   archived thread whose anchor epic is still open passes green today.
-  **Dispatched 2026-08-12, run `01KZSPSTPFX6`** — check `fabro ps -a`.
+  **NOT DONE. Run `01KZSPSTPFX6` FAILED, and its work was DESTROYED — see
+  "The q3emww loss and its credential root cause" below before you touch it.
+  It still reads `ACTIVE`/`fabro`: that is a PHANTOM CLAIM, not a live run.**
 - `livespec-dev-tooling-5asgvm` — fixes THIS incident's specific gap:
   descendant-completion checking (an archived thread whose anchor closed via
   regroom-out, with live undisposed replacement descendants, passes green
@@ -227,28 +224,89 @@ new PR).
   python3 <current-build>/scripts/bin/drive.py --repo /data/projects/livespec-dev-tooling --action impl:livespec-dev-tooling-5asgvm
   ```
 
-**None of goals 1, 2, `bd-ib-ycihm7`, `q3emww`, or `5asgvm` are done.** They
-are dispatched-or-about-to-be, running in independent Fabro sandboxes. Do not
-report any of this as complete, do not archive anything, until each has a
-real merged PR to point at.
+**Goals 1 and 2 and `bd-ib-ycihm7` ARE done** (merge commits above).
+**`q3emww` and `5asgvm` are NOT.** Do not archive anything until those two
+have real merged PRs to point at.
+
+## The q3emww loss and its credential root cause (2026-08-12)
+
+Run `01KZSPSTPFX6` implemented the fix and COMMITTED it (`b02a1ea`), then died
+without pushing. This is `.claude/CLAUDE.md`'s "fifth shape" — done, green, and
+destroyed — and it is now that failure's SECOND confirmed instance
+(`bd-ib-6o6h`).
+
+Sequence: the agent finished at +81 min; the final `mise exec -- just check`
+refused because `check-master-ci-green` and the real-repo test inside
+`check-per-file-coverage` hit `HTTP 401: Bad credentials`; the stage failed
+`will_retry: false`; the Retry/Re-implement/Abandon interview opened at
+02:05:26Z and NOBODY ANSWERED IT; the run burned to its 4-hour ceiling and was
+reaped. The branch `feat/livespec-dev-tooling-q3emww` was never pushed and no
+PR exists, so ~81 minutes of complete, coverage-green work is gone.
+
+**Root cause of the 401 — it is NOT a broken or revoked credential, and it is
+NOT specific to this item.** Fabro authenticates to GitHub with a **GitHub App
+installation token** (`fabro secret list` → `GITHUB_APP_PRIVATE_KEY`;
+`~/.fabro/settings.toml` → `[server.integrations.github] app_id`). GitHub caps
+those at **60 minutes**, and the token is minted **once per run**. Any run still
+working past ~60 minutes gets 401 on GitHub API calls, while its git/push path
+keeps working.
+
+Measured, over the last 30 runs — exactly TWO contain a genuine
+`Bad credentials` string, and both are the long ones:
+
+| run | item | 401 at | outcome |
+|---|---|---|---|
+| `01KZSPSTPFX6` | `q3emww` | **+81.0 min** into the run | failed |
+| `01KZSKQKYNPK` | `bd-ib-mrqoy2.5` | **+68.4 min** into the run | failed |
+
+Every run that finished under 60 minutes passed the same check — the four
+dispatched by this thread ran 9/19/21 min and all passed it. Two details pin
+the mechanism down. `01KZSKQKYNPK` hit 401 at only **+40.4 min into its stage**
+but +68.4 into the RUN, so **the expiry clock tracks the run, not the stage**.
+And `bd-ib-mrqoy2.5` was re-dispatched, finished in **24m35s, and SUCCEEDED**
+(`01KZSSNNNZDG`) — same item, same code, same credential, passing only because
+it stayed inside the hour.
+
+**Why a present-but-expired token HARD-FAILS instead of skipping.**
+`livespec_dev_tooling/checks/master_ci_green.py` fail-softs only when a
+credential is ABSENT; present-but-invalid is a deliberate hard failure. Its
+probe `_gh_has_stored_credential()` runs `gh auth token` and reads only the
+return code — offline on purpose, so it proves **presence, never validity**. An
+expired token therefore ARMS the gate and then fails it. This is the same
+presence≠validity trap `.claude/CLAUDE.md` documents for
+`CLAUDE_CODE_OAUTH_TOKEN`. A 401 inside a sandbox is environmental and says
+nothing about master's real CI state, but the check cannot tell that from an
+outage.
+
+**One control that does NOT fit, recorded honestly:** run `01KZKT8CE9MQ`
+(2026-08-09, same repo) ran its full `just check` janitor from +73.8 to
++109.7 min and PASSED. Either its `master-ci-green` skipped because no
+credential was present in that sandbox, or the token was still valid then. The
+janitor output is a content-addressed blob that was not locatable under
+`~/.fabro/storage`, so this was left unresolved rather than explained away.
+
+**Before re-dispatching `q3emww`:** release the phantom claim by hand
+(`--status ready`, clear the assignee) and record why — a `failed` run that
+never pushed leaves the same `ACTIVE`/`fabro` wreckage as a queue eviction.
+Then keep the re-dispatch UNDER ~60 MINUTES of agent work, or it will hit the
+identical wall. Annotating the item to PUSH AND OPEN A DRAFT PR BEFORE raising
+any blocking question is what actually protects the work.
 
 ## Next action
 
-1. `/home/ubuntu/.local/bin/fabro ps -a` — check `overseer-otjmoh`,
-   `overseer-m4o33z`, `bd-ib-ycihm7`, and `livespec-dev-tooling-q3emww`
-   (see "Dispatch status" above for how to interpret each state).
-2. For each that's `succeeded`: verify a PR actually merged before treating
-   it as done; update this Status section with the evidence.
-3. For each that's `failed`: diagnose (don't blindly re-dispatch — see the
-   trap table above).
-4. Once `livespec-dev-tooling-q3emww` has a merged PR, dispatch
-   `livespec-dev-tooling-5asgvm` (command above).
-5. Only once ALL FIVE items (goals 1/2 here, plus the three fleet-wide fix
-   items) have real merged PRs: come back to this handoff, replace this
-   whole "Status"/"Dispatch status"/"premature-archival incident" section
-   with a short completion summary citing every PR, and only THEN consider
-   archiving — re-running the plan operation's handoff self-sufficiency gate
-   first, same as any other refresh.
+1. Release the phantom claim on `livespec-dev-tooling-q3emww` and re-dispatch
+   it, sized to stay inside the 60-minute token window.
+2. Once `q3emww` has a merged PR, dispatch `livespec-dev-tooling-5asgvm`
+   (command above) so its implementer can see `q3emww`'s shipped shape.
+3. Consider filing the two credential defects surfaced above: (a) fabro should
+   refresh the installation token during long runs — the actual root cause;
+   (b) `master_ci_green` should treat a 401 as *invalid credential →
+   environmental*, distinct from a failed-while-credentialed API call.
+4. Only once `q3emww` AND `5asgvm` have real merged PRs: replace this whole
+   "Status"/"Dispatch outcome"/"premature-archival incident"/"q3emww loss"
+   section with a short completion summary citing every PR, and only THEN
+   consider archiving — re-running the plan operation's handoff
+   self-sufficiency gate first, same as any other refresh.
 
 Do not hand-code implementation inline in a planning session — the factory
 path (`drive --action impl:<id>`) is the only implementation path for any of
