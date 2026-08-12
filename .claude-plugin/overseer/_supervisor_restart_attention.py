@@ -29,6 +29,17 @@ class RestartNeverWorked:
     resume: str
 
 
+@dataclass(frozen=True, kw_only=True)
+class RestartNeverWorkedRequest:
+    sup: Supervisor
+    track: registry.Track
+    obs: Observation
+    session: str
+    pane: str
+    act: bool
+    age: float
+
+
 def _post_respawn(*, sup: Supervisor, track: registry.Track) -> RestartNeverWorked | None:
     recorded = registry.read_post_respawn(
         repo=track.repo,
@@ -69,44 +80,30 @@ def _restart_never_worked_age(
     return age
 
 
-def _restart_never_worked(
-    *,
-    sup: Supervisor,
-    track: registry.Track,
-    obs: Observation,
-    session: str,
-    pane: str,
-    act: bool,
-) -> tuple[RowView, set[str]] | None:
+def _restart_never_worked(*, request: RestartNeverWorkedRequest) -> RowView:
     """Return the report-only post-respawn attention row when the 60s floor is met."""
-    age = _restart_never_worked_age(sup=sup, track=track, obs=obs)
-    if age is None:
-        return None
-
+    sup, track, obs = request.sup, request.track, request.obs
     note = (
-        f"{_supervisor_liveness.age_label(seconds=age)}: "
+        f"{_supervisor_liveness.age_label(seconds=request.age)}: "
         "fresh session has not consumed context and still holds the resume text"
     )
-    if act:
+    if request.act:
         sup.alert(
             repo=track.repo,
             topic=track.topic,
-            session=session,
-            pane=pane,
+            session=request.session,
+            pane=request.pane,
             message="fresh session has not begun work after restart — inspect that pane",
             condition=_RESTART_NEVER_WORKED,
         )
-    return (
-        RowView(
-            topic=track.topic,
-            repo=track.repo,
-            tmux=session,
-            ctx=obs.eff_ctx,
-            status=_RESTART_NEVER_WORKED,
-            note=note,
-            runtime=obs.runtime,
-        ),
-        {_RESTART_NEVER_WORKED},
+    return RowView(
+        topic=track.topic,
+        repo=track.repo,
+        tmux=request.session,
+        ctx=obs.eff_ctx,
+        status=_RESTART_NEVER_WORKED,
+        note=note,
+        runtime=obs.runtime,
     )
 
 
@@ -126,28 +123,35 @@ def post_respawn_decision(
     target: str,
 ) -> RowView | None:
     """Handle post-respawn recovery/reporting before the normal cascade."""
-    _ = _restart_never_worked_age(sup=sup, track=track, obs=obs)
-    decision = _restart_never_worked(
-        sup=sup,
-        track=track,
-        obs=obs,
-        session=session,
-        pane=target,
-        act=act,
-    )
-    if decision is not None:
-        view, active_conditions = decision
-        if act:
+    age = _restart_never_worked_age(sup=sup, track=track, obs=obs)
+    active_conditions: set[str] = set()
+    decision = None
+    if age is not None:
+        decision = _restart_never_worked(
+            request=RestartNeverWorkedRequest(
+                sup=sup,
+                track=track,
+                obs=obs,
+                session=session,
+                pane=target,
+                act=act,
+                age=age,
+            )
+        )
+        active_conditions = {_RESTART_NEVER_WORKED}
+    if act:
+        if active_conditions:
             _supervisor_liveness.clear_alert_conditions(
                 sup=sup,
                 repo=track.repo,
                 topic=track.topic,
                 conditions=frozenset(active_conditions),
             )
-        return view
-    if act and obs.istate.restart_never_worked_episode.since is None:
-        _clear_restart_never_worked_alert(sup=sup, track=track)
+        elif obs.istate.restart_never_worked_episode.since is None:
+            _clear_restart_never_worked_alert(sup=sup, track=track)
     retry = resume_retry(sup=sup, track=track, obs=obs, act=act, session=session, target=target)
     if retry is not None:
         return retry
+    if decision is not None:
+        return decision
     return None
