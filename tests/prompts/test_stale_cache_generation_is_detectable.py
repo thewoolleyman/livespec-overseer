@@ -49,23 +49,23 @@ WHAT IT FINDS, and it is not what the ticket assumed. Running the SHIPPED
 validators — imported, never re-implemented — over all three:
 
     generation                 contract failures   defect classes (a..k)
-    frozen  0.12.2-0.13.3          31              15  (a, b, c, d)
-    stale   0.14.0                  0               3  (h, i, j)
+    frozen  0.12.2-0.13.3          34              15  (a, b, c, d)
+    stale   0.14.0                  3               3  (h, i, j)
     current 0.15.0                  0               0
 
-The frozen generation is red, which discharges the acceptance clause. The
-0.14.0 generation is the finding: the contract floor — the most evolved one this
-repo has — reports it as fully conformant while it is provably stale and
-provably defective, with a verdict IDENTICAL to the current generation's, so the
-floor cannot rank the two at all.
+The frozen generation is red, which discharges the acceptance clause. The 0.14.0
+generation used to be the finding: the contract floor reported it as fully
+conformant while it was provably stale and provably defective, with a verdict
+IDENTICAL to the current generation's. The tmp/supervisor discipline rule now
+makes that generation red on three newly visible contract failures.
 
 THE ASSERTIONS BELOW ARE EXPRESSED AS INVARIANTS, NOT AS THOSE ABSOLUTE NUMBERS,
 and deliberately. The contract grows, and a requirement that every generation
 fails equally shifts all three rows at once while saying nothing about staleness.
 So the frozen row is pinned as a DIFFERENCE against the current generation, and
-the finding is pinned as an EQUALITY between the stale and current verdicts. Both
-survive the floor growing, which is what keeps this module from being edited —
-and quietly weakened — every time a requirement lands.
+the stale row is pinned to the named scratch-discipline failures that distinguish
+it from current prose. Both avoid absolute totals where a shared new failure
+would say nothing about staleness.
 
 Every defect the stale generation does carry is visible only to detectors (h),
 (i) and (j), all three of which were written AFTER it shipped; no detector that
@@ -248,7 +248,7 @@ def test_the_frozen_generation_is_red_on_the_contract_floor():
     resembles a stale one; it is the artifact.
     """
     failures = _contract_failures(text=cached_generation(label="frozen"))
-    # A DIFFERENCE, not an absolute count. The frozen generation fails 31
+    # A DIFFERENCE, not an absolute count. The frozen generation fails 34
     # requirements that the current one satisfies, and that is what says
     # "stale": it survives the contract growing, because a new requirement every
     # generation fails equally moves both sides and cancels. An absolute count
@@ -256,7 +256,7 @@ def test_the_frozen_generation_is_red_on_the_contract_floor():
     # without anyone checking WHICH requirement moved.
     # Still exact rather than `>=`: the sabotage that proved this leg
     # load-bearing dropped one `_REQUIRED` entry and shifted it by exactly one.
-    assert len(failures) - len(_contract_failures(text=current_prose())) == 31, failures
+    assert len(failures) - len(_contract_failures(text=current_prose())) == 34, failures
     assert "supervisor-state-location" in failures
     assert "watcher-wait-channel-bootstrap" in failures
     assert "executable-live-supervisor-precondition" in failures
@@ -273,22 +273,24 @@ def test_the_frozen_generation_carries_the_defects_that_reddened_master():
     assert _defect_classes(text=cached_generation(label="frozen")) == {"a", "b", "c", "d"}
 
 
-def test_the_stale_generation_is_invisible_to_the_contract_floor():
-    """THE FINDING, and the reason a content gate cannot close this item.
+def test_the_stale_generation_is_red_on_the_new_scratch_discipline_contract():
+    """A newer contract can make an old stale generation visible.
 
     The 0.14.0 generation is stale — its bytes differ from the prose this repo
-    ships — and today's contract floor, the most evolved one this repo has,
-    reports it as fully conformant. Its verdict is IDENTICAL to the current
-    generation's, so the floor cannot rank the two at all.
+    ships — and it now lacks the tmp/supervisor discipline rule and both
+    corollaries that current prose carries.
     """
     stale = cached_generation(label="stale")
     current = current_prose()
     assert stale != current
-    # THE EQUALITY IS THE FINDING, and it is asserted instead of the absolute
-    # verdict so that a requirement both generations fail equally cannot make
-    # this test look like it caught something. Whatever the floor says about the
-    # current generation, it says exactly the same about a stale one.
-    assert _contract_failures(text=stale) == _contract_failures(text=current)
+    scratch_failures = {
+        "tmp-supervisor-json-only",
+        "tmp-supervisor-briefs-cite-not-contain",
+        "tmp-supervisor-changeset-is-branch-pr",
+    }
+    assert set(_contract_failures(text=stale)) - set(_contract_failures(text=current)) == (
+        scratch_failures
+    )
 
 
 def test_only_detectors_written_after_it_can_see_the_stale_generation():
