@@ -111,6 +111,35 @@ anything an agent writes outside SCM and the ledger, and that generalization may
 be correct — but it is a **different, larger thread** and must not be absorbed
 here without an explicit decision. Name it if you find it; do not take it.
 
+**FOUND AND NAMED, 2026-08-12 — `tmp/overseer/`, filed as `overseer-yqza`, NOT
+taken.** The sibling directory the rule does not cover is larger than the audit
+that created this thread. It holds **308 files**, including **9,953 lines of
+prose** across 63 `.md` files — roughly five and a half times the 1,811 lines
+that prompted the original rule — and all three of the original hazards:
+
+| original audit found in `tmp/supervisor/` | present in `tmp/overseer/` |
+|---|---|
+| a groom draft | `supervisor-prompt-quality/groom-decision-packet.md`, 31 KB |
+| a staged set of workflow files | `ready-certification-deadlock/v010-amendments/` — `spec.md` 42 KB, `contracts.md` 26 KB, plus `revise-payload.json` |
+| prose with no durable backing | 63 `.md` files, 9,953 lines |
+| — | **`v009-amendments-BLOCKED.patch`, a real 22 KB unified diff against `SPECIFICATION/contracts.md`, with a `.README` supplying its intent** |
+
+That last row is the "a changeset is never an artifact" corollary's exact
+subject, existing as a file.
+
+**Why it is named rather than fixed here.** `tmp/supervisor/` had a clean rule
+available because its legitimate contents are narrow. `tmp/overseer/`
+legitimately holds daemon logs, per-thread state, and working material for
+operations that have no other durable home yet — a spec revision mid-assembly,
+a groom decision mid-draft — plus 51 `.sh` and 26 `.py` helpers. Forbidding
+prose there without first naming a home for each kind of material would move
+the problem rather than solve it. That is a maintainer design decision, which
+is precisely why this boundary says name it and stop.
+
+**Not claimed:** whether any of those 9,953 lines is load-bearing and
+unmirrored. Goal 3's equivalent measurement took a dedicated pass. The exposure
+is demonstrated; loss is not.
+
 ## Status — 2026-08-12. Goals 2 and 3 DONE; goal 1 merged+released but blocked from reaching charters by `overseer-0xg7`. THIS THREAD IS ACTIVE, NOT ARCHIVED.
 
 `overseer-5jttov` was groomed and is `status: done` / `resolution:
