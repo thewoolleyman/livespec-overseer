@@ -218,10 +218,11 @@ new PR).
   thread the same day as the homelab incident) — fixes the converse gap: an
   archived thread whose anchor epic is still open passes green today.
   **Run `01KZSPSTPFX6` failed and was reaped, but its work was NOT lost: the
-  patch was recovered with `fabro dump` and is IN REVIEW, unchanged, as
-  `livespec-dev-tooling` PR #1368 (commit `a8d4692`) — open with gates green
-  at the time of writing, NOT yet merged. Confirm the merge before treating
-  this item as done; that is this thread's whole standard.** Red leg
+  patch was recovered with `fabro dump` and landed unchanged as
+  `livespec-dev-tooling` PR #1368, **MERGED 2026-08-12T10:31:12Z as commit
+  `201cabb`** — verified by reading `origin/master`, where
+  `plan_thread_epic_parity.py` now carries `_ARCHIVED_HANDOFF_GLOB`. The item
+  is CLOSED.** Red leg
   hook-confirmed, Green amend and push gates each 66/66 targets. The phantom
   claim was released 2026-08-12. See "The q3emww loss" below — it is now a
   recovery story, not a loss.
@@ -342,9 +343,10 @@ nothing pushed.
 
 ## Next action
 
-1. **Confirm `livespec-dev-tooling` PR #1368 merged**, then close
-   `q3emww`. The recovered patch (`a8d4692`) was opened 2026-08-12 with both
-   gates green; it was recovered from the dead run rather than reimplemented.
+1. **DONE 2026-08-12** — `livespec-dev-tooling` PR #1368 merged (`201cabb`)
+   and `q3emww` is closed with the merge recorded. The patch was recovered
+   from the dead run rather than reimplemented. Master CI for that commit was
+   still running when it was closed; if it goes red for this change, reopen.
    The recovery technique is now written up in this repo's `AGENTS.md` "fifth
    shape" entry (PRs #840, #841 — both MERGED), which previously told every
    session that such work was destroyed.
