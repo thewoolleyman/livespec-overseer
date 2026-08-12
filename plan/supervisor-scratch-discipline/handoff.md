@@ -72,13 +72,11 @@ anything an agent writes outside SCM and the ledger, and that generalization may
 be correct — but it is a **different, larger thread** and must not be absorbed
 here without an explicit decision. Name it if you find it; do not take it.
 
-## Status — goal 3 done; goals 1 and 2 filed but NOT started. THIS THREAD IS ACTIVE, NOT ARCHIVED.
+## Status — 2026-08-12. Goal 3 done. Goals 1 and 2 DISPATCHED, in flight. THIS THREAD IS ACTIVE, NOT ARCHIVED.
 
 `overseer-5jttov` was groomed and is `status: done` / `resolution:
 no-longer-applicable` — administratively retired because its content was split
-into two replacement ledger items. **That status transition is not evidence
-that any work shipped.** As of last check, both replacements are `status:
-ready`, unassigned, undispatched — zero code written, zero PRs opened:
+into two replacement ledger items:
 
 - `overseer-otjmoh` — goal 2, the `tmp/supervisor/` enforcement check.
 - `overseer-m4o33z` — goal 1, the charter rule + corollaries.
@@ -89,40 +87,169 @@ table).
 
 **Do not archive this thread** until goals 1 and 2 are each implemented,
 merged to `master`, and (if this repo cuts a release for the change) shipped
-in a release and confirmed working — not merely filed, not merely
-"dispatched," and not merely pointed at by a ledger item whose status says
-something terminal. An epic/work-item's ledger STATUS is never evidence of
-real-world completion by itself; only a merged PR, green CI on `master`, and
-(where a release applies) a shipped-and-verified artifact are.
+in a release and confirmed working. An epic/work-item's ledger STATUS is
+never evidence of real-world completion by itself; only a merged PR, green
+CI on `master`, and (where a release applies) a shipped-and-verified
+artifact are. **This is not theoretical — see "The premature-archival
+incident and fleet-wide fix" below: this exact thread was already archived
+prematurely once, on this exact reasoning error, and had to be corrected.**
 
-**Corrects a live incident (2026-08-05):** an earlier revision of this
-handoff archived this thread to `plan/archive/` in the same commit that filed
-goals 1 and 2 as `ready` — before either was dispatched, implemented, or
-merged — reasoning that "the epic is closed, and this repo's plan-thread rule
-says archived iff epic-closed." That inference conflated a *procedural*
-epic closure (groom's regroom-out: the original ticket is retired because its
-content moved to new tickets) with a *completion* closure (the work described
-is actually done). The PR merged (repo auto-merge) before the mistake was
-caught; corrected in a follow-up PR the same day. The underlying rule text
-this came from — and whether it needs correcting fleet-wide, since `plan` and
-`groom` are shared `livespec-orchestrator-beads-fabro` operations — is a
-separate, larger question the maintainer is tracking outside this thread; do
-not silently absorb that fix here.
+### Dispatch status — both goals are RUNNING as live Fabro factory runs right now
+
+Dispatched 2026-08-12 via `/livespec-orchestrator-beads-fabro:drive --action
+impl:<id>`. **First attempt failed** with `dispatcher exit code: 3,
+"Dispatcher did not report green"` — this was NOT a real implementation
+failure; it was the documented "dispatcher plugin build is stale" trap (the
+session's resolved plugin path predated the latest release). Master CI was
+confirmed green on both repos at the time, ruling out the more common
+red-master cause. **Remedy applied:** re-invoked `drive.py` by absolute path
+at the current build
+(`~/.claude/plugins/cache/livespec-orchestrator-beads-fabro/livespec-orchestrator-beads-fabro/441050295f31/scripts/bin/drive.py`
+— confirm this is still current with `just ensure-plugins` before trusting
+the path; a newer build may exist by the time you read this). That
+re-dispatch succeeded in creating real runs:
+
+| item | Fabro run id (at dispatch time) | status at dispatch time |
+|---|---|---|
+| `overseer-otjmoh` | `01KZSPRJCQQX` | running |
+| `overseer-m4o33z` | `01KZSPRNWA8E` | running |
+
+(Two more items in sibling repos were dispatched in the same batch — see "The
+premature-archival incident and fleet-wide fix" below for the full cross-repo
+picture: `bd-ib-ycihm7` and `livespec-dev-tooling-q3emww`.)
+
+**These are independent, server-side Fabro runs — they do NOT depend on any
+Claude Code session staying alive.** Confirmed live: killing this session's
+local `drive.py` polling subprocess (via `TaskStop`) did not affect the
+Fabro runs' `running` status or reset their duration counters. So this
+session's wind-down does not abandon them.
+
+**On resume, do this first, before anything else:**
+
+```bash
+/home/ubuntu/.local/bin/fabro ps -a
+```
+
+Check `overseer-otjmoh` and `overseer-m4o33z` specifically. Per this fleet's
+own documented dispatch traps (`.claude/CLAUDE.md` §"Dispatch traps whose
+error messages point AWAY from the fix"):
+
+- **If still `running`/`starting`**: just wait, or check back later. Do not
+  re-dispatch.
+- **If `succeeded` in `fabro ps -a`**: check whether a PR merged (`gh pr list
+  --repo thewoolleyman/livespec-overseer --state merged --search
+  "overseer-otjmoh"` or similar) before assuming it's actually landed — a
+  `succeeded` run whose item was never ledger-transitioned is a documented
+  trap (`CLAUDE.md`'s "fourth shape"). If it merged, update this Status
+  section with the PR number and merge evidence.
+- **If `failed`**: read why (`fabro attach <run-id>` or the run's own
+  output) before re-dispatching. A `failed` run may have hit a stuck
+  interview — check whether real work was lost or whether it's simply
+  blocked on a question a human now needs to answer.
+- **Absent from `fabro ps -a` entirely** (neither `running` nor listed as
+  terminal): possible queue eviction (another documented trap) — check the
+  ledger item's status; if it reads `active`/assigned but no run exists
+  anywhere, that's a phantom claim — release it by hand and re-dispatch.
+
+**Do not trust the ledger item's `status` field alone for either item.**
+Verify against `fabro ps -a` and the actual PR/merge state, exactly as this
+whole thread's central lesson demands.
+
+## The premature-archival incident and fleet-wide fix (2026-08-05 through 2026-08-12)
+
+This is NOT part of goals 1–3 above — it is a separate, serious incident
+this thread's own execution caused and then had to fix, spanning four repos.
+Recorded here in full because it is exactly the kind of thing a resuming
+session must not silently miss.
+
+**What happened:** after goals 1 and 2 were groomed and filed (see above),
+an earlier revision of this handoff **archived this thread** to
+`plan/archive/` in the same commit — reasoning "the epic is closed, and this
+repo's plan-thread rule says archived iff epic-closed." That PR merged (repo
+auto-merge) before the maintainer caught it: both replacement items were
+still `ready`, undispatched, zero code written. The maintainer's correction
+(verbatim): *"By default, nothing should be archived until it is done,
+tested, proven, fully merged, shipped to production... and deployed
+everywhere it needs to be, and proven to be working in prod after
+deployment."*
+
+**Root cause:** `livespec-orchestrator-beads-fabro`'s `plan.md`/`contracts.md`
+and `livespec` core's fleet-wide **Archive-on-epic-close** Conformance
+Pattern member all treat *any* epic-closed status as archival justification,
+never distinguishing a *procedural* closure (`groom`'s regroom-out: content
+moved to new tickets) from a *completion* closure (work actually shipped).
+
+**Corrections landed (all merged):**
+- `livespec-overseer` PR #756 — un-archived this thread, corrected the
+  status text.
+- `livespec` PR #2066 (incident evidence, added to the existing open
+  `planning-lane-redesign` thread) + PR #2074 (self-correction: an
+  overclaim that "no mechanical verifier exists" was wrong — one does exist,
+  `plan_thread_epic_parity`, it's just unarmed fleet-wide and points the
+  wrong direction for this failure shape).
+- `livespec-orchestrator-beads-fabro` PR #1314 (new plan thread
+  `plan-archive-completion-gate`, epic `bd-ib-2vaeny`) + PR #1317
+  (self-correction + re-scope: the mechanical-verifier goal moved entirely to
+  `livespec-dev-tooling` since the check is shared code; `bd-ib-2vaeny`
+  regroomed-out into the single correctly-scoped `bd-ib-ycihm7`).
+
+**Fleet-wide sweep finding:** a background investigation swept all 9 local
+fleet repos' `plan/archive/` trees for other victims of the same defect.
+Found ONE confirmed prior incident, independent of this one: `homelab`
+thread-05 epic `hl-6uldtn`, self-corrected 2026-08-03 — **two days before**
+this incident, unrelated repo, zero shared context. Its false closure also
+**cascaded** (a `depends_on` edge on the closed epic false-signaled readiness
+to an unrelated downstream thread). Two independent occurrences of the
+identical failure shape within 3 days is first-hand evidence this is
+systemic, not a one-off. Recorded as corroborating evidence directly on the
+fix item via `bd update --append-notes` (non-destructive ledger note, not a
+new PR).
+
+**Ledger items filed for the actual fix (cross-repo, all `ready`):**
+- `bd-ib-ycihm7` (`livespec-orchestrator-beads-fabro`) — correct the
+  prose/spec text. **Dispatched 2026-08-12, run `01KZSPRVF9E2`** — check
+  `fabro ps -a` same as goals 1/2 above.
+- `livespec-dev-tooling-q3emww` (pre-existing, found independently by another
+  thread the same day as the homelab incident) — fixes the converse gap: an
+  archived thread whose anchor epic is still open passes green today.
+  **Dispatched 2026-08-12, run `01KZSPSTPFX6`** — check `fabro ps -a`.
+- `livespec-dev-tooling-5asgvm` — fixes THIS incident's specific gap:
+  descendant-completion checking (an archived thread whose anchor closed via
+  regroom-out, with live undisposed replacement descendants, passes green
+  today). **NOT YET DISPATCHED — deliberately held.** Both `q3emww` and
+  `5asgvm` touch the same check family (`plan_thread_epic_parity` and
+  siblings) in the same repo; dispatching them simultaneously risked file
+  collisions or two factory agents designing incompatible solutions blind to
+  each other. **Dispatch `5asgvm` only after `q3emww` has merged**, so its
+  implementer can see `q3emww`'s actual shipped shape:
+  ```bash
+  # confirm current build first: just ensure-plugins
+  python3 <current-build>/scripts/bin/drive.py --repo /data/projects/livespec-dev-tooling --action impl:livespec-dev-tooling-5asgvm
+  ```
+
+**None of goals 1, 2, `bd-ib-ycihm7`, `q3emww`, or `5asgvm` are done.** They
+are dispatched-or-about-to-be, running in independent Fabro sandboxes. Do not
+report any of this as complete, do not archive anything, until each has a
+real merged PR to point at.
 
 ## Next action
 
-Dispatch the two filed children through the factory path — one command per id,
-in either order (they are independent, no `depends_on` between them):
+1. `/home/ubuntu/.local/bin/fabro ps -a` — check `overseer-otjmoh`,
+   `overseer-m4o33z`, `bd-ib-ycihm7`, and `livespec-dev-tooling-q3emww`
+   (see "Dispatch status" above for how to interpret each state).
+2. For each that's `succeeded`: verify a PR actually merged before treating
+   it as done; update this Status section with the evidence.
+3. For each that's `failed`: diagnose (don't blindly re-dispatch — see the
+   trap table above).
+4. Once `livespec-dev-tooling-q3emww` has a merged PR, dispatch
+   `livespec-dev-tooling-5asgvm` (command above).
+5. Only once ALL FIVE items (goals 1/2 here, plus the three fleet-wide fix
+   items) have real merged PRs: come back to this handoff, replace this
+   whole "Status"/"Dispatch status"/"premature-archival incident" section
+   with a short completion summary citing every PR, and only THEN consider
+   archiving — re-running the plan operation's handoff self-sufficiency gate
+   first, same as any other refresh.
 
-```text
-/livespec-orchestrator-beads-fabro:drive --action approve:overseer-otjmoh
-/livespec-orchestrator-beads-fabro:drive --action impl:overseer-otjmoh
-/livespec-orchestrator-beads-fabro:drive --action approve:overseer-m4o33z
-/livespec-orchestrator-beads-fabro:drive --action impl:overseer-m4o33z
-```
-
-Do not hand-code implementation inline in a planning session. **Once both are
-merged** (and released/deployed, if applicable), re-open this handoff and
-update this Status section with real evidence (PR links, merge commits,
-release tag) before considering archival — and re-run the plan operation's
-handoff self-sufficiency gate before archiving, same as any other refresh.
+Do not hand-code implementation inline in a planning session — the factory
+path (`drive --action impl:<id>`) is the only implementation path for any of
+this.
