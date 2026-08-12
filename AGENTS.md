@@ -374,7 +374,34 @@ about work that had already succeeded.**
 
 Afterwards the commit is unreachable — `git cat-file -t 4de441e` returns "Not a
 valid object name", the run's scratch directory holds only logs, and fabro
-executes remotely. Roughly four hours of green work, gone.
+executes remotely.
+
+**THE WORK IS NOT GONE, AND THIS ENTRY SAID OTHERWISE FOR A WEEK. `fabro dump`
+RECOVERS IT — TRY THAT BEFORE REDOING ANYTHING.**
+
+    fabro dump <run-id> -o <dir>     # then read <dir>/stages/002-implement@1/diff.patch
+
+The commit is unreachable, but the run's exported state carries the full
+implementation as a patch. Measured 2026-08-12 on two independent runs:
+
+| run | item | recovered | outcome |
+|---|---|---|---|
+| `01KZSPSTPFX6` | `livespec-dev-tooling-q3emww` | 244-line patch, 2 files | applied cleanly to master and was LANDED from the dump |
+| `01KZ87W6RNDMNSGBT7YKWZDM8N` | `overseer-0fy` (this entry's own incident) | **1,248-line patch, 11 files** | preserved intact |
+
+The second row is this entry's own "roughly four hours of green work, gone" — it
+was recoverable the whole time. It no longer applies cleanly only because the
+work was redone by hand afterwards and `overseer-0fy` closed; two of its files
+already exist. That redo was avoidable.
+
+The dump also works on old runs (used here on a run from three days earlier and
+one from a week earlier), so retention is not the constraint — knowing the
+command is. `stages/*/output.log` is exported too, which is how a janitor log
+previously written off as "a content-addressed blob not locatable under
+`~/.fabro/storage`" was later read.
+
+So the remedy below is still right about PREVENTION, but its premise about
+recovery was wrong: **dump first, redo only if the dump is genuinely empty.**
 
 **THE DISPATCHER'S EXIT IS NOT A REAP, AND THAT GAP IS THE RESCUE WINDOW.** The
 dispatcher gave up at ~37 minutes; the run stayed live and blocking for another
@@ -404,12 +431,13 @@ was too big to FINISH UNATTENDED. Splitting fixes neither defect.
 | `fabro ps -a` later | never lists it | **absent entirely** | never lists it | **`succeeded`** | **`failed`, wall = the full ceiling** |
 | work landed | no | no | no | **yes — PR merged** | **no — done but never pushed** |
 | phantom claim | yes | yes | **no** | yes | yes |
-| remedy | fix the defect | release + re-dispatch | unset the dep edge | **close it** | **release + re-dispatch; the work is gone** |
+| remedy | fix the defect | release + re-dispatch | unset the dep edge | **close it** | **`fabro dump` the run and LAND the recovered patch; release the claim. Re-dispatch only if the dump is empty** |
 
 The last two columns are the pair to keep straight: both ran and both are absent
 from the live `fabro ps`, but one merged its work and must be CLOSED while the
-other destroyed its work and must be REDONE. `fabro ps -a` separates them —
-`succeeded` versus `failed` — and the forge confirms it.
+other left its work unpushed and must be RECOVERED — `fabro dump`, not redone.
+`fabro ps -a` separates them — `succeeded` versus `failed` — and the forge
+confirms it.
 
 ### A LEDGER-EDIT item can never be factory-dispatched
 
