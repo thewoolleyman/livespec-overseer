@@ -26,7 +26,9 @@ __all__: list[str] = [
     "clear_injection_stamp",
     "read_injection_stamp",
     "read_notified_bands",
+    "read_post_respawn",
     "read_resume_pending",
+    "record_post_respawn",
     "set_resume_pending",
     "write_injection_stamp",
 ]
@@ -261,4 +263,45 @@ def set_resume_pending(
             entry = {} if legacy is None else {"at": legacy}
         entry["resume_pending"] = True
         data[key] = entry
+        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def read_post_respawn(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> tuple[int, str] | None:
+    """Return the post-respawn baseline ``(ctx, resume)`` when recorded."""
+    data = _read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    entry = jsonio.as_object(value=data.get(_stamp_key(repo=repo, topic=topic)))
+    post_respawn = jsonio.as_object(value=entry.get("post_respawn")) if entry else None
+    if post_respawn is None:
+        return None
+    ctx = post_respawn.get("ctx")
+    resume = post_respawn.get("resume")
+    if not isinstance(ctx, int) or not isinstance(resume, str):
+        return None
+    return ctx, resume
+
+
+def record_post_respawn(
+    *,
+    repo: str,
+    topic: str,
+    ctx: int | None,
+    resume: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> None:
+    """Record the fresh session's no-work baseline after a successful respawn."""
+    if ctx is None:
+        return
+    path = resolve_stamp_store(stamp_path=stamp_path)
+    with file_lock(target=path):
+        data = _read_stamp_data(path=path)
+        key = _stamp_key(repo=repo, topic=topic)
+        entry = jsonio.as_object(value=data.get(key))
+        current = dict(entry) if entry is not None else {}
+        current["post_respawn"] = {"ctx": ctx, "resume": resume}
+        data[key] = current
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")

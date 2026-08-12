@@ -31,6 +31,7 @@ __all__: list[str] = [
     "TrackState",
     "codex_prompt_present",
     "input_box_ready",
+    "input_box_text",
     "is_busy",
     "is_codex_idle_input",
     "is_idle_input",
@@ -258,6 +259,21 @@ def input_box_ready(*, capture_text: str) -> bool:
     this stays False until an Enter lands).
     """
     return _input_box_present(text=capture_text)
+
+
+def input_box_text(*, capture_text: str) -> str | None:
+    """Return the Claude composer text when a non-empty ``❯`` box is visible."""
+    ne = [
+        stripped for raw in capture_text.splitlines() if (stripped := strip_ansi(text=raw).strip())
+    ]
+    for i, line in enumerate(ne):
+        if not line.startswith("❯") or not line[1:].strip():
+            continue
+        above = i >= 1 and _is_border(line=ne[i - 1])
+        below = i + 1 < len(ne) and _is_border(line=ne[i + 1])
+        if above and below:
+            return line[1:].lstrip()
+    return None
 
 
 # The Codex TUI renders a DIFFERENT idle shape from Claude's `❯`-between-rules box: a

@@ -70,6 +70,7 @@ class InjectState:
     ctx_unreadable_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     winddown_starved_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     shell_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
+    restart_never_worked_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     blocked_declaration_mtime: float | None = None
     blocked_entry_age_label: str | None = None
     blocked_alerted_bands: set[int] = field(default_factory=set)

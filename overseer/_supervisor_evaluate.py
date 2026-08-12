@@ -27,10 +27,10 @@ import _supervisor_evaluate_target
 import _supervisor_liveness
 import _supervisor_observe
 import _supervisor_progress
+import _supervisor_restart_attention
 import foreman_pane_claim
 import registry
 import signals
-from _supervisor_resume_retry import resume_retry
 from _supervisor_view import RowView
 
 if TYPE_CHECKING:
@@ -101,9 +101,16 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     # `settling` and never retry. Its detail lives in `_supervisor_resume_retry`; the
     # call sits at the leg's exact position so the precedence order still reads
     # top-to-bottom here in one pass.
-    retry = resume_retry(sup=sup, track=track, obs=obs, act=act, session=session, target=target)
-    if retry is not None:
-        return retry
+    post_respawn = _supervisor_restart_attention.post_respawn_decision(
+        sup=sup,
+        track=track,
+        obs=obs,
+        act=act,
+        session=session,
+        target=target,
+    )
+    if post_respawn is not None:
+        return post_respawn
 
     attention_prepared = _supervisor_evaluate_attention.prepare_evaluation_attention(
         sup=sup, track=track, obs=obs

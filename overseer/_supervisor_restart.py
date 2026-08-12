@@ -213,7 +213,8 @@ def do_restart(
     # gate), NEVER keystroke into it (blocker #6) — pasting + Enter would auto-accept
     # its default. Defer to the `resume_pending` retry, which reports the gate as
     # `blocked:human` and resumes once the human clears it (review SF4).
-    if signals.is_structured_gate(capture_text=sup.tmux.capture_pane(session=target)):
+    fresh_capture = sup.tmux.capture_pane(session=target)
+    if signals.is_structured_gate(capture_text=fresh_capture):
         registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
         sup.alert(
             repo=track.repo,
@@ -227,6 +228,13 @@ def do_restart(
         supervisor_resume(repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic))
         if signals.topic_reserved_for_supervisor(topic=track.topic)
         else default_resume(repo=track.repo, topic=track.topic)
+    )
+    registry.record_post_respawn(
+        repo=track.repo,
+        topic=track.topic,
+        ctx=signals.parse_ctx_remaining(capture_text=fresh_capture),
+        resume=resume,
+        stamp_path=sup.stamp_path,
     )
     if _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume):
         _supervisor_state.clear_state(sup=sup, track=track)
