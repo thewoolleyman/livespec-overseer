@@ -51,7 +51,7 @@ is that convention already failed once.
 
 | # | goal | acceptance |
 |---|---|---|
-| 1 | **The rule ships in the generated supervisor charter**, so every future supervisor inherits it rather than rediscovering it | **Done — PR #797, `dc8e22d`, released `v0.34.0`; demonstrated red (see Status).** The prose contract `.claude-plugin/prose/supervise-plan.md` carries the rule and both corollaries, and a fixture over GENERATED output goes RED when the rule is absent — demonstrated red, not asserted |
+| 1 | **The rule ships in the generated supervisor charter**, so every future supervisor inherits it rather than rediscovering it | **Merged and released — PR #797, `dc8e22d`, `v0.34.0`; demonstrated red. NOT yet confirmed reaching a generated charter: the installed plugin build is empty (`overseer-0xg7`, P1). See Status.** The prose contract `.claude-plugin/prose/supervise-plan.md` carries the rule and both corollaries, and a fixture over GENERATED output goes RED when the rule is absent — demonstrated red, not asserted |
 | 2 | **An enforcement check that can actually fail** — `tmp/supervisor/` contains only `*.json`; `tmp/supervisor/briefs/` contains only briefs; nothing else anywhere beneath it | **Done — PR #795, `134fdca`; three planted violations demonstrated red (see Status).** A planted violation (a stray `.md` at top level, a non-brief under `briefs/`) turns the check RED, demonstrated. The check must state in its own output that it is LOCAL-ONLY and cannot fire in CI, because `tmp/` is gitignored |
 | 3 | **Verify the existing briefs are already mirrored** — the audit asserts "mostly mirrored" from knowledge, not from measurement | **Done.** See `research/brief-mirroring-verification.md`: 16 of 16 present briefs traced to a landed artifact; 0 unmirrored (the handoff's "nonzero is expected" was itself an unmeasured guess). `brief-14.md`/`brief-18.md` from the claimed 18 do not exist on disk — unexplained, flagged as open. This measurement could not run factory-side — it reads the gitignored, local-only `tmp/supervisor/briefs/`, which no sandbox clone has — so it ran host-side in the planning session instead of being filed to the ledger |
 
@@ -72,7 +72,7 @@ anything an agent writes outside SCM and the ledger, and that generalization may
 be correct — but it is a **different, larger thread** and must not be absorbed
 here without an explicit decision. Name it if you find it; do not take it.
 
-## Status — 2026-08-12. Goals 1, 2, 3 DONE and VERIFIED. THIS THREAD IS ACTIVE, NOT ARCHIVED — two fleet-wide fix items remain.
+## Status — 2026-08-12. Goals 2 and 3 DONE; goal 1 merged+released but blocked from reaching charters by `overseer-0xg7`. THIS THREAD IS ACTIVE, NOT ARCHIVED.
 
 `overseer-5jttov` was groomed and is `status: done` / `resolution:
 no-longer-applicable` — administratively retired because its content was split
@@ -85,11 +85,12 @@ Goal 3 is measured and landed in-thread (see the read-first chain above) and
 was never filed to the ledger — it is not factory-dispatchable (see the goals
 table).
 
-**Do not archive this thread.** Goals 1 and 2 are now implemented, merged to
-`master`, released, and confirmed working (evidence below) — but the two
-fleet-wide fix items this thread's own incident created,
-`livespec-dev-tooling-q3emww` and `livespec-dev-tooling-5asgvm`, are NOT done,
-and archiving before they are would repeat the exact error recorded below. An
+**Do not archive this thread.** Goal 2 is implemented, merged, released and
+confirmed working; goal 1 is merged and released but **not** confirmed
+reaching a generated charter (`overseer-0xg7`, below). `q3emww` has since
+merged, but `livespec-dev-tooling-5asgvm` — the other fleet-wide fix item this
+thread's own incident created — is NOT done, and archiving before it is would
+repeat the exact error recorded below. An
 epic/work-item's ledger STATUS is
 never evidence of real-world completion by itself; only a merged PR, green
 CI on `master`, and (where a release applies) a shipped-and-verified
@@ -116,6 +117,26 @@ Master CI green for goal 2 at run `31551850194`.
 artifact, because this thread exists precisely because "the rule is written
 down" is not acceptance.** The verification ran in throwaway detached
 worktrees; nothing was done in the primary checkout.
+
+**GOAL 1 CARRIES ONE HONEST CAVEAT, AND IT IS THE KIND THIS THREAD EXISTS TO
+CATCH.** Merged, released, and present in the released tag is as far as the
+evidence goes. It does **not** currently reach a generated charter on this
+host, because the installed plugin build is EMPTY — `just ensure-plugins`
+reports `livespec-overseer` "already at the latest version (21d87caf3804)"
+while that build directory contains zero content files: no `prose/`, no
+`skills/supervise-plan`, nothing for the generator to read. The source is
+fine (commit `21d87ca` carries 112 files under `.claude-plugin/`); the
+install produced nothing, and re-running `ensure-plugins` does not repair it.
+The `livespec` plugin's current build is empty the same way.
+
+Filed as **`overseer-0xg7` (P1)**. Note what it means for the goal's own
+wording: `check-prose-release-hygiene` exists to stop exactly this ("the fix
+never reaches the plugin cache that generates charters"), the prose rode a
+`fix:` commit and shipped in a release as designed, and it STILL did not
+arrive — because that gate reads the commit range, not the installed
+artifact. So goal 1 is **merged and released, not yet confirmed working
+end-to-end**, and this file should not claim otherwise until a session with a
+populated build generates a charter carrying the rule.
 
 Goal 2, `scripts/check-tmp-supervisor-discipline.sh` (wired into the `check`
 aggregate at `justfile:254`):
