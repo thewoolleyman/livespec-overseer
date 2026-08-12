@@ -400,6 +400,22 @@ command is. `stages/*/output.log` is exported too, which is how a janitor log
 previously written off as "a content-addressed blob not locatable under
 `~/.fabro/storage`" was later read.
 
+**KNOW THE BOUNDARY — RECOVERY IS NOT UNIVERSAL, AND A DUMP WITHOUT A PATCH IS
+NOT A COUNTER-EXAMPLE.** The patch exists only when the run got far enough to
+capture a commit. Measured on a third run, `01KZBJNKGQXM6XWZ06EC7T8KQR`
+(`overseer-1gig`, the `livespec-dev-tooling-sc0z` incident): its Green amend
+itself failed — `git checkpoint commit failed` — so its dump holds
+`output.log`, `prompt.md` and `response.md` but **no `diff.patch` at all**. That
+work is genuinely unrecoverable, and `overseer-1gig` is still `ready`, never
+redone.
+
+So the discriminator is whether `stages/*/diff.patch` exists:
+
+| run reached | dump holds | action |
+|---|---|---|
+| a captured commit, then blocked/reaped | `diff.patch` | recover and land it |
+| commit itself failed | logs only, no `diff.patch` | genuinely lost; re-dispatch |
+
 So the remedy below is still right about PREVENTION, but its premise about
 recovery was wrong: **dump first, redo only if the dump is genuinely empty.**
 
