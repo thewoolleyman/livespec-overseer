@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.4...v0.34.5) (2026-08-12)
+
+
+### Bug Fixes
+
+* reject unreadable restart context proof ([c0c9614](https://github.com/thewoolleyman/livespec-overseer/commit/c0c96144d37fe46dc577e36607cfff7baacf68a0))
+
 ## [0.34.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.3...v0.34.4) (2026-08-12)
 
 
