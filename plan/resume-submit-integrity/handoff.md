@@ -34,30 +34,28 @@ status from the ledger — `list-work-items` / `bd show overseer-xkrwm3` —
 never from this file; this handoff cites ids read-only and carries no
 work queue.
 
-Done so far: the reasoning note (§5 item 1) fixes the scope, the
-constraints, and the spec-bearing analysis. NOT done: the spec sweep and
-its routing, any proposed change, and all three fronts' implementation.
+Done so far: the reasoning note (§5 item 1) fixes the scope and constraints;
+the spec-bearing sweep is complete and its verdict is recorded in §5 item 2
+and in `plan/resume-submit-integrity/research/spec-sweep-verdict.md`. The
+verdict is committed as `d2634fb` on PR #796, now ready for review with
+rebase auto-merge enabled. The ledger handoff for this thread was appended
+to `overseer-xkrwm3` on 2026-08-12. NOT done: the proposed change, its
+independent review and maintainer revision, or any implementation children.
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
-THE next action: run the spec-bearing sweep and record its verdict.
-Read `SPECIFICATION/spec.md` §"The restart" and §"The supervision
-round", the dropped-resume scenario in `SPECIFICATION/scenarios.md`
-("A dropped resume submission is retried without a second kill"), any
-parallel clauses in `SPECIFICATION/contracts.md`, and the shipped prose
-(`.claude-plugin/prose/overseer.md`, `overseer/marker-protocol.md`);
-write the per-front verdict (ratified-letter vs implementation-only) as
-a research note in this thread, beside the existing note.
+THE next action: author the proposed change via the `/livespec:propose-change`
+operation for front 3, the restarted-but-never-worked `NEEDS YOU` membership
+condition. The sweep classified fronts 1–2 as implementation-only: the
+ratified restart and dropped-resume scenario already require truthful
+submission and submission-only retry. Front 3 requires ratified-letter
+change because it adds a new daemon-owned `NEEDS YOU` membership path.
 
 The follow-on sequence, in order, after that verdict exists:
 
-1. Author the proposed change via the `/livespec:propose-change`
-   operation — for front 3 REGARDLESS (a new attention condition is
-   contract-bearing: the `NEEDS YOU` membership set is ratified
-   surface), and for whatever of fronts 1-2 the sweep showed touches
-   ratified letter. Then independent adversarial review by a
-   separately-spawned Fable-model agent, then `/livespec:revise` with
-   the maintainer.
+1. After the proposal is authored, obtain independent adversarial review
+   from a separately-spawned Fable-model agent, then run `/livespec:revise`
+   with the maintainer.
 2. File the implementation slices as CHILDREN of `overseer-xkrwm3` via
    the `capture-work-item` operation (`depends_on` the epic, plus the
    ratification where contract-bearing; autonomy tier T2), implemented
@@ -90,16 +88,19 @@ worktree → PR → rebase-merge discipline.
 
 1. `plan/resume-submit-integrity/confirm-race-and-remedies.md` — scope,
    evidence, constraints, spec-bearing analysis, code anchors.
-2. `overseer/_supervisor_launch.py` (`submit_prompt` — the confirm
+2. `plan/resume-submit-integrity/research/spec-sweep-verdict.md` — the
+   completed spec sweep, per-front routing verdict, and scope boundary
+   (committed as `d2634fb`, PR #796).
+3. `overseer/_supervisor_launch.py` (`submit_prompt` — the confirm
    under change) and `overseer/signals.py` (`input_box_ready` /
    `_input_box_present` — the empty-box predicate it trusts).
-3. `overseer/_supervisor_restart.py` (the restart caller; it arms the
+4. `overseer/_supervisor_restart.py` (the restart caller; it arms the
    `resume_pending` retry on a False confirm — and on
    recognition-timeout and structured-gate — but NEVER on a
    falsely-True confirm, which is the gap) and
    `overseer/_supervisor_recovery.py` (`do_launch` — the `start` /
    recovery path a live reproduction exercised).
-4. `SPECIFICATION/spec.md` §"The restart" and §"The supervision round",
+5. `SPECIFICATION/spec.md` §"The restart" and §"The supervision round",
    plus the dropped-resume scenario in `SPECIFICATION/scenarios.md` —
    the ratified letter the sweep must clear (alongside
    `SPECIFICATION/contracts.md`, `.claude-plugin/prose/overseer.md`,
