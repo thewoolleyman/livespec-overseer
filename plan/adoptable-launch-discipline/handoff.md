@@ -47,9 +47,8 @@ Local livespec-overseer slices:
 
 - `overseer-rf6qg3` — core generator/protocol content — **closed** after
   merged PR #811 and the follow-up handoff PR #813.
-- `overseer-464iib` — existing charter-gate-ratchet enforcement — `ready`;
-  implementation is committed locally as `50156a6` and has not yet been
-  pushed or opened as a PR.
+- `overseer-464iib` — existing charter-gate-ratchet enforcement — **closed**
+  after merged PR #816 (`7ba74c7`).
 
 Repo-local protocol slices, each filed in its own tenant with ordering kept
 in prose rather than a cross-tenant dependency edge:
@@ -60,7 +59,7 @@ in prose rather than a cross-tenant dependency edge:
 - `bd-ib-e7qesr` in livespec-orchestrator-beads-fabro — `ready`.
 - `livespec-dev-tooling-tqu55m` in livespec-dev-tooling — `ready`.
 
-The core slice is implemented and merged from the worktree branch
+The core and enforcement slices are implemented and merged from the worktree branch
 `implement-adoptable-launch-discipline`; its generator/protocol changes add the
 runtime-specific launch/restart contract to both prose layers and generated-
 output tests. The maintainer explicitly directed in-session implementation of
@@ -70,18 +69,19 @@ enforcement commit `50156a6` extends the existing charter-defect registry with
 class `(m)`, including red/green controls for an incomplete contract,
 reformatted correct content, a differently named tmux session, and structured-
 gate `/rename` safety. `just check` passed all 70 targets, with 1112 tests
-passing in the aggregate suite. No daemon behavior or spec sweep was changed.
+passing in the aggregate suite. PR #816 merged by rebase and its ledger item is
+closed. No daemon behavior or spec sweep was changed.
 The defect's live comment remains the evidence anchor: 51 panes, 20
 unadoptable agents (18 Claude launches missing `-n`, 2 unnamed Codex threads).
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
-THE next action on resume: **push the committed enforcement slice, open and
-rebase-merge its PR, then close `overseer-464iib` with the maintainer-directed
-execution reason**. Then drive the three already-ready foreign protocol slices.
-The homelab slice needs its normal tenant admission step before dispatch. This
-thread exists to pull the approved replacement work forward; do not re-groom or
-re-file `overseer-daj`.
+THE next action on resume: **admit and drive the three already-ready foreign
+protocol slices**. The homelab slice needs its normal tenant admission step
+before dispatch; record each foreign PR and ledger closure in its own tenant.
+Then perform the planned ratified-clause sweep before any additional rollout
+work. This thread exists to pull the approved replacement work forward; do not
+re-groom or re-file `overseer-daj`.
 
 The approved dependency layers are:
 
@@ -97,8 +97,8 @@ The approved dependency layers are:
    console has supervisor handoffs but no shared protocol file. Each foreign
    tenant must mint its own id; do not add a `depends_on` edge to an
    `overseer-` id. Record ordering in each slice's text.
-3. **Enforcement, cross-linked to `plan/charter-gate-ratchet/` — IMPLEMENTED
-   LOCALLY, LANDING NEXT:** extend
+3. **Enforcement, cross-linked to `plan/charter-gate-ratchet/` — DONE for
+   `livespec-overseer`:** extend
    its existing detector machinery, rather than creating a second gate, so
    a launch/restart leg omitting the runtime-specific idiom fails. Require
    a must-flag defect, a must-pass differently-written correct form, a
