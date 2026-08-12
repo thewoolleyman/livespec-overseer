@@ -1,9 +1,9 @@
-# adoptable-launch-discipline — handoff
+# adoptable-launch-discipline — completion record
 
-> Cold-open handoff. It assumes you have read nothing and remember nothing,
-> and that you may be a different model than the session that wrote it.
-> Everything load-bearing is either stated here or cited by a path in §5.
-> Do not treat chat history as a source of truth.
+> Archived completion record. It assumes you have read nothing and remember
+> nothing, and that you may be a different model than the session that wrote
+> it. Everything load-bearing is either stated here or cited by a path in §5.
+> The plan epic is closed; this file is historical evidence, not a live queue.
 
 ## 1. The primary goal
 
@@ -41,7 +41,7 @@ Done so far: the reasoning note (§5 item 1) carries the audit-sized
 problem, the per-runtime idioms, the two fronts, and the deliberate
 non-rule. The maintainer approved the cut on 2026-08-12 and it is now filed.
 The original defect `overseer-daj` is closed as superseded by the two local
-slices below; the epic anchor remains `overseer-fjhsj3`.
+slices below; the epic anchor `overseer-fjhsj3` is now closed and archived.
 
 Local livespec-overseer slices:
 
@@ -55,9 +55,11 @@ in prose rather than a cross-tenant dependency edge:
 
 - `hl-ekvd22` in homelab — `pending-approval` (homelab uses its own
   `/usr/local/bin/with-homelab-env.sh` credential wrapper).
-- `livespec-y4xn2k` in livespec — `ready`.
-- `bd-ib-e7qesr` in livespec-orchestrator-beads-fabro — `ready`.
-- `livespec-dev-tooling-tqu55m` in livespec-dev-tooling — `ready`.
+- `livespec-y4xn2k` in livespec — **closed** after merged PR #2218.
+- `bd-ib-e7qesr` in livespec-orchestrator-beads-fabro — **closed** after
+  merged PR #1362.
+- `livespec-dev-tooling-tqu55m` in livespec-dev-tooling — **closed** after
+  merged PR #1366.
 
 The core and enforcement slices are implemented and merged from the worktree branch
 `implement-adoptable-launch-discipline`; its generator/protocol changes add the
@@ -76,38 +78,27 @@ unadoptable agents (18 Claude launches missing `-n`, 2 unnamed Codex threads).
 The 2026-08-12 wind-down checkpoint re-certified this handoff after PR #820
 merged; no implementation work remains in this repo-local slice.
 
-## 3. The next action (exactly one), then the follow-on sequence
+## 3. Completion and follow-on boundary
 
-The three ready foreign protocol slices were dispatched on 2026-08-12 after
-successful latest-master checks. The livespec run `01KZTCFXJ8P7` completed
-successfully; PR #2218 merged at master `62e413fa337d2255af51a3a67dd4f1b096e98887`
-and `livespec-y4xn2k` was closed in its own tenant with that evidence. This
-closure checkpoint was merged in overseer PR #826. The orchestrator run
-`01KZTCFVFGKR` then completed successfully; PR #1362 merged at master
-`f8789004de48feb77bbf792dcf0cfff942c01acf` and `bd-ib-e7qesr` was closed in
-its own tenant with that evidence. The only remaining live run is
-livespec-dev-tooling `livespec-dev-tooling-tqu55m` → `01KZTCJ4F0PK`; use
-`fabro ps` and `fabro ps -a` as the run authority. The follow-up handoff PR
-#829 contains this checkpoint and is open after a rebase onto current master;
-its checks/auto-merge are still pending.
-The dev-tooling run `01KZTCJ4F0PK` then completed successfully; PR #1366
-merged at master `ed0b97df9e2468e6c989472fb3fc89b390c1d583` and
-`livespec-dev-tooling-tqu55m` was closed in its own tenant with that evidence.
+Three repo-local protocol slices are complete: livespec PR #2218
+merged at `62e413fa337d2255af51a3a67dd4f1b096e98887`, orchestrator PR #1362
+merged at `f8789004de48feb77bbf792dcf0cfff942c01acf`, and dev-tooling PR #1366
+merged at `ed0b97df9e2468e6c989472fb3fc89b390c1d583`; their ledger items are
+closed. Homelab `hl-ekvd22` remains `pending-approval` and was intentionally
+not dispatched without its normal tenant admission. That is follow-on work,
+not an unfinished child of this plan.
 
-THE next action on resume: **perform the planned ratified-clause sweep**.
-Check whether any ratified clause states launch idioms in
-`SPECIFICATION/spec.md` §"The restart", `overseer/marker-protocol.md`,
-`.claude-plugin/prose/overseer.md`, or `.claude-plugin/prose/supervise-plan.md`.
-Sweep completed on 2026-08-12: `SPECIFICATION/spec.md` has no exact
-per-runtime launch/restart idiom; it binds only the runtime-specific dispatch
-and same-runtime restart invariants. The exact launcher prose found in
+The ratified-clause sweep completed on 2026-08-12. `SPECIFICATION/spec.md`
+contains no exact per-runtime launch/restart idiom; the exact launcher prose in
 `overseer/marker-protocol.md` and the two `.claude-plugin/prose/` documents is
-non-ratified implementation/operator material. Therefore no
-`/livespec:propose-change` is required for this cut. The three foreign
-protocol slices are complete; homelab `hl-ekvd22` remains `pending-approval`
-and must not be dispatched without its normal tenant admission step. The next
-rollout action is the existing charter-gate-ratchet adopter work after that
-admission boundary. Do not re-groom or re-file `overseer-daj`.
+non-ratified implementation/operator material. No `/livespec:propose-change`
+is required for this cut. The existing charter-gate-ratchet adopter work is the
+next rollout boundary after homelab admission; do not re-groom or re-file
+`overseer-daj`.
+
+This plan has no remaining action. It was archived after completeness evidence
+`PR-829-ci-green-31642715268`; the plan epic `overseer-fjhsj3` is closed in the
+ledger.
 
 The approved dependency layers are:
 
@@ -117,7 +108,8 @@ The approved dependency layers are:
    Codex resume/fresh-launch idioms. Preserve the exact adoption join, the
    `/rename` structured-gate safety check, and the rule that tmux names are
    not adoption keys. Add generated-output controls.
-2. **Protocol adoption, four repo-local slices:** update the shared
+2. **Protocol adoption, three completed repo-local slices plus one deferred
+   admission:** update the shared
    `.ai/supervisor-protocol.md` in `homelab`, `livespec`,
    `livespec-orchestrator-beads-fabro`, and `livespec-dev-tooling`. The
    console has supervisor handoffs but no shared protocol file. Each foreign
@@ -141,20 +133,13 @@ generator source is `.claude-plugin/prose/supervise-plan.md`; the daemon
 launch paths remain correct and unchanged.
 
 The slices were filed through the shared intake Definition-of-Ready path.
-Foreign slices obey the tenant rule above and should use the FACTORY path —
-the `drive` operation (`impl:<id>`) or Dispatcher drain. For
-`overseer-rf6qg3`, the maintainer explicitly authorized the in-session route
-because the factory credential was exhausted; record that exception in the
-completion reason. Do not generalize this exception to the remaining slices.
-
-The follow-on sequence: sweep whether any RATIFIED clause states launch
-idioms (`SPECIFICATION/spec.md` §"The restart",
-`overseer/marker-protocol.md`, `.claude-plugin/prose/overseer.md`,
-`.claude-plugin/prose/supervise-plan.md`); if yes, route that clause's
-amendment via the `/livespec:propose-change` operation → independent
-Fable-model review → `/livespec:revise` before the affected slice
-dispatches. `overseer-daj` is already folded out with an explicit
-supersession reason naming `overseer-rf6qg3` and `overseer-464iib`.
+The three dispatchable foreign slices used the FACTORY path — the `drive`
+operation (`impl:<id>`) or Dispatcher drain. For `overseer-rf6qg3`, the
+maintainer explicitly authorized the in-session route because the factory
+credential was exhausted; that exception is recorded in its completion reason
+and was not generalized to the remaining slices. `overseer-daj` is folded out
+with an explicit supersession reason naming `overseer-rf6qg3` and
+`overseer-464iib`.
 
 Every repo artifact of this thread rides this repo's normal
 worktree → PR → rebase-merge discipline.
@@ -186,7 +171,7 @@ worktree → PR → rebase-merge discipline.
 
 ## 5. Read-first chain (all committed in this repo, livespec-overseer)
 
-1. `plan/adoptable-launch-discipline/launch-idioms-and-gate.md` — the
+1. `plan/archive/adoptable-launch-discipline/launch-idioms-and-gate.md` — the
    audit-sized problem, the idioms, the two fronts, the non-rule.
 2. `overseer/claude_sessions.py` (a re-export facade — the registry
    join itself lives in `overseer/_claude_sessions_registry.py`, read
