@@ -443,6 +443,46 @@ nothing pushed.
 
 ## Next action
 
+**ON RESUME, ORIENT HERE FIRST — session of 2026-08-12 ended at this point.**
+
+All three goals and both dispatched fleet-fix items that could be finished
+WERE finished; nothing is half-done and no branch is left dangling. Every PR
+this thread opened is merged, no worktree of this thread's remains, and the
+ledger matches. Concretely:
+
+| thing | state |
+|---|---|
+| goals 2, 3 | done, verified by demonstration |
+| goal 1 | merged + released, **not** confirmed reaching a generated charter — `overseer-0xg7` |
+| `bd-ib-ycihm7`, `livespec-dev-tooling-q3emww` | merged; `q3emww` recovered from a dead run, master CI 30/30, item closed |
+| `livespec-dev-tooling-5asgvm` | ready and annotated — **THE ONE BLOCKING DECISION** (item 2 below) |
+
+**There is exactly one thing a resuming session cannot decide for itself: the
+`5asgvm` dispatch (item 2). Everything else below is either done or is
+independent work you may pick up.** If the maintainer has not answered, do NOT
+dispatch it — say so and pick up item 3 or 5 instead.
+
+Three items were FILED this session and are NOT part of goals 1–3; they are
+named here only so they are not rediscovered from scratch:
+
+- **`overseer-0xg7` (P1)** — install records name an EMPTY plugin build while
+  `ensure-plugins` reports success. 3 of 55 livespec-family records point at
+  `livespec-overseer` build `21d87caf3804`, affecting `livespec`,
+  `livespec-overseer` and `homelab`. This is what blocks goal 1 end-to-end.
+  The fix shape and a ready-made acceptance fixture are recorded on the item;
+  the code lives in `livespec-dev-tooling`, so a sibling item belongs there
+  when it is scheduled.
+- **`livespec-dev-tooling-ivd8` (P2)** — see item 4 below.
+- **`overseer-yqza` (P2)** — the `tmp/overseer/` generalization, NAMED and
+  deliberately NOT taken. See the scope boundary section.
+
+**A WARNING ABOUT THIS REPO'S PRIMARY CHECKOUT.** It was left BEHIND `master`
+because two other tracks (`adoptable-launch-discipline`,
+`resume-submit-integrity`) have uncommitted work in `plan/` that a
+fast-forward would clobber, so the merge correctly refuses and their files
+were deliberately not touched. **`git fetch` and compare against
+`origin/master` before trusting any file you read there**, including this one.
+
 1. **DONE 2026-08-12** — `livespec-dev-tooling` PR #1368 merged (`201cabb`)
    and `q3emww` is closed with the merge recorded. The patch was recovered
    from the dead run rather than reimplemented. Master CI for that commit was
