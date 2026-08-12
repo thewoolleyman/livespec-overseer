@@ -194,6 +194,10 @@ def test_is_idle_input_false_for_blank_pane():
     assert signals.is_idle_input(capture_text="some stale scrollback with no box\n") is False
 
 
+def test_input_box_text_requires_the_prompt_to_be_inside_rule_lines():
+    assert signals.input_box_text(capture_text="❯ stranded text\n") is None
+
+
 # --------------------------------------------------------------------------- #
 # ready_marker_valid — the load-bearing three-way certification.
 # --------------------------------------------------------------------------- #

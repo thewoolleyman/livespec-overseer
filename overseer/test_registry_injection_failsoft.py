@@ -123,3 +123,24 @@ def test_set_resume_pending_upgrades_a_legacy_bare_scalar_value(*, tmp_path):
     assert (
         registry.read_injection_stamp(repo="/r", topic="junk", stamp_path=stamp) is None
     )  # unusable → dropped
+
+
+def test_post_respawn_recording_fails_soft_without_fresh_context(*, tmp_path):
+    stamp = tmp_path / "stamps.json"
+    registry.record_post_respawn(repo="/r", topic="t", ctx=None, resume="resume", stamp_path=stamp)
+    assert registry.read_post_respawn(repo="/r", topic="t", stamp_path=stamp) is None
+
+
+def test_post_respawn_reader_ignores_half_shaped_values(*, tmp_path):
+    stamp = tmp_path / "stamps.json"
+    stamp.write_text(
+        json.dumps(
+            {
+                "/r\tstring-ctx": {"post_respawn": {"ctx": "100", "resume": "resume"}},
+                "/r\tmissing-resume": {"post_respawn": {"ctx": 100}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert registry.read_post_respawn(repo="/r", topic="string-ctx", stamp_path=stamp) is None
+    assert registry.read_post_respawn(repo="/r", topic="missing-resume", stamp_path=stamp) is None

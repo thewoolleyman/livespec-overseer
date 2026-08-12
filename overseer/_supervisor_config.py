@@ -38,6 +38,7 @@ __all__: list[str] = [
     "LOOP_INTERVAL_SECONDS",
     "MARKER_VOID_GRACE",
     "PAIR_STALL_AFTER",
+    "POST_RESPAWN_NEVER_WORKED_AFTER",
     "RESTART_POLL_INTERVAL",
     "RESTART_POLL_MAX",
     "SETTLE_DELAY",
@@ -141,6 +142,9 @@ PAIR_STALL_AFTER = 7200.0  # 2 hours
 # entity count changes materially. Until measured derivation lands, the ruled interim
 # value is 900s; the too-small direction suppresses detection entirely.
 CONDITION_CONTINUITY_GAP = 900.0
+
+# Bounded post-respawn floor for reporting a fresh session that never began work.
+POST_RESPAWN_NEVER_WORKED_AFTER = 60.0
 
 # A last-known remaining-context value stops satisfying ctx gates after this long
 # without a fresh parse. The row still reports the stale knowledge so losing sight of
