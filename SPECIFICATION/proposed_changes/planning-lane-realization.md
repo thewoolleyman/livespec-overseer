@@ -19,11 +19,24 @@ Ratification MUST also co-edit `../tests/heading-coverage.json` — see
 ### Amendment history
 
 Round 1 of the independent adversarial review (2026-08-12) returned six
-blockers. This revision clears all six; the amendments are marked inline as
-`[R1-n]` against the blocker they answer, and summarized in §"What round 1
-changed". The review was performed by Opus 5 under a maintainer-authorized
-one-off deviation from the Fable-model requirement, so the ratification record
-for this proposal MUST read `reviewer_model: opus`, never `fable`.
+blockers. Round 2 (2026-08-12) confirmed four of them fully cleared, one cleared
+in substance, one only PARTIALLY cleared, and found four NEW defects introduced
+by the fixes themselves. Amendments are marked inline as `[R1-n]` and `[R2-n]`
+against the blocker they answer, and summarized in §"What round 1 changed" and
+§"What round 2 changed".
+
+Both rounds were performed by Opus 5 under maintainer-authorized one-off
+deviations from the Fable-model requirement — round 2's authorization was given
+explicitly as a SECOND one-off that repeats the round-1 deviation rather than
+closing it. The ratification record for this proposal MUST therefore read
+`reviewer_model: opus`, never `fable`.
+
+Because both rounds shared one instrument, round 2 deliberately varied the
+METHOD rather than relying on the reviewer differing: it simulated applying all
+24 replacements in memory and swept the RESULT, and two of its four blockers
+were visible only that way. This revision was verified the same way — see
+§"Verification method" — because target-matching alone provably cannot see the
+defect class that produced round-2 blocker 3.
 
 ### Summary
 
@@ -50,14 +63,25 @@ than declared:
 - **The `resume` mapping-store key survives.** Only `handoff` is retired.
   `resume` is the operator's optional per-track override of the respawn prompt —
   an overseer runtime affordance the Planning Lane record does not reach.
-- **The respawn prompt gains a concrete locator.** It names the repository path
-  and the plan's ledger epic id literally, so a session with no prior context can
-  resolve it; and a track with no recorded epic id is not respawned at all.
+- **The respawn prompt gains a concrete locator.** It names the repository path,
+  the plan's ledger epic id, and the ENTITY whose entries to read — all
+  literally, so a session with no prior context can resolve it; and a track with
+  no recorded epic id is not respawned at all. §"Ratification sequencing" states
+  the one ordering constraint that gate creates.
+- **Worker and supervisor share one epic, separated by ATTRIBUTION.** There is
+  no second store and no separate supervisor stream. A supervisor handoff entry
+  is one attributed to the track's supervisor entity, which is well-defined
+  because per-entry attribution is already a guaranteed property of every ledger
+  entry under the ratified fleet contract (livespec core `SPECIFICATION/spec.md`
+  §"The Planning Lane": entries are "append-only, per-entry ledger entries, each
+  individually attributed and timestamped").
 
-This proposal also updates the four current `spec.md` prose lines that still use
-old plan-thread vocabulary (re-enumerated in this tree as lines 369, 397, 400,
-and 439) to the ratified `plan` vocabulary — the artifact is a **plan**; the
-Planning Lane is the Spec-Plane convention that governs it.
+This proposal also updates the four `spec.md` prose lines that still use old
+plan-thread vocabulary to the ratified `plan` vocabulary — the artifact is a
+**plan**; the Planning Lane is the Spec-Plane convention that governs it. The
+four are identified by the verbatim text quoted in EDIT 4 rather than by line
+number: a `spec.md` line number is not stable against other lanes landing, and
+the v011 ratification moved all four between round 2 and this revision.
 
 One `## ` heading in `scenarios.md` is RENAMED and one is ADDED, so ratification
 DOES owe a `tests/heading-coverage.json` co-edit; it is specified in full in
@@ -95,9 +119,61 @@ ledger-held state, including supervisor handoff ledger entries, rather than
 | 5 | "Planning Lane" (the convention) was installed where the ratified vocabulary requires "plan" (the artifact). | EDIT 4 now says **plan** in all four replacements; the Summary's statement of intent is corrected. |
 | 6 | Both replacements granted a DIRECT Control-Plane ledger append with no sanctioned-surface routing. | EDIT 5 and EDIT 7 now route every append THROUGH the orchestrator's sanctioned plan surface and forbid a direct write to the plan epic's ledger. |
 
+### What round 2 changed
+
+Round 2 confirmed round-1 blockers 2, 3, 5 and 6 fully cleared and 4 cleared in
+substance. It found round-1 blocker 1 only PARTIALLY cleared, plus four new
+defects — three of them inside the two edits that had been rewritten to clear
+round-1 blockers 1 and 4.
+
+| # | Round-2 blocker | Amendment |
+|---|---|---|
+| 1 | The respawn gate requires a recorded `epic` id, but all 23 live mapping-store rows carry `epic: null`, no shipped code assigns it, and EDIT 4's "which the daemon never does" foreclosed the design record's own source for it — the plan store's write-once metadata anchor, which is exactly what sibling slice `overseer-pfpfty.4` is scoped to read. | EDIT 3 now names the ACTOR and the MOMENT that record `epic` (the assigning surface, at track assignment, from the write-once anchor); EDIT 4's justification is recast on the DAEMON-versus-authorized-foreman distinction, which is what lets both sentences be true at once; and §"Ratification sequencing" states the ordering constraint and cites `overseer-pfpfty.4`, exactly as `overseer-pfpfty.7` is cited for test source. The hard gate is deliberately KEPT, not softened. |
+| 2 | "Supervisor handoff entries on that same epic" is an undefined category — worker and supervisor are pointed at one epic with no discriminator, which fails the proposal's own rule that "a prompt naming only a category is not a pointer". | EDIT 3's definitional passage now defines a supervisor handoff entry as one ATTRIBUTED to the track's supervisor entity, anchored on the attribution guarantee the fleet contract already provides; EDIT 5 and EDIT 6 carry that filter into both prompts, which now name the entity literally; and EDIT 5's "never to the worker's own read-first state" sentence is reconciled — the pair shares one stream, and attribution rather than a separate store is what keeps the layers distinct. |
+| 3 | EDIT 6 inserted ~90 words between `ctx_threshold` and the "a row without the key means 'inherit the daemon default'" clause, orphaning its referent; the nearest reading attached it to `epic` and contradicted the REQUIRED-epic rule four sentences earlier. That clause is a live implemented invariant (`_registry_store.py:129-133`). | EDIT 6's replace-target is EXTENDED to swallow the em-dash clause, which is re-emitted immediately after `ctx_threshold` with its referent named explicitly ("a row without `ctx_threshold`"). The new `epic`/`handoff`/`resume` prose now follows it rather than splitting it from its subject. |
+| 4 | EDIT 6 landed proposal meta-commentary as ratified spec text: "This revision RETIRES the `handoff` key — a change, not a description of existing legacy". | Deleted. Only the contract it wrapped survives: "The mapping store MUST NOT emit a `handoff` key; a legacy row still carrying one is read without error and rewritten without it." The adjacent "`resume` is NOT retired" is likewise recast positively. |
+
+### Ratification sequencing
+
+`[R2-1]` This proposal makes a recorded `epic` id REQUIRED for any track whose
+session may be restarted, and refuses the respawn without one. That gate is
+correct and is deliberately kept at full strength — but it is not yet
+satisfiable by shipped behavior, and saying so is part of the proposal rather
+than something a ratifier should have to discover.
+
+As of this revision, every one of the 23 rows in the live mapping store carries
+`epic: null`, and no code in either overseer tree assigns the field: it is
+declared, serialized, and read back, but never populated. Ratifying the gate
+ahead of a population path would make every live track un-respawnable.
+
+The population path is already scoped and filed: **`overseer-pfpfty.4`**
+("foreman/daemon read-first chain repoints to ledger-held plans"), under epic
+`overseer-pfpfty` in repository `livespec-overseer`, whose description names the
+mechanism this proposal now describes in EDIT 3 — the epic id read from the
+plan's write-once metadata anchor. This proposal's `epic`-gated clauses
+therefore MUST NOT be ratified ahead of that slice landing; ratify them with it
+or after it. That is an ordering constraint on the accept, not a weakening of
+the contract, and it is stated here for the same reason `overseer-pfpfty.7` is
+cited for test source: a proposal that defers work should name where the work
+lives.
+
+### Verification method
+
+`[R2-3]` Round 2 found two of its four blockers only by simulating the
+application of all 24 replacements and sweeping the RESULT, rather than by
+checking that each target matched. Target-matching provably cannot see an
+orphaned referent, because both the target and the replacement can be
+individually correct while their junction is not. This revision was therefore
+verified both ways: every replace-target re-derived against live bytes, AND the
+fully applied result swept for the defect classes that only appear after
+application.
+
 ### Proposed Changes
 
-Seven edits. Anchors re-enumerated against the working tree at proposal time.
+Seven edits. Replace-targets are quoted verbatim and are self-locating; line
+numbers are deliberately not used as anchors, because other lanes landing move
+them — the v011 ratification moved all four EDIT 4 anchors between round 2 and
+this revision without touching a single quoted byte.
 
 EDIT 1 (spec.md §"The supervision round"). Replace the stale example in the
 undelivered-wrap-up paragraph:
@@ -160,10 +236,23 @@ with:
 > The read-first target it hands to sessions is the plan's LEDGER-HELD PLAN
 > STATE: the append-only, individually attributed and timestamped handoff
 > entries carried on the governed plan's ledger epic, whose id the mapping store
-> persists as that track's `epic` value. The daemon holds that id as an OPAQUE
-> LOCATOR — it hands the id to sessions, and it never reads those entries, never
-> hashes them, and never inspects them as restart authorization. The discovery
-> path performs no file-level probe inside a plan directory.
+> persists as that track's `epic` value. A track's worker and its supervisor
+> pair member share that ONE epic and that ONE stream; there is no second store
+> and no separate supervisor stream. ATTRIBUTION is what separates them: a
+> SUPERVISOR HANDOFF ENTRY is an entry attributed to the track's supervisor
+> entity, and a worker's entries are those attributed to the worker entity.
+> Every entry carries an attribution by construction, so the filter is always
+> available to a reader. The daemon holds the epic id as an OPAQUE LOCATOR — it
+> hands the id and the entity name to sessions, and it never reads those
+> entries, never hashes them, and never inspects them as restart authorization.
+> Because the daemon never reads inside a plan directory, it can never
+> re-derive that id for itself: the id is recorded into the row AT TRACK
+> ASSIGNMENT, from the plan's write-once metadata anchor, by the surface
+> performing the assignment — the authorized unattended foreman, which
+> §"Non-interference with tracked work" already permits to read plan-tree text
+> solely as evidence, or supervise-plan at plan open. The daemon consumes the
+> recorded value and never reads the anchor itself. The discovery path performs
+> no file-level probe inside a plan directory.
 
 EDIT 4 (spec.md §"Track discovery and the mapping store" and §"Session-name
 derivation"). Apply the ratified `plan` vocabulary to the four term-bearing
@@ -192,11 +281,13 @@ enumeration, which the retirement in EDIT 6 would otherwise leave contradicting
 
 with:
 
-> The store persists ONLY facts that cannot be re-derived from the filesystem:
-> the topic-to-session mapping, the plan's ledger epic id, a custom resume line,
-> a per-track threshold override, and a pinned session identity. The epic id
-> qualifies because re-deriving it would mean reading a file inside a plan
-> directory, which the daemon never does.
+> The store persists ONLY facts the DAEMON cannot re-derive for itself: the
+> topic-to-session mapping, the plan's ledger epic id, a custom resume line, a
+> per-track threshold override, and a pinned session identity. The epic id
+> qualifies because its source is the plan's write-once metadata anchor, a file
+> inside a plan directory, and the daemon never reads one — which is why the id
+> is recorded at track assignment by a surface that MAY read plan-tree text as
+> evidence, and merely consumed by the daemon thereafter.
 
 EDIT 5 (spec.md §"Supervised runtimes" and §"Non-interference with tracked
 work"). Replace the supervisor-pair artifact contract with the ledger-held
@@ -220,21 +311,23 @@ In the pair identity paragraph, replace `[R1-1]` `[R1-6]`:
 
 with:
 
-> its wrap-up and keep-going messages are entity VARIANTS whose paths, session
-> name, and append ritual refer to the supervisor's own layer — the supervisor
-> handoff entries on the governed plan's ledger epic, appended through the
-> orchestrator's sanctioned plan surface — and never to the worker's own
-> read-first state; and its restart preserves the suffixed session name and hands
-> the fresh session exactly one prompt: read the supervisor handoff entries on
-> this track's ledger epic and follow them, with the repository path and the epic
-> id named literally. The respawn is additionally gated on that epic id being
-> RECORDED for the track, re-checked immediately before the act, so a `ready`
-> with no recorded epic preserves the declaration and surfaces the existing
-> capture offer instead of resuming onto a pointer the fresh session cannot
-> resolve; the daemon takes no content or modification-time dependence on those
-> entries, so brief freshness remains the supervisor's own protocol obligation,
-> discharged by appending the brief through that sanctioned plan surface before
-> declaring `ready`.
+> its wrap-up and keep-going messages are entity VARIANTS whose session name and
+> append ritual refer to the supervisor's own layer — the entries on the governed
+> plan's ledger epic ATTRIBUTED to the supervisor entity, appended through the
+> orchestrator's sanctioned plan surface — and never to the worker's own entries.
+> The pair shares one epic and one stream; attribution, not a separate store, is
+> what keeps the two layers distinct, and neither member may append under the
+> other's attribution. Its restart preserves the suffixed session name and hands
+> the fresh session exactly one prompt: read the entries on this track's ledger
+> epic attributed to the supervisor entity and follow them, with the repository
+> path, the epic id, and that entity name all stated literally. The respawn is
+> additionally gated on that epic id being RECORDED for the track, re-checked
+> immediately before the act, so a `ready` with no recorded epic preserves the
+> declaration and surfaces the existing capture offer instead of resuming onto a
+> pointer the fresh session cannot resolve; the daemon takes no content or
+> modification-time dependence on those entries, so brief freshness remains the
+> supervisor's own protocol obligation, discharged by appending the brief through
+> that sanctioned plan surface before declaring `ready`.
 
 Replace the attention sentence:
 
@@ -329,15 +422,17 @@ EDIT 6 (contracts.md §"The restart interlock", §"The wrap-up injection",
 with:
 
 > handed exactly one prompt: read that entity's ledger-held plan state — the
-> handoff entries on the governed plan's ledger epic for a worker, or the
-> supervisor handoff entries on that same epic for a supervisor pair member —
-> and follow it. The prompt MUST name the track's repository path and the plan's
-> epic id LITERALLY, so a session opening with no prior context can resolve what
-> to read without opening any plan-tree file; a prompt naming only a category is
-> not a pointer. A track with NO recorded epic id is not respawned at all: the
-> `ready` declaration is PRESERVED and the track surfaced, exactly as for a
-> respawn that failed, so a declaration is never spent on a prompt the fresh
-> session cannot resolve.
+> entries on the governed plan's ledger epic attributed to that entity, the
+> worker's own for a worker and the supervisor's own for a supervisor pair
+> member, both on the SAME epic and separated by attribution rather than by
+> store — and follow it. The prompt MUST name the track's repository path, the
+> plan's epic id, and the entity whose entries to read, all three LITERALLY, so
+> a session opening with no prior context can resolve what to read without
+> opening any plan-tree file; a prompt naming only a category is not a pointer.
+> A track with NO recorded epic id is not respawned at all: the `ready`
+> declaration is PRESERVED and the track surfaced, exactly as for a respawn that
+> failed, so a declaration is never spent on a prompt the fresh session cannot
+> resolve.
 
 Replace the wrap-up message obligation:
 
@@ -358,24 +453,28 @@ with:
 
 > The message points the session back at its ledger-held plan state
 
-Replace the mapping-store durable-key sentence `[R1-4]`:
+Replace the mapping-store durable-key sentence `[R1-4]` `[R2-3]` `[R2-4]`. The
+replace-target deliberately EXTENDS through the em-dash clause, rather than
+stopping at "override is set", so that clause is re-emitted with its referent
+named explicitly instead of being orphaned behind newly inserted prose:
 
 > Durable keys: `topic`, `repo`, `tmux`, `handoff`, `resume`, `epic`,
 > `pinned_session_id`, plus `ctx_threshold` ONLY when a per-track override is
-> set
+> set — a row without the key means "inherit the daemon default", and readers
+> MUST NOT materialize the default at read time.
 
 with:
 
 > Durable keys: `topic`, `repo`, `tmux`, `resume`, `epic`, `pinned_session_id`,
-> plus `ctx_threshold` ONLY when a per-track override is set. The `epic` value is
-> the plan-state locator the read-first chain resolves against, and it is REQUIRED
-> for any track whose session may be restarted. This revision RETIRES the
-> `handoff` key — a change, not a description of existing legacy: it named a
-> plan-tree artifact the Planning Lane contract has retired, so rewrites MUST NOT
-> emit it, and a legacy row still carrying it is read without error and rewritten
-> without it. The `resume` key is NOT retired; it remains the operator's optional
-> per-track override of the respawn prompt, and when it is absent the daemon
-> derives that prompt from `repo` and `epic`
+> plus `ctx_threshold` ONLY when a per-track override is set — a row without
+> `ctx_threshold` means "inherit the daemon default", and readers MUST NOT
+> materialize the default at read time. The `epic` value is the plan-state
+> locator the read-first chain resolves against, and it is REQUIRED for any
+> track whose session may be restarted. The mapping store MUST NOT emit a
+> `handoff` key; a legacy row still carrying one is read without error and
+> rewritten without it. `resume` remains the operator's optional per-track
+> override of the respawn prompt; when it is absent the daemon derives that
+> prompt from `repo`, `epic`, and the entity name.
 
 EDIT 7 (constraints.md §"Filesystem boundaries" and scenarios.md). Replace the
 constraints paragraph's attended authoring sentence `[R1-3]` `[R1-6]`:
