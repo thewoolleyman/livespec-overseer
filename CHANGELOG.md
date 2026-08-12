@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.3...v0.34.4) (2026-08-12)
+
+
+### Bug Fixes
+
+* re-evaluate restart attention every tick ([b971618](https://github.com/thewoolleyman/livespec-overseer/commit/b9716183afb70ba30f64930471fca148b6aa8d62))
+
 ## [0.34.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.2...v0.34.3) (2026-08-12)
 
 
