@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.34.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.4...v0.34.0) (2026-08-12)
+
+
+### Features
+
+* surface post-respawn never-worked attention ([e2388ef](https://github.com/thewoolleyman/livespec-overseer/commit/e2388efc5fbfada256e2a5a9d6fc2cc282a20234))
+
+
+### Bug Fixes
+
+* enforce adoptable runtime launch contract ([f42811a](https://github.com/thewoolleyman/livespec-overseer/commit/f42811a5b73f92e9836e46eef1d2a278d31c5e7e))
+* preserve resume retry restart attention semantics ([7b0ddae](https://github.com/thewoolleyman/livespec-overseer/commit/7b0ddae6119b1aa902a7fcd3bdf2af16b7830a29))
+
 ## [0.33.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.3...v0.33.4) (2026-08-12)
 
 
