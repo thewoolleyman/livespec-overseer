@@ -39,36 +39,57 @@ work queue.
 
 Done so far: the reasoning note (§5 item 1) carries the audit-sized
 problem, the per-runtime idioms, the two fronts, and the deliberate
-non-rule. NOT done: the grooming of `overseer-daj` into slices, the
-charter/generator content changes, the conformance gate, and any spec
-sweep.
+non-rule. On 2026-08-12, the live ledger confirmed `overseer-daj` and
+`overseer-fjhsj3` are both still `backlog`, with no children filed under the
+epic. The defect's live comment confirms the maintainer-directed audit:
+51 panes, 20 unadoptable agents (18 Claude launches missing `-n`, 2 unnamed
+Codex threads).
+
+The grooming draft is now prepared but NOT approved or filed. No charter or
+gate implementation has started, and no spec sweep has been performed.
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
-THE next action: **groom `overseer-daj` into ready slices with the
-maintainer** — this thread exists to pull that bug forward, and the
-maintainer OWNS the cut (grooming is a drafting conversation; nothing
-is filed without approval). Draft the slice proposal from the two
-fronts in the reasoning note: (a) charter/supervisor-protocol content —
-the per-runtime idiom text landing in the generator and the shared
-`.ai/supervisor-protocol.md` layer of each target repo; (b) the
-charter-gate conformance check that FAILS a charter whose
-launch/restart legs omit the idiom (mechanics plug into the
-`plan/charter-gate-ratchet/` thread's gate machinery — cross-link,
-do not duplicate); optionally (c) productizing the audit as a standing
-cause-side check, which is a maintainer scope call. File approved
-slices as CHILDREN of `overseer-fjhsj3` via the `capture-work-item`
-operation (`depends_on` the epic; autonomy tier T2 — the fleet's
-dispatch-after-ratification tier). CROSS-TENANT HAZARD at this exact
-step: a slice filed in a FOREIGN tenant (front (a) is inherently
-multi-repo) must NOT `depends_on` an `overseer-` id — no consuming
-repo lists `livespec-overseer` in `cross_repo_targets`, so the
-reference resolves UNKNOWN and fails closed FOREVER (the documented
-`plan/charter-gate-ratchet/` failure that left three of eight slices
-permanently undispatchable). Let each tenant mint its own id and
-record the ordering in slice TEXT. Slices land through the FACTORY
-path — the `drive` operation (`impl:<id>`) or the Dispatcher drain —
-never the in-session `implement` operation.
+THE next action on resume: **obtain the maintainer's explicit approval of
+the grooming draft, then file only the approved slices**. This thread exists
+to pull `overseer-daj` forward, and the maintainer OWNS the cut and acceptance.
+The draft is read-only until approval.
+
+The proposed dependency layers are:
+
+1. **Core content, target `livespec-overseer`:** update the actual charter
+   generator, `.claude-plugin/prose/supervise-plan.md`, and this repo's
+   `.ai/supervisor-protocol.md` with separate Claude fresh/live-repair and
+   Codex resume/fresh-launch idioms. Preserve the exact adoption join, the
+   `/rename` structured-gate safety check, and the rule that tmux names are
+   not adoption keys. Add generated-output controls.
+2. **Protocol adoption, four repo-local slices:** update the shared
+   `.ai/supervisor-protocol.md` in `homelab`, `livespec`,
+   `livespec-orchestrator-beads-fabro`, and `livespec-dev-tooling`. The
+   console has supervisor handoffs but no shared protocol file. Each foreign
+   tenant must mint its own id; do not add a `depends_on` edge to an
+   `overseer-` id. Record ordering in each slice's text.
+3. **Enforcement, cross-linked to `plan/charter-gate-ratchet/`:** extend
+   its existing detector machinery, rather than creating a second gate, so
+   a launch/restart leg omitting the runtime-specific idiom fails. Require
+   a must-flag defect, a must-pass differently-written correct form, a
+   topic-named agent in a differently-named tmux session, and the known
+   structured-gate `/rename` safety control.
+4. **Rollout:** amend the existing charter-gate-ratchet adopter slices to
+   carry this detector; do not duplicate their cross-repo work in this
+   epic. The optional standing cause-side audit is excluded from this cut
+   and should be filed separately if the maintainer wants it.
+
+Important measured path correction: `overseer/_supervisor_prompts.py` is
+daemon wrap-up/resume text and contains no charter launch generator. The
+generator source is `.claude-plugin/prose/supervise-plan.md`; the daemon
+launch paths remain correct and unchanged.
+
+After approval, file the approved slices through `capture-work-item` with
+T2/factory routing as applicable. Foreign slices must obey the tenant rule
+above. They land through the FACTORY path — the `drive` operation
+(`impl:<id>`) or Dispatcher drain — never the in-session `implement`
+operation.
 
 The follow-on sequence: sweep whether any RATIFIED clause states launch
 idioms (`SPECIFICATION/spec.md` §"The restart",
