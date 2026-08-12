@@ -81,10 +81,11 @@ merged; no implementation work remains in this repo-local slice.
 The three ready foreign protocol slices were dispatched on 2026-08-12 after
 successful latest-master checks. The livespec run `01KZTCFXJ8P7` completed
 successfully; PR #2218 merged at master `62e413fa337d2255af51a3a67dd4f1b096e98887`
-and `livespec-y4xn2k` was closed in its own tenant with that evidence. The two
-remaining live runs are livespec-orchestrator-beads-fabro `bd-ib-e7qesr` →
-`01KZTCFVFGKR` and livespec-dev-tooling `livespec-dev-tooling-tqu55m` →
-`01KZTCJ4F0PK`; use `fabro ps` and `fabro ps -a` as the run authority.
+and `livespec-y4xn2k` was closed in its own tenant with that evidence. This
+closure checkpoint was merged in overseer PR #826. The two remaining live runs
+are livespec-orchestrator-beads-fabro `bd-ib-e7qesr` → `01KZTCFVFGKR` and
+livespec-dev-tooling `livespec-dev-tooling-tqu55m` → `01KZTCJ4F0PK`; use
+`fabro ps` and `fabro ps -a` as the run authority.
 
 THE next action on resume: **monitor the two remaining runs to terminal state**.
 For each successful run, locate the foreign PR, verify it is merged, and close
