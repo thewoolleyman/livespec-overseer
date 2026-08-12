@@ -5,6 +5,7 @@ import io as _io
 import json
 from pathlib import Path
 
+import _supervisor_launch
 import _supervisor_view
 import registry
 import signals
@@ -33,6 +34,26 @@ def _record_post_respawn(*, sup: supervisor.Supervisor, repo: str, topic: str, r
     stamp_entry = next(iter(stamp_data.values()))
     stamp_entry["post_respawn"] = {"ctx": 100, "resume": resume}
     stamp_path.write_text(json.dumps(stamp_data), encoding="utf-8")
+
+
+def _drop_resume_pending(*, sup: supervisor.Supervisor) -> None:
+    stamp_path = Path(sup.stamp_path)
+    stamp_data = json.loads(stamp_path.read_text(encoding="utf-8"))
+    stamp_entry = next(iter(stamp_data.values()))
+    stamp_entry.pop("resume_pending", None)
+    stamp_path.write_text(json.dumps(stamp_data), encoding="utf-8")
+
+
+def _stuck_post_respawn(*, tmp_path, clock):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"], own_pane="%7")
+    _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+    return repo, topic, session, resume, fake, sup, track
 
 
 def test_restart_never_worked_read_only_evaluation_reports_without_alerting(*, tmp_path):
@@ -79,27 +100,19 @@ def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retr
     assert any(call[0] == "keys" and call[2] == "Enter" for call in fake.calls)
     assert not fake.has(method="respawn")
 
-    stamp_path = Path(sup.stamp_path)
-    stamp_data = json.loads(stamp_path.read_text(encoding="utf-8"))
-    stamp_entry = next(iter(stamp_data.values()))
-    stamp_entry.pop("resume_pending", None)
-    stamp_path.write_text(json.dumps(stamp_data), encoding="utf-8")
+    _drop_resume_pending(sup=sup)
 
     fake.panes[session] = _capture_with_resume(resume=resume, ctx=100)
     rearmed = sup.evaluate(track=track, act=True)
     assert rearmed.status == "settling"
 
 
-def test_due_restart_never_worked_attention_does_not_retry_or_clear_round(*, tmp_path):
-    repo, topic = make_plan(tmp_path=tmp_path)
-    session = registry.tmux_id(repo=str(repo), topic=topic)
-    resume = supervisor.default_resume(repo=str(repo), topic=topic)
-    fake = FakeTmux()
-    fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
+def test_due_restart_never_worked_attention_does_not_suppress_retry(*, tmp_path, monkeypatch):
     clock = {"now": 1000.0}
-    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"], own_pane="%7")
-    _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
-    track = mapped_track(repo=repo, topic=topic, session=session)
+    repo, topic, _session, _resume, fake, sup, track = _stuck_post_respawn(
+        tmp_path=tmp_path, clock=clock
+    )
+    monkeypatch.setattr(_supervisor_launch, "resend_enter", lambda *, sup, target: False)
 
     assert sup.evaluate(track=track, act=True).status == "settling"
     registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
@@ -109,13 +122,18 @@ def test_due_restart_never_worked_attention_does_not_retry_or_clear_round(*, tmp
 
     with contextlib.redirect_stderr(_io.StringIO()):
         due = sup.evaluate(track=track, act=True)
-    assert due.status == "restart-never-worked"
+    assert due.status == "restarting"
+    assert due.note == _supervisor_view.RESUME_PENDING_NOTE
     assert supervisor.needs_attention(row=due) is True
     assert not any(call[0] == "keys" for call in fake.calls)
     assert not fake.has(method="respawn")
     state = signals.read_state(repo=str(repo), topic=topic)
     assert state is not None and state.token == signals.STATE_READY
     assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+
+    _drop_resume_pending(sup=sup)
+    without_retry = sup.evaluate(track=track, act=True)
+    assert without_retry.status == "restart-never-worked"
 
 
 def test_restart_never_worked_attention_clears_on_busy_and_rearms(*, tmp_path):
