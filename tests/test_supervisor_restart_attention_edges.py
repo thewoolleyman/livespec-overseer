@@ -1,5 +1,7 @@
 """Edge coverage for post-respawn restart attention."""
 
+import contextlib
+import io as _io
 import json
 from pathlib import Path
 
@@ -85,3 +87,42 @@ def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retr
     fake.panes[session] = _capture_with_resume(resume=resume, ctx=100)
     rearmed = sup.evaluate(track=track, act=True)
     assert rearmed.status == "settling"
+
+
+def test_restart_never_worked_attention_clears_on_busy_and_rearms(*, tmp_path):
+    """Busy evidence ends the episode even when the resume text and context still match."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    stuck_capture = _capture_with_resume(resume=resume, ctx=100)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=stuck_capture)
+    clock = {"now": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"])
+    _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+    log = _io.StringIO()
+
+    with contextlib.redirect_stderr(log):
+        initial = sup.evaluate(track=track, act=True)
+        clock["now"] = 1061.0
+        first = sup.evaluate(track=track, act=True)
+        repeated = sup.evaluate(track=track, act=True)
+        fake.panes[session] = "esc to interrupt\n" + stuck_capture
+        busy = sup.evaluate(track=track, act=True)
+        fake.panes[session] = stuck_capture
+        reset = sup.evaluate(track=track, act=True)
+        clock["now"] = 1122.0
+        second = sup.evaluate(track=track, act=True)
+
+    assert [initial.status, first.status, repeated.status] == [
+        "settling",
+        "restart-never-worked",
+        "restart-never-worked",
+    ]
+    assert [busy.status, reset.status, second.status] == [
+        "working",
+        "settling",
+        "restart-never-worked",
+    ]
+    assert log.getvalue().count("fresh session has not begun work after restart") == 2
