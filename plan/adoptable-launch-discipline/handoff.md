@@ -98,12 +98,16 @@ THE next action on resume: **perform the planned ratified-clause sweep**.
 Check whether any ratified clause states launch idioms in
 `SPECIFICATION/spec.md` §"The restart", `overseer/marker-protocol.md`,
 `.claude-plugin/prose/overseer.md`, or `.claude-plugin/prose/supervise-plan.md`.
-If yes, route its amendment through `/livespec:propose-change`, independent
-Fable review, and `/livespec:revise` before additional rollout work. The three
-foreign protocol slices are now complete; homelab `hl-ekvd22` remains
-`pending-approval` and must not be dispatched without its normal tenant
-admission step. This thread exists to pull the approved replacement work
-forward; do not re-groom or re-file `overseer-daj`.
+Sweep completed on 2026-08-12: `SPECIFICATION/spec.md` has no exact
+per-runtime launch/restart idiom; it binds only the runtime-specific dispatch
+and same-runtime restart invariants. The exact launcher prose found in
+`overseer/marker-protocol.md` and the two `.claude-plugin/prose/` documents is
+non-ratified implementation/operator material. Therefore no
+`/livespec:propose-change` is required for this cut. The three foreign
+protocol slices are complete; homelab `hl-ekvd22` remains `pending-approval`
+and must not be dispatched without its normal tenant admission step. The next
+rollout action is the existing charter-gate-ratchet adopter work after that
+admission boundary. Do not re-groom or re-file `overseer-daj`.
 
 The approved dependency layers are:
 
