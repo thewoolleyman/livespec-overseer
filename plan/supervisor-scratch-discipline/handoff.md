@@ -455,12 +455,19 @@ ledger matches. Concretely:
 | goals 2, 3 | done, verified by demonstration |
 | goal 1 | merged + released, **not** confirmed reaching a generated charter — `overseer-0xg7` |
 | `bd-ib-ycihm7`, `livespec-dev-tooling-q3emww` | merged; `q3emww` recovered from a dead run, master CI 30/30, item closed |
-| `livespec-dev-tooling-5asgvm` | ready and annotated — **THE ONE BLOCKING DECISION** (item 2 below) |
+| `livespec-dev-tooling-5asgvm` | ready and annotated — **THE ONE BLOCKING DECISION** (item 2 below), and now **ALSO BLOCKED BY A RED `ci-green` IN ITS OWN REPO** (item 2a) |
 
 **There is exactly one thing a resuming session cannot decide for itself: the
 `5asgvm` dispatch (item 2). Everything else below is either done or is
 independent work you may pick up.** If the maintainer has not answered, do NOT
 dispatch it — say so and pick up item 3 or 5 instead.
+
+**AMENDED 2026-08-12 (later session): do not dispatch `5asgvm` even WITH a
+maintainer "go" until `livespec-dev-tooling`'s `ci-green` is actually green —
+it is red, and a re-run will not fix it. Read item 2a before acting on item 2.**
+That session's other findings: `q3emww`'s reopen-conditional in item 1 is
+RESOLVED (do not reopen), and `overseer-0xg7` was corrected and strengthened on
+the ledger. Nothing else was started, so nothing is half-done.
 
 Three items were FILED this session and are NOT part of goals 1–3; they are
 named here only so they are not rediscovered from scratch:
@@ -472,6 +479,25 @@ named here only so they are not rediscovered from scratch:
   The fix shape and a ready-made acceptance fixture are recorded on the item;
   the code lives in `livespec-dev-tooling`, so a sibling item belongs there
   when it is scheduled.
+
+  **UPDATED 2026-08-12 (later session) — the ITEM's own text carried the
+  withdrawn "two of three builds are empty" claim, and now carries the
+  correction plus a closed evidence gap. Both appended to the ledger item, not
+  restated here.** Two things changed. (i) The scope claim is WITHDRAWN on the
+  item itself, re-measured with an explicit directory-existence test:
+  `livespec/livespec/09cc286f4477` is **ABSENT**, not empty — a different
+  marketplace namespace — while the real `livespec` build under
+  `livespec-driver-claude/` holds 24 content files and is healthy. Exactly ONE
+  build is empty. **This is the `find | wc -l` absent-vs-empty trap this file
+  already documents, caught a second time in the artifact the first catch did
+  not reach** — proof that correcting a handoff does not correct the ledger
+  items it spawned. (ii) The item's stated "HONEST LIMIT" — that confirming the
+  user-visible symptom needs a fresh session on this host — is now **CLOSED**:
+  such a session resolved build `21d87caf3804` and had **none** of the three
+  commands `plugin.json` v0.34.5 advertises, while every sibling plugin's
+  skills were present. Mechanism: that build contains no `plugin.json` at all,
+  only an empty `skills/overseer/`. So goal 1's end-to-end blocker is now
+  confirmed by symptom, not inferred from a directory listing.
 - **`livespec-dev-tooling-ivd8` (P2)** — see item 4 below.
 - **`overseer-yqza` (P2)** — the `tmp/overseer/` generalization, NAMED and
   deliberately NOT taken. See the scope boundary section.
@@ -490,11 +516,54 @@ were deliberately not touched. **`git fetch` and compare against
    The recovery technique is now written up in this repo's `AGENTS.md` "fifth
    shape" entry (PRs #840, #841 — both MERGED), which previously told every
    session that such work was destroyed.
+
+   **RESOLVED 2026-08-12, later session — DO NOT REOPEN `q3emww`.** That
+   conditional was checked. `livespec-dev-tooling` master IS red, but not for
+   this change: `201cabb` is three commits back and the failure is at
+   `6744975` with a cause unrelated to `plan_thread_epic_parity`. See item 2a.
 2. Dispatch `livespec-dev-tooling-5asgvm` (command above) now that `q3emww`'s
    shipped shape exists for its implementer to compose with. The item is
    already annotated with that shape and with the push-a-draft-PR-before-
    escalating rule; **this is real factory spend, so it is a maintainer
    go/no-go, not an automatic step.**
+
+   2a. **THE BLOCKER HAS MOVED — `5asgvm` IS NOT DISPATCHABLE RIGHT NOW, AND A
+   MAINTAINER "GO" ALONE WILL NOT MAKE IT SO. Measured 2026-08-12.**
+   `livespec-dev-tooling` master CI is RED at `6744975`, and the failing job is
+   **`ci-green`** — the exact required check the dispatcher gates on. Per
+   `.claude/CLAUDE.md`, a red master refuses EVERY dispatch in that repo before
+   any sandbox work, with a message that names the run and says nothing about
+   your item.
+
+   **Two DISTINCT failures at the same sha, and telling them apart is the whole
+   point** — one is noise and one is real:
+
+   | run | job | why it failed |
+   |---|---|---|
+   | `31591563803` (`CI`) | `check-fleet-conformance` → `ci-green` | **infrastructure.** Died at the `Checkout` STEP: `server certificate verification failed. CAfile: none CRLfile: none`, retried 3× over 24s. The recipe NEVER RAN. |
+   | `31604368545` (`Fleet conformance`) | `fleet-conformance` | **real.** Same sha, RAN `just check-fleet-conformance`, exit 4: `fleet conformance FAILED`, `error_findings: 1` |
+
+   The real finding is in a THIRD repo and is unrelated to this thread:
+   `livespec-runtime`'s `cross_repo_public_api` omits 3 functions a sibling
+   consumes (`documented_defaults`, `manifest_rows`, `verify_default_block` in
+   `livespec_runtime/spec_governance.py`, consumed by `livespec`).
+
+   **The consequence, and it is the part that saves a wasted cycle: re-running
+   the checkout-killed job will NOT restore green.** The infra failure is
+   masking the real one. At this same sha the recipe has already been observed
+   to genuinely fail — so a re-run merely gets far enough to reach the
+   conformance violation. `ci-green` cannot go green until the
+   `livespec-runtime` obligation is satisfied.
+
+   This is stated as a PREDICTION with its basis, per this thread's own rule
+   that a demonstration proves a mechanism but does not size a population: what
+   is MEASURED is that both runs are at `6744975` and that the standalone
+   workflow ran the recipe and failed. What is INFERRED is that the CI job would
+   do the same. Verify before acting on it.
+
+   So the maintainer decision is no longer only "spend the tokens?" — it is
+   "clear the `livespec-runtime` conformance violation first, or hold". Do NOT
+   burn a dispatch attempt to discover the refusal.
 3. Consider filing the two credential defects surfaced above: (a) fabro should
    refresh the installation token during long runs — the actual root cause;
    (b) `master_ci_green` should treat a 401 as *invalid credential →
