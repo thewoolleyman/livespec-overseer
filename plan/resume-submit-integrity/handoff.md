@@ -27,6 +27,32 @@ respawn), (3) a restarted-but-never-worked attention condition
 untouched throughout: only a fresh session-written `ready` ever
 authorizes a respawn.
 
+## 1b. Scope extension (2026-08-12, maintainer-directed): the ready-cycle deadlock
+
+Defect record **`overseer-idxe`** is FOLDED INTO this thread (read its
+full evidence from the ledger). Live-verified on current code: the MCP
+launch-chain shells make the daemon read an idle Codex pane as
+`working (background shell)` (the relaunched-chain gap of the closed
+`shell-evidence-truth` epic — a `codex resume` restarts the chain
+clock, defeating the start-time cut), and that false busy poisons BOTH
+legs of the ready cycle: the restart act is withheld SILENTLY every
+tick (zero log lines), and at 121s the void grace destroys the
+declaration as "session resumed work" — fed by the same false
+evidence. Three declarations on two tracks were consumed this way in
+one hour; manual `codex resume` respawn was the only exit. Three
+additional work fronts, joining the original three:
+
+4. **Restart-act parity with the wrap-up narrowing**: a certifiable
+   `ready` at a settled prompt whose only busy evidence is shell-only
+   MUST be actable (or at minimum surface attention) — the
+   busy→generating narrowing covered injection but not the restart.
+5. **Void evidence integrity**: "session resumed work" MUST NOT be
+   satisfiable by launch-chain shell evidence alone; an idle session's
+   declaration is never voided by its own MCP plumbing.
+6. **No silent withholding**: any tick that declines to act on a
+   standing declaration logs edge-triggered, and persistent
+   withholding surfaces as attention.
+
 ## 2. Where this thread stands
 
 Created 2026-08-05. The epic anchor is **`overseer-xkrwm3`**. Read live
@@ -106,7 +132,14 @@ worktree → PR → rebase-merge discipline.
    `overseer/marker-protocol.md`).
 
 Ledger ids to read live (never stored here): `overseer-xkrwm3` (this
-thread's epic), `overseer-mgg` (the defect record and its three
-instance comments), `overseer-er6ikw` (the sibling
-authorization-side thread), `overseer-daj` (the Codex-adoptability
-restart defect, out of scope here).
+thread's epic), `overseer-mgg` (the defect record and its instance
+comments), `overseer-idxe` (the folded ready-cycle deadlock — fronts
+4-6), `overseer-er6ikw` (the sibling authorization-side thread),
+`overseer-daj` (the Codex-adoptability restart defect, out of scope
+here). Code anchors for fronts 4-6: the busy branch and threshold
+cascade (`overseer/_supervisor_evaluate.py`,
+`overseer/_supervisor_threshold.py`), the void grace
+(`overseer/_supervisor_state.py` or wherever `MARKER_VOID_GRACE` is
+enforced — re-derive), and the shell-evidence walk
+(`overseer/claude_sessions.py` `has_active_subshell` and its
+start-time discriminator).
