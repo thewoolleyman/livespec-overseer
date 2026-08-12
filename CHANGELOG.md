@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.3...v0.33.4) (2026-08-12)
+
+
+### Bug Fixes
+
+* **prompts:** require supervisor scratch discipline ([dc8e22d](https://github.com/thewoolleyman/livespec-overseer/commit/dc8e22d5bdcdefc122047858c9d136f243456d83))
+
 ## [0.33.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.2...v0.33.3) (2026-08-06)
 
 
