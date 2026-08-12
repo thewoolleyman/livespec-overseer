@@ -363,6 +363,32 @@ You are the supervisor, not the implementer. Hand work to the supervised session
 as INPUT TO VERIFY. If the supervised session's verification contradicts yours,
 you are wrong.
 
+## Adoptable runtime launch and restart
+
+Emit this section in the shared .ai/supervisor-protocol.md role layer.
+
+Every worker launch or restart must preserve the exact adoption join used by the
+overseer. Claude is adopted by the registry `name`; Codex is adopted by the
+`thread_name` in `~/.codex/session_index.jsonl`. A tmux session name is not an
+adoption key, so a topic-named agent in a differently named tmux session remains
+valid.
+
+Keep the two runtime idioms separate and exact:
+
+- **Claude fresh launch:** `claude --dangerously-skip-permissions -n <topic>`;
+  the `-n` value is the registry name. **Claude live repair:** `/rename
+  <topic>` only after checking the pane capture and confirming that
+  `signals.is_structured_gate` is false. Never send `/rename` into a numbered
+  cursor or a permission question, because the picker consumes the keystrokes.
+- **Codex restart:** `codex resume
+  --dangerously-bypass-approvals-and-sandbox <session-id> "<kick>"`, with the UUID
+  recovered from `~/.codex/session_index.jsonl` by the plan topic.
+  **Codex fresh launch:** immediately use `/rename <topic>` in the Codex TUI so
+  `session_index.jsonl` gains the exact `thread_name` adoption record.
+
+These are charter instructions for attended supervisor action. Keep the daemon's own launch paths unchanged, and do not replace exact adoption with fuzzy matching,
+tmux-name matching, live killing, or blocking.
+
 ## How to inspect and drive
 
 Every command in this section must be COPY-PASTEABLE as written. Emit the
