@@ -74,3 +74,32 @@ def test_restarted_never_worked_session_is_report_only_attention(*, tmp_path):
     assert supervisor.needs_attention(row=cleared) is False
     sup._refresh_window_name(attention=int(supervisor.needs_attention(row=cleared)))
     assert fake.window_name == "overseer"
+
+
+def test_restarted_never_worked_survives_missing_resume_pending_marker(*, tmp_path):
+    """A falsely-closed round must still surface a stranded fresh composer."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
+    clock = {"now": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"], own_pane="%7")
+    _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
+    registry.clear_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    first = sup.evaluate(track=track, act=True)
+    assert first.status == "settling"
+    clock["now"] += 61.0
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        due = sup.evaluate(track=track, act=True)
+    assert due.status == "restart-never-worked"
+    assert supervisor.needs_attention(row=due) is True
+    assert not fake.has(method="respawn")
+    assert not any(call[0] == "keys" for call in fake.calls)
+    assert (
+        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is False
+    )
