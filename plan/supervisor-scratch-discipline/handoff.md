@@ -392,10 +392,24 @@ nothing pushed.
    examine a thread by regex-matching the handoff's anchor PROSE, and silently
    skips it — no warning, exit 0 — when that fails. Measured with the real
    check, armed, changing only formatting: as-filed → silent pass; anchor line
-   reformatted → fires with `epic_status: closed`. Fleet-wide, **39 of 49
-   active plan threads (80%) are never examined**, three repos at zero. It is
-   orthogonal to `q3emww` and `5asgvm` — it drops the thread before either
-   assertion runs, so neither fix helps on those 39.
+   reformatted → fires with `epic_status: closed`. Fleet-wide, **30 of 49
+   active plan threads declare a same-tenant anchor this regex cannot parse**
+   (61%); 10 parse correctly, and 9 more have no same-tenant id near any
+   anchor line and are left unclassified. It is orthogonal to `q3emww` and
+   `5asgvm` — it drops the thread before either assertion runs, so neither fix
+   helps on those 30.
+
+   **An earlier revision of this file said "39 of 49 (80%) are never
+   examined". That number is WITHDRAWN** — it counted every thread the check
+   does not examine, but the check DELIBERATELY ignores anchors outside the
+   repo's own tenant, so "not examined" and "defectively not examined" are
+   different populations. (A first correction said "7", which was wrong too:
+   its classifier searched for the literal phrase "ledger anchor" and so
+   missed homelab's "Ledger epic anchor:" convention — 13 threads that do
+   declare a same-tenant anchor the regex cannot read.) Three unparseable
+   shapes are now known: bold wrapped around the backticked id; an unbolded
+   label; and a different label phrase entirely. The hand-verified
+   demonstration above is unaffected by the counting and still stands.
    **This thread is itself a live instance of BOTH `5asgvm` and `ivd8`:** its
    anchor `overseer-5jttov` is closed procedurally (regroom-out) while its work
    continued, and its own handoff is one of the 39 the check cannot see. Note
