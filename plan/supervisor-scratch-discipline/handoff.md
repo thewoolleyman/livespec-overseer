@@ -203,7 +203,17 @@ new PR).
 **Ledger items filed for the actual fix (cross-repo):**
 - `bd-ib-ycihm7` (`livespec-orchestrator-beads-fabro`) — correct the
   prose/spec text. **DONE: run `01KZSPRVF9E2` succeeded, PR #1354 merged
-  2026-08-12T01:10:04Z as `dc7bf0e`.**
+  2026-08-12T01:10:04Z.** Chase commit **`86836a95`** ("docs: require
+  completion evidence before plan archive",
+  `.claude-plugin/prose/plan.md` + `SPECIFICATION/contracts.md`), NOT the
+  `dc7bf0e` that GitHub reports as the merge commit — that one is a fabro
+  janitor commit holding only a `SPECIFICATION/history/v060/` snapshot, and a
+  reader who chases it finds nothing about archiving. Verified content: the
+  old "archived if and only if its epic is closed" rule is replaced by a
+  completion-evidence rule that explicitly warns closed "can also mean
+  regroomed out, superseded, or otherwise retired without completing the
+  work" — the precise error this thread committed — and it names `5asgvm`
+  and `q3emww` as the outstanding mechanical enforcement.
 - `livespec-dev-tooling-q3emww` (pre-existing, found independently by another
   thread the same day as the homelab incident) — fixes the converse gap: an
   archived thread whose anchor epic is still open passes green today.
