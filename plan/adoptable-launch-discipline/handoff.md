@@ -73,6 +73,8 @@ passing in the aggregate suite. PR #816 merged by rebase and its ledger item is
 closed. No daemon behavior or spec sweep was changed.
 The defect's live comment remains the evidence anchor: 51 panes, 20
 unadoptable agents (18 Claude launches missing `-n`, 2 unnamed Codex threads).
+The 2026-08-12 wind-down checkpoint re-certified this handoff after PR #820
+merged; no implementation work remains in this repo-local slice.
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
