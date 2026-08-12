@@ -58,6 +58,7 @@ from _registry_discovery import discover_plans as discover_plans
 from _registry_discovery import join as join
 from _registry_discovery import repo_root_present as repo_root_present
 from _registry_discovery import watch_set_from_config as watch_set_from_config
+from _registry_epic import epic_from_plan_anchor as epic_from_plan_anchor
 from _registry_rounds import RoundRecord as RoundRecord
 from _registry_rounds import read_round_open_identity as read_round_open_identity
 from _registry_rounds import read_round_record as read_round_record
@@ -91,6 +92,7 @@ __all__: list[str] = [
     "clear_injection_stamp",
     "colliding_topics",
     "discover_plans",
+    "epic_from_plan_anchor",
     "file_lock",
     "join",
     "norm",
