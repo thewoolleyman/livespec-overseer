@@ -131,6 +131,18 @@ def _upsert(*, track: registry.Track) -> None:
     registry.append_mapping(track=track, store_path=None, added_at=iso_now())
 
 
+def _track_for_assignment(*, repo: str, topic: str, session: str) -> registry.Track:
+    """Build the mapping row written by attended assignment surfaces."""
+    return registry.Track(
+        topic=topic,
+        repo=repo,
+        tmux=session,
+        handoff=default_handoff(repo=repo, topic=topic),
+        resume=default_resume(repo=repo, topic=topic),
+        epic=registry.epic_from_plan_anchor(repo=repo, topic=topic),
+    )
+
+
 def run_daemon(*, warn_percent: int | None = None) -> int:
     """Start the fleet daemon with fixed defaults — the ``overseerd`` entrypoint.
 
@@ -212,13 +224,7 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
     session = _derive_tmux_or_refuse(repo=repo, topic=args.topic)
     if session is None:
         return 1
-    track = registry.Track(
-        topic=args.topic,
-        repo=repo,
-        tmux=session,
-        handoff=default_handoff(repo=repo, topic=args.topic),
-        resume=default_resume(repo=repo, topic=args.topic),
-    )
+    track = _track_for_assignment(repo=repo, topic=args.topic, session=session)
     _upsert(track=track)
     streams.write_stdout(text=f"added mapping {repo}::{args.topic} (tmux {track.tmux})\n")
     return 0
@@ -252,13 +258,7 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
     force = getattr(args, "force", False)
     io = tmuxio.TmuxIO()
     sup = Supervisor(tmux=io)
-    track = registry.Track(
-        topic=topic,
-        repo=repo,
-        tmux=session,
-        handoff=default_handoff(repo=repo, topic=topic),
-        resume=default_resume(repo=repo, topic=topic),
-    )
+    track = _track_for_assignment(repo=repo, topic=topic, session=session)
     if io.session_exists(session=session) and not force:
         # Fail CLOSED (RB4): refuse to respawn-kill an existing session unless we
         # POSITIVELY know it is DEAD. Only a bare SHELL proves that — a dead session
