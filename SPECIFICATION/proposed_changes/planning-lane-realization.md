@@ -21,22 +21,36 @@ Ratification MUST also co-edit `../tests/heading-coverage.json` — see
 Round 1 of the independent adversarial review (2026-08-12) returned six
 blockers. Round 2 (2026-08-12) confirmed four of them fully cleared, one cleared
 in substance, one only PARTIALLY cleared, and found four NEW defects introduced
-by the fixes themselves. Amendments are marked inline as `[R1-n]` and `[R2-n]`
-against the blocker they answer, and summarized in §"What round 1 changed" and
-§"What round 2 changed".
+by the fixes themselves. Round 4 (2026-08-12) re-derived all four round-2
+blockers as genuinely cleared and confirmed all 24 replace-targets verbatim and
+tree-wide-unique, and found three NEW defects — all three in the round-3
+amendment text, and two of them junction defects visible only after applying the
+edits. Amendments are marked inline as `[R1-n]`, `[R2-n]` and `[R4-n]` against
+the blocker they answer, and summarized in §"What round 1 changed",
+§"What round 2 changed" and §"What round 4 changed".
 
-Both rounds were performed by Opus 5 under maintainer-authorized one-off
-deviations from the Fable-model requirement — round 2's authorization was given
-explicitly as a SECOND one-off that repeats the round-1 deviation rather than
-closing it. The ratification record for this proposal MUST therefore read
-`reviewer_model: opus`, never `fable`.
+**The ratification record names the model that performed each review round, and
+no blanket value is honest for this history** `[R4-3]`. Rounds 1 and 2 were
+performed by Opus 5 under maintainer-authorized one-off deviations from the
+Fable-model requirement — round 2's authorization was given explicitly as a
+SECOND one-off that repeats the round-1 deviation rather than closing it. Round 4
+was performed by Fable 5, the model `AGENTS.md` requires, closing the deviation.
+An earlier revision of this section instructed that the record MUST read
+`reviewer_model: opus` and never `fable`; that instruction was accurate only
+while every extant review was Opus, and it expired when this Fable round was
+commissioned. Attesting `opus` for a round Fable performed is the same defect as
+attesting `fable` for a round Opus performed — correction T1 in either
+direction — and it is the one thing here no CLI can catch, because the revise
+flow validates field SHAPE, not truth.
 
-Because both rounds shared one instrument, round 2 deliberately varied the
+Because rounds 1 and 2 shared one instrument, round 2 deliberately varied the
 METHOD rather than relying on the reviewer differing: it simulated applying all
 24 replacements in memory and swept the RESULT, and two of its four blockers
-were visible only that way. This revision was verified the same way — see
-§"Verification method" — because target-matching alone provably cannot see the
-defect class that produced round-2 blocker 3.
+were visible only that way. Round 4 — a genuinely different instrument — found
+two of its three blockers the same way. Every revision since has been verified
+that way, this one included: see §"Verification method". Target-matching alone
+provably cannot see the junction class, because target and replacement are each
+individually correct and only their seam with the surviving text is wrong.
 
 ### Summary
 
@@ -133,6 +147,20 @@ round-1 blockers 1 and 4.
 | 3 | EDIT 6 inserted ~90 words between `ctx_threshold` and the "a row without the key means 'inherit the daemon default'" clause, orphaning its referent; the nearest reading attached it to `epic` and contradicted the REQUIRED-epic rule four sentences earlier. That clause is a live implemented invariant (`_registry_store.py:129-133`). | EDIT 6's replace-target is EXTENDED to swallow the em-dash clause, which is re-emitted immediately after `ctx_threshold` with its referent named explicitly ("a row without `ctx_threshold`"). The new `epic`/`handoff`/`resume` prose now follows it rather than splitting it from its subject. |
 | 4 | EDIT 6 landed proposal meta-commentary as ratified spec text: "This revision RETIRES the `handoff` key — a change, not a description of existing legacy". | Deleted. Only the contract it wrapped survives: "The mapping store MUST NOT emit a `handoff` key; a legacy row still carrying one is read without error and rewritten without it." The adjacent "`resume` is NOT retired" is likewise recast positively. |
 
+### What round 4 changed
+
+Round 4 was the first round performed on Fable 5 — a genuinely different
+instrument from rounds 1 and 2. It re-derived all four round-2 blockers as
+cleared and all 24 replace-targets as verbatim and tree-wide-unique, and found
+three new defects, every one of them in the round-3 amendment text rather than in
+the original proposal.
+
+| # | Round-4 blocker | Amendment |
+|---|---|---|
+| 1 | §"Ratification sequencing"'s two load-bearing claims about `overseer-pfpfty.9` both failed re-derivation: "at the moment a track is discovered or assigned — the same mechanism this proposal describes in EDIT 3" named the daemon's discovery pass, which EDIT 3 expressly bars; and "contradicts no clause of the CURRENT spec" was false, since the live persisted-facts ONLY-enumeration excludes a populated epic id — proven by this proposal's own EDIT 4 amending that enumeration to admit it. | The section now states the population moment as EDIT 3 states it — at ASSIGNMENT, never on the daemon's discovery pass — and drops the "discovered or" arm. The neutrality claim is replaced by the true and still-sufficient one: population changes no read-first behavior, no respawn prompt and no daemon decision, but it DOES put a populated `epic` ahead of the enumeration amendment that legalizes it, which is exactly why the accept must follow `.9` immediately or land with it, not merely eventually. |
+| 2 | EDIT 3 grounded the foreman's anchor-read on §"Non-interference with tracked work" paraphrased as permitting reads "solely as evidence", eliding that clause's actual restriction — "solely as EVIDENCE for its own decision-routing" — which recording an epic id for the daemon's respawn prompt is not. A junction defect: target and replacement each individually correct, the seam with the SURVIVING paragraph wrong. | EDIT 5 now amends that surviving paragraph in the SAME payload, widening its enumerated purposes from one to exactly two so the second is the duty EDIT 3 assigns; `solely` stays exclusive and the write prohibitions are untouched. EDIT 3's citation is re-grounded on the amended grant, and the actor/moment wobble in the same clause is fixed: the row comes into being at assignment, the obligation attaches to whichever surface performs it, no surface is declared the assigner, and the unreadable-anchor case is stated. |
+| 3 | §"Amendment history" instructed that the ratification record "MUST therefore read `reviewer_model: opus`, never `fable`" — accurate only while every extant review was Opus, and expired the moment this Fable round was commissioned. Followed literally it mandated a false attestation about the very review the accept gates on. | Replaced with the per-round rule: the record names the model that performed each round (1 and 2: Opus 5, under maintainer-authorized one-off deviations; 4: Fable 5, the model `AGENTS.md` requires), and no blanket value is honest for this history. Round 4 is recorded in the same section. |
+
 ### Ratification sequencing
 
 `[R2-1]` This proposal makes a recorded `epic` id REQUIRED for any track whose
@@ -150,32 +178,60 @@ The population path is already scoped and filed: **`overseer-pfpfty.9`**
 ("populate the mapping-store epic id from the plan write-once anchor (populate
 only, no repoint)"), under epic `overseer-pfpfty` in repository
 `livespec-overseer`. It records the plan's ledger epic id into the mapping
-store's `epic` key, read from the plan's write-once metadata anchor, at the
-moment a track is discovered or assigned — the same mechanism this proposal
-describes in EDIT 3. This proposal's `epic`-gated clauses therefore MUST NOT be
-ratified ahead of that slice landing; ratify them with it or after it. That is
-an ordering constraint on the accept, not a weakening of the contract, and it is
-stated here for the same reason `overseer-pfpfty.7` is cited for test source: a
-proposal that defers work should name where the work lives.
+store's `epic` key, read from the plan's write-once metadata anchor, **at track
+ASSIGNMENT and by the assigning surface — never on the daemon's discovery
+pass** `[R4-1]`. That is the mechanism EDIT 3 ratifies, and the restriction is
+EDIT 3's own: the daemon consumes the recorded value and never reads the anchor
+itself, and the discovery path performs no file-level probe inside a plan
+directory. An implementer who populated at discovery would be building the one
+thing EDIT 3 forbids, because discovery is the daemon's act.
 
-`overseer-pfpfty.9` carries no dependency on the ratification, which is what
-lets it land first: populating `epic` writes a value nothing yet reads, so it
-changes no read-first behavior, no respawn prompt, and no daemon decision, and
-therefore contradicts no clause of the CURRENT spec. It is preparation, not
-implementation ahead of spec. The read-first REPOINT is a separate, later slice
-— `overseer-pfpfty.4` — which stays gated on the ratification, so the order is
-`overseer-pfpfty.9`, then this accept, then `overseer-pfpfty.4`.
+This proposal's `epic`-gated clauses MUST NOT be ratified ahead of that slice
+landing. That is an ordering constraint on the accept, not a weakening of the
+contract, and it is stated here for the same reason `overseer-pfpfty.7` is cited
+for test source: a proposal that defers work should name where the work lives.
+
+`overseer-pfpfty.9` carries no dependency on the ratification, which is what lets
+it land first. Be precise about why that is safe, because the obvious argument is
+wrong `[R4-1]`: populating `epic` writes a value nothing yet reads, so it changes
+no read-first behavior, no respawn prompt, and no daemon decision — but it does
+NOT follow that it contradicts no clause of the CURRENT spec. It contradicts one.
+The live persisted-facts clause admits ONLY four members and excludes a populated
+epic id, and the decisive evidence is this proposal's own EDIT 4, which amends
+that very enumeration to add the id and to recast the criterion that admits it.
+A proposal cannot amend an enumeration BECAUSE the epic id sits outside it and
+simultaneously claim that persisting the id ahead of that amendment contradicts
+nothing.
+
+So the window between `.9` landing and this accept is a window in which the store
+holds a populated `epic` that the ratified enumeration does not yet legalize — a
+real, if narrow, inconsistency that a doctor pass or drift sweep run inside it
+would correctly flag. That is why the accept must follow `overseer-pfpfty.9`
+**immediately, or land with it** — not merely eventually. The read-first REPOINT
+is a separate, later slice — `overseer-pfpfty.4` — which stays gated on the
+ratification, so the order is `overseer-pfpfty.9`, then this accept as promptly
+as it can be driven, then `overseer-pfpfty.4`.
 
 ### Verification method
 
-`[R2-3]` Round 2 found two of its four blockers only by simulating the
-application of all 24 replacements and sweeping the RESULT, rather than by
-checking that each target matched. Target-matching provably cannot see an
-orphaned referent, because both the target and the replacement can be
-individually correct while their junction is not. This revision was therefore
-verified both ways: every replace-target re-derived against live bytes, AND the
-fully applied result swept for the defect classes that only appear after
-application.
+`[R2-3]` `[R4-2]` Round 2 found two of its four blockers, and round 4 two of its
+three, only by simulating the application of every replacement and sweeping the
+RESULT — not by checking that each target matched. Target-matching provably
+cannot see an orphaned referent or a bad junction, because both the target and
+the replacement can be individually correct while their seam with the surviving
+text is not. Every revision since has been verified both ways, this one included:
+every replace-target re-derived against live bytes, AND the fully applied result
+swept for the defect classes that only appear after application — asking all
+three questions of it, not two: what vanished that should have stayed, what
+stayed that should have vanished, and what is now ADJACENT that was never
+adjacent before.
+
+**Target count, stated because it changed** `[R4-2]`. Rounds 1 through 4 verified
+**24** replace-targets. This revision adds a **25th** — the surviving foreman
+paragraph in §"Non-interference with tracked work", which EDIT 5 must now amend
+so that the purpose EDIT 3 relies on is actually granted. Historical statements
+elsewhere in this document that cite 24 describe the rounds in which 24 was the
+whole set and are left accurate as written; the current set is 25.
 
 ### Proposed Changes
 
@@ -256,12 +312,17 @@ with:
 > entries, never hashes them, and never inspects them as restart authorization.
 > Because the daemon never reads inside a plan directory, it can never
 > re-derive that id for itself: the id is recorded into the row AT TRACK
-> ASSIGNMENT, from the plan's write-once metadata anchor, by the surface
-> performing the assignment — the authorized unattended foreman, which
-> §"Non-interference with tracked work" already permits to read plan-tree text
-> solely as evidence, or supervise-plan at plan open. The daemon consumes the
-> recorded value and never reads the anchor itself. The discovery path performs
-> no file-level probe inside a plan directory.
+> ASSIGNMENT — the moment the row itself comes into being, since the store holds
+> one row per ASSIGNED track — by whichever surface performs that assignment,
+> read from the plan's write-once metadata anchor. This specification does not
+> make any one surface the assigner; the obligation attaches to whichever surface
+> performs the assignment. Where that surface is the authorized unattended
+> foreman, §"Non-interference with tracked work" grants it this purpose expressly,
+> alongside its own decision-routing. A track assigned when the anchor cannot be
+> read simply carries no recorded `epic`, which the restart interlock already
+> handles by refusing the respawn and preserving the declaration. The daemon
+> consumes the recorded value and never reads the anchor itself. The discovery
+> path performs no file-level probe inside a plan directory.
 
 EDIT 4 (spec.md §"Track discovery and the mapping store" and §"Session-name
 derivation"). Apply the ratified `plan` vocabulary to the four term-bearing
@@ -418,6 +479,43 @@ with:
 > plan epic. Neither is overseer runtime state: the "exactly two places" sentence
 > below and the startup gitignore refusal continue to bind the daemon's runtime
 > state verbatim.
+
+Finally, widen the foreman's read-PURPOSE grant in the third paragraph of that
+same section, which no other edit touches `[R4-2]`. EDIT 3 relies on this clause
+to authorize reading the write-once anchor, but the clause's `solely` makes its
+purpose exclusive and the only purpose granted is the foreman's OWN
+decision-routing — which recording an epic id for the daemon's later respawn
+prompt is not. Left unamended, §"Track discovery and the mapping store" would
+require of the foreman exactly what this paragraph forbids. Replace:
+
+> An authorized UNATTENDED operator surface — the foreman — MAY READ files under
+> a watched repository's plan tree, and MAY read pane content and work-item
+> records, solely as EVIDENCE for its own decision-routing.
+
+with:
+
+> An authorized UNATTENDED operator surface — the foreman — MAY READ files under
+> a watched repository's plan tree, and MAY read pane content and work-item
+> records, solely as EVIDENCE for its own decision-routing and, when it is the
+> surface assigning a track, to record that plan's ledger epic id into the
+> track's mapping-store row at assignment.
+
+`solely` stays exclusive; the enumerated purposes go from one to exactly two, and
+the second is the duty EDIT 3 assigns. The paragraph's write prohibitions are
+untouched and continue to bind — recording into the mapping store is neither a
+write under `plan/` nor a tracked-file write.
+
+`constraints.md` §"Filesystem boundaries" carries a parallel foreman clause
+reading "solely as evidence", with no decision-routing qualifier, and this
+proposal deliberately leaves it alone. The two are not in conflict: the
+constraints clause is the BROADER grant, so the narrower `spec.md` clause is the
+one that governs, and widening `spec.md` to two enumerated purposes moves it
+toward the constraints clause rather than away from it. Narrowing
+`constraints.md` to match would restrict an existing permission this proposal has
+no mandate to restrict. The asymmetry predates this proposal — it is precisely
+what made round 2's fix sketch (which cited the constraints wording) mislead the
+round-3 author into a paraphrase that dropped the qualifier — so it is recorded
+here rather than left to be rediscovered.
 
 EDIT 6 (contracts.md §"The restart interlock", §"The wrap-up injection",
 §"The keep-going nudge", and §"Durable stores"). Replace the restart guarantee
