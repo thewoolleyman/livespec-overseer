@@ -229,6 +229,7 @@ def test_liveness_helper_edges_are_covered(*, tmp_path):
         runtime="claude",
         codex_fallback=False,
         claude_status="idle",
+        current_ctx=79,
         eff_ctx=79,
         ctx_stale_age=None,
         stale_ctx=None,

@@ -102,6 +102,7 @@ class Observation:
     runtime: str
     codex_fallback: bool
     claude_status: str | None
+    current_ctx: int | None
     eff_ctx: int | None
     ctx_changed: bool = False
     ctx_stale_age: float | None
