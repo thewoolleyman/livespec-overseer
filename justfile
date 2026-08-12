@@ -251,6 +251,7 @@ check:
         # absent — see the recipe for why those deviations are declared there.
         check-codex-skill-picker
         check-spec-governance-default-block
+        check-tmp-supervisor-discipline
         # Repo-local release-hygiene gate (overseer-d4t): generator
         # prose may not change without a release-triggering commit,
         # or the fix never reaches the plugin cache that generates
@@ -717,6 +718,12 @@ check-codex-skill-picker:
 
 check-spec-governance-default-block:
     uv run python scripts/check-spec-governance-default-block.py
+
+# LOCAL-ONLY scratch discipline gate. `tmp/` is gitignored (.gitignore:2), so a
+# fresh CI checkout never has the operator's tmp/supervisor contents; the script
+# prints that limitation every time it runs.
+check-tmp-supervisor-discipline:
+    scripts/check-tmp-supervisor-discipline.sh
 
 # ---------------------------------------------------------------
 # Pre-commit aggregate — Red-mode-aware. Classifies the staged
