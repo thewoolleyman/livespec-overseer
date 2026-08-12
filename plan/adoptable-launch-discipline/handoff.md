@@ -58,30 +58,27 @@ in prose rather than a cross-tenant dependency edge:
 - `bd-ib-e7qesr` in livespec-orchestrator-beads-fabro — `ready`.
 - `livespec-dev-tooling-tqu55m` in livespec-dev-tooling — `ready`.
 
-The first factory dispatch attempt for `overseer-rf6qg3` was refused on
-2026-08-12 before sandbox launch at `run-config-overlay`: the factory's
-`CLAUDE_CODE_OAUTH_TOKEN` returned HTTP 429 (`exhausted` / rate-limited).
-There is no Fabro run. The phantom `fabro` claim was released manually, the
-item is back to `ready`, and the refusal is recorded in its ledger notes.
-Treat this as a credential wait/retry condition; do not re-file the item or
-escalate it as a maintainer decision. The target master CI was green after a
-transient ShellCheck download timeout was rerun.
-
-No charter or gate implementation has started, and no spec sweep has been
-performed. The defect's live comment remains the evidence anchor: 51 panes,
-20 unadoptable agents (18 Claude launches missing `-n`, 2 unnamed Codex
-threads).
+The core slice is implemented in the worktree branch
+`implement-adoptable-launch-discipline`. The maintainer explicitly directed
+in-session implementation after two factory preflight refusals reported the
+factory `CLAUDE_CODE_OAUTH_TOKEN` exhausted/rate-limited before sandbox launch;
+no factory run was created. The implementation adds the runtime-specific
+launch/restart contract to both prose layers and generated-output tests. The
+red/green commit is `fix: enforce adoptable runtime launch contract`; the
+targeted contract suite passes. The handoff and PR still need to be landed,
+then `overseer-rf6qg3` needs its completion recorded. No enforcement
+implementation or spec sweep has been performed. The defect's live comment
+remains the evidence anchor: 51 panes, 20 unadoptable agents (18 Claude
+launches missing `-n`, 2 unnamed Codex threads).
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
-THE next action on resume: **retry the approved local core slice
-`overseer-rf6qg3` once the factory Claude credential is available**. Verify
-the target master `ci-green` gate first. Then drive `overseer-464iib`, followed
-by the three already-ready foreign protocol slices. The homelab slice needs
-its normal tenant admission step before dispatch. This thread exists to pull
-the approved replacement work forward; do not re-groom or re-file
-`overseer-daj`, and do not spin repeated dispatches while the credential is
-exhausted.
+THE next action on resume: **land the in-session core implementation and close
+`overseer-rf6qg3` with the maintainer-directed execution reason**. Then drive
+`overseer-464iib`, followed by the three already-ready foreign protocol
+slices. The homelab slice needs its normal tenant admission step before
+dispatch. This thread exists to pull the approved replacement work forward;
+do not re-groom or re-file `overseer-daj`.
 
 The approved dependency layers are:
 
@@ -114,10 +111,11 @@ generator source is `.claude-plugin/prose/supervise-plan.md`; the daemon
 launch paths remain correct and unchanged.
 
 The slices were filed through the shared intake Definition-of-Ready path.
-Foreign slices obey the tenant rule above. They land through the FACTORY
-path — the `drive` operation
-(`impl:<id>`) or Dispatcher drain — never the in-session `implement`
-operation.
+Foreign slices obey the tenant rule above and should use the FACTORY path —
+the `drive` operation (`impl:<id>`) or Dispatcher drain. For
+`overseer-rf6qg3`, the maintainer explicitly authorized the in-session route
+because the factory credential was exhausted; record that exception in the
+completion reason. Do not generalize this exception to the remaining slices.
 
 The follow-on sequence: sweep whether any RATIFIED clause states launch
 idioms (`SPECIFICATION/spec.md` §"The restart",
