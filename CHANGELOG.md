@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.34.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.0...v0.34.1) (2026-08-12)
+
+
+### Bug Fixes
+
+* pin restart-never-worked busy rearm ([335ff41](https://github.com/thewoolleyman/livespec-overseer/commit/335ff41840bbcde09cce21e9747ef982cd686576))
+
 ## [0.34.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.33.4...v0.34.0) (2026-08-12)
 
 
