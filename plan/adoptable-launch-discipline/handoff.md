@@ -87,17 +87,23 @@ closure checkpoint was merged in overseer PR #826. The orchestrator run
 `f8789004de48feb77bbf792dcf0cfff942c01acf` and `bd-ib-e7qesr` was closed in
 its own tenant with that evidence. The only remaining live run is
 livespec-dev-tooling `livespec-dev-tooling-tqu55m` → `01KZTCJ4F0PK`; use
-`fabro ps` and `fabro ps -a` as the run authority.
+`fabro ps` and `fabro ps -a` as the run authority. The follow-up handoff PR
+#829 contains this checkpoint and is open after a rebase onto current master;
+its checks/auto-merge are still pending.
+The dev-tooling run `01KZTCJ4F0PK` then completed successfully; PR #1366
+merged at master `ed0b97df9e2468e6c989472fb3fc89b390c1d583` and
+`livespec-dev-tooling-tqu55m` was closed in its own tenant with that evidence.
 
-THE next action on resume: **monitor the remaining dev-tooling run to terminal state**.
-For each successful run, locate the foreign PR, verify it is merged, and close
-the item in its own tenant with the PR/merge evidence. For a failed or vanished
-run, apply the dispatcher-family discriminators in `AGENTS.md` before releasing
-or re-dispatching a claim. The homelab slice remains `pending-approval` and
-needs its normal tenant admission step before dispatch. Then perform the
-planned ratified-clause sweep before any additional rollout work. This thread
-exists to pull the approved replacement work forward; do not re-groom or
-re-file `overseer-daj`.
+THE next action on resume: **perform the planned ratified-clause sweep**.
+Check whether any ratified clause states launch idioms in
+`SPECIFICATION/spec.md` §"The restart", `overseer/marker-protocol.md`,
+`.claude-plugin/prose/overseer.md`, or `.claude-plugin/prose/supervise-plan.md`.
+If yes, route its amendment through `/livespec:propose-change`, independent
+Fable review, and `/livespec:revise` before additional rollout work. The three
+foreign protocol slices are now complete; homelab `hl-ekvd22` remains
+`pending-approval` and must not be dispatched without its normal tenant
+admission step. This thread exists to pull the approved replacement work
+forward; do not re-groom or re-file `overseer-daj`.
 
 The approved dependency layers are:
 
