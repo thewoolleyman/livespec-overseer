@@ -1,4 +1,4 @@
-"""Gate every charter IN THIS REPO against the eleven known defect classes.
+"""Gate every charter IN THIS REPO against the thirteen known defect classes.
 
 The nine groom slices fix the GENERATOR, so the NEXT charter is correct. None of
 them remediates the charters already emitted, and nothing schedules regeneration
@@ -404,6 +404,51 @@ _BUSY_PANE_RENDER = "\n".join(
 # keying on "any variable assigned from a grep" would sweep in every unrelated
 # probe a charter runs.
 _BUSY_FLAG = re.compile(r"\b(?:is_)?(?:busy|working)\b\s*=", re.IGNORECASE)
+
+# (m) The attended launch/restart contract must preserve both runtime idioms
+# and the adoption identity they join. This is deliberately DOCUMENT-SCOPED:
+# the contract is a section-level promise, not a shell spelling, and the
+# generated shared protocol is the canonical place where it is emitted.
+_ADOPTABLE_RUNTIME_HEADING = "## Adoptable runtime launch and restart"
+_ADOPTABLE_RUNTIME_REQUIREMENTS = (
+    "claude --dangerously-skip-permissions -n <topic>",
+    "/rename <topic>",
+    "signals.is_structured_gate",
+    "numbered cursor",
+    "permission question",
+    'codex resume --dangerously-bypass-approvals-and-sandbox <session-id> "<kick>"',
+    "session_index.jsonl",
+    "thread_name",
+    "tmux session name is not an adoption key",
+    "daemon's own launch paths unchanged",
+    "fuzzy matching",
+    "tmux-name matching",
+    "live killing",
+    "blocking",
+)
+
+
+def adoptable_runtime_contract(*, text: str) -> list[str]:
+    """Require the shared launch/restart contract when a charter declares it."""
+    if _ADOPTABLE_RUNTIME_HEADING not in text:
+        return []
+    normalized = " ".join(text.split()).casefold()
+    missing = [
+        requirement
+        for requirement in _ADOPTABLE_RUNTIME_REQUIREMENTS
+        if (
+            not re.search(
+                r"daemon's own launch paths(?: \w+){0,2} unchanged",
+                normalized,
+            )
+            if requirement == "daemon's own launch paths unchanged"
+            else requirement.casefold() not in normalized
+        )
+    ]
+    if not missing:
+        return []
+    return [f"missing required adoption rule(s): {', '.join(missing)}"]
+
 
 # A `grep` call: its flag run, then its first quoted pattern argument.
 _GREP_CALL = re.compile(r"\bgrep\b((?:[ \t]+-{1,2}[A-Za-z][A-Za-z-]*)*)[ \t]+('[^']*'|\"[^\"]*\")")
@@ -948,6 +993,7 @@ _DETECTORS = (
     ("j-unguarded-marker-binding", unguarded_marker_binding),
     ("k-local-time-labelled-utc", local_time_labelled_utc),
     ("l-busy-test-matches-idle-pane", busy_test_matches_idle_pane),
+    ("m-adoptable-runtime-contract", adoptable_runtime_contract),
 )
 
 
@@ -973,7 +1019,7 @@ def test_this_repo_has_charters_to_scan():
 
 
 def test_every_charter_in_this_repo_is_free_of_the_known_defects():
-    """THE GATE. A charter carrying any of (a)-(j) fails here, in this repo's CI.
+    """THE GATE. A charter carrying any registered class fails here, in this repo's CI.
 
     The name carries NO COUNT on purpose. It said "four" while there were seven,
     because a count in a name goes stale the moment a detector is added and
@@ -1095,6 +1141,78 @@ def test_a_commented_out_defect_is_not_counted():
 ```
 """
     assert defects_in(text=charter) == []
+
+
+def test_an_incomplete_adoptable_runtime_contract_is_flagged():
+    """RED control: a runtime section that drops a leg is not enforceable."""
+    charter = """
+## Adoptable runtime launch and restart
+
+Claude fresh launch: `claude --dangerously-skip-permissions`.
+Claude live repair: `/rename <topic>`.
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("m-")] != []
+
+
+def test_the_adoptable_runtime_contract_accepts_reformatted_correct_content():
+    """The detector checks the contract, not one markdown line wrapping."""
+    charter = """
+## Adoptable runtime launch and restart
+
+Claude fresh launch:
+`claude --dangerously-skip-permissions
+-n <topic>`.
+Claude live repair: `/rename <topic>` only after confirming
+`signals.is_structured_gate` is false.
+Codex restart:
+`codex resume --dangerously-bypass-approvals-and-sandbox <session-id>
+"<kick>"`, recovered from `~/.codex/session_index.jsonl` by `thread_name`.
+Codex fresh launch immediately uses `/rename <topic>`.
+Never send `/rename` into a numbered cursor or a permission question.
+A tmux session name is not an adoption key. Keep the daemon's own launch paths
+unchanged; do not use fuzzy matching, tmux-name matching, live killing, or
+blocking.
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("m-")] == []
+
+
+def test_a_topic_named_agent_in_a_differently_named_tmux_session_is_accepted():
+    """The adoption key is the runtime identity, not the tmux window name."""
+    charter = """
+## Adoptable runtime launch and restart
+
+Claude fresh launch: `claude --dangerously-skip-permissions -n <topic>`.
+Claude live repair: `/rename <topic>` after checking
+`signals.is_structured_gate` is false.
+Codex restart: `codex resume
+--dangerously-bypass-approvals-and-sandbox <session-id> "<kick>"` by the
+`thread_name` in `~/.codex/session_index.jsonl`.
+Codex fresh launch immediately uses `/rename <topic>`.
+Never send `/rename` into a numbered cursor or a permission question.
+The topic-named agent runs in tmux session `operator-window`, which is not the
+topic name. A tmux session name is not an adoption key. The daemon's own launch
+paths are unchanged; no fuzzy matching, tmux-name matching, live killing, or
+blocking.
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("m-")] == []
+
+
+def test_the_adoptable_runtime_contract_requires_structured_gate_safety():
+    """A live `/rename` instruction must preserve the picker/permission guard."""
+    charter = """
+## Adoptable runtime launch and restart
+
+Claude fresh launch: `claude --dangerously-skip-permissions -n <topic>`.
+Claude live repair: `/rename <topic>` only after confirming
+`signals.is_structured_gate` is false.
+Codex restart: `codex resume
+--dangerously-bypass-approvals-and-sandbox <session-id> "<kick>"` by the
+`thread_name` in `~/.codex/session_index.jsonl`.
+Codex fresh launch immediately uses `/rename <topic>`.
+A tmux session name is not an adoption key. The daemon's own launch paths are
+unchanged; no fuzzy matching, tmux-name matching, live killing, or blocking.
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("m-")] != []
 
 
 def test_a_bare_tmux_target_is_flagged():
