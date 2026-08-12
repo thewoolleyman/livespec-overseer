@@ -128,7 +128,7 @@ round-1 blockers 1 and 4.
 
 | # | Round-2 blocker | Amendment |
 |---|---|---|
-| 1 | The respawn gate requires a recorded `epic` id, but all 23 live mapping-store rows carry `epic: null`, no shipped code assigns it, and EDIT 4's "which the daemon never does" foreclosed the design record's own source for it — the plan store's write-once metadata anchor, which is exactly what sibling slice `overseer-pfpfty.4` is scoped to read. | EDIT 3 now names the ACTOR and the MOMENT that record `epic` (the assigning surface, at track assignment, from the write-once anchor); EDIT 4's justification is recast on the DAEMON-versus-authorized-foreman distinction, which is what lets both sentences be true at once; and §"Ratification sequencing" states the ordering constraint and cites `overseer-pfpfty.4`, exactly as `overseer-pfpfty.7` is cited for test source. The hard gate is deliberately KEPT, not softened. |
+| 1 | The respawn gate requires a recorded `epic` id, but all 23 live mapping-store rows carry `epic: null`, no shipped code assigns it, and EDIT 4's "which the daemon never does" foreclosed the design record's own source for it — the plan store's write-once metadata anchor, which is exactly what sibling slice `overseer-pfpfty.9` is scoped to read. | EDIT 3 now names the ACTOR and the MOMENT that record `epic` (the assigning surface, at track assignment, from the write-once anchor); EDIT 4's justification is recast on the DAEMON-versus-authorized-foreman distinction, which is what lets both sentences be true at once; and §"Ratification sequencing" states the ordering constraint and cites `overseer-pfpfty.9`, exactly as `overseer-pfpfty.7` is cited for test source. The hard gate is deliberately KEPT, not softened. |
 | 2 | "Supervisor handoff entries on that same epic" is an undefined category — worker and supervisor are pointed at one epic with no discriminator, which fails the proposal's own rule that "a prompt naming only a category is not a pointer". | EDIT 3's definitional passage now defines a supervisor handoff entry as one ATTRIBUTED to the track's supervisor entity, anchored on the attribution guarantee the fleet contract already provides; EDIT 5 and EDIT 6 carry that filter into both prompts, which now name the entity literally; and EDIT 5's "never to the worker's own read-first state" sentence is reconciled — the pair shares one stream, and attribution rather than a separate store is what keeps the layers distinct. |
 | 3 | EDIT 6 inserted ~90 words between `ctx_threshold` and the "a row without the key means 'inherit the daemon default'" clause, orphaning its referent; the nearest reading attached it to `epic` and contradicted the REQUIRED-epic rule four sentences earlier. That clause is a live implemented invariant (`_registry_store.py:129-133`). | EDIT 6's replace-target is EXTENDED to swallow the em-dash clause, which is re-emitted immediately after `ctx_threshold` with its referent named explicitly ("a row without `ctx_threshold`"). The new `epic`/`handoff`/`resume` prose now follows it rather than splitting it from its subject. |
 | 4 | EDIT 6 landed proposal meta-commentary as ratified spec text: "This revision RETIRES the `handoff` key — a change, not a description of existing legacy". | Deleted. Only the contract it wrapped survives: "The mapping store MUST NOT emit a `handoff` key; a legacy row still carrying one is read without error and rewritten without it." The adjacent "`resume` is NOT retired" is likewise recast positively. |
@@ -146,16 +146,25 @@ As of this revision, every one of the 23 rows in the live mapping store carries
 declared, serialized, and read back, but never populated. Ratifying the gate
 ahead of a population path would make every live track un-respawnable.
 
-The population path is already scoped and filed: **`overseer-pfpfty.4`**
-("foreman/daemon read-first chain repoints to ledger-held plans"), under epic
-`overseer-pfpfty` in repository `livespec-overseer`, whose description names the
-mechanism this proposal now describes in EDIT 3 — the epic id read from the
-plan's write-once metadata anchor. This proposal's `epic`-gated clauses
-therefore MUST NOT be ratified ahead of that slice landing; ratify them with it
-or after it. That is an ordering constraint on the accept, not a weakening of
-the contract, and it is stated here for the same reason `overseer-pfpfty.7` is
-cited for test source: a proposal that defers work should name where the work
-lives.
+The population path is already scoped and filed: **`overseer-pfpfty.9`**
+("populate the mapping-store epic id from the plan write-once anchor (populate
+only, no repoint)"), under epic `overseer-pfpfty` in repository
+`livespec-overseer`. It records the plan's ledger epic id into the mapping
+store's `epic` key, read from the plan's write-once metadata anchor, at the
+moment a track is discovered or assigned — the same mechanism this proposal
+describes in EDIT 3. This proposal's `epic`-gated clauses therefore MUST NOT be
+ratified ahead of that slice landing; ratify them with it or after it. That is
+an ordering constraint on the accept, not a weakening of the contract, and it is
+stated here for the same reason `overseer-pfpfty.7` is cited for test source: a
+proposal that defers work should name where the work lives.
+
+`overseer-pfpfty.9` carries no dependency on the ratification, which is what
+lets it land first: populating `epic` writes a value nothing yet reads, so it
+changes no read-first behavior, no respawn prompt, and no daemon decision, and
+therefore contradicts no clause of the CURRENT spec. It is preparation, not
+implementation ahead of spec. The read-first REPOINT is a separate, later slice
+— `overseer-pfpfty.4` — which stays gated on the ratification, so the order is
+`overseer-pfpfty.9`, then this accept, then `overseer-pfpfty.4`.
 
 ### Verification method
 
