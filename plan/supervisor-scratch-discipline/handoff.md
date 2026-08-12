@@ -127,7 +127,18 @@ while that build directory contains zero content files: no `prose/`, no
 `skills/supervise-plan`, nothing for the generator to read. The source is
 fine (commit `21d87ca` carries 112 files under `.claude-plugin/`); the
 install produced nothing, and re-running `ensure-plugins` does not repair it.
-The `livespec` plugin's current build is empty the same way.
+**An earlier revision added "the `livespec` plugin's current build is empty
+the same way". That is WITHDRAWN — it was a measurement error.** The
+`livespec` plugin is healthy: its build lives at
+`cache/livespec-driver-claude/livespec/09cc286f4477` and holds 24 content
+files. The empty path I measured, `cache/livespec/livespec/09cc286f4477`, is
+a DIFFERENT marketplace namespace where the directory does not exist at all —
+and `find … | wc -l` returns `0` for an absent directory exactly as it does
+for an empty one. Absent and empty are not the same observation; the tool
+could not tell them apart, and I did not check. Exactly ONE build is empty,
+`livespec-overseer`'s, which is also the only path that sha resolves to
+anywhere under the cache. The consequence for THIS repo is unchanged, but
+this is not a fleet-wide installer outage and must not be escalated as one.
 
 Filed as **`overseer-0xg7` (P1)**. Note what it means for the goal's own
 wording: `check-prose-release-hygiene` exists to stop exactly this ("the fix
