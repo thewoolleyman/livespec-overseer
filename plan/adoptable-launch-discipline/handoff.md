@@ -45,9 +45,10 @@ slices below; the epic anchor remains `overseer-fjhsj3`.
 
 Local livespec-overseer slices:
 
-- `overseer-rf6qg3` — core generator/protocol content — `ready`.
-- `overseer-464iib` — existing charter-gate-ratchet enforcement —
-  `pending-approval`, dependent on `overseer-rf6qg3`.
+- `overseer-rf6qg3` — core generator/protocol content — `closed`; PR #811
+  merged by rebase after all substantive checks passed.
+- `overseer-464iib` — existing charter-gate-ratchet enforcement — `ready`,
+  unblocked by the closed core slice.
 
 Repo-local protocol slices, each filed in its own tenant with ordering kept
 in prose rather than a cross-tenant dependency edge:
@@ -65,20 +66,19 @@ factory `CLAUDE_CODE_OAUTH_TOKEN` exhausted/rate-limited before sandbox launch;
 no factory run was created. The implementation adds the runtime-specific
 launch/restart contract to both prose layers and generated-output tests. The
 red/green commit is `fix: enforce adoptable runtime launch contract`; the
-targeted contract suite passes. The handoff and PR still need to be landed,
-then `overseer-rf6qg3` needs its completion recorded. No enforcement
-implementation or spec sweep has been performed. The defect's live comment
-remains the evidence anchor: 51 panes, 20 unadoptable agents (18 Claude
-launches missing `-n`, 2 unnamed Codex threads).
+targeted contract suite and full `just check` pass. PR #811 is merged and
+`overseer-rf6qg3` is closed with the maintainer-directed execution reason.
+No enforcement implementation or spec sweep has been performed. The
+defect's live comment remains the evidence anchor: 51 panes, 20 unadoptable
+agents (18 Claude launches missing `-n`, 2 unnamed Codex threads).
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
-THE next action on resume: **land the in-session core implementation and close
-`overseer-rf6qg3` with the maintainer-directed execution reason**. Then drive
-`overseer-464iib`, followed by the three already-ready foreign protocol
+THE next action on resume: **drive `overseer-464iib`**, the now-unblocked
+enforcement slice. Then drive the three already-ready foreign protocol
 slices. The homelab slice needs its normal tenant admission step before
-dispatch. This thread exists to pull the approved replacement work forward;
-do not re-groom or re-file `overseer-daj`.
+dispatch. The follow-on must not re-dispatch the closed core slice or
+re-groom/re-file `overseer-daj`.
 
 The approved dependency layers are:
 
