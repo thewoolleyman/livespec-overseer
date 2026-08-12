@@ -39,23 +39,39 @@ work queue.
 
 Done so far: the reasoning note (§5 item 1) carries the audit-sized
 problem, the per-runtime idioms, the two fronts, and the deliberate
-non-rule. On 2026-08-12, the live ledger confirmed `overseer-daj` and
-`overseer-fjhsj3` are both still `backlog`, with no children filed under the
-epic. The defect's live comment confirms the maintainer-directed audit:
-51 panes, 20 unadoptable agents (18 Claude launches missing `-n`, 2 unnamed
-Codex threads).
+non-rule. The maintainer approved the cut on 2026-08-12 and it is now filed.
+The original defect `overseer-daj` is closed as superseded by the two local
+slices below; the epic anchor remains `overseer-fjhsj3`.
 
-The grooming draft is now prepared but NOT approved or filed. No charter or
-gate implementation has started, and no spec sweep has been performed.
+Local livespec-overseer slices:
+
+- `overseer-rf6qg3` — core generator/protocol content — `ready`.
+- `overseer-464iib` — existing charter-gate-ratchet enforcement —
+  `pending-approval`, dependent on `overseer-rf6qg3`.
+
+Repo-local protocol slices, each filed in its own tenant with ordering kept
+in prose rather than a cross-tenant dependency edge:
+
+- `hl-ekvd22` in homelab — `pending-approval` (homelab uses its own
+  `/usr/local/bin/with-homelab-env.sh` credential wrapper).
+- `livespec-y4xn2k` in livespec — `ready`.
+- `bd-ib-e7qesr` in livespec-orchestrator-beads-fabro — `ready`.
+- `livespec-dev-tooling-tqu55m` in livespec-dev-tooling — `ready`.
+
+No charter or gate implementation has started, and no spec sweep has been
+performed. The defect's live comment remains the evidence anchor: 51 panes,
+20 unadoptable agents (18 Claude launches missing `-n`, 2 unnamed Codex
+threads).
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
-THE next action on resume: **obtain the maintainer's explicit approval of
-the grooming draft, then file only the approved slices**. This thread exists
-to pull `overseer-daj` forward, and the maintainer OWNS the cut and acceptance.
-The draft is read-only until approval.
+THE next action on resume: **drive the approved local core slice
+`overseer-rf6qg3`**. Then drive `overseer-464iib`, followed by the three
+already-ready foreign protocol slices. The homelab slice needs its normal
+tenant admission step before dispatch. This thread exists to pull the
+approved replacement work forward; do not re-groom or re-file `overseer-daj`.
 
-The proposed dependency layers are:
+The approved dependency layers are:
 
 1. **Core content, target `livespec-overseer`:** update the actual charter
    generator, `.claude-plugin/prose/supervise-plan.md`, and this repo's
@@ -85,9 +101,9 @@ daemon wrap-up/resume text and contains no charter launch generator. The
 generator source is `.claude-plugin/prose/supervise-plan.md`; the daemon
 launch paths remain correct and unchanged.
 
-After approval, file the approved slices through `capture-work-item` with
-T2/factory routing as applicable. Foreign slices must obey the tenant rule
-above. They land through the FACTORY path — the `drive` operation
+The slices were filed through the shared intake Definition-of-Ready path.
+Foreign slices obey the tenant rule above. They land through the FACTORY
+path — the `drive` operation
 (`impl:<id>`) or Dispatcher drain — never the in-session `implement`
 operation.
 
@@ -97,8 +113,8 @@ idioms (`SPECIFICATION/spec.md` §"The restart",
 `.claude-plugin/prose/supervise-plan.md`); if yes, route that clause's
 amendment via the `/livespec:propose-change` operation → independent
 Fable-model review → `/livespec:revise` before the affected slice
-dispatches. Close by folding `overseer-daj` (superseded-by or child
-linkage, maintainer's call at groom time).
+dispatches. `overseer-daj` is already folded out with an explicit
+supersession reason naming `overseer-rf6qg3` and `overseer-464iib`.
 
 Every repo artifact of this thread rides this repo's normal
 worktree → PR → rebase-merge discipline.
@@ -142,7 +158,9 @@ worktree → PR → rebase-merge discipline.
 4. `overseer/_supervisor_launch.py` — the daemon's own correct launch
    commands (the reference implementations of both idioms).
 
-Ledger ids to read live (never stored here): `overseer-fjhsj3` (this
-thread's epic), `overseer-daj` (the defect record being groomed),
-`overseer-816` (the harness-neutral-idiom precedent), `overseer-mgg`
-(sibling delivery-leg defect, separate thread).
+Reference ledger ids to re-read live (the statuses in §2 are a resume
+checkpoint, not a substitute for live reads): `overseer-fjhsj3` (this
+thread's epic), `overseer-816` (the harness-neutral-idiom precedent), and
+`overseer-mgg` (sibling delivery-leg defect, separate thread). The replacement
+and superseded ids are recorded in §2 so a fresh session can resume the
+approved cut without reconstructing the grooming conversation.
