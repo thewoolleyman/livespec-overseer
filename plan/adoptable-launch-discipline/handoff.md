@@ -58,6 +58,15 @@ in prose rather than a cross-tenant dependency edge:
 - `bd-ib-e7qesr` in livespec-orchestrator-beads-fabro — `ready`.
 - `livespec-dev-tooling-tqu55m` in livespec-dev-tooling — `ready`.
 
+The first factory dispatch attempt for `overseer-rf6qg3` was refused on
+2026-08-12 before sandbox launch at `run-config-overlay`: the factory's
+`CLAUDE_CODE_OAUTH_TOKEN` returned HTTP 429 (`exhausted` / rate-limited).
+There is no Fabro run. The phantom `fabro` claim was released manually, the
+item is back to `ready`, and the refusal is recorded in its ledger notes.
+Treat this as a credential wait/retry condition; do not re-file the item or
+escalate it as a maintainer decision. The target master CI was green after a
+transient ShellCheck download timeout was rerun.
+
 No charter or gate implementation has started, and no spec sweep has been
 performed. The defect's live comment remains the evidence anchor: 51 panes,
 20 unadoptable agents (18 Claude launches missing `-n`, 2 unnamed Codex
@@ -65,11 +74,14 @@ threads).
 
 ## 3. The next action (exactly one), then the follow-on sequence
 
-THE next action on resume: **drive the approved local core slice
-`overseer-rf6qg3`**. Then drive `overseer-464iib`, followed by the three
-already-ready foreign protocol slices. The homelab slice needs its normal
-tenant admission step before dispatch. This thread exists to pull the
-approved replacement work forward; do not re-groom or re-file `overseer-daj`.
+THE next action on resume: **retry the approved local core slice
+`overseer-rf6qg3` once the factory Claude credential is available**. Verify
+the target master `ci-green` gate first. Then drive `overseer-464iib`, followed
+by the three already-ready foreign protocol slices. The homelab slice needs
+its normal tenant admission step before dispatch. This thread exists to pull
+the approved replacement work forward; do not re-groom or re-file
+`overseer-daj`, and do not spin repeated dispatches while the credential is
+exhausted.
 
 The approved dependency layers are:
 
