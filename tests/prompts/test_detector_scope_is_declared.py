@@ -1,12 +1,13 @@
 """Every charter detector must DECLARE whether it is line- or document-scoped.
 
-The eleven detectors do not all mean the same thing by "clean". SEVEN are
+The thirteen detectors do not all mean the same thing by "clean". EIGHT are
 LINE-SCOPED: each offending line is reported, and a correct form elsewhere in the
-charter changes nothing. FOUR are DOCUMENT-SCOPED: `(e)`, `(h)`, `(i)` and `(j)`
+charter changes nothing. FIVE are DOCUMENT-SCOPED: `(e)`, `(h)`, `(i)` and `(j)`
 return NOTHING as soon as the correct property appears anywhere in the file's
-fenced blocks, however many defective lines sit beside it.
+fenced blocks; `(m)` applies the same whole-document decision to its named
+adoption-contract section, however many defective details sit beside it.
 
-That split is deliberate and each of those four docstrings argues for it: the
+That split is deliberate and each of those five docstrings argues for it: the
 correct form is a helper DETECTED ONCE and called later by name, so a per-line
 rule would flag the correct call site. This module does not second-guess that.
 It makes the choice EXPLICIT and EXECUTABLE, because three things follow from it
@@ -17,20 +18,20 @@ that were true but written down nowhere:
    `.ai/supervisor-protocol.md` -- HALF OF EVERY DEPLOYED CHARTER -- produces no
    finding at all, because a wrapper already appears elsewhere in it.
 
-2. **The hardened exemplar masks four of the eleven classes.** Measured
+2. **The hardened exemplar masks the original four document-scoped classes.** Measured
    2026-07-31 by injecting each defect into every real charter in this repo:
    (a)-(d), (f), (g) and (k) fire in 8 of 8; (e) fires in 3 of 8, (h) in 6 of 8,
    (i) and (j) in 7 of 8 -- and `plan/supervisor-prompt-quality/supervisor-handoff.md`
    is the ONLY charter masking (i) and (j), and masks (h) and (e) too. It is the
    most immunised file in the repo precisely BECAUSE it demonstrates every
    correct form. So `test_the_hardened_exemplar_is_clean` cannot fire for those
-   four classes no matter how broken they become: that control proves the
+   four original classes no matter how broken they become: that control proves the
    detectors do not FALSE-POSITIVE, and for a document-scoped class it can never
    prove they still fire.
 
 3. **A count of a document-scoped class counts FILES LACKING A PROPERTY, not
    defective lines.** True, and SMALLER THAN IT SOUNDS -- measured against the
-   fleet 2026-07-31, the four document-scoped classes contribute **5 of 117
+   fleet 2026-07-31, the four original document-scoped classes contribute **5 of 117
    (4%)**, and only 2, 1, 1 and 6 of 29 fleet charters are immune to (h), (i),
    (j) and (e) respectively. The distinction is architecturally real and
    numerically minor: it does NOT move `overseer-yho.3`'s costing, where class
@@ -57,11 +58,11 @@ synthetic control -- written against the pre-fix spelling -- stayed green.
 `test_remediating_f_does_not_disarm_e` pins that ONE pair. The general lesson is
 that a detector's REACH is a property nobody was asserting, and a synthetic
 control cannot see a reach problem because it supplies the surrounding context
-itself. Here the reach is asserted directly, for all eleven, in both directions.
+itself. Here the reach is asserted directly, for all thirteen, in both directions.
 
-**THE LOAD-BEARING ASSERTION IS THE REGISTRY-COVERAGE ONE.** A twelfth detector
+**THE LOAD-BEARING ASSERTION IS THE REGISTRY-COVERAGE ONE.** A fourteenth detector
 cannot be added without deciding, in writing, which scope it has -- the decision
-that was never made explicitly for the first eleven.
+that was never made explicitly for the first thirteen.
 """
 
 from __future__ import annotations
@@ -95,6 +96,7 @@ _SCOPE: dict[str, str] = {
     # correct form is a helper DETECTED ONCE and called later by name; a busy
     # regex is not detected once, it is evaluated every poll, wherever it sits.
     "l": _LINE_SCOPED,
+    "m": _DOCUMENT_SCOPED,
 }
 
 # One defective line per class, in the shape the class was written for.
@@ -118,6 +120,10 @@ _DEFECT: dict[str, str] = {
     "j": 'test ! -f "$supervisor_marker" || cat "$supervisor_marker"',
     "k": "worker_state_at=$(date -u -r \"$m\" '+%Y-%m-%dT%H:%M:%SZ')",
     "l": "printf '%s\\n' \"$pane\" | grep -qE '[0-9]+[hms] |tokens' && busy=1",
+    "m": (
+        "## Adoptable runtime launch and restart\n"
+        "Claude fresh launch: `claude --dangerously-skip-permissions`.\n"
+    ),
 }
 
 # The CORRECT property for the same class, which a document-scoped detector
@@ -155,6 +161,19 @@ _CORRECT: dict[str, str] = {
     ),
     "k": "now=$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
     "l": "printf '%s\\n' \"$pane\" | grep -qE 'esc to interrupt' && busy=1",
+    "m": (
+        "## Adoptable runtime launch and restart\n"
+        "Claude fresh launch: `claude --dangerously-skip-permissions -n <topic>`.\n"
+        "Claude live repair: `/rename <topic>` after checking "
+        "`signals.is_structured_gate`.\n"
+        "Never send `/rename` into a numbered cursor or a permission question.\n"
+        "Codex restart: `codex resume --dangerously-bypass-approvals-and-sandbox "
+        '<session-id> "<kick>"` via `thread_name` in `session_index.jsonl`.\n'
+        "Codex fresh launch: `/rename <topic>`.\n"
+        "Never send `/rename` into a numbered cursor or a permission question.\n"
+        "A tmux session name is not an adoption key. Daemon's own launch paths "
+        "unchanged; no fuzzy matching, tmux-name matching, live killing, or blocking.\n"
+    ),
 }
 
 
@@ -172,7 +191,7 @@ def _findings(*, cls: str, text: str) -> list[str]:
 
 
 def test_the_registry_covers_exactly_the_shipped_detectors() -> None:
-    """THE GATE. A twelfth detector must declare its scope before it can land.
+    """THE GATE. A fourteenth detector must declare its scope before it can land.
 
     This is the assertion the module exists for. Adding a detector without a
     scope entry fails here, which forces the decision to be made deliberately
@@ -217,7 +236,7 @@ def test_a_line_scoped_detector_survives_a_correct_form_elsewhere() -> None:
 
     This is the direct generalisation of `test_remediating_f_does_not_disarm_e`:
     a correct form landing nearby must not disarm a detector, for any of the
-    seven, not just the pair that was caught doing it.
+    eight, not just the pair that was caught doing it.
 
     Sabotage that reddens this: move any line-scoped class to `_DOCUMENT_SCOPED`.
     """
