@@ -38,16 +38,10 @@ def _post_respawn(*, sup: Supervisor, track: registry.Track) -> RestartNeverWork
     return RestartNeverWorked(ctx=ctx, resume=resume)
 
 
-def _restart_never_worked(
-    *,
-    sup: Supervisor,
-    track: registry.Track,
-    obs: Observation,
-    session: str,
-    pane: str,
-    act: bool,
-) -> tuple[RowView, set[str]] | None:
-    """Return the report-only post-respawn attention row when the 60s floor is met."""
+def _restart_never_worked_age(
+    *, sup: Supervisor, track: registry.Track, obs: Observation
+) -> float | None:
+    """Advance the post-respawn no-work observation and return its qualifying age."""
     recorded = _post_respawn(sup=sup, track=track)
     expected_resume = None if recorded is None else recorded.resume
     no_context_consumed = (
@@ -65,6 +59,22 @@ def _restart_never_worked(
     since = obs.istate.restart_never_worked_episode.since
     age = 0.0 if since is None else max(0.0, sup.now() - since)
     if since is None or age < POST_RESPAWN_NEVER_WORKED_AFTER:
+        return None
+    return age
+
+
+def _restart_never_worked(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    obs: Observation,
+    session: str,
+    pane: str,
+    act: bool,
+) -> tuple[RowView, set[str]] | None:
+    """Return the report-only post-respawn attention row when the 60s floor is met."""
+    age = _restart_never_worked_age(sup=sup, track=track, obs=obs)
+    if age is None:
         return None
 
     condition = "restart-never-worked"
@@ -105,6 +115,7 @@ def post_respawn_decision(
     target: str,
 ) -> RowView | None:
     """Handle post-respawn recovery/reporting before the normal cascade."""
+    _ = _restart_never_worked_age(sup=sup, track=track, obs=obs)
     retry = resume_retry(sup=sup, track=track, obs=obs, act=act, session=session, target=target)
     if retry is not None:
         return retry

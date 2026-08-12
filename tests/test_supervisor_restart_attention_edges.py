@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import _supervisor_view
 import registry
 import supervisor
 from test_supervisor_builders import make_plan, make_supervisor, mapped_track
@@ -49,3 +50,38 @@ def test_restart_never_worked_read_only_evaluation_reports_without_alerting(*, t
     assert due.status == "restart-never-worked"
     assert supervisor.needs_attention(row=due) is True
     assert sup.alerted == {}
+
+
+def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retry(*, tmp_path):
+    """A resume-pending tick still owns the act, but it must not preserve stale attention."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
+    clock = {"now": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"], own_pane="%7")
+    _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    assert sup.evaluate(track=track, act=True).status == "settling"
+    clock["now"] += 61.0
+    assert sup.evaluate(track=track, act=True).status == "restart-never-worked"
+
+    registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    fake.panes[session] = _capture_with_resume(resume="changed composer", ctx=100)
+    retry = sup.evaluate(track=track, act=True)
+    assert retry.status == "restarting"
+    assert retry.note == _supervisor_view.RESUME_PENDING_NOTE
+    assert any(call[0] == "keys" and call[2] == "Enter" for call in fake.calls)
+    assert not fake.has(method="respawn")
+
+    stamp_path = Path(sup.stamp_path)
+    stamp_data = json.loads(stamp_path.read_text(encoding="utf-8"))
+    stamp_entry = next(iter(stamp_data.values()))
+    stamp_entry.pop("resume_pending", None)
+    stamp_path.write_text(json.dumps(stamp_data), encoding="utf-8")
+
+    fake.panes[session] = _capture_with_resume(resume=resume, ctx=100)
+    rearmed = sup.evaluate(track=track, act=True)
+    assert rearmed.status == "settling"
