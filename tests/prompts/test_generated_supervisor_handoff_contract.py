@@ -511,6 +511,80 @@ _SCRATCH_DISCIPLINE_REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
         ),
     ),
 )
+_SUPERVISOR_COMPLETION_REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "supervisor-completion-structured-state-schema",
+        (
+            "supervision_active",
+            "updated_at",
+            "objective",
+            "open_obligations",
+            "completion_disposition",
+            "plan-complete",
+            "maintainer-blocking",
+            "non-terminal disposition",
+            "wake_producer",
+        ),
+    ),
+    (
+        "supervisor-completion-fail-closed",
+        (
+            "missing",
+            "malformed",
+            "stale",
+            "unreadable",
+            "any open obligation",
+            "unknown completion disposition",
+            "unknown wake-producer evidence",
+            "refuse completion",
+        ),
+    ),
+    (
+        "supervisor-completion-terminal-dispositions",
+        (
+            "explicit `plan-complete`",
+            "exactly one genuine maintainer-blocking question",
+            "second or non-maintainer blocking question",
+        ),
+    ),
+    (
+        "supervisor-completion-producer-proof",
+        (
+            "live_pid",
+            "expected_command",
+            "identity",
+            "authoritative registered producer identity",
+            "prose claim is never proof",
+        ),
+    ),
+    (
+        "supervisor-completion-cold-reentry",
+        (
+            "cold-open",
+            "from this marker",
+            "re-query fresh ledger and forge state",
+            "ended turn is never the wake mechanism",
+        ),
+    ),
+    (
+        "supervisor-completion-driver-daemon-boundary",
+        (
+            "Driver-owned Stop/completion gate",
+            "not the overseer daemon",
+            "never authorizes a daemon restart",
+            "MUST NOT infer",
+            "assistant final-response text or pane text",
+        ),
+    ),
+    (
+        "supervisor-completion-additive-user-messages",
+        (
+            "ordinary user messages are additive",
+            "stop supervising <topic>",
+            "replace supervision objective",
+        ),
+    ),
+)
 
 
 def scratch_discipline_failures(*, charter: str) -> list[str]:
@@ -520,6 +594,17 @@ def scratch_discipline_failures(*, charter: str) -> list[str]:
         name
         for name, needles in _SCRATCH_DISCIPLINE_REQUIRED
         if not all(needle in lowered for needle in needles)
+    ]
+
+
+def supervisor_completion_failures(*, charter: str) -> list[str]:
+    """Return missing Driver-owned supervisor completion-gate clauses."""
+    flattened = " ".join(charter.split())
+    lowered = flattened.lower()
+    return [
+        name
+        for name, needles in _SUPERVISOR_COMPLETION_REQUIRED
+        if not all(needle.lower() in lowered for needle in needles)
     ]
 
 
@@ -579,6 +664,7 @@ def missing_requirements(*, charter: str) -> list[str]:
     if not _has_ripe_valve_same_turn_rule(charter=charter):
         missing.append("picker-ripe-valves-same-turn")
     missing.extend(scratch_discipline_failures(charter=charter))
+    missing.extend(supervisor_completion_failures(charter=charter))
     guard_at = charter.find('[ -z "$pane" ]')
     diff_at = charter.find('if [ "$pane" = "$prev" ]')
     if guard_at == -1 or diff_at == -1 or diff_at < guard_at:
@@ -900,6 +986,101 @@ def test_both_corrections_sections_survive_regeneration_byte_for_byte():
 
 def test_supervisor_scratch_discipline_is_required_in_generated_charters():
     assert scratch_discipline_failures(charter=_fully_conformant_charter()) == []
+
+
+def test_supervisor_completion_gate_is_required_in_generated_charters():
+    assert supervisor_completion_failures(charter=_fully_conformant_charter()) == []
+
+
+def test_missing_supervisor_completion_state_schema_is_rejected():
+    charter = _fully_conformant_charter().replace(
+        "    ## Supervisor completion gate\n"
+        "    Maintain tmp/overseer/<topic>/.supervisor-state as structured supervisor\n"
+        "    state for the Driver-owned Stop/completion gate. This marker is not the\n"
+        "    overseer daemon, not the worker's .overseer-state, and never authorizes a\n"
+        "    daemon restart.\n"
+        "      supervision_active: true\n"
+        "      updated_at: 2026-08-13T00:00:00Z\n"
+        "      objective: current supervisor objective\n"
+        "      open_obligations: []\n"
+        "      completion_disposition:\n"
+        "        kind: plan-complete|maintainer-blocking|none\n"
+        "        question: exactly one genuine maintainer-blocking question, or none\n"
+        "      wake_producer:\n"
+        "        live_pid: pid for pane watcher or daemon, or none\n"
+        "        expected_command: expected process command, or none\n"
+        "        identity: expected pane, daemon, check, ledger, or producer identity\n",
+        "    ## Supervisor completion gate\n" "    Say whether the supervisor is finished.\n",
+    )
+    missing = supervisor_completion_failures(charter=charter)
+    assert "supervisor-completion-structured-state-schema" in missing
+
+
+def test_open_obligations_and_malformed_state_fail_closed_are_required():
+    charter = _fully_conformant_charter().replace(
+        "Missing, malformed, stale, or unreadable state; any open obligation; an\n"
+        "    unknown completion disposition; a non-terminal disposition; or unknown\n"
+        "    wake-producer evidence MUST refuse completion.",
+        "Mistyped state and some obligations should be reviewed.",
+    )
+    missing = supervisor_completion_failures(charter=charter)
+    assert "supervisor-completion-fail-closed" in missing
+
+
+def test_completion_gate_rejects_non_terminal_or_multiple_blocking_dispositions():
+    charter = _fully_conformant_charter().replace(
+        "It may permit completion only\n"
+        "    for explicit `plan-complete`, or for exactly one genuine\n"
+        "    maintainer-blocking question; a second or non-maintainer blocking question\n"
+        "    refuses completion.",
+        "It may permit completion for progress reports or multiple questions.",
+    )
+    missing = supervisor_completion_failures(charter=charter)
+    assert "supervisor-completion-terminal-dispositions" in missing
+
+
+def test_prose_only_or_unverifiable_wake_producers_are_rejected():
+    charter = _fully_conformant_charter().replace(
+        "A pane watcher or overseer daemon is proved by live_pid,\n"
+        "    expected_command, and identity; a forge/CI or ledger watcher is proved by its\n"
+        "    authoritative registered producer identity. A prose claim is never proof.",
+        "A written claim that a watcher exists is enough.",
+    )
+    missing = supervisor_completion_failures(charter=charter)
+    assert "supervisor-completion-producer-proof" in missing
+
+
+def test_completion_gate_requires_external_cold_reentry_from_fresh_state():
+    charter = _fully_conformant_charter().replace(
+        "The verified producer must cold-open the supervisor from this marker and\n"
+        "    re-query fresh ledger and forge state; the ended turn is never the wake\n"
+        "    mechanism.",
+        "The final answer can say the next turn should continue.",
+    )
+    missing = supervisor_completion_failures(charter=charter)
+    assert "supervisor-completion-cold-reentry" in missing
+
+
+def test_completion_gate_keeps_driver_stop_gate_out_of_daemon_semantics():
+    charter = _fully_conformant_charter().replace(
+        "It MUST NOT infer either disposition from assistant\n"
+        "    final-response text or pane text; final-response text or pane text is never\n"
+        "    completion evidence.",
+        "The daemon can read the final answer to decide whether supervision is done.",
+    )
+    missing = supervisor_completion_failures(charter=charter)
+    assert "supervisor-completion-driver-daemon-boundary" in missing
+
+
+def test_completion_gate_keeps_user_messages_additive_except_literal_overrides():
+    charter = _fully_conformant_charter().replace(
+        "Ordinary user messages are additive while supervision_active is\n"
+        "    true. Only literal `stop supervising <topic>` clears supervision, and only\n"
+        "    literal `replace supervision objective` replaces the recorded objective.",
+        "A new user message replaces the objective.",
+    )
+    missing = supervisor_completion_failures(charter=charter)
+    assert "supervisor-completion-additive-user-messages" in missing
 
 
 def test_missing_supervisor_scratch_json_rule_is_rejected():
@@ -1622,6 +1803,37 @@ def _fully_conformant_charter() -> str:
           wake_mechanism: condition watcher polls the check suite
           if_nothing_happens: escalate to maintainer
           timeout: 2026-07-30T12:00:00Z
+    ## Supervisor completion gate
+    Maintain tmp/overseer/<topic>/.supervisor-state as structured supervisor
+    state for the Driver-owned Stop/completion gate. This marker is not the
+    overseer daemon, not the worker's .overseer-state, and never authorizes a
+    daemon restart.
+      supervision_active: true
+      updated_at: 2026-08-13T00:00:00Z
+      objective: current supervisor objective
+      open_obligations: []
+      completion_disposition:
+        kind: plan-complete|maintainer-blocking|none
+        question: exactly one genuine maintainer-blocking question, or none
+      wake_producer:
+        live_pid: pid for pane watcher or daemon, or none
+        expected_command: expected process command, or none
+        identity: expected pane, daemon, check, ledger, or producer identity
+    Missing, malformed, stale, or unreadable state; any open obligation; an
+    unknown completion disposition; a non-terminal disposition; or unknown
+    wake-producer evidence MUST refuse completion. It may permit completion only
+    for explicit `plan-complete`, or for exactly one genuine
+    maintainer-blocking question; a second or non-maintainer blocking question
+    refuses completion. It MUST NOT infer either disposition from assistant
+    final-response text or pane text; final-response text or pane text is never
+    completion evidence. A pane watcher or overseer daemon is proved by live_pid,
+    expected_command, and identity; a forge/CI or ledger watcher is proved by its
+    authoritative registered producer identity. A prose claim is never proof.
+    The verified producer must cold-open the supervisor from this marker and
+    re-query fresh ledger and forge state; the ended turn is never the wake
+    mechanism. Ordinary user messages are additive while supervision_active is
+    true. Only literal `stop supervising <topic>` clears supervision, and only
+    literal `replace supervision objective` replaces the recorded objective.
     ## Supervisor scratch discipline
     Only JSON can live in tmp/supervisor/, and the only place prose can live is
     tmp/supervisor/briefs/, which should ONLY hold briefs for the supervised session
