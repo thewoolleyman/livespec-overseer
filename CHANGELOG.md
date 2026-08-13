@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.35.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.5...v0.35.0) (2026-08-13)
+
+
+### Features
+
+* populate mapping epic at assignment ([b94349e](https://github.com/thewoolleyman/livespec-overseer/commit/b94349e9f877fe5c98dc7508ec5c7db7d6853514))
+
 ## [0.34.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.4...v0.34.5) (2026-08-12)
 
 
