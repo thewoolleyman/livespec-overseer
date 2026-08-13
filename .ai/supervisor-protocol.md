@@ -255,6 +255,56 @@ an armed `wake_mechanism` until both timestamps are set. An obligation whose
 explicit `timeout` deadline, and that deadline is the re-entry mechanism that
 escalates to the maintainer if nothing happens.
 
+## Supervisor completion gate
+
+Maintain the same supervisor marker as structured supervisor state for the
+Driver-owned Stop/completion gate:
+`<repo-primary>/tmp/overseer/<topic>/.supervisor-state`. This marker is not the
+worker's `.overseer-state`, is not the overseer daemon's semantic judgment, and
+never authorizes a daemon restart.
+
+Emit and preserve this schema:
+
+```yaml
+supervision_active: <true|false>
+topic: <topic>
+updated_at: <iso8601-utc>
+objective: <current supervisor objective>
+open_obligations: []
+completion_disposition:
+  kind: <plan-complete|maintainer-blocking|none>
+  question: <exactly one genuine maintainer-blocking question, or none>
+wake_producer:
+  kind: <pane-watcher|overseer-daemon|forge-ci|ledger|none>
+  live_pid: <pid for pane watcher or daemon, or none>
+  expected_command: <expected process command, or none>
+  identity: <expected pane, daemon, check, ledger, or producer identity>
+  registered_producer_identity: <authoritative registered producer identity, or none>
+  cold_reentry: <how the producer cold-opens from this marker and re-queries fresh state>
+```
+
+While `supervision_active` is true, the Driver-owned Stop/completion gate fails
+closed. Missing, malformed, stale, or unreadable state; any open obligation; an
+unknown completion disposition; a non-terminal disposition; or unknown
+wake-producer evidence MUST refuse completion. The gate may permit completion
+only for explicit `plan-complete`, or for exactly one genuine
+maintainer-blocking question. It MUST NOT infer either disposition from
+assistant final-response text or pane text; final-response text or pane text is
+never completion evidence.
+
+A permitted end that leaves supervision active additionally requires an
+independently verifiable wake producer. A pane watcher or overseer daemon is
+proved by `live_pid`, `expected_command`, and `identity`; a forge/CI or ledger
+watcher is proved by its authoritative registered producer identity. A prose
+claim is never proof. The verified producer must cold-open the supervisor from
+this marker and re-query fresh ledger and forge state; the ended turn is never
+the wake mechanism.
+
+Ordinary user messages are additive while `supervision_active` is true: add them
+to the recorded objective and obligations without clearing either. Only the
+literal command `stop supervising <topic>` clears supervision, and only the
+literal command `replace supervision objective` replaces the recorded objective.
+
 ## Supervisor scratch discipline
 
 Only JSON can live in tmp/supervisor/, and the only place prose can live is
