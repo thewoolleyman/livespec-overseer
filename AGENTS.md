@@ -590,6 +590,40 @@ PR to land it.
 amend a title afterwards. When it happens anyway, correct the record with a comment
 on the merged PR rather than leaving the claim standing.
 
+**IT STILL HAPPENS WHEN YOU KNOW ABOUT IT — recorded 2026-08-13 as a repeat.** A
+session that had just READ this warning opened a PR, kept working on the same
+file, and pushed the follow-up commit four minutes after auto-merge had already
+landed the first. The orphaned commit needed its own PR, exactly as described
+above. Reading the warning does not help if the follow-up work is discovered
+AFTER the PR is open. The operative discipline is narrower than "push first":
+**once a PR is open, treat that branch as frozen** — put the next thought on a
+new branch instead of reaching back.
+
+### The GitHub rate-limit guard hook denies on the WORD "for", not on your intent
+
+Measured 2026-08-13, after four consecutive denials of a legitimate command. The
+`github_rate_limit_guard.py` PreToolUse hook denies any command matching BOTH a
+GitHub call and a "loop or sleep":
+
+    _GH_READ      = \bgh\s+(?:run|pr)\b
+    _LOOP_OR_SLEEP = \b(?:for|while|until|select)\b|\bsleep\b
+
+Those alternations match ordinary ENGLISH. A PR title containing the word "for",
+or a commit message mentioning `while`, is enough — the guard cannot tell prose
+in a `--title` from a shell loop. Denials it produced here included a `gh pr
+create` whose only sin was the title "... extrapolations **for** the lessons
+tally", and a `git commit` whose message quoted a `gh pr list` command.
+
+The message it prints ("use the cached alternative `gh api --cache`") is sound
+advice for a genuine polling loop and actively misleading for this case: there is
+no loop, and no cache flag exists on `gh pr create`.
+
+**Remedies, in order:** reword the title or message to avoid `for` / `while` /
+`until` / `select` / `sleep` as standalone words; put long prose in a file and
+pass `--body-file` / `-F` so it never reaches the command line; and split
+`gh` calls away from any `sleep` used to wait. The guard is doing useful work
+against real polling — do not disable it.
+
 **The red-green-replay ritual is ONE commit with `--amend`, not two commits.** Red
 stages the test file **alone**; Green stages the impl and amends it. The test-file
 bytes must be **byte-identical** across the pair, and exactly **one** test file may
