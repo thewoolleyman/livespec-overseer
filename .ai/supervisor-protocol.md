@@ -1,9 +1,14 @@
 # Supervisor Protocol
 
-Shared role-level instructions for every generated supervisor handoff. A
-per-thread binder at `plan/<topic>/supervisor-handoff.md` supplies startup
-bindings, thread-specific valves, and its own Corrections log; this file supplies
-the common supervisor role contract.
+Shared role-level instructions for every generated supervisor handoff. A per-plan
+binder — published as attributed, timestamped supervisor handoff entries on the
+governed plan's ledger epic — supplies startup bindings, plan-specific valves,
+and its own Corrections log; this file supplies the common supervisor role
+contract. The two layers are read together: a binder alone is intentionally
+incomplete, and this file alone binds nothing to a plan.
+
+Resolving the binder from a cold start needs only the repository path and the
+plan's epic id, both of which the binder's own bindings table carries.
 
 ## HALT-first preconditions
 
