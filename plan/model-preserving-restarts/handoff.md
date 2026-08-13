@@ -18,12 +18,24 @@ takes the config default provider/model. Worse, LOCAL-MODEL sessions
 base URL, auth token, `ANTHROPIC_MODEL`, context-limit vars, and UNSETS
 cloud credentials), so a bare relaunch silently converts a local track
 back to the cloud API. The fix: record a per-track **launch profile** —
-`{runtime, model, wrapper|null}` — READ from the live session
+`{harness, model, wrapper|null}`, where **harness (claude | codex |
+pi | …) is first-class and preserved**: the recorded harness is the
+dispatch key at relaunch, stored as an open string (pi's wrapper
+already ships in repo `local-llm`; no schema migration for future
+harnesses) while dispatch enumerates known harnesses and treats an
+unknown one as REPORT-ONLY, never a guessed launch — READ from the
+live session
 (`/proc/<pid>/environ` + argv/parent-chain as primary, statusline as
 verification; captured at adoption, re-checked at wrap-up so a
 mid-session `/model` switch is honored), stored on the mapping row, and
-re-asserted at every launch: wrapper + `-n <topic>` when a wrapper is
-recorded, `--model <model>` / `-m` (or the Codex profile) otherwise.
+re-asserted at every launch: for Claude, wrapper +
+`--dangerously-skip-permissions -n <topic>` when a wrapper is recorded
+(the autonomy flag is REQUIRED on every restart; the recorded model is
+re-asserted by prefixing `ANTHROPIC_MODEL=<recorded>`, which the
+wrapper's `:-` deference honors), else
+`--model <model>`; for Codex, `resume
+--dangerously-bypass-approvals-and-sandbox <uuid>` with the provider
+profile / `-m` as recorded.
 Rows without the field behave exactly as today. Token VALUES are never
 stored — a wrapper owns its secrets.
 
@@ -82,10 +94,18 @@ Every repo artifact rides worktree → PR → rebase-merge.
   said — never to a daemon-side guess.
 - No secret values in the mapping (`ANTHROPIC_AUTH_TOKEN` etc. live in
   the wrapper); the profile stores paths and model tokens only.
-- A local-llm relaunch must not leak the daemon's own cloud env into
-  the wrapper's process; a cloud relaunch must not inherit stray
-  local-llm vars from the tmux server env (verify inheritance both
-  ways).
+- Env inheritance is governed by an explicit SET-OR-SCRUB rule, not
+  hope: every launch sets or unsets `ANTHROPIC_MODEL`,
+  `ANTHROPIC_SMALL_FAST_MODEL`, and the `CLAUDE_CODE_*` overrides —
+  set to recorded values for wrapper/local tracks, scrubbed for cloud
+  tracks. (The wrappers' `:-` defaults mean a leaked value silently
+  WINS; passive inheritance is the failure mode in both directions.)
+- A stale/corrupt profile (missing wrapper, rejected model token,
+  harness mismatch) is SURFACE + SKIP — never a silent default-launch
+  fallback.
+- An unknown harness is REPORT-ONLY: the daemon never launches a
+  command it cannot certify matches the pane's runtime (aiming
+  `claude -n` at a codex or pi pane destroys the session).
 
 ## 5. Read-first chain (all committed unless noted)
 
@@ -94,13 +114,15 @@ Every repo artifact rides worktree → PR → rebase-merge.
    sources, open design points (this repo).
 2. `overseer/_supervisor_launch.py` and `overseer/_supervisor_recovery.py`
    — the two launch surfaces the profile threads into (this repo).
-3. `overseer/registry.py` — the mapping row the profile field joins
-   (this repo).
+3. `overseer/_registry_core.py` (the `Track` value type) and
+   `overseer/_registry_store.py` (the JSONL row) — where the profile
+   field actually lands; `overseer/registry.py` is only the re-export
+   facade (this repo).
 4. Repo `local-llm` at `/data/projects/local-llm` (SEPARATE repo, read
    there): `AGENTS.md` §"Client/provider workflow" and
    `bin/claude-local-llm`, `bin/codex-local-llm` — the wrapper recipe
    the profile records by PATH and must never duplicate.
 
 Ledger ids to read live (never stored here): `overseer-bc55wx` (this
-thread's epic), `overseer-mgg` and `overseer-idxe` (open restart-leg
+thread's epic), `overseer-mgg` and `overseer-idxe` (restart-leg
 delivery defects — orthogonal, same launch surfaces).

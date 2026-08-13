@@ -52,16 +52,35 @@ one field:
 
 ```
 model_profile:
-  runtime: claude | codex
+  harness: claude | codex | pi | …   # RECORDED string, extensible
   model: <string>            # e.g. claude-opus-5[1m], macmini/qwen3-coder-next
   wrapper: <path | null>     # e.g. /data/projects/local-llm/bin/claude-local-llm
-  extra_env: {…} | null      # only when no wrapper reproduces it
 ```
 
-Re-launch = wrapper + `-n <topic>` when a wrapper is recorded (the
-wrapper owns the env recipe — never duplicate its exports into the
-mapping); `--model <model>` / `-m <model>` (or the Codex profile)
-otherwise.
+**The harness is first-class and preserved** (maintainer-directed
+2026-08-13): today the daemon infers claude-vs-codex from the live
+pane at act time; under this change the RECORDED harness is the
+dispatch key at every relaunch. The field is an open string in
+STORAGE (so `pi` — whose wrapper `bin/pi-local-llm` already ships in
+repo `local-llm` — and future harnesses need no schema migration), but
+DISPATCH enumerates known harnesses and an unknown or unadoptable
+harness is REPORT-ONLY: the daemon never guess-launches (aiming
+`claude -n` at a codex/pi pane destroys the session — the existing
+never-cross-runtimes invariant). Pi has no overseer adoption reader
+yet; recording its harness+wrapper is the forward-compatible half.
+
+Re-launch = wrapper + `--dangerously-skip-permissions` + `-n <topic>`
+when a wrapper is recorded for a Claude-harness track (autonomy flags
+are REQUIRED on every restart — the wrapper passes `"$@"` through;
+omitting them stalls the fresh session on its first permission
+prompt); Codex-harness: wrapper (or bare) `codex resume
+--dangerously-bypass-approvals-and-sandbox <uuid> "<kick>"`;
+`--model <model>` / `-m <model>` (or the Codex provider profile)
+otherwise. **Model re-assertion on a wrapper track**: the claude
+wrapper defers to inherited env (`ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-default}"`),
+so the daemon re-asserts a recorded non-default model by PREFIXING
+`ANTHROPIC_MODEL=<recorded>` onto the wrapper invocation — the
+deference IS the mechanism.
 
 ## READING the profile from the live session (the "read it" directive)
 
@@ -110,23 +129,40 @@ every existing row.
 ## Open design points (decide at proposed-change time)
 
 - Whether `extra_env` is allowed at all, or wrapper-or-flag are the
-  only two shapes (RECOMMENDED: wrapper-or-flag only; an env blob in
-  JSONL rots and can leak secret-shaped values — the local-llm repo
-  already maintains the canonical wrappers).
-- Statusline display-name → launch-token mapping ownership (static
-  table vs recorded-at-adoption argv echo).
-- Whether the daemon's OWN environment must be scrubbed when launching
-  a wrapper-less cloud session inside a tmux server whose global env
-  may carry local-llm vars (tmux session env inheritance — verify).
+  only two shapes (RECOMMENDED and now the drafted shape:
+  wrapper-or-flag only; an env blob in JSONL rots and can leak
+  secret-shaped values — the local-llm repo already maintains the
+  canonical wrappers).
+- Statusline display-name → launch-token mapping (RECOMMENDED: no
+  display-name table at all — the wrap-up re-check re-reads
+  argv/environ, the primary sources; the statusline is used only to
+  flag a MISMATCH for report. A name table silently records stale
+  values exactly when a mid-session `/model` switch lands on an
+  unrecognized display name — the one case the re-check exists for).
+- Env inheritance is NOT "verify later" — it is a named SET-OR-SCRUB
+  rule: at every launch the daemon explicitly sets or unsets
+  `ANTHROPIC_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`, and the
+  `CLAUDE_CODE_*` overrides — set to the recorded values for a
+  wrapper/local track, scrubbed for a cloud track. The wrappers'
+  `:-` defaults mean a LEAKED value silently WINS over the wrapper's
+  own default, so passive inheritance is the failure mode in both
+  directions; the credential direction is already self-defending (the
+  wrapper unsets cloud credentials itself).
+- A STALE or CORRUPT profile (wrapper path missing/non-executable,
+  model token the runtime rejects, harness/wrapper mismatch) is
+  SURFACE + SKIP — the recovery module's existing idiom — never a
+  silent fall-back to the default launch, which would reproduce the
+  exact downgrade this thread exists to kill.
 
 ## Relations
 
 - The day-one finding (2026-08-02: restart reverts hand-picked models;
   no ledger record was filed then) and the 2026-08-13 severity change
   (`settings.json` default now `sonnet` → active downgrade path).
-- `plan/archive/resume-submit-integrity/` + open `overseer-mgg` /
-  `overseer-idxe`: the restart DELIVERY defects — orthogonal; this
-  thread rides the same launch commands they harden.
+- `plan/archive/resume-submit-integrity/` + `overseer-mgg` /
+  `overseer-idxe` (read their live status from the ledger): the
+  restart DELIVERY defects — orthogonal; this thread rides the same
+  launch commands they harden.
 - Repo `local-llm` (`/data/projects/local-llm`): owns the wrappers and
   the router; this thread must not duplicate its env recipe, only
   invoke it. Cross-repo read is one-directional (overseer reads
