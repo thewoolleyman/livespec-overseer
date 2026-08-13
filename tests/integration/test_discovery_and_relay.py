@@ -43,6 +43,8 @@ from overseer.test_supervisor_fakes import (
 )
 
 _HANDOFF = "supervisor-handoff.md"
+_FILE_PROBE_VERBS = ("exists", "is_file")
+_FILE_READ_VERBS = ("open", "read_text", "read_bytes")
 
 
 def _plan(*, repo: Path, topic: str) -> None:
@@ -52,31 +54,77 @@ def _plan(*, repo: Path, topic: str) -> None:
     (plan / "handoff.md").write_text("h\n")
 
 
+def _inside_plan_file(*, path: Path, plan_dir: Path) -> bool:
+    try:
+        path.relative_to(plan_dir)
+    except ValueError:
+        return False
+    return path != plan_dir
+
+
+def _guard_plan_probe(*, verb: str, original, plan_dir: Path, probes: list[str]):
+    def guard(self, *args, **kwargs):
+        if _inside_plan_file(path=self, plan_dir=plan_dir):
+            raise AssertionError(f"discovery must never {verb} file-level path {self}")
+        probes.append(f"{verb}:{self.name}")
+        return original(self, *args, **kwargs)
+
+    return guard
+
+
+def _guard_plan_read(*, verb: str, original, plan_dir: Path):
+    def guard(self, *args, **kwargs):
+        if _inside_plan_file(path=self, plan_dir=plan_dir):
+            raise AssertionError(f"discovery must never {verb} {self}")
+        return original(self, *args, **kwargs)
+
+    return guard
+
+
 @contextlib.contextmanager
-def _watch_handoff_access():
-    """Instrument `pathlib.Path`, yielding the basename of every existence test performed.
+def _watch_plan_file_access(*, plan_dir: Path):
+    """Instrument `pathlib.Path`, yielding every file-level probe inside one plan dir.
 
-    `open` / `read_text` / `read_bytes` RAISE for the supervisor-handoff file — a read is a
-    hard failure at the moment it happens rather than a subtly wrong assertion afterwards,
-    which matters because "did not read a file" leaves no trace in a result. Those patches
-    are scoped to that one basename so the rest of the daemon's file work is untouched.
+    `exists` / `is_file` / `open` / `read_text` / `read_bytes` RAISE for any file below the
+    plan directory. A probe is therefore a hard failure at the moment it happens rather
+    than a subtly wrong assertion afterwards, which matters because "did not read a file"
+    leaves no trace in a result. Directory checks remain allowed: discovery keys on
+    `plan/<topic>/` as a directory and is allowed to enumerate it.
 
-    `exists` is recorded UNFILTERED, deliberately. Logging only the handoff file would make
-    an empty log ambiguous between "the daemon skipped this probe" and "the daemon did no
-    file work at all"; recording every basename lets the caller assert the handoff file is
-    ABSENT from a log that still shows the daemon probing other things.
+    The yielded list records each allowed existence-style query outside the plan
+    directory, so an empty failure log is not ambiguous with a patch that failed to install.
 
     Everything is restored in a `finally`, so a failing assertion cannot leak a patched
     `Path` into the next test.
     """
-    originals = {
-        name: getattr(Path, name) for name in ("exists", "open", "read_text", "read_bytes")
-    }
+    originals = {name: getattr(Path, name) for name in (*_FILE_PROBE_VERBS, *_FILE_READ_VERBS)}
     probes: list[str] = []
 
-    def counting_exists(self, *args, **kwargs):
-        probes.append(self.name)
-        return originals["exists"](self, *args, **kwargs)
+    for verb in _FILE_PROBE_VERBS:
+        setattr(
+            Path,
+            verb,
+            _guard_plan_probe(
+                verb=verb, original=originals[verb], plan_dir=plan_dir, probes=probes
+            ),
+        )
+    for verb in _FILE_READ_VERBS:
+        setattr(
+            Path,
+            verb,
+            _guard_plan_read(verb=verb, original=originals[verb], plan_dir=plan_dir),
+        )
+    try:
+        yield probes
+    finally:
+        for name, original in originals.items():
+            setattr(Path, name, original)
+
+
+@contextlib.contextmanager
+def _watch_handoff_read_access():
+    """Instrument `pathlib.Path`, raising on attempts to read `supervisor-handoff.md`."""
+    originals = {name: getattr(Path, name) for name in ("open", "read_text", "read_bytes")}
 
     def forbid(*, verb: str):
         original = originals[verb]
@@ -87,14 +135,30 @@ def _watch_handoff_access():
 
         return guard
 
-    Path.exists = counting_exists
     for verb in ("open", "read_text", "read_bytes"):
         setattr(Path, verb, forbid(verb=verb))
     try:
-        yield probes
+        yield
     finally:
         for name, original in originals.items():
             setattr(Path, name, original)
+
+
+@contextlib.contextmanager
+def _record_handoff_exists():
+    """Record whether evaluation still performs the separate live-session offer probe."""
+    original = Path.exists
+    probes: list[str] = []
+
+    def counting_exists(self, *args, **kwargs):
+        probes.append(self.name)
+        return original(self, *args, **kwargs)
+
+    Path.exists = counting_exists
+    try:
+        yield probes
+    finally:
+        Path.exists = original
 
 
 def test_scenario_a_blocked_declaration_is_relayed_not_answered(*, tmp_path):
@@ -238,28 +302,55 @@ def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(*, tmp
     assert registry.read_mapping(store_path=sup.store_path) == []  # and nothing was mapped
 
 
-def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(*, tmp_path):
-    """Scenario: The supervision-artifact existence probe is liveness-gated and existence-only.
+def test_scenario_discovery_performs_no_file_level_probe_inside_a_plan_directory(*, tmp_path):
+    """Scenario: Discovery performs no file-level probe inside a plan directory.
 
-    The probe MAY test whether `plan/<topic>/supervisor-handoff.md` exists; it never opens,
-    reads, or hashes it; and for a track with no live matching session it performs no
-    file-level probe at all.
+    Given a watched repository containing a plan directory, with or without a currently
+    matching live session, the daemon's discovery pass performs no file-level probe inside
+    the plan directory: it does not ask whether either handoff exists and never opens,
+    reads, or hashes them as authorization.
 
-    The two negative clauses are asserted by INSTRUMENTING `pathlib.Path` rather than by
+    The negative clause is asserted by INSTRUMENTING `pathlib.Path` rather than by
     inspecting the daemon's output, because "did not read a file" leaves no trace in a
-    result: `open` / `read_text` / `read_bytes` raise on that filename, so any read is a hard
-    failure at the moment it happens rather than a subtly wrong assertion afterwards.
+    result: any file-level `exists` / `is_file` / read probe below the plan directory raises
+    at the moment it happens.
 
-    The liveness gate is exercised by DIFFERENCE, on the same repo and the same file: the
-    live-session pass must probe it and the dead-session pass must not. Asserting only the
-    absence would pass against a daemon that never probes at all, which is a different bug
-    wearing the same green tick.
+    This deliberately drives `build_rows`, not full `tick`: the ratified scenario is about
+    DISCOVERY, while the live-session supervision-offer surface remains a separate
+    evaluation concern. The live-session half still matters, though, because `act=True`
+    discovery may auto-link a matching tmux session before returning the row set.
 
     INJECTED DEFECTS THAT REDDEN IT (run 2026-07-26, each reverted):
-      - `_surface_supervision_offer` reading the file (`.read_text()`) instead of `.exists()`
-        -> the patched reader raises.
-      - the probe hoisted above the no-managed-pane return in `evaluate` -> the dead-session
-        pass probes, so its count is no longer zero.
+      - calling `registry.epic_from_plan_anchor` from daemon discovery -> the patched
+        `read_text` raises on `plan/<topic>/handoff.md`.
+      - checking `supervisor-handoff.md.exists()` from discovery -> the patched `exists`
+        raises on a file-level path inside the plan directory.
+    """
+    repo, topic = make_plan(tmp_path=tmp_path)
+    plan_dir = repo / "plan" / topic
+    (repo / "plan" / topic / _HANDOFF).write_text("a supervisor charter\n")
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)], out=_io.StringIO())
+
+    with _watch_plan_file_access(plan_dir=plan_dir) as probes:
+        live_rows = sup.build_rows(act=True)
+
+        fake.sessions.clear()
+        dead_rows = sup.build_rows(act=True)
+
+    assert probes  # the patch was live and observed non-plan filesystem checks
+    assert [(row.topic, row.tmux) for row in live_rows] == [(topic, session)]
+    assert [(row.topic, row.tmux) for row in dead_rows] == [(topic, session)]
+
+
+def test_supervision_offer_probe_still_never_reads_the_handoff_file(*, tmp_path):
+    """The evaluation-tier supervision offer may existence-test but never read the handoff.
+
+    This is the surviving half of the retired scenario: it is no longer the
+    integration-tier scenario binding, but it keeps the read/hash prohibition pinned on
+    the offer path that still checks whether a durable supervisor prompt exists.
     """
     repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / _HANDOFF).write_text("a supervisor charter\n")
@@ -269,19 +360,15 @@ def test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only(*, 
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
     track = mapped_track(repo=repo, topic=topic, session=session)
 
-    with _watch_handoff_access() as probes, contextlib.redirect_stderr(_io.StringIO()):
-        live = sup.evaluate(track=track, act=True)  # a live, matching session
-        live_probes = list(probes)
+    with (
+        _watch_handoff_read_access(),
+        _record_handoff_exists() as probes,
+        contextlib.redirect_stderr(_io.StringIO()),
+    ):
+        live = sup.evaluate(track=track, act=True)
 
-        probes.clear()
-        fake.sessions.clear()  # the session goes away entirely
-        dead = sup.evaluate(track=track, act=True)
-        dead_probes = list(probes)
-
-    assert live.status == "idle-with-context-left"  # a live tracked pane...
-    assert _HANDOFF in live_probes  # ...MAY be probed for existence
-    assert dead.status == "session-gone"  # no live matching session...
-    assert _HANDOFF not in dead_probes  # ...means no file-level probe at all
+    assert live.status == "idle-with-context-left"
+    assert _HANDOFF in probes
 
 
 def test_scenario_topics_colliding_across_repositories_get_qualified_session_names(*, tmp_path):
