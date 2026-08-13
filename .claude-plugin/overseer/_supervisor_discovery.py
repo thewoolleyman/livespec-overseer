@@ -26,7 +26,6 @@ import codex_sessions
 import registry
 import signals
 from _supervisor_config import iso_now
-from _supervisor_prompts import default_handoff, default_resume
 from _supervisor_unindexed_codex import unindexed_codex_rows as _unindexed_codex_rows
 from _supervisor_view import RowView
 
@@ -89,8 +88,7 @@ def auto_link(*, sup: Supervisor, track: registry.Track) -> registry.Track | Non
         topic=track.topic,
         repo=track.repo,
         tmux=session,
-        handoff=track.handoff or default_handoff(repo=track.repo, topic=track.topic),
-        resume=default_resume(repo=track.repo, topic=track.topic),
+        epic=track.epic,
     )
     registry.append_mapping(track=linked, store_path=sup.store_path, added_at=iso_now())
     sup.log(message=f"auto-linked live session {session} → {track.repo}::{track.topic}")
@@ -115,7 +113,7 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
 
     A session is adopted ONLY when (a) its registry ``cwd`` resolves inside a
     FLEET repo (the watch-set) AND (b) its ``name`` is an ACTIVE plan topic in
-    that repo (a discovered ``plan/<topic>/`` with a ``handoff.md``). Registry
+    that repo (a discovered ``plan/<topic>/`` DIRECTORY). Registry
     membership already proves it is a live Claude process, so no worker-command
     guard is needed. The mapping's ``tmux`` field is the ACTUAL session name
     holding the work (any name — a generic `livespec`, an operator-renamed one) —
@@ -133,7 +131,7 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
     """
     watch = resolve_watch(sup=sup)
     active: dict[str, set[str]] = {}
-    for repo, topic, _ in registry.discover_plans(watch_repos=watch):
+    for repo, topic in registry.discover_plans(watch_repos=watch):
         active.setdefault(repo, set()).add(topic)
     existing = {(t.repo, t.topic): t.tmux for t in registry.read_mapping(store_path=sup.store_path)}
     pane_pids = sup.tmux.pane_pid_sessions()
@@ -208,8 +206,6 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
             topic=topic,
             repo=repo,
             tmux=session,
-            handoff=default_handoff(repo=repo, topic=topic),
-            resume=default_resume(repo=repo, topic=topic),
         )
         registry.append_mapping(track=track, store_path=sup.store_path, added_at=iso_now())
         existing[(repo, topic)] = session

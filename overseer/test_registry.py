@@ -42,11 +42,14 @@ def test_track_is_frozen_and_keyword_only():
 
 
 def test_make_unassigned():
-    track = Track.make_unassigned(repo="/r", topic="x", handoff="/r/plan/x/handoff.md")
+    track = Track.make_unassigned(repo="/r", topic="x")
     assert track.is_unassigned is True
     assert track.assigned is False
     assert track.tmux is None
-    assert track.handoff == "/r/plan/x/handoff.md"
+    # Discovery contributes EXISTENCE only: an unassigned track carries no read-first
+    # locator, because the plan's ledger epic id is recorded at ASSIGNMENT.
+    assert track.epic is None
+    assert track.resume is None
 
 
 def test_tmux_id_is_the_bare_topic_by_default():
@@ -92,18 +95,18 @@ def test_tmux_id_refuses_collision_derived_reserved_suffix():
 
 def test_colliding_topics_are_topics_in_two_or_more_repos():
     discovered = [
-        ("/data/projects/livespec", "shared", "h1"),
-        ("/data/projects/livespec-console-beads-fabro", "shared", "h2"),
-        ("/data/projects/livespec", "solo", "h3"),
+        ("/data/projects/livespec", "shared"),
+        ("/data/projects/livespec-console-beads-fabro", "shared"),
+        ("/data/projects/livespec", "solo"),
     ]
     assert registry.colliding_topics(discovered=discovered) == frozenset({"shared"})
 
 
 def test_colliding_topics_ignores_the_same_repo_seen_twice():
-    # Two triples for the SAME (normalized) repo + topic is NOT a cross-repo collision.
+    # Two pairs for the SAME (normalized) repo + topic is NOT a cross-repo collision.
     discovered = [
-        ("/data/projects/livespec", "dup", "h1"),
-        ("/data/projects/livespec/", "dup", "h2"),
+        ("/data/projects/livespec", "dup"),
+        ("/data/projects/livespec/", "dup"),
     ]
     assert registry.colliding_topics(discovered=discovered) == frozenset()
 
@@ -120,8 +123,7 @@ def test_append_read_roundtrip(*, tmp_path):
             topic="alpha",
             repo="/data/projects/livespec",
             tmux="livespec:alpha",
-            handoff="/data/projects/livespec/plan/alpha/handoff.md",
-            resume="read handoff and follow it",
+            resume="an operator's own override prompt",
             epic="livespec-0001",
             ctx_threshold=40,
             pinned_session_id="sess-1",

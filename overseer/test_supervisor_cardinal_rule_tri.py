@@ -15,7 +15,6 @@ import _supervisor_config
 import pytest
 import registry
 import signals
-import supervisor
 from test_supervisor_builders import (
     declare,
     idle_capture,
@@ -83,7 +82,7 @@ def test_restart_fires_only_on_a_declared_ready(*, tmp_path):
     resume = fake.paste_texts()[0]
     assert str(repo) in resume
     assert "overseer-test-epic" in resume
-    assert supervisor.default_handoff(repo=str(repo), topic=topic) not in resume
+    assert "handoff.md" not in resume
     assert not state.exists()  # round closed
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
@@ -167,14 +166,7 @@ def test_missing_epic_ready_is_surfaced_without_acting_on_read_only_evaluation(*
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
     declare(repo=repo, topic=topic, value="ready", mtime=1001.0)
-    track = registry.Track(
-        topic=topic,
-        repo=str(repo),
-        tmux=session,
-        handoff=supervisor.default_handoff(repo=str(repo), topic=topic),
-        resume=supervisor.default_resume(repo=str(repo), topic=topic),
-        epic=None,
-    )
+    track = registry.Track(topic=topic, repo=str(repo), tmux=session, epic=None)
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
@@ -279,8 +271,6 @@ def test_auto_link_refuses_different_repo(*, tmp_path):
     fake.paths[session] = str(other_repo)  # session cwd is a DIFFERENT repo
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
 
-    unassigned = registry.Track.make_unassigned(
-        repo=str(repo), topic=topic, handoff=supervisor.default_handoff(repo=str(repo), topic=topic)
-    )
+    unassigned = registry.Track.make_unassigned(repo=str(repo), topic=topic)
     assert sup.auto_link(track=unassigned) is None
     assert registry.read_mapping(store_path=sup.store_path) == []  # nothing linked

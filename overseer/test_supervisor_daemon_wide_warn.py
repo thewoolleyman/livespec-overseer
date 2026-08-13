@@ -73,8 +73,7 @@ def test_explicit_ctx_threshold_overrides_warn_percent(*, tmp_path):
         topic=topic,
         repo=str(repo),
         tmux=session,
-        handoff=supervisor.default_handoff(repo=str(repo), topic=topic),
-        resume=supervisor.default_resume(repo=str(repo), topic=topic),
+        epic="overseer-test-epic",
         ctx_threshold=60,
     )
     view = sup.evaluate(track=track, act=True)
@@ -128,7 +127,7 @@ def test_restart_fires_when_marker_valid_notbusy_idle(*, tmp_path):
     ) in fake.calls
     resume = fake.paste_texts()[0]
     assert "overseer-test-epic" in resume
-    assert supervisor.default_handoff(repo=str(repo), topic=topic) not in resume
+    assert "handoff.md" not in resume
     # the ready marker was deleted AND the injection stamp cleared (round closed, B4)
     assert not marker.exists()
     assert (

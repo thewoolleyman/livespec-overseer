@@ -18,9 +18,8 @@ import registry
 import signals
 from _supervisor_config import track_key
 from _supervisor_prompts import (
-    plan_epic_resume,
+    resume_for_track,
     supervisor_handoff_path,
-    supervisor_resume,
     supervisor_wrapup_message,
     wrapup_message,
 )
@@ -45,18 +44,12 @@ def missing_plan_epic_message() -> str:
 def resume_prompt(*, track: registry.Track) -> str | None:
     """Return the runtime resume prompt, or None when a normal track lacks its epic.
 
-    Supervisor-pair tracks still resume from `supervisor-handoff.md`: that entity's
-    durable prompt is the supervision artifact for the worker plan. Normal plan tracks
-    resume by repository + ledger epic so a cold-open successor resolves the plan state
-    from the ledger, not from a path-shaped handoff pointer that may have gone stale.
+    Thin alias for :func:`_supervisor_prompts.resume_for_track`, kept because the restart
+    mechanics are this module's surface and its callers name it here. The derivation
+    itself lives beside the text it builds, so the relaunch and attention paths share one
+    definition with the restart rather than each carrying their own.
     """
-    if signals.topic_reserved_for_supervisor(topic=track.topic):
-        return supervisor_resume(
-            repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
-        )
-    if track.epic is None:
-        return None
-    return plan_epic_resume(repo=track.repo, epic=track.epic)
+    return resume_for_track(track=track)
 
 
 def maybe_inject(
@@ -126,7 +119,7 @@ def maybe_inject(
             remaining=eff_ctx, repo=repo, topic=signals.supervisor_topic(entity_topic=topic)
         )
     else:
-        message = wrapup_message(remaining=eff_ctx, repo=repo, topic=topic)
+        message = wrapup_message(remaining=eff_ctx, repo=repo, topic=topic, epic=track.epic)
     if _supervisor_launch.submit_prompt(
         sup=sup, target=target, text=message, expect_codex=is_codex
     ):
@@ -175,7 +168,7 @@ def do_restart(
     **The submit is SELF-HEALING (R1, 2026-07-18).** The round is closed (state file
     deleted + injection stamp cleared — B4) ONLY when the resume line actually SUBMITS.
     A freshly-respawned TUI can DROP the Enter while still drawing its welcome screen,
-    leaving the fresh session live but idle with an un-run handoff (proven live
+    leaving the fresh session live but idle with an un-run resume prompt (proven live
     2026-07-17). On that failure this does NOT clear the marker or log "restarted" —
     it marks a round-scoped ``resume_pending`` (``registry.set_resume_pending``) and
     alerts, and the NEXT tick's ``evaluate`` retries the SUBMIT ONLY (``_resend_enter``

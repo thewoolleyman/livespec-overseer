@@ -43,8 +43,8 @@ def test_discover_plans_excludes_archive(*, tmp_path):
     repo = tmp_path / "repo"
     _make_plan(repo=repo, topic="topic-a")
     _make_plan(repo=repo, topic="topic-b")
-    # Directory existence IS the track now — a plan/<topic>/ dir with NO handoff.md
-    # is still discovered (the handoff path is only a conventional pointer).
+    # Directory existence IS the track — a plan/<topic>/ dir with NO handoff.md is
+    # still discovered, and discovery derives no path into it at all.
     _make_plan(repo=repo, topic="no-handoff", with_handoff=False)
     # An archived plan (under plan/archive/) must still be excluded.
     archived = repo / "plan" / "archive" / "old-topic"
@@ -53,12 +53,12 @@ def test_discover_plans_excludes_archive(*, tmp_path):
     # A stray FILE directly under plan/ must be ignored (only child DIRS are tracks).
     (repo / "plan" / "README.md").write_text("x\n", encoding="utf-8")
 
-    triples = registry.discover_plans(watch_repos=[repo])
-    topics = [topic for _repo, topic, _handoff in triples]
+    pairs = registry.discover_plans(watch_repos=[repo])
+    topics = [topic for _repo, topic in pairs]
     # Every plan/<topic>/ dir is a track (sorted); the literal 'archive' dir excluded.
     assert topics == ["no-handoff", "topic-a", "topic-b"]
-    # The handoff path is the conventional <topic>/handoff.md pointer (need not exist).
-    assert triples[0][2].endswith("/repo/plan/no-handoff/handoff.md")
+    # A discovered element is exactly (repo, topic) — no path into the plan directory.
+    assert pairs[0] == (str(repo), "no-handoff")
 
 
 def test_discover_plans_fail_soft_on_missing_plan_dir(*, tmp_path):
@@ -102,11 +102,9 @@ def test_discover_plans_fail_soft_on_an_unreadable_plan_dir(*, tmp_path, monkeyp
         return real_iterdir(self)
 
     monkeypatch.setattr(Path, "iterdir", _deny)
-    triples = registry.discover_plans(watch_repos=[poisoned, healthy])
+    pairs = registry.discover_plans(watch_repos=[poisoned, healthy])
 
-    assert [(registry.repo_slug(repo=r), t) for r, t, _h in triples] == [
-        ("repo-healthy", "topic-b")
-    ]
+    assert [(registry.repo_slug(repo=r), t) for r, t in pairs] == [("repo-healthy", "topic-b")]
     assert "unreadable plan dir" in capsys.readouterr().err
 
 
@@ -132,11 +130,9 @@ def test_discover_plans_fail_soft_on_an_unreadable_plan_child(*, tmp_path, monke
         return real_is_dir(self)
 
     monkeypatch.setattr(Path, "is_dir", _deny)
-    triples = registry.discover_plans(watch_repos=[poisoned, healthy])
+    pairs = registry.discover_plans(watch_repos=[poisoned, healthy])
 
-    assert [(registry.repo_slug(repo=r), t) for r, t, _h in triples] == [
-        ("repo-healthy", "topic-b")
-    ]
+    assert [(registry.repo_slug(repo=r), t) for r, t in pairs] == [("repo-healthy", "topic-b")]
     assert "unreadable plan child" in capsys.readouterr().err
 
 
@@ -145,26 +141,24 @@ def test_discover_plans_fail_soft_on_an_unreadable_plan_child(*, tmp_path, monke
 # --------------------------------------------------------------------------- #
 
 
-def test_join_left_join_fills_and_marks_unassigned(*, tmp_path):
+def test_join_left_join_preserves_the_row_and_marks_unassigned(*, tmp_path):
     repo = str(tmp_path / "repo")
-    discovered = [
-        (repo, "mapped", f"{repo}/plan/mapped/handoff.md"),
-        (repo, "unmapped", f"{repo}/plan/unmapped/handoff.md"),
-    ]
+    discovered = [(repo, "mapped"), (repo, "unmapped")]
     mapping = [
-        Track(topic="mapped", repo=repo, tmux="repo:mapped", handoff=None),  # no handoff
+        Track(topic="mapped", repo=repo, tmux="repo:mapped", epic="overseer-0001"),
     ]
     rows = registry.join(discovered=discovered, mapping=mapping)
     by_topic = {t.topic: t for t in rows}
 
     assert by_topic["mapped"].assigned is True
     assert by_topic["mapped"].tmux == "repo:mapped"
-    # Handoff filled from discovery because the mapping row lacked one.
-    assert by_topic["mapped"].handoff == f"{repo}/plan/mapped/handoff.md"
+    # Discovery contributes only the track's EXISTENCE, so the mapped row passes through
+    # untouched — including the read-first locator only the row can carry.
+    assert by_topic["mapped"].epic == "overseer-0001"
 
     assert by_topic["unmapped"].is_unassigned is True
     assert by_topic["unmapped"].tmux is None
-    assert by_topic["unmapped"].handoff == f"{repo}/plan/unmapped/handoff.md"
+    assert by_topic["unmapped"].epic is None
 
 
 def test_join_is_repo_qualified_no_cross_link(*, tmp_path):
@@ -172,10 +166,7 @@ def test_join_is_repo_qualified_no_cross_link(*, tmp_path):
     cross-link to the other (adversarial-review blocker #8)."""
     repo_a = str(tmp_path / "repo-a")
     repo_b = str(tmp_path / "repo-b")
-    discovered = [
-        (repo_a, "shared", f"{repo_a}/plan/shared/handoff.md"),
-        (repo_b, "shared", f"{repo_b}/plan/shared/handoff.md"),
-    ]
+    discovered = [(repo_a, "shared"), (repo_b, "shared")]
     mapping = [Track(topic="shared", repo=repo_a, tmux="repo-a:shared")]
     rows = registry.join(discovered=discovered, mapping=mapping)
     by_repo = {t.repo: t for t in rows}

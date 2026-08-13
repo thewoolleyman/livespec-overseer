@@ -5,8 +5,9 @@ description: >-
   deterministic top-pane daemon (`overseerd`) that watches every tracked tmux
   session's context %, injects an ESCALATING wrap-up at threshold, and
   atomically restarts a session ONLY once that session declares itself `ready`
-  (exit + `claude --dangerously-skip-permissions -n <topic>` + re-kick from
-  `plan/<topic>/handoff.md`) — THE CARDINAL RULE: the daemon NEVER restarts a
+  (exit + `claude --dangerously-skip-permissions -n <topic>` + re-kick from the
+  plan's LEDGER-HELD PLAN STATE, named by repository path and recorded `epic`
+  id) — THE CARDINAL RULE: the daemon NEVER restarts a
   session that has not declared itself ready, because only the session knows
   whether it is safe to kill; one that declares nothing is REPORTED as not
   responding and left alone — and this THIN bottom pane, the interactive Claude
@@ -349,8 +350,13 @@ keyword flags. (`<cmd>` is one of `list` / `add` / `remove` / `unassign` /
 - **`add --repo <repo> --topic <topic>`** — map a discovered plan to a watched
   session. The tmux id is derived automatically: the **bare plan topic**, or
   `<repo-slug>-<topic>` (single dash) only when that topic collides across watched
-  repos. The handoff and resume line default to the plan's `handoff.md`.
-  Replaces any existing row for that `(repo, topic)`.
+  repos. The row records the plan's ledger `epic` id, read from the plan's
+  write-once metadata anchor, and the daemon derives the resume line from that id
+  plus the repository path; the row carries NO handoff path, and `resume` is left
+  empty for the operator's own optional override. A plan whose anchor cannot be
+  read is mapped with no `epic`, which the restart interlock handles by refusing
+  the respawn and surfacing the track. Replaces any existing row for that
+  `(repo, topic)`.
 - **`remove --repo <repo> --topic <topic>`** / **`unassign --repo <repo> --topic
   <topic>`** — drop the mapping row (synonyms). The plan reverts to `unassigned`;
   the tmux session is **never force-killed** — surface-only.

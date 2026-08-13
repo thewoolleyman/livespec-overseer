@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 
 import _supervisor_evaluate
 import _supervisor_offer
-import _supervisor_prompts
 import registry
 import signals
 from _supervisor_pair_stall import evaluate_pair_stall
@@ -62,11 +61,13 @@ def evaluate_supervisor_pair(
             note="supervisor vanished during an open wind-down round",
         )
     _supervisor_offer.surface_supervision_offer(sup=sup, track=track, act=act)
+    # The pair shares ONE epic and one stream (spec section "the supervisor pair member"),
+    # so the entity track carries the worker's. Its own resume prompt is DERIVED from the
+    # reserved entity topic rather than stored here, which is why no `resume` is set.
     supervisor_track = registry.Track(
         topic=entity_topic,
         repo=repo,
         tmux=session,
-        handoff=str(_supervisor_prompts.supervisor_handoff_path(repo=repo, topic=topic)),
-        resume=_supervisor_prompts.supervisor_resume(repo=repo, topic=topic),
+        epic=track.epic,
     )
     return _supervisor_evaluate.evaluate(sup=sup, track=supervisor_track, act=act)

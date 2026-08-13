@@ -20,8 +20,9 @@ from __future__ import annotations
 import contextlib
 import io as _io
 
-from overseer import registry, supervisor
+from overseer import registry
 from overseer.test_supervisor_builders import (
+    TEST_EPIC,
     declare,
     idle_capture,
     make_plan,
@@ -72,7 +73,11 @@ def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(*, tmp
     assert _STATE_FILE_HINT in message
     for value in ("ready", "blocked:", "winding-down"):
         assert value in message
-    assert supervisor.default_handoff(repo=str(repo), topic=topic) in message
+    # The read-first source the successor inherits, named by BOTH coordinates and by no
+    # path into the plan tree.
+    assert TEST_EPIC in message
+    assert str(repo) in message
+    assert "handoff.md" not in message
 
 
 def test_scenario_the_wrapup_sharpens_as_context_keeps_falling(*, tmp_path):

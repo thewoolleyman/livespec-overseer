@@ -182,18 +182,36 @@ def test_overseerd_executable_is_the_daemon_entrypoint():
 
 def test_wrapup_message_names_the_one_state_file_and_all_three_values():
     """The wrap-up must hand the session the SINGLE state file and all three legal
-    values, plus the handoff it will be resumed from. Only tmp/ paths — never a state
-    file under plan/."""
-    msg = supervisor.wrapup_message(remaining=40, repo="/r", topic="t")
+    values, plus the ledger-held plan state it will be resumed from — named by
+    repository path and epic id. Only tmp/ paths — never a state file under plan/, and
+    never a plan-tree handoff path as the read-first source."""
+    msg = supervisor.wrapup_message(remaining=40, repo="/r", topic="t", epic="overseer-0007")
     assert "40%" in msg
     assert "/r/tmp/overseer/t/.overseer-state" in msg  # the ONE indicator file
     for token in ("winding-down", "ready", "blocked:"):
         assert token in msg
-    assert "/r/plan/t/handoff.md" in msg  # the resume target is named explicitly
+    # The read-first source is named explicitly, by BOTH coordinates.
+    assert "overseer-0007" in msg
+    assert "/r" in msg
+    assert "handoff.md" not in msg
     assert "/r/plan/t/.overseer-state" not in msg  # never under plan/
     # The retired two-file protocol is GONE from the message.
     assert ".overseer-ready" not in msg
     assert ".overseer-blocked" not in msg
+
+
+def test_wrapup_message_says_so_when_no_plan_epic_is_recorded():
+    """A track with no recorded epic gets the truth, not a plausible-looking pointer.
+
+    The restart interlock refuses to respawn such a track, so inventing a source here
+    would tell the session to save its state somewhere nothing will ever read from.
+    """
+    msg = supervisor.wrapup_message(remaining=40, repo="/r", topic="t", epic=None)
+    assert "NO plan epic id is recorded" in msg
+    assert "handoff.md" not in msg
+    # The declaration protocol is unchanged — a missing epic never suppresses the wrap-up.
+    for token in ("winding-down", "ready", "blocked:"):
+        assert token in msg
 
 
 def test_wrapup_message_states_no_repo_specific_gate_size():
@@ -209,11 +227,11 @@ def test_wrapup_message_states_no_repo_specific_gate_size():
 
     Sabotage that reddens this: restore the word `seven-target` to `_WRAPUP_BODY`.
     """
-    msg = supervisor.wrapup_message(remaining=40, repo="/r", topic="t")
+    msg = supervisor.wrapup_message(remaining=40, repo="/r", topic="t", epic="overseer-0007")
     for count in ("seven-target", "seven target", "five-target", "five target"):
         assert count not in msg
     # The guidance itself must SURVIVE — this is about dropping a false number, not
-    # about dropping the instruction to commit the handoff through the gate.
+    # about dropping the instruction to bring the session's own work through the gate.
     assert "--no-verify" in msg
     assert "gate" in msg
 
@@ -222,36 +240,43 @@ def test_wrapup_message_says_only_the_session_authorizes_the_restart():
     """The cardinal rule must be in the message the session actually reads: it is
     restarted only when IT says `ready`, and writing nothing gets it reported — not
     killed. (The old text promised an unconditional force-restart; that was the bug.)"""
-    msg = supervisor.wrapup_message(remaining=13, repo="/r", topic="t")
+    msg = supervisor.wrapup_message(remaining=13, repo="/r", topic="t", epic="overseer-0007")
     assert "ONLY when YOU say so" in msg
     assert "never kills a session" in msg
     assert "not responding" in msg  # writing nothing ⇒ reported to a human
 
 
-def test_wrapup_message_tells_the_session_to_commit_the_handoff_via_a_worktree():
-    """Writing the handoff to disk is NOT saving it (plan/archive/plan-thread-integrity/, W4).
+def test_wrapup_message_tells_the_session_to_append_its_resume_state_to_the_ledger():
+    """Writing the resume state down locally is NOT saving it
+    (plan/archive/plan-thread-integrity/, W4).
 
     The wrap-up used to say only "UPDATE {handoff}", and the word "commit" appeared
     nowhere in this file — the "persisted is durable" conflation, sitting in the one
     instruction every overseer-managed wind-down receives. A handoff was left dirty on
     2026-07-19 and rescued only by luck.
 
-    A bare "commit it" would be worse than useless: the handoff lives in the PRIMARY
-    checkout, where the commit-refuse hook rejects commits, and a fresh worktree does
-    NOT contain the dirty edits. So the text must name the whole path INCLUDING the
-    copy step, or a low-context session strands itself at "my worktree is empty".
+    The read-first source is now the plan's LEDGER-HELD state, so the same conflation
+    wears a new shape: a session that writes its resume state into a local file, or into
+    the transcript, has saved nothing the successor can see. The text therefore has to
+    name the ACT (append), the ROUTE (the orchestrator's sanctioned plan surface), and
+    the two non-routes (a file under plan/, a direct ledger write) — or a low-context
+    session strands its successor with an empty read-first source.
     """
-    msg = supervisor.wrapup_message(remaining=40, repo="/data/projects/livespec", topic="t")
-    assert "COMMIT" in msg
+    msg = supervisor.wrapup_message(
+        remaining=40, repo="/data/projects/livespec", topic="t", epic="overseer-0007"
+    )
+    assert "APPEND" in msg
     assert "NOT saving it" in msg
-    # The refusal the session would otherwise walk into, and why a worktree is needed.
-    assert "commit-refuse hook rejects it" in msg
-    # The copy step — the part a "just use a worktree" instruction leaves out.
-    assert "worktree add" in msg
-    assert 'cp /data/projects/livespec/plan/t/handoff.md "$W/plan/t/handoff.md"' in msg
+    # The route, and the two things that are NOT the route.
+    assert "sanctioned plan" in msg
+    assert "do NOT write to the ledger directly" in msg
+    assert "under plan/" in msg
     # The bypasses it must NOT offer as an escape.
     assert "Never pass --no-verify" in msg
-    assert "do not discard the file" in msg
+    assert "do not discard the work" in msg
+    # And the retired file-shaped ritual is gone from the worker text entirely.
+    assert "handoff.md" not in msg
+    assert "worktree add" not in msg
 
 
 def test_wrapup_escalates_from_suggestion_to_insistence():
@@ -259,10 +284,14 @@ def test_wrapup_escalates_from_suggestion_to_insistence():
     turning INSISTENT at 30/20/10. Re-sending identical text five times is repetition,
     not escalation — and with no force-restart, this escalation IS the lever."""
     for gentle in (50, 40):
-        msg = supervisor.wrapup_message(remaining=gentle, repo="/r", topic="t")
+        msg = supervisor.wrapup_message(
+            remaining=gentle, repo="/r", topic="t", epic="overseer-0007"
+        )
         assert "Please start wrapping up" in msg
         assert "STOP AND WIND DOWN NOW" not in msg
     for insistent in (30, 20, 10):
-        msg = supervisor.wrapup_message(remaining=insistent, repo="/r", topic="t")
+        msg = supervisor.wrapup_message(
+            remaining=insistent, repo="/r", topic="t", epic="overseer-0007"
+        )
         assert "STOP AND WIND DOWN NOW" in msg
         assert "Please start wrapping up" not in msg

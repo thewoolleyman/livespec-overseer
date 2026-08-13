@@ -141,6 +141,7 @@ def _try_pair_nudge(
     text = _supervisor_prompts.pair_stall_nudge_message(
         repo=track.repo,
         topic=track.topic,
+        epic=track.epic,
         worker_session=worker_view.tmux or "unknown",
         worker_pane=sup.tmux.pane_id(session=worker_view.tmux) if worker_view.tmux else None,
         stalled_seconds=stalled_seconds,

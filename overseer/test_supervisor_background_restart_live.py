@@ -3,6 +3,7 @@
 import registry
 import supervisor
 from test_supervisor_builders import (
+    TEST_EPIC,
     arm_ready_marker,
     idle_capture,
     key_for,
@@ -127,7 +128,7 @@ def test_restart_keeps_marker_when_respawn_fails(*, tmp_path):
         == 1000.0
     )
     # and the resume line was NOT pasted (we bailed before submit)
-    assert supervisor.default_resume(repo=str(repo), topic=topic) not in fake.paste_texts()
+    assert supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC) not in fake.paste_texts()
 
 
 def test_renamed_session_is_idle_and_restarts(*, tmp_path):

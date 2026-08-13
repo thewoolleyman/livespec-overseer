@@ -106,7 +106,6 @@ ROW_KEYS = (
     "topic",
     "repo",
     "tmux",
-    "handoff",
     "resume",
     "epic",
     "ctx_threshold",
@@ -145,11 +144,11 @@ def _reserved_session_refusal(*, repo: str | os.PathLike[str], topic: str, sessi
 
 def colliding_topics(
     *,
-    discovered: Iterable[tuple[str, str, str]],
+    discovered: Iterable[tuple[str, str]],
 ) -> frozenset[str]:
     """Topics that appear in >=2 DISTINCT watched repos.
 
-    ``discovered`` is the ``(repo, topic, handoff)`` triple list from
+    ``discovered`` is the ``(repo, topic)`` pair list from
     :func:`discover_plans`. A topic in this set would collide on its bare tmux
     name if two of its repos ran at once (tmux session names are global), so
     :func:`tmux_id` repo-qualifies exactly these — and nothing else. Repos are
@@ -157,7 +156,7 @@ def colliding_topics(
     the SAME repo discovered twice never counts as a collision.
     """
     repos_by_topic: dict[str, set[str]] = {}
-    for repo, topic, _ in discovered:
+    for repo, topic in discovered:
         if signals.topic_reserved_for_supervisor(topic=topic):
             warn(message=f"refusing reserved supervisor topic in collision set: {repo}::{topic}")
             continue
@@ -212,7 +211,6 @@ class Track:
     topic: str
     repo: str
     tmux: str | None = None
-    handoff: str | None = None
     resume: str | None = None
     epic: str | None = None
     # None = NO per-track override → inherit the daemon-wide default warn
@@ -234,14 +232,12 @@ class Track:
         *,
         repo: str,
         topic: str,
-        handoff: str | None = None,
     ) -> Track:
         """A discovered-but-unmapped track: blank tmux, status `unassigned`."""
         return cls(
             topic=topic,
             repo=repo,
             tmux=None,
-            handoff=handoff,
             assigned=False,
         )
 

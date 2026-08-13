@@ -36,9 +36,9 @@ def test_reserved_supervisor_topics_are_refused_by_discovery_and_collision(*, tm
 
     discovered = registry.discover_plans(watch_repos=[str(repo)])
     colliding = registry.colliding_topics(
-        discovered=[(str(repo), "bad-supervisor", "x"), (str(tmp_path / "other"), "good", "x")]
+        discovered=[(str(repo), "bad-supervisor"), (str(tmp_path / "other"), "good")]
     )
-    assert discovered == [(str(repo), "good", str(good / "handoff.md"))]
+    assert discovered == [(str(repo), "good")]
     assert colliding == frozenset()
     with pytest.raises(ValueError, match="bad-supervisor"):
         registry.tmux_id(repo=str(repo), topic="bad-supervisor")

@@ -97,7 +97,6 @@ def _track_from_row(*, row: dict[str, object]) -> Track | None:
         topic=topic,
         repo=repo,
         tmux=_opt_str(key="tmux"),
-        handoff=_opt_str(key="handoff"),
         resume=_opt_str(key="resume"),
         epic=_opt_str(key="epic"),
         ctx_threshold=ctx_threshold,
@@ -117,11 +116,15 @@ def read_mapping(*, store_path: str | os.PathLike[str] | None = None) -> list[Tr
 
 
 def _track_to_row(*, track: Track) -> dict[str, object]:
+    # A legacy row's `handoff` key is READ without error (it is simply not mapped onto
+    # any Track field) and is dropped here, so the first rewrite that touches such a row
+    # retires the key. The store never emits it: a track's read-first source is the plan
+    # state held on its ledger `epic`, and a second, path-shaped copy of that answer is
+    # exactly the drift the locator replaced.
     row: dict[str, object] = {
         "topic": track.topic,
         "repo": track.repo,
         "tmux": track.tmux,
-        "handoff": track.handoff,
         "resume": track.resume,
         "epic": track.epic,
         "pinned_session_id": track.pinned_session_id,

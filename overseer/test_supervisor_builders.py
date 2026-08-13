@@ -25,6 +25,9 @@ __all__: list[str] = []
 # A phrase unique to the idle-with-context-left "keep going" nudge (never in the wrap-up).
 NUDGE_SENTINEL = "do NOT offer to stop"
 
+# The ledger epic id every fixture plan is anchored to.
+TEST_EPIC = "overseer-test-epic"
+
 
 # The REAL live Claude TUI idle shape (verified 2026-07-13): an empty `❯` prompt
 # between two horizontal rule lines, the statusline as the SECOND-to-last row,
@@ -76,7 +79,20 @@ def codex_busy_capture(*, ctx=None):
 IDLE_BOX = idle_capture()
 
 
-def make_plan(*, tmp_path, repo_name="repo", topic="topic", handoff=b"HANDOFF v1\n"):
+# The plan's WRITE-ONCE METADATA ANCHOR, in the shape assignment surfaces parse it from.
+# A plan that carries one is the ordinary case: it is what lets an assignment surface
+# record the track's `epic`, and therefore what lets the daemon build a resume prompt at
+# all. A test that needs the anchor-less case passes `handoff=` without this line.
+_ANCHORED_HANDOFF = f"HANDOFF v1\n\n**Ledger anchor:** `{TEST_EPIC}`\n".encode()
+
+
+def make_plan(
+    *,
+    tmp_path,
+    repo_name="repo",
+    topic="topic",
+    handoff=_ANCHORED_HANDOFF,
+):
     repo = tmp_path / repo_name
     plan = repo / "plan" / topic
     plan.mkdir(parents=True)
@@ -85,13 +101,17 @@ def make_plan(*, tmp_path, repo_name="repo", topic="topic", handoff=b"HANDOFF v1
 
 
 def mapped_track(*, repo, topic, session):
+    """An ASSIGNED row in the shape assignment surfaces now write.
+
+    No `handoff` (the store no longer carries one) and no `resume` (that field is the
+    operator's optional override, not a derived line), so the daemon has only `repo` and
+    `epic` to build both of its prompts from — exactly the production shape.
+    """
     return registry.Track(
         topic=topic,
         repo=str(repo),
         tmux=session,
-        handoff=supervisor.default_handoff(repo=str(repo), topic=topic),
-        resume=supervisor.default_resume(repo=str(repo), topic=topic),
-        epic="overseer-test-epic",
+        epic=TEST_EPIC,
     )
 
 
@@ -292,19 +312,19 @@ def row_line(*, out, topic):
 # --------------------------------------------------------------------------- #
 
 
-def unsubmitted_resume_capture(*, ctx=30):
+def unsubmitted_resume_capture(*, ctx=30, repo="/x/repo", epic=TEST_EPIC):
     """A freshly-respawned Claude with the resume line sitting UN-submitted in the box.
 
-    The box holds the pasted `read <handoff> and follow it` text (a `❯ read …` line between
-    rules), so it is NOT the empty idle box (`input_box_ready` False) and NOT busy — exactly
-    the stranded state a dropped Enter leaves."""
+    The box holds the pasted ledger-epic resume prompt (a `❯ resume plan epic …` line
+    between rules), so it is NOT the empty idle box (`input_box_ready` False) and NOT busy
+    — exactly the stranded state a dropped Enter leaves. ``repo``/``epic`` default to the
+    coordinates most callers use; a caller whose track has different ones passes its own,
+    so the rendered box matches what the daemon would actually have pasted."""
     status = "  Opus 4.8 (1M context) | /x/repo"
     if ctx is not None:
         status += f" | Ctx: {ctx}% left"
-    return (
-        f"● welcome\n{RULE}\n❯ read /x/repo/plan/topic/handoff.md and follow it\n"
-        f"{RULE}\n{status}\n{HINT}\n"
-    )
+    resume = supervisor.plan_epic_resume(repo=repo, epic=epic)
+    return f"● welcome\n{RULE}\n❯ {resume}\n{RULE}\n{status}\n{HINT}\n"
 
 
 def wrapup_count(*, fake):

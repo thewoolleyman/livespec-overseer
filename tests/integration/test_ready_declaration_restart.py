@@ -153,7 +153,7 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(*, tmp_p
     assert len(pastes) == 2  # the wrap-up that opened the round, then ONE resume prompt
     assert str(repo) in pastes[1]
     assert "overseer-test-epic" in pastes[1]
-    assert supervisor.default_handoff(repo=str(repo), topic=topic) not in pastes[1]
+    assert "handoff.md" not in pastes[1]
 
     assert not signals.state_path(repo=str(repo), topic=topic).exists()
     assert (
@@ -174,14 +174,14 @@ def test_scenario_a_respawn_prompt_names_the_plan_epic_and_repository(*, tmp_pat
     the repository path and the epic id literally. A sibling track with no recorded epic id
     is surfaced as needing attention, preserves its declaration, and is never respawned.
 
-    The test deliberately gives the mapped row a stale path-shaped `resume` string. That
-    proves the restart prompt comes from the ledger-held plan locator, not from a
-    previously serialized handoff path that a cold-open successor may no longer be able to
-    resolve.
+    The test deliberately gives the mapped row a stale path-shaped `resume` string of the
+    exact form assignment surfaces used to serialize. That proves the restart prompt comes
+    from the ledger-held plan locator, not from a previously serialized handoff path a
+    cold-open successor may no longer be able to resolve.
     """
     epic = "overseer-pfpfty"
     repo, topic, _session, fake, sup, track = _open_round(tmp_path=tmp_path)
-    legacy_resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    legacy_resume = f"read {repo / 'plan' / topic / 'handoff.md'} and follow it"
     track = replace(track, epic=epic, resume=legacy_resume)
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
 

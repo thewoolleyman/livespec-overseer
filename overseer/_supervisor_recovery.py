@@ -17,7 +17,7 @@ import _supervisor_launch
 import codex_sessions
 import registry
 import signals
-from _supervisor_prompts import default_resume
+from _supervisor_prompts import launch_resume
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -156,7 +156,7 @@ def do_codex_launch(
     target = sup.tmux.pane_id(session=session)
     if target is None:
         return False
-    resume = track.resume or default_resume(repo=track.repo, topic=track.topic)
+    resume = launch_resume(track=track)
     command = _supervisor_launch.codex_launch_command(session_id=session_id, resume=resume)
     if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
         return False
@@ -182,5 +182,4 @@ def do_launch(*, sup: Supervisor, track: registry.Track, session: str) -> bool:
     if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
         return False
     _ = _supervisor_launch.await_input_box(sup=sup, target=target)
-    resume = track.resume or default_resume(repo=track.repo, topic=track.topic)
-    return _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume)
+    return _supervisor_launch.submit_prompt(sup=sup, target=target, text=launch_resume(track=track))
