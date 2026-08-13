@@ -465,50 +465,50 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Supervisor completion gate",
-    "test": "TODO",
-    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with the Driver-owned completion-gate integration test through the implementing slice's governed heading-coverage co-edit."
+    "test": "tests.integration.test_supervisor_completion_contract.test_supervisor_completion_gate_contract_is_realized_in_generated_output",
+    "reason": "Implemented by overseer-ztekkk. This integration-tier generated-contract test maps the Driver-owned completion gate heading to the realized shared role and binder output."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An open supervisor obligation or malformed marker refuses completion",
-    "test": "TODO",
-    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier completion-gate refusal test through the implementing slice's governed heading-coverage co-edit."
+    "test": "tests.integration.test_supervisor_completion_contract.test_completion_gate_contract_rejects_fail_closed_inputs",
+    "reason": "Implemented by overseer-ztekkk. The integration-tier fixture damages the generated contract's malformed-state and open-obligation refusal language and verifies the completion gate fails closed."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale producer or prose-only wake claim refuses completion",
-    "test": "TODO",
-    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier wake-producer refusal test through the implementing slice's governed heading-coverage co-edit."
+    "test": "tests.integration.test_supervisor_completion_contract.test_completion_gate_contract_rejects_unverifiable_wake_producers",
+    "reason": "Implemented by overseer-ztekkk. The integration-tier fixture removes the generated prose-claim refusal and verifies unverifiable wake-producer evidence is rejected."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An explicit plan-complete disposition may end an active supervisor turn",
-    "test": "TODO",
-    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier plan-complete acceptance test through the implementing slice's governed heading-coverage co-edit."
+    "test": "tests.integration.test_supervisor_completion_contract.test_completion_gate_contract_accepts_only_terminal_dispositions",
+    "reason": "Implemented by overseer-ztekkk. The integration-tier fixture verifies generated output accepts explicit plan-complete while rejecting non-terminal dispositions."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Exactly one genuine maintainer block may end an active supervisor turn",
-    "test": "TODO",
-    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier maintainer-block acceptance test through the implementing slice's governed heading-coverage co-edit."
+    "test": "tests.integration.test_supervisor_completion_contract.test_completion_gate_contract_accepts_only_terminal_dispositions",
+    "reason": "Implemented by overseer-ztekkk. The integration-tier fixture verifies the generated contract permits exactly one genuine maintainer-blocking question and refuses non-terminal alternatives."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A verified wake producer cold-opens from fresh state",
-    "test": "TODO",
-    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier external re-entry test through the implementing slice's governed heading-coverage co-edit."
+    "test": "tests.integration.test_supervisor_completion_contract.test_completion_gate_contract_requires_external_cold_reentry",
+    "reason": "Implemented by overseer-ztekkk. The integration-tier fixture damages the generated external re-entry requirement and verifies cold-open plus fresh ledger/forge re-query remains required."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: User messages are additive during active supervision",
-    "test": "TODO",
-    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier additive-message control test through the implementing slice's governed heading-coverage co-edit."
+    "test": "tests.integration.test_supervisor_completion_contract.test_completion_gate_contract_keeps_user_messages_additive",
+    "reason": "Implemented by overseer-ztekkk. The integration-tier fixture verifies ordinary messages are additive and that only the two literal override commands clear or replace supervision state."
   },
   {
     "spec_root": "SPECIFICATION",
