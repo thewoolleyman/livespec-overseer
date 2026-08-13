@@ -44,6 +44,28 @@ class IdleRequest:
     act: bool
 
 
+def _missing_plan_epic_decision(*, request: IdleRequest, note: str | None) -> IdleDecision:
+    next_note = _supervisor_liveness.append_note(
+        note=note,
+        extra=_supervisor_restart.missing_plan_epic_message(),
+    )
+    if request.act:
+        request.sup.alert(
+            repo=request.track.repo,
+            topic=request.track.topic,
+            session=request.session,
+            pane=request.target,
+            message=_supervisor_restart.missing_plan_epic_message(),
+            condition="restart-plan-epic-missing",
+        )
+    return IdleDecision(
+        status="blocked:human",
+        note=next_note,
+        active_conditions={"blocked-human"},
+        settled_streaming_progress=False,
+    )
+
+
 def _apply_uncertifiable_ready(
     *,
     status: str,
@@ -62,7 +84,6 @@ def _apply_uncertifiable_ready(
 
 def idle_decision(*, request: IdleRequest) -> IdleDecision:
     active_conditions: set[str] = set()
-    settled_streaming_progress = False
     note = request.note
     if not request.obs.idle:
         # Pane present but not a verified idle-input state and not busy —
@@ -72,8 +93,12 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         sup=request.sup, target=request.target
     ):
         # One frame looks idle, but the pane is actively changing (streaming).
-        settled_streaming_progress = True
-        status = "working"
+        return IdleDecision(
+            status="working",
+            note=note,
+            active_conditions=active_conditions,
+            settled_streaming_progress=True,
+        )
     elif request.act and not _supervisor_observe.pane_is_managed(
         sup=request.sup,
         target=request.target,
@@ -102,6 +127,8 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         # destructive rather than merely wrong; the sabotage-verified guard test pins
         # it. A Codex track is now a full citizen (maintainer-declared 2026-07-17):
         # it is restarted on its own `ready` exactly like a Claude one.
+        if _supervisor_restart.resume_prompt(track=request.track) is None:
+            return _missing_plan_epic_decision(request=request, note=note)
         status = "restarting"
         if request.act:
             _supervisor_restart.do_restart(
@@ -174,5 +201,5 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         status=status,
         note=note,
         active_conditions=active_conditions,
-        settled_streaming_progress=settled_streaming_progress,
+        settled_streaming_progress=False,
     )

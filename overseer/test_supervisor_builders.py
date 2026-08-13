@@ -91,6 +91,7 @@ def mapped_track(*, repo, topic, session):
         tmux=session,
         handoff=supervisor.default_handoff(repo=str(repo), topic=topic),
         resume=supervisor.default_resume(repo=str(repo), topic=topic),
+        epic="overseer-test-epic",
     )
 
 

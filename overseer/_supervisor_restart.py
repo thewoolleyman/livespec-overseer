@@ -9,7 +9,7 @@ the codex session with a claude one and destroy it.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import _supervisor_launch
 import _supervisor_ready
@@ -18,7 +18,7 @@ import registry
 import signals
 from _supervisor_config import track_key
 from _supervisor_prompts import (
-    default_resume,
+    plan_epic_resume,
     supervisor_handoff_path,
     supervisor_resume,
     supervisor_wrapup_message,
@@ -32,7 +32,31 @@ __all__: list[str] = [
     "do_codex_restart",
     "do_restart",
     "maybe_inject",
+    "missing_plan_epic_message",
+    "resume_prompt",
 ]
+
+
+def missing_plan_epic_message() -> str:
+    """Surface text for a ready track whose mapping row lacks the plan epic locator."""
+    return "ready cannot respawn: no plan epic recorded"
+
+
+def resume_prompt(*, track: registry.Track) -> str | None:
+    """Return the runtime resume prompt, or None when a normal track lacks its epic.
+
+    Supervisor-pair tracks still resume from `supervisor-handoff.md`: that entity's
+    durable prompt is the supervision artifact for the worker plan. Normal plan tracks
+    resume by repository + ledger epic so a cold-open successor resolves the plan state
+    from the ledger, not from a path-shaped handoff pointer that may have gone stale.
+    """
+    if signals.topic_reserved_for_supervisor(topic=track.topic):
+        return supervisor_resume(
+            repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
+        )
+    if track.epic is None:
+        return None
+    return plan_epic_resume(repo=track.repo, epic=track.epic)
 
 
 def maybe_inject(
@@ -224,11 +248,7 @@ def do_restart(
             message="freshly-restarted pane is on a gate — not keystroking it; will retry",
         )
         return
-    resume = track.resume or (
-        supervisor_resume(repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic))
-        if signals.topic_reserved_for_supervisor(topic=track.topic)
-        else default_resume(repo=track.repo, topic=track.topic)
-    )
+    resume = cast(str, resume_prompt(track=track))
     registry.record_post_respawn(
         repo=track.repo,
         topic=track.topic,
@@ -287,11 +307,17 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
             message="codex session vanished before restart; keeping the ready declaration",
         )
         return
-    resume = track.resume or (
-        supervisor_resume(repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic))
-        if signals.topic_reserved_for_supervisor(topic=track.topic)
-        else default_resume(repo=track.repo, topic=track.topic)
-    )
+    resume = resume_prompt(track=track)
+    if resume is None:
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=target,
+            message=missing_plan_epic_message(),
+            condition="restart-plan-epic-missing",
+        )
+        return
     command = _supervisor_launch.codex_launch_command(session_id=live.session_id, resume=resume)
     if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
         sup.alert(

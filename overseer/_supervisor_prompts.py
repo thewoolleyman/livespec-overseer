@@ -27,6 +27,7 @@ __all__: list[str] = [
     "default_resume",
     "idle_nudge_message",
     "pair_stall_nudge_message",
+    "plan_epic_resume",
     "supervisor_handoff_path",
     "supervisor_idle_nudge_message",
     "supervisor_resume",
@@ -190,6 +191,11 @@ def supervisor_wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
 def default_resume(*, repo: str, topic: str) -> str:
     """The first prompt pasted into a (re)started session: read the handoff."""
     return f"read {default_handoff(repo=repo, topic=topic)} and follow it"
+
+
+def plan_epic_resume(*, repo: str, epic: str) -> str:
+    """The first prompt pasted into a restarted plan session: resolve its ledger epic."""
+    return f"resume plan epic {epic} in repository {repo}; read its ledger-held plan state"
 
 
 _IDLE_NUDGE = """\

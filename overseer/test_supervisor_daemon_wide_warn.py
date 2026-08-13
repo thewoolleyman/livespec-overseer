@@ -126,8 +126,9 @@ def test_restart_fires_when_marker_valid_notbusy_idle(*, tmp_path):
         str(repo),
         f"claude --dangerously-skip-permissions -n {topic}",
     ) in fake.calls
-    resume = supervisor.default_resume(repo=str(repo), topic=topic)
-    assert resume in fake.paste_texts()
+    resume = fake.paste_texts()[0]
+    assert "overseer-test-epic" in resume
+    assert supervisor.default_handoff(repo=str(repo), topic=topic) not in resume
     # the ready marker was deleted AND the injection stamp cleared (round closed, B4)
     assert not marker.exists()
     assert (
