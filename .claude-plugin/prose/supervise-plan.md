@@ -631,7 +631,8 @@ disposition; or unknown wake-producer evidence MUST refuse completion. The gate
 may permit completion only for explicit `plan-complete`, or for exactly one
 genuine maintainer-blocking question. It MUST NOT infer either disposition from
 assistant final-response text or pane text; final-response text or pane text is
-never completion evidence.
+never completion evidence. A second or non-maintainer blocking question refuses
+completion.
 
 A permitted end that leaves supervision active also requires an independently
 verifiable wake producer. A pane watcher or overseer daemon is proved by
