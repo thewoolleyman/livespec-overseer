@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.36.1...v0.36.2) (2026-08-13)
+
+
+### Bug Fixes
+
+* **ci:** unshallow self-hosted checkout so origin/master..HEAD ranges resolve ([29532cd](https://github.com/thewoolleyman/livespec-overseer/commit/29532cd8f0b10a1dfc989448669b90b4ad31346e))
+
 ## [0.36.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.36.0...v0.36.1) (2026-08-13)
 
 
