@@ -1,8 +1,9 @@
 ---
 name: supervise-plan
 description: >-
-  Create plan/<topic>/supervisor-handoff.md for a live livespec plan thread
-  through the target repository's own reviewed worktree -> PR -> merge
+  Publish a supervisor handoff for a live livespec plan: the binder as
+  attributed, timestamped entries on the plan's ledger epic, and the shared role
+  layer through the target repository's own reviewed worktree -> PR -> merge
   discipline. Invoke as /livespec-overseer:supervise-plan.
 allowed-tools: Bash, Read, Write, Edit
 ---

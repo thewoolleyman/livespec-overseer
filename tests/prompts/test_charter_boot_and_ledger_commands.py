@@ -26,6 +26,11 @@ _PROSE = _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md"
 _LEDGER_ANCHOR = "ledger_anchor='<ledger-anchor>'"
 _BOOT_ANCHOR = 'test -f ".ai/supervisor-protocol.md"'
 
+# The binder now lives on the plan's ledger epic, so the boot block requires an
+# epic id the same way it requires a marker path. Any value resolves the guard;
+# the guard is about the binding being PRESENT, not about the id being real.
+_EPIC = "overseer-pfpfty"
+
 # The pre-fix form, kept verbatim so its failure is demonstrated rather than
 # asserted from memory. This is what shipped, and what every deployed charter
 # still carries.
@@ -211,17 +216,64 @@ def test_an_unset_supervisor_marker_halts_loudly(tmp_path):
     _marker, repo = _boot_repo(tmp_path, marker_lines=10, name="unset")
     block = _sh_block(anchor=_BOOT_ANCHOR)
     bin_dir = _credential_bin(tmp_path, with_wrapper=True, bd_needs_credential=False)
-    result = _run(block, bin_dir=bin_dir, cwd=repo)
+    result = _run(block, bin_dir=bin_dir, cwd=repo, env_extra={"plan_epic": _EPIC})
     assert result.returncode == 1
     assert "HALT: supervisor_marker is unset or empty" in result.stdout
     assert "REMEDY:" in result.stdout
+
+
+def test_an_unset_plan_epic_halts_loudly(tmp_path):
+    """The binder lives on the plan's ledger epic, so a boot without one cannot resolve it.
+
+    This is the ledger-entry publish contract's cold-open half. Under the retired
+    scheme the binder was a FILE at a conventional path, so a reader that knew the
+    repo could always find it. Entries on an epic have no conventional path: the
+    epic id IS the address, and a boot block that omits it sends a fresh reader
+    looking for something it cannot name. Failing loudly here is the point — the
+    alternative is a supervisor that boots green and reads nothing.
+    """
+    _marker, repo = _boot_repo(tmp_path, marker_lines=10, name="noepic")
+    block = _sh_block(anchor=_BOOT_ANCHOR)
+    bin_dir = _credential_bin(tmp_path, with_wrapper=True, bd_needs_credential=False)
+    result = _run(block, bin_dir=bin_dir, cwd=repo, env_extra={"supervisor_marker": _marker})
+    assert result.returncode == 1
+    assert "HALT: plan_epic is unset" in result.stdout
+    assert "REMEDY:" in result.stdout
+
+
+def test_the_boot_block_names_the_epic_and_the_repository_literally(tmp_path):
+    """A cold-open reader gets coordinates, not a category.
+
+    The ratified contract requires the repository path and the epic id to appear
+    LITERALLY, because "read the binder" resolves to nothing from a cold start.
+    Asserting the BOOT line carries both is what stops the block regressing to a
+    category reference that looks fine in review and is useless in a fresh pane.
+    """
+    marker, repo = _boot_repo(tmp_path, marker_lines=5, name="coords")
+    block = _sh_block(anchor=_BOOT_ANCHOR)
+    bin_dir = _credential_bin(tmp_path, with_wrapper=True, bd_needs_credential=False)
+    result = _run(
+        block,
+        bin_dir=bin_dir,
+        cwd=repo,
+        env_extra={"supervisor_marker": marker, "plan_epic": _EPIC},
+    )
+    assert result.returncode == 0, result.stderr
+    boot = next(line for line in result.stdout.splitlines() if line.startswith("BOOT:"))
+    assert _EPIC in boot, f"the boot line names no epic id: {boot!r}"
+    assert str(repo.resolve()) in boot, f"the boot line names no repository path: {boot!r}"
 
 
 def test_a_short_marker_is_shown_whole_with_no_notice(tmp_path):
     marker, repo = _boot_repo(tmp_path, marker_lines=50, name="short")
     block = _sh_block(anchor=_BOOT_ANCHOR)
     bin_dir = _credential_bin(tmp_path, with_wrapper=True, bd_needs_credential=False)
-    result = _run(block, bin_dir=bin_dir, cwd=repo, env_extra={"supervisor_marker": marker})
+    result = _run(
+        block,
+        bin_dir=bin_dir,
+        cwd=repo,
+        env_extra={"supervisor_marker": marker, "plan_epic": _EPIC},
+    )
     assert result.returncode == 0, result.stderr
     assert "TRUNCATED" not in result.stdout
     assert "line 1\n" in result.stdout
@@ -232,7 +284,12 @@ def test_a_long_marker_emits_a_notice_naming_the_hidden_range(tmp_path):
     marker, repo = _boot_repo(tmp_path, marker_lines=697, name="long")
     block = _sh_block(anchor=_BOOT_ANCHOR)
     bin_dir = _credential_bin(tmp_path, with_wrapper=True, bd_needs_credential=False)
-    result = _run(block, bin_dir=bin_dir, cwd=repo, env_extra={"supervisor_marker": marker})
+    result = _run(
+        block,
+        bin_dir=bin_dir,
+        cwd=repo,
+        env_extra={"supervisor_marker": marker, "plan_epic": _EPIC},
+    )
     assert result.returncode == 0, result.stderr
     assert "TRUNCATED: lines 161-537 of 697 NOT SHOWN (377 hidden)" in result.stdout
     shown = [ln for ln in result.stdout.splitlines() if ln.startswith("line ")]
@@ -262,7 +319,12 @@ def test_a_retraction_in_the_tail_survives_truncation(tmp_path):
     marker.write_text("".join(lines))
     block = _sh_block(anchor=_BOOT_ANCHOR)
     bin_dir = _credential_bin(tmp_path, with_wrapper=True, bd_needs_credential=False)
-    result = _run(block, bin_dir=bin_dir, cwd=repo, env_extra={"supervisor_marker": str(marker)})
+    result = _run(
+        block,
+        bin_dir=bin_dir,
+        cwd=repo,
+        env_extra={"supervisor_marker": str(marker), "plan_epic": _EPIC},
+    )
     assert result.returncode == 0, result.stderr
     assert "NO OPEN OBLIGATIONS" in result.stdout, "the retraction was cut away"
     assert "TRUNCATED" in result.stdout

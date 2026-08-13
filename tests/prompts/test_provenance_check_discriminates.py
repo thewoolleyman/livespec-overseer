@@ -220,8 +220,10 @@ def test_a_recorded_generation_this_repo_cannot_produce_fails_loudly():
 def _generation_with_digest(*, digest: str) -> bytes:
     """The vendored or live prose whose md5 is `digest`.
 
-    Three candidates exist in-tree: the two frozen cache artifacts vendored for
-    the stale-cache fixture, and the prose this repo currently ships. Failing
+    Four candidates exist in-tree: three frozen cache artifacts and the prose
+    this repo currently ships. `cached-prose-e793c257.md` is the generation the
+    exemplar charter records; it was frozen when the ledger-entry rewrite landed,
+    because the exemplar is a historical fixture that must not be re-stamped. Failing
     loudly when none matches is deliberate — it means the charter records a
     generation this repo cannot produce, which is a finding rather than a reason
     to skip.
@@ -230,6 +232,7 @@ def _generation_with_digest(*, digest: str) -> bytes:
         _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md",
         _REPO_ROOT / "tests" / "prompts" / "fixtures" / "cached-prose-2283862c.md",
         _REPO_ROOT / "tests" / "prompts" / "fixtures" / "cached-prose-30b59fcf.md",
+        _REPO_ROOT / "tests" / "prompts" / "fixtures" / "cached-prose-e793c257.md",
     )
     for candidate in candidates:
         content = candidate.read_bytes()

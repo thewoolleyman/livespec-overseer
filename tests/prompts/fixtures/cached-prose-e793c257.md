@@ -1,48 +1,33 @@
 ---
 name: supervise-plan
 description: >-
-  Attended Control-Plane operation that appends the supervisor binder as
-  attributed, timestamped handoff entries on a livespec plan's ledger epic, and
-  maintains the shared role layer through the target repo's own documented
-  commit discipline.
+  Attended Control-Plane operation that creates
+  plan/<topic>/supervisor-handoff.md for a live livespec plan thread through the
+  target repo's own documented commit discipline.
 ---
 
-# supervise-plan - publish a durable supervisor handoff
+# supervise-plan - create a durable supervisor handoff
 
-You are the attended Control-Plane skill that maintains one shared role artifact
-and authors one per-plan binder. The two layers are unchanged; only the MEDIUM
-of the binder differs:
+You are the attended Control-Plane skill that creates exactly one per-thread
+artifact and maintains one shared role artifact:
 
 ```text
-.ai/supervisor-protocol.md            <- a reviewed file in the target repo
-supervisor handoff entries on the plan's ledger epic   <- the per-plan binder
+.ai/supervisor-protocol.md
+plan/<topic>/supervisor-handoff.md
 ```
 
 `.ai/supervisor-protocol.md` is the single shared role-level layer for all
-supervisor handoffs in the target repo. The per-plan binder is thin — startup
-bindings, thread-specific valves, runnable precondition commands with the plan's
-placeholders substituted, and a binder-level Corrections log — and it is
-published as SUPERVISOR HANDOFF ENTRIES appended to the governed plan's ledger
-epic, never as a file under `plan/<topic>/`. Validate generated output as the
-UNION of those two layers; a binder alone is intentionally incomplete.
-
-Entries are append-only, individually ATTRIBUTED and TIMESTAMPED, and a
-supervisor handoff entry is one attributed to the plan's supervisor entity —
-attribution, not a separate store, is what distinguishes it from the worker's own
-entries on the same epic.
+supervisor handoffs in the target repo. `plan/<topic>/supervisor-handoff.md` is a
+thin per-thread binder: startup bindings, thread-specific valves, runnable
+precondition commands with the thread's placeholders substituted, and a
+thread-specific Corrections log. Validate generated output as the UNION of those
+two emitted layers; a binder alone is intentionally incomplete.
 
 This is the single named carve-out from the daemon's non-interference rule. Keep
 the boundary literal: the daemon's unattended observation/restart loop never
-touches any plan tree. This skill may create the one named FILE only as an
+touches any plan tree. This skill may create the named artifact only as an
 attended, reviewed repository change, through the target repo's own documented
-worktree -> PR -> review -> merge discipline; it appends the binder's entries
-THROUGH the orchestrator's sanctioned plan surface, never by a direct write to
-the ledger and never by creating or updating `plan/<topic>/supervisor-handoff.md`
-through the pull request path.
-
-RETIRING AUTHORSHIP IS NOT DELETION. Existing `plan/<topic>/supervisor-handoff.md`
-files stay exactly where they are; this operation simply stops producing them.
-Migrating what they hold is a separate, tracked concern.
+worktree -> PR -> review -> merge discipline.
 
 Do not add anything to livespec core, the orchestrator, any Driver, or the
 overseer daemon. Do not write directly into the target repo's primary checkout.
@@ -176,39 +161,23 @@ flow into another repo. If the target repo does not document a reviewed
 worktree -> PR -> merge path clearly enough to execute, halt and report that the
 repo discipline is missing or ambiguous.
 
-## Publish the two layers on their two media
+## Create the supervisor handoff in a secondary worktree
 
-The shared layer is a reviewed FILE; the binder is a set of LEDGER ENTRIES. They
-are produced by different mechanisms, and conflating them is the defect this
-operation was rewritten to remove.
+Create or reuse a dedicated secondary worktree and branch owned by this operation.
+The branch name should clearly identify the topic and should not collide with a
+shared or protected ref. Never touch another session's worktree or branch.
 
-**The shared layer — a secondary worktree.** Create or reuse a dedicated
-secondary worktree and branch owned by this operation. The branch name should
-clearly identify the topic and should not collide with a shared or protected ref.
-Never touch another session's worktree or branch. In that worktree, create or
-update exactly one file:
+In that worktree, create or update both emitted layers:
 
 ```text
 .ai/supervisor-protocol.md
+plan/<topic>/supervisor-handoff.md
 ```
 
-It owns role-level content that every plan should inherit: role, driving
-mechanics, decision rules, no-idle/no-silent-block, armed re-entry, standing
-safety clauses, and role-level Corrections.
-
-**The binder — appended to the plan's ledger epic.** Append the binder as
-supervisor handoff entries on the governed plan's ledger epic, through the
-orchestrator's sanctioned plan surface. Do NOT create a worktree, a branch, or a
-pull request for the binder, and do NOT write `plan/<topic>/supervisor-handoff.md`.
-Each entry carries only non-derivable content — bindings, valves, runnable
-commands, rationale, warnings, pointers. Derivable state (child lists, statuses,
-PR and merge state, readiness) is queried fresh from the ledger and git at resume
-time and MUST NOT be embedded.
-
-Resolve the epic id before appending. It is the plan's ledger anchor; if the plan
-has no resolvable epic, HALT with a labelled REMEDY rather than falling back to a
-file. A binder with nowhere to land is a finding, not a reason to write one to
-disk.
+`.ai/supervisor-protocol.md` owns role-level content that every thread should
+inherit: role, driving mechanics, decision rules, no-idle/no-silent-block,
+armed re-entry, standing safety clauses, and role-level Corrections.
+`plan/<topic>/supervisor-handoff.md` is only the binder for this thread.
 
 Emit a `## Supervisor scratch discipline` section into
 `.ai/supervisor-protocol.md`, not only into the binder. Only JSON can live in
@@ -238,16 +207,12 @@ layers byte-for-byte: the shared role-level Corrections and this binder's
 thread-specific Corrections. Preserve spelling, punctuation, code formatting, blank lines, and ordering exactly; do not normalize markdown or code spans.
 
 Emit a cold-open boot command, not a comment, so a fresh reader can run it before
-driving. The binder now lives on the plan's ledger epic, so the boot block MUST
-carry the REPOSITORY PATH and the EPIC ID literally — a cold-open reader has no
-prior context, and a boot block naming only "the binder" is not a pointer:
+driving:
 
 ```sh
 test -f ".ai/supervisor-protocol.md" \
-  || { echo "HALT: missing shared supervisor protocol .ai/supervisor-protocol.md"; echo "REMEDY: republish the shared role layer before driving"; exit 1; }
-[ -n "${plan_epic:-}" ] \
-  || { echo "HALT: plan_epic is unset — the binder lives on the plan's ledger epic and cannot be resolved without it"; echo "REMEDY: resolve the epic id from this binder's bindings table, or from the plan's ledger anchor, before driving"; exit 1; }
-printf '%s\n' "BOOT: read .ai/supervisor-protocol.md, then the supervisor handoff entries on epic $plan_epic in $PWD, and the supervisor marker if it exists"
+  || { echo "HALT: missing shared supervisor protocol .ai/supervisor-protocol.md"; echo "REMEDY: regenerate the two-layer supervisor handoff before driving"; exit 1; }
+printf '%s\n' "BOOT: read .ai/supervisor-protocol.md, this binder, and the supervisor marker if it exists"
 [ -n "${supervisor_marker:-}" ] \
   || { echo "HALT: supervisor_marker is unset or empty"; echo "REMEDY: resolve it from this binder's bindings table before running this block — an unset marker makes the read below display NOTHING and still exit 0"; exit 1; }
 if [ ! -f "$supervisor_marker" ]; then
@@ -287,15 +252,11 @@ converts a silent omission into a known one.
 ## Bindings
 
 Resolve and report startup bindings before driving: `repo_primary`, `thread_dir`,
-`topic`, `plan_epic`, `worker_session`, `supervisor_session`, `runtime_dir`,
-`supervisor_marker`, `wait_channel`, and the ledger anchor. Bind `runtime_dir` to
+`topic`, `worker_session`, `supervisor_session`, `runtime_dir`, `supervisor_marker`,
+`wait_channel`, and the ledger anchor. Bind `runtime_dir` to
 `<repo_primary>/tmp/overseer/<topic>/` and `supervisor_marker` to
-`<runtime_dir>/.supervisor-state`. `plan_epic` is the governed plan's ledger epic
-id — the binder's own address, and REQUIRED: without it the binder cannot be
-appended and a cold-open reader cannot resolve it.
-Startup bindings only: no live status, no next actions, and no date-gated behavior.
-Live state stays in the ledger — including the supervisor handoff entries that
-are this binder — and in the supervisor marker.
+`<runtime_dir>/.supervisor-state`. Startup bindings only: no live status, no next actions, and no date-gated behavior. Live state stays in the ledger, the
+thread handoff, and the supervisor marker.
 
 Declare the complete placeholder set in this same section. The generated
 charter must distinguish:
@@ -747,25 +708,14 @@ Record corrections to this supervisor's own behavior here. Do not make this only
 a log of the supervised session's mistakes.
 ```
 
-## Publish each layer through its own path
+## Publish through the target repo's reviewed path
 
-The two layers publish differently. Do not route either through the other's path.
+Stage, commit, push, open the PR, get the required review, and merge using the
+target repo's own documented commands. Use `mise exec -- git ...` for git writes
+when the target repo requires it. Never pass `--no-verify`. If a hook or review
+gate fails, fix the cause if it is mechanical and in scope; otherwise halt and
+report the exact blocker.
 
-**The shared layer, through the target repo's reviewed path.** Stage, commit,
-push, open the PR, get the required review, and merge using the target repo's own
-documented commands. Use `mise exec -- git ...` for git writes when the target
-repo requires it. Never pass `--no-verify`. If a hook or review gate fails, fix
-the cause if it is mechanical and in scope; otherwise halt and report the exact
-blocker. After merge, report the merged PR and the final path. If the only
-remaining step is a downstream human review gate that this environment cannot
-perform, report that clearly without bypassing it.
-
-**The binder, through the orchestrator's sanctioned plan surface.** Append its
-entries to the plan's ledger epic. There is no branch, no PR and no review gate
-on this path, so the discipline that replaces them is attribution and
-append-only-ness: never rewrite or delete a prior entry, and never append under
-another entity's attribution. Report the epic id and the appended entries.
-
-Verify the publish rather than assuming it: read the entries back from the
-ledger, and confirm the shared layer is present at the merged commit. An append
-that returned success but is not readable is not published.
+After merge, report the merged PR and the final path. If the only remaining step
+is a downstream human review gate that this environment cannot perform, report
+that clearly without bypassing it.

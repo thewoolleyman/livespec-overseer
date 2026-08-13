@@ -1,6 +1,6 @@
 ---
 name: supervise-plan
-description: Create a reviewed supervisor handoff for a live livespec plan thread. Invoked as livespec-overseer:supervise-plan.
+description: Publish a supervisor handoff for a live livespec plan — the binder as attributed, timestamped entries on the plan's ledger epic, and the shared role layer through the target repo's reviewed path. Invoked as livespec-overseer:supervise-plan.
 ---
 
 # supervise-plan - Codex binding
