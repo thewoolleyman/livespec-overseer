@@ -59,8 +59,16 @@ name: CI
 # Combined with the ~/.cache/uv actions/cache step (keyed on uv.lock)
 # every uv-sync job uses below, an unchanged lock installs from cache
 # and never contacts PyPI at all.
+#
+# mise reaches the SAME class of CDN (GitHub releases) for its tool binaries
+# and can fail identically. mise's own default is `http_retries = 0`, i.e.
+# one attempt and no retry, so MISE_HTTP_RETRIES applies the same lesson
+# proactively here, mirroring the fix already landed in livespec and
+# livespec-dev-tooling after it reddened master in both. mise paces the
+# retries itself; the knob is the count.
 env:
   UV_HTTP_RETRIES: "5"
+  MISE_HTTP_RETRIES: "5"
   # Test-parallelism lane signal read by the justfile's `test_nprocs`
   # (plan/fabro-ci-image-factoring cont.5). RUNNER_ENVIRONMENT does NOT
   # propagate into container jobs, so derive the lane from the routing
