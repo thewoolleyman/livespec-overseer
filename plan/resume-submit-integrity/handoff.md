@@ -1,5 +1,56 @@
 # resume-submit-integrity — handoff
 
+## ACTIVE INCIDENT — premature archive reversed 2026-08-13
+
+This thread was archived before its folded Codex restart work was complete.
+The seven shipped children covered the resume-submit attention front; they did
+**not** implement `overseer-idxe` (the ready-cycle deadlock) or `overseer-mgg`
+(the stranded-resume confirmation race), both of which remain open in the
+ledger. The archive has therefore been reversed: this directory is live again
+and epic `overseer-xkrwm3` has been reopened.
+
+**Non-negotiable completion gate:** do not archive, close the epic, or describe
+this thread as complete until a real, live, named Codex session supervised by
+`overseerd` has completed an observed ready → runtime-correct `codex resume`
+restart. Record the pane/session identity, pre-restart Codex session UUID,
+state-file `ready` declaration, daemon evidence, successor adoption, and the
+successfully delivered resume kick. Unit, fake-tmux, and manual `codex resume`
+evidence are necessary regression checks but are not substitutes for this
+live exercise.
+
+### Live Codex restart proof — PASSED 2026-08-13 21:09Z
+
+The gate above is now evidenced against a real tmux-hosted Codex TUI, not a
+fake pane. A named historic rollout, session UUID
+`019ff375-c3e1-7302-a2bc-3222240a3341` / thread
+`resume-submit-integrity`, ran in tmux session `proof-resume-integrity-2`, pane
+`%322`, with cwd `/data/projects/livespec-overseer` and the live credential
+wrapper MCP chain. The session itself wrote `ready` to
+`/data/projects/livespec-overseer/tmp/overseer/resume-submit-integrity/.overseer-state`
+and confirmed `FINAL READY DECLARED`.
+
+The repaired supervisor refreshed that live Codex map, opened a matching round
+identity, and evaluated the row as `restarting` (not `working (background
+shell)`). It issued `codex resume --dangerously-bypass-approvals-and-sandbox`
+for that exact UUID, cleared both the ready state and the round stamp only after
+the Codex pane returned, and logged `restarted (codex)`. The successor's real
+pane visibly received and began the exact kick:
+
+```
+resume plan epic overseer-xkrwm3 in repository /data/projects/livespec-overseer;
+read its ledger-held plan state
+```
+
+There was no working-directory picker in this final run (the pane cwd matched
+the resumed rollout's recorded cwd). An earlier disposable mismatch exercise
+did produce that picker and is explicitly NOT counted as proof of delivery.
+
+Immediate work is fronts 4–6 from §1b: allow a certifiable ready through a
+settled Codex pane with shell-only launch-chain evidence; never treat that
+evidence as resumed work for ready-voiding; and surface any withheld standing
+ready rather than silently consuming it. Then complete `overseer-mgg`'s submit
+integrity work as needed by the live proof.
+
 > Cold-open handoff. It assumes you have read nothing and remember nothing,
 > and that you may be a different model than the session that wrote it.
 > Everything load-bearing is either stated here or cited by a path in §5.

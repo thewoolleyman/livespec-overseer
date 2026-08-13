@@ -17,12 +17,14 @@ def _tree(*, children, comms):
     return (lambda *, pid: children.get(pid, [])), (lambda *, pid: comms.get(pid))
 
 
-def _has_active_subshell(*, children, comms, starttimes, root_pid=100):
+def _has_active_subshell(*, children, comms, starttimes, cmdlines=None, root_pid=100):
     """Drive the detector through the current signature during the Red half."""
     children_of, comm_of = _tree(children=children, comms=comms)
     kwargs = {"root_pid": root_pid, "children_of": children_of, "comm_of": comm_of}
     if "starttime_of" in inspect.signature(claude_sessions.has_active_subshell).parameters:
         kwargs["starttime_of"] = lambda *, pid: starttimes.get(pid)
+    if "cmdline_of" in inspect.signature(claude_sessions.has_active_subshell).parameters:
+        kwargs["cmdline_of"] = lambda *, pid: (cmdlines or {}).get(pid)
     return claude_sessions.has_active_subshell(**kwargs)
 
 
@@ -124,14 +126,38 @@ def test_has_active_subshell_missing_runtime_baseline_fails_busy():
     )
 
 
-def test_has_active_subshell_relaunched_launch_chain_fails_busy():
-    # Same shape as the startup MCP chain, but born long after the runtime baseline.
-    # Shape alone is ambiguous, so this must stay busy.
+def test_has_active_subshell_relaunched_launch_chain_fails_busy_without_argv_proof():
+    # Topology alone is ambiguous: a task can invoke `op`, so without the wrapper
+    # argv this must remain busy.
     assert (
         _has_active_subshell(
             children={100: [200], 200: [300], 300: [400], 400: [500], 500: [600]},
             comms={200: "codex", 300: "sh", 400: "op", 500: "bash", 600: "node"},
             starttimes={200: "1000", 300: "2600", 400: "2601", 500: "2602", 600: "2603"},
+        )
+        is True
+    )
+
+
+def test_has_active_subshell_ignores_late_credential_wrapper_chain():
+    assert (
+        _has_active_subshell(
+            children={100: [200], 200: [300], 300: [400], 400: [500], 500: [600]},
+            comms={200: "codex", 300: "bash", 400: "op", 500: "sh", 600: "node"},
+            starttimes={200: "1000", 300: "2600", 400: "2601", 500: "2602", 600: "2603"},
+            cmdlines={300: b"bash\x00/usr/local/bin/with-livespec-env.sh\x00"},
+        )
+        is False
+    )
+
+
+def test_has_active_subshell_keeps_non_wrapper_op_task_busy():
+    assert (
+        _has_active_subshell(
+            children={100: [200], 200: [300], 300: [400]},
+            comms={200: "codex", 300: "bash", 400: "op"},
+            starttimes={200: "1000", 300: "2600", 400: "2601"},
+            cmdlines={300: b"bash\x00-lc\x00op run-real-task"},
         )
         is True
     )

@@ -240,6 +240,7 @@ def observe(
         children_of=sup.children_of,
         comm_of=sup.comm_of,
         starttime_of=sup.starttime_of,
+        cmdline_of=sup.cmdline_of,
     )
     # Claude's own live self-report is AUTHORITATIVE for an adopted Claude session,
     # and its vocabulary maps cleanly onto busy-ness (`~/.claude/sessions/<pid>.json`

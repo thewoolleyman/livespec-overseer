@@ -5,6 +5,7 @@ from __future__ import annotations
 import inspect
 
 import claude_sessions
+from _claude_sessions_subshell import has_active_subshell as direct_has_active_subshell
 
 __all__: list[str] = []
 
@@ -92,4 +93,90 @@ def test_deep_late_shell_without_twinned_late_ancestor_stays_busy():
             }
         )
         is True
+    )
+
+
+def test_late_credential_wrapper_shell_is_excluded_before_timestamp_classification():
+    assert (
+        direct_has_active_subshell(
+            root_pid=100,
+            children_of=lambda *, pid: {
+                100: [200],
+                200: [300],
+                300: [400],
+                400: [500],
+            }.get(pid, []),
+            comm_of=lambda *, pid: {200: "codex", 300: "bash", 400: "op", 500: "sh"}.get(pid),
+            starttime_of=lambda *, pid: {200: "1000", 300: "2600", 400: "2601", 500: "2602"}.get(
+                pid
+            ),
+            cmdline_of=lambda *, pid: {300: _WRAPPER_ARGV}.get(pid),
+        )
+        is False
+    )
+
+
+def test_non_wrapper_task_shell_with_op_descendant_stays_busy():
+    assert (
+        direct_has_active_subshell(
+            root_pid=100,
+            children_of=lambda *, pid: {100: [200], 200: [300], 300: [400]}.get(pid, []),
+            comm_of=lambda *, pid: {200: "codex", 300: "bash", 400: "op"}.get(pid),
+            starttime_of=lambda *, pid: {200: "1000", 300: "2600", 400: "2601"}.get(pid),
+            cmdline_of=lambda *, pid: {300: b"bash\x00-lc\x00op run-real-task"}.get(pid),
+        )
+        is True
+    )
+
+
+def test_late_shell_under_a_twinned_late_shell_is_startup_plumbing():
+    assert (
+        direct_has_active_subshell(
+            root_pid=100,
+            children_of=lambda *, pid: {
+                100: [200],
+                200: [300, 700],
+                700: [900],
+            }.get(pid, []),
+            comm_of=lambda *, pid: {200: "codex", 300: "bash", 700: "bash", 900: "sh"}.get(pid),
+            starttime_of=lambda *, pid: {200: "1000", 300: "1001", 700: "2600", 900: "2601"}.get(
+                pid
+            ),
+            cmdline_of=lambda *, pid: {300: b"startup", 700: b"startup", 900: b"child"}.get(pid),
+        )
+        is False
+    )
+
+
+def test_wrapper_descendant_walk_ignores_a_seen_cycle():
+    assert (
+        direct_has_active_subshell(
+            root_pid=100,
+            children_of=lambda *, pid: {
+                100: [200],
+                200: [300],
+                300: [400, 300],
+            }.get(pid, []),
+            comm_of=lambda *, pid: {200: "codex", 300: "bash", 400: "op"}.get(pid),
+            starttime_of=lambda *, pid: {200: "1000", 300: "2600", 400: "2601"}.get(pid),
+            cmdline_of=lambda *, pid: {300: _WRAPPER_ARGV}.get(pid),
+        )
+        is False
+    )
+
+
+def test_wrapper_ancestor_walk_terminates_on_a_parent_cycle():
+    assert (
+        direct_has_active_subshell(
+            root_pid=100,
+            children_of=lambda *, pid: {
+                100: [200, 100],
+                200: [300],
+                300: [400],
+            }.get(pid, []),
+            comm_of=lambda *, pid: {200: "codex", 300: "bash", 400: "op"}.get(pid),
+            starttime_of=lambda *, pid: {200: "1000", 300: "2600", 400: "2601"}.get(pid),
+            cmdline_of=lambda *, pid: {300: _WRAPPER_ARGV}.get(pid),
+        )
+        is False
     )

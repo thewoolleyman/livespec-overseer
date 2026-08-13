@@ -97,7 +97,12 @@ def busy(*, request: BusyRequest) -> BusyDecision:
         # Void the certification ONLY if it is past the grace — a young
         # marker is the certifying turn's own busy tail and must survive
         # (RB1); an old one means the session resumed work after certifying.
-        ready = _supervisor_state.void_if_stale(sup=request.sup, track=request.track, ready=ready)
+        ready = _supervisor_state.void_if_stale(
+            sup=request.sup,
+            track=request.track,
+            ready=ready,
+            resumed_work=request.generating,
+        )
         # The session took a turn — clear any idle-with-context-left nudge marker
         # so the NEXT idle-with-context episode re-nudges (re-arm on non-idle).
         _supervisor_nudge.clear_idle_nudge_state(sup=request.sup, track=request.track)
