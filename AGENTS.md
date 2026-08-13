@@ -168,7 +168,7 @@ eventually trips the SIGPIPE above, so the two defects compound.
 
 ## The fleet has SEVERAL Anthropic credentials — probing the wrong one is the documented failure mode
 
-Cite this section; do not restate it per plan thread. It exists because the
+Cite this section; do not restate it per plan. It exists because the
 same fact was independently re-derived by two threads on 2026-07-29 and one of
 them got it wrong, costing two dispatches' green work (`bd-ib-g56f`).
 
@@ -226,7 +226,7 @@ Consequences to hold onto:
 
 Measured 2026-08-02 and 2026-08-04 while dispatching from this repo. Each fails in
 a way that makes the correct remedy look wrong, which is why they are here rather
-than only in a plan thread.
+than only in a plan.
 
 **Check the target repo's MASTER CI before diagnosing any dispatch failure.** The
 Dispatcher refuses before any sandbox work with `latest master CI is not proven
@@ -235,7 +235,7 @@ EVERY dispatch in that repo and the refusal says nothing about your item, so it
 reads as a problem with the item. Measured 2026-08-04: this repo's master was red
 for hours — one plan handoff declared its ledger anchor as prose ("The epic anchor
 is `x`") where the gate's regex requires the literal "ledger anchor" phrase before
-the backticked id, so `test_plan_thread_records_agree` failed. One line fixed it.
+the backticked id, so `test_plan_records_agree` failed. One line fixed it.
 
 ### A `{{...}}` token anywhere in a work-item's text makes it UNDISPATCHABLE
 

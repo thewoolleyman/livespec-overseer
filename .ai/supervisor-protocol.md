@@ -13,7 +13,7 @@ plan's epic id, both of which the binder's own bindings table carries.
 ## HALT-first preconditions
 
 Before driving a worker, verify the worker session, supervisor session, live
-agent drivers, plan-thread path, and worker cwd. Stop on the FIRST failure,
+agent drivers, plan path, and worker cwd. Stop on the FIRST failure,
 report the failing check plus the exact expected name, and act on the labelled
 `REMEDY:`. Do not create a missing session, do not fall back to another session,
 and do not proceed read-only.
@@ -56,7 +56,7 @@ tmux-name matching, live killing, or blocking.
 
 Filed status is a claim with a timestamp. Before carrying forward any item
 state, dependency state, acceptance status, or "already discharged" claim from a
-handoff, marker, or plan thread, re-measure it from the ledger and state the
+handoff, marker, or plan, re-measure it from the ledger and state the
 measurement time:
 
 ```sh

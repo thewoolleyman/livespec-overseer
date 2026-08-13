@@ -30,7 +30,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _GENERATOR_PROSE = _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md"
 _SHARED_LAYER = _REPO_ROOT / ".ai" / "supervisor-protocol.md"
 
-# The exemplar is a LIVE plan thread's charter, and a plan thread moves into
+# The exemplar is a LIVE plan's charter, and a plan moves into
 # `plan/archive/` when it closes. An unguarded read of the live path alone made
 # archiving `ship-overseer-to-fleet` a CI-reddening act: the read raised
 # FileNotFoundError from inside the aggregate gate, for a reason that had
@@ -605,7 +605,7 @@ def test_the_corrected_exemplar_satisfies_the_whole_contract():
         "the exemplar charter is at neither its live nor its archived location — "
         + ", ".join(str(path) for path in _EXEMPLAR_CANDIDATES)
         + ". This contract pins the generated charter against a hand-written one, "
-        "so if the plan thread moved again, add its new location to "
+        "so if the plan moved again, add its new location to "
         "_EXEMPLAR_CANDIDATES rather than deleting this assertion."
     )
     exemplar_text = exemplar.read_text(encoding="utf-8")

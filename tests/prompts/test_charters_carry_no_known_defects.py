@@ -61,7 +61,7 @@ _CHARTER_GLOBS = (
 )
 
 # The charter that was hardened by hand and is what the generator must be able to
-# produce. Accept either location: a plan thread moves into `plan/archive/` when
+# produce. Accept either location: a plan moves into `plan/archive/` when
 # it closes, and an unguarded read of the live path alone already made archiving
 # a thread a CI-reddening act once.
 _EXEMPLAR_CANDIDATES = (
@@ -1049,7 +1049,7 @@ def test_the_globs_reach_every_charter_shaped_file_in_the_repo():
     rule rather than a floor.
 
     KEYED ON A PROPERTY, NOT A COUNT, deliberately: asserting "eight charters"
-    would drift the moment this repo grows a plan thread, and the reflex would be
+    would drift the moment this repo grows a plan, and the reflex would be
     to edit the number. The rule is that every charter-shaped file ON DISK is in
     the scanned set, so it self-adjusts as threads come and go while still
     failing if the globs stop reaching one.
