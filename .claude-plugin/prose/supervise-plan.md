@@ -595,6 +595,57 @@ until then the sender remains the holder with its own `wake_mechanism`. A
 `wake_mechanism` of `NONE ARMED` is allowed only with an explicit timeout and
 timeout-and-escalate posture.
 
+## Supervisor completion gate
+
+Emit this section into `.ai/supervisor-protocol.md`, not only into the binder.
+It must tell every generated supervisor that the marker at
+`<repo-primary>/tmp/overseer/<topic>/.supervisor-state` is structured
+supervisor state for the Driver-owned Stop/completion gate. It is not the
+worker's `.overseer-state`, never authorizes a daemon restart, and is not the
+overseer daemon's semantic judgment.
+
+Emit and preserve this schema in the shared role layer:
+
+```yaml
+supervision_active: <true|false>
+topic: <topic>
+updated_at: <iso8601-utc>
+objective: <current supervisor objective>
+open_obligations: []
+completion_disposition:
+  kind: <plan-complete|maintainer-blocking|none>
+  question: <exactly one genuine maintainer-blocking question, or none>
+wake_producer:
+  kind: <pane-watcher|overseer-daemon|forge-ci|ledger|none>
+  live_pid: <pid for pane watcher or daemon, or none>
+  expected_command: <expected process command, or none>
+  identity: <expected pane, daemon, check, ledger, or producer identity>
+  registered_producer_identity: <authoritative registered producer identity, or none>
+  cold_reentry: <how the producer cold-opens from this marker and re-queries fresh state>
+```
+
+The Driver-owned Stop/completion gate MUST fail closed while
+`supervision_active` is true. Missing, malformed, stale, or unreadable state;
+any open obligation; an unknown completion disposition; a non-terminal
+disposition; or unknown wake-producer evidence MUST refuse completion. The gate
+may permit completion only for explicit `plan-complete`, or for exactly one
+genuine maintainer-blocking question. It MUST NOT infer either disposition from
+assistant final-response text or pane text; final-response text or pane text is
+never completion evidence.
+
+A permitted end that leaves supervision active also requires an independently
+verifiable wake producer. A pane watcher or overseer daemon is proved by
+`live_pid`, `expected_command`, and `identity`; a forge/CI or ledger watcher is
+proved by its authoritative registered producer identity. A prose claim is never
+proof. The verified producer must cold-open the supervisor from this marker and
+re-query fresh ledger and forge state; the ended turn is never the wake
+mechanism.
+
+Ordinary user messages are additive while `supervision_active` is true: add them
+to the recorded objective and obligations without clearing either. Only the
+literal command `stop supervising <topic>` clears supervision, and only the
+literal command `replace supervision objective` replaces the recorded objective.
+
 ## Supervisor scratch discipline
 
 Emit this section into `.ai/supervisor-protocol.md`, not only into the binder.
