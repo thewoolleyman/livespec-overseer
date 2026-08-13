@@ -200,12 +200,13 @@ for the marker's edge-triggered lifecycle.
 
    **The overseer NEVER touches files under `plan/`.** It touches ONLY its own
    config (the mapping store, the injection-stamp sidecar, the watch-set declaration)
-   and temp files (`<repo>/tmp/overseer/<topic>/`). A session's `handoff.md` and
-   everything else under `plan/<topic>/` is the SESSION's own workflow — the
-   overseer never reads, writes, or hashes it. Discovery enumerates `plan/*/`
-   DIRECTORIES only; the resume line *points* the session at the conventional
-   `plan/<topic>/handoff.md` but never opens it; markers live under `tmp/`, never
-   `plan/`. The daemon `git check-ignore`-validates each watched repo's
+   and temp files (`<repo>/tmp/overseer/<topic>/`). Everything under
+   `plan/<topic>/` is the SESSION's own workflow — the overseer never reads,
+   writes, or hashes it. Discovery enumerates `plan/*/` DIRECTORIES only and
+   derives NO path into one; the resume line *points* the session at the plan's
+   LEDGER-HELD PLAN STATE, named by repository path and by the `epic` id the
+   mapping store records, which the daemon holds as an OPAQUE LOCATOR and never
+   reads; markers live under `tmp/`, never `plan/`. The daemon `git check-ignore`-validates each watched repo's
    `tmp/overseer/` at startup (`Supervisor.unignored_tmp_repos`) and REFUSES to
    run if any is not gitignored, so a marker can never dirty a tracked tree. If
    you ever add code that opens, writes, or stats a FILE under `plan/`, stop —
@@ -369,9 +370,15 @@ for the marker's edge-triggered lifecycle.
      `--dangerously-skip-permissions` the fresh session stalls on its first
      permission prompt and the restart is NOT autonomous, which defeats the whole
      mechanism; `-n <topic>` re-assigns the session name from the plan topic.
-   - **(c) the resume line** — `read <repo>/plan/<topic>/handoff.md and follow it`,
-     bracketed-pasted AND verify-submitted once the fresh TUI is up
-     (`default_resume` + `_submit_prompt`). A `claude "<prompt>"` argv only
+   - **(c) the resume line** — `resume plan epic <epic> in repository <repo>; read
+     its ledger-held plan state`, bracketed-pasted AND verify-submitted once the
+     fresh TUI is up (`_supervisor_prompts.resume_for_track` + `_submit_prompt`).
+     It names the repository path and the recorded epic id LITERALLY, so a
+     cold-open successor can resolve what to read without opening any plan-tree
+     file. A track with NO recorded `epic` is not respawned at all: the `ready`
+     declaration is PRESERVED and the track surfaced, exactly as for a respawn
+     that failed, so a declaration is never spent on a prompt the fresh session
+     cannot resolve. A `claude "<prompt>"` argv only
      PRE-FILLS the box without submitting — which is why the resume line is pasted
      after launch rather than passed on the command line. **The submit is
      SELF-HEALING (R1, 2026-07-18):** a freshly-respawned TUI can DROP the Enter
@@ -699,7 +706,7 @@ for the marker's edge-triggered lifecycle.
   `<token>: <detail>`. The restart interlock (`ready_valid`) fires ONLY when: an
   injection stamp exists for this round, the token is **exactly `ready`**, AND its
   mtime is strictly newer than that stamp (this round, not a stale declaration).
-  Beyond the token, **contents are NOT inspected** (no handoff hash): the handoff
+  Beyond the token, **contents are NOT inspected** (no plan-state hash): the plan state
   and everything under `plan/` is the session's own business, which the overseer
   must never read or hash. Any missing/unreadable/other-valued file ⇒ False
   (fail-closed). The daemon writes the injection stamp BEFORE pasting the wrap-up
@@ -712,7 +719,7 @@ for the marker's edge-triggered lifecycle.
 - **Self-healing resume-submit (`registry.set_resume_pending` / `read_resume_pending`,
   `_resend_enter`; R1, 2026-07-18).** The restart respawns the fresh session and pastes the
   resume line, but a freshly-respawned TUI can DROP the Enter while still drawing its
-  welcome screen — the fresh session then sits live but IDLE with an un-run handoff
+  welcome screen — the fresh session then sits live but IDLE with an un-run resume prompt
   (proven live 2026-07-17 four times in one day; autonomous-mode stranded 9h). The OLD code
   cleared the `ready` marker and logged "restarted" anyway, so the daemon never retried.
   Now `_do_restart` separates two facts it used to conflate — "is the fresh Claude up?"
@@ -1065,7 +1072,6 @@ end-to-end check is the discovery + render path, exercised safely read-only:
    ln -s ~/.codex  "$SCRATCH_HOME/.codex"
    ln -s ~/.cache  "$SCRATCH_HOME/.cache"
    printf '{"repos": ["/tmp/ov/projects/demo"]}' > "$SCRATCH_HOME/.livespec-overseer-repos.json"
-   touch /tmp/ov/projects/demo/plan/demo-topic/handoff.md
    HOME="$SCRATCH_HOME" .venv/bin/python3 overseer/supervisor.py list
    ```
 
@@ -1143,10 +1149,10 @@ consecutive wrong relaunches before the right one).
 
 | Survives (on disk) | Dies with the tmux server |
 |---|---|
-| The JSONL mapping `~/.livespec-overseer.jsonl` — one row per assigned track (topic ↔ tmux name ↔ repo ↔ handoff ↔ resume line). | Every tmux session / window / pane (no `tmux-resurrect` / `tmux-continuum` is installed — a server death loses the whole layout). |
+| The JSONL mapping `~/.livespec-overseer.jsonl` — one row per assigned track (topic ↔ tmux name ↔ repo ↔ plan ledger `epic` ↔ optional operator resume override). It emits NO `handoff` key; a legacy row carrying one is read without error and rewritten without it. | Every tmux session / window / pane (no `tmux-resurrect` / `tmux-continuum` is installed — a server death loses the whole layout). |
 | Each Claude session's **conversation transcript**: `~/.claude/projects/<cwd-slug>/<session-id>.jsonl`, where `<cwd-slug>` is the repo path with every `/` rewritten to `-` (e.g. `/data/projects/livespec` → `-data-projects-livespec`). | Claude Code's pid-keyed live registry `~/.claude/sessions/<pid>.json` (keyed by the now-dead pid). |
 | Each Codex session's **rollout** (`~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<id>.jsonl`) AND the **codex index** (`~/.codex/session_index.jsonl`, mapping id → thread_name = topic). This is what lets `recover_missing_sessions` reverse-look-up a dead codex track's id by topic and `codex resume` it AUTOMATICALLY (defect #5) — no manual step for codex. | The running codex process + its held-open rollout fd (the LIVE signal `self.live_codex` derives from — gone at cold start, which is why recovery uses the surviving INDEX instead). |
-| Each plan's `plan/<topic>/handoff.md`. | The daemon process + its in-memory round state. |
+| Each plan's ledger-held plan state (the entries on its ledger epic). | The daemon process + its in-memory round state. |
 
 The transcript is what makes a TRUE resume possible: the tmux pane is gone, but the
 conversation was streamed to disk continuously, so it can be re-attached by session
@@ -1156,21 +1162,21 @@ id. Nothing in tmux persists — the only durable identity is that transcript fi
 
 `overseerd` is **surface-only** — it never auto-spawns a session (invariant 3), and
 its startup `recover_missing_sessions` is **split by runtime** (defect #5, 2026-07-18):
-a **Claude** track is relaunched with the LAUNCH command + a handoff paste, **not**
-`--resume`, so it restores a *handoff re-read*, never the *live conversation*; a
+a **Claude** track is relaunched with the LAUNCH command + a resume-prompt paste, **not**
+`--resume`, so it restores a *plan-state re-read*, never the *live conversation*; a
 **Codex** track IS resumed by `codex resume <id>`, which reattaches the *live rollout*
 (the codex conversation restores automatically — the Claude gap this section works
 around does not apply to codex). So this **manual, human-driven** procedure is the way
 to restore the actual **Claude** conversations (see invariant 7 and the
 `recover_missing_sessions` docstring). (SKILL.md's "Cold-start / crash recovery"
-section describes the `start`-based path, which is the handoff-re-read one; THIS
+section describes the `start`-based path, which is the plan-state-re-read one; THIS
 section is the Claude conversation-restore one, and they are different outcomes.)
 
 ### The three launch commands that are WRONG (each was tried and failed)
 
 1. **`claude -n <topic>`** — a BRAND-NEW session. `-n` only sets the display name;
    there is no resume. This is the overseer's OWN `_launch_command`, correct ONLY
-   when *followed by a paste* of the handoff resume line. With nothing pasted you
+   when *followed by a paste* of the resume prompt. With nothing pasted you
    get a fresh, context-free session — the tracks lose all their state.
 2. **`claude --resume` with NO value** — opens the interactive picker and leaves
    every pane stuck on it. `--resume` resumes directly ONLY when given a session id;
@@ -1305,7 +1311,7 @@ sits idle. Paste a kick and submit it (`load-buffer -` + `paste-buffer -p`, then
 ```
 Your tmux session was killed at <time> by an external fleet-wide tmux kill-server
 (not caused by anything you did, and not a maintainer decision). The session has now
-been restored with your full conversation intact. Re-read <repo>/plan/<topic>/handoff.md
+been restored with your full conversation intact. Re-read your plan's ledger-held plan state
 to re-ground yourself, then continue exactly where you left off.
 ```
 
@@ -1440,7 +1446,7 @@ the registry, or is deliberately left waiting on the maintainer" is.
 For **codex**, `recover_missing_sessions` now DOES restore the live conversation: it
 resumes by `codex resume <id>`, the id recovered from the surviving codex index by plan
 topic (defect #5, 2026-07-18). For **claude**, the gap remains — `start` /
-`recover_missing_sessions` relaunch fresh + paste a handoff rather than `--resume`. If
+`recover_missing_sessions` relaunch fresh + paste a resume prompt rather than `--resume`. If
 native "restore the live CLAUDE conversation after a crash" is wanted, that is where it
 would go: a `claude --resume <id>` arm that looks the topic's id up by `customTitle` in
 `~/.claude/projects/<cwd-slug>/` (the exact computation step 3 automates) — the direct
@@ -1455,7 +1461,7 @@ does not re-learn it. Append here — do NOT scatter these.
 - **`start` / `add` `--repo` MUST be the full ABSOLUTE path, never the bare slug.**
   `start --repo livespec --topic <t>` silently launches the session in `$HOME`: the
   bare `livespec` is a RELATIVE path, so tmux's `-c livespec` fails to that repo and
-  falls back to home, the resume-line path (`livespec/plan/<t>/handoff.md`) is wrong,
+  falls back to home, the repository path named in the resume line is wrong,
   and `_do_launch` then fails at the await/submit while claude boots in the wrong cwd
   — reported only as a generic `start FAILED to launch`. Always pass
   `--repo /data/projects/<repo>`. (`repo_slug`/`tmux_id` still produce the right

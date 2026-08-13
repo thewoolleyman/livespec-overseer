@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Final
 
 import jsonio
-from _supervisor_prompts import default_resume
+from _supervisor_prompts import plan_epic_resume
 from foreman_act_types import (
     PLAN_START,
     QUALIFYING_SESSION_RESUME,
@@ -98,21 +98,41 @@ def _supervisor_pair_start_command(*, payload: dict[str, object]) -> list[str] |
     ]
 
 
+def _resume_prompt(*, repo: str, topic: str, brief: str | None, epic: str | None) -> str:
+    """The one prompt handed to a resumed codex session.
+
+    Three shapes, in precedence order. A ``brief`` is the bounded one-shot work-item
+    session's own file under the repository's gitignored ``tmp/overseer/foreman/``
+    scratch area — never a plan-tree path — and it wins because that session exists only
+    to complete that brief. Otherwise a recorded plan ``epic`` gives the same
+    ledger-held read-first locator the daemon's own restart uses, so the two surfaces can
+    never point a session at different sources.
+
+    The last shape names no source at all, and that is deliberate rather than a
+    degradation: ``codex resume <id>`` restores the FULL prior conversation, so a session
+    resumed this way already holds its own context and needs a continuation kick, not a
+    pointer. Naming a plausible-looking file here — which is what this branch used to do —
+    was the failure mode, since the file may never have existed.
+    """
+    if brief is not None:
+        return f"read {brief} and complete this bounded one-shot work-item session"
+    if epic is not None:
+        return plan_epic_resume(repo=repo, epic=epic)
+    return f"continue the plan {topic} work in repository {repo} from your restored session"
+
+
 def resume_command_from_payload(*, payload: dict[str, object]) -> list[str] | None:
     runtime = _str_field(payload=payload, key="runtime")
     repo = _str_field(payload=payload, key="repo")
     topic = _str_field(payload=payload, key="topic")
     session_id = _str_field(payload=payload, key="session_id")
-    handoff = _str_field(payload=payload, key="handoff_path")
+    brief = _str_field(payload=payload, key="handoff_path")
+    epic = _str_field(payload=payload, key="epic")
     if (
         runtime != "codex" or repo is None or topic is None or session_id is None
     ):  # pragma: no cover
         return None
-    prompt = (
-        f"read {handoff} and complete this bounded one-shot work-item session"
-        if handoff is not None
-        else default_resume(repo=repo, topic=topic)
-    )
+    prompt = _resume_prompt(repo=repo, topic=topic, brief=brief, epic=epic)
     return [
         "codex",
         "resume",

@@ -9,10 +9,13 @@ those are tracked separately in ``plan/overseer-productization/``. See
 
 Vocabulary (see design.md, the discovery-join model):
   - A "track" is one plan topic in one repo the overseer watches this run.
-  - "discovery" = scan each watched repo's ``plan/*/`` for a ``handoff.md``.
+  - "discovery" = enumerate each watched repo's ``plan/*/`` DIRECTORIES; nothing
+    inside one is read, stat-ed, or named.
   - "mapping"   = the durable topic↔tmux rows in ``~/.livespec-overseer.jsonl``,
     which hold ONLY facts that cannot be rederived from the filesystem
-    (pinned session id, custom resume line, threshold override).
+    (the plan's ledger ``epic`` id, pinned session id, custom resume line,
+    threshold override). The ``epic`` is a track's read-first locator: the daemon
+    hands it to sessions and never reads the entries it names.
   - the displayed list = discovery LEFT-JOIN mapping.
 
 The tmux session name is the BARE plan ``<topic>`` (maintainer-declared 2026-07-19);

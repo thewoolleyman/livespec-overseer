@@ -16,6 +16,7 @@ import pytest
 import registry
 import supervisor
 from test_supervisor_builders import (
+    TEST_EPIC,
     adopt_sup,
     idle_capture,
     isolate_store,
@@ -91,7 +92,7 @@ def test_cli_start_respawns_a_session_proven_dead_by_its_bare_shell(
 
     assert fake.has(method="respawn")  # the dead shell's pane WAS relaunched
     assert not fake.has(method="new")  # ...in place; the session already existed
-    assert supervisor.default_resume(repo=str(repo), topic=topic) in fake.paste_texts()
+    assert supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC) in fake.paste_texts()
     assert [(r.topic, r.tmux) for r in registry.read_mapping(store_path=store)] == [
         (topic, session)
     ]

@@ -145,14 +145,7 @@ def test_a_codex_restart_without_recorded_epic_alerts_and_keeps_ready_marker(*, 
     """A Codex `ready` with no ledger epic is refused before respawn, preserving retry state."""
     repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
     target = fake.pane_id(session=session)
-    track = registry.Track(
-        topic=topic,
-        repo=str(repo),
-        tmux=session,
-        handoff=supervisor.default_handoff(repo=str(repo), topic=topic),
-        resume=supervisor.default_resume(repo=str(repo), topic=topic),
-        epic=None,
-    )
+    track = registry.Track(topic=topic, repo=str(repo), tmux=session, epic=None)
 
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):

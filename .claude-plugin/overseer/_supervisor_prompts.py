@@ -2,10 +2,16 @@
 
 A private collaborator of :mod:`supervisor`; see that module's header for the whole
 split. This module owns the wrap-up escalation text, the keep-going nudge, and the
-handoff/resume path builders — single-sourced here so `overseer/marker-protocol.md`,
-the tracked sessions' handoffs, and the daemon all quote the SAME strings.
+read-first locator builders — single-sourced here so `overseer/marker-protocol.md`, the
+tracked sessions' plan state, and the daemon all quote the SAME strings.
 
-Nothing here decides anything: these are pure string builders over (repo, topic) and
+A worker track's read-first source is its plan's LEDGER-HELD PLAN STATE — the entries on
+the governed plan's ledger epic, located by repository path and recorded epic id. It is
+NOT a path under the plan tree: a path-shaped pointer can go stale, can name a file that
+was never written, and cannot be resolved by a cold-open successor that has no prior
+context. The daemon holds the epic id as an OPAQUE LOCATOR and never reads those entries.
+
+Nothing here decides anything: these are pure string builders over (repo, topic, epic) and
 a remaining-context percent. The escalation THRESHOLD (`_INSIST_AT`) is a property of
 the text, so it lives here rather than in `_supervisor_config`, and stays private
 because only :func:`wrapup_message` reads it.
@@ -23,11 +29,12 @@ import registry
 import signals
 
 __all__: list[str] = [
-    "default_handoff",
-    "default_resume",
     "idle_nudge_message",
+    "launch_resume",
     "pair_stall_nudge_message",
     "plan_epic_resume",
+    "plan_state_locator",
+    "resume_for_track",
     "supervisor_handoff_path",
     "supervisor_idle_nudge_message",
     "supervisor_resume",
@@ -37,8 +44,97 @@ __all__: list[str] = [
 
 
 # --------------------------------------------------------------------------- #
-# The wrap-up message + resume line. Single-sourced here so Build C's
-# convention doc and tracked-session handoffs reference the SAME text.
+# The read-first locator + resume line. Single-sourced here so Build C's
+# convention doc and tracked-session plan state reference the SAME text.
+# --------------------------------------------------------------------------- #
+
+
+def plan_state_locator(*, repo: str, epic: str | None) -> str:
+    """The track's ledger-held plan state, named by repository path and epic id.
+
+    A track with NO recorded epic has no locator to hand out. That is not a silent case:
+    the restart interlock refuses to respawn such a track and surfaces it instead, so the
+    text says exactly that rather than naming a plausible-looking pointer nobody can
+    resolve.
+    """
+    if epic is None:
+        return (
+            f"this track's ledger-held plan state in repository {repo} — but NO plan epic "
+            "id is recorded for this track, so ask the operator to record one"
+        )
+    return f"the plan state held on ledger epic {epic} in repository {repo}"
+
+
+def plan_epic_resume(*, repo: str, epic: str) -> str:
+    """The first prompt pasted into a restarted plan session: resolve its ledger epic."""
+    return f"resume plan epic {epic} in repository {repo}; read its ledger-held plan state"
+
+
+def _resume_line(*, repo: str, epic: str | None) -> str:
+    """The exact prompt the fresh session will be handed, quoted back in the wrap-up."""
+    if epic is None:
+        return (
+            "(no resume prompt can be built — this track records NO plan epic id, so it "
+            "is surfaced for a human instead of respawned)"
+        )
+    return plan_epic_resume(repo=repo, epic=epic)
+
+
+def resume_for_track(*, track: registry.Track) -> str | None:
+    """The runtime resume prompt for a track, or None when a plan track lacks its epic.
+
+    ONE definition for every path that hands a session its first prompt — the restart
+    after a `ready`, the reboot-recovery relaunch, and the attention check that asks
+    whether a respawned pane ever ran what it was handed. Two definitions would let the
+    daemon respawn onto one source and then judge the pane against another.
+
+    A supervisor pair member still resumes from `supervisor-handoff.md`: that entity's
+    durable artifact is the supervision file for the worker plan. A worker resumes by
+    repository + ledger epic, so a cold-open successor resolves the plan state from the
+    ledger rather than from a path-shaped pointer that may have gone stale — or that may
+    name a file nobody ever wrote.
+
+    A track's stored `resume` is deliberately NOT consulted here. Assignment surfaces used
+    to auto-populate that field with a derived handoff line, so a non-empty value on an
+    existing row is far more likely to be that stale derivation than an operator's
+    deliberate override, and honoring it would resurrect exactly the pointer this chain
+    exists to retire.
+    """
+    if signals.topic_reserved_for_supervisor(topic=track.topic):
+        return supervisor_resume(
+            repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
+        )
+    if track.epic is None:
+        return None
+    return plan_epic_resume(repo=track.repo, epic=track.epic)
+
+
+def launch_resume(*, track: registry.Track) -> str:
+    """The first prompt for a track being LAUNCHED — `start`, or reboot recovery.
+
+    A launch is never refused for a missing epic, and that asymmetry with the restart is
+    deliberate. The restart spends a session's own `ready` declaration and destroys a
+    live process, so it must refuse rather than respawn onto a prompt nobody can resolve.
+    A launch destroys nothing: `start` is an attended operator act, and reboot recovery
+    is restoring a session the operator already had.
+
+    So a track with no recorded epic is handed the truth — there is no ledger-held plan
+    state to resume from — instead of a plausible-looking path into its plan directory.
+    Naming a file the daemon cannot vouch for is what sent sessions to read pointers that
+    had gone stale, or that named a file nobody ever wrote.
+    """
+    derived = resume_for_track(track=track)
+    if derived is not None:
+        return derived
+    return (
+        f"no plan epic id is recorded for the track {track.topic} in repository "
+        f"{track.repo}, so there is no ledger-held plan state to resume from; report that "
+        "to the operator before starting any work"
+    )
+
+
+# --------------------------------------------------------------------------- #
+# The wrap-up message.
 # --------------------------------------------------------------------------- #
 
 # At/below this remaining-%, the wrap-up STOPS suggesting and DEMANDS shutdown. The
@@ -58,6 +154,92 @@ flight, do not start anything new, and shut down — you are close to the point 
 you can no longer hand off cleanly."""
 
 _WRAPUP_BODY = """\
+You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
+that has not declared itself ready. When you stop, this pane is respawned into a fresh
+session handed exactly ONE prompt:
+    {resume}
+So {read_first} is the ONLY thing the next session inherits. Do NOT leave your resume
+state anywhere else (a scratchpad file, this transcript, a file under plan/) — it will be
+LOST. If your real pending work has drifted from what those entries say, APPEND a fresh
+entry that corrects them; never withhold your declaration over drift.
+
+Declare your state by writing ONE line to the single state file
+{state_file} — one of exactly these three values:
+
+    winding-down                  I got this message and am wrapping up now.
+    ready                         I am at a clean stopping point — restart me.
+    blocked: <one-line reason>    I need a human decision I cannot make myself.
+
+ACKNOWLEDGE FIRST, right now, before anything else:
+    mkdir -p {marker_dir} && echo winding-down > {state_file}
+
+Then:
+ 1. Bring your OWN work to a clean, resumable stopping point and commit it through your
+    repository's own gates. Never pass --no-verify. If a gate rejects you, fix the cause
+    or declare `blocked: <reason>` — do not bypass it and do not discard the work.
+ 2. APPEND your resume state to {read_first}, through your orchestrator's sanctioned plan
+    surface. Writing it down locally is NOT saving it — an entry that was never appended
+    has no attribution, no timestamp, and the next session cannot see it at all. Do NOT
+    write it into a file under plan/, and do NOT write to the ledger directly.
+ 3. Stop every background sub-agent and subprocess you started.
+ 4. Declare done, and stop:
+        echo ready > {state_file}
+
+`ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
+restarted and NOT killed — you are reported to the human as not responding, and your
+track sits there until a person intervenes. Do not do that to them: write the file."""
+
+
+def _wrapup_head(*, remaining: int) -> str:
+    return _WRAPUP_INSIST_HEAD if remaining <= _INSIST_AT else _WRAPUP_SUGGEST_HEAD
+
+
+def wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -> str:
+    """The wrap-up text injected when a track crosses a ctx warn band.
+
+    ESCALATES with the band (maintainer 2026-07-14): a suggestion while there is still
+    room (above ``_INSIST_AT``), then an insistent shut-down demand at 30/20/10.
+    ``remaining`` fills ``{n}`` with the CURRENT remaining-context percent, so each
+    re-warn reflects the live value.
+
+    ``repo``/``topic`` build the TEMP dir (``<repo>/tmp/overseer/<topic>/``) holding the
+    single ``.overseer-state`` file the session writes — never anything under ``plan/``.
+    ``epic`` names the LEDGER-HELD PLAN STATE the restart resumes FROM. Building that
+    locator is pure string work (:func:`plan_state_locator`): the overseer POINTS at the
+    plan state, exactly as the resume line does, and never reads those entries.
+
+    Three failures shaped this text. A tracked session once REFUSED to declare anything —
+    reasoning that the resume line pointed at a handoff which no longer matched its real
+    pending work (which it had stashed in a scratchpad) — and wedged its track at 13%
+    forever; so the message says plainly that the plan state is the ONLY inherited
+    artifact and that drift is fixed by APPENDING, never by withholding the declaration.
+    Because the daemon must never guess a session is safe to kill, the message also makes
+    the session's declaration the sole authorization: no ``ready``, no restart. And
+    because a file written to disk was repeatedly mistaken for a saved handoff, step 2
+    says outright that an un-appended entry is invisible to the successor.
+    """
+    return f"{_wrapup_head(remaining=remaining)}\n\n{_WRAPUP_BODY}".format(
+        n=remaining,
+        marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
+        state_file=str(signals.state_path(repo=repo, topic=topic)),
+        read_first=plan_state_locator(repo=repo, epic=epic),
+        resume=_resume_line(repo=repo, epic=epic),
+    )
+
+
+def supervisor_handoff_path(*, repo: str, topic: str) -> Path:
+    """The supervision artifact a supervisor pair member still resumes from.
+
+    Supervise-plan no longer AUTHORS this file (its binder is appended to the plan's
+    ledger epic), but retiring authorship is not deletion: existing files stay where they
+    are, and the supervisor entity's own resume path is unchanged by this module. Callers
+    on the daemon's discovery path must never open, read, hash, or depend on its content
+    or mtime.
+    """
+    return Path(repo) / "plan" / topic / "supervisor-handoff.md"
+
+
+_SUPERVISOR_WRAPUP_BODY = """\
 You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
 that has not declared itself ready. When you stop, this pane is respawned into a fresh
 session handed exactly ONE prompt:
@@ -84,9 +266,9 @@ Then:
     no history, no attribution, and is one `git checkout` from gone. You cannot commit
     at the primary checkout (the commit-refuse hook rejects it), and a fresh worktree
     will NOT contain your edits, so copy them across:
-        W="$HOME/.worktrees/{slug}/wrapup-{topic}"
-        mise exec -- git -C {repo} worktree add -b wrapup-{topic} "$W" master
-        cp {handoff} "$W/plan/{topic}/handoff.md"
+        W="$HOME/.worktrees/{slug}/wrapup-{topic}-supervisor"
+        mise exec -- git -C {repo} worktree add -b wrapup-{topic}-supervisor "$W" master
+        cp {handoff} "$W/plan/{topic}/supervisor-handoff.md"
         cd "$W" && mise exec -- git add plan/ && mise exec -- git commit
         mise exec -- git push && gh pr create --fill && gh pr merge --auto --rebase --delete-branch
     Doc-only commits take your repo's reduced doc-only gate at both commit and push, so
@@ -101,68 +283,6 @@ restarted and NOT killed — you are reported to the human as not responding, an
 track sits there until a person intervenes. Do not do that to them: write the file."""
 
 
-def _wrapup_head(*, remaining: int) -> str:
-    return _WRAPUP_INSIST_HEAD if remaining <= _INSIST_AT else _WRAPUP_SUGGEST_HEAD
-
-
-def wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
-    """The wrap-up text injected when a track crosses a ctx warn band.
-
-    ESCALATES with the band (maintainer 2026-07-14): a suggestion while there is still
-    room (above ``_INSIST_AT``), then an insistent shut-down demand at 30/20/10.
-    ``remaining`` fills ``{n}`` with the CURRENT remaining-context percent, so each
-    re-warn reflects the live value.
-
-    ``repo``/``topic`` build the TEMP dir (``<repo>/tmp/overseer/<topic>/``) holding the
-    single ``.overseer-state`` file the session writes — never anything under ``plan/`` —
-    and the ``plan/<topic>/handoff.md`` path the restart resumes FROM. Constructing that
-    path is pure string work (``default_handoff``): the overseer POINTS at the handoff,
-    exactly as the resume line does, and never opens it.
-
-    Two failures shaped this text. A tracked session once REFUSED to declare anything —
-    reasoning that the resume line pointed at a handoff which no longer matched its real
-    pending work (which it had stashed in a scratchpad) — and wedged its track at 13%
-    forever; so the message now says plainly that the handoff is the ONLY inherited
-    artifact and that drift is fixed by REWRITING it. And because the daemon must never
-    guess a session is safe to kill, the message also makes the session's declaration the
-    sole authorization: no ``ready``, no restart.
-    """
-    return f"{_wrapup_head(remaining=remaining)}\n\n{_WRAPUP_BODY}".format(
-        n=remaining,
-        marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
-        state_file=str(signals.state_path(repo=repo, topic=topic)),
-        handoff=default_handoff(repo=repo, topic=topic),
-        repo=repo,
-        topic=topic,
-        slug=registry.repo_slug(repo=repo),
-    )
-
-
-def default_handoff(*, repo: str, topic: str) -> str:
-    """``<repo>/plan/<topic>/handoff.md`` — the discovery-convention handoff path."""
-    return str(Path(repo) / "plan" / topic / "handoff.md")
-
-
-def supervisor_handoff_path(*, repo: str, topic: str) -> Path:
-    """The single supervision artifact the daemon may existence-test.
-
-    This is the narrow spec allowance: for a track already proven to have a live matching
-    managed session, the daemon may ask whether this exact file exists. Callers must never
-    open, read, hash, or depend on its content or mtime.
-    """
-    return Path(repo) / "plan" / topic / "supervisor-handoff.md"
-
-
-_SUPERVISOR_WRAPUP_BODY = _WRAPUP_BODY.replace(
-    '        W="$HOME/.worktrees/{slug}/wrapup-{topic}"\n'
-    '        mise exec -- git -C {repo} worktree add -b wrapup-{topic} "$W" master\n'
-    '        cp {handoff} "$W/plan/{topic}/handoff.md"',
-    '        W="$HOME/.worktrees/{slug}/wrapup-{topic}-supervisor"\n'
-    '        mise exec -- git -C {repo} worktree add -b wrapup-{topic}-supervisor "$W" master\n'
-    '        cp {handoff} "$W/plan/{topic}/supervisor-handoff.md"',
-)
-
-
 def supervisor_resume(*, repo: str, topic: str) -> str:
     """Resume prompt for a supervisor pair member."""
     return f"read {supervisor_handoff_path(repo=repo, topic=topic)} and follow it"
@@ -171,10 +291,11 @@ def supervisor_resume(*, repo: str, topic: str) -> str:
 def supervisor_wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
     """Wrap-up text for a supervisor pair member.
 
-    The supervisor entity's state and round key use ``<topic>-supervisor``, but its
-    durable handoff artifact is the worker plan's ``supervisor-handoff.md``. This is a
-    text variant, not parameter substitution, because the commit ritual's destination
-    is a literal inside the body.
+    The supervisor entity's state and round key use ``<topic>-supervisor``, while its
+    durable resume artifact is the worker plan's ``supervisor-handoff.md``. This is a
+    whole text VARIANT rather than parameter substitution on the worker body: the two
+    entities no longer share a wind-down ritual at all, since the worker's resume state
+    is APPENDED to the plan's ledger epic while this one is still committed as a file.
     """
     entity_topic = signals.supervisor_entity_topic(topic=topic)
     return f"{_wrapup_head(remaining=remaining)}\n\n{_SUPERVISOR_WRAPUP_BODY}".format(
@@ -188,22 +309,12 @@ def supervisor_wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
     )
 
 
-def default_resume(*, repo: str, topic: str) -> str:
-    """The first prompt pasted into a (re)started session: read the handoff."""
-    return f"read {default_handoff(repo=repo, topic=topic)} and follow it"
-
-
-def plan_epic_resume(*, repo: str, epic: str) -> str:
-    """The first prompt pasted into a restarted plan session: resolve its ledger epic."""
-    return f"resume plan epic {epic} in repository {repo}; read its ledger-held plan state"
-
-
 _IDLE_NUDGE = """\
 You are idle at {n}% context — ABOVE the {threshold}% wind-down line, so you have room to
 keep going. Do NOT stop, and do NOT offer to stop, while you are above {threshold}%.
 
 Pick your work back up and continue — your task is in
-    {handoff}
+    {read_first}
 Keep going until you are near {threshold}%; the overseer will then send the wind-down.
 
 The overseer has marked your track `idle-with-context-left` in
@@ -217,7 +328,9 @@ out-of-band so the operator is alerted, INSTEAD of sitting idle:
     echo 'blocked: <one-line reason>' > {state_file}"""
 
 
-def idle_nudge_message(*, remaining: int, threshold: int, repo: str, topic: str) -> str:
+def idle_nudge_message(
+    *, remaining: int, threshold: int, repo: str, topic: str, epic: str | None
+) -> str:
     """The single "keep going" nudge injected into an idle session that still has context
     left (``remaining`` > ``threshold``).
 
@@ -225,7 +338,8 @@ def idle_nudge_message(*, remaining: int, threshold: int, repo: str, topic: str)
     do not stop above the wind-down line". It is sent at most ONCE per idle episode — the
     ``idle-with-context-left`` marker the daemon writes edge-triggers it, and that marker
     clears when the session next goes non-idle, re-arming a fresh nudge for the next
-    episode.
+    episode. It points the session back at the same ledger-held plan state the restart
+    would resume it from, so the two messages can never name different sources.
 
     It also carries the out-of-band escape for the case the daemon cannot see: a session
     genuinely WAITING on a human that expressed it only in prose (Codex in YOLO mode cannot
@@ -235,7 +349,7 @@ def idle_nudge_message(*, remaining: int, threshold: int, repo: str, topic: str)
     return _IDLE_NUDGE.format(
         n=remaining,
         threshold=threshold,
-        handoff=default_handoff(repo=repo, topic=topic),
+        read_first=plan_state_locator(repo=repo, epic=epic),
         state_file=str(signals.state_path(repo=repo, topic=topic)),
     )
 
@@ -244,14 +358,14 @@ def supervisor_idle_nudge_message(*, remaining: int, threshold: int, repo: str, 
     """Keep-going nudge for a supervisor pair member.
 
     ``topic`` is the worker topic. The supervisor entity's state marker still lives
-    under ``<topic>-supervisor``, but the durable handoff the supervisor resumes from
+    under ``<topic>-supervisor``, and the durable artifact the supervisor resumes from
     is ``plan/<topic>/supervisor-handoff.md``.
     """
     entity_topic = signals.supervisor_entity_topic(topic=topic)
     return _IDLE_NUDGE.format(
         n=remaining,
         threshold=threshold,
-        handoff=str(supervisor_handoff_path(repo=repo, topic=topic)),
+        read_first=str(supervisor_handoff_path(repo=repo, topic=topic)),
         state_file=str(signals.state_path(repo=repo, topic=entity_topic)),
     )
 
@@ -260,6 +374,7 @@ def pair_stall_nudge_message(
     *,
     repo: str,
     topic: str,
+    epic: str | None,
     worker_session: str,
     worker_pane: str | None,
     stalled_seconds: float,
@@ -275,4 +390,4 @@ actually waiting on a human question, surface that explicitly by declaring it ou
     echo 'blocked: <one-line reason>' > {state_file}
 
 Worker coordinates: tmux session '{worker_session}', pane {worker_pane}.
-Worker handoff: {default_handoff(repo=repo, topic=topic)}"""
+Worker plan state: {plan_state_locator(repo=repo, epic=epic)}"""

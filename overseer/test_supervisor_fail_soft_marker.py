@@ -18,6 +18,7 @@ import registry
 import signals
 import supervisor
 from test_supervisor_builders import (
+    TEST_EPIC,
     adopt_sup,
     arm_ready_marker,
     idle_capture,
@@ -225,7 +226,7 @@ def test_restart_keeps_the_marker_when_the_respawned_pane_never_becomes_claude(*
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         == 1000.0
     )
-    assert supervisor.default_resume(repo=str(repo), topic=topic) not in fake.paste_texts()
+    assert supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC) not in fake.paste_texts()
 
 
 def test_freshly_restarted_pane_on_a_gate_pends_the_resume_instead_of_keystroking_it(*, tmp_path):

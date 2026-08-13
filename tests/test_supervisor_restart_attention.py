@@ -9,6 +9,7 @@ import registry
 import signals
 import supervisor
 from test_supervisor_builders import (
+    TEST_EPIC,
     idle_capture,
     make_plan,
     make_supervisor,
@@ -44,7 +45,7 @@ def test_restarted_never_worked_session_is_report_only_attention(*, tmp_path):
     """The ratified scenario: report the stranded fresh composer, authorize no act."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
     clock = {"now": 1000.0}
@@ -80,7 +81,7 @@ def test_restarted_never_worked_survives_missing_resume_pending_marker(*, tmp_pa
     """A falsely-closed round must still surface a stranded fresh composer."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
     clock = {"now": 1000.0}

@@ -8,7 +8,7 @@ declare what it wants done with it. `supervisor.py`'s `wrapup_message()` (built
 from `_WRAPUP_SUGGEST_HEAD` / `_WRAPUP_INSIST_HEAD` / `_WRAPUP_BODY`) and
 `signals.py`'s `read_state()` / `valid_token()` / `ready_valid()` are the
 authoritative implementations; this doc is the single conceptual source they
-share, and the reference a tracked session's own `handoff.md` points at.
+share, and the reference a tracked session's own plan state points at.
 
 (The file is still named `marker-protocol.md` for its existing cross-references.
 There is no longer a *marker* — a file whose mere presence is the signal. There
@@ -77,9 +77,11 @@ The overseer touches only its **config** (the mapping store, the injection-stamp
 sidecar, and the `$HOME` watch-set declaration) and **temp files**
 (`<repo>/tmp/overseer/<topic>/`).
 It NEVER reads, writes, or hashes anything under a session's `plan/<topic>/` tree
-— the handoff and all plan-thread files are the **session's own workflow**. The
-overseer enumerates `plan/*/` DIRECTORIES to discover tracks and *points* a
-resume line at the conventional `plan/<topic>/handoff.md`, but it never opens it.
+— every file there is the **session's own workflow**. The overseer enumerates
+`plan/*/` DIRECTORIES to discover tracks, derives no path into one, and *points*
+a resume line at the plan's LEDGER-HELD PLAN STATE — the entries on its ledger
+epic, named by repository path and by the `epic` id the mapping store records.
+The daemon holds that id as an OPAQUE LOCATOR and never reads those entries.
 Because the state file lives under `tmp/` (gitignored), the overseer never
 dirties a tracked tree; the daemon `git check-ignore`-validates each watched
 repo's `tmp/overseer/` at startup and refuses to run if any is not ignored.
@@ -134,10 +136,11 @@ Both are followed by the same body:
 You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
 that has not declared itself ready. When you stop, this pane is respawned into a fresh
 session handed exactly ONE prompt:
-    read {handoff} and follow it
-So {handoff} is the ONLY thing the next session inherits. Do NOT leave your resume state
-anywhere else (a scratchpad file, this transcript) — it will be LOST. If your real
-pending work has drifted from what that file says, REWRITE that file.
+    {resume}
+So {read_first} is the ONLY thing the next session inherits. Do NOT leave your resume
+state anywhere else (a scratchpad file, this transcript, a file under plan/) — it will be
+LOST. If your real pending work has drifted from what those entries say, APPEND a fresh
+entry that corrects them; never withhold your declaration over drift.
 
 Declare your state by writing ONE line to the single state file
 {state_file} — one of exactly these three values:
@@ -150,21 +153,13 @@ ACKNOWLEDGE FIRST, right now, before anything else:
     mkdir -p {marker_dir} && echo winding-down > {state_file}
 
 Then:
- 1. Bring your OWN work to a clean, resumable stopping point, and UPDATE {handoff} to
-    match. Your session owns its handoff and everything under plan/; the overseer never
-    reads or writes those.
- 2. COMMIT {handoff}. Writing it to disk is NOT saving it — an uncommitted handoff has
-    no history, no attribution, and is one `git checkout` from gone. You cannot commit
-    at the primary checkout (the commit-refuse hook rejects it), and a fresh worktree
-    will NOT contain your edits, so copy them across:
-        W="$HOME/.worktrees/{slug}/wrapup-{topic}"
-        mise exec -- git -C {repo} worktree add -b wrapup-{topic} "$W" master
-        cp {handoff} "$W/plan/{topic}/handoff.md"
-        cd "$W" && mise exec -- git add plan/ && mise exec -- git commit
-        mise exec -- git push && gh pr create --fill && gh pr merge --auto --rebase --delete-branch
-    Doc-only commits take your repo's reduced doc-only gate at both commit and push, so
-    this is quick. Never pass --no-verify. If a hook rejects you, fix the cause or declare
-    `blocked: <reason>` — do not bypass it and do not discard the file.
+ 1. Bring your OWN work to a clean, resumable stopping point and commit it through your
+    repository's own gates. Never pass --no-verify. If a gate rejects you, fix the cause
+    or declare `blocked: <reason>` — do not bypass it and do not discard the work.
+ 2. APPEND your resume state to {read_first}, through your orchestrator's sanctioned plan
+    surface. Writing it down locally is NOT saving it — an entry that was never appended
+    has no attribution, no timestamp, and the next session cannot see it at all. Do NOT
+    write it into a file under plan/, and do NOT write to the ledger directly.
  3. Stop every background sub-agent and subprocess you started.
  4. Declare done, and stop:
         echo ready > {state_file}
@@ -177,24 +172,33 @@ track sits there until a person intervenes. Do not do that to them: write the fi
 `{n}` is the session's CURRENT remaining-context percent (re-filled on every
 re-warn, so each escalation reflects the live value); `{marker_dir}` is
 `<repo>/tmp/overseer/<topic>/`; `{state_file}` is that directory's
-`.overseer-state`; `{handoff}` is `<repo>/plan/<topic>/handoff.md`. The exact
-strings live in `_supervisor_prompts.py`'s `_WRAPUP_SUGGEST_HEAD` /
-`_WRAPUP_INSIST_HEAD` / `_WRAPUP_BODY` (re-exported through the `supervisor`
-façade as `wrapup_message`); keep this block and those constants in sync if
-either changes.
+`.overseer-state`; `{read_first}` is the track's ledger-held plan state named by
+repository path and recorded `epic` id (`plan_state_locator`), and `{resume}` is
+the exact prompt the fresh session will be handed (`plan_epic_resume`). A track
+with NO recorded `epic` gets both slots filled with a statement of that fact
+rather than an invented pointer, because such a track is surfaced instead of
+respawned. The exact strings live in `_supervisor_prompts.py`'s
+`_WRAPUP_SUGGEST_HEAD` / `_WRAPUP_INSIST_HEAD` / `_WRAPUP_BODY` (re-exported
+through the `supervisor` façade as `wrapup_message`); keep this block and those
+constants in sync if either changes.
 
-**Why the message names the handoff and says the restart needs the session's own
-word.** A tracked session once refused to declare anything: its real pending work
-had drifted away from what `plan/<topic>/handoff.md` said (it had stashed the
-live handoff in a scratchpad file), so it reasoned that declaring done would
-resume the next session from a stale document — and it stopped, undeclared,
-wedging its track idle at 13%. So the message now says plainly that the handoff
-is the ONLY artifact it can hand forward, and that the correct response to drift
-is to **rewrite the handoff**, never to withhold the declaration. It also states
-the other half honestly — no `ready`, no restart — because that is now true, and
-a session that is told an untruth ("you will be restarted regardless") will
-reason its way around it. Naming the handoff path is still POINTING at it,
-exactly as the resume line does; the overseer never opens it.
+**Why the message names the plan state and says the restart needs the session's
+own word.** A tracked session once refused to declare anything, back when the
+resume line still pointed at a FILE: its real pending work had drifted away from
+what that file said (it had stashed the live handoff in a scratchpad), so it
+reasoned that declaring done would resume the next session from a stale document
+— and it stopped, undeclared, wedging its track idle at 13%. The file-shaped
+pointer is gone, but the reasoning it invited is not, so the message still
+answers it. So the message says plainly that the plan state is
+the ONLY thing it can hand forward, and that the correct response to drift is to
+**APPEND a correcting entry**, never to withhold the declaration. Appending, not
+rewriting, is the repair now that the state is an append-only attributed stream:
+a successor reads the whole stream, so a later entry supersedes an earlier one
+without anything being overwritten. It also states the other half honestly — no
+`ready`, no restart — because that is now true, and a session that is told an
+untruth ("you will be restarted regardless") will reason its way around it.
+Naming the epic is still POINTING at the state, exactly as the resume line does;
+the overseer never reads those entries.
 
 ## The keep-going nudge — what the daemon injects when a session idles WITH context left
 
@@ -228,7 +232,7 @@ You are idle at {n}% context — ABOVE the {threshold}% wind-down line, so you h
 keep going. Do NOT stop, and do NOT offer to stop, while you are above {threshold}%.
 
 Pick your work back up and continue — your task is in
-    {handoff}
+    {read_first}
 Keep going until you are near {threshold}%; the overseer will then send the wind-down.
 
 The overseer has marked your track `idle-with-context-left` in
@@ -237,8 +241,8 @@ That marker clears as soon as you take another turn (the daemon clears it when i
 working again); you may also `rm {state_file}` yourself.
 
 If you are NOT free to continue — you are WAITING ON A HUMAN (you asked a question or hit a
-decision you cannot make, and cannot get it answered through a structured prompt here) — then
-say so out-of-band so the operator is alerted, INSTEAD of sitting idle:
+decision you cannot make, and cannot raise a prompt, e.g. Codex in YOLO mode) — then say so
+out-of-band so the operator is alerted, INSTEAD of sitting idle:
     echo 'blocked: <one-line reason>' > {state_file}
 ```
 
@@ -326,10 +330,10 @@ The daemon acts on the file on its next tick.
 reprieve and does not buy a restart either: the track is reported to the human as
 NOT RESPONDING and then **sits there**, wedged, until a person intervenes. The
 session is not killed — it has simply broken its own track and handed a chore to
-a human. And because the fresh session inherits **only**
-`plan/<topic>/handoff.md`, a session whose real pending work has drifted from
-that file must **rewrite the file** — never stash its resume state in a
-scratchpad and withhold the declaration.
+a human. And because the fresh session inherits **only** the plan's ledger-held
+state, a session whose real pending work has drifted from those entries must
+**append a correcting entry** — never stash its resume state in a scratchpad, or
+in a file under `plan/`, and withhold the declaration.
 
 ## What `ready_valid` validates (the restart interlock)
 
@@ -352,7 +356,7 @@ Any absent, unreadable, or other-valued file makes the check **False**
 a legacy bare-number sidecar value), an undeterminable live identity, or a
 different live identity also makes the check **False** and is surfaced rather
 than guessed through. Beyond the token, the file's contents are not inspected —
-no handoff hash — because the handoff (and everything under `plan/`) is the
+no plan-state hash — because the plan state (and everything under `plan/`) is the
 session's own business, which the overseer must never read or hash. The daemon
 **deletes the state file** as it restarts (`_clear_state`, which also clears the
 round's sidecar key: stamp, notified bands, void floor, and identity), so a
@@ -379,7 +383,8 @@ Once, and only once, the session has declared `ready`, the daemon runs:
 
     respawn-pane -k -c <repo> 'claude --dangerously-skip-permissions -n <topic>'
       → wait for the fresh Claude TUI (poll #{pane_current_command})
-      → bracketed-paste + verify-submit:  read <repo>/plan/<topic>/handoff.md and follow it
+      → bracketed-paste + verify-submit:  resume plan epic <epic> in repository <repo>;
+                                          read its ledger-held plan state
       → clear the round (state file + injection stamp + notified bands)
 
 `--dangerously-skip-permissions` is required for the resumed session to run
@@ -394,7 +399,7 @@ destroying it.
 
 **The resume-submit is self-healing (R1, 2026-07-18).** A freshly-respawned TUI
 can DROP the resume line's Enter while still drawing its welcome screen, leaving
-the fresh session live but IDLE with an un-run handoff. The daemon does NOT give
+the fresh session live but IDLE with an un-run resume prompt. The daemon does NOT give
 up: on a failed submit it keeps the round open (marker + stamp) and marks a
 round-scoped `resume_pending`, then on the next tick re-sends Enter — **the
 SUBMIT only, never a re-respawn** — until the box clears. Re-`respawn-pane -k`
@@ -427,9 +432,9 @@ correct there. See `.claude-plugin/prose/overseer.md`, the single-source operato
 contract. (Corrected 2026-07-26: this pointed at `SKILL.md`, which is now only a
 compatibility pointer and carries no operator prose.)
 
-## Handoffs may adopt the `blocked:` convention
+## Plan state may adopt the `blocked:` convention
 
-A tracked session's own `handoff.md` MAY bake in "when you stop to ask the human
+A tracked session's own plan state MAY bake in "when you stop to ask the human
 a question, write `blocked: <one-line reason>` to the state file" so a
 prose-question stop is detected airtight rather than showing as plain `idle` in
 the table. This is optional: the restart interlock stays safe regardless, because

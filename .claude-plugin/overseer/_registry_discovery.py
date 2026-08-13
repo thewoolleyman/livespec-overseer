@@ -12,7 +12,6 @@ import json
 import os
 import re
 from collections.abc import Iterable
-from dataclasses import replace
 from pathlib import Path
 
 import jsonio
@@ -42,16 +41,16 @@ __all__: list[str] = [
 def discover_plans(
     *,
     watch_repos: Iterable[str | os.PathLike[str]],
-) -> list[tuple[str, str, str]]:
+) -> list[tuple[str, str]]:
     """Enumerate each watched repo's ``plan/*/`` DIRECTORIES (a track per dir).
 
-    Returns ``(repo, topic, abs-handoff-path)`` triples, sorted for
-    determinism. Discovery keys on the ``plan/<topic>/`` DIRECTORY existing — it
-    does NOT read or stat any FILE inside it, because the overseer never touches
-    a session's ``plan/`` files (the handoff and its contents are the session's
-    own workflow). The returned handoff path (``plan/<topic>/handoff.md``) is a
-    CONVENTIONAL pointer the resume line hands to the session; the overseer never
-    opens it. Excludes ``plan/archive/**`` (only direct children of ``plan/`` are
+    Returns ``(repo, topic)`` pairs, sorted for determinism. Discovery keys on the
+    ``plan/<topic>/`` DIRECTORY existing — it does NOT read or stat any FILE inside it,
+    because the overseer never touches a session's ``plan/`` files (their contents are
+    the session's own workflow). Discovery derives NO pointer into the directory at all:
+    a track's read-first source is the plan state held on its ledger epic, whose id the
+    mapping store persists, so there is nothing path-shaped for discovery to hand out.
+    Excludes ``plan/archive/**`` (only direct children of ``plan/`` are
     considered, and the literal ``archive`` dir is skipped).
     Fail-soft: a repo with no ``plan/`` dir contributes nothing, and an OSError
     on ONE repo (a ``plan/`` that becomes unreadable between the ``is_dir`` check
@@ -59,7 +58,7 @@ def discover_plans(
     than propagated out to crash the daemon that supervises ALL tracks
     (adversarial code review 2026-07-13, blocker B7).
     """
-    triples: list[tuple[str, str, str]] = []
+    pairs: list[tuple[str, str]] = []
     for repo in watch_repos:
         repo_norm = norm(repo=repo)
         plan_dir = Path(repo_norm) / "plan"
@@ -77,60 +76,57 @@ def discover_plans(
                 if signals.topic_reserved_for_supervisor(topic=child.name):
                     warn(message=f"refusing reserved supervisor plan directory {child}")
                     continue
-                # Directory existence IS the track; the handoff path is only a
-                # conventional pointer for the resume line (never opened here).
-                handoff = child / "handoff.md"
-                triples.append((repo_norm, child.name, str(handoff)))
+                # Directory existence IS the track — nothing inside it is read,
+                # stat-ed, or named.
+                pairs.append((repo_norm, child.name))
             except OSError as exc:
                 warn(message=f"unreadable plan child {child}: {exc}")
                 continue
-    discovered = _without_reserved_session_derivations(discovered=triples)
+    discovered = _without_reserved_session_derivations(discovered=pairs)
     discovered.sort(key=lambda t: (t[0], t[1]))
     return discovered
 
 
 def _without_reserved_session_derivations(
     *,
-    discovered: list[tuple[str, str, str]],
-) -> list[tuple[str, str, str]]:
+    discovered: list[tuple[str, str]],
+) -> list[tuple[str, str]]:
     collisions = colliding_topics(discovered=discovered)
-    admitted: list[tuple[str, str, str]] = []
-    for repo, topic, handoff in discovered:
+    admitted: list[tuple[str, str]] = []
+    for repo, topic in discovered:
         try:
             _ = tmux_id(repo=repo, topic=topic, colliding=collisions)
         except ValueError as exc:
             warn(message=str(exc))
             continue
-        admitted.append((repo, topic, handoff))
+        admitted.append((repo, topic))
     return admitted
 
 
 def join(
     *,
-    discovered: Iterable[tuple[str, str, str]],
+    discovered: Iterable[tuple[str, str]],
     mapping: Iterable[Track],
 ) -> list[Track]:
     """LEFT JOIN discovered plans with mapping rows on ``(repo, topic)``.
 
-    Discovery is the left side: one Track per discovered triple. A discovered
-    plan with a mapping row yields the mapped Track (its ``handoff`` filled from
-    discovery if the row lacked one); a discovered-but-unmapped plan yields an
-    ``unassigned`` Track. Mapping rows with no discovered plan do NOT appear
-    here — those are dropped by the daemon's archive-GC, not the join.
+    Discovery is the left side: one Track per discovered pair. A discovered plan with a
+    mapping row yields the mapped Track unchanged — discovery contributes only the
+    track's EXISTENCE, since every durable fact about it (its session, its plan epic, an
+    operator's resume override, a threshold) lives in the row. A discovered-but-unmapped
+    plan yields an ``unassigned`` Track. Mapping rows with no discovered plan do NOT
+    appear here — those are dropped by the daemon's archive-GC, not the join.
     """
     index: dict[tuple[str, str], Track] = {}
     for track in mapping:
         index[(norm(repo=track.repo), track.topic)] = track
 
     result: list[Track] = []
-    for repo, topic, handoff in discovered:
+    for repo, topic in discovered:
         mapped = index.get((norm(repo=repo), topic))
-        if mapped is None:
-            result.append(Track.make_unassigned(repo=repo, topic=topic, handoff=handoff))
-        elif mapped.handoff:
-            result.append(mapped)
-        else:
-            result.append(replace(mapped, handoff=handoff))
+        result.append(
+            mapped if mapped is not None else Track.make_unassigned(repo=repo, topic=topic)
+        )
     result.sort(key=lambda t: (norm(repo=t.repo), t.topic))
     return result
 

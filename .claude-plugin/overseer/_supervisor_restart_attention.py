@@ -10,7 +10,7 @@ import _supervisor_observe
 import registry
 import signals
 from _supervisor_config import POST_RESPAWN_NEVER_WORKED_AFTER, track_key
-from _supervisor_prompts import default_resume
+from _supervisor_prompts import launch_resume
 from _supervisor_records import Observation
 from _supervisor_resume_retry import resume_retry
 from _supervisor_view import RowView
@@ -57,11 +57,7 @@ def _restart_never_worked_age(
 ) -> float | None:
     """Advance the post-respawn no-work observation and return its qualifying age."""
     recorded = _post_respawn(sup=sup, track=track)
-    expected_resume = (
-        recorded.resume
-        if recorded is not None
-        else default_resume(repo=track.repo, topic=track.topic)
-    )
+    expected_resume = recorded.resume if recorded is not None else launch_resume(track=track)
     no_context_consumed = obs.current_ctx is not None and (
         obs.current_ctx == recorded.ctx
         if recorded is not None

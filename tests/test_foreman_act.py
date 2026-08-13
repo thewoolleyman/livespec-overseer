@@ -340,33 +340,67 @@ def test_supervisor_pair_start_uses_exact_tmux_session_and_supervisor_handoff(*,
     ]
 
 
-def test_resume_uses_exact_codex_session_id_and_prompt(*, tmp_path):
-    module = foreman_act()
-    repo = tmp_path / "repo"
-    repo.mkdir()
+def _resume_calls(*, repo, proposal):
     document = base_document(repo=repo)
     row = document["snapshot"]["rows"][0]
     assert isinstance(row, dict)
     row["session_identity"] = "codex:019fc11c-68c4-78c3-824b-d9b97de55a78"
     calls: list[list[str]] = []
-
-    result = module.act(
-        proposal=resume_proposal(repo=repo),
+    result = foreman_act().act(
+        proposal=proposal,
         gather=lambda *, repo, snapshot_path: document,
         run=lambda *, argv: calls.append(argv) or 0,
     )
-
     assert result["outcome"] == "acted"
     assert result["mutated"] is True
+    return calls
+
+
+def test_resume_uses_exact_codex_session_id_and_the_ledger_epic_prompt(*, tmp_path):
+    """A recorded epic gives the resumed session the SAME read-first locator the daemon's
+    own restart uses — repository path and epic id, and no path into the plan tree."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    proposal = resume_proposal(repo=repo)
+    proposal["classifier"]["resume"]["epic"] = "overseer-0007"
+
+    calls = _resume_calls(repo=repo, proposal=proposal)
+
     assert calls == [
         [
             "codex",
             "resume",
             "--dangerously-bypass-approvals-and-sandbox",
             "019fc11c-68c4-78c3-824b-d9b97de55a78",
-            f"read {repo / 'plan' / 'alpha' / 'handoff.md'} and follow it",
+            f"resume plan epic overseer-0007 in repository {repo}; "
+            "read its ledger-held plan state",
         ]
     ]
+
+
+def test_resume_without_a_recorded_epic_kicks_the_restored_session_naming_no_file(*, tmp_path):
+    """`codex resume <id>` restores the FULL prior conversation, so a session with no
+    recorded epic gets a continuation kick rather than a pointer.
+
+    This branch used to name `plan/<topic>/handoff.md` — a file the foreman could not
+    vouch for, and which for many plans was never written at all."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    calls = _resume_calls(repo=repo, proposal=resume_proposal(repo=repo))
+
+    assert calls == [
+        [
+            "codex",
+            "resume",
+            "--dangerously-bypass-approvals-and-sandbox",
+            "019fc11c-68c4-78c3-824b-d9b97de55a78",
+            f"continue the plan alpha work in repository {repo} from your restored session",
+        ]
+    ]
+    assert "handoff.md" not in calls[0][-1]
+    # The control: the predicate DOES report a hit on a payload of the same shape.
+    assert "handoff.md" in f"{calls[0][-1]} read {repo}/plan/alpha/handoff.md and follow it"
 
 
 def test_refuses_stale_unknown_freeform_and_human_actions(*, tmp_path):

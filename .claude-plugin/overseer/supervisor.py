@@ -20,7 +20,7 @@ crossed the 250-LLOC hard ceiling by more than five times:
   - :mod:`_supervisor_config`  — the tuning constants, the start-up gitignore probe,
                                  and the shared `track_key` / `iso_now` helpers.
   - :mod:`_supervisor_prompts` — every word injected into a tracked session, plus the
-                                 handoff/resume path builders.
+                                 read-first locator + resume builders.
   - :mod:`_supervisor_view`    — `RowView`, the per-status row tint, note elision, the
                                  annotated tmux cell, the `NEEDS YOU` test.
   - :mod:`_supervisor_records` — `InjectState` and `Observation`, the per-track records
@@ -60,9 +60,9 @@ from _supervisor_config import LOOP_INTERVAL_SECONDS as LOOP_INTERVAL_SECONDS
 from _supervisor_config import default_gitignore_check as default_gitignore_check
 from _supervisor_config import iso_now as iso_now
 from _supervisor_core import Supervisor as Supervisor
-from _supervisor_prompts import default_handoff as default_handoff
-from _supervisor_prompts import default_resume as default_resume
 from _supervisor_prompts import idle_nudge_message as idle_nudge_message
+from _supervisor_prompts import plan_epic_resume as plan_epic_resume
+from _supervisor_prompts import plan_state_locator as plan_state_locator
 from _supervisor_prompts import wrapup_message as wrapup_message
 from _supervisor_view import ATTENTION_STATUSES as ATTENTION_STATUSES
 from _supervisor_view import RowView as RowView
@@ -75,9 +75,10 @@ __all__: list[str] = [
     "LOOP_INTERVAL_SECONDS",
     "RowView",
     "Supervisor",
-    "default_resume",
     "idle_nudge_message",
     "main",
+    "plan_epic_resume",
+    "plan_state_locator",
     "wrapup_message",
 ]
 
@@ -132,13 +133,17 @@ def _upsert(*, track: registry.Track) -> None:
 
 
 def _track_for_assignment(*, repo: str, topic: str, session: str) -> registry.Track:
-    """Build the mapping row written by attended assignment surfaces."""
+    """Build the mapping row written by attended assignment surfaces.
+
+    No ``resume`` is written. That field is the OPERATOR's optional per-track override of
+    the respawn prompt, and auto-populating it with a derived line made every row look
+    like an override — which is why the derived value has to be ignored on read. The
+    daemon derives the prompt from ``repo``, ``epic``, and the entity name instead.
+    """
     return registry.Track(
         topic=topic,
         repo=repo,
         tmux=session,
-        handoff=default_handoff(repo=repo, topic=topic),
-        resume=default_resume(repo=repo, topic=topic),
         epic=registry.epic_from_plan_anchor(repo=repo, topic=topic),
     )
 

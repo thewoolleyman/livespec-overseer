@@ -101,7 +101,13 @@ def nudge_idle_with_context(
             topic=signals.supervisor_topic(entity_topic=topic),
         )
     else:
-        message = idle_nudge_message(remaining=eff_ctx, threshold=threshold, repo=repo, topic=topic)
+        message = idle_nudge_message(
+            remaining=eff_ctx,
+            threshold=threshold,
+            repo=repo,
+            topic=topic,
+            epic=track.epic,
+        )
     if _supervisor_launch.submit_prompt(
         sup=sup, target=target, text=message, expect_codex=is_codex
     ):

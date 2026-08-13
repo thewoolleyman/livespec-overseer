@@ -12,6 +12,7 @@ import registry
 import signals
 import supervisor
 from test_supervisor_builders import (
+    TEST_EPIC,
     arm_ready_marker,
     key_for,
     make_plan,
@@ -57,7 +58,7 @@ def _drop_resume_pending(*, sup: supervisor.Supervisor) -> None:
 def _stuck_post_respawn(*, tmp_path, clock):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"], own_pane="%7")
@@ -69,7 +70,7 @@ def _stuck_post_respawn(*, tmp_path, clock):
 def test_restart_never_worked_read_only_evaluation_reports_without_alerting(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
     clock = {"now": 1000.0}
@@ -90,7 +91,7 @@ def test_unreadable_fresh_context_cannot_prove_restart_never_worked(*, tmp_path)
     """A cached ctx value is not proof that a fresh session consumed nothing."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=None))
     clock = {"now": 1000.0}
@@ -116,7 +117,7 @@ def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retr
     """A resume-pending tick still owns the act, but it must not preserve stale attention."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
     clock = {"now": 1000.0}
@@ -176,7 +177,7 @@ def test_restart_never_worked_attention_clears_on_busy_and_rearms(*, tmp_path):
     """Busy evidence ends the episode even when the resume text and context still match."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     stuck_capture = _capture_with_resume(resume=resume, ctx=100)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=stuck_capture)

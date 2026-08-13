@@ -12,6 +12,7 @@ import pytest
 import registry
 import supervisor
 from test_supervisor_builders import (
+    TEST_EPIC,
     codex_home_with,
     idle_capture,
     make_plan,
@@ -157,7 +158,7 @@ def test_recover_recreates_missing_mapped_session(*, tmp_path):
         str(repo),
         f"claude --dangerously-skip-permissions -n {topic}",
     ) in fake.calls
-    assert supervisor.default_resume(repo=str(repo), topic=topic) in fake.paste_texts()
+    assert supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC) in fake.paste_texts()
 
 
 def test_recover_skips_when_new_session_fails(*, tmp_path):
@@ -198,7 +199,7 @@ def test_recover_resumes_a_codex_track_via_codex_resume(*, tmp_path):
     assert recovered == [session]
     assert ("new", session, str(repo)) in fake.calls
     expected = supervisor.Supervisor._codex_launch_command(
-        session_id=sid, resume=supervisor.default_resume(repo=str(repo), topic=topic)
+        session_id=sid, resume=supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     )
     assert ("respawn", session, str(repo), expected) in fake.calls
     # THE guard: the destructive Claude command is NEVER aimed at a codex track.
