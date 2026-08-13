@@ -381,15 +381,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Discovery performs no file-level probe inside a plan directory",
-    "test": "TODO",
-    "reason": "Re-pointed by the Planning Lane realization. The previously bound integration-tier test asserts the probe HAPPENS on the live-session pass (`assert _HANDOFF in live_probes`), which is the exact opposite of what this scenario now asserts, so the binding cannot be carried forward. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through work-item `overseer-pfpfty.7`."
+    "test": "tests.integration.test_discovery_and_relay.test_scenario_discovery_performs_no_file_level_probe_inside_a_plan_directory",
+    "reason": "Integration-tier: drives the daemon discovery pass over a real watched repo containing `plan/<topic>/handoff.md` and `supervisor-handoff.md`, with and without a matching live session. It instruments `pathlib.Path` so any file-level `exists` / `is_file` / read probe below the plan directory raises immediately, while directory enumeration remains allowed. SABOTAGE-VERIFIED 2026-08-13: calling `registry.epic_from_plan_anchor` or checking `supervisor-handoff.md.exists()` from discovery reddens the test."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A respawn prompt names the plan epic and repository so a cold-open session can resolve it",
-    "test": "TODO",
-    "reason": "Added by the Planning Lane realization to pin the respawn prompt's concrete locator and the refusal that protects it. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through work-item `overseer-pfpfty.7`."
+    "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_respawn_prompt_names_the_plan_epic_and_repository",
+    "reason": "Integration-tier: opens a real supervision round, writes a fresh `ready` declaration, and asserts the single post-respawn prompt names the repo path and ledger epic literally while ignoring a stale serialized path-shaped resume. The same test covers the protective refusal: a row with no recorded epic is surfaced as `blocked:human`, its `ready` marker is preserved, and no respawn occurs. SABOTAGE-VERIFIED 2026-08-13: the pre-change path-shaped resume prompt failed the epic assertion."
   },
   {
     "spec_root": "SPECIFICATION",
