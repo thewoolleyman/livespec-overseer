@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.36.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.36.0...v0.36.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* **ci:** add MISE_HTTP_RETRIES alongside UV_HTTP_RETRIES ([3305e10](https://github.com/thewoolleyman/livespec-overseer/commit/3305e104cfed9854e82aacbf4f9d198b0b950193))
+* **prose:** gate residual plan vocabulary ([9db90ce](https://github.com/thewoolleyman/livespec-overseer/commit/9db90ce5a8ff486e3c15bb9c2092dbbeab4705b2))
+* **test:** clear final plan vocabulary residue ([469359e](https://github.com/thewoolleyman/livespec-overseer/commit/469359e26ff3cbfb25aed7ebf918b9ed0d2e9f2b))
+
 ## [0.36.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.35.0...v0.36.0) (2026-08-13)
 
 
