@@ -166,7 +166,17 @@ is precisely why this boundary says name it and stop.
 unmirrored. Goal 3's equivalent measurement took a dedicated pass. The exposure
 is demonstrated; loss is not.
 
-## Status — 2026-08-12. Goals 2 and 3 DONE; goal 1 merged+released but blocked from reaching charters by `overseer-0xg7`. THIS THREAD IS ACTIVE, NOT ARCHIVED.
+## Status — 2026-08-13. PARKED at maintainer direction. Goals 2 and 3 DONE; goal
+1 merged+released, its enabling fix is filed (`livespec-dev-tooling-f8cs`) but
+not yet landed. THIS THREAD IS ACTIVE, NOT ARCHIVED — parked is not archived.
+
+**PARKED 2026-08-13.** The maintainer directed this track be parked to stop
+spending tokens and CI on it, calling it not a priority right now. Read the
+final "PARKED — end-of-session state" section at the bottom of this file before
+resuming; it supersedes the "Next action" section below for orientation
+purposes (that section's history is kept, not deleted, because its lessons and
+lines of evidence are still load-bearing). **Do not dispatch anything from this
+thread, and do not archive it, without new maintainer direction.**
 
 `overseer-5jttov` was groomed and is `status: done` / `resolution:
 no-longer-applicable` — administratively retired because its content was split
@@ -703,3 +713,75 @@ were deliberately not touched. **`git fetch` and compare against
 Do not hand-code implementation inline in a planning session — the factory
 path (`drive --action impl:<id>`) is the only implementation path for any of
 this.
+
+## PARKED — end-of-session state, 2026-08-13
+
+**Read this section first on resume.** The maintainer directed this track be
+parked — stop spending tokens and CI on it, it is not a priority right now.
+Everything below is landed and pushed; nothing is left running, dangling, or
+half-done. All work this session did is either merged or sitting in an open PR
+awaiting CI/review, never in an uncommitted or unpushed state.
+
+### What landed since the "Next action" section above was written
+
+The `5asgvm` chain (item 2/2a/2b above) ran to completion and past it:
+
+| step | outcome |
+|---|---|
+| `livespec-runtime-0u8` (the fleet-conformance blocker) | implemented, **PR #510 merged**, closed |
+| `livespec-dev-tooling` `ci-green` | went green as a result |
+| `livespec-dev-tooling-5asgvm` dispatched | **completed the work honestly, then blocked** — could not make `just check` green because master CI was red (`bq5p`, below) and then hit `HTTP 401` after outliving its GitHub App token (`bd-ib-huqm`, below). Reaped without pushing. |
+| the work | **recovered, not lost** — `fabro dump` exported the patch, applied cleanly to master, landed through a fresh red-green-replay pair. **`livespec-dev-tooling` PR #1379, open, CI running.** |
+| item 3 (credential defects) | both filed: `bd-ib-huqm` (P1, token refresh) and `livespec-dev-tooling-mqo5` (P2, filed as a design change per the original warning) |
+
+Two more defects were found and filed along the way, both P1 in
+`livespec-dev-tooling`:
+
+- **`livespec-dev-tooling-f8cs`** — the actual fix for `overseer-0xg7`: goal 1's
+  charter-generation blocker. `ensure_plugins.py` confirms provisioning against
+  the install *record*, never the artifact — `grep installPath` over the module
+  and all 35 of its tests returns zero hits. **Not yet dispatched.**
+- **`livespec-dev-tooling-bq5p`** — `shellcheck` is the one pinned tool the
+  sandbox images do not bake, so every CI job fetches it over the network. It
+  reddened `ci-green` in four repos in one evening and separately held PR #796
+  ~23 hours with auto-merge armed and nobody watching. **Not yet dispatched.**
+
+A red-master tombstone this session's own `#796` re-run caused was found and
+fixed same-day: `livespec-overseer` PR #861, merged.
+
+Two corrections to this session's own claims, both fixed at their original site
+and folded into the "Verification lessons" table above as a fresh pair of
+entries (PR #860): the head-of-line queue theory (refuted — `max_concurrent_runs
+= 10`), and calling the recovered `resume-submit-integrity` prose "stale" when
+both PRs it named are still genuinely open.
+
+### Open PRs at parking time, none belonging to this session to close further
+
+| PR | state | note |
+|---|---|---|
+| `livespec-dev-tooling` #1379 | open, CI running | the recovered `5asgvm` fix — **watch for merge, then close `livespec-dev-tooling-5asgvm`** |
+| `livespec-overseer` #799 | open, `DIRTY` (real conflict) | pre-existing, `resume-submit-integrity`'s handoff refresh — not this session's to resolve, its thread's own archival question is unresolved |
+
+Everything else this session opened is merged: `#851, #857, #858, #860, #861`
+(`livespec-overseer`), `#510` (`livespec-runtime`).
+
+### What a resuming session should do, in order
+
+1. Check `livespec-dev-tooling` PR #1379 — if merged, close
+   `livespec-dev-tooling-5asgvm` citing the merge commit; if it has real (not
+   flake) CI failures, they are a genuine regression to fix, not this session's
+   claim to stand behind unquestioned.
+2. `livespec-dev-tooling-f8cs` and `livespec-dev-tooling-bq5p` are ready to
+   dispatch whenever this track is unparked — both P1, both well-specified,
+   neither touches this repo directly.
+3. Goal 1 (`overseer-m4o33z`) still cannot be confirmed reaching a generated
+   charter until `f8cs` lands and a fresh session verifies the symptom is gone.
+4. `overseer-yqza` (the `tmp/overseer/` generalization) remains named and
+   deliberately not taken — still a separate, larger thread.
+5. Do not act on `livespec-dev-tooling-5u4rvy`'s stale 9.8-day `runnable` run —
+   named, not this thread's, not blocking anything of this thread's.
+
+**Nothing here requires urgent attention.** The chain that was live-blocking
+work (`ci-green` → `5asgvm`) is resolved either by merge or by a PR in flight.
+Everything else is scoped, filed, and waiting for the maintainer's own priority
+call — which is the parking instruction being honoured, not worked around.
