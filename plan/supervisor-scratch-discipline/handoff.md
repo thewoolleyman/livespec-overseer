@@ -469,6 +469,23 @@ That session's other findings: `q3emww`'s reopen-conditional in item 1 is
 RESOLVED (do not reopen), and `overseer-0xg7` was corrected and strengthened on
 the ledger. Nothing else was started, so nothing is half-done.
 
+**SUPERSEDED 2026-08-13 — THE BLOCKER IS CLEARED AND `5asgvm` IS DISPATCHED
+(run `01KZW7EEWN81`, confirmed `running`). Read item 2b, not 2a, for current
+state.** The chain ran end to end: `livespec-runtime` PR #510 merged →
+`check-fleet-conformance` green → dev-tooling `ci-green` green 65/65 → dispatch.
+Item 3 is also DONE (both credential defects filed), and two further P1s were
+filed — `livespec-dev-tooling-f8cs` (the sibling fix for `overseer-0xg7`, which
+is what blocks goal 1) and `livespec-dev-tooling-bq5p` (an unbaked `shellcheck`
+that reddened four repos in one evening).
+
+**THE ONE THING A RESUMING SESSION MUST NOT ASSUME: that `5asgvm` finished.**
+It was still running when this was written. Read the ledger and the forge, not
+this sentence — and before concluding anything from a run that looks failed or
+absent, check `git ls-remote origin 'refs/heads/feat/livespec-dev-tooling-5asgvm'`
+and the PR list. That single check is what separated a published PR from
+"destroyed work" earlier the same evening; see the sixth dispatch shape in
+`AGENTS.md`.
+
 Three items were FILED this session and are NOT part of goals 1–3; they are
 named here only so they are not rediscovered from scratch:
 
@@ -564,17 +581,62 @@ were deliberately not touched. **`git fetch` and compare against
    So the maintainer decision is no longer only "spend the tokens?" — it is
    "clear the `livespec-runtime` conformance violation first, or hold". Do NOT
    burn a dispatch attempt to discover the refusal.
-3. Consider filing the two credential defects surfaced above: (a) fabro should
-   refresh the installation token during long runs — the actual root cause;
-   (b) `master_ci_green` should treat a 401 as *invalid credential →
-   environmental*, distinct from a failed-while-credentialed API call. **Weigh
-   (b) carefully rather than filing it reflexively:** that check's present-but-
-   invalid hard-failure is a DELIBERATE design decision, documented in its own
-   docstring, taken to close a hole where an outage routed a credentialed
-   caller onto the fail-soft path. Narrowing it to 401-only is defensible, but
-   it is a design change with a real trade-off, not an obvious bug — and this
-   repo's charter-gate experience is that "the detector is wrong" is usually
-   the wrong first guess.
+
+   2b. **RESOLVED 2026-08-13 — THE WHOLE CHAIN IS CLEARED AND `5asgvm` IS
+   DISPATCHED.** Maintainer chose "fix runtime, then dispatch". Each link was
+   verified against the artifact, not assumed:
+
+   | link | evidence |
+   |---|---|
+   | `livespec-runtime-0u8` implemented | run `01KZVY3ZCV8F`, 6m09s, `pyproject.toml` +19/-11, three entries with individual reasons — not a bulk fill |
+   | PR #510 | **MERGED** 2026-08-12T22:22:30Z; `origin/master:pyproject.toml` carries all three declarations |
+   | the fleet row cleared | `check-fleet-conformance` **success** at dev-tooling `d084ad4` — mechanical proof, not inference |
+   | dev-tooling `ci-green` | **success**, 65/65 green at `d084ad4` |
+   | `5asgvm` | dispatched, run `01KZW7EEWN81`, confirmed **`running`** (not parked at `runnable`) |
+
+   The prediction in 2a — that re-running the checkout-killed job would not
+   restore green — was never tested as stated, because master moved on. It was
+   right about the mechanism: the real conformance violation was genuinely there
+   and had to be fixed before `ci-green` could go green.
+
+   **A SIXTH DISPATCH SHAPE WAS FOUND AND LANDED IN `AGENTS.md` (PR #857).**
+   Dispatching `0u8` produced TWO runs for one item; the second collided with the
+   FIRST'S OWN published branch and blocked on `human_input_required`. It is
+   symptom-identical to `interview-destroyed` while its remedy is the opposite —
+   the work was already an open PR. The one-command discriminator is
+   `git ls-remote origin 'refs/heads/<publish-branch>'`. **Root cause was mine:
+   killing `drive.py` on a 20-minute foreground timeout, then re-dispatching
+   because `fabro ps -a` showed nothing.** Do not kill `drive.py`; background it.
+3. **DONE 2026-08-13 — both filed, and (b) was filed as a design change, not a
+   bug, exactly as this item's warning demanded.** `bd-ib-huqm` (P1,
+   orchestrator) for the token-refresh root cause, carrying the refutation of the
+   "keep runs under an hour" rule so it is not re-derived. `livespec-dev-tooling-mqo5`
+   (P2) for the presence-vs-validity classification, opening with the counter-case,
+   the `li-4x3a45` wontfix, and "rejected with the reasoning recorded" as an
+   explicitly acceptable outcome.
+
+   Two further defects were filed the same evening, both P1 in
+   `livespec-dev-tooling`, and neither is part of goals 1–3:
+
+   - **`livespec-dev-tooling-f8cs`** — the sibling FIX for `overseer-0xg7`, which
+     is what blocks goal 1 end-to-end. Localised with a control:
+     `ensure_plugins.py` confirms provisioning via `registry_findings()`, and
+     `grep` for `installPath` over that module returns ZERO hits, as does a grep
+     over all 35 of its tests. It never verifies the artifact the record names.
+   - **`livespec-dev-tooling-bq5p`** — `shellcheck` is the one pinned tool the
+     sandbox images do NOT bake, so every CI job downloads it from GitHub
+     releases. One CDN wobble reddened `ci-green` in FOUR repos in one evening
+     (`livespec-runtime` 11 jobs, `livespec-dev-tooling` 5, `livespec-overseer`
+     4), each clearing on a plain re-run with no code change. Relevant to any
+     future red-master diagnosis here: an install-stage failure MASKS whatever the
+     check would have found, which is precisely how the real conformance
+     violation above stayed hidden behind a TLS checkout error.
+   The original wording of this item is deliberately not reproduced: it asked
+   whether to file (a) and (b) and warned at length against filing (b)
+   reflexively, because `master_ci_green`'s present-but-invalid hard failure is a
+   DELIBERATE design decision documented in its own docstring. That warning was
+   honoured rather than overridden — it is reproduced inside `mqo5` itself, at the
+   top, where the implementer cannot miss it.
 4. **A THIRD DEFECT WAS FOUND WHILE LANDING (1) AND IS ALREADY FILED:**
    `livespec-dev-tooling-ivd8`. `plan_thread_epic_parity` decides whether to
    examine a thread by regex-matching the handoff's anchor PROSE, and silently
