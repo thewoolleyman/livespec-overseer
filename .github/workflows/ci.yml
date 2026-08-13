@@ -50,6 +50,11 @@
 #
 # setup, export-telemetry and ci-green stay ubuntu-latest — the gate must stay
 # reportable host-down and the telemetry secret must never reach the runner.
+#
+# CI_RUNNER_LABELS was set to self-hosted (2026-08-13) as part of livespec
+# plan/fleet-ci-runner-pool's fleet-wide rollout (epic livespec-s43svm.1),
+# proving this repo's self-hosted routing on a real pull_request event before
+# folding into the standing self-hosted rotation.
 
 name: CI
 
