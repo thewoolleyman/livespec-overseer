@@ -21,7 +21,7 @@ someone checked (they did, once), and **appending a correction never touches the
 sentence that counts them.** Both `## Corrections` sections are append-only by
 design, so the number drifts on EVERY append, silently, forever. Nothing else in
 the tree reads it: the eleven-class charter gate keys on shell and tmux forms,
-and `test_plan_thread_records_agree.py` compares ledger anchors.
+and `test_plan_records_agree.py` compares ledger anchors.
 
 KEYED ON THE ENTRY, NOT ON THE MENTION, and that is load-bearing here. The
 protocol discusses its own corrections in running prose — `.ai/supervisor-protocol.md`
@@ -60,9 +60,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _thread_file(*, rel: str) -> Path:
-    """Resolve a plan-thread file at its LIVE or ARCHIVED location.
+    """Resolve a plan file at its LIVE or ARCHIVED location.
 
-    A thread moves to `plan/archive/<topic>/` when its epic closes, so a
+    A plan moves to `plan/archive/<topic>/` when its epic closes, so a
     hardcoded live path is guaranteed to become invalid. This gate must keep
     following the REAL artifact rather than a vendored copy: its whole purpose
     is to catch drift in live prose, and a fixture would make it vacuous.

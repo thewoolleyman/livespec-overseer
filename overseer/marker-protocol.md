@@ -1,7 +1,7 @@
 # Overseer wrap-up + state-declaration protocol
 
 This is the contract between the overseer **daemon** (`supervisor.py`, the top
-pane) and a **tracked session** (a Claude Code session running a plan thread in
+pane) and a **tracked session** (a Claude Code session running a plan in
 some repo). It defines the wrap-up message the daemon injects at a context
 threshold and the ONE **out-of-band state file** a tracked session writes to
 declare what it wants done with it. `supervisor.py`'s `wrapup_message()` (built

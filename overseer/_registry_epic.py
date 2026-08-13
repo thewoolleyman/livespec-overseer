@@ -1,4 +1,4 @@
-"""Read the plan-thread ledger epic anchor for assignment-time mapping rows."""
+"""Read the plan ledger epic anchor for assignment-time mapping rows."""
 
 from __future__ import annotations
 

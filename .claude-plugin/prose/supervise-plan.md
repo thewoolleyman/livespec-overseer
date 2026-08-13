@@ -136,14 +136,14 @@ ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid
 Both pids are resolved in THIS block rather than inherited from precondition 2,
 so the check is self-contained and cannot silently pass on an unset variable.
 
-4. The plan thread exists INSIDE the target repo. Resolve an ABSOLUTE path. A
+4. The plan exists INSIDE the target repo. Resolve an ABSOLUTE path. A
 containment check rooted at the bare `plan/` directory is cwd-relative, and it
 PASSES while pointed at the wrong repository — nothing in this skill establishes
 a working directory, so the repo path must be spelled out:
 
 ```bash
 test -d "<absolute-target-repo>/plan/<topic>" \
-  || { echo "HALT: missing plan thread <absolute-target-repo>/plan/<topic>"; echo "REMEDY: create or choose the correct plan topic before supervising"; exit 1; }
+  || { echo "HALT: missing plan <absolute-target-repo>/plan/<topic>"; echo "REMEDY: create or choose the correct plan topic before supervising"; exit 1; }
 ```
 
 5. The supervised pane's cwd resolves inside the target repo. `readlink -f`
@@ -435,7 +435,7 @@ commands themselves, not descriptions of them.
 
 Filed status is a claim with a timestamp. Before carrying forward any item
 state, dependency state, acceptance status, or "already discharged" claim from a
-handoff, marker, or plan thread, re-measure it from the ledger and state the
+handoff, marker, or plan, re-measure it from the ledger and state the
 measurement time. Emit this command with the thread's ledger anchor substituted:
 
 ```sh

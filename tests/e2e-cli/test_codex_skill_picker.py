@@ -27,7 +27,7 @@ non-empty string (which the Verifier accepts) makes THIS check go red, because t
 picker will not render a row for a skill that does not exist. That is the specific
 hazard `overseer-kju6wh` was filed against.
 
-WHAT IT DOES NOT PROVE, stated because this plan thread punishes unqualified live
+WHAT IT DOES NOT PROVE, stated because this plan punishes unqualified live
 claims: it proves the picker RENDERS the declared plugin/skill pair. It does not
 invoke the skill, so it is not evidence that codex RESOLVES the bare
 `livespec-overseer:overseer` at runtime the way `_command_surface_prompt`'s docstring
@@ -99,7 +99,7 @@ _HOST_CODEX_HOME = Path.home() / ".codex"
 # This slice's acceptance is "demonstrated RED by REMOVING THE SURFACE and showing
 # the check FAILS", and a green that cannot go red is not evidence. Removing the
 # surface from the HOST tree would prune a cache that live Codex sessions on this
-# host are using, which this plan thread forbids. So the demo points this at a
+# host are using, which this plan forbids. So the demo points this at a
 # scratch copy with `.codex-plugin/skills/<skill>/` deleted, and the check fails
 # there while the host tree is never touched. Without the seam the RED demo would
 # have to be run against a hand-built REPLICA of the assertion path, which proves
@@ -116,7 +116,7 @@ _PLUGINS_ROOT = Path(
 # SYMLINKED into the scratch home (below), so a declared marketplace makes codex
 # re-fetch and re-materialize `~/.codex/plugins/cache/livespec-overseer/...` —
 # observed as fresh inodes on two consecutive runs. That is precisely the prune this
-# plan thread warns breaks live Codex sessions on this host, and a check that fires
+# plan warns breaks live Codex sessions on this host, and a check that fires
 # on every `just check` must not do it.
 #
 # Mirroring the host's `last_updated`/`last_revision` state keys did NOT prevent it:
@@ -382,7 +382,7 @@ def _open_skills_list(
     typed before the list view exists, and the keystrokes land in the composer. The
     observed failure was a composer reading `lls@...overseer` with no rows rendered
     at all: a stale-substring match, the same "correct about its own inputs, wrong
-    about the world" shape this plan thread keeps hitting.
+    about the world" shape this plan keeps hitting.
 
     `@` reaches the SAME list in one step — the action menu's own tip says so
     ("Tip: press @ to open this list directly") — which removes the intermediate

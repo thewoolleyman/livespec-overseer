@@ -1,19 +1,19 @@
-"""A plan thread's two durable records must not disagree about its ledger anchor.
+"""A plan's two durable records must not disagree about its ledger anchor.
 
-`overseer-bak`, caught in this repo's own exemplar thread. A livespec plan thread
-keeps TWO durable records — `plan/<topic>/handoff.md`, the only file a restarted
+`overseer-bak`, caught in this repo's own exemplar plan. A livespec plan keeps
+TWO durable records — `plan/<topic>/handoff.md`, the only file a restarted
 session inherits, and `plan/<topic>/supervisor-handoff.md`, the charter a
 supervisor boots from. **Nothing in the fleet reads the charter at all.** Measured
 2026-07-31 against a passing positive control: searching all of
 `livespec_dev_tooling` for `supervisor-handoff` returns ZERO modules, while
-`plan_thread` returns three. The two plan-thread checks that do exist
-(`plan-thread-anchor-declared`, `plan-thread-epic-parity`) read `handoff.md` only.
+the legacy stamped check prefix returns three. The two stamped plan checks that
+do exist read `handoff.md` only.
 
-WHAT THIS CAUGHT, and it is not hypothetical. This thread's charter bound
+WHAT THIS CAUGHT, and it is not hypothetical. This plan's charter bound
 `ledger_anchor='overseer-d4t'` in its **Verification Discipline** block — the very
 block whose stated job is "re-measure the filed work item from the ledger before
 carrying forward any status or acceptance claim". `overseer-d4t` is a **closed
-bug** (closed 2026-07-30T19:34:35Z), and it is not an anchor this thread ever
+bug** (closed 2026-07-30T19:34:35Z), and it is not an anchor this plan ever
 declared: `handoff.md` declares the epics `overseer-byvxlp` and, for phase 2,
 `overseer-yho`. So the block designed to stop stale claims was itself pointed at a
 stale id, in the charter this repo holds up as its hardened exemplar, and the
@@ -23,10 +23,10 @@ tmux forms, and none of them reads across to the other record.
 SCOPE, stated rather than hidden. This is a STATIC, file-versus-file rule: it needs
 no ledger and no credential, so it runs in CI. It therefore cannot tell you the
 anchor is CLOSED — only that the two records disagree. Closed-ness is
-`plan-thread-epic-parity`'s job, and that check is armed-only and reads
+the stamped epic-parity check's job, and that check is armed-only and reads
 `handoff.md` alone. Only charters that DECLARE an anchor are checked; the
 pre-layered monolith charters in this repo declare none, and a rule that demanded
-one would be a unilateral requirement on other tracks' threads.
+one would be a unilateral requirement on other plans.
 """
 
 from __future__ import annotations
@@ -40,11 +40,30 @@ __all__: list[str] = []
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
+_RETIRED_VOCABULARY = (
+    "plan" + "-thread",
+    "plan" + "_thread",
+    "plan " + "thread",
+    "test_" + "plan" + "_thread" + "_records_agree",
+)
 
-def _thread_file(*, rel: str) -> Path:
-    """Resolve a plan-thread file at its LIVE or ARCHIVED location.
+_LIVE_VOCABULARY_CARRIERS = (
+    "AGENTS.md",
+    ".ai/supervisor-protocol.md",
+    ".claude-plugin/prose/supervise-plan.md",
+    "overseer/marker-protocol.md",
+    "overseer/_registry_epic.py",
+    "tests/e2e-cli/test_codex_skill_picker.py",
+    "tests/prompts/test_charters_carry_no_known_defects.py",
+    "tests/prompts/test_generated_supervisor_handoff_contract.py",
+    "tests/test_charter_correction_counts_are_current.py",
+)
 
-    A thread moves to `plan/archive/<topic>/` when its epic closes, so a
+
+def _plan_file(*, rel: str) -> Path:
+    """Resolve a plan file at its LIVE or ARCHIVED location.
+
+    A plan moves to `plan/archive/<topic>/` when its epic closes, so a
     hardcoded live path is guaranteed to become invalid. This gate must keep
     following the REAL artifact rather than a vendored copy: its whole purpose
     is to catch drift in live prose, and a fixture would make it vacuous.
@@ -57,12 +76,12 @@ def _thread_file(*, rel: str) -> Path:
     return sorted(_REPO_ROOT.glob(f"plan/**/{rel}"))[0]
 
 
-# Live AND archived threads. A thread moves to `plan/archive/<topic>/` when its
+# Live AND archived plans. A plan moves to `plan/archive/<topic>/` when its
 # epic closes, and an archived pair can still DISAGREE — a wrong record does not
-# become right by being archived. Scoping to live threads alone also made this
-# module vacuous the moment the only declaring thread archived, which is the
+# become right by being archived. Scoping to live plans alone also made this
+# module vacuous the moment the only declaring plan archived, which is the
 # failure its own anti-vacuous guard exists to catch.
-_THREADS = ("plan/*/", "plan/archive/*/")
+_PLAN_DIR_PATTERNS = ("plan/*/", "plan/archive/*/")
 
 # The binder states its anchor twice, and BOTH spellings are load-bearing: the
 # table is what a human reads, the assignment is what a supervisor executes. They
@@ -121,53 +140,51 @@ def _declared_anchors(*, text: str) -> list[str]:
     return _HANDOFF_DECLARES.findall(text)
 
 
-def _threads_with_a_charter_anchor(*, root: Path = _REPO_ROOT) -> list[tuple[str, str, list[str]]]:
-    """(topic, charter_anchor, anchors_declared_by_handoff) for checkable threads.
+def _plans_with_a_charter_anchor(*, root: Path = _REPO_ROOT) -> list[tuple[str, str, list[str]]]:
+    """(topic, charter_anchor, anchors_declared_by_handoff) for checkable plans.
 
     `root` exists so every arc below is reachable from a synthetic tree — the
     same reason `_anchor_from` was split out of this loop. Without it, which
-    arcs execute depends on which threads happen to be LIVE, and coverage
-    becomes a quantity over repo state: archiving the last live thread with
+    arcs execute depends on which plans happen to be LIVE, and coverage
+    becomes a quantity over repo state: archiving the last live plan with
     both files and no anchor made the no-anchor `continue` unreachable and
     turned master's coverage gates red at 99% with every test passing
     (2026-08-02, the codex-parity-and-rollout-safety archive, reverted).
     """
     out: list[tuple[str, str, list[str]]] = []
-    threads = sorted({d for pattern in _THREADS for d in root.glob(pattern)})
-    for thread in threads:
-        charter = thread / "supervisor-handoff.md"
-        handoff = thread / "handoff.md"
+    plans = sorted({d for pattern in _PLAN_DIR_PATTERNS for d in root.glob(pattern)})
+    for plan in plans:
+        charter = plan / "supervisor-handoff.md"
+        handoff = plan / "handoff.md"
         if not charter.is_file() or not handoff.is_file():
             continue
         table, executable, bullet = _charter_anchors(text=charter.read_text(encoding="utf-8"))
         if not table and not executable and not bullet:
             continue
-        anchor = _anchor_from(topic=thread.name, table=table, executable=executable, bullet=bullet)
-        out.append(
-            (thread.name, anchor, _declared_anchors(text=handoff.read_text(encoding="utf-8")))
-        )
+        anchor = _anchor_from(topic=plan.name, table=table, executable=executable, bullet=bullet)
+        out.append((plan.name, anchor, _declared_anchors(text=handoff.read_text(encoding="utf-8"))))
     return out
 
 
-def test_at_least_one_thread_declares_a_charter_anchor() -> None:
-    """A rule that skips every thread passes vacuously and proves nothing.
+def test_at_least_one_plan_declares_a_charter_anchor() -> None:
+    """A rule that skips every plan passes vacuously and proves nothing.
 
     Sabotage that reddens this: delete the `ledger_anchor` binding from every
     charter. Without this, that sabotage would look like a clean repo — which is
     the exact shape of the gap `overseer-bak` describes.
     """
-    assert _threads_with_a_charter_anchor() != []
+    assert _plans_with_a_charter_anchor() != []
 
 
 def test_the_charter_anchor_is_one_the_handoff_actually_declares() -> None:
     """THE GATE. A charter anchored to an id its handoff never declared fails here.
 
     Sabotage that reddens this: set `ledger_anchor` back to `overseer-d4t`, which
-    this thread's handoff declares nowhere.
+    this plan's handoff declares nowhere.
     """
     offences = {
         topic: (anchor, declared)
-        for topic, anchor, declared in _threads_with_a_charter_anchor()
+        for topic, anchor, declared in _plans_with_a_charter_anchor()
         if anchor not in declared
     }
     assert offences == {}
@@ -176,8 +193,8 @@ def test_the_charter_anchor_is_one_the_handoff_actually_declares() -> None:
 def test_the_charter_anchor_is_the_current_one_the_handoff_declares() -> None:
     """Membership alone would let a SUPERSEDED anchor pass.
 
-    A thread's current anchor is the most recently declared one — phase 2's epic
-    supersedes phase 1's, and this thread's handoff declares both in that order.
+    A plan's current anchor is the most recently declared one — phase 2's epic
+    supersedes phase 1's, and this plan's handoff declares both in that order.
     Without this, a charter left pointing at a delivered-and-closed phase-1 epic
     would satisfy the rule above forever.
 
@@ -186,7 +203,7 @@ def test_the_charter_anchor_is_the_current_one_the_handoff_declares() -> None:
     """
     stale = {
         topic: (anchor, declared[-1])
-        for topic, anchor, declared in _threads_with_a_charter_anchor()
+        for topic, anchor, declared in _plans_with_a_charter_anchor()
         if declared and anchor != declared[-1]
     }
     assert stale == {}
@@ -247,7 +264,7 @@ def test_documenting_the_defect_does_not_recreate_it() -> None:
     # And the live file still yields exactly the two anchors it declares — the
     # end-to-end form of the same claim, so a future edit to the handoff that
     # smuggles in a third cannot pass unnoticed.
-    handoff = _thread_file(rel="supervisor-prompt-quality/handoff.md")
+    handoff = _plan_file(rel="supervisor-prompt-quality/handoff.md")
     assert _declared_anchors(text=handoff.read_text(encoding="utf-8")) == [
         "overseer-byvxlp",
         "overseer-yho",
@@ -314,29 +331,29 @@ def test_a_charter_that_merely_mentions_an_anchor_declares_none() -> None:
 
 
 def test_every_scan_arc_is_reachable_on_a_synthetic_tree(*, tmp_path: Path) -> None:
-    """Which arcs of the thread scan execute must not depend on the LIVE plan/ set.
+    """Which arcs of the plan scan execute must not depend on the LIVE plan/ set.
 
     NOT hypothetical — measured 2026-08-02 on master. Archiving
-    `plan/codex-parity-and-rollout-safety/` (the LAST live thread carrying both
+    `plan/codex-parity-and-rollout-safety/` (the LAST live plan carrying both
     records while declaring no anchor) made the no-anchor `continue` in
-    `_threads_with_a_charter_anchor` unreachable: `check-coverage` and
+    `_plans_with_a_charter_anchor` unreachable: `check-coverage` and
     `check-per-file-coverage` went RED at 99% < 100 with all 804 tests PASSING,
     and only on master — the docs-only PR lane skips the suite jobs, so the
     branch was green. `fabro-review-classifier-defect`'s archive had stayed
     green purely because ours still covered the arc: musical chairs, not
     safety. This leg drives every arc from a synthetic tree so no `git mv` of a
-    plan thread can move this module's coverage again.
+    plan can move this module's coverage again.
 
     SCOPE, stated because the neighbouring rule is deliberately different:
-    `test_at_least_one_thread_declares_a_charter_anchor` still quantifies over
-    the LIVE set, and must — "at least one live thread declares an anchor" is a
-    real invariant that SHOULD fail when the last anchored thread archives.
+    `test_at_least_one_plan_declares_a_charter_anchor` still quantifies over
+    the LIVE set, and must — "at least one live plan declares an anchor" is a
+    real invariant that SHOULD fail when the last anchored plan archives.
     This leg makes coverage independent of repo state; it does not make that
     assertion tolerate an empty set.
 
     Sabotage that reddens this: drop the `root` parameter and glob `_REPO_ROOT`
     unconditionally — this leg then stops reaching the no-anchor arc the moment
-    no live thread exercises it, which is exactly the 2026-08-02 shape.
+    no live plan exercises it, which is exactly the 2026-08-02 shape.
     """
     plan = tmp_path / "plan"
     (plan / "only-handoff").mkdir(parents=True)
@@ -350,7 +367,7 @@ def test_every_scan_arc_is_reachable_on_a_synthetic_tree(*, tmp_path: Path) -> N
         "a pre-layered monolith charter: prose, tmux forms, no anchor declared\n",
         encoding="utf-8",
     )
-    (plan / "no-anchor" / "handoff.md").write_text("thread prose only\n", encoding="utf-8")
+    (plan / "no-anchor" / "handoff.md").write_text("plan prose only\n", encoding="utf-8")
     (plan / "anchored").mkdir()
     (plan / "anchored" / "supervisor-handoff.md").write_text(
         "| `ledger_anchor` | `overseer-zz1` |\n\nledger_anchor='overseer-zz1'\n",
@@ -360,6 +377,17 @@ def test_every_scan_arc_is_reachable_on_a_synthetic_tree(*, tmp_path: Path) -> N
         "**Ledger anchor:** epic `overseer-zz1`.\n", encoding="utf-8"
     )
 
-    assert _threads_with_a_charter_anchor(root=tmp_path) == [
+    assert _plans_with_a_charter_anchor(root=tmp_path) == [
         ("anchored", "overseer-zz1", ["overseer-zz1"])
     ]
+
+
+def test_retired_plan_vocabulary_is_gone_from_live_carriers() -> None:
+    """The residual rename sweep must cover live prose and owned tests."""
+    offenders: dict[str, list[str]] = {}
+    for rel in _LIVE_VOCABULARY_CARRIERS:
+        text = (_REPO_ROOT / rel).read_text(encoding="utf-8")
+        hits = [token for token in _RETIRED_VOCABULARY if token in text]
+        if hits:
+            offenders[rel] = hits
+    assert offenders == {}
