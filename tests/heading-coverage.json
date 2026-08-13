@@ -380,9 +380,16 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: The supervision-artifact existence probe is liveness-gated and existence-only",
-    "test": "tests.integration.test_discovery_and_relay.test_scenario_the_supervision_probe_is_liveness_gated_and_existence_only",
-    "reason": "Integration-tier: the two NEGATIVE clauses are asserted by instrumenting `pathlib.Path` \u2014 `open`/`read_text`/`read_bytes` raise for that one basename \u2014 because 'did not read a file' leaves no trace in a result, so a read fails hard at the moment it happens. `exists` is recorded UNFILTERED, so an empty log cannot be mistaken for a skipped probe: the assertion is that the handoff file is ABSENT from a log still showing other file work. The liveness gate is exercised by DIFFERENCE on the same repo and file \u2014 the live-session pass must probe it and the dead-session pass must not. Asserting only the absence would pass against a daemon that never probes at all, a different bug wearing the same green tick. SABOTAGE-VERIFIED 2026-07-26: making the probe `read_text()` trips the patched reader; probing from `_no_managed_pane_row` reddens the dead-session assertion."
+    "heading": "## Scenario: Discovery performs no file-level probe inside a plan directory",
+    "test": "TODO",
+    "reason": "Re-pointed by the Planning Lane realization. The previously bound integration-tier test asserts the probe HAPPENS on the live-session pass (`assert _HANDOFF in live_probes`), which is the exact opposite of what this scenario now asserts, so the binding cannot be carried forward. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through work-item `overseer-pfpfty.7`."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A respawn prompt names the plan epic and repository so a cold-open session can resolve it",
+    "test": "TODO",
+    "reason": "Added by the Planning Lane realization to pin the respawn prompt's concrete locator and the refusal that protects it. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through work-item `overseer-pfpfty.7`."
   },
   {
     "spec_root": "SPECIFICATION",
