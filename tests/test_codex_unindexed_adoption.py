@@ -135,6 +135,10 @@ def test_indexed_rollout_fd_makes_track_codex_and_routes_ready_restart(tmp_path)
         session_identity=f"codex:{ID_A}",
         stamp_path=sup.stamp_path,
     )
+    registry.append_mapping(
+        track=registry.Track(topic=topic, repo=str(repo), tmux=session, epic="overseer-test-epic"),
+        store_path=sup.store_path,
+    )
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
     views = sup.tick(act=True)

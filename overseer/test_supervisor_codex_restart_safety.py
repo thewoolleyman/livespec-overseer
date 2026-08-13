@@ -141,6 +141,28 @@ def test_a_codex_restart_keeps_the_ready_marker_when_the_pane_never_becomes_code
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
+def test_a_codex_restart_without_recorded_epic_alerts_and_keeps_ready_marker(*, tmp_path):
+    """A Codex `ready` with no ledger epic is refused before respawn, preserving retry state."""
+    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+    target = fake.pane_id(session=session)
+    track = registry.Track(
+        topic=topic,
+        repo=str(repo),
+        tmux=session,
+        handoff=supervisor.default_handoff(repo=str(repo), topic=topic),
+        resume=supervisor.default_resume(repo=str(repo), topic=topic),
+        epic=None,
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        sup._do_codex_restart(track=track, target=target)
+
+    assert not fake.has(method="respawn")
+    assert signals.read_state(repo=str(repo), topic=topic) is not None
+    assert "no plan epic recorded" in err.getvalue()
+
+
 def test_a_codex_ready_restart_never_issues_the_claude_command(*, tmp_path):
     """THE sabotage-target guard: no respawn for a Codex `ready` track may carry the claude
     launch command. Aimed at a codex pane, `claude --dangerously-skip-permissions -n <topic>`

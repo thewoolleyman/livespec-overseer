@@ -80,7 +80,10 @@ def test_restart_fires_only_on_a_declared_ready(*, tmp_path):
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "restarting"
     assert fake.has(method="respawn")
-    assert supervisor.default_resume(repo=str(repo), topic=topic) in fake.paste_texts()
+    resume = fake.paste_texts()[0]
+    assert str(repo) in resume
+    assert "overseer-test-epic" in resume
+    assert supervisor.default_handoff(repo=str(repo), topic=topic) not in resume
     assert not state.exists()  # round closed
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
@@ -150,6 +153,36 @@ def test_blocked_declaration_is_surfaced_and_never_restarted(*, tmp_path):
     assert view.status == "blocked:human"
     assert view.note == "0m: waiting on the schema call"
     assert not fake.has(method="paste")
+    assert not fake.has(method="respawn")
+
+
+def test_missing_epic_ready_is_surfaced_without_acting_on_read_only_evaluation(*, tmp_path):
+    """The missing-epic guard classifies read-only views without alert side effects."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=30))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    registry.write_injection_stamp(
+        repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
+    )
+    declare(repo=repo, topic=topic, value="ready", mtime=1001.0)
+    track = registry.Track(
+        topic=topic,
+        repo=str(repo),
+        tmux=session,
+        handoff=supervisor.default_handoff(repo=str(repo), topic=topic),
+        resume=supervisor.default_resume(repo=str(repo), topic=topic),
+        epic=None,
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view = sup.evaluate(track=track, act=False)
+
+    assert view.status == "blocked:human"
+    assert view.note == "ready cannot respawn: no plan epic recorded"
+    assert err.getvalue() == ""
     assert not fake.has(method="respawn")
 
 

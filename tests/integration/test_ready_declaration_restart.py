@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import contextlib
 import io as _io
+from dataclasses import replace
 
 from overseer import _supervisor_config, registry, signals, supervisor
 from overseer.test_supervisor_builders import (
@@ -114,9 +115,9 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(*, tmp_p
 
     Given a warned session that wrote `ready` AFTER this round's injection stamp, and an
     idle, settled, positively-identified pane. Then the pane's process is replaced in ONE
-    atomic operation, the fresh session is handed exactly one prompt pointing at the
-    track's handoff, and both the state file and the round's stamp are deleted so the
-    declaration cannot re-trigger.
+    atomic operation, the fresh session is handed exactly one prompt naming the track's
+    repository and plan epic, and both the state file and the round's stamp are deleted so
+    the declaration cannot re-trigger.
 
     "Atomic" is asserted as the ABSENCE of the alternatives as much as the presence of the
     respawn: no `new-session`, and no `send-keys` carrying an `/exit` — the `❯` glyph is
@@ -150,8 +151,9 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(*, tmp_p
 
     pastes = fake.paste_texts()
     assert len(pastes) == 2  # the wrap-up that opened the round, then ONE resume prompt
-    assert pastes[1] == supervisor.default_resume(repo=str(repo), topic=topic)
-    assert supervisor.default_handoff(repo=str(repo), topic=topic) in pastes[1]
+    assert str(repo) in pastes[1]
+    assert "overseer-test-epic" in pastes[1]
+    assert supervisor.default_handoff(repo=str(repo), topic=topic) not in pastes[1]
 
     assert not signals.state_path(repo=str(repo), topic=topic).exists()
     assert (
@@ -161,6 +163,58 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(*, tmp_p
 
     sup.evaluate(track=track, act=True)  # the consumed declaration must not fire again
     assert len(_respawns(fake=fake)) == 1
+
+
+def test_scenario_a_respawn_prompt_names_the_plan_epic_and_repository(*, tmp_path):
+    """Scenario: A respawn prompt names the plan epic and repository so a cold-open session
+    can resolve it.
+
+    Given a track whose mapping row records the plan's ledger epic id, the daemon
+    respawns after a fresh `ready` declaration and pastes exactly one resume prompt naming
+    the repository path and the epic id literally. A sibling track with no recorded epic id
+    is surfaced as needing attention, preserves its declaration, and is never respawned.
+
+    The test deliberately gives the mapped row a stale path-shaped `resume` string. That
+    proves the restart prompt comes from the ledger-held plan locator, not from a
+    previously serialized handoff path that a cold-open successor may no longer be able to
+    resolve.
+    """
+    epic = "overseer-pfpfty"
+    repo, topic, _session, fake, sup, track = _open_round(tmp_path=tmp_path)
+    legacy_resume = supervisor.default_resume(repo=str(repo), topic=topic)
+    track = replace(track, epic=epic, resume=legacy_resume)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
+
+    view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "restarting"
+    assert len(_respawns(fake=fake)) == 1
+    resume = fake.paste_texts()[1]
+    assert str(repo) in resume
+    assert epic in resume
+    assert legacy_resume not in resume
+    assert not signals.state_path(repo=str(repo), topic=topic).exists()
+
+    missing_repo, missing_topic, _missing_session, missing_fake, missing_sup, missing_track = (
+        _open_round(tmp_path=tmp_path, topic="missing-epic")
+    )
+    missing_track = replace(missing_track, epic=None, resume=legacy_resume)
+    missing_marker = declare(
+        repo=missing_repo,
+        topic=missing_topic,
+        value=signals.STATE_READY,
+        mtime=1001.0,
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        missing_view = missing_sup.evaluate(track=missing_track, act=True)
+
+    assert missing_view.status == "blocked:human"
+    assert "ready cannot respawn: no plan epic recorded" in missing_view.note
+    assert not missing_fake.has(method="respawn")
+    assert missing_marker.exists()
+    assert "no plan epic recorded" in err.getvalue()
 
 
 def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(*, tmp_path):
