@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.36.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.35.0...v0.36.0) (2026-08-13)
+
+
+### Features
+
+* **prose:** supervise-plan publishes the binder as ledger entries ([fd560a5](https://github.com/thewoolleyman/livespec-overseer/commit/fd560a52e02879f930ea3ae259ef623039dc2f1a))
+* repoint the read-first chain to ledger-held plan state ([173697d](https://github.com/thewoolleyman/livespec-overseer/commit/173697dd52670b4d6cff36a555078ed989af5b8a))
+* require epic based restart prompts ([c237697](https://github.com/thewoolleyman/livespec-overseer/commit/c23769799b477a8e84980757f30049e3d6c5dfd7))
+
+
+### Bug Fixes
+
+* **plan:** clear the resume-submit-integrity tombstone reddening master ([8f58049](https://github.com/thewoolleyman/livespec-overseer/commit/8f580499fcd33c8fee6384ba0e567aa4e9ef6d61))
+
 ## [0.35.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.34.5...v0.35.0) (2026-08-13)
 
 
