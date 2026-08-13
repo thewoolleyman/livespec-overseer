@@ -248,7 +248,7 @@ def test_wrapup_message_says_only_the_session_authorizes_the_restart():
 
 def test_wrapup_message_tells_the_session_to_append_its_resume_state_to_the_ledger():
     """Writing the resume state down locally is NOT saving it
-    (plan/archive/plan-thread-integrity/, W4).
+    (the retired plan-integrity archive, W4).
 
     The wrap-up used to say only "UPDATE {handoff}", and the word "commit" appeared
     nowhere in this file — the "persisted is durable" conflation, sitting in the one
