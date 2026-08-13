@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.36.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.36.2...v0.36.3) (2026-08-13)
+
+
+### Bug Fixes
+
+* **overseer:** restart ready Codex sessions through wrappers ([01ad9da](https://github.com/thewoolleyman/livespec-overseer/commit/01ad9dab570623fe12411507b8b2b586c68a9286))
+
 ## [0.36.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.36.1...v0.36.2) (2026-08-13)
 
 
