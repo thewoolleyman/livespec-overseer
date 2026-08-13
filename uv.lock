@@ -182,7 +182,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "livespec-runtime", git = "https://github.com/thewoolleyman/livespec-runtime.git?tag=v0.18.0" }]
+requires-dist = [{ name = "livespec-runtime", git = "https://github.com/thewoolleyman/livespec-runtime.git?tag=v0.18.1" }]
 
 [package.metadata.requires-dev]
 dev = [
@@ -197,8 +197,8 @@ dev = [
 
 [[package]]
 name = "livespec-runtime"
-version = "0.18.0"
-source = { git = "https://github.com/thewoolleyman/livespec-runtime.git?tag=v0.18.0#c50c0ee82d2048af1e6e873c38f04ebbdc84f13c" }
+version = "0.18.1"
+source = { git = "https://github.com/thewoolleyman/livespec-runtime.git?tag=v0.18.1#5a46f0a03def7ce3edf9ad33121fa447cf69d837" }
 dependencies = [
     { name = "returns", version = "0.26.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "returns", version = "0.29.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
