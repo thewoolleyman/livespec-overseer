@@ -83,6 +83,32 @@ overstating scope.**
 | two dead runs' patches recovered from `fabro dump` | yes | "the work is always recoverable" | wrong — a run whose commit failed has no `diff.patch` |
 | a 401 killed a long run at +81 min | yes | "the token dies at 60 min; keep runs under an hour" | wrong — refuted by a janitor verifying at +73.9 min |
 | `livespec-overseer`'s current plugin build is empty | yes | "2 of 3 plugin builds are empty" | wrong — one is |
+| a stale run sat `runnable` for 9.8 days | yes | "it head-of-line blocked my dispatch" | wrong — `max_concurrent_runs = 10`, one run queued |
+| the recovered handoff prose names PRs #796/#799 | yes | "so the prose is stale" | wrong — both PRs are still open, exactly as it says |
+
+**The 2026-08-13 session added two more, and they are the same error in a new
+costume — which is why the tally keeps growing.** Neither was a COUNT this time,
+so anyone reading the traps below as "be careful with numbers" has read them too
+narrowly. Both were CAUSAL or STATUS claims asserted from a single observation
+without the one cheap check that would have settled them:
+
+- **"The queue was blocked."** One stale `runnable` run was observed and promoted
+  straight to the cause of a 20-minute dispatcher hang. `~/.fabro/settings.toml`
+  says `max_concurrent_runs = 10` and exactly one run was queued, so saturation
+  was impossible. The observation was real; the causal story was invented. The
+  hang's true cause remains UNMEASURED, and saying so is the correct end state —
+  a named wrong cause is worse than an admitted unknown, because the next reader
+  acts on it.
+- **"That prose is stale."** Recovered uncommitted prose mentioned two PRs by
+  number, and the mention alone was treated as evidence of age — then written
+  into a ledger note as the REASON not to land it. Reading the PRs took one
+  command and refuted it: both are still open with auto-merge armed, precisely as
+  the prose said. One of them had been held ~23 hours by the unbaked-shellcheck
+  defect, so the prose was not merely current, it was describing a live problem
+  nobody was watching.
+
+The rule the two share: **an inference ABOUT a record is not a measurement OF the
+thing the record describes.** Read the referent.
 
 Three specific traps, all of which produced a confident wrong number:
 
