@@ -70,7 +70,12 @@ def blocked_human(*, request: BlockedRequest) -> BlockedDecision:
         note = _supervisor_liveness.append_note(note=note, extra=blocked_attention.note)
 
     if request.act:
-        ready = _supervisor_state.void_if_stale(sup=request.sup, track=request.track, ready=ready)
+        # A structured gate (like a background shell) is not evidence that a
+        # session resumed work after declaring ready.  Keep the declaration for
+        # the next genuinely idle, settled tick instead of consuming it here.
+        ready = _supervisor_state.void_if_stale(
+            sup=request.sup, track=request.track, ready=ready, resumed_work=False
+        )
         # A gate / block is also "non-idle" — drop a stale nudge marker (safe: the
         # helper re-reads and leaves a session-written `blocked` untouched).
         _supervisor_nudge.clear_idle_nudge_state(sup=request.sup, track=request.track)

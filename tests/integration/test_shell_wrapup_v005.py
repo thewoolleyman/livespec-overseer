@@ -8,6 +8,7 @@ import pytest
 
 from overseer import codex_sessions, registry, signals
 from overseer.test_supervisor_builders import (
+    adopt_codex_ready,
     arm_ready_marker,
     busy_capture,
     codex_busy_capture,
@@ -31,8 +32,8 @@ def _isolate_cwd(*, tmp_path, monkeypatch):
 
 def _codex_shell_sup(*, tmp_path, fake, repo, topic, session):
     fake.pane_pid_map[session] = 100
-    children = {100: [200]}
-    comms = {200: "bash"}
+    children = {100: [200], 200: [300], 300: [400], 400: [500]}
+    comms = {200: "bash", 300: "op", 400: "sh", 500: "node"}
     sup = make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
@@ -102,6 +103,34 @@ def test_codex_descendant_shell_allows_structural_guarded_low_context_wrapup(*, 
     assert wrapup_count(fake=fake) == 1
     assert fake.has(method="keys")
     assert not fake.has(method="respawn")
+
+
+def test_codex_shell_only_evidence_does_not_withhold_or_void_a_certified_ready(*, tmp_path):
+    """A settled Codex prompt may restart on its own ready despite MCP shell plumbing.
+
+    The shell fallback is deliberately conservative for wind-down injection, but it
+    is not evidence that this already-idle session resumed work.  Before idxe's
+    fix it kept this row `working`, silently withheld the restart, and eventually
+    sent the ready declaration through the stale-marker void path.
+    """
+    repo, topic, session, session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+    fake.pane_pid_map[session] = 100
+    children = {100: [200], 200: [300], 300: [400], 400: [500]}
+    comms = {200: "bash", 300: "op", 400: "sh", 500: "node"}
+    sup.children_of = lambda *, pid: children.get(pid, [])
+    sup.comm_of = lambda *, pid: comms.get(pid)
+    sup.cmdline_of = lambda *, pid: (
+        b"bash\x00/usr/local/bin/with-livespec-env.sh\x00bash\x00-lc\x00" if pid == 200 else None
+    )
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "restarting"
+    respawns = [call for call in fake.calls if call[0] == "respawn"]
+    assert len(respawns) == 1
+    assert "codex resume" in respawns[0][3]
+    assert session_id in respawns[0][3]
+    assert signals.read_state(repo=str(repo), topic=topic) is None
 
 
 @pytest.mark.parametrize(

@@ -53,15 +53,17 @@ def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
 
 
-def void_if_stale(*, sup: Supervisor, track: registry.Track, ready: bool) -> bool:
-    """Void a stale ``ready`` declaration on a busy tick ONLY if past the grace.
+def void_if_stale(
+    *, sup: Supervisor, track: registry.Track, ready: bool, resumed_work: bool = True
+) -> bool:
+    """Void a stale ``ready`` only when actual resumed work is observed.
 
     Returns the (possibly cleared) ``ready`` flag. A declaration younger than
     ``MARKER_VOID_GRACE`` is the declaring turn's own busy tail and is LEFT
     intact (RB1); an older one means the session resumed work after declaring
     ready, so its (now false) declaration is voided.
     """
-    if not ready:
+    if not ready or not resumed_work:
         return ready
     state = signals.read_state(repo=track.repo, topic=track.topic)
     if state is None:
