@@ -455,6 +455,57 @@ other left its work unpushed and must be RECOVERED — `fabro dump`, not redone.
 `fabro ps -a` separates them — `succeeded` versus `failed` — and the forge
 confirms it.
 
+### A SIXTH SHAPE: TWO runs for ONE item, the second colliding with the FIRST'S OWN published branch
+
+Measured 2026-08-13 on `livespec-runtime-0u8`. **This one mimics
+"interview-destroyed" — `blocked`, a human question, nothing obviously landed —
+while its correct remedy is the exact opposite: do NOTHING to the work, because
+the work is already published.**
+
+The second run redid the implementation, then failed at its `pr` stage:
+
+    push blocked: pre-push hook passed, but origin already has
+    refs/heads/feat/<item> with commits not present locally; per instructions i
+    did not overwrite or retry on this non-workflow-permission rejection.
+    human decision needed
+
+The remote branch was its **own sibling's output**. The agent refused to
+force-overwrite and escalated to `blocked(human_input_required)`. That refusal is
+CORRECT behavior and must never be "fixed" by teaching agents to force-push.
+
+**THE DISCRIMINATOR IS ONE COMMAND, AND IT IS CHEAPER THAN EVERY OTHER CHECK IN
+THIS SECTION — RUN IT FIRST:**
+
+    git ls-remote origin 'refs/heads/<publish-branch>'
+    gh pr list --head <publish-branch> --state all
+
+A live publish branch, or an open PR, means the work EXISTS. Releasing the claim
+and re-dispatching on the "interview-destroyed" reading would have re-run work
+that was already open as a PR and auto-merging.
+
+Remedy: confirm the PR, `fabro dump` the blocked run and DIFF its patch against
+what is published (here they were substantively identical — two words of
+reason-string wording), then `fabro rm <run> --force`. Plain `rm` refuses a
+blocked run and tells you to pass `--force`.
+
+**HOW TWO RUNS HAPPEN, and the correction it forces on the rule above.** The
+first dispatch was killed by the CALLER's own timeout; `fabro ps -a` immediately
+afterwards showed NO run for the item, so a second dispatch was issued. A run
+existed anyway. So "`ACTIVE` is never evidence of a run, `fabro ps` is" needs its
+final turn: **after you kill a dispatcher, absence from `fabro ps -a` is not
+evidence that no run exists or will exist.** Do not re-dispatch on that basis —
+check the publish branch and the forge first.
+
+**Do not kill `drive.py` on a timeout.** Run it with `run_in_background: true`
+and wait for the notification. A 20-minute foreground timeout produced both the
+phantom claim and the collision above.
+
+| | double-brace | queue eviction | anchor-as-dep | succeeded-untransitioned | interview-destroyed | **publish-branch collision** |
+|---|---|---|---|---|---|---|
+| `fabro ps -a` | never lists it | absent | never lists it | `succeeded` | `failed` | **one `succeeded` + one `blocked`** |
+| work landed | no | no | no | yes | no | **YES — PR open** |
+| remedy | fix the defect | release + re-dispatch | unset the dep | close it | dump + land | **close the duplicate; touch nothing else** |
+
 ### A LEDGER-EDIT item can never be factory-dispatched
 
 Measured 2026-08-04. If an item's deliverable is a beads mutation rather than a repo
