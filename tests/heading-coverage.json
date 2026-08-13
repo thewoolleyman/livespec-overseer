@@ -463,6 +463,55 @@
   },
   {
     "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## Supervisor completion gate",
+    "test": "TODO",
+    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with the Driver-owned completion-gate integration test through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An open supervisor obligation or malformed marker refuses completion",
+    "test": "TODO",
+    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier completion-gate refusal test through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A stale producer or prose-only wake claim refuses completion",
+    "test": "TODO",
+    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier wake-producer refusal test through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An explicit plan-complete disposition may end an active supervisor turn",
+    "test": "TODO",
+    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier plan-complete acceptance test through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Exactly one genuine maintainer block may end an active supervisor turn",
+    "test": "TODO",
+    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier maintainer-block acceptance test through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A verified wake producer cold-opens from fresh state",
+    "test": "TODO",
+    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier external re-entry test through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: User messages are additive during active supervision",
+    "test": "TODO",
+    "reason": "Added by the make-supervisors-reliable ratification. Replace TODO with an integration-tier additive-message control test through the implementing slice's governed heading-coverage co-edit."
+  },
+  {
+    "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A collision-derived worker name ending in foreman is refused",
     "test": "TODO",
