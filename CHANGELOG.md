@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.3...v0.37.4) (2026-08-14)
+
+
+### Bug Fixes
+
+* accept migrated supervisor restart shape ([276e509](https://github.com/thewoolleyman/livespec-overseer/commit/276e50968623c2cc52d1861fe9b95a1c541ef721))
+
 ## [0.37.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.2...v0.37.3) (2026-08-14)
 
 
