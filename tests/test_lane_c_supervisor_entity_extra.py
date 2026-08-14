@@ -217,7 +217,7 @@ def test_supervisor_entity_idle_does_not_offer_supervisor_of_supervisor(*, tmp_p
     assert f"{entity_topic}-supervisor" not in err.getvalue()
 
 
-def test_supervisor_entity_idle_nudge_points_at_supervisor_handoff(*, tmp_path):
+def test_supervisor_entity_idle_nudge_points_at_dual_plan_shape(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     entity_topic = f"{topic}-supervisor"
     fake = FakeTmux()
@@ -228,7 +228,10 @@ def test_supervisor_entity_idle_nudge_points_at_supervisor_handoff(*, tmp_path):
         topic=entity_topic,
         repo=str(repo),
         tmux=entity_topic,
-        resume=_supervisor_prompts.supervisor_resume(repo=str(repo), topic=topic),
+        epic="overseer-test-epic",
+        resume=_supervisor_prompts.supervisor_resume(
+            repo=str(repo), topic=topic, epic="overseer-test-epic"
+        ),
     )
 
     assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
@@ -237,6 +240,9 @@ def test_supervisor_entity_idle_nudge_points_at_supervisor_handoff(*, tmp_path):
 
     assert view.status == "idle-with-context-left"
     pasted = "\n".join(fake.paste_texts())
-    assert f"plan/{topic}/supervisor-handoff.md" in pasted
+    assert ".ai/supervisor-protocol.md" in pasted
+    assert "supervisor handoff entries" in pasted
+    assert "overseer-test-epic" in pasted
     assert f"tmp/overseer/{entity_topic}/.overseer-state" in pasted
+    assert "handoff.md" not in pasted
     assert f"plan/{entity_topic}/handoff.md" not in pasted
