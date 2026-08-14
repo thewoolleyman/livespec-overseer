@@ -49,6 +49,71 @@ def test_supervisor_ready_restarts_supervisor_entity_not_worker(*, tmp_path, mon
     assert signals.read_state(repo=str(repo), topic=f"{topic}-supervisor") is None
 
 
+def test_migrated_supervisor_ready_restarts_from_ledger_epic_shape(*, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    (repo / "plan" / topic / "epic.md").write_text(
+        "# Plan Epic\n\n"
+        "Ledger epic: `overseer-test-epic`\n\n"
+        "The supervisor binder is read from attributed ledger comments.\n"
+    )
+    supervisor_session = f"{topic}-supervisor"
+    fake = FakeTmux()
+    fake.serve(session=topic, repo=repo, capture=idle_capture(ctx=80))
+    fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=80))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=topic),
+        store_path=sup.store_path,
+        added_at="now",
+    )
+    registry.write_injection_stamp(
+        repo=str(repo), topic=f"{topic}-supervisor", ts=900.0, stamp_path=sup.stamp_path
+    )
+    arm_ready_marker(repo=repo, topic=f"{topic}-supervisor")
+
+    sup.tick(act=True)
+
+    respawns = [call for call in fake.calls if call[0] == "respawn"]
+    assert len(respawns) == 1
+    assert respawns[0][1] == supervisor_session
+    resume = fake.paste_texts()[0]
+    assert str(repo) in resume
+    assert "overseer-test-epic" in resume
+    assert f"{topic}-supervisor" in resume
+    assert "supervisor-handoff.md" not in resume
+    assert signals.read_state(repo=str(repo), topic=f"{topic}-supervisor") is None
+
+
+def test_migrated_supervisor_ready_without_recorded_epic_still_refuses(*, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    (repo / "plan" / topic / "epic.md").write_text(
+        "# Plan Epic\n\n"
+        "Ledger epic: `overseer-test-epic`\n\n"
+        "The supervisor binder is read from attributed ledger comments.\n"
+    )
+    supervisor_session = f"{topic}-supervisor"
+    fake = FakeTmux()
+    fake.serve(session=topic, repo=repo, capture=idle_capture(ctx=80))
+    fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=80))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
+    registry.append_mapping(
+        track=registry.Track(topic=topic, repo=str(repo), tmux=topic, epic=None),
+        store_path=sup.store_path,
+        added_at="now",
+    )
+    registry.write_injection_stamp(
+        repo=str(repo), topic=f"{topic}-supervisor", ts=900.0, stamp_path=sup.stamp_path
+    )
+    arm_ready_marker(repo=repo, topic=f"{topic}-supervisor")
+
+    sup.tick(act=True)
+
+    assert [call for call in fake.calls if call[0] == "respawn"] == []
+    assert signals.read_state(repo=str(repo), topic=f"{topic}-supervisor").token == "ready"
+
+
 def test_symlinked_state_file_is_refused(*, tmp_path):
     repo = tmp_path / "repo"
     topic = "topic"

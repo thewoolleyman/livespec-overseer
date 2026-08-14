@@ -20,6 +20,7 @@ from _supervisor_codex_restart import do_codex_restart
 from _supervisor_config import track_key
 from _supervisor_prompts import (
     resume_for_track,
+    supervisor_epic_path,
     supervisor_handoff_path,
     supervisor_wrapup_message,
     wrapup_message,
@@ -51,6 +52,30 @@ def resume_prompt(*, track: registry.Track) -> str | None:
     definition with the restart rather than each carrying their own.
     """
     return resume_for_track(track=track)
+
+
+def _migrated_supervisor_epic_certifies(*, track: registry.Track) -> bool:
+    """Return whether the retired-file shape is replaced by a ledger-bound binder."""
+    path = supervisor_epic_path(
+        repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
+    )
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return False
+    lowered = text.lower()
+    names_epic = track.epic is not None and track.epic in text
+    names_ledger = "ledger" in lowered
+    names_binder_medium = "comment" in lowered or "entry" in lowered
+    return names_epic and names_ledger and names_binder_medium
+
+
+def _supervisor_resume_artifact_certifies(*, track: registry.Track) -> bool:
+    """Accept either the legacy file artifact or the migrated ledger-backed shape."""
+    topic = signals.supervisor_topic(entity_topic=track.topic)
+    if supervisor_handoff_path(repo=track.repo, topic=topic).exists():
+        return True
+    return _migrated_supervisor_epic_certifies(track=track)
 
 
 def maybe_inject(
@@ -179,12 +204,9 @@ def do_restart(
     also pops the in-memory inject state (RB2), so the redundant explicit pop is
     belt-and-suspenders.
     """
-    if (
-        signals.topic_reserved_for_supervisor(topic=track.topic)
-        and not supervisor_handoff_path(
-            repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
-        ).exists()
-    ):
+    if signals.topic_reserved_for_supervisor(
+        topic=track.topic
+    ) and not _supervisor_resume_artifact_certifies(track=track):
         sup.alert(
             repo=track.repo,
             topic=track.topic,
