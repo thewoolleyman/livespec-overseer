@@ -86,9 +86,8 @@ def maybe_inject(
     due = [b for b in bands if eff_ctx <= b and b not in notified]
     if not due:
         return
-    opened_now = (
-        registry.read_injection_stamp(repo=repo, topic=topic, stamp_path=sup.stamp_path) is None
-    )
+    round_record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
+    opened_now = round_record.at is None or round_record.malformed_reason is not None
     if opened_now:
         # Stamp BEFORE the paste (design) so a marker the session writes has
         # mtime > at. Only on opening — a re-warn preserves the round's at.
