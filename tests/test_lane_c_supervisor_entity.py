@@ -1,13 +1,17 @@
 """RGR Red tests for Lane C supervisor entities."""
 
+import contextlib
+import io as _io
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "overseer"))
 
+import _supervisor_offer
 import registry
 import signals
 from test_supervisor_builders import (
+    TEST_EPIC,
     arm_ready_marker,
     idle_capture,
     make_plan,
@@ -112,6 +116,28 @@ def test_migrated_supervisor_ready_without_recorded_epic_still_refuses(*, tmp_pa
 
     assert [call for call in fake.calls if call[0] == "respawn"] == []
     assert signals.read_state(repo=str(repo), topic=f"{topic}-supervisor").token == "ready"
+
+
+def test_migrated_epic_and_running_supervisor_is_silent_healthy_cell(*, tmp_path, monkeypatch):
+    """The migrated ledger-backed binder is a durable supervisor prompt too."""
+    monkeypatch.chdir(tmp_path)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    (repo / "plan" / topic / "epic.md").write_text(
+        f"Supervisor binder for ledger epic {TEST_EPIC}; read comment entries.\n",
+        encoding="utf-8",
+    )
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    supervisor_session = f"{session}-supervisor"
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73), cmd="node")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        _supervisor_offer.surface_supervision_offer(sup=sup, track=track, act=True)
+        _supervisor_offer.surface_supervision_offer(sup=sup, track=track, act=False)
+    assert sup.alerted == {}
+    assert "supervisor" not in err.getvalue()
 
 
 def test_symlinked_state_file_is_refused(*, tmp_path):
