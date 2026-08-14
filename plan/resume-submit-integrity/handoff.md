@@ -45,6 +45,33 @@ There was no working-directory picker in this final run (the pane cwd matched
 the resumed rollout's recorded cwd). An earlier disposable mismatch exercise
 did produce that picker and is explicitly NOT counted as proof of delivery.
 
+### Production observation defect — identity turnover held visibly 2026-08-14
+
+The live `fleet-ci-runner-pool-supervisor` pane `%317` reached 16% context and
+wrote a fresh `ready` marker at 03:00:35+02.  The production daemon in the
+`livespec-overseer` tmux pane (`%303`, PID 1353779, started
+03:05:16+02 from the merged primary checkout) correctly held the restart:
+the persisted round belonged to
+`codex:019ffccf-4f85-73a0-a83f-aa42a5face36`, while the live pane was
+`codex:019ffcf1-3669-78f2-9510-1fea362b3733`.  Restarting that successor
+on the predecessor's declaration would violate the cardinal rule.
+
+The defect was observability and precedence, not a daemon crash.  Daemon logs
+are UTC; the apparent local-time gap was a timezone-reading error, and the
+process was alive in `poll_schedule_timeout`.  The actual defect was that an
+identity-mismatched ready waited behind the generic fifteen-minute
+uncertifiable-ready continuity gate and rendered as ordinary `danger`.  The
+fix makes it immediate `ready-uncertifiable` attention with both identities
+and the safe remediation; it never restarts, voids, or pastes over that
+declaration.  Proposed specification update:
+`SPECIFICATION/proposed_changes/ready-identity-turnover-observability.md`.
+
+The pane also retained a live `gh run watch` child despite claiming all
+watchers stopped.  That is independent evidence that the session's ready
+claim is not presently safe to consume; do not force a restart to make the
+row disappear.  The final production acceptance exercise must use a clean,
+current-session round and a session-authored fresh ready after the round.
+
 Immediate work is fronts 4–6 from §1b: allow a certifiable ready through a
 settled Codex pane with shell-only launch-chain evidence; never treat that
 evidence as resumed work for ready-voiding; and surface any withheld standing

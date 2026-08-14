@@ -210,7 +210,6 @@ def test_scenario_successor_never_certifies_against_predecessor_floor(*, tmp_pat
     record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     ready_mtime = (record.voided_at or 1000.0) + 1
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=ready_mtime)
-    sup.now = lambda: ready_mtime + _supervisor_config.CONDITION_CONTINUITY_GAP + 1
     sup.claude_identity_by_session[(session, topic)] = "claude:successor"
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
 
@@ -218,6 +217,8 @@ def test_scenario_successor_never_certifies_against_predecessor_floor(*, tmp_pat
 
     assert view.status == "ready-uncertifiable"
     assert "identity differs" in (view.note or "")
+    assert "round=claude:topic:topic" in (view.note or "")
+    assert "live=claude:successor" in (view.note or "")
     assert _respawn_count(fake=fake) == 0
 
 
@@ -247,7 +248,7 @@ def test_scenario_undeterminable_session_identity_fails_interlock_closed(*, tmp_
     )
 
 
-def test_uncertifiable_ready_at_danger_keeps_danger_status(*, tmp_path):
+def test_uncertifiable_ready_at_danger_surfaces_its_certification_failure(*, tmp_path):
     clock = {"t": 1000.0}
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -260,7 +261,7 @@ def test_uncertifiable_ready_at_danger_keeps_danger_status(*, tmp_path):
 
     view = sup.evaluate(track=track, act=True)
 
-    assert view.status == "danger"
+    assert view.status == "ready-uncertifiable"
     assert "ready cannot certify" in (view.note or "")
     assert _paste_count(fake=fake) == 0
 
