@@ -20,6 +20,19 @@ _LEDGER_ANCHOR = re.compile(
 _LEDGER_TIMEOUT_SECONDS = 10
 
 
+def _anchor_from_path(*, path: Path) -> str | None:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, ValueError) as exc:
+        if path.exists():
+            warn(message=f"could not read plan ledger anchor {path}: {exc}")
+        return None
+    match = _LEDGER_ANCHOR.search(text)
+    if match is not None:
+        return match.group(1)
+    return None
+
+
 def _ledger_epic_from_plan_tag(*, repo: Path, topic: str) -> str | None:
     """Return the uniquely tagged plan epic from the repository ledger.
 
@@ -80,14 +93,13 @@ def epic_from_plan_anchor(*, repo: str | os.PathLike[str], topic: str) -> str | 
     directory-only discovery and must not call it.
     """
     root = Path(repo)
-    path = root / "plan" / topic / "handoff.md"
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, ValueError) as exc:
-        if path.exists():
-            warn(message=f"could not read plan ledger anchor {path}: {exc}")
-        return _ledger_epic_from_plan_tag(repo=root, topic=topic)
-    match = _LEDGER_ANCHOR.search(text)
-    if match is not None:
-        return match.group(1)
+    path = root / "plan" / topic / "epic.md"
+    anchor = _anchor_from_path(path=path)
+    if anchor is not None:
+        return anchor
+    legacy_handoff = root / "plan" / topic / "handoff.md"
+    if not path.exists():
+        anchor = _anchor_from_path(path=legacy_handoff)
+        if anchor is not None:
+            return anchor
     return _ledger_epic_from_plan_tag(repo=root, topic=topic)

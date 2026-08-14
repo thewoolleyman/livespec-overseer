@@ -12,23 +12,46 @@ from test_supervisor_builders import isolate_store, make_plan
 __all__: list[str] = []
 
 
-def test_epic_from_plan_anchor_accepts_observed_labels_and_wrapped_ids(*, tmp_path):
+def test_epic_from_plan_anchor_accepts_observed_labels_and_wrapped_ids(*, tmp_path, monkeypatch):
     cases = {
         "ledger": b"**Ledger anchor:** epic **`overseer-ledger`**\n",
         "ledger-epic": b"**Ledger epic anchor:** epic **`overseer-ledger-epic`**\n",
         "epic": b"**Epic anchor:** epic **`overseer-epic`**\n",
         "wrapped": b"**Epic anchor:** epic\n**`overseer-wrapped`**\n",
     }
+    monkeypatch.setattr(
+        _registry_epic.subprocess,
+        "run",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(
+            args=argv, returncode=0, stdout="[]", stderr=""
+        ),
+    )
 
-    for topic, handoff in cases.items():
-        repo, plan_topic = make_plan(
-            tmp_path=tmp_path,
-            repo_name=topic,
-            topic="alpha",
-            handoff=b"# Plan\n\n" + handoff,
-        )
+    for topic, epic in cases.items():
+        repo = tmp_path / topic
+        plan_topic = "alpha"
+        plan = repo / "plan" / plan_topic
+        plan.mkdir(parents=True)
+        (plan / "epic.md").write_bytes(b"# Plan\n\n" + epic)
 
         assert registry.epic_from_plan_anchor(repo=repo, topic=plan_topic) == f"overseer-{topic}"
+
+
+def test_epic_from_plan_anchor_fails_closed_for_malformed_epic_file(*, tmp_path, monkeypatch):
+    repo = tmp_path / "malformed"
+    topic = "alpha"
+    plan = repo / "plan" / topic
+    plan.mkdir(parents=True)
+    (plan / "epic.md").write_text("# Plan\n\nNo ledger anchor declaration yet.\n")
+    monkeypatch.setattr(
+        _registry_epic.subprocess,
+        "run",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(
+            args=argv, returncode=0, stdout="[]", stderr=""
+        ),
+    )
+
+    assert registry.epic_from_plan_anchor(repo=repo, topic=topic) is None
 
 
 def test_epic_from_plan_anchor_reads_ledger_tag_when_handoff_is_absent(*, tmp_path, monkeypatch):
