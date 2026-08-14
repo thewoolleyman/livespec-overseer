@@ -77,9 +77,11 @@ def _apply_uncertifiable_ready(
         return status, note
     ready_note, ready_conditions = uncertifiable_ready
     active_conditions.update(ready_conditions)
-    if status == "warned":
-        return "ready-uncertifiable", ready_note
-    return status, ready_note
+    # A surfaced certification failure is its own report-only state.  In
+    # particular, do not let a low context percentage relabel a deterministic
+    # identity mismatch as ordinary ``danger``: that reads as a missed ready
+    # declaration and hides the UUIDs needed to resolve it safely.
+    return "ready-uncertifiable", ready_note
 
 
 def idle_decision(*, request: IdleRequest) -> IdleDecision:

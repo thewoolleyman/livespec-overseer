@@ -145,7 +145,9 @@ def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
         return ThresholdDecision(status="winding-down", active_conditions=active_conditions)
     if eff_ctx <= DANGER_CTX_REMAINING:
         active_conditions.add("default")
-        if request.act:
+        # A standing ready has its own certification surface.  Calling it a
+        # non-responder here is false (and conceals the real interlock reason).
+        if request.act and not raw_ready:
             _supervisor_nudge.alert_non_responder(
                 sup=request.sup,
                 track=request.track,

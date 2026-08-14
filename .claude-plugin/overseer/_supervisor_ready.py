@@ -87,7 +87,10 @@ def _ready_uncertifiable_reason(
     elif session_identity is None:
         reason = "session identity cannot be determined"
     elif session_identity != round_record.session_identity:
-        reason = "session identity differs from round-open identity"
+        reason = (
+            "session identity differs from round-open identity "
+            f"(round={round_record.session_identity}; live={session_identity})"
+        )
     else:
         floor = round_record.certification_floor
         if floor is not None and declared.mtime <= floor:

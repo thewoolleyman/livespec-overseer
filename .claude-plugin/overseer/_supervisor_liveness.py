@@ -121,6 +121,18 @@ def reset_uncertifiable_ready_state(*, istate: InjectState) -> None:
     istate.uncertifiable_ready_alerted_bands = set()
 
 
+def _must_surface_immediately(*, reason: str) -> bool:
+    """Whether this certification failure identifies a changed live session.
+
+    A generic missing or stale declaration gets a continuity grace: a session may
+    finish its own tail shortly after declaring.  A changed session identity is
+    different.  It is deterministic proof that the standing declaration cannot
+    authorize this live pane, so hiding it behind that grace turns a safe hold
+    into an indistinguishable ``danger`` row.
+    """
+    return reason.startswith("session identity differs from round-open identity")
+
+
 def uncertifiable_ready_surface(
     *,
     sup: Supervisor,
@@ -142,7 +154,7 @@ def uncertifiable_ready_surface(
 
     istate = obs.istate
     age = max(0.0, sup.now() - declared.mtime)
-    if age < CONDITION_CONTINUITY_GAP:
+    if age < CONDITION_CONTINUITY_GAP and not _must_surface_immediately(reason=reason):
         return None
 
     active_conditions = {"ready-uncertifiable"}
@@ -166,7 +178,8 @@ def uncertifiable_ready_surface(
         pane=pane,
         message=(
             f"ready cannot certify ({alert_age}): {reason} — "
-            "clear the state file or resolve it in that pane"
+            "restart held; clear the declaration and complete a newly delivered "
+            "current-session round before declaring ready"
         ),
         condition="ready-uncertifiable",
     )
@@ -184,7 +197,8 @@ def uncertifiable_ready_surface(
             pane=pane,
             message=(
                 f"ready cannot certify ({age_label(seconds=band)}): {reason} — "
-                "clear the state file or resolve it in that pane"
+                "restart held; clear the declaration and complete a newly delivered "
+                "current-session round before declaring ready"
             ),
             condition=f"ready-uncertifiable-age-{band}",
         )
