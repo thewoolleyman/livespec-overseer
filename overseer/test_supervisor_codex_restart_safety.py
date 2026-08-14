@@ -101,6 +101,18 @@ def test_two_codex_tracks_sharing_a_tmux_session_each_restart_their_own_session(
             pid=20, name=topic_b, cwd=str(repo), session_id=id_b
         ),
     }
+
+    def keep_seeded_codex_sessions() -> None:
+        sup.live_codex = {
+            (shared, topic_a): codex_sessions.CodexSession(
+                pid=10, name=topic_a, cwd=str(repo), session_id=id_a
+            ),
+            (shared, topic_b): codex_sessions.CodexSession(
+                pid=20, name=topic_b, cwd=str(repo), session_id=id_b
+            ),
+        }
+
+    sup._refresh_codex_sessions = keep_seeded_codex_sessions
     target = fake.pane_id(session=shared)
     with contextlib.redirect_stderr(_io.StringIO()):
         sup._do_codex_restart(
@@ -181,6 +193,45 @@ def test_a_codex_restart_keeps_ready_when_the_resume_kick_is_not_observed(*, tmp
 
     assert fake.has(method="respawn")
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+
+
+def test_a_codex_restart_with_no_post_respawn_live_process_is_not_success(*, tmp_path):
+    """A loose Codex-looking foreground command is not enough after respawn."""
+    repo, topic, session, _session_id, _fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+
+    def refresh_to_bare_shell() -> None:
+        sup.live_codex = {}
+
+    sup._refresh_codex_sessions = refresh_to_bare_shell
+    log = _io.StringIO()
+    with contextlib.redirect_stderr(log):
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert signals.read_state(repo=str(repo), topic=topic) is not None
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+    assert "no live Codex process" in log.getvalue()
+    assert f"restarted (codex) {repo}::{topic}" not in log.getvalue()
+
+
+def test_a_codex_restart_requires_post_respawn_live_process_before_success(*, tmp_path):
+    """The success leg refreshes exact live Codex process evidence after respawn."""
+    repo, topic, session, session_id, _fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+    refreshed = {"called": False}
+
+    def refresh_to_live_codex() -> None:
+        refreshed["called"] = True
+        sup.live_codex = {
+            (session, topic): codex_sessions.CodexSession(
+                pid=5150, name=topic, cwd=str(repo), session_id=session_id
+            )
+        }
+
+    sup._refresh_codex_sessions = refresh_to_live_codex
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert refreshed["called"] is True
+    assert signals.read_state(repo=str(repo), topic=topic) is None
 
 
 def test_a_codex_restart_without_recorded_epic_alerts_and_keeps_ready_marker(*, tmp_path):

@@ -377,6 +377,15 @@ def adopt_codex_ready(*, tmp_path):
             pid=4242, name=topic, cwd=str(repo), session_id=session_id
         )
     }
+
+    def keep_seeded_codex_session() -> None:
+        sup.live_codex = {
+            (session, topic): codex_sessions.CodexSession(
+                pid=4242, name=topic, cwd=str(repo), session_id=session_id
+            )
+        }
+
+    sup._refresh_codex_sessions = keep_seeded_codex_session
     assert sup._is_codex_track(
         session=session, repo=str(repo), topic=topic, target=session
     )  # the precondition holds

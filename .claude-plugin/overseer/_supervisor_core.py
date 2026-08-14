@@ -322,6 +322,10 @@ class Supervisor:
         """See :func:`_supervisor_discovery.refresh_codex_sessions`."""
         _supervisor_discovery.refresh_codex_sessions(sup=self)
 
+    def refresh_codex_sessions(self) -> None:
+        """Refresh live Codex session evidence for acting mechanics."""
+        self._refresh_codex_sessions()
+
     def _refresh_claude_status(self) -> None:
         """See :func:`_supervisor_discovery.refresh_claude_status`."""
         _supervisor_discovery.refresh_claude_status(sup=self)
