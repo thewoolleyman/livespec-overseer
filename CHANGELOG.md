@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.37.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.4...v0.37.5) (2026-08-14)
+
+
+### Bug Fixes
+
+* migrate foreman pair start planning anchor ([f25efe0](https://github.com/thewoolleyman/livespec-overseer/commit/f25efe0ee95f6fd2f7816086f52b1c8a5c20141a))
+* migrate supervisor idle nudge prompt ([a6ee56a](https://github.com/thewoolleyman/livespec-overseer/commit/a6ee56a54c002889bfc9bf24e5706c06a8fa2d9a))
+* migrate supervisor wind-down prompt ([f914e7f](https://github.com/thewoolleyman/livespec-overseer/commit/f914e7f11ad6320a8540411efa927aa8f0341feb))
+* read registry epic anchors from epic files ([e0f1100](https://github.com/thewoolleyman/livespec-overseer/commit/e0f110032103efe553eb5f88ac14ba6abc77c9b7))
+* recognize migrated foreman supervisor state ([0f0c0a9](https://github.com/thewoolleyman/livespec-overseer/commit/0f0c0a95cc580e11881fafb98f4d72057abf6295))
+* recognize migrated supervisor offer handoff ([21726bb](https://github.com/thewoolleyman/livespec-overseer/commit/21726bb76d3c46b8e937de5c616fe6b952622ef6))
+
 ## [0.37.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.3...v0.37.4) (2026-08-14)
 
 
