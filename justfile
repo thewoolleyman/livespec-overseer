@@ -339,7 +339,7 @@ check-doctor-static:
     scripts/check-doctor-static.sh
 
 check-plugin-manifest-lockstep:
-    uv run pytest tests/test_plugin_manifest_lockstep.py
+    uv run pytest tests/test_plugin_manifest_lockstep.py tests/test_plugin_carrier_lockstep.py
 
 # `check-static` — fastest-first fail-fast helper for fast agent/dev
 # feedback (work-item livespec-dev-tooling-7us.8). Runs ONLY the cheap
