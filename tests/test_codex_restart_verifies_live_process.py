@@ -47,3 +47,42 @@ def test_a_codex_restart_requires_post_respawn_live_process_before_success(tmp_p
 
     assert refreshed["called"] is True
     assert signals.read_state(repo=str(repo), topic=topic) is None
+
+
+def test_a_codex_restart_rejects_a_different_post_respawn_session_id(tmp_path):
+    repo, topic, session, _session_id, _fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+
+    def refresh_to_different_codex() -> None:
+        sup.live_codex = {
+            (session, topic): codex_sessions.CodexSession(
+                pid=5150,
+                name=topic,
+                cwd=str(repo),
+                session_id="019f548d-6071-7893-9c2e-472cce81da02",
+            )
+        }
+
+    sup._refresh_codex_sessions = refresh_to_different_codex
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+
+
+def test_a_codex_restart_rejects_a_post_respawn_process_outside_the_repo(tmp_path):
+    repo, topic, session, session_id, _fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+    outside = tmp_path / "other"
+    outside.mkdir()
+
+    def refresh_to_wrong_cwd() -> None:
+        sup.live_codex = {
+            (session, topic): codex_sessions.CodexSession(
+                pid=5150, name=topic, cwd=str(outside), session_id=session_id
+            )
+        }
+
+    sup._refresh_codex_sessions = refresh_to_wrong_cwd
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
