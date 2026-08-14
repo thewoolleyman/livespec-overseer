@@ -235,6 +235,66 @@ def test_snapshot_rows_carry_supervisor_handoff_presence(*, tmp_path):
     )
 
 
+def test_snapshot_rows_accept_migrated_ledger_backed_supervisor_state(*, tmp_path):
+    module = foreman_gather()
+    collect = foreman_gather_collect()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "plan" / "legacy-supervisor").mkdir(parents=True)
+    (repo / "plan" / "legacy-supervisor" / "supervisor-handoff.md").write_text(
+        "supervise this\n", encoding="utf-8"
+    )
+    (repo / "plan" / "migrated-supervisor").mkdir(parents=True)
+    (repo / "plan" / "migrated-supervisor" / "epic.md").write_text(
+        "# Plan Epic\n\n"
+        "Ledger epic: `overseer-test-epic`\n\n"
+        "The supervisor binder is read from attributed ledger comments.\n",
+        encoding="utf-8",
+    )
+    (repo / "plan" / "not-ledger-backed").mkdir(parents=True)
+    (repo / "plan" / "not-ledger-backed" / "epic.md").write_text(
+        "# Plan Epic\n\n" "This file names planning context but no migrated supervisor state.\n",
+        encoding="utf-8",
+    )
+    snapshot_path = tmp_path / "status.json"
+    write_json(
+        path=snapshot_path,
+        payload={
+            "schema_version": 1,
+            "daemon_instance_id": "daemon-1",
+            "tick_generation": 7,
+            "written_at": "2026-08-03T08:00:00Z",
+            "rows": [
+                {"repo": str(repo), "topic": "legacy-supervisor", "status": "session-gone"},
+                {"repo": str(repo), "topic": "migrated-supervisor", "status": "session-gone"},
+                {"repo": str(repo), "topic": "not-ledger-backed", "status": "session-gone"},
+            ],
+        },
+    )
+
+    document = module.compose_document(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        needs_attention_command=None,
+        journal_path=repo / "tmp" / "fabro-dispatch-journal.jsonl",
+        now=lambda: "2026-08-03T08:03:00Z",
+    )
+
+    rows = document["snapshot"]["rows"]
+    assert [row["supervisor_handoff"] for row in rows] == ["present", "present", "missing"]
+    assert collect.supervisor_handoff_state(repo=repo, topic="migrated-supervisor") == "present"
+    rendered = module.render_document(document=document)
+    assert "legacy-supervisor | session-gone | ctx=None | human_wait=no | supervisor=present" in (
+        rendered
+    )
+    assert "migrated-supervisor | session-gone | ctx=None | human_wait=no | supervisor=present" in (
+        rendered
+    )
+    assert "not-ledger-backed | session-gone | ctx=None | human_wait=no | supervisor=missing" in (
+        rendered
+    )
+
+
 def test_snapshot_fallback_is_marked_observation_only(*, tmp_path):
     module = foreman_gather()
     repo = tmp_path / "repo"
