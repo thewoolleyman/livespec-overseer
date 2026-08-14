@@ -27,8 +27,8 @@ _START_ACTIONS: Final[tuple[ActionId, ...]] = (
 )
 _HERE: Final[Path] = Path(__file__).resolve().parent
 _LEDGER_ANCHOR: Final[re.Pattern[str]] = re.compile(
-    r"(?:[Ll]edger(?: epic)?|[Ee]pic)(?: anchor)?:?\*{0,2}"
-    r"[^\n`]*\n?[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`"
+    r"(?:[Ll]edger(?: epic)?|[Ee]pic) anchor:?\*{0,2}[^\n`]*\n?[^\n`]*"
+    r"`([a-z0-9-]+(?:\.[0-9]+)?)`"
 )
 
 
