@@ -302,7 +302,7 @@ def test_supervisor_pair_start_uses_migrated_supervisor_ledger_anchor(*, tmp_pat
     plan.mkdir(parents=True)
     (plan / "epic.md").write_text(
         "# Plan Epic\n\n"
-        "Ledger epic: `overseer-test-epic`\n\n"
+        "Ledger epic anchor: `overseer-test-epic`\n\n"
         "The supervisor binder is read from attributed ledger comments.\n",
         encoding="utf-8",
     )
@@ -348,6 +348,41 @@ def test_supervisor_pair_start_uses_migrated_supervisor_ledger_anchor(*, tmp_pat
         ]
     ]
     assert not (plan / "supervisor-handoff.md").exists()
+
+
+def test_supervisor_pair_start_ignores_non_anchor_ledger_epic_spelling(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    plan = repo / "plan" / "alpha"
+    plan.mkdir(parents=True)
+    (plan / "epic.md").write_text(
+        "# Plan Epic\n\n" "Ledger epic: `overseer-test-epic`\n\n",
+        encoding="utf-8",
+    )
+    proposal = start_proposal(repo=repo, action_id="supervisor_pair_start")
+    proposal["session_name"] = "alpha-supervisor"
+    snapshot = proposal["snapshot"]
+    assert isinstance(snapshot, dict)
+    snapshot["session_identity"] = f"none:{repo}:alpha-supervisor"
+    classifier = proposal["classifier"]
+    assert isinstance(classifier, dict)
+    start = classifier["start"]
+    assert isinstance(start, dict)
+    start["session_name"] = "alpha-supervisor"
+    document = base_document(repo=repo)
+    row = document["snapshot"]["rows"][0]
+    assert isinstance(row, dict)
+    row["session_identity"] = f"none:{repo}:alpha-supervisor"
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=proposal,
+        gather=lambda *, repo, snapshot_path: document,
+        run=lambda *, argv: calls.append(argv) or 0,
+    )
+
+    assert result["reason"] == "started"
+    assert calls[0][-1] == f"read {plan / 'supervisor-handoff.md'} and follow it"
 
 
 def _resume_calls(*, repo, proposal):
