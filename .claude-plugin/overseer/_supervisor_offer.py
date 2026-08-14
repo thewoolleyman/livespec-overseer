@@ -16,7 +16,7 @@ import claude_sessions
 import registry
 import signals
 from _supervisor_config import SUPERVISION_CONDITIONS, track_key
-from _supervisor_prompts import supervisor_handoff_path
+from _supervisor_prompts import supervisor_epic_path, supervisor_handoff_path
 from _supervisor_view import RowView
 
 if TYPE_CHECKING:
@@ -83,12 +83,19 @@ def clear_supervision_alerts(*, sup: Supervisor, repo: str, topic: str) -> None:
     }
 
 
+def _migrated_supervisor_handoff_exists(*, track: registry.Track) -> bool:
+    """Return whether the migrated ledger-backed binder exists."""
+    return supervisor_epic_path(repo=track.repo, topic=track.topic).exists()
+
+
 def surface_supervision_offer(*, sup: Supervisor, track: registry.Track, act: bool) -> None:
     """Surface the supervision truth table without replacing the row's core status."""
     repo, topic = track.repo, track.topic
     session = _supervisor_launch.session_of(sup=sup, track=track)
     supervisor_session = supervisor_session_of(sup=sup, track=track)
-    handoff_exists = supervisor_handoff_path(repo=repo, topic=topic).exists()
+    handoff_exists = supervisor_handoff_path(
+        repo=repo, topic=topic
+    ).exists() or _migrated_supervisor_handoff_exists(track=track)
     running = supervisor_running(sup=sup, session=supervisor_session, repo=repo)
     if handoff_exists and running:
         if act:
