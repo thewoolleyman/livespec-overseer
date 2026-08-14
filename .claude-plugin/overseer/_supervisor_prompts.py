@@ -35,8 +35,10 @@ __all__: list[str] = [
     "plan_epic_resume",
     "plan_state_locator",
     "resume_for_track",
+    "supervisor_epic_path",
     "supervisor_handoff_path",
     "supervisor_idle_nudge_message",
+    "supervisor_ledger_resume",
     "supervisor_resume",
     "supervisor_wrapup_message",
     "wrapup_message",
@@ -102,7 +104,9 @@ def resume_for_track(*, track: registry.Track) -> str | None:
     """
     if signals.topic_reserved_for_supervisor(topic=track.topic):
         return supervisor_resume(
-            repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
+            repo=track.repo,
+            topic=signals.supervisor_topic(entity_topic=track.topic),
+            epic=track.epic,
         )
     if track.epic is None:
         return None
@@ -242,6 +246,11 @@ def supervisor_handoff_path(*, repo: str, topic: str) -> Path:
     return Path(repo) / "plan" / topic / "supervisor-handoff.md"
 
 
+def supervisor_epic_path(*, repo: str, topic: str) -> Path:
+    """The migrated plan-shape file that names the governed ledger epic."""
+    return Path(repo) / "plan" / topic / "epic.md"
+
+
 _SUPERVISOR_WRAPUP_BODY = """\
 You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
 that has not declared itself ready. When you stop, this pane is respawned into a fresh
@@ -286,9 +295,21 @@ restarted and NOT killed — you are reported to the human as not responding, an
 track sits there until a person intervenes. Do not do that to them: write the file."""
 
 
-def supervisor_resume(*, repo: str, topic: str) -> str:
+def supervisor_ledger_resume(*, repo: str, topic: str, epic: str) -> str:
+    """Resume prompt for a migrated supervisor pair member."""
+    entity = signals.supervisor_entity_topic(topic=topic)
+    return (
+        f"resume supervisor entity {entity} for plan epic {epic} in repository {repo}; "
+        "read the supervisor handoff entries attributed to that entity"
+    )
+
+
+def supervisor_resume(*, repo: str, topic: str, epic: str | None = None) -> str:
     """Resume prompt for a supervisor pair member."""
-    return f"read {supervisor_handoff_path(repo=repo, topic=topic)} and follow it"
+    handoff = supervisor_handoff_path(repo=repo, topic=topic)
+    if handoff.exists() or epic is None:
+        return f"read {handoff} and follow it"
+    return supervisor_ledger_resume(repo=repo, topic=topic, epic=epic)
 
 
 def supervisor_wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
