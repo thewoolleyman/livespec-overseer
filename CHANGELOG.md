@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.36.3...v0.37.0) (2026-08-14)
+
+
+### Features
+
+* guard completed feature parent finalization ([fee083f](https://github.com/thewoolleyman/livespec-overseer/commit/fee083fc22444ac54fdaea953810da02670baf8d))
+
 ## [0.36.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.36.2...v0.36.3) (2026-08-13)
 
 
