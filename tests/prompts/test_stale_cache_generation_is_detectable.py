@@ -248,7 +248,7 @@ def test_the_frozen_generation_is_red_on_the_contract_floor():
     resembles a stale one; it is the artifact.
     """
     failures = _contract_failures(text=cached_generation(label="frozen"))
-    # A DIFFERENCE, not an absolute count. The frozen generation fails 34
+    # A DIFFERENCE, not an absolute count. The frozen generation fails 41
     # requirements that the current one satisfies, and that is what says
     # "stale": it survives the contract growing, because a new requirement every
     # generation fails equally moves both sides and cancels. An absolute count
@@ -256,7 +256,7 @@ def test_the_frozen_generation_is_red_on_the_contract_floor():
     # without anyone checking WHICH requirement moved.
     # Still exact rather than `>=`: the sabotage that proved this leg
     # load-bearing dropped one `_REQUIRED` entry and shifted it by exactly one.
-    assert len(failures) - len(_contract_failures(text=current_prose())) == 34, failures
+    assert len(failures) - len(_contract_failures(text=current_prose())) == 41, failures
     assert "supervisor-state-location" in failures
     assert "watcher-wait-channel-bootstrap" in failures
     assert "executable-live-supervisor-precondition" in failures
@@ -287,6 +287,13 @@ def test_the_stale_generation_is_red_on_the_new_scratch_discipline_contract():
         "tmp-supervisor-json-only",
         "tmp-supervisor-briefs-cite-not-contain",
         "tmp-supervisor-changeset-is-branch-pr",
+        "supervisor-completion-additive-user-messages",
+        "supervisor-completion-cold-reentry",
+        "supervisor-completion-driver-daemon-boundary",
+        "supervisor-completion-fail-closed",
+        "supervisor-completion-producer-proof",
+        "supervisor-completion-structured-state-schema",
+        "supervisor-completion-terminal-dispositions",
     }
     assert set(_contract_failures(text=stale)) - set(_contract_failures(text=current)) == (
         scratch_failures
