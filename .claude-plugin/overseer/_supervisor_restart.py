@@ -300,6 +300,20 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
             message="codex session vanished before restart; keeping the ready declaration",
         )
         return
+    session_id = _supervisor_launch.canonical_codex_session_id(value=live.session_id)
+    if session_id is None:
+        # Fail before respawn: no positional UUID would open the interactive picker.
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=target,
+            message=(
+                "codex restart refused: live session has no valid UUID; "
+                "keeping the ready declaration"
+            ),
+        )
+        return
     resume = resume_prompt(track=track)
     if resume is None:
         sup.alert(
@@ -311,7 +325,13 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
             condition="restart-plan-epic-missing",
         )
         return
-    command = _supervisor_launch.codex_launch_command(session_id=live.session_id, resume=resume)
+    command = _supervisor_launch.codex_launch_command(session_id=session_id, resume=resume)
+    sup.log(
+        message=(
+            f"codex restart dispatch {track.repo}::{track.topic} "
+            f"(pane {target}; session-id {session_id}; resume {resume!r})"
+        )
+    )
     if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
         sup.alert(
             repo=track.repo,
@@ -328,6 +348,19 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
             session=session,
             pane=target,
             message="respawned pane never became Codex; keeping the ready declaration",
+        )
+        return
+    fresh_capture = signals.strip_ansi(text=sup.tmux.capture_pane(session=target))
+    if resume not in fresh_capture:
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=target,
+            message=(
+                "respawned Codex pane did not show its required resume kick; "
+                "keeping the ready declaration"
+            ),
         )
         return
     # The kick was submitted BY the `codex resume` argument — no separate paste step.
