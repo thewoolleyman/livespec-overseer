@@ -141,7 +141,10 @@ def maybe_inject(
         )
     if signals.topic_reserved_for_supervisor(topic=topic):
         message = supervisor_wrapup_message(
-            remaining=eff_ctx, repo=repo, topic=signals.supervisor_topic(entity_topic=topic)
+            remaining=eff_ctx,
+            repo=repo,
+            topic=signals.supervisor_topic(entity_topic=topic),
+            epic=track.epic,
         )
     else:
         message = wrapup_message(remaining=eff_ctx, repo=repo, topic=topic, epic=track.epic)

@@ -251,14 +251,40 @@ def supervisor_epic_path(*, repo: str, topic: str) -> Path:
     return Path(repo) / "plan" / topic / "epic.md"
 
 
+def _supervisor_state_locator(*, repo: str, topic: str, epic: str | None) -> str:
+    """The supervisor entity's ledger-held resume state."""
+    entity = signals.supervisor_entity_topic(topic=topic)
+    if epic is None:
+        return (
+            f"the supervisor handoff entries attributed to {entity} in repository {repo} — "
+            "but NO plan epic id is recorded for this track, so ask the operator to record one"
+        )
+    return (
+        f"the supervisor handoff entries attributed to {entity} on ledger epic {epic} "
+        f"in repository {repo}"
+    )
+
+
+def _supervisor_resume_line(*, repo: str, topic: str, epic: str | None) -> str:
+    """The exact prompt the fresh supervisor session will be handed."""
+    if epic is None:
+        return (
+            "(no resume prompt can be built — this supervisor track records NO plan epic id, "
+            "so it is surfaced for a human instead of respawned)"
+        )
+    return supervisor_ledger_resume(repo=repo, topic=topic, epic=epic)
+
+
 _SUPERVISOR_WRAPUP_BODY = """\
 You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
-that has not declared itself ready. When you stop, this pane is respawned into a fresh
-session handed exactly ONE prompt:
-    read {handoff} and follow it
-So {handoff} is the ONLY thing the next session inherits. Do NOT leave your resume state
-anywhere else (a scratchpad file, this transcript) — it will be LOST. If your real
-pending work has drifted from what that file says, REWRITE that file.
+that has not declared itself ready. When you stop, this pane is restarted according to
+its runtime and handed exactly ONE prompt:
+    {resume}
+So {read_first} is the ONLY durable resume state inherited by the restarted runtime. Do
+NOT leave your resume state anywhere else (a scratchpad file, this transcript, a file
+under plan/) — it will be LOST. If your real pending work has drifted from what those
+entries say, APPEND a fresh entry that corrects them; never withhold your declaration over
+drift.
 
 Declare your state by writing ONE line to the single state file
 {state_file} — one of exactly these three values:
@@ -271,21 +297,15 @@ ACKNOWLEDGE FIRST, right now, before anything else:
     mkdir -p {marker_dir} && echo winding-down > {state_file}
 
 Then:
- 1. Bring your OWN work to a clean, resumable stopping point, and UPDATE {handoff} to
-    match. Your session owns its handoff and everything under plan/; the overseer never
-    reads or writes those.
- 2. COMMIT {handoff}. Writing it to disk is NOT saving it — an uncommitted handoff has
-    no history, no attribution, and is one `git checkout` from gone. You cannot commit
-    at the primary checkout (the commit-refuse hook rejects it), and a fresh worktree
-    will NOT contain your edits, so copy them across:
-        W="$HOME/.worktrees/{slug}/wrapup-{topic}-supervisor"
-        mise exec -- git -C {repo} worktree add -b wrapup-{topic}-supervisor "$W" master
-        cp {handoff} "$W/plan/{topic}/supervisor-handoff.md"
-        cd "$W" && mise exec -- git add plan/ && mise exec -- git commit
-        mise exec -- git push && gh pr create --fill && gh pr merge --auto --rebase --delete-branch
-    Doc-only commits take your repo's reduced doc-only gate at both commit and push, so
-    this is quick. Never pass --no-verify. If a hook rejects you, fix the cause or declare
-    `blocked: <reason>` — do not bypass it and do not discard the file.
+ 1. Bring your OWN supervision work to a clean, resumable stopping point and commit any
+    repository changes you already made through your repository's own gates. Never pass
+    --no-verify. If a gate rejects you, fix the cause or declare `blocked: <reason>` —
+    do not bypass it and do not discard the work.
+ 2. APPEND your supervisor resume state to {read_first}, through your orchestrator's
+    sanctioned plan surface. Writing it down locally is NOT saving it — an entry that was
+    never appended has no attribution, no timestamp, and the next session cannot see it
+    at all. Do NOT write it into a file under plan/, and do NOT write to the ledger
+    directly.
  3. Stop every background sub-agent and subprocess you started.
  4. Declare done, and stop:
         echo ready > {state_file}
@@ -312,24 +332,24 @@ def supervisor_resume(*, repo: str, topic: str, epic: str | None = None) -> str:
     return supervisor_ledger_resume(repo=repo, topic=topic, epic=epic)
 
 
-def supervisor_wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
+def supervisor_wrapup_message(
+    *, remaining: int, repo: str, topic: str, epic: str | None = None
+) -> str:
     """Wrap-up text for a supervisor pair member.
 
     The supervisor entity's state and round key use ``<topic>-supervisor``, while its
-    durable resume artifact is the worker plan's ``supervisor-handoff.md``. This is a
-    whole text VARIANT rather than parameter substitution on the worker body: the two
-    entities no longer share a wind-down ritual at all, since the worker's resume state
-    is APPENDED to the plan's ledger epic while this one is still committed as a file.
+    durable resume state is the attributed supervisor-entry stream on the worker plan's
+    ledger epic. This is a whole text VARIANT rather than parameter substitution on the
+    worker body: the supervisor entity names its attributed entries, but both entities now
+    use the sanctioned plan surface rather than authoring files under ``plan/``.
     """
     entity_topic = signals.supervisor_entity_topic(topic=topic)
     return f"{_wrapup_head(remaining=remaining)}\n\n{_SUPERVISOR_WRAPUP_BODY}".format(
         n=remaining,
         marker_dir=str(signals.marker_dir(repo=repo, topic=entity_topic)),
         state_file=str(signals.state_path(repo=repo, topic=entity_topic)),
-        handoff=str(supervisor_handoff_path(repo=repo, topic=topic)),
-        repo=repo,
-        topic=topic,
-        slug=registry.repo_slug(repo=repo),
+        read_first=_supervisor_state_locator(repo=repo, topic=topic, epic=epic),
+        resume=_supervisor_resume_line(repo=repo, topic=topic, epic=epic),
     )
 
 
