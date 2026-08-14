@@ -99,6 +99,7 @@ def nudge_idle_with_context(
             threshold=threshold,
             repo=repo,
             topic=signals.supervisor_topic(entity_topic=topic),
+            epic=track.epic,
         )
     else:
         message = idle_nudge_message(

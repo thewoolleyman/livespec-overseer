@@ -304,6 +304,21 @@ def supervisor_ledger_resume(*, repo: str, topic: str, epic: str) -> str:
     )
 
 
+def _supervisor_plan_state_locator(*, repo: str, topic: str, epic: str | None) -> str:
+    """The dual resume-state locator for a migrated supervisor pair member."""
+    entity = signals.supervisor_entity_topic(topic=topic)
+    shared = f"the shared supervisor protocol .ai/supervisor-protocol.md in repository {repo}"
+    if epic is None:
+        return (
+            f"{shared} and this supervisor entity's ledger-held handoff entries — but NO "
+            "plan epic id is recorded for this track, so ask the operator to record one"
+        )
+    return (
+        f"{shared}, plus the supervisor handoff entries attributed to {entity} on ledger "
+        f"epic {epic}"
+    )
+
+
 def supervisor_resume(*, repo: str, topic: str, epic: str | None = None) -> str:
     """Resume prompt for a supervisor pair member."""
     handoff = supervisor_handoff_path(repo=repo, topic=topic)
@@ -378,18 +393,21 @@ def idle_nudge_message(
     )
 
 
-def supervisor_idle_nudge_message(*, remaining: int, threshold: int, repo: str, topic: str) -> str:
+def supervisor_idle_nudge_message(
+    *, remaining: int, threshold: int, repo: str, topic: str, epic: str | None = None
+) -> str:
     """Keep-going nudge for a supervisor pair member.
 
     ``topic`` is the worker topic. The supervisor entity's state marker still lives
-    under ``<topic>-supervisor``, and the durable artifact the supervisor resumes from
-    is ``plan/<topic>/supervisor-handoff.md``.
+    under ``<topic>-supervisor``, and the durable state the supervisor resumes from is
+    the shared supervisor protocol plus ledger-held supervisor handoff entries on the
+    worker plan's epic.
     """
     entity_topic = signals.supervisor_entity_topic(topic=topic)
     return _IDLE_NUDGE.format(
         n=remaining,
         threshold=threshold,
-        read_first=str(supervisor_handoff_path(repo=repo, topic=topic)),
+        read_first=_supervisor_plan_state_locator(repo=repo, topic=topic, epic=epic),
         state_file=str(signals.state_path(repo=repo, topic=entity_topic)),
     )
 
