@@ -362,6 +362,22 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
             ),
         )
         return
+    sup.refresh_codex_sessions()
+    post_respawn_live = sup.live_codex.get((session, track.topic))
+    if (
+        post_respawn_live is None
+        or post_respawn_live.session_id != live.session_id
+        or not signals.path_in_repo(pane_current_path=post_respawn_live.cwd, repo=track.repo)
+    ):
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=target,
+            message="respawned pane has no live Codex process; keeping the ready declaration",
+            condition="codex-post-respawn-live-missing",
+        )
+        return
     # The kick was submitted BY the `codex resume` argument — no separate paste step.
     _supervisor_state.clear_state(sup=sup, track=track)
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
