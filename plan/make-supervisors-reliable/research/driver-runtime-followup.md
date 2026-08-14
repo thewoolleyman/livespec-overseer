@@ -35,20 +35,23 @@ The hook must never inspect assistant final-response text or tmux pane text, and
 it must not move semantic judgment into the overseer daemon. Its tests must
 exercise the packaged installation shape as well as the marker/producers cases.
 
-## Current transfer blocker
+## Routed Driver work
 
-On 2026-08-14, filing this Driver item through the sanctioned
-`capture-work-item` package failed before writing a record. The installed
-orchestrator build's `WorkItem` model lacks `awaits_scope_override`, while its
-writer unconditionally reads that attribute. The resulting
-`AttributeError` means no Driver item identifier exists yet. Do not hand-write a
-replacement ledger record; refresh or repair the orchestration package/schema
-pair, then re-run the standard capture flow and its Definition-of-Ready routing.
+On 2026-08-14, the bounded Driver item was filed as
+`livespec-driver-codex-yx5rve` — **Enforce structured supervisor completion in
+the Codex Stop hook** — and passed its Definition-of-Ready routing as `ready`.
+
+The first capture attempt raised `AttributeError` because a direct Python
+invocation loaded the Driver checkout's older `livespec_runtime` instead of the
+orchestrator bundle's vendored runtime. Re-running the sanctioned capture
+package with its bundled runtime resolved the model/writer pairing and wrote the
+item normally. This was an invocation import-path issue, not an outstanding
+package/schema repair. Do not create a duplicate replacement item.
 
 ## Next action
 
-Restore a compatible `capture-work-item` implementation for
-`livespec-driver-codex`, file the bounded Stop-hook work item with the acceptance
-above, and drive it through that repository's normal factory and PR gates. Then
-append its resulting item id and disposition to `overseer-ocj2yi` before deciding
-whether this plan is complete.
+Drive `livespec-driver-codex-yx5rve` through
+`livespec-driver-codex`'s normal factory and PR gates. Before any retry, inspect
+the factory run history and its publish branch/PR. After landing, append the PR,
+CI verification, and closed item disposition to `overseer-ocj2yi` before
+deciding whether this plan is complete.
