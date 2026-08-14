@@ -186,56 +186,12 @@
     // overseer-pfpfty.2, the ratification valve) are still held, and
     // acceptance_mode above still governs post-merge disposition.
     //
-    // Host-level dispatch concurrency. Maintainer-directed 2026-07-30: raise
-    // this repo's committed cap from the resolver default 2 to 4. The key is a
-    // positive integer with `per_item_override: false`
-    // (`.claude-plugin/api-configurable-keys.json`), so it is a REPO-WIDE
-    // number — every track dispatching from this repo shares it, and no ledger
-    // label can raise it for one slice. Prioritizing one track over another is
-    // the admission valve's job (`drive --action move:<id>:ready`), not this
-    // key's.
-    //
-    // Per the orchestrator's contracts.md §"Host-level dispatch concurrency
-    // cap", each repo's cap is that repo's SELF-limit against a HOST-WIDE
-    // in-flight count — "the host is bounded at 2 only while every dispatching
-    // repo commits (or defaults to) 2". So this is a deliberate single-repo
-    // deviation: all other governed repos still inherit 2, and this repo will
-    // now admit dispatches in situations where they refuse.
-    //
-    // WHY 2 WAS NOT A CEILING. contracts.md calls 2 "the empirically verified
-    // safe level", which reads as a measured limit. Its own cited evidence
-    // (bd-ib-tyxzhv) establishes something different: NO contended host
-    // resource was found. The bwrap EPERM that motivated one-at-a-time dispatch
-    // is a host sysctl constant (kernel.apparmor_restrict_unprivileged_userns
-    // + `..._unconfined`, kernel 6.17.0-40) reproduced in a SINGLE container —
-    // "concurrency was temporal coincidence" — and the `--network host`
-    // port-collision premise was outright false (allow_all maps to the docker
-    // bridge; sandboxes already hold per-run netns). 2 was the level
-    // EXERCISED, not the level at which 3 failed. Measured since: host-wide run
-    // overlap already reached 5 (2026-07-25) and 4 (2026-07-29) with no
-    // concurrency-attributable host failure.
-    //
-    // WHAT IS STILL UNEXERCISED, stated plainly: those >2 overlaps were all
-    // CROSS-repo (each repo self-limiting at 2) or hand-launched. No single
-    // repo's dispatcher has ever admitted 4, so SAME-repo collision — one
-    // origin's branch namespace, 4 concurrent `gh pr merge --rebase --auto`
-    // arms against one base ref, 4 post-merge janitor worktrees against this
-    // one primary, and slot files 2/3 under first-ever contention — is
-    // untested. Tracked as bd-ib-rhap (orchestrator tenant,
-    // supervised-operational, never factory-dispatched); it either amends that
-    // contracts.md sentence to match 4x evidence or brings this number back
-    // down with a named mechanism.
-    //
-    // INDEPENDENT of this cap, and unchanged by it: never parallel-dispatch
-    // slices that share files. That is work partitioning, not host capacity.
-    //
     // EDIT THIS BLOCK BY HAND. Do NOT use `drive --action set-config:<k>:<v>`:
     // that surface round-trips the file through json.dumps and silently strips
     // every comment here while reporting green — tracked as bd-ib-lmi5.
     "dispatcher": {
       "acceptance_mode": "ai-only",
-      "auto_approve_ready": true,
-      "host_dispatch_cap": 4
+      "auto_approve_ready": true
     }
   }
 }
