@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
+import subprocess
 from pathlib import Path
+from typing import cast
 
 from _registry_core import warn
 
@@ -14,19 +17,77 @@ __all__: list[str] = ["epic_from_plan_anchor"]
 _LEDGER_ANCHOR = re.compile(
     r"(?:[Ll]edger(?: epic)?|[Ee]pic) anchor:?\*{0,2}[^\n`]*\n?[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`"
 )
+_LEDGER_TIMEOUT_SECONDS = 10
+
+
+def _ledger_epic_from_plan_tag(*, repo: Path, topic: str) -> str | None:
+    """Return the uniquely tagged plan epic from the repository ledger.
+
+    Ledger-backed plan binders deliberately carry their anchor only in Beads.  This
+    lookup is assignment-only, like the legacy handoff read above it; discovery stays
+    directory-only and never reaches either path.
+    """
+    try:
+        completed = subprocess.run(  # noqa: S603 — fixed bd argv, no shell
+            ["bd", "list", "--type", "epic", "--status", "all", "--json"],  # noqa: S607
+            capture_output=True,
+            check=False,
+            cwd=repo,
+            text=True,
+            timeout=_LEDGER_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        warn(message=f"could not read plan ledger epic for {repo}/{topic}: {exc}")
+        return None
+    if completed.returncode != 0:
+        warn(
+            message=f"could not read plan ledger epic for {repo}/{topic}: "
+            f"bd exited {completed.returncode}"
+        )
+        return None
+    try:
+        raw = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        warn(message=f"could not parse plan ledger epic for {repo}/{topic}: {exc}")
+        return None
+    if not isinstance(raw, list):
+        warn(message=f"could not parse plan ledger epic for {repo}/{topic}: expected list")
+        return None
+    matches: list[str] = []
+    for raw_item in cast("list[object]", raw):
+        if not isinstance(raw_item, dict):
+            continue
+        item = cast("dict[str, object]", raw_item)
+        record_id = item.get("id")
+        metadata = item.get("metadata")
+        is_plan_anchor = item.get("spec_id") == f"plan:{topic}" or (
+            isinstance(metadata, dict)
+            and cast("dict[str, object]", metadata).get("plan_slug") == topic
+        )
+        if item.get("issue_type") == "epic" and isinstance(record_id, str) and is_plan_anchor:
+            matches.append(record_id)
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        warn(message=f"could not resolve plan ledger epic for {repo}/{topic}: ambiguous anchors")
+    return None
 
 
 def epic_from_plan_anchor(*, repo: str | os.PathLike[str], topic: str) -> str | None:
-    """Return the plan handoff's declared ledger anchor, or None when absent.
+    """Return the plan's handoff or ledger-declared anchor, or None when absent.
 
     This helper is for ASSIGNMENT surfaces. The daemon discovery pass must keep using
     directory-only discovery and must not call it.
     """
-    path = Path(repo) / "plan" / topic / "handoff.md"
+    root = Path(repo)
+    path = root / "plan" / topic / "handoff.md"
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, ValueError) as exc:
-        warn(message=f"could not read plan ledger anchor {path}: {exc}")
-        return None
+        if path.exists():
+            warn(message=f"could not read plan ledger anchor {path}: {exc}")
+        return _ledger_epic_from_plan_tag(repo=root, topic=topic)
     match = _LEDGER_ANCHOR.search(text)
-    return match.group(1) if match is not None else None
+    if match is not None:
+        return match.group(1)
+    return _ledger_epic_from_plan_tag(repo=root, topic=topic)

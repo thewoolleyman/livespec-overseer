@@ -1,5 +1,10 @@
 """Assignment-time mapping epic population."""
 
+import json
+import subprocess
+
+import _registry_epic
+import pytest
 import registry
 import supervisor
 from test_supervisor_builders import isolate_store, make_plan
@@ -26,6 +31,126 @@ def test_epic_from_plan_anchor_accepts_observed_labels_and_wrapped_ids(*, tmp_pa
         assert registry.epic_from_plan_anchor(repo=repo, topic=plan_topic) == f"overseer-{topic}"
 
 
+def test_epic_from_plan_anchor_reads_ledger_tag_when_handoff_is_absent(*, tmp_path, monkeypatch):
+    repo = tmp_path / "ledger-binder"
+    topic = "ledger-only"
+    _ = (repo / "plan" / topic).mkdir(parents=True)
+
+    def fake_run(argv, **kwargs):
+        assert argv == ["bd", "list", "--type", "epic", "--status", "all", "--json"]
+        assert kwargs["cwd"] == repo
+        return subprocess.CompletedProcess(
+            args=argv,
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "id": "overseer-ledger-only",
+                        "issue_type": "epic",
+                        "spec_id": "plan:ledger-only",
+                        "metadata": {"plan_slug": topic},
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(_registry_epic.subprocess, "run", fake_run)
+
+    assert registry.epic_from_plan_anchor(repo=repo, topic=topic) == "overseer-ledger-only"
+
+
+@pytest.mark.parametrize(
+    ("result", "raises"),
+    [
+        (subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr=""), None),
+        (subprocess.CompletedProcess(args=[], returncode=0, stdout="not-json", stderr=""), None),
+        (subprocess.CompletedProcess(args=[], returncode=0, stdout="{}", stderr=""), None),
+        (
+            subprocess.CompletedProcess(
+                args=[], returncode=0, stdout='["not-a-record"]', stderr=""
+            ),
+            None,
+        ),
+        (
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {"id": "not-epic", "issue_type": "task", "spec_id": "plan:ledger-only"},
+                        {"id": "wrong-tag", "issue_type": "epic", "spec_id": "plan:other"},
+                    ]
+                ),
+                stderr="",
+            ),
+            None,
+        ),
+        (
+            subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {"id": "first", "issue_type": "epic", "spec_id": "plan:ledger-only"},
+                        {
+                            "id": "second",
+                            "issue_type": "epic",
+                            "metadata": {"plan_slug": "ledger-only"},
+                        },
+                    ]
+                ),
+                stderr="",
+            ),
+            None,
+        ),
+        (None, OSError("bd unavailable")),
+    ],
+)
+def test_epic_from_plan_anchor_fails_closed_for_unusable_ledger_response(
+    *, tmp_path, monkeypatch, result, raises
+):
+    repo = tmp_path / "ledger-binder"
+    topic = "ledger-only"
+    _ = (repo / "plan" / topic).mkdir(parents=True)
+
+    def fake_run(_argv, **_kwargs):
+        if raises is not None:
+            raise raises
+        return result
+
+    monkeypatch.setattr(_registry_epic.subprocess, "run", fake_run)
+
+    assert registry.epic_from_plan_anchor(repo=repo, topic=topic) is None
+
+
+def test_epic_from_plan_anchor_uses_ledger_when_handoff_cannot_be_read(*, tmp_path, monkeypatch):
+    repo = tmp_path / "ledger-binder"
+    topic = "ledger-only"
+    handoff = repo / "plan" / topic / "handoff.md"
+    handoff.mkdir(parents=True)
+    monkeypatch.setattr(
+        _registry_epic.subprocess,
+        "run",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(
+            args=argv,
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "id": "overseer-ledger-only",
+                        "issue_type": "epic",
+                        "spec_id": "plan:ledger-only",
+                    }
+                ]
+            ),
+            stderr="",
+        ),
+    )
+
+    assert registry.epic_from_plan_anchor(repo=repo, topic=topic) == "overseer-ledger-only"
+
+
 def test_cli_assignment_populates_epic_from_plan_anchor_with_null_control(*, tmp_path, monkeypatch):
     anchored_repo, anchored_topic = make_plan(
         tmp_path=tmp_path,
@@ -47,6 +172,14 @@ def test_cli_assignment_populates_epic_from_plan_anchor_with_null_control(*, tmp
     missing_topic = "gamma"
     _ = (missing_repo / "plan" / missing_topic).mkdir(parents=True)
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+
+    monkeypatch.setattr(
+        _registry_epic.subprocess,
+        "run",
+        lambda argv, **_kwargs: subprocess.CompletedProcess(
+            args=argv, returncode=0, stdout="[]", stderr=""
+        ),
+    )
 
     assert (
         supervisor.main(argv=["add", "--repo", str(anchored_repo), "--topic", anchored_topic]) == 0
