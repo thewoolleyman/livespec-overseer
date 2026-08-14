@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.37.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.1...v0.37.2) (2026-08-14)
+
+
+### Bug Fixes
+
+* accept alternate plan epic anchors ([f81458a](https://github.com/thewoolleyman/livespec-overseer/commit/f81458a93cfae3fa031a6f42bce09014855ff343))
+* make codex wind-down copy truthful ([2b50545](https://github.com/thewoolleyman/livespec-overseer/commit/2b50545b326615a4a4bdf2cf0eaf05257c145fa8))
+* **overseer:** fail closed on empty Codex resume argv ([8ab7c06](https://github.com/thewoolleyman/livespec-overseer/commit/8ab7c0637f9c791f871658272795cfcc0cb7f515))
+* reopen malformed injection rounds ([047a8aa](https://github.com/thewoolleyman/livespec-overseer/commit/047a8aaf46eca213e6c8d00dec683faece6fcc8a))
+* require live codex after restart ([be81775](https://github.com/thewoolleyman/livespec-overseer/commit/be81775a72fa8d1c49a17066ff05f793b8aad5d5))
+
 ## [0.37.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.0...v0.37.1) (2026-08-14)
 
 
