@@ -16,6 +16,7 @@ import pytest
 import registry
 import signals
 import supervisor
+from _supervisor_launch import canonical_codex_session_id
 from test_supervisor_builders import (
     adopt_codex_ready,
     adopt_sup,
@@ -138,6 +139,47 @@ def test_a_codex_restart_keeps_the_ready_marker_when_the_pane_never_becomes_code
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert signals.read_state(repo=str(repo), topic=topic) is not None  # marker KEPT for retry
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+
+
+def test_a_codex_restart_refuses_an_empty_live_session_id_before_killing_the_pane(*, tmp_path):
+    """A blank id would turn `codex resume` into the interactive picker.
+
+    The live proof caught this exact failure shape: treating an empty string as a
+    positional id is destructive because respawn-pane first kills the cleanly-ready
+    session, then leaves its successor in a picker.  The UUID is therefore an
+    interlock input, not merely a command-formatting detail.
+    """
+    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+    sup.live_codex[(session, topic)] = codex_sessions.CodexSession(
+        pid=4242, name=topic, cwd=str(repo), session_id=""
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        sup._do_codex_restart(
+            track=mapped_track(repo=repo, topic=topic, session=session),
+            target=fake.pane_id(session=session),
+        )
+
+    assert not fake.has(method="respawn")
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+    assert "no valid UUID" in err.getvalue()
+    assert canonical_codex_session_id(value=object()) is None
+
+
+def test_a_codex_restart_keeps_ready_when_the_resume_kick_is_not_observed(*, tmp_path):
+    """A Codex TUI alone is insufficient: the daemon must observe its kick too."""
+    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+    # The fake models a Codex pane after respawn, but it did not receive the argv
+    # prompt.  A bare picker has the same runtime process shape, so only the exact
+    # kick observation distinguishes it from a useful successor.
+    fake.respawn_shows_command = False
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert fake.has(method="respawn")
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 

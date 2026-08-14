@@ -17,6 +17,7 @@ runtime import cycle exists.
 from __future__ import annotations
 
 import shlex
+import uuid
 from typing import TYPE_CHECKING
 
 import registry
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "await_input_box",
     "await_pane",
+    "canonical_codex_session_id",
     "codex_launch_command",
     "launch_command",
     "pane_settled",
@@ -52,6 +54,18 @@ def session_of(*, sup: Supervisor, track: registry.Track) -> str:
     return track.tmux or registry.tmux_id(
         repo=track.repo, topic=track.topic, colliding=sup.colliding_topics
     )
+
+
+def canonical_codex_session_id(*, value: object) -> str | None:
+    """Return a canonical UUID or ``None`` (which would open Codex's picker)."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = uuid.UUID(value)
+    except ValueError:
+        return None
+    canonical = str(parsed)
+    return canonical if canonical == value else None
 
 
 def pane_settled(*, sup: Supervisor, target: str) -> bool:

@@ -44,6 +44,10 @@ class FakeTmux:
         # set False to model a codex respawn whose pane never becomes a live codex TUI
         # (so `_await_pane(pane_is_codex)` fails) — the Codex-restart await-fail leg.
         self.respawn_yields_codex = True
+        # A real `codex resume <uuid> <prompt>` records its argv prompt in the
+        # successor transcript.  Set False to model the picker-shaped failure:
+        # Codex is present, but its required resume kick never arrived.
+        self.respawn_shows_command = True
         self.new_session_ok = True  # set False to model a failed new-session (Codex #3)
         self.pane_pids = {}  # {pane_pid: session} for the registry→tmux adopt join
         # Per-session pane PID (the login shell) fed to has_active_subshell. Defaults
@@ -154,6 +158,9 @@ class FakeTmux:
         # await-fail leg.
         if "codex resume" in command and self.respawn_yields_codex:
             self.cmds[session] = "bun"
+            self.panes[session] = (
+                command if self.respawn_shows_command else "Resume a previous session"
+            )
         else:
             self.cmds[session] = "node"
         self.paths[session] = cwd

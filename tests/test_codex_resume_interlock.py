@@ -11,4 +11,5 @@ def test_codex_resume_interlock_accepts_only_canonical_uuid() -> None:
 
     assert canonical_codex_session_id(value=session_id) == session_id
     assert canonical_codex_session_id(value="") is None
+    assert canonical_codex_session_id(value=session_id.upper()) is None
     assert canonical_codex_session_id(value=object()) is None
