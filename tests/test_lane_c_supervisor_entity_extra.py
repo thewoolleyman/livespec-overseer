@@ -14,6 +14,7 @@ import registry
 import signals
 import supervisor
 from test_supervisor_builders import (
+    TEST_EPIC,
     arm_ready_marker,
     idle_capture,
     isolate_store,
@@ -44,15 +45,21 @@ def test_reserved_supervisor_topics_are_refused_by_discovery_and_collision(*, tm
         registry.tmux_id(repo=str(repo), topic="bad-supervisor")
 
 
-def test_supervisor_wrapup_text_targets_supervisor_handoff(*, tmp_path):
+def test_supervisor_wrapup_text_targets_supervisor_ledger_state(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
 
-    text = _supervisor_prompts.supervisor_wrapup_message(remaining=45, repo=str(repo), topic=topic)
+    text = _supervisor_prompts.supervisor_wrapup_message(
+        remaining=45, repo=str(repo), topic=topic, epic=TEST_EPIC
+    )
 
     assert f"tmp/overseer/{topic}-supervisor/.overseer-state" in text
-    assert f"plan/{topic}/supervisor-handoff.md" in text
-    assert f"wrapup-{topic}-supervisor" in text
-    assert f"$W/plan/{topic}/supervisor-handoff.md" in text
+    assert TEST_EPIC in text
+    assert str(repo) in text
+    assert "supervisor handoff entries attributed to that entity" in text
+    assert "sanctioned plan" in text
+    assert "supervisor-handoff.md" not in text
+    assert "worktree add" not in text
+    assert "cp " not in text
 
 
 def test_dead_supervisor_with_open_round_gets_attention_row(*, tmp_path):
@@ -78,7 +85,6 @@ def test_dead_supervisor_with_open_round_gets_attention_row(*, tmp_path):
 
 def test_supervisor_low_context_uses_supervisor_wrapup_variant(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
-    (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     fake = FakeTmux()
     fake.serve(session=topic, repo=repo, capture=idle_capture(ctx=80))
     fake.serve(session=f"{topic}-supervisor", repo=repo, capture=idle_capture(ctx=45))
@@ -108,8 +114,12 @@ def test_supervisor_low_context_uses_supervisor_wrapup_variant(*, tmp_path):
 
     sup.tick(act=True)
 
-    assert any(f"plan/{topic}/supervisor-handoff.md" in text for text in fake.paste_texts())
-    assert all(f"plan/{topic}-supervisor/handoff.md" not in text for text in fake.paste_texts())
+    pasted = "\n".join(fake.paste_texts())
+    assert TEST_EPIC in pasted
+    assert f"tmp/overseer/{topic}-supervisor/.overseer-state" in pasted
+    assert "supervisor handoff entries attributed to that entity" in pasted
+    assert "supervisor-handoff.md" not in pasted
+    assert "worktree add" not in pasted
 
 
 def test_supervisor_ready_without_handoff_preserves_declaration(*, tmp_path):
