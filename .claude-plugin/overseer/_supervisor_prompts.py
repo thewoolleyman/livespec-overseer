@@ -155,13 +155,16 @@ you can no longer hand off cleanly."""
 
 _WRAPUP_BODY = """\
 You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
-that has not declared itself ready. When you stop, this pane is respawned into a fresh
-session handed exactly ONE prompt:
+that has not declared itself ready. When you stop, this pane is restarted according to
+its runtime and handed exactly ONE prompt. A Claude restart launches a new conversation.
+A Codex restart uses `codex resume`, reattaches this same Codex rollout, and auto-submits
+the prompt:
     {resume}
-So {read_first} is the ONLY thing the next session inherits. Do NOT leave your resume
-state anywhere else (a scratchpad file, this transcript, a file under plan/) — it will be
-LOST. If your real pending work has drifted from what those entries say, APPEND a fresh
-entry that corrects them; never withhold your declaration over drift.
+So {read_first} is the ONLY durable resume state inherited by the restarted runtime. Do
+NOT leave your resume state anywhere else (a scratchpad file, this transcript, a file
+under plan/) — it will be LOST. If your real pending work has drifted from what those
+entries say, APPEND a fresh entry that corrects them; never withhold your declaration over
+drift.
 
 Declare your state by writing ONE line to the single state file
 {state_file} — one of exactly these three values:
