@@ -14,7 +14,7 @@ created_at: 2026-08-14T20:56:38Z
 
 ### Summary
 
-The restart interlock has a fifth, undocumented gate for SUPERVISOR topics only -- a bounded plan-tree read/existence check (_supervisor_resume_artifact_certifies / _migrated_supervisor_epic_certifies in overseer/_supervisor_restart.py) -- that contradicts three current ratified absolute claims: spec.md's 'the restart interlock deliberately inspects nothing beyond the state-file token', constraints.md's 'The daemon NEVER reads, writes, or hashes files under a repository's plan tree', and contracts.md's closed four-item restart-interlock checklist ('A restart fires ONLY when every one of these deterministic checks passes'). Amend all three to document this bounded, supervisor-topic-only, two-shape resume-artifact certification as a named, explicit exception rather than leaving shipped behavior silently contradict ratified prose.
+The restart interlock has a fifth, undocumented gate for SUPERVISOR topics only -- a bounded plan-tree read/existence check (_supervisor_resume_artifact_certifies / _migrated_supervisor_epic_certifies in overseer/_supervisor_restart.py) -- that contradicts FOUR current ratified absolute claims: spec.md's 'the restart interlock deliberately inspects nothing beyond the state-file token' (§"Non-interference with tracked work"), two further daemon-wide absolute claims in spec.md §"Track discovery and the mapping store" ('the daemon never reads inside a plan directory' and 'the daemon never reads one [a file inside a plan directory]'), constraints.md's 'The daemon NEVER reads, writes, or hashes files under a repository's plan tree', and contracts.md's closed four-item restart-interlock checklist ('A restart fires ONLY when every one of these deterministic checks passes'). Amend all four passages (three files) to document this bounded, supervisor-topic-only, two-shape resume-artifact certification as a named, explicit exception rather than leaving shipped behavior silently contradict ratified prose.
 
 ### Motivation
 
@@ -22,7 +22,7 @@ Discovered via a focused capture-spec-drift review of the planning-lane-redesign
 
 ### Proposed Changes
 
-Three coordinated edits, each narrowing an absolute claim into an absolute claim WITH ONE NAMED, BOUNDED EXCEPTION -- topic-scoped (SUPERVISOR topics only, per signals.topic_reserved_for_supervisor), fixed-shape (exactly the legacy supervisor-handoff.md existence check OR the migrated epic.md content check -- no other plan-tree path or content is read), read-only (never opens for write, never hashes), and restart-gating only (it can only BLOCK a restart pending certification, never trigger one, authorize a kill, or substitute for the session's own fresh `ready` declaration).
+Four coordinated edits (across three files), each narrowing an absolute claim into an absolute claim WITH ONE NAMED, BOUNDED EXCEPTION -- topic-scoped (SUPERVISOR topics only, per signals.topic_reserved_for_supervisor), fixed-shape (exactly the legacy supervisor-handoff.md existence check OR the migrated epic.md content check -- no other plan-tree path or content is read), read-only (never opens for write, never hashes), and restart-gating only (it can only BLOCK a restart pending certification, never trigger one, authorize a kill, or substitute for the session's own fresh `ready` declaration).
 
 1. SPECIFICATION/spec.md, section '## Non-interference with tracked work'. Replace:
 
@@ -90,3 +90,55 @@ check applies for supervisor topics. Cite the two accepted artifact shapes
 recorded epic id and referencing the ledger-comment binder medium) and state
 that this check is read-only and can only BLOCK, never authorize, a
 restart.
+
+4. SPECIFICATION/spec.md, section '## Track discovery and the mapping
+store'. This section carries two FURTHER daemon-wide absolute claims
+(distinct from the discovery-scoped sentence a few lines earlier, "The
+discovery path performs no file-level probe inside a plan directory.",
+which stays true and is untouched) that edits 1-3 do not reach and that
+would otherwise be left silently contradicted after ratification. Replace:
+
+```
+Because the daemon never reads
+inside a plan directory, it can never re-derive that id for itself:
+```
+
+with:
+
+```
+Because the daemon never reads
+inside a plan directory on the discovery or consumption path -- the sole
+exception being the supervisor resume-artifact certification per
+contracts.md §"The restart interlock" -- it can never re-derive that id
+for itself on any other path:
+```
+
+Separately, replace:
+
+```
+The epic id
+qualifies because its source is the plan's write-once metadata anchor, a
+file inside a plan directory, and the daemon never reads one — which is why
+the id is recorded at track assignment by a surface that MAY read plan-tree
+text as evidence, and merely consumed by the daemon thereafter.
+```
+
+with:
+
+```
+The epic id qualifies because its source is the plan's write-once metadata anchor, a
+file inside a plan directory, and the daemon never reads one for THIS
+purpose (id re-derivation) — the supervisor resume-artifact certification
+per contracts.md §"The restart interlock" reads a DIFFERENT plan-tree file,
+plan/<topic>/epic.md, for a narrower, unrelated purpose — which is why
+the id is recorded at track assignment by a surface that MAY read plan-tree
+text as evidence, and merely consumed by the daemon thereafter.
+```
+
+Note: the nearby sentence "The daemon consumes the recorded value and never
+reads the anchor itself" (same section, referring to the topic-to-epic
+mapping store's own write-once metadata anchor, i.e. the plan's handoff/tag
+source read at track ASSIGNMENT time, not epic.md) stays literally true and
+is NOT touched by this edit -- it describes a different file read by a
+different actor (the assigning surface, not the daemon) for a different
+purpose, and does not contradict the new exception.
