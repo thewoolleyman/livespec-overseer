@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import re
 import sys
+from contextlib import suppress
 from pathlib import Path
 from typing import Final
 
 import jsonio
-from _supervisor_prompts import plan_epic_resume
+from _supervisor_prompts import plan_epic_resume, supervisor_epic_path, supervisor_resume
 from foreman_act_types import (
     PLAN_START,
     QUALIFYING_SESSION_RESUME,
@@ -24,6 +26,10 @@ _START_ACTIONS: Final[tuple[ActionId, ...]] = (
     SUPERVISOR_PAIR_START,
 )
 _HERE: Final[Path] = Path(__file__).resolve().parent
+_LEDGER_ANCHOR: Final[re.Pattern[str]] = re.compile(
+    r"(?:[Ll]edger(?: epic)?|[Ee]pic)(?: anchor)?:?\*{0,2}"
+    r"[^\n`]*\n?[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`"
+)
 
 
 def _str_field(*, payload: dict[str, object], key: str) -> str | None:
@@ -57,6 +63,14 @@ def _matches_coordinates(*, payload: dict[str, object], proposal: dict[str, obje
     )
 
 
+def _supervisor_pair_epic(*, repo: str, topic: str) -> str | None:
+    path = supervisor_epic_path(repo=repo, topic=topic)
+    epic: str | None = None
+    with suppress(OSError, ValueError):
+        epic = next(iter(_LEDGER_ANCHOR.findall(path.read_text(encoding="utf-8"))), None)
+    return epic
+
+
 def _start_command(*, payload: dict[str, object]) -> list[str] | None:
     repo = _str_field(payload=payload, key="repo")
     topic = _str_field(payload=payload, key="topic")
@@ -81,7 +95,11 @@ def _supervisor_pair_start_command(*, payload: dict[str, object]) -> list[str] |
         repo is None or topic is None or session_name is None or not Path(repo).is_absolute()
     ):  # pragma: no cover
         return None
-    handoff = Path(repo) / "plan" / topic / "supervisor-handoff.md"
+    prompt = supervisor_resume(
+        repo=repo,
+        topic=topic,
+        epic=_supervisor_pair_epic(repo=repo, topic=topic),
+    )
     return [
         "tmux",
         "new-session",
@@ -94,7 +112,7 @@ def _supervisor_pair_start_command(*, payload: dict[str, object]) -> list[str] |
         "--dangerously-skip-permissions",
         "-n",
         session_name,
-        f"read {handoff} and follow it",
+        prompt,
     ]
 
 

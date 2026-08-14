@@ -295,10 +295,17 @@ def test_plan_start_uses_absolute_overseer_start_command(*, tmp_path):
     ]
 
 
-def test_supervisor_pair_start_uses_exact_tmux_session_and_supervisor_handoff(*, tmp_path):
+def test_supervisor_pair_start_uses_migrated_supervisor_ledger_anchor(*, tmp_path):
     module = foreman_act()
     repo = tmp_path / "repo"
-    repo.mkdir()
+    plan = repo / "plan" / "alpha"
+    plan.mkdir(parents=True)
+    (plan / "epic.md").write_text(
+        "# Plan Epic\n\n"
+        "Ledger epic: `overseer-test-epic`\n\n"
+        "The supervisor binder is read from attributed ledger comments.\n",
+        encoding="utf-8",
+    )
     proposal = start_proposal(repo=repo, action_id="supervisor_pair_start")
     proposal["session_name"] = "alpha-supervisor"
     snapshot = proposal["snapshot"]
@@ -335,9 +342,12 @@ def test_supervisor_pair_start_uses_exact_tmux_session_and_supervisor_handoff(*,
             "--dangerously-skip-permissions",
             "-n",
             "alpha-supervisor",
-            f"read {repo / 'plan' / 'alpha' / 'supervisor-handoff.md'} and follow it",
+            f"resume supervisor entity alpha-supervisor for plan epic overseer-test-epic "
+            f"in repository {repo}; read the supervisor handoff entries attributed to "
+            "that entity",
         ]
     ]
+    assert not (plan / "supervisor-handoff.md").exists()
 
 
 def _resume_calls(*, repo, proposal):
