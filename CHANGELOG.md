@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.2...v0.37.3) (2026-08-14)
+
+
+### Bug Fixes
+
+* **overseer:** resolve ledger-bound plan epics ([e35e3c7](https://github.com/thewoolleyman/livespec-overseer/commit/e35e3c70ebf0fe70331acddde2c857bf5cba0cad))
+
 ## [0.37.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.1...v0.37.2) (2026-08-14)
 
 
