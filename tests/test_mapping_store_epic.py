@@ -7,6 +7,25 @@ from test_supervisor_builders import isolate_store, make_plan
 __all__: list[str] = []
 
 
+def test_epic_from_plan_anchor_accepts_observed_labels_and_wrapped_ids(*, tmp_path):
+    cases = {
+        "ledger": b"**Ledger anchor:** epic **`overseer-ledger`**\n",
+        "ledger-epic": b"**Ledger epic anchor:** epic **`overseer-ledger-epic`**\n",
+        "epic": b"**Epic anchor:** epic **`overseer-epic`**\n",
+        "wrapped": b"**Epic anchor:** epic\n**`overseer-wrapped`**\n",
+    }
+
+    for topic, handoff in cases.items():
+        repo, plan_topic = make_plan(
+            tmp_path=tmp_path,
+            repo_name=topic,
+            topic="alpha",
+            handoff=b"# Plan\n\n" + handoff,
+        )
+
+        assert registry.epic_from_plan_anchor(repo=repo, topic=plan_topic) == f"overseer-{topic}"
+
+
 def test_cli_assignment_populates_epic_from_plan_anchor_with_null_control(*, tmp_path, monkeypatch):
     anchored_repo, anchored_topic = make_plan(
         tmp_path=tmp_path,
