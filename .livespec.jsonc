@@ -18,6 +18,12 @@
 // livespec-dev-tooling's `_PIN_WEB_CLASSES` is the subtraction set
 // `_ALL_CLASSES - {"console"}`.
 {
+  // Worktree-discipline pack policy. "required" — the DEFAULT, and what an
+  // absent key means — makes `just check` fail when the canonical pack is not
+  // installed and imported by the root justfile. "optional" is the sanctioned,
+  // reviewable opt-out. Written explicitly at install time so the obligation is
+  // readable here rather than inferred from a verifier failure.
+  "worktree_discipline": { "pack": "required" },
   "template": "livespec",
   "spec_root": "SPECIFICATION",
   "implementation": { "plugin": "livespec-orchestrator-beads-fabro" },
@@ -108,6 +114,9 @@
   //     "spec_pr_merge": "manual"
   //   }
   //
+  "spec_governance": {
+    "propose_change_mode": "batch"
+  },
   "livespec-overseer": {
     "compat": {
       "livespec": ">=0.1.0,<1.0.0",
