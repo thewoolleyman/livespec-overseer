@@ -99,8 +99,22 @@ def snapshot_payload(
 def supervisor_handoff_state(*, repo: Path, topic: object) -> str:
     if not isinstance(topic, str) or topic == "":
         return "unknown"
-    path = repo / "plan" / topic / "supervisor-handoff.md"
-    return "present" if path.is_file() else "missing"
+    legacy_path = repo / "plan" / topic / "supervisor-handoff.md"
+    if legacy_path.is_file():
+        return "present"
+    if migrated_supervisor_handoff_state(repo=repo, topic=topic):
+        return "present"
+    return "missing"
+
+
+def migrated_supervisor_handoff_state(*, repo: Path, topic: str) -> bool:
+    epic_path = repo / "plan" / topic / "epic.md"
+    try:
+        text = epic_path.read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return False
+    lowered = text.lower()
+    return "ledger" in lowered and ("comment" in lowered or "entry" in lowered)
 
 
 def row_with_supervisor_handoff(*, repo: Path, row: dict[str, object]) -> dict[str, object]:
