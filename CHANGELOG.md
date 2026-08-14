@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.37.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.0...v0.37.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* **overseer:** surface ready identity turnover immediately ([f671a67](https://github.com/thewoolleyman/livespec-overseer/commit/f671a6769859ebfdcb6bcd43885b9eca171eaf98))
+* **supervise-plan:** enforce completion gate realization ([11f59ba](https://github.com/thewoolleyman/livespec-overseer/commit/11f59baeda5c253ac64c6d216063bfe6e8034aaa))
+* **supervise-plan:** realize supervisor completion contract ([721c1b5](https://github.com/thewoolleyman/livespec-overseer/commit/721c1b51d5d375c0863fa1457ab603193b6388b0))
+
 ## [0.37.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.36.3...v0.37.0) (2026-08-14)
 
 
