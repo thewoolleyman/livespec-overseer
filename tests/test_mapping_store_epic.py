@@ -83,6 +83,54 @@ def test_epic_from_plan_anchor_reads_ledger_tag_when_handoff_is_absent(*, tmp_pa
     assert registry.epic_from_plan_anchor(repo=repo, topic=topic) == "overseer-ledger-only"
 
 
+def test_epic_from_plan_anchor_prefixes_ledger_lookup_with_credential_wrapper(
+    *, tmp_path, monkeypatch
+):
+    repo = tmp_path / "ledger-binder"
+    topic = "ledger-only"
+    _ = (repo / "plan" / topic).mkdir(parents=True)
+    (repo / ".livespec.jsonc").write_text(
+        '{\n  "credential_wrapper": ["/usr/local/bin/with-livespec-env.sh", "--"]\n}\n',
+        encoding="utf-8",
+    )
+    calls: list[list[str]] = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(list(argv))
+        assert kwargs["cwd"] == repo
+        return subprocess.CompletedProcess(
+            args=argv,
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "id": "overseer-ledger-only",
+                        "issue_type": "epic",
+                        "spec_id": "plan:ledger-only",
+                    }
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(_registry_epic.subprocess, "run", fake_run)
+
+    assert registry.epic_from_plan_anchor(repo=repo, topic=topic) == "overseer-ledger-only"
+    assert calls == [
+        [
+            "/usr/local/bin/with-livespec-env.sh",
+            "--",
+            "bd",
+            "list",
+            "--type",
+            "epic",
+            "--status",
+            "all",
+            "--json",
+        ]
+    ]
+
+
 @pytest.mark.parametrize(
     ("result", "raises"),
     [

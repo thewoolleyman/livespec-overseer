@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import cast
 
 from _registry_core import warn
+from foreman_gather_sources import parse_repo_config, string_list
 
 __all__: list[str] = ["epic_from_plan_anchor"]
 
@@ -18,6 +19,7 @@ _LEDGER_ANCHOR = re.compile(
     r"(?:[Ll]edger(?: epic)?|[Ee]pic) anchor:?\*{0,2}[^\n`]*\n?[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`"
 )
 _LEDGER_TIMEOUT_SECONDS = 10
+_LEDGER_COMMAND = ["bd", "list", "--type", "epic", "--status", "all", "--json"]
 
 
 def _anchor_from_path(*, path: Path) -> str | None:
@@ -33,6 +35,14 @@ def _anchor_from_path(*, path: Path) -> str | None:
     return None
 
 
+def _credential_wrapper(*, repo: Path) -> list[str]:
+    config = parse_repo_config(repo=repo)
+    if config is None:
+        return []
+    wrapper = string_list(value=config.get("credential_wrapper"))
+    return wrapper if wrapper is not None else []
+
+
 def _ledger_epic_from_plan_tag(*, repo: Path, topic: str) -> str | None:
     """Return the uniquely tagged plan epic from the repository ledger.
 
@@ -40,9 +50,10 @@ def _ledger_epic_from_plan_tag(*, repo: Path, topic: str) -> str | None:
     lookup is assignment-only, like the legacy handoff read above it; discovery stays
     directory-only and never reaches either path.
     """
+    command = [*_credential_wrapper(repo=repo), *_LEDGER_COMMAND]
     try:
         completed = subprocess.run(  # noqa: S603 — fixed bd argv, no shell
-            ["bd", "list", "--type", "epic", "--status", "all", "--json"],  # noqa: S607
+            command,
             capture_output=True,
             check=False,
             cwd=repo,
