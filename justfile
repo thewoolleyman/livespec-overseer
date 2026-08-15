@@ -648,6 +648,9 @@ check-prose-release-hygiene:
     } >&2
     exit 1
 
+check-prose-carrier-vocabulary:
+    uv run pytest tests/test_plan_records_agree.py::test_retired_plan_vocabulary_is_gone_from_live_carriers
+
 check-public-api-result-typed:
     uv run python -m livespec_dev_tooling.checks.public_api_result_typed
 
