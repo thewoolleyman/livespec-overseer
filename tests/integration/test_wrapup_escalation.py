@@ -45,6 +45,26 @@ def _track(*, tmp_path, ctx, topic="topic"):
     return repo, topic, session, fake
 
 
+def _audit_state_file_mutations(*, monkeypatch, state):
+    state_mutations = []
+    original_write_text = type(state).write_text
+    original_unlink = type(state).unlink
+
+    def audited_write_text(self, *args, **kwargs):
+        if self == state:
+            state_mutations.append(("write_text", self))
+        return original_write_text(self, *args, **kwargs)
+
+    def audited_unlink(self, *args, **kwargs):
+        if self == state:
+            state_mutations.append(("unlink", self))
+        return original_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(type(state), "write_text", audited_write_text)
+    monkeypatch.setattr(type(state), "unlink", audited_unlink)
+    return state_mutations
+
+
 def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(*, tmp_path):
     """Scenario: A wrap-up is injected when a track crosses its threshold.
 
@@ -207,7 +227,9 @@ def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_noth
     assert view.status != "restarting"
 
 
-def test_scenario_a_compacted_session_that_re_crosses_threshold_is_re_warned(*, tmp_path):
+def test_scenario_a_compacted_session_that_re_crosses_threshold_is_re_warned(
+    *, tmp_path, monkeypatch
+):
     """Scenario: A compacted session that re-crosses its threshold is re-warned in a fresh round."""
     repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=8)
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
@@ -219,8 +241,13 @@ def test_scenario_a_compacted_session_that_re_crosses_threshold_is_re_warned(*, 
         registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     ) == {50, 40, 30, 20, 10}
 
+    state = signals.state_path(repo=str(repo), topic=topic)
+    state_mutations = _audit_state_file_mutations(monkeypatch=monkeypatch, state=state)
+
+    calls_before_recovery = list(fake.calls)
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=80))
     recovered = sup.evaluate(track=track, act=True)
+    recovery_calls = fake.calls[len(calls_before_recovery) :]
 
     assert recovered.status == "idle"
     assert (
@@ -228,8 +255,10 @@ def test_scenario_a_compacted_session_that_re_crosses_threshold_is_re_warned(*, 
         is None
     )
     assert not fake.has(method="respawn")
+    assert not any(call[0] in {"keys", "paste", "respawn"} for call in recovery_calls)
     assert len(fake.paste_texts()) == 1
     assert not signals.state_path(repo=str(repo), topic=topic).exists()
+    assert state_mutations == []
 
     declare(repo=repo, topic=topic, value="ready", mtime=1001.0)
     sup.evaluate(track=track, act=True)

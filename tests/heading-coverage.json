@@ -725,7 +725,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A compacted session that re-crosses its threshold is re-warned in a fresh round",
     "test": "tests.integration.test_wrapup_escalation.test_scenario_a_compacted_session_that_re_crosses_threshold_is_re_warned",
-    "reason": "Integration-tier v014 recovered-round closure pin: drives the delivered-round recovery path end to end, proves the sidecar is deleted without state-file or pane mutation, and proves the next threshold crossing opens a fresh re-warnable round."
+    "reason": "Integration-tier v014 recovered-round closure pin: drives the delivered-round recovery path end to end, audits the closure tick for no state-file mutation and no pane write, proves the sidecar is deleted, and proves the next threshold crossing opens a fresh re-warnable round."
   },
   {
     "spec_root": "SPECIFICATION",
