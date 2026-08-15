@@ -14,7 +14,7 @@ created_at: 2026-08-14T20:56:38Z
 
 ### Summary
 
-The restart interlock has a fifth, undocumented gate for SUPERVISOR topics only -- a bounded plan-tree read/existence check (_supervisor_resume_artifact_certifies / _migrated_supervisor_epic_certifies in overseer/_supervisor_restart.py) -- that contradicts SIX current ratified absolute claims: spec.md's 'the restart interlock deliberately inspects nothing beyond the state-file token' (§"Non-interference with tracked work"), THREE further daemon-wide absolute claims in spec.md §"Track discovery and the mapping store" ('the daemon never reads inside a plan directory', 'the daemon never reads one [a file inside a plan directory]', and 'the daemon consumes the recorded value and never reads the anchor itself' -- the last of these only became contradictory after overseer/_registry_epic.py commit e0f1100, merged 2026-08-14T22:22Z, made plan/<topic>/epic.md the anchor file itself for the migrated shape), constraints.md's 'The daemon NEVER reads, writes, or hashes files under a repository's plan tree', and contracts.md's closed four-item restart-interlock checklist ('A restart fires ONLY when every one of these deterministic checks passes'). Amend all six passages (three files) to document this bounded, supervisor-topic-only, two-shape resume-artifact certification as a named, explicit exception rather than leaving shipped behavior silently contradict ratified prose.
+The restart interlock has a fifth, undocumented gate for SUPERVISOR topics only -- a bounded plan-tree read/existence check (_supervisor_resume_artifact_certifies / _migrated_supervisor_epic_certifies in overseer/_supervisor_restart.py) -- that contradicts SIX current ratified absolute claims: spec.md's 'the restart interlock deliberately inspects nothing beyond the state-file token' (§"Non-interference with tracked work"), THREE further daemon-wide absolute claims in spec.md §"Track discovery and the mapping store" ('the daemon never reads inside a plan directory', 'the daemon never reads one [a file inside a plan directory]', and 'the daemon consumes the recorded value and never reads the anchor itself' -- the last of these only became contradictory after overseer/_registry_epic.py commit e0f1100 made plan/<topic>/epic.md the anchor file itself for the migrated shape), constraints.md's 'The daemon NEVER reads, writes, or hashes files under a repository's plan tree', and contracts.md's closed four-item restart-interlock checklist ('A restart fires ONLY when every one of these deterministic checks passes'). Amend all six passages (three files) to document this bounded, supervisor-topic-only, two-shape resume-artifact certification as a named, explicit exception rather than leaving shipped behavior silently contradict ratified prose.
 
 ### Motivation
 
@@ -60,8 +60,9 @@ plan/<topic>/epic.md names the track's recorded ledger epic and references
 the ledger-comment binder medium, before restarting — a bounded, read-only,
 restart-gating-only check that can never trigger a restart, authorize a
 kill, or substitute for the entity's own fresh `ready` declaration. The
-discovery path still performs no file-level probe inside a plan directory
-outside that one named read exception.
+discovery path still performs no file-level probe inside a plan
+directory — the one named read exception sits on the restart interlock,
+never on discovery.
 ```
 
 2. SPECIFICATION/constraints.md, section '## Filesystem boundaries'. Replace:
@@ -135,8 +136,8 @@ file inside a plan directory, and the daemon never reads one for THIS
 purpose (id re-derivation) — the supervisor resume-artifact certification
 per contracts.md §"The restart interlock" MAY read the SAME anchor file
 (plan/<topic>/epic.md, in the migrated shape -- since overseer/_registry_epic.py
-commit e0f1100, merged 2026-08-14T22:22Z, epic.md is the FIRST-read
-write-once anchor, not a distinct file) for a DIFFERENT, narrower purpose:
+commit e0f1100, epic.md is the FIRST-read write-once anchor, not a
+distinct file) for a DIFFERENT, narrower purpose:
 certifying a supervisor's resume artifact, never re-deriving an id — which
 is why the id is recorded at track assignment by a surface that MAY read
 plan-tree text as evidence, and merely consumed by the daemon thereafter.
