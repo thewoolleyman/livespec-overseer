@@ -18,7 +18,7 @@ __all__: list[str] = ["epic_from_plan_anchor"]
 _LEDGER_ANCHOR = re.compile(
     r"(?:[Ll]edger(?: epic)?|[Ee]pic) anchor:?\*{0,2}[^\n`]*\n?[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`"
 )
-_LEDGER_TIMEOUT_SECONDS = 10
+_LEDGER_TIMEOUT_SECONDS = 30
 _LEDGER_COMMAND = ["bd", "list", "--type", "epic", "--status", "all", "--json"]
 
 
