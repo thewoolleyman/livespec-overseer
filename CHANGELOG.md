@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.37.8](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.7...v0.37.8) (2026-08-15)
+
+
+### Bug Fixes
+
+* migrate supervisor resume prompts to ledger ([41f97ce](https://github.com/thewoolleyman/livespec-overseer/commit/41f97cee5b1ff711afeaecd6bbd5a7327c63add8))
+* raise ledger epic lookup timeout ([bf5d16d](https://github.com/thewoolleyman/livespec-overseer/commit/bf5d16dad6bb16f91601b038450aadebe6e0b7d9))
+* resolve reopened plan ledger epics ([e0fe3cf](https://github.com/thewoolleyman/livespec-overseer/commit/e0fe3cf182ce7fc336c6498d1ff05efabf6df6d4))
+
 ## [0.37.7](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.6...v0.37.7) (2026-08-15)
 
 
