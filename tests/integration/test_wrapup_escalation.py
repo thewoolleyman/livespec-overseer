@@ -20,7 +20,7 @@ from __future__ import annotations
 import contextlib
 import io as _io
 
-from overseer import registry
+from overseer import registry, signals
 from overseer.test_supervisor_builders import (
     TEST_EPIC,
     declare,
@@ -205,3 +205,42 @@ def test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_noth
     assert topic in err.getvalue()  # ...and the track was re-reported to the operator
     assert not fake.has(method="respawn")  # ...but staleness authorized NOTHING
     assert view.status != "restarting"
+
+
+def test_scenario_a_compacted_session_that_re_crosses_threshold_is_re_warned(*, tmp_path):
+    """Scenario: A compacted session that re-crosses its threshold is re-warned in a fresh round."""
+    repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=8)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    sup.evaluate(track=track, act=True)
+    assert len(fake.paste_texts()) == 1
+    assert set(
+        registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    ) == {50, 40, 30, 20, 10}
+
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=80))
+    recovered = sup.evaluate(track=track, act=True)
+
+    assert recovered.status == "idle"
+    assert (
+        registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path).at
+        is None
+    )
+    assert not fake.has(method="respawn")
+    assert len(fake.paste_texts()) == 1
+    assert not signals.state_path(repo=str(repo), topic=topic).exists()
+
+    declare(repo=repo, topic=topic, value="ready", mtime=1001.0)
+    sup.evaluate(track=track, act=True)
+    assert not fake.has(method="respawn")
+
+    declare(repo=repo, topic=topic, value="idle-with-context-left", mtime=1002.0)
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=35))
+    rewarned = sup.evaluate(track=track, act=True)
+
+    assert rewarned.status == "warned"
+    assert len(fake.paste_texts()) == 2
+    assert signals.state_path(repo=str(repo), topic=topic).read_text(encoding="utf-8") == (
+        "idle-with-context-left\n"
+    )

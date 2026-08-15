@@ -724,8 +724,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A compacted session that re-crosses its threshold is re-warned in a fresh round",
-    "test": "TODO",
-    "reason": "Added by the round-recovery-and-escalation-exhaustion ratification (recovered-round closure). No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+    "test": "tests.integration.test_wrapup_escalation.test_scenario_a_compacted_session_that_re_crosses_threshold_is_re_warned",
+    "reason": "Integration-tier v014 recovered-round closure pin: drives the delivered-round recovery path end to end, proves the sidecar is deleted without state-file or pane mutation, and proves the next threshold crossing opens a fresh re-warnable round."
   },
   {
     "spec_root": "SPECIFICATION",

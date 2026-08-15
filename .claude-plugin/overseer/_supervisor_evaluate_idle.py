@@ -11,6 +11,7 @@ import _supervisor_launch
 import _supervisor_liveness
 import _supervisor_observe
 import _supervisor_restart
+import _supervisor_round_recovery
 import _supervisor_threshold
 import registry
 from _supervisor_records import Observation
@@ -82,6 +83,35 @@ def _apply_uncertifiable_ready(
     # identity mismatch as ordinary ``danger``: that reads as a missed ready
     # declaration and hides the UUIDs needed to resolve it safely.
     return "ready-uncertifiable", ready_note
+
+
+def _idle_room_or_recovered(*, request: IdleRequest) -> str:
+    if request.act and _supervisor_round_recovery.close_recovered_round(
+        request=_supervisor_round_recovery.RecoveryRequest(
+            sup=request.sup,
+            track=request.track,
+            obs=request.obs,
+            session=request.session,
+            target=request.target,
+            threshold=request.threshold,
+        )
+    ):
+        return "idle"
+    return _supervisor_idle.idle_room(
+        request=_supervisor_idle.IdleRequest(
+            sup=request.sup,
+            track=request.track,
+            target=request.target,
+            topic=request.track.topic,
+            eff_ctx=request.obs.eff_ctx,
+            threshold=request.threshold,
+            declared=request.obs.declared,
+            claude_status=request.obs.claude_status,
+            istate=request.obs.istate,
+            act=request.act,
+            is_codex=request.obs.is_codex,
+        )
+    )
 
 
 def idle_decision(*, request: IdleRequest) -> IdleDecision:
@@ -184,21 +214,7 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         note, ready_conditions = request.uncertifiable_ready
         active_conditions.update(ready_conditions)
     else:
-        status = _supervisor_idle.idle_room(
-            request=_supervisor_idle.IdleRequest(
-                sup=request.sup,
-                track=request.track,
-                target=request.target,
-                topic=request.track.topic,
-                eff_ctx=request.obs.eff_ctx,
-                threshold=request.threshold,
-                declared=request.obs.declared,
-                claude_status=request.obs.claude_status,
-                istate=request.obs.istate,
-                act=request.act,
-                is_codex=request.obs.is_codex,
-            )
-        )
+        status = _idle_room_or_recovered(request=request)
     return IdleDecision(
         status=status,
         note=note,
