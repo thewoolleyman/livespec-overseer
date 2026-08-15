@@ -22,6 +22,19 @@ _LEDGER_TIMEOUT_SECONDS = 30
 _LEDGER_COMMAND = ["bd", "list", "--type", "epic", "--status", "all", "--json"]
 
 
+def _resolve_ledger_epic_matches(
+    *, repo: Path, topic: str, matches: list[tuple[str, object]]
+) -> str | None:
+    if len(matches) == 1:
+        return matches[0][0]
+    open_matches = [record_id for record_id, status in matches if status != "closed"]
+    if len(open_matches) == 1:
+        return open_matches[0]
+    if len(open_matches) > 1:
+        warn(message=f"could not resolve plan ledger epic for {repo}/{topic}: ambiguous anchors")
+    return None
+
+
 def _anchor_from_path(*, path: Path) -> str | None:
     try:
         text = path.read_text(encoding="utf-8")
@@ -77,7 +90,7 @@ def _ledger_epic_from_plan_tag(*, repo: Path, topic: str) -> str | None:
     if not isinstance(raw, list):
         warn(message=f"could not parse plan ledger epic for {repo}/{topic}: expected list")
         return None
-    matches: list[str] = []
+    matches: list[tuple[str, object]] = []
     for raw_item in cast("list[object]", raw):
         if not isinstance(raw_item, dict):
             continue
@@ -89,12 +102,8 @@ def _ledger_epic_from_plan_tag(*, repo: Path, topic: str) -> str | None:
             and cast("dict[str, object]", metadata).get("plan_slug") == topic
         )
         if item.get("issue_type") == "epic" and isinstance(record_id, str) and is_plan_anchor:
-            matches.append(record_id)
-    if len(matches) == 1:
-        return matches[0]
-    if len(matches) > 1:
-        warn(message=f"could not resolve plan ledger epic for {repo}/{topic}: ambiguous anchors")
-    return None
+            matches.append((record_id, item.get("status")))
+    return _resolve_ledger_epic_matches(repo=repo, topic=topic, matches=matches)
 
 
 def epic_from_plan_anchor(*, repo: str | os.PathLike[str], topic: str) -> str | None:
