@@ -1,7 +1,9 @@
 """Assignment-time mapping epic population."""
 
+import ast
 import json
 import subprocess
+from pathlib import Path
 
 import _registry_epic
 import pytest
@@ -10,6 +12,31 @@ import supervisor
 from test_supervisor_builders import isolate_store, make_plan
 
 __all__: list[str] = []
+
+
+def _ledger_timeout_constant(*, path: Path) -> int:
+    module = ast.parse(path.read_text(encoding="utf-8"))
+    for node in module.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == "_LEDGER_TIMEOUT_SECONDS"
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, int)
+        ):
+            return node.value.value
+    raise AssertionError(f"{path} does not define _LEDGER_TIMEOUT_SECONDS as an int")
+
+
+def test_ledger_epic_lookup_timeout_has_wrapped_bd_margin_and_plugin_lockstep():
+    package_timeout = _ledger_timeout_constant(path=Path("overseer/_registry_epic.py"))
+    plugin_timeout = _ledger_timeout_constant(
+        path=Path(".claude-plugin/overseer/_registry_epic.py")
+    )
+
+    assert package_timeout == plugin_timeout
+    assert package_timeout >= 20
 
 
 def test_epic_from_plan_anchor_accepts_observed_labels_and_wrapped_ids(*, tmp_path, monkeypatch):
