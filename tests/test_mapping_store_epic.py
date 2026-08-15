@@ -265,3 +265,82 @@ def test_cli_assignment_populates_epic_from_plan_anchor_with_null_control(*, tmp
     assert tracks[("anchored", "alpha")].epic == "overseer-pfpfty"
     assert tracks[("unanchored", "beta")].epic is None
     assert tracks[("missing", "gamma")].epic is None
+
+
+def test_read_mapping_rewrites_plan_handoff_resume_overrides_to_ledger_epics(*, tmp_path):
+    store = tmp_path / "map.jsonl"
+    store.write_text(
+        json.dumps(
+            {
+                "topic": "alpha",
+                "repo": "/data/projects/livespec-overseer",
+                "resume": (
+                    "read /data/projects/livespec-overseer/plan/alpha/handoff.md " "and follow it"
+                ),
+                "epic": "overseer-alpha",
+                "added_at": "keep",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "topic": "beta",
+                "repo": "/data/projects/livespec",
+                "resume": "read /data/projects/livespec/plan/beta/supervisor-handoff.md",
+                "epic": "livespec-beta",
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "topic": "gamma",
+                "repo": "/data/projects/livespec-dev-tooling",
+                "resume": "operator-authored resume prompt",
+                "epic": "dev-gamma",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    tracks = {track.topic: track for track in registry.read_mapping(store_path=store)}
+    assert tracks["alpha"].resume == (
+        "resume plan epic overseer-alpha in repository /data/projects/livespec-overseer; "
+        "read its ledger-held plan state"
+    )
+    assert tracks["beta"].resume == (
+        "resume plan epic livespec-beta in repository /data/projects/livespec; "
+        "read its ledger-held plan state"
+    )
+    assert tracks["gamma"].resume == "operator-authored resume prompt"
+
+    rows = [json.loads(line) for line in store.read_text(encoding="utf-8").splitlines()]
+    assert rows[0]["resume"] == tracks["alpha"].resume
+    assert rows[0]["added_at"] == "keep"
+    assert rows[1]["resume"] == tracks["beta"].resume
+    assert rows[2]["resume"] == "operator-authored resume prompt"
+    assert "handoff.md" not in store.read_text(encoding="utf-8")
+
+
+def test_read_mapping_clears_plan_handoff_resume_override_without_epic(*, tmp_path):
+    store = tmp_path / "map.jsonl"
+    store.write_text(
+        json.dumps(
+            {
+                "topic": "alpha",
+                "repo": "/data/projects/livespec-overseer",
+                "resume": (
+                    "read /data/projects/livespec-overseer/plan/alpha/handoff.md " "and follow it"
+                ),
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    tracks = registry.read_mapping(store_path=store)
+    assert tracks[0].resume is None
+
+    rows = [json.loads(line) for line in store.read_text(encoding="utf-8").splitlines()]
+    assert "resume" not in rows[0]
+    assert "handoff.md" not in store.read_text(encoding="utf-8")
