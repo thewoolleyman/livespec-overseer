@@ -171,7 +171,7 @@ eventually trips the SIGPIPE above, so the two defects compound.
 Maintainer-directed 2026-08-15. Autonomous mode (the Beads/Dolt ledger + Fabro
 Dispatcher, `drive.py --action impl:<id>` / the `implement`/`groom` skills) and
 the overseer's interactive tracks are documented as standing peers, not a
-default-to-manual with dispatch as a fallback. Running a plan thread under the
+default-to-manual with dispatch as a fallback. Running a plan under the
 overseer does NOT mean its implementation work should default to a live worker
 pane doing it by hand — check whether the work is dispatch-safe FIRST, and
 prefer `impl:<id>` when it is.
