@@ -35,6 +35,11 @@
       "github_url": "https://github.com/thewoolleyman/livespec-dev-tooling",
       "local_clone": "/data/projects/livespec-dev-tooling",
       "default_branch": "master"
+    },
+    "livespec-orchestrator-beads-fabro": {
+      "github_url": "https://github.com/thewoolleyman/livespec-orchestrator-beads-fabro",
+      "local_clone": "/data/projects/livespec-orchestrator-beads-fabro",
+      "default_branch": "master"
     }
   },
   // Credential-injection wrapper (fleet default) prefixed to the beads CLIs
