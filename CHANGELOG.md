@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.7](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.6...v0.37.7) (2026-08-15)
+
+
+### Bug Fixes
+
+* cover stale handoff resume overrides ([c771a16](https://github.com/thewoolleyman/livespec-overseer/commit/c771a1625cadba6ea9e13cf66857aa0496b97450))
+
 ## [0.37.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.5...v0.37.6) (2026-08-15)
 
 
