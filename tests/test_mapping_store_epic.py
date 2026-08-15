@@ -110,6 +110,105 @@ def test_epic_from_plan_anchor_reads_ledger_tag_when_handoff_is_absent(*, tmp_pa
     assert registry.epic_from_plan_anchor(repo=repo, topic=topic) == "overseer-ledger-only"
 
 
+def test_epic_from_plan_anchor_prefers_open_ledger_epic_over_closed_match(*, tmp_path, monkeypatch):
+    repo = tmp_path / "ledger-binder"
+    topic = "ledger-only"
+    _ = (repo / "plan" / topic).mkdir(parents=True)
+
+    def fake_run(argv, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=argv,
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "id": "overseer-superseded",
+                        "issue_type": "epic",
+                        "status": "closed",
+                        "metadata": {"plan_slug": topic},
+                    },
+                    {
+                        "id": "overseer-live",
+                        "issue_type": "epic",
+                        "status": "backlog",
+                        "spec_id": "plan:ledger-only",
+                    },
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(_registry_epic.subprocess, "run", fake_run)
+
+    assert registry.epic_from_plan_anchor(repo=repo, topic=topic) == "overseer-live"
+
+
+def test_epic_from_plan_anchor_keeps_ambiguous_open_ledger_epics_closed(*, tmp_path, monkeypatch):
+    repo = tmp_path / "ledger-binder"
+    topic = "ledger-only"
+    _ = (repo / "plan" / topic).mkdir(parents=True)
+
+    def fake_run(argv, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=argv,
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "id": "overseer-first",
+                        "issue_type": "epic",
+                        "status": "backlog",
+                        "spec_id": "plan:ledger-only",
+                    },
+                    {
+                        "id": "overseer-second",
+                        "issue_type": "epic",
+                        "status": "ready",
+                        "metadata": {"plan_slug": topic},
+                    },
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(_registry_epic.subprocess, "run", fake_run)
+
+    assert registry.epic_from_plan_anchor(repo=repo, topic=topic) is None
+
+
+def test_epic_from_plan_anchor_ignores_all_closed_ledger_epics(*, tmp_path, monkeypatch):
+    repo = tmp_path / "ledger-binder"
+    topic = "ledger-only"
+    _ = (repo / "plan" / topic).mkdir(parents=True)
+
+    def fake_run(argv, **_kwargs):
+        return subprocess.CompletedProcess(
+            args=argv,
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "id": "overseer-first",
+                        "issue_type": "epic",
+                        "status": "closed",
+                        "spec_id": "plan:ledger-only",
+                    },
+                    {
+                        "id": "overseer-second",
+                        "issue_type": "epic",
+                        "status": "closed",
+                        "metadata": {"plan_slug": topic},
+                    },
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(_registry_epic.subprocess, "run", fake_run)
+
+    assert registry.epic_from_plan_anchor(repo=repo, topic=topic) is None
+
+
 def test_epic_from_plan_anchor_prefixes_ledger_lookup_with_credential_wrapper(
     *, tmp_path, monkeypatch
 ):
