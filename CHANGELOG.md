@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.37.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.5...v0.37.6) (2026-08-15)
+
+
+### Bug Fixes
+
+* expose prose carrier vocabulary as standalone check ([7c84853](https://github.com/thewoolleyman/livespec-overseer/commit/7c848539bff072163fba02e8968a7c740b5d310e))
+* prefix ledger epic lookup with repo credentials ([9a523ef](https://github.com/thewoolleyman/livespec-overseer/commit/9a523efd57a8b43442b299a4a38ab3a20fcc8eab))
+* recover delivered rounds above threshold ([3c336a5](https://github.com/thewoolleyman/livespec-overseer/commit/3c336a5c2915dec50b34f6f6f05ac839374f9a1c))
+* retire archived supervisor tracks instead of alerting a missing handoff ([6e7815b](https://github.com/thewoolleyman/livespec-overseer/commit/6e7815b21235fe89cae290cb109116f5b1522786))
+
 ## [0.37.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.4...v0.37.5) (2026-08-14)
 
 
