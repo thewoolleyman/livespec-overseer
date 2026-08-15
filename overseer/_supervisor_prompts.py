@@ -90,11 +90,10 @@ def resume_for_track(*, track: registry.Track) -> str | None:
     whether a respawned pane ever ran what it was handed. Two definitions would let the
     daemon respawn onto one source and then judge the pane against another.
 
-    A supervisor pair member still resumes from `supervisor-handoff.md`: that entity's
-    durable artifact is the supervision file for the worker plan. A worker resumes by
-    repository + ledger epic, so a cold-open successor resolves the plan state from the
-    ledger rather than from a path-shaped pointer that may have gone stale — or that may
-    name a file nobody ever wrote.
+    A supervisor pair member resumes by repository + ledger epic too, but with the
+    supervisor entity's attributed handoff entries rather than the worker's plan state.
+    Both branches resolve cold-open state from the ledger rather than from a path-shaped
+    pointer that may have gone stale — or that may name a file nobody ever wrote.
 
     A track's stored `resume` is deliberately NOT consulted here. Assignment surfaces used
     to auto-populate that field with a derived handoff line, so a non-empty value on an
@@ -235,13 +234,13 @@ def wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -
 
 
 def supervisor_handoff_path(*, repo: str, topic: str) -> Path:
-    """The supervision artifact a supervisor pair member still resumes from.
+    """The retired supervisor-handoff artifact path, for legacy certification only.
 
-    Supervise-plan no longer AUTHORS this file (its binder is appended to the plan's
-    ledger epic), but retiring authorship is not deletion: existing files stay where they
-    are, and the supervisor entity's own resume path is unchanged by this module. Callers
-    on the daemon's discovery path must never open, read, hash, or depend on its content
-    or mtime.
+    Supervise-plan no longer AUTHORS this file: its binder is appended to the plan's
+    ledger epic, and supervisor resume prompts now resolve that ledger state directly.
+    Existing files can still certify old supervisor restart rounds while live plans are
+    migrating. Callers on the daemon's discovery path must never open, read, hash, or
+    depend on its content or mtime.
     """
     return Path(repo) / "plan" / topic / "supervisor-handoff.md"
 
@@ -341,9 +340,11 @@ def _supervisor_plan_state_locator(*, repo: str, topic: str, epic: str | None) -
 
 def supervisor_resume(*, repo: str, topic: str, epic: str | None = None) -> str:
     """Resume prompt for a supervisor pair member."""
-    handoff = supervisor_handoff_path(repo=repo, topic=topic)
-    if handoff.exists() or epic is None:
-        return f"read {handoff} and follow it"
+    if epic is None:
+        return (
+            "(no resume prompt can be built — this supervisor track records NO plan epic id, "
+            "so ask the operator to record one)"
+        )
     return supervisor_ledger_resume(repo=repo, topic=topic, epic=epic)
 
 
