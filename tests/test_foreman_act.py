@@ -350,6 +350,119 @@ def test_supervisor_pair_start_uses_migrated_supervisor_ledger_anchor(*, tmp_pat
     assert not (plan / "supervisor-handoff.md").exists()
 
 
+def test_supervisor_resume_uses_ledger_even_when_legacy_handoff_exists(*, tmp_path):
+    repo = tmp_path / "repo"
+    topic = "alpha"
+    plan = repo / "plan" / topic
+    plan.mkdir(parents=True)
+    (plan / "supervisor-handoff.md").write_text("retired file-shaped binder\n", encoding="utf-8")
+    prompts = module("_supervisor_prompts")
+
+    text = prompts.supervisor_resume(repo=str(repo), topic=topic, epic="overseer-test-epic")
+
+    assert "overseer-test-epic" in text
+    assert str(repo) in text
+    assert "alpha-supervisor" in text
+    assert "supervisor handoff entries attributed to that entity" in text
+    assert "supervisor-handoff.md" not in text
+
+
+def test_supervisor_prompt_resume_builders_cover_ledger_and_no_epic_shapes(*, tmp_path):
+    prompts = module("_supervisor_prompts")
+    registry = module("registry")
+    repo = str(tmp_path / "repo")
+    topic = "alpha"
+    epic = "overseer-test-epic"
+    worker = registry.Track(topic=topic, repo=repo, tmux=topic, epic=epic)
+    worker_without_epic = registry.Track(topic=topic, repo=repo, tmux=topic, epic=None)
+    supervisor = registry.Track(
+        topic=f"{topic}-supervisor", repo=repo, tmux=f"{topic}-supervisor", epic=epic
+    )
+    supervisor_without_epic = registry.Track(
+        topic=f"{topic}-supervisor", repo=repo, tmux=f"{topic}-supervisor", epic=None
+    )
+
+    assert prompts.plan_state_locator(repo=repo, epic=None).count("NO plan epic id") == 1
+    assert prompts.plan_state_locator(repo=repo, epic=epic) == (
+        f"the plan state held on ledger epic {epic} in repository {repo}"
+    )
+    assert prompts.plan_epic_resume(repo=repo, epic=epic) == (
+        f"resume plan epic {epic} in repository {repo}; read its ledger-held plan state"
+    )
+    assert prompts.resume_for_track(track=worker) == prompts.plan_epic_resume(repo=repo, epic=epic)
+    assert prompts.resume_for_track(track=worker_without_epic) is None
+    assert prompts.resume_for_track(track=supervisor) == prompts.supervisor_ledger_resume(
+        repo=repo, topic=topic, epic=epic
+    )
+    supervisor_without_epic_resume = prompts.resume_for_track(track=supervisor_without_epic)
+    assert supervisor_without_epic_resume is not None
+    assert "NO plan epic id" in supervisor_without_epic_resume
+    assert prompts.launch_resume(track=worker) == prompts.plan_epic_resume(repo=repo, epic=epic)
+    assert "no plan epic id is recorded" in prompts.launch_resume(track=worker_without_epic)
+    assert (
+        prompts.supervisor_handoff_path(repo=repo, topic=topic)
+        .as_posix()
+        .endswith("/plan/alpha/supervisor-handoff.md")
+    )
+    assert (
+        prompts.supervisor_epic_path(repo=repo, topic=topic)
+        .as_posix()
+        .endswith("/plan/alpha/epic.md")
+    )
+
+
+def test_supervisor_prompt_wrapup_builders_cover_ledger_and_no_epic_shapes(*, tmp_path):
+    prompts = module("_supervisor_prompts")
+    repo = str(tmp_path / "repo")
+    topic = "alpha"
+    epic = "overseer-test-epic"
+
+    worker_wrap = prompts.wrapup_message(remaining=45, repo=repo, topic=topic, epic=epic)
+    worker_wrap_no_epic = prompts.wrapup_message(remaining=20, repo=repo, topic=topic, epic=None)
+    supervisor_wrap = prompts.supervisor_wrapup_message(
+        remaining=45, repo=repo, topic=topic, epic=epic
+    )
+    supervisor_wrap_no_epic = prompts.supervisor_wrapup_message(
+        remaining=20, repo=repo, topic=topic, epic=None
+    )
+
+    assert "Please start wrapping up" in worker_wrap
+    assert "STOP AND WIND DOWN NOW" in worker_wrap_no_epic
+    assert "NO plan epic id" in worker_wrap_no_epic
+    assert "supervisor handoff entries attributed to alpha-supervisor" in supervisor_wrap
+    assert "NO plan epic id" in supervisor_wrap_no_epic
+
+
+def test_supervisor_prompt_nudge_builders_cover_ledger_and_no_epic_shapes(*, tmp_path):
+    prompts = module("_supervisor_prompts")
+    repo = str(tmp_path / "repo")
+    topic = "alpha"
+    epic = "overseer-test-epic"
+
+    idle = prompts.idle_nudge_message(remaining=80, threshold=50, repo=repo, topic=topic, epic=epic)
+    supervisor_idle = prompts.supervisor_idle_nudge_message(
+        remaining=80, threshold=50, repo=repo, topic=topic, epic=epic
+    )
+    supervisor_idle_no_epic = prompts.supervisor_idle_nudge_message(
+        remaining=80, threshold=50, repo=repo, topic=topic, epic=None
+    )
+    stall = prompts.pair_stall_nudge_message(
+        repo=repo,
+        topic=topic,
+        epic=epic,
+        worker_session="alpha",
+        worker_pane="%1",
+        stalled_seconds=7200.0,
+    )
+
+    assert "idle-with-context-left" in idle
+    assert ".ai/supervisor-protocol.md" in supervisor_idle
+    assert epic in supervisor_idle
+    assert "NO plan epic id" in supervisor_idle_no_epic
+    assert "2.0h" in stall
+    assert "Worker plan state" in stall
+
+
 def test_supervisor_pair_start_ignores_non_anchor_ledger_epic_spelling(*, tmp_path):
     module = foreman_act()
     repo = tmp_path / "repo"
@@ -382,7 +495,9 @@ def test_supervisor_pair_start_ignores_non_anchor_ledger_epic_spelling(*, tmp_pa
     )
 
     assert result["reason"] == "started"
-    assert calls[0][-1] == f"read {plan / 'supervisor-handoff.md'} and follow it"
+    assert "NO plan epic id" in calls[0][-1]
+    assert "supervisor-handoff.md" not in calls[0][-1]
+    assert "handoff.md" not in calls[0][-1]
 
 
 def _resume_calls(*, repo, proposal):
