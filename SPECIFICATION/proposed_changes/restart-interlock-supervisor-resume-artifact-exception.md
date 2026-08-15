@@ -47,7 +47,7 @@ READ exception (per contracts.md §"The restart interlock", resume-artifact
 certification; existence-only STAT probes elsewhere, e.g. the supervision-offer
 surface's check of the same two artifact names, are unchanged by this
 exception and were never covered by the "opens, writes, or hashes" verb
-list this sentence uses). The plan state and everything beside it are the
+list the next sentence uses). The plan state and everything beside it are the
 supervised session's own workflow: the overseer enumerates plan DIRECTORIES
 to discover tracks and points sessions at ledger-held plan state, and for
 every topic other than a SUPERVISOR topic the daemon never opens, writes, or
