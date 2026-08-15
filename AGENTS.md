@@ -166,6 +166,33 @@ branch under this fleet's rebase-merge-only flow. A dry run on 2026-08-04 report
 17 worktrees, 0 removable, several genuinely landed. That accumulation is what
 eventually trips the SIGPIPE above, so the two defects compound.
 
+## Prefer factory dispatch over interactive hand-implementation when the work is dispatch-safe
+
+Maintainer-directed 2026-08-15. Autonomous mode (the Beads/Dolt ledger + Fabro
+Dispatcher, `drive.py --action impl:<id>` / the `implement`/`groom` skills) and
+the overseer's interactive tracks are documented as standing peers, not a
+default-to-manual with dispatch as a fallback. Running a plan thread under the
+overseer does NOT mean its implementation work should default to a live worker
+pane doing it by hand — check whether the work is dispatch-safe FIRST, and
+prefer `impl:<id>` when it is.
+
+This was learned live: a supervisor let an `archive-safe-respawn` worker
+continue hand-implementing a narrow, well-scoped `.py` fix (a bounded branch
+in `_supervisor_restart.do_restart`, with acceptance criteria already drafted
+on its ledger item) purely because that is what the worker happened to already
+be doing, without ever weighing factory dispatch as the alternative. The
+maintainer had to say so explicitly.
+
+Check dispatch-safety before choosing (see "Dispatch traps" above and the
+ledger-edit-item note below it): no `{{...}}` template tokens in the item's
+own text, no cross-repo `depends_on` pointing at its own parent epic, the
+target repo's master CI proven green, and the deliverable is a repository
+change rather than a beads-ledger mutation. If genuinely in-flight manual work
+is already substantially complete (verified RED, or RED+GREEN) when this
+question comes up, finish and land it rather than discarding sunk, verified
+progress purely to redo it via the factory — the preference governs the NEXT
+piece of work, not a reflexive abort of work already done.
+
 ## The fleet has SEVERAL Anthropic credentials — probing the wrong one is the documented failure mode
 
 Cite this section; do not restate it per plan. It exists because the
