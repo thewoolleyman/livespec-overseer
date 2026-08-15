@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Iterable
 
 import jsonio
@@ -29,6 +30,60 @@ __all__: list[str] = [
     "repoint_tmux",
     "rewrite_mapping",
 ]
+
+_PLAN_HANDOFF_RESUME = re.compile(
+    r"(?<![\w.-])(?:[^\s`\"']*/)?plan/[^\s`\"']*/(?:supervisor-)?handoff\.md\b"
+)
+
+
+def _mentions_retired_plan_handoff(*, resume: str) -> bool:
+    """Return True when a resume override names the retired plan-file shape."""
+    return _PLAN_HANDOFF_RESUME.search(resume.replace("\\", "/")) is not None
+
+
+def _plan_epic_resume(*, repo: str, epic: str) -> str:
+    """Build the canonical plan-track resume prompt without importing prompt helpers."""
+    return f"resume plan epic {epic} in repository {repo}; read its ledger-held plan state"
+
+
+def _normalize_resume_override(*, row: dict[str, object]) -> bool:
+    """Rewrite or clear retired plan-file resume overrides in-place.
+
+    The detector is syntactic: a plan-tree ``handoff.md`` or
+    ``supervisor-handoff.md`` resume is retired even if that path exists, and checking
+    path existence here would violate the daemon's no-plan-file invariant.
+    """
+    resume = row.get("resume")
+    if not isinstance(resume, str) or not _mentions_retired_plan_handoff(resume=resume):
+        return False
+    repo = row.get("repo")
+    epic = row.get("epic")
+    topic = row.get("topic")
+    if isinstance(repo, str) and isinstance(epic, str):
+        row["resume"] = _plan_epic_resume(repo=repo, epic=epic)
+        warn(
+            message=(
+                "rewrote retired plan-file resume override to ledger epic resume "
+                f"for {repo}::{topic}"
+            )
+        )
+        return True
+    del row["resume"]
+    warn(
+        message=(
+            "cleared retired plan-file resume override with no recorded epic "
+            f"for {repo}::{topic}"
+        )
+    )
+    return True
+
+
+def _normalize_rows(*, rows: list[dict[str, object]]) -> bool:
+    changed = False
+    for row in rows:
+        if _normalize_resume_override(row=row):
+            changed = True
+    return changed
 
 
 def _read_rows(*, store_path: str | os.PathLike[str] | None = None) -> list[dict[str, object]]:
@@ -108,7 +163,14 @@ def _track_from_row(*, row: dict[str, object]) -> Track | None:
 def read_mapping(*, store_path: str | os.PathLike[str] | None = None) -> list[Track]:
     """Read the mapping store into typed Tracks (fail-soft on bad rows)."""
     tracks: list[Track] = []
-    for row in _read_rows(store_path=store_path):
+    path = resolve_store(store_path=store_path)
+    rows = _read_rows(store_path=store_path)
+    if _normalize_rows(rows=rows):
+        with file_lock(target=path):
+            rows = _read_rows(store_path=store_path)
+            _ = _normalize_rows(rows=rows)
+            _write_rows(rows=rows, store_path=store_path)
+    for row in rows:
         track = _track_from_row(row=row)
         if track is not None:
             tracks.append(track)
@@ -134,6 +196,7 @@ def _track_to_row(*, track: Track) -> dict[str, object]:
     # explicit int override.
     if track.ctx_threshold is not None:
         row["ctx_threshold"] = track.ctx_threshold
+    _ = _normalize_resume_override(row=row)
     return row
 
 
