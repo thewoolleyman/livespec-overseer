@@ -14,11 +14,13 @@ created_at: 2026-08-14T20:56:38Z
 
 ### Summary
 
-The restart interlock has a fifth, undocumented gate for SUPERVISOR topics only -- a bounded plan-tree read/existence check (_supervisor_resume_artifact_certifies / _migrated_supervisor_epic_certifies in overseer/_supervisor_restart.py) -- that contradicts SIX current ratified absolute claims: spec.md's 'the restart interlock deliberately inspects nothing beyond the state-file token' (§"Non-interference with tracked work"), THREE further daemon-wide absolute claims in spec.md §"Track discovery and the mapping store" ('the daemon never reads inside a plan directory', 'the daemon never reads one [a file inside a plan directory]', and 'the daemon consumes the recorded value and never reads the anchor itself' -- the last of these only became contradictory after overseer/_registry_epic.py commit e0f1100 made plan/<topic>/epic.md the anchor file itself for the migrated shape), constraints.md's 'The daemon NEVER reads, writes, or hashes files under a repository's plan tree', and contracts.md's closed four-item restart-interlock checklist ('A restart fires ONLY when every one of these deterministic checks passes'). Amend all six passages (three files) to document this bounded, supervisor-topic-only, two-shape resume-artifact certification as a named, explicit exception rather than leaving shipped behavior silently contradict ratified prose.
+The restart interlock has a fifth, undocumented gate for SUPERVISOR topics only -- a bounded plan-tree read/existence check (_supervisor_resume_artifact_certifies / _migrated_supervisor_epic_certifies in overseer/_supervisor_restart.py) -- that contradicts SIX current ratified absolute claims: spec.md's 'the restart interlock deliberately inspects nothing beyond the state-file token' (§"Non-interference with tracked work"), THREE further daemon-wide absolute claims in spec.md §"Track discovery and the mapping store" ('the daemon never reads inside a plan directory', 'the daemon never reads one [a file inside a plan directory]', and 'the daemon consumes the recorded value and never reads the anchor itself' -- the last of these only became contradictory after overseer/_registry_epic.py commit e0f1100 made plan/<topic>/epic.md the anchor file itself for the migrated shape), constraints.md's 'The daemon NEVER reads, writes, or hashes files under a repository's plan tree', and contracts.md's closed four-item restart-interlock checklist ('A restart fires ONLY when every one of these deterministic checks passes'). Amend all six passages (three files) to document this bounded, supervisor-topic-only, two-shape resume-artifact certification as a named, explicit exception rather than leaving shipped behavior silently contradict ratified prose. Edit 3 additionally documents what the interlock does when NEITHER shape certifies: a directory-level (not file-content) consultation of whether the topic's plan thread is archived or gone, which determines whether the block is a terminal, expected retirement or a genuinely anomalous missing-artifact condition that stays surfaced for a human.
 
 ### Motivation
 
 Discovered via a focused capture-spec-drift review of the planning-lane-redesign plan's (epic livespec-zsn2xh) own code changes across repos, scoped ONLY to this plan's changes per maintainer instruction. PR #913 in this repo (livespec-overseer, merged 2026-08-14T12:24:16Z, work-item overseer-i3o2jr) added _migrated_supervisor_epic_certifies(), which reads the full text content of plan/<topic>/epic.md and pattern-matches it (epic id, 'ledger', 'comment'/'entry' substrings) as a restart-authorization condition for supervisor topics, as part of realizing this plan's ratified Planning Lane redesign (the daemon must recognize the migrated ledger-held plan shape to restart a certified-ready supervisor entity). This function, and its older sibling that checks plan/<topic>/supervisor-handoff.md's existence, are both real, live, verified-working code paths -- not a mistake to be reverted -- but neither is documented anywhere in the current SPECIFICATION, which instead makes unqualified absolute claims that the daemon never touches plan-tree files at all. A future agent reading only the spec would reasonably conclude the daemon never touches plan-tree files, and could regress by 'fixing' this code to match the (currently overstated) absolute claim, breaking supervisor restart for both the legacy and migrated plan shapes.
+
+A related gap closed in the same PR that files this revision (overseer-y26's residual, PR #943, merged into this repo after this proposal's fourth review round): when neither certification shape resolves, `_supervisor_restart.do_restart` used to report the SAME missing-artifact alert regardless of WHY the binder was absent -- including the ordinary, expected case where the plan thread had simply been archived or deleted. That wording is what taught a prior supervisor session (livespec-dev-tooling, 2026-08-04) to restore a banned tombstone file 13 hours after the tombstone ban was ratified fleet-wide, believing the daemon was pointing at a genuinely lost file. The fix branches on `registry.archived_or_gone` -- a DIRECTORY-level presence test, not a file read, and therefore already covered by spec.md's existing 'enumerates plan DIRECTORIES to discover tracks' permission rather than a new file-touch exception -- before deciding whether to alert. Edit 3 below is extended to document that branch so the interlock's full blocking behavior for supervisor topics, not just its certification gate, is accurately specified.
 
 ### Proposed Changes
 
@@ -95,6 +97,29 @@ check applies for supervisor topics. Cite the two accepted artifact shapes
 recorded epic id and referencing the ledger-comment binder medium) and state
 that this check is read-only and can only BLOCK, never authorize, a
 restart.
+
+   Additionally document what happens when NEITHER shape certifies. The
+   interlock further consults whether the topic's plan thread is archived
+   or gone -- a DIRECTORY-level presence test (is plan/<topic>/ present, is
+   plan/archive/<topic>/ present, or is neither present), never a read of
+   file content, and therefore not itself a further exception to the
+   file-touch prohibition edits 1 and 2 narrow; it is the same kind of
+   directory enumeration spec.md's "enumerates plan DIRECTORIES to discover
+   tracks" already permits daemon-wide. State the two outcomes by name:
+
+   - Archived or gone: the block is a TERMINAL, expected condition -- the
+     plan thread's own lifecycle retired it. The round closes without a
+     restart and without the missing-artifact wording that would otherwise
+     read as an anomaly (that wording is what taught a prior supervisor
+     session to restore a banned tombstone file after archiving, believing
+     the daemon pointed at a genuinely lost file); a distinctly-named,
+     non-blocking-facing condition is surfaced instead, and the row is not
+     left to alert on it again.
+   - A genuinely live plan directory with the binder simply absent: this
+     stays the anomalous case. The check continues to BLOCK the restart
+     with the missing-artifact condition already described above, and the
+     round stays open, unresolved, until a human supplies the missing
+     artifact or otherwise intervenes.
 
 4. SPECIFICATION/spec.md, section '## Track discovery and the mapping
 store'. This section carries two FURTHER daemon-wide absolute claims
