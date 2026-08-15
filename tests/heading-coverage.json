@@ -719,5 +719,33 @@
     "heading": "## Scenario: A restarted session that never begins work is surfaced without a second kill",
     "test": "TODO",
     "reason": "No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A compacted session that re-crosses its threshold is re-warned in a fresh round",
+    "test": "TODO",
+    "reason": "Added by the round-recovery-and-escalation-exhaustion ratification (recovered-round closure). No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A recovered-round closure defers to any standing state-file content",
+    "test": "TODO",
+    "reason": "Added by the round-recovery-and-escalation-exhaustion ratification (fail-closed closure guard). No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A voided ready declaration is answered with one durable bounded void-notice",
+    "test": "TODO",
+    "reason": "Added by the round-recovery-and-escalation-exhaustion ratification (bounded void-notice). No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An exhausted escalation below threshold is surfaced, never acted on",
+    "test": "TODO",
+    "reason": "Added by the round-recovery-and-escalation-exhaustion ratification (escalation-exhausted attention member). No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
   }
 ]
