@@ -21,6 +21,7 @@ import contextlib
 import io as _io
 
 from overseer import registry, signals
+from overseer._supervisor_config import CTX_STALE_AFTER
 from overseer.test_supervisor_builders import (
     TEST_EPIC,
     declare,
@@ -299,3 +300,60 @@ def test_scenario_recovered_round_closure_defers_to_standing_state_file_content(
     assert state.read_text(encoding="utf-8") == "winding-down\n"
     assert not any(call[0] in {"keys", "paste", "respawn"} for call in recovery_calls)
     assert len(fake.paste_texts()) == 1
+
+
+def test_scenario_recovered_round_closure_requires_known_fresh_context(*, tmp_path):
+    """Scenario: A compacted session that re-crosses its threshold is re-warned in a fresh round.
+
+    Pins the fail-closed half of recovered-round closure: a delivered round must not be
+    closed on an unknown context reading, nor on a stale last-known high reading.
+    """
+    repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=8)
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    sup.evaluate(track=track, act=True)
+    assert registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path).at
+
+    restarted_daemon = make_supervisor(
+        tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO()
+    )
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=None))
+    unknown = restarted_daemon.evaluate(track=track, act=True)
+
+    assert unknown.status == "idle"
+    assert (
+        registry.read_round_record(
+            repo=str(repo), topic=topic, stamp_path=restarted_daemon.stamp_path
+        ).at
+        == 1000.0
+    )
+    assert not fake.has(method="respawn")
+
+    state = declare(repo=repo, topic=topic, value="winding-down", mtime=1001.0)
+    clock["t"] = 1010.0
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=80))
+    state_guarded = restarted_daemon.evaluate(track=track, act=True)
+    assert state_guarded.status == "idle"
+    assert (
+        registry.read_round_record(
+            repo=str(repo), topic=topic, stamp_path=restarted_daemon.stamp_path
+        ).at
+        == 1000.0
+    )
+    state.unlink()
+
+    clock["t"] = 1010.0 + CTX_STALE_AFTER
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=None))
+    stale_high = restarted_daemon.evaluate(track=track, act=True)
+
+    assert stale_high.status == "idle"
+    assert (
+        registry.read_round_record(
+            repo=str(repo), topic=topic, stamp_path=restarted_daemon.stamp_path
+        ).at
+        == 1000.0
+    )
+    assert len(fake.paste_texts()) == 1
+    assert not fake.has(method="respawn")
