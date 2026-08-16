@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.0...v0.39.1) (2026-08-16)
+
+
+### Bug Fixes
+
+* require exhausted escalation ready-path note ([094593b](https://github.com/thewoolleyman/livespec-overseer/commit/094593ba32496c7b897d96357241caeb704b8798))
+
 ## [0.39.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.38.0...v0.39.0) (2026-08-16)
 
 
