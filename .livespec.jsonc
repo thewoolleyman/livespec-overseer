@@ -121,12 +121,30 @@
   //
   "spec_governance": {
     "propose_change_mode": "batch",
-    // Maintainer direction 2026-08-16: revise ratification is NOT human-gated.
-    // The spec-side-autonomy mechanism shipped this lever but the fleet-wide
-    // rollout never applied it; this repo arms the consensus tier so a
-    // reviewed proposal ratifies via panel decision instead of waiting on a
-    // maintainer prompt.
-    "revise_decision_mode": "consensus"
+    // critique_mode / in_flight_alignment / ratification_review / spec_pr_merge:
+    // Increment 1/2 shipped these levers but the fleet-wide rollout never
+    // applied them (epic livespec-jvdvx4, child livespec-jvdvx4.15). Non-
+    // interactive critique, default-align on in-flight proposals, an
+    // auto-spawned independent adversarial review before ratification, and
+    // auto-merge-on-green for spec PRs (the auto-spawned review is the
+    // safeguard that replaces a human merge click — no code-level carve-out
+    // forces ratification-landing PRs to stay manual).
+    "critique_mode": "batch",
+    "in_flight_alignment": "default-align",
+    // Maintainer direction 2026-08-16 first armed this lever as "consensus"
+    // so a reviewed proposal would ratify via panel decision instead of
+    // waiting on a maintainer prompt — but "consensus" is CURRENTLY INERT:
+    // livespec's revise_decision.py resolver (`if mode in {"manual",
+    // "consensus"}: ...`) treats consensus identically to manual pending the
+    // not-yet-built Increment-3 cross-vendor panel. That is the actual root
+    // cause of two sessions (livespec-overseer-foreman,
+    // resume-submit-integrity-supervisor) stalling on avoidable manual
+    // revise gates later that same day. "delegated" is the mode that
+    // actually functions today; revisit this back to "consensus" once
+    // Increment 3 ships the panel.
+    "revise_decision_mode": "delegated",
+    "ratification_review": "auto-spawn",
+    "spec_pr_merge": "auto-on-green"
   },
   "livespec-overseer": {
     "compat": {
