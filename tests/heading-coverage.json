@@ -731,8 +731,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recovered-round closure defers to any standing state-file content",
-    "test": "TODO",
-    "reason": "Added by the round-recovery-and-escalation-exhaustion ratification (fail-closed closure guard). No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+    "test": "tests.integration.test_wrapup_escalation.test_scenario_recovered_round_closure_defers_to_standing_state_file_content",
+    "reason": "Integration-tier v014 recovered-round fail-closed guard pin: opens a delivered round through Supervisor.evaluate, recovers context above threshold with a standing state-file token, proves the round record and state file survive, and audits that no paste, keystroke, or restart occurs."
   },
   {
     "spec_root": "SPECIFICATION",
