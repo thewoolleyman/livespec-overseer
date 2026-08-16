@@ -121,12 +121,21 @@
   //
   "spec_governance": {
     "propose_change_mode": "batch",
+    "critique_mode": "batch",
+    "in_flight_alignment": "default-align",
     // Maintainer direction 2026-08-16: revise ratification is NOT human-gated.
-    // The spec-side-autonomy mechanism shipped this lever but the fleet-wide
-    // rollout never applied it; this repo arms the consensus tier so a
-    // reviewed proposal ratifies via panel decision instead of waiting on a
-    // maintainer prompt.
-    "revise_decision_mode": "consensus"
+    // CORRECTED same day: this was first set to "consensus", but
+    // revise_decision.py's resolver treats "consensus" IDENTICALLY to
+    // "manual" (`if mode in {"manual", "consensus"}:`) whenever the
+    // consensus-tier evidence a panel would produce is absent — which it
+    // always is today, because the cross-vendor Increment-3 panel this tier
+    // depends on is not yet built. So the 2026-08-16 "fix" was fail-closed
+    // and did not actually delegate anything, which is very likely why
+    // sessions kept stalling on this exact gate the same day. "delegated"
+    // is the value that is actually wired end-to-end today.
+    "revise_decision_mode": "delegated",
+    "ratification_review": "auto-spawn",
+    "spec_pr_merge": "auto-on-green"
   },
   "livespec-overseer": {
     "compat": {
