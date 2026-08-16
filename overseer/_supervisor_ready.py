@@ -54,13 +54,17 @@ def round_observation(
 ) -> RoundObservation:
     record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
     identity = session_identity(sup=sup, session=session, topic=topic, runtime=runtime)
+    ready_without_round = _ready_without_round_valid(
+        declared=declared, round_record=record, session_identity=identity
+    )
     return RoundObservation(
         record=record,
         session_identity=identity,
         ready_uncertifiable_reason=_ready_uncertifiable_reason(
             declared=declared, round_record=record, session_identity=identity
         ),
-        ready=signals.ready_valid(
+        ready=ready_without_round
+        or signals.ready_valid(
             repo=repo,
             topic=topic,
             certification_floor=record.certification_floor,
@@ -68,6 +72,21 @@ def round_observation(
             round_session_identity=record.session_identity,
             live_session_identity=identity,
         ),
+    )
+
+
+def _ready_without_round_valid(
+    *,
+    declared: signals.TrackState | None,
+    round_record: registry.RoundRecord,
+    session_identity: str | None,
+) -> bool:
+    return (
+        declared is not None
+        and declared.token == signals.STATE_READY
+        and round_record.at is None
+        and round_record.malformed_reason is None
+        and session_identity is not None
     )
 
 
@@ -81,7 +100,7 @@ def _ready_uncertifiable_reason(
     if declared is None or declared.token != signals.STATE_READY:
         reason = None
     elif round_record.at is None:
-        reason = "no supervision round open"
+        reason = None if session_identity is not None else "session identity cannot be determined"
     elif round_record.malformed_reason is not None:
         reason = round_record.malformed_reason
     elif session_identity is None:

@@ -25,7 +25,9 @@ from __future__ import annotations
 
 import contextlib
 import io as _io
+import json
 from dataclasses import replace
+from pathlib import Path
 
 from overseer import _supervisor_config, registry, signals, supervisor
 from overseer.test_supervisor_builders import (
@@ -253,13 +255,18 @@ def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(*, tmp_p
     )
 
 
-def _bare_ready_no_round_fixture(*, tmp_path, clock):
+def _ready_with_malformed_round_fixture(*, tmp_path, clock):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=79))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
     track = mapped_track(repo=repo, topic=topic, session=session)
+    key = f"{repo}\t{topic}"
+    Path(sup.stamp_path).write_text(
+        json.dumps({key: {"at": clock["t"] - 1, "bands": []}}),
+        encoding="utf-8",
+    )
     state = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=clock["t"])
     return repo, topic, session, fake, sup, track, state
 
@@ -267,10 +274,11 @@ def _bare_ready_no_round_fixture(*, tmp_path, clock):
 def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tmp_path):
     """Scenario: An uncertifiable ready declaration is surfaced as attention.
 
-    Given a session that wrote `ready` while no supervision round is open, the interlock
-    must keep refusing it forever: no stamp means no round to certify against. Past the
-    bounded floor, though, the row must stop looking like an acting restart and become an
-    attention row naming the declaration, its age, and why it cannot certify.
+    Given a session that wrote `ready` against a malformed supervision round, the
+    interlock must keep refusing it forever: a malformed round cannot authenticate the
+    declaration. Past the bounded floor, though, the row must stop looking like an acting
+    restart and become an attention row naming the declaration, its age, and why it cannot
+    certify.
 
     INJECTED DEFECTS THAT REDDEN IT:
       - treating a bare `ready` as plain `idle` keeps it out of NEEDS YOU and emits no
@@ -278,19 +286,21 @@ def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tm
       - adding the status to attention without the alert branch leaves stderr empty.
     """
     clock = {"t": 1000.0}
-    repo, topic, session, fake, sup, track, _state = _bare_ready_no_round_fixture(
+    repo, topic, session, fake, sup, track, _state = _ready_with_malformed_round_fixture(
         tmp_path=tmp_path, clock=clock
     )
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is None
+        is not None
     )
+    record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     assert (
         signals.ready_valid(
             repo=str(repo),
             topic=topic,
-            certification_floor=None,
-            round_session_identity=None,
+            certification_floor=record.certification_floor,
+            malformed_round_reason=record.malformed_reason,
+            round_session_identity=record.session_identity,
             live_session_identity="claude:s:t",
         )
         is False
@@ -306,16 +316,16 @@ def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tm
         surfaced = sup.evaluate(track=track, act=True)
 
     assert surfaced.status == "ready-uncertifiable"
-    assert surfaced.note == "15m: ready cannot certify: no supervision round open"
+    assert surfaced.note == "15m: ready cannot certify: round record missing session identity"
     assert supervisor.needs_attention(row=surfaced) is True
     assert not fake.has(method="respawn")
     line = row_line(out=render_of(sup=sup, views=[surfaced]), topic=topic)
     assert "restarting" not in line
     assert "restart-in-progress" not in line
     assert "ready cannot certify" in line
-    assert "no supervision round" in line
+    assert "round record missing" in line
     report = err.getvalue()
-    assert "ready cannot certify (15m): no supervision round open" in report
+    assert "ready cannot certify (15m): round record missing session identity" in report
     for coordinate in (topic, registry.repo_slug(repo=str(repo)), session):
         assert coordinate in report
     assert f"tmux switch-client -t {session}" in report
@@ -330,7 +340,7 @@ def test_uncertifiable_ready_alert_stays_edge_triggered_behind_prior_branch(*, t
     on every observation.
     """
     clock = {"t": 1000.0}
-    _repo, _topic, session, fake, sup, track, _state = _bare_ready_no_round_fixture(
+    _repo, _topic, session, fake, sup, track, _state = _ready_with_malformed_round_fixture(
         tmp_path=tmp_path, clock=clock
     )
     fake.panes[session] = "partial turn output\nCtx: 79% left\n"
@@ -353,7 +363,7 @@ def test_uncertifiable_ready_alert_quantizes_clears_and_rearms(*, tmp_path):
     episode from re-alerting after the declaration clears and a new one appears.
     """
     clock = {"t": 1000.0}
-    repo, topic, _session, _fake, sup, track, state = _bare_ready_no_round_fixture(
+    repo, topic, _session, _fake, sup, track, state = _ready_with_malformed_round_fixture(
         tmp_path=tmp_path, clock=clock
     )
     clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
@@ -368,7 +378,7 @@ def test_uncertifiable_ready_alert_quantizes_clears_and_rearms(*, tmp_path):
     with contextlib.redirect_stderr(err):
         older = sup.evaluate(track=track, act=True)
     assert older.status == "ready-uncertifiable"
-    assert "ready cannot certify (4h): no supervision round open" in err.getvalue()
+    assert "ready cannot certify (4h): round record missing session identity" in err.getvalue()
     assert err.getvalue().count("ready cannot certify") == 2
 
     state.unlink()
@@ -376,6 +386,10 @@ def test_uncertifiable_ready_alert_quantizes_clears_and_rearms(*, tmp_path):
 
     err = _io.StringIO()
     clock["t"] = 20_000.0
+    Path(sup.stamp_path).write_text(
+        json.dumps({f"{repo}\t{topic}": {"at": clock["t"] - 1, "bands": []}}),
+        encoding="utf-8",
+    )
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=clock["t"])
     clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
     with contextlib.redirect_stderr(err):

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io as _io
+import json
+from pathlib import Path
 
 import _supervisor_config
 import _supervisor_restart
@@ -41,6 +43,13 @@ def _respawn_count(*, fake: FakeTmux) -> int:
     return len([call for call in fake.calls if call[0] == "respawn"])
 
 
+def _write_malformed_round(*, sup, repo, topic, at=999.0) -> None:
+    Path(sup.stamp_path).write_text(
+        json.dumps({f"{repo}\t{topic}": {"at": at, "bands": []}}),
+        encoding="utf-8",
+    )
+
+
 def _void_ready(*, fixture, mtime=800.0):
     repo, topic, session, fake, sup, track = fixture
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=mtime)
@@ -69,7 +78,7 @@ def test_scenario_repeated_voiding_never_resends_an_already_notified_band(*, tmp
     assert _paste_count(fake=fake) == 1
 
 
-def test_scenario_a_round_whose_opening_wrapup_never_landed_is_unopened(*, tmp_path):
+def test_scenario_a_round_whose_opening_wrapup_never_landed_keeps_no_round_record(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -86,11 +95,11 @@ def test_scenario_a_round_whose_opening_wrapup_never_landed_is_unopened(*, tmp_p
 
     fake.paste_ok = True
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
-    assert sup.evaluate(track=track, act=True).status != "restarting"
-    assert _respawn_count(fake=fake) == 0
+    assert sup.evaluate(track=track, act=True).status == "restarting"
+    assert _respawn_count(fake=fake) == 1
 
 
-def test_scenario_declaration_on_never_rounded_track_is_surfaced_not_healed(*, tmp_path):
+def test_scenario_declaration_on_never_rounded_track_certifies_from_live_identity(*, tmp_path):
     clock = {"t": 1000.0}
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -103,10 +112,9 @@ def test_scenario_declaration_on_never_rounded_track_is_surfaced_not_healed(*, t
     clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
     view = sup.evaluate(track=track, act=True)
 
-    assert view.status == "ready-uncertifiable"
-    assert "no supervision round open" in (view.note or "")
-    assert _paste_count(fake=fake) == 0
-    assert _respawn_count(fake=fake) == 0
+    assert view.status == "restarting"
+    assert _paste_count(fake=fake) == 1
+    assert _respawn_count(fake=fake) == 1
 
 
 def test_scenario_standing_uncertifiable_declaration_does_not_suppress_threshold(*, tmp_path):
@@ -117,6 +125,7 @@ def test_scenario_standing_uncertifiable_declaration_does_not_suppress_threshold
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
     track = mapped_track(repo=repo, topic=topic, session=session)
+    _write_malformed_round(sup=sup, repo=repo, topic=topic, at=clock["t"] - 1)
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=clock["t"])
     clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
 
@@ -256,6 +265,7 @@ def test_uncertifiable_ready_at_danger_surfaces_its_certification_failure(*, tmp
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=20))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"], out=_io.StringIO())
     track = mapped_track(repo=repo, topic=topic, session=session)
+    _write_malformed_round(sup=sup, repo=repo, topic=topic, at=clock["t"] - 1)
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=clock["t"])
     clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
 
