@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
-from _supervisor_foreman import heartbeat_path
+from _supervisor_foreman import heartbeat_lapse, heartbeat_path
 from foreman_runtime_document import ForemanDocument, foreman_document
 from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
 from foreman_runtime_lock import ForemanLock, LockResult
@@ -56,6 +56,8 @@ class StepResult:
     llm_tick: bool
     action_taken: bool
     exit_reason: str | None
+    loop_lapsed: bool
+    heartbeat_age_seconds: float | None
 
 
 def _default_llm_tick(*, document: ForemanDocument) -> bool:
@@ -98,6 +100,10 @@ class ForemanRuntime:
     def step(self, *, document: dict[str, object]) -> StepResult:
         state = self._read_state()
         tick_generation = _int_state(value=state.get("tick_generation")) + 1
+        # Read BEFORE _write_heartbeat() overwrites it below, so a lapsed recurring
+        # loop (no tick landed for 2x its interval) is visible to THIS tick, not just
+        # to the daemon's own next poll of the file this call is about to replace.
+        lapse = heartbeat_lapse(repo=str(self.repo), now=self.now)
         doc = foreman_document(payload=document)
         due = _float_state(value=state.get("next_llm_tick_at")) <= self.now()
         action_taken = self.llm_tick(document=doc) if due else False
@@ -124,6 +130,8 @@ class ForemanRuntime:
             exit_reason=self._exit_reason(
                 tick_generation=tick_generation, stable_ticks=stable_ticks, document=doc
             ),
+            loop_lapsed=lapse.stale if lapse is not None else False,
+            heartbeat_age_seconds=lapse.age_seconds if lapse is not None else None,
         )
 
     def _stable_ticks(
