@@ -37,6 +37,16 @@ def _paste_count(*, fake: FakeTmux) -> int:
     return len(fake.paste_texts())
 
 
+def _void_notice_count(*, fake: FakeTmux) -> int:
+    return len(
+        [
+            text
+            for text in fake.paste_texts()
+            if "ready declaration was voided because this session resumed work" in text
+        ]
+    )
+
+
 def _respawn_count(*, fake: FakeTmux) -> int:
     return len([call for call in fake.calls if call[0] == "respawn"])
 
@@ -66,7 +76,8 @@ def test_scenario_repeated_voiding_never_resends_an_already_notified_band(*, tmp
 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup.evaluate(track=track, act=True)
-    assert _paste_count(fake=fake) == 1
+    assert _paste_count(fake=fake) == 2
+    assert _void_notice_count(fake=fake) == 1
 
 
 def test_scenario_a_round_whose_opening_wrapup_never_landed_is_unopened(*, tmp_path):
