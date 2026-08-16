@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.38.0...v0.39.0) (2026-08-16)
+
+
+### Features
+
+* surface exhausted escalation attention ([e8bfb42](https://github.com/thewoolleyman/livespec-overseer/commit/e8bfb42121038e817a31237b4d2ab99d09789a10))
+
 ## [0.38.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.11...v0.38.0) (2026-08-16)
 
 
