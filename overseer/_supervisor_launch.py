@@ -211,8 +211,8 @@ def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool
 
     The confirm signal is RUNTIME-SPECIFIC because the two TUIs render differently:
 
-    - **Claude** — the empty `❯` box returns (`signals.input_box_ready`, which does
-      NOT require not-busy, so a now-working pane also reads submitted).
+    - **Claude** — either the pane goes BUSY after Enter, or the empty `❯` box
+      returns AFTER the pasted text was observed in the composer at least once.
     - **Codex** (`expect_codex`) — the pane goes BUSY (`signals.is_busy` matches
       Codex's `esc to interrupt` / `Working …`). Codex has no `❯` box and its empty
       box shows a grey rotating PLACEHOLDER indistinguishable from typed text in an
@@ -233,15 +233,27 @@ def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool
         sup.log(message=f"bracketed paste FAILED for pane {target}")
         return False
     sup.sleep(RESTART_POLL_INTERVAL)
+    paste_visible = False
+    was_busy = False
+    if not expect_codex:
+        capture = sup.tmux.capture_pane(session=target)
+        paste_visible = signals.input_box_text(capture_text=capture) is not None
+        was_busy = signals.is_busy(capture_text=capture)
     for _ in range(SUBMIT_MAX_ENTERS):
         _ = sup.tmux.send_keys(session=target, keys="Enter")
         sup.sleep(SUBMIT_POLL)
         capture = sup.tmux.capture_pane(session=target)
-        submitted = (
-            signals.is_busy(capture_text=capture)
-            if expect_codex
-            else signals.input_box_ready(capture_text=capture)
-        )
+        if expect_codex:
+            if signals.is_busy(capture_text=capture):
+                return True
+            continue
+        busy = signals.is_busy(capture_text=capture)
+        if busy and not was_busy:
+            return True
+        was_busy = busy
+        if signals.input_box_text(capture_text=capture) is not None:
+            paste_visible = True
+        submitted = paste_visible and signals.input_box_ready(capture_text=capture)
         if submitted:
             return True
     return False

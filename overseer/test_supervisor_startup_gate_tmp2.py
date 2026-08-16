@@ -79,8 +79,14 @@ def test_submit_prompt_resends_enter_until_box_clears(*, tmp_path):
     fake = FakeTmux()
     session = "s"
     fake.sessions.add(session)
-    not_ready = "❯ read handoff.md and follow it\n" + ("─" * 40) + "\nwelcome screen\n"
-    fake.panes[session] = [not_ready, not_ready, idle_capture()]  # 3rd frame = empty box
+    visible = (
+        "● prior response\n"
+        + ("─" * 40)
+        + "\n❯ read handoff.md and follow it\n"
+        + ("─" * 40)
+        + "\n"
+    )
+    fake.panes[session] = [visible, visible, visible, idle_capture()]
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     assert sup._submit_prompt(target=session, text="read handoff.md and follow it") is True
     enters = [c for c in fake.calls if c[0] == "keys" and c[2] == "Enter"]
@@ -101,11 +107,12 @@ def test_submit_prompt_returns_false_on_failed_paste(*, tmp_path):
 
 
 def test_submit_prompt_single_enter_when_already_ready(*, tmp_path):
-    """On a steady session (empty box every capture) a single Enter suffices."""
+    """On a steady session, once the paste renders, a single Enter suffices."""
     fake = FakeTmux()
     session = "s"
     fake.sessions.add(session)
-    fake.panes[session] = idle_capture()  # empty box → input_box_ready True at once
+    visible = "● prior response\n" + ("─" * 40) + "\n❯ hello\n" + ("─" * 40) + "\n"
+    fake.panes[session] = [visible, idle_capture()]
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     assert sup._submit_prompt(target=session, text="hello") is True
     enters = [c for c in fake.calls if c[0] == "keys" and c[2] == "Enter"]

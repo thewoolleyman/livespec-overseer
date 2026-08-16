@@ -319,6 +319,9 @@ def _write_fake_claude(*, path: Path) -> None:
             from pathlib import Path
 
             print("─── alpha ──")
+            print("❯ pasted prompt")
+            print("──────")
+            print("─── alpha ──")
             print("❯")
             print("──────")
             sys.stdout.flush()
@@ -326,6 +329,9 @@ def _write_fake_claude(*, path: Path) -> None:
             for line in sys.stdin:
                 with log.open("a", encoding="utf-8") as handle:
                     handle.write(line)
+                print("─── alpha ──")
+                print("❯ pasted prompt")
+                print("──────")
                 print("─── alpha ──")
                 print("❯")
                 print("──────")

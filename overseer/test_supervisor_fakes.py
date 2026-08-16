@@ -40,6 +40,7 @@ class FakeTmux:
         self.window_name = None  # last name written by the attention badge
         self.on_paste = None  # callback(session, text) for stamp-before-paste checks
         self.paste_ok = True  # set False to model a failed bracketed paste (B5)
+        self.pasted_inputs = {}
         self.respawn_ok = True  # set False to model a failed respawn (B5)
         # set False to model a codex respawn whose pane never becomes a live codex TUI
         # (so `_await_pane(pane_is_codex)` fails) — the Codex-restart await-fail leg.
@@ -139,12 +140,24 @@ class FakeTmux:
 
     def send_keys(self, *, session, keys):
         self.calls.append(("keys", session, keys))
+        if keys == "Enter" and session in self.pasted_inputs:
+            text = self.pasted_inputs.pop(session)
+            val = self.panes.get(session, "")
+            if isinstance(val, str):
+                self.panes[session] = val.replace(f"❯ {text}\n", "❯ \n")
         return True
 
     def bracketed_paste(self, *, session, text):
         self.calls.append(("paste", session, text))
         if self.on_paste is not None:
             self.on_paste(session, text)
+            return self.paste_ok
+        if self.paste_ok:
+            val = self.panes.get(session, "")
+            display_text = text.splitlines()[0]
+            if isinstance(val, str) and "\n❯ \n" in val:
+                self.panes[session] = val.replace("\n❯ \n", f"\n❯ {display_text}\n", 1)
+                self.pasted_inputs[session] = display_text
         return self.paste_ok
 
     def respawn_pane(self, *, session, cwd, command):
