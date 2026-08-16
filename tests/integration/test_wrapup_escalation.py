@@ -273,3 +273,29 @@ def test_scenario_a_compacted_session_that_re_crosses_threshold_is_re_warned(
     assert signals.state_path(repo=str(repo), topic=topic).read_text(encoding="utf-8") == (
         "idle-with-context-left\n"
     )
+
+
+def test_scenario_recovered_round_closure_defers_to_standing_state_file_content(*, tmp_path):
+    """Scenario: A recovered-round closure defers to any standing state-file content."""
+    repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=8)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    sup.evaluate(track=track, act=True)
+    assert len(fake.paste_texts()) == 1
+    assert registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path).at
+
+    state = declare(repo=repo, topic=topic, value="winding-down", mtime=1001.0)
+    calls_before_recovery = list(fake.calls)
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=80))
+    recovered = sup.evaluate(track=track, act=True)
+    recovery_calls = fake.calls[len(calls_before_recovery) :]
+
+    assert recovered.status == "idle"
+    assert (
+        registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path).at
+        == 1000.0
+    )
+    assert state.read_text(encoding="utf-8") == "winding-down\n"
+    assert not any(call[0] in {"keys", "paste", "respawn"} for call in recovery_calls)
+    assert len(fake.paste_texts()) == 1
