@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.10](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.9...v0.37.10) (2026-08-16)
+
+
+### Bug Fixes
+
+* **foreman:** mechanically detect a lapsed recurring loop, and self-arm it ([53723d5](https://github.com/thewoolleyman/livespec-overseer/commit/53723d56142f28ce528ea16988dc9cf7266203da))
+
 ## [0.37.9](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.8...v0.37.9) (2026-08-16)
 
 
