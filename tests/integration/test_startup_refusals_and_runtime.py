@@ -23,9 +23,11 @@ from __future__ import annotations
 
 import contextlib
 import io as _io
+from pathlib import Path
 
 from overseer import _supervisor_view, codex_sessions, registry, signals, supervisor
 from overseer.test_supervisor_builders import (
+    TEST_EPIC,
     busy_capture,
     codex_busy_capture,
     codex_idle_capture,
@@ -360,6 +362,58 @@ def test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill(*
         is False
     )
     assert len(_respawn_commands(fake=fake)) == 1
+
+
+def test_scenario_restarted_session_never_begins_work_retries_without_second_kill(*, tmp_path):
+    """Scenario: restarted-never-worked retries submission without a second kill."""
+    scenario_text = Path("SPECIFICATION/scenarios.md").read_text(encoding="utf-8")
+    assert (
+        "## Scenario: A restarted session that never begins work retries submission "
+        "without a second kill"
+    ) in scenario_text
+    assert "Then it records `resume_pending`" in scenario_text
+    assert "And it re-sends Enter only" in scenario_text
+
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(
+        session=session,
+        repo=repo,
+        capture=unsubmitted_resume_capture(ctx=100, repo=str(repo), epic=TEST_EPIC),
+    )
+    clock = {"now": 1000.0}
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        now=lambda: clock["now"],
+        out=_io.StringIO(),
+        own_pane="%7",
+    )
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    assert (
+        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is False
+    )
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        first = sup.evaluate(track=track, act=True)
+    assert first.status == "restarting"
+    assert first.note == _supervisor_view.RESUME_PENDING_NOTE
+    assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    assert _enters(fake=fake, session=session) > 0
+    assert not fake.has(method="paste")
+    assert not fake.has(method="respawn")
+    assert signals.read_state(repo=str(repo), topic=topic) is None
+
+    clock["now"] += 61.0
+    with contextlib.redirect_stderr(_io.StringIO()):
+        due = sup.evaluate(track=track, act=True)
+    assert due.status == "restarting"
+    assert supervisor.needs_attention(row=due) is True
+    sup._refresh_window_name(attention=int(supervisor.needs_attention(row=due)))
+    assert fake.window_name == "overseer(1!)"
 
 
 def test_scenario_a_restart_never_switches_a_tracks_runtime(*, tmp_path):

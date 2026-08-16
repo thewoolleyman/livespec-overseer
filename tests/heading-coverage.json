@@ -716,9 +716,9 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A restarted session that never begins work is surfaced without a second kill",
-    "test": "TODO",
-    "reason": "No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+    "heading": "## Scenario: A restarted session that never begins work retries submission without a second kill",
+    "test": "tests.integration.test_startup_refusals_and_runtime.test_scenario_restarted_session_never_begins_work_retries_without_second_kill",
+    "reason": "Integration-tier deterministic fake-tmux coverage: observes a fresh post-respawn pane with no resume_pending flag and the exact expected resume text still in the composer, proves the acting tick records the retry and sends Enter only with no paste or respawn, and verifies the stranded track remains in NEEDS YOU with the overseer badge."
   },
   {
     "spec_root": "SPECIFICATION",
