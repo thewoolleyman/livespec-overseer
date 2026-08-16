@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.2...v0.39.3) (2026-08-16)
+
+
+### Bug Fixes
+
+* cover stranded resume retry rearm ([94134a9](https://github.com/thewoolleyman/livespec-overseer/commit/94134a9bd7788a4bfd74a3d1320280de1b371ae0))
+
 ## [0.39.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.1...v0.39.2) (2026-08-16)
 
 
