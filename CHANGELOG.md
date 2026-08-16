@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.11](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.10...v0.37.11) (2026-08-16)
+
+
+### Bug Fixes
+
+* pin recovered round closure reread ([c5b6828](https://github.com/thewoolleyman/livespec-overseer/commit/c5b6828fa54ced05875d09fd773d66bc948cab8d))
+
 ## [0.37.10](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.9...v0.37.10) (2026-08-16)
 
 
