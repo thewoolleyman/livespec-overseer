@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.9](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.8...v0.37.9) (2026-08-16)
+
+
+### Bug Fixes
+
+* widen charter glob to plan/**/supervisor-handoff.md ([9665e22](https://github.com/thewoolleyman/livespec-overseer/commit/9665e2230fa20329d0ecce7b4efd5ff2223a7143))
+
 ## [0.37.8](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.7...v0.37.8) (2026-08-15)
 
 
