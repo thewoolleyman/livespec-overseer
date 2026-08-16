@@ -5,6 +5,7 @@ import io as _io
 import json
 from pathlib import Path
 
+import _supervisor_view
 import registry
 import signals
 import supervisor
@@ -41,8 +42,8 @@ def _record_post_respawn(*, sup: supervisor.Supervisor, repo: str, topic: str, r
     stamp_path.write_text(json.dumps(stamp_data), encoding="utf-8")
 
 
-def test_restarted_never_worked_session_is_report_only_attention(*, tmp_path):
-    """The ratified scenario: report the stranded fresh composer, authorize no act."""
+def test_restarted_never_worked_session_retries_and_stays_visible_when_still_stranded(*, tmp_path):
+    """The ratified scenario: retry Enter only and keep reporting while still stranded."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
@@ -53,22 +54,18 @@ def test_restarted_never_worked_session_is_report_only_attention(*, tmp_path):
     _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
     track = mapped_track(repo=repo, topic=topic, session=session)
 
-    first = sup.evaluate(track=track, act=True)
-    assert first.status == "settling"
-    assert supervisor.needs_attention(row=first) is False
-    clock["now"] += 61.0
-
     with contextlib.redirect_stderr(_io.StringIO()):
         due = sup.evaluate(track=track, act=True)
-    assert due.status == "restart-never-worked"
-    assert "fresh session has not consumed context" in (due.note or "")
+    assert due.status == "restarting"
+    assert due.note == _supervisor_view.RESUME_PENDING_NOTE
     assert supervisor.needs_attention(row=due) is True
     sup._refresh_window_name(attention=int(supervisor.needs_attention(row=due)))
     assert fake.window_name == "overseer(1!)"
     assert "tmux switch-client -t" in render_of(sup=sup, views=[due])
     assert not fake.has(method="respawn")
-    assert not any(call[0] == "keys" for call in fake.calls)
+    assert any(call[0] == "keys" and call[2] == "Enter" for call in fake.calls)
     assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
     fake.panes[session] = idle_capture(ctx=99)
     cleared = sup.evaluate(track=track, act=True)
@@ -77,28 +74,54 @@ def test_restarted_never_worked_session_is_report_only_attention(*, tmp_path):
     assert fake.window_name == "overseer"
 
 
-def test_restarted_never_worked_survives_missing_resume_pending_marker(*, tmp_path):
-    """A falsely-closed round must still surface a stranded fresh composer."""
+def test_exact_restarted_never_worked_composer_rearms_resume_retry(*, tmp_path):
+    """A falsely-closed round with the exact fresh composer self-heals via Enter only."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=_capture_with_resume(resume=resume, ctx=100))
+    fake.pasted_inputs[session] = resume
     clock = {"now": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["now"], own_pane="%7")
     _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
     registry.clear_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     track = mapped_track(repo=repo, topic=topic, session=session)
 
-    first = sup.evaluate(track=track, act=True)
-    assert first.status == "settling"
-    clock["now"] += 61.0
+    with contextlib.redirect_stderr(_io.StringIO()):
+        healed = sup.evaluate(track=track, act=True)
+    assert healed.status == "restarting"
+    assert supervisor.needs_attention(row=healed) is False
+    assert not fake.has(method="respawn")
+    assert not fake.has(method="paste")
+    assert [call for call in fake.calls if call[0] == "keys"] == [("keys", session, "Enter")]
+    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert (
+        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is False
+    )
+
+
+def test_changed_restarted_never_worked_composer_does_not_rearm_retry(*, tmp_path):
+    """A non-exact composer may be a human draft, so it is never keystroked."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    resume = supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
+    fake = FakeTmux()
+    fake.serve(
+        session=session, repo=repo, capture=_capture_with_resume(resume="human draft", ctx=100)
+    )
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, own_pane="%7")
+    _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
+    registry.clear_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    track = mapped_track(repo=repo, topic=topic, session=session)
 
     with contextlib.redirect_stderr(_io.StringIO()):
-        due = sup.evaluate(track=track, act=True)
-    assert due.status == "restart-never-worked"
-    assert supervisor.needs_attention(row=due) is True
+        view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "settling"
     assert not fake.has(method="respawn")
+    assert not fake.has(method="paste")
     assert not any(call[0] == "keys" for call in fake.calls)
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
