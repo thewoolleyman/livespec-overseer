@@ -738,8 +738,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A voided ready declaration is answered with one durable bounded void-notice",
-    "test": "TODO",
-    "reason": "Added by the round-recovery-and-escalation-exhaustion ratification (bounded void-notice). No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+    "test": "tests.integration.test_void_notice.test_scenario_a_voided_ready_declaration_is_answered_with_one_notice",
+    "reason": "Integration-tier v014 void-notice pin: opens a delivered round through Supervisor.evaluate, voids a stale ready after the session resumes work, proves the next guarded idle observation sends exactly one notice naming the state-file path, writable values, and fresh-ready restart rule, then simulates a daemon instance swap and a second void in the same round to prove the durable single-notice bound and preserved escalation-band state."
   },
   {
     "spec_root": "SPECIFICATION",

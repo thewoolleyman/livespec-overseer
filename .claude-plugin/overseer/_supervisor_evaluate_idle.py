@@ -14,6 +14,7 @@ import _supervisor_restart
 import _supervisor_round_recovery
 import _supervisor_threshold
 import registry
+from _supervisor_config import DANGER_CTX_REMAINING
 from _supervisor_records import Observation
 
 if TYPE_CHECKING:
@@ -97,6 +98,18 @@ def _idle_room_or_recovered(*, request: IdleRequest) -> str:
         )
     ):
         return "idle"
+    if request.act:
+        _ = _supervisor_threshold.maybe_send_void_notice(
+            request=_supervisor_threshold.ThresholdRequest(
+                sup=request.sup,
+                track=request.track,
+                session=request.session,
+                target=request.target,
+                threshold=request.threshold,
+                act=request.act,
+                obs=request.obs,
+            )
+        )
     return _supervisor_idle.idle_room(
         request=_supervisor_idle.IdleRequest(
             sup=request.sup,
@@ -111,6 +124,60 @@ def _idle_room_or_recovered(*, request: IdleRequest) -> str:
             act=request.act,
             is_codex=request.obs.is_codex,
         )
+    )
+
+
+def _threshold_or_void_notice_decision(
+    *, request: IdleRequest, note: str | None, active_conditions: set[str]
+) -> IdleDecision:
+    void_notice_sent = False
+    if request.act:
+        void_notice_sent = _supervisor_threshold.maybe_send_void_notice(
+            request=_supervisor_threshold.ThresholdRequest(
+                sup=request.sup,
+                track=request.track,
+                session=request.session,
+                target=request.target,
+                threshold=request.threshold,
+                act=request.act,
+                obs=request.obs,
+            )
+        )
+    if void_notice_sent:
+        danger = request.obs.eff_ctx is not None and request.obs.eff_ctx <= DANGER_CTX_REMAINING
+        if danger:
+            active_conditions.add("default")
+        status = "danger" if danger else "warned"
+        return IdleDecision(
+            status=status,
+            note=note,
+            active_conditions=active_conditions,
+            settled_streaming_progress=False,
+        )
+    threshold_decision = _supervisor_threshold.threshold(
+        request=_supervisor_threshold.ThresholdRequest(
+            sup=request.sup,
+            track=request.track,
+            session=request.session,
+            target=request.target,
+            threshold=request.threshold,
+            act=request.act,
+            obs=request.obs,
+        )
+    )
+    status = threshold_decision.status
+    active_conditions.update(threshold_decision.active_conditions)
+    status, note = _apply_uncertifiable_ready(
+        status=status,
+        note=note,
+        active_conditions=active_conditions,
+        uncertifiable_ready=request.uncertifiable_ready,
+    )
+    return IdleDecision(
+        status=status,
+        note=note,
+        active_conditions=active_conditions,
+        settled_streaming_progress=False,
     )
 
 
@@ -190,24 +257,8 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
             )
         )
     elif request.obs.eff_ctx is not None and request.obs.eff_ctx <= request.threshold:
-        threshold_decision = _supervisor_threshold.threshold(
-            request=_supervisor_threshold.ThresholdRequest(
-                sup=request.sup,
-                track=request.track,
-                session=request.session,
-                target=request.target,
-                threshold=request.threshold,
-                act=request.act,
-                obs=request.obs,
-            )
-        )
-        status = threshold_decision.status
-        active_conditions.update(threshold_decision.active_conditions)
-        status, note = _apply_uncertifiable_ready(
-            status=status,
-            note=note,
-            active_conditions=active_conditions,
-            uncertifiable_ready=request.uncertifiable_ready,
+        return _threshold_or_void_notice_decision(
+            request=request, note=note, active_conditions=active_conditions
         )
     elif request.uncertifiable_ready is not None:
         status = "ready-uncertifiable"
