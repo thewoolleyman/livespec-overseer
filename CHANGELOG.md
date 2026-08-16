@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.38.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.11...v0.38.0) (2026-08-16)
+
+
+### Features
+
+* pin voided ready notice ([fe32435](https://github.com/thewoolleyman/livespec-overseer/commit/fe324352cf22cf1f4e99b3b1859c0031e6c46113))
+
 ## [0.37.11](https://github.com/thewoolleyman/livespec-overseer/compare/v0.37.10...v0.37.11) (2026-08-16)
 
 
