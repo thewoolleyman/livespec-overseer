@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.1...v0.39.2) (2026-08-16)
+
+
+### Bug Fixes
+
+* require visible paste before claude submit clear ([fddd17c](https://github.com/thewoolleyman/livespec-overseer/commit/fddd17c5b588f538c6fe9e7993848a96d448b83a))
+
 ## [0.39.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.0...v0.39.1) (2026-08-16)
 
 
