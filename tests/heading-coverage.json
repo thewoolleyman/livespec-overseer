@@ -732,7 +732,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recovered-round closure defers to any standing state-file content",
     "test": "tests.integration.test_wrapup_escalation.test_scenario_recovered_round_closure_defers_to_standing_state_file_content",
-    "reason": "Integration-tier v014 recovered-round fail-closed guard pin: opens a delivered round through Supervisor.evaluate, recovers context above threshold with a standing state-file token, proves the round record and state file survive, and audits that no paste, keystroke, or restart occurs."
+    "reason": "Integration-tier v014 recovered-round fail-closed guard pin: opens a delivered round through Supervisor.evaluate, recovers context above threshold with a standing state-file token, proves the round record and state file survive, audits that no paste, keystroke, or restart occurs, and simulates a declaration appearing after the fresh state-file check so the final pre-delete reread must hold the round open."
   },
   {
     "spec_root": "SPECIFICATION",

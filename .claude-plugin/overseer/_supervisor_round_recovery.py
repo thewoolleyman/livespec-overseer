@@ -77,6 +77,9 @@ def close_recovered_round(*, request: RecoveryRequest) -> bool:
     fresh = _fresh_recovery_observation(request=request)
     if fresh is None:
         return False
+    final = _fresh_recovery_observation(request=request)
+    if final is None:
+        return False
     registry.clear_injection_stamp(
         repo=request.track.repo, topic=request.track.topic, stamp_path=request.sup.stamp_path
     )
@@ -84,7 +87,7 @@ def close_recovered_round(*, request: RecoveryRequest) -> bool:
     request.sup.log(
         message=(
             f"closed recovered round for {request.track.repo}::{request.track.topic} "
-            f"(ctx {fresh.eff_ctx}% > threshold {request.threshold}%)"
+            f"(ctx {final.eff_ctx}% > threshold {request.threshold}%)"
         )
     )
     return True
