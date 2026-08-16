@@ -20,6 +20,8 @@ from __future__ import annotations
 import contextlib
 import io as _io
 
+import _supervisor_round_recovery
+
 from overseer import registry, signals
 from overseer._supervisor_config import CTX_STALE_AFTER
 from overseer.test_supervisor_builders import (
@@ -64,6 +66,34 @@ def _audit_state_file_mutations(*, monkeypatch, state):
     monkeypatch.setattr(type(state), "write_text", audited_write_text)
     monkeypatch.setattr(type(state), "unlink", audited_unlink)
     return state_mutations
+
+
+def _assert_recovered_round_race_holds_open(*, repo, topic, sup, track, monkeypatch):
+    original_state_permits_recovery = _supervisor_round_recovery._state_permits_recovery
+    state_checks = {"count": 0}
+
+    def declare_after_fresh_state_check(*, repo, topic):
+        state_checks["count"] += 1
+        permitted = original_state_permits_recovery(repo=repo, topic=topic)
+        if permitted and state_checks["count"] == 2:
+            declare(repo=repo, topic=topic, value="ready", mtime=1002.0)
+        return permitted
+
+    monkeypatch.setattr(
+        _supervisor_round_recovery,
+        "_state_permits_recovery",
+        declare_after_fresh_state_check,
+    )
+
+    raced = sup.evaluate(track=track, act=True)
+
+    assert raced.status == "idle-with-context-left"
+    assert state_checks["count"] >= 3
+    assert (
+        registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path).at
+        == 1000.0
+    )
+    assert signals.state_path(repo=str(repo), topic=topic).read_text(encoding="utf-8") == "ready\n"
 
 
 def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(*, tmp_path):
@@ -276,7 +306,9 @@ def test_scenario_a_compacted_session_that_re_crosses_threshold_is_re_warned(
     )
 
 
-def test_scenario_recovered_round_closure_defers_to_standing_state_file_content(*, tmp_path):
+def test_scenario_recovered_round_closure_defers_to_standing_state_file_content(
+    *, tmp_path, monkeypatch
+):
     """Scenario: A recovered-round closure defers to any standing state-file content."""
     repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=8)
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO())
@@ -300,6 +332,12 @@ def test_scenario_recovered_round_closure_defers_to_standing_state_file_content(
     assert state.read_text(encoding="utf-8") == "winding-down\n"
     assert not any(call[0] in {"keys", "paste", "respawn"} for call in recovery_calls)
     assert len(fake.paste_texts()) == 1
+
+    state.unlink()
+    _assert_recovered_round_race_holds_open(
+        repo=repo, topic=topic, sup=sup, track=track, monkeypatch=monkeypatch
+    )
+    assert not fake.has(method="respawn")
 
 
 def test_scenario_recovered_round_closure_requires_known_fresh_context(*, tmp_path):
