@@ -54,10 +54,19 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # This is the epic's own defect class opened by the epic's own refactor, which is
 # the third instance in this thread. A gate's SCOPE is as load-bearing as its
 # detectors: widening the detectors while the glob stays behind buys nothing.
+#
+# FOURTH INSTANCE, 2026-08-16: `plan/foreman/research/supervisor-handoff.md` sat
+# one level deeper than either fixed-depth pattern reaches (a `plan/<topic>/`
+# thread with a `research/` subdirectory holding its own charter). The two
+# fixed-depth patterns are replaced with the single recursive form
+# `test_the_globs_reach_every_charter_shaped_file_in_the_repo`'s own `on_disk`
+# comparison already uses — `**` matches zero or more directories, so it
+# reaches `plan/<topic>/supervisor-handoff.md`, `plan/archive/<topic>/
+# supervisor-handoff.md`, and any deeper nesting a thread grows, without a fifth
+# instance of this same drift the next time a thread's shape changes.
 _CHARTER_GLOBS = (
     ".ai/supervisor-protocol.md",
-    "plan/*/supervisor-handoff.md",
-    "plan/archive/*/supervisor-handoff.md",
+    "plan/**/supervisor-handoff.md",
 )
 
 # The charter that was hardened by hand and is what the generator must be able to
@@ -1055,15 +1064,22 @@ def test_the_globs_reach_every_charter_shaped_file_in_the_repo():
     failing if the globs stop reaching one.
 
     SCOPE, stated rather than hidden. It looks under `plan/**` at ANY depth plus
-    the shared layer, which is deliberately WIDER than `_CHARTER_GLOBS`' two
-    fixed depths -- a charter added at `plan/archive/<topic>/research/` would be
-    unscanned today and this is what would say so. It does NOT look outside
-    `plan/`, which correctly ignores the gitignored working copy at
-    `tmp/<topic>-supervisor/supervisor-handoff.md` (measured: that is the only
-    charter-shaped file outside the globs, and it is untracked scratch).
+    the shared layer -- the SAME recursive shape `_CHARTER_GLOBS` now uses, after
+    a fourth instance of this drift (2026-08-16, a `plan/<topic>/research/`
+    charter one level deeper than either of the two fixed-depth patterns that
+    preceded it) collapsed those two patterns into one recursive glob. The two
+    are computed independently ON PURPOSE — this test's own `on_disk` scan is not
+    derived from `_CHARTER_GLOBS` — so a FUTURE narrowing of `_CHARTER_GLOBS` back
+    to a fixed depth still reddens here even though today the two constructions
+    happen to agree. It does NOT look outside `plan/`, which correctly ignores
+    the gitignored working copy at `tmp/<topic>-supervisor/supervisor-handoff.md`
+    (measured: that is the only charter-shaped file outside the globs, and it is
+    untracked scratch).
 
-    Sabotage that reddens this: drop `plan/archive/*/supervisor-handoff.md` from
-    `_CHARTER_GLOBS`, which removes four charters while leaving the set non-empty.
+    Sabotage that reddens this: narrow `plan/**/supervisor-handoff.md` in
+    `_CHARTER_GLOBS` back to a fixed-depth pattern such as
+    `plan/*/supervisor-handoff.md`, which drops any charter nested one level
+    deeper while leaving the set non-empty.
     """
     scanned = {path.resolve() for path in _charters()}
     # Both halves are GLOBS, not a path plus an `is_file()` test. A conditional
