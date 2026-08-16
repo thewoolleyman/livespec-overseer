@@ -745,7 +745,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An exhausted escalation below threshold is surfaced, never acted on",
-    "test": "TODO",
-    "reason": "Added by the round-recovery-and-escalation-exhaustion ratification (escalation-exhausted attention member). No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+    "test": "tests.integration.test_wrapup_escalation.test_scenario_an_exhausted_escalation_below_threshold_is_surfaced_never_acted_on",
+    "reason": "Integration-tier v014 escalation-exhausted attention pin: opens a delivered round through Supervisor.evaluate, proves the current and threshold bands are durably notified, holds the pane continuously idle below threshold with no state-file declaration, then asserts the report-only attention status, note, alert, no additional paste, no respawn, and fail-closed clearing on unknown context."
   }
 ]

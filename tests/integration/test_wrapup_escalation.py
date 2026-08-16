@@ -22,8 +22,8 @@ import io as _io
 
 import _supervisor_round_recovery
 
-from overseer import registry, signals
-from overseer._supervisor_config import CTX_STALE_AFTER
+from overseer import registry, signals, supervisor
+from overseer._supervisor_config import CONDITION_CONTINUITY_GAP, CTX_STALE_AFTER
 from overseer.test_supervisor_builders import (
     TEST_EPIC,
     declare,
@@ -94,6 +94,17 @@ def _assert_recovered_round_race_holds_open(*, repo, topic, sup, track, monkeypa
         == 1000.0
     )
     assert signals.state_path(repo=str(repo), topic=topic).read_text(encoding="utf-8") == "ready\n"
+
+
+def _assert_escalation_exhausted_surface(*, row, err, fake, paste_count):
+    assert row.status == "escalation-exhausted"
+    assert supervisor.needs_attention(row=row) is True
+    assert ".overseer-state" in (row.note or "")
+    assert "runtime idle input is only an input-state display" in (row.note or "")
+    assert "state file has no ready declaration" in (row.note or "")
+    assert "escalation exhausted" in err.getvalue()
+    assert len(fake.paste_texts()) == paste_count
+    assert not fake.has(method="respawn")
 
 
 def test_scenario_a_wrapup_is_injected_when_a_track_crosses_its_threshold(*, tmp_path):
@@ -395,3 +406,39 @@ def test_scenario_recovered_round_closure_requires_known_fresh_context(*, tmp_pa
     )
     assert len(fake.paste_texts()) == 1
     assert not fake.has(method="respawn")
+
+
+def test_scenario_an_exhausted_escalation_below_threshold_is_surfaced_never_acted_on(*, tmp_path):
+    """Scenario: An exhausted escalation below threshold is surfaced, never acted on."""
+    repo, topic, session, fake = _track(tmp_path=tmp_path, ctx=40)
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, out=_io.StringIO(), now=lambda: clock["t"])
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    opened = sup.evaluate(track=track, act=True)
+    assert opened.status == "warned"
+    assert set(
+        registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    ) == {50, 40}
+    assert signals.read_state(repo=str(repo), topic=topic) is None
+    paste_count = len(fake.paste_texts())
+
+    clock["t"] += 1.0
+    below_floor = sup.evaluate(track=track, act=True)
+    assert below_floor.status == "warned"
+
+    clock["t"] += 599.0
+    still_below_floor = sup.evaluate(track=track, act=True)
+    assert still_below_floor.status == "warned"
+
+    clock["t"] += 2.0
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        surfaced = sup.evaluate(track=track, act=True)
+
+    _assert_escalation_exhausted_surface(row=surfaced, err=err, fake=fake, paste_count=paste_count)
+
+    fake.panes[session] = idle_capture(ctx=None)
+    clock["t"] += CONDITION_CONTINUITY_GAP + 1.0
+    unknown = sup.evaluate(track=track, act=True)
+
+    assert unknown.status != "escalation-exhausted"
