@@ -78,7 +78,7 @@ def escalation_exhausted_note(*, request: EscalationExhaustedAlertRequest) -> st
     return (
         f"escalation exhausted {age_label(seconds=request.age)}: "
         "runtime idle input is only an input-state display; "
-        f"state file has no ready declaration at {state_file}"
+        f"restart authorization is absent: no state file containing exactly ready at {state_file}"
     )
 
 
