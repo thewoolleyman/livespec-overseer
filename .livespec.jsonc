@@ -128,7 +128,13 @@
       // Bootstrap placeholder; the first successful cross-repo fan-out
       // rewrites this to a livespec release tag.
       "pinned": "v0.33.6"
-    }
+    },
+    // Maintainer opt-in 2026-08-16: the foreman may convene the cross-vendor
+    // consensus panel on blocked sessions and act on its typed verdict via
+    // foreman-act, instead of report-only surfacing. The contract floors
+    // (escalate on dissent, insufficient information, hard-risk, or
+    // human-gated-by-design decisions) are not relaxed by this setting.
+    "foreman_valve_disposition": "consensus"
   },
   "livespec-orchestrator-beads-fabro": {
     "format": "beads",
