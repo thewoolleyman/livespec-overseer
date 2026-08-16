@@ -5,14 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_attention_exhausted
 import _supervisor_observe
 import registry
 import signals
 from _supervisor_attention_alerts import (
+    EscalationExhaustedAlertRequest,
     ShellAlertRequest,
     StarvationAlertRequest,
+    escalation_exhausted_note,
     shell_evidence_note,
     starvation_evidence_note,
+    surface_escalation_exhausted_alert,
     surface_shell_prolonged_alert,
     surface_starvation_alert,
 )
@@ -25,15 +29,18 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "AttentionDecision",
     "AttentionRequest",
+    "EscalationExhaustedAlertRequest",
     "LivenessAttention",
     "ObserveRequest",
     "ShellAlertRequest",
     "StarvationAlertRequest",
     "blocked_starvation_decision",
+    "escalation_exhausted_note",
     "observe_liveness_attention",
     "pre_busy_attention_decision",
     "shell_evidence_note",
     "starvation_evidence_note",
+    "surface_escalation_exhausted_alert",
     "surface_shell_prolonged_alert",
     "surface_starvation_alert",
 ]
@@ -50,9 +57,12 @@ class AttentionDecision:
 class LivenessAttention:
     generating: bool
     shell_only: bool
+    escalation_exhausted_now: bool
+    escalation_exhausted_due: bool
     starving_now: bool
     starved_due: bool
     shell_due: bool
+    escalation_exhausted_age: float | None
     starvation_age: float | None
     shell_age: float | None
 
@@ -60,6 +70,7 @@ class LivenessAttention:
 @dataclass(frozen=True, kw_only=True)
 class ObserveRequest:
     sup: Supervisor
+    track: registry.Track
     istate: InjectState
     capture: str
     claude_status: str | None
@@ -67,6 +78,10 @@ class ObserveRequest:
     eff_ctx: int | None
     threshold: int
     injection_stamp: float | None
+    idle: bool
+    busy: bool
+    declared: signals.TrackState | None
+    round_record: registry.RoundRecord
 
 
 def observe_liveness_attention(*, request: ObserveRequest) -> LivenessAttention:
@@ -75,6 +90,21 @@ def observe_liveness_attention(*, request: ObserveRequest) -> LivenessAttention:
         request.claude_status == "shell" or request.codex_fallback
     )
     now = request.sup.now()
+    escalation_exhaustion = _supervisor_attention_exhausted.observe_escalation_exhaustion(
+        request=_supervisor_attention_exhausted.ObserveEscalationExhaustionRequest(
+            sup=request.sup,
+            track=request.track,
+            istate=request.istate,
+            eff_ctx=request.eff_ctx,
+            threshold=request.threshold,
+            idle=request.idle,
+            busy=request.busy,
+            generating=generating,
+            shell_only=shell_only,
+            declared=request.declared,
+            round_record=request.round_record,
+        )
+    )
     starving_now = (
         request.eff_ctx is not None
         and request.eff_ctx <= request.threshold
@@ -99,9 +129,12 @@ def observe_liveness_attention(*, request: ObserveRequest) -> LivenessAttention:
     return LivenessAttention(
         generating=generating,
         shell_only=shell_only,
+        escalation_exhausted_now=escalation_exhaustion.active_now,
+        escalation_exhausted_due=escalation_exhaustion.due,
         starving_now=starving_now,
         starved_due=starvation_age is not None and starvation_age >= WINDDOWN_STARVED_AFTER,
         shell_due=shell_age is not None and shell_age >= SHELL_PROLONGED_AFTER,
+        escalation_exhausted_age=escalation_exhaustion.age,
         starvation_age=starvation_age,
         shell_age=shell_age,
     )
@@ -141,8 +174,33 @@ def _starvation_conditions(*, request: StarvationAlertRequest, act: bool) -> set
     return {"winddown-starved"}
 
 
+def _escalation_exhausted_request(*, request: AttentionRequest) -> EscalationExhaustedAlertRequest:
+    return EscalationExhaustedAlertRequest(
+        sup=request.sup,
+        track=request.track,
+        session=request.session,
+        pane=request.pane,
+        age=request.attention.escalation_exhausted_age or 0.0,
+    )
+
+
+def _escalation_exhausted_conditions(
+    *, request: EscalationExhaustedAlertRequest, act: bool
+) -> set[str]:
+    if act:
+        return surface_escalation_exhausted_alert(request=request)
+    return {"escalation-exhausted"}
+
+
 def pre_busy_attention_decision(*, request: AttentionRequest) -> AttentionDecision | None:
     attention = request.attention
+    if attention.escalation_exhausted_due:
+        exhausted = _escalation_exhausted_request(request=request)
+        return AttentionDecision(
+            status="escalation-exhausted",
+            note=escalation_exhausted_note(request=exhausted),
+            active_conditions=_escalation_exhausted_conditions(request=exhausted, act=request.act),
+        )
     if (
         attention.starved_due
         and not attention.generating

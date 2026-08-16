@@ -34,6 +34,7 @@ __all__: list[str] = [
     "CONDITION_CONTINUITY_GAP",
     "CTX_STALE_AFTER",
     "DANGER_CTX_REMAINING",
+    "ESCALATION_EXHAUSTED_AFTER",
     "IDLE_NUDGE_AFTER",
     "LOOP_INTERVAL_SECONDS",
     "MARKER_VOID_GRACE",
@@ -155,6 +156,7 @@ CTX_STALE_AFTER = 3600.0
 # background-shell floor; above-threshold shell-only shielding uses the ruled 8h floor.
 WINDDOWN_STARVED_AFTER = 2 * 3600.0
 SHELL_PROLONGED_AFTER = 8 * 3600.0
+ESCALATION_EXHAUSTED_AFTER = 10 * 60.0
 
 # Standing blocked declarations escalate once at each crossed age band. Further daily
 # bands are derived from the same 24h cadence in the evaluator.

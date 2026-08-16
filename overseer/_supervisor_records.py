@@ -69,6 +69,7 @@ class InjectState:
     idle_last_seen: float | None = None
     ctx_unreadable_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     winddown_starved_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
+    escalation_exhausted_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     shell_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     restart_never_worked_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     blocked_declaration_mtime: float | None = None

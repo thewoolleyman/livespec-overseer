@@ -6,19 +6,32 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import registry
+import signals
 from _supervisor_view import MAX_REASON_IN_ALERT, elide
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "EscalationExhaustedAlertRequest",
     "ShellAlertRequest",
     "StarvationAlertRequest",
+    "escalation_exhausted_note",
     "shell_evidence_note",
     "starvation_evidence_note",
+    "surface_escalation_exhausted_alert",
     "surface_shell_prolonged_alert",
     "surface_starvation_alert",
 ]
+
+
+@dataclass(frozen=True, kw_only=True)
+class EscalationExhaustedAlertRequest:
+    sup: Supervisor
+    track: registry.Track
+    session: str
+    pane: str
+    age: float
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -60,6 +73,15 @@ def shell_evidence_note(*, age: float | None = None) -> str:
     return f"background shell {age_label(seconds=age)}"
 
 
+def escalation_exhausted_note(*, request: EscalationExhaustedAlertRequest) -> str:
+    state_file = signals.state_path(repo=request.track.repo, topic=request.track.topic)
+    return (
+        f"escalation exhausted {age_label(seconds=request.age)}: "
+        "runtime idle input is only an input-state display; "
+        f"state file has no ready declaration at {state_file}"
+    )
+
+
 def starvation_evidence_note(*, request: StarvationAlertRequest) -> str:
     parts = [f"winddown starved {age_label(seconds=request.age)}"]
     if request.blocked is not None:
@@ -86,6 +108,22 @@ def surface_starvation_alert(*, request: StarvationAlertRequest) -> set[str]:
         condition="winddown-starved",
     )
     return {"winddown-starved"}
+
+
+def surface_escalation_exhausted_alert(*, request: EscalationExhaustedAlertRequest) -> set[str]:
+    note = escalation_exhausted_note(request=request)
+    request.sup.alert(
+        repo=request.track.repo,
+        topic=request.track.topic,
+        session=request.session,
+        pane=request.pane,
+        message=(
+            f"escalation exhausted ({age_label(seconds=request.age)}): "
+            f"{elide(text=note, limit=MAX_REASON_IN_ALERT)} — inspect that pane"
+        ),
+        condition="escalation-exhausted",
+    )
+    return {"escalation-exhausted"}
 
 
 def surface_shell_prolonged_alert(*, request: ShellAlertRequest) -> set[str]:

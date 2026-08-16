@@ -33,6 +33,7 @@ def prepare_evaluation_attention(
     attention = _supervisor_attention.observe_liveness_attention(
         request=_supervisor_attention.ObserveRequest(
             sup=sup,
+            track=track,
             istate=obs.istate,
             capture=obs.capture,
             claude_status=obs.claude_status,
@@ -40,6 +41,10 @@ def prepare_evaluation_attention(
             eff_ctx=obs.eff_ctx,
             threshold=threshold,
             injection_stamp=obs.injection_stamp,
+            idle=obs.idle,
+            busy=obs.busy,
+            declared=obs.declared,
+            round_record=obs.round_record,
         )
     )
     return EvaluationAttention(
