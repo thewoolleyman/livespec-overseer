@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.3...v0.39.4) (2026-08-16)
+
+
+### Bug Fixes
+
+* **config:** revise_decision_mode=consensus is inert, use delegated (epic livespec-jvdvx4) ([520144c](https://github.com/thewoolleyman/livespec-overseer/commit/520144c44592b203e6bd1f2268d56d2db28b129f))
+
 ## [0.39.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.2...v0.39.3) (2026-08-16)
 
 
