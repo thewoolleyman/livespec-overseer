@@ -338,7 +338,7 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A ready declaration is voided when its session resumes work",
+    "heading": "## Scenario: A ready declaration remains armed when its session resumes work",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work",
     "reason": "Integration-tier: covers BOTH halves of the scenario over real rounds and a moving clock. A declaration younger than `MARKER_VOID_GRACE` survives the declaring turn's own busy tail and then genuinely restarts the track; one older than the grace is cleared while busy, and going idle again proves the 'instead of restarting later' clause. SABOTAGE-VERIFIED 2026-07-26: `MARKER_VOID_GRACE = 0.0` and making the void unconditional each redden the young half; `MARKER_VOID_GRACE = 10_000.0` reddens the stale half."
   },
@@ -639,7 +639,7 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: Repeated voiding never re-sends an already-notified band",
+    "heading": "## Scenario: Repeated expiries never re-send an already-notified band",
     "test": "tests.integration.test_post_void_certification_floor.test_scenario_repeated_voiding_never_resends_an_already_notified_band",
     "reason": "Integration-tier v010 post-void certification-floor pin: drives the supervisor/round interlock path for this ratified scenario and replaces the implementation-slice TODO from overseer-5oap."
   },
@@ -681,7 +681,7 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A session replaced before the void never inherits a certifiable floor",
+    "heading": "## Scenario: A session replaced before the expiry never inherits a certifiable floor",
     "test": "tests.integration.test_post_void_certification_floor.test_scenario_session_replaced_before_void_never_inherits_certifiable_floor",
     "reason": "Integration-tier v010 post-void certification-floor pin: drives the supervisor/round interlock path for this ratified scenario and replaces the implementation-slice TODO from overseer-5oap."
   },
@@ -695,14 +695,14 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A ready declaration written after a void certifies without a new round",
+    "heading": "## Scenario: A ready declaration written after an expiry certifies without a new round",
     "test": "tests.integration.test_post_void_certification_floor.test_scenario_ready_after_void_certifies_without_a_new_round",
     "reason": "Integration-tier v010 post-void certification-floor pin: drives the supervisor/round interlock path for this ratified scenario and replaces the implementation-slice TODO from overseer-5oap."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A voided declaration never certifies against its own void",
+    "heading": "## Scenario: An expired declaration never certifies against its own expiry",
     "test": "tests.integration.test_post_void_certification_floor.test_scenario_voided_declaration_never_certifies_against_its_own_void",
     "reason": "Integration-tier v010 post-void certification-floor pin: drives the supervisor/round interlock path for this ratified scenario and replaces the implementation-slice TODO from overseer-5oap."
   },
@@ -737,7 +737,7 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A voided ready declaration is answered with one durable bounded void-notice",
+    "heading": "## Scenario: An expired ready declaration is answered with one durable bounded expiry-notice",
     "test": "tests.integration.test_void_notice.test_scenario_a_voided_ready_declaration_is_answered_with_one_notice",
     "reason": "Integration-tier v014 void-notice pin: opens a delivered round through Supervisor.evaluate, voids a stale ready after the session resumes work, proves the next guarded idle observation sends exactly one notice naming the state-file path, writable values, and fresh-ready restart rule, then simulates a daemon instance swap and a second void in the same round to prove the durable single-notice bound and preserved escalation-band state."
   },
@@ -747,5 +747,12 @@
     "heading": "## Scenario: An exhausted escalation below threshold is surfaced, never acted on",
     "test": "tests.integration.test_wrapup_escalation.test_scenario_an_exhausted_escalation_below_threshold_is_surfaced_never_acted_on",
     "reason": "Integration-tier v014 escalation-exhausted attention pin: opens a delivered round through Supervisor.evaluate, proves the current and threshold bands are durably notified, holds the pane continuously idle below threshold with no state-file declaration, then asserts the report-only attention status, note, alert, no additional paste, no respawn, and fail-closed clearing on unknown context."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An aged declaration never certifies before its expiry is recorded",
+    "test": "TODO",
+    "reason": "New v016 age-backstop scenario (restart interlock precondition 3 fail-closed check). No implementation slice exists yet; integration-tier coverage lands with the PR #1001 code amendment (work-item overseer-xawpyl) that repurposes the void-notice machinery for max-age expiry."
   }
 ]
