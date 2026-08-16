@@ -94,15 +94,9 @@ def busy(*, request: BusyRequest) -> BusyDecision:
                 extra="sub-agent (Claude busy)",
             )
     if request.act:
-        # Void the certification ONLY if it is past the grace — a young
-        # marker is the certifying turn's own busy tail and must survive
-        # (RB1); an old one means the session resumed work after certifying.
-        ready = _supervisor_state.void_if_stale(
-            sup=request.sup,
-            track=request.track,
-            ready=ready,
-            resumed_work=request.generating,
-        )
+        # A ready declaration ARMS the restart until the first verified settled-idle
+        # observation. Intervening narration/generation does not delete it; the busy and
+        # settle gates already prevent a mid-work restart, and max-age bounds staleness.
         # The session took a turn — clear any idle-with-context-left nudge marker
         # so the NEXT idle-with-context episode re-nudges (re-arm on non-idle).
         _supervisor_nudge.clear_idle_nudge_state(sup=request.sup, track=request.track)

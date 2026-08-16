@@ -1,0 +1,240 @@
+"""Live-tmux integration coverage for ready arming until settled idle.
+
+The test drives the real Supervisor decision cascade against a private tmux
+server. The pane content is a deterministic miniature TUI transcript with a
+tiny-context statusline, and the process-identity read is shimmed because CI has
+no real Claude/Codex TUI to run.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import io as _io
+import os
+from pathlib import Path
+
+from overseer import registry, signals, supervisor, tmuxio
+from overseer.test_supervisor_builders import (
+    busy_capture,
+    declare,
+    idle_capture,
+    make_plan,
+    mapped_track,
+)
+
+
+class LivePaneDriver:
+    """Real private tmux server plus CI-safe runtime identity evidence."""
+
+    def __init__(self, *, inner: tmuxio.TmuxIO, repo: Path) -> None:
+        self.inner = inner
+        self.repo = repo
+        self.pastes: list[tuple[str, str]] = []
+        self.respawns: list[tuple[str, str, str]] = []
+        self.pasted_text: str | None = None
+        self.submitted = False
+
+    def capture_pane(self, *, session: str) -> str:
+        capture = self.inner.capture_pane(session=session)
+        if self.pasted_text is not None and not self.submitted:
+            return idle_capture(ctx=5).replace("\n❯ \n", f"\n❯ {self.pasted_text}\n", 1)
+        if self.submitted:
+            self.pasted_text = None
+            self.submitted = False
+            return busy_capture(ctx=5)
+        return capture
+
+    def pane_id(self, *, session: str) -> str | None:
+        return self.inner.pane_id(session=session)
+
+    def pane_pid(self, *, session: str) -> int | None:
+        return self.inner.pane_pid(session=session)
+
+    def pane_current_command(self, *, session: str) -> str | None:
+        if session.startswith("%") or self.inner.session_exists(session=session):
+            return "node"
+        return None
+
+    def pane_current_path(self, *, session: str) -> str | None:
+        if session.startswith("%") or self.inner.session_exists(session=session):
+            return str(self.repo)
+        return None
+
+    def session_exists(self, *, session: str) -> bool:
+        return self.inner.session_exists(session=session)
+
+    def pane_pid_sessions(self) -> dict[int, str]:
+        return self.inner.pane_pid_sessions()
+
+    def send_keys(self, *, session: str, keys: str) -> bool:
+        if keys == "Enter" and self.pasted_text is not None:
+            self.submitted = True
+        return True
+
+    def bracketed_paste(self, *, session: str, text: str) -> bool:
+        self.pastes.append((session, text))
+        self.pasted_text = text.splitlines()[0]
+        self.submitted = False
+        return True
+
+    def respawn_pane(self, *, session: str, cwd: str, command: str) -> bool:
+        self.respawns.append((session, cwd, command))
+        return self.inner.respawn_pane(
+            session=session,
+            cwd=cwd,
+            command="bash --noprofile --norc",
+        )
+
+    def new_session(self, *, name: str, cwd: str) -> bool:
+        return self.inner.new_session(name=name, cwd=cwd)
+
+    def rename_window(self, *, pane: str, name: str) -> bool:
+        return self.inner.rename_window(pane=pane, name=name)
+
+
+def _tmux_wrapper(*, tmp_path: Path) -> Path:
+    socket = f"ready-arm-{os.getpid()}-{tmp_path.name}"
+    wrapper = tmp_path / "tmux-private"
+    wrapper.write_text(f'#!/bin/sh\nexec /usr/bin/tmux -L {socket} "$@"\n', encoding="utf-8")
+    wrapper.chmod(0o700)
+    return wrapper
+
+
+def _render_script(*, repo: Path, capture: str) -> Path:
+    script = repo / "tmp" / "render-capture.sh"
+    payload = repo / "tmp" / "capture.txt"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    payload.write_text(capture, encoding="utf-8")
+    script.write_text(
+        f"#!/bin/sh\nclear\ncat {payload}\nexec bash --noprofile --norc\n",
+        encoding="utf-8",
+    )
+    script.chmod(0o700)
+    return script
+
+
+def _session_with_capture(*, inner: tmuxio.TmuxIO, session: str, repo: Path, capture: str) -> None:
+    script = _render_script(repo=repo, capture=capture)
+    assert inner.new_session(name=session, cwd=str(repo))
+    assert inner.respawn_pane(session=session, cwd=str(repo), command=str(script))
+
+
+def _replace_capture(*, inner: tmuxio.TmuxIO, session: str, repo: Path, capture: str) -> None:
+    script = _render_script(repo=repo, capture=capture)
+    assert inner.respawn_pane(session=session, cwd=str(repo), command=str(script))
+
+
+def _close_session(*, inner: tmuxio.TmuxIO, session: str, repo: Path) -> None:
+    inner.respawn_pane(session=session, cwd=str(repo), command="true")
+
+
+def _supervisor(
+    *,
+    tmp_path: Path,
+    driver: LivePaneDriver,
+    clock: dict[str, float],
+    session: str,
+) -> supervisor.Supervisor:
+    sup = supervisor.Supervisor(
+        tmux=driver,
+        store_path=str(tmp_path / "map.jsonl"),
+        stamp_path=str(tmp_path / "stamps.json"),
+        now=lambda: clock["t"],
+        sleep=lambda _seconds: None,
+        out=_io.StringIO(),
+        codex_home=str(tmp_path / "codex-home-none"),
+        codex_pids_of_comm=lambda *, comm: [],
+        proc_root=str(tmp_path),
+        which=lambda _name: "/usr/bin/tmux",
+    )
+    sup.claude_status_by_session = {session: "idle"}
+    return sup
+
+
+def test_ready_arms_restart_until_first_verified_idle_after_more_output(*, tmp_path: Path) -> None:
+    clock = {"t": 1000.0}
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    tmux_bin = _tmux_wrapper(tmp_path=tmp_path)
+    inner = tmuxio.TmuxIO(tmux_bin=str(tmux_bin))
+    try:
+        _session_with_capture(
+            inner=inner,
+            session=session,
+            repo=repo,
+            capture=idle_capture(ctx=5, topic=topic),
+        )
+        driver = LivePaneDriver(inner=inner, repo=repo)
+        sup = _supervisor(
+            tmp_path=tmp_path,
+            driver=driver,
+            clock=clock,
+            session=session,
+        )
+        track = mapped_track(repo=repo, topic=topic, session=session)
+
+        opened = sup.evaluate(track=track, act=True)
+        assert opened.status == "danger"
+        declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1010.0)
+
+        clock["t"] = 1400.0
+        _replace_capture(
+            inner=inner,
+            session=session,
+            repo=repo,
+            capture=busy_capture(ctx=5),
+        )
+        assert sup.evaluate(track=track, act=True).status == "working"
+        assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+
+        clock["t"] = 1410.0
+        _replace_capture(
+            inner=inner,
+            session=session,
+            repo=repo,
+            capture=idle_capture(ctx=5, topic=topic),
+        )
+        restarted = sup.evaluate(track=track, act=True)
+
+        assert restarted.status == "restarting"
+        assert len(driver.respawns) == 1
+    finally:
+        _close_session(inner=inner, session=session, repo=repo)
+
+
+def test_ready_arm_max_age_expires_loudly_without_respawning(*, tmp_path: Path) -> None:
+    clock = {"t": 1000.0}
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    tmux_bin = _tmux_wrapper(tmp_path=tmp_path)
+    inner = tmuxio.TmuxIO(tmux_bin=str(tmux_bin))
+    try:
+        _session_with_capture(
+            inner=inner,
+            session=session,
+            repo=repo,
+            capture=idle_capture(ctx=5, topic=topic),
+        )
+        driver = LivePaneDriver(inner=inner, repo=repo)
+        sup = _supervisor(
+            tmp_path=tmp_path,
+            driver=driver,
+            clock=clock,
+            session=session,
+        )
+        track = mapped_track(repo=repo, topic=topic, session=session)
+
+        assert sup.evaluate(track=track, act=True).status == "danger"
+        declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1010.0)
+        clock["t"] = 1010.0 + 1800.0 + 1.0
+
+        err = _io.StringIO()
+        with contextlib.redirect_stderr(err):
+            expired = sup.evaluate(track=track, act=True)
+
+        assert expired.status == "ready-uncertifiable"
+        assert "ready declaration exceeded 30m max age" in (expired.note or "")
+        assert "ready cannot certify" in err.getvalue()
+        assert len(driver.respawns) == 0
+    finally:
+        _close_session(inner=inner, session=session, repo=repo)

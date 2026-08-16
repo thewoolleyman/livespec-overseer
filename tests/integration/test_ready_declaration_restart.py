@@ -227,10 +227,9 @@ def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(*, tmp_p
     is a fact about the sequence rather than a hand-set number: the round genuinely opens
     after the session had already spoken.
 
-    Note what is NOT asserted — that the stale declaration is cleaned up. It is not, and
-    should not be: voiding a `ready` is the busy branch's job (`_void_if_stale`), and an
-    idle track is left holding its own file. Asserting a deletion here would pin behavior
-    the daemon does not have.
+    Note what is NOT asserted — that the stale declaration is cleaned up. It is not:
+    an idle track is left holding its own file. Asserting a deletion here would pin
+    behavior the daemon does not have.
 
     INJECTED DEFECT THAT REDDENS IT (run 2026-07-26, reverted): dropping the mtime
     comparison from `signals.ready_valid` (`return state.mtime > injection_stamp` ->
@@ -384,66 +383,28 @@ def test_uncertifiable_ready_alert_quantizes_clears_and_rearms(*, tmp_path):
     assert err.getvalue().count("ready cannot certify") == 1
 
 
-def test_scenario_a_ready_declaration_is_voided_when_its_session_resumes_work(*, tmp_path):
-    """Scenario: A ready declaration is voided when its session resumes work.
+def test_scenario_a_ready_declaration_stays_armed_when_its_session_emits_more_output(*, tmp_path):
+    """A ready declaration survives intervening output and fires when the pane idles.
 
-    Both halves of the scenario are here because they are one rule seen from two sides,
-    and pinning either alone is what makes this dangerous to change:
-
-    - Older than the voiding grace, seen busy: the daemon clears the now-false declaration
-      INSTEAD OF restarting later. The "instead of restarting later" is asserted by going
-      idle again afterwards — a void that left the file in place would show up there, not
-      on the busy tick.
-    - Younger than the grace: it SURVIVES its own turn's busy tail. The declaring turn's
-      final text and stop hooks legitimately keep the pane busy for 10-60s after the
-      write, so voiding on ANY busy would destroy every legitimate declaration before the
-      pane ever went idle. Here the young declaration survives and then really does
-      restart the track.
-
-    INJECTED DEFECTS THAT REDDEN IT (run 2026-07-26, each reverted):
-      - `MARKER_VOID_GRACE = 0.0` -> the young half's declaration is voided and the
-        restart never fires.
-      - the void made unconditional (drop the `age > MARKER_VOID_GRACE` guard) -> same.
-      - `MARKER_VOID_GRACE = 10_000.0` -> the stale half is never voided and restarts.
+    The busy/settle gates already prevent a mid-work restart, so activity is not a reason
+    to delete `ready`. The declaration remains armed until the first verified settled-idle
+    observation, bounded separately by the ready max-age.
     """
-    # --- younger than the grace: survives the declaring turn's own busy tail --------- #
     clock = {"t": 1000.0}
-    repo, topic, session, fake, sup, track = _open_round(
-        tmp_path=tmp_path, topic="young", clock=clock
-    )
+    repo, topic, session, fake, sup, track = _open_round(tmp_path=tmp_path, clock=clock)
     marker = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
 
-    fake.serve(
-        session=session, repo=repo, capture=busy_capture(ctx=40)
-    )  # the declaring turn's tail
-    clock["t"] = 1060.0  # age 59s, inside the 120s grace
-    busy = sup.evaluate(track=track, act=True)
-
-    assert busy.status == "working"
-    assert marker.exists()  # NOT voided — this is the certifying tail
-
-    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # the tail finishes
-    assert sup.evaluate(track=track, act=True).status == "restarting"
-    assert fake.has(method="respawn")  # the surviving declaration was honoured
-
-    # --- older than the grace: cleared instead of restarting later ------------------- #
-    stale_clock = {"t": 1000.0}
-    repo, topic, session, fake, sup, track = _open_round(
-        tmp_path=tmp_path, topic="stale", clock=stale_clock
-    )
-    marker = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
-
-    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))  # the session resumed WORK
-    stale_clock["t"] = 1201.0  # age 200s, past the 120s grace
+    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))
+    clock["t"] = 1201.0
     resumed = sup.evaluate(track=track, act=True)
 
     assert resumed.status == "working"
-    assert not marker.exists()  # the now-false declaration is cleared...
+    assert marker.exists()
     assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
-    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))  # ...and going idle again
-    assert sup.evaluate(track=track, act=True).status != "restarting"  # does not restart LATER
-    assert not fake.has(method="respawn")
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    assert sup.evaluate(track=track, act=True).status == "restarting"
+    assert fake.has(method="respawn")
 
 
 def test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_restarted(

@@ -12,7 +12,6 @@ from _registry_core import atomic_write, file_lock, norm, resolve_stamp_store, w
 
 __all__: list[str] = [
     "RoundRecord",
-    "mark_void_notice_sent",
     "read_round_open_identity",
     "read_round_record",
     "record_ready_void",
@@ -26,7 +25,6 @@ class RoundRecord:
     voided_at: float | None
     session_identity: str | None
     malformed_reason: str | None
-    void_notice_sent: bool = False
 
     @property
     def certification_floor(self) -> float | None:
@@ -72,7 +70,6 @@ def read_round_record(
             voided_at=None,
             session_identity=None,
             malformed_reason=None,
-            void_notice_sent=False,
         )
     entry = jsonio.as_object(value=value)
     if entry is None:
@@ -92,7 +89,6 @@ def _legacy_record(*, value: object, repo: str, topic: str) -> RoundRecord:
         voided_at=None,
         session_identity=None,
         malformed_reason=reason,
-        void_notice_sent=False,
     )
 
 
@@ -115,7 +111,6 @@ def _dict_record(*, entry: dict[str, object]) -> RoundRecord:
             voided_at=voided_at,
             session_identity=session_identity,
         ),
-        void_notice_sent=entry.get("void_notice_sent") is True,
     )
 
 
@@ -165,22 +160,3 @@ def record_ready_void(
         data[key] = entry
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
         return True
-
-
-def mark_void_notice_sent(
-    *,
-    repo: str,
-    topic: str,
-    stamp_path: str | os.PathLike[str] | None = None,
-) -> bool:
-    """Mark this round's bounded ready-void notice as delivered."""
-    path = resolve_stamp_store(stamp_path=stamp_path)
-    with file_lock(target=path):
-        data = _read_stamp_data(path=path)
-        key = _stamp_key(repo=repo, topic=topic)
-        existing = jsonio.as_object(value=data.get(key))
-        entry: dict[str, object] = dict(existing) if existing is not None else {}
-        entry["void_notice_sent"] = True
-        data[key] = entry
-        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
-    return True

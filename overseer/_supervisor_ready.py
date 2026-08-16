@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import registry
 import signals
+from _supervisor_config import READY_ARM_MAX_AGE
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -99,23 +100,30 @@ def round_observation(
         session_identity=identity,
         history=history,
     )
+    ready_uncertifiable_reason = _ready_uncertifiable_reason(
+        declared=declared,
+        round_record=record,
+        session_identity=identity,
+        history=history,
+        now=sup.now(),
+    )
     return RoundObservation(
         record=record,
         session_identity=identity,
-        ready_uncertifiable_reason=_ready_uncertifiable_reason(
-            declared=declared,
-            round_record=record,
-            session_identity=identity,
-            history=history,
-        ),
-        ready=fresh_ready_without_round
-        or signals.ready_valid(
-            repo=repo,
-            topic=topic,
-            certification_floor=record.certification_floor,
-            malformed_round_reason=record.malformed_reason,
-            round_session_identity=record.session_identity,
-            live_session_identity=identity,
+        ready_uncertifiable_reason=ready_uncertifiable_reason,
+        ready=(
+            ready_uncertifiable_reason is None
+            and (
+                fresh_ready_without_round
+                or signals.ready_valid(
+                    repo=repo,
+                    topic=topic,
+                    certification_floor=record.certification_floor,
+                    malformed_round_reason=record.malformed_reason,
+                    round_session_identity=record.session_identity,
+                    live_session_identity=identity,
+                )
+            )
         ),
     )
 
@@ -145,6 +153,7 @@ def _ready_uncertifiable_reason(
     round_record: registry.RoundRecord,
     session_identity: str | None,
     history: ObservationHistory,
+    now: float,
 ) -> str | None:
     reason: str | None = None
     if (
@@ -173,4 +182,6 @@ def _ready_uncertifiable_reason(
         floor = round_record.certification_floor
         if floor is not None and declared.mtime <= floor:
             reason = "ready predates certification floor"
+        elif max(0.0, now - declared.mtime) > READY_ARM_MAX_AGE:
+            reason = "ready declaration exceeded 30m max age"
     return reason

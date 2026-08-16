@@ -345,14 +345,13 @@ these deterministic checks (`signals.ready_valid`):
 
 1. a **certification floor exists**, anchored on a usable injection stamp for
    this round (there was a wrap-up to respond to). The floor is the injection
-   stamp, or, after a stale `ready` is voided inside that round, the later of
-   the stamp and the most recent ready-void instant;
+   stamp;
 2. the state file's token is **exactly `ready`**;
 3. its **mtime is strictly newer than the certification floor** — proving the
-   declaration is from this round and newer than any declaration already voided
-   inside it; AND
+   declaration is from this round;
 4. the session identity live at the pane matches the **round-open identity**
-   recorded when the wrap-up round was opened.
+   recorded when the wrap-up round was opened; AND
+5. the declaration has not exceeded the bounded ready-arm max age (30 minutes).
 
 Any absent, unreadable, or other-valued file makes the check **False**
 (fail-closed). A malformed round record, a missing round-open identity (including
@@ -368,17 +367,14 @@ markers (including no live background shell under the pane's process), a verifie
 idle-input pane, a **settled** pane (two captures compared), and a process-
 identity check that the pane really is our session in our repo.
 
-**Stale-declaration voiding.** If a session declares `ready` and then **resumes
-work**, the daemon voids the (now false) declaration rather than restarting it
-later: on a busy or blocked tick, a `ready` older than `MARKER_VOID_GRACE` (120
-seconds) is cleared. Younger ones survive, because the declaring turn's own tail
-(final streaming + stop hooks) legitimately keeps the pane busy for a while right
-after the file is written. Voiding clears the declaration only: it does **not**
-close the delivered round and does **not** reset the notified escalation bands.
-For a stale `ready`, the daemon records the ready-void instant before deleting
-the state file, raising the certification floor so that same declaration cannot
-be honored later if the delete fails. A later `ready` written by the same
-round-open session can certify without a new wrap-up.
+**Ready arms until idle.** If a session declares `ready` and then emits more
+output, the declaration is not voided. The restart path is still gated on a
+verified idle-input pane, a settled capture, no busy markers, and a matching
+session identity, so intervening narration cannot make the daemon kill mid-work.
+The declaration remains armed and fires at the first verified settled-idle
+observation. Staleness is bounded instead by the ready-arm max age: after 30
+minutes, the row surfaces a `ready-uncertifiable` max-age note and the daemon does
+not restart.
 
 ## The restart mechanics (unchanged — only the trigger changed)
 

@@ -6,7 +6,6 @@ import io as _io
 
 import _supervisor_config
 import _supervisor_restart
-import _supervisor_state
 import registry
 import signals
 
@@ -37,21 +36,11 @@ def _paste_count(*, fake: FakeTmux) -> int:
     return len(fake.paste_texts())
 
 
-def _void_notice_count(*, fake: FakeTmux) -> int:
-    return len(
-        [
-            text
-            for text in fake.paste_texts()
-            if "ready declaration was voided because this session resumed work" in text
-        ]
-    )
-
-
 def _respawn_count(*, fake: FakeTmux) -> int:
     return len([call for call in fake.calls if call[0] == "respawn"])
 
 
-def _void_ready(*, fixture, mtime=800.0):
+def _busy_after_ready(*, fixture, mtime=1001.0):
     repo, topic, session, fake, sup, track = fixture
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=mtime)
     fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))
@@ -59,7 +48,7 @@ def _void_ready(*, fixture, mtime=800.0):
     assert view.status == "working"
 
 
-def test_scenario_repeated_voiding_never_resends_an_already_notified_band(*, tmp_path):
+def test_scenario_ready_activity_never_resends_an_already_notified_band(*, tmp_path):
     fixture = _round(tmp_path=tmp_path, ctx=40)
     repo, topic, session, fake, sup, track = fixture
     assert registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) == [
@@ -67,7 +56,7 @@ def test_scenario_repeated_voiding_never_resends_an_already_notified_band(*, tmp
         40,
     ]
 
-    _void_ready(fixture=fixture)
+    _busy_after_ready(fixture=fixture)
     assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     assert registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) == [
         50,
@@ -77,7 +66,7 @@ def test_scenario_repeated_voiding_never_resends_an_already_notified_band(*, tmp
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup.evaluate(track=track, act=True)
     assert _paste_count(fake=fake) == 2
-    assert _void_notice_count(fake=fake) == 1
+    assert _respawn_count(fake=fake) == 1
 
 
 def test_scenario_a_round_whose_opening_wrapup_never_landed_is_unopened(*, tmp_path):
@@ -149,13 +138,12 @@ def test_scenario_pane_carrying_standing_declaration_is_never_pasted_into(*, tmp
     assert _paste_count(fake=fake) == 1
 
 
-def test_scenario_ready_after_void_certifies_without_a_new_round(*, tmp_path):
+def test_scenario_ready_after_activity_certifies_without_a_new_round(*, tmp_path):
     fixture = _round(tmp_path=tmp_path, ctx=40)
     repo, topic, session, fake, sup, track = fixture
-    _void_ready(fixture=fixture)
+    _busy_after_ready(fixture=fixture)
     record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-    assert record.voided_at is not None
-    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=record.voided_at + 1.0)
+    assert record.voided_at is None
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
 
     view = sup.evaluate(track=track, act=True)
@@ -217,10 +205,9 @@ def test_scenario_ready_on_never_rounded_track_certifies_nothing(*, tmp_path):
 def test_scenario_successor_never_certifies_against_predecessor_floor(*, tmp_path):
     fixture = _round(tmp_path=tmp_path, ctx=40)
     repo, topic, session, fake, sup, track = fixture
-    _void_ready(fixture=fixture)
+    _busy_after_ready(fixture=fixture)
     record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-    ready_mtime = (record.voided_at or 1000.0) + 1
-    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=ready_mtime)
+    assert record.voided_at is None
     sup.claude_identity_by_session[(session, topic)] = "claude:successor"
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
 
@@ -233,14 +220,17 @@ def test_scenario_successor_never_certifies_against_predecessor_floor(*, tmp_pat
     assert _respawn_count(fake=fake) == 0
 
 
-def test_scenario_session_replaced_before_void_never_inherits_certifiable_floor(*, tmp_path):
+def test_scenario_session_replaced_before_idle_never_inherits_certifiable_ready(*, tmp_path):
     fixture = _round(tmp_path=tmp_path, ctx=40)
     repo, topic, session, fake, sup, track = fixture
     sup.claude_identity_by_session[(session, topic)] = "claude:successor"
-    _void_ready(fixture=fixture)
-    record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    _busy_after_ready(fixture=fixture)
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
 
-    assert record.voided_at is None
+    view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "ready-uncertifiable"
+    assert _respawn_count(fake=fake) == 0
 
 
 def test_scenario_undeterminable_session_identity_fails_interlock_closed(*, tmp_path):
@@ -297,34 +287,17 @@ def test_round_open_without_determinable_identity_alerts_and_does_not_paste(*, t
     assert "session identity could not be determined" in capsys.readouterr().err
 
 
-def test_ready_void_floor_record_exception_still_deletes_state(*, tmp_path, monkeypatch, capsys):
+def test_ready_arm_expires_after_max_age_without_deleting_state(*, tmp_path):
     fixture = _round(tmp_path=tmp_path, ctx=40)
     repo, topic, session, fake, sup, track = fixture
-    marker = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=800.0)
-    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))
-
-    def fail_record_ready_void(**_kwargs):
-        raise OSError("disk full")
-
-    monkeypatch.setattr(_supervisor_state.registry, "record_ready_void", fail_record_ready_void)
+    marker = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
+    expired = 1001.0 + _supervisor_config.READY_ARM_MAX_AGE + 1.0
+    sup.now = lambda: expired
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
 
     view = sup.evaluate(track=track, act=True)
 
-    assert view.status == "working"
-    assert not marker.exists()
-    assert "could not record ready void" in capsys.readouterr().err
-
-
-def test_ready_void_surfaces_when_floor_and_delete_both_fail(*, tmp_path, monkeypatch, capsys):
-    fixture = _round(tmp_path=tmp_path, ctx=40)
-    repo, topic, session, fake, sup, track = fixture
-    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=800.0)
-    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))
-
-    monkeypatch.setattr(_supervisor_state, "_record_ready_void", lambda **_kwargs: False)
-    monkeypatch.setattr(_supervisor_state, "delete_state_file", lambda **_kwargs: False)
-
-    view = sup.evaluate(track=track, act=True)
-
-    assert view.status == "working"
-    assert "ready void failed to record its floor AND delete" in capsys.readouterr().err
+    assert view.status == "ready-uncertifiable"
+    assert "ready declaration exceeded 30m max age" in (view.note or "")
+    assert marker.exists()
+    assert _respawn_count(fake=fake) == 0

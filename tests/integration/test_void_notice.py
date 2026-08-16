@@ -1,4 +1,4 @@
-"""Integration-tier scenario test for the ready-void notice.
+"""Integration-tier scenario tests for ready activity after the retired void notice.
 
 Tier: `tests.integration` is one of the documented governed scenario tiers.
 """
@@ -18,8 +18,6 @@ from overseer.test_supervisor_builders import (
 )
 from overseer.test_supervisor_fakes import FakeTmux
 
-_NOTICE_SENTINEL = "ready declaration was voided because this session resumed work"
-
 
 def _open_delivered_round(*, tmp_path, clock):
     repo, topic = make_plan(tmp_path=tmp_path)
@@ -36,7 +34,7 @@ def _open_delivered_round(*, tmp_path, clock):
     return repo, topic, session, fake, sup, track
 
 
-def _void_stale_ready(*, fixture, clock, mtime):
+def _ready_then_busy(*, fixture, clock, mtime):
     repo, topic, session, fake, sup, track = fixture
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=mtime)
     clock["t"] = mtime + 180.0
@@ -45,91 +43,39 @@ def _void_stale_ready(*, fixture, clock, mtime):
     voided = sup.evaluate(track=track, act=True)
 
     assert voided.status == "working"
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
-def _notice_pastes(*, fake):
-    return [text for text in fake.paste_texts() if _NOTICE_SENTINEL in text]
-
-
-def test_scenario_a_voided_ready_declaration_is_answered_with_one_notice(*, tmp_path):
-    """Scenario: A voided ready declaration is answered with one durable bounded void-notice.
-
-    Given a delivered round in which a stale ready declaration was voided, the next
-    guarded idle observation sends one bounded void-notice. The notice names the exact
-    state-file path, the three writable values, and the fresh-ready restart rule. A second
-    void in the same round sends no second notice, even through a daemon instance swap, and
-    no already-notified escalation band is re-sent.
-    """
+def test_scenario_a_ready_declaration_is_not_answered_with_a_void_notice(*, tmp_path):
+    """A ready declaration that sees more output remains armed and later restarts."""
     clock = {"t": 1000.0}
     fixture = _open_delivered_round(tmp_path=tmp_path, clock=clock)
     repo, topic, session, fake, _sup, _track = fixture
-    _void_stale_ready(
+    _ready_then_busy(
         fixture=fixture,
         clock=clock,
         mtime=1010.0,
     )
 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
-    noticed = _sup.evaluate(track=_track, act=True)
+    restarted = _sup.evaluate(track=_track, act=True)
 
-    assert noticed.status == "warned"
-    notices = _notice_pastes(fake=fake)
-    assert len(notices) == 1
-    notice = notices[0]
-    assert str(signals.state_path(repo=str(repo), topic=topic)) in notice
-    assert "winding-down" in notice
-    assert "ready" in notice
-    assert "blocked: <one-line reason>" in notice
-    assert "restart requires a fresh ready" in notice
-    assert len(fake.paste_texts()) == 2
-
-    restarted_sup = make_supervisor(
-        tmp_path=tmp_path,
-        fake=fake,
-        now=lambda: clock["t"],
-        out=_io.StringIO(),
-    )
-    restarted_fixture = repo, topic, session, fake, restarted_sup, _track
-    _void_stale_ready(
-        fixture=restarted_fixture,
-        clock=clock,
-        mtime=1300.0,
-    )
-    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
-    repeated = restarted_sup.evaluate(track=_track, act=True)
-
-    assert repeated.status == "warned"
-    assert len(_notice_pastes(fake=fake)) == 1
+    assert restarted.status == "restarting"
     assert len(fake.paste_texts()) == 2
 
 
-def test_failed_void_notice_paste_is_retried_within_the_same_round(*, tmp_path):
+def test_failed_ordinary_paste_does_not_create_a_void_notice_retry(*, tmp_path):
     clock = {"t": 1000.0}
     fixture = _open_delivered_round(tmp_path=tmp_path, clock=clock)
     repo, topic, session, fake, sup, track = fixture
-    _void_stale_ready(
+    _ready_then_busy(
         fixture=fixture,
         clock=clock,
         mtime=1010.0,
     )
 
-    fake.paste_ok = False
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     first = sup.evaluate(track=track, act=True)
 
-    assert first.status == "warned"
+    assert first.status == "restarting"
     assert len(fake.paste_texts()) == 2
-    assert len(_notice_pastes(fake=fake)) == 1
-    record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-    assert record.void_notice_sent is False
-
-    fake.paste_ok = True
-    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
-    second = sup.evaluate(track=track, act=True)
-
-    assert second.status == "warned"
-    assert len(fake.paste_texts()) == 3
-    assert len(_notice_pastes(fake=fake)) == 2
-    record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-    assert record.void_notice_sent is True

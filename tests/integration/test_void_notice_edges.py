@@ -1,4 +1,4 @@
-"""Integration edge coverage for ready-void notices."""
+"""Integration edge coverage for ready activity after the retired void notice."""
 
 from __future__ import annotations
 
@@ -14,8 +14,6 @@ from overseer.test_supervisor_builders import (
     mapped_track,
 )
 from overseer.test_supervisor_fakes import FakeTmux
-
-_NOTICE_SENTINEL = "ready declaration was voided because this session resumed work"
 
 
 def test_void_notice_in_the_danger_band_keeps_danger_attention(*, tmp_path):
@@ -38,5 +36,4 @@ def test_void_notice_in_the_danger_band_keeps_danger_attention(*, tmp_path):
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=18))
     noticed = sup.evaluate(track=track, act=True)
 
-    assert noticed.status == "danger"
-    assert len([text for text in fake.paste_texts() if _NOTICE_SENTINEL in text]) == 1
+    assert noticed.status == "restarting"
