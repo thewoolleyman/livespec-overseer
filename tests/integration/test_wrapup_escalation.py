@@ -101,7 +101,8 @@ def _assert_escalation_exhausted_surface(*, row, err, fake, paste_count):
     assert supervisor.needs_attention(row=row) is True
     assert ".overseer-state" in (row.note or "")
     assert "runtime idle input is only an input-state display" in (row.note or "")
-    assert "state file has no ready declaration" in (row.note or "")
+    assert "restart authorization is absent" in (row.note or "")
+    assert "state file containing exactly ready" in (row.note or "")
     assert "escalation exhausted" in err.getvalue()
     assert len(fake.paste_texts()) == paste_count
     assert not fake.has(method="respawn")
