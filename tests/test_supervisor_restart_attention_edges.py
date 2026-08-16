@@ -125,9 +125,9 @@ def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retr
     _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
     track = mapped_track(repo=repo, topic=topic, session=session)
 
-    assert sup.evaluate(track=track, act=True).status == "settling"
+    assert sup.evaluate(track=track, act=True).status == "restarting"
     clock["now"] += 61.0
-    assert sup.evaluate(track=track, act=True).status == "restart-never-worked"
+    assert sup.evaluate(track=track, act=True).status == "restarting"
 
     registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     fake.panes[session] = _capture_with_resume(resume="changed composer", ctx=100)
@@ -141,7 +141,8 @@ def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retr
 
     fake.panes[session] = _capture_with_resume(resume=resume, ctx=100)
     rearmed = sup.evaluate(track=track, act=True)
-    assert rearmed.status == "settling"
+    assert rearmed.status == "restarting"
+    assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
 
 def test_due_restart_never_worked_attention_does_not_suppress_retry(*, tmp_path, monkeypatch):
@@ -151,7 +152,7 @@ def test_due_restart_never_worked_attention_does_not_suppress_retry(*, tmp_path,
     )
     monkeypatch.setattr(_supervisor_launch, "resend_enter", lambda *, sup, target: False)
 
-    assert sup.evaluate(track=track, act=True).status == "settling"
+    assert sup.evaluate(track=track, act=True).status == "restarting"
     registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     fake.calls.clear()
@@ -170,7 +171,8 @@ def test_due_restart_never_worked_attention_does_not_suppress_retry(*, tmp_path,
 
     _drop_resume_pending(sup=sup)
     without_retry = sup.evaluate(track=track, act=True)
-    assert without_retry.status == "restart-never-worked"
+    assert without_retry.status == "restarting"
+    assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
 
 def test_restart_never_worked_attention_clears_on_busy_and_rearms(*, tmp_path):
@@ -200,13 +202,13 @@ def test_restart_never_worked_attention_clears_on_busy_and_rearms(*, tmp_path):
         second = sup.evaluate(track=track, act=True)
 
     assert [initial.status, first.status, repeated.status] == [
-        "settling",
-        "restart-never-worked",
-        "restart-never-worked",
+        "restarting",
+        "restarting",
+        "restarting",
     ]
     assert [busy.status, reset.status, second.status] == [
-        "working",
-        "settling",
-        "restart-never-worked",
+        "restarting",
+        "restarting",
+        "restarting",
     ]
-    assert log.getvalue().count("fresh session has not begun work after restart") == 2
+    assert log.getvalue().count("resume line STILL not submitted after restart") == 4
