@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.40.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.4...v0.40.0) (2026-08-16)
+
+
+### Features
+
+* add detached dispatch helper ([50e7a95](https://github.com/thewoolleyman/livespec-overseer/commit/50e7a95ebea2c8ceaaee52879772530645c0f23c))
+
+
+### Bug Fixes
+
+* **spec:** retarget heading-coverage entries for v016's void-&gt;expiry rename ([8845e72](https://github.com/thewoolleyman/livespec-overseer/commit/8845e72c96d3da776a04ddb224274f39f2a3c553))
+
 ## [0.39.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.3...v0.39.4) (2026-08-16)
 
 
