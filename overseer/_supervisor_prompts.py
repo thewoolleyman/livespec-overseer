@@ -42,7 +42,6 @@ __all__: list[str] = [
     "supervisor_ledger_resume",
     "supervisor_resume",
     "supervisor_wrapup_message",
-    "void_notice_message",
     "wrapup_message",
 ]
 
@@ -233,26 +232,6 @@ def wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -
         read_first=plan_state_locator(repo=repo, epic=epic),
         resume=_resume_line(repo=repo, epic=epic),
     )
-
-
-_VOID_NOTICE = """\
-Your ready declaration was voided because this session resumed work after declaring ready.
-
-Declare your state by writing ONE line to the single state file
-{state_file} — one of exactly these three values:
-
-    winding-down                  I got the wind-down message and am wrapping up now.
-    ready                         I am at a clean stopping point — restart me.
-    blocked: <one-line reason>    I need a human decision I cannot make myself.
-
-A restart requires a fresh ready. The ready declaration that was just voided will not
-restart this session; write `ready` again only after you are truly at a clean stopping
-point."""
-
-
-def void_notice_message(*, repo: str, topic: str) -> str:
-    """The bounded notice sent after a stale ready declaration is voided."""
-    return _VOID_NOTICE.format(state_file=str(signals.state_path(repo=repo, topic=topic)))
 
 
 _CHARTER_AUTHORIZED_UNBLOCK_NUDGE = """\

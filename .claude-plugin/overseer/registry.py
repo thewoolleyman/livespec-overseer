@@ -63,7 +63,6 @@ from _registry_discovery import repo_root_present as repo_root_present
 from _registry_discovery import watch_set_from_config as watch_set_from_config
 from _registry_epic import epic_from_plan_anchor as epic_from_plan_anchor
 from _registry_rounds import RoundRecord as RoundRecord
-from _registry_rounds import mark_void_notice_sent as mark_void_notice_sent
 from _registry_rounds import read_round_open_identity as read_round_open_identity
 from _registry_rounds import read_round_record as read_round_record
 from _registry_rounds import record_ready_void as record_ready_void
@@ -100,7 +99,6 @@ __all__: list[str] = [
     "epic_from_plan_anchor",
     "file_lock",
     "join",
-    "mark_void_notice_sent",
     "norm",
     "read_injection_stamp",
     "read_mapping",

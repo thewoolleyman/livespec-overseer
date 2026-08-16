@@ -788,13 +788,14 @@ for the marker's edge-triggered lifecycle.
   (`repoint_tmux`, idempotent + guarded so a steady-state tick never touches the store)
   instead of freezing the binding — the "re-mapping is a separate concern" the old code
   deferred was the concern.
-- **Stale-`ready` voiding (`_void_if_stale` + `MARKER_VOID_GRACE`).** A session
-  that declares `ready` and then RESUMES work must not be restarted on that (now
-  false) declaration. So on a busy/blocked tick a `ready` OLDER than
-  `MARKER_VOID_GRACE` (120s) is cleared. Younger ones SURVIVE deliberately: the
-  declaring turn's own tail (final text streaming + stop hooks) legitimately keeps
-  the pane busy for a while right after the write, and voiding on ANY busy would
-  destroy every legitimate declaration before the pane ever went idle (RB1).
+- **Ready arms until idle (`READY_ARM_MAX_AGE`).** A session that declares `ready`
+  may still emit final narration or stop-hook output before its pane settles. That
+  activity does NOT void the declaration anymore: the restart branch still requires a
+  verified idle input state, a settled pane, no busy markers, and a live identity match,
+  so the daemon cannot kill mid-work merely because the file exists. The declaration
+  remains armed and fires at the first verified settled-idle observation. Staleness is
+  bounded instead by `READY_ARM_MAX_AGE` (30m); once exceeded, the row surfaces
+  `ready-uncertifiable` with a max-age note and the daemon does not restart.
 - **Stale-`blocked` voiding (`_void_stale_blocked`; 2026-07-16).** Nothing else retires a
   `blocked:`. `_clear_state` runs only on the daemon's own restart path, so a pane replaced
   OUT-OF-BAND (a hand-restarted session, a `/clear`) INHERITS its predecessor's declaration
@@ -810,8 +811,8 @@ for the marker's edge-triggered lifecycle.
     alone (Claude `shell`) means the session is AT ITS PROMPT and may legitimately be
     awaiting a human while a build runs → never voided, however old. Only a real generation
     spinner (`is_busy`) or Claude `busy` (generating / in-process sub-agent) qualifies.
-  - **The same RB1 grace as `ready`.** The declaring turn's own final text streams 10–60s
-    AFTER the write, so a young declaration must survive its own busy tail.
+  - **The same tail grace shape.** The declaring turn's own final text streams 10–60s
+    AFTER the write, so a young blocked declaration must survive its own busy tail.
   An IDLE blocked session is never touched: it keeps its declaration and keeps alerting
   until the session itself retracts it. Note the note-default coupling — `note` defaults to
   the blocked reason, so the void runs BEFORE the note is derived and the note is re-derived

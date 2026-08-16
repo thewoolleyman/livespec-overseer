@@ -39,9 +39,8 @@ def test_fresh_marker_survives_busy_certifying_tail(*, tmp_path):
     )
 
 
-def test_stale_marker_voided_when_busy_past_grace(*, tmp_path):
-    """An OLD ready marker (age > grace) seen busy means the session genuinely
-    resumed work after certifying — void the declaration but keep the round open."""
+def test_ready_marker_stays_armed_when_busy_past_old_grace(*, tmp_path):
+    """An OLD ready marker seen busy remains armed; idle is the restart gate."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -54,12 +53,12 @@ def test_stale_marker_voided_when_busy_past_grace(*, tmp_path):
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
-    assert not marker.exists()  # certification voided (stale)
+    assert marker.exists()
     assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
 
-def test_void_resets_inject_state_so_round_can_recertify(*, tmp_path):
-    """After a ready void, the in-memory state and durable notified bands survive."""
+def test_ready_activity_preserves_inject_state_until_idle_restart(*, tmp_path):
+    """After ready plus activity, in-memory state and durable notified bands survive."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -73,19 +72,19 @@ def test_void_resets_inject_state_so_round_can_recertify(*, tmp_path):
     assert registry.read_notified_bands(
         repo=str(repo), topic=topic, stamp_path=sup.stamp_path
     )  # a band recorded
-    # Session resumes work with a STALE marker → declaration voided, round preserved.
+    # Session emits more output after ready → declaration remains armed, round preserved.
     registry.write_injection_stamp(repo=str(repo), topic=topic, ts=700.0, stamp_path=sup.stamp_path)
     arm_ready_marker(repo=repo, topic=topic, mtime=800.0)
     fake.panes[session] = "esc to interrupt\n  Ctx: 30% left\n"  # busy
     sup.evaluate(track=track, act=True)
     assert key_for(repo=repo, topic=topic) in sup.inject
-    # Next idle low-ctx tick sees no due band from the still-open round.
+    # Next idle low-ctx tick spends the still-armed declaration on a restart.
     fake.panes[session] = idle_capture(ctx=35)
     sup.claude_status_by_session = {session: "idle"}
-    sup.evaluate(track=track, act=True)
+    assert sup.evaluate(track=track, act=True).status == "restarting"
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        == 700.0
+        is None
     )
 
 

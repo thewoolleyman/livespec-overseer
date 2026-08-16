@@ -131,7 +131,12 @@ def _must_surface_immediately(*, reason: str) -> bool:
     authorize this live pane, so hiding it behind that grace turns a safe hold
     into an indistinguishable ``danger`` row.
     """
-    return reason.startswith("session identity differs from round-open identity")
+    return reason.startswith(
+        (
+            "session identity differs from round-open identity",
+            "ready declaration exceeded",
+        )
+    )
 
 
 def uncertifiable_ready_surface(

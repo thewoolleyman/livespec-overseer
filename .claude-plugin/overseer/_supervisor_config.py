@@ -41,6 +41,7 @@ __all__: list[str] = [
     "PAIR_STALL_AFTER",
     "PICKER_STALL_AFTER",
     "POST_RESPAWN_NEVER_WORKED_AFTER",
+    "READY_ARM_MAX_AGE",
     "RESTART_POLL_INTERVAL",
     "RESTART_POLL_MAX",
     "SETTLE_DELAY",
@@ -105,20 +106,17 @@ SETTLE_DELAY = 0.6
 SUBMIT_MAX_ENTERS = 8
 SUBMIT_POLL = 0.5
 
-# Grace window before a stale `ready` declaration is voided on a busy observation. The
-# wrap-up protocol makes the session write `ready` as the LAST tool
-# action of its turn, then the turn's TAIL keeps the pane busy for a while (final
-# text streaming + stop hooks, e.g. `(running stop hooks… 1/3 · 24s …)`). Voiding
-# on ANY busy would destroy that legitimate certification before the pane ever
-# goes idle, breaking the restart in the common case (adversarial code re-review
-# 2026-07-13, blocker RB1). So a marker is voided on busy/blocked ONLY once it is
-# OLDER than this grace — old enough that the busy cannot be the certifying turn's
-# own tail, i.e. the session genuinely resumed work (or a human took over). The
-# restart path itself needs no grace: the tail is busy → not idle → restart simply
-# waits, then fires when the pane settles idle. Residual (documented): a human who
-# takes over AND goes idle WITHIN the grace of a fresh marker could still be
-# restarted; a longer takeover is protected.
+# Grace window before a stale `blocked:` declaration is voided on a generating
+# observation. The declaring turn's tail may keep the pane busy briefly after the file
+# write, so a young declaration survives; an older one is incompatible with observed
+# generation and is cleared.
 MARKER_VOID_GRACE = 120.0
+
+# A `ready` declaration arms the restart until the first verified settled-idle
+# observation. It is NOT voided by intervening narration or generation; the restart-time
+# settle/busy gates already prevent killing mid-work. This bounded age is the only stale
+# ready limit: when exceeded, the declaration is surfaced loudly and no restart occurs.
+READY_ARM_MAX_AGE = 1800.0
 
 # How long a `winding-down` acknowledgement may sit before the daemon SURFACES it as
 # "acknowledged but not finishing". The ACK buys patience — while it is fresh the

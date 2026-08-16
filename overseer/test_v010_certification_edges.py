@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import _supervisor_ready
-import _supervisor_state
 import _supervisor_threshold
 import codex_sessions
 import registry
@@ -94,7 +93,7 @@ def test_ready_uncertifiable_names_missing_live_codex_identity(*, tmp_path):
     assert obs.ready_uncertifiable_reason == "session identity cannot be determined"
 
 
-def test_codex_ready_void_records_floor_for_matching_live_identity(*, tmp_path):
+def test_codex_ready_survives_busy_for_matching_live_identity(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -121,20 +120,8 @@ def test_codex_ready_void_records_floor_for_matching_live_identity(*, tmp_path):
 
     assert view.status == "working"
     record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-    assert record.voided_at is not None
-
-
-def test_ready_void_without_round_identity_skips_live_identity_comparison(*, tmp_path):
-    repo, topic = make_plan(tmp_path=tmp_path)
-    session = registry.tmux_id(repo=str(repo), topic=topic)
-    fake = FakeTmux()
-    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    track = mapped_track(repo=repo, topic=topic, session=session)
-    stamp_path = Path(sup.stamp_path)
-    stamp_path.write_text(json.dumps({f"{repo}\t{topic}": 700.0}), encoding="utf-8")
-    state = _declared_ready(repo=repo, topic=topic, mtime=800.0)
-
-    assert _supervisor_state._record_ready_void(sup=sup, track=track, state=state) is False
+    assert record.voided_at is None
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
 def test_threshold_settles_when_fresh_authorization_check_fails_closed(*, tmp_path, monkeypatch):

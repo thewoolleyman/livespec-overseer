@@ -1,10 +1,10 @@
-"""_supervisor_state — the round's state-file lifecycle (write, void, clear).
+"""_supervisor_state — the round's state-file lifecycle (write, clear, blocked void).
 
 A private collaborator of :mod:`supervisor`; see that module's header for the whole
 split. The state file is how a tracked session DECLARES itself (`ready`, `blocked`,
-an ack); these functions retire a declaration that has outlived its round, so a
-stale marker can never authorize an act. Every one is fail-soft: an unreadable or
-absent marker voids rather than raising.
+an ack). A `ready` declaration arms a restart until idle or max-age expiry; a
+`blocked:` declaration may still be retired when active generation proves the session
+outlived it. Every helper is fail-soft.
 """
 
 from __future__ import annotations
@@ -38,12 +38,11 @@ def delete_state_file(*, sup: Supervisor, track: registry.Track) -> bool:
 def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
     """Delete a track's state file, clear its stamp, AND reset its inject state.
 
-    Used both after a successful restart and when a session that declared ``ready``
-    genuinely resumes work. ``clear_injection_stamp`` deletes the sidecar key,
-    resetting BOTH the round's ``at`` and its notified bands — so after a clear (or
-    a restart) the round fully resets and every escalation band can fire again in
-    the next round. Clearing on the FILESYSTEM (state file + stamp) makes it durable
-    across a daemon restart. It ALSO pops the in-memory ``inject`` state
+    Used after a successful restart. ``clear_injection_stamp`` deletes the sidecar key,
+    resetting BOTH the round's ``at`` and its notified bands — so after a restart the
+    round fully resets and every escalation band can fire again in the next round.
+    Clearing on the FILESYSTEM (state file + stamp) makes it durable across a daemon
+    restart. It ALSO pops the in-memory ``inject`` state
     (mirroring ``_do_restart``) so the stale ``last_ctx`` does not linger; the
     next threshold crossing opens a clean round that writes a new stamp
     (adversarial code re-review 2026-07-13, blocker RB2).
@@ -56,36 +55,13 @@ def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
 def void_if_stale(
     *, sup: Supervisor, track: registry.Track, ready: bool, resumed_work: bool = True
 ) -> bool:
-    """Void a stale ``ready`` only when actual resumed work is observed.
+    """Compatibility shim: ``ready`` is no longer voided by activity.
 
-    Returns the (possibly cleared) ``ready`` flag. A declaration younger than
-    ``MARKER_VOID_GRACE`` is the declaring turn's own busy tail and is LEFT
-    intact (RB1); an older one means the session resumed work after declaring
-    ready, so its (now false) declaration is voided.
+    Intervening narration/generation cannot authorize a restart because the restart
+    branch still requires a verified settled-idle pane. Staleness is bounded by
+    ``READY_ARM_MAX_AGE`` in certification instead.
     """
-    if not ready or not resumed_work:
-        return ready
-    state = signals.read_state(repo=track.repo, topic=track.topic)
-    if state is None:
-        return ready  # unreadable → leave it; ready_valid already gates
-    age = sup.now() - state.mtime
-    if age > MARKER_VOID_GRACE:
-        floor_recorded = _record_ready_void(sup=sup, track=track, state=state)
-        deleted = delete_state_file(sup=sup, track=track)
-        if not floor_recorded and not deleted:
-            sup.alert(
-                repo=track.repo,
-                topic=track.topic,
-                session=track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic),
-                pane=track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic),
-                message="ready void failed to record its floor AND delete the declaration",
-                condition="ready-void-both-writes-failed",
-            )
-        sup.log(
-            message=f"voided stale ready declaration for {track.repo}::{track.topic} "
-            f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed work)"
-        )
-        return False
+    _ = sup, track, resumed_work
     return ready
 
 
@@ -115,10 +91,9 @@ def void_stale_blocked(
       and can legitimately be awaiting a human while a build runs — not provably
       stale, so never voided however old. Only a real generation spinner or Claude
       ``busy`` (actively generating / an in-process sub-agent) qualifies.
-    - **The same ``MARKER_VOID_GRACE`` as ``ready`` (RB1).** The declaring turn's own
-      final text streams for 10-60s AFTER the write, so a young declaration must
-      survive its own busy tail — else every legitimate declaration is destroyed
-      before the pane ever goes idle.
+    - **The tail grace.** The declaring turn's own final text streams for 10-60s
+      AFTER the write, so a young declaration must survive its own busy tail — else
+      every legitimate declaration is destroyed before the pane ever goes idle.
 
     An idle blocked session is never touched: it keeps its declaration and keeps
     alerting, forever, until the session itself retracts it.
@@ -137,43 +112,3 @@ def void_stale_blocked(
         f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed generating)"
     )
     return None
-
-
-def _record_ready_void(
-    *, sup: Supervisor, track: registry.Track, state: signals.TrackState
-) -> bool:
-    record = registry.read_round_record(
-        repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
-    )
-    if record.session_identity is not None:
-        live_identity = _live_identity_for_void(sup=sup, track=track)
-        if live_identity != record.session_identity:
-            sup.alert(
-                repo=track.repo,
-                topic=track.topic,
-                session=track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic),
-                pane=track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic),
-                message="ready void observed under a different session identity; floor not raised",
-                condition="ready-void-identity-mismatch",
-            )
-            return False
-    try:
-        return registry.record_ready_void(
-            repo=track.repo,
-            topic=track.topic,
-            ts=sup.now(),
-            floor_min=state.mtime + MARKER_VOID_GRACE,
-            stamp_path=sup.stamp_path,
-        )
-    except OSError as exc:
-        sup.log(message=f"could not record ready void for {track.repo}::{track.topic}: {exc}")
-        return False
-
-
-def _live_identity_for_void(*, sup: Supervisor, track: registry.Track) -> str | None:
-    session = track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic)
-    live = sup.live_codex.get((session, track.topic))
-    if live is not None:
-        return f"codex:{live.session_id}"
-    identity = sup.claude_identity_by_session.get((session, track.topic))
-    return identity if identity is not None else f"claude:{session}:{track.topic}"
