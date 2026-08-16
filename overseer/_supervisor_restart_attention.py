@@ -52,10 +52,8 @@ def _post_respawn(*, sup: Supervisor, track: registry.Track) -> RestartNeverWork
     return RestartNeverWorked(ctx=ctx, resume=resume)
 
 
-def _restart_never_worked_age(
-    *, sup: Supervisor, track: registry.Track, obs: Observation
-) -> float | None:
-    """Advance the post-respawn no-work observation and return its qualifying age."""
+def _resume_stranded(*, sup: Supervisor, track: registry.Track, obs: Observation) -> bool:
+    """Return whether the fresh pane still holds exactly the resume text."""
     recorded = _post_respawn(sup=sup, track=track)
     expected_resume = recorded.resume if recorded is not None else launch_resume(track=track)
     no_context_consumed = obs.current_ctx is not None and (
@@ -64,9 +62,16 @@ def _restart_never_worked_age(
         else obs.istate.last_ctx_changed_at is None
     )
     composer_matches = signals.input_box_text(capture_text=obs.capture) == expected_resume
+    return no_context_consumed and composer_matches and not obs.busy
+
+
+def _restart_never_worked_age(
+    *, sup: Supervisor, track: registry.Track, obs: Observation
+) -> float | None:
+    """Advance the post-respawn no-work observation and return its qualifying age."""
     _supervisor_observe.advance_condition(
         episode=obs.istate.restart_never_worked_episode,
-        condition_now=no_context_consumed and composer_matches and not obs.busy,
+        condition_now=_resume_stranded(sup=sup, track=track, obs=obs),
         now=sup.now(),
     )
     since = obs.istate.restart_never_worked_episode.since
@@ -136,6 +141,10 @@ def post_respawn_decision(
         )
         active_conditions = {_RESTART_NEVER_WORKED}
     if act:
+        if _resume_stranded(sup=sup, track=track, obs=obs):
+            registry.set_resume_pending(
+                repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
+            )
         if active_conditions:
             _supervisor_liveness.clear_alert_conditions(
                 sup=sup,
