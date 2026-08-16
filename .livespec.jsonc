@@ -120,7 +120,13 @@
   //   }
   //
   "spec_governance": {
-    "propose_change_mode": "batch"
+    "propose_change_mode": "batch",
+    // Maintainer direction 2026-08-16: revise ratification is NOT human-gated.
+    // The spec-side-autonomy mechanism shipped this lever but the fleet-wide
+    // rollout never applied it; this repo arms the consensus tier so a
+    // reviewed proposal ratifies via panel decision instead of waiting on a
+    // maintainer prompt.
+    "revise_decision_mode": "consensus"
   },
   "livespec-overseer": {
     "compat": {
