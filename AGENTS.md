@@ -523,9 +523,31 @@ final turn: **after you kill a dispatcher, absence from `fabro ps -a` is not
 evidence that no run exists or will exist.** Do not re-dispatch on that basis —
 check the publish branch and the forge first.
 
-**Do not kill `drive.py` on a timeout.** Run it with `run_in_background: true`
-and wait for the notification. A 20-minute foreground timeout produced both the
-phantom claim and the collision above.
+**Do not kill `drive.py` on a timeout, and do not put multi-minute dispatches in
+the harness background-task tracker from a loop-parked session.** A 20-minute
+foreground timeout produced both the phantom claim and the collision above; the
+old replacement advice was `run_in_background: true` plus waiting for a
+task-notification. That pattern is retired for any Claude Code session that may
+end its turn with `ScheduleWakeup` / dynamic `/loop`: measured 2026-08-16
+(`overseer-za32`), the harness reaps still-running background Bash tasks about
+6-15s after parking, silently killing the dispatcher.
+
+For loop-parked multi-minute dispatches, detach the dispatcher from the harness
+process tree and read the verdict from disk:
+
+```
+run_dir="$PWD/tmp/overseer/detached-dispatch/<item>-$(date -u +%Y%m%dT%H%M%SZ)"
+scripts/detached-dispatch.sh "$run_dir" -- \
+  python3 /absolute/path/to/drive.py --action impl:<id> ...
+```
+
+The helper uses `setsid` + `nohup`, writes combined output to
+`$run_dir/output.log`, writes the launcher pid to `$run_dir/pid`, and atomically
+replaces `$run_dir/verdict.env` with `status=succeeded|failed` and `exit_code=N`
+when the command exits. End the turn only after arming a wake; on wake, inspect
+the disk files, `fabro ps`, `fabro ps -a`, and the publish branch/forge checks
+above. The task-notification stream is no longer the record of completion for
+loop-parked dispatch.
 
 | | double-brace | queue eviction | anchor-as-dep | succeeded-untransitioned | interview-destroyed | **publish-branch collision** |
 |---|---|---|---|---|---|---|

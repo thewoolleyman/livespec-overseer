@@ -683,6 +683,19 @@ before relying on it, and tell the worker what feeds it; for a file channel,
 create it with `mkdir -p` and `: >`, then instruct the worker to append to it at
 every milestone.
 
+For a multi-minute Fabro factory dispatch from a session that may park with
+`ScheduleWakeup` / dynamic `/loop`, do NOT use the harness's
+`run_in_background: true` plus task-notification pattern. That background Bash
+task can be reaped shortly after loop parking. Use this repo's disk-verdict
+detacher instead, then arm a wake that reads the files:
+
+```sh
+run_dir="$PWD/tmp/overseer/detached-dispatch/<item>-$(date -u +%Y%m%dT%H%M%SZ)"
+scripts/detached-dispatch.sh "$run_dir" -- \
+  python3 /absolute/path/to/drive.py --action impl:<id> ...
+# Later: read "$run_dir/verdict.env" and "$run_dir/output.log".
+```
+
 ```sh
 wait_channel=<absolute-target-repo>/tmp/overseer/<topic>/worker-status.log
 mkdir -p "$(dirname "$wait_channel")"

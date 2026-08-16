@@ -539,6 +539,16 @@ under `$PLUGIN_ROOT` as a setup failure.
   janitor-gated) — **never hand-coded inline** in any overseer pane. Reserve
   inline Claude for coordination, planning, `groom`, spec-side `/livespec:*`, and
   maintainer-gated exits.
+- **Loop-parked factory dispatch uses disk-verdict detachment, not harness
+  background tasks.** If a tracked session may end its turn with `ScheduleWakeup`
+  / dynamic `/loop` while a multi-minute `drive.py --action impl:<id>` dispatch is
+  still running, start it with
+  `scripts/detached-dispatch.sh <run-dir> -- <drive.py command...>`. Do not use
+  `run_in_background: true` plus task-notification for that shape: measured
+  2026-08-16, the harness reaps still-running background Bash tasks about 6-15s
+  after loop parking. The detached helper uses `setsid` + `nohup`; completion is
+  the disk verdict in `<run-dir>/verdict.env`, with output in
+  `<run-dir>/output.log`.
 - **Worktree / own-branch boundaries.** Every session/sub-agent operates only in
   the worktree it created; never `cd`/commit/push/PR into another track's
   worktree or branch; never force-push a branch it did not create. Own-branch

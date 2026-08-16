@@ -45,6 +45,30 @@ restart mechanics. Maintain it in place. It now lives in the standalone
 participates in the livespec fleet as an ordinary pin-consuming member. Do NOT
 copy it back into livespec core, the plugin, or the copier template.
 
+## Loop-Parked Factory Dispatch
+
+When a tracked session may end its turn with `ScheduleWakeup` / dynamic `/loop`,
+multi-minute Fabro dispatch must not depend on the harness's background Bash
+task tracker. The old `run_in_background: true` plus task-notification pattern
+is retired for this shape: measured 2026-08-16 (`overseer-za32`), those
+background tasks are reaped about 6-15s after loop parking, silently killing
+the dispatcher.
+
+Use the repo helper and make the disk verdict the record:
+
+```
+run_dir="$PWD/tmp/overseer/detached-dispatch/<item>-$(date -u +%Y%m%dT%H%M%SZ)"
+scripts/detached-dispatch.sh "$run_dir" -- \
+  python3 /absolute/path/to/drive.py --action impl:<id> ...
+```
+
+`scripts/detached-dispatch.sh` launches the command with `setsid` + `nohup`,
+writes combined output to `$run_dir/output.log`, writes the launcher pid to
+`$run_dir/pid`, and atomically replaces `$run_dir/verdict.env` with
+`status=succeeded|failed` plus `exit_code=N` when the command exits. A parked
+session should arm a wake, then read the disk files and the normal Fabro/forge
+surfaces on wake; a task-notification is not the completion record.
+
 ## The evaluate() state machine
 
 `Supervisor.evaluate(track)` re-classifies each tracked session **from scratch
