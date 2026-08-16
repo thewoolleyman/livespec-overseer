@@ -141,6 +141,53 @@ def test_tick_rotation_hourly_default_budget_and_heartbeat(*, tmp_path):
     assert second.exit_reason == "hard-tick-budget"
 
 
+def test_loop_lapsed_is_false_on_the_first_ever_tick(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    runtime = module.ForemanRuntime(repo=repo, now=lambda: 1000.0)
+
+    first = runtime.step(document={"snapshot": {"rows": [{"topic": "alpha", "status": "idle"}]}})
+
+    assert first.loop_lapsed is False
+    assert first.heartbeat_age_seconds is None
+
+
+def test_loop_lapsed_is_false_when_the_recurring_loop_ticked_on_schedule(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    clock = {"now": 1000.0}
+    runtime = module.ForemanRuntime(repo=repo, now=lambda: clock["now"])
+    document = {"snapshot": {"rows": [{"topic": "alpha", "status": "idle"}]}}
+
+    runtime.step(document=document)
+    clock["now"] += 3600.0  # exactly one default hourly interval later
+    second = runtime.step(document=document)
+
+    assert second.loop_lapsed is False
+    assert second.heartbeat_age_seconds == 3600.0
+
+
+def test_loop_lapsed_is_true_after_the_recurring_loop_stopped_ticking(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    clock = {"now": 1000.0}
+    runtime = module.ForemanRuntime(repo=repo, now=lambda: clock["now"])
+    document = {"snapshot": {"rows": [{"topic": "alpha", "status": "idle"}]}}
+
+    runtime.step(document=document)
+    # No further ticks land for well over 2x the hourly interval — the same
+    # threshold the daemon's own `foreman_row` uses to raise a stale-heartbeat
+    # NEEDS YOU alert (`_supervisor_foreman._stale_after`). A manually-invoked
+    # tick that lands after that gap must see the lapse immediately, not only
+    # after the daemon's next poll of the heartbeat file this call is about to
+    # overwrite.
+    clock["now"] += 3.0 * 3600.0
+    resumed = runtime.step(document=document)
+
+    assert resumed.loop_lapsed is True
+    assert resumed.heartbeat_age_seconds == 3.0 * 3600.0
+
+
 def test_convergence_requires_non_empty_set_no_change_and_no_action(*, tmp_path):
     module = foreman_runtime()
     repo = make_repo(tmp_path=tmp_path)

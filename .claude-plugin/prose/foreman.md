@@ -94,6 +94,35 @@ interval. Each loop tick is exactly one full pass through `foreman-runtime`,
 the gather document, the one-action decision, and any `foreman-act`
 revalidation.
 
+### Arming the loop is not optional, and is not a question
+
+Invoking this skill is itself the request for ongoing supervision. If, when
+you reach the end of a tick, the harness `/loop` is not currently armed for
+this foreman contract in this session, arm it now (hourly default interval)
+as the LAST step of the tick, before ending your turn. Do not ask the
+maintainer whether to start it — that decision is pre-authorized by the
+invocation itself, and it is cheap to reverse (`/loop stop`) if they'd rather
+run it manually. A tick that ends without either the loop already running or
+being armed in that same turn is an incomplete tick, not a conservative one:
+asking first, or deferring the choice while you attend to something else,
+has previously left blocked sessions and human valves unattended for hours
+with nothing watching them.
+
+This is checked mechanically, not just by memory: `foreman-runtime`'s JSON
+output carries `loop_lapsed` (bool) and `heartbeat_age_seconds` (float or
+null, seconds since the PRIOR tick's heartbeat — the same `2x
+llm_tick_interval_seconds`, 30-minute-floor threshold the daemon's own
+`foreman_row` uses to raise its stale-heartbeat NEEDS YOU alert, but
+computed as of THIS tick rather than the daemon's next poll). Treat
+`loop_lapsed: true` as confirmation the recurring loop was not actually
+running — arm/re-arm it immediately, and then, in this SAME tick, re-evaluate
+every `human_wait: true` row from the fresh gather document against the
+current valve disposition (`report-only` vs `consensus`) instead of deferring
+that evaluation to a hypothetical next tick. `heartbeat_age_seconds: null`
+means no prior heartbeat exists at all (a fresh watch, or the very first tick
+ever) — treat that the same as `loop_lapsed: true` for the arm-now rule
+above, since nothing has confirmed the loop is running either way.
+
 The deterministic wrapper owns the v2 exit rule adopted by review findings
 O14/C5/O13/C6: compare structured-field fingerprints only, count "no state
 change and no foreman action" ticks only when the monitored set is non-empty,
@@ -115,6 +144,10 @@ Use the plugin root supplied by the harness binding.
 ```bash
 "$PLUGIN_ROOT/bin/foreman-runtime" --repo "$PWD"
 ```
+
+Its JSON output includes `loop_lapsed` and `heartbeat_age_seconds` — see
+§"Arming the loop is not optional, and is not a question" above. Read them on
+every invocation, not only when something looks wrong.
 
 For an action proposal:
 

@@ -27,8 +27,10 @@ __all__: list[str] = [
     "FOREMAN_HEARTBEAT_STALE_STATUS",
     "FOREMAN_TOPIC",
     "Heartbeat",
+    "HeartbeatLapse",
     "foreman_row",
     "foreman_rows",
+    "heartbeat_lapse",
     "heartbeat_path",
     "read_heartbeat",
 ]
@@ -110,6 +112,28 @@ def _interval_label(*, interval: float) -> str:
     if interval.is_integer():
         return str(int(interval))
     return f"{interval:.3f}".rstrip("0").rstrip(".")
+
+
+@dataclass(frozen=True, kw_only=True)
+class HeartbeatLapse:
+    age_seconds: float
+    stale: bool
+
+
+def heartbeat_lapse(*, repo: str, now: Callable[[], float]) -> HeartbeatLapse | None:
+    """Read the PRIOR heartbeat's staleness, before a caller overwrites it.
+
+    A `ForemanRuntime.step()` caller reads this before writing its own heartbeat, so a
+    lapsed recurring loop (no tick landed within `2x` its interval, floor 30 minutes —
+    the same threshold `foreman_row` uses for the daemon's NEEDS YOU alert) is visible
+    to THIS tick immediately, rather than only after the daemon's own poll notices it.
+    Returns None when no prior heartbeat exists (e.g. the very first tick ever).
+    """
+    heartbeat = read_heartbeat(repo=repo)
+    if heartbeat is None:
+        return None
+    age = _age_seconds(heartbeat=heartbeat, now=now)
+    return HeartbeatLapse(age_seconds=age, stale=age > _stale_after(heartbeat=heartbeat))
 
 
 def foreman_row(*, repo: str, now: Callable[[], float]) -> RowView | None:
