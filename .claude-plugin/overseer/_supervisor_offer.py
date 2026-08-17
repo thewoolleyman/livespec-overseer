@@ -64,7 +64,9 @@ def supervisor_running(*, sup: Supervisor, session: str, repo: str) -> bool:
         pane_current_path=cwd, repo=repo
     ):
         names = sup.claude_names_by_session.get(session)
-        return names is None or session in names
+        if names is None or session in names:
+            return True
+        return signals.topic_reserved_for_supervisor(topic=session)
     if not signals.pane_is_codex(pane_current_command=command):
         return False
     return any(

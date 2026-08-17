@@ -213,7 +213,9 @@ def pane_is_managed_claude(
     ):
         return False
     names = sup.claude_names_by_session.get(session or "")
-    return not names or topic in names
+    if not names or topic in names:
+        return True
+    return signals.topic_reserved_for_supervisor(topic=topic) and session == topic
 
 
 def observe(
