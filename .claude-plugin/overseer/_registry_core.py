@@ -100,8 +100,7 @@ DEFAULT_STAMP_PATH = Path.home() / ".livespec-overseer-stamps.json"
 # de-gold-plating that removed `--repos` / `--manifest` / `--store` / `--stamp`.
 DEFAULT_WATCH_SET_PATH = Path.home() / ".livespec-overseer-repos.json"
 
-# The durable keys serialized to a mapping row. `added_at` is written on append
-# but is not a Track field (it is bookkeeping only).
+# The durable keys serialized to a mapping row.
 ROW_KEYS = (
     "topic",
     "repo",
@@ -110,6 +109,8 @@ ROW_KEYS = (
     "epic",
     "ctx_threshold",
     "pinned_session_id",
+    "observed_session_identity",
+    "added_at",
 )
 
 
@@ -220,6 +221,8 @@ class Track:
     # key when None) so a bare row means "no override".
     ctx_threshold: int | None = None
     pinned_session_id: str | None = None
+    observed_session_identity: str | None = None
+    added_at: str | None = None
     assigned: bool = True
 
     @property

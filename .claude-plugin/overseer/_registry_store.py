@@ -26,6 +26,7 @@ from _seams import MappingRowPredicate
 __all__: list[str] = [
     "append_mapping",
     "read_mapping",
+    "record_observed_session_identity",
     "remove_mapping",
     "repoint_tmux",
     "rewrite_mapping",
@@ -156,6 +157,8 @@ def _track_from_row(*, row: dict[str, object]) -> Track | None:
         epic=_opt_str(key="epic"),
         ctx_threshold=ctx_threshold,
         pinned_session_id=_opt_str(key="pinned_session_id"),
+        observed_session_identity=_opt_str(key="observed_session_identity"),
+        added_at=_opt_str(key="added_at"),
         assigned=True,
     )
 
@@ -190,6 +193,8 @@ def _track_to_row(*, track: Track) -> dict[str, object]:
         "resume": track.resume,
         "epic": track.epic,
         "pinned_session_id": track.pinned_session_id,
+        "observed_session_identity": track.observed_session_identity,
+        "added_at": track.added_at,
     }
     # OMIT ``ctx_threshold`` when there is no per-track override (None): a row
     # WITHOUT the key means "inherit the daemon default"; include it only for an
@@ -198,6 +203,33 @@ def _track_to_row(*, track: Track) -> dict[str, object]:
         row["ctx_threshold"] = track.ctx_threshold
     _ = _normalize_resume_override(row=row)
     return row
+
+
+def record_observed_session_identity(
+    *,
+    repo: str,
+    topic: str,
+    session_identity: str,
+    store_path: str | os.PathLike[str] | None = None,
+) -> bool:
+    """Persist that this mapped track has been observed with ``session_identity``."""
+    repo_norm = norm(repo=repo)
+    with file_lock(target=resolve_store(store_path=store_path)):
+        rows = _read_rows(store_path=store_path)
+        changed = False
+        for row in rows:
+            row_repo = row.get("repo")
+            if (
+                isinstance(row_repo, str)
+                and norm(repo=row_repo) == repo_norm
+                and row.get("topic") == topic
+                and row.get("observed_session_identity") != session_identity
+            ):
+                row["observed_session_identity"] = session_identity
+                changed = True
+        if changed:
+            _write_rows(rows=rows, store_path=store_path)
+        return changed
 
 
 def append_mapping(

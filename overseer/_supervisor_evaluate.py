@@ -31,12 +31,26 @@ import _supervisor_restart_attention
 import foreman_pane_claim
 import registry
 import signals
+from _supervisor_records import Observation
 from _supervisor_view import RowView
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = ["evaluate"]
+
+
+def _record_observed_session_identity(
+    *, sup: Supervisor, track: registry.Track, obs: Observation, act: bool
+) -> None:
+    if not act or obs.session_identity is None:
+        return
+    _ = registry.record_observed_session_identity(
+        repo=track.repo,
+        topic=track.topic,
+        session_identity=obs.session_identity,
+        store_path=sup.store_path,
+    )
 
 
 def evaluate(  # noqa: PLR0915 — see "On the size of this function"
@@ -81,6 +95,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     # precedence order. Unpacked into locals so each guard reads the same way
     # it always has.
     obs = _supervisor_observe.observe(sup=sup, track=track, session=session, target=target, key=key)
+    _record_observed_session_identity(sup=sup, track=track, obs=obs, act=act)
     capture, busy, gate, idle = obs.capture, obs.busy, obs.gate, obs.idle
     codex_fallback = obs.codex_fallback
     claude_status, eff_ctx, istate = obs.claude_status, obs.eff_ctx, obs.istate
