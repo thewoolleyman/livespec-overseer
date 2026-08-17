@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.46.1...v0.46.2) (2026-08-17)
+
+
+### Bug Fixes
+
+* expose declaration state transitions ([e72bcf6](https://github.com/thewoolleyman/livespec-overseer/commit/e72bcf620f98f66f58706787a457d7d9c0756863))
+
 ## [0.46.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.46.0...v0.46.1) (2026-08-17)
 
 
