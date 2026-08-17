@@ -67,6 +67,22 @@ fi
 run_dir="$1"
 shift 2
 
+# overseer-57f2 half (ii): dispatching an impl:<id> action runs the acceptance
+# guard first — a live-exercise item must carry a parking acceptance label
+# (acceptance:ai-then-human / acceptance:human-only) or the dispatch is
+# refused before anything launches. `set -e` aborts on the guard's non-zero.
+guard_ids=()
+for arg in "$@"; do
+  case "$arg" in
+    impl:*) guard_ids+=("${arg#impl:}") ;;
+    --action=impl:*) guard_ids+=("${arg#--action=impl:}") ;;
+  esac
+done
+if [[ "${#guard_ids[@]}" -gt 0 ]]; then
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+  python3 "$script_dir/dispatch_acceptance_guard.py" "${guard_ids[@]}"
+fi
+
 mkdir -p "$run_dir"
 : >"$run_dir/output.log"
 
