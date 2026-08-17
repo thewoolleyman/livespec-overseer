@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.2...v0.43.3) (2026-08-17)
+
+
+### Bug Fixes
+
+* **overseer-27ug3t:** revert activity-triggered ready downgrade, restore v016 arm-until-idle ([3593b82](https://github.com/thewoolleyman/livespec-overseer/commit/3593b825093ff1a597ccb26eef60f219c230a426))
+
 ## [0.43.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.1...v0.43.2) (2026-08-17)
 
 
