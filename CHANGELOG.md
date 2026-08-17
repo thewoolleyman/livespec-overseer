@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.44.2...v0.45.0) (2026-08-17)
+
+
+### Features
+
+* wake supervisor on ready state file events ([cca1317](https://github.com/thewoolleyman/livespec-overseer/commit/cca13173d784497aea942a995bfb20f1c1e80a52))
+
 ## [0.44.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.44.1...v0.44.2) (2026-08-17)
 
 
