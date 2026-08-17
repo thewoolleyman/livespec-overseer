@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.44.1...v0.44.2) (2026-08-17)
+
+
+### Bug Fixes
+
+* parse supervisor-state updated_at comments ([6333868](https://github.com/thewoolleyman/livespec-overseer/commit/63338688b168c42e1bd2dd09b583cfa455c54dd8))
+
 ## [0.44.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.44.0...v0.44.1) (2026-08-17)
 
 
