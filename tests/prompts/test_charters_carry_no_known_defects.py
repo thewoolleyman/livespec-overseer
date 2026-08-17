@@ -1,4 +1,4 @@
-"""Gate every charter IN THIS REPO against the thirteen known defect classes.
+"""Gate every charter IN THIS REPO against the fourteen known defect classes.
 
 The nine groom slices fix the GENERATOR, so the NEXT charter is correct. None of
 them remediates the charters already emitted, and nothing schedules regeneration
@@ -435,6 +435,30 @@ _ADOPTABLE_RUNTIME_REQUIREMENTS = (
     "live killing",
     "blocking",
 )
+
+_UNATTENDED_CHARTER_MARKERS = (
+    "# Supervisor Protocol",
+    "Shared role-level instructions for every generated supervisor handoff",
+)
+_PICKER_PRESENTATION_MARKERS = (
+    "AskUserQuestion",
+    "picker",
+)
+_PERFORM_UNBLOCK = re.compile(
+    r"if\s+the\s+supervisor\s+can\s+perform\s+the\s+unblock,\s+perform\s+it",
+    re.IGNORECASE,
+)
+
+
+def unattended_charter_missing_perform_the_unblock(*, text: str) -> list[str]:
+    """An unattended supervisor charter with picker rules must authorize unblocks."""
+    if not any(marker in text for marker in _UNATTENDED_CHARTER_MARKERS):
+        return []
+    if not all(marker.casefold() in text.casefold() for marker in _PICKER_PRESENTATION_MARKERS):
+        return []
+    if _PERFORM_UNBLOCK.search(text) is not None:
+        return []
+    return ["unattended charter presents a picker without perform-the-unblock authority"]
 
 
 def adoptable_runtime_contract(*, text: str) -> list[str]:
@@ -1003,6 +1027,10 @@ _DETECTORS = (
     ("k-local-time-labelled-utc", local_time_labelled_utc),
     ("l-busy-test-matches-idle-pane", busy_test_matches_idle_pane),
     ("m-adoptable-runtime-contract", adoptable_runtime_contract),
+    (
+        "n-unattended-charter-missing-perform-the-unblock",
+        unattended_charter_missing_perform_the_unblock,
+    ),
 )
 
 
@@ -1168,6 +1196,54 @@ Claude fresh launch: `claude --dangerously-skip-permissions`.
 Claude live repair: `/rename <topic>`.
 """
     assert [d for d in defects_in(text=charter) if d.startswith("m-")] != []
+
+
+def test_an_unattended_charter_missing_the_unblock_clause_is_flagged():
+    """RED control: an unattended charter cannot offer a picker with no unblock rule."""
+    charter = """
+# Supervisor Protocol
+
+Shared role-level instructions for every generated supervisor handoff.
+
+## AskUserQuestion presentation rules
+
+Every maintainer-facing action is an AskUserQuestion call. Put --- as the final
+line before the picker.
+"""
+    assert defects_in(text=charter) == [
+        "n-unattended-charter-missing-perform-the-unblock: "
+        "unattended charter presents a picker without perform-the-unblock authority"
+    ]
+
+
+def test_an_unattended_charter_with_the_unblock_clause_is_not_flagged():
+    """DISCRIMINATION for (n): the detector accepts the shipped authorization."""
+    charter = """
+# Supervisor Protocol
+
+Shared role-level instructions for every generated supervisor handoff.
+
+## AskUserQuestion presentation rules
+
+Every maintainer-facing action is an AskUserQuestion call. Put --- as the final
+line before the picker.
+
+If the SUPERVISOR can perform the unblock, PERFORM IT.
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("n-")] == []
+
+
+def test_an_interactive_charter_with_a_picker_and_no_unblock_clause_is_not_flagged():
+    """DISCRIMINATION for (n): interactive plan-track picker rules are allowed."""
+    charter = """
+# Interactive Plan Track
+
+## AskUserQuestion presentation rules
+
+Every maintainer-facing action is an AskUserQuestion call. Put --- as the final
+line before the picker.
+"""
+    assert [d for d in defects_in(text=charter) if d.startswith("n-")] == []
 
 
 def test_the_adoptable_runtime_contract_accepts_reformatted_correct_content():

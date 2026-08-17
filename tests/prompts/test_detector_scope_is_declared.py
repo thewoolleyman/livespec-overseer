@@ -1,13 +1,15 @@
 """Every charter detector must DECLARE whether it is line- or document-scoped.
 
-The thirteen detectors do not all mean the same thing by "clean". EIGHT are
+The fourteen detectors do not all mean the same thing by "clean". EIGHT are
 LINE-SCOPED: each offending line is reported, and a correct form elsewhere in the
-charter changes nothing. FIVE are DOCUMENT-SCOPED: `(e)`, `(h)`, `(i)` and `(j)`
+charter changes nothing. SIX are DOCUMENT-SCOPED: `(e)`, `(h)`, `(i)` and `(j)`
 return NOTHING as soon as the correct property appears anywhere in the file's
 fenced blocks; `(m)` applies the same whole-document decision to its named
-adoption-contract section, however many defective details sit beside it.
+adoption-contract section, however many defective details sit beside it; `(n)`
+applies the same whole-document decision to the shared unattended supervisor
+charter, whose mechanical-unblock authority is a role clause.
 
-That split is deliberate and each of those five docstrings argues for it: the
+That split is deliberate and each of those six docstrings argues for it: the
 correct form is a helper DETECTED ONCE and called later by name, so a per-line
 rule would flag the correct call site. This module does not second-guess that.
 It makes the choice EXPLICIT and EXECUTABLE, because three things follow from it
@@ -58,7 +60,7 @@ synthetic control -- written against the pre-fix spelling -- stayed green.
 `test_remediating_f_does_not_disarm_e` pins that ONE pair. The general lesson is
 that a detector's REACH is a property nobody was asserting, and a synthetic
 control cannot see a reach problem because it supplies the surrounding context
-itself. Here the reach is asserted directly, for all thirteen, in both directions.
+itself. Here the reach is asserted directly, for all fourteen, in both directions.
 
 **THE LOAD-BEARING ASSERTION IS THE REGISTRY-COVERAGE ONE.** A fourteenth detector
 cannot be added without deciding, in writing, which scope it has -- the decision
@@ -97,6 +99,7 @@ _SCOPE: dict[str, str] = {
     # regex is not detected once, it is evaluated every poll, wherever it sits.
     "l": _LINE_SCOPED,
     "m": _DOCUMENT_SCOPED,
+    "n": _DOCUMENT_SCOPED,
 }
 
 # One defective line per class, in the shape the class was written for.
@@ -123,6 +126,13 @@ _DEFECT: dict[str, str] = {
     "m": (
         "## Adoptable runtime launch and restart\n"
         "Claude fresh launch: `claude --dangerously-skip-permissions`.\n"
+    ),
+    "n": (
+        "# Supervisor Protocol\n"
+        "Shared role-level instructions for every generated supervisor handoff.\n"
+        "## AskUserQuestion presentation rules\n"
+        "Every maintainer-facing action is an AskUserQuestion call. "
+        "Put --- as the final line before the picker.\n"
     ),
 }
 
@@ -173,6 +183,14 @@ _CORRECT: dict[str, str] = {
         "Never send `/rename` into a numbered cursor or a permission question.\n"
         "A tmux session name is not an adoption key. Daemon's own launch paths "
         "unchanged; no fuzzy matching, tmux-name matching, live killing, or blocking.\n"
+    ),
+    "n": (
+        "# Supervisor Protocol\n"
+        "Shared role-level instructions for every generated supervisor handoff.\n"
+        "## AskUserQuestion presentation rules\n"
+        "Every maintainer-facing action is an AskUserQuestion call. "
+        "Put --- as the final line before the picker.\n"
+        "If the SUPERVISOR can perform the unblock, PERFORM IT.\n"
     ),
 }
 
