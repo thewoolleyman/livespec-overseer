@@ -47,6 +47,7 @@ def test_composes_canonical_document_from_snapshot_attention_and_journal(*, tmp_
     module = foreman_gather()
     repo = tmp_path / "repo"
     repo.mkdir()
+    (repo / "plan" / "plan-a").mkdir(parents=True)
     snapshot_path = tmp_path / "status.json"
     attention_path = repo / "attention.json"
     journal_path = repo / "tmp" / "fabro-dispatch-journal.jsonl"
@@ -175,11 +176,11 @@ def test_snapshot_rows_carry_supervisor_handoff_presence(*, tmp_path):
     collect = foreman_gather_collect()
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "plan" / "with-supervisor").mkdir(parents=True)
-    (repo / "plan" / "with-supervisor" / "supervisor-handoff.md").write_text(
+    (repo / "plan" / "with-binder").mkdir(parents=True)
+    (repo / "plan" / "with-binder" / "supervisor-handoff.md").write_text(
         "supervise this\n", encoding="utf-8"
     )
-    (repo / "plan" / "without-supervisor").mkdir(parents=True)
+    (repo / "plan" / "without-binder").mkdir(parents=True)
     snapshot_path = tmp_path / "status.json"
     write_json(
         path=snapshot_path,
@@ -191,12 +192,22 @@ def test_snapshot_rows_carry_supervisor_handoff_presence(*, tmp_path):
             "rows": [
                 {
                     "repo": str(repo),
-                    "topic": "with-supervisor",
+                    "topic": "with-binder",
                     "status": "session-gone",
                 },
                 {
                     "repo": str(repo),
-                    "topic": "without-supervisor",
+                    "topic": "without-binder",
+                    "status": "session-gone",
+                },
+                {
+                    "repo": str(repo),
+                    "topic": "orphan",
+                    "status": "session-gone",
+                },
+                {
+                    "repo": str(repo),
+                    "topic": "alpha-supervisor",
                     "status": "session-gone",
                 },
             ],
@@ -217,21 +228,55 @@ def test_snapshot_rows_carry_supervisor_handoff_presence(*, tmp_path):
             "repo": str(repo),
             "status": "session-gone",
             "supervisor_handoff": "present",
-            "topic": "with-supervisor",
+            "topic": "with-binder",
         },
         {
             "repo": str(repo),
             "status": "session-gone",
             "supervisor_handoff": "missing",
-            "topic": "without-supervisor",
+            "topic": "without-binder",
+        },
+        {
+            "repo": str(repo),
+            "status": "session-gone",
+            "supervisor_handoff": "not-plan",
+            "topic": "orphan",
+        },
+        {
+            "repo": str(repo),
+            "status": "session-gone",
+            "supervisor_handoff": "supervisor-topic",
+            "topic": "alpha-supervisor",
         },
     ]
     assert collect.supervisor_handoff_state(repo=repo, topic=None) == "unknown"
-    assert "with-supervisor | session-gone | ctx=None | human_wait=no | supervisor=present" in (
+    assert "with-binder | session-gone | ctx=None | human_wait=no | supervisor=present" in (
         module.render_document(document=document)
     )
-    assert "without-supervisor | session-gone | ctx=None | human_wait=no | supervisor=missing" in (
+    assert "without-binder | session-gone | ctx=None | human_wait=no | supervisor=missing" in (
         module.render_document(document=document)
+    )
+    assert "orphan | session-gone | ctx=None | human_wait=no | supervisor=not-plan" in (
+        module.render_document(document=document)
+    )
+    assert (
+        "alpha-supervisor | session-gone | ctx=None | human_wait=no | "
+        "supervisor=supervisor-topic"
+    ) in module.render_document(document=document)
+
+
+def test_supervisor_handoff_uses_shipped_reserved_topic_predicate(*, tmp_path, monkeypatch):
+    collect = foreman_gather_collect()
+    repo = tmp_path / "repo"
+    (repo / "plan" / "synthetic-worker").mkdir(parents=True)
+
+    def reserved_override(*, topic: str) -> bool:
+        return topic == "synthetic-worker"
+
+    monkeypatch.setattr(collect.signals, "topic_reserved_for_supervisor", reserved_override)
+
+    assert collect.supervisor_handoff_state(repo=repo, topic="synthetic-worker") == (
+        "supervisor-topic"
     )
 
 
@@ -240,12 +285,12 @@ def test_snapshot_rows_accept_migrated_ledger_backed_supervisor_state(*, tmp_pat
     collect = foreman_gather_collect()
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "plan" / "legacy-supervisor").mkdir(parents=True)
-    (repo / "plan" / "legacy-supervisor" / "supervisor-handoff.md").write_text(
+    (repo / "plan" / "legacy-binder").mkdir(parents=True)
+    (repo / "plan" / "legacy-binder" / "supervisor-handoff.md").write_text(
         "supervise this\n", encoding="utf-8"
     )
-    (repo / "plan" / "migrated-supervisor").mkdir(parents=True)
-    (repo / "plan" / "migrated-supervisor" / "epic.md").write_text(
+    (repo / "plan" / "migrated-binder").mkdir(parents=True)
+    (repo / "plan" / "migrated-binder" / "epic.md").write_text(
         "# Plan Epic\n\n"
         "Ledger epic: `overseer-test-epic`\n\n"
         "The supervisor binder is read from attributed ledger comments.\n",
@@ -265,8 +310,8 @@ def test_snapshot_rows_accept_migrated_ledger_backed_supervisor_state(*, tmp_pat
             "tick_generation": 7,
             "written_at": "2026-08-03T08:00:00Z",
             "rows": [
-                {"repo": str(repo), "topic": "legacy-supervisor", "status": "session-gone"},
-                {"repo": str(repo), "topic": "migrated-supervisor", "status": "session-gone"},
+                {"repo": str(repo), "topic": "legacy-binder", "status": "session-gone"},
+                {"repo": str(repo), "topic": "migrated-binder", "status": "session-gone"},
                 {"repo": str(repo), "topic": "not-ledger-backed", "status": "session-gone"},
             ],
         },
@@ -282,12 +327,12 @@ def test_snapshot_rows_accept_migrated_ledger_backed_supervisor_state(*, tmp_pat
 
     rows = document["snapshot"]["rows"]
     assert [row["supervisor_handoff"] for row in rows] == ["present", "present", "missing"]
-    assert collect.supervisor_handoff_state(repo=repo, topic="migrated-supervisor") == "present"
+    assert collect.supervisor_handoff_state(repo=repo, topic="migrated-binder") == "present"
     rendered = module.render_document(document=document)
-    assert "legacy-supervisor | session-gone | ctx=None | human_wait=no | supervisor=present" in (
+    assert "legacy-binder | session-gone | ctx=None | human_wait=no | supervisor=present" in (
         rendered
     )
-    assert "migrated-supervisor | session-gone | ctx=None | human_wait=no | supervisor=present" in (
+    assert "migrated-binder | session-gone | ctx=None | human_wait=no | supervisor=present" in (
         rendered
     )
     assert "not-ledger-backed | session-gone | ctx=None | human_wait=no | supervisor=missing" in (

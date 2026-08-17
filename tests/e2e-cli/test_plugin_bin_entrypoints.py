@@ -617,6 +617,14 @@ def _foreman_e2e_snapshot(*, repo: Path) -> dict[str, object]:
                 "status": "session-gone",
                 "session_identity": f"none:{repo}:beta-supervisor",
             },
+            {
+                "repo": str(repo),
+                "topic": "gamma-supervisor",
+                "tmux": "gamma-supervisor",
+                "runtime": "codex",
+                "status": "session-gone",
+                "session_identity": f"none:{repo}:gamma-supervisor",
+            },
         ],
     }
 
@@ -890,8 +898,13 @@ def _assert_supervisor_handoff_signal_from_shipped_gather(*, context: ForemanE2E
         by_topic = {str(row.get("topic")): row for row in rows}
         assert by_topic["alpha"]["supervisor_handoff"] == "missing"
         assert by_topic["beta"]["supervisor_handoff"] == "present"
+        assert by_topic["gamma-supervisor"]["supervisor_handoff"] == "supervisor-topic"
         assert "alpha | session-gone | ctx=None | human_wait=no | supervisor=missing" in text
         assert "beta | session-gone | ctx=None | human_wait=no | supervisor=present" in text
+        assert (
+            "gamma-supervisor | session-gone | ctx=None | human_wait=no | "
+            "supervisor=supervisor-topic"
+        ) in text
 
     snapshot = document["snapshot"]
     assert isinstance(snapshot, dict)

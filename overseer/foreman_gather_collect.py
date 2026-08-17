@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Final, Protocol, TypeAlias, cast
 
 import jsonio
+import signals
 from _supervisor_snapshot import DEFAULT_STATUS_PATH, SCHEMA_VERSION
 from foreman_gather_sources import (
     command_skipped,
@@ -99,7 +100,12 @@ def snapshot_payload(
 def supervisor_handoff_state(*, repo: Path, topic: object) -> str:
     if not isinstance(topic, str) or topic == "":
         return "unknown"
-    legacy_path = repo / "plan" / topic / "supervisor-handoff.md"
+    if signals.topic_reserved_for_supervisor(topic=topic):
+        return "supervisor-topic"
+    plan_dir = repo / "plan" / topic
+    if not plan_dir.is_dir():
+        return "not-plan"
+    legacy_path = plan_dir / "supervisor-handoff.md"
     if legacy_path.is_file():
         return "present"
     if migrated_supervisor_handoff_state(repo=repo, topic=topic):
