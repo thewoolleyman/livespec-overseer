@@ -26,6 +26,7 @@ from _seams import MappingRowPredicate
 __all__: list[str] = [
     "append_mapping",
     "read_mapping",
+    "record_derived_epic",
     "record_observed_session_identity",
     "remove_mapping",
     "repoint_tmux",
@@ -205,14 +206,23 @@ def _track_to_row(*, track: Track) -> dict[str, object]:
     return row
 
 
-def record_observed_session_identity(
+def _update_matching_field(
     *,
     repo: str,
     topic: str,
-    session_identity: str,
+    field: str,
+    value: str,
     store_path: str | os.PathLike[str] | None = None,
 ) -> bool:
-    """Persist that this mapped track has been observed with ``session_identity``."""
+    """Set ``field`` to ``value`` on the ``(repo, topic)`` row; return whether it changed.
+
+    The shared shape behind :func:`record_observed_session_identity`,
+    :func:`record_derived_epic`, and :func:`repoint_tmux`: find the matching row
+    under the store lock, mutate one field in place (unknown keys survive —
+    raw dicts, not Tracks), write only when something actually changed
+    (idempotent, so a steady-state tick never rewrites the store), and
+    no-op when there is no such row.
+    """
     repo_norm = norm(repo=repo)
     with file_lock(target=resolve_store(store_path=store_path)):
         rows = _read_rows(store_path=store_path)
@@ -223,13 +233,49 @@ def record_observed_session_identity(
                 isinstance(row_repo, str)
                 and norm(repo=row_repo) == repo_norm
                 and row.get("topic") == topic
-                and row.get("observed_session_identity") != session_identity
+                and row.get(field) != value
             ):
-                row["observed_session_identity"] = session_identity
+                row[field] = value
                 changed = True
         if changed:
             _write_rows(rows=rows, store_path=store_path)
         return changed
+
+
+def record_observed_session_identity(
+    *,
+    repo: str,
+    topic: str,
+    session_identity: str,
+    store_path: str | os.PathLike[str] | None = None,
+) -> bool:
+    """Persist that this mapped track has been observed with ``session_identity``."""
+    return _update_matching_field(
+        repo=repo,
+        topic=topic,
+        field="observed_session_identity",
+        value=session_identity,
+        store_path=store_path,
+    )
+
+
+def record_derived_epic(
+    *,
+    repo: str,
+    topic: str,
+    epic: str,
+    store_path: str | os.PathLike[str] | None = None,
+) -> bool:
+    """Persist a freshly-derived ``epic`` for the ``(repo, topic)`` mapping row.
+
+    The restart interlock's one-shot re-derive (overseer-vbmq): a row whose
+    ``epic`` was recorded ``None`` at assignment time stays ``None`` forever
+    otherwise, since the daemon tick never calls `epic_from_plan_anchor` itself
+    (assignment-only, by design).
+    """
+    return _update_matching_field(
+        repo=repo, topic=topic, field="epic", value=epic, store_path=store_path
+    )
 
 
 def append_mapping(
@@ -320,20 +366,6 @@ def repoint_tmux(
     True when at least one row was re-pointed. Fail-soft on OSError (inherited from
     :func:`_write_rows`).
     """
-    repo_norm = norm(repo=repo)
-    with file_lock(target=resolve_store(store_path=store_path)):
-        rows = _read_rows(store_path=store_path)
-        changed = False
-        for row in rows:
-            row_repo = row.get("repo")
-            if (
-                isinstance(row_repo, str)
-                and norm(repo=row_repo) == repo_norm
-                and row.get("topic") == topic
-                and row.get("tmux") != new_tmux
-            ):
-                row["tmux"] = new_tmux
-                changed = True
-        if changed:
-            _write_rows(rows=rows, store_path=store_path)
-        return changed
+    return _update_matching_field(
+        repo=repo, topic=topic, field="tmux", value=new_tmux, store_path=store_path
+    )

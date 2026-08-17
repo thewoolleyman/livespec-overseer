@@ -9,6 +9,7 @@ the codex session with a claude one and destroy it.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING, cast
 
 import _supervisor_launch
@@ -34,6 +35,7 @@ __all__: list[str] = [
     "do_restart",
     "maybe_inject",
     "missing_plan_epic_message",
+    "rederive_epic_if_stale",
     "resume_prompt",
 ]
 
@@ -49,6 +51,31 @@ def _supervisor_topic_archived_message() -> str:
         "supervisor ready declared but its plan thread is archived or gone; "
         "retiring the track, not restarting"
     )
+
+
+def rederive_epic_if_stale(*, sup: Supervisor, track: registry.Track, act: bool) -> registry.Track:
+    """One-shot re-derive of a null epic at the restart-interlock boundary.
+
+    A row's epic can go stale between assignment time (``supervisor.py add``)
+    and a later ``ready`` declaration (overseer-vbmq): the anchor was
+    unreadable when the row was added, was written afterward, or a transient
+    ledger outage hit the fallback query. The daemon tick otherwise never
+    re-reads ``epic_from_plan_anchor`` itself (assignment-only, by design), so a
+    stale null stays null forever without this. The caller invokes this ONLY
+    after finding the track unusable for a restart (``resume_prompt`` returned
+    None) — never speculatively — and only under ``act`` (never on a read-only
+    ``list`` tick). Persists on success (``registry.record_derived_epic``) so a
+    later tick sees the healed row directly; this never re-reads per tick.
+    """
+    if not act:
+        return track
+    derived = registry.epic_from_plan_anchor(repo=track.repo, topic=track.topic)
+    if derived is None:
+        return track
+    _ = registry.record_derived_epic(
+        repo=track.repo, topic=track.topic, epic=derived, store_path=sup.store_path
+    )
+    return dataclasses.replace(track, epic=derived)
 
 
 def resume_prompt(*, track: registry.Track) -> str | None:

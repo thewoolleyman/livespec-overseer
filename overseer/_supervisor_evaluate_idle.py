@@ -68,6 +68,24 @@ def _missing_plan_epic_decision(*, request: IdleRequest, note: str | None) -> Id
     )
 
 
+def _track_ready_to_restart(*, request: IdleRequest) -> registry.Track | None:
+    """The track to restart with, or None if it still has no usable epic.
+
+    Tries the one-shot re-derive (overseer-vbmq) only after the track's CURRENT
+    epic proves unusable — never speculatively — so the common case (epic
+    already populated) costs nothing extra.
+    """
+    track = request.track
+    if _supervisor_restart.resume_prompt(track=track) is not None:
+        return track
+    track = _supervisor_restart.rederive_epic_if_stale(
+        sup=request.sup, track=track, act=request.act
+    )
+    if _supervisor_restart.resume_prompt(track=track) is not None:
+        return track
+    return None
+
+
 def _apply_uncertifiable_ready(
     *,
     status: str,
@@ -226,13 +244,14 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         # destructive rather than merely wrong; the sabotage-verified guard test pins
         # it. A Codex track is now a full citizen (maintainer-declared 2026-07-17):
         # it is restarted on its own `ready` exactly like a Claude one.
-        if _supervisor_restart.resume_prompt(track=request.track) is None:
+        track = _track_ready_to_restart(request=request)
+        if track is None:
             return _missing_plan_epic_decision(request=request, note=note)
         status = "restarting"
         if request.act:
             _supervisor_restart.do_restart(
                 sup=request.sup,
-                track=request.track,
+                track=track,
                 target=request.target,
                 is_codex=request.obs.is_codex,
             )
