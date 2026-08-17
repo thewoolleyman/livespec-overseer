@@ -14,6 +14,7 @@ from test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    write_fresh_supervisor_state,
 )
 from test_supervisor_fakes import FakeTmux
 
@@ -40,6 +41,7 @@ def paired_supervisor(*, tmp_path, worker_capture, supervisor_capture, now):
         track=mapped_track(repo=repo, topic=topic, session=worker_session),
         store_path=sup.store_path,
     )
+    write_fresh_supervisor_state(repo=repo, topic=supervisor_session)
     return sup, fake, repo, topic, worker_session, supervisor_session
 
 

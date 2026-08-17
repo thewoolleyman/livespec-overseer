@@ -97,6 +97,7 @@ def row_payload(*, sup: Supervisor, row: RowView) -> dict[str, object]:
         "acked": row.acked,
         "picker_open": row.picker_open,
         "stall_seconds": row.stall_seconds,
+        "supervisor_state_stale": row.supervisor_state_stale,
         "session_identity": session_identity(sup=sup, row=row),
     }
 

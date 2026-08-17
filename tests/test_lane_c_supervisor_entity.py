@@ -17,6 +17,7 @@ from test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    write_fresh_supervisor_state,
 )
 from test_supervisor_fakes import FakeTmux
 
@@ -41,6 +42,7 @@ def test_supervisor_ready_restarts_supervisor_entity_not_worker(*, tmp_path, mon
     registry.write_injection_stamp(
         repo=str(repo), topic=f"{topic}-supervisor", ts=900.0, stamp_path=sup.stamp_path
     )
+    write_fresh_supervisor_state(repo=repo, topic=f"{topic}-supervisor")
     arm_ready_marker(repo=repo, topic=topic)
     arm_ready_marker(repo=repo, topic=f"{topic}-supervisor")
 
@@ -74,6 +76,7 @@ def test_migrated_supervisor_ready_restarts_from_ledger_epic_shape(*, tmp_path, 
     registry.write_injection_stamp(
         repo=str(repo), topic=f"{topic}-supervisor", ts=900.0, stamp_path=sup.stamp_path
     )
+    write_fresh_supervisor_state(repo=repo, topic=f"{topic}-supervisor")
     arm_ready_marker(repo=repo, topic=f"{topic}-supervisor")
 
     sup.tick(act=True)

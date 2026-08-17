@@ -51,6 +51,7 @@ ATTENTION_STATUSES = (
     "picker-stalled",
     "session-gone",
     "shell-prolonged",
+    "supervisor-state-stale",
     "winddown-starved",
 )
 
@@ -99,6 +100,7 @@ _STATUS_COLOR = {
     "picker-stalled": _ANSI_YELLOW,
     "session-gone": _ANSI_RED,
     "shell-prolonged": _ANSI_YELLOW,
+    "supervisor-state-stale": _ANSI_YELLOW,
     "winddown-starved": _ANSI_YELLOW,
 }
 
@@ -166,6 +168,7 @@ class RowView:
     acked: bool = False
     picker_open: bool = False
     stall_seconds: int = 0
+    supervisor_state_stale: bool = False
 
 
 def needs_attention(*, row: RowView) -> bool:
