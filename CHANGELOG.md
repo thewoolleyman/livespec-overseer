@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.42.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.41.1...v0.42.0) (2026-08-17)
+
+
+### Features
+
+* **overseer:** answer an expired ready declaration with a bounded expiry-notice ([d2e6155](https://github.com/thewoolleyman/livespec-overseer/commit/d2e61553fc34192dfe3619658d4663e97c1934b5))
+
+
+### Bug Fixes
+
+* **pre-commit:** wire repo-state checks into the doc-only subset ([8153381](https://github.com/thewoolleyman/livespec-overseer/commit/81533812397318df9564422f1fb2c480624ad83a))
+* preserve ready until idle restart ([7907f32](https://github.com/thewoolleyman/livespec-overseer/commit/7907f3224080918bfd332fb940ca878a1adaad4e))
+* track supervisor pair snapshot rows ([e481ccb](https://github.com/thewoolleyman/livespec-overseer/commit/e481ccbca05f8284e0018943274b8ca086d327ad))
+
 ## [0.41.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.41.0...v0.41.1) (2026-08-17)
 
 
