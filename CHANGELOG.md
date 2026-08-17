@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.46.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.45.1...v0.46.0) (2026-08-17)
+
+
+### Features
+
+* cover overseer declare cli ([9faa245](https://github.com/thewoolleyman/livespec-overseer/commit/9faa2459359f5fdb957d07cf96273738213fdfaf))
+
 ## [0.45.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.45.0...v0.45.1) (2026-08-17)
 
 
