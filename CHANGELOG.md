@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.1...v0.43.2) (2026-08-17)
+
+
+### Bug Fixes
+
+* **overseer:** guard the winding-down downgrade write against clobbering blocked ([f4bad79](https://github.com/thewoolleyman/livespec-overseer/commit/f4bad79080e8bf9a84b592435e48ee5c493643c6))
+
 ## [0.43.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.0...v0.43.1) (2026-08-17)
 
 
