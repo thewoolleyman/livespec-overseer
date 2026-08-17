@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.43.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.4...v0.43.5) (2026-08-17)
+
+
+### Bug Fixes
+
+* **check:** harden the coverage dedup — clean-env producer + consume-once consumer ([1ba6710](https://github.com/thewoolleyman/livespec-overseer/commit/1ba6710c7cb40fedaf48455a5ff71e79b35102e7))
+* **justfile:** extract check-per-file-coverage into a conforming wrapper script ([ea03fa0](https://github.com/thewoolleyman/livespec-overseer/commit/ea03fa08e4ea25e95e93b800acef3bcd57acd4bf))
+
 ## [0.43.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.3...v0.43.4) (2026-08-17)
 
 
