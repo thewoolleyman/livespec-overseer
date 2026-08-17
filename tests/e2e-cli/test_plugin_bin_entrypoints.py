@@ -1151,7 +1151,9 @@ def _assert_runtime_cadence(*, context: ForemanE2EContext) -> None:
     assert _runtime_state(context=context, name="runtime.json")["next_llm_tick_at"] == 4600.0
     assert _runtime_result(context=context, snapshot=snapshot, now=1001.0)["exit_reason"] is None
     changed = {**snapshot, "tick_generation": 2}
-    assert _runtime_result(context=context, snapshot=changed, now=4600.0)["exit_reason"] is None
+    assert _runtime_result(context=context, snapshot=changed, now=4600.0)["exit_reason"] == (
+        "converged"
+    )
     assert _runtime_result(context=context, snapshot=changed, now=8200.0)["exit_reason"] == (
         "converged"
     )

@@ -200,7 +200,7 @@ def test_runtime_exit_reason_is_carried_to_the_resume_question_contract(*, tmp_p
             _run_runtime(repo=repo, home=home, socket=socket, snapshot=changed, now=4600.0)[
                 "exit_reason"
             ]
-            is None
+            == "converged"
         )
         assert (
             _run_runtime(repo=repo, home=home, socket=socket, snapshot=changed, now=8200.0)[

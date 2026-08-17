@@ -147,8 +147,6 @@ class ForemanRuntime:
     ) -> int:
         if not document.monitored_entities or action_taken:
             return 0
-        if state.get("last_generation_fingerprint") != document.generation_fingerprint:
-            return 1 if scheduled_tick else 0
         if state.get("last_fingerprint") != document.fingerprint:
             return 1 if scheduled_tick else 0
         if not scheduled_tick:
