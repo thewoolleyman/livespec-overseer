@@ -1,6 +1,7 @@
 """Beside-tests for supervisor.py — restart certification under live background checks."""
 
 import registry
+import signals
 import supervisor
 from test_supervisor_builders import (
     TEST_EPIC,
@@ -57,7 +58,7 @@ def test_ready_marker_stays_armed_when_busy_past_old_grace(*, tmp_path):
     assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
 
-def test_ready_activity_preserves_inject_state_until_idle_restart(*, tmp_path):
+def test_ready_activity_preserves_round_and_degrades_until_idle_ack(*, tmp_path):
     """After ready plus activity, in-memory state and durable notified bands survive."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -72,20 +73,21 @@ def test_ready_activity_preserves_inject_state_until_idle_restart(*, tmp_path):
     assert registry.read_notified_bands(
         repo=str(repo), topic=topic, stamp_path=sup.stamp_path
     )  # a band recorded
-    # Session emits more output after ready → declaration remains armed, round preserved.
+    # Session emits more output after ready → declaration degrades, round preserved.
     registry.write_injection_stamp(repo=str(repo), topic=topic, ts=700.0, stamp_path=sup.stamp_path)
     arm_ready_marker(repo=repo, topic=topic, mtime=800.0)
     fake.panes[session] = "esc to interrupt\n  Ctx: 30% left\n"  # busy
     sup.evaluate(track=track, act=True)
     assert key_for(repo=repo, topic=topic) in sup.inject
-    # Next idle low-ctx tick spends the still-armed declaration on a restart.
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None
+    assert state.token == signals.STATE_WINDING_DOWN
+    assert state.detail == "auto @1000"
+    # Next idle low-ctx tick treats the degraded state as a fresh ACK, not a restart.
     fake.panes[session] = idle_capture(ctx=35)
     sup.claude_status_by_session = {session: "idle"}
-    assert sup.evaluate(track=track, act=True).status == "restarting"
-    assert (
-        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is None
-    )
+    assert sup.evaluate(track=track, act=True).status == "winding-down"
+    assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
 
 def test_no_restart_when_not_idle(*, tmp_path):

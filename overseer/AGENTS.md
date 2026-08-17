@@ -130,7 +130,7 @@ stateDiagram-v2
     cBand --> danger: eff_ctx ≤ 20
     cBand --> warned: otherwise
 
-    working: working  ·  voids stale blocked (ready stays armed)
+    working: working  ·  voids stale blocked, downgrades post-ready activity
     blocked_human: blocked:human  ·  alerts operator
     settling: settling  ·  wait, re-read next tick
     restarting: restarting  ·  _do_restart (ONLY path; runtime-dispatched claude/codex)
@@ -840,6 +840,12 @@ for the marker's edge-triggered lifecycle.
   status. A STALE one resumes the escalation and re-reports the track (an ACK must
   not become an infinite stall), but it STILL never authorizes an act: only `ready`
   does.
+- **Post-ready activity degrades visibly.** A session that writes `ready` and then
+  resumes activity has contradicted its own stop declaration. The daemon rewrites
+  the state file to `winding-down: auto @<epoch-seconds>` instead of deleting it
+  or leaving `ready` armed. The file remains readable by the session and operator,
+  the next idle tick follows the ordinary fresh-ACK `winding-down` path, and once
+  the auto ACK ages past `ACK_STALE_AFTER` escalation resumes.
 - **Reporting a non-responder (`_alert_non_responder`).** This is the WHOLE response
   to a session that declared nothing at/below `DANGER_CTX_REMAINING` (20%): say so,
   loudly, with the tmux coordinates to go fix it — and do nothing else. It is a
@@ -849,8 +855,9 @@ for the marker's edge-triggered lifecycle.
   behalf.
 - **State precedence** (`evaluate`, top to bottom). `working` and `blocked:human`
   are evaluated FIRST, so an injection/keystroke is suppressed while a pane is
-  generating, sub-agent-busy, non-shell busy, carrying a `ready` while any busy
-  evidence remains, or showing a structured gate (permission prompt / picker) —
+  generating, sub-agent-busy, non-shell busy, carrying post-ready activity that
+  is downgraded to `winding-down`, or showing a structured gate (permission
+  prompt / picker) —
   never keystroke into a gate. Shell-only evidence is the narrow exception to the
   busy short-circuit: at/below threshold it may continue to the low-context branch,
   but only through the same idle-input and settle gates plus an immediate pre-paste
@@ -860,8 +867,8 @@ for the marker's edge-triggered lifecycle.
   cancels that tick. Then `settling` / identity re-check, then `restarting` (a fresh
   `ready`), then the threshold branch (`winding-down` on a fresh ACK, else `danger`
   at/below 20%, else `warned`), else the idle branch. `restarting` is checked BEFORE
-  `warned`: a fresh `ready` means the session already declared it is done, so it
-  supersedes any re-warn only after busy evidence has cleared. The idle branch itself
+  `warned`: a fresh `ready` means the session already declared it is done, but
+  only if no further activity degraded the declaration first. The idle branch itself
   splits: an idle session still ABOVE threshold, not `waiting` on a human, and
   carrying no session declaration (or already holding the marker) becomes
   `idle-with-context-left` and gets ONE keep-going nudge; anything else is plain

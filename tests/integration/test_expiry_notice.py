@@ -110,9 +110,8 @@ def test_scenario_repeated_expiries_never_resend_an_already_notified_band(*, tmp
     assert len([call for call in fake.calls if call[0] == "respawn"]) == 0
 
 
-def test_an_armed_declaration_that_merely_saw_more_output_is_never_noticed(*, tmp_path):
-    """Activity does not expire a declaration, so it draws no notice — it stays armed
-    and restarts on the next verified settled-idle observation."""
+def test_an_armed_declaration_that_saw_more_output_degrades_without_expiry_notice(*, tmp_path):
+    """Activity degrades a declaration, so ready-expiry notice no longer applies."""
     clock = {"t": 1000.0}
     fixture = _open_delivered_round(tmp_path=tmp_path, clock=clock)
     repo, topic, session, fake, sup, track, _status = fixture
@@ -121,10 +120,13 @@ def test_an_armed_declaration_that_merely_saw_more_output_is_never_noticed(*, tm
     fake.serve(session=session, repo=repo, capture=busy_capture(ctx=40))
 
     assert sup.evaluate(track=track, act=True).status == "working"
-    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None
+    assert state.token == signals.STATE_WINDING_DOWN
+    assert state.detail == "auto @1190"
 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
-    restarted = sup.evaluate(track=track, act=True)
+    winding_down = sup.evaluate(track=track, act=True)
 
-    assert restarted.status == "restarting"
+    assert winding_down.status == "winding-down"
     assert _notice_texts(fake=fake) == []
