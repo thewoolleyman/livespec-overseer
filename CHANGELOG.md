@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.47.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.46.2...v0.47.0) (2026-08-17)
+
+
+### Features
+
+* add foreman topic signal regression ([de48881](https://github.com/thewoolleyman/livespec-overseer/commit/de48881b9d6f15e29d47b59ff358edf69cc5396d))
+
 ## [0.46.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.46.1...v0.46.2) (2026-08-17)
 
 
