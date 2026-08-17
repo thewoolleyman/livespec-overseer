@@ -11,10 +11,14 @@ from __future__ import annotations
 import contextlib
 import io as _io
 import os
+import textwrap
 import threading
 import time
 from pathlib import Path
 
+import pytest
+
+import overseer._supervisor_restart as supervisor_restart
 from overseer import registry, signals, supervisor, tmuxio
 from overseer.test_supervisor_builders import (
     busy_capture,
@@ -150,6 +154,62 @@ class RacePaneDriver:
 
     def respawn_pane(self, *, session: str, cwd: str, command: str) -> bool:
         self.respawns.append((session, cwd, command, time.monotonic()))
+        return self.inner.respawn_pane(
+            session=session,
+            cwd=cwd,
+            command="bash --noprofile --norc",
+        )
+
+    def new_session(self, *, name: str, cwd: str) -> bool:
+        return self.inner.new_session(name=name, cwd=cwd)
+
+    def rename_window(self, *, pane: str, name: str) -> bool:
+        return self.inner.rename_window(pane=pane, name=name)
+
+
+class PromptContractPaneDriver:
+    """Real private tmux server plus a tiny scripted model process."""
+
+    def __init__(self, *, inner: tmuxio.TmuxIO, repo: Path) -> None:
+        self.inner = inner
+        self.repo = repo
+        self.pastes: list[tuple[str, str]] = []
+        self.respawns: list[tuple[str, str, str]] = []
+
+    def capture_pane(self, *, session: str) -> str:
+        return self.inner.capture_pane(session=session)
+
+    def pane_id(self, *, session: str) -> str | None:
+        return self.inner.pane_id(session=session)
+
+    def pane_pid(self, *, session: str) -> int | None:
+        return self.inner.pane_pid(session=session)
+
+    def pane_current_command(self, *, session: str) -> str | None:
+        if session.startswith("%") or self.inner.session_exists(session=session):
+            return "node"
+        return None
+
+    def pane_current_path(self, *, session: str) -> str | None:
+        if session.startswith("%") or self.inner.session_exists(session=session):
+            return str(self.repo)
+        return None
+
+    def session_exists(self, *, session: str) -> bool:
+        return self.inner.session_exists(session=session)
+
+    def pane_pid_sessions(self) -> dict[int, str]:
+        return self.inner.pane_pid_sessions()
+
+    def send_keys(self, *, session: str, keys: str) -> bool:
+        return self.inner.send_keys(session=session, keys=keys)
+
+    def bracketed_paste(self, *, session: str, text: str) -> bool:
+        self.pastes.append((session, text))
+        return self.inner.bracketed_paste(session=session, text=text)
+
+    def respawn_pane(self, *, session: str, cwd: str, command: str) -> bool:
+        self.respawns.append((session, cwd, command))
         return self.inner.respawn_pane(
             session=session,
             cwd=cwd,
@@ -338,21 +398,190 @@ def _open_warning_round(*, sup: supervisor.Supervisor) -> None:
     raise AssertionError("supervisor did not open a warning round")
 
 
-def _script_tiny_context_wrapup(*, prompt: str) -> list[str]:
-    transcript = [
-        "overseer-declare winding-down",
-        "append sanctioned plan resume state",
-        "stop background processes",
-        "overseer-declare ready",
-    ]
-    has_final_act_rule = "ready is your FINAL act" in prompt
-    has_anti_confabulation_rule = (
-        "if you are still in this conversation, no restart happened - never conclude otherwise"
-        in prompt
+def _open_tiny_context_round(
+    *, sup: supervisor.Supervisor, driver: PromptContractPaneDriver
+) -> None:
+    view = sup.tick(act=True)[0]
+    assert view.ctx == 5
+    assert view.status in {"warned", "danger"}
+    assert driver.pastes
+
+
+def _legacy_wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -> str:
+    current = supervisor.wrapup_message(remaining=remaining, repo=repo, topic=topic, epic=epic)
+    return current.replace(
+        "Declare done, and stop. The command that declares ready is your FINAL act:",
+        "Declare done, and stop:",
+    ).replace(
+        "\n\nAfter `overseer-declare ready`, stop immediately.\n"
+        "if you are still in this conversation, no restart happened - never conclude otherwise.",
+        "",
     )
-    if not (has_final_act_rule and has_anti_confabulation_rule):
-        transcript.append("Restart completed; continuing with the next step.")
-    return transcript
+
+
+def _tiny_context_tui_script(
+    *, repo: Path, topic: str, transcript: Path, stop_after_ready: bool
+) -> Path:
+    state_file = signals.state_path(repo=str(repo), topic=topic)
+    script = repo / "tmp" / "tiny-context-tui.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text(
+        textwrap.dedent(
+            f"""\
+            #!/usr/bin/env python3
+            import sys
+            import termios
+            import time
+            import tty
+            from pathlib import Path
+
+            RULE = {"─" * 40!r}
+            HINT = {"  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents"!r}
+            STATE_FILE = Path({str(state_file)!r})
+            TRANSCRIPT = Path({str(transcript)!r})
+            CRASH_LOG = TRANSCRIPT.with_suffix(".crash.log")
+            STOP_AFTER_READY = {stop_after_ready!r}
+
+            def record(line):
+                TRANSCRIPT.parent.mkdir(parents=True, exist_ok=True)
+                with TRANSCRIPT.open("a", encoding="utf-8") as handle:
+                    handle.write(line + "\\n")
+
+            def render(composer=""):
+                sys.stdout.write("\\033[2J\\033[H")
+                sys.stdout.write("● prior response\\r\\n")
+                sys.stdout.write(RULE + "\\r\\n")
+                first_line = composer.splitlines()[0] if composer.splitlines() else ""
+                sys.stdout.write("❯ " + first_line[:80] + "\\r\\n")
+                sys.stdout.write(RULE + "\\r\\n")
+                sys.stdout.write("  Opus 4.8 (1M context) | /x/repo | Ctx: 5% left\\r\\n")
+                sys.stdout.write(HINT + "\\r\\n")
+                sys.stdout.flush()
+
+            def render_busy():
+                sys.stdout.write("\\033[2J\\033[H")
+                sys.stdout.write("● response\\r\\n")
+                sys.stdout.write(
+                    "✻ Galloping… (running stop hooks… 1/3 · 24s · ↓ 1.4k tokens)\\r\\n"
+                )
+                sys.stdout.write(RULE + "\\r\\n")
+                sys.stdout.write("❯ \\r\\n")
+                sys.stdout.write(RULE + "\\r\\n")
+                sys.stdout.write("  Opus 4.8 (1M context) | /x/repo | Ctx: 5% left\\r\\n")
+                sys.stdout.write(HINT + "\\r\\n")
+                sys.stdout.flush()
+
+            def declare(value):
+                STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                STATE_FILE.write_text(value + "\\n", encoding="utf-8")
+
+            def act_on(prompt):
+                record("overseer-declare winding-down")
+                declare("winding-down")
+                record("append sanctioned plan resume state")
+                record("stop background processes")
+                record("overseer-declare ready")
+                declare("ready")
+                if STOP_AFTER_READY:
+                    return
+                record("Restart completed; continuing with the next step.")
+
+            def main():
+                tty_in = open("/dev/tty", "r", encoding="utf-8", errors="ignore")
+                old = termios.tcgetattr(tty_in)
+                try:
+                    tty.setraw(tty_in.fileno())
+                    render()
+                    buf = ""
+                    while True:
+                        ch = tty_in.read(1)
+                        if not ch:
+                            return
+                        buf += ch
+                        prompt = buf.replace("\\x1b[200~", "").replace("\\x1b[201~", "")
+                        render(prompt)
+                        if "write the file." not in prompt:
+                            continue
+                        while tty_in.read(1) not in ("\\r", "\\n"):
+                            pass
+                        act_on(prompt)
+                        render_busy()
+                        time.sleep(1.0)
+                        render()
+                        while True:
+                            time.sleep(1.0)
+                finally:
+                    termios.tcsetattr(tty_in, termios.TCSADRAIN, old)
+                    tty_in.close()
+
+            try:
+                main()
+            except Exception as exc:
+                CRASH_LOG.parent.mkdir(parents=True, exist_ok=True)
+                CRASH_LOG.write_text(type(exc).__name__ + ": " + str(exc) + "\\n", encoding="utf-8")
+                raise
+            """
+        ),
+        encoding="utf-8",
+    )
+    script.chmod(0o700)
+    return script
+
+
+def _prompt_contract_fixture(
+    *, tmp_path: Path, stop_after_ready: bool
+) -> tuple[
+    Path,
+    str,
+    str,
+    tmuxio.TmuxIO,
+    PromptContractPaneDriver,
+    supervisor.Supervisor,
+    Path,
+]:
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    transcript = repo / "tmp" / "tiny-context-transcript.txt"
+    tmux_bin = _tmux_wrapper(tmp_path=tmp_path)
+    inner = tmuxio.TmuxIO(tmux_bin=str(tmux_bin))
+    script = _tiny_context_tui_script(
+        repo=repo, topic=topic, transcript=transcript, stop_after_ready=stop_after_ready
+    )
+    assert inner.new_session(name=session, cwd=str(repo))
+    assert inner.respawn_pane(session=session, cwd=str(repo), command=str(script))
+    _await_rendered(inner=inner, session=session, capture=idle_capture(ctx=5))
+    driver = PromptContractPaneDriver(inner=inner, repo=repo)
+    sup = _loop_supervisor(tmp_path=tmp_path, driver=driver, session=session, repo=repo)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+    registry.append_mapping(
+        track=track,
+        store_path=sup.store_path,
+        added_at="2026-08-17T00:00:00Z",
+    )
+    write_fresh_supervisor_state(repo=repo, topic=topic)
+    sup.build_rows = lambda *, act=True: [track]
+    return repo, topic, session, inner, driver, sup, transcript
+
+
+def _read_transcript_until(*, path: Path, needle: str) -> list[str]:
+    for _attempt in range(100):
+        if path.exists():
+            transcript = path.read_text(encoding="utf-8").splitlines()
+            if needle in transcript:
+                return transcript
+        time.sleep(0.05)
+    raise AssertionError(f"{needle!r} never appeared in {path}")
+
+
+def _await_input_ready(*, driver: PromptContractPaneDriver, session: str) -> None:
+    for _attempt in range(100):
+        capture = driver.capture_pane(session=session)
+        if signals.input_box_ready(capture_text=capture) and not signals.is_busy(
+            capture_text=capture
+        ):
+            return
+        time.sleep(0.05)
+    raise AssertionError("tiny-context pane never returned to an idle input box")
 
 
 def test_state_file_event_wakes_daemon_before_next_narration_turn(*, tmp_path: Path) -> None:
@@ -380,19 +609,43 @@ def test_state_file_event_wakes_daemon_before_next_narration_turn(*, tmp_path: P
         _close_session(inner=inner, session=session, repo=repo)
 
 
-def test_wrapup_contract_makes_ready_the_scripted_session_final_act(*, tmp_path: Path) -> None:
-    repo, topic, session, inner, driver, sup, _capture = _race_fixture(tmp_path=tmp_path)
+@pytest.mark.parametrize(
+    ("use_legacy_prompt", "stop_after_ready"),
+    [(True, False), (False, True)],
+)
+def test_wrapup_contract_drives_tiny_context_session_to_final_ready(
+    *,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    use_legacy_prompt: bool,
+    stop_after_ready: bool,
+) -> None:
+    if use_legacy_prompt:
+        monkeypatch.setattr(supervisor_restart, "wrapup_message", _legacy_wrapup_message)
+    repo, topic, session, inner, driver, sup, transcript_path = _prompt_contract_fixture(
+        tmp_path=tmp_path, stop_after_ready=stop_after_ready
+    )
     try:
-        _open_warning_round(sup=sup)
-        assert len(driver.pastes) == 1
-        _target, prompt = driver.pastes[0]
+        _open_tiny_context_round(sup=sup, driver=driver)
+        transcript = _read_transcript_until(
+            path=transcript_path,
+            needle=(
+                "Restart completed; continuing with the next step."
+                if use_legacy_prompt
+                else "overseer-declare ready"
+            ),
+        )
 
-        transcript = _script_tiny_context_wrapup(prompt=prompt)
-        declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=time.time())
+        if use_legacy_prompt:
+            assert transcript[-1] == "Restart completed; continuing with the next step."
+            assert transcript[-2] == "overseer-declare ready"
+            return
+
+        _await_input_ready(driver=driver, session=session)
         restarted = sup.evaluate(
             track=mapped_track(repo=repo, topic=topic, session=session), act=True
         )
-
+        transcript = transcript_path.read_text(encoding="utf-8").splitlines()
         assert restarted.status == "restarting"
         assert driver.respawns
         assert transcript[-1] == "overseer-declare ready"
