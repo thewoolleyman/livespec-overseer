@@ -99,12 +99,12 @@ def nudge_idle_with_context(
     confirmed by the pane going busy, not by a cleared ``❯`` box).
     """
     repo, topic = track.repo, track.topic
-    if signals.topic_reserved_for_supervisor(topic=topic):
+    if (worker_topic := signals.topic_supervised_worker(topic=topic)) is not None:
         message = supervisor_idle_nudge_message(
             remaining=eff_ctx,
             threshold=threshold,
             repo=repo,
-            topic=signals.supervisor_topic(entity_topic=topic),
+            topic=worker_topic,
             epic=track.epic,
         )
     else:

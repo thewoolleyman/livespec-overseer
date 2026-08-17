@@ -17,6 +17,8 @@ import io as _io
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "overseer"))
 
 import signals
@@ -84,3 +86,12 @@ def test_topic_supervised_worker_precise_about_the_suffix():
     assert signals.topic_supervised_worker(topic="topic-supervisor") == "topic"
     assert signals.topic_supervised_worker(topic="topic-foreman") is None
     assert signals.topic_supervised_worker(topic="topic") is None
+
+
+def test_foreman_topic_helper_precise_and_supervisor_topic_fails_closed():
+    assert signals.is_foreman_topic(topic="topic-foreman") is True
+    assert signals.is_foreman_topic(topic="topic-supervisor") is False
+    assert signals.is_foreman_topic(topic="topic") is False
+
+    with pytest.raises(ValueError, match="-foreman"):
+        signals.supervisor_topic(entity_topic="topic-foreman")
