@@ -240,11 +240,7 @@
     // every comment here while reporting green — tracked as bd-ib-lmi5.
     "dispatcher": {
       "acceptance_mode": "ai-only",
-      "auto_approve_ready": true,
-      "factories": {
-        "hp": { "server": "https://hp-xubuntu.perch-rudd.ts.net:32276" }
-      },
-      "default_factory": "hp"
+      "auto_approve_ready": true
     }
   }
 }
