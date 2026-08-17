@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.5...v0.43.6) (2026-08-17)
+
+
+### Bug Fixes
+
+* **foreman:** arm the hourly loop via CronCreate directly, skip /loop's cloud ask ([4495f48](https://github.com/thewoolleyman/livespec-overseer/commit/4495f48eb8485c8211a2e7b1ab11c3af634b14da))
+
 ## [0.43.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.4...v0.43.5) (2026-08-17)
 
 
