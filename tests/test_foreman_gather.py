@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import json
 import sys
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,11 @@ def foreman_gather_collect():
 def foreman_gather_sources():
     _ = foreman_gather()
     return importlib.import_module("foreman_gather_sources")
+
+
+def foreman_runtime_document():
+    _ = foreman_gather()
+    return importlib.import_module("foreman_runtime_document")
 
 
 def write_json(*, path: Path, payload: object) -> None:
@@ -263,6 +269,89 @@ def test_snapshot_rows_carry_supervisor_handoff_presence(*, tmp_path):
         "alpha-supervisor | session-gone | ctx=None | human_wait=no | "
         "supervisor=supervisor-topic"
     ) in module.render_document(document=document)
+
+
+def test_snapshot_rows_carry_foreman_row_evidence(*, tmp_path):
+    module = foreman_gather()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "plan" / "plan-a").mkdir(parents=True)
+    (repo / "changed.txt").write_text("pending\n", encoding="utf-8")
+    pane_text = "Do you want to proceed?\n> 1. Yes\n  2. No\n"
+    snapshot_path = tmp_path / "status.json"
+    write_json(
+        path=snapshot_path,
+        payload={
+            "schema_version": 1,
+            "daemon_instance_id": "daemon-1",
+            "tick_generation": 7,
+            "written_at": "2026-08-03T08:00:00Z",
+            "rows": [
+                {
+                    "ctx": 42,
+                    "human_wait": True,
+                    "picker_open": True,
+                    "repo": str(repo),
+                    "stall_seconds": 185,
+                    "status": "blocked:human",
+                    "supervisor_state_age": 12.5,
+                    "tmux": "alpha",
+                    "topic": "plan-a",
+                }
+            ],
+        },
+    )
+
+    document = module.compose_document(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        needs_attention_command=None,
+        journal_path=repo / "tmp" / "fabro-dispatch-journal.jsonl",
+        now=lambda: "2026-08-03T08:03:00Z",
+        pane_captures={"alpha": pane_text},
+    )
+
+    row = document["snapshot"]["rows"][0]
+    assert row["picker_open"] is True
+    assert row["stall_seconds"] == 185
+    assert row["supervisor_state_age"] == 12.5
+    assert row["proposed_changes_count"] == 1
+    assert row["pane_content_hash"] == sha256(pane_text.encode("utf-8")).hexdigest()
+    rendered = module.render_document(document=document)
+    assert "picker_open=yes" in rendered
+    assert "stall_seconds=185" in rendered
+    assert "supervisor_state_age=12.5" in rendered
+    assert "proposed_changes=1" in rendered
+    assert f"pane_hash={row['pane_content_hash'][:12]}" in rendered
+
+
+def test_runtime_fingerprint_changes_when_tracked_stall_age_rises(*, tmp_path):
+    module = foreman_runtime_document()
+    repo = tmp_path / "repo"
+    row = {
+        "ctx": 42,
+        "human_wait": True,
+        "pane_content_hash": "same-pane",
+        "picker_open": True,
+        "progress_now": False,
+        "proposed_changes_count": 0,
+        "repo": str(repo),
+        "round_open": False,
+        "session_identity": "codex:alpha",
+        "status": "blocked:human",
+        "supervisor_state_age": 3.0,
+        "tmux": "alpha",
+        "topic": "plan-a",
+    }
+    first = {"snapshot": {"rows": [row]}, "needs_attention": {"items": []}}
+    second = {
+        "snapshot": {"rows": [{**row, "stall_seconds": 185}]},
+        "needs_attention": {"items": []},
+    }
+
+    assert module.foreman_document(payload=first).fingerprint != (
+        module.foreman_document(payload=second).fingerprint
+    )
 
 
 def test_supervisor_handoff_uses_shipped_reserved_topic_predicate(*, tmp_path, monkeypatch):

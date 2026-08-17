@@ -41,7 +41,31 @@ def row_line(*, row: dict[str, object]) -> str:
     supervisor_handoff = row.get("supervisor_handoff")
     if isinstance(supervisor_handoff, str):
         line = f"{line} | supervisor={supervisor_handoff}"
+    evidence = evidence_text(row=row)
+    if evidence:
+        line = f"{line} | {evidence}"
     return f"{line} | {note_text}"
+
+
+def evidence_text(*, row: dict[str, object]) -> str:
+    keys = (
+        "picker_open",
+        "stall_seconds",
+        "supervisor_state_age",
+        "proposed_changes_count",
+        "pane_content_hash",
+    )
+    if not any(key in row for key in keys):
+        return ""
+    picker_open = "yes" if row.get("picker_open") is True else "no"
+    pane_hash = row.get("pane_content_hash")
+    pane_hash_text = pane_hash[:12] if isinstance(pane_hash, str) else None
+    return (
+        f"picker_open={picker_open} | stall_seconds={row.get('stall_seconds')} | "
+        f"supervisor_state_age={row.get('supervisor_state_age')} | "
+        f"proposed_changes={row.get('proposed_changes_count')} | "
+        f"pane_hash={pane_hash_text}"
+    )
 
 
 def items_from_attention(*, attention: object) -> list[dict[str, object]]:
