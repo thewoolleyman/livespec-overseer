@@ -432,6 +432,33 @@ def test_foreman_prompt_resume_builder_covers_ledger_and_no_epic_shapes(*, tmp_p
     assert "plan/" not in foreman_resume_without_epic
 
 
+def test_foreman_resume_command_uses_ledger_prompt_instead_of_scratch_handoff(*, tmp_path):
+    commands = module("foreman_act_commands")
+    repo = str(tmp_path / "repo")
+    epic = "overseer-foreman-epic"
+    handoff = f"{repo}/tmp/overseer/foreman/foreman-session-handoff.md"
+
+    command = commands.resume_command_from_payload(
+        payload={
+            "runtime": "codex",
+            "repo": repo,
+            "topic": "repo-foreman",
+            "session_id": "codex-session-id",
+            "handoff_path": handoff,
+            "epic": epic,
+        }
+    )
+
+    assert command is not None
+    prompt = command[-1]
+    assert prompt == (
+        f"resume foreman ledger epic {epic} in repository {repo}; "
+        "read its ledger-held foreman handoff timeline"
+    )
+    assert handoff not in prompt
+    assert "plan/" not in prompt
+
+
 def test_supervisor_prompt_wrapup_builders_cover_ledger_and_no_epic_shapes(*, tmp_path):
     prompts = module("_supervisor_prompts")
     repo = str(tmp_path / "repo")
