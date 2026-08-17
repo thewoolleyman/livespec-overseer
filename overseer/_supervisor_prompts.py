@@ -33,6 +33,7 @@ __all__: list[str] = [
     "expiry_notice_message",
     "foreman_epic_resume",
     "foreman_resume",
+    "foreman_wrapup_message",
     "idle_nudge_message",
     "launch_resume",
     "pair_stall_nudge_message",
@@ -310,6 +311,24 @@ def foreman_resume(*, repo: str, epic: str | None = None) -> str:
             f"ledger epic id for repository {repo}, so ask the operator to record one)"
         )
     return foreman_epic_resume(repo=repo, epic=epic)
+
+
+def _foreman_state_locator(*, repo: str, epic: str | None) -> str:
+    """The foreman entity's ledger-held handoff timeline."""
+    return f"the foreman handoff timeline on ledger epic {epic} in repository {repo}"
+
+
+def foreman_wrapup_message(
+    *, remaining: int, repo: str, topic: str, epic: str | None = None
+) -> str:
+    """Wrap-up text for a foreman entity using the shared cardinal-rule body."""
+    return f"{_wrapup_head(remaining=remaining)}\n\n{_WRAPUP_BODY}".format(
+        n=remaining,
+        marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
+        state_file=str(signals.state_path(repo=repo, topic=topic)),
+        read_first=_foreman_state_locator(repo=repo, epic=epic),
+        resume=foreman_resume(repo=repo, epic=epic),
+    )
 
 
 def _supervisor_state_locator(*, repo: str, topic: str, epic: str | None) -> str:

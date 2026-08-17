@@ -63,6 +63,37 @@ def test_supervisor_wrapup_text_targets_supervisor_ledger_state(*, tmp_path):
     assert "cp " not in text
 
 
+def test_foreman_low_context_uses_foreman_wrapup_with_shared_cardinal_body(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    foreman_topic = f"{topic}-foreman"
+    session = foreman_topic
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=45))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    track = mapped_track(repo=repo, topic=foreman_topic, session=session)
+
+    assert "foreman_wrapup_message" in _supervisor_prompts.__all__
+    expected_body = _supervisor_prompts._WRAPUP_BODY.format(
+        marker_dir=str(signals.marker_dir(repo=str(repo), topic=foreman_topic)),
+        state_file=str(signals.state_path(repo=str(repo), topic=foreman_topic)),
+        read_first=(
+            f"the foreman handoff timeline on ledger epic {TEST_EPIC} " f"in repository {repo}"
+        ),
+        resume=(
+            f"resume foreman ledger epic {TEST_EPIC} in repository {repo}; "
+            "read its ledger-held foreman handoff timeline"
+        ),
+    )
+
+    view = sup.evaluate(track=track, act=True)
+
+    pasted = "\n".join(fake.paste_texts())
+    assert view.status == "warned"
+    assert "foreman handoff timeline" in pasted
+    assert "plan epic" not in pasted
+    assert pasted.split("\n\n", 1)[1] == expected_body
+
+
 def test_dead_supervisor_with_open_round_gets_attention_row(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     fake = FakeTmux()
