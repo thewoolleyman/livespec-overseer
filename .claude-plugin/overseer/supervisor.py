@@ -48,6 +48,7 @@ import argparse
 import io
 import json
 import os
+from pathlib import Path
 
 import _supervisor_snapshot
 import registry
@@ -132,19 +133,27 @@ def _upsert(*, track: registry.Track) -> None:
     registry.append_mapping(track=track, store_path=None, added_at=iso_now())
 
 
-def _track_for_assignment(*, repo: str, topic: str, session: str) -> registry.Track:
+def _track_for_assignment(
+    *, repo: str, topic: str, session: str, epic_source_topic: str | None = None
+) -> registry.Track:
     """Build the mapping row written by attended assignment surfaces.
 
     No ``resume`` is written. That field is the OPERATOR's optional per-track override of
     the respawn prompt, and auto-populating it with a derived line made every row look
     like an override — which is why the derived value has to be ignored on read. The
     daemon derives the prompt from ``repo``, ``epic``, and the entity name instead.
+
+    ``epic_source_topic`` overrides which topic's ``plan/<topic>/`` the epic is
+    derived FROM, while ``topic``/``tmux`` stay the entity's own — the
+    supervisor-epic-inheritance path (a ``-supervisor`` topic deriving from the
+    worker topic it supervises, since a supervisor entity has no plan directory
+    of its own). None (the default) derives from ``topic`` itself, unchanged.
     """
     return registry.Track(
         topic=topic,
         repo=repo,
         tmux=session,
-        epic=registry.epic_from_plan_anchor(repo=repo, topic=topic),
+        epic=registry.epic_from_plan_anchor(repo=repo, topic=epic_source_topic or topic),
     )
 
 
@@ -214,22 +223,46 @@ def _refuse_reserved_topic(*, repo: str, topic: str) -> bool:
     return True
 
 
-def _derive_tmux_or_refuse(*, repo: str, topic: str) -> str | None:
+def _derive_tmux_or_refuse(*, repo: str, topic: str, allow_reserved: bool = False) -> str | None:
     try:
-        return registry.tmux_id(repo=repo, topic=topic, colliding=_cli_colliding())
+        return registry.tmux_id(
+            repo=repo, topic=topic, colliding=_cli_colliding(), allow_reserved=allow_reserved
+        )
     except ValueError as exc:
         streams.write_stderr(text=f"{exc}\n")
         return None
 
 
+def _inheritable_supervisor_epic_source(*, repo: str, topic: str) -> str | None:
+    """The worker topic a ``-supervisor`` entity topic should inherit its epic from.
+
+    None when ``topic`` is not a ``-supervisor`` entity, or when it is one but has
+    no supervised counterpart (no ``plan/<worker>/`` directory) — the
+    reserved-suffix guard still refuses those cases exactly as before, unchanged.
+    A supervisor entity has no plan directory of its own by design, so this is
+    the only way it can ever carry an epic.
+    """
+    worker_topic = signals.topic_supervised_worker(topic=topic)
+    if worker_topic is None:
+        return None
+    if not (Path(repo) / "plan" / worker_topic).is_dir():
+        return None
+    return worker_topic
+
+
 def _cmd_add(*, args: argparse.Namespace) -> int:
     repo = os.path.normpath(args.repo)
-    if _refuse_reserved_topic(repo=repo, topic=args.topic):
+    epic_source_topic = _inheritable_supervisor_epic_source(repo=repo, topic=args.topic)
+    if epic_source_topic is None and _refuse_reserved_topic(repo=repo, topic=args.topic):
         return 1
-    session = _derive_tmux_or_refuse(repo=repo, topic=args.topic)
+    session = _derive_tmux_or_refuse(
+        repo=repo, topic=args.topic, allow_reserved=epic_source_topic is not None
+    )
     if session is None:
         return 1
-    track = _track_for_assignment(repo=repo, topic=args.topic, session=session)
+    track = _track_for_assignment(
+        repo=repo, topic=args.topic, session=session, epic_source_topic=epic_source_topic
+    )
     _upsert(track=track)
     streams.write_stdout(text=f"added mapping {repo}::{args.topic} (tmux {track.tmux})\n")
     return 0

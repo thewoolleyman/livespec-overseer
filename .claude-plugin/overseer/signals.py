@@ -49,6 +49,7 @@ __all__: list[str] = [
     "supervisor_entity_topic",
     "supervisor_topic",
     "topic_reserved_for_supervisor",
+    "topic_supervised_worker",
     "valid_token",
 ]
 
@@ -374,6 +375,18 @@ def supervisor_topic(*, entity_topic: str) -> str:
     if not topic_reserved_for_supervisor(topic=entity_topic):
         return entity_topic
     return entity_topic[: -len(_SUPERVISOR_SUFFIX)]
+
+
+def topic_supervised_worker(*, topic: str) -> str | None:
+    """The worker topic a `-supervisor`-suffixed entity topic supervises.
+
+    Precise about the SUFFIX, unlike `supervisor_topic`: returns None for a
+    plain worker topic AND for a `-foreman`-suffixed one (foreman entities have
+    no supervised-worker counterpart), never a mis-stripped string.
+    """
+    if not topic.lower().endswith(_SUPERVISOR_SUFFIX):
+        return None
+    return topic[: -len(_SUPERVISOR_SUFFIX)]
 
 
 def state_path(*, repo: str, topic: str) -> Path:
