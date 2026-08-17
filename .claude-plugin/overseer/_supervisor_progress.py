@@ -7,37 +7,74 @@ content-immune progress and human-wait facts consumed by the pair-level pass.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
 import registry
 import signals
 from _supervisor_records import Observation
 from _supervisor_view import RowView
 
-__all__: list[str] = ["row_view"]
+if TYPE_CHECKING:
+    from _supervisor_picker_stall import PickerStallView
+
+__all__: list[str] = ["RowViewRequest", "blocked_human_stall_seconds", "row_view"]
 
 
-def row_view(
-    *,
-    track: registry.Track,
-    session: str,
-    status: str,
-    note: str | None,
-    obs: Observation,
-    settled_streaming_progress: bool,
-) -> RowView:
+@dataclass(frozen=True, kw_only=True)
+class RowViewRequest:
+    track: registry.Track
+    session: str
+    status: str
+    note: str | None
+    obs: Observation
+    settled_streaming_progress: bool
+    picker_stall: PickerStallView
+
+
+def blocked_human_stall_seconds(*, obs: Observation, status: str) -> int:
+    """Age of a stable pane capture while the row is waiting on a human."""
+    if status != "blocked:human":
+        obs.istate.blocked_human_stall_since = None
+        obs.istate.blocked_human_stall_capture = None
+        obs.istate.picker_stall_nudged = False
+        return 0
+    if obs.istate.blocked_human_stall_capture != obs.capture:
+        obs.istate.blocked_human_stall_since = obs.observed_at
+        obs.istate.blocked_human_stall_capture = obs.capture
+        obs.istate.picker_stall_nudged = False
+        return 0
+    since = obs.istate.blocked_human_stall_since
+    if since is None:
+        obs.istate.blocked_human_stall_since = obs.observed_at
+        return 0
+    return int(max(0.0, obs.observed_at - since))
+
+
+def row_view(*, request: RowViewRequest) -> RowView:
     """Build the operator row and pair-stall detector annotations."""
 
     return RowView(
-        topic=track.topic,
-        repo=track.repo,
-        tmux=session,
-        ctx=obs.eff_ctx,
-        status=status,
-        note=note,
-        runtime=obs.runtime,
-        progress_now=_progress_now(obs=obs, settled_streaming_progress=settled_streaming_progress),
-        human_wait=obs.gate or obs.claude_status == "waiting" or obs.blocked is not None,
-        round_open=obs.injection_stamp is not None,
-        acked=obs.acked,
+        topic=request.track.topic,
+        repo=request.track.repo,
+        tmux=request.session,
+        ctx=request.obs.eff_ctx,
+        status=request.status,
+        note=request.note,
+        runtime=request.obs.runtime,
+        progress_now=_progress_now(
+            obs=request.obs,
+            settled_streaming_progress=request.settled_streaming_progress,
+        ),
+        human_wait=(
+            request.obs.gate
+            or request.obs.claude_status == "waiting"
+            or request.obs.blocked is not None
+        ),
+        round_open=request.obs.injection_stamp is not None,
+        acked=request.obs.acked,
+        picker_open=request.picker_stall.picker_open,
+        stall_seconds=request.picker_stall.stall_seconds,
     )
 
 

@@ -348,6 +348,7 @@ def observe(
         session_identity=round_obs.session_identity,
         ready_uncertifiable_reason=round_obs.ready_uncertifiable_reason,
         istate=istate,
+        observed_at=now,
         declared=declared,
         malformed=malformed,
         blocked=blocked,

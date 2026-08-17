@@ -72,6 +72,9 @@ class InjectState:
     escalation_exhausted_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     shell_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     restart_never_worked_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
+    blocked_human_stall_since: float | None = None
+    blocked_human_stall_capture: str | None = None
+    picker_stall_nudged: bool = False
     blocked_declaration_mtime: float | None = None
     blocked_entry_age_label: str | None = None
     blocked_alerted_bands: set[int] = field(default_factory=set)
@@ -113,6 +116,7 @@ class Observation:
     session_identity: str | None
     ready_uncertifiable_reason: str | None
     istate: InjectState
+    observed_at: float
     declared: signals.TrackState | None
     malformed: bool
     blocked: str | None
