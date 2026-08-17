@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.45.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.45.0...v0.45.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* accept migrated supervisor epic certification ([dec19a4](https://github.com/thewoolleyman/livespec-overseer/commit/dec19a47ce19231ad6078ffce1f067379f980dd4))
+
 ## [0.45.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.44.2...v0.45.0) (2026-08-17)
 
 
