@@ -50,7 +50,7 @@ def _updated_at_from_yaml_subset(*, text: str) -> datetime | None:
         line = raw.strip()
         if not line.startswith("updated_at:"):
             continue
-        value = line.split(":", 1)[1].strip()
+        value = line.split(":", 1)[1].split("#", 1)[0].strip()
         if value == "":
             return None
         return _parse_updated_at(value=value)

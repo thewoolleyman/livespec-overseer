@@ -62,6 +62,23 @@ def test_naive_quoted_updated_at_is_treated_as_utc(*, tmp_path, monkeypatch):
     assert freshness.age == 20.0
 
 
+def test_inline_comment_after_updated_at_is_ignored(*, tmp_path, monkeypatch):
+    monkeypatch.setattr(_supervisor_config, "SUPERVISOR_STATE_STALE_AFTER", 60.0, raising=False)
+    freshness = _freshness(
+        tmp_path=tmp_path,
+        topic_suffix="-supervisor",
+        body=(
+            "topic: topic-supervisor\n"
+            "updated_at: 1970-01-01T00:16:20Z  "
+            "# FRESH MEASUREMENT, not a touched timestamp. Still a clean stop.\n"
+        ),
+    )
+
+    assert freshness.stale is False
+    assert freshness.age == 20.0
+    assert freshness.reason is None
+
+
 @pytest.mark.parametrize("body", ["updated_at:\n", "topic: topic-supervisor\n"])
 def test_empty_or_absent_updated_at_fails_soft_to_stale(*, tmp_path, body):
     freshness = _freshness(tmp_path=tmp_path, topic_suffix="-supervisor", body=body)
