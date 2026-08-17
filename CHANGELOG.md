@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.44.0...v0.44.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* keep supervisor mapping rows during archive gc ([887fca3](https://github.com/thewoolleyman/livespec-overseer/commit/887fca3629417f01a98978861a6bfea873e95162))
+
 ## [0.44.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.6...v0.44.0) (2026-08-17)
 
 
