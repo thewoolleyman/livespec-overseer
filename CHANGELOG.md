@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.46.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.46.0...v0.46.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* pin wrap-up final-act contract ([b749bf4](https://github.com/thewoolleyman/livespec-overseer/commit/b749bf42ee87e6b5fab228e05c4c02a6a74afc35))
+* preserve foreman LLM tick deadline ([03adb7d](https://github.com/thewoolleyman/livespec-overseer/commit/03adb7d493cd62e92dea551f38459523f093ce39))
+* restore foreman convergence stability ([acff0e3](https://github.com/thewoolleyman/livespec-overseer/commit/acff0e34f706d1330f9aeae63ab510d24004a8bc))
+
 ## [0.46.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.45.1...v0.46.0) (2026-08-17)
 
 
