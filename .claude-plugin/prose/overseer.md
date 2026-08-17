@@ -278,7 +278,7 @@ will see:
 | `working` | busy — actively generating, sub-agent-busy, non-shell busy, or shell-only busy above threshold / while restart is blocked |
 | `settling` | the pane is present but not yet a verified idle state; wait |
 | `warned` | at/below the warn threshold, wrap-up injected, nothing declared yet |
-| `winding-down` | the session ACKed the wrap-up and is wrapping up; re-warns suppressed |
+| `winding-down` | the session ACKed the wrap-up and is wrapping up; re-warns suppressed. `winding-down: auto @<epoch-seconds>` means the daemon downgraded a `ready` declaration after seeing more activity |
 | `danger` | at/below **20%** remaining with **nothing declared** — reported loudly, **never acted on** |
 | `restarting` | the session declared a certifiable `ready`; the daemon is respawning + re-kicking it |
 | `ready-uncertifiable` | the session wrote `ready`, but no interlock precondition can certify it — report-only attention |

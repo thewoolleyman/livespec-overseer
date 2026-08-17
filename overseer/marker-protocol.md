@@ -304,6 +304,13 @@ keep-going nudge" above):
   dead-end declaration to the operator instead. A track whose earlier `ready`
   EXPIRED inside an open round is different: write `ready` again after the
   expiry and the new declaration can certify against the raised floor.
+
+  If the session writes `ready` and then produces more activity before the
+  daemon can restart it, the daemon rewrites the file to
+  `winding-down: auto @<epoch-seconds>`. The declaration visibly degrades instead
+  of disappearing or staying armed: a session reading the file can see what
+  happened, and the daemon treats it as a fresh `winding-down` ACK until it ages
+  out and escalation resumes.
 - **`blocked: <one-line reason>`** — "I need a human decision I cannot make
   myself." The track is **surfaced** to the operator, with its tmux coordinates,
   and is **never restarted and never keystroked into**.

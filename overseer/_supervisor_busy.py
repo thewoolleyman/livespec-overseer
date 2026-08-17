@@ -67,6 +67,11 @@ def busy(*, request: BusyRequest) -> BusyDecision:
             note = _supervisor_liveness.blocked_note(
                 blocked=blocked, blocked_age_label=blocked_age_label
             )
+        ready = _supervisor_state.downgrade_ready_after_activity(
+            sup=request.sup,
+            track=request.track,
+            ready=ready,
+        )
     # When the PANE itself looks idle, the row note explains WHY it is `working`,
     # or the operator would read the idle-looking pane and distrust the status.
     if not signals.is_busy(capture_text=request.capture):
@@ -94,9 +99,9 @@ def busy(*, request: BusyRequest) -> BusyDecision:
                 extra="sub-agent (Claude busy)",
             )
     if request.act:
-        # A ready declaration ARMS the restart until the first verified settled-idle
-        # observation. Intervening narration/generation does not delete it; the busy and
-        # settle gates already prevent a mid-work restart, and max-age bounds staleness.
+        # A post-ready active turn rewrites `ready` to a diagnostic `winding-down`
+        # above, so the declaration visibly degrades instead of disappearing or staying
+        # armed for the next idle frame.
         # The session took a turn — clear any idle-with-context-left nudge marker
         # so the NEXT idle-with-context episode re-nudges (re-arm on non-idle).
         _supervisor_nudge.clear_idle_nudge_state(sup=request.sup, track=request.track)
