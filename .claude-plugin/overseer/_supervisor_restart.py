@@ -101,8 +101,7 @@ def _migrated_supervisor_epic_certifies(*, track: registry.Track) -> bool:
     lowered = text.lower()
     names_epic = track.epic is not None and track.epic in text
     names_ledger = "ledger" in lowered
-    names_binder_medium = "comment" in lowered or "entry" in lowered
-    return names_epic and names_ledger and names_binder_medium
+    return names_epic and names_ledger
 
 
 def _supervisor_resume_artifact_certifies(*, track: registry.Track) -> bool:
