@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.48.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.47.0...v0.48.0) (2026-08-17)
+
+
+### Features
+
+* add foreman resume prompt regression ([11f35db](https://github.com/thewoolleyman/livespec-overseer/commit/11f35db5338e88c04fed91ed801b207360d75a2e))
+* cover foreman wrapup injection ([f3421c4](https://github.com/thewoolleyman/livespec-overseer/commit/f3421c4b1692ba4ed32fdfd133f1bbf65fb859de))
+* register foreman tracks idempotently ([3e3d40a](https://github.com/thewoolleyman/livespec-overseer/commit/3e3d40a224ebfec536adfdc94f5b8cff13fa8a86))
+* route foreman resumes to ledger prompt ([e2a137e](https://github.com/thewoolleyman/livespec-overseer/commit/e2a137e72db281f247710df6decde5ee4dfd7c86))
+
 ## [0.47.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.46.2...v0.47.0) (2026-08-17)
 
 
