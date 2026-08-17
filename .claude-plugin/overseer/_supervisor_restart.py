@@ -91,9 +91,8 @@ def resume_prompt(*, track: registry.Track) -> str | None:
 
 def _migrated_supervisor_epic_certifies(*, track: registry.Track) -> bool:
     """Return whether the retired-file shape is replaced by a ledger-bound binder."""
-    path = supervisor_epic_path(
-        repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
-    )
+    topic = cast(str, signals.topic_supervised_worker(topic=track.topic))
+    path = supervisor_epic_path(repo=track.repo, topic=topic)
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, ValueError):
@@ -106,7 +105,7 @@ def _migrated_supervisor_epic_certifies(*, track: registry.Track) -> bool:
 
 def _supervisor_resume_artifact_certifies(*, track: registry.Track) -> bool:
     """Accept either the legacy file artifact or the migrated ledger-backed shape."""
-    topic = signals.supervisor_topic(entity_topic=track.topic)
+    topic = cast(str, signals.topic_supervised_worker(topic=track.topic))
     if supervisor_handoff_path(repo=track.repo, topic=topic).exists():
         return True
     return _migrated_supervisor_epic_certifies(track=track)
@@ -134,14 +133,10 @@ def _handle_uncertified_supervisor_binder(
     alert — that case IS anomalous, and the round is left open (unchanged) so it keeps
     reporting until a human intervenes.
     """
-    if not (
-        signals.topic_reserved_for_supervisor(topic=track.topic)
-        and not _supervisor_resume_artifact_certifies(track=track)
-    ):
+    topic = signals.topic_supervised_worker(topic=track.topic)
+    if topic is None or _supervisor_resume_artifact_certifies(track=track):
         return False
-    if registry.archived_or_gone(
-        repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
-    ):
+    if registry.archived_or_gone(repo=track.repo, topic=topic):
         # Close the round instead of leaving a `ready` marker that re-reaches this branch
         # every tick — archive_gc ordinarily drops the mapping row in the SAME tick before
         # `do_restart` is ever reached; this only covers that narrow same-tick race.
@@ -227,11 +222,11 @@ def maybe_inject(
             session_identity=identity,
             stamp_path=sup.stamp_path,
         )
-    if signals.topic_reserved_for_supervisor(topic=topic):
+    if (worker_topic := signals.topic_supervised_worker(topic=topic)) is not None:
         message = supervisor_wrapup_message(
             remaining=eff_ctx,
             repo=repo,
-            topic=signals.supervisor_topic(entity_topic=topic),
+            topic=worker_topic,
             epic=track.epic,
         )
     else:
