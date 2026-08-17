@@ -20,6 +20,7 @@ import signals
 from _supervisor_codex_restart import do_codex_restart
 from _supervisor_config import track_key
 from _supervisor_prompts import (
+    foreman_wrapup_message,
     resume_for_track,
     supervisor_epic_path,
     supervisor_handoff_path,
@@ -222,7 +223,14 @@ def maybe_inject(
             session_identity=identity,
             stamp_path=sup.stamp_path,
         )
-    if (worker_topic := signals.topic_supervised_worker(topic=topic)) is not None:
+    if signals.is_foreman_topic(topic=topic):
+        message = foreman_wrapup_message(
+            remaining=eff_ctx,
+            repo=repo,
+            topic=topic,
+            epic=track.epic,
+        )
+    elif (worker_topic := signals.topic_supervised_worker(topic=topic)) is not None:
         message = supervisor_wrapup_message(
             remaining=eff_ctx,
             repo=repo,
