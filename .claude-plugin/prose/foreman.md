@@ -91,24 +91,43 @@ move valves.
 
 ## Loop Carrier
 
-Run this contract under the harness `/loop` skill at the hourly default
-interval. Each loop tick is exactly one full pass through `foreman-runtime`,
-the gather document, the one-action decision, and any `foreman-act`
-revalidation.
+Run this contract on a recurring hourly tick. Each loop tick is exactly one
+full pass through `foreman-runtime`, the gather document, the one-action
+decision, and any `foreman-act` revalidation.
+
+**Arm the recurring tick by calling the `CronCreate` tool directly**, with an
+hourly cron expression that avoids the `:00`/`:30` minute mark per
+`CronCreate`'s own guidance (e.g. `"7 * * * *"`). Do **not** route this
+through the generic harness `/loop` skill. `/loop`'s own rule requires it to
+ask the maintainer, via `AskUserQuestion`, whether a >=60-minute interval
+should run as a "cloud schedule" or "this session only" — and for this
+specific operation that question has no coherent answer. Foreman's loop is
+scoped to one tmux pane, one repo checkout, and that session's runtime lock
+(see the entry-gate and singleton-lock rules elsewhere in this document); a
+cloud-scheduled invocation would run in a different environment with no
+access to any of that state, so "cloud schedule" can never sensibly be
+chosen here. Calling `CronCreate` directly is also session-only by
+construction — this plugin's `CronCreate` has no durable/cloud persistence
+option per that tool's own documented behavior — so it already matches the
+only coherent choice, without ever surfacing the question. Skip the ask, go
+straight to `CronCreate`.
 
 ### Arming the loop is not optional, and is not a question
 
 Invoking this skill is itself the request for ongoing supervision. If, when
-you reach the end of a tick, the harness `/loop` is not currently armed for
-this foreman contract in this session, arm it now (hourly default interval)
-as the LAST step of the tick, before ending your turn. Do not ask the
-maintainer whether to start it — that decision is pre-authorized by the
-invocation itself, and it is cheap to reverse (`/loop stop`) if they'd rather
-run it manually. A tick that ends without either the loop already running or
-being armed in that same turn is an incomplete tick, not a conservative one:
-asking first, or deferring the choice while you attend to something else,
-has previously left blocked sessions and human valves unattended for hours
-with nothing watching them.
+you reach the end of a tick, no `CronCreate` schedule is currently armed for
+this foreman contract in this session, arm one now (hourly default interval,
+via `CronCreate` directly as described above) as the LAST step of the tick,
+before ending your turn. Do not ask the maintainer whether to start it —
+that decision is pre-authorized by the invocation itself, and it is cheap to
+reverse (cancel the cron schedule) if they'd rather run it manually. And do
+not ask the maintainer the generic `/loop` skill's cloud-vs-session-only
+question either — that question does not apply here (see above); calling
+`CronCreate` directly bypasses it entirely. A tick that ends without either
+the schedule already armed or being armed in that same turn is an incomplete
+tick, not a conservative one: asking first, or deferring the choice while
+you attend to something else, has previously left blocked sessions and
+human valves unattended for hours with nothing watching them.
 
 This is checked mechanically, not just by memory: `foreman-runtime`'s JSON
 output carries `loop_lapsed` (bool) and `heartbeat_age_seconds` (float or
@@ -116,28 +135,30 @@ null, seconds since the PRIOR tick's heartbeat — the same `2x
 llm_tick_interval_seconds`, 30-minute-floor threshold the daemon's own
 `foreman_row` uses to raise its stale-heartbeat NEEDS YOU alert, but
 computed as of THIS tick rather than the daemon's next poll). Treat
-`loop_lapsed: true` as confirmation the recurring loop was not actually
-running — arm/re-arm it immediately, and then, in this SAME tick, re-evaluate
-every `human_wait: true` row from the fresh gather document against the
-current valve disposition (`report-only` vs `consensus`) instead of deferring
-that evaluation to a hypothetical next tick. `heartbeat_age_seconds: null`
-means no prior heartbeat exists at all (a fresh watch, or the very first tick
-ever) — treat that the same as `loop_lapsed: true` for the arm-now rule
-above, since nothing has confirmed the loop is running either way.
+`loop_lapsed: true` as confirmation the recurring schedule was not actually
+armed — arm/re-arm it immediately via `CronCreate`, and then, in this SAME
+tick, re-evaluate every `human_wait: true` row from the fresh gather
+document against the current valve disposition (`report-only` vs
+`consensus`) instead of deferring that evaluation to a hypothetical next
+tick. `heartbeat_age_seconds: null` means no prior heartbeat exists at all
+(a fresh watch, or the very first tick ever) — treat that the same as
+`loop_lapsed: true` for the arm-now rule above, since nothing has confirmed
+the schedule is armed either way.
 
 The deterministic wrapper owns the v2 exit rule adopted by review findings
 O14/C5/O13/C6: compare structured-field fingerprints only, count "no state
 change and no foreman action" ticks only when the monitored set is non-empty,
 and keep the hard tick budget. When `foreman-runtime` prints JSON with a
-non-null `exit_reason` (`converged` or `hard-tick-budget`), stop the harness
-`/loop`. Exiting stops only the token-consuming LLM loop; the token-free
-watcher remains armed by the durable generation fingerprint.
+non-null `exit_reason` (`converged` or `hard-tick-budget`), cancel the armed
+cron schedule. Exiting stops only the token-consuming LLM loop; the
+token-free watcher remains armed by the durable generation fingerprint.
 
 On a non-null `exit_reason`, raise a RESUME question for the maintainer. In
 Claude Code, present it as an `AskUserQuestion` choice to resume the loop. In
 Codex, present it through the native `request_user_input` tool from seed
-addendum 2. If the maintainer chooses resume, start the hourly `/loop` again
-from a fresh `foreman-runtime` tick.
+addendum 2. If the maintainer chooses resume, arm the hourly schedule again
+via `CronCreate` directly (not through the generic `/loop` skill, for the
+same reason given above) from a fresh `foreman-runtime` tick.
 
 ## Runtime Commands
 
