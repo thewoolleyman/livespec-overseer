@@ -170,6 +170,7 @@ def tmux_id(
     repo: str | os.PathLike[str],
     topic: str,
     colliding: Collection[str] = frozenset(),
+    allow_reserved: bool = False,
 ) -> str:
     """The tmux session name for a plan ``topic``.
 
@@ -192,9 +193,15 @@ def tmux_id(
     itself may contain dashes (e.g. ``autonomous-mode``); that is fine, a dash is
     never sanitized. The predecessor ``<repo-slug>--<topic>`` (double-dash, ALWAYS
     prefixed) form is retired.
+
+    ``allow_reserved`` exists ONLY for the narrow supervisor-epic-inheritance path
+    (a ``-supervisor`` entity topic with a real supervised plan directory): the
+    caller has already validated a supervised counterpart exists before setting
+    it, so the reserved-suffix refusal below is skipped for that one caller. Every
+    other caller keeps the default and the refusal fires exactly as before.
     """
     session = f"{repo_slug(repo=repo)}-{topic}" if topic in colliding else topic
-    if signals.topic_reserved_for_supervisor(topic=session):
+    if not allow_reserved and signals.topic_reserved_for_supervisor(topic=session):
         raise ValueError(_reserved_session_refusal(repo=repo, topic=topic, session=session))
     return session
 
