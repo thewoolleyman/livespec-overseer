@@ -16,7 +16,7 @@ just check-heading-coverage
 just check-claude-md-coverage
 just check-comment-line-anchors
 just check-agents-ai-references-resolve
-just check-plan-thread-anchor-declared
+just check-plan-anchor-declared
 just check-vendor-manifest
 if git diff --cached --name-only | grep -qx 'tests/heading-coverage.json'; then
     echo ":: staged changeset edits tests/heading-coverage.json — arming the TODO-ownership release tier for this commit"

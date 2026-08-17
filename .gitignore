@@ -12,6 +12,7 @@ tmp/
 /dev-tooling/branch-protection.sh
 /dev-tooling/worktree.just
 /dev-tooling/branch-protection.just
+/dev-tooling/gate-run.sh
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 .claude/worktrees/
