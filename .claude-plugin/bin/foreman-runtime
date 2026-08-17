@@ -15,7 +15,7 @@ import registry
 import streams
 import tmuxio
 from foreman_gather_collect import compose_document
-from foreman_runtime import ForemanRuntime, entry_gate
+from foreman_runtime import ForemanRuntime, entry_gate, register_foreman_track
 from foreman_runtime_lock import ForemanLock
 from foreman_runtime_state import LOCK_FILE, runtime_dir
 
@@ -55,6 +55,7 @@ def main(*, argv=None):
     if not acquired.acquired:
         streams.write_stderr(text=f"foreman-runtime: {acquired.reason}\n")
         return 1
+    _ = register_foreman_track(repo=repo)
     document = compose_document(
         repo=repo,
         snapshot_path=args.snapshot_path or str(Path.home() / ".livespec-overseer-status.json"),
