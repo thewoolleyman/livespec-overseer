@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.43.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.42.0...v0.43.0) (2026-08-17)
+
+
+### Features
+
+* **ci:** batch the cheap checks — 61 matrix jobs become 7 gating jobs ([6525a32](https://github.com/thewoolleyman/livespec-overseer/commit/6525a32de0a4b19b1d5b0d32708efa0c3666d158))
+
+
+### Bug Fixes
+
+* correct supervisor state freshness review findings ([3208e64](https://github.com/thewoolleyman/livespec-overseer/commit/3208e6425a8a2db35b3c4ef04fabc457caa51cf2))
+* downgrade ready after resumed activity ([07e688a](https://github.com/thewoolleyman/livespec-overseer/commit/07e688aefb4137eb6a8b4d4768e886aee0ee801d))
+* **overseer-27ug3t:** align ready activity spec ([3b73e26](https://github.com/thewoolleyman/livespec-overseer/commit/3b73e26d12bb6b6c783aefd43def1cd8d5afcf41))
+* reject malformed supervisor state ([f4cdc03](https://github.com/thewoolleyman/livespec-overseer/commit/f4cdc0356a9cfe927098f22e51503f4b5d43054c))
+* reject stale fresh ready certification ([cfe9803](https://github.com/thewoolleyman/livespec-overseer/commit/cfe980360c1619ad5e96eb87d80413695c691fcd))
+* resolve the current bare-id epic.md anchor shape ([5538c8d](https://github.com/thewoolleyman/livespec-overseer/commit/5538c8d1064579895975db39c193a0c44091d0c2))
+
 ## [0.42.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.41.1...v0.42.0) (2026-08-17)
 
 
