@@ -480,6 +480,64 @@ correct there. See `.claude-plugin/prose/overseer.md`, the single-source operato
 contract. (Corrected 2026-07-26: this pointed at `SKILL.md`, which is now only a
 compatibility pointer and carries no operator prose.)
 
+## Foreman entities are a reserved-worker-topic pattern, not a plan-shaped track
+
+A per-repo **foreman** session (the operator loop, e.g. `livespec-overseer-foreman`,
+that runs `/livespec-overseer:foreman`) is a DIFFERENT shape of entity from a plan
+track: it supervises a whole repo's plan tracks rather than being one itself, and it
+has no `plan/<topic>/` directory of its own. Track `overseerd-auto-restart`
+(2026-08-18) extended the cardinal rule to cover it, by GENERALIZING the existing
+`-supervisor` reserved-worker-topic pattern rather than building a parallel
+mechanism: `signals._RESERVED_WORKER_SUFFIXES` already carried both `-supervisor`
+and `-foreman`, and `foreman_runtime_identity.canonical_session_name` already
+computed `<repo-slug>-foreman` as the canonical identity — the gap was that nothing
+ever created a `registry.Track` row with that topic, and `signals.supervisor_topic`
+mis-truncated a `-foreman` topic if ever called on one (a latent bug, never hit
+because no such row had ever existed).
+
+What now exists, all reusing the SAME `.overseer-state` file, the SAME
+`ready`/`blocked:`/`winding-down` tokens, and the SAME `ready_valid` restart
+interlock described above — a foreman entity writes and is restarted through
+**exactly** the mechanics this document already specifies, with only the
+resume/wrap-up TEXT differing:
+
+- **Registration** (`foreman_runtime.register_foreman_track`) — the
+  `foreman-runtime` executable registers (idempotently) a `Track` row with topic
+  `<repo-slug>-foreman`, `tmux=<repo-slug>-foreman`, and the watched repo, on every
+  step — independent of any `plan/` directory, so the overseer-never-touches-`plan/`
+  invariant holds by construction rather than by a new guard.
+- **Resume surface** — a foreman entity's `{read_first}`/`{resume}` point at a
+  **ledger-held foreman epic** (`foreman_epic_resume`/`foreman_resume` in
+  `_supervisor_prompts.py`), never a plan epic and never the file-based
+  `tmp/overseer/foreman/foreman-session-handoff.md` this document used to be the
+  only rotation surface for. A foreman track with no recorded epic gets the same
+  refuse-and-surface treatment as an epic-less plan track (`missing_foreman_epic_message`,
+  and a binder-certification guard parallel to `_handle_uncertified_supervisor_binder`)
+  — a `ready` declared with no resolvable foreman epic never respawns anything.
+- **Wrap-up text** — `foreman_wrapup_message` supplies foreman-specific head text
+  (no "plan epic" wording); the shared cardinal-rule body (the three tokens, the
+  `overseer-declare ready` final act) is byte-identical to `_WRAPUP_BODY` above.
+- **Trigger** — unchanged: the existing ctx-threshold-driven `maybe_inject` path,
+  selected on `signals.is_foreman_topic`. **No new trigger exists or should ever
+  exist for a foreman entity.** In particular, `ForemanRuntime`'s own
+  `hard_tick_budget`/`converged` exit reasons (`foreman_runtime.py`) and the
+  `foreman-heartbeat-stale` attention alert (`_supervisor_foreman.py`) stay a
+  daemon-observed SUGGESTION surfaced to a human at most — neither one is nor may
+  become a restart trigger. The cardinal rule is not narrowed for this entity
+  shape: a foreman is restarted ONLY on its own fresh `ready`, exactly like any
+  other tracked session.
+
+**Known gap, recorded rather than silently left implicit:** as of 2026-08-18 this
+repo's OWN live foreman session is still tracked under the legacy ad-hoc topic
+`foreman` (a `plan/foreman/`-shaped track with its own ordinary plan epic,
+`overseer-z5fo4y`) rather than the canonical `livespec-overseer-foreman` reserved
+topic described above — so it already gets ordinary plan-track cardinal-rule
+auto-restart, but not the foreman-specific wrap-up text or the epic-less binder
+guard this section describes. Migrating that live, actively-working production
+track to the canonical identity is deliberately NOT done as part of landing this
+pattern (too disruptive to attempt inline against a live session); it is tracked
+as a follow-up work item on epic `overseer-w4epaq`.
+
 ## Plan state may adopt the `blocked:` convention
 
 A tracked session's own plan state MAY bake in "when you stop to ask the human
