@@ -731,10 +731,27 @@ across three bounces during the ratifying session:
 
 `CI_RUNNER_LABELS` (a repo variable, never a `.github/workflows/` edit —
 `check-no-workflow-edits` forbids that here) routes this repo's gating
-`pull_request`/`push` CI matrix. As of 2026-08-17 it points at the ARC k3s
-scale set `livespec-overseer-k3s` (livespec-s43svm.16's per-repo real-traffic
-cutover), proven by this changeset's own required checks. The podman pool
-alternative stays configured but idle for this repo. See
-`livespec/plan/fleet-ci-runner-pool/research/k3s-arc-kueue-migration.md`
-("Real-traffic cutover log") and the `livespec-s43svm.16` ledger comments for
-the full cross-repo cutover record.
+`pull_request`/`push` CI matrix. As of 2026-08-17 ~13:05Z it is back on
+`["ubuntu-latest"]`: the morning's cutover to the ARC k3s scale set
+`livespec-overseer-k3s` (livespec-s43svm.16) deterministically failed FOUR of
+this repo's environment-sensitive tests on every master run it touched — both
+`tests/prompts/test_repo_containment_discriminates.py` tests (tmux pane-cwd
+reads return `''` in the pod), `tests/test_detached_dispatch.py`'s
+process-group survival test (`os.killpg` PermissionError), and a foreman e2e
+whose cwd-identity change went undetected — yet the SAME commits are green on
+hosted runners and in the fabro sandbox container image under docker. The
+flip-back is the workflow's own sanctioned direction (see the routing comment
+block at the top of `ci.yml`) and was panel-ratified after master sat red
+about three hours. Re-cut condition, recorded on `livespec-s43svm.16`
+(livespec tenant): the pod must pass this repo's full suite — those four
+named tests specifically — before `CI_RUNNER_LABELS` points at the scale set
+again. See `livespec/plan/fleet-ci-runner-pool/research/
+k3s-arc-kueue-migration.md` ("Real-traffic cutover log") and the
+`livespec-s43svm.16` ledger comments.
+
+**Triage lesson that cost a withdrawn revert (PR #1063):** these failures were
+first mis-attributed to test interference from the PR that merged minutes
+before the cutover took effect. Runner identity is part of CI-failure triage
+in this repo — check WHICH runner executed the failing jobs (the jobs API's
+`runner_name`) before attributing a red master to content. A docs-only commit
+failing CI is the tell that the environment, not the tree, changed.
