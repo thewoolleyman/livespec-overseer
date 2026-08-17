@@ -326,7 +326,9 @@ keep-going nudge" above):
 
 The normal sequence is therefore **two writes**: `winding-down` the moment the
 wrap-up lands, then `ready` (or `blocked: …`) when the session actually stops.
-The daemon acts on the file on its next tick.
+The daemon watches the state directories while it waits between ticks, so a
+state-file write wakes the next real evaluation promptly instead of waiting for
+the fixed interval.
 
 **Declaring is MANDATORY — "nothing" is not a valid outcome.** A session chooses
 *which* value fits; it may not decline all three. Declining does not buy a
