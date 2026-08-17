@@ -47,9 +47,10 @@ class IdleRequest:
 
 
 def _missing_plan_epic_decision(*, request: IdleRequest, note: str | None) -> IdleDecision:
+    message = _supervisor_restart.missing_restart_epic_message(track=request.track)
     next_note = _supervisor_liveness.append_note(
         note=note,
-        extra=_supervisor_restart.missing_plan_epic_message(),
+        extra=message,
     )
     if request.act:
         request.sup.alert(
@@ -57,7 +58,7 @@ def _missing_plan_epic_decision(*, request: IdleRequest, note: str | None) -> Id
             topic=request.track.topic,
             session=request.session,
             pane=request.target,
-            message=_supervisor_restart.missing_plan_epic_message(),
+            message=message,
             condition="restart-plan-epic-missing",
         )
     return IdleDecision(
