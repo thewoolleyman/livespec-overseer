@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import io as _io
 import os
+import time
 from pathlib import Path
 
 from overseer import registry, signals, supervisor, tmuxio
@@ -113,15 +114,40 @@ def _render_script(*, repo: Path, capture: str) -> Path:
     return script
 
 
+def _await_rendered(*, inner: tmuxio.TmuxIO, session: str, capture: str) -> None:
+    """Block until the pane has finished rendering `capture` and stopped changing.
+
+    `respawn_pane` returns as soon as tmux has replaced the process, not when that
+    process has written its screen. The supervisor's own settle gate cannot absorb
+    that gap here, because these tests stub `sleep` to a no-op — so `pane_settled`
+    would compare two captures taken microseconds apart while `clear` + `cat` are
+    still in flight and correctly report a CHANGING pane, leaving the tick at
+    `settling` instead of the state under test. Waiting here removes the race
+    without weakening a single production gate.
+    """
+    expected = [line.strip() for line in signals.strip_ansi(text=capture).splitlines()]
+    wanted = [line for line in expected if line]
+    previous: str | None = None
+    for _attempt in range(200):
+        current = signals.strip_ansi(text=inner.capture_pane(session=session))
+        if all(line in current for line in wanted) and current == previous:
+            return
+        previous = current
+        time.sleep(0.05)
+    raise AssertionError(f"pane {session} never settled on the rendered capture")
+
+
 def _session_with_capture(*, inner: tmuxio.TmuxIO, session: str, repo: Path, capture: str) -> None:
     script = _render_script(repo=repo, capture=capture)
     assert inner.new_session(name=session, cwd=str(repo))
     assert inner.respawn_pane(session=session, cwd=str(repo), command=str(script))
+    _await_rendered(inner=inner, session=session, capture=capture)
 
 
 def _replace_capture(*, inner: tmuxio.TmuxIO, session: str, repo: Path, capture: str) -> None:
     script = _render_script(repo=repo, capture=capture)
     assert inner.respawn_pane(session=session, cwd=str(repo), command=str(script))
+    _await_rendered(inner=inner, session=session, capture=capture)
 
 
 def _close_session(*, inner: tmuxio.TmuxIO, session: str, repo: Path) -> None:
