@@ -62,6 +62,13 @@ def downgrade_ready_after_activity(*, sup: Supervisor, track: registry.Track, re
     lets the next idle frame restart a session that has resumed work. The diagnostic ACK
     keeps the state readable to both the session and the operator, while re-entering the
     normal winding-down path.
+
+    The file is SESSION-owned, so the rewrite carries the same clobber guard as the
+    idle-nudge marker removal: it re-reads immediately before the write and proceeds
+    ONLY while the file still holds ``ready``, with nothing but the write itself between
+    the two. A session that wrote ``blocked: <reason>`` in the window between the
+    daemon's observation and its write keeps that escalation — a human-escalation
+    declaration is never destroyed to record a diagnostic ACK.
     """
     if not ready:
         return ready
@@ -72,6 +79,15 @@ def downgrade_ready_after_activity(*, sup: Supervisor, track: registry.Track, re
     path = signals.state_path(repo=track.repo, topic=track.topic)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
+        current = signals.read_state(repo=track.repo, topic=track.topic)
+        if current is None or current.token != signals.STATE_READY:
+            sup.log(
+                message=(
+                    f"skipped downgrading ready declaration for "
+                    f"{track.repo}::{track.topic}: the session rewrote its state file first"
+                )
+            )
+            return ready
         _ = path.write_text(f"{signals.STATE_WINDING_DOWN}: auto @{now:.0f}\n", encoding="utf-8")
         _ = os.utime(path, (now, now))
     except OSError as exc:
