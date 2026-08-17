@@ -30,6 +30,7 @@ def main(*, argv=None):
     _ = parser.add_argument("--watch-set-path", default=str(registry.DEFAULT_WATCH_SET_PATH))
     _ = parser.add_argument("--snapshot-path", default=None)
     _ = parser.add_argument("--now-epoch", type=float, default=None)
+    _ = parser.add_argument("--resume", action="store_true")
     args = parser.parse_args(argv)
     repo = Path(args.repo).resolve()
     now = (
@@ -56,12 +57,17 @@ def main(*, argv=None):
         streams.write_stderr(text=f"foreman-runtime: {acquired.reason}\n")
         return 1
     _ = register_foreman_track(repo=repo)
+    runtime = ForemanRuntime(repo=repo, now=now)
+    if args.resume:
+        runtime.resume()
+        streams.write_stdout(text=json.dumps({"resumed": True}, sort_keys=True) + "\n")
+        return 0
     document = compose_document(
         repo=repo,
         snapshot_path=args.snapshot_path or str(Path.home() / ".livespec-overseer-status.json"),
         list_json_command=None,
     )
-    result = ForemanRuntime(repo=repo, now=now).step(document=document)
+    result = runtime.step(document=document)
     streams.write_stdout(text=json.dumps(result.__dict__, sort_keys=True) + "\n")
     return 0
 
