@@ -25,10 +25,12 @@ from __future__ import annotations
 
 import contextlib
 import io as _io
+import subprocess
 from dataclasses import replace
 
 from overseer import _supervisor_config, registry, signals, supervisor
 from overseer.test_supervisor_builders import (
+    TEST_EPIC,
     busy_capture,
     declare,
     idle_capture,
@@ -165,7 +167,7 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(*, tmp_p
     assert len(_respawns(fake=fake)) == 1
 
 
-def test_scenario_a_respawn_prompt_names_the_plan_epic_and_repository(*, tmp_path):
+def test_scenario_a_respawn_prompt_names_the_plan_epic_and_repository(*, tmp_path, monkeypatch):
     """Scenario: A respawn prompt names the plan epic and repository so a cold-open session
     can resolve it.
 
@@ -198,6 +200,21 @@ def test_scenario_a_respawn_prompt_names_the_plan_epic_and_repository(*, tmp_pat
     missing_repo, missing_topic, _missing_session, missing_fake, missing_sup, missing_track = (
         _open_round(tmp_path=tmp_path, topic="missing-epic")
     )
+    # GENUINELY unresolvable, not merely a stale row: overseer-vbmq's restart-interlock
+    # re-derive would otherwise heal a row whose plan anchor IS resolvable (that healing
+    # is covered separately, in test_stale_epic_null_row_heals_and_restarts_on_ready
+    # below), so this scenario must blank the anchor `_open_round`'s `make_plan` wrote.
+    (missing_repo / "plan" / missing_topic / "handoff.md").write_bytes(b"no anchor here\n")
+    # Once both epic.md and handoff.md fail to resolve, `epic_from_plan_anchor` falls
+    # through to a real `bd` ledger-tag query subprocess. Simulate "bd absent" at the
+    # `subprocess` layer (shared by both this package's dual import copies of
+    # `_registry_epic`, unlike patching `registry` itself across that split) rather
+    # than actually invoking a real `bd` process from a test.
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *_a, **_k: (_ for _ in ()).throw(FileNotFoundError("bd not found (stubbed)")),
+    )
     missing_track = replace(missing_track, epic=None, resume=legacy_resume)
     missing_marker = declare(
         repo=missing_repo,
@@ -215,6 +232,29 @@ def test_scenario_a_respawn_prompt_names_the_plan_epic_and_repository(*, tmp_pat
     assert not missing_fake.has(method="respawn")
     assert missing_marker.exists()
     assert "no plan epic recorded" in err.getvalue()
+
+
+def test_stale_epic_null_row_heals_and_restarts_on_ready(*, tmp_path):
+    """Scenario (overseer-vbmq): a row recorded `epic: None` at assignment time, whose
+    plan anchor IS resolvable by the time a certified `ready` arrives, heals via a
+    one-shot re-derive at the restart interlock and restarts — it is not stuck
+    `blocked:human` forever waiting on a human to re-run `add` by hand.
+
+    `_open_round`'s `make_plan` already wrote a REAL, resolvable anchor
+    (`TEST_EPIC`); this only has to null out the ROW to reproduce the stale-row
+    shape overseer-vbmq describes (the anchor was unreadable at add-time, or was
+    written afterward — either way, the row predates a resolvable anchor).
+    """
+    repo, topic, _session, fake, sup, track = _open_round(tmp_path=tmp_path, topic="stale-epic")
+    track = replace(track, epic=None)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
+
+    view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "restarting"
+    assert len(_respawns(fake=fake)) == 1
+    resume = fake.paste_texts()[1]
+    assert TEST_EPIC in resume
 
 
 def test_scenario_a_ready_declaration_from_a_prior_round_never_restarts(*, tmp_path):
