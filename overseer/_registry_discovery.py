@@ -28,6 +28,7 @@ __all__: list[str] = [
     "archived_or_gone",
     "discover_plans",
     "join",
+    "plan_liveness_topic",
     "repo_root_present",
     "watch_set_from_config",
 ]
@@ -299,6 +300,23 @@ def repo_root_present(*, repo: str) -> bool:
         return False
 
 
+def plan_liveness_topic(*, repo: str, topic: str) -> str | None:
+    """The plan topic whose directory certifies ``topic`` is still live.
+
+    Ordinary worker topics certify against their own ``plan/<topic>/`` directory.
+    A ``-supervisor`` entity has no plan directory of its own by design; it inherits
+    liveness from the worker topic it supervises, but only when that worker plan is
+    actually live. With no live supervised counterpart, the entity has no liveness
+    source and should still be refused or dropped.
+    """
+    worker_topic = signals.topic_supervised_worker(topic=topic)
+    if worker_topic is None:
+        return topic
+    if (Path(repo) / "plan" / worker_topic).is_dir():
+        return worker_topic
+    return None
+
+
 def archived_or_gone(*, repo: str, topic: str) -> bool:
     """True if ``<repo>/plan/<topic>/`` is archived or deleted (ACTIVE wins).
 
@@ -311,9 +329,12 @@ def archived_or_gone(*, repo: str, topic: str) -> bool:
     precondition on :func:`repo_root_present` so a missing repo ROOT (transient
     unmount) is not read here as a gone plan.
     """
+    live_topic = plan_liveness_topic(repo=repo, topic=topic)
+    if live_topic is None:
+        return True
     base = Path(repo) / "plan"
-    if (base / topic).is_dir():
+    if (base / live_topic).is_dir():
         return False  # active plan present — wins over any same-named archive copy
-    if (base / "archive" / topic).is_dir():
+    if (base / "archive" / live_topic).is_dir():
         return True  # archived
     return True  # plan dir gone under an existing repo root ⇒ deleted

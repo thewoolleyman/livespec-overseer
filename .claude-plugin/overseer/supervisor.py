@@ -48,7 +48,6 @@ import argparse
 import io
 import json
 import os
-from pathlib import Path
 
 import _supervisor_snapshot
 import registry
@@ -242,12 +241,10 @@ def _inheritable_supervisor_epic_source(*, repo: str, topic: str) -> str | None:
     A supervisor entity has no plan directory of its own by design, so this is
     the only way it can ever carry an epic.
     """
-    worker_topic = signals.topic_supervised_worker(topic=topic)
-    if worker_topic is None:
+    epic_source = registry.plan_liveness_topic(repo=repo, topic=topic)
+    if epic_source == topic:
         return None
-    if not (Path(repo) / "plan" / worker_topic).is_dir():
-        return None
-    return worker_topic
+    return epic_source
 
 
 def _cmd_add(*, args: argparse.Namespace) -> int:
