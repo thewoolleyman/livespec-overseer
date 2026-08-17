@@ -114,6 +114,8 @@ def test_tick_writes_round_trippable_status_snapshot(*, tmp_path):
         "ctx": 73,
         "progress_now": False,
         "human_wait": False,
+        "picker_open": False,
+        "stall_seconds": 0,
         "round_open": False,
         "acked": False,
         "session_identity": "claude:101:12345:topic",

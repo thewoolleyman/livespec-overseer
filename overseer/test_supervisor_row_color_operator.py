@@ -244,6 +244,7 @@ def test_liveness_helper_edges_are_covered(*, tmp_path):
         session_identity="claude:session:topic",
         ready_uncertifiable_reason="no supervision round open",
         istate=InjectState(),
+        observed_at=1000.0 + 901.0,
         declared=signals.TrackState(token=signals.STATE_READY, detail="", mtime=1000.0),
         malformed=False,
         blocked=None,
