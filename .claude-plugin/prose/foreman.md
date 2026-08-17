@@ -76,7 +76,9 @@ move valves.
    that tracked plan to receive a supervisor pair. A missing handoff is a
    proposal precondition, not permission to start sessions directly; report-only
    remains the fallback when the row is absent, ambiguous, already
-   `supervisor_handoff: "present"`, or otherwise not revalidated by
+   `supervisor_handoff: "present"`, names a reserved supervisor topic
+   (`supervisor_handoff: "supervisor-topic"`), names a topic with no plan thread
+   (`supervisor_handoff: "not-plan"`), or otherwise not revalidated by
    `foreman-act`.
 4. Before acting, call `foreman-act` with the proposal. It performs fresh
    revalidation against the newest gather document. If it refuses, report the
