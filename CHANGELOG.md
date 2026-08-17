@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.49.0...v0.50.0) (2026-08-17)
+
+
+### Features
+
+* foreman-runtime grows a --resume flag ([61be192](https://github.com/thewoolleyman/livespec-overseer/commit/61be192f88277bf3f5b50dd02b0236640f570eea))
+
 ## [0.49.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.48.1...v0.49.0) (2026-08-17)
 
 
