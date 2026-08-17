@@ -411,6 +411,27 @@ def test_supervisor_prompt_resume_builders_cover_ledger_and_no_epic_shapes(*, tm
     )
 
 
+def test_foreman_prompt_resume_builder_covers_ledger_and_no_epic_shapes(*, tmp_path):
+    prompts = module("_supervisor_prompts")
+    repo = str(tmp_path / "repo")
+    epic = "overseer-foreman-epic"
+
+    assert hasattr(prompts, "foreman_resume")
+    foreman_resume = prompts.foreman_resume(repo=repo, epic=epic)
+
+    assert foreman_resume == (
+        f"resume foreman ledger epic {epic} in repository {repo}; "
+        "read its ledger-held foreman handoff timeline"
+    )
+    assert repo in foreman_resume
+    assert epic in foreman_resume
+    assert "plan/" not in foreman_resume
+    foreman_resume_without_epic = prompts.foreman_resume(repo=repo, epic=None)
+    assert "NO foreman ledger epic id" in foreman_resume_without_epic
+    assert repo in foreman_resume_without_epic
+    assert "plan/" not in foreman_resume_without_epic
+
+
 def test_supervisor_prompt_wrapup_builders_cover_ledger_and_no_epic_shapes(*, tmp_path):
     prompts = module("_supervisor_prompts")
     repo = str(tmp_path / "repo")
