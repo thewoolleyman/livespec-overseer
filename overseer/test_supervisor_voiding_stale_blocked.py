@@ -47,7 +47,8 @@ def test_stale_blocked_is_voided_for_an_in_process_sub_agent(*, tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
-    assert signals.read_state(repo=str(repo), topic=topic) is None  # voided
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_BLOCKED_VOIDED
 
 
 def test_idle_blocked_session_is_never_voided(*, tmp_path):

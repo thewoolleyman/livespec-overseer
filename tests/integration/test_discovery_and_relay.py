@@ -259,7 +259,7 @@ def test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode(*
 
     sup.claude_status_by_session = {session: "busy"}  # the session works again
     assert sup.evaluate(track=track, act=True).status == "working"
-    assert signals.read_state(repo=str(repo), topic=topic) is None  # the marker clears...
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_IDLE_NUDGE_CLEARED
 
     sup.claude_status_by_session = {session: "idle"}
     sup.evaluate(track=track, act=True)

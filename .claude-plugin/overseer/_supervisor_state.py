@@ -23,7 +23,23 @@ __all__: list[str] = [
     "delete_state_file",
     "expire_aged_ready",
     "void_stale_blocked",
+    "write_state_diagnostic",
 ]
+
+
+def write_state_diagnostic(
+    *, sup: Supervisor, track: registry.Track, token: str, detail: str
+) -> bool:
+    path = signals.state_path(repo=track.repo, topic=track.topic)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _ = path.write_text(f"{token}: {detail}\n", encoding="utf-8")
+    except OSError as exc:
+        sup.log(
+            message=(f"could not write state diagnostic for {track.repo}::{track.topic}: {exc}")
+        )
+        return False
+    return True
 
 
 def delete_state_file(*, sup: Supervisor, track: registry.Track) -> bool:
@@ -35,19 +51,30 @@ def delete_state_file(*, sup: Supervisor, track: registry.Track) -> bool:
     return True
 
 
-def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
-    """Delete a track's state file, clear its stamp, AND reset its inject state.
+def clear_state(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    diagnostic_token: str | None = None,
+    diagnostic_detail: str | None = None,
+) -> None:
+    """Clear a track's round and optionally replace its state with a diagnostic.
 
     Used after a successful restart. ``clear_injection_stamp`` deletes the sidecar key,
     resetting BOTH the round's ``at`` and its notified bands — so after a restart the
     round fully resets and every escalation band can fire again in the next round.
-    Clearing on the FILESYSTEM (state file + stamp) makes it durable across a daemon
-    restart. It ALSO pops the in-memory ``inject`` state
-    (mirroring ``_do_restart``) so the stale ``last_ctx`` does not linger; the
-    next threshold crossing opens a clean round that writes a new stamp
+    Clearing on the FILESYSTEM (state diagnostic + stamp) makes it durable across a
+    daemon restart. It ALSO pops the in-memory ``inject`` state (mirroring
+    ``_do_restart``) so the stale ``last_ctx`` does not linger; the next threshold
+    crossing opens a clean round that writes a new stamp
     (adversarial code re-review 2026-07-13, blocker RB2).
     """
-    _ = delete_state_file(sup=sup, track=track)
+    if diagnostic_token is None or diagnostic_detail is None:
+        _ = delete_state_file(sup=sup, track=track)
+    else:
+        _ = write_state_diagnostic(
+            sup=sup, track=track, token=diagnostic_token, detail=diagnostic_detail
+        )
     registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
 
@@ -82,15 +109,21 @@ def expire_aged_ready(*, sup: Supervisor, track: registry.Track, act: bool = Tru
     if record.at is None or record.malformed_reason is not None:
         return False
     floor_recorded = _record_ready_expiry(sup=sup, track=track, state=state, record=record)
-    deleted = delete_state_file(sup=sup, track=track)
-    if not floor_recorded and not deleted:
+    detail = f"ready declaration exceeded {READY_ARM_MAX_AGE:.0f}s maximum age " f"(age {age:.0f}s)"
+    diagnostic_written = write_state_diagnostic(
+        sup=sup,
+        track=track,
+        token=signals.STATE_READY_EXPIRED,
+        detail=detail,
+    )
+    if not floor_recorded and not diagnostic_written:
         session = track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic)
         sup.alert(
             repo=track.repo,
             topic=track.topic,
             session=session,
             pane=session,
-            message="ready expiry failed to record its floor AND delete the declaration",
+            message="ready expiry failed to record its floor AND write its diagnostic",
             condition="ready-expiry-both-writes-failed",
         )
     sup.log(
@@ -181,7 +214,13 @@ def void_stale_blocked(
     age = sup.now() - state.mtime
     if age <= MARKER_VOID_GRACE:
         return blocked  # the declaring turn's own tail (RB1)
-    _ = delete_state_file(sup=sup, track=track)
+    detail = f"session resumed generating after {age:.0f}s; stale blocked declaration voided"
+    _ = write_state_diagnostic(
+        sup=sup,
+        track=track,
+        token=signals.STATE_BLOCKED_VOIDED,
+        detail=detail,
+    )
     sup.log(
         message=f"voided stale blocked declaration for {track.repo}::{track.topic} "
         f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed generating)"

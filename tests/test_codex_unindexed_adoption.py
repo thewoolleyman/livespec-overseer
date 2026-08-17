@@ -146,7 +146,7 @@ def test_indexed_rollout_fd_makes_track_codex_and_routes_ready_restart(tmp_path)
     assert [(row.topic, row.runtime, row.status) for row in views] == [
         (topic, "codex", "restarting")
     ]
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
     respawn_commands = [call[3] for call in fake.calls if call[0] == "respawn"]
     assert len(respawn_commands) == 1
     assert f"codex resume --dangerously-bypass-approvals-and-sandbox {ID_A}" in respawn_commands[0]

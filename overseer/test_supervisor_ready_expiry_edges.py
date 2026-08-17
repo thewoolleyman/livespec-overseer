@@ -41,13 +41,13 @@ def _aged_round(*, tmp_path, identity="claude:topic:topic"):
     return repo, topic, session, sup, track
 
 
-def test_expiry_whose_floor_record_and_delete_both_fail_is_surfaced(*, tmp_path, monkeypatch):
+def test_expiry_whose_floor_record_and_diagnostic_both_fail_is_surfaced(*, tmp_path, monkeypatch):
     """Both writes are fail-soft storage operations. When BOTH fail in the same
     observation the declaration survives with an unraised floor, and that outcome is
     surfaced as an attention condition rather than described as impossible."""
     repo, topic, session, sup, track = _aged_round(tmp_path=tmp_path)
     monkeypatch.setattr(_supervisor_state.registry, "record_ready_expiry", lambda **_kw: False)
-    monkeypatch.setattr(_supervisor_state, "delete_state_file", lambda **_kw: False)
+    monkeypatch.setattr(_supervisor_state, "write_state_diagnostic", lambda **_kw: False)
 
     assert _supervisor_state.expire_aged_ready(sup=sup, track=track) is True
 
@@ -69,7 +69,8 @@ def test_a_floor_record_that_raises_is_logged_and_never_aborts_the_delete(
     assert _supervisor_state.expire_aged_ready(sup=sup, track=track) is True
 
     assert "could not record ready expiry" in capsys.readouterr().err
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_READY_EXPIRED
 
 
 def test_a_codex_pane_expires_against_its_live_codex_identity(*, tmp_path):

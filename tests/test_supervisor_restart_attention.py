@@ -95,7 +95,7 @@ def test_exact_restarted_never_worked_composer_rearms_resume_retry(*, tmp_path):
     assert not fake.has(method="respawn")
     assert not fake.has(method="paste")
     assert [call for call in fake.calls if call[0] == "keys"] == [("keys", session, "Enter")]
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is False

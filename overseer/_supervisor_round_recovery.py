@@ -30,7 +30,9 @@ class RecoveryRequest:
 def _state_permits_recovery(*, repo: str, topic: str) -> bool:
     declared = signals.read_state(repo=repo, topic=topic)
     if declared is not None:
-        return declared.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
+        return signals.valid_token(token=declared.token) and not signals.valid_session_token(
+            token=declared.token
+        )
     return not signals.state_path(repo=repo, topic=topic).exists()
 
 

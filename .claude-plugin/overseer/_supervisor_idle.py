@@ -47,6 +47,11 @@ def idle_room(*, request: IdleRequest) -> str:
         request.declared is not None
         and request.declared.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
     )
+    daemon_diagnostic = (
+        request.declared is not None
+        and signals.valid_token(token=request.declared.token)
+        and not signals.valid_session_token(token=request.declared.token)
+    )
     has_context_left = request.eff_ctx is not None and request.eff_ctx > request.threshold
     # Claude's own `waiting` = at a gate/prompt for the human. Even when no
     # structured gate is visible in the capture (it scrolled, or it is a prose
@@ -61,7 +66,7 @@ def idle_room(*, request: IdleRequest) -> str:
         request.eff_ctx is not None
         and has_context_left
         and not waiting_on_human
-        and (request.declared is None or nudged_already)
+        and (request.declared is None or nudged_already or daemon_diagnostic)
     ):
         return "idle"
     idle_long_enough = (

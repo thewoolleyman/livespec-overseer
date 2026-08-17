@@ -501,9 +501,9 @@ for the marker's edge-triggered lifecycle.
 9. **ONE state file with a VALUE — never two presence-markers.** The declaration is
    `<repo>/tmp/overseer/<topic>/.overseer-state`, whose first non-empty line is
    `<token>` or `<token>: <detail>`. There are **three SESSION-written tokens**
-   (`ready`, `blocked`, `winding-down` — `signals.STATE_TOKENS`) plus **one
-   DAEMON-written token** (`idle-with-context-left` — `signals._DAEMON_TOKENS`);
-   `signals.valid_token` accepts either set. The predecessor pair
+   (`ready`, `blocked`, `winding-down` — `signals.STATE_TOKENS`) plus
+   **DAEMON-written tokens** (`idle-with-context-left` and diagnostic states in
+   `signals._DAEMON_TOKENS`); `signals.valid_token` accepts either set. The predecessor pair
    `.overseer-ready` + `.overseer-blocked` is GONE: two presence-markers carried a
    built-in ambiguity — nothing stopped BOTH existing, and their precedence was
    incidental rather than designed. One file with a value makes that state
@@ -734,10 +734,12 @@ for the marker's edge-triggered lifecycle.
   and everything under `plan/` is the session's own business, which the overseer
   must never read or hash. Any missing/unreadable/other-valued file ⇒ False
   (fail-closed). The daemon writes the injection stamp BEFORE pasting the wrap-up
-  (so a subsequent declaration has `mtime > stamp`) and DELETES the file as it
-  restarts (`_clear_state` — so a declaration can never re-trigger). **`ready` is
-  the SOLE restart authorization — never reshape this into "the daemon may decide
-  for itself"** (invariant 7). The full contract is in `marker-protocol.md`; keep
+  (so a subsequent declaration has `mtime > stamp`) and replaces `ready` with a
+  daemon diagnostic (`restarted: <detail>`) as it restarts (`_clear_state` — so a
+  declaration can never re-trigger, while the consumed edge remains on disk).
+  **`ready` is the SOLE restart authorization — never reshape this into "the daemon
+  may decide for itself"** (invariant 7). The full contract is in
+  `marker-protocol.md`; keep
   it and `_supervisor_prompts.py`'s `_WRAPUP_SUGGEST_HEAD` /
   `_WRAPUP_INSIST_HEAD` / `_WRAPUP_BODY` in sync.
 - **Self-healing resume-submit (`registry.set_resume_pending` / `read_resume_pending`,
@@ -799,8 +801,9 @@ for the marker's edge-triggered lifecycle.
   row surfaces `ready-uncertifiable` with a max-age note, the daemon does not restart,
   and the declaration EXPIRES: the deterministic expiry instant (`mtime + max age`,
   never a fresh clock reading) is recorded into the round's sidecar and THEN the state
-  file is deleted — that order fails closed across a crash. Expiry clears the
-  declaration ONLY; the round's key, notified bands and open status all survive, and an
+  file is replaced with `ready-expired: <detail>` — that order fails closed across a
+  crash. Expiry clears the declaration ONLY; the round's key, notified bands and open
+  status all survive, and an
   expiry seen under a live identity differing from the round-open identity raises no
   floor and is surfaced. The call sits in `evaluate` right AFTER the observation is
   gathered, so precondition 3's own age backstop judges the declaration uncertifiable in

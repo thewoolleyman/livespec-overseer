@@ -189,7 +189,8 @@ def test_read_only_list_reports_working_without_retiring_a_stale_block(*, tmp_pa
     # Teeth: the SAME tick with act=True is the one allowed to retire it.
     with contextlib.redirect_stderr(_io.StringIO()):
         assert sup.evaluate(track=track, act=True).note is None
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_BLOCKED_VOIDED
 
 
 def test_read_only_list_reports_restarting_without_respawning(*, tmp_path):

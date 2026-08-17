@@ -259,8 +259,10 @@ nudge, never a restart (the cardinal rule is intact: only a session-written
 CLEARS it the moment the session goes non-idle again (the `busy` / `gate` /
 `blocked` branches of `evaluate` call `_clear_idle_nudge_state`), which re-arms a
 fresh nudge should the session idle-with-context-left again later. The clear only
-removes the file when it still holds `idle-with-context-left`, so it can never
-clobber a `ready` / `blocked` / `winding-down` the session wrote in the meantime.
+replaces the file with `idle-nudge-cleared: <detail>` when it still holds
+`idle-with-context-left`, so it can never clobber a `ready` / `blocked` /
+`winding-down` the session wrote in the meantime, and the daemon's state change
+remains visible on disk.
 
 The nudge's escape hatch is the existing `blocked:` token: a session that is
 genuinely waiting on a human and cannot get that decision answered through an
@@ -384,13 +386,14 @@ a legacy bare-number sidecar value), an undeterminable live identity, or a
 different live identity also makes the check **False** and is surfaced rather
 than guessed through. Beyond the token, the file's contents are not inspected —
 no plan-state hash — because the plan state (and everything under `plan/`) is the
-session's own business, which the overseer must never read or hash. The daemon
-**deletes the state file** as it restarts (`_clear_state`, which also clears the
-round's sidecar key: stamp, notified bands, expiry floor, and identity), so a
-declaration can never re-trigger. The restart is additionally gated on: no busy
-markers (including no live background shell under the pane's process), a verified
-idle-input pane, a **settled** pane (two captures compared), and a process-
-identity check that the pane really is our session in our repo.
+session's own business, which the overseer must never read or hash. As the daemon
+restarts, it replaces the session's `ready` with `restarted: <detail>` and clears
+the round's sidecar key (stamp, notified bands, expiry floor, and identity), so
+the declaration can never re-trigger while the on-disk value still says what the
+daemon did. The restart is additionally gated on: no busy markers (including no
+live background shell under the pane's process), a verified idle-input pane, a
+**settled** pane (two captures compared), and a process-identity check that the
+pane really is our session in our repo.
 
 **Ready arms until idle, then EXPIRES.** If a session declares `ready` and then
 emits more output, the declaration is not voided. The restart path is still gated
@@ -403,9 +406,10 @@ Staleness is bounded instead by `READY_ARM_MAX_AGE` (30 minutes), measured from
 the declaration's own mtime. Past that the declaration EXPIRES. Expiry clears the
 DECLARATION ONLY: the daemon records the expiry instant — the deterministic
 `mtime + max age`, never a fresh clock reading — into the round's sidecar and
-THEN deletes the state file, in that order, so a crash between the two leaves a
-raised floor beside a surviving declaration and still fails closed. The round's
-key, its notified bands and its open status all survive, so a later `ready`
+THEN replaces the file with `ready-expired: <detail>`, in that order, so a crash
+between the two leaves a raised floor beside a surviving declaration and still
+fails closed. The round's key, its notified bands and its open status all survive,
+so a later `ready`
 written by the same round-open session certifies against the raised floor without
 a new wrap-up. An expiry observed under a live identity DIFFERING from the
 round-open identity surfaces the track and establishes NO certifiable floor.

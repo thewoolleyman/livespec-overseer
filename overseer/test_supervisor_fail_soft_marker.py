@@ -12,7 +12,9 @@ import contextlib
 import io as _io
 
 import _supervisor_config
+import _supervisor_nudge
 import _supervisor_records
+import _supervisor_state
 import pytest
 import registry
 import signals
@@ -21,6 +23,7 @@ from test_supervisor_builders import (
     TEST_EPIC,
     adopt_sup,
     arm_ready_marker,
+    declare,
     idle_capture,
     key_for,
     make_plan,
@@ -67,6 +70,27 @@ def test_clear_state_logs_an_undeletable_marker_and_still_closes_the_round(*, tm
         is None
     )
     assert key not in sup.inject
+
+
+def test_state_diagnostic_write_failure_logs_and_returns_false(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    blocker = signals.marker_dir(repo=str(repo), topic=topic)
+    blocker.parent.mkdir(parents=True)
+    blocker.write_text("file where topic dir belongs\n", encoding="utf-8")
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
+    err = _io.StringIO()
+
+    with contextlib.redirect_stderr(err):
+        written = _supervisor_state.write_state_diagnostic(
+            sup=sup,
+            track=mapped_track(repo=repo, topic=topic, session="sesA"),
+            token=signals.STATE_RESTARTED,
+            detail="restart completed",
+        )
+
+    assert written is False
+    assert "could not write state diagnostic" in err.getvalue()
+    assert topic in err.getvalue()
 
 
 def test_unreadable_ready_marker_is_never_expired(*, tmp_path):
@@ -130,6 +154,25 @@ def test_idle_nudge_marker_write_failure_is_logged_not_raised(*, tmp_path):
 
     assert "could not write idle-nudge marker" in err.getvalue()
     assert signals.read_state(repo=str(repo), topic=topic) is None  # nothing was written
+
+
+def test_idle_nudge_clear_diagnostic_failure_does_not_log_a_clear(*, tmp_path, monkeypatch):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    declare(repo=repo, topic=topic, value=signals.STATE_IDLE_WITH_CONTEXT_LEFT)
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
+    monkeypatch.setattr(
+        _supervisor_nudge._supervisor_state, "write_state_diagnostic", lambda **_kw: False
+    )
+    err = _io.StringIO()
+
+    with contextlib.redirect_stderr(err):
+        _supervisor_nudge.clear_idle_nudge_state(
+            sup=sup, track=mapped_track(repo=repo, topic=topic, session="sesA")
+        )
+
+    assert "cleared idle-with-context-left marker" not in err.getvalue()
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
 
 
 def test_failed_nudge_alerts_and_writes_no_marker_so_it_retries(*, tmp_path):

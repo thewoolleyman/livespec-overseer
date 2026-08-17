@@ -278,7 +278,7 @@ will see:
 |---|---|
 | `unassigned` | a discovered plan with no session — startable, never auto-started |
 | `idle` | at an empty prompt with nothing for the daemon to do (context unknown, or above threshold but waiting on a human / already declared) |
-| `idle-with-context-left` | idle above the wind-down threshold, not waiting on a human, undeclared — sent ONE keep-going nudge; the daemon marks it and clears the mark when it works again |
+| `idle-with-context-left` | idle above the wind-down threshold, not waiting on a human, undeclared — sent ONE keep-going nudge; the daemon marks it and replaces the mark with an on-disk diagnostic when it works again |
 | `working` | busy — actively generating, sub-agent-busy, non-shell busy, or shell-only busy above threshold / while restart is blocked |
 | `settling` | the pane is present but not yet a verified idle state; wait |
 | `warned` | at/below the warn threshold, wrap-up injected, nothing declared yet |

@@ -407,6 +407,14 @@ def _open_tiny_context_round(
     assert driver.pastes
 
 
+def _assert_restart_diagnostic(*, repo: Path, topic: str, err: str) -> None:
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None
+    assert state.token == signals.STATE_RESTARTED
+    assert "restart completed" in state.detail
+    assert err.count("consumed ready declaration") == 1
+
+
 def _legacy_wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -> str:
     current = supervisor.wrapup_message(remaining=remaining, repo=repo, topic=topic, epic=epic)
     return current.replace(
@@ -698,10 +706,13 @@ def test_ready_arms_restart_until_first_verified_idle_after_more_output(*, tmp_p
             repo=repo,
             capture=idle_capture(ctx=5, topic=topic),
         )
-        restarted = sup.evaluate(track=track, act=True)
+        err = _io.StringIO()
+        with contextlib.redirect_stderr(err):
+            restarted = sup.evaluate(track=track, act=True)
 
         assert restarted.status == "restarting"
         assert len(driver.respawns) == 1
+        _assert_restart_diagnostic(repo=repo, topic=topic, err=err.getvalue())
     finally:
         _close_session(inner=inner, session=session, repo=repo)
 
@@ -739,6 +750,11 @@ def test_ready_arm_max_age_expires_loudly_without_respawning(*, tmp_path: Path) 
         assert expired.status == "ready-uncertifiable"
         assert "ready declaration exceeded 30m max age" in (expired.note or "")
         assert "ready cannot certify" in err.getvalue()
+        assert err.getvalue().count("expired ready declaration") == 1
+        state = signals.read_state(repo=str(repo), topic=topic)
+        assert state is not None
+        assert state.token == signals.STATE_READY_EXPIRED
+        assert "ready declaration exceeded" in state.detail
         assert len(driver.respawns) == 0
     finally:
         _close_session(inner=inner, session=session, repo=repo)

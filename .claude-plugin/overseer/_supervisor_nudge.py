@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import _supervisor_launch
+import _supervisor_state
 import registry
 import signals
 from _supervisor_prompts import (
@@ -54,27 +55,26 @@ def clear_idle_nudge_state(*, sup: Supervisor, track: registry.Track) -> None:
     """Clear the ``idle-with-context-left`` marker when the session leaves the idle
     episode (it went non-idle / took a turn) — re-arming a fresh nudge next episode.
 
-    Re-reads the file immediately before unlinking and removes it ONLY if it is still
-    the daemon's own marker, so a ``ready`` / ``blocked`` the session wrote in the same
-    tick is never clobbered. Unlike :meth:`_clear_state` it touches neither the
-    injection stamp nor the in-memory inject state — the nudge opens no round.
+    Re-reads the file immediately before replacing it and writes a diagnostic ONLY if
+    it is still the daemon's own marker, so a ``ready`` / ``blocked`` the session wrote
+    in the same tick is never clobbered. Unlike :meth:`_clear_state` it touches neither
+    the injection stamp nor the in-memory inject state — the nudge opens no round.
     """
     current = signals.read_state(repo=track.repo, topic=track.topic)
     if current is None or current.token != signals.STATE_IDLE_WITH_CONTEXT_LEFT:
         return
-    try:
-        signals.state_path(repo=track.repo, topic=track.topic).unlink(missing_ok=True)
-    # The ONLY uncovered branch in this module, and deliberately so. The read
-    # above returns unless the marker is a readable regular file, so every
-    # root-proof way to make `unlink` fail (a directory at the path, a file
-    # where the parent should be) also makes that read return None and returns
-    # first. What remains is a permission-denied PARENT — and CI runs its
-    # container steps as root, where chmod denies nothing. A test would pass
-    # locally and silently stop exercising this in CI, which is worse than no
-    # test. Its sibling in `_clear_state` unlinks with no preceding read, so
-    # that one IS covered (a directory there yields EISDIR for every uid).
-    except OSError as exc:  # pragma: no cover
-        sup.log(message=f"could not clear idle-nudge marker for {track.repo}::{track.topic}: {exc}")
+    if _supervisor_state.write_state_diagnostic(
+        sup=sup,
+        track=track,
+        token=signals.STATE_IDLE_NUDGE_CLEARED,
+        detail="session left idle episode; idle-with-context-left marker cleared",
+    ):
+        sup.log(
+            message=(
+                f"cleared idle-with-context-left marker for {track.repo}::{track.topic} "
+                "(session left idle episode)"
+            )
+        )
 
 
 def nudge_idle_with_context(

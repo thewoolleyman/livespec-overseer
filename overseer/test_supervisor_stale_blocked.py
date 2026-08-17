@@ -52,7 +52,8 @@ def test_stale_blocked_is_voided_when_the_session_resumes_generating(*, tmp_path
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
     assert view.note is None  # the dead reason no longer rides the row
-    assert signals.read_state(repo=str(repo), topic=topic) is None  # voided
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_BLOCKED_VOIDED
 
 
 def test_fresh_blocked_survives_the_declaring_turns_own_busy_tail(*, tmp_path):

@@ -24,8 +24,12 @@ from pathlib import Path
 
 __all__: list[str] = [
     "STATE_BLOCKED",
+    "STATE_BLOCKED_VOIDED",
+    "STATE_IDLE_NUDGE_CLEARED",
     "STATE_IDLE_WITH_CONTEXT_LEFT",
     "STATE_READY",
+    "STATE_READY_EXPIRED",
+    "STATE_RESTARTED",
     "STATE_TOKENS",
     "STATE_WINDING_DOWN",
     "TrackState",
@@ -50,6 +54,7 @@ __all__: list[str] = [
     "supervisor_topic",
     "topic_reserved_for_supervisor",
     "topic_supervised_worker",
+    "valid_session_token",
     "valid_token",
 ]
 
@@ -352,8 +357,18 @@ STATE_READY = "ready"
 STATE_BLOCKED = "blocked"
 STATE_WINDING_DOWN = "winding-down"
 STATE_IDLE_WITH_CONTEXT_LEFT = "idle-with-context-left"
+STATE_IDLE_NUDGE_CLEARED = "idle-nudge-cleared"
+STATE_BLOCKED_VOIDED = "blocked-voided"
+STATE_READY_EXPIRED = "ready-expired"
+STATE_RESTARTED = "restarted"
 STATE_TOKENS = (STATE_READY, STATE_BLOCKED, STATE_WINDING_DOWN)
-_DAEMON_TOKENS = (STATE_IDLE_WITH_CONTEXT_LEFT,)
+_DAEMON_TOKENS = (
+    STATE_IDLE_WITH_CONTEXT_LEFT,
+    STATE_IDLE_NUDGE_CLEARED,
+    STATE_BLOCKED_VOIDED,
+    STATE_READY_EXPIRED,
+    STATE_RESTARTED,
+)
 STATE_PATH_MISMATCH = "state-path-mismatch"
 _SUPERVISOR_SUFFIX = "-supervisor"
 _FOREMAN_SUFFIX = "-foreman"
@@ -428,9 +443,14 @@ class TrackState:
 
 def valid_token(*, token: str) -> bool:
     """True iff ``token`` is a recognized state — a session-declared one
-    (:data:`STATE_TOKENS`) OR the daemon-written idle-with-context-left marker.
+    (:data:`STATE_TOKENS`) OR one of the daemon-written inert state markers.
     Only genuinely unrecognized (typo'd) tokens are surfaced as malformed."""
     return token in STATE_TOKENS or token in _DAEMON_TOKENS
+
+
+def valid_session_token(*, token: str) -> bool:
+    """True iff ``token`` is one of the states a tracked session may declare."""
+    return token in STATE_TOKENS
 
 
 def read_state(*, repo: str, topic: str) -> TrackState | None:

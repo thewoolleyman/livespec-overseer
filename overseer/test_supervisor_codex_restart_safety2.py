@@ -83,7 +83,8 @@ def test_fresh_respawn_dropped_enter_is_retried_next_tick_without_respawn(*, tmp
         method="respawn"
     )  # NEVER a second respawn — the retry can never escalate to a kill
     assert any(c[0] == "keys" and c[2] == "Enter" for c in fake.calls)  # it re-sent Enter
-    assert not marker.exists()  # round closed only after the box cleared
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_RESTARTED
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is False
@@ -186,7 +187,8 @@ def test_idle_pane_with_resume_pending_closes_the_round_instead_of_respawning(*,
     assert not fake.has(
         method="respawn"
     )  # NEVER respawn-kill the fresh session — the round just closes
-    assert signals.read_state(repo=str(repo), topic=topic) is None  # round closed (marker gone)
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_RESTARTED
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is False
@@ -212,7 +214,8 @@ def test_claude_restart_success_closes_the_round_and_issues_no_second_respawn(*,
 
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-    assert signals.read_state(repo=str(repo), topic=topic) is None  # round closed
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_RESTARTED
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is False

@@ -46,7 +46,7 @@ def test_a_codex_restart_requires_post_respawn_live_process_before_success(tmp_p
         sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert refreshed["called"] is True
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
 
 
 def test_a_codex_restart_rejects_a_different_post_respawn_session_id(tmp_path):

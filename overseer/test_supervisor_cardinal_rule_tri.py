@@ -74,7 +74,7 @@ def test_restart_fires_only_on_a_declared_ready(*, tmp_path):
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
-    state = declare(repo=repo, topic=topic, value="ready", mtime=1001.0)
+    declare(repo=repo, topic=topic, value="ready", mtime=1001.0)
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "restarting"
@@ -83,7 +83,8 @@ def test_restart_fires_only_on_a_declared_ready(*, tmp_path):
     assert str(repo) in resume
     assert "overseer-test-epic" in resume
     assert "handoff.md" not in resume
-    assert not state.exists()  # round closed
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_RESTARTED
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is None
