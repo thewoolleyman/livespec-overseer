@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.40.0...v0.40.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* distinguish supervisor handoff non-plan states ([e798108](https://github.com/thewoolleyman/livespec-overseer/commit/e79810854a881eb1baa5a353a2a71437cfc520d3))
+
 ## [0.40.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.39.4...v0.40.0) (2026-08-16)
 
 
