@@ -48,6 +48,7 @@ ATTENTION_STATUSES = (
     "foreman-heartbeat-stale",
     "ready-uncertifiable",
     "restart-never-worked",
+    "picker-stalled",
     "session-gone",
     "shell-prolonged",
     "winddown-starved",
@@ -95,6 +96,7 @@ _STATUS_COLOR = {
     "foreman-heartbeat-stale": _ANSI_YELLOW,
     "ready-uncertifiable": _ANSI_YELLOW,
     "restart-never-worked": _ANSI_YELLOW,
+    "picker-stalled": _ANSI_YELLOW,
     "session-gone": _ANSI_RED,
     "shell-prolonged": _ANSI_YELLOW,
     "winddown-starved": _ANSI_YELLOW,
@@ -162,6 +164,8 @@ class RowView:
     human_wait: bool = False
     round_open: bool = False
     acked: bool = False
+    picker_open: bool = False
+    stall_seconds: int = 0
 
 
 def needs_attention(*, row: RowView) -> bool:

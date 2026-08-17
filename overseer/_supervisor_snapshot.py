@@ -95,6 +95,8 @@ def row_payload(*, sup: Supervisor, row: RowView) -> dict[str, object]:
         "human_wait": row.human_wait,
         "round_open": row.round_open,
         "acked": row.acked,
+        "picker_open": row.picker_open,
+        "stall_seconds": row.stall_seconds,
         "session_identity": session_identity(sup=sup, row=row),
     }
 
@@ -103,11 +105,11 @@ def session_identity(*, sup: Supervisor, row: RowView) -> str:
     if row.tmux is None:
         return f"none:{row.repo}:{row.topic}"
     if row.runtime == "codex":
-        live = sup.live_codex.get((row.tmux, row.topic))
+        live = getattr(sup, "live_codex", {}).get((row.tmux, row.topic))
         if live is not None:
             return f"codex:{live.session_id}"
     if row.runtime == "claude":
-        identity = sup.claude_identity_by_session.get((row.tmux, row.topic))
+        identity = getattr(sup, "claude_identity_by_session", {}).get((row.tmux, row.topic))
         return identity if identity is not None else f"claude:{row.tmux}:{row.topic}"
     return f"tmux:{row.tmux}:{row.topic}"
 

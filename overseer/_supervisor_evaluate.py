@@ -26,6 +26,7 @@ import _supervisor_evaluate_notes
 import _supervisor_evaluate_target
 import _supervisor_liveness
 import _supervisor_observe
+import _supervisor_picker_stall
 import _supervisor_progress
 import _supervisor_restart_attention
 import foreman_pane_claim
@@ -257,13 +258,33 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     if status != "ctx-stale":
         note = _supervisor_liveness.append_note(note=note, extra=ctx_stale_note)
 
+    picker_stall = _supervisor_picker_stall.apply_picker_stall(
+        request=_supervisor_picker_stall.PickerStallRequest(
+            sup=sup,
+            track=track,
+            session=session,
+            pane=target,
+            status=status,
+            note=note,
+            obs=obs,
+            active_conditions=active_conditions,
+            act=act,
+        )
+    )
+    status = picker_stall.status
+    note = picker_stall.note
+    active_conditions = picker_stall.active_conditions
+
     view = _supervisor_progress.row_view(
-        track=track,
-        session=session,
-        status=status,
-        note=note,
-        obs=obs,
-        settled_streaming_progress=settled_streaming_progress,
+        request=_supervisor_progress.RowViewRequest(
+            track=track,
+            session=session,
+            status=status,
+            note=note,
+            obs=obs,
+            settled_streaming_progress=settled_streaming_progress,
+            picker_stall=picker_stall.view,
+        )
     )
     # Re-arm edge-triggered alerts per condition, not per row: a track can stay in
     # NEEDS YOU for one reason while a different condition clears and must re-arm.

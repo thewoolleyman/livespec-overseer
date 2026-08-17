@@ -29,6 +29,7 @@ __all__: list[str] = [
     "blocked_note",
     "clear_alert_conditions",
     "surface_blocked_alerts",
+    "surface_picker_stall_alert",
     "threshold_for",
     "uncertifiable_ready_surface",
 ]
@@ -242,6 +243,28 @@ def surface_blocked_alerts(*, request: BlockedAlertRequest) -> set[str]:
             condition=f"blocked-age-{band}",
         )
     return active_conditions
+
+
+def surface_picker_stall_alert(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    session: str,
+    pane: str,
+    stall_seconds: int,
+) -> set[str]:
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=session,
+        pane=pane,
+        message=(
+            f"picker stalled ({age_label(seconds=stall_seconds)}): "
+            "structured picker has not changed — unblock it IN THAT PANE"
+        ),
+        condition="picker-stalled",
+    )
+    return {"picker-stalled"}
 
 
 def _alert_blocked(*, request: BlockedAlertRequest, age: str, condition: str) -> None:

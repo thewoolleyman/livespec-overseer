@@ -29,6 +29,7 @@ import registry
 import signals
 
 __all__: list[str] = [
+    "charter_authorized_unblock_nudge_message",
     "idle_nudge_message",
     "launch_resume",
     "pair_stall_nudge_message",
@@ -252,6 +253,22 @@ point."""
 def void_notice_message(*, repo: str, topic: str) -> str:
     """The bounded notice sent after a stale ready declaration is voided."""
     return _VOID_NOTICE.format(state_file=str(signals.state_path(repo=repo, topic=topic)))
+
+
+_CHARTER_AUTHORIZED_UNBLOCK_NUDGE = """\
+Your supervisor charter already says:
+
+A wait is not a question. A mechanical unblock is not a question.
+If the SUPERVISOR can perform the unblock, PERFORM IT.
+
+The overseer is not choosing from this picker and will not answer it for you. Re-read
+the pending picker, perform only charter-authorized mechanical unblocks yourself, and
+declare `blocked: <reason>` only when the unblock genuinely requires a human decision."""
+
+
+def charter_authorized_unblock_nudge_message() -> str:
+    """Reminder pasted into a stalled supervisor picker without submitting an answer."""
+    return _CHARTER_AUTHORIZED_UNBLOCK_NUDGE
 
 
 def supervisor_handoff_path(*, repo: str, topic: str) -> Path:

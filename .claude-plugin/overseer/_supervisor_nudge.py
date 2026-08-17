@@ -15,7 +15,12 @@ from typing import TYPE_CHECKING
 import _supervisor_launch
 import registry
 import signals
-from _supervisor_prompts import idle_nudge_message, supervisor_idle_nudge_message
+from _supervisor_prompts import (
+    charter_authorized_unblock_nudge_message,
+    idle_nudge_message,
+    supervisor_idle_nudge_message,
+)
+from _supervisor_records import InjectState
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -23,6 +28,7 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "alert_non_responder",
     "clear_idle_nudge_state",
+    "nudge_charter_authorized_picker_stall",
     "nudge_idle_with_context",
     "write_idle_nudge_state",
 ]
@@ -125,6 +131,36 @@ def nudge_idle_with_context(
             pane=target,
             message="idle-with-context-left nudge FAILED (paste did not land); will retry",
         )
+
+
+def nudge_charter_authorized_picker_stall(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    stall_seconds: int,
+    istate: InjectState,
+) -> None:
+    """Paste a charter reminder into a stalled supervisor picker without submitting it."""
+    if istate.picker_stall_nudged:
+        return
+    message = charter_authorized_unblock_nudge_message()
+    if sup.tmux.bracketed_paste(session=target, text=message):
+        istate.picker_stall_nudged = True
+        sup.log(
+            message=(
+                f"nudged charter-authorized picker stall {track.repo}::{track.topic} "
+                f"({stall_seconds}s)"
+            )
+        )
+        return
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=_supervisor_launch.session_of(sup=sup, track=track),
+        pane=target,
+        message="charter-authorized picker-stall nudge FAILED (paste did not land)",
+    )
 
 
 def alert_non_responder(
