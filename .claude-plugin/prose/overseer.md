@@ -155,7 +155,10 @@ tmux signals and that file.
 The session declares itself by writing ONE line to ONE file
 (`<repo>/tmp/overseer/<topic>/.overseer-state`), valued `ready`,
 `blocked: <one-line reason>`, or `winding-down` (the "I heard you, wrapping up
-now" ACK). See `marker-protocol.md`.
+now" ACK). The terminal declaration command is `overseer-declare ready`; it writes
+`ready`, wakes the daemon's state-file fast path, and prints the contract that the
+declaring session must stop because further output can void or downgrade the
+restart. See `marker-protocol.md`.
 
 ---
 

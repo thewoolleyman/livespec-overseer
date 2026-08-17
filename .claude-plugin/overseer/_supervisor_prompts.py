@@ -191,7 +191,7 @@ Then:
     write it into a file under plan/, and do NOT write to the ledger directly.
  3. Stop every background sub-agent and subprocess you started.
  4. Declare done, and stop:
-        echo ready > {state_file}
+        overseer-declare ready
 
 `ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
 restarted and NOT killed — you are reported to the human as not responding, and your
@@ -346,7 +346,7 @@ Then:
     directly.
  3. Stop every background sub-agent and subprocess you started.
  4. Declare done, and stop:
-        echo ready > {state_file}
+        overseer-declare ready
 
 `ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
 restarted and NOT killed — you are reported to the human as not responding, and your

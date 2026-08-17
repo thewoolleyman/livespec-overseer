@@ -492,11 +492,11 @@ Treat the JSON returned by that command as current. Treat older prose as
 historical evidence only, even when the older prose was written by this same
 thread.
 
-Do not tell the worker to write `ready` unless the overseer daemon has opened a
-supervision round for it. A bare `ready` outside a round cannot restart the
-worker, because no injection stamp exists for the declaration to certify against;
-it will only surface later as report-only attention for the operator to clear or
-reconcile.
+Do not tell the worker to run `overseer-declare ready` unless the overseer daemon
+has opened a supervision round for it. A bare `ready` outside a round cannot
+restart the worker, because no injection stamp exists for the declaration to
+certify against; it will only surface later as report-only attention for the
+operator to clear or reconcile.
 
 A pipeline's exit code is the exit code of its last command. If the verdict
 belongs to a command before a pipe, capture that command's status before

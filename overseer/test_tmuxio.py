@@ -57,6 +57,12 @@ def test_pane_current_path_format():
     assert fake.calls[0]["argv"][-1] == "#{pane_id}\t#{pane_active}\t#{pane_current_path}"
 
 
+def test_pane_session_name_format():
+    io, fake = _io(stdout="%9\t1\tmapped-thread\n")
+    assert io.pane_session_name(pane="%9") == "mapped-thread"
+    assert fake.calls[0]["argv"][-1] == "#{pane_id}\t#{pane_active}\t#{session_name}"
+
+
 def test_pane_id_format():
     # RB3: resolve the exact pane id to target instead of the prefix-prone name.
     io, fake = _io(stdout="%5\t1\t%5\n")
