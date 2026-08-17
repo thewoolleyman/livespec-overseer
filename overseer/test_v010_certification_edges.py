@@ -120,7 +120,7 @@ def test_codex_ready_survives_busy_for_matching_live_identity(*, tmp_path):
 
     assert view.status == "working"
     record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-    assert record.voided_at is None
+    assert record.expired_at is None
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
@@ -133,7 +133,7 @@ def test_threshold_settles_when_fresh_authorization_check_fails_closed(*, tmp_pa
     record = registry.RoundRecord(
         at=None,
         bands=[],
-        voided_at=None,
+        expired_at=None,
         session_identity=None,
         malformed_reason=None,
     )

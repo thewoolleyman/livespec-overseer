@@ -74,12 +74,12 @@ def test_round_record_names_each_dict_malformed_reason(*, tmp_path):
     )
 
     path.write_text(
-        json.dumps({key: {"at": 1000.0, "voided_at": "bad", "session_identity": "claude:s:t"}}),
+        json.dumps({key: {"at": 1000.0, "expired_at": "bad", "session_identity": "claude:s:t"}}),
         encoding="utf-8",
     )
     assert (
         registry.read_round_record(repo="repo", topic="topic", stamp_path=path).malformed_reason
-        == "non-numeric ready void instant"
+        == "non-numeric expiry instant"
     )
 
     path.write_text(json.dumps({key: {"at": 1000.0}}), encoding="utf-8")
@@ -89,7 +89,7 @@ def test_round_record_names_each_dict_malformed_reason(*, tmp_path):
     )
 
 
-def test_read_round_open_identity_and_missing_void_record(*, tmp_path):
+def test_read_round_open_identity_and_missing_expiry_record(*, tmp_path):
     path = tmp_path / "stamps.json"
     registry.write_injection_stamp(
         repo="repo",
@@ -104,8 +104,8 @@ def test_read_round_open_identity_and_missing_void_record(*, tmp_path):
         == "claude:s:t"
     )
     assert (
-        registry.record_ready_void(
-            repo="repo", topic="other", ts=1200.0, floor_min=1100.0, stamp_path=path
+        registry.record_ready_expiry(
+            repo="repo", topic="other", expiry_instant=1200.0, stamp_path=path
         )
         is False
     )

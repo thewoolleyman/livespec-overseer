@@ -69,9 +69,9 @@ def test_clear_state_logs_an_undeletable_marker_and_still_closes_the_round(*, tm
     assert key not in sup.inject
 
 
-def test_unreadable_ready_marker_leaves_the_ready_flag_as_is(*, tmp_path):
-    """`_void_if_stale` voids a declaration it can prove is stale. An UNREADABLE marker
-    proves nothing, so the flag comes back untouched and nothing is cleared —
+def test_unreadable_ready_marker_is_never_expired(*, tmp_path):
+    """`_expire_aged_ready` expires a declaration it can prove is aged. An UNREADABLE
+    marker proves nothing, so nothing is expired and nothing is cleared —
     `ready_valid` is the gate that already refused to trust it."""
     repo, topic = make_plan(tmp_path=tmp_path)
     sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
@@ -80,7 +80,7 @@ def test_unreadable_ready_marker_leaves_the_ready_flag_as_is(*, tmp_path):
     )
     track = mapped_track(repo=repo, topic=topic, session="sesA")
 
-    assert sup._void_if_stale(track=track, ready=True) is True  # no state file → unreadable
+    assert sup._expire_aged_ready(track=track) is False  # no state file → unreadable
     # and the round was NOT closed behind the daemon's back
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)

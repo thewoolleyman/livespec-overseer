@@ -63,9 +63,10 @@ from _registry_discovery import repo_root_present as repo_root_present
 from _registry_discovery import watch_set_from_config as watch_set_from_config
 from _registry_epic import epic_from_plan_anchor as epic_from_plan_anchor
 from _registry_rounds import RoundRecord as RoundRecord
+from _registry_rounds import mark_expiry_notice_sent as mark_expiry_notice_sent
 from _registry_rounds import read_round_open_identity as read_round_open_identity
 from _registry_rounds import read_round_record as read_round_record
-from _registry_rounds import record_ready_void as record_ready_void
+from _registry_rounds import record_ready_expiry as record_ready_expiry
 from _registry_stamps import add_notified_band as add_notified_band
 from _registry_stamps import clear_injection_stamp as clear_injection_stamp
 from _registry_stamps import read_injection_stamp as read_injection_stamp
@@ -99,6 +100,7 @@ __all__: list[str] = [
     "epic_from_plan_anchor",
     "file_lock",
     "join",
+    "mark_expiry_notice_sent",
     "norm",
     "read_injection_stamp",
     "read_mapping",
@@ -109,7 +111,7 @@ __all__: list[str] = [
     "read_round_record",
     "record_observed_session_identity",
     "record_post_respawn",
-    "record_ready_void",
+    "record_ready_expiry",
     "remove_mapping",
     "repo_root_present",
     "repo_slug",

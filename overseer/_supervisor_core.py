@@ -354,9 +354,9 @@ class Supervisor:
         """See :func:`_supervisor_state.clear_state`."""
         _supervisor_state.clear_state(sup=self, track=track)
 
-    def _void_if_stale(self, *, track: registry.Track, ready: bool) -> bool:
-        """See :func:`_supervisor_state.void_if_stale`."""
-        return _supervisor_state.void_if_stale(sup=self, track=track, ready=ready)
+    def _expire_aged_ready(self, *, track: registry.Track) -> bool:
+        """See :func:`_supervisor_state.expire_aged_ready`."""
+        return _supervisor_state.expire_aged_ready(sup=self, track=track)
 
     def _void_stale_blocked(
         self, *, track: registry.Track, blocked: str | None, generating: bool

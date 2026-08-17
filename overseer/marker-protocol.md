@@ -302,8 +302,8 @@ keep-going nudge" above):
   daemon-opened round can never restart you: there is no floor to certify
   against, so the daemon refuses it and, after the bounded floor, surfaces the
   dead-end declaration to the operator instead. A track whose earlier `ready`
-  was voided inside an open round is different: write `ready` again after the
-  void and the new declaration can certify against the raised floor.
+  EXPIRED inside an open round is different: write `ready` again after the
+  expiry and the new declaration can certify against the raised floor.
 - **`blocked: <one-line reason>`** — "I need a human decision I cannot make
   myself." The track is **surfaced** to the operator, with its tmux coordinates,
   and is **never restarted and never keystroked into**.
@@ -345,13 +345,18 @@ these deterministic checks (`signals.ready_valid`):
 
 1. a **certification floor exists**, anchored on a usable injection stamp for
    this round (there was a wrap-up to respond to). The floor is the injection
-   stamp;
+   stamp, or, where a `ready` has since EXPIRED inside that round, the later of
+   the stamp and the most recent expiry instant;
 2. the state file's token is **exactly `ready`**;
 3. its **mtime is strictly newer than the certification floor** — proving the
-   declaration is from this round;
+   declaration is from this round and post-dates any expiry within it — AND its
+   own age (now minus its mtime) has not exceeded the bounded maximum age (30
+   minutes). Both halves apply: the recorded floor is the durable record of an
+   expiry across restarts, while the age check is the point-in-time defense
+   against the single observation between exceeding the maximum age and that
+   expiry being recorded;
 4. the session identity live at the pane matches the **round-open identity**
-   recorded when the wrap-up round was opened; AND
-5. the declaration has not exceeded the bounded ready-arm max age (30 minutes).
+   recorded when the wrap-up round was opened.
 
 Any absent, unreadable, or other-valued file makes the check **False**
 (fail-closed). A malformed round record, a missing round-open identity (including
@@ -361,20 +366,40 @@ than guessed through. Beyond the token, the file's contents are not inspected �
 no plan-state hash — because the plan state (and everything under `plan/`) is the
 session's own business, which the overseer must never read or hash. The daemon
 **deletes the state file** as it restarts (`_clear_state`, which also clears the
-round's sidecar key: stamp, notified bands, void floor, and identity), so a
+round's sidecar key: stamp, notified bands, expiry floor, and identity), so a
 declaration can never re-trigger. The restart is additionally gated on: no busy
 markers (including no live background shell under the pane's process), a verified
 idle-input pane, a **settled** pane (two captures compared), and a process-
 identity check that the pane really is our session in our repo.
 
-**Ready arms until idle.** If a session declares `ready` and then emits more
-output, the declaration is not voided. The restart path is still gated on a
-verified idle-input pane, a settled capture, no busy markers, and a matching
+**Ready arms until idle, then EXPIRES.** If a session declares `ready` and then
+emits more output, the declaration is not voided. The restart path is still gated
+on a verified idle-input pane, a settled capture, no busy markers, and a matching
 session identity, so intervening narration cannot make the daemon kill mid-work.
 The declaration remains armed and fires at the first verified settled-idle
-observation. Staleness is bounded instead by the ready-arm max age: after 30
-minutes, the row surfaces a `ready-uncertifiable` max-age note and the daemon does
-not restart.
+observation.
+
+Staleness is bounded instead by `READY_ARM_MAX_AGE` (30 minutes), measured from
+the declaration's own mtime. Past that the declaration EXPIRES. Expiry clears the
+DECLARATION ONLY: the daemon records the expiry instant — the deterministic
+`mtime + max age`, never a fresh clock reading — into the round's sidecar and
+THEN deletes the state file, in that order, so a crash between the two leaves a
+raised floor beside a surviving declaration and still fails closed. The round's
+key, its notified bands and its open status all survive, so a later `ready`
+written by the same round-open session certifies against the raised floor without
+a new wrap-up. An expiry observed under a live identity DIFFERING from the
+round-open identity surfaces the track and establishes NO certifiable floor.
+
+**The expiry-notice.** When a `ready` expires inside a DELIVERED round, the
+session is sent ONE expiry-notice: it names this state file, the three values you
+may write, and the fact that a restart requires a fresh `ready`. It is subject to
+the same guarded-paste predicate as a wrap-up, but its trigger is the expiry
+itself, so it may fire at any known context while the round remains open. It is
+sent at most once per round however many declarations expire, and that bound is
+durable in the sidecar, so a daemon restart never re-sends it. A round closed as
+recovered before the notice lands sends none — the fresh round's own wrap-up
+re-teaches the protocol instead. The notice re-opens no round, resets no notified
+band, and authorizes nothing.
 
 ## The restart mechanics (unchanged — only the trigger changed)
 
