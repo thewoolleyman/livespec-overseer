@@ -7,6 +7,7 @@ from pathlib import Path
 
 import _supervisor_config
 import pytest
+import signals
 from test_supervisor_builders import make_plan, make_supervisor, mapped_track
 from test_supervisor_fakes import FakeTmux
 
@@ -35,7 +36,7 @@ def _freshness(*, tmp_path, topic_suffix: str, body: str | None = None):
     repo, worker_topic = make_plan(tmp_path=tmp_path)
     topic = f"{worker_topic}{topic_suffix}"
     if body is not None:
-        _write_marker(repo=repo, topic=topic, body=body)
+        _write_marker(repo=repo, topic=signals.supervisor_topic(entity_topic=topic), body=body)
     sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), now=lambda: 1000.0)
     track = mapped_track(repo=repo, topic=topic, session=topic)
     supervisor_state = _import_supervisor_state_module()
@@ -69,12 +70,12 @@ def test_empty_or_absent_updated_at_fails_soft_to_stale(*, tmp_path, body):
     assert freshness.reason == "missing or malformed marker"
 
 
-def test_malformed_marker_fails_soft_even_with_fresh_updated_at(*, tmp_path, monkeypatch):
+def test_unparseable_updated_at_fails_soft(*, tmp_path, monkeypatch):
     monkeypatch.setattr(_supervisor_config, "SUPERVISOR_STATE_STALE_AFTER", 60.0, raising=False)
     freshness = _freshness(
         tmp_path=tmp_path,
         topic_suffix="-supervisor",
-        body="topic: topic-supervisor\nupdated_at: 1970-01-01T00:16:20Z\nopen_obligations: [\n",
+        body="topic: topic-supervisor\nupdated_at: [\n",
     )
 
     assert freshness.stale is True

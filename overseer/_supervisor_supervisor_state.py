@@ -24,7 +24,6 @@ __all__: list[str] = [
 ]
 
 SUPERVISOR_STATE_STALE_STATUS = "supervisor-state-stale"
-_SUPERVISOR_TOPIC_SUFFIX = "-supervisor"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -46,26 +45,7 @@ def _parse_updated_at(*, value: str) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
-def _line_has_balanced_flow_markers(*, line: str) -> bool:
-    return (
-        line.count("[") == line.count("]")
-        and line.count("{") == line.count("}")
-        and line.count("'") % 2 == 0
-        and line.count('"') % 2 == 0
-    )
-
-
-def _validate_yaml_subset(*, text: str) -> None:
-    for raw in text.splitlines():
-        line = raw.strip()
-        if line == "" or line.startswith("#"):
-            continue
-        if ":" not in line or not _line_has_balanced_flow_markers(line=line):
-            raise ValueError
-
-
 def _updated_at_from_yaml_subset(*, text: str) -> datetime | None:
-    _validate_yaml_subset(text=text)
     for raw in text.splitlines():
         line = raw.strip()
         if not line.startswith("updated_at:"):
@@ -86,7 +66,8 @@ def _read_updated_at(*, repo: str, topic: str) -> datetime | None:
 
 
 def _tracked_as_supervisor_half(*, topic: str) -> bool:
-    return topic.endswith(_SUPERVISOR_TOPIC_SUFFIX)
+    entity_topic = signals.supervisor_topic(entity_topic=topic)
+    return signals.supervisor_entity_topic(topic=entity_topic) == topic
 
 
 def observe_supervisor_state_freshness(
@@ -94,7 +75,9 @@ def observe_supervisor_state_freshness(
 ) -> SupervisorStateFreshness:
     if not _tracked_as_supervisor_half(topic=track.topic):
         return SupervisorStateFreshness(stale=False, age=None, reason=None)
-    updated_at = _read_updated_at(repo=track.repo, topic=track.topic)
+    updated_at = _read_updated_at(
+        repo=track.repo, topic=signals.supervisor_topic(entity_topic=track.topic)
+    )
     if updated_at is None:
         return SupervisorStateFreshness(stale=True, age=None, reason="missing or malformed marker")
     age = max(0.0, sup.now() - updated_at.timestamp())
