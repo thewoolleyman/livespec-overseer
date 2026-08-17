@@ -26,6 +26,13 @@ class RoundObservation:
     ready: bool
 
 
+@dataclass(frozen=True, kw_only=True)
+class ObservationHistory:
+    mapped: bool
+    session_identity: str | None
+    added_at: str | None
+
+
 def session_identity(
     *,
     sup: Supervisor,
@@ -43,6 +50,37 @@ def session_identity(
     return None
 
 
+def _observation_history(
+    *,
+    sup: Supervisor,
+    repo: str,
+    topic: str,
+) -> ObservationHistory:
+    repo_norm = registry.norm(repo=repo)
+    for track in registry.read_mapping(store_path=sup.store_path):
+        if registry.norm(repo=track.repo) == repo_norm and track.topic == topic:
+            return ObservationHistory(
+                mapped=True,
+                session_identity=track.observed_session_identity,
+                added_at=track.added_at,
+            )
+    return ObservationHistory(mapped=False, session_identity=None, added_at=None)
+
+
+def _has_iso_added_at(*, history: ObservationHistory) -> bool:
+    added_at = history.added_at
+    return (
+        added_at is not None
+        and len(added_at) == len("2026-08-16T23:45:00Z")
+        and added_at[4] == "-"
+        and added_at[7] == "-"
+        and added_at[10] == "T"
+        and added_at[13] == ":"
+        and added_at[16] == ":"
+        and added_at.endswith("Z")
+    )
+
+
 def round_observation(
     *,
     sup: Supervisor,
@@ -54,13 +92,24 @@ def round_observation(
 ) -> RoundObservation:
     record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
     identity = session_identity(sup=sup, session=session, topic=topic, runtime=runtime)
+    history = _observation_history(sup=sup, repo=repo, topic=topic)
+    fresh_ready_without_round = _fresh_ready_without_round_valid(
+        declared=declared,
+        round_record=record,
+        session_identity=identity,
+        history=history,
+    )
     return RoundObservation(
         record=record,
         session_identity=identity,
         ready_uncertifiable_reason=_ready_uncertifiable_reason(
-            declared=declared, round_record=record, session_identity=identity
+            declared=declared,
+            round_record=record,
+            session_identity=identity,
+            history=history,
         ),
-        ready=signals.ready_valid(
+        ready=fresh_ready_without_round
+        or signals.ready_valid(
             repo=repo,
             topic=topic,
             certification_floor=record.certification_floor,
@@ -71,14 +120,43 @@ def round_observation(
     )
 
 
+def _fresh_ready_without_round_valid(
+    *,
+    declared: signals.TrackState | None,
+    round_record: registry.RoundRecord,
+    session_identity: str | None,
+    history: ObservationHistory,
+) -> bool:
+    return (
+        declared is not None
+        and declared.token == signals.STATE_READY
+        and round_record.at is None
+        and round_record.malformed_reason is None
+        and session_identity is not None
+        and history.mapped
+        and _has_iso_added_at(history=history)
+        and history.session_identity is None
+    )
+
+
 def _ready_uncertifiable_reason(
     *,
     declared: signals.TrackState | None,
     round_record: registry.RoundRecord,
     session_identity: str | None,
+    history: ObservationHistory,
 ) -> str | None:
     reason: str | None = None
-    if declared is None or declared.token != signals.STATE_READY:
+    if (
+        declared is None
+        or declared.token != signals.STATE_READY
+        or _fresh_ready_without_round_valid(
+            declared=declared,
+            round_record=round_record,
+            session_identity=session_identity,
+            history=history,
+        )
+    ):
         reason = None
     elif round_record.at is None:
         reason = "no supervision round open"
