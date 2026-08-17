@@ -105,7 +105,7 @@ def test_recognition_timeout_after_successful_respawn_pends_resume_not_second_ki
 
     assert view2.status == "restarting"
     assert not fake.has(method="respawn")
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is False
@@ -157,7 +157,7 @@ def test_scenario_a_fresh_ready_declaration_triggers_the_atomic_restart(*, tmp_p
     assert "overseer-test-epic" in pastes[1]
     assert "handoff.md" not in pastes[1]
 
-    assert not signals.state_path(repo=str(repo), topic=topic).exists()
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is None
@@ -195,7 +195,7 @@ def test_scenario_a_respawn_prompt_names_the_plan_epic_and_repository(*, tmp_pat
     assert str(repo) in resume
     assert epic in resume
     assert legacy_resume not in resume
-    assert not signals.state_path(repo=str(repo), topic=topic).exists()
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
 
     missing_repo, missing_topic, _missing_session, missing_fake, missing_sup, missing_track = (
         _open_round(tmp_path=tmp_path, topic="missing-epic")

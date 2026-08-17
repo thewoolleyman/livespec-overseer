@@ -355,8 +355,14 @@ def do_restart(
         stamp_path=sup.stamp_path,
     )
     if _supervisor_launch.submit_prompt(sup=sup, target=target, text=resume):
-        _supervisor_state.clear_state(sup=sup, track=track)
+        _supervisor_state.clear_state(
+            sup=sup,
+            track=track,
+            diagnostic_token=signals.STATE_RESTARTED,
+            diagnostic_detail="restart completed; consumed ready declaration",
+        )
         _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
+        sup.log(message=f"consumed ready declaration for {track.repo}::{track.topic}")
         sup.log(message=f"restarted {track.repo}::{track.topic} (pane {target})")
         return
     # The fresh Claude IS up, but the resume line did not submit (the fresh TUI

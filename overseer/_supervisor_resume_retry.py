@@ -115,7 +115,13 @@ def resume_retry(
         else _supervisor_launch.resend_enter(sup=sup, target=target)
     )
     if resolved:
-        _supervisor_state.clear_state(sup=sup, track=track)
+        _supervisor_state.clear_state(
+            sup=sup,
+            track=track,
+            diagnostic_token=signals.STATE_RESTARTED,
+            diagnostic_detail="restart completed; consumed ready declaration",
+        )
+        sup.log(message=f"consumed ready declaration for {repo}::{topic}")
         sup.log(message=f"restart resume submitted for {repo}::{topic} (pane {target})")
         return RowView(
             topic=topic,

@@ -209,7 +209,7 @@ def test_shell_only_above_threshold_surfaces_after_long_floor(*, tmp_path):
     assert "background shell prolonged (8h)" in err.getvalue()
 
 
-def test_stale_blocked_unlink_failure_is_logged_and_does_not_restore_block(
+def test_stale_blocked_diagnostic_failure_is_logged_and_does_not_restore_block(
     *, tmp_path, monkeypatch
 ):
     repo, topic = make_plan(tmp_path=tmp_path)
@@ -218,10 +218,10 @@ def test_stale_blocked_unlink_failure_is_logged_and_does_not_restore_block(
     sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), now=lambda: 1000.0)
     track = mapped_track(repo=repo, topic=topic, session=session)
 
-    def unlink_raises(self, *, missing_ok=False):
-        raise OSError("simulated unlink failure")
+    def write_text_raises(self, data, *, encoding=None, errors=None, newline=None):
+        raise OSError("simulated diagnostic write failure")
 
-    monkeypatch.setattr(signals.Path, "unlink", unlink_raises)
+    monkeypatch.setattr(signals.Path, "write_text", write_text_raises)
 
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         blocked = _supervisor_state.void_stale_blocked(
@@ -232,5 +232,5 @@ def test_stale_blocked_unlink_failure_is_logged_and_does_not_restore_block(
         )
 
     assert blocked is None
-    assert "could not delete state file" in err.getvalue()
+    assert "could not write state diagnostic" in err.getvalue()
     assert signals.read_state(repo=str(repo), topic=topic) is not None

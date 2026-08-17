@@ -151,6 +151,12 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
     ):
         return
     # The kick was submitted BY the `codex resume` argument — no separate paste step.
-    _supervisor_state.clear_state(sup=sup, track=track)
+    _supervisor_state.clear_state(
+        sup=sup,
+        track=track,
+        diagnostic_token=signals.STATE_RESTARTED,
+        diagnostic_detail="restart completed; consumed ready declaration",
+    )
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
+    sup.log(message=f"consumed ready declaration for {track.repo}::{track.topic}")
     sup.log(message=f"restarted (codex) {track.repo}::{track.topic} (pane {target})")

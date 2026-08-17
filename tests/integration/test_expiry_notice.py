@@ -43,7 +43,7 @@ def _expire_a_declaration(*, fixture, clock, mtime):
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=mtime)
     clock["t"] = mtime + MAX_AGE + 1.0
     sup.evaluate(track=track, act=True)
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY_EXPIRED
 
 
 def _notice_texts(*, fake: FakeTmux) -> list[str]:

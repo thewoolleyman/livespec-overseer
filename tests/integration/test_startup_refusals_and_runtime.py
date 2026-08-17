@@ -355,7 +355,7 @@ def test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill(*
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.evaluate(track=track, act=True)
 
-    assert signals.read_state(repo=str(repo), topic=topic) is None  # the round closes
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is False

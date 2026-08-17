@@ -130,7 +130,7 @@ def test_codex_shell_only_evidence_does_not_withhold_or_void_a_certified_ready(*
     assert len(respawns) == 1
     assert "codex resume" in respawns[0][3]
     assert session_id in respawns[0][3]
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
 
 
 @pytest.mark.parametrize(

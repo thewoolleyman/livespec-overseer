@@ -69,8 +69,9 @@ def test_an_adopted_codex_track_declaring_ready_is_restarted_with_the_codex_comm
     # (`_await_pane(pane_is_codex)`, which needs FakeTmux to model the respawn as a codex
     # pane) must succeed AND `_clear_state` must delete the marker, or a stale `ready` would
     # respawn-KILL the just-resumed codex EVERY tick — a destructive loop. Pin both: the
-    # state file is gone, and a SECOND tick issues no second respawn.
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    # state file is inert, and a SECOND tick issues no second respawn.
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_RESTARTED
     fake.calls.clear()
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -231,7 +232,8 @@ def test_a_codex_restart_requires_post_respawn_live_process_before_success(*, tm
         sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert refreshed["called"] is True
-    assert signals.read_state(repo=str(repo), topic=topic) is None
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_RESTARTED
 
 
 def test_a_codex_restart_without_recorded_epic_alerts_and_keeps_ready_marker(*, tmp_path):

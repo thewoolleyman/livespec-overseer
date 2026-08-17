@@ -11,6 +11,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 import codex_sessions
 import pytest
 import registry
+import signals
 import supervisor
 from test_supervisor_builders import (
     arm_ready_marker,
@@ -115,7 +116,7 @@ def test_restart_fires_when_marker_valid_notbusy_idle(*, tmp_path):
         ts=1000.0,
         stamp_path=sup.stamp_path,
     )
-    marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "restarting"
@@ -128,8 +129,9 @@ def test_restart_fires_when_marker_valid_notbusy_idle(*, tmp_path):
     resume = fake.paste_texts()[0]
     assert "overseer-test-epic" in resume
     assert "handoff.md" not in resume
-    # the ready marker was deleted AND the injection stamp cleared (round closed, B4)
-    assert not marker.exists()
+    # the ready marker was consumed AND the injection stamp cleared (round closed, B4)
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_RESTARTED
     assert (
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         is None

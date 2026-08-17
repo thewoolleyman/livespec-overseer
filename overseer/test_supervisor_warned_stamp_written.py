@@ -171,7 +171,8 @@ def test_nudge_re_arms_after_the_session_takes_a_turn(*, tmp_path):
     # The session takes a turn (Claude busy) → marker cleared AND the idle clock reset.
     sup.claude_status_by_session = {session: "busy"}
     assert sup.evaluate(track=track, act=True).status == "working"
-    assert signals.read_state(repo=str(repo), topic=topic) is None  # marker gone
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_IDLE_NUDGE_CLEARED
 
     # Idle again with context left but only BRIEFLY → not yet re-nudged (fresh 1h clock).
     sup.claude_status_by_session = {session: "idle"}

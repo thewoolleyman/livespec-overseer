@@ -52,7 +52,10 @@ def test_supervisor_ready_restarts_supervisor_entity_not_worker(*, tmp_path, mon
     assert len(respawns) == 1
     assert respawns[0][1] == supervisor_session
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
-    assert signals.read_state(repo=str(repo), topic=f"{topic}-supervisor") is None
+    assert (
+        signals.read_state(repo=str(repo), topic=f"{topic}-supervisor").token
+        == signals.STATE_RESTARTED
+    )
 
 
 def test_migrated_supervisor_ready_restarts_from_ledger_epic_shape(*, tmp_path, monkeypatch):
@@ -89,7 +92,10 @@ def test_migrated_supervisor_ready_restarts_from_ledger_epic_shape(*, tmp_path, 
     assert "overseer-test-epic" in resume
     assert f"{topic}-supervisor" in resume
     assert "supervisor-handoff.md" not in resume
-    assert signals.read_state(repo=str(repo), topic=f"{topic}-supervisor") is None
+    assert (
+        signals.read_state(repo=str(repo), topic=f"{topic}-supervisor").token
+        == signals.STATE_RESTARTED
+    )
 
 
 def test_migrated_supervisor_ready_without_recorded_epic_still_refuses(*, tmp_path, monkeypatch):

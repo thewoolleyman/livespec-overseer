@@ -94,4 +94,5 @@ def test_cold_open_respawn_without_a_handoff_file_resolves_and_injects(*, tmp_pa
 
     # Nothing in the act created the file the old pointer named, and the round closed.
     assert not (repo / "plan" / topic / "handoff.md").exists()
-    assert not signals.state_path(repo=str(repo), topic=topic).exists()
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_RESTARTED

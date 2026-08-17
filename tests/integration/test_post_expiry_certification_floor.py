@@ -237,12 +237,13 @@ def test_expiry_deletes_the_declaration_and_records_a_deterministic_instant(*, t
     assert sup.evaluate(track=track, act=True).status == "warned"
     bands = registry.read_notified_bands(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
-    marker = declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
     clock["t"] = 1001.0 + _supervisor_config.READY_ARM_MAX_AGE + 500.0
     sup.evaluate(track=track, act=True)
 
     record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-    assert not marker.exists()
+    state = signals.read_state(repo=str(repo), topic=topic)
+    assert state is not None and state.token == signals.STATE_READY_EXPIRED
     assert record.expired_at == 1001.0 + _supervisor_config.READY_ARM_MAX_AGE
     assert record.at == 1000.0
     assert (
