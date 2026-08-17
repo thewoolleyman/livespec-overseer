@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.48.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.48.0...v0.48.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* guard foreman ready without epic ([b8381e6](https://github.com/thewoolleyman/livespec-overseer/commit/b8381e68510a4838b878e14d9d5634d709e14eb8))
+
 ## [0.48.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.47.0...v0.48.0) (2026-08-17)
 
 
