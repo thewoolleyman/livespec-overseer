@@ -266,21 +266,21 @@ def test_scenario_ready_on_never_rounded_track_certifies_nothing(*, tmp_path):
     )
 
 
-def test_scenario_successor_sees_downgraded_predecessor_ready_as_ack(*, tmp_path):
+def test_scenario_successor_never_certifies_against_predecessor_floor(*, tmp_path):
     fixture = _round(tmp_path=tmp_path, ctx=40)
     repo, topic, session, fake, sup, track = fixture
     _busy_after_ready(fixture=fixture)
     record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     assert record.expired_at is None
-    state = signals.read_state(repo=str(repo), topic=topic)
-    assert state is not None
-    assert state.token == signals.STATE_WINDING_DOWN
     sup.claude_identity_by_session[(session, topic)] = "claude:successor"
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
 
     view = sup.evaluate(track=track, act=True)
 
-    assert view.status == "winding-down"
+    assert view.status == "ready-uncertifiable"
+    assert "identity differs" in (view.note or "")
+    assert "round=claude:topic:topic" in (view.note or "")
+    assert "live=claude:successor" in (view.note or "")
     assert _respawn_count(fake=fake) == 0
 
 

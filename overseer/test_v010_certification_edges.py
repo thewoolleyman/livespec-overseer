@@ -93,7 +93,7 @@ def test_ready_uncertifiable_names_missing_live_codex_identity(*, tmp_path):
     assert obs.ready_uncertifiable_reason == "session identity cannot be determined"
 
 
-def test_codex_ready_degrades_after_busy_for_matching_live_identity(*, tmp_path):
+def test_codex_ready_survives_busy_for_matching_live_identity(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -121,10 +121,7 @@ def test_codex_ready_degrades_after_busy_for_matching_live_identity(*, tmp_path)
     assert view.status == "working"
     record = registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
     assert record.expired_at is None
-    state = signals.read_state(repo=str(repo), topic=topic)
-    assert state is not None
-    assert state.token == signals.STATE_WINDING_DOWN
-    assert state.detail == "auto @1000"
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
 def test_threshold_settles_when_fresh_authorization_check_fails_closed(*, tmp_path, monkeypatch):
