@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.41.0...v0.41.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* cover fresh ready certification ([d9c5852](https://github.com/thewoolleyman/livespec-overseer/commit/d9c585262f772438e1701f6f756993d3877c2ecb))
+
 ## [0.41.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.40.1...v0.41.0) (2026-08-17)
 
 
