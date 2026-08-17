@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import _supervisor_attention_exhausted
 import _supervisor_observe
+import _supervisor_supervisor_state
 import registry
 import signals
 from _supervisor_attention_alerts import (
@@ -65,6 +66,9 @@ class LivenessAttention:
     escalation_exhausted_age: float | None
     starvation_age: float | None
     shell_age: float | None
+    supervisor_state_stale: bool = False
+    supervisor_state_age: float | None = None
+    supervisor_state_reason: str | None = None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -105,6 +109,9 @@ def observe_liveness_attention(*, request: ObserveRequest) -> LivenessAttention:
             round_record=request.round_record,
         )
     )
+    supervisor_state = _supervisor_supervisor_state.observe_supervisor_state_freshness(
+        sup=request.sup, track=request.track
+    )
     starving_now = (
         request.eff_ctx is not None
         and request.eff_ctx <= request.threshold
@@ -134,9 +141,12 @@ def observe_liveness_attention(*, request: ObserveRequest) -> LivenessAttention:
         starving_now=starving_now,
         starved_due=starvation_age is not None and starvation_age >= WINDDOWN_STARVED_AFTER,
         shell_due=shell_age is not None and shell_age >= SHELL_PROLONGED_AFTER,
+        supervisor_state_stale=supervisor_state.stale,
         escalation_exhausted_age=escalation_exhaustion.age,
         starvation_age=starvation_age,
         shell_age=shell_age,
+        supervisor_state_age=supervisor_state.age,
+        supervisor_state_reason=supervisor_state.reason,
     )
 
 
@@ -194,6 +204,28 @@ def _escalation_exhausted_conditions(
 
 def pre_busy_attention_decision(*, request: AttentionRequest) -> AttentionDecision | None:
     attention = request.attention
+    if attention.supervisor_state_stale:
+        freshness = _supervisor_supervisor_state.SupervisorStateFreshness(
+            stale=True,
+            age=attention.supervisor_state_age,
+            reason=attention.supervisor_state_reason,
+        )
+        active = (
+            _supervisor_supervisor_state.surface_supervisor_state_stale_alert(
+                sup=request.sup,
+                track=request.track,
+                session=request.session,
+                pane=request.pane,
+                freshness=freshness,
+            )
+            if request.act
+            else {_supervisor_supervisor_state.SUPERVISOR_STATE_STALE_STATUS}
+        )
+        return AttentionDecision(
+            status=_supervisor_supervisor_state.SUPERVISOR_STATE_STALE_STATUS,
+            note=_supervisor_supervisor_state.supervisor_state_stale_note(freshness=freshness),
+            active_conditions=active,
+        )
     if attention.escalation_exhausted_due:
         exhausted = _escalation_exhausted_request(request=request)
         return AttentionDecision(

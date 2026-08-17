@@ -49,6 +49,7 @@ __all__: list[str] = [
     "SUBMIT_MAX_ENTERS",
     "SUBMIT_POLL",
     "SUPERVISION_CONDITIONS",
+    "SUPERVISOR_STATE_STALE_AFTER",
     "WINDDOWN_STARVED_AFTER",
     "WINDOW_NAME",
     "default_gitignore_check",
@@ -157,6 +158,7 @@ WINDDOWN_STARVED_AFTER = 2 * 3600.0
 SHELL_PROLONGED_AFTER = 8 * 3600.0
 ESCALATION_EXHAUSTED_AFTER = 10 * 60.0
 PICKER_STALL_AFTER = 30 * 60.0
+SUPERVISOR_STATE_STALE_AFTER = 30 * 60.0
 
 # Standing blocked declarations escalate once at each crossed age band. Further daily
 # bands are derived from the same 24h cadence in the evaluator.

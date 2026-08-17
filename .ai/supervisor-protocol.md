@@ -221,10 +221,13 @@ rather than reasoning about it:
 ## Obligation record
 
 Maintain the supervisor marker at
-`<repo-primary>/tmp/overseer/<topic>/.supervisor-state`, rewriting it whenever
+`<repo-primary>/tmp/overseer/<topic>/.supervisor-state`, rewriting its
+`updated_at` field on every supervisor wake, and rewriting the rest whenever
 your obligations change. On cold open, read it before relying on memory or the
 transcript. It is the durable supervisor obligation record beside the worker's
-own `.overseer-state`, and `tmp/` keeps both out of tracked history.
+own `.overseer-state`, and `tmp/` keeps both out of tracked history. `updated_at`
+is the daemon-observed freshness signal: a missing, malformed, or stale value is
+reported as supervisor distress, even when the obligation list itself is quiet.
 
 Emit and preserve this schema:
 
@@ -254,6 +257,9 @@ an armed `wake_mechanism` until both timestamps are set. An obligation whose
 `wake_mechanism` is legitimately `NONE ARMED` is not discharged; it needs the
 explicit `timeout` deadline, and that deadline is the re-entry mechanism that
 escalates to the maintainer if nothing happens.
+
+Refresh `updated_at` on every wake before deciding whether anything else changed.
+It is a liveness heartbeat, not only a change timestamp.
 
 ## Supervisor completion gate
 

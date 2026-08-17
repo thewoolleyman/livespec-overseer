@@ -30,6 +30,7 @@ class RowViewRequest:
     obs: Observation
     settled_streaming_progress: bool
     picker_stall: PickerStallView
+    supervisor_state_stale: bool
 
 
 def blocked_human_stall_seconds(*, obs: Observation, status: str) -> int:
@@ -75,6 +76,7 @@ def row_view(*, request: RowViewRequest) -> RowView:
         acked=request.obs.acked,
         picker_open=request.picker_stall.picker_open,
         stall_seconds=request.picker_stall.stall_seconds,
+        supervisor_state_stale=request.supervisor_state_stale,
     )
 
 

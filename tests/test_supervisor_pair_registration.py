@@ -16,6 +16,7 @@ from test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    write_fresh_supervisor_state,
     write_session,
 )
 from test_supervisor_fakes import FakeTmux
@@ -72,6 +73,7 @@ def supervisor_pair_with_derived_supervisor_name(*, tmp_path: Path, supervisor_c
         store_path=sup.store_path,
         added_at="now",
     )
+    write_fresh_supervisor_state(repo=repo, topic=supervisor_session)
     return sup, clock, repo, topic, supervisor_session
 
 

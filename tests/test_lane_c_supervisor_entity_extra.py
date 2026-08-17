@@ -21,6 +21,7 @@ from test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    write_fresh_supervisor_state,
     write_session,
 )
 from test_supervisor_fakes import FakeTmux
@@ -111,6 +112,7 @@ def test_supervisor_low_context_uses_supervisor_wrapup_variant(*, tmp_path):
         store_path=sup.store_path,
         added_at="now",
     )
+    write_fresh_supervisor_state(repo=repo, topic=f"{topic}-supervisor")
 
     sup.tick(act=True)
 
@@ -136,6 +138,7 @@ def test_supervisor_ready_without_handoff_preserves_declaration(*, tmp_path):
     registry.write_injection_stamp(
         repo=str(repo), topic=f"{topic}-supervisor", ts=900.0, stamp_path=sup.stamp_path
     )
+    write_fresh_supervisor_state(repo=repo, topic=f"{topic}-supervisor")
     arm_ready_marker(repo=repo, topic=f"{topic}-supervisor")
 
     with contextlib.redirect_stderr(_io.StringIO()) as err:
@@ -219,6 +222,7 @@ def test_supervisor_entity_idle_does_not_offer_supervisor_of_supervisor(*, tmp_p
         tmux=entity_topic,
         resume=_supervisor_prompts.supervisor_resume(repo=str(repo), topic=topic),
     )
+    write_fresh_supervisor_state(repo=repo, topic=entity_topic)
 
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         view = sup.evaluate(track=track, act=True)
@@ -243,6 +247,7 @@ def test_supervisor_entity_idle_nudge_points_at_dual_plan_shape(*, tmp_path):
             repo=str(repo), topic=topic, epic="overseer-test-epic"
         ),
     )
+    write_fresh_supervisor_state(repo=repo, topic=entity_topic)
 
     assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
     clock["t"] += 3601.0

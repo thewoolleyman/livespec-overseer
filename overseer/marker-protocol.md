@@ -338,6 +338,21 @@ state, a session whose real pending work has drifted from those entries must
 **append a correcting entry** — never stash its resume state in a scratchpad, or
 in a file under `plan/`, and withhold the declaration.
 
+## What a supervisor-half session must REFRESH
+
+Supervisor-half sessions also maintain
+`<repo>/tmp/overseer/<topic>/.supervisor-state`, a structured marker distinct
+from the worker-authored `.overseer-state` above. It never authorizes a daemon
+restart. Its `updated_at` field is the daemon-observed freshness signal for the
+supervisor itself.
+
+Refresh `updated_at` on every supervisor wake, before deciding whether any
+obligation changed. A missing marker, malformed marker, missing `updated_at`, or
+`updated_at` older than the daemon's configured freshness bound is reported as a
+`supervisor-state-stale` attention row on that supervisor-half session. A fresh
+marker with unchanged obligations is healthy and remains distinct from a stale,
+silent supervisor marker.
+
 ## What `ready_valid` validates (the restart interlock)
 
 The daemon restarts a tracked session ONLY when the state file passes ALL of

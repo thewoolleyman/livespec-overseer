@@ -18,6 +18,7 @@ from test_supervisor_builders import (
     make_supervisor,
     mapped_track,
     render_of,
+    write_fresh_supervisor_state,
 )
 from test_supervisor_fakes import FakeTmux
 
@@ -137,6 +138,7 @@ def test_charter_authorized_picker_stall_gets_clause_nudge_without_answering_pic
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
     track = mapped_track(repo=repo, topic=topic, session=session)
+    write_fresh_supervisor_state(repo=repo, topic=topic)
 
     with contextlib.redirect_stderr(_io.StringIO()):
         assert sup.evaluate(track=track, act=True).status == "blocked:human"
@@ -169,6 +171,7 @@ def test_charter_authorized_picker_stall_reports_failed_nudge_without_answering(
     clock = {"t": 1000.0}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
     track = mapped_track(repo=repo, topic=topic, session=session)
+    write_fresh_supervisor_state(repo=repo, topic=topic)
 
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         assert sup.evaluate(track=track, act=True).status == "blocked:human"

@@ -226,6 +226,17 @@ def declare(*, repo, topic, value, mtime=1001.0):
     return path
 
 
+def write_fresh_supervisor_state(*, repo, topic):
+    """Write the supervisor-half freshness marker required by the daemon."""
+    path = signals.marker_dir(repo=str(repo), topic=topic) / ".supervisor-state"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"topic: {topic}\nupdated_at: 2999-01-01T00:00:00Z\nopen_obligations: []\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 # --------------------------------------------------------------------------- #
 # CLI mapping edits.
 # --------------------------------------------------------------------------- #

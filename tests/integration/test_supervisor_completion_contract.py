@@ -57,6 +57,11 @@ _ADDITIVE_NEEDLES = (
     "stop supervising <topic>",
     "replace supervision objective",
 )
+_FRESHNESS_NEEDLES = (
+    "every supervisor wake",
+    "liveness heartbeat",
+    "daemon-observed freshness signal",
+)
 
 
 def _combined_current_contract() -> str:
@@ -83,6 +88,7 @@ def _completion_contract_failures(*, text: str) -> list[str]:
         ("external-cold-reentry", _COLD_REENTRY_NEEDLES),
         ("driver-owned-boundary", _BOUNDARY_NEEDLES),
         ("additive-user-messages", _ADDITIVE_NEEDLES),
+        ("wake-refreshed-supervisor-state", _FRESHNESS_NEEDLES),
     )
     for name, needles in groups:
         if _missing_needles(text=text, needles=needles) != []:
