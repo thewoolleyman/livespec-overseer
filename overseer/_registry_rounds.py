@@ -12,9 +12,10 @@ from _registry_core import atomic_write, file_lock, norm, resolve_stamp_store, w
 
 __all__: list[str] = [
     "RoundRecord",
+    "mark_expiry_notice_sent",
     "read_round_open_identity",
     "read_round_record",
-    "record_ready_void",
+    "record_ready_expiry",
 ]
 
 
@@ -22,17 +23,18 @@ __all__: list[str] = [
 class RoundRecord:
     at: float | None
     bands: list[int]
-    voided_at: float | None
+    expired_at: float | None
     session_identity: str | None
     malformed_reason: str | None
+    expiry_notice_sent: bool = False
 
     @property
     def certification_floor(self) -> float | None:
         if self.at is None:
             return None
-        if self.voided_at is None:
+        if self.expired_at is None:
             return self.at
-        return max(self.at, self.voided_at)
+        return max(self.at, self.expired_at)
 
 
 def _stamp_key(*, repo: str, topic: str) -> str:
@@ -67,7 +69,7 @@ def read_round_record(
         return RoundRecord(
             at=None,
             bands=[],
-            voided_at=None,
+            expired_at=None,
             session_identity=None,
             malformed_reason=None,
         )
@@ -86,7 +88,7 @@ def _legacy_record(*, value: object, repo: str, topic: str) -> RoundRecord:
     return RoundRecord(
         at=at,
         bands=[],
-        voided_at=None,
+        expired_at=None,
         session_identity=None,
         malformed_reason=reason,
     )
@@ -94,8 +96,8 @@ def _legacy_record(*, value: object, repo: str, topic: str) -> RoundRecord:
 
 def _dict_record(*, entry: dict[str, object]) -> RoundRecord:
     at = jsonio.as_float(value=entry.get("at"))
-    voided_at_raw = entry.get("voided_at")
-    voided_at = jsonio.as_float(value=voided_at_raw) if voided_at_raw is not None else None
+    expired_at_raw = entry.get("expired_at")
+    expired_at = jsonio.as_float(value=expired_at_raw) if expired_at_raw is not None else None
     identity = entry.get("session_identity")
     session_identity = identity if isinstance(identity, str) and identity else None
     bands_raw = jsonio.as_list(value=entry.get("bands"))
@@ -103,28 +105,29 @@ def _dict_record(*, entry: dict[str, object]) -> RoundRecord:
     return RoundRecord(
         at=at,
         bands=bands,
-        voided_at=voided_at,
+        expired_at=expired_at,
         session_identity=session_identity,
         malformed_reason=_malformed_reason(
             at=at,
-            voided_at_raw=voided_at_raw,
-            voided_at=voided_at,
+            expired_at_raw=expired_at_raw,
+            expired_at=expired_at,
             session_identity=session_identity,
         ),
+        expiry_notice_sent=entry.get("expiry_notice_sent") is True,
     )
 
 
 def _malformed_reason(
     *,
     at: float | None,
-    voided_at_raw: object,
-    voided_at: float | None,
+    expired_at_raw: object,
+    expired_at: float | None,
     session_identity: str | None,
 ) -> str | None:
     if at is None:
         return "missing or non-numeric injection stamp"
-    if voided_at_raw is not None and voided_at is None:
-        return "non-numeric ready void instant"
+    if expired_at_raw is not None and expired_at is None:
+        return "non-numeric expiry instant"
     if session_identity is None:
         return "round record missing session identity"
     return None
@@ -139,15 +142,19 @@ def read_round_open_identity(
     return read_round_record(repo=repo, topic=topic, stamp_path=stamp_path).session_identity
 
 
-def record_ready_void(
+def record_ready_expiry(
     *,
     repo: str,
     topic: str,
-    ts: float,
-    floor_min: float,
+    expiry_instant: float,
     stamp_path: str | os.PathLike[str] | None = None,
 ) -> bool:
-    """Raise the round's ready-void floor without closing the round."""
+    """Raise the round's expiry instant without closing the round.
+
+    The instant is the DETERMINISTIC ``declaration mtime + maximum age`` computed by
+    the caller, never a clock reading; recording it only ever RAISES the recorded
+    value, so a round accumulating several expiries keeps the latest one.
+    """
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
         data = _read_stamp_data(path=path)
@@ -156,7 +163,27 @@ def record_ready_void(
         if existing is None:
             return False
         entry: dict[str, object] = dict(existing)
-        entry["voided_at"] = max(float(ts), float(floor_min))
+        previous = jsonio.as_float(value=entry.get("expired_at"))
+        entry["expired_at"] = expiry_instant if previous is None else max(previous, expiry_instant)
         data[key] = entry
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
         return True
+
+
+def mark_expiry_notice_sent(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> bool:
+    """Mark this round's bounded expiry-notice as delivered."""
+    path = resolve_stamp_store(stamp_path=stamp_path)
+    with file_lock(target=path):
+        data = _read_stamp_data(path=path)
+        key = _stamp_key(repo=repo, topic=topic)
+        existing = jsonio.as_object(value=data.get(key))
+        entry: dict[str, object] = dict(existing) if existing is not None else {}
+        entry["expiry_notice_sent"] = True
+        data[key] = entry
+        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
+    return True

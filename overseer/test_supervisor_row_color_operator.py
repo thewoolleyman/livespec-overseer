@@ -237,7 +237,7 @@ def test_liveness_helper_edges_are_covered(*, tmp_path):
         round_record=registry.RoundRecord(
             at=None,
             bands=[],
-            voided_at=None,
+            expired_at=None,
             session_identity=None,
             malformed_reason=None,
         ),

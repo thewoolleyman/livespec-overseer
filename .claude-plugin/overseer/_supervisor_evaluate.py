@@ -29,6 +29,7 @@ import _supervisor_observe
 import _supervisor_picker_stall
 import _supervisor_progress
 import _supervisor_restart_attention
+import _supervisor_state
 import foreman_pane_claim
 import registry
 import signals
@@ -160,6 +161,13 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     if uncertifiable_ready is not None:
         _ready_note, ready_conditions = uncertifiable_ready
         active_conditions.update(ready_conditions)
+
+    # A `ready` declaration that outlived its maximum age EXPIRES here, after the
+    # interlock inputs for this tick have already been read. That ordering is the
+    # point: `obs` was gathered before this call, so the aged declaration is judged
+    # uncertifiable by precondition 3's own age backstop in the SAME observation that
+    # expires it — never certifiable in the window before the expiry is recorded.
+    _ = _supervisor_state.expire_aged_ready(sup=sup, track=track, act=act)
 
     # Precedence, top to bottom. Single-capture `busy` and the human gates
     # are checked first. For an apparently-idle track that would ACT

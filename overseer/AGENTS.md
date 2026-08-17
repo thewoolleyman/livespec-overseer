@@ -130,7 +130,7 @@ stateDiagram-v2
     cBand --> danger: eff_ctx ≤ 20
     cBand --> warned: otherwise
 
-    working: working  ·  voids stale ready + blocked
+    working: working  ·  voids stale blocked (ready stays armed)
     blocked_human: blocked:human  ·  alerts operator
     settling: settling  ·  wait, re-read next tick
     restarting: restarting  ·  _do_restart (ONLY path; runtime-dispatched claude/codex)
@@ -793,9 +793,25 @@ for the marker's edge-triggered lifecycle.
   activity does NOT void the declaration anymore: the restart branch still requires a
   verified idle input state, a settled pane, no busy markers, and a live identity match,
   so the daemon cannot kill mid-work merely because the file exists. The declaration
-  remains armed and fires at the first verified settled-idle observation. Staleness is
-  bounded instead by `READY_ARM_MAX_AGE` (30m); once exceeded, the row surfaces
-  `ready-uncertifiable` with a max-age note and the daemon does not restart.
+  remains armed and fires at the first verified settled-idle observation.
+- **Ready EXPIRY (`_supervisor_state.expire_aged_ready`).** Staleness is bounded by
+  `READY_ARM_MAX_AGE` (30m) measured from the declaration's own mtime. Past that the
+  row surfaces `ready-uncertifiable` with a max-age note, the daemon does not restart,
+  and the declaration EXPIRES: the deterministic expiry instant (`mtime + max age`,
+  never a fresh clock reading) is recorded into the round's sidecar and THEN the state
+  file is deleted — that order fails closed across a crash. Expiry clears the
+  declaration ONLY; the round's key, notified bands and open status all survive, and an
+  expiry seen under a live identity differing from the round-open identity raises no
+  floor and is surfaced. The call sits in `evaluate` right AFTER the observation is
+  gathered, so precondition 3's own age backstop judges the declaration uncertifiable in
+  the very tick that expires it. Both writes failing in one observation is surfaced as
+  `ready-expiry-both-writes-failed`.
+- **The expiry-notice (`_supervisor_threshold.maybe_send_expiry_notice`).** One notice
+  per DELIVERED round, however many declarations expire, under the same guarded-paste
+  predicate as a wrap-up but triggered by the expiry rather than by context. The
+  once-per-round bound is durable (`expiry_notice_sent` in the sidecar), a failed paste
+  leaves it due for a later observation, and a round closed as recovered first sends
+  none.
 - **Stale-`blocked` voiding (`_void_stale_blocked`; 2026-07-16).** Nothing else retires a
   `blocked:`. `_clear_state` runs only on the daemon's own restart path, so a pane replaced
   OUT-OF-BAND (a hand-restarted session, a `/clear`) INHERITS its predecessor's declaration
@@ -1147,10 +1163,11 @@ scoped subdir, never `rm` the root).
 a hand-driven loop.** The regression that once slipped through a live re-test —
 the "void the `ready` declaration when busy" logic racing the declaring turn's own
 busy tail (final streaming + stop hooks keep the pane busy 10–60s AFTER the file
-is written) — is now pinned by deterministic fake-tmux tests
-(`test_fresh_marker_survives_busy_certifying_tail`,
-`test_stale_marker_voided_when_busy_past_grace`,
-`test_void_resets_inject_state_so_round_can_recertify`). The invariant-7/8/9
+is written) — is what the arm-until-idle redesign retired outright, and the
+replacement max-age expiry is pinned by deterministic fake-tmux tests
+(`tests/integration/test_post_expiry_certification_floor.py`,
+`tests/integration/test_expiry_notice.py`,
+`overseer/test_supervisor_ready_expiry_edges.py`). The invariant-7/8/9
 behaviors are pinned the same way
 (`test_idle_at_danger_with_no_declaration_is_never_restarted`,
 `test_winding_down_ack_suppresses_the_rewarn`,

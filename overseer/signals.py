@@ -469,7 +469,8 @@ def ready_valid(
     1. a certification floor exists for this round (``certification_floor`` is not
        None) and the round record is well-formed,
     2. the state file declares exactly ``ready``, AND
-    3. its mtime is strictly newer than ``certification_floor`` (this round),
+    3. its mtime is strictly newer than ``certification_floor`` (this round, and
+       newer than any expiry recorded within it),
     4. the identity live at the pane matches the round-open identity.
 
     The daemon NEVER infers readiness. A session that is merely idle — however long,

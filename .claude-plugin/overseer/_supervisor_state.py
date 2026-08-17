@@ -1,10 +1,10 @@
-"""_supervisor_state — the round's state-file lifecycle (write, clear, blocked void).
+"""_supervisor_state — the round's state-file lifecycle (write, clear, expire, void).
 
 A private collaborator of :mod:`supervisor`; see that module's header for the whole
 split. The state file is how a tracked session DECLARES itself (`ready`, `blocked`,
-an ack). A `ready` declaration arms a restart until idle or max-age expiry; a
-`blocked:` declaration may still be retired when active generation proves the session
-outlived it. Every helper is fail-soft.
+an ack). A `ready` declaration arms a restart until idle or until it EXPIRES past its
+bounded maximum age; a `blocked:` declaration is retired when active generation proves
+the session outlived it. Every helper is fail-soft.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 import registry
 import signals
-from _supervisor_config import MARKER_VOID_GRACE, track_key
+from _supervisor_config import MARKER_VOID_GRACE, READY_ARM_MAX_AGE, track_key
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "clear_state",
     "delete_state_file",
-    "void_if_stale",
+    "expire_aged_ready",
     "void_stale_blocked",
 ]
 
@@ -52,17 +52,92 @@ def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
 
 
-def void_if_stale(
-    *, sup: Supervisor, track: registry.Track, ready: bool, resumed_work: bool = True
-) -> bool:
-    """Compatibility shim: ``ready`` is no longer voided by activity.
+def expire_aged_ready(*, sup: Supervisor, track: registry.Track, act: bool = True) -> bool:
+    """Expire a ``ready`` declaration that outlived ``READY_ARM_MAX_AGE``.
 
-    Intervening narration/generation cannot authorize a restart because the restart
-    branch still requires a verified settled-idle pane. Staleness is bounded by
-    ``READY_ARM_MAX_AGE`` in certification instead.
+    Activity never voids a `ready` — the restart branch already refuses to act on a
+    pane that is not verified settled-idle. The only bound on a stale declaration is
+    this maximum age, and crossing it clears the DECLARATION ONLY: the round keeps its
+    key, its notified bands and its open status.
+
+    The two writes are ORDERED because they fail in opposite directions across a
+    crash. Recording the floor FIRST leaves, at worst, a raised floor beside a
+    surviving declaration — which fails closed. The reverse order would leave a
+    deleted declaration and no floor. A failed floor record never aborts the delete.
     """
-    _ = sup, track, resumed_work
-    return ready
+    if not act:
+        return False
+    state = signals.read_state(repo=track.repo, topic=track.topic)
+    if state is None or state.token != signals.STATE_READY:
+        return False
+    age = sup.now() - state.mtime
+    if age <= READY_ARM_MAX_AGE:
+        return False
+    record = registry.read_round_record(
+        repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
+    )
+    # A declaration standing on a track that was never in a round, or whose round
+    # record cannot be read, has no round to expire within: it stays put and stays
+    # surfaced under the separate standing-declaration rule.
+    if record.at is None or record.malformed_reason is not None:
+        return False
+    floor_recorded = _record_ready_expiry(sup=sup, track=track, state=state, record=record)
+    deleted = delete_state_file(sup=sup, track=track)
+    if not floor_recorded and not deleted:
+        session = track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic)
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=session,
+            message="ready expiry failed to record its floor AND delete the declaration",
+            condition="ready-expiry-both-writes-failed",
+        )
+    sup.log(
+        message=f"expired ready declaration for {track.repo}::{track.topic} "
+        f"(age {age:.0f}s > {READY_ARM_MAX_AGE:.0f}s maximum)"
+    )
+    return True
+
+
+def _record_ready_expiry(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    state: signals.TrackState,
+    record: registry.RoundRecord,
+) -> bool:
+    live_identity = _live_identity_for_expiry(sup=sup, track=track)
+    if live_identity != record.session_identity:
+        session = track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic)
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=session,
+            message="ready expiry observed under a different session identity; floor not raised",
+            condition="ready-expiry-identity-mismatch",
+        )
+        return False
+    try:
+        return registry.record_ready_expiry(
+            repo=track.repo,
+            topic=track.topic,
+            expiry_instant=state.mtime + READY_ARM_MAX_AGE,
+            stamp_path=sup.stamp_path,
+        )
+    except OSError as exc:
+        sup.log(message=f"could not record ready expiry for {track.repo}::{track.topic}: {exc}")
+        return False
+
+
+def _live_identity_for_expiry(*, sup: Supervisor, track: registry.Track) -> str | None:
+    session = track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic)
+    live = sup.live_codex.get((session, track.topic))
+    if live is not None:
+        return f"codex:{live.session_id}"
+    identity = sup.claude_identity_by_session.get((session, track.topic))
+    return identity if identity is not None else f"claude:{session}:{track.topic}"
 
 
 def void_stale_blocked(

@@ -5,12 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_launch
 import _supervisor_nudge
 import _supervisor_observe
 import _supervisor_restart
 import registry
 import signals
 from _supervisor_config import DANGER_CTX_REMAINING, track_key
+from _supervisor_prompts import expiry_notice_message
 from _supervisor_records import Observation
 
 if TYPE_CHECKING:
@@ -19,6 +21,7 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "ThresholdDecision",
     "ThresholdRequest",
+    "maybe_send_expiry_notice",
     "threshold",
 ]
 
@@ -122,6 +125,64 @@ def _fresh_guarded_paste_observation(
 def _fresh_threshold_observation(*, request: ThresholdRequest) -> Observation | None:
     """Re-read every paste authorization input immediately before opening a round."""
     return _fresh_guarded_paste_observation(request=request, require_below_threshold=True)
+
+
+def _fresh_expiry_notice_observation(*, request: ThresholdRequest) -> Observation | None:
+    """Re-read every expiry-notice paste authorization input immediately before acting."""
+    fresh = _fresh_guarded_paste_observation(request=request, require_below_threshold=False)
+    if fresh is None or not _expiry_notice_due_for_track(request=request, obs=fresh):
+        return None
+    return fresh
+
+
+def _expiry_notice_due_for_track(*, request: ThresholdRequest, obs: Observation) -> bool:
+    record = obs.round_record
+    return (
+        record.at is not None
+        and record.expired_at is not None
+        and record.malformed_reason is None
+        and not record.expiry_notice_sent
+        and obs.eff_ctx is not None
+        and not registry.read_resume_pending(
+            repo=request.track.repo,
+            topic=request.track.topic,
+            stamp_path=request.sup.stamp_path,
+        )
+    )
+
+
+def maybe_send_expiry_notice(*, request: ThresholdRequest) -> bool:
+    """Send the round's single expiry-notice if its guarded predicate passes.
+
+    The trigger is the recorded expiry, not the below-threshold context trigger, so
+    the notice may fire at any known context while its round remains open. The
+    once-per-round bound is DURABLE — it is marked in the round's sidecar beside the
+    notified bands — so a daemon restart never re-sends a notice already sent, and a
+    failed paste simply leaves the notice due on a later observation.
+    """
+    if not _expiry_notice_due_for_track(request=request, obs=request.obs):
+        return False
+    fresh = _fresh_expiry_notice_observation(request=request)
+    if fresh is None:
+        return False
+    message = expiry_notice_message(repo=request.track.repo, topic=request.track.topic)
+    sent = _supervisor_launch.submit_prompt(
+        sup=request.sup,
+        target=request.target,
+        text=message,
+        expect_codex=fresh.is_codex,
+    )
+    if sent:
+        _ = registry.mark_expiry_notice_sent(
+            repo=request.track.repo,
+            topic=request.track.topic,
+            stamp_path=request.sup.stamp_path,
+        )
+        request.sup.log(
+            message=f"injected ready-expiry notice into {request.track.repo}::{request.track.topic}"
+        )
+        return True
+    return False
 
 
 def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
