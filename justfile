@@ -251,6 +251,9 @@ check:
         # absent — see the recipe for why those deviations are declared there.
         check-codex-skill-picker
         check-spec-governance-default-block
+        # Repo-local dispatch-safeguard gate (overseer-57f2 half i):
+        # factory-authored commits must never touch SPECIFICATION/.
+        check-no-factory-spec-edits
         check-tmp-supervisor-discipline
         # Repo-local release-hygiene gate (overseer-d4t): generator
         # prose may not change without a release-triggering commit,
@@ -730,6 +733,13 @@ check-codex-skill-picker:
 
 check-spec-governance-default-block:
     uv run python scripts/check-spec-governance-default-block.py
+
+# overseer-57f2 half (i): factory-authored commits (noreply@fabro.sh) must
+# never touch SPECIFICATION/ — no escape hatch (maintainer-ratified
+# 2026-08-17). Empty origin/master..HEAD range on master keeps post-merge
+# runs green; enforcement bites on PR branches and in the factory sandbox.
+check-no-factory-spec-edits:
+    scripts/check-no-factory-spec-edits.sh
 
 # LOCAL-ONLY scratch discipline gate. `tmp/` is gitignored (.gitignore:2), so a
 # fresh CI checkout never has the operator's tmp/supervisor contents; the script
