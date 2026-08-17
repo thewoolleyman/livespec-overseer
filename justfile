@@ -546,8 +546,7 @@ check-pbt-coverage-pure-modules:
 # reuse optimization — and is defensive until this repo ever adopts the
 # parallel check dispatcher's namespaced exports.
 check-per-file-coverage:
-    env -u COVERAGE_FILE uv run pytest -n "$(scripts/test-nprocs.sh)" --cov --cov-branch --cov-config=pyproject.toml --cov-report=term-missing
-    env -u COVERAGE_FILE uv run python -m livespec_dev_tooling.checks.per_file_coverage
+    scripts/check-per-file-coverage.sh
 
 # Baseline harness plugin-resolution Verifier: asserts each declared
 # harness in `.livespec.jsonc` `harnesses` resolves its command/skill
