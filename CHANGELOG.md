@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.41.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.40.1...v0.41.0) (2026-08-17)
+
+
+### Features
+
+* surface interactive picker stalls ([f899190](https://github.com/thewoolleyman/livespec-overseer/commit/f89919049ddfcfe2397fe8eb15186efb010922ca))
+
 ## [0.40.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.40.0...v0.40.1) (2026-08-17)
 
 
