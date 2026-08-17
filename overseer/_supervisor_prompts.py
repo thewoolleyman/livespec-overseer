@@ -31,6 +31,8 @@ import signals
 __all__: list[str] = [
     "charter_authorized_unblock_nudge_message",
     "expiry_notice_message",
+    "foreman_epic_resume",
+    "foreman_resume",
     "idle_nudge_message",
     "launch_resume",
     "pair_stall_nudge_message",
@@ -290,6 +292,24 @@ def supervisor_handoff_path(*, repo: str, topic: str) -> Path:
 def supervisor_epic_path(*, repo: str, topic: str) -> Path:
     """The migrated plan-shape file that names the governed ledger epic."""
     return Path(repo) / "plan" / topic / "epic.md"
+
+
+def foreman_epic_resume(*, repo: str, epic: str) -> str:
+    """Resume prompt for a per-watched-repo foreman entity's ledger timeline."""
+    return (
+        f"resume foreman ledger epic {epic} in repository {repo}; "
+        "read its ledger-held foreman handoff timeline"
+    )
+
+
+def foreman_resume(*, repo: str, epic: str | None = None) -> str:
+    """Resume prompt for a foreman entity, or explicit no-epic operator wording."""
+    if epic is None:
+        return (
+            f"(no resume prompt can be built — this foreman track records NO foreman "
+            f"ledger epic id for repository {repo}, so ask the operator to record one)"
+        )
+    return foreman_epic_resume(repo=repo, epic=epic)
 
 
 def _supervisor_state_locator(*, repo: str, topic: str, epic: str | None) -> str:
