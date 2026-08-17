@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.43.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.3...v0.43.4) (2026-08-17)
+
+
+### Bug Fixes
+
+* a -supervisor topic inherits its epic from the supervised worker ([7ca86d2](https://github.com/thewoolleyman/livespec-overseer/commit/7ca86d2aeb1e3e9f17a24af93a79aa6812bece17))
+* the restart interlock re-derives a stale epic:null row once ([eadc99f](https://github.com/thewoolleyman/livespec-overseer/commit/eadc99f51cad4afe60a53bba728de125c05d6f0c))
+
 ## [0.43.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.2...v0.43.3) (2026-08-17)
 
 
