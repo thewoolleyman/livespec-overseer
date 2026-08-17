@@ -14,7 +14,7 @@ import os
 import time
 from pathlib import Path
 
-from overseer import _supervisor_config, registry, signals, supervisor, tmuxio
+from overseer import registry, signals, supervisor, tmuxio
 from overseer.test_supervisor_builders import (
     busy_capture,
     declare,
@@ -177,93 +177,53 @@ def _supervisor(
     return sup
 
 
-def _live_track(
-    *, tmp_path: Path, clock: dict[str, float], initial_ctx: int
-) -> tuple[Path, str, str, tmuxio.TmuxIO, LivePaneDriver, supervisor.Supervisor, registry.Track]:
+def test_ready_arms_restart_until_first_verified_idle_after_more_output(*, tmp_path: Path) -> None:
+    clock = {"t": 1000.0}
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     tmux_bin = _tmux_wrapper(tmp_path=tmp_path)
     inner = tmuxio.TmuxIO(tmux_bin=str(tmux_bin))
-    _session_with_capture(
-        inner=inner,
-        session=session,
-        repo=repo,
-        capture=idle_capture(ctx=initial_ctx, topic=topic),
-    )
-    driver = LivePaneDriver(inner=inner, repo=repo)
-    sup = _supervisor(tmp_path=tmp_path, driver=driver, clock=clock, session=session)
-    track = mapped_track(repo=repo, topic=topic, session=session)
-    return repo, topic, session, inner, driver, sup, track
-
-
-def _replace_and_evaluate(
-    *,
-    inner: tmuxio.TmuxIO,
-    session: str,
-    repo: Path,
-    capture: str,
-    sup: supervisor.Supervisor,
-    track: registry.Track,
-) -> supervisor.RowView:
-    _replace_capture(inner=inner, session=session, repo=repo, capture=capture)
-    return sup.evaluate(track=track, act=True)
-
-
-def _assert_downgraded_state(*, repo: Path, topic: str) -> None:
-    downgraded = signals.read_state(repo=str(repo), topic=topic)
-    assert downgraded is not None
-    assert downgraded.token == signals.STATE_WINDING_DOWN
-    assert downgraded.detail == "auto @1400"
-    assert signals.state_path(repo=str(repo), topic=topic).read_text(encoding="utf-8") == (
-        "winding-down: auto @1400\n"
-    )
-
-
-def test_ready_degrades_to_visible_winding_down_after_more_output(*, tmp_path: Path) -> None:
-    clock = {"t": 1000.0}
-    repo, topic, session, inner, driver, sup, track = _live_track(
-        tmp_path=tmp_path, clock=clock, initial_ctx=30
-    )
     try:
-        assert sup.evaluate(track=track, act=True).status == "warned"
+        _session_with_capture(
+            inner=inner,
+            session=session,
+            repo=repo,
+            capture=idle_capture(ctx=5, topic=topic),
+        )
+        driver = LivePaneDriver(inner=inner, repo=repo)
+        sup = _supervisor(
+            tmp_path=tmp_path,
+            driver=driver,
+            clock=clock,
+            session=session,
+        )
+        track = mapped_track(repo=repo, topic=topic, session=session)
+
+        opened = sup.evaluate(track=track, act=True)
+        assert opened.status == "danger"
         declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1010.0)
 
         clock["t"] = 1400.0
-        working = _replace_and_evaluate(
+        _replace_capture(
             inner=inner,
             session=session,
             repo=repo,
-            capture=busy_capture(ctx=30),
-            sup=sup,
-            track=track,
+            capture=busy_capture(ctx=5),
         )
-        assert working.status == "working"
-        _assert_downgraded_state(repo=repo, topic=topic)
+        assert sup.evaluate(track=track, act=True).status == "working"
+        assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
         clock["t"] = 1410.0
-        armed_down = _replace_and_evaluate(
+        _replace_capture(
             inner=inner,
             session=session,
             repo=repo,
-            capture=idle_capture(ctx=30, topic=topic),
-            sup=sup,
-            track=track,
+            capture=idle_capture(ctx=5, topic=topic),
         )
-        assert armed_down.status == "winding-down"
-        assert len(driver.respawns) == 0
+        restarted = sup.evaluate(track=track, act=True)
 
-        clock["t"] = 1400.0 + _supervisor_config.ACK_STALE_AFTER + 1.0
-        rearmed = _replace_and_evaluate(
-            inner=inner,
-            session=session,
-            repo=repo,
-            capture=idle_capture(ctx=20, topic=topic),
-            sup=sup,
-            track=track,
-        )
-        assert rearmed.status == "danger"
-        assert len(driver.pastes) == 2
-        assert len(driver.respawns) == 0
+        assert restarted.status == "restarting"
+        assert len(driver.respawns) == 1
     finally:
         _close_session(inner=inner, session=session, repo=repo)
 

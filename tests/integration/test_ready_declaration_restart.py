@@ -384,10 +384,11 @@ def test_uncertifiable_ready_alert_quantizes_clears_and_rearms(*, tmp_path):
 
 
 def test_scenario_a_ready_declaration_stays_armed_when_its_session_emits_more_output(*, tmp_path):
-    """A ready declaration degrades on intervening output and does not restart.
+    """A ready declaration survives intervening output and fires when the pane idles.
 
-    The busy/settle gates prevent a mid-work restart; the state-file rewrite prevents the
-    following idle frame from treating an obsolete `ready` as still authoritative.
+    The busy/settle gates already prevent a mid-work restart, so activity is not a reason
+    to delete `ready`. The declaration remains armed until the first verified settled-idle
+    observation, bounded separately by the ready max-age.
     """
     clock = {"t": 1000.0}
     repo, topic, session, fake, sup, track = _open_round(tmp_path=tmp_path, clock=clock)
@@ -399,15 +400,11 @@ def test_scenario_a_ready_declaration_stays_armed_when_its_session_emits_more_ou
 
     assert resumed.status == "working"
     assert marker.exists()
-    state = signals.read_state(repo=str(repo), topic=topic)
-    assert state is not None
-    assert state.token == signals.STATE_WINDING_DOWN
-    assert state.detail == "auto @1201"
     assert registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
-    assert sup.evaluate(track=track, act=True).status == "winding-down"
-    assert not fake.has(method="respawn")
+    assert sup.evaluate(track=track, act=True).status == "restarting"
+    assert fake.has(method="respawn")
 
 
 def test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_restarted(

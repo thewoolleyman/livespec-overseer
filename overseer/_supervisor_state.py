@@ -9,7 +9,6 @@ the session outlived it. Every helper is fail-soft.
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 
 import registry
@@ -22,7 +21,6 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "clear_state",
     "delete_state_file",
-    "downgrade_ready_after_activity",
     "expire_aged_ready",
     "void_stale_blocked",
 ]
@@ -54,65 +52,13 @@ def clear_state(*, sup: Supervisor, track: registry.Track) -> None:
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
 
 
-def downgrade_ready_after_activity(*, sup: Supervisor, track: registry.Track, ready: bool) -> bool:
-    """Rewrite a post-ready active turn into a visible wind-down ACK.
-
-    Once a session declares ``ready``, further activity proves the declaration no longer
-    describes the pane. Deleting the file creates an unreadable gap; preserving ``ready``
-    lets the next idle frame restart a session that has resumed work. The diagnostic ACK
-    keeps the state readable to both the session and the operator, while re-entering the
-    normal winding-down path.
-
-    The file is SESSION-owned, so the rewrite carries the same clobber guard as the
-    idle-nudge marker removal: it re-reads immediately before the write and proceeds
-    ONLY while the file still holds ``ready``, with nothing but the write itself between
-    the two. A session that wrote ``blocked: <reason>`` in the window between the
-    daemon's observation and its write keeps that escalation — a human-escalation
-    declaration is never destroyed to record a diagnostic ACK.
-    """
-    if not ready:
-        return ready
-    state = signals.read_state(repo=track.repo, topic=track.topic)
-    if state is None or state.token != signals.STATE_READY:
-        return ready
-    now = sup.now()
-    path = signals.state_path(repo=track.repo, topic=track.topic)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        current = signals.read_state(repo=track.repo, topic=track.topic)
-        if current is None or current.token != signals.STATE_READY:
-            sup.log(
-                message=(
-                    f"skipped downgrading ready declaration for "
-                    f"{track.repo}::{track.topic}: the session rewrote its state file first"
-                )
-            )
-            return ready
-        _ = path.write_text(f"{signals.STATE_WINDING_DOWN}: auto @{now:.0f}\n", encoding="utf-8")
-        _ = os.utime(path, (now, now))
-    except OSError as exc:
-        sup.log(
-            message=(
-                f"could not downgrade ready declaration for " f"{track.repo}::{track.topic}: {exc}"
-            )
-        )
-        return ready
-    sup.log(
-        message=(
-            f"downgraded ready declaration for {track.repo}::{track.topic} "
-            f"to winding-down: auto @{now:.0f} after resumed activity"
-        )
-    )
-    return False
-
-
 def expire_aged_ready(*, sup: Supervisor, track: registry.Track, act: bool = True) -> bool:
     """Expire a ``ready`` declaration that outlived ``READY_ARM_MAX_AGE``.
 
-    Post-ready activity downgrades a `ready` to a readable auto ACK before this age
-    path applies. The maximum-age bound is for a declaration that stayed armed without
-    a verified settled-idle observation; crossing it clears the DECLARATION ONLY: the
-    round keeps its key, its notified bands and its open status.
+    Activity never voids a `ready` — the restart branch already refuses to act on a
+    pane that is not verified settled-idle. The only bound on a stale declaration is
+    this maximum age, and crossing it clears the DECLARATION ONLY: the round keeps its
+    key, its notified bands and its open status.
 
     The two writes are ORDERED because they fail in opposite directions across a
     crash. Recording the floor FIRST leaves, at worst, a raised floor beside a
