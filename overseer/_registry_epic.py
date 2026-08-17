@@ -18,6 +18,15 @@ __all__: list[str] = ["epic_from_plan_anchor"]
 _LEDGER_ANCHOR = re.compile(
     r"(?:[Ll]edger(?: epic)?|[Ee]pic) anchor:?\*{0,2}[^\n`]*\n?[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`"
 )
+# The current plan-migration/correction tooling writes epic.md as a markdown
+# heading followed by the BARE id on its own line, with no backticks and a blank line
+# in between (`# Ledger epic anchor\n\noverseer-4w2m\n...`). _LEDGER_ANCHOR predates
+# that shape and requires backtick-quoting plus at most one newline, so it never
+# matches it — every migrated plan's epic.md silently fails to resolve.
+_LEDGER_ANCHOR_BARE = re.compile(
+    r"^#\s*(?:[Ll]edger(?: epic)?|[Ee]pic) anchor\s*$\n+^([a-z0-9-]+(?:\.[0-9]+)?)\s*$",
+    re.MULTILINE,
+)
 _LEDGER_TIMEOUT_SECONDS = 30
 _LEDGER_COMMAND = ["bd", "list", "--type", "epic", "--status", "all", "--json"]
 
@@ -45,6 +54,9 @@ def _anchor_from_path(*, path: Path) -> str | None:
     match = _LEDGER_ANCHOR.search(text)
     if match is not None:
         return match.group(1)
+    bare_match = _LEDGER_ANCHOR_BARE.search(text)
+    if bare_match is not None:
+        return bare_match.group(1)
     return None
 
 
