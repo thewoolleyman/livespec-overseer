@@ -44,7 +44,13 @@ from typing import Any, Protocol
 
 import streams
 
-__all__: list[str] = ["PaneDriver", "TmuxIO", "WindowLayoutDriver"]
+__all__: list[str] = ["PaneDriver", "SessionNameDriver", "TmuxIO", "WindowLayoutDriver"]
+
+
+class SessionNameDriver(Protocol):
+    """The tmux read needed by ``overseer-declare`` topic inference."""
+
+    def pane_session_name(self, *, pane: str) -> str | None: ...
 
 
 class PaneDriver(Protocol):
@@ -295,6 +301,10 @@ class TmuxIO:
         if not self._ok(completed=completed):
             return []
         return [line for line in (completed.stdout or "").splitlines() if line.strip()]
+
+    def pane_session_name(self, *, pane: str) -> str | None:
+        """``#{session_name}`` for an exact pane id, or None when tmux cannot answer."""
+        return self._pane_field(target=pane, fmt="#{session_name}")
 
     def pane_pid_sessions(self) -> dict[int, str]:
         """``{pane_pid: session_name}`` for EVERY pane across all sessions (``{}`` on error).
