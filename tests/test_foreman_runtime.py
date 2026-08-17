@@ -141,6 +141,40 @@ def test_tick_rotation_hourly_default_budget_and_heartbeat(*, tmp_path):
     assert second.exit_reason == "hard-tick-budget"
 
 
+def test_early_carrier_ticks_do_not_push_llm_deadline_past_due_tick(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    clock = {"now": 1000.0}
+    calls: list[float] = []
+    runtime = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: clock["now"],
+        llm_tick=lambda *, document: calls.append(clock["now"]) or False,
+    )
+    document = {"snapshot": {"rows": [{"topic": "alpha", "status": "idle"}]}}
+
+    first = runtime.step(document=document)
+    assert first.llm_tick is True
+    assert state_json(repo=repo)["next_llm_tick_at"] == 4600.0
+
+    clock["now"] = 4590.0
+    early = runtime.step(document=document)
+    assert early.llm_tick is False
+    assert state_json(repo=repo)["next_llm_tick_at"] == 4600.0
+
+    clock["now"] = 4605.0
+    due_after_jitter = runtime.step(document=document)
+    assert due_after_jitter.llm_tick is True
+    assert state_json(repo=repo)["next_llm_tick_at"] == 8205.0
+
+    for expected_call in (8210.0, 11815.0, 15420.0):
+        clock["now"] = expected_call
+        result = runtime.step(document=document)
+        assert result.llm_tick is True
+
+    assert calls == [1000.0, 4605.0, 8210.0, 11815.0, 15420.0]
+
+
 def test_loop_lapsed_is_false_on_the_first_ever_tick(*, tmp_path):
     module = foreman_runtime()
     repo = make_repo(tmp_path=tmp_path)
