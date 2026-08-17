@@ -6,8 +6,10 @@ import importlib
 import io as _io
 import os
 import shlex
+import threading
 import time
 from pathlib import Path
+from types import SimpleNamespace
 
 from overseer import registry, signals, supervisor, tmuxio
 from overseer.test_supervisor_builders import idle_capture, make_plan, mapped_track
@@ -62,6 +64,38 @@ def test_overseer_declare_ready_infers_topic_from_tmux_session(*, tmp_path, monk
 
     assert code == 0
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+
+
+def test_overseer_declare_ready_wakes_state_file_fast_path(*, tmp_path):
+    module = importlib.import_module("overseer.declare")
+    state_watch = importlib.import_module("_supervisor_state_watch")
+    repo, topic = make_plan(tmp_path=tmp_path)
+    store = tmp_path / "map.jsonl"
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=topic),
+        store_path=store,
+    )
+    sup = SimpleNamespace(
+        store_path=str(store),
+        watch_repos=[str(repo)],
+        watch_set_path=None,
+        sleep=lambda _seconds: None,
+    )
+    state_path = signals.state_path(repo=str(repo), topic=topic)
+    woke: list[bool] = []
+    waiter = threading.Thread(
+        target=lambda: woke.append(state_watch.wait_for_state_declaration(sup=sup, interval=5.0))
+    )
+
+    waiter.start()
+    for _attempt in range(200):
+        if state_path.parent.exists():
+            break
+        time.sleep(0.01)
+    assert module.main(argv=["ready", "--repo", str(repo), "--topic", topic]) == 0
+    waiter.join(timeout=3.0)
+
+    assert woke == [True]
 
 
 class DeclaredPaneDriver:
@@ -173,12 +207,18 @@ def test_fake_session_cli_prints_contract_and_restarts_in_real_supervisor_loop(*
         f"-m overseer.declare ready --repo {shlex.quote(str(repo))} "
         f"--topic {shlex.quote(topic)}"
     )
+    registry.write_injection_stamp(
+        repo=str(repo),
+        topic=topic,
+        ts=time.time() - 1.0,
+        stamp_path=str(tmp_path / "stamps.json"),
+    )
     try:
         assert inner.new_session(name=session, cwd=str(repo))
         assert inner.respawn_pane(
             session=session,
             cwd=str(repo),
-            command=f"bash --noprofile --norc -lc {shlex.quote(command + '; exec bash')}",
+            command=f"bash --noprofile --norc -lc {shlex.quote(command + '; sleep 60')}",
         )
         _await_rendered(
             inner=inner,
