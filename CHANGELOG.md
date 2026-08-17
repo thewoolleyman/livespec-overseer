@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.0...v0.43.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* **spec:** revert v017, restore the v016 letter ([bfaf28b](https://github.com/thewoolleyman/livespec-overseer/commit/bfaf28b19a95d66b9016b1516d5b509e85a2d299))
+
 ## [0.43.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.42.0...v0.43.0) (2026-08-17)
 
 
