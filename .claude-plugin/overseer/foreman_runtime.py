@@ -156,6 +156,13 @@ class ForemanRuntime:
             heartbeat_age_seconds=lapse.age_seconds if lapse is not None else None,
         )
 
+    def resume(self) -> None:
+        state = self._read_state()
+        state["tick_generation"] = 0
+        state["next_llm_tick_at"] = 0.0
+        state["stable_ticks"] = 0
+        self._write_state(state=state)
+
     def _stable_ticks(
         self,
         *,

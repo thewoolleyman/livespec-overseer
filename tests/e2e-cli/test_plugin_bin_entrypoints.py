@@ -1130,6 +1130,38 @@ def _runtime_result(
     return json.loads(completed.stdout)
 
 
+def _run_foreman_runtime_resume(
+    *, context: ForemanE2EContext, snapshot: dict[str, object], now: float
+) -> subprocess.CompletedProcess[str]:
+    snapshot_path = context.act.home / "runtime-status.json"
+    snapshot_path.write_text(json.dumps(snapshot), encoding="utf-8")
+    env = {
+        **_scrubbed_env(),
+        "HOME": str(context.act.home),
+        "TMUX": f"{context.act.socket},0,0",
+    }
+    return subprocess.run(  # noqa: S603
+        [
+            str(context.act.plugin_root / "bin" / "foreman-runtime"),
+            "--repo",
+            str(context.act.repo),
+            "--watch-set-path",
+            str(context.act.home / ".livespec-overseer-repos.json"),
+            "--snapshot-path",
+            str(snapshot_path),
+            "--now-epoch",
+            str(now),
+            "--resume",
+        ],
+        cwd=context.act.repo,
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30.0,
+    )
+
+
 def _runtime_state(*, context: ForemanE2EContext, name: str) -> dict[str, object]:
     return json.loads(
         (context.act.repo / "tmp" / "overseer" / "foreman" / name).read_text(encoding="utf-8")
@@ -1159,6 +1191,15 @@ def _assert_runtime_cadence(*, context: ForemanE2EContext) -> None:
     )
     assert _runtime_state(context=context, name="heartbeat.json")["tick_interval_seconds"] == 3600
     assert _runtime_state(context=context, name="runtime.json")["last_generation_fingerprint"]
+
+    resumed = _run_foreman_runtime_resume(context=context, snapshot=changed, now=8201.0)
+    assert resumed.returncode == 0, resumed.stderr
+    assert _runtime_state(context=context, name="runtime.json") == {
+        **_runtime_state(context=context, name="runtime.json"),
+        "tick_generation": 0,
+        "next_llm_tick_at": 0.0,
+        "stable_ticks": 0,
+    }
 
 
 def _assert_classifier_reports_occupied_name() -> None:

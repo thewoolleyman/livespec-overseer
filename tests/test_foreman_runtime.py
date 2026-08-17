@@ -293,6 +293,37 @@ def test_unchanged_token_free_observation_preserves_stable_tick_without_convergi
     assert state_json(repo=repo)["stable_ticks"] == 1
 
 
+def test_resume_durably_resets_runtime_cadence_fields(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    state_path = repo / "tmp" / "overseer" / "foreman" / "runtime.json"
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text(
+        json.dumps(
+            {
+                "tick_generation": 9,
+                "next_llm_tick_at": 8200.0,
+                "last_fingerprint": "kept",
+                "last_generation_fingerprint": "also-kept",
+                "stable_ticks": 4,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    runtime = module.ForemanRuntime(repo=repo, now=lambda: 10.0)
+
+    runtime.resume()
+
+    assert state_json(repo=repo) == {
+        "tick_generation": 0,
+        "next_llm_tick_at": 0.0,
+        "last_fingerprint": "kept",
+        "last_generation_fingerprint": "also-kept",
+        "stable_ticks": 0,
+    }
+
+
 def test_token_free_generation_watcher_reenters_after_llm_loop_exit(*, tmp_path):
     module = foreman_runtime()
     repo = make_repo(tmp_path=tmp_path)
