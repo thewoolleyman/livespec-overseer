@@ -98,7 +98,8 @@ Two panes in the overseer's own tmux window:
 - **TOP pane = the daemon** (`overseerd`, which runs the `supervisor.py` daemon
   logic) — a stdlib Python process that both *acts* and *renders the table*. No
   LLM, no tokens. It gets **2/3 of the window height**, because it is the surface
-  that answers "what needs my attention?". Every ~10s it
+  that answers "what needs my attention?". Every ~10s, or sooner when a tracked
+  session writes its state file, it
   discovers plans, joins the JSONL mapping, reads each tracked session's live
   pane + its one state file, injects escalating wrap-ups, restarts the sessions
   that have declared themselves `ready`, reports the ones that have not, and

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import _supervisor_discovery
+import _supervisor_state_watch
 import registry
 from _supervisor_config import LOOP_INTERVAL_SECONDS
 
@@ -183,6 +184,6 @@ def run_loop(
             # no longer recognizes a loop-iteration marker at all.
             if once:
                 return
-            sup.sleep(interval)
+            _ = _supervisor_state_watch.wait_for_state_declaration(sup=sup, interval=interval)
     finally:
         release_singleton_lock(handle=lock)
