@@ -105,7 +105,9 @@ class ForemanRuntime:
         # to the daemon's own next poll of the file this call is about to replace.
         lapse = heartbeat_lapse(repo=str(self.repo), now=self.now)
         doc = foreman_document(payload=document)
-        due = _float_state(value=state.get("next_llm_tick_at")) <= self.now()
+        scheduled_at = _float_state(value=state.get("next_llm_tick_at"))
+        now = self.now()
+        due = scheduled_at <= now
         action_taken = self.llm_tick(document=doc) if due else False
         stable_ticks = self._stable_ticks(
             state=state,
@@ -113,10 +115,11 @@ class ForemanRuntime:
             action_taken=action_taken,
             scheduled_tick=due,
         )
+        next_llm_tick_at = now + self.config.llm_tick_interval_seconds if due else scheduled_at
         self._write_state(
             state={
                 "tick_generation": tick_generation,
-                "next_llm_tick_at": self.now() + self.config.llm_tick_interval_seconds,
+                "next_llm_tick_at": next_llm_tick_at,
                 "last_fingerprint": doc.fingerprint,
                 "last_generation_fingerprint": doc.generation_fingerprint,
                 "stable_ticks": stable_ticks,
@@ -144,6 +147,8 @@ class ForemanRuntime:
     ) -> int:
         if not document.monitored_entities or action_taken:
             return 0
+        if state.get("last_generation_fingerprint") != document.generation_fingerprint:
+            return 1 if scheduled_tick else 0
         if state.get("last_fingerprint") != document.fingerprint:
             return 1 if scheduled_tick else 0
         if not scheduled_tick:
