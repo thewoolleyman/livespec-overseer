@@ -9,7 +9,13 @@ from pathlib import Path
 from typing import Final
 
 import jsonio
-from _supervisor_prompts import plan_epic_resume, supervisor_epic_path, supervisor_resume
+import signals
+from _supervisor_prompts import (
+    foreman_resume,
+    plan_epic_resume,
+    supervisor_epic_path,
+    supervisor_resume,
+)
 from foreman_act_types import (
     PLAN_START,
     QUALIFYING_SESSION_RESUME,
@@ -132,6 +138,8 @@ def _resume_prompt(*, repo: str, topic: str, brief: str | None, epic: str | None
     pointer. Naming a plausible-looking file here — which is what this branch used to do —
     was the failure mode, since the file may never have existed.
     """
+    if signals.is_foreman_topic(topic=topic):
+        return foreman_resume(repo=repo, epic=epic)
     if brief is not None:
         return f"read {brief} and complete this bounded one-shot work-item session"
     if epic is not None:
