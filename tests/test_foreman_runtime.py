@@ -8,6 +8,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import registry
 from _claude_sessions_registry import ClaudeSession
 
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
@@ -86,6 +87,30 @@ def test_entry_and_identity_gates_fail_closed(*, tmp_path):
     )
     assert wrong_name.ok is False
     assert module.entry_gate(**{**base, "sessions": []}, cwd=repo).ok is False
+
+
+def test_foreman_track_registration_is_independent_of_plan_and_idempotent(*, tmp_path):
+    module = foreman_runtime()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    store = tmp_path / "map.jsonl"
+
+    assert "register_foreman_track" in module.__all__
+    module.register_foreman_track(repo=repo, store_path=store)
+    registry.append_mapping(
+        track=registry.Track(
+            topic="repo-foreman",
+            repo=str(repo),
+            tmux="stale-duplicate",
+        ),
+        store_path=store,
+    )
+    module.register_foreman_track(repo=repo, store_path=store)
+
+    tracks = registry.read_mapping(store_path=store)
+    assert [(track.topic, track.repo, track.tmux) for track in tracks] == [
+        ("repo-foreman", str(repo), "repo-foreman")
+    ]
 
 
 def test_live_lock_excludes_second_runtime_and_recovers_stale_or_reused_pid(*, tmp_path):

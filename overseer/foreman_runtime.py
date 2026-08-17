@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
+import registry
 from _supervisor_foreman import heartbeat_lapse, heartbeat_path
 from foreman_runtime_document import ForemanDocument, foreman_document
 from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
@@ -27,6 +28,7 @@ __all__: list[str] = [
     "StepResult",
     "canonical_session_name",
     "entry_gate",
+    "register_foreman_track",
 ]
 
 DEFAULT_LLM_TICK_INTERVAL_SECONDS = 60.0 * 60.0
@@ -58,6 +60,23 @@ class StepResult:
     exit_reason: str | None
     loop_lapsed: bool
     heartbeat_age_seconds: float | None
+
+
+def register_foreman_track(
+    *,
+    repo: str | os.PathLike[str],
+    store_path: str | os.PathLike[str] | None = None,
+) -> registry.Track:
+    repo_path = Path(repo).resolve()
+    session_name = canonical_session_name(repo=repo_path)
+    track = registry.Track(
+        topic=session_name,
+        repo=str(repo_path),
+        tmux=session_name,
+    )
+    _ = registry.remove_mapping(repo=track.repo, topic=track.topic, store_path=store_path)
+    registry.append_mapping(track=track, store_path=store_path)
+    return track
 
 
 def _default_llm_tick(*, document: ForemanDocument) -> bool:
