@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.44.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.6...v0.44.0) (2026-08-17)
+
+
+### Features
+
+* **overseer-57f2:** mechanical per-dispatch safeguards — factory SPECIFICATION/ block and live-exercise acceptance guard ([d66c2e4](https://github.com/thewoolleyman/livespec-overseer/commit/d66c2e473308313c13606bf62d201ac1cd3c9b8c))
+
 ## [0.43.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.43.5...v0.43.6) (2026-08-17)
 
 
