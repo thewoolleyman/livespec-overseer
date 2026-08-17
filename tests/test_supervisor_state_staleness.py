@@ -29,7 +29,10 @@ def _isolate_cwd(*, tmp_path, monkeypatch):
 
 
 def _supervisor_state_path(*, repo, topic):
-    path = signals.marker_dir(repo=str(repo), topic=topic) / ".supervisor-state"
+    path = (
+        signals.marker_dir(repo=str(repo), topic=signals.supervisor_topic(entity_topic=topic))
+        / ".supervisor-state"
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -103,18 +106,10 @@ def test_supervisor_state_stale_surfaces_distinct_from_plain_blocked_human(
     assert "blocked:human" not in needs
 
 
-@pytest.mark.parametrize(
-    "body",
-    [
-        "# comment only\n\n",
-        "not yaml\nupdated_at: 1970-01-01T00:16:20Z\n",
-        "updated_at: 1970-01-01T00:16:20Z\nopen_obligations: [\n",
-        "updated_at: 1970-01-01T00:16:20Z\nshape: {\n",
-        "updated_at: 1970-01-01T00:16:20Z\nnote: 'unterminated\n",
-        'updated_at: 1970-01-01T00:16:20Z\nnote: "unterminated\n',
-    ],
-)
-def test_supervisor_state_yaml_subset_malformed_shapes_are_stale(*, tmp_path, monkeypatch, body):
+@pytest.mark.parametrize("body", ["# comment only\n\n", "not yaml\n", "updated_at: [\n"])
+def test_supervisor_state_missing_or_unparseable_updated_at_is_stale(
+    *, tmp_path, monkeypatch, body
+):
     monkeypatch.setattr(_supervisor_config, "SUPERVISOR_STATE_STALE_AFTER", 60.0)
     repo, topic, sup, track = _supervisor_track(tmp_path=tmp_path)
     _supervisor_state_path(repo=repo, topic=topic).write_text(body, encoding="utf-8")
@@ -126,6 +121,26 @@ def test_supervisor_state_yaml_subset_malformed_shapes_are_stale(*, tmp_path, mo
     assert freshness.stale is True
     assert freshness.age is None
     assert freshness.reason == "missing or malformed marker"
+
+
+def test_supervisor_state_ignores_yaml_scalar_text_while_reading_updated_at(
+    *, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(_supervisor_config, "SUPERVISOR_STATE_STALE_AFTER", 60.0)
+    repo, topic, sup, track = _supervisor_track(tmp_path=tmp_path)
+    _supervisor_state_path(repo=repo, topic=topic).write_text(
+        "objective: keep the plan's tracks moving\n"
+        "waiting_on: maintainer [review]\n"
+        "updated_at: 1970-01-01T00:16:20Z\n",
+        encoding="utf-8",
+    )
+
+    freshness = _supervisor_supervisor_state.observe_supervisor_state_freshness(
+        sup=sup, track=track
+    )
+
+    assert freshness.stale is False
+    assert freshness.age == 20.0
 
 
 def test_supervisor_state_stale_alert_surfaces_when_acting(*, tmp_path, monkeypatch, capsys):
