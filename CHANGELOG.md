@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.49.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.48.1...v0.49.0) (2026-08-17)
+
+
+### Features
+
+* foreman-gather grows per-tracked-row evidence fields ([2fe44f7](https://github.com/thewoolleyman/livespec-overseer/commit/2fe44f77faf231241e944fae90397aba3fead512))
+
 ## [0.48.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.48.0...v0.48.1) (2026-08-17)
 
 
