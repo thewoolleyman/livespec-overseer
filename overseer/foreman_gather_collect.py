@@ -11,6 +11,7 @@ from typing import Final, Protocol, TypeAlias, cast
 import jsonio
 import signals
 from _supervisor_snapshot import DEFAULT_STATUS_PATH, SCHEMA_VERSION
+from foreman_gather_evidence import enrich_rows_with_evidence
 from foreman_gather_sources import (
     command_skipped,
     default_needs_attention_command,
@@ -64,14 +65,19 @@ def snapshot_payload(
     document: dict[str, object],
     mode: str,
     path: Path | None,
+    pane_captures: object = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     rows = validated_snapshot(document=document, source_name="status")
     repo_text = str(repo)
-    used = [
-        row_with_supervisor_handoff(repo=repo, row=row)
-        for row in rows
-        if row.get("repo") == repo_text
-    ]
+    used = enrich_rows_with_evidence(
+        repo=repo,
+        rows=[
+            row_with_supervisor_handoff(repo=repo, row=row)
+            for row in rows
+            if row.get("repo") == repo_text
+        ],
+        pane_captures=pane_captures,
+    )
     snapshot = {
         "daemon_instance_id": document.get("daemon_instance_id"),
         "tick_generation": document.get("tick_generation"),
@@ -134,6 +140,7 @@ def read_snapshot(
     repo: Path,
     snapshot_path: Path,
     list_json_command: Sequence[str] | None,
+    pane_captures: object = None,
 ) -> tuple[dict[str, object] | None, dict[str, object]]:
     try:
         text = snapshot_path.read_text(encoding="utf-8")
@@ -145,13 +152,26 @@ def read_snapshot(
             msg = "snapshot produced malformed or non-object JSON"
             raise ValueError(msg)
         return snapshot_payload(
-            repo=repo, document=parsed, mode="daemon-snapshot", path=snapshot_path
+            repo=repo,
+            document=parsed,
+            mode="daemon-snapshot",
+            path=snapshot_path,
+            pane_captures=pane_captures,
         )
-    return read_snapshot_fallback(repo=repo, snapshot_path=snapshot_path, command=list_json_command)
+    return read_snapshot_fallback(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        command=list_json_command,
+        pane_captures=pane_captures,
+    )
 
 
 def read_snapshot_fallback(
-    *, repo: Path, snapshot_path: Path, command: Sequence[str] | None
+    *,
+    repo: Path,
+    snapshot_path: Path,
+    command: Sequence[str] | None,
+    pane_captures: object = None,
 ) -> tuple[dict[str, object] | None, dict[str, object]]:
     if command is None:
         return None, {
@@ -166,7 +186,11 @@ def read_snapshot_fallback(
     if isinstance(skip, str):
         return None, command_skipped(command=command, reason=skip)
     return snapshot_payload(
-        repo=repo, document=parsed, mode="list-json-observation-only", path=None
+        repo=repo,
+        document=parsed,
+        mode="list-json-observation-only",
+        path=None,
+        pane_captures=pane_captures,
     )
 
 
@@ -235,6 +259,7 @@ def compose_document(
         repo=repo_path,
         snapshot_path=Path(snapshot_path),
         list_json_command=list_json_command,
+        pane_captures=options.get("pane_captures"),
     )
     attention, attention_source = read_needs_attention(command=needs_command)
     if attention is None:

@@ -48,6 +48,11 @@ def _fingerprint_rows(*, payload: dict[str, object]) -> list[dict[str, object]]:
         "session_identity",
         "progress_now",
         "round_open",
+        "picker_open",
+        "stall_seconds",
+        "supervisor_state_age",
+        "proposed_changes_count",
+        "pane_content_hash",
     )
     return [{key: row.get(key) for key in keys} for row in _snapshot_rows(payload=payload)]
 
