@@ -94,18 +94,20 @@ def round_observation(
     record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
     identity = session_identity(sup=sup, session=session, topic=topic, runtime=runtime)
     history = _observation_history(sup=sup, repo=repo, topic=topic)
+    now = sup.now()
     fresh_ready_without_round = _fresh_ready_without_round_valid(
         declared=declared,
         round_record=record,
         session_identity=identity,
         history=history,
+        now=now,
     )
     ready_uncertifiable_reason = _ready_uncertifiable_reason(
         declared=declared,
         round_record=record,
         session_identity=identity,
         history=history,
-        now=sup.now(),
+        now=now,
     )
     return RoundObservation(
         record=record,
@@ -134,6 +136,26 @@ def _fresh_ready_without_round_valid(
     round_record: registry.RoundRecord,
     session_identity: str | None,
     history: ObservationHistory,
+    now: float,
+) -> bool:
+    return (
+        _fresh_ready_without_round_candidate(
+            declared=declared,
+            round_record=round_record,
+            session_identity=session_identity,
+            history=history,
+        )
+        and declared is not None
+        and _ready_declaration_age_within_limit(declared=declared, now=now)
+    )
+
+
+def _fresh_ready_without_round_candidate(
+    *,
+    declared: signals.TrackState | None,
+    round_record: registry.RoundRecord,
+    session_identity: str | None,
+    history: ObservationHistory,
 ) -> bool:
     return (
         declared is not None
@@ -145,6 +167,10 @@ def _fresh_ready_without_round_valid(
         and _has_iso_added_at(history=history)
         and history.session_identity is None
     )
+
+
+def _ready_declaration_age_within_limit(*, declared: signals.TrackState, now: float) -> bool:
+    return max(0.0, now - declared.mtime) <= READY_ARM_MAX_AGE
 
 
 def _ready_uncertifiable_reason(
@@ -164,9 +190,17 @@ def _ready_uncertifiable_reason(
             round_record=round_record,
             session_identity=session_identity,
             history=history,
+            now=now,
         )
     ):
         reason = None
+    elif _fresh_ready_without_round_candidate(
+        declared=declared,
+        round_record=round_record,
+        session_identity=session_identity,
+        history=history,
+    ) and not _ready_declaration_age_within_limit(declared=declared, now=now):
+        reason = "ready declaration exceeded 30m max age"
     elif round_record.at is None:
         reason = "no supervision round open"
     elif round_record.malformed_reason is not None:
@@ -182,6 +216,6 @@ def _ready_uncertifiable_reason(
         floor = round_record.certification_floor
         if floor is not None and declared.mtime <= floor:
             reason = "ready predates certification floor"
-        elif max(0.0, now - declared.mtime) > READY_ARM_MAX_AGE:
+        elif not _ready_declaration_age_within_limit(declared=declared, now=now):
             reason = "ready declaration exceeded 30m max age"
     return reason
