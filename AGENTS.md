@@ -682,3 +682,47 @@ be staged at Red — editing the test after the Red commit invalidates the pair.
 the Green leg. It takes the **green-verified** leg instead: a single commit, a
 **non-`feat:`/`fix:`** prefix, and the full suite must pass. A `feat:` prefix there
 is rejected with `test-passed-at-red`.
+
+## The `overseerd` daemon may be restarted at any time, as long as it isn't broken
+
+Ratified by the maintainer 2026-08-17, superseding an earlier operator-gated
+posture that had been established as a same-thread convention during a live
+verification session rather than written down anywhere — this section is that
+missing write-down, not a change to a previously-documented rule.
+
+**The ruling, verbatim:** the daemon can be restarted at any time as long as
+it isn't broken. No maintainer approval is required per restart. This applies
+to the acting `overseerd` process specifically; it does not authorize
+force-killing or force-respawning a tracked *session* (a worker or supervisor
+pane) — that remains gated by the cardinal rule in
+`overseer/marker-protocol.md` (a session is restarted only after it declares
+itself `ready`).
+
+**The "isn't broken" carve-out.** Before restarting, a quick sanity check that
+the daemon is currently serving correctly (e.g. `overseerd --help`, or reading
+a recent, sane `~/.livespec-overseer-status.json`) is reasonable diligence,
+but this is not a formal precondition requiring separate sign-off — an agent
+acting under this ruling uses ordinary judgment, the same as for any other
+routine operational action.
+
+**The checkout-fast-forward + respawn procedure**, observed working correctly
+across three bounces during the ratifying session:
+
+1. Fast-forward the primary checkout to the target commit
+   (`git pull --ff-only` or `git merge --ff-only origin/master`) — do this
+   *immediately* before the restart, not minutes ahead, since `overseerd` is a
+   single long-lived process that imports `overseer.*` once at startup and
+   never hot-reloads; whatever the checkout holds at the moment of import is
+   what runs until the next bounce.
+2. Stop the running `overseerd` process and start a fresh one
+   (`overseerd`) from that checkout.
+3. Verify the bounce actually picked up the intended change — do not assume:
+   confirm the new process's pid and start time (`ps -o lstart=`), confirm via
+   `git reflog` that the fast-forward landed *before* that start time (not
+   after — a checkout pulled forward post-start does not affect an
+   already-running process), and confirm the target commit is an ancestor of
+   what was checked out (`git merge-base --is-ancestor`). A checkout pulled
+   forward even a few seconds late produces a daemon that silently runs the
+   prior release; this was observed directly during the ratifying session (one
+   bounce landed one release behind because the pull that would have carried
+   the fix arrived after the daemon had already started).
