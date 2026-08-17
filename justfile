@@ -536,8 +536,18 @@ check-pbt-coverage-pure-modules:
 # via the `check skip=...` argument (coverage is verified at the Green
 # amend), so no ambient env-var read is needed here (epic li-cvaudit,
 # cvredmd).
-check-per-file-coverage: check-coverage
-    uv run python -m livespec_dev_tooling.checks.per_file_coverage
+# Clean-env coverage PRODUCER (livespec-dev-tooling-yilyxr.8, dev-tooling
+# PR #1462 design). Runs the suite itself with COVERAGE_FILE explicitly
+# UNSET instead of via the former `check-coverage` dependency: the
+# aggregate runs this target before check-coverage, which consumes the
+# clean repo-root `.coverage` once and deletes it (consume-once, no
+# stale reports). `env -u` keeps the measurement identical to a clean
+# CI job — the env-leniency class that reverted dev-tooling's first
+# reuse optimization — and is defensive until this repo ever adopts the
+# parallel check dispatcher's namespaced exports.
+check-per-file-coverage:
+    env -u COVERAGE_FILE uv run pytest -n "$(scripts/test-nprocs.sh)" --cov --cov-branch --cov-config=pyproject.toml --cov-report=term-missing
+    env -u COVERAGE_FILE uv run python -m livespec_dev_tooling.checks.per_file_coverage
 
 # Baseline harness plugin-resolution Verifier: asserts each declared
 # harness in `.livespec.jsonc` `harnesses` resolves its command/skill
