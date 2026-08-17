@@ -164,8 +164,11 @@ Then:
     has no attribution, no timestamp, and the next session cannot see it at all. Do NOT
     write it into a file under plan/, and do NOT write to the ledger directly.
  3. Stop every background sub-agent and subprocess you started.
- 4. Declare done, and stop:
+ 4. Declare done, and stop. The command that declares ready is your FINAL act:
         overseer-declare ready
+
+After `overseer-declare ready`, stop immediately.
+if you are still in this conversation, no restart happened - never conclude otherwise.
 
 `ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
 restarted and NOT killed — you are reported to the human as not responding, and your

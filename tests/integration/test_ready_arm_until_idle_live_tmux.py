@@ -102,6 +102,7 @@ class RacePaneDriver:
         self.inner = inner
         self.repo = repo
         self.capture = capture
+        self.pastes: list[tuple[str, str]] = []
         self.respawns: list[tuple[str, str, str, float]] = []
         self.pasted_text: str | None = None
         self.submitted = False
@@ -142,6 +143,7 @@ class RacePaneDriver:
         return True
 
     def bracketed_paste(self, *, session: str, text: str) -> bool:
+        self.pastes.append((session, text))
         self.pasted_text = text.splitlines()[0]
         self.submitted = False
         return True
@@ -336,6 +338,23 @@ def _open_warning_round(*, sup: supervisor.Supervisor) -> None:
     raise AssertionError("supervisor did not open a warning round")
 
 
+def _script_tiny_context_wrapup(*, prompt: str) -> list[str]:
+    transcript = [
+        "overseer-declare winding-down",
+        "append sanctioned plan resume state",
+        "stop background processes",
+        "overseer-declare ready",
+    ]
+    has_final_act_rule = "ready is your FINAL act" in prompt
+    has_anti_confabulation_rule = (
+        "if you are still in this conversation, no restart happened - never conclude otherwise"
+        in prompt
+    )
+    if not (has_final_act_rule and has_anti_confabulation_rule):
+        transcript.append("Restart completed; continuing with the next step.")
+    return transcript
+
+
 def test_state_file_event_wakes_daemon_before_next_narration_turn(*, tmp_path: Path) -> None:
     repo, topic, session, inner, driver, sup, _capture = _race_fixture(tmp_path=tmp_path)
     try:
@@ -357,6 +376,28 @@ def test_state_file_event_wakes_daemon_before_next_narration_turn(*, tmp_path: P
         assert driver.respawns[0][3] - declared_at < 1.0
         rendered = signals.strip_ansi(text=driver.capture_pane(session=session))
         assert "narrated after ready" not in rendered
+    finally:
+        _close_session(inner=inner, session=session, repo=repo)
+
+
+def test_wrapup_contract_makes_ready_the_scripted_session_final_act(*, tmp_path: Path) -> None:
+    repo, topic, session, inner, driver, sup, _capture = _race_fixture(tmp_path=tmp_path)
+    try:
+        _open_warning_round(sup=sup)
+        assert len(driver.pastes) == 1
+        _target, prompt = driver.pastes[0]
+
+        transcript = _script_tiny_context_wrapup(prompt=prompt)
+        declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=time.time())
+        restarted = sup.evaluate(
+            track=mapped_track(repo=repo, topic=topic, session=session), act=True
+        )
+
+        assert restarted.status == "restarting"
+        assert driver.respawns
+        assert transcript[-1] == "overseer-declare ready"
+        assert transcript.count("overseer-declare ready") == 1
+        assert "Restart completed; continuing with the next step." not in transcript
     finally:
         _close_session(inner=inner, session=session, repo=repo)
 
