@@ -261,22 +261,17 @@ buys patience, not an indefinite stall. At 20% remaining and below with
 nothing declared, the track is reported loudly as not responding — and still
 never acted on.
 
-A `ready` declaration is never silently deleted by intervening session
-activity. When the daemon observes resumed activity after `ready`, it rewrites
-the state file to `winding-down: auto @<epoch-seconds>` so the session and
-operator can read that the declaration degraded. The downgraded declaration
-follows the ordinary fresh-acknowledgement path: it suppresses further wrap-ups
-until it becomes stale, leaves the round open, and lets escalation re-arm after
-that stale point instead of leaving a missing-file confabulation window. A
-`ready` declaration that has not been downgraded remains armed until either a
-verified settled-idle observation authorizes the restart, or it EXPIRES by
-exceeding a bounded maximum age (thirty minutes by default), whichever comes
-first. Unlike the restart, expiry does NOT close the round: it raises the
-certification floor and deletes the state file (per contracts.md §"The state
-file", its "Stale-declaration voiding" rule, and §"The restart interlock")
-while leaving the round's durable record, notified bands, and open status
-untouched — an expired declaration can neither certify a restart nor persist to
-be mistaken for a live one.
+A `ready` declaration is never voided by intervening session activity; the
+restart branch's own settle, busy, and identity gates already prevent killing
+a session mid-work. A declaration remains armed until either a verified
+settled-idle observation authorizes the restart, or it EXPIRES by exceeding a
+bounded maximum age (thirty minutes by default), whichever comes first. Unlike
+the restart, expiry does NOT close the round: it raises the certification
+floor and deletes the state file (per contracts.md §"The state file", its
+"Stale-declaration voiding" rule, and §"The restart interlock") while leaving
+the round's durable record, notified bands, and open status untouched — an
+expired declaration can neither certify a restart nor persist to be mistaken
+for a live one.
 
 When a `ready` declaration expires inside a DELIVERED round, the daemon MUST
 send the session one EXPIRY-NOTICE: a message stating that its ready

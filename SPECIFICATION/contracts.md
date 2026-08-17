@@ -39,22 +39,16 @@ Contract rules:
 - Stale-declaration voiding: this label covers two INDEPENDENT mechanisms
   with independent triggers and independent constants. Each is stated in full
   below, and neither cross-references the other's constant.
-- READY-SIDE ACTIVITY DOWNGRADE AND EXPIRY. A `ready` declaration observed
-  with resumed session activity is DOWNGRADED, not voided: the daemon MUST
-  rewrite the state file to `winding-down: auto @<epoch-seconds>` so the
-  session and operator can read that post-ready activity degraded the
-  declaration. The downgraded file is then governed as a fresh `winding-down`
-  acknowledgement; it suppresses further wrap-ups until it becomes stale, and
-  the round remains open so escalation can re-arm after that stale point. A
-  `ready` declaration that exceeds a bounded MAXIMUM AGE since its own
-  modification time — thirty minutes by default, and MAY be configured — is
-  EXPIRED, regardless of session activity. A `ready` remains armed and
-  eligible to certify only while it has neither been downgraded by resumed
-  activity nor exceeded this maximum age; otherwise it cannot authorize a
-  restart. The EXPIRY INSTANT is the DETERMINISTIC value `declaration
-  modification time + maximum age`, computed from the declaration's own
-  recorded modification time — never a separate wall-clock reading taken at
-  the moment of processing.
+- READY-SIDE EXPIRY. A `ready` declaration that exceeds a bounded MAXIMUM AGE
+  since its own modification time — thirty minutes by default, and MAY be
+  configured — is EXPIRED, regardless of session activity. The daemon MUST
+  NOT void a `ready` on an activity, busy, or gated observation: a `ready`
+  remains armed and eligible to certify until either the restart interlock's
+  own settle, busy, and identity gates authorize a restart, or this maximum
+  age is exceeded, whichever comes first. The EXPIRY INSTANT is the
+  DETERMINISTIC value `declaration modification time + maximum age`, computed
+  from the declaration's own recorded modification time — never a separate
+  wall-clock reading taken at the moment of processing.
 - Expiry clears the DECLARATION ONLY. The daemon MUST delete the state file
   and MUST NOT delete the round's sidecar key, MUST NOT reset its notified
   bands, and MUST NOT otherwise close the round.

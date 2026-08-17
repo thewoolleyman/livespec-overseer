@@ -185,15 +185,14 @@ Given a session that declared ready and then went busy again
 
 When the daemon next observes the track
 
-Then the daemon rewrites the state file to `winding-down: auto @<epoch-seconds>`
+Then the declaration remains armed and no restart occurs while the pane is
+not verified settled-idle
 
-And the downgraded value remains readable by the session and operator
+And the declaration is not cleared, expired, or otherwise altered by the
+activity
 
 And the round's durable record and already-notified escalation bands are
 unaffected
-
-And the fresh `winding-down` acknowledgement suppresses wrap-ups until it
-becomes stale, after which escalation re-arms
 
 ## Scenario: Repeated expiries never re-send an already-notified band
 
