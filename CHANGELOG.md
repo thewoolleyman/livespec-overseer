@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.54.0...v0.54.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* **prompts:** require state-file wind-down wording ([635e013](https://github.com/thewoolleyman/livespec-overseer/commit/635e013d6440bb8501e74446c0dac1a399237ef4))
+
 ## [0.54.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.53.1...v0.54.0) (2026-08-18)
 
 
