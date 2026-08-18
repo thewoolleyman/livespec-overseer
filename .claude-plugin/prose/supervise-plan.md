@@ -415,8 +415,11 @@ valid.
 Keep the two runtime idioms separate and exact:
 
 - **Claude fresh launch:** `claude --dangerously-skip-permissions -n <topic>`;
-  the `-n` value is the registry name. **Claude live repair:** `/rename
-  <topic>` only after checking the pane capture and confirming that
+  the `-n` value is the registry name. A fresh Claude pane still needs an
+  explicit `/rename <topic>` before SendMessage can address it by that predictable
+  peer name; include it in the first prompt or send it immediately after launch,
+  after confirming no structured picker is open. **Claude live repair:**
+  `/rename <topic>` only after checking the pane capture and confirming that
   `signals.is_structured_gate` is false. Never send `/rename` into a numbered
   cursor or a permission question, because the picker consumes the keystrokes.
 - **Codex restart:** `codex resume
@@ -558,6 +561,14 @@ in this charter protects the one track you govern; this one is the only rule
 whose blast radius is the whole fleet, which is why the generic kill-server
 warning above does not cover it — to a reader holding broad tmux authority,
 that session looks like an ordinary one to clean up.
+
+If a worker or supervisor session was killed manually, do not repair only the
+first stale file you notice. Reconcile all three durable-state surfaces before
+trusting the daemon status again: `tmp/overseer/<topic>/.overseer-state` or its
+`-supervisor` sibling, `tmp/overseer/<topic>/.supervisor-state`, and the topic's
+round record in `~/.livespec-overseer-stamps.json`. A direct kill bypasses the
+daemon's normal certify/respawn cleanup, so any one of those surfaces can keep
+describing a session that no longer exists.
 
 ## Decision-vetting rubric
 
