@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.52.0...v0.52.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* prove overseerd owns its daemon log ([5088792](https://github.com/thewoolleyman/livespec-overseer/commit/50887920383c6cba42255b6107d4994225fe12ff))
+
 ## [0.52.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.51.0...v0.52.0) (2026-08-18)
 
 
