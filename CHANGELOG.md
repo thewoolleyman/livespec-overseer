@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.51.0...v0.52.0) (2026-08-18)
+
+
+### Features
+
+* add supervisor add epic threshold coverage ([80b3278](https://github.com/thewoolleyman/livespec-overseer/commit/80b3278296977c6fd69e109ea2aa63c36e8b949d))
+
 ## [0.51.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.50.2...v0.51.0) (2026-08-18)
 
 
