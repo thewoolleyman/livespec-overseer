@@ -22,10 +22,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import streams
 import supervisor  # intentionally after the sys.path pin above
 
 __all__: list[str] = ["main"]
@@ -35,6 +38,24 @@ __all__: list[str] = ["main"]
 # so the range is open at both ends rather than clamped.
 _MIN_WARN_PERCENT = 1
 _MAX_WARN_PERCENT = 99
+
+
+def _default_daemon_log_path() -> Path:
+    """Default daemon event-history log beside this checkout."""
+    return Path(__file__).resolve().parent.parent / "tmp" / "overseer" / "daemon.log"
+
+
+@contextmanager
+def _native_daemon_stderr(*, log_path: Path) -> Iterator[None]:
+    """Append daemon stderr to its event-history log for bare manual bounces."""
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    previous_stderr = sys.stderr
+    with log_path.open("a", encoding="utf-8", buffering=1) as log_file:
+        sys.stderr = log_file
+        try:
+            yield
+        finally:
+            sys.stderr = previous_stderr
 
 
 def _warn_percent(value: str) -> int:
@@ -67,7 +88,9 @@ def main(*, argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
-    return supervisor.run_daemon(warn_percent=args.warn_percent)
+    with _native_daemon_stderr(log_path=_default_daemon_log_path()):
+        streams.write_stderr(text=f"{supervisor.iso_now()} overseer: daemon log opened\n")
+        return supervisor.run_daemon(warn_percent=args.warn_percent)
 
 
 if __name__ == "__main__":
