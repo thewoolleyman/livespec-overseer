@@ -9,7 +9,7 @@ import _supervisor_nudge
 import _supervisor_offer
 import registry
 import signals
-from _supervisor_config import IDLE_NUDGE_AFTER
+from _supervisor_config import IDLE_NUDGE_AFTER, track_key
 from _supervisor_records import InjectState
 
 if TYPE_CHECKING:
@@ -34,7 +34,11 @@ class IdleRequest:
 
 
 def idle_room(*, request: IdleRequest) -> str:
-    if not signals.topic_reserved_for_supervisor(topic=request.topic):
+    foreman_was_escalated = (
+        *track_key(repo=request.track.repo, topic=request.track.topic),
+        "foreman-escalated",
+    ) in request.sup.alerted
+    if not foreman_was_escalated and not signals.topic_reserved_for_supervisor(topic=request.topic):
         _supervisor_offer.surface_supervision_offer(
             sup=request.sup, track=request.track, act=request.act
         )

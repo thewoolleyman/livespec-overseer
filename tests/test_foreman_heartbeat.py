@@ -7,8 +7,10 @@ import json
 from pathlib import Path
 
 import pytest
+import registry
+import signals
 import supervisor
-from test_supervisor_builders import make_plan, make_supervisor
+from test_supervisor_builders import idle_capture, make_plan, make_supervisor, mapped_track
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -22,6 +24,17 @@ def foreman_module():
 
 def heartbeat_path(*, repo: Path) -> Path:
     return repo / "tmp" / "overseer" / "foreman" / "heartbeat.json"
+
+
+def foreman_escalation_path(*, repo: Path, topic: str) -> Path:
+    return repo / "tmp" / "overseer" / "foreman" / "escalations" / f"{topic}.json"
+
+
+def write_foreman_escalation(*, repo: Path, topic: str, reason: str = "operator decision") -> Path:
+    path = foreman_escalation_path(repo=repo, topic=topic)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"reason": reason}) + "\n", encoding="utf-8")
+    return path
 
 
 def write_heartbeat(
@@ -53,6 +66,7 @@ def make_tick_supervisor(*, tmp_path, fake, repo, now):
     return make_supervisor(
         tmp_path=tmp_path,
         fake=fake,
+        own_pane="%7",
         watch_repos=[str(repo)],
         now=lambda: now,
         status_writer=lambda *, path, body: None,
@@ -213,3 +227,73 @@ def test_stale_foreman_heartbeat_alert_is_edge_triggered_and_rearmed(*, tmp_path
     surfaced = [line for line in err.getvalue().splitlines() if "overseer[SURFACE]" in line]
     assert len(surfaced) == 2
     assert all("foreman heartbeat stale" in line for line in surfaced)
+
+
+def test_foreman_escalation_renders_affected_track_as_attention(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path, topic="stuck-track")
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    write_foreman_escalation(repo=repo, topic=topic, reason="choose a release valve")
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=88, topic=topic))
+    sup = make_tick_supervisor(tmp_path=tmp_path, fake=fake, repo=repo, now=2000.0)
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=session),
+        store_path=sup.store_path,
+        added_at="t",
+    )
+
+    rows = sup.tick(act=True)
+    output = sup.out.getvalue()
+    row = next(item for item in rows if item.topic == topic)
+
+    assert row.status == "foreman-escalated"
+    assert row.tmux == session
+    assert row.note == "foreman needs human decision: choose a release valve"
+    assert supervisor.needs_attention(row=row) is True
+    assert "NEEDS YOU (1):" in output
+    assert f"topic: {topic} | tmux: {session} (claude) | repo: repo" in output
+    assert fake.window_name == "overseer(1!)"
+
+
+def test_foreman_escalation_alert_is_edge_triggered_and_rearmed(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path, topic="decision-track")
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    marker = write_foreman_escalation(repo=repo, topic=topic, reason="pick one")
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=90, topic=topic))
+    sup = make_tick_supervisor(tmp_path=tmp_path, fake=fake, repo=repo, now=2000.0)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        for _ in range(3):
+            assert sup.evaluate(track=track, act=True).status == "foreman-escalated"
+        marker.unlink()
+        assert sup.evaluate(track=track, act=True).status != "foreman-escalated"
+        write_foreman_escalation(repo=repo, topic=topic, reason="pick one")
+        assert sup.evaluate(track=track, act=True).status == "foreman-escalated"
+
+    surfaced = [line for line in err.getvalue().splitlines() if "overseer[SURFACE]" in line]
+    assert len(surfaced) == 2
+    assert all("foreman escalation needs human decision" in line for line in surfaced)
+
+
+def test_foreman_escalation_authorizes_no_restart_or_keystroke(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path, topic="ready-track")
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    write_foreman_escalation(repo=repo, topic=topic, reason="decide before release")
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=92, topic=topic))
+    sup = make_tick_supervisor(tmp_path=tmp_path, fake=fake, repo=repo, now=2000.0)
+    state_path = signals.state_path(repo=str(repo), topic=topic)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text("ready\n", encoding="utf-8")
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "foreman-escalated"
+    assert state_path.read_text(encoding="utf-8") == "ready\n"
+    assert not fake.has(method="paste")
+    assert not fake.has(method="keys")
+    assert not fake.has(method="respawn")
+    assert not fake.has(method="new")
