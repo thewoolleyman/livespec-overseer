@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.53.1...v0.54.0) (2026-08-18)
+
+
+### Features
+
+* preserve model profile in registry mapping ([127e23c](https://github.com/thewoolleyman/livespec-overseer/commit/127e23c9b1babe8cdeaf1fe3f60455785d70c23c))
+
 ## [0.53.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.53.0...v0.53.1) (2026-08-18)
 
 
