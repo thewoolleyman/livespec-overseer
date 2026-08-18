@@ -330,6 +330,10 @@ class Supervisor:
         """See :func:`_supervisor_discovery.refresh_claude_status`."""
         _supervisor_discovery.refresh_claude_status(sup=self)
 
+    def refresh_claude_status(self) -> None:
+        """Refresh live Claude process evidence for acting mechanics."""
+        self._refresh_claude_status()
+
     def build_rows(self, *, act: bool = True) -> list[registry.Track]:
         """See :func:`_supervisor_discovery.build_rows`."""
         return _supervisor_discovery.build_rows(sup=self, act=act)

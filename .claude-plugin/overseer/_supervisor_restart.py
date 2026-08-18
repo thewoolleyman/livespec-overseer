@@ -83,6 +83,41 @@ def resume_prompt(*, track: registry.Track) -> str | None:
     return resume_for_track(track=track)
 
 
+def _post_respawn_claude_process_live(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    session: str,
+) -> bool:
+    sup.refresh_claude_status()
+    return sup.claude_identity_by_session.get((session, track.topic)) is not None
+
+
+def _claude_respawn_verified(*, sup: Supervisor, track: registry.Track, target: str) -> bool:
+    if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
+        registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=_supervisor_launch.session_of(sup=sup, track=track),
+            pane=target,
+            message="respawned pane never became Claude; will retry resume without respawn",
+        )
+        return False
+    session = _supervisor_launch.session_of(sup=sup, track=track)
+    if not _post_respawn_claude_process_live(sup=sup, track=track, session=session):
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=target,
+            message="respawned pane has no live Claude process; keeping the ready declaration",
+            condition="claude-post-respawn-live-missing",
+        )
+        return False
+    return True
+
+
 def maybe_inject(
     *,
     sup: Supervisor,
@@ -239,15 +274,7 @@ def do_restart(
             message="restart respawn FAILED; keeping the ready declaration so it retries",
         )
         return
-    if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
-        registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
-        sup.alert(
-            repo=track.repo,
-            topic=track.topic,
-            session=_supervisor_launch.session_of(sup=sup, track=track),
-            pane=target,
-            message="respawned pane never became Claude; will retry resume without respawn",
-        )
+    if not _claude_respawn_verified(sup=sup, track=track, target=target):
         return
     # Wait for the fresh TUI to finish its FIRST paint and render a ready (empty)
     # input box before pasting — a half-drawn welcome/news screen DROPS the Enter,
