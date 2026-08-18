@@ -1,0 +1,21 @@
+{
+  "name": "livespec-overseer",
+  "version": "0.0.0",
+  "description": "pi package surface of the livespec-overseer plugin - thin pi SKILL.md bindings over the same prose artifacts the Claude and Codex surfaces bind.",
+  "private": true,
+  "keywords": [
+    "pi-package"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thewoolleyman/livespec-overseer.git"
+  },
+  "pi": {
+    "skills": [
+      "./.claude-plugin/.pi-plugin/skills"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}
