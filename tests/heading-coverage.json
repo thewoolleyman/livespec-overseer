@@ -4,7 +4,7 @@
     "spec_file": "spec.md",
     "heading": "## The cardinal rule",
     "test": "overseer.test_supervisor.test_idle_at_danger_with_no_declaration_is_never_restarted",
-    "reason": "Pins the rule in its NEGATIVE form, which is the load-bearing direction: a session idle at the danger line with no declaration is never restarted — the daemon does not infer readiness from idleness, a timer, or how low context has fallen."
+    "reason": "Pins the rule in its NEGATIVE form, which is the load-bearing direction: a session idle at the danger line with no declaration is never restarted \u2014 the daemon does not infer readiness from idleness, a timer, or how low context has fallen."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -18,7 +18,7 @@
     "spec_file": "spec.md",
     "heading": "## The supervision round",
     "test": "overseer.test_supervisor.test_cleared_round_re_warns_all_bands",
-    "reason": "Pins round closure and re-opening: clearing the injection stamp — exactly what a restart does — resets both the round timestamp and the notified bands, so a subsequent round starts fresh and every band may fire again."
+    "reason": "Pins round closure and re-opening: clearing the injection stamp \u2014 exactly what a restart does \u2014 resets both the round timestamp and the notified bands, so a subsequent round starts fresh and every band may fire again."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -53,7 +53,7 @@
     "spec_file": "spec.md",
     "heading": "## Track discovery and the mapping store",
     "test": "overseer.test_registry.test_discover_plans_excludes_archive",
-    "reason": "Pins the discovery rule's headline: one track per UNARCHIVED plan-topic directory, keyed on the directory existing — archived plans are excluded."
+    "reason": "Pins the discovery rule's headline: one track per UNARCHIVED plan-topic directory, keyed on the directory existing \u2014 archived plans are excluded."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -67,14 +67,14 @@
     "spec_file": "spec.md",
     "heading": "## Surface-only startup",
     "test": "overseer.test_supervisor.test_tick_builds_unassigned_and_mapped_rows",
-    "reason": "Pins 'startable, never started': a discovered plan directory with no session comes back with status 'unassigned' and tmux None — surfaced, with no session spawned for it."
+    "reason": "Pins 'startable, never started': a discovered plan directory with no session comes back with status 'unassigned' and tmux None \u2014 surfaced, with no session spawned for it."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Supervised runtimes",
     "test": "overseer.test_supervisor.test_a_codex_ready_restart_never_issues_the_claude_command",
-    "reason": "Pins the one destructive cross-runtime failure the spec designs out — a restart must resume the SAME runtime. SABOTAGE-VERIFIED 2026-07-25: re-pointing _do_codex_restart at the CLAUDE command turned this and two sibling tests red, then was reverted to a zero diff."
+    "reason": "Pins the one destructive cross-runtime failure the spec designs out \u2014 a restart must resume the SAME runtime. SABOTAGE-VERIFIED 2026-07-25: re-pointing _do_codex_restart at the CLAUDE command turned this and two sibling tests red, then was reverted to a zero diff."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -95,7 +95,7 @@
     "spec_file": "spec.md",
     "heading": "## Fail-soft posture",
     "test": "overseer.test_supervisor.test_ctx_unknown_never_injects",
-    "reason": "Pins the posture's sharpest clause — an unknown context reading NEVER counts as a threshold crossing, so an ambiguous reading can never trigger an act."
+    "reason": "Pins the posture's sharpest clause \u2014 an unknown context reading NEVER counts as a threshold crossing, so an ambiguous reading can never trigger an act."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -116,7 +116,7 @@
     "spec_file": "contracts.md",
     "heading": "## The restart interlock",
     "test": "overseer.test_supervisor.test_restart_fires_only_on_a_declared_ready",
-    "reason": "Pins all three deterministic checks together: an injection stamp exists (1000.0), the token is exactly 'ready', and the state mtime (1001.0) is strictly newer than the stamp — then asserts the round closes so the declaration cannot re-trigger."
+    "reason": "Pins all three deterministic checks together: an injection stamp exists (1000.0), the token is exactly 'ready', and the state mtime (1001.0) is strictly newer than the stamp \u2014 then asserts the round closes so the declaration cannot re-trigger."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -130,7 +130,7 @@
     "spec_file": "contracts.md",
     "heading": "## The keep-going nudge",
     "test": "overseer.test_supervisor.test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour",
-    "reason": "Pins the ALL-required preconditions: cleanly idle, continuously idle >= 1 hour, context above threshold, no declaration of its own — nudged exactly once, with the daemon's own marker written."
+    "reason": "Pins the ALL-required preconditions: cleanly idle, continuously idle >= 1 hour, context above threshold, no declaration of its own \u2014 nudged exactly once, with the daemon's own marker written."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -158,35 +158,35 @@
     "spec_file": "contracts.md",
     "heading": "## Attention surface",
     "test": "overseer.test_supervisor.test_needs_attention_predicate_covers_every_attention_status",
-    "reason": "Pins the membership rule in BOTH directions: every ATTENTION_STATUSES member needs attention, and the healthy statuses do not — its own docstring notes it guards the membership test so a new status cannot be added without the block picking it up."
+    "reason": "Pins the membership rule in BOTH directions: every ATTENTION_STATUSES member needs attention, and the healthy statuses do not \u2014 its own docstring notes it guards the membership test so a new status cannot be added without the block picking it up."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Runtime requirements",
     "test": "overseer.test_supervisor.test_the_host_gate_precedes_the_gitignore_gate",
-    "reason": "Pins both halves of the enforceable clause: on an unsupported host the daemon REFUSES to start naming the failed precondition, and that check runs BEFORE every other startup gate (asserted by making a watched repo ALSO fail the gitignore gate and confirming only 'unsupported host' is reported). CAVEAT: the constraint's other half — Linux+tmux as a DECLARED requirement rather than an unfinished portability story — is decision D4, implemented by core item livespec-b1uo.2 which is still backlog. This row's evidence covers the behavior, not that declaration."
+    "reason": "Pins both halves of the enforceable clause: on an unsupported host the daemon REFUSES to start naming the failed precondition, and that check runs BEFORE every other startup gate (asserted by making a watched repo ALSO fail the gitignore gate and confirming only 'unsupported host' is reported). CAVEAT: the constraint's other half \u2014 Linux+tmux as a DECLARED requirement rather than an unfinished portability story \u2014 is decision D4, implemented by core item livespec-b1uo.2 which is still backlog. This row's evidence covers the behavior, not that declaration."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Language and dependencies",
     "test": "overseer.test_package_constraints.test_the_package_imports_only_the_standard_library",
-    "reason": "Walks every product module's AST and asserts each absolute top-level import is stdlib or a first-party sibling. NOTHING asserted this before — the NFR recorded it as enforced 'at review and by the executables isolated launch mode', i.e. by nothing executable. SABOTAGE-VERIFIED 2026-07-26 with an INSTALLED third-party module (import pytest into registry.py) so the assertion itself fires; an uninstalled one fails earlier at collection, which holds the constraint but does not exercise this test."
+    "reason": "Walks every product module's AST and asserts each absolute top-level import is stdlib or a first-party sibling. NOTHING asserted this before \u2014 the NFR recorded it as enforced 'at review and by the executables isolated launch mode', i.e. by nothing executable. SABOTAGE-VERIFIED 2026-07-26 with an INSTALLED third-party module (import pytest into registry.py) so the assertion itself fires; an uninstalled one fails earlier at collection, which holds the constraint but does not exercise this test."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Determinism boundary",
     "test": "overseer.test_package_constraints.test_the_supervision_loop_cannot_make_model_calls",
-    "reason": "Asserts the package imports NO network-capable stdlib module (urllib/http/socket/ssl/asyncio/...). A model call needs a client; proving there is no client is stronger and more durable than auditing call sites. subprocess is deliberately excluded — constraints.md contemplates driving a real tmux. SABOTAGE-VERIFIED 2026-07-26: import urllib.request into supervisor.py turns it red naming urllib."
+    "reason": "Asserts the package imports NO network-capable stdlib module (urllib/http/socket/ssl/asyncio/...). A model call needs a client; proving there is no client is stronger and more durable than auditing call sites. subprocess is deliberately excluded \u2014 constraints.md contemplates driving a real tmux. SABOTAGE-VERIFIED 2026-07-26: import urllib.request into supervisor.py turns it red naming urllib."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Filesystem boundaries",
     "test": "overseer.test_package_constraints.test_a_supervision_tick_never_opens_a_file_under_a_plan_tree",
-    "reason": "BEHAVIORAL evidence, which this row previously lacked entirely — the nearest thing was a substring assertion over static prose in test_plugin_structure.py, which proves a sentence exists, not that the loop obeys it. Audits builtins.open / Path.open / Path.read_text / Path.read_bytes across a real tick and asserts nothing under the plan tree was opened. Directory enumeration and existence tests are deliberately NOT hooked: the spec permits both, including the bounded supervisor-handoff.md existence probe. SABOTAGE-VERIFIED 2026-07-26: making tick() read each track's handoff turns it red."
+    "reason": "BEHAVIORAL evidence, which this row previously lacked entirely \u2014 the nearest thing was a substring assertion over static prose in test_plugin_structure.py, which proves a sentence exists, not that the loop obeys it. Audits builtins.open / Path.open / Path.read_text / Path.read_bytes across a real tick and asserts nothing under the plan tree was opened. Directory enumeration and existence tests are deliberately NOT hooked: the spec permits both, including the bounded supervisor-handoff.md existence probe. SABOTAGE-VERIFIED 2026-07-26: making tick() read each track's handoff turns it red."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -200,14 +200,14 @@
     "spec_file": "constraints.md",
     "heading": "## Acting safety",
     "test": "overseer.test_supervisor.test_claude_act_refuses_pane_whose_live_name_differs_from_topic",
-    "reason": "Pins the heading's governing clause — every keystroke-bearing act is suppressed unless the pane is POSITIVELY IDENTIFIED as this track's supervised session. Chosen over the individual suppression tests because it is the hardest case: process and cwd both pass, only the name betrays the pane, and the act is refused even with a valid `ready` that would otherwise restart. The four never-paste cases have their own tests (busy/gate/shell/foreign) mapped nowhere else."
+    "reason": "Pins the heading's governing clause \u2014 every keystroke-bearing act is suppressed unless the pane is POSITIVELY IDENTIFIED as this track's supervised session. Chosen over the individual suppression tests because it is the hardest case: process and cwd both pass, only the name betrays the pane, and the act is refused even with a valid `ready` that would otherwise restart. The four never-paste cases have their own tests (busy/gate/shell/foreign) mapped nowhere else."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "non-functional-requirements.md",
     "heading": "## Boundary",
     "test": "overseer.test_enforcement_wiring.test_every_contributor_requirement_sits_in_the_section_mirroring_its_spec_file",
-    "reason": "Pins the observable structural consequence of this section's decision rule ('in the section mirroring the file it would otherwise live in'): every NFR section other than this preamble names an NLSpec file of the spec tree. NOT RETIRED, against the inherited 'removal candidate' assessment — that called it the same category as gap-jqszyzae, but gap-jqszyzae is a document H1 preamble while this is a named section stating a routing rule with a testable consequence. livespec core, the one fleet member that finished this program, also KEPT its Boundary row and mapped it. Retiring would have needed a governed spec co-edit for no gain. SABOTAGE-VERIFIED 2026-07-26: adding a '## Deployment' section turns it red naming ['Deployment']."
+    "reason": "Pins the observable structural consequence of this section's decision rule ('in the section mirroring the file it would otherwise live in'): every NFR section other than this preamble names an NLSpec file of the spec tree. NOT RETIRED, against the inherited 'removal candidate' assessment \u2014 that called it the same category as gap-jqszyzae, but gap-jqszyzae is a document H1 preamble while this is a named section stating a routing rule with a testable consequence. livespec core, the one fleet member that finished this program, also KEPT its Boundary row and mapped it. Retiring would have needed a governed spec co-edit for no gain. SABOTAGE-VERIFIED 2026-07-26: adding a '## Deployment' section turns it red naming ['Deployment']."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -228,7 +228,7 @@
     "spec_file": "non-functional-requirements.md",
     "heading": "## Constraints",
     "test": "overseer.test_enforcement_wiring.test_the_hundred_percent_coverage_gates_are_wired_into_the_aggregate",
-    "reason": "Gate-backed row. Asserts BOTH coverage gates are wired — check-coverage (package total) and check-per-file-coverage (per-module floor). Asserting only the total would let a fully-uncovered module hide behind the rest of the package. SABOTAGE-VERIFIED 2026-07-26 by deleting check-per-file-coverage from the aggregate."
+    "reason": "Gate-backed row. Asserts BOTH coverage gates are wired \u2014 check-coverage (package total) and check-per-file-coverage (per-module floor). Asserting only the total would let a fully-uncovered module hide behind the rest of the package. SABOTAGE-VERIFIED 2026-07-26 by deleting check-per-file-coverage from the aggregate."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -305,14 +305,14 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A winding-down acknowledgement pauses the escalation",
     "test": "tests.integration.test_wrapup_escalation.test_scenario_a_winding_down_acknowledgement_pauses_the_escalation",
-    "reason": "Integration-tier. A fresh acknowledgement suppresses a wrap-up that would otherwise fire on a newly-crossed band. SABOTAGE-VERIFIED 2026-07-26: setting ACK_STALE_AFTER negative (so every ack is instantly stale) turns it red. Note a threshold of exactly 0.0 does NOT redden it — the ack's age is 0.0 and the comparison is <=, so the sabotage must go negative to land."
+    "reason": "Integration-tier. A fresh acknowledgement suppresses a wrap-up that would otherwise fire on a newly-crossed band. SABOTAGE-VERIFIED 2026-07-26: setting ACK_STALE_AFTER negative (so every ack is instantly stale) turns it red. Note a threshold of exactly 0.0 does NOT redden it \u2014 the ack's age is 0.0 and the comparison is <=, so the sabotage must go negative to land."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale acknowledgement resumes escalation but authorizes nothing",
     "test": "tests.integration.test_wrapup_escalation.test_scenario_a_stale_acknowledgement_resumes_escalation_but_authorizes_nothing",
-    "reason": "Integration-tier, covering BOTH halves: escalation resumes (a lower band fires and the track is re-reported on stderr) and staleness still authorizes NOTHING. The ordering is load-bearing — the round is opened FIRST so the stamp exists, and the acknowledgement post-dates it, which forces the restart interlock all the way to its token check. An earlier draft acknowledged first and never warned; it passed because the interlock short-circuited on the missing stamp, and sabotaging ready_valid to accept winding-down left it GREEN. SABOTAGE-VERIFIED 2026-07-26 after correction: that same sabotage now turns it red, as does the negative ACK_STALE_AFTER."
+    "reason": "Integration-tier, covering BOTH halves: escalation resumes (a lower band fires and the track is re-reported on stderr) and staleness still authorizes NOTHING. The ordering is load-bearing \u2014 the round is opened FIRST so the stamp exists, and the acknowledgement post-dates it, which forces the restart interlock all the way to its token check. An earlier draft acknowledged first and never warned; it passed because the interlock short-circuited on the missing stamp, and sabotaging ready_valid to accept winding-down left it GREEN. SABOTAGE-VERIFIED 2026-07-26 after correction: that same sabotage now turns it red, as does the negative ACK_STALE_AFTER."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -326,7 +326,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready declaration from a prior round never restarts",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_ready_declaration_from_a_prior_round_never_restarts",
-    "reason": "Integration-tier: the declaration is written BEFORE the round is opened, so 'its mtime predates this round's stamp' is an observed consequence of the sequence rather than a hand-picked pair of numbers — the test asserts that ordering against the stamp the daemon actually wrote. Asserts the interlock refuses (no respawn, status not `restarting`) and that nothing consumes the declaration or the open round. SABOTAGE-VERIFIED 2026-07-26: dropping the mtime comparison from `signals.ready_valid` restarts the track on the prior round's declaration."
+    "reason": "Integration-tier: the declaration is written BEFORE the round is opened, so 'its mtime predates this round's stamp' is an observed consequence of the sequence rather than a hand-picked pair of numbers \u2014 the test asserts that ordering against the stamp the daemon actually wrote. Asserts the interlock refuses (no respawn, status not `restarting`) and that nothing consumes the declaration or the open round. SABOTAGE-VERIFIED 2026-07-26: dropping the mtime comparison from `signals.ready_valid` restarts the track on the prior round's declaration."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -347,35 +347,35 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An undeclared session at the danger line is reported, never restarted",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_an_undeclared_session_at_the_danger_line_is_reported_never_restarted",
-    "reason": "Integration-tier: warns a real track, then drops it across the danger line with no declaration. Asserts the report names every coordinate (topic, repo slug, tmux session, and a copy-pasteable `tmux switch-client` jump) and says `declared NOTHING` rather than the stale-ACK wording. 'No further act' is pinned as a paste count held constant across ten further observations — the crossing's own coalesced wrap-up is authorized by the threshold, so the claim is about what happens AFTER it settles. SABOTAGE-VERIFIED 2026-07-26: `DANGER_CTX_REMAINING = 0` makes the row read `warned` with no alert; reducing `alert` to `repo::topic` reddens the coordinate assertions."
+    "reason": "Integration-tier: warns a real track, then drops it across the danger line with no declaration. Asserts the report names every coordinate (topic, repo slug, tmux session, and a copy-pasteable `tmux switch-client` jump) and says `declared NOTHING` rather than the stale-ACK wording. 'No further act' is pinned as a paste count held constant across ten further observations \u2014 the crossing's own coalesced wrap-up is authorized by the threshold, so the claim is about what happens AFTER it settles. SABOTAGE-VERIFIED 2026-07-26: `DANGER_CTX_REMAINING = 0` makes the row read `warned` with no alert; reducing `alert` to `repo::topic` reddens the coordinate assertions."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A malformed state value is surfaced and treated as no declaration",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_malformed_state_value_is_surfaced_and_treated_as_no_declaration",
-    "reason": "Integration-tier, and deliberately DIFFERENTIAL: every restart precondition is satisfied over a real round (open stamp, idle settled pane, declaration post-dating the stamp) so the only difference from the fresh-`ready` scenario is the token itself — which is what makes 'no act is authorized' a claim about the value rather than about some other unmet condition. Asserts the value is surfaced by name, the round stays open, and at the danger line the track reports as having `declared NOTHING`. SABOTAGE-VERIFIED 2026-07-26: `valid_token` accepting anything silences the surfacing; `read_state` coercing an unknown token to `ready` respawns the track on a typo."
+    "reason": "Integration-tier, and deliberately DIFFERENTIAL: every restart precondition is satisfied over a real round (open stamp, idle settled pane, declaration post-dating the stamp) so the only difference from the fresh-`ready` scenario is the token itself \u2014 which is what makes 'no act is authorized' a claim about the value rather than about some other unmet condition. Asserts the value is surfaced by name, the round stays open, and at the danger line the track reports as having `declared NOTHING`. SABOTAGE-VERIFIED 2026-07-26: `valid_token` accepting anything silences the surfacing; `read_state` coercing an unknown token to `ready` respawns the track on a typo."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A blocked declaration is relayed, not answered",
     "test": "tests.integration.test_discovery_and_relay.test_scenario_a_blocked_declaration_is_relayed_not_answered",
-    "reason": "Integration-tier: the pane is deliberately deep in the DANGER band, so `blocked` has to win a precedence contest rather than merely be the only thing happening — the same test above the threshold would pass even if `blocked` were checked last. Asserts the reason is relayed as stderr text naming every coordinate plus a jump command, and that the pane is neither keystroked nor respawned. SABOTAGE-VERIFIED 2026-07-26: removing the gate branch's `or blocked is not None` disjunct makes the track read `danger` and get a wrap-up pasted; reducing `alert` to `repo::topic` reddens the coordinate assertions."
+    "reason": "Integration-tier: the pane is deliberately deep in the DANGER band, so `blocked` has to win a precedence contest rather than merely be the only thing happening \u2014 the same test above the threshold would pass even if `blocked` were checked last. Asserts the reason is relayed as stderr text naming every coordinate plus a jump command, and that the pane is neither keystroked nor respawned. SABOTAGE-VERIFIED 2026-07-26: removing the gate branch's `or blocked is not None` disjunct makes the track read `danger` and get a wrap-up pasted; reducing `alert` to `repo::topic` reddens the coordinate assertions."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An idle session with context left is nudged once per episode",
     "test": "tests.integration.test_discovery_and_relay.test_scenario_an_idle_session_with_context_left_is_nudged_once_per_episode",
-    "reason": "Integration-tier: walks the whole episode lifecycle on one track — below the one-hour floor nothing is keystroked, past it exactly one keep-going message is pasted and the daemon's own marker is written, a further idle tick does not re-nudge, the session working clears the marker, and a fresh hour earns a second nudge. The paste is asserted as a NUDGE (`_wrapup_count` held at zero), since the wrap-up travels the same paste path and means the opposite; the marker is checked by TOKEN, so a marker written as `ready` would redden here rather than silently arming a restart. SABOTAGE-VERIFIED 2026-07-26: `IDLE_NUDGE_AFTER = 0.0`, dropping the once-per-episode guard, and making `_clear_idle_nudge_state` a no-op each redden a different leg."
+    "reason": "Integration-tier: walks the whole episode lifecycle on one track \u2014 below the one-hour floor nothing is keystroked, past it exactly one keep-going message is pasted and the daemon's own marker is written, a further idle tick does not re-nudge, the session working clears the marker, and a fresh hour earns a second nudge. The paste is asserted as a NUDGE (`_wrapup_count` held at zero), since the wrap-up travels the same paste path and means the opposite; the marker is checked by TOKEN, so a marker written as `ready` would redden here rather than silently arming a restart. SABOTAGE-VERIFIED 2026-07-26: `IDLE_NUDGE_AFTER = 0.0`, dropping the once-per-episode guard, and making `_clear_idle_nudge_state` a no-op each redden a different leg."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unassigned plan is discovered but never auto-started",
     "test": "tests.integration.test_discovery_and_relay.test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started",
-    "reason": "Integration-tier: drives `tick(act=True)` — the ACTING path, the only one where surface-only has content, since `act=False` cannot launch anything by construction and asserting there would be vacuous. Ten ticks rather than one: 'never auto-started' is a claim about a daemon observing the same startable plan forever, and one observation cannot tell 'never launches' from 'launches on the second look'. SABOTAGE-VERIFIED 2026-07-26: making `auto_link` create the session it fails to find starts a session for a plan nobody asked to start."
+    "reason": "Integration-tier: drives `tick(act=True)` \u2014 the ACTING path, the only one where surface-only has content, since `act=False` cannot launch anything by construction and asserting there would be vacuous. Ten ticks rather than one: 'never auto-started' is a claim about a daemon observing the same startable plan forever, and one observation cannot tell 'never launches' from 'launches on the second look'. SABOTAGE-VERIFIED 2026-07-26: making `auto_link` create the session it fails to find starts a session for a plan nobody asked to start."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -396,70 +396,73 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Topics colliding across repositories get qualified session names",
     "test": "tests.integration.test_discovery_and_relay.test_scenario_topics_colliding_across_repositories_get_qualified_session_names",
-    "reason": "Integration-tier, asserted through `auto_link` rather than through `registry.tmux_id`: the unit tier already pins the naming function, and what was unpinned above it is that the daemon computes the collision set from the DISCOVERY pass and derives names with it. Real plan directories in two repos, tmux sessions served under BOTH the qualified and the retired bare name, and `tick` decides which it recognizes — serving the bare `shared` session is what gives this teeth, since a daemon ignoring the collision set would match its cwd and link it. The single dash is checked literally, because `<slug>--<topic>` would still satisfy a substring assertion. SABOTAGE-VERIFIED 2026-07-26: `colliding_topics` returning an empty frozenset links the bare session instead of the qualified one."
+    "reason": "Integration-tier, asserted through `auto_link` rather than through `registry.tmux_id`: the unit tier already pins the naming function, and what was unpinned above it is that the daemon computes the collision set from the DISCOVERY pass and derives names with it. Real plan directories in two repos, tmux sessions served under BOTH the qualified and the retired bare name, and `tick` decides which it recognizes \u2014 serving the bare `shared` session is what gives this teeth, since a daemon ignoring the collision set would match its cwd and link it. The single dash is checked literally, because `<slug>--<topic>` would still satisfy a substring assertion. SABOTAGE-VERIFIED 2026-07-26: `colliding_topics` returning an empty frozenset links the bare session instead of the qualified one."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The daemon refuses an unsupported host",
     "test": "tests.integration.test_startup_refusals_and_runtime.test_scenario_the_daemon_refuses_an_unsupported_host",
-    "reason": "Integration-tier: drives the real `run(once=True)` startup path. The ORDERING clause is the substantive half and is asserted by failing ALL THREE gates at once — no /proc, an un-ignored scratch path, and a singleton lock already held — so the assertion is not merely that the host reason appears but that the other two do NOT. Testing the host gate alone cannot distinguish 'first' from 'only one failing'. The three refusal tests share a CONTROL (`test_scenario_the_fixture_track_is_warned_when_every_startup_gate_passes`) proving the same fixture pastes a wrap-up when nothing is refused; without it, 'no wrap-up' would be satisfied by a daemon that never warns anything. SABOTAGE-VERIFIED 2026-07-26: moving the host gate below the gitignore gate, and `unsupported_host_reasons` returning [], each let a different gate speak."
+    "reason": "Integration-tier: drives the real `run(once=True)` startup path. The ORDERING clause is the substantive half and is asserted by failing ALL THREE gates at once \u2014 no /proc, an un-ignored scratch path, and a singleton lock already held \u2014 so the assertion is not merely that the host reason appears but that the other two do NOT. Testing the host gate alone cannot distinguish 'first' from 'only one failing'. The three refusal tests share a CONTROL (`test_scenario_the_fixture_track_is_warned_when_every_startup_gate_passes`) proving the same fixture pastes a wrap-up when nothing is refused; without it, 'no wrap-up' would be satisfied by a daemon that never warns anything. SABOTAGE-VERIFIED 2026-07-26: moving the host gate below the gitignore gate, and `unsupported_host_reasons` returning [], each let a different gate speak."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The daemon refuses a repository that does not ignore its scratch path",
     "test": "tests.integration.test_startup_refusals_and_runtime.test_scenario_the_daemon_refuses_a_repository_that_does_not_ignore_its_scratch_path",
-    "reason": "Integration-tier: TWO repos are watched and only one offends, because naming the offender is the whole point of the clause — with a single watched repo a message that named the wrong repo, or every repo, would still contain the right string. The three refusal tests share a CONTROL (`test_scenario_the_fixture_track_is_warned_when_every_startup_gate_passes`) proving the same fixture pastes a wrap-up when nothing is refused; without it, 'no wrap-up' would be satisfied by a daemon that never warns anything. SABOTAGE-VERIFIED 2026-07-26: `unignored_tmp_repos` returning [] starts the daemon; returning the full watch set names the innocent repo too."
+    "reason": "Integration-tier: TWO repos are watched and only one offends, because naming the offender is the whole point of the clause \u2014 with a single watched repo a message that named the wrong repo, or every repo, would still contain the right string. The three refusal tests share a CONTROL (`test_scenario_the_fixture_track_is_warned_when_every_startup_gate_passes`) proving the same fixture pastes a wrap-up when nothing is refused; without it, 'no wrap-up' would be satisfied by a daemon that never warns anything. SABOTAGE-VERIFIED 2026-07-26: `unignored_tmp_repos` returning [] starts the daemon; returning the full watch set names the innocent repo too."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A second daemon instance refuses to start",
     "test": "tests.integration.test_startup_refusals_and_runtime.test_scenario_a_second_daemon_instance_refuses_to_start",
-    "reason": "Integration-tier: the lock is taken by ACQUIRING it the way the daemon does rather than by writing a sentinel — `flock` locks belong to the open file description, so a second open+flock contends even inside one process, which exercises the real mechanism. The second half (releasing the lock lets a daemon start and warn) is what proves the refusal was the LOCK's doing; without it a daemon broken some other way would look identical. The three refusal tests share a CONTROL (`test_scenario_the_fixture_track_is_warned_when_every_startup_gate_passes`) proving the same fixture pastes a wrap-up when nothing is refused; without it, 'no wrap-up' would be satisfied by a daemon that never warns anything. SABOTAGE-VERIFIED 2026-07-26: a SHARED flock lets the second instance supervise; dropping the lock path from the message reddens the naming assertion."
+    "reason": "Integration-tier: the lock is taken by ACQUIRING it the way the daemon does rather than by writing a sentinel \u2014 `flock` locks belong to the open file description, so a second open+flock contends even inside one process, which exercises the real mechanism. The second half (releasing the lock lets a daemon start and warn) is what proves the refusal was the LOCK's doing; without it a daemon broken some other way would look identical. The three refusal tests share a CONTROL (`test_scenario_the_fixture_track_is_warned_when_every_startup_gate_passes`) proving the same fixture pastes a wrap-up when nothing is refused; without it, 'no wrap-up' would be satisfied by a daemon that never warns anything. SABOTAGE-VERIFIED 2026-07-26: a SHARED flock lets the second instance supervise; dropping the lock path from the message reddens the naming assertion."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dropped resume submission is retried without a second kill",
     "test": "tests.integration.test_startup_refusals_and_runtime.test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill",
-    "reason": "Integration-tier: the drop is modelled where it happens — a respawn hook leaves the pane showing a box that HOLDS the resume text, which is what a fresh TUI that swallowed the Enter looks like. `paste_ok = False` would be a failed paste: a different fault with the same return value that never produces the stranded box this scenario is about. 'Never kills it again' is a respawn count of ONE across the whole sequence, including ticks where a still-valid `ready` marker is sitting right there — that marker is the danger, since without the retry interception the `elif ready:` branch would respawn-kill the fresh session every tick. The closing phase (the box clears, the round closes) is what makes 'until the prompt lands' a claim rather than a description of an infinite retry. SABOTAGE-VERIFIED 2026-07-26: the retry branch re-entering `_do_restart` pushes the respawn count to 2; clearing the state on a failed submit hides the stranding."
+    "reason": "Integration-tier: the drop is modelled where it happens \u2014 a respawn hook leaves the pane showing a box that HOLDS the resume text, which is what a fresh TUI that swallowed the Enter looks like. `paste_ok = False` would be a failed paste: a different fault with the same return value that never produces the stranded box this scenario is about. 'Never kills it again' is a respawn count of ONE across the whole sequence, including ticks where a still-valid `ready` marker is sitting right there \u2014 that marker is the danger, since without the retry interception the `elif ready:` branch would respawn-kill the fresh session every tick. The closing phase (the box clears, the round closes) is what makes 'until the prompt lands' a claim rather than a description of an infinite retry. SABOTAGE-VERIFIED 2026-07-26: the retry branch re-entering `_do_restart` pushes the respawn count to 2; clearing the state on a failed submit hides the stranding."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A restart never switches a track's runtime",
     "test": "tests.integration.test_startup_refusals_and_runtime.test_scenario_a_restart_never_switches_a_tracks_runtime",
-    "reason": "Integration-tier, BOTH directions, since the clause is symmetric. This is the one place a bug in this daemon is DESTRUCTIVE rather than merely wrong: aiming `claude -n <topic>` at a codex pane replaces the codex session and orphans its rollout. The codex half drives a REAL round rather than seeding the stamp — the wrap-up is pasted and the pane made to go BUSY in response, which is how a codex submit is confirmed (codex has no empty-box signal). A hand-seeded round would skip the runtime-aware submit, which is part of what 'supervised under one agent runtime' means. SABOTAGE-VERIFIED 2026-07-26: inverting `_do_restart`'s dispatch, and replacing `_codex_launch_command` with `_launch_command`, each issue the claude command at the codex pane."
+    "reason": "Integration-tier, BOTH directions, since the clause is symmetric. This is the one place a bug in this daemon is DESTRUCTIVE rather than merely wrong: aiming `claude -n <topic>` at a codex pane replaces the codex session and orphans its rollout. The codex half drives a REAL round rather than seeding the stamp \u2014 the wrap-up is pasted and the pane made to go BUSY in response, which is how a codex submit is confirmed (codex has no empty-box signal). A hand-seeded round would skip the runtime-aware submit, which is part of what 'supervised under one agent runtime' means. SABOTAGE-VERIFIED 2026-07-26: inverting `_do_restart`'s dispatch, and replacing `_codex_launch_command` with `_launch_command`, each issue the claude command at the codex pane."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unknown context reading never triggers a wrap-up",
     "test": "tests.integration.test_startup_refusals_and_runtime.test_scenario_an_unknown_context_reading_never_triggers_a_wrapup",
-    "reason": "Integration-tier over two tracks, because the clauses describe different states. The track that HAD a reading takes it deliberately ABOVE the threshold, so that treating unknown as a low or zero percentage — the natural way to get this wrong — would cross and warn; below the threshold it would warn either way and prove nothing. The track that NEVER had one is where 'renders as unknown rather than a guess' is observable, and it is asserted through `Supervisor.render` rather than on `view.ctx`, because the clause is about what the OPERATOR sees: a row carrying None that printed as `0%` would satisfy a field assertion and still mislead. SABOTAGE-VERIFIED 2026-07-26: `_effective_ctx` returning the raw reading erases the last known value; rendering the unknown cell as `0%` reddens the never-known assertion."
+    "reason": "Integration-tier over two tracks, because the clauses describe different states. The track that HAD a reading takes it deliberately ABOVE the threshold, so that treating unknown as a low or zero percentage \u2014 the natural way to get this wrong \u2014 would cross and warn; below the threshold it would warn either way and prove nothing. The track that NEVER had one is where 'renders as unknown rather than a guess' is observable, and it is asserted through `Supervisor.render` rather than on `view.ctx`, because the clause is about what the OPERATOR sees: a row carrying None that printed as `0%` would satisfy a field assertion and still mislead. SABOTAGE-VERIFIED 2026-07-26: `_effective_ctx` returning the raw reading erases the last known value; rendering the unknown cell as `0%` reddens the never-known assertion."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A status snapshot writer failure does not stop supervision",
     "test": "TODO",
-    "reason": "Added by the status-snapshot-store ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+    "reason": "Added by the status-snapshot-store ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A consumer fails closed on an unknown status snapshot schema",
     "test": "TODO",
-    "reason": "Added by the status-snapshot-store ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+    "reason": "Added by the status-snapshot-store ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A missing supervisor role layer halts the binder with a remedy",
     "test": "TODO",
-    "reason": "Co-edited as the scenario half of supervise-plan-authors-two-layers. It pins exactly the missing-role-layer half of the assessed clause: the binder guard halts and emits a labelled remedy when `.ai/supervisor-protocol.md` is absent. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit."
+    "reason": "Co-edited as the scenario half of supervise-plan-authors-two-layers. It pins exactly the missing-role-layer half of the assessed clause: the binder guard halts and emits a labelled remedy when `.ai/supervisor-protocol.md` is absent. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -515,49 +518,56 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A collision-derived worker name ending in foreman is refused",
     "test": "TODO",
-    "reason": "Added by the reserved-suffix-refusal ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+    "reason": "Added by the reserved-suffix-refusal ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A reserved-name live session is not adopted as a worker",
     "test": "TODO",
-    "reason": "Added by the reserved-suffix-refusal ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+    "reason": "Added by the reserved-suffix-refusal ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dead track with conflicting runtime evidence is not launched",
     "test": "TODO",
-    "reason": "Added by the operator-acts-include-foreman ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+    "reason": "Added by the operator-acts-include-foreman ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A foreman reads evidence without becoming a state-file or blocked-pane writer",
     "test": "TODO",
-    "reason": "Added by the unattended-reader-carve-out ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+    "reason": "Added by the unattended-reader-carve-out ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale foreman heartbeat is surfaced as attention",
     "test": "TODO",
-    "reason": "Added by the attention-ownership-superset ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+    "reason": "Added by the attention-ownership-superset ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An absent foreman heartbeat is silent",
     "test": "TODO",
-    "reason": "Added by the attention-ownership-superset ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit."
+    "reason": "Added by the attention-ownership-superset ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A foreman uses the canonical name on both identity surfaces",
     "test": "TODO",
-    "reason": "Co-edited as the scenario half of foreman-scope-governed. It pins exactly the dual-name half of the assessed clause: `<repo-slug>-foreman` is required on both the tmux and runtime-registry surfaces, and a different name is unauthorized. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit."
+    "reason": "Co-edited as the scenario half of foreman-scope-governed. It pins exactly the dual-name half of the assessed clause: `<repo-slug>-foreman` is required on both the tmux and runtime-registry surfaces, and a different name is unauthorized. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -627,14 +637,16 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A bypass-launched interactive session rendering a native picker is a structured gate",
     "test": "TODO",
-    "reason": "Added by the codex-yolo-structured-question-protocol ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-afn."
+    "reason": "Added by the codex-yolo-structured-question-protocol ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-afn.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A session with no available structured surface may still declare blocked",
     "test": "TODO",
-    "reason": "Added by the codex-yolo-structured-question-protocol ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-afn."
+    "reason": "Added by the codex-yolo-structured-question-protocol ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-afn.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -718,7 +730,8 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A restarted session that never begins work is surfaced without a second kill",
     "test": "TODO",
-    "reason": "No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference."
+    "reason": "No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference.",
+    "work_item": "overseer-dhkjxf"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -754,5 +767,53 @@
     "heading": "## Scenario: An aged declaration never certifies before its expiry is recorded",
     "test": "tests.integration.test_post_expiry_certification_floor.test_scenario_an_aged_declaration_never_certifies_before_its_expiry_is_recorded",
     "reason": "Integration-tier v016 age-backstop pin (restart interlock precondition 3): drives Supervisor.evaluate read-only over an idle, settled, correctly identified pane carrying a declaration past the maximum age with NO expiry yet in the round's sidecar, proving the interlock fails on the declaration's own age in the very observation before the expiry is recorded, and that the acting evaluation still authorizes no restart while recording the deterministic expiry instant."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A foreman relay embeds the full panel record on first delivery",
+    "test": "TODO",
+    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule A). Pins that a foreman relay asserting a panel/evaluator outcome embeds the full verdict record, not an attributed summary, in its first delivery. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An escalation quotes the session's exact words rather than paraphrasing them",
+    "test": "TODO",
+    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule B). Pins that a foreman escalation quotes a supervised session's exact words rather than paraphrasing. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A worker's corroboration request is not escalated as an authority challenge",
+    "test": "TODO",
+    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule C). Pins that a corroboration request the foreman can satisfy with data it possesses is never itself escalated as an authority challenge. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Two consecutive STILL alerts force a fresh pane re-read",
+    "test": "TODO",
+    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule D). Pins that two consecutive pane-still attention conditions on one track force the foreman to re-capture and re-classify rather than trust a standing explanation. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A daemon-bounce-invalidated watch is not treated as armed",
+    "test": "TODO",
+    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule E). Pins that a foreman watch keyed only on a bare pane/process identifier is not a valid mechanism across a daemon bounce, while a watch keyed on re-resolvable identity plus a bounce-detection signal remains valid. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A foreman's own blocking question does not freeze supervision of other tracks",
+    "test": "TODO",
+    "reason": "v017 non-blocking human-decision escalation for the foreman operator loop. Pins that a foreman escalation the foreman itself cannot resolve becomes a non-blocking attention condition rather than freezing the foreman's tick for every other tracked session, and that it authorizes no restart. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   }
 ]
