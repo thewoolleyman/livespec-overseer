@@ -305,6 +305,8 @@ def _supervisor(
         gitignore_check=lambda *, repo: True,
     )
     sup.claude_status_by_session = {session: "idle"}
+    sup.claude_identity_by_session = {(session, session): f"claude:{session}:{session}"}
+    sup.refresh_claude_status = lambda: None
     return sup
 
 
@@ -329,6 +331,8 @@ def _loop_supervisor(
         gitignore_check=lambda *, repo: True,
     )
     sup.claude_status_by_session = {session: "idle"}
+    sup.claude_identity_by_session = {(session, session): f"claude:{session}:{session}"}
+    sup.refresh_claude_status = lambda: None
     return sup
 
 

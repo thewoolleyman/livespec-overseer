@@ -150,6 +150,17 @@ def make_supervisor(*, tmp_path, fake, **kwargs):
         if isinstance(command := fake.cmds.get(session), str)
         and signals.pane_is_claude(pane_current_command=command)
     }
+
+    def refresh_claude_status() -> None:
+        sup.claude_identity_by_session = {
+            (session, session): f"claude:{session}:{session}"
+            for session in fake.sessions
+            if isinstance(command := fake.cmds.get(session), str)
+            and signals.pane_is_claude(pane_current_command=command)
+        }
+
+    refresh_claude_status()
+    sup.refresh_claude_status = refresh_claude_status
     return sup
 
 
