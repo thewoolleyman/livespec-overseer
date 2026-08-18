@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.54.2...v0.55.0) (2026-08-18)
+
+
+### Features
+
+* cover foreman escalation attention ([2f202c4](https://github.com/thewoolleyman/livespec-overseer/commit/2f202c464b42aac5c5737372b81bc70d00df14f7))
+
 ## [0.54.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.54.1...v0.54.2) (2026-08-18)
 
 
