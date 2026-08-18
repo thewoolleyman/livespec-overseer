@@ -26,9 +26,9 @@ import _supervisor_evaluate_notes
 import _supervisor_evaluate_target
 import _supervisor_liveness
 import _supervisor_observe
-import _supervisor_picker_stall
 import _supervisor_progress
 import _supervisor_restart_attention
+import _supervisor_stall_watch
 import _supervisor_state
 import foreman_pane_claim
 import registry
@@ -278,11 +278,12 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
         settled_streaming_progress = idle_result.settled_streaming_progress
         active_conditions.update(idle_result.active_conditions)
 
-    if status != "ctx-stale":
-        note = _supervisor_liveness.append_note(note=note, extra=ctx_stale_note)
+    note = _supervisor_evaluate_notes.append_ctx_stale_note(
+        status=status, note=note, ctx_stale_note=ctx_stale_note
+    )
 
-    picker_stall = _supervisor_picker_stall.apply_picker_stall(
-        request=_supervisor_picker_stall.PickerStallRequest(
+    monitors = _supervisor_stall_watch.apply_evaluation_monitors(
+        request=_supervisor_stall_watch.EvaluationMonitorRequest(
             sup=sup,
             track=track,
             session=session,
@@ -294,9 +295,9 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
             act=act,
         )
     )
-    status = picker_stall.status
-    note = picker_stall.note
-    active_conditions = picker_stall.active_conditions
+    status = monitors.status
+    note = monitors.note
+    active_conditions = monitors.active_conditions
 
     view = _supervisor_progress.row_view(
         request=_supervisor_progress.RowViewRequest(
@@ -306,7 +307,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
             note=note,
             obs=obs,
             settled_streaming_progress=settled_streaming_progress,
-            picker_stall=picker_stall.view,
+            picker_stall=monitors.picker_stall.view,
             supervisor_state_stale=attention.supervisor_state_stale,
         )
     )

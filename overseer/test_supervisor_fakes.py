@@ -65,6 +65,7 @@ class FakeTmux:
         # `respawn_ok`, `respawn_yields_codex`, `new_session_ok`, `on_paste`) is already
         # an opt-in attribute, so a sixth one keeps the double's one shape.
         self.no_pane_sessions = set()
+        self.pane_titles = {}
         self._cap_idx = {}
         self._cmd_idx = {}
 
@@ -98,6 +99,10 @@ class FakeTmux:
         if session in self.no_pane_sessions:
             return None
         return session if session in self.sessions else None
+
+    def pane_by_title(self, *, pane, title):
+        self.calls.append(("pane_by_title", pane, title))
+        return self.pane_titles.get(title)
 
     def pane_pid(self, *, session):
         # The pane's login-shell PID. Default is a nonexistent pid (real

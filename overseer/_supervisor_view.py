@@ -46,12 +46,14 @@ ATTENTION_STATUSES = (
     "danger",
     "escalation-exhausted",
     "foreman-heartbeat-stale",
+    "pane-still",
     "ready-uncertifiable",
     "restart-never-worked",
     "picker-stalled",
     "session-gone",
     "shell-prolonged",
     "supervisor-state-stale",
+    "watch-target-gone",
     "winddown-starved",
 )
 
@@ -95,12 +97,14 @@ _STATUS_COLOR = {
     "codex-unindexed": _ANSI_YELLOW,
     "ctx-stale": _ANSI_YELLOW,
     "foreman-heartbeat-stale": _ANSI_YELLOW,
+    "pane-still": _ANSI_YELLOW,
     "ready-uncertifiable": _ANSI_YELLOW,
     "restart-never-worked": _ANSI_YELLOW,
     "picker-stalled": _ANSI_YELLOW,
     "session-gone": _ANSI_RED,
     "shell-prolonged": _ANSI_YELLOW,
     "supervisor-state-stale": _ANSI_YELLOW,
+    "watch-target-gone": _ANSI_YELLOW,
     "winddown-starved": _ANSI_YELLOW,
 }
 
