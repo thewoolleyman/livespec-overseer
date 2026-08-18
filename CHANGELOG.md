@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.52.1...v0.53.0) (2026-08-18)
+
+
+### Features
+
+* cover stall watch attention ([a74af75](https://github.com/thewoolleyman/livespec-overseer/commit/a74af75d651362a5049514940a71b19439e9eab4))
+
 ## [0.52.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.52.0...v0.52.1) (2026-08-18)
 
 
