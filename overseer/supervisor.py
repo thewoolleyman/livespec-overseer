@@ -133,7 +133,13 @@ def _upsert(*, track: registry.Track) -> None:
 
 
 def _track_for_assignment(
-    *, repo: str, topic: str, session: str, epic_source_topic: str | None = None
+    *,
+    repo: str,
+    topic: str,
+    session: str,
+    epic_source_topic: str | None = None,
+    epic: str | None = None,
+    ctx_threshold: int | None = None,
 ) -> registry.Track:
     """Build the mapping row written by attended assignment surfaces.
 
@@ -152,7 +158,10 @@ def _track_for_assignment(
         topic=topic,
         repo=repo,
         tmux=session,
-        epic=registry.epic_from_plan_anchor(repo=repo, topic=epic_source_topic or topic),
+        epic=epic
+        if epic is not None
+        else registry.epic_from_plan_anchor(repo=repo, topic=epic_source_topic or topic),
+        ctx_threshold=ctx_threshold,
     )
 
 
@@ -258,7 +267,12 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
     if session is None:
         return 1
     track = _track_for_assignment(
-        repo=repo, topic=args.topic, session=session, epic_source_topic=epic_source_topic
+        repo=repo,
+        topic=args.topic,
+        session=session,
+        epic_source_topic=epic_source_topic,
+        epic=args.epic,
+        ctx_threshold=args.ctx_threshold,
     )
     _upsert(track=track)
     streams.write_stdout(text=f"added mapping {repo}::{args.topic} (tmux {track.tmux})\n")
@@ -389,6 +403,14 @@ def main(*, argv: list[str] | None = None) -> int:
 
     p_add = sub.add_parser("add", help="add a (repo, topic) mapping row")
     _add_track_args(parser=p_add)
+    _ = p_add.add_argument("--epic", default=None, help="ledger epic id for the plan state")
+    _ = p_add.add_argument(
+        "--ctx-threshold",
+        type=int,
+        default=None,
+        metavar="N",
+        help="per-track remaining-context %% threshold override",
+    )
     p_add.set_defaults(func=_cmd_add)
 
     p_remove = sub.add_parser("remove", help="remove a (repo, topic) mapping row")
