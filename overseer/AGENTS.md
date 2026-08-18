@@ -537,6 +537,21 @@ for the marker's edge-triggered lifecycle.
    nudge's own text tells the session it may instead write `blocked: <reason>` if it
    is genuinely waiting on a human (the escape hatch for a YOLO-mode session that can
    only say so in prose).
+
+   **v019 wind-down expiry is SESSION-side; do not move it into the daemon.**
+   `SPECIFICATION/spec.md` §"Wind-down expiry on context recovery" requires a
+   recovered session to clear its own stale `winding-down` / `ready` declaration
+   before resuming work. Once it does, the daemon sees no session declaration and
+   the ordinary idle-with-context-left nudge can fire again after the continuous-idle
+   floor. Until the session clears that file, though, the daemon treats the standing
+   token as a declaration however stale: it does NOT auto-clear it, does NOT
+   reinterpret it as absent for the nudge guard, and does NOT restart from it unless
+   a fresh `ready` passes the existing interlock. **Why it mattered:** the sibling
+   case explicitly left for daemon-side recovered-round text is a recovered session
+   that never woke up to clear its stale declaration. Nudging through that state
+   would keystroke into a pane still carrying session-authored wind-down/restart
+   intent, so the current fail-safe behavior is plain non-nudging until the session
+   or a future ratified daemon rule clears the composition question.
 10. **The DAEMON owns "what needs attention"; the bottom pane must never be a status
     display (maintainer-declared 2026-07-14).** Current state is rendered ONLY by the
     daemon — the table plus its `NEEDS YOU` block (`Supervisor._attention_lines`,
