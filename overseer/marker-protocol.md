@@ -148,6 +148,9 @@ drift.
 Declare your state by writing ONE line to the single state file
 {state_file} — one of exactly these three values:
 
+Writing that line is the declaration. Pane text, final-response prose, or saying
+"Ready for restart" in this conversation is never a declaration channel.
+
     winding-down                  I got this message and am wrapping up now.
     ready                         I am at a clean stopping point — restart me.
     blocked: <one-line reason>    I need a human decision I cannot make myself.

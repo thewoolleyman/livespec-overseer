@@ -499,7 +499,11 @@ Do not tell the worker to run `overseer-declare ready` unless the overseer daemo
 has opened a supervision round for it. A bare `ready` outside a round cannot
 restart the worker, because no injection stamp exists for the declaration to
 certify against; it will only surface later as report-only attention for the
-operator to clear or reconcile.
+operator to clear or reconcile. Writing the state-file line is the declaration;
+the worker's only declaration channel is the out-of-band state file
+`<repo-primary>/tmp/overseer/<topic>/.overseer-state`. Pane text,
+final-response prose, or saying "Ready for restart" in the conversation is
+never a valid declaration channel.
 
 A pipeline's exit code is the exit code of its last command. If the verdict
 belongs to a command before a pipe, capture that command's status before
