@@ -165,8 +165,8 @@ class FakeTmux:
                 self.pasted_inputs[session] = display_text
         return self.paste_ok
 
-    def respawn_pane(self, *, session, cwd, command):
-        self.calls.append(("respawn", session, cwd, command))
+    def respawn_pane(self, *, session, cwd, command, env=None):
+        self.calls.append(("respawn", session, cwd, command, env))
         if not self.respawn_ok:
             return False
         # Model the runtime the command launches so the post-respawn identity await
