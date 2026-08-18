@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.50.0...v0.50.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* cover foreman track evaluation in daemon tick ([e20a25e](https://github.com/thewoolleyman/livespec-overseer/commit/e20a25ecc1efed9a441089de5aedbef92e10616e))
+
 ## [0.50.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.49.0...v0.50.0) (2026-08-17)
 
 
