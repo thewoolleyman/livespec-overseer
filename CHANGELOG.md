@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.55.0...v0.55.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* preserve Claude model profile on relaunch ([c4c64a2](https://github.com/thewoolleyman/livespec-overseer/commit/c4c64a28cd639716a08f157bdfd5dd064d085b52))
+
 ## [0.55.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.54.2...v0.55.0) (2026-08-18)
 
 
