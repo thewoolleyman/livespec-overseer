@@ -41,6 +41,19 @@ def test_prompt_builder_public_branches_stay_covered(*, tmp_path) -> None:
     assert "STOP AND WIND DOWN NOW" in prompts.wrapup_message(
         remaining=20, repo=repo, topic="worker", epic="overseer-epic"
     )
+    worker_wrap = prompts.wrapup_message(
+        remaining=40, repo=repo, topic="worker", epic="overseer-epic"
+    )
+    assert "Writing that line is the declaration" in worker_wrap
+    assert "Pane text" in worker_wrap
+    assert "never a declaration channel" in worker_wrap
+    assert "Writing that line is the declaration" in prompts.supervisor_wrapup_message(
+        remaining=40, repo=repo, topic="worker"
+    )
+    assert "Writing that line is the declaration" in prompts.expiry_notice_message(
+        repo=repo,
+        topic="worker",
+    )
     assert "NO plan epic id is recorded" in prompts.wrapup_message(
         remaining=40, repo=repo, topic="worker", epic=None
     )

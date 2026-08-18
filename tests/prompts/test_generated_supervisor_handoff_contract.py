@@ -134,6 +134,15 @@ _REQUIRED: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("executable-live-supervisor-precondition", ("supervisor_pane_pid",)),
     # Repo containment must resolve a real path.
     ("executable-repo-containment", ("readlink -f",)),
+    (
+        "worker-ready-declaration-channel",
+        (
+            ".overseer-state",
+            "writing the state-file line is the declaration",
+            "pane text",
+            "never a valid declaration channel",
+        ),
+    ),
     ("watcher-wait-channel-bootstrap", ("wait_channel", ": >")),
     ("watcher-wait-channel-fed", ("append", "milestone")),
     ("watcher-expiry-rearms-by-mechanism", ("WAKE:", "RE-ARM NOW")),
@@ -1778,6 +1787,10 @@ def _fully_conformant_charter() -> str:
     printf '%s\n' "$pane_pid" | head -1
     ```
     ## How to inspect and drive
+    Do not tell the worker to write `ready` unless the overseer daemon has
+    opened a supervision round for it. A bare `ready` outside a round cannot
+    restart the worker. Writing the state-file line is the declaration. Pane
+    text is never a valid declaration channel.
     ```sh
     tmux capture-pane -p -t "$W" # visible only
     [ -z "$pane" ] && { echo "WAKE: pane unreadable"; exit 0; } # before the diff
