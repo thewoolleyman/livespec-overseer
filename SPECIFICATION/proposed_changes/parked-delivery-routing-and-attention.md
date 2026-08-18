@@ -89,6 +89,15 @@ condition would have missed the very case that motivates it. It is a distinct
 condition from the picker-stall membership, which is keyed on the age of a
 picker alone and reports nothing about what is queued behind it.
 
+In contracts.md §"Durable stores", add `picker_open` to the governed
+per-track row enumeration of the status snapshot, described as carrying
+whether the pane is currently showing a structured picker gate and existing
+precisely so a consumer can test for a parked picker WITHOUT keying on
+`status`. Both floors above direct the foreman to determine picker state from
+the row, and the membership forbids keying on `status`; without this field the
+row carries no governed way to satisfy either, and a guarantee the foreman is
+required to rely on would rest on an ungoverned field.
+
 In scenarios.md, add a Given/When/Then scenario pinning the case: given a
 tracked session parked on an open picker, when an inbound cross-session
 message is queued behind that picker and remains unconsumed, then the session
@@ -96,4 +105,9 @@ appears as a report-only NEEDS YOU member naming the sender, no act is
 authorized, and the member clears when the picker resolves or the message is
 consumed. Add the negative leg in the same scenario or beside it: a session
 parked on an open picker with no queued inbound message does NOT become a
-member on this condition.
+member on this condition. Add a scenario for each of the two
+spec.md floors as well, matching the one-scenario-per-floor pattern every
+other floor in "Relay and escalation discipline" already follows: one pinning
+that decision-relevant context is not delivered as an ordinary asynchronous
+message to a picker-parked session, and one pinning that a long-lived
+question's own text states where late-arriving context is routed.
