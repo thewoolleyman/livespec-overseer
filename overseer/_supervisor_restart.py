@@ -89,8 +89,12 @@ def _post_respawn_claude_process_live(
     track: registry.Track,
     session: str,
 ) -> bool:
-    sup.refresh_claude_status()
-    return sup.claude_identity_by_session.get((session, track.topic)) is not None
+    for _ in range(_supervisor_launch.RESTART_POLL_MAX):
+        sup.refresh_claude_status()
+        if sup.claude_identity_by_session.get((session, track.topic)) is not None:
+            return True
+        sup.sleep(_supervisor_launch.RESTART_POLL_INTERVAL)
+    return False
 
 
 def _claude_respawn_verified(*, sup: Supervisor, track: registry.Track, target: str) -> bool:
@@ -106,6 +110,7 @@ def _claude_respawn_verified(*, sup: Supervisor, track: registry.Track, target: 
         return False
     session = _supervisor_launch.session_of(sup=sup, track=track)
     if not _post_respawn_claude_process_live(sup=sup, track=track, session=session):
+        registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
         sup.alert(
             repo=track.repo,
             topic=track.topic,
