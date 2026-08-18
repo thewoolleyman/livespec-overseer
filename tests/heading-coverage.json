@@ -847,5 +847,29 @@
     "test": "TODO",
     "reason": "Pins the fail-soft backward-compatibility guarantee: a mapping row with no model_profile restarts exactly as it did before this behavior existed. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
     "work_item": "overseer-bc55wx"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## Wind-down expiry on context recovery",
+    "test": "TODO",
+    "reason": "Added by the winddown-declaration-expiry-on-recovery ratification (plan/winddown-rationale-expiry/, ledger epic overseer-5gl4em). Pins the session-side rule that a supervised session MUST clear a standing winding-down/ready declaration and resume from its own ledger-held plan state once its own context recovers strictly above its wind-down threshold. No implementation slice exists yet; replace TODO with the implementing slice's governed heading-coverage reference.",
+    "work_item": "overseer-dhkjxf"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session clears a stale winding-down acknowledgement and resumes after its own context recovers",
+    "test": "TODO",
+    "reason": "Added by the winddown-declaration-expiry-on-recovery ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A session clears a stale ready declaration and resumes instead of waiting to be killed",
+    "test": "TODO",
+    "reason": "Added by the winddown-declaration-expiry-on-recovery ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
   }
 ]
