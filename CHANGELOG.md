@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.51.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.50.2...v0.51.0) (2026-08-18)
+
+
+### Features
+
+* add pi package bindings ([6d12ad8](https://github.com/thewoolleyman/livespec-overseer/commit/6d12ad8fd79765ec1062463a7d6e6b000b3b847b))
+
 ## [0.50.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.50.1...v0.50.2) (2026-08-18)
 
 
