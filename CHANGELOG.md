@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.50.1...v0.50.2) (2026-08-18)
+
+
+### Bug Fixes
+
+* **foreman:** preserve live-session operational lessons ([b838881](https://github.com/thewoolleyman/livespec-overseer/commit/b838881caac93af672da135dff6b007789be7307))
+
 ## [0.50.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.50.0...v0.50.1) (2026-08-18)
 
 
