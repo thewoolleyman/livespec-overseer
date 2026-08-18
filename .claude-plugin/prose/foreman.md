@@ -53,6 +53,61 @@ human prompts in another session except through the gated path above. Do not
 drive approval, acceptance, rejection, resolved-blocked, policy, capacity, or
 move valves.
 
+### Operational lessons that must survive cold opens
+
+Verify by content and source, never by proxy. An activity spinner, an idle-looking
+prompt, or an empty prompt line does not prove that a picker resolved or that
+text submitted. After every injection into another pane, capture the pane and
+verify the expected content changed. A structured picker is resolved only when
+its own markers are gone, including the `☐` checkbox glyph and the `Enter to
+select` footer. Treat peer reports as leads: a ledger, PR, run, merge, dispatch,
+or close claim is real only after re-querying the authoritative source (`bd show
+<id> --json`, `gh pr view`, `gh run view`, or the dispatch journal's `outcome`
+event for Fabro/Dispatcher work).
+
+Inspect `bd` JSON before trusting a field name. Work-item dependency edges live
+under `dependencies[]` with `dependency_type`; a top-level `depends_on` probe can
+return `None` on a genuinely dependent item. Comment text lives under `text`, not
+`body` or `content`. The working comments command is `bd comments <id> --json`;
+`bd comment list` and `bd comments list` can return empty output while comments
+exist. When an empty `bd` result would be surprising, dump the raw JSON structure
+and prove the query shape before treating absence as a finding.
+
+Use the right tmux mechanism for the input shape. For prose containing quotes or
+apostrophes, write the message to a scratch file, run `tmux load-buffer -b <name>
+<file>`, `tmux paste-buffer -b <name> -t <session>`, capture the pane to verify
+the text landed, then submit with a separate `tmux send-keys -t <session>
+Enter`. A numbered picker is answered by keypress, not prose: send the bare
+number key, then send `Enter` separately.
+
+Plan-authoring writes are tracked-file writes. `create_thread` and research-note
+writes mutate the target repository, so the normal worktree -> PR -> merge
+discipline applies. Before calling them, run `git rev-parse --git-dir
+--git-common-dir` in the target project root and confirm the two paths differ;
+if they are the same, you are on the primary checkout and must stop before
+writing. Cross-reference only: the fact that `create_thread` does not create the
+required `plan/<topic>/epic.md` write-once anchor belongs to its own
+`livespec-orchestrator-beads-fabro` work-item, not to this foreman contract.
+
+Manual lifecycle repair has three durable surfaces. If a session was killed by
+hand instead of wound down through the daemon, correct all stale state before
+trusting the daemon view: `tmp/overseer/<topic>/.overseer-state` or its
+`-supervisor` sibling, `tmp/overseer/<topic>/.supervisor-state`, and that
+topic's round record in `~/.livespec-overseer-stamps.json`. Fixing only one
+surface leaves mixed evidence that can look like a fresh anomaly on the next
+tick.
+
+A fresh `claude` process is not automatically SendMessage-addressable by the
+tmux session name. If later SendMessage delivery needs a predictable peer name,
+send `/rename <desired-name>` as part of the initial prompt or immediately after
+launch, once no structured picker is open.
+
+If the loop stopped on `hard-tick-budget` and the maintainer chooses to resume,
+reset the durable counters in `tmp/overseer/foreman/runtime.json` before the next
+runtime invocation: set `tick_generation` and `stable_ticks` to `0`. There is no
+shipped reset action for this; this is a sanctioned write under
+`tmp/overseer/foreman/`.
+
 ## One Tick
 
 1. Confirm this checkout is the target repo and that the current tmux/runtime
