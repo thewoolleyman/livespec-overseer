@@ -24,6 +24,7 @@ import _supervisor_evaluate_attention
 import _supervisor_evaluate_idle
 import _supervisor_evaluate_notes
 import _supervisor_evaluate_target
+import _supervisor_foreman_escalation
 import _supervisor_liveness
 import _supervisor_observe
 import _supervisor_progress
@@ -193,6 +194,18 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
         status = attention_decision.status
         note = attention_decision.note
         active_conditions.update(attention_decision.active_conditions)
+    elif (
+        foreman_escalation := _supervisor_foreman_escalation.attention_decision(
+            sup=sup,
+            track=track,
+            session=session,
+            pane=target,
+            act=act,
+        )
+    ) is not None:
+        status = foreman_escalation.status
+        note = foreman_escalation.note
+        active_conditions.update(foreman_escalation.active_conditions)
     elif (
         foreman_claim := foreman_pane_claim.active_pane_claim(
             repo=repo, topic=topic, session=session, pane=target, now=sup.now()

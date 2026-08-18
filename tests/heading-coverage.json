@@ -812,9 +812,9 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A foreman's own blocking question does not freeze supervision of other tracks",
-    "test": "TODO",
-    "reason": "v017 non-blocking human-decision escalation for the foreman operator loop. Pins that a foreman escalation the foreman itself cannot resolve becomes a non-blocking attention condition rather than freezing the foreman's tick for every other tracked session, and that it authorizes no restart. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_foreman_escalation_attention.test_scenario_foreman_escalation_is_report_only_attention",
+    "reason": "v017 non-blocking human-decision escalation for the daemon half of the foreman operator loop. Pins at integration tier that a foreman-owned escalation marker surfaces the affected track as report-only NEEDS YOU attention, badges the window, preserves a standing ready marker, and authorizes no paste, key, respawn, or new-session act.",
+    "work_item": "overseer-au3pt3.1"
   },
   {
     "spec_root": "SPECIFICATION",
