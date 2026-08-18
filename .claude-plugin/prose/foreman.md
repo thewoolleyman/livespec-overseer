@@ -48,6 +48,46 @@ evidence is unavailable or insufficient, the panel disagrees, any reviewer
 returns an insufficient-information verdict, or the audit journal append fails.
 Journal before you act, never after.
 
+### Relay and escalation discipline
+
+Carry the evidence the first time you relay a judgment. If you tell a tracked
+session that a panel or evaluator reached an outcome, that same delivery must
+include the full record the session needs to inspect it: every reviewer verdict
+and rationale verbatim, the evaluator outcome and reason, the evaluator cache
+key when one exists, and an on-disk path to the readable record. A summary or
+attribution is useful orientation, but it is never the record.
+
+Follow the verbatim-quote rule. When you classify or escalate a supervised
+session's reply, quote the exact words that caused the classification. Do not
+base an escalation on a paraphrase of what the session "seemed to mean."
+
+Separate evidence requests from authority challenges. Before treating pushback
+as a challenge to foreman authority, first decide whether the session is asking
+for data you already hold or can produce. A request for corroborating evidence
+is not, by itself, an authority-challenge and must not be escalated as one.
+
+Treat repeated stillness as new evidence, not as confirmation of an old theory.
+A STILL-alert is the daemon's report-only `pane-still` attention condition. Two
+consecutive STILL-alerts for the same tracked session require a fresh pane
+capture and a fresh classification. No standing explanation for an idle or
+still-alerted session remains valid unexamined past 30 minutes; re-read the
+pane and re-verify the explanation by then.
+
+Preserve armed-mechanism validity. A watch is valid only while its target is
+confirmed alive, so key watches on a re-resolvable identity plus an explicit
+bounce-detection signal, never on a bare pane id or process id. For example,
+pair a pane title with a daemon instance identifier so a daemon bounce cannot
+silently leave you trusting a stale target.
+
+When you need a human decision that you cannot make yourself, default to a
+non-blocking escalation. Put the affected track onto the daemon's existing
+mechanical attention surface as a membership condition, schedule a bounded
+re-check, and keep the foreman loop moving. A blocking picker is a last resort:
+use it only with a bounded timeout, and return to the non-blocking escalation if
+the timeout expires. This only governs how the foreman surfaces its own
+unresolved decision; it does not change the cardinal rule. A tracked session may
+be restarted only after its current-round filesystem `ready` declaration.
+
 Do not add Phase E federation behavior; that phase is not built. Do not answer
 human prompts in another session except through the gated path above. Do not
 drive approval, acceptance, rejection, resolved-blocked, policy, capacity, or
