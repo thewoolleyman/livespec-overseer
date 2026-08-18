@@ -62,19 +62,21 @@ class PaneDriver(Protocol):
     this). Typing ``Supervisor.tmux`` as ``PaneDriver`` instead of ``object`` is
     what lets a type checker see through the seam at all.
 
-    It declares the TWELVE methods the ``Supervisor`` calls, not all nineteen
+    It declares the THIRTEEN methods the ``Supervisor`` calls, not all nineteen
     :class:`TmuxIO` exposes. The narrower surface is the point: it states what a
     substitute must implement to be substitutable, so a test double is complete
     when it satisfies this and not before. The seven omitted methods
     (``list_sessions``, ``split_window_top``, ``pane_exists``, ``set_pane_title``,
-    ``select_layout_even``, ``pane_by_title``, ``set_pane_height_percent``,
-    ``window_pane_titles``) drive the two-pane LAYOUT from the CLI entry points,
-    which hold a concrete ``TmuxIO`` rather than reaching through this seam.
+    ``select_layout_even``, ``set_pane_height_percent``, ``window_pane_titles``)
+    drive the two-pane LAYOUT from the CLI entry points, which hold a concrete
+    ``TmuxIO`` rather than reaching through this seam.
     """
 
     def capture_pane(self, *, session: str) -> str: ...
 
     def pane_id(self, *, session: str) -> str | None: ...
+
+    def pane_by_title(self, *, pane: str, title: str) -> str | None: ...
 
     def pane_pid(self, *, session: str) -> int | None: ...
 

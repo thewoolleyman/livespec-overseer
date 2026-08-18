@@ -39,6 +39,7 @@ __all__: list[str] = [
     "LOOP_INTERVAL_SECONDS",
     "MARKER_VOID_GRACE",
     "PAIR_STALL_AFTER",
+    "PANE_STILL_AFTER",
     "PICKER_STALL_AFTER",
     "POST_RESPAWN_NEVER_WORKED_AFTER",
     "READY_ARM_MAX_AGE",
@@ -137,6 +138,7 @@ ACK_STALE_AFTER = 900.0
 # nudge, the safe direction.
 IDLE_NUDGE_AFTER = 3600.0  # 1 hour
 PAIR_STALL_AFTER = 7200.0  # 2 hours
+PANE_STILL_AFTER = 30 * 60.0
 
 # Continuity window for observed in-memory condition episodes. The design rule is
 # formulaic: at least twice the loop's worst-case full-load tick, re-derived when

@@ -12,7 +12,12 @@ import signals
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["EvaluationNotes", "PrepareNotesRequest", "prepare_evaluation_notes"]
+__all__: list[str] = [
+    "EvaluationNotes",
+    "PrepareNotesRequest",
+    "append_ctx_stale_note",
+    "prepare_evaluation_notes",
+]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -76,3 +81,10 @@ def prepare_evaluation_notes(*, request: PrepareNotesRequest) -> EvaluationNotes
         ctx_stale_note=ctx_stale_note,
         active_conditions=active_conditions,
     )
+
+
+def append_ctx_stale_note(
+    *, status: str, note: str | None, ctx_stale_note: str | None
+) -> str | None:
+    extra = None if status == "ctx-stale" else ctx_stale_note
+    return _supervisor_liveness.append_note(note=note, extra=extra)

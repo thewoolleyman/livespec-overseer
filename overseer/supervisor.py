@@ -106,6 +106,7 @@ def build_supervisor() -> Supervisor:
     """
     return Supervisor(
         watch_set_path=registry.DEFAULT_WATCH_SET_PATH,
+        status_path=_supervisor_snapshot.DEFAULT_STATUS_PATH,
         own_pane=os.environ.get("TMUX_PANE"),
     )
 
