@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.54.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.54.1...v0.54.2) (2026-08-18)
+
+
+### Bug Fixes
+
+* promote foreman relay discipline ([f675a88](https://github.com/thewoolleyman/livespec-overseer/commit/f675a881e53a07dce487e730c552c7163beb7695))
+
 ## [0.54.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.54.0...v0.54.1) (2026-08-18)
 
 
