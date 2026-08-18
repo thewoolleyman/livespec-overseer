@@ -23,6 +23,7 @@ import tempfile
 from collections.abc import Collection, Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeAlias
 
 import signals
 import streams
@@ -33,6 +34,7 @@ __all__: list[str] = [
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
     "ROW_KEYS",
+    "ModelProfile",
     "Track",
     "atomic_write",
     "colliding_topics",
@@ -101,6 +103,8 @@ DEFAULT_STAMP_PATH = Path.home() / ".livespec-overseer-stamps.json"
 DEFAULT_WATCH_SET_PATH = Path.home() / ".livespec-overseer-repos.json"
 
 # The durable keys serialized to a mapping row.
+ModelProfile: TypeAlias = dict[str, str | None]
+
 ROW_KEYS = (
     "topic",
     "repo",
@@ -111,6 +115,7 @@ ROW_KEYS = (
     "pinned_session_id",
     "observed_session_identity",
     "added_at",
+    "model_profile",
 )
 
 
@@ -230,6 +235,7 @@ class Track:
     pinned_session_id: str | None = None
     observed_session_identity: str | None = None
     added_at: str | None = None
+    model_profile: ModelProfile | None = None
     assigned: bool = True
 
     @property

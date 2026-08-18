@@ -21,6 +21,7 @@ from _registry_core import (
     resolve_store,
     warn,
 )
+from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
 from _seams import MappingRowPredicate
 
 __all__: list[str] = [
@@ -138,28 +139,17 @@ def _track_from_row(*, row: dict[str, object]) -> Track | None:
     if not isinstance(topic, str) or not isinstance(repo, str):
         warn(message=f"skipping row missing topic/repo: {row!r}")
         return None
-    # A per-track override is present ONLY if the row carries an int
-    # ``ctx_threshold``; a missing (or non-int) value means "no override" → None,
-    # so the daemon-wide default applies. Do NOT default to DEFAULT_CTX_THRESHOLD
-    # at read time — that would make a bare row indistinguishable from a row that
-    # pinned the current default, defeating the daemon-wide ``--warn-percent``.
-    threshold = row.get("ctx_threshold")
-    ctx_threshold = threshold if isinstance(threshold, int) else None
-
-    def _opt_str(*, key: str) -> str | None:
-        value = row.get(key)
-        return value if isinstance(value, str) else None
-
     return Track(
         topic=topic,
         repo=repo,
-        tmux=_opt_str(key="tmux"),
-        resume=_opt_str(key="resume"),
-        epic=_opt_str(key="epic"),
-        ctx_threshold=ctx_threshold,
-        pinned_session_id=_opt_str(key="pinned_session_id"),
-        observed_session_identity=_opt_str(key="observed_session_identity"),
-        added_at=_opt_str(key="added_at"),
+        tmux=opt_str_from_row(row=row, key="tmux"),
+        resume=opt_str_from_row(row=row, key="resume"),
+        epic=opt_str_from_row(row=row, key="epic"),
+        ctx_threshold=ctx_threshold_from_row(row=row),
+        pinned_session_id=opt_str_from_row(row=row, key="pinned_session_id"),
+        observed_session_identity=opt_str_from_row(row=row, key="observed_session_identity"),
+        added_at=opt_str_from_row(row=row, key="added_at"),
+        model_profile=model_profile_from_row(row=row, repo=repo, topic=topic),
         assigned=True,
     )
 
@@ -202,6 +192,8 @@ def _track_to_row(*, track: Track) -> dict[str, object]:
     # explicit int override.
     if track.ctx_threshold is not None:
         row["ctx_threshold"] = track.ctx_threshold
+    if track.model_profile is not None:
+        row["model_profile"] = track.model_profile
     _ = _normalize_resume_override(row=row)
     return row
 
