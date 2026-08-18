@@ -19,6 +19,7 @@ import registry
 import signals
 from _supervisor_codex_restart import do_codex_restart
 from _supervisor_config import track_key
+from _supervisor_launch_profile import ClaudeLaunchPlan
 from _supervisor_prompts import (
     foreman_wrapup_message,
     resume_for_track,
@@ -219,57 +220,23 @@ def maybe_inject(
         )
 
 
-def do_restart(
-    *, sup: Supervisor, track: registry.Track, target: str, is_codex: bool = False
-) -> None:
-    """Atomic restart, RUNTIME-DISPATCHED: respawn → wait for the TUI → resume → close.
-
-    ``target`` is the resolved pane id (RB3), STABLE across the respawn.
-
-    There is exactly ONE caller and exactly one authorization: the session itself
-    declared ``ready`` in its state file (``signals.ready_valid``). The daemon has
-    no other path to a restart — it never decides a session is done (maintainer
-    2026-07-14). The abrupt ``respawn-pane -k`` is safe precisely BECAUSE of that
-    declaration: the session asserted it is at a clean stopping point.
-
-    **The one destructive bug this daemon can have** is aiming the CLAUDE launch
-    command at a Codex pane — it would REPLACE the codex session with a claude one.
-    ``is_codex`` routes a Codex track to :meth:`_do_codex_restart` (``codex resume``)
-    so the claude command is never issued to a codex pane; the sabotage-verified
-    guard test (``…never issues the claude command``) pins that the routing holds.
-
-    Every tmux step is a HARD GATE (B5). If ``respawn-pane`` fails, the daemon
-    SURFACES the failure and RETURNS WITHOUT closing the round — nothing was killed,
-    so the session's declaration is preserved and the restart is retried. If the
-    respawn succeeds but the recognition poll times out, the one kill authorization
-    has already been consumed: the daemon keeps the open round but marks
-    ``resume_pending`` so the next tick can recover without a second respawn.
-
-    **The submit is SELF-HEALING (R1, 2026-07-18).** The round is closed (state file
-    deleted + injection stamp cleared — B4) ONLY when the resume line actually SUBMITS.
-    A freshly-respawned TUI can DROP the Enter while still drawing its welcome screen,
-    leaving the fresh session live but idle with an un-run resume prompt (proven live
-    2026-07-17). On that failure this does NOT clear the marker or log "restarted" —
-    it marks a round-scoped ``resume_pending`` (``registry.set_resume_pending``) and
-    alerts, and the NEXT tick's ``evaluate`` retries the SUBMIT ONLY (``_resend_enter``
-    — never a re-respawn; a fresh ``ready`` stays the sole respawn trigger, so the retry
-    can never escalate to a kill). Separating "is the fresh Claude up?" from "did the
-    resume submit?" is the fix for the discarded-marker bug where the old code cleared
-    the marker and reported success regardless. On the SUCCESS path ``_clear_state``
-    also pops the in-memory inject state (RB2), so the redundant explicit pop is
-    belt-and-suspenders.
-
-    **A supervisor track whose binder is absent is handled by
-    :func:`_handle_uncertified_supervisor_binder` (overseer-y26)** — see that function's
-    docstring for the archived-vs-live branch.
-    """
-    if handle_uncertified_restart_binder(sup=sup, track=track, target=target):
-        return
-    if is_codex:
-        do_codex_restart(sup=sup, track=track, target=target)
+def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -> None:
+    launch = _supervisor_launch.claude_launch_plan(track=track)
+    if not isinstance(launch, ClaudeLaunchPlan):
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=_supervisor_launch.session_of(sup=sup, track=track),
+            pane=target,
+            message=f"{launch.message}; keeping the ready declaration so it retries",
+            condition="stale-launch-profile",
+        )
         return
     if not sup.tmux.respawn_pane(
-        session=target, cwd=track.repo, command=_supervisor_launch.launch_command(track=track)
+        session=target,
+        cwd=track.repo,
+        command=launch.command,
+        env=launch.env,
     ):
         sup.alert(
             repo=track.repo,
@@ -337,3 +304,55 @@ def do_restart(
         pane=target,
         message="resume line NOT submitted after restart — will retry the Enter (no respawn)",
     )
+
+
+def do_restart(
+    *, sup: Supervisor, track: registry.Track, target: str, is_codex: bool = False
+) -> None:
+    """Atomic restart, RUNTIME-DISPATCHED: respawn → wait for the TUI → resume → close.
+
+    ``target`` is the resolved pane id (RB3), STABLE across the respawn.
+
+    There is exactly ONE caller and exactly one authorization: the session itself
+    declared ``ready`` in its state file (``signals.ready_valid``). The daemon has
+    no other path to a restart — it never decides a session is done (maintainer
+    2026-07-14). The abrupt ``respawn-pane -k`` is safe precisely BECAUSE of that
+    declaration: the session asserted it is at a clean stopping point.
+
+    **The one destructive bug this daemon can have** is aiming the CLAUDE launch
+    command at a Codex pane — it would REPLACE the codex session with a claude one.
+    ``is_codex`` routes a Codex track to :meth:`_do_codex_restart` (``codex resume``)
+    so the claude command is never issued to a codex pane; the sabotage-verified
+    guard test (``…never issues the claude command``) pins that the routing holds.
+
+    Every tmux step is a HARD GATE (B5). If ``respawn-pane`` fails, the daemon
+    SURFACES the failure and RETURNS WITHOUT closing the round — nothing was killed,
+    so the session's declaration is preserved and the restart is retried. If the
+    respawn succeeds but the recognition poll times out, the one kill authorization
+    has already been consumed: the daemon keeps the open round but marks
+    ``resume_pending`` so the next tick can recover without a second respawn.
+
+    **The submit is SELF-HEALING (R1, 2026-07-18).** The round is closed (state file
+    deleted + injection stamp cleared — B4) ONLY when the resume line actually SUBMITS.
+    A freshly-respawned TUI can DROP the Enter while still drawing its welcome screen,
+    leaving the fresh session live but idle with an un-run resume prompt (proven live
+    2026-07-17). On that failure this does NOT clear the marker or log "restarted" —
+    it marks a round-scoped ``resume_pending`` (``registry.set_resume_pending``) and
+    alerts, and the NEXT tick's ``evaluate`` retries the SUBMIT ONLY (``_resend_enter``
+    — never a re-respawn; a fresh ``ready`` stays the sole respawn trigger, so the retry
+    can never escalate to a kill). Separating "is the fresh Claude up?" from "did the
+    resume submit?" is the fix for the discarded-marker bug where the old code cleared
+    the marker and reported success regardless. On the SUCCESS path ``_clear_state``
+    also pops the in-memory inject state (RB2), so the redundant explicit pop is
+    belt-and-suspenders.
+
+    **A supervisor track whose binder is absent is handled by
+    :func:`_handle_uncertified_supervisor_binder` (overseer-y26)** — see that function's
+    docstring for the archived-vs-live branch.
+    """
+    if handle_uncertified_restart_binder(sup=sup, track=track, target=target):
+        return
+    if is_codex:
+        do_codex_restart(sup=sup, track=track, target=target)
+        return
+    _do_claude_restart(sup=sup, track=track, target=target)

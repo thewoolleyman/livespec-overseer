@@ -139,7 +139,9 @@ class DeclaredPaneDriver:
     def bracketed_paste(self, *, session: str, text: str) -> bool:
         return True
 
-    def respawn_pane(self, *, session: str, cwd: str, command: str) -> bool:
+    def respawn_pane(
+        self, *, session: str, cwd: str, command: str, env: object | None = None
+    ) -> bool:
         self.respawns.append((session, cwd, command))
         return self.inner.respawn_pane(
             session=session,

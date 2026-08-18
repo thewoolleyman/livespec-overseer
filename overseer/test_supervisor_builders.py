@@ -295,8 +295,8 @@ def on_respawn(*, fake, after):
     """
     inner = fake.respawn_pane
 
-    def respawn(*, session, cwd, command):
-        landed = inner(session=session, cwd=cwd, command=command)
+    def respawn(*, session, cwd, command, env=None):
+        landed = inner(session=session, cwd=cwd, command=command, env=env)
         if landed:
             after(session)
         return landed

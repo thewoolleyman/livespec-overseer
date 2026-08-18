@@ -54,6 +54,33 @@ def test_do_launch_is_false_when_the_pane_never_becomes_claude(*, tmp_path):
     assert not fake.has(method="paste")  # ...but never pasted into the un-verified pane
 
 
+def test_do_launch_skips_and_surfaces_a_stale_launch_profile(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture())
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    track = registry.Track(
+        topic=topic,
+        repo=str(repo),
+        tmux=session,
+        epic="overseer-test-epic",
+        model_profile={
+            "harness": "claude",
+            "model": "macmini/qwen3-coder-next",
+            "wrapper": str(tmp_path / "missing-wrapper"),
+        },
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        launched = sup.do_launch(track=track, session=session)
+
+    assert launched is False
+    assert not fake.has(method="respawn")
+    assert "stale launch profile" in err.getvalue()
+
+
 # --------------------------------------------------------------------------- #
 # The daemon loop: the per-store singleton lock, startup recovery, the sleep
 # between ticks, and a clean exit on Ctrl-C.

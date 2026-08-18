@@ -73,6 +73,29 @@ def test_respawn_pane_argv_is_kill_and_cwd():
     ]
 
 
+def test_respawn_pane_wraps_explicit_env_delta():
+    io, fake = _io()
+    assert io.respawn_pane(
+        session="livespec:t",
+        cwd="/data/projects/livespec",
+        command="claude -n t",
+        env={
+            "ANTHROPIC_MODEL": "macmini/qwen3-coder-next",
+            "ANTHROPIC_SMALL_FAST_MODEL": None,
+        },
+    )
+    assert fake.calls[0]["argv"] == [
+        "tmux",
+        "respawn-pane",
+        "-k",
+        "-c",
+        "/data/projects/livespec",
+        "-t",
+        "livespec:t",
+        "env ANTHROPIC_MODEL=macmini/qwen3-coder-next -u ANTHROPIC_SMALL_FAST_MODEL claude -n t",
+    ]
+
+
 def test_new_session_argv():
     io, fake = _io()
     assert io.new_session(name="livespec:t", cwd="/data/projects/livespec") is True

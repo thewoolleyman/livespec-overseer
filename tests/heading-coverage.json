@@ -820,33 +820,33 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A restart re-asserts an explicitly recorded model",
-    "test": "TODO",
-    "reason": "Pins that a restart carries forward an explicit non-default model recorded at adoption, rather than the restarted runtime silently taking its own current default. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-bc55wx"
+    "test": "tests.integration.test_model_preserving_restarts.test_scenario_restart_reasserts_an_explicitly_recorded_model",
+    "reason": "Integration-tier: opens a real wrap-up round, declares ready, and asserts the respawn command carries the recorded explicit model via `claude --model` while the controlled Anthropic/Claude context env vars are explicitly scrubbed rather than passively inherited.",
+    "work_item": "overseer-bc55wx.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A restart re-asserts a local-llm track's wrapper and env",
-    "test": "TODO",
-    "reason": "Pins that a local-llm track's recorded wrapper and model are re-asserted at restart via the wrapper's own env-deference mechanism, and that the daemon's own cloud credentials are not leaked into the relaunch. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-bc55wx"
+    "test": "tests.integration.test_model_preserving_restarts.test_scenario_restart_reasserts_a_local_llm_wrapper_and_env",
+    "reason": "Integration-tier: opens a real wrap-up round for a wrapper-profiled Claude track, declares ready, and asserts the respawn invokes the recorded wrapper with the autonomy flags and sets ANTHROPIC_MODEL to the recorded model while explicitly scrubbing the other controlled env vars.",
+    "work_item": "overseer-bc55wx.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale launch profile is surfaced and the restart is skipped",
-    "test": "TODO",
-    "reason": "Pins the SURFACE+SKIP failure mode for a corrupt/stale launch profile, so a missing wrapper never falls back to a default-model or default-wrapper launch. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-bc55wx"
+    "test": "tests.integration.test_model_preserving_restarts.test_scenario_stale_launch_profile_is_surfaced_and_restart_is_skipped",
+    "reason": "Integration-tier: opens a real wrap-up round, declares ready with a missing-wrapper profile, and asserts the daemon surfaces the stale profile, issues no respawn, and preserves both the ready declaration and the open round.",
+    "work_item": "overseer-bc55wx.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A track with no recorded launch profile restarts unaffected",
-    "test": "TODO",
-    "reason": "Pins the fail-soft backward-compatibility guarantee: a mapping row with no model_profile restarts exactly as it did before this behavior existed. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-bc55wx"
+    "test": "tests.integration.test_model_preserving_restarts.test_scenario_track_without_recorded_launch_profile_restarts_unaffected",
+    "reason": "Integration-tier: opens a real wrap-up round for a track with no model_profile, declares ready, and asserts the respawn still uses the bare Claude command while explicitly scrubbing the controlled Anthropic/Claude context env vars.",
+    "work_item": "overseer-bc55wx.3"
   },
   {
     "spec_root": "SPECIFICATION",

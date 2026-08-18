@@ -125,6 +125,12 @@ def test_restart_fires_when_marker_valid_notbusy_idle(*, tmp_path):
         session,
         str(repo),
         f"claude --dangerously-skip-permissions -n {topic}",
+        {
+            "ANTHROPIC_MODEL": None,
+            "ANTHROPIC_SMALL_FAST_MODEL": None,
+            "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
+            "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+        },
     ) in fake.calls
     resume = fake.paste_texts()[0]
     assert "overseer-test-epic" in resume
@@ -240,4 +246,10 @@ def test_no_bg_shell_allows_restart(*, tmp_path):
         session,
         str(repo),
         f"claude --dangerously-skip-permissions -n {topic}",
+        {
+            "ANTHROPIC_MODEL": None,
+            "ANTHROPIC_SMALL_FAST_MODEL": None,
+            "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
+            "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+        },
     ) in fake.calls

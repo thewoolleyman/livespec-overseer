@@ -17,6 +17,7 @@ import _supervisor_launch
 import codex_sessions
 import registry
 import signals
+from _supervisor_launch_profile import ClaudeLaunchPlan
 from _supervisor_prompts import launch_resume
 
 if TYPE_CHECKING:
@@ -175,8 +176,15 @@ def do_launch(*, sup: Supervisor, track: registry.Track, session: str) -> bool:
     target = sup.tmux.pane_id(session=session)
     if target is None:
         return False
+    launch = _supervisor_launch.claude_launch_plan(track=track)
+    if not isinstance(launch, ClaudeLaunchPlan):
+        sup.surface(message=f"reboot-recovery: {launch.message}; skipping")
+        return False
     if not sup.tmux.respawn_pane(
-        session=target, cwd=track.repo, command=_supervisor_launch.launch_command(track=track)
+        session=target,
+        cwd=track.repo,
+        command=launch.command,
+        env=launch.env,
     ):
         return False
     if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):

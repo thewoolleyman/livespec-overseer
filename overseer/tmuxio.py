@@ -38,8 +38,9 @@ from __future__ import annotations
 
 import itertools
 import os
+import shlex
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 import streams
@@ -92,7 +93,14 @@ class PaneDriver(Protocol):
 
     def bracketed_paste(self, *, session: str, text: str) -> bool: ...
 
-    def respawn_pane(self, *, session: str, cwd: str, command: str) -> bool: ...
+    def respawn_pane(
+        self,
+        *,
+        session: str,
+        cwd: str,
+        command: str,
+        env: Mapping[str, str | None] | None = None,
+    ) -> bool: ...
 
     def new_session(self, *, name: str, cwd: str) -> bool: ...
 
@@ -156,6 +164,18 @@ def _next_inject_buffer() -> str:
 def _warn(*, message: str) -> None:
     """Fail-soft diagnostic to stderr (never crash the caller)."""
     streams.write_stderr(text=f"overseer.tmuxio: {message}\n")
+
+
+def _with_env_delta(*, command: str, env: Mapping[str, str | None] | None) -> str:
+    if not env:
+        return command
+    parts = ["env"]
+    for name, value in env.items():
+        if value is None:
+            parts.extend(["-u", name])
+        else:
+            parts.append(f"{name}={value}")
+    return " ".join(shlex.quote(part) for part in parts) + f" {command}"
 
 
 class TmuxIO:
@@ -361,7 +381,14 @@ class TmuxIO:
         pasted = self._call(args=["paste-buffer", "-b", buffer_name, "-p", "-d", "-t", session])
         return self._ok(completed=pasted)
 
-    def respawn_pane(self, *, session: str, cwd: str, command: str) -> bool:
+    def respawn_pane(
+        self,
+        *,
+        session: str,
+        cwd: str,
+        command: str,
+        env: Mapping[str, str | None] | None = None,
+    ) -> bool:
         """``tmux respawn-pane -k -c <cwd> -t <session> <command>``.
 
         Atomically kills (``-k``) whatever ran in the pane and launches
@@ -370,7 +397,17 @@ class TmuxIO:
         handoff is written and the ready marker exists.
         """
         return self._ok(
-            completed=self._call(args=["respawn-pane", "-k", "-c", cwd, "-t", session, command])
+            completed=self._call(
+                args=[
+                    "respawn-pane",
+                    "-k",
+                    "-c",
+                    cwd,
+                    "-t",
+                    session,
+                    _with_env_delta(command=command, env=env),
+                ]
+            )
         )
 
     def new_session(self, *, name: str, cwd: str) -> bool:
