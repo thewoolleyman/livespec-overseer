@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.53.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.53.0...v0.53.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* poll claude post-respawn identity ([f8e7397](https://github.com/thewoolleyman/livespec-overseer/commit/f8e7397a050cadfe968ee5b2e3c1b2f33a8eb2e3))
+* verify claude restart process liveness ([2a1fb4b](https://github.com/thewoolleyman/livespec-overseer/commit/2a1fb4b5fc87df99cecaf57b191ff10965382e41))
+
 ## [0.53.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.52.1...v0.53.0) (2026-08-18)
 
 
