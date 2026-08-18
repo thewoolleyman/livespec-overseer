@@ -53,6 +53,8 @@ def archive_gc(*, sup: Supervisor) -> int:
         topic = row.get("topic")
         if not isinstance(repo, str) or not isinstance(topic, str):
             return True  # fail-soft: never drop a row we can't evaluate
+        if signals.is_foreman_topic(topic=topic):
+            return True
         if not registry.repo_root_present(repo=repo):
             # Repo root itself unreachable (unmounted / mid-move) — KEEP the row
             # and surface, so a transient outage does not permanently drop it and

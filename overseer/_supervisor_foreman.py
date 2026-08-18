@@ -9,12 +9,15 @@ window badge, and edge-triggered alert machinery every other attention member us
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_evaluate
+import foreman_runtime_identity
 import jsonio
 import registry
 from _supervisor_config import track_key
@@ -28,8 +31,10 @@ __all__: list[str] = [
     "FOREMAN_TOPIC",
     "Heartbeat",
     "HeartbeatLapse",
+    "foreman_evaluation_row",
     "foreman_row",
     "foreman_rows",
+    "foreman_track",
     "heartbeat_lapse",
     "heartbeat_path",
     "read_heartbeat",
@@ -157,6 +162,24 @@ def foreman_row(*, repo: str, now: Callable[[], float]) -> RowView | None:
     )
 
 
+def foreman_track(
+    *, repo: str, store_path: str | os.PathLike[str] | None = None
+) -> registry.Track | None:
+    topic = foreman_runtime_identity.canonical_session_name(repo=repo)
+    repo_norm = registry.norm(repo=repo)
+    for track in registry.read_mapping(store_path=store_path):
+        if registry.norm(repo=track.repo) == repo_norm and track.topic == topic:
+            return track
+    return None
+
+
+def foreman_evaluation_row(*, sup: Supervisor, repo: str, act: bool) -> RowView | None:
+    track = foreman_track(repo=repo, store_path=sup.store_path)
+    if track is None:
+        return None
+    return _supervisor_evaluate.evaluate(sup=sup, track=track, act=act)
+
+
 def _clear_alert(*, sup: Supervisor, repo: str) -> None:
     _ = sup.alerted.pop((*track_key(repo=repo, topic=FOREMAN_TOPIC), _ALERT_CONDITION), None)
 
@@ -176,6 +199,9 @@ def _surface_alert(*, sup: Supervisor, row: RowView) -> None:
 def foreman_rows(*, sup: Supervisor, repos: list[str], act: bool) -> list[RowView]:
     rows: list[RowView] = []
     for repo in repos:
+        evaluation_row = foreman_evaluation_row(sup=sup, repo=repo, act=act)
+        if evaluation_row is not None:
+            rows.append(evaluation_row)
         row = foreman_row(repo=repo, now=sup.now)
         if row is None:
             _clear_alert(sup=sup, repo=repo)
