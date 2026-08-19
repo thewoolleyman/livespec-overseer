@@ -431,6 +431,17 @@ Keep the two runtime idioms separate and exact:
 These are charter instructions for attended supervisor action. Keep the daemon's own launch paths unchanged, and do not replace exact adoption with fuzzy matching,
 tmux-name matching, live killing, or blocking.
 
+Before a generated supervisor sends decision-relevant context to a worker or
+peer session by SendMessage, it must read that session's current daemon snapshot
+row. This is a cheap precondition: `picker_open` is a first-class row field, so
+the supervisor does not need to infer picker state from prose, color, or the
+general `status` value. If the row says `picker_open`, or the session is
+`blocked:human` because the pane is parked on a picker, the supervisor must not
+use ordinary SendMessage for that context. It must deliver through the picker's
+type-in relay when the picker offers one, or else hold the context under a
+bounded obligation that names the held-context location, the release condition,
+and the next row re-check. A silent queue behind a picker is not delivery.
+
 ## How to inspect and drive
 
 Every command in this section must be COPY-PASTEABLE as written. Emit the
@@ -762,6 +773,10 @@ a picker. Batch ripe valves into a single call rather than trickling them. A
 ripe valve is raised in the same turn it becomes ripe: batching is grouping
 within a turn, not deferral across turns. A valve deferred to a future turn
 requires an armed wake; "I will ask next turn" is an intention, not a mechanism.
+When authoring a picker that may stay open long enough to accumulate
+late-arriving context, include in the picker text where that context should be
+routed. Do not assume every sender can read the daemon row or knows the
+supervisor's private obligation record.
 
 ## Role-level rule sections that must live in the shared layer
 
