@@ -928,6 +928,21 @@ pass `--body-file` / `-F` so it never reaches the command line; and split
 `gh` calls away from any `sleep` used to wait. The guard is doing useful work
 against real polling — do not disable it.
 
+**THE `--body-file` REMEDY IS NECESSARY BUT NOT SUFFICIENT, AND THE MISSING HALF
+IS WHAT ACTUALLY BITES: WRITE THE FILE IN A SEPARATE TOOL CALL.** The guard matches
+the WHOLE command string it is handed, so a heredoc that writes the body and a
+`gh pr create --body-file` in the SAME invocation still puts every word of that
+prose on the command line — and the file indirection buys nothing. The denial then
+looks inexplicable, because you did exactly what the remedy above says. Write the
+body in one call, then invoke `gh` in the next, with no prose beside it.
+
+Recorded because it caught the same session TWICE on 2026-08-19, the second time
+minutes after it had hit the first and written up the guard's behaviour. Knowing
+about the trap does not help; the shape of the command is what matters. Note also
+that a body long enough to need a file is *precisely* the body most likely to
+contain the word "for" somewhere, so these two remedies are needed together far more
+often than either alone.
+
 **The red-green-replay ritual is ONE commit with `--amend`, not two commits.** Red
 stages the test file **alone**; Green stages the impl and amends it. The test-file
 bytes must be **byte-identical** across the pair, and exactly **one** test file may
