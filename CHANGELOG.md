@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.55.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.55.1...v0.55.2) (2026-08-19)
+
+
+### Bug Fixes
+
+* promote picker delivery routing ([458055d](https://github.com/thewoolleyman/livespec-overseer/commit/458055dee92f6842904e649cfc5ad3976fc3b482))
+
 ## [0.55.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.55.0...v0.55.1) (2026-08-18)
 
 
