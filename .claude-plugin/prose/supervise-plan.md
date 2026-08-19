@@ -338,34 +338,46 @@ generator_ref='<cache-ref-directory-name>'
 generator_version='<plugin.json version>'
 generator_prose_md5='<md5 of this file, 32 hex digits>'
 cache_root="$HOME/.claude/plugins/cache/$generator_plugin/$generator_plugin"
-generator_prose="$cache_root/$generator_ref/prose/supervise-plan.md"
 if [ ! -d "$cache_root" ]; then
   printf '%s\n' "UNVERIFIED: no plugin cache at $cache_root, so this is not a host that generates charters and provenance cannot be checked here. Recorded generator: $generator_prose_md5"
-elif [ ! -f "$generator_prose" ]; then
-  echo "HALT: the cache at $cache_root no longer holds ref $generator_ref, so the generator that emitted this charter has been replaced"
-  echo "REMEDY: regenerate this charter with supervise-plan, or re-point generator_ref at the installed ref and re-stamp generator_prose_md5 from it"
-  exit 1
 else
-  installed=$(md5sum "$generator_prose")
+  current_ref_entry=$(find "$cache_root" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | head -n 1)
+  [ -n "$current_ref_entry" ] \
+    || { echo "HALT: the plugin cache at $cache_root holds no installed refs"; echo "REMEDY: refresh the plugin cache before trusting anything this charter says about its own currency"; exit 1; }
+  current_ref_dir=${current_ref_entry#* }
+  current_ref=${current_ref_dir##*/}
+  current_generator_prose="$current_ref_dir/prose/supervise-plan.md"
+  [ -f "$current_generator_prose" ] \
+    || { echo "HALT: current installed generator ref $current_ref has no prose at $current_generator_prose"; echo "REMEDY: refresh or repair the plugin cache before trusting anything this charter says about its own currency"; exit 1; }
+  installed=$(md5sum "$current_generator_prose")
   digest_rc=$?
   [ "$digest_rc" -eq 0 ] \
-    || { echo "HALT: cannot digest the installed generator prose at $generator_prose"; echo "REMEDY: fix read access before trusting anything this charter says about its own currency"; exit 1; }
+    || { echo "HALT: cannot digest the current installed generator prose at $current_generator_prose"; echo "REMEDY: fix read access before trusting anything this charter says about its own currency"; exit 1; }
   installed_md5=${installed%% *}
   [ "$installed_md5" = "$generator_prose_md5" ] \
-    || { echo "HALT: this charter was emitted by generator $generator_prose_md5 but the installed generator is $installed_md5"; echo "REMEDY: regenerate this charter before driving, or re-stamp generator_prose_md5 deliberately after reading what changed between the two"; exit 1; }
-  printf '%s\n' "PASS: charter provenance matches the installed generator ($installed_md5)"
+    || { echo "HALT: this charter was emitted by generator ref $generator_ref ($generator_prose_md5) but current installed ref $current_ref is $installed_md5"; echo "REMEDY: regenerate this charter before driving, or re-stamp generator_prose_md5 deliberately after reading what changed between the two"; exit 1; }
+  printf '%s\n' "PASS: charter provenance matches current installed generator ref $current_ref ($installed_md5)"
 fi
 ```
 
-THE TWO ABSENCE CASES ARE DIFFERENT AND MUST NOT BE CONFLATED. If the cache ROOT
-is missing, this is simply not a host that generates charters — a CI runner, or a
-teammate's checkout — and provenance cannot be checked there at all. That reports
-UNVERIFIED and continues, because HALTing would make every committed charter
-unreadable off the machine that produced it. If the cache root EXISTS but no
-longer holds the recorded ref, the generator has been replaced: a refresh lands
-under a NEW ref directory, so that is the ordinary way staleness shows up, and it
-HALTs. Reporting UNVERIFIED is not a silent pass — it names what it could not
-check and which generator it was looking for.
+THE ABSENCE CASES MUST NOT BE CONFLATED. If the cache ROOT is missing, this is
+simply not a host that generates charters — a CI runner, or a teammate's checkout
+— and provenance cannot be checked there at all. That reports UNVERIFIED and
+continues, because HALTing would make every committed charter unreadable off the
+machine that produced it. If the cache root EXISTS but holds no readable current
+ref prose, the host claims to have an installed generator but cannot prove what
+it is, and that HALTs. Reporting UNVERIFIED is not a silent pass — it names what
+it could not check and which generator it was looking for.
+
+The installed generator is the newest ref directory by modification time, not
+the ref this charter recorded when it was emitted. Real plugin caches retain old
+refs, so reading `$cache_root/$generator_ref/prose/supervise-plan.md` compares
+the recorded digest against the same immutable file it was computed from and is
+a tautology. Resolve the current ref with
+`find -printf '%T@ %p\n' | sort -rn`, never `ls`; ref names are sometimes commit
+shas and sometimes versions, so name sorting is not a clock. Compare by prose
+digest, not by ref identity: byte-identical prose across several releases is the
+same generator and must pass.
 
 The status of `md5sum` is captured into `digest_rc` before any use of its output,
 and the digest is trimmed with `${installed%% *}` rather than a pipe — this
