@@ -173,7 +173,8 @@ def _with_env_delta(*, command: str, env: Mapping[str, str | None] | None) -> st
     for name, value in env.items():
         if value is None:
             parts.extend(["-u", name])
-        else:
+    for name, value in env.items():
+        if value is not None:
             parts.append(f"{name}={value}")
     return " ".join(shlex.quote(part) for part in parts) + f" {command}"
 

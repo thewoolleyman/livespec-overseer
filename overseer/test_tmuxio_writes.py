@@ -92,7 +92,7 @@ def test_respawn_pane_wraps_explicit_env_delta():
         "/data/projects/livespec",
         "-t",
         "livespec:t",
-        "env ANTHROPIC_MODEL=macmini/qwen3-coder-next -u ANTHROPIC_SMALL_FAST_MODEL claude -n t",
+        "env -u ANTHROPIC_SMALL_FAST_MODEL ANTHROPIC_MODEL=macmini/qwen3-coder-next claude -n t",
     ]
 
 
