@@ -173,14 +173,15 @@ jobs:
           # Batched-CI shape (work-item livespec-dev-tooling-yilyxr.9,
           # porting dev-tooling PR #1469): tool-backed slugs must be
           # LITERAL matrix members (check-tool-backed-check-completeness)
-          # and the suite-running coverage targets are wall-dominant, so
-          # they keep legs; every cheap .py-scanning target moved to the
-          # single check-python-batch job below.
+          # and every cheap .py-scanning target moved to the single
+          # check-python-batch job below. The coverage PAIR left this
+          # matrix entirely (work-item livespec-dev-tooling-yilyxr.8,
+          # porting dev-tooling PRs #1504 + #1511): it now runs as the
+          # dedicated check-per-file-coverage producer / check-coverage
+          # consumer chain below, which runs the suite ONCE, not twice.
           - check-lint
           - check-format
           - check-types
-          - check-coverage
-          - check-per-file-coverage
     steps:
       # Per-step `if:` (not job-level) so each matrix entry still
       # reports a status check named `${{ matrix.target }}`.
@@ -228,6 +229,144 @@ jobs:
           # Put the image's real node/npm — derived from the shim's own location,
           # never a hardcoded image path — ahead of the shim on PATH. Harmless
           # for the non-npm targets.
+          shims_dir="$(dirname "$(command -v npm)")"
+          node_bin="$(cd "$shims_dir/../installs/node/latest/bin" 2>/dev/null && pwd || ls -d "$shims_dir/../installs/node"/*/bin 2>/dev/null | head -1)"
+          [ -n "$node_bin" ] && export PATH="$node_bin:$PATH"
+          just ${{ matrix.target }}
+
+  # Coverage-pair PRODUCER (work-item livespec-dev-tooling-yilyxr.8, porting
+  # dev-tooling PRs #1504 + #1511). Direction is fixed by this repo's own
+  # scripts, not by convention: scripts/check-per-file-coverage.sh
+  # unconditionally runs `pytest --cov` with COVERAGE_FILE unset and leaves
+  # the repo-root `.coverage` behind, while scripts/check-coverage.sh branches
+  # on `[[ -f .coverage ]]` and only runs the suite when the file is ABSENT.
+  # So per-file is the producer and coverage is the consumer, the same way
+  # `just check` already dedups them locally. Before this job existed both
+  # legs ran the full suite on separate runners; now the suite runs ONCE.
+  check-per-file-coverage:
+    name: check-per-file-coverage
+    needs: setup
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    container:
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.28.9
+    env:
+      MISE_DATA_DIR: /root/.local/share/mise
+      MISE_NOT_FOUND_AUTO_INSTALL: "0"
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Per-step `if:` (not job-level) so the job still reports its own status
+      # check name when skipped — same pattern as the check-python matrix.
+      - name: Skip when no .py changes
+        if: needs.setup.outputs.py_changed != 'true'
+        run: echo "::notice::skipped check-per-file-coverage — no .py changes in this PR"
+
+      - name: Checkout
+        if: needs.setup.outputs.py_changed == 'true'
+        uses: actions/checkout@v4
+
+      - name: Trust workspace for git (hosted container root-vs-checkout uid)
+        if: needs.setup.outputs.py_changed == 'true'
+        run: git config --global --add safe.directory '*'
+
+      - name: mise trust + install (baked tools — install is a near-no-op)
+        if: needs.setup.outputs.py_changed == 'true'
+        run: |
+          mise trust
+          mise install
+
+      - name: Install Python dev deps via uv
+        if: needs.setup.outputs.py_changed == 'true'
+        run: uv sync --all-groups
+
+      - name: just check-per-file-coverage
+        if: needs.setup.outputs.py_changed == 'true'
+        run: |
+          # The full suite spawns `node` in some tests; under the
+          # container-hooks HOME the mise node/npm shims busy-loop or miss (no
+          # node registered for that HOME), so put the image's real node bin —
+          # derived from the shim's own location, never a hardcoded image path
+          # — ahead of the shims on PATH. Its ABSENCE from dev-tooling's
+          # equivalent job broke that repo's master with
+          # `FileNotFoundError: 'node'`, which is why PR #1511 exists.
+          shims_dir="$(dirname "$(command -v npm)")"
+          node_bin="$(cd "$shims_dir/../installs/node/latest/bin" 2>/dev/null && pwd || ls -d "$shims_dir/../installs/node"/*/bin 2>/dev/null | head -1)"
+          [ -n "$node_bin" ] && export PATH="$node_bin:$PATH"
+          just check-per-file-coverage
+
+      # include-hidden-files is REQUIRED: upload-artifact@v4 excludes dotfiles
+      # by default and `.coverage` is one; without it the upload silently ships
+      # nothing and the consumer falls back to a full duplicate suite run.
+      - name: Publish .coverage for the check-coverage consumer
+        if: needs.setup.outputs.py_changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-data
+          path: .coverage
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # Coverage-pair CONSUMER. Kept as a single-entry matrix (NOT a plain job)
+  # because check-coverage is a tool-backed slug and
+  # check-tool-backed-check-completeness requires every tool-backed slug to be
+  # a LITERAL matrix.target member. `needs` the producer so the downloaded
+  # `.coverage` is present and check-coverage.sh takes its consume-once branch
+  # (read + delete, no suite run). Paths inside the data file match because
+  # both jobs run in the same container workspace mount. If the download ever
+  # regresses, the script's fallback runs the suite standalone — slower, never
+  # wrong.
+  check-coverage:
+    name: ${{ matrix.target }}
+    needs: [setup, check-per-file-coverage]
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    container:
+      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-v1.28.9
+    env:
+      MISE_DATA_DIR: /root/.local/share/mise
+      MISE_NOT_FOUND_AUTO_INSTALL: "0"
+      GITHUB_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
+    strategy:
+      matrix:
+        target:
+          - check-coverage
+    steps:
+      - name: Skip when no .py changes
+        if: needs.setup.outputs.py_changed != 'true'
+        run: echo "::notice::skipped ${{ matrix.target }} — no .py changes in this PR"
+
+      - name: Checkout
+        if: needs.setup.outputs.py_changed == 'true'
+        uses: actions/checkout@v4
+
+      - name: Trust workspace for git (hosted container root-vs-checkout uid)
+        if: needs.setup.outputs.py_changed == 'true'
+        run: git config --global --add safe.directory '*'
+
+      - name: mise trust + install (baked tools — install is a near-no-op)
+        if: needs.setup.outputs.py_changed == 'true'
+        run: |
+          mise trust
+          mise install
+
+      - name: Install Python dev deps via uv
+        if: needs.setup.outputs.py_changed == 'true'
+        run: uv sync --all-groups
+
+      - name: Download the producer's .coverage
+        if: needs.setup.outputs.py_changed == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-data
+
+      - name: just ${{ matrix.target }}
+        if: needs.setup.outputs.py_changed == 'true'
+        run: |
+          # Node-PATH shim for the standalone-fallback branch only: the normal
+          # path reads the downloaded `.coverage` without spawning anything,
+          # but a missing artifact falls back to the full suite, which spawns
+          # `node` in some tests (see the producer job).
           shims_dir="$(dirname "$(command -v npm)")"
           node_bin="$(cd "$shims_dir/../installs/node/latest/bin" 2>/dev/null && pwd || ls -d "$shims_dir/../installs/node"/*/bin 2>/dev/null | head -1)"
           [ -n "$node_bin" ] && export PATH="$node_bin:$PATH"
@@ -578,7 +717,7 @@ jobs:
 
   export-telemetry:
     name: export-telemetry
-    needs: [setup, check-python, check-python-batch, check-metadata, check-metadata-batch]
+    needs: [setup, check-python, check-per-file-coverage, check-coverage, check-python-batch, check-metadata, check-metadata-batch]
     if: ${{ !cancelled() && github.event_name == 'push' }}
     runs-on: ubuntu-latest
     permissions:
@@ -610,7 +749,7 @@ jobs:
   # is intentionally absent from `needs:`.
   ci-green:
     name: ci-green
-    needs: [check-python, check-python-batch, check-metadata, check-metadata-batch, check-doctor-static]
+    needs: [check-python, check-per-file-coverage, check-coverage, check-python-batch, check-metadata, check-metadata-batch, check-doctor-static]
     if: always()
     runs-on: ubuntu-latest
     steps:
