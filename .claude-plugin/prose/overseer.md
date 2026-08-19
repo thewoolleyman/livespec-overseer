@@ -460,6 +460,17 @@ are fixed by construction:
    live pane each tick, so once the human answers in the tracked pane, the alert
    simply stops.
 
+   Before you relay decision-relevant context to a tracked session by
+   SendMessage, read that session's current daemon snapshot row. The row carries
+   `picker_open` directly, so the precondition is mechanical and cheap: one
+   snapshot read, not a pane interpretation and not a guess from the displayed
+   `status`. If the row says `picker_open`, or the row is `blocked:human`
+   because the session is parked on a picker, do not SendMessage that context.
+   Deliver it through the picker's type-in relay when one exists, or hold it in a
+   bounded note that names where the held context lives, what condition releases
+   it, and when you will re-check the row. Queuing context behind a picker is not
+   a successful relay.
+
    Include an explicit recommendation in plain language with each relayed track, and
    **stamp anything you say about current state** (see the staleness rule above).
    Reading this log when re-engaged or when the maintainer checks in is not
@@ -497,6 +508,12 @@ maintainer what you did; keep genuine gates to an explicit recommendation, plain
 language, ONE clickable picker at a time. And **never freeze the loop on any one
 track** — the daemon keeps the other tracks moving regardless; report and let the
 rest continue.
+
+When you do raise a picker for a decision you own, and it may stand open long
+enough for late-arriving context to matter, the picker text must say where that
+context should be routed. The delivery-side `picker_open` check helps senders
+who can read the daemon snapshot; the picker text is what helps a human sender
+who cannot.
 
 ---
 

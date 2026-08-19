@@ -88,6 +88,23 @@ the timeout expires. This only governs how the foreman surfaces its own
 unresolved decision; it does not change the cardinal rule. A tracked session may
 be restarted only after its current-round filesystem `ready` declaration.
 
+Before you deliver decision-relevant context to a supervised session, read that
+session's latest daemon snapshot row. The `picker_open` field is carried on the
+row precisely so this check is mechanical and cheap: one snapshot read, not a
+pane interpretation or a guess from `status`. If the row says `picker_open` or
+`blocked:human` because the pane is parked on a picker, never use ordinary
+SendMessage for that context. A picker-parked session will not consume
+asynchronous input until the picker resolves, and that silent queue is the bug
+this rule exists to prevent. Route the context through the picker's own type-in
+relay when that relay exists. Otherwise hold it only with a bounded record that
+names where the held context lives, the condition that releases the hold, and
+when you will re-check the row.
+
+When you raise a picker that may remain open long enough for later context to
+matter, put the routing instruction in the picker text itself. A sender who can
+read the daemon snapshot can follow the `picker_open` rule above; a human sender
+cannot, so the picker must say where late-arriving context should go.
+
 Do not add Phase E federation behavior; that phase is not built. Do not answer
 human prompts in another session except through the gated path above. Do not
 drive approval, acceptance, rejection, resolved-blocked, policy, capacity, or
