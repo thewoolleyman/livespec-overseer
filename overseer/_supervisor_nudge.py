@@ -147,6 +147,8 @@ def nudge_charter_authorized_picker_stall(
     message = charter_authorized_unblock_nudge_message()
     if sup.tmux.bracketed_paste(session=target, text=message):
         istate.picker_stall_nudged = True
+        echoed = sup.tmux.capture_pane(session=target)
+        istate.picker_stall_nudge_echo_capture = echoed or None
         sup.log(
             message=(
                 f"nudged charter-authorized picker stall {track.repo}::{track.topic} "

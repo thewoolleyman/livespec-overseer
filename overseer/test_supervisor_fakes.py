@@ -163,6 +163,8 @@ class FakeTmux:
             if isinstance(val, str) and "\n❯ \n" in val:
                 self.panes[session] = val.replace("\n❯ \n", f"\n❯ {display_text}\n", 1)
                 self.pasted_inputs[session] = display_text
+            elif isinstance(val, str) and ("\n❯ 1." in val or "\n› 1." in val):
+                self.panes[session] = f"{val}{display_text}\n"
         return self.paste_ok
 
     def respawn_pane(self, *, session, cwd, command, env=None):

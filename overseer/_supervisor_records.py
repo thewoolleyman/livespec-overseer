@@ -75,6 +75,7 @@ class InjectState:
     blocked_human_stall_since: float | None = None
     blocked_human_stall_capture: str | None = None
     picker_stall_nudged: bool = False
+    picker_stall_nudge_echo_capture: str | None = None
     blocked_declaration_mtime: float | None = None
     blocked_entry_age_label: str | None = None
     blocked_alerted_bands: set[int] = field(default_factory=set)
