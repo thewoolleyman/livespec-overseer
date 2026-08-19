@@ -30,6 +30,7 @@ __all__: list[str] = [
     "repoint_tmux",
     "rewrite_mapping",
     "set_epic",
+    "upsert_mapping",
 ]
 
 
@@ -175,6 +176,47 @@ def append_mapping(
                 _ = handle.write(json.dumps(row) + "\n")
         except OSError as exc:
             warn(message=f"could not append to {path}: {exc}")
+
+
+def upsert_mapping(
+    *,
+    track: Track,
+    store_path: str | os.PathLike[str] | None = None,
+) -> None:
+    """Ensure one ``(repo, topic)`` row exists while preserving durable row fields."""
+    path = resolve_store(store_path=store_path)
+    repo_norm = norm(repo=track.repo)
+    new_row = _track_to_row(track=track)
+    with file_lock(target=path):
+        rows = read_rows(store_path=store_path)
+        matching_indexes = [
+            index
+            for index, row in enumerate(rows)
+            if (
+                isinstance(row_repo := row.get("repo"), str)
+                and norm(repo=row_repo) == repo_norm
+                and row.get("topic") == track.topic
+            )
+        ]
+        if not matching_indexes:
+            rows.append(new_row)
+            write_rows(rows=rows, store_path=store_path)
+            return
+        changed = len(matching_indexes) > 1
+        row = rows[matching_indexes[0]]
+        for field, value in (
+            ("topic", track.topic),
+            ("repo", track.repo),
+            ("tmux", track.tmux),
+        ):
+            if row.get(field) != value:
+                row[field] = value
+                changed = True
+        if len(matching_indexes) > 1:
+            duplicate_indexes = set(matching_indexes[1:])
+            rows = [row for index, row in enumerate(rows) if index not in duplicate_indexes]
+        if changed:
+            write_rows(rows=rows, store_path=store_path)
 
 
 def rewrite_mapping(

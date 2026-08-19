@@ -90,6 +90,7 @@ from _registry_store import remove_mapping as remove_mapping
 from _registry_store import repoint_tmux as repoint_tmux
 from _registry_store import rewrite_mapping as rewrite_mapping
 from _registry_store import set_epic as set_epic
+from _registry_store import upsert_mapping as upsert_mapping
 
 __all__: list[str] = [
     "DEFAULT_CTX_THRESHOLD",
@@ -135,6 +136,7 @@ __all__: list[str] = [
     "set_epic",
     "set_resume_pending",
     "tmux_id",
+    "upsert_mapping",
     "watch_set_from_config",
     "write_injection_stamp",
 ]

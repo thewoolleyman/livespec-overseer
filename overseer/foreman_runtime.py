@@ -74,8 +74,7 @@ def register_foreman_track(
         repo=str(repo_path),
         tmux=session_name,
     )
-    _ = registry.remove_mapping(repo=track.repo, topic=track.topic, store_path=store_path)
-    registry.append_mapping(track=track, store_path=store_path)
+    registry.upsert_mapping(track=track, store_path=store_path)
     return track
 
 
