@@ -33,6 +33,8 @@ from pathlib import Path
 from typing import cast
 
 import pytest
+import test_emitted_commands_discriminate as emitted_commands
+import test_repo_containment_discriminates as repo_containment
 
 import conftest
 
@@ -176,3 +178,34 @@ def test_the_shared_tmux_fixture_unlinks_only_its_own_socket(*, tmp_path: Path) 
     finally:
         _tmux_call(socket=control_socket, args=("kill-server",))
         (_tmux_socket_dir() / control_socket).unlink(missing_ok=True)
+
+
+def test_the_emitted_commands_fixture_unlinks_its_socket(*, tmp_path: Path) -> None:
+    """The module-local `disc-*` rig must not keep leaking after teardown."""
+    socket = f"disc-{os.getpid()}-{tmp_path.name}"
+    before = _socket_count(name=socket)
+    wrapped = cast("object", emitted_commands._socket).__pytest_wrapped__.obj
+    fixture = wrapped(tmp_path=tmp_path)
+    try:
+        next(fixture)
+        assert _socket_count(name=socket) == before + 1
+    finally:
+        with pytest.raises(StopIteration):
+            next(fixture)
+
+    assert _socket_count(name=socket) == before
+
+
+def test_the_repo_containment_rival_socket_is_unlinked(*, tmp_path: Path) -> None:
+    """The deliberate rival socket must survive only for the duration of its test."""
+    socket = f"legs-{tmp_path.name}"
+    before = _socket_count(name=socket)
+
+    try:
+        repo_containment._tmux_on(socket, "new-session", "-d", "-s", "wk")
+        assert _socket_count(name=socket) == before + 1
+    finally:
+        repo_containment._tmux_on(socket, "kill-server")
+        repo_containment._tmux_socket_path(socket=socket).unlink(missing_ok=True)
+
+    assert _socket_count(name=socket) == before
