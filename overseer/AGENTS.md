@@ -1011,6 +1011,23 @@ for the marker's edge-triggered lifecycle.
   is then pasted as the first prompt (a `claude "<prompt>"` argv only pre-fills, no
   auto-submit — which is why it is pasted after launch, not passed on the command
   line). Related `claude` flags to know: `--session-id` and `--resume`.
+- **A raw `grep -c` against the daemon log is NOT an event count, and the obvious
+  fix has its own trap.** The daemon RE-RENDERS ITS WHOLE TABLE EVERY TICK, so one
+  standing condition contributes hundreds of matching lines. Measured 2026-08-19 on
+  a live log: `grep -c restarted` returned **784** against what collapsed to **3**
+  distinct lines — essentially two underlying situations, one of them a single
+  blocked pane contributing 383 lines. Anyone triaging from raw counts will report
+  a storm that is not happening. So collapse before concluding — but **collapse on
+  the FULL line**. Truncating for readability (`cut -c1-110`) before de-duplicating
+  destroys any discriminator beyond the cut, and the discriminator between "one
+  condition re-rendered" and "an escalation ladder walking" is routinely a small
+  counter or age stamp at the END of the line. Same log, same day: lines with an
+  age-labelled tail collapsed to **149** distinct on the full line but only **5**
+  when truncated first — a thirtyfold undercount, reached by someone who *did*
+  collapse and was therefore confident. The cheap diagnostic is to collapse the same
+  match set BOTH ways and compare: close numbers mean genuine re-rendering, while a
+  large gap means the tail carries the signal and the RAW count is nearer the truth
+  than the collapsed one. Truncate only for display, after counting.
 
 ## Build / toolchain facts
 
