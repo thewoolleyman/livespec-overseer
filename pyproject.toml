@@ -34,6 +34,7 @@ foreman-consensus = "overseer.foreman_consensus:main"
 foreman-gather = "overseer.foreman_gather:main"
 foreman-valve-disposition = "overseer.foreman_valve_policy:main"
 overseer-declare = "overseer.declare:main"
+overseer-scan-homelab-charters = "overseer.homelab_charter_scan:main"
 overseerd = "overseer.daemon:main"
 overseer-start = "overseer.start:main"
 
