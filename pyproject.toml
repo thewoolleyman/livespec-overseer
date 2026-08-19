@@ -305,6 +305,9 @@ reportUnnecessaryIsInstance = "error"
 [tool.pytest.ini_options]
 testpaths = ["overseer", "tests"]
 addopts = "-q"
+markers = [
+    "integration: integration-tier scenario coverage",
+]
 
 # ---------------------------------------------------------------------------
 # Coverage — 100% statements AND branches.
