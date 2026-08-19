@@ -135,7 +135,7 @@ def test_append_read_roundtrip(*, tmp_path):
         store_path=store,
     )
 
-    tracks = registry.read_mapping(store_path=store)
+    tracks = registry.read_valid_mapping(store_path=store)
     assert [t.topic for t in tracks] == ["alpha", "beta"]
     alpha = tracks[0]
     assert alpha.tmux == "livespec:alpha"
@@ -163,7 +163,7 @@ def test_ctx_threshold_none_is_omitted_explicit_int_roundtrips(*, tmp_path):
     assert "ctx_threshold" not in rows[0]  # None → key omitted
     assert rows[1]["ctx_threshold"] == 60  # explicit int → key present
 
-    tracks = registry.read_mapping(store_path=store)
+    tracks = registry.read_valid_mapping(store_path=store)
     by_topic = {t.topic: t for t in tracks}
     assert by_topic["nooverride"].ctx_threshold is None
     assert by_topic["pinned"].ctx_threshold == 60
@@ -185,7 +185,7 @@ def test_read_mapping_fail_soft_on_malformed_lines(*, tmp_path):
         + "\n",
         encoding="utf-8",
     )
-    tracks = registry.read_mapping(store_path=store)
+    tracks = registry.read_valid_mapping(store_path=store)
     assert [t.topic for t in tracks] == ["a", "b"]
 
 
@@ -207,7 +207,7 @@ def test_remove_mapping_is_repo_qualified(*, tmp_path):
     )
     assert removed == 1
 
-    remaining = registry.read_mapping(store_path=store)
+    remaining = registry.read_valid_mapping(store_path=store)
     keys = {(t.repo, t.topic) for t in remaining}
     assert keys == {("/data/projects/other", "shared"), ("/data/projects/livespec", "solo")}
 

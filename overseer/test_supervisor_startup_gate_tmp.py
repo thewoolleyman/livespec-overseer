@@ -46,7 +46,7 @@ def test_start_refuses_running_claude_without_force(*, tmp_path, monkeypatch):
     assert rc == 0
     assert not fake.has(method="respawn")  # the live session was NOT killed
     # but the mapping was upserted
-    assert [(r.topic) for r in registry.read_mapping(store_path=store)] == [topic]
+    assert [(r.topic) for r in registry.read_valid_mapping(store_path=store)] == [topic]
 
 
 def test_start_force_respawns_running_claude(*, tmp_path, monkeypatch):

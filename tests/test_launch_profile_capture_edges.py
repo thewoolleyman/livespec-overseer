@@ -245,7 +245,9 @@ def test_wrapup_refresh_uses_track_profile_and_skips_unchanged_store_write(*, tm
         capture=idle_capture(ctx=40),
     )
 
-    assert registry.read_mapping(store_path=tmp_path / "map.jsonl")[0].model_profile == profile
+    assert (
+        registry.read_valid_mapping(store_path=tmp_path / "map.jsonl")[0].model_profile == profile
+    )
 
 
 def test_codex_profile_source_skips_live_session_outside_tmux(*, tmp_path):

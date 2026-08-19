@@ -299,7 +299,7 @@ def test_scenario_an_unassigned_plan_is_discovered_but_never_auto_started(*, tmp
     assert row.tmux is None
     assert not fake.has(method="new")  # no session was created for it...
     assert not fake.has(method="respawn")  # ...by either launch mechanism
-    assert registry.read_mapping(store_path=sup.store_path) == []  # and nothing was mapped
+    assert registry.read_valid_mapping(store_path=sup.store_path) == []  # and nothing was mapped
 
 
 def test_scenario_discovery_performs_no_file_level_probe_inside_a_plan_directory(*, tmp_path):
@@ -414,7 +414,8 @@ def test_scenario_topics_colliding_across_repositories_get_qualified_session_nam
         _ = sup.tick(act=True)
 
     linked = {
-        (row.repo, row.topic): row.tmux for row in registry.read_mapping(store_path=sup.store_path)
+        (row.repo, row.topic): row.tmux
+        for row in registry.read_valid_mapping(store_path=sup.store_path)
     }
     assert linked[(str(alpha), "shared")] == "alpha-shared"  # qualified, SINGLE dash
     assert linked[(str(beta), "shared")] == "beta-shared"

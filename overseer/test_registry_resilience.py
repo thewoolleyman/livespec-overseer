@@ -17,7 +17,7 @@ import json
 import os
 from pathlib import Path
 
-import _registry_store
+import _registry_rows_io
 import pytest
 import registry
 from registry import Track
@@ -51,7 +51,9 @@ def test_file_lock_proceeds_unlocked_when_the_lock_cannot_be_acquired(
     monkeypatch.setattr(fcntl, "flock", _refuse_flock)
     registry.append_mapping(track=Track(topic="a", repo="/r", tmux="r-a"), store_path=store)
 
-    assert [t.topic for t in registry.read_mapping(store_path=store)] == ["a"]  # write still landed
+    assert [t.topic for t in registry.read_valid_mapping(store_path=store)] == [
+        "a"
+    ]  # write still landed
     assert "could not acquire lock" in capsys.readouterr().err
 
 
@@ -77,7 +79,7 @@ def test_file_lock_proceeds_unlocked_when_the_lock_file_cannot_be_opened(
 
     monkeypatch.setattr(Path, "open", _deny)
     registry.append_mapping(track=Track(topic="a", repo="/r"), store_path=store)
-    assert registry.read_mapping(store_path=store) == []  # the append itself also failed soft
+    assert registry.read_valid_mapping(store_path=store) == []  # the append itself also failed soft
 
     err = capsys.readouterr().err
     assert "could not acquire lock" in err
@@ -99,7 +101,7 @@ def test_read_mapping_fail_soft_on_an_unreadable_store(*, tmp_path, monkeypatch,
         raise PermissionError(13, "Permission denied")
 
     monkeypatch.setattr(Path, "read_text", _deny)
-    assert registry.read_mapping(store_path=store) == []
+    assert registry.read_valid_mapping(store_path=store) == []
     assert "unreadable mapping store" in capsys.readouterr().err
 
 
@@ -120,7 +122,7 @@ def test_read_mapping_fail_soft_on_a_non_utf8_store(*, tmp_path, capsys):
     store = tmp_path / "map.jsonl"
     store.write_bytes(b'\xff\xfe{"topic": "a", "repo": "/r"}\n')
 
-    assert registry.read_mapping(store_path=store) == []
+    assert registry.read_valid_mapping(store_path=store) == []
     assert "unreadable mapping store" in capsys.readouterr().err
 
 
@@ -169,9 +171,11 @@ def test_atomic_write_fail_soft_leaves_the_store_intact_and_removes_the_temp(
         raise OSError(28, "No space left on device")
 
     monkeypatch.setattr(os, "fsync", _boom)
-    _registry_store._write_rows(rows=[{"topic": "replacement", "repo": "/r"}], store_path=store)
+    _registry_rows_io.write_rows(rows=[{"topic": "replacement", "repo": "/r"}], store_path=store)
 
-    assert [t.topic for t in registry.read_mapping(store_path=store)] == ["keep"]  # not truncated
+    assert [t.topic for t in registry.read_valid_mapping(store_path=store)] == [
+        "keep"
+    ]  # not truncated
     assert [p.name for p in tmp_path.iterdir()] == ["map.jsonl"]  # temp file cleaned up
     assert "could not write" in capsys.readouterr().err
 
@@ -183,5 +187,5 @@ def test_append_mapping_fail_soft_when_the_store_cannot_be_opened(*, tmp_path, c
     store.mkdir()
     registry.append_mapping(track=Track(topic="a", repo="/r"), store_path=store)
 
-    assert registry.read_mapping(store_path=store) == []  # nothing recorded, nothing raised
+    assert registry.read_valid_mapping(store_path=store) == []  # nothing recorded, nothing raised
     assert "could not append to" in capsys.readouterr().err

@@ -24,7 +24,7 @@ READY_CONTRACT = (
 
 def _topic_from_mapping(*, repo: Path, session: str) -> str:
     repo_key = registry.norm(repo=repo)
-    for track in registry.read_mapping(store_path=registry.DEFAULT_STORE_PATH):
+    for track in registry.read_valid_mapping(store_path=registry.DEFAULT_STORE_PATH):
         if registry.norm(repo=track.repo) == repo_key and track.tmux == session:
             return track.topic
     return session

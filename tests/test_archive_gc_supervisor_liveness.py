@@ -31,7 +31,7 @@ def test_archive_gc_keeps_supervisor_row_when_worker_plan_is_live(*, tmp_path):
     dropped = sup.archive_gc()
 
     assert dropped == 0
-    assert [track.topic for track in registry.read_mapping(store_path=sup.store_path)] == [
+    assert [track.topic for track in registry.read_valid_mapping(store_path=sup.store_path)] == [
         "worker-supervisor"
     ]
 
@@ -53,4 +53,4 @@ def test_archive_gc_drops_supervisor_row_when_worker_plan_is_gone(*, tmp_path):
     dropped = sup.archive_gc()
 
     assert dropped == 1
-    assert registry.read_mapping(store_path=sup.store_path) == []
+    assert registry.read_valid_mapping(store_path=sup.store_path) == []

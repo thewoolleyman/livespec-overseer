@@ -53,7 +53,7 @@ def recover_missing_sessions(*, sup: Supervisor) -> list[str]:
     ABSENT session is recreated, so no live session is ever killed.
     """
     recovered: list[str] = []
-    for track in registry.read_mapping(store_path=sup.store_path):
+    for track in registry.read_valid_mapping(store_path=sup.store_path):
         session = _supervisor_launch.session_of(sup=sup, track=track)
         if sup.tmux.session_exists(session=session):
             continue

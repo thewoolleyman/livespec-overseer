@@ -56,7 +56,8 @@ def _state_paths(*, sup: Supervisor) -> list[Path]:
     repos = _supervisor_discovery.resolve_watch(sup=sup)
     discovered = registry.discover_plans(watch_repos=repos)
     mapped = [
-        (track.repo, track.topic) for track in registry.read_mapping(store_path=sup.store_path)
+        (track.repo, track.topic)
+        for track in registry.read_valid_mapping(store_path=sup.store_path)
     ]
     for repo, topic in [*discovered, *mapped]:
         key = (registry.norm(repo=repo), topic)

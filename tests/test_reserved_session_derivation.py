@@ -16,7 +16,7 @@ def test_daemon_discovery_refuses_collision_derived_supervisor_session_names(*, 
     rows = sup.build_rows(act=False)
 
     assert rows == []
-    assert registry.read_mapping(store_path=sup.store_path) == []
+    assert registry.read_valid_mapping(store_path=sup.store_path) == []
     err = capsys.readouterr().err
     assert "alpha-supervisor" in err
     assert "beta-supervisor" in err
@@ -65,5 +65,5 @@ def test_adopt_sessions_refuses_foreman_registry_name_without_attention_alarm(*,
     )
 
     assert sup.build_rows(act=True) == []
-    assert registry.read_mapping(store_path=sup.store_path) == []
+    assert registry.read_valid_mapping(store_path=sup.store_path) == []
     assert "NEEDS YOU" not in sup.out.getvalue()

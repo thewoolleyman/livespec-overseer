@@ -67,7 +67,9 @@ def test_stale_tmux_mapping_is_repointed_when_topic_session_moves(*, tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         sup.adopt_sessions()
 
-    rows = {(r.repo, r.topic): r.tmux for r in registry.read_mapping(store_path=sup.store_path)}
+    rows = {
+        (r.repo, r.topic): r.tmux for r in registry.read_valid_mapping(store_path=sup.store_path)
+    }
     assert (
         rows[(os.path.normpath(str(repo)), "alpha")] == "new-tmux"
     )  # re-pointed to the live session
@@ -106,6 +108,6 @@ def test_repoint_is_idempotent_when_the_mapping_already_matches(*, tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()):
         adopted = sup.adopt_sessions()
     assert adopted == []  # already mapped, tmux unchanged → neither re-adopted nor re-pointed
-    rows = registry.read_mapping(store_path=sup.store_path)
+    rows = registry.read_valid_mapping(store_path=sup.store_path)
     assert len([r for r in rows if r.topic == "alpha"]) == 1  # exactly one row, no duplicate
     assert rows[0].tmux == "the-tmux"

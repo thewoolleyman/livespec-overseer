@@ -9,24 +9,20 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Iterable
 
-import jsonio
 from _registry_core import (
     Track,
-    atomic_write,
     file_lock,
     norm,
     resolve_store,
     warn,
 )
-from _registry_resume import normalize_resume_override, normalize_rows
-from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
+from _registry_resume import normalize_resume_override
+from _registry_rows_io import read_rows, write_rows
 from _seams import MappingRowPredicate
 
 __all__: list[str] = [
     "append_mapping",
-    "read_mapping",
     "record_derived_epic",
     "record_model_profile",
     "record_observed_session_identity",
@@ -35,88 +31,6 @@ __all__: list[str] = [
     "rewrite_mapping",
     "set_epic",
 ]
-
-
-def _read_rows(*, store_path: str | os.PathLike[str] | None = None) -> list[dict[str, object]]:
-    """Read the mapping store as raw dicts, skipping (and naming) bad lines.
-
-    Operating on raw dicts (not Tracks) for rewrite/remove preserves unknown
-    keys such as ``added_at`` on the surviving rows.
-    """
-    path = resolve_store(store_path=store_path)
-    if not path.is_file():
-        return []
-    try:
-        text = path.read_text(encoding="utf-8")
-    # ValueError covers the UnicodeDecodeError a non-UTF-8 store raises; it is a
-    # ValueError subclass, so an OSError-only handler leaked it (B7).
-    except (OSError, ValueError) as exc:  # PermissionError, NFS hiccup, mid-move, non-UTF-8
-        warn(message=f"unreadable mapping store {path}: {exc}")
-        return []
-    rows: list[dict[str, object]] = []
-    for lineno, raw in enumerate(text.splitlines(), start=1):
-        line = raw.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError as exc:
-            warn(message=f"skipping malformed line {lineno} in {path}: {exc}")
-            continue
-        record = jsonio.as_object(value=obj)
-        if record is None:
-            warn(message=f"skipping non-object line {lineno} in {path}")
-            continue
-        rows.append(record)
-    return rows
-
-
-def _write_rows(
-    *,
-    rows: Iterable[dict[str, object]],
-    store_path: str | os.PathLike[str] | None = None,
-) -> None:
-    body = "".join(json.dumps(row) + "\n" for row in rows)
-    atomic_write(path=resolve_store(store_path=store_path), body=body)
-
-
-def _track_from_row(*, row: dict[str, object]) -> Track | None:
-    """Build a mapped Track from a raw row, or None (naming the offender)."""
-    topic = row.get("topic")
-    repo = row.get("repo")
-    if not isinstance(topic, str) or not isinstance(repo, str):
-        warn(message=f"skipping row missing topic/repo: {row!r}")
-        return None
-    return Track(
-        topic=topic,
-        repo=repo,
-        tmux=opt_str_from_row(row=row, key="tmux"),
-        resume=opt_str_from_row(row=row, key="resume"),
-        epic=opt_str_from_row(row=row, key="epic"),
-        ctx_threshold=ctx_threshold_from_row(row=row),
-        pinned_session_id=opt_str_from_row(row=row, key="pinned_session_id"),
-        observed_session_identity=opt_str_from_row(row=row, key="observed_session_identity"),
-        added_at=opt_str_from_row(row=row, key="added_at"),
-        model_profile=model_profile_from_row(row=row, repo=repo, topic=topic),
-        assigned=True,
-    )
-
-
-def read_mapping(*, store_path: str | os.PathLike[str] | None = None) -> list[Track]:
-    """Read the mapping store into typed Tracks (fail-soft on bad rows)."""
-    tracks: list[Track] = []
-    path = resolve_store(store_path=store_path)
-    rows = _read_rows(store_path=store_path)
-    if normalize_rows(rows=rows):
-        with file_lock(target=path):
-            rows = _read_rows(store_path=store_path)
-            _ = normalize_rows(rows=rows)
-            _write_rows(rows=rows, store_path=store_path)
-    for row in rows:
-        track = _track_from_row(row=row)
-        if track is not None:
-            tracks.append(track)
-    return tracks
 
 
 def _track_to_row(*, track: Track) -> dict[str, object]:
@@ -165,7 +79,7 @@ def _update_matching_field(
     """
     repo_norm = norm(repo=repo)
     with file_lock(target=resolve_store(store_path=store_path)):
-        rows = _read_rows(store_path=store_path)
+        rows = read_rows(store_path=store_path)
         changed = False
         for row in rows:
             row_repo = row.get("repo")
@@ -178,7 +92,7 @@ def _update_matching_field(
                 row[field] = value
                 changed = True
         if changed:
-            _write_rows(rows=rows, store_path=store_path)
+            write_rows(rows=rows, store_path=store_path)
         return changed
 
 
@@ -278,10 +192,10 @@ def rewrite_mapping(
     store on every pass.
     """
     with file_lock(target=resolve_store(store_path=store_path)):
-        rows = _read_rows(store_path=store_path)
+        rows = read_rows(store_path=store_path)
         kept = [row for row in rows if keep(row=row)]
         if len(kept) != len(rows):
-            _write_rows(rows=kept, store_path=store_path)
+            write_rows(rows=kept, store_path=store_path)
         return len(rows) - len(kept)
 
 
@@ -324,7 +238,7 @@ def repoint_tmux(
     stored ``tmux`` already equals ``new_tmux``, or there is no such row), so a steady-state
     tick where nothing moved never rewrites (and never risks truncating) the store. Returns
     True when at least one row was re-pointed. Fail-soft on OSError (inherited from
-    :func:`_write_rows`).
+    :func:`write_rows`).
     """
     return _update_matching_field(
         repo=repo, topic=topic, field="tmux", value=new_tmux, store_path=store_path

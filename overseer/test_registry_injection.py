@@ -221,7 +221,7 @@ def test_repoint_tmux_rewrites_only_the_matching_row_and_is_idempotent(*, tmp_pa
         encoding="utf-8",
     )
     assert registry.repoint_tmux(repo="/r", topic="a", new_tmux="new", store_path=store) is True
-    rows = {r.topic: r.tmux for r in registry.read_mapping(store_path=store)}
+    rows = {r.topic: r.tmux for r in registry.read_valid_mapping(store_path=store)}
     assert rows == {"a": "new", "b": "b-tmux"}  # only `a` moved
     raw_a = next(
         json.loads(ln) for ln in store.read_text().splitlines() if json.loads(ln)["topic"] == "a"

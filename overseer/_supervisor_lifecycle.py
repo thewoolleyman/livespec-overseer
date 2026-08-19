@@ -122,7 +122,7 @@ def run_loop(
     with a full traceback, and the process supervisor restarts it. B7's two
     original cases — an unreadable ``plan/`` dir and a malformed store — are now
     boundaried where they arise, by the narrow catches in
-    :func:`registry.discover_plans` and ``registry._read_rows``, so B7 is
+    :func:`registry.discover_plans` and ``read_row_records``, so B7 is
     discharged there rather than by a blanket guard here. What remains able to
     reach this loop is a BUG, and a bug must not be swallowed into a loop that
     keeps re-entering it.
@@ -174,7 +174,7 @@ def run_loop(
             # This is safe because it is NOT where environmental failures land:
             # an unreadable `plan/` dir and a malformed store — the two cases the
             # withdrawn catch was justified by — are boundaried narrowly in
-            # `registry.py` (`discover_plans`, `_read_rows`), and the
+            # `registry.py` (`discover_plans`, `read_row_records`), and the
             # `UnicodeDecodeError` that used to escape those handlers is caught
             # there too. Anything reaching here is a defect, not a bad input.
             #

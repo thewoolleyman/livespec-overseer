@@ -63,6 +63,11 @@ from _registry_discovery import plan_liveness_topic as plan_liveness_topic
 from _registry_discovery import repo_root_present as repo_root_present
 from _registry_discovery import watch_set_from_config as watch_set_from_config
 from _registry_epic import epic_from_plan_anchor as epic_from_plan_anchor
+from _registry_mapping_read import MappingEntry as MappingEntry
+from _registry_mapping_read import MappingInvalid as MappingInvalid
+from _registry_mapping_read import MappingValid as MappingValid
+from _registry_mapping_read import read_mapping as read_mapping
+from _registry_mapping_read import read_valid_mapping as read_valid_mapping
 from _registry_rounds import RoundRecord as RoundRecord
 from _registry_rounds import mark_expiry_notice_sent as mark_expiry_notice_sent
 from _registry_rounds import read_round_open_identity as read_round_open_identity
@@ -78,7 +83,6 @@ from _registry_stamps import record_post_respawn as record_post_respawn
 from _registry_stamps import set_resume_pending as set_resume_pending
 from _registry_stamps import write_injection_stamp as write_injection_stamp
 from _registry_store import append_mapping as append_mapping
-from _registry_store import read_mapping as read_mapping
 from _registry_store import record_derived_epic as record_derived_epic
 from _registry_store import record_model_profile as record_model_profile
 from _registry_store import record_observed_session_identity as record_observed_session_identity
@@ -92,6 +96,9 @@ __all__: list[str] = [
     "DEFAULT_STAMP_PATH",
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
+    "MappingEntry",
+    "MappingInvalid",
+    "MappingValid",
     "RoundRecord",
     "Track",
     "add_notified_band",
@@ -114,6 +121,7 @@ __all__: list[str] = [
     "read_resume_pending",
     "read_round_open_identity",
     "read_round_record",
+    "read_valid_mapping",
     "record_derived_epic",
     "record_model_profile",
     "record_observed_session_identity",

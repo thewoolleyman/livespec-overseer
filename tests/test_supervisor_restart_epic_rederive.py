@@ -40,7 +40,7 @@ def test_rederive_persists_the_healed_epic_for_a_later_tick_to_see(*, tmp_path, 
     healed = _supervisor_restart.rederive_epic_if_stale(sup=sup, track=track, act=True)
 
     assert healed.epic == TEST_EPIC
-    stored = registry.read_mapping(store_path=None)
+    stored = registry.read_valid_mapping(store_path=None)
     assert len(stored) == 1
     assert stored[0].epic == TEST_EPIC
 
@@ -65,7 +65,7 @@ def test_rederive_is_a_noop_when_the_anchor_is_genuinely_unresolvable(*, tmp_pat
 
     assert healed.epic is None
     assert healed is track
-    stored = registry.read_mapping(store_path=None)
+    stored = registry.read_valid_mapping(store_path=None)
     assert stored[0].epic is None
     assert store.exists()
 
@@ -95,5 +95,5 @@ def test_rederive_never_reads_or_writes_on_a_read_only_tick(*, tmp_path, monkeyp
     healed = _supervisor_restart.rederive_epic_if_stale(sup=sup, track=track, act=False)
 
     assert healed is track
-    stored = registry.read_mapping(store_path=None)
+    stored = registry.read_valid_mapping(store_path=None)
     assert stored[0].epic is None
