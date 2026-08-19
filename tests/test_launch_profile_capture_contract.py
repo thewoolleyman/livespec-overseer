@@ -41,7 +41,7 @@ def test_launch_profile_reader_is_public_to_supervisor_collaborators():
     assert hasattr(module, "read_launch_profile")
 
 
-def test_reader_captures_local_claude_wrapper_from_environ_and_parent_chain(*, tmp_path):
+def test_reader_captures_local_claude_wrapper_from_exec_surviving_environ():
     module = importlib.import_module("_supervisor_launch_profile")
 
     assert hasattr(module, "read_launch_profile")
@@ -51,7 +51,7 @@ def test_reader_captures_local_claude_wrapper_from_environ_and_parent_chain(*, t
         pane_pid=100,
         cmdline_of=lambda *, pid: {
             200: _nul(argv=["claude", "--dangerously-skip-permissions"]),
-            150: _nul(argv=[str(tmp_path / "claude-local-llm"), "--flag"]),
+            150: _nul(argv=["bash", "-lc", "claude-local-llm"]),
         }.get(pid),
         environ_of=lambda *, pid: {
             200: _env(
@@ -67,7 +67,36 @@ def test_reader_captures_local_claude_wrapper_from_environ_and_parent_chain(*, t
     assert profile == {
         "harness": "claude",
         "model": "macmini/qwen3-coder-next",
-        "wrapper": str(tmp_path / "claude-local-llm"),
+        "wrapper": "/data/projects/local-llm/bin/claude-local-llm",
+    }
+
+
+def test_reader_captures_local_codex_wrapper_from_exec_surviving_environ():
+    module = importlib.import_module("_supervisor_launch_profile")
+
+    assert hasattr(module, "read_launch_profile")
+    profile = module.read_launch_profile(
+        pid=300,
+        harness="codex",
+        pane_pid=100,
+        cmdline_of=lambda *, pid: {
+            300: _nul(argv=["codex", "-m", "macmini/qwen3-coder-next"]),
+            150: _nul(argv=["bash", "-lc", "codex-local-llm"]),
+        }.get(pid),
+        environ_of=lambda *, pid: {
+            300: _env(
+                values={
+                    "ANTHROPIC_BASE_URL": "http://127.0.0.1:11434",
+                }
+            )
+        }.get(pid),
+        ppid_of=lambda *, pid: {300: 150, 150: 100}.get(pid),
+    )
+
+    assert profile == {
+        "harness": "codex",
+        "model": "macmini/qwen3-coder-next",
+        "wrapper": "/data/projects/local-llm/bin/codex-local-llm",
     }
 
 

@@ -50,6 +50,16 @@ class LaunchProfileProblem:
 
 
 _SHELL_BASENAMES = frozenset({"sh", "bash", "zsh", "dash", "fish", "ksh", "tcsh", "csh"})
+_LOCAL_LLM_WRAPPERS = MappingProxyType(
+    {
+        "claude": "/data/projects/local-llm/bin/claude-local-llm",
+        "codex": "/data/projects/local-llm/bin/codex-local-llm",
+    }
+)
+_WRAPPER_ENV_KEYS = (
+    "LIVESPEC_LOCAL_LLM_WRAPPER",
+    "LOCAL_LLM_WRAPPER",
+)
 
 
 def _split_nul_bytes(*, data: bytes | None) -> list[str]:
@@ -105,6 +115,30 @@ def _wrapper_from_parent_chain(
     return None
 
 
+def _wrapper_from_local_router(
+    *,
+    harness: str,
+    env: Mapping[str, str],
+    pid: int,
+    pane_pid: int | None,
+    ppid_of: PidToOptionalInt,
+    cmdline_of: PidToOptionalBytes,
+) -> str | None:
+    for key in _WRAPPER_ENV_KEYS:
+        wrapper = env.get(key)
+        if wrapper:
+            return wrapper
+    wrapper = _LOCAL_LLM_WRAPPERS.get(harness)
+    if wrapper is not None:
+        return wrapper
+    return _wrapper_from_parent_chain(
+        pid=pid,
+        pane_pid=pane_pid,
+        ppid_of=ppid_of,
+        cmdline_of=cmdline_of,
+    )
+
+
 def read_launch_profile(
     *,
     pid: int,
@@ -121,7 +155,9 @@ def read_launch_profile(
     if not model:
         return LaunchProfileProblem(message=f"launch profile for pid {pid} has no model token")
     wrapper = (
-        _wrapper_from_parent_chain(
+        _wrapper_from_local_router(
+            harness=harness,
+            env=env,
             pid=pid,
             pane_pid=pane_pid,
             ppid_of=ppid_of,

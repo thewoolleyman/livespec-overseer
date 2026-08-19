@@ -58,14 +58,14 @@ def test_proc_environ_unreadable_is_none(*, monkeypatch):
     assert _claude_sessions_proc.proc_environ(pid=123) is None
 
 
-def test_reader_walks_past_shell_parent_to_wrapper_and_reports_missing_model(*, tmp_path):
-    wrapper = str(tmp_path / "claude-local-llm")
+def test_reader_uses_parent_wrapper_for_custom_local_harness_and_reports_missing_model(*, tmp_path):
+    wrapper = str(tmp_path / "pi-local-llm")
     profile = read_launch_profile(
         pid=300,
-        harness="claude",
+        harness="pi",
         pane_pid=100,
         cmdline_of=lambda *, pid: {
-            300: _nul(argv=["claude"]),
+            300: _nul(argv=["pi"]),
             200: _nul(argv=["bash", "-lc", "exec wrapper"]),
             150: _nul(argv=[wrapper]),
         }.get(pid),
@@ -80,7 +80,7 @@ def test_reader_walks_past_shell_parent_to_wrapper_and_reports_missing_model(*, 
         ppid_of=lambda *, pid: {300: 200, 200: 150, 150: 100}.get(pid),
     )
 
-    assert profile == {"harness": "claude", "model": "macmini/qwen3-coder-next", "wrapper": wrapper}
+    assert profile == {"harness": "pi", "model": "macmini/qwen3-coder-next", "wrapper": wrapper}
     assert isinstance(
         read_launch_profile(
             pid=400,
@@ -95,25 +95,48 @@ def test_reader_walks_past_shell_parent_to_wrapper_and_reports_missing_model(*, 
     assert rendered_statusline_model(capture="body without a footer") is None
 
 
-def test_reader_handles_short_model_flag_malformed_env_and_missing_wrapper():
+def test_reader_handles_short_model_flag_malformed_env_and_cloud_wrapper():
     profile = read_launch_profile(
         pid=300,
         harness="codex",
         pane_pid=100,
         cmdline_of=lambda *, pid: _nul(argv=["codex", "-m", "gpt-5-codex"]) if pid == 300 else None,
-        environ_of=lambda *, pid: b"BROKEN\0ANTHROPIC_BASE_URL=http://127.0.0.1:11434\0"
-        if pid == 300
-        else None,
+        environ_of=lambda *, pid: b"BROKEN\0" if pid == 300 else None,
         ppid_of=lambda *, pid: {300: 100}.get(pid),
     )
 
     assert profile == {"harness": "codex", "model": "gpt-5-codex", "wrapper": None}
 
 
+def test_reader_prefers_exec_surviving_wrapper_env_marker():
+    profile = read_launch_profile(
+        pid=300,
+        harness="claude",
+        pane_pid=100,
+        cmdline_of=lambda *, pid: _nul(argv=["claude"]) if pid == 300 else None,
+        environ_of=lambda *, pid: _env(
+            values={
+                "ANTHROPIC_MODEL": "macmini/qwen3",
+                "ANTHROPIC_BASE_URL": "http://localhost:11434",
+                "LIVESPEC_LOCAL_LLM_WRAPPER": "/opt/local/bin/custom-claude",
+            }
+        )
+        if pid == 300
+        else None,
+        ppid_of=lambda *, pid: {300: 100}.get(pid),
+    )
+
+    assert profile == {
+        "harness": "claude",
+        "model": "macmini/qwen3",
+        "wrapper": "/opt/local/bin/custom-claude",
+    }
+
+
 def test_reader_stops_parent_walk_on_seen_cycle_and_depth_limit():
     cycle_profile = read_launch_profile(
         pid=300,
-        harness="claude",
+        harness="pi",
         pane_pid=None,
         cmdline_of=lambda *, pid: _nul(argv=["bash"]) if pid in {200, 300} else None,
         environ_of=lambda *, pid: _env(
@@ -128,9 +151,9 @@ def test_reader_stops_parent_walk_on_seen_cycle_and_depth_limit():
     )
     deep_profile = read_launch_profile(
         pid=500,
-        harness="claude",
+        harness="pi",
         pane_pid=None,
-        cmdline_of=lambda *, pid: _nul(argv=["bash"]) if pid != 500 else _nul(argv=["claude"]),
+        cmdline_of=lambda *, pid: _nul(argv=["bash"]) if pid != 500 else _nul(argv=["pi"]),
         environ_of=lambda *, pid: _env(
             values={
                 "ANTHROPIC_MODEL": "macmini/qwen3",
@@ -142,8 +165,8 @@ def test_reader_stops_parent_walk_on_seen_cycle_and_depth_limit():
         ppid_of=lambda *, pid: pid - 1 if 436 <= pid <= 500 else None,
     )
 
-    assert cycle_profile == {"harness": "claude", "model": "macmini/qwen3", "wrapper": None}
-    assert deep_profile == {"harness": "claude", "model": "macmini/qwen3", "wrapper": None}
+    assert cycle_profile == {"harness": "pi", "model": "macmini/qwen3", "wrapper": None}
+    assert deep_profile == {"harness": "pi", "model": "macmini/qwen3", "wrapper": None}
 
 
 def test_profile_for_adoption_without_a_source_is_none(*, tmp_path):
