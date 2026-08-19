@@ -41,8 +41,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from livespec_dev_tooling.charters import CHARTER_GLOBS, DETECTORS, defects_in
+from livespec_dev_tooling.charters.charters import charters_in
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_CHARTER_GLOBS = CHARTER_GLOBS
+_DETECTORS = DETECTORS
 
 # The charter that was hardened by hand and is what the generator must be able to
 # produce. Accept either location: a plan moves into `plan/archive/` when
@@ -55,10 +58,7 @@ _EXEMPLAR_CANDIDATES = (
 
 
 def _charters() -> list[Path]:
-    found: list[Path] = []
-    for glob in CHARTER_GLOBS:
-        found.extend(sorted(_REPO_ROOT.glob(glob)))
-    return found
+    return charters_in(root=_REPO_ROOT)
 
 
 def test_the_shipped_detector_table_is_loaded():

@@ -60,6 +60,27 @@ from livespec_dev_tooling.charters import defects_in
 
 __all__: list[str] = []
 
+_RULE = "-"
+_IDLE_PANE_RENDER = "\n".join(
+    (
+        "  main is clean and matches origin/main; the worktree and both refs are gone.",
+        "  $ git worktree list --porcelain | head -40 (6m 50s - 4 lines)",
+        "",
+        f"{_RULE} Worked for 24m 01s {_RULE * 67}",
+        "",
+        "Worked for 14m 56s",
+        "",
+        "recap: the thread is fully complete; nothing remains.",
+        "                       new task? /clear to save 625.9k tokens",
+    )
+)
+_BUSY_PANE_RENDER = "\n".join(
+    (
+        "Working (14s - esc to interrupt)",
+        "Running 1 shell command - 12s...",
+    )
+)
+
 # The exact busy test from the stalled watcher, recorded on `overseer-c45`.
 _HISTORICAL = (
     "pane=$(tmux capture-pane -p -t '=w:' -S -40)\n"

@@ -86,7 +86,7 @@ def test_the_generator_prose_is_present_and_carries_fenced_blocks() -> None:
     fenced blocks, such as this repo's `README.md`.
     """
     assert _GENERATOR_PROSE.is_file()
-    assert _prose().count("```") > 1
+    assert _prose().count("```") > 2
 
 
 def test_the_generator_prose_carries_none_of_the_known_defects() -> None:

@@ -53,6 +53,7 @@ SCOPE, stated rather than hidden.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from livespec_dev_tooling.charters import defects_in
@@ -61,6 +62,7 @@ __all__: list[str] = []
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _MODULE_DOC_GLOB = "overseer/*.md"
+_FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})[^\n]*\n(.*?)^[ \t]*\1[ \t]*$", re.MULTILINE | re.DOTALL)
 
 # One defective line per class, in the shape the class was written for. Injected
 # into a REAL module doc rather than a synthetic stub, so the control proves the
@@ -81,6 +83,10 @@ def _agents_doc() -> str:
     return (_REPO_ROOT / "overseer" / "AGENTS.md").read_text(encoding="utf-8")
 
 
+def _fenced_blocks(*, text: str) -> list[str]:
+    return [match.group(2) for match in _FENCE.finditer(text)]
+
+
 def test_the_module_docs_are_present_and_carry_fenced_blocks() -> None:
     """A gate over a missing or block-free file set passes vacuously.
 
@@ -95,7 +101,7 @@ def test_the_module_docs_are_present_and_carry_fenced_blocks() -> None:
     """
     docs = _module_docs()
     assert docs != []
-    assert [path for path in docs if "```" in path.read_text(encoding="utf-8")] != []
+    assert [path for path in docs if _fenced_blocks(text=path.read_text(encoding="utf-8"))] != []
 
 
 def test_every_module_doc_is_free_of_the_known_defects() -> None:
@@ -149,6 +155,11 @@ def test_the_recovery_runbook_targets_tmux_exactly() -> None:
     Sabotage that reddens this: drop the `=`/`:` from the canary block's
     `respawn-pane` target in `overseer/AGENTS.md`.
     """
-    respawns = [line for line in _agents_doc().splitlines() if "command tmux respawn-pane" in line]
+    respawns = [
+        line
+        for block in _fenced_blocks(text=_agents_doc())
+        for line in block.splitlines()
+        if "respawn-pane" in line
+    ]
     assert respawns != []
     assert [line for line in respawns if "-t '=" not in line] == []
