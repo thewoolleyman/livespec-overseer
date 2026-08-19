@@ -1046,12 +1046,36 @@ for the marker's edge-triggered lifecycle.
   - `supervisor.py` → `_supervisor_core` (the `Supervisor` class) and a GROUP
     THAT IS NO LONGER ENUMERABLE HERE — see the correction immediately below.
 
-  > **THIS LIST WAS FIVE MODULES AND THE TRUTH IS TWENTY-SIX (measured
-  > 2026-08-01). Do not trust an enumeration in this section.** It named
+  > **THIS LIST WAS FIVE MODULES AND THE TRUTH IS FIFTY-FIVE (re-measured
+  > 2026-08-19; it was 26 on 2026-08-01). Do not trust an enumeration in this
+  > section.** It named
   > `_supervisor_core` / `_supervisor_config` / `_supervisor_prompts` /
   > `_supervisor_view` / `_supervisor_records`; `ls overseer/_supervisor_*.py`
-  > returns **26**. That pair of numbers is the stable claim — re-derive both from
+  > returns **55**. That pair of numbers is the stable claim — re-derive both from
   > the tree, never from this prose.
+  >
+  > **FOURTH RE-MEASURE, 2026-08-19, AND THE GAP IS GROWING FASTER THAN IT IS
+  > DOCUMENTED.** Same scope as the 2026-08-01 figures below, so the two are
+  > comparable:
+  >
+  > | | 2026-08-01 | 2026-08-19 |
+  > |---|---|---|
+  > | `_supervisor_*.py` on disk | 26 | **55** |
+  > | named in none of the three docs | 22 | **37** |
+  > | unnamed lines | 4,069 | **5,004** |
+  >
+  > Against this note's own residue the comparison is sharper still: naming seven
+  > subsystems inline dropped the figure to 15 modules / 1,968 lines the day it was
+  > written, so the debt went **15 → 37 modules** and **1,968 → 5,004 lines** in
+  > eighteen days. Wider scope, all private `overseer/_*.py`: 75 on disk, 51
+  > unnamed, 6,798 lines.
+  >
+  > **The RULE below is still right; only the NUMBER aged** — which is exactly what
+  > it predicted. Nothing was added to the list, deliberately: re-adding one would
+  > recreate the artifact that drifted four times. Note also that nothing GATES
+  > this figure (`tests/test_module_docs_match_the_repo.py` gates only the `.ai/`
+  > tense premise), which is how it doubled unnoticed — so re-derive rather than
+  > trusting any number in this prose, including these.
   >
   > As measured against the docs AS THEY STOOD BEFORE THIS NOTE, **22** private
   > modules totalling **4,069 lines** were named nowhere in any of the three,
