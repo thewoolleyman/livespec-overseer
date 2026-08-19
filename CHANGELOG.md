@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.2...v0.59.3) (2026-08-19)
+
+
+### Bug Fixes
+
+* map unverified live starts ([c9376e3](https://github.com/thewoolleyman/livespec-overseer/commit/c9376e31a10ded7a7bbc2229998935f7f62c877e))
+
 ## [0.59.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.1...v0.59.2) (2026-08-19)
 
 
