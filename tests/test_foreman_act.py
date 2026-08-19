@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import time
+from hashlib import sha256
 from pathlib import Path
 
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
@@ -150,6 +151,10 @@ def blocked_answer_panel_result() -> dict[str, object]:
         "cache_key": "answer-cache",
         "mutated": False,
     }
+
+
+def _pane_fingerprint(*, text: str) -> str:
+    return sha256(text.encode("utf-8")).hexdigest()
 
 
 def write_consensus_config(*, repo: Path) -> None:
@@ -1078,6 +1083,10 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
     repo = tmp_path / "repo"
     repo.mkdir()
     write_consensus_config(repo=repo)
+    proposal = blocked_answer_proposal(repo=repo)
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["question_fingerprint"] = _pane_fingerprint(text="Approve the bounded retry?\n")
 
     class ActTmux:
         def __init__(self):
@@ -1116,7 +1125,7 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
     monkeypatch.setattr(pane_claim, "time_time", lambda: 1000.0)
 
     result = foreman_act.act(
-        proposal=blocked_answer_proposal(repo=repo),
+        proposal=proposal,
         gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
         run=lambda *, argv: 99,
         consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
@@ -1132,6 +1141,210 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
     assert ("paste", "alpha", "Yes, proceed with the bounded retry.") in tmux.calls
     assert ("keys", "alpha", "Enter") in tmux.calls
     assert not pane_claim.claim_path(repo=repo, topic="alpha").exists()
+
+
+def test_picker_stalled_open_picker_answer_revalidates_against_fresh_capture(
+    *, tmp_path, monkeypatch
+):
+    assert PANE_CLAIM_PATH.is_file()
+    pane_claim = module("foreman_pane_claim")
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    question = "Approve the bounded retry?\n"
+    proposal = blocked_answer_proposal(repo=repo)
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["question_fingerprint"] = _pane_fingerprint(text=question)
+    document = blocked_document(repo=repo)
+    row = document["snapshot"]["rows"][0]
+    assert isinstance(row, dict)
+    row["status"] = "picker-stalled"
+    row["picker_open"] = True
+    row.pop("question_fingerprint")
+
+    class ActTmux:
+        def __init__(self):
+            self.calls: list[tuple[str, str, str | None]] = []
+
+        def pane_id(self, *, session: str):
+            self.calls.append(("pane_id", session, None))
+            return session
+
+        def pane_current_command(self, *, session: str):
+            self.calls.append(("cmd", session, None))
+            return "node"
+
+        def pane_current_path(self, *, session: str):
+            self.calls.append(("path", session, None))
+            return str(repo)
+
+        def capture_pane(self, *, session: str):
+            self.calls.append(("capture", session, None))
+            return question
+
+        def bracketed_paste(self, *, session: str, text: str):
+            assert pane_claim.active_pane_claim(
+                repo=repo, topic="alpha", session=session, pane=session, now=1000.0
+            )
+            self.calls.append(("paste", session, text))
+            return True
+
+        def send_keys(self, *, session: str, keys: str):
+            self.calls.append(("keys", session, keys))
+            return True
+
+    tmux = ActTmux()
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: tmux)
+    monkeypatch.setattr(pane_claim, "time_time", lambda: 1000.0)
+
+    result = foreman_act.act(
+        proposal=proposal,
+        gather=lambda *, repo, snapshot_path: document,
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "answered_existing_prompt",
+    }
+    assert ("paste", "alpha", "Yes, proceed with the bounded retry.") in tmux.calls
+    assert not pane_claim.claim_path(repo=repo, topic="alpha").exists()
+
+
+def test_blocked_answer_refuses_old_daemon_row_without_picker_open(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    document = blocked_document(repo=repo)
+    row = document["snapshot"]["rows"][0]
+    assert isinstance(row, dict)
+    row["status"] = "picker-stalled"
+    row.pop("picker_open", None)
+    row.pop("question_fingerprint")
+
+    result = foreman_act.act(
+        proposal=blocked_answer_proposal(repo=repo),
+        gather=lambda *, repo, snapshot_path: document,
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "pane_human_gate_unverified",
+    }
+
+
+def test_blocked_answer_refuses_fresh_capture_fingerprint_mismatch(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    proposal = blocked_answer_proposal(repo=repo)
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["question_fingerprint"] = _pane_fingerprint(text="old question\n")
+    document = blocked_document(repo=repo)
+    row = document["snapshot"]["rows"][0]
+    assert isinstance(row, dict)
+    row.pop("question_fingerprint")
+
+    class ActTmux:
+        def pane_id(self, *, session: str):
+            return session
+
+        def pane_current_command(self, *, session: str):
+            return "node"
+
+        def pane_current_path(self, *, session: str):
+            return str(repo)
+
+        def capture_pane(self, *, session: str):
+            return "new question\n"
+
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: ActTmux())
+
+    result = foreman_act.act(
+        proposal=proposal,
+        gather=lambda *, repo, snapshot_path: document,
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "question_fingerprint_changed_at_act_time",
+    }
+
+
+def test_blocked_answer_keeps_runtime_and_cwd_identity_refusals(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    question = "Approve the bounded retry?\n"
+    proposal = blocked_answer_proposal(repo=repo)
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["question_fingerprint"] = _pane_fingerprint(text=question)
+    document = blocked_document(repo=repo)
+    row = document["snapshot"]["rows"][0]
+    assert isinstance(row, dict)
+    row.pop("question_fingerprint")
+
+    class ActTmux:
+        def __init__(self, *, command: str | None, path: str):
+            self.command = command
+            self.path = path
+
+        def pane_id(self, *, session: str):
+            return session
+
+        def pane_current_command(self, *, session: str):
+            return self.command
+
+        def pane_current_path(self, *, session: str):
+            return self.path
+
+        def capture_pane(self, *, session: str):
+            return question
+
+    dispatch = module("foreman_act_dispatch")
+    cases = [
+        (ActTmux(command="bash", path=str(repo)), "runtime_identity_changed"),
+        (ActTmux(command="node", path=str(tmp_path)), "cwd_identity_changed"),
+    ]
+    for tmux, reason in cases:
+        monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda tmux=tmux: tmux)
+        result = foreman_act.act(
+            proposal=proposal,
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        )
+
+        assert result == {
+            "action_id": "blocked_session_answer",
+            "mutated": False,
+            "outcome": "refused",
+            "reason": reason,
+        }
 
 
 def test_gate_state_restores_claude_and_codex_adapters_against_real_tmux(*, tmp_path):

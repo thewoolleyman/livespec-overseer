@@ -10,7 +10,9 @@ import shlex
 import shutil
 import subprocess
 import textwrap
+import time
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
@@ -301,6 +303,27 @@ def _pane_pid(*, socket: Path, session: str) -> str:
     )
     assert completed.returncode == 0, completed.stderr
     return completed.stdout.strip()
+
+
+def _pane_capture(*, socket: Path, session: str) -> str:
+    completed = _tmux(socket=socket, args=["capture-pane", "-p", "-t", session])
+    assert completed.returncode == 0, completed.stderr
+    return completed.stdout
+
+
+def _wait_for_pane_capture(*, socket: Path, session: str, expected: str) -> str:
+    deadline = time.monotonic() + 5.0
+    capture = ""
+    while time.monotonic() < deadline:
+        capture = _pane_capture(socket=socket, session=session)
+        if expected in capture:
+            return capture
+        time.sleep(0.05)
+    return capture
+
+
+def _pane_fingerprint(*, text: str) -> str:
+    return sha256(text.encode("utf-8")).hexdigest()
 
 
 def _registry_topics(*, store: Path) -> set[str]:
@@ -683,7 +706,7 @@ def _blocked_attention() -> dict[str, object]:
     }
 
 
-def _blocked_snapshot(*, repo: Path) -> dict[str, object]:
+def _blocked_snapshot(*, repo: Path, pane_content_hash: str) -> dict[str, object]:
     return {
         "schema_version": 1,
         "daemon_instance_id": "daemon-e2e",
@@ -698,7 +721,7 @@ def _blocked_snapshot(*, repo: Path) -> dict[str, object]:
                 "runtime": "claude",
                 "status": "blocked:human",
                 "session_identity": "claude:blocked-alpha-session",
-                "question_fingerprint": "question-alpha",
+                "pane_content_hash": pane_content_hash,
                 "note": "structured gate on pane",
             }
         ],
@@ -751,6 +774,7 @@ def _blocked_answer_proposal(
     repo: Path,
     request: dict[str, object],
     reviewers: dict[str, object],
+    question_fingerprint: str,
     answer: str = "Yes, proceed with the bounded retry.",
 ) -> dict[str, object]:
     return {
@@ -770,7 +794,7 @@ def _blocked_answer_proposal(
         "blocked_session_answer": {
             "mode": "answer_existing_prompt",
             "answer_text": answer,
-            "question_fingerprint": "question-alpha",
+            "question_fingerprint": question_fingerprint,
         },
     }
 
@@ -961,7 +985,16 @@ def _prepare_blocked_session(*, context: ForemanE2EContext) -> tuple[Path, dict[
         ],
     )
     assert created.returncode == 0, created.stderr
-    snapshot = _blocked_snapshot(repo=context.act.repo)
+    capture = _wait_for_pane_capture(
+        socket=context.act.socket,
+        session="blocked-alpha",
+        expected="Approve the bounded retry?",
+    )
+    assert "Approve the bounded retry?" in capture
+    snapshot = _blocked_snapshot(
+        repo=context.act.repo,
+        pane_content_hash=_pane_fingerprint(text=capture),
+    )
     (context.act.repo / "attention.json").write_text(
         json.dumps(_blocked_attention()), encoding="utf-8"
     )
@@ -993,6 +1026,7 @@ def _assert_unanimous_blocked_answer_act(
 ) -> None:
     request = _blocked_consensus_request(repo=context.act.repo)
     reviewers = _blocked_answer_reviewers()
+    question_fingerprint = str(snapshot["rows"][0]["pane_content_hash"])
     verdict = _run_foreman_consensus(
         plugin_root=context.act.plugin_root,
         repo=context.act.repo,
@@ -1015,7 +1049,10 @@ def _assert_unanimous_blocked_answer_act(
     acted = _run_foreman_act(
         context=context.act,
         proposal=_blocked_answer_proposal(
-            repo=context.act.repo, request=request, reviewers=reviewers
+            repo=context.act.repo,
+            request=request,
+            reviewers=reviewers,
+            question_fingerprint=question_fingerprint,
         ),
         snapshot=snapshot,
     )
@@ -1063,6 +1100,7 @@ def _assert_blocked_consensus_sabotage_refuses(
             repo=context.act.repo,
             request=sabotage_request,
             reviewers=sabotage_reviewers,
+            question_fingerprint=str(snapshot["rows"][0]["pane_content_hash"]),
             answer="SABOTAGE SHOULD NOT PASTE",
         ),
         snapshot=snapshot,
