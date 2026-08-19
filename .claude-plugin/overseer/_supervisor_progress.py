@@ -39,11 +39,21 @@ def blocked_human_stall_seconds(*, obs: Observation, status: str) -> int:
         obs.istate.blocked_human_stall_since = None
         obs.istate.blocked_human_stall_capture = None
         obs.istate.picker_stall_nudged = False
+        obs.istate.picker_stall_nudge_echo_capture = None
         return 0
     if obs.istate.blocked_human_stall_capture != obs.capture:
+        if (
+            obs.istate.picker_stall_nudged
+            and obs.istate.picker_stall_nudge_echo_capture == obs.capture
+        ):
+            obs.istate.blocked_human_stall_capture = obs.capture
+            obs.istate.picker_stall_nudge_echo_capture = None
+            since = obs.istate.blocked_human_stall_since or obs.observed_at
+            return int(max(0.0, obs.observed_at - since))
         obs.istate.blocked_human_stall_since = obs.observed_at
         obs.istate.blocked_human_stall_capture = obs.capture
         obs.istate.picker_stall_nudged = False
+        obs.istate.picker_stall_nudge_echo_capture = None
         return 0
     since = obs.istate.blocked_human_stall_since
     if since is None:
