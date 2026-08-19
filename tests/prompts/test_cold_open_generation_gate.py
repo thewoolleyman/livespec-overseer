@@ -387,6 +387,32 @@ tmux send-keys -t "$WORKER_TARGET" -- '<condition-command>'
 """
 
 
+def _fixture_for_topic(*, topic: str) -> str:
+    return _fixture().replace("supervisor-prompt-quality", topic)
+
+
+def _with_distinct_pane_precondition(
+    *, text: str, worker_target: str, supervisor_target: str
+) -> str:
+    return text.replace(
+        "```sh\n" "tmux send-keys -t \"$WORKER_TARGET\" -- '<condition-command>'\n" "```",
+        "```sh\n"
+        f"WORKER_TARGET='{worker_target}'\n"
+        f"SUPERVISOR_TARGET='{supervisor_target}'\n"
+        "pane_pid=$(tmux display-message -p -t \"$WORKER_TARGET\" '#{pane_pid}')\n"
+        'supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '
+        "'#{pane_pid}')\n"
+        '[ "$supervisor_pane_pid" != "$pane_pid" ] \\\n'
+        '  || { echo "HALT: supervisor and worker resolve to the SAME pane"; '
+        'echo "REMEDY: re-check both exact targets"; exit 1; }\n'
+        "```\n"
+        "\n"
+        "```sh\n"
+        "tmux send-keys -t \"$WORKER_TARGET\" -- '<condition-command>'\n"
+        "```",
+    )
+
+
 def _repo(*, tmp_path: Path) -> Path:
     return tmp_path / "repo"
 
@@ -419,6 +445,32 @@ def test_fixed_point_substitution_accepts_composed_bindings_and_runtime_slots(
         text=text, repo_primary=_repo(tmp_path=tmp_path), tmp_path=tmp_path
     )
     assert findings == []
+
+
+def test_non_exemplar_charter_distinct_pane_guard_is_cold_open_clean(*, tmp_path: Path) -> None:
+    text = _with_distinct_pane_precondition(
+        text=_fixture_for_topic(topic="daemon-liveness-truth"),
+        worker_target="=daemon-liveness-truth:",
+        supervisor_target="=daemon-liveness-truth-supervisor:",
+    )
+    findings = cold_open_findings(
+        text=text, repo_primary=_repo(tmp_path=tmp_path), tmp_path=tmp_path
+    )
+
+    assert findings == []
+
+
+def test_same_pane_distinct_pane_guard_still_halts(*, tmp_path: Path) -> None:
+    text = _with_distinct_pane_precondition(
+        text=_fixture_for_topic(topic="single-pane-topic"),
+        worker_target="=single-pane-topic:",
+        supervisor_target="=single-pane-topic:",
+    )
+    findings = cold_open_findings(
+        text=text, repo_primary=_repo(tmp_path=tmp_path), tmp_path=tmp_path
+    )
+
+    assert findings == ["command-does-not-execute:block-4: rc=1"]
 
 
 def test_illustrative_placeholders_in_prose_are_out_of_scope(*, tmp_path: Path) -> None:
