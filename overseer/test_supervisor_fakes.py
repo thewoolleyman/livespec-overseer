@@ -174,7 +174,10 @@ class FakeTmux:
         # the launcher), any other command a fresh Claude TUI (`node`). A codex respawn
         # with `respawn_yields_codex=False` comes up non-codex (`node`), modeling the
         # await-fail leg.
-        if "codex resume" in command and self.respawn_yields_codex:
+        if (
+            " resume --dangerously-bypass-approvals-and-sandbox " in command
+            and self.respawn_yields_codex
+        ):
             self.cmds[session] = "bun"
             self.panes[session] = (
                 command if self.respawn_shows_command else "Resume a previous session"

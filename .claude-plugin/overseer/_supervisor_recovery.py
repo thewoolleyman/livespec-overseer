@@ -17,7 +17,7 @@ import _supervisor_launch
 import codex_sessions
 import registry
 import signals
-from _supervisor_launch_profile import ClaudeLaunchPlan
+from _supervisor_launch_profile import ClaudeLaunchPlan, CodexLaunchPlan
 from _supervisor_prompts import launch_resume
 
 if TYPE_CHECKING:
@@ -158,8 +158,20 @@ def do_codex_launch(
     if target is None:
         return False
     resume = launch_resume(track=track)
-    command = _supervisor_launch.codex_launch_command(session_id=session_id, resume=resume)
-    if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
+    launch = _supervisor_launch.codex_launch_plan(
+        track=track,
+        session_id=session_id,
+        resume=resume,
+    )
+    if not isinstance(launch, CodexLaunchPlan):
+        sup.surface(message=f"reboot-recovery: {launch.message}; skipping")
+        return False
+    if not sup.tmux.respawn_pane(
+        session=target,
+        cwd=track.repo,
+        command=launch.command,
+        env=launch.env,
+    ):
         return False
     return _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_codex)
 
