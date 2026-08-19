@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.57.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.56.1...v0.57.0) (2026-08-19)
+
+
+### Features
+
+* cover homelab charter scan ([6f0fe53](https://github.com/thewoolleyman/livespec-overseer/commit/6f0fe539ab426ed9b57887747399a8dab6a4600e))
+* pin typed wait premise records ([a912515](https://github.com/thewoolleyman/livespec-overseer/commit/a912515e7972ff35d67c3c93c7d7cc1dc9c5339f))
+* record foreman consensus panels ([30299fc](https://github.com/thewoolleyman/livespec-overseer/commit/30299fcd7667dca66216eb057a3d628f31ec6034))
+
+
+### Bug Fixes
+
+* cover blocked answer picker revalidation ([b1b6ca6](https://github.com/thewoolleyman/livespec-overseer/commit/b1b6ca657c84a74715e22b3a2c04893666c54eb5))
+* cover packaged homelab scan import ([5f82b8e](https://github.com/thewoolleyman/livespec-overseer/commit/5f82b8e1f9a0e74faa2550f375f500b71db6608c))
+* prevent foreman ready test from reading host ledger ([9c07276](https://github.com/thewoolleyman/livespec-overseer/commit/9c0727661e9d1d25ddaa513f93b2057f53f92652))
+
 ## [0.56.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.56.0...v0.56.1) (2026-08-19)
 
 
