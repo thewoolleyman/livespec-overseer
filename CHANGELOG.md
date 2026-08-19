@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.5...v0.59.6) (2026-08-19)
+
+
+### Bug Fixes
+
+* fail prose hygiene when prose path is absent ([b0a6446](https://github.com/thewoolleyman/livespec-overseer/commit/b0a6446d3fb983168466f68c863a785db4424e89))
+
 ## [0.59.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.4...v0.59.5) (2026-08-19)
 
 
