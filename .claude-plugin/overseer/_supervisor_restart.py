@@ -33,6 +33,7 @@ from _supervisor_restart_binder import (
     missing_plan_epic_message,
     missing_restart_epic_message,
 )
+from _supervisor_statusline_model import restart_blocked_by_statusline_mismatch
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -240,6 +241,13 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
             message=f"{launch.message}; keeping the ready declaration so it retries",
             condition="stale-launch-profile",
         )
+        return
+    if restart_blocked_by_statusline_mismatch(
+        sup=sup,
+        track=track,
+        target=target,
+        session=_supervisor_launch.session_of(sup=sup, track=track),
+    ):
         return
     if not sup.tmux.respawn_pane(
         session=target,

@@ -125,9 +125,11 @@ def _open_round(*, tmp_path):
     return repo, topic, session, fake, sup, track
 
 
-def _restart_with_profile(*, tmp_path, model_profile):
+def _restart_with_profile(*, tmp_path, model_profile, restart_capture: str | None = None):
     repo, topic, session, fake, sup, track = _open_round(tmp_path=tmp_path)
     track = replace(track, model_profile=model_profile)
+    if restart_capture is not None:
+        fake.panes[session] = restart_capture
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
 
     err = _io.StringIO()
@@ -149,6 +151,9 @@ def test_scenario_restart_reasserts_an_explicitly_recorded_model(*, tmp_path):
             "model": "claude-opus-4-1-20250805",
             "wrapper": None,
         },
+        restart_capture=idle_capture(ctx=40).replace(
+            "Opus 4.8 (1M context)", "claude-opus-4-1-20250805"
+        ),
     )
 
     assert view.status == "restarting"
@@ -179,6 +184,9 @@ def test_scenario_restart_reasserts_a_local_llm_wrapper_and_env(*, tmp_path):
             "model": "macmini/qwen3-coder-next",
             "wrapper": str(wrapper),
         },
+        restart_capture=idle_capture(ctx=40).replace(
+            "Opus 4.8 (1M context)", "macmini/qwen3-coder-next"
+        ),
     )
 
     assert view.status == "restarting"

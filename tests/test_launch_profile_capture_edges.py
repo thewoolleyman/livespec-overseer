@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import contextlib
 import io as _io
+from dataclasses import replace
 
 import _claude_sessions_proc
 import _supervisor_discovery
 import _supervisor_launch_profile_refresh
 import registry
+import signals
 from _supervisor_launch_profile import (
     LaunchProfileProblem,
     read_launch_profile,
@@ -16,7 +18,13 @@ from _supervisor_launch_profile import (
 )
 from _supervisor_launch_profile_sources import CodexProfileReaders, live_profile_sources
 from test_codex_sessions_fakes import ID_A, fake_host, fake_index, fake_rollout
-from test_supervisor_builders import idle_capture, make_plan, make_supervisor, mapped_track
+from test_supervisor_builders import (
+    arm_ready_marker,
+    idle_capture,
+    make_plan,
+    make_supervisor,
+    mapped_track,
+)
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -95,6 +103,21 @@ def test_reader_uses_parent_wrapper_for_custom_local_harness_and_reports_missing
     assert rendered_statusline_model(capture="body without a footer") is None
 
 
+def test_rendered_statusline_model_rejects_transcript_prose_context_mentions():
+    capture = "Stage variants for navigation actions before reading the Context 30% left signal.\n"
+
+    assert rendered_statusline_model(capture=capture) is None
+
+
+def test_rendered_statusline_model_resolves_measured_statusline_shapes():
+    plain = idle_capture(ctx=30).replace("Opus 4.8 (1M context)", "Opus 4.8")
+    truncated = "› \n  gpt-5.5 high · /x/repo · Context 30% left\n"
+
+    assert rendered_statusline_model(capture=plain) == "Opus 4.8"
+    assert rendered_statusline_model(capture=idle_capture(ctx=30)) == "Opus 4.8 (1M context)"
+    assert rendered_statusline_model(capture=truncated) == "gpt-5.5 high"
+
+
 def test_reader_handles_short_model_flag_malformed_env_and_cloud_wrapper():
     profile = read_launch_profile(
         pid=300,
@@ -106,6 +129,91 @@ def test_reader_handles_short_model_flag_malformed_env_and_cloud_wrapper():
     )
 
     assert profile == {"harness": "codex", "model": "gpt-5-codex", "wrapper": None}
+
+
+def _ready_profiled_track(*, tmp_path, capture: str, recorded_model: str):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=capture)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    registry.write_injection_stamp(
+        repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
+    )
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
+    track = replace(
+        mapped_track(repo=repo, topic=topic, session=session),
+        model_profile={"harness": "claude", "model": recorded_model, "wrapper": None},
+    )
+    registry.append_mapping(track=track, store_path=sup.store_path)
+    return repo, topic, fake, sup, track
+
+
+def test_statusline_model_mismatch_skips_restart_and_surfaces_models(*, tmp_path):
+    repo, topic, fake, sup, track = _ready_profiled_track(
+        tmp_path=tmp_path,
+        capture=idle_capture(ctx=30).replace("Opus 4.8 (1M context)", "Sonnet 4.5"),
+        recorded_model="Opus 4.8 (1M context)",
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "restarting"
+    assert not fake.has(method="respawn")
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+    assert f"{repo}::{topic}" in err.getvalue()
+    assert "Opus 4.8 (1M context)" in err.getvalue()
+    assert "Sonnet 4.5" in err.getvalue()
+
+
+def test_absent_statusline_model_does_not_skip_restart(*, tmp_path):
+    repo, topic, fake, sup, track = _ready_profiled_track(
+        tmp_path=tmp_path,
+        capture=idle_capture(ctx=None),
+        recorded_model="Opus 4.8 (1M context)",
+    )
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "restarting"
+    assert fake.has(method="respawn")
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
+
+
+def test_matching_statusline_model_restarts_unchanged(*, tmp_path):
+    repo, topic, fake, sup, track = _ready_profiled_track(
+        tmp_path=tmp_path,
+        capture=idle_capture(ctx=30),
+        recorded_model="Opus 4.8 (1M context)",
+    )
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "restarting"
+    respawns = [call for call in fake.calls if call[0] == "respawn"]
+    assert len(respawns) == 1
+    assert "--model 'Opus 4.8 (1M context)'" in respawns[0][3]
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
+
+
+def test_mismatch_does_not_rewrite_recorded_profile_from_statusline(*, tmp_path):
+    _repo, _topic, fake, sup, track = _ready_profiled_track(
+        tmp_path=tmp_path,
+        capture=idle_capture(ctx=30).replace("Opus 4.8 (1M context)", "Sonnet 4.5"),
+        recorded_model="Opus 4.8 (1M context)",
+    )
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        sup.evaluate(track=track, act=True)
+
+    rows = registry.read_valid_mapping(store_path=sup.store_path)
+    assert len(rows) == 1
+    assert rows[0].model_profile == track.model_profile
+    assert not fake.has(method="respawn")
 
 
 def test_reader_prefers_exec_surviving_wrapper_env_marker():

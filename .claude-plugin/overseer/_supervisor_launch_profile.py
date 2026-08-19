@@ -13,6 +13,7 @@ from typing import cast
 
 import registry
 from _seams import PidToOptionalBytes, PidToOptionalInt
+from _supervisor_statusline_model import rendered_statusline_model
 
 __all__: list[str] = [
     "CLAUDE_CONTROLLED_ENV",
@@ -153,17 +154,6 @@ def read_launch_profile(
         else None
     )
     return {"harness": harness, "model": model, "wrapper": wrapper}
-
-
-def rendered_statusline_model(*, capture: str) -> str | None:
-    """Best-effort rendered model segment from the runtime statusline."""
-    for line in reversed([part.strip() for part in capture.splitlines() if part.strip()]):
-        if "Ctx:" not in line and "Context " not in line:
-            continue
-        separator = "·" if "·" in line else "|"
-        model = line.split(separator, maxsplit=1)[0].strip()
-        return model or None
-    return None
 
 
 def _scrubbed_env() -> dict[str, str | None]:
