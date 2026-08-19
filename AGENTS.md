@@ -60,6 +60,24 @@ lines) were named in none of the three documents, including whole subsystems
 beside that list. The gap is DOCUMENTATION, not dead code — those modules ship
 real features.
 
+**FOURTH RE-MEASURE, 2026-08-19 — THE INVENTORY FIGURE ABOVE HAS ROUGHLY DOUBLED,
+so treat the 2026-08-01 numbers as historical.** Same scope: `_supervisor_*.py` on
+disk went **26 → 55**, modules named in none of the three documents went **22 → 37**,
+and unnamed lines went **4,069 → 5,004** (all private `overseer/_*.py`: 75 on disk,
+51 unnamed, 6,798 lines). Measured against that note's own residue — it had reduced
+the figure to 15 modules / 1,968 lines the day it was written — the debt grew
+**15 → 37 modules** in eighteen days. A reader taking "26 on disk" at face value
+today underestimates the subsystem by half.
+
+The other two premises behind the CURRENT assurance were re-checked at the same time
+and BOTH STILL HOLD: **zero** `.claude/skills/overseer/` path references across all
+three documents, and the `.ai/` present-tense premise still passes its gate. Only the
+inventory aged. The `local-only` string still describes the externally-sandboxed
+HOST exactly as recorded below — but it has MOVED, from line 403 to line 505, which
+is its own small lesson: **grep for the string, do not navigate to the cited line.**
+A line number is a measurement too, and this one aged in eighteen days while the
+claim it points at stayed true.
+
 **And note precisely what is and is not gated**, because the sentence above is
 narrower than it reads: `tests/test_module_docs_match_the_repo.py` gates exactly
 ONE premise — that no authoritative doc denies `.ai/` exists in the present tense.
