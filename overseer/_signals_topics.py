@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 __all__: list[str] = [
+    "foreman_seat_accepts_explicit_epic",
     "is_foreman_topic",
+    "reserved_worker_suffix",
     "supervisor_entity_topic",
     "supervisor_topic",
     "topic_reserved_for_supervisor",
@@ -18,12 +22,29 @@ _FOREMAN_TOPIC_ERROR = "reserved -foreman topic has no supervised worker"
 
 def topic_reserved_for_supervisor(*, topic: str) -> bool:
     """True when a worker topic would collide with the reserved pair namespace."""
-    return topic.lower().endswith(_RESERVED_WORKER_SUFFIXES)
+    return reserved_worker_suffix(topic=topic) is not None
+
+
+def reserved_worker_suffix(*, topic: str) -> str | None:
+    """The reserved worker-topic suffix matched by ``topic``, if any."""
+    topic_lower = topic.lower()
+    if topic_lower.endswith(_FOREMAN_SUFFIX):
+        return _FOREMAN_SUFFIX
+    if topic_lower.endswith(_SUPERVISOR_SUFFIX):
+        return _SUPERVISOR_SUFFIX
+    return None
 
 
 def is_foreman_topic(*, topic: str) -> bool:
     """True when a topic is the reserved foreman entity topic."""
     return topic.lower().endswith(_FOREMAN_SUFFIX)
+
+
+def foreman_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | None) -> bool:
+    """True for the repo's reserved foreman seat when the operator supplied an epic."""
+    return (
+        epic is not None and is_foreman_topic(topic=topic) and topic == f"{Path(repo).name}-foreman"
+    )
 
 
 def supervisor_entity_topic(*, topic: str) -> str:
