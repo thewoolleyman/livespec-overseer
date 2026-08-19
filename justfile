@@ -258,6 +258,9 @@ check:
         # Repo-local dispatch-safeguard gate (overseer-57f2 half i):
         # factory-authored commits must never touch SPECIFICATION/.
         check-no-factory-spec-edits
+        # Repo-local dispatch-safeguard gate (overseer-hgq4wi.1):
+        # factory-authored commits must never touch GitHub workflow files.
+        check-no-workflow-edits
         check-tmp-supervisor-discipline
         # Repo-local release-hygiene gate (overseer-d4t): generator
         # prose may not change without a release-triggering commit,

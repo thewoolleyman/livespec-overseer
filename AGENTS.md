@@ -902,7 +902,8 @@ across three bounces during the ratifying session:
 ## CI runner routing
 
 `CI_RUNNER_LABELS` (a repo variable, never a `.github/workflows/` edit —
-`check-no-workflow-edits` forbids that here) routes this repo's gating
+the full `just check` aggregate now invokes `check-no-workflow-edits` to
+forbid that here) routes this repo's gating
 `pull_request`/`push` CI matrix. **As of 2026-08-19 it is
 `["livespec-overseer-k3s"]`** — re-cut once the root cause below was found and
 fixed. The rollback history is kept because its triage lesson outlives it.
