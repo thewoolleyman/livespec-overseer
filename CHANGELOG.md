@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.4...v0.59.5) (2026-08-19)
+
+
+### Bug Fixes
+
+* pin env delta option ordering ([e026f1a](https://github.com/thewoolleyman/livespec-overseer/commit/e026f1a27297fe829a430e400c6b45bc3a1e6895))
+
 ## [0.59.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.3...v0.59.4) (2026-08-19)
 
 
