@@ -314,6 +314,7 @@ branch = true
 # RELOCATED ROW 5/7. Coverage measures the code under test, not the test code,
 # mirroring the pyright exclude above.
 omit = [
+    "/usr/local/*",
     "*/.venv/*",
     "*/site-packages/*",
     "*/__pycache__/*",

@@ -39,6 +39,7 @@ from typing import Protocol
 
 __all__: list[str] = [
     "CommToPidList",
+    "EpicLookup",
     "MappingRowPredicate",
     "PaneCommandPredicate",
     "PidToIntList",
@@ -95,6 +96,12 @@ class RepoPredicate(Protocol):
     """Answer a yes/no question about a repo path."""
 
     def __call__(self, *, repo: str) -> bool: ...
+
+
+class EpicLookup(Protocol):
+    """Resolve the plan epic for a repo/topic pair, or None when absent."""
+
+    def __call__(self, *, repo: str, topic: str) -> str | None: ...
 
 
 class PaneCommandPredicate(Protocol):
