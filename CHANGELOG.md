@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.1...v0.61.2) (2026-08-19)
+
+
+### Bug Fixes
+
+* detect stale charter generator provenance ([1bfd05a](https://github.com/thewoolleyman/livespec-overseer/commit/1bfd05a9279e96efe633fef3bc9eee1b1062fef9))
+
 ## [0.61.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.0...v0.61.1) (2026-08-19)
 
 
