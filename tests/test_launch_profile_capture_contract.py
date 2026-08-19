@@ -154,3 +154,88 @@ def test_wrapup_rechecks_launch_profile_and_surfaces_statusline_mismatch(*, tmp_
         "wrapper": None,
     }
     assert signals.read_state(repo=str(repo), topic=topic) is None
+
+
+def test_wrapup_statusline_display_name_does_not_mismatch_unchanged_launch_token(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(sessions_dir=sessions_dir, pid=200, name=topic, cwd=repo)
+    profile = {
+        "harness": "claude",
+        "model": "claude-opus-4-1-20250805",
+        "wrapper": None,
+    }
+    registry.append_mapping(
+        track=registry.Track(
+            topic=topic,
+            repo=str(repo),
+            tmux=session,
+            epic=TEST_EPIC,
+            model_profile=profile,
+        ),
+        store_path=tmp_path / "map.jsonl",
+    )
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    fake.pane_pids = {100: session}
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid_of=lambda *, pid: {200: 100}.get(pid),
+        starttime_of=lambda *, pid: {200: "pt"}.get(pid),
+        cmdline_of=lambda *, pid: _nul(
+            argv=["claude", "--model=claude-opus-4-1-20250805", "-n", topic]
+        )
+        if pid == 200
+        else None,
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "warned"
+    assert "launch profile mismatch" not in err.getvalue()
+    assert _jsonl_rows(store=tmp_path / "map.jsonl")[0]["model_profile"] == profile
+
+
+def test_wrapup_records_missing_profile_without_mismatch_alert(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(sessions_dir=sessions_dir, pid=200, name=topic, cwd=repo)
+    registry.append_mapping(
+        track=registry.Track(topic=topic, repo=str(repo), tmux=session, epic=TEST_EPIC),
+        store_path=tmp_path / "map.jsonl",
+    )
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    fake.pane_pids = {100: session}
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid_of=lambda *, pid: {200: 100}.get(pid),
+        starttime_of=lambda *, pid: {200: "pt"}.get(pid),
+        cmdline_of=lambda *, pid: _nul(
+            argv=["claude", "--model=claude-opus-4-1-20250805", "-n", topic]
+        )
+        if pid == 200
+        else None,
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "warned"
+    assert "launch profile mismatch" not in err.getvalue()
+    assert _jsonl_rows(store=tmp_path / "map.jsonl")[0]["model_profile"] == {
+        "harness": "claude",
+        "model": "claude-opus-4-1-20250805",
+        "wrapper": None,
+    }
