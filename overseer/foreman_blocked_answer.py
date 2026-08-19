@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import foreman_gate_state
+import foreman_gather_evidence
 import foreman_pane_claim
 import jsonio
 import signals
@@ -66,6 +67,12 @@ def _question_fingerprint(*, payload: dict[str, object]) -> str | None:
     return value if isinstance(value, str) and value.strip() else None
 
 
+def _human_gate_refusal(*, row: dict[str, object]) -> str | None:
+    if row.get("status") == "blocked:human" or row.get("picker_open") is True:
+        return None
+    return "pane_human_gate_unverified" if "picker_open" not in row else "pane_not_human_gated"
+
+
 def _runtime_matches(*, runtime: str, command: str | None) -> bool:
     if runtime == "claude":
         return signals.pane_is_claude(pane_current_command=command)
@@ -88,29 +95,39 @@ def _answer_refusal(
         reason = "marker_protocol_unratified"
     elif payload.get("mode") != "answer_existing_prompt":  # pragma: no cover
         reason = "unsupported_blocked_answer_mode"
-    elif row.get("status") != "blocked:human":  # pragma: no cover
-        reason = "pane_not_blocked_human"
-    elif _answer_text(payload=payload) is None:  # pragma: no cover
+    elif (gate_refusal := _human_gate_refusal(row=row)) is not None:
+        reason = gate_refusal
+    elif (  # pragma: no cover
+        _answer_text(payload=payload) is None or _question_fingerprint(payload=payload) is None
+    ):
         reason = "malformed_blocked_answer"
-    elif _question_fingerprint(payload=payload) != row.get(
-        "question_fingerprint"
-    ):  # pragma: no cover
-        reason = "question_fingerprint_changed"
     return reason, payload, row
 
 
-def _pane_refusal(*, tmux: tmuxio.PaneDriver, pane: str, runtime: str, repo: str) -> str | None:
+def _pane_refusal(
+    *,
+    tmux: tmuxio.PaneDriver,
+    pane: str,
+    runtime: str,
+    repo: str,
+    question_fingerprint: str,
+) -> tuple[str | None, str | None]:
     if not _runtime_matches(  # pragma: no cover
         runtime=runtime, command=tmux.pane_current_command(session=pane)
     ):
-        return "runtime_identity_changed"
+        return "runtime_identity_changed", None
     if not signals.path_in_repo(  # pragma: no cover
         pane_current_path=tmux.pane_current_path(session=pane), repo=repo
     ):
-        return "cwd_identity_changed"
-    if tmux.capture_pane(session=pane) != tmux.capture_pane(session=pane):  # pragma: no cover
-        return "pane_not_settled"
-    return None
+        return "cwd_identity_changed", None
+    capture = tmux.capture_pane(session=pane)
+    if capture != tmux.capture_pane(session=pane):  # pragma: no cover
+        return "pane_not_settled", None
+    if (
+        foreman_gather_evidence.pane_content_hash(text=capture) != question_fingerprint
+    ):  # pragma: no cover
+        return "question_fingerprint_changed_at_act_time", None
+    return None, capture
 
 
 def _claim(
@@ -153,7 +170,13 @@ def act_blocked_session_answer(
     pane = tmux.pane_id(session=session)
     if pane is None:  # pragma: no cover
         return _refused(reason="pane_unavailable")
-    pane_refusal = _pane_refusal(tmux=tmux, pane=pane, runtime=runtime, repo=repo)
+    pane_refusal, capture = _pane_refusal(
+        tmux=tmux,
+        pane=pane,
+        runtime=runtime,
+        repo=repo,
+        question_fingerprint=fp,
+    )
     if pane_refusal is not None:  # pragma: no cover
         return _refused(reason=pane_refusal)
     foreman_pane_claim.write_pane_claim(
@@ -174,7 +197,7 @@ def act_blocked_session_answer(
             state=foreman_gate_state.GateState(
                 runtime=runtime,
                 pane=pane,
-                capture=tmux.capture_pane(session=pane),
+                capture=capture or "",
                 question_text=answer_text,
                 question_fingerprint=fp,
             ),
