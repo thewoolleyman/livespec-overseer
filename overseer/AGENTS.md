@@ -681,9 +681,11 @@ for the marker's edge-triggered lifecycle.
     (`foreman_wrapup_message`/`foreman_resume` in `_supervisor_prompts.py`, a
     binder-certification guard parallel to `_handle_uncertified_supervisor_binder`
     in `_supervisor_restart.py`). Registration
-    (`foreman_runtime.register_foreman_track`) runs idempotently on every
-    `foreman-runtime` step, independent of any `plan/` directory — invariant 1
-    holds by construction, not by a new guard. The trigger is UNCHANGED: the
+    (`foreman_runtime.register_foreman_track`) runs idempotently by existence on
+    every `foreman-runtime` step, independent of any `plan/` directory: one row
+    exists afterwards for the canonical foreman topic/repo/tmux, and an existing
+    row's durable contents are preserved. Invariant 1 holds by construction, not
+    by a new guard. The trigger is UNCHANGED: the
     existing ctx-threshold `maybe_inject` path. `ForemanRuntime`'s own
     `hard_tick_budget`/`converged` exit reasons and the `foreman-heartbeat-stale`
     alert (`_supervisor_foreman.py`) remain daemon-observed SUGGESTIONS at most —

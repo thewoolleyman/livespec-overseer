@@ -8,7 +8,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import _registry_core
 import registry
+import supervisor
 from _claude_sessions_registry import ClaudeSession
 
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
@@ -111,6 +113,73 @@ def test_foreman_track_registration_is_independent_of_plan_and_idempotent(*, tmp
     assert [(track.topic, track.repo, track.tmux) for track in tracks] == [
         ("repo-foreman", str(repo), "repo-foreman")
     ]
+
+
+def test_foreman_track_registration_preserves_existing_durable_fields(*, tmp_path):
+    module = foreman_runtime()
+    repo = tmp_path / "fakerepo"
+    repo.mkdir()
+    topic = "fakerepo-foreman"
+    store = tmp_path / "map.jsonl"
+    registry.append_mapping(
+        track=registry.Track(
+            topic=topic,
+            repo=str(repo),
+            tmux="stale-tmux-name",
+            resume="custom resume",
+            epic="overseer-PROOF",
+            ctx_threshold=37,
+            pinned_session_id="pinned-session",
+            observed_session_identity="sess-123",
+            added_at="2026-08-19T07:42:57Z",
+            model_profile={"harness": "claude", "model": "opus", "wrapper": None},
+        ),
+        store_path=store,
+    )
+
+    module.register_foreman_track(repo=repo, store_path=store)
+    module.register_foreman_track(repo=repo, store_path=store)
+
+    tracks = registry.read_valid_mapping(store_path=store)
+    assert len(tracks) == 1
+    track = tracks[0]
+    assert track.topic == topic
+    assert track.repo == str(repo)
+    assert track.tmux == topic
+    assert track.resume == "custom resume"
+    assert track.epic == "overseer-PROOF"
+    assert track.ctx_threshold == 37
+    assert track.pinned_session_id == "pinned-session"
+    assert track.observed_session_identity == "sess-123"
+    assert track.added_at == "2026-08-19T07:42:57Z"
+    assert track.model_profile == {"harness": "claude", "model": "opus", "wrapper": None}
+
+    rows = [json.loads(line) for line in store.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 1
+    assert rows[0]["model_profile"] == {"harness": "claude", "model": "opus", "wrapper": None}
+
+
+def test_supported_foreman_epic_writer_survives_next_registration_step(*, tmp_path, monkeypatch):
+    module = foreman_runtime()
+    repo = tmp_path / "fakerepo"
+    repo.mkdir()
+    topic = "fakerepo-foreman"
+    store = tmp_path / "map.jsonl"
+    monkeypatch.setattr(_registry_core, "DEFAULT_STORE_PATH", store)
+    monkeypatch.setattr(supervisor, "_cli_colliding", lambda: frozenset())
+
+    assert (
+        supervisor.main(
+            argv=["add", "--repo", str(repo), "--topic", topic, "--epic", "overseer-PROOF"]
+        )
+        == 0
+    )
+
+    module.register_foreman_track(repo=repo, store_path=store)
+
+    tracks = registry.read_valid_mapping(store_path=store)
+    assert len(tracks) == 1
+    assert tracks[0].epic == "overseer-PROOF"
 
 
 def test_live_lock_excludes_second_runtime_and_recovers_stale_or_reused_pid(*, tmp_path):
