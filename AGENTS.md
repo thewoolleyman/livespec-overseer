@@ -555,6 +555,50 @@ loop-parked dispatch.
 | work landed | no | no | no | yes | no | **YES — PR open** |
 | remedy | fix the defect | release + re-dispatch | unset the dep | close it | dump + land | **close the duplicate; touch nothing else** |
 
+### THE DOUBLE-BRACE TRAP REACHES LEDGER COMMENTS, AND THERE IT IS TERMINAL
+
+Measured 2026-08-19 on `overseer-bc55wx.8`, which had to be **superseded** rather than
+fixed. The first entry in this section says "do NOT fix this by editing the work item".
+That advice quietly presumes editing is *possible*. For a comment it is not.
+
+**Three things the original entry does not cover.**
+
+**The goal includes COMMENTS.** `_dispatcher_goal.render_goal` assembles item fields,
+**ledger comments**, and ratified lessons into one brief. A dispatch-safety check that
+scans only `description`, `acceptance` and `title` — which is the obvious thing to
+check, and what was checked here — passes an item that is already poisoned. The
+failure arrives at stage `fabro-run` with the workflow file's own path and line number
+in the message, which reads like a defect in the workflow rather than in your item:
+
+    fabro::template::syntax
+    template expansion failed in graph attribute `goal`:
+    syntax error: unexpected `.` at line 73
+
+The line number is an offset into the **expanded goal**, not into the file it names.
+
+**The trap fires on prose ABOUT the trap.** The poisoned comment here was documenting
+*this very hazard* and quoted the token in order to name it. Writing the literal
+delimiter to warn a future reader is enough to break the item. **Name it in words** — "a
+doubled left brace" — or describe the shape without reproducing it. The same applies to
+`{%` and `{#`.
+
+**Comments are APPEND-ONLY, so the record is unrecoverable.** `bd comments` offers
+`add` and `list` and nothing else — no edit, no delete. Once a comment carries the
+token, every future dispatch of that id fails identically, forever. The only remedy is
+to **file a clean-text successor and close the original as superseded**, recording why,
+so the finding's provenance survives even though the record cannot be dispatched.
+
+**Run the successor as a CONTROL rather than assuming the diagnosis.** Here
+`overseer-bc55wx.9` carried the identical scope and acceptance with no brace tokens and
+dispatched normally on the *same* plugin build minutes later, which is what proved the
+item text — not the build, not the fleet — was at fault. Two failed dispatches, each
+under a minute, both leaving a phantom `active`/`fabro` claim to release by hand.
+
+Note that the build in use (`a56d545a1121`) *does* carry `escape_minijinja_literal` in
+`render_goal`, whose docstring claims the whole assembled brief is neutralized. It did
+not hold on this path. Until that is resolved, treat the escaper as **absent** and keep
+brace tokens out of item text and comments yourself.
+
 ### A LEDGER-EDIT item can never be factory-dispatched
 
 Measured 2026-08-04. If an item's deliverable is a beads mutation rather than a repo
