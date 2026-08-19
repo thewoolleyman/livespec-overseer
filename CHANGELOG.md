@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.2...v0.61.3) (2026-08-19)
+
+
+### Bug Fixes
+
+* catch repeated picker stall nudge ([8a0e3bc](https://github.com/thewoolleyman/livespec-overseer/commit/8a0e3bcd08fd80f3384c733046a6959a1d584ae4))
+
 ## [0.61.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.1...v0.61.2) (2026-08-19)
 
 
