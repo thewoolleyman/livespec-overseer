@@ -126,7 +126,26 @@ every existing row.
   (`ANTHROPIC_AUTH_TOKEN` is the wrapper's job; recording the wrapper
   path, never its secrets).
 
-## Open design points (decide at proposed-change time)
+## Design points — ALL RESOLVED AND RATIFIED (kept as the reasoning trail)
+
+> **These are no longer open.** Every point below was carried into the
+> proposed change and ratified as `SPECIFICATION/history/v018` on
+> 2026-08-18, each landing on the shape marked RECOMMENDED here. The
+> section is kept because the *reasoning* is still the best record of why
+> each shape was chosen — but do not read it as a decision still to make,
+> and do not re-litigate a bullet without reopening the ratified clause.
+>
+> One point EVOLVED past what it says below, and the difference matters.
+> The statusline bullet describes a mismatch as flagged "for report". As
+> shipped it is stronger: a resolved disagreement between the pane's
+> rendered model and the recorded baseline **surfaces and SKIPS the
+> restart**, keeping the ready declaration, rather than merely reporting.
+> The bullet's substance — no display-name-to-launch-token table, primary
+> sources stay argv and environ — is unchanged and remains binding.
+>
+> What the statusline can and cannot actually do was measured after this
+> note was written; see
+> [`statusline-signal-characterization.md`](./statusline-signal-characterization.md).
 
 - Whether `extra_env` is allowed at all, or wrapper-or-flag are the
   only two shapes (RECOMMENDED and now the drafted shape:
