@@ -97,6 +97,14 @@ def auto_link(*, sup: Supervisor, track: registry.Track) -> registry.Track | Non
     return linked
 
 
+def _mapped_tmux_by_track(*, sup: Supervisor) -> dict[tuple[str, str], str | None]:
+    mapping = registry.read_mapping(store_path=sup.store_path)
+    for track in mapping:
+        if track.epic is not None:
+            sup.mapping_epics[(registry.norm(repo=track.repo), track.topic)] = track.epic
+    return {(registry.norm(repo=track.repo), track.topic): track.tmux for track in mapping}
+
+
 def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
     """Adopt live Claude sessions whose registry name matches an active plan topic.
 
@@ -135,7 +143,7 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
     active: dict[str, set[str]] = {}
     for repo, topic in registry.discover_plans(watch_repos=watch):
         active.setdefault(repo, set()).add(topic)
-    existing = {(t.repo, t.topic): t.tmux for t in registry.read_mapping(store_path=sup.store_path)}
+    existing = _mapped_tmux_by_track(sup=sup)
     pane_pids = sup.tmux.pane_pid_sessions()
     # BOTH runtimes, through ONE path. `codex_sessions.map_codex_sessions` emits the
     # same `(tmux_session, name, cwd)` triple as its Claude twin precisely so adoption
@@ -183,7 +191,8 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
             repo, set()
         ):
             continue
-        if (repo, topic) in existing:
+        key = (registry.norm(repo=repo), topic)
+        if key in existing:
             # Already mapped. RE-POINT if the live named session has MOVED to a
             # different tmux session than the store records (R2, 2026-07-18): generic
             # reused windows (`livespec1`…) get cycled across topics, so a frozen
@@ -194,23 +203,22 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
             # when ambiguous (>1 live session for this track) so it cannot flip-flop.
             if (
                 (repo, topic) not in ambiguous
-                and existing[(repo, topic)] != session
+                and existing[key] != session
                 and registry.repoint_tmux(
                     repo=repo, topic=topic, new_tmux=session, store_path=sup.store_path
                 )
             ):
-                sup.log(
-                    message=f"re-pointed {repo}::{topic} tmux {existing[(repo, topic)]} → {session}"
-                )
-                existing[(repo, topic)] = session
+                sup.log(message=f"re-pointed {repo}::{topic} tmux {existing[key]} → {session}")
+                existing[key] = session
             continue
         track = registry.Track(
             topic=topic,
             repo=repo,
             tmux=session,
+            epic=sup.mapping_epics.get(key),
         )
         registry.append_mapping(track=track, store_path=sup.store_path, added_at=iso_now())
-        existing[(repo, topic)] = session
+        existing[key] = session
         adopted.append(track)
         sup.log(message=f"adopted session {session} → {repo}::{topic}")
     return adopted

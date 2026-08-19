@@ -201,6 +201,7 @@ class Supervisor:
     status_snapshot_failed: bool = field(default=False, init=False)
     inject: dict[tuple[str, str], InjectState] = field(default_factory=dict, init=False)
     pair_stalls: dict[tuple[str, str], PairStallState] = field(default_factory=dict, init=False)
+    mapping_epics: dict[tuple[str, str], str] = field(default_factory=dict, init=False)
     # Edge-trigger memory for `alert`: track key + condition → the last alert line
     # emitted for it. Keeps the log an EVENT HISTORY (one line per condition entered)
     # instead of the same line re-emitted every tick. Re-armed in `evaluate` when the
