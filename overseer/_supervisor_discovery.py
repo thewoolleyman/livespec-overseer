@@ -21,6 +21,7 @@ import collections
 import os
 from typing import TYPE_CHECKING
 
+import _supervisor_codex_adoption
 import claude_sessions
 import codex_sessions
 import registry
@@ -313,13 +314,8 @@ def refresh_codex_sessions(*, sup: Supervisor) -> None:
     ``runtime`` field on the mapping and cannot drift. Fail-soft to an empty map (no
     codex running is the overwhelmingly common case).
     """
-    sup.live_codex = codex_sessions.codex_by_tmux_session(
-        pane_pid_to_session=sup.tmux.pane_pid_sessions(),
-        codex_home=sup.codex_home,
-        ppid_of=sup.ppid_of,
-        pids_of_comm=sup.codex_pids_of_comm,
-        cwd_of=sup.codex_cwd_of,
-        fd_targets_of=sup.codex_fd_targets_of,
+    sup.live_codex = _supervisor_codex_adoption.codex_sessions_by_tmux_session(
+        sup=sup, pane_pid_to_session=sup.tmux.pane_pid_sessions()
     )
 
 
