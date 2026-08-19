@@ -428,25 +428,52 @@ recovered before the notice lands sends none — the fresh round's own wrap-up
 re-teaches the protocol instead. The notice re-opens no round, resets no notified
 band, and authorizes nothing.
 
-## The restart mechanics (unchanged — only the trigger changed)
+## The restart mechanics (unchanged trigger, profile-preserving launch)
 
 Once, and only once, the session has declared `ready`, the daemon runs:
 
-    respawn-pane -k -c <repo> 'claude --dangerously-skip-permissions -n <topic>'
+    respawn-pane -k -c <repo> '<launch-profile-aware command>'
       → wait for the fresh Claude TUI (poll #{pane_current_command})
       → bracketed-paste + verify-submit:  resume plan epic <epic> in repository <repo>;
                                           read its ledger-held plan state
       → clear the round (state file + injection stamp + notified bands)
 
-`--dangerously-skip-permissions` is required for the resumed session to run
+The launch command is profile-aware, per SPECIFICATION v018's "The launch
+profile" clause. A mapping row with NO recorded `model_profile` keeps the old
+fail-soft command:
+
+    claude --dangerously-skip-permissions -n <topic>
+
+A row with a recorded Claude profile re-asserts the recorded model on restart.
+If the profile has no wrapper, the daemon relaunches Claude with `--model
+<model>` plus the two load-bearing flags:
+
+    claude --model <model> --dangerously-skip-permissions -n <topic>
+
+If the profile records a wrapper, the daemon relaunches through that wrapper and
+sets the model in the controlled environment instead:
+
+    <wrapper> --dangerously-skip-permissions -n <topic>
+
+On every profile-aware relaunch the daemon SETS OR SCRUBS the controlled
+environment (`ANTHROPIC_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`,
+`CLAUDE_CODE_DISABLE_1M_CONTEXT`, `CLAUDE_CODE_MAX_CONTEXT_TOKENS`): wrapper/local
+tracks receive the recorded model value, and cloud/no-wrapper tracks get stale
+values scrubbed so passive inheritance cannot silently change the model or
+runtime. A stale or corrupt profile — missing/non-executable wrapper, rejected
+model token, or harness/wrapper mismatch — is surfaced to the operator and the
+restart is skipped; the daemon does not fall back to a default-model/default-wrapper
+launch.
+
+`--dangerously-skip-permissions` is still required for the resumed session to run
 **autonomously**; without it the fresh session stalls on its first permission
 prompt. The abrupt `respawn-pane -k` is safe **precisely because of the
 declaration**: the session asserted it is at a clean stopping point. And
 `respawn-pane -k` replaces the **process** — every file, worktree, branch, and
-commit on disk survives it. Every tmux step is a hard gate: if the respawn fails
-or the pane never becomes a live Claude, the daemon surfaces the failure and
-**keeps** the `ready` declaration so the next tick retries, rather than silently
-destroying it.
+commit on disk survives it. Every tmux step is a hard gate: if the respawn fails,
+the profile is stale/corrupt, or the pane never becomes a live Claude, the daemon
+surfaces the failure and **keeps** the `ready` declaration so the next tick
+retries, rather than silently destroying it.
 
 **The resume-submit is self-healing (R1, 2026-07-18).** A freshly-respawned TUI
 can DROP the resume line's Enter while still drawing its welcome screen, leaving

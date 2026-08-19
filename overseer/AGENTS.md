@@ -69,6 +69,26 @@ writes combined output to `$run_dir/output.log`, writes the launcher pid to
 session should arm a wake, then read the disk files and the normal Fabro/forge
 surfaces on wake; a task-notification is not the completion record.
 
+## Launch Profile Preservation
+
+Restarts preserve the runtime launch profile recorded for the tracked session,
+not just the topic name. The daemon captures and refreshes each track's
+`model_profile` from live process state, then restart/recovery planning in the
+`_supervisor_launch_profile*` tree re-asserts the recorded harness, model, and
+wrapper. Enumerate the current modules from the tree before editing this
+subsystem; this paragraph names the behavior, not a complete inventory.
+
+The bare Claude command (`claude --dangerously-skip-permissions -n <topic>`) is
+only the fail-soft path for a mapping row with no recorded profile. A profile
+with no wrapper relaunches with `--model <model>`; a wrapper profile relaunches
+through the wrapper and sets the recorded model in the controlled environment.
+Every profile-aware relaunch SETS OR SCRUBS the controlled Claude environment
+(`ANTHROPIC_MODEL`, `ANTHROPIC_SMALL_FAST_MODEL`,
+`CLAUDE_CODE_DISABLE_1M_CONTEXT`, `CLAUDE_CODE_MAX_CONTEXT_TOKENS`) so stale
+inherited values cannot silently change the runtime/model. A stale or corrupt
+profile is a surface-and-skip condition, never permission to fall back to a bare
+default launch.
+
 ## The evaluate() state machine
 
 `Supervisor.evaluate(track)` re-classifies each tracked session **from scratch
@@ -380,20 +400,23 @@ for the marker's edge-triggered lifecycle.
    from the code**. If you find yourself re-adding a timer, a grace, or any
    daemon-side judgment that ends in a respawn, STOP: you are reintroducing it.
 
-   The restart **mechanics** are unchanged and still required — only the **trigger**
-   moved to the session's declaration. `_do_restart` is **RUNTIME-DISPATCHED**
-   (`is_codex` selects the arm); the Claude arm is:
+   The restart **mechanics** are still required — only the **trigger** moved to
+   the session's declaration. `_do_restart` is **RUNTIME-DISPATCHED** (`is_codex`
+   selects the arm); the Claude arm is:
 
    - **(a) exit + restart** — the ATOMIC `respawn-pane -k` (kill the pane's process
      and launch the new one in a single tmux op), NOT a `/exit` followed by a scrape
      for the shell prompt. The `❯` glyph is ambiguously BOTH the Claude idle prompt
      and the zsh prompt, so a mis-timed "the shell is back" would type into the
      still-live session.
-   - **(b) `claude --dangerously-skip-permissions -n <topic>`** — BOTH flags are
-     required (`Supervisor._launch_command`). Without
-     `--dangerously-skip-permissions` the fresh session stalls on its first
-     permission prompt and the restart is NOT autonomous, which defeats the whole
-     mechanism; `-n <topic>` re-assigns the session name from the plan topic.
+   - **(b) a launch-profile-aware command** — no recorded `model_profile` keeps
+     the fail-soft bare command `claude --dangerously-skip-permissions -n
+     <topic>`; a profile with no wrapper relaunches with `--model <model>`; a
+     wrapper profile relaunches through the wrapper and sets the recorded model in
+     the controlled environment. The daemon SETS OR SCRUBS the controlled Claude
+     env vars on every profile-aware relaunch, and a stale/corrupt profile is
+     surfaced with the restart skipped rather than falling back to a default.
+     `--dangerously-skip-permissions` and `-n <topic>` remain load-bearing.
    - **(c) the resume line** — `resume plan epic <epic> in repository <repo>; read
      its ledger-held plan state`, bracketed-pasted AND verify-submitted once the
      fresh TUI is up (`_supervisor_prompts.resume_for_track` + `_submit_prompt`).
@@ -914,10 +937,12 @@ for the marker's edge-triggered lifecycle.
   `idle` (see invariant 9 for the marker lifecycle).
 - **Atomic restart via `respawn-pane -k`, proven by `#{pane_current_command}`.**
   Restart replaces the pane's process in one step (`respawn-pane -k -c <repo>
-  'claude --dangerously-skip-permissions -n <topic>'`) — NEVER `/exit` then
-  screen-scrape a shell prompt. The `❯` glyph is ambiguously BOTH the Claude idle
-  prompt and the zsh prompt, so a mis-timed "shell is back" could type `claude …`
-  into the still-live session. Wait for the fresh TUI by polling
+  '<launch-profile-aware command>'`) — NEVER `/exit` then screen-scrape a shell
+  prompt. The command is bare only for rows with no recorded profile; recorded
+  profiles re-assert the wrapper/model and stale/corrupt profiles surface and
+  skip the restart. The `❯` glyph is ambiguously BOTH the Claude idle prompt and
+  the zsh prompt, so a mis-timed "shell is back" could type `claude …` into the
+  still-live session. Wait for the fresh TUI by polling
   `#{pane_current_command}` → `node`/`claude` (`signals.pane_is_claude`), never by
   scraping `❯`. There is exactly ONE restart path and its abrupt kill is safe
   because of the DECLARATION: the session itself asserted it is at a clean stopping
