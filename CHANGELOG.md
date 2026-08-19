@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.62.1...v0.62.2) (2026-08-19)
+
+
+### Bug Fixes
+
+* require foreman epic statically ([7a134c3](https://github.com/thewoolleyman/livespec-overseer/commit/7a134c3ad78c0d9eb9a601b99140cb6360526f32))
+
 ## [0.62.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.62.0...v0.62.1) (2026-08-19)
 
 
