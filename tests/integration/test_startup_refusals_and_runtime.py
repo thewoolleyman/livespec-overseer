@@ -212,7 +212,10 @@ def test_scenario_the_daemon_refuses_an_unsupported_host(*, tmp_path):
         gitignore_check=lambda *, repo: False,  # ...and the SECOND gate would fail too
     )
     contender = supervisor.Supervisor(  # ...and the THIRD gate is contested as well
-        tmux=FakeTmux(), store_path=sup.store_path, stamp_path=sup.stamp_path
+        tmux=FakeTmux(),
+        store_path=sup.store_path,
+        stamp_path=sup.stamp_path,
+        status_path=str(tmp_path / "contender-status.json"),
     )
     held = contender._acquire_singleton_lock()
     assert held is not None
@@ -286,7 +289,10 @@ def test_scenario_a_second_daemon_instance_refuses_to_start(*, tmp_path):
     """
     _repo, _topic, _session, fake, sup = _warnable(tmp_path=tmp_path)
     first = supervisor.Supervisor(
-        tmux=FakeTmux(), store_path=sup.store_path, stamp_path=sup.stamp_path
+        tmux=FakeTmux(),
+        store_path=sup.store_path,
+        stamp_path=sup.stamp_path,
+        status_path=str(tmp_path / "first-status.json"),
     )
     held = first._acquire_singleton_lock()
     assert held is not None

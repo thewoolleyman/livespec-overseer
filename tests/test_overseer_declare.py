@@ -178,6 +178,7 @@ def _supervisor(
         tmux=driver,
         store_path=str(tmp_path / "map.jsonl"),
         stamp_path=str(tmp_path / "stamps.json"),
+        status_path=str(tmp_path / "status.json"),
         now=time.time,
         sleep=lambda _seconds: None,
         out=_io.StringIO(),
