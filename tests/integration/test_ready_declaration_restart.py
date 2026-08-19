@@ -215,7 +215,11 @@ def test_scenario_a_respawn_prompt_names_the_plan_epic_and_repository(*, tmp_pat
         "run",
         lambda *_a, **_k: (_ for _ in ()).throw(FileNotFoundError("bd not found (stubbed)")),
     )
-    missing_track = replace(missing_track, epic=None, resume=legacy_resume)
+    missing_track = replace(
+        missing_track,
+        epic=registry.unresolved_plan_epic(topic=missing_topic),
+        resume=legacy_resume,
+    )
     missing_marker = declare(
         repo=missing_repo,
         topic=missing_topic,
@@ -246,7 +250,7 @@ def test_stale_epic_null_row_heals_and_restarts_on_ready(*, tmp_path):
     written afterward — either way, the row predates a resolvable anchor).
     """
     repo, topic, _session, fake, sup, track = _open_round(tmp_path=tmp_path, topic="stale-epic")
-    track = replace(track, epic=None)
+    track = replace(track, epic=registry.unresolved_plan_epic(topic=topic))
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
 
     view = sup.evaluate(track=track, act=True)

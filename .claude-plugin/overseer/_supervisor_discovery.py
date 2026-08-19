@@ -164,11 +164,11 @@ def auto_link(*, sup: Supervisor, track: registry.Track) -> registry.Track | Non
     path = sup.tmux.pane_current_path(session=session)
     if not signals.path_in_repo(pane_current_path=path, repo=track.repo):
         return None
-    linked = registry.Track(
+    linked = registry.PlanTrack(
         topic=track.topic,
         repo=track.repo,
         tmux=session,
-        epic=track.epic,
+        epic=track.epic or registry.unresolved_plan_epic(topic=track.topic),
     )
     registry.append_mapping(track=linked, store_path=sup.store_path, added_at=iso_now())
     sup.log(message=f"auto-linked live session {session} → {track.repo}::{track.topic}")
@@ -178,8 +178,9 @@ def auto_link(*, sup: Supervisor, track: registry.Track) -> registry.Track | Non
 def _mapped_tmux_by_track(*, sup: Supervisor) -> dict[tuple[str, str], str | None]:
     mapping = registry.read_valid_mapping(store_path=sup.store_path)
     for track in mapping:
-        if track.epic is not None:
-            sup.mapping_epics[(registry.norm(repo=track.repo), track.topic)] = track.epic
+        epic = track.epic
+        if registry.epic_is_resolved(epic=epic) and epic is not None:
+            sup.mapping_epics[(registry.norm(repo=track.repo), track.topic)] = epic
     return {(registry.norm(repo=track.repo), track.topic): track.tmux for track in mapping}
 
 
@@ -276,11 +277,11 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
                 sup.log(message=f"re-pointed {repo}::{topic} tmux {existing[key]} → {session}")
                 existing[key] = session
             continue
-        track = registry.Track(
+        track = registry.PlanTrack(
             topic=topic,
             repo=repo,
             tmux=session,
-            epic=sup.mapping_epics.get(key),
+            epic=sup.mapping_epics.get(key) or registry.unresolved_plan_epic(topic=topic),
             model_profile=_profile_for_adoption(
                 sup=sup,
                 source=profile_sources.get((session, topic)),

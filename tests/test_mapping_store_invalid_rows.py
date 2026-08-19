@@ -29,3 +29,23 @@ def test_read_mapping_reports_invalid_object_rows_without_dropping_valid_neighbo
     assert invalid.reason == "missing_topic_or_repo"
     assert invalid.raw_line == bad
     assert invalid.lineno == 2
+
+
+def test_read_mapping_reports_constructor_rejected_rows(*, tmp_path):
+    store = tmp_path / "map.jsonl"
+    bad = json.dumps(
+        {
+            "kind": "supervisor",
+            "topic": "plain",
+            "repo": "/r",
+            "tmux": "plain",
+            "epic": "overseer-plain",
+        }
+    )
+    store.write_text(bad + "\n", encoding="utf-8")
+
+    [entry] = registry.read_mapping(store_path=store)
+
+    assert type(entry).__name__ == "MappingInvalid"
+    assert entry.reason == "missing_supervised_topic"
+    assert entry.raw_line == bad

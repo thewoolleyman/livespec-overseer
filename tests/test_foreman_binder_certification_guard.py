@@ -41,7 +41,12 @@ def test_foreman_ready_without_epic_is_surfaced_without_respawn(*, tmp_path, mon
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
     declare(repo=repo, topic=topic, value="ready", mtime=1001.0)
-    track = registry.Track(topic=topic, repo=str(repo), tmux=session, epic=None)
+    track = registry.ForemanSeat(
+        topic=topic,
+        repo=str(repo),
+        tmux=session,
+        epic=registry.unresolved_plan_epic(topic=topic),
+    )
 
     err = io.StringIO()
     with contextlib.redirect_stderr(err):

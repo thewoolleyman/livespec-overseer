@@ -55,7 +55,8 @@ def _migrated_supervisor_epic_certifies(*, track: registry.Track) -> bool:
     except (OSError, ValueError):
         return False
     lowered = text.lower()
-    names_epic = track.epic is not None and track.epic in text
+    epic = track.epic
+    names_epic = registry.epic_is_resolved(epic=epic) and epic is not None and epic in text
     names_ledger = "ledger" in lowered
     return names_epic and names_ledger
 
@@ -120,7 +121,9 @@ def _handle_uncertified_foreman_binder(
     *, sup: Supervisor, track: registry.Track, target: str
 ) -> bool:
     """Alert (and report True) when a foreman track has no restartable epic."""
-    if not signals.is_foreman_topic(topic=track.topic) or track.epic is not None:
+    if not signals.is_foreman_topic(topic=track.topic) or registry.epic_is_resolved(
+        epic=track.epic
+    ):
         return False
     sup.alert(
         repo=track.repo,

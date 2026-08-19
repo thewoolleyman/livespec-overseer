@@ -69,6 +69,25 @@ def test_set_epic_rewrites_only_the_matching_row_and_preserves_unknown_keys(*, t
     assert registry.set_epic(repo="/r", topic="missing", epic="x", store_path=store) is False
 
 
+def test_set_epic_refuses_to_emit_invalid_reserved_rows(*, tmp_path, capsys):
+    store = tmp_path / "map.jsonl"
+    store.write_text(
+        json.dumps({"kind": "foreman", "topic": "repo-foreman", "repo": "/r"}) + "\n",
+        encoding="utf-8",
+    )
+
+    assert (
+        registry.set_epic(repo="/r", topic="repo-foreman", epic="overseer-f", store_path=store)
+        is False
+    )
+    assert json.loads(store.read_text(encoding="utf-8")) == {
+        "kind": "foreman",
+        "topic": "repo-foreman",
+        "repo": "/r",
+    }
+    assert "refusing invalid mapping update" in capsys.readouterr().err
+
+
 def test_epic_from_plan_anchor_accepts_observed_labels_and_wrapped_ids(*, tmp_path, monkeypatch):
     cases = {
         "ledger": b"**Ledger anchor:** epic **`overseer-ledger`**\n",
@@ -419,8 +438,8 @@ def test_cli_assignment_populates_epic_from_plan_anchor_with_null_control(*, tmp
         for track in registry.read_valid_mapping(store_path=store)
     }
     assert tracks[("anchored", "alpha")].epic == "overseer-pfpfty"
-    assert tracks[("unanchored", "beta")].epic is None
-    assert tracks[("missing", "gamma")].epic is None
+    assert tracks[("unanchored", "beta")].epic == "legacy-unresolved:beta"
+    assert tracks[("missing", "gamma")].epic == "legacy-unresolved:gamma"
 
 
 def test_read_mapping_rewrites_plan_handoff_resume_overrides_to_ledger_epics(*, tmp_path):

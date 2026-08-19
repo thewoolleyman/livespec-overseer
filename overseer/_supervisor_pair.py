@@ -64,10 +64,14 @@ def evaluate_supervisor_pair(
     # The pair shares ONE epic and one stream (spec section "the supervisor pair member"),
     # so the entity track carries the worker's. Its own resume prompt is DERIVED from the
     # reserved entity topic rather than stored here, which is why no `resume` is set.
-    supervisor_track = registry.Track(
+    epic = track.epic
+    if not registry.epic_is_resolved(epic=epic) or epic is None:
+        return None
+    supervisor_track = registry.SupervisorSeat(
         topic=entity_topic,
         repo=repo,
         tmux=session,
-        epic=track.epic,
+        epic=epic,
+        supervised_topic=topic,
     )
     return _supervisor_evaluate.evaluate(sup=sup, track=supervisor_track, act=act)

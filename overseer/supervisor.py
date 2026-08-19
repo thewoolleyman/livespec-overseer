@@ -49,6 +49,7 @@ import io
 import json
 import os
 
+import _supervisor_assignment
 import _supervisor_snapshot
 import registry
 import signals
@@ -83,7 +84,6 @@ __all__: list[str] = [
     "plan_state_locator",
     "wrapup_message",
 ]
-
 
 # --------------------------------------------------------------------------- #
 # CLI. The daemon NEVER calls `start` — launching a session is surface-only.
@@ -144,26 +144,12 @@ def _track_for_assignment(
     epic: str | None = None,
     ctx_threshold: int | None = None,
 ) -> registry.Track:
-    """Build the mapping row written by attended assignment surfaces.
-
-    No ``resume`` is written. That field is the OPERATOR's optional per-track override of
-    the respawn prompt, and auto-populating it with a derived line made every row look
-    like an override — which is why the derived value has to be ignored on read. The
-    daemon derives the prompt from ``repo``, ``epic``, and the entity name instead.
-
-    ``epic_source_topic`` overrides which topic's ``plan/<topic>/`` the epic is
-    derived FROM, while ``topic``/``tmux`` stay the entity's own — the
-    supervisor-epic-inheritance path (a ``-supervisor`` topic deriving from the
-    worker topic it supervises, since a supervisor entity has no plan directory
-    of its own). None (the default) derives from ``topic`` itself, unchanged.
-    """
-    return registry.Track(
-        topic=topic,
+    return _supervisor_assignment.assignment_track(
         repo=repo,
-        tmux=session,
-        epic=epic
-        if epic is not None
-        else registry.epic_from_plan_anchor(repo=repo, topic=epic_source_topic or topic),
+        topic=topic,
+        session=session,
+        epic_source_topic=epic_source_topic,
+        epic=epic,
         ctx_threshold=ctx_threshold,
     )
 

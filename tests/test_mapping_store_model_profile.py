@@ -3,6 +3,8 @@
 import dataclasses
 import json
 
+import _registry_track_row_parse as row_parse
+import pytest
 import registry
 from registry import Track
 
@@ -15,7 +17,7 @@ def test_track_accepts_optional_model_profile():
     track = Track(topic="profiled", repo="/r", model_profile=model_profile)
 
     assert track.model_profile == model_profile
-    assert dataclasses.fields(Track)[-2].kw_only is True
+    assert dataclasses.fields(registry.PlanTrack)[-2].kw_only is True
 
 
 def test_model_profile_roundtrips_through_append_and_rewrite(*, tmp_path):
@@ -74,3 +76,114 @@ def test_malformed_model_profile_is_dropped_fail_soft(*, tmp_path, capsys):
 
     assert track.model_profile is None
     assert "dropping malformed model_profile" in capsys.readouterr().err
+
+
+def test_track_variant_helpers_and_unassigned_properties_are_covered():
+    unassigned = registry.UnassignedPlan.make(repo="/r", topic="t")
+    assert unassigned.added_at is None
+    assert unassigned.model_profile is None
+    assert unassigned.ctx_threshold is None
+    assert unassigned.pinned_session_id is None
+    assert unassigned.observed_session_identity is None
+    assert registry.Track.make_unassigned(repo="/r", topic="t").kind == "unassigned_plan"
+    assert registry.Track(topic="t", repo="/r", assigned=False).kind == "unassigned_plan"
+    assert registry.track_with_epic(track=unassigned, epic="overseer-t") is unassigned
+    assert registry.unresolved_plan_epic(topic="t") == "legacy-unresolved:t"
+    assert registry.epic_is_resolved(epic="overseer-real") is True
+    assert registry.epic_is_resolved(epic="legacy-unresolved:t") is False
+    assert registry.epic_is_resolved(epic=None) is False
+
+    assert row_parse.optional_model_profile(value=None) is None
+    assert row_parse.optional_model_profile(value={"model": 1}) is None
+    assert row_parse.optional_model_profile(value={"model": "gpt", "wrapper": None}) == {
+        "model": "gpt",
+        "wrapper": None,
+    }
+
+
+def test_track_variant_constructor_failures_are_covered():
+    with pytest.raises(ValueError, match="missing_topic"):
+        row_parse.require_str(row={}, key="topic")
+    with pytest.raises(ValueError, match="missing_tmux"):
+        row_parse.require_str(row={"tmux": ""}, key="tmux")
+    with pytest.raises(ValueError, match="missing_epic"):
+        row_parse.require_str(row={"epic": None}, key="epic")
+    with pytest.raises(ValueError, match="plan track requires tmux"):
+        registry.PlanTrack(topic="t", repo="/r", tmux="", epic="overseer-t")
+    with pytest.raises(ValueError, match="plan track requires epic"):
+        registry.PlanTrack(topic="t", repo="/r", tmux="t", epic="")
+    with pytest.raises(ValueError, match="supervisor seat requires tmux"):
+        registry.SupervisorSeat(
+            topic="t-supervisor",
+            repo="/r",
+            tmux="",
+            epic="overseer-t",
+            supervised_topic="t",
+        )
+    with pytest.raises(ValueError, match="supervisor seat requires epic"):
+        registry.SupervisorSeat(
+            topic="t-supervisor",
+            repo="/r",
+            tmux="t-supervisor",
+            epic="",
+            supervised_topic="t",
+        )
+    with pytest.raises(ValueError, match="supervisor seat requires supervised topic"):
+        registry.SupervisorSeat(
+            topic="t-supervisor",
+            repo="/r",
+            tmux="t-supervisor",
+            epic="overseer-t",
+            supervised_topic="",
+        )
+    supervisor = registry.SupervisorSeat(
+        topic="t-supervisor",
+        repo="/r",
+        tmux="t-supervisor",
+        epic="overseer-t",
+        supervised_topic="t",
+    )
+    assert supervisor.assigned is True
+    with pytest.raises(ValueError, match="foreman seat requires tmux"):
+        registry.ForemanSeat(topic="repo-foreman", repo="/r", tmux="", epic="overseer-f")
+    foreman = registry.ForemanSeat(
+        topic="repo-foreman",
+        repo="/r",
+        tmux="repo-foreman",
+        epic="overseer-f",
+    )
+    assert foreman.assigned is True
+    assert foreman.is_unassigned is False
+
+
+def test_track_from_mapping_row_rejects_unknown_and_malformed_reserved_kinds():
+    extras = row_parse.RowExtras(
+        resume=None,
+        ctx_threshold=None,
+        pinned_session_id=None,
+        observed_session_identity=None,
+        added_at=None,
+        model_profile=None,
+    )
+    with pytest.raises(ValueError, match="missing_supervised_topic"):
+        row_parse.track_from_mapping_row(
+            row={
+                "kind": "supervisor",
+                "topic": "plain",
+                "repo": "/r",
+                "tmux": "plain",
+                "epic": "overseer-t",
+            },
+            extras=extras,
+        )
+    with pytest.raises(ValueError, match="unknown_kind:mystery"):
+        row_parse.track_from_mapping_row(
+            row={
+                "kind": "mystery",
+                "topic": "plain",
+                "repo": "/r",
+                "tmux": "plain",
+                "epic": "overseer-t",
+            },
+            extras=extras,
+        )

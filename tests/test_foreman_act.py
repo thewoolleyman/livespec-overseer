@@ -383,9 +383,6 @@ def test_supervisor_prompt_resume_builders_cover_ledger_and_no_epic_shapes(*, tm
     supervisor = registry.Track(
         topic=f"{topic}-supervisor", repo=repo, tmux=f"{topic}-supervisor", epic=epic
     )
-    supervisor_without_epic = registry.Track(
-        topic=f"{topic}-supervisor", repo=repo, tmux=f"{topic}-supervisor", epic=None
-    )
 
     assert prompts.plan_state_locator(repo=repo, epic=None).count("NO plan epic id") == 1
     assert prompts.plan_state_locator(repo=repo, epic=epic) == (
@@ -399,7 +396,7 @@ def test_supervisor_prompt_resume_builders_cover_ledger_and_no_epic_shapes(*, tm
     assert prompts.resume_for_track(track=supervisor) == prompts.supervisor_ledger_resume(
         repo=repo, topic=topic, epic=epic
     )
-    supervisor_without_epic_resume = prompts.resume_for_track(track=supervisor_without_epic)
+    supervisor_without_epic_resume = prompts.supervisor_resume(repo=repo, topic=topic, epic=None)
     assert supervisor_without_epic_resume is not None
     assert "NO plan epic id" in supervisor_without_epic_resume
     assert prompts.launch_resume(track=worker) == prompts.plan_epic_resume(repo=repo, epic=epic)

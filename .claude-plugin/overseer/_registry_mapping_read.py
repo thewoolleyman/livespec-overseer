@@ -10,6 +10,7 @@ from _registry_core import Track, file_lock, resolve_store, warn
 from _registry_resume import normalize_rows
 from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
 from _registry_rows_io import RawMappingRow, read_row_records, read_rows, write_rows
+from _registry_track_row_parse import RowExtras, track_from_mapping_row
 
 __all__: list[str] = [
     "MappingEntry",
@@ -45,21 +46,23 @@ def _track_from_record(*, record: RawMappingRow) -> MappingEntry:
             raw_line=record.raw_line,
             lineno=record.lineno,
         )
-    return MappingValid(
-        track=Track(
-            topic=topic,
-            repo=repo,
-            tmux=opt_str_from_row(row=row, key="tmux"),
-            resume=opt_str_from_row(row=row, key="resume"),
-            epic=opt_str_from_row(row=row, key="epic"),
-            ctx_threshold=ctx_threshold_from_row(row=row),
-            pinned_session_id=opt_str_from_row(row=row, key="pinned_session_id"),
-            observed_session_identity=opt_str_from_row(row=row, key="observed_session_identity"),
-            added_at=opt_str_from_row(row=row, key="added_at"),
-            model_profile=model_profile_from_row(row=row, repo=repo, topic=topic),
-            assigned=True,
+    try:
+        track = track_from_mapping_row(
+            row=row,
+            extras=RowExtras(
+                resume=opt_str_from_row(row=row, key="resume"),
+                ctx_threshold=ctx_threshold_from_row(row=row),
+                pinned_session_id=opt_str_from_row(row=row, key="pinned_session_id"),
+                observed_session_identity=opt_str_from_row(
+                    row=row, key="observed_session_identity"
+                ),
+                added_at=opt_str_from_row(row=row, key="added_at"),
+                model_profile=model_profile_from_row(row=row, repo=repo, topic=topic),
+            ),
         )
-    )
+    except ValueError as exc:
+        return MappingInvalid(reason=str(exc), raw_line=record.raw_line, lineno=record.lineno)
+    return MappingValid(track=track)
 
 
 def read_mapping(*, store_path: str | os.PathLike[str] | None = None) -> list[MappingEntry]:
