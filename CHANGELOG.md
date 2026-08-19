@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.0...v0.59.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* pin launch wrapper capture contract ([e7903fc](https://github.com/thewoolleyman/livespec-overseer/commit/e7903fc1bf888e2c14c45fa31f9bfe82ab447293))
+
 ## [0.59.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.58.0...v0.59.0) (2026-08-19)
 
 
