@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.56.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.56.0...v0.56.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* add atomic epic mapping update ([428cdb2](https://github.com/thewoolleyman/livespec-overseer/commit/428cdb2fc4ac497d20cd8f71b5f2eb79c32d69bd))
+* preserve epic during session adoption ([196e8ae](https://github.com/thewoolleyman/livespec-overseer/commit/196e8aebc8dfdd5965811e2c0b791f039435935a))
+
 ## [0.56.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.55.2...v0.56.0) (2026-08-19)
 
 
