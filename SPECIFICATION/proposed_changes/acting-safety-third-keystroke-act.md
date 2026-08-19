@@ -73,67 +73,79 @@ review that claim is CONDITIONAL, not free-standing:** it holds only if the
 maintainer answers Q1 and Q2 below toward the shipped behavior. Answering either
 toward the drafted text makes this a spec change AND a code change.
 
-### Two questions this proposal does NOT decide
+### Dispositions — Q1, Q2 and Q3 are ANSWERED
 
-Both were raised by the independent review because the drafted clause was
-narrower or stricter than the shipped code. Each is a genuine choice about what
-the daemon should DO, not a wording preference, so each is put as a question
-rather than resolved here.
+The three questions this proposal raised are no longer open. They were settled
+by a pinned three-model consensus panel (`claude-fable-5`, `claude-opus-5`,
+`gpt-5.6-sol`) convened under an explicit maintainer delegation to decide them
+by panel. Outcome: **UNANIMOUS** (`three_typed_actions_equal`), no dissent, no
+reviewer flagged hard risk, and all three recorded the action as reversible
+(the spec change lands as a PR; reverting the PR restores the prior letter).
 
-**Q1 — Which topic classes may receive this paste?**
+DISPOSITION AUTHORITY, on disk and citable:
 
-The original draft said "a RESERVED SUPERVISOR topic only, never a worker".
-That is narrower than the code. The gate is
-`signals.topic_reserved_for_supervisor`, and
-`overseer/_signals_topics.py:13-21` defines it over
-`_RESERVED_WORKER_SUFFIXES = ("-supervisor", "-foreman")` — it returns True for
-a `-foreman` topic as well. The shipped daemon will paste this reminder into a
-stalled FOREMAN picker.
+    tmp/overseer/foreman/consensus/
+      4e066523c6948156e4a2b8497ddcecc61b66ea17b39364188ec3d394f06ad2d4.json
+      4e066523-request.json
+      4e066523-responses.json      (all three rationales, verbatim)
 
-- **Q1(a)** Ratify the shipped predicate: both reserved entity suffixes,
-  `-supervisor` and `-foreman`. No code change.
-- **Q1(b)** Narrow the code to `-supervisor` only, and specify that. A code
-  change plus a test.
+Each reviewer independently verified against the tree rather than against the
+dossier, and their rationales cite the same line ranges this proposal does.
 
-Q1(a) is the no-behavior-change answer. Q1(b) deserves real weight anyway: the
-foreman is an operator role that acts on the fleet, and pasting a
-SUPERVISOR-worded charter reminder into a foreman's picker may simply be the
-wrong message rather than a sanctioned act. Whichever is chosen, the spec text
-must name the predicate that the code actually holds.
+**Q1 — ANSWERED: `both-suffixes`.** Ratify the shipped scope of
+`signals.topic_reserved_for_supervisor`: BOTH the `-supervisor` and `-foreman`
+reserved entity suffixes. This describes shipped code
+(`overseer/_signals_topics.py:15-21`, gated at
+`overseer/_supervisor_picker_stall.py:88`) and is no behavior change.
 
-**Q2 — What bounds the repeat?**
+**Q2 — ANSWERED: `require-code-fix-before-ratification`.** The once-per-episode
+sentence goes into the ratified letter ONLY together with the code made true.
+`overseer/_supervisor_progress.py:39-46` must hold `picker_stall_nudged` across
+the paste's OWN capture echo, and the paste-echo scenario leg added by this
+proposal (Change 3, third scenario) is the falsifiability instrument all three
+reviewers named — it is what makes the bound assertable at all, given that
+today's `FakeTmux` cannot exhibit the defect.
 
-The original draft said the paste fires "at most ONCE per stall episode", with a
-daemon restart re-arming it. That is STRICTER than the code, and the difference
-is not cosmetic.
+**This answer is a SEQUENCING constraint on `/livespec:revise`, not merely a
+wording choice.** The episode-bound sentence has an unmet precondition until
+that code change lands, so revising it in beforehand would ratify a sentence
+the daemon does not hold — reproducing precisely the defect this proposal
+exists to close. The code work is tracked as `overseer-6tfncs.1`, a child of plan
+epic `overseer-6tfncs`.
 
-`overseer/_supervisor_progress.py:35-50` (`blocked_human_stall_seconds`) resets
-`istate.picker_stall_nudged = False` whenever
-`obs.istate.blocked_human_stall_capture != obs.capture` — that is, on ANY change
-to the pane capture. A successful paste lands the reminder text in the picker's
-composer, which CHANGES the capture. So the shipped sequence is: paste → flag
-and stall clock both reset → thirty minutes of renewed stillness → paste again,
-repeating indefinitely while a human stays away, accumulating reminder text in
-the composer.
+**Q3 — ANSWERED: `five-acts-expiry-as-wrapup-tail`.** The enumeration names
+FIVE daemon informational acts, with the ready-expiry notice enumerated as a
+member but characterized as the wrap-up's ROUND-SCOPED TAIL rather than an act
+with an independent trigger predicate. That reconciles the two ratified
+sentences instead of picking one over the other: `spec.md:369-371` already
+subjects the notice to "the complete guarded-paste predicate that governs a
+wrap-up" and calls it "a bounded companion to the escalation", while
+`spec.md:531-539` already counts it as a distinct member. `spec.md:531-539`
+MUST be amended to the same five-act enumeration in the same pass.
 
-**The existing test cannot see this.** `FakeTmux` does not echo a paste back
-into its capture, so the once-per-episode assertion in
-`overseer/test_supervisor_liveness_starvation.py` passes against a fixture whose
-capture never changes. The bound is real in the test and absent in production.
+The five daemon informational acts, enumerated from the tree:
 
-- **Q2(a)** Ratify the shipped behavior by defining the episode as
-  CAPTURE-STABILITY-KEYED: one paste per interval of unchanged capture, which
-  under a persistent human absence means a reminder roughly every
-  `PICKER_STALL_AFTER`. No code change; the spec must then say plainly that the
-  reminder repeats, so no reader mistakes "once per episode" for "once".
-- **Q2(b)** Fix the code to hold the bound across the paste's own echo — for
-  example by keying the reset on a capture change that is not attributable to
-  the daemon's own paste — and specify a true once-per-episode bound. A code
-  change plus a test that can actually observe the echo.
+1. The low-context wrap-up — `overseer/_supervisor_restart.py:213`
+2. The ready-expiry notice, the wrap-up's round-scoped tail —
+   `overseer/_supervisor_threshold.py:173`
+3. The idle-with-context-left keep-going nudge —
+   `overseer/_supervisor_nudge.py:118`
+4. The bounded pair-stall nudge — `overseer/_supervisor_pair_stall.py:149`
+5. The stalled-picker charter reminder — `overseer/_supervisor_nudge.py:148`,
+   called from `overseer/_supervisor_picker_stall.py:88-95`
 
-Related, and worth deciding alongside: this act has NO second-episode
-escalation, unlike the pair-stall nudge's ratified skip-and-surface rule. If
-Q2(a) is chosen, an unbounded repeat with no escalation is what gets ratified.
+The restart family (`_supervisor_restart.py:289`,
+`_supervisor_recovery.py:205`, `_supervisor_launch.py:195/235/246`) is governed
+separately by §"The restart" and stays outside this enumeration, as do the
+foreman's own acts (`foreman_blocked_answer.py:205-207`,
+`foreman_gate_state.py:61-63`).
+
+**What is still NOT decided here.** This proposal remains a PROPOSAL. Recording
+these dispositions does not amend any ratified file; only `/livespec:revise`
+does that, and under Q2 it is sequenced behind `overseer-6tfncs.1`. The original
+refusal to self-authorize a keystroke act into gated, human-waiting panes stands
+as written — what changed is that the DECISION is now made and recorded, not
+that the decision was taken by the drafting session.
 
 ### Change 1 — `SPECIFICATION/constraints.md`, section "Acting safety"
 
@@ -147,13 +159,16 @@ pane classes. Current text:
     Generating, changing, sub-agent-busy, gated, human-waiting, foreign,
     bare-shell, and ambiguous panes MUST never be pasted into.
 
-Proposed text, with the enumeration composed per the companion finding and the
-count settled by the maintainer's answer to its Q3:
+Proposed text, with the enumeration settled by Q3 at five acts:
 
-    It may coexist with the acts enumerated in spec.md §"The keep-going nudge",
-    §"The escalating wrap-up", contracts.md §"The wrap-up injection", and
-    spec.md §"The stalled-picker charter reminder", each under its own
-    independent complete predicate. The shell is left running and NO such paste
+    It may coexist with exactly five acts under their independent complete
+    predicates: the low-context wrap-up in contracts.md §"The wrap-up
+    injection" together with its round-scoped tail, the ready-expiry notice of
+    spec.md §"The escalating wrap-up", which fires under the wrap-up's own
+    complete guarded-paste predicate; the idle-with-context-left keep-going
+    nudge and the bounded pair-stall nudge, both in spec.md §"The keep-going
+    nudge"; and the bounded charter-reminder paste into a stalled reserved-entity
+    picker in spec.md §"The stalled-picker charter reminder". The shell is left running and NO such paste
     authorizes a restart. Generating, changing, sub-agent-busy, foreign,
     bare-shell, and ambiguous panes MUST never be pasted into. Gated and
     human-waiting panes MUST never be pasted into by any DAEMON informational
@@ -189,10 +204,10 @@ Add one section stating the act's complete independent predicate. Every clause
 below has been verified against the shipped code; the two clauses that carry a
 maintainer choice are marked and resolve per Q1 and Q2 above.
 
-- **[Q1]** The act applies to a topic in the reserved entity namespace. As
-  shipped that is BOTH `-supervisor` and `-foreman`
-  (`signals.topic_reserved_for_supervisor`); it never applies to an ordinary
-  worker topic. The final wording follows the answer to Q1.
+- **[Q1 — ANSWERED: both suffixes]** The act applies to a topic in the reserved
+  entity namespace: BOTH `-supervisor` and `-foreman`
+  (`signals.topic_reserved_for_supervisor`). It never applies to an ordinary
+  worker topic. This is the shipped scope; no code change.
 - The target pane is positively identified as that track's supervised session.
   The identity gate holds upstream in the evaluation precedence rather than
   inside this act.
@@ -204,12 +219,16 @@ maintainer choice are marked and resolve per Q1 and Q2 above.
 - The pane capture has been UNCHANGED for longer than a bounded floor, thirty
   minutes by default. The clock is capture-stability-keyed, not wall-clock from
   the declaration.
-- **[Q2]** The repeat bound. As shipped, one paste per interval of unchanged
-  capture; because a successful paste changes the capture, the reminder recurs
-  about every floor-length interval while the human stays away. The final
-  wording follows the answer to Q2, and MUST describe whichever behavior ships
-  — a spec that says "once" over a daemon that repeats is the defect this
-  proposal exists to close, reproduced.
+- **[Q2 — ANSWERED: code fix first]** The paste fires at most ONCE per stall
+  episode, where an episode ends when the pane capture changes for a reason
+  OTHER than the daemon's own paste. **This clause MUST NOT be ratified until
+  `overseer/_supervisor_progress.py` holds `picker_stall_nudged` across the
+  paste's own capture echo**, because as shipped today the reminder recurs
+  about every floor-length interval while the human stays away, accumulating
+  text in the composer. Tracked as `overseer-6tfncs.1`. A spec that says "once"
+  over a daemon that repeats is the defect this proposal exists to close,
+  reproduced — which is why the panel sequenced the code before the sentence
+  rather than ratifying the repeat.
 - The payload is delivered as ONE atomic paste and is NEVER SUBMITTED: no
   `Enter`, no selection keystroke, no digit. The daemon does not choose from a
   picker and MUST NOT answer one. This is the property that separates this act
@@ -247,7 +266,8 @@ accident:
     And no Enter, digit, or other selection keystroke is sent to it
     And no restart is authorized by that paste
 
-A negative scenario pins the topic bound (its exact subject follows Q1):
+A negative scenario pins the topic bound. Per Q1 its subject is an ORDINARY
+WORKER topic; a `-foreman` topic is IN scope and must not be used here:
 
     Given a tracked ORDINARY WORKER session in the identical stalled-picker
       state
@@ -371,46 +391,48 @@ saying "exactly four, expiry excluded" beside `spec.md` saying "exactly three,
 expiry included" — trading one undecidable count for two conflicting ones. That
 is worse than the defect being fixed.
 
-**Q3 — is the ready-expiry notice a distinct act, or part of the wrap-up?**
+**Q3 — ANSWERED: `five-acts-expiry-as-wrapup-tail`.**
 
-Both readings are defensible from ratified text, which is the whole problem:
+The question was whether the ready-expiry notice is a distinct act or part of
+the wrap-up. Both readings were defensible from ratified text, which was the
+whole problem: `spec.md:531-539` counts it as one of three, while
+`spec.md:369-371` subjects it to "the complete guarded-paste predicate that
+governs a wrap-up" and calls it "a bounded companion to the escalation".
 
-- **Q3(a) A distinct act**, as `spec.md:535-539` currently counts it.
-- **Q3(b) Part of the wrap-up**, as `spec.md:369-371` supports: the
-  expiry-notice "is subject to the complete guarded-paste predicate that governs
-  a wrap-up" and is "a bounded companion to the escalation, not a band".
+The disposition takes NEITHER exclusively. The notice is ENUMERATED as a member
+— so the count is honest about what pastes into a pane — and CHARACTERIZED as
+the wrap-up's round-scoped tail, firing under the wrap-up's own complete
+predicate rather than an independent one. Both ratified sentences are thereby
+preserved in substance and made to agree in form. The resulting count is FIVE.
 
-This proposal takes no position. The REQUIREMENT is that both documents say the
-same thing, in the same pass, whichever way it is ruled.
+Authority: the unanimous consensus panel recorded at
+`tmp/overseer/foreman/consensus/4e066523c6948156e4a2b8497ddcecc61b66ea17b39364188ec3d394f06ad2d4.json`
+(see the companion finding's "Dispositions" section for the full citation and
+the panel's composition).
 
 ### Proposed change — both documents, in one pass
 
 Name each act individually rather than by section, so the count is checkable
 against the code without interpretation, and make the two closed counts agree.
 
-In `SPECIFICATION/constraints.md` §"Acting safety", the enumeration becomes —
-composed with the companion finding's third act, and with membership per Q3:
+In `SPECIFICATION/constraints.md` §"Acting safety", the enumeration becomes,
+per Q3 and composed with the companion finding's act:
 
-    It may coexist with exactly N acts under their independent complete
+    It may coexist with exactly five acts under their independent complete
     predicates: the low-context wrap-up in contracts.md §"The wrap-up
-    injection", the idle-with-context-left keep-going nudge and the bounded
-    pair-stall nudge, both in spec.md §"The keep-going nudge", and the bounded
-    charter-reminder paste into a stalled supervisor picker in spec.md §"The
-    stalled-picker charter reminder".
+    injection" together with its round-scoped tail, the ready-expiry notice of
+    spec.md §"The escalating wrap-up", which fires under the wrap-up's own
+    complete guarded-paste predicate; the idle-with-context-left keep-going
+    nudge and the bounded pair-stall nudge, both in spec.md §"The keep-going
+    nudge"; and the bounded charter-reminder paste into a stalled
+    reserved-entity picker in spec.md §"The stalled-picker charter reminder".
 
-with N and the expiry-notice's membership fixed by Q3. Under Q3(a) the
-expiry-notice is named as its own member; under Q3(b) one sentence follows the
-enumeration:
-
-    The ready-expiry notice in spec.md §"The escalating wrap-up" is NOT a
-    further act: it fires under the wrap-up's own complete guarded-paste
-    predicate and is enumerated here as part of it.
-
-**And in the SAME pass**, `SPECIFICATION/spec.md:535-539`'s "Exactly three acts
-apply that rule" sentence MUST be amended to agree with that enumeration in both
-membership and count. As it stands it omits the idle keep-going nudge regardless
-of how Q3 is answered, so it needs correction under either ruling. Leaving it
-untouched is the one outcome this finding exists to prevent.
+**And in the SAME pass**, `SPECIFICATION/spec.md:531-539`'s "Exactly three acts
+apply that rule" sentence MUST be amended to the identical five-act
+enumeration, so the two closed counts agree in both membership and count. Note
+that sentence omitted the idle keep-going nudge under EVERY candidate answer to
+Q3, so it needed correction regardless of the ruling. Leaving it untouched is
+the one outcome this finding exists to prevent.
 
 If the companion finding is REJECTED (disposition (ii), the picker-stall act
 removed), this finding still stands on its own: the two nudges still need naming
