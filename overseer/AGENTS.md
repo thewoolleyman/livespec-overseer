@@ -1250,6 +1250,90 @@ daemon exercises the full inject → declare → restart cycle live only when a 
 track naturally reaches it (its steady-state job); the deterministic tests own that
 coverage, and hand-spaced ticks would mask the timing anyway.
 
+### The RELAUNCH COMMAND is the one thing the beside-tests structurally cannot own
+
+The paragraph above is right about **timing**: do not hand-drive the inject →
+declare → restart cycle to check interlock behavior, because the fake-tmux tests
+own it and hand-spaced ticks mask the very races you would be looking for.
+
+It leaves a gap, and a P1 shipped through it. The beside-tests assert the
+**rendered launch command and env delta as strings**. Nothing ever *executes*
+them. So a relaunch string that is exactly what the code intends to write, and
+is also unrunnable, passes every gate at 100% coverage. That is precisely what
+happened: every wrapper-arm relaunch rendered its env delta with the assignment
+ahead of the unset flags, which GNU `env` rejects, so the relaunch died with
+status 127 — and because a tmux pane whose command exits is *closed*, a
+single-pane tracked session was destroyed rather than merely mis-launched.
+Green suite, shipped on master, found only by running it.
+
+**So the carve-out is narrow and worth stating exactly.** Live exercise here is
+not for the interlock and not for timing. It is for the two questions the string
+assertions beg:
+
+- does the rendered command actually **execute**, and
+- does the fresh process's `/proc` show the **profile that was recorded**?
+
+Read the answer from `/proc/<pid>/cmdline` and `/proc/<pid>/environ` of the
+**fresh** process. Never from the statusline — that is a display-name surface and
+the spec already restricts it to verification only.
+
+**Use throwaway tracks and a scratch `HOME`, not the real fleet.** The isolation
+recipe above already redirects the watch-set, the mapping store and the stamp
+sidecar in one move, and it is the right base here — a scratch-`HOME` `overseerd`
+of your own cannot reach a real track even with the real session registries
+symlinked in, so the cardinal rule is protected structurally rather than by care.
+(Recorded because a 2026-08-19 exercise did it the hard way instead: it added a
+throwaway repo to the **real** watch-set and let the **fleet** daemon adopt it.
+Nothing was harmed and every artifact was torn down, but it put exercise rows in
+front of every operator and foreman for half an hour for no reason. The scratch
+`HOME` was already documented directly above. Use it.)
+
+Launch two throwaway tracks in the scratch tree — one cloud, one through the
+local wrapper — so both relaunch arms are covered:
+
+```bash
+tmux new-session -d -s ex-cloud -c "$EX" \
+  'claude --model sonnet --dangerously-skip-permissions -n ex-cloud'
+tmux new-session -d -s ex-local -c "$EX" \
+  '/data/projects/local-llm/bin/claude-local-llm --dangerously-skip-permissions -n ex-local'
+```
+
+Pick the cloud model to **differ from `~/.claude/settings.json`'s `model`**, and
+check what that is on the day rather than trusting any doc — otherwise a profile
+that was silently dropped and one that was correctly preserved look identical in
+`/proc`. (The epic's own text said the default was `sonnet`; measured
+2026-08-19 it was `opus[1m]`.)
+
+**Four things will waste your time in this order. All four were paid for once.**
+
+1. **A track parked on Claude's trust-folder gate adopts with NO profile, and
+   says nothing about it.** A fresh scratch repo always shows that gate. The
+   daemon adopts the session, writes the mapping row, and `_profile_for_adoption`
+   quietly returns `None` because the session has not registered yet. Clear the
+   gate first, then confirm the row actually carries `model_profile`.
+2. **A profile is captured at ADOPTION or when a wrap-up round OPENS — nowhere
+   else.** There is no per-tick refresh. To get a profile onto a row that already
+   exists, `remove` the row and let the daemon re-adopt it.
+3. **The pane TITLE must equal the topic.** The stall watcher re-resolves its
+   target by pane title after an apparent daemon bounce; without it every row
+   reports `watch-target-gone`. `tmux select-pane -t <pane> -T <topic>`.
+4. **A `ready` file with no open round restarts nothing** — `ready_valid`
+   requires the declaration's mtime to beat the round's certification floor. Open
+   a round on demand with the per-track `--ctx-threshold` knob set just above the
+   track's current remaining context. Note that `overseer add` **upserts**, so it
+   drops the `model_profile` the adoption just captured; set the threshold first,
+   or re-record the profile afterwards with `registry.record_model_profile`.
+
+Have the session declare for itself (`overseer-declare ready`) rather than
+writing the state file on its behalf. It costs one turn and keeps the exercise
+honest — the whole point of the cardinal rule is that the declaration comes from
+the session.
+
+**A local-wrapper track has a small context window** (the wrapper pins
+`CLAUDE_CODE_MAX_CONTEXT_TOKENS`), so a long instruction can exhaust it before it
+can declare anything, and the wrap-up body is not short. Keep every paste to that
+track minimal.
+
 ## Recovering + restoring sessions after a reboot or tmux crash/kill
 
 When the tmux server dies (a crash, a `kill-server`, a host reboot) every tracked
