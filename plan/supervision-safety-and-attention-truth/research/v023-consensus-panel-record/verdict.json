@@ -1,0 +1,105 @@
+{
+  "ttl_seconds": 86400,
+  "verdict": {
+    "action": {
+      "action_id": "blocked_session_answer",
+      "params": {
+        "q1": "both-suffixes",
+        "q2": "require-code-fix-before-ratification",
+        "q3": "five-acts-expiry-as-wrapup-tail"
+      }
+    },
+    "cache": "miss",
+    "cache_key": "4e066523c6948156e4a2b8497ddcecc61b66ea17b39364188ec3d394f06ad2d4",
+    "models": [
+      {
+        "model": "claude-fable-5",
+        "reviewer_id": "fable",
+        "vendor": "anthropic"
+      },
+      {
+        "model": "claude-opus-5",
+        "reviewer_id": "opus",
+        "vendor": "anthropic"
+      },
+      {
+        "model": "gpt-5.6-sol",
+        "reviewer_id": "gpt-sol",
+        "vendor": "openai"
+      }
+    ],
+    "mutated": false,
+    "outcome": "unanimous",
+    "reason": "three_typed_actions_equal",
+    "reviewers": [
+      {
+        "action": {
+          "action_id": "blocked_session_answer",
+          "params": {
+            "q1": "both-suffixes",
+            "q2": "require-code-fix-before-ratification",
+            "q3": "five-acts-expiry-as-wrapup-tail"
+          },
+          "reversible": true,
+          "rollback": {
+            "bounded": true,
+            "how": "spec change lands as a PR; revert the PR restores prior letter"
+          }
+        },
+        "model": {
+          "model": "claude-fable-5",
+          "reviewer_id": "fable",
+          "vendor": "anthropic"
+        },
+        "reviewer_id": "fable",
+        "verdict": "unblock"
+      },
+      {
+        "action": {
+          "action_id": "blocked_session_answer",
+          "params": {
+            "q1": "both-suffixes",
+            "q2": "require-code-fix-before-ratification",
+            "q3": "five-acts-expiry-as-wrapup-tail"
+          },
+          "reversible": true,
+          "rollback": {
+            "bounded": true,
+            "how": "spec change lands as a PR; revert the PR restores prior letter"
+          }
+        },
+        "model": {
+          "model": "claude-opus-5",
+          "reviewer_id": "opus",
+          "vendor": "anthropic"
+        },
+        "reviewer_id": "opus",
+        "verdict": "unblock"
+      },
+      {
+        "action": {
+          "action_id": "blocked_session_answer",
+          "params": {
+            "q1": "both-suffixes",
+            "q2": "require-code-fix-before-ratification",
+            "q3": "five-acts-expiry-as-wrapup-tail"
+          },
+          "reversible": true,
+          "rollback": {
+            "bounded": true,
+            "how": "spec change lands as a PR; revert the PR restores prior letter"
+          }
+        },
+        "model": {
+          "model": "gpt-5.6-sol",
+          "reviewer_id": "gpt-sol",
+          "vendor": "openai"
+        },
+        "reviewer_id": "gpt-sol",
+        "verdict": "unblock"
+      }
+    ],
+    "schema_version": 1
+  },
+  "written_at_epoch": 1787119669
+}
