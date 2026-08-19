@@ -3,56 +3,56 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The cardinal rule",
-    "test": "overseer.test_supervisor.test_idle_at_danger_with_no_declaration_is_never_restarted",
+    "test": "overseer.test_supervisor_cardinal_rule_tri.test_idle_at_danger_with_no_declaration_is_never_restarted",
     "reason": "Pins the rule in its NEGATIVE form, which is the load-bearing direction: a session idle at the danger line with no declaration is never restarted — the daemon does not infer readiness from idleness, a timer, or how low context has fallen."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Out-of-band state declaration",
-    "test": "overseer.test_supervisor.test_one_file_cannot_be_both_ready_and_blocked",
+    "test": "overseer.test_supervisor_cardinal_rule_tri.test_one_file_cannot_be_both_ready_and_blocked",
     "reason": "Pins the ONE-file/ONE-value design directly: the ambiguity that two presence markers allowed (both existing at once) is unrepresentable when a single file holds a single first line."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The supervision round",
-    "test": "overseer.test_supervisor.test_cleared_round_re_warns_all_bands",
+    "test": "overseer.test_supervisor_voiding_stale_blocked2.test_cleared_round_re_warns_all_bands",
     "reason": "Pins round closure and re-opening: clearing the injection stamp — exactly what a restart does — resets both the round timestamp and the notified bands, so a subsequent round starts fresh and every band may fire again."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The escalating wrap-up",
-    "test": "overseer.test_supervisor.test_wrapup_escalates_from_suggestion_to_insistence",
+    "test": "overseer.test_supervisor_startup_gate_tmp.test_wrapup_escalates_from_suggestion_to_insistence",
     "reason": "Pins 'MUST actually escalate rather than repeat': above 30% remaining the message is a suggestion, at 30% and below an insistent demand to stop now."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The restart",
-    "test": "overseer.test_supervisor.test_a_codex_restart_keeps_the_ready_marker_when_the_respawn_fails",
+    "test": "overseer.test_supervisor_codex_restart_safety.test_a_codex_restart_keeps_the_ready_marker_when_the_respawn_fails",
     "reason": "Pins the hard-gate guarantee that a declaration is never silently destroyed: a failed respawn PRESERVES the ready marker so the next observation retries."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The keep-going nudge",
-    "test": "overseer.test_supervisor.test_nudge_never_overwrites_a_session_declaration",
+    "test": "overseer.test_supervisor_warned_stamp_written.test_nudge_never_overwrites_a_session_declaration",
     "reason": "Pins the clause that makes the daemon-written marker safe: the daemon removes its own value only while the file still holds it, so it can never clobber a declaration the session wrote in the meantime."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## The watch-set declaration",
-    "test": "overseer.test_registry.test_watch_set_from_config_admits_only_cloned_repos_that_carry_a_plan_dir",
+    "test": "overseer.test_registry_discovery.test_watch_set_from_config_admits_only_cloned_repos_that_carry_a_plan_dir",
     "reason": "Pins the admission rule verbatim: an entry is admitted only when its checkout exists on disk AND contains a plan directory; a failing entry is silently inert rather than an error."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Track discovery and the mapping store",
-    "test": "overseer.test_registry.test_discover_plans_excludes_archive",
+    "test": "overseer.test_registry_discovery.test_discover_plans_excludes_archive",
     "reason": "Pins the discovery rule's headline: one track per UNARCHIVED plan-topic directory, keyed on the directory existing — archived plans are excluded."
   },
   {
@@ -66,35 +66,35 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Surface-only startup",
-    "test": "overseer.test_supervisor.test_tick_builds_unassigned_and_mapped_rows",
+    "test": "overseer.test_supervisor_archive_gc.test_tick_builds_unassigned_and_mapped_rows",
     "reason": "Pins 'startable, never started': a discovered plan directory with no session comes back with status 'unassigned' and tmux None — surfaced, with no session spawned for it."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Supervised runtimes",
-    "test": "overseer.test_supervisor.test_a_codex_ready_restart_never_issues_the_claude_command",
+    "test": "overseer.test_supervisor_codex_restart_safety.test_a_codex_ready_restart_never_issues_the_claude_command",
     "reason": "Pins the one destructive cross-runtime failure the spec designs out — a restart must resume the SAME runtime. SABOTAGE-VERIFIED 2026-07-25: re-pointing _do_codex_restart at the CLAUDE command turned this and two sibling tests red, then was reverted to a zero diff."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Non-interference with tracked work",
-    "test": "overseer.test_supervisor.test_run_refuses_when_tmp_not_gitignored",
+    "test": "overseer.test_supervisor_b7_bad_input.test_run_refuses_when_tmp_not_gitignored",
     "reason": "Pins the startup gate that makes the whole non-interference property enforceable: the daemon verifies every watched repository ignores its scratch path and REFUSES to run if any does not, so supervision can never dirty a tracked working tree."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Notify, never block",
-    "test": "overseer.test_supervisor.test_every_track_alert_names_the_tmux_session_and_pane",
+    "test": "overseer.test_supervisor_cardinal_rule_tri.test_every_track_alert_names_the_tmux_session_and_pane",
     "reason": "Pins alert self-sufficiency, which is what makes a non-blocking relay usable: because the relay is the operator's only handover, every track-scoped alert names its plan topic, repository, session and pane."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Fail-soft posture",
-    "test": "overseer.test_supervisor.test_ctx_unknown_never_injects",
+    "test": "overseer.test_supervisor_warned_stamp_written.test_ctx_unknown_never_injects",
     "reason": "Pins the posture's sharpest clause — an unknown context reading NEVER counts as a threshold crossing, so an ambiguous reading can never trigger an act."
   },
   {
@@ -108,14 +108,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The state file",
-    "test": "overseer.test_supervisor.test_malformed_state_value_is_surfaced_and_never_restarts",
+    "test": "overseer.test_supervisor_cardinal_rule_tri.test_malformed_state_value_is_surfaced_and_never_restarts",
     "reason": "Pins the contract's fail-closed rule: a value outside the table ('redy') is surfaced as MALFORMED and is never read as readiness. Aptness confirmed by reading the test, not by keyword match."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The restart interlock",
-    "test": "overseer.test_supervisor.test_restart_fires_only_on_a_declared_ready",
+    "test": "overseer.test_supervisor_cardinal_rule_tri.test_restart_fires_only_on_a_declared_ready",
     "reason": "Pins all three deterministic checks together: an injection stamp exists (1000.0), the token is exactly 'ready', and the state mtime (1001.0) is strictly newer than the stamp — then asserts the round closes so the declaration cannot re-trigger."
   },
   {
@@ -129,21 +129,21 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The keep-going nudge",
-    "test": "overseer.test_supervisor.test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour",
+    "test": "overseer.test_supervisor_warned_stamp_written.test_idle_above_threshold_nudges_to_keep_going_only_after_an_hour",
     "reason": "Pins the ALL-required preconditions: cleanly idle, continuously idle >= 1 hour, context above threshold, no declaration of its own — nudged exactly once, with the daemon's own marker written."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Durable stores",
-    "test": "overseer.test_registry.test_atomic_write_fail_soft_leaves_the_store_intact_and_removes_the_temp",
+    "test": "overseer.test_registry_resilience.test_atomic_write_fail_soft_leaves_the_store_intact_and_removes_the_temp",
     "reason": "Pins the headline store properties: a mid-write failure leaves the old content whole (atomic replace, never truncated), removes the temp file, and warns rather than crashing (fail-soft degradation)."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Daemon invocation",
-    "test": "overseer.test_supervisor.test_cli_surface_has_no_config_knobs",
+    "test": "overseer.test_supervisor_startup_gate_tmp.test_cli_surface_has_no_config_knobs",
     "reason": "Pins 'NO subcommands and exactly ONE option': the invocation surface carries no store/sidecar/watch-set path flags and no recovery or interval options."
   },
   {
@@ -157,14 +157,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## Attention surface",
-    "test": "overseer.test_supervisor.test_needs_attention_predicate_covers_every_attention_status",
+    "test": "overseer.test_supervisor_tmux_column_annotates.test_needs_attention_predicate_covers_every_attention_status",
     "reason": "Pins the membership rule in BOTH directions: every ATTENTION_STATUSES member needs attention, and the healthy statuses do not — its own docstring notes it guards the membership test so a new status cannot be added without the block picking it up."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Runtime requirements",
-    "test": "overseer.test_supervisor.test_the_host_gate_precedes_the_gitignore_gate",
+    "test": "overseer.test_supervisor_b7_bad_input.test_the_host_gate_precedes_the_gitignore_gate",
     "reason": "Pins both halves of the enforceable clause: on an unsupported host the daemon REFUSES to start naming the failed precondition, and that check runs BEFORE every other startup gate (asserted by making a watched repo ALSO fail the gitignore gate and confirming only 'unsupported host' is reported). CAVEAT: the constraint's other half — Linux+tmux as a DECLARED requirement rather than an unfinished portability story — is decision D4, implemented by core item livespec-b1uo.2 which is still backlog. This row's evidence covers the behavior, not that declaration."
   },
   {
@@ -192,14 +192,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Atomicity and single instance",
-    "test": "overseer.test_supervisor.test_singleton_lock_is_treated_as_contended_when_the_lockfile_cannot_be_created",
+    "test": "overseer.test_supervisor_reboot_recovery_edges.test_singleton_lock_is_treated_as_contended_when_the_lockfile_cannot_be_created",
     "reason": "Pins the 'at most ONE daemon instance per mapping store' half via the flock singleton, fail-closed: an uncreatable lockfile is treated as CONTENDED rather than as permission to run. The whole-file atomic-replace half of this heading is pinned by the test mapped to contracts.md 'Durable stores'."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "constraints.md",
     "heading": "## Acting safety",
-    "test": "overseer.test_supervisor.test_claude_act_refuses_pane_whose_live_name_differs_from_topic",
+    "test": "overseer.test_supervisor_codex_restart_safety2.test_claude_act_refuses_pane_whose_live_name_differs_from_topic",
     "reason": "Pins the heading's governing clause — every keystroke-bearing act is suppressed unless the pane is POSITIVELY IDENTIFIED as this track's supervised session. Chosen over the individual suppression tests because it is the hardest case: process and cwd both pass, only the name betrays the pane, and the act is refused even with a valid `ready` that would otherwise restart. The four never-paste cases have their own tests (busy/gate/shell/foreign) mapped nowhere else."
   },
   {
@@ -220,7 +220,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "non-functional-requirements.md",
     "heading": "## Contracts",
-    "test": "overseer.test_supervisor.test_build_supervisor_has_no_knobs_and_badges_its_own_tmux_pane",
+    "test": "overseer.test_supervisor_reboot_recovery_edges.test_build_supervisor_has_no_knobs_and_badges_its_own_tmux_pane",
     "reason": "Pins the 'invocation surface stays knob-free by design' requirement: the builder takes the watch-set from the $HOME declaration and the store/stamp paths from registry defaults, exposing no --repos, --store or --stamp knob. The sibling sabotage-verification requirement in this same section is evidenced on the constraints.md 'Supervised runtimes' row's recorded 2026-07-25 sabotage run."
   },
   {
