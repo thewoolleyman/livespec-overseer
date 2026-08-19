@@ -891,6 +891,14 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unreadable snapshot holds decision-relevant context rather than delivering it",
+    "test": "TODO",
+    "work_item": "overseer-g6sy",
+    "reason": "Pins the degraded-snapshot leg of the delivery-routing floor, which must FAIL CLOSED toward holding: an unwarranted hold is visible and bounded, an unwarranted delivery is observed by no one. Tier: this is foreman operator behavior observable end-to-end across a degraded snapshot read and the resulting delivery choice, so it MUST be exercised at integration tier or above, never by a unit-tier test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A long-lived question states where late-arriving context is routed",
     "test": "TODO",
     "work_item": "overseer-jcvi4q.4",

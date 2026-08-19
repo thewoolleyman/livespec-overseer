@@ -58,9 +58,24 @@ picker-open field fails closed and refuses rather than proceeding.
 In scenarios.md, strengthen the Given of the scenario "A message queued behind
 an open picker is surfaced as attention" so it pins the keying clause rather
 than merely being consistent with it. Add a clause establishing that the row's
-status is NOT the human-blocked status, so that an implementation keyed on the
+status is NOT a human-blocked status, so that an implementation keyed on the
 human-blocked status literal FAILS this scenario. The rest of the scenario is
 unchanged.
+
+STATE PRECISELY WHAT THIS DOES AND DOES NOT PIN, because the clause it serves
+is a universally quantified negative. The added Given catches the MEASURED
+failure mode — keying on the human-blocked literal, which is what the
+originating incident showed and what would have missed it. It does NOT
+exhaustively enforce "MUST NOT be keyed on any particular row status": an
+implementation keyed on whichever non-human-blocked literal the fixture
+happens to use, or on a set of literals, would still satisfy both this
+scenario and its negative twin. No finite Given/When/Then can close that gap;
+a scenario pins a representative discriminator, and the normative clause
+remains the governing statement for every case the scenario does not
+enumerate. The alternatives were rejected: naming the picker-stall status
+takes a dependency on an ungoverned term, and "a status the implementation
+does not key on" is circular. This proposal deliberately ships the
+representative pin rather than overclaiming a complete one.
 
 The clause is deliberately phrased as the governed NEGATIVE ("not the
 human-blocked status") rather than by naming the picker-stall status. The
