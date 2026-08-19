@@ -5,9 +5,9 @@ Regression for overseer-h6e0: a supervisor track can never have its own
 derive an epic from, and `supervisor.py add` refused the reserved `-supervisor`
 suffix outright — a supervisor track could never record a plan epic id, so it
 could never be respawned. This fix derives the epic from the SUPERVISED
-worker topic's plan directory instead, only when that directory exists; the
-guard must still refuse a `-supervisor` topic with no supervised counterpart,
-and must still refuse `-foreman` topics entirely (untouched by this fix).
+worker topic's plan directory instead, only when that directory exists. A later
+fix lets an operator explicitly set the matching foreman seat's epic, while the
+guard must still refuse a genuine worker-topic collision with a reserved suffix.
 """
 
 from __future__ import annotations
@@ -67,18 +67,74 @@ def test_supervisor_topic_with_no_supervised_plan_still_refused(*, tmp_path, mon
     assert not store.exists()
 
 
-def test_foreman_topic_still_refused_unconditionally(*, tmp_path, monkeypatch):
-    """CONTROL: `-foreman` topics are untouched by this fix, even with a matching plan dir."""
+def test_foreman_seat_accepts_an_explicit_epic(*, tmp_path, monkeypatch):
+    """POSITIVE: `add --epic` can record the repo's reserved foreman seat epic."""
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = tmp_path / "repo"
-    _write_epic_md(plan_dir=repo / "plan" / "topic", epic_id=TEST_EPIC)
+    repo.mkdir()
+
+    rc = supervisor.main(
+        argv=[
+            "add",
+            "--repo",
+            str(repo),
+            "--topic",
+            "repo-foreman",
+            "--epic",
+            TEST_EPIC,
+        ]
+    )
+
+    assert rc == 0
+    rows = [line for line in store.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(rows) == 1
+    assert '"topic": "repo-foreman"' in rows[0]
+    assert '"tmux": "repo-foreman"' in rows[0]
+    assert f'"epic": "{TEST_EPIC}"' in rows[0]
+
+
+def test_non_seat_foreman_topic_still_refused_with_an_explicit_epic(*, tmp_path, monkeypatch):
+    """CONTROL: explicit epics do not launder worker topics ending in `-foreman`."""
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    repo = tmp_path / "repo"
+    repo.mkdir()
 
     with contextlib.redirect_stderr(_io.StringIO()) as err:
-        rc = supervisor.main(argv=["add", "--repo", str(repo), "--topic", "topic-foreman"])
+        rc = supervisor.main(
+            argv=[
+                "add",
+                "--repo",
+                str(repo),
+                "--topic",
+                "topic-foreman",
+                "--epic",
+                TEST_EPIC,
+            ]
+        )
 
     assert rc == 1
     assert "refusing reserved supervisor topic" in err.getvalue()
     assert not store.exists()
+
+
+@pytest.mark.parametrize(
+    ("topic", "suffix"),
+    [
+        ("topic-supervisor", "-supervisor"),
+        ("topic-foreman", "-foreman"),
+    ],
+)
+def test_reserved_topic_refusal_names_the_matched_suffix(*, tmp_path, monkeypatch, topic, suffix):
+    """The CLI refusal must not report `-supervisor` for a `-foreman` collision."""
+    _ = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        rc = supervisor.main(argv=["add", "--repo", str(repo), "--topic", topic])
+
+    assert rc == 1
+    assert f"worker topics may not end in {suffix}" in err.getvalue()
 
 
 def test_topic_supervised_worker_precise_about_the_suffix():

@@ -55,6 +55,7 @@ import signals
 import streams
 import tmuxio
 from _seams import SubcommandHandler
+from _signals_topics import foreman_seat_accepts_explicit_epic, reserved_worker_suffix
 from _supervisor_config import DANGER_CTX_REMAINING as DANGER_CTX_REMAINING
 from _supervisor_config import LOOP_INTERVAL_SECONDS as LOOP_INTERVAL_SECONDS
 from _supervisor_config import default_gitignore_check as default_gitignore_check
@@ -222,12 +223,12 @@ def _cmd_adopt(*, args: argparse.Namespace) -> int:
 
 
 def _refuse_reserved_topic(*, repo: str, topic: str) -> bool:
-    if not signals.topic_reserved_for_supervisor(topic=topic):
+    if (suffix := reserved_worker_suffix(topic=topic)) is None:
         return False
     streams.write_stderr(
         text=(
             f"refusing reserved supervisor topic {repo}::{topic}; "
-            "worker topics may not end in -supervisor\n"
+            f"worker topics may not end in {suffix}\n"
         )
     )
     return True
@@ -260,12 +261,12 @@ def _inheritable_supervisor_epic_source(*, repo: str, topic: str) -> str | None:
 
 def _cmd_add(*, args: argparse.Namespace) -> int:
     repo = os.path.normpath(args.repo)
-    epic_source_topic = _inheritable_supervisor_epic_source(repo=repo, topic=args.topic)
-    if epic_source_topic is None and _refuse_reserved_topic(repo=repo, topic=args.topic):
+    allow_reserved = (
+        epic_source_topic := _inheritable_supervisor_epic_source(repo=repo, topic=args.topic)
+    ) is not None or foreman_seat_accepts_explicit_epic(repo=repo, topic=args.topic, epic=args.epic)
+    if not allow_reserved and _refuse_reserved_topic(repo=repo, topic=args.topic):
         return 1
-    session = _derive_tmux_or_refuse(
-        repo=repo, topic=args.topic, allow_reserved=epic_source_topic is not None
-    )
+    session = _derive_tmux_or_refuse(repo=repo, topic=args.topic, allow_reserved=allow_reserved)
     if session is None:
         return 1
     track = _track_for_assignment(
