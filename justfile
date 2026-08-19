@@ -116,6 +116,11 @@ ensure-plugins:
 ensure-codex-plugins:
     scripts/ensure-codex-plugins.sh
 
+# Read-only out-of-band scan of homelab supervisor charters. This is deliberately
+# not part of `check` or any PR gate; scheduled workflows may call it directly.
+scan-homelab-charters:
+    uv run --no-sync overseer-scan-homelab-charters
+
 # ---------------------------------------------------------------
 # Aggregate check — wires EVERY canonical check slug emitted by
 # `python -m livespec_dev_tooling.canonical_checks --json`, in
