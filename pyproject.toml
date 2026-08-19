@@ -315,6 +315,9 @@ branch = true
 # RELOCATED ROW 5/7. Coverage measures the code under test, not the test code,
 # mirroring the pyright exclude above.
 omit = [
+    # The e2e-cli tests set COVERAGE_PROCESS_START to measure real shipped
+    # entrypoints. Host-installed tooling they shell out to can inherit that
+    # setting too; it is not this repo's code and must not be measured.
     "/usr/local/*",
     "*/.venv/*",
     "*/site-packages/*",
