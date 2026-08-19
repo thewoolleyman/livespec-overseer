@@ -746,13 +746,30 @@ re-expressed as a conforming status with the horizon recorded in a comment or in
 metadata: that unblocks the tenant immediately and keeps the schedule. Only the
 owning thread should change it.
 
-**Verify AFTER the whole repair, never between commands.** Reported by the
-thread that performed the repair, and NOT reproduced here, so treat it as
-operational caution rather than as a measured fact: clearing a deferral can land
-the item at an intermediate status that is itself outside the allowed set, so a
-repairer who checks the tenant between the clear and the status-set will watch
-it flip back to blocked and conclude the fix is failing. Do the clear and the
-status-set as a pair, then verify once.
+**Verify AFTER the whole repair, never between commands.** Clearing a deferral
+with an empty `--defer` lands the item at the bd-native intermediate that is
+itself outside the allowed set — so the documented remedy RE-TRIGGERS the same
+global refusal mid-repair, and a repairer who checks the tenant between the
+clear and the status-set watches it flip back to blocked and concludes the fix
+is failing. Do the clear and the status-set as a pair, then verify once.
+
+**That paragraph used to be fenced as an unreproduced report, and the fence is
+now retired.** It is measured, and it is filed: `bd-ib-cleg6g` (orchestrator
+tenant) carries it as its Defect 3, with the safe ordering recorded from the
+live repair. Its acceptance requires the fix to cover the CLEAR path and not
+only the set path — which is exactly the leg an implementer would otherwise
+skip, since the set path is the one the bug report is written about.
+
+**Two further things that item establishes, both of which change how you read
+this section.** First, the incident it records happened HERE — measured live in
+this tenant, roughly forty minutes of tenant-wide dispatch refusals, stop-the-
+line. Second, and worse for anyone relying on tooling to protect them:
+**bd-guard does NOT guard the `--defer` flag, and its own documentation of why
+is false.** The guard blocks the `defer` SUBCOMMAND while deliberately passing
+the FLAG through, documented as "a defer-date FLAG that writes no status". On
+the deployed bd that premise was measured false — the flag DOES set the status.
+So the trap is armed by default and the guard is not standing between you and
+it.
 
 **Do not let the immediate unblock close the underlying defect.** A consumer
 that hard-blocks on a first-class status its own substrate produces will break
@@ -812,6 +829,17 @@ own iteration, plus a live row confirmed sitting at `open`. That is a strong
 chain and it is not the same as watching the refusal, so treat the blast-radius
 claim as inherited from the `--defer` trap — which WAS observed — rather than
 independently reproduced here.
+
+**Where it is tracked, and why that matters for the fix.** Folded into
+`bd-ib-cleg6g` (orchestrator tenant) as the THIRD route into the same
+conformance hard-block, alongside bd-native `deferred` and the clear-path
+intermediate above. All three are disposed of by ONE design decision — model
+the native statuses, or refuse them at the write boundary, but never the
+current shape where the write is allowed and the punishment is global, delayed
+and misattributed. So do not treat this as a separate defect needing its own
+fix, and in particular do not propose the narrow "teach the sweep to skip
+ephemeral" repair in isolation: it is one fork of a decision that has to be
+made once, for all three.
 
 ### A LEDGER-EDIT item can never be factory-dispatched
 
