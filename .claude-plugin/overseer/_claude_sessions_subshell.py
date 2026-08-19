@@ -1,4 +1,5 @@
 """Runtime-agnostic descendant shell activity detection."""
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.5
 
 from __future__ import annotations
 

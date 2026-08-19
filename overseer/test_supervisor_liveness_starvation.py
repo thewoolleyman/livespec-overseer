@@ -1,4 +1,5 @@
 """Beside-tests for supervisor.py — wind-down starvation liveness."""
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.6
 
 import contextlib
 import io as _io

@@ -14,6 +14,7 @@ Free functions taking the ``Supervisor`` as a parameter; ``Supervisor`` is impor
 ``TYPE_CHECKING`` only, so the annotation resolves for pyright-strict while no runtime
 import cycle exists. This module imports none of its siblings.
 """
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.3
 
 from __future__ import annotations
 

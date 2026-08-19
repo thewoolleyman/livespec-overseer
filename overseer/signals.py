@@ -14,6 +14,7 @@ trusted ONLY for the busy / idle / gate signals, which are not echo-forgeable
 in a harmful direction (a false "busy" merely suppresses action — the safe
 direction).
 """
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.5
 
 from __future__ import annotations
 

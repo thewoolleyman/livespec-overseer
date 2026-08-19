@@ -1,4 +1,5 @@
 """Bounded one-shot work-item session lifecycle for foreman-act."""
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.4
 
 from __future__ import annotations
 

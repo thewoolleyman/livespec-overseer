@@ -41,6 +41,7 @@ re-export here can be `monkeypatch.setattr`-ed successfully while the real reade
 maintainer's live `~/.livespec-overseer.jsonl` during the registry split. Patch the
 module that DEFINES the constant.
 """
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.3
 
 from __future__ import annotations
 
