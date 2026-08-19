@@ -137,7 +137,8 @@ tmux capture-pane -p -t "$WORKER_TARGET" -S -40
 pane. It is NOT "the last 40 lines." Do NOT pipe to `tail -N`; `-N` is a
 placeholder and `tail` rejects it.
 
-Short instruction: send the text, VERIFY it landed, then send Enter SEPARATELY:
+Short instruction: CLAUDE CODE-SPECIFIC: send the text, VERIFY it landed, then
+send Enter SEPARATELY. Before typing into any pane you do not own, identify the harness from its footer and confirm that harness's submit idiom:
 
 ```sh
 tmux send-keys -t "$WORKER_TARGET" -- '<condition-command>'
@@ -149,8 +150,8 @@ Do NOT emit the one-shot `... -- '<line>' Enter` form. The trailing `Enter`
 argument lands the text in the prompt but does NOT submit it. Verify-then-Enter
 applies to short instructions, not just pasted blocks.
 
-Longer text: load from a file, paste, VERIFY it landed, then send Enter as a
-separate step:
+Longer text: CLAUDE CODE-SPECIFIC: load from a file, paste, VERIFY it landed,
+then send Enter as a separate step:
 
 ```sh
 WORKER_TARGET='=<worker-session>:'
@@ -159,6 +160,10 @@ tmux paste-buffer -b sup -t "$WORKER_TARGET"
 tmux capture-pane -p -t "$WORKER_TARGET" | tail -8   # confirm it landed
 tmux send-keys -t "$WORKER_TARGET" Enter             # only after verifying
 ```
+
+If two keystrokes do not submit input in a pane you do not own, stop guessing:
+after two failed keystrokes, fall back to a durable file rather than escalating
+input.
 
 Re-check for an open picker before EVERY paste, anchored at both ends:
 
