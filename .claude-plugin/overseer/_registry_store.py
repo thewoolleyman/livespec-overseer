@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 from collections.abc import Iterable
 
 import jsonio
@@ -21,6 +20,7 @@ from _registry_core import (
     resolve_store,
     warn,
 )
+from _registry_resume import normalize_resume_override, normalize_rows
 from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
 from _seams import MappingRowPredicate
 
@@ -28,66 +28,13 @@ __all__: list[str] = [
     "append_mapping",
     "read_mapping",
     "record_derived_epic",
+    "record_model_profile",
     "record_observed_session_identity",
     "remove_mapping",
     "repoint_tmux",
     "rewrite_mapping",
     "set_epic",
 ]
-
-_PLAN_HANDOFF_RESUME = re.compile(
-    r"(?<![\w.-])(?:[^\s`\"']*/)?plan/[^\s`\"']*/(?:supervisor-)?handoff\.md\b"
-)
-
-
-def _mentions_retired_plan_handoff(*, resume: str) -> bool:
-    """Return True when a resume override names the retired plan-file shape."""
-    return _PLAN_HANDOFF_RESUME.search(resume.replace("\\", "/")) is not None
-
-
-def _plan_epic_resume(*, repo: str, epic: str) -> str:
-    """Build the canonical plan-track resume prompt without importing prompt helpers."""
-    return f"resume plan epic {epic} in repository {repo}; read its ledger-held plan state"
-
-
-def _normalize_resume_override(*, row: dict[str, object]) -> bool:
-    """Rewrite or clear retired plan-file resume overrides in-place.
-
-    The detector is syntactic: a plan-tree ``handoff.md`` or
-    ``supervisor-handoff.md`` resume is retired even if that path exists, and checking
-    path existence here would violate the daemon's no-plan-file invariant.
-    """
-    resume = row.get("resume")
-    if not isinstance(resume, str) or not _mentions_retired_plan_handoff(resume=resume):
-        return False
-    repo = row.get("repo")
-    epic = row.get("epic")
-    topic = row.get("topic")
-    if isinstance(repo, str) and isinstance(epic, str):
-        row["resume"] = _plan_epic_resume(repo=repo, epic=epic)
-        warn(
-            message=(
-                "rewrote retired plan-file resume override to ledger epic resume "
-                f"for {repo}::{topic}"
-            )
-        )
-        return True
-    del row["resume"]
-    warn(
-        message=(
-            "cleared retired plan-file resume override with no recorded epic "
-            f"for {repo}::{topic}"
-        )
-    )
-    return True
-
-
-def _normalize_rows(*, rows: list[dict[str, object]]) -> bool:
-    changed = False
-    for row in rows:
-        if _normalize_resume_override(row=row):
-            changed = True
-    return changed
 
 
 def _read_rows(*, store_path: str | os.PathLike[str] | None = None) -> list[dict[str, object]]:
@@ -160,10 +107,10 @@ def read_mapping(*, store_path: str | os.PathLike[str] | None = None) -> list[Tr
     tracks: list[Track] = []
     path = resolve_store(store_path=store_path)
     rows = _read_rows(store_path=store_path)
-    if _normalize_rows(rows=rows):
+    if normalize_rows(rows=rows):
         with file_lock(target=path):
             rows = _read_rows(store_path=store_path)
-            _ = _normalize_rows(rows=rows)
+            _ = normalize_rows(rows=rows)
             _write_rows(rows=rows, store_path=store_path)
     for row in rows:
         track = _track_from_row(row=row)
@@ -195,7 +142,7 @@ def _track_to_row(*, track: Track) -> dict[str, object]:
         row["ctx_threshold"] = track.ctx_threshold
     if track.model_profile is not None:
         row["model_profile"] = track.model_profile
-    _ = _normalize_resume_override(row=row)
+    _ = normalize_resume_override(row=row)
     return row
 
 
@@ -204,7 +151,7 @@ def _update_matching_field(
     repo: str,
     topic: str,
     field: str,
-    value: str,
+    value: object,
     store_path: str | os.PathLike[str] | None = None,
 ) -> bool:
     """Set ``field`` to ``value`` on the ``(repo, topic)`` row; return whether it changed.
@@ -272,6 +219,23 @@ def record_derived_epic(
 
 
 set_epic = record_derived_epic
+
+
+def record_model_profile(
+    *,
+    repo: str,
+    topic: str,
+    model_profile: dict[str, str | None],
+    store_path: str | os.PathLike[str] | None = None,
+) -> bool:
+    """Persist a freshly-read launch ``model_profile`` for the ``(repo, topic)`` row."""
+    return _update_matching_field(
+        repo=repo,
+        topic=topic,
+        field="model_profile",
+        value=model_profile,
+        store_path=store_path,
+    )
 
 
 def append_mapping(

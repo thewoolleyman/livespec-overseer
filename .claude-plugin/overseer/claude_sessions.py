@@ -28,6 +28,7 @@ __all__: list[str] = [
     "proc_children",
     "proc_cmdline",
     "proc_comm",
+    "proc_environ",
     "proc_ppid",
     "proc_starttime",
     "read_live_sessions",
@@ -59,6 +60,11 @@ def proc_comm(*, pid: int) -> str | None:
 def proc_cmdline(*, pid: int) -> bytes | None:
     _sync_reader_paths()
     return _claude_sessions_proc.proc_cmdline(pid=pid)
+
+
+def proc_environ(*, pid: int) -> bytes | None:
+    _sync_reader_paths()
+    return _claude_sessions_proc.proc_environ(pid=pid)
 
 
 def proc_children(*, pid: int) -> list[int]:

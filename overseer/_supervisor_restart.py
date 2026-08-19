@@ -13,6 +13,7 @@ import dataclasses
 from typing import TYPE_CHECKING, cast
 
 import _supervisor_launch
+import _supervisor_launch_profile_refresh
 import _supervisor_ready
 import _supervisor_state
 import registry
@@ -161,6 +162,14 @@ def maybe_inject(
     round_record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
     opened_now = round_record.at is None or round_record.malformed_reason is not None
     if opened_now:
+        _supervisor_launch_profile_refresh.refresh_launch_profile_at_wrapup(
+            sup=sup,
+            track=track,
+            target=target,
+            capture=sup.tmux.capture_pane(
+                session=_supervisor_launch.session_of(sup=sup, track=track)
+            ),
+        )
         # Stamp BEFORE the paste (design) so a marker the session writes has
         # mtime > at. Only on opening — a re-warn preserves the round's at.
         session = _supervisor_launch.session_of(sup=sup, track=track)
