@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.7](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.6...v0.59.7) (2026-08-19)
+
+
+### Bug Fixes
+
+* cover non-exemplar cold-open tmux stubs ([a980acd](https://github.com/thewoolleyman/livespec-overseer/commit/a980acdf17aac733acfef15c2a350900e573397c))
+
 ## [0.59.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.5...v0.59.6) (2026-08-19)
 
 
