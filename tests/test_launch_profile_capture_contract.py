@@ -58,16 +58,46 @@ def test_reader_captures_local_claude_wrapper_from_exec_surviving_environ():
                 values={
                     "ANTHROPIC_MODEL": "macmini/qwen3-coder-next",
                     "ANTHROPIC_BASE_URL": "http://127.0.0.1:11434",
+                    "LIVESPEC_LOCAL_LLM_WRAPPER": "/opt/local/bin/claude-local-llm",
                 }
             )
         }.get(pid),
-        ppid_of=lambda *, pid: {200: 150, 150: 100}.get(pid),
+        ppid_of=lambda *, pid: {200: 100}.get(pid),
     )
 
     assert profile == {
         "harness": "claude",
         "model": "macmini/qwen3-coder-next",
-        "wrapper": "/data/projects/local-llm/bin/claude-local-llm",
+        "wrapper": "/opt/local/bin/claude-local-llm",
+    }
+
+
+def test_reader_does_not_invent_local_claude_wrapper_for_non_local_proxy():
+    module = importlib.import_module("_supervisor_launch_profile")
+
+    assert hasattr(module, "read_launch_profile")
+    profile = module.read_launch_profile(
+        pid=200,
+        harness="claude",
+        pane_pid=100,
+        cmdline_of=lambda *, pid: _nul(argv=["claude", "--dangerously-skip-permissions"])
+        if pid == 200
+        else None,
+        environ_of=lambda *, pid: {
+            200: _env(
+                values={
+                    "ANTHROPIC_MODEL": "claude-opus-4-1-20250805",
+                    "ANTHROPIC_BASE_URL": "https://llm-gateway.internal.example/v1",
+                }
+            )
+        }.get(pid),
+        ppid_of=lambda *, pid: {200: 100}.get(pid),
+    )
+
+    assert profile == {
+        "harness": "claude",
+        "model": "claude-opus-4-1-20250805",
+        "wrapper": None,
     }
 
 
@@ -87,16 +117,17 @@ def test_reader_captures_local_codex_wrapper_from_exec_surviving_environ():
             300: _env(
                 values={
                     "ANTHROPIC_BASE_URL": "http://127.0.0.1:11434",
+                    "LIVESPEC_LOCAL_LLM_WRAPPER": "/opt/local/bin/codex-local-llm",
                 }
             )
         }.get(pid),
-        ppid_of=lambda *, pid: {300: 150, 150: 100}.get(pid),
+        ppid_of=lambda *, pid: {300: 100}.get(pid),
     )
 
     assert profile == {
         "harness": "codex",
         "model": "macmini/qwen3-coder-next",
-        "wrapper": "/data/projects/local-llm/bin/codex-local-llm",
+        "wrapper": "/opt/local/bin/codex-local-llm",
     }
 
 
