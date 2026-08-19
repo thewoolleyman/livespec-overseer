@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import codex_sessions
 import signals
+from _supervisor_codex_adoption import bound_track_for_unindexed_codex
 from _supervisor_view import RowView
 
 if TYPE_CHECKING:
@@ -35,6 +36,8 @@ def unindexed_codex_rows(*, sup: Supervisor, watch: list[str]) -> list[RowView]:
             (r for r in watch if signals.path_in_repo(pane_current_path=session.cwd, repo=r)), None
         )
         if repo is None:
+            continue
+        if bound_track_for_unindexed_codex(sup=sup, session=session) is not None:
             continue
         rows.append(
             RowView(
