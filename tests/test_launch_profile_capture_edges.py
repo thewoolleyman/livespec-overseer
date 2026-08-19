@@ -131,7 +131,13 @@ def test_reader_handles_short_model_flag_malformed_env_and_cloud_wrapper():
     assert profile == {"harness": "codex", "model": "gpt-5-codex", "wrapper": None}
 
 
-def _ready_profiled_track(*, tmp_path, capture: str, recorded_model: str):
+def _ready_profiled_track(
+    *,
+    tmp_path,
+    capture: str,
+    recorded_model: str,
+    statusline_model: str | None = None,
+):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -143,7 +149,12 @@ def _ready_profiled_track(*, tmp_path, capture: str, recorded_model: str):
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     track = replace(
         mapped_track(repo=repo, topic=topic, session=session),
-        model_profile={"harness": "claude", "model": recorded_model, "wrapper": None},
+        model_profile={
+            "harness": "claude",
+            "model": recorded_model,
+            "statusline_model": statusline_model,
+            "wrapper": None,
+        },
     )
     registry.append_mapping(track=track, store_path=sup.store_path)
     return repo, topic, fake, sup, track
@@ -153,7 +164,8 @@ def test_statusline_model_mismatch_skips_restart_and_surfaces_models(*, tmp_path
     repo, topic, fake, sup, track = _ready_profiled_track(
         tmp_path=tmp_path,
         capture=idle_capture(ctx=30).replace("Opus 4.8 (1M context)", "Sonnet 4.5"),
-        recorded_model="Opus 4.8 (1M context)",
+        recorded_model="claude-opus-4-1-20250805",
+        statusline_model="Opus 4.8 (1M context)",
     )
 
     err = _io.StringIO()
@@ -172,7 +184,8 @@ def test_absent_statusline_model_does_not_skip_restart(*, tmp_path):
     repo, topic, fake, sup, track = _ready_profiled_track(
         tmp_path=tmp_path,
         capture=idle_capture(ctx=None),
-        recorded_model="Opus 4.8 (1M context)",
+        recorded_model="claude-opus-4-1-20250805",
+        statusline_model="Opus 4.8 (1M context)",
     )
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -187,7 +200,8 @@ def test_matching_statusline_model_restarts_unchanged(*, tmp_path):
     repo, topic, fake, sup, track = _ready_profiled_track(
         tmp_path=tmp_path,
         capture=idle_capture(ctx=30),
-        recorded_model="Opus 4.8 (1M context)",
+        recorded_model="claude-opus-4-1-20250805",
+        statusline_model="Opus 4.8 (1M context)",
     )
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -196,7 +210,7 @@ def test_matching_statusline_model_restarts_unchanged(*, tmp_path):
     assert view.status == "restarting"
     respawns = [call for call in fake.calls if call[0] == "respawn"]
     assert len(respawns) == 1
-    assert "--model 'Opus 4.8 (1M context)'" in respawns[0][3]
+    assert "--model claude-opus-4-1-20250805" in respawns[0][3]
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
 
 
@@ -204,7 +218,8 @@ def test_mismatch_does_not_rewrite_recorded_profile_from_statusline(*, tmp_path)
     _repo, _topic, fake, sup, track = _ready_profiled_track(
         tmp_path=tmp_path,
         capture=idle_capture(ctx=30).replace("Opus 4.8 (1M context)", "Sonnet 4.5"),
-        recorded_model="Opus 4.8 (1M context)",
+        recorded_model="claude-opus-4-1-20250805",
+        statusline_model="Opus 4.8 (1M context)",
     )
 
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -281,7 +296,9 @@ def test_profile_for_adoption_without_a_source_is_none(*, tmp_path):
     fake = FakeTmux()
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
 
-    assert _supervisor_discovery._profile_for_adoption(sup=sup, source=None) is None
+    assert (
+        _supervisor_discovery._profile_for_adoption(sup=sup, source=None, session="missing") is None
+    )
 
 
 def test_wrapup_refresh_without_source_and_with_unreadable_profile(*, tmp_path):
@@ -333,7 +350,12 @@ def test_wrapup_refresh_uses_track_profile_and_skips_unchanged_store_write(*, tm
         f'{{"pid": 200, "name": "{topic}", "cwd": "{repo}", "procStart": "pt"}}',
         encoding="utf-8",
     )
-    profile = {"harness": "claude", "model": "claude-opus-4-1-20250805", "wrapper": None}
+    profile = {
+        "harness": "claude",
+        "model": "claude-opus-4-1-20250805",
+        "statusline_model": "Opus 4.8 (1M context)",
+        "wrapper": None,
+    }
     registry.append_mapping(
         track=registry.Track(topic=topic, repo=str(repo), tmux=session, model_profile=profile),
         store_path=tmp_path / "map.jsonl",
@@ -355,6 +377,19 @@ def test_wrapup_refresh_uses_track_profile_and_skips_unchanged_store_write(*, tm
 
     assert (
         registry.read_valid_mapping(store_path=tmp_path / "map.jsonl")[0].model_profile == profile
+    )
+
+
+def test_statusline_baseline_helper_leaves_absent_rendered_signal_absent():
+    profile = {"harness": "claude", "model": "claude-opus-4-1-20250805", "wrapper": None}
+
+    assert (
+        _supervisor_launch_profile_refresh._with_statusline_baseline(
+            profile=profile,
+            stored_profile=None,
+            rendered=None,
+        )
+        == profile
     )
 
 

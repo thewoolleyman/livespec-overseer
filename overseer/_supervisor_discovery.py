@@ -34,6 +34,7 @@ from _supervisor_launch_profile_sources import (
     LaunchProfileSource,
     live_profile_sources,
 )
+from _supervisor_statusline_model import rendered_statusline_model as statusline_model
 from _supervisor_unindexed_codex import unindexed_codex_rows as _unindexed_codex_rows
 from _supervisor_view import RowView
 
@@ -66,6 +67,7 @@ def _profile_for_adoption(
     *,
     sup: Supervisor,
     source: LaunchProfileSource | None,
+    session: str,
 ) -> dict[str, str | None] | None:
     if source is None:
         return None
@@ -80,6 +82,7 @@ def _profile_for_adoption(
     if isinstance(profile, LaunchProfileProblem):
         sup.log(message=profile.message)
         return None
+    profile["statusline_model"] = statusline_model(capture=sup.tmux.capture_pane(session=session))
     return profile
 
 
@@ -286,6 +289,7 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
             model_profile=_profile_for_adoption(
                 sup=sup,
                 source=profile_sources.get((session, topic)),
+                session=session,
             ),
         )
         registry.append_mapping(track=track, store_path=sup.store_path, added_at=iso_now())

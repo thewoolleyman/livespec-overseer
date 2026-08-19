@@ -25,6 +25,7 @@ def test_model_profile_roundtrips_through_append_and_rewrite(*, tmp_path):
     model_profile = {
         "harness": "codex",
         "model": "gpt-5-codex",
+        "statusline_model": "gpt-5.5 high",
         "wrapper": None,
     }
     registry.append_mapping(
