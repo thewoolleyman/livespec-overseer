@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.6...v0.62.0) (2026-08-19)
+
+
+### Features
+
+* add track variant registry tests ([d64e509](https://github.com/thewoolleyman/livespec-overseer/commit/d64e5091e1ca98c17404a720f077e0165d2243af))
+
 ## [0.61.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.5...v0.61.6) (2026-08-19)
 
 
