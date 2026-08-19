@@ -662,6 +662,71 @@ means the record is dispatchable. Any hit names the line to reword. Do this **be
 `bd comment` too — the comment is the common poisoning route, and once it lands it is
 permanent.
 
+### A DEFERRED item ANYWHERE in the tenant blocks EVERY dispatch in the repo
+
+Measured 2026-08-19. This trap is not about your item, and its error text names
+ids that have nothing to do with what you dispatched.
+
+    LEDGER: status-conformance  <other-id>  status 'deferred' is outside the
+      livespec lifecycle (allowed: acceptance, active, backlog, blocked,
+      closed, pending-approval, ready)
+    ERROR: pre-dispatch ledger checks failed; dispatch blocked
+
+The pre-dispatch ledger check is a GLOBAL conformance sweep over the whole
+tenant, not a check on the requested item. ONE non-conforming row refuses EVERY
+dispatch in the repo until it is cleared.
+
+**The cause is a TOOLING CONFLICT, not operator error, which is why it recurs.**
+`bd` offers `--defer <date>` on both `create` and `update` ("Defer until date.
+Issue hidden from bd ready until then"), and using it sets `status=deferred`
+plus a `defer_until` timestamp. That status is native to the substrate and
+absent from the orchestrator's allowed set above, so an ordinary, supported
+scheduling action by ONE thread silently disables the factory for EVERY thread.
+Nothing in the refusal points at the deferring action, and the deferring session
+gets no signal at all.
+
+**Check the horizon before deciding to wait it out.** `defer_until` is
+arbitrary. The instance measured here had one item deferred about six hours and
+another a full WEEK, so "wait for it to clear" was a seven-day answer.
+
+**Its signature is in none of the shapes above — do not read it as one.**
+
+| | this trap | anchor-as-dep |
+|---|---|---|
+| `drive.py` exit | 1 | 1 |
+| dispatcher exit | **1** | 3 |
+| error text | `status-conformance`, naming OTHER ids | `not in the ready set` |
+| fabro run | none | none |
+| phantom claim | **no** | no |
+
+Dispatcher exit **1** with a `status-conformance` line is the discriminator. No
+run is created, so there is nothing to find in `fabro ps -a` and nothing to
+release.
+
+**The remedy is NOT to un-defer someone else's item.** A deferral is a
+deliberate scheduling decision by the thread that owns the item, and reverting
+it discards that intent. Route it to that thread and ask for the intent to be
+re-expressed as a conforming status with the horizon recorded in a comment or in
+metadata: that unblocks the tenant immediately and keeps the schedule. Only the
+owning thread should change it.
+
+**Verify AFTER the whole repair, never between commands.** Reported by the
+thread that performed the repair, and NOT reproduced here, so treat it as
+operational caution rather than as a measured fact: clearing a deferral can land
+the item at an intermediate status that is itself outside the allowed set, so a
+repairer who checks the tenant between the clear and the status-set will watch
+it flip back to blocked and conclude the fix is failing. Do the clear and the
+status-set as a pair, then verify once.
+
+**Do not let the immediate unblock close the underlying defect.** A consumer
+that hard-blocks on a first-class status its own substrate produces will break
+the fleet again the next time anyone uses a documented flag. That belongs in the
+orchestrator tenant, sibling to the delimiter-token defect above. Likewise, any
+conformance checker written to detect this needs a discriminating control
+proving it REPORTS a genuinely non-conforming row — a scan that quietly
+whitelists a status it should flag reports a clean tenant and is worse than no
+scan.
+
 ### A LEDGER-EDIT item can never be factory-dispatched
 
 Measured 2026-08-04. If an item's deliverable is a beads mutation rather than a repo
