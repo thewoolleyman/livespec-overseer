@@ -876,7 +876,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A message queued behind an open picker is surfaced as attention",
-    "test": "TODO",
+    "test": "tests.integration.test_parked_delivery_attention.test_scenario_message_queued_behind_open_picker_is_surfaced_as_attention",
     "work_item": "overseer-jcvi4q.3",
     "reason": "Pins the parked-delivery membership in its POSITIVE form: an open picker with an unconsumed inbound message behind it becomes a report-only member that names the sender, is edge-triggered, authorizes no act, and clears on resolution or consumption. Tier: this is user-observable operator-surface behavior spanning pane capture, row projection and the attention surface, so it MUST be pinned at integration tier or above (never a unit-tier test), per the heading taxonomy."
   },
@@ -884,7 +884,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An open picker with nothing queued behind it is not attention",
-    "test": "TODO",
+    "test": "tests.integration.test_parked_delivery_attention.test_scenario_open_picker_with_nothing_queued_is_not_parked_delivery_attention",
     "work_item": "overseer-jcvi4q.3",
     "reason": "Pins the NEGATIVE leg, which is what keeps the condition from collapsing into the existing picker-stall surface: an ordinary open picker with no queued delivery must not fire. Tier: same integration-tier-or-above requirement as its positive twin, since it asserts the absence of an operator-observable surface change rather than an internal predicate result."
   },

@@ -22,6 +22,14 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from _signals_topics import (
+    is_foreman_topic,
+    supervisor_entity_topic,
+    supervisor_topic,
+    topic_reserved_for_supervisor,
+    topic_supervised_worker,
+)
+
 __all__: list[str] = [
     "STATE_BLOCKED",
     "STATE_BLOCKED_VOIDED",
@@ -47,6 +55,7 @@ __all__: list[str] = [
     "pane_is_shell",
     "parse_ctx_remaining",
     "path_in_repo",
+    "queued_cross_session_delivery_sender",
     "read_state",
     "ready_valid",
     "state_path",
@@ -188,6 +197,30 @@ def is_structured_gate(*, capture_text: str) -> bool:
     if _GATE_CURSOR_RE.search(text):
         return True
     return "do you want to proceed" in text.lower()
+
+
+# A cross-session delivery queued behind a Claude picker renders as a sender
+# header BELOW the picker, then one or more four-space-indented body rows:
+#   ``  @ livespec-console-beads-fabro-foreman❯``
+#   ``    Console foreman, decision-relevant update ...``
+# Verified live 2026-08-19 from tmux session `delivery-path-speed-and-caching`;
+# the sender is arbitrary and captured, while the end-anchored trailing `❯` is
+# the structural difference from ordinary prompt/picker shapes. No Codex analogue
+# has been observed yet, so this detector is Claude-shape only.
+_QUEUED_DELIVERY_HEADER_RE = re.compile(r"^  @ (?P<sender>\S.*?)❯$")
+
+
+def queued_cross_session_delivery_sender(*, capture_text: str) -> str | None:
+    """Sender name for a queued cross-session delivery block, if visible."""
+    lines = [strip_ansi(text=raw).rstrip() for raw in capture_text.splitlines()]
+    for index, line in enumerate(lines[:-1]):
+        match = _QUEUED_DELIVERY_HEADER_RE.match(line)
+        if match is None:
+            continue
+        body = lines[index + 1]
+        if body.startswith("    ") and body[4:].strip():
+            return match.group("sender").strip()
+    return None
 
 
 # The live idle input box is an EMPTY `❯` prompt line sandwiched between two
@@ -371,46 +404,6 @@ _DAEMON_TOKENS = (
     STATE_RESTARTED,
 )
 STATE_PATH_MISMATCH = "state-path-mismatch"
-_SUPERVISOR_SUFFIX = "-supervisor"
-_FOREMAN_SUFFIX = "-foreman"
-_RESERVED_WORKER_SUFFIXES = (_SUPERVISOR_SUFFIX, _FOREMAN_SUFFIX)
-_FOREMAN_TOPIC_ERROR = "reserved -foreman topic has no supervised worker"
-
-
-def topic_reserved_for_supervisor(*, topic: str) -> bool:
-    """True when a worker topic would collide with the reserved pair namespace."""
-    return topic.lower().endswith(_RESERVED_WORKER_SUFFIXES)
-
-
-def is_foreman_topic(*, topic: str) -> bool:
-    """True when a topic is the reserved foreman entity topic."""
-    return topic.lower().endswith(_FOREMAN_SUFFIX)
-
-
-def supervisor_entity_topic(*, topic: str) -> str:
-    """The suffixed entity name for a worker topic's supervisor pair member."""
-    return f"{topic}{_SUPERVISOR_SUFFIX}"
-
-
-def supervisor_topic(*, entity_topic: str) -> str:
-    """The worker topic owned by a suffixed supervisor entity topic."""
-    if is_foreman_topic(topic=entity_topic):
-        raise ValueError(_FOREMAN_TOPIC_ERROR)
-    if not entity_topic.lower().endswith(_SUPERVISOR_SUFFIX):
-        return entity_topic
-    return entity_topic[: -len(_SUPERVISOR_SUFFIX)]
-
-
-def topic_supervised_worker(*, topic: str) -> str | None:
-    """The worker topic a `-supervisor`-suffixed entity topic supervises.
-
-    Precise about the SUFFIX: returns None for a plain worker topic AND for a
-    `-foreman`-suffixed one (foreman entities have no supervised-worker counterpart),
-    never a mis-stripped string.
-    """
-    if not topic.lower().endswith(_SUPERVISOR_SUFFIX):
-        return None
-    return topic[: -len(_SUPERVISOR_SUFFIX)]
 
 
 def state_path(*, repo: str, topic: str) -> Path:
