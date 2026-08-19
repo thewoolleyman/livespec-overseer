@@ -9,6 +9,7 @@ import _supervisor_state
 import registry
 import signals
 from _supervisor_config import track_key
+from _supervisor_launch_profile import CodexLaunchPlan
 from _supervisor_prompts import resume_for_track
 
 if TYPE_CHECKING:
@@ -59,8 +60,27 @@ def _respawn_verified(
     session_id: str,
     resume: str,
 ) -> bool:
-    command = _supervisor_launch.codex_launch_command(session_id=session_id, resume=resume)
-    if not sup.tmux.respawn_pane(session=target, cwd=track.repo, command=command):
+    launch = _supervisor_launch.codex_launch_plan(
+        track=track,
+        session_id=session_id,
+        resume=resume,
+    )
+    if not isinstance(launch, CodexLaunchPlan):
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=target,
+            message=f"{launch.message}; keeping the ready declaration so it retries",
+            condition="stale-launch-profile",
+        )
+        return False
+    if not sup.tmux.respawn_pane(
+        session=target,
+        cwd=track.repo,
+        command=launch.command,
+        env=launch.env,
+    ):
         sup.alert(
             repo=track.repo,
             topic=track.topic,

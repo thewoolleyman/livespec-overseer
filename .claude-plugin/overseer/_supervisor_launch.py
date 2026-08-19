@@ -30,7 +30,7 @@ from _supervisor_config import (
     SUBMIT_MAX_ENTERS,
     SUBMIT_POLL,
 )
-from _supervisor_launch_profile import claude_launch_plan
+from _supervisor_launch_profile import claude_launch_plan, codex_launch_plan
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -41,6 +41,7 @@ __all__: list[str] = [
     "canonical_codex_session_id",
     "claude_launch_plan",
     "codex_launch_command",
+    "codex_launch_plan",
     "launch_command",
     "pane_settled",
     "resend_enter",

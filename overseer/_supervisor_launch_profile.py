@@ -16,8 +16,10 @@ from _seams import PidToOptionalBytes, PidToOptionalInt
 __all__: list[str] = [
     "CLAUDE_CONTROLLED_ENV",
     "ClaudeLaunchPlan",
+    "CodexLaunchPlan",
     "LaunchProfileProblem",
     "claude_launch_plan",
+    "codex_launch_plan",
     "read_launch_profile",
     "rendered_statusline_model",
 ]
@@ -34,6 +36,12 @@ CLAUDE_CONTROLLED_ENV = (
 class ClaudeLaunchPlan:
     command: str
     env: Mapping[str, str | None]
+
+
+@dataclass(frozen=True, kw_only=True)
+class CodexLaunchPlan:
+    command: str
+    env: Mapping[str, str | None] | None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -185,6 +193,64 @@ def claude_launch_plan(*, track: registry.Track) -> ClaudeLaunchPlan | LaunchPro
         command=(
             f"{shlex.quote(wrapper)} "
             f"--dangerously-skip-permissions -n {shlex.quote(track.topic)}"
+        ),
+        env=MappingProxyType(env),
+    )
+
+
+def _bare_codex_command(*, session_id: str, resume: str) -> str:
+    return (
+        "codex resume --dangerously-bypass-approvals-and-sandbox "
+        f"{shlex.quote(session_id)} {shlex.quote(resume)}"
+    )
+
+
+def _codex_command(*, command: str, session_id: str, resume: str, model: str | None) -> str:
+    model_arg = f" -m {shlex.quote(model)}" if model is not None else ""
+    return (
+        f"{shlex.quote(command)}{model_arg} resume "
+        f"--dangerously-bypass-approvals-and-sandbox "
+        f"{shlex.quote(session_id)} {shlex.quote(resume)}"
+    )
+
+
+def codex_launch_plan(
+    *, track: registry.Track, session_id: str, resume: str
+) -> CodexLaunchPlan | LaunchProfileProblem:
+    profile = track.model_profile
+    if profile is None:
+        return CodexLaunchPlan(
+            command=_bare_codex_command(session_id=session_id, resume=resume),
+            env=None,
+        )
+    if profile["harness"] != "codex":
+        return _problem(
+            track=track,
+            reason=f"harness {profile['harness']!r} cannot relaunch a Codex track",
+        )
+    model = cast(str, profile["model"])
+    wrapper = profile["wrapper"]
+    if wrapper is None:
+        return CodexLaunchPlan(
+            command=_codex_command(
+                command="codex",
+                model=model,
+                session_id=session_id,
+                resume=resume,
+            ),
+            env=MappingProxyType(_scrubbed_env()),
+        )
+    wrapper_problem = _wrapper_problem(track=track, wrapper=wrapper)
+    if wrapper_problem is not None:
+        return wrapper_problem
+    env = _scrubbed_env()
+    env["ANTHROPIC_MODEL"] = model
+    return CodexLaunchPlan(
+        command=_codex_command(
+            command=wrapper,
+            model=None,
+            session_id=session_id,
+            resume=resume,
         ),
         env=MappingProxyType(env),
     )

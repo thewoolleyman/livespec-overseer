@@ -10,6 +10,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 
 import contextlib
 import io as _io
+from dataclasses import replace
 
 import codex_sessions
 import pytest
@@ -249,6 +250,22 @@ def test_a_codex_restart_without_recorded_epic_alerts_and_keeps_ready_marker(*, 
     assert not fake.has(method="respawn")
     assert signals.read_state(repo=str(repo), topic=topic) is not None
     assert "no plan epic recorded" in err.getvalue()
+
+
+def test_a_codex_restart_refuses_a_claude_launch_profile_before_killing_the_pane(*, tmp_path):
+    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
+    track = replace(
+        mapped_track(repo=repo, topic=topic, session=session),
+        model_profile={"harness": "claude", "model": "claude-opus", "wrapper": None},
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        sup.evaluate(track=track, act=True)
+
+    assert not fake.has(method="respawn")
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+    assert "cannot relaunch a Codex track" in err.getvalue()
 
 
 def test_a_codex_ready_restart_never_issues_the_claude_command(*, tmp_path):
