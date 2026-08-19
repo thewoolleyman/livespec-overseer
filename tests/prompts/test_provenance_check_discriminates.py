@@ -46,6 +46,7 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 _CHARTER = _REPO_ROOT / "tests" / "prompts" / "fixtures" / "exemplar-supervisor-handoff.md"
+_GENERATOR_PROSE = _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md"
 
 # The emitted block, taken from the REAL charter rather than restated here. A
 # copy would let the shipped block rot while this module stayed green — the
@@ -67,6 +68,30 @@ def _emitted_block() -> str:
     return match.group(1)
 
 
+def _generator_template_block() -> str:
+    prose = _GENERATOR_PROSE.read_text(encoding="utf-8")
+    match = _PROVENANCE_BLOCK.search(prose)
+    if match is None:
+        raise AssertionError(
+            "no fenced provenance template block under '## Generator provenance' in "
+            f"{_GENERATOR_PROSE}"
+        )
+    return match.group(1)
+
+
+def _concrete_template_block(*, digest: str, ref: str = "older-ref") -> str:
+    block = _generator_template_block()
+    replacements = {
+        "generator_plugin": "livespec-overseer",
+        "generator_ref": ref,
+        "generator_version": "0.0-test",
+        "generator_prose_md5": digest,
+    }
+    for name, value in replacements.items():
+        block = re.sub(rf"^{name}='[^']+'$", f"{name}='{value}'", block, flags=re.MULTILINE)
+    return block
+
+
 def _recorded(*, pattern: re.Pattern[str], name: str) -> str:
     match = pattern.search(_emitted_block())
     if match is None:
@@ -74,7 +99,7 @@ def _recorded(*, pattern: re.Pattern[str], name: str) -> str:
     return match.group(1)
 
 
-def _run(*, home: Path) -> subprocess.CompletedProcess[str]:
+def _run(*, home: Path, block: str | None = None) -> subprocess.CompletedProcess[str]:
     """Execute the emitted block with HOME pointed at a fabricated cache.
 
     S603/S607 suppressed on the narrow reasoning used by every sibling fixture:
@@ -82,7 +107,7 @@ def _run(*, home: Path) -> subprocess.CompletedProcess[str]:
     operator pasting the block resolves it.
     """
     return subprocess.run(  # noqa: S603
-        ["sh", "-c", _emitted_block()],  # noqa: S607
+        ["sh", "-c", _emitted_block() if block is None else block],  # noqa: S607
         capture_output=True,
         text=True,
         check=False,
@@ -100,6 +125,12 @@ def _install(*, home: Path, ref: str, content: bytes) -> None:
     prose = _cache_root(home=home) / ref / "prose" / "supervise-plan.md"
     prose.parent.mkdir(parents=True)
     prose.write_bytes(content)
+
+
+def _install_ref_with_mtime(*, home: Path, ref: str, content: bytes, mtime: int) -> None:
+    _install(home=home, ref=ref, content=content)
+    ref_dir = _cache_root(home=home) / ref
+    os.utime(ref_dir, (mtime, mtime))
 
 
 @pytest.fixture(name="home")
@@ -124,6 +155,16 @@ def test_no_cache_root_reports_unverified_and_continues(*, home: Path):
     # "could not check" is indistinguishable from "checked and fine".
     assert str(_cache_root(home=home)) in result.stdout
     assert _recorded(pattern=_RECORDED_DIGEST, name="digest") in result.stdout
+
+
+def test_generator_template_no_cache_root_reports_unverified_and_continues(*, home: Path):
+    """The generator-owned block must preserve the CI/read-only host branch."""
+    digest = hashlib.md5(b"recorded generator\n", usedforsecurity=False).hexdigest()
+    result = _run(home=home, block=_concrete_template_block(digest=digest))
+    assert result.returncode == 0, result.stderr
+    assert "UNVERIFIED" in result.stdout
+    assert str(_cache_root(home=home)) in result.stdout
+    assert digest in result.stdout
 
 
 def test_a_cache_that_no_longer_holds_the_recorded_ref_halts(*, home: Path):
@@ -177,6 +218,62 @@ def test_the_recorded_generator_passes(*, home: Path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert "PASS" in result.stdout
     assert recorded_digest in result.stdout
+
+
+def test_generator_template_checks_newest_installed_ref_not_recorded_ref(*, home: Path):
+    """RED LEG: a stale recorded ref must not compare against itself.
+
+    The recorded ref stays present, because real plugin caches retain old refs.
+    The current generator is the newest ref by mtime, and a different digest
+    there must HALT while naming both refs and both digests.
+    """
+    recorded = b"old generator prose\n"
+    current = b"current generator prose\n"
+    recorded_digest = hashlib.md5(recorded, usedforsecurity=False).hexdigest()
+    current_digest = hashlib.md5(current, usedforsecurity=False).hexdigest()
+    _install_ref_with_mtime(home=home, ref="0.12.2", content=recorded, mtime=1_000)
+    _install_ref_with_mtime(home=home, ref="0.17.0", content=current, mtime=2_000)
+
+    result = _run(
+        home=home,
+        block=_concrete_template_block(digest=recorded_digest, ref="0.12.2"),
+    )
+
+    combined = result.stdout + result.stderr
+    assert result.returncode == 1
+    assert "HALT" in combined
+    assert "0.12.2" in combined
+    assert "0.17.0" in combined
+    assert recorded_digest in combined
+    assert current_digest in combined
+    assert "REMEDY" in combined
+
+
+def test_generator_template_passes_when_the_newest_ref_matches(*, home: Path):
+    """A charter stamped from the current ref passes."""
+    content = b"current generator prose\n"
+    digest = hashlib.md5(content, usedforsecurity=False).hexdigest()
+    _install_ref_with_mtime(home=home, ref="0.17.0", content=content, mtime=2_000)
+
+    result = _run(home=home, block=_concrete_template_block(digest=digest, ref="0.17.0"))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS" in result.stdout
+    assert digest in result.stdout
+
+
+def test_generator_template_passes_when_newest_ref_has_the_same_digest(*, home: Path):
+    """Ref identity is not generator identity; byte-identical prose stays green."""
+    content = b"same generator prose across releases\n"
+    digest = hashlib.md5(content, usedforsecurity=False).hexdigest()
+    _install_ref_with_mtime(home=home, ref="0.16.0", content=content, mtime=1_000)
+    _install_ref_with_mtime(home=home, ref="0.17.0", content=content, mtime=2_000)
+
+    result = _run(home=home, block=_concrete_template_block(digest=digest, ref="0.16.0"))
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS" in result.stdout
+    assert digest in result.stdout
 
 
 def test_a_charter_with_no_provenance_block_fails_loudly(*, tmp_path: Path, monkeypatch):
