@@ -9,9 +9,8 @@
 # Authority: livespec/SPECIFICATION/contracts.md
 #   §"Pre-commit step ordering" — gates wired in lefthook.yml mirror
 #   the spec-required ordering.
-#   §"Shared code sync — livespec-overseer" / §"Shared code sync —
-#   livespec-dev-tooling" — the `check:` aggregate below wires EVERY
-#   canonical check slug emitted by
+#   §"Shared code sync — livespec-dev-tooling" — the `check:` aggregate below
+#   wires EVERY canonical check slug emitted by
 #   `python -m livespec_dev_tooling.canonical_checks --json`, in
 #   alphabetical order, per the wiring-completeness invariant
 #   enforced by `check-aggregate-completeness` (epic li-univck Phase
