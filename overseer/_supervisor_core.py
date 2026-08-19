@@ -94,6 +94,7 @@ import streams
 import tmuxio
 from _seams import (
     CommToPidList,
+    EpicLookup,
     PidToIntList,
     PidToOptionalBytes,
     PidToOptionalInt,
@@ -191,6 +192,10 @@ class Supervisor:
     # Startup gate: `<repo>/tmp/overseer/` MUST be gitignored (the overseer only
     # writes temp files, never tracked ones). Injectable so tests fake the check.
     gitignore_check: RepoPredicate = default_gitignore_check
+    # Assignment-time epic lookup re-used once at the restart boundary when a stored row
+    # still has ``epic=None``. Tests inject this so ready-certification paths never reach
+    # a host Beads ledger through ``bd``.
+    epic_lookup: EpicLookup = field(default_factory=lambda: registry.epic_from_plan_anchor)
     # The daemon's OWN pane (its `$TMUX_PANE`, inherited because `overseerd` is launched
     # inside the top pane). Used only to badge the attention count onto the tmux WINDOW
     # name — the one overseer surface visible from a session the operator is attached to.

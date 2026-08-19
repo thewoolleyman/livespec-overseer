@@ -64,7 +64,7 @@ def rederive_epic_if_stale(*, sup: Supervisor, track: registry.Track, act: bool)
     """
     if not act:
         return track
-    derived = registry.epic_from_plan_anchor(repo=track.repo, topic=track.topic)
+    derived = sup.epic_lookup(repo=track.repo, topic=track.topic)
     if derived is None:
         return track
     _ = registry.record_derived_epic(
