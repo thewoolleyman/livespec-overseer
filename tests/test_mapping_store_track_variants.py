@@ -2,11 +2,53 @@
 
 import inspect
 import json
+import shutil
+import subprocess
+import textwrap
+from pathlib import Path
 
 import pytest
 import registry
 
 __all__: list[str] = []
+
+ROOT = Path(__file__).resolve().parent.parent
+UV = shutil.which("uv")
+assert UV is not None
+
+
+def _run_pyright_snippet(*, tmp_path: Path, body: str) -> subprocess.CompletedProcess[str]:
+    snippet = tmp_path / "snippet.py"
+    snippet.write_text(textwrap.dedent(body), encoding="utf-8")
+    config = tmp_path / "pyrightconfig.json"
+    config.write_text(
+        json.dumps(
+            {
+                "include": [snippet.name],
+                "extraPaths": [str(ROOT / "overseer")],
+                "pythonVersion": "3.10",
+                "typeCheckingMode": "strict",
+            }
+        ),
+        encoding="utf-8",
+    )
+    return subprocess.run(  # noqa: S603
+        [UV, "run", "pyright", "-p", str(config)],
+        cwd=tmp_path,
+        check=False,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+
+def _assert_pyright_passes(*, completed: subprocess.CompletedProcess[str]) -> None:
+    assert completed.returncode == 0, completed.stdout
+
+
+def _assert_pyright_fails_with(*, completed: subprocess.CompletedProcess[str], needle: str) -> None:
+    assert completed.returncode != 0, completed.stdout
+    assert needle in completed.stdout
 
 
 def test_mapping_writes_and_reads_the_variant_discriminator(*, tmp_path):
@@ -65,11 +107,84 @@ def test_the_four_track_variants_are_distinct_records():
     assert (
         inspect.signature(registry.PlanTrack).parameters["epic"].default is inspect.Parameter.empty
     )
+    assert (
+        inspect.signature(registry.SupervisorSeat).parameters["epic"].default
+        is inspect.Parameter.empty
+    )
+    assert (
+        inspect.signature(registry.ForemanSeat).parameters["epic"].default
+        is inspect.Parameter.empty
+    )
 
 
-def test_foreman_seat_without_epic_fails_at_construction():
+def test_foreman_seat_explicit_empty_epic_fails_at_construction():
     with pytest.raises(ValueError, match="foreman.*epic"):
-        registry.ForemanSeat(topic="repo-foreman", repo="/repo", tmux="repo-foreman")
+        registry.ForemanSeat(topic="repo-foreman", repo="/repo", tmux="repo-foreman", epic="")
+
+
+def test_foreman_seat_epic_and_plan_anchor_are_static_requirements(*, tmp_path):
+    omitted_epic = _run_pyright_snippet(
+        tmp_path=tmp_path,
+        body="""
+            import registry
+
+            registry.ForemanSeat(topic="repo-foreman", repo="/repo", tmux="repo-foreman")
+        """,
+    )
+    _assert_pyright_fails_with(
+        completed=omitted_epic,
+        needle='Argument missing for parameter "epic"',
+    )
+
+    explicit_epic = _run_pyright_snippet(
+        tmp_path=tmp_path,
+        body="""
+            import registry
+
+            registry.ForemanSeat(
+                topic="repo-foreman",
+                repo="/repo",
+                tmux="repo-foreman",
+                epic="overseer-foreman",
+            )
+        """,
+    )
+    _assert_pyright_passes(completed=explicit_epic)
+
+    foreman_as_plan_anchor_topic = _run_pyright_snippet(
+        tmp_path=tmp_path,
+        body="""
+            import registry
+
+            track = registry.ForemanSeat(
+                topic="repo-foreman",
+                repo="/repo",
+                tmux="repo-foreman",
+                epic="overseer-foreman",
+            )
+            registry.epic_from_plan_anchor(repo="/repo", topic=track)
+        """,
+    )
+    _assert_pyright_fails_with(
+        completed=foreman_as_plan_anchor_topic,
+        needle='Argument of type "ForemanSeat" cannot be assigned to parameter "topic"',
+    )
+
+    plan_anchor_topic = _run_pyright_snippet(
+        tmp_path=tmp_path,
+        body="""
+            import registry
+
+            track = registry.ForemanSeat(
+                topic="repo-foreman",
+                repo="/repo",
+                tmux="repo-foreman",
+                epic="overseer-foreman",
+            )
+            registry.epic_from_plan_anchor(repo="/repo", topic=track.topic)
+        """,
+    )
+    _assert_pyright_passes(completed=plan_anchor_topic)
 
 
 def test_legacy_foreman_row_with_null_or_absent_epic_loads_with_unresolved_sentinel(*, tmp_path):

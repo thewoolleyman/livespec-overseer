@@ -159,7 +159,7 @@ class ForemanSeat:
     topic: str
     repo: str
     tmux: str
-    epic: str = ""
+    epic: str
     resume: str | None = None
     ctx_threshold: int | None = None
     pinned_session_id: str | None = None
