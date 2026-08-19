@@ -64,6 +64,12 @@ def _tmux(socket: str, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _tmux_socket_path(*, socket: str) -> Path:
+    """Return the socket path tmux creates for `-L <socket>`."""
+    base = Path(os.environ.get("TMUX_TMPDIR", "/tmp"))
+    return base / f"tmux-{os.getuid()}" / socket
+
+
 @pytest.fixture(name="tmux")
 def _tmux_fixture(*, tmp_path: Path) -> Iterator[Callable[..., subprocess.CompletedProcess[str]]]:
     """A private tmux socket, bound into a call helper and torn down after."""
@@ -88,6 +94,7 @@ def _tmux_fixture(*, tmp_path: Path) -> Iterator[Callable[..., subprocess.Comple
         yield lambda *args: _tmux(socket, *args)
     finally:
         _tmux(socket, "kill-server")
+        _tmux_socket_path(socket=socket).unlink(missing_ok=True)
 
 
 @pytest.fixture(name="wait_for")

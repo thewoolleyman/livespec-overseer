@@ -26,8 +26,15 @@ are not mentioned in the rule.
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 from pathlib import Path
+from typing import cast
+
+import pytest
+
+import conftest
 
 __all__: list[str] = []
 
@@ -52,6 +59,25 @@ _RUN_UNIQUE = re.compile(r"getpid")
 # `test_repo_containment_discriminates.py` stands up a RIVAL run and must
 # reproduce exactly the name a concurrent run would compute. Such a line says so.
 _DELIBERATE = "rig-socket-rival"
+
+
+def _tmux_socket_dir() -> Path:
+    base = Path(os.environ.get("TMUX_TMPDIR", "/tmp"))
+    return base / f"tmux-{os.getuid()}"
+
+
+def _socket_count(*, name: str) -> int:
+    path = _tmux_socket_dir() / name
+    return int(path.exists() and path.is_socket())
+
+
+def _tmux_call(*, socket: str, args: tuple[str, ...]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # noqa: S603
+        ["tmux", "-L", socket, *args],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+    )
 
 
 def _offending_lines(*, text: str) -> list[str]:
@@ -119,3 +145,34 @@ def test_the_detector_fires_on_the_shape_it_is_written_for() -> None:
     # docstring, and went red before any defect existed.
     prose = '    Sabotage that reddens this: restore `socket = f"legs-{tmp_path.name}"` in'
     assert _offending_lines(text=prose) == []
+
+
+def test_the_shared_tmux_fixture_unlinks_only_its_own_socket(*, tmp_path: Path) -> None:
+    """A killed rig server must not leave a socket file behind.
+
+    Measured 2026-08-19: 22,715 orphan rig sockets, oldest 2026-07-18. This
+    test must not sweep them; it names only the socket created by this fixture
+    instance and proves an independently named neighbour survives.
+    """
+    rig_socket = f"legs-{os.getpid()}-{tmp_path.name}"
+    control_socket = f"control-{os.getpid()}-{tmp_path.name}"
+    before = _socket_count(name=rig_socket)
+
+    control = _tmux_call(socket=control_socket, args=("new-session", "-d", "-s", "control"))
+    try:
+        assert control.returncode == 0, control.stderr
+        assert _socket_count(name=control_socket) == 1
+        wrapped = cast("object", conftest._tmux_fixture).__pytest_wrapped__.obj
+        fixture = wrapped(tmp_path=tmp_path)
+        tmux = next(fixture)
+        tmux("new-session", "-d", "-s", "rig")
+        assert _socket_count(name=rig_socket) == before + 1
+
+        with pytest.raises(StopIteration):
+            next(fixture)
+
+        assert _socket_count(name=rig_socket) == before
+        assert _socket_count(name=control_socket) == 1
+    finally:
+        _tmux_call(socket=control_socket, args=("kill-server",))
+        (_tmux_socket_dir() / control_socket).unlink(missing_ok=True)
