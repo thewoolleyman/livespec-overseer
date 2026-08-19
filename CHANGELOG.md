@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.59.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.58.0...v0.59.0) (2026-08-19)
+
+
+### Features
+
+* preserve codex model profiles on restart ([7c78fde](https://github.com/thewoolleyman/livespec-overseer/commit/7c78fde63dd40569d86c96b1c23b3dfd6b9ecc31))
+
+
+### Bug Fixes
+
+* capture execed local llm wrappers ([e27a61f](https://github.com/thewoolleyman/livespec-overseer/commit/e27a61f7e10321cf0443770bd475f47a3973aca2))
+* preserve launch profile in restart docs ([f6a8ebf](https://github.com/thewoolleyman/livespec-overseer/commit/f6a8ebfbbf6cf8c0c5b7a76933f1660ed0598892))
+
 ## [0.58.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.57.0...v0.58.0) (2026-08-19)
 
 
