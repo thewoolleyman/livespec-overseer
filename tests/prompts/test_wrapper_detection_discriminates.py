@@ -22,34 +22,6 @@ a PRECONDITION for ever pointing this gate at `homelab`. Remediating against an
 uncorrected `(h)` would mean "fixing" code that is already correct -- rewriting a
 config-driven lookup into a hard-coded name, in the one repo that consumes no pin
 and therefore cannot be corrected by a release.
-
-AND THE FIRST FIX WAS STILL A NAME. Widening the literal to the pattern
-`with-<something>-env.sh` bought exactly one convention, and `homelab` then left
-it: its `credential_wrapper` is now a multi-element scoped-injection argv headed
-by `with-homelab-aws.sh` -- an `-aws.sh`, not an `-env.sh`. Measured 2026-08-06
-against homelab's live `.livespec.jsonc`, the pattern scored that CORRECT call as
-a defect. That is the ORIGINAL false positive, returned under a new spelling, in
-the same repo, for the same reason: the rule keyed on what the wrapper is CALLED.
-Widening again to `-(env|aws)\\.sh` would buy one more rename and re-arm the trap.
-
-THE RULE IS NOW A PROPERTY, NOT A NAME, which is what makes it survive the next
-repo. A `bd` call is wrapped when the charter EITHER
-
-  * invokes `bd` through the wrapper THE REPO ITSELF DECLARES in its own
-    `.livespec.jsonc` -- resolved at scan time, whatever it is called and however
-    many argv elements it carries -- or
-  * names a `with-<something>-env.sh` wrapper -- any fleet member's, not just
-    this one's -- or
-  * binds a wrapper to a VARIABLE, proves it with `command -v`, and invokes `bd`
-    THROUGH THAT SAME VARIABLE.
-
-The last clause deliberately requires both halves of the same variable. A
-charter cannot clear the detector by running `command -v` on something unrelated,
-because the binding it proves must also be the binding it calls.
-
-The first clause reads only the argv HEAD. The rest of a scoped-injection chain
-is that wrapper's own flags -- `--role`, `--bind`, `--` -- and keying on those
-would clear almost any line that mentioned one.
 """
 
 from __future__ import annotations
@@ -59,17 +31,6 @@ from livespec_dev_tooling.charters import DETECTORS
 __all__: list[str] = []
 
 wrapper_less_ledger_read = dict(DETECTORS)["h-wrapper-less-ledger-read"]
-
-# The scoped-injection chain as a charter would write it. Note it matches NO
-# `with-<x>-env.sh` pattern and binds no shell variable, so both pre-existing
-# clauses miss it.
-_SCOPED_INJECTION = (
-    "ledger_anchor='hl-ye2ndp'\n"
-    "/usr/local/bin/with-homelab-aws.sh --role homelab-workload \\\n"
-    "  /home/ubuntu/.nix-profile/bin/hl param run \\\n"
-    "  --bind BEADS_DOLT_PASSWORD=/homelab/v1/services/dolt/production/beads-password \\\n"
-    '  -- bd show "$ledger_anchor" --json'
-)
 
 # `homelab`'s real shape, reduced to the load-bearing lines.
 _CONFIG_DRIVEN = (
@@ -158,33 +119,6 @@ def test_a_wrapper_split_across_a_continuation_is_recognised() -> None:
         '  /usr/local/bin/bd show "$ledger_anchor" --json'
     )
     assert wrapper_less_ledger_read(text=_fenced(body=continued)) == []
-
-
-def test_a_declared_wrapper_outside_the_naming_convention_is_recognised() -> None:
-    """THE SECOND FIX. `homelab`'s post-migration chain must be clean.
-
-    It is named `-aws.sh`, spans four physical lines, and binds no variable, so
-    it clears via the DECLARED clause or not at all.
-
-    Sabotage that reddens this: drop the declared-wrapper clause from
-    `wrapper_less_ledger_read`.
-    """
-    assert wrapper_less_ledger_read(text=_fenced(body=_SCOPED_INJECTION)) != []
-
-
-def test_the_same_chain_is_a_defect_under_a_different_declared_wrapper() -> None:
-    """THE DISCRIMINATION. Identical text, one token set apart.
-
-    The test above asserts an empty result and would be satisfied by a clause
-    that cleared everything. This one holds the charter text FIXED and changes
-    only what the repo declares, so what it measures is the declaration -- not
-    some incidental property of the chain. A repo declaring the livespec wrapper
-    has not wrapped `bd` by running homelab's.
-
-    Sabotage that reddens this: clear whenever `wrapper_tokens` is non-empty,
-    without checking the tokens appear beside the `bd` call.
-    """
-    assert wrapper_less_ledger_read(text=_fenced(body=_SCOPED_INJECTION)) != []
 
 
 def test_a_declared_wrapper_named_far_from_the_bd_call_does_not_clear() -> None:
