@@ -84,6 +84,7 @@ from _registry_store import record_observed_session_identity as record_observed_
 from _registry_store import remove_mapping as remove_mapping
 from _registry_store import repoint_tmux as repoint_tmux
 from _registry_store import rewrite_mapping as rewrite_mapping
+from _registry_store import set_epic as set_epic
 
 __all__: list[str] = [
     "DEFAULT_CTX_THRESHOLD",
@@ -121,6 +122,7 @@ __all__: list[str] = [
     "repo_slug",
     "repoint_tmux",
     "rewrite_mapping",
+    "set_epic",
     "set_resume_pending",
     "tmux_id",
     "watch_set_from_config",
