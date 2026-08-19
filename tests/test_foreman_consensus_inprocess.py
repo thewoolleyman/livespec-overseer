@@ -43,9 +43,24 @@ def reviewers(*, action: object | None = None) -> dict[str, object]:
     typed = action or {"action_id": "work_item_file", "params": {"target": "overseer-next"}}
     return {
         "reviewers": [
-            {"reviewer_id": "fable", "verdict": "unblock", "action": typed},
-            {"reviewer_id": "opus", "verdict": "unblock", "action": typed},
-            {"reviewer_id": "gpt-sol", "verdict": "unblock", "action": typed},
+            {
+                "reviewer_id": "fable",
+                "verdict": "unblock",
+                "action": typed,
+                "rationale": "Fable rationale.",
+            },
+            {
+                "reviewer_id": "opus",
+                "verdict": "unblock",
+                "action": typed,
+                "rationale": "Opus rationale.",
+            },
+            {
+                "reviewer_id": "gpt-sol",
+                "verdict": "unblock",
+                "action": typed,
+                "rationale": "Sol rationale.",
+            },
         ]
     }
 
@@ -210,6 +225,171 @@ def test_consensus_module_executable_schema_and_typed_unanimity(*, tmp_path: Pat
 
     assert cached["outcome"] == "unanimous"
     assert cached["cache"] == "hit"
+
+
+def test_evaluated_panel_writes_topic_artifact_and_journal_for_no_act_case(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    prompt = module("foreman_consensus_prompt")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    panel_request = {
+        **request(repo=repo, question="This row is working; should the prose answer stand?"),
+        "topic": "working-prose",
+    }
+    state_dir = tmp_path / "state"
+
+    result = consensus.consensus(
+        request=panel_request,
+        responses=reviewers(),
+        state_dir=state_dir,
+    )
+
+    key = prompt.cache_key(request=panel_request)
+    artifact = (
+        repo / "tmp" / "overseer" / "foreman" / "panels" / "working-prose" / f"panel-{key}.json"
+    )
+    assert result["cache"] == "miss"
+    assert result["panel_record"]["outcome"] == "written"
+    assert result["panel_record"]["artifact"] == str(artifact)
+    payload = json.loads(artifact.read_text(encoding="utf-8"))
+    assert payload["cache_key"] == key
+    assert json.loads(payload["canonical_request"]) == panel_request
+    assert payload["request"] == panel_request
+    assert payload["responses"] == reviewers()
+    assert payload["responses"]["reviewers"][0]["rationale"] == "Fable rationale."
+    assert payload["reviewers"][0]["verdict"] == "unblock"
+    assert payload["outcome"] == "unanimous"
+    assert payload["reason"] == "three_typed_actions_equal"
+    assert payload["verdict"]["cache"] == "miss"
+
+    journal = [
+        json.loads(line)
+        for line in (repo / "tmp" / "fabro-dispatch-journal.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert journal[-1]["stage"] == "foreman-consensus"
+    assert journal[-1]["panel_outcome"] == "unanimous"
+    assert journal[-1]["panel_reason"] == "three_typed_actions_equal"
+    assert journal[-1]["panel_cache_key"] == key
+    assert journal[-1]["artifact"] == str(artifact)
+
+
+def test_consensus_cache_hit_and_budget_refusals_do_not_write_panel_records(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    panel_request = request(repo=repo)
+
+    first = consensus.consensus(
+        request=panel_request,
+        responses=reviewers(),
+        state_dir=tmp_path / "state-cache",
+    )
+    assert first["cache"] == "miss"
+    journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
+    before = journal.read_text(encoding="utf-8")
+    second = consensus.consensus(
+        request=panel_request,
+        responses=reviewers(action="ignored on cache hit"),
+        state_dir=tmp_path / "state-cache",
+    )
+    assert second["cache"] == "hit"
+    assert journal.read_text(encoding="utf-8") == before
+
+    for name, limits in [
+        ("concurrency", consensus.PanelLimits(concurrency_cap=0)),
+        ("per-tick", consensus.PanelLimits(per_tick_panel_budget=0)),
+        ("daily", consensus.PanelLimits(daily_panel_budget=0)),
+    ]:
+        blocked_repo = tmp_path / f"repo-{name}"
+        blocked_repo.mkdir()
+        result = consensus.consensus(
+            request=request(repo=blocked_repo, question=name),
+            responses=reviewers(),
+            state_dir=tmp_path / f"state-{name}",
+            limits=limits,
+        )
+        assert result["outcome"] == "budget_exceeded"
+        assert not (blocked_repo / "tmp" / "overseer" / "foreman" / "panels").exists()
+        assert not (blocked_repo / "tmp" / "fabro-dispatch-journal.jsonl").exists()
+
+
+def test_panel_record_skips_untrusted_repo_and_topic_fields(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+
+    for name, panel_request, reason in [
+        ("relative", {**request(repo=Path("relative")), "repo": "relative"}, "invalid_repo"),
+        ("missing", {**request(repo=tmp_path / "missing")}, "invalid_repo"),
+        ("empty-topic", {**request(repo=tmp_path), "topic": ""}, "invalid_topic"),
+        ("traversal", {**request(repo=tmp_path), "topic": "../escape"}, "invalid_topic"),
+    ]:
+        result = consensus.consensus(
+            request=panel_request,
+            responses=reviewers(),
+            state_dir=tmp_path / f"state-{name}",
+        )
+        assert result["panel_record"] == {"outcome": "skipped", "reason": reason}
+
+    assert not (tmp_path / "tmp" / "fabro-dispatch-journal.jsonl").exists()
+    assert not (tmp_path / "tmp" / "overseer" / "foreman" / "panels").exists()
+
+
+def test_panel_artifact_write_replaces_atomically(*, tmp_path: Path, monkeypatch):
+    consensus = module("foreman_consensus")
+    record = module("foreman_consensus_record")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    calls: list[tuple[Path, Path]] = []
+    real_replace = record.Path.replace
+
+    def capture_replace(self: Path, *, target: Path | str) -> Path:
+        source = Path(self)
+        destination = Path(target)
+        assert source.is_file()
+        assert destination.name.startswith("panel-")
+        calls.append((source, destination))
+        return real_replace(self, target)
+
+    monkeypatch.setattr(record.Path, "replace", capture_replace)
+
+    result = consensus.consensus(
+        request=request(repo=repo),
+        responses=reviewers(),
+        state_dir=tmp_path / "state",
+    )
+
+    assert result["panel_record"]["outcome"] == "written"
+    assert len(calls) == 1
+    assert not calls[0][0].exists()
+    assert calls[0][1].is_file()
+
+
+def test_panel_artifact_write_failure_surfaces_skip_and_cleans_temp(*, tmp_path: Path, monkeypatch):
+    consensus = module("foreman_consensus")
+    record = module("foreman_consensus_record")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def fail_replace(self: Path, *, target: Path | str) -> Path:
+        _ = (self, target)
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(record.Path, "replace", fail_replace)
+
+    result = consensus.consensus(
+        request=request(repo=repo),
+        responses=reviewers(),
+        state_dir=tmp_path / "state",
+    )
+
+    panels = repo / "tmp" / "overseer" / "foreman" / "panels" / "alpha"
+    assert result["panel_record"] == {
+        "outcome": "skipped",
+        "reason": "panel_record_write_failed",
+    }
+    assert not (repo / "tmp" / "fabro-dispatch-journal.jsonl").exists()
+    assert not list(panels.glob("*.tmp"))
 
 
 def test_free_form_invalid_actions_and_typed_disagreement_escalate(*, tmp_path: Path):
