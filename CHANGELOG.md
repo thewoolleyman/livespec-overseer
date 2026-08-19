@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.55.2...v0.56.0) (2026-08-19)
+
+
+### Features
+
+* surface parked delivery attention ([46cabf5](https://github.com/thewoolleyman/livespec-overseer/commit/46cabf55a057d22f505c8eb26acd2b717dbe16fe))
+
 ## [0.55.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.55.1...v0.55.2) (2026-08-19)
 
 
