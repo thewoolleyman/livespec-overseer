@@ -805,7 +805,7 @@ livespec-orchestrator-beads-fabro/<new-build>/scripts/bin/drive.py --action impl
 Confirm which build is current with `just ensure-plugins` (it prints
 `already at the latest version (<build>)`), then point at that directory.
 
-## `bd show`'s `Updated:` is NOT an activity signal — never judge staleness from it
+## A ledger field describes the RECORD, not the WORLD — `Updated:` is not activity, `status` is not scheduling
 
 Measured 2026-08-19 with a live positive control. This one is cheap to get
 wrong because the field sits directly under `Created:`, exactly where a reader
@@ -851,6 +851,38 @@ difference worth holding: there the check was RUN and could only return one
 answer; here a field is READ and means something narrower than it appears.
 Both end the same way — a confident claim resting on evidence that could not
 have contradicted it.
+
+### The same trap wears a second field name: `status` is not a scheduling signal
+
+**The section above was originally written about `Updated:` alone, and that
+framing was too narrow — proven the same day, by its own author, minutes after
+landing it.** Having switched off `Updated:` and onto comment counts, the same
+session then read a work item's **`status`** as evidence about whether anyone
+was working, and recorded that four routed items were "not scheduled". One of
+them, a P1 reading `BACKLOG`, had a **dedicated plan opened that very
+day** in the owning repo — a published branch, a committed research note naming
+that item as its anchor, and a live session on it.
+
+**In this fleet the ledger row is the LAST thing to move, not the first.** Work
+is planned in threads and branches, measured, and often half-done before any
+row changes. So a row's status tells you what the record says about itself, and
+nothing about whether a person or a factory run is on it right now.
+
+**Check the world, not the row:** branches in the owning repo (including plan
+branches), plan directories on its master, open PRs, running sessions, and the
+state of the code the item describes.
+
+**And weigh a negative correctly.** A search across another repo's planning
+surface that finds nothing is *not* a negative result — the plan above
+would have been missed entirely but for a coincidentally-noticed session name.
+Say "I found no evidence of in-flight work", never "it is not scheduled". The
+two sound alike and only the first is supportable from outside the owning repo.
+
+**Why this generalization is the durable form.** Both instances are one error:
+reading a field that describes a RECORD as though it described the WORLD. The
+narrow rule did not prevent the second instance even in the mind that had just
+written it, which is the strongest available evidence that the general rule is
+the one worth carrying.
 
 ## The charter gate's false positives all point ONE way — suspect the detector first
 
