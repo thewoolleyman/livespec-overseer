@@ -64,6 +64,7 @@ from _supervisor_prompts import idle_nudge_message as idle_nudge_message
 from _supervisor_prompts import plan_epic_resume as plan_epic_resume
 from _supervisor_prompts import plan_state_locator as plan_state_locator
 from _supervisor_prompts import wrapup_message as wrapup_message
+from _supervisor_start_cli import launch_attempt_message
 from _supervisor_view import ATTENTION_STATUSES as ATTENTION_STATUSES
 from _supervisor_view import RowView as RowView
 from _supervisor_view import needs_attention as needs_attention
@@ -348,13 +349,14 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
                 )
             )
             return 1
-    if not sup.do_launch(track=track, session=session):
+    message = launch_attempt_message(sup=sup, io=io, track=track, session=session)
+    if message is None:
         streams.write_stderr(
             text=f"start FAILED to launch {repo}::{topic} in tmux session {session}\n"
         )
         return 1
     _upsert(track=track)
-    streams.write_stdout(text=f"started {repo}::{topic} in tmux session {session}\n")
+    streams.write_stdout(text=f"{message}\n")
     return 0
 
 
