@@ -218,6 +218,29 @@ def test_legacy_status_snapshot_path_still_selects_snapshot_target(*, tmp_path):
     assert read.generation == 1
 
 
+def test_default_status_snapshot_path_is_selectable_without_writing_home(*, tmp_path):
+    module = snapshot_module()
+    repo, topic = make_plan(tmp_path=tmp_path)
+    writes = []
+
+    def recording_writer(*, path, body):
+        writes.append((path, body))
+
+    sup, _session = make_live_mapped_supervisor(
+        tmp_path=tmp_path,
+        repo=repo,
+        topic=topic,
+        status_path=None,
+        status_writer=recording_writer,
+        ctx=76,
+    )
+
+    sup.tick(act=True)
+
+    assert [write[0] for write in writes] == [module.DEFAULT_STATUS_PATH]
+    assert json.loads(writes[0][1])["tick_generation"] == 1
+
+
 def test_snapshot_atomic_write_raise_mode_reports_write_failures(*, tmp_path, monkeypatch):
     registry_core = importlib.import_module("_registry_core")
 

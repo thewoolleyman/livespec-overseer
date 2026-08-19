@@ -57,6 +57,24 @@ def test_working_pane_still_alert_requires_two_consecutive_due_observations(*, t
     assert not fake.has(method="respawn")
 
 
+def test_stall_watch_without_snapshot_path_uses_current_daemon_identity(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = topic
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=busy_capture(ctx=73))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, status_path=None)
+    sup.status_snapshot_writer = lambda *, sup, rows: None
+    state = sup.inject.setdefault(
+        key_for(repo=repo, topic=topic), _supervisor_records.InjectState()
+    )
+    state.stall_watch_daemon_instance_id = None
+
+    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+
+    assert view.status == "working"
+    assert state.stall_watch_daemon_instance_id == sup.daemon_instance_id
+
+
 def test_daemon_bounce_re_resolves_stall_watch_by_title_not_prior_pane_id(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = topic
