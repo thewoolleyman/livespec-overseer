@@ -5,9 +5,11 @@ description: >-
   deterministic top-pane daemon (`overseerd`) that watches every tracked tmux
   session's context %, injects an ESCALATING wrap-up at threshold, and
   atomically restarts a session ONLY once that session declares itself `ready`
-  (exit + `claude --dangerously-skip-permissions -n <topic>` + re-kick from the
-  plan's LEDGER-HELD PLAN STATE, named by repository path and recorded `epic`
-  id) — THE CARDINAL RULE: the daemon NEVER restarts a
+  (exit + a launch-profile-aware relaunch: bare `claude
+  --dangerously-skip-permissions -n <topic>` only when no profile is recorded,
+  otherwise re-assert the recorded wrapper/model + re-kick from the plan's
+  LEDGER-HELD PLAN STATE, named by repository path and recorded `epic` id) —
+  THE CARDINAL RULE: the daemon NEVER restarts a
   session that has not declared itself ready, because only the session knows
   whether it is safe to kill; one that declares nothing is REPORTED as not
   responding and left alone — and this THIN bottom pane, the interactive Claude
@@ -374,6 +376,18 @@ keyword flags. (`<cmd>` is one of `list` / `add` / `remove` / `unassign` /
   `--force` only to respawn a session that is already running a live Claude
   (kills it) — otherwise `start` upserts the mapping and leaves the session
   alone.
+
+  Automatic restarts after a session-written `ready` preserve the recorded launch
+  profile. A mapping row with NO recorded `model_profile` keeps the bare
+  `claude --dangerously-skip-permissions -n <topic>` command; a profile with no
+  wrapper relaunches with `--model <model>`; a wrapper profile relaunches through
+  the wrapper and sets the recorded model in the controlled environment. On every
+  profile-aware relaunch the daemon SETS OR SCRUBS `ANTHROPIC_MODEL`,
+  `ANTHROPIC_SMALL_FAST_MODEL`, `CLAUDE_CODE_DISABLE_1M_CONTEXT`, and
+  `CLAUDE_CODE_MAX_CONTEXT_TOKENS`, so stale inherited values cannot silently
+  change the runtime/model. A stale or corrupt profile is surfaced and the
+  restart is skipped; the daemon never falls back to a default-model or
+  default-wrapper launch.
 
 ### Fixed paths + fleet-only watch-set (no CLI knobs)
 
