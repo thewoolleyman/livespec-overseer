@@ -66,7 +66,7 @@ def statusline_model_disagreement(
     model_profile: Mapping[str, str | None] | None,
 ) -> tuple[str, str] | None:
     """Return ``(recorded, rendered)`` only for a resolved disagreement."""
-    recorded = None if model_profile is None else model_profile.get("model")
+    recorded = None if model_profile is None else model_profile.get("statusline_model")
     rendered = rendered_statusline_model(capture=capture)
     if not recorded or rendered is None or rendered == recorded:
         return None

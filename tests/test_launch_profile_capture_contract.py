@@ -137,6 +137,7 @@ def test_adopt_sessions_persists_a_cloud_claude_launch_profile(*, tmp_path):
     sessions_dir.mkdir()
     write_session(sessions_dir=sessions_dir, pid=200, name=topic, cwd=repo)
     fake = FakeTmux()
+    fake.panes[topic] = idle_capture(ctx=40)
     fake.pane_pids = {100: topic}
     sup = adopt_sup(
         tmp_path=tmp_path,
@@ -158,6 +159,7 @@ def test_adopt_sessions_persists_a_cloud_claude_launch_profile(*, tmp_path):
     assert _jsonl_rows(store=tmp_path / "map.jsonl")[0]["model_profile"] == {
         "harness": "claude",
         "model": "claude-opus-4-1-20250805",
+        "statusline_model": "Opus 4.8 (1M context)",
         "wrapper": None,
     }
 
@@ -211,6 +213,7 @@ def test_wrapup_rechecks_launch_profile_and_surfaces_statusline_mismatch(*, tmp_
     assert _jsonl_rows(store=tmp_path / "map.jsonl")[0]["model_profile"] == {
         "harness": "claude",
         "model": "claude-sonnet-4-5-20250929",
+        "statusline_model": "Sonnet 4.5 (1M context)",
         "wrapper": None,
     }
     assert signals.read_state(repo=str(repo), topic=topic) is None
@@ -259,7 +262,10 @@ def test_wrapup_statusline_display_name_does_not_mismatch_unchanged_launch_token
 
     assert view.status == "warned"
     assert "launch profile mismatch" not in err.getvalue()
-    assert _jsonl_rows(store=tmp_path / "map.jsonl")[0]["model_profile"] == profile
+    assert _jsonl_rows(store=tmp_path / "map.jsonl")[0]["model_profile"] == {
+        **profile,
+        "statusline_model": "Opus 4.8 (1M context)",
+    }
 
 
 def test_wrapup_records_missing_profile_without_mismatch_alert(*, tmp_path):
@@ -297,5 +303,6 @@ def test_wrapup_records_missing_profile_without_mismatch_alert(*, tmp_path):
     assert _jsonl_rows(store=tmp_path / "map.jsonl")[0]["model_profile"] == {
         "harness": "claude",
         "model": "claude-opus-4-1-20250805",
+        "statusline_model": "Opus 4.8 (1M context)",
         "wrapper": None,
     }

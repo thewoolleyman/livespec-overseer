@@ -51,6 +51,20 @@ def _stored_model_profile(
     return None
 
 
+def _with_statusline_baseline(
+    *,
+    profile: dict[str, str | None],
+    stored_profile: dict[str, str | None] | None,
+    rendered: str | None,
+) -> dict[str, str | None]:
+    recorded = None if stored_profile is None else stored_profile.get("statusline_model")
+    if recorded is not None:
+        return {**profile, "statusline_model": recorded}
+    if rendered is not None:
+        return {**profile, "statusline_model": rendered}
+    return profile
+
+
 def refresh_launch_profile_at_wrapup(
     *,
     sup: Supervisor,
@@ -101,6 +115,11 @@ def refresh_launch_profile_at_wrapup(
             ),
             condition="launch-profile-mismatch",
         )
+    profile = _with_statusline_baseline(
+        profile=profile,
+        stored_profile=stored_profile,
+        rendered=rendered,
+    )
     if registry.record_model_profile(
         repo=track.repo,
         topic=track.topic,

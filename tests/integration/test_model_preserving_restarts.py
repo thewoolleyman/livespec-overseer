@@ -149,11 +149,10 @@ def test_scenario_restart_reasserts_an_explicitly_recorded_model(*, tmp_path):
         model_profile={
             "harness": "claude",
             "model": "claude-opus-4-1-20250805",
+            "statusline_model": "Opus 4.8 (1M context)",
             "wrapper": None,
         },
-        restart_capture=idle_capture(ctx=40).replace(
-            "Opus 4.8 (1M context)", "claude-opus-4-1-20250805"
-        ),
+        restart_capture=idle_capture(ctx=40),
     )
 
     assert view.status == "restarting"
@@ -182,6 +181,7 @@ def test_scenario_restart_reasserts_a_local_llm_wrapper_and_env(*, tmp_path):
         model_profile={
             "harness": "claude",
             "model": "macmini/qwen3-coder-next",
+            "statusline_model": "macmini/qwen3-coder-next",
             "wrapper": str(wrapper),
         },
         restart_capture=idle_capture(ctx=40).replace(
@@ -212,6 +212,7 @@ def test_scenario_stale_launch_profile_is_surfaced_and_restart_is_skipped(*, tmp
         model_profile={
             "harness": "claude",
             "model": "macmini/qwen3-coder-next",
+            "statusline_model": "macmini/qwen3-coder-next",
             "wrapper": str(tmp_path / "missing-wrapper"),
         },
     )

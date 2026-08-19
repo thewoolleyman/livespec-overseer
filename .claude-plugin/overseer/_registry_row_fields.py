@@ -13,7 +13,8 @@ __all__: list[str] = [
     "opt_str_from_row",
 ]
 
-_MODEL_PROFILE_KEYS = {"harness", "model", "wrapper"}
+_MODEL_PROFILE_REQUIRED_KEYS = {"harness", "model", "wrapper"}
+_MODEL_PROFILE_OPTIONAL_KEYS = {"statusline_model"}
 
 
 def opt_str_from_row(*, row: dict[str, object], key: str) -> str | None:
@@ -43,18 +44,20 @@ def model_profile_from_row(
     profile = jsonio.as_object(value=value)
     if (
         profile is None
-        or set(profile) != _MODEL_PROFILE_KEYS
+        or not _MODEL_PROFILE_REQUIRED_KEYS.issubset(profile)
+        or not set(profile).issubset(_MODEL_PROFILE_REQUIRED_KEYS | _MODEL_PROFILE_OPTIONAL_KEYS)
         or not isinstance(profile.get("harness"), str)
         or not isinstance(profile.get("model"), str)
         or not isinstance(profile.get("wrapper"), str | type(None))
+        or not isinstance(profile.get("statusline_model"), str | type(None))
     ):
         warn(message=f"dropping malformed model_profile for {repo}::{topic}: {value!r}")
         return None
-    return cast(
-        ModelProfile,
-        {
-            "harness": profile["harness"],
-            "model": profile["model"],
-            "wrapper": profile["wrapper"],
-        },
-    )
+    model_profile = {
+        "harness": profile["harness"],
+        "model": profile["model"],
+        "wrapper": profile["wrapper"],
+    }
+    if "statusline_model" in profile:
+        model_profile["statusline_model"] = profile["statusline_model"]
+    return cast(ModelProfile, model_profile)
