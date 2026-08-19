@@ -943,6 +943,22 @@ that a body long enough to need a file is *precisely* the body most likely to
 contain the word "for" somewhere, so these two remedies are needed together far more
 often than either alone.
 
+**AND THE THIRD DENIAL THAT SAME DAY HAD NO `gh` INVOCATION IN IT AT ALL — WRITING
+*ABOUT* THIS GUARD TRIPS IT.** The denied command was a plain heredoc writing a file,
+with no GitHub call anywhere. It matched because the PROSE BEING WRITTEN quoted the
+command form the guard looks for, and that same prose — being ordinary English about
+a defect — also contained "for" and "while". Both alternations hit inside a document
+that was merely *describing* the hazard.
+
+This is the same shape as the delimiter-token trap elsewhere in this file: **quoting
+the evidence poisons the report.** A good write-up quotes the failing command
+verbatim, and here the quoted command *is* the poison. So when documenting this guard
+— in a PR body, a commit message, a ledger comment, or a file written by a heredoc —
+**name the subcommand in words rather than reproducing the literal invocation form**,
+or keep the quoted form and the English in different files. Do not rely on there
+being no actual GitHub call to save you; the guard reads the command string, not your
+intent.
+
 **The red-green-replay ritual is ONE commit with `--amend`, not two commits.** Red
 stages the test file **alone**; Green stages the impl and amends it. The test-file
 bytes must be **byte-identical** across the pair, and exactly **one** test file may
