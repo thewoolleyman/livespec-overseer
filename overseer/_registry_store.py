@@ -4,6 +4,7 @@ Extracted from `registry.py` at its own section banner when that module crossed 
 250-LLOC hard ceiling. JSONL = one JSON object per line; a malformed line fails
 SOFT. `registry.py` re-exports this surface, so consumers keep importing `registry`.
 """
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.5
 
 from __future__ import annotations
 
