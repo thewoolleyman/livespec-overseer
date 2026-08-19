@@ -72,6 +72,61 @@ def test_foreman_seat_without_epic_fails_at_construction():
         registry.ForemanSeat(topic="repo-foreman", repo="/repo", tmux="repo-foreman")
 
 
+def test_legacy_foreman_row_with_null_or_absent_epic_loads_with_unresolved_sentinel(*, tmp_path):
+    store = tmp_path / "map.jsonl"
+    store.write_text(
+        json.dumps(
+            {
+                "kind": "foreman",
+                "topic": "repo-foreman",
+                "repo": "/repo",
+                "tmux": "repo-foreman",
+                "epic": None,
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "kind": "foreman",
+                "topic": "other-foreman",
+                "repo": "/repo",
+                "tmux": "other-foreman",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    entries = registry.read_mapping(store_path=store)
+    tracks = registry.read_valid_mapping(store_path=store)
+
+    assert [type(entry).__name__ for entry in entries] == ["MappingValid", "MappingValid"]
+    assert [(track.topic, track.epic) for track in tracks] == [
+        ("repo-foreman", registry.unresolved_plan_epic(topic="repo-foreman")),
+        ("other-foreman", registry.unresolved_plan_epic(topic="other-foreman")),
+    ]
+
+
+def test_foreman_row_with_non_string_epic_stays_invalid(*, tmp_path):
+    store = tmp_path / "map.jsonl"
+    raw = json.dumps(
+        {
+            "kind": "foreman",
+            "topic": "repo-foreman",
+            "repo": "/repo",
+            "tmux": "repo-foreman",
+            "epic": 42,
+        }
+    )
+    store.write_text(raw + "\n", encoding="utf-8")
+
+    [entry] = registry.read_mapping(store_path=store)
+
+    assert type(entry).__name__ == "MappingInvalid"
+    assert entry.reason == "missing_epic"
+    assert entry.raw_line == raw
+
+
 def test_raw_row_write_surface_is_not_public_registry_api():
     assert not hasattr(registry, "write_rows")
     assert not hasattr(registry, "read_rows")

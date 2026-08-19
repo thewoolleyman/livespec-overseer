@@ -118,11 +118,16 @@ def track_from_mapping_row(
             model_profile=extras.model_profile,
         )
     if kind == "foreman":
+        epic = (
+            unresolved_plan_epic(topic=topic)
+            if "epic" not in row or row.get("epic") is None
+            else require_str(row=row, key="epic")
+        )
         return ForemanSeat(
             topic=topic,
             repo=repo,
             tmux=require_str(row=row, key="tmux"),
-            epic=require_str(row=row, key="epic"),
+            epic=epic,
             resume=extras.resume,
             ctx_threshold=extras.ctx_threshold,
             pinned_session_id=extras.pinned_session_id,
