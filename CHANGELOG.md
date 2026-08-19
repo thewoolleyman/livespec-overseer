@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.62.2...v0.63.0) (2026-08-19)
+
+
+### Features
+
+* skip restarts on statusline model mismatch ([09d2214](https://github.com/thewoolleyman/livespec-overseer/commit/09d221483a93c430c86b9398dcd3b2a1b6c86a43))
+
 ## [0.62.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.62.1...v0.62.2) (2026-08-19)
 
 
