@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.62.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.62.0...v0.62.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* preserve legacy foreman epic rows ([9ea2a31](https://github.com/thewoolleyman/livespec-overseer/commit/9ea2a31594edc883099d8320cf0da3f21fb5e211))
+
 ## [0.62.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.6...v0.62.0) (2026-08-19)
 
 
