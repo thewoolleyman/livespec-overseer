@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.4...v0.61.5) (2026-08-19)
+
+
+### Bug Fixes
+
+* preserve foreman registration fields ([e05a5cb](https://github.com/thewoolleyman/livespec-overseer/commit/e05a5cbad91c2b1ea5e52a38b265190dc3e64b16))
+
 ## [0.61.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.3...v0.61.4) (2026-08-19)
 
 
