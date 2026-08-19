@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.61.6](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.5...v0.61.6) (2026-08-19)
+
+
+### Bug Fixes
+
+* adopt store-bound unindexed codex sessions ([20172d3](https://github.com/thewoolleyman/livespec-overseer/commit/20172d3314b2dbdce4e38cae700b47b143557967))
+* wire workflow edit guard into check aggregate ([b2dc2cc](https://github.com/thewoolleyman/livespec-overseer/commit/b2dc2cc4d16d32babb5ad3d9645da0c85048481c))
+
 ## [0.61.5](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.4...v0.61.5) (2026-08-19)
 
 
