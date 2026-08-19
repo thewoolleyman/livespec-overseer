@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.60.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.7...v0.60.0) (2026-08-19)
+
+
+### Features
+
+* allow foreman epic assignment ([493d9a4](https://github.com/thewoolleyman/livespec-overseer/commit/493d9a4c562ffe5ec895b8547deab599de0d96f6))
+
 ## [0.59.7](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.6...v0.59.7) (2026-08-19)
 
 
