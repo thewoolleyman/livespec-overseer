@@ -5,6 +5,7 @@ Extracted from `registry.py` at its own section banner when that module crossed 
 the `.overseer-state` file's mtime against (a `ready` must be THIS round's).
 `registry.py` re-exports this surface, so consumers keep importing `registry`.
 """
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.5
 
 from __future__ import annotations
 

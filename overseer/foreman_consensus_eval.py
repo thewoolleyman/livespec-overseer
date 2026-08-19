@@ -1,4 +1,5 @@
 """Typed verdict evaluation for the report-only consensus panel."""
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.4
 
 from __future__ import annotations
 

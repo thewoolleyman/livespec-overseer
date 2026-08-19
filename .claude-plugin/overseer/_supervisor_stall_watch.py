@@ -1,4 +1,5 @@
 """Report-only attention for working panes whose visible bytes stop changing."""
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.3
 
 from __future__ import annotations
 

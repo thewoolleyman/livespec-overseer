@@ -42,6 +42,7 @@ number, and ``signals.parse_ctx_remaining`` reads it exactly as it reads Claude'
 Stdlib-only, like every module in this folder. Every host coupling (``/proc`` reads)
 is injected so the beside-tests run with no codex process and no real ``~/.codex``.
 """
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.5
 
 from __future__ import annotations
 

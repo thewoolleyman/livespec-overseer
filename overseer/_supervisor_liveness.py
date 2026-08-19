@@ -1,4 +1,5 @@
 """Liveness helper primitives for duration, alert identity, and row notes."""
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.3
 
 from __future__ import annotations
 
