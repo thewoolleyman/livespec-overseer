@@ -32,6 +32,7 @@ __all__: list[str] = [
     "remove_mapping",
     "repoint_tmux",
     "rewrite_mapping",
+    "set_epic",
 ]
 
 _PLAN_HANDOFF_RESUME = re.compile(
@@ -268,6 +269,9 @@ def record_derived_epic(
     return _update_matching_field(
         repo=repo, topic=topic, field="epic", value=epic, store_path=store_path
     )
+
+
+set_epic = record_derived_epic
 
 
 def append_mapping(

@@ -39,6 +39,36 @@ def test_ledger_epic_lookup_timeout_has_wrapped_bd_margin_and_plugin_lockstep():
     assert package_timeout >= 20
 
 
+def test_set_epic_rewrites_only_the_matching_row_and_preserves_unknown_keys(*, tmp_path):
+    """set_epic is the field-scoped alternative to racy remove+append epic correction."""
+    store = tmp_path / "map.jsonl"
+    store.write_text(
+        json.dumps({"topic": "a", "repo": "/r", "epic": None, "operator_note": "keep"})
+        + "\n"
+        + json.dumps({"topic": "b", "repo": "/r", "epic": "overseer-other"})
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert registry.set_epic(repo="/r", topic="a", epic="overseer-au3pt3", store_path=store)
+
+    rows = {row.topic: row.epic for row in registry.read_mapping(store_path=store)}
+    assert rows == {"a": "overseer-au3pt3", "b": "overseer-other"}
+    raw_a = next(
+        json.loads(line)
+        for line in store.read_text(encoding="utf-8").splitlines()
+        if json.loads(line)["topic"] == "a"
+    )
+    assert raw_a["operator_note"] == "keep"
+
+    before = store.stat().st_mtime_ns
+    assert (
+        registry.set_epic(repo="/r", topic="a", epic="overseer-au3pt3", store_path=store) is False
+    )
+    assert store.stat().st_mtime_ns == before
+    assert registry.set_epic(repo="/r", topic="missing", epic="x", store_path=store) is False
+
+
 def test_epic_from_plan_anchor_accepts_observed_labels_and_wrapped_ids(*, tmp_path, monkeypatch):
     cases = {
         "ledger": b"**Ledger anchor:** epic **`overseer-ledger`**\n",
