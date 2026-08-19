@@ -22,6 +22,7 @@ The remedy, by contrast, is asserted UNCONDITIONALLY: it must halt everywhere.
 
 from __future__ import annotations
 
+import os
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -148,6 +149,11 @@ def _tmux_on(socket: str, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _tmux_socket_path(*, socket: str) -> Path:
+    base = Path(os.environ.get("TMUX_TMPDIR", "/tmp"))
+    return base / f"tmux-{os.getuid()}" / socket
+
+
 def test_the_rigs_socket_is_not_shared_with_a_concurrent_run(
     *, tmux: Callable[..., subprocess.CompletedProcess[str]], tmp_path: Path
 ) -> None:
@@ -189,3 +195,4 @@ def test_the_rigs_socket_is_not_shared_with_a_concurrent_run(
         assert live == str(mine)
     finally:
         _tmux_on(rival, "kill-server")
+        _tmux_socket_path(socket=rival).unlink(missing_ok=True)

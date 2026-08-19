@@ -70,6 +70,11 @@ def _tmux_call(socket: str, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _tmux_socket_path(*, socket: str) -> Path:
+    base = Path(os.environ.get("TMUX_TMPDIR", "/tmp"))
+    return base / f"tmux-{os.getuid()}" / socket
+
+
 @pytest.fixture(name="socket")
 def _socket(*, tmp_path: Path) -> Iterator[str]:
     """A private tmux socket holding ONLY the supervisor — the rigged topology.
@@ -103,6 +108,7 @@ def _socket(*, tmp_path: Path) -> Iterator[str]:
         yield name
     finally:
         _tmux_call(name, "kill-server")
+        _tmux_socket_path(socket=name).unlink(missing_ok=True)
 
 
 def _settle(*, socket: str, target: str, timeout_s: float = 4.0) -> str:

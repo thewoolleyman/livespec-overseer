@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import io as _io
 import os
+import subprocess
 import textwrap
 import threading
 import time
@@ -229,8 +230,17 @@ class PromptContractPaneDriver:
         return self.inner.rename_window(pane=pane, name=name)
 
 
+def _tmux_socket_name(*, tmp_path: Path) -> str:
+    return f"ready-arm-{os.getpid()}-{tmp_path.name}"
+
+
+def _tmux_socket_path(*, tmp_path: Path) -> Path:
+    base = Path(os.environ.get("TMUX_TMPDIR", "/tmp"))
+    return base / f"tmux-{os.getuid()}" / _tmux_socket_name(tmp_path=tmp_path)
+
+
 def _tmux_wrapper(*, tmp_path: Path) -> Path:
-    socket = f"ready-arm-{os.getpid()}-{tmp_path.name}"
+    socket = _tmux_socket_name(tmp_path=tmp_path)
     wrapper = tmp_path / "tmux-private"
     wrapper.write_text(f'#!/bin/sh\nexec /usr/bin/tmux -L {socket} "$@"\n', encoding="utf-8")
     wrapper.chmod(0o700)
@@ -280,14 +290,40 @@ def _session_with_capture(*, inner: tmuxio.TmuxIO, session: str, repo: Path, cap
     _await_rendered(inner=inner, session=session, capture=capture)
 
 
+def test_ready_arm_real_tmux_rig_unlinks_its_private_socket(*, tmp_path: Path) -> None:
+    """The live ready-arm rig must not leave one `ready-arm-*` socket per test.
+
+    Measured 2026-08-19: 22,715 orphan rig sockets, oldest 2026-07-18. This
+    cleanup names only the socket created by this fixture instance.
+    """
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    inner = tmuxio.TmuxIO(tmux_bin=str(_tmux_wrapper(tmp_path=tmp_path)))
+    before = int(_tmux_socket_path(tmp_path=tmp_path).exists())
+
+    try:
+        _session_with_capture(inner=inner, session=session, repo=repo, capture=idle_capture(ctx=5))
+        assert int(_tmux_socket_path(tmp_path=tmp_path).exists()) == before + 1
+    finally:
+        _close_session(tmp_path=tmp_path)
+
+    assert int(_tmux_socket_path(tmp_path=tmp_path).exists()) == before
+
+
 def _replace_capture(*, inner: tmuxio.TmuxIO, session: str, repo: Path, capture: str) -> None:
     script = _render_script(repo=repo, capture=capture)
     assert inner.respawn_pane(session=session, cwd=str(repo), command=str(script))
     _await_rendered(inner=inner, session=session, capture=capture)
 
 
-def _close_session(*, inner: tmuxio.TmuxIO, session: str, repo: Path) -> None:
-    inner.respawn_pane(session=session, cwd=str(repo), command="true")
+def _close_session(*, tmp_path: Path) -> None:
+    subprocess.run(  # noqa: S603
+        [str(_tmux_wrapper(tmp_path=tmp_path)), "kill-server"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    _tmux_socket_path(tmp_path=tmp_path).unlink(missing_ok=True)
 
 
 def _supervisor(
@@ -626,7 +662,7 @@ def test_state_file_event_wakes_daemon_before_next_narration_turn(*, tmp_path: P
         rendered = signals.strip_ansi(text=driver.capture_pane(session=session))
         assert "narrated after ready" not in rendered
     finally:
-        _close_session(inner=inner, session=session, repo=repo)
+        _close_session(tmp_path=tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -672,7 +708,7 @@ def test_wrapup_contract_drives_tiny_context_session_to_final_ready(
         assert transcript.count("overseer-declare ready") == 1
         assert "Restart completed; continuing with the next step." not in transcript
     finally:
-        _close_session(inner=inner, session=session, repo=repo)
+        _close_session(tmp_path=tmp_path)
 
 
 def test_ready_arms_restart_until_first_verified_idle_after_more_output(*, tmp_path: Path) -> None:
@@ -726,7 +762,7 @@ def test_ready_arms_restart_until_first_verified_idle_after_more_output(*, tmp_p
         assert len(driver.respawns) == 1
         _assert_restart_diagnostic(repo=repo, topic=topic, err=err.getvalue())
     finally:
-        _close_session(inner=inner, session=session, repo=repo)
+        _close_session(tmp_path=tmp_path)
 
 
 def test_ready_arm_max_age_expires_loudly_without_respawning(*, tmp_path: Path) -> None:
@@ -769,4 +805,4 @@ def test_ready_arm_max_age_expires_loudly_without_respawning(*, tmp_path: Path) 
         assert "ready declaration exceeded" in state.detail
         assert len(driver.respawns) == 0
     finally:
-        _close_session(inner=inner, session=session, repo=repo)
+        _close_session(tmp_path=tmp_path)
