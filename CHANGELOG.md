@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.60.0...v0.61.0) (2026-08-19)
+
+
+### Features
+
+* surface invalid mapping rows ([ece43b5](https://github.com/thewoolleyman/livespec-overseer/commit/ece43b563e665cd3db770a8631b0dd31e8a84f0d))
+
 ## [0.60.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.7...v0.60.0) (2026-08-19)
 
 
