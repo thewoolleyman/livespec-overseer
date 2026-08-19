@@ -5,9 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Final, cast
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import streams
 from livespec_dev_tooling.charters import defects_in
