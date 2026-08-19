@@ -919,5 +919,36 @@
     "test": "TODO",
     "work_item": "overseer-jcvi4q.4",
     "reason": "Pins the sender-side routing floor including the BOUNDED hold: an unbounded hold would merely relocate the stall from recipient to sender, so the scenario requires the releasing condition be named. Tier: this is foreman operator behavior observable end-to-end across the daemon row and the delivery choice, so it MUST be exercised at integration tier or above, never by a unit-tier test."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "spec.md",
+    "heading": "## The stalled-picker charter reminder",
+    "test": "overseer.test_supervisor_liveness_starvation.test_charter_authorized_picker_stall_gets_clause_nudge_without_answering_picker",
+    "reason": "Pins the section's load-bearing property in the direction that matters: the act pastes EXACTLY ONE charter-reminder payload into a stalled reserved-entity picker and sends NO Enter, digit, or other selection keystroke. Paste-without-submitting is what separates this act from every other daemon keystroke-bearing act and is the whole basis on which constraints.md grants it the sole daemon exception to the gated / human-waiting prohibition, so a regression that started answering the picker fails here first."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A stalled reserved-entity picker gets exactly one charter reminder and is never answered",
+    "test": "TODO",
+    "reason": "Added by the acting-safety-third-keystroke-act ratification. The BEHAVIOR is shipped and covered at BESIDE tier by overseer.test_supervisor_liveness_starvation.test_charter_authorized_picker_stall_gets_clause_nudge_without_answering_picker, which asserts the single paste, the charter clause text, and the absence of Enter / digit / selection keystrokes. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one, and no integration-tier exercise of this act exists yet, so this entry stays TODO rather than naming a test of the wrong tier. Replace TODO with the new integration test id through the governed heading-coverage co-edit.",
+    "work_item": "overseer-6tfncs.3"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An ordinary worker topic in the identical stalled-picker state is never pasted into",
+    "test": "TODO",
+    "reason": "Added by the acting-safety-third-keystroke-act ratification. This is the negative control pinning the topic bound: the act applies to the reserved entity namespace (BOTH -supervisor and -foreman) and never to an ordinary worker topic. It has the THINNEST existing coverage of the three scenarios -- the reserved-entity tests do not imply it, since a regression removing the topic gate would leave them all green. Needs an integration-tier test whose reserved-entity and ordinary-worker cases differ only in the topic suffix.",
+    "work_item": "overseer-6tfncs.3"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The charter reminder's own echo does not re-arm the once-per-episode bound",
+    "test": "TODO",
+    "reason": "Added by the acting-safety-third-keystroke-act ratification, and it is the leg whose absence let the prior letter claim a bound the daemon did not hold. The behavior shipped as overseer-6tfncs.1 / PR 1209 and is covered at BESIDE tier by tests.test_picker_stall_nudge_echo (survives-its-own-capture-echo and rearms-after-non-daemon-capture-change). Scenario headings require integration tier, so this stays TODO. The integration test must assert BOTH halves -- no second paste on the daemon's own echo, AND re-arm on a capture change not attributable to that paste -- because asserting only the first is satisfiable by disabling the act.",
+    "work_item": "overseer-6tfncs.3"
   }
 ]
