@@ -338,6 +338,14 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A successor session's ready is surfaced immediately as a certification failure",
+    "test": "TODO",
+    "reason": "Added by the ready-identity-turnover-observability ratification (v022). The BEHAVIOR is already shipped — `_supervisor_liveness._must_surface_immediately` bypasses the continuity floor for the identity-mismatch reason, `_supervisor_ready` names both identities in that reason, and `_supervisor_evaluate_idle._apply_uncertifiable_ready` keeps the status off `danger`. Two integration-tier tests in `tests/integration/test_post_expiry_certification_floor.py` (`test_scenario_successor_never_certifies_against_predecessor_floor` and `test_scenario_session_replaced_before_the_expiry_never_inherits_certifiable_floor`) already drive the successor-identity core: the mismatch, the `ready-uncertifiable` status, both identities in the note, zero respawns, and the floor bypass. Neither one pins the clauses this scenario adds — the alert's remediation wording and its edge-trigger, the low-remaining-context non-relabel leg, and the closing fresh-current-session-round restart path — so this entry stays TODO rather than naming a test that does not cover them. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with the extended-or-new test id through the governed heading-coverage co-edit.",
+    "work_item": "overseer-f7ogs2"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A ready declaration remains armed when its session resumes work",
     "test": "tests.integration.test_ready_declaration_restart.test_scenario_a_ready_declaration_stays_armed_when_its_session_emits_more_output",
     "reason": "Integration-tier: covers BOTH halves of the scenario over real rounds and a moving clock. A declaration younger than `MARKER_VOID_GRACE` survives the declaring turn's own busy tail and then genuinely restarts the track; one older than the grace is cleared while busy, and going idle again proves the 'instead of restarting later' clause. SABOTAGE-VERIFIED 2026-07-26: `MARKER_VOID_GRACE = 0.0` and making the void unconditional each redden the young half; `MARKER_VOID_GRACE = 10_000.0` reddens the stale half."
