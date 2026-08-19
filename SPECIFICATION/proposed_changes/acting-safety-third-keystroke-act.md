@@ -106,12 +106,20 @@ proposal (Change 3, third scenario) is the falsifiability instrument all three
 reviewers named — it is what makes the bound assertable at all, given that
 today's `FakeTmux` cannot exhibit the defect.
 
-**This answer is a SEQUENCING constraint on `/livespec:revise`, not merely a
-wording choice.** The episode-bound sentence has an unmet precondition until
-that code change lands, so revising it in beforehand would ratify a sentence
-the daemon does not hold — reproducing precisely the defect this proposal
-exists to close. The code work is tracked as `overseer-6tfncs.1`, a child of plan
-epic `overseer-6tfncs`.
+**This answer was a SEQUENCING constraint on `/livespec:revise`, not merely a
+wording choice.** The episode-bound sentence had an unmet precondition until
+that code change landed, and revising it in beforehand would have ratified a
+sentence the daemon does not hold — reproducing precisely the defect this
+proposal exists to close.
+
+**THAT PRECONDITION IS NOW MET.** The code work, `overseer-6tfncs.1`, LANDED on
+2026-08-19 as PR #1209 and is closed and verified. `_supervisor_progress.py` now
+records an echo capture and holds `picker_stall_nudged` across the daemon's own
+paste, re-arming only on a capture change NOT attributable to that paste;
+`FakeTmux` echoes pastes, which is the instrument that makes the bound
+assertable; and the shipped tests cover the bound, the human-caused re-arm, and
+the reserved-entity scope across both suffixes. So the Q2 clause below now
+DESCRIBES SHIPPED BEHAVIOR, and `/livespec:revise` is no longer gated on code.
 
 **Q3 — ANSWERED: `five-acts-expiry-as-wrapup-tail`.** The enumeration names
 FIVE daemon informational acts, with the ready-expiry notice enumerated as a
@@ -142,7 +150,9 @@ foreman's own acts (`foreman_blocked_answer.py:205-207`,
 
 **What is still NOT decided here.** This proposal remains a PROPOSAL. Recording
 these dispositions does not amend any ratified file; only `/livespec:revise`
-does that, and under Q2 it is sequenced behind `overseer-6tfncs.1`. The original
+does that. Q2's sequencing behind `overseer-6tfncs.1` is DISCHARGED — that item
+landed and closed on 2026-08-19 — so the only remaining gate is the maintainer's
+own keystroke. The original
 refusal to self-authorize a keystroke act into gated, human-waiting panes stands
 as written — what changed is that the DECISION is now made and recorded, not
 that the decision was taken by the drafting session.
@@ -219,16 +229,18 @@ maintainer choice are marked and resolve per Q1 and Q2 above.
 - The pane capture has been UNCHANGED for longer than a bounded floor, thirty
   minutes by default. The clock is capture-stability-keyed, not wall-clock from
   the declaration.
-- **[Q2 — ANSWERED: code fix first]** The paste fires at most ONCE per stall
-  episode, where an episode ends when the pane capture changes for a reason
-  OTHER than the daemon's own paste. **This clause MUST NOT be ratified until
-  `overseer/_supervisor_progress.py` holds `picker_stall_nudged` across the
-  paste's own capture echo**, because as shipped today the reminder recurs
-  about every floor-length interval while the human stays away, accumulating
-  text in the composer. Tracked as `overseer-6tfncs.1`. A spec that says "once"
-  over a daemon that repeats is the defect this proposal exists to close,
-  reproduced — which is why the panel sequenced the code before the sentence
-  rather than ratifying the repeat.
+- **[Q2 — ANSWERED: code fix first. PRECONDITION NOW MET]** The paste fires at
+  most ONCE per stall episode, where an episode ends when the pane capture
+  changes for a reason OTHER than the daemon's own paste. This clause was
+  withheld until `overseer/_supervisor_progress.py` held `picker_stall_nudged`
+  across the paste's own capture echo, because as shipped at drafting time the
+  reminder recurred about every floor-length interval while the human stayed
+  away, accumulating text in the composer. **That code landed on 2026-08-19 as
+  `overseer-6tfncs.1` / PR #1209**, so the clause now describes shipped
+  behavior and is ratifiable as written. A spec that says "once" over a daemon
+  that repeats is the defect this proposal exists to close, reproduced — which
+  is why the panel sequenced the code before the sentence rather than ratifying
+  the repeat.
 - The payload is delivered as ONE atomic paste and is NEVER SUBMITTED: no
   `Enter`, no selection keystroke, no digit. The daemon does not choose from a
   picker and MUST NOT answer one. This is the property that separates this act
