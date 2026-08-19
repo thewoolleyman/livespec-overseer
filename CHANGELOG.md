@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.1...v0.59.2) (2026-08-19)
+
+
+### Bug Fixes
+
+* surface low-context busy tracks ([c41d7b8](https://github.com/thewoolleyman/livespec-overseer/commit/c41d7b818218e116c13b21e35397fc3e8e972d79))
+
 ## [0.59.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.0...v0.59.1) (2026-08-19)
 
 
