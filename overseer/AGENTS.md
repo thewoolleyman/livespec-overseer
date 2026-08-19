@@ -89,6 +89,54 @@ inherited values cannot silently change the runtime/model. A stale or corrupt
 profile is a surface-and-skip condition, never permission to fall back to a bare
 default launch.
 
+### How the WRAPPER half of a profile is captured — and the cross-repo contract it rests on
+
+The model half of a profile is read from the supervised process itself
+(`--model` in argv, else `ANTHROPIC_MODEL` in its environ). The wrapper half
+cannot be, and the reason is worth holding onto because two P1s came out of
+getting it wrong.
+
+**A wrapper leaves no process to find.** Every canonical wrapper in repo
+`local-llm` ends in `exec`, which REPLACES the wrapper's process image with the
+client's. So by the time the daemon looks, there is no wrapper anywhere in the
+parent chain — the exec'd `claude` hangs directly off the tmux server — and even
+if a wrapper process did survive, its `argv[0]` is `/bin/bash` and the
+shell filter would skip it. Walking parents for the wrapper therefore CANNOT
+work for the wrappers this fleet actually ships. Confirmed live on a real
+tracked pane 2026-08-19.
+
+**So the wrapper identifies itself in the environment, which survives `exec`.**
+Each wrapper exports `LIVESPEC_LOCAL_LLM_WRAPPER` with its own resolved ABSOLUTE
+path immediately before its `exec`, and `_wrapper_from_local_router` reads that
+key first. The parent-chain walk remains only as a fallback for a hypothetical
+non-`exec` wrapper; it is not the path the shipped ones take.
+
+**THIS IS A CROSS-REPO CONTRACT, and it is the fragile part.** The exporting
+side lives in repo `local-llm` (`bin/claude-local-llm`, `bin/codex-local-llm`,
+`bin/pi-local-llm`, documented under its `SPECIFICATION.md` §"Client wrapper
+contract"). Nothing in THIS repo can enforce it, and no test here can reach that
+repo. If someone drops or renames that export, wrapper capture does not error —
+it silently falls through to the parent chain, finds nothing, and records
+`wrapper: null`. A local track then relaunches on the **cloud** arm with the
+Anthropic env scrubbed and a local model token the cloud API will reject. That
+is the exact defect this subsystem was built to prevent, re-created silently.
+
+The read stays **one-directional**: this repo reads a marker `local-llm`
+publishes and never writes to it. When changing either side, change the
+documentation on both.
+
+**Do not "fix" a capture problem by asking `local-llm` to stop using `exec`.**
+That was considered and rejected: the daemon must read what is actually there.
+
+**A hardcoded path table is not an acceptable substitute either**, and the
+reasoning is recorded because it looked reasonable for one release. Keying a
+wrapper path off the harness alone, reached whenever `ANTHROPIC_BASE_URL` is
+merely non-Anthropic, mis-records a track pointed at ANY other proxy — and
+because the hardcoded path exists on this host, the relaunch-time existence check
+does not catch it, so it mis-launches instead of degrading safe. It was removed
+outright rather than narrowed.
+
+
 ## The evaluate() state machine
 
 `Supervisor.evaluate(track)` re-classifies each tracked session **from scratch
