@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.57.0...v0.58.0) (2026-08-19)
+
+
+### Features
+
+* capture launch profiles from live sessions ([6e2eed8](https://github.com/thewoolleyman/livespec-overseer/commit/6e2eed8f75cb8287f61e5da0147f9d465c6e8c71))
+
 ## [0.57.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.56.1...v0.57.0) (2026-08-19)
 
 
