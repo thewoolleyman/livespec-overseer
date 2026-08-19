@@ -68,18 +68,6 @@ def refresh_launch_profile_at_wrapup(
     ).get((session, track.topic))
     rendered = rendered_statusline_model(capture=capture)
     stored_profile = _stored_model_profile(sup=sup, track=track)
-    if rendered is not None and stored_profile is not None and rendered != stored_profile["model"]:
-        sup.alert(
-            repo=track.repo,
-            topic=track.topic,
-            session=session,
-            pane=target,
-            message=(
-                "launch profile mismatch: statusline rendered "
-                f"{rendered!r}, stored model {stored_profile['model']!r}; re-reading live argv/env"
-            ),
-            condition="launch-profile-mismatch",
-        )
     if source is None:
         return
     profile = read_launch_profile(
@@ -100,6 +88,19 @@ def refresh_launch_profile_at_wrapup(
             condition="launch-profile-unreadable",
         )
         return
+    if stored_profile is not None and profile["model"] != stored_profile["model"]:
+        sup.alert(
+            repo=track.repo,
+            topic=track.topic,
+            session=session,
+            pane=target,
+            message=(
+                "launch profile mismatch: "
+                f"statusline rendered {rendered!r}, live model {profile['model']!r}, "
+                f"stored model {stored_profile['model']!r}; persisting re-read argv/env"
+            ),
+            condition="launch-profile-mismatch",
+        )
     if registry.record_model_profile(
         repo=track.repo,
         topic=track.topic,
