@@ -763,6 +763,56 @@ proving it REPORTS a genuinely non-conforming row — a scan that quietly
 whitelists a status it should flag reports a clean tenant and is worse than no
 scan.
 
+### `bd create --ephemeral` DOES THE SAME THING, and the guard exempts it ON PURPOSE
+
+Measured 2026-08-19 on a live throwaway row. This is the same tenant-wide
+outage as the `--defer` trap above, reached through a different documented
+flag — and the guard that exists to prevent exactly this has an explicit
+carve-out that produces it.
+
+**The chain, each link measured:**
+
+1. `bd create --ephemeral "..."` returns a row at status **`open`**. Not a
+   display artifact — `bd show --json` reads `'status': 'open'` from the
+   database.
+2. **The guard deliberately does not normalize it.** `/usr/local/bin/bd`
+   forces ordinary creates to `backlog`, but its create-exclusion list is
+   `--ephemeral|--dry-run|--help|-h`, commented *"do not force"*. So the one
+   mechanism that would have made the row conforming is switched off for
+   precisely this flag.
+3. **The pre-dispatch sweep does not exempt it.** The `status-conformance`
+   check iterates active items and tests each against `ALLOWED_BEADS_STATUSES`;
+   its own docstring names beads' native `open`/`deferred` as the values that
+   "must not silently park dispatchable work in an unknown lane". There is no
+   ephemeral or wisp filter anywhere in that module.
+
+So an ephemeral row sits `open` and outside the allowed set until it is closed
+or deleted, and — per the trap above — **one non-conforming row refuses EVERY
+dispatch in the repo.**
+
+**Why this is worth its own entry rather than a line on the `--defer` one.**
+`--ephemeral` reads as the *safe* choice. It is documented as "not exported to
+JSONL", which sounds like a row that stays out of everyone's way, so it is the
+natural thing to reach for when you need a disposable row — a probe, a scratch
+record, a test subject. It is the flag whose whole purpose is *not disturbing
+anything*, and it is the one that takes the factory down.
+
+**If you need a disposable row, delete it in the same breath.** `bd delete <id>`
+removes it permanently and reports the reference cleanup. Do not leave one
+parked over a break; the blast radius is every dispatch in the tenant, and the
+refusal names other people's ids, never yours.
+
+**Census after any such probe**, which is one command and closes the loop:
+
+    bd list --all --json   # then count statuses against the seven allowed
+
+**What was NOT observed:** a dispatch actually being refused on an ephemeral
+row. The chain above is read from the guard's exclusion list and the checker's
+own iteration, plus a live row confirmed sitting at `open`. That is a strong
+chain and it is not the same as watching the refusal, so treat the blast-radius
+claim as inherited from the `--defer` trap — which WAS observed — rather than
+independently reproduced here.
+
 ### A LEDGER-EDIT item can never be factory-dispatched
 
 Measured 2026-08-04. If an item's deliverable is a beads mutation rather than a repo
