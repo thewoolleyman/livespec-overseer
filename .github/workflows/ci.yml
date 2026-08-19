@@ -55,40 +55,6 @@
 # plan/fleet-ci-runner-pool's fleet-wide rollout (epic livespec-s43svm.1),
 # proving this repo's self-hosted routing on a real pull_request event before
 # folding into the standing self-hosted rotation.
-#
-# ROLLBACK AND RE-CUT, k3s ARC scale set `livespec-overseer-k3s`
-# (livespec epic livespec-s43svm.18).
-#
-# 2026-08-17: routed to `livespec-overseer-k3s` and rolled back to
-# `["ubuntu-latest"]` the same day. Four tests failed deterministically on the
-# scale set while staying green on ubuntu-latest AND green in the same Fabro
-# image under plain docker: both legs of
-# tests/prompts/test_repo_containment_discriminates.py (tmux
-# `#{pane_current_path}` read back empty),
-# tests/test_detached_dispatch.py::test_detached_dispatch_survives_parent_process_group_termination
-# (`os.killpg` raised PermissionError), and
-# tests/e2e-cli/test_plugin_bin_entrypoints.py::test_shipped_foreman_e2e_covers_seed_session_attention_and_cadence
-# (a cwd-identity change went undetected — the same pane-cwd read).
-#
-# Root cause, ONE mechanism behind all four, measured 2026-08-18 in a pod
-# reproducing the workflow pod's spec: Ubuntu's
-# `kernel.apparmor_restrict_unprivileged_userns=1` STACKS the AppArmor label of
-# every confined task, so a workflow-pod process carries
-# `cri-containerd.apparmor.d//&unconfined` rather than the bare profile name.
-# containerd's default profile grants intra-container signalling and ptrace-read
-# only to `peer=cri-containerd.apparmor.d`, and a stacked label does not match a
-# bare peer name — so the profile denied its own containers those operations.
-# `os.killpg` then returns EACCES directly, and tmux's `pane_current_path`
-# (which readlinks /proc/<pane pgrp>/cwd, a ptrace-read) returns empty. Docker
-# is unaffected because `docker-default` is not stacked the same way.
-#
-# Fix, in livespec-dev-tooling ci-runner/k3s/phase2/apparmor/: a node-loaded
-# profile `ci-runner-workflow` that keeps every containerd default deny rule
-# (mount, /proc writes, /sys, sysrq-trigger, kcore) and only widens the
-# ptrace/signal peer expressions to also match the stacked label. It is applied
-# to hook-generated workflow pods through the ARC k8s hook's
-# ACTIONS_RUNNER_CONTAINER_HOOK_TEMPLATE. AppArmor stays in enforce mode; no
-# capability was added and nothing was made privileged.
 
 name: CI
 
