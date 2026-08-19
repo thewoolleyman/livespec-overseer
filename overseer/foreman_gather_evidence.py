@@ -10,6 +10,7 @@ from typing import Protocol, cast
 
 import jsonio
 import tmuxio
+import wait_premises
 
 __all__: list[str] = [
     "enrich_rows_with_evidence",
@@ -114,6 +115,9 @@ def enrich_row_with_evidence(
     pane_captures: object,
 ) -> dict[str, object]:
     enriched = dict(row)
+    premises = row_wait_premises(row=row)
+    if premises:
+        enriched["wait_premises"] = premises
     if not row_supports_evidence(row=row, pane_captures=pane_captures):
         return enriched
     enriched["proposed_changes_count"] = proposed_changes
@@ -122,6 +126,14 @@ def enrich_row_with_evidence(
         pane_captures=pane_captures,
     )
     return enriched
+
+
+def row_wait_premises(*, row: dict[str, object]) -> list[dict[str, object]]:
+    repo = row.get("repo")
+    topic = row.get("topic")
+    if not isinstance(repo, str) or repo == "" or not isinstance(topic, str) or topic == "":
+        return []
+    return wait_premises.read_wait_premises(repo=repo, topic=topic)
 
 
 def row_supports_evidence(*, row: dict[str, object], pane_captures: object) -> bool:

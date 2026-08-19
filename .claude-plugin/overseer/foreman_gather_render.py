@@ -44,6 +44,9 @@ def row_line(*, row: dict[str, object]) -> str:
     evidence = evidence_text(row=row)
     if evidence:
         line = f"{line} | {evidence}"
+    premises = premises_text(row=row)
+    if premises:
+        line = f"{line} | {premises}"
     return f"{line} | {note_text}"
 
 
@@ -66,6 +69,23 @@ def evidence_text(*, row: dict[str, object]) -> str:
         f"proposed_changes={row.get('proposed_changes_count')} | "
         f"pane_hash={pane_hash_text}"
     )
+
+
+def premises_text(*, row: dict[str, object]) -> str:
+    raw_premises = jsonio.as_list(value=row.get("wait_premises")) or []
+    rendered = [
+        premise_fragment(premise=premise)
+        for premise in (jsonio.as_object(value=raw) for raw in raw_premises)
+        if premise is not None
+    ]
+    return f"premises={', '.join(rendered)}" if rendered else ""
+
+
+def premise_fragment(*, premise: dict[str, object]) -> str:
+    kind = premise.get("kind")
+    target_id = premise.get("target_id")
+    recheck_by = premise.get("recheck_by")
+    return f"{kind}:{target_id} recheck_by={recheck_by}"
 
 
 def items_from_attention(*, attention: object) -> list[dict[str, object]]:
