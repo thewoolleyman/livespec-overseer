@@ -66,6 +66,21 @@ def test_overseer_declare_ready_infers_topic_from_tmux_session(*, tmp_path, monk
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
+def test_overseer_declare_ready_needs_tmux_pane_context(*, tmp_path, capsys, monkeypatch):
+    assert_overseer_declare_shipped()
+    module = importlib.import_module("overseer.declare")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.delenv("OVERSEER_TOPIC", raising=False)
+    monkeypatch.setenv("TMUX", "/tmp/fake,0,0")
+    monkeypatch.delenv("TMUX_PANE", raising=False)
+
+    code = module.main(argv=["ready", "--repo", str(repo)])
+
+    assert code == 2
+    assert "cannot infer plan topic" in capsys.readouterr().err
+
+
 def test_overseer_declare_ready_wakes_state_file_fast_path(*, tmp_path):
     module = importlib.import_module("overseer.declare")
     state_watch = importlib.import_module("_supervisor_state_watch")
