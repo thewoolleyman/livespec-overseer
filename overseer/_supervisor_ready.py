@@ -58,7 +58,7 @@ def _observation_history(
     topic: str,
 ) -> ObservationHistory:
     repo_norm = registry.norm(repo=repo)
-    for track in registry.read_mapping(store_path=sup.store_path):
+    for track in registry.read_valid_mapping(store_path=sup.store_path):
         if registry.norm(repo=track.repo) == repo_norm and track.topic == topic:
             return ObservationHistory(
                 mapped=True,

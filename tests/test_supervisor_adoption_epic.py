@@ -44,7 +44,7 @@ def test_adopt_sessions_preserves_epic_seen_before_mapping_removal(*, tmp_path):
     adopted = sup.adopt_sessions()
 
     assert [(track.topic, track.epic) for track in adopted] == [(topic, "overseer-au3pt3")]
-    rows = registry.read_mapping(store_path=sup.store_path)
+    rows = registry.read_valid_mapping(store_path=sup.store_path)
     assert [(row.repo, row.topic, row.tmux, row.epic) for row in rows] == [
         (
             os.path.normpath(str(repo)),

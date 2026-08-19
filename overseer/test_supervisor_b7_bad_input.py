@@ -54,10 +54,10 @@ def test_run_loop_lets_a_tick_exception_propagate(*, tmp_path):
     Why this is SAFE, and why it was unsafe before: the two failure cases the old
     docstring justified the catch with — an unreadable `plan/` dir and a malformed
     store — are boundaried by narrow catches below (`discover_plans` and
-    `_read_rows` in `registry.py`), and the six `UnicodeDecodeError` leaks that used
-    to escape those handlers were closed first (PR #118). So a bug is now the only
-    exception class that can reach here, which is exactly the condition under which
-    crashing is correct rather than reckless.
+    `read_row_records`), and the six `UnicodeDecodeError` leaks that used to escape
+    those handlers were closed first (PR #118). So a bug is now the only exception
+    class that can reach here, which is exactly the condition under which crashing is
+    correct rather than reckless.
     """
     fake = FakeTmux()
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
@@ -192,16 +192,16 @@ def test_cli_add_remove_roundtrip(*, tmp_path, monkeypatch):
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = str(tmp_path / "repo")
     assert supervisor.main(argv=["add", "--repo", repo, "--topic", "alpha"]) == 0
-    rows = registry.read_mapping(store_path=store)
+    rows = registry.read_valid_mapping(store_path=store)
     assert [(r.topic, r.tmux) for r in rows] == [
         ("alpha", registry.tmux_id(repo=repo, topic="alpha"))
     ]
 
     assert supervisor.main(argv=["add", "--repo", repo, "--topic", "alpha"]) == 0
-    assert len(registry.read_mapping(store_path=store)) == 1
+    assert len(registry.read_valid_mapping(store_path=store)) == 1
 
     assert supervisor.main(argv=["remove", "--repo", repo, "--topic", "alpha"]) == 0
-    assert registry.read_mapping(store_path=store) == []
+    assert registry.read_valid_mapping(store_path=store) == []
 
 
 def test_cli_add_names_a_bare_topic_by_default(*, tmp_path, monkeypatch):
@@ -209,7 +209,7 @@ def test_cli_add_names_a_bare_topic_by_default(*, tmp_path, monkeypatch):
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = str(tmp_path / "livespec")
     assert supervisor.main(argv=["add", "--repo", repo, "--topic", "autonomous-mode"]) == 0
-    rows = registry.read_mapping(store_path=store)
+    rows = registry.read_valid_mapping(store_path=store)
     assert [(r.topic, r.tmux) for r in rows] == [("autonomous-mode", "autonomous-mode")]
 
 
@@ -221,7 +221,7 @@ def test_cli_add_single_dash_prefixes_a_cross_repo_collision(*, tmp_path, monkey
     repo = str(tmp_path / "livespec")
     assert supervisor.main(argv=["add", "--repo", repo, "--topic", "shared"]) == 0
     assert supervisor.main(argv=["add", "--repo", repo, "--topic", "solo"]) == 0
-    rows = {r.topic: r.tmux for r in registry.read_mapping(store_path=store)}
+    rows = {r.topic: r.tmux for r in registry.read_valid_mapping(store_path=store)}
     assert rows["shared"] == "livespec-shared"  # colliding -> repo-qualified
     assert rows["solo"] == "solo"  # non-colliding -> bare
 
@@ -256,4 +256,4 @@ def test_cli_unassign_is_remove(*, tmp_path, monkeypatch):
     repo = str(tmp_path / "repo")
     supervisor.main(argv=["add", "--repo", repo, "--topic", "beta"])
     assert supervisor.main(argv=["unassign", "--repo", repo, "--topic", "beta"]) == 0
-    assert registry.read_mapping(store_path=store) == []
+    assert registry.read_valid_mapping(store_path=store) == []

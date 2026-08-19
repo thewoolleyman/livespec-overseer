@@ -39,7 +39,7 @@ def test_model_profile_roundtrips_through_append_and_rewrite(*, tmp_path):
 
     rows = [json.loads(line) for line in store.read_text().splitlines() if line.strip()]
     assert rows[0]["model_profile"] == model_profile
-    assert registry.read_mapping(store_path=store)[0].model_profile == model_profile
+    assert registry.read_valid_mapping(store_path=store)[0].model_profile == model_profile
 
 
 def test_model_profile_absent_key_stays_absent(*, tmp_path):
@@ -48,7 +48,7 @@ def test_model_profile_absent_key_stays_absent(*, tmp_path):
 
     rows = [json.loads(line) for line in store.read_text().splitlines() if line.strip()]
     assert "model_profile" not in rows[0]
-    assert registry.read_mapping(store_path=store)[0].model_profile is None
+    assert registry.read_valid_mapping(store_path=store)[0].model_profile is None
 
 
 def test_malformed_model_profile_is_dropped_fail_soft(*, tmp_path, capsys):
@@ -70,7 +70,7 @@ def test_malformed_model_profile_is_dropped_fail_soft(*, tmp_path, capsys):
         encoding="utf-8",
     )
 
-    track = registry.read_mapping(store_path=store)[0]
+    track = registry.read_valid_mapping(store_path=store)[0]
 
     assert track.model_profile is None
     assert "dropping malformed model_profile" in capsys.readouterr().err

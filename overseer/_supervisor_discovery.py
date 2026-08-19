@@ -175,7 +175,7 @@ def auto_link(*, sup: Supervisor, track: registry.Track) -> registry.Track | Non
 
 
 def _mapped_tmux_by_track(*, sup: Supervisor) -> dict[tuple[str, str], str | None]:
-    mapping = registry.read_mapping(store_path=sup.store_path)
+    mapping = registry.read_valid_mapping(store_path=sup.store_path)
     for track in mapping:
         if track.epic is not None:
             sup.mapping_epics[(registry.norm(repo=track.repo), track.topic)] = track.epic
@@ -381,7 +381,7 @@ def build_rows(*, sup: Supervisor, act: bool = True) -> list[registry.Track]:
     sup.colliding_topics = registry.colliding_topics(discovered=discovered)
     if not act:
         return registry.join(
-            discovered=discovered, mapping=registry.read_mapping(store_path=sup.store_path)
+            discovered=discovered, mapping=registry.read_valid_mapping(store_path=sup.store_path)
         )
     _ = archive_gc(sup=sup)
     # Continuous adoption (not just at bootstrap): pick up any live Claude
@@ -390,7 +390,7 @@ def build_rows(*, sup: Supervisor, act: bool = True) -> list[registry.Track]:
     # tick rather than being missed forever.
     _ = adopt_sessions(sup=sup)
     rows = registry.join(
-        discovered=discovered, mapping=registry.read_mapping(store_path=sup.store_path)
+        discovered=discovered, mapping=registry.read_valid_mapping(store_path=sup.store_path)
     )
     linked_any = False
     for row in rows:
@@ -398,7 +398,7 @@ def build_rows(*, sup: Supervisor, act: bool = True) -> list[registry.Track]:
             linked_any = True
     if linked_any:
         rows = registry.join(
-            discovered=discovered, mapping=registry.read_mapping(store_path=sup.store_path)
+            discovered=discovered, mapping=registry.read_valid_mapping(store_path=sup.store_path)
         )
     return rows
 

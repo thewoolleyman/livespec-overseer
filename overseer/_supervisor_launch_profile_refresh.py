@@ -45,7 +45,7 @@ def _stored_model_profile(
 ) -> dict[str, str | None] | None:
     if track.model_profile is not None:
         return track.model_profile
-    for candidate in registry.read_mapping(store_path=sup.store_path):
+    for candidate in registry.read_valid_mapping(store_path=sup.store_path):
         if candidate.repo == track.repo and candidate.topic == track.topic:
             return candidate.model_profile
     return None

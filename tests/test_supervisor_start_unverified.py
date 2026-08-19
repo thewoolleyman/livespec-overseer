@@ -32,6 +32,6 @@ def test_cli_start_maps_a_live_launch_whose_resume_submission_is_unverified(
     out = capsys.readouterr().out
     assert f"launched-unverified {repo}::{topic}" in out
     assert f"tmux session {session}" in out
-    rows = registry.read_mapping(store_path=store)
+    rows = registry.read_valid_mapping(store_path=store)
     assert [(row.repo, row.topic, row.tmux) for row in rows] == [(str(repo), topic, session)]
     assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=stamp) is True

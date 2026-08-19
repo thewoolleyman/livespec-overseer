@@ -93,7 +93,7 @@ def test_cli_start_respawns_a_session_proven_dead_by_its_bare_shell(
     assert fake.has(method="respawn")  # the dead shell's pane WAS relaunched
     assert not fake.has(method="new")  # ...in place; the session already existed
     assert supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC) in fake.paste_texts()
-    assert [(r.topic, r.tmux) for r in registry.read_mapping(store_path=store)] == [
+    assert [(r.topic, r.tmux) for r in registry.read_valid_mapping(store_path=store)] == [
         (topic, session)
     ]
     assert f"started {os.path.normpath(str(repo))}::{topic}" in capsys.readouterr().out

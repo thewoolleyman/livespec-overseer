@@ -52,7 +52,7 @@ def test_set_epic_rewrites_only_the_matching_row_and_preserves_unknown_keys(*, t
 
     assert registry.set_epic(repo="/r", topic="a", epic="overseer-au3pt3", store_path=store)
 
-    rows = {row.topic: row.epic for row in registry.read_mapping(store_path=store)}
+    rows = {row.topic: row.epic for row in registry.read_valid_mapping(store_path=store)}
     assert rows == {"a": "overseer-au3pt3", "b": "overseer-other"}
     raw_a = next(
         json.loads(line)
@@ -416,7 +416,7 @@ def test_cli_assignment_populates_epic_from_plan_anchor_with_null_control(*, tmp
 
     tracks = {
         (registry.repo_slug(repo=track.repo), track.topic): track
-        for track in registry.read_mapping(store_path=store)
+        for track in registry.read_valid_mapping(store_path=store)
     }
     assert tracks[("anchored", "alpha")].epic == "overseer-pfpfty"
     assert tracks[("unanchored", "beta")].epic is None
@@ -459,7 +459,7 @@ def test_read_mapping_rewrites_plan_handoff_resume_overrides_to_ledger_epics(*, 
         encoding="utf-8",
     )
 
-    tracks = {track.topic: track for track in registry.read_mapping(store_path=store)}
+    tracks = {track.topic: track for track in registry.read_valid_mapping(store_path=store)}
     assert tracks["alpha"].resume == (
         "resume plan epic overseer-alpha in repository /data/projects/livespec-overseer; "
         "read its ledger-held plan state"
@@ -494,7 +494,7 @@ def test_read_mapping_clears_plan_handoff_resume_override_without_epic(*, tmp_pa
         encoding="utf-8",
     )
 
-    tracks = registry.read_mapping(store_path=store)
+    tracks = registry.read_valid_mapping(store_path=store)
     assert tracks[0].resume is None
 
     rows = [json.loads(line) for line in store.read_text(encoding="utf-8").splitlines()]

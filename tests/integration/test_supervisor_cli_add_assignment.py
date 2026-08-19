@@ -39,7 +39,7 @@ def test_cli_add_accepts_epic_and_ctx_threshold_that_certify_ready_restart(
         )
         == 0
     )
-    tracks = registry.read_mapping(store_path=store)
+    tracks = registry.read_valid_mapping(store_path=store)
     assert len(tracks) == 1
     track = tracks[0]
     assert track.epic == "overseer-explicit"

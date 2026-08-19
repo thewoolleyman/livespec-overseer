@@ -48,7 +48,7 @@ def test_auto_link_creates_mapping_when_cwd_in_repo(*, tmp_path):
     linked = sup.auto_link(track=unassigned)
     assert linked is not None
     assert linked.tmux == session
-    rows = registry.read_mapping(store_path=sup.store_path)
+    rows = registry.read_valid_mapping(store_path=sup.store_path)
     assert [(r.repo, r.topic) for r in rows] == [(os.path.normpath(str(repo)), topic)]
 
 

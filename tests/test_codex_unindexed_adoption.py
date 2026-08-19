@@ -96,7 +96,7 @@ def test_tick_surfaces_unindexed_live_codex_session_in_watched_repo(tmp_path):
         ("unassigned", None, None),
         ("codex-unindexed", "live-codex", "codex"),
     ]
-    assert registry.read_mapping(store_path=sup.store_path) == []
+    assert registry.read_valid_mapping(store_path=sup.store_path) == []
     out = sup.out.getvalue()
     assert "NEEDS YOU (1):" in out
     assert f"topic: codex:{ID_B[:8]} | tmux: live-codex (codex) | repo: repo" in out

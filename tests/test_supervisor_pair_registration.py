@@ -92,7 +92,9 @@ def test_daemon_snapshot_tracks_supervisor_half_without_supervisor_mapping_row(*
         clock["t"] += 42.0
         second = sup.tick(act=True)
 
-    mapped_topics = {track.topic for track in registry.read_mapping(store_path=sup.store_path)}
+    mapped_topics = {
+        track.topic for track in registry.read_valid_mapping(store_path=sup.store_path)
+    }
     assert mapped_topics == {topic}
     first_rows = {row.topic: row for row in first}
     second_rows = {row.topic: row for row in second}

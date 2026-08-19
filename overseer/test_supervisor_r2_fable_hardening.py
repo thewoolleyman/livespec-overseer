@@ -136,7 +136,9 @@ def test_ambiguous_two_sessions_for_one_track_does_not_flip_flop_the_repoint(*, 
     with contextlib.redirect_stderr(log):
         sup.adopt_sessions()
         sup.adopt_sessions()  # a second tick must not flip it back
-    rows = {(r.repo, r.topic): r.tmux for r in registry.read_mapping(store_path=sup.store_path)}
+    rows = {
+        (r.repo, r.topic): r.tmux for r in registry.read_valid_mapping(store_path=sup.store_path)
+    }
     assert rows[(os.path.normpath(str(repo)), "alpha")] == "tmux-A"  # left untouched (ambiguous)
     assert "re-pointed" not in log.getvalue()  # no flip-flop, no log spam
 

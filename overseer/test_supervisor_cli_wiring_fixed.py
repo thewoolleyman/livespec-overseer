@@ -75,7 +75,7 @@ def test_cli_start_fails_when_the_tmux_session_cannot_be_created(*, tmp_path, mo
     assert ("new", session, str(repo)) in fake.calls
     assert not fake.has(method="respawn")  # never respawned a prefix-matched sibling
     assert "could not create tmux session" in capsys.readouterr().err
-    assert registry.read_mapping(store_path=store) == []  # nothing mapped
+    assert registry.read_valid_mapping(store_path=store) == []  # nothing mapped
 
 
 def test_cli_add_refuses_collision_derived_reserved_session_name(*, tmp_path, monkeypatch, capsys):
@@ -88,7 +88,7 @@ def test_cli_add_refuses_collision_derived_reserved_session_name(*, tmp_path, mo
     err = capsys.readouterr().err
     assert "repo-supervisor" in err
     assert str(repo) in err
-    assert registry.read_mapping(store_path=store) == []
+    assert registry.read_valid_mapping(store_path=store) == []
 
 
 def test_cli_start_refuses_collision_derived_reserved_session_name(
@@ -106,7 +106,7 @@ def test_cli_start_refuses_collision_derived_reserved_session_name(
     assert "repo-supervisor" in err
     assert str(repo) in err
     assert fake.calls == []
-    assert registry.read_mapping(store_path=store) == []
+    assert registry.read_valid_mapping(store_path=store) == []
 
 
 def test_cli_start_fails_when_the_launch_does_not_land(*, tmp_path, monkeypatch, capsys):
@@ -125,7 +125,7 @@ def test_cli_start_fails_when_the_launch_does_not_land(*, tmp_path, monkeypatch,
 
     err = capsys.readouterr().err
     assert "start FAILED to launch" in err and session in err
-    assert registry.read_mapping(store_path=store) == []  # nothing mapped
+    assert registry.read_valid_mapping(store_path=store) == []  # nothing mapped
 
 
 # --------------------------------------------------------------------------- #

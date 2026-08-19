@@ -167,7 +167,7 @@ def foreman_track(
 ) -> registry.Track | None:
     topic = foreman_runtime_identity.canonical_session_name(repo=repo)
     repo_norm = registry.norm(repo=repo)
-    for track in registry.read_mapping(store_path=store_path):
+    for track in registry.read_valid_mapping(store_path=store_path):
         if registry.norm(repo=track.repo) == repo_norm and track.topic == topic:
             return track
     return None

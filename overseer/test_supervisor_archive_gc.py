@@ -53,7 +53,7 @@ def test_archive_gc_drops_archived_row(*, tmp_path):
 
     dropped = sup.archive_gc()
     assert dropped == 1
-    remaining = {t.topic for t in registry.read_mapping(store_path=sup.store_path)}
+    remaining = {t.topic for t in registry.read_valid_mapping(store_path=sup.store_path)}
     assert remaining == {"live"}
 
 
@@ -72,7 +72,7 @@ def test_archive_gc_keeps_row_when_repo_root_missing(*, tmp_path):
     )
     dropped = sup.archive_gc()
     assert dropped == 0
-    rows = registry.read_mapping(store_path=sup.store_path)
+    rows = registry.read_valid_mapping(store_path=sup.store_path)
     assert [(r.topic, r.ctx_threshold) for r in rows] == [("t", 30)]  # override preserved
 
 
@@ -131,7 +131,7 @@ def test_list_does_not_auto_link_or_gc(*, tmp_path):
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
     # no mapping row appended → discovered plan is unassigned
     sup.tick(act=False)
-    assert registry.read_mapping(store_path=sup.store_path) == []  # list did NOT auto-link
+    assert registry.read_valid_mapping(store_path=sup.store_path) == []  # list did NOT auto-link
 
 
 # --------------------------------------------------------------------------- #

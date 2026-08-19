@@ -274,4 +274,4 @@ def test_auto_link_refuses_different_repo(*, tmp_path):
 
     unassigned = registry.Track.make_unassigned(repo=str(repo), topic=topic)
     assert sup.auto_link(track=unassigned) is None
-    assert registry.read_mapping(store_path=sup.store_path) == []  # nothing linked
+    assert registry.read_valid_mapping(store_path=sup.store_path) == []  # nothing linked
