@@ -71,6 +71,24 @@ still authoritative; what you cannot assume is that any LIST in them is complete
 As always `SPECIFICATION/` governs and the code is the final word on
 behavior — that is normal precedence, not a warning about these files.
 
+## Progressive guidance — `.ai/`
+
+`.ai/supervisor-protocol.md` is the shared role-level contract for every
+generated supervisor handoff: the common role contract that a per-plan binder
+is read TOGETHER with, since a binder alone is intentionally incomplete and
+this file alone binds nothing to a plan. **Read it before driving a worker as
+supervisor.**
+
+It has existed since 2026-07-30 and, until this line, this file never pointed
+at it — so an agent using AGENTS.md as its entry point was never routed to it.
+That is a different failure from the one the re-measures above chased: those
+were about documents DENYING `.ai/` existed. This one is silence. Both leave a
+reader unaware of the directory, and neither is caught by
+`check-agents-ai-references-resolve`, which verifies that references RESOLVE —
+a repo that makes no references passes with its guidance orphaned. (Whether
+that check should also detect absence is filed as
+`livespec-dev-tooling-xaxj5w`.)
+
 ## Daily commands
 
 - `just bootstrap` — first-touch setup on a fresh clone.
