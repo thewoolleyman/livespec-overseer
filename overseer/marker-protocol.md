@@ -465,6 +465,30 @@ model token, or harness/wrapper mismatch — is surfaced to the operator and the
 restart is skipped; the daemon does not fall back to a default-model/default-wrapper
 launch.
 
+A SECOND, DISTINCT CONDITION ALSO SURFACES AND SKIPS: a **statusline model
+mismatch**. The profile records a baseline of the pane's rendered model alongside
+it; at restart the daemon re-reads the pane and, when the rendered model
+DISAGREES with that baseline, surfaces the disagreement (naming both the recorded
+and the rendered model) and skips the restart, keeping the ready declaration.
+This is the case the profile's own sources cannot see — a mid-session `/model`
+switch rewrites neither argv nor the environment — so without it a restart would
+silently relaunch the session under a model it had stopped running.
+
+Three properties of that check are load-bearing and easy to get wrong. The
+comparison is **rendered-against-recorded-baseline**, never rendered-against-launch-token:
+relating a display name to a launch token would require exactly the lookup table
+the spec forbids. An **absent** rendered model is NOT a disagreement and must not
+skip — the statusline truncates from the end, so the reading is routinely
+unavailable, and treating absence as a mismatch would suppress legitimate
+restarts. And the statusline is never written back into the profile; it remains a
+verification signal, never a source.
+
+Note one CURRENT limitation rather than assuming symmetry: this check is wired to
+the Claude restart path only. A Codex track is still relaunched without it, which
+is tracked as `overseer-gaouiv`; every other stage of the profile chain — capture
+at adoption, re-check at wrap-up, and the parser itself — is already
+harness-neutral.
+
 `--dangerously-skip-permissions` is still required for the resumed session to run
 **autonomously**; without it the fresh session stalls on its first permission
 prompt. The abrupt `respawn-pane -k` is safe **precisely because of the
