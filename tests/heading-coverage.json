@@ -950,5 +950,13 @@
     "test": "TODO",
     "reason": "Added by the acting-safety-third-keystroke-act ratification, and it is the leg whose absence let the prior letter claim a bound the daemon did not hold. The behavior shipped as overseer-6tfncs.1 / PR 1209 and is covered at BESIDE tier by tests.test_picker_stall_nudge_echo (survives-its-own-capture-echo and rearms-after-non-daemon-capture-change). Scenario headings require integration tier, so this stays TODO. The integration test must assert BOTH halves -- no second paste on the daemon's own echo, AND re-arm on a capture change not attributable to that paste -- because asserting only the first is satisfiable by disabling the act.",
     "work_item": "overseer-6tfncs.3"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A human-waiting track on a stalled picker is published under a promoted status",
+    "test": "TODO",
+    "work_item": "overseer-g6sy",
+    "reason": "Pins the evaluated-versus-published status split and the inference it forbids -- the exact defect that made overseer-v7io a P1, where a consumer keyed on the blocked:human literal refused a valid gated answer on every promoted row. Tier: the observable is a published snapshot row read by a separate consumer, so it MUST be exercised at integration tier or above, never by a unit-tier test."
   }
 ]
