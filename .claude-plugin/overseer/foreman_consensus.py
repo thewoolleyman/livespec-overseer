@@ -11,6 +11,7 @@ import streams
 from foreman_consensus_cache import budget_result, read_cached_verdict, record_panel_result
 from foreman_consensus_eval import escalation, evaluate_verdicts
 from foreman_consensus_prompt import cache_key, reviewer_prompts
+from foreman_consensus_record import record_consensus_evaluation
 from foreman_consensus_types import (
     DEFAULT_PANEL_LIMITS,
     DEFAULT_STATE_DIR,
@@ -48,6 +49,9 @@ def consensus(
         result = budget_result(reason="daily_panel_budget_exceeded", cache_key=key)
     else:
         result = {**evaluate_verdicts(request=request, responses=responses), "cache": "miss"}
+        result["panel_record"] = record_consensus_evaluation(
+            request=request, responses=responses, verdict=result, cache_key=key
+        )
         _ = record_panel_result(state_dir=state_dir, cache_key=key, verdict=result)
     if emit_prompts:
         result["prompts"] = reviewer_prompts(request=request)
