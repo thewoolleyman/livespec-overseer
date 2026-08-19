@@ -161,6 +161,10 @@ def _write_executable(*, path: Path, body: str) -> None:
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
 
+def _tmux_stub_target(*, bindings: dict[str, str]) -> str:
+    return bindings.get("SUPERVISOR_TARGET", "").strip("'\"")
+
+
 def _stub_path(*, tmp_path: Path) -> Path:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
@@ -168,11 +172,17 @@ def _stub_path(*, tmp_path: Path) -> Path:
         path=bin_dir / "tmux",
         body="""#!/bin/sh
 case "$*" in
-  *supervisor-prompt-quality-supervisor*pane_pid*) printf '%s\n' 101 ;;
-  *pane_pid*) printf '%s\n' 100 ;;
+  *pane_pid*)
+    if [ -n "$COLD_OPEN_SUPERVISOR_TARGET" ]; then
+      case "$*" in
+        *"$COLD_OPEN_SUPERVISOR_TARGET"*) printf '%s\n' 101; exit 0 ;;
+      esac
+    fi
+    printf '%s\n' 100
+    ;;
   *pane_current_path*) printf '%s\n' "$COLD_OPEN_REPO" ;;
   *capture-pane*) printf '%s\n' PANE ;;
-  *list-sessions*) printf '%s\n' supervisor-prompt-quality-supervisor ;;
+  *list-sessions*) printf '%s\n' "$COLD_OPEN_SUPERVISOR_TARGET" ;;
 esac
 exit 0
 """,
@@ -241,6 +251,7 @@ def _execution_findings(*, text: str, repo_primary: Path, tmp_path: Path) -> lis
     bindings = _resolved_bindings(text=text, repo_primary=repo_primary)
     env = os.environ.copy()
     env["COLD_OPEN_REPO"] = str(repo_primary)
+    env["COLD_OPEN_SUPERVISOR_TARGET"] = _tmux_stub_target(bindings=bindings)
     env["PATH"] = str(_stub_path(tmp_path=tmp_path)) + os.pathsep + env["PATH"]
     # FABRICATE HOME, for the same reason the repo and the tool stubs are
     # fabricated: this gate asserts that emitted blocks EXECUTE, and that verdict
