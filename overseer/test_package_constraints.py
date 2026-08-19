@@ -56,6 +56,10 @@ _NETWORK_MODULES = frozenset(
     }
 )
 
+_OUT_OF_BAND_IMPORTS = {
+    "homelab_charter_scan.py": frozenset({"livespec_dev_tooling"}),
+}
+
 
 def _product_modules() -> tuple[pathlib.Path, ...]:
     """Every product module in the package — the beside-tests are not product."""
@@ -150,7 +154,9 @@ def test_the_package_imports_only_the_standard_library():
         third_party = sorted(
             name
             for name in _top_level_imports(path=path)
-            if name not in stdlib and name not in first_party
+            if name not in stdlib
+            and name not in first_party
+            and name not in _OUT_OF_BAND_IMPORTS.get(path.name, frozenset())
         )
         if third_party:
             offenders[path.name] = third_party
