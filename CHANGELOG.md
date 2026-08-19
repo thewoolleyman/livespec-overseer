@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.3...v0.61.4) (2026-08-19)
+
+
+### Bug Fixes
+
+* scope supervisor send idiom by harness ([038ed50](https://github.com/thewoolleyman/livespec-overseer/commit/038ed50c0eaab3ef95749937883c658b0768ed1a))
+
 ## [0.61.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.2...v0.61.3) (2026-08-19)
 
 
