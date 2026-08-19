@@ -26,6 +26,12 @@ import codex_sessions
 import registry
 import signals
 from _supervisor_config import iso_now
+from _supervisor_launch_profile import LaunchProfileProblem, read_launch_profile
+from _supervisor_launch_profile_sources import (
+    CodexProfileReaders,
+    LaunchProfileSource,
+    live_profile_sources,
+)
 from _supervisor_unindexed_codex import unindexed_codex_rows as _unindexed_codex_rows
 from _supervisor_view import RowView
 
@@ -43,6 +49,77 @@ __all__: list[str] = [
     "sessions_dir",
     "unindexed_codex_rows",
 ]
+
+
+def _codex_profile_readers(*, sup: Supervisor) -> CodexProfileReaders:
+    return CodexProfileReaders(
+        codex_home=sup.codex_home,
+        pids_of_comm=sup.codex_pids_of_comm,
+        cwd_of=sup.codex_cwd_of,
+        fd_targets_of=sup.codex_fd_targets_of,
+    )
+
+
+def _profile_for_adoption(
+    *,
+    sup: Supervisor,
+    source: LaunchProfileSource | None,
+) -> dict[str, str | None] | None:
+    if source is None:
+        return None
+    profile = read_launch_profile(
+        pid=source.pid,
+        harness=source.harness,
+        pane_pid=source.pane_pid,
+        cmdline_of=sup.cmdline_of,
+        environ_of=sup.environ_of,
+        ppid_of=sup.ppid_of,
+    )
+    if isinstance(profile, LaunchProfileProblem):
+        sup.log(message=profile.message)
+        return None
+    return profile
+
+
+def _adoptable_live_sessions(
+    *,
+    sup: Supervisor,
+    pane_pids: dict[int, str],
+) -> list[tuple[str, str, str]]:
+    return claude_sessions.map_named_sessions(
+        sessions_dir=sessions_dir(sup=sup),
+        pane_pid_to_session=pane_pids,
+        ppid_of=sup.ppid_of,
+        starttime_of=sup.starttime_of,
+    ) + codex_sessions.map_codex_sessions(
+        pane_pid_to_session=pane_pids,
+        codex_home=sup.codex_home,
+        ppid_of=sup.ppid_of,
+        pids_of_comm=sup.codex_pids_of_comm,
+        cwd_of=sup.codex_cwd_of,
+        fd_targets_of=sup.codex_fd_targets_of,
+    )
+
+
+def _live_profile_sources(
+    *,
+    sup: Supervisor,
+    pane_pids: dict[int, str],
+) -> dict[tuple[str, str], LaunchProfileSource]:
+    return live_profile_sources(
+        sessions_dir=sessions_dir(sup=sup),
+        pane_pid_to_session=pane_pids,
+        ppid_of=sup.ppid_of,
+        starttime_of=sup.starttime_of,
+        codex_readers=_codex_profile_readers(sup=sup),
+    )
+
+
+def _active_topics_by_repo(*, watch: list[str]) -> dict[str, set[str]]:
+    active: dict[str, set[str]] = {}
+    for repo, topic in registry.discover_plans(watch_repos=watch):
+        active.setdefault(repo, set()).add(topic)
+    return active
 
 
 def archive_gc(*, sup: Supervisor) -> int:
@@ -140,9 +217,7 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
     cross-repo collision) the daemon itself launches.
     """
     watch = resolve_watch(sup=sup)
-    active: dict[str, set[str]] = {}
-    for repo, topic in registry.discover_plans(watch_repos=watch):
-        active.setdefault(repo, set()).add(topic)
+    active = _active_topics_by_repo(watch=watch)
     existing = _mapped_tmux_by_track(sup=sup)
     pane_pids = sup.tmux.pane_pid_sessions()
     # BOTH runtimes, through ONE path. `codex_sessions.map_codex_sessions` emits the
@@ -155,19 +230,8 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
     #
     # `Codex Companion Task: …` threads filter themselves out below: their names are
     # not active plan topics, so they fail the same test any non-topic name fails.
-    mapped = claude_sessions.map_named_sessions(
-        sessions_dir=sessions_dir(sup=sup),
-        pane_pid_to_session=pane_pids,
-        ppid_of=sup.ppid_of,
-        starttime_of=sup.starttime_of,
-    ) + codex_sessions.map_codex_sessions(
-        pane_pid_to_session=pane_pids,
-        codex_home=sup.codex_home,
-        ppid_of=sup.ppid_of,
-        pids_of_comm=sup.codex_pids_of_comm,
-        cwd_of=sup.codex_cwd_of,
-        fd_targets_of=sup.codex_fd_targets_of,
-    )
+    mapped = _adoptable_live_sessions(sup=sup, pane_pids=pane_pids)
+    profile_sources = _live_profile_sources(sup=sup, pane_pids=pane_pids)
     # Detect (repo, topic) claimed by MORE THAN ONE live session this tick. Re-pointing
     # such a track would FLIP-FLOP between the sessions' tmux ids every tick — two store
     # rewrites + two "re-pointed" log lines forever (review SF1) — since which one "wins"
@@ -216,6 +280,10 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
             repo=repo,
             tmux=session,
             epic=sup.mapping_epics.get(key),
+            model_profile=_profile_for_adoption(
+                sup=sup,
+                source=profile_sources.get((session, topic)),
+            ),
         )
         registry.append_mapping(track=track, store_path=sup.store_path, added_at=iso_now())
         existing[key] = session

@@ -80,6 +80,7 @@ from _registry_stamps import write_injection_stamp as write_injection_stamp
 from _registry_store import append_mapping as append_mapping
 from _registry_store import read_mapping as read_mapping
 from _registry_store import record_derived_epic as record_derived_epic
+from _registry_store import record_model_profile as record_model_profile
 from _registry_store import record_observed_session_identity as record_observed_session_identity
 from _registry_store import remove_mapping as remove_mapping
 from _registry_store import repoint_tmux as repoint_tmux
@@ -114,6 +115,7 @@ __all__: list[str] = [
     "read_round_open_identity",
     "read_round_record",
     "record_derived_epic",
+    "record_model_profile",
     "record_observed_session_identity",
     "record_post_respawn",
     "record_ready_expiry",
