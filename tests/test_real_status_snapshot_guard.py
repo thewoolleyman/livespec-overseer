@@ -11,9 +11,8 @@ def test_real_status_snapshot_guard_fails_on_default_snapshot_write(
         )
 
 
-def test_real_status_snapshot_guard_fails_when_protected_file_changes(
+def test_real_status_snapshot_guard_has_no_external_file_state_check(
     *,
     real_status_snapshot_guard,
 ) -> None:
-    with pytest.raises(pytest.fail.Exception, match="modified the real overseer status snapshot"):
-        real_status_snapshot_guard.assert_unchanged(before=object())
+    assert not hasattr(real_status_snapshot_guard, "assert_unchanged")
