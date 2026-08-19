@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.59.4](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.3...v0.59.4) (2026-08-19)
+
+
+### Bug Fixes
+
+* drop real status snapshot teardown check ([9be1251](https://github.com/thewoolleyman/livespec-overseer/commit/9be125161e9a89f6fbc98c3fb882eea5bc8b54d2))
+* keep test snapshots off the real status path ([0e5e0a5](https://github.com/thewoolleyman/livespec-overseer/commit/0e5e0a5d7d3f4f9af6cfef5d967c886a4535daec))
+
 ## [0.59.3](https://github.com/thewoolleyman/livespec-overseer/compare/v0.59.2...v0.59.3) (2026-08-19)
 
 
