@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.61.0...v0.61.1) (2026-08-19)
+
+
+### Bug Fixes
+
+* prove tmux rig socket cleanup ([f09cb5c](https://github.com/thewoolleyman/livespec-overseer/commit/f09cb5c7fa4114a7a60aff73bff6799214380d18))
+
 ## [0.61.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.60.0...v0.61.0) (2026-08-19)
 
 
