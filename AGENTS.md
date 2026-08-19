@@ -361,6 +361,34 @@ non_local_depends_on`, and record why. A GENUINE cross-repo dependency is fine â
 check the consuming repo's `cross_repo_targets` actually lists the sibling, or it
 will fail closed forever.
 
+Measured 2026-08-19 while repairing `overseer-vfz5v5`: the same `not in the
+ready set` symptom has a third case. A dependency can be genuine, and the sibling
+repo can be correctly listed in `cross_repo_targets`, while the edge's
+`work_item_id` is simply wrong. In that case, unsetting the edge destroys the
+record of a real prerequisite and makes the item look dispatchable while its real
+blocker is invisible.
+
+**Before unsetting any cross-repo edge, resolve its `work_item_id` against BOTH
+tenants' full id sets.** If it resolves and the edge is only thread membership,
+unset it as above. If it resolves and the sibling repo is missing from
+`cross_repo_targets`, list the sibling. If it resolves nowhere, treat the pointer
+as broken: look for the real counterpart and REPOINT the edge. Unset only when no
+real counterpart exists. In the measured case, the broken edge named
+`overseer-llz4xi`, which existed in neither tenant and even carried an
+`overseer-` prefix while declaring `livespec-dev-tooling` as its repo. The real
+counterpart was unambiguous: `livespec-dev-tooling-3nt9`, whose description named
+livespec-overseer's `justfile:127-142` and the same three hard-coded
+marketplaces that `overseer-vfz5v5` was replacing. Repointing kept the item
+correctly gated until that blocker lands, instead of deleting the truth.
+
+There is a separate false-positive source for that third case:
+`bd update --set-metadata non_local_depends_on=<json>` silently stores the value
+as a string, not as a JSON array. A stringified edge can later look like a broken
+reference, inviting someone to unset a healthy dependency. The working form is
+`bd update <id> --metadata @<file.json>` with the COMPLETE metadata object; it
+replaces the whole object, so preserve sibling keys such as `rank`. Then read the
+item back and verify `non_local_depends_on` is a list, not a string.
+
 ### A FOURTH SHAPE: the run SUCCEEDED and the item was never transitioned
 
 Measured 2026-08-05 on `overseer-5oap`. **This is the dangerous member of the
