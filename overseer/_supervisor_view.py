@@ -191,6 +191,8 @@ def needs_attention(*, row: RowView) -> bool:
         return True
     if row.note and row.note.startswith("BAD state file"):
         return True
+    if row.status == "working" and row.note and "working low context" in row.note:
+        return True
     # A stranded post-respawn resume (R1) is also a NEEDS-YOU row: the daemon keeps
     # retrying the Enter, but the operator should see it — and keeping it here keeps the
     # `alert` edge-triggered (not re-armed) so it fires once, not every tick.

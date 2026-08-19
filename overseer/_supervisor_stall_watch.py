@@ -10,6 +10,7 @@ import _supervisor_liveness
 import _supervisor_parked_delivery
 import _supervisor_picker_stall
 import _supervisor_snapshot
+import _supervisor_working_low_context
 import registry
 from _supervisor_config import PANE_STILL_AFTER
 from _supervisor_view import MAX_REASON_IN_ALERT, elide
@@ -231,8 +232,8 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             act=request.act,
         )
     )
-    stall_watch = apply_stall_watch(
-        request=StallWatchRequest(
+    low_context = _supervisor_working_low_context.apply_working_low_context_attention(
+        request=_supervisor_working_low_context.WorkingLowContextRequest(
             sup=request.sup,
             track=request.track,
             session=request.session,
@@ -241,6 +242,19 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             note=parked_delivery.note,
             obs=request.obs,
             active_conditions=parked_delivery.active_conditions,
+            act=request.act,
+        )
+    )
+    stall_watch = apply_stall_watch(
+        request=StallWatchRequest(
+            sup=request.sup,
+            track=request.track,
+            session=request.session,
+            pane=request.pane,
+            status=low_context.status,
+            note=low_context.note,
+            obs=request.obs,
+            active_conditions=low_context.active_conditions,
             act=request.act,
         )
     )
