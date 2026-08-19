@@ -631,6 +631,18 @@ check-prose-release-hygiene:
         echo "  A shallow clone cannot satisfy it; fetch full depth." >&2
         exit 1
     fi
+    if ! git cat-file -e "$base:$prose_dir" 2>/dev/null; then
+        echo "check-prose-release-hygiene: cannot resolve generator prose path '$prose_dir' at base ref '$base'." >&2
+        echo "  This gate reads a path-scoped diff, so the path must resolve at both ends." >&2
+        echo "  If generator prose moved, update this gate before relying on this context." >&2
+        exit 1
+    fi
+    if ! git cat-file -e "$head:$prose_dir" 2>/dev/null; then
+        echo "check-prose-release-hygiene: cannot resolve generator prose path '$prose_dir' at head ref '$head'." >&2
+        echo "  This gate reads a path-scoped diff, so the path must resolve at both ends." >&2
+        echo "  If generator prose moved, update this gate before relying on this context." >&2
+        exit 1
+    fi
     changed="$(git diff --name-only "$base...$head" -- "$prose_dir")"
     if [[ -z "$changed" ]]; then
         echo ":: check-prose-release-hygiene — no generator prose changed in $base...$head"

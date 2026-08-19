@@ -90,6 +90,40 @@ def _make_repo(root: Path, name: str, *, subject: str, touch_prose: bool) -> Pat
     return repo
 
 
+def _make_repo_without_prose_at_base(root: Path, name: str) -> Path:
+    """A repo whose base ref cannot resolve the configured prose directory."""
+    repo = root / name
+    repo.mkdir()
+    (repo / "README.md").write_text("base readme\n")
+    _git(repo, "init", "-q", ".")
+    _git(repo, "config", "user.email", "gate@example.invalid")
+    _git(repo, "config", "user.name", "gate")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "chore: base")
+    _git(repo, "branch", "-f", "basepoint")
+    (repo / "README.md").write_text("changed\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "docs: ordinary readme edit")
+    return repo
+
+
+def _make_repo_without_prose_at_head(root: Path, name: str) -> Path:
+    """A repo whose head ref cannot resolve the configured prose directory."""
+    repo = root / name
+    (repo / ".claude-plugin" / "prose").mkdir(parents=True)
+    (repo / _PROSE_FILE).write_text("base prose\n")
+    _git(repo, "init", "-q", ".")
+    _git(repo, "config", "user.email", "gate@example.invalid")
+    _git(repo, "config", "user.name", "gate")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "chore: base")
+    _git(repo, "branch", "-f", "basepoint")
+    (repo / _PROSE_FILE).unlink()
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "fix: remove generator prose directory")
+    return repo
+
+
 def _run_gate(repo: Path, *, base: str = "basepoint") -> subprocess.CompletedProcess[str]:
     """Invoke the real recipe with its refs pointed at the synthetic repo."""
     return subprocess.run(  # noqa: S603
@@ -218,6 +252,26 @@ def test_an_unresolvable_base_ref_fails_loudly_rather_than_skipping(tmp_path):
     assert result.returncode == 1
     assert "cannot resolve base ref" in result.stderr
     assert "shallow" in result.stderr
+
+
+def test_an_unresolvable_base_prose_path_fails_loudly_rather_than_skipping(tmp_path):
+    repo = _make_repo_without_prose_at_base(tmp_path, "missing-base-prose")
+    result = _run_gate(repo)
+    assert result.returncode == 1
+    assert "cannot resolve generator prose path" in result.stderr
+    assert ".claude-plugin/prose" in result.stderr
+    assert "basepoint" in result.stderr
+    assert "no generator prose changed" not in result.stdout
+
+
+def test_an_unresolvable_head_prose_path_fails_loudly_even_with_a_releasing_commit(tmp_path):
+    repo = _make_repo_without_prose_at_head(tmp_path, "missing-head-prose")
+    result = _run_gate(repo)
+    assert result.returncode == 1
+    assert "cannot resolve generator prose path" in result.stderr
+    assert ".claude-plugin/prose" in result.stderr
+    assert "HEAD" in result.stderr
+    assert "releasing commit(s) present" not in result.stdout
 
 
 def test_rejection_under_a_tty_cannot_block_on_the_git_pager(tmp_path):
