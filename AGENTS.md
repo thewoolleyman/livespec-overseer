@@ -594,10 +594,45 @@ dispatched normally on the *same* plugin build minutes later, which is what prov
 item text — not the build, not the fleet — was at fault. Two failed dispatches, each
 under a minute, both leaving a phantom `active`/`fabro` claim to release by hand.
 
-Note that the build in use (`a56d545a1121`) *does* carry `escape_minijinja_literal` in
-`render_goal`, whose docstring claims the whole assembled brief is neutralized. It did
-not hold on this path. Until that is resolved, treat the escaper as **absent** and keep
-brace tokens out of item text and comments yourself.
+**THE ESCAPER IS NOT MISSING — ITS OUTPUT IS WHAT FABRO REJECTS.** Measured later the
+same day, and it changes what you should ask for. `render_goal` *does* run
+`escape_minijinja_literal` over the whole assembled brief, comments included, and it
+produces exactly what it intends. It still fails.
+
+**The proof is an artifact you can go and read, which is the useful part of this
+entry.** The Dispatcher writes the assembled brief to `/tmp/fabro-goal-<item-id>.md`
+before invoking fabro, and **that file survives a failed run** — so after any dispatch
+failure you can inspect the exact bytes fabro was handed. Two of them, seven minutes
+apart on the same build, are a clean two-way control:
+
+| goal file | escaped openers | outcome |
+|---|---|---|
+| `fabro-goal-overseer-bc55wx.8.md`, 77 lines | exactly one, on **line 73** | rejected: `syntax error: unexpected` `.` **at line 73** |
+| `fabro-goal-overseer-bc55wx.9.md`, 35 lines | none | ran normally, merged |
+
+The error names *the very line the escaper produced*. So "add escaping" is not the fix,
+and asking for it sends an implementer the wrong way. Filed with both candidate
+mechanisms and a cheap disambiguation as `bd-ib-ai9a` (orchestrator tenant), which
+supersedes `bd-ib-vv9y` — whose own **title** quotes the token, making the item that
+describes the defect one of its casualties.
+
+**QUOTING THE EVIDENCE POISONS THE REPORT.** This is the part to design around rather
+than resolve to remember. A good bug report quotes the failing line verbatim; here the
+failing line *is* the poison. The session that wrote the section above lost a
+freshly-filed orchestrator item to exactly that within minutes of merging this guidance,
+because what it needed to quote was the escaped line itself. Warnings do not fix this.
+**Describe the byte sequence in words, and check mechanically before you file.**
+
+**THE CHECK, which costs a second and needs no new tooling.** Run it against the item as
+*stored*, not against your draft — a title, an acceptance clause or someone else's
+earlier comment can carry the token:
+
+    bd show <id> | grep -nF -e "$(printf '\173\173')" -e "$(printf '\173%%')" -e "$(printf '\173#')"
+
+`printf` keeps the delimiters out of your own command line and shell history. No output
+means the record is dispatchable. Any hit names the line to reword. Do this **before**
+`bd comment` too — the comment is the common poisoning route, and once it lands it is
+permanent.
 
 ### A LEDGER-EDIT item can never be factory-dispatched
 
