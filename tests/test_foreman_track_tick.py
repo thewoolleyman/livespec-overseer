@@ -2,6 +2,8 @@
 
 import contextlib
 import io
+import json
+from pathlib import Path
 
 import foreman_runtime
 import registry
@@ -40,6 +42,51 @@ def test_tick_evaluates_registered_foreman_track_without_a_plan_directory(*, tmp
     assert not (repo / "plan" / track.topic).exists()
     assert fake.has(method="paste")
     assert "resume foreman ledger epic" in fake.paste_texts()[0]
+
+
+def test_tick_supervises_legacy_null_epic_foreman_rows(*, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    repos = [tmp_path / "repo-a", tmp_path / "repo-b"]
+    topics = ["repo-a-foreman", "repo-b-foreman"]
+    fake = FakeTmux()
+    for repo, topic in zip(repos, topics, strict=True):
+        repo.mkdir()
+        fake.serve(session=topic, repo=repo, capture=idle_capture(ctx=40, topic=topic))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo) for repo in repos])
+    store = sup.store_path
+    assert store is not None
+    Path(store).write_text(
+        "".join(
+            json.dumps(
+                {
+                    "kind": "foreman",
+                    "topic": topic,
+                    "repo": str(repo),
+                    "tmux": topic,
+                    "epic": None,
+                }
+            )
+            + "\n"
+            for repo, topic in zip(repos, topics, strict=True)
+        ),
+        encoding="utf-8",
+    )
+
+    tracks = registry.read_valid_mapping(store_path=store)
+    assert [(track.topic, track.epic) for track in tracks] == [
+        (topic, registry.unresolved_plan_epic(topic=topic)) for topic in topics
+    ]
+
+    with contextlib.redirect_stderr(io.StringIO()):
+        views = sup.tick(act=True)
+
+    foreman_views = [view for view in views if view.topic in topics]
+    assert [(view.topic, view.status) for view in foreman_views] == [
+        ("repo-a-foreman", "warned"),
+        ("repo-b-foreman", "warned"),
+    ]
+    assert len(fake.paste_texts()) == len(topics)
+    assert not fake.has(method="respawn")
 
 
 def test_tick_restarts_registered_foreman_track_only_after_ready(*, tmp_path, monkeypatch):
