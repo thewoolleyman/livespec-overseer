@@ -1395,6 +1395,29 @@ that was silently dropped and one that was correctly preserved look identical in
 `/proc`. (The epic's own text said the default was `sonnet`; measured
 2026-08-19 it was `opus[1m]`.)
 
+**"CHECK IT ON THE DAY" IS NOT STRICT ENOUGH — IT MOVES WITHIN A DAY.** Three
+distinct values were observed on **2026-08-19 alone**: `opus[1m]` (the measurement
+recorded in the line above), `claude-fable-5[1m]` at 14:19Z, and plain `opus` from
+19:51:07Z. The parenthetical above therefore aged inside its own day, which is the
+cheapest possible demonstration of the point.
+
+This matters beyond the live exercise, because the default is one half of every
+divergence judgement: whether a session is "on the default" or "silently converted"
+is a COMPARISON, and a comparison has two sides. A live reading of a pane compared
+against a remembered default is not a measurement, it is a measurement against a
+guess — and it fails in the direction that looks authoritative, because the half you
+refreshed is the half you were thinking about. **Re-derive BOTH sides in the same
+breath**: read `~/.claude/settings.json` at the moment you read the panes, never
+from memory, a doc, or an earlier step of your own session.
+
+Two corollaries paid for the same day. The alias is not self-interpreting — `opus`
+renders as plain `Opus 5`, NOT the 1M variant, and the picker offers both, so resolve
+it by launching a disposable scratch session and reading what it actually inherits
+rather than by reasoning about the alias table. And a partition computed against a
+stale default inverts rather than merely drifting: the same sweep data yielded 25
+diverged against one baseline and 22 against the correct one, with sessions moving in
+BOTH directions across the boundary.
+
 **Four things will waste your time in this order. All four were paid for once.**
 
 1. **A track parked on Claude's trust-folder gate adopts with NO profile, and
