@@ -18,6 +18,7 @@ import jsonio
 import signals
 from _registry_core import (
     Track,
+    UnassignedPlan,
     colliding_topics,
     norm,
     tmux_id,
@@ -125,9 +126,7 @@ def join(
     result: list[Track] = []
     for repo, topic in discovered:
         mapped = index.get((norm(repo=repo), topic))
-        result.append(
-            mapped if mapped is not None else Track.make_unassigned(repo=repo, topic=topic)
-        )
+        result.append(mapped if mapped is not None else UnassignedPlan.make(repo=repo, topic=topic))
     result.sort(key=lambda t: (norm(repo=t.repo), t.topic))
     return result
 

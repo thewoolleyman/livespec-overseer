@@ -26,7 +26,7 @@ def test_prompt_builder_public_branches_stay_covered(*, tmp_path) -> None:
         topic=signals.supervisor_entity_topic(topic="worker"),
         repo=repo,
         tmux="worker-supervisor",
-        epic=None,
+        epic="overseer-epic",
     )
     no_epic = registry.Track(topic="missing", repo=repo, tmux="missing", epic=None)
 

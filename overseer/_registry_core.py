@@ -21,12 +21,22 @@ import fcntl
 import os
 import tempfile
 from collections.abc import Collection, Iterable, Iterator
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeAlias
 
 import signals
 import streams
+from _registry_track_row_parse import Track
+from _registry_track_variants import (
+    ForemanSeat,
+    ModelProfile,
+    PlanTrack,
+    SupervisorSeat,
+    TrackRecord,
+    UnassignedPlan,
+    epic_is_resolved,
+    track_with_epic,
+    unresolved_plan_epic,
+)
 
 __all__: list[str] = [
     "DEFAULT_CTX_THRESHOLD",
@@ -34,16 +44,24 @@ __all__: list[str] = [
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
     "ROW_KEYS",
+    "ForemanSeat",
     "ModelProfile",
+    "PlanTrack",
+    "SupervisorSeat",
     "Track",
+    "TrackRecord",
+    "UnassignedPlan",
     "atomic_write",
     "colliding_topics",
+    "epic_is_resolved",
     "file_lock",
     "norm",
     "repo_slug",
     "resolve_stamp_store",
     "resolve_store",
     "tmux_id",
+    "track_with_epic",
+    "unresolved_plan_epic",
 ]
 
 
@@ -102,10 +120,8 @@ DEFAULT_STAMP_PATH = Path.home() / ".livespec-overseer-stamps.json"
 # de-gold-plating that removed `--repos` / `--manifest` / `--store` / `--stamp`.
 DEFAULT_WATCH_SET_PATH = Path.home() / ".livespec-overseer-repos.json"
 
-# The durable keys serialized to a mapping row.
-ModelProfile: TypeAlias = dict[str, str | None]
-
 ROW_KEYS = (
+    "kind",
     "topic",
     "repo",
     "tmux",
@@ -209,53 +225,6 @@ def tmux_id(
     if not allow_reserved and signals.topic_reserved_for_supervisor(topic=session):
         raise ValueError(_reserved_session_refusal(repo=repo, topic=topic, session=session))
     return session
-
-
-@dataclass(frozen=True, kw_only=True)
-class Track:
-    """One overseer row: a plan topic in a repo, possibly mapped to a session.
-
-    Frozen + keyword-only. A *mapped* track (``assigned=True``) carries the
-    durable facts from a ``~/.livespec-overseer.jsonl`` row. An *unassigned*
-    track (``assigned=False``, blank ``tmux``) is a discovered plan with no
-    mapping row — build it via :meth:`make_unassigned`.
-    """
-
-    topic: str
-    repo: str
-    tmux: str | None = None
-    resume: str | None = None
-    epic: str | None = None
-    # None = NO per-track override → inherit the daemon-wide default warn
-    # threshold (``Supervisor.warn_percent``, itself defaulting to
-    # ``DEFAULT_CTX_THRESHOLD``). An int is an explicit per-track override that
-    # wins over the daemon default. Serialized only when set (the row omits the
-    # key when None) so a bare row means "no override".
-    ctx_threshold: int | None = None
-    pinned_session_id: str | None = None
-    observed_session_identity: str | None = None
-    added_at: str | None = None
-    model_profile: ModelProfile | None = None
-    assigned: bool = True
-
-    @property
-    def is_unassigned(self) -> bool:
-        return not self.assigned
-
-    @classmethod
-    def make_unassigned(
-        cls,
-        *,
-        repo: str,
-        topic: str,
-    ) -> Track:
-        """A discovered-but-unmapped track: blank tmux, status `unassigned`."""
-        return cls(
-            topic=topic,
-            repo=repo,
-            tmux=None,
-            assigned=False,
-        )
 
 
 # --------------------------------------------------------------------------- #

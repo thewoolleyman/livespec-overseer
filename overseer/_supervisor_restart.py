@@ -9,7 +9,6 @@ the codex session with a claude one and destroy it.
 
 from __future__ import annotations
 
-import dataclasses
 from typing import TYPE_CHECKING, cast
 
 import _supervisor_launch
@@ -71,7 +70,7 @@ def rederive_epic_if_stale(*, sup: Supervisor, track: registry.Track, act: bool)
     _ = registry.record_derived_epic(
         repo=track.repo, topic=track.topic, epic=derived, store_path=sup.store_path
     )
-    return dataclasses.replace(track, epic=derived)
+    return registry.track_with_epic(track=track, epic=derived)
 
 
 def resume_prompt(*, track: registry.Track) -> str | None:

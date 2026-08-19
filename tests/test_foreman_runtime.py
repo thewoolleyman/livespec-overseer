@@ -104,14 +104,20 @@ def test_foreman_track_registration_is_independent_of_plan_and_idempotent(*, tmp
             topic="repo-foreman",
             repo=str(repo),
             tmux="stale-duplicate",
+            epic=registry.unresolved_plan_epic(topic="repo-foreman"),
         ),
         store_path=store,
     )
     module.register_foreman_track(repo=repo, store_path=store)
 
     tracks = registry.read_valid_mapping(store_path=store)
-    assert [(track.topic, track.repo, track.tmux) for track in tracks] == [
-        ("repo-foreman", str(repo), "repo-foreman")
+    assert [(track.topic, track.repo, track.tmux, track.epic) for track in tracks] == [
+        (
+            "repo-foreman",
+            str(repo),
+            "repo-foreman",
+            registry.unresolved_plan_epic(topic="repo-foreman"),
+        )
     ]
 
 

@@ -11,6 +11,7 @@ import json
 import os
 
 from _registry_core import (
+    SupervisorSeat,
     Track,
     file_lock,
     norm,
@@ -18,7 +19,9 @@ from _registry_core import (
     warn,
 )
 from _registry_resume import normalize_resume_override
+from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
 from _registry_rows_io import read_rows, write_rows
+from _registry_track_row_parse import RowExtras, track_from_mapping_row
 from _seams import MappingRowPredicate
 
 __all__: list[str] = [
@@ -41,6 +44,7 @@ def _track_to_row(*, track: Track) -> dict[str, object]:
     # state held on its ledger `epic`, and a second, path-shaped copy of that answer is
     # exactly the drift the locator replaced.
     row: dict[str, object] = {
+        "kind": track.kind,
         "topic": track.topic,
         "repo": track.repo,
         "tmux": track.tmux,
@@ -57,8 +61,33 @@ def _track_to_row(*, track: Track) -> dict[str, object]:
         row["ctx_threshold"] = track.ctx_threshold
     if track.model_profile is not None:
         row["model_profile"] = track.model_profile
+    if isinstance(track, SupervisorSeat):
+        row["supervised_topic"] = track.supervised_topic
     _ = normalize_resume_override(row=row)
     return row
+
+
+def _validated_row(*, row: dict[str, object]) -> dict[str, object]:
+    topic = row.get("topic")
+    repo = row.get("repo")
+    track = track_from_mapping_row(
+        row=row,
+        extras=RowExtras(
+            resume=opt_str_from_row(row=row, key="resume"),
+            ctx_threshold=ctx_threshold_from_row(row=row),
+            pinned_session_id=opt_str_from_row(row=row, key="pinned_session_id"),
+            observed_session_identity=opt_str_from_row(row=row, key="observed_session_identity"),
+            added_at=opt_str_from_row(row=row, key="added_at"),
+            model_profile=model_profile_from_row(
+                row=row,
+                repo=repo if isinstance(repo, str) else "",
+                topic=topic if isinstance(topic, str) else "",
+            ),
+        ),
+    )
+    serialized = _track_to_row(track=track)
+    known = set(serialized)
+    return {**{key: value for key, value in row.items() if key not in known}, **serialized}
 
 
 def _update_matching_field(
@@ -90,7 +119,19 @@ def _update_matching_field(
                 and row.get("topic") == topic
                 and row.get(field) != value
             ):
-                row[field] = value
+                candidate = {**row, field: value}
+                try:
+                    validated = _validated_row(row=candidate)
+                except ValueError as exc:
+                    warn(
+                        message=(
+                            f"refusing invalid mapping update {repo_norm}::{topic} "
+                            f"{field}: {exc}"
+                        )
+                    )
+                    continue
+                row.clear()
+                row.update(validated)
                 changed = True
         if changed:
             write_rows(rows=rows, store_path=store_path)

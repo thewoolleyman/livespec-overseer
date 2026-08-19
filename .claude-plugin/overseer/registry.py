@@ -49,13 +49,20 @@ from _registry_core import DEFAULT_CTX_THRESHOLD as DEFAULT_CTX_THRESHOLD
 from _registry_core import DEFAULT_STAMP_PATH as DEFAULT_STAMP_PATH
 from _registry_core import DEFAULT_STORE_PATH as DEFAULT_STORE_PATH
 from _registry_core import DEFAULT_WATCH_SET_PATH as DEFAULT_WATCH_SET_PATH
+from _registry_core import ForemanSeat as ForemanSeat
+from _registry_core import PlanTrack as PlanTrack
+from _registry_core import SupervisorSeat as SupervisorSeat
 from _registry_core import Track as Track
+from _registry_core import UnassignedPlan as UnassignedPlan
 from _registry_core import atomic_write as atomic_write
 from _registry_core import colliding_topics as colliding_topics
+from _registry_core import epic_is_resolved as epic_is_resolved
 from _registry_core import file_lock as file_lock
 from _registry_core import norm as norm
 from _registry_core import repo_slug as repo_slug
 from _registry_core import tmux_id as tmux_id
+from _registry_core import track_with_epic as track_with_epic
+from _registry_core import unresolved_plan_epic as unresolved_plan_epic
 from _registry_discovery import archived_or_gone as archived_or_gone
 from _registry_discovery import discover_plans as discover_plans
 from _registry_discovery import join as join
@@ -97,11 +104,15 @@ __all__: list[str] = [
     "DEFAULT_STAMP_PATH",
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
+    "ForemanSeat",
     "MappingEntry",
     "MappingInvalid",
     "MappingValid",
+    "PlanTrack",
     "RoundRecord",
+    "SupervisorSeat",
     "Track",
+    "UnassignedPlan",
     "add_notified_band",
     "append_mapping",
     "archived_or_gone",
@@ -110,6 +121,7 @@ __all__: list[str] = [
     "colliding_topics",
     "discover_plans",
     "epic_from_plan_anchor",
+    "epic_is_resolved",
     "file_lock",
     "join",
     "mark_expiry_notice_sent",
@@ -136,6 +148,8 @@ __all__: list[str] = [
     "set_epic",
     "set_resume_pending",
     "tmux_id",
+    "track_with_epic",
+    "unresolved_plan_epic",
     "upsert_mapping",
     "watch_set_from_config",
     "write_injection_stamp",

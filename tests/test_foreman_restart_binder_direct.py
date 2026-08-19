@@ -25,7 +25,12 @@ def test_do_restart_refuses_foreman_without_epic_before_respawn(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo)
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    track = registry.Track(topic=topic, repo=str(repo), tmux=session, epic=None)
+    track = registry.ForemanSeat(
+        topic=topic,
+        repo=str(repo),
+        tmux=session,
+        epic=registry.unresolved_plan_epic(topic=topic),
+    )
 
     err = io.StringIO()
     with contextlib.redirect_stderr(err):

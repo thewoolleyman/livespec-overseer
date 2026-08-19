@@ -11,6 +11,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 import contextlib
 import io as _io
 
+import _supervisor_assignment
 import pytest
 import registry
 import signals
@@ -35,6 +36,46 @@ __all__: list[str] = []
 @pytest.fixture(autouse=True)
 def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+
+
+def test_run_daemon_threads_warn_percent_into_the_supervisor(*, monkeypatch):
+    calls: list[tuple[float, bool, bool, int | None]] = []
+
+    class FakeSupervisor:
+        warn_percent: int | None = None
+
+        def run(self, *, interval: float, once: bool, recover: bool) -> None:
+            calls.append((interval, once, recover, self.warn_percent))
+
+    monkeypatch.setattr(supervisor, "build_supervisor", lambda: FakeSupervisor())
+
+    assert supervisor.run_daemon(warn_percent=33) == 0
+    assert calls == [(supervisor.LOOP_INTERVAL_SECONDS, False, False, 33)]
+
+
+def test_assignment_track_refuses_supervisor_seat_without_resolved_epic(*, tmp_path, monkeypatch):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    monkeypatch.setattr(registry, "epic_from_plan_anchor", lambda *, repo, topic: None)
+
+    with pytest.raises(ValueError, match="supervisor seat requires epic"):
+        _supervisor_assignment.assignment_track(
+            repo=str(repo),
+            topic=f"{topic}-supervisor",
+            session=f"{topic}-supervisor",
+            epic_source_topic=topic,
+        )
+
+
+def test_assignment_track_refuses_foreman_seat_without_resolved_epic(*, tmp_path, monkeypatch):
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    monkeypatch.setattr(registry, "epic_from_plan_anchor", lambda *, repo, topic: None)
+
+    with pytest.raises(ValueError, match="foreman seat requires epic"):
+        _supervisor_assignment.assignment_track(
+            repo=str(repo),
+            topic=f"{repo.name}-foreman",
+            session=f"{repo.name}-foreman",
+        )
 
 
 def test_cli_adopt_reports_every_adopted_session_and_the_total(*, monkeypatch, capsys):

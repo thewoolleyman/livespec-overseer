@@ -251,6 +251,7 @@ def test_supervisor_entity_idle_does_not_offer_supervisor_of_supervisor(*, tmp_p
         topic=entity_topic,
         repo=str(repo),
         tmux=entity_topic,
+        epic="overseer-test-epic",
         resume=_supervisor_prompts.supervisor_resume(repo=str(repo), topic=topic),
     )
     write_fresh_supervisor_state(repo=repo, topic=entity_topic)

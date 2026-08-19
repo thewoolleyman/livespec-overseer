@@ -65,14 +65,16 @@ class StepResult:
 def register_foreman_track(
     *,
     repo: str | os.PathLike[str],
+    epic: str | None = None,
     store_path: str | os.PathLike[str] | None = None,
 ) -> registry.Track:
     repo_path = Path(repo).resolve()
     session_name = canonical_session_name(repo=repo_path)
-    track = registry.Track(
+    track = registry.ForemanSeat(
         topic=session_name,
         repo=str(repo_path),
         tmux=session_name,
+        epic=epic or registry.unresolved_plan_epic(topic=session_name),
     )
     registry.upsert_mapping(track=track, store_path=store_path)
     return track

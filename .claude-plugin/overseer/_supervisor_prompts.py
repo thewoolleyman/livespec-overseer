@@ -113,12 +113,14 @@ def resume_for_track(*, track: registry.Track) -> str | None:
             epic=track.epic,
         )
     if signals.is_foreman_topic(topic=track.topic):
-        if track.epic is None:
+        epic = track.epic
+        if not registry.epic_is_resolved(epic=epic) or epic is None:
             return None
-        return foreman_resume(repo=track.repo, epic=track.epic)
-    if track.epic is None:
+        return foreman_resume(repo=track.repo, epic=epic)
+    epic = track.epic
+    if not registry.epic_is_resolved(epic=epic) or epic is None:
         return None
-    return plan_epic_resume(repo=track.repo, epic=track.epic)
+    return plan_epic_resume(repo=track.repo, epic=epic)
 
 
 def launch_resume(*, track: registry.Track) -> str:

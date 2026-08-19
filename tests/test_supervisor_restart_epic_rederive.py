@@ -63,10 +63,10 @@ def test_rederive_is_a_noop_when_the_anchor_is_genuinely_unresolvable(*, tmp_pat
 
     healed = _supervisor_restart.rederive_epic_if_stale(sup=sup, track=track, act=True)
 
-    assert healed.epic is None
+    assert healed.epic == "legacy-unresolved:stale-epic"
     assert healed is track
     stored = registry.read_valid_mapping(store_path=None)
-    assert stored[0].epic is None
+    assert stored[0].epic == "legacy-unresolved:stale-epic"
     assert store.exists()
 
 
@@ -96,4 +96,4 @@ def test_rederive_never_reads_or_writes_on_a_read_only_tick(*, tmp_path, monkeyp
 
     assert healed is track
     stored = registry.read_valid_mapping(store_path=None)
-    assert stored[0].epic is None
+    assert stored[0].epic == "legacy-unresolved:stale-epic"
