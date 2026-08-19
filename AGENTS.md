@@ -805,6 +805,53 @@ livespec-orchestrator-beads-fabro/<new-build>/scripts/bin/drive.py --action impl
 Confirm which build is current with `just ensure-plugins` (it prints
 `already at the latest version (<build>)`), then point at that directory.
 
+## `bd show`'s `Updated:` is NOT an activity signal — never judge staleness from it
+
+Measured 2026-08-19 with a live positive control. This one is cheap to get
+wrong because the field sits directly under `Created:`, exactly where a reader
+expects a last-touched date, and reads like one.
+
+**IT DOES NOT MOVE ON A COMMENT WRITE.** A ledger item can be actively
+investigated, argued over, and annotated at length while `bd show` keeps
+reporting a months-old `Updated:` date. Comments are where this fleet records
+nearly all of its evidence, so the field is blind to most of what actually
+happens to an item.
+
+**The control, and why the obvious one is not enough.** The first
+counter-example found was `livespec-dev-tooling-qrunmn`: a comment dated
+2026-07-20 against `Updated: 2026-07-19`. That is suggestive and **not
+sufficient** — a migrated or backdated comment would produce the same reading
+on a field that works correctly. The discriminating test is a **write you
+perform yourself**:
+
+    bd comment <id> "..."     # then immediately:
+    bd show <id> | grep '^Created:'
+
+Done on `overseer-mim`, whose `Updated:` stayed at `2026-07-26` across a
+comment added seconds earlier. A sibling item touched by a genuine field
+mutation the same day *did* show that day's date, so the field tracks record
+mutations and not the comment stream.
+
+**Why it matters beyond tidiness.** Staleness judgements route real decisions
+here: whether a blocker is likely to move, whether to dedup onto an existing
+record or file fresh, whether a "successor" is a genuine handoff or a parking
+space. Reading `Updated:` as an activity signal makes a live item look
+abandoned and — the more expensive direction — makes a **parked** item look
+merely quiet when it is neither.
+
+**What to do instead: verify behaviorally.** Ask what would be TRUE IN THE
+WORLD if the item had progressed, and check that. For a code item, whether the
+change is present on the owning repo's `origin/master`. For a forge item, the
+PR state — GitHub's own `updated_at` *is* a real activity field, unlike this
+one. Comment count is a useful secondary signal precisely because the
+`Updated:` field ignores it.
+
+This is a close cousin of the "check that cannot fail" hazard, with one
+difference worth holding: there the check was RUN and could only return one
+answer; here a field is READ and means something narrower than it appears.
+Both end the same way — a confident claim resting on evidence that could not
+have contradicted it.
+
 ## The charter gate's false positives all point ONE way — suspect the detector first
 
 `tests/prompts/test_charters_carry_no_known_defects.py` scores every supervisor
