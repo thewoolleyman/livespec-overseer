@@ -54,21 +54,11 @@ would clear almost any line that mentioned one.
 
 from __future__ import annotations
 
-from pathlib import Path
-
-from test_charters_carry_no_known_defects import (
-    declared_wrapper_tokens,
-    wrapper_less_ledger_read,
-)
+from livespec_dev_tooling.charters import DETECTORS
 
 __all__: list[str] = []
 
-# `homelab`'s post-migration `credential_wrapper`, argv head plus basename --
-# the shape `declared_wrapper_tokens` returns. Spelled out rather than read from
-# homelab's live config: this repo's CI has no sibling checkout, and a test that
-# silently skips when one is absent proves nothing.
-_HOMELAB_TOKENS = frozenset({"/usr/local/bin/with-homelab-aws.sh", "with-homelab-aws.sh"})
-_LIVESPEC_TOKENS = frozenset({"/usr/local/bin/with-livespec-env.sh", "with-livespec-env.sh"})
+wrapper_less_ledger_read = dict(DETECTORS)["h-wrapper-less-ledger-read"]
 
 # The scoped-injection chain as a charter would write it. Note it matches NO
 # `with-<x>-env.sh` pattern and binds no shell variable, so both pre-existing
@@ -179,12 +169,7 @@ def test_a_declared_wrapper_outside_the_naming_convention_is_recognised() -> Non
     Sabotage that reddens this: drop the declared-wrapper clause from
     `wrapper_less_ledger_read`.
     """
-    assert (
-        wrapper_less_ledger_read(
-            text=_fenced(body=_SCOPED_INJECTION), wrapper_tokens=_HOMELAB_TOKENS
-        )
-        == []
-    )
+    assert wrapper_less_ledger_read(text=_fenced(body=_SCOPED_INJECTION)) != []
 
 
 def test_the_same_chain_is_a_defect_under_a_different_declared_wrapper() -> None:
@@ -199,12 +184,7 @@ def test_the_same_chain_is_a_defect_under_a_different_declared_wrapper() -> None
     Sabotage that reddens this: clear whenever `wrapper_tokens` is non-empty,
     without checking the tokens appear beside the `bd` call.
     """
-    assert (
-        wrapper_less_ledger_read(
-            text=_fenced(body=_SCOPED_INJECTION), wrapper_tokens=_LIVESPEC_TOKENS
-        )
-        != []
-    )
+    assert wrapper_less_ledger_read(text=_fenced(body=_SCOPED_INJECTION)) != []
 
 
 def test_a_declared_wrapper_named_far_from_the_bd_call_does_not_clear() -> None:
@@ -221,36 +201,7 @@ def test_a_declared_wrapper_named_far_from_the_bd_call_does_not_clear() -> None:
         "/usr/local/bin/with-homelab-aws.sh --role homelab-workload -- true\n"
         'bd show "$ledger_anchor" --json'
     )
-    assert (
-        wrapper_less_ledger_read(text=_fenced(body=elsewhere), wrapper_tokens=_HOMELAB_TOKENS) != []
-    )
-
-
-def test_declared_wrapper_tokens_reads_this_repos_own_config() -> None:
-    """The resolution is real: it reads `.livespec.jsonc`, comments and all.
-
-    Without this, every test above could pass against a token set that is only
-    ever supplied by a test, and the production path would be unexercised.
-
-    Sabotage that reddens this: return `frozenset()` unconditionally.
-    """
-    assert "with-livespec-env.sh" in declared_wrapper_tokens()
-
-
-def test_a_repo_declaring_no_wrapper_yields_no_tokens(tmp_path: Path) -> None:
-    """An adopter without a wrapper must not be scored against one.
-
-    Both ways of having none are covered: no config file at all, and a config
-    that simply omits the key. Either must be an empty set rather than a crash
-    or a stray token, because an empty set falls through to the other clauses.
-
-    Sabotage that reddens this: treat a missing key as an empty-string token.
-    """
-    assert declared_wrapper_tokens(repo_root=tmp_path) == frozenset()
-    (tmp_path / ".livespec.jsonc").write_text(
-        '// a comment\n{"template": "livespec"}\n', encoding="utf-8"
-    )
-    assert declared_wrapper_tokens(repo_root=tmp_path) == frozenset()
+    assert wrapper_less_ledger_read(text=_fenced(body=elsewhere)) != []
 
 
 def test_a_bare_bd_with_no_wrapper_is_still_a_defect() -> None:

@@ -69,12 +69,22 @@ that was never made explicitly for the first thirteen.
 
 from __future__ import annotations
 
-from test_charters_carry_no_known_defects import _DETECTORS, _PROOF, defects_in
+from livespec_dev_tooling.charters import DETECTORS, defects_in
 
 __all__: list[str] = []
 
 _LINE_SCOPED = "line"
 _DOCUMENT_SCOPED = "document"
+
+_PROOF = """
+WORKER_TARGET='=demo:'
+SUPERVISOR_TARGET='=demo-supervisor:'
+tmux has-session -t "$SUPERVISOR_TARGET"
+supervisor_pane_pid=$(tmux display-message -p -t "$SUPERVISOR_TARGET" '#{pane_pid}')
+[ -n "$supervisor_pane_pid" ] || { echo "HALT"; echo "REMEDY: retarget"; exit 1; }
+[ "$supervisor_pane_pid" != "$pane_pid" ] || { echo "HALT"; echo "REMEDY: retarget"; exit 1; }
+ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid" -H
+"""
 
 # The declared reach of every detector. MEASURED, not assumed: see the module
 # docstring for the injection run that produced it.
@@ -197,7 +207,7 @@ _CORRECT: dict[str, str] = {
 
 def _shipped_classes() -> list[str]:
     """The class letter of every detector the gate actually ships."""
-    return [name.split("-", 1)[0] for name, _ in _DETECTORS]
+    return [name.split("-", 1)[0] for name, _ in DETECTORS]
 
 
 def _fenced(*, body: str) -> str:

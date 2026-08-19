@@ -55,7 +55,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from test_charters_carry_no_known_defects import _code_blocks, defects_in
+from livespec_dev_tooling.charters import defects_in
 
 __all__: list[str] = []
 
@@ -95,7 +95,7 @@ def test_the_module_docs_are_present_and_carry_fenced_blocks() -> None:
     """
     docs = _module_docs()
     assert docs != []
-    assert [path for path in docs if _code_blocks(text=path.read_text(encoding="utf-8"))] != []
+    assert [path for path in docs if "```" in path.read_text(encoding="utf-8")] != []
 
 
 def test_every_module_doc_is_free_of_the_known_defects() -> None:
@@ -149,11 +149,6 @@ def test_the_recovery_runbook_targets_tmux_exactly() -> None:
     Sabotage that reddens this: drop the `=`/`:` from the canary block's
     `respawn-pane` target in `overseer/AGENTS.md`.
     """
-    respawns = [
-        line
-        for block in _code_blocks(text=_agents_doc())
-        for line in block.splitlines()
-        if "respawn-pane" in line
-    ]
+    respawns = [line for line in _agents_doc().splitlines() if "command tmux respawn-pane" in line]
     assert respawns != []
     assert [line for line in respawns if "-t '=" not in line] == []

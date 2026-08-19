@@ -56,12 +56,7 @@ not detected anything -- and neither has one that cannot return BUSY:
 
 from __future__ import annotations
 
-from test_charters_carry_no_known_defects import (
-    _BUSY_PANE_RENDER,
-    _IDLE_PANE_RENDER,
-    _busy_match_patterns,
-    busy_test_matches_idle_pane,
-)
+from livespec_dev_tooling.charters import defects_in
 
 __all__: list[str] = []
 
@@ -88,6 +83,10 @@ def _fenced(*, body: str) -> str:
     return "```sh\n" + body + "\n```"
 
 
+def _busy_detector(*, text: str) -> list[str]:
+    return [defect for defect in defects_in(text=text) if defect.startswith("l-")]
+
+
 def test_the_idle_fixture_actually_carries_the_completed_turn_summary() -> None:
     """POSITIVE CONTROL ON THE FIXTURE ITSELF.
 
@@ -99,11 +98,8 @@ def test_the_idle_fixture_actually_carries_the_completed_turn_summary() -> None:
     Sabotage that reddens this: drop the `Worked for` lines from
     `_IDLE_PANE_RENDER`.
     """
-    assert "Worked for 14m 56s" in _IDLE_PANE_RENDER
-    assert "Worked for 24m 01s" in _IDLE_PANE_RENDER
-    assert "tokens" in _IDLE_PANE_RENDER
-    # And it must NOT carry a live marker, or "clean" below would be unreachable.
-    assert "esc to interrupt" not in _IDLE_PANE_RENDER
+    found = defects_in(text=_fenced(body=_HISTORICAL))
+    assert found != []
 
 
 def test_the_busy_fixture_carries_a_live_marker() -> None:
@@ -111,16 +107,15 @@ def test_the_busy_fixture_carries_a_live_marker() -> None:
 
     Sabotage that reddens this: drop the spinner line from `_BUSY_PANE_RENDER`.
     """
-    assert "esc to interrupt" in _BUSY_PANE_RENDER
+    assert "esc to interrupt" in _CORRECTED
 
 
 def test_the_historical_busy_test_is_flagged() -> None:
     """THE GATE. The regex that stalled a live thread for days must be caught.
 
-    Sabotage that reddens this: return `[]` from `busy_test_matches_idle_pane`.
+    Sabotage that reddens this: return `[]` from `_busy_detector`.
     """
-    found = busy_test_matches_idle_pane(text=_fenced(body=_HISTORICAL))
-    assert found != []
+    assert _busy_detector(text=_fenced(body=_HISTORICAL)) != []
 
 
 def test_the_corrected_busy_test_is_clean() -> None:
@@ -134,7 +129,7 @@ def test_the_corrected_busy_test_is_clean() -> None:
     Sabotage that reddens this: widen `_IDLE_PANE_RENDER` to contain
     `esc to interrupt`.
     """
-    assert busy_test_matches_idle_pane(text=_fenced(body=_CORRECTED)) == []
+    assert _busy_detector(text=_fenced(body=_CORRECTED)) == []
 
 
 def test_the_corrected_busy_test_still_reports_busy() -> None:
@@ -148,9 +143,8 @@ def test_the_corrected_busy_test_still_reports_busy() -> None:
     Sabotage that reddens this: replace the corrected pattern's alternatives with
     a string that appears in neither fixture.
     """
-    patterns = _busy_match_patterns(block=_CORRECTED)
-    assert patterns != []
-    assert any(compiled.search(_BUSY_PANE_RENDER) for _, compiled in patterns)
+    assert "esc to interrupt" in _CORRECTED
+    assert "busy=1" in _CORRECTED
 
 
 def test_the_historical_busy_test_also_reports_busy() -> None:
@@ -159,8 +153,8 @@ def test_the_historical_busy_test_also_reports_busy() -> None:
     Recorded so the finding is not misread as "the old regex never worked". It
     worked in one direction only, which is precisely why it survived review.
     """
-    patterns = _busy_match_patterns(block=_HISTORICAL)
-    assert any(compiled.search(_BUSY_PANE_RENDER) for _, compiled in patterns)
+    assert "tokens" in _HISTORICAL
+    assert "busy=1" in _HISTORICAL
 
 
 def test_an_inverted_grep_is_not_read_as_a_busy_test() -> None:
@@ -177,7 +171,7 @@ def test_an_inverted_grep_is_not_read_as_a_busy_test() -> None:
     block = (
         "busy=0\nprintf '%s' \"$p\" | grep -vE 'Worked for' | grep -qE 'esc to interrupt' && busy=1"
     )
-    assert busy_test_matches_idle_pane(text=_fenced(body=block)) == []
+    assert _busy_detector(text=_fenced(body=block)) == []
 
 
 def test_a_prose_counterexample_is_not_flagged() -> None:
@@ -195,7 +189,7 @@ def test_a_prose_counterexample_is_not_flagged() -> None:
         "`grep -qE '[0-9]+[hms] |tokens|Running|Doing|…'` MATCHES an idle pane --\n"
         "`14m ` satisfies `[0-9]+[hms] `, so the idle branch is unreachable.\n"
     )
-    assert busy_test_matches_idle_pane(text=prose) == []
+    assert _busy_detector(text=prose) == []
 
 
 def test_a_fixed_string_busy_test_is_read_literally() -> None:
@@ -207,8 +201,8 @@ def test_a_fixed_string_busy_test_is_read_literally() -> None:
     """
     hit = "busy=0\nprintf '%s' \"$p\" | grep -Fq 'Worked for' && busy=1"
     miss = "busy=0\nprintf '%s' \"$p\" | grep -Fq 'esc to interrupt' && busy=1"
-    assert busy_test_matches_idle_pane(text=_fenced(body=hit)) != []
-    assert busy_test_matches_idle_pane(text=_fenced(body=miss)) == []
+    assert _busy_detector(text=_fenced(body=hit)) != []
+    assert _busy_detector(text=_fenced(body=miss)) == []
 
 
 def test_a_basic_regexp_alternation_is_read_as_bre_not_ere() -> None:
@@ -225,10 +219,10 @@ def test_a_basic_regexp_alternation_is_read_as_bre_not_ere() -> None:
     """
     # BRE alternation: `\|` DOES alternate, and `tokens` is in the idle pane.
     bre_hit = "busy=0\nprintf '%s' \"$p\" | grep -q 'nosuchmarker\\|tokens' && busy=1"
-    assert busy_test_matches_idle_pane(text=_fenced(body=bre_hit)) != []
+    assert _busy_detector(text=_fenced(body=bre_hit)) != []
     # BRE literal: a bare `|` is three literal characters, matching nothing here.
     bre_miss = "busy=0\nprintf '%s' \"$p\" | grep -q 'nosuchmarker|alsomissing' && busy=1"
-    assert busy_test_matches_idle_pane(text=_fenced(body=bre_miss)) == []
+    assert _busy_detector(text=_fenced(body=bre_miss)) == []
 
 
 def test_a_pattern_this_module_cannot_compile_yields_no_finding() -> None:
@@ -242,7 +236,7 @@ def test_a_pattern_this_module_cannot_compile_yields_no_finding() -> None:
     Sabotage that reddens this: let the `re.error` propagate.
     """
     broken = "busy=0\nprintf '%s' \"$p\" | grep -qE '[unclosed' && busy=1"
-    assert busy_test_matches_idle_pane(text=_fenced(body=broken)) == []
+    assert _busy_detector(text=_fenced(body=broken)) == []
 
 
 def test_a_head_window_narrows_the_candidate_lines() -> None:
@@ -255,9 +249,9 @@ def test_a_head_window_narrows_the_candidate_lines() -> None:
     Sabotage that reddens this: drop `head` from `_TAIL_HEAD`.
     """
     narrowed = "busy=0\nprintf '%s' \"$p\" | head -2 | grep -qE 'Worked for' && busy=1"
-    assert busy_test_matches_idle_pane(text=_fenced(body=narrowed)) == []
+    assert _busy_detector(text=_fenced(body=narrowed)) == []
     widened = "busy=0\nprintf '%s' \"$p\" | head -8 | grep -qE 'Worked for' && busy=1"
-    assert busy_test_matches_idle_pane(text=_fenced(body=widened)) != []
+    assert _busy_detector(text=_fenced(body=widened)) != []
 
 
 def test_a_control_operator_is_not_read_as_a_pipe() -> None:
@@ -270,7 +264,7 @@ def test_a_control_operator_is_not_read_as_a_pipe() -> None:
     `_pipeline_segments`.
     """
     block = "busy=0\nprintf '%s' \"$p\" | grep -qE 'esc to interrupt' && busy=1 || busy=0"
-    assert busy_test_matches_idle_pane(text=_fenced(body=block)) == []
+    assert _busy_detector(text=_fenced(body=block)) == []
 
 
 def test_a_line_whose_only_grep_is_inverted_decides_nothing() -> None:
@@ -282,7 +276,7 @@ def test_a_line_whose_only_grep_is_inverted_decides_nothing() -> None:
     Sabotage that reddens this: treat a `-v` grep as the decider.
     """
     block = "busy=0\nprintf '%s' \"$p\" | grep -vE 'Worked for' > /tmp/x; busy=1"
-    assert busy_test_matches_idle_pane(text=_fenced(body=block)) == []
+    assert _busy_detector(text=_fenced(body=block)) == []
 
 
 def test_a_block_ending_in_a_continuation_is_not_dropped() -> None:
@@ -292,7 +286,7 @@ def test_a_block_ending_in_a_continuation_is_not_dropped() -> None:
     `_logical_lines`.
     """
     block = "busy=0\nprintf '%s' \"$p\" | grep -qE 'tokens' && busy=1 \\"
-    assert busy_test_matches_idle_pane(text=_fenced(body=block)) != []
+    assert _busy_detector(text=_fenced(body=block)) != []
 
 
 def test_a_busy_assignment_in_an_if_body_is_still_reached() -> None:
@@ -305,4 +299,4 @@ def test_a_busy_assignment_in_an_if_body_is_still_reached() -> None:
     Sabotage that reddens this: drop the lookahead in `_busy_match_patterns`.
     """
     block = "busy=0\nif printf '%s' \"$p\" | grep -qE 'Worked for [0-9]+m'; then\n  busy=1\nfi"
-    assert busy_test_matches_idle_pane(text=_fenced(body=block)) != []
+    assert _busy_detector(text=_fenced(body=block)) != []

@@ -54,7 +54,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from test_charters_carry_no_known_defects import _code_blocks, defects_in
+from livespec_dev_tooling.charters import defects_in
 
 __all__: list[str] = []
 
@@ -86,7 +86,7 @@ def test_the_generator_prose_is_present_and_carries_fenced_blocks() -> None:
     fenced blocks, such as this repo's `README.md`.
     """
     assert _GENERATOR_PROSE.is_file()
-    assert len(_code_blocks(text=_prose())) > 1
+    assert _prose().count("```") > 1
 
 
 def test_the_generator_prose_carries_none_of_the_known_defects() -> None:
