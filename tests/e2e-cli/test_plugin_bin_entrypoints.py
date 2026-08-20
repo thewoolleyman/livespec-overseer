@@ -1212,9 +1212,11 @@ def _assert_runtime_cadence(*, context: ForemanE2EContext) -> None:
     first = _runtime_result(context=context, snapshot=snapshot, now=1000.0)
     assert first == {
         "action_taken": False,
+        "auto_resume_interval_seconds": None,
         "exit_reason": None,
         "heartbeat_age_seconds": None,
         "llm_tick": True,
+        "llm_tick_interval_seconds": 3600.0,
         "loop_lapsed": False,
         "tick_generation": 1,
     }
@@ -1237,6 +1239,7 @@ def _assert_runtime_cadence(*, context: ForemanE2EContext) -> None:
         "tick_generation": 0,
         "next_llm_tick_at": 0.0,
         "stable_ticks": 0,
+        "llm_tick_interval_seconds": 3600.0,
     }
 
 

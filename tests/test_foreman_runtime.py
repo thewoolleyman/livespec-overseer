@@ -402,6 +402,7 @@ def test_resume_durably_resets_runtime_cadence_fields(*, tmp_path):
         "last_fingerprint": "kept",
         "last_generation_fingerprint": "also-kept",
         "stable_ticks": 0,
+        "llm_tick_interval_seconds": 3600.0,
     }
 
 
@@ -448,3 +449,97 @@ def test_hard_tick_budget_is_still_enforced_at_the_raised_default(*, tmp_path):
     at_thirty_six = module.ForemanRuntime(repo=at_budget, now=lambda: 0.0).step(document=document)
     assert at_thirty_six.tick_generation == 36
     assert at_thirty_six.exit_reason == "hard-tick-budget"
+def journal_records(*, repo: Path) -> list[dict[str, object]]:
+    path = repo / "tmp" / "fabro-dispatch-journal.jsonl"
+    if not path.is_file():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def test_hard_tick_budget_auto_resumes_at_a_doubled_bounded_interval(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    document = {"snapshot": {"rows": [{"topic": "alpha", "status": "idle"}]}}
+    runtime = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: 1000.0,
+        config=module.ForemanConfig(hard_tick_budget=1),
+    )
+
+    first = runtime.step(document=document)
+
+    assert first.exit_reason == "hard-tick-budget"
+    assert first.auto_resume_interval_seconds == 7200.0
+    assert first.llm_tick_interval_seconds == 7200.0
+    state = state_json(repo=repo)
+    assert state["tick_generation"] == 0
+    assert state["stable_ticks"] == 0
+    assert state["next_llm_tick_at"] == 8200.0
+    assert state["llm_tick_interval_seconds"] == 7200.0
+
+    bounded = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: 9000.0,
+        config=module.ForemanConfig(hard_tick_budget=1, max_llm_tick_interval_seconds=10000.0),
+    )
+    second = bounded.step(document=document)
+
+    assert second.auto_resume_interval_seconds == 10000.0
+    assert state_json(repo=repo)["llm_tick_interval_seconds"] == 10000.0
+
+
+def test_each_auto_resume_is_journaled_with_its_new_interval(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    document = {"snapshot": {"rows": [{"topic": "alpha", "status": "idle"}]}}
+
+    for clock in (1000.0, 9000.0):
+        module.ForemanRuntime(
+            repo=repo,
+            now=lambda clock=clock: clock,
+            config=module.ForemanConfig(hard_tick_budget=1),
+        ).step(document=document)
+
+    resumes = [
+        record
+        for record in journal_records(repo=repo)
+        if record.get("stage") == "foreman-auto-resume"
+    ]
+    assert [record["llm_tick_interval_seconds"] for record in resumes] == [7200.0, 14400.0]
+    assert [record["reason"] for record in resumes] == ["hard-tick-budget", "hard-tick-budget"]
+
+
+def test_a_failed_journal_append_blocks_the_auto_resume(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+
+    def refuse(*, repo, record):
+        del repo, record
+        raise OSError("journal unavailable")
+
+    runtime = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: 1000.0,
+        config=module.ForemanConfig(hard_tick_budget=1),
+        append_journal=refuse,
+    )
+
+    result = runtime.step(document={"snapshot": {"rows": [{"topic": "alpha", "status": "idle"}]}})
+
+    assert result.exit_reason == "hard-tick-budget"
+    assert result.auto_resume_interval_seconds is None
+    assert state_json(repo=repo)["tick_generation"] == 1
+
+
+def test_converged_stops_the_loop_without_auto_resuming(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    runtime = module.ForemanRuntime(
+        repo=repo, now=lambda: 0.0, config=module.ForemanConfig(converged_ticks=1)
+    )
+
+    result = runtime.step(document={"snapshot": {"rows": [{"topic": "a", "status": "idle"}]}})
+
+    assert result.exit_reason == "converged"
+    assert result.auto_resume_interval_seconds is None
+    assert journal_records(repo=repo) == []

@@ -10,6 +10,7 @@ from typing import Protocol
 
 import registry
 from _supervisor_foreman import heartbeat_lapse, heartbeat_path
+from foreman_act_record import AppendJournal, append_journal
 from foreman_runtime_document import ForemanDocument, foreman_document
 from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
 from foreman_runtime_lock import ForemanLock, LockResult
@@ -18,6 +19,7 @@ from foreman_runtime_state import atomic_json, read_json_object, state_path
 __all__: list[str] = [
     "DEFAULT_HARD_TICK_BUDGET",
     "DEFAULT_LLM_TICK_INTERVAL_SECONDS",
+    "DEFAULT_MAX_LLM_TICK_INTERVAL_SECONDS",
     "DEFAULT_WATCH_INTERVAL_SECONDS",
     "EntryGateResult",
     "ForemanConfig",
@@ -34,6 +36,10 @@ __all__: list[str] = [
 DEFAULT_LLM_TICK_INTERVAL_SECONDS = 60.0 * 60.0
 DEFAULT_WATCH_INTERVAL_SECONDS = 5.0 * 60.0
 DEFAULT_HARD_TICK_BUDGET = 36
+# The ceiling the auto-resume backoff doubles toward. A budget exhaustion is a
+# cadence signal, not a stop condition, but an unbounded backoff would retire
+# the loop just as surely as the resume picker it replaces.
+DEFAULT_MAX_LLM_TICK_INTERVAL_SECONDS = 6.0 * 60.0 * 60.0
 
 
 class _LlmTick(Protocol):
@@ -50,6 +56,7 @@ class ForemanConfig:
     watch_interval_seconds: float = DEFAULT_WATCH_INTERVAL_SECONDS
     hard_tick_budget: int = DEFAULT_HARD_TICK_BUDGET
     converged_ticks: int = 2
+    max_llm_tick_interval_seconds: float = DEFAULT_MAX_LLM_TICK_INTERVAL_SECONDS
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -60,6 +67,8 @@ class StepResult:
     exit_reason: str | None
     loop_lapsed: bool
     heartbeat_age_seconds: float | None
+    llm_tick_interval_seconds: float
+    auto_resume_interval_seconds: float | None
 
 
 def register_foreman_track(
@@ -93,11 +102,13 @@ class ForemanRuntime:
         now: _TimeSource,
         config: ForemanConfig | None = None,
         llm_tick: _LlmTick = _default_llm_tick,
+        append_journal: AppendJournal = append_journal,
     ) -> None:
         self.repo = Path(repo).resolve()
         self.now = now
         self.config = config if config is not None else ForemanConfig()
         self.llm_tick = llm_tick
+        self.append_journal = append_journal
 
     def _read_state(self) -> dict[str, object]:
         return read_json_object(path=state_path(repo=self.repo))
@@ -105,7 +116,7 @@ class ForemanRuntime:
     def _write_state(self, *, state: dict[str, object]) -> None:
         atomic_json(path=state_path(repo=self.repo), payload=state)
 
-    def _write_heartbeat(self, *, tick_generation: int) -> None:
+    def _write_heartbeat(self, *, tick_generation: int, interval_seconds: float) -> None:
         written = datetime.fromtimestamp(self.now(), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         atomic_json(
             path=heartbeat_path(repo=str(self.repo)),
@@ -113,12 +124,43 @@ class ForemanRuntime:
                 "written_at": written,
                 "pid": os.getpid(),
                 "tick_generation": tick_generation,
-                "tick_interval_seconds": self.config.llm_tick_interval_seconds,
+                "tick_interval_seconds": interval_seconds,
             },
         )
 
+    def _effective_interval(self, *, state: dict[str, object]) -> float:
+        # The escalated interval is durable: each runtime invocation builds a fresh
+        # config, so a backoff that lived only in memory would reset every tick.
+        recorded = state.get("llm_tick_interval_seconds")
+        if isinstance(recorded, bool) or not isinstance(recorded, int | float):
+            return self.config.llm_tick_interval_seconds
+        return float(recorded) if recorded > 0 else self.config.llm_tick_interval_seconds
+
+    def _auto_resume_interval(
+        self, *, interval_seconds: float, tick_generation: int
+    ) -> float | None:
+        widened = min(interval_seconds * 2.0, self.config.max_llm_tick_interval_seconds)
+        try:
+            self.append_journal(
+                repo=self.repo,
+                record={
+                    "stage": "foreman-auto-resume",
+                    "reason": "hard-tick-budget",
+                    "repo": str(self.repo),
+                    "tick_generation": tick_generation,
+                    "previous_llm_tick_interval_seconds": interval_seconds,
+                    "llm_tick_interval_seconds": widened,
+                },
+            )
+        except OSError:
+            # Journal before act: an unrecorded auto-resume is not an auto-resume, so
+            # fall back to the pre-existing stop-and-report behavior.
+            return None
+        return widened
+
     def step(self, *, document: dict[str, object]) -> StepResult:
         state = self._read_state()
+        interval_seconds = self._effective_interval(state=state)
         tick_generation = _int_state(value=state.get("tick_generation")) + 1
         # Read BEFORE _write_heartbeat() overwrites it below, so a lapsed recurring
         # loop (no tick landed for 2x its interval) is visible to THIS tick, not just
@@ -135,7 +177,23 @@ class ForemanRuntime:
             action_taken=action_taken,
             scheduled_tick=due,
         )
-        next_llm_tick_at = now + self.config.llm_tick_interval_seconds if due else scheduled_at
+        next_llm_tick_at = now + interval_seconds if due else scheduled_at
+        exit_reason = self._exit_reason(
+            tick_generation=tick_generation, stable_ticks=stable_ticks, document=doc
+        )
+        auto_resume_interval_seconds = (
+            self._auto_resume_interval(
+                interval_seconds=interval_seconds, tick_generation=tick_generation
+            )
+            if exit_reason == "hard-tick-budget"
+            else None
+        )
+        reported_generation = tick_generation
+        if auto_resume_interval_seconds is not None:
+            interval_seconds = auto_resume_interval_seconds
+            next_llm_tick_at = now + interval_seconds
+            tick_generation = 0
+            stable_ticks = 0
         self._write_state(
             state={
                 "tick_generation": tick_generation,
@@ -143,18 +201,19 @@ class ForemanRuntime:
                 "last_fingerprint": doc.fingerprint,
                 "last_generation_fingerprint": doc.generation_fingerprint,
                 "stable_ticks": stable_ticks,
+                "llm_tick_interval_seconds": interval_seconds,
             }
         )
-        self._write_heartbeat(tick_generation=tick_generation)
+        self._write_heartbeat(tick_generation=tick_generation, interval_seconds=interval_seconds)
         return StepResult(
-            tick_generation=tick_generation,
+            tick_generation=reported_generation,
             llm_tick=due,
             action_taken=action_taken,
-            exit_reason=self._exit_reason(
-                tick_generation=tick_generation, stable_ticks=stable_ticks, document=doc
-            ),
+            exit_reason=exit_reason,
             loop_lapsed=lapse.stale if lapse is not None else False,
             heartbeat_age_seconds=lapse.age_seconds if lapse is not None else None,
+            llm_tick_interval_seconds=interval_seconds,
+            auto_resume_interval_seconds=auto_resume_interval_seconds,
         )
 
     def resume(self) -> None:
@@ -162,6 +221,7 @@ class ForemanRuntime:
         state["tick_generation"] = 0
         state["next_llm_tick_at"] = 0.0
         state["stable_ticks"] = 0
+        state["llm_tick_interval_seconds"] = self.config.llm_tick_interval_seconds
         self._write_state(state=state)
 
     def _stable_ticks(
