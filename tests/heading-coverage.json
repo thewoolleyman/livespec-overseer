@@ -931,32 +931,28 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stalled reserved-entity picker gets exactly one charter reminder and is never answered",
-    "test": "TODO",
-    "reason": "Added by the acting-safety-third-keystroke-act ratification. The BEHAVIOR is shipped and covered at BESIDE tier by overseer.test_supervisor_liveness_starvation.test_charter_authorized_picker_stall_gets_clause_nudge_without_answering_picker, which asserts the single paste, the charter clause text, and the absence of Enter / digit / selection keystrokes. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one, and no integration-tier exercise of this act exists yet, so this entry stays TODO rather than naming a test of the wrong tier. Replace TODO with the new integration test id through the governed heading-coverage co-edit.",
-    "work_item": "overseer-6tfncs.3"
+    "test": "tests.integration.test_picker_stall_charter_reminder.test_scenario_reserved_entity_picker_gets_one_reminder_without_selection_or_restart",
+    "reason": "Added by the acting-safety-third-keystroke-act ratification. This integration-tier scenario drives a real Supervisor evaluation against a stalled reserved-entity picker and asserts the single charter-reminder paste, the charter clause text, the absence of Enter / digit / selection keystrokes, the absence of restart authorization, and continued once-only behavior across a later still-stalled observation."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An ordinary worker topic in the identical stalled-picker state is never pasted into",
-    "test": "TODO",
-    "reason": "Added by the acting-safety-third-keystroke-act ratification. This is the negative control pinning the topic bound: the act applies to the reserved entity namespace (BOTH -supervisor and -foreman) and never to an ordinary worker topic. It has the THINNEST existing coverage of the three scenarios -- the reserved-entity tests do not imply it, since a regression removing the topic gate would leave them all green. Needs an integration-tier test whose reserved-entity and ordinary-worker cases differ only in the topic suffix.",
-    "work_item": "overseer-6tfncs.3"
+    "test": "tests.integration.test_picker_stall_charter_reminder.test_scenario_ordinary_worker_picker_is_promoted_and_alerted_but_not_pasted",
+    "reason": "Added by the acting-safety-third-keystroke-act ratification. This integration-tier negative control pins the topic bound with reserved-entity and ordinary-worker cases that share the same repo, same capture, same stall floor, and differ only by topic suffix. It asserts the ordinary worker still receives the topic-independent picker-stall promotion and alert, while only the reserved entity receives the charter-reminder paste."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The charter reminder's own echo does not re-arm the once-per-episode bound",
-    "test": "TODO",
-    "reason": "Added by the acting-safety-third-keystroke-act ratification, and it is the leg whose absence let the prior letter claim a bound the daemon did not hold. The behavior shipped as overseer-6tfncs.1 / PR 1209 and is covered at BESIDE tier by tests.test_picker_stall_nudge_echo (survives-its-own-capture-echo and rearms-after-non-daemon-capture-change). Scenario headings require integration tier, so this stays TODO. The integration test must assert BOTH halves -- no second paste on the daemon's own echo, AND re-arm on a capture change not attributable to that paste -- because asserting only the first is satisfiable by disabling the act.",
-    "work_item": "overseer-6tfncs.3"
+    "test": "tests.integration.test_picker_stall_charter_reminder.test_scenario_charter_reminder_echo_does_not_rearm_but_external_change_does",
+    "reason": "Added by the acting-safety-third-keystroke-act ratification, and it is the leg whose absence let the prior letter claim a bound the daemon did not hold. This integration-tier scenario installs the fake pane's paste echo, asserts the reminder text is visible in the subsequent capture, observes the track again past the bounded floor with no second paste, then changes the capture for a non-daemon reason and asserts the act re-arms."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A human-waiting track on a stalled picker is published under a promoted status",
-    "test": "TODO",
-    "work_item": "overseer-g6sy",
-    "reason": "Pins the evaluated-versus-published status split and the inference it forbids -- the exact defect that made overseer-v7io a P1, where a consumer keyed on the blocked:human literal refused a valid gated answer on every promoted row. Tier: the observable is a published snapshot row read by a separate consumer, so it MUST be exercised at integration tier or above, never by a unit-tier test."
+    "test": "tests.integration.test_picker_stall_charter_reminder.test_scenario_stalled_picker_publishes_promoted_status_with_human_wait_evidence",
+    "reason": "Pins the evaluated-versus-published status split and the inference it forbids -- the exact defect that made overseer-v7io a P1, where a consumer keyed on the blocked:human literal refused a valid gated answer on every promoted row. This integration-tier scenario drives a real daemon tick to the status snapshot, pins the actual published status literal `picker-stalled`, and asserts both consumer legs: blocked:human-only selection does not observe the row while picker_open selection does."
   }
 ]
