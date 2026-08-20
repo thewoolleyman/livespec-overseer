@@ -1,2 +1,2 @@
-work_item=overseer-hgq4wi.10
-reason=Arm the LLOC soft-band lever in PR CI so a file crossing into the band without an owner marker fails its own pull request instead of redding the release lane after merge. Requires editing the CI workflow.
+work_item=overseer-hgq4wi.15
+reason=Add a scheduled release-lane watch workflow, the detection half of the maintainer's ruling. Detection that does not depend on anyone being present necessarily ships a scheduled workflow file.

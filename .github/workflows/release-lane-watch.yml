@@ -1,0 +1,45 @@
+# release-lane-watch.yml — detection that does not depend on anyone being present.
+#
+# Work-item overseer-hgq4wi.15. The release lane failed 139 of 157 runs between
+# 2026-07-26 and 2026-08-20, including one unbroken block of 123 cuts over
+# SIXTEEN DAYS, and nothing reported it. Both times it was noticed, it was
+# noticed by luck while tracing an unrelated question.
+#
+# This job is the DETECTION half of the maintainer's "scheduled job + operator
+# surface" ruling. It reports STATE on a cadence rather than firing on an edge:
+# at an 88.5% failure rate a transition-triggered alert is silent through most
+# of the failure, because most of the lane's life IS the failure.
+#
+# It deliberately does NOT live in `just check`: that aggregate runs on every
+# commit and push, and a forge query inside it would fail the gate for reasons
+# unrelated to the tree.
+
+name: Release lane watch
+
+on:
+  schedule:
+    # 06:23 UTC — off the hour, and not sharing a minute with this repo's other
+    # canaries (release-readiness runs at 13:47).
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  watch:
+    name: release-lane-watch
+    runs-on: ${{ fromJSON(vars.CI_RUNNER_LABELS || '["ubuntu-latest"]') }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Report the release-tag lane state
+        run: python3 scripts/release-lane-watch.py release-tag.yml
+
+      - name: Report the release-readiness lane state
+        if: always()
+        run: python3 scripts/release-lane-watch.py release-readiness.yml
