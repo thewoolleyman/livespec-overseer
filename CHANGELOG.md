@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.64.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.63.2...v0.64.0) (2026-08-20)
+
+
+### Features
+
+* cover grooming supervision ([c3b75a7](https://github.com/thewoolleyman/livespec-overseer/commit/c3b75a7050fe89c91f3337a7c5c691dcd376a4d4))
+
+
+### Bug Fixes
+
+* cover single-pass mapping read ([c79b1be](https://github.com/thewoolleyman/livespec-overseer/commit/c79b1beaca20c767423393436a8ca43cca389399))
+* keep grooming resume routing lint-clean ([200b3bd](https://github.com/thewoolleyman/livespec-overseer/commit/200b3bd4fb934e5ebb7770de55c5698615d5c054))
+* make tests/prompts pane cwd reads eventually-consistent ([adc8abb](https://github.com/thewoolleyman/livespec-overseer/commit/adc8abb1ea5328fcf261b9af3c982a6af95b339e))
+
 ## [0.63.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.63.1...v0.63.2) (2026-08-20)
 
 
