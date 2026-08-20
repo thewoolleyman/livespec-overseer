@@ -78,6 +78,7 @@ from _registry_mapping_read import read_mapping as read_mapping
 from _registry_mapping_read import read_valid_mapping as read_valid_mapping
 from _registry_rounds import RoundRecord as RoundRecord
 from _registry_rounds import mark_expiry_notice_sent as mark_expiry_notice_sent
+from _registry_rounds import read_resume_pending_identity as read_resume_pending_identity
 from _registry_rounds import read_round_open_identity as read_round_open_identity
 from _registry_rounds import read_round_record as read_round_record
 from _registry_rounds import record_ready_expiry as record_ready_expiry
@@ -136,6 +137,7 @@ __all__: list[str] = [
     "read_notified_bands",
     "read_post_respawn",
     "read_resume_pending",
+    "read_resume_pending_identity",
     "read_resume_retry_attempts",
     "read_round_open_identity",
     "read_round_record",

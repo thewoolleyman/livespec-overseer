@@ -75,12 +75,11 @@ def _report_retry_refused(
     )
 
 
-def _identity_refusal(*, round_record: registry.RoundRecord, obs: Observation) -> str | None:
-    round_identity = round_record.session_identity
-    if round_identity is None:
-        return "resume retry refused: round session identity missing"
-    if obs.session_identity != round_identity:
-        return "resume retry refused: round session identity differs from live session"
+def _identity_refusal(*, pending_identity: str | None, obs: Observation) -> str | None:
+    if pending_identity is None:
+        return "resume retry refused: resume-pending session identity missing"
+    if obs.session_identity != pending_identity:
+        return "resume retry refused: resume-pending session identity differs from live session"
     return None
 
 
@@ -147,8 +146,10 @@ def resume_retry(
             note="structured gate on freshly-restarted pane",
             runtime=obs.runtime,
         )
-    round_record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
-    refusal = _identity_refusal(round_record=round_record, obs=obs)
+    pending_identity = registry.read_resume_pending_identity(
+        repo=repo, topic=topic, stamp_path=sup.stamp_path
+    )
+    refusal = _identity_refusal(pending_identity=pending_identity, obs=obs)
     if refusal is not None:
         return _report_retry_refused(
             sup=sup,

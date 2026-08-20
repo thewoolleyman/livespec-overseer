@@ -271,12 +271,14 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
     # its default. Defer to the `resume_pending` retry, which reports the gate as
     # `blocked:human` and resumes once the human clears it (review SF4).
     fresh_capture = sup.tmux.capture_pane(session=target)
+    session = _supervisor_launch.session_of(sup=sup, track=track)
+    fresh_identity = sup.claude_identity_by_session.get((session, track.topic))
     if signals.is_structured_gate(capture_text=fresh_capture):
         registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
         sup.alert(
             repo=track.repo,
             topic=track.topic,
-            session=_supervisor_launch.session_of(sup=sup, track=track),
+            session=session,
             pane=target,
             message="freshly-restarted pane is on a gate — not keystroking it; will retry",
         )
@@ -308,11 +310,16 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
     # `ready` is the sole respawn trigger, so the retry can never escalate to a kill).
     # Never log a clean "restarted" here; the alert is edge-triggered and persists (the
     # row stays NEEDS-YOU) until the resume actually submits.
-    registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
+    registry.set_resume_pending(
+        repo=track.repo,
+        topic=track.topic,
+        session_identity=fresh_identity,
+        stamp_path=sup.stamp_path,
+    )
     sup.alert(
         repo=track.repo,
         topic=track.topic,
-        session=_supervisor_launch.session_of(sup=sup, track=track),
+        session=session,
         pane=target,
         message="resume line NOT submitted after restart — will retry the Enter (no respawn)",
     )

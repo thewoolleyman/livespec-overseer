@@ -287,12 +287,9 @@ def set_resume_pending(
 ) -> None:
     """Record that a restart respawned the fresh session but its resume did not submit.
 
-    Sets the ``resume_pending`` member on the track's injection-stamp dict, PRESERVING
-    ``at`` (so the ``ready`` marker still certifies — ``mtime > at``) and any notified
-    ``bands``. Same lock + atomic replace as :func:`write_injection_stamp`. If the current
-    value is a legacy bare float, it is upgraded to the dict shape with that float as
-    ``at``; if the key is absent, a bare ``{"resume_pending": True}`` is written (the
-    retry still fires — it keys on this flag, not on ``at``). Fail-soft on OSError (B7).
+    Preserves round fields. The optional identity is stored separately as
+    ``resume_pending_session_identity`` so the retry act is scoped to the fresh session.
+    Legacy bare floats are upgraded with ``at`` preserved; absent keys get only the flag.
     """
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
@@ -308,8 +305,8 @@ def set_resume_pending(
             # Legacy bare-float value: upgrade it to the dict shape, keeping `at`.
             legacy = jsonio.as_float(value=value)
             entry = {} if legacy is None else {"at": legacy}
-        if session_identity is not None and entry.get("session_identity") is None:
-            entry["session_identity"] = session_identity
+        if session_identity is not None:
+            entry["resume_pending_session_identity"] = session_identity
         entry["resume_pending"] = True
         data[key] = entry
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")

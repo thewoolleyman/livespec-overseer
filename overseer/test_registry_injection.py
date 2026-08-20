@@ -180,8 +180,15 @@ def test_resume_pending_roundtrip_and_preserves_at_and_bands(*, tmp_path):
         registry.read_resume_pending(repo="/r", topic="t", stamp_path=stamp) is False
     )  # not set yet
 
-    registry.set_resume_pending(repo="/r", topic="t", stamp_path=stamp)
+    registry.set_resume_pending(
+        repo="/r", topic="t", session_identity="claude:fresh:t", stamp_path=stamp
+    )
     assert registry.read_resume_pending(repo="/r", topic="t", stamp_path=stamp) is True
+    assert (
+        registry.read_resume_pending_identity(repo="/r", topic="t", stamp_path=stamp)
+        == "claude:fresh:t"
+    )
+    assert registry.read_round_open_identity(repo="/r", topic="t", stamp_path=stamp) == "claude:t:t"
     assert (
         registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) == 500.0
     )  # `at` preserved

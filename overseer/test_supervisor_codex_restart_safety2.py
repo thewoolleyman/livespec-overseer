@@ -137,7 +137,10 @@ def test_submit_retry_never_kills_the_fresh_session(*, tmp_path):
     )
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     registry.set_resume_pending(
-        repo=str(repo), topic=topic, stamp_path=sup.stamp_path
+        repo=str(repo),
+        topic=topic,
+        session_identity=f"claude:{session}:{topic}",
+        stamp_path=sup.stamp_path,
     )  # already respawned; resume pending
 
     for expected in ("restarting", "restart-never-worked", "restart-never-worked"):
@@ -176,7 +179,10 @@ def test_idle_pane_with_resume_pending_closes_the_round_instead_of_respawning(*,
     )
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     registry.set_resume_pending(
-        repo=str(repo), topic=topic, stamp_path=sup.stamp_path
+        repo=str(repo),
+        topic=topic,
+        session_identity=f"claude:{session}:{topic}",
+        stamp_path=sup.stamp_path,
     )  # respawned; resume outstanding
 
     with contextlib.redirect_stderr(_io.StringIO()):

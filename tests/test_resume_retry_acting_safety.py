@@ -45,7 +45,12 @@ def test_submit_retry_is_bounded_to_one_failed_send_loop_per_episode(*, tmp_path
         stamp_path=sup.stamp_path,
     )
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
-    registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    registry.set_resume_pending(
+        repo=str(repo),
+        topic=topic,
+        session_identity=_live_identity(session=session, topic=topic),
+        stamp_path=sup.stamp_path,
+    )
 
     with contextlib.redirect_stderr(_io.StringIO()):
         first = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -74,7 +79,7 @@ def test_submit_retry_is_bounded_to_one_failed_send_loop_per_episode(*, tmp_path
     [
         (
             {"resume_pending": True},
-            "resume retry refused: round session identity missing",
+            "resume retry refused: resume-pending session identity missing",
         ),
         (
             {
@@ -83,11 +88,21 @@ def test_submit_retry_is_bounded_to_one_failed_send_loop_per_episode(*, tmp_path
                 "resume_pending": True,
                 "session_identity": "claude:dead:topic",
             },
-            "resume retry refused: round session identity differs from live session",
+            "resume retry refused: resume-pending session identity missing",
+        ),
+        (
+            {
+                "at": 1000.0,
+                "bands": [],
+                "resume_pending": True,
+                "resume_pending_session_identity": "claude:dead:topic",
+                "session_identity": "claude:pre-respawn:topic",
+            },
+            "resume retry refused: resume-pending session identity differs from live session",
         ),
     ],
 )
-def test_pending_resume_without_matching_round_identity_sends_no_enter(
+def test_pending_resume_without_matching_pending_identity_sends_no_enter(
     *, tmp_path, stamp_entry, expected_note
 ):
     """A resume-pending flag is not an authorization to keystroke an arbitrary successor."""
@@ -110,3 +125,34 @@ def test_pending_resume_without_matching_round_identity_sends_no_enter(
     assert not any(c[0] == "keys" for c in fake.calls)
     assert not fake.has(method="respawn")
     assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+
+
+def test_retry_uses_post_respawn_pending_identity_not_round_open_identity(*, tmp_path):
+    """A legitimate respawn changes PID; the retry gate follows the fresh identity."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    live_identity = _live_identity(session=session, topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=unsubmitted_resume_capture(ctx=90))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    (tmp_path / "stamps.json").write_text(
+        json.dumps(
+            {
+                f"{registry.norm(repo=str(repo))}\t{topic}": {
+                    "at": 1000.0,
+                    "bands": [],
+                    "resume_pending": True,
+                    "resume_pending_session_identity": live_identity,
+                    "session_identity": "claude:pre-respawn:topic",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+    assert view.status == "restarting"
+    assert any(c[0] == "keys" and c[2] == "Enter" for c in fake.calls)
+    assert not fake.has(method="respawn")

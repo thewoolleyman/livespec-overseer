@@ -13,6 +13,7 @@ from _registry_core import atomic_write, file_lock, norm, resolve_stamp_store, w
 __all__: list[str] = [
     "RoundRecord",
     "mark_expiry_notice_sent",
+    "read_resume_pending_identity",
     "read_round_open_identity",
     "read_round_record",
     "record_ready_expiry",
@@ -140,6 +141,21 @@ def read_round_open_identity(
     stamp_path: str | os.PathLike[str] | None = None,
 ) -> str | None:
     return read_round_record(repo=repo, topic=topic, stamp_path=stamp_path).session_identity
+
+
+def read_resume_pending_identity(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> str | None:
+    """Return the session identity authorized for the pending resume retry, if any."""
+    data = _read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    entry = jsonio.as_object(value=data.get(_stamp_key(repo=repo, topic=topic)))
+    if entry is None or entry.get("resume_pending") is not True:
+        return None
+    identity = entry.get("resume_pending_session_identity")
+    return identity if isinstance(identity, str) and identity else None
 
 
 def record_ready_expiry(

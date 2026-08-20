@@ -103,12 +103,13 @@ def test_recognition_timeout_after_successful_respawn_pends_resume_not_second_ki
     with contextlib.redirect_stderr(_io.StringIO()):
         view2 = sup.evaluate(track=track, act=True)
 
-    assert view2.status == "restarting"
+    assert view2.status == "restart-never-worked"
+    assert view2.note == "resume retry refused: resume-pending session identity missing"
     assert not fake.has(method="respawn")
-    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
+    assert not any(c[0] == "keys" for c in fake.calls)
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
     assert (
-        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is False
+        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) is True
     )
 
 

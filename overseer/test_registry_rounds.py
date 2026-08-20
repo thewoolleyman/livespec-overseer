@@ -109,3 +109,16 @@ def test_read_round_open_identity_and_missing_expiry_record(*, tmp_path):
         )
         is False
     )
+
+
+def test_resume_pending_identity_absent_without_pending_flag(*, tmp_path):
+    path = tmp_path / "stamps.json"
+    key = _key(repo="repo", topic="topic")
+    path.write_text(
+        json.dumps({key: {"resume_pending_session_identity": "claude:fresh:topic"}}),
+        encoding="utf-8",
+    )
+
+    assert (
+        registry.read_resume_pending_identity(repo="repo", topic="topic", stamp_path=path) is None
+    )
