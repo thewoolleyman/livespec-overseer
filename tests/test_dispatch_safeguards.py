@@ -29,6 +29,7 @@ __all__: list[str] = []
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SPEC_CHECK = _REPO_ROOT / "scripts" / "check-no-factory-spec-edits.sh"
+_WORKFLOW_CHECK = _REPO_ROOT / "scripts" / "check-no-workflow-edits.sh"
 _GUARD = _REPO_ROOT / "scripts" / "dispatch_acceptance_guard.py"
 _DISPATCH = _REPO_ROOT / "scripts" / "detached-dispatch.sh"
 
@@ -79,6 +80,30 @@ def _run_spec_check(*, cwd: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _run_workflow_check(*, cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # noqa: S603
+        [str(_WORKFLOW_CHECK)],
+        cwd=cwd,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+
+def _write_workflow_change(*, root: Path) -> None:
+    workflow = root / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True, exist_ok=True)
+    workflow.write_text("name: changed\n", encoding="utf-8")
+
+
+def _write_workflow_exemption(*, root: Path) -> None:
+    (root / ".livespec-workflow-edit-exemption").write_text(
+        "work_item=overseer-hgq4wi.16\n"
+        "reason=Reviewed session needs a GitHub Actions workflow maintenance edit.\n",
+        encoding="utf-8",
+    )
+
+
 def test_spec_check_blocks_factory_authored_spec_commit(*, tmp_path: Path) -> None:
     """A Fabro-authored commit touching SPECIFICATION/ fails, naming the commit."""
     _repo_with_base(root=tmp_path)
@@ -115,6 +140,52 @@ def test_spec_check_passes_human_spec_and_factory_code_commits(*, tmp_path: Path
     result = _run_spec_check(cwd=tmp_path)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_workflow_check_rejects_unexempted_workflow_edit(*, tmp_path: Path) -> None:
+    """The control case stays live: no declaration means the workflow path fails."""
+    _repo_with_base(root=tmp_path)
+    _write_workflow_change(root=tmp_path)
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "tracked exemption declaration" in result.stderr
+    assert ".github/workflows/ci.yml" in result.stderr
+
+
+def test_workflow_check_accepts_tracked_reviewable_declaration(*, tmp_path: Path) -> None:
+    """The declaration is explicit because the git index tracks the artifact."""
+    _repo_with_base(root=tmp_path)
+    _write_workflow_change(root=tmp_path)
+    _write_workflow_exemption(root=tmp_path)
+    _git(
+        cwd=tmp_path,
+        args=[
+            "add",
+            ".github/workflows/ci.yml",
+            ".livespec-workflow-edit-exemption",
+        ],
+    )
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_workflow_check_rejects_untracked_declaration(*, tmp_path: Path) -> None:
+    """A side-effect file is not enough; the declaration must be tracked."""
+    _repo_with_base(root=tmp_path)
+    _write_workflow_change(root=tmp_path)
+    _write_workflow_exemption(root=tmp_path)
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "must be tracked" in result.stderr
+    assert ".github/workflows/ci.yml" in result.stderr
 
 
 def _guard_module() -> ModuleType:
