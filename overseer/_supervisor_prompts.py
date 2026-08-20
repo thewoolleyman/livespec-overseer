@@ -34,6 +34,8 @@ __all__: list[str] = [
     "foreman_epic_resume",
     "foreman_resume",
     "foreman_wrapup_message",
+    "grooming_resume",
+    "grooming_wrapup_message",
     "idle_nudge_message",
     "launch_resume",
     "pair_stall_nudge_message",
@@ -117,6 +119,8 @@ def resume_for_track(*, track: registry.Track) -> str | None:
         if not registry.epic_is_resolved(epic=epic):
             return None
         return foreman_resume(repo=track.repo, epic=epic)
+    if isinstance(track, registry.GroomingSeat):
+        return grooming_resume(repo=track.repo)
     if not isinstance(track, registry.PlanTrack):
         return None
     epic = track.epic
@@ -342,6 +346,58 @@ def foreman_wrapup_message(
         state_file=str(signals.state_path(repo=repo, topic=topic)),
         read_first=_foreman_state_locator(repo=repo, epic=epic),
         resume=foreman_resume(repo=repo, epic=epic),
+    )
+
+
+def grooming_resume(*, repo: str) -> str:
+    """Resume prompt for a per-watched-repo grooming entity."""
+    return f"re-enter the grooming operation for repository {repo}; re-measure before acting"
+
+
+_GROOMING_WRAPUP_BODY = """\
+You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
+that has not declared itself ready. When you stop, this pane is restarted according to
+its runtime and handed exactly ONE prompt:
+    {resume}
+The grooming operation resumes by re-measuring the repo after restart.
+
+Declare your state by writing ONE line to the single state file
+{state_file} — one of exactly these three values:
+
+Writing that line is the declaration. Pane text, final-response prose, or saying
+"Ready for restart" in this conversation is never a declaration channel.
+
+    winding-down                  I got this message and am wrapping up now.
+    ready                         I am at a clean stopping point — restart me.
+    blocked: <one-line reason>    I need a human decision I cannot make myself.
+
+ACKNOWLEDGE FIRST, right now, before anything else:
+    mkdir -p {marker_dir} && echo winding-down > {state_file}
+
+Then:
+ 1. complete the single ledger write you are mid-way through. Do not start another
+    mutation.
+ 2. record onto the relevant plan epic or item any judgement you have already formed but
+    have not yet written down.
+ 3. Stop every background sub-agent and subprocess you started.
+ 4. Declare done, and stop. The command that declares ready is your FINAL act:
+        overseer-declare ready
+
+After `overseer-declare ready`, stop immediately.
+if you are still in this conversation, no restart happened - never conclude otherwise.
+
+`ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
+restarted and NOT killed — you are reported to the human as not responding, and your
+track sits there until a person intervenes. Do not do that to them: write the file."""
+
+
+def grooming_wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
+    """Wrap-up text for a grooming entity using the shared cardinal-rule interlock."""
+    return f"{_wrapup_head(remaining=remaining)}\n\n{_GROOMING_WRAPUP_BODY}".format(
+        n=remaining,
+        marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
+        state_file=str(signals.state_path(repo=repo, topic=topic)),
+        resume=grooming_resume(repo=repo),
     )
 
 

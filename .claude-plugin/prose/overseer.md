@@ -292,6 +292,15 @@ will see:
 | `session-gone` | the mapped tmux session no longer exists AND no live Claude session for the topic is running |
 | `live-outside-tmux` | the mapped tmux session is gone, but a live Claude session for this topic is running in a NON-tmux terminal (e.g. a bare SSH shell) — alive and working, but the daemon cannot capture/inject/respawn it. **Informational, not an alarm** (not in `NEEDS YOU`) |
 
+The discovered plan rows are not the whole mapping store. The daemon can also
+carry reserved non-plan entity rows, currently `<repo-slug>-foreman` and
+`<repo-slug>-grooming`, when those operations register themselves. They use the
+same status vocabulary, same state file, and same `ready` restart interlock as
+plan rows, but they are not discovered from `plan/` and have no supervised worker
+topic. A grooming row's wrap-up asks it to finish only the single ledger write in
+progress, record any already-formed judgement onto the relevant plan epic or item,
+and declare state; the restarted grooming pass re-measures before acting.
+
 A `danger` row is a **report, not a decision the daemon will make for you**: the
 overseer will not restart an undeclared session, so a `danger` track sits there
 until a human acts. See "Your job as the bottom pane" below.

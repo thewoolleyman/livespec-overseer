@@ -9,6 +9,7 @@ from typing import Literal, TypeAlias, overload
 __all__: list[str] = [
     "LEGACY_UNRESOLVED_EPIC_PREFIX",
     "ForemanSeat",
+    "GroomingSeat",
     "ModelProfile",
     "PlanTrack",
     "SupervisorSeat",
@@ -20,7 +21,7 @@ __all__: list[str] = [
 ]
 
 ModelProfile: TypeAlias = dict[str, str | None]
-TrackKind: TypeAlias = Literal["unassigned_plan", "plan", "supervisor", "foreman"]
+TrackKind: TypeAlias = Literal["unassigned_plan", "plan", "supervisor", "foreman", "grooming"]
 LEGACY_UNRESOLVED_EPIC_PREFIX = "legacy-unresolved:"
 MISSING_TMUX = "missing_tmux"
 MISSING_EPIC = "missing_epic"
@@ -32,6 +33,8 @@ SUPERVISOR_REQUIRES_EPIC = "supervisor seat requires epic"
 SUPERVISOR_REQUIRES_TOPIC = "supervisor seat requires supervised topic"
 FOREMAN_REQUIRES_TMUX = "foreman seat requires tmux"
 FOREMAN_REQUIRES_EPIC = "foreman seat requires epic"
+GROOMING_REQUIRES_TMUX = "grooming seat requires tmux"
+GROOMING_REQUIRES_EPIC = "grooming seat requires epic"
 
 
 def unresolved_plan_epic(*, topic: str) -> str:
@@ -183,7 +186,36 @@ class ForemanSeat:
         return False
 
 
-TrackRecord: TypeAlias = UnassignedPlan | PlanTrack | SupervisorSeat | ForemanSeat
+@dataclass(frozen=True, kw_only=True)
+class GroomingSeat:
+    topic: str
+    repo: str
+    tmux: str
+    epic: str
+    resume: str | None = None
+    ctx_threshold: int | None = None
+    pinned_session_id: str | None = None
+    observed_session_identity: str | None = None
+    added_at: str | None = None
+    model_profile: ModelProfile | None = None
+    kind: Literal["grooming"] = field(default="grooming", init=False)
+
+    def __post_init__(self) -> None:
+        if not self.tmux:
+            raise ValueError(GROOMING_REQUIRES_TMUX)
+        if not self.epic:
+            raise ValueError(GROOMING_REQUIRES_EPIC)
+
+    @property
+    def assigned(self) -> bool:
+        return True
+
+    @property
+    def is_unassigned(self) -> bool:
+        return False
+
+
+TrackRecord: TypeAlias = UnassignedPlan | PlanTrack | SupervisorSeat | ForemanSeat | GroomingSeat
 
 
 @overload
