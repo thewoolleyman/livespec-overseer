@@ -163,6 +163,14 @@ def maybe_inject(
         return
     round_record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
     opened_now = round_record.at is None or round_record.malformed_reason is not None
+    state = signals.read_state(repo=repo, topic=topic)
+    if (
+        opened_now
+        and state is not None
+        and signals.valid_token(token=state.token)
+        and not signals.valid_session_token(token=state.token)
+    ):
+        due = [threshold]
     if opened_now:
         _supervisor_launch_profile_refresh.refresh_launch_profile_at_wrapup(
             sup=sup,

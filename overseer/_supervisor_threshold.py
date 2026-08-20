@@ -9,6 +9,7 @@ import _supervisor_launch
 import _supervisor_nudge
 import _supervisor_observe
 import _supervisor_restart
+import _supervisor_round_recovery
 import registry
 import signals
 from _supervisor_config import DANGER_CTX_REMAINING, track_key
@@ -155,6 +156,21 @@ def _expiry_notice_due_for_track(*, request: ThresholdRequest, obs: Observation)
     )
 
 
+def _close_round_if_no_longer_current(*, request: ThresholdRequest) -> None:
+    if not request.act:
+        return
+    _ = _supervisor_round_recovery.close_recovered_round(
+        request=_supervisor_round_recovery.RecoveryRequest(
+            sup=request.sup,
+            track=request.track,
+            obs=request.obs,
+            session=request.session,
+            target=request.target,
+            threshold=request.threshold,
+        )
+    )
+
+
 def maybe_send_expiry_notice(*, request: ThresholdRequest) -> bool:
     """Send the round's single expiry-notice if its guarded predicate passes.
 
@@ -164,6 +180,7 @@ def maybe_send_expiry_notice(*, request: ThresholdRequest) -> bool:
     notified bands — so a daemon restart never re-sends a notice already sent, and a
     failed paste simply leaves the notice due on a later observation.
     """
+    _close_round_if_no_longer_current(request=request)
     if not _expiry_notice_due_for_track(request=request, obs=request.obs):
         return False
     fresh = _fresh_expiry_notice_observation(request=request)
@@ -191,6 +208,7 @@ def maybe_send_expiry_notice(*, request: ThresholdRequest) -> bool:
 
 def threshold(*, request: ThresholdRequest) -> ThresholdDecision:
     active_conditions: set[str] = set()
+    _close_round_if_no_longer_current(request=request)
     obs = request.obs
     eff_ctx = obs.eff_ctx if obs.eff_ctx is not None else request.threshold
     # A FRESH `winding-down` ACK buys patience: the session heard us and is
