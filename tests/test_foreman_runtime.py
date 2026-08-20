@@ -50,6 +50,12 @@ def session(*, repo: Path, name: str = "repo-foreman", pid: int = 123, start: st
     return ClaudeSession(pid=pid, name=name, cwd=str(repo), status="idle", proc_start=start)
 
 
+def seed_runtime_state(*, repo: Path, tick_generation: int) -> None:
+    state_path = repo / "tmp" / "overseer" / "foreman" / "runtime.json"
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps({"tick_generation": tick_generation}) + "\n", encoding="utf-8")
+
+
 def state_json(*, repo: Path) -> dict[str, object]:
     return json.loads(
         (repo / "tmp" / "overseer" / "foreman" / "runtime.json").read_text(encoding="utf-8")
@@ -416,3 +422,29 @@ def test_token_free_generation_watcher_reenters_after_llm_loop_exit(*, tmp_path)
     )
     attention = {"needs_attention": {"items": [{"id": "overseer-a"}]}}
     assert runtime.token_free_watch(document=attention) is True
+
+
+def test_default_hard_tick_budget_is_thirty_six():
+    """The default budget is 36 ticks; pinned so a silent change is caught."""
+    module = foreman_runtime()
+
+    assert module.DEFAULT_HARD_TICK_BUDGET == 36
+    assert module.ForemanConfig().hard_tick_budget == 36
+
+
+def test_hard_tick_budget_is_still_enforced_at_the_raised_default(*, tmp_path):
+    """Raising the ceiling must not turn an enforced check into an unreachable one."""
+    module = foreman_runtime()
+    document = {"snapshot": {"rows": [{"topic": "alpha", "status": "idle"}]}}
+
+    below = make_repo(tmp_path=tmp_path, name="below")
+    seed_runtime_state(repo=below, tick_generation=34)
+    at_thirty_five = module.ForemanRuntime(repo=below, now=lambda: 0.0).step(document=document)
+    assert at_thirty_five.tick_generation == 35
+    assert at_thirty_five.exit_reason != "hard-tick-budget"
+
+    at_budget = make_repo(tmp_path=tmp_path, name="at-budget")
+    seed_runtime_state(repo=at_budget, tick_generation=35)
+    at_thirty_six = module.ForemanRuntime(repo=at_budget, now=lambda: 0.0).step(document=document)
+    assert at_thirty_six.tick_generation == 36
+    assert at_thirty_six.exit_reason == "hard-tick-budget"
