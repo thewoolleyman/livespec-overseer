@@ -954,5 +954,21 @@
     "heading": "## Scenario: A human-waiting track on a stalled picker is published under a promoted status",
     "test": "tests.integration.test_picker_stall_charter_reminder.test_scenario_stalled_picker_publishes_promoted_status_with_human_wait_evidence",
     "reason": "Pins the evaluated-versus-published status split and the inference it forbids -- the exact defect that made overseer-v7io a P1, where a consumer keyed on the blocked:human literal refused a valid gated answer on every promoted row. This integration-tier scenario drives a real daemon tick to the status snapshot, pins the actual published status literal `picker-stalled`, and asserts both consumer legs: blocked:human-only selection does not observe the row while picker_open selection does."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed un-open leaves a standing round that is surfaced",
+    "test": "TODO",
+    "reason": "Added by the undelivered-wrap-up-standing-round ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
+    "work_item": "overseer-dhkjxf"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A successful un-open after a failed wrap-up paste surfaces nothing",
+    "test": "TODO",
+    "reason": "Added by the undelivered-wrap-up-standing-round ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. This entry is the DISCRIMINATING CONTROL for the member: it pins that the membership is keyed on the double failure, not on the opening paste failure alone, so a member that fired on every failed paste would redden it.",
+    "work_item": "overseer-dhkjxf"
   }
 ]
