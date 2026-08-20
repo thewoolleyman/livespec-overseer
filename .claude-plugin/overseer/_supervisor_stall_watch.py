@@ -112,10 +112,10 @@ def _resolve_watch_target(*, request: StallWatchRequest) -> str | None:
             state.stall_watch_pane = request.pane
         return state.stall_watch_pane
 
-    # overseer-xkrwm3 WATCH-STALENESS CORRECTION: key on RE-RESOLVABLE IDENTITY
-    # (pane TITLE, not a bare pane ID) plus an explicit daemon_instance_id
-    # bounce-detection leg read from ~/.livespec-overseer-status.json.
-    resolved = request.sup.tmux.pane_by_title(pane=request.session, title=request.track.topic)
+    # overseer-7nb4sk: after a daemon bounce, re-key the report-only watch from
+    # the mapped tmux SESSION identity. Live Claude pane titles can be activity
+    # prefixed or task-summary drifted, so they are not a reliable identity.
+    resolved = request.sup.tmux.pane_id(session=request.session)
     state.stall_watch_daemon_instance_id = daemon_instance_id
     state.stall_watch_pane = resolved
     _reset_capture_watch(request=request)
@@ -123,7 +123,9 @@ def _resolve_watch_target(*, request: StallWatchRequest) -> str | None:
 
 
 def _watch_target_gone(*, request: StallWatchRequest) -> StallWatchResult:
-    note = "stall watch target missing after daemon bounce; re-resolve by pane title failed"
+    note = (
+        "stall watch target missing after daemon bounce; re-resolve by tmux session identity failed"
+    )
     if request.act:
         request.sup.alert(
             repo=request.track.repo,
