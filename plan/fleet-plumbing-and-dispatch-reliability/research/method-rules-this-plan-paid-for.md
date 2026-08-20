@@ -153,6 +153,50 @@ routed, deleting it leaves the claim circulating with nothing to find. The
 retraction has to go where the claim went — the document, and every seat that
 received it.
 
+### 12. A code path describes ITSELF, not the system — ask WHICH SURFACE
+
+The sharper form of rule 7. That rule says a ledger FIELD describes the record
+rather than the world. This one says the same of CODE: verifying one call site
+tells you about that call site, and generalizing from it is how a correct
+measurement becomes a false claim.
+
+**Four instances in a single night, and every correction that night came from
+this rule rather than from finding a wrong fact.** In each case the facts were
+right and the generalization was not:
+
+- A guard exempts a flag from normalization — true at the guard layer, and the
+  dispatcher heals the same value one layer down, so the consequence drawn from
+  the exemption was false.
+- The pre-push gate heals before checking — true, and the bare check subcommand
+  does not, so "auto-healed before the check" was true of some surfaces and not
+  others.
+- Another repo recorded a status re-triggering a refusal mid-repair; a
+  retraction here said it could not. **Both were correct** — a repairer
+  verifying between commands runs the non-healing surface, while the dispatch
+  that would have healed it never ran.
+- The same shared check registry is consulted by four callers. Three normalize
+  first; one does not. The invariant has one source of truth and the CALLERS
+  disagree, which is a caller-contract gap and reads exactly like a duplicated
+  invariant.
+
+**The diagnostic question is "which surface produced this?", asked before
+concluding anything.** A finding, a refusal, a green check, a clean census —
+each is a statement about the path that produced it. Two people measuring the
+same subject on different surfaces will produce contradictory reports and both
+be right, which is unfalsifiable-looking until someone names the surfaces.
+
+**And it changes how acceptance criteria must be written.** An acceptance
+phrased as "the status no longer appears" is satisfiable against a path that
+already heals while changing nothing on the path anyone actually complained
+about. **Name the surface in the acceptance**, or an implementer can satisfy it
+honestly and fix nothing.
+
+**A corollary for shared invariants.** Single-sourcing the RULE does not
+single-source the PREPARATION each caller does before consulting it. When a
+check is reused across surfaces, the divergence will live in what callers do
+first, and it will look like the invariant is inconsistent when the invariant is
+the one thing that is fine.
+
 ## A note on where these came from
 
 Nothing here is a general software-engineering maxim. Each rule is the residue
