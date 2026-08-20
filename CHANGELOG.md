@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.63.1...v0.63.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* dispatch restart epic recovery by track variant ([32a8892](https://github.com/thewoolleyman/livespec-overseer/commit/32a88926e65f30c4d8a81fc2c1a15afe0c822abb))
+
 ## [0.63.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.63.0...v0.63.1) (2026-08-20)
 
 
