@@ -34,7 +34,7 @@ there fails EVERY dispatch fleet-wide while the work itself merges fine
 **Strand 2 -- the beads tenant.** Writes in this tenant are not backup-exported:
 auto-backup warns `command denied to user livespec-overseer` on every write and
 still exits 0 (`overseer-n04`) -- a silent durability hole. The guard wrapper
-blocks a beads-native `--status open` that a caller legitimately passes, 13
+blocks a beads-native status named `open` that a caller legitimately passes, 13
 refused operations in three days (`overseer-izh7`).
 
 **Strand 3 -- release, pin and lock lanes.** `uv.lock` trails `pyproject.toml`
