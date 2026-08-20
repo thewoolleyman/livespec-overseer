@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 import registry
 import signals
+from _supervisor_prompts import resume_for_track
 from test_supervisor_builders import declare, idle_capture, make_plan, make_supervisor, mapped_track
 from test_supervisor_fakes import FakeTmux
 
@@ -70,6 +71,20 @@ def test_grooming_registration_self_adopts_and_preserves_fields(*, tmp_path):
     assert tracks[0].observed_session_identity == "claude:old"
     rows = [json.loads(line) for line in store.read_text(encoding="utf-8").splitlines()]
     assert rows[0]["kind"] == "grooming"
+
+
+def test_grooming_resume_ignores_plan_epic_resolution():
+    track = registry.GroomingSeat(
+        topic="repo-grooming",
+        repo="/data/projects/repo",
+        tmux="repo-grooming",
+        epic=registry.unresolved_plan_epic(topic="repo-grooming"),
+    )
+
+    assert resume_for_track(track=track) == (
+        "re-enter the grooming operation for repository /data/projects/repo; "
+        "re-measure before acting"
+    )
 
 
 def test_grooming_wrapup_is_not_worker_or_foreman_text(*, tmp_path):
