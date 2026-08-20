@@ -1,2 +1,2 @@
 work_item=overseer-hgq4wi.15
-reason=Add a scheduled release-lane watch workflow, the detection half of the maintainer's ruling. Detection that does not depend on anyone being present necessarily ships a scheduled workflow file.
+reason=Fix the release-lane watch workflow, which could not run at all: it shelled out to gh, which is absent on this repo's self-hosted runner. The step bodies change, so the workflow file changes.
