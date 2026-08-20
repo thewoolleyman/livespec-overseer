@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.6.0...v1.7.0) (2026-08-20)
+
+
+### Features
+
+* surface settling stuck attention ([ba5c062](https://github.com/thewoolleyman/livespec-overseer/commit/ba5c06252753dee7d99270985246f723896660b7))
+
 ## [1.6.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.5.1...v1.6.0) (2026-08-20)
 
 
