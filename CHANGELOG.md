@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.0.1...v1.0.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* prove overseer launcher uses checkout root ([8bf41be](https://github.com/thewoolleyman/livespec-overseer/commit/8bf41be87f170c670341a42626c2c6cdf6fe20c7))
+* prove status snapshot reports daemon provenance ([cb5741c](https://github.com/thewoolleyman/livespec-overseer/commit/cb5741cfc5bf2cd8d9e3b6c6f89cd33bf3bfd83c))
+
 ## [1.0.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.0.0...v1.0.1) (2026-08-20)
 
 
