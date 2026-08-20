@@ -23,7 +23,10 @@ from _registry_resume import normalize_resume_override
 from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
 from _registry_rows_io import read_rows, write_rows
 from _registry_track_row_parse import RowExtras, track_from_mapping_row
+from _registry_upsert_fields import apply_upsert_update_fields
 from _seams import MappingRowPredicate
+
+_DEFAULT_UPSERT_UPDATE_FIELDS = frozenset({"tmux"})
 
 __all__: list[str] = [
     "append_mapping",
@@ -224,11 +227,15 @@ def upsert_mapping(
     *,
     track: Track,
     store_path: str | os.PathLike[str] | None = None,
+    added_at: str | None = None,
+    update_fields: frozenset[str] = _DEFAULT_UPSERT_UPDATE_FIELDS,
 ) -> None:
     """Ensure one ``(repo, topic)`` row exists while preserving durable row fields."""
     path = resolve_store(store_path=store_path)
     repo_norm = norm(repo=track.repo)
     new_row = _track_to_row(track=track)
+    if added_at is not None:
+        new_row["added_at"] = added_at
     with file_lock(target=path):
         rows = read_rows(store_path=store_path)
         matching_indexes = [
@@ -246,14 +253,12 @@ def upsert_mapping(
             return
         changed = len(matching_indexes) > 1
         row = rows[matching_indexes[0]]
-        for field, value in (
-            ("topic", track.topic),
-            ("repo", track.repo),
-            ("tmux", track.tmux),
-        ):
-            if row.get(field) != value:
-                row[field] = value
-                changed = True
+        changed = (
+            apply_upsert_update_fields(
+                row=row, new_row=new_row, track=track, update_fields=update_fields
+            )
+            or changed
+        )
         if len(matching_indexes) > 1:
             duplicate_indexes = set(matching_indexes[1:])
             rows = [row for index, row in enumerate(rows) if index not in duplicate_indexes]
