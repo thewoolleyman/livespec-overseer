@@ -10,6 +10,7 @@ from _registry_track_variants import (
     MISSING_SUPERVISED_TOPIC,
     MISSING_TMUX,
     ForemanSeat,
+    GroomingSeat,
     ModelProfile,
     PlanTrack,
     SupervisorSeat,
@@ -74,6 +75,8 @@ def _row_kind(*, row: dict[str, object], topic: str) -> str:
         return "supervisor"
     if suffix == "-foreman":
         return "foreman"
+    if suffix == "-grooming":
+        return "grooming"
     return "plan"
 
 
@@ -124,6 +127,24 @@ def track_from_mapping_row(
             else require_str(row=row, key="epic")
         )
         return ForemanSeat(
+            topic=topic,
+            repo=repo,
+            tmux=require_str(row=row, key="tmux"),
+            epic=epic,
+            resume=extras.resume,
+            ctx_threshold=extras.ctx_threshold,
+            pinned_session_id=extras.pinned_session_id,
+            observed_session_identity=extras.observed_session_identity,
+            added_at=extras.added_at,
+            model_profile=extras.model_profile,
+        )
+    if kind == "grooming":
+        epic = (
+            unresolved_plan_epic(topic=topic)
+            if "epic" not in row or row.get("epic") is None
+            else require_str(row=row, key="epic")
+        )
+        return GroomingSeat(
             topic=topic,
             repo=repo,
             tmux=require_str(row=row, key="tmux"),

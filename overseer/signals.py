@@ -25,6 +25,8 @@ from pathlib import Path
 
 from _signals_topics import (
     is_foreman_topic,
+    is_grooming_topic,
+    reserved_worker_suffix,
     supervisor_entity_topic,
     supervisor_topic,
     topic_reserved_for_supervisor,
@@ -48,6 +50,7 @@ __all__: list[str] = [
     "is_busy",
     "is_codex_idle_input",
     "is_foreman_topic",
+    "is_grooming_topic",
     "is_idle_input",
     "is_structured_gate",
     "marker_dir",
@@ -59,6 +62,7 @@ __all__: list[str] = [
     "queued_cross_session_delivery_sender",
     "read_state",
     "ready_valid",
+    "reserved_worker_suffix",
     "state_path",
     "strip_ansi",
     "supervisor_entity_topic",

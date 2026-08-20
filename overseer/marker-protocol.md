@@ -534,7 +534,7 @@ correct there. See `.claude-plugin/prose/overseer.md`, the single-source operato
 contract. (Corrected 2026-07-26: this pointed at `SKILL.md`, which is now only a
 compatibility pointer and carries no operator prose.)
 
-## Foreman entities are a reserved-worker-topic pattern, not a plan-shaped track
+## Reserved foreman and grooming entities are not plan-shaped tracks
 
 A per-repo **foreman** session (the operator loop, e.g. `livespec-overseer-foreman`,
 that runs `/livespec-overseer:foreman`) is a DIFFERENT shape of entity from a plan
@@ -593,6 +593,24 @@ guard this section describes. Migrating that live, actively-working production
 track to the canonical identity is deliberately NOT done as part of landing this
 pattern (too disruptive to attempt inline against a live session); it is tracked
 as a follow-up work item on epic `overseer-w4epaq`.
+
+A per-repo **grooming** session is the same reserved-entity pattern with a
+different job. Its canonical topic and tmux session are `<repo-slug>-grooming`,
+registered through `grooming_runtime.register_grooming_track`, and the suffix is
+part of `signals._RESERVED_WORKER_SUFFIXES` so no plan worker can collide with
+it. Like a foreman entity, it has no supervised worker counterpart:
+`signals.supervisor_topic` refuses it, and `signals.topic_supervised_worker`
+returns `None`.
+
+The cardinal rule is unchanged for grooming. A grooming session writes the SAME
+`tmp/overseer/<topic>/.overseer-state` file and the SAME
+`ready`/`blocked:`/`winding-down` tokens as every other tracked session, and the
+daemon restarts it ONLY after its own fresh `ready` declaration certifies. Its
+resume prompt is intentionally small: re-enter the grooming operation and
+re-measure the repository before acting. Its wrap-up text does not ask the
+session to drain the backlog before restart; it asks the session to finish only
+the single ledger mutation already in progress, record any already-formed
+judgement onto the relevant plan epic or item, and then declare state.
 
 ## Plan state may adopt the `blocked:` convention
 

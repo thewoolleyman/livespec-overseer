@@ -22,9 +22,7 @@ from _supervisor_codex_restart import do_codex_restart
 from _supervisor_config import track_key
 from _supervisor_launch_profile import ClaudeLaunchPlan
 from _supervisor_prompts import (
-    foreman_wrapup_message,
     resume_for_track,
-    supervisor_wrapup_message,
     wrapup_message,
 )
 from _supervisor_restart_binder import (
@@ -34,6 +32,7 @@ from _supervisor_restart_binder import (
     missing_restart_epic_message,
 )
 from _supervisor_statusline_model import restart_blocked_by_statusline_mismatch
+from _supervisor_wrapup_select import select_wrapup_message
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -197,22 +196,16 @@ def maybe_inject(
             session_identity=identity,
             stamp_path=sup.stamp_path,
         )
-    if isinstance(track, registry.ForemanSeat):
-        message = foreman_wrapup_message(
-            remaining=eff_ctx,
+    message = select_wrapup_message(
+        track=track,
+        remaining=eff_ctx,
+        worker_wrapup=lambda remaining, repo, topic, epic: wrapup_message(
+            remaining=remaining,
             repo=repo,
             topic=topic,
-            epic=track.epic,
-        )
-    elif isinstance(track, registry.SupervisorSeat):
-        message = supervisor_wrapup_message(
-            remaining=eff_ctx,
-            repo=repo,
-            topic=track.supervised_topic,
-            epic=track.epic,
-        )
-    else:
-        message = wrapup_message(remaining=eff_ctx, repo=repo, topic=topic, epic=track.epic)
+            epic=epic,
+        ),
+    )
     if _supervisor_launch.submit_prompt(
         sup=sup, target=target, text=message, expect_codex=is_codex
     ):
