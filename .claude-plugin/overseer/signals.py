@@ -235,16 +235,18 @@ def queued_cross_session_delivery_sender(*, capture_text: str) -> str | None:
 # independent of the footer-hint wording and the spinner glyph.
 #
 # The border MAY carry an embedded title. `claude -n <topic>` renders the session
-# name INTO the top border (`─── mytopic ──` — verified live 2026-07-13), so the
-# top border is NOT a pure rule; a pure-rule-only match would make EVERY session
+# name INTO the top border. Claude Code 2.1.235 rendered that as
+# `─── mytopic ──`; 2.1.237/2.1.238 render `─── mytopic ─` (measured live
+# 2026-08-20). So the top border is NOT a pure rule; a pure-rule-only match
+# would make EVERY session
 # the daemon itself launches (all of `start` / `--recover` / post-restart, which
 # always pass `-n <topic>`) read as never-idle → never injected/restarted again →
 # run to autocompact, the exact failure the overseer exists to prevent (adversarial
 # code review 2026-07-13, blocker B2). So a border is: starts with ≥3 rule chars
-# AND ends with ≥2 rule chars (a pure rule satisfies this too). That is tight
+# AND ends with ≥1 rule char (a pure rule satisfies this too). That is tight
 # enough that ordinary wrapped prose / tool output — which does not both start and
 # end with box-drawing rule chars — is not mistaken for a border.
-_BORDER_RE = re.compile(r"^[─—━]{3,}.*[─—━]{2,}$")
+_BORDER_RE = re.compile(r"^[─—━]{3,}.*[─—━]{1,}$")
 
 
 def _is_border(*, line: str) -> bool:
@@ -262,9 +264,10 @@ def _input_box_present(*, text: str) -> bool:
 
     Scans the non-empty lines and requires an empty `❯` with a border line
     immediately before and after it. The border above MAY carry the `-n <topic>`
-    title (`─── mytopic ──`); the border below is a pure rule. The empty-prompt
-    requirement means a box that already holds typed/pasted input is NOT treated
-    as idle (the daemon must never inject over existing input). A numbered-option
+    title (`─── mytopic ──` on Claude Code 2.1.235, `─── mytopic ─` on 2.1.237);
+    the border below is a pure rule. The empty-prompt requirement means a box
+    that already holds typed/pasted input is NOT treated as idle (the daemon
+    must never inject over existing input). A numbered-option
     gate (`❯ 1.`) is not empty and not border-bracketed, so it is excluded here
     (and by :func:`is_structured_gate`).
     """
