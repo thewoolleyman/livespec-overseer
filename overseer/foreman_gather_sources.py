@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -12,9 +13,14 @@ import jsonio
 __all__: list[str] = [
     "command_skipped",
     "default_needs_attention_command",
+    "fetch_release_lane_runs",
     "read_journal",
     "run_json_command",
 ]
+
+_PER_PAGE = 100
+_PAGES = 4
+_REPO_SLUG_PARTS = 2
 
 
 def string_list(*, value: object) -> list[str] | None:
@@ -61,6 +67,52 @@ def default_needs_attention_command(*, repo: Path) -> list[str] | None:
     wrapper = string_list(value=config.get("credential_wrapper")) if config is not None else None
     prefix = wrapper if wrapper is not None else []
     return [*prefix, sys.executable, str(script), "--json"]
+
+
+def repo_slug(*, repo: Path) -> str | None:
+    slug = os.environ.get("GITHUB_REPOSITORY")
+    if slug:
+        return slug
+    completed = subprocess.run(  # noqa: S603
+        ["git", "-C", str(repo), "remote", "get-url", "origin"],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=5,
+    )
+    if completed.returncode != 0:
+        return None
+    url = completed.stdout.strip().removesuffix(".git")
+    parts = url.replace(":", "/").split("/")
+    return "/".join(parts[-_REPO_SLUG_PARTS:]) if len(parts) >= _REPO_SLUG_PARTS else None
+
+
+def fetch_release_lane_runs(*, repo: Path, workflow: str) -> list[dict[str, str]] | None:
+    slug = repo_slug(repo=repo)
+    if not slug:
+        return None
+    collected: list[dict[str, str]] = []
+    for page in range(1, _PAGES + 1):
+        endpoint = (
+            f"repos/{slug}/actions/workflows/{workflow}/runs" f"?per_page={_PER_PAGE}&page={page}"
+        )
+        payload = run_json_command(command=["gh", "api", endpoint], source_name="release_lane")
+        if payload is None or isinstance(payload.get("__skip_reason__"), str):
+            return None
+        runs = jsonio.as_list(value=payload.get("workflow_runs"))
+        if runs is None:
+            return None
+        collected.extend(
+            {
+                "conclusion": str(run.get("conclusion") or ""),
+                "created_at": str(run.get("created_at") or ""),
+            }
+            for run in (jsonio.as_object(value=raw) for raw in runs)
+            if run is not None
+        )
+        if len(runs) < _PER_PAGE:
+            break
+    return collected
 
 
 def command_skipped(*, command: Sequence[str], reason: str) -> dict[str, object]:

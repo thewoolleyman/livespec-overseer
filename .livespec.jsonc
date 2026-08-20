@@ -163,7 +163,20 @@
     // foreman-act, instead of report-only surfacing. The contract floors
     // (escalate on dissent, insufficient information, hard-risk, or
     // human-gated-by-design decisions) are not relaxed by this setting.
-    "foreman_valve_disposition": "consensus"
+    "foreman_valve_disposition": "consensus",
+    // Network decision for overseer-hgq4wi.19: the foreman gather loop may
+    // perform a bounded GitHub workflow-runs query for the release-tag lane
+    // because the operator surface is where the maintainer already looks and
+    // the scheduled CI detector is deliberately not a transport. If the query
+    // cannot measure, gather emits an UNKNOWN attention item and includes the
+    // last successful local cache timestamp when present; it never treats an
+    // unreachable forge as healthy.
+    "release_lane_watch": {
+      "enabled": true,
+      "workflow": "release-tag.yml",
+      "label": "release-tag",
+      "cache_path": "tmp/overseer/release-lane-watch.json"
+    }
   },
   "livespec-orchestrator-beads-fabro": {
     "format": "beads",
