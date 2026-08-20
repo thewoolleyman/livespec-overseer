@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import registry
 import signals
 
@@ -9,6 +11,7 @@ __all__: list[str] = ["assignment_track"]
 
 SUPERVISOR_SEAT_EPIC_ERROR = "supervisor seat requires epic"
 FOREMAN_SEAT_EPIC_ERROR = "foreman seat requires epic"
+PLAN_TRACK_DIRECTORY_ERROR = "plan track requires directory"
 
 
 def assignment_track(
@@ -58,6 +61,9 @@ def assignment_track(
             supervised_topic=supervised_topic,
             ctx_threshold=ctx_threshold,
         )
+    plan_dir = Path(repo) / "plan" / topic
+    if not plan_dir.is_dir():
+        raise ValueError(PLAN_TRACK_DIRECTORY_ERROR, str(plan_dir))
     return registry.PlanTrack(
         topic=topic,
         repo=repo,

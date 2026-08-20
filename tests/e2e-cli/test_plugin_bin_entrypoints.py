@@ -1403,7 +1403,8 @@ def test_foreman_act_files_work_item_from_plugin_cache_without_caller_pythonpath
 def test_foreman_act_refuses_exact_occupied_tmux_start_from_shipped_artifact(*, tmp_path):
     plugin_root = _materialize_overseer_plugin(cache=tmp_path / "home" / ".claude/plugins/cache")
     repo = tmp_path / "repo"
-    repo.mkdir()
+    (repo / "plan" / "alpha").mkdir(parents=True)
+    (repo / "plan" / "beta").mkdir(parents=True)
     _assert_foreman_start_guards_report_occupied_name(repo=repo)
     home = tmp_path / "act-home"
     home.mkdir()

@@ -362,8 +362,10 @@ keyword flags. (`<cmd>` is one of `list` / `add` / `remove` / `unassign` /
 - **`list`** — `… supervisor.py list` — print the current discovery ⋈ mapping
   table **once, read-only** (no injection, no restart). A snapshot without
   waiting for a daemon tick.
-- **`add --repo <repo> --topic <topic>`** — map a discovered plan to a watched
-  session. The tmux id is derived automatically: the **bare plan topic**, or
+- **`add --repo <repo> --topic <topic>`** — map an existing discovered plan to a
+  watched session. Create `plan/<topic>/` first, then commission/register the
+  session against it; an ordinary topic with no plan directory is refused. The
+  tmux id is derived automatically: the **bare plan topic**, or
   `<repo-slug>-<topic>` (single dash) only when that topic collides across watched
   repos. The row records the plan's ledger `epic` id, read from the plan's
   write-once metadata anchor, and the daemon derives the resume line from that id
@@ -376,7 +378,7 @@ keyword flags. (`<cmd>` is one of `list` / `add` / `remove` / `unassign` /
   <topic>`** — drop the mapping row (synonyms). The plan reverts to `unassigned`;
   the tmux session is **never force-killed** — surface-only.
 - **`start --repo <repo> --topic <topic>`** — the **SURFACE-ONLY, user-initiated
-  launch**: create the tmux session if missing, launch
+  launch** for an existing plan directory: create the tmux session if missing, launch
   `claude --dangerously-skip-permissions -n <topic>` in the repo, paste the resume
   line, and map it. **The daemon NEVER auto-spawns a session for an unassigned
   plan** — the FIRST launch of a plan is a deliberate act (the maintainer, via
