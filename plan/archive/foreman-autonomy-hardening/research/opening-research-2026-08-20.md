@@ -1,7 +1,7 @@
 # foreman-autonomy-hardening — opening research note, 2026-08-20
 
 Plan record discipline: the ledger is authoritative over this directory; plan
-state, next action, and handoffs live on the ledger anchor ledger anchor `overseer-vx4ky3`
+state, next action, and handoffs live on the ledger anchor `overseer-vx4ky3`
 read through the plan timeline.
 
 ## Problem
