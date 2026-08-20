@@ -31,8 +31,11 @@ It reports the `effective` disposition, which is one of exactly two values.
   configuration resolves to. Surface the valve or blocked session to the
   maintainer and exit the bounded tick cleanly. Do not convene the panel.
 - **`consensus`** — the opt-in tier. You MAY convene the cross-vendor consensus
-  panel via `foreman-consensus` on a blocked session, and act on its typed
-  verdict through `foreman-act` exactly as on any other proposal.
+  panel via `foreman-panel` on a blocked session. `foreman-panel` produces
+  reviewer responses for the pinned identities, invokes `foreman-consensus` as
+  the evaluator, and writes the dossier under `tmp/overseer/foreman/panel/`.
+  Act on its typed verdict through `foreman-act` exactly as on any other
+  proposal.
 
 If the resolver reports `recognized: false`, treat it as `report-only` and
 surface the unrecognized value; do not guess what was meant.
@@ -49,6 +52,17 @@ returns an insufficient-information verdict, or the audit journal append fails.
 Journal before you act, never after.
 
 ### Relay and escalation discipline
+
+The convening invocation is request-file to verdict-file:
+
+```bash
+"$PLUGIN_ROOT/bin/foreman-panel" \
+  --request tmp/overseer/foreman/panel/request.json \
+  --verdict-output tmp/overseer/foreman/panel/verdict.json
+```
+
+`foreman-consensus` is the evaluator only. It accepts an already assembled
+`--reviewer-responses` file and does not run reviewers itself.
 
 Carry the evidence the first time you relay a judgment. If you tell a tracked
 session that a panel or evaluator reached an outcome, that same delivery must

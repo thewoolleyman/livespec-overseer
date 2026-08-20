@@ -1,0 +1,12 @@
+#!/usr/bin/env -S uv run --script --no-project
+"""Compatibility executable for the importable ``overseer.foreman_panel`` entry point."""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from foreman_panel import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())
