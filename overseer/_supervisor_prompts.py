@@ -20,6 +20,7 @@ because only :func:`wrapup_message` reads it.
 daemon reads it across the module boundary, where pyright-strict's
 `reportPrivateUsage` rejects an `_`-prefixed name.
 """
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.3
 
 from __future__ import annotations
 
