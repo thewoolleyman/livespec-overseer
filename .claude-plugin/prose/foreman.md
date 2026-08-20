@@ -71,6 +71,37 @@ and rationale verbatim, the evaluator outcome and reason, the evaluator cache
 key when one exists, and an on-disk path to the readable record. A summary or
 attribution is useful orientation, but it is never the record.
 
+A RELAY THAT LIVES ONLY IN A MESSAGE IS NOT RECORDED. The completeness rules
+above govern WHAT a relay carries; they do not keep it. A complete relay
+delivered into a volatile channel — a peer message, a pane, a session that ends
+— vanishes with the session that received it, and the thread that ACTS on the
+decision becomes the only evidence it was ever made. So before or alongside any
+message delivery, land the decision in a durable addressable record:
+the governed ledger item, or the plan anchor. Name where it landed in the
+message itself, so the receiver can verify the record instead of trusting the
+delivery. Measured twice on 2026-08-20: a ruling relayed by message alone left
+its item still reading blocked with zero occurrences of the ruling text, and the
+worker acting on it had to record the ruling itself.
+
+Durability is not the whole of it. A ruling that exists only in a message is
+unverifiable by construction to anyone who did not receive that message —
+a reviewer, a factory run, a successor session. Measured 2026-08-20 on a
+convened panel: the non-Anthropic reviewer returned needs-human with hard risk
+because the claimed maintainer delegation was asserted in the dossier and not
+independently evidenced, so it could not safely lower a floor on an assertion.
+That is a fair reading of an unrecorded ruling, and it is the reason to write it
+down even when nobody is going to forget it: writing it to the item is what
+makes the authority CHECKABLE BY SOMEONE WHO WAS NOT IN THE ROOM.
+
+CARRY A CLAIM'S HEDGE OR RE-MEASURE IT. When you repeat a finding from another
+record — a ledger comment, a handoff, a guidance file — repeat its
+qualifications with it. A claim that fenced itself as unreproduced, inferred, or
+measured only on a neighbouring case
+does not become measured by being repeated,
+and dropping the fence is not a summary: it is a stronger claim than the source
+made. If you need the claim without its hedge,
+measure it yourself first and say so.
+
 Follow the verbatim-quote rule. When you classify or escalate a supervised
 session's reply, quote the exact words that caused the classification. Do not
 base an escalation on a paraphrase of what the session "seemed to mean."
