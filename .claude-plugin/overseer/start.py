@@ -74,8 +74,28 @@ def _running_under_supported_agent() -> bool:
 
 
 def _default_daemon_log_path() -> Path:
-    """Default daemon log location beside this checkout's overseer package."""
-    return Path(__file__).resolve().parent.parent / "tmp" / "overseer" / "daemon.log"
+    """Default daemon log location beside the daemon import root."""
+    return _default_core_root() / "tmp" / "overseer" / "daemon.log"
+
+
+def _is_checkout_root(*, path: Path) -> bool:
+    package = path / "overseer"
+    return (package / "start.py").is_file()
+
+
+def _checkout_root_from_cwd(*, cwd: Path, module_root: Path) -> Path | None:
+    resolved = cwd.resolve()
+    for candidate in (resolved, *resolved.parents):
+        if candidate != module_root and _is_checkout_root(path=candidate):
+            return candidate
+    return None
+
+
+def _default_core_root() -> Path:
+    """Root whose package should win when the daemon runs ``python -m overseer.daemon``."""
+    module_root = Path(__file__).resolve().parent.parent
+    checkout_root = _checkout_root_from_cwd(cwd=Path.cwd(), module_root=module_root)
+    return checkout_root if checkout_root is not None else module_root
 
 
 def daemon_command(*, warn_percent: int | None, log_path: Path | None = None) -> str:
@@ -139,8 +159,9 @@ def main(
     reason ``Supervisor.tmux`` is: everything below them is orchestration — the
     idempotency check, the failure handling, the resize — and orchestration that
     can only be exercised by really splitting a live tmux window is orchestration
-    that never gets exercised. They default to the real implementations and the
-    real repo root, so the shipped call path is unchanged.
+    that never gets exercised. The shipped call path uses the real implementations
+    and the operator checkout when the skill launcher was imported from a plugin
+    build.
 
     ``core_root`` in particular keeps the daemon's marker-directory ``mkdir`` out
     of the real checkout when a test drives the split path.
@@ -192,8 +213,9 @@ def main(
         )
         return 1
 
-    # …/overseer → this checkout root.
-    core = core_root if core_root is not None else Path(__file__).resolve().parent.parent
+    # Prefer the operator checkout over a plugin build that imported this module;
+    # cwd wins Python's module resolution for `python -m` when it contains overseer.
+    core = core_root if core_root is not None else _default_core_root()
     layout: tmuxio.WindowLayoutDriver = io if io is not None else tmuxio.TmuxIO()
 
     # 1. Start the daemon in a TOP pane of THIS window (idempotent).
