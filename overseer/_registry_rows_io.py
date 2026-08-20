@@ -72,6 +72,7 @@ def write_rows(
     *,
     rows: Iterable[dict[str, object]],
     store_path: str | os.PathLike[str] | None = None,
+    raise_errors: bool = False,
 ) -> None:
     body = "".join(json.dumps(row) + "\n" for row in rows)
-    atomic_write(path=resolve_store(store_path=store_path), body=body)
+    atomic_write(path=resolve_store(store_path=store_path), body=body, raise_errors=raise_errors)
