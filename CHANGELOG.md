@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.4.1...v1.4.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* make the release-lane watch able to run at all ([89460aa](https://github.com/thewoolleyman/livespec-overseer/commit/89460aafae02c2e020b3866a26d6428d300882e1))
+
 ## [1.4.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.4.0...v1.4.1) (2026-08-20)
 
 
