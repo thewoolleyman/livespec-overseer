@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.2.0...v1.2.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* keep live mapping row on upsert write failure ([a9ecb0a](https://github.com/thewoolleyman/livespec-overseer/commit/a9ecb0a0b0d47f6684889fca8281c0387720671e))
+* make mapping upsert write failure observable ([9e2f7ab](https://github.com/thewoolleyman/livespec-overseer/commit/9e2f7ab708404a6146907f9dedd1eb5477425c1c))
+
 ## [1.2.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.1.0...v1.2.0) (2026-08-20)
 
 
