@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.63.0...v0.63.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* preserve operator mapping fields ([12b18ba](https://github.com/thewoolleyman/livespec-overseer/commit/12b18ba5b1879498884a4e2d4db06ef7896b3e2f))
+
 ## [0.63.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.62.2...v0.63.0) (2026-08-19)
 
 
