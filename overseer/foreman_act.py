@@ -1,5 +1,7 @@
 """Deterministic Phase B foreman lifecycle actuator."""
 
+# livespec-lloc-soft-band-owner: overseer-e698
+
 from __future__ import annotations
 
 import argparse
