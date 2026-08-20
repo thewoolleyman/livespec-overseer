@@ -193,6 +193,45 @@ wired_targets() {
   ' justfile
 }
 
+# The recipe body the producer's justfile writer appends for an adopted slug,
+# verbatim from `missing_recipe_chunks`:
+#
+#     "\n{slug}:\n    uv run python -m livespec_dev_tooling.checks.{module}\n"
+#
+# with `module` the slug minus its `check-` prefix, hyphens to underscores.
+canonical_recipe_body() {
+  local module="${1#check-}"
+  printf 'uv run python -m livespec_dev_tooling.checks.%s' "${module//-/_}"
+}
+
+# Does the justfile define `slug` with EXACTLY that body?
+#
+# Being in `targets=(...)` is not provenance either: a branch can add any token
+# to that array and wire the matching CI line in the SAME diff, so the wired test
+# validates itself (verified: it did). Pinning the recipe BODY removes the
+# payload -- a forged slug must invoke a `livespec_dev_tooling.checks.<module>`
+# that does not exist, which runs no branch-supplied code and reds CI, rather
+# than executing whatever the branch put there.
+#
+# A consumer that hand-writes a non-template recipe for a newly adopted canonical
+# slug will need a declaration. That is rare, reviewable, and the safe direction.
+slug_has_canonical_recipe() {
+  local slug="$1" want body
+  want="$(canonical_recipe_body "$slug")"
+  [[ -f justfile ]] || return 1
+  body="$(awk -v hdr="^${slug}:[[:space:]]*$" '
+    $0 ~ hdr { found = 1; next }
+    found && /^[[:space:]]*$/ { next }
+    found {
+      sub(/^[[:space:]]+/, "")
+      sub(/[[:space:]]+$/, "")
+      print
+      exit
+    }
+  ' justfile)"
+  [[ "$body" == "$want" ]]
+}
+
 # Is `slug` one the aggregate actually wires? The reconciler only ever mirrors
 # slugs drawn from this set (`required = {slug for slug in targets ...}`), so a
 # CI line naming anything else was not written by it.
@@ -247,6 +286,7 @@ reconciler_emitted_line() {
   if [[ "$content" =~ ^[[:space:]]*-[[:space:]]*(check-[a-z0-9][a-z0-9-]*)[[:space:]]*$ ]]; then
     slug="${BASH_REMATCH[1]}"
     slug_is_wired "$slug" || return 1
+    slug_has_canonical_recipe "$slug" || return 1
     local base_entries head_entries entry
     base_entries="$(base_ci_yaml | matrix_entry_lines)"
     [[ -n "$base_entries" ]] || return 1
@@ -272,6 +312,7 @@ reconciler_emitted_line() {
   slug="${BASH_REMATCH[1]}"
   [[ "$slug" != "$aggregate_slug" ]] || return 1
   slug_is_wired "$slug" || return 1
+  slug_has_canonical_recipe "$slug" || return 1
   expected="${template//${aggregate_slug}/${slug}}"
   [[ "$content" == "$expected" ]] && return 0
   return 1
