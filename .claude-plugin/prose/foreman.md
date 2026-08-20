@@ -192,6 +192,19 @@ shipped reset action for this; this is a sanctioned write under
    (`supervisor_handoff: "supervisor-topic"`), names a topic with no plan thread
    (`supervisor_handoff: "not-plan"`), or otherwise not revalidated by
    `foreman-act`.
+   A RECORDED NEXT ACTION IS NOT A QUESTION. When a session is parked on a
+   picker whose option restates the plan's own newest ledger-recorded next
+   action, that decision has already been made and written down, and
+   `blocked_session_answer` does not need panel evidence to repeat it back.
+   Attach a `recorded_next_action` payload carrying the handoff text verbatim
+   and the `source` it was read from; the actuator extracts the next action,
+   requires the handoff to name exactly ONE, and requires the option to match
+   it word-for-word once capitalization and trailing punctuation are set aside.
+   A handoff naming zero or several is refused rather than guessed at. This
+   carve-out replaces the panel EVIDENCE and nothing else: the valve
+   disposition still governs, the hard floors still refuse, and any option that
+   is not the recorded action still takes the ordinary consensus path.
+
 4. Before acting, call `foreman-act` with the proposal. It performs fresh
    revalidation against the newest gather document. If it refuses, report the
    refusal; do not retry by hand.
