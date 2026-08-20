@@ -545,3 +545,80 @@ def test_converged_stops_the_loop_without_auto_resuming(*, tmp_path):
     assert result.exit_reason == "converged"
     assert result.auto_resume_interval_seconds is None
     assert journal_records(repo=repo) == []
+
+
+def foreman_runtime_backoff():
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("foreman_runtime_backoff")
+
+
+def test_effective_interval_prefers_the_durable_value_over_the_configured_one():
+    backoff = foreman_runtime_backoff()
+
+    assert backoff.effective_interval(state={}, configured_seconds=3600.0) == 3600.0
+    assert (
+        backoff.effective_interval(
+            state={"llm_tick_interval_seconds": 7200.0}, configured_seconds=3600.0
+        )
+        == 7200.0
+    )
+
+
+def test_effective_interval_rejects_values_that_would_disarm_the_cadence():
+    backoff = foreman_runtime_backoff()
+
+    for recorded in (0, -1.0, True, "7200", None):
+        assert (
+            backoff.effective_interval(
+                state={"llm_tick_interval_seconds": recorded}, configured_seconds=3600.0
+            )
+            == 3600.0
+        )
+
+
+def test_auto_resume_interval_journals_then_widens_toward_the_ceiling(*, tmp_path):
+    backoff = foreman_runtime_backoff()
+    records: list[dict[str, object]] = []
+
+    widened = backoff.auto_resume_interval(
+        repo=tmp_path,
+        append_journal=lambda *, repo, record: records.append(record),
+        interval_seconds=3600.0,
+        max_interval_seconds=10000.0,
+        tick_generation=36,
+    )
+
+    assert widened == 7200.0
+    assert records[0]["stage"] == "foreman-auto-resume"
+    assert records[0]["llm_tick_interval_seconds"] == 7200.0
+    assert records[0]["previous_llm_tick_interval_seconds"] == 3600.0
+
+    bounded = backoff.auto_resume_interval(
+        repo=tmp_path,
+        append_journal=lambda *, repo, record: records.append(record),
+        interval_seconds=7200.0,
+        max_interval_seconds=10000.0,
+        tick_generation=36,
+    )
+
+    assert bounded == 10000.0
+
+
+def test_auto_resume_interval_returns_none_when_the_journal_append_fails(*, tmp_path):
+    backoff = foreman_runtime_backoff()
+
+    def refuse(*, repo, record):
+        del repo, record
+        raise OSError("journal unavailable")
+
+    assert (
+        backoff.auto_resume_interval(
+            repo=tmp_path,
+            append_journal=refuse,
+            interval_seconds=3600.0,
+            max_interval_seconds=10000.0,
+            tick_generation=36,
+        )
+        is None
+    )
