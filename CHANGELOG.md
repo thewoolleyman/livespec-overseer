@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.64.0...v0.64.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* refuse planless supervisor add ([3d83480](https://github.com/thewoolleyman/livespec-overseer/commit/3d8348031d5f2a42ae1c8f1204eac209a369c112))
+
 ## [0.64.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.63.2...v0.64.0) (2026-08-20)
 
 
