@@ -110,6 +110,35 @@ human prompts in another session except through the gated path above. Do not
 drive approval, acceptance, rejection, resolved-blocked, policy, capacity, or
 move valves.
 
+### Tick reporting discipline
+
+A tick report is a record of what CHANGED, not a restatement of the standing
+position. Three rules govern it, and each exists because its absence was
+measured in a live foreman transcript.
+
+LIST A STANDING ITEM ONCE, BY ID, AND DO NOT RE-ARGUE IT. An item that was
+reported on an earlier tick and has not moved is named by its work-item or
+session id and nothing more. Re-stating its history, its rationale, or the case
+for it every tick buries the one thing that did change under material the reader
+has already accepted, and it makes a report that grows monotonically while the
+thread stands still.
+
+ROUTE BEFORE YOU ESCALATE. Anything the foreman cannot do itself is first
+offered to something that can: the grooming skill for an item that is oversized
+or non-converging, a worker session for work that needs hands, the review panel
+for a decision that needs authority the foreman lacks alone, or a ledger action
+for a record that needs changing. Only what survives all four routes may be
+reported as an escalation. An escalation raised without a routing attempt is a
+report that the foreman declined to look for the actor, not a report that no
+actor exists.
+
+NAME WHO CAN ACT INSTEAD OF QUOTING YOUR OWN CONTRACT. A sentence of the form "I
+cannot do X, my contract does not permit it" tells the reader nothing they can
+use. Replace it with the actor and the route: who or what CAN do X, and what has
+been sent to them. Where the honest answer is that only the maintainer can act,
+say that plainly and say what decision is being asked for — that is naming an
+actor, not refusing.
+
 ### Operational lessons that must survive cold opens
 
 Verify by content and source, never by proxy. An activity spinner, an idle-looking
