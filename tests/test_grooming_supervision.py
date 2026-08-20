@@ -2,16 +2,27 @@
 
 from __future__ import annotations
 
+import contextlib
 import importlib
+import io
 import json
 import sys
 from pathlib import Path
 
+import foreman_runtime
+import grooming_runtime as grooming_runtime_module
 import pytest
 import registry
 import signals
 from _supervisor_prompts import resume_for_track
-from test_supervisor_builders import declare, idle_capture, make_plan, make_supervisor, mapped_track
+from test_supervisor_builders import (
+    TEST_EPIC,
+    declare,
+    idle_capture,
+    make_plan,
+    make_supervisor,
+    mapped_track,
+)
 from test_supervisor_fakes import FakeTmux
 
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
@@ -118,6 +129,60 @@ def test_grooming_wrapup_is_not_worker_or_foreman_text(*, tmp_path):
     assert "finish the drain" not in grooming_text.lower()
     assert "foreman handoff timeline" in foreman_text
     assert "Bring your OWN work" in worker_text
+
+
+def test_tick_evaluates_registered_grooming_track_without_a_plan_directory(
+    *, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    fake = FakeTmux()
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
+    track = grooming_runtime_module.register_grooming_track(repo=repo, store_path=sup.store_path)
+    fake.serve(session=track.tmux, repo=repo, capture=idle_capture(ctx=40, topic=track.topic))
+
+    with contextlib.redirect_stderr(io.StringIO()):
+        views = sup.tick(act=True)
+
+    grooming = next(view for view in views if view.topic == track.topic)
+    assert grooming.status == "warned"
+    assert not (repo / "plan" / track.topic).exists()
+    assert fake.has(method="paste")
+    assert "complete the single ledger write" in fake.paste_texts()[0]
+    assert "Bring your OWN work" not in fake.paste_texts()[0]
+
+
+def test_tick_keeps_plan_foreman_and_grooming_rows_distinct(*, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    repo, plan_topic = make_plan(tmp_path=tmp_path, repo_name="repo", topic="plain")
+    fake = FakeTmux()
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
+    plan = mapped_track(repo=repo, topic=plan_topic, session=plan_topic)
+    registry.append_mapping(track=plan, store_path=sup.store_path)
+    foreman = foreman_runtime.register_foreman_track(repo=repo, store_path=sup.store_path)
+    _ = registry.record_derived_epic(
+        repo=foreman.repo,
+        topic=foreman.topic,
+        epic=TEST_EPIC,
+        store_path=sup.store_path,
+    )
+    grooming = grooming_runtime_module.register_grooming_track(repo=repo, store_path=sup.store_path)
+    for track in (plan, foreman, grooming):
+        fake.serve(
+            session=track.tmux,
+            repo=repo,
+            capture=idle_capture(ctx=60, topic=track.topic),
+        )
+
+    with contextlib.redirect_stderr(io.StringIO()):
+        views = sup.tick(act=True)
+
+    topics = [view.topic for view in views]
+    assert topics.count(plan.topic) == 1
+    assert topics.count(foreman.topic) == 1
+    assert topics.count(grooming.topic) == 1
+    assert topics.index(plan.topic) < topics.index(foreman.topic) < topics.index(grooming.topic)
 
 
 def test_grooming_restart_waits_for_ready_then_restarts_without_plan_epic(*, tmp_path):
