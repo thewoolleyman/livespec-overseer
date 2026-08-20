@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.0.0...v1.0.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* cover codex statusline restart veto ([1fa1eb6](https://github.com/thewoolleyman/livespec-overseer/commit/1fa1eb61c4dc77887377b3053c6bb5ab38f8fec9))
+
 ## [1.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.64.2...v1.0.0) (2026-08-20)
 
 
