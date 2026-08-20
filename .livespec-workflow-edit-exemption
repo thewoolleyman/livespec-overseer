@@ -1,0 +1,2 @@
+work_item=overseer-hgq4wi.17
+reason=Bind check-no-workflow-edits to CI so the automated pin-bump lane, which runs no local git hooks, is no longer unguarded. This branch necessarily edits a workflow file to add that binding.
