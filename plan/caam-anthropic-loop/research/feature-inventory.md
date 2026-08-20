@@ -4,6 +4,12 @@
 action, handoff entries — lives on that epic and its child items. This note is
 write-once research and is never authoritative about what remains.
 
+**MEASURED AS OF vps-info `54080c3`** (2026-08-20T03:30Z). The source is a LIVE
+repo and it moved twice while this thread was being opened — see
+"The source is a moving target" below. **Re-measure against that repo's HEAD
+before treating this list as complete, and update this pin when you do.** A
+carrier list with no as-of commit is a claim with no timestamp.
+
 ## Why this thread exists
 
 `/caam-anthropic-loop` is a working, maintainer-authored skill living in the
@@ -444,6 +450,16 @@ Fable balance.
 - **N3** Without it, a session idle after a switch never writes a new assistant
   message, its transcript keeps reporting the **old** model, and every tick fires
   the picker at it again.
+- **N3a** **THE MEMO DID NOT ACTUALLY WORK UNTIL vps-info `4b1a391`, AND THE
+  REBUILD MUST IMPLEMENT THE FIXED BEHAVIOR.** Every caller saved state
+  *before* invoking enforcement (`save_state` at line 1052, `enforce_models` at
+  1066, and the same ordering on the other two call sites), so everything
+  enforcement wrote into `state` — this memo, and later the foreman pin — was
+  discarded in memory and never reached disk. N1–N4 therefore described an
+  *intent* that the code silently defeated: the picker was re-driven at unknown
+  panes every tick regardless of the memo. See **W1** for the fix. This is the
+  one place in this inventory where the pre-fix program and its own stated
+  design disagree, and the design is the thing to reproduce.
 - **N4** A successful `set_model` records `state["models"][session] = {"want":
   want, "at": now}`.
 
@@ -649,3 +665,94 @@ accidentally, and so the review can tell "not implemented" from "out of scope".
 - **U9** The vault is **not restore-safe**. Losing it costs a few browser logins,
   which is cheap; restoring stale token snapshots from a backup is worse than
   re-minting.
+
+## V — The foreman-model override (added vps-info `4b1a391`, 2026-08-20)
+
+An escape hatch for a failure mode **no other rule can see**. Fable began
+refusing messages outright — `Fable 5's safeguards flagged this message`, with
+`Details: [reasoning_extraction]` — which is **not a quota condition**. Every
+rule in **L** keys off the Fable *balance*, so a Fable that is available but
+non-responsive reads as healthy, and the loop kept pinning foreman sessions to a
+model that could not answer. The override lets an operator pin the model
+directly.
+
+- **V1** `--foreman-model=<value>` is parsed from `sys.argv` by prefix match at
+  module scope; the value is `.strip().lower()`ed. Absent flag ⇒ `None`.
+- **V2** A pin **overrides rules L1 and L2** (1a/1b). It does not affect L3/L4
+  (2a/2b), which continue to key off the actual Fable balance.
+- **V3** The pin is **persisted** in `state["foreman_model"]`. This is the whole
+  point: a one-run flag would be undone by the next scheduled tick 30 minutes
+  later, so an un-persisted override would appear to work and then silently
+  revert. Persistence depends on **W1**; the two shipped in one commit for that
+  reason.
+- **V4** `auto` — and also the empty string and `none` — **clears** the pin via
+  `state.pop("foreman_model", None)` and logs `models: foreman override cleared
+  -- back to Fable unless spent`.
+- **V5** A value in `WANTED_MODELS` sets the pin and logs `models: foreman
+  override set to <value> -- persists until --foreman-model=auto`.
+- **V6** An unrecognized value is **ignored, not fatal**: it logs `models:
+  ignoring --foreman-model=<value> (expected fable/opus or auto)` and leaves any
+  existing pin untouched.
+- **V7** When `state["foreman_model"]` holds a value in `WANTED_MODELS`, it
+  becomes `want_foreman` outright. A stored value **not** in `WANTED_MODELS` is
+  ignored and the L1/L2 default applies, so a corrupted state file degrades to
+  normal behavior rather than breaking enforcement.
+- **V8** Pinning `fable` while the active account's Fable is spent logs `models:
+  WARNING foreman override pins fable but the active account's Fable is spent --
+  those sessions will be blocked` **and honors the pin anyway**. The operator is
+  warned, not overruled.
+- **V9** The summary line appends ` [pinned]` to the wanted model whenever a pin
+  is set, so the table shows `foremen want opus [pinned]`.
+- **V10** The override block sits **after** the `--no-models` early return, so
+  `--no-models` does not process, set, or clear a pin. Only effort enforcement
+  (**K9**) runs in that mode.
+
+## W — State persistence after enforcement (added vps-info `4b1a391`)
+
+- **W1** `enforce_models` persists state **after** `_enforce_models` returns.
+  The save sits in the wrapper, **outside** the try/except that catches
+  enforcement failure, so state is written even when enforcement raised; and the
+  save itself is wrapped in a bare `except Exception: pass`, so a failed write
+  cannot break the run either.
+- **W2** The defect it fixes: every caller saved state *before* invoking
+  enforcement, so everything enforcement wrote — the **N** memo and the **V**
+  pin — was discarded. Both were silently defeated. See **N3a**.
+- **W3** Consequence for the rebuild's tests: a test that asserts the memo
+  suppresses a second attempt, or that a pin survives to the next tick, MUST
+  exercise the save ordering, not just the in-memory dictionary. An in-memory-only
+  assertion passes against the *broken* implementation and is therefore not a
+  discriminating test.
+
+## The source is a moving target — the finding that outlives these two entries
+
+This inventory was first taken against vps-info `c7f8bed`. Between that reading
+and this note landing, the source moved **twice** in about ninety minutes:
+
+| commit | change | effect on this inventory |
+|---|---|---|
+| `c131592` | corrected `SKILL.md` prose that contradicted its own program | prose-only; program byte-identical, every carrier held |
+| `4b1a391` | `--foreman-model` override; persist state after enforcement | **new carriers V and W**, and it falsified the working assumption behind **N** |
+
+The first was verified harmless by extracting the fenced program from both sides
+and diffing it — **893 lines, byte-identical**. That check is cheap and is the
+right first move on any future source change: *did the program move, or only the
+prose?* If only the prose moved, no carrier changes.
+
+The second was not harmless, and it is the one to learn from. It did not merely
+**add** behavior — it **corrected** behavior this inventory had already recorded
+as working. An inventory that is only ever *appended to* would still assert that
+the memo works, which was never true of the code it was measured against.
+
+**So re-measurement is not optional and it is not append-only.** Before the exit
+gate runs, and before any slice is implemented against a carrier, re-read the
+source at its current HEAD and ask both questions: what is new, and what did I
+previously record that is now false? Update the as-of pin at the top of this file
+when you do.
+
+There is a second-order consequence worth stating plainly, because it changes how
+the exit gate should be run rather than merely what it checks: **the reviewer must
+re-pin too.** A completeness review that walks this list against the
+implementation, while the source has moved underneath both, will certify a
+faithful reproduction of a superseded program and record durable evidence saying
+so. The review MUST begin by re-measuring the source and reconciling this file,
+not by trusting it.

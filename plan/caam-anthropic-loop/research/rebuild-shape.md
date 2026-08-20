@@ -182,6 +182,7 @@ propose-change land.
 | 8 | **Session discovery** — pane → `CLAUDE_CODE_SESSION_ID` → transcript → model | M, N |
 | 9 | **Picker driving** — idle guard, menu scoping, name matching, wrap arithmetic, second dialog, the no-horizontal-arrows invariant | O, P |
 | 10 | **Enforcement orchestration** — the 1a/1b/2a/2b rules, per-session and whole-pass isolation, `--no-models` | L, Q |
+| 10a | **Foreman-model override + state persistence** — the persisted pin, its clear/ignore/warn paths, and saving state *after* enforcement | V, W, N3a |
 | 11 | **Operation prose + three bindings + manifest lockstep** | A, B |
 | 12 | **Exit gate** — independent feature-completeness review | all |
 
@@ -206,7 +207,13 @@ Concretely, `archive_thread(...)` refuses until both legs pass — every child
 disposed, and durable independent completeness-review evidence on the epic. For
 this thread the reviewer's charge is narrower and stricter than the generic one:
 
-1. Walk **every** carrier A1–U9 in `feature-inventory.md` against the rebuilt
+0. **Re-measure the source first, and re-pin the inventory.** The source repo is
+   live and moved twice during this thread's opening alone. Read it at its current
+   HEAD, reconcile `feature-inventory.md` against it — asking both what is new and
+   what the file now records that is false — and update its as-of commit pin.
+   A review that walks a stale list certifies a faithful reproduction of a
+   superseded program, and records durable evidence saying so.
+1. Walk **every** carrier in `feature-inventory.md` against the rebuilt
    implementation and record a per-carrier verdict. Not a sample.
 2. Treat the **vps-info program** as the oracle — read it, do not rely on this
    inventory alone. The inventory is a reading of the source and could have missed
@@ -237,7 +244,12 @@ scope".
 
 - **Retiring the vps-info copy.** Cross-repo sequencing (delete, or leave a pointer
   to the new home) is not this thread's work. Deferred to a named follow-up once
-  the rebuild is shipped and exercised.
+  the rebuild is shipped and exercised. **Note the cost of that deferral:** the
+  source stays live and continues to accrue features while the rebuild proceeds,
+  so every re-measurement gap is a chance to ship a reproduction of a program that
+  no longer exists. Two changes landed during this thread's first ninety minutes.
+  Keeping the deferral is still right — retiring the source before its replacement
+  is exercised would be worse — but the re-pin discipline is what pays for it.
 - **Generalizing the `-foreman` suffix and the account set.** The suffix coupling is
   precisely why the skill belongs here (`AGENTS.md` says so). Making it configurable
   is a change in behavior and is out of scope for a feature-identical rebuild.
