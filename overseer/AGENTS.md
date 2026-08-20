@@ -1428,9 +1428,10 @@ BOTH directions across the boundary.
 2. **A profile is captured at ADOPTION or when a wrap-up round OPENS — nowhere
    else.** There is no per-tick refresh. To get a profile onto a row that already
    exists, `remove` the row and let the daemon re-adopt it.
-3. **The pane TITLE must equal the topic.** The stall watcher re-resolves its
-   target by pane title after an apparent daemon bounce; without it every row
-   reports `watch-target-gone`. `tmux select-pane -t <pane> -T <topic>`.
+3. **The tmux SESSION name must keep carrying the mapped identity.** The stall
+   watcher re-resolves its target from the mapped session after an apparent
+   daemon bounce. Pane titles are deliberately not an identity: live Claude panes
+   carry activity prefixes and may drift to task summaries.
 4. **A `ready` file with no open round restarts nothing** — `ready_valid`
    requires the declaration's mtime to beat the round's certification floor. Open
    a round on demand with the per-track `--ctx-threshold` knob set just above the
