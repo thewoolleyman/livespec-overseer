@@ -9,7 +9,7 @@ spec_commitments:
         Update overseer/test_package_constraints.py::test_the_package_imports_only_the_standard_library so it enforces the amended clause instead of a blanket third-party ban. Today it flags every import that is neither stdlib nor first-party, which would reject a conforming vendored import and leave the ratified prose contradicted by its own checker. The updated test must permit an import that satisfies all three conditions and must still fail one that does not: it must verify the library resolves to the in-tree overseer/_vendor/ copy rather than an installed one (a), that the vendored tree's own imports resolve within itself and the standard library (b), and that the vendored top-level name cannot shadow or be shadowed by a module another livespec library resolves (c). Preserve the existing sabotage-verification discipline recorded in the test's docstring: prove each arm has teeth with an installed third-party module, since an uninstalled one fails at collection time before the assertion runs.
     - id_hint: vendor-returns-into-overseer
       description: |
-        Vendor dry-python/returns under overseer/_vendor/ with the vendoring artifacts the fleet already uses for this dependency (.vendor.jsonc and NOTICES.md, mirroring the copy livespec carries), then land the authored railway conversion preserved at livespec-dev-tooling:plan/rop-railway-enforcement/research/overseer-railway-blocked.patch — run_json_command and read_journal onto IOResult with a shared overseer/errors.py OverseerSourceError. Re-derive the offender counts before landing rather than trusting the recorded 182 -> 178, and re-sync the byte-identical .claude-plugin/overseer/ mirror, which is a plain copy enforced by check-codex-plugin-runnable-launcher. Keep the conversion's design call: source-unavailable and source-broken stay separated, the skip payloads stay byte-identical on the success track, and only the malformed-output case moves to the failure track.
+        Vendor dry-python/returns under overseer/_vendor/ with the vendoring artifacts the fleet already uses for this dependency (.vendor.jsonc and NOTICES.md, mirroring the copy livespec carries). Satisfying condition (b) requires vendoring typing_extensions alongside it — the core returns modules import it at module load in 27 places — and pruning returns/contrib/mypy, returns/contrib/hypothesis and returns/contrib/pytest, which import mypy, hypothesis and pytest at module load across 19 files. Then land the authored railway conversion preserved at livespec-dev-tooling:plan/rop-railway-enforcement/research/overseer-railway-blocked.patch — run_json_command and read_journal onto IOResult with a shared overseer/errors.py OverseerSourceError. Re-derive the offender counts before landing rather than trusting the recorded 182 -> 178, and re-sync the byte-identical .claude-plugin/overseer/ mirror, which is a plain copy enforced by check-codex-plugin-runnable-launcher. Keep the conversion's design call: source-unavailable and source-broken stay separated, the skip payloads stay byte-identical on the success track, and only the malformed-output case moves to the failure track.
 ---
 
 ## Proposal: Permit vendored, standalone, hermetic third-party imports in the standard-library-only supervision package
@@ -119,9 +119,14 @@ PROPOSED TEXT:
 > other installed location, and MUST NOT declare it as an installed runtime
 > dependency.
 >
-> (b) **Standalone.** The vendored tree's own imports MUST resolve entirely
-> within itself and the standard library. A library that drags in further
-> third-party dependencies MUST NOT be vendored under this exemption.
+> (b) **Standalone.** Every import the vendored code evaluates at module load
+> MUST resolve either to the standard library or to another library vendored
+> under the same `overseer/_vendor/` tree. A library whose runtime dependencies
+> cannot themselves all be vendored under (a)–(c) MUST NOT be vendored under this
+> exemption. Modules shipped inside a vendored library that import anything
+> outside that set — optional integrations with type checkers, test frameworks,
+> or async runtimes — MUST be pruned from the vendored copy, or be provably
+> unreachable from every import the package evaluates.
 >
 > (c) **Hermetic, with zero cross-library impact.** The package's use of the
 > vendored library MUST cause no impact or problem for any other livespec
@@ -134,6 +139,32 @@ PROPOSED TEXT:
 > load-bearing property the stdlib-only rule exists to protect: the executables
 > still run dependency-free under an isolated interpreter, because the
 > dependency is in the tree rather than in the environment.
+
+WORKED EXAMPLE — WHAT (b) ACTUALLY REQUIRES OF THE FIRST USER
+
+`dry-python/returns` does NOT satisfy (b) as a single library. This is stated
+here so ratification is not taken on a false premise, and so the condition is not
+ratified in a form its own first user fails. Measured 2026-08-20 against the copy
+`livespec` already vendors:
+
+- Its core modules import `typing_extensions` at module load — 27 sites. That is
+  a genuine runtime dependency, and `livespec` already vendors `typing_extensions`
+  alongside `returns` for exactly this reason. Under (b), `overseer/_vendor/`
+  MUST carry it too.
+- `returns/contrib/mypy/`, `returns/contrib/hypothesis/` and
+  `returns/contrib/pytest/` import `mypy`, `hypothesis` and `pytest` at module
+  load — 19 files in total. These are integrations for developer tooling, not
+  runtime code. Under (b) they MUST be pruned from the vendored copy or be
+  provably unreachable.
+- `returns/primitives/asserts.py` references `anyio`, but as a function-body
+  import inside a test helper rather than at module load, so it is never
+  evaluated on import and is unreachable from the package's own imports.
+
+So the conforming vendored tree is `returns` PLUS `typing_extensions`, with the
+`contrib/` integrations pruned. (b) is satisfiable; it is simply not satisfiable
+by copying `returns` alone, and a clause written as "no further third-party
+dependencies" without this reading would have re-created the contradiction this
+proposal exists to remove.
 
 WHY THE CLAUSE IS WORDED AS AN EXEMPTION AND NOT AS A CARVE-OUT FOR `returns`
 
