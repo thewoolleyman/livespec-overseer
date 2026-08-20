@@ -20,7 +20,7 @@ from grooming_conformance_values import (
     sorted_ids,
     status,
 )
-from grooming_plan_budget import is_plan_anchor_epic
+from grooming_plan_budget import is_top_level_anchor_epic
 
 __all__: list[str] = [
     "evaluate_ledger_invariants",
@@ -83,13 +83,13 @@ def plan_rollup_check(*, items: Sequence[Mapping[str, object]]) -> InvariantChec
         status="checked",
         breaching_item_ids=breaches,
         scanned_item_count=sum(1 for item in items if needs_plan_rollup(item=item)),
-        scope="non-terminal, non-plan-anchor rows from the bulk ledger projection",
+        scope="non-terminal, non-plan-anchor, non-seat-anchor bulk ledger rows",
     )
 
 
 def acceptance_present_check(*, items: Sequence[Mapping[str, object]]) -> InvariantCheck:
     scanned = tuple(
-        item for item in items if is_open(item=item) and not is_plan_anchor_epic(item=item)
+        item for item in items if is_open(item=item) and not is_top_level_anchor_epic(item=item)
     )
     breaches = sorted_ids(
         items=(item for item in scanned if merged_acceptance_criteria(item=item) is None)
@@ -100,7 +100,10 @@ def acceptance_present_check(*, items: Sequence[Mapping[str, object]]) -> Invari
         status="checked",
         breaching_item_ids=breaches,
         scanned_item_count=len(scanned),
-        scope="non-terminal, non-plan-anchor rows using the merged acceptance projection",
+        scope=(
+            "non-terminal, non-plan-anchor, non-seat-anchor rows using the merged "
+            "acceptance projection"
+        ),
     )
 
 
