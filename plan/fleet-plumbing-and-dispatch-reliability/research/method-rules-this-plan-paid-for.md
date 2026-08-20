@@ -153,6 +153,41 @@ routed, deleting it leaves the claim circulating with nothing to find. The
 retraction has to go where the claim went — the document, and every seat that
 received it.
 
+### 11c. Price a fence before declaring the check too expensive
+
+**The converse failure, and it happened the same night, to the same author, in
+the same artifact.** Two checks were fenced as "genuinely not cheap from here",
+explicitly contrasted with the earlier case where the fence should have been
+actioned. One of them was **two `find` invocations and about a second.**
+
+**Over-fencing is the same failure as under-checking, wearing better manners.**
+Rule 11b says run the cheap check a fence names. It does not say *verify that a
+check is expensive before declaring it so* — and that estimate is a claim like
+any other. Rule 4 applies to it: what state would have produced the other
+answer? Usually the cheapest way to find out is to run the thing.
+
+**Two fences mispriced in opposite directions in one session** — one check that
+should have been run and was not, one declared expensive that took a second.
+The second is the more insidious, because a fence that misprices its own check
+reads to everyone as diligence while deferring the work indefinitely. Nobody
+ever comes back to it, since it is documented as costly.
+
+**And the measurement reversed a conclusion that had been left open.** The
+unpriced census, once run, excluded one of three dispositions that had been
+handed to another item's owner as an open choice — on evidence, in a second.
+The cost of not running it was a wrong instruction standing for an hour.
+
+**The tell for this failure is a fence written in the same breath as a
+disposition.** If you are recording "the answer depends on X, which I did not
+measure", stop and ask what measuring X actually costs. That sentence is doing
+two jobs — deferring the check and shaping someone else's decision — and only
+one of them is legitimate when the check is a one-liner.
+
+**Deferring is not automatically the humble choice.** This clause was itself
+initially withheld as something to "offer rather than add unilaterally", to an
+artifact its own author had written, in that author's own plan. That is the same
+over-caution one layer up.
+
 ### 12. A code path describes ITSELF, not the system — ask WHICH SURFACE
 
 The sharper form of rule 7. That rule says a ledger FIELD describes the record
