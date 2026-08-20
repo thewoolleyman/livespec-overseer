@@ -26,6 +26,22 @@ valid_declaration() {
     echo "Workflow edit exemption declaration must be tracked: $declaration" >&2
     return 1
   fi
+  # The declaration must be authored BY THIS CHANGE, not inherited from master.
+  # A declaration lands on master alongside the workflow edit it exempted, so a
+  # file-existence test would let that first legitimate use disable the guard
+  # permanently: every later branch would inherit a valid declaration and every
+  # later workflow edit would pass having declared nothing. Requiring the
+  # declaration in this branch's own diff (or staged/unstaged, for the pre-commit
+  # moment) keeps one exemption bound to one reviewed change.
+  local declared_here
+  declared_here="$(git diff --name-only origin/master...HEAD -- "$declaration")"
+  local declared_pending
+  declared_pending="$(git status --short -- "$declaration")"
+  if [[ -z "$declared_here" && -z "$declared_pending" ]]; then
+    echo "Workflow edit exemption declaration is inherited, not authored by this change." >&2
+    echo "An exemption is per-change: add or update $declaration in this branch." >&2
+    return 1
+  fi
 
   local work_item
   local reason

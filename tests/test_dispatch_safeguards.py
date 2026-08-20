@@ -104,6 +104,15 @@ def _write_workflow_exemption(*, root: Path) -> None:
     )
 
 
+def _repo_with_base_carrying_exemption(*, root: Path) -> None:
+    """A base commit that ALREADY carries a declaration, as master does after one use."""
+    _git(cwd=root, args=["init", "-q", "-b", "master"])
+    _write_workflow_exemption(root=root)
+    _git(cwd=root, args=["add", ".livespec-workflow-edit-exemption"])
+    _commit(cwd=root, rel="README.md", author=_HUMAN_AUTHOR, message="base")
+    _git(cwd=root, args=["update-ref", "refs/remotes/origin/master", "HEAD"])
+
+
 def test_spec_check_blocks_factory_authored_spec_commit(*, tmp_path: Path) -> None:
     """A Fabro-authored commit touching SPECIFICATION/ fails, naming the commit."""
     _repo_with_base(root=tmp_path)
@@ -172,6 +181,26 @@ def test_workflow_check_accepts_tracked_reviewable_declaration(*, tmp_path: Path
     result = _run_workflow_check(cwd=tmp_path)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_workflow_check_rejects_a_declaration_inherited_from_master(*, tmp_path: Path) -> None:
+    """An exemption is per-change: the first use must not disable the guard forever.
+
+    A declaration lands on master alongside the workflow edit it exempted. If the
+    guard only asked whether the file EXISTS, every later branch would inherit a
+    valid declaration and every later workflow edit would pass having declared
+    nothing -- the guard would remove itself one merge after its first legitimate
+    use. This is the control for that: master already carries a declaration, the
+    branch edits a workflow and declares nothing, and the guard must still fail.
+    """
+    _repo_with_base_carrying_exemption(root=tmp_path)
+    _write_workflow_change(root=tmp_path)
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "inherited, not authored by this change" in result.stderr
 
 
 def test_workflow_check_rejects_untracked_declaration(*, tmp_path: Path) -> None:
