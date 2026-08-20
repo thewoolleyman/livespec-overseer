@@ -96,9 +96,11 @@ def act_with(
     module = foreman_act()
     return module.act(
         proposal=proposal_payload,
-        gather=lambda *, repo, snapshot_path: document(repo=Path(repo)),
-        run=lambda *, argv: (calls.append(argv) if calls is not None else None) or 0,
-        append_journal=lambda *, repo, record: None,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: document(repo=Path(repo)),
+            run=lambda *, argv: (calls.append(argv) if calls is not None else None) or 0,
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
 
