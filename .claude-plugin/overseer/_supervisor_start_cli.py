@@ -17,7 +17,7 @@ __all__: list[str] = ["launch_attempt_message"]
 def launch_attempt_message(
     *, sup: Supervisor, io: tmuxio.PaneDriver, track: registry.Track, session: str
 ) -> str | None:
-    if sup.do_launch(track=track, session=session):
+    if sup.do_launch(track=track, session=session, start=True):
         return f"started {track.repo}::{track.topic} in tmux session {session}"
     if not (
         io.session_exists(session=session)

@@ -17,6 +17,7 @@ from _supervisor_statusline_model import rendered_statusline_model
 
 __all__: list[str] = [
     "CLAUDE_CONTROLLED_ENV",
+    "DEFAULT_START_MODEL",
     "ClaudeLaunchPlan",
     "CodexLaunchPlan",
     "LaunchProfileProblem",
@@ -32,6 +33,15 @@ CLAUDE_CONTROLLED_ENV = (
     "CLAUDE_CODE_DISABLE_1M_CONTEXT",
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
 )
+
+# The model a track the overseer STARTS is launched under, so its argv carries a token the
+# capture can read and the track is capturable from birth. Deliberately a CONSTANT rather
+# than a read of the runtime's own configured default: that default is not stable (measured
+# moving twice inside one day on 2026-08-19/20), so reading it would make the launch token
+# arbitrary at exactly the moment it needs to be deterministic. The bracketed context-variant
+# alias is accepted by the model flag and MUST be kept — dropping it silently relaunches the
+# fleet on a smaller context window, which is the harm this whole section exists to close.
+DEFAULT_START_MODEL = "opus[1m]"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -160,8 +170,10 @@ def _scrubbed_env() -> dict[str, str | None]:
     return {name: None for name in CLAUDE_CONTROLLED_ENV}
 
 
-def _bare_command(*, track: registry.Track) -> str:
-    return f"claude --dangerously-skip-permissions -n {shlex.quote(track.topic)}"
+def _claude_command(*, topic: str, model: str | None) -> str:
+    """The Claude launch command, with an explicit model only when one is given."""
+    model_arg = "" if model is None else f"--model {shlex.quote(model)} "
+    return f"claude {model_arg}--dangerously-skip-permissions -n {shlex.quote(topic)}"
 
 
 def _problem(*, track: registry.Track, reason: str) -> LaunchProfileProblem:
@@ -177,10 +189,25 @@ def _wrapper_problem(*, track: registry.Track, wrapper: str) -> LaunchProfilePro
     return _problem(track=track, reason=f"wrapper {wrapper!r} does not exist or is not executable")
 
 
-def claude_launch_plan(*, track: registry.Track) -> ClaudeLaunchPlan | LaunchProfileProblem:
+def claude_launch_plan(
+    *, track: registry.Track, start: bool = False
+) -> ClaudeLaunchPlan | LaunchProfileProblem:
+    """Plan a Claude launch. ``start`` marks a brand-new track rather than a relaunch.
+
+    The two differ because the specification governs them differently. A row with no
+    recorded profile MUST "continue to relaunch exactly as it does today", so both
+    relaunch paths keep the bare command byte-for-byte. A START is not a relaunch and is
+    not covered by that clause, so it may name a model — which is what makes the track
+    capturable, ends the launched-bare-relaunched-bare loop, and leaves fail-soft intact.
+    """
     profile = track.model_profile
     if profile is None:
-        return ClaudeLaunchPlan(command=_bare_command(track=track), env=_scrubbed_env())
+        return ClaudeLaunchPlan(
+            command=_claude_command(
+                topic=track.topic, model=DEFAULT_START_MODEL if start else None
+            ),
+            env=_scrubbed_env(),
+        )
     if profile["harness"] != "claude":
         return _problem(
             track=track,
@@ -191,10 +218,7 @@ def claude_launch_plan(*, track: registry.Track) -> ClaudeLaunchPlan | LaunchPro
     wrapper = profile["wrapper"]
     if wrapper is None:
         return ClaudeLaunchPlan(
-            command=(
-                f"claude --model {shlex.quote(model)} "
-                f"--dangerously-skip-permissions -n {shlex.quote(track.topic)}"
-            ),
+            command=_claude_command(topic=track.topic, model=model),
             env=MappingProxyType(env),
         )
     wrapper_problem = _wrapper_problem(track=track, wrapper=wrapper)
