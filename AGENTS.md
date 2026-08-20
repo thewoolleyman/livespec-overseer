@@ -229,6 +229,23 @@ question comes up, finish and land it rather than discarding sunk, verified
 progress purely to redo it via the factory — the preference governs the NEXT
 piece of work, not a reflexive abort of work already done.
 
+## Lifecycle statuses for `bd update --status`
+
+Use only the livespec lifecycle statuses when writing a work-item status:
+`backlog`, `ready`, `blocked`, `active`, `acceptance`, `pending-approval`, and
+`closed`. Beads-native names must never be passed to `bd update --status`; do
+not write `open`, `in_progress`, `deferred`, or `done` by hand.
+
+When translating a beads-native state, use the same lifecycle mapping the fleet
+normalizes by: `open` maps to `backlog`, and `in_progress` maps to `active`.
+So returning an item to the unstarted pool is `bd update <id> --status backlog`,
+not the native intake name. The bd-guard is correct to block non-lifecycle
+status writes; do not bypass, relax, or re-mode it.
+
+Do not infer write vocabulary from create output. Beads-native create paths can
+show `open` before fleet normalization is visible, but callers still must not
+use that native name in any later `bd update --status` command.
+
 ## The fleet has SEVERAL Anthropic credentials — probing the wrong one is the documented failure mode
 
 Cite this section; do not restate it per plan. It exists because the
