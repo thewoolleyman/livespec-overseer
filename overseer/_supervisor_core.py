@@ -421,9 +421,9 @@ class Supervisor:
             sup=self, track=track, session=session, session_id=session_id
         )
 
-    def do_launch(self, *, track: registry.Track, session: str) -> bool:
+    def do_launch(self, *, track: registry.Track, session: str, start: bool = False) -> bool:
         """See :func:`_supervisor_recovery.do_launch`."""
-        return _supervisor_recovery.do_launch(sup=self, track=track, session=session)
+        return _supervisor_recovery.do_launch(sup=self, track=track, session=session, start=start)
 
     # ----------------------------------------------------------------- #
     # Table rendering.

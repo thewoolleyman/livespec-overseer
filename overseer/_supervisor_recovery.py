@@ -176,7 +176,7 @@ def do_codex_launch(
     return _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_codex)
 
 
-def do_launch(*, sup: Supervisor, track: registry.Track, session: str) -> bool:
+def do_launch(*, sup: Supervisor, track: registry.Track, session: str, start: bool = False) -> bool:
     """Launch ``claude --dangerously-skip-permissions -n <topic>`` and paste the resume line.
 
     ``session`` is the (just-created or existing) session NAME; the pane id is
@@ -188,7 +188,7 @@ def do_launch(*, sup: Supervisor, track: registry.Track, session: str) -> bool:
     target = sup.tmux.pane_id(session=session)
     if target is None:
         return False
-    launch = _supervisor_launch.claude_launch_plan(track=track)
+    launch = _supervisor_launch.claude_launch_plan(track=track, start=start)
     if not isinstance(launch, ClaudeLaunchPlan):
         sup.surface(message=f"reboot-recovery: {launch.message}; skipping")
         return False
