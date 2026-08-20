@@ -27,6 +27,16 @@ default, which is outside the seven lifecycle statuses. The row then trips the
 global pre-dispatch conformance sweep and refuses EVERY dispatch in the repo,
 naming an id that belongs to whoever filed it rather than to whoever is blocked.
 
+**And it is not avoidable at creation, which is the part that makes advice about
+it easy to get wrong.** Measured 2026-08-20 while filing a real item: the create
+command has NO status flag. You cannot create a conforming item in one command.
+The only status-ish flag it offers is the deferral flag — which sets the one
+status that blocks every dispatch in the tenant. So "set an explicit lifecycle
+status when filing" is not achievable as stated; the achievable form is **create,
+then immediately set the status, as a pair**, and verify the row afterwards. The
+create call prints the non-conforming status it just used in its own success
+output, so the evidence is on screen at the moment it happens.
+
 **This matters more for grooming than for any other operation in the fleet.**
 A drain pass files work items continuously — it is most of what stage 3 and stage
 4 do. An operation that files fifty items through a bare create path poisons the
@@ -90,6 +100,30 @@ LOOP, and the loop — not the pass — owns releasing it. That is the correct
 division of labour, since the pass is one-shot and the condition it is waiting on
 may clear hours later. What the pass owes is an honest statement of what it
 queued and what that queue is waiting on.
+
+**There are TWO such queues, not one, and the second was missed on the first
+pass through this material.** Stage 5's own hand-off is rate-limited. Measured
+2026-08-20: the foreman's action seam is real — its plan-start action is
+genuinely one of eleven shipped action ids, and its act executable really does
+revalidate a proposal against a fresh gather document — but the foreman contract
+states plainly that it performs ONE bounded action per HOURLY tick. So a pass
+that creates three threads needing three sessions has queued three actions
+against a drain rate of one per hour, competing with every other action class the
+foreman may need that tick.
+
+This has a direct consequence for stage 6, which verifies by reading tmux
+sessions and daemon snapshot rows. Run immediately after stage 5, that
+verification finds the sessions ABSENT — correctly, because they have not been
+started yet. **Stage 6 must report queued session starts as QUEUED with their
+expected latency, must not treat a not-yet-started session as a defect, and must
+not wait for one** — waiting would block a one-shot operation on an hourly loop.
+
+**So the honest general statement is that a drain pass CONVERGES
+ASYNCHRONOUSLY.** It completes its own work synchronously and then leaves two
+queues draining on other components' clocks: dispatches behind a provider
+credential window, and session starts behind the foreman's tick. It owns neither
+clock. Reporting completion without naming both queues and their gating
+conditions misreports the outcome.
 
 ## Pre-flight cannot prove factory health when the failure is mid-turn
 
@@ -155,6 +189,54 @@ a vanished run left nothing behind. A trap whose only tell is reachable through 
 command that reports the run missing would otherwise be unrecognisable in the
 field — which is precisely the failure mode the contract's trap section exists to
 prevent.
+
+## Annotating an item permanently enlarges its future dispatch brief
+
+This one was learned by doing it. It is recorded first-hand because a drain pass
+annotates work items constantly — triage and bucketing are largely annotation —
+so this is not an incidental hazard for this operation, it is a hazard on its
+main path.
+
+**Ledger comments are assembled verbatim into the dispatch brief.** The goal
+renderer takes item fields plus every ledger comment plus ratified lessons. The
+comments are read unfiltered — no recency window, no count cap, no length cap —
+and a failed read REFUSES the dispatch outright, because comments are explicitly
+load-bearing operator riders rather than decoration.
+
+**Measured 2026-08-20** against five real work items, comparing the rendered
+brief with and without their comments, after one session had spent two rounds
+filing verification findings onto them:
+
+    item      comments   brief without   brief with   ratio
+    hg5vw6           4            5465        15622     x2.9
+    26ufok           3            7137        17987     x2.5
+    lywdj4           4            4236        20739     x4.9
+    r5b66g           2            4111        13435     x3.3
+    mr2f2k           1            3056         7010     x2.3
+
+Every one of those findings was real and dispatch-saving. The briefs still
+doubled to quintupled in a few hours of ordinary, well-intentioned annotation.
+
+**Nothing warns, and nothing can.** The dispatcher's item-sizing guard exists for
+exactly this failure — briefs too large to finish in one unattended turn — but it
+is documented as a pure function of the ITEM, and its heuristics read only title
+and description. Comment growth is fully present in the payload and completely
+invisible to the guard. On the worst row above the guard reasons about roughly a
+fifth of what ships. Filed as a defect in the orchestrator tenant
+(`bd-ib-d1mj`).
+
+**And it is one-way.** Comments are append-only — the tooling offers add and list
+and nothing else. An inflated brief cannot be trimmed back, so the guard's usual
+advice to consider splitting is not even available as a remedy for this growth
+path. The cost of noticing late is unrecoverable.
+
+**What the operation should do.** Put durable per-item findings in the item's own
+FIELDS, which remain editable. Put pass-level narrative on the plan epic, which
+is an anchor rather than a dispatch target and therefore costs nothing at
+dispatch time. Reserve item comments for what a dispatched agent genuinely must
+read. The relevant question before commenting is not "is this true and useful" —
+it usually is — but "must the implementing agent read this, and is it worth
+permanently enlarging the brief".
 
 ## Verify a relayed operational fact, and say which part you could not verify
 
