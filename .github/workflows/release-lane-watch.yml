@@ -37,9 +37,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # Three-valued on purpose: 0 healthy, 1 the lane is FAILING, 2 CANNOT
+      # MEASURE. Both 1 and 2 red the job, because both need a human — but the
+      # annotations say which, and a watcher that cannot measure must never be
+      # mistaken for one reporting healthy.
       - name: Report the release-tag lane state
-        run: python3 scripts/release-lane-watch.py release-tag.yml
+        run: |
+          python3 scripts/release-lane-watch.py release-tag.yml && exit 0
+          rc=$?
+          if [ "$rc" = "2" ]; then
+            echo "::warning::release-tag lane could not be measured — this is NOT a healthy verdict"
+          else
+            echo "::error::release-tag lane is persistently failing"
+          fi
+          exit "$rc"
 
       - name: Report the release-readiness lane state
         if: always()
-        run: python3 scripts/release-lane-watch.py release-readiness.yml
+        run: |
+          python3 scripts/release-lane-watch.py release-readiness.yml && exit 0
+          rc=$?
+          if [ "$rc" = "2" ]; then
+            echo "::warning::release-readiness lane could not be measured — this is NOT a healthy verdict"
+          else
+            echo "::error::release-readiness lane is persistently failing"
+          fi
+          exit "$rc"
