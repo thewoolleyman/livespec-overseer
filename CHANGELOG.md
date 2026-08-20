@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.5.0...v1.5.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* cover single-rule claude idle borders ([b75ad94](https://github.com/thewoolleyman/livespec-overseer/commit/b75ad94ec2579f901593d5a9293d75590157dd79))
+
 ## [1.5.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.4.2...v1.5.0) (2026-08-20)
 
 
