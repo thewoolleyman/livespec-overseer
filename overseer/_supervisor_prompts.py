@@ -89,6 +89,10 @@ def _resume_line(*, repo: str, epic: str | None) -> str:
     return plan_epic_resume(repo=repo, epic=epic)
 
 
+def _resolved_epic(*, epic: str | None) -> str | None:
+    return epic if registry.epic_is_resolved(epic=epic) else None
+
+
 def resume_for_track(*, track: registry.Track) -> str | None:
     """The runtime resume prompt for a track, or None when a plan track lacks its epic.
 
@@ -115,18 +119,14 @@ def resume_for_track(*, track: registry.Track) -> str | None:
             epic=track.epic,
         )
     if isinstance(track, registry.ForemanSeat):
-        epic = track.epic
-        if not registry.epic_is_resolved(epic=epic):
-            return None
-        return foreman_resume(repo=track.repo, epic=epic)
+        epic = _resolved_epic(epic=track.epic)
+        return foreman_resume(repo=track.repo, epic=epic) if epic is not None else None
     if isinstance(track, registry.GroomingSeat):
         return grooming_resume(repo=track.repo)
     if not isinstance(track, registry.PlanTrack):
         return None
-    epic = track.epic
-    if not registry.epic_is_resolved(epic=epic):
-        return None
-    return plan_epic_resume(repo=track.repo, epic=epic)
+    epic = _resolved_epic(epic=track.epic)
+    return plan_epic_resume(repo=track.repo, epic=epic) if epic is not None else None
 
 
 def launch_resume(*, track: registry.Track) -> str:
