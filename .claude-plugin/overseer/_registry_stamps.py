@@ -29,7 +29,9 @@ __all__: list[str] = [
     "read_notified_bands",
     "read_post_respawn",
     "read_resume_pending",
+    "read_resume_retry_attempts",
     "record_post_respawn",
+    "record_resume_retry_attempt",
     "set_resume_pending",
     "write_injection_stamp",
 ]
@@ -233,10 +235,54 @@ def read_resume_pending(
     return entry.get("resume_pending") is True
 
 
+def _retry_attempts_from(*, entry: dict[str, object]) -> int:
+    attempts = entry.get("resume_retry_attempts")
+    if isinstance(attempts, bool) or not isinstance(attempts, int):
+        return 0
+    return max(0, attempts)
+
+
+def read_resume_retry_attempts(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> int:
+    """Return failed retry ticks already spent for this ``resume_pending`` episode."""
+    data = _read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    entry = jsonio.as_object(value=data.get(_stamp_key(repo=repo, topic=topic)))
+    if entry is None or entry.get("resume_pending") is not True:
+        return 0
+    return _retry_attempts_from(entry=entry)
+
+
+def record_resume_retry_attempt(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> int:
+    """Increment and return the failed retry tick count for this pending episode."""
+    path = resolve_stamp_store(stamp_path=stamp_path)
+    with file_lock(target=path):
+        data = _read_stamp_data(path=path)
+        key = _stamp_key(repo=repo, topic=topic)
+        existing = jsonio.as_object(value=data.get(key))
+        if existing is None or existing.get("resume_pending") is not True:
+            return 0
+        entry: dict[str, object] = dict(existing)
+        attempts = _retry_attempts_from(entry=entry) + 1
+        entry["resume_retry_attempts"] = attempts
+        data[key] = entry
+        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
+        return attempts
+
+
 def set_resume_pending(
     *,
     repo: str,
     topic: str,
+    session_identity: str | None = None,
     stamp_path: str | os.PathLike[str] | None = None,
 ) -> None:
     """Record that a restart respawned the fresh session but its resume did not submit.
@@ -262,6 +308,8 @@ def set_resume_pending(
             # Legacy bare-float value: upgrade it to the dict shape, keeping `at`.
             legacy = jsonio.as_float(value=value)
             entry = {} if legacy is None else {"at": legacy}
+        if session_identity is not None and entry.get("session_identity") is None:
+            entry["session_identity"] = session_identity
         entry["resume_pending"] = True
         data[key] = entry
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")

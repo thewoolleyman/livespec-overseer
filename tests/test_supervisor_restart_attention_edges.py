@@ -52,6 +52,7 @@ def _drop_resume_pending(*, sup: supervisor.Supervisor) -> None:
     stamp_data = json.loads(stamp_path.read_text(encoding="utf-8"))
     stamp_entry = next(iter(stamp_data.values()))
     stamp_entry.pop("resume_pending", None)
+    stamp_entry.pop("resume_retry_attempts", None)
     stamp_path.write_text(json.dumps(stamp_data), encoding="utf-8")
 
 
@@ -127,9 +128,15 @@ def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retr
 
     assert sup.evaluate(track=track, act=True).status == "restarting"
     clock["now"] += 61.0
-    assert sup.evaluate(track=track, act=True).status == "restarting"
+    assert sup.evaluate(track=track, act=True).status == "restart-never-worked"
 
-    registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    _drop_resume_pending(sup=sup)
+    registry.set_resume_pending(
+        repo=str(repo),
+        topic=topic,
+        session_identity=f"claude:{session}:{topic}",
+        stamp_path=sup.stamp_path,
+    )
     fake.panes[session] = _capture_with_resume(resume="changed composer", ctx=100)
     retry = sup.evaluate(track=track, act=True)
     assert retry.status == "restarting"
@@ -160,8 +167,10 @@ def test_due_restart_never_worked_attention_does_not_suppress_retry(*, tmp_path,
 
     with contextlib.redirect_stderr(_io.StringIO()):
         due = sup.evaluate(track=track, act=True)
-    assert due.status == "restarting"
-    assert due.note == _supervisor_view.RESUME_PENDING_NOTE
+    assert due.status == "restart-never-worked"
+    assert due.note == (
+        "resume retry budget exhausted after 1 failed tick (8 Enter keystrokes); inspect pane"
+    )
     assert supervisor.needs_attention(row=due) is True
     assert not any(call[0] == "keys" for call in fake.calls)
     assert not fake.has(method="respawn")
@@ -203,12 +212,12 @@ def test_restart_never_worked_attention_clears_on_busy_and_rearms(*, tmp_path):
 
     assert [initial.status, first.status, repeated.status] == [
         "restarting",
-        "restarting",
-        "restarting",
+        "restart-never-worked",
+        "restart-never-worked",
     ]
     assert [busy.status, reset.status, second.status] == [
-        "restarting",
-        "restarting",
-        "restarting",
+        "restart-never-worked",
+        "restart-never-worked",
+        "restart-never-worked",
     ]
-    assert log.getvalue().count("resume line STILL not submitted after restart") == 4
+    assert log.getvalue().count("resume line STILL not submitted after restart") == 1

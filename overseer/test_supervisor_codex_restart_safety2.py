@@ -11,7 +11,6 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 import contextlib
 import io as _io
 
-import _supervisor_view
 import pytest
 import registry
 import signals
@@ -124,9 +123,9 @@ def test_restart_does_not_log_success_when_resume_unsubmitted(*, tmp_path):
 
 def test_submit_retry_never_kills_the_fresh_session(*, tmp_path):
     """The loop-safety property the Codex-#2 reasoning was protecting, now under the retry
-    path: while a resume stays un-submitted the daemon retries the Enter every tick but
-    NEVER respawns — so a still-valid `ready` can never re-fire `respawn-pane -k` and kill
-    the live fresh Claude in a loop. The row stays a NEEDS-YOU report until it resumes."""
+    path: while a resume stays un-submitted the daemon retries the Enter once and then reports
+    exhaustion but NEVER respawns — so a still-valid `ready` can never re-fire `respawn-pane -k`
+    and kill the live fresh Claude in a loop. The row stays a NEEDS-YOU report until it resumes."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -141,13 +140,12 @@ def test_submit_retry_never_kills_the_fresh_session(*, tmp_path):
         repo=str(repo), topic=topic, stamp_path=sup.stamp_path
     )  # already respawned; resume pending
 
-    for _ in range(3):
+    for expected in ("restarting", "restart-never-worked", "restart-never-worked"):
         with contextlib.redirect_stderr(_io.StringIO()):
             view = sup.evaluate(
                 track=mapped_track(repo=repo, topic=topic, session=session), act=True
             )
-        assert view.status == "restarting"
-        assert view.note == _supervisor_view.RESUME_PENDING_NOTE
+        assert view.status == expected
         assert supervisor.needs_attention(row=view)  # a stranded resume is a NEEDS-YOU row
         assert not fake.has(method="respawn")  # NEVER a respawn on the retry path
         assert (

@@ -109,6 +109,11 @@ SETTLE_DELAY = 0.6
 SUBMIT_MAX_ENTERS = 8
 SUBMIT_POLL = 0.5
 
+# A resume-pending episode may run exactly one failed `resend_enter` loop. That
+# loop is already bounded by SUBMIT_MAX_ENTERS, so the episode bound is
+# SUBMIT_MAX_ENTERS keystrokes total before the daemon reports instead.
+RESUME_RETRY_MAX_FAILED_TICKS = 1
+
 # Grace window before a stale `blocked:` declaration is voided on a generating
 # observation. The declaring turn's tail may keep the pane busy briefly after the file
 # write, so a young declaration survives; an older one is incompatible with observed

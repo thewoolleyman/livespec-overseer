@@ -143,7 +143,10 @@ def post_respawn_decision(
     if act:
         if _resume_stranded(sup=sup, track=track, obs=obs):
             registry.set_resume_pending(
-                repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
+                repo=track.repo,
+                topic=track.topic,
+                session_identity=obs.session_identity,
+                stamp_path=sup.stamp_path,
             )
         if active_conditions:
             _supervisor_liveness.clear_alert_conditions(

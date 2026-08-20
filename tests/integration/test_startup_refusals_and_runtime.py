@@ -347,15 +347,20 @@ def test_scenario_a_dropped_resume_submission_is_retried_without_a_second_kill(*
     assert signals.read_state(repo=str(repo), topic=topic) is not None  # the marker is KEPT
 
     enters = _enters(fake=fake, session=session)
-    for _ in range(3):  # later cycles: submission only
-        with contextlib.redirect_stderr(_io.StringIO()):
-            view = sup.evaluate(track=track, act=True)
-        assert view.status == "restarting"
-        assert view.note == _supervisor_view.RESUME_PENDING_NOTE
-        assert supervisor.needs_attention(row=view)  # still visible as needing attention
-        assert _enters(fake=fake, session=session) > enters  # another Enter...
-        enters = _enters(fake=fake, session=session)
-        assert len(_respawn_commands(fake=fake)) == 1  # ...and NO second kill
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=track, act=True)
+    assert view.status == "restarting"
+    assert view.note == _supervisor_view.RESUME_PENDING_NOTE
+    assert supervisor.needs_attention(row=view)  # still visible as needing attention
+    assert _enters(fake=fake, session=session) > enters  # retried Enter...
+    assert len(_respawn_commands(fake=fake)) == 1  # ...and NO second kill
+
+    enters = _enters(fake=fake, session=session)
+    with contextlib.redirect_stderr(_io.StringIO()):
+        exhausted = sup.evaluate(track=track, act=True)
+    assert exhausted.status == "restart-never-worked"
+    assert supervisor.needs_attention(row=exhausted)
+    assert _enters(fake=fake, session=session) == enters  # budget exhausted: no more Enter
 
     fake.panes[session] = idle_capture(ctx=95)  # the prompt finally lands
     with contextlib.redirect_stderr(_io.StringIO()):
@@ -407,7 +412,7 @@ def test_restarted_session_never_begins_work_retries_without_second_kill(*, tmp_
     clock["now"] += 61.0
     with contextlib.redirect_stderr(_io.StringIO()):
         due = sup.evaluate(track=track, act=True)
-    assert due.status == "restarting"
+    assert due.status == "restart-never-worked"
     assert supervisor.needs_attention(row=due) is True
     sup._refresh_window_name(attention=int(supervisor.needs_attention(row=due)))
     assert fake.window_name == "overseer(1!)"

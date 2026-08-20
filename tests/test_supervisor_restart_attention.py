@@ -67,6 +67,14 @@ def test_restarted_never_worked_session_retries_and_stays_visible_when_still_str
     assert signals.read_state(repo=str(repo), topic=topic) is None
     assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
+    registry.clear_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    _record_post_respawn(sup=sup, repo=str(repo), topic=topic, resume=resume)
+    registry.set_resume_pending(
+        repo=str(repo),
+        topic=topic,
+        session_identity=f"claude:{session}:{topic}",
+        stamp_path=sup.stamp_path,
+    )
     fake.panes[session] = idle_capture(ctx=99)
     cleared = sup.evaluate(track=track, act=True)
     assert supervisor.needs_attention(row=cleared) is False

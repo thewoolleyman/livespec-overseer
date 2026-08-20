@@ -37,6 +37,7 @@ import _supervisor_launch
 import _supervisor_state
 import registry
 import signals
+from _supervisor_config import RESUME_RETRY_MAX_FAILED_TICKS, SUBMIT_MAX_ENTERS
 from _supervisor_records import Observation
 from _supervisor_view import RESUME_PENDING_NOTE, RowView
 
@@ -44,6 +45,50 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = ["resume_retry"]
+
+
+def _report_retry_refused(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    obs: Observation,
+    session: str,
+    target: str,
+    note: str,
+) -> RowView:
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=session,
+        pane=target,
+        message=note,
+        condition="resume-retry-refused",
+    )
+    return RowView(
+        topic=track.topic,
+        repo=track.repo,
+        tmux=session,
+        ctx=obs.eff_ctx,
+        status="restart-never-worked",
+        note=note,
+        runtime=obs.runtime,
+    )
+
+
+def _identity_refusal(*, round_record: registry.RoundRecord, obs: Observation) -> str | None:
+    round_identity = round_record.session_identity
+    if round_identity is None:
+        return "resume retry refused: round session identity missing"
+    if obs.session_identity != round_identity:
+        return "resume retry refused: round session identity differs from live session"
+    return None
+
+
+def _budget_exhausted_note() -> str:
+    return (
+        f"resume retry budget exhausted after {RESUME_RETRY_MAX_FAILED_TICKS} failed tick "
+        f"({SUBMIT_MAX_ENTERS} Enter keystrokes); inspect pane"
+    )
 
 
 def resume_retry(
@@ -102,6 +147,17 @@ def resume_retry(
             note="structured gate on freshly-restarted pane",
             runtime=obs.runtime,
         )
+    round_record = registry.read_round_record(repo=repo, topic=topic, stamp_path=sup.stamp_path)
+    refusal = _identity_refusal(round_record=round_record, obs=obs)
+    if refusal is not None:
+        return _report_retry_refused(
+            sup=sup,
+            track=track,
+            obs=obs,
+            session=session,
+            target=target,
+            note=refusal,
+        )
     # Branch on the BOX STATE, not on `busy` (review SF3): a freshly-respawned session
     # can read busy for reasons unrelated to the resume (SessionStart hooks), so a
     # top-level `busy` shortcut would false-close the round while the resume is still
@@ -109,11 +165,22 @@ def resume_retry(
     # pasted) — the round is done here; the rare paste-failure re-engages via the
     # idle-with-context nudge, not a double-kick. A box holding TEXT means the Enter
     # was dropped — re-send Enter ONLY (never re-paste; the text is already there).
-    resolved = (
-        True
-        if signals.input_box_ready(capture_text=obs.capture)
-        else _supervisor_launch.resend_enter(sup=sup, target=target)
-    )
+    if signals.input_box_ready(capture_text=obs.capture):
+        resolved = True
+    else:
+        if (
+            registry.read_resume_retry_attempts(repo=repo, topic=topic, stamp_path=sup.stamp_path)
+            >= RESUME_RETRY_MAX_FAILED_TICKS
+        ):
+            return _report_retry_refused(
+                sup=sup,
+                track=track,
+                obs=obs,
+                session=session,
+                target=target,
+                note=_budget_exhausted_note(),
+            )
+        resolved = _supervisor_launch.resend_enter(sup=sup, target=target)
     if resolved:
         _supervisor_state.clear_state(
             sup=sup,
@@ -131,6 +198,7 @@ def resume_retry(
             status="restarting",
             runtime=obs.runtime,
         )
+    _ = registry.record_resume_retry_attempt(repo=repo, topic=topic, stamp_path=sup.stamp_path)
     # Still un-submitted: keep the round open (retry again next tick) and report it.
     sup.alert(
         repo=repo,

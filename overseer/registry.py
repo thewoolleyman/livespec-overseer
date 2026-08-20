@@ -87,7 +87,9 @@ from _registry_stamps import read_injection_stamp as read_injection_stamp
 from _registry_stamps import read_notified_bands as read_notified_bands
 from _registry_stamps import read_post_respawn as read_post_respawn
 from _registry_stamps import read_resume_pending as read_resume_pending
+from _registry_stamps import read_resume_retry_attempts as read_resume_retry_attempts
 from _registry_stamps import record_post_respawn as record_post_respawn
+from _registry_stamps import record_resume_retry_attempt as record_resume_retry_attempt
 from _registry_stamps import set_resume_pending as set_resume_pending
 from _registry_stamps import write_injection_stamp as write_injection_stamp
 from _registry_store import append_mapping as append_mapping
@@ -134,6 +136,7 @@ __all__: list[str] = [
     "read_notified_bands",
     "read_post_respawn",
     "read_resume_pending",
+    "read_resume_retry_attempts",
     "read_round_open_identity",
     "read_round_record",
     "read_valid_mapping",
@@ -142,6 +145,7 @@ __all__: list[str] = [
     "record_observed_session_identity",
     "record_post_respawn",
     "record_ready_expiry",
+    "record_resume_retry_attempt",
     "remove_mapping",
     "repo_root_present",
     "repo_slug",
