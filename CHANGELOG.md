@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.2.2...v1.3.0) (2026-08-20)
+
+
+### Features
+
+* add grooming conformance checks ([eab5eab](https://github.com/thewoolleyman/livespec-overseer/commit/eab5eab6ef53bcb45ee50a896e651e7cb1fad595))
+
 ## [1.2.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.2.1...v1.2.2) (2026-08-20)
 
 
