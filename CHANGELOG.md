@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.1.0...v1.2.0) (2026-08-20)
+
+
+### Features
+
+* support supervision opt-out and reserved decommission ([da22570](https://github.com/thewoolleyman/livespec-overseer/commit/da22570adeda8206c2dff68591f9c82dbc238c7e))
+
 ## [1.1.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.0.2...v1.1.0) (2026-08-20)
 
 
