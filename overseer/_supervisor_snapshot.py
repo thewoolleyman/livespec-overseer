@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import jsonio
 import registry
 from _supervisor_view import RowView, elide
+from version import APP_VERSION
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -115,9 +116,17 @@ def session_identity(*, sup: Supervisor, row: RowView) -> str:
     return f"tmux:{row.tmux}:{row.topic}"
 
 
+def daemon_package_payload() -> dict[str, object]:
+    return {
+        "package_dir": str(Path(__file__).resolve().parent),
+        "version": APP_VERSION,
+    }
+
+
 def document_payload(*, sup: Supervisor, rows: list[RowView]) -> dict[str, object]:
     return {
         "schema_version": SCHEMA_VERSION,
+        "daemon_package": daemon_package_payload(),
         "daemon_instance_id": sup.daemon_instance_id,
         "tick_generation": sup.tick_generation,
         "written_at": _written_at(timestamp=sup.now()),
