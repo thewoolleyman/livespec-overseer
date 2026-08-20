@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.5.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.4.2...v1.5.0) (2026-08-20)
+
+
+### Features
+
+* auto-resume the foreman loop on hard-tick-budget ([05c8a17](https://github.com/thewoolleyman/livespec-overseer/commit/05c8a1757aff6ce926d0092bd0de0e941dbf58b7))
+* cover foreman ledger mutations ([3f5d32a](https://github.com/thewoolleyman/livespec-overseer/commit/3f5d32a309155e69c47b4cd638407bed06101271))
+
+
+### Bug Fixes
+
+* bundle foreman act seams ([8d24fdf](https://github.com/thewoolleyman/livespec-overseer/commit/8d24fdff307be1e2d5b160e0d28c7f98a792e9bc))
+
+
+### Refactoring
+
+* extract the auto-resume backoff and declare the LLOC debt ([e7ebff4](https://github.com/thewoolleyman/livespec-overseer/commit/e7ebff437a62c3b49e7e798455189b626178fc52))
+
 ## [1.4.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.4.1...v1.4.2) (2026-08-20)
 
 
