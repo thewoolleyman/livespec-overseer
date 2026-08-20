@@ -854,66 +854,60 @@ proving it REPORTS a genuinely non-conforming row — a scan that quietly
 whitelists a status it should flag reports a clean tenant and is worse than no
 scan.
 
-### `bd create --ephemeral` DOES THE SAME THING, and the guard exempts it ON PURPOSE
+### RETRACTED: `bd create --ephemeral` does NOT block dispatch — `open` is auto-healed
 
-Measured 2026-08-19 on a live throwaway row. This is the same tenant-wide
-outage as the `--defer` trap above, reached through a different documented
-flag — and the guard that exists to prevent exactly this has an explicit
-carve-out that produces it.
+**This entry previously claimed the opposite, and the claim was wrong.** It is
+kept rather than deleted because the wrong version was published here and
+routed to another repo's foreman, who folded it into a tracked item as a third
+defect channel. A silent deletion would leave that claim circulating with
+nothing to find when someone came looking.
 
-**The chain, each link measured:**
+**What was claimed:** that `bd create --ephemeral` leaves a row at `open`, that
+bd-guard exempts ephemeral from its backlog normalization, that the
+conformance sweep has no ephemeral filter, and therefore that such a row
+refuses every dispatch in the tenant.
 
-1. `bd create --ephemeral "..."` returns a row at status **`open`**. Not a
-   display artifact — `bd show --json` reads `'status': 'open'` from the
-   database.
-2. **The guard deliberately does not normalize it.** `/usr/local/bin/bd`
-   forces ordinary creates to `backlog`, but its create-exclusion list is
-   `--ephemeral|--dry-run|--help|-h`, commented *"do not force"*. So the one
-   mechanism that would have made the row conforming is switched off for
-   precisely this flag.
-3. **The pre-dispatch sweep does not exempt it.** The `status-conformance`
-   check iterates active items and tests each against `ALLOWED_BEADS_STATUSES`;
-   its own docstring names beads' native `open`/`deferred` as the values that
-   "must not silently park dispatchable work in an unknown lane". There is no
-   ephemeral or wisp filter anywhere in that module.
+**What is actually true — measured in the dispatcher's own source:**
 
-So an ephemeral row sits `open` and outside the allowed set until it is closed
-or deleted, and — per the trap above — **one non-conforming row refuses EVERY
-dispatch in the repo.**
+- `_dispatcher_ledger_close.py` defines `_NATIVE_STATUS_REMAP` mapping `open` →
+  `backlog` and `in_progress` → `active`, and the apply function WRITES that
+  remap to the store.
+- `_dispatcher_ledger_gate.py` orders the work: load, plan the remaps, heal and
+  report, and only THEN run the ledger checks over the *projected* items. So
+  `open` is healed in place and never survives to become a residual
+  status-conformance finding.
+- Only KEY-MISSES block — `deferred`, hooked, ad-hoc, unknown. **That is why
+  the `--defer` trap above is real and this one is not.** The two statuses are
+  not interchangeable, and the whole error was assuming they were.
 
-**Why this is worth its own entry rather than a line on the `--defer` one.**
-`--ephemeral` reads as the *safe* choice. It is documented as "not exported to
-JSONL", which sounds like a row that stays out of everyone's way, so it is the
-natural thing to reach for when you need a disposable row — a probe, a scratch
-record, a test subject. It is the flag whose whole purpose is *not disturbing
-anything*, and it is the one that takes the factory down.
+**The design says so explicitly, and reading it first would have prevented
+this.** The gate's own docstring: *"On a SHARED tenant the two transient
+statuses appear CONTINUOUSLY (any active session's raw `bd create` lands
+`open`; any raw `bd update --claim` lands `in_progress`). A detect-and-fail
+gate blocks every session on any OTHER session's fresh transient item —
+constant cross-session friction."* An ephemeral row at `open` is precisely the
+case that design accommodates on purpose.
 
-**If you need a disposable row, delete it in the same breath.** `bd delete <id>`
-removes it permanently and reports the reference cleanup. Do not leave one
-parked over a break; the blast radius is every dispatch in the tenant, and the
-refusal names other people's ids, never yours.
+**What survives, and it is small.** Two measured facts still hold: the row IS
+created at `open`, and bd-guard DOES exempt `--ephemeral` from its own
+normalization. The consequence drawn from them does not, because a second layer
+heals what the first declines to. The only residue worth knowing is a curiosity
+rather than a hazard: a wisp row — documented as "not exported to JSONL", i.e.
+deliberately disposable — gets mutated to `backlog` in the store by the
+auto-heal on the next gate or dispatch run.
 
-**Census after any such probe**, which is one command and closes the loop:
+**Still delete a probe row when you are done with it.** That advice was right
+for the wrong reason. The reason is tidiness in a shared tenant, not blast
+radius.
 
-    bd list --all --json   # then count statuses against the seven allowed
-
-**What was NOT observed:** a dispatch actually being refused on an ephemeral
-row. The chain above is read from the guard's exclusion list and the checker's
-own iteration, plus a live row confirmed sitting at `open`. That is a strong
-chain and it is not the same as watching the refusal, so treat the blast-radius
-claim as inherited from the `--defer` trap — which WAS observed — rather than
-independently reproduced here.
-
-**Where it is tracked, and why that matters for the fix.** Folded into
-`bd-ib-cleg6g` (orchestrator tenant) as the THIRD route into the same
-conformance hard-block, alongside bd-native `deferred` and the clear-path
-intermediate above. All three are disposed of by ONE design decision — model
-the native statuses, or refuse them at the write boundary, but never the
-current shape where the write is allowed and the punishment is global, delayed
-and misattributed. So do not treat this as a separate defect needing its own
-fix, and in particular do not propose the narrow "teach the sweep to skip
-ephemeral" repair in isolation: it is one fork of a decision that has to be
-made once, for all three.
+**The method lesson, which is the reason this stays here.** The original entry
+*fenced itself correctly* — it stated in terms that a dispatch refusal had not
+been observed, and marked the blast radius as inherited from the `--defer` trap
+rather than reproduced. **The fence named exactly the leg that turned out to be
+false.** What was missing was the cheap follow-up the fence implied: read the
+dispatch path to see whether the refusal *could* occur, instead of assuming it
+transferred from a neighbouring status. A fence is only worth what you do about
+it, and an unactioned fence reads to everyone else as diligence.
 
 ### A LEDGER-EDIT item can never be factory-dispatched
 
