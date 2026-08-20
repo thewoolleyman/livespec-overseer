@@ -1,0 +1,651 @@
+# Feature inventory — every behavior `/caam-anthropic-loop` has today
+
+**Ledger anchor:** epic `overseer-54k2za`. All mutable plan state — status, next
+action, handoff entries — lives on that epic and its child items. This note is
+write-once research and is never authoritative about what remains.
+
+## Why this thread exists
+
+`/caam-anthropic-loop` is a working, maintainer-authored skill living in the
+**vps-info** repo at `.claude/skills/caam-anthropic-loop/SKILL.md` (1170 lines),
+documented in that repo's `AGENTS.md` §"Claude Max account switching: caam +
+`/caam-anthropic-loop`" (lines ~750–1035). It watches Claude Max quota across
+several caam-managed accounts, rotates the host-wide credential when the active
+account's window fills, and pins per-session models on `-foreman` tmux sessions.
+
+It works. It was also built as a deliberate best-effort pass, with the Python
+program **embedded inside the markdown skill file** and no tests of any kind. Its
+own author closed the AGENTS.md section with the instruction this thread executes:
+
+> This skill is coupled to `livespec-overseer` fleet conventions (the `-foreman`
+> naming). It should move to that repo and be rebuilt spec-first with red-green
+> tests; this pass is deliberately a working best-effort implementation, not the
+> final home.
+
+So this thread rebuilds it **here**, as a first-class `livespec-overseer` plugin
+skill alongside `foreman`, `grooming`, `overseer` and `supervise-plan` — spec
+first, red-green-replay per commit, and **feature-identical** to what the
+maintainer already owns and runs.
+
+The mandate is reproduction, not redesign. Every behavior below is a requirement
+carrier. The exit gate is an independent completeness review that walks this
+inventory item by item against the rebuilt implementation.
+
+## Provenance, and which source wins
+
+Three sources describe the skill, and **they do not agree**. Resolve conflicts in
+this order:
+
+| rank | source | why |
+|---|---|---|
+| 1 | the embedded Python program in `SKILL.md` | it is what actually runs |
+| 2 | `vps-info/AGENTS.md` §caam | maintained; matches the program |
+| 3 | the prose sections of `SKILL.md` | partly stale residue — see below |
+
+### The stale-prose trap — do NOT re-implement what §"How it decides" says about Fable
+
+`SKILL.md` §"How it decides" ¶3 describes a **two-tier Fable candidate
+selection**: tier 1 = candidates that still hold Fable quota, ranked by
+soonest-expiring *Fable*; tier 2 only when no candidate has Fable left; and an
+account with **zero Fable** "blocked no matter how much of its 5-hour window is
+free". The same section calls Fable "a separate, scoped allowance" that is
+"disqualifying at zero".
+
+**None of that is in the program, and it is not the current design.**
+
+- `is_eligible()` does not read `fable` at all. Its disqualifiers are
+  `seven_day >= 100` and `five_hour >= 100` only.
+- The candidate sort key is `resets_at(seven_day_resets_at)` alone. There is no
+  Fable tier and no Fable horizon in the ranking.
+- `binding()` documents in terms that "Fable deliberately triggers nothing."
+
+The commit history shows the supersession directly: `4deb285 feat(caam-loop):
+Fable carries 5-hour priority, two-tier candidate selection` was replaced by
+`2ef0876 feat(caam-loop): weekly outranks Fable; enforce models on -foreman
+sessions`. `AGENTS.md` records the surviving rule correctly — "account selection
+ignores Fable entirely: no tiering, no exclusion, and Fable never triggers a
+rotation. Fable decides only which *model* a session runs" — with the reasoning:
+Fable is **not a separate pool**, it caps how much of the weekly allowance one
+model may spend and draws down `weekly_all` too, so leaving Fable unused forfeits
+no capacity (it is still spendable via Opus) while leaving weekly unspent
+forfeits it for good.
+
+The rewrite of §"How it decides" was simply never landed with `2ef0876`. A
+rebuild that faithfully implements the documented text would resurrect a design
+the maintainer already rejected, and would strand perishable weekly balance.
+
+**Requirement: the rebuilt skill implements the program's rule (F7, G4, H1) and
+its own prose says so. The two-tier text is not carried forward.**
+
+A second, harmless residue in the same file: §"Output shape" repeats the sentence
+"The CURRENT column marks the account in use with ✅…" three times, each slightly
+truncated. An editing artifact, not three features.
+
+---
+
+# The inventory
+
+Each item is a requirement carrier with a stable id. Ids are referenced by the
+child work-items and by the exit-gate review.
+
+## A — Schedule self-installation
+
+The skill installs and owns its own recurring schedule. This is LLM-driven
+(harness tool calls), not part of the Python program.
+
+- **A1** Every invocation calls `CronList` **first**, before anything else.
+- **A2** If a recurring job already exists whose prompt starts
+  `/caam-anthropic-loop`, do **not** create another — note its job id and
+  continue. This is the normal case when the scheduled firing re-invokes the
+  skill, and skipping it is what stops the job breeding a duplicate every 30
+  minutes.
+- **A3** **Exception:** if that existing job's prompt lacks the `--scheduled`
+  marker (an older job, or one created by `/loop`), `CronDelete` it and create a
+  replacement carrying the marker. Without the marker every scheduled firing
+  looks like a manual run and would force a switch every 30 minutes.
+- **A4** Otherwise `CronCreate` with `cron: "7,37 * * * *"`, `prompt:
+  "/caam-anthropic-loop --scheduled"`, `recurring: true`.
+- **A5** After creating, tell the user the job id, that it fires every 30
+  minutes, and the two limits that otherwise bite silently: the job lives only
+  while this Claude session is open (closing the session or its tmux pane stops
+  reporting with **no error**), and recurring jobs **auto-expire after 7 days**.
+  Cancel early with `CronDelete <id>`.
+- **A6** Never wrap this skill in `/loop` — it schedules itself, and doing both
+  produces two overlapping jobs.
+- **A7** `7,37` is deliberate: off the `:00`/`:30` marks the whole fleet lands on.
+- **A8** Marking the **scheduled** side rather than the manual side is
+  deliberate. A missing marker then degrades to *forcing*, which is visible,
+  rather than to *never forcing*, which is silent.
+
+## B — Invocation mode and reporting
+
+- **B1** Invoked **with** `--scheduled` ⇒ the recurring job firing. Run the
+  program with no extra flags; the trigger applies.
+- **B2** Invoked **without** `--scheduled` ⇒ a human typed it. Run the program
+  with `--force`, which skips the trigger and takes the best available target
+  immediately.
+- **B3** A forced run still refuses to move to an account with *less* headroom
+  than the current one, and still skips any account with zero weekly quota. A
+  switch that loses ground is not what "force" should mean.
+- **B4** Show the user the table **verbatim** — it is the point of the turn, not
+  a detail to summarize away — then add the decision line. Quote its percentages
+  rather than paraphrasing them.
+- **B5** If the program prints `FAIL`, say so plainly and **stop**. Do not retry
+  with a lowered threshold and do not attempt a manual switch.
+- **B6** Flags: `--force` (bypass the 5-hour trigger), `--dry-run` (decide and
+  log without switching), `--no-models` (skip model enforcement).
+- **B7** To stop watching entirely: `CronDelete` the job id from A.
+
+## C — Usage polling
+
+- **C1** Source is `https://api.anthropic.com/api/oauth/usage` — undocumented,
+  used by the CLI itself.
+- **C2** Bearer auth with the OAuth access token and **no `anthropic-beta`
+  header**. Sending `oauth-2025-04-20` returns `401 OAuth access token is
+  invalid`, which reads like a bad token but is a bad header.
+- **C3** The `*_dollars` fields (`limit_dollars`, `used_dollars`,
+  `remaining_dollars`) are **`null` on Max plans**, so every quota figure is
+  derived from `utilization` percentages, never dollars.
+- **C4** The active profile is polled with the **live** credential at
+  `~/.claude/.credentials.json`; every other profile with its stored snapshot at
+  `<vault>/<profile>/.credentials.json`.
+- **C5** `read_creds(path)` returns `(access_token, expires_at_epoch_seconds)`
+  from the `claudeAiOauth` object, converting `expiresAt` from ms to s. Either
+  may be `None`. `OSError`/`KeyError`/`ValueError` ⇒ `(None, None)`.
+- **C6** `live_token(path)` refuses a token that is missing (`"no token in
+  snapshot"`) or already expired (`"token expired %.1fh ago"`), using a **60
+  second skew margin** (`exp <= time.time() + 60`).
+- **C7** `fetch_usage()` **never raises**. `HTTPError` ⇒ the response body's
+  `error.message`, else `"HTTP <code>"`. Any other exception ⇒
+  `"<TypeName>: <exc>"`. Request timeout is 30s.
+- **C8** Fable extraction: iterate `body["limits"]`, match `kind ==
+  "weekly_scoped"` **and** `scope.model.display_name == "Fable"`, take `percent`
+  and `resets_at`, then break. **Absence is not an error** — an account with no
+  such scoped limit reports `-`.
+- **C9** The usage record is exactly: `five_hour`, `seven_day` (utilization
+  floats), `five_hour_resets_at`, `seven_day_resets_at`, `fable`,
+  `fable_resets_at`. A shape that does not yield those ⇒ `"unexpected response
+  shape"`.
+- **C10** **The program never performs an OAuth refresh.** Polling is read-only
+  GETs only. Rotating a refresh token behind Claude Code's back can revoke the
+  whole token family and force a browser re-login — which is why `caam refresh`
+  itself refuses for claude (`token refresh disabled; Claude Code handles refresh
+  internally`).
+- **C11** Skipping a known-expired token (C6) is not an optimization, it is
+  correctness. Measured 2026-08-19 with three probes from the same IP at the same
+  instant: **expired token ⇒ 429** `rate_limit_error`, **garbage token ⇒ 401**
+  `authentication_error`, **live token ⇒ 200**. The live 200 rules out an
+  endpoint- or IP-level limit; the garbage 401 rules out "429 is just what a bad
+  token gets". The endpoint backs off a *specific* repeatedly-rejected token, so
+  **a loop that retries a dead token manufactures the error it reports**. Loop
+  interval has no bearing on this.
+- **C12** Cost of C10, accepted: an access token lasts ~8h from its last
+  activation, so an account left idle longer goes **dark** and shows `-`.
+  Accounts in regular rotation refresh themselves and stay pollable.
+
+## D — Profile enumeration and the reading cache
+
+- **D1** Vault is `~/.local/share/caam/vault/claude/<profile>/`.
+- **D2** Entries whose name starts `_` are **excluded**. caam writes its own
+  auto-backups there (e.g. `_original` from `auto_backup_before_switch`); they
+  are snapshots of another profile, not accounts, and must never be rotated onto
+  or shown as candidates.
+- **D3** Names are enumerated in sorted order.
+- **D4** If the active profile is not among them it is appended, so the active
+  account always appears.
+- **D5** A successful poll updates the cache `state["profiles"][name] = {"at":
+  now, **usage}` and the row's source is `"live"`.
+- **D6** A failed poll falls back to the cached reading when its age is
+  `<= CAAM_ROTATE_CACHE_MAX_AGE_S` (default **24h**); the source becomes
+  `"cached %.1fh"`.
+- **D7** With no usable cache the row is `usage=None`, source `"dark: <why>"`.
+- **D8** State file `~/.local/state/caam-usage-rotate/state.json`; directory mode
+  **0700**, file mode **0600**, written atomically (temp + `os.replace`) with
+  `indent=1, sort_keys=True`. Concurrent writers are last-writer-wins, which
+  costs a cached reading, never a corrupt file.
+
+## E — Identifying the active profile
+
+- **E1** `caam status --json` is consulted first: scan `tools[]` for the entry
+  whose `tool == "claude"` with a non-empty `active_profile`.
+- **E2** **It must never be depended on.** caam identifies the active profile by
+  byte-matching the live credential against each snapshot, and Claude Code
+  refreshes that token roughly every 8 hours as normal operation — after which it
+  matches nothing and caam omits `active_profile` entirely. Treating that as
+  fatal **stalled the loop for 3.5 hours on 2026-08-19**, failing identically
+  every tick with "could not determine active claude profile".
+- **E3** Fallback is identity, not bytes: `oauthAccount.accountUuid` from
+  `~/.claude.json`, matched against each snapshot's own `.claude.json` UUID. The
+  UUID survives token rotation, which is the whole point of using it.
+- **E4** The fallback scan applies D2 (skip `_`-prefixed) and sorted order.
+- **E5** If neither path resolves ⇒ `FAIL could not determine active claude
+  profile`, exit 2.
+
+## F — Triggers and the binding allowance
+
+- **F1** `THRESHOLD` = `CAAM_ROTATE_FIVE_HOUR_THRESHOLD`, default **85**
+  (percent *used*). **85, not 95:** the loop polls every 30 minutes and heavy
+  fleet use can cross the last 5% between two polls, blocking before the trigger
+  is ever seen.
+- **F2** `WEEKLY_RESERVE` = `CAAM_ROTATE_WEEKLY_RESERVE`, default **10** (percent
+  *remaining*). An account is stopped at 10% rather than run flat.
+- **F3** `MIN_GAIN` = `CAAM_ROTATE_MIN_HEADROOM_GAIN`, default **10** points.
+- **F4** `weekly_left(u)` is `100 - u["seven_day"]`.
+- **F5** `binding(usage)` returns `(dimension, spent, label)`:
+  `five_hour >= THRESHOLD` ⇒ `("five_hour", five_hour, "5-hour window")`;
+  else `weekly_left < WEEKLY_RESERVE` ⇒ `("seven_day", seven_day, "weekly
+  reserve")`; else the 5-hour default.
+- **F6** `triggered` is `five_hour >= THRESHOLD or weekly_left < WEEKLY_RESERVE`.
+- **F7** Candidates are compared **on whichever dimension triggered**. Comparing
+  on a dimension that is not the reason you are leaving is how you land somewhere
+  no better off.
+- **F8** **Fable triggers nothing.** See the stale-prose trap above for why.
+
+## G — Candidate eligibility
+
+- **G1** `is_eligible(u, current, gain_needed, dimension)` requires: `u` is not
+  `None`; both sides have the dimension; `(theirs - mine) >= gain_needed`;
+  `u["seven_day"] < 100` (nothing left to spend this week); `u["five_hour"] <
+  100` (cannot serve a request right now).
+- **G2** The headroom test is **relative on purpose**. An absolute "candidate
+  must be below the threshold" test strands you: with three accounts at 51–55%
+  used and a 50% bar, nothing qualifies, so the loop holds while the active
+  account climbs to 100% and blocks — refusing to touch two accounts that each
+  still hold half a window.
+- **G3** The margin also **makes flapping impossible**: a switch requires a
+  strict improvement, which the reverse move cannot match.
+- **G4** `is_eligible` does **not** consult Fable. A Fable-exhausted account
+  still spends its weekly allowance perfectly well via Opus, so excluding it
+  would strand the one quota that is genuinely forfeitable.
+- **G5** `gain_needed` is `0.01` under `--force`, else `MIN_GAIN`. Force relaxes
+  to "any strict improvement" — it never drops to zero (B3).
+- **G6** The candidate filter additionally requires `name != active`,
+  `source == "live"`, and `weekly_left(u) >= WEEKLY_RESERVE`.
+- **G7** **Reserve release.** If that yields nothing, the filter is re-run
+  *without* the reserve clause. Once every account is under the reserve it
+  protects nothing, so withholding them would strand everyone. When the retry
+  finds candidates, log `note: every account is under the N% weekly reserve --
+  releasing it`.
+- **G8** **`source == "live"` is a hard safety rule, not a preference.** A
+  `cached` or `dark` row means that snapshot's own access token could not be used
+  just now — and that is precisely the credential `caam activate` installs as the
+  host-wide login. On 2026-08-19 a switch onto a `cached 0.2h` profile wrote an
+  expired credential live and stopped **11 running sessions** with `Login expired
+  · Please run /login`. Post-switch verification cannot catch this: the switch
+  *did* stick, onto a dead token.
+- **G9** The deliberate consequence of G8: rotation **stalls** when every other
+  profile has gone dark (~8h without activation). The loop holds and prints the
+  revival recipe. A stalled rotation costs quota; a bad switch costs the fleet.
+
+## H — Ranking
+
+- **H1** Eligible candidates sort ascending by
+  `resets_at(seven_day_resets_at)` — **soonest weekly reset first** — and the
+  first is the target.
+- **H2** Rationale: spend the most perishable balance before it expires. Weekly
+  allowances reset on independent clocks, so a balance rolling over in 38h is
+  perishable while one with 141h of runway can be spent later. Ranking by *most
+  weekly remaining* hoards the perishable balance and forfeits it at the reset —
+  quota left on the table every week.
+- **H3** Measured 2026-08-19: Fable and weekly reset at the **same instant** on
+  every account, so this one key orders both and there is no separate Fable
+  horizon to weigh.
+- **H4** `resets_at()` returns `+inf` for a missing or unparseable timestamp, so
+  an unreadable reset time sorts **last** and is never mistaken for one about to
+  reset.
+- **H5** Weekly figures only **rank** candidates; they never disqualify one for
+  being low. Any account with headroom is a working account, and holding out for
+  a fuller one would leave you blocked for no gain. The only weekly disqualifier
+  is **zero** (G1).
+
+## I — Performing the switch
+
+- **I1** A non-blocking exclusive `flock` on
+  `~/.local/state/caam-usage-rotate/switch.lock` guards the switch. The loser
+  logs `hold: another caam-anthropic-loop holds the switch lock` and returns 0.
+- **I2** The lock guards the **decision**, not the write. caam writes the live
+  credential via temp-file + fsync + atomic rename at 0600, so it cannot be torn
+  even without the lock. Without the lock, two loops polling at the same moment
+  both see the active account over threshold and both call `caam activate`,
+  producing back-to-back switches off a stale view — and each switch
+  re-snapshots the outgoing profile, the exact window that can orphan a snapshot
+  and cost a browser re-login.
+- **I3** **Under the lock**, re-read the active profile. If it changed, log
+  `hold: active changed X -> Y while deciding; re-evaluating next tick` and
+  return 0 — the decision was made before the lock was held.
+- **I4** **Under the lock**, re-probe the target's stored credential with
+  `fetch_usage`. If it does not work now ⇒ `FAIL refusing to switch to <target>
+  -- its stored credential does not work right now (<why>). Installing it would
+  break every running session.`, exit 2. Cheap, and the alternative is a
+  host-wide outage.
+- **I5** Switch with `caam activate claude <target>` (timeout 60) — **never
+  `/login`**. caam re-snapshots the outgoing profile on the way out; `/login`
+  skips that and orphans the snapshot.
+- **I6** The lock is released in a `finally`, after `activate` returns and before
+  the stick-verification.
+- **I7** Non-zero return ⇒ `FAIL caam activate <target>: <stderr or stdout,
+  stripped>`, exit 2.
+- **I8** **Stick verification.** Compare the target snapshot's token against the
+  live credential's token; if both are present and differ ⇒ `FAIL switch to
+  <target> did not stick -- the live credential no longer matches the snapshot. A
+  running Claude session most likely refreshed its own token over the swap.
+  Re-run to retry.`, exit 2. ~20 sessions share this one credential file and each
+  rewrites it when its own token refreshes, so a refresh landing just after the
+  swap silently reinstates the old account. Nothing here can *prevent* that —
+  Claude Code does not take our lock — but a switch that did not take **must not
+  be reported as a success**.
+- **I9** On success record `state["last_switch"] = {"at", "from", "to"}`, save
+  state, **re-render the table with the new active profile** so `CURRENT` is not
+  stale, and log the `SWITCHED …` line.
+- **I10** Model enforcement then runs against the **new** account's usage — Fable
+  availability just changed.
+
+## J — Dry run
+
+- **J1** `--dry-run` decides and logs without switching: save state, print the
+  table, log `DRY-RUN would switch X -> Y (N% week left, resets in D -- soonest,
+  <source>)`, return 0. It returns before the lock is taken.
+- **J2** Within model enforcement, dry-run records `"<session> would
+  <model>-><want>"` and emits no keystrokes.
+
+## K — Effort re-assertion
+
+- **K1** `caam activate` restores `~/.claude/settings.json` from the profile
+  snapshot, and that file carries `effortLevel` — so **every rotation overwrites
+  the effort setting** with whatever that snapshot captured. The snapshots held a
+  mix of `low` and `high`, so rotating flipped it at random and new sessions kept
+  coming up on `low`.
+- **K2** `WANT_EFFORT` = `CAAM_ROTATE_EFFORT`, default `"high"`; `""` disables.
+- **K3** `EFFORT_ORDER` is ascending: `("low", "medium", "high", "xhigh",
+  "max")`.
+- **K4** **It is a FLOOR, not an exact value.** If the current value is in the
+  order and its index is `>=` that of `WANT_EFFORT`, leave it alone. It raises
+  `low`/`medium` back up and leaves `xhigh`/`max` untouched. The first version
+  **clamped**, and was caught pulling a deliberate `xhigh` down to `high` on
+  every tick.
+- **K5** It rewrites **only that one key**, preserving everything else in the
+  file — which also holds hooks, env, plugin and MCP config that must survive
+  untouched.
+- **K6** The write is atomic: temp file, `json.dump(indent=2)`, `chmod 0600`,
+  `os.replace`.
+- **K7** Failure is silent-safe: an unreadable or unparseable settings file
+  returns without acting; an `OSError` on write returns without acting.
+- **K8** A change logs `effort: settings.json effortLevel <was> -> <want> (raised
+  to the floor; a switch had reset it)`.
+- **K9** Effort enforcement runs **before** the `--no-models` early return, so
+  `--no-models` still re-asserts effort.
+- **K10** This is a *settings* write, not a keystroke — the picker's effort
+  control is never touched (see P16).
+- **K11** The `model` key in `settings.json` drifts exactly the same way (the
+  snapshots disagree: `claude-fable-5[1m]`, `opus[1m]`, `opus`), so a rotation
+  also changes the default model for new sessions. **Deliberately left alone**,
+  because per-session enforcement covers what matters.
+
+## L — Model enforcement: the rules
+
+Applied every tick, and again after any switch, against the **active account's**
+Fable balance.
+
+| # | rule |
+|---|---|
+| **L1** (1a) | tmux sessions whose name ends `-foreman` run **Fable** |
+| **L2** (1b) | …unless the active account's Fable is spent — then **Opus** |
+| **L3** (2a) | every other Claude session is left alone |
+| **L4** (2b) | …unless the active account's Fable is spent — then reset to **Opus** too |
+
+- **L5** `fable_left` is `fable is not None and fable < 100`. Note the
+  consequence: an account with **no Fable limit at all** (`fable is None`) counts
+  as *not* having Fable left, so foreman sessions are pointed at Opus.
+- **L6** `want_foreman` is `"fable"` if `fable_left` else `"opus"`.
+- **L7** Suffix matching is **exact** (`str.endswith`): `livespec-foreman`
+  matches, `foreman-improvements` does not.
+- **L8** Enforcement also runs on both **hold** paths (nothing triggered, and no
+  eligible candidate), not only after a switch.
+- **L9** A session already on the wanted model, or covered by the memo (N), is
+  skipped.
+
+## M — Model enforcement: identifying the session and its model
+
+- **M1** Sessions come from `tmux list-sessions -F '#{session_name}'`.
+- **M2** A pane is a Claude pane **iff** `CLAUDE_CODE_SESSION_ID` appears in its
+  process tree's environment. Anything else is skipped — never type into a shell.
+- **M3** `descendant_pids(root, depth=4)` walks breadth-first via `pgrep -P`,
+  depth-limited, including the root.
+- **M4** The pane pid comes from `tmux display-message -p -t <session>
+  '#{pane_pid}'` and must be all digits.
+- **M5** Each candidate pid's `/proc/<pid>/environ` is read as bytes, decoded
+  lossily, split on NUL, and scanned for the `CLAUDE_CODE_SESSION_ID=` prefix.
+- **M6** **The model is never read from the tmux status line.** A narrow pane
+  truncates that line, so status-line detection silently reported "not a Claude
+  pane" and **skipped those sessions from enforcement forever**.
+- **M7** `pane_model` locates the transcript by **session id**:
+  `~/.claude/projects/*/<sid>.jsonl`, reads only the **last 65536 bytes** (these
+  files reach hundreds of KB), scans lines for `message.model`, keeps the **last**
+  one found, and maps it through `MODEL_PREFIXES` — `claude-fable`→`fable`,
+  `claude-opus`→`opus`, `claude-sonnet`→`sonnet`, `claude-haiku`→`haiku`. An
+  unrecognized prefix yields `None`.
+- **M8** **Rejected alternative:** "newest transcript in the project directory".
+  Several sessions share a cwd, so it resolves to whichever session wrote last and
+  enforcement then reads *another session's* model.
+- **M9** A **resumed** session writes to a differently-named transcript, so the
+  model is often unreadable. **Unknown is treated as "may need setting", not
+  skipped** — that is what stopped narrow panes being skipped forever — bounded by
+  the memo (N).
+- **M10** The transcript records the model of the last assistant **message**, so a
+  model just changed on an idle session is not visible until it next does work.
+  The memo covers that gap.
+
+## N — Model enforcement: the memo
+
+- **N1** `SET_SUPPRESS_S` = `CAAM_ROTATE_SET_SUPPRESS_S`, default **3600** (one
+  hour).
+- **N2** `recently_set(state, session, want)` is true when
+  `state["models"][session]` records the same `want` within the window.
+- **N3** Without it, a session idle after a switch never writes a new assistant
+  message, its transcript keeps reporting the **old** model, and every tick fires
+  the picker at it again.
+- **N4** A successful `set_model` records `state["models"][session] = {"want":
+  want, "at": now}`.
+
+## O — Model enforcement: the idle guard
+
+- **O1** `pane_is_idle` captures the pane, drops blank lines, scans the **last 6**
+  in reverse, and lets the first line starting with `❯` decide: idle **iff** that
+  line is exactly `❯`.
+- **O2** It is **the only guard**. Without it a keystroke lands inside whatever
+  half-typed prompt or picker the pane is showing.
+- **O3** It is not retry or recovery logic. A busy pane is simply skipped and
+  recorded as `<session> busy(<model>-><want>)` until the next tick.
+
+## P — Model enforcement: driving the picker
+
+- **P1** `send-keys -l "/model"` → sleep **0.4** → `send-keys Enter` → sleep
+  **1.5**.
+- **P2** Capture the pane and parse rows under the `Select model` header.
+- **P3** `picker_rows(screen, header)` finds the **last** occurrence of the header
+  (`rfind`) and applies `^[^0-9\n]*?(\d+)\.\s+(\S.*)$` multiline to the text
+  **after** it.
+- **P4** **Menu parsing is scoped to the menu.** Scanning the whole pane matches
+  ordinary numbered lines in the transcript above the prompt — not hypothetical: a
+  pane whose conversation contained a numbered list had those lines parsed as menu
+  rows, the cursor offset computed from them, and the session **repeatedly
+  switched to Haiku**.
+- **P5** The currently highlighted row is read back with `❯\s*(\d+)\.` over the
+  same post-header slice.
+- **P6** `row_for_model(rows, want)` matches on a **word boundary**, case
+  insensitively, in **two passes**: first against each row's **label** (the row
+  text split on runs of 2+ spaces, first field), then anywhere in the row.
+- **P7** **Rows are matched by model NAME, never by position** — menu order is
+  Anthropic's to change, and a reordering would otherwise silently select the
+  wrong model with no signal but the wrong model appearing next tick.
+- **P8** The two-pass order matters: several rows describe the same underlying
+  model — "Default (recommended)" is described as "Opus 5 with 1M context" just as
+  "Opus (1M context)" is — and the **explicitly-labelled** row is the one a caller
+  asking for `opus` means.
+- **P9** If the picker did not open, the highlight is unreadable, or the wanted
+  model is absent ⇒ send **Escape** and return, rather than firing stray keys into
+  whatever is on screen or guessing at a row.
+- **P10** Cursor movement is `(target - here) % len(rows)` **Down** presses.
+- **P11** **The picker wraps**, so there is no walking to a known start position.
+  Walking "up six times to reach the top" of a five-row list lands on row 2, not
+  row 1 — it silently re-selected the model already in use. Both the target row
+  and the highlighted row are read back from the open menu and the cursor moved by
+  the difference, modulo the list length.
+- **P12** Sleep **0.3** → `send-keys -l "s"` (session only).
+- **P13** Sleep **1.2**, re-capture. If `Switch model?` is absent, done.
+- **P14** **Pressing `s` is not the end of the flow.** A conversation already
+  cached for the current model raises a second `Switch model?` dialog, and the
+  pane accepts **no input** until it is answered. Fresh scratch sessions never
+  show it, so testing on disposable panes **structurally cannot** catch it — 15
+  live panes blocked at once when this was missed.
+- **P15** The second dialog is answered **by name**, same as the picker: parse its
+  rows, read its highlight, find the row matching `^Yes\b` (case-insensitive), move
+  by the modular difference, sleep **0.2**, `Enter`. If rows, highlight or the Yes
+  row are missing, return without acting.
+- **P16** **INVARIANT: never emit `Left`/`Right`** (or Home/End/PageUp/PageDown).
+  The picker carries an **effort** selector adjusted with `←/→` **on the same
+  dialog** as the model rows. Up/Down move between model rows and are safe; a
+  stray horizontal arrow would silently change the effort level and nothing in the
+  program would notice. The full emitted key set is: the `/model` text, `Down`,
+  `s`, `Enter`, `Escape`.
+- **P17** **`/model <name>` is not a shortcut.** It works in one shot but reports
+  *"saved as your default for new sessions"* — it sets the global default, not the
+  session, which is why the picker plus `s` is used instead.
+- **P18** Best effort by design: **no verification, no retry bookkeeping, no
+  recovery**. If the pane is busy, the picker does not open, or the keystrokes land
+  badly, the attempt is lost and the next tick tries again.
+- **P19** tmux is invoked as the absolute `/usr/bin/tmux`, never bare `tmux`.
+- **P20** `tmux_out` returns stdout on return code 0, else `""`, swallowing
+  exceptions, with a 15s timeout.
+
+## Q — Isolation of model enforcement
+
+- **Q1** Each session's work is wrapped **per session**: a failure records
+  `<session> SKIPPED(<ExcType>)` and the sweep continues. One unreadable or
+  misbehaving session must not stop the sweep.
+- **Q2** The whole pass is wrapped again: a failure logs `models: enforcement
+  failed (<Type>: <exc>) -- table and rotation unaffected`.
+- **Q3** Neither can take down the usage table or the account rotation. Enforcement
+  is advisory.
+- **Q4** `--no-models` skips the sweep (but not effort — K9).
+- **Q5** The pass ends with `models: foremen want <want> (active account Fable
+  left|EXHAUSTED)` followed by `; <comma-joined actions>` or `; nothing to
+  change`.
+
+## R — The table
+
+- **R1** Columns, in order: `PROFILE`, `CURRENT`, `5H`, `5H RESET`, `WEEK`,
+  `WEEK RESET`, `FABLE`, `FABLE RESET`, `SOURCE`.
+- **R2** Header format `"%-13s %-*s %7s %13s %9s %13s %10s %13s   %s"` with
+  `CURRENT_COL = 8`; data rows `"%-13s %s %6.0f%% %13s %8.0f%% %13s %9s %13s   %s"`.
+- **R3** Quota columns are **remaining** (`100 - utilization`), not used.
+- **R4** Reset columns are **time until** the window rolls over — relative, not an
+  absolute UTC instant. "How long have I got" is the question being asked, and a
+  wall-clock instant makes the reader do the subtraction.
+- **R5** `CURRENT` marks the active account with ✅.
+- **R6** `current_cell` pads by **display width**: the check mark is one Python
+  character but occupies **two terminal cells**, so `%-8s` would leave the column
+  one cell short on the active row and misalign every column to its right. The
+  padding is `mark + " " * (8 - (2 if active else 0))`.
+- **R7** A row with no usage renders `-` in every quota and reset column, with its
+  source text intact.
+- **R8** A missing Fable limit renders `-`; otherwise `100 - fable` as `%.0f%%`.
+- **R9** A blank line precedes and follows the table.
+- **R10** `fmt_duration` drops units **from the left** when zero: `%dd %dh %dm`
+  when there are days, `%dh %dm` when there are hours, else `%dm`. Negative
+  clamps to 0.
+- **R11** `until(iso)` renders `-` for a missing or unparseable timestamp.
+- **R12** The first line is `<stamp>  triggers: 5h-remaining < N% or
+  weekly-remaining < N% (candidate must gain >=N pts)` where the stamp is
+  `%Y-%m-%dT%H:%M:%SZ` in UTC.
+- **R13** After a successful switch the table is **re-rendered** against the new
+  active profile so `CURRENT` is not stale.
+
+## S — Decision lines and exit codes
+
+- **S1** Not triggered, not forced ⇒ `hold: <label> is the binding allowance and
+  still has N% left (weekly N%, reserve N%)`, exit **0**.
+- **S2** Forced but not triggered ⇒ `forced: ignoring the N% trigger, rotating to
+  the best target now`.
+- **S3** Triggered ⇒ `trigger: <label> -- N% spent, weekly N% left -- comparing
+  candidates on <dimension>`.
+- **S4** No eligible candidate ⇒ `hold: no candidate has >=N.NN points more
+  <dimension> headroom than <active> (all similarly spent, exhausted, or
+  unverifiable)`, exit **0**. If any non-live rows exist, additionally: `note:
+  <names> could not be verified live and were not considered. Revive with: caam
+  activate claude <name>; claude -p ok; caam backup claude <name>` — a deliberate
+  stall, not a failure.
+- **S5** Successful switch ⇒ `SWITCHED X -> Y (5h left was N%; target has N% week
+  left resetting in D -- soonest, <source>)`, exit **0**.
+- **S6** **Fail-loud contract.** Every failure path prints a line starting `FAIL`
+  and exits **2**.
+- **S7** A single top-level catch turns any unexpected exception into `FAIL
+  <Type>: <exc>` and exit 2 — so a missing `caam` binary or an unwritable state
+  dir can never look like a quiet success, and never surfaces as a bare traceback
+  that could be mistaken for one.
+- **S8** The `FAIL` cases are exactly: no active profile (E5); no profiles found
+  in the vault; usage unreadable for the active profile; the target credential
+  fails its under-lock probe (I4); `caam activate` returns non-zero (I7); the
+  switch did not stick (I8).
+- **S9** State is saved before every return path.
+
+## T — Concurrency contract
+
+- **T1** Run **one** watcher. Several are *safe* but wasteful.
+- **T2** Polling is read-only, so any number of sessions can print the table.
+- **T3** Switching is serialized by the non-blocking `flock`; the winner re-reads
+  the active profile **under the lock** and abandons a switch whose premise
+  changed.
+- **T4** Known-unfixed and accepted: a hand-run `caam activate` takes no lock; the
+  decision rests on usage readings a few seconds old; and cron jobs are **not
+  deduplicated across sessions** — `CronList` is per-session and in-memory, so N
+  sessions running the skill means N independent 30-minute schedules. That is safe
+  (the lock serializes switching) but it multiplies polling, and the usage endpoint
+  does back off under load.
+- **T5** The one that bites — a running session rewriting the credential when its
+  own token refreshes, silently reinstating the old account — **cannot be
+  prevented from here**, so the loop verifies after switching and reports `FAIL …
+  did not stick` rather than lying.
+
+## U — Host facts the skill assumes (context; not re-implemented here)
+
+Recorded so the rebuild's tests can fake them deliberately rather than
+accidentally, and so the review can tell "not implemented" from "out of scope".
+
+- **U1** `caam` is a standalone static Go binary at `~/.local/bin/caam`
+  ("Coding Agent Account Manager"). It was originally installed by
+  agent-flywheel/acfs, which is otherwise abandoned on the host; using it does not
+  revive acfs.
+- **U2** **Version matters.** The acfs-installed 0.1.0 was silently broken for
+  Claude: it looked for the credential at `~/.claude.json` and
+  `~/.config/claude-code/auth.json`, while Claude Code stores it at
+  `~/.claude/.credentials.json` (key `claudeAiOauth`) — a path absent from that
+  binary entirely, so `caam backup claude` captured settings files and **no
+  token**. Verify any version with `caam paths`, which must list
+  `~/.claude/.credentials.json` as `(required)`.
+- **U3** The vault is a **credential store** holding live refresh tokens
+  (0700/0600). Config lives at `~/.caam/config.yaml`, with
+  `safety.auto_backup_before_switch: smart`.
+- **U4** **A switch moves the whole host.** `~/.claude/.credentials.json` is shared
+  by every Claude process. New sessions pick the new account up immediately;
+  already-running sessions keep their in-memory token until it refreshes or they
+  restart, so they keep spending the *old* account's quota for a while.
+- **U5** `caam activate` restores `~/.claude.json` **verbatim** — 206 KB of live
+  per-project session state that running sessions write to constantly, so a switch
+  can clobber recent state there. `settings.json` is merged, carrying live plugin
+  keys forward.
+- **U6** **The profile name does not encode the email.** Verify identity from the
+  snapshot's `oauthAccount.emailAddress` rather than trusting the label — a login
+  that silently landed on an already-captured account is otherwise invisible.
+- **U7** **Snapshot capture timing is load-bearing.** Capture right after a login
+  or activation, never at the tail of a long session: one profile was captured with
+  11.6 minutes left on its access token, the live session refreshed a minute later
+  and rotated the refresh token, and the snapshot became unusable — costing a
+  browser re-login.
+- **U8** `caam ls` mis-renders EMAIL as `n/a` and PLAN as `Pro` for these Max
+  accounts (a cosmetic 0.1.16 bug); `.credentials.json` correctly reports
+  `subscriptionType: max`. Its health colour is computed from the *access* token,
+  so a red row means "snapshot older than 8h", not "account unhealthy".
+- **U9** The vault is **not restore-safe**. Losing it costs a few browser logins,
+  which is cheap; restoring stale token snapshots from a backup is worse than
+  re-minting.
