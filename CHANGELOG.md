@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.2.1...v1.2.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* expose grooming seats in tick ([58518e4](https://github.com/thewoolleyman/livespec-overseer/commit/58518e464e980f897fa97509546a34d655acbeae))
+
 ## [1.2.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.2.0...v1.2.1) (2026-08-20)
 
 
