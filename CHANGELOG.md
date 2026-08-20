@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v0.64.2...v1.0.0) (2026-08-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* add grooming prose contract
+
+### Documentation
+
+* add grooming prose contract ([4ac61b0](https://github.com/thewoolleyman/livespec-overseer/commit/4ac61b03dc8753384f246e24844426c548397212))
+
 ## [0.64.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.64.1...v0.64.2) (2026-08-20)
 
 
