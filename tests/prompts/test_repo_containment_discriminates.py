@@ -22,15 +22,58 @@ The remedy, by contrast, is asserted UNCONDITIONALLY: it must halt everywhere.
 
 from __future__ import annotations
 
+import importlib
 import os
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol, cast
+
+import pytest
 
 __all__: list[str] = []
 
 _PASS = "PASS"
 _HALT = "HALT"
+_PROMPT_TMUX_MODULE = Path(__file__).resolve().parents[2] / "overseer" / "prompt_tmux.py"
+
+
+class _PromptTmuxModule(Protocol):
+    def wait_for_pane_current_path(
+        self,
+        *,
+        tmux: Callable[..., subprocess.CompletedProcess[str]],
+        target: str,
+        expected: Path,
+        timeout_s: float = 2.0,
+        poll_interval_s: float = 0.05,
+    ) -> str: ...
+
+
+def _prompt_tmux_module() -> _PromptTmuxModule:
+    assert _PROMPT_TMUX_MODULE.is_file()
+    return cast(_PromptTmuxModule, importlib.import_module("overseer.prompt_tmux"))
+
+
+def _assert_pane_current_path(
+    *,
+    tmux: Callable[..., subprocess.CompletedProcess[str]],
+    target: str,
+    expected: Path,
+    timeout_s: float = 2.0,
+    poll_interval_s: float = 0.05,
+) -> str:
+    live = _prompt_tmux_module().wait_for_pane_current_path(
+        tmux=tmux,
+        target=target,
+        expected=expected,
+        timeout_s=timeout_s,
+        poll_interval_s=poll_interval_s,
+    )
+    assert live == str(
+        expected
+    ), f"pane_current_path for {target} did not become {expected}; last value was {live!r}"
+    return live
 
 
 def _readlink(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -126,13 +169,72 @@ def test_the_pane_cwd_the_forms_receive_comes_from_a_real_tmux_pane(
     repo = tmp_path / "repo"
     repo.mkdir()
     tmux("new-session", "-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(repo))
-    live = tmux("display-message", "-p", "-t", "=wk:", "#{pane_current_path}").stdout.strip()
-    assert live == str(repo)
+    live = _assert_pane_current_path(tmux=tmux, target="=wk:", expected=repo)
     assert containment_proposed(pane_cwd=live, repo=repo, cwd=repo) == _PASS
 
     absent = tmux("display-message", "-p", "-t", "=nope:", "#{pane_current_path}").stdout.strip()
     assert absent == ""
     assert containment_proposed(pane_cwd=absent, repo=repo, cwd=repo) == _HALT
+
+
+def test_pane_current_path_waits_through_a_shell_startup_transient(*, tmp_path: Path) -> None:
+    expected = tmp_path / "repo"
+    transient = "/home/ubuntu/.oh-my-zsh"
+    observed = [transient, str(expected)]
+
+    def _tmux(*args: str) -> subprocess.CompletedProcess[str]:
+        value = observed.pop(0) if observed else str(expected)
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{value}\n", stderr="")
+
+    live = _assert_pane_current_path(
+        tmux=_tmux,
+        target="=wk:",
+        expected=expected,
+        timeout_s=0.1,
+        poll_interval_s=0.01,
+    )
+
+    assert live == str(expected)
+    assert observed == []
+
+
+def test_pane_current_path_does_not_accept_an_absent_pane(*, tmp_path: Path) -> None:
+    def _tmux(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout="\n", stderr="")
+
+    with pytest.raises(AssertionError) as exc_info:
+        _assert_pane_current_path(
+            tmux=_tmux,
+            target="=nope:",
+            expected=tmp_path,
+            timeout_s=0.02,
+            poll_interval_s=0.01,
+        )
+
+    assert "last value was ''" in str(exc_info.value)
+
+
+def test_pane_current_path_does_not_accept_a_wrong_pane_that_never_settles(
+    *, tmp_path: Path
+) -> None:
+    mine = tmp_path / "mine"
+    theirs = tmp_path / "theirs"
+
+    def _tmux(*args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=args, returncode=0, stdout=f"{theirs}\n", stderr="")
+
+    with pytest.raises(AssertionError) as exc_info:
+        _assert_pane_current_path(
+            tmux=_tmux,
+            target="=wk:",
+            expected=mine,
+            timeout_s=0.02,
+            poll_interval_s=0.01,
+        )
+
+    message = str(exc_info.value)
+    assert str(theirs) in message
+    assert "last value was" in message
 
 
 def _tmux_on(socket: str, *args: str) -> subprocess.CompletedProcess[str]:
@@ -191,8 +293,7 @@ def test_the_rigs_socket_is_not_shared_with_a_concurrent_run(
     _tmux_on(rival, "new-session", "-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(theirs))
     try:
         tmux("new-session", "-d", "-s", "wk", "-x", "80", "-y", "20", "-c", str(mine))
-        live = tmux("display-message", "-p", "-t", "=wk:", "#{pane_current_path}").stdout.strip()
-        assert live == str(mine)
+        _assert_pane_current_path(tmux=tmux, target="=wk:", expected=mine)
     finally:
         _tmux_on(rival, "kill-server")
         _tmux_socket_path(socket=rival).unlink(missing_ok=True)
