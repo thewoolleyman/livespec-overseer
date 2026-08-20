@@ -108,7 +108,7 @@ def _apply_uncertifiable_ready(
     return "ready-uncertifiable", ready_note
 
 
-def _idle_room_or_recovered(*, request: IdleRequest) -> str:
+def _idle_room_or_recovered(*, request: IdleRequest) -> tuple[str, bool]:
     if request.act and _supervisor_round_recovery.close_recovered_round(
         request=_supervisor_round_recovery.RecoveryRequest(
             sup=request.sup,
@@ -119,7 +119,7 @@ def _idle_room_or_recovered(*, request: IdleRequest) -> str:
             threshold=request.threshold,
         )
     ):
-        return "idle"
+        return "idle", True
     if request.act:
         _ = _supervisor_threshold.maybe_send_expiry_notice(
             request=_supervisor_threshold.ThresholdRequest(
@@ -146,7 +146,7 @@ def _idle_room_or_recovered(*, request: IdleRequest) -> str:
             act=request.act,
             is_codex=request.obs.is_codex,
         )
-    )
+    ), False
 
 
 def _threshold_or_expiry_notice_decision(
@@ -288,7 +288,13 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         note, ready_conditions = request.uncertifiable_ready
         active_conditions.update(ready_conditions)
     else:
-        status = _idle_room_or_recovered(request=request)
+        status, settled_streaming_progress = _idle_room_or_recovered(request=request)
+        return IdleDecision(
+            status=status,
+            note=note,
+            active_conditions=active_conditions,
+            settled_streaming_progress=settled_streaming_progress,
+        )
     return IdleDecision(
         status=status,
         note=note,

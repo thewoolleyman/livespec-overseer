@@ -398,6 +398,21 @@ live background shell under the pane's process), a verified idle-input pane, a
 **settled** pane (two captures compared), and a process-identity check that the
 pane really is our session in our repo.
 
+**A successor identity with no live session declaration resets the round, not the
+interlock.** The identity check above still fails closed for any session-declared
+`ready`: a declaration whose live identity differs from the round-open identity
+is surfaced and cannot authorize a restart. That rule is about declarations. A
+different case is an open round whose pane has been replaced out of band and
+whose state file is absent or holds only a daemon-authored diagnostic such as
+`ready-expired`, `restarted`, `idle-nudge-cleared`, or `blocked-voided`. There is
+no session declaration to preserve in that case, and the persisted round belongs
+to a predecessor, so the daemon closes the round by clearing the stamp, notified
+bands, expiry floor, expiry-notice flag, and round-open identity, and logs both
+the predecessor and live identities. The state diagnostic is left visible. The
+next below-threshold observation opens a fresh current-session round and sends
+the 50% wrap-up to the successor. The same closure applies to plan tracks and to
+foreman, grooming, and supervisor seats.
+
 **Ready arms until idle, then EXPIRES.** If a session declares `ready` and then
 emits more output, the declaration is not voided. The restart path is still gated
 on a verified idle-input pane, a settled capture, no busy markers, and a matching

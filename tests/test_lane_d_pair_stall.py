@@ -3,9 +3,11 @@
 import contextlib
 import io as _io
 
+import _supervisor_pair_stall
 import pytest
 import registry
 import signals
+from _supervisor_view import RowView
 from test_supervisor_builders import (
     busy_capture,
     codex_idle_capture,
@@ -176,6 +178,14 @@ def test_worker_progress_resets_consecutive_nudged_episode_ladder(*, tmp_path):
             id="gate",
         ),
         pytest.param(
+            "input-not-ready",
+            lambda *, fake, supervisor_session, repo: fake.panes.__setitem__(
+                supervisor_session,
+                "No prompt is ready yet.\n  Ctx: 77% left\n",
+            ),
+            id="input-not-ready",
+        ),
+        pytest.param(
             "open-round",
             lambda *, fake, supervisor_session, repo: registry.write_injection_stamp(
                 repo=str(repo),
@@ -208,6 +218,52 @@ def test_pair_nudge_composes_each_act_guard(*, tmp_path, name, mutate):
         _ = sup.tick(act=True)
 
     assert pair_nudge_count(fake=fake) == 0, name
+
+
+def test_pair_nudge_row_guard_rejects_still_open_round(*, tmp_path):
+    clock = {"t": 1000.0}
+    sup, fake, repo, topic, worker_session, supervisor_session = paired_supervisor(
+        tmp_path=tmp_path,
+        worker_capture=idle_capture(ctx=82),
+        supervisor_capture=idle_capture(ctx=77),
+        now=lambda: clock["t"],
+    )
+    track = mapped_track(repo=repo, topic=topic, session=worker_session)
+    worker_view = RowView(
+        topic=topic,
+        repo=str(repo),
+        tmux=worker_session,
+        ctx=82,
+        status="idle",
+        runtime="claude",
+    )
+    supervisor_view = RowView(
+        topic=supervisor_session,
+        repo=str(repo),
+        tmux=supervisor_session,
+        ctx=77,
+        status="idle",
+        runtime="claude",
+        round_open=True,
+    )
+
+    _supervisor_pair_stall.evaluate_pair_stall(
+        sup=sup,
+        track=track,
+        worker_view=worker_view,
+        supervisor_view=supervisor_view,
+        act=True,
+    )
+    clock["t"] += PAIR_FLOOR + 1
+    _supervisor_pair_stall.evaluate_pair_stall(
+        sup=sup,
+        track=track,
+        worker_view=worker_view,
+        supervisor_view=supervisor_view,
+        act=True,
+    )
+
+    assert pair_nudge_count(fake=fake) == 0
 
 
 def test_codex_supervisor_is_not_pair_nudged(*, tmp_path):

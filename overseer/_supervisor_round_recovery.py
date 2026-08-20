@@ -1,4 +1,4 @@
-"""Recovered-round closure for compacted sessions back above threshold."""
+"""Safe closure of delivered rounds that no longer belong to the live session."""
 
 from __future__ import annotations
 
@@ -36,19 +36,49 @@ def _state_permits_recovery(*, repo: str, topic: str) -> bool:
     return not signals.state_path(repo=repo, topic=topic).exists()
 
 
-def _observation_permits_recovery(*, request: RecoveryRequest, obs: Observation) -> bool:
+def _round_closure_common_permits(*, request: RecoveryRequest, obs: Observation) -> bool:
+    observed = obs.declared
     return (
-        isinstance(request.track, registry.PlanTrack)
-        and obs.round_record.at is not None
+        obs.round_record.at is not None
         and obs.round_record.malformed_reason is None
-        and obs.eff_ctx is not None
         and obs.ctx_stale_age is None
-        and obs.eff_ctx > request.threshold
         and not registry.read_resume_pending(
             repo=request.track.repo, topic=request.track.topic, stamp_path=request.sup.stamp_path
         )
         and _state_permits_recovery(repo=request.track.repo, topic=request.track.topic)
+        and (
+            observed is None
+            or (
+                signals.valid_token(token=observed.token)
+                and not signals.valid_session_token(token=observed.token)
+            )
+        )
     )
+
+
+def _observation_permits_recovery(*, request: RecoveryRequest, obs: Observation) -> bool:
+    return (
+        _round_closure_common_permits(request=request, obs=obs)
+        and obs.eff_ctx is not None
+        and obs.eff_ctx > request.threshold
+    )
+
+
+def _observation_permits_identity_reset(*, request: RecoveryRequest, obs: Observation) -> bool:
+    return (
+        obs.round_record.session_identity is not None
+        and obs.session_identity is not None
+        and obs.session_identity != obs.round_record.session_identity
+        and _round_closure_common_permits(request=request, obs=obs)
+    )
+
+
+def _closure_reason(*, request: RecoveryRequest, obs: Observation) -> str | None:
+    if _observation_permits_identity_reset(request=request, obs=obs):
+        return "identity-reset"
+    if _observation_permits_recovery(request=request, obs=obs):
+        return "recovered"
+    return None
 
 
 def _fresh_recovery_observation(*, request: RecoveryRequest) -> Observation | None:
@@ -67,14 +97,32 @@ def _fresh_recovery_observation(*, request: RecoveryRequest) -> Observation | No
         target=request.target,
         key=track_key(repo=request.track.repo, topic=request.track.topic),
     )
-    if not _observation_permits_recovery(request=request, obs=fresh):
+    if _closure_reason(request=request, obs=fresh) is None:
         return None
     return fresh
 
 
+def _log_closure(*, request: RecoveryRequest, final: Observation) -> None:
+    if _observation_permits_identity_reset(request=request, obs=final):
+        message = (
+            f"closed round for {request.track.repo}::{request.track.topic} "
+            "after live session identity changed "
+            f"(round={final.round_record.session_identity}; live={final.session_identity})"
+        )
+        _ = request.sup.out.write(f"{message}\n")
+        request.sup.log(message=message)
+        return
+    request.sup.log(
+        message=(
+            f"closed recovered round for {request.track.repo}::{request.track.topic} "
+            f"(ctx {final.eff_ctx}% > threshold {request.threshold}%)"
+        )
+    )
+
+
 def close_recovered_round(*, request: RecoveryRequest) -> bool:
-    """Close a delivered round whose context is known recovered above threshold."""
-    if not _observation_permits_recovery(request=request, obs=request.obs):
+    """Close a delivered round when fresh observations prove it is no longer current."""
+    if _closure_reason(request=request, obs=request.obs) is None:
         return False
     fresh = _fresh_recovery_observation(request=request)
     if fresh is None:
@@ -86,10 +134,5 @@ def close_recovered_round(*, request: RecoveryRequest) -> bool:
         repo=request.track.repo, topic=request.track.topic, stamp_path=request.sup.stamp_path
     )
     _ = request.sup.inject.pop(track_key(repo=request.track.repo, topic=request.track.topic), None)
-    request.sup.log(
-        message=(
-            f"closed recovered round for {request.track.repo}::{request.track.topic} "
-            f"(ctx {final.eff_ctx}% > threshold {request.threshold}%)"
-        )
-    )
+    _log_closure(request=request, final=final)
     return True
