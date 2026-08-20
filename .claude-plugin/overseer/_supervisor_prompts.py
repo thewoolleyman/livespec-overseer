@@ -106,19 +106,21 @@ def resume_for_track(*, track: registry.Track) -> str | None:
     deliberate override, and honoring it would resurrect exactly the pointer this chain
     exists to retire.
     """
-    if (topic := signals.topic_supervised_worker(topic=track.topic)) is not None:
+    if isinstance(track, registry.SupervisorSeat):
         return supervisor_resume(
             repo=track.repo,
-            topic=topic,
+            topic=track.supervised_topic,
             epic=track.epic,
         )
-    if signals.is_foreman_topic(topic=track.topic):
+    if isinstance(track, registry.ForemanSeat):
         epic = track.epic
-        if not registry.epic_is_resolved(epic=epic) or epic is None:
+        if not registry.epic_is_resolved(epic=epic):
             return None
         return foreman_resume(repo=track.repo, epic=epic)
+    if not isinstance(track, registry.PlanTrack):
+        return None
     epic = track.epic
-    if not registry.epic_is_resolved(epic=epic) or epic is None:
+    if not registry.epic_is_resolved(epic=epic):
         return None
     return plan_epic_resume(repo=track.repo, epic=epic)
 

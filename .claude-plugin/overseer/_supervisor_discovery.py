@@ -27,6 +27,7 @@ import claude_sessions
 import codex_sessions
 import registry
 import signals
+from _supervisor_archive_gc import archive_gc as archive_gc
 from _supervisor_config import iso_now
 from _supervisor_launch_profile import LaunchProfileProblem, read_launch_profile
 from _supervisor_launch_profile_sources import (
@@ -125,30 +126,6 @@ def _active_topics_by_repo(*, watch: list[str]) -> dict[str, set[str]]:
     for repo, topic in registry.discover_plans(watch_repos=watch):
         active.setdefault(repo, set()).add(topic)
     return active
-
-
-def archive_gc(*, sup: Supervisor) -> int:
-    """Drop mapping rows whose ``<repo>/plan/<topic>/`` is archived or gone."""
-
-    def keep(*, row: dict[str, object]) -> bool:
-        repo = row.get("repo")
-        topic = row.get("topic")
-        if not isinstance(repo, str) or not isinstance(topic, str):
-            return True  # fail-soft: never drop a row we can't evaluate
-        if signals.is_foreman_topic(topic=topic):
-            return True
-        if not registry.repo_root_present(repo=repo):
-            # Repo root itself unreachable (unmounted / mid-move) — KEEP the row
-            # and surface, so a transient outage does not permanently drop it and
-            # lose its custom overrides on the auto-link re-add (B6).
-            sup.surface(message=f"repo root missing for {repo}::{topic}; keeping mapping row")
-            return True
-        if registry.archived_or_gone(repo=repo, topic=topic):
-            sup.log(message=f"archive-GC dropping mapping row {repo}::{topic}")
-            return False
-        return True
-
-    return registry.rewrite_mapping(keep=keep, store_path=sup.store_path)
 
 
 def auto_link(*, sup: Supervisor, track: registry.Track) -> registry.Track | None:

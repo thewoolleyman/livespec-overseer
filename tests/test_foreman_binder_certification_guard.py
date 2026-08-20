@@ -55,6 +55,6 @@ def test_foreman_ready_without_epic_is_surfaced_without_respawn(*, tmp_path, mon
     assert view.status == "blocked:human"
     assert view.note == "ready cannot respawn: no foreman epic recorded"
     assert "ready cannot respawn: no foreman epic recorded" in err.getvalue()
-    assert epic_lookups == [(str(repo), topic)]
+    assert epic_lookups == []
     assert not fake.has(method="respawn")
     assert signals.read_state(repo=str(repo), topic=topic) is not None

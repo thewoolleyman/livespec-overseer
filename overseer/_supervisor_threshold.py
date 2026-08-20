@@ -56,7 +56,7 @@ def _claude_status_unavailable(*, request: ThresholdRequest, fresh: Observation)
     return (
         not fresh.is_codex
         and fresh.claude_status is None
-        and not signals.is_foreman_topic(topic=request.track.topic)
+        and not isinstance(request.track, registry.ForemanSeat)
     )
 
 

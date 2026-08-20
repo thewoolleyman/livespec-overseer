@@ -38,7 +38,7 @@ def _state_permits_recovery(*, repo: str, topic: str) -> bool:
 
 def _observation_permits_recovery(*, request: RecoveryRequest, obs: Observation) -> bool:
     return (
-        not signals.topic_reserved_for_supervisor(topic=request.track.topic)
+        isinstance(request.track, registry.PlanTrack)
         and obs.round_record.at is not None
         and obs.round_record.malformed_reason is None
         and obs.eff_ctx is not None

@@ -10,7 +10,6 @@ import _supervisor_liveness
 import _supervisor_nudge
 import _supervisor_progress
 import registry
-import signals
 from _supervisor_records import Observation
 
 if TYPE_CHECKING:
@@ -85,7 +84,7 @@ def apply_picker_stall(*, request: PickerStallRequest) -> PickerStallDecision:
                 stall_seconds=stall_seconds,
             )
         )
-        if signals.topic_reserved_for_supervisor(topic=request.track.topic):
+        if isinstance(request.track, registry.SupervisorSeat | registry.ForemanSeat):
             _supervisor_nudge.nudge_charter_authorized_picker_stall(
                 sup=request.sup,
                 track=request.track,

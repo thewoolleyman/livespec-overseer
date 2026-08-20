@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, overload
 
 __all__: list[str] = [
     "LEGACY_UNRESOLVED_EPIC_PREFIX",
@@ -184,6 +184,22 @@ class ForemanSeat:
 
 
 TrackRecord: TypeAlias = UnassignedPlan | PlanTrack | SupervisorSeat | ForemanSeat
+
+
+@overload
+def track_with_epic(*, track: UnassignedPlan, epic: str) -> UnassignedPlan: ...
+
+
+@overload
+def track_with_epic(*, track: PlanTrack, epic: str) -> PlanTrack: ...
+
+
+@overload
+def track_with_epic(*, track: SupervisorSeat, epic: str) -> SupervisorSeat: ...
+
+
+@overload
+def track_with_epic(*, track: ForemanSeat, epic: str) -> ForemanSeat: ...
 
 
 def track_with_epic(*, track: TrackRecord, epic: str) -> TrackRecord:

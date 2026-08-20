@@ -50,7 +50,9 @@ __all__: list[str] = [
 ]
 
 
-def rederive_epic_if_stale(*, sup: Supervisor, track: registry.Track, act: bool) -> registry.Track:
+def rederive_epic_if_stale(
+    *, sup: Supervisor, track: registry.PlanTrack, act: bool
+) -> registry.PlanTrack:
     """One-shot re-derive of a null epic at the restart-interlock boundary.
 
     A row's epic can go stale between assignment time (``supervisor.py add``)
@@ -195,18 +197,18 @@ def maybe_inject(
             session_identity=identity,
             stamp_path=sup.stamp_path,
         )
-    if signals.is_foreman_topic(topic=topic):
+    if isinstance(track, registry.ForemanSeat):
         message = foreman_wrapup_message(
             remaining=eff_ctx,
             repo=repo,
             topic=topic,
             epic=track.epic,
         )
-    elif (worker_topic := signals.topic_supervised_worker(topic=topic)) is not None:
+    elif isinstance(track, registry.SupervisorSeat):
         message = supervisor_wrapup_message(
             remaining=eff_ctx,
             repo=repo,
-            topic=worker_topic,
+            topic=track.supervised_topic,
             epic=track.epic,
         )
     else:

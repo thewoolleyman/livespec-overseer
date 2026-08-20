@@ -80,6 +80,8 @@ def _track_ready_to_restart(*, request: IdleRequest) -> registry.Track | None:
     track = request.track
     if _supervisor_restart.resume_prompt(track=track) is not None:
         return track
+    if not isinstance(track, registry.PlanTrack):
+        return None
     track = _supervisor_restart.rederive_epic_if_stale(
         sup=request.sup, track=track, act=request.act
     )
