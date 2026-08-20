@@ -130,25 +130,6 @@ def _cli_colliding() -> frozenset[str]:
     return registry.colliding_topics(discovered=registry.discover_plans(watch_repos=watch))
 
 
-def _track_for_assignment(
-    *,
-    repo: str,
-    topic: str,
-    session: str,
-    epic_source_topic: str | None = None,
-    epic: str | None = None,
-    ctx_threshold: int | None = None,
-) -> registry.Track:
-    return _supervisor_assignment.assignment_track(
-        repo=repo,
-        topic=topic,
-        session=session,
-        epic_source_topic=epic_source_topic,
-        epic=epic,
-        ctx_threshold=ctx_threshold,
-    )
-
-
 def run_daemon(*, warn_percent: int | None = None) -> int:
     """Start the fleet daemon with fixed defaults — the ``overseerd`` entrypoint.
 
@@ -251,14 +232,18 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
     session = _derive_tmux_or_refuse(repo=repo, topic=args.topic, allow_reserved=allow_reserved)
     if session is None:
         return 1
-    track = _track_for_assignment(
-        repo=repo,
-        topic=args.topic,
-        session=session,
-        epic_source_topic=epic_source_topic,
-        epic=epic,
-        ctx_threshold=_supervisor_cli_update.ctx_threshold_value(value=args.ctx_threshold),
-    )
+    try:
+        track = _supervisor_assignment.assignment_track(
+            repo=repo,
+            topic=args.topic,
+            session=session,
+            epic_source_topic=epic_source_topic,
+            epic=epic,
+            ctx_threshold=_supervisor_cli_update.ctx_threshold_value(value=args.ctx_threshold),
+        )
+    except ValueError as exc:
+        streams.write_stderr(text=f"{' '.join(str(arg) for arg in exc.args)}\n")
+        return 1
     _supervisor_cli_update.upsert_track(
         track=track,
         update_fields=_supervisor_cli_update.add_update_fields(
@@ -297,7 +282,7 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
     force = getattr(args, "force", False)
     io = tmuxio.TmuxIO()
     sup = Supervisor(tmux=io)
-    track = _track_for_assignment(repo=repo, topic=topic, session=session)
+    track = _supervisor_assignment.assignment_track(repo=repo, topic=topic, session=session)
     if io.session_exists(session=session) and not force:
         # Fail CLOSED (RB4): refuse to respawn-kill an existing session unless we
         # POSITIVELY know it is DEAD. Only a bare SHELL proves that — a dead session

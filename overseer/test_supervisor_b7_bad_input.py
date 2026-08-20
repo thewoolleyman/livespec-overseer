@@ -190,7 +190,9 @@ def test_run_proceeds_when_tmp_gitignored(*, tmp_path):
 
 def test_cli_add_remove_roundtrip(*, tmp_path, monkeypatch):
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
-    repo = str(tmp_path / "repo")
+    repo_path = tmp_path / "repo"
+    (repo_path / "plan" / "alpha").mkdir(parents=True)
+    repo = str(repo_path)
     assert supervisor.main(argv=["add", "--repo", repo, "--topic", "alpha"]) == 0
     rows = registry.read_valid_mapping(store_path=store)
     assert [(r.topic, r.tmux) for r in rows] == [
@@ -207,7 +209,9 @@ def test_cli_add_remove_roundtrip(*, tmp_path, monkeypatch):
 def test_cli_add_names_a_bare_topic_by_default(*, tmp_path, monkeypatch):
     # With no cross-repo collision, `add` maps the session to the BARE topic name.
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
-    repo = str(tmp_path / "livespec")
+    repo_path = tmp_path / "livespec"
+    (repo_path / "plan" / "autonomous-mode").mkdir(parents=True)
+    repo = str(repo_path)
     assert supervisor.main(argv=["add", "--repo", repo, "--topic", "autonomous-mode"]) == 0
     rows = registry.read_valid_mapping(store_path=store)
     assert [(r.topic, r.tmux) for r in rows] == [("autonomous-mode", "autonomous-mode")]
@@ -218,7 +222,10 @@ def test_cli_add_single_dash_prefixes_a_cross_repo_collision(*, tmp_path, monkey
     # with a SINGLE dash (the daemon derives the identical name).
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     monkeypatch.setattr(supervisor, "_cli_colliding", lambda: frozenset({"shared"}))
-    repo = str(tmp_path / "livespec")
+    repo_path = tmp_path / "livespec"
+    (repo_path / "plan" / "shared").mkdir(parents=True)
+    (repo_path / "plan" / "solo").mkdir(parents=True)
+    repo = str(repo_path)
     assert supervisor.main(argv=["add", "--repo", repo, "--topic", "shared"]) == 0
     assert supervisor.main(argv=["add", "--repo", repo, "--topic", "solo"]) == 0
     rows = {r.topic: r.tmux for r in registry.read_valid_mapping(store_path=store)}

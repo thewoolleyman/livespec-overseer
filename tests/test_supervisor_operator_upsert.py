@@ -17,7 +17,7 @@ def _rows(*, store) -> list[dict[str, object]]:
 
 def test_cli_add_epic_preserves_unsupplied_durable_fields(*, tmp_path, monkeypatch):
     repo = tmp_path / "repo"
-    repo.mkdir()
+    (repo / "plan" / "alpha").mkdir(parents=True)
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     registry.append_mapping(
         track=registry.Track(
@@ -56,7 +56,7 @@ def test_cli_add_epic_preserves_unsupplied_durable_fields(*, tmp_path, monkeypat
 
 def test_cli_add_ctx_threshold_is_explicitly_written_and_clearable(*, tmp_path, monkeypatch):
     repo = tmp_path / "repo"
-    repo.mkdir()
+    (repo / "plan" / "alpha").mkdir(parents=True)
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     registry.append_mapping(
         track=registry.Track(
