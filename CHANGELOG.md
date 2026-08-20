@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.64.2](https://github.com/thewoolleyman/livespec-overseer/compare/v0.64.1...v0.64.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* re-resolve stall watches by session identity ([7e94b08](https://github.com/thewoolleyman/livespec-overseer/commit/7e94b0872be7325aaea0af934a747b05118f095a))
+
 ## [0.64.1](https://github.com/thewoolleyman/livespec-overseer/compare/v0.64.0...v0.64.1) (2026-08-20)
 
 
