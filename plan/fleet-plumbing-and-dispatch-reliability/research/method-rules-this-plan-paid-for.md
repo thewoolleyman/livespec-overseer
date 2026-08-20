@@ -113,13 +113,45 @@ was predictable in advance.
 
 ### 11. Fence a claim at the moment you make it, not at review time
 
-The operative discipline behind several rules above. Four findings were
+The operative discipline behind several rules above. Five findings were
 self-refuted during one session — a prior-art lead, a control, a scheduling
-claim, and an inference from help text — and every one was cheap **because it
-had been written down with its own weakest leg named.**
+claim, an inference from help text, and a published trap entry — and every one
+was cheap **because it had been written down with its own weakest leg named.**
 
 A finding recorded without that fence is a finding nobody re-tests, including
 its author.
+
+### 11b. But a fence is only worth what you DO about it
+
+**The fifth self-refutation is the one that earns this clause, because fencing
+did not save it.** A trap entry was published in `AGENTS.md` claiming a
+particular row status blocked dispatch tenant-wide. It was fenced exactly as
+rule 11 asks: it stated in terms that the refusal had *not* been observed, and
+marked the blast-radius claim as INHERITED from a neighbouring trap rather than
+reproduced.
+
+**The fence named precisely the leg that turned out to be false.** The claim was
+wrong: the dispatcher auto-heals that status before the conformance check ever
+runs, and only key-misses block. One read of the dispatch path — the cheap check
+the fence itself pointed at — would have caught it before publication.
+
+**And the fence made the wrong claim travel further, not less far.** It was
+routed to another repo's foreman, who did everything right: verified both code
+links independently, folded it into a tracked item as a third defect channel,
+and carried the not-observed caveat *verbatim*. Correct handling of a fenced
+claim, and the claim was still false. **An unactioned fence reads to everyone
+else as diligence**, which is exactly why it propagates.
+
+So rule 11 has a second clause: **fencing a claim makes being wrong cheap; it
+does not make the claim true.** Where the fence names a check that is cheap to
+run, RUN IT BEFORE PUBLISHING. Where it names one that is genuinely expensive —
+here, reproducing a tenant-wide outage on a shared ledger — publishing behind
+the fence is still right, but say what would settle it and who can afford to.
+
+**Retract visibly, not silently.** Once a fenced claim has been published and
+routed, deleting it leaves the claim circulating with nothing to find. The
+retraction has to go where the claim went — the document, and every seat that
+received it.
 
 ## A note on where these came from
 
