@@ -223,6 +223,18 @@ def append_mapping(
             warn(message=f"could not append to {path}: {exc}")
 
 
+def _write_upsert_rows(
+    *,
+    rows: list[dict[str, object]],
+    store_path: str | os.PathLike[str] | None,
+    path: os.PathLike[str],
+) -> None:
+    try:
+        write_rows(rows=rows, store_path=store_path)
+    except OSError as exc:
+        warn(message=f"could not upsert mapping store {path}: {exc}")
+
+
 def upsert_mapping(
     *,
     track: Track,
@@ -249,7 +261,7 @@ def upsert_mapping(
         ]
         if not matching_indexes:
             rows.append(new_row)
-            write_rows(rows=rows, store_path=store_path)
+            _write_upsert_rows(rows=rows, store_path=store_path, path=path)
             return
         changed = len(matching_indexes) > 1
         row = rows[matching_indexes[0]]
@@ -263,7 +275,7 @@ def upsert_mapping(
             duplicate_indexes = set(matching_indexes[1:])
             rows = [row for index, row in enumerate(rows) if index not in duplicate_indexes]
         if changed:
-            write_rows(rows=rows, store_path=store_path)
+            _write_upsert_rows(rows=rows, store_path=store_path, path=path)
 
 
 def rewrite_mapping(
