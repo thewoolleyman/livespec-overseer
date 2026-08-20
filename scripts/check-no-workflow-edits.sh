@@ -169,6 +169,41 @@ pin_reference_line() {
   return 1
 }
 
+# The consumer's wired canonical targets, mirroring the producer's
+# `_wired_targets`: `check-targets.txt` is PRIMARY when present, and the
+# justfile's `targets=(...)` array is consulted only in its absence. Read from
+# the RESULTING tree, because a genuine bump adopts the slug into the justfile
+# and into ci.yml in the same change.
+wired_targets() {
+  if [[ -f check-targets.txt ]]; then
+    sed -E 's/#.*//; s/^[[:space:]]+//; s/[[:space:]]+$//' check-targets.txt \
+      | grep -E '^check-[a-z0-9-]+$' || true
+    return 0
+  fi
+  [[ -f justfile ]] || return 0
+  awk '
+    /targets=\(/ { inarr = 1; next }
+    inarr && /^[[:space:]]*\)/ { inarr = 0; next }
+    inarr {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+      if (line ~ /^check-[a-z0-9-]+$/) { print line }
+    }
+  ' justfile
+}
+
+# Is `slug` one the aggregate actually wires? The reconciler only ever mirrors
+# slugs drawn from this set (`required = {slug for slug in targets ...}`), so a
+# CI line naming anything else was not written by it.
+slug_is_wired() {
+  local slug="$1" t
+  while IFS= read -r t; do
+    [[ "$t" == "$slug" ]] && return 0
+  done < <(wired_targets)
+  return 1
+}
+
 # How many times `content` appears among the aggregate-bearing matrix list's
 # entries on the given side ("head" = resulting file, "base" = origin/master).
 matrix_entry_count() {
@@ -185,46 +220,58 @@ matrix_entry_count() {
   printf '%s' "$n"
 }
 
-# A line the canonical-CI reconciler can emit into ci.yml. Membership is tested
-# against the ci.yml SIDE the line belongs to: an added bullet must really be an
-# entry of the aggregate-bearing target list in the resulting file, and a removed
-# one must have been an entry in the base. That positional test is what keeps a
-# job-level `needs:` bullet out -- it is shaped like a target entry but is not a
-# member of that list.
+# A line the canonical-CI reconciler can emit into ci.yml.
+#
+# ADDITIONS ONLY. Both writers exclusively INSERT; nothing in this allowance may
+# authorise a REMOVAL. A check line disappearing from CI is precisely the class
+# this guard exists to force review on, and an early draft accepted it because
+# shape A tested only line content and never which side of the diff it was on.
+# (A canonical RENAME can legitimately drop a matrix bullet; that case now needs
+# a declaration, which is the correct trade -- a check leaving CI is worth one
+# reviewed line.)
 reconciler_emitted_line() {
   local line="$1" side content template slug expected
   side="${line:0:1}"
   content="${line:1}"
+  [[ "$side" == "+" ]] || return 1
 
   # Shape B -- a `matrix.target:` list entry, written as `<indent>- <slug>` by
   # `_reconcile`.
   #
-  # The test is NOT "is this line one of the matrix entries?". A `needs:` bullet
-  # can be byte-identical to an existing matrix entry -- same indent, same slug --
-  # and a membership test accepts it (verified: it did). The test is whether the
-  # aggregate-bearing list ITSELF gained (or lost) this line, so an identical
-  # bullet added anywhere else leaves the counts equal and is rejected.
-  if [[ "$content" =~ ^[[:space:]]*-[[:space:]]*check-[a-z0-9][a-z0-9-]*[[:space:]]*$ ]]; then
-    local head_n base_n
-    head_n="$(matrix_entry_count "$content" head)"
-    base_n="$(matrix_entry_count "$content" base)"
-    if [[ "$side" == "+" ]]; then
-      [[ "$head_n" -gt "$base_n" ]] && return 0
-    else
-      [[ "$base_n" -gt "$head_n" ]] && return 0
-    fi
-    return 1
+  # The BASE must already carry an aggregate-bearing target list. Without that
+  # requirement a branch can inject the aggregate bullet into an unrelated
+  # pre-existing matrix block, promoting it into "the" aggregate list on the head
+  # side, and smuggle an arbitrary bullet into a job that runs
+  # `just ${{ matrix.target }}`. The head list must also still contain every base
+  # entry, so it is the SAME list extended rather than a different block.
+  if [[ "$content" =~ ^[[:space:]]*-[[:space:]]*(check-[a-z0-9][a-z0-9-]*)[[:space:]]*$ ]]; then
+    slug="${BASH_REMATCH[1]}"
+    slug_is_wired "$slug" || return 1
+    local base_entries head_entries entry
+    base_entries="$(base_ci_yaml | matrix_entry_lines)"
+    [[ -n "$base_entries" ]] || return 1
+    [[ -f "$ci_yaml" ]] || return 1
+    head_entries="$(matrix_entry_lines <"$ci_yaml")"
+    while IFS= read -r entry; do
+      [[ -z "$entry" ]] && continue
+      printf '%s\n' "$head_entries" | grep -qxF -- "$entry" || return 1
+    done <<<"$base_entries"
+    # ...and the list itself must have GAINED this line. A `needs:` bullet can be
+    # byte-identical to a real matrix entry, so mere membership is not enough.
+    [[ "$(matrix_entry_count "$content" head)" -gt "$(matrix_entry_count "$content" base)" ]] || return 1
+    return 0
   fi
 
   # Shape A -- a batched aggregate line, written by `batch_line_for` as the
   # consumer's OWN aggregate line with the aggregate slug substituted throughout.
   # The template is read from the BASE ci.yml, never the branch's, so a branch
-  # cannot introduce a template that then legitimises its own edits.
+  # cannot introduce a template that legitimises its own edits.
   template="$(base_ci_yaml | grep -F -- "just ${aggregate_slug}" | grep -vE '^[[:space:]]*#' | head -1)"
   [[ -n "$template" ]] || return 1
   [[ "$content" =~ just[[:space:]]+(check-[a-z0-9][a-z0-9-]*) ]] || return 1
   slug="${BASH_REMATCH[1]}"
   [[ "$slug" != "$aggregate_slug" ]] || return 1
+  slug_is_wired "$slug" || return 1
   expected="${template//${aggregate_slug}/${slug}}"
   [[ "$content" == "$expected" ]] && return 0
   return 1

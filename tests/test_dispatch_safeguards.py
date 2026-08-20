@@ -256,6 +256,16 @@ _ADOPTED_LINE = (
 )
 
 
+def _write_wired_targets(*, root: Path, slugs: tuple[str, ...]) -> None:
+    """The `targets=(...)` array the aggregate wires, as the producer resolves it.
+
+    The guard requires an adopted slug to appear here, so a workflow-only line
+    naming an arbitrary `check-<anything>` is not mistaken for reconciler output.
+    """
+    body = "\n".join(f"        {slug}" for slug in slugs)
+    (root / "justfile").write_text(f"check:\n    targets=(\n{body}\n    )\n", encoding="utf-8")
+
+
 def _repo_with_batched_aggregate(*, root: Path) -> Path:
     """A consumer running the aggregate in the BATCHED form, carrying no matrix list.
 
@@ -269,6 +279,9 @@ def _repo_with_batched_aggregate(*, root: Path) -> Path:
         "name: CI\njobs:\n  batch:\n    steps:\n      - run: |\n"
         '          failed=""\n' + _AGGREGATE_LINE,
         encoding="utf-8",
+    )
+    _write_wired_targets(
+        root=root, slugs=("check-aggregate-completeness", "check-self-hosted-uv-lane")
     )
     _commit(cwd=root, rel="README.md", author=_HUMAN_AUTHOR, message="base")
     _git(cwd=root, args=["update-ref", "refs/remotes/origin/master", "HEAD"])
@@ -303,6 +316,10 @@ def _repo_with_aggregate_matrix(*, root: Path) -> Path:
         "    steps:\n"
         "      - run: echo hi\n",
         encoding="utf-8",
+    )
+    _write_wired_targets(
+        root=root,
+        slugs=("check-aggregate-completeness", "check-lint", "check-self-hosted-uv-lane"),
     )
     _commit(cwd=root, rel="README.md", author=_HUMAN_AUTHOR, message="base")
     _git(cwd=root, args=["update-ref", "refs/remotes/origin/master", "HEAD"])
@@ -391,6 +408,100 @@ def test_workflow_check_blocks_a_needs_bullet_identical_to_a_matrix_entry(
         workflow.read_text(encoding="utf-8").replace(
             "    needs:\n          - check-aggregate-completeness\n",
             "    needs:\n          - check-aggregate-completeness\n          - check-lint\n",
+        ),
+        encoding="utf-8",
+    )
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "tracked exemption declaration" in result.stderr
+
+
+def test_workflow_check_blocks_an_unwired_slug_in_the_batched_shape(*, tmp_path: Path) -> None:
+    """A line in the reconciler's SHAPE is not the same as a line it would write.
+
+    Shape alone accepts any `check-<anything>`, so a workflow-only edit could add
+    `just check-exfiltrate-secrets` to the aggregate with no declaration. The
+    reconciler only ever mirrors slugs the aggregate WIRES (`_wired_targets`), so
+    the guard requires the slug to be in that set too. Reproduced against the
+    real ci.yml before this was closed.
+    """
+    workflow = _repo_with_batched_aggregate(root=tmp_path)
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8") + "          just check-exfiltrate-secrets"
+        ' || failed="$failed check-exfiltrate-secrets"\n',
+        encoding="utf-8",
+    )
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "tracked exemption declaration" in result.stderr
+
+
+def test_workflow_check_blocks_removing_an_adopted_check_line(*, tmp_path: Path) -> None:
+    """A check DISAPPEARING from CI is the class this guard exists to catch.
+
+    Both reconciler writers exclusively INSERT, so no removal is ever mechanical
+    output. An earlier draft tested line content without testing which SIDE of
+    the diff it was on, and so accepted the silent deletion of a security-relevant
+    check from the aggregate. Reproduced against the real ci.yml.
+    """
+    workflow = _repo_with_batched_aggregate(root=tmp_path)
+    workflow.write_text(workflow.read_text(encoding="utf-8") + _ADOPTED_LINE, encoding="utf-8")
+    _git(cwd=tmp_path, args=["add", "-A"])
+    _git(cwd=tmp_path, args=["commit", "-q", "--author", _HUMAN_AUTHOR, "-m", "adopt"])
+    _git(cwd=tmp_path, args=["update-ref", "refs/remotes/origin/master", "HEAD"])
+
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8").replace(_ADOPTED_LINE, ""), encoding="utf-8"
+    )
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "tracked exemption declaration" in result.stderr
+
+
+def test_workflow_check_blocks_promoting_an_unrelated_matrix_block(*, tmp_path: Path) -> None:
+    """THE SHARPEST HOLE FOUND IN REVIEW, and the one that falsified a PR claim.
+
+    The matrix allowance identifies "the" aggregate-bearing list independently on
+    each side. A branch could therefore inject the aggregate bullet into an
+    unrelated PRE-EXISTING matrix block -- promoting it into that role on the head
+    side -- and smuggle an arbitrary bullet into the same block, which its job
+    then runs as `just ${{ matrix.target }}`. Reproduced against the real ci.yml,
+    which carries three non-aggregate matrix lists.
+
+    The guard now requires the BASE to already carry an aggregate-bearing list,
+    and the head list to still contain every base entry, so it must be the same
+    list extended rather than a different block promoted.
+    """
+    workflow = _repo_with_batched_aggregate(root=tmp_path)
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8") + "  other:\n"
+        "    strategy:\n"
+        "      matrix:\n"
+        "        target:\n"
+        "          - check-lint\n"
+        "    steps:\n"
+        "      - run: just ${{ matrix.target }}\n",
+        encoding="utf-8",
+    )
+    _git(cwd=tmp_path, args=["add", "-A"])
+    _git(cwd=tmp_path, args=["commit", "-q", "--author", _HUMAN_AUTHOR, "-m", "matrix"])
+    _git(cwd=tmp_path, args=["update-ref", "refs/remotes/origin/master", "HEAD"])
+
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8").replace(
+            "          - check-lint\n",
+            "          - check-lint\n"
+            "          - check-aggregate-completeness\n"
+            "          - check-self-hosted-uv-lane\n",
         ),
         encoding="utf-8",
     )
