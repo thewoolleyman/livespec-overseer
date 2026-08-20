@@ -1723,10 +1723,12 @@ def test_recorded_next_action_answers_a_matching_picker_without_consensus_eviden
 
     result = foreman_act.act(
         proposal=recorded_next_action_proposal(repo=repo),
-        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
-        append_journal=lambda *, repo, record: records.append(record),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            append_journal=lambda *, repo, record: records.append(record),
+        ),
     )
 
     assert result == {
@@ -1754,10 +1756,12 @@ def test_recorded_next_action_refuses_when_no_picker_option_matches(*, tmp_path)
         proposal=recorded_next_action_proposal(
             repo=repo, answer_text="Abandon the thread and file a successor"
         ),
-        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result["outcome"] == "refused"
@@ -1774,10 +1778,12 @@ def test_recorded_next_action_refuses_a_handoff_naming_zero_next_actions(*, tmp_
         proposal=recorded_next_action_proposal(
             repo=repo, handoff_text="The thread stands where it stood; nothing is queued."
         ),
-        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result["outcome"] == "refused"
@@ -1796,10 +1802,12 @@ def test_recorded_next_action_refuses_a_handoff_naming_several_next_actions(*, t
 
     result = foreman_act.act(
         proposal=recorded_next_action_proposal(repo=repo, handoff_text=handoff),
-        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result["outcome"] == "refused"
@@ -1813,10 +1821,12 @@ def test_recorded_next_action_does_not_bypass_the_report_only_disposition(*, tmp
 
     result = foreman_act.act(
         proposal=recorded_next_action_proposal(repo=repo),
-        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result["outcome"] == "refused"
@@ -1833,10 +1843,12 @@ def test_recorded_next_action_does_not_relax_a_hard_floor(*, tmp_path):
 
     result = foreman_act.act(
         proposal=proposal,
-        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result["outcome"] == "refused"
@@ -1855,10 +1867,12 @@ def test_recorded_next_action_refuses_a_payload_missing_its_source(*, tmp_path):
 
     result = foreman_act.act(
         proposal=proposal,
-        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result["outcome"] == "refused"
