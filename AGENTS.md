@@ -933,6 +933,37 @@ auto-heal on the next gate or dispatch run.
 for the wrong reason. The reason is tidiness in a shared tenant, not blast
 radius.
 
+**WHICH SURFACE YOU RUN DECIDES WHAT YOU SEE, and this is the part that
+reconciles the retraction with a contradictory-looking report elsewhere.**
+"Auto-healed" is true of the GATES and not of the bare check:
+
+| surface | heals first? | reports `open`? |
+|---|---|---|
+| pre-dispatch (`ledger_blocked_after_normalization`) | yes — writes + journals | no |
+| pre-push gate (`run_ledger_gate`) | yes — writes, prints each remap | no |
+| `ledger-normalize` | yes (or projects, under `--dry-run`) | no |
+| bare `ledger-check` | **NO** | **YES** |
+
+So the intake status **never blocks a dispatch or a push**, and a standalone
+`ledger-check` **does** report it. Both statements are true and they are about
+different code paths — the pre-dispatch entry point is literally named
+*after normalization*, while the plain check loads and runs the checks with no
+remap step at all.
+
+**Why that matters beyond pedantry.** An orchestrator-tenant item records a
+repair in which clearing a deferral left the item at this status and appeared to
+re-trigger a global refusal mid-repair. That reads as contradicting everything
+above — and it does not. A repairer checking the tenant BETWEEN commands runs
+the standalone check, which is exactly the surface that does not heal. The
+dispatch that would have healed it never ran. **Both measurements are correct;
+they were taken on different surfaces.**
+
+So when you see a conformance finding for this status, ask which surface
+produced it before concluding anything is blocked. And if you are writing
+acceptance criteria around it, name the surface — an acceptance written as "the
+status no longer appears" is satisfiable on one path and meaningless on
+another.
+
 **The method lesson, which is the reason this stays here.** The original entry
 *fenced itself correctly* — it stated in terms that a dispatch refusal had not
 been observed, and marked the blast radius as inherited from the `--defer` trap
