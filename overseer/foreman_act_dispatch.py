@@ -2,28 +2,35 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 import tmuxio
 from foreman_act_commands import command_for
 from foreman_act_consensus import act_journal_triage
 from foreman_act_filing import FileWorkItem, filing_request
+from foreman_act_ledger import LedgerMutation, ledger_request
+from foreman_act_record import AppendJournal
 from foreman_act_revalidate import revalidate_identity, str_field
 from foreman_act_types import (
     BLOCKED_SESSION_ANSWER,
     DISPATCH_JOURNAL_RECONCILE_MERGED,
+    FOREMAN_EPIC_CREATE,
     PLAN_START,
     QUALIFYING_SESSION_RESUME,
     QUALIFYING_SESSION_START,
     SUPERVISOR_PAIR_START,
+    WORK_ITEM_COMMENT,
     WORK_ITEM_FILE,
+    WORK_ITEM_UPDATE,
     ActionId,
     ActResult,
 )
 from foreman_blocked_answer import act_blocked_session_answer
 from foreman_work_item_sessions import act_work_item_session, is_work_item_session_action
 
-__all__: list[str] = ["Runner", "act_authorized"]
+__all__: list[str] = ["DispatchSeams", "Runner", "act_authorized"]
 
 _START_ACTIONS: tuple[ActionId, ...] = (
     PLAN_START,
@@ -34,6 +41,14 @@ _START_ACTIONS: tuple[ActionId, ...] = (
 
 class Runner(Protocol):
     def __call__(self, *, argv: list[str]) -> int: ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class DispatchSeams:
+    run: Runner
+    file_work_item: FileWorkItem
+    ledger_mutation: LedgerMutation
+    append_journal: AppendJournal
 
 
 def _result(*, action_id: str | None, outcome: str, reason: str, mutated: bool) -> ActResult:
@@ -94,6 +109,43 @@ def _act_filing(
     return _acted(action_id=action_id, reason=f"filed:{item_id}:{verdict}")
 
 
+def _is_ledger_mutation(*, action_id: ActionId) -> bool:
+    return action_id in (FOREMAN_EPIC_CREATE, WORK_ITEM_COMMENT, WORK_ITEM_UPDATE)
+
+
+def _act_ledger_mutation(
+    *,
+    proposal: dict[str, object],
+    action_id: ActionId,
+    ledger_mutation: LedgerMutation,
+    append_journal: AppendJournal,
+) -> ActResult:
+    refusal, request = ledger_request(proposal=proposal, action_id=action_id)
+    if refusal is not None or request is None:
+        return _refused(action_id=action_id, reason=refusal or "malformed_ledger_mutation")
+    try:
+        append_journal(
+            repo=Path(str(request["repo"])),
+            record={
+                "stage": "foreman-act",
+                "action_id": action_id,
+                "outcome": "pending",
+                "reason": "ledger_mutation_pending",
+                "mutated": False,
+            },
+        )
+    except OSError:  # pragma: no cover
+        return _refused(action_id=action_id, reason="journal_append_failed")
+    try:
+        item_id, verdict = ledger_mutation(request=request)
+    except RuntimeError as exc:  # pragma: no cover
+        return _failed(
+            action_id=action_id,
+            reason=_bounded_reason(prefix="ledger_subprocess_failed", reason=str(exc)),
+        )
+    return _acted(action_id=action_id, reason=f"ledger_updated:{item_id}:{verdict}")
+
+
 def _act_command(*, action_id: ActionId, proposal: dict[str, object], run: Runner) -> ActResult:
     command = command_for(action_id=action_id, proposal=proposal)
     if command is None:  # pragma: no cover
@@ -117,12 +169,14 @@ def act_authorized(
     proposal: dict[str, object],
     document: dict[str, object],
     repo: str,
-    run: Runner,
-    file_work_item: FileWorkItem,
+    seams: DispatchSeams,
 ) -> ActResult:
     if is_work_item_session_action(action_id=action_id):
         result = act_work_item_session(
-            action_id=action_id, proposal=proposal, document=document, run=run
+            action_id=action_id,
+            proposal=proposal,
+            document=document,
+            run=seams.run,
         )
     elif (
         identity_refusal := revalidate_identity(proposal=proposal, document=document)
@@ -135,11 +189,26 @@ def act_authorized(
     elif action_id == BLOCKED_SESSION_ANSWER:
         result = act_blocked_session_answer(proposal=proposal, document=document, repo=repo)
     elif action_id == WORK_ITEM_FILE:
-        result = _act_filing(proposal=proposal, action_id=action_id, file_work_item=file_work_item)
+        result = _act_filing(
+            proposal=proposal,
+            action_id=action_id,
+            file_work_item=seams.file_work_item,
+        )
+    elif _is_ledger_mutation(action_id=action_id):
+        result = _act_ledger_mutation(
+            proposal=proposal,
+            action_id=action_id,
+            ledger_mutation=seams.ledger_mutation,
+            append_journal=seams.append_journal,
+        )
     elif action_id == DISPATCH_JOURNAL_RECONCILE_MERGED:  # pragma: no cover
         result = act_journal_triage(
-            action_id=action_id, proposal=proposal, document=document, repo=repo, run=run
+            action_id=action_id,
+            proposal=proposal,
+            document=document,
+            repo=repo,
+            run=seams.run,
         )
     else:
-        result = _act_command(action_id=action_id, proposal=proposal, run=run)
+        result = _act_command(action_id=action_id, proposal=proposal, run=seams.run)
     return result

@@ -7,7 +7,7 @@ import json
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 import foreman_act_dispatch
 import jsonio
@@ -18,8 +18,9 @@ from foreman_act_consensus import (
     ConsensusPanel,
     prepare_consensus_action,
 )
-from foreman_act_dispatch import Runner
+from foreman_act_dispatch import DispatchSeams, Runner
 from foreman_act_filing import FileWorkItem, file_work_item
+from foreman_act_ledger import LedgerMutation, ledger_mutation
 from foreman_act_record import AppendJournal, append_journal
 from foreman_act_revalidate import (
     revalidate_source,
@@ -30,14 +31,17 @@ from foreman_act_types import (
     ACTION_IDS,
     BLOCKED_SESSION_ANSWER,
     DISPATCH_JOURNAL_RECONCILE_MERGED,
+    FOREMAN_EPIC_CREATE,
     HUMAN_VALVE,
     PROPOSAL_SCHEMA_VERSION,
     QUALIFYING_SESSION_RESUME,
+    WORK_ITEM_COMMENT,
     WORK_ITEM_FILE,
     WORK_ITEM_SESSION_ACTIONS,
     WORK_ITEM_SESSION_FINISH,
     WORK_ITEM_SESSION_RESUME,
     WORK_ITEM_SESSION_START,
+    WORK_ITEM_UPDATE,
     ActionId,
     ActResult,
 )
@@ -49,14 +53,17 @@ __all__: list[str] = [
     "ACTION_IDS",
     "BLOCKED_SESSION_ANSWER",
     "DISPATCH_JOURNAL_RECONCILE_MERGED",
+    "FOREMAN_EPIC_CREATE",
     "HUMAN_VALVE",
     "PROPOSAL_SCHEMA_VERSION",
     "QUALIFYING_SESSION_RESUME",
+    "WORK_ITEM_COMMENT",
     "WORK_ITEM_FILE",
     "WORK_ITEM_SESSION_ACTIONS",
     "WORK_ITEM_SESSION_FINISH",
     "WORK_ITEM_SESSION_RESUME",
     "WORK_ITEM_SESSION_START",
+    "WORK_ITEM_UPDATE",
     "ActResult",
     "ActionId",
     "act",
@@ -101,9 +108,17 @@ def act(
     run: Runner,
     gather: Gatherer = compose_document,
     file_work_item: FileWorkItem = file_work_item,
+    ledger_mutation: LedgerMutation = ledger_mutation,
     append_journal: AppendJournal = append_journal,
-    consensus_panel: ConsensusPanel = consensus,
+    **overrides: object,
 ) -> ActResult:
+    consensus_panel = cast(ConsensusPanel, overrides.get("consensus_panel", consensus))
+    seams = DispatchSeams(
+        run=run,
+        file_work_item=file_work_item,
+        ledger_mutation=ledger_mutation,
+        append_journal=append_journal,
+    )
     action_id, refusal = validate_proposal(proposal=proposal)
     if refusal is not None:
         result = _refused(action_id=action_id, reason=refusal)
@@ -118,8 +133,7 @@ def act(
                 action_id=action_id,
                 proposal=proposal,
                 document=gather(repo=repo, snapshot_path=DEFAULT_STATUS_PATH),
-                run=run,
-                file_work_item=file_work_item,
+                seams=seams,
                 consensus_seams=(append_journal, consensus_panel),
             )
     repo_path = str_field(payload=proposal, key="repo")
@@ -133,8 +147,7 @@ def _act_validated(
     action_id: ActionId,
     proposal: dict[str, object],
     document: dict[str, object],
-    run: Runner,
-    file_work_item: FileWorkItem,
+    seams: DispatchSeams,
     consensus_seams: tuple[AppendJournal, ConsensusPanel],
 ) -> ActResult:
     repo = str_field(payload=proposal, key="repo") or ""
@@ -159,8 +172,7 @@ def _act_validated(
                 proposal=proposal,
                 document=document,
                 repo=repo,
-                run=run,
-                file_work_item=file_work_item,
+                seams=seams,
             )
     else:
         foreman_act_dispatch.tmuxio = tmuxio
@@ -169,8 +181,7 @@ def _act_validated(
             proposal=proposal,
             document=document,
             repo=repo,
-            run=run,
-            file_work_item=file_work_item,
+            seams=seams,
         )
     return result
 
