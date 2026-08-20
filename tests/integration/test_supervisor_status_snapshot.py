@@ -124,6 +124,17 @@ def test_tick_writes_round_trippable_status_snapshot(*, tmp_path):
     assert json.loads(status_path.read_text(encoding="utf-8")) == read.document
 
 
+def test_snapshot_reports_daemon_package_provenance(*, tmp_path):
+    module = snapshot_module()
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
+    document = module.document_payload(sup=sup, rows=[])
+
+    assert document["daemon_package"] == {
+        "package_dir": str(OVERSEER_DIR),
+        "version": supervisor.APP_VERSION,
+    }
+
+
 def test_snapshot_note_is_elided_at_serialization(*, tmp_path):
     module = snapshot_module()
     repo, topic = make_plan(tmp_path=tmp_path)
