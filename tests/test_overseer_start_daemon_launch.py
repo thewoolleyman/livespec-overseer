@@ -87,6 +87,27 @@ def test_split_launch_uses_absolute_core_root_log_path(*, monkeypatch, tmp_path)
     assert Path(str(command).rpartition(" ")[2]).is_absolute()
 
 
+def test_plugin_import_launches_daemon_from_operator_checkout(*, monkeypatch, tmp_path) -> None:
+    mod = _load()
+    _in_agent_tmux(monkeypatch=monkeypatch)
+    plugin_root = tmp_path / "plugin-build"
+    checkout = tmp_path / "operator-checkout"
+    (plugin_root / "overseer").mkdir(parents=True)
+    (checkout / "overseer").mkdir(parents=True)
+    (checkout / "overseer" / "start.py").write_text("# checkout marker\n", encoding="utf-8")
+    monkeypatch.setattr(mod, "__file__", str(plugin_root / "overseer" / "start.py"))
+    monkeypatch.chdir(checkout)
+    layout = _Layout()
+
+    assert mod.main(argv=[], io=layout, build_supervisor=_Supervisor) == 0
+
+    command = layout.calls[1][3]
+    assert layout.calls[1][2] == str(checkout)
+    assert command == f"overseerd 2>> {checkout / 'tmp' / 'overseer' / 'daemon.log'}"
+    assert (checkout / "tmp" / "overseer").is_dir()
+    assert not (plugin_root / "tmp" / "overseer").exists()
+
+
 def test_split_launch_fails_when_daemon_pane_dies(*, monkeypatch, tmp_path, capsys) -> None:
     mod = _load()
     _in_agent_tmux(monkeypatch=monkeypatch)
