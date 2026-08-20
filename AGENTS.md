@@ -693,6 +693,39 @@ several shapes leave none.
 | work landed | no | no | no | yes | no | **YES — PR open** |
 | remedy | fix the defect | release + re-dispatch | unset the dep | close it | dump + land | **close the duplicate; touch nothing else** |
 
+### `fabro ps` IS NOT THE EVIDENCE WHEN THE FACTORY IS REMOTE — READ THE JOURNAL
+
+Every rule above leans on "`ACTIVE` is never evidence of a run, `fabro ps` is". **That
+discriminator is LOCAL, and it silently stops working once an item is dispatched to a
+remote factory.** Measured 2026-08-20: a live, executing run showed *nothing* in local
+`fabro ps` because its item carried `dispatch_factory=hp` and the work was running on
+another host. Read literally, the table above then says "absent from `fabro ps -a` ⇒
+queue eviction ⇒ release the claim and re-dispatch" — which is how you manufacture the
+publish-branch collision documented immediately above, against your own still-running
+sibling.
+
+**Check the item's dispatch factory before applying any `fabro ps` reasoning.** When it
+is remote, the record of truth is `tmp/fabro-dispatch-journal.jsonl` plus the detached
+verdict file — not the local process view.
+
+**THE JOURNAL IS APPEND-ONLY AND CUMULATIVE, SO MATCHING BY ID ALONE ALWAYS FINDS THE
+PAST.** Two entry kinds matter: `stage: "dispatch-id"` carries `work_item_id`,
+`dispatch_id` and `at`; `stage: "outcome"` carries a nested `outcome` object with
+`work_item_id`, `status` and its own failing `stage`. An item dispatched more than once
+has one entry per attempt, and a naive "latest outcome for this id" search happily
+returns **yesterday's**.
+
+That is not hypothetical: it produced a confident "the probe FAILED, do not dispatch"
+verdict from an outcome that was 11 hours stale, while the current run was still
+executing normally. **Floor every outcome query on the CURRENT run's own `dispatch-id`
+timestamp** — take the latest `dispatch-id` for the item, then accept only `outcome`
+entries strictly after it. An item with a dispatch-id and no later outcome is RUNNING,
+not failed, and absolutely not evicted.
+
+This is the same failure as a stale baseline wearing a different hat, and the same rule
+fixes it: a comparison has two sides, and an append-only log is one of them. See the
+settings-default note in `overseer/AGENTS.md` for the general form.
+
 ### THE DOUBLE-BRACE TRAP REACHES LEDGER COMMENTS, AND THERE IT IS TERMINAL
 
 Measured 2026-08-19 on `overseer-bc55wx.8`, which had to be **superseded** rather than
