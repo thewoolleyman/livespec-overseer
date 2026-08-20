@@ -32,6 +32,8 @@ __all__: list[str] = [
     "surface_supervision_offer",
 ]
 
+_NO_SUPERVISOR_MARKER = ".no-supervisor"
+
 
 def supervisor_session_of(*, sup: Supervisor, track: registry.Track) -> str:
     """The conventional attended supervisor tmux session for ``track``.
@@ -90,8 +92,19 @@ def _migrated_supervisor_handoff_exists(*, track: registry.Track) -> bool:
     return supervisor_epic_path(repo=track.repo, topic=track.topic).exists()
 
 
+def _supervision_opted_out(*, track: registry.Track) -> bool:
+    """Return whether this plan is explicitly managed without a supervisor pair."""
+    return (
+        supervisor_epic_path(repo=track.repo, topic=track.topic).parent / _NO_SUPERVISOR_MARKER
+    ).exists()
+
+
 def surface_supervision_offer(*, sup: Supervisor, track: registry.Track, act: bool) -> None:
     """Surface the supervision truth table without replacing the row's core status."""
+    if _supervision_opted_out(track=track):
+        if act:
+            clear_supervision_alerts(sup=sup, repo=track.repo, topic=track.topic)
+        return
     repo, topic = track.repo, track.topic
     session = _supervisor_launch.session_of(sup=sup, track=track)
     supervisor_session = supervisor_session_of(sup=sup, track=track)
