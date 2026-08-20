@@ -736,6 +736,17 @@ jobs:
           just check-fleet-marketplace-relative-sources || failed="$failed check-fleet-marketplace-relative-sources"
           just check-no-todo-registry || failed="$failed check-no-todo-registry"
           just check-no-workflow-edits || failed="$failed check-no-workflow-edits"
+          # Bound here by overseer-hgq4wi.18, alongside its sibling above.
+          # THE HOLE THIS CLOSES IS STRUCTURAL, NOT REALIZED, and that is
+          # recorded deliberately: the factory lane DOES run local hooks
+          # (the dispatcher installs lefthook in its sandbox), and the
+          # unhooked bot lane has never been observed touching
+          # SPECIFICATION/ -- it rewrites pins. No instance of an unhooked
+          # lane reaching SPECIFICATION/ has been measured. Binding removes
+          # the dependence on that premise staying true; saying so here
+          # keeps the binding from reading, later, as evidence the hole was
+          # realized.
+          just check-no-factory-spec-edits || failed="$failed check-no-factory-spec-edits"
           just check-partition-completeness || failed="$failed check-partition-completeness"
           just check-plugin-resolution || failed="$failed check-plugin-resolution"
           just check-shell-quality || failed="$failed check-shell-quality"
