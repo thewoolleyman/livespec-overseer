@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.5.1...v1.6.0) (2026-08-20)
+
+
+### Features
+
+* route release lane findings to foreman gather ([71002a2](https://github.com/thewoolleyman/livespec-overseer/commit/71002a2e5d207b1c4053c165167c2755df3b7f0e))
+
 ## [1.5.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.5.0...v1.5.1) (2026-08-20)
 
 
