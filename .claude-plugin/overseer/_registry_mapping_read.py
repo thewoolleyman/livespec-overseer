@@ -68,13 +68,15 @@ def _track_from_record(*, record: RawMappingRow) -> MappingEntry:
 def read_mapping(*, store_path: str | os.PathLike[str] | None = None) -> list[MappingEntry]:
     """Read mapping object rows into Valid/Invalid entries without failing wholesale."""
     path = resolve_store(store_path=store_path)
-    rows = read_rows(store_path=store_path)
+    records = read_row_records(store_path=store_path)
+    rows = [record.row for record in records]
     if normalize_rows(rows=rows):
         with file_lock(target=path):
             rows = read_rows(store_path=store_path)
             _ = normalize_rows(rows=rows)
             write_rows(rows=rows, store_path=store_path)
-    return [_track_from_record(record=record) for record in read_row_records(store_path=store_path)]
+        records = read_row_records(store_path=store_path)
+    return [_track_from_record(record=record) for record in records]
 
 
 def read_valid_mapping(*, store_path: str | os.PathLike[str] | None = None) -> list[Track]:
