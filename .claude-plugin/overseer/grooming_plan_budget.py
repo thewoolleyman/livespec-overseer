@@ -15,6 +15,7 @@ __all__: list[str] = [
     "DEFAULT_MAX_PLANS",
     "DEFAULT_MIN_PLANS",
     "PlanBudgetResolution",
+    "is_top_level_anchor_epic",
     "resolve_plan_budget",
 ]
 
@@ -119,11 +120,23 @@ def work_item_is_drainable(*, item: Mapping[str, object]) -> bool:
     status = item.get("status")
     if isinstance(status, str) and status.lower() in _TERMINAL_WORK_ITEM_STATUSES:
         return False
-    return not is_plan_anchor_epic(item=item)
+    return not is_top_level_anchor_epic(item=item)
 
 
 def is_plan_anchor_epic(*, item: Mapping[str, object]) -> bool:
     return item.get("issue_type") == "epic" and plan_slug(item=item) is not None
+
+
+def is_top_level_anchor_epic(*, item: Mapping[str, object]) -> bool:
+    return is_plan_anchor_epic(item=item) or is_seat_anchor_epic(item=item)
+
+
+def is_seat_anchor_epic(*, item: Mapping[str, object]) -> bool:
+    return (
+        item.get("issue_type") == "epic"
+        and normalized_text(value=item.get("title")).endswith("seat anchor")
+        and "handoff timeline" in normalized_text(value=item.get("description"))
+    )
 
 
 def live_thread_slugs_for_repo(
@@ -167,3 +180,7 @@ def plan_slug(*, item: Mapping[str, object]) -> str | None:
         return None
     value = metadata.get("plan_slug")
     return value if isinstance(value, str) and value != "" else None
+
+
+def normalized_text(*, value: object) -> str:
+    return value.strip().casefold() if isinstance(value, str) else ""

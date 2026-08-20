@@ -8,7 +8,7 @@ from typing import cast
 
 import jsonio
 from foreman_gather_sources import parse_repo_config
-from grooming_plan_budget import is_plan_anchor_epic
+from grooming_plan_budget import is_top_level_anchor_epic
 
 __all__: list[str] = [
     "TERMINAL_STATUSES",
@@ -94,7 +94,7 @@ def has_dependency_payload(*, item: Mapping[str, object]) -> bool:
 
 
 def needs_plan_rollup(*, item: Mapping[str, object]) -> bool:
-    return is_open(item=item) and not is_plan_anchor_epic(item=item)
+    return is_open(item=item) and not is_top_level_anchor_epic(item=item)
 
 
 def is_open(*, item: Mapping[str, object]) -> bool:

@@ -110,6 +110,19 @@ def _with(
     return row
 
 
+def _seat_anchor(*, item_id: str) -> dict[str, object]:
+    return {
+        "id": item_id,
+        "status": "backlog",
+        "issue_type": "epic",
+        "title": "Foreman seat anchor",
+        "description": "Ledger-held foreman handoff timeline.",
+        "metadata": {},
+        "labels": [],
+        "dependencies": [],
+    }
+
+
 def _by_key(*, report: ReportView, key: str) -> InvariantView:
     return {result.key: result for result in report.invariants}[key]
 
@@ -126,6 +139,7 @@ def test_reports_breaching_item_ids_and_unimplemented_invariants(*, tmp_path: Pa
                 row=_item(item_id="plan-epic", parent=None, acceptance_criteria=None),
                 updates={"issue_type": "epic", "metadata": {"plan_slug": "existing"}},
             ),
+            _seat_anchor(item_id="seat-anchor"),
             _item(item_id="native-open", status="open"),
             _item(item_id="native-deferred", status="deferred"),
         ],
@@ -135,6 +149,7 @@ def test_reports_breaching_item_ids_and_unimplemented_invariants(*, tmp_path: Pa
         "missing-acceptance",
         "orphan",
     )
+    assert "non-seat-anchor" in _by_key(report=report, key="plan-rollup").scope
     assert _by_key(report=report, key="acceptance-present").breaching_item_ids == (
         "missing-acceptance",
     )
