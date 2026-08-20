@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.0.2...v1.1.0) (2026-08-20)
+
+
+### Features
+
+* cover grooming plan budget resolver ([af00020](https://github.com/thewoolleyman/livespec-overseer/commit/af00020ad475d4e21901a6523a21001bdf333cee))
+
 ## [1.0.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.0.1...v1.0.2) (2026-08-20)
 
 
