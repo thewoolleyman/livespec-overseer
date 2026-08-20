@@ -1,5 +1,7 @@
 """Deterministic process wrapper for the per-repo foreman runtime."""
 
+# livespec-lloc-soft-band-owner: overseer-e698
+
 from __future__ import annotations
 
 import os
@@ -11,6 +13,11 @@ from typing import Protocol
 import registry
 from _supervisor_foreman import heartbeat_lapse, heartbeat_path
 from foreman_act_record import AppendJournal, append_journal
+from foreman_runtime_backoff import (
+    DEFAULT_MAX_LLM_TICK_INTERVAL_SECONDS,
+    auto_resume_interval,
+    effective_interval,
+)
 from foreman_runtime_document import ForemanDocument, foreman_document
 from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
 from foreman_runtime_lock import ForemanLock, LockResult
@@ -36,10 +43,6 @@ __all__: list[str] = [
 DEFAULT_LLM_TICK_INTERVAL_SECONDS = 60.0 * 60.0
 DEFAULT_WATCH_INTERVAL_SECONDS = 5.0 * 60.0
 DEFAULT_HARD_TICK_BUDGET = 36
-# The ceiling the auto-resume backoff doubles toward. A budget exhaustion is a
-# cadence signal, not a stop condition, but an unbounded backoff would retire
-# the loop just as surely as the resume picker it replaces.
-DEFAULT_MAX_LLM_TICK_INTERVAL_SECONDS = 6.0 * 60.0 * 60.0
 
 
 class _LlmTick(Protocol):
@@ -128,39 +131,11 @@ class ForemanRuntime:
             },
         )
 
-    def _effective_interval(self, *, state: dict[str, object]) -> float:
-        # The escalated interval is durable: each runtime invocation builds a fresh
-        # config, so a backoff that lived only in memory would reset every tick.
-        recorded = state.get("llm_tick_interval_seconds")
-        if isinstance(recorded, bool) or not isinstance(recorded, int | float):
-            return self.config.llm_tick_interval_seconds
-        return float(recorded) if recorded > 0 else self.config.llm_tick_interval_seconds
-
-    def _auto_resume_interval(
-        self, *, interval_seconds: float, tick_generation: int
-    ) -> float | None:
-        widened = min(interval_seconds * 2.0, self.config.max_llm_tick_interval_seconds)
-        try:
-            self.append_journal(
-                repo=self.repo,
-                record={
-                    "stage": "foreman-auto-resume",
-                    "reason": "hard-tick-budget",
-                    "repo": str(self.repo),
-                    "tick_generation": tick_generation,
-                    "previous_llm_tick_interval_seconds": interval_seconds,
-                    "llm_tick_interval_seconds": widened,
-                },
-            )
-        except OSError:
-            # Journal before act: an unrecorded auto-resume is not an auto-resume, so
-            # fall back to the pre-existing stop-and-report behavior.
-            return None
-        return widened
-
     def step(self, *, document: dict[str, object]) -> StepResult:
         state = self._read_state()
-        interval_seconds = self._effective_interval(state=state)
+        interval_seconds = effective_interval(
+            state=state, configured_seconds=self.config.llm_tick_interval_seconds
+        )
         tick_generation = _int_state(value=state.get("tick_generation")) + 1
         # Read BEFORE _write_heartbeat() overwrites it below, so a lapsed recurring
         # loop (no tick landed for 2x its interval) is visible to THIS tick, not just
@@ -182,8 +157,12 @@ class ForemanRuntime:
             tick_generation=tick_generation, stable_ticks=stable_ticks, document=doc
         )
         auto_resume_interval_seconds = (
-            self._auto_resume_interval(
-                interval_seconds=interval_seconds, tick_generation=tick_generation
+            auto_resume_interval(
+                repo=self.repo,
+                append_journal=self.append_journal,
+                interval_seconds=interval_seconds,
+                max_interval_seconds=self.config.max_llm_tick_interval_seconds,
+                tick_generation=tick_generation,
             )
             if exit_reason == "hard-tick-budget"
             else None
