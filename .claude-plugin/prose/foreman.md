@@ -188,11 +188,11 @@ tmux session name. If later SendMessage delivery needs a predictable peer name,
 send `/rename <desired-name>` as part of the initial prompt or immediately after
 launch, once no structured picker is open.
 
-If the loop stopped on `hard-tick-budget` and the maintainer chooses to resume,
-reset the durable counters in `tmp/overseer/foreman/runtime.json` before the next
-runtime invocation: set `tick_generation` and `stable_ticks` to `0`. There is no
-shipped reset action for this; this is a sanctioned write under
-`tmp/overseer/foreman/`.
+`hard-tick-budget` does not stop the loop and is not a question for the
+maintainer. The deterministic wrapper resets the durable counters itself and
+re-arms at a doubled, bounded interval; see §"Exit rules" below. The manual
+`foreman-runtime --resume` path remains for a loop the maintainer stopped
+deliberately, and it also returns the interval to its configured default.
 
 ## One Tick
 
@@ -303,16 +303,26 @@ The deterministic wrapper owns the v2 exit rule adopted by review findings
 O14/C5/O13/C6: compare structured-field fingerprints only, count "no state
 change and no foreman action" ticks only when the monitored set is non-empty,
 and keep the hard tick budget. When `foreman-runtime` prints JSON with a
-non-null `exit_reason` (`converged` or `hard-tick-budget`), cancel the armed
-cron schedule. Exiting stops only the token-consuming LLM loop; the
+non-null `exit_reason` (`converged` or `hard-tick-budget`), the two reasons are
+dispositioned DIFFERENTLY. Exiting stops only the token-consuming LLM loop; the
 token-free watcher remains armed by the durable generation fingerprint.
 
-On a non-null `exit_reason`, raise a RESUME question for the maintainer. In
-Claude Code, present it as an `AskUserQuestion` choice to resume the loop. In
-Codex, present it through the native `request_user_input` tool from seed
-addendum 2. If the maintainer chooses resume, arm the hourly schedule again
-via `CronCreate` directly (not through the generic `/loop` skill, for the
-same reason given above) from a fresh `foreman-runtime` tick.
+On `converged`, cancel the armed cron schedule and raise a RESUME question for
+the maintainer. In Claude Code, present it as an `AskUserQuestion` choice to
+resume the loop. In Codex, present it through the native `request_user_input`
+tool from seed addendum 2. If the maintainer chooses resume, arm the hourly
+schedule again via `CronCreate` directly (not through the generic `/loop`
+skill, for the same reason given above) from a fresh `foreman-runtime` tick.
+
+On `hard-tick-budget`, DO NOT raise a resume question and DO NOT leave the
+schedule cancelled. Budget exhaustion means the loop is ticking without
+converging, which is a cadence problem, not a decision the maintainer holds —
+a resume picker there measured 13 hours with no foreman on 2026-08-19/20. The
+wrapper has already reset the counters and journaled the auto-resume; read
+`auto_resume_interval_seconds` from its JSON and re-arm the cron schedule at
+that interval, which doubles on each successive exhaustion up to a bound. When
+`auto_resume_interval_seconds` is null the journal append failed, and only then
+does `hard-tick-budget` fall back to the `converged` disposition above.
 
 ## Runtime Commands
 
