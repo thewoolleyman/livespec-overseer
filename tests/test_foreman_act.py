@@ -312,8 +312,10 @@ def test_plan_start_uses_absolute_overseer_start_command(*, tmp_path):
 
     result = module.act(
         proposal=start_proposal(repo=repo),
-        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-        run=lambda *, argv: calls.append(argv) or 0,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: calls.append(argv) or 0,
+        ),
     )
 
     assert result == {
@@ -364,8 +366,10 @@ def test_supervisor_pair_start_uses_migrated_supervisor_ledger_anchor(*, tmp_pat
 
     result = module.act(
         proposal=proposal,
-        gather=lambda *, repo, snapshot_path: document,
-        run=lambda *, argv: calls.append(argv) or 0,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: calls.append(argv) or 0,
+        ),
     )
 
     assert result["reason"] == "started"
@@ -575,8 +579,10 @@ def test_supervisor_pair_start_ignores_non_anchor_ledger_epic_spelling(*, tmp_pa
 
     result = module.act(
         proposal=proposal,
-        gather=lambda *, repo, snapshot_path: document,
-        run=lambda *, argv: calls.append(argv) or 0,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: calls.append(argv) or 0,
+        ),
     )
 
     assert result["reason"] == "started"
@@ -593,8 +599,10 @@ def _resume_calls(*, repo, proposal):
     calls: list[list[str]] = []
     result = foreman_act().act(
         proposal=proposal,
-        gather=lambda *, repo, snapshot_path: document,
-        run=lambda *, argv: calls.append(argv) or 0,
+        seams=foreman_act().ActSeams(
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: calls.append(argv) or 0,
+        ),
     )
     assert result["outcome"] == "acted"
     assert result["mutated"] is True
@@ -668,8 +676,10 @@ def test_refuses_stale_unknown_freeform_and_human_actions(*, tmp_path):
     for proposal, reason in cases:
         result = module.act(
             proposal=proposal,
-            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-            run=lambda *, argv: calls.append(argv) or 0,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+                run=lambda *, argv: calls.append(argv) or 0,
+            ),
         )
         assert result["outcome"] == "refused"
         assert result["mutated"] is False
@@ -686,13 +696,28 @@ def test_refuses_stale_unknown_freeform_and_human_actions(*, tmp_path):
     ]:
         result = module.act(
             proposal=start_proposal(repo=repo),
-            gather=lambda *, repo, snapshot_path, document=document: document,
-            run=lambda *, argv: calls.append(argv) or 0,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path, document=document: document,
+                run=lambda *, argv: calls.append(argv) or 0,
+            ),
         )
         assert result["outcome"] == "refused"
         assert result["mutated"] is False
         assert result["reason"] == reason
     assert calls == []
+
+
+def test_act_constructs_default_seams_for_pre_gather_refusal():
+    module = foreman_act()
+
+    result = module.act(proposal={"schema_version": 2, "action_id": "plan_start"})
+
+    assert result == {
+        "action_id": "plan_start",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "unsupported_proposal_schema",
+    }
 
 
 def test_typed_ledger_actions_validate_own_tenant_and_journal_before_mutation(*, tmp_path):
@@ -709,10 +734,12 @@ def test_typed_ledger_actions_validate_own_tenant_and_journal_before_mutation(*,
 
     result = module.act(
         proposal=work_item_update_proposal(repo=repo),
-        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        ledger_mutation=mutate_ledger,
-        append_journal=lambda *, repo, record: events.append(f"journal:{record['reason']}"),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            ledger_mutation=mutate_ledger,
+            append_journal=lambda *, repo, record: events.append(f"journal:{record['reason']}"),
+        ),
     )
 
     assert result == {
@@ -752,17 +779,21 @@ def test_typed_ledger_comment_and_epic_create_use_the_ledger_mutation_seam(*, tm
     results = [
         module.act(
             proposal=work_item_comment_proposal(repo=repo),
-            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-            run=lambda *, argv: 99,
-            ledger_mutation=mutate_ledger,
-            append_journal=lambda *, repo, record: None,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+                run=lambda *, argv: 99,
+                ledger_mutation=mutate_ledger,
+                append_journal=lambda *, repo, record: None,
+            ),
         ),
         module.act(
             proposal=foreman_epic_create_proposal(repo=repo),
-            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-            run=lambda *, argv: 99,
-            ledger_mutation=mutate_ledger,
-            append_journal=lambda *, repo, record: None,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+                run=lambda *, argv: 99,
+                ledger_mutation=mutate_ledger,
+                append_journal=lambda *, repo, record: None,
+            ),
         ),
     ]
 
@@ -810,10 +841,12 @@ def test_typed_ledger_actions_refuse_foreign_ids_and_forbidden_mutations(*, tmp_
     ]:
         result = module.act(
             proposal=proposal,
-            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-            run=lambda *, argv: 99,
-            ledger_mutation=lambda *, request: calls.append(request) or ("bad", "bad"),
-            append_journal=lambda *, repo, record: None,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+                run=lambda *, argv: 99,
+                ledger_mutation=lambda *, request: calls.append(request) or ("bad", "bad"),
+                append_journal=lambda *, repo, record: None,
+            ),
         )
         assert result["outcome"] == "refused"
         assert result["reason"] == reason
@@ -830,10 +863,12 @@ def test_typed_work_item_filing_uses_intake_seam_and_journals_result(*, tmp_path
 
     result = module.act(
         proposal=file_proposal(repo=repo),
-        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        file_work_item=lambda *, request: filed.append(request) or ("overseer-new", "ready"),
-        append_journal=lambda *, repo, record: journaled.append(record),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            file_work_item=lambda *, request: filed.append(request) or ("overseer-new", "ready"),
+            append_journal=lambda *, repo, record: journaled.append(record),
+        ),
     )
 
     assert result == {
@@ -885,10 +920,12 @@ def test_failed_work_item_filing_returns_failed_result_and_journals_attempt(*, t
 
     result = module.act(
         proposal=file_proposal(repo=repo),
-        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        file_work_item=fail_filing,
-        append_journal=lambda *, repo, record: journaled.append(record),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            file_work_item=fail_filing,
+            append_journal=lambda *, repo, record: journaled.append(record),
+        ),
     )
 
     assert result == {
@@ -911,10 +948,12 @@ def test_failed_work_item_filing_returns_failed_result_and_journals_attempt(*, t
 
     result = module.act(
         proposal=file_proposal(repo=repo),
-        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        file_work_item=lambda *, request: (_ for _ in ()).throw(RuntimeError("x" * 240)),
-        append_journal=lambda *, repo, record: None,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            file_work_item=lambda *, request: (_ for _ in ()).throw(RuntimeError("x" * 240)),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result["outcome"] == "failed"
@@ -994,10 +1033,13 @@ def test_cross_repo_filing_only_files_the_target_repo(*, tmp_path):
 
     result = module.act(
         proposal=file_proposal(repo=repo, target_repo=peer),
-        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-        run=lambda *, argv: calls.append(argv) or 0,
-        file_work_item=lambda *, request: filed.append(request) or ("peer-new", "pending-approval"),
-        append_journal=lambda *, repo, record: None,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: calls.append(argv) or 0,
+            file_work_item=lambda *, request: filed.append(request)
+            or ("peer-new", "pending-approval"),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result["outcome"] == "acted"
@@ -1024,10 +1066,12 @@ def test_filing_refuses_malformed_or_unsafe_payloads_without_mutation(*, tmp_pat
     for proposal, reason in cases:
         result = module.act(
             proposal=proposal,
-            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-            run=lambda *, argv: 0,
-            file_work_item=lambda *, request: calls.append(request) or ("bad", "ready"),
-            append_journal=lambda *, repo, record: None,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+                run=lambda *, argv: 0,
+                file_work_item=lambda *, request: calls.append(request) or ("bad", "ready"),
+                append_journal=lambda *, repo, record: None,
+            ),
         )
         assert result["outcome"] == "refused"
         assert result["reason"] == reason
@@ -1046,9 +1090,13 @@ def test_dispatch_journal_reconcile_merged_is_the_only_typed_triage_command(*, t
 
     result = module.act(
         proposal=reconcile_proposal(repo=repo, record=record),
-        gather=lambda *, repo, snapshot_path: journal_document(repo=Path(repo), records=[record]),
-        run=lambda *, argv: calls.append(argv) or 0,
-        append_journal=lambda *, repo, record: None,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: journal_document(
+                repo=Path(repo), records=[record]
+            ),
+            run=lambda *, argv: calls.append(argv) or 0,
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result == {
@@ -1114,9 +1162,11 @@ def test_dispatch_journal_triage_refuses_stale_ambiguous_or_unsupported_records(
     for proposal, document, reason in cases:
         result = module.act(
             proposal=proposal,
-            gather=lambda *, repo, snapshot_path, document=document: document,
-            run=lambda *, argv: calls.append(argv) or 0,
-            append_journal=lambda *, repo, record: None,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path, document=document: document,
+                run=lambda *, argv: calls.append(argv) or 0,
+                append_journal=lambda *, repo, record: None,
+            ),
         )
         assert result["outcome"] == "refused"
         assert result["mutated"] is False
@@ -1152,8 +1202,10 @@ def test_race_revalidates_every_identity_field_before_mutation(*, tmp_path):
     for document, reason in changed_documents:
         result = module.act(
             proposal=start_proposal(repo=repo),
-            gather=lambda *, repo, snapshot_path, document=document: document,
-            run=lambda *, argv: calls.append(argv) or 0,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path, document=document: document,
+                run=lambda *, argv: calls.append(argv) or 0,
+            ),
         )
         assert result["outcome"] == "refused"
         assert result["mutated"] is False
@@ -1219,10 +1271,12 @@ def test_blocked_answer_dismiss_and_represent_is_unreachable_until_protocol_rati
 
     result = foreman_act.act(
         proposal=blocked_answer_proposal(repo=repo, mode="dismiss_and_represent"),
-        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
-        run=lambda *, argv: calls.append(argv) or 0,
-        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: calls.append(argv) or 0,
+            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result == {
@@ -1284,10 +1338,12 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
 
     result = foreman_act.act(
         proposal=proposal,
-        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result == {
@@ -1360,10 +1416,12 @@ def test_picker_stalled_open_picker_answer_revalidates_against_fresh_capture(
 
     result = foreman_act.act(
         proposal=proposal,
-        gather=lambda *, repo, snapshot_path: document,
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result == {
@@ -1390,10 +1448,12 @@ def test_blocked_answer_refuses_old_daemon_row_without_picker_open(*, tmp_path, 
 
     result = foreman_act.act(
         proposal=blocked_answer_proposal(repo=repo),
-        gather=lambda *, repo, snapshot_path: document,
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result == {
@@ -1436,10 +1496,12 @@ def test_blocked_answer_refuses_fresh_capture_fingerprint_mismatch(*, tmp_path, 
 
     result = foreman_act.act(
         proposal=proposal,
-        gather=lambda *, repo, snapshot_path: document,
-        run=lambda *, argv: 99,
-        consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
-        append_journal=lambda *, repo, record: None,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result == {
@@ -1491,10 +1553,12 @@ def test_blocked_answer_keeps_runtime_and_cwd_identity_refusals(*, tmp_path, mon
         monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda tmux=tmux: tmux)
         result = foreman_act.act(
             proposal=proposal,
-            gather=lambda *, repo, snapshot_path: document,
-            run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
-            append_journal=lambda *, repo, record: None,
+            seams=foreman_act.ActSeams(
+                gather=lambda *, repo, snapshot_path: document,
+                run=lambda *, argv: 99,
+                consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+                append_journal=lambda *, repo, record: None,
+            ),
         )
 
         assert result == {

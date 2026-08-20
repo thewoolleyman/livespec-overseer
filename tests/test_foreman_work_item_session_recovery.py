@@ -105,12 +105,14 @@ def test_work_item_session_refuses_missing_work_item_evidence(*, tmp_path):
 
     result = module.act(
         proposal=module_payload,
-        gather=lambda *, repo, snapshot_path: {
-            **document(repo=Path(repo)),
-            "needs_attention": {"items": []},
-        },
-        run=lambda *, argv: 0,
-        append_journal=lambda *, repo, record: None,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: {
+                **document(repo=Path(repo)),
+                "needs_attention": {"items": []},
+            },
+            run=lambda *, argv: 0,
+            append_journal=lambda *, repo, record: None,
+        ),
     )
 
     assert result["outcome"] == "refused"
@@ -153,9 +155,11 @@ def test_work_item_session_revalidates_snapshot_and_identity_edges(*, tmp_path):
     for current_doc, current_proposal, reason in cases:
         result = module.act(
             proposal=current_proposal,
-            gather=lambda *, repo, snapshot_path, current_doc=current_doc: current_doc,
-            run=lambda *, argv: 0,
-            append_journal=lambda *, repo, record: None,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path, current_doc=current_doc: current_doc,
+                run=lambda *, argv: 0,
+                append_journal=lambda *, repo, record: None,
+            ),
         )
         assert result["outcome"] == "refused"
         assert result["reason"] == reason

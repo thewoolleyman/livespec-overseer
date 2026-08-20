@@ -6,8 +6,9 @@ import argparse
 import json
 import subprocess
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Protocol
 
 import foreman_act_dispatch
 import jsonio
@@ -19,9 +20,12 @@ from foreman_act_consensus import (
     prepare_consensus_action,
 )
 from foreman_act_dispatch import DispatchSeams, Runner
-from foreman_act_filing import FileWorkItem, file_work_item
-from foreman_act_ledger import LedgerMutation, ledger_mutation
-from foreman_act_record import AppendJournal, append_journal
+from foreman_act_filing import FileWorkItem
+from foreman_act_filing import file_work_item as default_file_work_item
+from foreman_act_ledger import LedgerMutation
+from foreman_act_ledger import ledger_mutation as default_ledger_mutation
+from foreman_act_record import AppendJournal
+from foreman_act_record import append_journal as default_append_journal
 from foreman_act_revalidate import (
     revalidate_source,
     str_field,
@@ -45,7 +49,7 @@ from foreman_act_types import (
     ActionId,
     ActResult,
 )
-from foreman_consensus import consensus
+from foreman_consensus import consensus as default_consensus
 from foreman_gather_collect import compose_document
 from foreman_valve_policy import effective_valve_disposition
 
@@ -65,6 +69,7 @@ __all__: list[str] = [
     "WORK_ITEM_SESSION_START",
     "WORK_ITEM_UPDATE",
     "ActResult",
+    "ActSeams",
     "ActionId",
     "act",
     "main",
@@ -76,6 +81,23 @@ class Gatherer(Protocol):
     def __call__(
         self, *, repo: str | Path, snapshot_path: str | Path = DEFAULT_STATUS_PATH
     ) -> dict[str, object]: ...
+
+
+def run_command(*, argv: list[str]) -> int:
+    completed = subprocess.run(  # noqa: S603  # pragma: no cover
+        argv, check=False, stdout=subprocess.DEVNULL
+    )
+    return int(completed.returncode)  # pragma: no cover
+
+
+@dataclass(frozen=True, kw_only=True)
+class ActSeams:
+    run: Runner = run_command
+    gather: Gatherer = compose_document
+    file_work_item: FileWorkItem = default_file_work_item
+    ledger_mutation: LedgerMutation = default_ledger_mutation
+    append_journal: AppendJournal = default_append_journal
+    consensus_panel: ConsensusPanel = default_consensus
 
 
 def _result(*, action_id: str | None, outcome: str, reason: str, mutated: bool) -> ActResult:
@@ -105,19 +127,15 @@ def _journal_record(*, result: ActResult) -> dict[str, object]:
 def act(
     *,
     proposal: dict[str, object],
-    run: Runner,
-    gather: Gatherer = compose_document,
-    file_work_item: FileWorkItem = file_work_item,
-    ledger_mutation: LedgerMutation = ledger_mutation,
-    append_journal: AppendJournal = append_journal,
-    **overrides: object,
+    seams: ActSeams | None = None,
 ) -> ActResult:
-    consensus_panel = cast(ConsensusPanel, overrides.get("consensus_panel", consensus))
-    seams = DispatchSeams(
-        run=run,
-        file_work_item=file_work_item,
-        ledger_mutation=ledger_mutation,
-        append_journal=append_journal,
+    if seams is None:
+        seams = ActSeams()
+    dispatch_seams = DispatchSeams(
+        run=seams.run,
+        file_work_item=seams.file_work_item,
+        ledger_mutation=seams.ledger_mutation,
+        append_journal=seams.append_journal,
     )
     action_id, refusal = validate_proposal(proposal=proposal)
     if refusal is not None:
@@ -132,13 +150,13 @@ def act(
             result = _act_validated(
                 action_id=action_id,
                 proposal=proposal,
-                document=gather(repo=repo, snapshot_path=DEFAULT_STATUS_PATH),
-                seams=seams,
-                consensus_seams=(append_journal, consensus_panel),
+                document=seams.gather(repo=repo, snapshot_path=DEFAULT_STATUS_PATH),
+                seams=dispatch_seams,
+                consensus_seams=(seams.append_journal, seams.consensus_panel),
             )
     repo_path = str_field(payload=proposal, key="repo")
     if repo_path is not None and result["reason"] != "journal_append_failed":  # pragma: no branch
-        append_journal(repo=Path(repo_path), record=_journal_record(result=result))
+        seams.append_journal(repo=Path(repo_path), record=_journal_record(result=result))
     return result
 
 
@@ -186,13 +204,6 @@ def _act_validated(
     return result
 
 
-def run_command(*, argv: list[str]) -> int:
-    completed = subprocess.run(  # noqa: S603  # pragma: no cover
-        argv, check=False, stdout=subprocess.DEVNULL
-    )
-    return int(completed.returncode)  # pragma: no cover
-
-
 def _load_proposal(*, path: Path) -> dict[str, object] | None:
     parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
     return parsed
@@ -214,7 +225,7 @@ def main(*, argv: Sequence[str] | None = None) -> int:
     result = (
         _refused(action_id=None, reason="malformed_proposal")  # pragma: no cover
         if proposal is None
-        else act(proposal=proposal, run=run_command, gather=cli_gather)
+        else act(proposal=proposal, seams=ActSeams(run=run_command, gather=cli_gather))
     )
     streams.write_stdout(text=json.dumps(result, indent=2, sort_keys=True) + "\n")
     return 0

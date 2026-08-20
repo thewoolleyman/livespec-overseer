@@ -1299,8 +1299,10 @@ def _assert_act_refuses_occupied_start(*, repo: Path) -> None:
     try:
         result = module.act(
             proposal=_plan_start_proposal(repo=repo, topic="alpha"),
-            gather=lambda *, repo, snapshot_path: document,
-            run=lambda *, argv: calls.append(argv) or 0,
+            seams=module.ActSeams(
+                gather=lambda *, repo, snapshot_path: document,
+                run=lambda *, argv: calls.append(argv) or 0,
+            ),
         )
     finally:
         module.tmuxio.TmuxIO = original_tmux
