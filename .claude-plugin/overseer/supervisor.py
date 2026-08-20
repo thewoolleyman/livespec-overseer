@@ -51,6 +51,7 @@ import json
 import os
 
 import _supervisor_assignment
+import _supervisor_cli_update
 import _supervisor_snapshot
 import registry
 import signals
@@ -127,13 +128,6 @@ def _cli_colliding() -> frozenset[str]:
         config_path=registry.DEFAULT_WATCH_SET_PATH, extra_repos=[]
     )
     return registry.colliding_topics(discovered=registry.discover_plans(watch_repos=watch))
-
-
-def _upsert(*, track: registry.Track) -> None:
-    """Replace any existing (repo, topic) mapping row in the hard-coded store, then
-    append (one row each)."""
-    _ = registry.remove_mapping(repo=track.repo, topic=track.topic, store_path=None)
-    registry.append_mapping(track=track, store_path=None, added_at=iso_now())
 
 
 def _track_for_assignment(
@@ -248,9 +242,10 @@ def _inheritable_supervisor_epic_source(*, repo: str, topic: str) -> str | None:
 
 def _cmd_add(*, args: argparse.Namespace) -> int:
     repo = os.path.normpath(args.repo)
+    epic = _supervisor_cli_update.optional_str_value(value=args.epic)
     allow_reserved = (
         epic_source_topic := _inheritable_supervisor_epic_source(repo=repo, topic=args.topic)
-    ) is not None or foreman_seat_accepts_explicit_epic(repo=repo, topic=args.topic, epic=args.epic)
+    ) is not None or foreman_seat_accepts_explicit_epic(repo=repo, topic=args.topic, epic=epic)
     if not allow_reserved and _refuse_reserved_topic(repo=repo, topic=args.topic):
         return 1
     session = _derive_tmux_or_refuse(repo=repo, topic=args.topic, allow_reserved=allow_reserved)
@@ -261,10 +256,15 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
         topic=args.topic,
         session=session,
         epic_source_topic=epic_source_topic,
-        epic=args.epic,
-        ctx_threshold=args.ctx_threshold,
+        epic=epic,
+        ctx_threshold=_supervisor_cli_update.ctx_threshold_value(value=args.ctx_threshold),
     )
-    _upsert(track=track)
+    _supervisor_cli_update.upsert_track(
+        track=track,
+        update_fields=_supervisor_cli_update.add_update_fields(
+            epic=args.epic, ctx_threshold=args.ctx_threshold
+        ),
+    )
     streams.write_stdout(text=f"added mapping {repo}::{args.topic} (tmux {track.tmux})\n")
     return 0
 
@@ -315,7 +315,7 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
         # second runtime and never did.
         cmd = io.pane_current_command(session=session)
         if not signals.pane_is_shell(pane_current_command=cmd):
-            _upsert(track=track)
+            _supervisor_cli_update.upsert_track(track=track)
             streams.write_stdout(
                 text=(
                     f"{repo}::{topic}: session {session} already running (or its identity is "
@@ -343,7 +343,7 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
             text=f"start FAILED to launch {repo}::{topic} in tmux session {session}\n"
         )
         return 1
-    _upsert(track=track)
+    _supervisor_cli_update.upsert_track(track=track)
     streams.write_stdout(text=f"{message}\n")
     return 0
 
@@ -394,14 +394,7 @@ def main(*, argv: list[str] | None = None) -> int:
 
     p_add = sub.add_parser("add", help="add a (repo, topic) mapping row")
     _add_track_args(parser=p_add)
-    _ = p_add.add_argument("--epic", default=None, help="ledger epic id for the plan state")
-    _ = p_add.add_argument(
-        "--ctx-threshold",
-        type=int,
-        default=None,
-        metavar="N",
-        help="per-track remaining-context %% threshold override",
-    )
+    _supervisor_cli_update.add_mapping_write_args(parser=p_add)
     p_add.set_defaults(func=_cmd_add)
 
     p_remove = sub.add_parser("remove", help="remove a (repo, topic) mapping row")
