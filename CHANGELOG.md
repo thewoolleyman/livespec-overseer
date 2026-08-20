@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.4.0...v1.4.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **prose:** a relayed ruling must land where someone else can check it ([0d9b16c](https://github.com/thewoolleyman/livespec-overseer/commit/0d9b16c71d4b4ffed2ba571bdf8ecb1c054f8255))
+
 ## [1.4.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.3.0...v1.4.0) (2026-08-20)
 
 
