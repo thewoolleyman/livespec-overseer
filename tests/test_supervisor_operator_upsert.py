@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+import _registry_store
 import registry
 import supervisor
 from test_supervisor_builders import isolate_store
@@ -161,3 +162,41 @@ def test_mapping_upsert_preserves_fields_not_named_by_the_update_spec(*, tmp_pat
     )
 
     assert _rows(store=store)[0]["tmux"] == "old-session"
+
+
+def test_cli_add_write_failure_keeps_existing_live_row(*, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    (repo / "plan" / "alpha").mkdir(parents=True)
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    registry.append_mapping(
+        track=registry.Track(
+            topic="alpha",
+            repo=str(repo),
+            tmux="old-session",
+            epic="overseer-old",
+        ),
+        store_path=store,
+    )
+
+    def fail_write(*, rows, store_path=None):
+        del rows, store_path
+        observed = _rows(store=store)
+        assert observed[0]["topic"] == "alpha"
+        assert observed[0]["repo"] == str(repo)
+        raise OSError("disk full")
+
+    monkeypatch.setattr(_registry_store, "write_rows", fail_write)
+
+    assert (
+        supervisor.main(
+            argv=["add", "--repo", str(repo), "--topic", "alpha", "--epic", "overseer-new"]
+        )
+        == 0
+    )
+
+    rows = _rows(store=store)
+    assert len(rows) == 1
+    assert rows[0]["topic"] == "alpha"
+    assert rows[0]["repo"] == str(repo)
+    assert rows[0]["tmux"] == "old-session"
+    assert rows[0]["epic"] == "overseer-old"
