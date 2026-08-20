@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.3.0...v1.4.0) (2026-08-20)
+
+
+### Features
+
+* a started track carries an explicit model so it is capturable from birth ([a841337](https://github.com/thewoolleyman/livespec-overseer/commit/a84133759332e76de4b16cdfd1310630207d6158))
+* answer a picker that matches the recorded next action ([7fec426](https://github.com/thewoolleyman/livespec-overseer/commit/7fec426ca4677687e5b9fa3af7e6622256340cbd))
+* detect a persistently failing release lane on a schedule ([eea76bd](https://github.com/thewoolleyman/livespec-overseer/commit/eea76bd4fb1208f51b504b54cd83784614717e54))
+
+
+### Bug Fixes
+
+* **prose:** give tick reports a discipline that does not re-argue itself ([8915168](https://github.com/thewoolleyman/livespec-overseer/commit/89151687fa1ebfd4860322d0bbbf7e719f87223d))
+
 ## [1.3.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.2.2...v1.3.0) (2026-08-20)
 
 
