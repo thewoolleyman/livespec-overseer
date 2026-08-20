@@ -265,9 +265,14 @@ Consequences to hold onto:
       exhausted or rate-limited (HTTP 429, rate_limit_error).
       Observed condition: exhausted.
 
-  That is a real usability gate, symmetric to the Codex one, and `bd-ib-3mbj` —
-  the item that closed the asymmetry — reads `acceptance` in the orchestrator
-  tenant. **So a present-but-exhausted token no longer passes pre-flight, and a
+  That is a real usability gate, and `bd-ib-3mbj` — the item that added it —
+  reads `acceptance` in the orchestrator tenant. **It is NOT symmetric to the
+  Codex side** (the sentence that stood here until 2026-08-20 said it was, and
+  had the direction inverted): Codex-mode dispatch still has NO usability
+  preflight, so an exhausted Codex usage window launches a doomed sandbox per
+  dispatch and surfaces only as an ACP protocol error — carrier `bd-ib-oj71`,
+  re-measured 2026-08-19 when four runs burned into a window known-exhausted
+  for hours. **So a present-but-exhausted token no longer passes pre-flight, and a
   run no longer dies mid-review from this cause.** Do NOT reach for the host-side
   probe in `plan/archive/background-shell-supervision-liveness/handoff.md`
   §"Gate 4" as "the only valid signal": the dispatcher now reports the condition
@@ -425,6 +430,54 @@ reference, inviting someone to unset a healthy dependency. The working form is
 replaces the whole object, so preserve sibling keys such as `rank`. Then read the
 item back and verify `non_local_depends_on` is a list, not a string.
 
+### A `not in the ready set` refusal with NO dependency edge at all — check the STATUS first
+
+Measured 2026-08-19 dispatching `overseer-y3xhlh.1` and `.2`. Two dispatches refused,
+under a minute each, neither leaving a phantom claim:
+
+    ERROR: requested work-item(s) not in the ready set: overseer-y3xhlh.1
+
+`drive.py` exits **1**, the dispatcher **3** — the identical signature to the
+anchor-as-dependency case above. **The cause was neither a dependency edge nor a
+broken pointer. `bd create` lands a new item in `BACKLOG`, and the dispatcher's ready
+set excludes backlog.** One `bd update <id> --status ready` per item fixed both, and
+they re-dispatched cleanly on the same build minutes later.
+
+**The reason this is easy to miss is that the status CHANGES BEHIND THE CREATE.**
+`bd create` prints `Status: open` truthfully — beads' own intake default — and the
+fleet's dispatcher then normalizes `open` onto the livespec lifecycle equivalent
+`backlog` (`_dispatcher_ledger_close.py`, `_NATIVE_STATUS_REMAP`, reason
+`"beads-native intake default"`). Both halves are behaving as designed. The filing
+session is simply never told that the status it was shown has been superseded:
+
+    $ bd create "..." --type bug --parent <epic>
+    ✓ Created issue: overseer-y3xhlh.7 — ...
+      Priority: P3
+      Status: open
+    $ bd show overseer-y3xhlh.7
+    ◇ overseer-y3xhlh.7 [BUG] · ...   [● P3 · BACKLOG]
+
+So the session that filed the item has been told it is open. Nothing prompts it to
+suspect the status, and the refusal names the ready set rather than the status.
+
+**CHECK THE STATUS BEFORE INSPECTING ANY EDGE.** The preceding guidance sends you to
+resolve a `work_item_id` across both tenants' id sets before unsetting anything — sound
+advice for a real edge, and a dead end here, because there is no edge to resolve. A
+freshly-filed item typically has no `depends_on` at all, so a reader following the
+edge-first path finds nothing, concludes the metadata is fine, and is left with a
+refusal they cannot explain.
+
+    bd show <id> | head -1     # BACKLOG? -> bd update <id> --status ready
+
+Costs a second, and it discriminates all four causes of this one symptom: **no edge and
+`BACKLOG`** is this case; an edge that resolves nowhere is the broken-pointer case; an
+edge that resolves but names the parent epic is thread-membership; an edge whose sibling
+repo is absent from `cross_repo_targets` fails closed.
+
+**File items ready when you mean them to be dispatchable**, or promote them in the same
+breath as filing. Do not batch-file a plan's children and dispatch later assuming they
+are startable — they are not, and the create output says otherwise.
+
 ### A FOURTH SHAPE: the run SUCCEEDED and the item was never transitioned
 
 Measured 2026-08-05 on `overseer-5oap`. **This is the dangerous member of the
@@ -565,12 +618,17 @@ force-overwrite and escalated to `blocked(human_input_required)`. That refusal i
 CORRECT behavior and must never be "fixed" by teaching agents to force-push.
 
 **THE DISCRIMINATOR IS ONE COMMAND, AND IT IS CHEAPER THAN EVERY OTHER CHECK IN
-THIS SECTION — RUN IT FIRST:**
+THIS SECTION — RUN IT FIRST, and run the FORGE query, not the ref probe:**
 
-    git ls-remote origin 'refs/heads/<publish-branch>'
     gh pr list --head <publish-branch> --state all
+    git ls-remote origin 'refs/heads/<publish-branch>'
 
-A live publish branch, or an open PR, means the work EXISTS. Releasing the claim
+The order was inverted here until 2026-08-20, and it matters (three-way control
+recorded on the foreman plan epic): an EMPTY `ls-remote` discriminates NOTHING —
+a merged PR's branch is routinely auto-deleted, so the ref probe reads empty
+precisely when the work landed. Only the forge query over ALL states separates
+never-pushed from merged-and-cleaned-up. A live publish branch, or a PR in any
+state, means the work EXISTS. Releasing the claim
 and re-dispatching on the "interview-destroyed" reading would have re-run work
 that was already open as a PR and auto-merging.
 
@@ -578,6 +636,14 @@ Remedy: confirm the PR, `fabro dump` the blocked run and DIFF its patch against
 what is published (here they were substantively identical — two words of
 reason-string wording), then `fabro rm <run> --force`. Plain `rm` refuses a
 blocked run and tells you to pass `--force`.
+
+**Keep that order — release, inspect, remove — everywhere this remedy
+generalizes** (measured twice on 2026-08-19, once by a thread that destroyed its
+own run's evidence this way): claim-release and run-removal are SEPARATE acts.
+Release the claim immediately, since a held claim blocks the ready set; `fabro
+dump`/`fabro inspect` BEFORE any removal, because `rm --force` destroys the only
+readable record of a swallowed cause; remove last. The commonly-practiced
+recovery recipe ends with force-remove and trains the mistake.
 
 **HOW TWO RUNS HAPPEN, and the correction it forces on the rule above.** The
 first dispatch was killed by the CALLER's own timeout; `fabro ps -a` immediately
@@ -612,6 +678,14 @@ when the command exits. End the turn only after arming a wake; on wake, inspect
 the disk files, `fabro ps`, `fabro ps -a`, and the publish branch/forge checks
 above. The task-notification stream is no longer the record of completion for
 loop-parked dispatch.
+
+Two `verdict.env` refinements, measured 2026-08-19: the helper also writes it
+with `status=running` AT LAUNCH, so wait on the value CHANGING, never on the
+file existing; and its two-word verdict cannot distinguish refused-before-launch
+from ran-and-failed — the dispatcher's own JSON envelope in `output.log` is the
+authoritative record, so read that, not the verdict line. And across every shape
+in this section: the ABSENCE of a phantom claim discriminates nothing by itself —
+several shapes leave none.
 
 | | double-brace | queue eviction | anchor-as-dep | succeeded-untransitioned | interview-destroyed | **publish-branch collision** |
 |---|---|---|---|---|---|---|
@@ -882,6 +956,10 @@ livespec-orchestrator-beads-fabro/<new-build>/scripts/bin/drive.py --action impl
 
 Confirm which build is current with `just ensure-plugins` (it prints
 `already at the latest version (<build>)`), then point at that directory.
+Take the build id from `ensure-plugins`' own output, never from the error
+message: the `<new>` id the error names is whatever was latest when the stale
+build resolved, and can itself be superseded by the time you read it — pointing
+at it reproduces the refusal with a fresher pair of ids (measured 2026-08-19).
 
 ## A ledger field describes the RECORD, not the WORLD — `Updated:` is not activity, `status` is not scheduling
 
@@ -1122,6 +1200,16 @@ across three bounces during the ratifying session:
    prior release; this was observed directly during the ratifying session (one
    bounce landed one release behind because the pull that would have carried
    the fix arrived after the daemon had already started).
+
+**Rider, ratified 2026-08-20 — maintainer, typed directly into the foreman
+pane; verbatim on the `overseer-z5fo4y` decision-batch comment:** "Yes it can
+be restarted any time but whatever is restarting it must ensure that it stays
+properly in the top pane of the overseer TMUX session as the overseer skill
+prescribes." So the procedure above carries one more obligation: whatever
+performs the restart must ensure the fresh `overseerd` lands, and stays, in
+the TOP pane of the two-pane overseer tmux session per the overseer skill
+(`overseer/SKILL.md`) — a daemon respawned into the wrong pane or into a
+detached shell satisfies the three bounce steps and still violates the ruling.
 
 ## CI runner routing
 
