@@ -11,6 +11,7 @@ import signals
 from _supervisor_config import track_key
 from _supervisor_launch_profile import CodexLaunchPlan
 from _supervisor_prompts import resume_for_track
+from _supervisor_statusline_model import restart_blocked_by_statusline_mismatch
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -51,7 +52,7 @@ def _post_respawn_live_process(
     )
 
 
-def _respawn_verified(
+def _codex_launch_plan_for_restart(
     *,
     sup: Supervisor,
     track: registry.Track,
@@ -59,7 +60,7 @@ def _respawn_verified(
     session: str,
     session_id: str,
     resume: str,
-) -> bool:
+) -> CodexLaunchPlan | None:
     launch = _supervisor_launch.codex_launch_plan(
         track=track,
         session_id=session_id,
@@ -74,6 +75,35 @@ def _respawn_verified(
             message=f"{launch.message}; keeping the ready declaration so it retries",
             condition="stale-launch-profile",
         )
+        return None
+    if restart_blocked_by_statusline_mismatch(
+        sup=sup,
+        track=track,
+        target=target,
+        session=session,
+    ):
+        return None
+    return launch
+
+
+def _respawn_verified(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    session: str,
+    session_id: str,
+    resume: str,
+) -> bool:
+    launch = _codex_launch_plan_for_restart(
+        sup=sup,
+        track=track,
+        target=target,
+        session=session,
+        session_id=session_id,
+        resume=resume,
+    )
+    if launch is None:
         return False
     if not sup.tmux.respawn_pane(
         session=target,
