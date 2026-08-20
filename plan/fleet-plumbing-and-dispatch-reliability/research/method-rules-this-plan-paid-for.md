@@ -1,10 +1,11 @@
 # Method rules this plan paid for
 
-Consolidated 2026-08-19. These rules were each learned by being bitten, and
-until now they lived scattered across a dozen ledger handoff entries — which
-means reconstructing them costs reading the whole timeline in order. They are
-the transferable part of this work, so they belong in the research store where
-a fresh reader can find them in one place.
+Consolidated 2026-08-19; extended 2026-08-21 with rules 13-15. These rules
+were each learned by being bitten, and until now they lived scattered across a
+dozen ledger handoff entries — which means reconstructing them costs reading
+the whole timeline in order. They are the transferable part of this work, so
+they belong in the research store where a fresh reader can find them in one
+place.
 
 **This note is method only.** It records no carrier state; status is composed
 from the ledger. Where a rule names an incident, the incident is on the epic's
@@ -231,6 +232,73 @@ single-source the PREPARATION each caller does before consulting it. When a
 check is reused across surfaces, the divergence will live in what callers do
 first, and it will look like the invariant is inconsistent when the invariant is
 the one thing that is fine.
+
+### 13. A measurement whose window PREDATES the remedy cannot attribute — and a good denominator does not rescue it
+
+`overseer-izh7` leg 2 asks for the bd-guard blocked-op count to return to zero
+over a window longer than the trigger's 60-minute lookback. Measured 2026-08-20:
+zero, across every caller path in this repo, over about 34 hours. The criterion
+reads satisfied.
+
+It is worthless as written, because the guidance it exists to test merged at
+`09:23:46Z` and this repo's last blocked op was some 34 hours *earlier*. The
+whole window sits before the remedy. The measurement returns the same value
+whether or not the fix landed — so it can confirm a condition's absence and can
+never attribute it.
+
+**A corollary about how the objection was answered.** The first draft of this
+finding gave two reasons to reject the measurement: no denominator, and the
+window predates the fix. Only one survived contact. The denominator was then
+measured — 8,437 invocations from this repo in the same window, zero
+blocked — so "the repo was merely quiet" is refuted and the zero is a real
+signal. **Split a compound objection and re-test each half**, or a refuted
+half drags a sound half down with it. Here the sound half was the one that
+mattered.
+
+What it leaves behind deserves naming: `izh7` leg 1 is **prophylactic**. Its
+value lies with callers who have not yet made the mistake, and the absence of a
+mistake that had already stopped cannot demonstrate it. An acceptance asking for
+a zero will keep being satisfiable without ever testing the remedy.
+
+### 14. A signature that cannot separate healthy from broken must never be acted on
+
+`overseer-1hv`'s execution leg needs a genuinely stuck claim, and the standing
+agreement is to take one met in the normal course rather than manufacture it. A
+sweep found five items reading `active` with a `fabro` assignee and a null run
+id — the item's surface signature exactly.
+
+None qualified. All carried same-day record mutations, whereas the measured
+instance had `updated_at` **frozen** at the dispatch instant. A null run id is
+not a stuck signal at all: this thread's own `izh7` dispatch carried null both
+while running *and* after it merged. And those items dispatch to a **remote**
+factory, where absence from the local process view is evidence of nothing.
+
+The rule is what follows from that. The signature classifies **live remote
+runs** as stuck, so acting on it — moving such a row to clear its claim —
+destroys work in flight, and does so most confidently at the moment the run is
+healthiest. All five were left untouched. **Before acting on a signature, ask
+what a healthy system looks like through it.**
+
+### 15. Having the fix is not the same as the fix applying to you
+
+`overseer-n04`'s warning has a real upstream fix: beads `3068bc428`, PR 3568,
+"skip auto-backup file-URL register on external Dolt server", dated 2026-04-28.
+The maintainer's correction reasonably anticipated the remedy was an upgrade not
+yet taken.
+
+Measured 2026-08-21: **we already have it.** The earliest tag containing the fix
+is `v1.0.5` and the installed binary *is* `v1.0.5` — established by an
+is-ancestor test against the installed commit, not by comparing version strings.
+And it cannot fire here: its guard skips the registration only when the server
+sits on a *different* filesystem, returning true for loopback hosts, and this
+tenant is configured at `127.0.0.1`. Same warning text, different mechanism —
+ours is a privilege denial, the fixed one is a meaningless URL.
+
+An upgrade undertaken on that expectation would consume real effort and change
+nothing observable. **Check that the fix's MECHANISM matches your instance, not
+merely that its symptom does.** This is rule 5 one turn further on: there the
+citation matched and no change had been made; here the change is genuinely made,
+genuinely correct, and genuinely irrelevant to us.
 
 ## A note on where these came from
 
