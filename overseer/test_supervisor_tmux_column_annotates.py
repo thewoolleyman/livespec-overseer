@@ -202,7 +202,14 @@ def test_tty_render_tints_working_rows_green(*, tmp_path):
 def test_tty_render_tints_idle_and_waiting_rows_yellow(*, tmp_path):
     """Idle and `blocked:human` (waiting on a human decision) both read yellow — a
     human should glance at them (maintainer feature request 2026-07-15)."""
-    for status in ("idle", "idle-with-context-left", "blocked:human", "warned", "danger"):
+    for status in (
+        "idle",
+        "idle-with-context-left",
+        "blocked:human",
+        "warned",
+        "danger",
+        "settling-stuck",
+    ):
         sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), out=TtyOut())
         view = supervisor.RowView(topic="yl", repo="/r", tmux="s", ctx=15, status=status)
         line = row_line(out=render_of(sup=sup, views=[view]), topic="yl")

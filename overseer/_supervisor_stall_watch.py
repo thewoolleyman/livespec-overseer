@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 import _supervisor_liveness
 import _supervisor_parked_delivery
 import _supervisor_picker_stall
+import _supervisor_settling_stuck
 import _supervisor_snapshot
 import _supervisor_working_low_context
 import registry
@@ -248,8 +249,8 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             act=request.act,
         )
     )
-    stall_watch = apply_stall_watch(
-        request=StallWatchRequest(
+    settling_stuck = _supervisor_settling_stuck.apply_settling_stuck_attention(
+        request=_supervisor_settling_stuck.SettlingStuckRequest(
             sup=request.sup,
             track=request.track,
             session=request.session,
@@ -258,6 +259,19 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             note=low_context.note,
             obs=request.obs,
             active_conditions=low_context.active_conditions,
+            act=request.act,
+        )
+    )
+    stall_watch = apply_stall_watch(
+        request=StallWatchRequest(
+            sup=request.sup,
+            track=request.track,
+            session=request.session,
+            pane=request.pane,
+            status=settling_stuck.status,
+            note=settling_stuck.note,
+            obs=request.obs,
+            active_conditions=settling_stuck.active_conditions,
             act=request.act,
         )
     )
