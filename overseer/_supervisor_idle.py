@@ -38,7 +38,7 @@ def idle_room(*, request: IdleRequest) -> str:
         *track_key(repo=request.track.repo, topic=request.track.topic),
         "foreman-escalated",
     ) in request.sup.alerted
-    if not foreman_was_escalated and not signals.topic_reserved_for_supervisor(topic=request.topic):
+    if not foreman_was_escalated and isinstance(request.track, registry.PlanTrack):
         _supervisor_offer.surface_supervision_offer(
             sup=request.sup, track=request.track, act=request.act
         )

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import _supervisor_launch
 import _supervisor_state
 import registry
-import signals
 from _supervisor_prompts import supervisor_epic_path, supervisor_handoff_path
 
 if TYPE_CHECKING:
@@ -33,7 +32,7 @@ def missing_foreman_epic_message() -> str:
 
 def missing_restart_epic_message(*, track: registry.Track) -> str:
     """Surface text for a ready track whose restart binder cannot resolve an epic."""
-    if signals.is_foreman_topic(topic=track.topic):
+    if isinstance(track, registry.ForemanSeat):
         return missing_foreman_epic_message()
     return missing_plan_epic_message()
 
@@ -46,25 +45,23 @@ def _supervisor_topic_archived_message() -> str:
     )
 
 
-def _migrated_supervisor_epic_certifies(*, track: registry.Track) -> bool:
+def _migrated_supervisor_epic_certifies(*, track: registry.SupervisorSeat) -> bool:
     """Return whether the retired-file shape is replaced by a ledger-bound binder."""
-    topic = cast(str, signals.topic_supervised_worker(topic=track.topic))
-    path = supervisor_epic_path(repo=track.repo, topic=topic)
+    path = supervisor_epic_path(repo=track.repo, topic=track.supervised_topic)
     try:
         text = path.read_text(encoding="utf-8")
     except (OSError, ValueError):
         return False
     lowered = text.lower()
     epic = track.epic
-    names_epic = registry.epic_is_resolved(epic=epic) and epic is not None and epic in text
+    names_epic = registry.epic_is_resolved(epic=epic) and epic in text
     names_ledger = "ledger" in lowered
     return names_epic and names_ledger
 
 
-def _supervisor_resume_artifact_certifies(*, track: registry.Track) -> bool:
+def _supervisor_resume_artifact_certifies(*, track: registry.SupervisorSeat) -> bool:
     """Accept either the legacy file artifact or the migrated ledger-backed shape."""
-    topic = cast(str, signals.topic_supervised_worker(topic=track.topic))
-    if supervisor_handoff_path(repo=track.repo, topic=topic).exists():
+    if supervisor_handoff_path(repo=track.repo, topic=track.supervised_topic).exists():
         return True
     return _migrated_supervisor_epic_certifies(track=track)
 
@@ -89,10 +86,11 @@ def _handle_uncertified_supervisor_binder(
     alert — that case IS anomalous, and the round is left open (unchanged) so it keeps
     reporting until a human intervenes.
     """
-    topic = signals.topic_supervised_worker(topic=track.topic)
-    if topic is None or _supervisor_resume_artifact_certifies(track=track):
+    if not isinstance(track, registry.SupervisorSeat) or _supervisor_resume_artifact_certifies(
+        track=track
+    ):
         return False
-    if registry.archived_or_gone(repo=track.repo, topic=topic):
+    if registry.archived_or_gone(repo=track.repo, topic=track.supervised_topic):
         # Close the round instead of leaving a `ready` marker that re-reaches this branch
         # every tick — archive_gc ordinarily drops the mapping row in the SAME tick before
         # `do_restart` is ever reached; this only covers that narrow same-tick race.
@@ -121,9 +119,7 @@ def _handle_uncertified_foreman_binder(
     *, sup: Supervisor, track: registry.Track, target: str
 ) -> bool:
     """Alert (and report True) when a foreman track has no restartable epic."""
-    if not signals.is_foreman_topic(topic=track.topic) or registry.epic_is_resolved(
-        epic=track.epic
-    ):
+    if not isinstance(track, registry.ForemanSeat) or registry.epic_is_resolved(epic=track.epic):
         return False
     sup.alert(
         repo=track.repo,
