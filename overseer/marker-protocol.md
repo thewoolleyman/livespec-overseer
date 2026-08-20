@@ -556,10 +556,12 @@ interlock described above — a foreman entity writes and is restarted through
 resume/wrap-up TEXT differing:
 
 - **Registration** (`foreman_runtime.register_foreman_track`) — the
-  `foreman-runtime` executable registers (idempotently) a `Track` row with topic
-  `<repo-slug>-foreman`, `tmux=<repo-slug>-foreman`, and the watched repo, on every
-  step — independent of any `plan/` directory, so the overseer-never-touches-`plan/`
-  invariant holds by construction rather than by a new guard.
+  `foreman-runtime` executable registers a `Track` row idempotently by existence
+  on every step, independent of any `plan/` directory: one row exists afterwards
+  for topic `<repo-slug>-foreman`, `tmux=<repo-slug>-foreman`, and the watched repo,
+  and an existing row's durable contents are preserved, so the
+  overseer-never-touches-`plan/` invariant holds by construction rather than by a
+  new guard.
 - **Resume surface** — a foreman entity's `{read_first}`/`{resume}` point at a
   **ledger-held foreman epic** (`foreman_epic_resume`/`foreman_resume` in
   `_supervisor_prompts.py`), never a plan epic and never the file-based
