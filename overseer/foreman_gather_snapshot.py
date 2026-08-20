@@ -1,0 +1,177 @@
+"""Status snapshot source for the foreman evidence document."""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from pathlib import Path
+
+import jsonio
+import signals
+from _supervisor_snapshot import SCHEMA_VERSION
+from foreman_gather_evidence import enrich_rows_with_evidence
+from foreman_gather_sources import command_skipped, run_json_command
+
+__all__: list[str] = [
+    "migrated_supervisor_handoff_state",
+    "read_snapshot",
+    "read_snapshot_fallback",
+    "row_with_supervisor_handoff",
+    "snapshot_payload",
+    "supervisor_handoff_state",
+    "validated_snapshot",
+]
+
+
+def validated_snapshot(*, document: dict[str, object], source_name: str) -> list[dict[str, object]]:
+    schema = document.get("schema_version")
+    rows = jsonio.as_list(value=document.get("rows"))
+    generation = document.get("tick_generation")
+    if schema != SCHEMA_VERSION or rows is None:
+        msg = f"{source_name} snapshot has malformed primitive fields"
+        raise ValueError(msg)
+    if isinstance(generation, bool) or not isinstance(generation, int):
+        msg = f"{source_name} snapshot has malformed tick_generation"
+        raise TypeError(msg)
+    narrowed: list[dict[str, object]] = []
+    for row in rows:
+        obj = jsonio.as_object(value=row)
+        if obj is None:
+            msg = f"{source_name} snapshot row is not an object"
+            raise ValueError(msg)
+        narrowed.append(obj)
+    return narrowed
+
+
+def snapshot_payload(
+    *,
+    repo: Path,
+    document: dict[str, object],
+    mode: str,
+    path: Path | None,
+    pane_captures: object = None,
+) -> tuple[dict[str, object], dict[str, object]]:
+    rows = validated_snapshot(document=document, source_name="status")
+    repo_text = str(repo)
+    used = enrich_rows_with_evidence(
+        repo=repo,
+        rows=[
+            row_with_supervisor_handoff(repo=repo, row=row)
+            for row in rows
+            if row.get("repo") == repo_text
+        ],
+        pane_captures=pane_captures,
+    )
+    snapshot = {
+        "daemon_instance_id": document.get("daemon_instance_id"),
+        "tick_generation": document.get("tick_generation"),
+        "written_at": document.get("written_at"),
+        "rows": used,
+    }
+    source: dict[str, object] = {
+        "status": "ok",
+        "mode": mode,
+        "rows_total": len(rows),
+        "rows_used": len(used),
+    }
+    embedded_attention = jsonio.as_object(value=document.get("needs_attention"))
+    if embedded_attention is not None:
+        source["embedded_needs_attention"] = embedded_attention
+    if path is not None:
+        source["path"] = str(path)
+        source["freshness"] = {
+            "mtime": path.stat().st_mtime,
+            "tick_generation": document.get("tick_generation"),
+            "written_at": document.get("written_at"),
+        }
+    return snapshot, source
+
+
+def supervisor_handoff_state(*, repo: Path, topic: object) -> str:
+    if not isinstance(topic, str) or topic == "":
+        return "unknown"
+    if signals.topic_reserved_for_supervisor(topic=topic):
+        return "supervisor-topic"
+    plan_dir = repo / "plan" / topic
+    if not plan_dir.is_dir():
+        return "not-plan"
+    legacy_path = plan_dir / "supervisor-handoff.md"
+    if legacy_path.is_file():
+        return "present"
+    if migrated_supervisor_handoff_state(repo=repo, topic=topic):
+        return "present"
+    return "missing"
+
+
+def migrated_supervisor_handoff_state(*, repo: Path, topic: str) -> bool:
+    epic_path = repo / "plan" / topic / "epic.md"
+    try:
+        text = epic_path.read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return False
+    lowered = text.lower()
+    return "ledger" in lowered and ("comment" in lowered or "entry" in lowered)
+
+
+def row_with_supervisor_handoff(*, repo: Path, row: dict[str, object]) -> dict[str, object]:
+    enriched = dict(row)
+    enriched["supervisor_handoff"] = supervisor_handoff_state(repo=repo, topic=row.get("topic"))
+    return enriched
+
+
+def read_snapshot(
+    *,
+    repo: Path,
+    snapshot_path: Path,
+    list_json_command: Sequence[str] | None,
+    pane_captures: object = None,
+) -> tuple[dict[str, object] | None, dict[str, object]]:
+    try:
+        text = snapshot_path.read_text(encoding="utf-8")
+    except OSError:
+        text = ""
+    if text:
+        parsed = jsonio.parse_object(text=text)
+        if parsed is None:
+            msg = "snapshot produced malformed or non-object JSON"
+            raise ValueError(msg)
+        return snapshot_payload(
+            repo=repo,
+            document=parsed,
+            mode="daemon-snapshot",
+            path=snapshot_path,
+            pane_captures=pane_captures,
+        )
+    return read_snapshot_fallback(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        command=list_json_command,
+        pane_captures=pane_captures,
+    )
+
+
+def read_snapshot_fallback(
+    *,
+    repo: Path,
+    snapshot_path: Path,
+    command: Sequence[str] | None,
+    pane_captures: object = None,
+) -> tuple[dict[str, object] | None, dict[str, object]]:
+    if command is None:
+        return None, {
+            "status": "skipped",
+            "path": str(snapshot_path),
+            "reason": "snapshot unavailable and no list --json fallback configured",
+        }
+    parsed = run_json_command(command=command, source_name="list_json")
+    if parsed is None:
+        return None, command_skipped(command=command, reason="command not found")
+    skip = parsed.get("__skip_reason__")
+    if isinstance(skip, str):
+        return None, command_skipped(command=command, reason=skip)
+    return snapshot_payload(
+        repo=repo,
+        document=parsed,
+        mode="list-json-observation-only",
+        path=None,
+        pane_captures=pane_captures,
+    )

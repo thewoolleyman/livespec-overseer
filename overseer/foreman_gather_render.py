@@ -12,6 +12,7 @@ def source_line(*, document: dict[str, object]) -> str:
     snapshot = jsonio.as_object(value=sources.get("snapshot")) or {}
     attention = jsonio.as_object(value=sources.get("needs_attention")) or {}
     journal = jsonio.as_object(value=sources.get("dispatch_journal")) or {}
+    release_lane = jsonio.as_object(value=sources.get("release_lane"))
     snapshot_bits = [
         f"snapshot={snapshot.get('status')}",
         str(snapshot.get("mode")),
@@ -24,10 +25,19 @@ def source_line(*, document: dict[str, object]) -> str:
         f"dispatch_journal={journal.get('status')}",
         f"records={journal.get('records_read')}",
     ]
-    return (
+    line = (
         f"sources: {' '.join(snapshot_bits)}; "
         f"{' '.join(attention_bits)}; {' '.join(journal_bits)}"
     )
+    if release_lane is not None:
+        release_bits = [
+            f"release_lane={release_lane.get('status')}",
+            str(release_lane.get("workflow")),
+        ]
+        if isinstance(release_lane.get("reason"), str):
+            release_bits.append(str(release_lane["reason"]))
+        line = f"{line}; {' '.join(release_bits)}"
+    return line
 
 
 def row_line(*, row: dict[str, object]) -> str:

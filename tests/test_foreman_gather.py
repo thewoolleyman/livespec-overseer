@@ -499,6 +499,150 @@ def test_embedded_and_fixture_attention_feed_needs_you_render(*, tmp_path):
     assert fixture["needs_attention"] == attention
 
 
+def test_release_lane_replay_routes_detector_finding_to_attention_surface(*, tmp_path):
+    module = foreman_gather()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    snapshot_path = tmp_path / "status.json"
+    write_json(
+        path=snapshot_path,
+        payload={
+            "schema_version": 1,
+            "daemon_instance_id": "daemon-1",
+            "tick_generation": 1,
+            "written_at": "2026-08-20T08:00:00Z",
+            "rows": [],
+        },
+    )
+    history = json.loads((Path(__file__).resolve().parent / "release-tag-history.json").read_text())
+    window = [
+        row
+        for row in history
+        if "2026-08-03T03:38:02Z" <= row["created_at"] <= "2026-08-19T12:11:08Z"
+    ]
+
+    document = module.compose_document(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        needs_attention_command=None,
+        journal_path=repo / "tmp" / "fabro-dispatch-journal.jsonl",
+        now=lambda: "2026-08-20T08:03:00Z",
+        release_lane_enabled=True,
+        release_lane_workflow="release-tag",
+        release_lane_runs=window,
+    )
+
+    assert document["sources"]["release_lane"] == {
+        "mode": "provided-history",
+        "runs_considered": 124,
+        "status": "ok",
+        "workflow": "release-tag",
+    }
+    assert document["needs_attention"]["items"] == [
+        {
+            "id": "release-lane:release-tag",
+            "kind": "release-lane",
+            "title": (
+                "release-tag: FAILING — 123 consecutive runs since "
+                "2026-08-03T05:31:01Z; last green 2026-08-03T03:38:02Z"
+            ),
+        }
+    ]
+    assert (
+        "\nneeds attention:\n  release-lane:release-tag | release-lane | " "release-tag: FAILING"
+    ) in module.render_document(document=document)
+
+
+def test_healthy_release_lane_stays_silent_on_attention_surface(*, tmp_path):
+    module = foreman_gather()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    snapshot_path = tmp_path / "status.json"
+    write_json(
+        path=snapshot_path,
+        payload={
+            "schema_version": 1,
+            "daemon_instance_id": "daemon-1",
+            "tick_generation": 1,
+            "written_at": "2026-08-20T08:00:00Z",
+            "rows": [],
+        },
+    )
+
+    document = module.compose_document(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        needs_attention_command=None,
+        journal_path=repo / "tmp" / "fabro-dispatch-journal.jsonl",
+        release_lane_enabled=True,
+        release_lane_workflow="release-tag",
+        release_lane_runs=[
+            {"conclusion": "success", "created_at": "2026-08-20T08:19:21Z"},
+            {"conclusion": "success", "created_at": "2026-08-20T09:46:04Z"},
+        ],
+    )
+
+    assert document["sources"]["release_lane"]["status"] == "ok"
+    assert document["needs_attention"] == {"items": []}
+    assert "\nneeds attention:\n  none\n" in module.render_document(document=document)
+
+
+def test_unreachable_release_lane_source_surfaces_unknown_with_staleness(*, tmp_path):
+    module = foreman_gather()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    snapshot_path = tmp_path / "status.json"
+    cache_path = repo / "tmp" / "overseer" / "release-lane-watch.json"
+    cache_path.parent.mkdir(parents=True)
+    write_json(
+        path=snapshot_path,
+        payload={
+            "schema_version": 1,
+            "daemon_instance_id": "daemon-1",
+            "tick_generation": 1,
+            "written_at": "2026-08-20T08:00:00Z",
+            "rows": [],
+        },
+    )
+    write_json(
+        path=cache_path,
+        payload={
+            "measured_at": "2026-08-20T07:00:00Z",
+            "workflow": "release-tag",
+            "state": {"healthy": True, "runs_considered": 12},
+        },
+    )
+
+    document = module.compose_document(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        needs_attention_command=None,
+        journal_path=repo / "tmp" / "fabro-dispatch-journal.jsonl",
+        now=lambda: "2026-08-20T08:03:00Z",
+        release_lane_enabled=True,
+        release_lane_workflow="release-tag",
+        release_lane_fetcher=lambda: None,
+        release_lane_cache_path=cache_path,
+    )
+
+    assert document["sources"]["release_lane"] == {
+        "last_successful_measurement_at": "2026-08-20T07:00:00Z",
+        "reason": "forge unreachable or unavailable",
+        "status": "unknown",
+        "workflow": "release-tag",
+    }
+    assert document["needs_attention"]["items"] == [
+        {
+            "id": "release-lane:release-tag",
+            "kind": "release-lane-unknown",
+            "title": (
+                "release-tag: UNKNOWN — could not measure release lane; "
+                "last successful measurement 2026-08-20T07:00:00Z"
+            ),
+        }
+    ]
+
+
 def test_unreachable_inputs_are_skipped_and_named(*, tmp_path):
     module = foreman_gather()
     repo = tmp_path / "repo"
