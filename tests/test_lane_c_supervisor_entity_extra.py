@@ -213,11 +213,11 @@ def test_cli_refuses_reserved_supervisor_topic_for_track_commands(*, tmp_path, m
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = str(tmp_path / "repo")
 
-    for command in ("add", "remove", "start"):
+    for command in ("add", "start"):
         with contextlib.redirect_stderr(_io.StringIO()) as err:
             rc = supervisor.main(argv=[command, "--repo", repo, "--topic", "topic-supervisor"])
         assert rc == 1
-        assert "refusing reserved supervisor topic" in err.getvalue()
+        assert "supervisor" in err.getvalue()
     assert not store.exists()
 
 

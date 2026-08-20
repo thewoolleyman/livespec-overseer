@@ -256,8 +256,6 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
 
 def _cmd_remove(*, args: argparse.Namespace) -> int:
     repo = os.path.normpath(args.repo)
-    if _refuse_reserved_topic(repo=repo, topic=args.topic):
-        return 1
     removed = registry.remove_mapping(repo=repo, topic=args.topic, store_path=None)
     streams.write_stdout(text=f"removed {removed} mapping row(s) for {args.repo}::{args.topic}\n")
     return 0
@@ -274,8 +272,6 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
     """
     repo = os.path.normpath(args.repo)
     topic = args.topic
-    if _refuse_reserved_topic(repo=repo, topic=topic):
-        return 1
     session = _derive_tmux_or_refuse(repo=repo, topic=topic)
     if session is None:
         return 1
