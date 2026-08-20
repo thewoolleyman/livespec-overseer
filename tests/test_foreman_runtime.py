@@ -449,6 +449,8 @@ def test_hard_tick_budget_is_still_enforced_at_the_raised_default(*, tmp_path):
     at_thirty_six = module.ForemanRuntime(repo=at_budget, now=lambda: 0.0).step(document=document)
     assert at_thirty_six.tick_generation == 36
     assert at_thirty_six.exit_reason == "hard-tick-budget"
+
+
 def journal_records(*, repo: Path) -> list[dict[str, object]]:
     path = repo / "tmp" / "fabro-dispatch-journal.jsonl"
     if not path.is_file():
