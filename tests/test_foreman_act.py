@@ -211,6 +211,36 @@ def file_proposal(*, repo: Path, target_repo: Path | None = None) -> dict[str, o
     return proposal
 
 
+def work_item_update_proposal(*, repo: Path, item_id: str = "overseer-child") -> dict[str, object]:
+    proposal = start_proposal(repo=repo, action_id="work_item_update")
+    proposal["work_item_update"] = {
+        "work_item_id": item_id,
+        "priority": "P1",
+        "parent": "overseer-parent",
+    }
+    return proposal
+
+
+def work_item_comment_proposal(*, repo: Path, item_id: str = "overseer-child") -> dict[str, object]:
+    proposal = start_proposal(repo=repo, action_id="work_item_comment")
+    proposal["work_item_comment"] = {
+        "work_item_id": item_id,
+        "text": "Corroborating foreman evidence.",
+    }
+    return proposal
+
+
+def foreman_epic_create_proposal(*, repo: Path) -> dict[str, object]:
+    proposal = start_proposal(repo=repo, action_id="foreman_epic_create")
+    proposal["foreman_epic_create"] = {
+        "target_repo": str(repo),
+        "title": "Foreman seat anchor",
+        "description": "Ledger-held foreman handoff timeline.",
+        "existing_epic_id": None,
+    }
+    return proposal
+
+
 def journal_record(*, work_item_id: str = "overseer-a") -> dict[str, object]:
     return {
         "stage": "outcome",
@@ -259,12 +289,15 @@ def test_foreman_act_module_executable_and_closed_schema_exist():
     assert module.ACTION_IDS == (
         "blocked_session_answer",
         "dispatch_journal_reconcile_merged",
+        "foreman_epic_create",
         "human_valve",
         "plan_start",
         "qualifying_session_resume",
         "qualifying_session_start",
         "supervisor_pair_start",
+        "work_item_comment",
         "work_item_file",
+        "work_item_update",
         "work_item_session_finish",
         "work_item_session_resume",
         "work_item_session_start",
@@ -659,6 +692,132 @@ def test_refuses_stale_unknown_freeform_and_human_actions(*, tmp_path):
         assert result["outcome"] == "refused"
         assert result["mutated"] is False
         assert result["reason"] == reason
+    assert calls == []
+
+
+def test_typed_ledger_actions_validate_own_tenant_and_journal_before_mutation(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    events: list[str] = []
+    requests: list[dict[str, object]] = []
+
+    def mutate_ledger(*, request: dict[str, object]):
+        events.append("mutate")
+        requests.append(request)
+        return "overseer-mutated", "updated"
+
+    result = module.act(
+        proposal=work_item_update_proposal(repo=repo),
+        gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        ledger_mutation=mutate_ledger,
+        append_journal=lambda *, repo, record: events.append(f"journal:{record['reason']}"),
+    )
+
+    assert result == {
+        "action_id": "work_item_update",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "ledger_updated:overseer-mutated:updated",
+    }
+    assert events == [
+        "journal:ledger_mutation_pending",
+        "mutate",
+        "journal:ledger_updated:overseer-mutated:updated",
+    ]
+    assert requests == [
+        {
+            "action_id": "work_item_update",
+            "repo": str(repo),
+            "work_item_id": "overseer-child",
+            "priority": "P1",
+            "parent": "overseer-parent",
+        }
+    ]
+
+
+def test_typed_ledger_comment_and_epic_create_use_the_ledger_mutation_seam(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    requests: list[dict[str, object]] = []
+
+    def mutate_ledger(*, request: dict[str, object]):
+        requests.append(request)
+        return "overseer-anchor", "created" if request[
+            "action_id"
+        ] == "foreman_epic_create" else "commented"
+
+    results = [
+        module.act(
+            proposal=work_item_comment_proposal(repo=repo),
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            ledger_mutation=mutate_ledger,
+            append_journal=lambda *, repo, record: None,
+        ),
+        module.act(
+            proposal=foreman_epic_create_proposal(repo=repo),
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            ledger_mutation=mutate_ledger,
+            append_journal=lambda *, repo, record: None,
+        ),
+    ]
+
+    assert [result["reason"] for result in results] == [
+        "ledger_updated:overseer-anchor:commented",
+        "ledger_updated:overseer-anchor:created",
+    ]
+    assert requests == [
+        {
+            "action_id": "work_item_comment",
+            "repo": str(repo),
+            "work_item_id": "overseer-child",
+            "text": "Corroborating foreman evidence.",
+        },
+        {
+            "action_id": "foreman_epic_create",
+            "repo": str(repo),
+            "target_repo": str(repo),
+            "title": "Foreman seat anchor",
+            "description": "Ledger-held foreman handoff timeline.",
+        },
+    ]
+
+
+def test_typed_ledger_actions_refuse_foreign_ids_and_forbidden_mutations(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    calls: list[dict[str, object]] = []
+
+    foreign = work_item_update_proposal(repo=repo, item_id="livespec-dev-tooling-a")
+    status = work_item_update_proposal(repo=repo)
+    update_payload = status["work_item_update"]
+    assert isinstance(update_payload, dict)
+    update_payload["status"] = "closed"
+    policy = work_item_comment_proposal(repo=repo)
+    comment_payload = policy["work_item_comment"]
+    assert isinstance(comment_payload, dict)
+    comment_payload["approval"] = "approved"
+
+    for proposal, reason in [
+        (foreign, "foreign_work_item_id"),
+        (status, "unsupported_ledger_mutation"),
+        (policy, "unsupported_ledger_mutation"),
+    ]:
+        result = module.act(
+            proposal=proposal,
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            ledger_mutation=lambda *, request: calls.append(request) or ("bad", "bad"),
+            append_journal=lambda *, repo, record: None,
+        )
+        assert result["outcome"] == "refused"
+        assert result["reason"] == reason
+        assert result["mutated"] is False
     assert calls == []
 
 

@@ -252,6 +252,7 @@ shipped reset action for this; this is a sanctioned write under
    gated blocked-session answers, and gated human-valve handling. The shipped
    action IDs are `plan_start`, `qualifying_session_start`,
    `qualifying_session_resume`, `supervisor_pair_start`, `work_item_file`,
+   `work_item_update`, `work_item_comment`, `foreman_epic_create`,
    `dispatch_journal_reconcile_merged`, `work_item_session_start`,
    `work_item_session_resume`, `work_item_session_finish`,
    `blocked_session_answer`, and `human_valve`.
@@ -282,6 +283,13 @@ shipped reset action for this; this is a sanctioned write under
 4. Before acting, call `foreman-act` with the proposal. It performs fresh
    revalidation against the newest gather document. If it refuses, report the
    refusal; do not retry by hand.
+
+   Ledger mutation actions are deliberately narrow. `work_item_update` may set
+   only priority or parent on an own-tenant item. `work_item_comment` may append
+   only a corroborating comment to an own-tenant item. `foreman_epic_create` may
+   create the foreman seat anchor epic only when no such epic is already known.
+   Status moves and approval, acceptance, rejection, policy, capacity, and move
+   valves remain outside the actuator.
 5. If there is no safe action, record no mutation and let the deterministic
    runtime converge. A token-free watcher remains armed by the wrapper's durable
    generation fingerprint.
