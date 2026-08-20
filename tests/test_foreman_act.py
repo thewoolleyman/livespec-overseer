@@ -11,6 +11,8 @@ import time
 from hashlib import sha256
 from pathlib import Path
 
+import pytest
+
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
 MODULE_PATH = OVERSEER_DIR / "foreman_act.py"
 EXECUTABLE_PATH = OVERSEER_DIR / "foreman-act"
@@ -1432,3 +1434,209 @@ def test_cli_outputs_deterministic_json(*, tmp_path, monkeypatch, capsys):
         "outcome": "acted",
         "reason": "started",
     }
+
+
+def recorded_next_action_proposal(
+    *,
+    repo: Path,
+    handoff_text: str = "NEXT ACTION (exactly one): implement overseer-vx4ky3.1.",
+    answer_text: str = "Implement overseer-vx4ky3.1",
+) -> dict[str, object]:
+    proposal = blocked_answer_proposal(repo=repo)
+    del proposal["consensus"]
+    proposal["recorded_next_action"] = {
+        "handoff_text": handoff_text,
+        "source": "ledger:overseer-vx4ky3:plan-handoff-entry",
+    }
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["answer_text"] = answer_text
+    answer["question_fingerprint"] = _pane_fingerprint(text="Approve the bounded retry?\n")
+    return proposal
+
+
+class RecordedNextActionTmux:
+    def __init__(self, *, repo: Path):
+        self.repo = repo
+        self.calls: list[tuple[str, str, str | None]] = []
+
+    def pane_id(self, *, session: str):
+        return session
+
+    def pane_current_command(self, *, session: str):
+        del session
+        return "node"
+
+    def pane_current_path(self, *, session: str):
+        del session
+        return str(self.repo)
+
+    def capture_pane(self, *, session: str):
+        del session
+        return "Approve the bounded retry?\n"
+
+    def bracketed_paste(self, *, session: str, text: str):
+        self.calls.append(("paste", session, text))
+        return True
+
+    def send_keys(self, *, session: str, keys: str):
+        self.calls.append(("keys", session, keys))
+        return True
+
+
+def test_recorded_next_action_answers_a_matching_picker_without_consensus_evidence(
+    *, tmp_path, monkeypatch
+):
+    foreman_act = module("foreman_act")
+    pane_claim = module("foreman_pane_claim")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    tmux = RecordedNextActionTmux(repo=repo)
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: tmux)
+    monkeypatch.setattr(pane_claim, "time_time", lambda: 1000.0)
+    records: list[dict[str, object]] = []
+
+    result = foreman_act.act(
+        proposal=recorded_next_action_proposal(repo=repo),
+        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+        append_journal=lambda *, repo, record: records.append(record),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "answered_existing_prompt",
+    }
+    assert ("paste", "alpha", "Implement overseer-vx4ky3.1") in tmux.calls
+    authorizations = [
+        record for record in records if record.get("stage") == "foreman-recorded-next-action"
+    ]
+    assert len(authorizations) == 1
+    assert authorizations[0]["matched_text"] == "implement overseer-vx4ky3.1"
+    assert authorizations[0]["source"] == "ledger:overseer-vx4ky3:plan-handoff-entry"
+
+
+def test_recorded_next_action_refuses_when_no_picker_option_matches(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+
+    result = foreman_act.act(
+        proposal=recorded_next_action_proposal(
+            repo=repo, answer_text="Abandon the thread and file a successor"
+        ),
+        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "consensus_evidence_unavailable"
+
+
+def test_recorded_next_action_refuses_a_handoff_naming_zero_next_actions(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+
+    result = foreman_act.act(
+        proposal=recorded_next_action_proposal(
+            repo=repo, handoff_text="The thread stands where it stood; nothing is queued."
+        ),
+        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "recorded_next_action_not_singular"
+
+
+def test_recorded_next_action_refuses_a_handoff_naming_several_next_actions(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    handoff = (
+        "NEXT ACTION (exactly one): implement overseer-vx4ky3.1.\n"
+        "NEXT ACTION: implement overseer-vx4ky3.2.\n"
+    )
+
+    result = foreman_act.act(
+        proposal=recorded_next_action_proposal(repo=repo, handoff_text=handoff),
+        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "recorded_next_action_not_singular"
+
+
+def test_recorded_next_action_does_not_bypass_the_report_only_disposition(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    result = foreman_act.act(
+        proposal=recorded_next_action_proposal(repo=repo),
+        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "human_action_report_only"
+
+
+def test_recorded_next_action_does_not_relax_a_hard_floor(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    proposal = recorded_next_action_proposal(repo=repo)
+    proposal["human_valve"] = {"category": "human-gated-by-design"}
+
+    result = foreman_act.act(
+        proposal=proposal,
+        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "hard_floor:human-gated-by-design"
+
+
+def test_recorded_next_action_refuses_a_payload_missing_its_source(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    proposal = recorded_next_action_proposal(repo=repo)
+    payload = proposal["recorded_next_action"]
+    assert isinstance(payload, dict)
+    del payload["source"]
+
+    result = foreman_act.act(
+        proposal=proposal,
+        gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+        run=lambda *, argv: 99,
+        consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+        append_journal=lambda *, repo, record: None,
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "malformed_recorded_next_action"

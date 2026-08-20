@@ -8,7 +8,11 @@ from typing import Protocol
 import jsonio
 from foreman_act_journal import journal_reconcile_command
 from foreman_act_record import AppendJournal
-from foreman_act_types import ACTION_IDS, HUMAN_VALVE, ActionId, ActResult
+from foreman_act_types import ACTION_IDS, BLOCKED_SESSION_ANSWER, HUMAN_VALVE, ActionId, ActResult
+from foreman_recorded_next_action import (
+    RecordedNextAction,
+    recorded_next_action_authorization,
+)
 from foreman_valve_policy import CONFIG_KEY, CONSENSUS
 
 __all__: list[str] = [
@@ -103,6 +107,47 @@ def _audit_record(
     }
 
 
+def _recorded_next_action_record(
+    *, proposal: dict[str, object], recorded: RecordedNextAction
+) -> dict[str, object]:
+    return {
+        "stage": "foreman-recorded-next-action",
+        "action_id": BLOCKED_SESSION_ANSWER,
+        "governing_setting": f"{CONFIG_KEY}={CONSENSUS}",
+        "repo": proposal.get("repo"),
+        "topic": proposal.get("topic"),
+        "matched_text": recorded.matched_text,
+        "source": recorded.source,
+    }
+
+
+def _prepare_recorded_next_action(
+    *, action_id: ActionId, proposal: dict[str, object], append_journal: AppendJournal
+) -> tuple[ActionId | None, ActResult | None] | None:
+    """Authorize a picker answer that restates the plan's recorded next action.
+
+    Returns None when the carve-out was not claimed or does not match, leaving
+    the consensus path to decide. The carve-out stands in for panel EVIDENCE
+    only; the disposition gate and the hard floors have already been applied by
+    the caller and are not reached through here.
+    """
+    if action_id != BLOCKED_SESSION_ANSWER:
+        return None
+    recorded, refusal = recorded_next_action_authorization(proposal=proposal)
+    if refusal is not None:
+        return None, _refused(action_id=action_id, reason=refusal)
+    if recorded is None:
+        return None
+    try:
+        append_journal(
+            repo=Path(str(proposal["repo"])),
+            record=_recorded_next_action_record(proposal=proposal, recorded=recorded),
+        )
+    except OSError:  # pragma: no cover
+        return None, _refused(action_id=action_id, reason="journal_append_failed")
+    return action_id, None
+
+
 def _authorized_panel_action(*, verdict: dict[str, object]) -> tuple[ActionId | None, str | None]:
     if verdict.get("outcome") != "unanimous":
         reason = verdict.get("reason")  # pragma: no cover
@@ -119,6 +164,25 @@ def _authorized_panel_action(*, verdict: dict[str, object]) -> tuple[ActionId | 
     return action_id, None
 
 
+def _pre_evidence_refusal(
+    *, action_id: ActionId, proposal: dict[str, object], disposition: dict[str, object]
+) -> ActResult | None:
+    """The gates that bind however the act is later authorized.
+
+    Both the disposition and the hard floors are evaluated BEFORE any
+    authorization path is considered, so no carve-out can reach past them.
+    """
+    if disposition.get("effective") != CONSENSUS:
+        reason = "human_action_report_only"
+        if disposition.get("recognized") is False:  # pragma: no cover
+            reason = "unrecognized_foreman_valve_disposition"
+        return _refused(action_id=action_id, reason=reason)
+    category = _valve_category(proposal=proposal)
+    if category in _HARD_FLOORS:
+        return _refused(action_id=action_id, reason=f"hard_floor:{category}")
+    return None
+
+
 def prepare_consensus_action(
     *,
     action_id: ActionId,
@@ -127,14 +191,16 @@ def prepare_consensus_action(
     consensus_panel: ConsensusPanel,
     append_journal: AppendJournal,
 ) -> tuple[ActionId | None, ActResult | None]:
-    if disposition.get("effective") != CONSENSUS:
-        reason = "human_action_report_only"
-        if disposition.get("recognized") is False:  # pragma: no cover
-            reason = "unrecognized_foreman_valve_disposition"
-        return None, _refused(action_id=action_id, reason=reason)
-    category = _valve_category(proposal=proposal)
-    if category in _HARD_FLOORS:
-        return None, _refused(action_id=action_id, reason=f"hard_floor:{category}")
+    pre_evidence = _pre_evidence_refusal(
+        action_id=action_id, proposal=proposal, disposition=disposition
+    )
+    if pre_evidence is not None:
+        return None, pre_evidence
+    carve_out = _prepare_recorded_next_action(
+        action_id=action_id, proposal=proposal, append_journal=append_journal
+    )
+    if carve_out is not None:
+        return carve_out
     evidence = _consensus_evidence(proposal=proposal)
     if evidence is None:
         return None, _refused(action_id=action_id, reason="consensus_evidence_unavailable")
