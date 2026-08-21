@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shlex
 import shutil
 import subprocess
@@ -14,7 +15,7 @@ import jsonio
 import streams
 from foreman_consensus import consensus
 from foreman_consensus_prompt import cache_key, reviewer_prompts
-from foreman_consensus_types import DEFAULT_PANEL_LIMITS, DEFAULT_STATE_DIR, PanelLimits
+from foreman_consensus_types import DEFAULT_PANEL_LIMITS, DEFAULT_STATE_DIR
 
 __all__: list[str] = [
     "convene_panel",
@@ -23,12 +24,20 @@ __all__: list[str] = [
 
 HINT_REASONS: Final[tuple[tuple[str, str], ...]] = (
     ("unanimous", "verdict_hint_in_blocked_question"),
-    ("verdict", "verdict_hint_in_blocked_question"),
     ("unblock", "verdict_hint_in_blocked_question"),
     ("needs-human", "verdict_hint_in_blocked_question"),
     ("insufficient-information", "verdict_hint_in_blocked_question"),
     ("escalate", "verdict_hint_in_blocked_question"),
     ("human_valve", "verdict_hint_in_blocked_question"),
+)
+DEFAULT_REVIEWER_TIMEOUT_SECONDS: Final[float] = 600.0
+TOOLING_FAILURE_REASONS: Final[frozenset[str]] = frozenset(
+    {
+        "reviewer_command_missing",
+        "reviewer_command_failed",
+        "reviewer_response_malformed",
+        "reviewer_timeout",
+    }
 )
 
 
@@ -41,11 +50,18 @@ def refused_result(*, reason: str) -> dict[str, object]:
     return {"outcome": "refused", "reason": reason, "reviewers": []}
 
 
+def hint_match(*, question: str, token: str) -> re.Match[str] | None:
+    return re.search(rf"(?<![\w-]){re.escape(token)}(?![\w-])", question)
+
+
 def refusal_for(*, request: dict[str, object]) -> dict[str, object] | None:
     question = str_field(payload=request, key="blocked_question").lower()
     for token, reason in HINT_REASONS:
-        if token in question:
-            return refused_result(reason=reason)
+        match = hint_match(question=question, token=token)
+        if match is not None:
+            result = refused_result(reason=reason)
+            result["hint"] = {"token": token, "offset": match.start()}
+            return result
     return None
 
 
@@ -119,18 +135,22 @@ def run_reviewer(
     prompt: dict[str, object],
     prompt_file: Path,
     reviewer_command: list[str] | None,
+    reviewer_timeout_seconds: float = DEFAULT_REVIEWER_TIMEOUT_SECONDS,
 ) -> dict[str, object]:
     if reviewer_command is None:
         missing = command_missing_response(prompt=prompt)
         if missing is not None:
             return missing
-    completed = subprocess.run(
-        args=reviewer_argv(command=reviewer_command, prompt=prompt, prompt_file=prompt_file),
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=600.0,
-    )
+    try:
+        completed = subprocess.run(
+            args=reviewer_argv(command=reviewer_command, prompt=prompt, prompt_file=prompt_file),
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=reviewer_timeout_seconds,
+        )
+    except subprocess.TimeoutExpired:
+        return reviewer_failure(prompt=prompt, reason="reviewer_timeout")
     if completed.returncode != 0:
         return reviewer_failure(prompt=prompt, reason="reviewer_command_failed")
     response = jsonio.parse_object(text=completed.stdout)
@@ -139,11 +159,28 @@ def run_reviewer(
     return response
 
 
+def reviewer_failure_reason(*, reviewer: dict[str, object]) -> str:
+    action = jsonio.as_object(value=reviewer.get("action")) or {}
+    params = jsonio.as_object(value=action.get("params")) or {}
+    reason = params.get("reason")
+    return reason if isinstance(reason, str) else ""
+
+
+def result_decision_kind(*, reviewers: list[dict[str, object]]) -> str:
+    if any(
+        reviewer_failure_reason(reviewer=reviewer) in TOOLING_FAILURE_REASONS
+        for reviewer in reviewers
+    ):
+        return "tooling_outage"
+    return "substantive_non_decision"
+
+
 def reviewer_responses(
     *,
     request: dict[str, object],
     dossier_dir: Path,
     reviewer_command: list[str] | None,
+    reviewer_timeout_seconds: float = DEFAULT_REVIEWER_TIMEOUT_SECONDS,
 ) -> dict[str, object]:
     prompts = reviewer_prompts(request=request)
     prompt_dir = dossier_dir / "prompts"
@@ -156,6 +193,7 @@ def reviewer_responses(
             prompt=prompt,
             prompt_file=prompt_file,
             reviewer_command=reviewer_command,
+            reviewer_timeout_seconds=reviewer_timeout_seconds,
         )
         reviewers.append(response)
         _ = write_json(path=response_dir / f"{reviewer_id}.json", payload=response)
@@ -168,8 +206,8 @@ def convene_panel(
     state_dir: Path = DEFAULT_STATE_DIR,
     verdict_path: Path,
     reviewer_command: list[str] | None = None,
+    reviewer_timeout_seconds: float = DEFAULT_REVIEWER_TIMEOUT_SECONDS,
     dossier_dir: Path | None = None,
-    limits: PanelLimits = DEFAULT_PANEL_LIMITS,
 ) -> dict[str, object]:
     refusal = refusal_for(request=request)
     if refusal is not None:
@@ -183,9 +221,19 @@ def convene_panel(
         request=request,
         dossier_dir=panel_dir,
         reviewer_command=reviewer_command,
+        reviewer_timeout_seconds=reviewer_timeout_seconds,
     )
     _ = write_json(path=panel_dir / "reviewer-responses.json", payload=responses)
-    verdict = consensus(request=request, responses=responses, state_dir=state_dir, limits=limits)
+    verdict = consensus(
+        request=request,
+        responses=responses,
+        state_dir=state_dir,
+        limits=DEFAULT_PANEL_LIMITS,
+    )
+    reviewers = jsonio.as_list(value=responses.get("reviewers")) or []
+    verdict["decision_kind"] = result_decision_kind(
+        reviewers=[reviewer for reviewer in reviewers if isinstance(reviewer, dict)]
+    )
     _ = write_json(path=panel_dir / "verdict.json", payload=verdict)
     _ = write_json(path=verdict_path, payload=verdict)
     return {
@@ -207,6 +255,11 @@ def main(*, argv: list[str] | None = None) -> int:
     _ = parser.add_argument("--state-dir", default=str(DEFAULT_STATE_DIR))
     _ = parser.add_argument("--dossier-dir", default=None)
     _ = parser.add_argument("--reviewer-command", default=None)
+    _ = parser.add_argument(
+        "--reviewer-timeout-seconds",
+        type=float,
+        default=DEFAULT_REVIEWER_TIMEOUT_SECONDS,
+    )
     args = parser.parse_args(argv)
     request = load_request(path=Path(args.request))
     command = shlex.split(args.reviewer_command) if args.reviewer_command else None
@@ -219,6 +272,7 @@ def main(*, argv: list[str] | None = None) -> int:
             verdict_path=Path(args.verdict_output),
             dossier_dir=Path(args.dossier_dir) if args.dossier_dir else None,
             reviewer_command=command,
+            reviewer_timeout_seconds=args.reviewer_timeout_seconds,
         )
     )
     streams.write_stdout(text=json.dumps(result, indent=2, sort_keys=True) + "\n")

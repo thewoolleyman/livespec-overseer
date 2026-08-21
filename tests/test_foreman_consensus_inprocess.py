@@ -184,6 +184,7 @@ def test_foreman_panel_refuses_verdict_hints_before_running_reviewers(*, tmp_pat
     )
 
     assert result == {
+        "hint": {"offset": 16, "token": "unanimous"},
         "outcome": "refused",
         "reason": "verdict_hint_in_blocked_question",
         "reviewers": [],
