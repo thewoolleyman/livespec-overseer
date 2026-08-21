@@ -134,9 +134,13 @@ def read_snapshot(
     except OSError:
         text = ""
     if text:
-        parsed = jsonio.parse_object(text=text)
+        parsed_result = jsonio.parse_object(text=text)
+        if jsonio.is_parse_failure(result=parsed_result):
+            msg = "snapshot produced malformed JSON"
+            raise ValueError(msg)
+        parsed = parsed_result.unwrap()
         if parsed is None:
-            msg = "snapshot produced malformed or non-object JSON"
+            msg = "snapshot produced non-object JSON"
             raise ValueError(msg)
         return snapshot_payload(
             repo=repo,

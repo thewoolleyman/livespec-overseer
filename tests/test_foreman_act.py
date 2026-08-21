@@ -1282,6 +1282,26 @@ def test_daemon_honors_foreman_pane_claim_by_suppressing_wrapup(*, tmp_path):
     assert builders.wrapup_count(fake=fake) == 0
 
 
+def test_malformed_pane_claim_is_inactive(*, tmp_path, monkeypatch):
+    pane_claim = module("foreman_pane_claim")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    path = pane_claim.claim_path(repo=repo, topic="alpha")
+    path.parent.mkdir(parents=True)
+    path.write_text("{oops}\n", encoding="utf-8")
+    monkeypatch.setattr(pane_claim, "time_time", lambda: 1000.0)
+
+    assert (
+        pane_claim.active_pane_claim(
+            repo=repo,
+            topic="alpha",
+            session="session",
+            pane="pane",
+        )
+        is None
+    )
+
+
 def test_blocked_answer_dismiss_and_represent_is_unreachable_until_protocol_ratified(
     *, tmp_path, monkeypatch
 ):

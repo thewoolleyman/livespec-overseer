@@ -31,9 +31,12 @@ def state_path(*, repo: Path) -> Path:
 
 def read_json_object(*, path: Path) -> dict[str, object]:
     try:
-        return jsonio.parse_object(text=path.read_text(encoding="utf-8")) or {}
+        parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
     except OSError:
         return {}
+    if jsonio.is_parse_failure(result=parsed):
+        return {}
+    return parsed.unwrap() or {}
 
 
 def atomic_json(*, path: Path, payload: dict[str, object]) -> None:

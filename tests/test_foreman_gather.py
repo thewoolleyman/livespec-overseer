@@ -33,6 +33,11 @@ def foreman_gather_sources():
     return importlib.import_module("foreman_gather_sources")
 
 
+def foreman_gather_snapshot():
+    _ = foreman_gather()
+    return importlib.import_module("foreman_gather_snapshot")
+
+
 def foreman_runtime_document():
     _ = foreman_gather()
     return importlib.import_module("foreman_runtime_document")
@@ -643,6 +648,29 @@ def test_unreachable_release_lane_source_surfaces_unknown_with_staleness(*, tmp_
     ]
 
 
+def test_snapshot_reader_distinguishes_malformed_from_non_object_json(*, tmp_path):
+    module = foreman_gather_snapshot()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    snapshot_path = tmp_path / "status.json"
+
+    snapshot_path.write_text("{oops}\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="snapshot produced malformed JSON"):
+        module.read_snapshot(
+            repo=repo,
+            snapshot_path=snapshot_path,
+            list_json_command=None,
+        )
+
+    snapshot_path.write_text("[]\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="snapshot produced non-object JSON"):
+        module.read_snapshot(
+            repo=repo,
+            snapshot_path=snapshot_path,
+            list_json_command=None,
+        )
+
+
 def test_unreachable_inputs_are_skipped_and_named(*, tmp_path):
     module = foreman_gather()
     repo = tmp_path / "repo"
@@ -964,7 +992,18 @@ def test_run_json_command_fail_soft_edges(*, monkeypatch):
     malformed = module.run_json_command(command=["tool"], source_name="demo")
     assert not returns_pipeline.is_successful(malformed)
     error = returns_unsafe.unsafe_perform_io(malformed.failure())
-    assert error.detail == "demo produced malformed or non-object JSON"
+    assert error.detail == "demo produced non-object JSON"
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **kwargs: module.subprocess.CompletedProcess(
+            args=args, returncode=0, stdout="{oops}\n", stderr=""
+        ),
+    )
+    malformed_json = module.run_json_command(command=["tool"], source_name="demo")
+    assert not returns_pipeline.is_successful(malformed_json)
+    error = returns_unsafe.unsafe_perform_io(malformed_json.failure())
+    assert error.detail == "demo produced malformed JSON"
 
 
 def test_journal_reader_rejects_malformed_records_and_limits_to_zero(*, tmp_path):
@@ -985,7 +1024,12 @@ def test_journal_reader_rejects_malformed_records_and_limits_to_zero(*, tmp_path
     malformed = module.read_journal(path=journal, limit=20)
     assert not returns_pipeline.is_successful(malformed)
     error = returns_unsafe.unsafe_perform_io(malformed.failure())
-    assert error.detail == "dispatch_journal contains malformed or non-object JSONL"
+    assert error.detail == "dispatch_journal contains malformed JSONL"
+    journal.write_text("{}\n[]\n", encoding="utf-8")
+    non_object = module.read_journal(path=journal, limit=20)
+    assert not returns_pipeline.is_successful(non_object)
+    error = returns_unsafe.unsafe_perform_io(non_object.failure())
+    assert error.detail == "dispatch_journal contains non-object JSONL"
 
 
 def test_cli_emits_json_render_and_errors(*, tmp_path, capsys):

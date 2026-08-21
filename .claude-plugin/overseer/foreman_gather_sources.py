@@ -62,7 +62,8 @@ def parse_repo_config(*, repo: Path) -> dict[str, object] | None:
     except OSError:
         return None
     stripped = "\n".join(strip_jsonc_line_comment(line=line) for line in text.splitlines())
-    return jsonio.parse_object(text=stripped)
+    parsed = jsonio.parse_object(text=stripped)
+    return None if jsonio.is_parse_failure(result=parsed) else parsed.unwrap()
 
 
 def default_needs_attention_command(*, repo: Path) -> list[str] | None:
@@ -153,9 +154,13 @@ def run_json_command(
         return IOSuccess({"__skip_reason__": type(exc).__name__})
     if completed.returncode != 0:
         return IOSuccess({"__skip_reason__": f"exit {completed.returncode}"})
-    parsed = jsonio.parse_object(text=completed.stdout)
+    parsed_result = jsonio.parse_object(text=completed.stdout)
+    if jsonio.is_parse_failure(result=parsed_result):
+        detail = f"{source_name} produced malformed JSON"
+        return IOFailure(OverseerSourceError(detail=detail))
+    parsed = parsed_result.unwrap()
     if parsed is None:
-        detail = f"{source_name} produced malformed or non-object JSON"
+        detail = f"{source_name} produced non-object JSON"
         return IOFailure(OverseerSourceError(detail=detail))
     return IOSuccess(parsed)
 
@@ -175,9 +180,13 @@ def read_journal(
         return IOSuccess(([], {"status": "skipped", "path": str(path), "reason": "file not found"}))
     records: list[dict[str, object]] = []
     for line in lines:
-        parsed = jsonio.parse_object_line(line=line)
+        parsed_result = jsonio.parse_object_line(line=line)
+        if jsonio.is_parse_failure(result=parsed_result):
+            detail = "dispatch_journal contains malformed JSONL"
+            return IOFailure(OverseerSourceError(detail=detail))
+        parsed = parsed_result.unwrap()
         if parsed is None:
-            detail = "dispatch_journal contains malformed or non-object JSONL"
+            detail = "dispatch_journal contains non-object JSONL"
             return IOFailure(OverseerSourceError(detail=detail))
         records.append(parsed)
     tail = records[-limit:] if limit > 0 else []

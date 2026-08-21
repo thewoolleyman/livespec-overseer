@@ -212,7 +212,7 @@ def _act_validated(
 
 def _load_proposal(*, path: Path) -> dict[str, object] | None:
     parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
-    return parsed
+    return None if jsonio.is_parse_failure(result=parsed) else parsed.unwrap()
 
 
 def main(*, argv: Sequence[str] | None = None) -> int:

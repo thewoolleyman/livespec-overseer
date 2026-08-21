@@ -152,7 +152,10 @@ def read_status_snapshot(*, path: str | os.PathLike[str]) -> StatusSnapshotRead 
         stat = target.stat()
     except OSError:
         return None
-    document = jsonio.parse_object(text=raw)
+    parsed = jsonio.parse_object(text=raw)
+    if jsonio.is_parse_failure(result=parsed):
+        return None
+    document = parsed.unwrap()
     if document is None:
         return None
     schema = document.get("schema_version")

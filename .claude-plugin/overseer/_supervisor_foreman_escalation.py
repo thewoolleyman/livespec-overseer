@@ -48,9 +48,12 @@ def read_escalation(*, repo: str, topic: str) -> ForemanEscalation | None:
     if not path.is_file():
         return None
     try:
-        payload = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+        parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
     except OSError:
         return ForemanEscalation(reason=None)
+    if jsonio.is_parse_failure(result=parsed):
+        return ForemanEscalation(reason=None)
+    payload = parsed.unwrap()
     if payload is None:
         return ForemanEscalation(reason=None)
     reason = payload.get("reason")

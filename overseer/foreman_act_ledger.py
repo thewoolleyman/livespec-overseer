@@ -113,7 +113,8 @@ def _update_command(*, request: dict[str, object]) -> list[str]:  # pragma: no c
 
 def _subprocess_result(*, action_id: str, stdout: str) -> LedgerMutationResult:  # pragma: no cover
     if action_id == FOREMAN_EPIC_CREATE:
-        parsed = jsonio.parse_object(text=stdout)
+        parsed_result = jsonio.parse_object(text=stdout)
+        parsed = None if jsonio.is_parse_failure(result=parsed_result) else parsed_result.unwrap()
         item_id = _str_field(payload=parsed or {}, key="id") or _str_field(
             payload=parsed or {}, key="item_id"
         )

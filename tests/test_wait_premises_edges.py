@@ -25,6 +25,7 @@ def test_reader_skips_malformed_and_invalid_records(*, tmp_path):
     directory = wait_premises.wait_premise_dir(repo=tmp_path / "repo", topic="alpha")
     directory.mkdir(parents=True)
     (directory / "malformed.json").write_text("{oops}\n", encoding="utf-8")
+    (directory / "non-object.json").write_text("[]\n", encoding="utf-8")
     (directory / "invalid.json").write_text('{"kind": "pr"}\n', encoding="utf-8")
 
     assert wait_premises.read_wait_premises(repo=tmp_path / "repo", topic="alpha") == []

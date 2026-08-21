@@ -81,7 +81,10 @@ def read_heartbeat(*, repo: str) -> Heartbeat | None:
     none of those may escape into the daemon tick.
     """
     try:
-        payload = jsonio.parse_object(text=heartbeat_path(repo=repo).read_text(encoding="utf-8"))
+        parsed = jsonio.parse_object(text=heartbeat_path(repo=repo).read_text(encoding="utf-8"))
+        if jsonio.is_parse_failure(result=parsed):
+            return None
+        payload = parsed.unwrap()
         if payload is None:
             return None
         written_raw = payload["written_at"]
@@ -93,16 +96,19 @@ def read_heartbeat(*, repo: str) -> Heartbeat | None:
         tick_interval_seconds = jsonio.as_float(value=payload["tick_interval_seconds"])
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return None
-    if pid is None or tick_generation is None or tick_interval_seconds is None:
-        return None
-    if tick_interval_seconds <= 0:
-        return None
-    return Heartbeat(
-        written_at=written_at,
-        pid=pid,
-        tick_generation=tick_generation,
-        tick_interval_seconds=tick_interval_seconds,
-    )
+    if (
+        pid is not None
+        and tick_generation is not None
+        and tick_interval_seconds is not None
+        and tick_interval_seconds > 0
+    ):
+        return Heartbeat(
+            written_at=written_at,
+            pid=pid,
+            tick_generation=tick_generation,
+            tick_interval_seconds=tick_interval_seconds,
+        )
+    return None
 
 
 def _age_seconds(*, heartbeat: Heartbeat, now: Callable[[], float]) -> float:

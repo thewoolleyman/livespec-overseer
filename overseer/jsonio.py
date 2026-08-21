@@ -17,15 +17,42 @@ the right call there (a pure-helper module, nothing else in it to weaken); here
 the parsing is a few lines inside modules full of unrelated logic, so a
 file-level pragma would silence three rules across code that should keep them.
 
-Stdlib-only, like every module in this folder.
+Uses the repo-vendored ``returns`` Result rail, like the foreman source
+readers that consume it.
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from typing import cast
 
-__all__: list[str] = ["as_float", "as_list", "as_object", "parse_object", "parse_object_line"]
+from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
+
+from overseer._vendor.returns.result import Failure, Result, Success
+
+_ = VENDOR_PATHS_INSTALLED
+
+__all__: list[str] = [
+    "JsonObjectParse",
+    "JsonParseError",
+    "as_float",
+    "as_list",
+    "as_object",
+    "is_parse_failure",
+    "parse_object",
+    "parse_object_line",
+]
+
+
+@dataclass(frozen=True, kw_only=True)
+class JsonParseError:
+    """Malformed JSON diagnostic carried on the Result failure track."""
+
+    message: str
+
+
+JsonObjectParse = Result[dict[str, object] | None, JsonParseError]
 
 
 def as_object(*, value: object) -> dict[str, object] | None:
@@ -83,29 +110,33 @@ def as_float(*, value: object) -> float | None:
     return None
 
 
-def parse_object(*, text: str) -> dict[str, object] | None:
+def is_parse_failure(*, result: JsonObjectParse) -> bool:
+    """Whether a JSON object parse failed before producing a JSON value."""
+    return isinstance(result, Failure)
+
+
+def parse_object(*, text: str) -> JsonObjectParse:
     """Parse ``text`` as a JSON object.
 
-    Returns None if ``text`` is malformed JSON, or is valid JSON that is not an
-    object (a bare list, string, or number). Never raises — callers in this
-    folder are all fail-soft readers of files a human or another process may have
-    corrupted, and a bad file must degrade one reader, never crash the daemon.
+    Malformed JSON returns ``Failure(JsonParseError(...))``. Well-formed JSON
+    that is not an object returns ``Success(None)``. A JSON object returns
+    ``Success(dict[str, object])``.
     """
     try:
         parsed: object = json.loads(text)
     except ValueError:
-        return None
-    return as_object(value=parsed)
+        return Failure(JsonParseError(message="malformed JSON"))
+    return Success(as_object(value=parsed))
 
 
-def parse_object_line(*, line: str) -> dict[str, object] | None:
+def parse_object_line(*, line: str) -> JsonObjectParse:
     """Parse one JSONL record, skipping blank lines.
 
     The same contract as :func:`parse_object`, plus: a line that is empty or
-    whitespace-only returns None rather than being reported as malformed. Every
-    JSONL reader here wants that, and doing it per-caller invited each to spell
-    the blank-line check slightly differently.
+    whitespace-only returns ``Success(None)`` rather than being reported as
+    malformed. Every JSONL reader here wants that, and doing it per-caller
+    invited each to spell the blank-line check slightly differently.
     """
     if not line.strip():
-        return None
+        return Success(None)
     return parse_object(text=line)

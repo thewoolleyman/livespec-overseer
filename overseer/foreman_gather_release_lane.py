@@ -181,9 +181,12 @@ def unknown_source(*, workflow: str, cache_path: Path) -> dict[str, object]:
 
 def last_successful_measurement(*, path: Path) -> str | None:
     try:
-        payload = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+        parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
+    if jsonio.is_parse_failure(result=parsed):
+        return None
+    payload = parsed.unwrap()
     measured_at = payload.get("measured_at") if payload is not None else None
     return measured_at if isinstance(measured_at, str) and measured_at else None
 
