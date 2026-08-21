@@ -82,6 +82,9 @@ def test_release_lane_unknown_without_cache_and_unreadable_cache(*, tmp_path, mo
         "no successful measurement cached"
     )
     assert module.last_successful_measurement(path=directory_cache) is None
+    malformed_cache = tmp_path / "bad-cache.json"
+    malformed_cache.write_text("{oops}\n", encoding="utf-8")
+    assert module.last_successful_measurement(path=malformed_cache) is None
 
     def fail_write_text(*args, **kwargs):
         del args, kwargs

@@ -50,7 +50,10 @@ def daily_count(*, state_dir: Path) -> int:
     path = daily_path(state_dir=state_dir)
     if not path.is_file():
         return 0
-    payload = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    if jsonio.is_parse_failure(result=parsed):
+        return 0
+    payload = parsed.unwrap()
     return 0 if payload is None else int_field(payload=payload, key="panels")
 
 
@@ -58,7 +61,10 @@ def read_cached_verdict(*, state_dir: Path, key: str) -> dict[str, object] | Non
     path = cache_path(state_dir=state_dir, key=key)
     if not path.is_file():
         return None
-    cached = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    if jsonio.is_parse_failure(result=parsed):
+        return None
+    cached = parsed.unwrap()
     if cached is None:
         return None
     written_at = int_field(payload=cached, key="written_at_epoch")

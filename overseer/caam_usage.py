@@ -109,7 +109,10 @@ def fetch_usage(
 
 
 def _oauth_object(*, path: Path) -> dict[str, object] | None:
-    body = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    if jsonio.is_parse_failure(result=parsed):
+        return None
+    body = parsed.unwrap()
     if body is None:
         return None
     return jsonio.as_object(value=body.get("claudeAiOauth"))

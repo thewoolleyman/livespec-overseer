@@ -1020,6 +1020,9 @@ def test_cache_edges_handle_missing_malformed_stale_and_invalid_records(*, tmp_p
     malformed_cache_path.parent.mkdir(parents=True)
     malformed_cache_path.write_text("{", encoding="utf-8")
     assert cache.read_cached_verdict(state_dir=malformed_cache, key="bad-json") is None
+    non_object_cache_path = cache.cache_path(state_dir=malformed_cache, key="non-object")
+    non_object_cache_path.write_text("[]", encoding="utf-8")
+    assert cache.read_cached_verdict(state_dir=malformed_cache, key="non-object") is None
 
     malformed_budget = tmp_path / "malformed-budget"
     budget_path = cache.daily_path(state_dir=malformed_budget)

@@ -19,10 +19,12 @@ def _fenced_json_body(*, text: str) -> str | None:
 
 
 def reviewer_response_object(*, raw_stdout: str) -> dict[str, object] | None:
-    response = jsonio.parse_object(text=raw_stdout)
+    response_result = jsonio.parse_object(text=raw_stdout)
+    response = None if jsonio.is_parse_failure(result=response_result) else response_result.unwrap()
     if response is not None:
         return response
     fenced_body = _fenced_json_body(text=raw_stdout)
     if fenced_body is None:
         return None
-    return jsonio.parse_object(text=fenced_body)
+    fenced_result = jsonio.parse_object(text=fenced_body)
+    return None if jsonio.is_parse_failure(result=fenced_result) else fenced_result.unwrap()

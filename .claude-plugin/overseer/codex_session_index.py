@@ -34,7 +34,10 @@ def read_index_final(*, codex_home: str | os.PathLike[str]) -> dict[str, tuple[s
     except (OSError, ValueError):
         return out
     for line in raw.splitlines():
-        record = jsonio.parse_object_line(line=line)
+        parsed = jsonio.parse_object_line(line=line)
+        if jsonio.is_parse_failure(result=parsed):
+            continue
+        record = parsed.unwrap()
         if record is None:
             continue
         session_id, name = record.get("id"), record.get("thread_name")

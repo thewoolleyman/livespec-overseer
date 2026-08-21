@@ -73,7 +73,10 @@ def _claim_from_payload(*, payload: dict[str, object]) -> PaneClaim | None:
 
 
 def _read_pane_claim(*, path: Path) -> PaneClaim | None:
-    payload = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    if jsonio.is_parse_failure(result=parsed):
+        return None
+    payload = parsed.unwrap()
     return None if payload is None else _claim_from_payload(payload=payload)
 
 

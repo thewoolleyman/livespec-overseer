@@ -128,9 +128,12 @@ def wait_premise_dir(*, repo: str | os.PathLike[str], topic: str) -> Path:
 
 def read_wait_premise(*, path: Path) -> dict[str, object] | None:
     try:
-        parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+        parsed_result = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
     except OSError:
         return None
+    if jsonio.is_parse_failure(result=parsed_result):
+        return None
+    parsed = parsed_result.unwrap()
     if parsed is None:
         return None
     return parsed if valid_wait_premise(value=parsed) else None

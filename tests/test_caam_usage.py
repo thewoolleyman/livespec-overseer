@@ -80,6 +80,22 @@ def test_read_creds_converts_expiry_from_milliseconds(*, tmp_path: Path):
     assert module.read_creds(path=creds) == ("tok", 1800.0)
 
 
+def test_read_creds_treats_non_object_json_as_absent(*, tmp_path: Path):
+    module = caam_usage_module()
+    creds = tmp_path / ".credentials.json"
+    creds.write_text("[]\n", encoding="utf-8")
+
+    assert module.read_creds(path=creds) == (None, None)
+
+
+def test_read_creds_treats_malformed_json_as_absent(*, tmp_path: Path):
+    module = caam_usage_module()
+    creds = tmp_path / ".credentials.json"
+    creds.write_text("{oops}\n", encoding="utf-8")
+
+    assert module.read_creds(path=creds) == (None, None)
+
+
 def test_expired_token_is_skipped_without_issuing_request(*, tmp_path: Path):
     module = caam_usage_module()
     creds = tmp_path / ".credentials.json"

@@ -10,20 +10,34 @@ import pytest
 __all__: list[str] = []
 
 
+def _assert_success(*, result: object, expected: dict[str, object] | None) -> None:
+    assert hasattr(result, "unwrap")
+    assert result.unwrap() == expected
+
+
+def _assert_failure(*, result: object) -> None:
+    assert hasattr(result, "failure")
+    error = result.failure()
+    assert error.message == "malformed JSON"
+
+
 def test_parses_a_json_object():
-    assert jsonio.parse_object(text='{"a": 1, "b": "two"}') == {"a": 1, "b": "two"}
+    _assert_success(
+        result=jsonio.parse_object(text='{"a": 1, "b": "two"}'), expected={"a": 1, "b": "two"}
+    )
 
 
 def test_nested_values_survive_intact():
     """The narrowing is to `dict[str, object]`; it must not flatten or coerce values."""
-    parsed = jsonio.parse_object(text='{"outer": {"inner": [1, 2]}}')
-    assert parsed == {"outer": {"inner": [1, 2]}}
+    _assert_success(
+        result=jsonio.parse_object(text='{"outer": {"inner": [1, 2]}}'),
+        expected={"outer": {"inner": [1, 2]}},
+    )
 
 
 def test_empty_object_is_an_object_not_a_failure():
     """`{}` is falsy — callers must be able to tell it from a parse failure."""
-    assert jsonio.parse_object(text="{}") == {}
-    assert jsonio.parse_object(text="{}") is not None
+    _assert_success(result=jsonio.parse_object(text="{}"), expected={})
 
 
 @pytest.mark.parametrize(
@@ -35,32 +49,44 @@ def test_empty_object_is_an_object_not_a_failure():
         "   ",
     ],
 )
-def test_malformed_input_is_none_never_raises(*, text):
-    assert jsonio.parse_object(text=text) is None
+def test_malformed_input_is_failure_never_raises(*, text):
+    _assert_failure(result=jsonio.parse_object(text=text))
 
 
 @pytest.mark.parametrize("text", ["[1, 2, 3]", '"a bare string"', "17", "null", "true"])
 def test_valid_json_that_is_not_an_object_is_none(*, text):
     """A bare list or scalar parses fine but is not what any caller here wants."""
-    assert jsonio.parse_object(text=text) is None
+    _assert_success(result=jsonio.parse_object(text=text), expected=None)
+
+
+def test_parse_object_discriminates_malformed_absent_and_present():
+    _assert_failure(result=jsonio.parse_object(text="{oops}"))
+    _assert_success(result=jsonio.parse_object(text="[1, 2, 3]"), expected=None)
+    _assert_success(result=jsonio.parse_object(text='{"id": "x"}'), expected={"id": "x"})
 
 
 def test_parse_object_line_skips_blank_lines():
-    assert jsonio.parse_object_line(line="") is None
-    assert jsonio.parse_object_line(line="   \n") is None
+    _assert_success(result=jsonio.parse_object_line(line=""), expected=None)
+    _assert_success(result=jsonio.parse_object_line(line="   \n"), expected=None)
 
 
 def test_parse_object_line_parses_a_record():
-    assert jsonio.parse_object_line(line='{"id": "x"}\n') == {"id": "x"}
+    _assert_success(result=jsonio.parse_object_line(line='{"id": "x"}\n'), expected={"id": "x"})
 
 
-def test_parse_object_line_rejects_a_malformed_record():
-    assert jsonio.parse_object_line(line="{oops}\n") is None
+def test_parse_object_line_rejects_a_malformed_record_as_failure():
+    _assert_failure(result=jsonio.parse_object_line(line="{oops}\n"))
+
+
+def test_parse_object_line_discriminates_malformed_absent_and_present():
+    _assert_failure(result=jsonio.parse_object_line(line="{oops}\n"))
+    _assert_success(result=jsonio.parse_object_line(line="[1, 2, 3]\n"), expected=None)
+    _assert_success(result=jsonio.parse_object_line(line='{"id": "x"}\n'), expected={"id": "x"})
 
 
 def test_duplicate_keys_take_the_last_value():
     """Standard `json` behavior, pinned so a future parser swap cannot change it silently."""
-    assert jsonio.parse_object(text='{"k": 1, "k": 2}') == {"k": 2}
+    _assert_success(result=jsonio.parse_object(text='{"k": 1, "k": 2}'), expected={"k": 2})
 
 
 # --------------------------------------------------------------------------- #

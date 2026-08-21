@@ -292,11 +292,13 @@ def test_snapshot_reader_fails_closed_for_unreadable_unknown_or_newer_schema(*, 
     module = snapshot_module()
     missing = tmp_path / "missing.json"
     malformed = tmp_path / "malformed.json"
+    non_object = tmp_path / "non-object.json"
     unknown_schema = tmp_path / "unknown.json"
     newer_schema = tmp_path / "newer.json"
     bad_generation = tmp_path / "bad-generation.json"
     bool_generation = tmp_path / "bool-generation.json"
     malformed.write_text("not json", encoding="utf-8")
+    non_object.write_text("[]", encoding="utf-8")
     unknown_schema.write_text('{"schema_version": 0, "tick_generation": 1}', encoding="utf-8")
     newer_schema.write_text('{"schema_version": 2, "tick_generation": 1}', encoding="utf-8")
     bad_generation.write_text('{"schema_version": 1, "tick_generation": "1"}', encoding="utf-8")
@@ -304,6 +306,7 @@ def test_snapshot_reader_fails_closed_for_unreadable_unknown_or_newer_schema(*, 
 
     assert module.read_status_snapshot(path=missing) is None
     assert module.read_status_snapshot(path=malformed) is None
+    assert module.read_status_snapshot(path=non_object) is None
     assert module.read_status_snapshot(path=unknown_schema) is None
     assert module.read_status_snapshot(path=newer_schema) is None
     assert module.read_status_snapshot(path=bad_generation) is None

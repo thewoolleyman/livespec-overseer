@@ -185,7 +185,8 @@ def file_work_item(*, request: dict[str, object]) -> FiledWorkItem:  # pragma: n
     if completed.returncode != 0:  # pragma: no cover
         msg = completed.stderr.strip() or f"filing subprocess exited {completed.returncode}"
         raise RuntimeError(msg)
-    parsed = jsonio.parse_object(text=completed.stdout)
+    parsed_result = jsonio.parse_object(text=completed.stdout)
+    parsed = None if jsonio.is_parse_failure(result=parsed_result) else parsed_result.unwrap()
     if parsed is None:  # pragma: no cover
         msg = "filing subprocess returned malformed JSON"
         raise ValueError(msg)

@@ -24,9 +24,10 @@ def state_dir(*, repo: Path, work_item_id: str) -> Path:
 
 def read_json(*, path: Path) -> dict[str, object] | None:
     try:
-        return jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+        parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
     except OSError:
         return None
+    return None if jsonio.is_parse_failure(result=parsed) else parsed.unwrap()
 
 
 def write_json(*, path: Path, payload: dict[str, object]) -> None:

@@ -91,6 +91,10 @@ def test_foreman_escalation_reader_treats_unreadable_and_blank_reason_as_present
     blank = foreman_escalation.read_escalation(repo=str(repo), topic=topic)
     assert blank == foreman_escalation.ForemanEscalation(reason=None)
 
+    marker.write_text("[]\n", encoding="utf-8")
+    non_object = foreman_escalation.read_escalation(repo=str(repo), topic=topic)
+    assert non_object == foreman_escalation.ForemanEscalation(reason=None)
+
     original_read_text = Path.read_text
 
     def raising_read_text(self, *args, **kwargs):
