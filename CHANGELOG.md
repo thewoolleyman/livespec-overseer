@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.12.0...v1.12.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* cover picker answer consensus projection ([bd07aff](https://github.com/thewoolleyman/livespec-overseer/commit/bd07aff2637cbd9c525666e3ba05d3cf94f2bd62))
+
 ## [1.12.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.11.0...v1.12.0) (2026-08-21)
 
 
