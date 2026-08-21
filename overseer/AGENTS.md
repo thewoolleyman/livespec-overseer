@@ -937,12 +937,12 @@ for the marker's edge-triggered lifecycle.
   gathered, so precondition 3's own age backstop judges the declaration uncertifiable in
   the very tick that expires it. Both writes failing in one observation is surfaced as
   `ready-expiry-both-writes-failed`.
-- **The expiry-notice (`_supervisor_threshold.maybe_send_expiry_notice`).** One notice
-  per DELIVERED round, however many declarations expire, under the same guarded-paste
-  predicate as a wrap-up but triggered by the expiry rather than by context. The
-  once-per-round bound is durable (`expiry_notice_sent` in the sidecar), a failed paste
-  leaves it due for a later observation, and a round closed as recovered first sends
-  none.
+- **The expiry-notice (`_supervisor_threshold_expiry.maybe_send_expiry_notice`,
+  re-exported by `_supervisor_threshold`).** One notice per DELIVERED round, however
+  many declarations expire, under the same guarded-paste predicate as a wrap-up but
+  triggered by the expiry rather than by context. The once-per-round bound is durable
+  (`expiry_notice_sent` in the sidecar), a failed paste leaves it due for a later
+  observation, and a round closed as recovered first sends none.
 - **Stale-`blocked` voiding (`_void_stale_blocked`; 2026-07-16).** Nothing else retires a
   `blocked:`. `_clear_state` runs only on the daemon's own restart path, so a pane replaced
   OUT-OF-BAND (a hand-restarted session, a `/clear`) INHERITS its predecessor's declaration

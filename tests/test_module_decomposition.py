@@ -12,8 +12,11 @@ def test_runtime_soft_band_files_are_split_by_named_concern():
     root = Path(__file__).resolve().parent.parent / "overseer"
     modules = [
         "_supervisor_attention_alerts",
+        "_supervisor_evaluate_active",
+        "_supervisor_evaluate_restart",
         "_supervisor_evaluate_target",
         "_supervisor_pair_stall",
+        "_supervisor_threshold_expiry",
         "_supervisor_unindexed_codex",
         "codex_session_index",
     ]
@@ -26,3 +29,12 @@ def test_runtime_soft_band_files_are_split_by_named_concern():
 
     discovery_source = (root / "_supervisor_discovery.py").read_text(encoding="utf-8")
     assert "_unindexed_codex_rows(sup=sup" in discovery_source
+
+    evaluate = importlib.import_module("_supervisor_evaluate")
+    assert not hasattr(evaluate, "_record_observed_session_identity")
+
+    evaluate_idle = importlib.import_module("_supervisor_evaluate_idle")
+    assert not hasattr(evaluate_idle, "_track_ready_to_restart")
+
+    threshold = importlib.import_module("_supervisor_threshold")
+    assert not hasattr(threshold, "_fresh_expiry_notice_observation")
