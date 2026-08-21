@@ -42,7 +42,7 @@ def enforce_effort_floor(*, settings_path: Path) -> list[str]:
         return []
 
     return [
-        f"effort: settings.json effortLevel {current!r} -> {want!r} "
+        f"effort: settings.json effortLevel {current} -> {want} "
         "(raised to the floor; a switch had reset it)"
     ]
 

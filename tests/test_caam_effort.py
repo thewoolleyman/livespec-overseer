@@ -56,13 +56,13 @@ def test_effort_floor_raises_low_and_medium_but_leaves_higher_setting(*, tmp_pat
     write_settings(path=higher, effort="xhigh")
 
     assert module.enforce_effort_floor(settings_path=low) == [
-        "effort: settings.json effortLevel 'low' -> 'high' "
+        "effort: settings.json effortLevel low -> high "
         "(raised to the floor; a switch had reset it)"
     ]
     assert read_json(path=low)["effortLevel"] == "high"
 
     assert module.enforce_effort_floor(settings_path=medium) == [
-        "effort: settings.json effortLevel 'medium' -> 'high' "
+        "effort: settings.json effortLevel medium -> high "
         "(raised to the floor; a switch had reset it)"
     ]
     assert read_json(path=medium)["effortLevel"] == "high"
@@ -120,13 +120,13 @@ def test_unknown_and_absent_effort_values_are_raised_to_the_floor(*, tmp_path: P
     absent_path.write_text(json.dumps(absent, indent=2), encoding="utf-8")
 
     assert module.enforce_effort_floor(settings_path=unknown_path) == [
-        "effort: settings.json effortLevel 'turbo' -> 'high' "
+        "effort: settings.json effortLevel turbo -> high "
         "(raised to the floor; a switch had reset it)"
     ]
     assert read_json(path=unknown_path)["effortLevel"] == "high"
 
     assert module.enforce_effort_floor(settings_path=absent_path) == [
-        "effort: settings.json effortLevel None -> 'high' "
+        "effort: settings.json effortLevel None -> high "
         "(raised to the floor; a switch had reset it)"
     ]
     assert read_json(path=absent_path)["effortLevel"] == "high"
@@ -153,7 +153,7 @@ def test_effort_runs_before_no_models_returns(*, tmp_path: Path):
     result = module.enforce_models(settings_path=settings_path, no_models=True)
 
     assert result == [
-        "effort: settings.json effortLevel 'low' -> 'high' "
+        "effort: settings.json effortLevel low -> high "
         "(raised to the floor; a switch had reset it)"
     ]
     assert read_json(path=settings_path)["effortLevel"] == "high"
@@ -167,7 +167,7 @@ def test_effort_runs_when_model_enforcement_is_enabled(*, tmp_path: Path):
     result = module.enforce_models(settings_path=settings_path, no_models=False)
 
     assert result == [
-        "effort: settings.json effortLevel 'low' -> 'high' "
+        "effort: settings.json effortLevel low -> high "
         "(raised to the floor; a switch had reset it)"
     ]
     assert read_json(path=settings_path)["effortLevel"] == "high"
