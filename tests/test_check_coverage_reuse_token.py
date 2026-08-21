@@ -14,7 +14,7 @@ __all__: list[str] = []
 ROOT = Path(__file__).resolve().parent.parent
 CHECK_COVERAGE = ROOT / "scripts" / "check-coverage.sh"
 CHECK_PER_FILE_COVERAGE = ROOT / "scripts" / "check-per-file-coverage.sh"
-REUSE_STAMP = ".coverage.livespec-reuse-token"
+HANDOFF = ".livespec-coverage-handoff"
 
 
 def _clean_env(*, tmp_path: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
@@ -98,7 +98,7 @@ def _reported_total(*, output: str) -> str:
     return match.group(1)
 
 
-def test_stale_green_coverage_file_cannot_vacuously_pass(*, tmp_path: Path) -> None:
+def test_stale_green_coverage_file_is_refused_without_running_the_suite(*, tmp_path: Path) -> None:
     _install_harness(tmp_path=tmp_path)
     (tmp_path / ".coverage").write_text("9999\n", encoding="utf-8")
 
@@ -108,13 +108,13 @@ def test_stale_green_coverage_file_cannot_vacuously_pass(*, tmp_path: Path) -> N
         extra_env={"FAKE_PYTEST_STATUS": "2", "FAKE_PYTEST_TOTAL": "1111"},
     )
 
-    assert result.returncode == 2
-    assert _uv_log(tmp_path=tmp_path) == [
-        "run pytest -n 1 --cov --cov-branch --cov-config=pyproject.toml --cov-report=term-missing"
-    ]
+    assert result.returncode == 1
+    assert "stale .coverage" in result.stderr
+    assert _uv_log(tmp_path=tmp_path) == []
+    assert (tmp_path / ".coverage").read_text(encoding="utf-8") == "9999\n"
 
 
-def test_stale_partial_coverage_file_does_not_false_fail(*, tmp_path: Path) -> None:
+def test_stale_partial_coverage_file_is_refused_without_reporting_it(*, tmp_path: Path) -> None:
     _install_harness(tmp_path=tmp_path)
     (tmp_path / ".coverage").write_text("9425\n", encoding="utf-8")
 
@@ -128,25 +128,25 @@ def test_stale_partial_coverage_file_does_not_false_fail(*, tmp_path: Path) -> N
         },
     )
 
-    assert result.returncode == 0
-    assert _uv_log(tmp_path=tmp_path) == [
-        "run pytest -n 1 --cov --cov-branch --cov-config=pyproject.toml --cov-report=term-missing"
-    ]
+    assert result.returncode == 1
+    assert "stale .coverage" in result.stderr
+    assert _uv_log(tmp_path=tmp_path) == []
+    assert (tmp_path / ".coverage").read_text(encoding="utf-8") == "9425\n"
 
 
 def test_current_aggregate_token_reuses_produced_coverage_once(*, tmp_path: Path) -> None:
     _install_harness(tmp_path=tmp_path)
-    token = "aggregate-token"
+    run_id = "aggregate-run"
     producer = _run_script(
         tmp_path=tmp_path,
         script="check-per-file-coverage.sh",
-        extra_env={"LIVESPEC_COVERAGE_REUSE_TOKEN": token, "FAKE_PYTEST_TOTAL": "8675309"},
+        extra_env={"LIVESPEC_CHECK_RUN_ID": run_id, "FAKE_PYTEST_TOTAL": "8675309"},
     )
 
     consumer = _run_script(
         tmp_path=tmp_path,
         script="check-coverage.sh",
-        extra_env={"LIVESPEC_COVERAGE_REUSE_TOKEN": token},
+        extra_env={"LIVESPEC_CHECK_RUN_ID": run_id},
     )
 
     assert producer.returncode == 0, producer.stderr
@@ -158,11 +158,11 @@ def test_current_aggregate_token_reuses_produced_coverage_once(*, tmp_path: Path
         "run coverage report --fail-under=100",
     ]
     assert not (tmp_path / ".coverage").exists()
-    assert not (tmp_path / REUSE_STAMP).exists()
+    assert not (tmp_path / HANDOFF).exists()
 
 
-def test_check_coverage_messages_do_not_assert_unproven_provenance() -> None:
+def test_check_coverage_message_scopes_provenance_to_matching_handoff() -> None:
     script = CHECK_COVERAGE.read_text(encoding="utf-8")
 
-    assert "produced by check-per-file-coverage" not in script
-    assert "CI standalone job" not in script
+    assert "produced by check-per-file-coverage in this just check run" in script
+    assert "stale .coverage" in script
