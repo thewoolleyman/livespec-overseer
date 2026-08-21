@@ -99,7 +99,7 @@ def fetch_usage(
             parsed: object = json.loads(response.read().decode())
     except urllib.error.HTTPError as exc:
         return None, _http_error_reason(error=exc)
-    except (OSError, TypeError, UnicodeDecodeError, ValueError) as exc:
+    except (OSError, http.client.HTTPException, TypeError, UnicodeDecodeError, ValueError) as exc:
         return None, f"{type(exc).__name__}: {exc}"
 
     body = jsonio.as_object(value=parsed)
