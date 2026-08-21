@@ -256,6 +256,7 @@ check:
         # is green-by-skip in both modes. Self-skips in CI and when codex is
         # absent — see the recipe for why those deviations are declared there.
         check-codex-skill-picker
+        check-claude-idle-canary
         check-spec-governance-default-block
         # Repo-local dispatch-safeguard gate (overseer-57f2 half i):
         # factory-authored commits must never touch SPECIFICATION/.
@@ -345,6 +346,12 @@ check-doctor-static:
 
 check-plugin-manifest-lockstep:
     uv run pytest tests/test_plugin_manifest_lockstep.py tests/test_plugin_carrier_lockstep.py
+
+check-claude-idle-canary:
+    uv run python scripts/claude-idle-canary.py check
+
+capture-claude-idle-canary:
+    uv run python scripts/capture-claude-idle-canary.py
 
 # `check-static` — fastest-first fail-fast helper for fast agent/dev
 # feedback (work-item livespec-dev-tooling-7us.8). Runs ONLY the cheap
