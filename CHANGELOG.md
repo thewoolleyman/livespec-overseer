@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.14.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.14.0...v1.14.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* compare recorded picker answers ([52c8312](https://github.com/thewoolleyman/livespec-overseer/commit/52c8312e740ad2be232e450355f6ba24fd4fcf75))
+* mark consensus decision lloc owner ([7ffe3df](https://github.com/thewoolleyman/livespec-overseer/commit/7ffe3dfbf32787efcc077b71df2a7d45b3ea3e34))
+* split foreman_panel reviewer execution and drop its dead soft-band marker ([d5eedde](https://github.com/thewoolleyman/livespec-overseer/commit/d5eedde6e70299fc8db6ba4a656f2b9f924b23f3))
+
 ## [1.14.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.13.1...v1.14.0) (2026-08-21)
 
 
