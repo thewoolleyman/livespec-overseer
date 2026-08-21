@@ -12,7 +12,7 @@ __all__: list[str] = []
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _CHECK_COVERAGE = _REPO_ROOT / "scripts" / "check-coverage.sh"
 _CHECK_PER_FILE_COVERAGE = _REPO_ROOT / "scripts" / "check-per-file-coverage.sh"
-_HANDOFF = ".coverage.livespec-check-run"
+_HANDOFF = ".livespec-coverage-handoff"
 
 
 def _write_executable(path: Path, body: str) -> None:

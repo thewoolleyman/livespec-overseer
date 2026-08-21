@@ -9,7 +9,7 @@ set -euo pipefail
 # without that matching handoff is stale by definition and is refused instead
 # of being reported as current-tree coverage. Absent .coverage (CI standalone
 # job, manual run), the clean suite runs here as before.
-handoff=.coverage.livespec-check-run
+handoff=.livespec-coverage-handoff
 if [[ -f .coverage ]]; then
   expected_run_id="${LIVESPEC_CHECK_RUN_ID:-}"
   if [[ -z "$expected_run_id" ]]; then
