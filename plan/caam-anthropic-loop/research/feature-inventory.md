@@ -4,8 +4,8 @@
 action, handoff entries — lives on that epic and its child items. This note is
 write-once research and is never authoritative about what remains.
 
-**MEASURED AS OF vps-info `54080c3`** (2026-08-20T03:30Z). The source is a LIVE
-repo and it moved twice while this thread was being opened — see
+**MEASURED AS OF vps-info `a4c037c`** (2026-08-20T14:03Z, re-pinned 2026-08-21). The
+source is a LIVE repo and it moved THREE times while this thread was being opened — see
 "The source is a moving target" below. **Re-measure against that repo's HEAD
 before treating this list as complete, and update this pin when you do.** A
 carrier list with no as-of commit is a claim with no timestamp.
@@ -279,9 +279,22 @@ The skill installs and owns its own recurring schedule. This is LLM-driven
   expired credential live and stopped **11 running sessions** with `Login expired
   · Please run /login`. Post-switch verification cannot catch this: the switch
   *did* stick, onto a dead token.
-- **G9** The deliberate consequence of G8: rotation **stalls** when every other
-  profile has gone dark (~8h without activation). The loop holds and prints the
-  revival recipe. A stalled rotation costs quota; a bad switch costs the fleet.
+- **G9** The consequence of G8: rotation **stalls** when every other profile has
+  gone dark (~8h without activation). The loop holds and prints the revival
+  recipe. A stalled rotation costs quota; a bad switch costs the fleet.
+- **G9a** **THIS WAS RECORDED AS A DELIBERATE, ACCEPTED CONSEQUENCE. IT WAS A
+  DEADLOCK, AND vps-info `0070050` FIXED IT.** Observed: the loop held every tick
+  while the active account ran its five-hour window to zero, and the switch had to
+  be made by hand. The set of valid targets drains to empty precisely when
+  rotation is needed. The maintainer's own summary is the thing to carry: *"It
+  behaved exactly as written, which is the problem"*, and *"The loop even warned
+  about it each tick; warning is not a fix."*
+  **G8 IS NOT WEAKENED — it still holds absolutely.** What changed is that the
+  live set is now actively MAINTAINED so it cannot drain (carrier group **X**).
+  The dark snapshots' refresh tokens were valid for another 28 days; they were
+  dark only because nothing refreshed them.
+  **The rebuild MUST implement G8 and X together. Implementing G8 alone
+  reproduces the deadlock** — faithfully, and uselessly.
 
 ## H — Ranking
 
@@ -460,6 +473,8 @@ Fable balance.
   panes every tick regardless of the memo. See **W1** for the fix. This is the
   one place in this inventory where the pre-fix program and its own stated
   design disagree, and the design is the thing to reproduce.
+  Corroborated empirically by the maintainer: the first run after the fix
+  recorded **14 memos**, where the pre-fix implementation had persisted none.
 - **N4** A successful `set_model` records `state["models"][session] = {"want":
   want, "at": now}`.
 
@@ -706,6 +721,17 @@ directly.
 - **V10** The override block sits **after** the `--no-models` early return, so
   `--no-models` does not process, set, or clear a pin. Only effort enforcement
   (**K9**) runs in that mode.
+- **V11** **MAINTAINER RULING, 2026-08-21: the override is a TEMPORARY ESCAPE
+  HATCH, not a new default.** The question was put explicitly — should the pin
+  merely persist so it need not be re-passed, or should the general model become
+  the outright foreman default with the flag opting back INTO the scoped model?
+  The ruling is the former. **Rule L1 stands unchanged.** The rebuild MUST NOT
+  harden the current incident into the default, and the exit gate MUST NOT score
+  L1's survival as a stale carrier.
+- **V12** Context, so the reproduction is taken seriously: this is **not
+  hypothetical**. As of the ruling the override is in ACTIVE USE — the scoped
+  model began refusing messages outright and every foreman session on the host is
+  pinned to the general model through scheduled ticks.
 
 ## W — State persistence after enforcement (added vps-info `4b1a391`)
 
@@ -723,6 +749,72 @@ directly.
   assertion passes against the *broken* implementation and is therefore not a
   discriminating test.
 
+## X — Keeping idle profiles warm (added vps-info `0070050`, 2026-08-20)
+
+The fix for the deadlock in **G9a**. Read it together with **G8**: the live-only
+rule decides what may be switched onto, and this group is what keeps that set
+from emptying.
+
+- **X1** After each run, any **non-active** profile whose access token is expired
+  or within `WARM_MARGIN_S` of expiring is refreshed.
+- **X2** The refresh runs in an **isolated `CLAUDE_CONFIG_DIR` sandbox** under the
+  state directory. The snapshot's `.credentials.json`, `.claude.json` and
+  `settings.json` are copied in, with the credential file at 0600.
+- **X3** **THE REFRESH IS PERFORMED BY THE AGENT, NOT BY THIS PROGRAM.** It runs
+  `claude -p ok` against the sandbox with a 180s timeout and lets Claude Code
+  perform its own refresh. **This preserves C10 rather than violating it**, and
+  the distinction is the single easiest thing to get wrong here: a reviewer who
+  reads "keep profiles warm" as "refresh the token" will look for a call to the
+  OAuth token endpoint, not find one, and may either flag a missing feature or —
+  far worse — an implementer may add one. Rotating a refresh token behind Claude
+  Code's back can revoke the whole token family.
+- **X4** Success is decided by comparing the recorded expiry **before** (the vault
+  snapshot) against **after** (the sandbox copy). A missing after-expiry, or one
+  not later than before, is **not** a success: it reports `no refresh (snapshot
+  likely orphaned)`.
+- **X5** On success the refreshed credential is copied **back to the vault** at
+  0600 and logged as `refreshed, +N.Nh`.
+- **X6** Any exception yields a failure reason rather than raising. A failure here
+  is **expected and survivable** — it usually means that snapshot was already
+  orphaned, which is worth learning now rather than at the moment of rotation.
+- **X7** The sandbox is always removed in a `finally`, ignoring errors.
+- **X8** **PARANOIA CHECK, in the same `finally`:** the live credential's token is
+  captured before the operation and re-compared after. A change logs `FAIL
+  keep-warm altered the LIVE credential -- this must never happen; investigate
+  before trusting the next rotation`. Silently swapping the host's account would
+  be worse than the bug being fixed.
+- **X9** The whole pass is skipped under `--no-warm`, under `--dry-run`, or when
+  the vault directory is absent.
+- **X10** It skips underscore-prefixed entries (**D2**) and the **active** profile.
+- **X11** A profile still comfortably valid — expiry further out than
+  `WARM_MARGIN_S` — is skipped.
+- **X12** A per-profile **retry backoff** memo lives in state: a profile attempted
+  within `WARM_RETRY_S` is skipped regardless of outcome.
+- **X13** It is invoked at **three** sites — both hold paths and after a successful
+  switch, the last using the **new** active profile.
+- **X14** Tunables: `CAAM_ROTATE_WARM_MARGIN_S` (default **7200**),
+  `CAAM_ROTATE_WARM_RETRY_S` (default **3600**), and the `--no-warm` flag.
+- **X15** First live run revived one profile by +8.0h and reported another as
+  orphaned — that one needs a browser re-login. Three of four profiles live again,
+  rotation unblocked. **An orphan-detection report is a feature, not a failure.**
+
+## Y — Operating rule: never keep a local copy of the program (vps-info `74429a7`)
+
+- **Y1** The source skill now requires the program be extracted **fresh from the
+  skill file on every invocation**, piped straight through with no intermediate
+  file. Keeping a scratchpad copy, and above all **editing** one to add something
+  that appears missing, is forbidden: if a constant or flag looks absent, the copy
+  is stale, not the skill.
+- **Y2** This is an operating rule for the SOURCE, so the rebuilt skill does not
+  reproduce it literally — extracting a program from markdown is the very defect
+  the rebuild removes. **Carry the reasoning instead.** The stated justification
+  is that a patched local copy silently diverges from the version under review,
+  *"which is exactly how this skill's prose and program came apart once already"* —
+  the drift this thread opened by reporting. The rebuilt package's equivalent
+  obligation is that the shipped plugin artifact and the repository package stay
+  byte-verified against each other, which this repo already enforces for its
+  materialized plugin copy.
+
 ## The source is a moving target — the finding that outlives these two entries
 
 This inventory was first taken against vps-info `c7f8bed`. Between that reading
@@ -732,6 +824,8 @@ and this note landing, the source moved **twice** in about ninety minutes:
 |---|---|---|
 | `c131592` | corrected `SKILL.md` prose that contradicted its own program | prose-only; program byte-identical, every carrier held |
 | `4b1a391` | `--foreman-model` override; persist state after enforcement | **new carriers V and W**, and it falsified the working assumption behind **N** |
+| `74429a7` | forbid keeping or patching a local copy of the program | **new carrier Y**; an operating rule, reasoning carried not copied |
+| `0070050` | keep idle profiles warm so rotation cannot deadlock | **new carrier group X**, and it falsified **G9** — a recorded *deliberate accepted consequence* that was actually a deadlock |
 
 The first was verified harmless by extracting the fenced program from both sides
 and diffing it — **893 lines, byte-identical**. That check is cheap and is the
@@ -742,6 +836,14 @@ The second was not harmless, and it is the one to learn from. It did not merely
 **add** behavior — it **corrected** behavior this inventory had already recorded
 as working. An inventory that is only ever *appended to* would still assert that
 the memo works, which was never true of the code it was measured against.
+
+**TWICE NOW, RE-MEASUREMENT HAS FALSIFIED A CARRIER RATHER THAN MERELY ADDING ONE.**
+First **N**, described as working when the code discarded its writes. Then **G9**,
+recorded as a *deliberate, accepted* design consequence when it was in fact a
+deadlock that stopped rotation dead and forced manual switching. The second is the
+more instructive: a carrier can be wrong not because it misread the code, but
+because it faithfully recorded a rationale the maintainer later rejected. **A
+stated "we accept this cost" is a claim with a shelf life.**
 
 **So re-measurement is not optional and it is not append-only.** Before the exit
 gate runs, and before any slice is implemented against a carrier, re-read the
