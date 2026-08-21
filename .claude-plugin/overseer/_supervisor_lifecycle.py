@@ -156,6 +156,7 @@ def run_loop(
         )
         return
     try:
+        sup.log_claude_build(phase="startup")
         if recover:
             _ = sup.recover_missing_sessions()
         while True:

@@ -18,6 +18,7 @@ import _supervisor_ready
 import _supervisor_state
 import registry
 import signals
+from _supervisor_claude_restart import claude_respawn_verified
 from _supervisor_codex_restart import do_codex_restart
 from _supervisor_config import track_key
 from _supervisor_launch_profile import ClaudeLaunchPlan
@@ -85,46 +86,6 @@ def resume_prompt(*, track: registry.Track) -> str | None:
     definition with the restart rather than each carrying their own.
     """
     return resume_for_track(track=track)
-
-
-def _post_respawn_claude_process_live(
-    *,
-    sup: Supervisor,
-    track: registry.Track,
-    session: str,
-) -> bool:
-    for _ in range(_supervisor_launch.RESTART_POLL_MAX):
-        sup.refresh_claude_status()
-        if sup.claude_identity_by_session.get((session, track.topic)) is not None:
-            return True
-        sup.sleep(_supervisor_launch.RESTART_POLL_INTERVAL)
-    return False
-
-
-def _claude_respawn_verified(*, sup: Supervisor, track: registry.Track, target: str) -> bool:
-    if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
-        registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
-        sup.alert(
-            repo=track.repo,
-            topic=track.topic,
-            session=_supervisor_launch.session_of(sup=sup, track=track),
-            pane=target,
-            message="respawned pane never became Claude; will retry resume without respawn",
-        )
-        return False
-    session = _supervisor_launch.session_of(sup=sup, track=track)
-    if not _post_respawn_claude_process_live(sup=sup, track=track, session=session):
-        registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
-        sup.alert(
-            repo=track.repo,
-            topic=track.topic,
-            session=session,
-            pane=target,
-            message="respawned pane has no live Claude process; keeping the ready declaration",
-            condition="claude-post-respawn-live-missing",
-        )
-        return False
-    return True
 
 
 def maybe_inject(
@@ -252,6 +213,7 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
         session=_supervisor_launch.session_of(sup=sup, track=track),
     ):
         return
+    sup.log_claude_build(phase="respawn")
     if not sup.tmux.respawn_pane(
         session=target,
         cwd=track.repo,
@@ -266,7 +228,7 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
             message="restart respawn FAILED; keeping the ready declaration so it retries",
         )
         return
-    if not _claude_respawn_verified(sup=sup, track=track, target=target):
+    if not claude_respawn_verified(sup=sup, track=track, target=target):
         return
     # Wait for the fresh TUI to finish its FIRST paint and render a ready (empty)
     # input box before pasting — a half-drawn welcome/news screen DROPS the Enter,

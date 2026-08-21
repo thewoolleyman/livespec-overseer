@@ -108,6 +108,7 @@ from _seams import (
 from _supervisor_config import (
     LOOP_INTERVAL_SECONDS,
     default_gitignore_check,
+    installed_claude_version,
     iso_now,
     track_key,
 )
@@ -195,6 +196,7 @@ class Supervisor:
     # Startup gate: `<repo>/tmp/overseer/` MUST be gitignored (the overseer only
     # writes temp files, never tracked ones). Injectable so tests fake the check.
     gitignore_check: RepoPredicate = default_gitignore_check
+    claude_version_of: Callable[[], str | None] = installed_claude_version
     # Assignment-time epic lookup re-used once at the restart boundary when a stored row
     # still has ``epic=None``. Tests inject this so ready-certification paths never reach
     # a host Beads ledger through ``bd``.
@@ -257,6 +259,10 @@ class Supervisor:
 
     def log(self, *, message: str) -> None:
         streams.write_stderr(text=f"{iso_now()} overseer: {message}\n")
+
+    def log_claude_build(self, *, phase: str) -> None:
+        version = self.claude_version_of() or "unavailable"
+        self.log(message=f"claude build at {phase}: {version}")
 
     def surface(self, *, message: str) -> None:
         """Surface a DAEMON-level alert to the operator (stderr; the bottom pane reads it).

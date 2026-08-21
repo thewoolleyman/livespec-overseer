@@ -1,0 +1,6 @@
+● prior response
+──── livespec-overseer-foreman ─
+❯ 
+────────────────────────────────────────
+  Opus 4.8 (1M context) | /x/repo | Ctx: 73% left
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents

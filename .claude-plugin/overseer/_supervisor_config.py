@@ -24,6 +24,7 @@ keeps its own binding, leaving the test green and the production default live.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from datetime import datetime, timezone
 
@@ -55,6 +56,7 @@ __all__: list[str] = [
     "WINDDOWN_STARVED_AFTER",
     "WINDOW_NAME",
     "default_gitignore_check",
+    "installed_claude_version",
     "iso_now",
     "track_key",
 ]
@@ -65,6 +67,8 @@ LOOP_INTERVAL_SECONDS = 10
 # a latency budget: `git check-ignore` is a local index read that returns in
 # milliseconds, so exceeding this means git is not answering at all.
 _GIT_TIMEOUT_SECONDS = 10.0
+_CLAUDE_VERSION_TIMEOUT_SECONDS = 5.0
+_CLAUDE_VERSION_RE = re.compile(r"\b(\d+\.\d+\.\d+)\b")
 
 # The "danger" line, expressed in REMAINING-context percent: ~20% left ≈ 80% used.
 # At/below this with no `ready` declaration, the daemon SURFACES the track to the
@@ -197,6 +201,24 @@ def default_gitignore_check(*, repo: str) -> bool:
     except (OSError, subprocess.TimeoutExpired):
         return False
     return completed.returncode == 0
+
+
+def installed_claude_version() -> str | None:  # pragma: no cover
+    """Installed Claude Code semantic version, or None when it cannot be read."""
+    try:
+        completed = subprocess.run(  # noqa: S603 — fixed argv, no shell
+            ["claude", "--version"],  # noqa: S607 — PATH claude is the installed build
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=_CLAUDE_VERSION_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if completed.returncode != 0:
+        return None
+    match = _CLAUDE_VERSION_RE.search(completed.stdout)
+    return match.group(1) if match is not None else completed.stdout.strip() or None
 
 
 def track_key(*, repo: str, topic: str) -> tuple[str, str]:
