@@ -1,7 +1,7 @@
 # Method rules this plan paid for
 
 Consolidated 2026-08-19; extended 2026-08-21 with rules 13-15, then 16-19,
-then 20-22. These rules were each learned by being bitten, and until now they
+then 20-22, then 23. These rules were each learned by being bitten, and until now they
 lived scattered across a dozen ledger handoff entries — which means
 reconstructing them costs reading the whole timeline in order. They are the
 transferable part of this work, so they belong in the research store where a
@@ -569,6 +569,55 @@ where it prescribes a mechanism rather than an outcome. All three of these were
 caught in the gap between ratification and dispatch, which is the cheap moment —
 a criterion that is wrong about the world produces a run that passes its own bar
 and ships the defect, and the passing run is then evidence *for* the criterion.
+
+### 23. Check what BECAME of work you routed — a routing is not a terminal state
+
+This thread has closed eight carriers superseded-with-pointer. Every one of those
+closures verified the successor **existed** at the moment of handover — correctly,
+and that is where the checking stopped. Nobody ever asked what happened next.
+
+Asked on 2026-08-21, for the first time:
+
+| successor | state |
+|---|---|
+| `livespec-driver-claude-d7d` | **closed** — implemented and merged, PR 570, 08:21:41Z |
+| `bd-ib-gn6hdf` | **closed** — fixed and merged, PR 1582 |
+| `bd-ib-unm6co` | **closed** — dispatch landed PR 1609 |
+| `bd-ib-acbp` | **closed** — dispatch landed PR 1592 |
+| `bd-ib-2rolbh` | pending-approval |
+| `bd-ib-ay5mtm` | blocked |
+
+**Four defects this thread found, evidenced and routed have been repaired in their
+owning repos**, and no routed work is recorded nowhere. That is good news, it is
+what an archive completeness review has to rest on, and it sat uncollected for
+days because a routing felt like an ending.
+
+**The expensive half is the first row.** `overseer-n77r` exists to document an
+override *before* the resolver fix makes essentially every worktree here fail with
+a not-installed error. That fix is `d7d` — this thread's own routing of
+`overseer-af9`. It merged at 08:21:41Z. A re-measure on `n77r` four hours earlier
+had confirmed, correctly for its moment, that the window was still open.
+
+And the fix did not arrive alone: the shipped resolver's rule 3 now maps a worktree
+back to its **primary** before the registry lookup, which is precisely the
+mitigation `n77r` was filed to write a workaround for. Executed rather than read —
+the primary and two record-less worktrees all resolve to the same core root, none
+fails. So a live carrier's central premise was invalidated **by its own thread's
+routed work**, in a repo nobody here was watching.
+
+**I then drafted that carrier's guidance from its own last-recorded state**, saying
+worktrees would start failing loudly and the reader probably had not seen it yet.
+Both sentences were already false when written, by about an hour. Rule 18 says a
+closed carrier is not a shipped fix; this is the mirror image and it is not covered
+by it — **an open carrier's premise is not still true either.** The record you are
+reading describes when someone last looked, in a repo whose movement you do not see.
+
+**So: when work leaves for another repo, put a check on what it does there.** Ask
+at least at these moments — before drafting anything from the carrier that routed
+it, before writing a completeness review, and before treating any carrier's urgency
+as current. The question is cheap: one status read per successor. What it buys is
+both directions — credit for repairs that actually shipped, and warning when a
+routed fix quietly removes the reason another item exists.
 
 ## A note on where these came from
 
