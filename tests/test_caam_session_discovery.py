@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import json
 from pathlib import Path
 from typing import Protocol, cast
@@ -15,6 +16,11 @@ class SessionModelCtor(Protocol):
 
 
 class CaamSessionsModule(Protocol):
+    ModelSetter: type[object]
+    PaneCapture: type[object]
+    PanePid: type[object]
+    PidToIntList: type[object]
+    PidToOptionalBytes: type[object]
     SessionModel: SessionModelCtor
 
     def discover_session_models(
@@ -73,6 +79,22 @@ def write_transcript(*, home: Path, project: str, session_id: str, models: list[
         encoding="utf-8",
     )
     return path
+
+
+def test_session_discovery_seams_are_keyword_only_protocol_shapes() -> None:
+    module = caam_sessions_module()
+    seams = importlib.import_module("_seams")
+
+    pane_pid_signature = inspect.signature(module.PanePid.__call__)
+    pane_capture_signature = inspect.signature(module.PaneCapture.__call__)
+    model_setter_signature = inspect.signature(module.ModelSetter.__call__)
+
+    assert pane_pid_signature.parameters["session"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert pane_capture_signature.parameters["session"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert model_setter_signature.parameters["session"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert model_setter_signature.parameters["model"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert module.PidToIntList is seams.PidToIntList
+    assert module.PidToOptionalBytes is seams.PidToOptionalBytes
 
 
 def test_no_session_identifier_skips_pane_without_reading_status_line_or_setting_model(

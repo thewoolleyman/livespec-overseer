@@ -6,13 +6,12 @@ import contextlib
 from pathlib import Path
 from typing import cast
 
+from _seams import PidToIntList, PidToOptionalBytes
 from caam_effort import enforce_effort_floor
 from caam_profile_state import load_state, save_state
 from caam_sessions import (
     ModelSetter,
     PanePid,
-    PidChildren,
-    PidEnviron,
     discover_session_models,
     enforce_session_models,
 )
@@ -103,14 +102,14 @@ def _pane_pid_option(*, options: dict[str, object]) -> PanePid | None:
     return cast(PanePid, value) if callable(value) else None
 
 
-def _children_option(*, options: dict[str, object]) -> PidChildren | None:
+def _children_option(*, options: dict[str, object]) -> PidToIntList | None:
     value = options.get("children_of")
-    return cast(PidChildren, value) if callable(value) else None
+    return cast(PidToIntList, value) if callable(value) else None
 
 
-def _environ_option(*, options: dict[str, object]) -> PidEnviron | None:
+def _environ_option(*, options: dict[str, object]) -> PidToOptionalBytes | None:
     value = options.get("environ_of")
-    return cast(PidEnviron, value) if callable(value) else None
+    return cast(PidToOptionalBytes, value) if callable(value) else None
 
 
 def _setter_option(*, options: dict[str, object]) -> ModelSetter | None:
