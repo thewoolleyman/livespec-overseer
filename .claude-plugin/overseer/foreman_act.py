@@ -21,6 +21,7 @@ from foreman_act_consensus import (
     ConsensusPanel,
     prepare_consensus_action,
 )
+from foreman_act_dispatch import CommandResult as CommandResult
 from foreman_act_dispatch import DispatchSeams, Runner
 from foreman_act_filing import FileWorkItem
 from foreman_act_filing import file_work_item as default_file_work_item
@@ -73,6 +74,7 @@ __all__: list[str] = [
     "ActResult",
     "ActSeams",
     "ActionId",
+    "CommandResult",
     "act",
     "main",
     "run_command",
@@ -85,11 +87,13 @@ class Gatherer(Protocol):
     ) -> dict[str, object]: ...
 
 
-def run_command(*, argv: list[str]) -> int:
+def run_command(*, argv: list[str]) -> CommandResult:
     completed = subprocess.run(  # noqa: S603  # pragma: no cover
-        argv, check=False, stdout=subprocess.DEVNULL
+        argv, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
     )
-    return int(completed.returncode)  # pragma: no cover
+    return CommandResult(
+        returncode=int(completed.returncode), stderr=completed.stderr
+    )  # pragma: no cover
 
 
 @dataclass(frozen=True, kw_only=True)
