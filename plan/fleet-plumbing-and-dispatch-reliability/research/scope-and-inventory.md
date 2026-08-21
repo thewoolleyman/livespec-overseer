@@ -84,7 +84,39 @@ Anything whose "done" is a change to `overseerd`'s supervision behavior belongs 
 `plan/supervision-safety-and-attention-truth`. Anything whose "done" is a corrected
 local check or test belongs to `plan/test-and-gate-integrity`.
 
-## Ordering note for the first implementer
+## THE ORDERING NOTE BELOW IS RETIRED — read this first
+
+Appended 2026-08-21. **Everything above and below this section is preserved as
+written**; this note is write-once by design and nothing in it has been rewritten.
+What follows is the one part that has gone actively misleading rather than merely
+dated.
+
+**The ordering note names `overseer-af9` as the item to take first. That item was
+CLOSED on 2026-08-19**, routed to `livespec-driver-claude-d7d` in the owning repo
+after the resolver was confirmed to ship there. **The pairing note is half retired
+too**: `overseer-l0f` was closed the same day as an already-repaired defect, so
+`overseer-6pn` should be sized on its own — and `overseer-6pn` is itself now closed,
+superseded at `bd-ib-acbp` in the orchestrator tenant.
+
+**Why this matters more than a stale list.** The "Requirement carriers" section
+above already fences itself correctly: it says the authoritative member list is the
+ledger, never this file. That fence covers the MEMBERSHIP and does **not** cover the
+ORDERING, and this note is the first document the thread's own READ FIRST pointer
+sends a fresh reader to. A reader who obeys the fence for the list and then obeys
+the ordering note anyway takes a closed item as their next action.
+
+That failure has been recorded on this thread's timeline three separate times — a
+next action that went stale between being written and being read, once within seven
+minutes of being written. The fix is not to keep this file current; it is write-once
+on purpose, and a file that must be maintained to stay safe will not be. **The fix
+is that this file must not carry a next action at all.**
+
+**So: take the next action from the newest `plan-handoff-entry` comment on the plan
+epic, never from this file.** The strand descriptions above remain useful as the
+statement of WHY these items are grouped, which is what this artifact is for and
+what does not rot.
+
+## Ordering note for the first implementer (RETIRED — see above)
 
 `overseer-af9` first: it hard-stops every spec-side operation from any
 plugin-shipping repo, so it is both the widest blast radius and a blocker on the
