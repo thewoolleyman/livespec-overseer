@@ -10,6 +10,7 @@ def test_foreman_hgq4wi4_owner_markers_are_retired_after_cohesive_splits():
     root = Path(__file__).resolve().parents[1]
     overseer = root / "overseer"
     extracted = (
+        "foreman_consensus_actions",
         "foreman_act_dispatch_result",
         "foreman_consensus_decision",
         "foreman_panel_refusal",
