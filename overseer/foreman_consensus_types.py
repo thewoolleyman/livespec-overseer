@@ -27,7 +27,7 @@ __all__: list[str] = [
 
 PANEL_SCHEMA_VERSION: Final[int] = 1
 POLICY_VERSION: Final[str] = "phase-c-report-only-v1"
-PROMPT_VERSION: Final[str] = "phase-c-reviewer-prompt-v1"
+PROMPT_VERSION: Final[str] = "phase-c-reviewer-prompt-v2"
 CACHE_TTL_SECONDS: Final[int] = 86_400
 DEFAULT_PER_TICK_PANEL_BUDGET: Final[int] = 1
 DEFAULT_DAILY_PANEL_BUDGET: Final[int] = 24
