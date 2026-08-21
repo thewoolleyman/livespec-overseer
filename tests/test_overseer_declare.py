@@ -60,6 +60,39 @@ def test_overseer_declare_ready_writes_state_and_prints_terminal_contract(
     )
 
 
+def test_overseer_declare_ready_arms_previously_observed_no_round_session(
+    *, tmp_path, capsys, monkeypatch
+):
+    assert_overseer_declare_shipped()
+    module = importlib.import_module("overseer.declare")
+    repo = tmp_path / "repo"
+    topic = "observed-thread"
+    store = tmp_path / "map.jsonl"
+    repo.mkdir()
+    registry.append_mapping(
+        track=registry.PlanTrack(
+            topic=topic,
+            repo=str(repo),
+            tmux=topic,
+            epic="overseer-observed",
+            observed_session_identity="claude:123:2026-08-21T00:00:00Z:observed-thread",
+        ),
+        store_path=store,
+        added_at="2026-08-21T00:00:00Z",
+    )
+    monkeypatch.setattr(module.registry, "DEFAULT_STORE_PATH", str(store))
+    monkeypatch.setattr(module.registry, "DEFAULT_STAMP_PATH", str(tmp_path / "stamps.json"))
+
+    code = module.main(argv=["ready", "--repo", str(repo), "--topic", topic])
+
+    assert code == 0
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+    assert capsys.readouterr().out == (
+        "restart armed - any further output cancels/downgrades this; you will know it "
+        "worked because this conversation ends.\n"
+    )
+
+
 def test_overseer_declare_ready_does_not_claim_armed_when_no_mapping_can_certify(
     *, tmp_path, capsys, monkeypatch
 ):
@@ -140,7 +173,9 @@ def test_overseer_declare_ready_arms_with_well_formed_open_round(*, tmp_path, ca
     )
 
 
-def test_overseer_declare_ready_reports_mapped_identity_mismatch(*, tmp_path, capsys, monkeypatch):
+def test_overseer_declare_ready_does_not_guess_mapped_identity_mismatch(
+    *, tmp_path, capsys, monkeypatch
+):
     assert_overseer_declare_shipped()
     module = importlib.import_module("overseer.declare")
     repo = tmp_path / "repo"
@@ -163,7 +198,10 @@ def test_overseer_declare_ready_reports_mapped_identity_mismatch(*, tmp_path, ca
     code = module.main(argv=["ready", "--repo", str(repo), "--topic", topic])
 
     assert code == 0
-    assert "mapped Claude session identity differs from this pane" in capsys.readouterr().out
+    assert capsys.readouterr().out == (
+        "restart armed - any further output cancels/downgrades this; you will know it "
+        "worked because this conversation ends.\n"
+    )
 
 
 def test_overseer_declare_ready_infers_topic_from_tmux_session(*, tmp_path, monkeypatch):

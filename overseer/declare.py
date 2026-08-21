@@ -91,17 +91,6 @@ def _uncertifiable_reason(*, repo: Path, topic: str) -> str | None:
             reason = "no matching overseer mapping row; daemon cannot certify this declaration"
         elif not _has_iso_added_at(track=track):
             reason = "mapping row missing added_at; daemon cannot certify this declaration"
-        else:
-            fallback_identity = f"claude:{track.tmux}:{topic}"
-            if (
-                track.observed_session_identity is not None
-                and track.observed_session_identity.startswith("claude:")
-                and track.observed_session_identity != fallback_identity
-            ):
-                reason = (
-                    "mapped Claude session identity differs from this pane "
-                    f"(observed={track.observed_session_identity}; inferred={fallback_identity})"
-                )
     return reason
 
 
