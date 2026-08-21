@@ -12,6 +12,7 @@ from pathlib import Path
 import foreman_consensus_prompt
 import foreman_consensus_types
 import foreman_panel
+import foreman_panel_reviewers
 
 __all__: list[str] = []
 
@@ -63,7 +64,7 @@ def test_reviewer_timeout_becomes_typed_insufficient_information(*, monkeypatch,
         captured["timeout"] = timeout
         raise subprocess.TimeoutExpired(cmd=args, timeout=timeout)
 
-    monkeypatch.setattr(foreman_panel.subprocess, "run", fake_run)
+    monkeypatch.setattr(foreman_panel_reviewers.subprocess, "run", fake_run)
 
     response = foreman_panel.run_reviewer(
         prompt=prompt(),
@@ -109,7 +110,7 @@ def test_anthropic_fenced_json_stdout_parses_to_real_verdict(*, monkeypatch, tmp
             stderr="",
         )
 
-    monkeypatch.setattr(foreman_panel.subprocess, "run", fake_run)
+    monkeypatch.setattr(foreman_panel_reviewers.subprocess, "run", fake_run)
 
     response = foreman_panel.run_reviewer(
         prompt=prompt(),
@@ -149,7 +150,7 @@ def test_successful_reviewer_response_records_pinned_prompt_identity(
             stderr="",
         )
 
-    monkeypatch.setattr(foreman_panel.subprocess, "run", fake_run)
+    monkeypatch.setattr(foreman_panel_reviewers.subprocess, "run", fake_run)
 
     response = foreman_panel.run_reviewer(
         prompt=prompt(vendor="anthropic", model="claude-fable-5"),
