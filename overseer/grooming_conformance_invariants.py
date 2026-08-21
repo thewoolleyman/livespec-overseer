@@ -1,4 +1,5 @@
 """Invariant evaluation for the grooming drain pass."""
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.25
 
 from __future__ import annotations
 
@@ -47,6 +48,7 @@ def evaluate_ledger_invariants(
     work_items: Sequence[Mapping[str, object]],
     item_details_by_id: Mapping[str, Sequence[str]] | None = None,
     sibling_item_ids_by_repo: Mapping[str, AbstractSet[str]] | None = None,
+    seat_anchor_epic_ids: AbstractSet[str] | None = None,
 ) -> GroomingConformanceReport:
     repo_path = Path(repo)
     items = tuple(work_items)
@@ -58,8 +60,8 @@ def evaluate_ledger_invariants(
         scanned_item_count=len(items),
         scanned_item_ids=item_ids,
         invariants=(
-            plan_rollup_check(items=items),
-            acceptance_present_check(items=items),
+            plan_rollup_check(items=items, seat_anchor_epic_ids=seat_anchor_epic_ids),
+            acceptance_present_check(items=items, seat_anchor_epic_ids=seat_anchor_epic_ids),
             lifecycle_status_check(items=items),
             dispatchable_delimiter_check(items=items, item_details_by_id=details),
             split_acceptance_label_pending(),
@@ -73,37 +75,58 @@ def evaluate_ledger_invariants(
     )
 
 
-def plan_rollup_check(*, items: Sequence[Mapping[str, object]]) -> InvariantCheck:
-    breaches = sorted_ids(
-        items=(item for item in items if needs_plan_rollup(item=item) and not has_parent(item=item))
+def plan_rollup_check(
+    *,
+    items: Sequence[Mapping[str, object]],
+    seat_anchor_epic_ids: AbstractSet[str] | None,
+) -> InvariantCheck:
+    scanned = tuple(
+        item
+        for item in items
+        if needs_plan_rollup(item=item, seat_anchor_epic_ids=seat_anchor_epic_ids)
     )
     return InvariantCheck(
         key="plan-rollup",
         title="Every non-done item rolls up to a plan epic",
         status="checked",
-        breaching_item_ids=breaches,
-        scanned_item_count=sum(1 for item in items if needs_plan_rollup(item=item)),
-        scope="non-terminal, non-plan-anchor, non-seat-anchor bulk ledger rows",
+        breaching_item_ids=sorted_ids(items=(i for i in scanned if not has_parent(item=i))),
+        scanned_item_count=len(scanned),
+        scope=anchor_scope(suffix="bulk ledger rows", seat_anchor_epic_ids=seat_anchor_epic_ids),
     )
 
 
-def acceptance_present_check(*, items: Sequence[Mapping[str, object]]) -> InvariantCheck:
+def acceptance_present_check(
+    *,
+    items: Sequence[Mapping[str, object]],
+    seat_anchor_epic_ids: AbstractSet[str] | None,
+) -> InvariantCheck:
     scanned = tuple(
-        item for item in items if is_open(item=item) and not is_top_level_anchor_epic(item=item)
-    )
-    breaches = sorted_ids(
-        items=(item for item in scanned if merged_acceptance_criteria(item=item) is None)
+        item
+        for item in items
+        if is_open(item=item)
+        and not is_top_level_anchor_epic(item=item, seat_anchor_epic_ids=seat_anchor_epic_ids)
     )
     return InvariantCheck(
         key="acceptance-present",
         title="Every open item carries acceptance criteria",
         status="checked",
-        breaching_item_ids=breaches,
-        scanned_item_count=len(scanned),
-        scope=(
-            "non-terminal, non-plan-anchor, non-seat-anchor rows using the merged "
-            "acceptance projection"
+        breaching_item_ids=sorted_ids(
+            items=(i for i in scanned if merged_acceptance_criteria(item=i) is None)
         ),
+        scanned_item_count=len(scanned),
+        scope=anchor_scope(
+            suffix="rows using the merged acceptance projection",
+            seat_anchor_epic_ids=seat_anchor_epic_ids,
+        ),
+    )
+
+
+def anchor_scope(*, suffix: str, seat_anchor_epic_ids: AbstractSet[str] | None) -> str:
+    if seat_anchor_epic_ids is not None:
+        return f"non-terminal, non-plan-anchor, non-seat-anchor {suffix}"
+    return (
+        f"non-terminal, non-plan-anchor {suffix}; seat-anchor register not supplied, "
+        "so no non-seat-anchor exclusion was applied"
     )
 
 

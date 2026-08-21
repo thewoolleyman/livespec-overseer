@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from pathlib import Path
 from typing import cast
 
@@ -93,8 +94,15 @@ def has_dependency_payload(*, item: Mapping[str, object]) -> bool:
     return metadata.get("non_local_depends_on") is not None
 
 
-def needs_plan_rollup(*, item: Mapping[str, object]) -> bool:
-    return is_open(item=item) and not is_top_level_anchor_epic(item=item)
+def needs_plan_rollup(
+    *,
+    item: Mapping[str, object],
+    seat_anchor_epic_ids: AbstractSet[str] | None = None,
+) -> bool:
+    return is_open(item=item) and not is_top_level_anchor_epic(
+        item=item,
+        seat_anchor_epic_ids=seat_anchor_epic_ids,
+    )
 
 
 def is_open(*, item: Mapping[str, object]) -> bool:

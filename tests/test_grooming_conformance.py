@@ -39,6 +39,7 @@ class GroomingConformanceModule(Protocol):
         work_items: list[dict[str, object]],
         item_details_by_id: dict[str, list[str]] | None = None,
         sibling_item_ids_by_repo: dict[str, set[str]] | None = None,
+        seat_anchor_epic_ids: set[str] | None = None,
     ) -> ReportView: ...
 
     def measure_grooming_inputs(
@@ -123,6 +124,22 @@ def _seat_anchor(*, item_id: str) -> dict[str, object]:
     }
 
 
+def _real_grooming_seat_anchor() -> dict[str, object]:
+    return {
+        "id": "overseer-qyli",
+        "status": "backlog",
+        "issue_type": "epic",
+        "title": "livespec-overseer-grooming seat anchor rounds and handoffs",
+        "description": (
+            "Durable record for supervised grooming seat rounds; deliberately "
+            "a seat anchor rather than a work epic."
+        ),
+        "metadata": {},
+        "labels": ["intake:triaged"],
+        "dependencies": [],
+    }
+
+
 def _by_key(*, report: ReportView, key: str) -> InvariantView:
     return {result.key: result for result in report.invariants}[key]
 
@@ -143,6 +160,7 @@ def test_reports_breaching_item_ids_and_unimplemented_invariants(*, tmp_path: Pa
             _item(item_id="native-open", status="open"),
             _item(item_id="native-deferred", status="deferred"),
         ],
+        seat_anchor_epic_ids={"seat-anchor"},
     )
 
     assert _by_key(report=report, key="plan-rollup").breaching_item_ids == (
@@ -163,6 +181,41 @@ def test_reports_breaching_item_ids_and_unimplemented_invariants(*, tmp_path: Pa
     assert "no canonical expression" in _by_key(report=report, key="split-acceptance-label").reason
     assert _by_key(report=report, key="routing-field").status == ("unimplemented-pending-decision")
     assert "no backing field" in _by_key(report=report, key="routing-field").reason
+
+
+def test_plan_rollup_exempts_registered_seat_anchor_from_real_record_shape(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            _real_grooming_seat_anchor(),
+            _item(item_id="overseer-la2nfq", parent=None),
+        ],
+        seat_anchor_epic_ids={"overseer-qyli"},
+    )
+
+    plan_rollup = _by_key(report=report, key="plan-rollup")
+    assert plan_rollup.breaching_item_ids == ("overseer-la2nfq",)
+    assert "non-seat-anchor" in plan_rollup.scope
+
+
+def test_plan_rollup_scope_says_when_seat_register_is_absent(*, tmp_path: Path) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[_real_grooming_seat_anchor()],
+    )
+
+    plan_rollup = _by_key(report=report, key="plan-rollup")
+    assert plan_rollup.breaching_item_ids == ("overseer-qyli",)
+    assert "seat-anchor register not supplied" in plan_rollup.scope
 
 
 def test_acceptance_presence_uses_merged_projection_in_both_directions(

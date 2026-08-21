@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -48,6 +49,7 @@ def resolve_plan_budget(
     work_items: Sequence[Mapping[str, object]] = (),
     proposed_changes_count: int | None = None,
     live_plan_slugs: Sequence[str] = (),
+    seat_anchor_epic_ids: AbstractSet[str] | None = None,
 ) -> PlanBudgetResolution:
     root = Path(repo)
     config = parse_repo_config(repo=root) or {}
@@ -60,7 +62,10 @@ def resolve_plan_budget(
         if proposed_changes_count is None
         else proposed_changes_count
     )
-    work_item_count = count_drainable_work_items(work_items=work_items)
+    work_item_count = count_drainable_work_items(
+        work_items=work_items,
+        seat_anchor_epic_ids=seat_anchor_epic_ids,
+    )
     drainable_population = proposals + work_item_count
     raw_auto_budget = ceil_div(numerator=drainable_population, denominator=items_per_plan)
     explicit_plan_budget = positive_int(value=grooming.get("plan_budget"))
@@ -112,31 +117,59 @@ def count_pending_proposed_changes(*, repo: Path, config: Mapping[str, object]) 
     return sum(1 for entry in entries if entry.is_file() and entry.name != "README.md")
 
 
-def count_drainable_work_items(*, work_items: Sequence[Mapping[str, object]]) -> int:
-    return sum(1 for item in work_items if work_item_is_drainable(item=item))
+def count_drainable_work_items(
+    *,
+    work_items: Sequence[Mapping[str, object]],
+    seat_anchor_epic_ids: AbstractSet[str] | None = None,
+) -> int:
+    anchors = seat_anchor_epic_ids or frozenset()
+    return sum(
+        1 for item in work_items if work_item_is_drainable(item=item, seat_anchor_epic_ids=anchors)
+    )
 
 
-def work_item_is_drainable(*, item: Mapping[str, object]) -> bool:
+def work_item_is_drainable(
+    *,
+    item: Mapping[str, object],
+    seat_anchor_epic_ids: AbstractSet[str] | None = None,
+) -> bool:
     status = item.get("status")
     if isinstance(status, str) and status.lower() in _TERMINAL_WORK_ITEM_STATUSES:
         return False
-    return not is_top_level_anchor_epic(item=item)
+    return not is_top_level_anchor_epic(
+        item=item,
+        seat_anchor_epic_ids=seat_anchor_epic_ids,
+    )
 
 
 def is_plan_anchor_epic(*, item: Mapping[str, object]) -> bool:
     return item.get("issue_type") == "epic" and plan_slug(item=item) is not None
 
 
-def is_top_level_anchor_epic(*, item: Mapping[str, object]) -> bool:
-    return is_plan_anchor_epic(item=item) or is_seat_anchor_epic(item=item)
-
-
-def is_seat_anchor_epic(*, item: Mapping[str, object]) -> bool:
-    return (
-        item.get("issue_type") == "epic"
-        and normalized_text(value=item.get("title")).endswith("seat anchor")
-        and "handoff timeline" in normalized_text(value=item.get("description"))
+def is_top_level_anchor_epic(
+    *,
+    item: Mapping[str, object],
+    seat_anchor_epic_ids: AbstractSet[str] | None = None,
+) -> bool:
+    return is_plan_anchor_epic(item=item) or is_seat_anchor_epic(
+        item=item,
+        seat_anchor_epic_ids=seat_anchor_epic_ids,
     )
+
+
+def is_seat_anchor_epic(
+    *,
+    item: Mapping[str, object],
+    seat_anchor_epic_ids: AbstractSet[str] | None = None,
+) -> bool:
+    anchors = seat_anchor_epic_ids or frozenset()
+    identifier = work_item_id(item=item)
+    return item.get("issue_type") == "epic" and identifier is not None and identifier in anchors
+
+
+def work_item_id(*, item: Mapping[str, object]) -> str | None:
+    value = item.get("id")
+    return value if isinstance(value, str) and value != "" else None
 
 
 def live_thread_slugs_for_repo(
@@ -180,7 +213,3 @@ def plan_slug(*, item: Mapping[str, object]) -> str | None:
         return None
     value = metadata.get("plan_slug")
     return value if isinstance(value, str) and value != "" else None
-
-
-def normalized_text(*, value: object) -> str:
-    return value.strip().casefold() if isinstance(value, str) else ""
