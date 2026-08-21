@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.8.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.9...v1.8.0) (2026-08-21)
+
+
+### Features
+
+* add claude idle canary regression coverage ([1b21865](https://github.com/thewoolleyman/livespec-overseer/commit/1b2186511e73e290fe2645307971f4a298e43520))
+* add foreman self wind-down floor ([9cf68d9](https://github.com/thewoolleyman/livespec-overseer/commit/9cf68d9c3725efdd2b9e02374767df41a4890c94))
+* extract supervisor facade slice ([ff0c66a](https://github.com/thewoolleyman/livespec-overseer/commit/ff0c66a21092e57a262aab7647fe35cffe9d8a62))
+* split soft-band overseer modules ([beccf14](https://github.com/thewoolleyman/livespec-overseer/commit/beccf146cba73c181d6c97f9b78a4730f61b7551))
+* split supervisor slice c modules ([06f3726](https://github.com/thewoolleyman/livespec-overseer/commit/06f37263ddef49c865349749f0c9f402362e8fa8))
+
+
+### Bug Fixes
+
+* accept release-please merge refs ([1a78140](https://github.com/thewoolleyman/livespec-overseer/commit/1a7814098b2c8114759f5e2d886c09654eaa677d))
+* align coverage reuse stamp contract ([bc69b00](https://github.com/thewoolleyman/livespec-overseer/commit/bc69b00c1edcf7e587b79cccbf4118e898eab254))
+* arm lloc soft warnings before push ([8f4bfe0](https://github.com/thewoolleyman/livespec-overseer/commit/8f4bfe057837250ca9d50d5a31491db36bc3e6e6))
+* cover wrapup selector variant dispatch ([413c7db](https://github.com/thewoolleyman/livespec-overseer/commit/413c7db036bea7210231820b225c0feda3a74e6d))
+* dispatch supervisor freshness by track variant ([55f0f41](https://github.com/thewoolleyman/livespec-overseer/commit/55f0f41695cce7d66783c2db63db5ec3908e14ad))
+* exempt registered seat anchors from the plan-rollup invariant ([07480c0](https://github.com/thewoolleyman/livespec-overseer/commit/07480c06b63384cc3144c532676b572e3231acb2))
+* exempt release-please manifest bumps ([99c9528](https://github.com/thewoolleyman/livespec-overseer/commit/99c952888333d6f01749b08b9a4da6ac4e8240f9))
+* preserve foreman reviewer stdout ([7bc7eeb](https://github.com/thewoolleyman/livespec-overseer/commit/7bc7eebb617f8f146c13f7c771ebaa357f409443))
+* read recorded next action headings ([168d475](https://github.com/thewoolleyman/livespec-overseer/commit/168d47556f581d2f573949b6b41eaad8e903a4ff))
+* restore supervisor alert diagnostic docs ([461d233](https://github.com/thewoolleyman/livespec-overseer/commit/461d233b441c6e688508373d82b966d1b75ddead))
+* restore supervisor slice c design docs ([3a51fcf](https://github.com/thewoolleyman/livespec-overseer/commit/3a51fcfb1a3cbc37d7c325f0abb1240f5eda35ed))
+* split evaluate trio concerns ([58513c4](https://github.com/thewoolleyman/livespec-overseer/commit/58513c4171c341495fa6b030341fb5c968980db7))
+* split supervisor lifecycle soft-band modules ([79628c1](https://github.com/thewoolleyman/livespec-overseer/commit/79628c125e501a27298e24131602b7ec6fa32ec1))
+
 ## [1.7.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.8...v1.7.9) (2026-08-21)
 
 
