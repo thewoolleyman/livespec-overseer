@@ -17,7 +17,7 @@ if str(_OVERSEER_DIR) not in sys.path:
 
 import signals  # noqa: E402
 
-__all__: list[str] = ["main"]
+__all__: list[str] = ["capture_is_ready", "main"]
 
 _FIXTURE_DIR = _REPO_ROOT / "tests" / "fixtures" / "claude-idle"
 _VERSION_RE = re.compile(r"\b(\d+\.\d+\.\d+)\b")
@@ -85,15 +85,17 @@ def _kill_canary_session(*, session: str) -> None:
         return
 
 
+def capture_is_ready(*, capture: str) -> bool:
+    return signals.is_idle_input(capture_text=capture) and signals.input_box_ready(
+        capture_text=capture
+    )
+
+
 def _await_idle_capture(*, session: str) -> str | None:
     deadline = time.monotonic() + _CAPTURE_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
         capture = _tmux_capture(session=session)
-        if (
-            signals.is_idle_input(capture_text=capture)
-            and signals.input_box_ready(capture_text=capture)
-            and signals.parse_ctx_remaining(capture_text=capture) is not None
-        ):
+        if capture_is_ready(capture=capture):
             return capture.rstrip() + "\n"
         time.sleep(_POLL_SECONDS)
     return None
