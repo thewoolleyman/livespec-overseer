@@ -1325,6 +1325,49 @@ post-dates the claim, you have an UPDATE — "correct when written, since cured"
 not a correction. Say so in those words; the two are different facts and the
 record needs the difference.
 
+### A FIFTH, AND THE FIELD IS ONE THE SESSION WROTE ITSELF: a timestamp a session WROTE is not a time that was MEASURED
+
+Measured 2026-08-21, twice in one hour, by two seats independently — which is the
+evidence that it is a method defect rather than carelessness.
+
+**A session that never calls the clock estimates it, and the estimate runs ahead.**
+One seat labelled a peer message `16:48Z` from its own sense of elapsed time; the
+reading under that label had been taken meaningfully earlier, and it reported a PR
+as open that had merged at `16:38:35Z`. The other seat published a
+`plan-handoff-entry` declaring `timestamp: 17:10:00Z` while the ledger stored the
+comment at **16:47** — a self-declared time twenty-three minutes in its own future.
+Neither had run `date -u` at any point in the session.
+
+**The two are not equally expensive, and the difference is the point.** A
+mislabelled message costs a re-read; the value under it was never wrong. A
+fabricated timestamp inside a handoff entry corrupts the **ordering key**: entries
+in this fleet declare that they supersede the one below, and a resuming session
+reads the newest. So the second one does not mislabel a reading, it reorders the
+record a resume depends on.
+
+**THE RULE: STAMP THE READ, NOT THE MESSAGE.** Bracket the call and quote what it
+returns beside the value. Never estimate, never carry a stamp forward from earlier
+in a session, and never let composition time stand in for measurement time.
+
+    date -u +%Y-%m-%dT%H:%M:%SZ    # before the read, and again beside the value
+
+**The independent check, when a declared stamp looks wrong:** the ledger records
+its own storage time for every comment. A declared `timestamp:` that disagrees with
+the stored time is settled by the stored one, and the disagreement is worth naming
+in an appended correction rather than left for a reader to trip over.
+
+Same family as the four rules above, and closest to the first: `Updated:` is not
+activity, a PATH's age is not a BEHAVIOUR's age, and a timestamp a session WROTE is
+not a time that was MEASURED. In each, a field that describes the RECORD gets read
+as though it described the WORLD — here the record is the session's own prose, which
+is why nothing external contradicts it. It also pairs directly with the rule
+immediately above: that one says to date the information before retracting, and this
+one is about the dates themselves being trustworthy.
+
+Deliberately no mechanical enforcement is proposed here: a check that parses declared
+stamps out of handoff entries and diffs them against storage times is a real idea and
+a SEPARATE proposal, and folding it in would turn a guidance fix into a gate.
+
 ## The charter gate's false positives all point ONE way — suspect the detector first
 
 `tests/prompts/test_charters_carry_no_known_defects.py` scores every supervisor
