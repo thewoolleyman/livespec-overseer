@@ -7,9 +7,13 @@ from pathlib import Path
 
 import jsonio
 import signals
+from _foreman_source_result import source_value
+from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _supervisor_snapshot import SCHEMA_VERSION
 from foreman_gather_evidence import enrich_rows_with_evidence
 from foreman_gather_sources import command_skipped, run_json_command
+
+_ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
     "migrated_supervisor_handoff_state",
@@ -162,7 +166,7 @@ def read_snapshot_fallback(
             "path": str(snapshot_path),
             "reason": "snapshot unavailable and no list --json fallback configured",
         }
-    parsed = run_json_command(command=command, source_name="list_json")
+    parsed = source_value(result=run_json_command(command=command, source_name="list_json"))
     if parsed is None:
         return None, command_skipped(command=command, reason="command not found")
     skip = parsed.get("__skip_reason__")

@@ -9,6 +9,13 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import jsonio
+from _foreman_source_result import source_value
+from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
+from errors import OverseerSourceError
+
+from overseer._vendor.returns.io import IOFailure, IOResult, IOSuccess
+
+_ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = [
     "command_skipped",
@@ -96,7 +103,10 @@ def fetch_release_lane_runs(*, repo: Path, workflow: str) -> list[dict[str, str]
         endpoint = (
             f"repos/{slug}/actions/workflows/{workflow}/runs" f"?per_page={_PER_PAGE}&page={page}"
         )
-        payload = run_json_command(command=["gh", "api", endpoint], source_name="release_lane")
+        payload_raw: (
+            IOResult[dict[str, object] | None, OverseerSourceError] | dict[str, object] | None
+        ) = run_json_command(command=["gh", "api", endpoint], source_name="release_lane")
+        payload = source_value(result=payload_raw)
         if payload is None or isinstance(payload.get("__skip_reason__"), str):
             return None
         runs = jsonio.as_list(value=payload.get("workflow_runs"))
@@ -119,7 +129,16 @@ def command_skipped(*, command: Sequence[str], reason: str) -> dict[str, object]
     return {"status": "skipped", "command": list(command), "reason": reason}
 
 
-def run_json_command(*, command: Sequence[str], source_name: str) -> dict[str, object] | None:
+def run_json_command(
+    *, command: Sequence[str], source_name: str
+) -> IOResult[dict[str, object] | None, OverseerSourceError]:
+    """Run a JSON-emitting source command.
+
+    An unavailable source is an answer, not a failure: a missing command,
+    a spawn error, a timeout, and a non-zero exit all stay on the success
+    track carrying their existing skip payloads. Only output that is
+    present but not a JSON object is an expected failure.
+    """
     try:
         completed = subprocess.run(  # noqa: S603
             list(command),
@@ -129,29 +148,37 @@ def run_json_command(*, command: Sequence[str], source_name: str) -> dict[str, o
             timeout=30,
         )
     except FileNotFoundError:
-        return None
+        return IOSuccess(None)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"__skip_reason__": type(exc).__name__}
+        return IOSuccess({"__skip_reason__": type(exc).__name__})
     if completed.returncode != 0:
-        return {"__skip_reason__": f"exit {completed.returncode}"}
+        return IOSuccess({"__skip_reason__": f"exit {completed.returncode}"})
     parsed = jsonio.parse_object(text=completed.stdout)
     if parsed is None:
-        msg = f"{source_name} produced malformed or non-object JSON"
-        raise ValueError(msg)
-    return parsed
+        detail = f"{source_name} produced malformed or non-object JSON"
+        return IOFailure(OverseerSourceError(detail=detail))
+    return IOSuccess(parsed)
 
 
-def read_journal(*, path: Path, limit: int) -> tuple[list[dict[str, object]], dict[str, object]]:
+def read_journal(
+    *, path: Path, limit: int
+) -> IOResult[tuple[list[dict[str, object]], dict[str, object]], OverseerSourceError]:
+    """Read the tail of the dispatch journal.
+
+    An absent journal is an answer, not a failure: it stays on the
+    success track with its existing skipped payload. A journal carrying a
+    malformed JSONL record is an expected failure.
+    """
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except OSError:
-        return [], {"status": "skipped", "path": str(path), "reason": "file not found"}
+        return IOSuccess(([], {"status": "skipped", "path": str(path), "reason": "file not found"}))
     records: list[dict[str, object]] = []
     for line in lines:
         parsed = jsonio.parse_object_line(line=line)
         if parsed is None:
-            msg = "dispatch_journal contains malformed or non-object JSONL"
-            raise ValueError(msg)
+            detail = "dispatch_journal contains malformed or non-object JSONL"
+            return IOFailure(OverseerSourceError(detail=detail))
         records.append(parsed)
     tail = records[-limit:] if limit > 0 else []
-    return tail, {"status": "ok", "path": str(path), "records_read": len(tail)}
+    return IOSuccess((tail, {"status": "ok", "path": str(path), "records_read": len(tail)}))

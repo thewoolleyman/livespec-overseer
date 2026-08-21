@@ -936,16 +936,24 @@ def test_default_needs_attention_command_handles_absent_or_bad_config(*, tmp_pat
 
 
 def test_run_json_command_fail_soft_edges(*, monkeypatch):
+    vendor_root = OVERSEER_DIR / "_vendor"
+    assert (vendor_root / "returns").is_dir()
+    assert (vendor_root / "typing_extensions").is_dir()
+    assert not (vendor_root / "returns" / "contrib").exists()
+
     module = foreman_gather_sources()
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    returns_pipeline = importlib.import_module("overseer._vendor.returns.pipeline")
+    returns_unsafe = importlib.import_module("overseer._vendor.returns.unsafe")
 
     def boom(*args, **kwargs):
         del args, kwargs
         raise OSError
 
     monkeypatch.setattr(module.subprocess, "run", boom)
-    assert module.run_json_command(command=["tool"], source_name="demo") == {
-        "__skip_reason__": "OSError"
-    }
+    skipped = module.run_json_command(command=["tool"], source_name="demo")
+    assert isinstance(skipped, returns_io.IOSuccess)
+    assert returns_unsafe.unsafe_perform_io(skipped.unwrap()) == {"__skip_reason__": "OSError"}
     monkeypatch.setattr(
         module.subprocess,
         "run",
@@ -953,22 +961,31 @@ def test_run_json_command_fail_soft_edges(*, monkeypatch):
             args=args, returncode=0, stdout="[]\n", stderr=""
         ),
     )
-    with pytest.raises(ValueError, match="demo"):
-        module.run_json_command(command=["tool"], source_name="demo")
+    malformed = module.run_json_command(command=["tool"], source_name="demo")
+    assert not returns_pipeline.is_successful(malformed)
+    error = returns_unsafe.unsafe_perform_io(malformed.failure())
+    assert error.detail == "demo produced malformed or non-object JSON"
 
 
 def test_journal_reader_rejects_malformed_records_and_limits_to_zero(*, tmp_path):
     module = foreman_gather_sources()
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    returns_pipeline = importlib.import_module("overseer._vendor.returns.pipeline")
+    returns_unsafe = importlib.import_module("overseer._vendor.returns.unsafe")
     journal = tmp_path / "journal.jsonl"
     write_jsonl(path=journal, records=[{"action": "one"}])
 
-    assert module.read_journal(path=journal, limit=0) == (
+    limited = module.read_journal(path=journal, limit=0)
+    assert isinstance(limited, returns_io.IOSuccess)
+    assert returns_unsafe.unsafe_perform_io(limited.unwrap()) == (
         [],
         {"path": str(journal), "records_read": 0, "status": "ok"},
     )
     journal.write_text("{}\nnot-json\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="dispatch_journal"):
-        module.read_journal(path=journal, limit=20)
+    malformed = module.read_journal(path=journal, limit=20)
+    assert not returns_pipeline.is_successful(malformed)
+    error = returns_unsafe.unsafe_perform_io(malformed.failure())
+    assert error.detail == "dispatch_journal contains malformed or non-object JSONL"
 
 
 def test_cli_emits_json_render_and_errors(*, tmp_path, capsys):

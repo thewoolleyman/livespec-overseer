@@ -8,8 +8,14 @@ import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
+_PACKAGE_PARENT = _HERE.parent
+_VENDOR = _HERE / "_vendor"
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
+if str(_PACKAGE_PARENT) not in sys.path:
+    sys.path.insert(0, str(_PACKAGE_PARENT))
+if str(_VENDOR) not in sys.path:
+    sys.path.insert(0, str(_VENDOR))
 
 import streams  # noqa: E402
 from _supervisor_snapshot import DEFAULT_STATUS_PATH  # noqa: E402
