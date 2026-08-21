@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.5...v1.7.6) (2026-08-21)
+
+
+### Bug Fixes
+
+* ignore beads tenant verification cache ([e87cde9](https://github.com/thewoolleyman/livespec-overseer/commit/e87cde9ab92c95893bd53db5a459b14faa92538c))
+
 ## [1.7.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.4...v1.7.5) (2026-08-21)
 
 
