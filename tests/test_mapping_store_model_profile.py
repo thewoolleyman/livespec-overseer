@@ -79,6 +79,54 @@ def test_malformed_model_profile_is_dropped_fail_soft(*, tmp_path, capsys):
     assert "dropping malformed model_profile" in capsys.readouterr().err
 
 
+def test_model_profile_carrying_an_unknown_key_is_dropped_and_leaks_no_value(*, tmp_path, capsys):
+    """A profile carrying an EXTRA key is REFUSED whole rather than quietly narrowed.
+
+    This is the subset clause's own guard, and nothing else in the suite exercised it.
+    Verified by deleting that clause on 2026-08-21: the entire suite stayed green at
+    100% coverage, because the compound condition's branch was still taken by the
+    wrong-TYPE case above. A sub-clause of a compound condition is invisible to branch
+    coverage, so the leg needs a test that targets it specifically.
+
+    BE PRECISE ABOUT WHAT THIS PROVES. The no-secrets property has two layers, and
+    removing the subset clause does not by itself leak a value: the decoder rebuilds
+    the profile from three NAMED keys, so an unknown key is stripped on the way out
+    either way. What the subset clause adds is REFUSAL -- a row carrying anything
+    unexpected is dropped entirely and warned about, instead of being silently
+    accepted minus the surprise. That distinction matters because silent narrowing
+    would let a row that someone believed carried more than it does pass as valid.
+
+    The leak assertion below is therefore belt-and-braces on the second layer, not the
+    discriminating leg; the discriminating leg is that the profile is None.
+    """
+    planted = "PLANTED-NOT-A-REAL-CREDENTIAL-0123456789"
+    store = tmp_path / "map.jsonl"
+    store.write_text(
+        json.dumps(
+            {
+                "topic": "leaky",
+                "repo": "/r",
+                "tmux": "leaky",
+                "model_profile": {
+                    "harness": "claude",
+                    "model": "opus[1m]",
+                    "wrapper": "/opt/bin/claude-local-llm",
+                    "auth_token": planted,
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    track = registry.read_valid_mapping(store_path=store)[0]
+
+    assert track.model_profile is None
+    assert "dropping malformed model_profile" in capsys.readouterr().err
+    # The whole profile is refused, so the planted value reaches no field of the Track.
+    assert planted not in repr(dataclasses.asdict(track))
+
+
 def test_track_variant_helpers_and_unassigned_properties_are_covered():
     unassigned = registry.UnassignedPlan.make(repo="/r", topic="t")
     assert unassigned.added_at is None
