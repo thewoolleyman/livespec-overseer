@@ -183,8 +183,16 @@ propose-change land.
 | 9 | **Picker driving** — idle guard, menu scoping, name matching, wrap arithmetic, second dialog, the no-horizontal-arrows invariant | O, P |
 | 10 | **Enforcement orchestration** — the 1a/1b/2a/2b rules, per-session and whole-pass isolation, `--no-models` | L, Q |
 | 10a | **Foreman-model override + state persistence** — the persisted pin, its clear/ignore/warn paths, and saving state *after* enforcement | V, W, N3a |
+| 10b | **Keep idle profiles warm** — sandboxed agent-delegated refresh, staleness margin, retry backoff, orphan reporting, live-credential paranoia check | X, Y2, G9a |
 | 11 | **Operation prose + three bindings + manifest lockstep** | A, B |
 | 12 | **Exit gate** — independent feature-completeness review | all |
+
+**Slices 6 and 10b are a PAIR and must not be separated.** Slice 6 implements the
+live-verified-only selection rule; slice 10b keeps the live set from draining. The
+rule alone is a deadlock that stops rotation exactly when it is needed — that is
+not a hypothetical, it happened and forced manual switching. If they land in
+separate commits, 10b must follow immediately, and neither may be marked done
+until both are in.
 
 Slices 1–2 have no external dependencies and should go first: they are the highest
 nuance-per-test-line in the set, and getting them landed proves the red-green ritual
