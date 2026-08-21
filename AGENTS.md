@@ -1404,10 +1404,26 @@ detached shell satisfies the three bounce steps and still violates the ruling.
 
 ## CI runner routing
 
-`CI_RUNNER_LABELS` (a repo variable, never a `.github/workflows/` edit —
-the full `just check` aggregate now invokes `check-no-workflow-edits` to
-forbid that here) routes this repo's gating
-`pull_request`/`push` CI matrix. **As of 2026-08-19 it is
+`CI_RUNNER_LABELS` routes this repo's gating `pull_request`/`push` CI matrix.
+It is a repo variable, so a runner-label-only change normally belongs there,
+but a `.github/workflows/` edit is a legitimate engineering option to weigh on
+its merits when the workflow itself needs to change. Workflow edits are
+GOVERNED here, not forbidden: the full `just check` aggregate invokes
+`check-no-workflow-edits`, and that gate grants a per-change exemption through
+a tracked declaration file named `.livespec-workflow-edit-exemption`.
+
+That declaration must be authored in the branch's own diff rather than
+inherited from master, so one reviewed exemption cannot disable the guard for
+later branches. It must contain exactly one `work_item=` line and exactly one
+non-empty `reason=` line. The narrow mechanical allowance is only for lines the
+automated pin-bump lane or canonical CI-matrix reconciler can produce: pin
+reference lines in workflow files, plus canonical slug lines emitted into
+`.github/workflows/ci.yml`. Any other workflow edit needs the declaration above.
+
+The guard does not create an env var, flag, or skip lever exception. Those
+remain absolutely prohibited here.
+
+**As of 2026-08-19 `CI_RUNNER_LABELS` is
 `["livespec-overseer-k3s"]`** — re-cut once the root cause below was found and
 fixed. The rollback history is kept because its triage lesson outlives it.
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import stat
 import subprocess
 from pathlib import Path
@@ -28,6 +29,8 @@ import pytest
 __all__: list[str] = []
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
+_AGENTS_GUIDANCE = _REPO_ROOT / "AGENTS.md"
+_CLAUDE_GUIDANCE = _REPO_ROOT / "CLAUDE.md"
 _SPEC_CHECK = _REPO_ROOT / "scripts" / "check-no-factory-spec-edits.sh"
 _WORKFLOW_CHECK = _REPO_ROOT / "scripts" / "check-no-workflow-edits.sh"
 _GUARD = _REPO_ROOT / "scripts" / "dispatch_acceptance_guard.py"
@@ -88,6 +91,24 @@ def _run_workflow_check(*, cwd: Path) -> subprocess.CompletedProcess[str]:
         check=False,
         text=True,
     )
+
+
+def _workflow_check_declaration_name(*, script: str) -> str:
+    match = re.search(r'^declaration="([^"]+)"$', script, flags=re.MULTILINE)
+    assert match is not None
+    return match.group(1)
+
+
+def _workflow_check_required_keys(*, script: str) -> set[str]:
+    return set(re.findall(r'declared_value "([^"]+)"', script))
+
+
+def _ci_runner_routing_section(*, guidance: str) -> str:
+    match = re.search(
+        r"^## CI runner routing\n(?P<body>.*?)(?=^## |\Z)", guidance, re.DOTALL | re.MULTILINE
+    )
+    assert match is not None
+    return match.group("body")
 
 
 def _write_workflow_change(*, root: Path) -> None:
@@ -181,6 +202,26 @@ def test_workflow_check_accepts_tracked_reviewable_declaration(*, tmp_path: Path
     result = _run_workflow_check(cwd=tmp_path)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_agents_guidance_derives_workflow_exemption_literals_from_gate() -> None:
+    """Agent guidance must name the same exemption contract the shell gate reads."""
+    script = _WORKFLOW_CHECK.read_text(encoding="utf-8")
+    declaration = _workflow_check_declaration_name(script=script)
+    required_keys = _workflow_check_required_keys(script=script)
+
+    assert required_keys == {"work_item", "reason"}
+    for guidance_path in (_AGENTS_GUIDANCE, _CLAUDE_GUIDANCE):
+        section = _ci_runner_routing_section(guidance=guidance_path.read_text(encoding="utf-8"))
+        documented_declarations = set(re.findall(r"`(\.livespec-[^`]+)`", section))
+        documented_keys = set(re.findall(r"`([A-Za-z0-9_]+)=`", section))
+
+        assert documented_declarations == {declaration}
+        assert documented_keys == required_keys
+        for key in required_keys:
+            assert f"`{key}=`" in section
+        assert "legitimate engineering option" in section
+        assert "GOVERNED here, not forbidden" in section
 
 
 def _repo_with_base_carrying_workflow(*, root: Path, pin: str) -> None:

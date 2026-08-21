@@ -82,9 +82,9 @@ valid_declaration() {
 # who authored it -- this guard cannot distinguish factory from host and must not
 # pretend to. Any OTHER altered line -- a step, a trigger, a permission, a job, a
 # job-level `needs` -- fails the allowance and requires a declaration, which is
-# the entire class the guard exists to catch. Nothing here is an env var, a flag,
-# or a skip lever; `.ai/ci-gate-discipline.md` forbids those absolutely and this
-# allowance does not touch that prohibition.
+# the entire class the guard exists to catch. This check grants no env var, flag,
+# or skip lever: those remain absolutely prohibited here, and this allowance
+# does not touch that prohibition.
 #
 # HOW THE SHAPES ARE DERIVED, which matters more than the shapes themselves.
 # They are read off the PRODUCER'S WRITER SOURCE, never off observed diffs:
