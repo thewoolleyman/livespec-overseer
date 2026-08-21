@@ -1,5 +1,42 @@
 # fix-restart-problem — root cause of the 2026-08-20 foreman restart failure
 
+> **STATUS AS OF 2026-08-21T07:00Z — READ THIS BEFORE THE ROOT-CAUSE SECTIONS
+> BELOW.** This document is dated, and every measurement in it was correct when
+> taken; two of the four causes it describes as live defects are now FIXED and
+> merged. Nothing below has been rewritten — the measurements are the evidence
+> and they stay as recorded — but a reader arriving today would otherwise take
+> RC1 and RC2 for open problems, which is exactly the stale-premise failure this
+> repository keeps paying for.
+>
+> This plan's ledger anchor is `overseer-vr3ym4`, and it — not this file — holds
+> the thread's current state as timestamped handoff entries. **Read the newest
+> entries there for anything time-sensitive; this file is a root-cause record,
+> not a status board.**
+>
+> | cause | where it stands | evidence |
+> |---|---|---|
+> | RC1 detector blindness | **FIXED, merged** as `b75ad94`. The acting daemon runs it; the thirteen "resume not submitted" rows and four settling rows went to zero. | `overseer-gdwkdf`, pending-approval |
+> | RC2 round survives session replacement | **FIXED, merged** as `fa851bd` (PR 1342). Round close generalised past `PlanTrack` to all three seat kinds; the identity refusal is preserved. | `overseer-5serwd`, acceptance |
+> | RC3 seat-epic clobber | Unchanged, and deliberately not taken here — owned by `track-record-type-safety`. | scope event on the epic |
+> | RC4 foreman behaviour | Contract change not yet landed; the item is assessed as needing a split before dispatch (two of its five criteria need a maintainer answer and a live tick). | `overseer-7pqr3p`, ready |
+>
+> Item 3 of "What this plan should hold" (settling past a bound is an attention
+> condition) landed as `overseer-srogg6`; item 5 (the live-shape canary) landed
+> as `overseer-62qver`, whose fixture pair is proven discriminating. The host
+> drain landed as `overseer-znwv4r`.
+>
+> **A FIFTH CAUSE WAS FOUND AFTER THIS NOTE WAS WRITTEN, and it is the largest
+> one still open.** A session that winds down CORRECTLY and declares `ready`
+> **outside** a daemon-opened round can never certify, is never restarted, and
+> the daemon says nothing at all — the row renders as plain idle with no log
+> line and no attention condition. It is independent of RC2: a verified daemon
+> bounce onto the merged RC2 fix did not clear the tracks stranded by it. Three
+> sessions stranded this way in a single sixteen-session sweep, each having been
+> told "restart armed" by the declare command. Tracked as `overseer-vr3ym4.1`.
+> The mechanism, read from the code rather than guessed, is recorded on that
+> item together with a real-world stale-`ready` specimen taken from this host.
+
+
 Opened 2026-08-20 by the `debug-restart-problem` session under a direct
 maintainer order ("find the root cause bug(s)" behind the
 `livespec-overseer-foreman` seat sitting at 14% context, never restarted by
