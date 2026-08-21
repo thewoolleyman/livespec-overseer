@@ -127,6 +127,52 @@ def test_model_profile_carrying_an_unknown_key_is_dropped_and_leaks_no_value(*, 
     assert planted not in repr(dataclasses.asdict(track))
 
 
+@pytest.mark.parametrize(
+    ("label", "profile"),
+    [
+        ("missing the wrapper key", {"harness": "claude", "model": "opus[1m]"}),
+        ("missing the model key", {"harness": "claude", "wrapper": None}),
+        ("missing the harness key", {"model": "opus[1m]", "wrapper": None}),
+        ("harness is not a string", {"harness": 7, "model": "opus[1m]", "wrapper": None}),
+        ("model is not a string", {"harness": "claude", "model": [], "wrapper": None}),
+        (
+            "statusline_model is not a string",
+            {"harness": "claude", "model": "opus[1m]", "wrapper": None, "statusline_model": 5},
+        ),
+        ("profile is not an object", "opus[1m]"),
+    ],
+)
+def test_every_model_profile_validation_clause_drops_the_row(*, tmp_path, capsys, label, profile):
+    """One case per validation clause, because branch coverage cannot see inside a compound `if`.
+
+    `model_profile_from_row` refuses a row through a single seven-clause condition.
+    Branch coverage records only that the condition evaluated both ways, never which
+    disjunct decided it — so one malformed case marks the whole predicate covered while
+    every other clause sits unexercised and could be deleted silently.
+
+    Measured on 2026-08-21 by deleting each clause in turn and running the FULL suite:
+    four of the six survived green (the two required-key clauses, both remaining type
+    clauses, and the statusline type clause), while only the wrapper-type and
+    no-extra-keys clauses were held by a test. This table closes that gap and is
+    discriminating by construction: each row is decided by a different clause, so
+    removing any one of them turns exactly one row red.
+
+    These are FAIL-SOFT guards. A malformed row must degrade to "no profile recorded"
+    and relaunch as it does today, never crash the daemon and never half-apply a
+    profile — which is the epic's fourth property, and it rests on these clauses.
+    """
+    store = tmp_path / "map.jsonl"
+    store.write_text(
+        json.dumps({"topic": "t", "repo": "/r", "tmux": "t", "model_profile": profile}) + "\n",
+        encoding="utf-8",
+    )
+
+    track = registry.read_valid_mapping(store_path=store)[0]
+
+    assert track.model_profile is None, label
+    assert "dropping malformed model_profile" in capsys.readouterr().err, label
+
+
 def test_track_variant_helpers_and_unassigned_properties_are_covered():
     unassigned = registry.UnassignedPlan.make(repo="/r", topic="t")
     assert unassigned.added_at is None
