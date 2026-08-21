@@ -1,2 +1,2 @@
-work_item=overseer-hgq4wi.18
-reason=Bind check-no-factory-spec-edits to CI so the guard is not confined to the local-hook lane, per the maintainer ruling. Adding a check to the CI job requires editing the workflow file.
+work_item=overseer-hgq4wi.26
+reason=Make the CI coverage-pair handoff carry the reuse token (job env plus the stamp in the coverage-data artifact) so the check-coverage consumer job consumes the producer's artifact instead of re-running the full suite, and assert in the job that the consume-once branch was taken. Workflow-only change; the local just check path is untouched.

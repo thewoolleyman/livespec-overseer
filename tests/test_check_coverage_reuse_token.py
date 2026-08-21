@@ -180,3 +180,36 @@ def test_check_coverage_messages_do_not_assert_unproven_provenance() -> None:
 
     assert "produced by check-per-file-coverage" not in script
     assert "CI standalone job" not in script
+
+
+def test_mismatched_token_with_stamp_falls_back_to_clean_suite(*, tmp_path: Path) -> None:
+    """A stamp from ANOTHER run must not unlock reuse: the consumer re-measures.
+
+    This is the CI-shaped control for overseer-hgq4wi.26: the consumer job
+    downloads a .coverage plus stamp pair and exports its own token. If the
+    token is not the one the producer stamped, reuse must be refused and the
+    fallback branch taken, so a retried or cross-run artifact can never yield
+    a verdict about a tree it did not measure.
+    """
+    _install_harness(tmp_path=tmp_path)
+    producer = _run_script(
+        tmp_path=tmp_path,
+        script="check-per-file-coverage.sh",
+        extra_env={"LIVESPEC_COVERAGE_REUSE_TOKEN": "ci-111-1", "FAKE_PYTEST_TOTAL": "4242"},
+    )
+    assert producer.returncode == 0, producer.stderr
+    assert (tmp_path / REUSE_STAMP).read_text(encoding="utf-8").strip() == "ci-111-1"
+
+    consumer = _run_script(
+        tmp_path=tmp_path,
+        script="check-coverage.sh",
+        extra_env={"LIVESPEC_COVERAGE_REUSE_TOKEN": "ci-222-1", "FAKE_PYTEST_TOTAL": "7"},
+    )
+
+    assert consumer.returncode == 0, consumer.stderr
+    assert "ignoring existing .coverage without current aggregate token" in consumer.stdout
+    assert "reading current aggregate .coverage" not in consumer.stdout
+    assert _uv_log(tmp_path=tmp_path)[-1] == (
+        "run pytest -n 1 --cov --cov-branch --cov-config=pyproject.toml --cov-report=term-missing"
+    )
+    assert not (tmp_path / REUSE_STAMP).exists()
