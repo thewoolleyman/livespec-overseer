@@ -284,6 +284,48 @@ And the closing note in that section — the instruction that this skill should 
 here and be rebuilt spec-first — **must be removed once carried out**, or the next
 reader is told to do this work again.
 
+## Where the carriers actually landed — measured, not predicted
+
+**Read this before the completeness review.** The slice table above says what each
+slice is *for*; this says where its code *is*. They diverged, for reasons worth
+knowing, and a reviewer navigating by the slice table alone will look in the wrong
+files.
+
+| module | carriers | note |
+|---|---|---|
+| `caam_decision.py` | F, G, H | also **owns the four shared helpers** — `resets_at`, `five_hour_threshold`, `weekly_reserve`, `min_headroom_gain` |
+| `caam_rendering.py` | R, S1–S5, Z | imports the shared helpers; does not redefine them |
+| `caam_usage.py` | C | |
+| `caam_profile_state.py` | D | |
+| `caam_profiles.py` | **E**, not D | **the name is misleading** — see below |
+| `caam_effort.py` | K | |
+| `caam_enforcement.py` | K9 today; L, Q when slice 10 lands | currently a scaffold |
+
+**`caam_profiles.py` holds identity (E), not profile enumeration (D).** That is not
+a naming whim, it is scar tissue. Slice 4 originally created `caam_profiles.py` for
+carrier D; it was reverted after colliding with a `jsonio` API change, and slice 5
+then created a *new* file of the same name for carrier E. When slice 4 was
+re-implemented it was explicitly directed into `caam_profile_state.py` so it would
+not overwrite E.
+
+The lesson generalizes past this file: **a filename can survive while its contents
+are replaced by unrelated work.** File history is not feature history. Check what a
+module contains before assuming its name tells you.
+
+**Tests live in `tests/`, not beside the package.** This document originally
+specified beside-tests in `overseer/`, matching the older `_supervisor_*` and
+`foreman_*` convention. Every caam slice put its tests in `tests/` instead, and all
+gates pass there including coverage. The rebuild is internally consistent, which
+matters more than matching the older convention — recorded here so the review scores
+this as a deliberate deviation rather than a conformance gap.
+
+**The shared-helper ownership is guarded, not merely tidy.** `tests/test_caam_decision.py`
+carries an AST scan over every module in the package asserting each shared helper
+resolves to exactly one definition. That guard exists because two independent copies
+of `resets_at` — both individually correct — is the exact shape that produced the
+first cross-slice defect this plan found. Without the guard the fix decays the next
+time someone adds a module in a hurry.
+
 ## Deliberate deferrals
 
 Recorded here and on the scope event so the review can tell "missed" from "out of
