@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.13.1...v1.14.0) (2026-08-21)
+
+
+### Features
+
+* **caam:** pin active profile identity fallback ([8873a36](https://github.com/thewoolleyman/livespec-overseer/commit/8873a36ae116e421172a1212fd35ed623cbbd929))
+
 ## [1.13.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.13.0...v1.13.1) (2026-08-21)
 
 
