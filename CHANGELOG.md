@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.10.1...v1.10.2) (2026-08-21)
+
+
+### Bug Fixes
+
+* certify no-round ready declarations ([79095d6](https://github.com/thewoolleyman/livespec-overseer/commit/79095d60e241f13f16c869c9bb1990f6da54a1be))
+* stop declare guessing no-round identity ([bb16cc8](https://github.com/thewoolleyman/livespec-overseer/commit/bb16cc8e836b472f02a44da5af740bd2fd69144c))
+
 ## [1.10.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.10.0...v1.10.1) (2026-08-21)
 
 
