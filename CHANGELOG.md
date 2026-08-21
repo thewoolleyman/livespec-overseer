@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.19.0...v1.20.0) (2026-08-21)
+
+
+### Features
+
+* test caam model orchestration isolation ([1157971](https://github.com/thewoolleyman/livespec-overseer/commit/1157971eec504d201561785a2fffa7df0d2b477d))
+
 ## [1.19.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.18.0...v1.19.0) (2026-08-21)
 
 
