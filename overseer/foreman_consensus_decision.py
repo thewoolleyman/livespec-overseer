@@ -92,6 +92,21 @@ def unanimous(
     }
 
 
+def majority(
+    *, action: dict[str, object], request: dict[str, object], reviewers: list[dict[str, object]]
+) -> dict[str, object]:
+    return {
+        "schema_version": PANEL_SCHEMA_VERSION,
+        "outcome": "majority",
+        "reason": "two_unblock_typed_actions_equal",
+        "action": action,
+        "reviewers": [review_record(reviewer=reviewer) for reviewer in reviewers],
+        "models": MODEL_IDENTITIES,
+        "cache_key": cache_key(request=request),
+        "mutated": False,
+    }
+
+
 def dissent_result(
     *, request: dict[str, object], reviewers: list[dict[str, object]], dissent: dict[str, object]
 ) -> dict[str, object]:
@@ -209,6 +224,21 @@ def reviewer_analysis(
     return needs_human, unblockers, actions, result
 
 
+def majority_action(*, actions: list[dict[str, object]]) -> dict[str, object] | None:
+    counts: dict[str, int] = {}
+    representatives: dict[str, dict[str, object]] = {}
+    for action in actions:
+        if action.get("action_id") != "blocked_session_answer":
+            return None
+        key = canonical_json(value=_consensus_key(action=action))
+        counts[key] = counts.get(key, 0) + 1
+        representatives[key] = action
+    winners = [key for key, count in counts.items() if count == _TWO]
+    if len(winners) != _ONE:
+        return None
+    return representatives[winners[0]]
+
+
 def decision_matrix_result(
     *,
     request: dict[str, object],
@@ -227,6 +257,10 @@ def decision_matrix_result(
     }
     if not needs_human and len(canonical) == _ONE:
         return unanimous(action=actions[0], request=request, reviewers=reviewers)
+    if not needs_human:
+        action = majority_action(actions=actions)
+        if action is not None:
+            return majority(action=action, request=request, reviewers=reviewers)
     if len(needs_human) == _ONE and len(unblockers) == _TWO:
         if len(unblocker_canonical) == _ONE and len(canonical) == _TWO:
             return minority_override(
