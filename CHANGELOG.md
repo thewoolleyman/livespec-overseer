@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.9.0...v1.9.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* allow pre-commit red-mode skip extension ([bf8075f](https://github.com/thewoolleyman/livespec-overseer/commit/bf8075f7332e4ab978ea4d32d6d5249770196f2b))
+
 ## [1.9.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.8.0...v1.9.0) (2026-08-21)
 
 
