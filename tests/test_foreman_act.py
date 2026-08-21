@@ -337,6 +337,30 @@ def test_plan_start_uses_absolute_overseer_start_command(*, tmp_path):
     ]
 
 
+def test_plan_start_failure_reason_names_the_supervisor_start_step(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    result = module.act(
+        proposal=start_proposal(repo=repo),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: module.CommandResult(
+                returncode=1,
+                stderr="start FAILED: reason=claude_launch_failed session=alpha\n",
+            ),
+        ),
+    )
+
+    assert result == {
+        "action_id": "plan_start",
+        "mutated": False,
+        "outcome": "failed",
+        "reason": "claude_launch_failed",
+    }
+
+
 def test_supervisor_pair_start_uses_migrated_supervisor_ledger_anchor(*, tmp_path):
     module = foreman_act()
     repo = tmp_path / "repo"
