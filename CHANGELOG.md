@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.6...v1.7.7) (2026-08-21)
+
+
+### Bug Fixes
+
+* expose start failure steps ([813c477](https://github.com/thewoolleyman/livespec-overseer/commit/813c47723cc8fba779e8940c4a32fd6375b0bb60))
+* preserve start mapping added_at stamp ([f2ed337](https://github.com/thewoolleyman/livespec-overseer/commit/f2ed337f9bc5fc55677ab326dec7cfd620decfa5))
+* propagate plan start failure reasons ([8dd633b](https://github.com/thewoolleyman/livespec-overseer/commit/8dd633b48d25395bcad8bfb3167a24b9bc0b9c9b))
+
 ## [1.7.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.5...v1.7.6) (2026-08-21)
 
 
