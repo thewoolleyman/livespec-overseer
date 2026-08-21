@@ -142,9 +142,9 @@ check:
     # explicit conditionals below.
     set -uo pipefail
     # Skip targets come from an explicit environment variable, not just
-    # interpolation. Red-mode pre-commit sets
-    # `LIVESPEC_CHECK_SKIP="check-coverage check-per-file-coverage"`;
-    # Green-amend pre-commit sets `LIVESPEC_CHECK_SKIP="check-red-green-replay"`.
+    # interpolation. Red-mode pre-commit unions its required coverage skips
+    # with any caller-supplied `LIVESPEC_CHECK_SKIP`; Green-amend pre-commit
+    # likewise unions in `check-red-green-replay`.
     # Pre-push and CI invoke `just check` with no skip variable, so the
     # full aggregate stays the safety net.
     read -ra skip_targets <<< "${LIVESPEC_CHECK_SKIP:-}"
