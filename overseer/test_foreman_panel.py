@@ -196,6 +196,8 @@ def test_cli_refuses_malformed_request_and_writes_success_verdict(*, tmp_path: P
             str(request_path),
             "--verdict-output",
             str(verdict_path),
+            "--state-dir",
+            str(tmp_path / "state"),
             "--dossier-dir",
             str(tmp_path / "dossier"),
             "--reviewer-command",
