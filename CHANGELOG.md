@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.21.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.20.0...v1.21.0) (2026-08-21)
+
+
+### Features
+
+* bind caam anthropic loop operation ([08ebe19](https://github.com/thewoolleyman/livespec-overseer/commit/08ebe1971939eaf98f798174e66db7ec6cbf5479))
+
+
+### Bug Fixes
+
+* restore plugin manifest release versions ([0e7b8a0](https://github.com/thewoolleyman/livespec-overseer/commit/0e7b8a0a1c30eba8e8798380b17b985cc71c8b69))
+
 ## [1.20.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.19.0...v1.20.0) (2026-08-21)
 
 
