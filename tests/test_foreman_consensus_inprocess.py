@@ -76,6 +76,18 @@ def recorded_picker_reviewers() -> dict[str, object]:
     return payload
 
 
+def set_recorded_picker_answers(*, payload: dict[str, object], answers: list[str]) -> None:
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    for reviewer, answer in zip(panel, answers, strict=True):
+        assert isinstance(reviewer, dict)
+        action = reviewer["action"]
+        assert isinstance(action, dict)
+        params = action["params"]
+        assert isinstance(params, dict)
+        params["answer"] = answer
+
+
 def safe_action(*, action_id: str = "work_item_file") -> dict[str, object]:
     return {
         "action_id": action_id,
@@ -593,7 +605,7 @@ def test_picker_answer_consensus_ignores_incidental_params(*, tmp_path: Path):
     assert result["action"]["params"]["answer_text"] == "1"
 
 
-def test_picker_answer_consensus_rejects_different_answers(*, tmp_path: Path):
+def test_picker_answer_consensus_rejects_three_different_answers(*, tmp_path: Path):
     consensus = module("foreman_consensus")
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -609,8 +621,18 @@ def test_picker_answer_consensus_rejects_different_answers(*, tmp_path: Path):
     )
     panel = payload["reviewers"]
     assert isinstance(panel, list)
+    opus = panel[1]
     gpt_sol = panel[2]
+    assert isinstance(opus, dict)
     assert isinstance(gpt_sol, dict)
+    opus["action"] = {
+        "action_id": "blocked_session_answer",
+        "params": {
+            "mode": "answer_existing_prompt",
+            "answer_text": "2",
+            "question_fingerprint": "fp-1",
+        },
+    }
     gpt_sol["action"] = {
         "action_id": "blocked_session_answer",
         "params": {
@@ -622,9 +644,9 @@ def test_picker_answer_consensus_rejects_different_answers(*, tmp_path: Path):
     }
 
     result = consensus.consensus(
-        request=request(repo=repo, question="different picker answers"),
+        request=request(repo=repo, question="three different picker answers"),
         responses=payload,
-        state_dir=tmp_path / "state-different-picker-answers",
+        state_dir=tmp_path / "state-three-different-picker-answers",
     )
 
     assert result["outcome"] == "escalate"
@@ -670,15 +692,7 @@ def test_recorded_picker_answer_consensus_compares_actual_answers(*, tmp_path: P
     assert result["action"]["params"].get("answer_text") is None
 
     split = copy.deepcopy(payload)
-    panel = split["reviewers"]
-    assert isinstance(panel, list)
-    for reviewer, answer in zip(panel, ["1", "2", "4"], strict=True):
-        assert isinstance(reviewer, dict)
-        action = reviewer["action"]
-        assert isinstance(action, dict)
-        params = action["params"]
-        assert isinstance(params, dict)
-        params["answer"] = answer
+    set_recorded_picker_answers(payload=split, answers=["1", "2", "4"])
 
     disagreement = consensus.consensus(
         request=request(repo=repo, question="recorded different picker answers"),
@@ -688,6 +702,103 @@ def test_recorded_picker_answer_consensus_compares_actual_answers(*, tmp_path: P
 
     assert disagreement["outcome"] == "escalate"
     assert disagreement["reason"] == "typed_action_disagreement"
+
+
+def test_recorded_picker_answer_majority_path_authorizes_two_to_one_split(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = recorded_picker_reviewers()
+    set_recorded_picker_answers(payload=payload, answers=["3", "1", "1"])
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="recorded two to one picker answer"),
+        responses=payload,
+        state_dir=tmp_path / "state-recorded-two-to-one-picker-answer",
+    )
+
+    assert result["outcome"] == "majority"
+    assert result["reason"] == "two_unblock_typed_actions_equal"
+    assert result["action"]["action_id"] == "blocked_session_answer"
+    assert result["action"]["params"]["answer"] == "1"
+
+
+def test_recorded_picker_answer_majority_path_rejects_one_one_one_split(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = recorded_picker_reviewers()
+    set_recorded_picker_answers(payload=payload, answers=["1", "2", "4"])
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="recorded one one one picker answer"),
+        responses=payload,
+        state_dir=tmp_path / "state-recorded-one-one-one-picker-answer",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "typed_action_disagreement"
+
+
+def test_recorded_picker_answer_majority_path_preserves_minority_override(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = recorded_picker_reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    fable = panel[0]
+    opus = panel[1]
+    gpt_sol = panel[2]
+    assert isinstance(fable, dict)
+    assert isinstance(opus, dict)
+    assert isinstance(gpt_sol, dict)
+    fable["verdict"] = "needs-human"
+    fable["action"] = {"action_id": "human_valve", "params": {"reason": "architecture"}}
+    for reviewer in [opus, gpt_sol]:
+        action = reviewer["action"]
+        assert isinstance(action, dict)
+        action["reversible"] = True
+        action["rollback"] = {"bounded": True}
+    payload["minority_report_round"] = {
+        "holders": [
+            {"reviewer_id": "opus", "holds": True},
+            {"reviewer_id": "gpt-sol", "holds": True},
+        ],
+    }
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="recorded minority override"),
+        responses=payload,
+        state_dir=tmp_path / "state-recorded-minority-override",
+    )
+
+    assert result["outcome"] == "minority_override"
+    assert result["reason"] == "minority_report_both_holders_confirmed"
+    assert result["action"]["params"]["answer"] == "1"
+
+
+def test_recorded_picker_answer_majority_path_preserves_hard_risk_dissent(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = recorded_picker_reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    gpt_sol = panel[2]
+    assert isinstance(gpt_sol, dict)
+    gpt_sol["verdict"] = "needs-human"
+    gpt_sol["hard_risk"] = True
+    gpt_sol["action"] = {"action_id": "human_valve", "params": {"reason": "security"}}
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="recorded hard risk dissent"),
+        responses=payload,
+        state_dir=tmp_path / "state-recorded-hard-risk-dissent",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "hard_risk_dissent"
 
 
 def test_needs_human_escalates_and_non_anthropic_dissent_is_non_overridable(*, tmp_path: Path):
