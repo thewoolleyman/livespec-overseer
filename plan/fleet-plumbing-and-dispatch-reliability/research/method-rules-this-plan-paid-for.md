@@ -556,8 +556,20 @@ that is only the third newest by mtime.
 **And the specified test would not have caught it.** It asserts the resolver
 reaches an *existing executable* — and a stale build's entry point exists. Its
 required positive control tests existence, not currency. So the acceptance as
-written would green-light a resolver that reliably picks the wrong build: the
-same check-that-cannot-fail class the item itself was filed about.
+written would green-light a resolver that can pick the wrong build: the same
+check-that-cannot-fail class the item itself was filed about.
+
+**Corrected the same day, because the first version of this rule overstated its
+own evidence.** It said "reliably picks the wrong build". Re-measured four hours
+later, the heuristic answers *correctly* at that moment — newest by mtime is also
+the highest version. It is not reliably wrong; **it is unreliable**, which is the
+stronger argument anyway and the same shape as `overseer-iwu`'s own burstiness
+correction: a resolver that is right most afternoons and wrong on the afternoon
+you are debugging a dispatch refusal is worse than one that is dependably broken,
+because nothing observable at the moment of picking tells you which case you are
+in. The re-measure also enlarged the evidence from two anti-correlated pairs to
+**53 adjacent inversions**, including four consecutive builds whose versions
+*descend* as their timestamps ascend.
 
 Two more instances the same day. `overseer-thk0` inherited a criterion pinning a
 specific run id as its demonstration, and that run vanished from the remote store
