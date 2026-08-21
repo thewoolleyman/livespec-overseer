@@ -58,7 +58,7 @@ import signals
 import streams
 import tmuxio
 from _seams import SubcommandHandler
-from _signals_topics import foreman_seat_accepts_explicit_epic, reserved_worker_suffix
+from _signals_topics import reserved_seat_accepts_explicit_epic, reserved_worker_suffix
 from _supervisor_config import DANGER_CTX_REMAINING as DANGER_CTX_REMAINING
 from _supervisor_config import LOOP_INTERVAL_SECONDS as LOOP_INTERVAL_SECONDS
 from _supervisor_config import default_gitignore_check as default_gitignore_check
@@ -226,7 +226,7 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
     epic = _supervisor_cli_update.optional_str_value(value=args.epic)
     allow_reserved = (
         epic_source_topic := _inheritable_supervisor_epic_source(repo=repo, topic=args.topic)
-    ) is not None or foreman_seat_accepts_explicit_epic(repo=repo, topic=args.topic, epic=epic)
+    ) is not None or reserved_seat_accepts_explicit_epic(repo=repo, topic=args.topic, epic=epic)
     if not allow_reserved and _refuse_reserved_topic(repo=repo, topic=args.topic):
         return 1
     session = _derive_tmux_or_refuse(repo=repo, topic=args.topic, allow_reserved=allow_reserved)
@@ -261,6 +261,14 @@ def _cmd_remove(*, args: argparse.Namespace) -> int:
     return 0
 
 
+def _existing_start_track(*, repo: str, topic: str) -> registry.Track | None:
+    repo_norm = registry.norm(repo=repo)
+    for track in registry.read_valid_mapping(store_path=None):
+        if registry.norm(repo=track.repo) == repo_norm and track.topic == topic and track.assigned:
+            return track
+    return None
+
+
 def _cmd_start(*, args: argparse.Namespace) -> int:
     """Surface-only, user-initiated launch. The daemon never invokes this.
 
@@ -272,13 +280,17 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
     """
     repo = os.path.normpath(args.repo)
     topic = args.topic
-    session = _derive_tmux_or_refuse(repo=repo, topic=topic)
+    existing = _existing_start_track(repo=repo, topic=topic)
+    allow_reserved = existing is not None and signals.topic_reserved_for_supervisor(topic=topic)
+    session = _derive_tmux_or_refuse(repo=repo, topic=topic, allow_reserved=allow_reserved)
     if session is None:
         return 1
     force = getattr(args, "force", False)
     io = tmuxio.TmuxIO()
     sup = Supervisor(tmux=io)
-    track = _supervisor_assignment.assignment_track(repo=repo, topic=topic, session=session)
+    track = existing or _supervisor_assignment.assignment_track(
+        repo=repo, topic=topic, session=session
+    )
     if io.session_exists(session=session) and not force:
         # Fail CLOSED (RB4): refuse to respawn-kill an existing session unless we
         # POSITIVELY know it is DEAD. Only a bare SHELL proves that — a dead session

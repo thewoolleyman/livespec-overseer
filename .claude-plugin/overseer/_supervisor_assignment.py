@@ -11,6 +11,7 @@ __all__: list[str] = ["assignment_track"]
 
 SUPERVISOR_SEAT_EPIC_ERROR = "supervisor seat requires epic"
 FOREMAN_SEAT_EPIC_ERROR = "foreman seat requires epic"
+GROOMING_SEAT_EPIC_ERROR = "grooming seat requires epic"
 PLAN_TRACK_DIRECTORY_ERROR = "plan track requires directory"
 
 
@@ -43,6 +44,16 @@ def assignment_track(
         if resolved_epic is None:
             raise ValueError(FOREMAN_SEAT_EPIC_ERROR)
         return registry.ForemanSeat(
+            topic=topic,
+            repo=repo,
+            tmux=session,
+            epic=resolved_epic,
+            ctx_threshold=ctx_threshold,
+        )
+    if signals.is_grooming_topic(topic=topic):
+        if resolved_epic is None:
+            raise ValueError(GROOMING_SEAT_EPIC_ERROR)
+        return registry.GroomingSeat(
             topic=topic,
             repo=repo,
             tmux=session,

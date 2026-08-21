@@ -215,9 +215,11 @@ def test_uncertified_ready_declaration_suppresses_shell_only_wrapup(*, tmp_path)
     sup.claude_status_by_session = {session: "shell"}
     marker = arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
 
-    view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
-    assert view.status == "warned"
+    assert view.status == "ready-uncertifiable"
+    assert view.note == "0m: ready cannot certify: no supervision round open"
     assert wrapup_count(fake=fake) == 0
     assert marker.exists()
     assert not fake.has(method="respawn")

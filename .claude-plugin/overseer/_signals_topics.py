@@ -6,8 +6,10 @@ from pathlib import Path
 
 __all__: list[str] = [
     "foreman_seat_accepts_explicit_epic",
+    "grooming_seat_accepts_explicit_epic",
     "is_foreman_topic",
     "is_grooming_topic",
+    "reserved_seat_accepts_explicit_epic",
     "reserved_worker_suffix",
     "supervisor_entity_topic",
     "supervisor_topic",
@@ -55,6 +57,22 @@ def foreman_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | Non
     return (
         epic is not None and is_foreman_topic(topic=topic) and topic == f"{Path(repo).name}-foreman"
     )
+
+
+def grooming_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | None) -> bool:
+    """True for the repo's reserved grooming seat when the operator supplied an epic."""
+    return (
+        epic is not None
+        and is_grooming_topic(topic=topic)
+        and topic == f"{Path(repo).name}-grooming"
+    )
+
+
+def reserved_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | None) -> bool:
+    """True for a repo-owned reserved supervisor seat with an explicit epic."""
+    return foreman_seat_accepts_explicit_epic(
+        repo=repo, topic=topic, epic=epic
+    ) or grooming_seat_accepts_explicit_epic(repo=repo, topic=topic, epic=epic)
 
 
 def supervisor_entity_topic(*, topic: str) -> str:
