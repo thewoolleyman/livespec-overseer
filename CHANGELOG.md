@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.15.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.14.1...v1.15.0) (2026-08-21)
+
+
+### Features
+
+* add caam profile state red ([7589625](https://github.com/thewoolleyman/livespec-overseer/commit/75896259c29aa018343b750a1efb77e071f54ff0))
+
+
+### Bug Fixes
+
+* **config:** restore 32 total_absence_returns entries a release commit silently deleted ([e263d28](https://github.com/thewoolleyman/livespec-overseer/commit/e263d284ee2003dea16f07a936ede7f08d191539))
+* guard shared caam helper ownership ([9950a65](https://github.com/thewoolleyman/livespec-overseer/commit/9950a650468c5c3c674d381c9beb108f16df1db5))
+
 ## [1.14.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.14.0...v1.14.1) (2026-08-21)
 
 
