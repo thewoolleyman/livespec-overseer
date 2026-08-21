@@ -331,6 +331,46 @@ A sweep of the thread's nine other open carriers found exactly one further
 supersession-language hit worth opening, and it was a correction to a *finding*
 rather than to a bar. **The hazard is rare, which is precisely why nobody looks.**
 
+### 17. Two probes, each blind exactly where the other sees
+
+Deciding whether a stranded dispatch left any work behind has two standard
+probes, and **each is separately documented in this fleet as "the" reliable
+one.** Both claims are half right.
+
+Measured 2026-08-21 on `overseer-7bhp`. Its run parked at the in-loop human gate
+after implementing, passing janitor and passing review. From the operator seat:
+
+```
+gh pr list --head feat/overseer-7bhp --state all   ->  []
+git ls-remote origin ...                           ->  refs/heads/feat/overseer-7bhp
+```
+
+The run had **pushed but never opened a PR**, because it hit the gate first. The
+all-states PR query — named in `overseer-thk0`'s deliverable as "the one
+host-independent leg" — returns the same empty array for *"finished work is
+sitting on a branch"* as for *"nothing ever happened"*. The ref listing found
+roughly fifty lines of green, reviewed work.
+
+The converse is already on record and is equally true: an empty `ls-remote`
+discriminates nothing, because a merged PR's branch is routinely auto-deleted,
+so the ref probe reads empty **precisely when the work landed**.
+
+| shape | PR query, all states | remote ref listing |
+|---|---|---|
+| merged, branch auto-deleted | **finds it** | empty — misleads |
+| pushed, no PR opened | empty — misleads | **finds it** |
+| nothing ever happened | empty | empty |
+
+**Only both empty licenses the conclusion that no work exists.** Naming either
+probe alone sends the next reader down the blind side half the time, and in the
+pushed-but-no-PR direction the cost is the documented one — concluding nothing
+happened, releasing the claim, re-dispatching into a collision with the run's own
+published branch.
+
+This is rule 4 applied to a pair rather than a single check: for each probe, ask
+what state would have produced the *other* answer. Do it for both and the gap
+between them is obvious; do it for one and the gap is invisible.
+
 ## A note on where these came from
 
 Nothing here is a general software-engineering maxim. Each rule is the residue
