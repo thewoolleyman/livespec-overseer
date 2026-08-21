@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.4...v1.7.5) (2026-08-21)
+
+
+### Bug Fixes
+
+* remove duplicate coverage aggregate hook ([a21269a](https://github.com/thewoolleyman/livespec-overseer/commit/a21269aab3758cd319e93dd762d974071de9da16))
+
 ## [1.7.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.3...v1.7.4) (2026-08-21)
 
 
