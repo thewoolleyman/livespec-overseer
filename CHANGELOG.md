@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.13.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.13.0...v1.13.1) (2026-08-21)
+
+
+### Reverts
+
+* **1441:** drop overseer/caam_profiles.py to restore master green ([0b1bcfd](https://github.com/thewoolleyman/livespec-overseer/commit/0b1bcfd19ab8dcff69cb329739c62ff3feed6045))
+* **1441:** drop the caam_profiles mirror copy in lockstep ([77aba37](https://github.com/thewoolleyman/livespec-overseer/commit/77aba37c27545109d454777de21f0b05ee23a72d))
+* **1441:** drop the caam_profiles test alongside its module ([d3a5801](https://github.com/thewoolleyman/livespec-overseer/commit/d3a58011c3907e6b7bd4e77d03f3b48f44aeeadf))
+
 ## [1.13.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.12.1...v1.13.0) (2026-08-21)
 
 
