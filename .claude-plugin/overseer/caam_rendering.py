@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import datetime
 from math import inf
@@ -67,6 +66,8 @@ def fmt_duration(*, seconds: float) -> str:
 
 
 def until(*, timestamp: str | None, now: datetime) -> str:
+    from caam_decision import resets_at
+
     reset_at = resets_at(timestamp=timestamp)
     if reset_at == inf:
         return "-"
@@ -93,6 +94,8 @@ def render_table(
 
 
 def trigger_header(*, stamp: str) -> str:
+    from caam_decision import five_hour_threshold, min_headroom_gain, weekly_reserve
+
     return (
         f"{stamp}  triggers: 5h-remaining < {100 - five_hour_threshold():.0f}% or "
         f"weekly-remaining < {weekly_reserve():.0f}% "
@@ -171,6 +174,8 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
 
 
 def stale_past_reset(*, usage: RenderableUsageRecord, source: str, now: datetime) -> bool:
+    from caam_decision import resets_at
+
     if source == "live":
         return False
     now_timestamp = now.timestamp()
@@ -181,26 +186,3 @@ def stale_past_reset(*, usage: RenderableUsageRecord, source: str, now: datetime
             resets_at(timestamp=usage.seven_day_resets_at),
         )
     )
-
-
-def resets_at(*, timestamp: str | None) -> float:
-    if not timestamp:
-        return inf
-    normalized = timestamp.removesuffix("Z") + "+00:00" if timestamp.endswith("Z") else timestamp
-    try:
-        parsed = datetime.fromisoformat(normalized)
-    except ValueError:
-        return inf
-    return parsed.timestamp()
-
-
-def five_hour_threshold() -> float:
-    return float(os.environ.get("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85"))
-
-
-def weekly_reserve() -> float:
-    return float(os.environ.get("CAAM_ROTATE_WEEKLY_RESERVE", "10"))
-
-
-def min_headroom_gain() -> float:
-    return float(os.environ.get("CAAM_ROTATE_MIN_HEADROOM_GAIN", "10"))
