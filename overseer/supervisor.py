@@ -41,16 +41,15 @@ re-export here can be `monkeypatch.setattr`-ed successfully while the real reade
 maintainer's live `~/.livespec-overseer.jsonl` during the registry split. Patch the
 module that DEFINES the constant.
 """
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.3
 
 from __future__ import annotations
 
 import argparse
-import io
-import json
 import os
 
 import _supervisor_assignment
+import _supervisor_cli_actions
+import _supervisor_cli_parser
 import _supervisor_cli_update
 import _supervisor_snapshot
 import registry
@@ -156,32 +155,11 @@ def run_daemon(*, warn_percent: int | None = None) -> int:
 
 
 def _cmd_list(*, args: argparse.Namespace) -> int:
-    sup = build_supervisor()
-    if args.json:
-        original_out = sup.out
-        sup.out = io.StringIO()
-        try:
-            rows = sup.tick(act=False)  # read-only classify: no injection/restart
-        finally:
-            sup.out = original_out
-        body = json.dumps(
-            _supervisor_snapshot.document_payload(sup=sup, rows=rows),
-            indent=2,
-            sort_keys=True,
-        )
-        streams.write_stdout(text=f"{body}\n")
-    else:
-        _ = sup.tick(act=False)  # read-only render: no injection/restart
-    return 0
+    return _supervisor_cli_actions.list_once(args=args, build_supervisor=build_supervisor)
 
 
 def _cmd_adopt(*, args: argparse.Namespace) -> int:
-    del args  # `adopt` takes no options; the dispatch shape supplies one anyway
-    adopted = build_supervisor().adopt_sessions()
-    for track in adopted:
-        streams.write_stdout(text=f"adopted {track.tmux} → {track.repo}::{track.topic}\n")
-    streams.write_stdout(text=f"adopted {len(adopted)} existing session(s)\n")
-    return 0
+    return _supervisor_cli_actions.adopt(args=args, build_supervisor=build_supervisor)
 
 
 def _refuse_reserved_topic(*, repo: str, topic: str) -> bool:
@@ -362,51 +340,17 @@ def main(*, argv: list[str] | None = None) -> int:
     track-management CLI. No watch-set / store / stamp knobs either; those are
     fixed (see `build_supervisor`).
     """
-    parser = argparse.ArgumentParser(
-        prog="overseer", description="livespec overseer track-management CLI"
-    )
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    p_list = sub.add_parser("list", help="print the current joined table once (read-only)")
-    _ = p_list.add_argument(
-        "--json",
-        action="store_true",
-        help=(
-            "emit observation-only snapshot JSON instead of the table; acting remains "
-            "disabled because freshness is unproved"
+    parser = _supervisor_cli_parser.build_parser(
+        handlers=_supervisor_cli_parser.ParserHandlers(
+            list_handler=_cmd_list,
+            adopt_handler=_cmd_adopt,
+            add_handler=_cmd_add,
+            remove_handler=_cmd_remove,
+            start_handler=_cmd_start,
         ),
+        add_track_args=_add_track_args,
+        add_mapping_write_args=_supervisor_cli_update.add_mapping_write_args,
     )
-    p_list.set_defaults(func=_cmd_list)
-
-    p_adopt = sub.add_parser(
-        "adopt", help="adopt existing worker sessions matching active plan topics"
-    )
-    p_adopt.set_defaults(func=_cmd_adopt)
-
-    p_add = sub.add_parser("add", help="add a (repo, topic) mapping row")
-    _add_track_args(parser=p_add)
-    _supervisor_cli_update.add_mapping_write_args(parser=p_add)
-    p_add.set_defaults(func=_cmd_add)
-
-    p_remove = sub.add_parser("remove", help="remove a (repo, topic) mapping row")
-    _add_track_args(parser=p_remove)
-    p_remove.set_defaults(func=_cmd_remove)
-
-    # unassign is a synonym for remove: drop the mapping so the plan reverts to
-    # `unassigned` (never force-kills the session — surface-only).
-    p_unassign = sub.add_parser("unassign", help="detach a plan's mapping (revert to unassigned)")
-    _add_track_args(parser=p_unassign)
-    p_unassign.set_defaults(func=_cmd_remove)
-
-    p_start = sub.add_parser("start", help="surface-only: launch a session for a plan and map it")
-    _add_track_args(parser=p_start)
-    _ = p_start.add_argument(
-        "--force",
-        action="store_true",
-        help="respawn even if the session already runs a live Claude (kills it)",
-    )
-    p_start.set_defaults(func=_cmd_start)
-
     args = parser.parse_args(argv)
     handler: SubcommandHandler = args.func
     return int(handler(args=args))
