@@ -4,7 +4,6 @@ Extracted from `registry.py` at its own section banner when that module crossed 
 250-LLOC hard ceiling. JSONL = one JSON object per line; a malformed line fails
 SOFT. `registry.py` re-exports this surface, so consumers keep importing `registry`.
 """
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.5
 
 from __future__ import annotations
 
@@ -12,17 +11,15 @@ import json
 import os
 
 from _registry_core import (
-    SupervisorSeat,
     Track,
     file_lock,
     norm,
     resolve_store,
     warn,
 )
-from _registry_resume import normalize_resume_override
-from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
 from _registry_rows_io import read_rows, write_rows
-from _registry_track_row_parse import RowExtras, track_from_mapping_row
+from _registry_store_rows import track_to_row, validated_row
+from _registry_store_upsert_write import write_upsert_rows
 from _registry_upsert_fields import apply_upsert_update_fields
 from _seams import MappingRowPredicate
 
@@ -37,61 +34,10 @@ __all__: list[str] = [
     "repoint_tmux",
     "rewrite_mapping",
     "set_epic",
+    "track_to_row",
     "upsert_mapping",
+    "validated_row",
 ]
-
-
-def _track_to_row(*, track: Track) -> dict[str, object]:
-    # A legacy row's `handoff` key is READ without error (it is simply not mapped onto
-    # any Track field) and is dropped here, so the first rewrite that touches such a row
-    # retires the key. The store never emits it: a track's read-first source is the plan
-    # state held on its ledger `epic`, and a second, path-shaped copy of that answer is
-    # exactly the drift the locator replaced.
-    row: dict[str, object] = {
-        "kind": track.kind,
-        "topic": track.topic,
-        "repo": track.repo,
-        "tmux": track.tmux,
-        "resume": track.resume,
-        "epic": track.epic,
-        "pinned_session_id": track.pinned_session_id,
-        "observed_session_identity": track.observed_session_identity,
-        "added_at": track.added_at,
-    }
-    # OMIT ``ctx_threshold`` when there is no per-track override (None): a row
-    # WITHOUT the key means "inherit the daemon default"; include it only for an
-    # explicit int override.
-    if track.ctx_threshold is not None:
-        row["ctx_threshold"] = track.ctx_threshold
-    if track.model_profile is not None:
-        row["model_profile"] = track.model_profile
-    if isinstance(track, SupervisorSeat):
-        row["supervised_topic"] = track.supervised_topic
-    _ = normalize_resume_override(row=row)
-    return row
-
-
-def _validated_row(*, row: dict[str, object]) -> dict[str, object]:
-    topic = row.get("topic")
-    repo = row.get("repo")
-    track = track_from_mapping_row(
-        row=row,
-        extras=RowExtras(
-            resume=opt_str_from_row(row=row, key="resume"),
-            ctx_threshold=ctx_threshold_from_row(row=row),
-            pinned_session_id=opt_str_from_row(row=row, key="pinned_session_id"),
-            observed_session_identity=opt_str_from_row(row=row, key="observed_session_identity"),
-            added_at=opt_str_from_row(row=row, key="added_at"),
-            model_profile=model_profile_from_row(
-                row=row,
-                repo=repo if isinstance(repo, str) else "",
-                topic=topic if isinstance(topic, str) else "",
-            ),
-        ),
-    )
-    serialized = _track_to_row(track=track)
-    known = set(serialized)
-    return {**{key: value for key, value in row.items() if key not in known}, **serialized}
 
 
 def _update_matching_field(
@@ -125,7 +71,7 @@ def _update_matching_field(
             ):
                 candidate = {**row, field: value}
                 try:
-                    validated = _validated_row(row=candidate)
+                    validated = validated_row(row=candidate)
                 except ValueError as exc:
                     warn(
                         message=(
@@ -211,7 +157,7 @@ def append_mapping(
     freshly-added live row (B6). Fail-soft on an OSError (B7).
     """
     path = resolve_store(store_path=store_path)
-    row = _track_to_row(track=track)
+    row = track_to_row(track=track)
     if added_at is not None:
         row["added_at"] = added_at
     with file_lock(target=path):
@@ -221,18 +167,6 @@ def append_mapping(
                 _ = handle.write(json.dumps(row) + "\n")
         except OSError as exc:
             warn(message=f"could not append to {path}: {exc}")
-
-
-def _write_upsert_rows(
-    *,
-    rows: list[dict[str, object]],
-    store_path: str | os.PathLike[str] | None,
-    path: os.PathLike[str],
-) -> None:
-    try:
-        write_rows(rows=rows, store_path=store_path, raise_errors=True)
-    except OSError as exc:
-        warn(message=f"could not upsert mapping store {path}: {exc}")
 
 
 def upsert_mapping(
@@ -245,7 +179,7 @@ def upsert_mapping(
     """Ensure one ``(repo, topic)`` row exists while preserving durable row fields."""
     path = resolve_store(store_path=store_path)
     repo_norm = norm(repo=track.repo)
-    new_row = _track_to_row(track=track)
+    new_row = track_to_row(track=track)
     if added_at is not None:
         new_row["added_at"] = added_at
     with file_lock(target=path):
@@ -261,7 +195,7 @@ def upsert_mapping(
         ]
         if not matching_indexes:
             rows.append(new_row)
-            _write_upsert_rows(rows=rows, store_path=store_path, path=path)
+            write_upsert_rows(rows=rows, store_path=store_path, path=path)
             return
         changed = len(matching_indexes) > 1
         row = rows[matching_indexes[0]]
@@ -275,7 +209,7 @@ def upsert_mapping(
             duplicate_indexes = set(matching_indexes[1:])
             rows = [row for index, row in enumerate(rows) if index not in duplicate_indexes]
         if changed:
-            _write_upsert_rows(rows=rows, store_path=store_path, path=path)
+            write_upsert_rows(rows=rows, store_path=store_path, path=path)
 
 
 def rewrite_mapping(

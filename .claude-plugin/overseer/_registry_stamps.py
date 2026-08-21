@@ -5,22 +5,20 @@ Extracted from `registry.py` at its own section banner when that module crossed 
 the `.overseer-state` file's mtime against (a `ready` must be THIS round's).
 `registry.py` re-exports this surface, so consumers keep importing `registry`.
 """
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.5
 
 from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 
 import jsonio
 from _registry_core import (
     atomic_write,
     file_lock,
-    norm,
     resolve_stamp_store,
-    warn,
 )
+from _registry_stamp_core import read_stamp_data, stamp_key
+from _registry_stamp_resume import read_resume_pending, set_resume_pending
 
 __all__: list[str] = [
     "add_notified_band",
@@ -37,27 +35,6 @@ __all__: list[str] = [
 ]
 
 
-def _stamp_key(*, repo: str, topic: str) -> str:
-    return f"{norm(repo=repo)}\t{topic}"
-
-
-def _read_stamp_data(*, path: Path) -> dict[str, object]:
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    # ValueError subsumes BOTH json.JSONDecodeError and the UnicodeDecodeError a
-    # non-UTF-8 sidecar raises.
-    except (OSError, ValueError) as exc:
-        warn(message=f"unreadable injection-stamp sidecar {path}: {exc}")
-        return {}
-    stamp = jsonio.as_object(value=data)
-    if stamp is None:
-        warn(message=f"injection-stamp sidecar {path} is not a JSON object")
-        return {}
-    return stamp
-
-
 def read_injection_stamp(
     *,
     repo: str,
@@ -72,8 +49,8 @@ def read_injection_stamp(
     float value (the pre-escalation shape) is still accepted and returned as-is.
     None if the key is absent, the dict lacks an ``at``, or the value is unusable.
     """
-    data = _read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
-    value = data.get(_stamp_key(repo=repo, topic=topic))
+    data = read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    value = data.get(stamp_key(repo=repo, topic=topic))
     if value is None:
         return None
     entry = jsonio.as_object(value=value)
@@ -83,13 +60,19 @@ def read_injection_stamp(
             return None
         stamped = jsonio.as_float(value=at)
         if stamped is None:
-            warn(message=f"non-numeric injection stamp for {repo}::{topic}")
+            _warn_non_numeric_stamp(repo=repo, topic=topic)
         return stamped
     # Legacy bare-float value, from before the sidecar grew its dict shape.
     stamped = jsonio.as_float(value=value)
     if stamped is None:
-        warn(message=f"non-numeric injection stamp for {repo}::{topic}")
+        _warn_non_numeric_stamp(repo=repo, topic=topic)
     return stamped
+
+
+def _warn_non_numeric_stamp(*, repo: str, topic: str) -> None:
+    from _registry_core import warn
+
+    warn(message=f"non-numeric injection stamp for {repo}::{topic}")
 
 
 def write_injection_stamp(
@@ -111,14 +94,14 @@ def write_injection_stamp(
     """
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
-        data = _read_stamp_data(path=path)
+        data = read_stamp_data(path=path)
         identity = session_identity or f"claude:{topic}:{topic}"
         entry: dict[str, object] = {
             "at": float(ts),
             "bands": [],
             "session_identity": identity,
         }
-        data[_stamp_key(repo=repo, topic=topic)] = entry
+        data[stamp_key(repo=repo, topic=topic)] = entry
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
@@ -134,8 +117,8 @@ def read_notified_bands(
     legacy bare-float value, an absent key, or an unusable value — so a track with
     no recorded bands is treated as "nothing notified yet".
     """
-    data = _read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
-    value = data.get(_stamp_key(repo=repo, topic=topic))
+    data = read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    value = data.get(stamp_key(repo=repo, topic=topic))
     entry = jsonio.as_object(value=value)
     if entry is None:
         return []
@@ -162,8 +145,8 @@ def add_notified_band(
     """
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
-        data = _read_stamp_data(path=path)
-        key = _stamp_key(repo=repo, topic=topic)
+        data = read_stamp_data(path=path)
+        key = stamp_key(repo=repo, topic=topic)
         value = data.get(key)
         existing = jsonio.as_object(value=value)
         if existing is not None:
@@ -200,73 +183,11 @@ def clear_injection_stamp(
     """
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
-        data = _read_stamp_data(path=path)
-        if _stamp_key(repo=repo, topic=topic) in data:
-            del data[_stamp_key(repo=repo, topic=topic)]
+        data = read_stamp_data(path=path)
+        key = stamp_key(repo=repo, topic=topic)
+        if key in data:
+            del data[key]
             atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
-
-
-def read_resume_pending(
-    *,
-    repo: str,
-    topic: str,
-    stamp_path: str | os.PathLike[str] | None = None,
-) -> bool:
-    """True if a restart RESPAWNED the fresh session but its resume line never SUBMITTED.
-
-    The daemon's restart respawns the pane and pastes the ``read <handoff> and follow
-    it`` resume line, but a freshly-respawned TUI can DROP the Enter while still drawing
-    its welcome screen — leaving the fresh session live but idle with the resume line
-    un-submitted (proven live 2026-07-17: fabro / autonomous-mode / overseer-rewrite all
-    stranded this way in one day). ``set_resume_pending`` records that state as a
-    round-scoped member of the injection-stamp dict so the NEXT tick retries the SUBMIT
-    ONLY (re-send Enter, never a re-respawn — a fresh ``ready`` is the sole respawn
-    trigger). Reads the ``resume_pending`` member; anything else ⇒ False.
-
-    Round-scoped by construction: :func:`clear_injection_stamp` (restart closed) deletes
-    the whole key and :func:`write_injection_stamp` (a fresh round) overwrites the dict, so
-    the flag can never outlive the round it belongs to. Fail-soft: an unusable value ⇒ False.
-    """
-    data = _read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
-    value = data.get(_stamp_key(repo=repo, topic=topic))
-    entry = jsonio.as_object(value=value)
-    if entry is None:
-        return False
-    return entry.get("resume_pending") is True
-
-
-def set_resume_pending(
-    *,
-    repo: str,
-    topic: str,
-    stamp_path: str | os.PathLike[str] | None = None,
-) -> None:
-    """Record that a restart respawned the fresh session but its resume did not submit.
-
-    Sets the ``resume_pending`` member on the track's injection-stamp dict, PRESERVING
-    ``at`` (so the ``ready`` marker still certifies — ``mtime > at``) and any notified
-    ``bands``. Same lock + atomic replace as :func:`write_injection_stamp`. If the current
-    value is a legacy bare float, it is upgraded to the dict shape with that float as
-    ``at``; if the key is absent, a bare ``{"resume_pending": True}`` is written (the
-    retry still fires — it keys on this flag, not on ``at``). Fail-soft on OSError (B7).
-    """
-    path = resolve_stamp_store(stamp_path=stamp_path)
-    with file_lock(target=path):
-        data = _read_stamp_data(path=path)
-        key = _stamp_key(repo=repo, topic=topic)
-        value = data.get(key)
-        existing = jsonio.as_object(value=value)
-        if existing is not None:
-            entry: dict[str, object] = dict(existing)  # preserve at + bands
-        elif value is None:
-            entry = {}
-        else:
-            # Legacy bare-float value: upgrade it to the dict shape, keeping `at`.
-            legacy = jsonio.as_float(value=value)
-            entry = {} if legacy is None else {"at": legacy}
-        entry["resume_pending"] = True
-        data[key] = entry
-        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
 def read_launch_statusline_baseline(
@@ -276,8 +197,8 @@ def read_launch_statusline_baseline(
     stamp_path: str | os.PathLike[str] | None = None,
 ) -> str | None:
     """Return the launch-time rendered model baseline when ``overseer start`` recorded one."""
-    data = _read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
-    entry = jsonio.as_object(value=data.get(_stamp_key(repo=repo, topic=topic)))
+    data = read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    entry = jsonio.as_object(value=data.get(stamp_key(repo=repo, topic=topic)))
     if entry is None:
         return None
     baseline = entry.get("launch_statusline_model")
@@ -294,8 +215,8 @@ def record_launch_statusline_baseline(
     """Record the rendered model immediately after an overseer-started launch."""
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
-        data = _read_stamp_data(path=path)
-        key = _stamp_key(repo=repo, topic=topic)
+        data = read_stamp_data(path=path)
+        key = stamp_key(repo=repo, topic=topic)
         entry = jsonio.as_object(value=data.get(key))
         current = dict(entry) if entry is not None else {}
         current["launch_statusline_model"] = model
@@ -310,8 +231,8 @@ def read_post_respawn(
     stamp_path: str | os.PathLike[str] | None = None,
 ) -> tuple[int, str] | None:
     """Return the post-respawn baseline ``(ctx, resume)`` when recorded."""
-    data = _read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
-    entry = jsonio.as_object(value=data.get(_stamp_key(repo=repo, topic=topic)))
+    data = read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    entry = jsonio.as_object(value=data.get(stamp_key(repo=repo, topic=topic)))
     post_respawn = jsonio.as_object(value=entry.get("post_respawn")) if entry else None
     if post_respawn is None:
         return None
@@ -335,8 +256,8 @@ def record_post_respawn(
         return
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
-        data = _read_stamp_data(path=path)
-        key = _stamp_key(repo=repo, topic=topic)
+        data = read_stamp_data(path=path)
+        key = stamp_key(repo=repo, topic=topic)
         entry = jsonio.as_object(value=data.get(key))
         current = dict(entry) if entry is not None else {}
         current["post_respawn"] = {"ctx": ctx, "resume": resume}

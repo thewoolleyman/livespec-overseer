@@ -42,16 +42,15 @@ number, and ``signals.parse_ctx_remaining`` reads it exactly as it reads Claude'
 Stdlib-only, like every module in this folder. Every host coupling (``/proc`` reads)
 is injected so the beside-tests run with no codex process and no real ``~/.codex``.
 """
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.5
 
 from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
 import codex_session_index
+from _codex_session_models import CODEX_COMM, CodexSession, UnindexedCodexSession
 from _seams import CommToPidList, PidToOptionalInt, PidToOptionalStr, PidToStrList
 
 # `proc_comm` is a GENERIC /proc reader that happens to live in `claude_sessions`,
@@ -80,50 +79,11 @@ __all__: list[str] = [
     "rollout_id",
 ]
 
-# `#{pane_current_command}` / `/proc/<pid>/comm` for a real Codex TUI. The launcher is
-# `bun` (`~/.bun/bin/codex`), which EXECS the vendored binary; verified live, the `bun`
-# process is the codex process's PARENT and holds NO rollout fd, so requiring an open
-# rollout (below) excludes it structurally — this name matches only the real thing.
-CODEX_COMM = "codex"
-
 # `rollout-<iso-ts>-<uuid>.jsonl`. Anchored on the trailing uuid + extension so a
 # rollout is never confused with a sibling file in the same tree.
 _ROLLOUT_RE = re.compile(
     r"rollout-.*-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$"
 )
-
-
-@dataclass(frozen=True, kw_only=True)
-class CodexSession:
-    """One live, NAMED Codex TUI session, joined to its plan topic.
-
-    Mirrors :class:`claude_sessions.ClaudeSession` field-for-field where the two
-    runtimes agree, so adoption can consume either. ``name`` is the index
-    ``thread_name`` and carries the same meaning as Claude's registry ``name``: the
-    plan topic. There is no ``status`` twin — Codex self-reports nothing, so busy
-    detection falls back to the process-tree shell-walk
-    (``claude_sessions.has_active_subshell``), which exists for exactly this case.
-    """
-
-    pid: int
-    name: str
-    cwd: str
-    session_id: str
-
-
-@dataclass(frozen=True, kw_only=True)
-class UnindexedCodexSession:
-    """One live Codex process with a rollout id that has no index name.
-
-    This is not adoptable: without ``thread_name`` there is no plan topic to match.
-    It is still useful process evidence for the supervisor to show the operator when
-    it occurs inside a watched repo.
-    """
-
-    pid: int
-    cwd: str
-    session_id: str
-    tmux_session: str
 
 
 def default_codex_home() -> Path:
