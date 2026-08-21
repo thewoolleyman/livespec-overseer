@@ -116,6 +116,47 @@ covered_trees = ["overseer"]
 # clause forecloses exempting a hook tree wholesale ("There is NO 'thin repo'
 # exemption").
 supervisor_entry_files = [".claude/hooks/livespec_footgun_guard.py"]
+
+# livespec v179 member 2. Each entry declares that this function's `X | None`
+# models a legitimate ABSENCE rather than a FAILURE, which no AST can decide --
+# member 1 refuses the whole shape for exactly that reason, and this key is the
+# narrow DECLARED relief.
+#
+# ⛔ RELAXING-ONLY. An entry here REMOVES a function from the Result-return rule,
+# so the tightening-only argument that bounds `cross_repo_public_api` is NOT
+# available and must not be carried across. Bounds 1 and 3 HARD-FAIL: an entry
+# whose subject vanishes, or is refactored out of the `X | None` shape, fails the
+# check rather than being ignored.
+#
+# ▶️ WHY ONLY THREE, when the structural gate would permit 637 in this repo and
+# 41 convicted functions are shaped for it: the gate cannot decide absence versus
+# failure, and reading the definitions showed the answer is NOT uniform. These
+# three are the ones whose `None` is unambiguously an absence. Declaring the rest
+# as a batch would buy exemptions they do not qualify for, in the one direction
+# that must not err.
+#
+# ⛔ DELIBERATELY NOT DECLARED, recorded so nobody adds them assuming an oversight:
+#   - `parse_object` / `parse_object_line` return None for MALFORMED JSON *and*
+#     for well-formed non-objects. That is a FAILURE and an ABSENCE collapsed into
+#     one value, and this codebase already knows it: `as_object`'s docstring exists
+#     for "callers that must keep their own try/except around the parse ... because
+#     they report a malformed file and a well-formed non-object file with DIFFERENT
+#     diagnostics". Those two want CONVERSION, not a declaration.
+#   - The five `proc_*` readers conflate "process gone" (absence) with "unreadable"
+#     (failure) behind a call site that treats both as "not live". Defensible, but a
+#     judgment to be made knowingly rather than in a batch. Raised, not decided.
+#
+# ⚠️ `pyproject.toml` is NOT part of the byte-identical `.claude-plugin/overseer/`
+# mirror and no check holds the two halves equal, so each function is declared
+# TWICE -- once per tree -- and omitting the mirror half silently halves the relief.
+total_absence_returns = [
+    { file = "overseer/jsonio.py", function = "as_object", reason = "Narrows an ALREADY-PARSED JSON value to a string-keyed mapping. Total on its input, performs no I/O, and cannot fail: None means the value is not a dict, which is an ANSWER about the value's shape rather than a failure to obtain it. The parse -- the only step that can fail -- happens in the caller, which is the entire reason this narrowing form is separate from parse_object." },
+    { file = "overseer/jsonio.py", function = "as_list", reason = "The list sibling of as_object, absent for the same reason: it narrows an ALREADY-PARSED value and None means the value is not a list. Total, no I/O, nothing to fail. It exists because isinstance() narrows only to list[Unknown], so the per-element checks that follow stop meaning anything to a type checker -- a typing concern, not an error path." },
+    { file = "overseer/jsonio.py", function = "as_float", reason = "Coerces an ALREADY-PARSED JSON scalar to a float. None means the value is not numeric -- an object, an array, null, a non-numeric string, or a bool, which is rejected deliberately because it is an int subclass and would otherwise yield 1.0 from something that was never a number. Its own docstring states the contract this declaration asserts: every caller treats a non-numeric value as 'no value' rather than 'as an error worth raising'. Total, no I/O." },
+    { file = ".claude-plugin/overseer/jsonio.py", function = "as_object", reason = "Narrows an ALREADY-PARSED JSON value to a string-keyed mapping. Total on its input, performs no I/O, and cannot fail: None means the value is not a dict, which is an ANSWER about the value's shape rather than a failure to obtain it. The parse -- the only step that can fail -- happens in the caller, which is the entire reason this narrowing form is separate from parse_object." },
+    { file = ".claude-plugin/overseer/jsonio.py", function = "as_list", reason = "The list sibling of as_object, absent for the same reason: it narrows an ALREADY-PARSED value and None means the value is not a list. Total, no I/O, nothing to fail. It exists because isinstance() narrows only to list[Unknown], so the per-element checks that follow stop meaning anything to a type checker -- a typing concern, not an error path." },
+    { file = ".claude-plugin/overseer/jsonio.py", function = "as_float", reason = "Coerces an ALREADY-PARSED JSON scalar to a float. None means the value is not numeric -- an object, an array, null, a non-numeric string, or a bool, which is rejected deliberately because it is an int subclass and would otherwise yield 1.0 from something that was never a number. Its own docstring states the contract this declaration asserts: every caller treats a non-numeric value as 'no value' rather than 'as an error worth raising'. Total, no I/O." },
+]
 file_lloc_hard_gate = true
 # These four shared ONE terse "declared-empty: these roles remain unarmed" line,
 # and that word covered two materially different situations. They are now split
