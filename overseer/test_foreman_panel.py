@@ -9,6 +9,7 @@ import textwrap
 from pathlib import Path
 
 import foreman_panel
+import foreman_panel_reviewers
 
 __all__: list[str] = []
 
@@ -68,7 +69,7 @@ def test_default_paths_and_commands_cover_anthropic_and_codex_shapes(*, tmp_path
 
 
 def test_default_reviewer_missing_command_becomes_insufficient_information(*, monkeypatch):
-    monkeypatch.setattr(foreman_panel.shutil, "which", lambda name: None)
+    monkeypatch.setattr(foreman_panel_reviewers.shutil, "which", lambda name: None)
 
     response = foreman_panel.run_reviewer(
         prompt=prompt(vendor="openai", model="gpt-5.6-sol"),
@@ -110,8 +111,8 @@ def test_default_reviewer_existing_command_runs_and_parses_response(*, monkeypat
             stderr="",
         )
 
-    monkeypatch.setattr(foreman_panel.shutil, "which", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(foreman_panel.subprocess, "run", fake_run)
+    monkeypatch.setattr(foreman_panel_reviewers.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(foreman_panel_reviewers.subprocess, "run", fake_run)
 
     response = foreman_panel.run_reviewer(
         prompt=prompt(),
