@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import subprocess
 import sys
@@ -123,6 +124,47 @@ def test_anthropic_fenced_json_stdout_parses_to_real_verdict(*, monkeypatch, tmp
     }
 
 
+def test_successful_reviewer_response_records_pinned_prompt_identity(
+    *, monkeypatch, tmp_path: Path
+):
+    def fake_run(
+        *,
+        args: list[str],
+        check: bool,
+        capture_output: bool,
+        text: bool,
+        timeout: float,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "reviewer_id": "self-reported-reviewer",
+                    "model": {"vendor": "invented", "model": "invented-model"},
+                    "verdict": "unblock",
+                    "action": {"action_id": "work_item_file", "params": {}},
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(foreman_panel.subprocess, "run", fake_run)
+
+    response = foreman_panel.run_reviewer(
+        prompt=prompt(vendor="anthropic", model="claude-fable-5"),
+        prompt_file=tmp_path / "prompt.json",
+        reviewer_command=[sys.executable, "-c", "pass"],
+    )
+
+    assert response["reviewer_id"] == "fable"
+    assert response["model"] == {
+        "reviewer_id": "fable",
+        "vendor": "anthropic",
+        "model": "claude-fable-5",
+    }
+
+
 def test_malformed_reviewer_stdout_is_preserved_without_false_parse(*, tmp_path: Path):
     malformed = tmp_path / "malformed.py"
     write_script(path=malformed, body="print('Here is what I think: unblock option one.')\n")
@@ -231,6 +273,93 @@ def test_convening_writes_tooling_outage_verdict_when_reviewer_times_out(*, tmp_
     assert any(
         reviewer["reviewer_id"] == "fable" and reviewer["verdict"] == "insufficient-information"
         for reviewer in written["reviewers"]
+    )
+
+
+def test_convening_pins_reviewer_identity_over_self_reported_body(*, tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    reviewer = tmp_path / "self_reported.py"
+    verdict_path = tmp_path / "verdict.json"
+    write_script(
+        path=reviewer,
+        body="""
+        import argparse
+        import json
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--reviewer-id", required=True)
+        parser.add_argument("--vendor", required=True)
+        parser.add_argument("--model", required=True)
+        parser.add_argument("--prompt-file", required=True)
+        args = parser.parse_args()
+        identities = {
+            "fable": "claude-fable-5-panel-reviewer",
+            "opus": "panelist-2",
+            "gpt-sol": "codex",
+        }
+        print(
+            json.dumps(
+                {
+                    "reviewer_id": identities[args.reviewer_id],
+                    "model": None,
+                    "verdict": "unblock",
+                    "action": {
+                        "action_id": "blocked_session_answer",
+                        "params": {"answer": 1},
+                    },
+                }
+            )
+        )
+        """,
+    )
+
+    result = foreman_panel.convene_panel(
+        request=request(repo=repo),
+        state_dir=tmp_path / "state",
+        verdict_path=verdict_path,
+        reviewer_command=[sys.executable, str(reviewer)],
+    )
+    written = json.loads(verdict_path.read_text(encoding="utf-8"))
+
+    assert result["outcome"] == "unanimous"
+    assert result["decision_kind"] == "substantive_non_decision"
+    assert [reviewer["reviewer_id"] for reviewer in written["reviewers"]] == [
+        "fable",
+        "opus",
+        "gpt-sol",
+    ]
+    assert [reviewer["model"]["reviewer_id"] for reviewer in written["reviewers"]] == [
+        "fable",
+        "opus",
+        "gpt-sol",
+    ]
+
+
+def test_unpinned_identity_verdict_is_classified_as_tooling_outage():
+    assert "verdict_reason" in inspect.signature(foreman_panel.result_decision_kind).parameters
+    assert (
+        foreman_panel.result_decision_kind(
+            reviewers=[
+                {
+                    "reviewer_id": "new-reviewer",
+                    "verdict": "unblock",
+                    "action": {"action_id": "work_item_file", "params": {}},
+                },
+                {
+                    "reviewer_id": "opus",
+                    "verdict": "unblock",
+                    "action": {"action_id": "work_item_file", "params": {}},
+                },
+                {
+                    "reviewer_id": "gpt-sol",
+                    "verdict": "unblock",
+                    "action": {"action_id": "work_item_file", "params": {}},
+                },
+            ],
+            verdict_reason="unpinned_model_identity",
+        )
+        == "tooling_outage"
     )
 
 

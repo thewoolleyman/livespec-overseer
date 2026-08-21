@@ -16,6 +16,7 @@ TOOLING_FAILURE_REASONS: Final[frozenset[str]] = frozenset(
         "reviewer_timeout",
     }
 )
+TOOLING_VERDICT_REASONS: Final[frozenset[str]] = frozenset({"unpinned_model_identity"})
 
 
 def reviewer_failure_reason(*, reviewer: dict[str, object]) -> str:
@@ -25,7 +26,9 @@ def reviewer_failure_reason(*, reviewer: dict[str, object]) -> str:
     return reason if isinstance(reason, str) else ""
 
 
-def result_decision_kind(*, reviewers: list[dict[str, object]]) -> str:
+def result_decision_kind(*, reviewers: list[dict[str, object]], verdict_reason: str = "") -> str:
+    if verdict_reason in TOOLING_VERDICT_REASONS:
+        return "tooling_outage"
     if any(
         reviewer_failure_reason(reviewer=reviewer) in TOOLING_FAILURE_REASONS
         for reviewer in reviewers
