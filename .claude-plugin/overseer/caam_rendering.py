@@ -152,6 +152,12 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
             f"{row.name:<13} {current_cell(is_active=row.name == active_name)} "
             f"{'-':>7} {'-':>13} {'-':>9} {'-':>13} {'-':>10} {'-':>13}   {row.source}"
         )
+    if stale_past_reset(usage=row.usage, source=row.source, now=now):
+        return (
+            f"{row.name:<13} {current_cell(is_active=row.name == active_name)} "
+            f"{'?':>7} {'reset':>13} {'?':>9} {'reset':>13} {'?':>10} {'reset':>13}   "
+            f"{row.source}, stale"
+        )
     fable = f"{100 - row.usage.fable:.0f}%" if row.usage.fable is not None else "-"
     return (
         f"{row.name:<13} {current_cell(is_active=row.name == active_name)} "
@@ -161,6 +167,19 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
         f"{until(timestamp=row.usage.seven_day_resets_at, now=now):>13} "
         f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13}   "
         f"{row.source}"
+    )
+
+
+def stale_past_reset(*, usage: RenderableUsageRecord, source: str, now: datetime) -> bool:
+    if source == "live":
+        return False
+    now_timestamp = now.timestamp()
+    return any(
+        reset_at != inf and reset_at < now_timestamp
+        for reset_at in (
+            resets_at(timestamp=usage.five_hour_resets_at),
+            resets_at(timestamp=usage.seven_day_resets_at),
+        )
     )
 
 

@@ -334,6 +334,32 @@ def test_table_renders_remaining_quota_reset_durations_and_source_text():
     )
 
 
+def test_cached_row_past_reset_renders_unknown_and_stale_source():
+    now = datetime.fromisoformat("2026-08-21T12:00:00+00:00")
+    row = ProfileUsage(
+        name="cached",
+        source="cached 1.0h",
+        usage=usage(
+            five_hour=20.0,
+            seven_day=30.0,
+            five_hour_resets_at="2026-08-21T11:59:00+00:00",
+            seven_day_resets_at="2026-08-23T15:12:00+00:00",
+            fable=40.0,
+            fable_resets_at="2026-08-22T12:05:00+00:00",
+        ),
+    )
+
+    assert hasattr(caam_rendering, "render_table")
+    assert caam_rendering.render_table(rows=(row,), active_name="active", now=now) == (
+        "\n"
+        "PROFILE       CURRENT       5H      5H RESET      WEEK    WEEK RESET      "
+        "FABLE   FABLE RESET   SOURCE\n"
+        "cached                       ?         reset         ?         reset          ?"
+        "         reset   cached 1.0h, stale\n"
+        "\n"
+    )
+
+
 def test_trigger_header_matches_source_format_string(*, monkeypatch):
     monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85.5")
     monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10.6")
