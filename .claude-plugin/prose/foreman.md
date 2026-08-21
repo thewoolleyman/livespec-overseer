@@ -64,6 +64,13 @@ The convening invocation is request-file to verdict-file:
 `foreman-consensus` is the evaluator only. It accepts an already assembled
 `--reviewer-responses` file and does not run reviewers itself.
 
+Read `decision_kind` before disposing an escalation. `substantive_non_decision`
+means the panel evidence itself did not clear the floor, such as disagreement or
+insufficient information, so the decision stays with the maintainer.
+`tooling_outage` means one or more reviewer tools failed, timed out, returned
+malformed output, or were unavailable; treat that as an infrastructure failure,
+not as evidence for or against the blocked decision.
+
 Carry the evidence the first time you relay a judgment. If you tell a tracked
 session that a panel or evaluator reached an outcome, that same delivery must
 include the full record the session needs to inspect it: every reviewer verdict
