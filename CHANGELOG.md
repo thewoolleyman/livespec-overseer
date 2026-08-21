@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.1...v1.7.2) (2026-08-21)
+
+
+### Bug Fixes
+
+* reset stale identity turnover rounds ([97531ea](https://github.com/thewoolleyman/livespec-overseer/commit/97531ea888933797a7751ca6ec63465f66185b70))
+
 ## [1.7.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.0...v1.7.1) (2026-08-21)
 
 
