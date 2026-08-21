@@ -1,11 +1,11 @@
 # fix-restart-problem — root cause of the 2026-08-20 foreman restart failure
 
-> **STATUS AS OF 2026-08-21T07:00Z — READ THIS BEFORE THE ROOT-CAUSE SECTIONS
+> **STATUS AS OF 2026-08-21T14:00Z — READ THIS BEFORE THE ROOT-CAUSE SECTIONS
 > BELOW.** This document is dated, and every measurement in it was correct when
-> taken; two of the four causes it describes as live defects are now FIXED and
-> merged. Nothing below has been rewritten — the measurements are the evidence
+> taken; **five of the six causes it or this header describes are now FIXED and
+> merged.** Nothing below has been rewritten — the measurements are the evidence
 > and they stay as recorded — but a reader arriving today would otherwise take
-> RC1 and RC2 for open problems, which is exactly the stale-premise failure this
+> them for open problems, which is exactly the stale-premise failure this
 > repository keeps paying for.
 >
 > This plan's ledger anchor is `overseer-vr3ym4`, and it — not this file — holds
@@ -13,28 +13,66 @@
 > entries there for anything time-sensitive; this file is a root-cause record,
 > not a status board.**
 >
+> **This header has now been re-measured twice**, and both times the thing that
+> had rotted was the header rather than the measurements under it. That is the
+> pattern to expect: a status block ages at the speed of the work, and the
+> evidence it sits above does not age at all.
+>
 > | cause | where it stands | evidence |
 > |---|---|---|
-> | RC1 detector blindness | **FIXED, merged** as `b75ad94`. The acting daemon runs it; the thirteen "resume not submitted" rows and four settling rows went to zero. | `overseer-gdwkdf`, pending-approval |
-> | RC2 round survives session replacement | **FIXED, merged** as `fa851bd` (PR 1342). Round close generalised past `PlanTrack` to all three seat kinds; the identity refusal is preserved. | `overseer-5serwd`, acceptance |
+> | RC1 detector blindness | **FIXED, merged** as `b75ad94`. The acting daemon runs it; the thirteen "resume not submitted" rows and four settling rows went to zero. | `overseer-gdwkdf`, **pending-approval** — the only item still at a human valve |
+> | RC2 round survives session replacement | **FIXED, merged.** Round close generalised past `PlanTrack` to all three seat kinds; the identity refusal is preserved. | `overseer-5serwd`, **closed** 2026-08-21 |
 > | RC3 seat-epic clobber | Unchanged, and deliberately not taken here — owned by `track-record-type-safety`. | scope event on the epic |
-> | RC4 foreman behaviour | Contract change not yet landed; the item is assessed as needing a split before dispatch (two of its five criteria need a maintainer answer and a live tick). | `overseer-7pqr3p`, ready |
+> | RC4 foreman behaviour | **LANDED.** The self-initiated wind-down at a named context floor is in `prose/foreman.md`. | `overseer-7pqr3p`, **closed**; its maintainer question split out as `overseer-vr3ym4.2`, still unanswered and blocking nothing |
+> | RC5 ready outside a round never certifies | **FIXED, merged** as `79095d6` + `bb16cc8` (PR 1397). | `overseer-vr3ym4.1`, **closed**; all seven criteria verified, 40 tests re-run on master |
+> | RC6 the canary's own capture path was broken | **FIXED, merged** as `1250d44` (PR 1424). | `overseer-5lrp`, **closed** |
+>
+> **CITE `97531ea`, NOT `fa851bd`, FOR RC2 — and understand why the wrong one is
+> so easy to reach for.** This header previously named `fa851bd`, which is what
+> `gh pr view 1342 --json mergeCommit` reports. That is not a mistake in the
+> forge: this repo allows **rebase-merge only**, so a PR has no merge commit and
+> the API reports the **tip of the rebased series** instead. PR 1342's tip
+> happens to be `chore: mark _supervisor_threshold.py into the soft-band owner
+> scope`, an unrelated housekeeping commit that rode along. The substantive RC2
+> fix is `97531ea`, `fix: reset stale identity turnover rounds`. **Under
+> rebase-merge, read the series and name the commit that does the work**, or you
+> send every future reader to a chore.
 >
 > Item 3 of "What this plan should hold" (settling past a bound is an attention
 > condition) landed as `overseer-srogg6`; item 5 (the live-shape canary) landed
 > as `overseer-62qver`, whose fixture pair is proven discriminating. The host
 > drain landed as `overseer-znwv4r`.
 >
-> **A FIFTH CAUSE WAS FOUND AFTER THIS NOTE WAS WRITTEN, and it is the largest
-> one still open.** A session that winds down CORRECTLY and declares `ready`
-> **outside** a daemon-opened round can never certify, is never restarted, and
-> the daemon says nothing at all — the row renders as plain idle with no log
-> line and no attention condition. It is independent of RC2: a verified daemon
-> bounce onto the merged RC2 fix did not clear the tracks stranded by it. Three
-> sessions stranded this way in a single sixteen-session sweep, each having been
-> told "restart armed" by the declare command. Tracked as `overseer-vr3ym4.1`.
-> The mechanism, read from the code rather than guessed, is recorded on that
-> item together with a real-world stale-`ready` specimen taken from this host.
+> **RC5 WAS FOUND AFTER THIS NOTE WAS WRITTEN, and for most of the plan's life it
+> was the largest one open.** A session that winds down CORRECTLY and declares
+> `ready` **outside** a daemon-opened round could never certify, was never
+> restarted, and the daemon said nothing at all — the row rendered as plain idle
+> with no log line and no attention condition. It is independent of RC2: a
+> verified daemon bounce onto the merged RC2 fix did not clear the tracks
+> stranded by it. Three sessions stranded this way in a single sixteen-session
+> sweep, each having been told "restart armed" by the declare command. Tracked as
+> `overseer-vr3ym4.1` and now fixed: the declare command names what is missing
+> instead of claiming armed, an uncertifiable `ready` raises an escalating
+> attention condition rather than a silent green row, and reserved foreman and
+> grooming seats gained a supported respawn path.
+>
+> **RC6 WAS FOUND LATER STILL, AND IT IS THE ONE THIS NOTE WOULD OTHERWISE MAKE
+> LOOK LIKE A CLEAN WIN.** Item 5 above — the live-shape canary — worked exactly
+> as designed on its first real encounter with a new upstream build: it noticed
+> that Claude Code 2.1.238 had no registered fixture. But the remedy it named
+> could never succeed. Its capture waited on a context percentage that a freshly
+> launched pane does not render at all, its check script demanded that same
+> reading of every registered fixture, and its test hard-coded a single
+> percentage across all of them. Because `check-claude-idle-canary` sits in the
+> `just check` aggregate, **every local commit and push in this repository was
+> blocked for hours**, while master CI stayed green because CI has no `claude`
+> binary. Tracked as `overseer-5lrp` and now fixed end to end: the documented one
+> command captures a real fresh-pane fixture in about eight seconds and what it
+> produces is accepted by both the checker and the suite. **The lesson belongs
+> beside the canary, not in a separate note: a guard whose remedy has never been
+> exercised is a guard that will one day fire and leave no way out.** Every test
+> in that file read fixtures; nothing exercised the capture path, which is why it
+> survived a green suite and green CI.
 
 
 Opened 2026-08-20 by the `debug-restart-problem` session under a direct
