@@ -71,6 +71,11 @@ def _product_modules() -> tuple[pathlib.Path, ...]:
     )
 
 
+def _supervision_loop_modules() -> tuple[pathlib.Path, ...]:
+    """Product modules that belong to the deterministic supervision loop."""
+    return tuple(path for path in _product_modules() if not path.name.startswith("caam_"))
+
+
 def _install_plan_tree_open_audit(*, monkeypatch, plan_root: pathlib.Path) -> list[str]:
     """Record every OPEN of a path under `plan_root`; return the growing record.
 
@@ -161,9 +166,11 @@ def test_the_supervision_loop_cannot_make_model_calls():
     NO semantic judgment and makes no model calls", so "tokens are never spent by the
     watching loop".
 
-    A model call needs a network client. The package imports NO network-capable stdlib
-    module at all, which is a stronger and far more durable statement than auditing call
-    sites: there is no client to call one with.
+    A model call needs a network client. The supervision-loop modules import NO
+    network-capable stdlib module at all, which is a stronger and far more durable
+    statement than auditing call sites: there is no client to call one with.
+    `caam_*` modules are operation code, not daemon supervision code; the account-usage
+    operation is specified to poll Anthropic's usage endpoint.
 
     SABOTAGE-VERIFIED 2026-07-26: adding `import urllib.request` to
     `overseer/supervisor.py` turns this red with `{'supervisor.py': ['urllib']}`;
@@ -176,7 +183,7 @@ def test_the_supervision_loop_cannot_make_model_calls():
     trusting the result.
     """
     reachable: dict[str, list[str]] = {}
-    for path in _product_modules():
+    for path in _supervision_loop_modules():
         hits = sorted(all_imports(path=path) & _NETWORK_MODULES)
         if hits:
             reachable[path.name] = hits
