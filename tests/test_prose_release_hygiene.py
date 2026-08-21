@@ -29,6 +29,7 @@ Neither leg can be deleted without one of those pairs collapsing.
 
 from __future__ import annotations
 
+import json
 import os
 import shlex
 import subprocess
@@ -41,6 +42,7 @@ _JUSTFILE = _REPO_ROOT / "justfile"
 _PROSE_FILE = ".claude-plugin/prose/supervise-plan.md"
 _SKILL_FILE = ".claude-plugin/skills/supervise-plan/SKILL.md"
 _PLUGIN_MANIFEST = ".claude-plugin/plugin.json"
+_CODEX_PLUGIN_MANIFEST = ".claude-plugin/.codex-plugin/plugin.json"
 _PLUGIN_VERSION = ".claude-plugin/overseer/version.json"
 _STRANDED_BINDING_COMMIT = "6833264"
 
@@ -112,8 +114,24 @@ def _make_release_manifest_repo(root: Path, name: str, *, subject: str) -> Path:
     """A release-please-shaped repo with one manifest-only release commit."""
     repo = root / name
     (repo / ".claude-plugin" / "overseer").mkdir(parents=True)
+    (repo / ".claude-plugin" / ".codex-plugin").mkdir(parents=True)
     (repo / _PLUGIN_MANIFEST).write_text('{"name": "overseer", "version": "1.7.9"}\n')
+    (repo / _CODEX_PLUGIN_MANIFEST).write_text('{"name": "overseer", "version": "1.7.9"}\n')
     (repo / _PLUGIN_VERSION).write_text('{"version": "1.7.9"}\n')
+    release_please_config = {
+        "packages": {
+            ".": {
+                "extra-files": [
+                    {"type": "json", "path": _PLUGIN_MANIFEST, "jsonpath": "$.version"},
+                    {"type": "json", "path": _CODEX_PLUGIN_MANIFEST, "jsonpath": "$.version"},
+                    {"type": "json", "path": _PLUGIN_VERSION, "jsonpath": "$.version"},
+                ]
+            }
+        }
+    }
+    (repo / "release-please-config.json").write_text(
+        json.dumps(release_please_config, indent=2) + "\n"
+    )
     (repo / "README.md").write_text("base readme\n")
     _git(repo, "init", "-q", ".")
     _git(repo, "config", "user.email", "gate@example.invalid")
@@ -122,6 +140,7 @@ def _make_release_manifest_repo(root: Path, name: str, *, subject: str) -> Path:
     _git(repo, "commit", "-qm", "chore: base")
     _git(repo, "branch", "-f", "basepoint")
     (repo / _PLUGIN_MANIFEST).write_text('{"name": "overseer", "version": "1.8.0"}\n')
+    (repo / _CODEX_PLUGIN_MANIFEST).write_text('{"name": "overseer", "version": "1.8.0"}\n')
     (repo / _PLUGIN_VERSION).write_text('{"version": "1.8.0"}\n')
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", subject)
@@ -291,6 +310,7 @@ def test_plugin_manifest_changed_under_an_ordinary_chore_subject_is_rejected(tmp
     result = _run_gate(repo)
     assert result.returncode == 1
     assert "NO release-triggering commit" in result.stderr
+    assert _CODEX_PLUGIN_MANIFEST in result.stderr
     assert _PLUGIN_MANIFEST in result.stderr
     assert _PLUGIN_VERSION in result.stderr
     assert "chore: adjust plugin manifest" in result.stderr

@@ -652,23 +652,29 @@ check-prose-release-hygiene:
         echo ":: check-prose-release-hygiene — no shipped plugin surface changed in $base...$head"
         exit 0
     fi
-    release_manifest_only=1
-    while IFS= read -r changed_path; do
-        case "$changed_path" in
-            .claude-plugin/plugin.json|.claude-plugin/overseer/version.json) ;;
-            *) release_manifest_only=0 ;;
-        esac
-    done <<< "$changed"
     release_commit_count="$(git rev-list --count "$base..$head")"
     release_subject="$(git log --format='%s' -n 1 "$base..$head")"
     # Release-please's manifest bump is the act of shipping the plugin surface;
     # demanding a second release-triggering commit beside that release commit
-    # is self-contradictory and blocks every generated release PR.
+    # is self-contradictory and blocks every generated release PR. The manifest
+    # set is derived from release-please's own JSON $.version targets instead of
+    # hand-listing harness paths here, then each diff is checked to touch only
+    # that top-level version field.
     if [[ "$release_commit_count" == "1" \
-        && "$release_manifest_only" -eq 1 \
         && "$release_subject" =~ ^chore\(master\):\ release\ [0-9][0-9A-Za-z.+-]*$ ]]; then
-        echo ":: check-prose-release-hygiene — release-please manifest bump in $base...$head"
-        exit 0
+        release_manifest_only=1
+        version_targets="$(uv run python -c 'import json, subprocess, sys; head, root = sys.argv[1:]; config = json.loads(subprocess.check_output(["git", "show", f"{head}:release-please-config.json"])); targets = [entry["path"] for package in config.get("packages", {}).values() for entry in package.get("extra-files", []) if isinstance(entry, dict) and entry.get("type") == "json" and entry.get("jsonpath") == "$.version" and isinstance(entry.get("path"), str) and entry["path"].startswith(f"{root}/")]; print("\n".join(targets))' "$head" "$plugin_root")"
+        while IFS= read -r changed_path; do
+            if ! grep -Fxq "$changed_path" <<< "$version_targets"; then
+                release_manifest_only=0
+            elif ! uv run python -c 'import json, subprocess, sys; base, head, path = sys.argv[1:]; show = lambda ref: json.loads(subprocess.check_output(["git", "show", f"{ref}:{path}"])); before = show(base); after = show(head); strip = lambda value: {key: data for key, data in value.items() if key != "version"} if isinstance(value, dict) else value; sys.exit(0 if isinstance(before, dict) and isinstance(after, dict) and before.get("version") != after.get("version") and strip(before) == strip(after) else 1)' "$base" "$head" "$changed_path"; then
+                release_manifest_only=0
+            fi
+        done <<< "$changed"
+        if [[ "$release_manifest_only" -eq 1 ]]; then
+            echo ":: check-prose-release-hygiene — release-please manifest bump in $base...$head"
+            exit 0
+        fi
     fi
     # A releasing subject is `feat|fix|perf|revert`, with an optional
     # (scope), or ANY type carrying the `!` breaking marker.
