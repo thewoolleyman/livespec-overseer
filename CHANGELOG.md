@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.8.0...v1.9.0) (2026-08-21)
+
+
+### Features
+
+* pin caam decision core ([f637d23](https://github.com/thewoolleyman/livespec-overseer/commit/f637d235127d8a46efac86eeee63a47192278fc6))
+
 ## [1.8.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.9...v1.8.0) (2026-08-21)
 
 
