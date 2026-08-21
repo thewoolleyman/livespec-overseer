@@ -4,8 +4,8 @@
 action, handoff entries — lives on that epic and its child items. This note is
 write-once research and is never authoritative about what remains.
 
-**MEASURED AS OF vps-info `a4c037c`** (2026-08-20T14:03Z, re-pinned 2026-08-21). The
-source is a LIVE repo and it moved THREE times while this thread was being opened — see
+**MEASURED AS OF vps-info `cc9c83e`** (re-pinned 2026-08-21). The source is a LIVE
+repo and it moved FIVE times while this thread was being opened — see
 "The source is a moving target" below. **Re-measure against that repo's HEAD
 before treating this list as complete, and update this pin when you do.** A
 carrier list with no as-of commit is a claim with no timestamp.
@@ -202,8 +202,14 @@ The skill installs and owns its own recurring schedule. This is LLM-driven
 - **D5** A successful poll updates the cache `state["profiles"][name] = {"at":
   now, **usage}` and the row's source is `"live"`.
 - **D6** A failed poll falls back to the cached reading when its age is
-  `<= CAAM_ROTATE_CACHE_MAX_AGE_S` (default **24h**); the source becomes
-  `"cached %.1fh"`.
+  `<= CAAM_ROTATE_CACHE_MAX_AGE_S`; the source becomes `"cached %.1fh"`.
+- **D6a** **THE DEFAULT CHANGED FROM 24h TO 1h in vps-info `3c0ad85`.** The
+  reasoning is the carrier, not the number: this cache is **display-only** —
+  eligibility requires `source == "live"` (**G8**), so a cached reading can never
+  be a switch target and feeds nothing but the table. A day-old reading of a
+  five-hour window is worse than no reading. One hour is two ticks, enough to
+  cover the gap between a token lapsing and keep-warm refreshing it; beyond that
+  the row reads as dark, **which is the truth**.
 - **D7** With no usable cache the row is `usage=None`, source `"dark: <why>"`.
 - **D8** State file `~/.local/state/caam-usage-rotate/state.json`; directory mode
   **0700**, file mode **0600**, written atomically (temp + `os.replace`) with
@@ -769,9 +775,31 @@ from emptying.
   far worse — an implementer may add one. Rotating a refresh token behind Claude
   Code's back can revoke the whole token family.
 - **X4** Success is decided by comparing the recorded expiry **before** (the vault
-  snapshot) against **after** (the sandbox copy). A missing after-expiry, or one
-  not later than before, is **not** a success: it reports `no refresh (snapshot
-  likely orphaned)`.
+  snapshot) against **after** (the sandbox copy).
+- **X4a** **THE ORIGINAL DIAGNOSTIC WAS WRONG IN BOTH DIRECTIONS AND vps-info
+  `3c0ad85` FIXED IT.** It reported `no refresh (snapshot likely orphaned)` for
+  *every* failure, having discarded the agent's output, so two unrelated
+  conditions hid behind one string — and it also reported healthy profiles as
+  failed.
+- **X4b** **The false-failure case.** A profile whose token is still valid gives
+  the agent no reason to refresh, so the recorded expiry does not advance and the
+  before/after comparison reads it as failure. When the after-expiry is still
+  comfortably beyond the staleness margin, that is now a **success**: `already
+  valid, no refresh needed`. One profile reported dead this way was polling live
+  at the time.
+- **X4c** **The conflated-failure case.** A genuine failure now reports the
+  agent's own first line of output (captured from stdout and stderr, truncated),
+  or `no output`. Swallowing it made an orphaned snapshot and a transient error
+  indistinguishable.
+- **X4d** **The two failures need OPPOSITE remedies, which is why the string
+  mattered.** `OAuth session expired and could not be refreshed` means genuinely
+  orphaned — a browser re-login. A spend or usage cap (`You've hit your monthly
+  spend limit`) means the snapshot is **fine** and a re-login would be wasted
+  effort. One account was reported orphaned while its token demonstrably worked.
+- **X4e** **`refreshTokenExpiresAt` IS NOT EVIDENCE A SNAPSHOT WORKS.** One
+  account's read `+27.7 days` while its refresh failed outright — the token had
+  been *rotated*, not expired. **Only an attempt tells you.** Do not let the
+  rebuild substitute a cheap field read for the sandboxed attempt.
 - **X5** On success the refreshed credential is copied **back to the vault** at
   0600 and logged as `refreshed, +N.Nh`.
 - **X6** Any exception yields a failure reason rather than raising. A failure here
@@ -815,6 +843,38 @@ from emptying.
   byte-verified against each other, which this repo already enforces for its
   materialized plugin copy.
 
+## Z — The table MUST NOT assert what it cannot know (vps-info `ee88266`)
+
+Absorbed by slice 2 (rendering); no separate slice.
+
+- **Z1** `stale_past_reset(usage, source)` is true when a **cached** reading is
+  older than the reset it describes. A `live` row is never stale. Both the weekly
+  and five-hour reset timestamps are checked; a parseable timestamp in the past
+  makes the row stale.
+- **Z2** Such a row renders `?` for every quota figure, `reset` for every clock,
+  and its source is suffixed `, stale`.
+- **Z3** **Why withholding beats reporting.** Once a window has rolled over, the
+  remembered percentages describe a period that no longer exists — the account has
+  *replenished*. Rendering them anyway showed one account at 8% weekly, **under
+  the reserve and therefore unattractive**, when it had reset five hours earlier
+  and was in fact full. The table was steering the reader **away from the best
+  account available**. The balance is unknown-but-replenished, not exhausted, and
+  `?` is the honest rendering of that.
+- **Z4** The old rendering showed `0m` in the reset columns for such rows, because
+  the duration helper clamps a negative remaining time to zero (**R10**). That
+  read as "resets right now" when it actually meant the cached reset timestamp is
+  **in the past** — the clamp turned staleness into false imminence.
+- **Z5** **No behavioral change to rotation.** Candidates already had to be
+  live-verified (**G8**), so a stale row was never eligible. This is entirely
+  about the table not asserting things it cannot know — **because a human reads it
+  when deciding whether to intervene**, and that reader was being actively
+  misdirected.
+
+Z is worth holding onto as a class, not just a fix: **G8 made the stale row
+harmless to the machine, and that is exactly why it stayed harmful to the human
+for so long.** A safety rule that quarantines bad data from the decision path does
+not make the bad data disappear from the display, and nothing else was checking.
+
 ## The source is a moving target — the finding that outlives these two entries
 
 This inventory was first taken against vps-info `c7f8bed`. Between that reading
@@ -826,6 +886,8 @@ and this note landing, the source moved **twice** in about ninety minutes:
 | `4b1a391` | `--foreman-model` override; persist state after enforcement | **new carriers V and W**, and it falsified the working assumption behind **N** |
 | `74429a7` | forbid keeping or patching a local copy of the program | **new carrier Y**; an operating rule, reasoning carried not copied |
 | `0070050` | keep idle profiles warm so rotation cannot deadlock | **new carrier group X**, and it falsified **G9** — a recorded *deliberate accepted consequence* that was actually a deadlock |
+| `ee88266` | stop showing cached quota figures from before a reset | **new carrier group Z**; the table was misdirecting the human while the machine was correctly protected |
+| `3c0ad85` | report why keep-warm failed, and stop crying orphan | **revised X4 into X4a–X4e, and superseded D6** — the orphan diagnostic was wrong in *both* directions |
 
 The first was verified harmless by extracting the fenced program from both sides
 and diffing it — **893 lines, byte-identical**. That check is cheap and is the
@@ -836,6 +898,12 @@ The second was not harmless, and it is the one to learn from. It did not merely
 **add** behavior — it **corrected** behavior this inventory had already recorded
 as working. An inventory that is only ever *appended to* would still assert that
 the memo works, which was never true of the code it was measured against.
+
+**FIVE MOVES, AND RE-MEASUREMENT HAS NOW FALSIFIED FOUR CARRIERS RATHER THAN MERELY
+ADDING TO THEM** — **N**, **G9**, **D6** and **X4**. Two of those (**X4**, **D6**)
+were carriers this inventory added *the same day*, from a commit that was itself a
+fix. **A carrier taken from freshly-changed code is not more reliable for being
+fresh; it is less.** The newest code is the least exercised.
 
 **TWICE NOW, RE-MEASUREMENT HAS FALSIFIED A CARRIER RATHER THAN MERELY ADDING ONE.**
 First **N**, described as working when the code discarded its writes. Then **G9**,
