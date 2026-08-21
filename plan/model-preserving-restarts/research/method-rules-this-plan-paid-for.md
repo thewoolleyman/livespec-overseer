@@ -1,6 +1,7 @@
 # Method rules this plan paid for
 
-Consolidated 2026-08-21. Each rule below was learned by being bitten during
+Consolidated 2026-08-21; extended the same day with rules 15-18, which the
+consolidating session itself then paid for. Each rule below was learned by being bitten during
 `model-preserving-restarts`, and until now they lived scattered across roughly
 two dozen ledger handoff entries on epic `overseer-bc55wx` — a timeline long
 enough that reconstructing them costs reading the whole thing in order. They
@@ -203,3 +204,68 @@ watch-set, mapping store and stamp sidecar in one move, so the cardinal rule is
 protected STRUCTURALLY rather than by care. This plan learned that the hard way
 by adopting a throwaway repo into the REAL watch-set and putting exercise rows
 in front of every operator for half an hour.
+
+### 15. A 100% branch-coverage bar does not guard each CLAUSE of a compound predicate
+
+**Cost: four validation legs of a security-relevant decoder were deletable with
+the whole suite green.** Branch coverage records that a condition evaluated both
+ways. It does not record WHICH disjunct decided it. So a multi-clause `if` is
+marked fully covered the moment one case trips it, while every other clause sits
+unexercised.
+
+Measured on a seven-clause predicate by deleting each clause and running the full
+suite: four survived green, including the one holding this plan's non-negotiable
+no-secrets constraint. `check-coverage` reported 100% throughout.
+
+The bar being genuinely strong is what makes this dangerous — a repo that runs
+100% coverage has earned the habit of trusting it. Wherever a contract- or
+security-relevant check is one disjunct among several, assume it is unguarded
+until a test targets it, and prove that test discriminates by deleting the clause
+and watching it go red.
+
+Note also what the acceptance asked for versus what was confirmed: an independent
+review had already listed this constraint as confirmed GOOD, correctly, about the
+CODE. The acceptance asked for a TEST. Those are different claims and it is easy
+to accept the first as the second.
+
+### 16. A sabotage probe must remove exactly ONE behavior, or its redness proves nothing
+
+**Nearly recorded a false pass.** Probing whether the wrap-up profile re-check was
+guarded, the first attempt disabled the enclosing `if opened_now:` block and
+reddened **45 tests**. That looks like an emphatic pass. It proves nothing about
+the re-check, because the same block performs the injection-stamp write that opens
+the round — so the probe demonstrated that round-opening is load-bearing, which
+nobody doubted.
+
+The surgical probe, removing only the re-check call and keeping the stamp write,
+reddened exactly three tests, all named for the re-check. That is the result that
+carries the conclusion.
+
+**A large failure count is not a strong signal — attributability is.** If a probe
+takes a bystander down with it, the redness belongs to the bystander.
+
+### 17. Confirm your probe actually RAN before recording what it found
+
+A sweep run reported exit 0 with a last line of eight dots — not a full-suite
+summary. Recording "unguarded" on it would have been a confident claim resting on
+a probe that might never have executed. Re-running one case with full output
+captured showed the suite had genuinely reached 100%; the summary line is simply
+suppressed under those flags. The conclusion survived, one command from not
+deserving to.
+
+This is the "check that cannot fail" hazard wearing a third face, after the ledger
+field and the daemon tree in rules 3 and 4: **evidence whose provenance you did not
+verify is not evidence**, and an exit code alone does not establish that the thing
+you meant to run is what ran.
+
+### 18. Restore state EXPLICITLY, and check it — a killed script's cleanup never ran
+
+A backgrounded sweep was reaped mid-run. It left the worktree with a production
+clause still deleted and produced no results at all. The script had restore logic;
+the restore never executed, because nothing runs after a kill.
+
+Two consequences. Verify with `git status` after any probe rather than trusting the
+harness to have cleaned up. And prefer probes short enough to finish in the
+foreground — the sweep was rewritten to run a focused subset first and escalate only
+the survivors to the full suite, which fit comfortably and produced the result the
+long version never delivered.
