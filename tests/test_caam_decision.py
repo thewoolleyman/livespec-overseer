@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+from datetime import datetime
 from math import isinf
 
 import pytest
@@ -214,3 +216,29 @@ def test_ranking_uses_soonest_weekly_reset_and_unreadable_timestamps_sort_last()
         "later",
         "unreadable",
     ]
+
+
+def test_resets_at_returns_epoch_seconds_for_aware_timestamp():
+    timestamp = "2026-08-21T12:00:00Z"
+    parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+    assert resets_at(timestamp=timestamp) == parsed.timestamp()
+
+
+def test_resets_at_values_compare_against_wall_clock_time():
+    now = time.time()
+
+    assert resets_at(timestamp="2000-01-01T00:00:00Z") < now
+    assert resets_at(timestamp="2099-01-01T00:00:00Z") > now
+
+
+def test_resets_at_unknown_timestamps_are_infinity_and_sort_last():
+    assert isinf(resets_at(timestamp=None))
+    assert isinf(resets_at(timestamp=""))
+    assert isinf(resets_at(timestamp="not-a-time"))
+
+
+def test_resets_at_accepts_nonzero_utc_offsets():
+    assert resets_at(timestamp="2026-08-21T14:00:00+02:00") == resets_at(
+        timestamp="2026-08-21T12:00:00Z"
+    )

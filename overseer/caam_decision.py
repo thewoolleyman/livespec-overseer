@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import os
-import re
 from dataclasses import dataclass
+from datetime import datetime
 from math import inf
 
 __all__: list[str] = [
@@ -45,11 +45,6 @@ class EligibleProfiles:
     note: str | None
 
 
-_RESET_RE = re.compile(
-    r"^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})"
-    r"T(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})"
-    r"(?:\.\d+)?(?:Z|\+00:00)$"
-)
 _FULLY_SPENT = 100.0
 
 
@@ -136,18 +131,14 @@ def rank_profiles(*, profiles: tuple[ProfileUsage, ...]) -> tuple[ProfileUsage, 
 
 
 def resets_at(*, timestamp: str | None) -> float:
-    match = _RESET_RE.match(timestamp or "")
-    if match is None:
+    if not timestamp:
         return inf
-    sortable = (
-        match["year"]
-        + match["month"]
-        + match["day"]
-        + match["hour"]
-        + match["minute"]
-        + match["second"]
-    )
-    return float(sortable)
+    normalized = timestamp.removesuffix("Z") + "+00:00" if timestamp.endswith("Z") else timestamp
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return inf
+    return parsed.timestamp()
 
 
 def five_hour_threshold() -> float:
