@@ -18,14 +18,28 @@ import jsonio
 from foreman_act_types import BLOCKED_SESSION_ANSWER
 
 __all__: list[str] = [
+    "EMITTING_PLAN_PRIMITIVE_NEXT_ACTION_PHRASE",
     "RecordedNextAction",
+    "next_actions",
     "recorded_next_action_authorization",
 ]
 
-# The handoff form the plan primitives write: a NEXT ACTION label, optional
-# parenthetical, then the action text. Matching is per line so a handoff naming
-# several is detectable rather than silently collapsing to the first.
-_NEXT_ACTION = re.compile(r"^\s*NEXT ACTION\b[^:]*:\s*(?P<action>.+?)\s*$", re.IGNORECASE)
+EMITTING_PLAN_PRIMITIVE_NEXT_ACTION_PHRASE = "opening handoff with exactly one next action"
+PLAN_PRIMITIVE_NEXT_ACTION_HEADING_LABEL = " ".join(
+    EMITTING_PLAN_PRIMITIVE_NEXT_ACTION_PHRASE.split()[-2:]
+).upper()
+
+_LEGACY_NEXT_ACTION = re.compile(
+    rf"^\s*{re.escape(PLAN_PRIMITIVE_NEXT_ACTION_HEADING_LABEL)}\b[^:]*:\s*" r"(?P<action>.+?)\s*$",
+    re.IGNORECASE,
+)
+_MARKDOWN_HEADING = re.compile(r"(?m)^\s{0,3}#{1,6}\s+(?P<title>.+?)\s*$")
+_NEXT_ACTION_HEADING = re.compile(
+    rf"(?m)^\s{{0,3}}#{{1,6}}\s+"
+    rf"(?:.+\s+)?{re.escape(PLAN_PRIMITIVE_NEXT_ACTION_HEADING_LABEL)}\b"
+    r"(?:\s*\([^)]*\))?\s*$",
+    re.IGNORECASE,
+)
 
 
 class RecordedNextAction:
@@ -65,11 +79,19 @@ def normalized(*, text: str) -> str:
 
 
 def next_actions(*, handoff_text: str) -> list[str]:
-    return [
+    legacy_actions = [
         match.group("action")
         for line in handoff_text.splitlines()
-        if (match := _NEXT_ACTION.match(line)) is not None
+        if (match := _LEGACY_NEXT_ACTION.match(line)) is not None
     ]
+    heading_actions: list[str] = []
+    for match in _NEXT_ACTION_HEADING.finditer(handoff_text):
+        section = handoff_text[match.end() :]
+        next_heading = _MARKDOWN_HEADING.search(section)
+        body = section[: next_heading.start() if next_heading is not None else len(section)]
+        body_actions = [line.strip() for line in body.splitlines() if line.strip()]
+        heading_actions.extend(body_actions[:1])
+    return legacy_actions + heading_actions
 
 
 def recorded_next_action_authorization(
