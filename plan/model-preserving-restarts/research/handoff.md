@@ -5,6 +5,23 @@
 > Everything load-bearing is either stated here or cited by a path in §5.
 > Do not treat chat history as a source of truth.
 
+> **STATUS, added 2026-08-21: THIS IS A HISTORICAL COLD-OPEN HANDOFF. Its
+> §2 and §3 are SUPERSEDED — do not act on them.** Written 2026-08-16, it
+> names as "THE next action" the authoring of the spec proposed change. That
+> landed on 2026-08-18 as `SPECIFICATION/history/v018`, and the whole
+> implementation arc has since shipped: 14 of 15 children on the epic are
+> closed, the daemon runs the code, and the launch profile is recorded and
+> re-asserted on real fleet tracks. Following §3 would re-author a proposed
+> change for already-ratified content.
+>
+> **§1, §4 and §5 remain useful and are not superseded** — the goal, the
+> regression boundary, and the read-first chain are statements about the
+> DESIGN rather than about progress, and they still hold.
+>
+> Current state lives on the ledger epic `overseer-bc55wx`, never here, as
+> §2 itself already instructs. The plan's transferable lessons are
+> consolidated in `method-rules-this-plan-paid-for.md` beside this file.
+
 ## 1. The primary goal
 
 A restart must never change WHAT a track runs. Today neither restart
