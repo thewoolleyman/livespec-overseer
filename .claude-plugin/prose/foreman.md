@@ -303,6 +303,37 @@ deliberately, and it also returns the interval to its configured default.
 6. Exit each bounded tick cleanly. Leave durable state only under
    `tmp/overseer/foreman/`; never write repo plan files as the foreman loop.
 
+### Self-initiated wind-down floor
+
+At or below 25% remaining context, end the round in the same tick you observe
+the floor, without raising a picker, without asking the maintainer to say
+restart, and without waiting for the daemon's wrap-up. The daemon's wrap-up is a
+helper path, not the only way a foreman seat may preserve its handoff before
+declaring.
+
+The sequence is exact:
+
+1. Append the handoff entry to this foreman seat's epic through the supported
+   surface: a `work_item_comment` proposal passed to `foreman-act`. The entry
+   names the current state, the latest authoritative reads, any action already
+   taken this tick, and the single next action for the successor when one
+   exists. Do not write it into `plan/`, do not write `.beads/` files, and do
+   not use a private scratchpad as the handoff.
+2. Read the updated record back from the authoritative surface, such as
+   `bd comments <seat-epic-id> --json`, and verify the entry is present.
+3. Run `overseer-declare ready`. That declaration is the last action of the
+   tick.
+
+If the daemon's wrap-up arrives while you are still above 25%, acknowledge that
+you are winding down and follow the wrap-up. The floor rule does not weaken the
+daemon-opened path; it only prevents waiting for a missing injection once your
+own context has reached the named floor.
+
+A `ready` declaration is final for that session. No further ticks, no further
+reports, and no further actions follow it. If you remain in the conversation
+after declaring, continue to treat the declaration as final; do not infer any
+restart from the transcript.
+
 ## Loop Carrier
 
 Run this contract on a recurring hourly tick. Each loop tick is exactly one
