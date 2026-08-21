@@ -1,0 +1,40 @@
+{
+  "reviewers": [
+    {
+      "reviewer_id": "fable",
+      "verdict": "unblock",
+      "action": {
+        "action_id": "blocked_session_answer",
+        "params": {
+          "answer": "1",
+          "session_identity": "codex:019fc11c-68c4-78c3-824b-d9b97de55a78"
+        }
+      },
+      "rationale": "Answer option 1 resolves the blocked picker without widening scope."
+    },
+    {
+      "reviewer_id": "opus",
+      "verdict": "unblock",
+      "action": {
+        "action_id": "blocked_session_answer",
+        "params": {
+          "answer": "1",
+          "session_identity": "codex:019fc11c-68c4-78c3-824b-d9b97de55a78"
+        }
+      },
+      "rationale": "Option 1 is the bounded answer to the existing prompt."
+    },
+    {
+      "reviewer_id": "gpt-sol",
+      "verdict": "unblock",
+      "action": {
+        "action_id": "blocked_session_answer",
+        "params": {
+          "answer": "1",
+          "session_identity": "codex:019fc11c-68c4-78c3-824b-d9b97de55a78"
+        }
+      },
+      "rationale": "Select option 1; it matches the recorded next action."
+    }
+  ]
+}

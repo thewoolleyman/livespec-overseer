@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib
 import json
 import sys
@@ -11,6 +12,7 @@ from pathlib import Path
 import pytest
 
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "foreman-consensus"
 
 __all__: list[str] = []
 
@@ -64,6 +66,14 @@ def reviewers(*, action: object | None = None) -> dict[str, object]:
             },
         ]
     }
+
+
+def recorded_picker_reviewers() -> dict[str, object]:
+    payload = json.loads(
+        (FIXTURE_DIR / "recorded-picker-reviewer-responses.json").read_text(encoding="utf-8")
+    )
+    assert isinstance(payload, dict)
+    return payload
 
 
 def safe_action(*, action_id: str = "work_item_file") -> dict[str, object]:
@@ -619,6 +629,65 @@ def test_picker_answer_consensus_rejects_different_answers(*, tmp_path: Path):
 
     assert result["outcome"] == "escalate"
     assert result["reason"] == "typed_action_disagreement"
+
+
+def test_recorded_picker_answers_use_reviewer_schema_and_prompt_pins_it():
+    prompt = module("foreman_consensus_prompt")
+    payload = recorded_picker_reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    params = []
+    for reviewer in panel:
+        assert isinstance(reviewer, dict)
+        action = reviewer["action"]
+        assert isinstance(action, dict)
+        action_params = action["params"]
+        assert isinstance(action_params, dict)
+        params.append(action_params)
+
+    assert [param["answer"] for param in params] == ["1", "1", "1"]
+    assert all("answer_text" not in param for param in params)
+    contract = prompt.reviewer_action_contract()
+    assert "blocked_session_answer params use answer" in contract
+    assert "answer_text" not in contract
+
+
+def test_recorded_picker_answer_consensus_compares_actual_answers(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = recorded_picker_reviewers()
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="recorded same picker answer"),
+        responses=payload,
+        state_dir=tmp_path / "state-recorded-same-picker-answer",
+    )
+
+    assert result["outcome"] == "unanimous"
+    assert result["reason"] == "three_typed_actions_equal"
+    assert result["action"]["params"]["answer"] == "1"
+    assert result["action"]["params"].get("answer_text") is None
+
+    split = copy.deepcopy(payload)
+    panel = split["reviewers"]
+    assert isinstance(panel, list)
+    for reviewer, answer in zip(panel, ["1", "2", "4"], strict=True):
+        assert isinstance(reviewer, dict)
+        action = reviewer["action"]
+        assert isinstance(action, dict)
+        params = action["params"]
+        assert isinstance(params, dict)
+        params["answer"] = answer
+
+    disagreement = consensus.consensus(
+        request=request(repo=repo, question="recorded different picker answers"),
+        responses=split,
+        state_dir=tmp_path / "state-recorded-different-picker-answers",
+    )
+
+    assert disagreement["outcome"] == "escalate"
+    assert disagreement["reason"] == "typed_action_disagreement"
 
 
 def test_needs_human_escalates_and_non_anthropic_dissent_is_non_overridable(*, tmp_path: Path):
