@@ -1,21 +1,19 @@
 """Post-busy idle branch group for the supervisor evaluation cascade."""
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.3
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import _supervisor_ctx_stale
+import _supervisor_evaluate_ctx_stale
+import _supervisor_evaluate_restart
+import _supervisor_evaluate_threshold
 import _supervisor_idle
 import _supervisor_launch
-import _supervisor_liveness
 import _supervisor_observe
-import _supervisor_restart
 import _supervisor_round_recovery
 import _supervisor_threshold
 import registry
-from _supervisor_config import DANGER_CTX_REMAINING
 from _supervisor_records import Observation
 
 if TYPE_CHECKING:
@@ -45,67 +43,6 @@ class IdleRequest:
     ctx_stale_note: str | None
     note: str | None
     act: bool
-
-
-def _missing_plan_epic_decision(*, request: IdleRequest, note: str | None) -> IdleDecision:
-    message = _supervisor_restart.missing_restart_epic_message(track=request.track)
-    next_note = _supervisor_liveness.append_note(
-        note=note,
-        extra=message,
-    )
-    if request.act:
-        request.sup.alert(
-            repo=request.track.repo,
-            topic=request.track.topic,
-            session=request.session,
-            pane=request.target,
-            message=message,
-            condition="restart-plan-epic-missing",
-        )
-    return IdleDecision(
-        status="blocked:human",
-        note=next_note,
-        active_conditions={"blocked-human"},
-        settled_streaming_progress=False,
-    )
-
-
-def _track_ready_to_restart(*, request: IdleRequest) -> registry.Track | None:
-    """The track to restart with, or None if it still has no usable epic.
-
-    Tries the one-shot re-derive (overseer-vbmq) only after the track's CURRENT
-    epic proves unusable — never speculatively — so the common case (epic
-    already populated) costs nothing extra.
-    """
-    track = request.track
-    if _supervisor_restart.resume_prompt(track=track) is not None:
-        return track
-    if not isinstance(track, registry.PlanTrack):
-        return None
-    track = _supervisor_restart.rederive_epic_if_stale(
-        sup=request.sup, track=track, act=request.act
-    )
-    if _supervisor_restart.resume_prompt(track=track) is not None:
-        return track
-    return None
-
-
-def _apply_uncertifiable_ready(
-    *,
-    status: str,
-    note: str | None,
-    active_conditions: set[str],
-    uncertifiable_ready: tuple[str, set[str]] | None,
-) -> tuple[str, str | None]:
-    if uncertifiable_ready is None:
-        return status, note
-    ready_note, ready_conditions = uncertifiable_ready
-    active_conditions.update(ready_conditions)
-    # A surfaced certification failure is its own report-only state.  In
-    # particular, do not let a low context percentage relabel a deterministic
-    # identity mismatch as ordinary ``danger``: that reads as a missed ready
-    # declaration and hides the UUIDs needed to resolve it safely.
-    return "ready-uncertifiable", ready_note
 
 
 def _idle_room_or_recovered(*, request: IdleRequest) -> tuple[str, bool]:
@@ -147,60 +84,6 @@ def _idle_room_or_recovered(*, request: IdleRequest) -> tuple[str, bool]:
             is_codex=request.obs.is_codex,
         )
     ), False
-
-
-def _threshold_or_expiry_notice_decision(
-    *, request: IdleRequest, note: str | None, active_conditions: set[str]
-) -> IdleDecision:
-    expiry_notice_sent = False
-    if request.act:
-        expiry_notice_sent = _supervisor_threshold.maybe_send_expiry_notice(
-            request=_supervisor_threshold.ThresholdRequest(
-                sup=request.sup,
-                track=request.track,
-                session=request.session,
-                target=request.target,
-                threshold=request.threshold,
-                act=request.act,
-                obs=request.obs,
-            )
-        )
-    if expiry_notice_sent:
-        danger = request.obs.eff_ctx is not None and request.obs.eff_ctx <= DANGER_CTX_REMAINING
-        if danger:
-            active_conditions.add("default")
-        status = "danger" if danger else "warned"
-        return IdleDecision(
-            status=status,
-            note=note,
-            active_conditions=active_conditions,
-            settled_streaming_progress=False,
-        )
-    threshold_decision = _supervisor_threshold.threshold(
-        request=_supervisor_threshold.ThresholdRequest(
-            sup=request.sup,
-            track=request.track,
-            session=request.session,
-            target=request.target,
-            threshold=request.threshold,
-            act=request.act,
-            obs=request.obs,
-        )
-    )
-    status = threshold_decision.status
-    active_conditions.update(threshold_decision.active_conditions)
-    status, note = _apply_uncertifiable_ready(
-        status=status,
-        note=note,
-        active_conditions=active_conditions,
-        uncertifiable_ready=request.uncertifiable_ready,
-    )
-    return IdleDecision(
-        status=status,
-        note=note,
-        active_conditions=active_conditions,
-        settled_streaming_progress=False,
-    )
 
 
 def idle_decision(*, request: IdleRequest) -> IdleDecision:
@@ -248,40 +131,64 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         # destructive rather than merely wrong; the sabotage-verified guard test pins
         # it. A Codex track is now a full citizen (maintainer-declared 2026-07-17):
         # it is restarted on its own `ready` exactly like a Claude one.
-        track = _track_ready_to_restart(request=request)
-        if track is None:
-            return _missing_plan_epic_decision(request=request, note=note)
-        status = "restarting"
-        if request.act:
-            _supervisor_restart.do_restart(
+        restart = _supervisor_evaluate_restart.ready_restart_decision(
+            request=_supervisor_evaluate_restart.ReadyRestartRequest(
                 sup=request.sup,
-                track=track,
+                track=request.track,
+                session=request.session,
                 target=request.target,
                 is_codex=request.obs.is_codex,
+                note=note,
+                act=request.act,
             )
+        )
+        return IdleDecision(
+            status=restart.status,
+            note=restart.note,
+            active_conditions=restart.active_conditions,
+            settled_streaming_progress=False,
+        )
     elif (
         request.obs.ctx_stale_age is not None
         and request.obs.stale_ctx is not None
         and request.obs.stale_ctx <= request.threshold
     ):
-        status = "ctx-stale"
-        active_conditions.add("ctx-stale")
-        note = _supervisor_liveness.append_note(note=note, extra=request.ctx_stale_note)
-        _supervisor_ctx_stale.ctx_stale(
-            request=_supervisor_ctx_stale.CtxStaleRequest(
+        ctx_stale = _supervisor_evaluate_ctx_stale.ctx_stale_decision(
+            request=_supervisor_evaluate_ctx_stale.CtxStaleRequest(
                 sup=request.sup,
                 track=request.track,
                 session=request.session,
-                pane=request.target,
+                target=request.target,
                 ctx_stale_age=request.obs.ctx_stale_age,
                 stale_ctx=request.obs.stale_ctx,
                 threshold=request.threshold,
+                ctx_stale_note=request.ctx_stale_note,
+                note=note,
                 act=request.act,
             )
         )
+        status = ctx_stale.status
+        note = ctx_stale.note
+        active_conditions.update(ctx_stale.active_conditions)
     elif request.obs.eff_ctx is not None and request.obs.eff_ctx <= request.threshold:
-        return _threshold_or_expiry_notice_decision(
-            request=request, note=note, active_conditions=active_conditions
+        threshold = _supervisor_evaluate_threshold.idle_threshold_decision(
+            request=_supervisor_evaluate_threshold.IdleThresholdRequest(
+                sup=request.sup,
+                track=request.track,
+                obs=request.obs,
+                session=request.session,
+                target=request.target,
+                threshold=request.threshold,
+                uncertifiable_ready=request.uncertifiable_ready,
+                note=note,
+                act=request.act,
+            )
+        )
+        return IdleDecision(
+            status=threshold.status,
+            note=threshold.note,
+            active_conditions=threshold.active_conditions,
+            settled_streaming_progress=False,
         )
     elif request.uncertifiable_ready is not None:
         status = "ready-uncertifiable"
