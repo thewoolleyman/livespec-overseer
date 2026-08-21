@@ -147,6 +147,15 @@ def _make_release_manifest_repo(root: Path, name: str, *, subject: str) -> Path:
     return repo
 
 
+def _make_release_manifest_merge_repo(root: Path, name: str, *, subject: str) -> Path:
+    """A CI-shaped merge ref whose only non-merge commit is release-please."""
+    repo = _make_release_manifest_repo(root, name, subject=subject)
+    _git(repo, "branch", "-f", "release-head")
+    _git(repo, "checkout", "-q", "--detach", "basepoint")
+    _git(repo, "merge", "--no-ff", "-m", "Merge pr1379 into master", "release-head")
+    return repo
+
+
 def _make_repo_without_prose_at_base(root: Path, name: str) -> Path:
     """A repo whose base ref cannot resolve the configured plugin root."""
     repo = root / name
@@ -293,6 +302,18 @@ def test_release_please_manifest_only_release_commit_is_accepted(tmp_path):
     repo = _make_release_manifest_repo(
         tmp_path,
         "release-please",
+        subject="chore(master): release 1.8.0",
+    )
+    result = _run_gate(repo)
+    assert result.returncode == 0, result.stderr
+    assert "release-please manifest bump" in result.stdout
+    assert "NO release-triggering commit" not in result.stderr
+
+
+def test_release_please_manifest_only_release_commit_is_accepted_under_a_merge_ref(tmp_path):
+    repo = _make_release_manifest_merge_repo(
+        tmp_path,
+        "release-please-merge",
         subject="chore(master): release 1.8.0",
     )
     result = _run_gate(repo)

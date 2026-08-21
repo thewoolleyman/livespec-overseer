@@ -652,8 +652,8 @@ check-prose-release-hygiene:
         echo ":: check-prose-release-hygiene — no shipped plugin surface changed in $base...$head"
         exit 0
     fi
-    release_commit_count="$(git rev-list --count "$base..$head")"
-    release_subject="$(git log --format='%s' -n 1 "$base..$head")"
+    release_commit_count="$(git rev-list --count --no-merges "$base..$head")"
+    release_subject="$(git log --no-merges --format='%s' -n 1 "$base..$head")"
     # Release-please's manifest bump is the act of shipping the plugin surface;
     # demanding a second release-triggering commit beside that release commit
     # is self-contradictory and blocks every generated release PR. The manifest
