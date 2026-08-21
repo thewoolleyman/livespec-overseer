@@ -145,6 +145,14 @@ the `livespec-overseer` beads tenant (`bd` via the fleet credential
 wrapper). Durable agent guidance belongs in this file — never in any
 harness-private memory store.
 
+Red-mode pre-commit skips coverage because commit-msg replay verifies the Red.
+If you are repairing one specific gate that lives inside `just check`, an
+exported `LIVESPEC_CHECK_SKIP` is UNIONED with the built-in Red-mode coverage
+skips, so the Red commit can skip only the gate whose broken state it is
+proving. Do not carry that exported skip into the Green/full-suite
+verification; the final commit still owes the full aggregate with nothing
+skipped.
+
 **Create worktrees with `just worktree-create <branch> [base_ref]`, NOT with
 `git worktree add`.** The recipe provisions the worktree-discipline pack into
 `dev-tooling/` and hydrates; raw `git worktree add` does neither, and a
