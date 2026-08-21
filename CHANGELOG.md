@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.7...v1.7.8) (2026-08-21)
+
+
+### Bug Fixes
+
+* reject stale coverage reuse ([184fcd3](https://github.com/thewoolleyman/livespec-overseer/commit/184fcd3068f6e5296993f9cbda9115097deda594))
+
 ## [1.7.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.6...v1.7.7) (2026-08-21)
 
 
