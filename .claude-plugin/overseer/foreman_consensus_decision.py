@@ -2,7 +2,8 @@
 
 Agreement is decided by this evaluator, not by the reviewer prompt.  Most typed
 actions compare by their typed action payload; picker-answer actions project to
-the schema that carries the decision: the action id plus the selected answer.
+the reviewer schema that carries the decision: the action id plus the selected
+answer.
 """
 
 from __future__ import annotations
@@ -36,8 +37,16 @@ def _consensus_key(*, action: dict[str, object]) -> dict[str, object]:
     params = jsonio.as_object(value=action.get("params")) or {}
     return {
         "action_id": action.get("action_id"),
-        "params": {"answer_text": params.get("answer_text")},
+        "params": {"answer": _selected_answer(params=params)},
     }
+
+
+def _selected_answer(*, params: dict[str, object]) -> str | None:
+    answer = params.get("answer")
+    if isinstance(answer, str):
+        return answer
+    legacy = params.get("answer_text")
+    return legacy if isinstance(legacy, str) else None
 
 
 def reviewers_from(*, responses: dict[str, object]) -> list[dict[str, object]]:

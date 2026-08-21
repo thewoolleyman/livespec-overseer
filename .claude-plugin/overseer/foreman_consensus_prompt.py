@@ -85,6 +85,7 @@ def reviewer_action_contract(*, action_ids: frozenset[str] | None = None) -> str
         "The object must contain reviewer_id, verdict, action, and rationale. "
         "action must be an object. action_id must be one of: "
         f"{', '.join(sorted(allowed))}. params must be a JSON object. "
+        "For blocked_session_answer params use answer for the selected picker answer. "
         "Use byte-identical params when selecting the same action as another reviewer."
     )
 
