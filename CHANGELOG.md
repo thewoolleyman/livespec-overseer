@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.11.0...v1.12.0) (2026-08-21)
+
+
+### Features
+
+* pin caam rendering output ([88a145b](https://github.com/thewoolleyman/livespec-overseer/commit/88a145bc65ccbe2b38549ad7e027a36019876c42))
+
 ## [1.11.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.10.2...v1.11.0) (2026-08-21)
 
 
