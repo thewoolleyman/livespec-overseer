@@ -94,9 +94,9 @@ def render_table(
 
 def trigger_header(*, stamp: str) -> str:
     return (
-        f"{stamp}  triggers: 5h-remaining < {100 - five_hour_threshold():g}% or "
-        f"weekly-remaining < {weekly_reserve():g}% "
-        f"(candidate must gain >={min_headroom_gain():g} pts)"
+        f"{stamp}  triggers: 5h-remaining < {100 - five_hour_threshold():.0f}% or "
+        f"weekly-remaining < {weekly_reserve():.0f}% "
+        f"(candidate must gain >={min_headroom_gain():.0f} pts)"
     )
 
 
@@ -105,12 +105,12 @@ def decision_hold_allowance(
 ) -> str:
     return (
         f"hold: {label} is the binding allowance and still has {100 - spent:.0f}% left "
-        f"(weekly {weekly_remaining:.0f}%, reserve {reserve:g}%)"
+        f"(weekly {weekly_remaining:.0f}%, reserve {reserve:.0f}%)"
     )
 
 
 def decision_forced(*, threshold: float) -> str:
-    return f"forced: ignoring the {threshold:g}% trigger, rotating to the best target now"
+    return f"forced: ignoring the {threshold:.0f}% trigger, rotating to the best target now"
 
 
 def decision_trigger(*, label: str, spent: float, weekly_remaining: float, dimension: str) -> str:
