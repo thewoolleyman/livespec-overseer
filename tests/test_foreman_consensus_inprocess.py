@@ -529,6 +529,98 @@ def test_free_form_invalid_actions_and_typed_disagreement_escalate(*, tmp_path: 
     assert disagreement["reason"] == "typed_action_disagreement"
 
 
+def test_picker_answer_consensus_ignores_incidental_params(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = reviewers(
+        action={
+            "action_id": "blocked_session_answer",
+            "params": {
+                "mode": "answer_existing_prompt",
+                "answer_text": "1",
+                "question_fingerprint": "fp-1",
+                "session_identity": "codex:alpha",
+            },
+        }
+    )
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    opus = panel[1]
+    gpt_sol = panel[2]
+    assert isinstance(opus, dict)
+    assert isinstance(gpt_sol, dict)
+    opus["action"] = {
+        "action_id": "blocked_session_answer",
+        "params": {
+            "mode": "answer_existing_prompt",
+            "answer_text": "1",
+            "question_fingerprint": "fp-1",
+            "session_identity": "codex:alpha",
+            "item_id": "overseer-yeyrc2",
+            "repo": str(repo),
+        },
+    }
+    gpt_sol["action"] = {
+        "action_id": "blocked_session_answer",
+        "params": {
+            "mode": "answer_existing_prompt",
+            "answer_text": "1",
+            "question_fingerprint": "fp-1",
+            "session_identity": "codex:alpha",
+            "rationale": "The same picker answer is selected.",
+        },
+    }
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="same picker answer"),
+        responses=payload,
+        state_dir=tmp_path / "state-same-picker-answer",
+    )
+
+    assert result["outcome"] == "unanimous"
+    assert result["reason"] == "three_typed_actions_equal"
+    assert result["action"]["params"]["answer_text"] == "1"
+
+
+def test_picker_answer_consensus_rejects_different_answers(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = reviewers(
+        action={
+            "action_id": "blocked_session_answer",
+            "params": {
+                "mode": "answer_existing_prompt",
+                "answer_text": "1",
+                "question_fingerprint": "fp-1",
+            },
+        }
+    )
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    gpt_sol = panel[2]
+    assert isinstance(gpt_sol, dict)
+    gpt_sol["action"] = {
+        "action_id": "blocked_session_answer",
+        "params": {
+            "mode": "answer_existing_prompt",
+            "answer_text": "3",
+            "question_fingerprint": "fp-1",
+            "rationale": "A different picker answer is not agreement.",
+        },
+    }
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="different picker answers"),
+        responses=payload,
+        state_dir=tmp_path / "state-different-picker-answers",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "typed_action_disagreement"
+
+
 def test_needs_human_escalates_and_non_anthropic_dissent_is_non_overridable(*, tmp_path: Path):
     consensus = module("foreman_consensus")
     repo = tmp_path / "repo"
