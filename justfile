@@ -284,13 +284,6 @@ check:
             printf '\n::: just %s (skipped)\n' "$t"
             continue
         fi
-        if [[ "$t" == "check-per-file-coverage" ]]; then
-            printf '\n::: just check-coverage (prep for %s)\n' "$t"
-            if ! just check-coverage; then
-                failed+=("check-coverage")
-                continue
-            fi
-        fi
         ran=$((ran + 1))
         printf '\n::: just %s\n' "$t"
         if ! just "$t"; then
