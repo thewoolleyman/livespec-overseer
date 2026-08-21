@@ -107,9 +107,9 @@ def test_drive_picker_wraps_downward_to_target_above_highlight() -> None:
             "❯\n",
             """
 Select model
-❯ 1. Fable      Fast model
+  1. Opus       Larger model
   2. Haiku      Small model
-  3. Opus       Larger model
+❯ 3. Fable      Fast model
 """,
             "❯\n",
         )
@@ -123,7 +123,7 @@ Select model
         sleep=sleep,
     )
 
-    assert tmux.keys == ["/model", "Enter", "Down", "Down", "s"]
+    assert tmux.keys == ["/model", "Enter", "Down", "s"]
     assert sleep.calls == [0.4, 1.5, 0.3, 1.2]
 
 
