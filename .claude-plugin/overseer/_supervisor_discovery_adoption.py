@@ -125,7 +125,39 @@ def _mapped_tmux_by_track(*, sup: Supervisor) -> dict[tuple[str, str], str | Non
 
 
 def adopt_sessions(*, sup: Supervisor, watch: list[str]) -> list[registry.Track]:
-    """Adopt live Claude sessions whose registry name matches an active plan topic."""
+    """Adopt live Claude sessions whose registry name matches an active plan topic.
+
+    Run at `/overseer` startup AND every daemon tick (so a session that is
+    renamed, un-blocks a prompt, or is launched later is picked up within one
+    interval — not only at bootstrap). It reads Claude Code's own session
+    registry (:mod:`claude_sessions`, ``~/.claude/sessions/<pid>.json``) rather
+    than scraping the pane: each live session reports its display ``name`` and
+    ``cwd`` in a file keyed by the claude PID, which :mod:`claude_sessions`
+    joins to the owning tmux session by walking that PID up to a tmux pane PID.
+    This is screen-independent, so it works while a session is showing a prompt
+    (the exact case the old input-box-border scrape missed), and it reflects a
+    runtime ``/rename`` — the maintainer's sessions run
+    ``claude --dangerously-skip-permissions`` with NO ``-n`` in argv, so the
+    name lives only in that registry.
+
+    A session is adopted ONLY when (a) its registry ``cwd`` resolves inside a
+    FLEET repo (the watch-set) AND (b) its ``name`` is an ACTIVE plan topic in
+    that repo (a discovered ``plan/<topic>/`` DIRECTORY). Registry
+    membership already proves it is a live Claude process, so no worker-command
+    guard is needed. The mapping's ``tmux`` field is the ACTUAL session name
+    holding the work (any name — a generic `livespec`, an operator-renamed one) —
+    NOT necessarily the ``tmux_id`` the daemon would derive+spawn. A
+    ``(repo, topic)`` already mapped is left untouched (no double-add).
+    Returns the newly-adopted Tracks.
+
+    Codex sessions are NOT in Claude's registry, but they ARE adopted through the
+    SAME path: this method sums ``claude_sessions.map_named_sessions`` +
+    ``codex_sessions.map_codex_sessions`` (below), both emitting the same
+    ``(tmux, name, cwd)`` triple, so a live NAMED codex session is adopted exactly
+    like a Claude one. Distinct from :meth:`auto_link`, which links only the
+    derived ``tmux_id`` session (the bare topic, or ``<repo-slug>-<topic>`` on a
+    cross-repo collision) the daemon itself launches.
+    """
     active = _active_topics_by_repo(watch=watch)
     existing = _mapped_tmux_by_track(sup=sup)
     pane_pids = sup.tmux.pane_pid_sessions()

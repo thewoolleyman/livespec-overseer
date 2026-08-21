@@ -151,7 +151,14 @@ def supervisor_resume(*, repo: str, topic: str, epic: str | None = None) -> str:
 def supervisor_wrapup_message(
     *, remaining: int, repo: str, topic: str, epic: str | None = None
 ) -> str:
-    """Wrap-up text for a supervisor pair member."""
+    """Wrap-up text for a supervisor pair member.
+
+    The supervisor entity's state and round key use ``<topic>-supervisor``, while its
+    durable resume state is the attributed supervisor-entry stream on the worker plan's
+    ledger epic. This is a whole text VARIANT rather than parameter substitution on the
+    worker body: the supervisor entity names its attributed entries, but both entities now
+    use the sanctioned plan surface rather than authoring files under ``plan/``.
+    """
     entity_topic = signals.supervisor_entity_topic(topic=topic)
     return f"{_wrapup_head(remaining=remaining)}\n\n{_SUPERVISOR_WRAPUP_BODY}".format(
         n=remaining,
@@ -165,7 +172,13 @@ def supervisor_wrapup_message(
 def supervisor_idle_nudge_message(
     *, remaining: int, threshold: int, repo: str, topic: str, epic: str | None = None
 ) -> str:
-    """Keep-going nudge for a supervisor pair member."""
+    """Keep-going nudge for a supervisor pair member.
+
+    ``topic`` is the worker topic. The supervisor entity's state marker still lives
+    under ``<topic>-supervisor``, and the durable state the supervisor resumes from is
+    the shared supervisor protocol plus ledger-held supervisor handoff entries on the
+    worker plan's epic.
+    """
     entity_topic = signals.supervisor_entity_topic(topic=topic)
     return _IDLE_NUDGE.format(
         n=remaining,
