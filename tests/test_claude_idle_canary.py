@@ -31,7 +31,7 @@ def _load_canary() -> ModuleType:
 
 def test_version_keyed_idle_fixtures_cover_the_known_border_shapes() -> None:
     versions = sorted(path.stem for path in _FIXTURE_DIR.glob("*.txt"))
-    assert versions == ["2.1.235", "2.1.237"]
+    assert versions == ["2.1.235", "2.1.237", "2.1.238"]
 
 
 def test_every_registered_idle_fixture_matches_the_detector() -> None:
@@ -50,11 +50,11 @@ def test_canary_check_script_reports_unregistered_installed_build() -> None:
         return subprocess.CompletedProcess(
             args=["claude", "--version"],
             returncode=0,
-            stdout="Claude Code 2.1.238\n",
+            stdout="Claude Code 2.1.999\n",
             stderr="",
         )
 
-    assert canary.installed_claude_version(run=fake_run) == "2.1.238"
+    assert canary.installed_claude_version(run=fake_run) == "2.1.999"
     assert canary.main(argv=["check"], run=fake_run) == 1
 
 
