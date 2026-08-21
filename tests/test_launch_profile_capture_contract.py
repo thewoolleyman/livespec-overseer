@@ -6,12 +6,14 @@ import contextlib
 import importlib
 import io as _io
 import json
+from pathlib import Path
 
 import registry
 import signals
 from test_supervisor_builders import (
     TEST_EPIC,
     adopt_sup,
+    arm_ready_marker,
     idle_capture,
     make_plan,
     make_supervisor,
@@ -33,6 +35,12 @@ def _env(*, values: dict[str, str]) -> bytes:
 
 def _jsonl_rows(*, store):
     return [json.loads(line) for line in store.read_text().splitlines() if line.strip()]
+
+
+def _write_launch_statusline_baseline(*, sup, repo, topic, model: str) -> None:
+    key = f"{registry.norm(repo=str(repo))}\t{topic}"
+    with Path(sup.stamp_path).open("w", encoding="utf-8") as handle:
+        json.dump({key: {"launch_statusline_model": model}}, handle)
 
 
 def test_launch_profile_reader_is_public_to_supervisor_collaborators():
@@ -160,6 +168,129 @@ def test_adopt_sessions_persists_a_cloud_claude_launch_profile(*, tmp_path):
         "harness": "claude",
         "model": "claude-opus-4-1-20250805",
         "statusline_model": "Opus 4.8 (1M context)",
+        "wrapper": None,
+    }
+
+
+def test_overseer_started_adoption_uses_launch_statusline_baseline(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(sessions_dir=sessions_dir, pid=200, name=topic, cwd=repo)
+    fake = FakeTmux()
+    fake.serve(
+        session=topic,
+        repo=repo,
+        capture=idle_capture(ctx=40).replace("Opus 4.8", "Sonnet 4.5"),
+    )
+    fake.pane_pids = {100: topic}
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={200: 100},
+        starttimes={200: "pt"},
+        watch_repos=[str(repo)],
+        cmdline_of=lambda *, pid: _nul(argv=["claude", "--model", "opus[1m]", "-n", topic])
+        if pid == 200
+        else None,
+    )
+    _write_launch_statusline_baseline(
+        sup=sup,
+        repo=repo,
+        topic=topic,
+        model="Opus 4.8 (1M context)",
+    )
+
+    adopted = sup.adopt_sessions()
+
+    assert [track.topic for track in adopted] == [topic]
+    assert _jsonl_rows(store=tmp_path / "map.jsonl")[0]["model_profile"] == {
+        "harness": "claude",
+        "model": "opus[1m]",
+        "statusline_model": "Opus 4.8 (1M context)",
+        "wrapper": None,
+    }
+
+
+def test_overseer_started_pre_adoption_model_switch_vetoes_restart(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(sessions_dir=sessions_dir, pid=200, name=topic, cwd=repo)
+    fake = FakeTmux()
+    fake.serve(
+        session=topic,
+        repo=repo,
+        capture=idle_capture(ctx=30).replace("Opus 4.8", "Sonnet 4.5"),
+    )
+    fake.pane_pids = {100: topic}
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={200: 100},
+        starttimes={200: "pt"},
+        watch_repos=[str(repo)],
+        cmdline_of=lambda *, pid: _nul(argv=["claude", "--model", "opus[1m]", "-n", topic])
+        if pid == 200
+        else None,
+    )
+    _write_launch_statusline_baseline(
+        sup=sup,
+        repo=repo,
+        topic=topic,
+        model="Opus 4.8 (1M context)",
+    )
+    adopted = sup.adopt_sessions()
+    registry.write_injection_stamp(
+        repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
+    )
+    arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        view = sup.evaluate(track=adopted[0], act=True)
+
+    assert view.status == "restarting"
+    assert not fake.has(method="respawn")
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+    assert "statusline model mismatch" in err.getvalue()
+    assert "Opus 4.8 (1M context)" in err.getvalue()
+    assert "Sonnet 4.5" in err.getvalue()
+
+
+def test_hand_launched_adoption_without_launch_baseline_keeps_current_capture(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(sessions_dir=sessions_dir, pid=200, name=topic, cwd=repo)
+    fake = FakeTmux()
+    fake.serve(
+        session=topic,
+        repo=repo,
+        capture=idle_capture(ctx=40).replace("Opus 4.8", "Sonnet 4.5"),
+    )
+    fake.pane_pids = {100: topic}
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={200: 100},
+        starttimes={200: "pt"},
+        watch_repos=[str(repo)],
+        cmdline_of=lambda *, pid: _nul(argv=["claude", "--model", "opus[1m]", "-n", topic])
+        if pid == 200
+        else None,
+    )
+
+    adopted = sup.adopt_sessions()
+
+    assert [track.topic for track in adopted] == [topic]
+    assert _jsonl_rows(store=tmp_path / "map.jsonl")[0]["model_profile"] == {
+        "harness": "claude",
+        "model": "opus[1m]",
+        "statusline_model": "Sonnet 4.5 (1M context)",
         "wrapper": None,
     }
 

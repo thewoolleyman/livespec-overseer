@@ -69,6 +69,8 @@ def _profile_for_adoption(
     sup: Supervisor,
     source: LaunchProfileSource | None,
     session: str,
+    repo: str | None = None,
+    topic: str | None = None,
 ) -> dict[str, str | None] | None:
     if source is None:
         return None
@@ -83,7 +85,18 @@ def _profile_for_adoption(
     if isinstance(profile, LaunchProfileProblem):
         sup.log(message=profile.message)
         return None
-    profile["statusline_model"] = statusline_model(capture=sup.tmux.capture_pane(session=session))
+    baseline = (
+        None
+        if repo is None or topic is None
+        else registry.read_launch_statusline_baseline(
+            repo=repo,
+            topic=topic,
+            stamp_path=sup.stamp_path,
+        )
+    )
+    profile["statusline_model"] = baseline or statusline_model(
+        capture=sup.tmux.capture_pane(session=session)
+    )
     return profile
 
 
@@ -266,7 +279,9 @@ def adopt_sessions(*, sup: Supervisor) -> list[registry.Track]:
             model_profile=_profile_for_adoption(
                 sup=sup,
                 source=profile_sources.get((session, topic)),
+                repo=repo,
                 session=session,
+                topic=topic,
             ),
         )
         registry.append_mapping(track=track, store_path=sup.store_path, added_at=iso_now())

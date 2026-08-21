@@ -17,7 +17,7 @@ import _supervisor_launch
 import codex_sessions
 import registry
 import signals
-from _supervisor_launch_profile import ClaudeLaunchPlan, CodexLaunchPlan
+from _supervisor_launch_profile import ClaudeLaunchPlan, CodexLaunchPlan, rendered_statusline_model
 from _supervisor_prompts import launch_resume
 
 if TYPE_CHECKING:
@@ -202,4 +202,11 @@ def do_launch(*, sup: Supervisor, track: registry.Track, session: str, start: bo
     if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
         return False
     _ = _supervisor_launch.await_input_box(sup=sup, target=target)
+    if start:
+        registry.record_launch_statusline_baseline(
+            repo=track.repo,
+            topic=track.topic,
+            model=rendered_statusline_model(capture=sup.tmux.capture_pane(session=target)),
+            stamp_path=sup.stamp_path,
+        )
     return _supervisor_launch.submit_prompt(sup=sup, target=target, text=launch_resume(track=track))
