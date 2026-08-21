@@ -186,6 +186,8 @@ propose-change land.
 | 10b | **Keep idle profiles warm** — sandboxed agent-delegated refresh, staleness margin, retry backoff, orphan reporting, live-credential paranoia check | X, Y2, G9a |
 | 11 | **Operation prose + three bindings + manifest lockstep** | A, B |
 | 12 | **Exit gate** — independent feature-completeness review | all |
+| 13 | **Cutover** — enable the rebuilt skill on the host, verify parity in real operation, rehearse rollback | all; operational |
+| 14 | **Retire the source** — remove the vps-info skill, repoint its AGENTS.md at the new home | Y; operational |
 
 **Slices 6 and 10b are a PAIR and must not be separated.** Slice 6 implements the
 live-verified-only selection rule; slice 10b keeps the live set from draining. The
@@ -245,19 +247,56 @@ present" scores 100% on an implementation that helpfully added retry logic to th
 picker — and that addition is a regression against a maintainer decision, not a
 bonus.
 
+## The endpoint — cutover and retirement
+
+The plan no longer ends at the review. It ends when the host is running the
+rebuilt skill and the vps-info copy is gone. Three stages, each gating the next:
+**every implementation slice → the independent completeness review → cutover →
+retirement.**
+
+**The cutover hazard is not the code, it is the schedule.** Both implementations
+self-install a recurring job, and both rotate the same host-wide credential. The
+switch lock serializes the *write*, so nothing corrupts — but the lock does not
+make two implementations agree. Two versions polling the same accounts can reach
+different decisions from the same readings and hand the active account back and
+forth across ticks, each one behaving correctly by its own lights. **Cancel the
+old job before scheduling the new one**, and verify no two schedules are ever live
+at once.
+
+Note this is a *different* problem from carrier **T4**, which is about N sessions
+running the same skill and is deliberately still deferred. T4 is wasteful; this
+one is incoherent.
+
+**Rollback must be rehearsed, not merely described.** Re-enable the vps-info job,
+cancel the new one. A cutover whose rollback has never been executed is a cutover
+with an untested exit.
+
+**Retirement REPOINTS; it does not delete.** Much of the vps-info AGENTS.md
+section documents facts about the HOST that survive the move — the account
+manager binary and its silently-broken-version trap, the vault layout, snapshot
+capture timing, the profile-name-does-not-encode-the-email trap, the cosmetic
+rendering bugs. Those stay. Only the skill's own contract moves, and the old
+location must **link** to the new home. Falling silent is the failure this fleet
+has already recorded against itself: a reader routed nowhere is barely better off
+than one routed wrong.
+
+And the closing note in that section — the instruction that this skill should move
+here and be rebuilt spec-first — **must be removed once carried out**, or the next
+reader is told to do this work again.
+
 ## Deliberate deferrals
 
 Recorded here and on the scope event so the review can tell "missed" from "out of
 scope".
 
-- **Retiring the vps-info copy.** Cross-repo sequencing (delete, or leave a pointer
-  to the new home) is not this thread's work. Deferred to a named follow-up once
-  the rebuild is shipped and exercised. **Note the cost of that deferral:** the
-  source stays live and continues to accrue features while the rebuild proceeds,
-  so every re-measurement gap is a chance to ship a reproduction of a program that
-  no longer exists. Two changes landed during this thread's first ninety minutes.
-  Keeping the deferral is still right — retiring the source before its replacement
-  is exercised would be worse — but the re-pin discipline is what pays for it.
+- ~~**Retiring the vps-info copy.**~~ **DEFERRAL WITHDRAWN, maintainer-directed
+  2026-08-21.** Cutover and retirement are now the plan's ENDPOINT, not a
+  follow-up — see "The endpoint" below. The reasoning that justified deferring it
+  is what now argues for finishing it: the source stays live and accrues features
+  while the rebuild proceeds, so **every day of parallel existence is another
+  chance to ship a reproduction of a program that no longer exists.** Five changes
+  landed during this thread's first day. The deferral bought safety at a cost that
+  compounds, and the way to stop paying it is to converge, not to wait.
 - **Generalizing the `-foreman` suffix and the account set.** The suffix coupling is
   precisely why the skill belongs here (`AGENTS.md` says so). Making it configurable
   is a change in behavior and is out of scope for a feature-identical rebuild.
