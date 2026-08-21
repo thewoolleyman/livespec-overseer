@@ -334,7 +334,7 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
             )
         )
         return 1
-    registry.upsert_mapping(track=track, store_path=None, update_fields=frozenset({"tmux"}))
+    _supervisor_cli_update.upsert_track(track=track)
     streams.write_stdout(text=f"{attempt.message}\n")
     return 0
 
