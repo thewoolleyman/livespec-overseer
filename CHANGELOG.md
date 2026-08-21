@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.15.0...v1.16.0) (2026-08-21)
+
+
+### Features
+
+* add caam effort floor enforcement ([b8c47d3](https://github.com/thewoolleyman/livespec-overseer/commit/b8c47d3dbca3d764107778787022abd6b75bca63))
+
 ## [1.15.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.14.1...v1.15.0) (2026-08-21)
 
 
