@@ -407,6 +407,51 @@ The generalisation across 15 and 18: **a fix has to clear three gates before it
 helps you — it must exist, it must reach your artifact, and its mechanism must
 match your instance.** Each gate has now cost this thread a separate incident.
 
+### 19. Do not argue about what a measurement would show — take it
+
+Rules 3 and 4 are about designing checks that *can* fail. This one is about the
+analyst, and it cost a wrong recommendation on `overseer-izh7` that a maintainer
+could have acted on.
+
+That item's leg 2 asks whether the bd-guard blocked-op count for this repo
+returns to zero after the remedy merged at `2026-08-20T09:23:46Z`. Every number
+on the item predated that merge, so nobody had measured the window the criterion
+is actually about. I reasoned about it instead, and recorded this:
+
+> the forward window has the same expected value under both hypotheses —
+> guidance effective, and guidance irrelevant. It returns zero either way …
+> such a criterion cannot fail.
+
+On that basis I recommended closing on the frank basis that leg 2 could never
+attribute anything.
+
+**One query refuted it.** Over the post-remedy window, scoped to this repo:
+**4,384 bd invocations, and one blocked op** —
+
+```
+2026-08-20T10:57:45Z   bd update overseer-au3pt3.9 --status open
+guard.op = status:open   exit_code = 3   bd.repo = livespec-overseer
+```
+
+Ninety-four minutes after the guidance merged. The criterion could have returned
+zero and did not, so it discriminates — which was the entire content of my
+objection.
+
+**The shape of the error is the point.** I applied rule 4 — ask what state would
+produce the other answer — to the *criterion*, and never to my own claim about
+it. The data was one read-only query away the whole time, in a dataset the item
+already names. Reasoning about a measurement is not cheaper than taking it when
+the measurement is available; it is only faster to write down.
+
+**So: before arguing that a check is vacuous, run it.** A vacuity argument is a
+prediction about the result, and predictions about available results are exactly
+the claims you never have to make.
+
+A second, smaller trap surfaced in the same query and is worth carrying: the
+first attempt filtered on `guard.mode = "fail"` and returned 4,382 of 4,382.
+`guard.mode` is the guard's *configured mode*, not an outcome. **A ratio of
+exactly 1.0 is a filter smell, not a finding.**
+
 ## A note on where these came from
 
 Nothing here is a general software-engineering maxim. Each rule is the residue
