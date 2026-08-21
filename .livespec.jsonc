@@ -161,7 +161,7 @@
       "livespec": ">=0.1.0,<1.0.0",
       // Bootstrap placeholder; the first successful cross-repo fan-out
       // rewrites this to a livespec release tag.
-      "pinned": "v0.37.0"
+      "pinned": "v0.37.1"
     },
     // Maintainer opt-in 2026-08-16: the foreman may convene the cross-vendor
     // consensus panel on blocked sessions and act on its typed verdict via
@@ -187,7 +187,7 @@
     "format": "beads",
     "compat": {
       "livespec": ">=0.1.0,<1.0.0",
-      "pinned": "v0.37.0"
+      "pinned": "v0.37.1"
     },
     // Per-repo beads tenant CONNECTION block, read by the plugin's
     // commands/_config.py. `tenant` == `database` == `server_user` is the
