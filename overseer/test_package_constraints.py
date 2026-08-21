@@ -12,14 +12,17 @@ to confirm that is recorded in each test's docstring.
 
 from __future__ import annotations
 
-import ast
 import builtins
 import io as _io
 import json
 import pathlib
-import sys
 
 from overseer import registry
+from overseer.test_package_constraint_audit import (
+    PackageImportAudit,
+    all_imports,
+    audit_package_imports,
+)
 from overseer.test_supervisor_builders import (
     idle_capture,
     make_plan,
@@ -66,25 +69,6 @@ def _product_modules() -> tuple[pathlib.Path, ...]:
     return tuple(
         path for path in sorted(_PACKAGE_ROOT.glob("*.py")) if not path.name.startswith("test_")
     )
-
-
-def _first_party_names() -> frozenset[str]:
-    return frozenset(path.stem for path in _PACKAGE_ROOT.glob("*.py"))
-
-
-def _top_level_imports(*, path: pathlib.Path) -> frozenset[str]:
-    """Every top-level module name imported by `path`, absolute imports only.
-
-    A relative import (`from . import x`, level > 0) is by construction
-    first-party, so it cannot introduce a dependency and is skipped.
-    """
-    names: set[str] = set()
-    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-        if isinstance(node, ast.Import):
-            names.update(alias.name.split(".")[0] for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            names.add(node.module.split(".")[0])
-    return frozenset(names)
 
 
 def _install_plan_tree_open_audit(*, monkeypatch, plan_root: pathlib.Path) -> list[str]:
@@ -135,33 +119,41 @@ def _install_plan_tree_open_audit(*, monkeypatch, plan_root: pathlib.Path) -> li
 
 
 def test_the_package_imports_only_the_standard_library():
-    """The "Language and dependencies" rule of SPECIFICATION/constraints.md: "no
-    third-party imports anywhere in the package". Nothing asserted this before — the
-    constraint was carried by review and by the executables' isolated launch mode alone.
+    """The "Language and dependencies" rule of SPECIFICATION/constraints.md.
+
+    The supervision package must not import third-party code from an installed
+    environment, but v027 permits a narrow exemption for in-tree vendored code
+    that is vendored, standalone, and hermetic.
 
     SABOTAGE-VERIFIED 2026-07-26: adding `import pytest` to `overseer/registry.py` turns
-    this red with `{'registry.py': ['pytest']}`; reverted to a zero diff.
+    the installed-import arm red with `{'registry.py': ['pytest']}`; reverted to a
+    zero diff.
 
-    An INSTALLED third-party module was used deliberately. Sabotaging with an uninstalled
-    one (`import yaml`) also fails, but as a collection-time `ModuleNotFoundError` before
-    this assertion ever runs — loud enough to hold the constraint, but it does not
-    exercise THIS test. Only the installed case proves the assertion has teeth.
+    SABOTAGE-VERIFIED 2026-08-21, each independently with installed `pytest`: a
+    vendored import with no `overseer/_vendor/pytest` source reddens the vendored arm;
+    a vendored `pytest` whose module-load code imports top-level `pytest` reddens the
+    standalone arm; a product bare `import pytest` while `overseer/_vendor/pytest`
+    exists reddens the hermetic-collision arm. A conforming fake vendored package with
+    function-body and `TYPE_CHECKING` third-party imports stays green.
+
+    Installed third-party modules are deliberate. Sabotaging with an uninstalled one
+    also fails, but as a collection-time `ModuleNotFoundError` before this assertion
+    ever runs — loud enough to hold the constraint, but it does not exercise THIS test.
+    Only the installed case proves the assertion has teeth.
     """
-    stdlib = frozenset(sys.stdlib_module_names)
-    first_party = _first_party_names()
-    offenders: dict[str, list[str]] = {}
-    for path in _product_modules():
-        third_party = sorted(
-            name
-            for name in _top_level_imports(path=path)
-            if name not in stdlib
-            and name not in first_party
-            and name not in _OUT_OF_BAND_IMPORTS.get(path.name, frozenset())
-        )
-        if third_party:
-            offenders[path.name] = third_party
+    audit = audit_package_imports(
+        product_paths=_product_modules(),
+        package_root=_PACKAGE_ROOT,
+        out_of_band_imports=_OUT_OF_BAND_IMPORTS,
+    )
 
-    assert offenders == {}, f"third-party imports in a stdlib-only package: {offenders}"
+    assert audit == PackageImportAudit(
+        installed_imports={},
+        missing_vendored_sources={},
+        runtime_dependency_declarations=[],
+        vendored_load_imports={},
+        hermetic_collisions={},
+    )
 
 
 def test_the_supervision_loop_cannot_make_model_calls():
@@ -185,7 +177,7 @@ def test_the_supervision_loop_cannot_make_model_calls():
     """
     reachable: dict[str, list[str]] = {}
     for path in _product_modules():
-        hits = sorted(_top_level_imports(path=path) & _NETWORK_MODULES)
+        hits = sorted(all_imports(path=path) & _NETWORK_MODULES)
         if hits:
             reachable[path.name] = hits
 
