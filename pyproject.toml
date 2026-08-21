@@ -156,6 +156,44 @@ total_absence_returns = [
     { file = ".claude-plugin/overseer/jsonio.py", function = "as_object", reason = "Narrows an ALREADY-PARSED JSON value to a string-keyed mapping. Total on its input, performs no I/O, and cannot fail: None means the value is not a dict, which is an ANSWER about the value's shape rather than a failure to obtain it. The parse -- the only step that can fail -- happens in the caller, which is the entire reason this narrowing form is separate from parse_object." },
     { file = ".claude-plugin/overseer/jsonio.py", function = "as_list", reason = "The list sibling of as_object, absent for the same reason: it narrows an ALREADY-PARSED value and None means the value is not a list. Total, no I/O, nothing to fail. It exists because isinstance() narrows only to list[Unknown], so the per-element checks that follow stop meaning anything to a type checker -- a typing concern, not an error path." },
     { file = ".claude-plugin/overseer/jsonio.py", function = "as_float", reason = "Coerces an ALREADY-PARSED JSON scalar to a float. None means the value is not numeric -- an object, an array, null, a non-numeric string, or a bool, which is rejected deliberately because it is an int subclass and would otherwise yield 1.0 from something that was never a number. Its own docstring states the contract this declaration asserts: every caller treats a non-numeric value as 'no value' rather than 'as an error worth raising'. Total, no I/O." },
+
+    # ---- the five /proc readers of claude_sessions.py ----
+    # MAINTAINER RULING 2026-08-21 (recorded on livespec-dev-tooling-8o8e,
+    # 2026-08-21T12:33:38Z): "Session decides per function ... write the reason,
+    # as it did for the first ten ... you review the reasons in the PR."
+    #
+    # ⚠️ THE ARGUABLE PART, STATED RATHER THAN SMOOTHED OVER, because bound 2
+    # exists to surface exactly this. Each reader returns None on OSError, which
+    # covers BOTH "no such process" (ESRCH -- an absence) AND "not permitted"
+    # (EACCES -- arguably a failure). They are conflated deliberately.
+    #
+    # ▶️ WHY THAT IS STILL AN ABSENCE HERE, and not a failure wearing an
+    # Optional: /proc is a SYNTHETIC filesystem in which the absence of an entry
+    # IS the kernel's answer to "does this process exist". A reader of
+    # /proc/<pid>/x is not attempting an operation that can fail so much as
+    # asking a question whose negative answer is delivered as ENOENT. And the
+    # EACCES case resolves the same way for THIS consumer: the overseer
+    # enumerates ITS OWN sessions, so a process it may not read is a process
+    # that is not one of its own -- the same answer, "not live", by a different
+    # route. Every call site treats it that way.
+    #
+    # ⚠️ RESIDUAL A REVIEWER SHOULD WEIGH: the stat-backed pair additionally
+    # returns None when /proc/<pid>/stat has no ")" or too few fields, or when
+    # int() rejects the field. Those are MALFORMED-INPUT branches -- genuine
+    # failures -- and they are unreachable only because the kernel guarantees
+    # stat's format. They are defensive code against something that cannot
+    # happen, not expected outcomes. If that guarantee is ever the wrong thing
+    # to lean on, these two entries are the first to withdraw.
+    { file = "overseer/claude_sessions.py", function = "proc_ppid", reason = "The parent PID from /proc/<pid>/stat, or None when there is no such process. In procfs the absence of the entry IS the answer, so None is an absence rather than a failed read. ⚠️ Also None if stat is malformed or the field is not an int -- defensive branches against a format the kernel guarantees; see the note above." },
+    { file = "overseer/claude_sessions.py", function = "proc_starttime", reason = "The process start-time from /proc/<pid>/stat, returned as a string so it compares byte-for-byte against the registry's procStart. Its own docstring names the contract this declaration asserts: None when the process is gone or unreadable, 'which the caller treats as not live'. One meaning at every call site. ⚠️ Shares the malformed-stat residual noted above." },
+    { file = "overseer/claude_sessions.py", function = "proc_comm", reason = "The command name from /proc/<pid>/comm, or None when there is no such process. Also None when comm is empty after stripping -- a process with no command name is a legitimate absence of the value, not a failure to read it." },
+    { file = "overseer/claude_sessions.py", function = "proc_cmdline", reason = "Raw /proc/<pid>/cmdline bytes, or None when there is no such process. Also None when cmdline is EMPTY, which is the normal case for a kernel thread -- an unambiguous absence of the value rather than a failed read, and the clearest of the five." },
+    { file = "overseer/claude_sessions.py", function = "proc_environ", reason = "Raw /proc/<pid>/environ bytes, or None when there is no such process, or when environ is empty. Same shape as proc_cmdline: procfs delivers non-existence as ENOENT, and an empty environ is an absent value rather than a failure." },
+    { file = ".claude-plugin/overseer/claude_sessions.py", function = "proc_ppid", reason = "The parent PID from /proc/<pid>/stat, or None when there is no such process. In procfs the absence of the entry IS the answer, so None is an absence rather than a failed read. ⚠️ Also None if stat is malformed or the field is not an int -- defensive branches against a format the kernel guarantees; see the note above." },
+    { file = ".claude-plugin/overseer/claude_sessions.py", function = "proc_starttime", reason = "The process start-time from /proc/<pid>/stat, returned as a string so it compares byte-for-byte against the registry's procStart. Its own docstring names the contract this declaration asserts: None when the process is gone or unreadable, 'which the caller treats as not live'. One meaning at every call site. ⚠️ Shares the malformed-stat residual noted above." },
+    { file = ".claude-plugin/overseer/claude_sessions.py", function = "proc_comm", reason = "The command name from /proc/<pid>/comm, or None when there is no such process. Also None when comm is empty after stripping -- a process with no command name is a legitimate absence of the value, not a failure to read it." },
+    { file = ".claude-plugin/overseer/claude_sessions.py", function = "proc_cmdline", reason = "Raw /proc/<pid>/cmdline bytes, or None when there is no such process. Also None when cmdline is EMPTY, which is the normal case for a kernel thread -- an unambiguous absence of the value rather than a failed read, and the clearest of the five." },
+    { file = ".claude-plugin/overseer/claude_sessions.py", function = "proc_environ", reason = "Raw /proc/<pid>/environ bytes, or None when there is no such process, or when environ is empty. Same shape as proc_cmdline: procfs delivers non-existence as ENOENT, and an empty environ is an absent value rather than a failure." },
 ]
 file_lloc_hard_gate = true
 # These four shared ONE terse "declared-empty: these roles remain unarmed" line,
