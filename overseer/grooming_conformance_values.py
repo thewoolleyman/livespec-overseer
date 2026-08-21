@@ -28,6 +28,11 @@ __all__: list[str] = [
 ]
 
 TERMINAL_STATUSES = frozenset({"closed", "done"})
+OPENING_TEMPLATE_DELIMITERS = (
+    chr(123) * 2,
+    chr(123) + "%",
+    chr(123) + "#",
+)
 
 
 def merged_acceptance_criteria(*, item: Mapping[str, object]) -> str | None:
@@ -43,10 +48,10 @@ def item_contains_delimiter(
     item: Mapping[str, object],
     detail_texts: Sequence[str],
 ) -> bool:
-    opening = chr(123) * 2
-    closing = chr(125) * 2
     return any(
-        opening in text or closing in text for text in item_texts(item=item, details=detail_texts)
+        delimiter in text
+        for text in item_texts(item=item, details=detail_texts)
+        for delimiter in OPENING_TEMPLATE_DELIMITERS
     )
 
 
