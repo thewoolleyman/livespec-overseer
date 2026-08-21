@@ -56,10 +56,23 @@ tree's `HEAD` underneath whatever the maintainer is doing, which is exactly the
 class of act this repo gates per-instance.
 
 **It leaves provenance unverifiable.** `AGENTS.md` prescribes reading
-`daemon_package.version` to learn what the daemon is running. Derived from a
-mutable tree, that string can be true and useless simultaneously — the version
-of the last install, not of the bytes being imported. A version-named prefix
-makes the answer structural: the path the process runs from names the release.
+`daemon_package.version` to learn what the daemon is running. That field is
+*more* honest than it first looks, and the exact mechanism matters, so it is
+recorded here rather than assumed: `daemon_package_payload` in
+`overseer/_supervisor_snapshot.py` reports `APP_VERSION`, and
+`overseer/version.py` reads that literal out of `overseer/version.json` **in the
+imported tree** at start — deliberately, as data rather than distribution
+metadata, so the module works from both the installed console script and the
+in-tree executables. So the field is not stale install metadata. It genuinely
+names the release the imported tree was sitting at.
+
+**That is precisely why pinning does not rescue it.** The field is faithful about
+`version.json` and blind to every other module. A tree carrying a hand-edited
+`_supervisor_restart.py` reports a clean release version, because the edit did
+not touch the one file the version is read from. Pinning `HEAD` to
+`origin/release` pins that file and buys nothing for the rest. A version-named
+prefix makes the answer structural instead: the path the process runs from names
+the release, and no edit inside it can be both present and unnamed.
 
 ## The objection that turned out to be empty
 
