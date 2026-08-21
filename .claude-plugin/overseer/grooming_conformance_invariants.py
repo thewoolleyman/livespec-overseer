@@ -47,19 +47,29 @@ def evaluate_ledger_invariants(
     work_items: Sequence[Mapping[str, object]],
     item_details_by_id: Mapping[str, Sequence[str]] | None = None,
     sibling_item_ids_by_repo: Mapping[str, AbstractSet[str]] | None = None,
+    seat_anchor_epic_ids: AbstractSet[str] | None = None,
 ) -> GroomingConformanceReport:
     repo_path = Path(repo)
     items = tuple(work_items)
     details = item_details_by_id or {}
     siblings = sibling_item_ids_by_repo or {}
+    anchors = seat_anchor_epic_ids or frozenset()
     item_ids = tuple(sorted(item_id(item=item) for item in items if item_id(item=item) != ""))
     return GroomingConformanceReport(
         repo=str(repo_path),
         scanned_item_count=len(items),
         scanned_item_ids=item_ids,
         invariants=(
-            plan_rollup_check(items=items),
-            acceptance_present_check(items=items),
+            plan_rollup_check(
+                items=items,
+                seat_anchor_epic_ids=anchors,
+                seat_register_supplied=seat_anchor_epic_ids is not None,
+            ),
+            acceptance_present_check(
+                items=items,
+                seat_anchor_epic_ids=anchors,
+                seat_register_supplied=seat_anchor_epic_ids is not None,
+            ),
             lifecycle_status_check(items=items),
             dispatchable_delimiter_check(items=items, item_details_by_id=details),
             split_acceptance_label_pending(),
@@ -73,23 +83,49 @@ def evaluate_ledger_invariants(
     )
 
 
-def plan_rollup_check(*, items: Sequence[Mapping[str, object]]) -> InvariantCheck:
+def plan_rollup_check(
+    *,
+    items: Sequence[Mapping[str, object]],
+    seat_anchor_epic_ids: AbstractSet[str],
+    seat_register_supplied: bool,
+) -> InvariantCheck:
     breaches = sorted_ids(
-        items=(item for item in items if needs_plan_rollup(item=item) and not has_parent(item=item))
+        items=(
+            item
+            for item in items
+            if needs_plan_rollup(item=item, seat_anchor_epic_ids=seat_anchor_epic_ids)
+            and not has_parent(item=item)
+        )
     )
     return InvariantCheck(
         key="plan-rollup",
         title="Every non-done item rolls up to a plan epic",
         status="checked",
         breaching_item_ids=breaches,
-        scanned_item_count=sum(1 for item in items if needs_plan_rollup(item=item)),
-        scope="non-terminal, non-plan-anchor, non-seat-anchor bulk ledger rows",
+        scanned_item_count=sum(
+            1
+            for item in items
+            if needs_plan_rollup(item=item, seat_anchor_epic_ids=seat_anchor_epic_ids)
+        ),
+        scope=anchor_scope(
+            base="non-terminal",
+            suffix="bulk ledger rows",
+            seat_register_supplied=seat_register_supplied,
+        ),
     )
 
 
-def acceptance_present_check(*, items: Sequence[Mapping[str, object]]) -> InvariantCheck:
+def acceptance_present_check(
+    *,
+    items: Sequence[Mapping[str, object]],
+    seat_anchor_epic_ids: AbstractSet[str],
+    seat_register_supplied: bool,
+) -> InvariantCheck:
     scanned = tuple(
-        item for item in items if is_open(item=item) and not is_top_level_anchor_epic(item=item)
+        item
+        for item in items
+        if is_open(item=item)
+        and not is_top_level_anchor_epic(item=item, seat_anchor_epic_ids=seat_anchor_epic_ids)
     )
     breaches = sorted_ids(
         items=(item for item in scanned if merged_acceptance_criteria(item=item) is None)
@@ -100,10 +136,20 @@ def acceptance_present_check(*, items: Sequence[Mapping[str, object]]) -> Invari
         status="checked",
         breaching_item_ids=breaches,
         scanned_item_count=len(scanned),
-        scope=(
-            "non-terminal, non-plan-anchor, non-seat-anchor rows using the merged "
-            "acceptance projection"
+        scope=anchor_scope(
+            base="non-terminal",
+            suffix="rows using the merged acceptance projection",
+            seat_register_supplied=seat_register_supplied,
         ),
+    )
+
+
+def anchor_scope(*, base: str, suffix: str, seat_register_supplied: bool) -> str:
+    if seat_register_supplied:
+        return f"{base}, non-plan-anchor, non-seat-anchor {suffix}"
+    return (
+        f"{base}, non-plan-anchor {suffix}; seat-anchor register not supplied, "
+        "so no non-seat-anchor exclusion was applied"
     )
 
 
