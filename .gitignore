@@ -35,6 +35,13 @@ __pycache__/
 .hypothesis/
 .coverage
 .coverage.*
+# Coverage-reuse provenance marker (overseer-bnutz7). It must be ignored
+# EXPLICITLY rather than by the `.coverage.*` rule above: that rule is also
+# coverage's own parallel-data namespace, so a marker named into it is a file
+# `coverage combine` will try to read as a data file. The name and this entry
+# are one decision — renaming the marker without adding its own rule here
+# reintroduces the stray untracked file overseer-hgq4wi.23 removed.
+.livespec-coverage-reuse-token
 .ruff_cache/
 .pyright/
 .mutmut-cache/

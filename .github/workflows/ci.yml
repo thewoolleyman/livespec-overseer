@@ -274,13 +274,12 @@ jobs:
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
       GITHUB_TOKEN: ${{ github.token }}
       GH_TOKEN: ${{ github.token }}
-      # Coverage-pair handoff token (overseer-hgq4wi.26): the producer stamps
-      # .coverage with this value and the consumer job exports the SAME value,
-      # so scripts/check-coverage.sh takes its consume-once branch on the
-      # downloaded artifact instead of re-running the whole suite. Both jobs
-      # must derive it from fields they can both see; run_id + run_attempt is
-      # unique per attempt and needs no cross-job output plumbing.
-      LIVESPEC_COVERAGE_REUSE_TOKEN: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      # No coverage-reuse token is exported here (overseer-bnutz7). Both jobs
+      # resolve the provenance id themselves through
+      # scripts/coverage-reuse-id.sh, which reads GITHUB_RUN_ID and
+      # GITHUB_RUN_ATTEMPT — values the runner already injects into every job,
+      # identical across the pair and different on a re-run. Exporting a token
+      # here as well would create a second source of truth for one value.
     steps:
       # Per-step `if:` (not job-level) so the job still reports its own status
       # check name when skipped — same pattern as the check-python matrix.
@@ -322,16 +321,17 @@ jobs:
           just check-per-file-coverage
 
       # include-hidden-files is REQUIRED: upload-artifact@v4 excludes dotfiles
-      # by default and `.coverage` is one; without it the upload silently ships
-      # nothing and the consumer falls back to a full duplicate suite run.
-      - name: Publish .coverage for the check-coverage consumer
+      # by default and both handoff files are dotfiles; without it the upload
+      # silently ships nothing and the consumer falls back to a full duplicate
+      # suite run.
+      - name: Publish coverage data and provenance marker for the check-coverage consumer
         if: needs.setup.outputs.py_changed == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-data
           path: |
             .coverage
-            .coverage.livespec-reuse-token
+            .livespec-coverage-reuse-token
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
@@ -340,10 +340,12 @@ jobs:
   # because check-coverage is a tool-backed slug and
   # check-tool-backed-check-completeness requires every tool-backed slug to be
   # a LITERAL matrix.target member. `needs` the producer so the downloaded
-  # `.coverage` is present and check-coverage.sh takes its consume-once branch
-  # (read + delete, no suite run). Paths inside the data file match because
-  # both jobs run in the same container workspace mount. If the download ever
-  # regresses, the script's fallback runs the suite standalone — slower, never
+  # `.coverage` and its provenance marker are both present, and
+  # check-coverage.sh takes its consume-once branch (read + delete, no suite
+  # run) only when the received marker equals the id this job computes for
+  # itself. Paths inside the data file match because both jobs run in the same
+  # container workspace mount. If the download or the marker ever regresses,
+  # the script's fallback runs the suite standalone — slower, never
   # wrong.
   check-coverage:
     name: ${{ matrix.target }}
@@ -356,8 +358,9 @@ jobs:
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
       GITHUB_TOKEN: ${{ github.token }}
       GH_TOKEN: ${{ github.token }}
-      # Must equal the producer job's value exactly (see that job's comment).
-      LIVESPEC_COVERAGE_REUSE_TOKEN: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      # Like the producer, this job exports no reuse token: it recomputes the
+      # same provenance id from GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT and
+      # compares it against the marker it received (see that job's comment).
     strategy:
       matrix:
         target:
@@ -385,7 +388,7 @@ jobs:
         if: needs.setup.outputs.py_changed == 'true'
         run: uv sync --all-groups
 
-      - name: Download the producer's .coverage
+      - name: Download the producer's coverage data and provenance marker
         if: needs.setup.outputs.py_changed == 'true'
         uses: actions/download-artifact@v4
         with:
@@ -404,10 +407,14 @@ jobs:
           # The consumer must CONSUME the producer's artifact, not silently fall
           # back to a duplicate suite run (overseer-hgq4wi.26): a green job that
           # took the fallback branch is the defect this assertion exists to
-          # catch. The script's two branch messages are the discriminator.
+          # catch. The script's two branch messages are the discriminator, so
+          # this literal is coupled to them — overseer-bnutz7 changed the
+          # wording when the id stopped being aggregate-local, and the test
+          # test_check_coverage_messages_do_not_assert_unproven_provenance
+          # guards what those messages may claim.
           just ${{ matrix.target }} > coverage-consumer.log 2>&1 || { cat coverage-consumer.log; exit 1; }
           cat coverage-consumer.log
-          grep -q 'reading current aggregate .coverage' coverage-consumer.log || {
+          grep -q 'reading current .coverage from matching provenance marker' coverage-consumer.log || {
             echo '::error::check-coverage did not take the consume-once branch; the coverage-data handoff is broken' >&2
             exit 1
           }

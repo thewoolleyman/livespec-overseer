@@ -167,7 +167,6 @@ check:
         exit 1
     fi
     export UV_NO_SYNC=1
-    export LIVESPEC_COVERAGE_REUSE_TOKEN="check:${BASHPID}:${RANDOM}:${RANDOM}"
     targets=(
         check-agents-ai-references-resolve
         check-aggregate-completeness
