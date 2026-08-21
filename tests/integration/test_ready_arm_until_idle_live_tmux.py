@@ -619,6 +619,12 @@ def _prompt_contract_fixture(
     return repo, topic, session, inner, driver, sup, transcript
 
 
+# Seconds after the ready declaration at which the narrator appends a turn.
+# Kept well under the 10.0s loop interval so beating it proves an
+# event-driven wake; see test_state_file_event_wakes_daemon_before_next_narration_turn.
+_NARRATION_DELAY_SECONDS = 2.0
+
+
 def _read_transcript_until(*, path: Path, needle: str) -> list[str]:
     for _attempt in range(100):
         if path.exists():
@@ -649,7 +655,9 @@ def test_state_file_event_wakes_daemon_before_next_narration_turn(*, tmp_path: P
         time.sleep(0.3)
         declared_at = time.monotonic()
         declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=time.time())
-        narrator = threading.Timer(2.0, _append_narration, kwargs={"driver": driver})
+        narrator = threading.Timer(
+            _NARRATION_DELAY_SECONDS, _append_narration, kwargs={"driver": driver}
+        )
         narrator.start()
         try:
             assert loop_finished.wait(timeout=5.0)
@@ -658,7 +666,13 @@ def test_state_file_event_wakes_daemon_before_next_narration_turn(*, tmp_path: P
             loop.join(timeout=1.0)
 
         assert driver.respawns
-        assert driver.respawns[0][3] - declared_at < 1.0
+        # The discriminator is "woke BEFORE the narration turn", not an absolute
+        # latency: the loop polls every 10.0s (run_loop), so a poll-driven wake
+        # could not beat the narration timer, while an event-driven one lands
+        # well inside it. A fixed 1.0s budget here failed on a loaded host
+        # (load 32-45 on 18 cores: wakes at 1.10-1.28s) while the behavior under
+        # test held every time; see overseer-jdo.
+        assert driver.respawns[0][3] - declared_at < _NARRATION_DELAY_SECONDS
         rendered = signals.strip_ansi(text=driver.capture_pane(session=session))
         assert "narrated after ready" not in rendered
     finally:

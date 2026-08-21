@@ -1,0 +1,6 @@
+● prior response
+──── livespec-overseer-foreman ─
+❯ 
+────────────────────────────────────────
+  Fable 5 | /x/repo | master | Ctx: 73% left | 7d 85% (resets in 6…
+  ⏵⏵ bypass permissions on · 1 shell · ← 1 agent
