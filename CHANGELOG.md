@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.10.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.9.1...v1.10.0) (2026-08-21)
+
+
+### Features
+
+* vendor returns railway sources ([f88dd45](https://github.com/thewoolleyman/livespec-overseer/commit/f88dd459f2a1d77a16a451f7197e78a19cd22fff))
+
+
+### Bug Fixes
+
+* parse caam reset timestamps as epoch seconds ([593b8ba](https://github.com/thewoolleyman/livespec-overseer/commit/593b8bacc0082e48e1b74c5cfd63108f01ece8f5))
+* pin foreman panel reviewer identities ([7038533](https://github.com/thewoolleyman/livespec-overseer/commit/703853377520e5339d0c967d894f9babff7e89d0))
+
 ## [1.9.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.9.0...v1.9.1) (2026-08-21)
 
 
