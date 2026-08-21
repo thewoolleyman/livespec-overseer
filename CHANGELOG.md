@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.0...v1.7.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* exclude grooming seat anchors from plan rollup ([79b805d](https://github.com/thewoolleyman/livespec-overseer/commit/79b805d672dcd7f6b954b38e91c2ab3a95813ec1))
+
 ## [1.7.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.6.0...v1.7.0) (2026-08-20)
 
 
