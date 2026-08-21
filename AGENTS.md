@@ -334,6 +334,27 @@ Do not infer write vocabulary from create output. Beads-native create paths can
 show `open` before fleet normalization is visible, but callers still must not
 use that native name in any later `bd update --status` command.
 
+## Scripting `bd` from an agent shell: two traps measured 2026-08-22
+
+Both cost real wall clock while filing thirteen plan children, and neither
+announces its cause.
+
+**The tool shell is zsh, and zsh does not word-split an unquoted variable.**
+`W="/usr/local/bin/with-livespec-env.sh -- bd"; $W create ...` fails with
+`no such file or directory: /usr/local/bin/with-livespec-env.sh -- bd` — the
+whole string is tried as one command name. A direct invocation works, so the
+failure looks like a `bd` problem. Define a function instead:
+
+    bdw() { /usr/local/bin/with-livespec-env.sh -- bd "$@" </dev/null; }
+
+**`bd show <id>` repeated inside a loop hangs past a multi-minute timeout.**
+Thirteen sequential shows never finished, twice, with and without stdin
+attached. One `bd list --parent <epic> --json` returns every child's title,
+description, acceptance and status in a second and is the right instrument for
+scanning stored records (the doubled-brace token check above included) or
+reading statuses. Parse a created id from the normal `Created issue: <id>`
+output line; `--silent` produced nothing usable through a pipe.
+
 ## The fleet has SEVERAL Anthropic credentials — probing the wrong one is the documented failure mode
 
 Cite this section; do not restate it per plan. It exists because the
