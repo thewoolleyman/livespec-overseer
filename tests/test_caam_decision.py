@@ -335,14 +335,14 @@ def test_table_renders_remaining_quota_reset_durations_and_source_text():
 
 
 def test_trigger_header_matches_source_format_string(*, monkeypatch):
-    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85")
-    monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10")
-    monkeypatch.setenv("CAAM_ROTATE_MIN_HEADROOM_GAIN", "10")
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85.5")
+    monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10.6")
+    monkeypatch.setenv("CAAM_ROTATE_MIN_HEADROOM_GAIN", "9.6")
 
     assert hasattr(caam_rendering, "trigger_header")
     assert caam_rendering.trigger_header(stamp="2026-08-21T12:00:00Z") == (
-        "2026-08-21T12:00:00Z  triggers: 5h-remaining < 15% or "
-        "weekly-remaining < 10% (candidate must gain >=10 pts)"
+        "2026-08-21T12:00:00Z  triggers: 5h-remaining < 14% or "
+        "weekly-remaining < 11% (candidate must gain >=10 pts)"
     )
 
 
@@ -361,14 +361,14 @@ def test_decision_lines_match_source_format_strings():
             label="5-hour window",
             spent=21.0,
             weekly_remaining=34.0,
-            reserve=10.0,
+            reserve=10.6,
         )
         == "hold: 5-hour window is the binding allowance and still has 79% left "
-        "(weekly 34%, reserve 10%)"
+        "(weekly 34%, reserve 11%)"
     )
     assert hasattr(caam_rendering, "decision_forced")
-    assert caam_rendering.decision_forced(threshold=85.0) == (
-        "forced: ignoring the 85% trigger, rotating to the best target now"
+    assert caam_rendering.decision_forced(threshold=85.5) == (
+        "forced: ignoring the 86% trigger, rotating to the best target now"
     )
     assert hasattr(caam_rendering, "decision_trigger")
     assert (
