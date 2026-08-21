@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.2...v1.7.3) (2026-08-21)
+
+
+### Bug Fixes
+
+* preserve overseer-start launch baseline ([a37d6cc](https://github.com/thewoolleyman/livespec-overseer/commit/a37d6cc816a6362c9cb07320e7094b28776e0286))
+
 ## [1.7.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.1...v1.7.2) (2026-08-21)
 
 
