@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.16.0...v1.17.0) (2026-08-21)
+
+
+### Features
+
+* add caam keep-warm ([d5a2363](https://github.com/thewoolleyman/livespec-overseer/commit/d5a236310960bb94b6b743f3d2af3148971560b8))
+* add caam switch red ([fb57e4d](https://github.com/thewoolleyman/livespec-overseer/commit/fb57e4d6f28866831121cb8218dee14117d88685))
+
 ## [1.16.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.15.0...v1.16.0) (2026-08-21)
 
 
