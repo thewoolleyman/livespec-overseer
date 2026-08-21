@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.22.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.21.0...v1.22.0) (2026-08-21)
+
+
+### Features
+
+* authorize consensus majority actions ([9b346fe](https://github.com/thewoolleyman/livespec-overseer/commit/9b346fe207fc638b1b67a9f8f0030fc866b94206))
+* enact consensus majority actions ([8f411c7](https://github.com/thewoolleyman/livespec-overseer/commit/8f411c779441fd5a8968d60a42537a189f4eb363))
+
 ## [1.21.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.20.0...v1.21.0) (2026-08-21)
 
 
