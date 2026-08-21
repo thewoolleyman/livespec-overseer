@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.10.2...v1.11.0) (2026-08-21)
+
+
+### Features
+
+* cover caam usage polling ([193792f](https://github.com/thewoolleyman/livespec-overseer/commit/193792f7eee1598b8a5bcb9a8ad7c18b2fab61a9))
+
 ## [1.10.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.10.1...v1.10.2) (2026-08-21)
 
 
