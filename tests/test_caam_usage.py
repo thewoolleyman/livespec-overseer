@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import importlib
 import io
 import json
@@ -163,6 +164,21 @@ def test_fetch_usage_returns_transport_exception_reason(*, tmp_path: Path):
 
     assert usage is None
     assert why == "OSError: socket closed"
+
+
+def test_fetch_usage_returns_http_protocol_exception_reason(*, tmp_path: Path):
+    module = caam_usage_module()
+    creds = tmp_path / ".credentials.json"
+    write_creds(path=creds, bearer="tok", expires_at_ms=9_000_000)
+
+    usage, why = module.fetch_usage(
+        creds_path=creds,
+        now=1000.0,
+        transport=RecordingTransport(response=http.client.BadStatusLine("garbled")),
+    )
+
+    assert usage is None
+    assert why == "BadStatusLine: garbled"
 
 
 def test_fetch_usage_extracts_fable_only_from_matching_weekly_scope(*, tmp_path: Path):
