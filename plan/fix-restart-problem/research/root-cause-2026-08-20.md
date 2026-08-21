@@ -27,6 +27,37 @@
 > | RC5 ready outside a round never certifies | **FIXED, merged** as `79095d6` + `bb16cc8` (PR 1397). | `overseer-vr3ym4.1`, **closed**; all seven criteria verified, 40 tests re-run on master |
 > | RC6 the canary's own capture path was broken | **FIXED, merged** as `1250d44` (PR 1424). | `overseer-5lrp`, **closed** |
 >
+> **"MERGED" WAS NOT "LIVE", AND RC5 IS THE CASE THAT PROVES IT — read this before
+> treating the table's FIXED entries as the end of the story.** RC5 merged at
+> 13:42Z and did not take effect on this host until **22:14Z**, eleven and a half
+> hours later. `overseerd` imports `overseer.*` once at startup and never
+> hot-reloads, so a merged daemon-side fix sits inert until the daemon is bounced.
+> Measured in the gap, at 15:00Z: the acting daemon published
+> `daemon_package.version` **1.7.4** against master **v1.12.0**, and **two tracks
+> sat at `ready-uncertifiable`** — the exact state RC5 makes certifiable — one of
+> them for **fifteen hours**, both having declared `ready` correctly.
+>
+> The asymmetry is what makes it hard to see, and it points investigators at the
+> wrong half: `overseer-declare` is a separate entrypoint, a fresh subprocess per
+> call, so it picked up the fix immediately and reported accurately what was
+> missing, while the daemon acting on that declaration was still running pre-fix
+> code. The command tells the truth and the session is stranded anyway.
+>
+> After the bounce, at 23:26Z: version **1.21.0** against tag **v1.21.0**, an
+> exact match; **zero** `ready-uncertifiable` rows fleet-wide; both tracks
+> `working` with context **85** and **87** percent where they had been **80** and
+> **48**. A row cannot gain context, so those are fresh sessions — the seats were
+> genuinely restarted, not relabelled. Carrier `overseer-vr3ym4.3`, closed on that
+> before-and-after. The standing concern now has its own owner in
+> `overseer-6s3pk6`.
+>
+> **So for anything daemon-side, the deployment step belongs in the acceptance.**
+> A green CI run and a merged PR do not make a supervision fix effective, and
+> nothing surfaces the gap: the daemon stays healthy, serving, and writing a fresh
+> status file every tick while running old code. The one-read discriminator is
+> `daemon_package.version` in `~/.livespec-overseer-status.json` against
+> `git describe --tags --abbrev=0`.
+>
 > **CITE `97531ea`, NOT `fa851bd`, FOR RC2 — and understand why the wrong one is
 > so easy to reach for.** This header previously named `fa851bd`, which is what
 > `gh pr view 1342 --json mergeCommit` reports. That is not a mistake in the
