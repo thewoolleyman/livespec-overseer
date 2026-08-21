@@ -10,6 +10,13 @@ repo and it moved FIVE times while this thread was being opened — see
 before treating this list as complete, and update this pin when you do.** A
 carrier list with no as-of commit is a claim with no timestamp.
 
+**RE-MEASURE ATTEMPT, 2026-08-21, overseer-54k2za.13.** The factory sandbox
+could not read the source repo: no `vps-info` checkout existed under the mounted
+repo/workspace/project roots, unauthenticated `git ls-remote` could not prompt
+for credentials, and the sibling lookup through this sandbox's configured GitHub
+credential reported the repository unavailable. The pin above therefore remains
+the last verified source commit rather than a refreshed claim.
+
 ## Why this thread exists
 
 `/caam-anthropic-loop` is a working, maintainer-authored skill living in the

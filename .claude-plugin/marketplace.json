@@ -8,7 +8,7 @@
     {
       "name": "livespec-overseer",
       "source": "./.claude-plugin",
-      "description": "Control-plane operator plugin for livespec. Exposes /livespec-overseer:overseer for the thin two-pane overseer surface, /livespec-overseer:supervise-plan for reviewed supervisor handoff creation, and /livespec-overseer:foreman for the bounded foreman operator loop, and /livespec-overseer:grooming for the bounded one-shot backlog drain pass."
+      "description": "Control-plane operator plugin for livespec. Exposes /livespec-overseer:overseer for the thin two-pane overseer surface, /livespec-overseer:supervise-plan for reviewed supervisor handoff creation, /livespec-overseer:foreman for the bounded foreman operator loop, /livespec-overseer:grooming for the bounded one-shot backlog drain pass, and /livespec-overseer:caam-anthropic-loop for caam-managed Claude Max quota watching and account rotation."
     }
   ]
 }
