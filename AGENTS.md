@@ -1239,6 +1239,38 @@ narrow rule did not prevent the second instance even in the mind that had just
 written it, which is the strongest available evidence that the general rule is
 the one worth carrying.
 
+### And a THIRD field name, which is not a field at all: a FILE's history is not a FEATURE's history
+
+Measured 2026-08-21, and it earns its place here because it defeated a reader who
+had just re-read the two rules above and was actively applying them.
+
+The question was whether a long-running `overseerd` predated a fix. `git log
+--diff-filter=A -- <path>` showed the module carrying the behaviour was **created
+hours after the daemon started**, which looks like proof. It was not. `git log -S
+<symbol>` over the same tree showed the function had existed for **three weeks**;
+the recent commit was a soft-band **split** that moved it into a file of its own
+without changing a line of it.
+
+**A refactor moves code without changing behaviour, so file history is the wrong
+instrument for behaviour age.** This repo splits modules constantly — the LLOC
+soft band makes that a routine, encouraged operation — so the wrong instrument is
+wrong *often* here, not rarely.
+
+    git log -S '<symbol>' --all -- <dir>     # when did this BEHAVIOUR appear
+    git log --diff-filter=A -- <path>        # when did this PATH appear
+
+**The expensive part is that the wrong instrument AGREED.** The conclusion being
+tested — that the daemon was stale — happened to be TRUE, for an entirely
+different reason. So the bad measurement produced a correct answer and a false
+account of why, which is strictly worse than being wrong: nothing about the
+result invites a second look. It was caught only because the live status file
+plainly showed the supposedly-absent behaviour working.
+
+Same family as the two rules above, one level down: there the hazard was reading a
+RECORD's field as the WORLD's state; here it is reading a PATH's age as a
+BEHAVIOUR's age. When a claim rests on "this did not exist yet", name which
+instrument established that, and prefer the one keyed on the thing itself.
+
 ## The charter gate's false positives all point ONE way — suspect the detector first
 
 `tests/prompts/test_charters_carry_no_known_defects.py` scores every supervisor
@@ -1463,6 +1495,40 @@ performs the restart must ensure the fresh `overseerd` lands, and stays, in
 the TOP pane of the two-pane overseer tmux session per the overseer skill
 (`overseer/SKILL.md`) — a daemon respawned into the wrong pane or into a
 detached shell satisfies the three bounce steps and still violates the ruling.
+
+**BEFORE TRUSTING THE ACTING DAEMON, CHECK WHAT IT IS RUNNING — AND USE THE ONE-READ
+DISCRIMINATOR.** The section above is about restarting correctly. This is the
+inverse and more common case: the daemon is healthy, serving, writing a fresh
+status file every tick, and running **code from hours ago**. Nothing surfaces
+that, because a stale daemon and a current one are indistinguishable from every
+symptom except the one that is missing.
+
+`~/.livespec-overseer-status.json` publishes the answer directly:
+
+    daemon_package: {"package_dir": "…/overseer", "version": "1.7.4"}
+
+Compare that to `git describe --tags --abbrev=0`. Measured 2026-08-21: the acting
+daemon reported **1.7.4** while master was at **v1.12.0**, and two tracks sat at
+`ready-uncertifiable` — one for **fifteen hours** — in precisely the state a fix
+merged that afternoon was written to make certifiable.
+
+**Prefer this to reasoning from process start times or file dates.** Both were
+tried on that incident; the start-time argument was sound but laborious, and the
+file-date argument was outright wrong (see the symbol-history rule above). The
+version field settles it in one read and needs no argument about import semantics.
+
+**The asymmetry to expect, because it sends investigators at the wrong half.**
+Commands like `overseer-declare` are **separate entrypoints** — a fresh subprocess
+per call — so they pick up new code immediately. The daemon does not: it imports
+`overseer.*` once and never hot-reloads. After a merge and before a bounce, the
+command half is fixed and the daemon half is not, so a session can be told the
+truth by the command and then stranded anyway by the daemon. That reads as the
+command being wrong.
+
+**So a merged fix to daemon-side code is not in effect until a bounce**, and
+"merged" is not a synonym for "live on this host". When a plan's deliverable is
+daemon behaviour, its acceptance should include the bounce and a live control —
+not merely a green CI run.
 
 ## CI runner routing
 
