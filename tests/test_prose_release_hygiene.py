@@ -34,6 +34,8 @@ import shlex
 import subprocess
 from pathlib import Path
 
+import pytest
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _JUSTFILE = _REPO_ROOT / "justfile"
 _PROSE_FILE = ".claude-plugin/prose/supervise-plan.md"
@@ -259,6 +261,30 @@ def test_a_non_releasing_subject_is_fine_when_no_prose_changed(tmp_path):
     assert "no shipped plugin surface changed" in result.stdout
 
 
+def _stranded_commit_is_reachable() -> bool:
+    """Report whether the real RED fixture commit exists in this checkout.
+
+    CI clones shallow, so a commit pinned by hash is absent there while it is
+    present in any full clone. The gate itself refuses a range it cannot
+    resolve — correctly — so without this guard the assertions below compare
+    against that refusal instead of against a real verdict.
+    """
+    probe = subprocess.run(  # noqa: S603
+        ["git", "cat-file", "-e", f"{_STRANDED_BINDING_COMMIT}^{{commit}}"],  # noqa: S607
+        cwd=_REPO_ROOT,
+        check=False,
+        capture_output=True,
+    )
+    return probe.returncode == 0
+
+
+@pytest.mark.skipif(
+    not _stranded_commit_is_reachable(),
+    reason=(
+        "real RED fixture commit is unreachable in a shallow clone; "
+        "the hermetic _make_repo fixtures above cover the same verdict"
+    ),
+)
 def test_historical_docs_typed_plugin_binding_commit_is_rejected():
     """Real RED fixture for overseer-zg0m: 6833264 stranded until later release."""
     result = _run_gate(

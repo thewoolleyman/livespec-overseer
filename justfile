@@ -656,7 +656,13 @@ check-prose-release-hygiene:
     {
         echo "Shipped plugin surface changed with NO release-triggering commit in the range."
         echo
-        echo "Repository: $(basename "$(git rev-parse --show-toplevel)")"
+        # Derive the repo name from the ORIGIN REMOTE, not from the checkout
+        # path: in a linked worktree `--show-toplevel` returns the WORKTREE,
+        # so the basename is the branch name rather than the repository. Fleet
+        # discipline puts every tracked-file change in a worktree, so that is
+        # the common case, not an edge one. Falls back to the toplevel basename
+        # for a repo with no origin (the hermetic test fixtures).
+        echo "Repository: $(basename -s .git "$(git remote get-url origin 2>/dev/null || git rev-parse --show-toplevel)")"
         echo
         echo "Changed shipped plugin surface:"
         echo "$changed"
