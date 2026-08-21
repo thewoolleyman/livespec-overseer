@@ -10,6 +10,8 @@ from typing import Final, Protocol, TypeAlias, cast
 
 import jsonio
 import signals
+from _foreman_source_result import source_value
+from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from _supervisor_snapshot import DEFAULT_STATUS_PATH
 from foreman_gather_release_lane import attention_with_release_lane, release_lane_payload
 from foreman_gather_snapshot import (
@@ -26,6 +28,8 @@ from foreman_gather_sources import (
     read_journal,
     run_json_command,
 )
+
+_ = VENDOR_PATHS_INSTALLED
 
 ValidationError: TypeAlias = ValueError
 
@@ -75,7 +79,7 @@ def read_needs_attention(
 ) -> tuple[dict[str, object] | None, dict[str, object]]:
     if command is None:
         return None, {"status": "skipped", "reason": "command not configured"}
-    parsed = run_json_command(command=command, source_name="needs_attention")
+    parsed = source_value(result=run_json_command(command=command, source_name="needs_attention"))
     if parsed is None:
         return None, command_skipped(command=command, reason="command not found")
     skip = parsed.get("__skip_reason__")
@@ -150,9 +154,11 @@ def compose_document(
         empty_attention: dict[str, object] = {"items": []}
         attention = empty_attention
     attention = attention_with_release_lane(attention=attention, item=release_item)
-    journal_records, journal_source = read_journal(
-        path=option_journal_path(repo=repo_path, options=options),
-        limit=option_journal_limit(options=options),
+    journal_records, journal_source = source_value(
+        result=read_journal(
+            path=option_journal_path(repo=repo_path, options=options),
+            limit=option_journal_limit(options=options),
+        )
     )
     sources = {
         "snapshot": snapshot_source,

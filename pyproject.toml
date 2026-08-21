@@ -282,7 +282,7 @@ include = ["overseer", "overseer/overseer-start", "overseer/overseerd"]
 # `include`. These tests live BESIDE their source, so applying the identical
 # rule takes an explicit exclude rather than an omission. This is the repo's
 # existing rule spelled out — NOT an overseer exemption.
-exclude = ["overseer/test_*.py", "overseer/conftest.py", "**/__pycache__/**"]
+exclude = ["overseer/test_*.py", "overseer/conftest.py", "**/_vendor/**", "**/__pycache__/**"]
 pythonVersion = "3.10"
 typeCheckingMode = "strict"
 
@@ -325,6 +325,7 @@ omit = [
     "/usr/local/*",
     "*/.venv/*",
     "*/site-packages/*",
+    "*/_vendor/*",
     "*/__pycache__/*",
     "/tmp/*",
     "overseer/test_*.py",

@@ -21,7 +21,12 @@ while IFS= read -r -d '' dst; do
   test -f "overseer/$rel"
 done < <(find "$plugin_pkg" -maxdepth 1 -type f -print0 | sort -z)
 
-unexpected_dir="$(find "$plugin_pkg" -mindepth 1 -maxdepth 1 -type d ! -name __pycache__ -print -quit)"
+if test -d "overseer/_vendor"; then
+  test -d "$plugin_pkg/_vendor"
+  diff -qr -x __pycache__ "overseer/_vendor" "$plugin_pkg/_vendor" >/dev/null
+fi
+
+unexpected_dir="$(find "$plugin_pkg" -mindepth 1 -maxdepth 1 -type d ! -name __pycache__ ! -name _vendor -print -quit)"
 test -z "$unexpected_dir"
 
 tmp="$(mktemp -d)"
