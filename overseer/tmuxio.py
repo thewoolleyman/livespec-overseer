@@ -98,6 +98,9 @@ class TmuxIO:
         self._tmux = tmux_bin
         self._run = run if run is not None else subprocess.run
 
+    def tmux_binary(self) -> str:
+        return self._tmux
+
     # ----------------------------------------------------------------- #
     # Internal: run one tmux subcommand, fail-soft.
     # ----------------------------------------------------------------- #
@@ -265,6 +268,9 @@ class TmuxIO:
         multi-line payload key-by-key (that would fragment it — blocker #2).
         """
         return self._ok(completed=self._call(args=["send-keys", "-t", session, keys]))
+
+    def send_literal_keys(self, *, session: str, text: str) -> bool:
+        return self._ok(completed=self._call(args=["send-keys", "-l", "-t", session, text]))
 
     def bracketed_paste(self, *, session: str, text: str) -> bool:
         """Insert ``text`` into the pane as ONE bracketed paste (no submit).
