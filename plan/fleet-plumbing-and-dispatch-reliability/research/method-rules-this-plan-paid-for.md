@@ -371,6 +371,42 @@ This is rule 4 applied to a pair rather than a single check: for each probe, ask
 what state would have produced the *other* answer. Do it for both and the gap
 between them is obvious; do it for one and the gap is invisible.
 
+### 18. A closed carrier is not a shipped fix — verify the artifact you will execute
+
+Rule 15 covers the case where you *have* the fix and its mechanism does not
+apply to you. This is the other side: the fix is real, the item is **closed**,
+and you still do not have it.
+
+Measured 2026-08-21. `bd-ib-k2nkih` — the P0 that had every dispatch dying
+`exec /bin/bash: argument list too long` in sandbox setup — went to `CLOSED`.
+Dispatching on that fact alone would have failed again, for two independent
+reasons:
+
+1. **The session's resolved build predates the fix.** A session binds a plugin
+   build at startup and keeps it. Ours had already gone
+   `726ae2ae3499 → 1997cded11be → bdb97d1daf03 → f311b9274cdd → 4157cf17b852` —
+   **five values in about four hours**. Any build id written down goes stale
+   inside the hour, which is `overseer-iwu`'s claim measured from the inside.
+2. **Closed names an item, not an artifact.** Nothing in the ledger row tells
+   you whether the bytes you are about to execute contain the change.
+
+The check that actually licensed the retry was reading the **mechanism** in the
+resolved build's own source: `_dispatcher_gh_refresh.py` at `4157cf17b852`
+chunks its base64 payload to sizes chosen to stay inside `MAX_ARG_STRLEN`,
+names the regression it addresses in a comment, and asserts each chunk stays
+within the base64 alphabet. The previous build passed the whole payload in one
+argument. That is a positive identification of the fix, not an inference from
+its carrier's status.
+
+**So: take the build id from the tool at the moment you dispatch, then confirm
+the fix's mechanism is present in that build.** Both legs are needed — the
+first without the second gives you a fresh build you have not checked, and the
+second without the first checks a build you will not run.
+
+The generalisation across 15 and 18: **a fix has to clear three gates before it
+helps you — it must exist, it must reach your artifact, and its mechanism must
+match your instance.** Each gate has now cost this thread a separate incident.
+
 ## A note on where these came from
 
 Nothing here is a general software-engineering maxim. Each rule is the residue
