@@ -300,6 +300,37 @@ merely that its symptom does.** This is rule 5 one turn further on: there the
 citation matched and no change had been made; here the change is genuinely made,
 genuinely correct, and genuinely irrelevant to us.
 
+### 16. A populated field is not evidence of a CURRENT requirement
+
+`overseer-olxhm6` was found with its top-level `acceptance_criteria` **null**
+while a 1,535-character copy of a real bar sat in `metadata.acceptance_criteria`.
+That is the `overseer-jkakz6` divergence, and it points the harmful way: `bd show`
+renders the metadata copy, so every human reader saw a complete bar while the
+factory and the projection — which read the live field — would have received
+nothing. The item was `ready` and declared factory-safe.
+
+Promoting the copy into the live field looked like the whole repair. It was not.
+The item's own 2026-08-19 amendment states that its restructure **supersedes**
+the single-leg framing, and the metadata copy *was* that superseded framing —
+verified by searching the promoted text, which contained no occurrence of the
+restructure or of either new leg. So the repair replaced a null bar with a
+**retired** one.
+
+That direction matters. A null bar fails loudly. A superseded bar passes quietly:
+the amendment's own first sentence warns that an implementer working only the
+null-fields branch leaves the larger classes untouched, and the superseded bar is
+that branch and nothing else. A dispatch would have produced a technically
+passing run addressing one of three classes.
+
+**So the check is two-part.** Read the JSON to confirm the field is populated —
+never the rendering, which shows a copy the factory does not consume. Then read
+the comment timeline for anything that supersedes it. Doing only the first is how
+this session nearly shipped the retired bar it had just repaired.
+
+A sweep of the thread's nine other open carriers found exactly one further
+supersession-language hit worth opening, and it was a correction to a *finding*
+rather than to a bar. **The hazard is rare, which is precisely why nobody looks.**
+
 ## A note on where these came from
 
 Nothing here is a general software-engineering maxim. Each rule is the residue
