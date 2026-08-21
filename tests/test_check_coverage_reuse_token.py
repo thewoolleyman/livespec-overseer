@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CHECK_COVERAGE = ROOT / "scripts" / "check-coverage.sh"
 CHECK_PER_FILE_COVERAGE = ROOT / "scripts" / "check-per-file-coverage.sh"
 REUSE_STAMP = ".coverage.livespec-reuse-token"
+OLD_REUSE_STAMP = ".livespec-" "coverage-reuse-token"
 
 
 def _clean_env(*, tmp_path: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
@@ -159,6 +160,19 @@ def test_current_aggregate_token_reuses_produced_coverage_once(*, tmp_path: Path
     ]
     assert not (tmp_path / ".coverage").exists()
     assert not (tmp_path / REUSE_STAMP).exists()
+
+
+def test_reuse_stamp_literal_is_shared_by_producer_consumer_and_contract() -> None:
+    files = [
+        CHECK_COVERAGE,
+        CHECK_PER_FILE_COVERAGE,
+        Path(__file__),
+    ]
+
+    for path in files:
+        text = path.read_text(encoding="utf-8")
+        assert REUSE_STAMP in text
+        assert OLD_REUSE_STAMP not in text
 
 
 def test_check_coverage_messages_do_not_assert_unproven_provenance() -> None:
