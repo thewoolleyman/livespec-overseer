@@ -1,2 +1,2 @@
-work_item=overseer-hgq4wi.26
-reason=Make the CI coverage-pair handoff carry the reuse token (job env plus the stamp in the coverage-data artifact) so the check-coverage consumer job consumes the producer's artifact instead of re-running the full suite, and assert in the job that the consume-once branch was taken. Workflow-only change; the local just check path is untouched.
+work_item=overseer-bnutz7
+reason=Carry the coverage provenance marker in the CI artifact and let both coverage jobs resolve the run id themselves, so check-coverage reuses the producer's data across the job boundary without trusting aggregate-local state, and rename the marker out of coverage's parallel-data namespace.
