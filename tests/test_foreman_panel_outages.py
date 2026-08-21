@@ -8,6 +8,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+import foreman_consensus_prompt
+import foreman_consensus_types
 import foreman_panel
 
 __all__: list[str] = []
@@ -77,6 +79,126 @@ def test_reviewer_timeout_becomes_typed_insufficient_information(*, monkeypatch,
         "params": {"reason": "reviewer_timeout"},
     }
     assert response["rationale"] == "reviewer_timeout"
+
+
+def test_anthropic_fenced_json_stdout_parses_to_real_verdict(*, monkeypatch, tmp_path: Path):
+    def fake_run(
+        *,
+        args: list[str],
+        check: bool,
+        capture_output: bool,
+        text: bool,
+        timeout: float,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=textwrap.dedent(
+                """
+                ```json
+                {
+                  "reviewer_id": "fable",
+                  "verdict": "unblock",
+                  "action": {"action_id": "work_item_file", "params": {"target": "overseer-next"}},
+                  "rationale": "The bounded action is reversible."
+                }
+                ```
+                """
+            ).strip(),
+            stderr="",
+        )
+
+    monkeypatch.setattr(foreman_panel.subprocess, "run", fake_run)
+
+    response = foreman_panel.run_reviewer(
+        prompt=prompt(),
+        prompt_file=tmp_path / "prompt.json",
+        reviewer_command=[sys.executable, "-c", "pass"],
+    )
+
+    assert response["verdict"] == "unblock"
+    assert response["action"] == {
+        "action_id": "work_item_file",
+        "params": {"target": "overseer-next"},
+    }
+
+
+def test_malformed_reviewer_stdout_is_preserved_without_false_parse(*, tmp_path: Path):
+    malformed = tmp_path / "malformed.py"
+    write_script(path=malformed, body="print('Here is what I think: unblock option one.')\n")
+
+    bad = foreman_panel.run_reviewer(
+        prompt=prompt(),
+        prompt_file=tmp_path / "prompt.json",
+        reviewer_command=[sys.executable, str(malformed)],
+    )
+
+    assert bad["verdict"] == "insufficient-information"
+    assert bad["rationale"] == "reviewer_response_malformed"
+    assert bad["raw_stdout"] == "Here is what I think: unblock option one.\n"
+
+
+def test_reviewer_responses_persist_raw_stdout_for_each_reviewer(*, tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    reviewer = tmp_path / "reviewer.py"
+    dossier_dir = tmp_path / "dossier"
+    write_script(
+        path=reviewer,
+        body="""
+        import argparse
+        import json
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--reviewer-id", required=True)
+        parser.add_argument("--vendor", required=True)
+        parser.add_argument("--model", required=True)
+        parser.add_argument("--prompt-file", required=True)
+        args = parser.parse_args()
+        print(
+            json.dumps(
+                {
+                    "reviewer_id": args.reviewer_id,
+                    "verdict": "unblock",
+                    "action": {"action_id": "work_item_file", "params": {}},
+                }
+            )
+        )
+        """,
+    )
+
+    responses = foreman_panel.reviewer_responses(
+        request=request(repo=repo),
+        dossier_dir=dossier_dir,
+        reviewer_command=[sys.executable, str(reviewer)],
+    )
+
+    reviewers = responses["reviewers"]
+    assert isinstance(reviewers, list)
+    assert all(isinstance(reviewer.get("raw_stdout"), str) for reviewer in reviewers)
+    assert json.loads((dossier_dir / "responses" / "fable.json").read_text(encoding="utf-8"))[
+        "raw_stdout"
+    ].startswith("{")
+
+
+def test_reviewer_prompt_pins_action_schema_from_evaluator_grammar(*, monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(
+        foreman_consensus_prompt,
+        "ACTION_ID_SET",
+        frozenset({"synthetic_action"}),
+        raising=False,
+    )
+    built = foreman_consensus_prompt.reviewer_prompt(
+        request=request(repo=tmp_path / "repo"),
+        identity={"reviewer_id": "fable", "vendor": "anthropic", "model": "claude-fable-5"},
+    )
+    prompt_text = built["prompt"]
+
+    assert isinstance(prompt_text, str)
+    assert "synthetic_action" in prompt_text
+    assert "no markdown fence" in prompt_text
+    assert "params must be a JSON object" in prompt_text
+    assert foreman_consensus_types.ACTION_ID_SET.isdisjoint({"synthetic_action"})
 
 
 def test_convening_writes_tooling_outage_verdict_when_reviewer_times_out(*, tmp_path: Path):

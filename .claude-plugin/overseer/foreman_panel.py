@@ -18,6 +18,7 @@ from foreman_consensus_types import DEFAULT_PANEL_LIMITS, DEFAULT_STATE_DIR
 from foreman_panel_decision_kind import result_decision_kind
 from foreman_panel_io import default_dossier_dir, load_request, write_json
 from foreman_panel_refusal import refusal_for, refused_result
+from foreman_panel_response import reviewer_response_object
 
 __all__: list[str] = [
     "convene_panel",
@@ -50,6 +51,7 @@ def command_missing_response(*, prompt: dict[str, object]) -> dict[str, object] 
         "verdict": "insufficient-information",
         "action": {"action_id": "human_valve", "params": {"reason": "reviewer_command_missing"}},
         "rationale": f"reviewer command not found: {command[0]}",
+        "raw_stdout": "",
     }
 
 
@@ -75,12 +77,15 @@ def reviewer_argv(
     ]
 
 
-def reviewer_failure(*, prompt: dict[str, object], reason: str) -> dict[str, object]:
+def reviewer_failure(
+    *, prompt: dict[str, object], reason: str, raw_stdout: str = ""
+) -> dict[str, object]:
     return {
         "reviewer_id": str_field(payload=prompt, key="reviewer_id"),
         "verdict": "insufficient-information",
         "action": {"action_id": "human_valve", "params": {"reason": reason}},
         "rationale": reason,
+        "raw_stdout": raw_stdout,
     }
 
 
@@ -106,11 +111,15 @@ def run_reviewer(
     except subprocess.TimeoutExpired:
         return reviewer_failure(prompt=prompt, reason="reviewer_timeout")
     if completed.returncode != 0:
-        return reviewer_failure(prompt=prompt, reason="reviewer_command_failed")
-    response = jsonio.parse_object(text=completed.stdout)
+        return reviewer_failure(
+            prompt=prompt, reason="reviewer_command_failed", raw_stdout=completed.stdout
+        )
+    response = reviewer_response_object(raw_stdout=completed.stdout)
     if response is None:
-        return reviewer_failure(prompt=prompt, reason="reviewer_response_malformed")
-    return response
+        return reviewer_failure(
+            prompt=prompt, reason="reviewer_response_malformed", raw_stdout=completed.stdout
+        )
+    return {**response, "raw_stdout": completed.stdout}
 
 
 def reviewer_responses(
