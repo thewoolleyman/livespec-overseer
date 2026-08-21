@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import _supervisor_config
 import registry
@@ -65,17 +65,12 @@ def _read_updated_at(*, repo: str, topic: str) -> datetime | None:
         return None
 
 
-def _tracked_as_supervisor_half(*, topic: str) -> bool:
-    return signals.topic_supervised_worker(topic=topic) is not None
-
-
 def observe_supervisor_state_freshness(
     *, sup: Supervisor, track: registry.Track
 ) -> SupervisorStateFreshness:
-    if not _tracked_as_supervisor_half(topic=track.topic):
+    if not isinstance(track, registry.SupervisorSeat):
         return SupervisorStateFreshness(stale=False, age=None, reason=None)
-    topic = cast(str, signals.topic_supervised_worker(topic=track.topic))
-    updated_at = _read_updated_at(repo=track.repo, topic=topic)
+    updated_at = _read_updated_at(repo=track.repo, topic=track.supervised_topic)
     if updated_at is None:
         return SupervisorStateFreshness(stale=True, age=None, reason="missing or malformed marker")
     age = max(0.0, sup.now() - updated_at.timestamp())

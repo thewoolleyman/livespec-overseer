@@ -7,6 +7,7 @@ from pathlib import Path
 
 import _supervisor_config
 import pytest
+import registry
 import signals
 from test_supervisor_builders import make_plan, make_supervisor, mapped_track
 from test_supervisor_fakes import FakeTmux
@@ -43,11 +44,86 @@ def _freshness(*, tmp_path, topic_suffix: str, body: str | None = None):
     return supervisor_state.observe_supervisor_state_freshness(sup=sup, track=track)
 
 
+def _freshness_for_track(*, tmp_path, track):
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), now=lambda: 1000.0)
+    supervisor_state = _import_supervisor_state_module()
+    return supervisor_state.observe_supervisor_state_freshness(sup=sup, track=track)
+
+
 def test_non_supervisor_topic_does_not_require_supervisor_state(*, tmp_path):
     freshness = _freshness(tmp_path=tmp_path, topic_suffix="")
 
     assert freshness.stale is False
     assert freshness.age is None
+
+
+def test_smart_constructed_supervisor_seat_reads_supervised_topic_marker(*, tmp_path, monkeypatch):
+    monkeypatch.setattr(_supervisor_config, "SUPERVISOR_STATE_STALE_AFTER", 60.0, raising=False)
+    repo, worker_topic = make_plan(tmp_path=tmp_path)
+    track = mapped_track(
+        repo=repo,
+        topic=signals.supervisor_entity_topic(topic=worker_topic),
+        session="supervisor-pane",
+    )
+    assert isinstance(track, registry.SupervisorSeat)
+    _write_marker(
+        repo=repo,
+        topic=track.supervised_topic,
+        body="topic: topic\nupdated_at: 1970-01-01T00:16:20Z\n",
+    )
+
+    freshness = _freshness_for_track(tmp_path=tmp_path, track=track)
+
+    assert freshness.stale is False
+    assert freshness.age == 20.0
+
+
+def test_smart_constructed_plan_track_does_not_require_supervisor_state(*, tmp_path):
+    repo, worker_topic = make_plan(tmp_path=tmp_path)
+    track = mapped_track(repo=repo, topic=worker_topic, session="worker-pane")
+    assert isinstance(track, registry.PlanTrack)
+
+    freshness = _freshness_for_track(tmp_path=tmp_path, track=track)
+
+    assert freshness.stale is False
+    assert freshness.age is None
+
+
+def test_loaded_plan_track_with_supervisor_suffix_follows_variant_not_topic_suffix(*, tmp_path):
+    repo, worker_topic = make_plan(tmp_path=tmp_path)
+    track = registry.PlanTrack(
+        repo=str(repo),
+        topic=signals.supervisor_entity_topic(topic=worker_topic),
+        tmux="worker-pane",
+        epic="overseer-test-epic",
+    )
+
+    freshness = _freshness_for_track(tmp_path=tmp_path, track=track)
+
+    assert freshness.stale is False
+    assert freshness.age is None
+
+
+def test_loaded_supervisor_seat_without_supervisor_suffix_follows_variant(*, tmp_path, monkeypatch):
+    monkeypatch.setattr(_supervisor_config, "SUPERVISOR_STATE_STALE_AFTER", 60.0, raising=False)
+    repo, worker_topic = make_plan(tmp_path=tmp_path)
+    track = registry.SupervisorSeat(
+        repo=str(repo),
+        topic=worker_topic,
+        tmux="supervisor-pane",
+        epic="overseer-test-epic",
+        supervised_topic=worker_topic,
+    )
+    _write_marker(
+        repo=repo,
+        topic=track.supervised_topic,
+        body="topic: topic\nupdated_at: 1970-01-01T00:16:20Z\n",
+    )
+
+    freshness = _freshness_for_track(tmp_path=tmp_path, track=track)
+
+    assert freshness.stale is False
+    assert freshness.age == 20.0
 
 
 def test_naive_quoted_updated_at_is_treated_as_utc(*, tmp_path, monkeypatch):
