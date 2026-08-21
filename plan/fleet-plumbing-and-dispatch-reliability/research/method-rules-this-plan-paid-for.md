@@ -1,11 +1,11 @@
 # Method rules this plan paid for
 
-Consolidated 2026-08-19; extended 2026-08-21 with rules 13-15. These rules
-were each learned by being bitten, and until now they lived scattered across a
-dozen ledger handoff entries — which means reconstructing them costs reading
-the whole timeline in order. They are the transferable part of this work, so
-they belong in the research store where a fresh reader can find them in one
-place.
+Consolidated 2026-08-19; extended 2026-08-21 with rules 13-15, then 16-19,
+then 20-22. These rules were each learned by being bitten, and until now they
+lived scattered across a dozen ledger handoff entries — which means
+reconstructing them costs reading the whole timeline in order. They are the
+transferable part of this work, so they belong in the research store where a
+fresh reader can find them in one place.
 
 **This note is method only.** It records no carrier state; status is composed
 from the ledger. Where a rule names an incident, the incident is on the epic's
@@ -451,6 +451,124 @@ A second, smaller trap surfaced in the same query and is worth carrying: the
 first attempt filtered on `guard.mode = "fail"` and returned 4,382 of 4,382.
 `guard.mode` is the guard's *configured mode*, not an outcome. **A ratio of
 exactly 1.0 is a filter smell, not a finding.**
+
+### 20. An instrument gap and a causal claim are two findings, and the first does not evidence the second
+
+`overseer-zw34c3` measured, correctly and carefully, that the delimiter check
+this repo prescribes misses a doubled *closing* brace. Scanned as stored, the
+casualty item gives zero hits for all three opening forms and two for the
+closing form, so the check really does return clean on the record it was filed
+about. That half is confirmed.
+
+It then attributed a casualty to that sequence — and **nothing had ever been
+dispatched.** The item's only journal row is the foreman filing it; its
+successor has none. Positive control on the same query: a known-dispatched item
+returns 127 rows. So the undispatchability was inferred, never observed.
+
+Two measurements refute the attribution outright:
+
+- **The grammar.** The dispatcher's own escaper states that the template engine
+  enters template mode ONLY at the three *opening* delimiters, and that closing
+  delimiters are inert outside a tag. Its regex matches those three and nothing
+  else.
+- **A natural experiment.** Of 612 assembled goal files surviving on this host —
+  every one classified, no cherry-picking — exactly two contain a doubled closing
+  brace with no opener. **Both ran**: one for 41 minutes, one to completion with
+  outcome green in another tenant. Exactly two contain a doubled opener, and both
+  died at the factory-run stage in about 32 seconds.
+
+The consequence is not academic. Implementing the item as filed would add a leg
+flagging a sequence the grammar says is inert and that ordinary nested JSON
+produces *by default* — and the item's own criterion 3 forbids that, since it
+requires the fixed check to stay clean on ordinary JSON. **Criteria 1 and 3 are
+in direct conflict as filed**, and the conflict is only visible once you stop
+treating the instrument gap as evidence for the cause.
+
+**So: when a careful measurement sits next to a causal claim, check whether the
+claim was measured too.** It rides along on the credibility of its neighbour.
+The tell here cost one query and would have been available at filing time: *ask
+whether the thing you are calling undispatchable was ever dispatched.*
+
+### 21. A control is a dated claim like any other — re-verify it AS a control
+
+Rules 3 and 4 are about designing a check that can fail. This one is about the
+check you designed *last month* and are still trusting.
+
+`overseer-fs4` does the right thing: it states that a zero-hit grep is not
+evidence on its own, and it names a positive control — a token that "hits at"
+four specific call sites. Re-running its method today, **that token returns
+zero.** Not because the search is broken: because the key was removed from the
+package, which is exactly what this thread verified when it closed
+`overseer-n11` as already-done. The control is now indistinguishable from the
+thing it was supposed to detect.
+
+**The same pass produced two different failures wearing one symptom, and only
+the control separated them.** The first run returned zero for *every* term
+including the control, because the shell expanded the include-pattern flag
+before `grep` saw it and nothing was scoped at all. Had the four target terms
+been run alone, the output would have been four confident zeros produced by a
+broken command. Once the command was fixed, the control *still* returned zero —
+for the unrelated staleness reason above. Swapping in a token known to exist
+today (345 hits) is what finally made the four real zeros meaningful.
+
+This has a family. Three instances landed in a single day:
+
+| the control | how it decayed |
+|---|---|
+| a remote run id quoted as a dump fixture | removed from the remote store within hours, while its sibling survived |
+| a real historical commit used as a RED fixture | absent from CI's shallow clone, so the test failed where it ran |
+| a grep token named as a positive control | legitimately deleted from the package it probed |
+
+Each fails in the **safest-looking** direction: a zero from a broken or outdated
+query is indistinguishable from the zero you hoped for, and a fixture that
+cannot be found reads as *the finding was wrong* rather than *the fixture
+decayed*.
+
+**So: before a control validates anything, validate the control.** And when you
+write one down for someone else, prefer a property that is re-derivable — resolve
+the fixture *by shape* at the time of use — over an identifier that was true on
+the day you wrote it.
+
+### 22. An acceptance criterion is a claim about the world, and can be false
+
+Rule 16 says a populated acceptance field is not evidence of a *current*
+requirement. This is the harder case: a field that is current, ratified, and
+**technically wrong**.
+
+`overseer-iwu` asks for a resolver that selects the newest plugin cache
+directory **by modification time**. Measured across this host's cache — 175
+directories, versions read from each directory's own manifest rather than
+inferred from its name — mtime order is not release order, and two independent
+pairs are anti-correlated:
+
+```
+08:28:35  0.62.10        0.62.10
+07:57:48  15a4ae9aff88   0.62.9     <- newer mtime, older version
+06:48:29  15b9787566a7   0.62.10    <- what ensure-plugins names as current
+04:13:53  271b1f3fa14c   0.62.5     <- newest of its block by mtime
+04:10:24  4157cf17b852   0.62.8     <- oldest of its block by mtime
+```
+
+The prescribed heuristic picks the staler build in **both** pairs where the two
+orders disagree, and the authority the item already trusts names a directory
+that is only the third newest by mtime.
+
+**And the specified test would not have caught it.** It asserts the resolver
+reaches an *existing executable* — and a stale build's entry point exists. Its
+required positive control tests existence, not currency. So the acceptance as
+written would green-light a resolver that reliably picks the wrong build: the
+same check-that-cannot-fail class the item itself was filed about.
+
+Two more instances the same day. `overseer-thk0` inherited a criterion pinning a
+specific run id as its demonstration, and that run vanished from the remote store
+between the criterion being written and being read. `overseer-zw34c3` carries two
+criteria that cannot both be satisfied (rule 20).
+
+**So: measure an acceptance criterion before implementing against it**, at least
+where it prescribes a mechanism rather than an outcome. All three of these were
+caught in the gap between ratification and dispatch, which is the cheap moment —
+a criterion that is wrong about the world produces a run that passes its own bar
+and ships the defect, and the passing run is then evidence *for* the criterion.
 
 ## A note on where these came from
 
