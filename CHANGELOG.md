@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.13.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.12.1...v1.13.0) (2026-08-21)
+
+
+### Features
+
+* add caam profile state red ([7ee2962](https://github.com/thewoolleyman/livespec-overseer/commit/7ee2962627f76e9b93f52cfcfa61c65c30d69577))
+
+
+### Bug Fixes
+
+* distinguish json object parse failures ([590ac9d](https://github.com/thewoolleyman/livespec-overseer/commit/590ac9d32ca4963a0f4f1dadf3f0c9f9cb66553e))
+
 ## [1.12.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.12.0...v1.12.1) (2026-08-21)
 
 
