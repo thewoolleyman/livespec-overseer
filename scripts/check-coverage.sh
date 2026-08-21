@@ -9,12 +9,13 @@ set -euo pipefail
 # aggregate's current reuse token, is read once and DELETED — no stale-data
 # reports possible. Absent a matching token, the clean suite runs here as
 # before.
-reuse_stamp=.livespec-coverage-reuse-token
+reuse_stamp=.coverage.livespec-reuse-token
 if [[ -f .coverage && -f "$reuse_stamp" && -n "${LIVESPEC_COVERAGE_REUSE_TOKEN:-}" ]] && [[ "$(cat "$reuse_stamp")" == "$LIVESPEC_COVERAGE_REUSE_TOKEN" ]]; then
   echo ":: check-coverage: reading current aggregate .coverage; no duplicate suite run"
   status=0
+  rm -f "$reuse_stamp"
   env -u COVERAGE_FILE uv run coverage report --fail-under=100 || status=$?
-  rm -f .coverage "$reuse_stamp"
+  rm -f .coverage
   exit "$status"
 fi
 if [[ -f .coverage ]]; then

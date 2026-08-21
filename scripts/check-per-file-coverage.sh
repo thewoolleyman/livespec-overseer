@@ -8,7 +8,7 @@ set -euo pipefail
 # consumer path (it deletes the file after reading). The aggregate supplies
 # LIVESPEC_COVERAGE_REUSE_TOKEN; standalone runs deliberately produce no token
 # because their .coverage data has no same-run consumer.
-reuse_stamp=.livespec-coverage-reuse-token
+reuse_stamp=.coverage.livespec-reuse-token
 rm -f "$reuse_stamp"
 env -u COVERAGE_FILE uv run pytest -n "$(scripts/test-nprocs.sh)" --cov --cov-branch --cov-config=pyproject.toml --cov-report=term-missing
 if [[ -n "${LIVESPEC_COVERAGE_REUSE_TOKEN:-}" ]]; then
