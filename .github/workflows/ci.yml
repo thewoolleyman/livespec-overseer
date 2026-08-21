@@ -274,6 +274,13 @@ jobs:
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
       GITHUB_TOKEN: ${{ github.token }}
       GH_TOKEN: ${{ github.token }}
+      # Coverage-pair handoff token (overseer-hgq4wi.26): the producer stamps
+      # .coverage with this value and the consumer job exports the SAME value,
+      # so scripts/check-coverage.sh takes its consume-once branch on the
+      # downloaded artifact instead of re-running the whole suite. Both jobs
+      # must derive it from fields they can both see; run_id + run_attempt is
+      # unique per attempt and needs no cross-job output plumbing.
+      LIVESPEC_COVERAGE_REUSE_TOKEN: ci-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       # Per-step `if:` (not job-level) so the job still reports its own status
       # check name when skipped — same pattern as the check-python matrix.
@@ -322,7 +329,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage-data
-          path: .coverage
+          path: |
+            .coverage
+            .coverage.livespec-reuse-token
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
@@ -347,6 +356,8 @@ jobs:
       MISE_NOT_FOUND_AUTO_INSTALL: "0"
       GITHUB_TOKEN: ${{ github.token }}
       GH_TOKEN: ${{ github.token }}
+      # Must equal the producer job's value exactly (see that job's comment).
+      LIVESPEC_COVERAGE_REUSE_TOKEN: ci-${{ github.run_id }}-${{ github.run_attempt }}
     strategy:
       matrix:
         target:
@@ -390,7 +401,16 @@ jobs:
           shims_dir="$(dirname "$(command -v npm)")"
           node_bin="$(cd "$shims_dir/../installs/node/latest/bin" 2>/dev/null && pwd || ls -d "$shims_dir/../installs/node"/*/bin 2>/dev/null | head -1)"
           [ -n "$node_bin" ] && export PATH="$node_bin:$PATH"
-          just ${{ matrix.target }}
+          # The consumer must CONSUME the producer's artifact, not silently fall
+          # back to a duplicate suite run (overseer-hgq4wi.26): a green job that
+          # took the fallback branch is the defect this assertion exists to
+          # catch. The script's two branch messages are the discriminator.
+          just ${{ matrix.target }} > coverage-consumer.log 2>&1 || { cat coverage-consumer.log; exit 1; }
+          cat coverage-consumer.log
+          grep -q 'reading current aggregate .coverage' coverage-consumer.log || {
+            echo '::error::check-coverage did not take the consume-once branch; the coverage-data handoff is broken' >&2
+            exit 1
+          }
 
   # Metadata matrix runs unconditionally to preserve the repo-metadata
   # safety net. Populate as Phase G.4 migrates claude-md-coverage,
