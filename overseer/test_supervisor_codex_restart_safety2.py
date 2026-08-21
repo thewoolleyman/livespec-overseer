@@ -7,6 +7,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 
 ``import supervisor`` resolves via conftest.py.
 """
+# livespec-lloc-soft-band-owner: overseer-hgq4wi.6
 
 import contextlib
 import io as _io
