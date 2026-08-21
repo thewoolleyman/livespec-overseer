@@ -36,6 +36,23 @@ __all__: list[str] = []
             ("read_resume_pending", "set_resume_pending"),
         ),
         ("_registry_store_rows", "_registry_store", ("track_to_row", "validated_row")),
+        ("_supervisor_wrapup_injection", "_supervisor_restart", ("maybe_inject",)),
+        (
+            "_supervisor_ready_alerts",
+            "_supervisor_liveness",
+            ("uncertifiable_ready_surface",),
+        ),
+        (
+            "_supervisor_pane_still",
+            "_supervisor_stall_watch",
+            (
+                "PANE_STILL_STATUS",
+                "StallWatchRequest",
+                "StallWatchResult",
+                "WATCH_TARGET_GONE_STATUS",
+                "apply_stall_watch",
+            ),
+        ),
     ],
 )
 def test_soft_band_extractions_keep_public_facades(

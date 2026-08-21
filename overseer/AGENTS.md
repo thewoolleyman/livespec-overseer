@@ -696,6 +696,18 @@ for the marker's edge-triggered lifecycle.
     `foreman` plan-topic rather than the canonical `livespec-overseer-foreman`
     identity — a follow-up migration, not done inline against a live session.
 
+12. **Lifecycle helper inventory, updated narrowly 2026-08-21
+    (`overseer-hgq4wi.3.2`).** The restart/liveness/stall-watch trio is no
+    longer wholly inside the three legacy aggregate modules. `_supervisor_restart`
+    keeps the runtime-dispatched respawn path and imports the escalating
+    low-context paste from `_supervisor_wrapup_injection`. `_supervisor_liveness`
+    keeps blocked and picker-stall alert surfacing, re-exporting shared duration
+    primitives from `_supervisor_liveness_time` and uncertifiable-ready surfacing
+    from `_supervisor_ready_alerts`. `_supervisor_stall_watch` coordinates the
+    evaluation monitors and imports the pane-still watch from
+    `_supervisor_pane_still`. This is a local map for these lifecycle helpers,
+    not a refreshed inventory of every `_supervisor_*.py` module.
+
 ## Load-bearing mechanics + gotchas
 
 - **Pane sizing + the window badge (`tmuxio.set_pane_height_percent` / `rename_window`).**
