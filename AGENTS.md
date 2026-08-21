@@ -1271,6 +1271,39 @@ RECORD's field as the WORLD's state; here it is reading a PATH's age as a
 BEHAVIOUR's age. When a claim rests on "this did not exist yet", name which
 instrument established that, and prefer the one keyed on the thing itself.
 
+### And a FOURTH: a search result is not evidence about the PAST — date the information before you retract
+
+Measured 2026-08-21. This one closes the family, because its victim is the very
+habit the three rules above are meant to instil: checking yourself.
+
+A completeness review found that a plan had deferred a concern to an owner that
+turned out to be CLOSED, so the concern had no owner. Hours later, a broader
+search found a live, well-groomed epic owning exactly that concern, with six P1
+children. The obvious reading — the reviewer searched badly and the owner was
+there all along — was about to be written up as a correction.
+
+**It was wrong.** The owning plan's directory landed at 23:14:44Z and its scope
+event was stamped 22:43. The review ran at 15:00Z. The owner did not exist then;
+it was created roughly seven and a half hours later, plausibly *because* of the
+finding.
+
+**Both readings look identical today, and only a timestamp separates them.** A
+present-tense query answers "what is true now" and is silent about when it became
+true — so using it to audit a past claim reads the record's current state as the
+world's history, exactly as the three rules above warn.
+
+**An unnecessary retraction is not free.** It puts a false admission of error into
+the permanent record, and it undermines a sound finding — here, one that had
+already caused a P1 to be filed and may have prompted the cure. Over-correction
+looks like diligence and costs the same as being wrong.
+
+So before retracting on new information, ask **when the new information became
+true**, and prefer the instrument that carries a date: the commit that added the
+file, the stamped scope event, the run's `createdAt`. If the new evidence
+post-dates the claim, you have an UPDATE — "correct when written, since cured" —
+not a correction. Say so in those words; the two are different facts and the
+record needs the difference.
+
 ## The charter gate's false positives all point ONE way — suspect the detector first
 
 `tests/prompts/test_charters_carry_no_known_defects.py` scores every supervisor
