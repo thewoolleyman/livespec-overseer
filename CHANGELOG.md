@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.3...v1.7.4) (2026-08-21)
+
+
+### Bug Fixes
+
+* cover foreman panel reviewer outages ([6537489](https://github.com/thewoolleyman/livespec-overseer/commit/6537489edcf89fa740fbe501123fa13797055a03))
+
 ## [1.7.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.2...v1.7.3) (2026-08-21)
 
 
