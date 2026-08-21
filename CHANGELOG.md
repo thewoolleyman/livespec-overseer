@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.8...v1.7.9) (2026-08-21)
+
+
+### Refactoring
+
+* split foreman consensus actions ([e460b7a](https://github.com/thewoolleyman/livespec-overseer/commit/e460b7aae8089abb995140b1dae0fdcbcef31f7e))
+* split foreman soft-band modules ([0c442fd](https://github.com/thewoolleyman/livespec-overseer/commit/0c442fd2996288f9dadc2dd2244b0e4884654bbf))
+
 ## [1.7.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.7.7...v1.7.8) (2026-08-21)
 
 
