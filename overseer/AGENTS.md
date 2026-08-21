@@ -715,6 +715,18 @@ for the marker's edge-triggered lifecycle.
     `_supervisor_pane_still`. This is a local map for these lifecycle helpers,
     not a refreshed inventory of every `_supervisor_*.py` module.
 
+13. **Facade/core helper inventory, updated narrowly 2026-08-21
+    (`overseer-hgq4wi.3.4`).** The final facade slice keeps `supervisor.py` as
+    the executable script/facade and `_supervisor_core.py` as the `Supervisor`
+    class, but moved three cohesive helper bodies out of the soft band:
+    `_supervisor_cli_actions` owns the read-only `list` and `adopt` command bodies,
+    `_supervisor_cli_parser` owns only argparse subcommand wiring,
+    `_supervisor_diagnostics` owns log/surface/track-alert emission, and
+    `_supervisor_tick` owns the per-tick row pass, pair pass, extra-row append,
+    render, badge, and status snapshot write. This is a local map for the files
+    touched by this slice, not a refreshed inventory of every `_supervisor_*.py`
+    module.
+
 ## Load-bearing mechanics + gotchas
 
 - **Pane sizing + the window badge (`tmuxio.set_pane_height_percent` / `rename_window`).**
@@ -1167,10 +1179,11 @@ for the marker's edge-triggered lifecycle.
     no business being a subcommand of a track CLI). The skill invokes it as
     `uv run --no-project python overseer/supervisor.py <cmd>` — a
     module invoked from the skill, never a supported bare `python3` path.
-    **That invocation is why `main` and the `__main__` guard stay in the façade**
-    rather than moving to a `_supervisor_cli` collaborator: the shipped operator
-    surface executes this exact file as a script, and a collaborator holding `main`
-    would need the façade to import it, closing an import cycle.
+    **That invocation is why `main` and the `__main__` guard stay in the façade.**
+    The argparse subcommand wiring lives in `_supervisor_cli_parser`, but the
+    command handlers stay here because operator tests and callers patch facade-local
+    helpers such as `_cli_colliding`; moving those handlers would silently bypass
+    those patches.
   Beyond `--warn-percent`, there are **no config knobs**: store
   (`~/.livespec-overseer.jsonl`) and injection-stamp
   (`~/.livespec-overseer-stamps.json`) paths are hard-coded via the `registry`

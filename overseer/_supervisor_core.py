@@ -61,7 +61,6 @@ work (overseer-bg2.3). Import a constant FROM the module that defines it, never 
 the `supervisor` facade: a facade re-export can be monkeypatched successfully while the
 reader here keeps its own binding.
 """
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.3
 
 from __future__ import annotations
 
@@ -75,50 +74,36 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO
 
+import _seams
+import _supervisor_diagnostics
 import _supervisor_discovery
 import _supervisor_evaluate
-import _supervisor_foreman
-import _supervisor_grooming
 import _supervisor_launch
 import _supervisor_lifecycle
 import _supervisor_nudge
 import _supervisor_observe
-import _supervisor_pair
 import _supervisor_recovery
 import _supervisor_render
 import _supervisor_restart
 import _supervisor_snapshot
 import _supervisor_state
+import _supervisor_tick
 import claude_sessions
 import codex_sessions
 import registry
-import streams
 import tmuxio
-from _seams import (
-    CommToPidList,
-    EpicLookup,
-    PidToIntList,
-    PidToOptionalBytes,
-    PidToOptionalInt,
-    PidToOptionalStr,
-    PidToStrList,
-    RepoPredicate,
-    StatusWriter,
-)
 from _supervisor_config import (
     LOOP_INTERVAL_SECONDS,
     default_gitignore_check,
     installed_claude_version,
-    iso_now,
-    track_key,
 )
 from _supervisor_records import InjectState, PairStallState
-from _supervisor_view import (
-    RowView,
-    needs_attention,
-)
+from _supervisor_view import RowView
 
 __all__: list[str] = ["Supervisor"]
+
+CodexSessionMap = dict[tuple[str, str], codex_sessions.CodexSession]
+MaybeStr = str | None
 
 
 # --------------------------------------------------------------------------- #
@@ -143,7 +128,7 @@ class Supervisor:
     watch_set_path: str | os.PathLike[str] | None = None
     status_snapshot_path: str | os.PathLike[str] | None = None
     status_path: str | os.PathLike[str] | None = None
-    status_writer: StatusWriter = _supervisor_snapshot.default_status_writer
+    status_writer: _seams.StatusWriter = _supervisor_snapshot.default_status_writer
     status_snapshot_writer: Callable[..., None] = _supervisor_snapshot.write_status_snapshot
     extra_repos: list[str] = field(default_factory=list)
     # Daemon-wide default warn threshold (remaining-% at which the FIRST wrap-up
@@ -158,17 +143,17 @@ class Supervisor:
     # Claude session-registry adoption seams (default: real ~/.claude/sessions + /proc;
     # the beside-tests inject a tmp registry dir + fake /proc readers).
     sessions_dir: str | os.PathLike[str] | None = None
-    ppid_of: PidToOptionalInt = claude_sessions.proc_ppid
-    starttime_of: PidToOptionalStr = claude_sessions.proc_starttime
-    cmdline_of: PidToOptionalBytes = claude_sessions.proc_cmdline
-    environ_of: PidToOptionalBytes = claude_sessions.proc_environ
+    ppid_of: _seams.PidToOptionalInt = claude_sessions.proc_ppid
+    starttime_of: _seams.PidToOptionalStr = claude_sessions.proc_starttime
+    cmdline_of: _seams.PidToOptionalBytes = claude_sessions.proc_cmdline
+    environ_of: _seams.PidToOptionalBytes = claude_sessions.proc_environ
     # Background-subshell detection seams (default: real /proc; the beside-tests
     # inject fake process-tree readers). A tracked session sitting at an empty
     # prompt but with a later `Bash(run_in_background)` command still running has a
     # DESCENDANT shell under its pane process; startup wrapper shells are ignored
     # only when their /proc starttime proves they were born with the runtime.
-    children_of: PidToIntList = claude_sessions.proc_children
-    comm_of: PidToOptionalStr = claude_sessions.proc_comm
+    children_of: _seams.PidToIntList = claude_sessions.proc_children
+    comm_of: _seams.PidToOptionalStr = claude_sessions.proc_comm
     # Codex session-discovery seams (default: real /proc scan + ~/.codex; the beside-tests
     # inject fakes). Unlike Claude — whose candidate pids come from the injected registry
     # dir (`sessions_dir`) — Codex discovers its pids by a live `/proc` `comm==codex` scan
@@ -179,8 +164,8 @@ class Supervisor:
     # through as-is (no `_sessions_dir`-style helper needed). `ppid_of` (the tmux-join walk)
     # is shared with the Claude seam above.
     codex_home: str | os.PathLike[str] | None = None
-    codex_pids_of_comm: CommToPidList = codex_sessions.proc_pids_of_comm
-    codex_fd_targets_of: PidToStrList = codex_sessions.proc_fd_targets
+    codex_pids_of_comm: _seams.CommToPidList = codex_sessions.proc_pids_of_comm
+    codex_fd_targets_of: _seams.PidToStrList = codex_sessions.proc_fd_targets
     # Host-precondition seams (default: the real `/proc` + a real PATH lookup; the
     # beside-tests' `_sup` factory defaults them to a SUPPORTED-looking host so the
     # suite never depends on the RUNNER having tmux). Linux + tmux is a DECLARED
@@ -192,15 +177,15 @@ class Supervisor:
     # wrongly satisfy.
     proc_root: str | os.PathLike[str] = "/proc"
     which: Callable[[str], str | None] = shutil.which
-    codex_cwd_of: PidToOptionalStr = codex_sessions.proc_cwd
+    codex_cwd_of: _seams.PidToOptionalStr = codex_sessions.proc_cwd
     # Startup gate: `<repo>/tmp/overseer/` MUST be gitignored (the overseer only
     # writes temp files, never tracked ones). Injectable so tests fake the check.
-    gitignore_check: RepoPredicate = default_gitignore_check
+    gitignore_check: _seams.RepoPredicate = default_gitignore_check
     claude_version_of: Callable[[], str | None] = installed_claude_version
     # Assignment-time epic lookup re-used once at the restart boundary when a stored row
     # still has ``epic=None``. Tests inject this so ready-certification paths never reach
     # a host Beads ledger through ``bd``.
-    epic_lookup: EpicLookup = field(default_factory=lambda: registry.epic_from_plan_anchor)
+    epic_lookup: _seams.EpicLookup = field(default_factory=lambda: registry.epic_from_plan_anchor)
     # The daemon's OWN pane (its `$TMUX_PANE`, inherited because `overseerd` is launched
     # inside the top pane). Used only to badge the attention count onto the tmux WINDOW
     # name — the one overseer surface visible from a session the operator is attached to.
@@ -242,9 +227,7 @@ class Supervisor:
     # tick beside claude_status_by_session. Membership IS the exact answer to "is this pane
     # Codex?" — the pane command says `bun` (the launcher), which is too generic to
     # trust. Typed loosely to keep the dataclass free of a codex_sessions import cycle.
-    live_codex: dict[tuple[str, str], codex_sessions.CodexSession] = field(
-        default_factory=dict, init=False
-    )
+    live_codex: CodexSessionMap = field(default_factory=dict, init=False)
     # Topics that appear in >=2 watched repos this tick, recomputed at the top of
     # `build_rows` (before adopt/auto_link/evaluate run, so every session-name
     # derivation this tick sees the same set). `registry.tmux_id` repo-qualifies
@@ -258,11 +241,10 @@ class Supervisor:
     # ----------------------------------------------------------------- #
 
     def log(self, *, message: str) -> None:
-        streams.write_stderr(text=f"{iso_now()} overseer: {message}\n")
+        _supervisor_diagnostics.log(message=message)
 
     def log_claude_build(self, *, phase: str) -> None:
-        version = self.claude_version_of() or "unavailable"
-        self.log(message=f"claude build at {phase}: {version}")
+        _supervisor_diagnostics.log_claude_build(sup=self, phase=phase)
 
     def surface(self, *, message: str) -> None:
         """Surface a DAEMON-level alert to the operator (stderr; the bottom pane reads it).
@@ -270,7 +252,7 @@ class Supervisor:
         For anything scoped to a TRACK, use :meth:`alert` instead — it guarantees the
         tmux coordinates the operator needs in order to act.
         """
-        streams.write_stderr(text=f"{iso_now()} overseer[SURFACE]: {message}\n")
+        _supervisor_diagnostics.surface(message=message)
 
     def alert(
         self,
@@ -282,36 +264,18 @@ class Supervisor:
         message: str,
         condition: str = "default",
     ) -> None:
-        """Surface a TRACK-scoped alert that always names WHERE to act.
-
-        Every track alert carries the plan topic, its repo, the tmux SESSION and PANE
-        holding it, and a copy-pasteable jump command. ``repo::topic`` alone tells the
-        operator WHAT is stuck but never WHERE to go — they were left to hunt for the
-        session by hand (maintainer 2026-07-14).
-
-        This is load-bearing for the notify-never-block contract (invariant 8): because
-        the overseer NEVER prompts on a track's behalf, this line is the operator's ONLY
-        handover, so it MUST be self-sufficient. Every new track-scoped alert goes
-        through here — never a bare ``surface`` with an f-string of ``repo::topic``.
-
-        EDGE-TRIGGERED: emitted when a track ENTERS a condition (or the condition's text
-        changes), NOT once per tick. The log is the daemon's EVENT HISTORY — the surface
-        the bottom pane reads to answer "what happened, and when?" — while CURRENT state
-        is owned by the re-rendered table + its ``NEEDS YOU`` block. Re-emitting an
-        unchanged alert every tick buried that history in thousands of identical lines (a
-        track blocked overnight logged ~3,000 of them) and answered a question the table
-        already answers better. The re-arm is in :meth:`evaluate`: when a track returns to
-        a healthy status its entry is dropped, so the NEXT time it goes bad it reports
-        again.
-        """
-        where = f"tmux session '{session}' pane {pane}" if session else "no live tmux session"
-        jump = f" — jump: tmux switch-client -t {session}" if session else ""
-        line = f"{topic} ({registry.repo_slug(repo=repo)}) — {message} [{where}]{jump}"
-        key = (*track_key(repo=repo, topic=topic), condition)
-        if self.alerted.get(key) == line:
-            return
-        self.alerted[key] = line
-        self.surface(message=line)
+        """Surface a TRACK-scoped alert that always names WHERE to act."""
+        _supervisor_diagnostics.alert(
+            request=_supervisor_diagnostics.AlertRequest(
+                sup=self,
+                repo=repo,
+                topic=topic,
+                session=session,
+                pane=pane,
+                message=message,
+                condition=condition,
+            )
+        )
 
     # ----------------------------------------------------------------- #
     # Watch-set + discovery ⋈ mapping.
@@ -338,16 +302,14 @@ class Supervisor:
         _supervisor_discovery.refresh_codex_sessions(sup=self)
 
     def refresh_codex_sessions(self) -> None:
-        """Refresh live Codex session evidence for acting mechanics."""
-        self._refresh_codex_sessions()
+        return self._refresh_codex_sessions()
 
     def _refresh_claude_status(self) -> None:
         """See :func:`_supervisor_discovery.refresh_claude_status`."""
         _supervisor_discovery.refresh_claude_status(sup=self)
 
     def refresh_claude_status(self) -> None:
-        """Refresh live Claude process evidence for acting mechanics."""
-        self._refresh_claude_status()
+        return self._refresh_claude_status()
 
     def build_rows(self, *, act: bool = True) -> list[registry.Track]:
         """See :func:`_supervisor_discovery.build_rows`."""
@@ -362,7 +324,7 @@ class Supervisor:
         return _supervisor_launch.session_of(sup=self, track=track)
 
     def _is_codex_track(
-        self, *, session: str | None, repo: str, topic: str, target: str | None = None
+        self, *, session: MaybeStr, repo: str, topic: str, target: MaybeStr = None
     ) -> bool:
         """See :func:`_supervisor_observe.is_codex_track`."""
         return _supervisor_observe.is_codex_track(
@@ -378,8 +340,8 @@ class Supervisor:
         return _supervisor_state.expire_aged_ready(sup=self, track=track)
 
     def _void_stale_blocked(
-        self, *, track: registry.Track, blocked: str | None, generating: bool
-    ) -> str | None:
+        self, *, track: registry.Track, blocked: MaybeStr, generating: bool
+    ) -> MaybeStr:
         """See :func:`_supervisor_state.void_stale_blocked`."""
         return _supervisor_state.void_stale_blocked(
             sup=self, track=track, blocked=blocked, generating=generating
@@ -397,15 +359,8 @@ class Supervisor:
         """See :func:`_supervisor_restart.do_codex_restart`."""
         _supervisor_restart.do_codex_restart(sup=self, track=track, target=target)
 
-    @staticmethod
-    def _launch_command(*, track: registry.Track) -> str:
-        """See :func:`_supervisor_launch.launch_command`."""
-        return _supervisor_launch.launch_command(track=track)
-
-    @staticmethod
-    def _codex_launch_command(*, session_id: str, resume: str) -> str:
-        """See :func:`_supervisor_launch.codex_launch_command`."""
-        return _supervisor_launch.codex_launch_command(session_id=session_id, resume=resume)
+    _launch_command = staticmethod(_supervisor_launch.launch_command)
+    _codex_launch_command = staticmethod(_supervisor_launch.codex_launch_command)
 
     def _submit_prompt(self, *, target: str, text: str, expect_codex: bool = False) -> bool:
         """See :func:`_supervisor_launch.submit_prompt`."""
@@ -457,45 +412,7 @@ class Supervisor:
 
     def tick(self, *, act: bool = True) -> list[RowView]:
         """One loop iteration: build rows, evaluate each, render the table + attention block."""
-        views: list[RowView] = []
-        for track in self.build_rows(act=act):
-            views.append(self.evaluate(track=track, act=act))
-            supervisor_view = _supervisor_pair.evaluate_supervisor_pair(
-                sup=self, track=track, act=act
-            )
-            if supervisor_view is not None:
-                views.append(supervisor_view)
-                _supervisor_pair.evaluate_pair_stall(
-                    sup=self,
-                    track=track,
-                    worker_view=views[-2],
-                    supervisor_view=supervisor_view,
-                    act=act,
-                )
-        views.extend(_supervisor_discovery.unindexed_codex_rows(sup=self))
-        views.extend(
-            _supervisor_foreman.foreman_rows(sup=self, repos=self._resolve_watch(), act=act)
-        )
-        views.extend(
-            _supervisor_grooming.grooming_rows(sup=self, repos=self._resolve_watch(), act=act)
-        )
-        self.render(rows=views)
-        # Only the DAEMON badges the window. `list` is advertised read-only, so it must
-        # not rename the maintainer's window as a side effect of printing a table.
-        if act:
-            self._refresh_window_name(
-                attention=sum(1 for view in views if needs_attention(row=view))
-            )
-            self.tick_generation += 1
-            try:
-                self.status_snapshot_writer(sup=self, rows=views)
-            except OSError as exc:
-                if not self.status_snapshot_failed:
-                    self.surface(message=f"status snapshot write failed: {exc}")
-                self.status_snapshot_failed = True
-            else:
-                self.status_snapshot_failed = False
-        return views
+        return _supervisor_tick.run_tick(sup=self, act=act)
 
     # ----------------------------------------------------------------- #
     # Singleton daemon lock (per store).
