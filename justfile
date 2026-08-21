@@ -652,6 +652,24 @@ check-prose-release-hygiene:
         echo ":: check-prose-release-hygiene — no shipped plugin surface changed in $base...$head"
         exit 0
     fi
+    release_manifest_only=1
+    while IFS= read -r changed_path; do
+        case "$changed_path" in
+            .claude-plugin/plugin.json|.claude-plugin/overseer/version.json) ;;
+            *) release_manifest_only=0 ;;
+        esac
+    done <<< "$changed"
+    release_commit_count="$(git rev-list --count "$base..$head")"
+    release_subject="$(git log --format='%s' -n 1 "$base..$head")"
+    # Release-please's manifest bump is the act of shipping the plugin surface;
+    # demanding a second release-triggering commit beside that release commit
+    # is self-contradictory and blocks every generated release PR.
+    if [[ "$release_commit_count" == "1" \
+        && "$release_manifest_only" -eq 1 \
+        && "$release_subject" =~ ^chore\(master\):\ release\ [0-9][0-9A-Za-z.+-]*$ ]]; then
+        echo ":: check-prose-release-hygiene — release-please manifest bump in $base...$head"
+        exit 0
+    fi
     # A releasing subject is `feat|fix|perf|revert`, with an optional
     # (scope), or ANY type carrying the `!` breaking marker.
     releasing="$(git log --format='%s' "$base..$head" \

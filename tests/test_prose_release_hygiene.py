@@ -40,6 +40,8 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _JUSTFILE = _REPO_ROOT / "justfile"
 _PROSE_FILE = ".claude-plugin/prose/supervise-plan.md"
 _SKILL_FILE = ".claude-plugin/skills/supervise-plan/SKILL.md"
+_PLUGIN_MANIFEST = ".claude-plugin/plugin.json"
+_PLUGIN_VERSION = ".claude-plugin/overseer/version.json"
 _STRANDED_BINDING_COMMIT = "6833264"
 
 # The subjects below are REAL commits from this repo's history that changed
@@ -101,6 +103,26 @@ def _make_repo(
     else:
         target = "README.md"
     (repo / target).write_text("changed\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", subject)
+    return repo
+
+
+def _make_release_manifest_repo(root: Path, name: str, *, subject: str) -> Path:
+    """A release-please-shaped repo with one manifest-only release commit."""
+    repo = root / name
+    (repo / ".claude-plugin" / "overseer").mkdir(parents=True)
+    (repo / _PLUGIN_MANIFEST).write_text('{"name": "overseer", "version": "1.7.9"}\n')
+    (repo / _PLUGIN_VERSION).write_text('{"version": "1.7.9"}\n')
+    (repo / "README.md").write_text("base readme\n")
+    _git(repo, "init", "-q", ".")
+    _git(repo, "config", "user.email", "gate@example.invalid")
+    _git(repo, "config", "user.name", "gate")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-qm", "chore: base")
+    _git(repo, "branch", "-f", "basepoint")
+    (repo / _PLUGIN_MANIFEST).write_text('{"name": "overseer", "version": "1.8.0"}\n')
+    (repo / _PLUGIN_VERSION).write_text('{"version": "1.8.0"}\n')
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", subject)
     return repo
@@ -246,6 +268,32 @@ def test_a_breaking_marker_releases_even_on_a_non_releasing_type(tmp_path):
     )
     result = _run_gate(repo)
     assert result.returncode == 0, result.stderr
+
+
+def test_release_please_manifest_only_release_commit_is_accepted(tmp_path):
+    repo = _make_release_manifest_repo(
+        tmp_path,
+        "release-please",
+        subject="chore(master): release 1.8.0",
+    )
+    result = _run_gate(repo)
+    assert result.returncode == 0, result.stderr
+    assert "release-please manifest bump" in result.stdout
+    assert "NO release-triggering commit" not in result.stderr
+
+
+def test_plugin_manifest_changed_under_an_ordinary_chore_subject_is_rejected(tmp_path):
+    repo = _make_release_manifest_repo(
+        tmp_path,
+        "manifest-chore",
+        subject="chore: adjust plugin manifest",
+    )
+    result = _run_gate(repo)
+    assert result.returncode == 1
+    assert "NO release-triggering commit" in result.stderr
+    assert _PLUGIN_MANIFEST in result.stderr
+    assert _PLUGIN_VERSION in result.stderr
+    assert "chore: adjust plugin manifest" in result.stderr
 
 
 def test_a_non_releasing_subject_is_fine_when_no_prose_changed(tmp_path):
