@@ -282,8 +282,9 @@ population scanned:
 2. Every open item carries acceptance criteria, read through the merged projection.
 3. Only lifecycle statuses exist: backlog, ready, pending-approval, active,
    blocked, acceptance, and closed.
-4. No item in a dispatchable state carries a template delimiter formed by two
-   opening braces or two closing braces.
+4. No item in a dispatchable state carries an opening template delimiter:
+   two opening braces, an opening brace followed by a percent sign, or an
+   opening brace followed by a hash sign.
 5. An item labelled for human-verified acceptance has split acceptance criteria,
    and an item with split acceptance carries the label.
 6. Every cross-repo dependency edge resolves against a real id in a repo the
@@ -307,12 +308,14 @@ answer from a listing whose count is capped, round, or missing closed and gate
 records. Remedy: scan all records, all statuses, and gate records; report the
 population.
 
-**A template delimiter makes an item undispatchable.** Tell: dispatch graph
+**An opening template delimiter makes an item undispatchable.** Tell: dispatch graph
 construction fails on an undefined template variable whose name appears only in
-the item text or comments, not in the workflow. The hazardous delimiter is the
-pair made from two opening braces and the pair made from two closing braces. Do
-not reproduce either pair in item text, comments, this contract, tests, or commit
-messages. Describe them in words. Because comments are append-only, the durable
+the item text or comments, not in the workflow. The hazardous forms are two
+opening braces, an opening brace followed by a percent sign, and an opening
+brace followed by a hash sign. A stray pair made from two closing braces is
+literal text; discriminate before remediating. Do not reproduce the opening
+forms in item text, comments, this contract, tests, or commit messages. Describe
+them in words. Because comments are append-only, the durable
 remedy for a contaminated comment is a clean-text successor or a non-dispatchable
 hold, not evidence deletion.
 

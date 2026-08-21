@@ -16,6 +16,7 @@ __all__: list[str] = []
 
 class InvariantView(Protocol):
     key: str
+    title: str
     status: str
     reason: str
     breaching_item_ids: tuple[str, ...]
@@ -281,6 +282,30 @@ def test_delimiter_check_scans_details_only_for_dispatchable_items(*, tmp_path: 
         "ready-comment",
     )
     assert _by_key(report=report, key="dispatchable-delimiter").scanned_item_count == 2
+
+
+def test_delimiter_check_flags_only_opening_template_forms(*, tmp_path: Path) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    opening = chr(123)
+    closing = chr(125)
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            _item(item_id="closing-only"),
+            _item(item_id="double-opening"),
+            _item(item_id="percent-opening"),
+        ],
+        item_details_by_id={
+            "closing-only": ["quoted payload ends " + closing + closing],
+            "double-opening": ["template variable starts " + opening + opening],
+            "percent-opening": ["template block starts " + opening + "%"],
+        },
+    )
+
+    delimiter = _by_key(report=report, key="dispatchable-delimiter")
+    assert delimiter.breaching_item_ids == ("double-opening", "percent-opening")
+    assert "opening template delimiter" in delimiter.title
 
 
 def test_cross_repo_edges_report_stringified_unlisted_and_unresolved_edges(

@@ -162,7 +162,7 @@ def dispatchable_delimiter_check(
     )
     return InvariantCheck(
         key="dispatchable-delimiter",
-        title="No dispatchable item carries a brace template delimiter",
+        title="No dispatchable item carries an opening template delimiter",
         status="checked",
         breaching_item_ids=breaches,
         scanned_item_count=len(scanned),
