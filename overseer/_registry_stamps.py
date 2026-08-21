@@ -26,9 +26,11 @@ __all__: list[str] = [
     "add_notified_band",
     "clear_injection_stamp",
     "read_injection_stamp",
+    "read_launch_statusline_baseline",
     "read_notified_bands",
     "read_post_respawn",
     "read_resume_pending",
+    "record_launch_statusline_baseline",
     "record_post_respawn",
     "set_resume_pending",
     "write_injection_stamp",
@@ -264,6 +266,40 @@ def set_resume_pending(
             entry = {} if legacy is None else {"at": legacy}
         entry["resume_pending"] = True
         data[key] = entry
+        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def read_launch_statusline_baseline(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> str | None:
+    """Return the launch-time rendered model baseline when ``overseer start`` recorded one."""
+    data = _read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    entry = jsonio.as_object(value=data.get(_stamp_key(repo=repo, topic=topic)))
+    if entry is None:
+        return None
+    baseline = entry.get("launch_statusline_model")
+    return baseline if isinstance(baseline, str) else None
+
+
+def record_launch_statusline_baseline(
+    *,
+    repo: str,
+    topic: str,
+    model: str | None,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> None:
+    """Record the rendered model immediately after an overseer-started launch."""
+    path = resolve_stamp_store(stamp_path=stamp_path)
+    with file_lock(target=path):
+        data = _read_stamp_data(path=path)
+        key = _stamp_key(repo=repo, topic=topic)
+        entry = jsonio.as_object(value=data.get(key))
+        current = dict(entry) if entry is not None else {}
+        current["launch_statusline_model"] = model
+        data[key] = current
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
