@@ -105,6 +105,8 @@ class PaneDriver(Protocol):
 
     def new_session(self, *, name: str, cwd: str) -> bool: ...
 
+    def kill_session(self, *, session: str) -> bool: ...
+
     def rename_window(self, *, pane: str, name: str) -> bool: ...
 
 
@@ -415,6 +417,10 @@ class TmuxIO:
     def new_session(self, *, name: str, cwd: str) -> bool:
         """``tmux new-session -d -s <name> -c <cwd>`` — a detached session in ``cwd``."""
         return self._ok(completed=self._call(args=["new-session", "-d", "-s", name, "-c", cwd]))
+
+    def kill_session(self, *, session: str) -> bool:
+        """``tmux kill-session -t <session>`` — remove a failed just-created session."""
+        return self._ok(completed=self._call(args=["kill-session", "-t", session]))
 
     # ----------------------------------------------------------------- #
     # Two-pane bootstrap (the `/overseer` skill splits its OWN window).

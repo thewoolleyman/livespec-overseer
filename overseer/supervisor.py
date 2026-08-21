@@ -305,6 +305,7 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
                 )
             )
             return 0
+    created_session = False
     if not io.session_exists(session=session):
         _ = io.new_session(name=session, cwd=repo)
         # Require the EXACT session to exist before launching (Codex re-review #3):
@@ -313,19 +314,28 @@ def _cmd_start(*, args: argparse.Namespace) -> int:
         if not io.session_exists(session=session):
             streams.write_stderr(
                 text=(
-                    f"start FAILED: could not create tmux session {session} "
-                    f"for {repo}::{topic}\n"
+                    f"start FAILED: could not create tmux session {session}; "
+                    "reason=session_create_failed "
+                    f"session={session} repo={repo} topic={topic}\n"
                 )
             )
             return 1
-    message = launch_attempt_message(sup=sup, io=io, track=track, session=session)
-    if message is None:
+        created_session = True
+    attempt = launch_attempt_message(sup=sup, io=io, track=track, session=session)
+    if attempt.message is None:
+        cleanup = "not_created"
+        if created_session:
+            cleanup = "cleaned" if io.kill_session(session=session) else "leftover_session"
         streams.write_stderr(
-            text=f"start FAILED to launch {repo}::{topic} in tmux session {session}\n"
+            text=(
+                f"start FAILED to launch {repo}::{topic} in tmux session {session}; "
+                f"reason={attempt.reason or 'claude_launch_failed'} "
+                f"session={session} repo={repo} topic={topic} cleanup={cleanup}\n"
+            )
         )
         return 1
-    _supervisor_cli_update.upsert_track(track=track)
-    streams.write_stdout(text=f"{message}\n")
+    registry.upsert_mapping(track=track, store_path=None, update_fields=frozenset({"tmux"}))
+    streams.write_stdout(text=f"{attempt.message}\n")
     return 0
 
 

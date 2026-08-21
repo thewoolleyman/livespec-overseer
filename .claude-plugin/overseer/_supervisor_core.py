@@ -425,6 +425,14 @@ class Supervisor:
         """See :func:`_supervisor_recovery.do_launch`."""
         return _supervisor_recovery.do_launch(sup=self, track=track, session=session, start=start)
 
+    def do_launch_result(
+        self, *, track: registry.Track, session: str, start: bool = False
+    ) -> _supervisor_recovery.LaunchResult:
+        """See :func:`_supervisor_recovery.do_launch_result`."""
+        return _supervisor_recovery.do_launch_result(
+            sup=self, track=track, session=session, start=start
+        )
+
     # ----------------------------------------------------------------- #
     # Table rendering.
     # ----------------------------------------------------------------- #
