@@ -1356,6 +1356,60 @@ the Green leg. It takes the **green-verified** leg instead: a single commit, a
 **non-`feat:`/`fix:`** prefix, and the full suite must pass. A `feat:` prefix there
 is rejected with `test-passed-at-red`.
 
+**THREE MORE, ALL MEASURED 2026-08-21 while landing `overseer-5lrp` and unblocking
+PR 1397.** Each cost a full aggregate run or a CI cycle to discover, and none of
+them announces its cause.
+
+**A `.claude-plugin/` edit FORCES a `fix:`/`feat:` subject — and that does NOT put
+you on the Red leg.** `check-prose-release-hygiene` refuses a `chore:` subject on
+any commit touching the shipped plugin surface: a plugin edit must produce a
+version bump on merge, or it does not belong under `.claude-plugin/`. The remedy it
+prints is correct. What the remedy does not say, and what makes it look dangerous
+to follow, is that the replay ritual routes on **HEAD state** once product impl is
+staged, not on the subject — `_dispatch_impl_staged` is explicitly prefix-agnostic.
+So with no Red awaiting a Green at HEAD, a `fix:` subject still takes the
+green-verified leg. The Red-intent regex only reaches a **tests-only** staged tree.
+Reading the ritual docs alone suggests `fix:` will demand a failing test; it will
+not, when impl is staged.
+
+**`git commit --amend -F <file>` SILENTLY DROPS THE HOOK-STAMPED `TDD-*`
+TRAILERS.** The commit-msg hook writes its evidence trailers into the message.
+Amending with a fresh message file replaces the whole message — trailers included —
+and the amend re-runs the hook with an **empty staged set**, which is the
+no-content-trigger branch: it returns 0 without re-stamping. The commit is then
+carrying no evidence and `check-red-green-replay`'s range validation is what finally
+refuses it, at push, several minutes later. **The tell is a sub-second replay
+hook**: a real leg runs the suite and takes minutes. The fix is
+`git reset --soft HEAD~1` and commit again so the hook re-runs with content staged.
+(This is about re-wording, not about the ritual's own Green amend, which stages impl
+and therefore has content.)
+
+**A PR WHOSE BASE MOVED DOES NOT RE-TEST ITSELF, AND CLOSE-REOPEN RACES THE
+MERGE.** `ci.yml` triggers on bare `pull_request:`, whose default types do not
+include base-branch updates, so after you land the fix a PR was waiting on, that
+PR's rollup keeps reporting the **stale** verdict indefinitely. `gh run rerun` does
+not help: it replays the same event payload and therefore the same old merge SHA.
+Close-and-reopen fires `reopened` and does produce a fresh run — but measured here,
+a reopen fired **seventy seconds after** the unblocking PR merged still tested a
+merge computed without it and failed identically, because GitHub's `refs/pull/N/merge`
+lags. Two further consequences: close-and-reopen **clears auto-merge**, which must be
+re-armed by hand; and the second re-trigger is indistinguishable from the first
+unless you have independent evidence.
+
+**THE CHEAP INSTRUMENT BEHIND ALL THREE IS A DETACHED REBASE PROBE**, and it is
+worth reaching for before any of the reasoning above:
+
+    git worktree add --detach <scratch> origin/<pr-branch>
+    cd <scratch> && git rebase origin/master && just <the-one-failing-gate>
+
+Under a minute, no push, no commit, nothing published. It answers — with a
+measurement rather than an argument — whether the rebase conflicts at all, what the
+merged tree actually contains, whether a proposed fix works **before** you author
+it, and whether a re-triggered CI run was even testing the right tree. This repo
+allows rebase-merge only, so that probe tree is precisely what CI evaluates. Used
+four times in one session here; each use replaced a guess that would otherwise have
+been committed.
+
 ## The `overseerd` daemon may be restarted at any time, as long as it isn't broken
 
 Ratified by the maintainer 2026-08-17, superseding an earlier operator-gated
