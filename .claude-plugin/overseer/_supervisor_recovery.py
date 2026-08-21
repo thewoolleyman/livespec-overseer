@@ -11,6 +11,7 @@ reports what it did, while the launch primitives carry each revival out.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import _supervisor_launch
@@ -24,11 +25,19 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "LaunchResult",
     "do_codex_launch",
     "do_launch",
+    "do_launch_result",
     "recover_codex_track",
     "recover_missing_sessions",
 ]
+
+
+@dataclass(frozen=True, kw_only=True)
+class LaunchResult:
+    launched: bool
+    reason: str | None = None
 
 
 def recover_missing_sessions(*, sup: Supervisor) -> list[str]:
@@ -185,28 +194,41 @@ def do_launch(*, sup: Supervisor, track: registry.Track, session: str, start: bo
     submitted — so callers (`recover`, `start`) can surface a failure rather
     than silently claim a launch happened (B5).
     """
+    return do_launch_result(sup=sup, track=track, session=session, start=start).launched
+
+
+def do_launch_result(
+    *, sup: Supervisor, track: registry.Track, session: str, start: bool = False
+) -> LaunchResult:
+    result = LaunchResult(launched=False, reason="claude_launch_failed")
     target = sup.tmux.pane_id(session=session)
-    if target is None:
-        return False
-    launch = _supervisor_launch.claude_launch_plan(track=track, start=start)
-    if not isinstance(launch, ClaudeLaunchPlan):
-        sup.surface(message=f"reboot-recovery: {launch.message}; skipping")
-        return False
-    if not sup.tmux.respawn_pane(
-        session=target,
-        cwd=track.repo,
-        command=launch.command,
-        env=launch.env,
-    ):
-        return False
-    if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
-        return False
-    _ = _supervisor_launch.await_input_box(sup=sup, target=target)
-    if start:
-        registry.record_launch_statusline_baseline(
-            repo=track.repo,
-            topic=track.topic,
-            model=rendered_statusline_model(capture=sup.tmux.capture_pane(session=target)),
-            stamp_path=sup.stamp_path,
-        )
-    return _supervisor_launch.submit_prompt(sup=sup, target=target, text=launch_resume(track=track))
+    if target is not None:
+        launch = _supervisor_launch.claude_launch_plan(track=track, start=start)
+        if not isinstance(launch, ClaudeLaunchPlan):
+            sup.surface(message=f"reboot-recovery: {launch.message}; skipping")
+        elif sup.tmux.respawn_pane(
+            session=target,
+            cwd=track.repo,
+            command=launch.command,
+            env=launch.env,
+        ) and _supervisor_launch.await_pane(
+            sup=sup, target=target, is_ready=signals.pane_is_claude
+        ):
+            _ = _supervisor_launch.await_input_box(sup=sup, target=target)
+            if start:
+                registry.record_launch_statusline_baseline(
+                    repo=track.repo,
+                    topic=track.topic,
+                    model=rendered_statusline_model(capture=sup.tmux.capture_pane(session=target)),
+                    stamp_path=sup.stamp_path,
+                )
+            submitted = _supervisor_launch.submit_prompt_result(
+                sup=sup, target=target, text=launch_resume(track=track)
+            )
+            if submitted.submitted:
+                result = LaunchResult(launched=True)
+            elif submitted.paste_failed:
+                result = LaunchResult(launched=False, reason="resume_submit_failed")
+            else:
+                result = LaunchResult(launched=True, reason="resume_submit_unverified")
+    return result

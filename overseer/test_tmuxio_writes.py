@@ -110,6 +110,12 @@ def test_new_session_argv():
     ]
 
 
+def test_kill_session_argv():
+    io, fake = _io()
+    assert io.kill_session(session="livespec:t") is True
+    assert fake.calls[0]["argv"] == ["tmux", "kill-session", "-t", "livespec:t"]
+
+
 def test_split_window_top_argv_and_pane_id():
     # The two-pane bootstrap: split THIS pane's window, new pane ABOVE (-b -v),
     # keep focus (-d), print the new pane id (-P -F). Target is the skill's own

@@ -42,6 +42,7 @@ class FakeTmux:
         self.paste_ok = True  # set False to model a failed bracketed paste (B5)
         self.pasted_inputs = {}
         self.respawn_ok = True  # set False to model a failed respawn (B5)
+        self.kill_session_ok = True  # set False to model cleanup failing after start failure
         # set False to model a codex respawn whose pane never becomes a live codex TUI
         # (so `_await_pane(pane_is_codex)` fails) — the Codex-restart await-fail leg.
         self.respawn_yields_codex = True
@@ -195,6 +196,16 @@ class FakeTmux:
         if not self.new_session_ok:
             return False  # model a failed new-session (session NOT created)
         self.sessions.add(name)
+        return True
+
+    def kill_session(self, *, session):
+        self.calls.append(("kill", session))
+        if not self.kill_session_ok or session not in self.sessions:
+            return False
+        self.sessions.remove(session)
+        self.cmds.pop(session, None)
+        self.paths.pop(session, None)
+        self.panes.pop(session, None)
         return True
 
     def rename_window(self, *, pane, name):

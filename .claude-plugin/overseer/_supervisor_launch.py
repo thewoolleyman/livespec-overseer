@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import shlex
 import uuid
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import registry
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "SubmitResult",
     "await_input_box",
     "await_pane",
     "canonical_codex_session_id",
@@ -47,7 +49,14 @@ __all__: list[str] = [
     "resend_enter",
     "session_of",
     "submit_prompt",
+    "submit_prompt_result",
 ]
+
+
+@dataclass(frozen=True, kw_only=True)
+class SubmitResult:
+    submitted: bool
+    paste_failed: bool = False
 
 
 def session_of(*, sup: Supervisor, track: registry.Track) -> str:
@@ -200,6 +209,14 @@ def resend_enter(*, sup: Supervisor, target: str) -> bool:
 
 
 def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool = False) -> bool:
+    return submit_prompt_result(
+        sup=sup, target=target, text=text, expect_codex=expect_codex
+    ).submitted
+
+
+def submit_prompt_result(
+    *, sup: Supervisor, target: str, text: str, expect_codex: bool = False
+) -> SubmitResult:
     """Bracketed-paste a payload, then submit it — re-sending Enter until it lands.
     Returns True iff the paste LANDED and the submit is CONFIRMED. ``target`` is the
     resolved pane id (RB3).
@@ -234,7 +251,7 @@ def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool
     """
     if not sup.tmux.bracketed_paste(session=target, text=text):
         sup.log(message=f"bracketed paste FAILED for pane {target}")
-        return False
+        return SubmitResult(submitted=False, paste_failed=True)
     sup.sleep(RESTART_POLL_INTERVAL)
     paste_visible = False
     was_busy = False
@@ -248,15 +265,15 @@ def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool
         capture = sup.tmux.capture_pane(session=target)
         if expect_codex:
             if signals.is_busy(capture_text=capture):
-                return True
+                return SubmitResult(submitted=True)
             continue
         busy = signals.is_busy(capture_text=capture)
         if busy and not was_busy:
-            return True
+            return SubmitResult(submitted=True)
         was_busy = busy
         if signals.input_box_text(capture_text=capture) is not None:
             paste_visible = True
         submitted = paste_visible and signals.input_box_ready(capture_text=capture)
         if submitted:
-            return True
-    return False
+            return SubmitResult(submitted=True)
+    return SubmitResult(submitted=False)
