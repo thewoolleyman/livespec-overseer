@@ -578,31 +578,31 @@ check-private-calls:
 # shape (b) of the release-lane valve in
 # plan/supervisor-prompt-quality/handoff.md).
 #
-# WHY THIS EXISTS. Charters are generated from the INSTALLED plugin
-# cache, never from this working tree, so a prose fix reaches nobody
-# until a release ships AND adopters update. Measured 2026-07-30: all
-# nine cached `prose/supervise-plan.md` copies under
-# ~/.claude/plugins/cache/livespec-overseer/ were BYTE-IDENTICAL
-# (md5 2283862c…) while master carried 6 exact-target mandates and 4
+# WHY THIS EXISTS. Harnesses run the INSTALLED plugin cache, never this
+# working tree, so a shipped plugin-surface fix reaches nobody until a
+# release ships AND adopters update. Measured 2026-07-30: all nine
+# cached `prose/supervise-plan.md` copies under
+# ~/.claude/plugins/cache/livespec-overseer/ were BYTE-IDENTICAL (md5
+# 2283862c…) while master carried 6 exact-target mandates and 4
 # supervisor-liveness proofs that NONE of them had, and the active
 # version still emitted 4 bare `-t "` tmux targets master had removed.
 #
-# WHAT IS ENFORCED. If the range changes `.claude-plugin/prose/`, the
-# range must also carry at least one commit whose conventional-commit
-# type release-please acts on. release-please bumps on feat/fix/perf/
-# revert and on a `!` breaking marker; `docs`, `test`, `chore`, `ci`,
-# `build`, `style` and `refactor` produce NO version bump, so prose
-# landed under one of those cannot trigger a release on its own. This
-# repo already carries four such commits — 3ed8667 `docs:`, 454c14d
-# `chore(prompt):`, 0b98bed `test(prompts):`, 91d83e7
-# `docs(supervise-plan):` — so this is a measured hole, not a
-# hypothetical one.
+# WHAT IS ENFORCED. If the range changes anything under `.claude-plugin/`,
+# the range must also carry at least one commit whose conventional-commit
+# type release-please acts on. release-please bumps on feat/fix/perf/revert
+# and on a `!` breaking marker; `docs`, `test`, `chore`, `ci`, `build`,
+# `style` and `refactor` produce NO version bump, so a shipped plugin
+# surface landed under one of those cannot trigger a release on its own.
+# This repo already carries measured examples under both prose and
+# non-prose shipped surfaces, including 6833264 `docs(grooming):`, which
+# touched skill bindings and plugin manifests but only shipped incidentally
+# when later releasable work cut a release.
 #
 # WHAT IS *NOT* CLAIMED, stated so nobody reads more into a green.
-# This does not merge the pending release PR and does not refresh any
-# adopter's plugin cache; both remain open under overseer-d4t. It
-# closes exactly one hole: a prose change that can never produce a
-# version bump at all.
+# This does not merge a release PR, refresh any adopter's plugin cache, or
+# shorten delivery latency for changes that legitimately ship with a later
+# release. It closes exactly one hole: a shipped plugin-surface change that
+# can never produce a version bump at all.
 #
 # The two refs are overridable ONLY so the gate's own fixtures can
 # drive this real recipe against synthetic repositories instead of a
@@ -621,28 +621,28 @@ check-prose-release-hygiene:
     set -uo pipefail
     base="${PROSE_HYGIENE_BASE:-origin/master}"
     head="${PROSE_HYGIENE_HEAD:-HEAD}"
-    prose_dir=".claude-plugin/prose"
+    plugin_root=".claude-plugin"
     if ! git rev-parse --verify --quiet "$base" >/dev/null; then
         echo "check-prose-release-hygiene: cannot resolve base ref '$base'." >&2
         echo "  This gate reads the commit RANGE, so it needs real history." >&2
         echo "  A shallow clone cannot satisfy it; fetch full depth." >&2
         exit 1
     fi
-    if ! git cat-file -e "$base:$prose_dir" 2>/dev/null; then
-        echo "check-prose-release-hygiene: cannot resolve generator prose path '$prose_dir' at base ref '$base'." >&2
+    if ! git cat-file -e "$base:$plugin_root" 2>/dev/null; then
+        echo "check-prose-release-hygiene: cannot resolve shipped plugin path '$plugin_root' at base ref '$base'." >&2
         echo "  This gate reads a path-scoped diff, so the path must resolve at both ends." >&2
-        echo "  If generator prose moved, update this gate before relying on this context." >&2
+        echo "  If the plugin root moved, update this gate before relying on this context." >&2
         exit 1
     fi
-    if ! git cat-file -e "$head:$prose_dir" 2>/dev/null; then
-        echo "check-prose-release-hygiene: cannot resolve generator prose path '$prose_dir' at head ref '$head'." >&2
+    if ! git cat-file -e "$head:$plugin_root" 2>/dev/null; then
+        echo "check-prose-release-hygiene: cannot resolve shipped plugin path '$plugin_root' at head ref '$head'." >&2
         echo "  This gate reads a path-scoped diff, so the path must resolve at both ends." >&2
-        echo "  If generator prose moved, update this gate before relying on this context." >&2
+        echo "  If the plugin root moved, update this gate before relying on this context." >&2
         exit 1
     fi
-    changed="$(git diff --name-only "$base...$head" -- "$prose_dir")"
+    changed="$(git diff --name-only "$base...$head" -- "$plugin_root")"
     if [[ -z "$changed" ]]; then
-        echo ":: check-prose-release-hygiene — no generator prose changed in $base...$head"
+        echo ":: check-prose-release-hygiene — no shipped plugin surface changed in $base...$head"
         exit 0
     fi
     # A releasing subject is `feat|fix|perf|revert`, with an optional
@@ -654,23 +654,30 @@ check-prose-release-hygiene:
         exit 0
     fi
     {
-        echo "Generator prose changed with NO release-triggering commit in the range."
+        echo "Shipped plugin surface changed with NO release-triggering commit in the range."
         echo
-        echo "Changed prose:"
+        echo "Repository: $(basename "$(git rev-parse --show-toplevel)")"
+        echo
+        echo "Changed shipped plugin surface:"
         echo "$changed"
         echo
-        echo "Commit subjects in $base..$head:"
-        git --no-pager log --format='  %h %s' "$base..$head"
+        echo "Stranded shipped-surface commits in $base..$head:"
+        git --no-pager log --format='  %h %s' "$base..$head" -- "$plugin_root"
         echo
-        echo "WHY THIS BLOCKS: charters are generated from the installed plugin"
-        echo "cache, not from this tree. release-please bumps the version only on"
-        echo "feat/fix/perf/revert or a '!' breaking marker, so prose landed under"
-        echo "docs/test/chore/ci/build/style/refactor ships to nobody."
+        echo "WHY THIS BLOCKS: harnesses load the installed plugin cache, not this"
+        echo "tree. release-please bumps the version only on feat/fix/perf/revert"
+        echo "or a '!' breaking marker, so plugin bytes landed under"
+        echo "docs/test/chore/ci/build/style/refactor ship to nobody unless later,"
+        echo "unrelated releasable work happens to carry the tree forward."
         echo
-        echo "REMEDY: re-word one commit that carries the prose change to 'fix:' or"
+        echo "SCOPE: this detects the stranded case only. It does not merge a"
+        echo "release PR, refresh installed caches, or fix delivery latency for"
+        echo "changes that legitimately ship with a later release."
+        echo
+        echo "REMEDY: re-word one commit that carries the plugin change to 'fix:' or"
         echo "'feat:' (whichever is honest), so merging it necessarily produces a"
-        echo "version bump. If the prose edit genuinely must not release, it does"
-        echo "not belong in .claude-plugin/prose/."
+        echo "version bump. If the shipped plugin edit genuinely must not release,"
+        echo "it does not belong under .claude-plugin/."
     } >&2
     exit 1
 

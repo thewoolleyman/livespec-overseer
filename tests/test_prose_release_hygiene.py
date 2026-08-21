@@ -1,4 +1,4 @@
-"""Gate fixtures for `just check-prose-release-hygiene` (work-item overseer-d4t).
+"""Gate fixtures for `just check-prose-release-hygiene` (work-items overseer-d4t/zg0m).
 
 These drive the REAL justfile recipe against synthetic repositories rather
 than re-implementing its rule in Python. A gate whose fixtures test a COPY
@@ -6,11 +6,11 @@ of the rule goes green while the shipped rule rots — the same
 verifier-that-cannot-fail shape the supervisor-prompt-quality epic exists to
 remove.
 
-WHAT THE RULE IS. If the commit range changes `.claude-plugin/prose/`, the
-range must carry at least one commit release-please will act on
-(`feat`/`fix`/`perf`/`revert`, or any type with a `!` breaking marker).
-Otherwise no version bump is cut, no release ships, and the prose fix never
-reaches the plugin cache that actually generates charters.
+WHAT THE RULE IS. If the commit range changes any shipped surface under
+`.claude-plugin/`, the range must carry at least one commit release-please will
+act on (`feat`/`fix`/`perf`/`revert`, or any type with a `!` breaking marker).
+Otherwise no version bump is cut, no release ships, and the plugin fix never
+reaches the cache that harnesses actually run.
 
 BOTH LEGS ARE INDEPENDENTLY DEMONSTRATED, which is what makes a green here
 mean something. Each leg is pinned by an ASYMMETRIC PAIR differing in
@@ -18,6 +18,9 @@ exactly one variable:
   - prose-detection leg: `docs:` + prose changed is RED, `docs:` with prose
     UNTOUCHED is GREEN. Only the prose changed, so the prose test is
     load-bearing.
+  - non-prose shipped-surface leg: a real historical `docs:` commit that changed
+    skill bindings and manifests is RED, while an ordinary unshipped docs commit
+    stays GREEN.
   - releasing-type leg: prose changed + `docs:` is RED, prose changed +
     `fix:` is GREEN. Only the subject changed, so the type test is
     load-bearing.
@@ -34,12 +37,14 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _JUSTFILE = _REPO_ROOT / "justfile"
 _PROSE_FILE = ".claude-plugin/prose/supervise-plan.md"
+_SKILL_FILE = ".claude-plugin/skills/supervise-plan/SKILL.md"
+_STRANDED_BINDING_COMMIT = "6833264"
 
-# The four subjects below are REAL commits from this repo's history that
-# changed generator prose under a type release-please will not release.
-# They are the empirical case for this gate: the hole is measured, not
-# hypothetical. Kept as data so the gate is pinned against the shapes that
-# actually got through.
+# The subjects below are REAL commits from this repo's history that changed
+# shipped plugin surfaces under a type release-please will not release. They
+# are the empirical case for this gate: the hole is measured, not hypothetical.
+# Kept as data so the gate is pinned against the shapes that actually got
+# through.
 _HISTORICAL_NON_RELEASING = (
     "docs: emit verification discipline commands",
     "chore(prompt): ratify supervisor obligation re-entry",
@@ -71,11 +76,15 @@ def _git(repo: Path, *args: str) -> None:
     )
 
 
-def _make_repo(root: Path, name: str, *, subject: str, touch_prose: bool) -> Path:
+def _make_repo(
+    root: Path, name: str, *, subject: str, touch_prose: bool, touch_plugin_binding: bool = False
+) -> Path:
     """A repo with a `basepoint` ref and one commit on top of it."""
     repo = root / name
     (repo / ".claude-plugin" / "prose").mkdir(parents=True)
+    (repo / ".claude-plugin" / "skills" / "supervise-plan").mkdir(parents=True)
     (repo / _PROSE_FILE).write_text("base prose\n")
+    (repo / _SKILL_FILE).write_text("base binding\n")
     (repo / "README.md").write_text("base readme\n")
     _git(repo, "init", "-q", ".")
     _git(repo, "config", "user.email", "gate@example.invalid")
@@ -83,7 +92,12 @@ def _make_repo(root: Path, name: str, *, subject: str, touch_prose: bool) -> Pat
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", "chore: base")
     _git(repo, "branch", "-f", "basepoint")
-    target = _PROSE_FILE if touch_prose else "README.md"
+    if touch_prose:
+        target = _PROSE_FILE
+    elif touch_plugin_binding:
+        target = _SKILL_FILE
+    else:
+        target = "README.md"
     (repo / target).write_text("changed\n")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", subject)
@@ -91,7 +105,7 @@ def _make_repo(root: Path, name: str, *, subject: str, touch_prose: bool) -> Pat
 
 
 def _make_repo_without_prose_at_base(root: Path, name: str) -> Path:
-    """A repo whose base ref cannot resolve the configured prose directory."""
+    """A repo whose base ref cannot resolve the configured plugin root."""
     repo = root / name
     repo.mkdir()
     (repo / "README.md").write_text("base readme\n")
@@ -108,7 +122,7 @@ def _make_repo_without_prose_at_base(root: Path, name: str) -> Path:
 
 
 def _make_repo_without_prose_at_head(root: Path, name: str) -> Path:
-    """A repo whose head ref cannot resolve the configured prose directory."""
+    """A repo whose head ref cannot resolve the configured plugin root."""
     repo = root / name
     (repo / ".claude-plugin" / "prose").mkdir(parents=True)
     (repo / _PROSE_FILE).write_text("base prose\n")
@@ -120,11 +134,13 @@ def _make_repo_without_prose_at_head(root: Path, name: str) -> Path:
     _git(repo, "branch", "-f", "basepoint")
     (repo / _PROSE_FILE).unlink()
     _git(repo, "add", "-A")
-    _git(repo, "commit", "-qm", "fix: remove generator prose directory")
+    _git(repo, "commit", "-qm", "fix: remove shipped plugin directory")
     return repo
 
 
-def _run_gate(repo: Path, *, base: str = "basepoint") -> subprocess.CompletedProcess[str]:
+def _run_gate(
+    repo: Path, *, base: str = "basepoint", head: str = "HEAD"
+) -> subprocess.CompletedProcess[str]:
     """Invoke the real recipe with its refs pointed at the synthetic repo."""
     return subprocess.run(  # noqa: S603
         [  # noqa: S607
@@ -142,7 +158,7 @@ def _run_gate(repo: Path, *, base: str = "basepoint") -> subprocess.CompletedPro
         # Inherit the caller's environment rather than fabricating a PATH:
         # `just` is provided by mise here and by the runner image in CI, so a
         # hand-built PATH would pass locally and vanish in one of them.
-        env={**os.environ, "PROSE_HYGIENE_BASE": base},
+        env={**os.environ, "PROSE_HYGIENE_BASE": base, "PROSE_HYGIENE_HEAD": head},
     )
 
 
@@ -194,7 +210,24 @@ def test_prose_changed_under_a_docs_subject_is_rejected(tmp_path):
     # The message must name the offending file and offer a remedy: a HALT
     # with no remedy is a guaranteed stall (this epic's family-3 defect).
     assert _PROSE_FILE in result.stderr
+    assert "Repository: docs" in result.stderr
     assert "REMEDY:" in result.stderr
+
+
+def test_plugin_binding_changed_under_a_docs_subject_is_rejected(tmp_path):
+    repo = _make_repo(
+        tmp_path,
+        "binding",
+        subject="docs(skill): clarify the supervise-plan binding",
+        touch_prose=False,
+        touch_plugin_binding=True,
+    )
+    result = _run_gate(repo)
+    assert result.returncode == 1
+    assert "NO release-triggering commit" in result.stderr
+    assert _SKILL_FILE in result.stderr
+    assert "Repository: binding" in result.stderr
+    assert "docs(skill): clarify the supervise-plan binding" in result.stderr
 
 
 def test_prose_changed_under_a_fix_subject_is_accepted(tmp_path):
@@ -214,16 +247,32 @@ def test_a_breaking_marker_releases_even_on_a_non_releasing_type(tmp_path):
 
 
 def test_a_non_releasing_subject_is_fine_when_no_prose_changed(tmp_path):
-    """The prose-detection half of the asymmetric pair.
+    """The shipped-surface-detection half of the asymmetric pair.
 
-    Same non-releasing subject as the rejected case; only the prose is
-    untouched. If this went red the gate would be firing on every docs
-    commit in the repo and would be turned off within a day.
+    Same non-releasing subject as the rejected case; only the shipped plugin
+    surface is untouched. If this went red the gate would be firing on every
+    docs commit in the repo and would be turned off within a day.
     """
     repo = _make_repo(tmp_path, "noprose", subject=_HISTORICAL_NON_RELEASING[0], touch_prose=False)
     result = _run_gate(repo)
     assert result.returncode == 0, result.stderr
-    assert "no generator prose changed" in result.stdout
+    assert "no shipped plugin surface changed" in result.stdout
+
+
+def test_historical_docs_typed_plugin_binding_commit_is_rejected():
+    """Real RED fixture for overseer-zg0m: 6833264 stranded until later release."""
+    result = _run_gate(
+        _REPO_ROOT,
+        base=f"{_STRANDED_BINDING_COMMIT}^",
+        head=_STRANDED_BINDING_COMMIT,
+    )
+    assert result.returncode == 1
+    assert "Repository: livespec-overseer" in result.stderr
+    assert _STRANDED_BINDING_COMMIT in result.stderr
+    assert "docs(grooming): bind the grooming operation into all three harnesses" in result.stderr
+    assert ".claude-plugin/skills/grooming/SKILL.md" in result.stderr
+    assert ".claude-plugin/plugin.json" in result.stderr
+    assert "SCOPE: this detects the stranded case only" in result.stderr
 
 
 def test_every_historical_non_releasing_subject_is_caught(tmp_path):
@@ -258,18 +307,18 @@ def test_an_unresolvable_base_prose_path_fails_loudly_rather_than_skipping(tmp_p
     repo = _make_repo_without_prose_at_base(tmp_path, "missing-base-prose")
     result = _run_gate(repo)
     assert result.returncode == 1
-    assert "cannot resolve generator prose path" in result.stderr
-    assert ".claude-plugin/prose" in result.stderr
+    assert "cannot resolve shipped plugin path" in result.stderr
+    assert ".claude-plugin" in result.stderr
     assert "basepoint" in result.stderr
-    assert "no generator prose changed" not in result.stdout
+    assert "no shipped plugin surface changed" not in result.stdout
 
 
 def test_an_unresolvable_head_prose_path_fails_loudly_even_with_a_releasing_commit(tmp_path):
     repo = _make_repo_without_prose_at_head(tmp_path, "missing-head-prose")
     result = _run_gate(repo)
     assert result.returncode == 1
-    assert "cannot resolve generator prose path" in result.stderr
-    assert ".claude-plugin/prose" in result.stderr
+    assert "cannot resolve shipped plugin path" in result.stderr
+    assert ".claude-plugin" in result.stderr
     assert "HEAD" in result.stderr
     assert "releasing commit(s) present" not in result.stdout
 
@@ -286,5 +335,5 @@ def test_rejection_under_a_tty_cannot_block_on_the_git_pager(tmp_path):
     assert returncode == 1, output
     assert "PAGER-INVOKED" not in output
     assert "NO release-triggering commit" in output
-    assert "Commit subjects in basepoint..HEAD:" in output
+    assert "Stranded shipped-surface commits in basepoint..HEAD:" in output
     assert "REMEDY:" in output
