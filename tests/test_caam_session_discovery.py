@@ -81,6 +81,30 @@ def write_transcript(*, home: Path, project: str, session_id: str, models: list[
     return path
 
 
+def high_effort_settings(*, tmp_path: Path) -> Path:
+    settings = tmp_path / "settings.json"
+    _ = settings.write_text(json.dumps({"effortLevel": "high"}), encoding="utf-8")
+    return settings
+
+
+def session_tree(*, session_ids: dict[str, str]) -> tuple[object, object, object]:
+    roots = {session: index * 10 for index, session in enumerate(session_ids, start=1)}
+
+    def pane_pid(*, session: str) -> int:
+        return roots[session]
+
+    def children_of(*, pid: int) -> list[int]:
+        return [pid + 1] if pid in roots.values() else []
+
+    def environ_of(*, pid: int) -> bytes:
+        for session, root in roots.items():
+            if pid == root + 1:
+                return f"CLAUDE_CODE_SESSION_ID={session_ids[session]}".encode()
+        return b""
+
+    return pane_pid, children_of, environ_of
+
+
 def test_session_discovery_seams_are_keyword_only_protocol_shapes() -> None:
     module = caam_sessions_module()
     seams = importlib.import_module("_seams")
@@ -281,3 +305,259 @@ def test_saved_memo_suppresses_repeat_within_window(*, tmp_path: Path):
     saved = json.loads(state_path.read_text(encoding="utf-8"))
     assert saved["models"] == {"worker-foreman": {"at": 1000.0, "want": "fable"}}
     assert calls == [("worker-foreman", "fable")]
+
+
+def test_model_orchestration_precedence_foreman_gets_fable_when_fable_left(
+    *, tmp_path: Path
+) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+    session_ids = {
+        "alpha-foreman": "sid-foreman",
+        "alpha-worker": "sid-worker",
+    }
+    pane_pid, children_of, environ_of = session_tree(session_ids=session_ids)
+    write_transcript(
+        home=tmp_path,
+        project="-alpha",
+        session_id="sid-foreman",
+        models=["claude-opus-5"],
+    )
+    write_transcript(
+        home=tmp_path,
+        project="-alpha",
+        session_id="sid-worker",
+        models=["claude-sonnet-5"],
+    )
+    calls: list[tuple[str, str]] = []
+
+    def set_model(*, session: str, model: str) -> None:
+        calls.append((session, model))
+
+    messages = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=tmp_path / "state.json",
+        session_names=tuple(session_ids),
+        active_fable=25.0,
+        now=1000.0,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=environ_of,
+        set_model=set_model,
+    )
+
+    assert messages == [
+        "models: foremen want fable (active account Fable left); " "model: alpha-foreman -> fable"
+    ]
+    assert calls == [("alpha-foreman", "fable")]
+
+
+def test_model_orchestration_precedence_every_session_gets_opus_when_fable_spent(
+    *, tmp_path: Path
+) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+    session_ids = {
+        "alpha-foreman": "sid-foreman",
+        "alpha-worker": "sid-worker",
+    }
+    pane_pid, children_of, environ_of = session_tree(session_ids=session_ids)
+    write_transcript(
+        home=tmp_path,
+        project="-alpha",
+        session_id="sid-foreman",
+        models=["claude-fable-5"],
+    )
+    write_transcript(
+        home=tmp_path,
+        project="-alpha",
+        session_id="sid-worker",
+        models=["claude-sonnet-5"],
+    )
+    calls: list[tuple[str, str]] = []
+
+    def set_model(*, session: str, model: str) -> None:
+        calls.append((session, model))
+
+    messages = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=tmp_path / "state.json",
+        session_names=tuple(session_ids),
+        active_fable=100.0,
+        now=1000.0,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=environ_of,
+        set_model=set_model,
+    )
+
+    assert messages == [
+        "models: foremen want opus (active account Fable EXHAUSTED); "
+        "model: alpha-foreman -> opus, model: alpha-worker -> opus"
+    ]
+    assert calls == [("alpha-foreman", "opus"), ("alpha-worker", "opus")]
+
+
+def test_model_orchestration_treats_missing_fable_limit_as_exhausted(*, tmp_path: Path) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+    session_ids = {"alpha-foreman": "sid-foreman"}
+    pane_pid, children_of, environ_of = session_tree(session_ids=session_ids)
+    write_transcript(
+        home=tmp_path,
+        project="-alpha",
+        session_id="sid-foreman",
+        models=["claude-fable-5"],
+    )
+    calls: list[tuple[str, str]] = []
+
+    def set_model(*, session: str, model: str) -> None:
+        calls.append((session, model))
+
+    messages = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=tmp_path / "state.json",
+        session_names=tuple(session_ids),
+        active_fable=None,
+        now=1000.0,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=environ_of,
+        set_model=set_model,
+    )
+
+    assert messages == [
+        "models: foremen want opus (active account Fable EXHAUSTED); "
+        "model: alpha-foreman -> opus"
+    ]
+    assert calls == [("alpha-foreman", "opus")]
+
+
+def test_model_orchestration_foreman_suffix_match_is_exact(*, tmp_path: Path) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+    session_ids = {
+        "alpha-foreman": "sid-foreman",
+        "alpha-foreman-helper": "sid-helper",
+    }
+    pane_pid, children_of, environ_of = session_tree(session_ids=session_ids)
+    write_transcript(
+        home=tmp_path,
+        project="-alpha",
+        session_id="sid-foreman",
+        models=["claude-opus-5"],
+    )
+    write_transcript(
+        home=tmp_path,
+        project="-alpha",
+        session_id="sid-helper",
+        models=["claude-opus-5"],
+    )
+    calls: list[tuple[str, str]] = []
+
+    def set_model(*, session: str, model: str) -> None:
+        calls.append((session, model))
+
+    messages = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=tmp_path / "state.json",
+        session_names=tuple(session_ids),
+        active_fable=25.0,
+        now=1000.0,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=environ_of,
+        set_model=set_model,
+    )
+
+    assert messages == [
+        "models: foremen want fable (active account Fable left); " "model: alpha-foreman -> fable"
+    ]
+    assert calls == [("alpha-foreman", "fable")]
+
+
+def test_model_orchestration_records_per_session_failure_and_continues(*, tmp_path: Path) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+    session_ids = {
+        "alpha-foreman": "sid-foreman",
+        "beta-foreman": "sid-beta",
+    }
+    pane_pid, children_of, environ_of = session_tree(session_ids=session_ids)
+    for session_id in session_ids.values():
+        write_transcript(
+            home=tmp_path,
+            project="-alpha",
+            session_id=session_id,
+            models=["claude-opus-5"],
+        )
+    calls: list[tuple[str, str]] = []
+
+    def set_model(*, session: str, model: str) -> None:
+        if session == "alpha-foreman":
+            raise RuntimeError("picker broke")
+        calls.append((session, model))
+
+    messages = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=tmp_path / "state.json",
+        session_names=tuple(session_ids),
+        active_fable=25.0,
+        now=1000.0,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=environ_of,
+        set_model=set_model,
+    )
+
+    assert messages == [
+        "models: foremen want fable (active account Fable left); "
+        "alpha-foreman SKIPPED(RuntimeError), model: beta-foreman -> fable"
+    ]
+    assert calls == [("beta-foreman", "fable")]
+
+
+def test_model_orchestration_whole_pass_failure_is_advisory(*, tmp_path: Path) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+
+    def pane_pid(*, session: str) -> int:
+        del session
+        raise ValueError("tmux unavailable")
+
+    def children_of(*, pid: int) -> list[int]:
+        del pid
+        return []
+
+    def environ_of(*, pid: int) -> bytes:
+        del pid
+        return b""
+
+    messages = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=tmp_path / "state.json",
+        session_names=("alpha-foreman",),
+        active_fable=25.0,
+        now=1000.0,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=environ_of,
+        set_model=lambda *, session, model: None,
+    )
+
+    assert messages == [
+        "models: enforcement failed (ValueError: tmux unavailable) -- "
+        "table and rotation unaffected"
+    ]
