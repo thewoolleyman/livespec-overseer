@@ -20,14 +20,28 @@ because only :func:`wrapup_message` reads it.
 daemon reads it across the module boundary, where pyright-strict's
 `reportPrivateUsage` rejects an `_`-prefixed name.
 """
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.3
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import registry
 import signals
+from _supervisor_prompts_notices import (
+    expiry_notice_message,
+    supervisor_epic_path,
+    supervisor_handoff_path,
+)
+from _supervisor_prompts_nudges import (
+    charter_authorized_unblock_nudge_message,
+)
+from _supervisor_prompts_nudges import (
+    pair_stall_nudge_message as _pair_stall_nudge_message,
+)
+from _supervisor_prompts_supervisor import (
+    supervisor_idle_nudge_message,
+    supervisor_ledger_resume,
+    supervisor_resume,
+    supervisor_wrapup_message,
+)
 
 __all__: list[str] = [
     "charter_authorized_unblock_nudge_message",
@@ -257,63 +271,6 @@ def wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -
     )
 
 
-_CHARTER_AUTHORIZED_UNBLOCK_NUDGE = """\
-Your supervisor charter already says:
-
-A wait is not a question. A mechanical unblock is not a question.
-If the SUPERVISOR can perform the unblock, PERFORM IT.
-
-The overseer is not choosing from this picker and will not answer it for you. Re-read
-the pending picker, perform only charter-authorized mechanical unblocks yourself, and
-declare `blocked: <reason>` only when the unblock genuinely requires a human decision."""
-
-
-def charter_authorized_unblock_nudge_message() -> str:
-    """Reminder pasted into a stalled supervisor picker without submitting an answer."""
-    return _CHARTER_AUTHORIZED_UNBLOCK_NUDGE
-
-
-_EXPIRY_NOTICE = """\
-Your ready declaration EXPIRED: it stood past its maximum age without a verified
-settled-idle observation, so it no longer authorizes a restart.
-
-Declare your state by writing ONE line to the single state file
-{state_file} — one of exactly these three values:
-
-Writing that line is the declaration. Pane text, final-response prose, or saying
-"Ready for restart" in this conversation is never a declaration channel.
-
-    winding-down                  I got the wind-down message and am wrapping up now.
-    ready                         I am at a clean stopping point — restart me.
-    blocked: <one-line reason>    I need a human decision I cannot make myself.
-
-A restart requires a fresh ready. The declaration that just expired will not restart
-this session; write `ready` again only after you are truly at a clean stopping
-point."""
-
-
-def expiry_notice_message(*, repo: str, topic: str) -> str:
-    """The bounded notice sent after a ready declaration expires past its maximum age."""
-    return _EXPIRY_NOTICE.format(state_file=str(signals.state_path(repo=repo, topic=topic)))
-
-
-def supervisor_handoff_path(*, repo: str, topic: str) -> Path:
-    """The retired supervisor-handoff artifact path, for legacy certification only.
-
-    Supervise-plan no longer AUTHORS this file: its binder is appended to the plan's
-    ledger epic, and supervisor resume prompts now resolve that ledger state directly.
-    Existing files can still certify old supervisor restart rounds while live plans are
-    migrating. Callers on the daemon's discovery path must never open, read, hash, or
-    depend on its content or mtime.
-    """
-    return Path(repo) / "plan" / topic / "supervisor-handoff.md"
-
-
-def supervisor_epic_path(*, repo: str, topic: str) -> Path:
-    """The migrated plan-shape file that names the governed ledger epic."""
-    return Path(repo) / "plan" / topic / "epic.md"
-
-
 def foreman_epic_resume(*, repo: str, epic: str) -> str:
     """Resume prompt for a per-watched-repo foreman entity's ledger timeline."""
     return (
@@ -402,131 +359,6 @@ def grooming_wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
     )
 
 
-def _supervisor_state_locator(*, repo: str, topic: str, epic: str | None) -> str:
-    """The supervisor entity's ledger-held resume state."""
-    entity = signals.supervisor_entity_topic(topic=topic)
-    if epic is None:
-        return (
-            f"the supervisor handoff entries attributed to {entity} in repository {repo} — "
-            "but NO plan epic id is recorded for this track, so ask the operator to record one"
-        )
-    return (
-        f"the supervisor handoff entries attributed to {entity} on ledger epic {epic} "
-        f"in repository {repo}"
-    )
-
-
-def _supervisor_resume_line(*, repo: str, topic: str, epic: str | None) -> str:
-    """The exact prompt the fresh supervisor session will be handed."""
-    if epic is None:
-        return (
-            "(no resume prompt can be built — this supervisor track records NO plan epic id, "
-            "so it is surfaced for a human instead of respawned)"
-        )
-    return supervisor_ledger_resume(repo=repo, topic=topic, epic=epic)
-
-
-_SUPERVISOR_WRAPUP_BODY = """\
-You WILL be restarted — but ONLY when YOU say so. The overseer never kills a session
-that has not declared itself ready. When you stop, this pane is restarted according to
-its runtime and handed exactly ONE prompt:
-    {resume}
-So {read_first} is the ONLY durable resume state inherited by the restarted runtime. Do
-NOT leave your resume state anywhere else (a scratchpad file, this transcript, a file
-under plan/) — it will be LOST. If your real pending work has drifted from what those
-entries say, APPEND a fresh entry that corrects them; never withhold your declaration over
-drift.
-
-Declare your state by writing ONE line to the single state file
-{state_file} — one of exactly these three values:
-
-Writing that line is the declaration. Pane text, final-response prose, or saying
-"Ready for restart" in this conversation is never a declaration channel.
-
-    winding-down                  I got this message and am wrapping up now.
-    ready                         I am at a clean stopping point — restart me.
-    blocked: <one-line reason>    I need a human decision I cannot make myself.
-
-ACKNOWLEDGE FIRST, right now, before anything else:
-    mkdir -p {marker_dir} && echo winding-down > {state_file}
-
-Then:
- 1. Bring your OWN supervision work to a clean, resumable stopping point and commit any
-    repository changes you already made through your repository's own gates. Never pass
-    --no-verify. If a gate rejects you, fix the cause or declare `blocked: <reason>` —
-    do not bypass it and do not discard the work.
- 2. APPEND your supervisor resume state to {read_first}, through your orchestrator's
-    sanctioned plan surface. Writing it down locally is NOT saving it — an entry that was
-    never appended has no attribution, no timestamp, and the next session cannot see it
-    at all. Do NOT write it into a file under plan/, and do NOT write to the ledger
-    directly.
- 3. Stop every background sub-agent and subprocess you started.
- 4. Declare done, and stop. The command that declares ready is your FINAL act:
-        overseer-declare ready
-
-After `overseer-declare ready`, stop immediately.
-if you are still in this conversation, no restart happened - never conclude otherwise.
-
-`ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
-restarted and NOT killed — you are reported to the human as not responding, and your
-track sits there until a person intervenes. Do not do that to them: write the file."""
-
-
-def supervisor_ledger_resume(*, repo: str, topic: str, epic: str) -> str:
-    """Resume prompt for a migrated supervisor pair member."""
-    entity = signals.supervisor_entity_topic(topic=topic)
-    return (
-        f"resume supervisor entity {entity} for plan epic {epic} in repository {repo}; "
-        "read the supervisor handoff entries attributed to that entity"
-    )
-
-
-def _supervisor_plan_state_locator(*, repo: str, topic: str, epic: str | None) -> str:
-    """The dual resume-state locator for a migrated supervisor pair member."""
-    entity = signals.supervisor_entity_topic(topic=topic)
-    shared = f"the shared supervisor protocol .ai/supervisor-protocol.md in repository {repo}"
-    if epic is None:
-        return (
-            f"{shared} and this supervisor entity's ledger-held handoff entries — but NO "
-            "plan epic id is recorded for this track, so ask the operator to record one"
-        )
-    return (
-        f"{shared}, plus the supervisor handoff entries attributed to {entity} on ledger "
-        f"epic {epic}"
-    )
-
-
-def supervisor_resume(*, repo: str, topic: str, epic: str | None = None) -> str:
-    """Resume prompt for a supervisor pair member."""
-    if epic is None:
-        return (
-            "(no resume prompt can be built — this supervisor track records NO plan epic id, "
-            "so ask the operator to record one)"
-        )
-    return supervisor_ledger_resume(repo=repo, topic=topic, epic=epic)
-
-
-def supervisor_wrapup_message(
-    *, remaining: int, repo: str, topic: str, epic: str | None = None
-) -> str:
-    """Wrap-up text for a supervisor pair member.
-
-    The supervisor entity's state and round key use ``<topic>-supervisor``, while its
-    durable resume state is the attributed supervisor-entry stream on the worker plan's
-    ledger epic. This is a whole text VARIANT rather than parameter substitution on the
-    worker body: the supervisor entity names its attributed entries, but both entities now
-    use the sanctioned plan surface rather than authoring files under ``plan/``.
-    """
-    entity_topic = signals.supervisor_entity_topic(topic=topic)
-    return f"{_wrapup_head(remaining=remaining)}\n\n{_SUPERVISOR_WRAPUP_BODY}".format(
-        n=remaining,
-        marker_dir=str(signals.marker_dir(repo=repo, topic=entity_topic)),
-        state_file=str(signals.state_path(repo=repo, topic=entity_topic)),
-        read_first=_supervisor_state_locator(repo=repo, topic=topic, epic=epic),
-        resume=_supervisor_resume_line(repo=repo, topic=topic, epic=epic),
-    )
-
-
 _IDLE_NUDGE = """\
 You are idle at {n}% context — ABOVE the {threshold}% wind-down line, so you have room to
 keep going. Do NOT stop, and do NOT offer to stop, while you are above {threshold}%.
@@ -572,25 +404,6 @@ def idle_nudge_message(
     )
 
 
-def supervisor_idle_nudge_message(
-    *, remaining: int, threshold: int, repo: str, topic: str, epic: str | None = None
-) -> str:
-    """Keep-going nudge for a supervisor pair member.
-
-    ``topic`` is the worker topic. The supervisor entity's state marker still lives
-    under ``<topic>-supervisor``, and the durable state the supervisor resumes from is
-    the shared supervisor protocol plus ledger-held supervisor handoff entries on the
-    worker plan's epic.
-    """
-    entity_topic = signals.supervisor_entity_topic(topic=topic)
-    return _IDLE_NUDGE.format(
-        n=remaining,
-        threshold=threshold,
-        read_first=_supervisor_plan_state_locator(repo=repo, topic=topic, epic=epic),
-        state_file=str(signals.state_path(repo=repo, topic=entity_topic)),
-    )
-
-
 def pair_stall_nudge_message(
     *,
     repo: str,
@@ -601,14 +414,11 @@ def pair_stall_nudge_message(
     stalled_seconds: float,
 ) -> str:
     """Nudge a stalled supervisor/worker pair through the supervisor pane."""
-    state_file = signals.state_path(repo=repo, topic=signals.supervisor_entity_topic(topic=topic))
-    duration = f"{stalled_seconds / 3600:.1f}h"
-    return f"""\
-Your worker/supervisor pair has shown no progress for {duration}.
-
-You own direction for this pair. Resume driving the worker now, or if the pair is
-actually waiting on a human question, surface that explicitly by declaring it out-of-band:
-    echo 'blocked: <one-line reason>' > {state_file}
-
-Worker coordinates: tmux session '{worker_session}', pane {worker_pane}.
-Worker plan state: {plan_state_locator(repo=repo, epic=epic)}"""
+    return _pair_stall_nudge_message(
+        repo=repo,
+        topic=topic,
+        worker_session=worker_session,
+        worker_pane=worker_pane,
+        stalled_seconds=stalled_seconds,
+        plan_state=plan_state_locator(repo=repo, epic=epic),
+    )
