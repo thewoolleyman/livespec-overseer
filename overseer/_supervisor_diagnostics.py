@@ -45,10 +45,23 @@ def alert(*, request: AlertRequest) -> None:
 
     Every track alert carries the plan topic, its repo, the tmux SESSION and PANE
     holding it, and a copy-pasteable jump command. ``repo::topic`` alone tells the
-    operator WHAT is stuck but never WHERE to go.
+    operator WHAT is stuck but never WHERE to go — they were left to hunt for the
+    session by hand (maintainer 2026-07-14).
 
-    EDGE-TRIGGERED: emitted when a track ENTERS a condition, or the condition's text
-    changes, instead of once per tick.
+    This is load-bearing for the notify-never-block contract (invariant 8): because
+    the overseer NEVER prompts on a track's behalf, this line is the operator's ONLY
+    handover, so it MUST be self-sufficient. Every new track-scoped alert goes
+    through here — never a bare ``surface`` with an f-string of ``repo::topic``.
+
+    EDGE-TRIGGERED: emitted when a track ENTERS a condition (or the condition's text
+    changes), NOT once per tick. The log is the daemon's EVENT HISTORY — the surface
+    the bottom pane reads to answer "what happened, and when?" — while CURRENT state
+    is owned by the re-rendered table + its ``NEEDS YOU`` block. Re-emitting an
+    unchanged alert every tick buried that history in thousands of identical lines (a
+    track blocked overnight logged ~3,000 of them) and answered a question the table
+    already answers better. The re-arm is in :meth:`evaluate`: when a track returns to
+    a healthy status its entry is dropped, so the NEXT time it goes bad it reports
+    again.
     """
     where = (
         f"tmux session '{request.session}' pane {request.pane}"
