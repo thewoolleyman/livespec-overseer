@@ -1,4 +1,9 @@
-"""Consensus-panel decision matrix and reviewer validation helpers."""
+"""Consensus-panel decision matrix and reviewer validation helpers.
+
+Agreement is decided by this evaluator, not by the reviewer prompt.  Most typed
+actions compare by their typed action payload; picker-answer actions project to
+the schema that carries the decision: the action id plus the selected answer.
+"""
 
 from __future__ import annotations
 
@@ -23,6 +28,16 @@ __all__: list[str] = [
     "reviewer_analysis",
     "reviewers_from",
 ]
+
+
+def _consensus_key(*, action: dict[str, object]) -> dict[str, object]:
+    if action.get("action_id") != "blocked_session_answer":
+        return action
+    params = jsonio.as_object(value=action.get("params")) or {}
+    return {
+        "action_id": action.get("action_id"),
+        "params": {"answer_text": params.get("answer_text")},
+    }
 
 
 def reviewers_from(*, responses: dict[str, object]) -> list[dict[str, object]]:
@@ -193,9 +208,11 @@ def decision_matrix_result(
     unblockers: list[dict[str, object]],
     actions: list[dict[str, object]],
 ) -> dict[str, object]:
-    canonical = {canonical_json(value=action) for action in actions}
+    canonical = {canonical_json(value=_consensus_key(action=action)) for action in actions}
     unblocker_canonical = {
-        canonical_json(value=typed_action(action=reviewer.get("action")) or {})
+        canonical_json(
+            value=_consensus_key(action=typed_action(action=reviewer.get("action")) or {})
+        )
         for reviewer in unblockers
     }
     if not needs_human and len(canonical) == _ONE:
