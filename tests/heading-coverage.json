@@ -452,25 +452,22 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A status snapshot writer failure does not stop supervision",
-    "test": "TODO",
-    "reason": "Added by the status-snapshot-store ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_registry_snapshot_and_binder.test_scenario_snapshot_writer_failure_does_not_stop_supervision",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A consumer fails closed on an unknown status snapshot schema",
-    "test": "TODO",
-    "reason": "Added by the status-snapshot-store ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_registry_snapshot_and_binder.test_scenario_consumer_fails_closed_on_unknown_snapshot_schema",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A missing supervisor role layer halts the binder with a remedy",
-    "test": "TODO",
-    "reason": "Co-edited as the scenario half of supervise-plan-authors-two-layers. It pins exactly the missing-role-layer half of the assessed clause: the binder guard halts and emits a labelled remedy when `.ai/supervisor-protocol.md` is absent. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_registry_snapshot_and_binder.test_scenario_missing_supervisor_role_layer_halts_binder_with_remedy",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -525,57 +522,50 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A collision-derived worker name ending in foreman is refused",
-    "test": "TODO",
-    "reason": "Added by the reserved-suffix-refusal ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_discovery_attention_and_gates.test_scenario_collision_derived_worker_name_ending_in_foreman_is_refused",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A reserved-name live session is not adopted as a worker",
-    "test": "TODO",
-    "reason": "Added by the reserved-suffix-refusal ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_discovery_attention_and_gates.test_scenario_reserved_name_live_session_is_not_adopted_as_worker",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A dead track with conflicting runtime evidence is not launched",
-    "test": "TODO",
-    "reason": "Added by the operator-acts-include-foreman ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_dead_track_with_conflicting_runtime_evidence_is_not_launched",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A foreman reads evidence without becoming a state-file or blocked-pane writer",
-    "test": "TODO",
-    "reason": "Added by the unattended-reader-carve-out ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_foreman_reads_evidence_without_writing_session_state",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A stale foreman heartbeat is surfaced as attention",
-    "test": "TODO",
-    "reason": "Added by the attention-ownership-superset ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_discovery_attention_and_gates.test_scenario_stale_foreman_heartbeat_is_surfaced_as_attention",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An absent foreman heartbeat is silent",
-    "test": "TODO",
-    "reason": "Added by the attention-ownership-superset ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_discovery_attention_and_gates.test_scenario_absent_foreman_heartbeat_is_silent",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A foreman uses the canonical name on both identity surfaces",
-    "test": "TODO",
-    "reason": "Co-edited as the scenario half of foreman-scope-governed. It pins exactly the dual-name half of the assessed clause: `<repo-slug>-foreman` is required on both the tmux and runtime-registry surfaces, and a different name is unauthorized. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_foreman_uses_canonical_name_on_both_identity_surfaces",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -644,17 +634,15 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A bypass-launched interactive session rendering a native picker is a structured gate",
-    "test": "TODO",
-    "reason": "Added by the codex-yolo-structured-question-protocol ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-afn.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_discovery_attention_and_gates.test_scenario_bypass_launched_picker_is_structured_gate",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A session with no available structured surface may still declare blocked",
-    "test": "TODO",
-    "reason": "Added by the codex-yolo-structured-question-protocol ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. The implementing slice is overseer-afn.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_discovery_attention_and_gates.test_scenario_no_structured_surface_may_still_declare_blocked",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -737,9 +725,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A restarted session that never begins work is surfaced without a second kill",
-    "test": "TODO",
-    "reason": "No implementation slice exists yet; replace TODO with the implementing slice's integration-tier-or-above governed heading-coverage reference.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_restart_liveness_and_recovery.test_scenario_restarted_session_never_begins_work_surfaces_without_second_kill",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -780,41 +767,36 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A foreman relay embeds the full panel record on first delivery",
-    "test": "TODO",
-    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule A). Pins that a foreman relay asserting a panel/evaluator outcome embeds the full verdict record, not an attributed summary, in its first delivery. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_foreman_relay_embeds_full_panel_record_on_first_delivery",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An escalation quotes the session's exact words rather than paraphrasing them",
-    "test": "TODO",
-    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule B). Pins that a foreman escalation quotes a supervised session's exact words rather than paraphrasing. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_escalation_quotes_session_exact_words",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A worker's corroboration request is not escalated as an authority challenge",
-    "test": "TODO",
-    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule C). Pins that a corroboration request the foreman can satisfy with data it possesses is never itself escalated as an authority challenge. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_corroboration_request_is_not_escalated_as_authority_challenge",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Two consecutive STILL alerts force a fresh pane re-read",
-    "test": "TODO",
-    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule D). Pins that two consecutive pane-still attention conditions on one track force the foreman to re-capture and re-classify rather than trust a standing explanation. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_restart_liveness_and_recovery.test_scenario_two_consecutive_still_alerts_force_fresh_pane_reread",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A daemon-bounce-invalidated watch is not treated as armed",
-    "test": "TODO",
-    "reason": "v017 foreman relay-and-escalation evidentiary discipline (rule E). Pins that a foreman watch keyed only on a bare pane/process identifier is not a valid mechanism across a daemon bounce, while a watch keyed on re-resolvable identity plus a bounce-detection signal remains valid. No integration-tier test exists yet; replace TODO only when that test lands through the governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_restart_liveness_and_recovery.test_scenario_daemon_bounce_invalidated_watch_is_not_armed",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -860,25 +842,22 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "spec.md",
     "heading": "## Wind-down expiry on context recovery",
-    "test": "TODO",
-    "reason": "Added by the winddown-declaration-expiry-on-recovery ratification (plan/winddown-rationale-expiry/, ledger epic overseer-5gl4em). Pins the session-side rule that a supervised session MUST clear a standing winding-down/ready declaration and resume from its own ledger-held plan state once its own context recovers strictly above its wind-down threshold. No implementation slice exists yet; replace TODO with the implementing slice's governed heading-coverage reference.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_restart_liveness_and_recovery.test_scenario_wind_down_expiry_on_context_recovery_closes_round",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A session clears a stale winding-down acknowledgement and resumes after its own context recovers",
-    "test": "TODO",
-    "reason": "Added by the winddown-declaration-expiry-on-recovery ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_restart_liveness_and_recovery.test_scenario_session_clears_stale_winding_down_and_resumes_after_recovery",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A session clears a stale ready declaration and resumes instead of waiting to be killed",
-    "test": "TODO",
-    "reason": "Added by the winddown-declaration-expiry-on-recovery ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_restart_liveness_and_recovery.test_scenario_session_clears_stale_ready_and_resumes_after_recovery",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -900,25 +879,22 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unreadable snapshot holds decision-relevant context rather than delivering it",
-    "test": "TODO",
-    "work_item": "overseer-dhkjxf",
-    "reason": "Pins the degraded-snapshot leg of the delivery-routing floor, which must FAIL CLOSED toward holding: an unwarranted hold is visible and bounded, an unwarranted delivery is observed by no one. Tier: this is foreman operator behavior observable end-to-end across a degraded snapshot read and the resulting delivery choice, so it MUST be exercised at integration tier or above, never by a unit-tier test."
+    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_unreadable_snapshot_holds_decision_context",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A long-lived question states where late-arriving context is routed",
-    "test": "TODO",
-    "work_item": "overseer-dhkjxf",
-    "reason": "Pins the picker-authoring floor, the only leg of this change that reaches a HUMAN sender: a human cannot read a daemon row, so the question's own text is the sole channel that tells them where late-arriving context should go. Tier: the observable artifact is the rendered question text a human reads, so coverage belongs at integration tier or above rather than at unit tier."
+    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_long_lived_question_states_late_context_routing",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Decision-relevant context is not delivered to a picker-parked session",
-    "test": "TODO",
-    "work_item": "overseer-dhkjxf",
-    "reason": "Pins the sender-side routing floor including the BOUNDED hold: an unbounded hold would merely relocate the stall from recipient to sender, so the scenario requires the releasing condition be named. Tier: this is foreman operator behavior observable end-to-end across the daemon row and the delivery choice, so it MUST be exercised at integration tier or above, never by a unit-tier test."
+    "test": "tests.integration.test_dhkjxf_foreman_evidence_routing.test_scenario_decision_context_is_not_delivered_to_picker_parked_session",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
@@ -959,16 +935,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed un-open leaves a standing round that is surfaced",
-    "test": "TODO",
-    "reason": "Added by the undelivered-wrap-up-standing-round ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_restart_liveness_and_recovery.test_scenario_failed_unopen_leaves_standing_round_evidence_on_clear_error",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A successful un-open after a failed wrap-up paste surfaces nothing",
-    "test": "TODO",
-    "reason": "Added by the undelivered-wrap-up-standing-round ratification. Scenario headings must map to an integration-tier-or-above test, never a unit-tier one; replace TODO with that test ID through the implementing slice's governed heading-coverage co-edit. This entry is the DISCRIMINATING CONTROL for the member: it pins that the membership is keyed on the double failure, not on the opening paste failure alone, so a member that fired on every failed paste would redden it.",
-    "work_item": "overseer-dhkjxf"
+    "test": "tests.integration.test_dhkjxf_restart_liveness_and_recovery.test_scenario_successful_unopen_after_failed_wrapup_surfaces_nothing",
+    "reason": "Implemented by overseer-dhkjxf as integration-tier scenario coverage for this governed heading."
   }
 ]
