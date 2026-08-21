@@ -5,13 +5,12 @@ set -euo pipefail
 # PR #1462 design): runs the suite with COVERAGE_FILE unset so the data
 # measures identically to a clean CI job by construction, then checks the
 # per-file 100% floor. Leaves .coverage in place for check-coverage.sh's
-# consumer path (it deletes the file after reading). The aggregate supplies
-# LIVESPEC_COVERAGE_REUSE_TOKEN; standalone runs deliberately produce no token
-# because their .coverage data has no same-run consumer.
-reuse_stamp=.livespec-coverage-reuse-token
-rm -f "$reuse_stamp"
+# consumer path, along with a run-id handoff when invoked from `just check`;
+# the consumer refuses a root .coverage file without that matching handoff.
+handoff=.coverage.livespec-check-run
+rm -f .coverage "$handoff"
 env -u COVERAGE_FILE uv run pytest -n "$(scripts/test-nprocs.sh)" --cov --cov-branch --cov-config=pyproject.toml --cov-report=term-missing
-if [[ -n "${LIVESPEC_COVERAGE_REUSE_TOKEN:-}" ]]; then
-  printf '%s\n' "$LIVESPEC_COVERAGE_REUSE_TOKEN" > "$reuse_stamp"
-fi
 env -u COVERAGE_FILE uv run python -m livespec_dev_tooling.checks.per_file_coverage
+if [[ -n "${LIVESPEC_CHECK_RUN_ID:-}" ]]; then
+  printf '%s\n' "$LIVESPEC_CHECK_RUN_ID" >"$handoff"
+fi
