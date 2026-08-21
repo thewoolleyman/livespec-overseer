@@ -5,13 +5,13 @@ from __future__ import annotations
 import json
 import os
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, Protocol
 
 import claude_sessions
 import jsonio
+from _seams import PidToIntList, PidToOptionalBytes
 
 __all__: list[str] = [
     "SessionModel",
@@ -34,11 +34,17 @@ _MODEL_PREFIXES: Final = {
     "claude-haiku": "haiku",
 }
 
-PanePid = Callable[..., int]
-PidChildren = Callable[..., list[int]]
-PidEnviron = Callable[..., bytes | None]
-PaneCapture = Callable[..., str]
-ModelSetter = Callable[..., None]
+
+class PanePid(Protocol):
+    def __call__(self, *, session: str) -> int: ...
+
+
+class PaneCapture(Protocol):
+    def __call__(self, *, session: str) -> str: ...
+
+
+class ModelSetter(Protocol):
+    def __call__(self, *, session: str, model: str) -> None: ...
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -53,7 +59,7 @@ def set_suppress_s() -> float:
 
 
 def descendant_pids(
-    *, root: int, depth: int = 4, children_of: PidChildren = claude_sessions.proc_children
+    *, root: int, depth: int = 4, children_of: PidToIntList = claude_sessions.proc_children
 ) -> tuple[int, ...]:
     """Breadth-first process-tree walk, including ``root``."""
 
@@ -71,8 +77,8 @@ def discover_session_models(
     session_names: tuple[str, ...],
     home: Path,
     pane_pid: PanePid,
-    children_of: PidChildren = claude_sessions.proc_children,
-    environ_of: PidEnviron = claude_sessions.proc_environ,
+    children_of: PidToIntList = claude_sessions.proc_children,
+    environ_of: PidToOptionalBytes = claude_sessions.proc_environ,
     capture_pane: PaneCapture | None = None,
 ) -> tuple[SessionModel, ...]:
     del capture_pane
@@ -141,7 +147,7 @@ def newest_project_model_for_test(*, home: Path, project: str) -> str | None:
 
 
 def _session_id_from_tree(
-    *, root: int, children_of: PidChildren, environ_of: PidEnviron
+    *, root: int, children_of: PidToIntList, environ_of: PidToOptionalBytes
 ) -> str | None:
     for pid in descendant_pids(root=root, children_of=children_of):
         session_id = _session_id_from_environ(environ=environ_of(pid=pid))
