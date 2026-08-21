@@ -149,7 +149,7 @@ def _prepare_recorded_next_action(
 
 
 def _authorized_panel_action(*, verdict: dict[str, object]) -> tuple[ActionId | None, str | None]:
-    if verdict.get("outcome") != "unanimous":
+    if verdict.get("outcome") not in {"majority", "unanimous"}:
         reason = verdict.get("reason")  # pragma: no cover
         suffix = (  # pragma: no cover
             reason if isinstance(reason, str) and reason != "" else "not_unanimous"
