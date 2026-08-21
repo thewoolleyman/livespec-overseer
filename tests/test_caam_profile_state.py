@@ -192,6 +192,33 @@ def test_load_state_returns_empty_mapping_for_missing_malformed_or_non_object(*,
     assert module.load_state(state_path=state_path) == {}
 
 
+def test_load_state_returns_the_parsed_mapping_for_a_well_formed_object(*, tmp_path: Path):
+    """The SUCCESS path, which had no test until this one.
+
+    Every other `load_state` assertion drives a case that returns the EMPTY
+    mapping -- absent file, non-object, malformed -- so the single path that
+    returns real content was unexercised. That is not a cosmetic gap: on
+    2026-08-21 this call site was left returning `jsonio.parse_object`'s Result
+    rather than the mapping inside it, and the suite stayed green because no
+    test ever handed it a well-formed object. The type checker objected; no test
+    did; master went red for roughly three hours and every commit and dispatch
+    in the repository was blocked behind it.
+
+    Asserting the TYPE as well as the value is the part that would have caught
+    it, because a Result compares unequal to the mapping but so would many
+    wrong answers, and it is the "looks like a mapping but is not one" case that
+    actually occurred.
+    """
+    module = caam_profile_state_module()
+    state_path = tmp_path / "state.json"
+    state_path.write_text('{"profiles": {"active": {"at": 1.0}}}', encoding="utf-8")
+
+    loaded = module.load_state(state_path=state_path)
+
+    assert loaded == {"profiles": {"active": {"at": 1.0}}}
+    assert isinstance(loaded, dict)
+
+
 def test_save_state_creates_private_directory_and_file_atomically(*, tmp_path: Path):
     module = caam_profile_state_module()
     state_path = tmp_path / "state" / "state.json"
