@@ -19,6 +19,18 @@ REUSE_STAMP = ".livespec-coverage-reuse-token"
 OLD_REUSE_STAMP = ".coverage." "livespec-reuse-token"
 
 
+# Every environment variable scripts/coverage-reuse-id.sh reads. These are
+# STRIPPED from the inherited environment so each test states the resolver's
+# inputs itself. Without this the suite's verdict depends on where it runs: a
+# developer host sets none of them and the resolver falls through to its
+# tree-digest branch, while a GitHub runner exports GITHUB_RUN_ID and
+# GITHUB_RUN_ATTEMPT into every process, so the resolver's FIRST branch wins and
+# silently overrides whatever a test passed in. That is the ambient-state leak
+# this repo's whole test-and-gate-integrity thread exists to remove — a test
+# whose result is decided by its host is not a control.
+_RESOLVER_INPUTS = ("GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT", "LIVESPEC_COVERAGE_REUSE_TOKEN")
+
+
 def _clean_env(*, tmp_path: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
     env = {
         "HOME": str(tmp_path),
@@ -27,6 +39,8 @@ def _clean_env(*, tmp_path: Path, extra: dict[str, str] | None = None) -> dict[s
     }
     for key, value in os.environ.items():
         if key.startswith("COV_CORE_") or key == "COVERAGE_PROCESS_START":
+            continue
+        if key in _RESOLVER_INPUTS:
             continue
         if key not in env:
             env[key] = value
@@ -361,3 +375,30 @@ def test_explicit_token_round_trip_mismatch_falls_back_and_clears_the_marker(
         "run pytest -n 1 --cov --cov-branch --cov-config=pyproject.toml --cov-report=term-missing"
     )
     assert not (tmp_path / REUSE_STAMP).exists()
+
+
+def test_clean_env_strips_the_resolver_inputs_the_host_may_already_set(
+    *, tmp_path: Path, monkeypatch
+) -> None:
+    """The harness must own every input the resolver reads, whatever the host sets.
+
+    This is the control for the CI-only failure that reddened PR 1412: on a
+    GitHub runner GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT are exported into every
+    process, so the resolver's first branch won and the tests below measured the
+    runner's identity instead of the value they passed. Locally none of these
+    are set, so the suite passed and the leak was invisible. Assert the strip
+    directly rather than inferring it from those tests, since they only fail on
+    a host that happens to set the variables.
+    """
+    for name in _RESOLVER_INPUTS:
+        monkeypatch.setenv(name, "leaked-from-the-host")
+
+    env = _clean_env(tmp_path=tmp_path)
+
+    for name in _RESOLVER_INPUTS:
+        assert name not in env, name
+
+    # ...and an explicit value still reaches the script, so stripping did not
+    # simply make these variables unusable.
+    override = _clean_env(tmp_path=tmp_path, extra={"GITHUB_RUN_ID": "chosen"})
+    assert override["GITHUB_RUN_ID"] == "chosen"
