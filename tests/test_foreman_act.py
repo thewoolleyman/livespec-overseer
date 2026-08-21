@@ -155,6 +155,13 @@ def blocked_answer_panel_result() -> dict[str, object]:
     }
 
 
+def blocked_answer_majority_panel_result() -> dict[str, object]:
+    result = blocked_answer_panel_result()
+    result["outcome"] = "majority"
+    result["reason"] = "two_unblock_typed_actions_equal"
+    return result
+
+
 def _pane_fingerprint(*, text: str) -> str:
     return sha256(text.encode("utf-8")).hexdigest()
 
@@ -1385,7 +1392,7 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            consensus_panel=lambda *, request, responses: blocked_answer_majority_panel_result(),
             append_journal=lambda *, repo, record: None,
         ),
     )
