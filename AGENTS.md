@@ -170,18 +170,37 @@ The lifecycle has recipes for the rest too: `just worktree-hydrate`,
 orphans. `dev-tooling/*` is gitignored and byte-verified against the package
 source — never hand-edit the installed copy.
 
-**`just worktree-create` is currently DEAD IN THIS REPO, and it fails SILENTLY.**
-Measured 2026-08-04 (`livespec-dev-tooling-3pre`): it exits **141** printing
-nothing but `error: Recipe worktree-create failed on line 25 with exit code 141`.
-`worktree_primary_path` pipes `git worktree list --porcelain` into
-`awk '/^worktree /{print $2; exit}'` under `set -euo pipefail`; once the porcelain
-output needs more than one write, awk's early exit SIGPIPEs git and pipefail
-promotes 141, aborting inside a command substitution before the first `echo`. It is
-a SIZE threshold, not flakiness — this repo has 123 worktrees / 21545 bytes and
-fails; repos at ~1.5–2.7 KB work. Passing an explicit `base_ref` does NOT help; the
-SIGPIPE precedes base-ref resolution. Until it is fixed, use the documented rescue:
-`git worktree add -b <branch> <dest> origin/master`, then
-`just install-worktree-pack` inside it, then discard the `worktree_discipline` key.
+**`just worktree-create` WORKS AGAIN — the rescue path below is RETIRED.**
+Re-measured 2026-08-21: it succeeds normally, and the rescue it used to require
+(`git worktree add` by hand, then `just install-worktree-pack`, then discarding the
+`worktree_discipline` key it writes) is no longer needed. Use the recipe.
+
+The fix is in the pinned `dev-tooling` package, not here. `worktree_primary_path`
+now reads
+
+    git worktree list --porcelain | awk '/^worktree / && !seen { print $2; seen = 1 }'
+
+which consumes the WHOLE stream and simply ignores later matches, so awk never exits
+early, never SIGPIPEs git, and `pipefail` never sees 141.
+
+**The original entry is kept because its FRAMING is the part worth learning from.**
+Measured 2026-08-04 (`livespec-dev-tooling-3pre`): the recipe exited **141** printing
+nothing but `error: Recipe worktree-create failed on line 25 with exit code 141`. The
+prior implementation piped the same porcelain into `awk '/^worktree /{print $2; exit}'`
+under `set -euo pipefail`; once the output needed more than one write, awk's early exit
+SIGPIPEd git and pipefail promoted 141, aborting inside a command substitution before
+the first `echo`. That diagnosis was correct.
+
+**What aged badly was calling it a SIZE threshold.** The entry recorded "this repo has
+123 worktrees / 21545 bytes and fails; repos at ~1.5–2.7 KB work", which reads as
+monotonic: bigger is worse. This repo now holds **282 worktrees / 48602 bytes — 2.25×
+the size recorded as failing — and both the recipe and the bare construct exit 0.**
+A threshold framing invites the reader to skip verification exactly when the condition
+looks WORSE than the one recorded, so a reader arriving at 282 worktrees would
+reasonably conclude the recipe is more certainly dead and never try it. State the
+MECHANISM as the hazard and the measurement as evidence for it; a threshold is a
+property of the broken code, and it stops meaning anything the moment that code
+changes.
 
 **Re-run `just install-worktree-pack` in ANY worktree created across a pin bump.**
 `worktree-create` provisions the pack by COPYING it from the PRIMARY checkout, whose
