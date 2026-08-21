@@ -1,6 +1,52 @@
-● prior response
-──── livespec-overseer-foreman ─
-❯ 
-────────────────────────────────────────
-  Fable 5 | /x/repo | master | Ctx: 73% left | 7d 85% (resets in 6…
-  ⏵⏵ bypass permissions on · 1 shell · ← 1 agent
+
+ ▐▛███▛█   Claude Code v2.1.238
+▝▜██████▀  Opus 5 (1M context) with high effort · Claude Max
+  ▝▝ ▝▝    ~/.worktrees/livespec-overseer/land-5lrp-canary-capture
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                       ● high · /effort
+────────────────────────────────────────────────────────────────────────────────── overseer-idle-canary ─
+❯ 
+─────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                        /rc connecting…
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents

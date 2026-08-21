@@ -62,11 +62,25 @@ def _registered_versions() -> set[str]:
 
 
 def _fixture_is_valid(*, path: Path) -> bool:
+    """Whether the detector still sees this registered build's idle INPUT BOX.
+
+    Deliberately the box predicates only. A context percentage is NOT required,
+    for the same reason the capture no longer waits for one: a freshly launched
+    `claude -n <topic>` pane renders the input box immediately while its
+    statusline carries no context segment at all, so a fixture captured from one
+    legitimately has no reading to parse. Requiring it here would reject every
+    fixture the repaired capture can actually produce, which is how this check
+    came to block every commit on a host whose Claude had auto-updated.
+
+    The context parse is still guarded, just not here:
+    `test_every_registered_idle_fixture_matches_the_detector` asserts each
+    fixture parses to exactly the reading it literally carries, or to `None`
+    when it carries none — so a detector that mis-parsed or hallucinated a
+    percentage still fails, while an extendable registry stays extendable.
+    """
     capture = path.read_text(encoding="utf-8")
-    return (
-        signals.is_idle_input(capture_text=capture)
-        and signals.input_box_ready(capture_text=capture)
-        and signals.parse_ctx_remaining(capture_text=capture) is not None
+    return signals.is_idle_input(capture_text=capture) and signals.input_box_ready(
+        capture_text=capture
     )
 
 
