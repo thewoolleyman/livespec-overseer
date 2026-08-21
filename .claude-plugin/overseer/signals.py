@@ -14,15 +14,16 @@ trusted ONLY for the busy / idle / gate signals, which are not echo-forgeable
 in a harmful direction (a false "busy" merely suppresses action — the safe
 direction).
 """
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.5
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from _signals_context import parse_ctx_remaining, strip_ansi
+from _signals_delivery import queued_cross_session_delivery_sender
+from _signals_pane_identity import pane_is_claude, pane_is_codex, pane_is_shell, path_in_repo
 from _signals_topics import (
     is_foreman_topic,
     is_grooming_topic,
@@ -72,74 +73,6 @@ __all__: list[str] = [
     "valid_session_token",
     "valid_token",
 ]
-
-
-# --------------------------------------------------------------------------- #
-# ANSI stripping (terminal escape sequences corrupt naive substring matching).
-# --------------------------------------------------------------------------- #
-
-_ANSI_RE = re.compile(
-    r"\x1b\[[0-9;?]*[ -/]*[@-~]"  # CSI: colors, cursor moves, erases
-    r"|\x1b\][^\x07]*\x07"  # OSC: e.g. terminal-title, BEL-terminated
-    r"|\x1b[@-Z\\-_]"  # two-char escapes (e.g. ESC c)
-)
-
-
-def strip_ansi(*, text: str) -> str:
-    """Remove ANSI/VT escape sequences from captured pane text."""
-    return _ANSI_RE.sub("", text)
-
-
-# --------------------------------------------------------------------------- #
-# Context-% reading — anchored + fail-closed (see design.md, context-% reading,
-# adversarial-review blocker #5).
-# --------------------------------------------------------------------------- #
-
-# Claude renders `Ctx: N% left`; Codex renders `Context N% left`. Both are the
-# RUNTIME'S OWN computed number, which is the whole point of reading it here rather
-# than recomputing occupancy ourselves — see the Codex note in `codex_sessions`.
-_CTX_RE = re.compile(r"(?:Ctx:|Context)\s*(\d+)%\s*left")
-
-# How many trailing non-empty rows to scan for the statusline. The live Claude
-# TUI renders the statusline as the SECOND-to-last row — a footer hint line
-# (`⏵⏵ bypass permissions…` / `? for shortcuts`) renders BELOW it (verified
-# live 2026-07-13), so reading only the LAST row misses `Ctx:` entirely. A
-# small bound (not the whole capture) preserves the anti-false-match intent
-# (blocker #5): page content containing `Ctx: N% left` sits far above the
-# bottom few rows.
-_CTX_TAIL_ROWS = 4
-
-
-def _tail_non_empty_lines(*, capture_text: str, n: int) -> list[str]:
-    """The last ``n`` ANSI-stripped, non-empty lines, in top-to-bottom order."""
-    out: list[str] = []
-    for raw in reversed(capture_text.splitlines()):
-        line = strip_ansi(text=raw).strip()
-        if line:
-            out.append(line)
-            if len(out) >= n:
-                break
-    out.reverse()
-    return out
-
-
-def parse_ctx_remaining(*, capture_text: str) -> int | None:
-    """Remaining-context percent from the statusline, anchored + fail-closed.
-
-    Scans only the last few non-empty rows (`_CTX_TAIL_ROWS`) — the statusline
-    is the SECOND-to-last row in the live TUI, with a footer hint line below it
-    — and returns the LAST ``Ctx: N% left`` match found across them. Returns
-    None ("unknown") if none of those rows carries a match; it NEVER scans the
-    whole capture, because page content (including the overseer design doc
-    itself) contains the literal string ``Ctx: N% left`` and would yield a false
-    reading. "unknown" must NEVER count as a threshold crossing upstream.
-    """
-    matches: list[str] = []
-    for line in _tail_non_empty_lines(capture_text=capture_text, n=_CTX_TAIL_ROWS):
-        matches.extend(_CTX_RE.findall(line))
-    if not matches:
-        return None
-    return int(matches[-1])
 
 
 # --------------------------------------------------------------------------- #
@@ -202,30 +135,6 @@ def is_structured_gate(*, capture_text: str) -> bool:
     if _GATE_CURSOR_RE.search(text):
         return True
     return "do you want to proceed" in text.lower()
-
-
-# A cross-session delivery queued behind a Claude picker renders as a sender
-# header BELOW the picker, then one or more four-space-indented body rows:
-#   ``  @ livespec-console-beads-fabro-foreman❯``
-#   ``    Console foreman, decision-relevant update ...``
-# Verified live 2026-08-19 from tmux session `delivery-path-speed-and-caching`;
-# the sender is arbitrary and captured, while the end-anchored trailing `❯` is
-# the structural difference from ordinary prompt/picker shapes. No Codex analogue
-# has been observed yet, so this detector is Claude-shape only.
-_QUEUED_DELIVERY_HEADER_RE = re.compile(r"^  @ (?P<sender>\S.*?)❯$")
-
-
-def queued_cross_session_delivery_sender(*, capture_text: str) -> str | None:
-    """Sender name for a queued cross-session delivery block, if visible."""
-    lines = [strip_ansi(text=raw).rstrip() for raw in capture_text.splitlines()]
-    for index, line in enumerate(lines[:-1]):
-        match = _QUEUED_DELIVERY_HEADER_RE.match(line)
-        if match is None:
-            continue
-        body = lines[index + 1]
-        if body.startswith("    ") and body[4:].strip():
-            return match.group("sender").strip()
-    return None
 
 
 # The live idle input box is an EMPTY `❯` prompt line sandwiched between two
@@ -534,62 +443,3 @@ def ready_valid(
     if state is None or state.token != STATE_READY:
         return False
     return state.mtime > certification_floor
-
-
-# --------------------------------------------------------------------------- #
-# Process-identity helpers — interpret tmux `#{pane_current_command}` /
-# `#{pane_current_path}` (see design.md, signal sources). Pure; no fs access.
-# --------------------------------------------------------------------------- #
-
-# A live Claude Code TUI runs as a `node` process; `claude` covers a wrapper.
-_CLAUDE_COMMANDS = frozenset({"node", "claude"})
-_SHELL_COMMANDS = frozenset({"zsh", "bash", "sh", "fish", "dash", "ksh"})
-
-
-def pane_is_claude(*, pane_current_command: str | None) -> bool:
-    """True if ``#{pane_current_command}`` looks like a running Claude TUI."""
-    cmd = (pane_current_command or "").strip().lower()
-    if not cmd:
-        return False
-    return cmd in _CLAUDE_COMMANDS or "claude" in cmd
-
-
-def pane_is_codex(*, pane_current_command: str | None) -> bool:
-    """True if ``#{pane_current_command}`` could be a Codex TUI.
-
-    DELIBERATELY LOOSE, and safe only in combination. tmux reports a codex pane's
-    foreground process as `bun` (the launcher; the vendored `codex` binary is its child),
-    and `bun` matches ANY bun app — so this must NEVER gate anything on its own. Two
-    callers, both safe: `_is_codex_track` pairs it with an exact live-session-map lookup
-    and accepts separate exact argv evidence for ambiguous `node` panes (the map proves
-    a real codex session for this topic is in this tmux; the pane read proves the PANE is
-    the codex one, not a Claude pane in the same session); and `_do_codex_restart` uses
-    it only as the `_await_pane` predicate DIRECTLY AFTER it respawned `codex resume` into
-    that exact pane — so "did the codex process come up?" is all it needs to answer, and
-    the identity was already established before the restart.
-    """
-    cmd = (pane_current_command or "").strip().lower()
-    return cmd in _CODEX_COMMANDS
-
-
-_CODEX_COMMANDS = frozenset({"codex", "bun"})
-
-
-def pane_is_shell(*, pane_current_command: str | None) -> bool:
-    """True if ``#{pane_current_command}`` is an interactive shell."""
-    return (pane_current_command or "").strip().lower() in _SHELL_COMMANDS
-
-
-def path_in_repo(*, pane_current_path: str | None, repo: str | os.PathLike[str]) -> bool:
-    """True if ``#{pane_current_path}`` resolves inside ``repo``.
-
-    Pure path prefix check (``os.path.normpath``, no symlink resolution, no fs
-    access) used for the daemon's restart-proof and its auto-link guard (a live
-    session is linked to a row only when its cwd is inside the row's repo —
-    never by topic name alone, adversarial-review blocker #8).
-    """
-    if not pane_current_path or not str(repo):
-        return False
-    current = os.path.normpath(pane_current_path)
-    root = os.path.normpath(str(repo))
-    return current == root or current.startswith(root + os.sep)
