@@ -1116,6 +1116,42 @@ message: the `<new>` id the error names is whatever was latest when the stale
 build resolved, and can itself be superseded by the time you read it — pointing
 at it reproduces the refusal with a fresher pair of ids (measured 2026-08-19).
 
+**AND ITS FOUR-WAY SIGNATURE IS NOT UNIQUE — IT COLLIDES WITH THE
+ANCHOR-AS-DEPENDENCY ROW OF THE TABLE ABOVE.** Measured 2026-08-21 dispatching
+`overseer-7pqr3p`. A stale build refuses with `drive.py` exit **1**, dispatcher
+exit **3**, **no** fabro run, **no** dispatch-id in the journal, and **no**
+phantom claim — the item stays `ready` with no assignee. That is character for
+character the reading the table maps to "anchor-as-dependency", whose remedy is
+to inspect and possibly unset a dependency edge. Following it sends you looking
+for an edge that is not there: status was `ready`, there was no `depends_on` of
+any kind, and the repo's own `dispatch_acceptance_guard.py` returned `ok`.
+
+**The refusal text is NOT in the detached run's `output.log`.** That file held
+only the credential re-exec line and `drive`'s four-line report — status failed,
+dispatcher exit code 3, "did not report green". `drive` swallows the
+dispatcher's own stderr, so the one sentence naming the cause never reaches the
+place a loop-parked session is told to read.
+
+**So on any dispatcher exit 3 with no run, re-invoke the dispatcher DIRECTLY and
+read its refusal before reasoning from the exit-code table:**
+
+```
+python3 <build>/scripts/bin/dispatcher.py dispatch \
+  --repo <repo> --item <id> --json
+```
+
+It refuses before any sandbox work, creates no run, costs no spend, and prints
+the actual cause. The table's rows are discriminators only once you have the
+message; they are not a substitute for it.
+
+**The window is narrower than it looks.** These two dispatches were nineteen
+minutes apart: `overseer-vr3ym4.1` went out on build `15a4ae9aff88` at
+06:29:42Z and succeeded; `overseer-7pqr3p` was refused on that same build at
+06:48:48Z because `15b9787566a7` had been released in between. A build id
+resolved at the top of a session — or even one that worked a quarter of an hour
+ago — is not evidence about the next dispatch. Re-read `ensure-plugins` per
+dispatch, not per session.
+
 ## A ledger field describes the RECORD, not the WORLD — `Updated:` is not activity, `status` is not scheduling
 
 Measured 2026-08-19 with a live positive control. This one is cheap to get
