@@ -36,8 +36,10 @@ __all__: list[str] = [
     "decision_switched",
     "decision_trigger",
     "eligible_profiles",
+    "five_hour_threshold",
     "fmt_duration",
     "is_eligible",
+    "min_headroom_gain",
     "rank_profiles",
     "render_table",
     "resets_at",
@@ -45,6 +47,7 @@ __all__: list[str] = [
     "triggered",
     "until",
     "weekly_left",
+    "weekly_reserve",
 ]
 
 
@@ -113,7 +116,7 @@ def eligible_profiles(
     force: bool,
     dimension: str,
 ) -> EligibleProfiles:
-    gain_needed = 0.01 if force else float(os.environ.get("CAAM_ROTATE_MIN_HEADROOM_GAIN", "10"))
+    gain_needed = 0.01 if force else min_headroom_gain()
     eligible = tuple(
         profile
         for profile in profiles
@@ -174,6 +177,10 @@ def five_hour_threshold() -> float:
 
 def weekly_reserve() -> float:
     return float(os.environ.get("CAAM_ROTATE_WEEKLY_RESERVE", "10"))
+
+
+def min_headroom_gain() -> float:
+    return float(os.environ.get("CAAM_ROTATE_MIN_HEADROOM_GAIN", "10"))
 
 
 def dimension_spent(*, usage: UsageRecord, dimension: str) -> float:

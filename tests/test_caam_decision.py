@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import ast
 import time
 from datetime import datetime
 from math import isinf
+from pathlib import Path
 
 import caam_decision as caam_rendering
 import pytest
@@ -21,6 +23,14 @@ from caam_decision import (
 )
 
 __all__: list[str] = []
+
+
+SHARED_HELPER_NAMES = {
+    "five_hour_threshold",
+    "min_headroom_gain",
+    "resets_at",
+    "weekly_reserve",
+}
 
 
 def usage(
@@ -40,6 +50,36 @@ def usage(
         fable=fable,
         fable_resets_at=fable_resets_at,
     )
+
+
+def test_shared_caam_helpers_have_one_decision_owned_definition():
+    package = Path(__file__).resolve().parents[1] / "overseer"
+    definitions: dict[str, list[str]] = {name: [] for name in SHARED_HELPER_NAMES}
+    for path in package.glob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in definitions:
+                definitions[node.name].append(path.name)
+
+    assert definitions == {
+        "five_hour_threshold": ["caam_decision.py"],
+        "min_headroom_gain": ["caam_decision.py"],
+        "resets_at": ["caam_decision.py"],
+        "weekly_reserve": ["caam_decision.py"],
+    }
+
+
+def test_rendering_imports_shared_caam_helpers_from_decision_module():
+    rendering_path = Path(__file__).resolve().parents[1] / "overseer" / "caam_rendering.py"
+    tree = ast.parse(rendering_path.read_text(encoding="utf-8"))
+    imported_names = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and node.module == "caam_decision"
+        for alias in node.names
+    }
+
+    assert imported_names >= SHARED_HELPER_NAMES
 
 
 @pytest.mark.parametrize(
