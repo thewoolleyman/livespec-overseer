@@ -19,6 +19,9 @@ tmp/
 .codex
 .idea/
 
+# Beads tenant verification cache — generated per machine by bd.
+/.beads/tenant-verification-cache.json
+
 # Playwright MCP browser-tool scratch (page snapshots, console logs) —
 # per-session, never durable state.
 .playwright-mcp/
