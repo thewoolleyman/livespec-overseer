@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import cast
 
 import registry
-import signals
 from _supervisor_prompts import (
     foreman_wrapup_message,
     grooming_wrapup_message,
@@ -21,22 +21,25 @@ def select_wrapup_message(
     *, track: registry.Track, remaining: int, worker_wrapup: WorkerWrapup
 ) -> str:
     """Return the low-context wrap-up matching the track's entity kind."""
-    topic = track.topic
-    if signals.is_foreman_topic(topic=topic):
-        return foreman_wrapup_message(
-            remaining=remaining,
-            repo=track.repo,
-            topic=topic,
-            epic=track.epic,
-        )
-    if signals.is_grooming_topic(topic=topic):
-        return grooming_wrapup_message(remaining=remaining, repo=track.repo, topic=topic)
-    worker_topic = signals.topic_supervised_worker(topic=topic)
-    if worker_topic is not None:
+    if isinstance(track, registry.SupervisorSeat):
         return supervisor_wrapup_message(
             remaining=remaining,
             repo=track.repo,
-            topic=worker_topic,
+            topic=track.supervised_topic,
             epic=track.epic,
         )
-    return worker_wrapup(remaining, track.repo, topic, track.epic)
+    if isinstance(track, registry.ForemanSeat):
+        return foreman_wrapup_message(
+            remaining=remaining,
+            repo=track.repo,
+            topic=track.topic,
+            epic=track.epic,
+        )
+    if isinstance(track, registry.GroomingSeat):
+        return grooming_wrapup_message(
+            remaining=remaining,
+            repo=track.repo,
+            topic=track.topic,
+        )
+    plan_track = cast("registry.PlanTrack", track)
+    return worker_wrapup(remaining, plan_track.repo, plan_track.topic, plan_track.epic)
