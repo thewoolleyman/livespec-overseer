@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 from math import isinf
 
+import caam_decision as caam_rendering
 import pytest
 from caam_decision import (
     ProfileUsage,
@@ -241,4 +242,170 @@ def test_resets_at_unknown_timestamps_are_infinity_and_sort_last():
 def test_resets_at_accepts_nonzero_utc_offsets():
     assert resets_at(timestamp="2026-08-21T14:00:00+02:00") == resets_at(
         timestamp="2026-08-21T12:00:00Z"
+    )
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected"),
+    [
+        (2 * 86400 + 2 * 3600 + 12 * 60, "2d 2h 12m"),
+        (2 * 3600 + 12 * 60, "2h 12m"),
+        (12 * 60, "12m"),
+        (-10, "0m"),
+    ],
+)
+def test_duration_format_drops_zero_units_from_the_left(*, seconds, expected):
+    assert hasattr(caam_rendering, "fmt_duration")
+    assert caam_rendering.fmt_duration(seconds=seconds) == expected
+
+
+def test_until_renders_dash_for_missing_or_unreadable_reset_timestamp():
+    assert hasattr(caam_rendering, "until")
+    assert (
+        caam_rendering.until(
+            timestamp=None,
+            now=datetime.fromisoformat("2026-08-21T12:00:00+00:00"),
+        )
+        == "-"
+    )
+    assert (
+        caam_rendering.until(
+            timestamp="not-a-time",
+            now=datetime.fromisoformat("2026-08-21T12:00:00+00:00"),
+        )
+        == "-"
+    )
+
+
+def display_width(*, text: str) -> int:
+    return sum(2 if character == "✅" else 1 for character in text)
+
+
+def test_current_column_pads_by_display_width_for_active_check_mark():
+    assert hasattr(caam_rendering, "current_cell")
+    active = f"{'active':<13} {caam_rendering.current_cell(is_active=True)} {15.0:6.0f}%"
+    inactive = f"{'inactive':<13} {caam_rendering.current_cell(is_active=False)} {15.0:6.0f}%"
+
+    assert display_width(text=active) == display_width(text=inactive)
+
+
+def test_table_renders_remaining_quota_reset_durations_and_source_text():
+    now = datetime.fromisoformat("2026-08-21T12:00:00+00:00")
+    rows = (
+        ProfileUsage(
+            name="active",
+            source="live",
+            usage=usage(
+                five_hour=20.0,
+                seven_day=30.0,
+                five_hour_resets_at="2026-08-21T14:30:00+00:00",
+                seven_day_resets_at="2026-08-23T15:12:00+00:00",
+                fable=40.0,
+                fable_resets_at="2026-08-22T12:05:00+00:00",
+            ),
+        ),
+        ProfileUsage(name="dark", source="dark: no token", usage=None),
+        ProfileUsage(
+            name="nofable",
+            source="live",
+            usage=usage(
+                five_hour=90.0,
+                seven_day=95.0,
+                five_hour_resets_at="2026-08-21T12:01:00+00:00",
+                seven_day_resets_at="2026-08-21T13:00:00+00:00",
+                fable=None,
+                fable_resets_at=None,
+            ),
+        ),
+    )
+
+    assert hasattr(caam_rendering, "render_table")
+    assert caam_rendering.render_table(rows=rows, active_name="active", now=now) == (
+        "\n"
+        "PROFILE       CURRENT       5H      5H RESET      WEEK    WEEK RESET      "
+        "FABLE   FABLE RESET   SOURCE\n"
+        "active        ✅           80%        2h 30m       70%     2d 3h 12m       "
+        "60%      1d 0h 5m   live\n"
+        "dark                         -             -         -             -          -"
+        "             -   dark: no token\n"
+        "nofable                    10%            1m        5%         1h 0m         -"
+        "             -   live\n"
+        "\n"
+    )
+
+
+def test_trigger_header_matches_source_format_string(*, monkeypatch):
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85")
+    monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10")
+    monkeypatch.setenv("CAAM_ROTATE_MIN_HEADROOM_GAIN", "10")
+
+    assert hasattr(caam_rendering, "trigger_header")
+    assert caam_rendering.trigger_header(stamp="2026-08-21T12:00:00Z") == (
+        "2026-08-21T12:00:00Z  triggers: 5h-remaining < 15% or "
+        "weekly-remaining < 10% (candidate must gain >=10 pts)"
+    )
+
+
+def test_decision_lines_match_source_format_strings():
+    assert hasattr(caam_rendering, "SwitchTargetSummary")
+    target = caam_rendering.SwitchTargetSummary(
+        name="target",
+        weekly_used=65.0,
+        weekly_reset="2026-08-22T12:00:00+00:00",
+        source="live",
+        now=datetime.fromisoformat("2026-08-21T12:00:00+00:00"),
+    )
+    assert hasattr(caam_rendering, "decision_hold_allowance")
+    assert (
+        caam_rendering.decision_hold_allowance(
+            label="5-hour window",
+            spent=21.0,
+            weekly_remaining=34.0,
+            reserve=10.0,
+        )
+        == "hold: 5-hour window is the binding allowance and still has 79% left "
+        "(weekly 34%, reserve 10%)"
+    )
+    assert hasattr(caam_rendering, "decision_forced")
+    assert caam_rendering.decision_forced(threshold=85.0) == (
+        "forced: ignoring the 85% trigger, rotating to the best target now"
+    )
+    assert hasattr(caam_rendering, "decision_trigger")
+    assert (
+        caam_rendering.decision_trigger(
+            label="weekly reserve",
+            spent=92.0,
+            weekly_remaining=8.0,
+            dimension="seven_day",
+        )
+        == "trigger: weekly reserve -- 92% spent, weekly 8% left -- comparing "
+        "candidates on seven_day"
+    )
+    assert hasattr(caam_rendering, "decision_dry_run")
+    assert (
+        caam_rendering.decision_dry_run(
+            active_name="active",
+            target=target,
+        )
+        == "DRY-RUN would switch active -> target (35% week left, resets in "
+        "1d 0h 0m -- soonest, live)"
+    )
+    assert hasattr(caam_rendering, "decision_hold_no_candidate")
+    assert caam_rendering.decision_hold_no_candidate(
+        gain_needed=10.0,
+        dimension="five_hour",
+        active_name="active",
+    ) == (
+        "hold: no candidate has >=10.00 points more five_hour headroom than active "
+        "(all similarly spent, exhausted, or unverifiable)"
+    )
+    assert hasattr(caam_rendering, "decision_switched")
+    assert (
+        caam_rendering.decision_switched(
+            active_name="active",
+            current_five_hour_used=21.0,
+            target=target,
+        )
+        == "SWITCHED active -> target (5h left was 79%; target has 35% week "
+        "left resetting in 1d 0h 0m -- soonest, live)"
     )
