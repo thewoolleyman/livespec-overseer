@@ -1,11 +1,9 @@
 """Convening step for the foreman cross-vendor consensus panel."""
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.4
 
 from __future__ import annotations
 
 import argparse
 import json
-import re
 import shlex
 import shutil
 import subprocess
@@ -17,66 +15,21 @@ import streams
 from foreman_consensus import consensus
 from foreman_consensus_prompt import cache_key, reviewer_prompts
 from foreman_consensus_types import DEFAULT_PANEL_LIMITS, DEFAULT_STATE_DIR
+from foreman_panel_decision_kind import result_decision_kind
+from foreman_panel_io import default_dossier_dir, load_request, write_json
+from foreman_panel_refusal import refusal_for, refused_result
 
 __all__: list[str] = [
     "convene_panel",
     "main",
 ]
 
-HINT_REASONS: Final[tuple[tuple[str, str], ...]] = (
-    ("unanimous", "verdict_hint_in_blocked_question"),
-    ("unblock", "verdict_hint_in_blocked_question"),
-    ("needs-human", "verdict_hint_in_blocked_question"),
-    ("insufficient-information", "verdict_hint_in_blocked_question"),
-    ("escalate", "verdict_hint_in_blocked_question"),
-    ("human_valve", "verdict_hint_in_blocked_question"),
-)
 DEFAULT_REVIEWER_TIMEOUT_SECONDS: Final[float] = 600.0
-TOOLING_FAILURE_REASONS: Final[frozenset[str]] = frozenset(
-    {
-        "reviewer_command_missing",
-        "reviewer_command_failed",
-        "reviewer_response_malformed",
-        "reviewer_timeout",
-    }
-)
 
 
 def str_field(*, payload: dict[str, object], key: str) -> str:
     value = payload.get(key)
     return value if isinstance(value, str) else ""
-
-
-def refused_result(*, reason: str) -> dict[str, object]:
-    return {"outcome": "refused", "reason": reason, "reviewers": []}
-
-
-def hint_match(*, question: str, token: str) -> re.Match[str] | None:
-    return re.search(rf"(?<![\w-]){re.escape(token)}(?![\w-])", question)
-
-
-def refusal_for(*, request: dict[str, object]) -> dict[str, object] | None:
-    question = str_field(payload=request, key="blocked_question").lower()
-    for token, reason in HINT_REASONS:
-        match = hint_match(question=question, token=token)
-        if match is not None:
-            result = refused_result(reason=reason)
-            result["hint"] = {"token": token, "offset": match.start()}
-            return result
-    return None
-
-
-def default_dossier_dir(*, request: dict[str, object], key: str) -> Path:
-    repo = Path(str_field(payload=request, key="repo"))
-    if repo.is_absolute():
-        return repo / DEFAULT_STATE_DIR / "panel" / key
-    return DEFAULT_STATE_DIR / "panel" / key
-
-
-def write_json(*, path: Path, payload: dict[str, object]) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    _ = path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return path
 
 
 def default_reviewer_command(*, prompt: str, model: dict[str, object]) -> list[str]:
@@ -160,22 +113,6 @@ def run_reviewer(
     return response
 
 
-def reviewer_failure_reason(*, reviewer: dict[str, object]) -> str:
-    action = jsonio.as_object(value=reviewer.get("action")) or {}
-    params = jsonio.as_object(value=action.get("params")) or {}
-    reason = params.get("reason")
-    return reason if isinstance(reason, str) else ""
-
-
-def result_decision_kind(*, reviewers: list[dict[str, object]]) -> str:
-    if any(
-        reviewer_failure_reason(reviewer=reviewer) in TOOLING_FAILURE_REASONS
-        for reviewer in reviewers
-    ):
-        return "tooling_outage"
-    return "substantive_non_decision"
-
-
 def reviewer_responses(
     *,
     request: dict[str, object],
@@ -243,10 +180,6 @@ def convene_panel(
         "reviewer_responses_path": str(panel_dir / "reviewer-responses.json"),
         "verdict_path": str(verdict_path),
     }
-
-
-def load_request(*, path: Path) -> dict[str, object] | None:
-    return jsonio.parse_object(text=path.read_text(encoding="utf-8"))
 
 
 def main(*, argv: list[str] | None = None) -> int:

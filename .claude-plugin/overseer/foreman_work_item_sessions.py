@@ -1,21 +1,26 @@
 """Bounded one-shot work-item session lifecycle for foreman-act."""
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.4
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Protocol
 
 import jsonio
-import registry
-from foreman_act_commands import resume_command_from_payload
 from foreman_act_types import (
     WORK_ITEM_SESSION_FINISH,
     WORK_ITEM_SESSION_RESUME,
     WORK_ITEM_SESSION_START,
     ActionId,
     ActResult,
+)
+from foreman_work_item_session_commands import resume_command, start_command
+from foreman_work_item_session_store import (
+    append_event,
+    handoff_paths,
+    read_json,
+    state_dir,
+    write_handoff,
+    write_json,
 )
 
 __all__: list[str] = ["WorkItemRunner", "act_work_item_session", "is_work_item_session_action"]
@@ -54,28 +59,6 @@ def _str_field(*, payload: dict[str, object], key: str) -> str | None:
 
 def _payload(*, proposal: dict[str, object]) -> dict[str, object] | None:
     return jsonio.as_object(value=proposal.get("work_item_session"))
-
-
-def _state_dir(*, repo: Path, work_item_id: str) -> Path:
-    return repo / "tmp" / "overseer" / "foreman" / "work-items" / work_item_id
-
-
-def _read_json(*, path: Path) -> dict[str, object] | None:
-    try:
-        return jsonio.parse_object(text=path.read_text(encoding="utf-8"))
-    except OSError:
-        return None
-
-
-def _write_json(*, path: Path, payload: dict[str, object]) -> None:
-    registry.atomic_write(path=path, body=json.dumps(payload, indent=2, sort_keys=True) + "\n")
-
-
-def _append_event(*, directory: Path, record: dict[str, object]) -> None:
-    path = directory / "journal.jsonl"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        _ = handle.write(json.dumps(record, sort_keys=True) + "\n")
 
 
 def _snapshot_generation_changed(
@@ -138,54 +121,11 @@ def _validated_context(
     return None, Path(repo_text), payload
 
 
-def _handoff_paths(*, repo: Path, work_item_id: str) -> tuple[Path, Path]:
-    directory = _state_dir(repo=repo, work_item_id=work_item_id)
-    return directory / "handoff.md", directory / "handoff.json"
-
-
-def _write_handoff(*, repo: Path, payload: dict[str, object]) -> Path | None:
-    content = _str_field(payload=payload, key="handoff")
-    work_item_id = _str_field(payload=payload, key="work_item_id")
-    if content is None or work_item_id is None:
-        return None
-    handoff, meta = _handoff_paths(repo=repo, work_item_id=work_item_id)
-    registry.atomic_write(path=handoff, body=content)
-    _write_json(path=meta, payload={"work_item_id": work_item_id, "path": str(handoff)})
-    return handoff
-
-
 def _next_attempt(*, outcome: dict[str, object] | None) -> int:
     if outcome is None or outcome.get("status") == "completed":
         return 1
     value = outcome.get("attempt")
     return value + 1 if isinstance(value, int) else 1
-
-
-def _start_command(*, repo: Path, session_name: str, handoff: Path) -> list[str]:
-    prompt = f"read {handoff} and complete this bounded one-shot work-item session"
-    return [
-        "tmux",
-        "new-session",
-        "-d",
-        "-s",
-        session_name,
-        "-c",
-        str(repo),
-        "codex",
-        "exec",
-        "--dangerously-bypass-approvals-and-sandbox",
-        prompt,
-    ]
-
-
-def _resume_command(*, proposal: dict[str, object], handoff: Path) -> list[str] | None:
-    classifier = jsonio.as_object(value=proposal.get("classifier")) or {}
-    resume = jsonio.as_object(value=classifier.get("resume"))
-    if resume is None:
-        return None
-    return resume_command_from_payload(
-        payload={**resume, "handoff_path": str(handoff), "topic": str(proposal["topic"])}
-    )
 
 
 def _act_start(
@@ -200,12 +140,12 @@ def _act_start(
     if classifier.get("action") != "start":
         return _refused(action_id=action_id, reason="classifier_report_only")
     work_item_id = str(payload["work_item_id"])
-    directory = _state_dir(repo=repo, work_item_id=work_item_id)
+    directory = state_dir(repo=repo, work_item_id=work_item_id)
     claim = directory / "claim.json"
-    outcome = _read_json(path=directory / "outcome.json")
+    outcome = read_json(path=directory / "outcome.json")
     if claim.exists():
         return _refused(action_id=action_id, reason="work_item_claim_active")
-    handoff = _write_handoff(repo=repo, payload=payload)
+    handoff = write_handoff(repo=repo, payload=payload)
     if handoff is None:
         return _refused(action_id=action_id, reason="missing_handoff")
     attempt = _next_attempt(outcome=outcome)
@@ -214,9 +154,9 @@ def _act_start(
         "session_name": work_item_id,
         "work_item_id": work_item_id,
     }
-    _write_json(path=claim, payload=claim_payload)
-    _append_event(directory=directory, record={"event": "claim", **claim_payload})
-    code = run(argv=_start_command(repo=repo, session_name=work_item_id, handoff=handoff))
+    write_json(path=claim, payload=claim_payload)
+    append_event(directory=directory, record={"event": "claim", **claim_payload})
+    code = run(argv=start_command(repo=repo, session_name=work_item_id, handoff=handoff))
     if code != 0:  # pragma: no cover
         return _refused(action_id=action_id, reason=f"command_exit_{code}")
     return _acted(action_id=action_id, reason="work_item_session_started")
@@ -234,14 +174,14 @@ def _act_resume(
     if classifier.get("action") != "exact_resume":
         return _refused(action_id=action_id, reason="classifier_report_only")
     work_item_id = str(payload["work_item_id"])
-    handoff, _meta = _handoff_paths(repo=repo, work_item_id=work_item_id)
+    handoff, _meta = handoff_paths(repo=repo, work_item_id=work_item_id)
     if (
         not handoff.exists()
-        or not (_state_dir(repo=repo, work_item_id=work_item_id) / "claim.json").exists()
+        or not (state_dir(repo=repo, work_item_id=work_item_id) / "claim.json").exists()
     ):
         return _refused(action_id=action_id, reason="missing_handoff")
-    handoff = _write_handoff(repo=repo, payload=payload) or handoff
-    command = _resume_command(proposal=proposal, handoff=handoff)
+    handoff = write_handoff(repo=repo, payload=payload) or handoff
+    command = resume_command(proposal=proposal, handoff=handoff)
     if command is None:  # pragma: no cover
         return _refused(action_id=action_id, reason="classifier_mismatch")
     code = run(argv=command)
@@ -252,16 +192,16 @@ def _act_resume(
 
 def _act_finish(*, action_id: ActionId, repo: Path, payload: dict[str, object]) -> ActResult:
     work_item_id = str(payload["work_item_id"])
-    directory = _state_dir(repo=repo, work_item_id=work_item_id)
+    directory = state_dir(repo=repo, work_item_id=work_item_id)
     claim = directory / "claim.json"
-    handoff, _meta = _handoff_paths(repo=repo, work_item_id=work_item_id)
+    handoff, _meta = handoff_paths(repo=repo, work_item_id=work_item_id)
     status = _terminal_status(payload=payload)
-    claim_payload = _read_json(path=claim)
+    claim_payload = read_json(path=claim)
     if status is None or claim_payload is None or not handoff.exists():
         return _refused(action_id=action_id, reason="missing_handoff")
     outcome = {**claim_payload, "claim_path": str(claim), "status": status}
-    _write_json(path=directory / "outcome.json", payload=outcome)
-    _append_event(directory=directory, record={"event": "terminal", **outcome})
+    write_json(path=directory / "outcome.json", payload=outcome)
+    append_event(directory=directory, record={"event": "terminal", **outcome})
     claim.unlink(missing_ok=True)
     return _acted(action_id=action_id, reason=f"work_item_session_{status}")
 

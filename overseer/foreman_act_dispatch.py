@@ -1,16 +1,15 @@
 """Dispatch already-authorized foreman-act proposals to deterministic mechanics."""
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.4
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
 
 import tmuxio
 from foreman_act_commands import command_for
 from foreman_act_consensus import act_journal_triage
+from foreman_act_dispatch_result import CommandResult, ReturncodeRunner, Runner, command_result
 from foreman_act_filing import FileWorkItem, filing_request
 from foreman_act_ledger import LedgerMutation, ledger_request
 from foreman_act_record import AppendJournal
@@ -39,16 +38,6 @@ _START_ACTIONS: tuple[ActionId, ...] = (
     QUALIFYING_SESSION_START,
     SUPERVISOR_PAIR_START,
 )
-
-
-@dataclass(frozen=True, kw_only=True)
-class CommandResult:
-    returncode: int
-    stderr: str = ""
-
-
-class Runner(Protocol):
-    def __call__(self, *, argv: list[str]) -> int | CommandResult: ...
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -86,24 +75,6 @@ def _bounded_reason(*, prefix: str, reason: str, limit: int = 180) -> str:
     if len(bounded) <= limit:
         return bounded
     return bounded[: limit - 3] + "..."
-
-
-def _command_result(*, raw: int | CommandResult) -> CommandResult:
-    if isinstance(raw, int):
-        return CommandResult(returncode=raw)
-    return raw
-
-
-def _command_returncode(*, raw: int | CommandResult) -> int:
-    return _command_result(raw=raw).returncode
-
-
-@dataclass(frozen=True, kw_only=True)
-class _ReturncodeRunner:
-    run: Runner
-
-    def __call__(self, *, argv: list[str]) -> int:
-        return _command_returncode(raw=self.run(argv=argv))
 
 
 def _supervisor_start_failure_reason(*, stderr: str) -> str | None:
@@ -184,10 +155,10 @@ def _act_command(*, action_id: ActionId, proposal: dict[str, object], run: Runne
     if command is None:  # pragma: no cover
         result = _refused(action_id=action_id, reason="classifier_mismatch")
     else:
-        command_result = _command_result(raw=run(argv=command))
-        code = command_result.returncode
+        result = command_result(raw=run(argv=command))
+        code = result.returncode
         failed_reason = (
-            _supervisor_start_failure_reason(stderr=command_result.stderr)
+            _supervisor_start_failure_reason(stderr=result.stderr)
             if action_id in _START_ACTIONS
             else None
         )
@@ -211,7 +182,7 @@ def act_authorized(
     seams: DispatchSeams,
 ) -> ActResult:
     if is_work_item_session_action(action_id=action_id):
-        returncode_runner = _ReturncodeRunner(run=seams.run)
+        returncode_runner = ReturncodeRunner(run=seams.run)
         result = act_work_item_session(
             action_id=action_id,
             proposal=proposal,
@@ -242,7 +213,7 @@ def act_authorized(
             append_journal=seams.append_journal,
         )
     elif action_id == DISPATCH_JOURNAL_RECONCILE_MERGED:  # pragma: no cover
-        returncode_runner = _ReturncodeRunner(run=seams.run)
+        returncode_runner = ReturncodeRunner(run=seams.run)
         result = act_journal_triage(
             action_id=action_id,
             proposal=proposal,
