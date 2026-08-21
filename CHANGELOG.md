@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.19.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.18.0...v1.19.0) (2026-08-21)
+
+
+### Features
+
+* pin caam session discovery ([a2bcd87](https://github.com/thewoolleyman/livespec-overseer/commit/a2bcd87352f65316c1a8ebc14e10dcd78ba0e118))
+
+
+### Bug Fixes
+
+* use protocol seams for caam sessions ([05836c6](https://github.com/thewoolleyman/livespec-overseer/commit/05836c627628a4f8f5ba02139d173b054d58c0b9))
+
 ## [1.18.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.17.0...v1.18.0) (2026-08-21)
 
 
