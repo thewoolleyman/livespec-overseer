@@ -29,12 +29,26 @@ def test_overseer_declare_ready_is_a_shipped_console_script() -> None:
     assert_overseer_declare_shipped()
 
 
-def test_overseer_declare_ready_writes_state_and_prints_terminal_contract(*, tmp_path, capsys):
+def test_overseer_declare_ready_writes_state_and_prints_terminal_contract(
+    *, tmp_path, capsys, monkeypatch
+):
     assert_overseer_declare_shipped()
     module = importlib.import_module("overseer.declare")
     repo = tmp_path / "repo"
     topic = "handoff-thread"
     repo.mkdir()
+    store = tmp_path / "map.jsonl"
+    registry.append_mapping(
+        track=registry.PlanTrack(
+            topic=topic,
+            repo=str(repo),
+            tmux=topic,
+            epic="overseer-handoff",
+        ),
+        store_path=store,
+        added_at="2026-08-21T00:00:00Z",
+    )
+    monkeypatch.setattr(module.registry, "DEFAULT_STORE_PATH", str(store))
 
     code = module.main(argv=["ready", "--repo", str(repo), "--topic", topic])
 
@@ -44,6 +58,112 @@ def test_overseer_declare_ready_writes_state_and_prints_terminal_contract(*, tmp
         "restart armed - any further output cancels/downgrades this; you will know it "
         "worked because this conversation ends.\n"
     )
+
+
+def test_overseer_declare_ready_does_not_claim_armed_when_no_mapping_can_certify(
+    *, tmp_path, capsys, monkeypatch
+):
+    assert_overseer_declare_shipped()
+    module = importlib.import_module("overseer.declare")
+    repo = tmp_path / "repo"
+    topic = "untracked-thread"
+    repo.mkdir()
+    monkeypatch.setattr(module.registry, "DEFAULT_STORE_PATH", str(tmp_path / "map.jsonl"))
+    monkeypatch.setattr(module.registry, "DEFAULT_STAMP_PATH", str(tmp_path / "stamps.json"))
+
+    code = module.main(argv=["ready", "--repo", str(repo), "--topic", topic])
+
+    streams = capsys.readouterr()
+    assert code == 0
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
+    assert "restart armed" not in streams.out
+    assert streams.out == (
+        "ready declaration written, but restart is not armed: no matching overseer "
+        "mapping row; daemon cannot certify this declaration\n"
+    )
+
+
+def test_overseer_declare_ready_reports_malformed_round(*, tmp_path, capsys, monkeypatch):
+    assert_overseer_declare_shipped()
+    module = importlib.import_module("overseer.declare")
+    repo = tmp_path / "repo"
+    topic = "malformed-round"
+    stamps = tmp_path / "stamps.json"
+    repo.mkdir()
+    stamps.write_text(f'{{"{repo}\\t{topic}": {{"at": "bad"}}}}', encoding="utf-8")
+    monkeypatch.setattr(module.registry, "DEFAULT_STAMP_PATH", str(stamps))
+
+    code = module.main(argv=["ready", "--repo", str(repo), "--topic", topic])
+
+    assert code == 0
+    assert "missing or non-numeric injection stamp" in capsys.readouterr().out
+
+
+def test_overseer_declare_ready_reports_round_missing_identity(*, tmp_path, capsys, monkeypatch):
+    assert_overseer_declare_shipped()
+    module = importlib.import_module("overseer.declare")
+    repo = tmp_path / "repo"
+    topic = "legacy-round"
+    stamps = tmp_path / "stamps.json"
+    repo.mkdir()
+    stamps.write_text(f'{{"{repo}\\t{topic}": 1000.0}}', encoding="utf-8")
+    monkeypatch.setattr(module.registry, "DEFAULT_STAMP_PATH", str(stamps))
+
+    code = module.main(argv=["ready", "--repo", str(repo), "--topic", topic])
+
+    assert code == 0
+    assert "round record missing session identity" in capsys.readouterr().out
+
+
+def test_overseer_declare_ready_arms_with_well_formed_open_round(*, tmp_path, capsys, monkeypatch):
+    assert_overseer_declare_shipped()
+    module = importlib.import_module("overseer.declare")
+    repo = tmp_path / "repo"
+    topic = "open-round"
+    stamps = tmp_path / "stamps.json"
+    repo.mkdir()
+    registry.write_injection_stamp(
+        repo=str(repo),
+        topic=topic,
+        ts=1000.0,
+        session_identity="claude:open-round:open-round",
+        stamp_path=stamps,
+    )
+    monkeypatch.setattr(module.registry, "DEFAULT_STAMP_PATH", str(stamps))
+
+    code = module.main(argv=["ready", "--repo", str(repo), "--topic", topic])
+
+    assert code == 0
+    assert capsys.readouterr().out == (
+        "restart armed - any further output cancels/downgrades this; you will know it "
+        "worked because this conversation ends.\n"
+    )
+
+
+def test_overseer_declare_ready_reports_mapped_identity_mismatch(*, tmp_path, capsys, monkeypatch):
+    assert_overseer_declare_shipped()
+    module = importlib.import_module("overseer.declare")
+    repo = tmp_path / "repo"
+    topic = "identity-thread"
+    store = tmp_path / "map.jsonl"
+    repo.mkdir()
+    registry.append_mapping(
+        track=registry.PlanTrack(
+            topic=topic,
+            repo=str(repo),
+            tmux=topic,
+            epic="overseer-identity",
+            observed_session_identity="claude:other:identity-thread",
+        ),
+        store_path=store,
+        added_at="2026-08-21T00:00:00Z",
+    )
+    monkeypatch.setattr(module.registry, "DEFAULT_STORE_PATH", str(store))
+
+    code = module.main(argv=["ready", "--repo", str(repo), "--topic", topic])
+
+    assert code == 0
+    assert "mapped Claude session identity differs from this pane" in capsys.readouterr().out
 
 
 def test_overseer_declare_ready_infers_topic_from_tmux_session(*, tmp_path, monkeypatch):
@@ -219,7 +339,20 @@ def test_fake_session_cli_prints_contract_and_restarts_in_real_supervisor_loop(*
     session = registry.tmux_id(repo=str(repo), topic=topic)
     tmux_bin = _tmux_wrapper(tmp_path=tmp_path)
     inner = tmuxio.TmuxIO(tmux_bin=str(tmux_bin))
+    home = tmp_path / "declare-home"
+    home.mkdir()
+    registry.append_mapping(
+        track=registry.PlanTrack(
+            topic=topic,
+            repo=str(repo),
+            tmux=session,
+            epic="overseer-declare",
+        ),
+        store_path=home / ".livespec-overseer.jsonl",
+        added_at="2026-08-21T00:00:00Z",
+    )
     command = (
+        f"HOME={shlex.quote(str(home))} "
         f"PYTHONPATH={shlex.quote(str(ROOT))} "
         f"{shlex.quote(str(ROOT / '.venv' / 'bin' / 'python'))} "
         f"-m overseer.declare ready --repo {shlex.quote(str(repo))} "

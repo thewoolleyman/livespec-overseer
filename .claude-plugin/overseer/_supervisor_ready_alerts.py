@@ -39,7 +39,9 @@ def _must_surface_immediately(*, reason: str) -> bool:
     """
     return reason.startswith(
         (
+            "no supervision round open",
             "session identity differs from round-open identity",
+            "session identity differs from observed identity",
             "ready declaration exceeded",
         )
     )

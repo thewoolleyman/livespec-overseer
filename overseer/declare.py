@@ -20,6 +20,7 @@ READY_CONTRACT = (
     "restart armed - any further output cancels/downgrades this; you will know it "
     "worked because this conversation ends."
 )
+NOT_ARMED_PREFIX = "ready declaration written, but restart is not armed"
 
 
 def _topic_from_mapping(*, repo: Path, session: str) -> str:
@@ -55,6 +56,55 @@ def _write_ready(*, repo: Path, topic: str) -> None:
     registry.atomic_write(path=signals.state_path(repo=str(repo), topic=topic), body="ready\n")
 
 
+def _has_iso_added_at(*, track: registry.Track) -> bool:
+    added_at = track.added_at
+    return (
+        added_at is not None
+        and len(added_at) == len("2026-08-16T23:45:00Z")
+        and added_at[4] == "-"
+        and added_at[7] == "-"
+        and added_at[10] == "T"
+        and added_at[13] == ":"
+        and added_at[16] == ":"
+        and added_at.endswith("Z")
+    )
+
+
+def _matching_track(*, repo: Path, topic: str) -> registry.Track | None:
+    repo_key = registry.norm(repo=repo)
+    for track in registry.read_valid_mapping(store_path=registry.DEFAULT_STORE_PATH):
+        if registry.norm(repo=track.repo) == repo_key and track.topic == topic:
+            return track
+    return None
+
+
+def _uncertifiable_reason(*, repo: Path, topic: str) -> str | None:
+    reason: str | None = None
+    record = registry.read_round_record(
+        repo=str(repo), topic=topic, stamp_path=registry.DEFAULT_STAMP_PATH
+    )
+    if record.malformed_reason is not None:
+        reason = record.malformed_reason
+    elif record.at is None:
+        track = _matching_track(repo=repo, topic=topic)
+        if track is None:
+            reason = "no matching overseer mapping row; daemon cannot certify this declaration"
+        elif not _has_iso_added_at(track=track):
+            reason = "mapping row missing added_at; daemon cannot certify this declaration"
+        else:
+            fallback_identity = f"claude:{track.tmux}:{topic}"
+            if (
+                track.observed_session_identity is not None
+                and track.observed_session_identity.startswith("claude:")
+                and track.observed_session_identity != fallback_identity
+            ):
+                reason = (
+                    "mapped Claude session identity differs from this pane "
+                    f"(observed={track.observed_session_identity}; inferred={fallback_identity})"
+                )
+    return reason
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="overseer-declare",
@@ -88,7 +138,11 @@ def main(
         )
         return 2
     _write_ready(repo=repo, topic=topic)
-    streams.write_stdout(text=f"{READY_CONTRACT}\n")
+    reason = _uncertifiable_reason(repo=repo, topic=topic)
+    if reason is None:
+        streams.write_stdout(text=f"{READY_CONTRACT}\n")
+    else:
+        streams.write_stdout(text=f"{NOT_ARMED_PREFIX}: {reason}\n")
     return 0
 
 

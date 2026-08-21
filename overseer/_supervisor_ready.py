@@ -166,7 +166,7 @@ def _fresh_ready_without_round_candidate(
         and session_identity is not None
         and history.mapped
         and _has_iso_added_at(history=history)
-        and history.session_identity is None
+        and (history.session_identity is None or history.session_identity == session_identity)
     )
 
 
@@ -202,6 +202,16 @@ def _ready_uncertifiable_reason(
         history=history,
     ) and not _ready_declaration_age_within_limit(declared=declared, now=now):
         reason = "ready declaration exceeded 30m max age"
+    elif (
+        round_record.at is None
+        and history.session_identity is not None
+        and session_identity is not None
+        and history.session_identity != session_identity
+    ):
+        reason = (
+            "session identity differs from observed identity "
+            f"(observed={history.session_identity}; live={session_identity})"
+        )
     elif round_record.at is None:
         reason = "no supervision round open"
     elif round_record.malformed_reason is not None:

@@ -88,7 +88,9 @@ def test_fresh_never_observed_ready_without_round_expires_by_declaration_age(
     assert obs.ready_uncertifiable_reason == "ready declaration exceeded 30m max age"
 
 
-def test_previously_observed_ready_without_round_stays_uncertifiable(*, tmp_path: Path) -> None:
+def test_previously_observed_ready_without_round_certifies_when_identity_matches(
+    *, tmp_path: Path
+) -> None:
     repo, topic = make_plan(tmp_path=tmp_path)
     fake = FakeTmux()
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
@@ -99,6 +101,40 @@ def test_previously_observed_ready_without_round_stays_uncertifiable(*, tmp_path
                 "repo": str(repo),
                 "tmux": "session",
                 "observed_session_identity": "claude:session:topic",
+                "added_at": "2026-08-16T23:45:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    obs = _supervisor_ready.round_observation(
+        sup=sup,
+        repo=str(repo),
+        topic=topic,
+        session="session",
+        runtime="claude",
+        declared=_declared_ready(repo=repo, topic=topic),
+    )
+
+    assert obs.ready is True
+    assert obs.ready_uncertifiable_reason is None
+
+
+def test_previously_observed_ready_without_round_refuses_identity_mismatch(
+    *, tmp_path: Path
+) -> None:
+    repo, topic = make_plan(tmp_path=tmp_path)
+    fake = FakeTmux()
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    Path(sup.store_path).write_text(
+        json.dumps(
+            {
+                "topic": topic,
+                "repo": str(repo),
+                "tmux": "session",
+                "observed_session_identity": "claude:other:topic",
+                "added_at": "2026-08-16T23:45:00Z",
             }
         )
         + "\n",
@@ -115,4 +151,7 @@ def test_previously_observed_ready_without_round_stays_uncertifiable(*, tmp_path
     )
 
     assert obs.ready is False
-    assert obs.ready_uncertifiable_reason == "no supervision round open"
+    assert obs.ready_uncertifiable_reason == (
+        "session identity differs from observed identity "
+        "(observed=claude:other:topic; live=claude:session:topic)"
+    )

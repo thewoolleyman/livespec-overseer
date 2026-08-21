@@ -21,6 +21,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "overseer"))
 
+import _supervisor_assignment
 import signals
 import supervisor
 from test_supervisor_builders import TEST_EPIC, isolate_store
@@ -93,6 +94,45 @@ def test_foreman_seat_accepts_an_explicit_epic(*, tmp_path, monkeypatch):
     assert f'"epic": "{TEST_EPIC}"' in rows[0]
 
 
+def test_grooming_seat_accepts_an_explicit_epic(*, tmp_path, monkeypatch):
+    """POSITIVE: `add --epic` can record the repo's reserved grooming seat epic."""
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    rc = supervisor.main(
+        argv=[
+            "add",
+            "--repo",
+            str(repo),
+            "--topic",
+            "repo-grooming",
+            "--epic",
+            TEST_EPIC,
+        ]
+    )
+
+    assert rc == 0
+    rows = [line for line in store.read_text(encoding="utf-8").splitlines() if line.strip()]
+    assert len(rows) == 1
+    assert '"kind": "grooming"' in rows[0]
+    assert '"topic": "repo-grooming"' in rows[0]
+    assert '"tmux": "repo-grooming"' in rows[0]
+    assert f'"epic": "{TEST_EPIC}"' in rows[0]
+
+
+def test_grooming_assignment_requires_an_epic(*, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    with pytest.raises(ValueError, match="grooming seat requires epic"):
+        _supervisor_assignment.assignment_track(
+            repo=str(repo),
+            topic="repo-grooming",
+            session="repo-grooming",
+        )
+
+
 def test_non_seat_foreman_topic_still_refused_with_an_explicit_epic(*, tmp_path, monkeypatch):
     """CONTROL: explicit epics do not launder worker topics ending in `-foreman`."""
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
@@ -107,6 +147,30 @@ def test_non_seat_foreman_topic_still_refused_with_an_explicit_epic(*, tmp_path,
                 str(repo),
                 "--topic",
                 "topic-foreman",
+                "--epic",
+                TEST_EPIC,
+            ]
+        )
+
+    assert rc == 1
+    assert "refusing reserved supervisor topic" in err.getvalue()
+    assert not store.exists()
+
+
+def test_non_seat_grooming_topic_still_refused_with_an_explicit_epic(*, tmp_path, monkeypatch):
+    """CONTROL: explicit epics do not launder worker topics ending in `-grooming`."""
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    with contextlib.redirect_stderr(_io.StringIO()) as err:
+        rc = supervisor.main(
+            argv=[
+                "add",
+                "--repo",
+                str(repo),
+                "--topic",
+                "topic-grooming",
                 "--epic",
                 TEST_EPIC,
             ]

@@ -311,9 +311,9 @@ def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tm
     """Scenario: An uncertifiable ready declaration is surfaced as attention.
 
     Given a session that wrote `ready` while no supervision round is open, the interlock
-    must keep refusing it forever: no stamp means no round to certify against. Past the
-    bounded floor, though, the row must stop looking like an acting restart and become an
-    attention row naming the declaration, its age, and why it cannot certify.
+    must keep refusing it forever: no stamp means no round to certify against. The row
+    must immediately stop looking like a plain idle track and become an attention row
+    naming the declaration, its age, and why it cannot certify.
 
     INJECTED DEFECTS THAT REDDEN IT:
       - treating a bare `ready` as plain `idle` keeps it out of NEEDS YOU and emits no
@@ -339,17 +339,12 @@ def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tm
         is False
     )
 
-    too_young = sup.evaluate(track=track, act=True)
-    assert too_young.status != "restarting"
-    assert not fake.has(method="respawn")
-
-    clock["t"] += _supervisor_config.CONDITION_CONTINUITY_GAP + 1
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         surfaced = sup.evaluate(track=track, act=True)
 
     assert surfaced.status == "ready-uncertifiable"
-    assert surfaced.note == "15m: ready cannot certify: no supervision round open"
+    assert surfaced.note == "0m: ready cannot certify: no supervision round open"
     assert supervisor.needs_attention(row=surfaced) is True
     assert not fake.has(method="respawn")
     line = row_line(out=render_of(sup=sup, views=[surfaced]), topic=topic)
@@ -358,7 +353,7 @@ def test_scenario_an_uncertifiable_ready_declaration_surfaces_as_attention(*, tm
     assert "ready cannot certify" in line
     assert "no supervision round" in line
     report = err.getvalue()
-    assert "ready cannot certify (15m): no supervision round open" in report
+    assert "ready cannot certify (0m): no supervision round open" in report
     for coordinate in (topic, registry.repo_slug(repo=str(repo)), session):
         assert coordinate in report
     assert f"tmux switch-client -t {session}" in report
