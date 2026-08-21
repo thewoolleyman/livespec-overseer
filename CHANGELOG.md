@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.17.0...v1.18.0) (2026-08-21)
+
+
+### Features
+
+* pin caam picker driving ([de782cf](https://github.com/thewoolleyman/livespec-overseer/commit/de782cfed8cb701c6093845351a09568a033a0b4))
+
 ## [1.17.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.16.0...v1.17.0) (2026-08-21)
 
 
