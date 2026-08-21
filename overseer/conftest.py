@@ -1,9 +1,10 @@
 """Test bootstrap for the host-only overseer modules.
 
-These beside-tests are NOT part of the product ``tests/`` tree (the default
-``pytest testpaths=["tests"]`` does not collect them). Run them explicitly:
+These beside-tests live next to their modules rather than in the product
+``tests/`` tree, but they ARE collected by an ordinary run: ``testpaths`` in
+pyproject.toml names both ``overseer`` and ``tests``. To run only this tier:
 
-    uv run pytest .claude/skills/overseer/ -q
+    uv run pytest overseer/ -q
 
 Adding this directory to ``sys.path`` lets ``import registry`` / ``import
 signals`` resolve when pytest collects the beside-tests.
