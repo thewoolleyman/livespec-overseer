@@ -270,6 +270,14 @@ def isolate_store(*, tmp_path, monkeypatch):
     # would set an attribute nothing reads and let this CLI test append to the
     # developer's real ~/.livespec-overseer.jsonl.
     monkeypatch.setattr(_registry_core, "DEFAULT_STORE_PATH", store)
+    # The STAMP sidecar needs the identical treatment, for the identical reason.
+    # `resolve_stamp_store()` reads `DEFAULT_STAMP_PATH` as a bare module global too.
+    # This was latent until a launch-time statusline baseline began being recorded on
+    # the START path (2026-08-21): before that, no CLI `start` wrote a stamp, so an
+    # unredirected stamp path never showed. Afterwards every CLI start test wrote into
+    # the developer's real ~/.livespec-overseer-stamps.json -- 120 junk entries were
+    # found in a live operator file, keyed by pytest tmp dirs that no longer exist.
+    monkeypatch.setattr(_registry_core, "DEFAULT_STAMP_PATH", tmp_path / "stamps.json")
     # `add`/`start` now consult the real fleet manifest to detect cross-repo topic
     # collisions (for the single-dash prefix). Neutralize that read by default so a
     # CLI test is hermetic and never flakes on the host's actual fleet; a collision
