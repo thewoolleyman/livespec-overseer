@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.10.0...v1.10.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* **overseer:** declare the hgq4wi.28 LLOC soft-band owner ahead of its merge ([48887db](https://github.com/thewoolleyman/livespec-overseer/commit/48887dbc0ca6327f4f263ec06507cfe4325f5a9f))
+
 ## [1.10.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.9.1...v1.10.0) (2026-08-21)
 
 
