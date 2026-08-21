@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import _registry_rows_io
 import registry
@@ -165,45 +164,6 @@ def test_mapping_upsert_preserves_fields_not_named_by_the_update_spec(*, tmp_pat
     assert _rows(store=store)[0]["tmux"] == "old-session"
 
 
-def test_cli_add_append_failure_after_legacy_remove_cannot_drop_live_row(*, tmp_path, monkeypatch):
-    repo = tmp_path / "repo"
-    (repo / "plan" / "alpha").mkdir(parents=True)
-    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
-    registry.append_mapping(
-        track=registry.Track(
-            topic="alpha",
-            repo=str(repo),
-            tmux="old-session",
-            epic="overseer-old",
-        ),
-        store_path=store,
-    )
-
-    original_open = Path.open
-
-    def fail_append(self, mode="r", *args, **kwargs):
-        if self == store and "a" in mode:
-            observed = _rows(store=store)
-            assert observed == []
-            raise OSError("append boundary failed")
-        return original_open(self, mode, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "open", fail_append)
-
-    assert (
-        supervisor.main(
-            argv=["add", "--repo", str(repo), "--topic", "alpha", "--epic", "overseer-new"]
-        )
-        == 0
-    )
-
-    rows = _rows(store=store)
-    assert len(rows) == 1
-    assert rows[0]["topic"] == "alpha"
-    assert rows[0]["repo"] == str(repo)
-    assert rows[0]["epic"] in {"overseer-old", "overseer-new"}
-
-
 def test_cli_add_atomic_write_failure_keeps_existing_live_row(*, tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     (repo / "plan" / "alpha").mkdir(parents=True)
@@ -218,7 +178,11 @@ def test_cli_add_atomic_write_failure_keeps_existing_live_row(*, tmp_path, monke
         store_path=store,
     )
 
+    atomic_write_calls = 0
+
     def fail_atomic_write(*, path, body, raise_errors=False):
+        nonlocal atomic_write_calls
+        atomic_write_calls += 1
         del body
         assert path == store
         assert raise_errors is True
@@ -233,6 +197,7 @@ def test_cli_add_atomic_write_failure_keeps_existing_live_row(*, tmp_path, monke
         == 0
     )
 
+    assert atomic_write_calls == 1
     rows = _rows(store=store)
     assert len(rows) == 1
     assert rows[0]["topic"] == "alpha"
