@@ -77,6 +77,9 @@ not just the topic name. The daemon captures and refreshes each track's
 `_supervisor_launch_profile*` tree re-asserts the recorded harness, model, and
 wrapper. Enumerate the current modules from the tree before editing this
 subsystem; this paragraph names the behavior, not a complete inventory.
+The current split keeps live `/proc` capture in
+`_supervisor_launch_profile_capture.py` and command/env planning in
+`_supervisor_launch_profile.py`; keep that boundary when changing only one side.
 
 The bare Claude command (`claude --dangerously-skip-permissions -n <topic>`) is
 only the fail-soft path for a mapping row with no recorded profile. A profile
@@ -236,6 +239,10 @@ runtime-appropriate mechanics: `is_codex_idle_input` (not Claude's `❯` box) dr
 `idle`, the wrap-up and keep-going nudge are pasted with a Codex submit-verify (the pane
 goes busy, not an emptied `❯` box), and `restarting` dispatches to `codex resume <id>`
 rather than the claude launch command (see invariant 7 and the load-bearing mechanics).
+Discovery's live-session adoption is split into `_supervisor_discovery_adoption.py`,
+and liveness attention keeps observation in `_supervisor_attention_observe.py` while
+`_supervisor_attention.py` owns the status decision surface; keep those boundaries
+cohesive when changing either path.
 The `cGone` choice splits the no-managed-pane case: when there
 is no pane the daemon can drive but a live Claude registry session for the topic is
 running with NO tmux pane (a bare SSH shell), the row is the informational
@@ -869,7 +876,10 @@ for the marker's edge-triggered lifecycle.
   may decide for itself"** (invariant 7). The full contract is in
   `marker-protocol.md`; keep
   it and `_supervisor_prompts.py`'s `_WRAPUP_SUGGEST_HEAD` /
-  `_WRAPUP_INSIST_HEAD` / `_WRAPUP_BODY` in sync.
+  `_WRAPUP_INSIST_HEAD` / `_WRAPUP_BODY` in sync. Supervisor-entity prompt variants
+  live in `_supervisor_prompts_supervisor.py`; expiry notices and legacy path builders
+  live in `_supervisor_prompts_notices.py`; standalone nudge text lives in
+  `_supervisor_prompts_nudges.py`.
 - **Self-healing resume-submit (`registry.set_resume_pending` / `read_resume_pending`,
   `_resend_enter`; R1, 2026-07-18).** The restart respawns the fresh session and pastes the
   resume line, but a freshly-respawned TUI can DROP the Enter while still drawing its
