@@ -89,6 +89,10 @@ def reviewer_failure(
     }
 
 
+def pinned_model(*, prompt: dict[str, object]) -> dict[str, object]:
+    return dict(jsonio.as_object(value=prompt.get("model")) or {})
+
+
 def run_reviewer(
     *,
     prompt: dict[str, object],
@@ -119,7 +123,12 @@ def run_reviewer(
         return reviewer_failure(
             prompt=prompt, reason="reviewer_response_malformed", raw_stdout=completed.stdout
         )
-    return {**response, "raw_stdout": completed.stdout}
+    return {
+        **response,
+        "reviewer_id": str_field(payload=prompt, key="reviewer_id"),
+        "model": pinned_model(prompt=prompt),
+        "raw_stdout": completed.stdout,
+    }
 
 
 def reviewer_responses(
@@ -179,7 +188,8 @@ def convene_panel(
     )
     reviewers = jsonio.as_list(value=responses.get("reviewers")) or []
     verdict["decision_kind"] = result_decision_kind(
-        reviewers=[reviewer for reviewer in reviewers if isinstance(reviewer, dict)]
+        reviewers=[reviewer for reviewer in reviewers if isinstance(reviewer, dict)],
+        verdict_reason=str_field(payload=verdict, key="reason"),
     )
     _ = write_json(path=panel_dir / "verdict.json", payload=verdict)
     _ = write_json(path=verdict_path, payload=verdict)
