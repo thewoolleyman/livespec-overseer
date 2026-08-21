@@ -11,9 +11,5 @@ if [[ -z "$py_changed" ]]; then
   exit $?
 fi
 
-if uv run python -m livespec_dev_tooling.green_token check 2>&1; then
-  echo ":: pre-push: green token matched - tree byte-identical to last green check; skipping full aggregate (CI is authoritative)"
-  exit 0
-fi
-
-just check
+echo ":: pre-push: Python changes detected - arming LLOC soft-warning release tier"
+LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST=true just check
