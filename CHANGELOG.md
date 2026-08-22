@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.28.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.27.1...v1.28.0) (2026-08-22)
+
+
+### Features
+
+* split foreman roster session and work state ([58ae30e](https://github.com/thewoolleyman/livespec-overseer/commit/58ae30e1651217fe30ae75b41ec6f85f15e0365f))
+
 ## [1.27.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.27.0...v1.27.1) (2026-08-22)
 
 
