@@ -300,6 +300,19 @@ The pass must leave these seven invariants true, or report the breach with the
 population scanned:
 
 1. Every non-done item rolls up to a plan epic. Only plan anchors are unparented.
+   A deferral successor is still parented to the epic it defers from; it is
+   disposed for archive purposes by a paired carry-forward marker, not by being
+   left unparented. The successor must carry the reference to the deferring epic,
+   and the deferring epic's own record must name that successor id. That archive
+   gate behavior is not implemented here yet; `bd-ib-tl5u` in the
+   livespec-orchestrator-beads-fabro tenant carries the gate change. Until that
+   lands, do not normalize the workaround into a new invariant exemption:
+   recognize unparented successors such as `overseer-n1ai`, `overseer-5416`,
+   `overseer-6bx5`, `overseer-cv06`, and `overseer-157q` as evidence of the
+   archive-gate gap, then either parent the successor when doing so will not
+   re-block an archive gate or record why the row is temporarily left as found.
+   An ordinary unparented non-done item with no deferral-successor provenance
+   remains a genuine invariant-1 breach.
 2. Every open item carries acceptance criteria, read through the merged projection.
 3. Only lifecycle statuses exist: backlog, ready, pending-approval, active,
    blocked, acceptance, and closed.
