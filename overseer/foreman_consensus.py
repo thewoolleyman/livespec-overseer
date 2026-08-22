@@ -10,6 +10,7 @@ from typing import cast
 import jsonio
 import streams
 from foreman_consensus_cache import budget_result, read_cached_verdict, record_panel_result
+from foreman_consensus_decision import reviewers_from
 from foreman_consensus_eval import escalation, evaluate_verdicts
 from foreman_consensus_prompt import cache_key, reviewer_prompts
 from foreman_consensus_record import record_consensus_evaluation
@@ -32,6 +33,8 @@ __all__: list[str] = [
     "main",
 ]
 
+STRUCTURAL_REFUSAL_REASONS = frozenset({"malformed_input", "panel_size_mismatch"})
+
 
 def decision_rule_for_request(*, request: dict[str, object]) -> DecisionRule:
     repo = request.get("repo")
@@ -41,6 +44,12 @@ def decision_rule_for_request(*, request: dict[str, object]) -> DecisionRule:
     if rule == MAJORITY:
         return cast(DecisionRule, MAJORITY)
     return cast(DecisionRule, UNANIMOUS)
+
+
+def cacheable_verdict(*, verdict: dict[str, object]) -> bool:
+    return not (
+        verdict.get("outcome") == "escalate" and verdict.get("reason") in STRUCTURAL_REFUSAL_REASONS
+    )
 
 
 def consensus(
@@ -55,6 +64,14 @@ def consensus(
     effective_decision_rule = (
         decision_rule if decision_rule is not None else decision_rule_for_request(request=request)
     )
+    if emit_prompts and not reviewers_from(responses=responses):
+        return {
+            "schema_version": PANEL_SCHEMA_VERSION,
+            "outcome": "prompts",
+            "mutated": False,
+            "cache": "skipped",
+            "prompts": reviewer_prompts(request=request),
+        }
     key = cache_key(request=request, decision_rule=effective_decision_rule)
     cached = read_cached_verdict(state_dir=state_dir, key=key)
     if cached is not None:
@@ -80,7 +97,8 @@ def consensus(
         result["panel_record"] = record_consensus_evaluation(
             request=request, responses=responses, verdict=result, cache_key=key
         )
-        _ = record_panel_result(state_dir=state_dir, cache_key=key, verdict=result)
+        if cacheable_verdict(verdict=result):
+            _ = record_panel_result(state_dir=state_dir, cache_key=key, verdict=result)
     if emit_prompts:
         result["prompts"] = reviewer_prompts(request=request)
     return result
