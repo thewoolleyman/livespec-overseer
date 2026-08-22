@@ -1021,11 +1021,22 @@ is the same shape as the `added_at` defect recorded elsewhere in this file — a
 path that reports success while writing nothing — and the remedy is the same: verify
 the read-back, never the exit message.
 
-Two things make a pin sweep read falsely clean. A default `bd list` omits `closed`
+Three things make a pin sweep read falsely clean. A default `bd list` omits `closed`
 and `backlog` items, so pinned items resting in either state are invisible and the
-sweep reports zero. And the dispatch journal records the field as `dispatch_factory`,
+sweep reports zero. The dispatch journal records the field as `dispatch_factory`,
 not `factory`, so a tally keyed on `factory` returns every row unattributed and reads
-as though no dispatch ever named a factory at all.
+as though no dispatch ever named a factory at all. And the journal only began
+emitting `dispatch_factory` at 2026-08-21T04:12:10Z; a factory census built from the
+journal is blind to every dispatch before that instant, and it under-reports silently
+rather than erroring. Measured 2026-08-22T09:3xZ against
+`tmp/fabro-dispatch-journal.jsonl`: `overseer-fwxl` carried
+`metadata.dispatch_factory=vps` from dispatches at 2026-08-17T23:35:30Z,
+2026-08-18T00:18:45Z, and 2026-08-18T01:34:56Z, but journal searches missed it and
+it was found only by a full ledger metadata sweep over 711 items. The ledger stores
+only the LAST route an item took, never a history, so once a pin is cleared neither
+the journal nor the ledger can reconstruct that the item was ever pinned. A pin
+sweep is evidence only at the moment it was taken; record the result where it was
+taken instead of treating the sweep as a repeatable audit.
 
 **DO NOT GO HUNTING FOR THE SEAT THAT CHOSE THE FORBIDDEN ROUTE.** On 2026-08-22 that
 search was requested and could not have succeeded, because there was no freelancing
