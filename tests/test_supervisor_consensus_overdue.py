@@ -68,7 +68,7 @@ def test_consensus_overdue_raises_after_convene_bound_without_satisfying_artifac
     fingerprint = foreman_gather_evidence.pane_content_hash(text=capture)
     write_obligation(repo=repo, topic=topic, fingerprint=fingerprint)
 
-    _sup, fake, row, err = evaluated_blocked_row(
+    sup, fake, row, err = evaluated_blocked_row(
         tmp_path=tmp_path, repo=repo, topic=topic, capture=capture, now=1000.0 + 1801.0
     )
 
@@ -78,6 +78,7 @@ def test_consensus_overdue_raises_after_convene_bound_without_satisfying_artifac
     assert topic in (row.note or "")
     assert "consensus overdue" in err
     assert fingerprint[:12] in err
+    assert (str(repo), topic, "consensus-overdue") in sup.alerted
     assert not fake.has(method="paste")
     assert not fake.has(method="respawn")
 
@@ -107,6 +108,35 @@ def test_consensus_overdue_suppresses_when_matching_panel_record_exists(*, tmp_p
     assert row.status == "blocked:human"
     assert "unmet convene obligation" not in (row.note or "")
     assert "consensus overdue" not in err
+
+
+def test_consensus_overdue_alert_condition_clears_when_artifact_appears(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    write_disposition(repo=repo, value="consensus")
+    capture = idle_capture(ctx=80, body="Should I answer option 1?")
+    fingerprint = foreman_gather_evidence.pane_content_hash(text=capture)
+    write_obligation(repo=repo, topic=topic, fingerprint=fingerprint)
+    sup, _fake, row, _err = evaluated_blocked_row(
+        tmp_path=tmp_path, repo=repo, topic=topic, capture=capture, now=1000.0 + 1801.0
+    )
+    assert row.status == "consensus-overdue"
+    assert (str(repo), topic, "consensus-overdue") in sup.alerted
+    panel = repo / "tmp" / "overseer" / "foreman" / "panels" / topic / "panel-abc.json"
+    panel.parent.mkdir(parents=True)
+    panel.write_text(
+        json.dumps({"request": {"question_fingerprint": fingerprint}}),
+        encoding="utf-8",
+    )
+
+    row = sup.evaluate(
+        track=mapped_track(
+            repo=repo, topic=topic, session=registry.tmux_id(repo=str(repo), topic=topic)
+        ),
+        act=True,
+    )
+
+    assert row.status == "blocked:human"
+    assert (str(repo), topic, "consensus-overdue") not in sup.alerted
 
 
 def test_consensus_overdue_suppresses_for_report_only_disposition(*, tmp_path):
