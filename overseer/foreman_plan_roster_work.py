@@ -11,6 +11,7 @@ from typing import cast
 
 import jsonio
 from foreman_gather_sources import parse_repo_config, string_list
+from foreman_plan_roster_work_items import plan_dispatch_item_ids, work_item_plan_anchors
 
 __all__: list[str] = [
     "ANCHOR_RESOLVED",
@@ -193,10 +194,15 @@ def plan_work_state(
     anchor: str | None,
     dispatch_times: dict[str, str],
     outcomes: dict[str, list[str]],
+    plan_anchors_by_item_id: dict[str, str],
 ) -> str:
     if anchor is None:
         return NO_WORK_IN_FLIGHT
-    child_ids = [child_id for child_id in dispatch_times if child_id.startswith(f"{anchor}.")]
+    child_ids = plan_dispatch_item_ids(
+        anchor=anchor,
+        dispatch_item_ids=list(dispatch_times),
+        plan_anchors_by_item_id=plan_anchors_by_item_id,
+    )
     if any(
         child_in_flight(child_id=child_id, dispatch_times=dispatch_times, outcomes=outcomes)
         for child_id in child_ids
@@ -226,6 +232,7 @@ def work_state_documents_by_plan(
     dispatch_times = latest_dispatch_times(records=records)
     outcomes = outcome_times(records=records)
     epic_records = ledger_epic_records(repo=repo)
+    plan_anchors_by_item_id = work_item_plan_anchors(records=epic_records)
     documents: dict[str, dict[str, str]] = {}
     for plan in plan_names:
         anchor = plan_epic_anchor(repo=repo, plan=plan, ledger_records=epic_records)
@@ -234,6 +241,7 @@ def work_state_documents_by_plan(
                 anchor=anchor,
                 dispatch_times=dispatch_times,
                 outcomes=outcomes,
+                plan_anchors_by_item_id=plan_anchors_by_item_id,
             ),
             "work_state_evidence": ANCHOR_RESOLVED if anchor is not None else ANCHOR_UNRESOLVED,
         }
