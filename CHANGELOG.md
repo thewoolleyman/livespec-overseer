@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.26.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.26.0...v1.26.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* cover grooming projection conformance parity ([0f618c0](https://github.com/thewoolleyman/livespec-overseer/commit/0f618c030536860ef700412aacae33fd26b52830))
+
 ## [1.26.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.25.0...v1.26.0) (2026-08-22)
 
 
