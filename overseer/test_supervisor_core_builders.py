@@ -27,6 +27,7 @@ def make_supervisor(*, tmp_path, fake, **kwargs):
     kwargs.setdefault("proc_root", str(tmp_path))  # any existing dir reads as "has /proc"
     kwargs.setdefault("which", lambda _name: "/usr/bin/tmux")
     kwargs.setdefault("status_path", str(tmp_path / "status.json"))
+    kwargs.setdefault("runtime_state_path", str(tmp_path / "runtime" / "rollback-state.json"))
     sup = supervisor.Supervisor(
         tmux=fake,
         store_path=str(tmp_path / "map.jsonl"),

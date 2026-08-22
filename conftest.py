@@ -18,6 +18,7 @@ import _registry_rounds  # noqa: E402
 import _registry_rows_io  # noqa: E402
 import _registry_stamp_resume  # noqa: E402
 import _registry_stamps  # noqa: E402
+import _supervisor_runtime_rollback  # noqa: E402
 import _supervisor_snapshot  # noqa: E402
 import registry  # noqa: E402
 
@@ -30,9 +31,9 @@ _REAL_HOST_PATHS: frozenset[Path] = frozenset(
         Path(_registry_core.DEFAULT_STORE_PATH),
         Path(_registry_core.DEFAULT_STAMP_PATH),
         Path(_registry_core.DEFAULT_WATCH_SET_PATH),
+        _supervisor_runtime_rollback.default_runtime_state_path(),
     }
 )
-
 # `atomic_write` is DEFINED once in `_registry_core`, but each of these modules did
 # `from _registry_core import atomic_write`, binding its own module-level name. Patching
 # the definition site would leave every one of those names pointing at the original, so
@@ -61,7 +62,7 @@ class RealHostStateGuard:
     noticed.
 
     The lesson that shaped this class is that fixing one member of a family does not fix
-    the family. All four host-owned paths are guarded, so the NEXT write added to any of
+    the family. All host-owned paths are guarded, so the NEXT write added to any of
     them fails loudly in CI on its first run instead of lying latent until someone reads
     the file by hand.
     """
@@ -84,6 +85,13 @@ def _real_host_state_guard(*, monkeypatch: pytest.MonkeyPatch) -> RealHostStateG
 
         return _write
 
+    def guarded_runtime(original: Callable[..., None]) -> Callable[..., None]:
+        def _runtime(*, sup, **kwargs) -> None:
+            guard.assert_write_allowed(path=Path(sup.runtime_state_path))
+            original(sup=sup, **kwargs)
+
+        return _runtime
+
     for module in _WRITE_BINDING_SITES:
         monkeypatch.setattr(module, "atomic_write", guarded(module.atomic_write))
     monkeypatch.setattr(
@@ -91,4 +99,14 @@ def _real_host_state_guard(*, monkeypatch: pytest.MonkeyPatch) -> RealHostStateG
         "atomic_write",
         guarded(_supervisor_snapshot.registry.atomic_write),
     )
+    for name in (
+        "begin_adoption",
+        "complete_startup_if_pending",
+        "rollback_after_startup_failure",
+    ):
+        monkeypatch.setattr(
+            _supervisor_runtime_rollback,
+            name,
+            guarded_runtime(getattr(_supervisor_runtime_rollback, name)),
+        )
     return guard
