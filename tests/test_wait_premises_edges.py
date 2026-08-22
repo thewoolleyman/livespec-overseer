@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import NoReturn
 
@@ -31,11 +32,80 @@ def test_reader_skips_malformed_and_invalid_records(*, tmp_path):
     assert wait_premises.read_wait_premises(repo=tmp_path / "repo", topic="alpha") == []
 
 
+def test_reader_migrates_legacy_record_without_returning_it_as_current(*, tmp_path):
+    repo = tmp_path / "repo"
+    directory = wait_premises.wait_premise_dir(repo=repo, topic="alpha")
+    directory.mkdir(parents=True)
+    legacy = {
+        "kind": "pr",
+        "target_id": "17",
+        "evidence_source": "gh pr view 17 --json state",
+        "recorded_at": "2026-08-19T02:30:00Z",
+        "recheck_by": "2026-08-19T03:00:00Z",
+    }
+    (directory / "pr-17.json").write_text(json.dumps(legacy) + "\n", encoding="utf-8")
+
+    assert wait_premises.read_wait_premises(repo=repo, topic="alpha") == []
+    migrated_path = wait_premises.wait_premise_path(
+        repo=repo,
+        topic="alpha",
+        kind="pr",
+        target_id="17",
+    )
+    assert migrated_path.name != "pr-17.json"
+    assert json.loads(migrated_path.read_text(encoding="utf-8")) == {
+        **legacy,
+        "schema_version": 1,
+    }
+    assert wait_premises.read_wait_premises(repo=repo, topic="alpha") == [
+        {
+            **legacy,
+            "schema_version": 1,
+        }
+    ]
+
+
+def test_legacy_migration_skips_unreadable_file(*, monkeypatch, tmp_path):
+    def raise_read_text(self: Path, *, encoding: str | None = None) -> NoReturn:
+        raise OSError("read failed")
+
+    monkeypatch.setattr(wait_premises.Path, "read_text", raise_read_text)
+
+    wait_premises.migrate_legacy_wait_premise(path=tmp_path / "missing.json")
+
+
+def test_legacy_migration_skips_failed_write(*, monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    directory = wait_premises.wait_premise_dir(repo=repo, topic="alpha")
+    directory.mkdir(parents=True)
+    (directory / "pr-17.json").write_text(
+        json.dumps(
+            {
+                "kind": "pr",
+                "target_id": "17",
+                "evidence_source": "gh pr view 17 --json state",
+                "recorded_at": "2026-08-19T02:30:00Z",
+                "recheck_by": "2026-08-19T03:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def raise_write_json_atomic(*, path: Path, payload: dict[str, object]) -> NoReturn:
+        raise OSError("write failed")
+
+    monkeypatch.setattr(wait_premises, "write_json_atomic", raise_write_json_atomic)
+
+    wait_premises.migrate_legacy_wait_premise(path=directory / "pr-17.json")
+    assert list(directory.glob("*.json")) == [directory / "pr-17.json"]
+
+
 def test_single_record_reader_returns_none_when_file_disappears(*, tmp_path):
     assert wait_premises.read_wait_premise(path=tmp_path / "missing.json") is None
 
 
-def test_path_uses_target_fallback_when_identifier_has_no_filename_characters(*, tmp_path):
+def test_path_disambiguates_target_fallback_when_identifier_has_no_filename_characters(*, tmp_path):
     path = wait_premises.wait_premise_path(
         repo=tmp_path / "repo",
         topic="alpha",
@@ -43,7 +113,8 @@ def test_path_uses_target_fallback_when_identifier_has_no_filename_characters(*,
         target_id="///",
     )
 
-    assert path.name == "pr-target.json"
+    assert path.name.startswith("pr-target-")
+    assert path.name.endswith(".json")
 
 
 def test_writer_rejects_missing_schema_field(*, tmp_path):
