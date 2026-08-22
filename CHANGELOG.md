@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.36.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.3...v1.36.4) (2026-08-22)
+
+
+### Bug Fixes
+
+* expose missing grooming evidence ([33cdb2c](https://github.com/thewoolleyman/livespec-overseer/commit/33cdb2c10967a80d5f49dabf3f0665aa220aa65d))
+
 ## [1.36.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.2...v1.36.3) (2026-08-22)
 
 
