@@ -199,6 +199,11 @@ def test_snapshot_publishes_profile_and_restart_model_verdict_from_live_default(
         status_path=status_path,
         ctx=73,
     )
+    sup.current_default_statusline_model = (
+        lambda *, current_default: "Opus 4.8 (1M context)"
+        if current_default == "opus[1m]"
+        else None
+    )
     profiled_session = registry.tmux_id(repo=str(profiled_repo), topic=profiled_topic)
     sup.watch_repos = [str(repo), str(profiled_repo)]
     sup.tmux.serve(
@@ -273,6 +278,10 @@ def test_snapshot_restart_model_verdict_changes_when_default_changes(*, tmp_path
         status_path=status_path,
         ctx=73,
     )
+    sup.current_default_statusline_model = lambda *, current_default: {
+        "opus[1m]": "Opus 4.8 (1M context)",
+        "sonnet": "Sonnet 4.5",
+    }.get(current_default)
 
     settings_path.write_text(json.dumps({"model": "opus[1m]"}), encoding="utf-8")
     matching = module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"][0][
@@ -312,6 +321,7 @@ def test_snapshot_restart_model_unknown_when_default_alias_has_no_statusline_for
         status_path=status_path,
         ctx=73,
     )
+    sup.current_default_statusline_model = lambda *, current_default: None
 
     restart_model = module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"][0][
         "restart_model"
