@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.29.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.28.3...v1.29.0) (2026-08-22)
+
+
+### Features
+
+* pin full autonomy majority consensus rules ([d1b523c](https://github.com/thewoolleyman/livespec-overseer/commit/d1b523cf54fa36d668897e57d2bfe29ae6eb1785))
+* require a release commit's own checks to be green before adopting ([85eaac6](https://github.com/thewoolleyman/livespec-overseer/commit/85eaac66740f43ed9a5faf3a96f85298e25a3b94))
+
 ## [1.28.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.28.2...v1.28.3) (2026-08-22)
 
 
