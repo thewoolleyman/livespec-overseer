@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.33.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.6...v1.33.0) (2026-08-22)
+
+
+### Features
+
+* cover consensus overdue attention ([7c53f03](https://github.com/thewoolleyman/livespec-overseer/commit/7c53f03119d5d48694b7881cc88692ff5c7ed8d0))
+
+
+### Bug Fixes
+
+* keep consensus overdue alert condition active ([2369bf4](https://github.com/thewoolleyman/livespec-overseer/commit/2369bf40bb86f1ba969f55650368c363cf5e6544))
+* preserve blocked alert conditions for consensus overdue ([306cbe1](https://github.com/thewoolleyman/livespec-overseer/commit/306cbe1deab173c2c38e42d1805ca47e995ec388))
+
 ## [1.32.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.5...v1.32.6) (2026-08-22)
 
 
