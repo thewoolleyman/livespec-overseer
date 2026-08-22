@@ -17,6 +17,7 @@ __all__: list[str] = [
     "CONSENSUS",
     "REPORT_ONLY",
     "ValveDisposition",
+    "effective_full_autonomy",
     "effective_valve_disposition",
     "main",
 ]
@@ -121,6 +122,18 @@ def effective_valve_disposition(*, repo: Path) -> dict[str, object]:
         full_autonomy=full_autonomy,
         full_autonomy_source=full_autonomy_source,
     )
+
+
+def effective_full_autonomy(*, repo: Path) -> dict[str, object]:
+    source = repo / ".livespec.jsonc"
+    config = parse_repo_config(repo=repo)
+    section = jsonio.as_object(value=config.get(CONFIG_SECTION)) if config is not None else None
+    configured = None if section is None else section.get("full_autonomy")
+    return {
+        "configured": configured if isinstance(configured, bool) else None,
+        "full_autonomy": configured is True,
+        "source": "default" if configured is None else str(source),
+    }
 
 
 def main(*, argv: Sequence[str] | None = None) -> int:
