@@ -260,6 +260,40 @@ def test_acceptance_policy_label_check_matches_recorded_live_shaped_population(
     assert "142 policy-less rows" in check.scope
 
 
+def test_held_claim_surface_keeps_terminal_assignee_as_provenance(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            _with(
+                row=_item(item_id="closed-factory", status="closed"),
+                updates={"assignee": "fabro"},
+            ),
+            _with(
+                row=_item(item_id="active-factory", status="active"),
+                updates={"assignee": "fabro"},
+            ),
+            _with(
+                row=_item(item_id="ready-human", status="ready"),
+                updates={"assignee": "thewoolleyman"},
+            ),
+            _item(item_id="closed-unassigned", status="closed"),
+        ],
+    )
+
+    check = _by_key(report=report, key="held-claim-surface")
+    assert check.status == "checked"
+    assert check.breaching_item_ids == ()
+    assert check.scanned_item_count == 2
+    assert "2 non-terminal assigned rows are held-claim candidates" in check.scope
+    assert "1 terminal assigned row is provenance, not a held claim" in check.scope
+    assert "closed-factory" not in check.scope
+
+
 def test_plan_rollup_exempts_registered_seat_anchor_from_real_record_shape(
     *,
     tmp_path: Path,

@@ -14,6 +14,7 @@ from grooming_conformance_external import (
 from grooming_conformance_types import GroomingConformanceReport, InvariantCheck
 from grooming_conformance_values import (
     TERMINAL_STATUSES,
+    assignee,
     has_parent,
     is_open,
     item_contains_delimiter,
@@ -69,6 +70,7 @@ def evaluate_ledger_invariants(
                 items=items,
                 item_details_by_id=item_details_by_id,
             ),
+            held_claim_surface_check(items=items),
             split_acceptance_label_pending(items=items),
             cross_repo_dependency_check(
                 repo=repo_path,
@@ -187,3 +189,41 @@ def dispatchable_delimiter_scope(
         "dispatchable rows, native fields only; detail text not supplied, "
         "so comments and notes outside the bulk rows were not scanned"
     )
+
+
+def held_claim_surface_check(*, items: Sequence[Mapping[str, object]]) -> InvariantCheck:
+    assigned_items = tuple(item for item in items if assignee(item=item) is not None)
+    terminal_count = sum(1 for item in assigned_items if not is_open(item=item))
+    held_count = len(assigned_items) - terminal_count
+    return InvariantCheck(
+        key="held-claim-surface",
+        title="Assignee scans are status-first",
+        status="checked",
+        breaching_item_ids=(),
+        scanned_item_count=held_count,
+        scope=held_claim_surface_scope(
+            held_count=held_count,
+            terminal_count=terminal_count,
+        ),
+        reason=(
+            "chosen route (b): terminal assignees are kept as provenance; only "
+            "non-terminal assigned rows are held-claim candidates"
+        ),
+    )
+
+
+def held_claim_surface_scope(*, held_count: int, terminal_count: int) -> str:
+    return (
+        f"{held_count} non-terminal assigned {row_word(count=held_count)} are "
+        f"held-claim candidates; {terminal_count} terminal assigned "
+        f"{row_word(count=terminal_count)} {be_word(count=terminal_count)} provenance, "
+        "not a held claim"
+    )
+
+
+def row_word(*, count: int) -> str:
+    return "row" if count == 1 else "rows"
+
+
+def be_word(*, count: int) -> str:
+    return "is" if count == 1 else "are"
