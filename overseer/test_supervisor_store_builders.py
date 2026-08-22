@@ -48,6 +48,7 @@ def mapped_track(*, repo, topic, session):
         repo=str(repo),
         tmux=session,
         epic=TEST_EPIC,
+        added_at="2026-08-22T00:00:00Z",
     )
 
 

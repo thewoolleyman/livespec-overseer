@@ -48,6 +48,13 @@ def test_missing_added_at_key_is_reported_like_explicit_null(*, tmp_path: Path):
         "observed_session_identity": "codex:session-456",
         "added_at": None,
     }
+    unpinned_absent_row = {
+        "topic": "unpinned-absent-added-at",
+        "repo": "/data/projects/homelab",
+        "tmux": "unpinned-absent-added-at",
+        "resume": "resume unpinned-absent-added-at",
+        "epic": "homelab-epic",
+    }
     iso_row = {
         "topic": "iso-added-at",
         "repo": "/data/projects/homelab",
@@ -58,18 +65,20 @@ def test_missing_added_at_key_is_reported_like_explicit_null(*, tmp_path: Path):
         "observed_session_identity": "codex:session-789",
         "added_at": "2026-08-22T16:57:00Z",
     }
-    write_rows(store_path=store_path, rows=[absent_row, null_row, iso_row])
+    write_rows(store_path=store_path, rows=[absent_row, null_row, unpinned_absent_row, iso_row])
 
     tracks = {track.topic: track for track in registry.read_valid_mapping(store_path=store_path)}
     keys = explicit_null_added_at_keys(store_path=store_path)
 
     assert tracks["16-fleet-provisioning-usb"].added_at is None
     assert tracks["null-added-at"].added_at is None
+    assert tracks["unpinned-absent-added-at"].added_at is None
     assert tracks["iso-added-at"].added_at == "2026-08-22T16:57:00Z"
     assert keys == frozenset(
         {
             (registry.norm(repo="/data/projects/homelab"), "16-fleet-provisioning-usb"),
             (registry.norm(repo="/data/projects/homelab"), "null-added-at"),
+            (registry.norm(repo="/data/projects/homelab"), "unpinned-absent-added-at"),
         }
     )
     assert (

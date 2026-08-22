@@ -15,16 +15,7 @@ MappingKey = tuple[str, str]
 
 
 def _uncertifiable_added_at(*, row: dict[str, object]) -> bool:
-    if row.get("added_at") is not None:
-        return False
-    if "added_at" in row:
-        return True
-    kind = row.get("kind")
-    if kind in ("foreman", "grooming"):
-        return True
-    return isinstance(row.get("pinned_session_id"), str) and isinstance(
-        row.get("observed_session_identity"), str
-    )
+    return row.get("added_at") is None
 
 
 def explicit_null_added_at_keys(
