@@ -595,14 +595,41 @@ refusal they cannot explain.
 
     bd show <id> | head -1     # BACKLOG? -> bd update <id> --status ready
 
-Costs a second, and it discriminates all four causes of this one symptom: **no edge and
-`BACKLOG`** is this case; an edge that resolves nowhere is the broken-pointer case; an
-edge that resolves but names the parent epic is thread-membership; an edge whose sibling
-repo is absent from `cross_repo_targets` fails closed.
+Costs a second, and it discriminates the status member of this symptom family:
+**no edge and `BACKLOG`** is this case; an edge that resolves nowhere is the
+broken-pointer case; an edge that resolves but names the parent epic is
+thread-membership; an edge whose sibling repo is absent from `cross_repo_targets`
+fails closed. A further no-edge case exists immediately below, and the status read
+does not identify it by itself.
 
 **File items ready when you mean them to be dispatchable**, or promote them in the same
 breath as filing. Do not batch-file a plan's children and dispatch later assuming they
 are startable — they are not, and the create output says otherwise.
+
+### A `not in the ready set` refusal with READY status and NO edge — check for a live sibling claim
+
+Measured 2026-08-22 on `overseer-b6q2`: the central autonomous loop claimed the
+item between a session's pre-flight and its manual dispatch command. The loop wrote
+`loop-pick` with budget 1 at 2026-08-22T02:29:31Z, then `ledger-admit`, then
+`dispatch-id` at 2026-08-22T02:29:38Z
+(`dc73fddda8c14817b80ba1031505b94e`, factory `hp`) in
+`tmp/fabro-dispatch-journal.jsonl`. A manual dispatch 36 seconds later refused:
+
+    ERROR: requested work-item(s) not in the ready set: overseer-b6q2
+
+`drive.py` exited **1**, the dispatcher **3**, no fabro run was created, and **NO
+phantom claim** was left. That is character-for-character the anchor-as-dependency
+signature above, and the same visible shape as a stale plugin build recorded below.
+It was neither: the item had no dependency edge of any kind, it was `ready` at the
+moment of the attempt, its acceptance guard returned ok, and `just ensure-plugins`
+had confirmed the current build minutes earlier.
+
+This is the ready-set claim **working**. It prevented two runs from publishing to
+the same branch for the same item, the collision shape already documented below.
+The remedy is to do **nothing**: do not release the claim, do not re-dispatch, and
+do not start editing edges or status. First grep the dispatch journal for a recent
+`dispatch-id` on the same item. If one exists and no later outcome proves it ended,
+the live sibling owns the work; leave it alone and inspect the factory run instead.
 
 ### A FOURTH SHAPE: the run SUCCEEDED and the item was never transitioned
 
@@ -836,9 +863,9 @@ queue eviction ⇒ release the claim and re-dispatch" — which is how you manuf
 publish-branch collision documented immediately above, against your own still-running
 sibling.
 
-**Check the item's dispatch factory before applying any `fabro ps` reasoning.** When it
-is remote, the record of truth is `tmp/fabro-dispatch-journal.jsonl` plus the detached
-verdict file — not the local process view.
+**Check the item's dispatch factory before applying any local `fabro ps` reasoning.**
+When it is remote, the local process view is blind. The journal is the first record
+of truth because it names the run, but it is not the only instrument.
 
 **THE JOURNAL IS APPEND-ONLY AND CUMULATIVE, SO MATCHING BY ID ALONE ALWAYS FINDS THE
 PAST.** Two entry kinds matter: `stage: "dispatch-id"` carries `work_item_id`,
@@ -851,8 +878,26 @@ That is not hypothetical: it produced a confident "the probe FAILED, do not disp
 verdict from an outcome that was 11 hours stale, while the current run was still
 executing normally. **Floor every outcome query on the CURRENT run's own `dispatch-id`
 timestamp** — take the latest `dispatch-id` for the item, then accept only `outcome`
-entries strictly after it. An item with a dispatch-id and no later outcome is RUNNING,
-not failed, and absolutely not evicted.
+entries strictly after it. An item with a dispatch-id and no later outcome is not
+finished, not failed, and absolutely not evicted. That evidence is still only
+negative: it cannot separate EXECUTING from WEDGED from EVICTED, and it carries no
+elapsed time.
+
+The remote factory process view is queryable. Use the URLs already declared in
+`.livespec.jsonc` under `dispatcher.factories` (`hp`, `vps`) and point fabro at
+the factory:
+
+    fabro ps --server https://FACTORY-HOST:PORT
+
+Measured 2026-08-22T08:26Z against `hp`: it listed three runs executing in this
+repo with run ids, statuses and durations, plus one BLOCKED run in a sibling repo
+at 195m — exactly the state the journal cannot distinguish from healthy progress.
+
+Use both instruments, in order. The journal tells you WHICH run belongs to your
+item: the current `dispatch-id`, floored by its timestamp. The remote process view
+tells you WHAT that run is doing now. A blocked run is the interview-destroyed
+shape in progress and is still rescuable; a running run at an unremarkable
+duration is working and must be left alone.
 
 This is the same failure as a stale baseline wearing a different hat, and the same rule
 fixes it: a comparison has two sides, and an append-only log is one of them. See the
