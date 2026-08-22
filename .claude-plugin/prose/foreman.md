@@ -51,6 +51,16 @@ evidence is unavailable or insufficient, the panel disagrees, any reviewer
 returns an insufficient-information verdict, or the audit journal append fails.
 Journal before you act, never after.
 
+### Governed typed ruling kinds
+
+The closed typed-ruling vocabulary is defined here, not in the actuator code.
+The actuator may relay only these ruling kinds, and only after it has journaled
+the exact ruling payload it will relay.
+
+| Ruling kind | Required structured fields | Execution |
+|---|---|---|
+| `relay-to-session` | `target_topic`, `target_session_name`, `target_session_identity`, `message`, `record_path` | Paste `message` into the named live session only after the fresh daemon row still matches the target identity and `record_path` names the durable record the session can inspect. |
+
 ### Relay and escalation discipline
 
 The convening invocation is request-file to verdict-file:

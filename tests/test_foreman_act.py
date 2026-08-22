@@ -36,6 +36,13 @@ def foreman_act_filing():
     return importlib.import_module("foreman_act_filing")
 
 
+def foreman_typed_ruling():
+    assert (OVERSEER_DIR / "foreman_typed_ruling.py").is_file()
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("foreman_typed_ruling")
+
+
 def module(name: str):
     if str(OVERSEER_DIR) not in sys.path:
         sys.path.insert(0, str(OVERSEER_DIR))
@@ -161,6 +168,22 @@ def blocked_answer_majority_panel_result() -> dict[str, object]:
     result["outcome"] = "majority"
     result["reason"] = "two_unblock_typed_actions_equal"
     result["decision_rule"] = "majority"
+    return result
+
+
+def typed_ruling_panel_result(*, kind: str = "relay-to-session") -> dict[str, object]:
+    result = blocked_answer_panel_result()
+    result["action"] = {
+        "member_kind": "typed_ruling",
+        "ruling": {
+            "kind": kind,
+            "target_topic": "alpha",
+            "target_session_name": "alpha",
+            "target_session_identity": "claude:session-1",
+            "message": "Panel ruling: continue with the bounded retry.",
+            "record_path": "tmp/overseer/foreman/panel/verdict.json",
+        },
+    }
     return result
 
 
@@ -1641,6 +1664,159 @@ def test_blocked_answer_keeps_runtime_and_cwd_identity_refusals(*, tmp_path, mon
             "outcome": "refused",
             "reason": reason,
         }
+
+
+def test_typed_ruling_is_journaled_before_it_is_relayed(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    typed_ruling = foreman_typed_ruling()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    events: list[str] = []
+    records: list[dict[str, object]] = []
+
+    class ActTmux:
+        def pane_id(self, *, session: str):
+            events.append(f"pane:{session}")
+            return session
+
+        def pane_current_command(self, *, session: str):
+            events.append(f"cmd:{session}")
+            return "node"
+
+        def pane_current_path(self, *, session: str):
+            events.append(f"path:{session}")
+            return str(repo)
+
+        def bracketed_paste(self, *, session: str, text: str):
+            events.append(f"paste:{session}:{text}")
+            return True
+
+        def send_keys(self, *, session: str, keys: str):
+            events.append(f"keys:{session}:{keys}")
+            return True
+
+    monkeypatch.setattr(typed_ruling.tmuxio, "TmuxIO", lambda: ActTmux())
+
+    result = foreman_act.act(
+        proposal=blocked_answer_proposal(repo=repo),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: pytest.fail("typed ruling relay is not a command action"),
+            consensus_panel=lambda *, request, responses: typed_ruling_panel_result(),
+            append_journal=lambda *, repo, record: events.append(f"journal:{record['stage']}")
+            or records.append(record),
+        ),
+    )
+
+    assert result == {
+        "action_id": "human_valve",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "typed_ruling_relayed",
+    }
+    assert events[:4] == [
+        "journal:foreman-consensus-act",
+        "pane:alpha",
+        "cmd:alpha",
+        "path:alpha",
+    ]
+    assert any(event.startswith("paste:alpha:Panel ruling:") for event in events)
+    assert "keys:alpha:Enter" in events
+    assert records[0]["authorized_member_kind"] == "typed_ruling"
+    assert records[0]["ruling"] == typed_ruling_panel_result()["action"]["ruling"]
+
+
+def test_typed_ruling_refuses_unenumerated_kind_before_relay(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    typed_ruling = foreman_typed_ruling()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+
+    monkeypatch.setattr(
+        typed_ruling.tmuxio,
+        "TmuxIO",
+        lambda: pytest.fail("unenumerated ruling must not touch tmux"),
+    )
+
+    result = foreman_act.act(
+        proposal=blocked_answer_proposal(repo=repo),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: pytest.fail("unenumerated ruling must not run commands"),
+            consensus_panel=lambda *, request, responses: typed_ruling_panel_result(
+                kind="local-only-ruling"
+            ),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "human_valve",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "consensus_ruling_not_enumerated",
+    }
+
+
+def test_typed_ruling_does_not_relax_hard_floors(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    typed_ruling = foreman_typed_ruling()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    proposal = blocked_answer_proposal(repo=repo)
+    proposal["human_valve"] = {"category": "truly-unresolvable"}
+
+    monkeypatch.setattr(
+        typed_ruling.tmuxio,
+        "TmuxIO",
+        lambda: pytest.fail("hard-floor ruling must not touch tmux"),
+    )
+
+    result = foreman_act.act(
+        proposal=proposal,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: pytest.fail("hard-floor ruling must not run commands"),
+            consensus_panel=lambda *, request, responses: typed_ruling_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "hard_floor:truly-unresolvable",
+    }
+
+
+def test_human_valve_remains_non_authorizable_as_panel_action(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    verdict = blocked_answer_panel_result()
+    verdict["action"] = {"action_id": "human_valve", "params": {}}
+
+    result = foreman_act.act(
+        proposal=blocked_answer_proposal(repo=repo),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: pytest.fail("human_valve panel action must not run"),
+            consensus_panel=lambda *, request, responses: verdict,
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "consensus_action_not_enumerated",
+    }
 
 
 def test_gate_state_restores_claude_and_codex_adapters_against_real_tmux(*, tmp_path):
