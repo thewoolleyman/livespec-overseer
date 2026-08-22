@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import _supervisor_evaluate
+import _supervisor_mapping_health
 import foreman_runtime_identity
 import jsonio
 import registry
@@ -183,11 +184,22 @@ def foreman_track(
     return None
 
 
-def foreman_evaluation_row(*, sup: Supervisor, repo: str, act: bool) -> RowView | None:
+def foreman_evaluation_row(
+    *,
+    sup: Supervisor,
+    repo: str,
+    act: bool,
+    null_added_at_keys: frozenset[_supervisor_mapping_health.MappingKey] = frozenset(),
+) -> RowView | None:
     track = foreman_track(repo=repo, store_path=sup.store_path)
     if track is None:
         return None
-    return _supervisor_evaluate.evaluate(sup=sup, track=track, act=act)
+    row = _supervisor_evaluate.evaluate(sup=sup, track=track, act=act)
+    if act:
+        return row
+    return _supervisor_mapping_health.apply_mapping_health(
+        track=track, row=row, null_added_at_keys=null_added_at_keys
+    )
 
 
 def _blocking_prompt_row(*, row: RowView) -> RowView | None:
@@ -244,10 +256,21 @@ def _surface_blocking_prompt_alert(*, sup: Supervisor, row: RowView) -> None:
     )
 
 
-def foreman_rows(*, sup: Supervisor, repos: list[str], act: bool) -> list[RowView]:
+def foreman_rows(
+    *,
+    sup: Supervisor,
+    repos: list[str],
+    act: bool,
+    null_added_at_keys: frozenset[_supervisor_mapping_health.MappingKey] = frozenset(),
+) -> list[RowView]:
     rows: list[RowView] = []
     for repo in repos:
-        evaluation_row = foreman_evaluation_row(sup=sup, repo=repo, act=act)
+        evaluation_row = foreman_evaluation_row(
+            sup=sup,
+            repo=repo,
+            act=act,
+            null_added_at_keys=null_added_at_keys,
+        )
         if evaluation_row is not None:
             rows.append(evaluation_row)
             prompt_row = _blocking_prompt_row(row=evaluation_row)
