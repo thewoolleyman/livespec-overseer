@@ -43,31 +43,27 @@ class Runner(Protocol):
     def __call__(self, *, argv: list[str]) -> int: ...
 
 
-def _refused(*, action_id: str | None, reason: str) -> ActResult:
+def _result(*, action_id: str | None, reason: str, outcome: str, mutated: bool) -> ActResult:
     return {
         "action_id": action_id,
-        "mutated": False,
-        "outcome": "refused",
+        "mutated": mutated,
+        "outcome": outcome,
         "reason": reason,
     }
+
+
+def _refused(*, action_id: str | None, reason: str) -> ActResult:
+    return _result(action_id=action_id, reason=reason, outcome="refused", mutated=False)
 
 
 def _acted(*, action_id: str, reason: str) -> ActResult:
-    return {
-        "action_id": action_id,
-        "mutated": True,
-        "outcome": "acted",
-        "reason": reason,
-    }
+    return _result(action_id=action_id, reason=reason, outcome="acted", mutated=True)
 
 
 def _failed(*, action_id: str, reason: str) -> ActResult:
-    return {  # pragma: no cover
-        "action_id": action_id,
-        "mutated": False,
-        "outcome": "failed",
-        "reason": reason,
-    }
+    return _result(  # pragma: no cover
+        action_id=action_id, reason=reason, outcome="failed", mutated=False
+    )
 
 
 def _known_action_id(*, value: object) -> ActionId | None:

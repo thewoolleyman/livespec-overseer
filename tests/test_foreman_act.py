@@ -1696,8 +1696,15 @@ def test_typed_ruling_escalates_while_governing_vocabulary_is_empty(*, tmp_path)
         "outcome": "refused",
         "reason": "consensus_ruling_not_enumerated",
     }
-    assert [record["stage"] for record in records] == ["foreman-act"]
-    assert all(record.get("authorized_member_kind") != "typed_ruling" for record in records)
+    assert records == [
+        {
+            "stage": "foreman-act",
+            "action_id": "human_valve",
+            "mutated": False,
+            "outcome": "refused",
+            "reason": "consensus_ruling_not_enumerated",
+        }
+    ]
 
 
 def test_typed_ruling_refuses_unenumerated_kind_before_relay(*, tmp_path):
