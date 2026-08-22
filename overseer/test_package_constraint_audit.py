@@ -85,6 +85,10 @@ def _module_load_module_imports(*, path: pathlib.Path) -> frozenset[str]:
         elif isinstance(node, ast.ImportFrom) and node.module:
             if node.level == 0:
                 names.add(node.module)
+                if node.module == "overseer":
+                    names.update(
+                        f"{node.module}.{alias.name}" for alias in node.names if alias.name != "*"
+                    )
             else:
                 names.add("." * node.level + node.module)
     return frozenset(names)
