@@ -883,9 +883,9 @@ finished, not failed, and absolutely not evicted. That evidence is still only
 negative: it cannot separate EXECUTING from WEDGED from EVICTED, and it carries no
 elapsed time.
 
-The remote factory process view is queryable. Use the URLs already declared in
-`.livespec.jsonc` under `dispatcher.factories` (`hp`, `vps`) and point fabro at
-the factory:
+The remote factory process view is queryable. This is READ-ONLY inspection, not
+routing work. Use the URLs already declared in `.livespec.jsonc` under
+`dispatcher.factories` (`hp`, `vps`) and point fabro at the factory:
 
     fabro ps --server https://FACTORY-HOST:PORT
 
@@ -984,10 +984,22 @@ permanent.
 
 ### A SEVENTH SHAPE: the FACTORY HOST has no room for a run directory, and every local signal reads healthy
 
+**MAINTAINER INSTRUCTION, 2026-08-22: DO NOT ROUTE ANY WORK TO THE `vps`
+FACTORY FOR THIS REPO, UNTIL THE MAINTAINER LIFTS THIS.** `hp` is the only
+dispatch target for livespec-overseer. A capacity defer where `active_count`
+equals `wip_cap` is this repo's WIP cap working as designed: wait for a slot.
+It is not a routing problem, not grounds to pass a `vps` factory argument, and
+not grounds to substitute a local run. The pre-push aggregate is the sole
+standing local exception, because it runs by design and cannot be dispatched.
+The second factory declared in `.livespec.jsonc` is still useful for read-only
+process inspection, but it is not available for routing work despite being
+configured.
+
 **IT IS INTERMITTENT — do not escalate this as a factory outage.** The same host
 carried a full run to an opened PR thirteen minutes after the failures below; the
-evidence is at the end of this entry. Re-try or re-route first. The diagnosis
-that follows is accurate and worth reading in full; only its urgency is not.
+evidence is at the end of this entry. Re-try `hp` first unless the standing
+maintainer instruction above has been lifted. The diagnosis that follows is
+accurate and worth reading in full; only its urgency is not.
 
 Measured 2026-08-22T00:51Z dispatching `overseer-temi26.2` on plugin build
 `392b3fa90f86`. The dispatcher's own JSON envelope, stage `fabro-run`, status
@@ -1018,15 +1030,26 @@ the six shapes above: the discriminator is an **immediate** failure at stage
 storage path — not `run-config-overlay` (exhausted credential), not `not in the
 ready set`, not a `template_undefined_variable` token, and not silence.
 
-**THE MITIGATION NEEDS NO HOST ACCESS AND IS ALREADY CONFIGURED.**
-`.livespec.jsonc` declares TWO factories under `dispatcher.factories` — `hp` and
-`vps` — with `default_factory` naming one of them, and both `dispatcher.py
-dispatch` and the `drive` path accept `--factory <name>`. Re-dispatching to the
-second factory is a routing choice inside sanctioned configuration, not a host
-mutation, and it needs no approval. Measured here: the `hp` attempt failed in
-seconds, the `vps` re-dispatch on the identical item was still executing minutes
-later. **Check that the second factory is actually declared before reaching for
-this** — a repo with one factory has no fallback and must wait the condition out.
+**THE OLD SECOND-FACTORY MITIGATION IS FORBIDDEN HERE, AND THE DRIVE FLAG CLAIM
+WAS FALSE.** A generic dispatcher re-route, where permitted, is only reachable
+through the dispatcher entrypoint:
+
+    python3 /absolute/path/to/dispatcher.py dispatch --repo <repo> --item <id> --factory <name>
+
+Measured 2026-08-22T08:38Z on plugin build `088d313a361e`: `drive.py` rejects
+`--factory` with `drive: error: unrecognized arguments: --factory`, and
+`drive.py --help` exposes only `[--repo REPO] [--action ACTION] [--json]` plus a
+retired positional. The detached-dispatch verdict `status=failed exit_code=2`
+does not distinguish this argparse rejection from a factory refusal; read
+`output.log`, not only `verdict.env`.
+
+Do not apply that generic re-route in this repo while the 2026-08-22 maintainer
+instruction stands. The measured 2026-08-22 violation was exactly this shape: an
+`hp` dispatch of `overseer-6l7v.2` returned stage `capacity-deferred` at
+08:36:57Z with the WIP cap saturated, and a follow-up `vps` re-route at
+08:39:36Z treated configured topology as approval. It was not approval. A
+capacity defer, including `active_count` equal to `wip_cap`, leaves the item
+`ready` with no phantom claim and means wait for `hp`, not route elsewhere.
 
 **Expect accumulation, not a spike.** Fabro run state persists per run under
 `.fabro/storage`, the documented recovery recipes call `fabro rm --force` only
