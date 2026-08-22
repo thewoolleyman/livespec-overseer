@@ -1,7 +1,5 @@
 """Deterministic Phase B foreman lifecycle actuator."""
 
-# livespec-lloc-soft-band-owner: overseer-e698
-
 from __future__ import annotations
 
 import argparse
@@ -17,10 +15,7 @@ import jsonio
 import streams
 import tmuxio
 from _supervisor_snapshot import DEFAULT_STATUS_PATH
-from foreman_act_consensus import (
-    ConsensusPanel,
-    prepare_consensus_action,
-)
+from foreman_act_consensus import ConsensusPanel
 from foreman_act_dispatch import CommandResult as CommandResult
 from foreman_act_dispatch import DispatchSeams, Runner
 from foreman_act_filing import FileWorkItem
@@ -52,9 +47,9 @@ from foreman_act_types import (
     ActionId,
     ActResult,
 )
+from foreman_act_valve import act_with_human_valve
 from foreman_consensus import consensus as default_consensus
 from foreman_gather_collect import compose_document
-from foreman_valve_policy import effective_valve_disposition
 
 __all__: list[str] = [
     "ACTION_IDS",
@@ -153,60 +148,31 @@ def act(
         if repo is None:  # pragma: no cover
             result = _refused(action_id=action_id, reason="malformed_proposal")
         else:
-            result = _act_validated(
-                action_id=action_id,
-                proposal=proposal,
-                document=seams.gather(repo=repo, snapshot_path=DEFAULT_STATUS_PATH),
-                seams=dispatch_seams,
-                consensus_seams=(seams.append_journal, seams.consensus_panel),
-            )
+            document = seams.gather(repo=repo, snapshot_path=DEFAULT_STATUS_PATH)
+            refusal = revalidate_source(document=document)
+            if refusal is not None:
+                result = _refused(action_id=action_id, reason=refusal)
+            elif action_id in (BLOCKED_SESSION_ANSWER, HUMAN_VALVE):
+                result = act_with_human_valve(
+                    action_id=action_id,
+                    proposal=proposal,
+                    document=document,
+                    repo=repo,
+                    seams=dispatch_seams,
+                    consensus_seams=(seams.append_journal, seams.consensus_panel),
+                )
+            else:
+                foreman_act_dispatch.tmuxio = tmuxio
+                result = foreman_act_dispatch.act_authorized(
+                    action_id=action_id,
+                    proposal=proposal,
+                    document=document,
+                    repo=repo,
+                    seams=dispatch_seams,
+                )
     repo_path = str_field(payload=proposal, key="repo")
     if repo_path is not None and result["reason"] != "journal_append_failed":  # pragma: no branch
         seams.append_journal(repo=Path(repo_path), record=_journal_record(result=result))
-    return result
-
-
-def _act_validated(
-    *,
-    action_id: ActionId,
-    proposal: dict[str, object],
-    document: dict[str, object],
-    seams: DispatchSeams,
-    consensus_seams: tuple[AppendJournal, ConsensusPanel],
-) -> ActResult:
-    repo = str_field(payload=proposal, key="repo") or ""
-    append_journal, consensus_panel = consensus_seams
-    refusal = revalidate_source(document=document)
-    if refusal is not None:
-        result = _refused(action_id=action_id, reason=refusal)
-    elif action_id in (BLOCKED_SESSION_ANSWER, HUMAN_VALVE):
-        authorized, valve_refusal = prepare_consensus_action(
-            action_id=action_id,
-            proposal=proposal,
-            disposition=effective_valve_disposition(repo=Path(repo)),
-            consensus_panel=consensus_panel,
-            append_journal=append_journal,
-        )
-        if valve_refusal is not None or authorized is None:
-            result = valve_refusal or _refused(action_id=action_id, reason="consensus_unavailable")
-        else:
-            foreman_act_dispatch.tmuxio = tmuxio
-            result = foreman_act_dispatch.act_authorized(
-                action_id=authorized,
-                proposal=proposal,
-                document=document,
-                repo=repo,
-                seams=seams,
-            )
-    else:
-        foreman_act_dispatch.tmuxio = tmuxio
-        result = foreman_act_dispatch.act_authorized(
-            action_id=action_id,
-            proposal=proposal,
-            document=document,
-            repo=repo,
-            seams=seams,
-        )
     return result
 
 

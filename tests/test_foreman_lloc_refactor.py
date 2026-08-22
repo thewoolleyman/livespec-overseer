@@ -33,3 +33,27 @@ def test_foreman_hgq4wi4_owner_markers_are_retired_after_cohesive_splits():
     )
     for path in owner_paths:
         assert OWNER not in path.read_text(encoding="utf-8")
+
+
+def test_foreman_e698_owner_markers_are_retired_after_policy_and_valve_splits():
+    root = Path(__file__).resolve().parents[1]
+    overseer = root / "overseer"
+    extracted = {
+        "foreman_act_valve": ("act_with_human_valve",),
+        "foreman_runtime_policy": ("exit_reason", "stable_ticks"),
+    }
+    for module_name, public_names in extracted.items():
+        module_path = overseer / f"{module_name}.py"
+        assert module_path.is_file(), module_path
+        module = importlib.import_module(module_name)
+        assert module.__all__ == list(public_names)
+
+    foreman_act = importlib.import_module("foreman_act")
+    foreman_runtime = importlib.import_module("foreman_runtime")
+    assert not hasattr(foreman_act, "_act_validated")
+    assert not hasattr(foreman_runtime.ForemanRuntime, "_stable_ticks")
+    assert not hasattr(foreman_runtime.ForemanRuntime, "_exit_reason")
+
+    owner = "livespec-lloc-soft-band-owner: overseer-e698"
+    for path in (overseer / "foreman_act.py", overseer / "foreman_runtime.py"):
+        assert owner not in path.read_text(encoding="utf-8")
