@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.32.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.0...v1.32.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* expose caam operator flags ([165c40d](https://github.com/thewoolleyman/livespec-overseer/commit/165c40d9f8db5bd29791101210a73c2477c24c2e))
+* **grooming:** name ledger projection traps ([8e97242](https://github.com/thewoolleyman/livespec-overseer/commit/8e97242e28b8f076035a0a8bd9cba32e824ebd8a))
+
 ## [1.32.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.31.0...v1.32.0) (2026-08-22)
 
 
