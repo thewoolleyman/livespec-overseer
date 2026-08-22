@@ -29,16 +29,68 @@ So the reshape has one module to change, not thirty.
     f"{topic} ({repo_slug}) — {message} [{where}]{jump}"
 
 and `surface` writes that string. **Nothing needs deriving — the fields are
-there and are discarded.** The 39 `condition=` values are already a closed,
-stable vocabulary (`ctx-stale`, `picker-stalled`, `ready-uncertifiable`,
-`blocked-human`, `stale-launch-profile`, `winddown-starved`,
-`escalation-exhausted`, `shell-prolonged`, `supervisor-gone-mid-round`, …), so
-the event NAME needs no invention either.
+there and are discarded.** **A `condition=` grep returns 39 hits — but see the
+correction below: that is a count of SITES, the vocabulary is not closed, and
+fifteen alerts name no condition at all.**
 
 The `log` half is the weaker one: 22 free-prose f-strings. But they are
 strikingly uniform — nearly every one interpolates the same natural key,
 `{repo}::{topic}`, plus a verb and one or two extras (`pane`, `ctx`, `bands`,
 `{exc}`). The record is latent in them too.
+
+## Correction: the condition vocabulary is NOT closed, and naming it is real work
+
+This note first said "the 39 `condition=` values are already a closed, stable
+vocabulary … so the event NAME needs no invention either." **That was wrong**,
+derived from a grep for `condition=` that returned 39 hits. Re-measured, the
+vocabulary is neither closed nor 39, and the error concealed scope `.2` did not
+know it had.
+
+**39 counted SITES, not values:**
+
+  - **23** distinct literal strings (two used at two sites each);
+  - **9** named module constants — stable names, just indirected, and invisible
+    to a grep for a quoted string;
+  - **2** PARAMETERIZED families — the blocked and ready-uncertifiable age bands
+    are f-strings interpolating the band;
+  - **3** forwarded variables whose real values live in their callers.
+
+**And the forwarding hides names the grep cannot see.** `_supervisor_offer.py`
+assigns its condition to a LOCAL on three branches — `supervisor-missing`,
+`supervision-capture-offer`, `supervision-offer` — none of which appear among the
+39. The enumeration was incomplete as well as miscounted.
+
+**The serious part: 15 of 51 `alert()` call sites name no condition at all.**
+`Supervisor.alert` declares `condition: str = "default"`, so every caller that
+omits it lands on the literal condition `default`. They are not trivia — restart
+respawn FAILED, the idle-with-context-left nudge FAILED, five codex-restart
+paths, claude-restart and resume-retry, and wrap-up injection
+(`_supervisor_restart.py:122,145,181`;
+`_supervisor_codex_restart.py:114,123,133,155,166`;
+`_supervisor_nudge.py:127,159,209`; `_supervisor_resume_retry.py:89,135`;
+`_supervisor_claude_restart.py:34`; `_supervisor_wrapup_injection.py:122`).
+
+Two consequences, both new scope for `.2`:
+
+  1. **These 15 must be NAMED.** `condition` becomes the event name, so as things
+     stand fifteen distinct failure kinds would export as the single event
+     `default`. The signal-choice note endorses the curated-closed-catalog
+     principle and states the failure mode as "exporting a line because it
+     happens to be written". An event called `default` is exactly that — arriving
+     BY DEFAULT rather than by neglect, which is worse, because nothing in the
+     code looks wrong.
+  2. **Their dedup is entangled.** The key is `(repo, topic, condition)`, so all
+     fifteen share ONE key per track: re-arming is shared and "this track entered
+     condition X" is not expressible for any of them. Naming them fixes the
+     export and the dedup in one edit.
+
+**Method note, because the first attempt at "15" was also wrong.** A non-greedy
+regex over multi-line `.alert(` blocks reported 33 without a condition;
+balanced-paren parsing reports 15, and spot-checks confirm the parser — the regex
+truncated call bodies before reaching a `condition=` on a later line. 33 versus
+15 is the difference between "most alerts are unnamed" and "a specific,
+enumerable set is": different findings with different remedies. **Parse, do not
+pattern-match, when the answer depends on what is INSIDE a call.**
 
 ## Three defects the reshape must fix, not merely survive
 
