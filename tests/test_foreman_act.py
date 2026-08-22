@@ -1673,12 +1673,20 @@ def test_blocked_answer_keeps_runtime_and_cwd_identity_refusals(*, tmp_path, mon
         }
 
 
-def test_typed_ruling_escalates_while_governing_vocabulary_is_empty(*, tmp_path):
+def test_typed_ruling_escalates_while_governing_vocabulary_is_empty(*, tmp_path, monkeypatch):
     foreman_act = module("foreman_act")
+    consensus = module("foreman_act_consensus")
     repo = tmp_path / "repo"
     repo.mkdir()
     write_consensus_config(repo=repo)
     records: list[dict[str, object]] = []
+    checked_kinds: list[str] = []
+
+    def empty_governed_vocabulary(*, kind: str) -> bool:
+        checked_kinds.append(kind)
+        return False
+
+    monkeypatch.setattr(consensus, "ruling_kind_defined", empty_governed_vocabulary)
 
     result = foreman_act.act(
         proposal=blocked_answer_proposal(repo=repo),
@@ -1705,6 +1713,7 @@ def test_typed_ruling_escalates_while_governing_vocabulary_is_empty(*, tmp_path)
             "reason": "consensus_ruling_not_enumerated",
         }
     ]
+    assert checked_kinds == ["relay-to-session"]
 
 
 def test_typed_ruling_refuses_unenumerated_kind_before_relay(*, tmp_path):
@@ -1730,6 +1739,33 @@ def test_typed_ruling_refuses_unenumerated_kind_before_relay(*, tmp_path):
         "mutated": False,
         "outcome": "refused",
         "reason": "consensus_ruling_not_enumerated",
+    }
+
+
+def test_typed_ruling_refuses_governed_but_unsupported_kind(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    consensus = module("foreman_act_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+
+    monkeypatch.setattr(consensus, "ruling_kind_defined", lambda *, kind: True)
+
+    result = foreman_act.act(
+        proposal=blocked_answer_proposal(repo=repo),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: pytest.fail("unsupported ruling must not run commands"),
+            consensus_panel=lambda *, request, responses: typed_ruling_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "consensus_ruling_not_supported",
     }
 
 
