@@ -783,11 +783,29 @@ from emptying.
   Code's back can revoke the whole token family.
 - **X4** Success is decided by comparing the recorded expiry **before** (the vault
   snapshot) against **after** (the sandbox copy).
-- **X4a** **THE ORIGINAL DIAGNOSTIC WAS WRONG IN BOTH DIRECTIONS AND vps-info
-  `3c0ad85` FIXED IT.** It reported `no refresh (snapshot likely orphaned)` for
+- **X4a** **THE ORIGINAL DIAGNOSTIC WAS WRONG IN BOTH DIRECTIONS. vps-info
+  `3c0ad85` MADE IT LEGIBLE WITHOUT MAKING IT CORRECT — do not read it as a
+  fix.** The original reported `no refresh (snapshot likely orphaned)` for
   *every* failure, having discarded the agent's output, so two unrelated
   conditions hid behind one string — and it also reported healthy profiles as
-  failed.
+  failed. `3c0ad85` replaced that flat lie with the agent's own first line,
+  which is the half that genuinely landed and is why the three conditions are
+  separable at all (transcripts from before it cannot distinguish them).
+- **X4a-i** **BUT THE SAME COMMIT INTRODUCED AN UNSATISFIABLE PAIR, so the
+  success branch it added has never executed.** `3c0ad85` added the
+  `already valid, no refresh needed` return guarded on
+  `after > time.time() + WARM_MARGIN_S` and left the *selection* test
+  untouched — and selection only admits a profile whose expiry is **within**
+  that same margin. Combining them: `after > t + margin >= before >= after`,
+  a contradiction. Measured on the operator's host: that string appears **0
+  times across 975 warm outcomes**; the residue splits 67 genuine
+  `OAuth session expired` / 55 `monthly spend limit` / 54 Claude Code's
+  greeting, so roughly **two thirds of recorded "failures" were never
+  failures**. The rebuild reproduces this faithfully, which is correct under
+  the reproduction mandate — the defect is upstream, and whether to reproduce
+  it knowingly is a scope call, not an implementation bug. Carried on
+  `overseer-54k2za.12`; **re-measure the source before relying on either
+  half of this entry.**
 - **X4b** **The false-failure case.** A profile whose token is still valid gives
   the agent no reason to refresh, so the recorded expiry does not advance and the
   before/after comparison reads it as failure. When the after-expiry is still
@@ -894,7 +912,7 @@ and this note landing, the source moved **twice** in about ninety minutes:
 | `74429a7` | forbid keeping or patching a local copy of the program | **new carrier Y**; an operating rule, reasoning carried not copied |
 | `0070050` | keep idle profiles warm so rotation cannot deadlock | **new carrier group X**, and it falsified **G9** — a recorded *deliberate accepted consequence* that was actually a deadlock |
 | `ee88266` | stop showing cached quota figures from before a reset | **new carrier group Z**; the table was misdirecting the human while the machine was correctly protected |
-| `3c0ad85` | report why keep-warm failed, and stop crying orphan | **revised X4 into X4a–X4e, and superseded D6** — the orphan diagnostic was wrong in *both* directions |
+| `3c0ad85` | report why keep-warm failed, and stop crying orphan | **revised X4 into X4a–X4e, and superseded D6** — the orphan diagnostic was wrong in *both* directions. **It made that diagnostic legible, not correct**: the same commit introduced the unsatisfiable margin pair recorded at **X4a-i**, so the success branch it added has never fired |
 
 The first was verified harmless by extracting the fenced program from both sides
 and diffing it — **893 lines, byte-identical**. That check is cheap and is the
