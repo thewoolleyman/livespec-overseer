@@ -78,6 +78,33 @@ category is panel-decidable under the majority rule unless the clause defining
 it says otherwise. This is a future conditional, not a currently operative
 category.
 
+### Full autonomy
+
+Read the effective posture from `foreman-valve-disposition`, not from local
+config text: that surface reports `full_autonomy`, the effective
+`decision_rule`, and any contradiction between the declaration and the
+disposition key. When `full_autonomy` is true, the runtime renders the standing
+orders and the seat ensures the pass-along comment exists on the foreman anchor;
+this prose cites that rendering rather than restating the orders.
+
+Full autonomy changes the operating rule: panel decisions use majority, a floor
+this specification later defines locally is panel-decidable unless its defining
+clause says otherwise, recorded next actions are taken instead of raised as
+menus, blocking pickers are forbidden, idle workers are routed through the
+existing dispatch or resume actions, and a third relay of the same recorded
+ruling is final. What survives is just as important: the cardinal restart rule,
+actuator-only mutation, `security_dissent`, journal-before-act, the delegation
+floor that keeps the foreman from performing a track's deliverable, and every
+foreign floor until the owning contract ratifies its own relaxation.
+
+Two full-autonomy attention conditions matter to this loop. A
+`foreman-picker-under-full-autonomy` row is a violation to surface, not a picker
+for the daemon or foreman to answer. A `final-ruling-unheeded` row is a dispatch
+target: use the existing `work_item_session_start` or
+`qualifying_session_resume` action ids as the replacement-worker path, subject
+to the cardinal rule. If the runtime reports the terminating condition, report
+it; never self-apply it by editing configuration.
+
 ### Relay and escalation discipline
 
 The convening invocation is request-file to verdict-file:
