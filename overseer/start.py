@@ -103,7 +103,9 @@ def default_core_root() -> Path:
     """Root whose package should win when the daemon runs ``python -m overseer.daemon``."""
     module_root = Path(__file__).resolve().parent.parent
     checkout_root = _checkout_root_from_cwd(cwd=Path.cwd(), module_root=module_root)
-    return checkout_root if checkout_root is not None else module_root
+    if checkout_root is not None:
+        return checkout_root
+    return module_root if _is_checkout_root(path=module_root) else Path.cwd().resolve()
 
 
 def daemon_command(
