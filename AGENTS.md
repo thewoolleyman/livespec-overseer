@@ -995,6 +995,44 @@ The second factory declared in `.livespec.jsonc` is still useful for read-only
 process inspection, but it is not available for routing work despite being
 configured.
 
+**INSPECTING A FACTORY IS NOT ROUTING WORK TO IT.** Pointing `fabro ps` or
+`fabro inspect` at the second factory's server to read the state of a run that is
+already there is a READ, and it stays permitted — it is the only way to report
+accurately on a run you must not touch. Sending work is what is forbidden.
+
+**THE ROUTE IS STICKY, WHICH IS WHY ONE RE-ROUTE OUTLIVES THE DECISION THAT MADE
+IT.** `resolve_dispatch_factory_target` resolves the factory in the order explicit
+`--factory`, then `LIVESPEC_FABRO_FACTORY`, then **the factory recorded on the work
+item's own ledger metadata**, then `default_factory` — and it then writes the
+resolved value BACK onto the item. So a single re-route PINS that item, and every
+later dispatch of it goes to the pinned factory with nobody passing anything and
+nobody intending it. Measured 2026-08-22: `overseer-v2vs` carried
+`dispatch_factory: vps` in its metadata after one re-route, and would have returned
+there on any re-dispatch.
+
+Clear a stale pin with
+
+    bd update <id> --unset-metadata dispatch_factory
+
+and READ THE ITEM BACK. Do not use `bd update <id> --metadata @<file>` with an empty
+object to do it: measured the same day, that reports `✓ Updated issue` and leaves the
+key in place. `--unset-metadata` worked and the metadata read `null` afterwards. This
+is the same shape as the `added_at` defect recorded elsewhere in this file — a write
+path that reports success while writing nothing — and the remedy is the same: verify
+the read-back, never the exit message.
+
+Two things make a pin sweep read falsely clean. A default `bd list` omits `closed`
+and `backlog` items, so pinned items resting in either state are invisible and the
+sweep reports zero. And the dispatch journal records the field as `dispatch_factory`,
+not `factory`, so a tally keyed on `factory` returns every row unattributed and reads
+as though no dispatch ever named a factory at all.
+
+**DO NOT GO HUNTING FOR THE SEAT THAT CHOSE THE FORBIDDEN ROUTE.** On 2026-08-22 that
+search was requested and could not have succeeded, because there was no freelancing
+caller: the re-routes were seats correctly following the remedy this very entry used
+to prescribe, and later dispatches came from the sticky pin above. When guidance and a
+standing instruction disagree, the guidance is the caller.
+
 **IT IS INTERMITTENT — do not escalate this as a factory outage.** The same host
 carried a full run to an opened PR thirteen minutes after the failures below; the
 evidence is at the end of this entry. Re-try `hp` first unless the standing
@@ -1045,7 +1083,7 @@ does not distinguish this argparse rejection from a factory refusal; read
 
 Do not apply that generic re-route in this repo while the 2026-08-22 maintainer
 instruction stands. The measured 2026-08-22 violation was exactly this shape: an
-`hp` dispatch of `overseer-6l7v.2` returned stage `capacity-deferred` at
+`hp` dispatch of `overseer-6l7v.1` returned stage `capacity-deferred` at
 08:36:57Z with the WIP cap saturated, and a follow-up `vps` re-route at
 08:39:36Z treated configured topology as approval. It was not approval. A
 capacity defer, including `active_count` equal to `wip_cap`, leaves the item
