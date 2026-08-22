@@ -9,7 +9,7 @@ from typing import cast
 
 import jsonio
 from foreman_gather_sources import parse_repo_config
-from grooming_plan_budget import is_top_level_anchor_epic
+from grooming_plan_budget import TERMINAL_WORK_ITEM_STATUSES, is_top_level_anchor_epic
 
 __all__: list[str] = [
     "TERMINAL_STATUSES",
@@ -27,7 +27,7 @@ __all__: list[str] = [
     "status",
 ]
 
-TERMINAL_STATUSES = frozenset({"closed", "done"})
+TERMINAL_STATUSES = TERMINAL_WORK_ITEM_STATUSES
 OPENING_TEMPLATE_DELIMITERS = (
     chr(123) * 2,
     chr(123) + "%",
@@ -95,8 +95,7 @@ def listed_sibling_repos(*, repo: Path) -> frozenset[str]:
 
 
 def has_dependency_payload(*, item: Mapping[str, object]) -> bool:
-    metadata = jsonio.as_object(value=item.get("metadata")) or {}
-    return metadata.get("non_local_depends_on") is not None
+    return dependency_payload(item=item) is not None
 
 
 def needs_plan_rollup(
@@ -139,7 +138,10 @@ def sorted_ids(*, items: Iterable[Mapping[str, object]]) -> tuple[str, ...]:
 
 def dependency_payload(*, item: Mapping[str, object]) -> object:
     metadata = jsonio.as_object(value=item.get("metadata")) or {}
-    return metadata.get("non_local_depends_on")
+    payload = metadata.get("non_local_depends_on")
+    if payload is not None:
+        return payload
+    return item.get("depends_on")
 
 
 def mapping_sequence(*, value: object) -> tuple[Mapping[str, object], ...] | None:

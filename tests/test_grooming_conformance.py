@@ -405,6 +405,139 @@ def test_cross_repo_edges_report_stringified_unlisted_and_unresolved_edges(
     )
 
 
+def test_projection_and_bd_shapes_converge_on_grooming_invariant_verdicts(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    bd_report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            _with(
+                row=_item(item_id="plan-anchor", parent=None, acceptance_criteria=None),
+                updates={"issue_type": "epic", "metadata": {"plan_slug": "existing"}},
+            ),
+            _with(
+                row=_item(item_id="unslugged-epic", parent=None),
+                updates={"issue_type": "epic"},
+            ),
+            _item(item_id="missing-acceptance", acceptance_criteria=None),
+            _item(item_id="terminal", status="closed"),
+            _item(item_id="bad-status", status="open"),
+            _with(
+                row=_item(item_id="resolved-dependency"),
+                updates={
+                    "metadata": {
+                        "non_local_depends_on": [
+                            {"repo": "sibling", "work_item_id": "sibling-present"}
+                        ]
+                    }
+                },
+            ),
+            _with(
+                row=_item(item_id="unresolved-dependency"),
+                updates={
+                    "metadata": {
+                        "non_local_depends_on": [
+                            {"repo": "sibling", "work_item_id": "sibling-missing"}
+                        ]
+                    }
+                },
+            ),
+        ],
+        sibling_item_ids_by_repo={"sibling": {"sibling-present"}},
+    )
+    projection_report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            {
+                "id": "plan-anchor",
+                "status": "backlog",
+                "type": "epic",
+                "parent": None,
+                "notes": "plan_slug=existing",
+                "spec_commitment_hint": "plan:existing",
+                "labels": [],
+                "dependencies": [],
+            },
+            {
+                "id": "unslugged-epic",
+                "status": "ready",
+                "type": "epic",
+                "parent": None,
+                "labels": [],
+                "dependencies": [],
+                "acceptance_criteria": "Done is explicit.",
+            },
+            {
+                "id": "missing-acceptance",
+                "status": "ready",
+                "type": "bug",
+                "parent": "plan-anchor",
+                "labels": [],
+                "dependencies": [],
+            },
+            {
+                "id": "terminal",
+                "status": "done",
+                "type": "bug",
+                "parent": "plan-anchor",
+                "labels": [],
+                "dependencies": [],
+                "acceptance_criteria": "Done is explicit.",
+            },
+            {
+                "id": "bad-status",
+                "status": "open",
+                "type": "bug",
+                "parent": "plan-anchor",
+                "labels": [],
+                "dependencies": [],
+                "acceptance_criteria": "Done is explicit.",
+            },
+            {
+                "id": "resolved-dependency",
+                "status": "ready",
+                "type": "bug",
+                "parent": "plan-anchor",
+                "labels": [],
+                "dependencies": [],
+                "acceptance_criteria": "Done is explicit.",
+                "depends_on": [{"repo": "sibling", "work_item_id": "sibling-present"}],
+            },
+            {
+                "id": "unresolved-dependency",
+                "status": "ready",
+                "type": "bug",
+                "parent": "plan-anchor",
+                "labels": [],
+                "dependencies": [],
+                "acceptance_criteria": "Done is explicit.",
+                "depends_on": [{"repo": "sibling", "work_item_id": "sibling-missing"}],
+            },
+        ],
+        sibling_item_ids_by_repo={"sibling": {"sibling-present"}},
+    )
+
+    expected_breaches = {
+        "plan-rollup": ("unslugged-epic",),
+        "acceptance-present": ("missing-acceptance",),
+        "lifecycle-status": ("bad-status",),
+        "cross-repo-dependencies": ("unresolved-dependency",),
+    }
+    for key, breaching_ids in expected_breaches.items():
+        bd_check = _by_key(report=bd_report, key=key)
+        projection_check = _by_key(report=projection_report, key=key)
+        assert bd_check.breaching_item_ids == breaching_ids
+        assert projection_check.breaching_item_ids == breaching_ids
+        assert bd_check.scanned_item_count > 0
+        assert projection_check.scanned_item_count > 0
+
+    projection_cross_repo = _by_key(report=projection_report, key="cross-repo-dependencies")
+    assert projection_cross_repo.scanned_item_count == 2
+
+
 def test_measure_stage_is_reentrant_and_later_stage_derives_inputs(*, tmp_path: Path) -> None:
     module = grooming_conformance()
     repo = _repo(tmp_path=tmp_path)
