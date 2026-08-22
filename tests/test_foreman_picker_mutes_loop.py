@@ -23,6 +23,12 @@ def foreman_runtime():
     return importlib.import_module("foreman_runtime")
 
 
+def foreman_runtime_escalation():
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("foreman_runtime_escalation")
+
+
 def make_repo(*, tmp_path: Path, name: str = "repo") -> Path:
     repo = tmp_path / name
     (repo / "plan" / "alpha").mkdir(parents=True)
@@ -105,6 +111,7 @@ def test_foreman_runtime_reports_own_open_blocking_prompt_from_snapshot(*, tmp_p
                         "topic": "repo-foreman",
                         "status": "blocked:human",
                         "picker_open": True,
+                        "session_identity": "claude:current-foreman-seat",
                     }
                 ]
             }
@@ -113,6 +120,52 @@ def test_foreman_runtime_reports_own_open_blocking_prompt_from_snapshot(*, tmp_p
 
     assert result.blocking_prompt_open is True
     assert result.tick_ended_with_blocking_prompt is True
+    path = repo / "tmp" / "overseer" / "foreman" / "escalations" / "repo-foreman.json"
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "reason": (
+            "foreman tick ended with a blocking prompt; the decision must stay on "
+            "the non-blocking attention surface so the loop cadence can continue"
+        ),
+        "session_identity": "claude:current-foreman-seat",
+    }
+
+
+def test_foreman_runtime_escalation_identity_extraction_controls(*, tmp_path):
+    module = foreman_runtime_escalation()
+    repo = make_repo(tmp_path=tmp_path)
+
+    assert module.foreman_session_identity(payload={}, repo=repo) is None
+    assert module.foreman_session_identity(payload={"snapshot": {"rows": {}}}, repo=repo) is None
+    assert (
+        module.foreman_session_identity(
+            payload={"snapshot": {"rows": [{"topic": "other", "session_identity": "old"}]}},
+            repo=repo,
+        )
+        is None
+    )
+    assert (
+        module.foreman_session_identity(
+            payload={
+                "snapshot": {
+                    "rows": [
+                        [],
+                        {"topic": "repo-foreman"},
+                        {"topic": "repo-foreman", "session_identity": "  claude:seat  "},
+                    ]
+                }
+            },
+            repo=repo,
+        )
+        == "claude:seat"
+    )
+
+
+def test_record_blocking_prompt_escalation_can_write_unstamped_fail_closed_marker(*, tmp_path):
+    module = foreman_runtime_escalation()
+    repo = make_repo(tmp_path=tmp_path)
+
+    module.record_blocking_prompt_escalation(repo=repo)
+
     path = repo / "tmp" / "overseer" / "foreman" / "escalations" / "repo-foreman.json"
     assert json.loads(path.read_text(encoding="utf-8")) == {
         "reason": (

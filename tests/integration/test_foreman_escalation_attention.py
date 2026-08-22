@@ -14,10 +14,22 @@ from overseer.test_supervisor_fakes import FakeTmux
 __all__: list[str] = []
 
 
-def write_foreman_escalation(*, repo: Path, topic: str, reason: str) -> None:
+def write_foreman_escalation(
+    *,
+    repo: Path,
+    topic: str,
+    reason: str,
+    session_identity: str | None = None,
+    resolved: bool = False,
+) -> None:
     path = repo / "tmp" / "overseer" / "foreman" / "escalations" / f"{topic}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"reason": reason}) + "\n", encoding="utf-8")
+    payload: dict[str, object] = {"reason": reason}
+    if session_identity is not None:
+        payload["session_identity"] = session_identity
+    if resolved:
+        payload["resolved"] = True
+    path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
 
 
 def make_foreman_escalation_supervisor(*, tmp_path, repo, fake, now=2000.0):
@@ -61,6 +73,69 @@ def test_scenario_foreman_escalation_is_report_only_attention(*, tmp_path):
     assert not fake.has(method="keys")
     assert not fake.has(method="respawn")
     assert not fake.has(method="new")
+
+
+def test_foreman_escalation_clears_for_resolved_marker_while_outstanding_still_fires(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path, topic="answered-foreman-decision")
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    write_foreman_escalation(
+        repo=repo,
+        topic=topic,
+        reason="choose release path",
+        session_identity="claude:current-seat",
+    )
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=92, topic=topic))
+    sup = make_foreman_escalation_supervisor(tmp_path=tmp_path, repo=repo, fake=fake)
+    track = registry.Track(
+        repo=str(repo),
+        topic=topic,
+        tmux=session,
+        epic="overseer-test-epic",
+        observed_session_identity="claude:current-seat",
+    )
+
+    outstanding = sup.evaluate(track=track, act=False)
+    assert outstanding.status == "foreman-escalated"
+    assert outstanding.note == "foreman needs human decision: choose release path"
+
+    write_foreman_escalation(
+        repo=repo,
+        topic=topic,
+        reason="choose release path",
+        session_identity="claude:current-seat",
+        resolved=True,
+    )
+
+    cleared = sup.evaluate(track=track, act=False)
+    assert cleared.status != "foreman-escalated"
+
+
+def test_foreman_escalation_from_superseded_seat_does_not_alert_successor(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path, topic="superseded-foreman-decision")
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    write_foreman_escalation(
+        repo=repo,
+        topic=topic,
+        reason="choose release path",
+        session_identity="claude:dead-seat",
+    )
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=92, topic=topic))
+    sup = make_foreman_escalation_supervisor(tmp_path=tmp_path, repo=repo, fake=fake)
+
+    view = sup.evaluate(
+        track=registry.Track(
+            repo=str(repo),
+            topic=topic,
+            tmux=session,
+            epic="overseer-test-epic",
+            observed_session_identity="claude:successor-seat",
+        ),
+        act=False,
+    )
+
+    assert view.status != "foreman-escalated"
 
 
 def test_foreman_escalation_malformed_marker_surfaces_on_read_only_tick(*, tmp_path):
