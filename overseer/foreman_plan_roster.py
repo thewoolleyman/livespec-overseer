@@ -132,7 +132,7 @@ def emoji_for_pair(*, session_state: str, work_state: str) -> str:
 
 
 def _emoji_for_row(*, name_identity_verdict: str, session_state: str, work_state: str) -> str:
-    if name_identity_verdict != OK:
+    if name_identity_verdict == DAEMON_TMUX_NAME_MISMATCH:
         return INCOHERENT_EMOJI
     return emoji_for_pair(session_state=session_state, work_state=work_state)
 
