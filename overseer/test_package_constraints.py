@@ -19,8 +19,10 @@ import pathlib
 
 from overseer import registry
 from overseer.test_package_constraint_audit import (
+    DaemonRuntimeImportAudit,
     PackageImportAudit,
     all_imports,
+    audit_daemon_runtime_imports,
     audit_package_imports,
 )
 from overseer.test_supervisor_builders import (
@@ -69,6 +71,11 @@ def _product_modules() -> tuple[pathlib.Path, ...]:
     return tuple(
         path for path in sorted(_PACKAGE_ROOT.glob("*.py")) if not path.name.startswith("test_")
     )
+
+
+def _write_text(*, path: pathlib.Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
 
 
 def _supervision_loop_modules() -> tuple[pathlib.Path, ...]:
@@ -158,6 +165,37 @@ def test_the_package_imports_only_the_standard_library():
         runtime_dependency_declarations=[],
         vendored_load_imports={},
         hermetic_collisions={},
+    )
+
+
+def test_the_daemon_import_chain_needs_no_runtime_dependencies():
+    """The daemon prefix installs this package with `pip install --no-deps`.
+
+    That is safe only while the daemon's own import chain needs no third-party
+    distribution. Project-level dependencies may exist for non-daemon entrypoints,
+    but a module reachable from `overseerd` cannot import one at module load.
+    """
+    audit = audit_daemon_runtime_imports(package_root=_PACKAGE_ROOT)
+
+    assert audit == DaemonRuntimeImportAudit(missing_runtime_imports={})
+
+
+def test_daemon_import_chain_reports_a_reachable_runtime_dependency(*, tmp_path):
+    """Discriminating control: a reachable third-party import must redden the guard."""
+    package_root = tmp_path / "overseer"
+    _write_text(
+        path=tmp_path / "pyproject.toml",
+        text='[project]\ndependencies = ["livespec-runtime>=0.18.0"]\n',
+    )
+    _write_text(path=package_root / "daemon.py", text="import supervisor\n")
+    _write_text(path=package_root / "supervisor.py", text="import _supervisor_core\n")
+    _write_text(path=package_root / "_supervisor_core.py", text="import livespec_runtime\n")
+    _write_text(path=package_root / "foreman_act_filing.py", text="import livespec_runtime\n")
+
+    audit = audit_daemon_runtime_imports(package_root=package_root)
+
+    assert audit == DaemonRuntimeImportAudit(
+        missing_runtime_imports={"_supervisor_core.py": ["livespec-runtime"]}
     )
 
 
