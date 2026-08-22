@@ -11,11 +11,13 @@ import jsonio
 from foreman_act_journal import journal_reconcile_command
 from foreman_act_record import AppendJournal
 from foreman_act_types import ACTION_IDS, BLOCKED_SESSION_ANSWER, HUMAN_VALVE, ActionId, ActResult
+from foreman_consensus_actions import typed_action
 from foreman_consensus_types import DecisionRule
 from foreman_recorded_next_action import (
     RecordedNextAction,
     recorded_next_action_authorization,
 )
+from foreman_typed_ruling import ruling_kind_defined
 from foreman_valve_policy import CONFIG_KEY, CONSENSUS, MAJORITY, UNANIMOUS
 
 __all__: list[str] = [
@@ -125,9 +127,10 @@ def _audit_record(
     verdict: dict[str, object],
     disposition: dict[str, object],
     requested_action_id: ActionId,
-    authorized_action_id: ActionId,
+    authorized_action_id: ActionId | None,
+    ruling: dict[str, object] | None,
 ) -> dict[str, object]:
-    return {
+    record = {
         "stage": "foreman-consensus-act",
         "action_id": requested_action_id,
         "governing_setting": f"{CONFIG_KEY}={CONSENSUS}",
@@ -143,6 +146,12 @@ def _audit_record(
         "authorized_action_id": authorized_action_id,
         "verdict": verdict,
     }
+    if ruling is not None:
+        record["authorized_member_kind"] = "typed_ruling"
+        record["ruling"] = ruling
+    else:
+        record["authorized_member_kind"] = "action"
+    return record
 
 
 def _recorded_next_action_record(
@@ -186,7 +195,7 @@ def _prepare_recorded_next_action(
     return action_id, None
 
 
-def _authorized_panel_action(
+def _authorized_panel_member(
     *, verdict: dict[str, object], effective_decision_rule: object
 ) -> tuple[ActionId | None, str | None]:
     if verdict.get("outcome") not in {"majority", "unanimous"}:
@@ -199,7 +208,13 @@ def _authorized_panel_action(
         verdict.get("decision_rule") != MAJORITY or effective_decision_rule != MAJORITY
     ):
         return None, "consensus_majority_requires_majority_rule"
-    action = jsonio.as_object(value=verdict.get("action"))
+    action = typed_action(action=verdict.get("action"))
+    if action is not None and action.get("member_kind") == "typed_ruling":
+        ruling = jsonio.as_object(value=action.get("ruling"))
+        kind = None if ruling is None else ruling.get("kind")
+        if not isinstance(kind, str) or not ruling_kind_defined(kind=kind):
+            return None, "consensus_ruling_not_enumerated"
+        return None, "consensus_ruling_not_supported"
     action_id = None if action is None else _known_action_id(value=action.get("action_id"))
     if action_id is None:  # pragma: no cover
         return None, "consensus_action_not_enumerated"
@@ -234,7 +249,7 @@ def prepare_consensus_action(
     disposition: dict[str, object],
     consensus_panel: ConsensusPanel,
     append_journal: AppendJournal,
-) -> tuple[ActionId | None, ActResult | None]:
+) -> tuple[ActionId | dict[str, object] | None, ActResult | None]:
     pre_evidence = _pre_evidence_refusal(
         action_id=action_id, proposal=proposal, disposition=disposition
     )
@@ -256,11 +271,18 @@ def prepare_consensus_action(
         responses=responses,
         decision_rule=decision_rule,
     )
-    authorized_action_id, refusal = _authorized_panel_action(
+    authorized_member, refusal = _authorized_panel_member(
         verdict=verdict, effective_decision_rule=decision_rule
     )
-    if refusal is not None or authorized_action_id is None:  # pragma: no cover
-        return None, _refused(action_id=action_id, reason=refusal or "consensus_unavailable")
+    if refusal is not None or authorized_member is None:  # pragma: no cover
+        refused_action_id = (
+            HUMAN_VALVE if refusal == "consensus_ruling_not_enumerated" else action_id
+        )
+        return None, _refused(
+            action_id=refused_action_id, reason=refusal or "consensus_unavailable"
+        )
+    authorized_action_id = authorized_member
+    ruling = None
     try:
         append_journal(
             repo=Path(str(proposal["repo"])),
@@ -270,11 +292,12 @@ def prepare_consensus_action(
                 disposition=disposition,
                 requested_action_id=action_id,
                 authorized_action_id=authorized_action_id,
+                ruling=ruling,
             ),
         )
     except OSError:
         return None, _refused(action_id=action_id, reason="journal_append_failed")
-    return authorized_action_id, None
+    return authorized_member, None
 
 
 def act_journal_triage(

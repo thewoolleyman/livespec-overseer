@@ -26,6 +26,9 @@ def typed_action(*, action: object) -> dict[str, object] | None:
     payload = jsonio.as_object(value=action)
     if payload is None:
         return None
+    typed_ruling = _typed_ruling(payload=payload)
+    if typed_ruling is not None:
+        return typed_ruling
     action_id = payload.get("action_id")
     params = payload.get("params")
     if not isinstance(action_id, str) or action_id not in ACTION_ID_SET:
@@ -33,6 +36,18 @@ def typed_action(*, action: object) -> dict[str, object] | None:
     if jsonio.as_object(value=params) is None:
         return None
     return {"action_id": action_id, "params": params}
+
+
+def _typed_ruling(*, payload: dict[str, object]) -> dict[str, object] | None:
+    if payload.get("member_kind") != "typed_ruling":
+        return None
+    ruling = jsonio.as_object(value=payload.get("ruling"))
+    if ruling is None:  # pragma: no cover
+        return None
+    kind = ruling.get("kind")
+    if not isinstance(kind, str) or kind == "":  # pragma: no cover
+        return None
+    return {"member_kind": "typed_ruling", "ruling": ruling}
 
 
 def action_is_reversible(*, action: object) -> bool:
