@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.28.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.28.0...v1.28.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* discriminate local dependency edges in grooming conformance ([950c173](https://github.com/thewoolleyman/livespec-overseer/commit/950c173ec3cac6b099feea5a882073d3ed7802aa))
+
 ## [1.28.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.27.1...v1.28.0) (2026-08-22)
 
 
