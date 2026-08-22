@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.9...v1.37.10) (2026-08-22)
+
+
+### Bug Fixes
+
+* surface unusable reserved seat mappings ([088cd93](https://github.com/thewoolleyman/livespec-overseer/commit/088cd93326969ea97e120102b29bd85db4e24ea5))
+
 ## [1.37.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.8...v1.37.9) (2026-08-22)
 
 
