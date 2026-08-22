@@ -14,6 +14,19 @@ __all__: list[str] = ["apply_mapping_health", "explicit_null_added_at_keys"]
 MappingKey = tuple[str, str]
 
 
+def _uncertifiable_added_at(*, row: dict[str, object]) -> bool:
+    if row.get("added_at") is not None:
+        return False
+    if "added_at" in row:
+        return True
+    kind = row.get("kind")
+    if kind in ("foreman", "grooming"):
+        return True
+    return isinstance(row.get("pinned_session_id"), str) and isinstance(
+        row.get("observed_session_identity"), str
+    )
+
+
 def explicit_null_added_at_keys(
     *, store_path: str | os.PathLike[str] | None
 ) -> frozenset[MappingKey]:
@@ -21,12 +34,7 @@ def explicit_null_added_at_keys(
     for row in read_rows(store_path=store_path):
         repo = row.get("repo")
         topic = row.get("topic")
-        if (
-            isinstance(repo, str)
-            and isinstance(topic, str)
-            and "added_at" in row
-            and row.get("added_at") is None
-        ):
+        if isinstance(repo, str) and isinstance(topic, str) and _uncertifiable_added_at(row=row):
             keys.add((registry.norm(repo=repo), topic))
     return frozenset(keys)
 
