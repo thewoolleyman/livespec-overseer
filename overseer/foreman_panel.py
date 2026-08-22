@@ -11,7 +11,7 @@ from typing import Final
 import foreman_panel_reviewers
 import jsonio
 import streams
-from foreman_consensus import consensus
+from foreman_consensus import consensus, decision_rule_for_request
 from foreman_consensus_prompt import cache_key
 from foreman_consensus_types import DEFAULT_PANEL_LIMITS, DEFAULT_STATE_DIR
 from foreman_panel_decision_kind import result_decision_kind
@@ -44,7 +44,8 @@ def convene_panel(
     refusal = refusal_for(request=request)
     if refusal is not None:
         return refusal
-    key = cache_key(request=request)
+    decision_rule = decision_rule_for_request(request=request)
+    key = cache_key(request=request, decision_rule=decision_rule)
     panel_dir = (
         dossier_dir if dossier_dir is not None else default_dossier_dir(request=request, key=key)
     )
@@ -61,6 +62,7 @@ def convene_panel(
         responses=responses,
         state_dir=state_dir,
         limits=DEFAULT_PANEL_LIMITS,
+        decision_rule=decision_rule,
     )
     reviewers = jsonio.as_list(value=responses.get("reviewers")) or []
     verdict["decision_kind"] = result_decision_kind(

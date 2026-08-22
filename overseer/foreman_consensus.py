@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import cast
 
 import jsonio
 import streams
@@ -16,8 +17,10 @@ from foreman_consensus_types import (
     DEFAULT_PANEL_LIMITS,
     DEFAULT_STATE_DIR,
     PANEL_SCHEMA_VERSION,
+    DecisionRule,
     PanelLimits,
 )
+from foreman_valve_policy import MAJORITY, UNANIMOUS, effective_valve_disposition
 
 __all__: list[str] = [
     "DEFAULT_PANEL_LIMITS",
@@ -25,8 +28,19 @@ __all__: list[str] = [
     "PANEL_SCHEMA_VERSION",
     "PanelLimits",
     "consensus",
+    "decision_rule_for_request",
     "main",
 ]
+
+
+def decision_rule_for_request(*, request: dict[str, object]) -> DecisionRule:
+    repo = request.get("repo")
+    if not isinstance(repo, str) or repo == "":
+        return cast(DecisionRule, UNANIMOUS)
+    rule = effective_valve_disposition(repo=Path(repo)).get("decision_rule")
+    if rule == MAJORITY:
+        return cast(DecisionRule, MAJORITY)
+    return cast(DecisionRule, UNANIMOUS)
 
 
 def consensus(
@@ -36,19 +50,33 @@ def consensus(
     state_dir: Path = DEFAULT_STATE_DIR,
     limits: PanelLimits = DEFAULT_PANEL_LIMITS,
     emit_prompts: bool = False,
+    decision_rule: DecisionRule | None = None,
 ) -> dict[str, object]:
-    key = cache_key(request=request)
+    effective_decision_rule = (
+        decision_rule if decision_rule is not None else decision_rule_for_request(request=request)
+    )
+    key = cache_key(request=request, decision_rule=effective_decision_rule)
     cached = read_cached_verdict(state_dir=state_dir, key=key)
     if cached is not None:
         result = {**cached, "cache": "hit"}
     elif limits.concurrency_cap <= 0:
         result = budget_result(reason="concurrency_cap_exceeded", cache_key=key)
+        result["decision_rule"] = effective_decision_rule
     elif limits.per_tick_panel_budget <= 0:
         result = budget_result(reason="per_tick_panel_budget_exceeded", cache_key=key)
+        result["decision_rule"] = effective_decision_rule
     elif not record_panel_result(state_dir=state_dir, daily_panel_budget=limits.daily_panel_budget):
         result = budget_result(reason="daily_panel_budget_exceeded", cache_key=key)
+        result["decision_rule"] = effective_decision_rule
     else:
-        result = {**evaluate_verdicts(request=request, responses=responses), "cache": "miss"}
+        result = {
+            **evaluate_verdicts(
+                request=request,
+                responses=responses,
+                decision_rule=effective_decision_rule,
+            ),
+            "cache": "miss",
+        }
         result["panel_record"] = record_consensus_evaluation(
             request=request, responses=responses, verdict=result, cache_key=key
         )
@@ -82,7 +110,12 @@ def main(*, argv: list[str] | None = None) -> int:
     request = load_object(path=Path(args.request))
     responses = load_object(path=Path(args.reviewer_responses))
     result = (
-        escalation(reason="malformed_input", request={}, reviewers=[])
+        escalation(
+            reason="malformed_input",
+            request={},
+            reviewers=[],
+            decision_rule=cast(DecisionRule, UNANIMOUS),
+        )
         if request is None or responses is None
         else consensus(
             request=request,

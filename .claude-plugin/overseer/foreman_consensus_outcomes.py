@@ -21,7 +21,7 @@ from foreman_consensus_actions import (
 )
 from foreman_consensus_present import presentation
 from foreman_consensus_prompt import cache_key, str_field
-from foreman_consensus_types import MODEL_IDENTITIES, PANEL_SCHEMA_VERSION
+from foreman_consensus_types import MODEL_IDENTITIES, PANEL_SCHEMA_VERSION, DecisionRule
 
 __all__: list[str] = [
     "dissent_result",
@@ -34,57 +34,83 @@ __all__: list[str] = [
 
 
 def escalation(
-    *, reason: str, request: dict[str, object], reviewers: list[dict[str, object]]
+    *,
+    reason: str,
+    request: dict[str, object],
+    reviewers: list[dict[str, object]],
+    decision_rule: DecisionRule,
 ) -> dict[str, object]:
     action: dict[str, object] = {"action_id": "human_valve", "params": {}}
     return {
         "schema_version": PANEL_SCHEMA_VERSION,
         "outcome": "escalate",
         "reason": reason,
+        "decision_rule": decision_rule,
         "action": action,
         "reviewers": [review_record(reviewer=reviewer) for reviewer in reviewers],
         "presentation": presentation(request=request, reviewers=reviewers, action=action),
         "models": MODEL_IDENTITIES,
-        "cache_key": cache_key(request=request),
+        "cache_key": cache_key(request=request, decision_rule=decision_rule),
         "mutated": False,
     }
 
 
 def unanimous(
-    *, action: dict[str, object], request: dict[str, object], reviewers: list[dict[str, object]]
+    *,
+    action: dict[str, object],
+    request: dict[str, object],
+    reviewers: list[dict[str, object]],
+    decision_rule: DecisionRule,
 ) -> dict[str, object]:
     return {
         "schema_version": PANEL_SCHEMA_VERSION,
         "outcome": "unanimous",
         "reason": "three_typed_actions_equal",
+        "decision_rule": decision_rule,
         "action": action,
         "reviewers": [review_record(reviewer=reviewer) for reviewer in reviewers],
         "models": MODEL_IDENTITIES,
-        "cache_key": cache_key(request=request),
+        "cache_key": cache_key(request=request, decision_rule=decision_rule),
         "mutated": False,
     }
 
 
 def majority(
-    *, action: dict[str, object], request: dict[str, object], reviewers: list[dict[str, object]]
+    *,
+    action: dict[str, object],
+    request: dict[str, object],
+    reviewers: list[dict[str, object]],
+    decision_rule: DecisionRule,
+    dissent: dict[str, object] | None = None,
 ) -> dict[str, object]:
-    return {
+    result: dict[str, object] = {
         "schema_version": PANEL_SCHEMA_VERSION,
         "outcome": "majority",
         "reason": "two_unblock_typed_actions_equal",
+        "decision_rule": decision_rule,
         "action": action,
         "reviewers": [review_record(reviewer=reviewer) for reviewer in reviewers],
         "models": MODEL_IDENTITIES,
-        "cache_key": cache_key(request=request),
+        "cache_key": cache_key(request=request, decision_rule=decision_rule),
         "mutated": False,
     }
+    if dissent is not None:
+        result["dissent"] = review_record(reviewer=dissent)
+    return result
 
 
 def dissent_result(
-    *, request: dict[str, object], reviewers: list[dict[str, object]], dissent: dict[str, object]
+    *,
+    request: dict[str, object],
+    reviewers: list[dict[str, object]],
+    dissent: dict[str, object],
+    decision_rule: DecisionRule,
 ) -> dict[str, object]:
     result = escalation(
-        reason="non_anthropic_needs_human_dissent", request=request, reviewers=reviewers
+        reason="non_anthropic_needs_human_dissent",
+        request=request,
+        reviewers=reviewers,
+        decision_rule=decision_rule,
     )
     result["dissent"] = review_record(reviewer=dissent)
     return result
@@ -113,33 +139,51 @@ def minority_override(
     responses: dict[str, object],
     dissent: dict[str, object],
     unblockers: list[dict[str, object]],
+    decision_rule: DecisionRule,
 ) -> dict[str, object]:
     round_held = held_reviewer_ids(
         responses=responses,
         required={str_field(payload=reviewer, key="reviewer_id") for reviewer in unblockers},
     )
     if round_held is None:
-        return escalation(reason="needs_human", request=request, reviewers=reviewers)
+        return escalation(
+            reason="needs_human",
+            request=request,
+            reviewers=reviewers,
+            decision_rule=decision_rule,
+        )
     if not action_is_reversible(action=unblockers[0].get("action")):
         return escalation(
-            reason="minority_action_not_reversible", request=request, reviewers=reviewers
+            reason="minority_action_not_reversible",
+            request=request,
+            reviewers=reviewers,
+            decision_rule=decision_rule,
         )
     if not action_is_rollback_bounded(action=unblockers[0].get("action")):
         return escalation(
-            reason="minority_action_not_rollback_bounded", request=request, reviewers=reviewers
+            reason="minority_action_not_rollback_bounded",
+            request=request,
+            reviewers=reviewers,
+            decision_rule=decision_rule,
         )
     if not round_held:
-        return escalation(reason="minority_report_not_held", request=request, reviewers=reviewers)
+        return escalation(
+            reason="minority_report_not_held",
+            request=request,
+            reviewers=reviewers,
+            decision_rule=decision_rule,
+        )
     action = typed_action(action=unblockers[0].get("action")) or {}
     return {
         "schema_version": PANEL_SCHEMA_VERSION,
         "outcome": "minority_override",
         "reason": "minority_report_both_holders_confirmed",
+        "decision_rule": decision_rule,
         "action": action,
         "dissent": review_record(reviewer=dissent),
         "minority_report_round": {"held_by": round_held},
         "reviewers": [review_record(reviewer=reviewer) for reviewer in reviewers],
         "models": MODEL_IDENTITIES,
-        "cache_key": cache_key(request=request),
+        "cache_key": cache_key(request=request, decision_rule=decision_rule),
         "mutated": False,
     }

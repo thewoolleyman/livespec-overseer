@@ -708,6 +708,12 @@ def test_recorded_picker_answer_majority_path_authorizes_two_to_one_split(*, tmp
     consensus = module("foreman_consensus")
     repo = tmp_path / "repo"
     repo.mkdir()
+    (repo / ".livespec.jsonc").write_text(
+        json.dumps(
+            {"livespec-overseer": {"foreman_valve_disposition": "consensus", "full_autonomy": True}}
+        ),
+        encoding="utf-8",
+    )
     payload = recorded_picker_reviewers()
     set_recorded_picker_answers(payload=payload, answers=["3", "1", "1"])
 
@@ -738,6 +744,42 @@ def test_recorded_picker_answer_majority_path_rejects_one_one_one_split(*, tmp_p
 
     assert result["outcome"] == "escalate"
     assert result["reason"] == "typed_action_disagreement"
+
+
+def test_decision_rule_defaults_to_unanimous_without_repo():
+    consensus = module("foreman_consensus")
+
+    assert consensus.decision_rule_for_request(request={}) == "unanimous"
+
+
+def test_majority_rule_escalates_when_needs_human_is_the_majority(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".livespec.jsonc").write_text(
+        json.dumps(
+            {"livespec-overseer": {"foreman_valve_disposition": "consensus", "full_autonomy": True}}
+        ),
+        encoding="utf-8",
+    )
+    payload = recorded_picker_reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    for index in (0, 1):
+        reviewer = panel[index]
+        assert isinstance(reviewer, dict)
+        reviewer["verdict"] = "needs-human"
+        reviewer["action"] = {"action_id": "human_valve", "params": {"reason": "architecture"}}
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="needs human majority"),
+        responses=payload,
+        state_dir=tmp_path / "state-needs-human-majority",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "needs_human"
+    assert result["decision_rule"] == "majority"
 
 
 def test_recorded_picker_answer_majority_path_preserves_minority_override(*, tmp_path: Path):
@@ -789,6 +831,7 @@ def test_recorded_picker_answer_majority_path_preserves_hard_risk_dissent(*, tmp
     assert isinstance(gpt_sol, dict)
     gpt_sol["verdict"] = "needs-human"
     gpt_sol["hard_risk"] = True
+    gpt_sol["risk_kind"] = "security"
     gpt_sol["action"] = {"action_id": "human_valve", "params": {"reason": "security"}}
 
     result = consensus.consensus(
@@ -799,6 +842,29 @@ def test_recorded_picker_answer_majority_path_preserves_hard_risk_dissent(*, tmp
 
     assert result["outcome"] == "escalate"
     assert result["reason"] == "hard_risk_dissent"
+
+
+def test_hard_risk_without_risk_kind_is_malformed(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = recorded_picker_reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    gpt_sol = panel[2]
+    assert isinstance(gpt_sol, dict)
+    gpt_sol["verdict"] = "needs-human"
+    gpt_sol["hard_risk"] = True
+    gpt_sol["action"] = {"action_id": "human_valve", "params": {"reason": "security"}}
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="malformed hard risk"),
+        responses=payload,
+        state_dir=tmp_path / "state-malformed-hard-risk",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "malformed_response"
 
 
 def test_needs_human_escalates_and_non_anthropic_dissent_is_non_overridable(*, tmp_path: Path):
@@ -912,6 +978,7 @@ def test_minority_report_refuses_hard_risk_and_unsafe_actions(*, tmp_path: Path)
     dissent = hard_panel[0]
     assert isinstance(dissent, dict)
     dissent["hard_risk"] = True
+    dissent["risk_kind"] = "other"
     hard = consensus.consensus(
         request=request(repo=repo, question="hard risk"),
         responses=hard_risk,

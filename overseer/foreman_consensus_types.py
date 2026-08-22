@@ -19,6 +19,7 @@ __all__: list[str] = [
     "PANEL_SCHEMA_VERSION",
     "POLICY_VERSION",
     "PROMPT_VERSION",
+    "DecisionRule",
     "PanelLimits",
     "TypedAction",
     "VerdictKind",
@@ -27,7 +28,7 @@ __all__: list[str] = [
 
 PANEL_SCHEMA_VERSION: Final[int] = 1
 POLICY_VERSION: Final[str] = "phase-c-report-only-v1"
-PROMPT_VERSION: Final[str] = "phase-c-reviewer-prompt-v2"
+PROMPT_VERSION: Final[str] = "phase-c-reviewer-prompt-v3"
 CACHE_TTL_SECONDS: Final[int] = 86_400
 DEFAULT_PER_TICK_PANEL_BUDGET: Final[int] = 1
 DEFAULT_DAILY_PANEL_BUDGET: Final[int] = 24
@@ -35,6 +36,7 @@ DEFAULT_CONCURRENCY_CAP: Final[int] = 1
 DEFAULT_STATE_DIR: Final[Path] = Path("tmp/overseer/foreman")
 
 VerdictKind: TypeAlias = Literal["unblock", "needs-human", "insufficient-information"]
+DecisionRule: TypeAlias = Literal["unanimous", "majority"]
 TypedAction: TypeAlias = dict[str, object]
 ModelIdentity: TypeAlias = dict[str, str]
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from typing import Final
+from typing import Final, cast
 
 import jsonio
 from foreman_consensus_types import (
@@ -14,7 +14,9 @@ from foreman_consensus_types import (
     PANEL_SCHEMA_VERSION,
     POLICY_VERSION,
     PROMPT_VERSION,
+    DecisionRule,
 )
+from foreman_valve_policy import UNANIMOUS
 
 __all__: list[str] = [
     "cache_key",
@@ -28,6 +30,7 @@ __all__: list[str] = [
 ANSI_RE: Final[re.Pattern[str]] = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 SPINNER_RE: Final[re.Pattern[str]] = re.compile(r"[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 CTX_RE: Final[re.Pattern[str]] = re.compile(r"\b(?:Ctx:|Context)\s*\d+%\s*left\b")
+DEFAULT_DECISION_RULE: Final[DecisionRule] = cast(DecisionRule, UNANIMOUS)
 
 
 def canonical_json(*, value: object) -> str:
@@ -62,12 +65,15 @@ def snapshot_key_fields(*, request: dict[str, object]) -> dict[str, object]:
     }
 
 
-def cache_key(*, request: dict[str, object]) -> str:
+def cache_key(
+    *, request: dict[str, object], decision_rule: DecisionRule = DEFAULT_DECISION_RULE
+) -> str:
     question = strip_question_region(text=str_field(payload=request, key="blocked_question"))
     payload = {
         "schema_version": PANEL_SCHEMA_VERSION,
         "policy_version": POLICY_VERSION,
         "prompt_version": PROMPT_VERSION,
+        "decision_rule": decision_rule,
         "models": MODEL_IDENTITIES,
         "question_hash": hash_text(text=question),
         "repo_revision": str_field(payload=request, key="repo_revision"),
@@ -86,7 +92,9 @@ def reviewer_action_contract(*, action_ids: frozenset[str] | None = None) -> str
         "action must be an object. action_id must be one of: "
         f"{', '.join(sorted(allowed))}. params must be a JSON object. "
         "For blocked_session_answer params use answer for the selected picker answer. "
-        "Use byte-identical params when selecting the same action as another reviewer."
+        "Use byte-identical params when selecting the same action as another reviewer. "
+        "When hard_risk is true, risk_kind is required and must be exactly security "
+        "or other."
     )
 
 

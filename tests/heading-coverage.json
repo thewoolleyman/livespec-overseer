@@ -1069,40 +1069,40 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A strict majority authorizes an action under full autonomy",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration (the same tier as the existing test_foreman_valve_disposition scenarios), never by a unit test. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.3. Pins the majority path in its POSITIVE direction on the recorded production fixture: a 2-1 split among unblock reviewers authorizes under decision_rule majority and the audit record reads majority, never unanimous.",
+    "test": "tests.integration.test_foreman_consensus_majority_rule.test_scenario_strict_majority_authorizes_action_under_full_autonomy",
+    "reason": "Pinned by integration coverage landed with child overseer-3h4s5w.3. Pins the majority path in its POSITIVE direction on the recorded production fixture: a 2-1 split among unblock reviewers authorizes under decision_rule majority and the audit record reads majority, never unanimous.",
     "work_item": "overseer-3h4s5w.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The same split escalates under the unanimous decision rule",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration (the same tier as the existing test_foreman_valve_disposition scenarios), never by a unit test. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.3. The leg that can fail for the right reason: the identical 2-1 split under decision_rule unanimous must escalate with typed_action_disagreement, proving the lever gates the path PR 1476 shipped unconditionally.",
+    "test": "tests.integration.test_foreman_consensus_majority_rule.test_scenario_same_split_escalates_under_unanimous_decision_rule",
+    "reason": "Pinned by integration coverage landed with child overseer-3h4s5w.3. The leg that can fail for the right reason: the identical 2-1 split under decision_rule unanimous must escalate with typed_action_disagreement, proving the lever gates the path PR 1476 shipped unconditionally.",
     "work_item": "overseer-3h4s5w.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An insufficient-information verdict abstains rather than vetoes under the majority rule",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration (the same tier as the existing test_foreman_valve_disposition scenarios), never by a unit test. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.3. Pins abstention: one insufficient-information plus two agreeing reviewers authorizes under majority and still escalates under unanimous.",
+    "test": "tests.integration.test_foreman_consensus_majority_rule.test_scenario_insufficient_information_abstains_under_majority_rule",
+    "reason": "Pinned by integration coverage landed with child overseer-3h4s5w.3. Pins abstention: one insufficient-information plus two agreeing reviewers authorizes under majority and still escalates under unanimous.",
     "work_item": "overseer-3h4s5w.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A needs-human dissent without a security risk kind is outvoted under the majority rule",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration (the same tier as the existing test_foreman_valve_disposition scenarios), never by a unit test. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.3. Pins the authority-widening leg the independent review asked for: an explicit needs-human dissent with no hard-risk marker, or with risk_kind other, is outvoted by two agreeing reviewers under decision_rule majority and the audit record names the dissent.",
+    "test": "tests.integration.test_foreman_consensus_majority_rule.test_scenario_other_hard_risk_dissent_is_outvoted_under_majority_rule",
+    "reason": "Pinned by integration coverage landed with child overseer-3h4s5w.3. Pins the authority-widening leg the independent review asked for: an explicit needs-human dissent with no hard-risk marker, or with risk_kind other, is outvoted by two agreeing reviewers under decision_rule majority and the audit record names the dissent.",
     "work_item": "overseer-3h4s5w.3"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A security dissent escalates under the majority rule and no majority overrides it",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration (the same tier as the existing test_foreman_valve_disposition scenarios), never by a unit test. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.3. Pins the sole surviving veto: a needs-human hard-risk verdict with risk_kind security escalates as security_dissent under majority and no two agreeing reviewers override it.",
+    "test": "tests.integration.test_foreman_consensus_majority_rule.test_scenario_security_dissent_escalates_under_majority_rule",
+    "reason": "Pinned by integration coverage landed with child overseer-3h4s5w.3. Pins the sole surviving veto: a needs-human hard-risk verdict with risk_kind security escalates as security_dissent under majority and no two agreeing reviewers override it.",
     "work_item": "overseer-3h4s5w.3"
   },
   {
