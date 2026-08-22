@@ -208,6 +208,7 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
             status = consensus_overdue.status
             note = consensus_overdue.note
         else:
+            active_conditions.update(blocked_decision.active_conditions)
             status = "blocked:human"
             note = blocked_decision.note
         return ActiveDecision(
@@ -217,6 +218,6 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
             blocked=request.blocked,
             blocked_age=request.blocked_age,
             blocked_age_label=request.blocked_age_label,
-            active_conditions=blocked_decision.active_conditions,
+            active_conditions=active_conditions,
         )
     return None
