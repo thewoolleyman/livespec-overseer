@@ -109,7 +109,7 @@ def register_foreman_track(
         tmux=session_name,
         epic=epic or registry.unresolved_plan_epic(topic=session_name),
     )
-    registry.upsert_mapping(track=track, store_path=store_path)
+    _ = registry.upsert_mapping(track=track, store_path=store_path)
     return track
 
 

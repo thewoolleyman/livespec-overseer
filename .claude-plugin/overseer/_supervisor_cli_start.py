@@ -85,7 +85,7 @@ def start_command(
         # second runtime and never did.
         cmd = io.pane_current_command(session=session)
         if not signals.pane_is_shell(pane_current_command=cmd):
-            _supervisor_cli_update.upsert_track(track=track)
+            _ = _supervisor_cli_update.upsert_track(track=track)
             streams.write_stdout(
                 text=(
                     f"{repo}::{topic}: session {session} already running (or its identity is "
@@ -123,6 +123,6 @@ def start_command(
             )
         )
         return 1
-    _supervisor_cli_update.upsert_track(track=track)
+    _ = _supervisor_cli_update.upsert_track(track=track)
     streams.write_stdout(text=f"{attempt.message}\n")
     return 0

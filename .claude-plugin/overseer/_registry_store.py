@@ -175,7 +175,7 @@ def upsert_mapping(
     store_path: str | os.PathLike[str] | None = None,
     added_at: str | None = None,
     update_fields: frozenset[str] = _DEFAULT_UPSERT_UPDATE_FIELDS,
-) -> None:
+) -> bool:
     """Ensure one ``(repo, topic)`` row exists while preserving durable row fields."""
     path = resolve_store(store_path=store_path)
     repo_norm = norm(repo=track.repo)
@@ -195,8 +195,7 @@ def upsert_mapping(
         ]
         if not matching_indexes:
             rows.append(new_row)
-            write_upsert_rows(rows=rows, store_path=store_path, path=path)
-            return
+            return write_upsert_rows(rows=rows, store_path=store_path, path=path)
         changed = len(matching_indexes) > 1
         row = rows[matching_indexes[0]]
         changed = (
@@ -209,7 +208,8 @@ def upsert_mapping(
             duplicate_indexes = set(matching_indexes[1:])
             rows = [row for index, row in enumerate(rows) if index not in duplicate_indexes]
         if changed:
-            write_upsert_rows(rows=rows, store_path=store_path, path=path)
+            return write_upsert_rows(rows=rows, store_path=store_path, path=path)
+        return True
 
 
 def rewrite_mapping(

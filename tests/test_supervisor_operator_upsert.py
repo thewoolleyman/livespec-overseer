@@ -208,7 +208,7 @@ def test_mapping_upsert_preserves_fields_not_named_by_the_update_spec(*, tmp_pat
     assert _rows(store=store)[0]["tmux"] == "old-session"
 
 
-def test_cli_add_atomic_write_failure_keeps_existing_live_row(*, tmp_path, monkeypatch):
+def test_cli_add_atomic_write_failure_keeps_existing_live_row(*, tmp_path, monkeypatch, capsys):
     repo = tmp_path / "repo"
     (repo / "plan" / "alpha").mkdir(parents=True)
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
@@ -238,10 +238,13 @@ def test_cli_add_atomic_write_failure_keeps_existing_live_row(*, tmp_path, monke
         supervisor.main(
             argv=["add", "--repo", str(repo), "--topic", "alpha", "--epic", "overseer-new"]
         )
-        == 0
+        == 1
     )
+    captured = capsys.readouterr()
 
     assert atomic_write_calls == 1
+    assert "could not write requested field(s): added_at, epic, tmux" in captured.err
+    assert "added mapping" not in captured.out
     rows = _rows(store=store)
     assert len(rows) == 1
     assert rows[0]["topic"] == "alpha"

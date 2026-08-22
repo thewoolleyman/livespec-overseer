@@ -211,12 +211,16 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
     except ValueError as exc:
         streams.write_stderr(text=f"{' '.join(str(arg) for arg in exc.args)}\n")
         return 1
-    _supervisor_cli_update.upsert_track(
-        track=track,
-        update_fields=_supervisor_cli_update.add_update_fields(
-            epic=args.epic, ctx_threshold=args.ctx_threshold
-        ),
+    update_fields = _supervisor_cli_update.add_update_fields(
+        epic=args.epic, ctx_threshold=args.ctx_threshold
     )
+    if not _supervisor_cli_update.upsert_track(
+        track=track,
+        update_fields=update_fields,
+    ):
+        fields = ", ".join(sorted(update_fields))
+        streams.write_stderr(text=f"could not write requested field(s): {fields}\n")
+        return 1
     streams.write_stdout(text=f"added mapping {repo}::{args.topic} (tmux {track.tmux})\n")
     return 0
 
