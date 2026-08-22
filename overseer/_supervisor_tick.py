@@ -36,6 +36,9 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
     repos = _supervisor_discovery.resolve_watch(sup=sup)
     views.extend(_supervisor_foreman.foreman_rows(sup=sup, repos=repos, act=act))
     views.extend(_supervisor_grooming.grooming_rows(sup=sup, repos=repos, act=act))
+    currency = sup.currency_row()
+    if currency is not None:
+        views.append(currency)
     sup.render(rows=views)
     # Only the DAEMON badges the window. `list` is advertised read-only, so it must
     # not rename the maintainer's window as a side effect of printing a table.
