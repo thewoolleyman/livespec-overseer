@@ -176,9 +176,75 @@ def test_reports_breaching_item_ids_and_structural_invariants(*, tmp_path: Path)
         "native-deferred",
         "native-open",
     )
+    assert _by_key(report=report, key="held-claim-surface").status == ("structurally-guaranteed")
     assert _by_key(report=report, key="split-acceptance-label").status == "checked"
     assert _by_key(report=report, key="routing-field").status == "structurally-guaranteed"
     assert "tenant is per-repo" in _by_key(report=report, key="routing-field").reason
+
+
+def test_row_measured_invariants_stay_checked_and_surface_real_breaches(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            _item(item_id="orphan", parent=None),
+            _item(item_id="missing-acceptance", acceptance_criteria=None),
+            _item(item_id="native-open", status="open"),
+            _with(
+                row=_item(item_id="templated-dispatch"),
+                updates={"description": "Do the {{thing}}."},
+            ),
+        ],
+    )
+
+    expected_breaches = {
+        "plan-rollup": ("orphan",),
+        "acceptance-present": ("missing-acceptance",),
+        "lifecycle-status": ("native-open",),
+        "dispatchable-delimiter": ("templated-dispatch",),
+    }
+    for key, breaching_item_ids in expected_breaches.items():
+        check = _by_key(report=report, key=key)
+        assert check.status == "checked"
+        assert check.breaching_item_ids == breaching_item_ids
+
+
+def test_held_claim_surface_reports_scope_without_a_breach_branch(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            _with(
+                row=_item(item_id="active-claim", status="active"), updates={"assignee": "fabro"}
+            ),
+            _with(row=_item(item_id="ready-claim"), updates={"assignee": "fabro"}),
+            _with(
+                row=_item(item_id="closed-provenance", status="closed"),
+                updates={"assignee": "fabro"},
+            ),
+        ],
+    )
+
+    check = _by_key(report=report, key="held-claim-surface")
+    assert check.status == "structurally-guaranteed"
+    assert check.breaching_item_ids == ()
+    assert check.scanned_item_count == 2
+    assert check.scope == (
+        "2 non-terminal assigned rows are held-claim candidates; 1 terminal assigned "
+        "row is provenance, not a held claim"
+    )
+    assert check.reason == (
+        "chosen route (b): terminal assignees are kept as provenance; only "
+        "non-terminal assigned rows are held-claim candidates"
+    )
 
 
 def test_acceptance_policy_label_check_discriminates_both_directions(
@@ -286,7 +352,7 @@ def test_held_claim_surface_keeps_terminal_assignee_as_provenance(
     )
 
     check = _by_key(report=report, key="held-claim-surface")
-    assert check.status == "checked"
+    assert check.status == "structurally-guaranteed"
     assert check.breaching_item_ids == ()
     assert check.scanned_item_count == 2
     assert "2 non-terminal assigned rows are held-claim candidates" in check.scope
