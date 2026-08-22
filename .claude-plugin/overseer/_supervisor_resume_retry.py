@@ -92,6 +92,7 @@ def resume_retry(
             session=session,
             pane=target,
             message="gate on freshly-restarted pane — answer it IN THAT PANE",
+            condition="restart-resume-gated",
         )
         return RowView(
             topic=topic,
@@ -138,6 +139,7 @@ def resume_retry(
         session=session,
         pane=target,
         message=("resume line STILL not submitted after restart — retrying the Enter (no respawn)"),
+        condition="restart-resume-enter-retry-failed",
     )
     return RowView(
         topic=topic,

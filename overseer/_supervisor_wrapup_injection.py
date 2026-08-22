@@ -125,4 +125,5 @@ def maybe_inject(
             session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="wrap-up injection FAILED (paste did not land); will retry",
+            condition="wrapup-injection-submit-failed",
         )

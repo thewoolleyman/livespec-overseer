@@ -37,6 +37,7 @@ def claude_respawn_verified(*, sup: Supervisor, track: registry.Track, target: s
             session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="respawned pane never became Claude; will retry resume without respawn",
+            condition="claude-post-respawn-not-ready",
         )
         return False
     session = _supervisor_launch.session_of(sup=sup, track=track)

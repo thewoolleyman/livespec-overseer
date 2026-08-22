@@ -306,7 +306,7 @@ class Supervisor:
         session: str | None,
         pane: str | None,
         message: str,
-        condition: str = "default",
+        condition: str,
     ) -> None:
         """Surface a TRACK-scoped alert that always names WHERE to act."""
         _supervisor_diagnostics.alert(
