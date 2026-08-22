@@ -132,6 +132,7 @@ def test_tick_writes_round_trippable_status_snapshot(*, tmp_path):
             "verdict": "unknown",
             "reason": "default-unreadable",
             "current_default": None,
+            "current_default_statusline_model": None,
             "rendered_statusline_model": "Opus 4.8 (1M context)",
             "recorded_statusline_model": None,
         },
@@ -153,7 +154,7 @@ def test_snapshot_publishes_profile_and_restart_model_verdict_from_live_default(
     home = tmp_path / "home"
     settings_path = home / ".claude" / "settings.json"
     settings_path.parent.mkdir(parents=True)
-    settings_path.write_text(json.dumps({"model": "Opus 4.8 (1M context)"}), encoding="utf-8")
+    settings_path.write_text(json.dumps({"model": "opus[1m]"}), encoding="utf-8")
     monkeypatch.setattr(module.Path, "home", lambda: home)
     sup, session = make_live_mapped_supervisor(
         tmp_path=tmp_path,
@@ -195,7 +196,8 @@ def test_snapshot_publishes_profile_and_restart_model_verdict_from_live_default(
     assert rows[topic]["restart_model"] == {
         "verdict": "no-op",
         "reason": "matches-current-default",
-        "current_default": "Opus 4.8 (1M context)",
+        "current_default": "opus[1m]",
+        "current_default_statusline_model": "Opus 4.8 (1M context)",
         "rendered_statusline_model": "Opus 4.8 (1M context)",
         "recorded_statusline_model": None,
     }
@@ -208,10 +210,15 @@ def test_snapshot_publishes_profile_and_restart_model_verdict_from_live_default(
     assert rows[profiled_topic]["restart_model"] == {
         "verdict": "profile-preserved",
         "reason": "recorded-profile",
-        "current_default": "Opus 4.8 (1M context)",
+        "current_default": "opus[1m]",
+        "current_default_statusline_model": "Opus 4.8 (1M context)",
         "rendered_statusline_model": "Sonnet 4.5",
         "recorded_statusline_model": "Sonnet 4.5",
     }
+    assert (
+        rows[topic]["restart_model"]["current_default"]
+        != rows[topic]["restart_model"]["current_default_statusline_model"]
+    )
     assert ("capture", session) in sup.tmux.calls
 
 
@@ -231,11 +238,11 @@ def test_snapshot_restart_model_verdict_changes_when_default_changes(*, tmp_path
         ctx=73,
     )
 
-    settings_path.write_text(json.dumps({"model": "Opus 4.8 (1M context)"}), encoding="utf-8")
+    settings_path.write_text(json.dumps({"model": "opus[1m]"}), encoding="utf-8")
     matching = module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"][0][
         "restart_model"
     ]
-    settings_path.write_text(json.dumps({"model": "Sonnet 4.5"}), encoding="utf-8")
+    settings_path.write_text(json.dumps({"model": "sonnet"}), encoding="utf-8")
     changing = module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"][0][
         "restart_model"
     ]
@@ -244,7 +251,41 @@ def test_snapshot_restart_model_verdict_changes_when_default_changes(*, tmp_path
     assert changing == {
         "verdict": "would-change",
         "reason": "differs-from-current-default",
-        "current_default": "Sonnet 4.5",
+        "current_default": "sonnet",
+        "current_default_statusline_model": "Sonnet 4.5",
+        "rendered_statusline_model": "Opus 4.8 (1M context)",
+        "recorded_statusline_model": None,
+    }
+
+
+def test_snapshot_restart_model_unknown_when_default_alias_has_no_statusline_form(
+    *, tmp_path, monkeypatch
+):
+    module = snapshot_module()
+    repo, topic = make_plan(tmp_path=tmp_path)
+    status_path = tmp_path / "status.json"
+    home = tmp_path / "home"
+    settings_path = home / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(json.dumps({"model": "new-model-alias"}), encoding="utf-8")
+    monkeypatch.setattr(module.Path, "home", lambda: home)
+    sup, _session = make_live_mapped_supervisor(
+        tmp_path=tmp_path,
+        repo=repo,
+        topic=topic,
+        status_path=status_path,
+        ctx=73,
+    )
+
+    restart_model = module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"][0][
+        "restart_model"
+    ]
+
+    assert restart_model == {
+        "verdict": "unknown",
+        "reason": "default-statusline-unresolved",
+        "current_default": "new-model-alias",
+        "current_default_statusline_model": None,
         "rendered_statusline_model": "Opus 4.8 (1M context)",
         "recorded_statusline_model": None,
     }
@@ -267,7 +308,7 @@ def test_snapshot_restart_model_unknown_distinguishes_absent_and_unreadable_pane
     home = tmp_path / "home"
     settings_path = home / ".claude" / "settings.json"
     settings_path.parent.mkdir(parents=True)
-    settings_path.write_text(json.dumps({"model": "Opus 4.8"}), encoding="utf-8")
+    settings_path.write_text(json.dumps({"model": "opus"}), encoding="utf-8")
     monkeypatch.setattr(module.Path, "home", lambda: home)
     sup = make_supervisor(
         tmp_path=tmp_path,
