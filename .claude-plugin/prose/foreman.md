@@ -25,31 +25,58 @@ Resolve the setting; never assume it:
 "$PLUGIN_ROOT/bin/foreman-valve-disposition" --repo "$PWD"
 ```
 
-It reports the `effective` disposition, which is one of exactly two values.
+It reports the resolved full-autonomy value and source, the effective valve
+disposition, the effective decision rule, and whether the configuration is
+contradictory. The foreman reads those values from that resolver surface; it
+never assumes them from local config text.
 
-- **`report-only`** — the FAIL-CLOSED DEFAULT, and what an unset or unrecognized
-  configuration resolves to. Surface the valve or blocked session to the
-  maintainer and exit the bounded tick cleanly. Do not convene the panel.
-- **`consensus`** — the opt-in tier. You MAY convene the cross-vendor consensus
-  panel via `foreman-panel` on a blocked session. `foreman-panel` produces
+The configuration model has two orthogonal axes, not one four-value tier:
+
+| resolved `full_autonomy` | valve disposition handling |
+|---|---|
+| `false` | Consult the disposition key. An unset, unreadable, or unrecognized disposition resolves fail-closed to `report-only`; recognized `consensus` permits the consensus path. |
+| `true` | Force effective disposition `consensus` and effective decision rule `majority`, regardless of the disposition key. |
+
+`full_autonomy` itself is a boolean that resolves fail-closed: absent, empty,
+wrong-typed, or non-true resolves to `false`. When it resolves to `true`, a
+configuration that also declares an explicit `report-only` disposition or an
+unrecognized disposition is contradictory. Full autonomy still wins at runtime,
+and the contradiction must be surfaced rather than silently read as caution.
+The foreman MUST NOT set, clear, or alter `full_autonomy`, the disposition, or
+the decision rule, and no report or roster answer may imply that it did.
+
+- **`report-only`** — surface the valve or blocked session to the maintainer and
+  exit the bounded tick cleanly. Do not convene the panel.
+- **`consensus`** — convene the cross-vendor consensus panel via
+  `foreman-panel` on an eligible blocked session. `foreman-panel` produces
   reviewer responses for the pinned identities, invokes `foreman-consensus` as
   the evaluator, and writes the dossier under `tmp/overseer/foreman/panel/`.
   Act on its typed verdict through `foreman-act` exactly as on any other
-  proposal.
+  proposal, using the effective decision rule reported by the resolver.
 
-If the resolver reports `recognized: false`, treat it as `report-only` and
-surface the unrecognized value; do not guess what was meant.
+If the resolver reports an unrecognized disposition while `full_autonomy` is
+false, treat it as `report-only` and surface the unrecognized value; do not
+guess what was meant.
 
 ### The floors, which no configuration value may relax
 
 These come from the governing orchestrator contract and this tree binds to them
-by reference. No setting — `consensus` included — authorizes the foreman to
-dispose of a truly unresolvable decision, nor of any decision that is
-human-gated BY DESIGN. Such a decision MUST stay escalated even when the panel
-is unanimous and fully confident. Escalate, and do not act, whenever consensus
-evidence is unavailable or insufficient, the panel disagrees, any reviewer
-returns an insufficient-information verdict, or the audit journal append fails.
-Journal before you act, never after.
+by reference. At spec v030, this specification defines no floor category of its
+own: the truly unresolvable and human-gated BY DESIGN categories are both bound
+BY REFERENCE, and both MUST stay escalated under full autonomy until the owning
+contract ratifies a relaxation. Full autonomy therefore does not widen which
+decisions the foreman may dispose today, and a human-gated-by-design roster
+answer remains admissible for exactly the decisions it covered before. The
+cardinal rule, actuator-only mutation, the security dissent, and
+journal-before-act also hold regardless of configuration. Escalate, and do not
+act, whenever consensus evidence is unavailable or insufficient, the panel
+evidence fails the effective decision rule, a security dissent is present, or
+the audit journal append fails. Journal before you act, never after.
+
+Should this specification later define a floor category of its own, that
+category is panel-decidable under the majority rule unless the clause defining
+it says otherwise. This is a future conditional, not a currently operative
+category.
 
 ### Relay and escalation discipline
 
@@ -213,6 +240,44 @@ Column budgets are hard limits: name 10 words, session state 10 words, work
 state 6 words, action needed 20 words, why-not-acting 20 words, and emoji one
 symbol from the closed set below. The released prose legend is the source of
 truth, and the deterministic roster helper derives its table from this legend.
+
+The why-not-acting column is a closed admissible set. Every answer must be one
+of these five forms, and must name the required actor, route, or checkable fact:
+
+- **one-action budget spent** — name which plan received the one action this
+  tick.
+- **routed** — name the actor or route: grooming skill, worker session, review
+  panel, or ledger action; also name the response being awaited.
+- **human-gated by design** — name the decision being asked for. At spec v030,
+  this remains admissible under full autonomy for exactly the same decisions as
+  before, because this specification defines no floor category of its own and
+  the bound-by-reference floor categories stay escalated.
+- **hard external precondition** — name the re-checkable fact, such as a red
+  master CI, an exhausted credential window, or an unlanded sibling PR.
+- **acting now** — this row is receiving the tick's action.
+
+These answers are inadmissible: restating the foreman's own contract as the
+reason; waiting for the maintainer without naming the decision; saying
+not-yet-investigated or unclear, because research before gating makes that the
+action; waiting for the next tick; re-presenting a plan's single recorded next
+action as a menu; and repeating the one-action-budget answer past the
+starvation bound.
+
+Column 4 uses the resolver surface above and never an assumed configuration
+value. Full autonomy changes only three column-4 facts today: it forces the
+effective disposition to `consensus`, so the consensus narrowing applies
+regardless of the disposition key; it forces the effective decision rule to
+`majority`, so a panel may authorize an act without unanimity and the verdict
+must be recorded as a majority outcome; and it tightens the starvation bound.
+It does not define a new floor, does not widen what the foreman may dispose,
+and does not let the foreman change its own authority.
+
+The starvation bound consumes the per-plan consecutive-unactioned counter
+carried by the roster helper. A row past the bound must escalate rather than
+repeat the one-action-budget answer. The proposed values are maintainer-owned
+and not chosen by the foreman: 2 consecutive unactioned ticks when full
+autonomy resolves false, and 1 when it resolves true.
+
 The emoji is derived, never authored: compute it from the row's session and work
 states by a total closed mapping so every session and work combination resolves
 to exactly one emoji and no row can disagree with itself.
