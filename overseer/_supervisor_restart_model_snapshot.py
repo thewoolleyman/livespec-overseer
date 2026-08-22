@@ -14,7 +14,7 @@ from _supervisor_view import RowView
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
-__all__: list[str] = ["restart_model_payload"]
+__all__: list[str] = ["current_default_statusline_model_from_store", "restart_model_payload"]
 
 
 def _track_for_row(*, sup: Supervisor, row: RowView) -> registry.Track | None:
@@ -41,6 +41,22 @@ def _current_default_model() -> str | None:
         return None
     model = payload.get("model")
     return model if isinstance(model, str) and model else None
+
+
+def current_default_statusline_model_from_store(
+    *, sup: Supervisor, current_default: str | None
+) -> str | None:
+    if current_default is None or not hasattr(sup, "store_path"):
+        return None
+    store_path = getattr(sup, "store_path", None)
+    for track in registry.read_valid_mapping(store_path=store_path):
+        profile = track.model_profile
+        if profile is None or profile.get("model") != current_default:
+            continue
+        rendered = profile.get("statusline_model")
+        if isinstance(rendered, str) and rendered:
+            return rendered
+    return None
 
 
 def _current_default_statusline_model(
