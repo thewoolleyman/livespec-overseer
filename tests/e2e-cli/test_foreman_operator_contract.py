@@ -162,6 +162,31 @@ def _escalation_filename_errors(*, text: str) -> list[str]:
     return errors
 
 
+CONVERGED_PICKER_PROHIBITION = "Do not raise a blocking picker for this decision"
+CONVERGED_PROHIBITION_REASON = "no in-session clock left to bound it"
+
+
+def _converged_prohibition_errors(*, text: str) -> list[str]:
+    """The converged exit must FORBID a blocking picker, not merely offer an alternative.
+
+    On `converged` the tick CANCELS its armed cron before surfacing the resume
+    decision, so an unanswered blocking question leaves NO schedule at all — a
+    strictly worse failure than the suppression this contract's other paragraph
+    exists to prevent, which at least left the cron armed. The positive half (route
+    the decision through the escalation marker) is already gated by
+    `_exit_contract_errors`; deleting the PROHIBITION leaves every one of its
+    required terms intact, so nothing catches its removal. The reason clause is
+    gated with it because it is what makes the rule non-negotiable rather than a
+    stylistic preference.
+    """
+    errors: list[str] = []
+    if CONVERGED_PICKER_PROHIBITION not in text:
+        errors.append("converged-picker-prohibition-absent")
+    if CONVERGED_PROHIBITION_REASON not in text:
+        errors.append("converged-prohibition-reason-absent")
+    return errors
+
+
 def _exit_contract_errors(*, text: str) -> list[str]:
     required = (
         "/loop",
@@ -251,4 +276,24 @@ def test_the_contract_names_only_the_escalation_filename_the_daemon_reads() -> N
     ]
     assert _escalation_filename_errors(text=text + AMBIGUOUS_ESCALATION_PATH) == [
         "ambiguous-escalation-path-present"
+    ]
+
+
+def test_the_converged_exit_forbids_a_blocking_picker_and_says_why() -> None:
+    text = PROSE.read_text(encoding="utf-8")
+
+    assert _converged_prohibition_errors(text=text) == []
+
+    # Discriminating control. Each defect must produce its OWN failure, and the
+    # control is written against the exact regression this gate exists for: the
+    # positive terms `_exit_contract_errors` requires all survive deleting the
+    # prohibition, so that check reports clean on a contract that has lost it.
+    without_prohibition = text.replace(CONVERGED_PICKER_PROHIBITION, "")
+    assert _converged_prohibition_errors(text=without_prohibition) == [
+        "converged-picker-prohibition-absent"
+    ]
+    assert _exit_contract_errors(text=without_prohibition) == []
+
+    assert _converged_prohibition_errors(text=text.replace(CONVERGED_PROHIBITION_REASON, "")) == [
+        "converged-prohibition-reason-absent"
     ]
