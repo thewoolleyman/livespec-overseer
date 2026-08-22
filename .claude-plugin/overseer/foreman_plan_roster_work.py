@@ -29,7 +29,8 @@ WORK_IN_FLIGHT = "work-in-flight"
 NO_WORK_IN_FLIGHT = "no-work-in-flight"
 WORK_STATES = (WORK_IN_FLIGHT, NO_WORK_IN_FLIGHT)
 DEFAULT_JOURNAL_RELATIVE_PATH = Path("tmp") / "fabro-dispatch-journal.jsonl"
-LEDGER_COMMAND = ["bd", "list", "--type", "epic", "--status", "all", "--json"]
+LEDGER_EPIC_COMMAND = ["bd", "list", "--type", "epic", "--status", "all", "--json"]
+LEDGER_WORK_ITEM_COMMAND = ["bd", "list", "--status", "all", "--json"]
 LEDGER_TIMEOUT_SECONDS = 30
 _LEDGER_ANCHOR = re.compile(
     r"(?:[Ll]edger(?: epic)?|[Ee]pic) anchor:?\*{0,2}[^\n`]*\n?[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`"
@@ -48,8 +49,8 @@ def _credential_wrapper(*, repo: Path) -> list[str]:
     return wrapper if wrapper is not None else []
 
 
-def ledger_epic_records(*, repo: Path) -> list[dict[str, object]]:
-    command = [*_credential_wrapper(repo=repo), *LEDGER_COMMAND]
+def _ledger_records(*, repo: Path, ledger_command: list[str]) -> list[dict[str, object]]:
+    command = [*_credential_wrapper(repo=repo), *ledger_command]
     try:
         completed = subprocess.run(  # noqa: S603 — fixed bd argv, no shell
             command,
@@ -75,6 +76,14 @@ def ledger_epic_records(*, repo: Path) -> list[dict[str, object]]:
         if item is not None:
             records.append(item)
     return records
+
+
+def ledger_epic_records(*, repo: Path) -> list[dict[str, object]]:
+    return _ledger_records(repo=repo, ledger_command=LEDGER_EPIC_COMMAND)
+
+
+def ledger_work_item_records(*, repo: Path) -> list[dict[str, object]]:
+    return _ledger_records(repo=repo, ledger_command=LEDGER_WORK_ITEM_COMMAND)
 
 
 def ledger_plan_epic_anchor(
@@ -232,7 +241,8 @@ def work_state_documents_by_plan(
     dispatch_times = latest_dispatch_times(records=records)
     outcomes = outcome_times(records=records)
     epic_records = ledger_epic_records(repo=repo)
-    plan_anchors_by_item_id = work_item_plan_anchors(records=epic_records)
+    work_item_records = ledger_work_item_records(repo=repo)
+    plan_anchors_by_item_id = work_item_plan_anchors(records=work_item_records)
     documents: dict[str, dict[str, str]] = {}
     for plan in plan_names:
         anchor = plan_epic_anchor(repo=repo, plan=plan, ledger_records=epic_records)

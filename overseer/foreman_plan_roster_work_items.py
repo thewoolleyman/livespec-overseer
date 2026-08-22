@@ -89,9 +89,7 @@ def plan_dispatch_item_ids(
     *, anchor: str, dispatch_item_ids: list[str], plan_anchors_by_item_id: dict[str, str]
 ) -> list[str]:
     item_ids: list[str] = []
-    dotted_prefix = f"{anchor}."
     for item_id in dispatch_item_ids:
-        mapped_anchor = plan_anchors_by_item_id.get(item_id)
-        if mapped_anchor == anchor or (mapped_anchor is None and item_id.startswith(dotted_prefix)):
+        if plan_anchors_by_item_id.get(item_id) == anchor:
             item_ids.append(item_id)
     return item_ids

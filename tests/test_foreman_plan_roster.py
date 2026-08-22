@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import foreman_plan_roster
+import foreman_plan_roster_work
 
 __all__: list[str] = []
 
@@ -72,6 +73,13 @@ def _write_journal(*, repo: Path, records: list[dict[str, object]]) -> None:
     )
 
 
+def _parented_work_items(*, epic: str, children: list[str]) -> list[dict[str, object]]:
+    return [
+        {"id": epic, "issue_type": "epic"},
+        *[{"id": child, "issue_type": "bug", "parent": epic} for child in children],
+    ]
+
+
 def test_roster_is_driven_by_plan_directories_and_left_joins_daemon_snapshot(*, tmp_path):
     repo = tmp_path / "repo"
     snapshot_path = tmp_path / "status.json"
@@ -119,11 +127,16 @@ def test_roster_emits_separate_session_and_work_state_fields(*, tmp_path):
     assert "status_emoji" not in row
 
 
-def test_work_state_uses_latest_dispatch_id_as_outcome_floor(*, tmp_path):
+def test_work_state_uses_latest_dispatch_id_as_outcome_floor(*, tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     snapshot_path = tmp_path / "status.json"
     _anchored_plan(repo=repo, topic="alpha", epic="overseer-alpha")
     _write_snapshot(path=snapshot_path, repo=repo)
+    monkeypatch.setattr(
+        foreman_plan_roster_work,
+        "ledger_work_item_records",
+        lambda *, repo: _parented_work_items(epic="overseer-alpha", children=["overseer-alpha.1"]),
+    )
     _write_journal(
         repo=repo,
         records=[
@@ -160,11 +173,18 @@ def test_work_state_uses_latest_dispatch_id_as_outcome_floor(*, tmp_path):
     assert roster["rows"][0]["work_state"] == "work-in-flight"
 
 
-def test_remote_dispatch_absent_from_local_process_view_is_still_in_flight(*, tmp_path):
+def test_remote_dispatch_absent_from_local_process_view_is_still_in_flight(
+    *, tmp_path, monkeypatch
+):
     repo = tmp_path / "repo"
     snapshot_path = tmp_path / "status.json"
     _anchored_plan(repo=repo, topic="alpha", epic="overseer-alpha")
     _write_snapshot(path=snapshot_path, repo=repo)
+    monkeypatch.setattr(
+        foreman_plan_roster_work,
+        "ledger_work_item_records",
+        lambda *, repo: _parented_work_items(epic="overseer-alpha", children=["overseer-alpha.2"]),
+    )
     _write_journal(
         repo=repo,
         records=[
@@ -187,10 +207,15 @@ def test_remote_dispatch_absent_from_local_process_view_is_still_in_flight(*, tm
     assert roster["rows"][0]["work_state"] == "work-in-flight"
 
 
-def test_caller_supplied_emoji_is_ignored_and_idle_in_flight_waits(*, tmp_path):
+def test_caller_supplied_emoji_is_ignored_and_idle_in_flight_waits(*, tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     snapshot_path = tmp_path / "status.json"
     _anchored_plan(repo=repo, topic="alpha", epic="overseer-alpha")
+    monkeypatch.setattr(
+        foreman_plan_roster_work,
+        "ledger_work_item_records",
+        lambda *, repo: _parented_work_items(epic="overseer-alpha", children=["overseer-alpha.3"]),
+    )
     snapshot_path.write_text(
         json.dumps(
             {

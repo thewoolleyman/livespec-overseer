@@ -55,6 +55,13 @@ def _fake_bd(*, tmp_path: Path, payload: list[dict[str, object]]) -> Path:
     return bin_dir
 
 
+def _parented_work_items(*, epic: str, children: list[str]) -> list[dict[str, object]]:
+    return [
+        {"id": epic, "issue_type": "epic"},
+        *[{"id": child, "issue_type": "bug", "parent": epic} for child in children],
+    ]
+
+
 def test_absent_plan_directory_emits_empty_roster(*, tmp_path):
     roster = foreman_plan_roster.compose_roster(
         repo=tmp_path / "repo",
@@ -117,12 +124,17 @@ def test_daemon_row_edges_are_reported_without_adopting_foreign_topics(*, tmp_pa
     assert rows["delta"]["emoji"] == "⚪"
 
 
-def test_blocked_human_renders_blocked_even_with_work_in_flight(*, tmp_path):
+def test_blocked_human_renders_blocked_even_with_work_in_flight(*, tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     snapshot_path = tmp_path / "status.json"
     journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
     _plan(repo=repo, topic="gamma")
     _epic_anchor(repo=repo, topic="gamma", anchor="overseer-gamma")
+    monkeypatch.setattr(
+        foreman_plan_roster_work,
+        "ledger_work_item_records",
+        lambda *, repo: _parented_work_items(epic="overseer-gamma", children=["overseer-gamma.1"]),
+    )
     journal.parent.mkdir(parents=True)
     journal.write_text(
         json.dumps(
@@ -210,7 +222,13 @@ def test_plan_slug_ledger_anchor_detects_in_flight_without_epic_file(*, tmp_path
                 "issue_type": "epic",
                 "status": "active",
                 "metadata": {"plan_slug": "alpha"},
-            }
+            },
+            {
+                "id": "overseer-alpha.8",
+                "issue_type": "bug",
+                "status": "active",
+                "parent": "overseer-alpha",
+            },
         ],
     )
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
