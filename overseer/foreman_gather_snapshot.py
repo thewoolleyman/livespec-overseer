@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Final
 
 import jsonio
 import signals
@@ -90,6 +91,21 @@ def snapshot_payload(
     return snapshot, source
 
 
+_HANDOFF_STATE_BY_MIGRATED_VERDICT: Final[Mapping[str, str]] = {
+    "migrated": "present",
+    "not-migrated": "missing",
+    "unreadable": "unreadable",
+}
+"""Project the three-valued migrated verdict onto the row's handoff vocabulary.
+
+A mapping rather than a branch chain so the projection is stated once and is
+total: every verdict the predicate can return has a row value here, and a
+verdict with no entry is a KeyError rather than a silent fallback onto
+``missing`` -- which is the value that makes ``supervisor_pair_start`` a
+warranted proposal and so is the worst possible thing to default to.
+"""
+
+
 def supervisor_handoff_state(*, repo: Path, topic: object) -> str:
     if not isinstance(topic, str) or topic == "":
         return "unknown"
@@ -101,19 +117,36 @@ def supervisor_handoff_state(*, repo: Path, topic: object) -> str:
     legacy_path = plan_dir / "supervisor-handoff.md"
     if legacy_path.is_file():
         return "present"
-    if migrated_supervisor_handoff_state(repo=repo, topic=topic):
-        return "present"
-    return "missing"
+    return _HANDOFF_STATE_BY_MIGRATED_VERDICT[
+        migrated_supervisor_handoff_state(repo=repo, topic=topic)
+    ]
 
 
-def migrated_supervisor_handoff_state(*, repo: Path, topic: str) -> bool:
+def migrated_supervisor_handoff_state(*, repo: Path, topic: str) -> str:
+    """Report whether a topic's supervisor handoff lives in the ledger.
+
+    Three-valued on purpose. A bare bool has no room for the difference between
+    a verdict and a fault: ``False`` used to mean both "this handoff is not
+    migrated" and "epic.md could not be read", and the first is the answer that
+    says the handoff still needs migrating. Asserting that about a file the
+    function never managed to inspect is the defect this widening removes.
+
+    A MISSING epic.md is deliberately reported as ``not-migrated`` rather than
+    as a fault: a topic that has no epic is an ordinary, legitimate state, and
+    its handoff genuinely is not in the ledger. Only a file that exists and
+    resists reading is ``unreadable``.
+    """
     epic_path = repo / "plan" / topic / "epic.md"
     try:
         text = epic_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return "not-migrated"
     except (OSError, ValueError):
-        return False
+        return "unreadable"
     lowered = text.lower()
-    return "ledger" in lowered and ("comment" in lowered or "entry" in lowered)
+    if "ledger" in lowered and ("comment" in lowered or "entry" in lowered):
+        return "migrated"
+    return "not-migrated"
 
 
 def row_with_supervisor_handoff(*, repo: Path, row: dict[str, object]) -> dict[str, object]:

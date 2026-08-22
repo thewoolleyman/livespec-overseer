@@ -54,6 +54,21 @@ class TimeSource(Protocol):
     def __call__(self) -> str: ...
 
 
+_HANDOFF_STATE_BY_MIGRATED_VERDICT: Final[Mapping[str, str]] = {
+    "migrated": "present",
+    "not-migrated": "missing",
+    "unreadable": "unreadable",
+}
+"""Project the three-valued migrated verdict onto the row's handoff vocabulary.
+
+A mapping rather than a branch chain so the projection is stated once and is
+total: every verdict the predicate can return has a row value here, and a
+verdict with no entry is a KeyError rather than a silent fallback onto
+``missing`` -- which is the value that makes ``supervisor_pair_start`` a
+warranted proposal and so is the worst possible thing to default to.
+"""
+
+
 def supervisor_handoff_state(*, repo: Path, topic: object) -> str:
     if not isinstance(topic, str) or topic == "":
         return "unknown"
@@ -65,9 +80,9 @@ def supervisor_handoff_state(*, repo: Path, topic: object) -> str:
     legacy_path = plan_dir / "supervisor-handoff.md"
     if legacy_path.is_file():
         return "present"
-    if migrated_supervisor_handoff_state(repo=repo, topic=topic):
-        return "present"
-    return "missing"
+    return _HANDOFF_STATE_BY_MIGRATED_VERDICT[
+        migrated_supervisor_handoff_state(repo=repo, topic=topic)
+    ]
 
 
 def utc_now() -> str:
