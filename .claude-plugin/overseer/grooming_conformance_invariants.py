@@ -9,6 +9,7 @@ from pathlib import Path
 
 from grooming_conformance_types import GroomingConformanceReport, InvariantCheck
 from grooming_conformance_values import (
+    TERMINAL_STATUSES,
     cross_repo_payload_breaches,
     has_dependency_payload,
     has_parent,
@@ -28,16 +29,18 @@ __all__: list[str] = [
     "merged_acceptance_criteria",
 ]
 
-LIFECYCLE_STATUSES = frozenset(
-    {
-        "acceptance",
-        "active",
-        "backlog",
-        "blocked",
-        "closed",
-        "pending-approval",
-        "ready",
-    }
+LIFECYCLE_STATUSES = (
+    frozenset(
+        {
+            "acceptance",
+            "active",
+            "backlog",
+            "blocked",
+            "pending-approval",
+            "ready",
+        }
+    )
+    | TERMINAL_STATUSES
 )
 DISPATCHABLE_STATUSES = frozenset({"pending-approval", "ready"})
 

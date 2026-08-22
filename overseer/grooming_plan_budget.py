@@ -15,6 +15,7 @@ __all__: list[str] = [
     "DEFAULT_ITEMS_PER_PLAN",
     "DEFAULT_MAX_PLANS",
     "DEFAULT_MIN_PLANS",
+    "TERMINAL_WORK_ITEM_STATUSES",
     "PlanBudgetResolution",
     "is_top_level_anchor_epic",
     "resolve_plan_budget",
@@ -23,7 +24,7 @@ __all__: list[str] = [
 DEFAULT_ITEMS_PER_PLAN = 12
 DEFAULT_MIN_PLANS = 2
 DEFAULT_MAX_PLANS = 8
-_TERMINAL_WORK_ITEM_STATUSES = frozenset({"closed", "done"})
+TERMINAL_WORK_ITEM_STATUSES = frozenset({"closed", "done"})
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -134,7 +135,7 @@ def work_item_is_drainable(
     seat_anchor_epic_ids: AbstractSet[str] | None = None,
 ) -> bool:
     status = item.get("status")
-    if isinstance(status, str) and status.lower() in _TERMINAL_WORK_ITEM_STATUSES:
+    if isinstance(status, str) and status.lower() in TERMINAL_WORK_ITEM_STATUSES:
         return False
     return not is_top_level_anchor_epic(
         item=item,
@@ -203,7 +204,7 @@ def live_plan_anchor_slugs(*, work_items: Sequence[Mapping[str, object]]) -> tup
     slugs: set[str] = set()
     for item in work_items:
         status = item.get("status")
-        if isinstance(status, str) and status.lower() in _TERMINAL_WORK_ITEM_STATUSES:
+        if isinstance(status, str) and status.lower() in TERMINAL_WORK_ITEM_STATUSES:
             continue
         slug = plan_slug(item=item)
         if is_epic(item=item) and slug is not None:
@@ -213,7 +214,29 @@ def live_plan_anchor_slugs(*, work_items: Sequence[Mapping[str, object]]) -> tup
 
 def plan_slug(*, item: Mapping[str, object]) -> str | None:
     metadata = jsonio.as_object(value=item.get("metadata"))
-    if metadata is None:
+    candidates = (
+        metadata.get("plan_slug") if metadata is not None else None,
+        prefixed_value(text=item.get("notes"), prefix="plan_slug="),
+        prefixed_value(text=item.get("spec_commitment_hint"), prefix="plan:"),
+    )
+    for value in candidates:
+        slug = non_blank_text(value=value)
+        if slug is not None:
+            return slug
+    return None
+
+
+def prefixed_value(*, text: object, prefix: str) -> str | None:
+    value = non_blank_text(value=text)
+    if value is None:
         return None
-    value = metadata.get("plan_slug")
-    return value if isinstance(value, str) and value != "" else None
+    return next(
+        (token.removeprefix(prefix) for token in value.split() if token.startswith(prefix)), None
+    )
+
+
+def non_blank_text(*, value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    value = value.strip()
+    return value if value != "" else None
