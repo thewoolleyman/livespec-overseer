@@ -150,10 +150,20 @@ def make_live_mapped_supervisor(
     return sup, session
 
 
-def test_tick_writes_round_trippable_status_snapshot(*, tmp_path):
+def test_tick_writes_round_trippable_status_snapshot(*, tmp_path, monkeypatch):
     module = snapshot_module()
     repo, topic = make_plan(tmp_path=tmp_path)
     status_path = tmp_path / "status.json"
+    # HOME must be isolated even though this case asserts the default is UNREADABLE.
+    # Without it the resolver reads the invoking user's ~/.claude/settings.json, so the
+    # assertion holds only where that file is absent -- green in CI and in the sandbox,
+    # red on every operator host. Paired with
+    # test_snapshot_publishes_profile_and_restart_model_verdict_from_live_default, which
+    # supplies a populated settings file, these two are the two-way control: the same
+    # fleet state must produce a different verdict under a different default.
+    empty_home = tmp_path / "empty-home"
+    empty_home.mkdir()
+    monkeypatch.setattr(module.Path, "home", lambda: empty_home)
     sup, session = make_live_mapped_supervisor(
         tmp_path=tmp_path,
         repo=repo,
