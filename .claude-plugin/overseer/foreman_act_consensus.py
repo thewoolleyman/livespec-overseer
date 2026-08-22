@@ -206,9 +206,7 @@ def _authorized_panel_member(
             return None, "consensus_ruling_not_enumerated"
         return None, "consensus_ruling_not_supported"
     action_id = None if action is None else _known_action_id(value=action.get("action_id"))
-    if action_id is None:  # pragma: no cover
-        return None, "consensus_action_not_enumerated"
-    if action_id == HUMAN_VALVE:  # pragma: no cover
+    if action_id is None or action_id == HUMAN_VALVE:  # pragma: no cover
         return None, "consensus_action_not_enumerated"
     return action_id, None
 
