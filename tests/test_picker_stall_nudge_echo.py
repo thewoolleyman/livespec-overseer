@@ -79,7 +79,9 @@ def test_picker_stall_nudge_survives_its_own_capture_echo(*, tmp_path, monkeypat
     assert not any(call[0] == "keys" and call[2] in {"Enter", "1", "2"} for call in fake.calls)
 
 
-def test_picker_stall_nudge_rearms_after_non_daemon_capture_change(*, tmp_path, monkeypatch):
+def test_picker_stall_nudge_stays_single_shot_after_non_daemon_capture_change(
+    *, tmp_path, monkeypatch
+):
     fake, clock, sup, track, session = stalled_picker_supervisor(
         tmp_path=tmp_path, monkeypatch=monkeypatch
     )
@@ -89,11 +91,11 @@ def test_picker_stall_nudge_rearms_after_non_daemon_capture_change(*, tmp_path, 
         clock["t"] += 31.0
         assert sup.evaluate(track=track, act=True).status == "picker-stalled"
         fake.panes[session] = picker_capture(ctx=79)
-        assert sup.evaluate(track=track, act=True).status == "blocked:human"
+        assert sup.evaluate(track=track, act=True).status == "picker-stalled"
         clock["t"] += 31.0
         assert sup.evaluate(track=track, act=True).status == "picker-stalled"
 
-    assert len(fake.paste_texts()) == 2
+    assert len(fake.paste_texts()) == 1
 
 
 def test_foreman_picker_stall_gets_same_reserved_entity_nudge(*, tmp_path, monkeypatch):

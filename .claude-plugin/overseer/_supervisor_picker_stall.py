@@ -53,7 +53,7 @@ class PickerStallRequest:
 def apply_picker_stall(*, request: PickerStallRequest) -> PickerStallDecision:
     picker_open = request.obs.gate
     stall_seconds = _supervisor_progress.blocked_human_stall_seconds(
-        obs=request.obs, status=request.status
+        obs=request.obs, status=request.status, picker_open=picker_open
     )
     view = PickerStallView(picker_open=picker_open, stall_seconds=stall_seconds)
     if (
