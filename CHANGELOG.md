@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.3...v1.37.4) (2026-08-22)
+
+
+### Bug Fixes
+
+* classify launch-only stamp records ([5947233](https://github.com/thewoolleyman/livespec-overseer/commit/594723349f25050d242ef83f5946093945c17e2e))
+
 ## [1.37.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.2...v1.37.3) (2026-08-22)
 
 
