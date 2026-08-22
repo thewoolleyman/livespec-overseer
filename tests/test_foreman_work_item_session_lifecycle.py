@@ -21,6 +21,12 @@ def foreman_act():
     return importlib.import_module("foreman_act")
 
 
+def work_item_evidence():
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("foreman_work_item_session_evidence")
+
+
 def document(*, repo: Path) -> dict[str, object]:
     return {
         "schema_version": 1,
@@ -199,6 +205,49 @@ def test_work_item_session_start_accepts_own_tenant_item_without_attention_surfa
 
     assert result["reason"] == "work_item_session_started"
     assert calls != []
+
+
+def test_work_item_session_ledger_lookup_uses_repo_credential_wrapper(*, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    repo.joinpath(".livespec.jsonc").write_text(
+        json.dumps(
+            {
+                "credential_wrapper": ["/usr/local/bin/with-livespec-env.sh", "--"],
+                "livespec-orchestrator-beads-fabro": {"connection": {"prefix": "overseer"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    module = work_item_evidence()
+    calls: list[list[str]] = []
+
+    def fake_run(argv, **kwargs):
+        calls.append(list(argv))
+        assert kwargs["cwd"] == str(repo)
+        return subprocess.CompletedProcess(
+            args=argv,
+            returncode=0,
+            stdout=json.dumps({"id": "overseer-vts4lo", "status": "ready"}),
+            stderr="",
+        )
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+
+    item, refusal = module.read_work_item(repo=repo, work_item_id="overseer-vts4lo")
+
+    assert refusal is None
+    assert item == {"id": "overseer-vts4lo", "status": "ready"}
+    assert calls == [
+        [
+            "/usr/local/bin/with-livespec-env.sh",
+            "--",
+            "bd",
+            "show",
+            "overseer-vts4lo",
+            "--json",
+        ]
+    ]
 
 
 def test_work_item_session_refuses_missing_foreign_and_unadmitted_work_items(
