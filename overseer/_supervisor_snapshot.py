@@ -77,6 +77,8 @@ def _written_at(*, timestamp: float) -> str:
 def _snapshot_note(*, row: RowView) -> str | None:
     if row.note is None:
         return None
+    if row.status == "mapping-unusable":
+        return row.note
     text = elide(text=row.note, limit=SNAPSHOT_NOTE_LIMIT)
     if text.endswith("…"):
         return text[: SNAPSHOT_NOTE_LIMIT - 3].rstrip() + "..."
