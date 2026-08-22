@@ -819,6 +819,12 @@ several shapes leave none.
 | work landed | no | no | no | yes | no | **YES — PR open** |
 | remedy | fix the defect | release + re-dispatch | unset the dep | close it | dump + land | **close the duplicate; touch nothing else** |
 
+A **seventh** shape is documented further down rather than as an eighth column here,
+because it is discriminated by something no column in this table holds: the factory
+host running out of disk, which fails at stage `fabro-run` with an ENOSPC `detail`
+naming a path on a machine this one cannot see. Local `df` and `fabro ps` both read
+clean while every dispatch fails.
+
 ### `fabro ps` IS NOT THE EVIDENCE WHEN THE FACTORY IS REMOTE — READ THE JOURNAL
 
 Every rule above leans on "`ACTIVE` is never evidence of a run, `fabro ps` is". **That
@@ -930,6 +936,59 @@ earlier comment can carry the token:
 means the record is dispatchable. Any hit names the line to reword. Do this **before**
 `bd comment` too — the comment is the common poisoning route, and once it lands it is
 permanent.
+
+### A SEVENTH SHAPE: the FACTORY HOST is out of disk, and every local signal reads healthy
+
+Measured 2026-08-22T00:51Z dispatching `overseer-temi26.2` on plugin build
+`392b3fa90f86`. The dispatcher's own JSON envelope, stage `fabro-run`, status
+`failed`, `fabro_run_id` null:
+
+    could not create run
+    ╰─▶ Failed to persist run state: I/O error: creating run directory
+        /home/cwoolley/.fabro/storage/scratch/<run>: No space left on device (os error 28)
+
+**The blast radius is the whole factory, not one item.** The failure is in
+run-DIRECTORY creation, so it precedes every item-specific step: the ready-set
+test, the goal render, the acceptance guard. Nothing about your item causes or
+avoids it, and every repo pointing at that factory is down at once.
+
+**BOTH LOCAL INSTRUMENTS READ CLEAN, WHICH IS WHAT MAKES THIS EXPENSIVE.** The
+path is on a REMOTE host: `/home/cwoolley` does not exist on the dispatching
+machine (the local user is `ubuntu`), and local `df` reported **127G free at 82%
+used** at the moment of the failure. So a `df` clears the host, `fabro ps` is
+blind for the reason already documented above — the factory is remote — and the
+investigator is sent back to the item text, which is the one thing that is fine.
+**Read the `detail` string. It names the host's path and the errno.**
+
+**It leaves a phantom claim, and its signature is its own.** Afterwards the item
+read `status=active, assignee=fabro` with `fabro_run_id` null and no run in
+existence; release it by hand before re-dispatching. Do not read it as any of
+the six shapes above: the discriminator is an **immediate** failure at stage
+`fabro-run` carrying an explicit ENOSPC `detail` that names the factory's
+storage path — not `run-config-overlay` (exhausted credential), not `not in the
+ready set`, not a `template_undefined_variable` token, and not silence.
+
+**THE MITIGATION NEEDS NO HOST ACCESS AND IS ALREADY CONFIGURED.**
+`.livespec.jsonc` declares TWO factories under `dispatcher.factories` — `hp` and
+`vps` — with `default_factory` naming one of them, and both `dispatcher.py
+dispatch` and the `drive` path accept `--factory <name>`. Re-dispatching to the
+second factory is a routing choice inside sanctioned configuration, not a host
+mutation, and it needs no approval. Measured here: the `hp` attempt failed in
+seconds, the `vps` re-dispatch on the identical item was still executing minutes
+later. **Check that the second factory is actually declared before reaching for
+this** — a repo with one factory has no fallback and the outage is real.
+
+**Expect accumulation, not a spike.** Fabro run state persists per run under
+`.fabro/storage`, the documented recovery recipes call `fabro rm --force` only
+for specific blocked runs, and `fabro dump` is documented working on runs a week
+old — so retention is long *by design* and nothing reaps succeeded runs on a
+schedule. A host serving several repos at this fleet's dispatch rate fills.
+That also means **a blind purge is the wrong remedy**: `fabro dump` is the fleet's
+only rescue path for work stranded by the interview-destroyed shape, so deleting
+recent run state to reclaim space trades an outage for the loss of that safety
+net. Reclaiming space is host-mutation tier — not session-performable, and not
+factory-dispatchable either, since a sandboxed agent cannot clean the host it
+runs on. Carrier: `bd-ib-gr9f` (P1, orchestrator tenant).
 
 ### A DEFERRED item ANYWHERE in the tenant blocks EVERY dispatch in the repo
 
