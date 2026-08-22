@@ -12,7 +12,11 @@ import foreman_panel_reviewers
 import jsonio
 import streams
 from foreman_consensus import consensus, decision_rule_for_request
-from foreman_consensus_prompt import cache_key, reviewer_dossier_missing_fields
+from foreman_consensus_prompt import (
+    REVIEWER_DOSSIER_FIELDS,
+    cache_key,
+    reviewer_dossier_missing_fields,
+)
 from foreman_consensus_types import DEFAULT_PANEL_LIMITS, DEFAULT_STATE_DIR
 from foreman_panel_decision_kind import result_decision_kind
 from foreman_panel_io import default_dossier_dir, load_request, write_json
@@ -30,6 +34,30 @@ reviewer_argv = foreman_panel_reviewers.reviewer_argv
 reviewer_responses = foreman_panel_reviewers.reviewer_responses
 run_reviewer = foreman_panel_reviewers.run_reviewer
 str_field = foreman_panel_reviewers.str_field
+
+
+def prompt_file_dossier_empty(*, prompt_path: Path) -> bool:
+    parsed = jsonio.parse_object(text=prompt_path.read_text(encoding="utf-8"))
+    prompt_payload = None if jsonio.is_parse_failure(result=parsed) else parsed.unwrap()
+    if prompt_payload is None:
+        return True
+    prompt_text = str_field(payload=prompt_payload, key="prompt")
+    _, marker, dossier_text = prompt_text.partition("Dossier JSON:\n")
+    if marker == "":
+        return True
+    dossier = jsonio.parse_object(text=dossier_text)
+    dossier_payload = None if jsonio.is_parse_failure(result=dossier) else dossier.unwrap()
+    return dossier_payload is None or all(
+        str_field(payload=dossier_payload, key=field) == "" for field in REVIEWER_DOSSIER_FIELDS
+    )
+
+
+def reviewer_dossier_artifact_empty(*, dossier_dir: Path) -> bool:
+    prompt_dir = dossier_dir / "prompts"
+    prompt_paths = sorted(prompt_dir.glob("*.json"))
+    if not prompt_paths:
+        return True
+    return any(prompt_file_dossier_empty(prompt_path=prompt_path) for prompt_path in prompt_paths)
 
 
 def convene_panel(
@@ -70,6 +98,7 @@ def convene_panel(
         verdict_reason=str_field(payload=verdict, key="reason"),
         missing_request_fields=missing_request_fields(request=request),
         reviewer_dossier_missing_fields=reviewer_dossier_missing_fields(request=request),
+        reviewer_dossier_artifact_empty=reviewer_dossier_artifact_empty(dossier_dir=panel_dir),
     )
     _ = write_json(path=panel_dir / "verdict.json", payload=verdict)
     _ = write_json(path=verdict_path, payload=verdict)
