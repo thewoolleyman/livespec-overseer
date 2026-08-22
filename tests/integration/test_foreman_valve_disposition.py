@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
 OVERSEER_DIR = Path(__file__).resolve().parents[2] / "overseer"
+ROOT = OVERSEER_DIR.parent
+ENTRYPOINT = ROOT / ".claude-plugin" / "bin" / "foreman-valve-disposition"
 POLICY_PATH = OVERSEER_DIR / "foreman_valve_policy.py"
 
 __all__: list[str] = []
@@ -19,13 +23,22 @@ def module(name: str):
     return importlib.import_module(name)
 
 
-def write_config(*, repo: Path, value: object, include_key: bool = True) -> None:
+def write_config(
+    *,
+    repo: Path,
+    value: object,
+    include_key: bool = True,
+    full_autonomy: object | None = None,
+    include_full_autonomy: bool = False,
+) -> None:
     repo.mkdir()
     payload: dict[str, object] = {"livespec-overseer": {}}
     section = payload["livespec-overseer"]
     assert isinstance(section, dict)
     if include_key:
         section["foreman_valve_disposition"] = value
+    if include_full_autonomy:
+        section["full_autonomy"] = full_autonomy
     (repo / ".livespec.jsonc").write_text(json.dumps(payload), encoding="utf-8")
 
 
@@ -74,6 +87,31 @@ def valve_proposal(*, repo: Path, action_id: str = "human_valve") -> dict[str, o
             "reviewer_responses": {},
         },
     }
+
+
+def scrubbed_env() -> dict[str, str]:
+    removed = {"PYTHONPATH", "COVERAGE_PROCESS_START"}
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in removed and not key.startswith("COV_CORE_")
+    }
+    assert "PYTHONPATH" not in env
+    return env
+
+
+def resolve_with_shipped_entrypoint(*, repo: Path) -> dict[str, object]:
+    completed = subprocess.run(  # noqa: S603
+        [str(ENTRYPOINT), "--repo", str(repo)],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**scrubbed_env(), "PYTHONPATH": ""},
+    )
+    assert completed.returncode == 0, completed.stderr
+    parsed = json.loads(completed.stdout)
+    assert isinstance(parsed, dict)
+    return parsed
 
 
 def unanimous_panel_result() -> dict[str, object]:
@@ -136,6 +174,10 @@ def test_effective_valve_disposition_is_readable_and_fails_closed(*, tmp_path, c
     assert policy.effective_valve_disposition(repo=absent) == {
         "configured": None,
         "effective": "report-only",
+        "full_autonomy": False,
+        "full_autonomy_source": "default",
+        "decision_rule": "unanimous",
+        "conflict": False,
         "recognized": True,
         "source": "default",
     }
@@ -143,6 +185,10 @@ def test_effective_valve_disposition_is_readable_and_fails_closed(*, tmp_path, c
     assert policy.effective_valve_disposition(repo=unknown) == {
         "configured": "delegated",
         "effective": "report-only",
+        "full_autonomy": False,
+        "full_autonomy_source": "default",
+        "decision_rule": "unanimous",
+        "conflict": False,
         "recognized": False,
         "source": str(unknown / ".livespec.jsonc"),
         "warning": "unrecognized_foreman_valve_disposition",
@@ -150,6 +196,79 @@ def test_effective_valve_disposition_is_readable_and_fails_closed(*, tmp_path, c
     assert policy.effective_valve_disposition(repo=consensus)["effective"] == "consensus"
     assert policy.main(argv=["--repo", str(consensus)]) == 0
     assert json.loads(capsys.readouterr().out)["effective"] == "consensus"
+
+
+def test_full_autonomy_absent_empty_wrong_typed_and_false_resolve_false(*, tmp_path):
+    policy = module("foreman_valve_policy")
+    absent = tmp_path / "absent"
+    empty = tmp_path / "empty"
+    wrong_type = tmp_path / "wrong-type"
+    false = tmp_path / "false"
+    for repo, value, include in [
+        (absent, None, False),
+        (empty, "", True),
+        (wrong_type, {"yes": True}, True),
+        (false, False, True),
+    ]:
+        write_config(
+            repo=repo,
+            value="consensus",
+            full_autonomy=value,
+            include_full_autonomy=include,
+        )
+
+    assert policy.effective_valve_disposition(repo=absent) == {
+        "configured": "consensus",
+        "effective": "consensus",
+        "full_autonomy": False,
+        "full_autonomy_source": "default",
+        "decision_rule": "unanimous",
+        "conflict": False,
+        "recognized": True,
+        "source": str(absent / ".livespec.jsonc"),
+    }
+    for repo in [empty, wrong_type, false]:
+        resolved = policy.effective_valve_disposition(repo=repo)
+        assert resolved["effective"] == "consensus"
+        assert resolved["full_autonomy"] is False
+        assert resolved["full_autonomy_source"] == str(repo / ".livespec.jsonc")
+        assert resolved["decision_rule"] == "unanimous"
+        assert resolved["conflict"] is False
+
+
+def test_full_autonomy_true_forces_consensus_majority_and_reports_conflict(*, tmp_path):
+    policy = module("foreman_valve_policy")
+    report_only = tmp_path / "report-only"
+    unknown = tmp_path / "unknown"
+    write_config(
+        repo=report_only,
+        value="report-only",
+        full_autonomy=True,
+        include_full_autonomy=True,
+    )
+    write_config(
+        repo=unknown,
+        value="delegated",
+        full_autonomy=True,
+        include_full_autonomy=True,
+    )
+
+    for repo in [report_only, unknown]:
+        resolved = policy.effective_valve_disposition(repo=repo)
+        assert resolved["effective"] == "consensus"
+        assert resolved["full_autonomy"] is True
+        assert resolved["full_autonomy_source"] == str(repo / ".livespec.jsonc")
+        assert resolved["decision_rule"] == "majority"
+        assert resolved["conflict"] is True
+        assert resolved["warning"] == "full_autonomy_conflicts_with_foreman_valve_disposition"
+
+    shipped = resolve_with_shipped_entrypoint(repo=report_only)
+    assert shipped["effective"] == "consensus"
+    assert shipped["full_autonomy"] is True
+    assert shipped["full_autonomy_source"] == str(report_only / ".livespec.jsonc")
+    assert shipped["decision_rule"] == "majority"
+    assert shipped["conflict"] is True
+    assert shipped["warning"] == "full_autonomy_conflicts_with_foreman_valve_disposition"
 
 
 def test_absent_config_keeps_human_valves_report_only_byte_identical(*, tmp_path):
