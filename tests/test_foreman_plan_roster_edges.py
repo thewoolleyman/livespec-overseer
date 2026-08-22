@@ -84,11 +84,11 @@ def test_daemon_row_edges_are_reported_without_adopting_foreign_topics(*, tmp_pa
 
     rows = {row["plan"]: row for row in roster["rows"]}
     assert rows["alpha"]["session_state"] == "no-session"
-    assert rows["alpha"]["emoji"] == "🔴"
+    assert rows["alpha"]["emoji"] == "⚪"
     assert rows["beta"]["name_identity_verdict"] == "daemon_tmux_name_mismatch"
-    assert rows["beta"]["emoji"] == "🔴"
-    assert rows["gamma"]["emoji"] == "🔴"
-    assert rows["delta"]["emoji"] == "🔴"
+    assert rows["beta"]["emoji"] == "❗"
+    assert rows["gamma"]["emoji"] == "⚪"
+    assert rows["delta"]["emoji"] == "⚪"
 
 
 def test_picker_session_state_and_legacy_anchor_work_state_edges(*, tmp_path):
