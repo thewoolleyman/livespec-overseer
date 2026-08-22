@@ -136,6 +136,15 @@ def _tmux_only_errors(
     ]
 
 
+def _repo_scoped_tmux_session_names(
+    *, daemon_rows: dict[str, dict[str, object]], tmux_session_names: set[str]
+) -> set[str]:
+    daemon_tmux_names = {
+        tmux for row in daemon_rows.values() if (tmux := _daemon_tmux(daemon_row=row)) is not None
+    }
+    return tmux_session_names & daemon_tmux_names
+
+
 def compose_roster(
     *,
     repo: Path,
@@ -162,7 +171,10 @@ def compose_roster(
         "rows": rows,
         "name_identity_errors": _tmux_only_errors(
             plan_names=plan_name_set,
-            tmux_session_names=tmux_session_names,
+            tmux_session_names=_repo_scoped_tmux_session_names(
+                daemon_rows=daemon_rows,
+                tmux_session_names=tmux_session_names,
+            ),
         ),
     }
 
