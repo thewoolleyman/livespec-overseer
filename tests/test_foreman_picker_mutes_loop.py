@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import json
 import sys
 from pathlib import Path
@@ -27,6 +28,12 @@ def foreman_runtime_escalation():
     if str(OVERSEER_DIR) not in sys.path:
         sys.path.insert(0, str(OVERSEER_DIR))
     return importlib.import_module("foreman_runtime_escalation")
+
+
+def foreman_runtime_document():
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("foreman_runtime_document")
 
 
 def make_repo(*, tmp_path: Path, name: str = "repo") -> Path:
@@ -98,15 +105,21 @@ def test_non_blocking_foreman_escalation_keeps_next_scheduled_tick(*, tmp_path):
     assert calls == [1000.0, 4600.0]
 
 
-def test_genuinely_open_blocking_prompt_persists_then_writes_marker_with_realistic_timestamp(
-    *, tmp_path
-):
+def test_blocking_prompt_predicate_does_not_accept_discarded_timestamp_parameter(*, tmp_path):
+    del tmp_path
+    document_module = foreman_runtime_document()
+
+    signature = inspect.signature(document_module.foreman_blocking_prompt_open)
+
+    assert "tick_started_at" not in signature.parameters
+
+
+def test_genuinely_open_blocking_prompt_persists_then_writes_marker(*, tmp_path):
     module = foreman_runtime()
     repo = make_repo(tmp_path=tmp_path)
     runtime = module.ForemanRuntime(repo=repo, now=lambda: 1000.25)
     document = {
         "snapshot": {
-            "written_at": "1970-01-01T00:16:40Z",
             "rows": [
                 {
                     "topic": "repo-foreman",
@@ -141,7 +154,6 @@ def test_stale_snapshot_open_prompt_writes_no_blocking_prompt_marker(*, tmp_path
     result = runtime.step(
         document={
             "snapshot": {
-                "written_at": "1970-01-01T00:16:39Z",
                 "rows": [
                     {
                         "topic": "repo-foreman",
@@ -168,7 +180,6 @@ def test_closed_prompt_and_missing_row_write_no_blocking_prompt_marker(*, tmp_pa
     closed_result = closed.step(
         document={
             "snapshot": {
-                "written_at": "1970-01-01T00:16:40Z",
                 "rows": [
                     {
                         "topic": "closed-foreman",
@@ -183,7 +194,6 @@ def test_closed_prompt_and_missing_row_write_no_blocking_prompt_marker(*, tmp_pa
     missing_result = missing.step(
         document={
             "snapshot": {
-                "written_at": "1970-01-01T00:16:40Z",
                 "rows": [{"topic": "other", "status": "blocked:human", "picker_open": True}],
             }
         }
