@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.2...v1.41.3) (2026-08-22)
+
+
+### Bug Fixes
+
+* report parentless release guard checkout ([5e4b0dc](https://github.com/thewoolleyman/livespec-overseer/commit/5e4b0dc0c62df8003789ecee25d8fc5082d3401a))
+
 ## [1.41.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.1...v1.41.2) (2026-08-22)
 
 
