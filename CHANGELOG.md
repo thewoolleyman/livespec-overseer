@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.32.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.5...v1.32.6) (2026-08-22)
+
+
+### Bug Fixes
+
+* stop consensus structural refusals poisoning cache ([879f0e5](https://github.com/thewoolleyman/livespec-overseer/commit/879f0e51feab95eb936b5a95582f10c6294783d1))
+
 ## [1.32.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.4...v1.32.5) (2026-08-22)
 
 
