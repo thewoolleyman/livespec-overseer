@@ -106,14 +106,6 @@ the numbers and name the reclaimable live threads. Do not fold a real thread bac
 into another one; merged plan files, live sessions, and in-flight runs make that a
 maintainer decision.
 
-When new thread allowance is zero, the pass does not have silent authority to
-create another plan thread. Fold unparented work into an existing live thread when
-that is coherent. If no existing thread is a truthful home, leave the work
-unparented and report the blocked bucketing decision with the budget,
-live-thread count, overflow, and reclaimable thread list. A maintainer may direct
-an over-allowance thread creation anyway; when that happens, record the override
-and the maintainer authority on the plan anchor created for that thread.
-
 ## Six Stages
 
 ### 1. Measure
