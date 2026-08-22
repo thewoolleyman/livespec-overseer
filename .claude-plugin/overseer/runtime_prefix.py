@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
-import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -21,7 +21,6 @@ __all__: list[str] = [
 
 _PROJECT_NAME = "livespec-overseer"
 _PROJECT_GIT_URL = "https://github.com/thewoolleyman/livespec-overseer.git"
-_VENV_COMMAND_LEN = 4
 
 
 def runtime_prefix(*, home: Path | None = None) -> Path:
@@ -52,11 +51,12 @@ def _venv_python(*, prefix: Path) -> Path:
 
 
 def _run_command(*, argv: list[str]) -> int:
-    actual = argv
-    if len(argv) == _VENV_COMMAND_LEN and argv[-2:] == ["-m", "venv"]:
-        actual = [argv[0], "-m", "venv", argv[1]]
-    completed = subprocess.run(actual, check=False)  # noqa: S603 - fixed provisioning argv.
+    completed = subprocess.run(argv, check=False)  # noqa: S603 - fixed provisioning argv.
     return completed.returncode
+
+
+def _clean_failed_prefix(*, prefix: Path) -> None:
+    shutil.rmtree(prefix, ignore_errors=True)
 
 
 def ensure_runtime(
@@ -72,22 +72,27 @@ def ensure_runtime(
 
     runner = _run_command if run is None else run
     prefix.mkdir(parents=True, exist_ok=True)
-    venv_rc = runner(argv=[sys.executable, str(prefix / "venv"), "-m", "venv"])
+    venv_rc = runner(argv=["uv", "venv", str(prefix / "venv")])
     if venv_rc != 0:
+        _clean_failed_prefix(prefix=prefix)
         return None
 
     install_rc = runner(
         argv=[
-            str(_venv_python(prefix=prefix)),
-            "-m",
+            "uv",
             "pip",
             "install",
-            "--disable-pip-version-check",
+            "--python",
+            str(_venv_python(prefix=prefix)),
             "--no-deps",
             runtime_install_source() if install_source is None else install_source,
         ]
     )
     if install_rc != 0:
+        _clean_failed_prefix(prefix=prefix)
+        return None
+    if run is None and (prefix / "venv").exists() and not target.is_file():
+        _clean_failed_prefix(prefix=prefix)
         return None
     return target
 
