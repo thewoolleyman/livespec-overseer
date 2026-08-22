@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.32.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.1...v1.32.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* prove roster emoji contract drift ([1496203](https://github.com/thewoolleyman/livespec-overseer/commit/1496203d23e01c8be1938eb93a555d9e25f547af))
+* **roster:** keep absent sessions stalled ([fc4deb8](https://github.com/thewoolleyman/livespec-overseer/commit/fc4deb80bf175434c9130a9f7db4464c7213f61e))
+
 ## [1.32.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.0...v1.32.1) (2026-08-22)
 
 
