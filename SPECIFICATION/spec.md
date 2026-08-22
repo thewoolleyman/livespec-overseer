@@ -196,6 +196,34 @@ full_autonomy is true, and under it:
   match the constituted panel, and a failed journal append MUST escalate
   exactly as under the unanimous rule, because none of them is an opinion.
 
+AGREEMENT BETWEEN REVIEWERS IS EVALUATED ON THE TYPED LAYER, and this governs
+both decision rules above. The typed layer is the action id together with the
+enumerated parameters the governing orchestrator contract defines for that
+action. A free-text payload carried by an action MUST NOT be part of the
+agreement test.
+
+When the typed layer agrees and only a free-text payload differs, the panel HAS
+agreed, for the purposes of both the unanimous and the majority rule, and:
+
+- the verdict MUST record that agreement was reached on the typed layer with
+  payloads differing;
+- the payload delivered MUST be selected deterministically, from a designated
+  primary reviewer seat, so the same panel state always produces the same
+  delivered payload and the selection is auditable;
+- every reviewer's payload MUST be retained verbatim in the verdict record, so
+  a reader can see what each seat would have said and an operator can audit the
+  selection;
+- agreement MUST NOT be established by semantic-similarity, embedding distance,
+  or any other fuzzy comparison of free text. An unauditable equality test is
+  worse than an honest escalation, because it can silently authorize an act on
+  the strength of a similarity score no reader can check.
+
+This changes what counts as AGREEMENT; it does NOT move the floor and does not
+change what a panel is permitted to authorize. Every floor category, every
+veto, the security-dissent rule, and the cardinal restart rule are unchanged. A
+genuine difference in the typed action — including two reviewers choosing
+different enumerated answers — MUST still escalate exactly as it does today.
+
 A verdict MUST record the decision rule it was evaluated under, and an act
 authorized under the majority rule MUST be journaled and recorded as a majority
 outcome; it MUST NOT be recorded as unanimous. The pre-act journal entry this
@@ -369,9 +397,10 @@ track becomes a new membership condition on the daemon's existing mechanical
 attention surface, never a parallel foreman-private status, and the foreman
 schedules a bounded re-check rather than blocking its own operator loop on an
 open-ended question. The channel used to alert a human of that condition is
-an implementation choice outside this governed contract. A blocking question
-MAY be used only as a last resort and only for a bounded wait with a defined
-timeout, after which the escalation reverts to the non-blocking form. This
+an implementation choice outside this governed contract. The foreman MUST NOT
+use a blocking question to surface its own unresolved human decision. It MUST
+surface that decision through the non-blocking mechanical attention path and
+return idle with any required recurring schedule still armed. This
 requirement governs only how the foreman surfaces a decision it cannot make
 itself; it MUST NOT be read to alter, in any way, what may authorize a
 restart of a tracked session — the cardinal rule, stated in "The cardinal
@@ -756,8 +785,24 @@ argv/parent-chain as the primary source, and MAY use the statusline's
 rendered model name only as a mismatch-detection verification signal,
 never as the primary source and never through a display-name-to-launch-token
 lookup table. The daemon MUST capture the profile at adoption (first join)
-and MUST re-check it at wrap-up time, so a mid-session `/model` switch is
-honored by the next restart's re-assertion.
+and MUST re-check it at wrap-up time. That obligation is retained in full: it
+is what lets a row whose pane acquired a model token after adoption self-heal
+on the wrap-up round that necessarily precedes any restart of it. The
+guarantee it carries is narrower than the obligation, and is stated here
+rather than left to be inferred: a launch profile records the model the track
+was LAUNCHED with, and re-check at wrap-up honors a mid-session change ONLY
+where a permitted source expresses it.
+
+Where a session's current model is expressed in no permitted source, the
+daemon MUST re-assert the recorded launch model. This is deliberate, not an
+oversight, and the divergence MUST be SURFACED: it MUST NOT be silently
+honored and MUST NOT be silently lost. The mismatch-detection signal
+permitted below is the intended surfacing mechanism. Because that signal is
+fail-soft — an unreadable rendered model is not a mismatch and MUST NOT skip
+a restart — surfacing MUST distinguish having read the verification signal
+and found agreement from not having read it at all; a daemon that cannot tell
+those apart reports silence as agreement at exactly the moment the surfacing
+is owed.
 
 The `harness` value MUST be treated as an open string in storage, so an
 unrecognized future harness can be recorded with no schema change; DISPATCH

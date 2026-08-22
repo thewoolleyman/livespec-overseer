@@ -989,7 +989,7 @@ Then the watch is not treated as a valid mechanism
 
 And a watch keyed on re-resolvable identity plus a bounce-detection signal remains valid across the bounce
 
-## Scenario: A foreman's own blocking question does not freeze supervision of other tracks
+## Scenario: A foreman's own unresolved decision escalates without blocking
 
 Given the foreman needs a human decision it cannot make itself for one tracked session
 
