@@ -79,14 +79,20 @@ it**, not only when opening the thread.
 Dispatch was held on 2026-08-22 because the repo's default factory host was at
 100 percent disk. Measured from `tmp/fabro-dispatch-journal.jsonl`:
 
-- **6** outcomes failed at stage `fabro-run` carrying `os error 28` /
-  `No space left on device`
-- across **4 distinct plan threads** — `overseer-3h4s5w`, `overseer-54k2za`,
-  `overseer-au3pt3`, `overseer-r55y`
-- inside an **18-minute window**, `00:23:20Z` to `00:41:26Z`
+| read | when | disk-caused outcomes | distinct items |
+|---|---|---|---|
+| this thread | ~`00:47Z` | 6 | 4 threads, window `00:23:20Z`-`00:41:26Z` |
+| `livespec-overseer-foreman` | `00:55:17Z` | **14** | **7 items** |
 
-Four unrelated threads failing identically in eighteen minutes is what makes this
-a host condition rather than an item condition.
+**Keep both readings with their stamps rather than only the larger one.** They
+were taken eight minutes apart on the same instrument, and the earlier one was
+correct when taken. The PAIR carries information the larger number alone does
+not: the count grew while nothing was being dispatched from either seat, which
+shows an outage still in progress rather than a burst that had already ended.
+A single later figure would have read as a worse snapshot of the same moment.
+
+Several unrelated threads failing identically inside a short window is what makes
+this a host condition rather than an item condition.
 
 **Why it deserves recording: every observable points at your item.** The error
 names a per-item run directory, `drive` exits 1, the dispatcher exits 1, no fabro
@@ -110,6 +116,49 @@ meet it spends seconds rather than reproducing four dead dispatches.
 Master CI was independently not settled in the same window — a run in progress at
 `e20ee6eb` — and the dispatcher refuses when latest master CI is not proven
 green, so the hold was correct on two independent grounds.
+
+## 4. A tripwire on this thread's own deferral, which is currently dormant
+
+Recorded because it is a live conditional with an empty domain, and those are
+exactly the claims that get lost: it is true, it is unfalsifiable today, and
+nothing about the present tree will remind anyone of it.
+
+While correcting child `.4`, this thread warned a peer seat that its recent panel
+rulings might be superseded — reasoning that under full autonomy the floor
+categories the specification OWNS become panel-decidable, so a ruling resting on
+one of them being human-gated would no longer hold.
+
+**The warning was withdrawn, and the mechanism was sound.** What defeats it is
+domain, not logic. spec.md v030 states verbatim: *"This specification defines no
+floor category of its own at this revision"* — both categories are bound BY
+REFERENCE and MUST stay escalated under full autonomy until the owning contract
+ratifies a relaxation. The set the warning ranges over is EMPTY, so no ruling
+could have rested on a member of it. Verified against the ratified text rather
+than taken on report, and independently confirmed on the peer's side by measuring
+the affected items' labels — `acceptance:ai-then-human` and a human blocked-reason,
+both orchestrator-contract classes bound by reference — which settles it without
+reference to how full autonomy is configured.
+
+**THE TRIPWIRE.** v030 also says: *"Should this specification later define a floor
+category of its own, that category is panel-decidable under the majority rule
+unless the clause defining it says otherwise."* The moment a successor revision
+defines such a category, the withdrawn warning becomes LIVE: prior rulings that
+disposed of a decision in that category as human-gated need re-examining, and
+child `.4`'s prose must gain the handling it was explicitly forbidden from
+writing while the set was empty.
+
+    git show origin/master:SPECIFICATION/spec.md | grep -n "defines no floor category"
+
+While that sentence is present, the domain is empty and `.4`'s prose is correct
+to say so. When it disappears or is qualified, this section is the reason to look.
+
+**Why this belongs in the record at all.** It is the same shape as this thread's
+central lesson, one turn further out. A deferral names a condition and the
+condition gets met; here a WITHDRAWN warning names a condition and the condition
+may get met later. In both cases the claim was correct when made and the world
+moved underneath it. The difference is that a deferral has an item waiting on it,
+so someone eventually re-reads it, whereas a withdrawn warning has nothing
+watching it by construction — which is precisely why it needs writing down.
 
 ## Next action
 
