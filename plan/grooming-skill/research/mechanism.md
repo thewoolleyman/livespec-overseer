@@ -119,10 +119,28 @@ maintainer decision. Report the overflow with the numbers and stop.
 
 ### 1. Measure
 
-`bd list --all --json`. NOT bare `bd list`, which omits records and has already
-caused a gate to false-fail every armed run. Compose the true open set, the
-untriaged subset, the unparented subset, and the live plan threads. Resolve the
-plan budget here.
+Read the MERGED PROJECTION, not a raw substrate listing: the `list-work-items
+--json` operation of the orchestrator plugin named in the governed repo's
+`.livespec.jsonc` `implementation.plugin` key, over all records and all
+statuses. Compose the true open set, the untriaged subset, the unparented
+subset, and the live plan threads. Resolve the plan budget here.
+
+**This line used to name a raw `bd` listing, and that was a trap.** Measured
+2026-08-22 against merged master `fc4deb8`, both reads taken at the same moment
+over the same 684-row livespec-overseer tenant: the sanctioned projection
+returns 30 keys with every one present on every row and `parent` populated
+684/684, while the raw all-statuses listing returns 25 keys with only 10
+universal and `parent` populated 444/684. A pass that reads parenthood off the
+raw payload reports 240 rows unparented against the projection's 9 real
+breaches -- a confident, catastrophic, entirely wrong answer with nothing in the
+payload announcing the omission. Note also that the two spell fields
+differently, so a payload cannot be swapped between them blind; the shipped
+checker reads both spellings, and `.claude-plugin/prose/grooming.md` carries the
+record-shape traps and their tells. A raw read remains legitimate for what the
+projection cannot answer, but it must carry those traps beside the claim.
+
+Bare listings are still worse than either: they omit records and have already
+caused a gate to false-fail every armed run.
 
 ### 2. Drain the spec lane
 
