@@ -6,6 +6,7 @@ daemon only observes one scratch file per watched repo and, when that PRESENT fi
 stale, renders a synthetic report-only row through the same table, NEEDS YOU block,
 window badge, and edge-triggered alert machinery every other attention member uses.
 """
+# livespec-lloc-soft-band-owner: overseer-lixhd3.1
 
 from __future__ import annotations
 
@@ -27,6 +28,7 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "FOREMAN_BLOCKING_PROMPT_STATUS",
     "FOREMAN_HEARTBEAT_STALE_STATUS",
     "FOREMAN_TOPIC",
     "Heartbeat",
@@ -41,11 +43,13 @@ __all__: list[str] = [
 ]
 
 FOREMAN_TOPIC = "foreman"
+FOREMAN_BLOCKING_PROMPT_STATUS = "foreman-blocking-prompt"
 FOREMAN_HEARTBEAT_STALE_STATUS = "foreman-heartbeat-stale"
 _HEARTBEAT_FILE = "heartbeat.json"
 _STALE_FLOOR_SECONDS = 30.0 * 60.0
 _STALE_MULTIPLIER = 2.0
 _ALERT_CONDITION = "foreman-heartbeat-stale"
+_BLOCKING_PROMPT_CONDITION = "foreman-blocking-prompt"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -186,8 +190,34 @@ def foreman_evaluation_row(*, sup: Supervisor, repo: str, act: bool) -> RowView 
     return _supervisor_evaluate.evaluate(sup=sup, track=track, act=act)
 
 
+def _blocking_prompt_row(*, row: RowView) -> RowView | None:
+    if not row.picker_open:
+        return None
+    return RowView(
+        topic=FOREMAN_TOPIC,
+        repo=row.repo,
+        tmux=row.tmux,
+        ctx=row.ctx,
+        status=FOREMAN_BLOCKING_PROMPT_STATUS,
+        note=(
+            "foreman blocking prompt open; an open prompt suppresses scheduled ticks; "
+            "surface the decision through the foreman escalation file and return idle"
+        ),
+        runtime=row.runtime,
+        human_wait=True,
+        picker_open=row.picker_open,
+        stall_seconds=row.stall_seconds,
+    )
+
+
 def _clear_alert(*, sup: Supervisor, repo: str) -> None:
     _ = sup.alerted.pop((*track_key(repo=repo, topic=FOREMAN_TOPIC), _ALERT_CONDITION), None)
+
+
+def _clear_blocking_prompt_alert(*, sup: Supervisor, repo: str) -> None:
+    _ = sup.alerted.pop(
+        (*track_key(repo=repo, topic=FOREMAN_TOPIC), _BLOCKING_PROMPT_CONDITION), None
+    )
 
 
 def _surface_alert(*, sup: Supervisor, row: RowView) -> None:
@@ -202,12 +232,33 @@ def _surface_alert(*, sup: Supervisor, row: RowView) -> None:
     )
 
 
+def _surface_blocking_prompt_alert(*, sup: Supervisor, row: RowView) -> None:
+    note = elide(text=row.note or "foreman blocking prompt open", limit=MAX_REASON_IN_ALERT)
+    sup.alert(
+        repo=row.repo,
+        topic=row.topic,
+        session=row.tmux,
+        pane=None,
+        message=f"foreman blocking prompt open: {note} — inspect that operator surface",
+        condition=_BLOCKING_PROMPT_CONDITION,
+    )
+
+
 def foreman_rows(*, sup: Supervisor, repos: list[str], act: bool) -> list[RowView]:
     rows: list[RowView] = []
     for repo in repos:
         evaluation_row = foreman_evaluation_row(sup=sup, repo=repo, act=act)
         if evaluation_row is not None:
             rows.append(evaluation_row)
+            prompt_row = _blocking_prompt_row(row=evaluation_row)
+            if prompt_row is not None:
+                rows.append(prompt_row)
+                if act:
+                    _surface_blocking_prompt_alert(sup=sup, row=prompt_row)
+            else:
+                _clear_blocking_prompt_alert(sup=sup, repo=repo)
+        else:
+            _clear_blocking_prompt_alert(sup=sup, repo=repo)
         row = foreman_row(repo=repo, now=sup.now)
         if row is None:
             _clear_alert(sup=sup, repo=repo)

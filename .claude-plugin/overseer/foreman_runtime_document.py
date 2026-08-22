@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 import jsonio
 
-__all__: list[str] = ["ForemanDocument", "foreman_document"]
+__all__: list[str] = ["ForemanDocument", "foreman_blocking_prompt_open", "foreman_document"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -82,3 +82,10 @@ def foreman_document(*, payload: dict[str, object]) -> ForemanDocument:
         generation_fingerprint=_digest(value=_generation_basis(payload=payload)),
         monitored_entities=monitored,
     )
+
+
+def foreman_blocking_prompt_open(*, payload: dict[str, object], foreman_topic: str) -> bool:
+    for row in _snapshot_rows(payload=payload):
+        if row.get("topic") == foreman_topic and row.get("picker_open") is True:
+            return True
+    return False

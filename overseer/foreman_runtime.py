@@ -1,4 +1,5 @@
 """Deterministic process wrapper for the per-repo foreman runtime."""
+# livespec-lloc-soft-band-owner: overseer-lixhd3.1
 
 from __future__ import annotations
 
@@ -16,7 +17,11 @@ from foreman_runtime_backoff import (
     auto_resume_interval,
     effective_interval,
 )
-from foreman_runtime_document import ForemanDocument, foreman_document
+from foreman_runtime_document import (
+    ForemanDocument,
+    foreman_blocking_prompt_open,
+    foreman_document,
+)
 from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
 from foreman_runtime_lock import ForemanLock, LockResult
 from foreman_runtime_policy import exit_reason, stable_ticks
@@ -69,6 +74,7 @@ class StepResult:
     exit_reason: str | None
     loop_lapsed: bool
     heartbeat_age_seconds: float | None
+    blocking_prompt_open: bool
     llm_tick_interval_seconds: float
     auto_resume_interval_seconds: float | None
 
@@ -194,6 +200,10 @@ class ForemanRuntime:
             exit_reason=reason,
             loop_lapsed=lapse.stale if lapse is not None else False,
             heartbeat_age_seconds=lapse.age_seconds if lapse is not None else None,
+            blocking_prompt_open=foreman_blocking_prompt_open(
+                payload=document,
+                foreman_topic=canonical_session_name(repo=self.repo),
+            ),
             llm_tick_interval_seconds=interval_seconds,
             auto_resume_interval_seconds=auto_resume_interval_seconds,
         )

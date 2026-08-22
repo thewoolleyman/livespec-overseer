@@ -62,6 +62,15 @@ def write_heartbeat(
     return path
 
 
+def picker_capture(*, ctx: int = 80) -> str:
+    return (
+        "Choose how the foreman should proceed.\n"
+        "❯ 1. Resume the loop\n"
+        "  2. Leave it stopped\n"
+        f"  Opus 4.8 (1M context) | /x/repo | Ctx: {ctx}% left\n"
+    )
+
+
 def make_tick_supervisor(*, tmp_path, fake, repo, now):
     return make_supervisor(
         tmp_path=tmp_path,
@@ -297,3 +306,42 @@ def test_foreman_escalation_authorizes_no_restart_or_keystroke(*, tmp_path):
     assert not fake.has(method="keys")
     assert not fake.has(method="respawn")
     assert not fake.has(method="new")
+
+
+def test_foreman_blocking_prompt_read_only_tick_reports_without_alerting(*, tmp_path):
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    foreman_topic = "repo-foreman"
+    fake = FakeTmux()
+    fake.serve(session=foreman_topic, repo=repo, capture=picker_capture())
+    sup = make_tick_supervisor(tmp_path=tmp_path, fake=fake, repo=repo, now=2000.0)
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=foreman_topic, session=foreman_topic),
+        store_path=sup.store_path,
+        added_at="t",
+    )
+
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        rows = sup.tick(act=False)
+
+    assert any(row.status == "foreman-blocking-prompt" for row in rows)
+    assert "foreman blocking prompt open" not in err.getvalue()
+
+
+def test_foreman_blocking_prompt_clears_when_foreman_returns_idle(*, tmp_path):
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    foreman_topic = "repo-foreman"
+    fake = FakeTmux()
+    fake.serve(session=foreman_topic, repo=repo, capture=picker_capture())
+    sup = make_tick_supervisor(tmp_path=tmp_path, fake=fake, repo=repo, now=2000.0)
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=foreman_topic, session=foreman_topic),
+        store_path=sup.store_path,
+        added_at="t",
+    )
+
+    assert any(row.status == "foreman-blocking-prompt" for row in sup.tick(act=True))
+    fake.panes[foreman_topic] = idle_capture(ctx=80, topic=foreman_topic)
+    rows = sup.tick(act=True)
+
+    assert all(row.status != "foreman-blocking-prompt" for row in rows)
