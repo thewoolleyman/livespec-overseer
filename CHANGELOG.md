@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.27.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.26.2...v1.27.0) (2026-08-22)
+
+
+### Features
+
+* surface final ruling and foreman picker attention ([ed0e655](https://github.com/thewoolleyman/livespec-overseer/commit/ed0e655ee3048fc3684a6c7fca069b4ef64c5e5b))
+
+
+### Bug Fixes
+
+* parse nested dispatch outcomes ([b770647](https://github.com/thewoolleyman/livespec-overseer/commit/b7706478263287c6671d3ef787b00c4cc1d4afac))
+* **prose:** define the foreman plan roster contract ([bc48bdd](https://github.com/thewoolleyman/livespec-overseer/commit/bc48bdde4208e4be9b753894e0f04aa70797f878))
+
 ## [1.26.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.26.1...v1.26.2) (2026-08-22)
 
 
