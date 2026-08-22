@@ -35,3 +35,32 @@ def test_grooming_bindings_reference_shared_prose_when_present() -> None:
 
     for binding in existing:
         assert "prose/grooming.md" in binding.read_text(encoding="utf-8")
+
+
+def test_grooming_prose_names_ledger_projection_and_record_shape_traps() -> None:
+    text = PROSE.read_text(encoding="utf-8")
+    normalized = " ".join(text.split())
+
+    assert "implementation.plugin" in text
+    assert "list-work-items --json" in text
+    assert "Runtime neutrality comes from resolving" in normalized
+    assert "not from hard-coding a substrate command" in normalized
+    assert "five implemented invariants" in normalized
+    assert "split-acceptance-label" in text
+    assert "routing-field" in text
+
+    for trap_text in (
+        "Comments are not in the record",
+        "Records are omitempty-sparse",
+        "`dependencies` is one heterogeneous array",
+        "A bounded query's negative result is a statement about the bound",
+    ):
+        assert trap_text in normalized
+
+    for tell_text in (
+        "Tell: a read-back after a successful comment write reports zero comments",
+        "Tell: a field is absent on a large minority of records",
+        "Tell: every target reads as `None`",
+        "Tell: a surprising absence",
+    ):
+        assert tell_text in normalized
