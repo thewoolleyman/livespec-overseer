@@ -134,10 +134,10 @@ def _ready_uncertifiable_reason(
             "session identity differs from observed identity "
             f"(observed={history.session_identity}; live={session_identity})"
         )
-    elif round_record.at is None:
-        reason = "no supervision round open"
     elif round_record.malformed_reason is not None:
         reason = round_record.malformed_reason
+    elif round_record.at is None:
+        reason = "no supervision round open"
     elif session_identity is None:
         reason = "session identity cannot be determined"
     elif session_identity != round_record.session_identity:
