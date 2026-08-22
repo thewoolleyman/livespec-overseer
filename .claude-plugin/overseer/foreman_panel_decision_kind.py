@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Final
 
 import jsonio
+from foreman_consensus_prompt import REVIEWER_DOSSIER_FIELDS
 
 __all__: list[str] = ["result_decision_kind"]
 
@@ -33,11 +34,18 @@ def reviewer_reports_empty_dossier(*, reviewer: dict[str, object]) -> bool:
     return isinstance(rationale, str) and "dossier is empty" in rationale.lower()
 
 
+def reviewer_dossier_is_empty(
+    *, reviewer_dossier_missing_fields: list[str] | tuple[str, ...]
+) -> bool:
+    return set(REVIEWER_DOSSIER_FIELDS).issubset(reviewer_dossier_missing_fields)
+
+
 def result_decision_kind(
     *,
     reviewers: list[dict[str, object]],
     verdict_reason: str = "",
     missing_request_fields: list[str] | tuple[str, ...] = (),
+    reviewer_dossier_missing_fields: list[str] | tuple[str, ...] = (),
 ) -> str:
     if verdict_reason in TOOLING_VERDICT_REASONS:
         return "tooling_outage"
@@ -47,6 +55,10 @@ def result_decision_kind(
     ):
         return "tooling_outage"
     if verdict_reason == "insufficient_information" and missing_request_fields:
+        return "tooling_outage"
+    if verdict_reason == "insufficient_information" and reviewer_dossier_is_empty(
+        reviewer_dossier_missing_fields=reviewer_dossier_missing_fields
+    ):
         return "tooling_outage"
     if reviewers and all(
         reviewer_reports_empty_dossier(reviewer=reviewer) for reviewer in reviewers
