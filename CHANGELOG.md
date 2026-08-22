@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.2...v1.37.3) (2026-08-22)
+
+
+### Refactoring
+
+* split oversized beside tests ([98b2542](https://github.com/thewoolleyman/livespec-overseer/commit/98b2542684f688b36a77007bae53f33bdc19d43a))
+
 ## [1.37.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.1...v1.37.2) (2026-08-22)
 
 
