@@ -23,19 +23,27 @@ from _supervisor_attention_observe import (
     ObserveRequest,
     observe_liveness_attention,
 )
+from _supervisor_consensus_overdue import (
+    CONSENSUS_OVERDUE_STATUS,
+    ConsensusOverdueRequest,
+    consensus_overdue_decision,
+)
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "CONSENSUS_OVERDUE_STATUS",
     "AttentionDecision",
     "AttentionRequest",
+    "ConsensusOverdueRequest",
     "EscalationExhaustedAlertRequest",
     "LivenessAttention",
     "ObserveRequest",
     "ShellAlertRequest",
     "StarvationAlertRequest",
     "blocked_starvation_decision",
+    "consensus_overdue_decision",
     "escalation_exhausted_note",
     "observe_liveness_attention",
     "pre_busy_attention_decision",
