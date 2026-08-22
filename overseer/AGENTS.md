@@ -1062,6 +1062,24 @@ for the marker's edge-triggered lifecycle.
   match set BOTH ways and compare: close numbers mean genuine re-rendering, while a
   large gap means the tail carries the signal and the RAW count is nearer the truth
   than the collapsed one. Truncate only for display, after counting.
+- **Respawn-cycle log verbs are not just `restarted`.** A completed cycle always
+  consumes a fresh `ready` declaration, but there are two success endings. The clean
+  submit path emits `consumed ready declaration for <repo>::<topic>` and then
+  `restarted <repo>::<topic> (pane <target>)` (or `restarted (codex) ...` for Codex).
+  The Claude resume-pending path is different: the fresh TUI came up, the resume
+  line was pasted, but the Enter was dropped. `_do_restart` deliberately logs no
+  clean `restarted` line there; it keeps the round open with `resume_pending`, and
+  the retry path completes the cycle later by emitting `consumed ready declaration
+  for <repo>::<topic>` and `restart resume submitted for <repo>::<topic> (pane
+  <target>)`. Therefore a filter on `restarted` alone under-reports respawns, and
+  the failure direction is dangerous: it makes a successful respawn look like no
+  respawn happened. For a live-cycle audit, collapse full lines first, then count a
+  cycle only when a `consumed ready declaration` line is paired for the same
+  repo/topic/pane round with either a clean `restarted` line or a
+  `restart resume submitted` line. The discriminating control is the `consumed ready
+  declaration`: `restart resume submitted` without that paired consumption, or any
+  unrelated tick/status/render line, is not a completed respawn cycle and must not
+  be counted.
 
 ## Build / toolchain facts
 
