@@ -424,6 +424,79 @@ def test_structurally_empty_request_refuses_before_reviewer_spend(*, monkeypatch
     assert calls == []
 
 
+def test_missing_blocked_question_refuses_before_reviewer_spend(*, monkeypatch, tmp_path: Path):
+    calls: list[dict[str, object]] = []
+    partial_request = request(repo=tmp_path / "repo")
+    partial_request["blocked_question"] = ""
+
+    def fail_if_called(
+        *,
+        request: dict[str, object],
+        dossier_dir: Path,
+        reviewer_command: list[str] | None,
+        reviewer_timeout_seconds: float,
+    ) -> dict[str, object]:
+        calls.append(request)
+        return {"reviewers": []}
+
+    monkeypatch.setattr(foreman_panel, "reviewer_responses", fail_if_called)
+
+    result = foreman_panel.convene_panel(
+        request=partial_request,
+        state_dir=tmp_path / "state",
+        verdict_path=tmp_path / "verdict.json",
+        reviewer_command=[sys.executable, "-c", "pass"],
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "missing_required_request_fields"
+    assert result["missing_fields"] == ["blocked_question"]
+    assert calls == []
+
+
+def test_missing_only_repo_context_is_allowed_to_reviewer_spend(*, monkeypatch, tmp_path: Path):
+    calls: list[dict[str, object]] = []
+    thin_request = request(repo=tmp_path / "repo")
+    thin_request["repo_context"] = ""
+
+    def fake_reviewer_responses(
+        *,
+        request: dict[str, object],
+        dossier_dir: Path,
+        reviewer_command: list[str] | None,
+        reviewer_timeout_seconds: float,
+    ) -> dict[str, object]:
+        calls.append(request)
+        return {
+            "reviewers": [
+                {
+                    "reviewer_id": reviewer_id,
+                    "verdict": "insufficient-information",
+                    "action": {
+                        "action_id": "human_valve",
+                        "params": {"reason": "insufficient_information"},
+                    },
+                    "rationale": "No repository context was provided.",
+                }
+                for reviewer_id in ("fable", "opus", "gpt-sol")
+            ]
+        }
+
+    monkeypatch.setattr(foreman_panel, "reviewer_responses", fake_reviewer_responses)
+
+    result = foreman_panel.convene_panel(
+        request=thin_request,
+        state_dir=tmp_path / "state",
+        verdict_path=tmp_path / "verdict.json",
+        reviewer_command=[sys.executable, "-c", "pass"],
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "insufficient_information"
+    assert result["decision_kind"] == "tooling_outage"
+    assert calls == [thin_request]
+
+
 def test_convening_pins_reviewer_identity_over_self_reported_body(*, tmp_path: Path):
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -546,6 +619,45 @@ def test_empty_dossier_reviewer_consensus_is_tooling_outage():
         foreman_panel.result_decision_kind(
             reviewers=reviewers,
             verdict_reason="insufficient_information",
+        )
+        == "tooling_outage"
+    )
+
+
+def test_measured_thin_dossier_classification_does_not_need_matching_rationale():
+    assert (
+        foreman_panel.result_decision_kind(
+            reviewers=[
+                {
+                    "reviewer_id": "fable",
+                    "verdict": "insufficient-information",
+                    "action": {
+                        "action_id": "human_valve",
+                        "params": {"reason": "insufficient_information"},
+                    },
+                    "rationale": "There is no repository context here to inspect.",
+                },
+                {
+                    "reviewer_id": "opus",
+                    "verdict": "insufficient-information",
+                    "action": {
+                        "action_id": "human_valve",
+                        "params": {"reason": "insufficient_information"},
+                    },
+                    "rationale": "I cannot answer because the supporting dossier is absent.",
+                },
+                {
+                    "reviewer_id": "gpt-sol",
+                    "verdict": "insufficient-information",
+                    "action": {
+                        "action_id": "human_valve",
+                        "params": {"reason": "insufficient_information"},
+                    },
+                    "rationale": "The request lacks the evidence needed for review.",
+                },
+            ],
+            verdict_reason="insufficient_information",
+            missing_request_fields=["repo_context"],
         )
         == "tooling_outage"
     )

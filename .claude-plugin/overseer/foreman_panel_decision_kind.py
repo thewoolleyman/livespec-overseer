@@ -33,13 +33,20 @@ def reviewer_reports_empty_dossier(*, reviewer: dict[str, object]) -> bool:
     return isinstance(rationale, str) and "dossier is empty" in rationale.lower()
 
 
-def result_decision_kind(*, reviewers: list[dict[str, object]], verdict_reason: str = "") -> str:
+def result_decision_kind(
+    *,
+    reviewers: list[dict[str, object]],
+    verdict_reason: str = "",
+    missing_request_fields: list[str] | tuple[str, ...] = (),
+) -> str:
     if verdict_reason in TOOLING_VERDICT_REASONS:
         return "tooling_outage"
     if any(
         reviewer_failure_reason(reviewer=reviewer) in TOOLING_FAILURE_REASONS
         for reviewer in reviewers
     ):
+        return "tooling_outage"
+    if verdict_reason == "insufficient_information" and missing_request_fields:
         return "tooling_outage"
     if reviewers and all(
         reviewer_reports_empty_dossier(reviewer=reviewer) for reviewer in reviewers
