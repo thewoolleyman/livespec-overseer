@@ -30,6 +30,13 @@ def _snapshot(*, path: Path, repo: Path, rows: list[object] | object) -> None:
     )
 
 
+def _epic_anchor(*, repo: Path, topic: str, anchor: str) -> None:
+    (repo / "plan" / topic / "epic.md").write_text(
+        f"**Ledger anchor:** epic **`{anchor}`**\n",
+        encoding="utf-8",
+    )
+
+
 def test_absent_plan_directory_emits_empty_roster(*, tmp_path):
     roster = foreman_plan_roster.compose_roster(
         repo=tmp_path / "repo",
@@ -87,8 +94,46 @@ def test_daemon_row_edges_are_reported_without_adopting_foreign_topics(*, tmp_pa
     assert rows["alpha"]["emoji"] == "⚪"
     assert rows["beta"]["name_identity_verdict"] == "daemon_tmux_name_mismatch"
     assert rows["beta"]["emoji"] == "❗"
-    assert rows["gamma"]["emoji"] == "⚪"
+    assert rows["gamma"]["session_state"] == "picker-parked"
+    assert rows["gamma"]["emoji"] == "🔴"
     assert rows["delta"]["emoji"] == "⚪"
+
+
+def test_blocked_human_renders_blocked_even_with_work_in_flight(*, tmp_path):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
+    _plan(repo=repo, topic="gamma")
+    _epic_anchor(repo=repo, topic="gamma", anchor="overseer-gamma")
+    journal.parent.mkdir(parents=True)
+    journal.write_text(
+        json.dumps(
+            {
+                "stage": "dispatch-id",
+                "work_item_id": "overseer-gamma.1",
+                "dispatch_id": "remote-run",
+                "at": "2026-08-22T09:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _snapshot(
+        path=snapshot_path,
+        repo=repo,
+        rows=[{"repo": str(repo), "topic": "gamma", "status": "blocked:human", "tmux": "gamma"}],
+    )
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["gamma"],
+        journal_path=journal,
+    )
+
+    assert roster["rows"][0]["session_state"] == "picker-parked"
+    assert roster["rows"][0]["work_state"] == "work-in-flight"
+    assert roster["rows"][0]["emoji"] == "🔴"
 
 
 def test_picker_session_state_and_legacy_anchor_work_state_edges(*, tmp_path):

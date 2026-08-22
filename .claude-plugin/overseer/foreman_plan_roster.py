@@ -51,7 +51,6 @@ SESSION_STATES = (
 WORKING_STATUSES = frozenset({"working", "winding-down", "restarting", "settling"})
 IDLE_STATUSES = frozenset(
     {
-        "blocked:human",
         "idle",
         "idle-with-context-left",
         "warned",
@@ -59,6 +58,7 @@ IDLE_STATUSES = frozenset(
 )
 PICKER_PARKED_STATUSES = frozenset(
     {
+        "blocked:human",
         "parked-delivery",
         "picker-stalled",
     }
