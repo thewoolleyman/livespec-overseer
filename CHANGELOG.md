@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.4...v1.41.5) (2026-08-22)
+
+
+### Bug Fixes
+
+* expose missing added_at mapping rows ([13446e6](https://github.com/thewoolleyman/livespec-overseer/commit/13446e65fe6955d2325f8042a90d4a4740844f9b))
+
 ## [1.41.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.3...v1.41.4) (2026-08-22)
 
 
