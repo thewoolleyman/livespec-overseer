@@ -298,6 +298,39 @@ def journal_record(*, work_item_id: str = "overseer-a") -> dict[str, object]:
     }
 
 
+def host_published_journal_records(
+    *, work_item_id: str = "overseer-hgq4wi.1"
+) -> list[dict[str, object]]:
+    return [
+        {
+            "at": "2026-08-19T10:27:16Z",
+            "stage": "outcome",
+            "outcome": {
+                "work_item_id": work_item_id,
+                "status": "failed",
+                "stage": "host-only-refused",
+                "pr_number": None,
+                "merge_sha": None,
+                "fabro_run_id": "01HOSTPUB",
+                "publish_branch": "feat/overseer-hgq4wi.1",
+            },
+        },
+        {
+            "at": "2026-08-19T10:41:46Z",
+            "stage": "outcome",
+            "outcome": {
+                "work_item_id": work_item_id,
+                "status": "failed",
+                "stage": "fabro-run",
+                "pr_number": None,
+                "merge_sha": None,
+                "fabro_run_id": "01HOSTPUB",
+                "publish_branch": "feat/overseer-hgq4wi.1",
+            },
+        },
+    ]
+
+
 def journal_document(*, repo: Path, records: list[dict[str, object]]) -> dict[str, object]:
     document = base_document(repo=repo)
     document["sources"] = {
@@ -319,6 +352,20 @@ def reconcile_proposal(*, repo: Path, record: dict[str, object]) -> dict[str, ob
         "record": record,
     }
     proposal["dispatcher"] = {"path": str(repo / ".orchestrator" / "bin" / "dispatcher.py")}
+    return proposal
+
+
+def host_published_reconcile_proposal(
+    *, repo: Path, record: dict[str, object]
+) -> dict[str, object]:
+    proposal = reconcile_proposal(repo=repo, record=record)
+    proposal["forge"] = {
+        "merged_pull_request": {
+            "number": 1220,
+            "merge_sha": "6ea480633d1f3e4f4d8f0abf56e86071f1e5f44b",
+            "head_ref": "feat/overseer-hgq4wi.1",
+        }
+    }
     return proposal
 
 
@@ -1183,6 +1230,111 @@ def test_dispatch_journal_reconcile_merged_is_the_only_typed_triage_command(*, t
             "--json",
         ]
     ]
+
+
+def test_host_published_failed_outcome_reconciles_from_forge_evidence(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    dispatcher = repo / ".orchestrator" / "bin" / "dispatcher.py"
+    dispatcher.parent.mkdir(parents=True)
+    dispatcher.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    records = host_published_journal_records()
+    measured = [
+        record
+        for record in records
+        if record.get("stage") == "outcome"
+        and isinstance(record.get("outcome"), dict)
+        and record["outcome"].get("work_item_id") == "overseer-hgq4wi.1"
+    ]
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=host_published_reconcile_proposal(repo=repo, record=records[1]),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: journal_document(
+                repo=Path(repo), records=records
+            ),
+            run=lambda *, argv: calls.append(argv) or 0,
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert [record["at"] for record in measured] == [
+        "2026-08-19T10:27:16Z",
+        "2026-08-19T10:41:46Z",
+    ]
+    assert result["outcome"] == "acted"
+    assert result["reason"] == "reconciled_merged_dispatch"
+    assert calls == [
+        [
+            sys.executable,
+            str(dispatcher),
+            "reconcile-merged",
+            "--repo",
+            str(repo),
+            "--item",
+            "overseer-hgq4wi.1",
+            "--json",
+        ]
+    ]
+
+
+def test_host_published_claim_abandonment_reason_names_dispatcher_view(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    records = host_published_journal_records()
+    abandonment = {
+        "stage": "dispatch-claim-abandoned",
+        "work_item_id": "overseer-hgq4wi.1",
+        "status": "active",
+        "reason": "non_green_terminal_outcome",
+    }
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=host_published_reconcile_proposal(repo=repo, record=abandonment),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: journal_document(
+                repo=Path(repo), records=[*records, abandonment]
+            ),
+            run=lambda *, argv: calls.append(argv) or 0,
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "dispatcher_saw_no_green_outcome"
+    assert calls == []
+
+
+def test_host_published_reconcile_refuses_unrelated_merged_pull_request(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    records = host_published_journal_records()
+    proposal = host_published_reconcile_proposal(repo=repo, record=records[1])
+    proposal["forge"] = {
+        "merged_pull_request": {
+            "number": 1220,
+            "merge_sha": "6ea480633d1f3e4f4d8f0abf56e86071f1e5f44b",
+            "head_ref": "feat/unrelated-branch",
+        }
+    }
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=proposal,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: journal_document(
+                repo=Path(repo), records=records
+            ),
+            run=lambda *, argv: calls.append(argv) or 0,
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "forge_evidence_not_traced_to_dispatch"
+    assert calls == []
 
 
 def test_dispatch_journal_triage_refuses_stale_ambiguous_or_unsupported_records(*, tmp_path):

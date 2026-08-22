@@ -142,7 +142,9 @@ def newest_project_model_for_test(*, home: Path, project: str) -> str | None:
     """Test-only mirror of the rejected newest-in-project heuristic."""
 
     transcripts = tuple((home / ".claude" / "projects" / project).glob("*.jsonl"))
-    newest = max(transcripts, key=lambda path: path.stat().st_mtime_ns)
+    _index, newest = max(
+        enumerate(transcripts), key=lambda item: (item[1].stat().st_mtime_ns, item[0])
+    )
     return _model_from_transcript(path=newest)
 
 
