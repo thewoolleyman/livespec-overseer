@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Final, Protocol, cast
 
 import jsonio
 from foreman_act_journal import journal_reconcile_command
@@ -26,7 +26,20 @@ __all__: list[str] = [
     "prepare_consensus_action",
 ]
 
-_HARD_FLOORS = frozenset({"truly-unresolvable", "human-gated-by-design"})
+_LOCAL_FLOORS: Final[frozenset[str]] = frozenset()
+_FOREIGN_FLOORS: Final[frozenset[str]] = frozenset({"truly-unresolvable", "human-gated-by-design"})
+FOREIGN_FLOOR_RELAXATION_RATIFIED: Final[bool] = False
+"""Foreign floor relaxation is unratified.
+
+Tracked by bd-ib-8jv8 for livespec-orchestrator-beads-fabro
+SPECIFICATION/contracts.md section "Every needs-human escalation still reaches
+a human", and livespec-38bk for livespec SPECIFICATION/spec.md section "Full
+autonomy and the decision rule". Flipping this requires citing ratified
+versions in both owning repos.
+
+Owning orchestrator section: "Every needs-human escalation still reaches a human".
+Owning livespec section: SPECIFICATION/spec.md section "Full autonomy and the decision rule".
+"""
 
 
 class ConsensusPanel(Protocol):
@@ -225,7 +238,9 @@ def _pre_evidence_refusal(
             reason = "unrecognized_foreman_valve_disposition"
         return _refused(action_id=action_id, reason=reason)
     category = _valve_category(proposal=proposal)
-    if category in _HARD_FLOORS:
+    if category in _FOREIGN_FLOORS and not FOREIGN_FLOOR_RELAXATION_RATIFIED:
+        return _refused(action_id=action_id, reason=f"hard_floor:{category}")
+    if category in _LOCAL_FLOORS and disposition.get("full_autonomy") is not True:
         return _refused(action_id=action_id, reason=f"hard_floor:{category}")
     return None
 

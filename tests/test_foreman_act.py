@@ -2145,6 +2145,160 @@ def test_recorded_next_action_does_not_relax_a_hard_floor(*, tmp_path):
     assert result["reason"] == "hard_floor:human-gated-by-design"
 
 
+def test_consensus_floor_constants_split_local_empty_from_foreign():
+    act_consensus = module("foreman_act_consensus")
+    source = (OVERSEER_DIR / "foreman_act_consensus.py").read_text(encoding="utf-8")
+
+    assert frozenset() == act_consensus._LOCAL_FLOORS
+    assert (
+        frozenset({"truly-unresolvable", "human-gated-by-design"}) == act_consensus._FOREIGN_FLOORS
+    )
+    assert act_consensus.FOREIGN_FLOOR_RELAXATION_RATIFIED is False
+    assert "_HARD_FLOORS" not in source
+    assert "bd-ib-8jv8" in source
+    assert "livespec-38bk" in source
+    assert "SPECIFICATION/contracts.md" in source
+    assert "Every needs-human escalation still reaches a human" in source
+    assert 'SPECIFICATION/spec.md section "Full autonomy and the decision rule"' in source
+
+
+def test_foreign_floor_refuses_under_full_autonomy_true_without_panel_or_journal(*, tmp_path):
+    act_consensus = module("foreman_act_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    proposal = blocked_answer_proposal(repo=repo)
+    proposal["human_valve"] = {"category": "human-gated-by-design"}
+
+    action, refusal = act_consensus.prepare_consensus_action(
+        action_id="blocked_session_answer",
+        proposal=proposal,
+        disposition={
+            "effective": "consensus",
+            "full_autonomy": True,
+            "decision_rule": "majority",
+        },
+        consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+            "foreign floor must refuse before panel"
+        ),
+        append_journal=lambda *, repo, record: pytest.fail(
+            "foreign floor must refuse before journal"
+        ),
+    )
+
+    assert action is None
+    assert refusal == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "hard_floor:human-gated-by-design",
+    }
+
+
+def test_local_floor_refuses_under_full_autonomy_false_without_panel_or_journal(
+    *, tmp_path, monkeypatch
+):
+    act_consensus = module("foreman_act_consensus")
+    monkeypatch.setattr(act_consensus, "_LOCAL_FLOORS", frozenset({"local-owned"}))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    proposal = blocked_answer_proposal(repo=repo)
+    proposal["human_valve"] = {"category": "local-owned"}
+
+    action, refusal = act_consensus.prepare_consensus_action(
+        action_id="blocked_session_answer",
+        proposal=proposal,
+        disposition={
+            "effective": "consensus",
+            "full_autonomy": False,
+            "decision_rule": "unanimous",
+        },
+        consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+            "local floor must refuse before panel"
+        ),
+        append_journal=lambda *, repo, record: pytest.fail(
+            "local floor must refuse before journal"
+        ),
+    )
+
+    assert action is None
+    assert refusal == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "hard_floor:local-owned",
+    }
+
+
+def test_cardinal_restart_rule_has_no_consensus_actuator_authorization_path():
+    act_consensus = module("foreman_act_consensus")
+
+    for action_id in act_consensus.ACTION_IDS:
+        assert "restart" not in action_id
+
+
+def test_consensus_actuator_only_mutates_through_authorized_action_id(*, tmp_path):
+    act_consensus = module("foreman_act_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    proposal = blocked_answer_proposal(repo=repo)
+    proposal["human_valve"] = {"category": "ordinary"}
+    records: list[dict[str, object]] = []
+
+    action, refusal = act_consensus.prepare_consensus_action(
+        action_id="blocked_session_answer",
+        proposal=proposal,
+        disposition={
+            "effective": "consensus",
+            "full_autonomy": True,
+            "decision_rule": "majority",
+        },
+        consensus_panel=lambda *,
+        request,
+        responses,
+        decision_rule=None: blocked_answer_majority_panel_result(),
+        append_journal=lambda *, repo, record: records.append(record),
+    )
+
+    assert refusal is None
+    assert action == "blocked_session_answer"
+    assert len(records) == 1
+    assert records[0]["authorized_action_id"] == "blocked_session_answer"
+
+
+def test_journal_before_act_still_refuses_under_full_autonomy_true(*, tmp_path):
+    act_consensus = module("foreman_act_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    proposal = blocked_answer_proposal(repo=repo)
+    proposal["human_valve"] = {"category": "ordinary"}
+
+    def fail_append(*, repo: Path, record: dict[str, object]) -> None:
+        raise OSError("disk full")
+
+    action, refusal = act_consensus.prepare_consensus_action(
+        action_id="blocked_session_answer",
+        proposal=proposal,
+        disposition={
+            "effective": "consensus",
+            "full_autonomy": True,
+            "decision_rule": "majority",
+        },
+        consensus_panel=lambda *,
+        request,
+        responses,
+        decision_rule=None: blocked_answer_majority_panel_result(),
+        append_journal=fail_append,
+    )
+
+    assert action is None
+    assert refusal == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "journal_append_failed",
+    }
+
+
 def test_recorded_next_action_refuses_a_payload_missing_its_source(*, tmp_path):
     foreman_act = module("foreman_act")
     repo = tmp_path / "repo"
