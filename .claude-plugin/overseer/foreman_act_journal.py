@@ -1,4 +1,4 @@
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.6
+# livespec-lloc-soft-band-owner: overseer-hgq4wi
 """Dispatch-journal triage validation for the foreman actuator."""
 
 from __future__ import annotations
