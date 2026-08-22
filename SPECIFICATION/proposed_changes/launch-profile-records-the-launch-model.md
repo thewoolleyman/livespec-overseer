@@ -68,9 +68,31 @@ THE CONCEDED CASE SHOULD BE STATED EXPLICITLY RATHER THAN LEFT AS A SILENT OUTCO
 current model is expressed in no permitted source, the specification SHOULD say that the daemon
 re-asserts the recorded launch model, that this is deliberate, and that the divergence MUST be
 SURFACED. It MUST NOT be silently honored and MUST NOT be silently lost. The existing
-mismatch-detection signal is the surfacing mechanism and needs no new machinery: clause (ii) already
-permits the statusline for exactly that purpose, and the shipped mismatch veto already skips a
-restart whose rendered model disagrees with the recorded profile.
+mismatch-detection signal is the intended surfacing mechanism: clause (ii) already permits the
+statusline for exactly that purpose, and the shipped mismatch veto already skips a restart whose
+rendered model disagrees with the recorded profile.
+
+THAT MECHANISM IS NOT YET SUFFICIENT ON ITS OWN, AND THIS PROPOSAL SAYS SO RATHER THAN RATIFYING A
+CLAIM ITS AUTHOR KNOWS TO BE TOO STRONG. An earlier draft of this section said the surfacing needed
+NO new machinery. Measured 2026-08-22 00:47Z across the ten profile-bearing mapping rows, that is
+wrong by one hole: eight rendered a model that agreed with the recorded baseline, none disagreed,
+and TWO were UNREADABLE -- not through the truncation regime this epic already documents, but
+because an OVERLAY covered the statusline, at pane width 318 where truncation is impossible. The
+restart path reads a live capture at that moment, so an unreadable statusline yields no
+disagreement, and therefore no veto AND NO ALERT. The silence is indistinguishable from agreement.
+
+That fail-soft behaviour is itself correct and MUST be preserved -- absent is not a mismatch and MUST
+NOT skip a restart. The gap is that the daemon cannot report the difference between having read the
+statusline and agreed, and not having read it at all. The overlay most likely to be present at
+restart time is the one that appears at session wind-down, which is the same moment the restart
+interlock fires, so the blind state clusters at exactly the instant the surfacing is owed.
+
+WHAT THIS MEANS FOR RATIFICATION. The concession in this proposal is sound only if the surfacing
+obligation is real, so the specification SHOULD state the obligation as an obligation and NOT rest it
+on the current implementation being already adequate. The implementation gap is filed separately as
+`overseer-zkwf` and does not belong in this proposal. A revise pass MAY reasonably require that item
+closed before this concession takes effect; that is a ratification choice and this proposal does not
+presume it.
 
 CLAUSE (ii) SHOULD BE LEFT INTACT. This proposal deliberately does not reopen it.
 
