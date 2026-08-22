@@ -233,7 +233,7 @@ def test_stale_foreman_heartbeat_alert_is_edge_triggered_and_rearmed(*, tmp_path
         write_heartbeat(repo=repo, tick_interval_seconds=600)
         _ = sup.tick(act=True)
 
-    surfaced = [line for line in err.getvalue().splitlines() if "overseer[SURFACE]" in line]
+    surfaced = err.getvalue().splitlines()
     assert len(surfaced) == 2
     assert all("foreman heartbeat stale" in line for line in surfaced)
 
@@ -282,7 +282,7 @@ def test_foreman_escalation_alert_is_edge_triggered_and_rearmed(*, tmp_path):
         write_foreman_escalation(repo=repo, topic=topic, reason="pick one")
         assert sup.evaluate(track=track, act=True).status == "foreman-escalated"
 
-    surfaced = [line for line in err.getvalue().splitlines() if "overseer[SURFACE]" in line]
+    surfaced = err.getvalue().splitlines()
     assert len(surfaced) == 2
     assert all("foreman escalation needs human decision" in line for line in surfaced)
 

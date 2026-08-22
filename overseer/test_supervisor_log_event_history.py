@@ -11,6 +11,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 import contextlib
 import datetime
 import io as _io
+import json
 
 import pytest
 import registry
@@ -51,11 +52,11 @@ def test_malformed_state_alert_is_edge_triggered_while_danger_repeats(*, tmp_pat
         for _ in range(3):
             assert sup.evaluate(track=track, act=True).status == "danger"
 
-    surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
-    malformed = [ln for ln in surfaced if "MALFORMED state file" in ln]
-    not_responding = [ln for ln in surfaced if "NOT RESPONDING" in ln]
-    assert len(malformed) == 1, surfaced
-    assert len(not_responding) == 1, surfaced
+    events = [json.loads(line) for line in err.getvalue().splitlines()]
+    malformed = [event for event in events if "MALFORMED state file" in str(event["message"])]
+    not_responding = [event for event in events if "NOT RESPONDING" in str(event["message"])]
+    assert len(malformed) == 1, events
+    assert len(not_responding) == 1, events
 
 
 def test_log_lines_are_timestamped(*, tmp_path):
@@ -71,8 +72,8 @@ def test_log_lines_are_timestamped(*, tmp_path):
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-    line = next(ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln)
-    stamp = line.split(" overseer[SURFACE]")[0]
+    event = json.loads(err.getvalue().splitlines()[0])
+    stamp = str(event["ts"])
     # Parses as the ISO-8601 instant the daemon stamps its table with.
     assert datetime.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 

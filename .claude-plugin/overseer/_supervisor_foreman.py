@@ -221,13 +221,13 @@ def _clear_blocking_prompt_alert(*, sup: Supervisor, repo: str) -> None:
 
 
 def _surface_alert(*, sup: Supervisor, row: RowView) -> None:
-    note = elide(text=row.note or "foreman heartbeat stale", limit=MAX_REASON_IN_ALERT)
+    note = row.note or "foreman heartbeat stale"
     sup.alert(
         repo=row.repo,
         topic=row.topic,
         session=row.tmux,
         pane=None,
-        message=f"foreman heartbeat stale: {note} — inspect that operator surface",
+        message=f"{note} — inspect that operator surface",
         condition=_ALERT_CONDITION,
     )
 

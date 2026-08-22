@@ -2,6 +2,7 @@
 
 import contextlib
 import io as _io
+import json
 
 import _supervisor_config
 import pytest
@@ -48,7 +49,8 @@ def test_low_context_settling_past_bound_is_attention_not_green(*, tmp_path, mon
     assert "settling 0m" in (stuck.note or "")
     assert supervisor.needs_attention(row=stuck) is True
     assert "settling stuck (0m)" in err.getvalue()
-    assert err.getvalue().count("overseer[SURFACE]") == 1
+    events = [json.loads(line) for line in err.getvalue().splitlines()]
+    assert sum(1 for event in events if event["severity"] == "alert") == 1
     assert again.status == "settling-stuck"
     assert not fake.has(method="paste")
     assert not fake.has(method="respawn")

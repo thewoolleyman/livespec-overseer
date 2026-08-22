@@ -61,6 +61,7 @@ work (overseer-bg2.3). Import a constant FROM the module that defines it, never 
 the `supervisor` facade: a facade re-export can be monkeypatched successfully while the
 reader here keeps its own binding.
 """
+# livespec-lloc-soft-band-owner: overseer-temi26.2
 
 from __future__ import annotations
 
@@ -69,7 +70,7 @@ import shutil
 import sys
 import time
 import uuid
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO
@@ -240,19 +241,49 @@ class Supervisor:
     # Diagnostics.
     # ----------------------------------------------------------------- #
 
-    def log(self, *, message: str) -> None:
-        _supervisor_diagnostics.log(message=message)
+    def log(
+        self,
+        *,
+        message: str,
+        event: str = "daemon-log",
+        repo: str | None = None,
+        topic: str | None = None,
+        fields: Mapping[str, object] | None = None,
+    ) -> None:
+        _supervisor_diagnostics.log(
+            sup=self,
+            message=message,
+            event=event,
+            repo=repo,
+            topic=topic,
+            fields=fields,
+        )
 
     def log_claude_build(self, *, phase: str) -> None:
         _supervisor_diagnostics.log_claude_build(sup=self, phase=phase)
 
-    def surface(self, *, message: str) -> None:
+    def surface(
+        self,
+        *,
+        message: str,
+        event: str = "daemon-alert",
+        repo: str | None = None,
+        topic: str | None = None,
+        fields: Mapping[str, object] | None = None,
+    ) -> None:
         """Surface a DAEMON-level alert to the operator (stderr; the bottom pane reads it).
 
         For anything scoped to a TRACK, use :meth:`alert` instead — it guarantees the
         tmux coordinates the operator needs in order to act.
         """
-        _supervisor_diagnostics.surface(message=message)
+        _supervisor_diagnostics.surface(
+            sup=self,
+            message=message,
+            event=event,
+            repo=repo,
+            topic=topic,
+            fields=fields,
+        )
 
     def alert(
         self,

@@ -34,7 +34,7 @@ def test_blocked_alerts_escalate_by_declaration_age_band(*, tmp_path, monkeypatc
         for age in ages:
             clock["t"] = 1000.0 + age
             assert sup.evaluate(track=track, act=True).status == "blocked:human"
-    lines = [line for line in err.getvalue().splitlines() if "overseer[SURFACE]" in line]
+    lines = err.getvalue().splitlines()
     labels = [line.split("blocked on human (")[1].split("):")[0] for line in lines]
     assert labels == ["0m", "4h", "24h", "48h"]
 
@@ -46,7 +46,7 @@ def test_blocked_alerts_escalate_by_declaration_age_band(*, tmp_path, monkeypatc
         assert sup.evaluate(track=track, act=True).status == "blocked:human"
         assert restarted.evaluate(track=track, act=True).status == "blocked:human"
         assert restarted.evaluate(track=track, act=True).status == "blocked:human"
-    lines = [line for line in err.getvalue().splitlines() if "overseer[SURFACE]" in line]
+    lines = err.getvalue().splitlines()
     assert len(lines) == 2
     assert "blocked on human (0m):" in lines[0]
     assert "blocked on human (48h):" in lines[1]

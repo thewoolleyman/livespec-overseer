@@ -1,5 +1,7 @@
 """Regression tests for overseerd's native daemon log."""
 
+import json
+
 import streams
 
 from overseer import daemon
@@ -24,3 +26,24 @@ def test_overseerd_opens_native_daemon_log_without_shell_redirect(*, tmp_path, m
     assert daemon.main(argv=[]) == 0
     assert log_path.is_file()
     assert "daemon event from bare launch\n" in log_path.read_text(encoding="utf-8")
+
+
+def test_overseerd_open_event_is_structured(*, tmp_path, monkeypatch):
+    """The first daemon-log line is part of the event stream, not a prose preamble."""
+    log_path = tmp_path / "tmp" / "overseer" / "daemon.log"
+
+    def _fake_run(*, warn_percent=None):
+        del warn_percent
+        return 0
+
+    monkeypatch.setattr(daemon, "_default_daemon_log_path", lambda: log_path, raising=False)
+    monkeypatch.setattr(daemon.supervisor, "run_daemon", _fake_run)
+
+    assert daemon.main(argv=[]) == 0
+    lines = log_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    event = json.loads(lines[0])
+    assert event["event"] == "daemon-log-opened"
+    assert event["message"] == "daemon log opened"
+    assert event["daemon_instance_id"] == "unknown"
+    assert event["tick_generation"] == 0
