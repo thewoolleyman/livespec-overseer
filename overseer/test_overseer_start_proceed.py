@@ -1,11 +1,19 @@
 """Proceed-path tests for overseer-start."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 from test_overseer_start import _FakeSupervisor, _in_claude_tmux, _kinds, _load
 
 __all__: list[str] = []
+
+
+@dataclass(kw_only=True)
+class FakePaneGeometry:
+    pane: str
+    top: int
+    height: int
 
 
 @pytest.fixture(autouse=True)
@@ -27,12 +35,26 @@ class FakeLayout:
     of that Protocol: a launcher double never has to pretend it can paste.
     """
 
-    def __init__(self, *, titles=None, split_result="%77", resolves_title=True):
+    def __init__(
+        self,
+        *,
+        titles=None,
+        split_result="%77",
+        resolves_title=True,
+        geometries=None,
+    ):
         self.titles = list(titles or [])
         self.split_result = split_result
         # False models a pane whose title tmux cannot read back — the fail-soft
         # path where the daemon pane exists but never gets its height.
         self.resolves_title = resolves_title
+        self.geometries = list(
+            geometries
+            or [
+                FakePaneGeometry(pane=split_result, top=0, height=20),
+                FakePaneGeometry(pane="%9", top=20, height=10),
+            ]
+        )
         self.calls = []
 
     def window_pane_titles(self, *, pane):
@@ -60,7 +82,11 @@ class FakeLayout:
         self.calls.append(("pane_by_title", pane, title))
         if not self.resolves_title:
             return None
-        return "%77" if title in self.titles else None
+        return self.split_result if title in self.titles else None
+
+    def window_pane_geometries(self, *, pane):
+        self.calls.append(("window_pane_geometries", pane))
+        return list(self.geometries)
 
     def set_pane_height_percent(self, *, pane, percent):
         self.calls.append(("set_pane_height_percent", pane, percent))
@@ -77,12 +103,13 @@ def test_splits_a_daemon_pane_and_gives_it_its_height(*, monkeypatch, tmp_path):
 
     assert rc == 0
     assert _kinds(layout=layout) == [
-        "window_pane_titles",
+        "pane_by_title",
         "split_window_top",
         "set_pane_title",
         "pane_exists",
         "select_layout_even",
         "pane_by_title",
+        "window_pane_geometries",
         "set_pane_height_percent",
     ]
     # The split runs in the core repo root, and the daemon pane gets the title the
@@ -90,7 +117,7 @@ def test_splits_a_daemon_pane_and_gives_it_its_height(*, monkeypatch, tmp_path):
     assert layout.calls[1][2] == str(tmp_path)
     assert "runtime/venv/bin/overseerd" in layout.calls[1][3]
     assert layout.calls[2][2] == mod._DAEMON_PANE_TITLE
-    assert layout.calls[6][2] == mod._DAEMON_PANE_HEIGHT_PERCENT
+    assert layout.calls[7][2] == mod._DAEMON_PANE_HEIGHT_PERCENT
 
 
 def test_creates_the_daemon_marker_directory_under_the_core_root(*, monkeypatch, tmp_path):
@@ -140,6 +167,57 @@ def test_is_idempotent_when_the_daemon_pane_already_exists(*, monkeypatch, tmp_p
     assert "split_window_top" not in _kinds(layout=layout)
     assert "set_pane_height_percent" in _kinds(layout=layout)
     assert "already present" in capsys.readouterr().err
+
+
+def test_existing_daemon_pane_is_verified_as_top_by_id_and_geometry(*, monkeypatch, tmp_path):
+    """A titled pane is only accepted when its pane id is the top pane of two."""
+    mod = _load()
+    _in_claude_tmux(monkeypatch=monkeypatch)
+    layout = FakeLayout(
+        titles=[mod._DAEMON_PANE_TITLE, "operator"],
+        geometries=[
+            FakePaneGeometry(pane="%77", top=0, height=20),
+            FakePaneGeometry(pane="%9", top=20, height=10),
+        ],
+    )
+
+    rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
+
+    assert rc == 0
+    assert "split_window_top" not in _kinds(layout=layout)
+    assert ("window_pane_geometries", "%77") in layout.calls
+    assert layout.calls[-1] == (
+        "set_pane_height_percent",
+        "%77",
+        mod._DAEMON_PANE_HEIGHT_PERCENT,
+    )
+
+
+def test_rebuilds_the_top_daemon_pane_when_the_daemon_pane_is_gone(
+    *, monkeypatch, tmp_path, capsys
+):
+    """If Ctrl-C collapsed the daemon pane, rerunning the bootstrap restores it."""
+    mod = _load()
+    _in_claude_tmux(monkeypatch=monkeypatch)
+    layout = FakeLayout(
+        titles=["operator"],
+        split_result="%88",
+        geometries=[
+            FakePaneGeometry(pane="%88", top=0, height=20),
+            FakePaneGeometry(pane="%9", top=20, height=10),
+        ],
+    )
+
+    rc = mod.main(argv=[], io=layout, build_supervisor=_FakeSupervisor, core_root=tmp_path)
+
+    assert rc == 0
+    assert ("split_window_top", "%9", str(tmp_path), layout.calls[1][3]) in layout.calls
+    assert layout.calls[-1] == (
+        "set_pane_height_percent",
+        "%88",
+        mod._DAEMON_PANE_HEIGHT_PERCENT,
+    )
+    assert "started overseerd in top pane %88" in capsys.readouterr().err
 
 
 def test_fails_when_the_split_fails(*, monkeypatch, tmp_path, capsys):

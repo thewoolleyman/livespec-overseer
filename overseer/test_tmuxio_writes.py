@@ -195,6 +195,29 @@ def test_pane_by_title_finds_matching_pane_id():
     assert io3.pane_by_title(pane="%20", title="overseer-daemon") is None
 
 
+def test_window_pane_geometries_parse_coordinates_and_fail_soft():
+    io, fake = _io(stdout="%47\t0\t20\n%20\t20\t10\n")
+
+    geometries = io.window_pane_geometries(pane="%20")
+    assert [(item.pane, item.top, item.height) for item in geometries] == [
+        ("%47", 0, 20),
+        ("%20", 20, 10),
+    ]
+    assert fake.calls[0]["argv"] == [
+        "tmux",
+        "list-panes",
+        "-t",
+        "%20",
+        "-F",
+        "#{pane_id}\t#{pane_top}\t#{pane_height}",
+    ]
+
+    io2, _ = _io(returncode=1)
+    assert io2.window_pane_geometries(pane="%20") == []
+    io3, _ = _io(stdout="%47\ttop\t20\n")
+    assert io3.window_pane_geometries(pane="%20") == []
+
+
 def test_set_pane_height_percent_argv():
     # Percentage sizing (tmux 3.5a) — the `%` suffix is what makes it a share of
     # the window rather than an absolute row count.

@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 import importlib
+from dataclasses import dataclass
 from pathlib import Path
 
 __all__: list[str] = []
+
+
+@dataclass(kw_only=True)
+class _PaneGeometry:
+    pane: str
+    top: int
+    height: int
 
 
 class _Layout:
@@ -40,6 +48,13 @@ class _Layout:
     def pane_by_title(self, *, pane: str, title: str) -> str | None:
         self.calls.append(("pane_by_title", pane, title, None))
         return "%77" if title in self.titles else None
+
+    def window_pane_geometries(self, *, pane: str) -> list[_PaneGeometry]:
+        self.calls.append(("window_pane_geometries", pane, None, None))
+        return [
+            _PaneGeometry(pane="%77", top=0, height=20),
+            _PaneGeometry(pane="%9", top=20, height=10),
+        ]
 
     def set_pane_height_percent(self, *, pane: str, percent: int) -> bool:
         self.calls.append(("set_pane_height_percent", pane, percent, None))
