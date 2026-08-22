@@ -197,8 +197,24 @@ conformance invariants below hold.
 
 ## Ledger invariants the pass must leave TRUE
 
-Each of these was violated during the ratifying pass, and each is mechanically
-checkable. The operation asserts them at the end and reports any breach.
+Each of these was violated during the ratifying pass. **FIVE of the seven are
+mechanically checkable; two are NOT, and this section asserted otherwise until
+2026-08-22.** The operation asserts all seven at the end and reports any breach --
+but invariants 5 and 7 return `unimplemented-pending-decision` over a scanned
+population of ZERO, so they can never report a breach and never scan a row. A
+reader of a clean seven-invariant report reasonably believes seven things were
+measured; five were. Tracked as `overseer-adclcd.5`, which distinguishes their two
+conditions: invariant 5's label half IS mechanizable today against the projection's
+`acceptance_policy` field, while invariant 7 has no field to quantify over at all.
+
+**Re-measured 2026-08-22 against merged master, 676-row projection.** The other five
+now evaluate correctly over the sanctioned projection -- but three of them did NOT
+when this note was written, and were repaired by `overseer-adclcd.4` and
+`overseer-adclcd.6`: plan-rollup reported every plan anchor as a false positive,
+lifecycle-status reported a breach on every closed row over a terminal-status
+spelling, and cross-repo-dependencies reported CLEAN over ZERO scanned rows while 90
+rows carried a dependency payload. **State the checker revision and the row count
+beside any reading of these; a number carrying neither is not a measurement.**
 
 1. **Every non-done item rolls up to a plan epic.** Only plan anchors are
    unparented.
@@ -224,9 +240,14 @@ it leaves the item at bd-native open — so the remedy passes back through the
 blocking state. Hold an item out of the ready set with `backlog`, never `--defer`.
 Tell: "pre-dispatch ledger checks failed; dispatch blocked", with no item named.
 
-**A doubled-brace template delimiter anywhere in an item's text makes it
-permanently undispatchable**, and the trap fires on prose ABOUT the trap, because
-naming the hazard accurately means reproducing it. Describe delimiters in WORDS.
+**An OPENING template delimiter anywhere in an item's text makes it permanently
+undispatchable**, and the trap fires on prose ABOUT the trap, because
+naming the hazard accurately means reproducing it. Describe delimiters in WORDS. **CORRECTED 2026-08-22 (`overseer-adclcd.3`): only the
+OPENING forms are hazardous** -- a doubled opening brace, or an opening brace followed
+by a percent sign or a hash. A doubled CLOSING pair standing alone is literal text and
+does NOT block dispatch. This note previously said 'doubled-brace', which the
+conformance check also implemented, and that over-broad reading closed a healthy record
+and seeded a false-premise item before it was narrowed.
 The delimiter reaches ledger COMMENTS too, where it is terminal — comments are
 append-only, so the only remedy is a clean-text successor. Do NOT edit the
 offending text out of an evidence-carrying item; hold it at backlog instead. And
