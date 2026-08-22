@@ -1573,6 +1573,53 @@ Deliberately no mechanical enforcement is proposed here: a check that parses dec
 stamps out of handoff entries and diffs them against storage times is a real idea and
 a SEPARATE proposal, and folding it in would turn a guidance fix into a gate.
 
+## `check-no-lloc-soft-warnings` CANNOT FAIL when you run it by hand
+
+Measured 2026-08-22, after it rejected two pushes in a row while every attempt to
+reproduce it standalone said the tree was clean.
+
+Run the recipe directly and it prints rows that look reassuring and exits **0**:
+
+    {"file": "overseer/_supervisor_core.py", "lloc": 224, "soft_ceiling": 200,
+     "hard_ceiling": 250, "failing": false, "event": "file in 201-250 LLOC soft band",
+     "level": "warning", ...}
+
+`"failing": false`, `"level": "warning"`, exit 0. Run `just check` and the same
+tree fails on the same target. **The row is not lying about itself — it is
+answering a different question than the aggregate asks.** The check only converts
+warnings into failures when `LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST` is set,
+and only the aggregate sets it. The variable's name is right there in every row,
+which is the tell, but a row that says `failing: false` reads as a verdict rather
+than as a conditional.
+
+**Reproduce it the way the aggregate runs it, or it will keep telling you the tree
+is clean:**
+
+    LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST=1 just check-no-lloc-soft-warnings
+
+which prints the row the aggregate actually acts on, with the remedy in it:
+
+    "expected_marker": "# livespec-lloc-soft-band-owner: <work-item-id>",
+    "failing": true, "level": "error",
+    "event": "file in 201-250 LLOC soft band with no owning work-item marker"
+
+**The remedy is a marker, not a split.** A file between the 200 soft ceiling and
+the 250 hard ceiling is allowed to sit there as long as it names an owning
+work-item, which is how its siblings already carry the debt — `grep -rn
+'livespec-lloc-soft-band-owner' overseer/` shows the convention and where in the
+file the line goes. A split is what the HARD ceiling forces; the soft band asks
+only that the debt be owned. Crossing 200 is easy to do without noticing: adding
+~25 lines to a 190-line module does it, and nothing warns you at edit time.
+
+**Why this belongs beside the charter-gate entry below.** That one says to suspect
+the detector when a gate looks wrong. This is the mirror case — the detector is
+correct and its STANDALONE INVOCATION is the thing that misleads, because it
+cannot fail. This repo already catalogues checks that cannot fail as a hazard when
+they are *written*; here one arrives through how a healthy check is *invoked*. The
+general rule covers both: **before concluding a gate is flaky or wrong, confirm you
+are running it with the same environment the aggregate gives it.** A green
+standalone run is not evidence about a red aggregate.
+
 ## The charter gate's false positives all point ONE way — suspect the detector first
 
 `tests/prompts/test_charters_carry_no_known_defects.py` scores every supervisor
