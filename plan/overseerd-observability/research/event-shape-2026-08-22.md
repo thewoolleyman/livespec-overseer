@@ -11,9 +11,9 @@ already emits, so both children implement against the same record.
 ## The emission surface is already a choke point — that is the good news
 
 Every daemon event leaves through `overseer/_supervisor_diagnostics.py`, an
-86-line module with exactly two exits:
+80-line module with exactly two exits:
 
-  - `log(message=...)` — plain `<ts> overseer: <message>`, **22 call sites**
+  - `log(message=...)` — plain `<ts> overseer: <message>`, **31 call sites**
     (counted across `overseer/*.py`, tests excluded).
   - `surface(message=...)` — `<ts> overseer[SURFACE]: <message>`, reached in
     practice through `alert(request=...)`, whose `AlertRequest` is raised at
@@ -33,7 +33,7 @@ there and are discarded.** **A `condition=` grep returns 39 hits — but see the
 correction below: that is a count of SITES, the vocabulary is not closed, and
 fifteen alerts name no condition at all.**
 
-The `log` half is the weaker one: 22 free-prose f-strings. But they are
+The `log` half is the weaker one: 31 sites, mostly free-prose f-strings. But they are
 strikingly uniform — nearly every one interpolates the same natural key,
 `{repo}::{topic}`, plus a verb and one or two extras (`pane`, `ctx`, `bands`,
 `{exc}`). The record is latent in them too.
@@ -91,6 +91,31 @@ truncated call bodies before reaching a `condition=` on a later line. 33 versus
 15 is the difference between "most alerts are unnamed" and "a specific,
 enumerable set is": different findings with different remedies. **Parse, do not
 pattern-match, when the answer depends on what is INSIDE a call.**
+
+**Two further counts corrected the same way, and together they change the SIZE of
+this work by about a third.** The original `22` for the `log` half came from a
+grep for `log(message=` — which matches only calls whose keyword sits on the SAME
+LINE. Parsed: **31** `.log()` sites, of which 23 pass a single-line literal or
+f-string and 8 pass a parenthesized multi-line f-string or a variable. Two of
+those 8 are forwarders rather than emission points and one passes a message built
+elsewhere, so roughly **29 real emission points**. And the module is **80** lines,
+not the 86 stated twice above before this correction.
+
+So the emission surface to convert is **31 log sites plus 51 alert sites — 82
+call sites**, not the 61 the original figures implied. **None of this changes the
+DESIGN** — the envelope, the promoted fields, the dedup rule, the repo-slug
+inconsistency and the banded-reporting decision all stand exactly as written. It
+changes the size, which matters for how the work is finished: this repo's
+guidance records an item that was "not too big to implement, it was too big to
+FINISH UNATTENDED", and the remedy there was not splitting but ensuring work is
+pushed before any blocking question. If a single pass lands only part of the
+surface, the right disposition is a follow-up child for the remainder.
+
+**There is no consistent bias to correct for, only the wrong instrument.** Of the
+three miscounts in this note, the first over-counted (39 sites read as 39
+values), the second under-counted (22 for 31), and the third mis-classified sites
+as values. A grep over source answers questions about LINES; any question about
+what a CALL contains needs a parser.
 
 ## Three defects the reshape must fix, not merely survive
 
