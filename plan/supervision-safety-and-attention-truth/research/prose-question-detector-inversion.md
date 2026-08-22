@@ -82,6 +82,44 @@ structural and survives any sample:
   rate-limit guard, where writing prose ABOUT the guard trips it. In each case
   the document describing a hazard becomes an instance of it.
 
+## The adversarial corpus is not historical: a same-day reproduction
+
+The bullet above cites this repo's rate-limit guard as a prior instance of the
+same shape. That citation was historical when written. It was reproduced the
+same day, twice, by the foreman seat, and the second instance is sharper than
+the documented one.
+
+Measured 2026-08-22 at 10:11:51Z and 10:27:20Z. Neither denied command was a
+polling loop:
+
+- The first was a short shell loop over two pull-request numbers, invoking the
+  GitHub CLI's pull-request view subcommand once per number. It matched because
+  the guard requires a GitHub read AND a loop keyword, and both were present --
+  a defensible match on a command that was nonetheless not polling anything.
+
+- The second contained **no GitHub invocation at all**. It was a one-line Python
+  parse of a file that had already been fetched, and its only match was the word
+  `for` appearing inside a list comprehension. The guard reads the command
+  string, not the intent, and an ordinary iteration keyword was enough.
+
+Both fired while that seat was investigating a red pull request on another
+track's critical path -- which is to say, during exactly the careful work the
+guard exists to protect.
+
+**Why this belongs in a note about prose detectors.** It is the same failure in a
+different detector: a matcher keyed on surface text, firing on a document or a
+command whose only offence is discussing or resembling the thing being matched.
+The rate-limit guard has the easier problem -- it matches literal tokens in a
+command string rather than intent in free prose -- and it still produces this.
+A prose-question detector inherits the same failure with none of the structure.
+
+**This note is not an argument against that guard**, and should not be cited as
+one. It does real work against genuine polling, its author's remedies are sound,
+and the seat that supplied these two instances said plainly it would not want the
+guard weakened. The point is narrower: a text matcher's false positives land on
+the people documenting and investigating carefully, and no control removes that
+because those people write the corpus.
+
 ## What to build instead
 
 `overseer-j2vbcq`'s rewritten acceptance routes around detection entirely:
