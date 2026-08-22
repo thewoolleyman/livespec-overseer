@@ -55,6 +55,7 @@ def test_worked_example_auto_budget_and_allowance(*, tmp_path):
     )
 
     assert result.path == "auto"
+    assert result.governing_path == "population-derived"
     assert result.drainable_population == 57
     assert result.raw_auto_budget == 5
     assert result.budget == 5
@@ -62,7 +63,7 @@ def test_worked_example_auto_budget_and_allowance(*, tmp_path):
     assert result.new_thread_allowance == 3
 
 
-def test_auto_budget_clamps_at_both_ends(*, tmp_path):
+def test_auto_budget_clamps_at_both_ends_and_reports_path(*, tmp_path):
     module = grooming_plan_budget()
     repo = _repo(tmp_path=tmp_path)
 
@@ -70,13 +71,48 @@ def test_auto_budget_clamps_at_both_ends(*, tmp_path):
     high = module.resolve_plan_budget(
         repo=repo,
         proposed_changes_count=0,
-        work_items=[_item(item_id=str(index)) for index in range(121)],
+        work_items=[_item(item_id=str(index)) for index in range(241)],
     )
 
     assert low.raw_auto_budget == 1
     assert low.budget == 2
-    assert high.raw_auto_budget == 11
-    assert high.budget == 8
+    assert low.governing_path == "min-clamped"
+    assert high.raw_auto_budget == 21
+    assert high.budget == 20
+    assert high.governing_path == "max-clamped"
+
+
+def test_default_max_leaves_recorded_fleet_populations_population_derived(*, tmp_path):
+    module = grooming_plan_budget()
+    repo = _repo(tmp_path=tmp_path)
+
+    examples = {
+        "livespec": 144,
+        "livespec-dev-tooling": 231,
+        "livespec-orchestrator-beads-fabro": 206,
+        "livespec-runtime": 16,
+        "livespec-console-beads-fabro": 38,
+        "livespec-overseer": 133,
+    }
+
+    results = {
+        name: module.resolve_plan_budget(
+            repo=repo,
+            proposed_changes_count=population,
+            work_items=[],
+        )
+        for name, population in examples.items()
+    }
+
+    assert [(name, result.raw_auto_budget) for name, result in results.items()] == [
+        ("livespec", 12),
+        ("livespec-dev-tooling", 20),
+        ("livespec-orchestrator-beads-fabro", 18),
+        ("livespec-runtime", 2),
+        ("livespec-console-beads-fabro", 4),
+        ("livespec-overseer", 12),
+    ]
+    assert all(result.governing_path == "population-derived" for result in results.values())
 
 
 def test_config_pinned_budget_overrides_different_auto_value(*, tmp_path):
@@ -90,11 +126,12 @@ def test_config_pinned_budget_overrides_different_auto_value(*, tmp_path):
     result = module.resolve_plan_budget(
         repo=repo,
         proposed_changes_count=0,
-        work_items=[_item(item_id=str(index)) for index in range(121)],
+        work_items=[_item(item_id=str(index)) for index in range(241)],
     )
 
     assert result.path == "explicit"
-    assert result.raw_auto_budget == 11
+    assert result.governing_path == "explicit"
+    assert result.raw_auto_budget == 21
     assert result.budget == 4
 
 

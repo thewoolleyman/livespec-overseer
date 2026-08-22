@@ -123,11 +123,19 @@ Compose and record:
 - the unparented subset;
 - pending proposed changes;
 - live plan threads from filesystem and plan-anchor metadata;
-- the resolved plan budget and new-thread allowance;
+- the resolved plan budget, its governing path, and new-thread allowance;
 - the exact population scanned for each conformance claim.
 
 If a result is clean, state its scope beside the claim. A clean result with no
 scanned population is not evidence.
+
+The automatic plan budget is the drainable population divided into plan-sized
+buckets, then clamped by the configured minimum and maximum. With the shipped
+defaults (`items_per_plan = 12`, `min_plans = 2`, `max_plans = 20`), populations
+from 24 through 240 are population-derived; below 24 the minimum decides, and
+above 240 the maximum decides. A config-pinned `plan_budget` overrides the
+automatic value. Whenever you report a budget, name the governing path with the
+number: `explicit`, `population-derived`, `min-clamped`, or `max-clamped`.
 
 Register the grooming seat at entry, or use the shipped registration wrapper when
 one exists. The reserved entity topic is the repo slug plus the grooming suffix.
