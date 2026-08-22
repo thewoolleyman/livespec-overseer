@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.5...v1.37.6) (2026-08-22)
+
+
+### Bug Fixes
+
+* measure picker stall from picker age ([1b26a44](https://github.com/thewoolleyman/livespec-overseer/commit/1b26a44930922982e4e115f771e8ef468770d7c7))
+
 ## [1.37.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.4...v1.37.5) (2026-08-22)
 
 
