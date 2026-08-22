@@ -42,6 +42,7 @@ __all__: list[str] = [
 ATTENTION_STATUSES = (
     "blocked:human",
     "codex-unindexed",
+    "consensus-overdue",
     "ctx-stale",
     "danger",
     "escalation-exhausted",
@@ -105,6 +106,7 @@ _STATUS_COLOR = {
     "blocked:human": _ANSI_YELLOW,
     "foreman-picker-under-full-autonomy": _ANSI_YELLOW,
     "codex-unindexed": _ANSI_YELLOW,
+    "consensus-overdue": _ANSI_YELLOW,
     "ctx-stale": _ANSI_YELLOW,
     "foreman-heartbeat-stale": _ANSI_YELLOW,
     "pane-still": _ANSI_YELLOW,

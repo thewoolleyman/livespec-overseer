@@ -191,9 +191,28 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
                 act=request.act,
             )
         )
+        consensus_overdue = _supervisor_attention.consensus_overdue_decision(
+            request=_supervisor_attention.ConsensusOverdueRequest(
+                sup=request.sup,
+                track=request.track,
+                session=request.session,
+                pane=request.target,
+                capture=request.capture,
+                blocked_age=request.blocked_age,
+                note=blocked_decision.note,
+                act=request.act,
+            )
+        )
+        if consensus_overdue is not None:
+            active_conditions.update(consensus_overdue.active_conditions)
+            status = consensus_overdue.status
+            note = consensus_overdue.note
+        else:
+            status = "blocked:human"
+            note = blocked_decision.note
         return ActiveDecision(
-            status="blocked:human",
-            note=blocked_decision.note,
+            status=status,
+            note=note,
             ready=blocked_decision.ready,
             blocked=request.blocked,
             blocked_age=request.blocked_age,
