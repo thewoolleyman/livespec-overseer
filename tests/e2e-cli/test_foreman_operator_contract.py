@@ -140,6 +140,28 @@ def _missing_action_ids(*, text: str) -> list[str]:
     return [action_id for action_id in ACTION_IDS if action_id not in text]
 
 
+CANONICAL_ESCALATION_PATH = "tmp/overseer/foreman/escalations/<repo-slug>-foreman.json"
+AMBIGUOUS_ESCALATION_PATH = "escalations/<topic>.json"
+
+
+def _escalation_filename_errors(*, text: str) -> list[str]:
+    """Both defects that make a foreman escalation land somewhere unread.
+
+    `_supervisor_foreman_escalation` resolves the file by the foreman track's topic,
+    and `foreman_runtime_identity.canonical_session_name` makes that topic
+    `<repo-slug>-foreman`. So that filename is the ONLY one the daemon reads. A
+    contract that names `<topic>.json` invites a plan-topic name or a bare
+    `foreman.json`, either of which is written and never surfaced — a silent loss,
+    strictly worse than the blocking picker this path replaces.
+    """
+    errors: list[str] = []
+    if CANONICAL_ESCALATION_PATH not in text:
+        errors.append("canonical-escalation-path-absent")
+    if AMBIGUOUS_ESCALATION_PATH in text:
+        errors.append("ambiguous-escalation-path-present")
+    return errors
+
+
 def _exit_contract_errors(*, text: str) -> list[str]:
     required = (
         "/loop",
@@ -215,3 +237,18 @@ def test_runtime_exit_reason_is_carried_to_the_resume_question_contract(*, tmp_p
     assert _exit_contract_errors(text=text) == []
     sabotaged = text.replace("foreman-escalated", "")
     assert _exit_contract_errors(text=sabotaged) == ["foreman-escalated"]
+
+
+def test_the_contract_names_only_the_escalation_filename_the_daemon_reads() -> None:
+    text = PROSE.read_text(encoding="utf-8")
+
+    assert _escalation_filename_errors(text=text) == []
+
+    # Discriminating control: the check must FAIL on each defect it exists to catch,
+    # or it is a check that cannot fail and proves nothing about the contract.
+    assert _escalation_filename_errors(text=text.replace(CANONICAL_ESCALATION_PATH, "")) == [
+        "canonical-escalation-path-absent"
+    ]
+    assert _escalation_filename_errors(text=text + AMBIGUOUS_ESCALATION_PATH) == [
+        "ambiguous-escalation-path-present"
+    ]
