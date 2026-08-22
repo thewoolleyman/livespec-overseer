@@ -71,14 +71,6 @@ def _with_unattended_restart_env(
     return MappingProxyType(merged)
 
 
-def _optional_unattended_restart_env(
-    *, env: Mapping[str, str | None] | None, daemon_restart: bool
-) -> Mapping[str, str | None] | None:
-    if env is None and not daemon_restart:
-        return None
-    return _with_unattended_restart_env(env=env or {}, daemon_restart=daemon_restart)
-
-
 def _claude_command(*, topic: str, model: str | None) -> str:
     """The Claude launch command, with an explicit model only when one is given."""
     model_arg = "" if model is None else f"--model {shlex.quote(model)} "
@@ -175,8 +167,8 @@ def codex_launch_plan(
     if profile is None:
         return CodexLaunchPlan(
             command=_bare_codex_command(session_id=session_id, resume=resume),
-            env=_optional_unattended_restart_env(
-                env=None,
+            env=_with_unattended_restart_env(
+                env=_scrubbed_env(),
                 daemon_restart=daemon_restart,
             ),
         )
