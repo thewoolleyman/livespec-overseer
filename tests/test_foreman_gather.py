@@ -1093,3 +1093,109 @@ def test_cli_emits_json_render_and_errors(*, tmp_path, capsys):
         == 1
     )
     assert "foreman-gather:" in capsys.readouterr().err
+
+
+def test_unreadable_epic_is_distinguishable_from_a_topic_that_lacks_ledger_markers(*, tmp_path):
+    """An epic.md the function could not read must not answer 'not migrated'.
+
+    'Not migrated' is a definite negative about the topic — it is the answer that
+    says this handoff still needs migrating. Returning it for a file that was
+    never inspected asserts something about work the function did not look at.
+    """
+    collect = foreman_gather_collect()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    (repo / "plan" / "no-markers").mkdir(parents=True)
+    (repo / "plan" / "no-markers" / "epic.md").write_text(
+        "# Plan Epic\n\nPlanning context with no migrated supervisor state.\n",
+        encoding="utf-8",
+    )
+    (repo / "plan" / "not-utf8").mkdir(parents=True)
+    (repo / "plan" / "not-utf8" / "epic.md").write_bytes(b"\xff\xfe ledger entry\n")
+    (repo / "plan" / "epic-is-a-directory").mkdir(parents=True)
+    (repo / "plan" / "epic-is-a-directory" / "epic.md").mkdir()
+
+    lacks_markers = collect.migrated_supervisor_handoff_state(repo=repo, topic="no-markers")
+    not_utf8 = collect.migrated_supervisor_handoff_state(repo=repo, topic="not-utf8")
+    is_a_directory = collect.migrated_supervisor_handoff_state(
+        repo=repo, topic="epic-is-a-directory"
+    )
+
+    assert lacks_markers == "not-migrated"
+    assert not_utf8 == "unreadable"
+    assert is_a_directory == "unreadable"
+    assert not_utf8 != lacks_markers
+    assert is_a_directory != lacks_markers
+
+
+def test_missing_epic_is_a_state_of_the_topic_not_a_fault(*, tmp_path):
+    """A topic with no epic.md at all is an ordinary state, not an I/O fault.
+
+    The two took the same branch before this split: a missing file and an
+    unreadable one both raised OSError and both returned False. They are
+    different facts and are reported differently.
+    """
+    collect = foreman_gather_collect()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    (repo / "plan" / "no-epic-file").mkdir(parents=True)
+    (repo / "plan" / "not-utf8").mkdir(parents=True)
+    (repo / "plan" / "not-utf8" / "epic.md").write_bytes(b"\xff\xfe ledger entry\n")
+
+    absent = collect.migrated_supervisor_handoff_state(repo=repo, topic="no-epic-file")
+    unreadable = collect.migrated_supervisor_handoff_state(repo=repo, topic="not-utf8")
+
+    assert absent == "not-migrated"
+    assert unreadable == "unreadable"
+    assert absent != unreadable
+
+
+def test_migrated_and_not_migrated_verdicts_are_unchanged(*, tmp_path):
+    """Regression: the two happy paths keep their meaning through the widening."""
+    collect = foreman_gather_collect()
+    snapshot = foreman_gather_snapshot()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    (repo / "plan" / "migrated").mkdir(parents=True)
+    (repo / "plan" / "migrated" / "epic.md").write_text(
+        "# Plan Epic\n\nLedger epic: read the attributed comment stream.\n",
+        encoding="utf-8",
+    )
+    (repo / "plan" / "plain").mkdir(parents=True)
+    (repo / "plan" / "plain" / "epic.md").write_text(
+        "# Plan Epic\n\nNothing here names the migrated shape.\n", encoding="utf-8"
+    )
+
+    for module in (collect, snapshot):
+        assert module.migrated_supervisor_handoff_state(repo=repo, topic="migrated") == "migrated"
+        assert module.migrated_supervisor_handoff_state(repo=repo, topic="plain") == "not-migrated"
+        assert module.supervisor_handoff_state(repo=repo, topic="migrated") == "present"
+        assert module.supervisor_handoff_state(repo=repo, topic="plain") == "missing"
+
+
+def test_supervisor_handoff_state_surfaces_unreadable_rather_than_claiming_missing(*, tmp_path):
+    """The caller must not re-collapse what the widened predicate separated.
+
+    'missing' is the row value that makes `supervisor_pair_start` a warranted
+    proposal, so reporting it for an epic.md nobody could read would propose
+    starting a supervisor pair on the strength of an unread file. The foreman
+    contract routes every value other than 'missing' to report-only, so the new
+    value fails safe without a contract change.
+    """
+    collect = foreman_gather_collect()
+    snapshot = foreman_gather_snapshot()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "plan" / "not-utf8").mkdir(parents=True)
+    (repo / "plan" / "not-utf8" / "epic.md").write_bytes(b"\xff\xfe ledger entry\n")
+
+    for module in (collect, snapshot):
+        assert module.supervisor_handoff_state(repo=repo, topic="not-utf8") == "unreadable"
+
+    row = snapshot.row_with_supervisor_handoff(
+        repo=repo, row={"repo": str(repo), "topic": "not-utf8", "status": "session-gone"}
+    )
+    assert row["supervisor_handoff"] == "unreadable"
