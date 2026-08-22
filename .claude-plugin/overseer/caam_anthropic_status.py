@@ -20,8 +20,8 @@ __all__: list[str] = [
 ]
 
 _UNVERIFIED_NOTE = (
-    "note: {names} could not be verified live and was not considered; "
-    "revive it with caam-anthropic-loop --no-warm after refreshing its snapshot"
+    "note: {names} could not be verified live and were not considered. "
+    "Revive with: caam activate claude <name>; claude -p ok; caam backup claude <name>"
 )
 _FABLE_EXHAUSTED = 100.0
 
