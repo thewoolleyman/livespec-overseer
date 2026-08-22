@@ -1,4 +1,5 @@
 """Deterministic foreman roster rows for active plan directories."""
+# livespec-lloc-soft-band-owner: overseer-2jblyq.5
 
 from __future__ import annotations
 
