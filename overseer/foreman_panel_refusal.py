@@ -6,16 +6,27 @@ import re
 from typing import Final
 
 __all__: list[str] = [
+    "LOAD_BEARING_REQUEST_FIELDS",
+    "REQUEST_FIELDS",
+    "missing_request_fields",
     "refusal_for",
     "refused_result",
 ]
 
-REQUIRED_REQUEST_FIELDS: Final[tuple[str, ...]] = (
+REQUEST_FIELDS: Final[tuple[str, ...]] = (
     "blocked_question",
     "handoff_or_work_item",
     "repo",
     "repo_context",
     "topic",
+)
+LOAD_BEARING_REQUEST_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "blocked_question",
+        "handoff_or_work_item",
+        "repo",
+        "topic",
+    }
 )
 HINT_REASONS: Final[tuple[tuple[str, str], ...]] = (
     ("unanimous", "verdict_hint_in_blocked_question"),
@@ -40,11 +51,13 @@ def hint_match(*, question: str, token: str) -> re.Match[str] | None:
     return re.search(rf"(?<![\w-]){re.escape(token)}(?![\w-])", question)
 
 
+def missing_request_fields(*, request: dict[str, object]) -> list[str]:
+    return [field for field in REQUEST_FIELDS if str_field(payload=request, key=field) == ""]
+
+
 def refusal_for(*, request: dict[str, object]) -> dict[str, object] | None:
-    missing_fields = [
-        field for field in REQUIRED_REQUEST_FIELDS if str_field(payload=request, key=field) == ""
-    ]
-    if len(missing_fields) == len(REQUIRED_REQUEST_FIELDS):
+    missing_fields = missing_request_fields(request=request)
+    if any(field in LOAD_BEARING_REQUEST_FIELDS for field in missing_fields):
         result = refused_result(reason="missing_required_request_fields")
         result["missing_fields"] = missing_fields
         return result
