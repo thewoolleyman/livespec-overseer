@@ -201,6 +201,27 @@ def test_wait_with_inotify_drains_ready_fd_and_times_out(*, monkeypatch, tmp_pat
     )
     assert drained == [9]
 
+    changed = [False, True]
+    slept: list[float] = []
+    monkeypatch.setattr(
+        state_watch,
+        "_state_changed",
+        lambda *, paths, before: changed.pop(0),
+    )
+    monkeypatch.setattr(state_watch.select, "select", lambda *_args: ([], [], []))
+    assert (
+        state_watch._wait_with_inotify(
+            fd=9,
+            paths=[state],
+            before=before,
+            deadline=10.0,
+            monotonic=lambda: 0.0,
+            sleep=slept.append,
+        )
+        is True
+    )
+    assert slept == [0.0]
+
     monkeypatch.setattr(state_watch, "_state_changed", lambda *, paths, before: False)
     assert (
         state_watch._wait_with_inotify(
