@@ -137,8 +137,13 @@ mechanical attention surface as a membership condition, schedule a bounded
 re-check, and keep the foreman loop moving. Do not end a foreman tick with a
 blocking picker outstanding; an open picker suppresses the session's scheduled
 fires, so a timeout attached to that picker cannot run. Write the escalation to
-`tmp/overseer/foreman/escalations/<topic>.json` with a non-empty `reason`
-instead, then return idle with the recurring schedule still armed. This only
+`tmp/overseer/foreman/escalations/<repo-slug>-foreman.json` with a non-empty
+`reason` instead, then return idle with the recurring schedule still armed.
+**That exact filename is the only one the daemon reads** — it resolves the
+foreman's escalation by the canonical session name, `<repo-slug>-foreman`, so a
+file named for the plan topic or a bare `foreman.json` is written and then never
+surfaced, and the decision is lost more quietly than a picker would have lost
+it. This only
 governs how the foreman surfaces its own unresolved decision; it does not change
 the cardinal rule. A tracked session may be restarted only after its
 current-round filesystem `ready` declaration.
