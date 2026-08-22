@@ -2,22 +2,32 @@
 
 from __future__ import annotations
 
+import json
 import re
+import subprocess
 from pathlib import Path
+from typing import cast
 
 import jsonio
 
 __all__: list[str] = [
+    "ANCHOR_RESOLVED",
+    "ANCHOR_UNRESOLVED",
     "NO_WORK_IN_FLIGHT",
     "WORK_IN_FLIGHT",
     "WORK_STATES",
+    "work_state_documents_by_plan",
     "work_states_by_plan",
 ]
 
+ANCHOR_RESOLVED = "anchor-resolved"
+ANCHOR_UNRESOLVED = "anchor-unresolved"
 WORK_IN_FLIGHT = "work-in-flight"
 NO_WORK_IN_FLIGHT = "no-work-in-flight"
 WORK_STATES = (WORK_IN_FLIGHT, NO_WORK_IN_FLIGHT)
 DEFAULT_JOURNAL_RELATIVE_PATH = Path("tmp") / "fabro-dispatch-journal.jsonl"
+LEDGER_COMMAND = ["bd", "list", "--type", "epic", "--status", "all", "--json"]
+LEDGER_TIMEOUT_SECONDS = 30
 _LEDGER_ANCHOR = re.compile(
     r"(?:[Ll]edger(?: epic)?|[Ee]pic) anchor:?\*{0,2}[^\n`]*\n?[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`"
 )
@@ -27,7 +37,61 @@ _LEDGER_ANCHOR_BARE = re.compile(
 )
 
 
+def ledger_epic_records(*, repo: Path) -> list[dict[str, object]]:
+    try:
+        completed = subprocess.run(  # noqa: S603 — fixed bd argv, no shell
+            LEDGER_COMMAND,
+            capture_output=True,
+            check=False,
+            cwd=repo,
+            text=True,
+            timeout=LEDGER_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if completed.returncode != 0:
+        return []
+    try:
+        parsed = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(parsed, list):
+        return []
+    records: list[dict[str, object]] = []
+    for raw_item in cast("list[object]", parsed):
+        item = jsonio.as_object(value=raw_item)
+        if item is not None:
+            records.append(item)
+    return records
+
+
+def ledger_plan_epic_anchor(*, repo: Path, plan: str) -> str | None:
+    matches: list[tuple[str, object]] = []
+    for item in ledger_epic_records(repo=repo):
+        if item.get("issue_type") != "epic":
+            continue
+        record_id = item.get("id")
+        metadata = jsonio.as_object(value=item.get("metadata"))
+        if (
+            isinstance(record_id, str)
+            and metadata is not None
+            and metadata.get("plan_slug") == plan
+        ):
+            matches.append((record_id, item.get("status")))
+    if len(matches) == 1:
+        return matches[0][0]
+    open_matches = [record_id for record_id, status in matches if status != "closed"]
+    if len(open_matches) == 1:
+        return open_matches[0]
+    return None
+
+
 def plan_epic_anchor(*, repo: Path, plan: str) -> str | None:
+    ledger_anchor = ledger_plan_epic_anchor(repo=repo, plan=plan)
+    if ledger_anchor is not None:
+        return ledger_anchor
+    # Keep epic.md as a legacy fallback: current plans carry plan_slug in Beads,
+    # but older plan directories may still be filesystem-anchored.
     path = repo / "plan" / plan / "epic.md"
     if not path.is_file():
         return None
@@ -39,6 +103,10 @@ def plan_epic_anchor(*, repo: Path, plan: str) -> str | None:
     if bare_match is not None:
         return bare_match.group(1)
     return None
+
+
+def plan_anchor_resolved(*, repo: Path, plan: str) -> bool:
+    return plan_epic_anchor(repo=repo, plan=plan) is not None
 
 
 def journal_records(*, path: Path) -> list[dict[str, object]]:
@@ -124,15 +192,32 @@ def plan_work_state(
 def work_states_by_plan(
     *, repo: Path, plan_names: list[str], journal_path: Path | None = None
 ) -> dict[str, str]:
+    return {
+        plan: document["work_state"]
+        for plan, document in work_state_documents_by_plan(
+            repo=repo,
+            plan_names=plan_names,
+            journal_path=journal_path,
+        ).items()
+    }
+
+
+def work_state_documents_by_plan(
+    *, repo: Path, plan_names: list[str], journal_path: Path | None = None
+) -> dict[str, dict[str, str]]:
     path = journal_path if journal_path is not None else repo / DEFAULT_JOURNAL_RELATIVE_PATH
     records = journal_records(path=path)
     dispatch_times = latest_dispatch_times(records=records)
     outcomes = outcome_times(records=records)
-    return {
-        plan: plan_work_state(
-            anchor=plan_epic_anchor(repo=repo, plan=plan),
-            dispatch_times=dispatch_times,
-            outcomes=outcomes,
-        )
-        for plan in plan_names
-    }
+    documents: dict[str, dict[str, str]] = {}
+    for plan in plan_names:
+        anchor = plan_epic_anchor(repo=repo, plan=plan)
+        documents[plan] = {
+            "work_state": plan_work_state(
+                anchor=anchor,
+                dispatch_times=dispatch_times,
+                outcomes=outcomes,
+            ),
+            "work_state_evidence": ANCHOR_RESOLVED if anchor is not None else ANCHOR_UNRESOLVED,
+        }
+    return documents

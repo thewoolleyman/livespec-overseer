@@ -13,7 +13,7 @@ from foreman_plan_roster_work import (
     NO_WORK_IN_FLIGHT,
     WORK_IN_FLIGHT,
     WORK_STATES,
-    work_states_by_plan,
+    work_state_documents_by_plan,
 )
 
 __all__: list[str] = [
@@ -167,6 +167,7 @@ def _roster_row(
     daemon_row: dict[str, object] | None,
     tmux_session_names: set[str],
     work_state: str,
+    work_state_evidence: str,
     unactioned_count: int | None,
 ) -> dict[str, object]:
     session_state = _session_state(daemon_row=daemon_row)
@@ -185,6 +186,7 @@ def _roster_row(
         "name_identity_verdict": name_identity_verdict,
         "session_state": session_state,
         "work_state": work_state,
+        "work_state_evidence": work_state_evidence,
         "emoji": _emoji_for_row(
             name_identity_verdict=name_identity_verdict,
             session_state=session_state,
@@ -227,13 +229,21 @@ def compose_roster(
     plan_name_set = set(plan_names)
     tmux_session_names = {session for session in tmux_sessions if session}
     daemon_rows = _snapshot_rows_by_topic(repo=repo, snapshot_path=snapshot_path)
-    work_states = work_states_by_plan(repo=repo, plan_names=plan_names, journal_path=journal_path)
+    work_documents = work_state_documents_by_plan(
+        repo=repo,
+        plan_names=plan_names,
+        journal_path=journal_path,
+    )
     rows = [
         _roster_row(
             plan=plan,
             daemon_row=daemon_rows.get(plan),
             tmux_session_names=tmux_session_names,
-            work_state=work_states.get(plan, NO_WORK_IN_FLIGHT),
+            work_state=work_documents.get(plan, {}).get("work_state", NO_WORK_IN_FLIGHT),
+            work_state_evidence=work_documents.get(plan, {}).get(
+                "work_state_evidence",
+                "anchor-unresolved",
+            ),
             unactioned_count=(
                 None if unactioned_counts is None else unactioned_counts.get(plan, 0)
             ),
