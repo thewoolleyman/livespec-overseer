@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.40.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.39.0...v1.40.0) (2026-08-22)
+
+
+### Features
+
+* guard release runtime rollback ([e0a9cc3](https://github.com/thewoolleyman/livespec-overseer/commit/e0a9cc39d9504927b37ace282af24bf90cbe2ca6))
+
 ## [1.39.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.38.2...v1.39.0) (2026-08-22)
 
 
