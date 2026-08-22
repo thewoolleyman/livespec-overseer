@@ -28,12 +28,21 @@ def reviewer_failure_reason(*, reviewer: dict[str, object]) -> str:
     return reason if isinstance(reason, str) else ""
 
 
+def reviewer_reports_empty_dossier(*, reviewer: dict[str, object]) -> bool:
+    rationale = reviewer.get("rationale")
+    return isinstance(rationale, str) and "dossier is empty" in rationale.lower()
+
+
 def result_decision_kind(*, reviewers: list[dict[str, object]], verdict_reason: str = "") -> str:
     if verdict_reason in TOOLING_VERDICT_REASONS:
         return "tooling_outage"
     if any(
         reviewer_failure_reason(reviewer=reviewer) in TOOLING_FAILURE_REASONS
         for reviewer in reviewers
+    ):
+        return "tooling_outage"
+    if reviewers and all(
+        reviewer_reports_empty_dossier(reviewer=reviewer) for reviewer in reviewers
     ):
         return "tooling_outage"
     return "substantive_non_decision"

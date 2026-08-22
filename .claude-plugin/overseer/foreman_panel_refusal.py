@@ -10,6 +10,13 @@ __all__: list[str] = [
     "refused_result",
 ]
 
+REQUIRED_REQUEST_FIELDS: Final[tuple[str, ...]] = (
+    "blocked_question",
+    "handoff_or_work_item",
+    "repo",
+    "repo_context",
+    "topic",
+)
 HINT_REASONS: Final[tuple[tuple[str, str], ...]] = (
     ("unanimous", "verdict_hint_in_blocked_question"),
     ("unblock", "verdict_hint_in_blocked_question"),
@@ -34,6 +41,13 @@ def hint_match(*, question: str, token: str) -> re.Match[str] | None:
 
 
 def refusal_for(*, request: dict[str, object]) -> dict[str, object] | None:
+    missing_fields = [
+        field for field in REQUIRED_REQUEST_FIELDS if str_field(payload=request, key=field) == ""
+    ]
+    if len(missing_fields) == len(REQUIRED_REQUEST_FIELDS):
+        result = refused_result(reason="missing_required_request_fields")
+        result["missing_fields"] = missing_fields
+        return result
     question = str_field(payload=request, key="blocked_question").lower()
     for token, reason in HINT_REASONS:
         match = hint_match(question=question, token=token)

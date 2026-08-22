@@ -58,6 +58,7 @@ def test_reviewer_timeout_becomes_typed_insufficient_information(*, monkeypatch,
         args: list[str],
         check: bool,
         capture_output: bool,
+        stdin: object,
         text: bool,
         timeout: float,
     ) -> subprocess.CompletedProcess[str]:
@@ -89,6 +90,7 @@ def test_anthropic_fenced_json_stdout_parses_to_real_verdict(*, monkeypatch, tmp
         args: list[str],
         check: bool,
         capture_output: bool,
+        stdin: object,
         text: bool,
         timeout: float,
     ) -> subprocess.CompletedProcess[str]:
@@ -133,6 +135,7 @@ def test_successful_reviewer_response_records_pinned_prompt_identity(
         args: list[str],
         check: bool,
         capture_output: bool,
+        stdin: object,
         text: bool,
         timeout: float,
     ) -> subprocess.CompletedProcess[str]:
@@ -164,6 +167,44 @@ def test_successful_reviewer_response_records_pinned_prompt_identity(
         "vendor": "anthropic",
         "model": "claude-fable-5",
     }
+
+
+def test_reviewer_subprocess_receives_devnull_stdin(*, monkeypatch, tmp_path: Path):
+    captured: dict[str, object] = {}
+
+    def fake_run(
+        *,
+        args: list[str],
+        check: bool,
+        capture_output: bool,
+        stdin: object,
+        text: bool,
+        timeout: float,
+    ) -> subprocess.CompletedProcess[str]:
+        captured["stdin"] = stdin
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=json.dumps(
+                {
+                    "reviewer_id": "fable",
+                    "verdict": "unblock",
+                    "action": {"action_id": "work_item_file", "params": {}},
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(foreman_panel_reviewers.subprocess, "run", fake_run)
+
+    response = foreman_panel.run_reviewer(
+        prompt=prompt(),
+        prompt_file=tmp_path / "prompt.json",
+        reviewer_command=[sys.executable, "-c", "pass"],
+    )
+
+    assert captured["stdin"] is subprocess.DEVNULL
+    assert response["verdict"] == "unblock"
 
 
 def test_malformed_reviewer_stdout_is_preserved_without_false_parse(*, tmp_path: Path):
@@ -277,6 +318,112 @@ def test_convening_writes_tooling_outage_verdict_when_reviewer_times_out(*, tmp_
     )
 
 
+def test_cli_accepts_its_own_written_dossier_as_request(*, tmp_path: Path, capsys):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    reviewer = tmp_path / "reviewer.py"
+    first_verdict_path = tmp_path / "first-verdict.json"
+    second_verdict_path = tmp_path / "second-verdict.json"
+    dossier_dir = tmp_path / "dossier"
+    request_path = tmp_path / "request.json"
+    request_path.write_text(json.dumps(request(repo=repo)), encoding="utf-8")
+    write_script(
+        path=reviewer,
+        body="""
+        import argparse
+        import json
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--reviewer-id", required=True)
+        parser.add_argument("--vendor", required=True)
+        parser.add_argument("--model", required=True)
+        parser.add_argument("--prompt-file", required=True)
+        args = parser.parse_args()
+        print(
+            json.dumps(
+                {
+                    "reviewer_id": args.reviewer_id,
+                    "verdict": "unblock",
+                    "action": {
+                        "action_id": "work_item_file",
+                        "params": {"target": "overseer-next"},
+                    },
+                }
+            )
+        )
+        """,
+    )
+
+    first_code = foreman_panel.main(
+        argv=[
+            "--request",
+            str(request_path),
+            "--verdict-output",
+            str(first_verdict_path),
+            "--state-dir",
+            str(tmp_path / "first-state"),
+            "--dossier-dir",
+            str(dossier_dir),
+            "--reviewer-command",
+            f"{sys.executable} {reviewer}",
+        ]
+    )
+    _ = capsys.readouterr()
+    second_code = foreman_panel.main(
+        argv=[
+            "--request",
+            str(dossier_dir / "dossier.json"),
+            "--verdict-output",
+            str(second_verdict_path),
+            "--state-dir",
+            str(tmp_path / "second-state"),
+            "--dossier-dir",
+            str(tmp_path / "second-dossier"),
+            "--reviewer-command",
+            f"{sys.executable} {reviewer}",
+        ]
+    )
+    second = json.loads(capsys.readouterr().out)
+
+    assert first_code == 0
+    assert second_code == 0
+    assert second["outcome"] == "unanimous"
+
+
+def test_structurally_empty_request_refuses_before_reviewer_spend(*, monkeypatch, tmp_path: Path):
+    calls: list[dict[str, object]] = []
+
+    def fail_if_called(
+        *,
+        request: dict[str, object],
+        dossier_dir: Path,
+        reviewer_command: list[str] | None,
+        reviewer_timeout_seconds: float,
+    ) -> dict[str, object]:
+        calls.append(request)
+        return {"reviewers": []}
+
+    monkeypatch.setattr(foreman_panel, "reviewer_responses", fail_if_called)
+
+    result = foreman_panel.convene_panel(
+        request={},
+        state_dir=tmp_path / "state",
+        verdict_path=tmp_path / "verdict.json",
+        reviewer_command=[sys.executable, "-c", "pass"],
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "missing_required_request_fields"
+    assert result["missing_fields"] == [
+        "blocked_question",
+        "handoff_or_work_item",
+        "repo",
+        "repo_context",
+        "topic",
+    ]
+    assert calls == []
+
+
 def test_convening_pins_reviewer_identity_over_self_reported_body(*, tmp_path: Path):
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -359,6 +506,46 @@ def test_unpinned_identity_verdict_is_classified_as_tooling_outage():
                 },
             ],
             verdict_reason="unpinned_model_identity",
+        )
+        == "tooling_outage"
+    )
+
+
+def test_empty_dossier_reviewer_consensus_is_tooling_outage():
+    reviewers = [
+        {
+            "reviewer_id": "fable",
+            "verdict": "insufficient-information",
+            "action": {
+                "action_id": "human_valve",
+                "params": {"reason": "insufficient_information"},
+            },
+            "rationale": "The dossier is empty: blocked_question and repo_context are missing.",
+        },
+        {
+            "reviewer_id": "opus",
+            "verdict": "insufficient-information",
+            "action": {
+                "action_id": "human_valve",
+                "params": {"reason": "insufficient_information"},
+            },
+            "rationale": "The dossier is empty: handoff_or_work_item is absent.",
+        },
+        {
+            "reviewer_id": "gpt-sol",
+            "verdict": "insufficient-information",
+            "action": {
+                "action_id": "human_valve",
+                "params": {"reason": "insufficient_information"},
+            },
+            "rationale": "The dossier is empty: repo_context is unavailable.",
+        },
+    ]
+
+    assert (
+        foreman_panel.result_decision_kind(
+            reviewers=reviewers,
+            verdict_reason="insufficient_information",
         )
         == "tooling_outage"
     )

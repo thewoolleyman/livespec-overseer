@@ -90,12 +90,14 @@ def test_default_reviewer_existing_command_runs_and_parses_response(*, monkeypat
         args: list[str],
         check: bool,
         capture_output: bool,
+        stdin: object,
         text: bool,
         timeout: float,
     ) -> subprocess.CompletedProcess[str]:
         captured["args"] = args
         captured["check"] = check
         captured["capture_output"] = capture_output
+        captured["stdin"] = stdin
         captured["text"] = text
         captured["timeout"] = timeout
         return subprocess.CompletedProcess(
@@ -121,6 +123,7 @@ def test_default_reviewer_existing_command_runs_and_parses_response(*, monkeypat
     )
 
     assert captured["args"] == ["claude", "--model", "claude-fable-5", "-p", "review this dossier"]
+    assert captured["stdin"] is subprocess.DEVNULL
     assert response["verdict"] == "unblock"
 
 
@@ -148,6 +151,8 @@ def test_reviewer_failures_are_typed_insufficient_information(*, tmp_path: Path)
 def test_cli_refuses_malformed_request_and_writes_success_verdict(*, tmp_path: Path, capsys):
     malformed = tmp_path / "malformed.json"
     malformed.write_text("{", encoding="utf-8")
+    non_object = tmp_path / "non-object.json"
+    non_object.write_text("null", encoding="utf-8")
     refused_code = foreman_panel.main(
         argv=[
             "--request",
@@ -157,6 +162,15 @@ def test_cli_refuses_malformed_request_and_writes_success_verdict(*, tmp_path: P
         ]
     )
     refused = json.loads(capsys.readouterr().out)
+    non_object_code = foreman_panel.main(
+        argv=[
+            "--request",
+            str(non_object),
+            "--verdict-output",
+            str(tmp_path / "non-object-refused.json"),
+        ]
+    )
+    non_object_refused = json.loads(capsys.readouterr().out)
 
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -209,6 +223,8 @@ def test_cli_refuses_malformed_request_and_writes_success_verdict(*, tmp_path: P
 
     assert refused_code == 2
     assert refused["reason"] == "malformed_request"
+    assert non_object_code == 2
+    assert non_object_refused["reason"] == "malformed_request"
     assert success_code == 0
     assert success["outcome"] == "unanimous"
     assert verdict_path.is_file()
