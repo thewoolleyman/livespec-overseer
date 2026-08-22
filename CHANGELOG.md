@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.41.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.7...v1.41.8) (2026-08-22)
+
+
+### Bug Fixes
+
+* distinguish held-claim surface status ([7afe373](https://github.com/thewoolleyman/livespec-overseer/commit/7afe373153a859285c000d834c95b4828916615c))
+* isolate rollback state in tests ([8705487](https://github.com/thewoolleyman/livespec-overseer/commit/87054870f12a2869540f6aeca8254a11e0195b9c))
+
 ## [1.41.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.6...v1.41.7) (2026-08-22)
 
 
