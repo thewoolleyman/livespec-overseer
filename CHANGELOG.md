@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.29.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.29.0...v1.29.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* split externally-decided invariants out of the grooming conformance module ([75968d8](https://github.com/thewoolleyman/livespec-overseer/commit/75968d8093b1075c83655e89cf1c42485cf0156c))
+
 ## [1.29.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.28.3...v1.29.0) (2026-08-22)
 
 
