@@ -35,6 +35,10 @@ def _selected_answer(*, params: dict[str, object]) -> str | None:
     return legacy if isinstance(legacy, str) else None
 
 
+def _is_picker_answer(*, answer: str) -> bool:
+    return answer.strip().isdecimal()
+
+
 def _consensus_key(*, action: dict[str, object]) -> dict[str, object]:
     if action.get("action_id") != "blocked_session_answer":
         return action
@@ -43,6 +47,25 @@ def _consensus_key(*, action: dict[str, object]) -> dict[str, object]:
         "action_id": action.get("action_id"),
         "params": {"answer": _selected_answer(params=params)},
     }
+
+
+def _prose_payload_variance(
+    *, reviewers: list[dict[str, object]], actions: list[dict[str, object]]
+) -> bool:
+    verdicts = {reviewer.get("verdict") for reviewer in reviewers}
+    action_ids = {action.get("action_id") for action in actions}
+    if len(verdicts) != _ONE or action_ids != {"blocked_session_answer"}:
+        return False
+    answers: list[str] = []
+    for action in actions:
+        params = jsonio.as_object(value=action.get("params")) or {}
+        answer = _selected_answer(params=params)
+        if answer is None:
+            return False
+        answers.append(answer)
+    return len(set(answers)) > _ONE and any(
+        not _is_picker_answer(answer=answer) for answer in answers
+    )
 
 
 def _majority_action(*, actions: list[dict[str, object]]) -> dict[str, object] | None:
@@ -81,6 +104,14 @@ def _majority_matrix_result(
             reviewers=reviewers,
             decision_rule=decision_rule,
             dissent=dissent,
+        )
+    if _prose_payload_variance(reviewers=reviewers, actions=votes.actions):
+        return escalation(
+            reason="prose_payload_variance",
+            request=request,
+            reviewers=reviewers,
+            decision_rule=decision_rule,
+            typed_layer_agreed=True,
         )
     reason = (
         "needs_human"
@@ -139,6 +170,14 @@ def _unanimous_matrix_result(
             request=request,
             reviewers=reviewers,
             decision_rule=decision_rule,
+        )
+    if _prose_payload_variance(reviewers=reviewers, actions=votes.actions):
+        return escalation(
+            reason="prose_payload_variance",
+            request=request,
+            reviewers=reviewers,
+            decision_rule=decision_rule,
+            typed_layer_agreed=True,
         )
     return escalation(
         reason="typed_action_disagreement",
