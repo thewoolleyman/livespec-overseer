@@ -28,9 +28,6 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
         else frozenset()
     )
     for track in sup.build_rows(act=act):
-        if isinstance(track, RowView):
-            views.append(track)
-            continue
         row = sup.evaluate(track=track, act=act)
         if not act:
             row = _supervisor_mapping_health.apply_mapping_health(

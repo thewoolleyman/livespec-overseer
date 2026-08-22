@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from io import StringIO
 from pathlib import Path
 
+import _supervisor_reexec
 import registry
 import supervisor
 from _supervisor_view import RowView
@@ -128,14 +129,23 @@ def test_wired_reexec_target_reaches_the_tick_safe_point(*, monkeypatch, tmp_pat
     executed: list[tuple[str, list[str]]] = []
     sup.execv = lambda *, path, argv: executed.append((path, argv))
     sup.argv = lambda: ["overseerd", "--warn-percent", "40"]
-    rows = [
-        [RowView(topic="alpha", repo=str(tmp_path), tmux="alpha", ctx=20, status="restarting")],
-        [RowView(topic="alpha", repo=str(tmp_path), tmux="alpha", ctx=82, status="idle")],
-    ]
-    sup.build_rows = lambda *, act: rows.pop(0)
 
-    _ = sup.tick(act=True)
+    _supervisor_reexec.maybe_reexec(
+        sup=sup,
+        rows=[
+            RowView(
+                topic="alpha",
+                repo=str(tmp_path),
+                tmux="alpha",
+                ctx=20,
+                status="restarting",
+            )
+        ],
+    )
     assert executed == []
 
-    _ = sup.tick(act=True)
+    _supervisor_reexec.maybe_reexec(
+        sup=sup,
+        rows=[RowView(topic="alpha", repo=str(tmp_path), tmux="alpha", ctx=82, status="idle")],
+    )
     assert executed == [(str(target), [str(target), "--warn-percent", "40"])]
