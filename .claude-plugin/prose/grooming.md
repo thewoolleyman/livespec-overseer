@@ -46,6 +46,17 @@ leave two queues draining on clocks it does not own:
 Report both queues explicitly. A clean drain report that hides either queue
 misstates completion.
 
+When the foreman posture resolves to full autonomy, read that fact from the
+same resolver/runtime surfaces the foreman uses: `foreman-valve-disposition`
+reports `full_autonomy`, the effective `decision_rule`, and any conflict, and
+`foreman-runtime` renders the standing orders. Grooming still does not dispatch,
+answer valves, restart, or self-apply the terminating condition; it routes
+missing sessions and queued starts to the foreman, reports any
+`foreman-picker-under-full-autonomy` attention row, and treats
+`final-ruling-unheeded` as work for the foreman's existing
+`work_item_session_start` or `qualifying_session_resume` path rather than as a
+maintainer escalation.
+
 ## Surfaces This Contract Governs
 
 All behavior lives in this harness-neutral prose. Thin bindings may expose the

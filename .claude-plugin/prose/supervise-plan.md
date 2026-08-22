@@ -615,6 +615,20 @@ check. That is a property of the change, not of any file path.
 
 Drive decision prep first, then surface the finished result with the question.
 
+Under full autonomy, the generated supervisor inherits the repo-level posture
+from the shared role layer and the foreman's runtime surfaces, not from binder
+prose. `foreman-valve-disposition` reports `full_autonomy`, the effective
+`decision_rule`, and any conflict; `foreman-runtime` renders the standing
+orders and records whether the pass-along exists. Full autonomy means recorded
+next actions are taken, pickers are not used as a stall shape, idle workers are
+driven through dispatch or resume, and a final third relay must be obeyed; it
+does not relax the cardinal rule, actuator-only mutation, `security_dissent`,
+journal-before-act, the delegation floor, or foreign floors. A
+`final-ruling-unheeded` condition is therefore routed to the foreman as a
+dispatch target through `work_item_session_start` or
+`qualifying_session_resume`; a reported terminating condition is surfaced to the
+maintainer and never self-applied by the supervisor.
+
 ## No idle, no silent block
 
 A conflicting lane owned by another track is NOT a thread-wide blocked state. If
