@@ -78,12 +78,22 @@ def test_split_launch_uses_absolute_core_root_log_path(*, monkeypatch, tmp_path)
     mod = _load()
     _in_agent_tmux(monkeypatch=monkeypatch)
     layout = _Layout()
+    runtime_overseerd = tmp_path / "runtime" / "venv" / "bin" / "overseerd"
 
-    assert mod.main(argv=[], io=layout, build_supervisor=_Supervisor, core_root=tmp_path) == 0
+    assert (
+        mod.main(
+            argv=[],
+            io=layout,
+            build_supervisor=_Supervisor,
+            core_root=tmp_path,
+            ensure_daemon_runtime=lambda: runtime_overseerd,
+        )
+        == 0
+    )
 
     command = layout.calls[1][3]
     log_path = tmp_path / "tmp" / "overseer" / "daemon.log"
-    assert command == f"overseerd 2>> {log_path}"
+    assert command == f"{runtime_overseerd} 2>> {log_path}"
     assert Path(str(command).rpartition(" ")[2]).is_absolute()
 
 
@@ -98,12 +108,21 @@ def test_plugin_import_launches_daemon_from_operator_checkout(*, monkeypatch, tm
     monkeypatch.setattr(mod, "__file__", str(plugin_root / "overseer" / "start.py"))
     monkeypatch.chdir(checkout)
     layout = _Layout()
+    runtime_overseerd = tmp_path / "runtime" / "venv" / "bin" / "overseerd"
 
-    assert mod.main(argv=[], io=layout, build_supervisor=_Supervisor) == 0
+    assert (
+        mod.main(
+            argv=[],
+            io=layout,
+            build_supervisor=_Supervisor,
+            ensure_daemon_runtime=lambda: runtime_overseerd,
+        )
+        == 0
+    )
 
     command = layout.calls[1][3]
     assert layout.calls[1][2] == str(checkout)
-    assert command == f"overseerd 2>> {checkout / 'tmp' / 'overseer' / 'daemon.log'}"
+    assert command == f"{runtime_overseerd} 2>> {checkout / 'tmp' / 'overseer' / 'daemon.log'}"
     assert (checkout / "tmp" / "overseer").is_dir()
     assert not (plugin_root / "tmp" / "overseer").exists()
 
@@ -112,10 +131,42 @@ def test_split_launch_fails_when_daemon_pane_dies(*, monkeypatch, tmp_path, caps
     mod = _load()
     _in_agent_tmux(monkeypatch=monkeypatch)
     layout = _Layout(panes_alive={"%77": False})
+    runtime_overseerd = tmp_path / "runtime" / "venv" / "bin" / "overseerd"
 
-    assert mod.main(argv=[], io=layout, build_supervisor=_Supervisor, core_root=tmp_path) == 1
+    assert (
+        mod.main(
+            argv=[],
+            io=layout,
+            build_supervisor=_Supervisor,
+            core_root=tmp_path,
+            ensure_daemon_runtime=lambda: runtime_overseerd,
+        )
+        == 1
+    )
 
     err = capsys.readouterr().err
     assert "overseerd did not stay alive" in err
     assert "daemon.log" in err
     assert "select_layout_even" not in _call_kinds(layout=layout)
+
+
+def test_split_launch_fails_before_split_when_runtime_prefix_fails(
+    *, monkeypatch, tmp_path, capsys
+) -> None:
+    mod = _load()
+    _in_agent_tmux(monkeypatch=monkeypatch)
+    layout = _Layout()
+
+    assert (
+        mod.main(
+            argv=[],
+            io=layout,
+            build_supervisor=_Supervisor,
+            core_root=tmp_path,
+            ensure_daemon_runtime=lambda: None,
+        )
+        == 1
+    )
+
+    assert "failed to prepare the daemon-owned runtime prefix" in capsys.readouterr().err
+    assert "split_window_top" not in _call_kinds(layout=layout)
