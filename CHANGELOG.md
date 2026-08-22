@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.36.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.0...v1.36.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* deduplicate supervisor handoff predicates ([54ca8f4](https://github.com/thewoolleyman/livespec-overseer/commit/54ca8f4b326903dca05639567b19cab7c15d5c9e))
+
 ## [1.36.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.4...v1.36.0) (2026-08-22)
 
 
