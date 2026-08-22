@@ -8,42 +8,39 @@ from pathlib import Path
 __all__: list[str] = []
 
 
-def test_foreman_session_classifier_is_a_closed_typed_result_surface():
+def test_foreman_session_classifier_exact_resume_payload():
     module_path = Path(__file__).with_name("foreman_session_classifier.py")
     assert module_path.is_file()
     classifier = importlib.import_module("foreman_session_classifier")
-
-    assert classifier.FOREMAN_SESSION_ACTIONS == ("exact_resume", "report_only", "start")
 
     coords = classifier.SessionCoordinates(
         repo="/data/projects/livespec-overseer",
         topic="foreman",
         session_name="livespec-overseer-foreman",
     )
-    decision = classifier.classify_session_lifecycle(
+    exact_index = classifier.IndexedSessionEvidence(
+        runtime="codex",
+        repo=None,
+        session_name="livespec-overseer-foreman",
+        session_id="019fc11c-68c4-78c3-824b-d9b97de55a78",
+        transcript_path="/home/me/.codex/sessions/2026/08/03/rollout.jsonl",
+    )
+
+    resume_decision = classifier.classify_session_lifecycle(
         coordinates=coords,
         snapshot=classifier.SnapshotEvidence(
             status="session-gone",
             runtime="codex",
-            session_identity="none:/data/projects/livespec-overseer:foreman",
+            session_identity="codex:019fc11c-68c4-78c3-824b-d9b97de55a78",
         ),
         live_sessions=(),
-        indexed_sessions=(),
+        indexed_sessions=(exact_index,),
     )
-
-    assert decision.action == classifier.START
-    assert decision.start == classifier.StartEvidence(
+    assert resume_decision.resume == classifier.ResumeEvidence(
+        runtime="codex",
         repo="/data/projects/livespec-overseer",
         topic="foreman",
         session_name="livespec-overseer-foreman",
+        session_id="019fc11c-68c4-78c3-824b-d9b97de55a78",
+        transcript_path="/home/me/.codex/sessions/2026/08/03/rollout.jsonl",
     )
-    assert decision.resume is None
-    assert decision.report is None
-
-
-def test_foreman_session_classifier_table():
-    from test_foreman_session_classifier_table import (
-        test_foreman_session_classifier_table as run_table,
-    )
-
-    run_table()

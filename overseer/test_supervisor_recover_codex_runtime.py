@@ -10,7 +10,10 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 
 import pytest
 import registry
+import supervisor
 from test_supervisor_builders import (
+    TEST_EPIC,
+    codex_home_with,
     idle_capture,
     make_plan,
     make_supervisor,
@@ -134,3 +137,116 @@ def test_list_does_not_auto_link_or_gc(*, tmp_path):
 # --------------------------------------------------------------------------- #
 # Reboot recovery (startup-only).
 # --------------------------------------------------------------------------- #
+
+
+def test_recover_recreates_missing_mapped_session(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()  # session absent → must be recreated
+    fake.panes[session] = idle_capture()  # post-launch: empty box so submit confirms
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+    )
+
+    recovered = sup.recover_missing_sessions()
+    assert recovered == [session]
+    assert ("new", session, str(repo)) in fake.calls
+    assert (
+        "respawn",
+        session,
+        str(repo),
+        f"claude --dangerously-skip-permissions -n {topic}",
+        {
+            "ANTHROPIC_MODEL": None,
+            "ANTHROPIC_SMALL_FAST_MODEL": None,
+            "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
+            "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+        },
+    ) in fake.calls
+    assert supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC) in fake.paste_texts()
+
+
+def test_recover_skips_when_new_session_fails(*, tmp_path):
+    """Codex re-review #3: if `new-session` fails to create the exact session,
+    recovery must NOT proceed to `_do_launch`/`respawn` (which could target a
+    prefix-matched live sibling) — it surfaces and skips."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()  # session absent
+    fake.new_session_ok = False  # new-session fails to create it
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+    )
+
+    recovered = sup.recover_missing_sessions()
+    assert recovered == []
+    assert not fake.has(method="respawn")  # never respawned a prefix-matched sibling
+
+
+def test_recover_resumes_a_codex_track_via_codex_resume(*, tmp_path):
+    """Option (c): a dead track whose topic is in the codex index WITH its rollout on disk is
+    resumed by `codex resume <id>` (reattaching the SAME rollout), NEVER the claude command."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    fake = FakeTmux()  # session absent → must be recreated
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        codex_home=str(codex_home_with(tmp_path=tmp_path, topic=topic, session_id=sid)),
+    )
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+    )
+
+    recovered = sup.recover_missing_sessions()
+    assert recovered == [session]
+    assert ("new", session, str(repo)) in fake.calls
+    expected = supervisor.Supervisor._codex_launch_command(
+        session_id=sid, resume=supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
+    )
+    assert (
+        "respawn",
+        session,
+        str(repo),
+        expected,
+        {
+            "ANTHROPIC_MODEL": None,
+            "ANTHROPIC_SMALL_FAST_MODEL": None,
+            "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
+            "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+        },
+    ) in fake.calls
+    # THE guard: the destructive Claude command is NEVER aimed at a codex track.
+    assert not any(c[0] == "respawn" and "claude" in c[3] for c in fake.calls)
+    assert not fake.has(method="paste")  # codex resume auto-submits the kick — no separate paste
+
+
+def test_recover_skips_and_surfaces_a_codex_track_whose_rollout_is_gone(*, tmp_path, capsys):
+    """Option (b): the topic is in the codex index but its rollout was pruned — codex resume
+    cannot reattach, so recovery SKIPS and surfaces it, NEVER recreating it as Claude."""
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    sid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+    fake = FakeTmux()
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        codex_home=str(
+            codex_home_with(tmp_path=tmp_path, topic=topic, session_id=sid, rollout=False)
+        ),
+    )
+    registry.append_mapping(
+        track=mapped_track(repo=repo, topic=topic, session=session), store_path=sup.store_path
+    )
+
+    recovered = sup.recover_missing_sessions()
+    assert recovered == []
+    assert not fake.has(method="new")  # never created the session...
+    assert not fake.has(
+        method="respawn"
+    )  # ...and never launched anything (no mis-recreate as Claude)
+    err = capsys.readouterr().err
+    assert topic in err and "rollout is gone" in err and "re-adopt" in err
