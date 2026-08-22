@@ -164,7 +164,7 @@ source = { git = "https://github.com/thewoolleyman/livespec-dev-tooling.git?tag=
 
 [[package]]
 name = "livespec-overseer"
-version = "1.37.1"
+version = "1.37.2"
 source = { editable = "." }
 dependencies = [
     { name = "livespec-runtime" },

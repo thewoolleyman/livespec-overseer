@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.1...v1.37.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* surface unusable overseer mappings ([764354f](https://github.com/thewoolleyman/livespec-overseer/commit/764354f6328d6b98913122c99133657ce27a0d31))
+
 ## [1.37.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.0...v1.37.1) (2026-08-22)
 
 
