@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.32.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.3...v1.32.4) (2026-08-22)
+
+
+### Bug Fixes
+
+* split the caam switch host boundary out from under the LLOC ceiling ([9f982b8](https://github.com/thewoolleyman/livespec-overseer/commit/9f982b8f19f090e5f23e4c8a89adc8b986839e3c))
+
 ## [1.32.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.2...v1.32.3) (2026-08-22)
 
 
