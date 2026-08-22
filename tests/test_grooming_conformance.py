@@ -145,7 +145,7 @@ def _by_key(*, report: ReportView, key: str) -> InvariantView:
     return {result.key: result for result in report.invariants}[key]
 
 
-def test_reports_breaching_item_ids_and_unimplemented_invariants(*, tmp_path: Path) -> None:
+def test_reports_breaching_item_ids_and_structural_invariants(*, tmp_path: Path) -> None:
     module = grooming_conformance()
     repo = _repo(tmp_path=tmp_path)
     report = module.evaluate_ledger_invariants(
@@ -176,12 +176,88 @@ def test_reports_breaching_item_ids_and_unimplemented_invariants(*, tmp_path: Pa
         "native-deferred",
         "native-open",
     )
-    assert _by_key(report=report, key="split-acceptance-label").status == (
-        "unimplemented-pending-decision"
+    assert _by_key(report=report, key="split-acceptance-label").status == "checked"
+    assert _by_key(report=report, key="routing-field").status == "structurally-guaranteed"
+    assert "tenant is per-repo" in _by_key(report=report, key="routing-field").reason
+
+
+def test_acceptance_policy_label_check_discriminates_both_directions(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            _with(
+                row=_item(item_id="agreeing"),
+                updates={
+                    "acceptance_policy": "ai-then-human",
+                    "labels": ["acceptance:ai-then-human"],
+                },
+            ),
+            _with(
+                row=_item(item_id="label-without-policy"),
+                updates={"labels": ["acceptance:ai-then-human"]},
+            ),
+            _with(
+                row=_item(item_id="policy-without-label"),
+                updates={"acceptance_policy": "human-only"},
+            ),
+            _with(
+                row=_item(item_id="terminal-mismatch", status="closed"),
+                updates={
+                    "acceptance_policy": "ai-only",
+                    "labels": ["acceptance:human-only"],
+                },
+            ),
+        ],
     )
-    assert "no canonical expression" in _by_key(report=report, key="split-acceptance-label").reason
-    assert _by_key(report=report, key="routing-field").status == ("unimplemented-pending-decision")
-    assert "no backing field" in _by_key(report=report, key="routing-field").reason
+
+    check = _by_key(report=report, key="split-acceptance-label")
+    assert check.status == "checked"
+    assert check.breaching_item_ids == (
+        "label-without-policy",
+        "policy-without-label",
+    )
+    assert check.scanned_item_count == 3
+    assert "3 open rows" in check.scope
+    assert "2 policy-bearing rows" in check.scope
+    assert "split-criteria shape remains unexpressed" in check.scope
+
+
+def test_acceptance_policy_label_check_matches_recorded_live_shaped_population(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    policy_rows = [
+        _with(
+            row=_item(item_id=f"policy-{index}"),
+            updates={
+                "acceptance_policy": "ai-then-human",
+                "labels": ["acceptance:ai-then-human"],
+            },
+        )
+        for index in range(25)
+    ]
+    policyless_rows = [
+        _with(row=_item(item_id=f"policyless-{index}"), updates={"labels": []})
+        for index in range(142)
+    ]
+
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=policy_rows + policyless_rows,
+    )
+
+    check = _by_key(report=report, key="split-acceptance-label")
+    assert check.breaching_item_ids == ()
+    assert check.scanned_item_count == 167
+    assert "25 policy-bearing rows" in check.scope
+    assert "142 policy-less rows" in check.scope
 
 
 def test_plan_rollup_exempts_registered_seat_anchor_from_real_record_shape(

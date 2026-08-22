@@ -1,9 +1,10 @@
-"""Invariant checks that this tenant's own item list cannot decide.
+"""Invariant checks kept outside the core invariant module.
 
-Two are declared and deliberately unimplemented: their verdicts are fixed
-reports naming what a decision would have to legislate first.  The third is
-measured, but against SIBLING repositories rather than against the items under
-scan, so it carries inputs the rest of the suite does not.
+One invariant is structurally guaranteed by the tenant rather than measured
+from a row field. Another is measured against SIBLING repositories rather than
+against the items under scan, so it carries inputs the rest of the suite does
+not. The split-acceptance label check stays here because its label half is now
+measured while its criteria-shape half remains deliberately unexpressed.
 
 They live apart from `grooming_conformance_invariants` for that reason rather
 than for size: everything left there is decided by the scanned items alone.
@@ -20,8 +21,10 @@ from grooming_conformance_values import (
     cross_repo_payload_breaches,
     dependency_payload,
     has_dependency_payload,
+    is_open,
     is_resolved_local_dependency,
     item_id,
+    labels,
     listed_sibling_repos,
     mapping_sequence,
     sorted_ids,
@@ -34,18 +37,64 @@ __all__: list[str] = [
 ]
 
 
-def split_acceptance_label_pending() -> InvariantCheck:
+ACCEPTANCE_LABEL_PREFIX = "acceptance:"
+ACCEPTANCE_POLICIES = frozenset({"ai-only", "ai-then-human", "human-only"})
+
+
+def split_acceptance_label_pending(
+    *,
+    items: Sequence[Mapping[str, object]],
+) -> InvariantCheck:
+    scanned = tuple(item for item in items if is_open(item=item))
+    breaches = sorted_ids(
+        items=(
+            item
+            for item in scanned
+            if acceptance_labels(item=item) != expected_acceptance_labels(item=item)
+        )
+    )
     return InvariantCheck(
         key="split-acceptance-label",
-        title="Human-verified-acceptance label and split acceptance agree",
-        status="unimplemented-pending-decision",
-        breaching_item_ids=(),
-        scanned_item_count=0,
-        scope="not mechanically checked",
+        title="Acceptance-policy label and merged acceptance policy agree",
+        status="checked",
+        breaching_item_ids=breaches,
+        scanned_item_count=len(scanned),
+        scope=split_acceptance_label_scope(items=scanned),
         reason=(
-            "the label is defined, but there is no canonical expression of split "
-            "acceptance; choosing one here would legislate schema"
+            "checks only the label-versus-acceptance_policy half; split-criteria "
+            "shape remains unexpressed in the substrate"
         ),
+    )
+
+
+def acceptance_labels(*, item: Mapping[str, object]) -> frozenset[str]:
+    return frozenset(
+        label for label in labels(item=item) if label.startswith(ACCEPTANCE_LABEL_PREFIX)
+    )
+
+
+def expected_acceptance_labels(*, item: Mapping[str, object]) -> frozenset[str]:
+    policy = acceptance_policy(item=item)
+    if policy is None:
+        return frozenset()
+    return frozenset({f"{ACCEPTANCE_LABEL_PREFIX}{policy}"})
+
+
+def acceptance_policy(*, item: Mapping[str, object]) -> str | None:
+    value = item.get("acceptance_policy")
+    if isinstance(value, str) and value in ACCEPTANCE_POLICIES:
+        return value
+    return None
+
+
+def split_acceptance_label_scope(*, items: Sequence[Mapping[str, object]]) -> str:
+    policy_count = sum(1 for item in items if acceptance_policy(item=item) is not None)
+    policyless_count = len(items) - policy_count
+    return (
+        f"{len(items)} open rows from the merged projection; {policy_count} "
+        f"policy-bearing rows and {policyless_count} policy-less rows compared "
+        "acceptance-prefixed labels to acceptance_policy; split-criteria shape "
+        "remains unexpressed in the substrate"
     )
 
 
@@ -146,13 +195,14 @@ def missing_sibling_evidence_scope(*, missing_repos: tuple[str, ...]) -> str:
 def routing_field_pending() -> InvariantCheck:
     return InvariantCheck(
         key="routing-field",
-        title="Routing field names the deliverable repository",
-        status="unimplemented-pending-decision",
+        title="Tenant structurally pins the deliverable repository",
+        status="structurally-guaranteed",
         breaching_item_ids=(),
         scanned_item_count=0,
-        scope="not mechanically checked",
+        scope="no row-level routing field is scanned",
         reason=(
-            "no backing field exists on the work item or metadata; the tenant itself "
-            "pins the repository"
+            "no backing routing field exists on the work item or merged projection; "
+            "the tenant is per-repo, so the deliverable repository is pinned "
+            "structurally"
         ),
     )
