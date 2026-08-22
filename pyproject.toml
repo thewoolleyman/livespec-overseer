@@ -29,6 +29,7 @@ dependencies = [
 ]
 
 [project.scripts]
+caam-anthropic-loop = "overseer.caam_anthropic_loop:main"
 foreman-act = "overseer.foreman_act:main"
 foreman-consensus = "overseer.foreman_consensus:main"
 foreman-gather = "overseer.foreman_gather:main"
