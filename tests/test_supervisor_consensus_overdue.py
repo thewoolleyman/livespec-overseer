@@ -78,6 +78,7 @@ def test_consensus_overdue_raises_after_convene_bound_without_satisfying_artifac
     assert topic in (row.note or "")
     assert "consensus overdue" in err
     assert fingerprint[:12] in err
+    assert (str(repo), topic, "blocked-human") in sup.alerted
     assert (str(repo), topic, "consensus-overdue") in sup.alerted
     assert not fake.has(method="paste")
     assert not fake.has(method="respawn")

@@ -1,4 +1,5 @@
 """Pre-idle active branch group for the supervisor evaluation cascade."""
+# livespec-lloc-soft-band-owner: overseer-au3pt3.15
 
 from __future__ import annotations
 
@@ -204,6 +205,7 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
             )
         )
         if consensus_overdue is not None:
+            active_conditions.update(blocked_decision.active_conditions)
             active_conditions.update(consensus_overdue.active_conditions)
             status = consensus_overdue.status
             note = consensus_overdue.note
