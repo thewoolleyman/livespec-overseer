@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.26.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.26.1...v1.26.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* split consensus outcome payloads out of the decision matrix ([26ed1f4](https://github.com/thewoolleyman/livespec-overseer/commit/26ed1f458173040ff01dbde86be028a44843a498))
+
 ## [1.26.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.26.0...v1.26.1) (2026-08-22)
 
 
