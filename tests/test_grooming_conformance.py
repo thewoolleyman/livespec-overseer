@@ -292,6 +292,10 @@ def test_held_claim_surface_keeps_terminal_assignee_as_provenance(
     assert "2 non-terminal assigned rows are held-claim candidates" in check.scope
     assert "1 terminal assigned row is provenance, not a held claim" in check.scope
     assert "closed-factory" not in check.scope
+    assert check.reason == (
+        "chosen route (b): terminal assignees are kept as provenance; only "
+        "non-terminal assigned rows are held-claim candidates"
+    )
 
 
 def test_plan_rollup_exempts_registered_seat_anchor_from_real_record_shape(
