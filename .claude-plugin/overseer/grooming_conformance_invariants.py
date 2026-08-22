@@ -213,17 +213,11 @@ def held_claim_surface_check(*, items: Sequence[Mapping[str, object]]) -> Invari
 
 
 def held_claim_surface_scope(*, held_count: int, terminal_count: int) -> str:
+    held_row_word = "row" if held_count == 1 else "rows"
+    terminal_row_word = "row" if terminal_count == 1 else "rows"
+    terminal_be = "is" if terminal_count == 1 else "are"
     return (
-        f"{held_count} non-terminal assigned {row_word(count=held_count)} are "
-        f"held-claim candidates; {terminal_count} terminal assigned "
-        f"{row_word(count=terminal_count)} {be_word(count=terminal_count)} provenance, "
+        f"{held_count} non-terminal assigned {held_row_word} are held-claim candidates; "
+        f"{terminal_count} terminal assigned {terminal_row_word} {terminal_be} provenance, "
         "not a held claim"
     )
-
-
-def row_word(*, count: int) -> str:
-    return "row" if count == 1 else "rows"
-
-
-def be_word(*, count: int) -> str:
-    return "is" if count == 1 else "are"
