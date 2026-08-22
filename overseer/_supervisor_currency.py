@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
@@ -14,6 +16,11 @@ __all__: list[str] = ["currency_row"]
 
 _TOPIC = "release-currency"
 _STATUS = "currency-blocked"
+_DEGRADED_CHECK_EXCEPTIONS = (
+    OSError,
+    subprocess.SubprocessError,
+    json.JSONDecodeError,
+)
 
 
 def _blocked_reason(*, verdict: Mapping[str, object] | None) -> str | None:
@@ -35,15 +42,17 @@ def _surface_blocked(*, sup: Supervisor, reason: str) -> None:
 def currency_row(*, sup: Supervisor) -> RowView | None:
     """Run the optional currency check and return its attention row, if blocked.
 
-    The check is an environmental forge read, so an ``OSError`` is a value-level
-    blocked verdict: the supervisor keeps supervising with its current runtime
-    and surfaces the degraded condition instead of letting the daemon die.
+    The check is an environmental forge read. Spawn/read failures, subprocess
+    failures, timeouts, and malformed forge JSON are value-level blocked
+    verdicts: the supervisor keeps supervising with its current runtime and
+    surfaces the degraded condition instead of letting the daemon die. Other
+    exceptions are programming defects in the injected check and still surface.
     """
     if sup.currency_check is None:
         return None
     try:
         reason = _blocked_reason(verdict=sup.currency_check())
-    except OSError as exc:
+    except _DEGRADED_CHECK_EXCEPTIONS as exc:
         reason = f"currency check failed: {exc}"
     if reason is None:
         sup.currency_blocked_message = None

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import subprocess
 from collections.abc import Iterator
 from io import StringIO
 
@@ -102,6 +104,61 @@ def test_currency_check_exception_degrades_to_blocked_value_and_keeps_ticking(
     assert currency.status == "currency-blocked"
     assert currency.note == "currency check failed: network is unreachable"
     assert "network is unreachable" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("exc", "message"),
+    [
+        (
+            subprocess.CalledProcessError(returncode=1, cmd=["gh", "api", "/repos/demo"]),
+            "returned non-zero exit status 1",
+        ),
+        (
+            json.JSONDecodeError(msg="Expecting value", doc="", pos=0),
+            "Expecting value",
+        ),
+        (
+            subprocess.TimeoutExpired(cmd=["gh", "api", "/repos/demo"], timeout=30),
+            "timed out after 30 seconds",
+        ),
+    ],
+)
+def test_currency_check_forge_read_exceptions_degrade_to_blocked_value(
+    *,
+    tmp_path,
+    capsys,
+    exc: Exception,
+    message: str,
+) -> None:
+    """Real forge-read failures are degraded; programming defects are not."""
+
+    def currency_check() -> dict[str, object]:
+        raise exc
+
+    sup = _sup(tmp_path=tmp_path, currency_check=currency_check)
+    _map_alpha(sup=sup)
+
+    rows = sup.tick(act=True)
+
+    _assert_alpha_is_still_supervised(rows=rows)
+    currency = next(row for row in rows if row.topic == "release-currency")
+    assert currency.status == "currency-blocked"
+    assert currency.note.startswith("currency check failed: ")
+    assert message in currency.note
+    assert message in capsys.readouterr().err
+
+
+def test_currency_check_programming_error_still_surfaces(*, tmp_path) -> None:
+    """TypeError is not an environmental forge failure and must not degrade."""
+
+    def currency_check() -> dict[str, object]:
+        raise TypeError("broken check signature")
+
+    sup = _sup(tmp_path=tmp_path, currency_check=currency_check)
+    _map_alpha(sup=sup)
+
+    with pytest.raises(TypeError, match="broken check signature"):
+        sup.tick(act=True)
 
 
 def test_currency_check_reports_on_entry_not_every_tick(*, tmp_path, capsys) -> None:
