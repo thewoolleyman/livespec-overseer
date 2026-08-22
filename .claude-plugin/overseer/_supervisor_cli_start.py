@@ -47,7 +47,14 @@ def start_command(
     tmux_factory: TmuxFactory,
     supervisor_factory: SupervisorFactory,
 ) -> int:
-    """Surface-only, user-initiated launch. The daemon never invokes this."""
+    """Surface-only, user-initiated launch. The daemon never invokes this.
+
+    Guarded (B8): if the session already runs a LIVE Claude, ``start`` does NOT
+    ``respawn-pane -k`` it (that would kill a mid-work session with no interlock —
+    the exact "never force-kill mid-work" violation the whole design exists to
+    prevent, reachable via a repeated bottom-pane ``start``). It just upserts the
+    mapping and reports. ``--force`` is required to actually respawn a live one.
+    """
     repo = os.path.normpath(args.repo)
     topic = args.topic
     existing = _existing_start_track(repo=repo, topic=topic)
