@@ -1821,6 +1821,32 @@ def test_human_valve_remains_non_authorizable_as_panel_action(*, tmp_path):
     }
 
 
+def test_malformed_panel_action_remains_non_authorizable(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    verdict = blocked_answer_panel_result()
+    verdict["action"] = {"params": {}}
+
+    result = foreman_act.act(
+        proposal=blocked_answer_proposal(repo=repo),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: pytest.fail("malformed panel action must not run"),
+            consensus_panel=lambda *, request, responses: verdict,
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "consensus_action_not_enumerated",
+    }
+
+
 def test_gate_state_restores_claude_and_codex_adapters_against_real_tmux(*, tmp_path):
     assert GATE_STATE_PATH.is_file()
     gate_state = module("foreman_gate_state")
