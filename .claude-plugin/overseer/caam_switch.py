@@ -1,16 +1,19 @@
 """Serialized switch execution for caam account rotation."""
 
-# livespec-lloc-soft-band-owner: overseer-54k2za.6
-
 from __future__ import annotations
 
-import fcntl
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Final, Protocol, TextIO, cast
+from typing import Final, Protocol, cast
 
+from _caam_switch_host import (
+    SwitchLock,
+    SwitchLockFactory,
+    acquire_switch_lock,
+    caam_activate,
+)
 from caam_decision import ProfileUsage, UsageRecord, decision_switched
 from caam_profile_state import caam_vault, live_creds_path
 from caam_usage import read_creds
@@ -65,21 +68,6 @@ class UsageFetcher(Protocol):
     ) -> tuple[UsageRecord | None, str | None]: ...
 
 
-class SwitchLock(Protocol):
-    def __enter__(self) -> SwitchLock: ...
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: object,
-    ) -> bool | None: ...
-
-
-class SwitchLockFactory(Protocol):
-    def __call__(self, *, lock_path: Path) -> SwitchLock | None: ...
-
-
 @dataclass(frozen=True, kw_only=True)
 class SwitchResult:
     exit_code: int
@@ -99,48 +87,6 @@ class SwitchRequest:
     activator: ActivateRunner
     lock_factory: SwitchLockFactory
     save: SaveState
-
-
-@dataclass(kw_only=True)
-class _FcntlSwitchLock:  # pragma: no cover
-    handle: TextIO
-
-    def __enter__(self) -> _FcntlSwitchLock:
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: object,
-    ) -> bool:
-        del exc_type, exc, traceback
-        fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
-        self.handle.close()
-        return False
-
-
-def acquire_switch_lock(*, lock_path: Path) -> SwitchLock | None:  # pragma: no cover
-    lock_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    handle = lock_path.open("a+", encoding="utf-8")
-    try:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BlockingIOError:
-        handle.close()
-        return None
-    return _FcntlSwitchLock(handle=handle)
-
-
-def caam_activate(  # pragma: no cover
-    *, args: tuple[str, ...], timeout: float
-) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
-        ("caam", *args),
-        capture_output=True,
-        check=False,
-        text=True,
-        timeout=timeout,
-    )
 
 
 def switch_account(*, request: SwitchRequest) -> SwitchResult:
