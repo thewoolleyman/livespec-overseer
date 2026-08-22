@@ -10,9 +10,18 @@ import jsonio
 import streams
 import tmuxio
 from _supervisor_snapshot import DEFAULT_STATUS_PATH, read_status_snapshot
+from foreman_plan_roster_work import (
+    NO_WORK_IN_FLIGHT,
+    WORK_IN_FLIGHT,
+    WORK_STATES,
+    work_states_by_plan,
+)
 
 __all__: list[str] = [
+    "SESSION_STATES",
+    "WORK_STATES",
     "compose_roster",
+    "emoji_for_pair",
     "main",
 ]
 
@@ -22,17 +31,41 @@ PLAN_WITHOUT_TMUX_SESSION = "plan_without_tmux_session"
 TMUX_SESSION_WITHOUT_PLAN = "tmux_session_without_plan"
 DAEMON_TMUX_NAME_MISMATCH = "daemon_tmux_name_mismatch"
 OK = "ok"
-GREEN_STATUSES = frozenset({"working", "winding-down", "restarting", "settling"})
-YELLOW_STATUSES = frozenset(
+SESSION_WORKING = "working"
+SESSION_IDLE = "idle"
+SESSION_PICKER_PARKED = "picker-parked"
+SESSION_NO_SESSION = "no-session"
+SESSION_STATES = (
+    SESSION_WORKING,
+    SESSION_IDLE,
+    SESSION_PICKER_PARKED,
+    SESSION_NO_SESSION,
+)
+WORKING_STATUSES = frozenset({"working", "winding-down", "restarting", "settling"})
+IDLE_STATUSES = frozenset(
     {
         "blocked:human",
         "idle",
         "idle-with-context-left",
-        "parked-delivery",
-        "picker-stalled",
         "warned",
     }
 )
+PICKER_PARKED_STATUSES = frozenset(
+    {
+        "parked-delivery",
+        "picker-stalled",
+    }
+)
+PAIR_EMOJI = {
+    (SESSION_WORKING, WORK_IN_FLIGHT): "🟢",
+    (SESSION_WORKING, NO_WORK_IN_FLIGHT): "🟢",
+    (SESSION_IDLE, WORK_IN_FLIGHT): "🟡",
+    (SESSION_IDLE, NO_WORK_IN_FLIGHT): "🔴",
+    (SESSION_PICKER_PARKED, WORK_IN_FLIGHT): "🔴",
+    (SESSION_PICKER_PARKED, NO_WORK_IN_FLIGHT): "🔴",
+    (SESSION_NO_SESSION, WORK_IN_FLIGHT): "🟡",
+    (SESSION_NO_SESSION, NO_WORK_IN_FLIGHT): "🔴",
+}
 
 
 def _active_plan_names(*, repo: Path) -> list[str]:
@@ -63,7 +96,7 @@ def _snapshot_rows_by_topic(*, repo: Path, snapshot_path: Path) -> dict[str, dic
     return by_topic
 
 
-def _row_status(*, daemon_row: dict[str, object] | None) -> str:
+def _daemon_status(*, daemon_row: dict[str, object] | None) -> str:
     if daemon_row is None:
         return NO_DAEMON_ROW
     status = daemon_row.get("status")
@@ -72,12 +105,19 @@ def _row_status(*, daemon_row: dict[str, object] | None) -> str:
     return "daemon-row-missing-status"
 
 
-def _status_emoji(*, status: str) -> str:
-    if status in GREEN_STATUSES:
-        return "🟢"
-    if status in YELLOW_STATUSES or status.startswith("blocked:"):
-        return "🟡"
-    return "🔴"
+def _session_state(*, daemon_row: dict[str, object] | None) -> str:
+    status = _daemon_status(daemon_row=daemon_row)
+    if status in WORKING_STATUSES:
+        return SESSION_WORKING
+    if status in PICKER_PARKED_STATUSES:
+        return SESSION_PICKER_PARKED
+    if status in IDLE_STATUSES or status.startswith("blocked:"):
+        return SESSION_IDLE
+    return SESSION_NO_SESSION
+
+
+def emoji_for_pair(*, session_state: str, work_state: str) -> str:
+    return PAIR_EMOJI.get((session_state, work_state), "🔴")
 
 
 def _daemon_tmux(*, daemon_row: dict[str, object] | None) -> str | None:
@@ -108,8 +148,9 @@ def _roster_row(
     plan: str,
     daemon_row: dict[str, object] | None,
     tmux_session_names: set[str],
+    work_state: str,
 ) -> dict[str, object]:
-    status = _row_status(daemon_row=daemon_row)
+    session_state = _session_state(daemon_row=daemon_row)
     daemon_topic = None if daemon_row is None else daemon_row.get("topic")
     return {
         "plan": plan,
@@ -122,8 +163,9 @@ def _roster_row(
             daemon_row=daemon_row,
             tmux_session_names=tmux_session_names,
         ),
-        "status": status,
-        "status_emoji": _status_emoji(status=status),
+        "session_state": session_state,
+        "work_state": work_state,
+        "emoji": emoji_for_pair(session_state=session_state, work_state=work_state),
     }
 
 
@@ -150,17 +192,20 @@ def compose_roster(
     repo: Path,
     snapshot_path: Path,
     tmux_sessions: list[str],
+    journal_path: Path | None = None,
 ) -> dict[str, object]:
     repo = repo.resolve()
     plan_names = _active_plan_names(repo=repo)
     plan_name_set = set(plan_names)
     tmux_session_names = {session for session in tmux_sessions if session}
     daemon_rows = _snapshot_rows_by_topic(repo=repo, snapshot_path=snapshot_path)
+    work_states = work_states_by_plan(repo=repo, plan_names=plan_names, journal_path=journal_path)
     rows = [
         _roster_row(
             plan=plan,
             daemon_row=daemon_rows.get(plan),
             tmux_session_names=tmux_session_names,
+            work_state=work_states.get(plan, NO_WORK_IN_FLIGHT),
         )
         for plan in plan_names
     ]
@@ -183,6 +228,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="foreman-plan-roster")
     _ = parser.add_argument("--repo", default=str(Path.cwd()))
     _ = parser.add_argument("--snapshot-path", default=str(DEFAULT_STATUS_PATH))
+    _ = parser.add_argument("--journal-path", default=None)
     _ = parser.add_argument(
         "--tmux-session",
         action="append",
@@ -201,6 +247,7 @@ def main(*, argv: list[str] | None = None) -> int:
         repo=Path(args.repo),
         snapshot_path=Path(args.snapshot_path),
         tmux_sessions=tmux_sessions,
+        journal_path=Path(args.journal_path) if args.journal_path is not None else None,
     )
     streams.write_stdout(text=json.dumps(roster, sort_keys=True) + "\n")
     return 0
