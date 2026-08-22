@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.24.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.24.0...v1.24.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* extract foreman soft-band seams ([9885f54](https://github.com/thewoolleyman/livespec-overseer/commit/9885f54dfe73a6abb43ef42cc4934e8d602a95aa))
+
 ## [1.24.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.23.0...v1.24.0) (2026-08-22)
 
 
