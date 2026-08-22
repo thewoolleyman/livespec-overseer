@@ -624,6 +624,62 @@ def test_empty_dossier_reviewer_consensus_is_tooling_outage():
     )
 
 
+def test_measured_empty_dossier_rationales_classify_by_structural_signal():
+    reviewers = [
+        {
+            "reviewer_id": "fable",
+            "verdict": "insufficient-information",
+            "action": {
+                "action_id": "human_valve",
+                "params": {"reason": "insufficient_information"},
+            },
+            "rationale": (
+                "The dossier is empty: blocked_question, handoff_or_work_item, "
+                "repo_context are missing."
+            ),
+        },
+        {
+            "reviewer_id": "opus",
+            "verdict": "insufficient-information",
+            "action": {
+                "action_id": "human_valve",
+                "params": {"reason": "insufficient_information"},
+            },
+            "rationale": (
+                "The dossier is entirely empty: blocked_question, "
+                "handoff_or_work_item, repo_context are missing."
+            ),
+        },
+        {
+            "reviewer_id": "gpt-sol",
+            "verdict": "insufficient-information",
+            "action": {
+                "action_id": "human_valve",
+                "params": {"reason": "insufficient_information"},
+            },
+            "rationale": (
+                "The dossier contains no blocked question, handoff, work item, "
+                "repository context, or snapshot."
+            ),
+        },
+    ]
+
+    assert (
+        foreman_panel.result_decision_kind(
+            reviewers=reviewers,
+            verdict_reason="insufficient_information",
+            reviewer_dossier_missing_fields=[
+                "blocked_question",
+                "handoff_or_work_item",
+                "repo",
+                "repo_context",
+                "topic",
+            ],
+        )
+        == "tooling_outage"
+    )
+
+
 def test_measured_thin_dossier_classification_does_not_need_matching_rationale():
     assert (
         foreman_panel.result_decision_kind(

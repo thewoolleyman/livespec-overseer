@@ -12,7 +12,7 @@ import foreman_panel_reviewers
 import jsonio
 import streams
 from foreman_consensus import consensus, decision_rule_for_request
-from foreman_consensus_prompt import cache_key
+from foreman_consensus_prompt import cache_key, reviewer_dossier_missing_fields
 from foreman_consensus_types import DEFAULT_PANEL_LIMITS, DEFAULT_STATE_DIR
 from foreman_panel_decision_kind import result_decision_kind
 from foreman_panel_io import default_dossier_dir, load_request, write_json
@@ -69,6 +69,7 @@ def convene_panel(
         reviewers=[reviewer for reviewer in reviewers if isinstance(reviewer, dict)],
         verdict_reason=str_field(payload=verdict, key="reason"),
         missing_request_fields=missing_request_fields(request=request),
+        reviewer_dossier_missing_fields=reviewer_dossier_missing_fields(request=request),
     )
     _ = write_json(path=panel_dir / "verdict.json", payload=verdict)
     _ = write_json(path=verdict_path, payload=verdict)

@@ -22,6 +22,7 @@ __all__: list[str] = [
     "cache_key",
     "canonical_json",
     "reviewer_action_contract",
+    "reviewer_dossier_missing_fields",
     "reviewer_prompts",
     "snapshot_key_fields",
     "strip_question_region",
@@ -31,6 +32,11 @@ ANSI_RE: Final[re.Pattern[str]] = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 SPINNER_RE: Final[re.Pattern[str]] = re.compile(r"[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]")
 CTX_RE: Final[re.Pattern[str]] = re.compile(r"\b(?:Ctx:|Context)\s*\d+%\s*left\b")
 DEFAULT_DECISION_RULE: Final[DecisionRule] = cast(DecisionRule, UNANIMOUS)
+REVIEWER_DOSSIER_FIELDS: Final[tuple[str, ...]] = (
+    "blocked_question",
+    "handoff_or_work_item",
+    "repo_context",
+)
 
 
 def canonical_json(*, value: object) -> str:
@@ -63,6 +69,12 @@ def snapshot_key_fields(*, request: dict[str, object]) -> dict[str, object]:
         "tick_generation": snapshot.get("tick_generation"),
         "session_identity": snapshot.get("session_identity"),
     }
+
+
+def reviewer_dossier_missing_fields(*, request: dict[str, object]) -> list[str]:
+    return [
+        field for field in REVIEWER_DOSSIER_FIELDS if str_field(payload=request, key=field) == ""
+    ]
 
 
 def cache_key(
