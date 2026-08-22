@@ -109,6 +109,10 @@ MaybeStr = str | None
 CurrencyCheck = Callable[[], Mapping[str, object] | None]
 
 
+def _process_execv(*, path: str, argv: list[str]) -> None:  # pragma: no cover
+    os.execv(path, argv)  # noqa: S606
+
+
 # --------------------------------------------------------------------------- #
 # The daemon.
 # --------------------------------------------------------------------------- #
@@ -134,6 +138,10 @@ class Supervisor:
     status_writer: _seams.StatusWriter = _supervisor_snapshot.default_status_writer
     status_snapshot_writer: Callable[..., None] = _supervisor_snapshot.write_status_snapshot
     currency_check: CurrencyCheck | None = None
+    reexec_target: Callable[[], Path | None] = field(default_factory=lambda: lambda: None)
+    argv: Callable[[], list[str]] = field(default_factory=lambda: lambda: sys.argv)
+    execv: Callable[..., None] = _process_execv
+    reexec_min_interval_seconds: float = 3600.0
     extra_repos: list[str] = field(default_factory=list)
     # Daemon-wide default warn threshold (remaining-% at which the FIRST wrap-up
     # fires) for any track WITHOUT a per-track ``ctx_threshold`` override. Set from
@@ -197,6 +205,7 @@ class Supervisor:
     own_pane: str | None = None
     daemon_instance_id: str = field(default_factory=lambda: uuid.uuid4().hex, init=False)
     tick_generation: int = field(default=0, init=False)
+    last_reexec_attempt_at: float = field(default=float("-inf"), init=False)
     status_snapshot_failed: bool = field(default=False, init=False)
     inject: dict[tuple[str, str], InjectState] = field(default_factory=dict, init=False)
     pair_stalls: dict[tuple[str, str], PairStallState] = field(default_factory=dict, init=False)

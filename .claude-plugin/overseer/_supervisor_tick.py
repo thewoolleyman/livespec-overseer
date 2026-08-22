@@ -8,6 +8,7 @@ import _supervisor_discovery
 import _supervisor_foreman
 import _supervisor_grooming
 import _supervisor_pair
+import _supervisor_reexec
 import _supervisor_render
 from _supervisor_view import RowView, needs_attention
 
@@ -22,6 +23,8 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
     views: list[RowView] = []
     for track in sup.build_rows(act=act):
         views.append(sup.evaluate(track=track, act=act))
+        if not hasattr(track, "is_unassigned"):
+            continue
         supervisor_view = _supervisor_pair.evaluate_supervisor_pair(sup=sup, track=track, act=act)
         if supervisor_view is not None:
             views.append(supervisor_view)
@@ -55,4 +58,5 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
             sup.status_snapshot_failed = True
         else:
             sup.status_snapshot_failed = False
+        _supervisor_reexec.maybe_reexec(sup=sup, rows=views)
     return views
