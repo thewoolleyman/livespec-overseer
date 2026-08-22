@@ -954,6 +954,52 @@ authoritative record, so read that, not the verdict line. And across every shape
 in this section: the ABSENCE of a phantom claim discriminates nothing by itself —
 several shapes leave none.
 
+**A THIRD REFINEMENT, MEASURED 2026-08-22, AND IT RETIRES "READ THE ENVELOPE" AS A
+SUFFICIENT RULE: THE ENVELOPE'S OWN `status` FIELD CAN ALSO BE WRONG.** The
+paragraph above sends you from the two-word verdict to the dispatcher's JSON
+envelope, which is the right move and is not enough. Dispatching
+`overseer-6s3pk6.6`, `verdict.env` read `status=failed exit_code=1` **and** the
+envelope reported `"stage": "fabro-run", "status": "failed"`, `pr_number` null,
+`merge_sha` null, summary "Dispatcher did not report green". Both records agreed,
+and both were wrong. The run was still executing at the time, ran 54m23s, succeeded,
+and merged as PR 1703.
+
+**Only the envelope's `detail` string discriminated**, and it names a client-side
+read, not a run outcome:
+
+    error decoding response body
+    error reading a body from connection
+    timed out
+
+The dispatcher lost the HTTP response; it never observed the run stop. So the rule
+is now: **read the envelope's `detail`, not merely its `status`** — and when the
+detail describes a TRANSPORT failure (a timeout, a body read, a connection), the
+envelope is reporting on the DISPATCHER's health, not the run's. Treat it as no
+evidence about the run at all and go straight to `fabro ps` on the owning factory
+and to the forge.
+
+This matters because it defeats the discriminator table above from the inside. That
+table is keyed on `fabro ps -a` plus whether work landed, which still separates the
+shapes correctly — but a reader who has already accepted a `failed` verdict from two
+agreeing records is unlikely to run those checks at all. Here the item sat at
+`active`/`fabro` with its work merged: the **succeeded-untransitioned** row, whose
+remedy is to CLOSE it, while the failure report pointed at release-and-re-dispatch.
+
+**ONE MORE ORDERING RULE, FROM A NEAR-MISS THE SAME DAY, AND IT GENERALIZES PAST
+DISPATCH.** Preparing the `overseer-6s3pk6.10` cutover, the plan required stopping
+the acting `overseerd` and re-running the bootstrap. Provisioning the runtime prefix
+FIRST — with the old daemon deliberately left running — revealed that
+`ensure_current_runtime()` returns `None` on this host (`ensurepip` absent), and that
+`start.py` answers that with `return 1` and **launches no daemon at all**. Performing
+the steps in the documented order would have left every tracked session in the repo
+unsupervised.
+
+**When a procedure has an irreversible step and a step that can fail, run the
+failing-capable step first, even when you expect it to pass.** The cost is one
+command; here the alternative cost was the fleet's supervisor. Note that the
+discovery was a side effect — the reordering was chosen only to de-risk a restart,
+not because anything was suspected.
+
 | | double-brace | queue eviction | anchor-as-dep | succeeded-untransitioned | interview-destroyed | **publish-branch collision** |
 |---|---|---|---|---|---|---|
 | `fabro ps -a` | never lists it | absent | never lists it | `succeeded` | `failed` | **one `succeeded` + one `blocked`** |
