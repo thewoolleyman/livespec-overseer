@@ -32,30 +32,39 @@ class ReleaseRuntimeAdapter:
     run: SubprocessRun = subprocess.run
     ensure_release_runtime: EnsureReleaseRuntime = runtime_prefix.ensure_release_runtime
     _cached_verdict: Mapping[str, object] | None = field(default=None, init=False)
+    _cached_target: Path | None = field(default=None, init=False)
 
     def currency_check(self) -> Mapping[str, object] | None:
         self._cached_verdict = None
+        self._cached_target = None
         self._cached_verdict = self._resolve_verdict()
         return self._cached_verdict
 
     def reexec_target(self) -> Path | None:
-        verdict = self._cached_verdict
-        if verdict is None:
-            return None
-        if verdict.get("eligible") is not True:
-            return None
-        target = verdict.get("target")
-        if not isinstance(target, str) or not target:
-            return None
-        return self.ensure_release_runtime(release=target)
+        return self._cached_target
 
     def _resolve_verdict(self) -> Mapping[str, object]:
         release = self._commit_for_ref(ref="release")
         current = self._commit_for_ref(ref=f"v{APP_VERSION}")
         checks = self._checks_for_commit(commit=release) if release is not None else None
-        return release_currency.update_target(
+        verdict = release_currency.update_target(
             current=current or APP_VERSION, release=release, checks=checks
         )
+        if verdict.get("eligible") is not True:
+            return verdict
+        target = verdict.get("target")
+        if not isinstance(target, str) or not target:
+            return verdict
+        installed = self.ensure_release_runtime(release=target)
+        if installed is None:
+            return {
+                "eligible": False,
+                "target": target,
+                "blocked": True,
+                "reason": "release runtime provisioning failed",
+            }
+        self._cached_target = installed
+        return verdict
 
     def _commit_for_ref(self, *, ref: str) -> str | None:
         data = self._run_json(command=["gh", "api", f"/repos/{_REPO}/commits/{ref}"])

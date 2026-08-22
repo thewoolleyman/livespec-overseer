@@ -62,7 +62,36 @@ def test_real_runner_expands_the_semantic_venv_command(*, monkeypatch, tmp_path)
 
     prefix = tmp_path / "prefix"
     assert mod.ensure_runtime(prefix=prefix) == prefix / "venv" / "bin" / "overseerd"
-    assert seen[0][-3:] == ["-m", "venv", str(prefix / "venv")]
+    assert seen[0] == ["uv", "venv", str(prefix / "venv")]
+    assert seen[1][:5] == [
+        "uv",
+        "pip",
+        "install",
+        "--python",
+        str(prefix / "venv" / "bin" / "python"),
+    ]
+
+
+def test_real_runner_removes_prefix_when_install_does_not_create_the_console_script(
+    *, monkeypatch, tmp_path
+):
+    mod = importlib.import_module("overseer.runtime_prefix")
+
+    class _Completed:
+        returncode = 0
+
+    def fake_run(argv, *, check):
+        assert check is False
+        if argv[:2] == ["uv", "venv"]:
+            (tmp_path / "prefix" / "venv" / "bin").mkdir(parents=True)
+        return _Completed()
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    prefix = tmp_path / "prefix"
+
+    assert mod.ensure_runtime(prefix=prefix) is None
+    assert not prefix.exists()
 
 
 def test_ensure_current_runtime_uses_the_current_versioned_prefix(*, monkeypatch, tmp_path):

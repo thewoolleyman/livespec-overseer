@@ -180,6 +180,43 @@ def test_adapter_rejects_malformed_check_run_and_bad_target(*, tmp_path) -> None
     assert adapter.reexec_target() is None
 
 
+def test_adapter_does_not_install_an_eligible_verdict_with_a_malformed_target(
+    *, monkeypatch, tmp_path
+) -> None:
+    mod = adapter_module()
+
+    def update_target(*, current, release, checks):
+        assert current
+        assert release
+        assert checks is not None
+        return {"eligible": True, "target": None, "blocked": False, "reason": "bad target"}
+
+    monkeypatch.setattr(mod.release_currency, "update_target", update_target)
+
+    def run(argv, *, capture_output, text, check, timeout):
+        endpoint = argv[-1]
+        if endpoint.endswith("/check-runs?per_page=100"):
+            return Completed(stdout=json.dumps({"check_runs": [{"conclusion": "success"}]}))
+        return Completed(stdout=json.dumps({"sha": "1111111111111111111111111111111111111111"}))
+
+    def ensure_release_runtime(*, release: str) -> Path:
+        raise AssertionError("malformed target must not install")
+
+    adapter = mod.ReleaseRuntimeAdapter(
+        sup=object(),
+        run=run,
+        ensure_release_runtime=ensure_release_runtime,
+    )
+
+    assert adapter.currency_check() == {
+        "eligible": True,
+        "target": None,
+        "blocked": False,
+        "reason": "bad target",
+    }
+    assert adapter.reexec_target() is None
+
+
 def test_adapter_propagates_forge_read_failures_to_currency_degradation(*, tmp_path) -> None:
     mod = adapter_module()
 
