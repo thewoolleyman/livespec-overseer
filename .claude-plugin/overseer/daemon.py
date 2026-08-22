@@ -29,9 +29,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import _supervisor_diagnostics
+import start
 import supervisor  # intentionally after the sys.path pin above
 
-__all__: list[str] = ["main"]
+__all__: list[str] = ["default_daemon_log_path", "main"]
 
 # A remaining-context percent. 0 would mean "warn only once context is gone", and
 # 100 would mean "warn immediately, always" — neither is a threshold anyone wants,
@@ -41,8 +42,13 @@ _MAX_WARN_PERCENT = 99
 
 
 def _default_daemon_log_path() -> Path:
-    """Default daemon event-history log beside this checkout."""
-    return Path(__file__).resolve().parent.parent / "tmp" / "overseer" / "daemon.log"
+    """Backward-compatible private wrapper for the daemon log resolver."""
+    return default_daemon_log_path()
+
+
+def default_daemon_log_path() -> Path:
+    """Default daemon event-history log beside the operator checkout when present."""
+    return start.default_core_root() / "tmp" / "overseer" / "daemon.log"
 
 
 @contextmanager
