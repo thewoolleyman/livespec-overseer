@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.13](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.12...v1.41.13) (2026-08-22)
+
+
+### Bug Fixes
+
+* record peer input provenance ([2b0a41b](https://github.com/thewoolleyman/livespec-overseer/commit/2b0a41b0f235fb7aca841fbcac45a4191944cccb))
+
 ## [1.41.12](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.11...v1.41.12) (2026-08-22)
 
 
