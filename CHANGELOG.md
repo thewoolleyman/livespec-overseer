@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.30.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.29.2...v1.30.0) (2026-08-22)
+
+
+### Features
+
+* require daemon runtime prefix ([9878882](https://github.com/thewoolleyman/livespec-overseer/commit/9878882d9c9fec2d9495017edda35d423008f5ec))
+
+
+### Bug Fixes
+
+* install daemon runtime from release tag ([436dffc](https://github.com/thewoolleyman/livespec-overseer/commit/436dffce43c6099ce1247f062f2684ad6109fb39))
+
 ## [1.29.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.29.1...v1.29.2) (2026-08-22)
 
 
