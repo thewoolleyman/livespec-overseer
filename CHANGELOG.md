@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.28.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.28.1...v1.28.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* cover supervisor soft-band decompositions ([fc8d3cd](https://github.com/thewoolleyman/livespec-overseer/commit/fc8d3cdce54006b5123665d2c8209afda677ce85))
+* restore start B8 contract docstring ([d89e86a](https://github.com/thewoolleyman/livespec-overseer/commit/d89e86a45bc12e47a6b1a5a575b7433596a866e9))
+
 ## [1.28.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.28.0...v1.28.1) (2026-08-22)
 
 
