@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.32.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.4...v1.32.5) (2026-08-22)
+
+
+### Bug Fixes
+
+* name the only escalation filename the foreman daemon reads ([aebb91b](https://github.com/thewoolleyman/livespec-overseer/commit/aebb91b321c43a7ec65ed7a5716c93c13ae9193d))
+
 ## [1.32.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.3...v1.32.4) (2026-08-22)
 
 
