@@ -196,6 +196,13 @@ def _live_plan_record_scan(*, root: Path = _REPO_ROOT) -> PlanRecordScan:
     )
 
 
+def _assert_every_plan_accounted_for(*, plans: list[Path], scan: PlanRecordScan) -> None:
+    scanned = {topic for topic, _anchor, _declared in scan.checkable}
+    scanned.update(topic for topic, _missing in scan.unchecked)
+    expected = {plan.name for plan in plans}
+    assert scanned == expected
+
+
 def _charter_anchor_offences(*, root: Path = _REPO_ROOT) -> dict[str, tuple[str, list[str]]]:
     return {
         topic: (anchor, declared)
@@ -264,7 +271,7 @@ def test_the_charter_anchor_is_the_current_one_the_handoff_declares() -> None:
     assert stale == {}
 
 
-def test_live_plans_without_file_held_records_are_reported_by_name() -> None:
+def test_live_plans_without_file_held_records_are_reported_by_name(*, tmp_path: Path) -> None:
     """Ledger-held live plans are named as unchecked instead of disappearing.
 
     Missing `handoff.md` or `supervisor-handoff.md` is not a failing file-record
@@ -272,29 +279,43 @@ def test_live_plans_without_file_held_records_are_reported_by_name() -> None:
     has to report the names, because "nothing checked" and "nothing wrong" were
     previously indistinguishable.
     """
-    scan = _live_plan_record_scan()
+    missing_handoff = tmp_path / "plan" / "missing-handoff"
+    missing_handoff.mkdir(parents=True)
+    (missing_handoff / "supervisor-handoff.md").write_text("", encoding="utf-8")
+
+    missing_both = tmp_path / "plan" / "missing-both"
+    missing_both.mkdir()
+
+    scan = _live_plan_record_scan(root=tmp_path)
 
     assert scan.checkable == []
     assert scan.unchecked == [
-        ("caam-anthropic-loop", "supervisor-handoff.md, handoff.md"),
-        ("fix-restart-problem", "supervisor-handoff.md, handoff.md"),
-        ("fix-vps-server-load", "supervisor-handoff.md, handoff.md"),
-        ("fleet-plumbing-and-dispatch-reliability", "supervisor-handoff.md, handoff.md"),
-        ("foreman-full-autonomy-option", "supervisor-handoff.md, handoff.md"),
-        ("foreman-improvements", "supervisor-handoff.md, handoff.md"),
-        ("foreman-panel-and-consensus", "supervisor-handoff.md, handoff.md"),
-        ("foreman-picker-mutes-its-own-loop", "supervisor-handoff.md, handoff.md"),
-        ("foreman-seats-and-plan-records", "supervisor-handoff.md, handoff.md"),
-        ("foreman-table", "supervisor-handoff.md, handoff.md"),
-        ("foreman-wait-premises", "supervisor-handoff.md, handoff.md"),
-        ("grooming-skill", "supervisor-handoff.md, handoff.md"),
-        ("model-preserving-restarts", "supervisor-handoff.md, handoff.md"),
-        ("overseerd-observability", "supervisor-handoff.md, handoff.md"),
-        ("overseerd-release-currency", "supervisor-handoff.md, handoff.md"),
-        ("supervision-safety-and-attention-truth", "supervisor-handoff.md, handoff.md"),
-        ("test-and-gate-integrity", "supervisor-handoff.md, handoff.md"),
-        ("track-record-type-safety", "supervisor-handoff.md, handoff.md"),
+        ("missing-both", "supervisor-handoff.md, handoff.md"),
+        ("missing-handoff", "handoff.md"),
     ]
+
+
+def test_live_plan_record_scan_accounts_for_every_live_plan() -> None:
+    """The live-tree gate is invariant under plan slug churn, but not silent drops."""
+    live_plans = sorted(
+        plan for plan in _REPO_ROOT.glob(_LIVE_PLAN_DIR_PATTERN) if plan.name != "archive"
+    )
+    scan = _live_plan_record_scan()
+
+    assert scan.unchecked
+    _assert_every_plan_accounted_for(plans=live_plans, scan=scan)
+
+
+def test_live_plan_accounting_fails_when_a_plan_vanishes_from_the_scan(*, tmp_path: Path) -> None:
+    """Fail-closed control: accounting cannot pass for an arbitrary empty scan."""
+    live_plan = tmp_path / "plan" / "vanished"
+    live_plan.mkdir(parents=True)
+
+    with pytest.raises(AssertionError):
+        _assert_every_plan_accounted_for(
+            plans=[live_plan],
+            scan=PlanRecordScan(checkable=[], unchecked=[]),
+        )
 
 
 def test_the_extractors_fire_on_the_shapes_they_are_written_for() -> None:
