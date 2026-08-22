@@ -70,6 +70,7 @@ def item_texts(*, item: Mapping[str, object], details: Sequence[str]) -> tuple[s
 def cross_repo_payload_breaches(
     *,
     item: Mapping[str, object],
+    local_item_ids: frozenset[str],
     listed_repos: frozenset[str],
     sibling_item_ids_by_repo: Mapping[str, frozenset[str]],
 ) -> bool:
@@ -77,6 +78,8 @@ def cross_repo_payload_breaches(
     if entries is None:
         return True
     for entry in entries:
+        if is_resolved_local_dependency(entry=entry, local_item_ids=local_item_ids):
+            continue
         repo = entry.get("repo")
         work_item_id = entry.get("work_item_id")
         if not isinstance(repo, str) or repo not in listed_repos:
@@ -86,6 +89,16 @@ def cross_repo_payload_breaches(
         ):
             return True
     return False
+
+
+def is_resolved_local_dependency(
+    *,
+    entry: Mapping[str, object],
+    local_item_ids: frozenset[str],
+) -> bool:
+    kind = entry.get("kind")
+    work_item_id = entry.get("work_item_id")
+    return kind == "local" and isinstance(work_item_id, str) and work_item_id in local_item_ids
 
 
 def listed_sibling_repos(*, repo: Path) -> frozenset[str]:
