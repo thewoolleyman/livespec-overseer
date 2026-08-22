@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.42.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.18...v1.42.0) (2026-08-22)
+
+
+### Features
+
+* document foreman full autonomy posture ([bc0872e](https://github.com/thewoolleyman/livespec-overseer/commit/bc0872e093956e2bf7edef5963c0e54c4e846d03))
+
 ## [1.41.18](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.17...v1.41.18) (2026-08-22)
 
 
