@@ -200,6 +200,15 @@ closed set `fabro-run`, `pr`, `ci-run`, and `work-item-close`. The option must
 be re-checkable from the record's own evidence source; do not ask the reader to
 trust the option prose as the evidence that the wait still exists.
 
+This recording obligation is fail-soft. It must not suppress a question whose
+target kind is inexpressible in the closed vocabulary, or whose wait-premise
+record cannot be written. In those cases you may still raise the question, but
+the option must surface the gap: say that it carries no re-checkable premise, so
+the reader knows the wait rests on prose alone. This binds the foreman only as a
+question-raising actor; a picker raised by a supervised session's own harness is
+observed, never forbidden. Nothing here authorizes you to alter, withdraw,
+answer, or select an option once it has been raised.
+
 Do not add Phase E federation behavior; that phase is not built. Do not answer
 human prompts in another session except through the gated path above. Do not
 drive approval, acceptance, rejection, resolved-blocked, policy, capacity, or
