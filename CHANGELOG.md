@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.0...v1.37.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* carry foreman wait-premise fail-soft prose ([9c2522d](https://github.com/thewoolleyman/livespec-overseer/commit/9c2522d31a64de0bf7435cf0154d79e4debf0430))
+
 ## [1.37.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.6...v1.37.0) (2026-08-22)
 
 
