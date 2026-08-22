@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.41.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.8...v1.41.9) (2026-08-22)
+
+
+### Bug Fixes
+
+* detect plan work without child id prefix ([14aa70a](https://github.com/thewoolleyman/livespec-overseer/commit/14aa70afe50806fc981ae22a1b11c7163eb6e7a4))
+* ignore foreign status writes for stall watches ([bf4d292](https://github.com/thewoolleyman/livespec-overseer/commit/bf4d292abedaaecccf46c375d6a3da7de6386244))
+* index roster work from all ledger items ([6f216a7](https://github.com/thewoolleyman/livespec-overseer/commit/6f216a7cd45535c67e998b305a8441de4c6b3926))
+
 ## [1.41.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.7...v1.41.8) (2026-08-22)
 
 
