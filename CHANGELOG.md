@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.38.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.38.0...v1.38.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* add roster work-state LLOC owner marker ([273d47a](https://github.com/thewoolleyman/livespec-overseer/commit/273d47af89861cc8291a62c0035fd4b1826a4d8a))
+* detect ledger-only roster work anchors ([ae79458](https://github.com/thewoolleyman/livespec-overseer/commit/ae7945840e8605320fe684f899b6bed9bdd98339))
+* harden roster ledger anchor lookup ([bd5d97d](https://github.com/thewoolleyman/livespec-overseer/commit/bd5d97d4627d38704258de9c023dc6bdb943ed84))
+
 ## [1.38.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.14...v1.38.0) (2026-08-22)
 
 
