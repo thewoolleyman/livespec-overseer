@@ -66,3 +66,30 @@ def test_grooming_prose_names_ledger_projection_and_record_shape_traps() -> None
         "Tell: a surprising absence",
     ):
         assert tell_text in normalized
+
+
+def test_grooming_prose_deferral_successors_do_not_weaken_invariant_one() -> None:
+    text = PROSE.read_text(encoding="utf-8")
+    normalized = " ".join(text.split())
+
+    assert "Every non-done item rolls up to a plan epic" in normalized
+    assert "A deferral successor is still parented to the epic it defers from" in normalized
+    assert "disposed for archive purposes by a paired carry-forward marker" in normalized
+    assert "not by being left unparented" in normalized
+    assert "successor must carry the reference to the deferring epic" in normalized
+    assert "deferring epic's own record must name that successor id" in normalized
+    assert "That archive gate behavior is not implemented here yet" in normalized
+    assert "bd-ib-tl5u" in text
+
+    for measured_id in (
+        "overseer-n1ai",
+        "overseer-5416",
+        "overseer-6bx5",
+        "overseer-cv06",
+        "overseer-157q",
+    ):
+        assert measured_id in text
+
+    assert "do not normalize the workaround into a new invariant exemption" in normalized
+    assert "An ordinary unparented non-done item" in normalized
+    assert "remains a genuine invariant-1 breach" in normalized
