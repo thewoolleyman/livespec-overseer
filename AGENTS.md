@@ -937,7 +937,7 @@ means the record is dispatchable. Any hit names the line to reword. Do this **be
 `bd comment` too — the comment is the common poisoning route, and once it lands it is
 permanent.
 
-### A SEVENTH SHAPE: the FACTORY HOST is out of disk, and every local signal reads healthy
+### A SEVENTH SHAPE: the FACTORY HOST has no room for a run directory, and every local signal reads healthy
 
 Measured 2026-08-22T00:51Z dispatching `overseer-temi26.2` on plugin build
 `392b3fa90f86`. The dispatcher's own JSON envelope, stage `fabro-run`, status
@@ -947,7 +947,7 @@ Measured 2026-08-22T00:51Z dispatching `overseer-temi26.2` on plugin build
     ╰─▶ Failed to persist run state: I/O error: creating run directory
         /home/cwoolley/.fabro/storage/scratch/<run>: No space left on device (os error 28)
 
-**The blast radius is the whole factory, not one item.** The failure is in
+**While it lasts, the blast radius is the whole factory, not one item.** The failure is in
 run-DIRECTORY creation, so it precedes every item-specific step: the ready-set
 test, the goal render, the acceptance guard. Nothing about your item causes or
 avoids it, and every repo pointing at that factory is down at once.
@@ -988,7 +988,42 @@ only rescue path for work stranded by the interview-destroyed shape, so deleting
 recent run state to reclaim space trades an outage for the loss of that safety
 net. Reclaiming space is host-mutation tier — not session-performable, and not
 factory-dispatchable either, since a sandboxed agent cannot clean the host it
-runs on. Carrier: `bd-ib-gr9f` (P1, orchestrator tenant).
+runs on. Carrier: `bd-ib-gr9f` (orchestrator tenant).
+
+**IT IS INTERMITTENT, NOT AN OUTAGE — and this correction is here because the
+first version of this entry said otherwise.** As filed, it claimed the host "is
+out of disk" and that "every dispatch routed to it fails". The sibling tenants'
+journals disprove the second half:
+
+    00:51:02Z  overseer-temi26.2                  hp   FAILED at fabro-run, ENOSPC
+    00:51:46Z  livespec-console-beads-fabro-jmqb  hp   FAILED identically, another session
+    00:55:09Z  livespec-console-beads-fabro-jmqb  vps  re-routed, independently
+    01:04:12Z  bd-ib-jb7rzr.10                    hp   dispatch-id issued
+    01:18:03Z  bd-ib-jb7rzr.10                    hp   fabro-run COMPLETED, PR opened
+
+The host accepted and completed a full run **thirteen minutes after** the
+failures — whatever filled the disk cleared on its own, most plausibly a run
+finishing and returning its scratch directory. So the condition is
+threshold-shaped: it bites everything routed there while it lasts, and then stops
+without intervention.
+
+**Two consequences for how you act on it.** Do not declare a factory outage from
+one failure — **re-try or re-route, and check a sibling tenant's journal before
+escalating**, because a stop-the-line report costs a maintainer's attention and
+this one would have been wrong. And do not read a later success as evidence the
+first failure was misdiagnosed: both are real, and the durable defects are that
+the host runs close enough to full to fail at all, that neither factory host has
+headroom telemetry, and that there is no preflight refusal — the dispatcher
+already refuses before sandbox launch for an exhausted credential and names the
+condition, and a factory with no room deserves the same.
+
+**The method lesson, which is the transferable part.** The claim was filed from
+one observation plus one corroborating failure sixty seconds apart, and a
+continuing state was inferred from two points. The check that overturned it cost
+a single journal read in a sibling tenant — and it was run while trying to
+QUANTIFY the blast radius, not to test the claim. **Quantifying a scope claim and
+testing it are the same act**; going to look for the boundary first would have
+filed it correctly.
 
 ### A DEFERRED item ANYWHERE in the tenant blocks EVERY dispatch in the repo
 
