@@ -187,8 +187,8 @@ def test_daemon_import_chain_reports_a_reachable_runtime_dependency(*, tmp_path)
         path=tmp_path / "pyproject.toml",
         text='[project]\ndependencies = ["livespec-runtime>=0.18.0"]\n',
     )
-    _write_text(path=package_root / "daemon.py", text="import supervisor\n")
-    _write_text(path=package_root / "supervisor.py", text="import _supervisor_core\n")
+    _write_text(path=package_root / "daemon.py", text="from overseer import supervisor\n")
+    _write_text(path=package_root / "supervisor.py", text="from overseer import _supervisor_core\n")
     _write_text(path=package_root / "_supervisor_core.py", text="import livespec_runtime\n")
     _write_text(path=package_root / "foreman_act_filing.py", text="import livespec_runtime\n")
 

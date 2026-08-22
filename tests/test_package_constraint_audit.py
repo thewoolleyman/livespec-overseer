@@ -151,7 +151,7 @@ def test_daemon_runtime_audit_follows_reachable_first_party_imports(*, tmp_path)
         text='[project]\ndependencies = ["livespec-runtime>=0.18.0"]\n',
     )
     _write_text(path=package_root / "daemon.py", text="from overseer import supervisor\n")
-    _write_text(path=package_root / "supervisor.py", text="import _supervisor_tick\n")
+    _write_text(path=package_root / "supervisor.py", text="from overseer import _supervisor_tick\n")
     _write_text(path=package_root / "_supervisor_tick.py", text="import livespec_runtime\n")
     _write_text(path=package_root / "foreman_act_filing.py", text="import livespec_runtime\n")
 
