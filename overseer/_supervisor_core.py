@@ -76,6 +76,7 @@ from pathlib import Path
 from typing import IO
 
 import _seams
+import _supervisor_currency
 import _supervisor_diagnostics
 import _supervisor_discovery
 import _supervisor_evaluate
@@ -105,6 +106,7 @@ __all__: list[str] = ["Supervisor"]
 
 CodexSessionMap = dict[tuple[str, str], codex_sessions.CodexSession]
 MaybeStr = str | None
+CurrencyCheck = Callable[[], Mapping[str, object] | None]
 
 
 # --------------------------------------------------------------------------- #
@@ -131,6 +133,7 @@ class Supervisor:
     status_path: str | os.PathLike[str] | None = None
     status_writer: _seams.StatusWriter = _supervisor_snapshot.default_status_writer
     status_snapshot_writer: Callable[..., None] = _supervisor_snapshot.write_status_snapshot
+    currency_check: CurrencyCheck | None = None
     extra_repos: list[str] = field(default_factory=list)
     # Daemon-wide default warn threshold (remaining-% at which the FIRST wrap-up
     # fires) for any track WITHOUT a per-track ``ctx_threshold`` override. Set from
@@ -203,6 +206,7 @@ class Supervisor:
     # instead of the same line re-emitted every tick. Re-armed in `evaluate` when the
     # track goes healthy.
     alerted: dict[tuple[str, str, str], str] = field(default_factory=dict, init=False)
+    currency_blocked_message: str | None = field(default=None, init=False)
     # Last window name written, so the badge is only re-sent when the count CHANGES
     # (a tmux call every tick for an unchanged name is pure noise).
     last_window_name: str | None = field(default=None, init=False)
@@ -444,6 +448,10 @@ class Supervisor:
     def tick(self, *, act: bool = True) -> list[RowView]:
         """One loop iteration: build rows, evaluate each, render the table + attention block."""
         return _supervisor_tick.run_tick(sup=self, act=act)
+
+    def currency_row(self) -> RowView | None:
+        """Surface release-currency failures without stopping supervision."""
+        return _supervisor_currency.currency_row(sup=self)
 
     # ----------------------------------------------------------------- #
     # Singleton daemon lock (per store).
