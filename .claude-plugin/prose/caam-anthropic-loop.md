@@ -59,8 +59,14 @@ Resolve the mode from the invocation text after the schedule check.
   explicit request to move now, but force still refuses an account with less
   headroom than the current account and still refuses any account with zero
   weekly quota.
-- Forward only these operator flags when present: `--force`, `--dry-run`, and
-  `--no-models`.
+- Forward only these operator flags when present: `--force`, `--dry-run`,
+  `--no-models`, `--foreman-model=<fable|opus|auto>`, and `--no-warm`.
+  `--foreman-model=fable` and `--foreman-model=opus` pin the model enforced for
+  sessions whose name carries the foreman suffix, and that pin persists in the
+  operation state across later scheduled ticks until it is explicitly cleared.
+  `--foreman-model=auto` clears the pin and restores the balance-derived
+  behavior. `--no-warm` skips the idle-profile keep-warm maintenance for this
+  pass.
 
 Do not add retry, recovery, alternate thresholds, or a manual fallback. The
 program owns the account decision.
