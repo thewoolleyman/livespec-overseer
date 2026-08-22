@@ -53,6 +53,7 @@ import _supervisor_cli_parser
 import _supervisor_cli_start
 import _supervisor_cli_topic
 import _supervisor_cli_update
+import _supervisor_release_runtime
 import _supervisor_snapshot
 import registry
 import streams
@@ -72,6 +73,8 @@ from _supervisor_view import ATTENTION_STATUSES as ATTENTION_STATUSES
 from _supervisor_view import RowView as RowView
 from _supervisor_view import needs_attention as needs_attention
 from version import APP_VERSION as APP_VERSION
+
+_release_runtime_adapter = _supervisor_release_runtime.release_runtime_adapter
 
 __all__: list[str] = [
     "APP_VERSION",
@@ -107,11 +110,19 @@ def build_supervisor() -> Supervisor:
     It is used only to badge the attention count onto the window name, so when it is
     absent (not under tmux) the badge simply never fires.
     """
-    return Supervisor(
+    sup = Supervisor(
         watch_set_path=registry.DEFAULT_WATCH_SET_PATH,
         status_path=_supervisor_snapshot.DEFAULT_STATUS_PATH,
         own_pane=os.environ.get("TMUX_PANE"),
     )
+    adapter = _release_runtime_adapter(sup=sup)
+    currency_check = adapter.currency_check
+    reexec_target = adapter.reexec_target
+    adapter.currency_check = currency_check
+    adapter.reexec_target = reexec_target
+    sup.currency_check = currency_check
+    sup.reexec_target = reexec_target
+    return sup
 
 
 def _cli_colliding() -> frozenset[str]:
