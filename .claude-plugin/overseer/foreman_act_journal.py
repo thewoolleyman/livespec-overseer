@@ -77,30 +77,136 @@ def _outcome(*, record: dict[str, object]) -> dict[str, object] | None:
     return jsonio.as_object(value=record.get("outcome"))
 
 
-def _qualifying_work_item(*, record: dict[str, object]) -> str | None:
+def _forge_merged_pull_request(*, proposal: dict[str, object]) -> dict[str, object] | None:
+    forge = jsonio.as_object(value=proposal.get("forge"))
+    if forge is None:
+        return None
+    return jsonio.as_object(value=forge.get("merged_pull_request"))
+
+
+def _forge_head_ref(*, proposal: dict[str, object]) -> str | None:
+    pull_request = _forge_merged_pull_request(proposal=proposal)
+    if pull_request is None:  # pragma: no cover
+        return None
+    return _str_field(payload=pull_request, key="head_ref")
+
+
+def _published_by_dispatcher(*, outcome: dict[str, object]) -> bool:
+    return (
+        _int_field(payload=outcome, key="pr_number") is not None
+        and _str_field(payload=outcome, key="merge_sha") is not None
+    )
+
+
+def _host_published_by_forge(*, outcome: dict[str, object], proposal: dict[str, object]) -> bool:
+    pull_request = _forge_merged_pull_request(proposal=proposal)
+    if pull_request is None:  # pragma: no cover
+        return False
+    branch = _str_field(payload=outcome, key="publish_branch")
+    return (
+        _int_field(payload=pull_request, key="number") is not None
+        and _str_field(payload=pull_request, key="merge_sha") is not None
+        and branch is not None
+        and _forge_head_ref(proposal=proposal) == branch
+    )
+
+
+def _host_publish_trace_refusal(
+    *, record: dict[str, object], proposal: dict[str, object]
+) -> str | None:
+    outcome = _outcome(record=record)
+    if outcome is None:  # pragma: no cover
+        return None
+    if _published_by_dispatcher(outcome=outcome):  # pragma: no cover
+        return None
+    branch = _str_field(payload=outcome, key="publish_branch")
+    if branch is None or _forge_merged_pull_request(proposal=proposal) is None:  # pragma: no cover
+        return None
+    if _forge_head_ref(proposal=proposal) != branch:
+        return "forge_evidence_not_traced_to_dispatch"
+    return None  # pragma: no cover
+
+
+def _qualifying_work_item(*, record: dict[str, object], proposal: dict[str, object]) -> str | None:
     outcome = _outcome(record=record)
     if outcome is None:  # pragma: no cover
         return None
     work_item_id = _str_field(payload=outcome, key="work_item_id")
     status = _str_field(payload=outcome, key="status")
     stage = _str_field(payload=outcome, key="stage")
-    pr_number = _int_field(payload=outcome, key="pr_number")
-    merge_sha = _str_field(payload=outcome, key="merge_sha")
     if (
         work_item_id is None
         or status != "failed"
         or stage is None
-        or pr_number is None
-        or merge_sha is None
+        or not (
+            _published_by_dispatcher(outcome=outcome)
+            or _host_published_by_forge(outcome=outcome, proposal=proposal)
+        )
     ):  # pragma: no cover
         return None
     return work_item_id
 
 
 def _matching_qualified_records(
-    *, records: list[dict[str, object]], work_item_id: str
+    *, records: list[dict[str, object]], work_item_id: str, proposal: dict[str, object]
 ) -> list[dict[str, object]]:
-    return [record for record in records if _qualifying_work_item(record=record) == work_item_id]
+    return [
+        record
+        for record in records
+        if _qualifying_work_item(record=record, proposal=proposal) == work_item_id
+    ]
+
+
+def _claim_abandonment_reason(
+    *, record: dict[str, object], proposal: dict[str, object]
+) -> str | None:
+    if record.get("stage") != "dispatch-claim-abandoned":  # pragma: no cover
+        return None
+    if _str_field(payload=record, key="reason") != "non_green_terminal_outcome":
+        return None
+    work_item_id = _str_field(payload=record, key="work_item_id")
+    if work_item_id is None:  # pragma: no cover
+        return None
+    if _forge_merged_pull_request(proposal=proposal) is None:  # pragma: no cover
+        return None
+    return "dispatcher_saw_no_green_outcome"
+
+
+def _ambiguous_or_traced(
+    *,
+    matches: list[dict[str, object]],
+    proposed_record: dict[str, object],
+    proposal: dict[str, object],
+) -> str | None:
+    if len(matches) == 1:
+        return None
+    if _forge_merged_pull_request(proposal=proposal) is None:
+        return "ambiguous_dispatch_claim"
+    proposed_outcome = _outcome(record=proposed_record)
+    branch = (
+        None
+        if proposed_outcome is None
+        else _str_field(payload=proposed_outcome, key="publish_branch")
+    )
+    if branch is None or _forge_head_ref(proposal=proposal) != branch:  # pragma: no cover
+        return "forge_evidence_not_traced_to_dispatch"
+    for record in matches:
+        outcome = _outcome(record=record)
+        if (
+            outcome is None or _str_field(payload=outcome, key="publish_branch") != branch
+        ):  # pragma: no cover
+            return "ambiguous_dispatch_claim"
+    return None
+
+
+def _unsupported_refusal(*, record: dict[str, object], proposal: dict[str, object]) -> str:
+    trace_refusal = _host_publish_trace_refusal(record=record, proposal=proposal)
+    if trace_refusal is not None:
+        return trace_refusal
+    abandonment_reason = _claim_abandonment_reason(record=record, proposal=proposal)
+    if abandonment_reason is not None:
+        return abandonment_reason
+    return "unsupported_transition"
 
 
 def _validated_reconcile(
@@ -110,15 +216,20 @@ def _validated_reconcile(
     records = _journal_records(document=document)
     if records is None or proposed_record is None:  # pragma: no cover
         return "malformed_dispatch_journal", None
-    work_item_id = _qualifying_work_item(record=proposed_record)
+    work_item_id = _qualifying_work_item(record=proposed_record, proposal=proposal)
     if work_item_id is None:
-        return "unsupported_transition", None
+        return _unsupported_refusal(record=proposed_record, proposal=proposal), None
     generation_refusal = _validate_generation(proposal=proposal, document=document)
     if proposed_record not in records:
         return generation_refusal or "journal_record_changed", None
-    matches = _matching_qualified_records(records=records, work_item_id=work_item_id)
-    if len(matches) != 1:
-        return "ambiguous_dispatch_claim", None
+    matches = _matching_qualified_records(
+        records=records, work_item_id=work_item_id, proposal=proposal
+    )
+    ambiguity_refusal = _ambiguous_or_traced(
+        matches=matches, proposed_record=proposed_record, proposal=proposal
+    )
+    if ambiguity_refusal is not None:
+        return ambiguity_refusal, None
     return generation_refusal, work_item_id
 
 
@@ -130,6 +241,10 @@ def _validate_generation(*, proposal: dict[str, object], document: dict[str, obj
     current_records_read = _int_field(payload=source, key="records_read")
     if source.get("status") != "ok" or current_records_read is None:  # pragma: no cover
         return "dispatch_journal_not_actable"
+    if _forge_merged_pull_request(proposal=proposal) is not None:
+        if current_records_read < expected_records_read:  # pragma: no cover
+            return "journal_generation_changed"
+        return None
     if current_records_read != expected_records_read:
         return "journal_generation_changed"
     return None
