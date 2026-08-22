@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.35.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.2...v1.35.3) (2026-08-22)
+
+
+### Bug Fixes
+
+* pin foreman thin dossier boundary ([094a05a](https://github.com/thewoolleyman/livespec-overseer/commit/094a05a9524a10ffb15920d31481ae7dd34522f0))
+
 ## [1.35.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.1...v1.35.2) (2026-08-22)
 
 
