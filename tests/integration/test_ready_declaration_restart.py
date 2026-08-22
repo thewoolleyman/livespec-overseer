@@ -28,7 +28,15 @@ import io as _io
 import subprocess
 from dataclasses import replace
 
-from overseer import _supervisor_config, _supervisor_ready_alerts, registry, signals, supervisor
+import _supervisor_launch
+
+from overseer import (
+    _supervisor_config,
+    _supervisor_ready_alerts,
+    registry,
+    signals,
+    supervisor,
+)
 from overseer.test_supervisor_builders import (
     TEST_EPIC,
     busy_capture,
@@ -438,6 +446,115 @@ def test_uncertifiable_ready_below_seat_notice_bound_is_not_delivered(*, tmp_pat
     assert fake.paste_texts() == []
     assert not any(call[0] == "keys" and call[1] == session for call in fake.calls)
     assert f"{repo}::{topic}" not in "\n".join(fake.paste_texts())
+
+
+def test_uncertifiable_ready_seat_notice_does_not_type_into_a_gate(*, tmp_path):
+    """The report-only pane notice still obeys the no-keystrokes-into-gates invariant."""
+    notice_after = getattr(_supervisor_ready_alerts, "STRANDED_READY_NOTICE_AFTER", None)
+    assert isinstance(notice_after, int | float)
+    clock = {"t": 1000.0}
+    _repo, _topic, session, fake, sup, track, _state = _bare_ready_no_round_fixture(
+        tmp_path=tmp_path, clock=clock
+    )
+    fake.panes[session] = "Do you want to proceed?\n❯ 1. Yes\n  2. No\n"
+
+    clock["t"] += notice_after + 1
+    surfaced = sup.evaluate(track=track, act=True)
+
+    assert surfaced.status == "blocked:human"
+    assert fake.paste_texts() == []
+    assert not any(call[0] == "keys" and call[1] == session for call in fake.calls)
+
+
+def test_uncertifiable_ready_seat_notice_waits_for_a_settled_pane(*, tmp_path):
+    """A changing pane suppresses the notice until a later settled-idle observation."""
+    notice_after = getattr(_supervisor_ready_alerts, "STRANDED_READY_NOTICE_AFTER", None)
+    assert isinstance(notice_after, int | float)
+    clock = {"t": 1000.0}
+    _repo, _topic, session, fake, sup, track, _state = _bare_ready_no_round_fixture(
+        tmp_path=tmp_path, clock=clock
+    )
+    first = idle_capture(ctx=79, body="first frame")
+    second = idle_capture(ctx=79, body="second frame")
+    fake.panes[session] = [first, second, first]
+
+    clock["t"] += notice_after + 1
+    surfaced = sup.evaluate(track=track, act=True)
+
+    assert surfaced.status == "ready-uncertifiable"
+    assert fake.paste_texts() == []
+    assert not any(call[0] == "keys" and call[1] == session for call in fake.calls)
+
+
+def test_uncertifiable_ready_seat_notice_rechecks_before_paste(*, tmp_path):
+    """A pane that changes after the first observation must be re-evaluated before paste."""
+    notice_after = getattr(_supervisor_ready_alerts, "STRANDED_READY_NOTICE_AFTER", None)
+    assert isinstance(notice_after, int | float)
+    clock = {"t": 1000.0}
+    _repo, _topic, session, fake, sup, track, _state = _bare_ready_no_round_fixture(
+        tmp_path=tmp_path, clock=clock
+    )
+    first = idle_capture(ctx=79, body="first frame")
+    second = idle_capture(ctx=79, body="second frame")
+    fake.panes[session] = [first, second, second]
+
+    clock["t"] += notice_after + 1
+    surfaced = sup.evaluate(track=track, act=True)
+
+    assert surfaced.status == "ready-uncertifiable"
+    assert fake.paste_texts() == []
+    assert not any(call[0] == "keys" and call[1] == session for call in fake.calls)
+
+
+def test_uncertifiable_ready_seat_notice_rechecks_the_declaration_before_paste(
+    *, tmp_path, monkeypatch
+):
+    """A declaration removed during the guard window cancels the pane notice."""
+    notice_after = getattr(_supervisor_ready_alerts, "STRANDED_READY_NOTICE_AFTER", None)
+    assert isinstance(notice_after, int | float)
+    clock = {"t": 1000.0}
+    _repo, _topic, session, fake, sup, track, state = _bare_ready_no_round_fixture(
+        tmp_path=tmp_path, clock=clock
+    )
+    cleared = {"done": False}
+
+    def settle_then_clear_state(*, sup, target):
+        assert target == session
+        if not cleared["done"]:
+            state.unlink()
+            cleared["done"] = True
+        return True
+
+    monkeypatch.setattr(_supervisor_launch, "pane_settled", settle_then_clear_state)
+
+    clock["t"] += notice_after + 1
+    surfaced = sup.evaluate(track=track, act=True)
+
+    assert surfaced.status == "ready-uncertifiable"
+    assert fake.paste_texts() == []
+    assert not any(call[0] == "keys" and call[1] == session for call in fake.calls)
+
+
+def test_uncertifiable_ready_seat_notice_retries_after_submit_failure(*, tmp_path):
+    """A failed paste does not mark the declaration as notified."""
+    notice_after = getattr(_supervisor_ready_alerts, "STRANDED_READY_NOTICE_AFTER", None)
+    assert isinstance(notice_after, int | float)
+    clock = {"t": 1000.0}
+    _repo, _topic, _session, fake, sup, track, _state = _bare_ready_no_round_fixture(
+        tmp_path=tmp_path, clock=clock
+    )
+    fake.paste_ok = False
+
+    clock["t"] += notice_after + 1
+    assert sup.evaluate(track=track, act=True).status == "ready-uncertifiable"
+    track_key = (str(track.repo), track.topic)
+    assert sup.inject[track_key].uncertifiable_ready_notice_mtime is None
+
+    fake.paste_ok = True
+    assert sup.evaluate(track=track, act=True).status == "ready-uncertifiable"
+
+    assert len(fake.paste_texts()) == 2
+    assert sup.inject[track_key].uncertifiable_ready_notice_mtime is not None
 
 
 def test_uncertifiable_ready_seat_notice_is_report_only_and_once_per_declaration(*, tmp_path):
