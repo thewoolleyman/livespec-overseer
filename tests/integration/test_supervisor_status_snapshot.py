@@ -38,6 +38,69 @@ def snapshot_module():
     return importlib.import_module("_supervisor_snapshot")
 
 
+def restart_model_module():
+    module_path = OVERSEER_DIR / "_supervisor_restart_model_snapshot.py"
+    assert module_path.is_file()
+    return importlib.import_module("_supervisor_restart_model_snapshot")
+
+
+def append_profile_baseline(*, sup, repo, topic, model, statusline_model):
+    registry.append_mapping(
+        track=registry.PlanTrack(
+            repo=str(repo),
+            topic=topic,
+            tmux=f"{topic}-baseline",
+            epic=f"overseer-{topic}",
+            model_profile={
+                "harness": "claude",
+                "model": model,
+                "wrapper": None,
+                "statusline_model": statusline_model,
+            },
+        ),
+        store_path=sup.store_path,
+        added_at="2026-08-22T00:00:00Z",
+    )
+
+
+def test_current_default_statusline_model_resolver_uses_only_recorded_profile_evidence(*, tmp_path):
+    module = restart_model_module()
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
+    empty_repo, _empty_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="empty-baseline-repo",
+        topic="empty-baseline",
+    )
+    good_repo, _good_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="good-baseline-repo",
+        topic="good-baseline",
+    )
+
+    assert (
+        module.current_default_statusline_model_from_store(sup=object(), current_default="opus[1m]")
+        is None
+    )
+    assert module.current_default_statusline_model_from_store(sup=sup, current_default=None) is None
+    append_profile_baseline(
+        sup=sup,
+        repo=empty_repo,
+        topic="empty-baseline",
+        model="opus[1m]",
+        statusline_model="",
+    )
+    append_profile_baseline(
+        sup=sup,
+        repo=good_repo,
+        topic="good-baseline",
+        model="opus[1m]",
+        statusline_model="Opus 5 (1M context)",
+    )
+
+    assert sup.current_default_statusline_model(current_default="opus[1m]") == "Opus 5 (1M context)"
+    assert sup.current_default_statusline_model(current_default="sonnet") is None
+
+
 def test_only_canonical_snapshot_writer_module_exists():
     assert (OVERSEER_DIR / "_supervisor_snapshot.py").is_file()
     assert not (OVERSEER_DIR / "_supervisor_status_snapshot.py").exists()
@@ -199,10 +262,17 @@ def test_snapshot_publishes_profile_and_restart_model_verdict_from_live_default(
         status_path=status_path,
         ctx=73,
     )
-    sup.current_default_statusline_model = (
-        lambda *, current_default: "Opus 4.8 (1M context)"
-        if current_default == "opus[1m]"
-        else None
+    default_repo, _default_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="default-baseline-repo",
+        topic="default-baseline",
+    )
+    append_profile_baseline(
+        sup=sup,
+        repo=default_repo,
+        topic="default-baseline",
+        model="opus[1m]",
+        statusline_model="Opus 4.8 (1M context)",
     )
     profiled_session = registry.tmux_id(repo=str(profiled_repo), topic=profiled_topic)
     sup.watch_repos = [str(repo), str(profiled_repo)]
@@ -278,10 +348,30 @@ def test_snapshot_restart_model_verdict_changes_when_default_changes(*, tmp_path
         status_path=status_path,
         ctx=73,
     )
-    sup.current_default_statusline_model = lambda *, current_default: {
-        "opus[1m]": "Opus 4.8 (1M context)",
-        "sonnet": "Sonnet 4.5",
-    }.get(current_default)
+    opus_repo, _opus_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="opus-baseline-repo",
+        topic="opus-baseline",
+    )
+    sonnet_repo, _sonnet_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="sonnet-baseline-repo",
+        topic="sonnet-baseline",
+    )
+    append_profile_baseline(
+        sup=sup,
+        repo=opus_repo,
+        topic="opus-baseline",
+        model="opus[1m]",
+        statusline_model="Opus 4.8 (1M context)",
+    )
+    append_profile_baseline(
+        sup=sup,
+        repo=sonnet_repo,
+        topic="sonnet-baseline",
+        model="sonnet",
+        statusline_model="Sonnet 4.5",
+    )
 
     settings_path.write_text(json.dumps({"model": "opus[1m]"}), encoding="utf-8")
     matching = module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"][0][
@@ -321,7 +411,6 @@ def test_snapshot_restart_model_unknown_when_default_alias_has_no_statusline_for
         status_path=status_path,
         ctx=73,
     )
-    sup.current_default_statusline_model = lambda *, current_default: None
 
     restart_model = module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"][0][
         "restart_model"
@@ -335,6 +424,30 @@ def test_snapshot_restart_model_unknown_when_default_alias_has_no_statusline_for
         "rendered_statusline_model": "Opus 4.8 (1M context)",
         "recorded_statusline_model": None,
     }
+
+
+def test_snapshot_restart_model_fails_soft_without_default_statusline_resolver(
+    *, tmp_path, monkeypatch
+):
+    module = snapshot_module()
+    home = tmp_path / "home"
+    settings_path = home / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(json.dumps({"model": "opus[1m]"}), encoding="utf-8")
+    monkeypatch.setattr(module.Path, "home", lambda: home)
+    row = supervisor.RowView(
+        topic="covered",
+        repo="/repo",
+        tmux=None,
+        runtime="claude",
+        ctx=80,
+        status="idle",
+    )
+
+    restart_model = module.row_payload(sup=object(), row=row)["restart_model"]
+
+    assert restart_model["current_default"] == "opus[1m]"
+    assert restart_model["current_default_statusline_model"] is None
 
 
 def test_snapshot_restart_model_unknown_distinguishes_absent_and_unreadable_panes(

@@ -87,6 +87,7 @@ import _supervisor_observe
 import _supervisor_recovery
 import _supervisor_render
 import _supervisor_restart
+import _supervisor_restart_model_snapshot
 import _supervisor_runtime_rollback
 import _supervisor_snapshot
 import _supervisor_state
@@ -358,6 +359,12 @@ class Supervisor:
 
     def refresh_claude_status(self) -> None:
         return self._refresh_claude_status()
+
+    def current_default_statusline_model(self, *, current_default: str | None) -> str | None:
+        """Resolve the settings default alias through recorded live launch evidence."""
+        return _supervisor_restart_model_snapshot.current_default_statusline_model_from_store(
+            sup=self, current_default=current_default
+        )
 
     def build_rows(self, *, act: bool = True) -> list[registry.Track]:
         """See :func:`_supervisor_discovery.build_rows`."""
