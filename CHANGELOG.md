@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.17](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.16...v1.41.17) (2026-08-22)
+
+
+### Bug Fixes
+
+* forbid live plan handoff files ([1e158d2](https://github.com/thewoolleyman/livespec-overseer/commit/1e158d216b7fd6cb8f5309a9b3401d2b6af3acfb))
+
 ## [1.41.16](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.15...v1.41.16) (2026-08-22)
 
 
