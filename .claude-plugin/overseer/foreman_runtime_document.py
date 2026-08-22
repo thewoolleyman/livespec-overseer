@@ -108,9 +108,7 @@ def foreman_blocking_prompt_open(
     payload: dict[str, object],
     foreman_topic: str,
     previous_observation_key: object = None,
-    tick_started_at: float = 0.0,
 ) -> bool:
-    del tick_started_at
     current = foreman_blocking_prompt_observation_key(
         payload=payload,
         foreman_topic=foreman_topic,

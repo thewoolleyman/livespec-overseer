@@ -221,7 +221,6 @@ class ForemanRuntime:
             payload=document,
             foreman_topic=foreman_topic,
             previous_observation_key=state.get("blocking_prompt_observation_key"),
-            tick_started_at=now,
         )
         if blocking_prompt_open:
             record_blocking_prompt_escalation(
