@@ -83,12 +83,15 @@ from _registry_rounds import read_round_record as read_round_record
 from _registry_rounds import record_ready_expiry as record_ready_expiry
 from _registry_stamps import add_notified_band as add_notified_band
 from _registry_stamps import clear_injection_stamp as clear_injection_stamp
+from _registry_stamps import clear_picker_stall_episode as clear_picker_stall_episode
 from _registry_stamps import read_injection_stamp as read_injection_stamp
 from _registry_stamps import read_launch_statusline_baseline as read_launch_statusline_baseline
 from _registry_stamps import read_notified_bands as read_notified_bands
+from _registry_stamps import read_picker_stall_episode as read_picker_stall_episode
 from _registry_stamps import read_post_respawn as read_post_respawn
 from _registry_stamps import read_resume_pending as read_resume_pending
 from _registry_stamps import record_launch_statusline_baseline as record_launch_statusline_baseline
+from _registry_stamps import record_picker_stall_episode as record_picker_stall_episode
 from _registry_stamps import record_post_respawn as record_post_respawn
 from _registry_stamps import set_resume_pending as set_resume_pending
 from _registry_stamps import write_injection_stamp as write_injection_stamp
@@ -122,6 +125,7 @@ __all__: list[str] = [
     "archived_or_gone",
     "atomic_write",
     "clear_injection_stamp",
+    "clear_picker_stall_episode",
     "colliding_topics",
     "discover_plans",
     "epic_from_plan_anchor",
@@ -135,6 +139,7 @@ __all__: list[str] = [
     "read_launch_statusline_baseline",
     "read_mapping",
     "read_notified_bands",
+    "read_picker_stall_episode",
     "read_post_respawn",
     "read_resume_pending",
     "read_round_open_identity",
@@ -144,6 +149,7 @@ __all__: list[str] = [
     "record_launch_statusline_baseline",
     "record_model_profile",
     "record_observed_session_identity",
+    "record_picker_stall_episode",
     "record_post_respawn",
     "record_ready_expiry",
     "remove_mapping",

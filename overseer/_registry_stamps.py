@@ -23,12 +23,15 @@ from _registry_stamp_resume import read_resume_pending, set_resume_pending
 __all__: list[str] = [
     "add_notified_band",
     "clear_injection_stamp",
+    "clear_picker_stall_episode",
     "read_injection_stamp",
     "read_launch_statusline_baseline",
     "read_notified_bands",
+    "read_picker_stall_episode",
     "read_post_respawn",
     "read_resume_pending",
     "record_launch_statusline_baseline",
+    "record_picker_stall_episode",
     "record_post_respawn",
     "set_resume_pending",
     "write_injection_stamp",
@@ -126,6 +129,71 @@ def read_notified_bands(
     if bands is None:
         return []
     return [b for b in bands if isinstance(b, int)]
+
+
+def read_picker_stall_episode(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> tuple[float, str] | None:
+    """Return the durable picker-stall episode ``(since, gate_signature)`` if usable."""
+    data = read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    entry = jsonio.as_object(value=data.get(stamp_key(repo=repo, topic=topic)))
+    picker_stall = jsonio.as_object(value=entry.get("picker_stall")) if entry else None
+    if picker_stall is None:
+        return None
+    since = jsonio.as_float(value=picker_stall.get("since"))
+    signature = picker_stall.get("gate_signature")
+    if since is None or not isinstance(signature, str):
+        return None
+    return since, signature
+
+
+def record_picker_stall_episode(
+    *,
+    repo: str,
+    topic: str,
+    since: float,
+    gate_signature: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> None:
+    """Persist the first-observed time and gate identity for a human picker episode."""
+    path = resolve_stamp_store(stamp_path=stamp_path)
+    with file_lock(target=path):
+        data = read_stamp_data(path=path)
+        key = stamp_key(repo=repo, topic=topic)
+        entry = jsonio.as_object(value=data.get(key))
+        current = dict(entry) if entry is not None else {}
+        current["picker_stall"] = {
+            "gate_signature": gate_signature,
+            "since": float(since),
+        }
+        data[key] = current
+        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
+def clear_picker_stall_episode(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> None:
+    """Clear the durable picker-stall episode without touching injection-round data."""
+    path = resolve_stamp_store(stamp_path=stamp_path)
+    with file_lock(target=path):
+        data = read_stamp_data(path=path)
+        key = stamp_key(repo=repo, topic=topic)
+        entry = jsonio.as_object(value=data.get(key))
+        if entry is None or "picker_stall" not in entry:
+            return
+        current = dict(entry)
+        del current["picker_stall"]
+        if current:
+            data[key] = current
+        else:
+            del data[key]
+        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
 
 
 def add_notified_band(
