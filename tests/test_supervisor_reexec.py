@@ -100,3 +100,32 @@ def test_read_only_tick_never_reexecs(*, tmp_path):
     sup.execv = execv
 
     assert supervisor.Supervisor.tick(sup, act=False) == []
+
+
+def test_an_acting_tick_publishes_its_snapshot_before_replacing_the_process_image(*, tmp_path):
+    """Re-exec is the LAST act of a tick, so the tick that adopted a release is still recorded.
+
+    Pins the ordering that _finish_acting_tick's docstring claims: a daemon that
+    replaced its image before writing the snapshot would leave the tick which
+    decided to adopt unpublished, and the adoption invisible to any reader.
+    """
+    fake = FakeTmux()
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    target = tmp_path / "runtime" / "bin" / "overseerd"
+    order: list[str] = []
+
+    def build_no_rows(*, act: bool):
+        return []
+
+    def execv(*, path: str, argv: list[str]) -> None:
+        order.append("execv")
+
+    sup.build_rows = build_no_rows
+    sup.status_snapshot_writer = lambda *, sup, rows: order.append("snapshot")
+    sup.reexec_target = lambda: target
+    sup.execv = execv
+    sup.argv = lambda: ["overseerd"]
+
+    _ = sup.tick(act=True)
+
+    assert order == ["snapshot", "execv"]
