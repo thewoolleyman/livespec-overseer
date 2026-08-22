@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.14](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.13...v1.41.14) (2026-08-22)
+
+
+### Bug Fixes
+
+* query full roster ledger ([6c4ecc8](https://github.com/thewoolleyman/livespec-overseer/commit/6c4ecc891ce48e181182aed90c50585c9f966b57))
+
 ## [1.41.13](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.12...v1.41.13) (2026-08-22)
 
 
