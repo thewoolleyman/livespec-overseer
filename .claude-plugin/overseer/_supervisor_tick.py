@@ -52,20 +52,30 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
     if currency is not None:
         views.append(currency)
     sup.render(rows=views)
-    # Only the DAEMON badges the window. `list` is advertised read-only, so it must
-    # not rename the maintainer's window as a side effect of printing a table.
     if act:
-        _supervisor_render.refresh_window_name(
-            sup=sup, attention=sum(1 for view in views if needs_attention(row=view))
-        )
-        sup.tick_generation += 1
-        try:
-            sup.status_snapshot_writer(sup=sup, rows=views)
-        except OSError as exc:
-            if not sup.status_snapshot_failed:
-                sup.surface(message=f"status snapshot write failed: {exc}")
-            sup.status_snapshot_failed = True
-        else:
-            sup.status_snapshot_failed = False
-        _supervisor_reexec.maybe_reexec(sup=sup, rows=views)
+        _finish_acting_tick(sup=sup, views=views)
     return views
+
+
+def _finish_acting_tick(*, sup: Supervisor, views: list[RowView]) -> None:
+    """The DAEMON-only tail of an acting tick: badge, stamp, snapshot, then self-replace.
+
+    Split out of :func:`run_tick` so that function stays inside the statement soft
+    band; the sequence is unchanged. `list` is advertised read-only, so none of this
+    may fire on a read-only tick -- it must not rename the maintainer's window as a
+    side effect of printing a table. Re-exec stays LAST so the process image is only
+    replaced after this tick's snapshot has been published.
+    """
+    _supervisor_render.refresh_window_name(
+        sup=sup, attention=sum(1 for view in views if needs_attention(row=view))
+    )
+    sup.tick_generation += 1
+    try:
+        sup.status_snapshot_writer(sup=sup, rows=views)
+    except OSError as exc:
+        if not sup.status_snapshot_failed:
+            sup.surface(message=f"status snapshot write failed: {exc}")
+        sup.status_snapshot_failed = True
+    else:
+        sup.status_snapshot_failed = False
+    _supervisor_reexec.maybe_reexec(sup=sup, rows=views)
