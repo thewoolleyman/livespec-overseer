@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.6...v1.37.0) (2026-08-22)
+
+
+### Features
+
+* enforce the delegation floor and pin its three ratified scenarios ([f5a8b7b](https://github.com/thewoolleyman/livespec-overseer/commit/f5a8b7b130aed0aeb6c8ee9f4dd67272ca850a05))
+
 ## [1.36.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.5...v1.36.6) (2026-08-22)
 
 
