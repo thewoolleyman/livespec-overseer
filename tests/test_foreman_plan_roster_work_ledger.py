@@ -168,6 +168,85 @@ def test_work_state_documents_fetch_ledger_epics_once_for_all_plans(*, tmp_path,
     assert calls == 1
 
 
+def test_parentless_explicit_plan_association_raises_work_state_without_id_prefix(
+    *, tmp_path, monkeypatch
+):
+    repo = tmp_path / "repo"
+    journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
+    (repo / "plan" / "model-preserving-restarts").mkdir(parents=True)
+    (repo / "plan" / "unrelated").mkdir(parents=True)
+    journal.parent.mkdir(parents=True)
+    journal.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "stage": "dispatch-id",
+                        "work_item_id": "overseer-8f18",
+                        "dispatch_id": "f6090b30480d40979acb44ef5c574c8b",
+                        "at": "2026-08-22T17:49:01Z",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "stage": "dispatch-id",
+                        "work_item_id": "overseer-other",
+                        "dispatch_id": "unrelated-run",
+                        "at": "2026-08-22T17:50:00Z",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    payload = [
+        {
+            "id": "overseer-bc55wx",
+            "issue_type": "epic",
+            "status": "active",
+            "metadata": {"plan_slug": "model-preserving-restarts"},
+        },
+        {
+            "id": "overseer-unrelated",
+            "issue_type": "epic",
+            "status": "active",
+            "metadata": {"plan_slug": "unrelated"},
+        },
+        {
+            "id": "overseer-8f18",
+            "issue_type": "bug",
+            "status": "active",
+            "parent": None,
+            "description": "Thread membership: plan epic overseer-bc55wx.",
+            "metadata": {},
+        },
+        {
+            "id": "overseer-other",
+            "issue_type": "bug",
+            "status": "active",
+            "parent": None,
+            "description": "Thread membership: plan epic overseer-somewhere-else.",
+            "metadata": {},
+        },
+    ]
+
+    monkeypatch.setattr(
+        foreman_plan_roster_work.subprocess,
+        "run",
+        lambda *_args, **_kwargs: _completed(stdout=json.dumps(payload)),
+    )
+
+    assert foreman_plan_roster_work.work_states_by_plan(
+        repo=repo,
+        plan_names=["model-preserving-restarts", "unrelated"],
+        journal_path=journal,
+    ) == {
+        "model-preserving-restarts": "work-in-flight",
+        "unrelated": "no-work-in-flight",
+    }
+
+
 def test_legacy_anchor_fallback_remains_when_ledger_has_no_match(*, tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     (repo / "plan" / "alpha").mkdir(parents=True)
