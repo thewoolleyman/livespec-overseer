@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.8...v1.37.9) (2026-08-22)
+
+
+### Bug Fixes
+
+* arm grooming acceptance policy invariant ([fd6a57b](https://github.com/thewoolleyman/livespec-overseer/commit/fd6a57b6038e9b30eb9935f9d14522621977152a))
+
 ## [1.37.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.7...v1.37.8) (2026-08-22)
 
 
