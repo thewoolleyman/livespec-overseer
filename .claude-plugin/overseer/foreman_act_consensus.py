@@ -1,5 +1,4 @@
 """Consensus-disposition helpers for foreman-act human valves."""
-# livespec-lloc-soft-band-owner: overseer-3h4s5w.3
 
 from __future__ import annotations
 
@@ -8,17 +7,17 @@ from pathlib import Path
 from typing import Protocol, cast
 
 import jsonio
+from foreman_act_consensus_record import (
+    consensus_audit_record,
+    prepare_recorded_next_action,
+)
 from foreman_act_journal import journal_reconcile_command
 from foreman_act_record import AppendJournal
-from foreman_act_types import BLOCKED_SESSION_ANSWER, HUMAN_VALVE, ActionId, ActResult
+from foreman_act_types import HUMAN_VALVE, ActionId, ActResult
 from foreman_consensus_actions import authorized_action_id, typed_action
 from foreman_consensus_types import DecisionRule
-from foreman_recorded_next_action import (
-    RecordedNextAction,
-    recorded_next_action_authorization,
-)
 from foreman_typed_ruling import ruling_kind_defined
-from foreman_valve_policy import CONFIG_KEY, CONSENSUS, MAJORITY, UNANIMOUS
+from foreman_valve_policy import CONSENSUS, MAJORITY, UNANIMOUS
 
 __all__: list[str] = [
     "ConsensusPanel",
@@ -113,74 +112,6 @@ def _consensus_evidence(
     return request, responses
 
 
-def _audit_record(
-    *,
-    proposal: dict[str, object],
-    verdict: dict[str, object],
-    disposition: dict[str, object],
-    requested_action_id: ActionId,
-    authorized_action_id: ActionId | None,
-) -> dict[str, object]:
-    return {
-        "stage": "foreman-consensus-act",
-        "action_id": requested_action_id,
-        "governing_setting": f"{CONFIG_KEY}={CONSENSUS}",
-        "decision_rule": verdict.get("decision_rule"),
-        "full_autonomy": disposition.get("full_autonomy"),
-        "repo": proposal.get("repo"),
-        "topic": proposal.get("topic"),
-        "panel_outcome": verdict.get("outcome"),
-        "panel_reason": verdict.get("reason"),
-        "panel_cache_key": verdict.get("cache_key"),
-        "reviewers": verdict.get("reviewers"),
-        "models": verdict.get("models"),
-        "authorized_action_id": authorized_action_id,
-        "verdict": verdict,
-        "authorized_member_kind": "action",
-    }
-
-
-def _recorded_next_action_record(
-    *, proposal: dict[str, object], recorded: RecordedNextAction
-) -> dict[str, object]:
-    return {
-        "stage": "foreman-recorded-next-action",
-        "action_id": BLOCKED_SESSION_ANSWER,
-        "governing_setting": f"{CONFIG_KEY}={CONSENSUS}",
-        "repo": proposal.get("repo"),
-        "topic": proposal.get("topic"),
-        "matched_text": recorded.matched_text,
-        "source": recorded.source,
-    }
-
-
-def _prepare_recorded_next_action(
-    *, action_id: ActionId, proposal: dict[str, object], append_journal: AppendJournal
-) -> tuple[ActionId | None, ActResult | None] | None:
-    """Authorize a picker answer that restates the plan's recorded next action.
-
-    Returns None when the carve-out was not claimed or does not match, leaving
-    the consensus path to decide. The carve-out stands in for panel EVIDENCE
-    only; the disposition gate and the hard floors have already been applied by
-    the caller and are not reached through here.
-    """
-    if action_id != BLOCKED_SESSION_ANSWER:
-        return None
-    recorded, refusal = recorded_next_action_authorization(proposal=proposal)
-    if refusal is not None:
-        return None, _refused(action_id=action_id, reason=refusal)
-    if recorded is None:
-        return None
-    try:
-        append_journal(
-            repo=Path(str(proposal["repo"])),
-            record=_recorded_next_action_record(proposal=proposal, recorded=recorded),
-        )
-    except OSError:  # pragma: no cover
-        return None, _refused(action_id=action_id, reason="journal_append_failed")
-    return action_id, None
-
-
 def _authorized_panel_member(
     *, verdict: dict[str, object], effective_decision_rule: object
 ) -> tuple[ActionId | None, str | None]:
@@ -236,7 +167,7 @@ def prepare_consensus_action(
     )
     if pre_evidence is not None:
         return None, pre_evidence
-    carve_out = _prepare_recorded_next_action(
+    carve_out = prepare_recorded_next_action(
         action_id=action_id, proposal=proposal, append_journal=append_journal
     )
     if carve_out is not None:
@@ -257,9 +188,7 @@ def prepare_consensus_action(
     )
     if refusal is not None or authorized_member is None:  # pragma: no cover
         refused_action_id = (
-            HUMAN_VALVE
-            if refusal in {"consensus_ruling_not_enumerated", "delegation_floor:track_deliverable"}
-            else action_id
+            HUMAN_VALVE if refusal == "consensus_ruling_not_enumerated" else action_id
         )
         return None, _refused(
             action_id=refused_action_id, reason=refusal or "consensus_unavailable"
@@ -268,7 +197,7 @@ def prepare_consensus_action(
     try:
         append_journal(
             repo=Path(str(proposal["repo"])),
-            record=_audit_record(
+            record=consensus_audit_record(
                 proposal=proposal,
                 verdict=verdict,
                 disposition=disposition,

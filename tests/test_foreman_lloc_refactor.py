@@ -57,3 +57,21 @@ def test_foreman_e698_owner_markers_are_retired_after_policy_and_valve_splits():
     owner = "livespec-lloc-soft-band-owner: overseer-e698"
     for path in (overseer / "foreman_act.py", overseer / "foreman_runtime.py"):
         assert owner not in path.read_text(encoding="utf-8")
+
+
+def test_foreman_act_consensus_record_helpers_are_extracted():
+    root = Path(__file__).resolve().parents[1]
+    overseer = root / "overseer"
+    module_path = overseer / "foreman_act_consensus_record.py"
+
+    assert module_path.is_file(), module_path
+    extracted = importlib.import_module("foreman_act_consensus_record")
+    assert extracted.__all__ == [
+        "consensus_audit_record",
+        "prepare_recorded_next_action",
+    ]
+
+    consensus = importlib.import_module("foreman_act_consensus")
+    assert not hasattr(consensus, "_audit_record")
+    assert not hasattr(consensus, "_recorded_next_action_record")
+    assert not hasattr(consensus, "_prepare_recorded_next_action")
