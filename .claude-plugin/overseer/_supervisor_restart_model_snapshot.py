@@ -16,14 +16,6 @@ if TYPE_CHECKING:
 
 __all__: list[str] = ["restart_model_payload"]
 
-_DEFAULT_STATUSLINE_MODEL_BY_ALIAS = {
-    "claude-opus-4-1-20250805": "Opus 4.8 (1M context)",
-    "opus[1m]": "Opus 4.8 (1M context)",
-    "opus": "Opus 4.8",
-    "claude-sonnet-4-5-20250929": "Sonnet 4.5",
-    "sonnet": "Sonnet 4.5",
-}
-
 
 def _track_for_row(*, sup: Supervisor, row: RowView) -> registry.Track | None:
     if not hasattr(sup, "store_path"):
@@ -51,10 +43,16 @@ def _current_default_model() -> str | None:
     return model if isinstance(model, str) and model else None
 
 
-def _current_default_statusline_model(*, current_default: str | None) -> str | None:
+def _current_default_statusline_model(
+    *, sup: Supervisor, current_default: str | None
+) -> str | None:
     if current_default is None:
         return None
-    return _DEFAULT_STATUSLINE_MODEL_BY_ALIAS.get(current_default)
+    reader = getattr(sup, "current_default_statusline_model", None)
+    if not callable(reader):
+        return None
+    rendered = reader(current_default=current_default)
+    return rendered if isinstance(rendered, str) and rendered else None
 
 
 def _capture_for_row(*, sup: Supervisor, row: RowView) -> str | None:
@@ -107,7 +105,7 @@ def restart_model_payload(*, sup: Supervisor, row: RowView) -> dict[str, object]
     return _restart_model_payload(
         current_default=current_default,
         current_default_statusline_model=_current_default_statusline_model(
-            current_default=current_default
+            sup=sup, current_default=current_default
         ),
         model_profile=model_profile,
         rendered=rendered,
