@@ -142,6 +142,19 @@ def test_plugin_import_launches_daemon_from_operator_checkout(*, monkeypatch, tm
     assert not (plugin_root / "tmp" / "overseer").exists()
 
 
+def test_installed_daemon_without_checkout_falls_back_to_cwd(*, monkeypatch, tmp_path) -> None:
+    mod = _load()
+    prefix = tmp_path / "runtime" / "venv" / "lib" / "python3.10" / "site-packages"
+    cwd = tmp_path / "plain-working-dir"
+    (prefix / "overseer").mkdir(parents=True)
+    cwd.mkdir()
+    monkeypatch.setattr(mod, "__file__", str(prefix / "overseer" / "start.py"))
+    monkeypatch.chdir(cwd)
+
+    assert mod.default_core_root() == cwd
+    assert not (prefix / "tmp").exists()
+
+
 def test_split_launch_fails_when_daemon_pane_dies(*, monkeypatch, tmp_path, capsys) -> None:
     mod = _load()
     _in_agent_tmux(monkeypatch=monkeypatch)
