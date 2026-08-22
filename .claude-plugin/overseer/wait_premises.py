@@ -10,6 +10,8 @@ the already-sanctioned overseer scratch roots:
 
 Schema version 1 is intentionally flat JSON:
 
+``schema_version``
+    Integer schema version; currently ``1``.
 ``kind``
     One of ``fabro-run``, ``pr``, ``ci-run``, or ``work-item-close``.
 ``target_id``
@@ -32,11 +34,13 @@ import os
 import re
 import tempfile
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 
 import jsonio
 
 __all__: list[str] = [
+    "SCHEMA_VERSION",
     "WAIT_PREMISE_KINDS",
     "read_wait_premises",
     "wait_premise_dir",
@@ -46,6 +50,7 @@ __all__: list[str] = [
 ]
 
 WAIT_PREMISE_KINDS = ("fabro-run", "pr", "ci-run", "work-item-close")
+SCHEMA_VERSION = 1
 _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -63,6 +68,7 @@ def wait_premise_record(
     require_timestamp(field="recorded_at", value=recorded_at)
     require_timestamp(field="recheck_by", value=recheck_by)
     return {
+        "schema_version": SCHEMA_VERSION,
         "kind": kind,
         "target_id": target_id,
         "evidence_source": evidence_source,
@@ -102,6 +108,8 @@ def read_wait_premises(*, repo: str | os.PathLike[str], topic: str) -> list[dict
         record = read_wait_premise(path=path)
         if record is not None:
             records.append(record)
+        else:
+            migrate_legacy_wait_premise(path=path)
     return records
 
 
@@ -114,7 +122,8 @@ def wait_premise_path(
     safe_target = _SAFE_FILENAME.sub("-", target_id).strip(".-")
     if safe_target == "":
         safe_target = "target"
-    return directory / f"{kind}-{safe_target}.json"
+    digest = sha256(target_id.encode("utf-8")).hexdigest()[:12]
+    return directory / f"{kind}-{safe_target}-{digest}.json"
 
 
 def wait_premise_dir(*, repo: str | os.PathLike[str], topic: str) -> Path:
@@ -139,7 +148,36 @@ def read_wait_premise(*, path: Path) -> dict[str, object] | None:
     return parsed if valid_wait_premise(value=parsed) else None
 
 
+def migrate_legacy_wait_premise(*, path: Path) -> None:
+    try:
+        parsed_result = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    except OSError:
+        return
+    if jsonio.is_parse_failure(result=parsed_result):
+        return
+    parsed = parsed_result.unwrap()
+    if parsed is None or "schema_version" in parsed or not valid_legacy_wait_premise(value=parsed):
+        return
+    migrated = {**parsed, "schema_version": SCHEMA_VERSION}
+    destination = wait_premise_path(
+        repo=legacy_repo_from_path(path=path),
+        topic=legacy_topic_from_path(path=path),
+        kind=str(parsed["kind"]),
+        target_id=str(parsed["target_id"]),
+    )
+    if destination == path or destination.exists():
+        return
+    try:
+        write_json_atomic(path=destination, payload=migrated)
+    except OSError:
+        return
+
+
 def valid_wait_premise(*, value: dict[str, object]) -> bool:
+    return valid_schema_version(value=value) and valid_legacy_wait_premise(value=value)
+
+
+def valid_legacy_wait_premise(*, value: dict[str, object]) -> bool:
     return (
         isinstance(value.get("kind"), str)
         and value["kind"] in WAIT_PREMISE_KINDS
@@ -152,6 +190,18 @@ def valid_wait_premise(*, value: dict[str, object]) -> bool:
         and isinstance(value.get("recheck_by"), str)
         and timestamp_valid(value=str(value["recheck_by"]))
     )
+
+
+def valid_schema_version(*, value: dict[str, object]) -> bool:
+    return type(value.get("schema_version")) is int and value["schema_version"] == SCHEMA_VERSION
+
+
+def legacy_repo_from_path(*, path: Path) -> Path:
+    return path.parents[4]
+
+
+def legacy_topic_from_path(*, path: Path) -> str:
+    return path.parents[1].name
 
 
 def write_json_atomic(*, path: Path, payload: dict[str, object]) -> None:

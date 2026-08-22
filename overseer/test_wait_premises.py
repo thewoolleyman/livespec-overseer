@@ -30,9 +30,12 @@ def test_wait_premise_helper_writes_typed_record_atomically(*, tmp_path):
         recheck_by="2026-08-19T03:00:00Z",
     )
 
-    assert path == repo / "tmp" / "overseer" / "alpha" / "wait-premises" / "fabro-run-01M0RUN.json"
+    assert path.parent == repo / "tmp" / "overseer" / "alpha" / "wait-premises"
+    assert path.name.startswith("fabro-run-01M0RUN-")
+    assert path.name.endswith(".json")
     assert list(path.parent.glob("*.tmp")) == []
     assert json.loads(path.read_text(encoding="utf-8")) == {
+        "schema_version": 1,
         "kind": "fabro-run",
         "target_id": "01M0RUN",
         "evidence_source": "fabro ps -a --json",
@@ -56,6 +59,7 @@ def test_wait_premise_schema_accepts_declared_kinds(*, kind):
     )
 
     assert record["kind"] == kind
+    assert record["schema_version"] == 1
 
 
 @pytest.mark.parametrize(
@@ -165,6 +169,7 @@ def test_foreman_gather_surfaces_recorded_wait_premises_per_row(*, tmp_path):
 
     assert first["wait_premises"] == [
         {
+            "schema_version": 1,
             "kind": "pr",
             "target_id": "17",
             "evidence_source": "gh pr view 17 --json state,statusCheckRollup",
