@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.6...v1.41.7) (2026-08-22)
+
+
+### Bug Fixes
+
+* ignore stale foreman picker snapshots ([491e301](https://github.com/thewoolleyman/livespec-overseer/commit/491e301740d8e267ec0182ce99f0a3680d32b0b2))
+
 ## [1.41.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.5...v1.41.6) (2026-08-22)
 
 
