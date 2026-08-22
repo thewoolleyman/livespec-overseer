@@ -221,9 +221,35 @@ admitting only `exit_reason == "hard-tick-budget"` and is `None` otherwise, and
 the prose records that a resume picker on that path measured 13 hours with no
 foreman on 2026-08-19/20. **`converged` never got that repair.**
 
-It is not a rare edge, either: `converged_ticks` defaults to `2`, so two
-consecutive stable ticks over a non-empty monitored set are enough. A quiet fleet
-reaches it routinely.
+**How often it fires is not measured — and cannot be from the record, which is
+itself the sharper finding.** `converged_ticks` defaults to `2`, so two
+consecutive stable ticks over a non-empty monitored set are enough, and a quiet
+fleet plausibly reaches that. Plausibility is all that is available, though,
+because the runtime journals **only** the hard-tick-budget auto-resume — that is
+the single `append_journal` call site in `foreman_runtime.py`, reached under the
+same guard. **A `converged` exit writes no journal record at all.**
+
+Measured 2026-08-22 across every repo's dispatch journal on this host: four
+`foreman-auto-resume` records exist, spread over four repos, and **no journal
+stage anywhere records a converged exit.** (An earlier revision of this note
+asserted a quiet fleet "reaches it routinely". That was inferred from the
+constant, not measured, and it is retracted here — the structural point below is
+both stronger and actually supportable.)
+
+So the converged path cancels the schedule, raises a blocking question, and
+leaves no trace that it happened. That is a better reason to fix it than any
+frequency estimate would be, and it bears directly on acceptance criterion 2:
+a detector for "a tick that ends with a blocking prompt outstanding" has nothing
+to key on for this path today.
+
+Two live foreman rows were checked against this and are **not** converged
+instances: at `00:45Z` on 2026-08-22 the `livespec-console-beads-fabro` and
+`homelab` foremen were heartbeat-stale by 375 and 4079 minutes respectively, and
+both carried `stable_ticks: 0` in `tmp/overseer/foreman/runtime.json` — so
+neither had converged, and both belong to the died-loop case owned by
+`overseer-6tfncs.5`. The console row's `llm_tick_interval_seconds: 7200.0` is a
+doubled interval, the hard-tick-budget auto-resume signature, which is a useful
+reminder that auto-resume alone did not keep that loop alive.
 
 A criterion-2 detector for "a tick that ends with a blocking prompt outstanding"
 will necessarily flag this path, so it is in scope rather than a surprise.
