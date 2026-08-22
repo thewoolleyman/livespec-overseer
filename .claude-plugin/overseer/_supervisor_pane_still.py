@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import _supervisor_liveness
-import _supervisor_snapshot
 import registry
 from _supervisor_config import PANE_STILL_AFTER
 from _supervisor_view import MAX_REASON_IN_ALERT, elide
@@ -52,15 +51,10 @@ class StallWatchRequest:
 
 
 def _status_daemon_instance_id(*, sup: Supervisor) -> str:
-    if sup.status_path is None and sup.status_snapshot_path is None:
-        return sup.daemon_instance_id
-    path = sup.status_path if sup.status_path is not None else sup.status_snapshot_path
-    read = _supervisor_snapshot.read_status_snapshot(
-        path=path or _supervisor_snapshot.DEFAULT_STATUS_PATH
-    )
-    if read is None:
-        return sup.daemon_instance_id
-    return str(read.document.get("daemon_instance_id") or sup.daemon_instance_id)
+    # Bounce detection uses the daemon's own live identity as canonical. Status
+    # path sentinels only configure where the daemon publishes its JSON output;
+    # that output is intentionally not an authority on this process's identity.
+    return sup.daemon_instance_id
 
 
 def _capture_hash(*, capture: str) -> str:

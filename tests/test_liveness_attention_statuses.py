@@ -1,6 +1,7 @@
 """Repo-level attention membership regressions for liveness report statuses."""
 
 import contextlib
+import hashlib
 import io
 import json
 import sys
@@ -77,6 +78,41 @@ def test_stall_watch_without_snapshot_path_uses_current_daemon_identity(*, tmp_p
     assert state.stall_watch_daemon_instance_id == sup.daemon_instance_id
 
 
+def test_foreign_status_snapshot_write_does_not_report_daemon_bounce(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = topic
+    status_path = _status_snapshot_after_bounce(tmp_path=tmp_path)
+    fake = FakeTmux()
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, status_path=status_path)
+    state = _supervisor_records.InjectState()
+    state.stall_watch_daemon_instance_id = sup.daemon_instance_id
+    state.stall_watch_pane = "%old"
+    state.stall_watch_capture_since = -1000.0
+    state.stall_watch_due_observations = 2
+    obs = _stall_watch_observation(state=state)
+    state.stall_watch_capture_hash = hashlib.sha256(obs.capture.encode("utf-8")).hexdigest()
+
+    result = _supervisor_stall_watch.apply_stall_watch(
+        request=_supervisor_stall_watch.StallWatchRequest(
+            sup=sup,
+            track=mapped_track(repo=repo, topic=topic, session=session),
+            session=session,
+            pane="%old",
+            status="working",
+            note=None,
+            obs=obs,
+            active_conditions=set(),
+            act=True,
+        )
+    )
+
+    assert result.status == "pane-still"
+    assert state.stall_watch_daemon_instance_id == sup.daemon_instance_id
+    assert state.stall_watch_pane == "%old"
+    assert state.stall_watch_capture_since == -1000.0
+    assert state.stall_watch_due_observations == 3
+
+
 def _status_snapshot_after_bounce(*, tmp_path):
     status_path = tmp_path / "status.json"
     status_path.write_text(
@@ -115,6 +151,7 @@ def test_daemon_bounce_re_resolves_glyph_prefixed_title_by_session_identity(*, t
         fake=fake,
         status_path=status_path,
     )
+    sup.daemon_instance_id = "daemon-after-bounce"
     state = _mark_stall_watch_before_bounce(sup=sup, repo=repo, topic=topic)
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -122,7 +159,7 @@ def test_daemon_bounce_re_resolves_glyph_prefixed_title_by_session_identity(*, t
     assert view.status == "working"
     assert not any(call[0] == "pane_by_title" for call in fake.calls)
     assert state.stall_watch_pane == session
-    assert state.stall_watch_daemon_instance_id == "daemon-after-bounce"
+    assert state.stall_watch_daemon_instance_id == sup.daemon_instance_id
 
 
 def test_daemon_bounce_re_resolves_drifted_title_by_session_identity(*, tmp_path):
@@ -133,6 +170,7 @@ def test_daemon_bounce_re_resolves_drifted_title_by_session_identity(*, tmp_path
     fake.serve(session=session, repo=repo, capture=busy_capture(ctx=73))
     fake.pane_titles = {"reviewing a failing test unrelated to the topic": session}
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, status_path=status_path)
+    sup.daemon_instance_id = "daemon-after-bounce"
     state = _mark_stall_watch_before_bounce(sup=sup, repo=repo, topic=topic)
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -140,7 +178,7 @@ def test_daemon_bounce_re_resolves_drifted_title_by_session_identity(*, tmp_path
     assert view.status == "working"
     assert not any(call[0] == "pane_by_title" for call in fake.calls)
     assert state.stall_watch_pane == session
-    assert state.stall_watch_daemon_instance_id == "daemon-after-bounce"
+    assert state.stall_watch_daemon_instance_id == sup.daemon_instance_id
 
 
 def _stall_watch_observation(*, state):
@@ -183,6 +221,7 @@ def test_daemon_bounce_missing_session_identity_pane_still_reports_target_gone(*
     status_path = _status_snapshot_after_bounce(tmp_path=tmp_path)
     fake = FakeTmux()
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, status_path=status_path)
+    sup.daemon_instance_id = "daemon-after-bounce"
     state = _supervisor_records.InjectState()
     state.stall_watch_daemon_instance_id = "daemon-before-bounce"
     state.stall_watch_pane = "%old"
@@ -216,6 +255,7 @@ def test_daemon_bounce_missing_session_identity_read_only_does_not_alert(*, tmp_
     status_path = _status_snapshot_after_bounce(tmp_path=tmp_path)
     fake = FakeTmux()
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, status_path=status_path)
+    sup.daemon_instance_id = "daemon-after-bounce"
     state = _supervisor_records.InjectState()
     state.stall_watch_daemon_instance_id = "daemon-before-bounce"
     state.stall_watch_pane = "%old"

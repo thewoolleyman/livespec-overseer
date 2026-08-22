@@ -92,13 +92,14 @@ def test_scenario_daemon_bounce_invalidated_watch_is_not_armed(*, tmp_path):
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=busy_capture(ctx=73))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, status_path=status_path)
+    sup.daemon_instance_id = "daemon-after-bounce"
     state = _mark_stall_watch_before_bounce(sup=sup, repo=repo, topic=topic)
 
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
 
     assert view.status == "working"
     assert state.stall_watch_pane == session
-    assert state.stall_watch_daemon_instance_id == "daemon-after-bounce"
+    assert state.stall_watch_daemon_instance_id == sup.daemon_instance_id
 
 
 @pytest.mark.integration
