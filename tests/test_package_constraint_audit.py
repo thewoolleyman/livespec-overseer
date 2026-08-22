@@ -5,7 +5,9 @@ from __future__ import annotations
 import pathlib
 
 from overseer.test_package_constraint_audit import (
+    DaemonRuntimeImportAudit,
     PackageImportAudit,
+    audit_daemon_runtime_imports,
     audit_package_imports,
 )
 
@@ -22,6 +24,12 @@ def test_package_import_audit_value_object_starts_empty():
     )
 
     assert audit.installed_imports == {}
+
+
+def test_daemon_runtime_import_audit_value_object_starts_empty():
+    audit = DaemonRuntimeImportAudit(missing_runtime_imports={})
+
+    assert audit.missing_runtime_imports == {}
 
 
 def _write_text(*, path: pathlib.Path, text: str) -> None:
@@ -134,3 +142,21 @@ def test_bare_vendored_import_fails_the_hermetic_constraint(*, tmp_path):
     )
 
     assert audit.hermetic_collisions == {"consumer.py": ["pytest"]}
+
+
+def test_daemon_runtime_audit_follows_reachable_first_party_imports(*, tmp_path):
+    package_root = tmp_path / "overseer"
+    _write_text(
+        path=tmp_path / "pyproject.toml",
+        text='[project]\ndependencies = ["livespec-runtime>=0.18.0"]\n',
+    )
+    _write_text(path=package_root / "daemon.py", text="from overseer import supervisor\n")
+    _write_text(path=package_root / "supervisor.py", text="import _supervisor_tick\n")
+    _write_text(path=package_root / "_supervisor_tick.py", text="import livespec_runtime\n")
+    _write_text(path=package_root / "foreman_act_filing.py", text="import livespec_runtime\n")
+
+    audit = audit_daemon_runtime_imports(package_root=package_root)
+
+    assert audit == DaemonRuntimeImportAudit(
+        missing_runtime_imports={"_supervisor_tick.py": ["livespec-runtime"]}
+    )

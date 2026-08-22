@@ -9,10 +9,17 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 __all__: list[str] = [
+    "DaemonRuntimeImportAudit",
     "PackageImportAudit",
     "all_imports",
+    "audit_daemon_runtime_imports",
     "audit_package_imports",
 ]
+
+
+@dataclass(frozen=True, kw_only=True)
+class DaemonRuntimeImportAudit:
+    missing_runtime_imports: dict[str, list[str]]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -70,6 +77,19 @@ def _top_level_imports(*, path: pathlib.Path) -> frozenset[str]:
     return frozenset(names)
 
 
+def _module_load_module_imports(*, path: pathlib.Path) -> frozenset[str]:
+    names: set[str] = set()
+    for node in _module_load_import_nodes(tree=ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            if node.level == 0:
+                names.add(node.module)
+            else:
+                names.add("." * node.level + node.module)
+    return frozenset(names)
+
+
 def all_imports(*, path: pathlib.Path) -> frozenset[str]:
     names: set[str] = set()
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
@@ -111,6 +131,18 @@ def _runtime_dependencies(*, repo_root: pathlib.Path) -> frozenset[str]:
     )
 
 
+def _normalized_distribution_name(*, name: str) -> str:
+    return name.lower().replace("_", "-")
+
+
+def _distribution_for_import(*, import_name: str, runtime_dependencies: frozenset[str]) -> str:
+    normalized_import = _normalized_distribution_name(name=import_name)
+    for dependency in runtime_dependencies:
+        if _normalized_distribution_name(name=dependency) == normalized_import:
+            return dependency
+    return import_name
+
+
 def _vendored_names(*, vendor_root: pathlib.Path) -> frozenset[str]:
     if not vendor_root.is_dir():
         return frozenset()
@@ -140,6 +172,68 @@ def _audit_vendored_load_imports(
         if third_party:
             offenders[str(path.relative_to(vendor_root))] = third_party
     return offenders
+
+
+def _resolve_first_party_import(
+    *, import_name: str, current_path: pathlib.Path, package_root: pathlib.Path
+) -> pathlib.Path | None:
+    if import_name.startswith("."):
+        import_name = import_name.lstrip(".")
+    parts = import_name.split(".")
+    if not parts or parts[0] == "":
+        return None
+    if parts[0] == package_root.name and len(parts) >= 2:
+        parts = parts[1:]
+    candidate = package_root.joinpath(*parts).with_suffix(".py")
+    if candidate.is_file() and candidate.parent == package_root:
+        return candidate
+    bare_candidate = current_path.parent / f"{parts[0]}.py"
+    if bare_candidate.is_file() and bare_candidate.parent == package_root:
+        return bare_candidate
+    return None
+
+
+def _daemon_import_chain(
+    *, entrypoints: Iterable[pathlib.Path], package_root: pathlib.Path
+) -> tuple[pathlib.Path, ...]:
+    reachable: set[pathlib.Path] = set()
+    pending = list(entrypoints)
+    while pending:
+        path = pending.pop()
+        if path in reachable:
+            continue
+        reachable.add(path)
+        for import_name in _module_load_module_imports(path=path):
+            resolved = _resolve_first_party_import(
+                import_name=import_name, current_path=path, package_root=package_root
+            )
+            if resolved is not None and resolved not in reachable:
+                pending.append(resolved)
+    return tuple(sorted(reachable))
+
+
+def audit_daemon_runtime_imports(
+    *,
+    package_root: pathlib.Path,
+    entrypoint_names: Iterable[str] = ("daemon.py", "supervisor.py"),
+) -> DaemonRuntimeImportAudit:
+    """Find third-party module-load imports reachable from the daemon entrypoints."""
+    stdlib = frozenset(sys.stdlib_module_names)
+    first_party = frozenset({"overseer", *(path.stem for path in package_root.glob("*.py"))})
+    vendor_names = _vendored_names(vendor_root=package_root / "_vendor")
+    runtime_dependencies = _runtime_dependencies(repo_root=package_root.parent)
+    entrypoints = tuple(package_root / name for name in entrypoint_names)
+
+    offenders: dict[str, list[str]] = {}
+    for path in _daemon_import_chain(entrypoints=entrypoints, package_root=package_root):
+        distributions = sorted(
+            _distribution_for_import(import_name=name, runtime_dependencies=runtime_dependencies)
+            for name in _top_level_imports(path=path)
+            if name not in stdlib and name not in first_party and name not in vendor_names
+        )
+        if distributions:
+            offenders[path.name] = distributions
+    return DaemonRuntimeImportAudit(missing_runtime_imports=offenders)
 
 
 def audit_package_imports(
