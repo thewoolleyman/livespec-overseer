@@ -82,13 +82,40 @@ def test_roster_is_driven_by_plan_directories_and_left_joins_daemon_snapshot(*, 
 
 def test_roster_reports_distinct_plan_only_and_tmux_only_name_identity_errors(*, tmp_path):
     repo = tmp_path / "repo"
-    snapshot_path = tmp_path / "missing-status.json"
+    snapshot_path = tmp_path / "status.json"
     _plan(repo=repo, topic="plan-only")
+    snapshot_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "daemon_instance_id": "daemon-1",
+                "tick_generation": 12,
+                "rows": [
+                    {
+                        "repo": str(repo),
+                        "topic": "tmux-only",
+                        "tmux": "tmux-only",
+                        "runtime": "codex",
+                        "status": "working",
+                    },
+                    {
+                        "repo": str(repo.parent / "other-repo"),
+                        "topic": "foreign",
+                        "tmux": "foreign",
+                        "runtime": "codex",
+                        "status": "working",
+                    },
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
 
     roster = foreman_plan_roster.compose_roster(
         repo=repo,
         snapshot_path=snapshot_path,
-        tmux_sessions=["tmux-only"],
+        tmux_sessions=["tmux-only", "foreign"],
     )
 
     row = roster["rows"][0]
