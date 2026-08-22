@@ -51,7 +51,7 @@ def apply_final_ruling_attention(*, request: FinalRulingRequest) -> FinalRulingR
     if relay is None:
         return _unchanged(request=request)
     exempt = _supervisor_final_ruling_sources.exemption_label(
-        repo=Path(request.track.repo), item_id=relay.item_id
+        repo=Path(request.track.repo), item_id=relay.item_id, floor_at=relay.at
     )
     if exempt is not None:
         return _with_note(request=request, extra=f"final ruling exemption: {exempt}")

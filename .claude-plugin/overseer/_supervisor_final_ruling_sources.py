@@ -57,11 +57,11 @@ def relay_from_record(
     )
 
 
-def exemption_label(*, repo: Path, item_id: str) -> str | None:
+def exemption_label(*, repo: Path, item_id: str, floor_at: float) -> str | None:
     item = read_ledger_item(repo=repo, item_id=item_id)
     if item is not None and item.blocked_reason == "infra-external":
         return "infra-external"
-    if credential_exhaustion_refusal(repo=repo, item_id=item_id):
+    if credential_exhaustion_refusal(repo=repo, item_id=item_id, floor_at=floor_at):
         return "credential-exhaustion"
     if caam_quota_exhausted(repo=repo):
         return "caam-quota-exhausted"
@@ -94,18 +94,41 @@ def ledger_comment_moved(*, repo: Path, relay: FinalRelay) -> bool:
     return item.latest_comment_at > floor
 
 
-def credential_exhaustion_refusal(*, repo: Path, item_id: str) -> bool:
+def credential_exhaustion_refusal(*, repo: Path, item_id: str, floor_at: float) -> bool:
     records = read_journal(repo=repo) or ()
     matches = tuple(
         record
         for record in records
-        if string_value(value=record.get("work_item_id")) == item_id
-        and string_value(value=record.get("outcome")) in {"refused", "failed"}
+        if (record_at := timestamp(value=record.get("at"))) is not None
+        and record_at >= floor_at
+        and dispatch_outcome_item_id(record=record) == item_id
+        and dispatch_outcome_status(record=record) in {"refused", "failed"}
     )
     if not matches:
         return False
-    reason = string_value(value=matches[-1].get("reason")) or ""
+    reason = dispatch_outcome_detail(record=matches[-1]) or ""
     return "429" in reason and "exhaust" in reason.lower()
+
+
+def dispatch_outcome(*, record: dict[str, object]) -> dict[str, object] | None:
+    if record.get("stage") != "outcome":
+        return None
+    return jsonio.as_object(value=record.get("outcome"))
+
+
+def dispatch_outcome_item_id(*, record: dict[str, object]) -> str | None:
+    outcome = dispatch_outcome(record=record) or {}
+    return string_value(value=outcome.get("work_item_id"))
+
+
+def dispatch_outcome_status(*, record: dict[str, object]) -> str | None:
+    outcome = dispatch_outcome(record=record) or {}
+    return string_value(value=outcome.get("status"))
+
+
+def dispatch_outcome_detail(*, record: dict[str, object]) -> str | None:
+    outcome = dispatch_outcome(record=record) or {}
+    return string_value(value=outcome.get("detail"))
 
 
 def caam_quota_exhausted(*, repo: Path) -> bool:

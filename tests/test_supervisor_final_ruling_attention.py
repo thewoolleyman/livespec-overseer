@@ -114,21 +114,34 @@ def test_final_ruling_unheeded_suppresses_each_closed_exemption(*, tmp_path, mon
             blocked_reason=setup.get("blocked_reason"),
         )
         if reason := setup.get("dispatch_reason"):
-            final_relay(
-                repo=repo,
-                session_identity=f"claude:{session}:{topic}",
-                item_id=TEST_EPIC,
-            )
             with (repo / "tmp" / "fabro-dispatch-journal.jsonl").open("a", encoding="utf-8") as h:
                 _ = h.write(
                     json.dumps(
                         {
+                            "at": "1970-01-01T00:09:00Z",
+                            "stage": "outcome",
+                            "outcome": {
+                                "detail": reason,
+                                "stage": "run-config-overlay",
+                                "status": "refused",
+                                "work_item_id": TEST_EPIC,
+                            },
+                        },
+                        sort_keys=True,
+                    )
+                    + "\n"
+                )
+                _ = h.write(
+                    json.dumps(
+                        {
                             "at": "1970-01-01T00:11:00Z",
-                            "stage": "run-config-overlay",
-                            "outcome": "refused",
-                            "reason": reason,
-                            "work_item_id": TEST_EPIC,
-                            "dispatch_id": "d1",
+                            "stage": "outcome",
+                            "outcome": {
+                                "detail": reason,
+                                "stage": "run-config-overlay",
+                                "status": "refused",
+                                "work_item_id": TEST_EPIC,
+                            },
                         }
                     )
                     + "\n"
@@ -152,6 +165,43 @@ def test_final_ruling_unheeded_suppresses_each_closed_exemption(*, tmp_path, mon
 
         assert row.status != "final-ruling-unheeded", label
         assert label in (row.note or "")
+
+
+def test_final_ruling_unheeded_ignores_stale_credential_refusal_before_relay(
+    *, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(_supervisor_config, "FINAL_RULING_UNHEEDED_AFTER", 30.0, raising=False)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=picker_capture())
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0)
+    final_relay(repo=repo, session_identity=f"claude:{session}:{topic}")
+    write_ledger_item(repo=repo, item_id=TEST_EPIC)
+    with (repo / "tmp" / "fabro-dispatch-journal.jsonl").open("a", encoding="utf-8") as h:
+        _ = h.write(
+            json.dumps(
+                {
+                    "at": "1970-01-01T00:09:00Z",
+                    "stage": "outcome",
+                    "outcome": {
+                        "detail": "HTTP 429 exhausted",
+                        "stage": "run-config-overlay",
+                        "status": "refused",
+                        "work_item_id": TEST_EPIC,
+                    },
+                },
+                sort_keys=True,
+            )
+            + "\n"
+        )
+
+    row = sup.evaluate(
+        track=mapped_track(repo=repo, topic=topic, session=session),
+        act=False,
+    )
+
+    assert row.status == "final-ruling-unheeded"
 
 
 def test_final_ruling_unheeded_clears_on_movement_and_unreadable_journal_fails_soft(
