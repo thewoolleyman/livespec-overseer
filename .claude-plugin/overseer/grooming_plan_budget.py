@@ -23,13 +23,14 @@ __all__: list[str] = [
 
 DEFAULT_ITEMS_PER_PLAN = 12
 DEFAULT_MIN_PLANS = 2
-DEFAULT_MAX_PLANS = 8
+DEFAULT_MAX_PLANS = 20
 TERMINAL_WORK_ITEM_STATUSES = frozenset({"closed", "done"})
 
 
 @dataclass(frozen=True, kw_only=True)
 class PlanBudgetResolution:
     path: Literal["explicit", "auto"]
+    governing_path: Literal["explicit", "population-derived", "min-clamped", "max-clamped"]
     budget: int
     new_thread_allowance: int
     drainable_population: int
@@ -70,10 +71,18 @@ def resolve_plan_budget(
     drainable_population = proposals + work_item_count
     raw_auto_budget = ceil_div(numerator=drainable_population, denominator=items_per_plan)
     explicit_plan_budget = positive_int(value=grooming.get("plan_budget"))
-    budget = (
-        explicit_plan_budget
-        if explicit_plan_budget is not None
-        else clamp(value=raw_auto_budget, lower=min_plans, upper=max_plans)
+    governing_path = resolve_governing_path(
+        explicit_plan_budget=explicit_plan_budget,
+        raw_auto_budget=raw_auto_budget,
+        min_plans=min_plans,
+        max_plans=max_plans,
+    )
+    budget = budget_for_governing_path(
+        governing_path=governing_path,
+        explicit_plan_budget=explicit_plan_budget,
+        raw_auto_budget=raw_auto_budget,
+        min_plans=min_plans,
+        max_plans=max_plans,
     )
     live_slugs = live_thread_slugs_for_repo(
         repo=root,
@@ -83,6 +92,7 @@ def resolve_plan_budget(
     live_thread_count = len(live_slugs)
     return PlanBudgetResolution(
         path="explicit" if explicit_plan_budget is not None else "auto",
+        governing_path=governing_path,
         budget=budget,
         new_thread_allowance=max(0, budget - live_thread_count),
         drainable_population=drainable_population,
@@ -98,12 +108,41 @@ def resolve_plan_budget(
     )
 
 
+def resolve_governing_path(
+    *,
+    explicit_plan_budget: int | None,
+    raw_auto_budget: int,
+    min_plans: int,
+    max_plans: int,
+) -> Literal["explicit", "population-derived", "min-clamped", "max-clamped"]:
+    if explicit_plan_budget is not None:
+        return "explicit"
+    if raw_auto_budget < min_plans:
+        return "min-clamped"
+    if raw_auto_budget > max_plans:
+        return "max-clamped"
+    return "population-derived"
+
+
+def budget_for_governing_path(
+    *,
+    governing_path: Literal["explicit", "population-derived", "min-clamped", "max-clamped"],
+    explicit_plan_budget: int | None,
+    raw_auto_budget: int,
+    min_plans: int,
+    max_plans: int,
+) -> int:
+    if governing_path == "explicit":
+        return explicit_plan_budget or raw_auto_budget
+    if governing_path == "min-clamped":
+        return min_plans
+    if governing_path == "max-clamped":
+        return max_plans
+    return raw_auto_budget
+
+
 def positive_int(*, value: object) -> int | None:
     return value if type(value) is int and value > 0 else None
-
-
-def clamp(*, value: int, lower: int, upper: int) -> int:
-    return max(lower, min(value, upper))
 
 
 def ceil_div(*, numerator: int, denominator: int) -> int:
