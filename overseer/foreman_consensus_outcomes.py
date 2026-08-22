@@ -39,9 +39,10 @@ def escalation(
     request: dict[str, object],
     reviewers: list[dict[str, object]],
     decision_rule: DecisionRule,
+    typed_layer_agreed: bool = False,
 ) -> dict[str, object]:
     action: dict[str, object] = {"action_id": "human_valve", "params": {}}
-    return {
+    result: dict[str, object] = {
         "schema_version": PANEL_SCHEMA_VERSION,
         "outcome": "escalate",
         "reason": reason,
@@ -53,6 +54,9 @@ def escalation(
         "cache_key": cache_key(request=request, decision_rule=decision_rule),
         "mutated": False,
     }
+    if typed_layer_agreed:
+        result["typed_layer_agreed"] = True
+    return result
 
 
 def unanimous(
