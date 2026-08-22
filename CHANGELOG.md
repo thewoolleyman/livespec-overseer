@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.37.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.6...v1.37.7) (2026-08-22)
+
+
+### Bug Fixes
+
+* correct grooming budget threshold prose ([636e84d](https://github.com/thewoolleyman/livespec-overseer/commit/636e84d84b5295b778ba0ccce484ceca28995765))
+* distinguish prose answer variance ([19af69f](https://github.com/thewoolleyman/livespec-overseer/commit/19af69f596e1db1ade2672513aaf5af888487f06))
+* report grooming budget governing path ([5695ac9](https://github.com/thewoolleyman/livespec-overseer/commit/5695ac960d030e18b7af6a894750e93229079228))
+
 ## [1.37.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.5...v1.37.6) (2026-08-22)
 
 
