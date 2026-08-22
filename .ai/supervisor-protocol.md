@@ -140,13 +140,15 @@ placeholder and `tail` rejects it.
 Peer answers to a picker need provenance. This contract implements candidate
 remedy (b), attribution by the overseer/tmux boundary: peer-injected input that
 may be mistaken for maintainer approval must go through
-`tmuxio.TmuxIO.peer_bracketed_paste(..., sending_seat="<seat>")`, after which
-the receiving side can query `latest_input_provenance(session="<target>")` and
-see `peer_injected=true` plus the sending seat. Candidate (a) was rejected as
-only a convention: a prefix can be forged or omitted. Candidate (c) was rejected
-because peer resolution of a stalled picker whose answer is already recorded is
-sanctioned behavior here; the channel must stay usable while the answerer is
-made legible.
+`tmuxio.TmuxIO.peer_bracketed_paste(..., sending_seat="<seat>")`. That method
+writes the peer record to `~/.livespec-overseer-input-provenance.json`; the
+daemon publishes the same record under each row's `latest_input_provenance` in
+`~/.livespec-overseer-status.json`, so the receiving side can read
+`peer_injected=true` plus the sending seat from a process-independent surface.
+Candidate (a) was rejected as only a convention: a prefix can be forged or
+omitted. Candidate (c) was rejected because peer resolution of a stalled picker
+whose answer is already recorded is sanctioned behavior here; the channel must
+stay usable while the answerer is made legible.
 
 Short instruction: CLAUDE CODE-SPECIFIC: send the text, VERIFY it landed, then
 send Enter SEPARATELY. Before typing into any pane you do not own, identify the harness from its footer and confirm that harness's submit idiom:
@@ -173,11 +175,30 @@ tmux send-keys -t "$WORKER_TARGET" Enter             # only after verifying
 ```
 
 For a peer-injected picker answer, use the provenance-recording Python surface
-instead of raw `tmux paste-buffer`: call `peer_bracketed_paste` with the worker
-session, the selected answer text, and the supervisor seat name; verify the
-paste landed; then send Enter separately with the same Claude Code-specific,
-harness-checked submit idiom above. Query `latest_input_provenance` for the
-worker session before treating the answer as maintainer-originated.
+instead of raw `tmux paste-buffer`:
+
+```text
+export WORKER_SESSION='worker-session'
+export SENDING_SEAT='livespec-overseer-foreman'
+export ANSWER_TEXT='1'
+PYTHONPATH="$PLUGIN_ROOT/overseer${PYTHONPATH:+:$PYTHONPATH}" \
+  python - <<'PY'
+import os
+import tmuxio
+
+ok = tmuxio.TmuxIO().peer_bracketed_paste(
+    session=os.environ["WORKER_SESSION"],
+    text=os.environ["ANSWER_TEXT"],
+    sending_seat=os.environ["SENDING_SEAT"],
+)
+raise SystemExit(0 if ok else 1)
+PY
+```
+
+Verify the paste landed; then send Enter separately with the same Claude
+Code-specific, harness-checked submit idiom above. Before treating an answer as
+maintainer-originated, read the receiving row's `latest_input_provenance` in
+`~/.livespec-overseer-status.json`; `peer_injected=false` is the negative leg.
 
 If two keystrokes do not submit input in a pane you do not own, stop guessing:
 after two failed keystrokes, fall back to a durable file rather than escalating

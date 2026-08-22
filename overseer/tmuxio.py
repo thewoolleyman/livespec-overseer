@@ -1,3 +1,4 @@
+# livespec-lloc-soft-band-owner: overseer-6tfncs.8
 """tmuxio.py — the ONE module that shells out to tmux.
 
 Stdlib-only, host-only (see ``registry.py`` header for the folder's gate
@@ -41,8 +42,10 @@ import itertools
 import os
 import subprocess
 from collections.abc import Callable, Mapping
-from typing import Any, ClassVar
+from pathlib import Path
+from typing import Any
 
+import input_provenance
 import streams
 from tmuxio_env import with_env_delta
 from tmuxio_protocols import PaneDriver, PaneGeometry, SessionNameDriver, WindowLayoutDriver
@@ -96,16 +99,20 @@ class TmuxIO:
     argv construction without a live tmux — the daemon always uses the default.
     """
 
-    _input_provenance_by_session: ClassVar[dict[str, dict[str, object]]] = {}
-
     def __init__(
         self,
         *,
         tmux_bin: str = "tmux",
         run: Callable[..., Any] | None = None,
+        input_provenance_path: str | os.PathLike[str] | None = None,
     ) -> None:
         self._tmux = tmux_bin
         self._run = run if run is not None else subprocess.run
+        self._input_provenance_path = (
+            input_provenance.DEFAULT_PATH
+            if input_provenance_path is None
+            else Path(input_provenance_path)
+        )
 
     def tmux_binary(self) -> str:
         return self._tmux
@@ -298,30 +305,29 @@ class TmuxIO:
         pasted = self._call(args=["paste-buffer", "-b", buffer_name, "-p", "-d", "-t", session])
         if not self._ok(completed=pasted):
             return False
-        _ = self._input_provenance_by_session.pop(session, None)
+        self._clear_input_provenance(session=session)
         return True
 
     def peer_bracketed_paste(self, *, session: str, text: str, sending_seat: str) -> bool:
         """Paste peer-authored input and record provenance for the receiving pane."""
         if not self.bracketed_paste(session=session, text=text):
             return False
-        self._input_provenance_by_session[session] = {
-            "peer_injected": True,
-            "sending_seat": sending_seat,
-            "target_session": session,
-            "delivery": "bracketed-paste",
-        }
+        input_provenance.record_peer(
+            path=self._input_provenance_path,
+            session=session,
+            sending_seat=sending_seat,
+        )
         return True
+
+    def _clear_input_provenance(self, *, session: str) -> None:
+        input_provenance.clear(path=self._input_provenance_path, session=session)
 
     def latest_input_provenance(self, *, session: str) -> dict[str, object]:
         """Return the latest recorded peer injection for ``session``, or a negative leg."""
-        record = self._input_provenance_by_session.get(session)
-        if record is None:
-            return {
-                "peer_injected": False,
-                "target_session": session,
-            }
-        return dict(record)
+        return input_provenance.latest(path=self._input_provenance_path, session=session)
+
+    def input_provenance_status(self, *, session: str | None) -> dict[str, object]:
+        return input_provenance.status(path=self._input_provenance_path, session=session)
 
     def respawn_pane(
         self,

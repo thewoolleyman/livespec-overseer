@@ -14,7 +14,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import jsonio
 import registry
@@ -102,6 +102,24 @@ def row_payload(*, sup: Supervisor, row: RowView) -> dict[str, object]:
         "stall_seconds": row.stall_seconds,
         "supervisor_state_stale": row.supervisor_state_stale,
         "session_identity": session_identity(sup=sup, row=row),
+        "latest_input_provenance": latest_input_provenance(sup=sup, row=row),
+    }
+
+
+def latest_input_provenance(*, sup: Supervisor, row: RowView) -> dict[str, object]:
+    tmux = getattr(sup, "tmux", None)
+    reader = getattr(tmux, "input_provenance_status", None)
+    if not callable(reader):
+        return {
+            "peer_injected": False,
+            "target_session": row.tmux,
+        }
+    provenance = reader(session=row.tmux)
+    if isinstance(provenance, dict):
+        return dict(cast(dict[str, object], provenance))
+    return {
+        "peer_injected": False,
+        "target_session": row.tmux,
     }
 
 
