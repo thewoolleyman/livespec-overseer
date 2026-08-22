@@ -1213,6 +1213,7 @@ def _assert_runtime_cadence(*, context: ForemanE2EContext) -> None:
     assert first == {
         "action_taken": False,
         "auto_resume_interval_seconds": None,
+        "blocking_prompt_open": False,
         "exit_reason": None,
         "heartbeat_age_seconds": None,
         "llm_tick": True,

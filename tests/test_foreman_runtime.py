@@ -307,6 +307,28 @@ def test_loop_lapsed_is_false_when_the_recurring_loop_ticked_on_schedule(*, tmp_
     assert second.heartbeat_age_seconds == 3600.0
 
 
+def test_foreman_runtime_reports_no_blocking_prompt_when_own_row_is_idle(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    runtime = module.ForemanRuntime(repo=repo, now=lambda: 1000.0)
+
+    result = runtime.step(
+        document={
+            "snapshot": {
+                "rows": [
+                    {
+                        "topic": "repo-foreman",
+                        "status": "idle",
+                        "picker_open": False,
+                    }
+                ]
+            }
+        }
+    )
+
+    assert result.blocking_prompt_open is False
+
+
 def test_loop_lapsed_is_true_after_the_recurring_loop_stopped_ticking(*, tmp_path):
     module = foreman_runtime()
     repo = make_repo(tmp_path=tmp_path)

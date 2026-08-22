@@ -134,11 +134,14 @@ silently leave you trusting a stale target.
 When you need a human decision that you cannot make yourself, default to a
 non-blocking escalation. Put the affected track onto the daemon's existing
 mechanical attention surface as a membership condition, schedule a bounded
-re-check, and keep the foreman loop moving. A blocking picker is a last resort:
-use it only with a bounded timeout, and return to the non-blocking escalation if
-the timeout expires. This only governs how the foreman surfaces its own
-unresolved decision; it does not change the cardinal rule. A tracked session may
-be restarted only after its current-round filesystem `ready` declaration.
+re-check, and keep the foreman loop moving. Do not end a foreman tick with a
+blocking picker outstanding; an open picker suppresses the session's scheduled
+fires, so a timeout attached to that picker cannot run. Write the escalation to
+`tmp/overseer/foreman/escalations/<topic>.json` with a non-empty `reason`
+instead, then return idle with the recurring schedule still armed. This only
+governs how the foreman surfaces its own unresolved decision; it does not change
+the cardinal rule. A tracked session may be restarted only after its
+current-round filesystem `ready` declaration.
 
 Before you deliver decision-relevant context to a supervised session, read that
 session's latest daemon snapshot row. The `picker_open` field is carried on the
@@ -445,12 +448,16 @@ non-null `exit_reason` (`converged` or `hard-tick-budget`), the two reasons are
 dispositioned DIFFERENTLY. Exiting stops only the token-consuming LLM loop; the
 token-free watcher remains armed by the durable generation fingerprint.
 
-On `converged`, cancel the armed cron schedule and raise a RESUME question for
-the maintainer. In Claude Code, present it as an `AskUserQuestion` choice to
-resume the loop. In Codex, present it through the native `request_user_input`
-tool from seed addendum 2. If the maintainer chooses resume, arm the hourly
-schedule again via `CronCreate` directly (not through the generic `/loop`
-skill, for the same reason given above) from a fresh `foreman-runtime` tick.
+On `converged`, cancel the armed cron schedule and surface the decision whether
+to resume the loop through
+`tmp/overseer/foreman/escalations/<repo-slug>-foreman.json` with a non-empty
+`reason`. Do not raise a blocking picker for this decision; with the schedule
+cancelled there is no in-session clock left to bound it. The daemon renders that
+file as `foreman-escalated` on the existing mechanical attention surface. If
+the maintainer chooses resume, run `foreman-runtime --resume`, then arm the
+hourly schedule again via `CronCreate` directly (not through the generic
+`/loop` skill, for the same reason given above) from a fresh `foreman-runtime`
+tick.
 
 On `hard-tick-budget`, DO NOT raise a resume question and DO NOT leave the
 schedule cancelled. Budget exhaustion means the loop is ticking without

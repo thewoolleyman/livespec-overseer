@@ -148,8 +148,8 @@ def _exit_contract_errors(*, text: str) -> list[str]:
         "exit_reason",
         "converged",
         "hard-tick-budget",
-        "AskUserQuestion",
-        "request_user_input",
+        "tmp/overseer/foreman/escalations/<repo-slug>-foreman.json",
+        "foreman-escalated",
         "resume the loop",
         "token-free watcher remains armed",
         "O14/C5/O13/C6",
@@ -213,5 +213,5 @@ def test_runtime_exit_reason_is_carried_to_the_resume_question_contract(*, tmp_p
 
     text = PROSE.read_text(encoding="utf-8")
     assert _exit_contract_errors(text=text) == []
-    sabotaged = text.replace("AskUserQuestion", "").replace("request_user_input", "")
-    assert _exit_contract_errors(text=sabotaged) == ["AskUserQuestion", "request_user_input"]
+    sabotaged = text.replace("foreman-escalated", "")
+    assert _exit_contract_errors(text=sabotaged) == ["foreman-escalated"]
