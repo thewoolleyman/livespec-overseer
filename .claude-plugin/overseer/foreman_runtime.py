@@ -25,6 +25,7 @@ from foreman_runtime_backoff import (
 )
 from foreman_runtime_document import (
     ForemanDocument,
+    foreman_blocking_prompt_observation_key,
     foreman_blocking_prompt_open,
     foreman_document,
 )
@@ -166,6 +167,11 @@ class ForemanRuntime:
         doc = foreman_document(payload=document)
         scheduled_at = _float_state(value=state.get("next_llm_tick_at"))
         now = self.now()
+        foreman_topic = canonical_session_name(repo=self.repo)
+        blocking_prompt_observation_key = foreman_blocking_prompt_observation_key(
+            payload=document,
+            foreman_topic=foreman_topic,
+        )
         due = scheduled_at <= now
         action_taken = self.llm_tick(document=doc) if due else False
         stable_tick_count = stable_ticks(
@@ -207,12 +213,14 @@ class ForemanRuntime:
                 "last_generation_fingerprint": doc.generation_fingerprint,
                 "stable_ticks": stable_tick_count,
                 "llm_tick_interval_seconds": interval_seconds,
+                "blocking_prompt_observation_key": blocking_prompt_observation_key,
             }
         )
         self._write_heartbeat(tick_generation=tick_generation, interval_seconds=interval_seconds)
         blocking_prompt_open = foreman_blocking_prompt_open(
             payload=document,
-            foreman_topic=canonical_session_name(repo=self.repo),
+            foreman_topic=foreman_topic,
+            previous_observation_key=state.get("blocking_prompt_observation_key"),
             tick_started_at=now,
         )
         if blocking_prompt_open:
