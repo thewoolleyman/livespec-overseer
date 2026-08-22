@@ -5,6 +5,16 @@ the live `livespec-foreman` pane (repo `/data/projects/livespec`, tmux session
 `livespec-foreman`, pane `%137`, claude pid 2339455, transcript
 `~/.claude/projects/-data-projects-livespec/2af4f15f-bc51-49d3-a854-ebce98446307.jsonl`).
 
+**Amended again 2026-08-22T12:20Z, and one section is now HISTORY.** The fix
+this note argued for has SHIPPED: `.claude-plugin/prose/foreman.md` no longer
+carries the bounded-timeout escape, and the section "Why the contract's own
+remedy cannot be implemented" is re-tensed accordingly — its quotation is kept
+because the argument under it still governs the SPEC sentence, which is
+unchanged. Two version claims were re-measured at the same time. Nothing
+measured in the original note was found wrong; only its tense and its version
+numbers had aged. The thread's live state is on ledger epic `overseer-lixhd3`,
+which is authoritative over this file wherever they differ.
+
 **Revised 2026-08-22.** The original note stated the shape-1/shape-2 design
 question and deliberately stopped there. That question is now SETTLED — see "The
 design question, SETTLED" below — and three things measured while settling it are
@@ -114,17 +124,28 @@ Nothing acted on it.
 
 ## Why the contract's own remedy cannot be implemented
 
-`.claude-plugin/prose/foreman.md` already carries the right rule (the paragraph
-beginning "When you need a human decision that you cannot make yourself"):
+**RE-TENSED 2026-08-22T12:15Z. The prose half of this section is HISTORY; the
+spec half is still CURRENT.** As measured, `.claude-plugin/prose/foreman.md`
+carried the rule below. It no longer does: this thread removed it, and that
+paragraph now forbids ending a foreman tick with a blocking picker outstanding.
+A grep of that file for the bounded-wait and last-resort phrasings today returns
+nothing. The quotation is kept because the analysis under it is what justified
+the removal, and because `SPECIFICATION/spec.md` still licenses the escape — so
+the reasoning is live even though the prose is not.
+
+The clause **as it then read**, in the paragraph beginning "When you need a
+human decision that you cannot make yourself":
 
 > A blocking picker is a last resort: use it only with a bounded timeout, and
 > return to the non-blocking escalation if the timeout expires.
 
 **No mechanism can implement that bound.** The picker suppresses the only clock
 the session has. Enforcing the timeout would require the very fire the picker is
-suppressing. The clause is unimplementable in this harness as written, so the
-prose currently instructs sessions to do something impossible and reads as
-satisfied when they raise a picker "as a last resort" with no bound at all.
+suppressing. The clause was unimplementable in this harness as written, so it
+instructed sessions to do something impossible and read as satisfied whenever
+they raised a picker "as a last resort" with no bound at all. **That argument
+still applies to the spec sentence, which is why removing the prose alone does
+not finish the job** — see the `propose-change` route below.
 
 ## How this incident actually ended, and what it says about the daemon half
 
@@ -298,8 +319,12 @@ instead of a picker, and that the spec sentence below still licenses the picker.
 The escape is **spec-tier, not prose-tier**. `SPECIFICATION/spec.md` carries the
 sentence permitting a blocking question as a last resort for a bounded wait with
 a defined timeout; it arrived in v017 from `overseer-dz2skw` and is unchanged
-through **v029**. The `.claude-plugin/prose/foreman.md` sentence is its
-restatement, and the two must not be left disagreeing.
+through **v032**, re-checked 2026-08-22T12:15Z. The
+`.claude-plugin/prose/foreman.md` sentence WAS its restatement and has since
+been removed by this thread, so the two now disagree in the SAFE direction —
+prose forbids what spec still licenses. That is not a resting place: the
+proposal below must land, and until it does nobody should "reconcile" them by
+restoring the prose sentence.
 
 So the route is `propose-change`, authoring a file under
 `SPECIFICATION/proposed_changes/` — never a direct edit of `spec.md`, whose
@@ -308,8 +333,18 @@ file is itself an ordinary repository change and is dispatch-safe.
 
 **Grep for that sentence; do not navigate to a line number.** An earlier record of
 this finding cited it as `spec.md:172-174`; the v029 ratification moved it to
-line 234 within a day while the sentence itself did not change. A line number is
-a measurement, and it ages faster than the claim it points at.
+line 234 within a day while the sentence itself did not change; and the v032
+ratification (`baa01ed`, 2026-08-22T10:03:46Z) moved it again, to line 373 as
+measured 2026-08-22T12:20Z. THREE POSITIONS, ONE UNCHANGED SENTENCE, INSIDE
+ABOUT A WEEK. A line number is a measurement, and it ages faster than the claim
+it points at.
+
+**And it aged inside a single session while this note was being amended.** Two
+reads taken an hour apart during the 2026-08-22 re-tensing disagreed — 327 and
+then 373 — not because the sentence changed but because ANOTHER SESSION
+FAST-FORWARDED THE PRIMARY CHECKOUT underneath the reader between them. On a
+host where many sessions share one checkout, "the file says X at line N" has two
+sides: the line and the tree. Record which commit you read, or grep.
 
 ## The hard constraint
 
