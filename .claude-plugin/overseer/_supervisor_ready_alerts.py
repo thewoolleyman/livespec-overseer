@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
+import _supervisor_launch
+import _supervisor_wrapup_select
 import registry
 import signals
 from _supervisor_config import CONDITION_CONTINUITY_GAP
@@ -18,14 +20,18 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "STRANDED_READY_NOTICE_AFTER",
     "uncertifiable_ready_surface",
 ]
+
+STRANDED_READY_NOTICE_AFTER = 60 * 60
 
 
 def reset_uncertifiable_ready_state(*, istate: InjectState) -> None:
     istate.uncertifiable_ready_mtime = None
     istate.uncertifiable_ready_entry_age_label = None
     istate.uncertifiable_ready_alerted_bands = set()
+    istate.uncertifiable_ready_notice_mtime = None
 
 
 def _must_surface_immediately(*, reason: str) -> bool:
@@ -81,6 +87,7 @@ def uncertifiable_ready_surface(
         istate.uncertifiable_ready_mtime = declared.mtime
         istate.uncertifiable_ready_entry_age_label = age_label(seconds=age)
         istate.uncertifiable_ready_alerted_bands = set(blocked_band_seconds(age=age))
+        istate.uncertifiable_ready_notice_mtime = None
     for band in blocked_band_seconds(age=age):
         active_conditions.add(f"ready-uncertifiable-age-{band}")
 
@@ -116,4 +123,44 @@ def uncertifiable_ready_surface(
             ),
             condition=f"ready-uncertifiable-age-{band}",
         )
+    _maybe_deliver_stranded_ready_notice(
+        sup=sup,
+        track=track,
+        pane=pane,
+        obs=obs,
+        age=age,
+        reason=reason,
+    )
     return note, active_conditions
+
+
+def _maybe_deliver_stranded_ready_notice(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    pane: str,
+    obs: Observation,
+    age: float,
+    reason: str,
+) -> None:
+    declared = cast("signals.TrackState", obs.declared)
+    if age < STRANDED_READY_NOTICE_AFTER:
+        return
+    istate = obs.istate
+    if istate.uncertifiable_ready_notice_mtime == declared.mtime:
+        return
+    text = _supervisor_wrapup_select.select_stranded_ready_notice(
+        track=track,
+        age=age_label(seconds=age),
+        reason=reason,
+    )
+    sent = _supervisor_launch.submit_prompt(
+        sup=sup,
+        target=pane,
+        text=text,
+        expect_codex=obs.is_codex,
+    )
+    if not sent:
+        return
+    istate.uncertifiable_ready_notice_mtime = declared.mtime
+    sup.log(message=f"injected stranded-ready notice into {track.repo}::{track.topic}")
