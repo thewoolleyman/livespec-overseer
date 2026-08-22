@@ -40,7 +40,7 @@ def ctx_threshold_value(*, value: object) -> int | None:
 
 
 def add_update_fields(*, epic: object, ctx_threshold: object) -> frozenset[str]:
-    fields = {"tmux"}
+    fields = {"added_at", "tmux"}
     if field_supplied(value=epic):
         fields.add("epic")
     if field_supplied(value=ctx_threshold):

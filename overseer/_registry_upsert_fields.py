@@ -25,6 +25,8 @@ def apply_upsert_update_fields(
                 del row[field]
                 changed = True
             continue
+        if field == "added_at" and isinstance(row.get(field), str):
+            continue
         value = new_row.get(field)
         if row.get(field) != value:
             row[field] = value

@@ -55,6 +55,50 @@ def test_cli_add_epic_preserves_unsupplied_durable_fields(*, tmp_path, monkeypat
     assert rows[0]["added_at"] == "2026-08-19T07:42:57Z"
 
 
+def test_cli_add_repairs_null_added_at_without_dropping_durable_fields(
+    *, tmp_path, monkeypatch, capsys
+):
+    repo = tmp_path / "repo"
+    (repo / "plan" / "alpha").mkdir(parents=True)
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    model_profile = {
+        "harness": "claude",
+        "model": "opus[1m]",
+        "wrapper": None,
+        "statusline_model": "Opus 5 (1M context)",
+    }
+    observed_session_identity = "claude:101:12345:alpha"
+    registry.append_mapping(
+        track=registry.Track(
+            topic="alpha",
+            repo=str(repo),
+            tmux="old-session",
+            resume="custom restart prompt",
+            epic="overseer-old",
+            ctx_threshold=45,
+            pinned_session_id="pinned-session",
+            observed_session_identity=observed_session_identity,
+            added_at=None,
+            model_profile=model_profile,
+        ),
+        store_path=store,
+    )
+
+    assert supervisor.main(argv=["add", "--repo", str(repo), "--topic", "alpha"]) == 0
+    captured = capsys.readouterr()
+
+    rows = _rows(store=store)
+    assert len(rows) == 1
+    assert isinstance(rows[0]["added_at"], str)
+    assert rows[0]["added_at"].endswith("Z")
+    assert rows[0]["epic"] == "overseer-old"
+    assert rows[0]["observed_session_identity"] == observed_session_identity
+    assert rows[0]["model_profile"] == model_profile
+    assert rows[0]["resume"] == "custom restart prompt"
+    assert rows[0]["pinned_session_id"] == "pinned-session"
+    assert "could not write requested field" not in captured.err
+
+
 def test_cli_add_ctx_threshold_is_explicitly_written_and_clearable(*, tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     (repo / "plan" / "alpha").mkdir(parents=True)
