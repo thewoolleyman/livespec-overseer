@@ -1226,6 +1226,7 @@ def _assert_runtime_cadence(*, context: ForemanE2EContext) -> None:
         "loop_lapsed": False,
         "standing_orders": None,
         "standing_orders_recorded": None,
+        "tick_ended_with_blocking_prompt": False,
         "tick_generation": 1,
     }
     assert _runtime_state(context=context, name="runtime.json")["next_llm_tick_at"] == 4600.0
