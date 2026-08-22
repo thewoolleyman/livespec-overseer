@@ -131,6 +131,14 @@ def test_tick_writes_round_trippable_status_snapshot(*, tmp_path):
             "peer_injected": False,
             "target_session": session,
         },
+        "model_profile": None,
+        "restart_model": {
+            "verdict": "unknown",
+            "reason": "default-unreadable",
+            "current_default": None,
+            "rendered_statusline_model": "Opus 4.8 (1M context)",
+            "recorded_statusline_model": None,
+        },
     }
 
 
@@ -165,6 +173,188 @@ def test_snapshot_reports_latest_input_provenance(*, tmp_path):
     read = module.read_status_snapshot(path=status_path)
     assert read is not None
     assert json.loads(status_path.read_text(encoding="utf-8")) == read.document
+
+
+def test_snapshot_publishes_profile_and_restart_model_verdict_from_live_default(
+    *, tmp_path, monkeypatch
+):
+    module = snapshot_module()
+    repo, topic = make_plan(tmp_path=tmp_path)
+    profiled_repo, profiled_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="profiled-repo",
+        topic="profiled",
+    )
+    status_path = tmp_path / "status.json"
+    home = tmp_path / "home"
+    settings_path = home / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(json.dumps({"model": "Opus 4.8 (1M context)"}), encoding="utf-8")
+    monkeypatch.setattr(module.Path, "home", lambda: home)
+    sup, session = make_live_mapped_supervisor(
+        tmp_path=tmp_path,
+        repo=repo,
+        topic=topic,
+        status_path=status_path,
+        ctx=73,
+    )
+    profiled_session = registry.tmux_id(repo=str(profiled_repo), topic=profiled_topic)
+    sup.watch_repos = [str(repo), str(profiled_repo)]
+    sup.tmux.serve(
+        session=profiled_session,
+        repo=profiled_repo,
+        capture=idle_capture(ctx=73).replace("Opus 4.8 (1M context)", "Sonnet 4.5"),
+    )
+    registry.append_mapping(
+        track=registry.PlanTrack(
+            repo=str(profiled_repo),
+            topic=profiled_topic,
+            tmux=profiled_session,
+            epic="overseer-profiled",
+            model_profile={
+                "harness": "claude",
+                "model": "sonnet",
+                "wrapper": None,
+                "statusline_model": "Sonnet 4.5",
+            },
+        ),
+        store_path=sup.store_path,
+        added_at="2026-08-22T00:00:00Z",
+    )
+
+    sup.tick(act=True)
+    read = module.read_status_snapshot(path=status_path)
+
+    assert read is not None
+    rows = {row["topic"]: row for row in read.document["rows"]}
+    assert rows[topic]["model_profile"] is None
+    assert rows[topic]["restart_model"] == {
+        "verdict": "no-op",
+        "reason": "matches-current-default",
+        "current_default": "Opus 4.8 (1M context)",
+        "rendered_statusline_model": "Opus 4.8 (1M context)",
+        "recorded_statusline_model": None,
+    }
+    assert rows[profiled_topic]["model_profile"] == {
+        "harness": "claude",
+        "model": "sonnet",
+        "wrapper": None,
+        "statusline_model": "Sonnet 4.5",
+    }
+    assert rows[profiled_topic]["restart_model"] == {
+        "verdict": "profile-preserved",
+        "reason": "recorded-profile",
+        "current_default": "Opus 4.8 (1M context)",
+        "rendered_statusline_model": "Sonnet 4.5",
+        "recorded_statusline_model": "Sonnet 4.5",
+    }
+    assert ("capture", session) in sup.tmux.calls
+
+
+def test_snapshot_restart_model_verdict_changes_when_default_changes(*, tmp_path, monkeypatch):
+    module = snapshot_module()
+    repo, topic = make_plan(tmp_path=tmp_path)
+    status_path = tmp_path / "status.json"
+    home = tmp_path / "home"
+    settings_path = home / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(module.Path, "home", lambda: home)
+    sup, _session = make_live_mapped_supervisor(
+        tmp_path=tmp_path,
+        repo=repo,
+        topic=topic,
+        status_path=status_path,
+        ctx=73,
+    )
+
+    settings_path.write_text(json.dumps({"model": "Opus 4.8 (1M context)"}), encoding="utf-8")
+    matching = module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"][0][
+        "restart_model"
+    ]
+    settings_path.write_text(json.dumps({"model": "Sonnet 4.5"}), encoding="utf-8")
+    changing = module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"][0][
+        "restart_model"
+    ]
+
+    assert matching["verdict"] == "no-op"
+    assert changing == {
+        "verdict": "would-change",
+        "reason": "differs-from-current-default",
+        "current_default": "Sonnet 4.5",
+        "rendered_statusline_model": "Opus 4.8 (1M context)",
+        "recorded_statusline_model": None,
+    }
+
+
+def test_snapshot_restart_model_unknown_distinguishes_absent_and_unreadable_panes(
+    *, tmp_path, monkeypatch
+):
+    module = snapshot_module()
+    missing_repo, missing_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="missing-repo",
+        topic="missing",
+    )
+    covered_repo, covered_topic = make_plan(
+        tmp_path=tmp_path,
+        repo_name="covered-repo",
+        topic="covered",
+    )
+    home = tmp_path / "home"
+    settings_path = home / ".claude" / "settings.json"
+    settings_path.parent.mkdir(parents=True)
+    settings_path.write_text(json.dumps({"model": "Opus 4.8"}), encoding="utf-8")
+    monkeypatch.setattr(module.Path, "home", lambda: home)
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=FakeTmux(),
+        watch_repos=[str(missing_repo), str(covered_repo)],
+    )
+    covered_session = registry.tmux_id(repo=str(covered_repo), topic=covered_topic)
+    sup.tmux.serve(session=covered_session, repo=covered_repo, capture="picker overlay")
+    registry.append_mapping(
+        track=mapped_track(repo=missing_repo, topic=missing_topic, session="missing"),
+        store_path=sup.store_path,
+        added_at="2026-08-22T00:00:00Z",
+    )
+    registry.append_mapping(
+        track=mapped_track(repo=covered_repo, topic=covered_topic, session=covered_session),
+        store_path=sup.store_path,
+        added_at="2026-08-22T00:00:00Z",
+    )
+
+    rows = {
+        row["topic"]: row
+        for row in module.document_payload(sup=sup, rows=sup.tick(act=False))["rows"]
+    }
+
+    assert rows[missing_topic]["restart_model"]["verdict"] == "unknown"
+    assert rows[missing_topic]["restart_model"]["reason"] == "pane-absent"
+    assert rows[covered_topic]["restart_model"]["verdict"] == "unknown"
+    assert rows[covered_topic]["restart_model"]["reason"] == "statusline-unreadable"
+
+
+def test_snapshot_restart_model_fails_soft_for_malformed_default_settings(*, tmp_path, monkeypatch):
+    module = snapshot_module()
+    monkeypatch.setattr(module.Path, "home", lambda: tmp_path)
+    settings_path = tmp_path / ".claude" / "settings.json"
+    settings_path.parent.mkdir()
+    row = supervisor.RowView(
+        topic="covered",
+        repo="/repo",
+        tmux=None,
+        runtime="claude",
+        ctx=80,
+        status="idle",
+    )
+
+    settings_path.write_text("not-json", encoding="utf-8")
+    malformed = module.row_payload(sup=object(), row=row)["restart_model"]
+    settings_path.write_text("[]", encoding="utf-8")
+    non_object = module.row_payload(sup=object(), row=row)["restart_model"]
+
+    assert malformed["current_default"] is None
+    assert non_object["current_default"] is None
 
 
 def test_snapshot_reports_daemon_package_provenance(*, tmp_path):
