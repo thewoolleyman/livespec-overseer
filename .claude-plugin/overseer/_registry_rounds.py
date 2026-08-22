@@ -108,6 +108,7 @@ def _dict_record(*, entry: dict[str, object]) -> RoundRecord:
         expired_at=expired_at,
         session_identity=session_identity,
         malformed_reason=_malformed_reason(
+            entry=entry,
             at=at,
             expired_at_raw=expired_at_raw,
             expired_at=expired_at,
@@ -117,13 +118,29 @@ def _dict_record(*, entry: dict[str, object]) -> RoundRecord:
     )
 
 
+def _has_round_field(*, entry: dict[str, object]) -> bool:
+    return any(
+        key in entry
+        for key in (
+            "at",
+            "bands",
+            "expired_at",
+            "expiry_notice_sent",
+            "session_identity",
+        )
+    )
+
+
 def _malformed_reason(
     *,
+    entry: dict[str, object],
     at: float | None,
     expired_at_raw: object,
     expired_at: float | None,
     session_identity: str | None,
 ) -> str | None:
+    if not _has_round_field(entry=entry):
+        return None
     if at is None:
         return "missing or non-numeric injection stamp"
     if expired_at_raw is not None and expired_at is None:
