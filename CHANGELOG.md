@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.35.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.3...v1.35.4) (2026-08-22)
+
+
+### Bug Fixes
+
+* guard release-please pyproject rewrites ([5a8013c](https://github.com/thewoolleyman/livespec-overseer/commit/5a8013c942ba1e158f50f220c38f85b615d3fbff))
+* render blocked human roster rows as blocked ([b877ea5](https://github.com/thewoolleyman/livespec-overseer/commit/b877ea5ccba8698cc549432b3b0167433a47ca76))
+
 ## [1.35.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.2...v1.35.3) (2026-08-22)
 
 
