@@ -15,10 +15,12 @@ from __future__ import annotations
 import contextlib
 import fcntl
 import os
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import _supervisor_discovery
+import _supervisor_runtime_rollback
 import _supervisor_state_watch
 import registry
 from _supervisor_config import LOOP_INTERVAL_SECONDS
@@ -31,6 +33,7 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "acquire_singleton_lock",
     "release_singleton_lock",
+    "run_acting_tick",
     "run_loop",
     "singleton_lock_path",
     "unignored_tmp_repos",
@@ -107,6 +110,25 @@ def unsupported_host_reasons(*, sup: Supervisor) -> list[str]:
     return reasons
 
 
+def run_acting_tick(*, sup: Supervisor) -> bool:
+    """Run one acting tick; return False only for the clean KeyboardInterrupt exit."""
+    interrupted = False
+    tick_completed = False
+    try:
+        _ = sup.tick(act=True)
+        tick_completed = True
+    except KeyboardInterrupt:
+        interrupted = True
+        sup.log(message="interrupted; exiting")
+    finally:
+        exc = sys.exc_info()[1]
+        if isinstance(exc, Exception):
+            _supervisor_runtime_rollback.rollback_after_startup_failure(sup=sup, exc=exc)
+    if tick_completed:
+        _supervisor_runtime_rollback.complete_startup_if_pending(sup=sup)
+    return not interrupted
+
+
 def run_loop(
     *,
     sup: Supervisor,
@@ -160,10 +182,7 @@ def run_loop(
         if recover:
             _ = sup.recover_missing_sessions()
         while True:
-            try:
-                _ = sup.tick(act=True)
-            except KeyboardInterrupt:
-                sup.log(message="interrupted; exiting")
+            if not run_acting_tick(sup=sup):
                 return
             # NO per-iteration broad catch. A bug in one track's tick PROPAGATES:
             # this loop lets it out, the daemon dies with a full traceback on

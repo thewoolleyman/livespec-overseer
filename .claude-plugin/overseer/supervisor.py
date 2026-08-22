@@ -53,6 +53,7 @@ import _supervisor_cli_parser
 import _supervisor_cli_start
 import _supervisor_cli_topic
 import _supervisor_cli_update
+import _supervisor_reexec
 import _supervisor_release_runtime
 import _supervisor_snapshot
 import registry
@@ -75,6 +76,7 @@ from _supervisor_view import needs_attention as needs_attention
 from version import APP_VERSION as APP_VERSION
 
 _release_runtime_adapter = _supervisor_release_runtime.release_runtime_adapter
+maybe_reexec = _supervisor_reexec.maybe_reexec
 
 __all__: list[str] = [
     "APP_VERSION",
@@ -84,6 +86,7 @@ __all__: list[str] = [
     "Supervisor",
     "idle_nudge_message",
     "main",
+    "maybe_reexec",
     "plan_epic_resume",
     "plan_state_locator",
     "wrapup_message",
