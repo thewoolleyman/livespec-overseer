@@ -50,6 +50,7 @@ def build_live_supervisor(
     sup.watch_repos = [str(repo)]
     sup.watch_set_path = None
     sup.status_path = tmp_path / "status.json"
+    sup.runtime_state_path = tmp_path / "runtime" / "rollback-state.json"
     sup.out = StringIO()
     sup.proc_root = str(tmp_path)
     sup.which = lambda _name: "/usr/bin/tmux"

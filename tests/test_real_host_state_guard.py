@@ -27,7 +27,9 @@ if str(_PACKAGE_DIR) not in sys.path:
 import _registry_core  # noqa: E402
 import _registry_rows_io  # noqa: E402
 import _registry_stamps  # noqa: E402
+import _supervisor_runtime_rollback  # noqa: E402
 import _supervisor_snapshot  # noqa: E402
+import supervisor  # noqa: E402
 
 
 def test_the_guard_fails_on_every_real_host_state_path(*, real_host_state_guard) -> None:
@@ -37,6 +39,7 @@ def test_the_guard_fails_on_every_real_host_state_path(*, real_host_state_guard)
         Path(_registry_core.DEFAULT_STORE_PATH),
         Path(_registry_core.DEFAULT_STAMP_PATH),
         Path(_registry_core.DEFAULT_WATCH_SET_PATH),
+        _supervisor_runtime_rollback.default_runtime_state_path(),
     ):
         with pytest.raises(pytest.fail.Exception, match="real operator host state"):
             real_host_state_guard.assert_write_allowed(path=path)
@@ -67,6 +70,18 @@ def test_the_guard_is_installed_on_each_writers_own_module() -> None:
             module.atomic_write(path=path, body="{}\n")
 
 
+def test_the_guard_fails_on_runtime_rollback_writer() -> None:
+    """The rollback guard fires through the writer that leaked into the live file."""
+    sup = supervisor.Supervisor()
+
+    with pytest.raises(pytest.fail.Exception, match="real operator host state"):
+        _supervisor_runtime_rollback.begin_adoption(
+            sup=sup,
+            target=Path("/tmp/pytest-forced/runtime/bin/overseerd"),
+            previous=Path("overseerd"),
+        )
+
+
 def test_the_guard_passes_writes_to_every_other_path(*, tmp_path) -> None:
     """The discriminating control: the guard blocks a NAMED SET, not writing in general.
 
@@ -78,3 +93,10 @@ def test_the_guard_passes_writes_to_every_other_path(*, tmp_path) -> None:
     _supervisor_snapshot.registry.atomic_write(path=target, body='{"ok": true}\n')
 
     assert target.read_text(encoding="utf-8") == '{"ok": true}\n'
+
+
+def test_runtime_state_default_stays_on_operator_host_path() -> None:
+    """Tests must override the seam; production must still default to the real file."""
+    assert supervisor.Supervisor().runtime_state_path == (
+        Path.home() / ".local" / "share" / "livespec-overseer" / "runtime" / "rollback-state.json"
+    )
