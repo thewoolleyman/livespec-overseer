@@ -5,6 +5,13 @@ the live `livespec-foreman` pane (repo `/data/projects/livespec`, tmux session
 `livespec-foreman`, pane `%137`, claude pid 2339455, transcript
 `~/.claude/projects/-data-projects-livespec/2af4f15f-bc51-49d3-a854-ebce98446307.jsonl`).
 
+**Revised 2026-08-22.** The original note stated the shape-1/shape-2 design
+question and deliberately stopped there. That question is now SETTLED — see "The
+design question, SETTLED" below — and three things measured while settling it are
+folded in: what the muting picker actually asked, a second and stronger mute path
+on the `converged` exit, and the spec tier of the unimplementable escape. The
+2026-08-21 measurements below are unchanged.
+
 ## The finding, in one sentence
 
 A Claude Code session parked on an open `AskUserQuestion` receives **no**
@@ -27,6 +34,51 @@ has sat on it since, so the mute has been continuous.
 Nothing is defective in any component. The cron job was never deleted (no
 `CronDelete` anywhere in the transcript, and its 7-day auto-expiry has not
 elapsed), the process is alive, and the daemon is healthy at 1.21.0.
+
+## What the muting picker actually asked, and why that is load-bearing
+
+Added 2026-08-22, read out of the incident transcript itself. Everything above
+records the picker's TIMING. Its CONTENT changes how the incident should be read,
+and it is the single most likely thing for an implementer to get wrong.
+
+The blocking question raised at `07:53:19Z` was neither a routine escalation nor
+the converged resume question. It asked whether to delete the registration of a
+GitHub self-hosted runner, because that runner's private key had leaked into a
+session transcript and was still active. Three labelled options, the first
+recommended.
+
+It was answered at `13:56:55Z` — **six hours and three minutes later** — with the
+free-text string `don't care, ignore it`, which is none of the three options
+offered. The daemon's picker-stall nudge landed at `13:55:51Z`, sixty-four
+seconds earlier. That nudge pastes without submitting. **So the human was reached
+by the daemon's attention surface, not by the picker**, which had sat untouched
+for six hours.
+
+Three consequences:
+
+1. **This is a direct positive control for shape 1's channel.** The attention
+   surface is not merely an adequate substitute for the picker — in this incident
+   it is the thing that actually reached a human, while the picker contributed
+   nothing except the mute.
+2. **Blocking bought a worse decision, not a better one.** A live leaked
+   credential was dismissed in one free-text line by someone who had just been
+   nudged to unstick a pane. A non-blocking escalation persists on the NEEDS YOU
+   surface until it is genuinely dispositioned; a picker can be cleared by a
+   pane-unsticking reflex, and here it was.
+3. **Do NOT carve out a security exception.** The standing orders on
+   `overseer-z5fo4y` say the only remaining escalation is a security concern a
+   panel cannot resolve, so an implementer could reasonably preserve the blocking
+   escape for that class. The measurement says otherwise: the one picker ever
+   measured muting this loop IS a security escalation, it froze supervision of
+   every other track for roughly fifteen hours, and it still failed to obtain a
+   considered answer. A security carve-out would be defeated by the very incident
+   that motivates the fix. What "escalation is still permitted" means is that the
+   DECISION stays the human's — not that the LOOP must stop while it waits.
+
+Recorded as a lead and not a claim: the runner named in that picker is absent
+from the `livespec` and `livespec-overseer` runner listings as of 2026-08-22, so
+it appears to have been removed or expired since. Whether the key was ever
+deliberately revoked is not established here and is not this thread's scope.
 
 ## Evidence for the load-bearing claim
 
@@ -151,30 +203,96 @@ Adjacent open items, none of which covers this:
   own answer to a blocked session. Would shorten picker windows; would not un-mute
   the loop.
 
-## The design question the implementer must settle
+## A second mute path: the `converged` exit, and it is stronger
 
-State it rather than let it be decided silently. There are two shapes, and they
-are not equivalent:
+Measured 2026-08-22 in `overseer/foreman_runtime.py`. Everything above concerns a
+SUPPRESSED cron — the schedule survives, its fires are simply dropped. There is a
+second path that is worse, because it tears the schedule down on purpose and then
+blocks.
 
-1. **The foreman never ends a tick with an open picker.** Escalate onto the
-   daemon's existing mechanical attention surface (which `overseer-au3pt3.1`
-   already built) and return, so the session goes idle and its cron survives. This
-   needs no new process and no new clock, and it is what the ratified v017 text
-   already asks for; what is missing is that nothing enforces it and the
-   "bounded timeout" escape is unimplementable.
-2. **An out-of-process ticker** that does not share the session's suppressed
-   clock — the daemon, or a detached timer, drives the tick instead of an
-   in-session cron.
+On `exit_reason: converged`, the Loop Carrier section of
+`.claude-plugin/prose/foreman.md` instructs the tick to **cancel the armed cron
+schedule** and then raise a resume `AskUserQuestion`. If that question is never
+answered there is no schedule left at all, and no clock to bound the wait.
 
-Shape 1 is cheaper and is already half-built. Shape 2 is more robust but overlaps
-the daemon's restart-authorization boundary and must be designed with care.
+The sibling exit reason was already repaired for exactly this shape. In
+`ForemanRuntime.step()`, `auto_resume_interval_seconds` is computed under a guard
+admitting only `exit_reason == "hard-tick-budget"` and is `None` otherwise, and
+the prose records that a resume picker on that path measured 13 hours with no
+foreman on 2026-08-19/20. **`converged` never got that repair.**
 
-**HARD CONSTRAINT, inherited verbatim from `overseer-dz2skw` and non-negotiable:**
-this must leave the cardinal rule in `overseer/marker-protocol.md` completely
-untouched. It changes only how a human decision is surfaced and how the operator
-loop keeps its cadence, never who may authorize a restart. No implementation may
-add a timer- or heuristic-driven restart path of any kind, and nothing here
-authorizes the daemon to answer a picker on a human's behalf.
+It is not a rare edge, either: `converged_ticks` defaults to `2`, so two
+consecutive stable ticks over a non-empty monitored set are enough. A quiet fleet
+reaches it routinely.
+
+A criterion-2 detector for "a tick that ends with a blocking prompt outstanding"
+will necessarily flag this path, so it is in scope rather than a surprise.
+Cancelling the schedule on `converged` remains correct — it is a deliberate stop.
+What must change is that the decision to resume travels on the attention surface,
+where a human can see it.
+
+## The design question, SETTLED 2026-08-22
+
+Recorded here and, durably, on `overseer-lixhd3.1`, which acceptance criterion 7
+requires before implementation lands. **Shape 1: the foreman never ends a tick
+with a blocking prompt outstanding.**
+
+Shape 2 — an out-of-process ticker — is rejected, and **not on cost grounds. It is
+inoperative against this defect.** The reasoning, which this note previously left
+open:
+
+- Any ticker, wherever it runs, must still make the picker-parked session execute
+  a turn. The only channel into a tmux pane is keystrokes; while a picker is open
+  the picker widget consumes them; and the only key that ends the turn is the one
+  that **answers** the picker. That is the deferral ruled out on principle, and
+  the daemon already encodes the ruling in code — its picker-stall nudge pastes
+  without submitting, deliberately. So shape 2 could un-mute this loop only by
+  doing the one thing the hard constraint forbids.
+- What shape 2 would genuinely fix is a loop that died while its session stayed
+  idle and responsive. That is already owned by `overseer-6tfncs.5` (its
+  acceptance criterion 8). Adopting shape 2 here would duplicate that scope and
+  still leave this defect open.
+- Shape 2 also contradicts the loop's own scoping argument. The Loop Carrier
+  section already argues, in refusing the generic loop skill's cloud-schedule
+  question, that the loop is scoped to one tmux pane, one repo checkout, and that
+  session's runtime lock. An out-of-process ticker is that same incoherence under
+  another name: it would have to re-acquire the runtime lock and pane claim from
+  outside the pane holding them.
+
+Shape 1's channel meanwhile **already ships**:
+`overseer/_supervisor_foreman_escalation.py` reads a per-topic escalation file
+under `tmp/overseer/foreman/escalations/` and raises the `foreman-escalated`
+condition through the same alert, NEEDS YOU, and window-badge machinery every
+other attention member uses. Nothing new is needed to CARRY a foreman decision to
+a human. What is missing is only that nothing enforces the foreman uses it
+instead of a picker, and that the spec sentence below still licenses the picker.
+
+### The route for the unimplementable escape is `propose-change`
+
+The escape is **spec-tier, not prose-tier**. `SPECIFICATION/spec.md` carries the
+sentence permitting a blocking question as a last resort for a bounded wait with
+a defined timeout; it arrived in v017 from `overseer-dz2skw` and is unchanged
+through **v029**. The `.claude-plugin/prose/foreman.md` sentence is its
+restatement, and the two must not be left disagreeing.
+
+So the route is `propose-change`, authoring a file under
+`SPECIFICATION/proposed_changes/` — never a direct edit of `spec.md`, whose
+accept-or-reject is the maintainer's own `revise` pass. Authoring the proposal
+file is itself an ordinary repository change and is dispatch-safe.
+
+**Grep for that sentence; do not navigate to a line number.** An earlier record of
+this finding cited it as `spec.md:172-174`; the v029 ratification moved it to
+line 234 within a day while the sentence itself did not change. A line number is
+a measurement, and it ages faster than the claim it points at.
+
+## The hard constraint
+
+**Inherited verbatim from `overseer-dz2skw` and non-negotiable:** this must leave
+the cardinal rule in `overseer/marker-protocol.md` completely untouched. It
+changes only how a human decision is surfaced and how the operator loop keeps its
+cadence, never who may authorize a restart. No implementation may add a timer- or
+heuristic-driven restart path of any kind, and nothing here authorizes the daemon
+to answer a picker on a human's behalf.
 
 ## Read first
 
@@ -183,5 +301,14 @@ authorizes the daemon to answer a picker on a human's behalf.
 - `overseer/_supervisor_nudge.py` and `overseer/_supervisor_prompts_nudges.py` —
   the paste-without-submit picker-stall nudge.
 - `overseer/_supervisor_foreman.py` — the heartbeat staleness surface.
-- Ledger: `overseer-dz2skw`, `overseer-au3pt3.1`, `overseer-ra6s`,
-  `overseer-6tfncs.5`.
+- `overseer/_supervisor_foreman_escalation.py` — the shipped non-blocking
+  escalation channel this thread's decision builds on.
+- `overseer/foreman_runtime.py` — `_exit_reason` and the auto-resume guard, for
+  the `converged` path above.
+- `SPECIFICATION/spec.md` — the foreman non-blocking-escalation paragraph. Grep
+  for it; the line number moves.
+- Ledger: this thread's epic `overseer-lixhd3` and its implementation child
+  `overseer-lixhd3.1`, whose comments carry the settled decision and the
+  security-escalation finding. Then `overseer-dz2skw`, `overseer-au3pt3.1`,
+  `overseer-ra6s`, `overseer-6tfncs.5`, `overseer-w2nwx5`, `overseer-enc7oe`,
+  and `overseer-z5fo4y` for the standing orders.
