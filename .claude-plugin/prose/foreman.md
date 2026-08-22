@@ -198,10 +198,11 @@ two columns to decide the action-needed and why-not-acting columns.
 
 Column budgets are hard limits: name 10 words, session state 10 words, work
 state 6 words, action needed 20 words, why-not-acting 20 words, and emoji one
-symbol from the closed set below. The emoji is derived, never authored: compute
-it from the row's session and work states by a total closed mapping so every
-session and work combination resolves to exactly one emoji and no row can
-disagree with itself.
+symbol from the closed set below. The released prose legend is the source of
+truth, and the deterministic roster helper derives its table from this legend.
+The emoji is derived, never authored: compute it from the row's session and work
+states by a total closed mapping so every session and work combination resolves
+to exactly one emoji and no row can disagree with itself.
 Precedence is 🔵, then 🔴, then 🟢, then ⏳, then ⚪; ❗ overrides everything
 because it means the roster cannot be trusted for that row. The mapping is:
 🔵 done, ready to archive; 🔴 blocked when picker-parked or otherwise waiting on
