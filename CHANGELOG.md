@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.4...v1.37.5) (2026-08-22)
+
+
+### Bug Fixes
+
+* clarify deferral successor grooming invariant ([bbcdbef](https://github.com/thewoolleyman/livespec-overseer/commit/bbcdbef430738b2b3439dca542867eea8d753828))
+
 ## [1.37.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.3...v1.37.4) (2026-08-22)
 
 
