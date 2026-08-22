@@ -32,15 +32,28 @@ class ReleaseRuntimeAdapter:
     run: SubprocessRun = subprocess.run
     ensure_release_runtime: EnsureReleaseRuntime = runtime_prefix.ensure_release_runtime
     _cached_verdict: Mapping[str, object] | None = field(default=None, init=False)
+    _cached_release: str | None = field(default=None, init=False)
     _cached_target: Path | None = field(default=None, init=False)
+    _failed_release: str | None = field(default=None, init=False)
 
     def currency_check(self) -> Mapping[str, object] | None:
         self._cached_verdict = None
+        self._cached_release = None
         self._cached_target = None
         self._cached_verdict = self._resolve_verdict()
         return self._cached_verdict
 
     def reexec_target(self) -> Path | None:
+        if self._cached_target is not None:
+            return self._cached_target
+        if self._cached_release is None:
+            return None
+        installed = self.ensure_release_runtime(release=self._cached_release)
+        if installed is None:
+            self._failed_release = self._cached_release
+            self._cached_release = None
+            return None
+        self._cached_target = installed
         return self._cached_target
 
     def _resolve_verdict(self) -> Mapping[str, object]:
@@ -55,15 +68,14 @@ class ReleaseRuntimeAdapter:
         target = verdict.get("target")
         if not isinstance(target, str) or not target:
             return verdict
-        installed = self.ensure_release_runtime(release=target)
-        if installed is None:
+        if target == self._failed_release:
             return {
                 "eligible": False,
                 "target": target,
                 "blocked": True,
                 "reason": "release runtime provisioning failed",
             }
-        self._cached_target = installed
+        self._cached_release = target
         return verdict
 
     def _commit_for_ref(self, *, ref: str) -> str | None:

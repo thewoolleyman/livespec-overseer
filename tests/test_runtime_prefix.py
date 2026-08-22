@@ -99,7 +99,7 @@ def test_runtime_provision_install_step_uses_uv_and_cleans_failure(*, tmp_path):
     assert not prefix.exists()
 
 
-def test_runtime_provision_failure_blocks_the_release_currency_verdict(*, tmp_path):
+def test_runtime_provision_failure_is_not_run_by_the_release_currency_verdict(*, tmp_path):
     mod = importlib.import_module("overseer._supervisor_release_runtime")
     release = "2222222222222222222222222222222222222222"
     current = "1111111111111111111111111111111111111111"
@@ -129,12 +129,9 @@ def test_runtime_provision_failure_blocks_the_release_currency_verdict(*, tmp_pa
 
     verdict = adapter.currency_check()
 
-    assert verdict["eligible"] is False
-    assert verdict["blocked"] is True
+    assert verdict["eligible"] is True
     assert verdict["target"] == release
-    assert verdict["reason"] == "release runtime provisioning failed"
-    assert adapter.reexec_target() is None
-    assert installs == [release]
+    assert installs == []
 
 
 def test_daemon_command_can_target_an_isolated_runtime_executable(*, tmp_path):
