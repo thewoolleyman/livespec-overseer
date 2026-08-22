@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.22.1...v1.22.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **grooming:** accept the merged projection's own epic spelling ([661b934](https://github.com/thewoolleyman/livespec-overseer/commit/661b93498ba14fb343ec0686f5e59ac5f44fe10b))
+
 ## [1.22.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.22.0...v1.22.1) (2026-08-22)
 
 
