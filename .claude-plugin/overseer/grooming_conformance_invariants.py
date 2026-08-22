@@ -197,6 +197,7 @@ def cross_repo_dependency_check(
     siblings = {
         repo_slug: frozenset(item_ids) for repo_slug, item_ids in sibling_item_ids_by_repo.items()
     }
+    local_item_ids = frozenset(item_id(item=item) for item in items if item_id(item=item) != "")
     candidates = tuple(item for item in items if has_dependency_payload(item=item))
     breaches = sorted_ids(
         items=(
@@ -204,6 +205,7 @@ def cross_repo_dependency_check(
             for item in candidates
             if cross_repo_payload_breaches(
                 item=item,
+                local_item_ids=local_item_ids,
                 listed_repos=listed_sibling_repos(repo=repo),
                 sibling_item_ids_by_repo=siblings,
             )

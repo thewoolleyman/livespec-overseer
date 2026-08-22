@@ -428,11 +428,12 @@ def test_projection_and_bd_shapes_converge_on_grooming_invariant_verdicts(
             _with(
                 row=_item(item_id="resolved-dependency"),
                 updates={
+                    "depends_on": [{"kind": "local", "work_item_id": "plan-anchor"}],
                     "metadata": {
                         "non_local_depends_on": [
                             {"repo": "sibling", "work_item_id": "sibling-present"}
                         ]
-                    }
+                    },
                 },
             ),
             _with(
@@ -444,6 +445,10 @@ def test_projection_and_bd_shapes_converge_on_grooming_invariant_verdicts(
                         ]
                     }
                 },
+            ),
+            _with(
+                row=_item(item_id="local-only-dependency"),
+                updates={"depends_on": [{"kind": "local", "work_item_id": "plan-anchor"}]},
             ),
         ],
         sibling_item_ids_by_repo={"sibling": {"sibling-present"}},
@@ -504,7 +509,10 @@ def test_projection_and_bd_shapes_converge_on_grooming_invariant_verdicts(
                 "labels": [],
                 "dependencies": [],
                 "acceptance_criteria": "Done is explicit.",
-                "depends_on": [{"repo": "sibling", "work_item_id": "sibling-present"}],
+                "depends_on": [
+                    {"kind": "local", "work_item_id": "plan-anchor"},
+                    {"repo": "sibling", "work_item_id": "sibling-present"},
+                ],
             },
             {
                 "id": "unresolved-dependency",
@@ -515,6 +523,16 @@ def test_projection_and_bd_shapes_converge_on_grooming_invariant_verdicts(
                 "dependencies": [],
                 "acceptance_criteria": "Done is explicit.",
                 "depends_on": [{"repo": "sibling", "work_item_id": "sibling-missing"}],
+            },
+            {
+                "id": "local-only-dependency",
+                "status": "ready",
+                "type": "bug",
+                "parent": "plan-anchor",
+                "labels": [],
+                "dependencies": [],
+                "acceptance_criteria": "Done is explicit.",
+                "depends_on": [{"kind": "local", "work_item_id": "plan-anchor"}],
             },
         ],
         sibling_item_ids_by_repo={"sibling": {"sibling-present"}},
@@ -535,7 +553,8 @@ def test_projection_and_bd_shapes_converge_on_grooming_invariant_verdicts(
         assert projection_check.scanned_item_count > 0
 
     projection_cross_repo = _by_key(report=projection_report, key="cross-repo-dependencies")
-    assert projection_cross_repo.scanned_item_count == 2
+    assert projection_cross_repo.scanned_item_count == 3
+    assert "local-only-dependency" not in projection_cross_repo.breaching_item_ids
 
 
 def test_measure_stage_is_reentrant_and_later_stage_derives_inputs(*, tmp_path: Path) -> None:
