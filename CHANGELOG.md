@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.41.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.3...v1.41.4) (2026-08-22)
+
+
+### Bug Fixes
+
+* add soft-band owner markers ([8fa5e0b](https://github.com/thewoolleyman/livespec-overseer/commit/8fa5e0b07d82adc3e9a6f3be9151076b902cb558))
+* mark tmuxio soft-band ownership ([dbbdf43](https://github.com/thewoolleyman/livespec-overseer/commit/dbbdf4327dbac7ce5914ab4a65b7c7d3cb67995f))
+* verify overseer daemon pane geometry ([8c8a182](https://github.com/thewoolleyman/livespec-overseer/commit/8c8a182f60d3365cbc928c94ac366b919c705ac5))
+
 ## [1.41.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.2...v1.41.3) (2026-08-22)
 
 
