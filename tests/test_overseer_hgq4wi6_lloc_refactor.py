@@ -87,4 +87,4 @@ def test_hgq4wi6_owner_markers_are_removed_from_scoped_files():
 
     for path in SCOPED_FILES:
         source = (root / path).read_text(encoding="utf-8")
-        assert "livespec-lloc-soft-band-owner: overseer-hgq4wi.6" not in source
+        assert "livespec-lloc-soft-band-owner" not in source
