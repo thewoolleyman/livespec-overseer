@@ -73,21 +73,42 @@ def statusline_model_disagreement(
     return recorded, rendered
 
 
-def restart_blocked_by_statusline_mismatch(
+def _recorded_statusline_model(*, model_profile: Mapping[str, str | None] | None) -> str | None:
+    return None if model_profile is None else model_profile.get("statusline_model")
+
+
+def _alert_unreadable_statusline(
     *,
     sup: Supervisor,
     track: registry.Track,
     target: str,
     session: str,
-) -> bool:
-    """Surface and veto only a resolved recorded-vs-rendered model disagreement."""
-    disagreement = statusline_model_disagreement(
-        capture=sup.tmux.capture_pane(session=target),
-        model_profile=track.model_profile,
+    recorded: str,
+) -> None:
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=session,
+        pane=target,
+        message=(
+            "statusline model unreadable: "
+            f"{track.repo}::{track.topic} has recorded model {recorded!r}, "
+            "but no rendered statusline model could be read; "
+            "restart is proceeding fail-soft"
+        ),
+        condition="statusline-model-unreadable",
     )
-    if disagreement is None:
-        return False
-    recorded, rendered = disagreement
+
+
+def _alert_statusline_mismatch(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    session: str,
+    recorded: str,
+    rendered: str,
+) -> None:
     sup.alert(
         repo=track.repo,
         topic=track.topic,
@@ -101,4 +122,44 @@ def restart_blocked_by_statusline_mismatch(
         ),
         condition="statusline-model-mismatch",
     )
-    return True
+
+
+def restart_blocked_by_statusline_mismatch(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    session: str,
+) -> bool:
+    """Surface and veto only a resolved recorded-vs-rendered model disagreement."""
+    capture = sup.tmux.capture_pane(session=target)
+    disagreement = statusline_model_disagreement(
+        capture=capture,
+        model_profile=track.model_profile,
+    )
+    if disagreement is not None:
+        recorded, rendered = disagreement
+        _alert_statusline_mismatch(
+            sup=sup,
+            track=track,
+            target=target,
+            session=session,
+            recorded=recorded,
+            rendered=rendered,
+        )
+        return True
+
+    recorded = _recorded_statusline_model(model_profile=track.model_profile)
+    if not recorded:
+        return False
+
+    if rendered_statusline_model(capture=capture) is None:
+        _alert_unreadable_statusline(
+            sup=sup,
+            track=track,
+            target=target,
+            session=session,
+            recorded=recorded,
+        )
+        return False
+    return False
