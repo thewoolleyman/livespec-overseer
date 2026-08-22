@@ -213,6 +213,8 @@ def record_launch_statusline_baseline(
     stamp_path: str | os.PathLike[str] | None = None,
 ) -> None:
     """Record the rendered model immediately after an overseer-started launch."""
+    if model is None:
+        return
     path = resolve_stamp_store(stamp_path=stamp_path)
     with file_lock(target=path):
         data = read_stamp_data(path=path)
