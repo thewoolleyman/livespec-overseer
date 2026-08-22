@@ -76,6 +76,8 @@ def test_ledger_records_use_configured_credential_wrapper(*, tmp_path, monkeypat
         "epic",
         "--status",
         "all",
+        "--limit",
+        "0",
         "--json",
     ]
 
@@ -90,7 +92,68 @@ def test_work_item_records_use_all_item_ledger_query(*, tmp_path, monkeypatch):
     monkeypatch.setattr(foreman_plan_roster_work.subprocess, "run", capture)
 
     assert foreman_plan_roster_work.ledger_work_item_records(repo=tmp_path) == []
-    assert seen_command == ["bd", "list", "--status", "all", "--json"]
+    assert seen_command == ["bd", "list", "--status", "all", "--limit", "0", "--json"]
+
+
+def test_work_state_uses_unlimited_ledger_queries_past_bd_default_limit(*, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
+    (repo / "plan" / "late-running-plan").mkdir(parents=True)
+    journal.parent.mkdir(parents=True)
+    journal.write_text(
+        json.dumps(
+            {
+                "stage": "dispatch-id",
+                "work_item_id": "overseer-late.1",
+                "at": "2026-08-22T20:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    early_epics = [
+        {
+            "id": f"overseer-early-{index}",
+            "issue_type": "epic",
+            "status": "closed",
+            "metadata": {"plan_slug": f"early-{index}"},
+        }
+        for index in range(50)
+    ]
+    late_epic = {
+        "id": "overseer-late",
+        "issue_type": "epic",
+        "status": "active",
+        "metadata": {"plan_slug": "late-running-plan"},
+    }
+    late_child = {
+        "id": "overseer-late.1",
+        "issue_type": "bug",
+        "status": "active",
+        "parent": "overseer-late",
+    }
+    epic_payload = [*early_epics, late_epic]
+    work_item_payload = [*early_epics, late_epic, late_child]
+    commands: list[list[str]] = []
+
+    def capture(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        commands.append(command)
+        payload = epic_payload if "--type" in command else work_item_payload
+        if "--limit" not in command:
+            payload = payload[:50]
+        return _completed(stdout=json.dumps(payload))
+
+    monkeypatch.setattr(foreman_plan_roster_work.subprocess, "run", capture)
+
+    assert foreman_plan_roster_work.work_states_by_plan(
+        repo=repo,
+        plan_names=["late-running-plan"],
+        journal_path=journal,
+    ) == {"late-running-plan": "work-in-flight"}
+    assert commands == [
+        ["bd", "list", "--type", "epic", "--status", "all", "--limit", "0", "--json"],
+        ["bd", "list", "--status", "all", "--limit", "0", "--json"],
+    ]
 
 
 def test_ledger_anchor_uses_only_unique_open_plan_slug_epics(*, tmp_path, monkeypatch):
@@ -281,8 +344,8 @@ def test_parentless_explicit_plan_association_raises_work_state_without_id_prefi
         "unrelated": "no-work-in-flight",
     }
     assert commands == [
-        ["bd", "list", "--type", "epic", "--status", "all", "--json"],
-        ["bd", "list", "--status", "all", "--json"],
+        ["bd", "list", "--type", "epic", "--status", "all", "--limit", "0", "--json"],
+        ["bd", "list", "--status", "all", "--limit", "0", "--json"],
     ]
 
 

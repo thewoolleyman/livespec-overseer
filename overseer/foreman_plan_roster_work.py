@@ -29,8 +29,18 @@ WORK_IN_FLIGHT = "work-in-flight"
 NO_WORK_IN_FLIGHT = "no-work-in-flight"
 WORK_STATES = (WORK_IN_FLIGHT, NO_WORK_IN_FLIGHT)
 DEFAULT_JOURNAL_RELATIVE_PATH = Path("tmp") / "fabro-dispatch-journal.jsonl"
-LEDGER_EPIC_COMMAND = ["bd", "list", "--type", "epic", "--status", "all", "--json"]
-LEDGER_WORK_ITEM_COMMAND = ["bd", "list", "--status", "all", "--json"]
+LEDGER_EPIC_COMMAND = [
+    "bd",
+    "list",
+    "--type",
+    "epic",
+    "--status",
+    "all",
+    "--limit",
+    "0",
+    "--json",
+]
+LEDGER_WORK_ITEM_COMMAND = ["bd", "list", "--status", "all", "--limit", "0", "--json"]
 LEDGER_TIMEOUT_SECONDS = 30
 _LEDGER_ANCHOR = re.compile(
     r"(?:[Ll]edger(?: epic)?|[Ee]pic) anchor:?\*{0,2}[^\n`]*\n?[^\n`]*`([a-z0-9-]+(?:\.[0-9]+)?)`"
