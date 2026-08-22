@@ -960,5 +960,109 @@
     "test": "TODO",
     "reason": "Ratified ahead of implementation, as its spec.md counterpart is. This section fixes the operation's surfaces, durable store, schedule ownership and exit contract so that the repo's existing plugin-resolution, skill-invocation-path and manifest-lockstep gates apply to it once the artifacts exist. Coverage arrives with the operation-surfaces slice, a child of plan epic overseer-54k2za, which authors the prose contract and its three harness bindings. The owning item is the operation-surfaces slice, which authors the prose contract and its three harness bindings and so brings this section's surfaces into existence for the repo's plugin gates to check.",
     "work_item": "overseer-54k2za.13"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "contracts.md",
+    "heading": "## The wait-premise record",
+    "test": "TODO",
+    "reason": "TODO(overseer-au3pt3.14): needs a contract test pinning the record's required fields including schema_version, the closed four-kind vocabulary, the actor-relative home, collision-free filename derivation, atomic write, individually-scoped fail-soft read, expiry, and the lifecycle removal rule.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A failed premise is surfaced rather than the option being altered",
+    "test": "tests.integration.test_wait_premise_spec.test_scenario_failed_premise_surfaced_not_altered",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A floor-barred human valve does not trigger the convene obligation",
+    "test": "tests.integration.test_convene_obligation.test_scenario_floor_barred_valve_does_not_trigger",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A foreman that declines to convene records the escalation condition, however long it has applied",
+    "test": "tests.integration.test_convene_obligation.test_scenario_decline_records_escalation_condition",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A malformed wait-premise record is skipped rather than failing its siblings",
+    "test": "tests.integration.test_wait_premise_spec.test_scenario_malformed_record_skipped_not_fatal",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A panel that cannot be constituted discharges the obligation and escalates",
+    "test": "tests.integration.test_convene_obligation.test_scenario_unconstitutable_panel_discharges_and_escalates",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A recorded premise is re-verified by its recheck instant",
+    "test": "tests.integration.test_wait_premise_spec.test_scenario_premise_reverified_by_recheck_instant",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An expired wait premise is not presented as current evidence",
+    "test": "tests.integration.test_wait_premise_spec.test_scenario_expired_premise_not_current_evidence",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An inexpressible wait kind does not suppress the question",
+    "test": "tests.integration.test_wait_premise_spec.test_scenario_inexpressible_kind_does_not_suppress",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unmet convene obligation is surfaced rather than passing silently",
+    "test": "tests.integration.test_convene_obligation.test_scenario_unmet_obligation_is_surfaced",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The foreman identifies a recorded premise in a wait option",
+    "test": "tests.integration.test_wait_premise_spec.test_scenario_foreman_identifies_recorded_premise",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: The foreman seeks a panel verdict for a decision the convene obligation applies to",
+    "test": "tests.integration.test_convene_obligation.test_scenario_seeks_panel_verdict_when_obligation_applies",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Two distinct targets do not collide onto one wait-premise file",
+    "test": "tests.integration.test_wait_premise_spec.test_scenario_distinct_targets_do_not_collide",
+    "reason": "NOT YET WRITTEN \u2014 owned by overseer-au3pt3.14. This entry names the integration-tier test that MUST exist to cover the heading ratified in SPECIFICATION v029; until that test lands this is a debt marker, not coverage.",
+    "work_item": "overseer-au3pt3.14"
   }
 ]
