@@ -28,7 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import streams
+import _supervisor_diagnostics
 import supervisor  # intentionally after the sys.path pin above
 
 __all__: list[str] = ["main"]
@@ -89,7 +89,7 @@ def main(*, argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     with _native_daemon_stderr(log_path=_default_daemon_log_path()):
-        streams.write_stderr(text=f"{supervisor.iso_now()} overseer: daemon log opened\n")
+        _supervisor_diagnostics.log(message="daemon log opened")
         return supervisor.run_daemon(warn_percent=args.warn_percent)
 
 

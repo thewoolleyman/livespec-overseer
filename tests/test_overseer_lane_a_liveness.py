@@ -55,7 +55,7 @@ def test_blocked_alerts_quantize_age_to_bands(*, tmp_path):
         clock["t"] = 100.0 + (24 * 3600.0) + 1.0
         view = sup.evaluate(track=track, act=True)
         assert "24h" in (view.note or "")
-    surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
+    surfaced = err.getvalue().splitlines()
     assert len(surfaced) == 3, surfaced
     assert "blocked on human (15m):" in surfaced[0]
     assert "blocked on human (4h):" in surfaced[1]
@@ -78,7 +78,7 @@ def test_blocked_age_bands_reset_for_a_new_declaration(*, tmp_path):
         state.write_text("blocked: second\n")
         os.utime(state, (clock["t"], clock["t"]))
         sup.evaluate(track=track, act=True)
-    surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
+    surfaced = err.getvalue().splitlines()
     assert len(surfaced) == 2, surfaced
     assert "blocked on human (4h): first" in surfaced[0]
     assert "blocked on human (0m): second" in surfaced[1]
@@ -102,7 +102,7 @@ def test_condition_alert_rearms_when_that_condition_clears(*, tmp_path):
         assert malformed.note is not None and malformed.note.startswith("BAD state file")
         declare(repo=repo, topic=topic, value="blocked: same reason")
         assert sup.evaluate(track=track, act=True).status == "blocked:human"
-    surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
+    surfaced = err.getvalue().splitlines()
     blocked_lines = [ln for ln in surfaced if "blocked on human" in ln]
     assert len(blocked_lines) == 2, surfaced
 

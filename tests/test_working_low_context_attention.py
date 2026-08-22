@@ -46,7 +46,7 @@ def test_busy_undeclared_track_at_danger_floor_is_reported_without_acting(*, tmp
             sup.tick(act=True)
 
     out = sup.out.getvalue()
-    surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
+    surfaced = err.getvalue().splitlines()
     low_context = [ln for ln in surfaced if "working low context" in ln]
     assert "NEEDS YOU (1):" in out
     assert "topic: topic | tmux: topic (claude) | repo: repo" in out

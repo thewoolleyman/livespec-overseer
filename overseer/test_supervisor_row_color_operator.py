@@ -11,6 +11,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 
 import contextlib
 import io as _io
+import json
 
 import pytest
 import registry
@@ -32,6 +33,12 @@ from test_supervisor_fakes import (
 )
 
 __all__: list[str] = []
+
+
+def _alert_events(*, text: str) -> list[dict[str, object]]:
+    return [
+        event for line in text.splitlines() if (event := json.loads(line))["severity"] == "alert"
+    ]
 
 
 @pytest.fixture(autouse=True)
@@ -176,7 +183,7 @@ def test_alert_is_edge_triggered_not_repeated_every_tick(*, tmp_path):
     with contextlib.redirect_stderr(err):
         for _ in range(5):  # five ticks of the SAME unchanged condition
             assert sup.evaluate(track=track, act=True).status == "blocked:human"
-    surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
+    surfaced = _alert_events(text=err.getvalue())
     assert len(surfaced) == 1, surfaced
 
 
@@ -203,7 +210,7 @@ def test_alert_re_arms_after_the_track_recovers(*, tmp_path):
         assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
         declare(repo=repo, topic=topic, value="blocked: first")  # blocks AGAIN on the same reason
         assert sup.evaluate(track=track, act=True).status == "blocked:human"
-    surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
+    surfaced = _alert_events(text=err.getvalue())
     assert len(surfaced) == 2, surfaced  # entered, recovered, entered again
 
 
@@ -312,7 +319,7 @@ def test_alert_reports_again_when_the_reason_changes(*, tmp_path):
         sup.evaluate(track=track, act=True)
         declare(repo=repo, topic=topic, value="blocked: reason two")
         sup.evaluate(track=track, act=True)
-    surfaced = [ln for ln in err.getvalue().splitlines() if "overseer[SURFACE]" in ln]
+    surfaced = _alert_events(text=err.getvalue())
     assert len(surfaced) == 2, surfaced
-    assert "reason one" in surfaced[0]
-    assert "reason two" in surfaced[1]
+    assert "reason one" in str(surfaced[0]["message"])
+    assert "reason two" in str(surfaced[1]["message"])

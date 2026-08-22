@@ -3,6 +3,7 @@
 import contextlib
 import importlib.util
 import io as _io
+import json
 import re
 import subprocess
 import sys
@@ -417,7 +418,10 @@ def test_run_logs_the_installed_claude_build_at_startup(*, tmp_path) -> None:
     with contextlib.redirect_stderr(err):
         sup.run(once=True)
 
-    assert "overseer: claude build at startup: 2.1.237" in err.getvalue()
+    event = json.loads(err.getvalue())
+    assert event["event"] == "claude-build"
+    assert event["phase"] == "startup"
+    assert event["version"] == "2.1.237"
 
 
 def test_claude_restart_logs_the_installed_claude_build(*, tmp_path) -> None:
@@ -440,4 +444,10 @@ def test_claude_restart_logs_the_installed_claude_build(*, tmp_path) -> None:
     with contextlib.redirect_stderr(err):
         assert sup.evaluate(track=track, act=True).status == "restarting"
 
-    assert "overseer: claude build at respawn: 2.1.237" in err.getvalue()
+    build = next(
+        event
+        for line in err.getvalue().splitlines()
+        if (event := json.loads(line))["event"] == "claude-build"
+    )
+    assert build["phase"] == "respawn"
+    assert build["version"] == "2.1.237"
