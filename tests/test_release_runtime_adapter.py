@@ -66,6 +66,8 @@ def test_adapter_computes_one_green_verdict_and_installs_that_target(*, tmp_path
 
     assert verdict["eligible"] is True
     assert verdict["target"] == release
+    assert installs == []
+    assert adapter.reexec_target() == tmp_path / release / "venv" / "bin" / "overseerd"
     assert adapter.reexec_target() == tmp_path / release / "venv" / "bin" / "overseerd"
     assert installs == [release]
     assert len(calls) == 3
@@ -233,3 +235,45 @@ def test_adapter_propagates_forge_read_failures_to_currency_degradation(*, tmp_p
         _ = adapter.currency_check()
 
     assert excinfo.value.timeout == 30
+
+
+def test_adapter_surfaces_release_runtime_install_failure_on_the_next_currency_check(
+    *, tmp_path
+) -> None:
+    mod = adapter_module()
+    release = "2222222222222222222222222222222222222222"
+    current = "1111111111111111111111111111111111111111"
+    installs: list[str] = []
+
+    def run(argv, *, capture_output, text, check, timeout):
+        endpoint = argv[-1]
+        if endpoint.endswith("/commits/release"):
+            return Completed(stdout=json.dumps({"sha": release}))
+        if endpoint.endswith(f"/commits/v{mod.APP_VERSION}"):
+            return Completed(stdout=json.dumps({"sha": current}))
+        return Completed(stdout=json.dumps({"check_runs": [{"conclusion": "success"}]}))
+
+    def ensure_release_runtime(*, release: str) -> Path | None:
+        installs.append(release)
+        return None
+
+    adapter = mod.ReleaseRuntimeAdapter(
+        sup=object(),
+        run=run,
+        ensure_release_runtime=ensure_release_runtime,
+    )
+
+    assert adapter.currency_check()["eligible"] is True
+    assert installs == []
+    assert adapter.reexec_target() is None
+
+    verdict = adapter.currency_check()
+
+    assert verdict == {
+        "eligible": False,
+        "target": release,
+        "blocked": True,
+        "reason": "release runtime provisioning failed",
+    }
+    assert adapter.reexec_target() is None
+    assert installs == [release]
