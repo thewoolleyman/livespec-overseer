@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.39.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.38.2...v1.39.0) (2026-08-22)
+
+
+### Features
+
+* prove consensus floor split contract ([f83b5ef](https://github.com/thewoolleyman/livespec-overseer/commit/f83b5efd973db2a56ff130a477534b4fcc686123))
+
 ## [1.38.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.38.1...v1.38.2) (2026-08-22)
 
 
