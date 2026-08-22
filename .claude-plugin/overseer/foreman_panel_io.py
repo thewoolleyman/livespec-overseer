@@ -35,4 +35,10 @@ def write_json(*, path: Path, payload: dict[str, object]) -> Path:
 
 def load_request(*, path: Path) -> dict[str, object] | None:
     parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
-    return None if jsonio.is_parse_failure(result=parsed) else parsed.unwrap()
+    if jsonio.is_parse_failure(result=parsed):
+        return None
+    payload = parsed.unwrap()
+    if payload is None:
+        return None
+    request = jsonio.as_object(value=payload.get("request"))
+    return request if request is not None else payload

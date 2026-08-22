@@ -103,6 +103,7 @@ def run_reviewer(
             args=reviewer_argv(command=reviewer_command, prompt=prompt, prompt_file=prompt_file),
             check=False,
             capture_output=True,
+            stdin=subprocess.DEVNULL,
             text=True,
             timeout=reviewer_timeout_seconds,
         )
