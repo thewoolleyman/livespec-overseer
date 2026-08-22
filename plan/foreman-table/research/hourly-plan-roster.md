@@ -65,6 +65,79 @@ was its own recorded next action, and escalated five self-decidable calls as
 maintainer questions. A roster with column 4 makes that state cost the foreman
 a written, per-tick justification instead of silence.
 
+## SUPERSEDED IN ONE RESPECT — the column list below is FIVE columns and the ratified design is now SIX
+
+Added 2026-08-22, after the five-column shape failed live. Read this before
+implementing anything from the column list above.
+
+A foreman printed a roster row whose status column read **"idle"** while the row
+carried the 🟢 **working** emoji, and the maintainer challenged it as
+self-contradictory. It was. But the emoji was the symptom; the defect is that a
+SINGLE status column was being filled sometimes from the SESSION and sometimes
+from the TRACK.
+
+**Those two are ORTHOGONAL, not mutually exclusive.** Measured on the live row: the
+pane held a live `claude` at an idle prompt, last output 8m47s earlier, 87 percent
+context — while **all four** of that plan's children were executing on the remote
+factory host at roughly 9m46s to 11m elapsed. Both facts true simultaneously. The
+session that dispatched those runs could have exited entirely without touching
+them.
+
+**The semantic anchor: the daemon's status field describes the PANE, not the
+WORK.** Column 2 as specified above reads that field, so it can only ever have
+described half the state.
+
+**Why this is not cosmetic — it makes columns 3 and 4 undecidable.** "Idle" alone
+cannot tell a reader whether to act:
+
+| session | work in flight | reading |
+|---|---|---|
+| idle | **yes** | healthy — dispatched work is executing elsewhere; the correct action is to WAIT |
+| idle | **no** | nothing is happening — this is the attention case the roster exists to surface |
+
+One column cannot express that difference, so every action and inaction judgement
+resting on it was resting on an ambiguity. Splitting is not presentation; it is
+what makes the action columns decidable at all.
+
+**The corrected shape**, carried in full by `overseer-2jblyq.3` (prose) and
+`overseer-2jblyq.5` (helper):
+
+1. plan / tmux / session name, with a descriptive error on disagreement
+2. **SESSION state** — working, idle, picker-parked, no-session — from the daemon snapshot
+3. **WORK state** — runs in flight or not — from the **dispatch journal**
+4. action needed
+5. why the foreman is not taking it
+6. emoji
+
+**Two rules the original design did not carry.**
+
+**The emoji is DERIVED, never authored.** The contradiction was possible only
+because an emoji was hand-written beside an independently written status. It must
+be a pure function of the (session, work) pair under a total closed mapping with
+stated precedence, with no input path accepting a caller-supplied value. A
+discipline of "check that they agree" would have failed identically.
+
+**Work state comes from the dispatch journal, never from a local process view.**
+The four runs in the incident were on a remote factory. A local process listing
+shows nothing for a remote run, so a work column built from one would have
+reported "nothing in flight" for the very row under argument — and looked
+authoritative doing it. The rule: take the latest `dispatch-id` for the child,
+then accept only `outcome` entries strictly after that timestamp; a dispatch-id
+with no later outcome means in flight. The floor matters because the journal is
+append-only, so a naive latest-outcome-by-id lookup returns a PREVIOUS dispatch's
+result.
+
+**On the column count.** The maintainer's original request enumerated five
+columns. This is six. The extra column is not scope creep: it carries information
+no other column can supply, and its absence was measured to break the two columns
+the request cares most about.
+
+**Why `overseer-2jblyq.1` was not rewritten.** It owns the status field and was
+MID-RUN on the factory when this surfaced. A running agent holds the goal it was
+dispatched with, so rewriting its contract would leave implementation and record
+disagreeing and silently owe rework. It was annotated instead, and the correction
+filed as `.5`.
+
 ## Finding 1 — `full_autonomy` does not exist yet, anywhere in the fleet
 
 Measured across all four repo checkouts, excluding `.git`, `.venv`,
