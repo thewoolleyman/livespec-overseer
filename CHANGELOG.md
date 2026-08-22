@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.5...v1.41.6) (2026-08-22)
+
+
+### Bug Fixes
+
+* pin launch profile credential scrubbing ([814273c](https://github.com/thewoolleyman/livespec-overseer/commit/814273c92c306679611dbdc508c1d1d764c90f29))
+
 ## [1.41.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.4...v1.41.5) (2026-08-22)
 
 
