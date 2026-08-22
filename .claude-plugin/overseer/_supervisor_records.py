@@ -83,6 +83,7 @@ class InjectState:
     uncertifiable_ready_mtime: float | None = None
     uncertifiable_ready_entry_age_label: str | None = None
     uncertifiable_ready_alerted_bands: set[int] = field(default_factory=set)
+    uncertifiable_ready_notice_mtime: float | None = None
     stall_watch_daemon_instance_id: str | None = None
     stall_watch_pane: str | None = None
     stall_watch_capture_hash: str | None = None
