@@ -9,6 +9,7 @@ from dataclasses import replace
 import _claude_sessions_proc
 import _supervisor_discovery
 import _supervisor_launch_profile_refresh
+import _supervisor_restart
 import registry
 import signals
 from _supervisor_launch_profile import (
@@ -196,6 +197,33 @@ def test_absent_statusline_model_does_not_skip_restart(*, tmp_path):
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
 
 
+def test_unreadable_overlay_statusline_is_reported_without_skipping_restart(*, tmp_path):
+    overlay_capture = (
+        "● prior response\n"
+        "  1. Type something\n"
+        "  2. Chat with Claude\n"
+        "  Enter to select · up/down to navigate · Esc to cancel\n"
+    )
+    repo, topic, fake, sup, track = _ready_profiled_track(
+        tmp_path=tmp_path,
+        capture=overlay_capture,
+        recorded_model="claude-opus-4-1-20250805",
+        statusline_model="Opus 4.8 (1M context)",
+    )
+    fake.panes[track.tmux] = [overlay_capture, idle_capture(ctx=30), idle_capture(ctx=30)]
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        _supervisor_restart.do_restart(
+            sup=sup, track=track, target=fake.pane_id(session=track.tmux)
+        )
+
+    assert fake.has(method="respawn")
+    assert (str(repo), topic, "statusline-model-unreadable") in sup.alerted
+    assert "statusline model unreadable" in err.getvalue()
+    assert "restart is proceeding fail-soft" in err.getvalue()
+
+
 def test_matching_statusline_model_restarts_unchanged(*, tmp_path):
     repo, topic, fake, sup, track = _ready_profiled_track(
         tmp_path=tmp_path,
@@ -212,6 +240,7 @@ def test_matching_statusline_model_restarts_unchanged(*, tmp_path):
     assert len(respawns) == 1
     assert "--model claude-opus-4-1-20250805" in respawns[0][3]
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
+    assert "statusline-model-unreadable" not in {key[2] for key in sup.alerted}
 
 
 def test_mismatch_does_not_rewrite_recorded_profile_from_statusline(*, tmp_path):
