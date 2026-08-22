@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.36.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.4...v1.36.5) (2026-08-22)
+
+
+### Bug Fixes
+
+* require codex no-profile env scrub ([55850e6](https://github.com/thewoolleyman/livespec-overseer/commit/55850e6a2679118eb6b0b68147c110ab805eb6b1))
+* split the acting-tick tail so run_tick stays in the statement band ([e8d9454](https://github.com/thewoolleyman/livespec-overseer/commit/e8d94544a48a13caf9b2cf21157b0c94dc2dbd1b))
+* update codex recovery env expectation ([afe0b0a](https://github.com/thewoolleyman/livespec-overseer/commit/afe0b0a47148b749607a6f9ee343e44a5aedaa5c))
+
 ## [1.36.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.3...v1.36.4) (2026-08-22)
 
 
