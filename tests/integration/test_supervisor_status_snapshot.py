@@ -127,7 +127,43 @@ def test_tick_writes_round_trippable_status_snapshot(*, tmp_path):
         "round_open": False,
         "acked": False,
         "session_identity": "claude:101:12345:topic",
+        "latest_input_provenance": {
+            "peer_injected": False,
+            "target_session": session,
+        },
     }
+
+
+def test_snapshot_reports_latest_input_provenance(*, tmp_path):
+    module = snapshot_module()
+    repo, topic = make_plan(tmp_path=tmp_path)
+    status_path = tmp_path / "status.json"
+    sup, session = make_live_mapped_supervisor(
+        tmp_path=tmp_path,
+        repo=repo,
+        topic=topic,
+        status_path=status_path,
+    )
+    sup.tmux.input_provenance[session] = {
+        "peer_injected": True,
+        "sending_seat": "livespec-overseer-foreman",
+        "target_session": session,
+        "delivery": "bracketed-paste",
+        "recorded_at": "2026-08-22T18:00:00Z",
+    }
+
+    rows = sup.tick(act=True)
+    payload = module.document_payload(sup=sup, rows=rows)
+
+    assert payload["rows"][0]["latest_input_provenance"] == {
+        "peer_injected": True,
+        "sending_seat": "livespec-overseer-foreman",
+        "target_session": session,
+        "delivery": "bracketed-paste",
+        "recorded_at": "2026-08-22T18:00:00Z",
+    }
+    read = module.read_status_snapshot(path=status_path)
+    assert read is not None
     assert json.loads(status_path.read_text(encoding="utf-8")) == read.document
 
 

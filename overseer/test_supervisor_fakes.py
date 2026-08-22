@@ -41,6 +41,7 @@ class FakeTmux:
         self.on_paste = None  # callback(session, text) for stamp-before-paste checks
         self.paste_ok = True  # set False to model a failed bracketed paste (B5)
         self.pasted_inputs = {}
+        self.input_provenance = {}
         self.respawn_ok = True  # set False to model a failed respawn (B5)
         self.kill_session_ok = True  # set False to model cleanup failing after start failure
         # set False to model a codex respawn whose pane never becomes a live codex TUI
@@ -167,6 +168,17 @@ class FakeTmux:
             elif isinstance(val, str) and ("\n❯ 1." in val or "\n› 1." in val):
                 self.panes[session] = f"{val}{display_text}\n"
         return self.paste_ok
+
+    def input_provenance_status(self, *, session):
+        return dict(
+            self.input_provenance.get(
+                session,
+                {
+                    "peer_injected": False,
+                    "target_session": session,
+                },
+            )
+        )
 
     def respawn_pane(self, *, session, cwd, command, env=None):
         self.calls.append(("respawn", session, cwd, command, env))

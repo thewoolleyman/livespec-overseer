@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import tmuxio
+from test_tmuxio_fakes import FakeRun
 from test_tmuxio_fakes import io as _io
 
 __all__: list[str] = []
 
 
-def test_peer_bracketed_paste_records_input_provenance():
-    tmux, fake = _io()
+def test_peer_bracketed_paste_records_input_provenance(*, tmp_path):
+    provenance_path = tmp_path / "input-provenance.json"
+    fake = FakeRun()
+    tmux = tmuxio.TmuxIO(run=fake, input_provenance_path=provenance_path)
     assert (
         tmux.peer_bracketed_paste(
             session="worker-pane",
@@ -18,12 +22,16 @@ def test_peer_bracketed_paste_records_input_provenance():
         is True
     )
 
-    assert tmux.latest_input_provenance(session="worker-pane") == {
+    reader = tmuxio.TmuxIO(run=FakeRun(), input_provenance_path=provenance_path)
+    provenance = reader.latest_input_provenance(session="worker-pane")
+    assert provenance == {
         "peer_injected": True,
         "sending_seat": "livespec-overseer-foreman",
         "target_session": "worker-pane",
         "delivery": "bracketed-paste",
+        "recorded_at": provenance["recorded_at"],
     }
+    assert isinstance(provenance["recorded_at"], str)
     assert fake.calls[1]["argv"] == [
         "tmux",
         "paste-buffer",
@@ -36,12 +44,27 @@ def test_peer_bracketed_paste_records_input_provenance():
     ]
 
 
-def test_plain_bracketed_paste_does_not_report_peer_injection():
-    tmux, _ = _io()
+def test_plain_bracketed_paste_does_not_report_peer_injection(*, tmp_path):
+    provenance_path = tmp_path / "input-provenance.json"
+    tmux = tmuxio.TmuxIO(run=FakeRun(), input_provenance_path=provenance_path)
+    assert (
+        tmux.peer_bracketed_paste(
+            session="worker-pane",
+            text="1",
+            sending_seat="livespec-overseer-foreman",
+        )
+        is True
+    )
     assert tmux.bracketed_paste(session="worker-pane", text="maintainer answer") is True
-    assert tmux.latest_input_provenance(session="worker-pane") == {
+
+    reader = tmuxio.TmuxIO(run=FakeRun(), input_provenance_path=provenance_path)
+    assert reader.latest_input_provenance(session="worker-pane") == {
         "peer_injected": False,
         "target_session": "worker-pane",
+    }
+    assert reader.input_provenance_status(session=None) == {
+        "peer_injected": False,
+        "target_session": None,
     }
 
 
