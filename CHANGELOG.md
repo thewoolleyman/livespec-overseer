@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.38.1...v1.38.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **grooming:** reconcile unparented row provenance ([87ed9ca](https://github.com/thewoolleyman/livespec-overseer/commit/87ed9caf11687a76bca92f2b0c1142207f5dd103))
+
 ## [1.38.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.38.0...v1.38.1) (2026-08-22)
 
 
