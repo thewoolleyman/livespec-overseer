@@ -1,6 +1,6 @@
 # fix-restart-problem — root cause of the 2026-08-20 foreman restart failure
 
-> **STATUS AS OF 2026-08-21T14:00Z — READ THIS BEFORE THE ROOT-CAUSE SECTIONS
+> **STATUS AS OF 2026-08-22T05:01Z — READ THIS BEFORE THE ROOT-CAUSE SECTIONS
 > BELOW.** This document is dated, and every measurement in it was correct when
 > taken; **five of the six causes it or this header describes are now FIXED and
 > merged.** Nothing below has been rewritten — the measurements are the evidence
@@ -13,17 +13,43 @@
 > entries there for anything time-sensitive; this file is a root-cause record,
 > not a status board.**
 >
-> **This header has now been re-measured twice**, and both times the thing that
-> had rotted was the header rather than the measurements under it. That is the
-> pattern to expect: a status block ages at the speed of the work, and the
-> evidence it sits above does not age at all.
+> **This header has now been re-measured THREE times**, and every time the thing
+> that had rotted was the header rather than the measurements under it. That is
+> the pattern to expect: a status block ages at the speed of the work, and the
+> evidence it sits above does not age at all. The third re-measure found the RC4
+> row still calling this plan's ratification question "unanswered". **That row was
+> CORRECT WHEN WRITTEN** — the header was stamped 2026-08-21T14:00Z and the
+> maintainer answered at 2026-08-22T03:11Z, thirteen hours LATER. It is an UPDATE,
+> not a correction, and the difference is worth stating rather than glossing:
+> nothing was wrong at the time, and a reader who treats every stale line as an
+> error learns to distrust records that were accurate. What ages is the header's
+> claim to describe the present, which is why it carries a timestamp at all.
+>
+> **WHERE THE THREAD STANDS, 2026-08-22.** The independent completeness
+> attestation is DONE — performed by a separate cold-started seat, recorded on the
+> epic in the archive gate's accepted evidence shape. The plan-anchor DONE
+> conditions for the completeness review and for records-agreement are both
+> discharged, and were confirmed by running the archive gate's OWN resolver against
+> the live ledger rather than by reading the record: it returns exactly two
+> undisposed children, and the same evidence is REJECTED when the archive actor is
+> the reviewer, so the independence check demonstrably fires rather than merely
+> being declared. **The whole remaining critical path is TWO MAINTAINER APPROVALS**
+> — `overseer-gdwkdf` and `overseer-62qver`. There is no third gate.
+>
+> The ratification carried forward rather than closing its work: `overseer-6bx5` is
+> the NAMED SUCCESSOR anchor, with `overseer-6bx5.1` (tell the stranded seat) and
+> `overseer-6bx5.2` (the ratified mechanism itself). Those are deliberately OUTSIDE
+> this plan's archive gate, and that was verified against the store rather than
+> asserted — a sibling carrier on this same plan claimed exactly that property in
+> its own notes and was in fact parented, which the attester caught only by
+> re-measuring with the gate's own resolver.
 >
 > | cause | where it stands | evidence |
 > |---|---|---|
-> | RC1 detector blindness | **FIXED, merged** as `b75ad94`. The acting daemon runs it; the thirteen "resume not submitted" rows and four settling rows went to zero. | `overseer-gdwkdf`, **pending-approval** — the only item still at a human valve |
+> | RC1 detector blindness | **FIXED, merged** as `b75ad94`. The acting daemon runs it; the thirteen "resume not submitted" rows and four settling rows went to zero. | `overseer-gdwkdf`, **pending-approval** — one of the two items still at a human valve |
 > | RC2 round survives session replacement | **FIXED, merged.** Round close generalised past `PlanTrack` to all three seat kinds; the identity refusal is preserved. | `overseer-5serwd`, **closed** 2026-08-21 |
 > | RC3 seat-epic clobber | Unchanged, and deliberately not taken here — owned by `track-record-type-safety`. | scope event on the epic |
-> | RC4 foreman behaviour | **LANDED.** The self-initiated wind-down at a named context floor is in `prose/foreman.md`. | `overseer-7pqr3p`, **closed**; its maintainer question split out as `overseer-vr3ym4.2`, still unanswered and blocking nothing |
+> | RC4 foreman behaviour | **LANDED.** The self-initiated wind-down at a named context floor is in `prose/foreman.md`. | `overseer-7pqr3p`, **closed**; its maintainer question split out as `overseer-vr3ym4.2`, **RATIFIED by the maintainer and closed** 2026-08-22 |
 > | RC5 ready outside a round never certifies | **FIXED, merged** as `79095d6` + `bb16cc8` (PR 1397). | `overseer-vr3ym4.1`, **closed**; all seven criteria verified, 40 tests re-run on master |
 > | RC6 the canary's own capture path was broken | **FIXED, merged** as `1250d44` (PR 1424). | `overseer-5lrp`, **closed** |
 >
