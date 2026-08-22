@@ -1,7 +1,12 @@
 # Method rules this plan paid for
 
 Consolidated 2026-08-21; extended the same day with rules 15-18, which the
-consolidating session itself then paid for. Each rule below was learned by being bitten during
+consolidating session itself then paid for. Extended again 2026-08-22 with
+rules 19-20, paid for jointly with the livespec-overseer-foreman seat while
+chasing an unrelated ledger discrepancy — both sessions produced and withdrew
+tidy explanations in the same afternoon, which is the evidence for rule 19.
+
+Each rule below was learned by being bitten during
 `model-preserving-restarts`, and until now they lived scattered across roughly
 two dozen ledger handoff entries on epic `overseer-bc55wx` — a timeline long
 enough that reconstructing them costs reading the whole thing in order. They
@@ -269,3 +274,55 @@ harness to have cleaned up. And prefer probes short enough to finish in the
 foreground — the sweep was rewritten to run a focused subset first and escalate only
 the survivors to the full suite, which fit comfortably and produced the result the
 long version never delivered.
+
+### 19. An explanation that arrives shaped exactly like the hole deserves one more check
+
+**Cost: four tidy explanations in one afternoon, every one withdrawn, across two
+sessions working the same question.** Each felt like a find at the moment it
+arrived, and each dissolved under a single check that took under a minute.
+
+The four, in order: a create-time actor inferred from a twelve-minute adoption
+window that turned out to be four hours, because a session misdated its own
+earlier action; a filing-path explanation stitched from two ADJACENT bullets of
+one docstring, where every supporting phrase lived in the bullet about a
+different field; a lost-write headline that would have sent an implementer
+hunting a clobbered write on one code path; and a round-trip-destroys-markers
+story that covered three of five observations and was discarded by the session
+that thought of it.
+
+**The tell is the shape, not the content.** An explanation that answers a
+question you had already flagged as open, and answers it completely, is
+answering more than the evidence in hand can carry. That fit is what makes it
+feel like discovery rather than conjecture — so the feeling of having found
+something is itself the signal to check, and precisely when checking feels least
+necessary.
+
+What survived the afternoon was the material nobody built a theory on: a
+hand-detached record still detached five hours later; a single call whose status
+field persisted while its label field did not; a probe showing that raw creation
+stamps no labels at all. **Measurements outlived every framing hung on them.**
+
+Two practices this buys. State the discriminator rather than the hypothesis when
+handing work to someone else — a colleague can test a discriminator and can only
+agree or disagree with a story. And when an explanation resolves a puzzle that
+another party raised, send it as a candidate rather than a finding; the party who
+raised the puzzle is the one motivated to check it, and both parties adopting a
+tidy answer at once is how it stops being checked at all.
+
+### 20. A reassurance is the claim its recipient is least likely to check
+
+**Cost: nothing, this time, which is why it is worth writing down.** A peer's
+status message closed with "your other run is still in flight and healthy;
+nothing about it needs attention." No run of this session's had been in flight
+for five hours. The three runs on the remote factory at that moment belonged to
+other tracks.
+
+Every other claim in that message invited verification because acting on it
+required work. This one invited none: it said that nothing was required. Had it
+been relied on, the cost would have been silent — continuing to wait on something
+that did not exist, with no event ever arriving to contradict it.
+
+**Verify the claims that tell you to relax with the same care as the claims that
+tell you to act.** This is n=1 and it is stated narrowly for that reason; but it
+is the same family as rule 5, where silence was mistaken for a signal, and it is
+the direction in which a wrong claim produces no symptom.
