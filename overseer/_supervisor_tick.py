@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import _supervisor_discovery
 import _supervisor_foreman
 import _supervisor_grooming
-import _supervisor_mapping_health
 import _supervisor_pair
 import _supervisor_reexec
 import _supervisor_render
@@ -22,18 +21,8 @@ __all__: list[str] = ["run_tick"]
 def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
     """One loop iteration: build rows, evaluate each, render the table + attention block."""
     views: list[RowView] = []
-    null_added_at_keys: frozenset[_supervisor_mapping_health.MappingKey] = (
-        _supervisor_mapping_health.explicit_null_added_at_keys(store_path=sup.store_path)
-        if not act
-        else frozenset()
-    )
     for track in sup.build_rows(act=act):
-        row = sup.evaluate(track=track, act=act)
-        if not act:
-            row = _supervisor_mapping_health.apply_mapping_health(
-                track=track, row=row, null_added_at_keys=null_added_at_keys
-            )
-        views.append(row)
+        views.append(sup.evaluate(track=track, act=act))
         supervisor_view = _supervisor_pair.evaluate_supervisor_pair(sup=sup, track=track, act=act)
         if supervisor_view is not None:
             views.append(supervisor_view)
