@@ -87,6 +87,7 @@ import _supervisor_observe
 import _supervisor_recovery
 import _supervisor_render
 import _supervisor_restart
+import _supervisor_runtime_rollback
 import _supervisor_snapshot
 import _supervisor_state
 import _supervisor_tick
@@ -135,6 +136,9 @@ class Supervisor:
     watch_set_path: str | os.PathLike[str] | None = None
     status_snapshot_path: str | os.PathLike[str] | None = None
     status_path: str | os.PathLike[str] | None = None
+    runtime_state_path: str | os.PathLike[str] = field(
+        default_factory=_supervisor_runtime_rollback.default_runtime_state_path
+    )
     status_writer: _seams.StatusWriter = _supervisor_snapshot.default_status_writer
     status_snapshot_writer: Callable[..., None] = _supervisor_snapshot.write_status_snapshot
     currency_check: CurrencyCheck | None = None

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_runtime_rollback
 from _supervisor_view import RESUME_PENDING_NOTE, RowView
 
 if TYPE_CHECKING:
@@ -25,6 +26,8 @@ def maybe_reexec(*, sup: Supervisor, rows: list[RowView]) -> None:
     target = sup.reexec_target()
     if target is None:
         return
+    if _supervisor_runtime_rollback.is_rejected(sup=sup, target=target):
+        return
     if _restart_interlock_pending(rows=rows):
         return
     now = sup.now()
@@ -32,6 +35,9 @@ def maybe_reexec(*, sup: Supervisor, rows: list[RowView]) -> None:
         return
     sup.last_reexec_attempt_at = now
     argv = _exec_argv(target=target, current_argv=sup.argv())
+    _supervisor_runtime_rollback.begin_adoption(
+        sup=sup, target=target, previous=Path(sup.argv()[0])
+    )
     sup.execv(path=str(target), argv=argv)
 
 
