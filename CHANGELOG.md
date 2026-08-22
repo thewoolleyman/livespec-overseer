@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.32.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.31.0...v1.32.0) (2026-08-22)
+
+
+### Features
+
+* report foreman runtime full autonomy state ([cc1898c](https://github.com/thewoolleyman/livespec-overseer/commit/cc1898c1efc01a6c51a9a418db5f3bdea64f727d))
+
 ## [1.31.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.30.0...v1.31.0) (2026-08-22)
 
 
