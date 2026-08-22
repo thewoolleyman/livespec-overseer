@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.35.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.34.0...v1.35.0) (2026-08-22)
+
+
+### Features
+
+* pin foreman roster tick state ([45931be](https://github.com/thewoolleyman/livespec-overseer/commit/45931beb9a282239c7868932e29fada96fd57bcf))
+
 ## [1.34.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.33.1...v1.34.0) (2026-08-22)
 
 
