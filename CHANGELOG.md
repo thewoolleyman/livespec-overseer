@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.36.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.5...v1.36.6) (2026-08-22)
+
+
+### Bug Fixes
+
+* add caam loop executable coverage ([181b39f](https://github.com/thewoolleyman/livespec-overseer/commit/181b39fd70f083b3b744d9d946efc44e336f22c9))
+
 ## [1.36.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.4...v1.36.5) (2026-08-22)
 
 
