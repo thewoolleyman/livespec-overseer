@@ -137,9 +137,12 @@ def test_wait_premise_reader_skips_absent_or_unknown_schema_versions(*, tmp_path
 
     assert wait_premises.read_wait_premise(path=directory / "missing-schema.json") is None
     assert wait_premises.read_wait_premise(path=directory / "newer-schema.json") is None
-    assert wait_premises.read_wait_premises(repo=tmp_path / "repo", topic="alpha") == [
-        json.loads(valid_path.read_text(encoding="utf-8"))
-    ]
+    # The versionless record MIGRATES and is returned on this same pass; the
+    # unknown-or-newer one stays skipped, because nothing can migrate a shape
+    # this store does not understand.
+    records = wait_premises.read_wait_premises(repo=tmp_path / "repo", topic="alpha")
+    assert sorted(str(record["target_id"]) for record in records) == ["17", "19"]
+    assert json.loads(valid_path.read_text(encoding="utf-8")) in records
 
 
 @pytest.mark.parametrize(

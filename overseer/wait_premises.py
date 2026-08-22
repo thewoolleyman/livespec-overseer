@@ -106,10 +106,13 @@ def read_wait_premises(*, repo: str | os.PathLike[str], topic: str) -> list[dict
     records: list[dict[str, object]] = []
     for path in paths:
         record = read_wait_premise(path=path)
+        if record is None:
+            # A legacy record migrated during THIS pass still belongs to it.
+            # Returning it only on the next read made a single read report no
+            # premises at all for a record that plainly exists.
+            record = migrate_legacy_wait_premise(path=path)
         if record is not None:
             records.append(record)
-        else:
-            migrate_legacy_wait_premise(path=path)
     return records
 
 
@@ -148,29 +151,51 @@ def read_wait_premise(*, path: Path) -> dict[str, object] | None:
     return parsed if valid_wait_premise(value=parsed) else None
 
 
-def migrate_legacy_wait_premise(*, path: Path) -> None:
-    try:
-        parsed_result = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
-    except OSError:
-        return
-    if jsonio.is_parse_failure(result=parsed_result):
-        return
-    parsed = parsed_result.unwrap()
-    if parsed is None or "schema_version" in parsed or not valid_legacy_wait_premise(value=parsed):
-        return
-    migrated = {**parsed, "schema_version": SCHEMA_VERSION}
+def migrate_legacy_wait_premise(*, path: Path) -> dict[str, object] | None:
+    """Bring one versionless record forward, returning it when it lands.
+
+    The source is removed only AFTER its migrated copy is safely in place, so a
+    failed write can never lose the record. Leaving the source behind made one
+    target hold two files: the migrated copy and a versionless original that
+    every later read skipped and never reported.
+    """
+    parsed = legacy_record_at(path=path)
+    if parsed is None:
+        return None
     destination = wait_premise_path(
         repo=legacy_repo_from_path(path=path),
         topic=legacy_topic_from_path(path=path),
         kind=str(parsed["kind"]),
         target_id=str(parsed["target_id"]),
     )
-    if destination == path or destination.exists():
-        return
+    if destination == path:
+        return None
+    if destination.exists():
+        # The record already came forward on an earlier pass; drop the stale
+        # original rather than leaving it to be skipped on every future read.
+        path.unlink(missing_ok=True)
+        return None
+    migrated = {**parsed, "schema_version": SCHEMA_VERSION}
     try:
         write_json_atomic(path=destination, payload=migrated)
     except OSError:
-        return
+        return None
+    path.unlink(missing_ok=True)
+    return migrated
+
+
+def legacy_record_at(*, path: Path) -> dict[str, object] | None:
+    """Parse a record that is well-formed in every way EXCEPT its version."""
+    try:
+        parsed_result = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    if jsonio.is_parse_failure(result=parsed_result):
+        return None
+    parsed = parsed_result.unwrap()
+    if parsed is None or "schema_version" in parsed:
+        return None
+    return parsed if valid_legacy_wait_premise(value=parsed) else None
 
 
 def valid_wait_premise(*, value: dict[str, object]) -> bool:

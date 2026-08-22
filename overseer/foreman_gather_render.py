@@ -57,6 +57,9 @@ def row_line(*, row: dict[str, object]) -> str:
     premises = premises_text(row=row)
     if premises:
         line = f"{line} | {premises}"
+    skips = premise_skips_text(row=row)
+    if skips:
+        line = f"{line} | {skips}"
     return f"{line} | {note_text}"
 
 
@@ -89,6 +92,16 @@ def premises_text(*, row: dict[str, object]) -> str:
         if premise is not None
     ]
     return f"premises={', '.join(rendered)}" if rendered else ""
+
+
+def premise_skips_text(*, row: dict[str, object]) -> str:
+    raw_skips = jsonio.as_list(value=row.get("wait_premise_skips")) or []
+    rendered = [
+        str(skip.get("reason"))
+        for skip in (jsonio.as_object(value=raw) for raw in raw_skips)
+        if skip is not None
+    ]
+    return f"premise_skips={', '.join(rendered)}" if rendered else ""
 
 
 def premise_fragment(*, premise: dict[str, object]) -> str:
