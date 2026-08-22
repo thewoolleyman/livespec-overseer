@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.26.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.25.0...v1.26.0) (2026-08-22)
+
+
+### Features
+
+* add foreman plan roster contract ([b5f4d85](https://github.com/thewoolleyman/livespec-overseer/commit/b5f4d8587218bdeaf4d3621d484d103b7d90ceba))
+
 ## [1.25.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.24.1...v1.25.0) (2026-08-22)
 
 
