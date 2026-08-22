@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.41.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.9...v1.41.10) (2026-08-22)
+
+
+### Bug Fixes
+
+* keep release runtime install on acting path ([6065ba2](https://github.com/thewoolleyman/livespec-overseer/commit/6065ba24af8647903840ef71052d10ea7fb8c2a5))
+* prove runtime prefix provisioning uses uv ([3147621](https://github.com/thewoolleyman/livespec-overseer/commit/3147621cf6e0e21efb02e9045705eca0de870052))
+
 ## [1.41.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.8...v1.41.9) (2026-08-22)
 
 
