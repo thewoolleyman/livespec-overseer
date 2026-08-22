@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.41.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.1...v1.41.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* classify empty dossier structurally ([e36b56f](https://github.com/thewoolleyman/livespec-overseer/commit/e36b56f1069fd99eb2ac217680d47f0353add20a))
+* distinguish terminal assignee provenance ([26837d3](https://github.com/thewoolleyman/livespec-overseer/commit/26837d37d61f1b7cac025b4ea5f209f2772205fc))
+* keep grooming conformance under soft band ([90d1539](https://github.com/thewoolleyman/livespec-overseer/commit/90d15390f51d752703107a7454cdec4c7e0cda74))
+
 ## [1.41.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.0...v1.41.1) (2026-08-22)
 
 
