@@ -481,6 +481,14 @@ Its JSON output includes `loop_lapsed` and `heartbeat_age_seconds` — see
 §"Arming the loop is not optional, and is not a question" above. Read them on
 every invocation, not only when something looks wrong.
 
+When `full_autonomy` is true, read the standing-orders block from
+`foreman-runtime`'s JSON output and carry that rendered text forward as the
+standing order; do not retype or paraphrase the block from this prose. If the
+same JSON reports `standing_orders_recorded: false`, propose a first-tick
+`work_item_comment` on the seat anchor whose text begins `STANDING ORDERS`, so
+successor sessions inherit the pass-along from the ledger. The runtime reports
+only; it does not write that comment and it does not edit `.livespec.jsonc`.
+
 For an action proposal:
 
 ```bash

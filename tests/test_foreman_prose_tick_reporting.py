@@ -99,6 +99,17 @@ def test_plan_roster_placement_and_handoff_exclusion_are_declared():
     assert "at most once per tick identity" in normalized
 
 
+def test_full_autonomy_orders_are_read_from_runtime_not_retyped():
+    text = prose()
+    normalized = " ".join(text.split())
+
+    assert "When `full_autonomy` is true, read the standing-orders block from" in text
+    assert "`foreman-runtime`'s JSON" in text
+    assert "do not retype or paraphrase the block from this prose" in normalized
+    assert "standing_orders_recorded: false" in text
+    assert "work_item_comment" in text
+
+
 def test_every_route_is_tried_before_anything_may_be_called_an_escalation():
     text = prose()
 

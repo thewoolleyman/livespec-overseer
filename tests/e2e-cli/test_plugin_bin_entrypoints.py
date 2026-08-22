@@ -1212,13 +1212,20 @@ def _assert_runtime_cadence(*, context: ForemanE2EContext) -> None:
     first = _runtime_result(context=context, snapshot=snapshot, now=1000.0)
     assert first == {
         "action_taken": False,
+        "attention_conditions": [],
         "auto_resume_interval_seconds": None,
         "blocking_prompt_open": False,
+        "conflict": False,
+        "decision_rule": "unanimous",
         "exit_reason": None,
+        "full_autonomy": False,
+        "full_autonomy_terminating_condition_reached": False,
         "heartbeat_age_seconds": None,
         "llm_tick": True,
         "llm_tick_interval_seconds": 3600.0,
         "loop_lapsed": False,
+        "standing_orders": None,
+        "standing_orders_recorded": None,
         "tick_generation": 1,
     }
     assert _runtime_state(context=context, name="runtime.json")["next_llm_tick_at"] == 4600.0
