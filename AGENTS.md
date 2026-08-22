@@ -1642,6 +1642,33 @@ across three bounces during the ratifying session:
    bounce landed one release behind because the pull that would have carried
    the fix arrived after the daemon had already started).
 
+   **NORMALIZE THE CLOCKS BEFORE COMPARING THEM — `ps -o lstart` prints LOCAL
+   time.** Step 3 is a before/after comparison between two instruments, and on
+   this host they do not speak the same clock: the timezone is `Europe/Berlin`
+   (CEST, **UTC+2**), so `ps -o lstart=` renders two hours ahead of the `Z`
+   timestamps used by the ledger, the dispatch journal, `date -u`, and this
+   file's own measurements. Applying that offset to only one side inverts the
+   very test the step exists to make — a bounce that landed two hours BEFORE a
+   fast-forward reads as having landed after it, and vice versa.
+
+   Measured 2026-08-22, and it very nearly produced a published wrong
+   conclusion: a listener's owning process showed `lstart` of `01:43:39` against
+   a UTC wall clock of `01:23:53`, i.e. **twenty minutes in the future**, which
+   reads as "started by the thing I just ran". Normalizing gave a true start of
+   `23:43Z` — an hour and forty minutes EARLIER, a different process, a different
+   session, and the opposite conclusion. A future start time is the tell; treat
+   it as a unit error, never as a clock skew to reason around.
+
+   Take the process start as an absolute instead of parsing the rendered string:
+
+       stat -c '%y' /proc/<pid>          # start time WITH its UTC offset
+       date -u -d "@$(stat -c %Y /proc/<pid>)" +%Y-%m-%dT%H:%M:%SZ
+
+   and pin the other side to the same clock with `git reflog --date=iso-strict`
+   (which carries an explicit offset) rather than the default relative rendering.
+   The rule generalizes past this one step: **every timestamp comparison in this
+   fleet has two sides, and any side rendered without an offset is a guess.**
+
 **Rider, ratified 2026-08-20 — maintainer, typed directly into the foreman
 pane; verbatim on the `overseer-z5fo4y` decision-batch comment:** "Yes it can
 be restarted any time but whatever is restarting it must ensure that it stays
