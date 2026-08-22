@@ -138,17 +138,22 @@ pane. It is NOT "the last 40 lines." Do NOT pipe to `tail -N`; `-N` is a
 placeholder and `tail` rejects it.
 
 Peer answers to a picker need provenance. This contract implements candidate
-remedy (b), attribution by the overseer/tmux boundary: peer-injected input that
-may be mistaken for maintainer approval must go through
+remedy (a) with a file-backed convention, not a daemon-enforced instrument:
+peer-injected input that may be mistaken for maintainer approval must go through
 `tmuxio.TmuxIO.peer_bracketed_paste(..., sending_seat="<seat>")`. That method
 writes the peer record to `~/.livespec-overseer-input-provenance.json`; the
 daemon publishes the same record under each row's `latest_input_provenance` in
 `~/.livespec-overseer-status.json`, so the receiving side can read
-`peer_injected=true` plus the sending seat from a process-independent surface.
-Candidate (a) was rejected as only a convention: a prefix can be forged or
-omitted. Candidate (c) was rejected because peer resolution of a stalled picker
-whose answer is already recorded is sanctioned behavior here; the channel must
-stay usable while the answerer is made legible.
+`peer_injected=true` plus the sending seat from a process-independent surface
+when the sending peer used the required surface. This is not tamper-evident and
+is still forgeable or omittable by a peer that bypasses the protocol or lies
+about `sending_seat`, so a negative `peer_injected=false` record is evidence
+that no peer injection was recorded, not proof of maintainer origin. Candidate
+(b) was rejected for this item because no daemon-observed attribution channel was
+added here. Candidate (c) was rejected because peer resolution of a stalled
+picker whose answer is already recorded is sanctioned behavior here; the channel
+must stay usable while the answerer is made legible when the protocol is
+followed.
 
 Short instruction: CLAUDE CODE-SPECIFIC: send the text, VERIFY it landed, then
 send Enter SEPARATELY. Before typing into any pane you do not own, identify the harness from its footer and confirm that harness's submit idiom:
@@ -174,8 +179,9 @@ tmux capture-pane -p -t "$WORKER_TARGET" | tail -8   # confirm it landed
 tmux send-keys -t "$WORKER_TARGET" Enter             # only after verifying
 ```
 
-For a peer-injected picker answer, use the provenance-recording Python surface
-instead of raw `tmux paste-buffer`:
+For a peer-injected picker answer, the raw `tmux send-keys` and
+`tmux paste-buffer` idioms above are deprecated because they omit provenance.
+Use the provenance-recording Python surface instead:
 
 ```text
 export WORKER_SESSION='worker-session'
@@ -198,7 +204,9 @@ PY
 Verify the paste landed; then send Enter separately with the same Claude
 Code-specific, harness-checked submit idiom above. Before treating an answer as
 maintainer-originated, read the receiving row's `latest_input_provenance` in
-`~/.livespec-overseer-status.json`; `peer_injected=false` is the negative leg.
+`~/.livespec-overseer-status.json`; `peer_injected=true` establishes a recorded
+peer injection and names the claimed sending seat, while `peer_injected=false`
+only means this convention did not record one.
 
 If two keystrokes do not submit input in a pane you do not own, stop guessing:
 after two failed keystrokes, fall back to a durable file rather than escalating
