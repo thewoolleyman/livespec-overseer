@@ -23,8 +23,6 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
     views: list[RowView] = []
     for track in sup.build_rows(act=act):
         views.append(sup.evaluate(track=track, act=act))
-        if not hasattr(track, "is_unassigned"):
-            continue
         supervisor_view = _supervisor_pair.evaluate_supervisor_pair(sup=sup, track=track, act=act)
         if supervisor_view is not None:
             views.append(supervisor_view)
