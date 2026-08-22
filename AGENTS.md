@@ -985,6 +985,32 @@ agreeing records is unlikely to run those checks at all. Here the item sat at
 `active`/`fabro` with its work merged: the **succeeded-untransitioned** row, whose
 remedy is to CLOSE it, while the failure report pointed at release-and-re-dispatch.
 
+**CONFIRMED INDEPENDENTLY THE SAME DAY, AND THE ENVELOPE HANDS YOU THE KEY TO THE
+CHECK IT TELLS YOU TO RUN.** Dispatching `overseer-8nxb` about an hour earlier, a
+different seat hit this shape identically: `verdict.env` read `status=failed
+exit_code=1`, the envelope reported stage `fabro-run` status `failed` with
+`pr_number` and `merge_sha` null, and the detail carried the same three transport
+lines. The run was executing the whole time, ran 26m16s, succeeded, and merged as
+PR 1700. Two instances, two seats, different durations, one day — so treat this as
+a recurring shape rather than a one-off.
+
+What that second instance adds is practical: **the failing envelope's
+`fabro_run_id` was NON-NULL** (`01M0N73AGRXQG1CBC7RBNPS8JR`) even though
+`pr_number` and `merge_sha` were null. That field is the run to look for, so the
+"go to the factory process view" step above does not require guessing which run is
+yours — read the id out of the very envelope that reported the failure, then match
+it on the factory. A non-null `fabro_run_id` beside a transport `detail` is also
+the sharpest positive discriminator in this family: the ENOSPC shape fails at the
+same stage with **no** run id, and a queue eviction never produces one either.
+
+That instance also shows the mis-remedy is not hypothetical. The item sat
+`active`/`fabro` over merged work; releasing the claim and re-dispatching — which
+is what the table's nearest-neighbour row prescribes for a run absent from local
+`fabro ps` — would have started a second run against a branch its own sibling had
+already published, which is the **publish-branch collision** shape documented
+above. The two shapes are one step apart, and the transport `detail` plus the run
+id is what separates them.
+
 **ONE MORE ORDERING RULE, FROM A NEAR-MISS THE SAME DAY, AND IT GENERALIZES PAST
 DISPATCH.** Preparing the `overseer-6s3pk6.10` cutover, the plan required stopping
 the acting `overseerd` and re-running the bootstrap. Provisioning the runtime prefix
