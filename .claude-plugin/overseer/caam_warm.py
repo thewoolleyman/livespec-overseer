@@ -7,7 +7,7 @@ import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Final, Protocol, cast
 
 from caam_profile_state import STATE_REL, caam_vault, live_creds_path
 from caam_usage import read_creds
@@ -16,10 +16,13 @@ __all__: list[str] = [
     "AgentProcess",
     "AgentRunner",
     "Logger",
+    "ResnapshotProcess",
+    "ResnapshotRunner",
     "WarmConfig",
     "WarmResult",
     "keep_warm",
     "read_creds",
+    "resnapshot_active",
     "token_of",
     "warm_margin_s",
     "warm_profile",
@@ -29,6 +32,7 @@ __all__: list[str] = [
 _WARM_MARGIN_DEFAULT_S = "7200"
 _WARM_RETRY_DEFAULT_S = "3600"
 _AGENT_TIMEOUT_S = 180.0
+_TOOL: Final = "claude"
 _LIVE_CHANGED = (
     "FAIL keep-warm altered the LIVE credential -- this must never happen; "
     "investigate before trusting the next rotation"
@@ -48,6 +52,16 @@ class AgentRunner(Protocol):
         env: dict[str, str],
         timeout: float,
     ) -> AgentProcess: ...
+
+
+class ResnapshotProcess(Protocol):
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+class ResnapshotRunner(Protocol):
+    def __call__(self, *, args: tuple[str, ...]) -> ResnapshotProcess: ...
 
 
 class Logger(Protocol):
@@ -79,6 +93,34 @@ def warm_retry_s() -> float:
 def token_of(*, path: Path) -> str | None:
     token, _ = read_creds(path=path)
     return token
+
+
+def resnapshot_active(
+    *,
+    active_name: str,
+    home: Path,
+    dry_run: bool,
+    caam_runner: ResnapshotRunner,
+    logger: Logger,
+) -> None:
+    """Keep the ACTIVE profile's snapshot equal to the live credential."""
+
+    vault = caam_vault(home=home)
+    if dry_run or not vault.is_dir():
+        return
+    live = token_of(path=live_creds_path(home=home))
+    snap = token_of(path=vault / active_name / ".credentials.json")
+    if live is None or live == snap:
+        return
+    result = caam_runner(args=("backup", _TOOL, active_name))
+    if result.returncode == 0:
+        logger(
+            f"resnapshot: {active_name} refreshed its token since the last snapshot; vault "
+            "updated (prevents orphaning on the next switch)"
+        )
+    else:
+        detail = (result.stderr or result.stdout).strip()[:120]
+        logger(f"resnapshot: FAILED for {active_name} -- {detail}")
 
 
 def keep_warm(

@@ -37,6 +37,7 @@ def usage(
 class FakeProcess:
     returncode = 0
     stdout = '{"tools": [{"tool": "claude", "active_profile": "active"}]}'
+    stderr = ""
 
 
 def test_console_script_registers_the_caam_operation():

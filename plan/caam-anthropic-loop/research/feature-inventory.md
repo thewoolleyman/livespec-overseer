@@ -37,6 +37,11 @@ for credentials, and the sibling lookup through this sandbox's configured GitHub
 credential reported the repository unavailable. The pin above therefore remains
 the last verified source commit rather than a refreshed claim.
 
+**RE-MEASURED, 2026-08-22, overseer-54k2za.24.** The factory sandbox's GitHub CLI
+credential could read `vps-info`; `.claude/skills/caam-anthropic-loop/SKILL.md`
+at `822e2be` still carries the active-profile `resnapshot_active` behavior added
+at `980a029`. That behavior is now recorded as carrier group **AA**.
+
 ## Why this thread exists
 
 `/caam-anthropic-loop` is a working, maintainer-authored skill living in the
@@ -870,6 +875,24 @@ from emptying.
 - **X15** First live run revived one profile by +8.0h and reported another as
   orphaned — that one needs a browser re-login. Three of four profiles live again,
   rotation unblocked. **An orphan-detection report is a feature, not a failure.**
+
+## AA — Re-snapshotting the active profile (added vps-info `980a029`, present at `822e2be`)
+
+- **AA1** Every tick, immediately after determining the active profile and before
+  usage polling, the program compares the live `~/.claude/.credentials.json`
+  token with `~/.local/share/caam/vault/claude/<active>/.credentials.json`.
+- **AA2** The pass is skipped under `--dry-run`, when the vault directory is
+  absent, when the live token is unreadable, or when the live token matches the
+  active snapshot.
+- **AA3** When the live token differs, it runs `caam backup claude <active>`.
+  Success logs exactly:
+  `resnapshot: <active> refreshed its token since the last snapshot; vault updated (prevents orphaning on the next switch)`.
+- **AA4** A failed backup does not retry, recover, verify, or copy by hand. It
+  logs exactly
+  `resnapshot: FAILED for <active> -- <stderr-or-stdout-truncated-to-120>`.
+- **AA5** This pass maintains only the ACTIVE profile. Keep-warm **X** maintains
+  idle profiles and deliberately skips the active one; neither behavior
+  substitutes for the other.
 
 ## Y — Operating rule: never keep a local copy of the program (vps-info `74429a7`)
 

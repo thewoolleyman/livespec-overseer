@@ -27,6 +27,7 @@ FAIL_ACTIVE_PROFILE: Final = "FAIL could not determine active claude profile"
 class CaamProcess(Protocol):
     returncode: int
     stdout: str
+    stderr: str
 
 
 class CaamRunner(Protocol):
