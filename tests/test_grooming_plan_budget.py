@@ -43,6 +43,15 @@ def _anchor(*, item_id: str, slug: str, status: str = "open") -> dict[str, objec
     }
 
 
+def _child(*, item_id: str, parent: str, status: str = "ready") -> dict[str, object]:
+    return {
+        "id": item_id,
+        "issue_type": "feature",
+        "parent": parent,
+        "status": status,
+    }
+
+
 def test_worked_example_auto_budget_and_allowance(*, tmp_path):
     module = grooming_plan_budget()
     repo = _repo(tmp_path=tmp_path)
@@ -193,6 +202,71 @@ def test_allowance_floors_at_zero_when_live_threads_exceed_budget(*, tmp_path):
     assert result.budget == 5
     assert result.live_thread_count == 6
     assert result.new_thread_allowance == 0
+
+
+def test_reports_reclaimable_live_threads_by_distinct_plan_slug(*, tmp_path):
+    module = grooming_plan_budget()
+    repo = _repo(tmp_path=tmp_path)
+    (repo / "plan" / "alpha").mkdir()
+    (repo / "plan" / "empty").mkdir()
+    (repo / "plan" / "shared").mkdir()
+
+    result = module.resolve_plan_budget(
+        repo=repo,
+        proposed_changes_count=57,
+        work_items=[
+            _anchor(item_id="anchor-alpha", slug="alpha"),
+            _anchor(item_id="anchor-empty", slug="empty"),
+            _anchor(item_id="anchor-shared-1", slug="shared"),
+            _anchor(item_id="anchor-shared-2", slug="shared"),
+            _child(item_id="alpha-open", parent="anchor-alpha"),
+            _child(item_id="shared-closed", parent="anchor-shared-1", status="closed"),
+        ],
+    )
+
+    assert result.live_thread_slugs == ("alpha", "empty", "shared")
+    assert result.reclaimable_live_thread_slugs == ("empty", "shared")
+    assert result.reclaimable_live_thread_count == 2
+
+
+def test_reports_zero_reclaimable_when_every_live_thread_carries_open_work(*, tmp_path):
+    module = grooming_plan_budget()
+    repo = _repo(tmp_path=tmp_path)
+    (repo / "plan" / "alpha").mkdir()
+    (repo / "plan" / "beta").mkdir()
+
+    result = module.resolve_plan_budget(
+        repo=repo,
+        proposed_changes_count=57,
+        work_items=[
+            _anchor(item_id="anchor-alpha", slug="alpha"),
+            _anchor(item_id="anchor-beta", slug="beta"),
+            _child(item_id="alpha-open", parent="anchor-alpha"),
+            _child(item_id="beta-open", parent="anchor-beta"),
+        ],
+    )
+
+    assert result.reclaimable_live_thread_slugs == ()
+    assert result.reclaimable_live_thread_count == 0
+
+
+def test_reclaimable_reporting_does_not_mutate_live_plan_directories(*, tmp_path):
+    module = grooming_plan_budget()
+    repo = _repo(tmp_path=tmp_path)
+    live_dir = repo / "plan" / "empty"
+    live_dir.mkdir()
+    (live_dir / "handoff.md").write_text("still live\n", encoding="utf-8")
+    before = sorted(path.relative_to(repo).as_posix() for path in repo.rglob("*"))
+
+    result = module.resolve_plan_budget(
+        repo=repo,
+        proposed_changes_count=57,
+        work_items=[_anchor(item_id="anchor-empty", slug="empty")],
+    )
+
+    after = sorted(path.relative_to(repo).as_posix() for path in repo.rglob("*"))
+    assert result.reclaimable_live_thread_slugs == ("empty",)
+    assert after == before
 
 
 def test_counts_pending_proposed_changes_under_configured_spec_root(*, tmp_path):

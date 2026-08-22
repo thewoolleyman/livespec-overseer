@@ -85,7 +85,7 @@ drainable population =
 budget = clamp(ceil(drainable population / items per plan), minimum plans, maximum plans)
 ```
 
-Default `items per plan` is 12, default minimum is 2, and default maximum is 8.
+Default `items per plan` is 12, default minimum is 2, and default maximum is 20.
 Each value may be overridden under the same configuration key. Existing live plan
 threads count against the budget, so the pass may create at most:
 
@@ -95,12 +95,24 @@ new thread allowance = max(0, budget - live thread count)
 
 Live threads are the non-archived directories under `plan/`, cross-checked against
 plan-anchor epics carrying plan-slug metadata. Use both sources because they drift.
+Also report the reclaimable subset: distinct live plan slugs that carry zero open
+non-anchor work items. Reclaimable means "candidate for a maintainer archive
+decision", not permission to mutate it during grooming.
 
 The budget is a ceiling, not a target. Prefer the smallest number of coherent
 buckets that keeps each thread about one subject. Do not pad to the budget. If a
 pre-existing or later split pushes the repo over budget, report the overflow with
-the numbers. Do not fold a real thread back into another one; merged plan files,
-live sessions, and in-flight runs make that a maintainer decision.
+the numbers and name the reclaimable live threads. Do not fold a real thread back
+into another one; merged plan files, live sessions, and in-flight runs make that a
+maintainer decision.
+
+When new thread allowance is zero, the pass does not have silent authority to
+create another plan thread. Fold unparented work into an existing live thread when
+that is coherent. If no existing thread is a truthful home, leave the work
+unparented and report the blocked bucketing decision with the budget,
+live-thread count, overflow, and reclaimable thread list. A maintainer may direct
+an over-allowance thread creation anyway; when that happens, record the override
+and the maintainer authority on the plan anchor created for that thread.
 
 ## Six Stages
 
@@ -123,6 +135,7 @@ Compose and record:
 - the unparented subset;
 - pending proposed changes;
 - live plan threads from filesystem and plan-anchor metadata;
+- live plan threads carrying zero open work items, named by distinct plan slug;
 - the resolved plan budget, its governing path, and new-thread allowance;
 - the exact population scanned for each conformance claim.
 
