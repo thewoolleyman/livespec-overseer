@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.0...v1.41.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* clear resolved foreman escalations ([b055a7e](https://github.com/thewoolleyman/livespec-overseer/commit/b055a7efd4731dac80a1941185eefabd2864ffe3))
+
 ## [1.41.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.40.0...v1.41.0) (2026-08-22)
 
 
