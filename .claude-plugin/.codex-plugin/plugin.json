@@ -1,6 +1,6 @@
 {
   "name": "livespec-overseer",
-  "version": "1.27.0",
+  "version": "1.27.1",
   "description": "Control-plane operator plugin for livespec. Exposes /livespec-overseer:overseer for the thin two-pane overseer surface, /livespec-overseer:supervise-plan for reviewed supervisor handoff creation, /livespec-overseer:foreman for the bounded foreman operator loop, /livespec-overseer:grooming for the bounded one-shot backlog drain pass, and /livespec-overseer:caam-anthropic-loop for caam-managed Claude Max quota watching and account rotation.",
   "skills": "./.codex-plugin/skills/"
 }

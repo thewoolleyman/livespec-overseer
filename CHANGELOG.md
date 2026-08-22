@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.27.0...v1.27.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* pin wait premise schema and path collisions ([f828f71](https://github.com/thewoolleyman/livespec-overseer/commit/f828f7105e8725b5edf886ad22f3c0833215cdc7))
+
 ## [1.27.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.26.2...v1.27.0) (2026-08-22)
 
 
