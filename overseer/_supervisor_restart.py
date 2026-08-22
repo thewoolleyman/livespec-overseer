@@ -125,6 +125,7 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
             session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="restart respawn FAILED; keeping the ready declaration so it retries",
+            condition="claude-restart-respawn-failed",
         )
         return
     if not claude_respawn_verified(sup=sup, track=track, target=target):
@@ -148,6 +149,7 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
             session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="freshly-restarted pane is on a gate — not keystroking it; will retry",
+            condition="claude-fresh-gate-after-restart",
         )
         return
     resume = cast(str, resume_prompt(track=track))
@@ -184,6 +186,7 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
         session=_supervisor_launch.session_of(sup=sup, track=track),
         pane=target,
         message="resume line NOT submitted after restart — will retry the Enter (no respawn)",
+        condition="claude-resume-submit-failed",
     )
 
 

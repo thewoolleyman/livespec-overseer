@@ -77,7 +77,7 @@ def idle_threshold_decision(*, request: IdleThresholdRequest) -> IdleThresholdDe
     if expiry_notice_sent:
         danger = request.obs.eff_ctx is not None and request.obs.eff_ctx <= DANGER_CTX_REMAINING
         if danger:
-            active_conditions.add("default")
+            active_conditions.add("danger-non-responder")
         return IdleThresholdDecision(
             status="danger" if danger else "warned",
             note=note,

@@ -118,6 +118,7 @@ def _respawn_verified(
             session=session,
             pane=target,
             message="restart respawn FAILED; keeping the ready declaration so it retries",
+            condition="codex-restart-respawn-failed",
         )
         return False
     if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_codex):
@@ -127,6 +128,7 @@ def _respawn_verified(
             session=session,
             pane=target,
             message="respawned pane never became Codex; keeping the ready declaration",
+            condition="codex-post-respawn-not-ready",
         )
         return False
     fresh_capture = signals.strip_ansi(text=sup.tmux.capture_pane(session=target))
@@ -140,6 +142,7 @@ def _respawn_verified(
                 "respawned Codex pane did not show its required resume kick; "
                 "keeping the ready declaration"
             ),
+            condition="codex-resume-kick-missing",
         )
         return False
     if not _post_respawn_live_process(sup=sup, track=track, session=session, session_id=session_id):
@@ -159,6 +162,7 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
             session=session,
             pane=target,
             message="codex session vanished before restart; keeping the ready declaration",
+            condition="codex-session-vanished-before-restart",
         )
         return
     session_id = _supervisor_launch.canonical_codex_session_id(value=live.session_id)
@@ -173,6 +177,7 @@ def do_codex_restart(*, sup: Supervisor, track: registry.Track, target: str) -> 
                 "codex restart refused: live session has no valid UUID; "
                 "keeping the ready declaration"
             ),
+            condition="codex-restart-invalid-session-id",
         )
         return
     resume = resume_for_track(track=track)

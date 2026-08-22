@@ -130,6 +130,7 @@ def nudge_idle_with_context(
             session=_supervisor_launch.session_of(sup=sup, track=track),
             pane=target,
             message="idle-with-context-left nudge FAILED (paste did not land); will retry",
+            condition="idle-nudge-submit-failed",
         )
 
 
@@ -162,6 +163,7 @@ def nudge_charter_authorized_picker_stall(
         session=_supervisor_launch.session_of(sup=sup, track=track),
         pane=target,
         message="charter-authorized picker-stall nudge FAILED (paste did not land)",
+        condition="picker-stall-nudge-failed",
     )
 
 
@@ -215,4 +217,5 @@ def alert_non_responder(
             f"NOT RESPONDING — ctx {eff_ctx}% left and it {what}. The overseer will "
             f"NOT restart it: only the session may authorize that. A human must act."
         ),
+        condition="danger-non-responder",
     )
