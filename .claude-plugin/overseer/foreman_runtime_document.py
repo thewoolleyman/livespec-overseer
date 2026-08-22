@@ -5,11 +5,15 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import datetime
 
 import jsonio
 
-__all__: list[str] = ["ForemanDocument", "foreman_blocking_prompt_open", "foreman_document"]
+__all__: list[str] = [
+    "ForemanDocument",
+    "foreman_blocking_prompt_observation_key",
+    "foreman_blocking_prompt_open",
+    "foreman_document",
+]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -85,20 +89,30 @@ def foreman_document(*, payload: dict[str, object]) -> ForemanDocument:
     )
 
 
-def _timestamp_epoch(*, value: object) -> float | None:
-    if isinstance(value, str):
-        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+def foreman_blocking_prompt_observation_key(
+    *, payload: dict[str, object], foreman_topic: str
+) -> str | None:
+    for row in _snapshot_rows(payload=payload):
+        if row.get("topic") != foreman_topic or row.get("picker_open") is not True:
+            continue
+        identity = row.get("session_identity")
+        session_identity = (
+            identity.strip() if isinstance(identity, str) and identity.strip() else None
+        )
+        return _digest(value={"topic": foreman_topic, "session_identity": session_identity})
     return None
 
 
 def foreman_blocking_prompt_open(
-    *, payload: dict[str, object], foreman_topic: str, tick_started_at: float = 0.0
+    *,
+    payload: dict[str, object],
+    foreman_topic: str,
+    previous_observation_key: object = None,
+    tick_started_at: float = 0.0,
 ) -> bool:
-    snapshot = jsonio.as_object(value=payload.get("snapshot")) or {}
-    written_at = _timestamp_epoch(value=snapshot.get("written_at"))
-    if written_at is None or written_at < tick_started_at:
-        return False
-    for row in _snapshot_rows(payload=payload):
-        if row.get("topic") == foreman_topic and row.get("picker_open") is True:
-            return True
-    return False
+    del tick_started_at
+    current = foreman_blocking_prompt_observation_key(
+        payload=payload,
+        foreman_topic=foreman_topic,
+    )
+    return isinstance(previous_observation_key, str) and current == previous_observation_key

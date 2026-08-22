@@ -98,27 +98,30 @@ def test_non_blocking_foreman_escalation_keeps_next_scheduled_tick(*, tmp_path):
     assert calls == [1000.0, 4600.0]
 
 
-def test_foreman_runtime_reports_own_open_blocking_prompt_from_snapshot(*, tmp_path):
+def test_genuinely_open_blocking_prompt_persists_then_writes_marker_with_realistic_timestamp(
+    *, tmp_path
+):
     module = foreman_runtime()
     repo = make_repo(tmp_path=tmp_path)
-    runtime = module.ForemanRuntime(repo=repo, now=lambda: 1000.0)
-
-    result = runtime.step(
-        document={
-            "snapshot": {
-                "written_at": "1970-01-01T00:16:40Z",
-                "rows": [
-                    {
-                        "topic": "repo-foreman",
-                        "status": "blocked:human",
-                        "picker_open": True,
-                        "session_identity": "claude:current-foreman-seat",
-                    }
-                ],
-            }
+    runtime = module.ForemanRuntime(repo=repo, now=lambda: 1000.25)
+    document = {
+        "snapshot": {
+            "written_at": "1970-01-01T00:16:40Z",
+            "rows": [
+                {
+                    "topic": "repo-foreman",
+                    "status": "blocked:human",
+                    "picker_open": True,
+                    "session_identity": "claude:current-foreman-seat",
+                }
+            ],
         }
-    )
+    }
 
+    first = runtime.step(document=document)
+    result = runtime.step(document=document)
+
+    assert first.blocking_prompt_open is False
     assert result.blocking_prompt_open is True
     path = repo / "tmp" / "overseer" / "foreman" / "escalations" / "repo-foreman.json"
     assert json.loads(path.read_text(encoding="utf-8")) == {
