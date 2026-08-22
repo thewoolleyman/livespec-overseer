@@ -132,6 +132,70 @@ def test_injection_stamp_dict_shape_bands_roundtrip(*, tmp_path):
     assert registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) == 600.0
 
 
+def test_picker_stall_episode_roundtrip_preserves_round_data(*, tmp_path):
+    stamp = tmp_path / "stamps.json"
+    registry.write_injection_stamp(repo="/r", topic="t", ts=500.0, stamp_path=stamp)
+    registry.add_notified_band(repo="/r", topic="t", band=45, stamp_path=stamp)
+
+    registry.record_picker_stall_episode(
+        repo="/r",
+        topic="t",
+        since=123.5,
+        gate_signature="question\n❯ 1. Yes\n2. No",
+        stamp_path=stamp,
+    )
+
+    assert registry.read_picker_stall_episode(repo="/r", topic="t", stamp_path=stamp) == (
+        123.5,
+        "question\n❯ 1. Yes\n2. No",
+    )
+    assert registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) == 500.0
+    assert registry.read_notified_bands(repo="/r", topic="t", stamp_path=stamp) == [45]
+
+    registry.clear_picker_stall_episode(repo="/r", topic="t", stamp_path=stamp)
+
+    assert registry.read_picker_stall_episode(repo="/r", topic="t", stamp_path=stamp) is None
+    assert registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) == 500.0
+    assert registry.read_notified_bands(repo="/r", topic="t", stamp_path=stamp) == [45]
+
+
+def test_picker_stall_episode_clear_removes_empty_row_and_absent_is_noop(*, tmp_path):
+    stamp = tmp_path / "stamps.json"
+    registry.clear_picker_stall_episode(repo="/r", topic="absent", stamp_path=stamp)
+    registry.record_picker_stall_episode(
+        repo="/r",
+        topic="t",
+        since=123.5,
+        gate_signature="gate",
+        stamp_path=stamp,
+    )
+
+    registry.clear_picker_stall_episode(repo="/r", topic="t", stamp_path=stamp)
+
+    assert json.loads(stamp.read_text(encoding="utf-8")) == {}
+
+
+def test_picker_stall_episode_malformed_values_read_absent(*, tmp_path):
+    stamp = tmp_path / "stamps.json"
+    stamp.write_text(
+        json.dumps(
+            {
+                "/r\tmissing-signature": {"picker_stall": {"since": 1.0}},
+                "/r\tnon-numeric": {"picker_stall": {"since": "later", "gate_signature": "gate"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert (
+        registry.read_picker_stall_episode(repo="/r", topic="missing-signature", stamp_path=stamp)
+        is None
+    )
+    assert (
+        registry.read_picker_stall_episode(repo="/r", topic="non-numeric", stamp_path=stamp) is None
+    )
+
+
 def test_clear_injection_stamp_resets_at_and_bands(*, tmp_path):
     """Part 2: clear deletes the key entirely → both `at` and `bands` reset."""
     stamp = tmp_path / "stamps.json"

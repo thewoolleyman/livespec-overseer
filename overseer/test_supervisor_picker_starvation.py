@@ -74,7 +74,7 @@ def test_picker_stall_clock_recovers_when_since_is_missing(*, tmp_path):
     recovered = sup.evaluate(track=track, act=True)
 
     assert recovered.status == "blocked:human"
-    assert recovered.stall_seconds == 0
+    assert recovered.stall_seconds == 42
 
 
 def test_overdue_picker_stall_has_attention_status_distinct_from_fresh_block(

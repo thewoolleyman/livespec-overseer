@@ -33,7 +33,14 @@ def test_picker_stall_reaches_threshold_across_incidental_redraws(*, tmp_path, m
         assert sup.evaluate(track=track, act=True).status == "blocked:human"
         for redraw in range(1, 4):
             clock["t"] += 10.0
-            fake.panes[session] = picker_capture() + f"redraw {redraw}\n"
+            fake.panes[session] = (
+                "How do you want to ratify?\n"
+                "❯ 1. Yes, run /livespec:revise\n"
+                "  2. No, ask the operator\n"
+                "\n"
+                "  Opus 4.8 (1M context) | /x/repo | Ctx: 80% left\n"
+                f"redraw {redraw}\n"
+            )
             stalled = sup.evaluate(track=track, act=True)
 
     assert stalled.status == "picker-stalled"
@@ -66,3 +73,78 @@ def test_picker_stall_clock_resets_when_picker_closes(*, tmp_path, monkeypatch):
 
     assert reopened.status == "blocked:human"
     assert reopened.stall_seconds == 0
+
+
+def test_picker_stall_clock_survives_supervisor_restart(*, tmp_path, monkeypatch):
+    monkeypatch.setattr(_supervisor_config, "PICKER_STALL_AFTER", 30.0)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=picker_capture())
+    clock = {"t": 1000.0}
+    first = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        now=lambda: clock["t"],
+    )
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    assert first.evaluate(track=track, act=True).status == "blocked:human"
+    clock["t"] += 20.0
+    assert first.evaluate(track=track, act=True).stall_seconds == 20
+    restarted = make_supervisor(
+        tmp_path=tmp_path,
+        fake=fake,
+        now=lambda: clock["t"],
+    )
+    clock["t"] += 15.0
+    stalled = restarted.evaluate(track=track, act=True)
+
+    assert stalled.status == "picker-stalled"
+    assert stalled.stall_seconds == 35
+
+
+def test_picker_stall_clock_resets_when_picker_question_changes_without_closed_tick(
+    *,
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(_supervisor_config, "PICKER_STALL_AFTER", 30.0)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=picker_capture())
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    assert sup.evaluate(track=track, act=True).status == "blocked:human"
+    clock["t"] += 40.0
+    assert sup.evaluate(track=track, act=True).status == "picker-stalled"
+    fake.panes[session] = (
+        "Which path should continue?\n"
+        "❯ 1. Dispatch the implementation\n"
+        "  2. Park and ask the operator\n"
+        "  Opus 4.8 (1M context) | /x/repo | Ctx: 80% left\n"
+    )
+    clock["t"] += 1.0
+    changed = sup.evaluate(track=track, act=True)
+
+    assert changed.status == "blocked:human"
+    assert changed.stall_seconds == 0
+
+
+def test_picker_stall_signature_accepts_gate_at_end_of_capture(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture="Continue?\n❯ 1. Yes\n")
+    clock = {"t": 1000.0}
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    assert sup.evaluate(track=track, act=True).status == "blocked:human"
+    clock["t"] += 1.0
+    blocked = sup.evaluate(track=track, act=True)
+
+    assert blocked.stall_seconds == 1
