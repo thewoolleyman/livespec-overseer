@@ -36,12 +36,12 @@ def test_work_item_plan_anchors_reads_parent_metadata_and_text_associations():
     }
 
 
-def test_plan_dispatch_item_ids_prefers_recorded_mappings_over_legacy_dotted_fallback():
+def test_plan_dispatch_item_ids_uses_only_recorded_mappings():
     assert foreman_plan_roster_work_items.plan_dispatch_item_ids(
         anchor="anchor-a",
         dispatch_item_ids=[
             "mapped",
-            "anchor-a.legacy",
+            "anchor-a.unmapped",
             "blocked-by-other-map",
             "other.legacy",
         ],
@@ -49,4 +49,4 @@ def test_plan_dispatch_item_ids_prefers_recorded_mappings_over_legacy_dotted_fal
             "mapped": "anchor-a",
             "blocked-by-other-map": "anchor-b",
         },
-    ) == ["mapped", "anchor-a.legacy"]
+    ) == ["mapped"]

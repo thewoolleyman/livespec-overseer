@@ -80,6 +80,19 @@ def test_ledger_records_use_configured_credential_wrapper(*, tmp_path, monkeypat
     ]
 
 
+def test_work_item_records_use_all_item_ledger_query(*, tmp_path, monkeypatch):
+    seen_command: list[str] = []
+
+    def capture(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        seen_command.extend(command)
+        return _completed(stdout="[]")
+
+    monkeypatch.setattr(foreman_plan_roster_work.subprocess, "run", capture)
+
+    assert foreman_plan_roster_work.ledger_work_item_records(repo=tmp_path) == []
+    assert seen_command == ["bd", "list", "--status", "all", "--json"]
+
+
 def test_ledger_anchor_uses_only_unique_open_plan_slug_epics(*, tmp_path, monkeypatch):
     payload = [
         [],
@@ -128,7 +141,7 @@ def test_work_state_documents_fetch_ledger_epics_once_for_all_plans(*, tmp_path,
         + "\n",
         encoding="utf-8",
     )
-    payload = [
+    epic_payload = [
         {
             "id": "overseer-alpha",
             "issue_type": "epic",
@@ -142,12 +155,23 @@ def test_work_state_documents_fetch_ledger_epics_once_for_all_plans(*, tmp_path,
             "metadata": {"plan_slug": "beta"},
         },
     ]
+    work_item_payload = [
+        *epic_payload,
+        {
+            "id": "overseer-alpha.1",
+            "issue_type": "bug",
+            "status": "active",
+            "parent": "overseer-alpha",
+        },
+    ]
     calls = 0
 
-    def capture(*_args: object, **_kwargs: object) -> SimpleNamespace:
+    def capture(command: list[str], **_kwargs: object) -> SimpleNamespace:
         nonlocal calls
         calls += 1
-        return _completed(stdout=json.dumps(payload))
+        if "--type" in command:
+            return _completed(stdout=json.dumps(epic_payload))
+        return _completed(stdout=json.dumps(work_item_payload))
 
     monkeypatch.setattr(foreman_plan_roster_work.subprocess, "run", capture)
 
@@ -165,7 +189,7 @@ def test_work_state_documents_fetch_ledger_epics_once_for_all_plans(*, tmp_path,
             "work_state_evidence": "anchor-resolved",
         },
     }
-    assert calls == 1
+    assert calls == 2
 
 
 def test_parentless_explicit_plan_association_raises_work_state_without_id_prefix(
@@ -200,7 +224,7 @@ def test_parentless_explicit_plan_association_raises_work_state_without_id_prefi
         + "\n",
         encoding="utf-8",
     )
-    payload = [
+    epic_payload = [
         {
             "id": "overseer-bc55wx",
             "issue_type": "epic",
@@ -213,6 +237,9 @@ def test_parentless_explicit_plan_association_raises_work_state_without_id_prefi
             "status": "active",
             "metadata": {"plan_slug": "unrelated"},
         },
+    ]
+    work_item_payload = [
+        *epic_payload,
         {
             "id": "overseer-8f18",
             "issue_type": "bug",
@@ -231,10 +258,18 @@ def test_parentless_explicit_plan_association_raises_work_state_without_id_prefi
         },
     ]
 
+    commands: list[list[str]] = []
+
+    def capture(command: list[str], **_kwargs: object) -> SimpleNamespace:
+        commands.append(command)
+        if "--type" in command:
+            return _completed(stdout=json.dumps(epic_payload))
+        return _completed(stdout=json.dumps(work_item_payload))
+
     monkeypatch.setattr(
         foreman_plan_roster_work.subprocess,
         "run",
-        lambda *_args, **_kwargs: _completed(stdout=json.dumps(payload)),
+        capture,
     )
 
     assert foreman_plan_roster_work.work_states_by_plan(
@@ -245,6 +280,10 @@ def test_parentless_explicit_plan_association_raises_work_state_without_id_prefi
         "model-preserving-restarts": "work-in-flight",
         "unrelated": "no-work-in-flight",
     }
+    assert commands == [
+        ["bd", "list", "--type", "epic", "--status", "all", "--json"],
+        ["bd", "list", "--status", "all", "--json"],
+    ]
 
 
 def test_legacy_anchor_fallback_remains_when_ledger_has_no_match(*, tmp_path, monkeypatch):
