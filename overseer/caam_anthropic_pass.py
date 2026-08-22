@@ -28,7 +28,14 @@ from caam_profile_state import (
 from caam_profiles import CaamRunner, active_profile
 from caam_switch import switch_account as default_switch_account
 from caam_usage import fetch_usage
-from caam_warm import AgentProcess, Logger, WarmConfig, keep_warm
+from caam_warm import (
+    AgentProcess,
+    Logger,
+    ResnapshotRunner,
+    WarmConfig,
+    keep_warm,
+    resnapshot_active,
+)
 
 __all__: list[str] = [
     "AgentRunner",
@@ -138,6 +145,7 @@ def run_pass(
             switch_account=switch_account,
             enforce_models=enforce_models,
             agent_runner=run_agent,
+            caam_runner=run_caam,
         ),
     )
 
@@ -149,6 +157,7 @@ class PassSeams:
     switch_account: SwitchAccount
     enforce_models: EnforceModels
     agent_runner: AgentRunner
+    caam_runner: ResnapshotRunner
 
 
 def _pass_with_active(
@@ -157,6 +166,13 @@ def _pass_with_active(
     active_name: str,
     seams: PassSeams,
 ) -> int:
+    resnapshot_active(
+        active_name=active_name,
+        home=context.home,
+        dry_run=context.flags.dry_run,
+        caam_runner=seams.caam_runner,
+        logger=_logger(writer=context.stdout),
+    )
     profiles = poll_profiles(
         active_name=active_name,
         state=context.state,
