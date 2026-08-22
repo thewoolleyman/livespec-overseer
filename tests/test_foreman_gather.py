@@ -1176,6 +1176,14 @@ def test_migrated_and_not_migrated_verdicts_are_unchanged(*, tmp_path):
         assert module.supervisor_handoff_state(repo=repo, topic="plain") == "missing"
 
 
+def test_collect_reexports_snapshot_supervisor_handoff_predicates() -> None:
+    collect = foreman_gather_collect()
+    snapshot = foreman_gather_snapshot()
+
+    assert collect.supervisor_handoff_state is snapshot.supervisor_handoff_state
+    assert collect.migrated_supervisor_handoff_state is snapshot.migrated_supervisor_handoff_state
+
+
 def test_supervisor_handoff_state_surfaces_unreadable_rather_than_claiming_missing(*, tmp_path):
     """The caller must not re-collapse what the widened predicate separated.
 
