@@ -32,6 +32,7 @@ one would be a unilateral requirement on other plans.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -82,6 +83,7 @@ def _plan_file(*, rel: str) -> Path:
 # module vacuous the moment the only declaring plan archived, which is the
 # failure its own anti-vacuous guard exists to catch.
 _PLAN_DIR_PATTERNS = ("plan/*/", "plan/archive/*/")
+_LIVE_PLAN_DIR_PATTERN = "plan/*/"
 
 # The binder states its anchor twice, and BOTH spellings are load-bearing: the
 # table is what a human reads, the assignment is what a supervisor executes. They
@@ -108,6 +110,12 @@ _BULLET_DASHES = "\u2012\u2013\u2014\u2015-"
 _ANCHOR_BULLET = re.compile(
     r"[Ll]edger epic anchor\s*[" + _BULLET_DASHES + r"]\s*`([a-z0-9-]+(?:\.[0-9]+)?)`"
 )
+
+
+@dataclass(frozen=True, kw_only=True)
+class PlanRecordScan:
+    checkable: list[tuple[str, str, list[str]]]
+    unchecked: list[tuple[str, str]]
 
 
 def _charter_anchors(*, text: str) -> tuple[list[str], list[str], list[str]]:
@@ -140,30 +148,60 @@ def _declared_anchors(*, text: str) -> list[str]:
     return _HANDOFF_DECLARES.findall(text)
 
 
-def _plans_with_a_charter_anchor(*, root: Path = _REPO_ROOT) -> list[tuple[str, str, list[str]]]:
+def _scan_plan_records(*, plans: list[Path]) -> PlanRecordScan:
     """(topic, charter_anchor, anchors_declared_by_handoff) for checkable plans.
 
-    `root` exists so every arc below is reachable from a synthetic tree — the
-    same reason `_anchor_from` was split out of this loop. Without it, which
-    arcs execute depends on which plans happen to be LIVE, and coverage
-    becomes a quantity over repo state: archiving the last live plan with
+    The caller supplies plan directories so every arc below is reachable from a
+    synthetic tree — the same reason `_anchor_from` was split out of this loop.
+    Without it, which arcs execute depends on which plans happen to be LIVE, and
+    coverage becomes a quantity over repo state: archiving the last live plan with
     both files and no anchor made the no-anchor `continue` unreachable and
     turned master's coverage gates red at 99% with every test passing
     (2026-08-02, the codex-parity-and-rollout-safety archive, reverted).
     """
-    out: list[tuple[str, str, list[str]]] = []
-    plans = sorted({d for pattern in _PLAN_DIR_PATTERNS for d in root.glob(pattern)})
+    checkable: list[tuple[str, str, list[str]]] = []
+    unchecked: list[tuple[str, str]] = []
     for plan in plans:
         charter = plan / "supervisor-handoff.md"
         handoff = plan / "handoff.md"
         if not charter.is_file() or not handoff.is_file():
+            missing = [
+                name
+                for name, file in (
+                    ("supervisor-handoff.md", charter),
+                    ("handoff.md", handoff),
+                )
+                if not file.is_file()
+            ]
+            unchecked.append((plan.name, ", ".join(missing)))
             continue
         table, executable, bullet = _charter_anchors(text=charter.read_text(encoding="utf-8"))
         if not table and not executable and not bullet:
             continue
         anchor = _anchor_from(topic=plan.name, table=table, executable=executable, bullet=bullet)
-        out.append((plan.name, anchor, _declared_anchors(text=handoff.read_text(encoding="utf-8"))))
-    return out
+        checkable.append(
+            (plan.name, anchor, _declared_anchors(text=handoff.read_text(encoding="utf-8")))
+        )
+    return PlanRecordScan(checkable=checkable, unchecked=unchecked)
+
+
+def _plans_with_a_charter_anchor(*, root: Path = _REPO_ROOT) -> list[tuple[str, str, list[str]]]:
+    plans = sorted({d for pattern in _PLAN_DIR_PATTERNS for d in root.glob(pattern)})
+    return _scan_plan_records(plans=plans).checkable
+
+
+def _live_plan_record_scan(*, root: Path = _REPO_ROOT) -> PlanRecordScan:
+    return _scan_plan_records(
+        plans=sorted(plan for plan in root.glob(_LIVE_PLAN_DIR_PATTERN) if plan.name != "archive")
+    )
+
+
+def _charter_anchor_offences(*, root: Path = _REPO_ROOT) -> dict[str, tuple[str, list[str]]]:
+    return {
+        topic: (anchor, declared)
+        for topic, anchor, declared in _plans_with_a_charter_anchor(root=root)
+        if anchor not in declared
+    }
 
 
 def test_at_least_one_plan_declares_a_charter_anchor() -> None:
@@ -173,7 +211,8 @@ def test_at_least_one_plan_declares_a_charter_anchor() -> None:
     charter. Without this, that sabotage would look like a clean repo — which is
     the exact shape of the gap `overseer-bak` describes.
     """
-    assert _plans_with_a_charter_anchor() != []
+    live_scan = _live_plan_record_scan()
+    assert live_scan.checkable or live_scan.unchecked
 
 
 def test_the_charter_anchor_is_one_the_handoff_actually_declares() -> None:
@@ -182,12 +221,28 @@ def test_the_charter_anchor_is_one_the_handoff_actually_declares() -> None:
     Sabotage that reddens this: set `ledger_anchor` back to `overseer-d4t`, which
     this plan's handoff declares nowhere.
     """
-    offences = {
-        topic: (anchor, declared)
-        for topic, anchor, declared in _plans_with_a_charter_anchor()
-        if anchor not in declared
+    assert _charter_anchor_offences() == {}
+
+
+def test_a_live_plan_with_a_stale_charter_anchor_fails_the_gate(*, tmp_path: Path) -> None:
+    """Synthetic live plan control: seeing a live plan must still discriminate."""
+    plan = tmp_path / "plan" / "anchored"
+    plan.mkdir(parents=True)
+    (plan / "supervisor-handoff.md").write_text(
+        "| `ledger_anchor` | `overseer-old` |\n\nledger_anchor='overseer-old'\n",
+        encoding="utf-8",
+    )
+    (plan / "handoff.md").write_text(
+        "**Ledger anchor:** epic `overseer-new`.\n",
+        encoding="utf-8",
+    )
+
+    assert _live_plan_record_scan(root=tmp_path).checkable == [
+        ("anchored", "overseer-old", ["overseer-new"])
+    ]
+    assert _charter_anchor_offences(root=tmp_path) == {
+        "anchored": ("overseer-old", ["overseer-new"])
     }
-    assert offences == {}
 
 
 def test_the_charter_anchor_is_the_current_one_the_handoff_declares() -> None:
@@ -207,6 +262,39 @@ def test_the_charter_anchor_is_the_current_one_the_handoff_declares() -> None:
         if declared and anchor != declared[-1]
     }
     assert stale == {}
+
+
+def test_live_plans_without_file_held_records_are_reported_by_name() -> None:
+    """Ledger-held live plans are named as unchecked instead of disappearing.
+
+    Missing `handoff.md` or `supervisor-handoff.md` is not a failing file-record
+    violation in this repo: live plans are ledger-held by design. The gate still
+    has to report the names, because "nothing checked" and "nothing wrong" were
+    previously indistinguishable.
+    """
+    scan = _live_plan_record_scan()
+
+    assert scan.checkable == []
+    assert scan.unchecked == [
+        ("caam-anthropic-loop", "supervisor-handoff.md, handoff.md"),
+        ("fix-restart-problem", "supervisor-handoff.md, handoff.md"),
+        ("fix-vps-server-load", "supervisor-handoff.md, handoff.md"),
+        ("fleet-plumbing-and-dispatch-reliability", "supervisor-handoff.md, handoff.md"),
+        ("foreman-full-autonomy-option", "supervisor-handoff.md, handoff.md"),
+        ("foreman-improvements", "supervisor-handoff.md, handoff.md"),
+        ("foreman-panel-and-consensus", "supervisor-handoff.md, handoff.md"),
+        ("foreman-picker-mutes-its-own-loop", "supervisor-handoff.md, handoff.md"),
+        ("foreman-seats-and-plan-records", "supervisor-handoff.md, handoff.md"),
+        ("foreman-table", "supervisor-handoff.md, handoff.md"),
+        ("foreman-wait-premises", "supervisor-handoff.md, handoff.md"),
+        ("grooming-skill", "supervisor-handoff.md, handoff.md"),
+        ("model-preserving-restarts", "supervisor-handoff.md, handoff.md"),
+        ("overseerd-observability", "supervisor-handoff.md, handoff.md"),
+        ("overseerd-release-currency", "supervisor-handoff.md, handoff.md"),
+        ("supervision-safety-and-attention-truth", "supervisor-handoff.md, handoff.md"),
+        ("test-and-gate-integrity", "supervisor-handoff.md, handoff.md"),
+        ("track-record-type-safety", "supervisor-handoff.md, handoff.md"),
+    ]
 
 
 def test_the_extractors_fire_on_the_shapes_they_are_written_for() -> None:
