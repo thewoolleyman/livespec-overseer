@@ -5,12 +5,11 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
 import registry
-from _supervisor_foreman import heartbeat_lapse, heartbeat_path
+from _supervisor_foreman import heartbeat_lapse
 from foreman_act_record import AppendJournal, append_journal
 from foreman_runtime_autonomy import (
     STANDING_ORDERS_TEMPLATE,
@@ -34,6 +33,7 @@ from foreman_runtime_identity import EntryGateResult, canonical_session_name, en
 from foreman_runtime_lock import ForemanLock, LockResult
 from foreman_runtime_policy import exit_reason, stable_ticks
 from foreman_runtime_state import atomic_json, read_json_object, state_path
+from foreman_stop_state import record_runtime_stop_state, write_foreman_heartbeat
 
 __all__: list[str] = [
     "DEFAULT_HARD_TICK_BUDGET",
@@ -142,18 +142,6 @@ class ForemanRuntime:
     def _write_state(self, *, state: dict[str, object]) -> None:
         atomic_json(path=state_path(repo=self.repo), payload=state)
 
-    def _write_heartbeat(self, *, tick_generation: int, interval_seconds: float) -> None:
-        written = datetime.fromtimestamp(self.now(), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        atomic_json(
-            path=heartbeat_path(repo=str(self.repo)),
-            payload={
-                "written_at": written,
-                "pid": os.getpid(),
-                "tick_generation": tick_generation,
-                "tick_interval_seconds": interval_seconds,
-            },
-        )
-
     def step(self, *, document: dict[str, object]) -> StepResult:
         state = self._read_state()
         interval_seconds = effective_interval(
@@ -205,6 +193,13 @@ class ForemanRuntime:
             next_llm_tick_at = now + interval_seconds
             tick_generation = 0
             stable_tick_count = 0
+        record_runtime_stop_state(
+            repo=self.repo,
+            lapse=lapse,
+            exit_reason=reason,
+            auto_resume_interval_seconds=auto_resume_interval_seconds,
+            now=self.now,
+        )
         self._write_state(
             state={
                 "tick_generation": tick_generation,
@@ -216,7 +211,12 @@ class ForemanRuntime:
                 "blocking_prompt_observation_key": blocking_prompt_observation_key,
             }
         )
-        self._write_heartbeat(tick_generation=tick_generation, interval_seconds=interval_seconds)
+        write_foreman_heartbeat(
+            repo=self.repo,
+            tick_generation=tick_generation,
+            interval_seconds=interval_seconds,
+            now=self.now,
+        )
         blocking_prompt_open = foreman_blocking_prompt_open(
             payload=document,
             foreman_topic=foreman_topic,

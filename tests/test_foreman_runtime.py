@@ -76,6 +76,12 @@ def state_json(*, repo: Path) -> dict[str, object]:
     )
 
 
+def foreman_stop_json(*, repo: Path) -> dict[str, object]:
+    return json.loads(
+        (repo / "tmp" / "overseer" / "foreman" / "stop.json").read_text(encoding="utf-8")
+    )
+
+
 def test_runtime_reports_full_autonomy_disposition_and_attention_rows(*, tmp_path):
     module = foreman_runtime()
     repo = make_repo(tmp_path=tmp_path)
@@ -560,6 +566,29 @@ def test_loop_lapsed_is_true_after_the_recurring_loop_stopped_ticking(*, tmp_pat
 
     assert resumed.loop_lapsed is True
     assert resumed.heartbeat_age_seconds == 3.0 * 3600.0
+    stop = foreman_stop_json(repo=repo)
+    assert stop["state"] == "died"
+    assert stop["reason"] == "tick-deadline-lapsed"
+    assert stop["lapsed_at"] == "1970-01-01T02:16:40Z"
+    assert stop["observed_at"] == "1970-01-01T03:16:40Z"
+
+
+def test_converged_writes_completed_bounded_run_stop_reason(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    runtime = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: 1000.0,
+        config=module.ForemanConfig(converged_ticks=1),
+    )
+
+    result = runtime.step(document={"snapshot": {"rows": [{"topic": "a", "status": "idle"}]}})
+
+    assert result.exit_reason == "converged"
+    stop = foreman_stop_json(repo=repo)
+    assert stop["state"] == "completed-bounded-run"
+    assert stop["reason"] == "converged"
+    assert stop["observed_at"] == "1970-01-01T00:16:40Z"
 
 
 def test_convergence_requires_non_empty_set_no_change_and_no_action(*, tmp_path):
@@ -712,6 +741,7 @@ def test_hard_tick_budget_auto_resumes_at_a_doubled_bounded_interval(*, tmp_path
     assert state["stable_ticks"] == 0
     assert state["next_llm_tick_at"] == 8200.0
     assert state["llm_tick_interval_seconds"] == 7200.0
+    assert not (repo / "tmp" / "overseer" / "foreman" / "stop.json").exists()
 
     bounded = module.ForemanRuntime(
         repo=repo,
