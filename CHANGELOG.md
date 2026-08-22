@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.28.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.28.2...v1.28.3) (2026-08-22)
+
+
+### Bug Fixes
+
+* keep the foreman loop ticking when it needs a human decision ([08b2afd](https://github.com/thewoolleyman/livespec-overseer/commit/08b2afdea5987191d14cfbeb8dc1a874b04d32c0))
+
 ## [1.28.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.28.1...v1.28.2) (2026-08-22)
 
 
