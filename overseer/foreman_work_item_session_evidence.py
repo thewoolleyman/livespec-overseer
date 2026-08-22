@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Final
 
 import jsonio
+from foreman_gather_sources import parse_repo_config, string_list
 
 __all__: list[str] = ["work_item_session_refusal"]
 
@@ -48,9 +49,10 @@ def attention_has_work_item(*, document: dict[str, object], work_item_id: str) -
 
 
 def read_work_item(*, repo: Path, work_item_id: str) -> tuple[dict[str, object] | None, str | None]:
+    command = [*_credential_wrapper(repo=repo), "bd", "show", work_item_id, "--json"]
     try:
         completed = subprocess.run(  # noqa: S603
-            ["bd", "show", work_item_id, "--json"],  # noqa: S607
+            command,
             cwd=str(repo),
             check=False,
             capture_output=True,
@@ -70,6 +72,14 @@ def read_work_item(*, repo: Path, work_item_id: str) -> tuple[dict[str, object] 
     if item is None or str_field(payload=item, key="id") != work_item_id:  # pragma: no cover
         return None, "work_item_not_found"
     return item, None
+
+
+def _credential_wrapper(*, repo: Path) -> list[str]:
+    config = parse_repo_config(repo=repo)
+    if config is None:
+        return []
+    wrapper = string_list(value=config.get("credential_wrapper"))
+    return wrapper if wrapper is not None else []
 
 
 def tenant_prefix(*, repo: Path) -> str:
