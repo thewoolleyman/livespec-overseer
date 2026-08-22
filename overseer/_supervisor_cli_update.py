@@ -65,8 +65,8 @@ def add_mapping_write_args(*, parser: argparse.ArgumentParser) -> None:
 
 def upsert_track(
     *, track: registry.Track, update_fields: frozenset[str] = frozenset({"tmux"})
-) -> None:
+) -> bool:
     """Create a mapping row or update only the fields this CLI invocation supplied."""
-    registry.upsert_mapping(
+    return registry.upsert_mapping(
         track=track, store_path=None, added_at=iso_now(), update_fields=update_fields
     )
