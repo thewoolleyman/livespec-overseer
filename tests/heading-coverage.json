@@ -1131,7 +1131,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A panel-authorized change is relayed to the worker rather than implemented by the foreman",
-    "test": "TODO",
+    "test": "tests.integration.test_foreman_valve_disposition.test_panel_authorized_change_is_relayed_to_worker_not_implemented_by_foreman",
     "reason": "Integration-tier required: this is user-observable foreman behaviour and belongs beside the existing full-autonomy scenarios in tests/integration/test_foreman_valve_disposition.py, never a unit test. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w) as part of the delegation floor; the pinning test lands with child overseer-3h4s5w.15. Pins the relay-not-implement direction: an authorized typed action reaches the assigned worker and the foreman seat authors no deliverable.",
     "work_item": "overseer-3h4s5w.15"
   },
@@ -1139,7 +1139,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A track with no assigned worker resolves to an assignment rather than to foreman-authored work",
-    "test": "TODO",
+    "test": "tests.integration.test_foreman_valve_disposition.test_unassigned_track_gets_worker_assignment_instead_of_foreman_work",
     "reason": "Integration-tier required, same tier and file as the sibling delegation-floor scenarios. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.15. Pins the absent-worker case, which is the shape most likely to be rationalised away: with nobody to relay to, the authorized act is to get a worker assigned and started rather than to absorb the work.",
     "work_item": "overseer-3h4s5w.15"
   },
@@ -1147,7 +1147,7 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The delegation floor holds against a unanimous panel",
-    "test": "TODO",
+    "test": "tests.integration.test_foreman_valve_disposition.test_delegation_floor_refuses_unanimous_foreman_authored_deliverable",
     "reason": "Integration-tier required, same tier and file as the sibling delegation-floor scenarios. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.15. This is the DISCRIMINATING leg of the three and must be able to fail for the right reason: the panel is UNANIMOUS in favour of the foreman making the change itself and the act is still refused as a floor violation. A divided-panel test would pass with the floor absent, because escalation there is the pre-existing behaviour.",
     "work_item": "overseer-3h4s5w.15"
   }

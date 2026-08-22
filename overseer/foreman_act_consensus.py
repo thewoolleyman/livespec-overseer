@@ -10,8 +10,8 @@ from typing import Protocol, cast
 import jsonio
 from foreman_act_journal import journal_reconcile_command
 from foreman_act_record import AppendJournal
-from foreman_act_types import ACTION_IDS, BLOCKED_SESSION_ANSWER, HUMAN_VALVE, ActionId, ActResult
-from foreman_consensus_actions import typed_action
+from foreman_act_types import BLOCKED_SESSION_ANSWER, HUMAN_VALVE, ActionId, ActResult
+from foreman_consensus_actions import authorized_action_id, typed_action
 from foreman_consensus_types import DecisionRule
 from foreman_recorded_next_action import (
     RecordedNextAction,
@@ -64,10 +64,6 @@ def _failed(*, action_id: str, reason: str) -> ActResult:
     return _result(  # pragma: no cover
         action_id=action_id, reason=reason, outcome="failed", mutated=False
     )
-
-
-def _known_action_id(*, value: object) -> ActionId | None:
-    return value if isinstance(value, str) and value in ACTION_IDS else None
 
 
 def _known_decision_rule(*, value: object) -> DecisionRule | None:
@@ -205,10 +201,7 @@ def _authorized_panel_member(
         if not isinstance(kind, str) or not ruling_kind_defined(kind=kind):
             return None, "consensus_ruling_not_enumerated"
         return None, "consensus_ruling_not_supported"
-    action_id = None if action is None else _known_action_id(value=action.get("action_id"))
-    if action_id is None or action_id == HUMAN_VALVE:  # pragma: no cover
-        return None, "consensus_action_not_enumerated"
-    return action_id, None
+    return authorized_action_id(action=action)
 
 
 def _pre_evidence_refusal(
@@ -264,7 +257,9 @@ def prepare_consensus_action(
     )
     if refusal is not None or authorized_member is None:  # pragma: no cover
         refused_action_id = (
-            HUMAN_VALVE if refusal == "consensus_ruling_not_enumerated" else action_id
+            HUMAN_VALVE
+            if refusal in {"consensus_ruling_not_enumerated", "delegation_floor:track_deliverable"}
+            else action_id
         )
         return None, _refused(
             action_id=refused_action_id, reason=refusal or "consensus_unavailable"
