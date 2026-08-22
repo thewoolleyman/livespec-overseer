@@ -286,7 +286,12 @@ def test_codex_launch_plan_without_recorded_profile_matches_the_bare_command_byt
         session_id=session_id,
         resume=resume,
     )
-    assert plan.env is None
+    assert plan.env == {
+        "ANTHROPIC_MODEL": None,
+        "ANTHROPIC_SMALL_FAST_MODEL": None,
+        "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+    }
 
 
 def test_codex_daemon_restart_sets_unattended_resume_env_without_recorded_profile(*, tmp_path):
@@ -302,7 +307,13 @@ def test_codex_daemon_restart_sets_unattended_resume_env_without_recorded_profil
     )
 
     assert isinstance(plan, codex_launch_plan_type)
-    assert plan.env == {"LIVESPEC_PLAN_UNATTENDED": "1"}
+    assert plan.env == {
+        "ANTHROPIC_MODEL": None,
+        "ANTHROPIC_SMALL_FAST_MODEL": None,
+        "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
+        "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+        "LIVESPEC_PLAN_UNATTENDED": "1",
+    }
 
 
 def test_codex_launch_plan_uses_m_flag_for_a_cloud_profile(*, tmp_path):
