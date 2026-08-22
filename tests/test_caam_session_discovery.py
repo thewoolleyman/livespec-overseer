@@ -183,8 +183,8 @@ def test_transcript_is_resolved_by_session_identifier_not_newest_project_file(*,
         session_id="sid-other",
         models=["claude-opus-5"],
     )
-    os.utime(older, ns=(1_000_000_000, 1_000_000_000))
-    os.utime(newest_wrong, ns=(2_000_000_000, 2_000_000_000))
+    os.utime(older, ns=(1, 1))
+    os.utime(newest_wrong, ns=(2, 2))
 
     assert module.pane_model(home=tmp_path, session_id="sid-target") == "sonnet"
     assert module.newest_project_model_for_test(home=tmp_path, project="-work") == "opus"

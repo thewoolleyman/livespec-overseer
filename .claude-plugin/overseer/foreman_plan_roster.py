@@ -3,14 +3,12 @@
 
 from __future__ import annotations
 
-import argparse
-import json
 from pathlib import Path
 
 import jsonio
-import streams
 import tmuxio
-from _supervisor_snapshot import DEFAULT_STATUS_PATH, read_status_snapshot
+from _supervisor_snapshot import read_status_snapshot
+from foreman_plan_roster_state import mark_roster_tick
 from foreman_plan_roster_work import (
     NO_WORK_IN_FLIGHT,
     WORK_IN_FLIGHT,
@@ -23,9 +21,12 @@ __all__: list[str] = [
     "INCOHERENT",
     "SESSION_STATES",
     "WORK_STATES",
+    "active_plan_names",
     "compose_roster",
     "emoji_for_pair",
     "main",
+    "mark_roster_tick",
+    "tmuxio",
 ]
 
 SCHEMA_VERSION = 1
@@ -79,7 +80,7 @@ PAIR_EMOJI = {
 }
 
 
-def _active_plan_names(*, repo: Path) -> list[str]:
+def active_plan_names(*, repo: Path) -> list[str]:
     plan_dir = repo / "plan"
     if not plan_dir.is_dir():
         return []
@@ -166,6 +167,7 @@ def _roster_row(
     daemon_row: dict[str, object] | None,
     tmux_session_names: set[str],
     work_state: str,
+    unactioned_count: int | None,
 ) -> dict[str, object]:
     session_state = _session_state(daemon_row=daemon_row)
     name_identity_verdict = _name_identity_verdict(
@@ -174,7 +176,7 @@ def _roster_row(
         tmux_session_names=tmux_session_names,
     )
     daemon_topic = None if daemon_row is None else daemon_row.get("topic")
-    return {
+    row: dict[str, object] = {
         "plan": plan,
         "topic": plan,
         "tmux_session": plan if plan in tmux_session_names else None,
@@ -189,6 +191,9 @@ def _roster_row(
             work_state=work_state,
         ),
     }
+    if unactioned_count is not None:
+        row["consecutive_unactioned_ticks"] = unactioned_count
+    return row
 
 
 def _tmux_only_errors(
@@ -215,9 +220,10 @@ def compose_roster(
     snapshot_path: Path,
     tmux_sessions: list[str],
     journal_path: Path | None = None,
+    unactioned_counts: dict[str, int] | None = None,
 ) -> dict[str, object]:
     repo = repo.resolve()
-    plan_names = _active_plan_names(repo=repo)
+    plan_names = active_plan_names(repo=repo)
     plan_name_set = set(plan_names)
     tmux_session_names = {session for session in tmux_sessions if session}
     daemon_rows = _snapshot_rows_by_topic(repo=repo, snapshot_path=snapshot_path)
@@ -228,6 +234,9 @@ def compose_roster(
             daemon_row=daemon_rows.get(plan),
             tmux_session_names=tmux_session_names,
             work_state=work_states.get(plan, NO_WORK_IN_FLIGHT),
+            unactioned_count=(
+                None if unactioned_counts is None else unactioned_counts.get(plan, 0)
+            ),
         )
         for plan in plan_names
     ]
@@ -246,30 +255,7 @@ def compose_roster(
     }
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="foreman-plan-roster")
-    _ = parser.add_argument("--repo", default=str(Path.cwd()))
-    _ = parser.add_argument("--snapshot-path", default=str(DEFAULT_STATUS_PATH))
-    _ = parser.add_argument("--journal-path", default=None)
-    _ = parser.add_argument(
-        "--tmux-session",
-        action="append",
-        default=None,
-        help="test seam: supply tmux session names instead of querying tmux",
-    )
-    return parser
-
-
 def main(*, argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
-    tmux_sessions = args.tmux_session
-    if tmux_sessions is None:
-        tmux_sessions = tmuxio.TmuxIO().list_sessions()
-    roster = compose_roster(
-        repo=Path(args.repo),
-        snapshot_path=Path(args.snapshot_path),
-        tmux_sessions=tmux_sessions,
-        journal_path=Path(args.journal_path) if args.journal_path is not None else None,
-    )
-    streams.write_stdout(text=json.dumps(roster, sort_keys=True) + "\n")
-    return 0
+    from foreman_plan_roster_cli import main as cli_main
+
+    return cli_main(argv=argv)
