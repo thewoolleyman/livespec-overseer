@@ -47,6 +47,17 @@ def test_launch_plan_scrubs_controlled_env_without_a_recorded_profile(*, tmp_pat
     }
 
 
+def test_operator_start_launch_plan_does_not_set_unattended_resume_env(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    track = mapped_track(repo=repo, topic=topic, session=topic)
+
+    claude_launch_plan_type, _launch_profile_problem_type = _types()
+    plan = _supervisor_launch.claude_launch_plan(track=track, start=True)
+
+    assert isinstance(plan, claude_launch_plan_type)
+    assert "LIVESPEC_PLAN_UNATTENDED" not in plan.env
+
+
 def test_launch_plan_uses_model_flag_for_a_cloud_profile(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     track = replace(
@@ -167,6 +178,7 @@ def test_scenario_restart_reasserts_an_explicitly_recorded_model(*, tmp_path):
                 "ANTHROPIC_SMALL_FAST_MODEL": None,
                 "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
                 "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+                "LIVESPEC_PLAN_UNATTENDED": "1",
             },
         )
     ]
@@ -201,6 +213,7 @@ def test_scenario_restart_reasserts_a_local_llm_wrapper_and_env(*, tmp_path):
                 "ANTHROPIC_SMALL_FAST_MODEL": None,
                 "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
                 "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+                "LIVESPEC_PLAN_UNATTENDED": "1",
             },
         )
     ]
@@ -246,6 +259,7 @@ def test_scenario_track_without_recorded_launch_profile_restarts_unaffected(*, t
                 "ANTHROPIC_SMALL_FAST_MODEL": None,
                 "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
                 "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+                "LIVESPEC_PLAN_UNATTENDED": "1",
             },
         )
     ]
@@ -273,6 +287,22 @@ def test_codex_launch_plan_without_recorded_profile_matches_the_bare_command_byt
         resume=resume,
     )
     assert plan.env is None
+
+
+def test_codex_daemon_restart_sets_unattended_resume_env_without_recorded_profile(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    track = mapped_track(repo=repo, topic=topic, session=topic)
+
+    codex_launch_plan_type, _launch_profile_problem_type = _codex_types()
+    plan = _supervisor_launch.codex_launch_plan(
+        track=track,
+        session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8",
+        resume="read first",
+        daemon_restart=True,
+    )
+
+    assert isinstance(plan, codex_launch_plan_type)
+    assert plan.env == {"LIVESPEC_PLAN_UNATTENDED": "1"}
 
 
 def test_codex_launch_plan_uses_m_flag_for_a_cloud_profile(*, tmp_path):
