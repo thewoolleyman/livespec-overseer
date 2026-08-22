@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import foreman_plan_roster
 
 __all__: list[str] = []
+
+FOREMAN_PROSE = Path(__file__).resolve().parents[1] / ".claude-plugin" / "prose" / "foreman.md"
 
 
 def _write_snapshot(*, path: Path, repo: Path) -> None:
@@ -91,9 +94,9 @@ def test_roster_is_driven_by_plan_directories_and_left_joins_daemon_snapshot(*, 
     assert rows["alpha"]["emoji"] == "🟢"
     assert rows["beta"]["name_identity_verdict"] == "ok"
     assert rows["beta"]["session_state"] == "no-session"
-    assert rows["beta"]["emoji"] == "🔴"
+    assert rows["beta"]["emoji"] == "⚪"
     assert rows["gamma"]["session_state"] == "no-session"
-    assert rows["gamma"]["emoji"] == "🔴"
+    assert rows["gamma"]["emoji"] == "❗"
     assert "foreign" not in rows
 
 
@@ -231,7 +234,7 @@ def test_caller_supplied_emoji_is_ignored_and_idle_in_flight_waits(*, tmp_path):
     row = roster["rows"][0]
     assert row["session_state"] == "idle"
     assert row["work_state"] == "work-in-flight"
-    assert row["emoji"] == "🟡"
+    assert row["emoji"] == "⏳"
 
 
 def test_idle_without_work_is_stalled_not_waiting(*, tmp_path):
@@ -268,7 +271,17 @@ def test_idle_without_work_is_stalled_not_waiting(*, tmp_path):
     row = roster["rows"][0]
     assert row["session_state"] == "idle"
     assert row["work_state"] == "no-work-in-flight"
-    assert row["emoji"] == "🔴"
+    assert row["emoji"] == "⚪"
+
+
+def test_picker_parked_and_idle_without_work_use_distinct_emojis() -> None:
+    assert foreman_plan_roster.emoji_for_pair(
+        session_state="picker-parked",
+        work_state="no-work-in-flight",
+    ) != foreman_plan_roster.emoji_for_pair(
+        session_state="idle",
+        work_state="no-work-in-flight",
+    )
 
 
 def test_pair_emoji_mapping_is_total() -> None:
@@ -290,9 +303,80 @@ def test_pair_emoji_mapping_is_total() -> None:
     }
 
     assert set(resolved) == pairs
-    assert all(emoji in {"🟢", "🟡", "🔴"} for emoji in resolved.values())
-    assert resolved[("idle", "work-in-flight")] == "🟡"
-    assert resolved[("idle", "no-work-in-flight")] == "🔴"
+    assert all(emoji in {"🔵", "🟢", "🔴", "⏳", "⚪"} for emoji in resolved.values())
+    assert resolved[("idle", "work-in-flight")] == "⏳"
+    assert resolved[("no-session", "work-in-flight")] == "⏳"
+    assert resolved[("idle", "no-work-in-flight")] == "⚪"
+    assert resolved[("no-session", "no-work-in-flight")] == "⚪"
+
+
+def test_unmapped_pair_returns_incoherent_symbol() -> None:
+    assert (
+        foreman_plan_roster.emoji_for_pair(
+            session_state="future-session-state",
+            work_state="work-in-flight",
+        )
+        == "❗"
+    )
+
+
+def test_name_identity_mismatch_yields_incoherent_emoji(*, tmp_path):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    _plan(repo=repo, topic="alpha")
+    snapshot_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "daemon_instance_id": "daemon-1",
+                "tick_generation": 12,
+                "rows": [
+                    {
+                        "repo": str(repo),
+                        "topic": "alpha",
+                        "tmux": "wrong-name",
+                        "runtime": "codex",
+                        "status": "working",
+                    }
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["wrong-name"],
+    )
+
+    row = roster["rows"][0]
+    assert row["name_identity_verdict"] == "daemon_tmux_name_mismatch"
+    assert row["emoji"] == "❗"
+
+
+def test_helper_and_prose_legend_symbols_match_mechanically() -> None:
+    text = FOREMAN_PROSE.read_text(encoding="utf-8")
+    legend_match = re.search(r"The legend is one line and names every symbol:\n([^\n]+)", text)
+    assert legend_match is not None
+    legend_symbols = set(re.findall(r"[🔵🔴🟢⏳⚪❗]", legend_match.group(1)))
+    helper_symbols = {
+        foreman_plan_roster.emoji_for_pair(
+            session_state=session_state,
+            work_state=work_state,
+        )
+        for session_state in foreman_plan_roster.SESSION_STATES
+        for work_state in foreman_plan_roster.WORK_STATES
+    }
+    helper_symbols.add(
+        foreman_plan_roster.emoji_for_pair(
+            session_state="future-session-state",
+            work_state="work-in-flight",
+        )
+    )
+
+    assert helper_symbols == legend_symbols
 
 
 def test_roster_reports_distinct_plan_only_and_tmux_only_name_identity_errors(*, tmp_path):

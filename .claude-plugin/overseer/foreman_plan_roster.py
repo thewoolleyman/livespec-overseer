@@ -19,6 +19,8 @@ from foreman_plan_roster_work import (
 )
 
 __all__: list[str] = [
+    "DONE_READY_TO_ARCHIVE",
+    "INCOHERENT",
     "SESSION_STATES",
     "WORK_STATES",
     "compose_roster",
@@ -32,15 +34,18 @@ PLAN_WITHOUT_TMUX_SESSION = "plan_without_tmux_session"
 TMUX_SESSION_WITHOUT_PLAN = "tmux_session_without_plan"
 DAEMON_TMUX_NAME_MISMATCH = "daemon_tmux_name_mismatch"
 OK = "ok"
+INCOHERENT = "incoherent"
 SESSION_WORKING = "working"
 SESSION_IDLE = "idle"
 SESSION_PICKER_PARKED = "picker-parked"
 SESSION_NO_SESSION = "no-session"
+DONE_READY_TO_ARCHIVE = "done-ready-to-archive"
 SESSION_STATES = (
     SESSION_WORKING,
     SESSION_IDLE,
     SESSION_PICKER_PARKED,
     SESSION_NO_SESSION,
+    DONE_READY_TO_ARCHIVE,
 )
 WORKING_STATUSES = frozenset({"working", "winding-down", "restarting", "settling"})
 IDLE_STATUSES = frozenset(
@@ -57,15 +62,20 @@ PICKER_PARKED_STATUSES = frozenset(
         "picker-stalled",
     }
 )
+# The released foreman prose legend is the source of truth; this table is its
+# deterministic helper rendering.
+INCOHERENT_EMOJI = "❗"
 PAIR_EMOJI = {
+    (DONE_READY_TO_ARCHIVE, WORK_IN_FLIGHT): "🔵",
+    (DONE_READY_TO_ARCHIVE, NO_WORK_IN_FLIGHT): "🔵",
     (SESSION_WORKING, WORK_IN_FLIGHT): "🟢",
     (SESSION_WORKING, NO_WORK_IN_FLIGHT): "🟢",
-    (SESSION_IDLE, WORK_IN_FLIGHT): "🟡",
-    (SESSION_IDLE, NO_WORK_IN_FLIGHT): "🔴",
+    (SESSION_IDLE, WORK_IN_FLIGHT): "⏳",
+    (SESSION_IDLE, NO_WORK_IN_FLIGHT): "⚪",
     (SESSION_PICKER_PARKED, WORK_IN_FLIGHT): "🔴",
     (SESSION_PICKER_PARKED, NO_WORK_IN_FLIGHT): "🔴",
-    (SESSION_NO_SESSION, WORK_IN_FLIGHT): "🟡",
-    (SESSION_NO_SESSION, NO_WORK_IN_FLIGHT): "🔴",
+    (SESSION_NO_SESSION, WORK_IN_FLIGHT): "⏳",
+    (SESSION_NO_SESSION, NO_WORK_IN_FLIGHT): "⚪",
 }
 
 
@@ -118,7 +128,13 @@ def _session_state(*, daemon_row: dict[str, object] | None) -> str:
 
 
 def emoji_for_pair(*, session_state: str, work_state: str) -> str:
-    return PAIR_EMOJI.get((session_state, work_state), "🔴")
+    return PAIR_EMOJI.get((session_state, work_state), INCOHERENT_EMOJI)
+
+
+def _emoji_for_row(*, name_identity_verdict: str, session_state: str, work_state: str) -> str:
+    if name_identity_verdict != OK:
+        return INCOHERENT_EMOJI
+    return emoji_for_pair(session_state=session_state, work_state=work_state)
 
 
 def _daemon_tmux(*, daemon_row: dict[str, object] | None) -> str | None:
@@ -152,6 +168,11 @@ def _roster_row(
     work_state: str,
 ) -> dict[str, object]:
     session_state = _session_state(daemon_row=daemon_row)
+    name_identity_verdict = _name_identity_verdict(
+        plan=plan,
+        daemon_row=daemon_row,
+        tmux_session_names=tmux_session_names,
+    )
     daemon_topic = None if daemon_row is None else daemon_row.get("topic")
     return {
         "plan": plan,
@@ -159,14 +180,14 @@ def _roster_row(
         "tmux_session": plan if plan in tmux_session_names else None,
         "daemon_topic": daemon_topic if isinstance(daemon_topic, str) else None,
         "daemon_tmux": _daemon_tmux(daemon_row=daemon_row),
-        "name_identity_verdict": _name_identity_verdict(
-            plan=plan,
-            daemon_row=daemon_row,
-            tmux_session_names=tmux_session_names,
-        ),
+        "name_identity_verdict": name_identity_verdict,
         "session_state": session_state,
         "work_state": work_state,
-        "emoji": emoji_for_pair(session_state=session_state, work_state=work_state),
+        "emoji": _emoji_for_row(
+            name_identity_verdict=name_identity_verdict,
+            session_state=session_state,
+            work_state=work_state,
+        ),
     }
 
 
