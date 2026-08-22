@@ -11,6 +11,9 @@ injected from `test_tmuxio_fakes`, so assertions are on the exact argv tmux
 would be invoked with.
 """
 
+import types
+
+import tmuxio
 from test_tmuxio_fakes import io as _io
 
 __all__: list[str] = []
@@ -53,6 +56,33 @@ def test_bracketed_paste_loads_then_pastes_with_stdin():
 def test_bracketed_paste_false_when_load_fails():
     io, _ = _io(returncode=1)
     assert io.bracketed_paste(session="s", text="x") is False
+
+
+def test_bracketed_paste_false_when_paste_fails_after_load():
+    class PasteFailsAfterLoad:
+        def __init__(self):
+            self.calls = []
+
+        def __call__(
+            self, argv, *, input=None, capture_output=None, text=None, check=None, timeout=None
+        ):
+            self.calls.append({"argv": argv, "input": input, "timeout": timeout})
+            returncode = 1 if argv[1] == "paste-buffer" else 0
+            return types.SimpleNamespace(returncode=returncode, stdout="", stderr="")
+
+    fake = PasteFailsAfterLoad()
+    io = tmuxio.TmuxIO(run=fake)
+
+    assert io.bracketed_paste(session="s", text="x") is False
+
+
+def test_peer_bracketed_paste_false_when_underlying_paste_fails():
+    io, _ = _io(returncode=1)
+    assert io.peer_bracketed_paste(session="s", text="x", sending_seat="peer") is False
+    assert io.latest_input_provenance(session="s") == {
+        "peer_injected": False,
+        "target_session": "s",
+    }
 
 
 def test_respawn_pane_argv_is_kill_and_cwd():

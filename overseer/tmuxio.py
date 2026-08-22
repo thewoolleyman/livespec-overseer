@@ -41,7 +41,7 @@ import itertools
 import os
 import subprocess
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, ClassVar
 
 import streams
 from tmuxio_env import with_env_delta
@@ -95,6 +95,8 @@ class TmuxIO:
     methods. ``run`` is injectable purely so :mod:`tmuxio`'s OWN tests can drive
     argv construction without a live tmux — the daemon always uses the default.
     """
+
+    _input_provenance_by_session: ClassVar[dict[str, dict[str, object]]] = {}
 
     def __init__(
         self,
@@ -294,7 +296,32 @@ class TmuxIO:
             _warn(message=f"load-buffer failed for session {session!r}")
             return False
         pasted = self._call(args=["paste-buffer", "-b", buffer_name, "-p", "-d", "-t", session])
-        return self._ok(completed=pasted)
+        if not self._ok(completed=pasted):
+            return False
+        _ = self._input_provenance_by_session.pop(session, None)
+        return True
+
+    def peer_bracketed_paste(self, *, session: str, text: str, sending_seat: str) -> bool:
+        """Paste peer-authored input and record provenance for the receiving pane."""
+        if not self.bracketed_paste(session=session, text=text):
+            return False
+        self._input_provenance_by_session[session] = {
+            "peer_injected": True,
+            "sending_seat": sending_seat,
+            "target_session": session,
+            "delivery": "bracketed-paste",
+        }
+        return True
+
+    def latest_input_provenance(self, *, session: str) -> dict[str, object]:
+        """Return the latest recorded peer injection for ``session``, or a negative leg."""
+        record = self._input_provenance_by_session.get(session)
+        if record is None:
+            return {
+                "peer_injected": False,
+                "target_session": session,
+            }
+        return dict(record)
 
     def respawn_pane(
         self,
