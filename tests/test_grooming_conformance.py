@@ -348,6 +348,28 @@ def test_delimiter_check_flags_only_opening_template_forms(*, tmp_path: Path) ->
     assert "opening template delimiter" in delimiter.title
 
 
+def test_delimiter_scope_names_when_detail_text_was_not_supplied(*, tmp_path: Path) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    opening = chr(123) * 2
+    row = _item(item_id="ready-comment")
+
+    without_details = module.evaluate_ledger_invariants(repo=repo, work_items=[row])
+    with_details = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[row],
+        item_details_by_id={"ready-comment": ["comment carries " + opening]},
+    )
+
+    partial = _by_key(report=without_details, key="dispatchable-delimiter")
+    complete = _by_key(report=with_details, key="dispatchable-delimiter")
+    assert partial.breaching_item_ids == ()
+    assert complete.breaching_item_ids == ("ready-comment",)
+    assert "detail text not supplied" in partial.scope
+    assert "including supplied detail text" in complete.scope
+    assert partial.scope != complete.scope
+
+
 def test_cross_repo_edges_report_stringified_unlisted_and_unresolved_edges(
     *,
     tmp_path: Path,
@@ -403,6 +425,34 @@ def test_cross_repo_edges_report_stringified_unlisted_and_unresolved_edges(
         "unlisted",
         "unresolved",
     )
+
+
+def test_cross_repo_check_without_sibling_set_is_unevaluated(*, tmp_path: Path) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    row = _with(
+        row=_item(item_id="edge"),
+        updates={
+            "metadata": {"non_local_depends_on": [{"repo": "sibling", "work_item_id": "s-1"}]}
+        },
+    )
+
+    without_siblings = module.evaluate_ledger_invariants(repo=repo, work_items=[row])
+    with_siblings = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[row],
+        sibling_item_ids_by_repo={"sibling": {"other-id"}},
+    )
+
+    unevaluated = _by_key(report=without_siblings, key="cross-repo-dependencies")
+    checked = _by_key(report=with_siblings, key="cross-repo-dependencies")
+    assert unevaluated.status == "unevaluated-missing-evidence"
+    assert unevaluated.breaching_item_ids == ()
+    assert "no sibling id set supplied for repo sibling" in unevaluated.scope
+    assert "no resolution was attempted against it" in unevaluated.scope
+    assert checked.status == "checked"
+    assert checked.breaching_item_ids == ("edge",)
+    assert checked.scope != unevaluated.scope
 
 
 def test_projection_and_bd_shapes_converge_on_grooming_invariant_verdicts(

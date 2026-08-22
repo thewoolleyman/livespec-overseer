@@ -262,15 +262,18 @@ the run listing for the same server the dispatcher used, then read the dispatche
 journal when the run listing cannot explain the outcome.
 
 As measured on 2026-08-22 against merged master `08b2afd` and a 669-row
-projection, that sanctioned projection can answer the five implemented
-invariants: plan-rollup, acceptance-present, lifecycle-status,
-dispatchable-delimiter, and cross-repo-dependencies. The remaining two
-invariants, split-acceptance-label and routing-field, are not implemented yet;
-their scanned population is zero because the checker has no canonical field to
-read, not because the tenant is clean. Revisit this paragraph when
-`bd-ib-m36re3` or its successor changes the projection. Until then, any raw
-ledger read used to investigate an unimplemented invariant must carry the
-record-shape traps below beside the claim.
+projection, that sanctioned projection can answer the three implemented
+invariants that need no optional evidence: plan-rollup, acceptance-present, and
+lifecycle-status. It can answer dispatchable-delimiter only with item detail text
+supplied for comments and notes, and cross-repo-dependencies only with sibling id
+sets supplied for every referenced sibling repo; otherwise the checker reports
+the narrower evidence base in the invariant scope. The remaining two invariants,
+split-acceptance-label and routing-field, are not implemented yet; their scanned
+population is zero because the checker has no canonical field to read, not
+because the tenant is clean. Revisit this paragraph when `bd-ib-m36re3` or its
+successor changes the projection. Until then, any raw ledger read used to
+investigate an unimplemented invariant must carry the record-shape traps below
+beside the claim.
 
 The run-existence check must name the server the dispatcher used. The run-listing
 client may default to a local server while the dispatcher submitted elsewhere. The

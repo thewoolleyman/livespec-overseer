@@ -56,8 +56,6 @@ def evaluate_ledger_invariants(
 ) -> GroomingConformanceReport:
     repo_path = Path(repo)
     items = tuple(work_items)
-    details = item_details_by_id or {}
-    siblings = sibling_item_ids_by_repo or {}
     item_ids = tuple(sorted(item_id(item=item) for item in items if item_id(item=item) != ""))
     return GroomingConformanceReport(
         repo=str(repo_path),
@@ -67,12 +65,15 @@ def evaluate_ledger_invariants(
             plan_rollup_check(items=items, seat_anchor_epic_ids=seat_anchor_epic_ids),
             acceptance_present_check(items=items, seat_anchor_epic_ids=seat_anchor_epic_ids),
             lifecycle_status_check(items=items),
-            dispatchable_delimiter_check(items=items, item_details_by_id=details),
+            dispatchable_delimiter_check(
+                items=items,
+                item_details_by_id=item_details_by_id,
+            ),
             split_acceptance_label_pending(),
             cross_repo_dependency_check(
                 repo=repo_path,
                 items=items,
-                sibling_item_ids_by_repo=siblings,
+                sibling_item_ids_by_repo=sibling_item_ids_by_repo,
             ),
             routing_field_pending(),
         ),
@@ -151,8 +152,9 @@ def lifecycle_status_check(*, items: Sequence[Mapping[str, object]]) -> Invarian
 def dispatchable_delimiter_check(
     *,
     items: Sequence[Mapping[str, object]],
-    item_details_by_id: Mapping[str, Sequence[str]],
+    item_details_by_id: Mapping[str, Sequence[str]] | None,
 ) -> InvariantCheck:
+    details = item_details_by_id or {}
     scanned = tuple(item for item in items if status(item=item) in DISPATCHABLE_STATUSES)
     breaches = sorted_ids(
         items=(
@@ -160,15 +162,28 @@ def dispatchable_delimiter_check(
             for item in scanned
             if item_contains_delimiter(
                 item=item,
-                detail_texts=item_details_by_id.get(item_id(item=item), ()),
+                detail_texts=details.get(item_id(item=item), ()),
             )
         )
     )
+    scope = dispatchable_delimiter_scope(item_details_by_id=item_details_by_id)
     return InvariantCheck(
         key="dispatchable-delimiter",
         title="No dispatchable item carries an opening template delimiter",
         status="checked",
         breaching_item_ids=breaches,
         scanned_item_count=len(scanned),
-        scope="dispatchable rows, including supplied detail text for comments and notes",
+        scope=scope,
+    )
+
+
+def dispatchable_delimiter_scope(
+    *,
+    item_details_by_id: Mapping[str, Sequence[str]] | None,
+) -> str:
+    if item_details_by_id:
+        return "dispatchable rows, including supplied detail text for comments and notes"
+    return (
+        "dispatchable rows, native fields only; detail text not supplied, "
+        "so comments and notes outside the bulk rows were not scanned"
     )

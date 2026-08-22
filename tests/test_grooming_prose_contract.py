@@ -45,7 +45,9 @@ def test_grooming_prose_names_ledger_projection_and_record_shape_traps() -> None
     assert "list-work-items --json" in text
     assert "Runtime neutrality comes from resolving" in normalized
     assert "not from hard-coding a substrate command" in normalized
-    assert "five implemented invariants" in normalized
+    assert "three implemented invariants that need no optional evidence" in normalized
+    assert "only with item detail text supplied for comments and notes" in normalized
+    assert "only with sibling id sets supplied for every referenced sibling repo" in normalized
     assert "split-acceptance-label" in text
     assert "routing-field" in text
 
