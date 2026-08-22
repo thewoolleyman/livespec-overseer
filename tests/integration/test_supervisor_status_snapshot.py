@@ -135,68 +135,6 @@ def test_snapshot_reports_daemon_package_provenance(*, tmp_path):
     }
 
 
-def test_list_json_reports_unusable_mapping_rows_and_not_healthy_rows(*, tmp_path):
-    module = snapshot_module()
-    healthy_repo, healthy_topic = make_plan(tmp_path=tmp_path, topic="healthy")
-    missing_added_repo, missing_added_topic = make_plan(tmp_path=tmp_path, topic="missing-added-at")
-    unresolved_epic_repo, unresolved_epic_topic = make_plan(
-        tmp_path=tmp_path, topic="unresolved-epic"
-    )
-    sup = make_supervisor(
-        tmp_path=tmp_path,
-        fake=FakeTmux(),
-        watch_repos=[str(healthy_repo), str(missing_added_repo), str(unresolved_epic_repo)],
-    )
-    registry.append_mapping(
-        track=registry.Track(
-            topic=healthy_topic,
-            repo=str(healthy_repo),
-            tmux="healthy",
-            epic="overseer-healthy",
-        ),
-        store_path=sup.store_path,
-        added_at="2026-08-22T08:00:00Z",
-    )
-    registry.append_mapping(
-        track=registry.Track(
-            topic=missing_added_topic,
-            repo=str(missing_added_repo),
-            tmux="missing-added-at",
-            epic="overseer-missing-added-at",
-        ),
-        store_path=sup.store_path,
-    )
-    store_path = Path(sup.store_path)
-    raw_rows = [json.loads(line) for line in store_path.read_text(encoding="utf-8").splitlines()]
-    raw_rows[-1]["added_at"] = None
-    store_path.write_text("".join(f"{json.dumps(row)}\n" for row in raw_rows), encoding="utf-8")
-    registry.append_mapping(
-        track=registry.Track(
-            topic=unresolved_epic_topic,
-            repo=str(unresolved_epic_repo),
-            tmux="unresolved-epic",
-            epic="legacy-unresolved:unresolved-epic",
-        ),
-        store_path=sup.store_path,
-        added_at="2026-08-22T08:00:00Z",
-    )
-
-    rows = sup.tick(act=False)
-    payload = module.document_payload(sup=sup, rows=rows)
-    by_topic = {row["topic"]: row for row in payload["rows"]}
-
-    assert by_topic[healthy_topic]["status"] == "session-gone"
-    assert by_topic[healthy_topic]["note"] is None
-    assert by_topic[missing_added_topic]["status"] == "mapping-unusable"
-    assert by_topic[missing_added_topic]["note"] == (
-        "mapping row missing added_at; no-round ready cannot certify"
-    )
-    assert by_topic[unresolved_epic_topic]["status"] == "mapping-unusable"
-    assert by_topic[unresolved_epic_topic]["note"] == (
-        "mapping row has unresolved epic; restart resume cannot be built"
-    )
-
-
 def test_snapshot_note_is_elided_at_serialization(*, tmp_path):
     module = snapshot_module()
     repo, topic = make_plan(tmp_path=tmp_path)

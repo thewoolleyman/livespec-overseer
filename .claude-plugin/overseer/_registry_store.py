@@ -158,8 +158,6 @@ def append_mapping(
     """
     path = resolve_store(store_path=store_path)
     row = track_to_row(track=track)
-    if row.get("added_at") is None:
-        _ = row.pop("added_at", None)
     if added_at is not None:
         row["added_at"] = added_at
     with file_lock(target=path):
