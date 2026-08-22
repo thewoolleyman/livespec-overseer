@@ -198,7 +198,7 @@ def held_claim_surface_check(*, items: Sequence[Mapping[str, object]]) -> Invari
     return InvariantCheck(
         key="held-claim-surface",
         title="Assignee scans are status-first",
-        status="checked",
+        status="structurally-guaranteed",
         breaching_item_ids=(),
         scanned_item_count=held_count,
         scope=held_claim_surface_scope(
