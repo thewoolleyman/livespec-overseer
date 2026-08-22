@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import cast
 
 import jsonio
+from foreman_gather_sources import parse_repo_config, string_list
 
 __all__: list[str] = [
     "ANCHOR_RESOLVED",
@@ -37,10 +38,19 @@ _LEDGER_ANCHOR_BARE = re.compile(
 )
 
 
+def _credential_wrapper(*, repo: Path) -> list[str]:
+    config = parse_repo_config(repo=repo)
+    if config is None:
+        return []
+    wrapper = string_list(value=config.get("credential_wrapper"))
+    return wrapper if wrapper is not None else []
+
+
 def ledger_epic_records(*, repo: Path) -> list[dict[str, object]]:
+    command = [*_credential_wrapper(repo=repo), *LEDGER_COMMAND]
     try:
         completed = subprocess.run(  # noqa: S603 — fixed bd argv, no shell
-            LEDGER_COMMAND,
+            command,
             capture_output=True,
             check=False,
             cwd=repo,
@@ -65,9 +75,12 @@ def ledger_epic_records(*, repo: Path) -> list[dict[str, object]]:
     return records
 
 
-def ledger_plan_epic_anchor(*, repo: Path, plan: str) -> str | None:
+def ledger_plan_epic_anchor(
+    *, repo: Path, plan: str, records: list[dict[str, object]] | None = None
+) -> str | None:
     matches: list[tuple[str, object]] = []
-    for item in ledger_epic_records(repo=repo):
+    epic_records = records if records is not None else ledger_epic_records(repo=repo)
+    for item in epic_records:
         if item.get("issue_type") != "epic":
             continue
         record_id = item.get("id")
@@ -86,8 +99,10 @@ def ledger_plan_epic_anchor(*, repo: Path, plan: str) -> str | None:
     return None
 
 
-def plan_epic_anchor(*, repo: Path, plan: str) -> str | None:
-    ledger_anchor = ledger_plan_epic_anchor(repo=repo, plan=plan)
+def plan_epic_anchor(
+    *, repo: Path, plan: str, ledger_records: list[dict[str, object]] | None = None
+) -> str | None:
+    ledger_anchor = ledger_plan_epic_anchor(repo=repo, plan=plan, records=ledger_records)
     if ledger_anchor is not None:
         return ledger_anchor
     # Keep epic.md as a legacy fallback: current plans carry plan_slug in Beads,
@@ -209,9 +224,10 @@ def work_state_documents_by_plan(
     records = journal_records(path=path)
     dispatch_times = latest_dispatch_times(records=records)
     outcomes = outcome_times(records=records)
+    epic_records = ledger_epic_records(repo=repo)
     documents: dict[str, dict[str, str]] = {}
     for plan in plan_names:
-        anchor = plan_epic_anchor(repo=repo, plan=plan)
+        anchor = plan_epic_anchor(repo=repo, plan=plan, ledger_records=epic_records)
         documents[plan] = {
             "work_state": plan_work_state(
                 anchor=anchor,
