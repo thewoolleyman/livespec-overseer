@@ -12,6 +12,12 @@ from typing import Protocol
 import registry
 from _supervisor_foreman import heartbeat_lapse, heartbeat_path
 from foreman_act_record import AppendJournal, append_journal
+from foreman_runtime_autonomy import (
+    STANDING_ORDERS_TEMPLATE,
+    SeatComments,
+    default_seat_comments,
+    full_autonomy_report,
+)
 from foreman_runtime_backoff import (
     DEFAULT_MAX_LLM_TICK_INTERVAL_SECONDS,
     auto_resume_interval,
@@ -32,6 +38,7 @@ __all__: list[str] = [
     "DEFAULT_LLM_TICK_INTERVAL_SECONDS",
     "DEFAULT_MAX_LLM_TICK_INTERVAL_SECONDS",
     "DEFAULT_WATCH_INTERVAL_SECONDS",
+    "STANDING_ORDERS_TEMPLATE",
     "EntryGateResult",
     "ForemanConfig",
     "ForemanDocument",
@@ -77,6 +84,13 @@ class StepResult:
     blocking_prompt_open: bool
     llm_tick_interval_seconds: float
     auto_resume_interval_seconds: float | None
+    full_autonomy: bool
+    decision_rule: object
+    conflict: bool
+    attention_conditions: list[dict[str, str]]
+    standing_orders: str | None
+    standing_orders_recorded: bool | None
+    full_autonomy_terminating_condition_reached: bool
 
 
 def register_foreman_track(
@@ -111,12 +125,14 @@ class ForemanRuntime:
         config: ForemanConfig | None = None,
         llm_tick: _LlmTick = _default_llm_tick,
         append_journal: AppendJournal = append_journal,
+        seat_comments: SeatComments = default_seat_comments,
     ) -> None:
         self.repo = Path(repo).resolve()
         self.now = now
         self.config = config if config is not None else ForemanConfig()
         self.llm_tick = llm_tick
         self.append_journal = append_journal
+        self.seat_comments = seat_comments
 
     def _read_state(self) -> dict[str, object]:
         return read_json_object(path=state_path(repo=self.repo))
@@ -193,6 +209,11 @@ class ForemanRuntime:
             }
         )
         self._write_heartbeat(tick_generation=tick_generation, interval_seconds=interval_seconds)
+        autonomy = full_autonomy_report(
+            repo=self.repo,
+            document=document,
+            seat_comments=self.seat_comments,
+        )
         return StepResult(
             tick_generation=reported_generation,
             llm_tick=due,
@@ -206,6 +227,15 @@ class ForemanRuntime:
             ),
             llm_tick_interval_seconds=interval_seconds,
             auto_resume_interval_seconds=auto_resume_interval_seconds,
+            full_autonomy=autonomy.full_autonomy,
+            decision_rule=autonomy.decision_rule,
+            conflict=autonomy.conflict,
+            attention_conditions=autonomy.attention_conditions,
+            standing_orders=autonomy.standing_orders,
+            standing_orders_recorded=autonomy.standing_orders_recorded,
+            full_autonomy_terminating_condition_reached=(
+                autonomy.full_autonomy_terminating_condition_reached
+            ),
         )
 
     def resume(self) -> None:

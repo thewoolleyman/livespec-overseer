@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,11 +36,24 @@ def foreman_runtime():
     return importlib.import_module("foreman_runtime")
 
 
+def foreman_runtime_autonomy():
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("foreman_runtime_autonomy")
+
+
 def make_repo(*, tmp_path: Path, name: str = "repo") -> Path:
     repo = tmp_path / name
     (repo / "plan" / "alpha").mkdir(parents=True)
     (repo / "tmp" / "overseer").mkdir(parents=True)
     return repo
+
+
+def write_full_autonomy_config(*, repo: Path, full_autonomy: bool) -> None:
+    repo.joinpath(".livespec.jsonc").write_text(
+        json.dumps({"livespec-overseer": {"full_autonomy": full_autonomy}}),
+        encoding="utf-8",
+    )
 
 
 def write_watch_set(*, path: Path, repos: list[Path]) -> None:
@@ -60,6 +74,204 @@ def state_json(*, repo: Path) -> dict[str, object]:
     return json.loads(
         (repo / "tmp" / "overseer" / "foreman" / "runtime.json").read_text(encoding="utf-8")
     )
+
+
+def test_runtime_reports_full_autonomy_disposition_and_attention_rows(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    write_full_autonomy_config(repo=repo, full_autonomy=True)
+    runtime = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: 1000.0,
+        seat_comments=lambda *, repo, work_item_id: [],
+    )
+
+    result = runtime.step(
+        document={
+            "snapshot": {
+                "rows": [
+                    {"topic": "alpha", "status": "final-ruling-unheeded"},
+                    {"topic": "beta", "status": "foreman-picker-under-full-autonomy"},
+                    {"topic": "gamma", "status": "idle"},
+                ]
+            }
+        }
+    )
+
+    assert result.full_autonomy is True
+    assert result.decision_rule == "majority"
+    assert result.conflict is False
+    assert result.attention_conditions == [
+        {"topic": "alpha", "condition": "final-ruling-unheeded"},
+        {"topic": "beta", "condition": "foreman-picker-under-full-autonomy"},
+    ]
+
+
+def test_runtime_reports_full_autonomy_false_controls(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    write_full_autonomy_config(repo=repo, full_autonomy=False)
+    runtime = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: 1000.0,
+        seat_comments=lambda *, repo, work_item_id: [],
+    )
+
+    result = runtime.step(
+        document={
+            "snapshot": {
+                "rows": [
+                    {"topic": "alpha", "status": "final-ruling-unheeded"},
+                ]
+            }
+        }
+    )
+
+    assert result.full_autonomy is False
+    assert result.decision_rule == "unanimous"
+    assert result.conflict is False
+    assert result.standing_orders is None
+    assert result.standing_orders_recorded is None
+    assert result.full_autonomy_terminating_condition_reached is False
+    assert result.attention_conditions == [{"topic": "alpha", "condition": "final-ruling-unheeded"}]
+
+
+def test_standing_orders_are_reported_only_under_full_autonomy_and_match_constant(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path, name="livespec-overseer")
+    write_full_autonomy_config(repo=repo, full_autonomy=True)
+
+    result = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: 1000.0,
+        seat_comments=lambda *, repo, work_item_id: [],
+    ).step(document={"snapshot": {"rows": []}})
+
+    assert result.standing_orders == module.STANDING_ORDERS_TEMPLATE.format(
+        repo_name="livespec-overseer",
+        foreman_session="livespec-overseer-foreman",
+    )
+
+    no_autonomy_repo = make_repo(tmp_path=tmp_path, name="no-autonomy")
+    no_autonomy = module.ForemanRuntime(
+        repo=no_autonomy_repo,
+        now=lambda: 1000.0,
+        seat_comments=lambda *, repo, work_item_id: [],
+    ).step(document={"snapshot": {"rows": []}})
+
+    assert no_autonomy.standing_orders is None
+
+
+def test_standing_orders_recorded_requires_a_comment_beginning_with_the_marker(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    write_full_autonomy_config(repo=repo, full_autonomy=True)
+    comments = [{"text": "near miss\nSTANDING ORDERS are quoted later"}]
+    runtime = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: 1000.0,
+        seat_comments=lambda *, repo, work_item_id: comments,
+    )
+
+    first = runtime.step(document={"snapshot": {"rows": []}})
+    comments.append({"text": "STANDING ORDERS\nfull delegation recorded"})
+    second = runtime.step(document={"snapshot": {"rows": []}})
+
+    assert first.standing_orders_recorded is False
+    assert second.standing_orders_recorded is True
+
+
+def test_full_autonomy_terminating_condition_is_true_only_at_zero_live_plans(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    write_full_autonomy_config(repo=repo, full_autonomy=True)
+    runtime = module.ForemanRuntime(
+        repo=repo,
+        now=lambda: 1000.0,
+        seat_comments=lambda *, repo, work_item_id: [],
+    )
+
+    with_plan = runtime.step(document={"snapshot": {"rows": []}})
+    (repo / "plan" / "archive" / "alpha").mkdir(parents=True)
+    (repo / "plan" / "alpha").rmdir()
+    without_plan = runtime.step(document={"snapshot": {"rows": []}})
+
+    assert with_plan.full_autonomy_terminating_condition_reached is False
+    assert without_plan.full_autonomy_terminating_condition_reached is True
+
+
+def test_default_seat_comment_reader_uses_wrapper_and_accepts_object_shape(
+    *, tmp_path, monkeypatch
+):
+    autonomy = foreman_runtime_autonomy()
+    repo = make_repo(tmp_path=tmp_path)
+    repo.joinpath(".livespec.jsonc").write_text(
+        json.dumps({"credential_wrapper": ["/wrapper", "--"]}),
+        encoding="utf-8",
+    )
+    calls: list[list[str]] = []
+
+    def run(*, args, **kwargs):
+        del kwargs
+        calls.append(args)
+        return subprocess.CompletedProcess(
+            args=args, returncode=0, stdout='{"comments":[{"body":"x"}]}'
+        )
+
+    monkeypatch.setattr(subprocess, "run", run)
+
+    assert autonomy.default_seat_comments(repo=repo, work_item_id="overseer-z5fo4y") == (
+        {"body": "x"},
+    )
+    assert calls == [["/wrapper", "--", "bd", "comments", "overseer-z5fo4y", "--json"]]
+
+
+def test_default_seat_comment_reader_accepts_list_shape_and_fail_closed_edges(
+    *, tmp_path, monkeypatch
+):
+    autonomy = foreman_runtime_autonomy()
+    repo = make_repo(tmp_path=tmp_path)
+    results = [
+        subprocess.CompletedProcess(args=[], returncode=0, stdout='[{"content":"x"},3]'),
+        subprocess.CompletedProcess(args=[], returncode=1, stdout=""),
+        subprocess.CompletedProcess(args=[], returncode=0, stdout="not json"),
+        FileNotFoundError(),
+    ]
+
+    def run(*, args, **kwargs):
+        del args, kwargs
+        result = results.pop(0)
+        if isinstance(result, BaseException):
+            raise result
+        return result
+
+    monkeypatch.setattr(subprocess, "run", run)
+
+    assert autonomy.default_seat_comments(repo=repo, work_item_id="overseer-z5fo4y") == (
+        {"content": "x"},
+    )
+    assert autonomy.default_seat_comments(repo=repo, work_item_id="overseer-z5fo4y") == ()
+    assert autonomy.default_seat_comments(repo=repo, work_item_id="overseer-z5fo4y") == ()
+    assert autonomy.default_seat_comments(repo=repo, work_item_id="overseer-z5fo4y") == ()
+
+
+def test_full_autonomy_report_treats_absent_plan_dir_as_zero_live_plans(*, tmp_path):
+    autonomy = foreman_runtime_autonomy()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_full_autonomy_config(repo=repo, full_autonomy=True)
+
+    report = autonomy.full_autonomy_report(
+        repo=repo,
+        document={"snapshot": {"rows": []}},
+        seat_comments=lambda *, repo, work_item_id: [
+            {"ignored": "no text field"},
+            {"body": "STANDING ORDERS from body"},
+        ],
+    )
+
+    assert report.standing_orders_recorded is True
+    assert report.full_autonomy_terminating_condition_reached is True
 
 
 def test_runtime_module_and_executable_exist():
