@@ -1026,6 +1026,26 @@ command; here the alternative cost was the fleet's supervisor. Note that the
 discovery was a side effect — the reordering was chosen only to de-risk a restart,
 not because anything was suspected.
 
+**UPDATE, SAME DAY — THE PROVISIONING FAILURE ABOVE IS CURED; THE ORDERING RULE IS
+NOT AFFECTED.** The paragraph above says `ensure_current_runtime()` "returns `None`
+on this host", which was measured at 18:25Z and is **no longer true**. It was fixed
+hours later by `overseer-6s3pk6.12` (PR 1723): provisioning moved off the stdlib
+module onto `uv venv` plus `uv pip install --python <venv>`, and a failed provision
+now removes its own partial prefix. Verified live at 19:56Z — the call returns a
+real executable that runs.
+
+This is an **UPDATE, not a correction**: the measurement was correct when written
+and has since been cured, which is a different fact from having been wrong. It is
+left in place rather than deleted because the near-miss is the whole point of the
+entry, and the ordering rule it produced stands on its own — it is about the shape
+of a procedure, not about `ensurepip`.
+
+**Read the cured half as history and the rule as current.** A reader who takes the
+present-tense sentence at face value today will conclude the daemon cannot be
+provisioned here, which is the exact record-versus-world error this file documents
+at length elsewhere — committed, this time, by the entry that was written to warn
+about a neighbouring one.
+
 | | double-brace | queue eviction | anchor-as-dep | succeeded-untransitioned | interview-destroyed | **publish-branch collision** |
 |---|---|---|---|---|---|---|
 | `fabro ps -a` | never lists it | absent | never lists it | `succeeded` | `failed` | **one `succeeded` + one `blocked`** |
