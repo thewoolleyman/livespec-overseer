@@ -165,13 +165,20 @@ re-check, and keep the foreman loop moving. Do not end a foreman tick with a
 blocking picker outstanding; an open picker suppresses the session's scheduled
 fires, so a timeout attached to that picker cannot run. Write the escalation to
 `tmp/overseer/foreman/escalations/<repo-slug>-foreman.json` with a non-empty
-`reason` instead, then return idle with the recurring schedule still armed.
+`reason` and, when the daemon snapshot row provides it, the current
+`session_identity` instead, then return idle with the recurring schedule still
+armed. When the maintainer answers that decision, keep the record and clear the
+attention condition by rewriting the same JSON object with `"resolved": true`;
+do not blank the reason as a retraction, because blank or damaged marker content
+is deliberately surfaced fail-closed.
 **That exact filename is the only one the daemon reads** — it resolves the
 foreman's escalation by the canonical session name, `<repo-slug>-foreman`, so a
 file named for the plan topic or a bare `foreman.json` is written and then never
 surfaced, and the decision is lost more quietly than a picker would have lost
-it. This only
-governs how the foreman surfaces its own unresolved decision; it does not change
+it. The `session_identity` binds a live marker to the seat that raised it; a
+successor seat with a different observed identity does not inherit that
+predecessor's escalation. This only governs how the foreman surfaces and
+retracts its own decision; it does not change
 the cardinal rule. A tracked session may be restarted only after its
 current-round filesystem `ready` declaration.
 
@@ -545,13 +552,16 @@ token-free watcher remains armed by the durable generation fingerprint.
 On `converged`, cancel the armed cron schedule and surface the decision whether
 to resume the loop through
 `tmp/overseer/foreman/escalations/<repo-slug>-foreman.json` with a non-empty
-`reason`. Do not raise a blocking picker for this decision; with the schedule
-cancelled there is no in-session clock left to bound it. The daemon renders that
-file as `foreman-escalated` on the existing mechanical attention surface. If
-the maintainer chooses resume, run `foreman-runtime --resume`, then arm the
-hourly schedule again via `CronCreate` directly (not through the generic
-`/loop` skill, for the same reason given above) from a fresh `foreman-runtime`
-tick.
+`reason` and, when the daemon snapshot row provides it, the current
+`session_identity`. Do not raise a blocking picker for this decision; with the
+schedule cancelled there is no in-session clock left to bound it. The daemon
+renders that file as `foreman-escalated` on the existing mechanical attention
+surface. When the maintainer answers, keep the record and clear the condition by
+rewriting the same marker with `"resolved": true`; do not delete the file or
+blank the reason as the clearing action. If the maintainer chooses resume, run
+`foreman-runtime --resume`, then arm the hourly schedule again via `CronCreate`
+directly (not through the generic `/loop` skill, for the same reason given
+above) from a fresh `foreman-runtime` tick.
 
 On `hard-tick-budget`, DO NOT raise a resume question and DO NOT leave the
 schedule cancelled. Budget exhaustion means the loop is ticking without

@@ -28,7 +28,7 @@ from foreman_runtime_document import (
     foreman_blocking_prompt_open,
     foreman_document,
 )
-from foreman_runtime_escalation import record_blocking_prompt_escalation
+from foreman_runtime_escalation import foreman_session_identity, record_blocking_prompt_escalation
 from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
 from foreman_runtime_lock import ForemanLock, LockResult
 from foreman_runtime_policy import exit_reason, stable_ticks
@@ -216,7 +216,10 @@ class ForemanRuntime:
             foreman_topic=canonical_session_name(repo=self.repo),
         )
         if blocking_prompt_open:
-            record_blocking_prompt_escalation(repo=self.repo)
+            record_blocking_prompt_escalation(
+                repo=self.repo,
+                session_identity=foreman_session_identity(payload=document, repo=self.repo),
+            )
         autonomy = full_autonomy_report(
             repo=self.repo,
             document=document,
