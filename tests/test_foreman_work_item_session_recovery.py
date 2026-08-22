@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
+import foreman_work_item_session_evidence
 from test_foreman_work_item_session_lifecycle import act_with, document, proposal
 
 __all__: list[str] = []
@@ -93,7 +95,14 @@ def test_work_item_session_missing_handoff_and_ambiguous_classifier_are_report_o
     assert calls == []
 
 
-def test_work_item_session_refuses_missing_work_item_evidence(*, tmp_path):
+def test_work_item_session_refuses_missing_work_item_evidence(*, tmp_path, monkeypatch):
+    """The ledger CLI is absent, so no evidence can be obtained.
+
+    The absence is injected rather than inherited from the host.  Read literally,
+    this scenario is "there is no `bd` to ask", which is true on a CI runner and
+    false on any operator machine -- so without the injection the assertion below
+    is decided by whether the host happens to have the ledger installed.
+    """
     module_payload = proposal(
         repo=tmp_path / "repo",
         action_id="work_item_session_start",
@@ -102,6 +111,12 @@ def test_work_item_session_refuses_missing_work_item_evidence(*, tmp_path):
     module = __import__("test_foreman_work_item_session_lifecycle").foreman_act()
     repo = tmp_path / "repo"
     repo.mkdir()
+
+    def no_ledger_cli(*args, **kwargs):
+        del args, kwargs
+        raise FileNotFoundError("bd")
+
+    monkeypatch.setattr(foreman_work_item_session_evidence.subprocess, "run", no_ledger_cli)
 
     result = module.act(
         proposal=module_payload,
@@ -117,6 +132,47 @@ def test_work_item_session_refuses_missing_work_item_evidence(*, tmp_path):
 
     assert result["outcome"] == "refused"
     assert result["reason"] == "work_item_evidence_missing"
+
+
+def test_work_item_session_refuses_when_the_ledger_answers_that_the_item_is_absent(
+    *, tmp_path, monkeypatch
+):
+    """The ledger CLI IS present and reports the item does not exist.
+
+    The companion to the case above, and the reason that one needs its injection:
+    these two branches return DIFFERENT reasons, and which one a host reaches is
+    decided by whether `bd` is installed.  Asserting either without injecting the
+    condition makes the suite's verdict a property of the machine.
+    """
+    module_payload = proposal(
+        repo=tmp_path / "repo",
+        action_id="work_item_session_start",
+        classifier_action="start",
+    )
+    module = __import__("test_foreman_work_item_session_lifecycle").foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def ledger_reports_absent(*args, **kwargs):
+        del args, kwargs
+        return subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="not found")
+
+    monkeypatch.setattr(foreman_work_item_session_evidence.subprocess, "run", ledger_reports_absent)
+
+    result = module.act(
+        proposal=module_payload,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: {
+                **document(repo=Path(repo)),
+                "needs_attention": {"items": []},
+            },
+            run=lambda *, argv: 0,
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "work_item_not_found"
 
 
 def test_work_item_session_revalidates_snapshot_and_identity_edges(*, tmp_path):
