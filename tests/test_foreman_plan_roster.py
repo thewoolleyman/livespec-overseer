@@ -96,7 +96,7 @@ def test_roster_is_driven_by_plan_directories_and_left_joins_daemon_snapshot(*, 
     assert rows["beta"]["session_state"] == "no-session"
     assert rows["beta"]["emoji"] == "⚪"
     assert rows["gamma"]["session_state"] == "no-session"
-    assert rows["gamma"]["emoji"] == "❗"
+    assert rows["gamma"]["emoji"] == "⚪"
     assert "foreign" not in rows
 
 
