@@ -8,6 +8,7 @@ from typing import Final, cast
 
 from _seams import PidToIntList, PidToOptionalBytes
 from caam_effort import enforce_effort_floor
+from caam_foreman_override import apply_foreman_model_override
 from caam_profile_state import load_state, save_state
 from caam_sessions import (
     ModelSetter,
@@ -30,6 +31,7 @@ _ADVISORY_ERRORS: Final = (
     KeyError,
     IndexError,
 )
+_SAVE_ERRORS: Final = (OSError, RuntimeError, TypeError, ValueError)
 
 
 def enforce_models(
@@ -46,6 +48,7 @@ def enforce_models(
     session_names = _session_names_option(options=model_options)
     want_model = _string_option(options=model_options, key="want_model")
     active_fable = _active_fable_option(options=model_options)
+    foreman_model = _string_option(options=model_options, key="foreman_model")
     now = _float_option(options=model_options, key="now")
     pane_pid = _pane_pid_option(options=model_options)
     children_of = _children_option(options=model_options)
@@ -72,11 +75,12 @@ def enforce_models(
             environ_of=environ_of,
         )
         if "active_fable" in model_options:
-            messages.append(
+            messages.extend(
                 _enforce_orchestrated_models(
                     panes=panes,
                     state=state,
                     active_fable=active_fable,
+                    foreman_model=foreman_model,
                     now=now,
                     set_model=set_model,
                 )
@@ -96,9 +100,8 @@ def enforce_models(
             f"models: enforcement failed ({type(exc).__name__}: {exc}) -- "
             "table and rotation unaffected"
         )
-    finally:
-        with contextlib.suppress(OSError):
-            save_state(state=state, state_path=state_path)
+    with contextlib.suppress(*_SAVE_ERRORS):
+        save_state(state=state, state_path=state_path)
     return messages
 
 
@@ -157,11 +160,17 @@ def _enforce_orchestrated_models(
     panes: tuple[SessionModel, ...],
     state: dict[str, object],
     active_fable: float | None,
+    foreman_model: str | None,
     now: float | None,
     set_model: ModelSetter,
-) -> str:
+) -> list[str]:
     fable_left = active_fable is not None and active_fable < _FABLE_EXHAUSTED
-    want_foreman = "fable" if fable_left else "opus"
+    foreman = apply_foreman_model_override(
+        state=state,
+        requested_model=foreman_model,
+        default_model="fable" if fable_left else "opus",
+        fable_left=fable_left,
+    )
     actions = [
         action
         for pane in panes
@@ -169,14 +178,19 @@ def _enforce_orchestrated_models(
             pane=pane,
             state=state,
             fable_left=fable_left,
-            want_foreman=want_foreman,
+            want_foreman=foreman.want_foreman,
             now=now,
             set_model=set_model,
         )
     ]
     balance = "left" if fable_left else "EXHAUSTED"
     suffix = ", ".join(actions) if actions else "nothing to change"
-    return f"models: foremen want {want_foreman} (active account Fable {balance}); {suffix}"
+    pinned = " [pinned]" if foreman.pinned else ""
+    return [
+        *foreman.messages,
+        f"models: foremen want {foreman.want_foreman}{pinned} "
+        f"(active account Fable {balance}); {suffix}",
+    ]
 
 
 def _actions_for_pane(

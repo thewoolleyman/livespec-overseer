@@ -527,6 +527,237 @@ def test_model_orchestration_records_per_session_failure_and_continues(*, tmp_pa
     assert calls == [("beta-foreman", "fable")]
 
 
+def test_foreman_model_override_persists_and_overrides_only_foremen(*, tmp_path: Path) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+    state_path = tmp_path / "state.json"
+    session_ids = {
+        "alpha-foreman": "sid-foreman",
+        "alpha-worker": "sid-worker",
+    }
+    pane_pid, children_of, environ_of = session_tree(session_ids=session_ids)
+    for session_id in session_ids.values():
+        write_transcript(
+            home=tmp_path,
+            project="-alpha",
+            session_id=session_id,
+            models=["claude-fable-5"],
+        )
+    calls: list[tuple[str, str]] = []
+
+    def set_model(*, session: str, model: str) -> None:
+        calls.append((session, model))
+
+    first = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=state_path,
+        session_names=tuple(session_ids),
+        active_fable=25.0,
+        foreman_model="opus",
+        now=1000.0,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=environ_of,
+        set_model=set_model,
+    )
+    second = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=state_path,
+        session_names=tuple(session_ids),
+        active_fable=25.0,
+        now=1001.0,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=environ_of,
+        set_model=set_model,
+    )
+
+    assert first == [
+        "models: foreman override set to opus -- persists until --foreman-model=auto",
+        "models: foremen want opus [pinned] (active account Fable left); "
+        "model: alpha-foreman -> opus",
+    ]
+    assert second == [
+        "models: foremen want opus [pinned] (active account Fable left); nothing to change"
+    ]
+    assert json.loads(state_path.read_text(encoding="utf-8"))["foreman_model"] == "opus"
+    assert calls == [("alpha-foreman", "opus")]
+
+
+def test_foreman_model_override_clear_values_restore_default(*, tmp_path: Path) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+
+    for clear_value in ("auto", "", "none"):
+        state_path = tmp_path / f"state-{clear_value or 'empty'}.json"
+        _ = state_path.write_text(json.dumps({"foreman_model": "opus"}), encoding="utf-8")
+
+        messages = module.enforce_models(
+            settings_path=settings,
+            no_models=False,
+            home=tmp_path,
+            state_path=state_path,
+            session_names=(),
+            active_fable=25.0,
+            foreman_model=clear_value,
+            now=1000.0,
+            pane_pid=lambda *, session: 0,
+            children_of=lambda *, pid: [],
+            environ_of=lambda *, pid: b"",
+            set_model=lambda *, session, model: None,
+        )
+
+        assert messages == [
+            "models: foreman override cleared -- back to Fable unless spent",
+            "models: foremen want fable (active account Fable left); nothing to change",
+        ]
+        assert "foreman_model" not in json.loads(state_path.read_text(encoding="utf-8"))
+
+
+def test_foreman_model_override_ignores_unknown_and_corrupt_stored_values(
+    *, tmp_path: Path
+) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+    state_path = tmp_path / "state.json"
+    _ = state_path.write_text(json.dumps({"foreman_model": "opus"}), encoding="utf-8")
+
+    ignored = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=state_path,
+        session_names=(),
+        active_fable=25.0,
+        foreman_model="sonnet",
+        now=1000.0,
+        pane_pid=lambda *, session: 0,
+        children_of=lambda *, pid: [],
+        environ_of=lambda *, pid: b"",
+        set_model=lambda *, session, model: None,
+    )
+    _ = state_path.write_text(json.dumps({"foreman_model": "sonnet"}), encoding="utf-8")
+    corrupt = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=state_path,
+        session_names=(),
+        active_fable=25.0,
+        now=1001.0,
+        pane_pid=lambda *, session: 0,
+        children_of=lambda *, pid: [],
+        environ_of=lambda *, pid: b"",
+        set_model=lambda *, session, model: None,
+    )
+
+    assert ignored == [
+        "models: ignoring --foreman-model=sonnet (expected fable/opus or auto)",
+        "models: foremen want opus [pinned] (active account Fable left); nothing to change",
+    ]
+    assert json.loads(state_path.read_text(encoding="utf-8"))["foreman_model"] == "sonnet"
+    assert corrupt == ["models: foremen want fable (active account Fable left); nothing to change"]
+
+
+def test_foreman_model_override_warns_but_honors_spent_fable_pin(*, tmp_path: Path) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+    session_ids = {
+        "alpha-foreman": "sid-foreman",
+        "alpha-worker": "sid-worker",
+    }
+    pane_pid, children_of, environ_of = session_tree(session_ids=session_ids)
+    for session_id in session_ids.values():
+        write_transcript(
+            home=tmp_path,
+            project="-alpha",
+            session_id=session_id,
+            models=["claude-sonnet-5"],
+        )
+    calls: list[tuple[str, str]] = []
+
+    def set_model(*, session: str, model: str) -> None:
+        calls.append((session, model))
+
+    messages = module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=tmp_path / "state.json",
+        session_names=tuple(session_ids),
+        active_fable=100.0,
+        foreman_model="fable",
+        now=1000.0,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=environ_of,
+        set_model=set_model,
+    )
+
+    assert messages == [
+        "models: foreman override set to fable -- persists until --foreman-model=auto",
+        "models: WARNING foreman override pins fable but the active account's Fable is spent -- "
+        "those sessions will be blocked",
+        "models: foremen want fable [pinned] (active account Fable EXHAUSTED); "
+        "model: alpha-foreman -> fable, model: alpha-worker -> opus",
+    ]
+    assert calls == [("alpha-foreman", "fable"), ("alpha-worker", "opus")]
+
+
+def test_foreman_model_override_is_after_no_models_early_return(*, tmp_path: Path) -> None:
+    module = caam_enforcement_module()
+    settings = high_effort_settings(tmp_path=tmp_path)
+    state_path = tmp_path / "state.json"
+    _ = state_path.write_text(json.dumps({"foreman_model": "opus"}), encoding="utf-8")
+
+    messages = module.enforce_models(
+        settings_path=settings,
+        no_models=True,
+        home=tmp_path,
+        state_path=state_path,
+        session_names=(),
+        active_fable=25.0,
+        foreman_model="auto",
+        now=1000.0,
+        pane_pid=lambda *, session: 0,
+        children_of=lambda *, pid: [],
+        environ_of=lambda *, pid: b"",
+        set_model=lambda *, session, model: None,
+    )
+
+    assert messages == []
+    assert json.loads(state_path.read_text(encoding="utf-8"))["foreman_model"] == "opus"
+
+
+def test_post_enforcement_save_failure_cannot_break_run(*, tmp_path: Path, monkeypatch) -> None:
+    module = importlib.import_module("caam_enforcement")
+    settings = high_effort_settings(tmp_path=tmp_path)
+
+    def save_state(*, state: dict[str, object], state_path: Path) -> None:
+        del state, state_path
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr(module, "save_state", save_state)
+
+    assert module.enforce_models(
+        settings_path=settings,
+        no_models=False,
+        home=tmp_path,
+        state_path=tmp_path / "state.json",
+        session_names=(),
+        active_fable=25.0,
+        now=1000.0,
+        pane_pid=lambda *, session: 0,
+        children_of=lambda *, pid: [],
+        environ_of=lambda *, pid: b"",
+        set_model=lambda *, session, model: None,
+    ) == ["models: foremen want fable (active account Fable left); nothing to change"]
+
+
 def test_model_orchestration_whole_pass_failure_is_advisory(*, tmp_path: Path) -> None:
     module = caam_enforcement_module()
     settings = high_effort_settings(tmp_path=tmp_path)
