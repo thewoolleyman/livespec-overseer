@@ -14,6 +14,7 @@ from foreman_act_types import (
     ActResult,
 )
 from foreman_work_item_session_commands import resume_command, start_command
+from foreman_work_item_session_evidence import work_item_session_refusal
 from foreman_work_item_session_store import (
     append_event,
     handoff_paths,
@@ -77,13 +78,6 @@ def _snapshot_generation_changed(
     return None
 
 
-def _has_work_item(*, document: dict[str, object], work_item_id: str) -> bool:
-    attention = jsonio.as_object(value=document.get("needs_attention")) or {}
-    items = jsonio.as_list(value=attention.get("items")) or []
-    objects = [jsonio.as_object(value=item) for item in items]
-    return any(item is not None and item.get("id") == work_item_id for item in objects)
-
-
 def _terminal_status(*, payload: dict[str, object]) -> str | None:
     terminal = jsonio.as_object(value=payload.get("terminal")) or {}
     status = _str_field(payload=terminal, key="status")
@@ -114,10 +108,12 @@ def _validated_context(
     work_item_id = _str_field(payload=payload, key="work_item_id")
     if not _coordinates_match(proposal=proposal, payload=payload) or work_item_id is None:
         return "work_item_identity_changed", None, None
-    if action_id != WORK_ITEM_SESSION_FINISH and not _has_work_item(
-        document=document, work_item_id=work_item_id
-    ):
-        return "work_item_evidence_missing", None, None
+    if action_id != WORK_ITEM_SESSION_FINISH:
+        refusal = work_item_session_refusal(
+            repo=Path(repo_text), document=document, work_item_id=work_item_id
+        )
+        if refusal is not None:
+            return refusal, None, None
     return None, Path(repo_text), payload
 
 
