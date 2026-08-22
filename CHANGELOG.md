@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.41.16](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.15...v1.41.16) (2026-08-22)
+
+
+### Bug Fixes
+
+* persist picker stall age across restart ([698d7a9](https://github.com/thewoolleyman/livespec-overseer/commit/698d7a9e6a033572a478d732368298d44f103d02))
+* restore registry stamps soft-band owner marker ([78f7c57](https://github.com/thewoolleyman/livespec-overseer/commit/78f7c577556bea5644a8aa795c2d72acc2c5b4eb))
+
 ## [1.41.15](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.14...v1.41.15) (2026-08-22)
 
 
