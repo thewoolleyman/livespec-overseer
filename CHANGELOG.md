@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.41.15](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.14...v1.41.15) (2026-08-22)
+
+
+### Bug Fixes
+
+* keep daemon log in operator checkout ([4cff3aa](https://github.com/thewoolleyman/livespec-overseer/commit/4cff3aab759a89713eeef3eb26dcbaea7ea46255))
+* keep installed daemon fallback outside prefix ([4b74814](https://github.com/thewoolleyman/livespec-overseer/commit/4b74814c69ae940d9716e7b5028995f115132e78))
+
 ## [1.41.14](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.13...v1.41.14) (2026-08-22)
 
 
