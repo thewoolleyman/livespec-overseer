@@ -1,4 +1,5 @@
 """Consensus-disposition helpers for foreman-act human valves."""
+# livespec-lloc-soft-band-owner: overseer-3h4s5w.3
 
 from __future__ import annotations
 
