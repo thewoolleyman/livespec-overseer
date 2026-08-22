@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.36.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.4...v1.36.0) (2026-08-22)
+
+
+### Features
+
+* define foreman roster inaction answers ([b440960](https://github.com/thewoolleyman/livespec-overseer/commit/b4409604ac0f5e26f5cc2530fb31f2c6b039b6d9))
+
 ## [1.35.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.3...v1.35.4) (2026-08-22)
 
 
