@@ -22,7 +22,13 @@ __all__: list[str] = []
 ROOT = Path(__file__).resolve().parent.parent
 PLUGIN_ROOT = ROOT / ".claude-plugin"
 
-OPERATIONS = ("overseer", "supervise-plan", "foreman", "grooming")
+OPERATIONS = (
+    "overseer",
+    "supervise-plan",
+    "foreman",
+    "grooming",
+    "caam-anthropic-loop",
+)
 
 
 def _binding_paths(*, operation: str) -> dict[str, Path]:
@@ -69,7 +75,7 @@ def test_gate_reports_a_binding_that_dropped_its_prose_reference() -> None:
     assert _missing_prose_reference(body=self_contained, operation="grooming")
 
 
-def test_grooming_bindings_carry_their_harness_specific_shape() -> None:
+def test_bindings_carry_their_harness_specific_shape() -> None:
     """The three bindings are not interchangeable copies.
 
     Codex does not substitute a plugin-root token into SKILL prose, so its
@@ -78,11 +84,14 @@ def test_grooming_bindings_carry_their_harness_specific_shape() -> None:
     properties are load-bearing and both are easy to lose when a binding is
     created by copying its sibling.
     """
-    paths = _binding_paths(operation="grooming")
+    for operation in OPERATIONS:
+        paths = _binding_paths(operation=operation)
 
-    codex_body = paths["codex"].read_text(encoding="utf-8")
-    assert "PLUGIN_ROOT" in codex_body, "the Codex binding must resolve the plugin root explicitly"
+        codex_body = paths["codex"].read_text(encoding="utf-8")
+        assert (
+            "PLUGIN_ROOT" in codex_body
+        ), f"the Codex binding must resolve the plugin root explicitly: {paths['codex']}"
 
-    assert (
-        paths["pi"].parent.name == "livespec-overseer-grooming"
-    ), "the pi binding directory must carry the unabbreviated name prefix"
+        assert paths["pi"].parent.name == f"livespec-overseer-{operation}", (
+            "the pi binding directory must carry the unabbreviated name prefix: " f"{paths['pi']}"
+        )
