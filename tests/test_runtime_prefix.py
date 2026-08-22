@@ -43,7 +43,12 @@ def test_ensure_runtime_installs_the_released_distribution_not_the_checkout(*, t
     assert calls[0][-2:] == ["-m", "venv"]
     install = calls[1]
     assert install[:3] == [str(prefix / "venv" / "bin" / "python"), "-m", "pip"]
-    assert f"livespec-overseer=={APP_VERSION}" in install
+    assert "--no-deps" in install
+    assert mod.runtime_install_source() in install
+    assert mod.runtime_install_source().endswith(f"@v{APP_VERSION}")
+    assert "git+https://github.com/thewoolleyman/livespec-overseer.git" in (
+        mod.runtime_install_source()
+    )
     assert all(str(Path.cwd()) not in arg for arg in install)
 
 

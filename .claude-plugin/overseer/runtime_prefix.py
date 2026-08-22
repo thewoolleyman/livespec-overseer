@@ -13,10 +13,12 @@ __all__: list[str] = [
     "daemon_executable",
     "ensure_current_runtime",
     "ensure_runtime",
+    "runtime_install_source",
     "runtime_prefix",
 ]
 
 _PROJECT_NAME = "livespec-overseer"
+_PROJECT_GIT_URL = "https://github.com/thewoolleyman/livespec-overseer.git"
 _VENV_COMMAND_LEN = 4
 
 
@@ -29,6 +31,11 @@ def runtime_prefix(*, home: Path | None = None) -> Path:
 def daemon_executable(*, prefix: Path) -> Path:
     """The ``overseerd`` console script inside a runtime prefix's venv."""
     return prefix / "venv" / "bin" / "overseerd"
+
+
+def runtime_install_source() -> str:
+    """Immutable git source for the adopted release, never the working tree."""
+    return f"{_PROJECT_NAME} @ git+{_PROJECT_GIT_URL}@v{APP_VERSION}"
 
 
 def _venv_python(*, prefix: Path) -> Path:
@@ -59,7 +66,6 @@ def ensure_runtime(
     if venv_rc != 0:
         return None
 
-    package_spec = f"{_PROJECT_NAME}=={APP_VERSION}"
     install_rc = runner(
         argv=[
             str(_venv_python(prefix=prefix)),
@@ -67,7 +73,8 @@ def ensure_runtime(
             "pip",
             "install",
             "--disable-pip-version-check",
-            package_spec,
+            "--no-deps",
+            runtime_install_source(),
         ]
     )
     if install_rc != 0:
