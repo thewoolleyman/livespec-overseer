@@ -205,6 +205,13 @@ A pre-existing epic that is not a plan anchor may be folded in as a sub-epic rat
 than promoted to its own thread. That is how the budget is respected without
 orphaning real work.
 
+If the new-thread allowance is zero and no existing thread is a truthful home,
+leave the work unparented and report the blocked bucketing decision with the
+budget, live-thread count, overflow, and reclaimable thread list. This creates
+BUCKETING-BLOCKED provenance for the pass report, not a ledger marker and not an
+invariant-1 exemption; the Ledger Invariants section still requires the row to be
+reported until a truthful parent exists.
+
 Keep item comments rare. Ledger comments are assembled verbatim into future
 dispatch briefs and are append-only. Put durable per-item facts in editable fields.
 Put pass-level narrative on the plan epic. Comment on a dispatched item only when
@@ -330,7 +337,16 @@ is structural to the per-repo tenant rather than a row scan.
    `overseer-6bx5`, `overseer-cv06`, and `overseer-157q` as evidence of the
    archive-gate gap, then either parent the successor when doing so will not
    re-block an archive gate or record why the row is temporarily left as found.
-   An ordinary unparented non-done item with no deferral-successor provenance
+   Bucketing-blocked rows are the other recognized unparented provenance: when
+   the bucket step has zero new-thread allowance and no existing thread is a
+   truthful home, the sanctioned action is to leave the row unparented and report
+   the blocked bucketing decision rather than manufacture untruthful membership.
+   Nothing in the ledger substrate distinguishes that row from an ordinary
+   orphan today; it is distinguishable only by the pass's own report naming the
+   budget, live-thread count, overflow, and reclaimable thread list. That
+   provenance is reported rather than silently tolerated, and it is not a
+   license to stop reporting the row. An ordinary unparented non-done item with
+   no recognized provenance--neither deferral-successor nor bucketing-blocked--
    remains a genuine invariant-1 breach.
 2. Every open item carries acceptance criteria, read through the merged projection.
 3. Only lifecycle statuses exist: backlog, ready, pending-approval, active,
