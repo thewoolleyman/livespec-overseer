@@ -1,10 +1,11 @@
 """Regression tests for overseerd's native daemon log."""
 
 import json
+from pathlib import Path
 
 import streams
 
-from overseer import daemon
+from overseer import daemon, start
 
 __all__: list[str] = []
 
@@ -47,3 +48,19 @@ def test_overseerd_open_event_is_structured(*, tmp_path, monkeypatch):
     assert event["message"] == "daemon log opened"
     assert event["daemon_instance_id"] == "unknown"
     assert event["tick_generation"] == 0
+
+
+def test_overseerd_native_log_prefers_checkout_when_installed_elsewhere(
+    *, tmp_path: Path, monkeypatch
+) -> None:
+    """The daemon's own log resolver must match overseer-start's checkout rule."""
+    prefix = tmp_path / "runtime" / "venv" / "lib" / "python3.10" / "site-packages"
+    checkout = tmp_path / "operator-checkout"
+    (prefix / "overseer").mkdir(parents=True)
+    (checkout / "overseer").mkdir(parents=True)
+    (checkout / "overseer" / "start.py").write_text("# checkout marker\n", encoding="utf-8")
+    monkeypatch.setattr(start, "__file__", str(prefix / "overseer" / "start.py"))
+    monkeypatch.chdir(checkout)
+
+    assert daemon._default_daemon_log_path() == checkout / "tmp" / "overseer" / "daemon.log"
+    assert not (prefix / "tmp").exists()

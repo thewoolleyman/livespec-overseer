@@ -27,7 +27,7 @@ import tmuxio
 from _seams import PidToOptionalInt, PidToOptionalStr
 from claude_sessions import proc_comm, proc_ppid
 
-__all__: list[str] = ["daemon_command", "main"]
+__all__: list[str] = ["daemon_command", "default_core_root", "main"]
 
 _DAEMON_PANE_TITLE = "overseer-daemon"
 _OVERSEER_PANE_COUNT = 2
@@ -95,6 +95,11 @@ def _checkout_root_from_cwd(*, cwd: Path, module_root: Path) -> Path | None:
 
 
 def _default_core_root() -> Path:
+    """Backward-compatible private wrapper for the shared core-root resolver."""
+    return default_core_root()
+
+
+def default_core_root() -> Path:
     """Root whose package should win when the daemon runs ``python -m overseer.daemon``."""
     module_root = Path(__file__).resolve().parent.parent
     checkout_root = _checkout_root_from_cwd(cwd=Path.cwd(), module_root=module_root)
