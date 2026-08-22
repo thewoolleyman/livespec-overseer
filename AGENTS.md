@@ -939,6 +939,11 @@ permanent.
 
 ### A SEVENTH SHAPE: the FACTORY HOST has no room for a run directory, and every local signal reads healthy
 
+**IT IS INTERMITTENT — do not escalate this as a factory outage.** The same host
+carried a full run to an opened PR thirteen minutes after the failures below; the
+evidence is at the end of this entry. Re-try or re-route first. The diagnosis
+that follows is accurate and worth reading in full; only its urgency is not.
+
 Measured 2026-08-22T00:51Z dispatching `overseer-temi26.2` on plugin build
 `392b3fa90f86`. The dispatcher's own JSON envelope, stage `fabro-run`, status
 `failed`, `fabro_run_id` null:
@@ -976,7 +981,7 @@ second factory is a routing choice inside sanctioned configuration, not a host
 mutation, and it needs no approval. Measured here: the `hp` attempt failed in
 seconds, the `vps` re-dispatch on the identical item was still executing minutes
 later. **Check that the second factory is actually declared before reaching for
-this** — a repo with one factory has no fallback and the outage is real.
+this** — a repo with one factory has no fallback and must wait the condition out.
 
 **Expect accumulation, not a spike.** Fabro run state persists per run under
 `.fabro/storage`, the documented recovery recipes call `fabro rm --force` only
