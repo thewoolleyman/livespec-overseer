@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.23.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.22.2...v1.23.0) (2026-08-22)
+
+
+### Features
+
+* expose full autonomy valve posture ([67a5b84](https://github.com/thewoolleyman/livespec-overseer/commit/67a5b840b24cfc6593f5a94adaf2957a0533b880))
+
+
+### Bug Fixes
+
+* report unreadable restart statusline ([9acd2e3](https://github.com/thewoolleyman/livespec-overseer/commit/9acd2e3206ed12566e36d5a8349f8dd1e7c2080e))
+
 ## [1.22.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.22.1...v1.22.2) (2026-08-22)
 
 
