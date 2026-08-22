@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.33.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.33.0...v1.33.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* keep foreman cadence across human decisions ([11dc509](https://github.com/thewoolleyman/livespec-overseer/commit/11dc509c25139207a1e0f92f1df8e5bca5af3a08))
+
 ## [1.33.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.32.6...v1.33.0) (2026-08-22)
 
 
