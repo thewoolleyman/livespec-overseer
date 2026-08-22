@@ -106,10 +106,15 @@ live sessions, and in-flight runs make that a maintainer decision.
 
 ### 1. Measure
 
-Measure the whole tenant, not the default listing window. Use the all-records,
-all-statuses, machine-readable ledger view, including gate records when the local
-ledger supports them. A default ledger listing is not enough: it omits records and
-has already produced false clean readings.
+Measure the whole tenant, not the default listing window. Use the merged
+work-item projection exposed by the orchestrator plugin named in the governed
+repo's `.livespec.jsonc` `implementation.plugin` key: the `list-work-items
+--json` operation. Runtime neutrality comes from resolving the governed repo's
+plugin and invoking that operation by capability, not from hard-coding a
+substrate command. Use an all-records, all-statuses, machine-readable ledger
+view, including gate records when the local ledger supports them. A default
+ledger listing is not enough: it omits records and has already produced false
+clean readings.
 
 Compose and record:
 
@@ -249,10 +254,23 @@ Verify what this pass itself did:
   reasons.
 
 Read content and source, never proxy reports. For sessions, read the tmux session
-list and the daemon snapshot rows directly. For work items, read the machine
-projection that merges native and metadata fields. For dispatches, read the run
-listing for the same server the dispatcher used, then read the dispatcher journal
-when the run listing cannot explain the outcome.
+list and the daemon snapshot rows directly. For work items, read the
+orchestrator plugin's `list-work-items --json` projection resolved from the
+governed repo's `.livespec.jsonc` `implementation.plugin` key; that is the
+referent for this contract's "merged projection" language. For dispatches, read
+the run listing for the same server the dispatcher used, then read the dispatcher
+journal when the run listing cannot explain the outcome.
+
+As measured on 2026-08-22 against merged master `08b2afd` and a 669-row
+projection, that sanctioned projection can answer the five implemented
+invariants: plan-rollup, acceptance-present, lifecycle-status,
+dispatchable-delimiter, and cross-repo-dependencies. The remaining two
+invariants, split-acceptance-label and routing-field, are not implemented yet;
+their scanned population is zero because the checker has no canonical field to
+read, not because the tenant is clean. Revisit this paragraph when
+`bd-ib-m36re3` or its successor changes the projection. Until then, any raw
+ledger read used to investigate an unimplemented invariant must carry the
+record-shape traps below beside the claim.
 
 The run-existence check must name the server the dispatcher used. The run-listing
 client may default to a local server while the dispatcher submitted elsewhere. The
@@ -307,6 +325,40 @@ lifecycle status, re-read, and record any repair.
 answer from a listing whose count is capped, round, or missing closed and gate
 records. Remedy: scan all records, all statuses, and gate records; report the
 population.
+
+**Comments are not in the record.** Measured 2026-08-21 over the 523 records of
+the `livespec-dev-tooling` tenant using the raw all-statuses JSON read. A record
+read returns `comment_count` and no `comments` key, and the raw show shape is a
+one-element array rather than an object. Tell: a read-back after a successful
+comment write reports zero comments, which reads as a lost write. Remedy: read
+comments through the substrate's comments operation and keep comment evidence
+separate from record fields.
+
+**Records are omitempty-sparse.** Measured 2026-08-21 over the same 523-record
+population: 25 distinct keys appeared, and only 10 appeared on every record.
+Tell: a field is absent on a large minority of records and it looks like the
+listing dropped it. The listing did not drop it; those records hold the zero
+value. Remedy: inspect key presence as record shape before drawing a tenant
+conclusion from absence.
+
+**`dependencies` is one heterogeneous array.** Measured 2026-08-21 over the same
+523-record population: 261 dependency rows shared one array, keyed their target
+as `depends_on_id`, and used six relation types: `parent-child` 116, `blocks`
+93, `relates-to` 26, `discovered-from` 23, `related` 2, and `duplicates` 1. That
+means 168 of 261 rows, 64 percent, were not blockers. Tell: every target reads
+as `None`, the tenant looks full of dangling edges, or blockers appear that do
+not exist. Remedy: read the target key and relation type before treating any row
+as a blocker.
+
+**A bounded query's negative result is a statement about the bound.** Measured
+2026-08-21 in one livespec-overseer grooming pass: a forge query window of 250
+rows reported two acceptance items as having no PR, while their merged PRs were
+below that window. The same pass caught three more ordinary bounds: keyword
+choice, 900-character text window, and 600-character text window. Tell: a
+surprising absence, where the tenant looks like it is missing a field, PR, fix,
+or other artifact that ought to obviously be present. Remedy: measure the
+instrument before believing its verdict, and state the row limit, text window,
+file set, or match term beside any negative claim.
 
 **An opening template delimiter makes an item undispatchable.** Tell: dispatch graph
 construction fails on an undefined template variable whose name appears only in
