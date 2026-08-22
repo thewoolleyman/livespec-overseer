@@ -12,7 +12,9 @@ from version import APP_VERSION
 __all__: list[str] = [
     "daemon_executable",
     "ensure_current_runtime",
+    "ensure_release_runtime",
     "ensure_runtime",
+    "release_runtime_prefix",
     "runtime_install_source",
     "runtime_prefix",
 ]
@@ -28,14 +30,21 @@ def runtime_prefix(*, home: Path | None = None) -> Path:
     return root / ".local" / "share" / "livespec-overseer" / "runtime" / APP_VERSION
 
 
+def release_runtime_prefix(*, release: str, home: Path | None = None) -> Path:
+    """Daemon-owned runtime prefix for a resolved immutable release ref."""
+    root = Path.home() if home is None else home
+    return root / ".local" / "share" / "livespec-overseer" / "runtime" / release
+
+
 def daemon_executable(*, prefix: Path) -> Path:
     """The ``overseerd`` console script inside a runtime prefix's venv."""
     return prefix / "venv" / "bin" / "overseerd"
 
 
-def runtime_install_source() -> str:
+def runtime_install_source(*, ref: str | None = None) -> str:
     """Immutable git source for the adopted release, never the working tree."""
-    return f"{_PROJECT_NAME} @ git+{_PROJECT_GIT_URL}@v{APP_VERSION}"
+    target_ref = f"v{APP_VERSION}" if ref is None else ref
+    return f"{_PROJECT_NAME} @ git+{_PROJECT_GIT_URL}@{target_ref}"
 
 
 def _venv_python(*, prefix: Path) -> Path:
@@ -54,6 +63,7 @@ def ensure_runtime(
     *,
     prefix: Path,
     run: Callable[..., int] | None = None,
+    install_source: str | None = None,
 ) -> Path | None:
     """Ensure ``prefix`` contains a non-editable install of the adopted release."""
     target = daemon_executable(prefix=prefix)
@@ -74,7 +84,7 @@ def ensure_runtime(
             "install",
             "--disable-pip-version-check",
             "--no-deps",
-            runtime_install_source(),
+            runtime_install_source() if install_source is None else install_source,
         ]
     )
     if install_rc != 0:
@@ -85,3 +95,11 @@ def ensure_runtime(
 def ensure_current_runtime() -> Path | None:
     """Ensure the current package version exists under the daemon-owned prefix."""
     return ensure_runtime(prefix=runtime_prefix())
+
+
+def ensure_release_runtime(*, release: str) -> Path | None:
+    """Ensure the resolved release commit exists under the daemon-owned prefix."""
+    return ensure_runtime(
+        prefix=release_runtime_prefix(release=release),
+        install_source=runtime_install_source(ref=release),
+    )
