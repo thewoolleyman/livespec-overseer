@@ -17,6 +17,7 @@ from _supervisor_statusline_model import rendered_statusline_model
 __all__: list[str] = [
     "CLAUDE_CONTROLLED_ENV",
     "DEFAULT_START_MODEL",
+    "PLAN_UNATTENDED_ENV",
     "ClaudeLaunchPlan",
     "CodexLaunchPlan",
     "LaunchProfileProblem",
@@ -32,6 +33,7 @@ CLAUDE_CONTROLLED_ENV = (
     "CLAUDE_CODE_DISABLE_1M_CONTEXT",
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
 )
+PLAN_UNATTENDED_ENV = "LIVESPEC_PLAN_UNATTENDED"
 
 # The model a track the overseer STARTS is launched under, so its argv carries a token the
 # capture can read and the track is capturable from birth. Deliberately a CONSTANT rather
@@ -59,6 +61,24 @@ def _scrubbed_env() -> dict[str, str | None]:
     return {name: None for name in CLAUDE_CONTROLLED_ENV}
 
 
+def _with_unattended_restart_env(
+    *, env: Mapping[str, str | None], daemon_restart: bool
+) -> Mapping[str, str | None]:
+    if not daemon_restart:
+        return env
+    merged = dict(env)
+    merged[PLAN_UNATTENDED_ENV] = "1"
+    return MappingProxyType(merged)
+
+
+def _optional_unattended_restart_env(
+    *, env: Mapping[str, str | None] | None, daemon_restart: bool
+) -> Mapping[str, str | None] | None:
+    if env is None and not daemon_restart:
+        return None
+    return _with_unattended_restart_env(env=env or {}, daemon_restart=daemon_restart)
+
+
 def _claude_command(*, topic: str, model: str | None) -> str:
     """The Claude launch command, with an explicit model only when one is given."""
     model_arg = "" if model is None else f"--model {shlex.quote(model)} "
@@ -79,7 +99,7 @@ def _wrapper_problem(*, track: registry.Track, wrapper: str) -> LaunchProfilePro
 
 
 def claude_launch_plan(
-    *, track: registry.Track, start: bool = False
+    *, track: registry.Track, start: bool = False, daemon_restart: bool = False
 ) -> ClaudeLaunchPlan | LaunchProfileProblem:
     """Plan a Claude launch. ``start`` marks a brand-new track rather than a relaunch.
 
@@ -95,7 +115,10 @@ def claude_launch_plan(
             command=_claude_command(
                 topic=track.topic, model=DEFAULT_START_MODEL if start else None
             ),
-            env=_scrubbed_env(),
+            env=_with_unattended_restart_env(
+                env=_scrubbed_env(),
+                daemon_restart=daemon_restart,
+            ),
         )
     if profile["harness"] != "claude":
         return _problem(
@@ -108,7 +131,10 @@ def claude_launch_plan(
     if wrapper is None:
         return ClaudeLaunchPlan(
             command=_claude_command(topic=track.topic, model=model),
-            env=MappingProxyType(env),
+            env=_with_unattended_restart_env(
+                env=MappingProxyType(env),
+                daemon_restart=daemon_restart,
+            ),
         )
     wrapper_problem = _wrapper_problem(track=track, wrapper=wrapper)
     if wrapper_problem is not None:
@@ -119,7 +145,10 @@ def claude_launch_plan(
             f"{shlex.quote(wrapper)} "
             f"--dangerously-skip-permissions -n {shlex.quote(track.topic)}"
         ),
-        env=MappingProxyType(env),
+        env=_with_unattended_restart_env(
+            env=MappingProxyType(env),
+            daemon_restart=daemon_restart,
+        ),
     )
 
 
@@ -140,13 +169,16 @@ def _codex_command(*, command: str, session_id: str, resume: str, model: str | N
 
 
 def codex_launch_plan(
-    *, track: registry.Track, session_id: str, resume: str
+    *, track: registry.Track, session_id: str, resume: str, daemon_restart: bool = False
 ) -> CodexLaunchPlan | LaunchProfileProblem:
     profile = track.model_profile
     if profile is None:
         return CodexLaunchPlan(
             command=_bare_codex_command(session_id=session_id, resume=resume),
-            env=None,
+            env=_optional_unattended_restart_env(
+                env=None,
+                daemon_restart=daemon_restart,
+            ),
         )
     if profile["harness"] != "codex":
         return _problem(
@@ -163,7 +195,10 @@ def codex_launch_plan(
                 session_id=session_id,
                 resume=resume,
             ),
-            env=MappingProxyType(_scrubbed_env()),
+            env=_with_unattended_restart_env(
+                env=MappingProxyType(_scrubbed_env()),
+                daemon_restart=daemon_restart,
+            ),
         )
     wrapper_problem = _wrapper_problem(track=track, wrapper=wrapper)
     if wrapper_problem is not None:
@@ -177,5 +212,8 @@ def codex_launch_plan(
             session_id=session_id,
             resume=resume,
         ),
-        env=MappingProxyType(env),
+        env=_with_unattended_restart_env(
+            env=MappingProxyType(env),
+            daemon_restart=daemon_restart,
+        ),
     )

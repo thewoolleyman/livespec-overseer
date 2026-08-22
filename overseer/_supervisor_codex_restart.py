@@ -65,6 +65,7 @@ def _codex_launch_plan_for_restart(
         track=track,
         session_id=session_id,
         resume=resume,
+        daemon_restart=True,
     )
     if not isinstance(launch, CodexLaunchPlan):
         sup.alert(

@@ -94,7 +94,7 @@ def resume_prompt(*, track: registry.Track) -> str | None:
 
 
 def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -> None:
-    launch = _supervisor_launch.claude_launch_plan(track=track)
+    launch = _supervisor_launch.claude_launch_plan(track=track, daemon_restart=True)
     if not isinstance(launch, ClaudeLaunchPlan):
         sup.alert(
             repo=track.repo,
