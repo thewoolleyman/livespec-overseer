@@ -13,6 +13,7 @@ from grooming_plan_budget import TERMINAL_WORK_ITEM_STATUSES, is_top_level_ancho
 
 __all__: list[str] = [
     "TERMINAL_STATUSES",
+    "assignee",
     "cross_repo_payload_breaches",
     "has_dependency_payload",
     "has_parent",
@@ -129,6 +130,14 @@ def is_open(*, item: Mapping[str, object]) -> bool:
 def has_parent(*, item: Mapping[str, object]) -> bool:
     value = item.get("parent")
     return isinstance(value, str) and value.strip() != ""
+
+
+def assignee(*, item: Mapping[str, object]) -> str | None:
+    value = item.get("assignee")
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip()
+    return stripped if stripped != "" else None
 
 
 def labels(*, item: Mapping[str, object]) -> frozenset[str]:
