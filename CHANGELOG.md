@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.12](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.11...v1.41.12) (2026-08-22)
+
+
+### Bug Fixes
+
+* reject closed lloc owner markers ([da3bff7](https://github.com/thewoolleyman/livespec-overseer/commit/da3bff7cb5886ebe7aa1871d6aa3dd70d4ee0c61))
+
 ## [1.41.11](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.10...v1.41.11) (2026-08-22)
 
 
