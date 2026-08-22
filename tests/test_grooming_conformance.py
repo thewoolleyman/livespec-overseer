@@ -205,6 +205,46 @@ def test_plan_rollup_exempts_registered_seat_anchor_from_real_record_shape(
     assert "non-seat-anchor" in plan_rollup.scope
 
 
+def test_plan_rollup_exempts_projection_spelled_anchor_but_reports_projection_spelled_bug(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            {
+                "id": "overseer-qyli",
+                "status": "backlog",
+                "type": "epic",
+                "parent": None,
+                "title": "livespec-overseer-grooming seat anchor rounds and handoffs",
+                "notes": "Seat anchor record emitted by the merged work-item projection.",
+                "labels": ["intake:triaged"],
+                "dependencies": [],
+            },
+            {
+                "id": "overseer-la2nfq",
+                "status": "ready",
+                "type": "bug",
+                "parent": None,
+                "title": "ordinary unparented bug",
+                "notes": "Same projection spelling as the anchor control.",
+                "labels": ["intake:triaged"],
+                "dependencies": [],
+                "acceptance_criteria": "Done is explicit.",
+            },
+        ],
+        seat_anchor_epic_ids={"overseer-qyli"},
+    )
+
+    plan_rollup = _by_key(report=report, key="plan-rollup")
+    assert plan_rollup.breaching_item_ids == ("overseer-la2nfq",)
+    assert plan_rollup.scanned_item_count == 1
+
+
 def test_plan_rollup_scope_says_when_seat_register_is_absent(*, tmp_path: Path) -> None:
     module = grooming_conformance()
     repo = _repo(tmp_path=tmp_path)

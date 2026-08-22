@@ -143,7 +143,7 @@ def work_item_is_drainable(
 
 
 def is_plan_anchor_epic(*, item: Mapping[str, object]) -> bool:
-    return item.get("issue_type") == "epic" and plan_slug(item=item) is not None
+    return is_epic(item=item) and plan_slug(item=item) is not None
 
 
 def is_top_level_anchor_epic(
@@ -164,7 +164,11 @@ def is_seat_anchor_epic(
 ) -> bool:
     anchors = seat_anchor_epic_ids or frozenset()
     identifier = work_item_id(item=item)
-    return item.get("issue_type") == "epic" and identifier is not None and identifier in anchors
+    return is_epic(item=item) and identifier is not None and identifier in anchors
+
+
+def is_epic(*, item: Mapping[str, object]) -> bool:
+    return item.get("issue_type") == "epic" or item.get("type") == "epic"
 
 
 def work_item_id(*, item: Mapping[str, object]) -> str | None:
@@ -202,7 +206,7 @@ def live_plan_anchor_slugs(*, work_items: Sequence[Mapping[str, object]]) -> tup
         if isinstance(status, str) and status.lower() in _TERMINAL_WORK_ITEM_STATUSES:
             continue
         slug = plan_slug(item=item)
-        if item.get("issue_type") == "epic" and slug is not None:
+        if is_epic(item=item) and slug is not None:
             slugs.add(slug)
     return tuple(sorted(slugs))
 
