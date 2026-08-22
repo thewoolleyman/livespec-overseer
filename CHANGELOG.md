@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.41.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.40.0...v1.41.0) (2026-08-22)
+
+
+### Features
+
+* cover foreman wait premise question lint ([12e65d9](https://github.com/thewoolleyman/livespec-overseer/commit/12e65d963de11ce01551a3c74895a49f7b2d6369))
+
+
+### Bug Fixes
+
+* split wait-premise question matching into its own module ([402787a](https://github.com/thewoolleyman/livespec-overseer/commit/402787aec2c291e3d850ca0cd5f731e2bc9dacef))
+
 ## [1.40.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.39.0...v1.40.0) (2026-08-22)
 
 
