@@ -35,6 +35,17 @@ __all__: list[str] = []
             "_registry_stamps",
             ("read_resume_pending", "set_resume_pending"),
         ),
+        (
+            "_registry_store_fields",
+            "_registry_store",
+            (
+                "record_derived_epic",
+                "record_model_profile",
+                "record_observed_session_identity",
+                "repoint_tmux",
+                "set_epic",
+            ),
+        ),
         ("_registry_store_rows", "_registry_store", ("track_to_row", "validated_row")),
         ("_supervisor_wrapup_injection", "_supervisor_restart", ("maybe_inject",)),
         (
@@ -71,3 +82,6 @@ def test_soft_band_extractions_keep_public_facades(
     for name in public_names:
         assert hasattr(extracted, name)
         assert getattr(source, name) is getattr(extracted, name)
+
+    if module_name == "_registry_store_fields":
+        assert not hasattr(source, "_update_matching_field")
