@@ -8,6 +8,7 @@ import io as _io
 import json
 from pathlib import Path
 
+import pytest
 import registry
 import signals
 from test_supervisor_builders import (
@@ -35,6 +36,20 @@ def _env(*, values: dict[str, str]) -> bytes:
 
 def _jsonl_rows(*, store):
     return [json.loads(line) for line in store.read_text().splitlines() if line.strip()]
+
+
+def _assert_no_credential_material_in_mapping_row(
+    *,
+    row,
+    credential_values: tuple[str, ...],
+    credential_keys: tuple[str, ...],
+) -> None:
+    serialized_row = repr(row)
+    for value in credential_values:
+        assert value not in serialized_row
+    assert "sk-ant" not in serialized_row
+    for key in credential_keys:
+        assert key not in serialized_row
 
 
 def _write_launch_statusline_baseline(*, sup, repo, topic, model: str) -> None:
@@ -170,6 +185,74 @@ def test_adopt_sessions_persists_a_cloud_claude_launch_profile(*, tmp_path):
         "statusline_model": "Opus 4.8 (1M context)",
         "wrapper": None,
     }
+
+
+def test_adopt_sessions_never_persists_credential_material(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    write_session(sessions_dir=sessions_dir, pid=200, name=topic, cwd=repo)
+    fake = FakeTmux()
+    fake.panes[topic] = idle_capture(ctx=40)
+    fake.pane_pids = {100: topic}
+    auth_token = "sk-ant-oat01-overseer-5xer-auth-token"
+    api_key = "sk-ant-api03-overseer-5xer-api-key"
+    credential_values = (auth_token, api_key)
+    credential_keys = ("ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY")
+    sup = adopt_sup(
+        tmp_path=tmp_path,
+        fake=fake,
+        sessions_dir=sessions_dir,
+        ppid={200: 100},
+        starttimes={200: "pt"},
+        watch_repos=[str(repo)],
+        cmdline_of=lambda *, pid: _nul(argv=["claude", "--model", "opus[1m]", "-n", topic])
+        if pid == 200
+        else None,
+        environ_of=lambda *, pid: _env(
+            values={
+                "ANTHROPIC_AUTH_TOKEN": auth_token,
+                "ANTHROPIC_API_KEY": api_key,
+                "ANTHROPIC_MODEL": "opus[1m]",
+                "LIVESPEC_LOCAL_LLM_WRAPPER": "/data/projects/local-llm/bin/claude-local-llm",
+            }
+        )
+        if pid == 200
+        else None,
+    )
+
+    adopted = sup.adopt_sessions()
+    row = _jsonl_rows(store=tmp_path / "map.jsonl")[0]
+
+    # overseer-bc55wx: token values must never reach the mapping store.
+    assert [track.topic for track in adopted] == [topic]
+    assert row["model_profile"] == {
+        "harness": "claude",
+        "model": "opus[1m]",
+        "statusline_model": "Opus 4.8 (1M context)",
+        "wrapper": None,
+    }
+    _assert_no_credential_material_in_mapping_row(
+        row=row,
+        credential_values=credential_values,
+        credential_keys=credential_keys,
+    )
+    widened_row = {
+        **row,
+        "model_profile": {
+            **row["model_profile"],
+            "extra_env": {
+                "ANTHROPIC_AUTH_TOKEN": auth_token,
+                "ANTHROPIC_API_KEY": api_key,
+            },
+        },
+    }
+    with pytest.raises(AssertionError):
+        _assert_no_credential_material_in_mapping_row(
+            row=widened_row,
+            credential_values=credential_values,
+            credential_keys=credential_keys,
+        )
 
 
 def test_overseer_started_adoption_uses_launch_statusline_baseline(*, tmp_path):

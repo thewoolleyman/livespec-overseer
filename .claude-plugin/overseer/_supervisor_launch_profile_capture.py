@@ -95,6 +95,15 @@ def _wrapper_from_local_router(
     )
 
 
+def _closed_profile(
+    *,
+    harness: str,
+    model: str,
+    wrapper: str | None,
+) -> dict[str, str | None]:
+    return {"harness": harness, "model": model, "wrapper": wrapper}
+
+
 def read_launch_profile(
     *,
     pid: int,
@@ -121,4 +130,4 @@ def read_launch_profile(
         if _non_anthropic_base_url(base_url=env.get("ANTHROPIC_BASE_URL"))
         else None
     )
-    return {"harness": harness, "model": model, "wrapper": wrapper}
+    return _closed_profile(harness=harness, model=model, wrapper=wrapper)
