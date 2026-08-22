@@ -427,3 +427,73 @@ def test_roster_reports_distinct_plan_only_and_tmux_only_name_identity_errors(*,
             "tmux": "tmux-only",
         }
     ]
+
+
+def test_roster_emits_once_per_tick_identity_and_again_for_a_new_tick(*, tmp_path, capsys):
+    repo = tmp_path / "repo"
+    _plan(repo=repo, topic="alpha")
+
+    base_args = [
+        "--repo",
+        str(repo),
+        "--snapshot-path",
+        str(tmp_path / "missing.json"),
+        "--tmux-session",
+        "alpha",
+        "--tick-identity",
+    ]
+
+    assert foreman_plan_roster.main(argv=[*base_args, "daemon-1:7"]) == 0
+    assert foreman_plan_roster.main(argv=[*base_args, "daemon-1:7"]) == 0
+    assert foreman_plan_roster.main(argv=[*base_args, "daemon-1:8"]) == 0
+
+    emissions = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
+    assert [emission["tick_identity"] for emission in emissions] == [
+        "daemon-1:7",
+        "daemon-1:8",
+    ]
+
+
+def test_unactioned_counter_persists_across_processes_and_resets_on_action(*, tmp_path, capsys):
+    repo = tmp_path / "repo"
+    _plan(repo=repo, topic="alpha")
+
+    base_args = [
+        "--repo",
+        str(repo),
+        "--snapshot-path",
+        str(tmp_path / "missing.json"),
+        "--tmux-session",
+        "alpha",
+    ]
+
+    assert foreman_plan_roster.main(argv=[*base_args, "--tick-identity", "daemon-1:1"]) == 0
+    assert foreman_plan_roster.main(argv=[*base_args, "--tick-identity", "daemon-1:2"]) == 0
+    assert (
+        foreman_plan_roster.main(
+            argv=[
+                *base_args,
+                "--tick-identity",
+                "daemon-1:3",
+                "--actioned-plan",
+                "alpha",
+            ]
+        )
+        == 0
+    )
+
+    emissions = [json.loads(line) for line in capsys.readouterr().out.splitlines() if line.strip()]
+    assert [emission["rows"][0]["consecutive_unactioned_ticks"] for emission in emissions] == [
+        1,
+        2,
+        0,
+    ]
+
+    state_path = repo / "tmp" / "overseer" / "foreman" / "plan-roster-state.json"
+    assert state_path.is_file()
+    assert json.loads(state_path.read_text(encoding="utf-8")) == {
+        "emitted_tick_identities": ["daemon-1:1", "daemon-1:2", "daemon-1:3"],
+        "plans": {"alpha": {"consecutive_unactioned_ticks": 0}},
+        "schema_version": 1,
+    }
+    assert not list((repo / "plan" / "alpha").glob("*roster*"))
