@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import foreman_plan_roster
+import foreman_plan_roster_work
 
 __all__: list[str] = []
 
@@ -52,7 +53,7 @@ def test_malformed_snapshot_rows_fall_back_to_no_daemon_rows(*, tmp_path):
         tmux_sessions=["alpha"],
     )
 
-    assert roster["rows"][0]["status"] == "no-daemon-row"
+    assert roster["rows"][0]["session_state"] == "no-session"
 
 
 def test_daemon_row_edges_are_reported_without_adopting_foreign_topics(*, tmp_path):
@@ -82,12 +83,84 @@ def test_daemon_row_edges_are_reported_without_adopting_foreign_topics(*, tmp_pa
     )
 
     rows = {row["plan"]: row for row in roster["rows"]}
-    assert rows["alpha"]["status"] == "daemon-row-missing-status"
-    assert rows["alpha"]["status_emoji"] == "🔴"
+    assert rows["alpha"]["session_state"] == "no-session"
+    assert rows["alpha"]["emoji"] == "🔴"
     assert rows["beta"]["name_identity_verdict"] == "daemon_tmux_name_mismatch"
-    assert rows["beta"]["status_emoji"] == "🟡"
-    assert rows["gamma"]["status_emoji"] == "🟡"
-    assert rows["delta"]["status_emoji"] == "🔴"
+    assert rows["beta"]["emoji"] == "🔴"
+    assert rows["gamma"]["emoji"] == "🔴"
+    assert rows["delta"]["emoji"] == "🔴"
+
+
+def test_picker_session_state_and_legacy_anchor_work_state_edges(*, tmp_path):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    _plan(repo=repo, topic="alpha")
+    (repo / "plan" / "alpha" / "epic.md").write_text(
+        "**Ledger anchor:** epic **`overseer-alpha`**\n",
+        encoding="utf-8",
+    )
+    _snapshot(
+        path=snapshot_path,
+        repo=repo,
+        rows=[{"repo": str(repo), "topic": "alpha", "status": "picker-stalled", "tmux": "alpha"}],
+    )
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["alpha"],
+    )
+
+    assert roster["rows"][0]["session_state"] == "picker-parked"
+    assert roster["rows"][0]["work_state"] == "no-work-in-flight"
+    assert foreman_plan_roster_work.plan_epic_anchor(repo=repo, plan="alpha") == "overseer-alpha"
+
+
+def test_anchorless_and_malformed_journal_records_are_non_running_edges(*, tmp_path):
+    repo = tmp_path / "repo"
+    _plan(repo=repo, topic="alpha")
+    (repo / "plan" / "alpha" / "epic.md").write_text(
+        "# Ledger epic anchor\n\nNo anchor yet.\n",
+        encoding="utf-8",
+    )
+    journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
+    journal.parent.mkdir(parents=True)
+    journal.write_text(
+        "\n".join(
+            [
+                "{not-json",
+                "[]",
+                json.dumps(
+                    {"stage": "dispatch-id", "work_item_id": 7, "at": "2026-08-22T00:00:00Z"}
+                ),
+                json.dumps({"stage": "ignored", "work_item_id": "overseer-alpha.1"}),
+                json.dumps({"stage": "outcome", "outcome": []}),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    records = foreman_plan_roster_work.journal_records(path=journal)
+    assert foreman_plan_roster_work.plan_epic_anchor(repo=repo, plan="alpha") is None
+    assert foreman_plan_roster_work.work_states_by_plan(
+        repo=repo,
+        plan_names=["alpha"],
+        journal_path=journal,
+    ) == {"alpha": "no-work-in-flight"}
+    assert (
+        foreman_plan_roster_work.child_in_flight(
+            child_id="overseer-alpha.1",
+            dispatch_times=foreman_plan_roster_work.latest_dispatch_times(records=records),
+            outcomes=foreman_plan_roster_work.outcome_times(records=records),
+        )
+        is False
+    )
+    assert (
+        foreman_plan_roster_work.record_work_item_id(record={"stage": "outcome", "outcome": []})
+        is None
+    )
+    assert foreman_plan_roster_work.record_work_item_id(record={"stage": "ignored"}) is None
 
 
 def test_main_uses_explicit_tmux_sessions_and_writes_json(*, tmp_path, capsys):

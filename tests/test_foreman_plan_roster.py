@@ -52,6 +52,23 @@ def _plan(*, repo: Path, topic: str) -> None:
     (repo / "plan" / topic).mkdir(parents=True)
 
 
+def _anchored_plan(*, repo: Path, topic: str, epic: str) -> None:
+    _plan(repo=repo, topic=topic)
+    (repo / "plan" / topic / "epic.md").write_text(
+        f"# Ledger epic anchor\n\n{epic}\n\n",
+        encoding="utf-8",
+    )
+
+
+def _write_journal(*, repo: Path, records: list[dict[str, object]]) -> None:
+    journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
+    journal.parent.mkdir(parents=True)
+    journal.write_text(
+        "\n".join(json.dumps(record, sort_keys=True) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+
 def test_roster_is_driven_by_plan_directories_and_left_joins_daemon_snapshot(*, tmp_path):
     repo = tmp_path / "repo"
     snapshot_path = tmp_path / "status.json"
@@ -70,14 +87,212 @@ def test_roster_is_driven_by_plan_directories_and_left_joins_daemon_snapshot(*, 
 
     rows = {row["plan"]: row for row in roster["rows"]}
     assert list(rows) == ["alpha", "beta", "gamma"]
-    assert rows["alpha"]["status"] == "working"
-    assert rows["alpha"]["status_emoji"] == "🟢"
+    assert rows["alpha"]["session_state"] == "working"
+    assert rows["alpha"]["emoji"] == "🟢"
     assert rows["beta"]["name_identity_verdict"] == "ok"
-    assert rows["beta"]["status"] == "session-gone"
-    assert rows["beta"]["status_emoji"] == "🔴"
-    assert rows["gamma"]["status"] == "no-daemon-row"
-    assert rows["gamma"]["status_emoji"] == "🔴"
+    assert rows["beta"]["session_state"] == "no-session"
+    assert rows["beta"]["emoji"] == "🔴"
+    assert rows["gamma"]["session_state"] == "no-session"
+    assert rows["gamma"]["emoji"] == "🔴"
     assert "foreign" not in rows
+
+
+def test_roster_emits_separate_session_and_work_state_fields(*, tmp_path):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    _anchored_plan(repo=repo, topic="alpha", epic="overseer-alpha")
+    _write_snapshot(path=snapshot_path, repo=repo)
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["alpha"],
+    )
+
+    row = roster["rows"][0]
+    assert row["session_state"] == "working"
+    assert row["work_state"] == "no-work-in-flight"
+    assert "status" not in row
+    assert "status_emoji" not in row
+
+
+def test_work_state_uses_latest_dispatch_id_as_outcome_floor(*, tmp_path):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    _anchored_plan(repo=repo, topic="alpha", epic="overseer-alpha")
+    _write_snapshot(path=snapshot_path, repo=repo)
+    _write_journal(
+        repo=repo,
+        records=[
+            {
+                "stage": "dispatch-id",
+                "work_item_id": "overseer-alpha.1",
+                "dispatch_id": "old-run",
+                "at": "2026-08-22T00:00:00Z",
+            },
+            {
+                "stage": "outcome",
+                "outcome": {
+                    "work_item_id": "overseer-alpha.1",
+                    "status": "failed",
+                    "stage": "fabro-run",
+                },
+                "at": "2026-08-22T00:10:00Z",
+            },
+            {
+                "stage": "dispatch-id",
+                "work_item_id": "overseer-alpha.1",
+                "dispatch_id": "current-run",
+                "at": "2026-08-22T01:00:00Z",
+            },
+        ],
+    )
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["alpha"],
+    )
+
+    assert roster["rows"][0]["work_state"] == "work-in-flight"
+
+
+def test_remote_dispatch_absent_from_local_process_view_is_still_in_flight(*, tmp_path):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    _anchored_plan(repo=repo, topic="alpha", epic="overseer-alpha")
+    _write_snapshot(path=snapshot_path, repo=repo)
+    _write_journal(
+        repo=repo,
+        records=[
+            {
+                "stage": "dispatch-id",
+                "work_item_id": "overseer-alpha.2",
+                "dispatch_id": "remote-run",
+                "dispatch_factory": "hp",
+                "at": "2026-08-22T02:00:00Z",
+            }
+        ],
+    )
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["alpha"],
+    )
+
+    assert roster["rows"][0]["work_state"] == "work-in-flight"
+
+
+def test_caller_supplied_emoji_is_ignored_and_idle_in_flight_waits(*, tmp_path):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    _anchored_plan(repo=repo, topic="alpha", epic="overseer-alpha")
+    snapshot_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "daemon_instance_id": "daemon-1",
+                "tick_generation": 12,
+                "rows": [
+                    {
+                        "repo": str(repo),
+                        "topic": "alpha",
+                        "tmux": "alpha",
+                        "runtime": "codex",
+                        "status": "idle",
+                        "emoji": "🟢",
+                        "status_emoji": "🟢",
+                    }
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    _write_journal(
+        repo=repo,
+        records=[
+            {
+                "stage": "dispatch-id",
+                "work_item_id": "overseer-alpha.3",
+                "dispatch_id": "remote-run",
+                "at": "2026-08-22T02:00:00Z",
+            }
+        ],
+    )
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["alpha"],
+    )
+
+    row = roster["rows"][0]
+    assert row["session_state"] == "idle"
+    assert row["work_state"] == "work-in-flight"
+    assert row["emoji"] == "🟡"
+
+
+def test_idle_without_work_is_stalled_not_waiting(*, tmp_path):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    _anchored_plan(repo=repo, topic="alpha", epic="overseer-alpha")
+    snapshot_path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "daemon_instance_id": "daemon-1",
+                "tick_generation": 12,
+                "rows": [
+                    {
+                        "repo": str(repo),
+                        "topic": "alpha",
+                        "tmux": "alpha",
+                        "runtime": "codex",
+                        "status": "idle",
+                    }
+                ],
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["alpha"],
+    )
+
+    row = roster["rows"][0]
+    assert row["session_state"] == "idle"
+    assert row["work_state"] == "no-work-in-flight"
+    assert row["emoji"] == "🔴"
+
+
+def test_pair_emoji_mapping_is_total() -> None:
+    assert hasattr(foreman_plan_roster, "SESSION_STATES")
+    assert hasattr(foreman_plan_roster, "WORK_STATES")
+    assert hasattr(foreman_plan_roster, "emoji_for_pair")
+    pairs = {
+        (session_state, work_state)
+        for session_state in foreman_plan_roster.SESSION_STATES
+        for work_state in foreman_plan_roster.WORK_STATES
+    }
+
+    resolved = {
+        pair: foreman_plan_roster.emoji_for_pair(
+            session_state=pair[0],
+            work_state=pair[1],
+        )
+        for pair in pairs
+    }
+
+    assert set(resolved) == pairs
+    assert all(emoji in {"🟢", "🟡", "🔴"} for emoji in resolved.values())
+    assert resolved[("idle", "work-in-flight")] == "🟡"
+    assert resolved[("idle", "no-work-in-flight")] == "🔴"
 
 
 def test_roster_reports_distinct_plan_only_and_tmux_only_name_identity_errors(*, tmp_path):
@@ -121,7 +336,7 @@ def test_roster_reports_distinct_plan_only_and_tmux_only_name_identity_errors(*,
     row = roster["rows"][0]
     assert row["plan"] == "plan-only"
     assert row["name_identity_verdict"] == "plan_without_tmux_session"
-    assert row["status"] == "no-daemon-row"
+    assert row["session_state"] == "no-session"
     assert roster["name_identity_errors"] == [
         {
             "kind": "tmux_session_without_plan",
