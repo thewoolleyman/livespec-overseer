@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.11](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.10...v1.41.11) (2026-08-22)
+
+
+### Bug Fixes
+
+* **foreman:** define loop-readable hold carriers ([cad0737](https://github.com/thewoolleyman/livespec-overseer/commit/cad07376747b9f7cc25a07c191b27100bdc9040b))
+
 ## [1.41.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.9...v1.41.10) (2026-08-22)
 
 
