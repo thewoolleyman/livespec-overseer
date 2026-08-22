@@ -154,7 +154,15 @@
     // to "fable", matching livespec core's own convention.
     "ratification_review": "auto-spawn",
     "ratification_reviewer_model": "fable",
-    "spec_pr_merge": "auto-on-green"
+    "spec_pr_merge": "auto-on-green",
+    // Required companion of livespec-overseer.full_autonomy, enforced by
+    // check-full-autonomy-config-conformance: with full autonomy on, an
+    // impl->spec drift finding is dispositioned by the cross-vendor consensus
+    // panel rather than parked for a human. Added in the same change that set
+    // the full_autonomy key, because the gate refuses the lever without it --
+    // the point of that gate being that a repo must not claim full autonomy
+    // while leaving lower-autonomy sibling levers in place.
+    "drift_acceptance_mode": "consensus"
   },
   "livespec-overseer": {
     "compat": {
@@ -169,6 +177,43 @@
     // (escalate on dissent, insufficient information, hard-risk, or
     // human-gated-by-design decisions) are not relaxed by this setting.
     "foreman_valve_disposition": "consensus",
+    // Maintainer-directed 2026-08-22, typed directly into the foreman pane:
+    // "Add the full autonomy key to this repo". This is the maintainer pulling
+    // their own lever. The foreman contract forbids the foreman from setting,
+    // clearing, or altering this key on its own initiative -- altering its own
+    // authority is exactly what that clause prevents -- so this edit is made
+    // ON THE MAINTAINER'S EXPLICIT INSTRUCTION and lands through the ordinary
+    // reviewed worktree -> PR -> rebase-merge path so it is visible rather
+    // than silent.
+    //
+    // WHAT IT CHANGES, read from the resolver and the evaluator rather than
+    // assumed. `full_autonomy: true` forces the effective valve disposition to
+    // `consensus` and the effective decision rule to `majority`, regardless of
+    // the disposition key above. Concretely, in
+    // foreman_consensus_decision.typed_action_validation_reason, the
+    // `non_anthropic_needs_human_dissent` escalation is guarded by
+    // `decision_rule == UNANIMOUS`; under majority that branch is skipped and a
+    // needs-human verdict counts as an ordinary vote instead of escalating the
+    // whole panel by itself. It also tightens the roster starvation bound from
+    // 2 consecutive unactioned ticks to 1.
+    //
+    // WHAT IT DOES NOT CHANGE, so nobody reads this as a blanket. The hard
+    // floors are bound by reference from the governing orchestrator contract
+    // and are NOT relaxed: the cardinal restart rule, actuator-only mutation,
+    // the security dissent (a `security` hard-risk still escalates under
+    // majority via `security_dissent`), journal-before-act, and escalation
+    // whenever consensus evidence is unavailable or insufficient. Full autonomy
+    // does not widen which decisions the foreman may dispose; it changes how a
+    // panel's verdict is counted.
+    //
+    // MOTIVATING MEASUREMENT, so the reason survives the decision. On
+    // 2026-08-22 a panel convened on the fix-restart-problem picker over
+    // overseer-62qver returned fable=unblock "1", opus=unblock "1",
+    // gpt-sol=needs-human "2" -- genuine disagreement on the merits, all three
+    // responses parsed. Under the unanimous rule that 2-1 was mechanically
+    // unenactable. Panel record: cache key
+    // d112d2d81a333e7596f28f99754a98170611b1641f81cc03c3c97acff72062fe.
+    "full_autonomy": true,
     // Network decision for overseer-hgq4wi.19: the foreman gather loop may
     // perform a bounded GitHub workflow-runs query for the release-tag lane
     // because the operator surface is where the maintainer already looks and
