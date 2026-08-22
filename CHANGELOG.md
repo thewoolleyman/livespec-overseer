@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.35.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.1...v1.35.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* fail open on currency check failure ([031a828](https://github.com/thewoolleyman/livespec-overseer/commit/031a828d35b11b2302770f028c5b38708d5b65df))
+
 ## [1.35.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.0...v1.35.1) (2026-08-22)
 
 
