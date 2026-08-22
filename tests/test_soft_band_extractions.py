@@ -43,6 +43,11 @@ __all__: list[str] = []
             ("uncertifiable_ready_surface",),
         ),
         (
+            "_supervisor_ready_notice",
+            "_supervisor_ready_alerts",
+            ("STRANDED_READY_NOTICE_AFTER", "maybe_deliver_stranded_ready_notice"),
+        ),
+        (
             "_supervisor_pane_still",
             "_supervisor_stall_watch",
             (
