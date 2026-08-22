@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import _supervisor_reexec
 import supervisor
 from _supervisor_view import RowView
 from test_supervisor_builders import make_supervisor
@@ -37,27 +38,17 @@ def test_reexec_waits_for_a_restart_interlock_then_runs_at_the_next_clean_tick(*
         ],
     ]
 
-    def build_rows(*, act: bool):
-        assert act is True
-        return [object()]
-
-    def evaluate(*, track, act: bool):
-        assert act is True
-        return rows.pop(0)[0]
-
     def execv(*, path: str, argv: list[str]) -> None:
         executed.append((path, argv))
 
-    sup.build_rows = build_rows
-    sup.evaluate = evaluate
     sup.reexec_target = lambda: target
     sup.execv = execv
     sup.argv = lambda: ["overseerd", "--warn-percent", "30"]
 
-    _ = sup.tick(act=True)
+    _supervisor_reexec.maybe_reexec(sup=sup, rows=rows.pop(0))
     assert executed == []
 
-    _ = sup.tick(act=True)
+    _supervisor_reexec.maybe_reexec(sup=sup, rows=rows.pop(0))
     assert executed == [
         (str(target), [str(target), "--warn-percent", "30"]),
     ]
