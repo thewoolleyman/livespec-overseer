@@ -13,11 +13,15 @@ import io as _io
 
 import codex_sessions
 import pytest
+import registry
 import signals
 from test_supervisor_builders import (
     adopt_codex_ready,
+    adopt_sup,
     assert_no_tmux_scoping,
+    codex_busy_capture,
     codex_idle_capture,
+    idle_capture,
     make_plan,
     make_supervisor,
     mapped_track,
@@ -149,56 +153,101 @@ def test_a_codex_restart_keeps_the_ready_marker_when_the_pane_never_becomes_code
     assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
 
 
-def test_a_codex_restart_keeps_ready_when_the_resume_kick_is_not_observed(*, tmp_path):
-    """A Codex TUI alone is insufficient: the daemon must observe its kick too."""
-    repo, topic, session, _session_id, fake, sup = adopt_codex_ready(tmp_path=tmp_path)
-    # The fake models a Codex pane after respawn, but it did not receive the argv
-    # prompt.  A bare picker has the same runtime process shape, so only the exact
-    # kick observation distinguishes it from a useful successor.
-    fake.respawn_shows_command = False
+def test_a_codex_track_below_threshold_gets_the_escalating_wrapup(*, tmp_path):
+    """A Codex track below its wind-down threshold receives the SAME escalating wrap-up a
+    Claude track does — the change that makes Codex a full citizen. Monitor-only left a
+    Codex track a passenger that ran to context exhaustion; now the daemon's only lever
+    reaches it too.
 
+    The Codex submit is confirmed by the pane going BUSY after Enter (`is_busy`), not by a
+    cleared `❯` box (Codex has none). The capture frames model that: idle for the main read
+    + the settle pair, then busy after the paste's Enter.
+    """
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    # frames: [main, settle-1, settle-2 (== settle-1), pre-paste recheck, post-Enter busy]
+    fake.serve(
+        session=session,
+        repo=repo,
+        capture=[codex_idle_capture(ctx=40)] * 4 + [codex_busy_capture(ctx=40)],
+        cmd="bun",
+    )
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    sup = adopt_sup(tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={})
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
+        )
+    }
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-
-    assert fake.has(method="respawn")
-    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
-
-
-def test_a_codex_restart_with_no_post_respawn_live_process_is_not_success(*, tmp_path):
-    """A loose Codex-looking foreground command is not enough after respawn."""
-    repo, topic, session, _session_id, _fake, sup = adopt_codex_ready(tmp_path=tmp_path)
-
-    def refresh_to_bare_shell() -> None:
-        sup.live_codex = {}
-
-    sup._refresh_codex_sessions = refresh_to_bare_shell
-    log = _io.StringIO()
-    with contextlib.redirect_stderr(log):
-        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-
-    assert signals.read_state(repo=str(repo), topic=topic) is not None
-    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
-    assert "no live Codex process" in log.getvalue()
-    assert f"restarted (codex) {repo}::{topic}" not in log.getvalue()
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+    assert view.status == "warned"  # below threshold, above danger → warned (not idle)
+    assert fake.has(method="paste")  # the wrap-up reached the Codex track
+    assert "wind" in " ".join(fake.paste_texts()).lower()  # it IS the wrap-up text
 
 
-def test_a_codex_restart_requires_post_respawn_live_process_before_success(*, tmp_path):
-    """The success leg refreshes exact live Codex process evidence after respawn."""
-    repo, topic, session, session_id, _fake, sup = adopt_codex_ready(tmp_path=tmp_path)
-    refreshed = {"called": False}
-
-    def refresh_to_live_codex() -> None:
-        refreshed["called"] = True
-        sup.live_codex = {
-            (session, topic): codex_sessions.CodexSession(
-                pid=5150, name=topic, cwd=str(repo), session_id=session_id
-            )
-        }
-
-    sup._refresh_codex_sessions = refresh_to_live_codex
+def test_a_codex_approval_gate_suppresses_the_wrapup(*, tmp_path):
+    """A Codex approval / directory-trust picker (`› 1.`) must SUPPRESS the wrap-up — the
+    paste would otherwise type into the `1/2` chooser. The extended gate-cursor regex
+    (`[❯›]`) is what catches the `›` cursor Codex uses (Claude uses `❯`).
+    """
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    gate = (
+        "Do you trust the contents of this directory?\n"
+        "› 1. Yes, continue\n"
+        "  2. No, quit\n"
+        "  Context 40% left · topic\n"
+    )
+    fake.serve(session=session, repo=repo, capture=gate, cmd="bun")
+    sessions_dir = tmp_path / "sessions"
+    sessions_dir.mkdir()
+    sup = adopt_sup(tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={})
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
+        )
+    }
     with contextlib.redirect_stderr(_io.StringIO()):
-        sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+    assert view.status == "blocked:human"  # a gate, not idle
+    assert not fake.has(method="paste")  # nothing keystroked into the picker
 
-    assert refreshed["called"] is True
-    state = signals.read_state(repo=str(repo), topic=topic)
-    assert state is not None and state.token == signals.STATE_RESTARTED
+
+def test_a_claude_pane_keeps_its_wrapup_when_codex_shares_its_tmux_session(*, tmp_path):
+    """A live CLAUDE track must NOT be reclassified as codex just because a codex process
+    resolves into the same tmux SESSION (adversarial review, 2026-07-17).
+
+    Reachable, not exotic: `resolve_tmux_session` walks pid ancestry, so a `codex resume
+    <topic>` launched from INSIDE this Claude session's own Bash tool lands in its tmux
+    session — and the naming convention this work establishes is "codex threads named
+    after plan topics", so the name matches the track's topic exactly.
+
+    When `_is_codex_track` was session-scoped (while the Claude identity gate is
+    pane-scoped) this Claude track went monitor-only and SILENTLY lost its wrap-up, its
+    NOT-RESPONDING alert, and its restart — and `idle` kept it out of NEEDS YOU, so
+    nothing surfaced. A live Claude track going quiet is the worst failure this daemon
+    can have.
+    """
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    # A PROVEN live Claude pane (`node`), below its wind-down threshold => must be warned.
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    # ...while a codex session for the SAME topic sits in the SAME tmux session.
+    sup.live_codex = {
+        (session, topic): codex_sessions.CodexSession(
+            pid=4242, name=topic, cwd=str(repo), session_id="019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
+        )
+    }
+    assert not sup._is_codex_track(
+        session=session, repo=str(repo), topic=topic, target=fake.pane_id(session=session)
+    )  # pane is node
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
+    assert view.status == "warned"  # the Claude track is still supervised...
+    assert fake.has(method="paste")  # ...and still gets the wrap-up, the daemon's only lever
