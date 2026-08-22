@@ -44,10 +44,18 @@ and still has nothing that *checks on a schedule and acts*.
 
 **Therefore the plan's headline is still false.** "overseerd runs only released
 green code and keeps itself current" describes none of what is running right
-now. The gap that motivated the plan is unchanged: measured across this
-session, master moved v1.21.0 → v1.32.5 while the acting daemon was found
+now. The gap that motivated the plan is unchanged, and it WIDENED WHILE THIS
+NOTE WAS BEING WRITTEN: at 09:14:17Z the acting daemon publishes 1.28.3
+(instance `c9ac6e55…`, healthy, package_dir on the working tree) against
+`origin/master` at **v1.34.0** — six releases behind. Measured across this
+session master moved v1.21.0 → v1.34.0 while the acting daemon was found
 multiple releases behind on four separate occasions, each caught only because a
 person happened to read the version field.
+
+**Treat every version figure in this note as a measurement with an expiry.** The
+v1.32.5 reading taken twenty minutes before this edit was already wrong by the
+time the edit was made — which is the plan's own thesis arriving inside its own
+research note.
 
 ## The claim boundary, restated because it is easy to lose
 
