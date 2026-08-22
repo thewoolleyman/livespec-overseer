@@ -568,6 +568,13 @@ def test_foreman_prose_carries_wait_premise_picker_rule() -> None:
     assert "wait-premise: kind=<kind> target=<target-identifier>" in prose
     assert "write the wait-premise record" in prose
     assert "before raising the picker" in prose
+    assert "This recording obligation is fail-soft" in prose
+    assert "target kind is inexpressible" in prose
+    assert "record cannot be written" in prose
+    assert "you may still raise the question" in prose
+    assert "surface the gap" in prose
+    assert "supervised session's own harness is\nobserved, never forbidden" in prose
+    assert "Nothing here authorizes you to alter, withdraw,\nanswer, or select" in prose
 
 
 def test_a_tool_result_record_is_not_a_turn_boundary() -> None:
