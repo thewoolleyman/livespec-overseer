@@ -1,4 +1,3 @@
-# livespec-lloc-soft-band-owner: overseer-6tfncs.8
 """tmuxio.py — the ONE module that shells out to tmux.
 
 Stdlib-only, host-only (see ``registry.py`` header for the folder's gate
