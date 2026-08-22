@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 import _supervisor_evaluate
 import _supervisor_mapping_health
 import foreman_runtime_identity
+import foreman_stop_state
 import jsonio
 import registry
 from _supervisor_config import track_key
@@ -46,6 +47,8 @@ __all__: list[str] = [
 FOREMAN_TOPIC = "foreman"
 FOREMAN_BLOCKING_PROMPT_STATUS = "foreman-blocking-prompt"
 FOREMAN_HEARTBEAT_STALE_STATUS = "foreman-heartbeat-stale"
+FOREMAN_HEARTBEAT_HELD_STATUS = "foreman-heartbeat-held"
+FOREMAN_HEARTBEAT_COMPLETED_STATUS = "foreman-heartbeat-completed"
 _HEARTBEAT_FILE = "heartbeat.json"
 _STALE_FLOOR_SECONDS = 30.0 * 60.0
 _STALE_MULTIPLIER = 2.0
@@ -134,6 +137,8 @@ def _interval_label(*, interval: float) -> str:
 class HeartbeatLapse:
     age_seconds: float
     stale: bool
+    heartbeat_written_at: datetime
+    stale_after_seconds: float
 
 
 def heartbeat_lapse(*, repo: str, now: Callable[[], float]) -> HeartbeatLapse | None:
@@ -149,7 +154,13 @@ def heartbeat_lapse(*, repo: str, now: Callable[[], float]) -> HeartbeatLapse | 
     if heartbeat is None:
         return None
     age = _age_seconds(heartbeat=heartbeat, now=now)
-    return HeartbeatLapse(age_seconds=age, stale=age > _stale_after(heartbeat=heartbeat))
+    stale_after = _stale_after(heartbeat=heartbeat)
+    return HeartbeatLapse(
+        age_seconds=age,
+        stale=age > stale_after,
+        heartbeat_written_at=heartbeat.written_at,
+        stale_after_seconds=stale_after,
+    )
 
 
 def foreman_row(*, repo: str, now: Callable[[], float]) -> RowView | None:
@@ -160,16 +171,28 @@ def foreman_row(*, repo: str, now: Callable[[], float]) -> RowView | None:
     if age <= _stale_after(heartbeat=heartbeat):
         return None
     interval = _interval_label(interval=heartbeat.tick_interval_seconds)
+    stop_state = foreman_stop_state.read_foreman_stop_state(repo=repo)
+    state = stop_state.state if stop_state is not None else foreman_stop_state.FOREMAN_STOP_DIED
+    reason = stop_state.reason if stop_state is not None else "tick-deadline-lapsed"
+    status = FOREMAN_HEARTBEAT_STALE_STATUS
+    human_wait = False
+    if state == foreman_stop_state.FOREMAN_STOP_HELD:
+        status = FOREMAN_HEARTBEAT_HELD_STATUS
+        human_wait = True
+    elif state == foreman_stop_state.FOREMAN_STOP_COMPLETED:
+        status = FOREMAN_HEARTBEAT_COMPLETED_STATUS
     return RowView(
         topic=FOREMAN_TOPIC,
         repo=repo,
         tmux=f"{registry.repo_slug(repo=repo)}-{FOREMAN_TOPIC}",
         ctx=None,
-        status=FOREMAN_HEARTBEAT_STALE_STATUS,
+        status=status,
         note=(
-            f"foreman heartbeat stale {int(age // 60)}m; pid {heartbeat.pid}; "
+            f"foreman heartbeat stale {int(age // 60)}m; state {state}; reason {reason}; "
+            f"pid {heartbeat.pid}; "
             f"tick {heartbeat.tick_generation}; interval {interval}s"
         ),
+        human_wait=human_wait,
     )
 
 
@@ -287,6 +310,8 @@ def foreman_rows(
             _clear_alert(sup=sup, repo=repo)
             continue
         rows.append(row)
-        if act:
+        if act and row.status == FOREMAN_HEARTBEAT_STALE_STATUS:
             _surface_alert(sup=sup, row=row)
+        else:
+            _clear_alert(sup=sup, repo=repo)
     return rows

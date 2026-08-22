@@ -26,6 +26,14 @@ def heartbeat_path(*, repo: Path) -> Path:
     return repo / "tmp" / "overseer" / "foreman" / "heartbeat.json"
 
 
+def stop_path(*, repo: Path) -> Path:
+    return repo / "tmp" / "overseer" / "foreman" / "stop.json"
+
+
+def hold_path(*, repo: Path) -> Path:
+    return repo / "tmp" / "overseer" / "foreman" / "HOLD.md"
+
+
 def foreman_escalation_path(*, repo: Path, topic: str) -> Path:
     return repo / "tmp" / "overseer" / "foreman" / "escalations" / f"{topic}.json"
 
@@ -59,6 +67,29 @@ def write_heartbeat(
         + "\n",
         encoding="utf-8",
     )
+    return path
+
+
+def write_stop(
+    *,
+    repo: Path,
+    state: str,
+    reason: str = "operator decision",
+    observed_at: str = "1970-01-01T00:00:00Z",
+) -> Path:
+    path = stop_path(repo=repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"state": state, "reason": reason, "observed_at": observed_at}) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def write_hold(*, repo: Path, text: str = "# Hold\n\nOperator quiesced.\n") -> Path:
+    path = hold_path(repo=repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
     return path
 
 
@@ -202,6 +233,48 @@ def test_stale_foreman_heartbeat_renders_attention_but_authorizes_no_act(*, tmp_
     assert not fake.has(method="keys")
     assert not fake.has(method="respawn")
     assert not fake.has(method="new")
+
+
+def test_stale_foreman_heartbeat_uses_age_not_pid_liveness(*, tmp_path):
+    module = foreman_module()
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    write_heartbeat(repo=repo, pid=99999999, tick_interval_seconds=600)
+
+    fresh = module.foreman_row(repo=str(repo), now=lambda: 1200.0)
+    stale = module.foreman_row(repo=str(repo), now=lambda: 1801.0)
+
+    assert fresh is None
+    assert stale is not None
+    assert "state died" in (stale.note or "")
+
+
+def test_held_foreman_heartbeat_is_not_an_unattended_failure(*, tmp_path):
+    module = foreman_module()
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    write_heartbeat(repo=repo, tick_interval_seconds=600)
+    write_hold(repo=repo, text="# Hold\n\nPre-reset review.\n")
+
+    row = module.foreman_row(repo=str(repo), now=lambda: 1801.0)
+
+    assert row is not None
+    assert row.status == "foreman-heartbeat-held"
+    assert not supervisor.needs_attention(row=row)
+    assert "state held" in (row.note or "")
+    assert "Pre-reset review" in (row.note or "")
+
+
+def test_completed_foreman_heartbeat_is_distinguished_from_dead_loop(*, tmp_path):
+    module = foreman_module()
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    write_heartbeat(repo=repo, tick_interval_seconds=600)
+    write_stop(repo=repo, state="completed-bounded-run", reason="converged")
+
+    row = module.foreman_row(repo=str(repo), now=lambda: 1801.0)
+
+    assert row is not None
+    assert row.status == "foreman-heartbeat-completed"
+    assert not supervisor.needs_attention(row=row)
+    assert "state completed-bounded-run" in (row.note or "")
 
 
 def test_stale_foreman_heartbeat_read_only_tick_does_not_alert(*, tmp_path):
