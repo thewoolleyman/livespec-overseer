@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.12](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.11...v1.37.12) (2026-08-22)
+
+
+### Bug Fixes
+
+* split registry store field updates ([c43b27f](https://github.com/thewoolleyman/livespec-overseer/commit/c43b27f02630e2f1bb042e137b35c397b02defbe))
+
 ## [1.37.11](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.10...v1.37.11) (2026-08-22)
 
 
