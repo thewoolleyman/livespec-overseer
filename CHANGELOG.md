@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.34.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.33.1...v1.34.0) (2026-08-22)
+
+
+### Features
+
+* notify seats of stranded ready declarations ([a999cbd](https://github.com/thewoolleyman/livespec-overseer/commit/a999cbde58666f7a9f52a8d2d04c23668993cf82))
+
+
+### Bug Fixes
+
+* reject empty foreman panel dossiers ([2ef1d16](https://github.com/thewoolleyman/livespec-overseer/commit/2ef1d1672fc6d546fbb0a640b7b872dd2ab54f9f))
+* **supervisor:** extract the stranded-ready notice delivery into its own module ([200f4c7](https://github.com/thewoolleyman/livespec-overseer/commit/200f4c77e4b92491a5a2a0ae87d7dd2844a6c1c2))
+
 ## [1.33.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.33.0...v1.33.1) (2026-08-22)
 
 
