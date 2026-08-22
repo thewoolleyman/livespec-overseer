@@ -1,7 +1,5 @@
 """Deterministic process wrapper for the per-repo foreman runtime."""
 
-# livespec-lloc-soft-band-owner: overseer-e698
-
 from __future__ import annotations
 
 import os
@@ -21,6 +19,7 @@ from foreman_runtime_backoff import (
 from foreman_runtime_document import ForemanDocument, foreman_document
 from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
 from foreman_runtime_lock import ForemanLock, LockResult
+from foreman_runtime_policy import exit_reason, stable_ticks
 from foreman_runtime_state import atomic_json, read_json_object, state_path
 
 __all__: list[str] = [
@@ -146,15 +145,19 @@ class ForemanRuntime:
         now = self.now()
         due = scheduled_at <= now
         action_taken = self.llm_tick(document=doc) if due else False
-        stable_ticks = self._stable_ticks(
+        stable_tick_count = stable_ticks(
             state=state,
             document=doc,
             action_taken=action_taken,
             scheduled_tick=due,
         )
         next_llm_tick_at = now + interval_seconds if due else scheduled_at
-        exit_reason = self._exit_reason(
-            tick_generation=tick_generation, stable_ticks=stable_ticks, document=doc
+        reason = exit_reason(
+            tick_generation=tick_generation,
+            stable_ticks=stable_tick_count,
+            document=doc,
+            hard_tick_budget=self.config.hard_tick_budget,
+            converged_ticks=self.config.converged_ticks,
         )
         auto_resume_interval_seconds = (
             auto_resume_interval(
@@ -164,7 +167,7 @@ class ForemanRuntime:
                 max_interval_seconds=self.config.max_llm_tick_interval_seconds,
                 tick_generation=tick_generation,
             )
-            if exit_reason == "hard-tick-budget"
+            if reason == "hard-tick-budget"
             else None
         )
         reported_generation = tick_generation
@@ -172,14 +175,14 @@ class ForemanRuntime:
             interval_seconds = auto_resume_interval_seconds
             next_llm_tick_at = now + interval_seconds
             tick_generation = 0
-            stable_ticks = 0
+            stable_tick_count = 0
         self._write_state(
             state={
                 "tick_generation": tick_generation,
                 "next_llm_tick_at": next_llm_tick_at,
                 "last_fingerprint": doc.fingerprint,
                 "last_generation_fingerprint": doc.generation_fingerprint,
-                "stable_ticks": stable_ticks,
+                "stable_ticks": stable_tick_count,
                 "llm_tick_interval_seconds": interval_seconds,
             }
         )
@@ -188,7 +191,7 @@ class ForemanRuntime:
             tick_generation=reported_generation,
             llm_tick=due,
             action_taken=action_taken,
-            exit_reason=exit_reason,
+            exit_reason=reason,
             loop_lapsed=lapse.stale if lapse is not None else False,
             heartbeat_age_seconds=lapse.age_seconds if lapse is not None else None,
             llm_tick_interval_seconds=interval_seconds,
@@ -202,31 +205,6 @@ class ForemanRuntime:
         state["stable_ticks"] = 0
         state["llm_tick_interval_seconds"] = self.config.llm_tick_interval_seconds
         self._write_state(state=state)
-
-    def _stable_ticks(
-        self,
-        *,
-        state: dict[str, object],
-        document: ForemanDocument,
-        action_taken: bool,
-        scheduled_tick: bool,
-    ) -> int:
-        if not document.monitored_entities or action_taken:
-            return 0
-        if state.get("last_fingerprint") != document.fingerprint:
-            return 1 if scheduled_tick else 0
-        if not scheduled_tick:
-            return _int_state(value=state.get("stable_ticks"))
-        return _int_state(value=state.get("stable_ticks")) + 1
-
-    def _exit_reason(
-        self, *, tick_generation: int, stable_ticks: int, document: ForemanDocument
-    ) -> str | None:
-        if tick_generation >= self.config.hard_tick_budget:
-            return "hard-tick-budget"
-        if document.monitored_entities and stable_ticks >= self.config.converged_ticks:
-            return "converged"
-        return None
 
     def token_free_watch(self, *, document: dict[str, object]) -> bool:
         state = self._read_state()
