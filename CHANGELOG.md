@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.35.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.35.0...v1.35.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* emit daemon events as structured records instead of prose lines ([fb1c865](https://github.com/thewoolleyman/livespec-overseer/commit/fb1c8653e6dc887b50317102ee3078ab5d8b328c))
+
 ## [1.35.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.34.0...v1.35.0) (2026-08-22)
 
 
