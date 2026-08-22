@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.11](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.10...v1.37.11) (2026-08-22)
+
+
+### Bug Fixes
+
+* report reclaimable plan budget threads ([22ab28e](https://github.com/thewoolleyman/livespec-overseer/commit/22ab28ed94a4c44bb6d3d04145c0ce8664b8a5a8))
+
 ## [1.37.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.9...v1.37.10) (2026-08-22)
 
 
