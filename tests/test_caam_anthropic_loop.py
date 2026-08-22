@@ -151,8 +151,8 @@ def test_unverified_live_rows_are_not_considered_and_get_revive_note(*, tmp_path
     assert any(
         line
         == (
-            "note: dark could not be verified live and was not considered; "
-            "revive it with caam-anthropic-loop --no-warm after refreshing its snapshot"
+            "note: dark could not be verified live and were not considered. "
+            "Revive with: caam activate claude <name>; claude -p ok; caam backup claude <name>"
         )
         for line in out
     )
