@@ -80,3 +80,35 @@ manufactures confidence. Whatever ships must have a control proving that a
 failed export is REPORTED — not merely that a successful export works. This repo
 has a documented family of "checks that cannot fail"; an unverified telemetry
 path is the same shape.
+
+## The rest of this thread's research, and what each settled
+
+This file is the OPENING note and its scope section above is deliberately broad.
+Every decision it left open has since been settled in a note of its own, each
+written BEFORE the child that depends on it ran, so that no child invents a shape
+another must then chase. Read them in this order:
+
+  1. `decision-gnjb-relationship-2026-08-22.md` — child `.1`. Do NOT block on
+     `livespec-gnjb`; ship behind a narrow local seam on the fleet's ratified
+     wire conventions and swap the backing implementation later. Also records
+     what "behind its intended interface" must concretely mean, so a later swap
+     is mechanical.
+  2. `event-shape-2026-08-22.md` — children `.2` and `.3`. The envelope, the
+     promoted fields, and the three measured defects the reshape must FIX rather
+     than survive. Includes the correction that added `daemon_instance_id` and
+     `tick_generation`, which the existing log does not carry and `.3` calls the
+     two that matter most.
+  3. `otel-env-names-2026-08-22.md` — children `.3` and `.5`. The variable names,
+     taken from what the fleet already uses rather than invented, with the one
+     deliberate divergence for the credential — and the hazard that this daemon's
+     tmux children inherit its environment.
+  4. `export-failure-reporting-2026-08-22.md` — child `.4` (with `.2`). How a
+     failed export reports without either flooding the log or going silent, using
+     the escalating-band mechanism the repo already has.
+  5. `traces-not-logs-2026-08-22.md` — child `.3`. Why the traces signal, given
+     that a sibling repo's captured upstream design chose logs for exactly this
+     problem shape, and what that design still teaches.
+
+The ledger epic `overseer-temi26` carries the same decisions as
+`plan-handoff-entry` comments, which is where a dispatched worker reads them.
+These files are the durable record; the ledger is the working surface.

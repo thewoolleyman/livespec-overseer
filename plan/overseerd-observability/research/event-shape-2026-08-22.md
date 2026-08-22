@@ -67,6 +67,25 @@ that BAND the age into the `condition` key instead — `blocked-age-{band}`,
 as a control and is fine: its 34 lines at `(30m)` are 34 *different tracks*, two
 or three lines each, which is the intended shape.
 
+**The control, run afterwards against this very claim — it holds, and it was
+UNDERSTATED.** A high distinct count could have been track VARIETY rather than
+dedup failure, since different tracks are legitimately different dedup keys.
+That is exactly what `picker-stalled` turned out to be, and the same test had not
+been applied here when the paragraph above was first written. Applied since: only
+**three** tracks produce all 2,177 lines, and isolating the largest — one repo,
+one topic, one condition, hence ONE dedup key — gives **1,189 lines with 1,189
+distinct bodies**. One hundred percent. For that key the dedup suppresses nothing
+at all; the 7% above is an aggregate softened by two smaller tracks. The
+transferable method: counting distinct lines answers nothing on its own —
+partitioning by the dedup's OWN key is what discriminates, and it is what made
+one control come out innocent and this one guilty.
+
+**That raises the bar for `.2`'s acceptance.** "Fewer lines than before" is too
+weak when the current state is one line per tick per stale track forever. The
+control must assert the strong form: a track held in one condition across N ticks
+produces EXACTLY ONE event for that condition, plus one per crossed escalation
+band.
+
 **So structuring the event is not sufficient.** If `age_minutes` becomes a field
 and the dedup still keys on the whole rendered record, the volume defect
 survives untouched in a tidier format. The dedup must key on the event's STABLE
