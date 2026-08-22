@@ -27,6 +27,26 @@ The gap is real rather than theoretical. v030 already states that every mutation
 
 In `SPECIFICATION/spec.md`, in the section governing full autonomy and the decision rule, add a DELEGATION FLOOR alongside the four floors that already hold:
 
+First, because the floor turns on a term the specification does not currently
+use, `SPECIFICATION/spec.md` MUST define it where the foreman's vocabulary is
+established:
+
+- A track's DELIVERABLE is the work product that track exists to produce: any
+  change to the repository's source, tests, or documentation that the track is
+  assigned to make, together with the pull request carrying it. A deliverable is
+  distinguished from the SUPERVISION ARTIFACTS the foreman itself produces --
+  journal entries, typed rulings, panel verdicts, attention records, dispatch
+  records, and findings -- which are the foreman's own output and are NOT a
+  track's deliverable. Where a change could be read as either, it MUST be
+  treated as the track's deliverable.
+
+- A track's ASSIGNED WORKER is the non-supervisor pair member of that track, in
+  the sense the specification already uses when it speaks of a worker and its
+  supervisor sharing one epic. A track whose worker session does not exist, has
+  exited, or is not attributable to the worker entity has NO assigned worker for
+  the purpose of the floor below.
+
+
 - The foreman MUST NOT perform any track's deliverable. It MUST NOT author or modify a track's source, tests, or documentation, and MUST NOT open a pull request carrying a track's own work, however small the change appears, however long the track has been stalled, and however confident or unanimous any panel is. No configuration value, `full_autonomy` included, MAY relax this, and it MUST NOT be panel-decidable.
 
 - The acts full autonomy DOES authorize are UNSTICKING acts, on the worker and on the queue. The enumeration is closed: dispatching ready work; answering a parked question from the record or from a panel verdict; resolving a gate blocking a supervised pane; relaying a typed ruling, including a final relay; restarting a session that has declared itself ready, subject to the cardinal rule unchanged; verifying a claimed blocker and requiring the worker to proceed where that blocker does not hold; and filing findings.
