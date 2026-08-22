@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.7...v1.37.8) (2026-08-22)
+
+
+### Bug Fixes
+
+* split beside-test lloc margin residue ([2b8baa6](https://github.com/thewoolleyman/livespec-overseer/commit/2b8baa61f2bcb80a38d4559962af21ea53ee809f))
+
 ## [1.37.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.6...v1.37.7) (2026-08-22)
 
 
