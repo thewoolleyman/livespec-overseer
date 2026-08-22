@@ -134,6 +134,21 @@ _SIGNPOST = re.compile(
     re.IGNORECASE | re.MULTILINE,
 )
 
+_WAIT_PREMISE_KINDS = ("fabro-run", "ci-run", "work-item-close", "pr")
+_WAIT_OPTION = re.compile(
+    r"^\s*(?:[-*]|\d+[.)])\s+.*\bwait(?:ing)?\b.*\b("
+    r"fabro[- ]run|pr|ci[- ]run|work[- ]item[- ]close"
+    r")\b[^\n]*",
+    re.IGNORECASE | re.MULTILINE,
+)
+_TYPED_WAIT_PREMISE = re.compile(
+    r"\bwait-premise\s*:\s*"
+    r"(?=[^\n]*(?:kind|target))"
+    r"(?=[^\n]*\bkind\s*=\s*(?:" + "|".join(_WAIT_PREMISE_KINDS) + r")\b)"
+    r"(?=[^\n]*\btarget\s*=\s*\S+)",
+    re.IGNORECASE,
+)
+
 
 # Marks a maintainer turn boundary in the message-id order. Not a message id, and
 # no real one can collide with it.
@@ -315,6 +330,16 @@ def solicitations_without_a_picker(
         for stop in stop_messages(records=records)
         if signposts(text=stop.text) and "AskUserQuestion" not in stop.tools
     )
+
+
+def picker_wait_premise_violations(*, text: str) -> tuple[str, ...]:
+    """Picker options that wait on a typed target without naming its premise."""
+    violations: list[str] = []
+    for match in _WAIT_OPTION.finditer(text):
+        option = match.group(0).strip()
+        if not _TYPED_WAIT_PREMISE.search(option):
+            violations.append(option)
+    return tuple(violations)
 
 
 def _c20_records() -> tuple[dict[str, object], ...]:
@@ -500,6 +525,49 @@ def test_the_detector_can_fire_on_a_constructed_signpost() -> None:
         "## Ripe valves",
     ):
         assert signposts(text=f"{heading}\n\n1. something\n")
+
+
+def test_wait_premise_picker_option_without_typed_record_is_flagged() -> None:
+    """A wait option is unsafe when it rests on prose alone."""
+    picker = (
+        "Choose the next action:\n\n"
+        "1. Wait for Fabro run 01JABC to finish, then archive the plan.\n"
+        "2. Stop waiting and escalate the branch."
+    )
+    assert picker_wait_premise_violations(text=picker) == (
+        "1. Wait for Fabro run 01JABC to finish, then archive the plan.",
+    )
+
+
+def test_wait_premise_picker_option_with_typed_record_is_accepted() -> None:
+    """The same option becomes checkable when it names the typed premise."""
+    picker = (
+        "Choose the next action:\n\n"
+        "1. Wait for Fabro run 01JABC to finish, then archive the plan. "
+        "wait-premise: kind=fabro-run target=01JABC\n"
+        "2. Stop waiting and escalate the branch."
+    )
+    assert picker_wait_premise_violations(text=picker) == ()
+
+
+def test_picker_without_wait_premise_is_accepted() -> None:
+    """The detector must not reject ordinary maintainer choices."""
+    picker = (
+        "Choose the next action:\n\n"
+        "1. Ask the worker to narrow the implementation scope.\n"
+        "2. File a follow-up work item for the unrelated defect."
+    )
+    assert picker_wait_premise_violations(text=picker) == ()
+
+
+def test_foreman_prose_carries_wait_premise_picker_rule() -> None:
+    """The ratified rule must reach the shipped operator prose."""
+    prose = (Path(__file__).resolve().parents[2] / ".claude-plugin/prose/foreman.md").read_text(
+        encoding="utf-8"
+    )
+    assert "wait-premise: kind=<kind> target=<target-identifier>" in prose
+    assert "write the wait-premise record" in prose
+    assert "before raising the picker" in prose
 
 
 def test_a_tool_result_record_is_not_a_turn_boundary() -> None:
