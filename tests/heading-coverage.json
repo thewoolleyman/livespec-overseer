@@ -1117,16 +1117,14 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An absent or non-true full_autonomy key changes nothing",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration (the same tier as the existing test_foreman_valve_disposition scenarios), never by a unit test. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.2. Pins fail-closed resolution across absent, empty, wrong-typed and false values: effective disposition unchanged and decision_rule unanimous.",
-    "work_item": "overseer-3h4s5w.2"
+    "test": "tests.integration.test_foreman_valve_disposition.test_full_autonomy_absent_empty_wrong_typed_and_false_resolve_false",
+    "reason": "Pins fail-closed resolution across absent, empty, wrong-typed and false values: effective disposition unchanged and decision_rule unanimous. Landed with child overseer-3h4s5w.2 (commit 67a5b84). The leg that can fail for the right reason: a wrong-typed value must resolve FALSE rather than truthy, which is what distinguishes fail-closed reading from a plain bool() coercion."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A contradictory configuration is surfaced while full autonomy governs",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration (the same tier as the existing test_foreman_valve_disposition scenarios), never by a unit test. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.2. Pins the contradiction rule: full_autonomy true with explicit report-only resolves to consensus plus majority and reports conflict true.",
-    "work_item": "overseer-3h4s5w.2"
+    "test": "tests.integration.test_foreman_valve_disposition.test_full_autonomy_true_forces_consensus_majority_and_reports_conflict",
+    "reason": "Pins the contradiction rule: full_autonomy true with an explicit report-only disposition resolves to consensus plus majority AND reports conflict true. Landed with child overseer-3h4s5w.2 (commit 67a5b84). The leg that can fail for the right reason: full autonomy must WIN at runtime while the contradiction is surfaced, never be resolved silently to the cautious report-only reading."
   }
 ]
