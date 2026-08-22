@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.38.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.14...v1.38.0) (2026-08-22)
+
+
+### Features
+
+* cover caam active resnapshot ([a76cd14](https://github.com/thewoolleyman/livespec-overseer/commit/a76cd14a5a96c7d8f3340fc341d7036027a84552))
+
 ## [1.37.14](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.13...v1.37.14) (2026-08-22)
 
 
