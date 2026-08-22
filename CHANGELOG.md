@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.25.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.24.1...v1.25.0) (2026-08-22)
+
+
+### Features
+
+* pin caam foreman model override behavior ([ee6d296](https://github.com/thewoolleyman/livespec-overseer/commit/ee6d296cfe5f7d9f236360bdc4da8e4d4e15b2dc))
+
 ## [1.24.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.24.0...v1.24.1) (2026-08-22)
 
 
