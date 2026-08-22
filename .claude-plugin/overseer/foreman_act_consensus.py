@@ -128,9 +128,8 @@ def _audit_record(
     disposition: dict[str, object],
     requested_action_id: ActionId,
     authorized_action_id: ActionId | None,
-    ruling: dict[str, object] | None,
 ) -> dict[str, object]:
-    record = {
+    return {
         "stage": "foreman-consensus-act",
         "action_id": requested_action_id,
         "governing_setting": f"{CONFIG_KEY}={CONSENSUS}",
@@ -145,13 +144,8 @@ def _audit_record(
         "models": verdict.get("models"),
         "authorized_action_id": authorized_action_id,
         "verdict": verdict,
+        "authorized_member_kind": "action",
     }
-    if ruling is not None:
-        record["authorized_member_kind"] = "typed_ruling"
-        record["ruling"] = ruling
-    else:
-        record["authorized_member_kind"] = "action"
-    return record
 
 
 def _recorded_next_action_record(
@@ -249,7 +243,7 @@ def prepare_consensus_action(
     disposition: dict[str, object],
     consensus_panel: ConsensusPanel,
     append_journal: AppendJournal,
-) -> tuple[ActionId | dict[str, object] | None, ActResult | None]:
+) -> tuple[ActionId | None, ActResult | None]:
     pre_evidence = _pre_evidence_refusal(
         action_id=action_id, proposal=proposal, disposition=disposition
     )
@@ -282,7 +276,6 @@ def prepare_consensus_action(
             action_id=refused_action_id, reason=refusal or "consensus_unavailable"
         )
     authorized_action_id = authorized_member
-    ruling = None
     try:
         append_journal(
             repo=Path(str(proposal["repo"])),
@@ -292,7 +285,6 @@ def prepare_consensus_action(
                 disposition=disposition,
                 requested_action_id=action_id,
                 authorized_action_id=authorized_action_id,
-                ruling=ruling,
             ),
         )
     except OSError:

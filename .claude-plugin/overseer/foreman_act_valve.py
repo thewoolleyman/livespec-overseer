@@ -11,7 +11,6 @@ from foreman_act_consensus import ConsensusPanel, prepare_consensus_action
 from foreman_act_dispatch import DispatchSeams
 from foreman_act_record import AppendJournal
 from foreman_act_types import ActionId, ActResult
-from foreman_typed_ruling import act_typed_ruling
 from foreman_valve_policy import effective_valve_disposition
 
 __all__: list[str] = ["act_with_human_valve"]
@@ -36,8 +35,6 @@ def act_with_human_valve(
     )
     if valve_refusal is not None:
         return valve_refusal
-    if isinstance(authorized, dict):
-        return act_typed_ruling(ruling=authorized, proposal=proposal, document=document, repo=repo)
     authorized_action_id = cast(ActionId, authorized)
     foreman_act_dispatch.tmuxio = tmuxio
     return foreman_act_dispatch.act_authorized(
