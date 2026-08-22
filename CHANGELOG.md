@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.29.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.29.1...v1.29.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* require ledger evidence for work item sessions ([11a67b1](https://github.com/thewoolleyman/livespec-overseer/commit/11a67b1cff92f2ea23516572fc581b4ffe7a433f))
+* surface unusable wait premises and finish the legacy migration ([ed51582](https://github.com/thewoolleyman/livespec-overseer/commit/ed5158221991d3383ac6a3d1c10a04642768f5d2))
+
 ## [1.29.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.29.0...v1.29.1) (2026-08-22)
 
 
