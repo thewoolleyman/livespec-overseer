@@ -41,7 +41,6 @@ re-export here can be `monkeypatch.setattr`-ed successfully while the real reade
 maintainer's live `~/.livespec-overseer.jsonl` during the registry split. Patch the
 module that DEFINES the constant.
 """
-# livespec-lloc-soft-band-owner: overseer-hgq4wi.28
 
 from __future__ import annotations
 
@@ -51,14 +50,15 @@ import os
 import _supervisor_assignment
 import _supervisor_cli_actions
 import _supervisor_cli_parser
+import _supervisor_cli_start
+import _supervisor_cli_topic
 import _supervisor_cli_update
 import _supervisor_snapshot
 import registry
-import signals
 import streams
 import tmuxio
 from _seams import SubcommandHandler
-from _signals_topics import reserved_seat_accepts_explicit_epic, reserved_worker_suffix
+from _signals_topics import reserved_seat_accepts_explicit_epic
 from _supervisor_config import DANGER_CTX_REMAINING as DANGER_CTX_REMAINING
 from _supervisor_config import LOOP_INTERVAL_SECONDS as LOOP_INTERVAL_SECONDS
 from _supervisor_config import default_gitignore_check as default_gitignore_check
@@ -68,7 +68,6 @@ from _supervisor_prompts import idle_nudge_message as idle_nudge_message
 from _supervisor_prompts import plan_epic_resume as plan_epic_resume
 from _supervisor_prompts import plan_state_locator as plan_state_locator
 from _supervisor_prompts import wrapup_message as wrapup_message
-from _supervisor_start_cli import launch_attempt_message
 from _supervisor_view import ATTENTION_STATUSES as ATTENTION_STATUSES
 from _supervisor_view import RowView as RowView
 from _supervisor_view import needs_attention as needs_attention
@@ -124,10 +123,7 @@ def _cli_colliding() -> frozenset[str]:
     name it: the bare plan topic, or ``<slug>-<topic>`` only when the topic collides
     across repos.
     """
-    watch = registry.watch_set_from_config(
-        config_path=registry.DEFAULT_WATCH_SET_PATH, extra_repos=[]
-    )
-    return registry.colliding_topics(discovered=registry.discover_plans(watch_repos=watch))
+    return _supervisor_cli_topic.cli_colliding()
 
 
 def run_daemon(*, warn_percent: int | None = None) -> int:
@@ -164,15 +160,7 @@ def _cmd_adopt(*, args: argparse.Namespace) -> int:
 
 
 def _refuse_reserved_topic(*, repo: str, topic: str) -> bool:
-    if (suffix := reserved_worker_suffix(topic=topic)) is None:
-        return False
-    streams.write_stderr(
-        text=(
-            f"refusing reserved supervisor topic {repo}::{topic}; "
-            f"worker topics may not end in {suffix}\n"
-        )
-    )
-    return True
+    return _supervisor_cli_topic.refuse_reserved_topic(repo=repo, topic=topic)
 
 
 def _derive_tmux_or_refuse(*, repo: str, topic: str, allow_reserved: bool = False) -> str | None:
@@ -240,94 +228,13 @@ def _cmd_remove(*, args: argparse.Namespace) -> int:
     return 0
 
 
-def _existing_start_track(*, repo: str, topic: str) -> registry.Track | None:
-    repo_norm = registry.norm(repo=repo)
-    for track in registry.read_valid_mapping(store_path=None):
-        if registry.norm(repo=track.repo) == repo_norm and track.topic == topic and track.assigned:
-            return track
-    return None
-
-
-def _cmd_start(*, args: argparse.Namespace) -> int:
-    """Surface-only, user-initiated launch. The daemon never invokes this.
-
-    Guarded (B8): if the session already runs a LIVE Claude, ``start`` does NOT
-    ``respawn-pane -k`` it (that would kill a mid-work session with no interlock —
-    the exact "never force-kill mid-work" violation the whole design exists to
-    prevent, reachable via a repeated bottom-pane ``start``). It just upserts the
-    mapping and reports. ``--force`` is required to actually respawn a live one.
-    """
-    repo = os.path.normpath(args.repo)
-    topic = args.topic
-    existing = _existing_start_track(repo=repo, topic=topic)
-    allow_reserved = existing is not None and signals.topic_reserved_for_supervisor(topic=topic)
-    session = _derive_tmux_or_refuse(repo=repo, topic=topic, allow_reserved=allow_reserved)
-    if session is None:
-        return 1
-    force = getattr(args, "force", False)
-    io = tmuxio.TmuxIO()
-    sup = Supervisor(tmux=io)
-    track = existing or _supervisor_assignment.assignment_track(
-        repo=repo, topic=topic, session=session
+def _start_handler(*, args: argparse.Namespace) -> int:
+    return _supervisor_cli_start.start_command(
+        args=args,
+        derive_tmux_or_refuse=_derive_tmux_or_refuse,
+        tmux_factory=tmuxio.TmuxIO,
+        supervisor_factory=Supervisor,
     )
-    if io.session_exists(session=session) and not force:
-        # Fail CLOSED (RB4): refuse to respawn-kill an existing session unless we
-        # POSITIVELY know it is DEAD. Only a bare SHELL proves that — a dead session
-        # reports its shell name positively, so demanding proof costs nothing, while an
-        # unreadable `pane_current_command` (None) or ANY other program might be live
-        # work mid-flight.
-        #
-        # This asks "is it proven dead?", NOT "is it a live Claude?" (adversarial review,
-        # probe-proven, 2026-07-17). The old test was `cmd is None or pane_is_claude(cmd)`,
-        # which knew only ONE runtime: a live CODEX pane reports `bun`, failed the
-        # Claude test, and was treated exactly like a dead shell — so a bare `start`
-        # respawn-KILLED a live Codex TUI and replaced it with a claude one. The guard's
-        # own stated purpose was already "fail closed on anything unproven-dead"; it just
-        # enumerated the live runtimes instead of the dead one, which does not scale to a
-        # second runtime and never did.
-        cmd = io.pane_current_command(session=session)
-        if not signals.pane_is_shell(pane_current_command=cmd):
-            _supervisor_cli_update.upsert_track(track=track)
-            streams.write_stdout(
-                text=(
-                    f"{repo}::{topic}: session {session} already running (or its identity is "
-                    f"unreadable) — mapping upserted, NOT respawned. Pass --force to respawn "
-                    f"(kills the running session).\n"
-                )
-            )
-            return 0
-    created_session = False
-    if not io.session_exists(session=session):
-        _ = io.new_session(name=session, cwd=repo)
-        # Require the EXACT session to exist before launching (Codex re-review #3):
-        # a failed `new-session` must not let `_do_launch` respawn a prefix-matched
-        # sibling.
-        if not io.session_exists(session=session):
-            streams.write_stderr(
-                text=(
-                    f"start FAILED: could not create tmux session {session}; "
-                    "reason=session_create_failed "
-                    f"session={session} repo={repo} topic={topic}\n"
-                )
-            )
-            return 1
-        created_session = True
-    attempt = launch_attempt_message(sup=sup, io=io, track=track, session=session)
-    if attempt.message is None:
-        cleanup = "not_created"
-        if created_session:
-            cleanup = "cleaned" if io.kill_session(session=session) else "leftover_session"
-        streams.write_stderr(
-            text=(
-                f"start FAILED to launch {repo}::{topic} in tmux session {session}; "
-                f"reason={attempt.reason or 'claude_launch_failed'} "
-                f"session={session} repo={repo} topic={topic} cleanup={cleanup}\n"
-            )
-        )
-        return 1
-    _supervisor_cli_update.upsert_track(track=track)
-    streams.write_stdout(text=f"{attempt.message}\n")
-    return 0
 
 
 def _add_track_args(*, parser: argparse.ArgumentParser) -> None:
@@ -359,7 +266,7 @@ def main(*, argv: list[str] | None = None) -> int:
             adopt_handler=_cmd_adopt,
             add_handler=_cmd_add,
             remove_handler=_cmd_remove,
-            start_handler=_cmd_start,
+            start_handler=_start_handler,
         ),
         add_track_args=_add_track_args,
         add_mapping_write_args=_supervisor_cli_update.add_mapping_write_args,
