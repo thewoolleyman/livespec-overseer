@@ -1753,6 +1753,54 @@ command being wrong.
 daemon behaviour, its acceptance should include the bounce and a live control —
 not merely a green CI run.
 
+**THERE IS A THIRD STALENESS SURFACE, AND THE TWO ABOVE ARE THE EASY ONES.**
+Measured 2026-08-22 (`overseer-lixhd3.1`). The paragraphs above frame this as a
+two-way split: separate entrypoints are always fresh, the daemon is stale until
+bounced. A third surface behaves like neither. **Prose — the operator contracts
+under `.claude-plugin/prose/` — is read at SKILL-INVOCATION time and held for the
+life of that session.** A session that invoked its skill before a contract change
+runs the OLD contract however current the daemon is, and **no bounce reaches it**,
+because the daemon does not own that copy. It goes current only when a fresh
+session starts.
+
+**The specimen shows both halves disagreeing in one row**, which is what makes it
+worth recording rather than deducing. Minutes after a correct bounce onto a merge
+that changed both daemon code and `foreman.md`, the status file carried a
+`foreman-blocking-prompt` row against a live foreman seat: the post-bounce daemon
+raising a condition that had shipped minutes earlier, against a seat that was
+still behaving under the pre-merge contract because it had started first.
+**Detection current, behaviour stale, same row.**
+
+**The trap this sets, and it is expensive because it looks like a failed bounce.**
+An acceptance criterion phrased as an observed end-to-end BEHAVIOUR can be
+UNSATISFIABLE after a completely correct bounce, because only a session that
+STARTED AFTER the merge can demonstrate it. Do not diagnose that as a bad bounce,
+and do not re-bounce chasing it. Split such an acceptance in two: the daemon half,
+provable immediately after the bounce, and the contract half, which is a WAIT for a
+fresh session rather than a task anyone can perform.
+
+**And keep the claim boundary straight.** "The daemon runs current code" does not
+imply "the fleet is running current code". The second is false for every session
+already in flight, and a reader will infer it from the first unless told otherwise.
+
+**Two bounce mechanics worth having before you need them.** Confirm a bounce by the
+daemon's INSTANCE ID changing, not by its version — version discriminates only when
+the release actually changed, so a within-release bounce checked by version is a
+check that cannot fail. And stop the daemon with `kill -TERM` on its pid, never
+Ctrl-C into the pane: the pane's process is an interactive shell with `overseerd` as
+its child, so TERM returns the shell to a prompt and the pane survives, while Ctrl-C
+closes the pane and violates the top-pane rider even though all three procedure
+steps were followed. Allow ~40s for the new instance to publish its first snapshot;
+reading too early shows the PREVIOUS instance's snapshot, which is indistinguishable
+from a failed bounce.
+
+**When requesting or reporting a bounce, say which kind of evidence it can carry:**
+an OBSERVED ROW, or only an INSPECTION OF THE LOADED TREE. A change whose new
+condition has no live input yet can only be confirmed structurally, and saying so
+keeps a structural check from reading as weaker than it is — and a positive one from
+reading as stronger. Of three bounces on 2026-08-22, exactly one carried both a new
+status-vocabulary entry and a live input for it.
+
 ## CI runner routing
 
 `CI_RUNNER_LABELS` routes this repo's gating `pull_request`/`push` CI matrix.
