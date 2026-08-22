@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.41.18](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.17...v1.41.18) (2026-08-22)
+
+
+### Bug Fixes
+
+* remove stale foreman prompt timestamp contract ([b624477](https://github.com/thewoolleyman/livespec-overseer/commit/b62447772caa68b4a9410a9e1ace49bc9d363094))
+
 ## [1.41.17](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.16...v1.41.17) (2026-08-22)
 
 
