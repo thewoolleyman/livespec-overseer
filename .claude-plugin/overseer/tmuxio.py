@@ -44,9 +44,15 @@ from typing import Any
 
 import streams
 from tmuxio_env import with_env_delta
-from tmuxio_protocols import PaneDriver, SessionNameDriver, WindowLayoutDriver
+from tmuxio_protocols import PaneDriver, PaneGeometry, SessionNameDriver, WindowLayoutDriver
 
-__all__: list[str] = ["PaneDriver", "SessionNameDriver", "TmuxIO", "WindowLayoutDriver"]
+__all__: list[str] = [
+    "PaneDriver",
+    "PaneGeometry",
+    "SessionNameDriver",
+    "TmuxIO",
+    "WindowLayoutDriver",
+]
 
 
 # The tmux paste buffer the injector loads into. A UNIQUE name per paste (pid +
@@ -398,6 +404,34 @@ class TmuxIO:
             if pane_title.strip() == title:
                 return pane_id.strip() or None
         return None
+
+    def window_pane_geometries(self, *, pane: str) -> list[PaneGeometry]:
+        """Every pane id, top row, and height in PANE's window.
+
+        The two-pane overseer contract is geometric: the daemon must occupy the
+        TOP pane. Pane indexes are intentionally not used because tmux renumbers
+        panes after a collapse, silently retargeting index-based commands.
+        """
+        completed = self._call(
+            args=["list-panes", "-t", pane, "-F", "#{pane_id}\t#{pane_top}\t#{pane_height}"]
+        )
+        if not self._ok(completed=completed):
+            return []
+        geometries: list[PaneGeometry] = []
+        for line in (completed.stdout or "").splitlines():
+            pane_id, _, rest = line.partition("\t")
+            top, _, height = rest.partition("\t")
+            try:
+                geometries.append(
+                    PaneGeometry(
+                        pane=pane_id.strip(),
+                        top=int(top.strip()),
+                        height=int(height.strip()),
+                    )
+                )
+            except ValueError:
+                return []
+        return geometries
 
     def set_pane_height_percent(self, *, pane: str, percent: int) -> bool:
         """``tmux resize-pane -t <pane> -y <percent>%`` — size PANE to a share of its window.

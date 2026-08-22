@@ -29,6 +29,7 @@ from claude_sessions import proc_comm, proc_ppid
 __all__: list[str] = ["daemon_command", "main"]
 
 _DAEMON_PANE_TITLE = "overseer-daemon"
+_OVERSEER_PANE_COUNT = 2
 
 # The daemon pane's share of the window height. It carries the live table AND the
 # `NEEDS YOU` block — the surfaces that actually answer "what needs my attention?" —
@@ -121,6 +122,13 @@ def daemon_command(
 
 
 _daemon_command = daemon_command
+
+
+def _daemon_pane_is_top_of_two(*, layout: tmuxio.WindowLayoutDriver, pane: str) -> bool:
+    geometries = layout.window_pane_geometries(pane=pane)
+    if len(geometries) != _OVERSEER_PANE_COUNT:
+        return False
+    return any(geometry.pane == pane and geometry.top == 0 for geometry in geometries)
 
 
 def _start_daemon_pane(
@@ -230,8 +238,16 @@ def main(
     core = core_root if core_root is not None else _default_core_root()
     layout: tmuxio.WindowLayoutDriver = io if io is not None else tmuxio.TmuxIO()
 
-    # 1. Start the daemon in a TOP pane of THIS window (idempotent).
-    if _DAEMON_PANE_TITLE in layout.window_pane_titles(pane=pane):
+    # 1. Start the daemon in a TOP pane of THIS window (idempotent). The title is
+    # only an identity anchor; pane indexes are deliberately avoided because tmux
+    # renumbers after a collapse. The geometry read proves the titled pane itself
+    # is the top pane in the two-pane operator window. The daemon self-update path
+    # uses process re-exec, so it preserves its pane by construction; this bootstrap
+    # handles the recovery case where a pane-command shape closed the daemon pane.
+    existing_daemon_pane = layout.pane_by_title(pane=pane, title=_DAEMON_PANE_TITLE)
+    if existing_daemon_pane is not None and _daemon_pane_is_top_of_two(
+        layout=layout, pane=existing_daemon_pane
+    ):
         streams.write_stderr(
             text="overseer-start: daemon pane already present in this window; leaving it.\n"
         )
@@ -268,7 +284,7 @@ def main(
     # pane already existed and we never held its id) resizes it too.
     _ = layout.select_layout_even(pane=pane)
     daemon_pane = layout.pane_by_title(pane=pane, title=_DAEMON_PANE_TITLE)
-    if daemon_pane is not None:
+    if daemon_pane is not None and _daemon_pane_is_top_of_two(layout=layout, pane=daemon_pane):
         _ = layout.set_pane_height_percent(pane=daemon_pane, percent=_DAEMON_PANE_HEIGHT_PERCENT)
 
     # 2. Adopt existing worker sessions that match active plan topics.

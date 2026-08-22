@@ -3,9 +3,24 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Protocol
 
-__all__: list[str] = ["PaneDriver", "SessionNameDriver", "WindowLayoutDriver"]
+__all__: list[str] = [
+    "PaneDriver",
+    "PaneGeometry",
+    "SessionNameDriver",
+    "WindowLayoutDriver",
+]
+
+
+@dataclass(frozen=True, kw_only=True)
+class PaneGeometry:
+    """A tmux pane's id and vertical geometry inside its window."""
+
+    pane: str
+    top: int
+    height: int
 
 
 class SessionNameDriver(Protocol):
@@ -93,5 +108,7 @@ class WindowLayoutDriver(Protocol):
     def select_layout_even(self, *, pane: str) -> bool: ...
 
     def pane_by_title(self, *, pane: str, title: str) -> str | None: ...
+
+    def window_pane_geometries(self, *, pane: str) -> list[PaneGeometry]: ...
 
     def set_pane_height_percent(self, *, pane: str, percent: int) -> bool: ...
