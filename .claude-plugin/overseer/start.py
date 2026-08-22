@@ -7,6 +7,7 @@ session that ran `/overseer`, and that session simply resumes in the bottom pane
 Run by hand from a plain shell it would leave a bare-shell bottom pane (no agent),
 so it REFUSES unless process ancestry shows a supported agent runtime.
 """
+# livespec-lloc-soft-band-owner: overseer-6s3pk6.6
 
 from __future__ import annotations
 
