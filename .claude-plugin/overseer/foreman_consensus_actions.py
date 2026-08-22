@@ -50,9 +50,14 @@ def action_is_rollback_bounded(*, action: object) -> bool:
 
 def review_record(*, reviewer: dict[str, object]) -> dict[str, object]:
     reviewer_id = str_field(payload=reviewer, key="reviewer_id")
-    return {
+    result = {
         "reviewer_id": reviewer_id,
         "model": model_for(reviewer_id=reviewer_id),
         "verdict": reviewer.get("verdict"),
         "action": reviewer.get("action"),
     }
+    if "hard_risk" in reviewer:
+        result["hard_risk"] = reviewer.get("hard_risk")
+    if "risk_kind" in reviewer:
+        result["risk_kind"] = reviewer.get("risk_kind")
+    return result

@@ -147,6 +147,7 @@ def blocked_answer_panel_result() -> dict[str, object]:
         "schema_version": 1,
         "outcome": "unanimous",
         "reason": "three_typed_actions_equal",
+        "decision_rule": "unanimous",
         "action": {"action_id": "blocked_session_answer", "params": {}},
         "reviewers": reviewers,
         "models": [reviewer["model"] for reviewer in reviewers],
@@ -159,6 +160,7 @@ def blocked_answer_majority_panel_result() -> dict[str, object]:
     result = blocked_answer_panel_result()
     result["outcome"] = "majority"
     result["reason"] = "two_unblock_typed_actions_equal"
+    result["decision_rule"] = "majority"
     return result
 
 
@@ -166,9 +168,12 @@ def _pane_fingerprint(*, text: str) -> str:
     return sha256(text.encode("utf-8")).hexdigest()
 
 
-def write_consensus_config(*, repo: Path) -> None:
+def write_consensus_config(*, repo: Path, full_autonomy: bool = False) -> None:
+    section: dict[str, object] = {"foreman_valve_disposition": "consensus"}
+    if full_autonomy:
+        section["full_autonomy"] = True
     (repo / ".livespec.jsonc").write_text(
-        json.dumps({"livespec-overseer": {"foreman_valve_disposition": "consensus"}}),
+        json.dumps({"livespec-overseer": section}),
         encoding="utf-8",
     )
 
@@ -1325,7 +1330,10 @@ def test_blocked_answer_dismiss_and_represent_is_unreachable_until_protocol_rati
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: calls.append(argv) or 0,
-            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_panel_result(),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1345,7 +1353,7 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
     foreman_act = module("foreman_act")
     repo = tmp_path / "repo"
     repo.mkdir()
-    write_consensus_config(repo=repo)
+    write_consensus_config(repo=repo, full_autonomy=True)
     proposal = blocked_answer_proposal(repo=repo)
     answer = proposal["blocked_session_answer"]
     assert isinstance(answer, dict)
@@ -1392,7 +1400,10 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: blocked_answer_majority_panel_result(),
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_majority_panel_result(),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1470,7 +1481,10 @@ def test_picker_stalled_open_picker_answer_revalidates_against_fresh_capture(
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: document,
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_panel_result(),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1502,7 +1516,10 @@ def test_blocked_answer_refuses_old_daemon_row_without_picker_open(*, tmp_path, 
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: document,
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_panel_result(),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1550,7 +1567,10 @@ def test_blocked_answer_refuses_fresh_capture_fingerprint_mismatch(*, tmp_path, 
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: document,
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_panel_result(),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1607,7 +1627,10 @@ def test_blocked_answer_keeps_runtime_and_cwd_identity_refusals(*, tmp_path, mon
             seams=foreman_act.ActSeams(
                 gather=lambda *, repo, snapshot_path: document,
                 run=lambda *, argv: 99,
-                consensus_panel=lambda *, request, responses: blocked_answer_panel_result(),
+                consensus_panel=lambda *,
+                request,
+                responses,
+                decision_rule=None: blocked_answer_panel_result(),
                 append_journal=lambda *, repo, record: None,
             ),
         )
@@ -1777,7 +1800,9 @@ def test_recorded_next_action_answers_a_matching_picker_without_consensus_eviden
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+                "panel must not be convened"
+            ),
             append_journal=lambda *, repo, record: records.append(record),
         ),
     )
@@ -1810,7 +1835,9 @@ def test_recorded_next_action_refuses_when_no_picker_option_matches(*, tmp_path)
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+                "panel must not be convened"
+            ),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1832,7 +1859,9 @@ def test_recorded_next_action_refuses_a_handoff_naming_zero_next_actions(*, tmp_
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+                "panel must not be convened"
+            ),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1856,7 +1885,9 @@ def test_recorded_next_action_refuses_a_handoff_naming_several_next_actions(*, t
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+                "panel must not be convened"
+            ),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1875,7 +1906,9 @@ def test_recorded_next_action_does_not_bypass_the_report_only_disposition(*, tmp
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+                "panel must not be convened"
+            ),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1897,7 +1930,9 @@ def test_recorded_next_action_does_not_relax_a_hard_floor(*, tmp_path):
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+                "panel must not be convened"
+            ),
             append_journal=lambda *, repo, record: None,
         ),
     )
@@ -1921,7 +1956,9 @@ def test_recorded_next_action_refuses_a_payload_missing_its_source(*, tmp_path):
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
             run=lambda *, argv: 99,
-            consensus_panel=lambda *, request, responses: pytest.fail("panel must not be convened"),
+            consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+                "panel must not be convened"
+            ),
             append_journal=lambda *, repo, record: None,
         ),
     )

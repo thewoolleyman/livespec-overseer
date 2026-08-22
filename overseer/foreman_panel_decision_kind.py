@@ -16,7 +16,9 @@ TOOLING_FAILURE_REASONS: Final[frozenset[str]] = frozenset(
         "reviewer_timeout",
     }
 )
-TOOLING_VERDICT_REASONS: Final[frozenset[str]] = frozenset({"unpinned_model_identity"})
+TOOLING_VERDICT_REASONS: Final[frozenset[str]] = frozenset(
+    {"malformed_response", "unpinned_model_identity"}
+)
 
 
 def reviewer_failure_reason(*, reviewer: dict[str, object]) -> str:

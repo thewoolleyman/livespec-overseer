@@ -87,6 +87,7 @@ def panel_payload(
         "reviewers": verdict.get("reviewers"),
         "outcome": verdict.get("outcome"),
         "reason": verdict.get("reason"),
+        "decision_rule": verdict.get("decision_rule"),
         "verdict": verdict,
     }
 
@@ -130,6 +131,7 @@ def journal_record(
         "topic": str_field(payload=request, key="topic"),
         "panel_outcome": verdict.get("outcome"),
         "panel_reason": verdict.get("reason"),
+        "decision_rule": verdict.get("decision_rule"),
         "panel_cache_key": verdict.get("cache_key"),
         "reviewers": verdict.get("reviewers"),
         "models": verdict.get("models"),

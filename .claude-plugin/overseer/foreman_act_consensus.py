@@ -2,18 +2,20 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 import jsonio
 from foreman_act_journal import journal_reconcile_command
 from foreman_act_record import AppendJournal
 from foreman_act_types import ACTION_IDS, BLOCKED_SESSION_ANSWER, HUMAN_VALVE, ActionId, ActResult
+from foreman_consensus_types import DecisionRule
 from foreman_recorded_next_action import (
     RecordedNextAction,
     recorded_next_action_authorization,
 )
-from foreman_valve_policy import CONFIG_KEY, CONSENSUS
+from foreman_valve_policy import CONFIG_KEY, CONSENSUS, MAJORITY, UNANIMOUS
 
 __all__: list[str] = [
     "ConsensusPanel",
@@ -26,7 +28,11 @@ _HARD_FLOORS = frozenset({"truly-unresolvable", "human-gated-by-design"})
 
 class ConsensusPanel(Protocol):
     def __call__(
-        self, *, request: dict[str, object], responses: dict[str, object]
+        self,
+        *,
+        request: dict[str, object],
+        responses: dict[str, object],
+        decision_rule: DecisionRule | None = None,
     ) -> dict[str, object]: ...
 
 
@@ -65,6 +71,34 @@ def _known_action_id(*, value: object) -> ActionId | None:
     return value if isinstance(value, str) and value in ACTION_IDS else None
 
 
+def _known_decision_rule(*, value: object) -> DecisionRule | None:
+    return cast(DecisionRule, value) if value in {MAJORITY, UNANIMOUS} else None
+
+
+def _panel_accepts_decision_rule(*, consensus_panel: ConsensusPanel) -> bool:
+    parameters = inspect.signature(consensus_panel).parameters.values()
+    return any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == "decision_rule"
+        for parameter in parameters
+    )
+
+
+def _panel_verdict(
+    *,
+    consensus_panel: ConsensusPanel,
+    request: dict[str, object],
+    responses: dict[str, object],
+    decision_rule: DecisionRule | None,
+) -> dict[str, object]:
+    if _panel_accepts_decision_rule(consensus_panel=consensus_panel):
+        return consensus_panel(
+            request=request,
+            responses=responses,
+            decision_rule=decision_rule,
+        )
+    return consensus_panel(request=request, responses=responses)
+
+
 def _valve_category(*, proposal: dict[str, object]) -> str | None:
     valve = jsonio.as_object(value=proposal.get("human_valve"))
     value = None if valve is None else valve.get("category")
@@ -88,6 +122,7 @@ def _audit_record(
     *,
     proposal: dict[str, object],
     verdict: dict[str, object],
+    disposition: dict[str, object],
     requested_action_id: ActionId,
     authorized_action_id: ActionId,
 ) -> dict[str, object]:
@@ -95,6 +130,8 @@ def _audit_record(
         "stage": "foreman-consensus-act",
         "action_id": requested_action_id,
         "governing_setting": f"{CONFIG_KEY}={CONSENSUS}",
+        "decision_rule": verdict.get("decision_rule"),
+        "full_autonomy": disposition.get("full_autonomy"),
         "repo": proposal.get("repo"),
         "topic": proposal.get("topic"),
         "panel_outcome": verdict.get("outcome"),
@@ -148,13 +185,19 @@ def _prepare_recorded_next_action(
     return action_id, None
 
 
-def _authorized_panel_action(*, verdict: dict[str, object]) -> tuple[ActionId | None, str | None]:
+def _authorized_panel_action(
+    *, verdict: dict[str, object], effective_decision_rule: object
+) -> tuple[ActionId | None, str | None]:
     if verdict.get("outcome") not in {"majority", "unanimous"}:
         reason = verdict.get("reason")  # pragma: no cover
         suffix = (  # pragma: no cover
             reason if isinstance(reason, str) and reason != "" else "not_unanimous"
         )
         return None, f"consensus_not_unanimous:{suffix}"  # pragma: no cover
+    if verdict.get("outcome") == "majority" and (
+        verdict.get("decision_rule") != MAJORITY or effective_decision_rule != MAJORITY
+    ):
+        return None, "consensus_majority_requires_majority_rule"
     action = jsonio.as_object(value=verdict.get("action"))
     action_id = None if action is None else _known_action_id(value=action.get("action_id"))
     if action_id is None:  # pragma: no cover
@@ -205,8 +248,16 @@ def prepare_consensus_action(
     if evidence is None:
         return None, _refused(action_id=action_id, reason="consensus_evidence_unavailable")
     request, responses = evidence
-    verdict = consensus_panel(request=request, responses=responses)
-    authorized_action_id, refusal = _authorized_panel_action(verdict=verdict)
+    decision_rule = _known_decision_rule(value=disposition.get("decision_rule"))
+    verdict = _panel_verdict(
+        consensus_panel=consensus_panel,
+        request=request,
+        responses=responses,
+        decision_rule=decision_rule,
+    )
+    authorized_action_id, refusal = _authorized_panel_action(
+        verdict=verdict, effective_decision_rule=decision_rule
+    )
     if refusal is not None or authorized_action_id is None:  # pragma: no cover
         return None, _refused(action_id=action_id, reason=refusal or "consensus_unavailable")
     try:
@@ -215,6 +266,7 @@ def prepare_consensus_action(
             record=_audit_record(
                 proposal=proposal,
                 verdict=verdict,
+                disposition=disposition,
                 requested_action_id=action_id,
                 authorized_action_id=authorized_action_id,
             ),

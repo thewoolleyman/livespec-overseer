@@ -151,6 +151,7 @@ def unanimous_panel_result() -> dict[str, object]:
         "schema_version": 1,
         "outcome": "unanimous",
         "reason": "three_typed_actions_equal",
+        "decision_rule": "unanimous",
         "action": {"action_id": "plan_start", "params": {}},
         "reviewers": reviewers,
         "models": [reviewer["model"] for reviewer in reviewers],
@@ -331,7 +332,10 @@ def test_consensus_disposition_journals_before_acting(*, tmp_path):
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
             run=lambda *, argv: events.append("run") or 0,
-            consensus_panel=lambda *, request, responses: unanimous_panel_result(),
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: unanimous_panel_result(),
             append_journal=lambda *, repo, record: events.append("journal")
             or journaled.append(record),
         ),
@@ -362,7 +366,10 @@ def test_blocked_session_answer_consensus_audit_records_requested_action_id(*, t
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
             run=lambda *, argv: 0,
-            consensus_panel=lambda *, request, responses: unanimous_panel_result(),
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: unanimous_panel_result(),
             append_journal=lambda *, repo, record: journaled.append(record),
         ),
     )
@@ -417,7 +424,10 @@ def test_consensus_refuses_silent_auto_disposition_when_journal_fails(*, tmp_pat
         seams=foreman_act.ActSeams(
             gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
             run=lambda *, argv: calls.append(argv) or 0,
-            consensus_panel=lambda *, request, responses: unanimous_panel_result(),
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: unanimous_panel_result(),
             append_journal=fail_append,
         ),
     )
