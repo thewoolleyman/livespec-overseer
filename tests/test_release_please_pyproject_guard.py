@@ -99,3 +99,56 @@ def test_historical_release_please_pyproject_clobber_is_rejected() -> None:
 def test_version_only_release_please_pyproject_diff_is_accepted() -> None:
     assert _commit_subject(ref=VERSION_ONLY_RELEASE) == "chore(master): release 1.32.5"
     assert_release_pyproject_diff_is_version_only(repo_root=ROOT, ref=VERSION_ONLY_RELEASE)
+
+
+def _init_fixture_repo(*, root: Path) -> None:
+    """Build a self-contained git repo so body coverage never depends on clone depth."""
+    _ = _git("init", "-q", "-b", "main", cwd=root)
+    _ = _git("config", "user.email", "fixture@example.invalid", cwd=root)
+    _ = _git("config", "user.name", "Fixture", cwd=root)
+
+
+def _commit_pyproject(*, root: Path, body: str, subject: str) -> str:
+    _ = (root / "pyproject.toml").write_text(body, encoding="utf-8")
+    _ = _git("add", "pyproject.toml", cwd=root)
+    _ = _git("commit", "-q", "-m", subject, cwd=root)
+    return _git("rev-parse", "HEAD", cwd=root).stdout.strip()
+
+
+_BASE_PYPROJECT = 'name = "livespec-overseer"\nversion = "1.10.2"\nkeep = "hand-authored"\n'
+
+
+def test_guard_accepts_a_real_version_only_release_commit(*, tmp_path: Path) -> None:
+    """Exercise the git-reading body, not only the pure helpers."""
+    _init_fixture_repo(root=tmp_path)
+    _ = _commit_pyproject(root=tmp_path, body=_BASE_PYPROJECT, subject="feat: seed")
+    bumped = _BASE_PYPROJECT.replace('version = "1.10.2"', 'version = "1.11.0"')
+    ref = _commit_pyproject(root=tmp_path, body=bumped, subject="chore(master): release 1.11.0")
+
+    assert_release_pyproject_diff_is_version_only(repo_root=tmp_path, ref=ref)
+
+
+def test_guard_rejects_a_real_release_commit_that_also_rewrites_other_lines(
+    *, tmp_path: Path
+) -> None:
+    _init_fixture_repo(root=tmp_path)
+    _ = _commit_pyproject(root=tmp_path, body=_BASE_PYPROJECT, subject="feat: seed")
+    clobbered = _BASE_PYPROJECT.replace('version = "1.10.2"', 'version = "1.11.0"').replace(
+        'keep = "hand-authored"', ""
+    )
+    ref = _commit_pyproject(root=tmp_path, body=clobbered, subject="chore(master): release 1.11.0")
+
+    with pytest.raises(AssertionError, match="stale-snapshot clobber"):
+        assert_release_pyproject_diff_is_version_only(repo_root=tmp_path, ref=ref)
+
+
+def test_guard_ignores_a_non_release_commit_whatever_it_does_to_pyproject(
+    *, tmp_path: Path
+) -> None:
+    _init_fixture_repo(root=tmp_path)
+    _ = _commit_pyproject(root=tmp_path, body=_BASE_PYPROJECT, subject="feat: seed")
+    ref = _commit_pyproject(
+        root=tmp_path, body='name = "x"\n', subject="fix: rewrite pyproject wholesale"
+    )
+
+    assert_release_pyproject_diff_is_version_only(repo_root=tmp_path, ref=ref)
