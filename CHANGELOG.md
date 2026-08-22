@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.24.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.23.0...v1.24.0) (2026-08-22)
+
+
+### Features
+
+* export unattended env on daemon restarts ([fbcacd2](https://github.com/thewoolleyman/livespec-overseer/commit/fbcacd2a1487bc5f16a0450d54fd093022ba9369))
+
 ## [1.23.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.22.2...v1.23.0) (2026-08-22)
 
 
