@@ -5,6 +5,7 @@
 
 ### Bug Fixes
 
+* cover non-oserror currency check failures ([90a5e81](https://github.com/thewoolleyman/livespec-overseer/commit/90a5e819a598138e46fb05838af658abe4bf83d1))
 * surface unusable overseer mappings ([764354f](https://github.com/thewoolleyman/livespec-overseer/commit/764354f6328d6b98913122c99133657ce27a0d31))
 
 ## [1.37.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.0...v1.37.1) (2026-08-22)
