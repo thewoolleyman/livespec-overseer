@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.37.13](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.12...v1.37.13) (2026-08-22)
+
+
+### Bug Fixes
+
+* remove test-only rowview tick path ([a902a53](https://github.com/thewoolleyman/livespec-overseer/commit/a902a53e3edcc473eca0d39023e4d2aecabc39dc))
+* wire daemon release runtime seams ([c6f4aa1](https://github.com/thewoolleyman/livespec-overseer/commit/c6f4aa19c52a9321c04d0b1e7dfef7e7918848db))
+
 ## [1.37.12](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.11...v1.37.12) (2026-08-22)
 
 
