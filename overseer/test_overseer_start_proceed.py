@@ -13,6 +13,13 @@ def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
+@pytest.fixture(autouse=True)
+def _isolate_daemon_runtime(*, monkeypatch, tmp_path):
+    mod = _load()
+    runtime_overseerd = tmp_path / "runtime" / "venv" / "bin" / "overseerd"
+    monkeypatch.setattr(mod.runtime_prefix, "ensure_current_runtime", lambda: runtime_overseerd)
+
+
 class FakeLayout:
     """A tmux window that records what the bootstrap did to it.
 
@@ -81,6 +88,7 @@ def test_splits_a_daemon_pane_and_gives_it_its_height(*, monkeypatch, tmp_path):
     # The split runs in the core repo root, and the daemon pane gets the title the
     # idempotency check looks for on a re-run.
     assert layout.calls[1][2] == str(tmp_path)
+    assert "runtime/venv/bin/overseerd" in layout.calls[1][3]
     assert layout.calls[2][2] == mod._DAEMON_PANE_TITLE
     assert layout.calls[6][2] == mod._DAEMON_PANE_HEIGHT_PERCENT
 

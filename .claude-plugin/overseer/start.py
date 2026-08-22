@@ -19,6 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import runtime_prefix
 import streams
 import supervisor
 import tmuxio
@@ -98,7 +99,12 @@ def _default_core_root() -> Path:
     return checkout_root if checkout_root is not None else module_root
 
 
-def daemon_command(*, warn_percent: int | None, log_path: Path | None = None) -> str:
+def daemon_command(
+    *,
+    warn_percent: int | None,
+    log_path: Path | None = None,
+    daemon_executable: Path | None = None,
+) -> str:
     """The `overseerd` launch command for the daemon top pane.
 
     When ``warn_percent`` is given it is threaded through to the daemon as
@@ -107,7 +113,7 @@ def daemon_command(*, warn_percent: int | None, log_path: Path | None = None) ->
     target is absolute so the daemon launch never depends on the repo where the
     operator invoked ``/overseer``.
     """
-    base = "overseerd"
+    base = shlex.quote(str(daemon_executable)) if daemon_executable is not None else "overseerd"
     if warn_percent is not None:
         base += f" --warn-percent {warn_percent}"
     target = log_path if log_path is not None else _default_daemon_log_path()
@@ -123,10 +129,15 @@ def _start_daemon_pane(
     pane: str,
     core: Path,
     warn_percent: int | None,
+    daemon_executable: Path,
 ) -> bool:
     log_path = core / "tmp" / "overseer" / "daemon.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    command = daemon_command(warn_percent=warn_percent, log_path=log_path)
+    command = daemon_command(
+        warn_percent=warn_percent,
+        log_path=log_path,
+        daemon_executable=daemon_executable,
+    )
     new_pane = layout.split_window_top(pane=pane, cwd=str(core), command=command)
     if new_pane is None:
         streams.write_stderr(
@@ -152,6 +163,7 @@ def main(
     io: tmuxio.WindowLayoutDriver | None = None,
     build_supervisor: Callable[[], supervisor.Supervisor] | None = None,
     core_root: Path | None = None,
+    ensure_daemon_runtime: Callable[[], Path | None] | None = None,
 ) -> int:
     """Bootstrap the two-pane overseer layout in the CURRENT tmux window.
 
@@ -223,13 +235,29 @@ def main(
         streams.write_stderr(
             text="overseer-start: daemon pane already present in this window; leaving it.\n"
         )
-    elif not _start_daemon_pane(
-        layout=layout,
-        pane=pane,
-        core=core,
-        warn_percent=args.warn_percent,
-    ):
-        return 1
+    else:
+        ensure_runtime = (
+            ensure_daemon_runtime
+            if ensure_daemon_runtime is not None
+            else runtime_prefix.ensure_current_runtime
+        )
+        daemon_executable = ensure_runtime()
+        if daemon_executable is None:
+            streams.write_stderr(
+                text=(
+                    "overseer-start: failed to prepare the daemon-owned runtime prefix; "
+                    "overseerd was not launched from the working tree.\n"
+                )
+            )
+            return 1
+        if not _start_daemon_pane(
+            layout=layout,
+            pane=pane,
+            core=core,
+            warn_percent=args.warn_percent,
+            daemon_executable=daemon_executable,
+        ):
+            return 1
 
     # 1b. Normalize the stack (self-heals an uneven split — e.g. after a stray third
     # pane was opened and closed, redistributing rows), THEN give the daemon its share.
