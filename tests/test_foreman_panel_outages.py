@@ -624,7 +624,12 @@ def test_empty_dossier_reviewer_consensus_is_tooling_outage():
     )
 
 
-def test_measured_empty_dossier_rationales_classify_by_structural_signal():
+def test_measured_empty_dossier_rationales_classify_by_prompt_artifact(
+    *, monkeypatch, tmp_path: Path
+):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    panel_request = request(repo=repo)
     reviewers = [
         {
             "reviewer_id": "fable",
@@ -664,19 +669,136 @@ def test_measured_empty_dossier_rationales_classify_by_structural_signal():
         },
     ]
 
+    def write_empty_prompt_artifacts(
+        *,
+        request: dict[str, object],
+        dossier_dir: Path,
+        reviewer_command: list[str] | None,
+        reviewer_timeout_seconds: float,
+    ) -> dict[str, object]:
+        del request, reviewer_command, reviewer_timeout_seconds
+        for reviewer in reviewers:
+            reviewer_id = str(reviewer["reviewer_id"])
+            foreman_panel.write_json(
+                path=dossier_dir / "prompts" / f"{reviewer_id}.json",
+                payload={
+                    "reviewer_id": reviewer_id,
+                    "prompt": 'Review.\nDossier JSON:\n{"request":{"blocked_question":"hidden"}}',
+                },
+            )
+        return {"reviewers": reviewers}
+
+    monkeypatch.setattr(foreman_panel, "reviewer_responses", write_empty_prompt_artifacts)
+
+    result = foreman_panel.convene_panel(
+        request=panel_request,
+        state_dir=tmp_path / "state",
+        verdict_path=tmp_path / "verdict.json",
+        reviewer_command=[sys.executable, "-c", "pass"],
+    )
+
+    assert foreman_panel.missing_request_fields(request=panel_request) == []
+    assert foreman_consensus_prompt.reviewer_dossier_missing_fields(request=panel_request) == []
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "insufficient_information"
+    assert result["decision_kind"] == "tooling_outage"
+
+
+def test_reviewer_dossier_artifact_detects_absent_and_bad_prompt_files(*, tmp_path: Path):
+    dossier_dir = tmp_path / "dossier"
+
+    assert foreman_panel.reviewer_dossier_artifact_empty(dossier_dir=dossier_dir)
+
+    prompt_dir = dossier_dir / "prompts"
+    prompt_dir.mkdir(parents=True)
+    prompt_path = prompt_dir / "fable.json"
+    prompt_path.write_text("{", encoding="utf-8")
+    assert foreman_panel.reviewer_dossier_artifact_empty(dossier_dir=dossier_dir)
+
+    foreman_panel.write_json(path=prompt_path, payload={"prompt": "Review without marker."})
+    assert foreman_panel.reviewer_dossier_artifact_empty(dossier_dir=dossier_dir)
+
+    foreman_panel.write_json(
+        path=prompt_path,
+        payload={"prompt": "Review.\nDossier JSON:\n{"},
+    )
+    assert foreman_panel.reviewer_dossier_artifact_empty(dossier_dir=dossier_dir)
+
+
+def test_reviewer_dossier_artifact_detects_empty_and_nonempty_dossiers(*, tmp_path: Path):
+    dossier_dir = tmp_path / "dossier"
+    prompt_path = dossier_dir / "prompts" / "fable.json"
+
+    foreman_panel.write_json(
+        path=prompt_path,
+        payload={"prompt": 'Review.\nDossier JSON:\n{"request":{"blocked_question":"hidden"}}'},
+    )
+    assert foreman_panel.reviewer_dossier_artifact_empty(dossier_dir=dossier_dir)
+
+    foreman_panel.write_json(
+        path=prompt_path,
+        payload={
+            "prompt": (
+                "Review.\nDossier JSON:\n"
+                '{"blocked_question":"Q","handoff_or_work_item":"H","repo_context":"R"}'
+            )
+        },
+    )
+    assert not foreman_panel.reviewer_dossier_artifact_empty(dossier_dir=dossier_dir)
+
+
+def test_structural_reviewer_dossier_missing_fields_classifies_as_tooling_outage():
     assert (
         foreman_panel.result_decision_kind(
-            reviewers=reviewers,
+            reviewers=[],
             verdict_reason="insufficient_information",
             reviewer_dossier_missing_fields=[
                 "blocked_question",
                 "handoff_or_work_item",
-                "repo",
                 "repo_context",
-                "topic",
             ],
         )
         == "tooling_outage"
+    )
+
+
+def test_substantive_insufficient_information_stays_substantive_non_decision():
+    assert (
+        foreman_panel.result_decision_kind(
+            reviewers=[
+                {
+                    "reviewer_id": "fable",
+                    "verdict": "insufficient-information",
+                    "action": {
+                        "action_id": "human_valve",
+                        "params": {"reason": "insufficient_information"},
+                    },
+                    "rationale": "The tradeoff depends on the maintainer's release appetite.",
+                },
+                {
+                    "reviewer_id": "opus",
+                    "verdict": "insufficient-information",
+                    "action": {
+                        "action_id": "human_valve",
+                        "params": {"reason": "insufficient_information"},
+                    },
+                    "rationale": "Both options are viable and require a product call.",
+                },
+                {
+                    "reviewer_id": "gpt-sol",
+                    "verdict": "insufficient-information",
+                    "action": {
+                        "action_id": "human_valve",
+                        "params": {"reason": "insufficient_information"},
+                    },
+                    "rationale": (
+                        "The repo evidence is complete but the policy choice is unresolved."
+                    ),
+                },
+            ],
+            verdict_reason="insufficient_information",
+        )
+        == "substantive_non_decision"
     )
 
 

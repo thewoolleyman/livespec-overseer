@@ -46,6 +46,7 @@ def result_decision_kind(
     verdict_reason: str = "",
     missing_request_fields: list[str] | tuple[str, ...] = (),
     reviewer_dossier_missing_fields: list[str] | tuple[str, ...] = (),
+    reviewer_dossier_artifact_empty: bool = False,
 ) -> str:
     if verdict_reason in TOOLING_VERDICT_REASONS:
         return "tooling_outage"
@@ -54,10 +55,12 @@ def result_decision_kind(
         for reviewer in reviewers
     ):
         return "tooling_outage"
-    if verdict_reason == "insufficient_information" and missing_request_fields:
-        return "tooling_outage"
-    if verdict_reason == "insufficient_information" and reviewer_dossier_is_empty(
-        reviewer_dossier_missing_fields=reviewer_dossier_missing_fields
+    if verdict_reason == "insufficient_information" and (
+        bool(missing_request_fields)
+        or reviewer_dossier_is_empty(
+            reviewer_dossier_missing_fields=reviewer_dossier_missing_fields
+        )
+        or reviewer_dossier_artifact_empty
     ):
         return "tooling_outage"
     if reviewers and all(
