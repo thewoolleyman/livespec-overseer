@@ -24,6 +24,7 @@ __all__: list[str] = [
 
 CONFIG_KEY: Final[str] = "foreman_valve_disposition"
 FULL_AUTONOMY_KEY: Final[str] = "full_autonomy"
+DELIVERABLE_PERFORMED_KEY: Final[str] = "foreman_performed_track_deliverable"
 CONFIG_SECTION: Final[str] = "livespec-overseer"
 REPORT_ONLY: Final[str] = "report-only"
 CONSENSUS: Final[str] = "consensus"
@@ -51,11 +52,19 @@ def _full_autonomy(*, config: dict[str, object] | None, source: Path) -> tuple[b
     return False, "default"
 
 
+def _delegation_floor_violation(*, config: dict[str, object] | None) -> bool:
+    section = jsonio.as_object(value=config.get(CONFIG_SECTION)) if config is not None else None
+    if section is not None and DELIVERABLE_PERFORMED_KEY in section:
+        return section.get(DELIVERABLE_PERFORMED_KEY) is True
+    return config.get(DELIVERABLE_PERFORMED_KEY) is True if config is not None else False
+
+
 def _with_full_autonomy_fields(
     *,
     result: dict[str, object],
     full_autonomy: bool,
     full_autonomy_source: str,
+    delegation_floor_violation: bool,
 ) -> dict[str, object]:
     conflict = full_autonomy and (
         result.get("configured") == REPORT_ONLY or result.get("recognized") is False
@@ -64,6 +73,7 @@ def _with_full_autonomy_fields(
     result["full_autonomy_source"] = full_autonomy_source
     result["decision_rule"] = MAJORITY if full_autonomy else UNANIMOUS
     result["conflict"] = conflict
+    result["delegation_floor_violation"] = delegation_floor_violation
     if full_autonomy:
         result["effective"] = CONSENSUS
     if conflict:
@@ -75,6 +85,7 @@ def effective_valve_disposition(*, repo: Path) -> dict[str, object]:
     source = repo / ".livespec.jsonc"
     config = parse_repo_config(repo=repo)
     full_autonomy, full_autonomy_source = _full_autonomy(config=config, source=source)
+    delegation_floor_violation = _delegation_floor_violation(config=config)
     configured = _configured_value(config=config)
     if configured == "":  # pragma: no cover
         configured = None
@@ -88,6 +99,7 @@ def effective_valve_disposition(*, repo: Path) -> dict[str, object]:
             },
             full_autonomy=full_autonomy,
             full_autonomy_source=full_autonomy_source,
+            delegation_floor_violation=delegation_floor_violation,
         )
     if not isinstance(configured, str):
         return _with_full_autonomy_fields(
@@ -99,6 +111,7 @@ def effective_valve_disposition(*, repo: Path) -> dict[str, object]:
             },
             full_autonomy=full_autonomy,
             full_autonomy_source=full_autonomy_source,
+            delegation_floor_violation=delegation_floor_violation,
         )
     if configured in _VALUES:
         return _with_full_autonomy_fields(
@@ -110,6 +123,7 @@ def effective_valve_disposition(*, repo: Path) -> dict[str, object]:
             },
             full_autonomy=full_autonomy,
             full_autonomy_source=full_autonomy_source,
+            delegation_floor_violation=delegation_floor_violation,
         )
     return _with_full_autonomy_fields(
         result={
@@ -121,6 +135,7 @@ def effective_valve_disposition(*, repo: Path) -> dict[str, object]:
         },
         full_autonomy=full_autonomy,
         full_autonomy_source=full_autonomy_source,
+        delegation_floor_violation=delegation_floor_violation,
     )
 
 

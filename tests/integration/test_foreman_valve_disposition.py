@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+from hashlib import sha256
 from pathlib import Path
 
 OVERSEER_DIR = Path(__file__).resolve().parents[2] / "overseer"
@@ -160,6 +161,42 @@ def unanimous_panel_result() -> dict[str, object]:
     }
 
 
+def code_change_panel_result(
+    *,
+    actor: str,
+    action_id: str = "blocked_session_answer",
+) -> dict[str, object]:
+    result = unanimous_panel_result()
+    result["action"] = {
+        "action_id": action_id,
+        "params": {
+            "actor": actor,
+            "work_kind": "track_deliverable",
+            "change": "replace the failing assertion",
+        },
+    }
+    for reviewer in result["reviewers"]:
+        assert isinstance(reviewer, dict)
+        reviewer["action"] = result["action"]
+    return result
+
+
+def supervision_artifact_panel_result() -> dict[str, object]:
+    result = unanimous_panel_result()
+    result["action"] = {
+        "action_id": "work_item_file",
+        "params": {
+            "actor": "foreman",
+            "work_kind": "supervision_artifact",
+            "finding": "Panel verdict relayed to the worker.",
+        },
+    }
+    for reviewer in result["reviewers"]:
+        assert isinstance(reviewer, dict)
+        reviewer["action"] = result["action"]
+    return result
+
+
 def test_effective_valve_disposition_is_readable_and_fails_closed(*, tmp_path, capsys):
     assert POLICY_PATH.is_file()
     policy = module("foreman_valve_policy")
@@ -179,6 +216,7 @@ def test_effective_valve_disposition_is_readable_and_fails_closed(*, tmp_path, c
         "full_autonomy_source": "default",
         "decision_rule": "unanimous",
         "conflict": False,
+        "delegation_floor_violation": False,
         "recognized": True,
         "source": "default",
     }
@@ -190,6 +228,7 @@ def test_effective_valve_disposition_is_readable_and_fails_closed(*, tmp_path, c
         "full_autonomy_source": "default",
         "decision_rule": "unanimous",
         "conflict": False,
+        "delegation_floor_violation": False,
         "recognized": False,
         "source": str(unknown / ".livespec.jsonc"),
         "warning": "unrecognized_foreman_valve_disposition",
@@ -225,6 +264,7 @@ def test_full_autonomy_absent_empty_wrong_typed_and_false_resolve_false(*, tmp_p
         "full_autonomy_source": "default",
         "decision_rule": "unanimous",
         "conflict": False,
+        "delegation_floor_violation": False,
         "recognized": True,
         "source": str(absent / ".livespec.jsonc"),
     }
@@ -235,6 +275,7 @@ def test_full_autonomy_absent_empty_wrong_typed_and_false_resolve_false(*, tmp_p
         assert resolved["full_autonomy_source"] == str(repo / ".livespec.jsonc")
         assert resolved["decision_rule"] == "unanimous"
         assert resolved["conflict"] is False
+        assert resolved["delegation_floor_violation"] is False
 
 
 def test_full_autonomy_true_forces_consensus_majority_and_reports_conflict(*, tmp_path):
@@ -261,6 +302,7 @@ def test_full_autonomy_true_forces_consensus_majority_and_reports_conflict(*, tm
         assert resolved["full_autonomy_source"] == str(repo / ".livespec.jsonc")
         assert resolved["decision_rule"] == "majority"
         assert resolved["conflict"] is True
+        assert resolved["delegation_floor_violation"] is False
         assert resolved["warning"] == "full_autonomy_conflicts_with_foreman_valve_disposition"
 
     shipped = resolve_with_shipped_entrypoint(repo=report_only)
@@ -269,7 +311,214 @@ def test_full_autonomy_true_forces_consensus_majority_and_reports_conflict(*, tm
     assert shipped["full_autonomy_source"] == str(report_only / ".livespec.jsonc")
     assert shipped["decision_rule"] == "majority"
     assert shipped["conflict"] is True
+    assert shipped["delegation_floor_violation"] is False
     assert shipped["warning"] == "full_autonomy_conflicts_with_foreman_valve_disposition"
+
+
+def test_delegation_floor_report_is_on_valve_disposition_surface(*, tmp_path):
+    policy = module("foreman_valve_policy")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = {
+        "livespec-overseer": {
+            "foreman_valve_disposition": "consensus",
+            "full_autonomy": True,
+            "foreman_performed_track_deliverable": True,
+        }
+    }
+    (repo / ".livespec.jsonc").write_text(json.dumps(payload), encoding="utf-8")
+
+    resolved = policy.effective_valve_disposition(repo=repo)
+
+    assert resolved["effective"] == "consensus"
+    assert resolved["decision_rule"] == "majority"
+    assert resolved["conflict"] is False
+    assert resolved["delegation_floor_violation"] is True
+
+
+def test_panel_authorized_change_is_relayed_to_worker_not_implemented_by_foreman(
+    *, tmp_path, monkeypatch
+):
+    foreman_act = module("foreman_act")
+    pane_claim = module("foreman_pane_claim")
+    repo = tmp_path / "repo"
+    write_config(repo=repo, value="consensus", full_autonomy=True, include_full_autonomy=True)
+    proposal = valve_proposal(repo=repo, action_id="blocked_session_answer")
+    proposal["snapshot"] = {
+        "daemon_instance_id": "daemon-1",
+        "tick_generation": 7,
+        "session_identity": "codex:session-1",
+    }
+    proposal["blocked_session_answer"] = {
+        "mode": "answer_existing_prompt",
+        "answer_text": "Apply the one-line assertion fix in your worker branch.",
+        "question_fingerprint": sha256(b"worker prompt").hexdigest(),
+    }
+    document = base_document(repo=repo)
+    row = document["snapshot"]["rows"][0]
+    assert isinstance(row, dict)
+    row.update(
+        {
+            "runtime": "codex",
+            "status": "blocked:human",
+            "session_identity": "codex:session-1",
+            "question_fingerprint": sha256(b"worker prompt").hexdigest(),
+            "note": "worker is assigned",
+        }
+    )
+    pasted: list[str] = []
+
+    class ActTmux:
+        def pane_id(self, *, session: str):
+            return session
+
+        def pane_current_command(self, *, session: str):
+            return "codex"
+
+        def pane_current_path(self, *, session: str):
+            return str(repo)
+
+        def capture_pane(self, *, session: str):
+            return "worker prompt"
+
+        def bracketed_paste(self, *, session: str, text: str):
+            pasted.append(text)
+            return True
+
+        def send_keys(self, *, session: str, keys: str):
+            pasted.append(keys)
+            return True
+
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: ActTmux())
+    monkeypatch.setattr(pane_claim, "time_time", lambda: 1000.0)
+
+    result = foreman_act.act(
+        proposal=proposal,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: code_change_panel_result(actor="worker"),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "answered_existing_prompt",
+    }
+    assert pasted == ["Apply the one-line assertion fix in your worker branch.", "Enter"]
+
+
+def test_unassigned_track_gets_worker_assignment_instead_of_foreman_work(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    write_config(repo=repo, value="consensus", full_autonomy=True, include_full_autonomy=True)
+    calls: list[list[str]] = []
+
+    result = foreman_act.act(
+        proposal=valve_proposal(repo=repo),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: calls.append(argv) or 0,
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: code_change_panel_result(actor="worker", action_id="plan_start"),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "plan_start",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "started",
+    }
+    assert calls != []
+
+
+def test_delegation_floor_refuses_unanimous_foreman_authored_deliverable(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    write_config(repo=repo, value="consensus", full_autonomy=True, include_full_autonomy=True)
+    calls: list[list[str]] = []
+
+    result = foreman_act.act(
+        proposal=valve_proposal(repo=repo),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: calls.append(argv) or 0,
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: code_change_panel_result(actor="foreman"),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "human_valve",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "delegation_floor:track_deliverable",
+    }
+    assert calls == []
+
+
+def test_supervision_artifact_does_not_trip_delegation_floor(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    write_config(repo=repo, value="consensus", full_autonomy=True, include_full_autonomy=True)
+    filed: list[dict[str, object]] = []
+    proposal = valve_proposal(repo=repo)
+    proposal["filing"] = {
+        "target_repo": str(repo),
+        "title": "File the verified blocker finding",
+        "description": "Capture the supervisor finding for later worker action.",
+        "type": "task",
+        "assignee": None,
+        "depends_on": [],
+        "acceptance_criteria": "The finding is recorded.",
+        "notes": "Filed by foreman-act as a supervision artifact.",
+        "spec_commitment_hint": None,
+        "checklist": {
+            "single_coherent_done": True,
+            "autonomously_verifiable": True,
+            "autonomy_tiered": True,
+            "dependency_linked": True,
+            "repo_targeted": True,
+            "above_floor": True,
+        },
+    }
+
+    result = foreman_act.act(
+        proposal=proposal,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            file_work_item=lambda *, request: filed.append(request)
+            or ("overseer-3h4s5w.finding", "created"),
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: supervision_artifact_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "work_item_file",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "filed:overseer-3h4s5w.finding:created",
+    }
+    assert filed != []
 
 
 def test_absent_config_keeps_human_valves_report_only_byte_identical(*, tmp_path):

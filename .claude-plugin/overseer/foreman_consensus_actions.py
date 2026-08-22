@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import jsonio
+from foreman_act_types import HUMAN_VALVE, ActionId
 from foreman_consensus_prompt import str_field
 from foreman_consensus_types import ACTION_ID_SET, MODEL_IDENTITIES
 
 __all__: list[str] = [
     "action_is_reversible",
     "action_is_rollback_bounded",
+    "authorized_action_id",
     "model_for",
     "review_record",
     "typed_action",
@@ -36,6 +38,18 @@ def typed_action(*, action: object) -> dict[str, object] | None:
     if jsonio.as_object(value=params) is None:
         return None
     return {"action_id": action_id, "params": params}
+
+
+def authorized_action_id(*, action: dict[str, object] | None) -> tuple[ActionId | None, str | None]:
+    if action is None:
+        return None, "consensus_action_not_enumerated"
+    action_id = action.get("action_id")
+    if not isinstance(action_id, str) or action_id not in ACTION_ID_SET or action_id == HUMAN_VALVE:
+        return None, "consensus_action_not_enumerated"
+    params = jsonio.as_object(value=action.get("params")) or {}
+    if params.get("actor") == "foreman" and params.get("work_kind") == "track_deliverable":
+        return None, "delegation_floor:track_deliverable"
+    return action_id, None
 
 
 def _typed_ruling(*, payload: dict[str, object]) -> dict[str, object] | None:
