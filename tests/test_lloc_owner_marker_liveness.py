@@ -1,4 +1,4 @@
-"""Regression coverage for stale LLOC soft-band owner markers."""
+"""Regression coverage for LLOC soft-band owner marker pins."""
 
 from __future__ import annotations
 
@@ -7,14 +7,13 @@ from pathlib import Path
 __all__: list[str] = []
 
 
-CLOSED_OWNERS = frozenset(
+ENUMERATED_LIVE_OWNER_PINS = frozenset(
     {
-        "overseer-2jblyq.5",
-        "overseer-54k2za.23",
-        "overseer-6s3pk6.6",
-        "overseer-6s3pk6.7",
-        "overseer-adclcd.7",
-        "overseer-hgq4wi.6",
+        "overseer-2jblyq.8",
+        "overseer-au3pt3.15",
+        "overseer-hgq4wi",
+        "overseer-lixhd3.1",
+        "overseer-temi26.2",
     }
 )
 MARKER_PREFIX = "# livespec-lloc-soft-band-owner: "
@@ -25,9 +24,9 @@ SCOPES = (
 )
 
 
-def test_lloc_soft_band_owner_markers_do_not_name_closed_work_items() -> None:
+def test_lloc_soft_band_owner_markers_name_enumerated_live_owner_pins() -> None:
     root = Path(__file__).resolve().parents[1]
-    stale_markers: list[str] = []
+    unpinned_markers: list[str] = []
 
     for scope in SCOPES:
         for path in sorted((root / scope).rglob("*.py")):
@@ -36,7 +35,7 @@ def test_lloc_soft_band_owner_markers_do_not_name_closed_work_items() -> None:
                 if not stripped.startswith(MARKER_PREFIX):
                     continue
                 owner = stripped.removeprefix(MARKER_PREFIX).split()[0]
-                if owner in CLOSED_OWNERS:
-                    stale_markers.append(f"{path.relative_to(root)}:{line_number}:{owner}")
+                if owner not in ENUMERATED_LIVE_OWNER_PINS:
+                    unpinned_markers.append(f"{path.relative_to(root)}:{line_number}:{owner}")
 
-    assert stale_markers == []
+    assert unpinned_markers == []
