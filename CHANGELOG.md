@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.31.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.30.0...v1.31.0) (2026-08-22)
+
+
+### Features
+
+* add typed ruling foreman act coverage ([0cb85fa](https://github.com/thewoolleyman/livespec-overseer/commit/0cb85faefe1c12bbd5c2530e87e3056ebabfaf60))
+
+
+### Bug Fixes
+
+* honor empty typed ruling vocabulary ([f0a0143](https://github.com/thewoolleyman/livespec-overseer/commit/f0a0143abc189239fae920424d520833e9593fd2))
+* satisfy typed ruling actuator lint ([849ca93](https://github.com/thewoolleyman/livespec-overseer/commit/849ca9306b13d96adfaa2b8f5e13abdc8f8cf5d1))
+* wire typed ruling governance ([6797853](https://github.com/thewoolleyman/livespec-overseer/commit/67978539aba8e01b20c34b70b1d8d1efa13a1df3))
+
 ## [1.30.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.29.2...v1.30.0) (2026-08-22)
 
 
