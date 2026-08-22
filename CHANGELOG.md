@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.36.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.1...v1.36.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* reject failed overseer mapping writes ([ea6961c](https://github.com/thewoolleyman/livespec-overseer/commit/ea6961c304de2512b84d277eb8347273385da6f7))
+* repair unusable overseer mappings ([2c8014a](https://github.com/thewoolleyman/livespec-overseer/commit/2c8014ada8fccf52495c8e0b7000f7b2e8c2ded4))
+* require explicit supervisor alert conditions ([5e2ba05](https://github.com/thewoolleyman/livespec-overseer/commit/5e2ba05f97c6fc1a279494f4a118111f3fce4fdc))
+* surface unusable overseer mappings ([f5e1d45](https://github.com/thewoolleyman/livespec-overseer/commit/f5e1d45cc84fd19e8aafcb55458268cf3c11a157))
+
 ## [1.36.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.36.0...v1.36.1) (2026-08-22)
 
 
