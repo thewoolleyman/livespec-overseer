@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.22.0...v1.22.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* narrow grooming delimiter detection ([664c7fe](https://github.com/thewoolleyman/livespec-overseer/commit/664c7fef833b83d2f99e5c8d1033d408c741118b))
+
 ## [1.22.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.21.0...v1.22.0) (2026-08-21)
 
 
