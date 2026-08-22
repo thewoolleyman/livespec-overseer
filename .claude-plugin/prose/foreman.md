@@ -165,6 +165,14 @@ matter, put the routing instruction in the picker text itself. A sender who can
 read the daemon snapshot can follow the `picker_open` rule above; a human sender
 cannot, so the picker must say where late-arriving context should go.
 
+When a picker option asks a session or operator to wait on an external target
+that the wait-premise vocabulary can express, write the wait-premise record
+before raising the picker and identify it in that option as
+`wait-premise: kind=<kind> target=<target-identifier>`. This applies to the
+closed set `fabro-run`, `pr`, `ci-run`, and `work-item-close`. The option must
+be re-checkable from the record's own evidence source; do not ask the reader to
+trust the option prose as the evidence that the wait still exists.
+
 Do not add Phase E federation behavior; that phase is not built. Do not answer
 human prompts in another session except through the gated path above. Do not
 drive approval, acceptance, rejection, resolved-blocked, policy, capacity, or
