@@ -208,7 +208,18 @@ def test_recover_resumes_a_codex_track_via_codex_resume(*, tmp_path):
     expected = supervisor.Supervisor._codex_launch_command(
         session_id=sid, resume=supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC)
     )
-    assert ("respawn", session, str(repo), expected, None) in fake.calls
+    assert (
+        "respawn",
+        session,
+        str(repo),
+        expected,
+        {
+            "ANTHROPIC_MODEL": None,
+            "ANTHROPIC_SMALL_FAST_MODEL": None,
+            "CLAUDE_CODE_DISABLE_1M_CONTEXT": None,
+            "CLAUDE_CODE_MAX_CONTEXT_TOKENS": None,
+        },
+    ) in fake.calls
     # THE guard: the destructive Claude command is NEVER aimed at a codex track.
     assert not any(c[0] == "respawn" and "claude" in c[3] for c in fake.calls)
     assert not fake.has(method="paste")  # codex resume auto-submits the kick — no separate paste
