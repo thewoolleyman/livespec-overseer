@@ -115,6 +115,11 @@ def _commit_pyproject(*, root: Path, body: str, subject: str) -> str:
     return _git("rev-parse", "HEAD", cwd=root).stdout.strip()
 
 
+def _commit_is_reachable_in_repo(*, repo_root: Path, ref: str) -> bool:
+    result = _git("cat-file", "-e", f"{ref}^{{commit}}", cwd=repo_root, check=False)
+    return result.returncode == 0
+
+
 _BASE_PYPROJECT = 'name = "livespec-overseer"\nversion = "1.10.2"\nkeep = "hand-authored"\n'
 
 
@@ -126,6 +131,24 @@ def test_guard_accepts_a_real_version_only_release_commit(*, tmp_path: Path) -> 
     ref = _commit_pyproject(root=tmp_path, body=bumped, subject="chore(master): release 1.11.0")
 
     assert_release_pyproject_diff_is_version_only(repo_root=tmp_path, ref=ref)
+
+
+def test_guard_reports_unreachable_parent_instead_of_clobber(*, tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    shallow = tmp_path / "shallow"
+    source.mkdir()
+    _init_fixture_repo(root=source)
+    _ = _commit_pyproject(root=source, body=_BASE_PYPROJECT, subject="feat: seed")
+    bumped = _BASE_PYPROJECT.replace('version = "1.10.2"', 'version = "1.11.0"')
+    ref = _commit_pyproject(root=source, body=bumped, subject="chore(master): release 1.11.0")
+    parent = _git("rev-parse", f"{ref}^", cwd=source).stdout.strip()
+    _ = _git("clone", "--depth", "1", source.as_uri(), str(shallow), cwd=tmp_path)
+    shallow_ref = _git("rev-parse", "HEAD", cwd=shallow).stdout.strip()
+
+    assert shallow_ref == ref
+    assert not _commit_is_reachable_in_repo(repo_root=shallow, ref=parent)
+    with pytest.raises(AssertionError, match=f"parent {parent} is unreachable"):
+        assert_release_pyproject_diff_is_version_only(repo_root=shallow, ref="HEAD")
 
 
 def test_guard_rejects_a_real_release_commit_that_also_rewrites_other_lines(

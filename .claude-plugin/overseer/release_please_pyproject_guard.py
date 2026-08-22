@@ -35,6 +35,16 @@ def assert_release_pyproject_diff_is_version_only(*, repo_root: Path, ref: str) 
     if not is_release_subject(subject=subject):
         return
 
+    parent = _commit_parent(repo_root=repo_root, ref=ref)
+    if not _commit_is_reachable(repo_root=repo_root, ref=parent):
+        msg = (
+            f"{ref} is a release-please commit, but its parent {parent} "
+            "is unreachable, so the pyproject.toml diff cannot be evaluated. "
+            "This usually means the checkout is shallow; fetch the parent history "
+            "instead of reading the commit as a file creation."
+        )
+        raise AssertionError(msg)
+
     diff = _git(
         "show",
         "--unified=0",
@@ -55,11 +65,23 @@ def assert_release_pyproject_diff_is_version_only(*, repo_root: Path, ref: str) 
         raise AssertionError(msg)
 
 
-def _git(*args: str, repo_root: Path) -> subprocess.CompletedProcess[str]:
+def _commit_parent(*, repo_root: Path, ref: str) -> str:
+    commit = _git("cat-file", "-p", ref, repo_root=repo_root).stdout
+    return next(
+        line.removeprefix("parent ") for line in commit.splitlines() if line.startswith("parent ")
+    )
+
+
+def _commit_is_reachable(*, repo_root: Path, ref: str) -> bool:
+    result = _git("cat-file", "-e", f"{ref}^{{commit}}", repo_root=repo_root, check=False)
+    return result.returncode == 0
+
+
+def _git(*args: str, repo_root: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
         ["git", *args],  # noqa: S607
         cwd=repo_root,
-        check=True,
+        check=check,
         capture_output=True,
         text=True,
     )
