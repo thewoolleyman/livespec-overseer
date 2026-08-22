@@ -112,6 +112,14 @@ def test_foreman_runtime_reports_own_open_blocking_prompt_from_snapshot(*, tmp_p
     )
 
     assert result.blocking_prompt_open is True
+    assert result.tick_ended_with_blocking_prompt is True
+    path = repo / "tmp" / "overseer" / "foreman" / "escalations" / "repo-foreman.json"
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "reason": (
+            "foreman tick ended with a blocking prompt; the decision must stay on "
+            "the non-blocking attention surface so the loop cadence can continue"
+        )
+    }
 
 
 def test_foreman_blocking_prompt_renders_distinct_report_only_attention(*, tmp_path):

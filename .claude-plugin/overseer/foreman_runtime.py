@@ -28,6 +28,7 @@ from foreman_runtime_document import (
     foreman_blocking_prompt_open,
     foreman_document,
 )
+from foreman_runtime_escalation import record_blocking_prompt_escalation
 from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
 from foreman_runtime_lock import ForemanLock, LockResult
 from foreman_runtime_policy import exit_reason, stable_ticks
@@ -82,6 +83,7 @@ class StepResult:
     loop_lapsed: bool
     heartbeat_age_seconds: float | None
     blocking_prompt_open: bool
+    tick_ended_with_blocking_prompt: bool
     llm_tick_interval_seconds: float
     auto_resume_interval_seconds: float | None
     full_autonomy: bool
@@ -209,6 +211,12 @@ class ForemanRuntime:
             }
         )
         self._write_heartbeat(tick_generation=tick_generation, interval_seconds=interval_seconds)
+        blocking_prompt_open = foreman_blocking_prompt_open(
+            payload=document,
+            foreman_topic=canonical_session_name(repo=self.repo),
+        )
+        if blocking_prompt_open:
+            record_blocking_prompt_escalation(repo=self.repo)
         autonomy = full_autonomy_report(
             repo=self.repo,
             document=document,
@@ -221,10 +229,8 @@ class ForemanRuntime:
             exit_reason=reason,
             loop_lapsed=lapse.stale if lapse is not None else False,
             heartbeat_age_seconds=lapse.age_seconds if lapse is not None else None,
-            blocking_prompt_open=foreman_blocking_prompt_open(
-                payload=document,
-                foreman_topic=canonical_session_name(repo=self.repo),
-            ),
+            blocking_prompt_open=blocking_prompt_open,
+            tick_ended_with_blocking_prompt=blocking_prompt_open,
             llm_tick_interval_seconds=interval_seconds,
             auto_resume_interval_seconds=auto_resume_interval_seconds,
             full_autonomy=autonomy.full_autonomy,
