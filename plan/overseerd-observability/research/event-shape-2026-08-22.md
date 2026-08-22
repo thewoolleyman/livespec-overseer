@@ -95,6 +95,8 @@ One event, rendered two ways. Common envelope on every event:
 | `severity` | `alert` for the surface path, `info` for the log path | preserves the SURFACE/plain split the bottom pane reads |
 | `repo` | `registry.repo_slug(repo=…)` | see the inconsistency below |
 | `topic` | the track topic | absent on daemon-level events |
+| `daemon_instance_id` | constant for the life of one `overseerd` process | see the correction below |
+| `tick_generation` | the loop iteration | see the correction below |
 | `message` | the human sentence | retained verbatim so the log stays eye-readable |
 
 Event-specific fields, promoted out of the f-strings — every one of these is
@@ -110,6 +112,54 @@ what makes the log uncorrelatable. Emit the slug in both.
 **Daemon-level events carry no track.** `daemon log opened`, `interrupted;
 exiting`, `claude build at <phase>` have no `repo`/`topic`. The record must
 allow their absence rather than emit an empty string.
+
+## Correction: two envelope fields the existing log does NOT carry
+
+Added after the table above was first written, and it is worth stating why
+rather than editing the table silently. **The envelope was derived from what the
+daemon already emits, and that was the wrong side to derive it from alone.**
+Sibling `.3` names attributes the daemon does not print today, and singles out
+two of them as the ones that matter most. Deriving only from the existing prose
+lines would have shipped a log the exporter then could not match — the exact
+failure this note exists to prevent.
+
+`.3` asks spans to carry what the TOP PANE carries, "so Honeycomb answers the
+questions the table answers": `topic`, `tmux`, `repo`, `status`,
+`session_identity`, `ctx`, `tick_generation`, `daemon_instance_id`. Of those it
+says the last two "make currently-unanswerable questions answerable — was this
+the same daemon instance as before the bounce, and how many ticks did a state
+persist".
+
+**Both belong in the ENVELOPE, on every event, not only on spans.** The premise
+of this plan is one event rendered two ways, identical in shape, so the local log
+is a replayable fallback when the exporter is unreachable. A field present on the
+span and absent from the log breaks that premise exactly where the fallback
+matters most — an operator reading `daemon.log` after an outage is precisely the
+reader who needs to know which daemon instance produced a line.
+
+  - **`daemon_instance_id`** answers "is this the same daemon as before the
+    bounce". `AGENTS.md` records that as a live operational question here: the
+    daemon imports its modules once at startup and never hot-reloads, so a merged
+    fix is not in effect until a bounce, and today the log gives a reader no way
+    to tell one process's lines from the next one's. Note this is *also* partly
+    available from the status file's `daemon_package.version` — but that reports
+    the RELEASE, not the INSTANCE, so two consecutive bounces of the same release
+    are indistinguishable there and would be distinguishable here.
+  - **`tick_generation`** answers "how many ticks did a state persist" directly,
+    and it is the natural companion to `.2`'s dedup fix: once an alert is
+    edge-triggered and reported ONCE, the tick number is what tells a reader when
+    it was first observed, without re-emitting the line every tick to say so.
+
+The remaining `.3` attributes — `tmux`, `status`, `session_identity`, `ctx` — are
+TRACK-scoped, so they join the promoted per-event fields rather than the
+envelope. **One naming collision to settle in `.2`:** `ctx` and `ctx_percent` are
+the same quantity under two names, and `.3`'s acceptance turns on the two
+renderings using identical keys, so pick one.
+
+So the envelope is: `ts`, `event`, `severity`, `repo` (slug on both paths),
+`topic`, `daemon_instance_id`, `tick_generation`, `message`. Track-scoped events
+add the promoted fields; daemon-level events carry no `repo`/`topic` but DO carry
+the instance and tick.
 
 ## What `.3` inherits from this
 
