@@ -339,6 +339,12 @@ deliberately, and it also returns the interval to its configured default.
    disposition still governs, the hard floors still refuse, and any option that
    is not the recorded action still takes the ordinary consensus path.
 
+   For the ordinary consensus path, a `blocked_session_answer` proposal embeds
+   `consensus` with the exact `request` and `reviewer_responses` used for the
+   panel. The actuator re-runs `foreman-consensus` and journals its own audit
+   record before it mutates any session state. Set `question_fingerprint` to
+   the gather row's `pane_content_hash`; it is not a caller-chosen answer ID.
+
 5. Before acting, call `foreman-act` with the proposal. It performs fresh
    revalidation against the newest gather document. If it refuses, report the
    refusal; do not retry by hand.

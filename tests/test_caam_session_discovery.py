@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
+import os
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -182,8 +183,8 @@ def test_transcript_is_resolved_by_session_identifier_not_newest_project_file(*,
         session_id="sid-other",
         models=["claude-opus-5"],
     )
-    older.touch()
-    newest_wrong.touch()
+    os.utime(older, (1_700_000_000, 1_700_000_000))
+    os.utime(newest_wrong, (1_700_000_001, 1_700_000_001))
 
     assert module.pane_model(home=tmp_path, session_id="sid-target") == "sonnet"
     assert module.newest_project_model_for_test(home=tmp_path, project="-work") == "opus"

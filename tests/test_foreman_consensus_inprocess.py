@@ -438,6 +438,78 @@ def test_consensus_cache_hit_and_budget_refusals_do_not_write_panel_records(*, t
         assert not (blocked_repo / "tmp" / "fabro-dispatch-journal.jsonl").exists()
 
 
+def test_prompt_fetch_does_not_poison_later_unanimous_panel_cache(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    cache = module("foreman_consensus_cache")
+    prompt = module("foreman_consensus_prompt")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    panel_request = request(repo=repo)
+    state_dir = tmp_path / "state"
+    key = prompt.cache_key(request=panel_request)
+
+    prompt_fetch = consensus.consensus(
+        request=panel_request,
+        responses={"reviewers": []},
+        state_dir=state_dir,
+        emit_prompts=True,
+    )
+
+    assert "prompts" in prompt_fetch
+    assert not cache.cache_path(state_dir=state_dir, key=key).exists()
+
+    result = consensus.consensus(
+        request=panel_request,
+        responses=reviewers(),
+        state_dir=state_dir,
+    )
+
+    assert result["cache"] == "miss"
+    assert result["outcome"] == "unanimous"
+    assert result["action"] == {
+        "action_id": "work_item_file",
+        "params": {"target": "overseer-next"},
+    }
+
+
+def test_structural_panel_size_refusal_is_not_cached_but_real_verdict_is(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    cache = module("foreman_consensus_cache")
+    prompt = module("foreman_consensus_prompt")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    panel_request = request(repo=repo)
+    state_dir = tmp_path / "state"
+    key = prompt.cache_key(request=panel_request)
+
+    structural_refusal = consensus.consensus(
+        request=panel_request,
+        responses={"reviewers": []},
+        state_dir=state_dir,
+    )
+
+    assert structural_refusal["outcome"] == "escalate"
+    assert structural_refusal["reason"] == "panel_size_mismatch"
+    assert structural_refusal["cache"] == "miss"
+    assert not cache.cache_path(state_dir=state_dir, key=key).exists()
+
+    first = consensus.consensus(
+        request=panel_request,
+        responses=reviewers(),
+        state_dir=state_dir,
+    )
+    second = consensus.consensus(
+        request=panel_request,
+        responses=reviewers(action="ignored after genuine cache write"),
+        state_dir=state_dir,
+    )
+
+    assert first["cache"] == "miss"
+    assert second["cache"] == "hit"
+    assert first["outcome"] == second["outcome"] == "unanimous"
+    assert first["action"] == second["action"]
+
+
 def test_panel_record_skips_untrusted_repo_and_topic_fields(*, tmp_path: Path):
     consensus = module("foreman_consensus")
 
