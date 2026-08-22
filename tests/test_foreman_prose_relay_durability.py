@@ -37,3 +37,20 @@ def test_a_repeated_claim_carries_its_hedge_or_is_re_measured():
     assert "does not become measured by being repeated" in text
     assert "and dropping the fence is not a summary" in text
     assert "measure it yourself first and say so" in text
+
+
+def test_operational_holds_name_their_carrier_owner_and_lift_condition():
+    text = prose()
+    normalized = " ".join(text.split())
+
+    assert "A HOLD OVER A SEAT IS NOT A HOLD OVER THE DRAIN LOOP." in text
+    assert "owner who may lift it" in text
+    assert "condition under which that owner may lift it" in text
+    assert "repo-wide hold over unattended draining" in text
+    assert "dispatcher.wip_cap == 0" in text
+    assert "targeted `dispatch --item` override" in text
+    assert "per-item hold" in text
+    assert "lane other than `ready`" in text
+    assert "per-factory loop hold" in text
+    assert "no carrier exists" in text
+    assert "The drain loop selected from the ready set exactly as designed" in normalized

@@ -216,6 +216,31 @@ question-raising actor; a picker raised by a supervised session's own harness is
 observed, never forbidden. Nothing here authorizes you to alter, withdraw,
 answer, or select an option once it has been raised.
 
+A HOLD OVER A SEAT IS NOT A HOLD OVER THE DRAIN LOOP. A hold over a human seat
+is carried by being written where that seat reads. A hold described as covering
+an automated selector is carried only by state that selector reads; peer
+messages, plan handoff comments, track state files, and acceptance prose do not
+reach the dispatcher's drain loop. The drain loop selected from the ready set
+exactly as designed when no loop-readable hold was in force, so never describe
+that traffic as defiance of a hold it was not told about. Conversely, never read
+traffic on the lane as proof that an uncarried hold was lifted, because the
+traffic carries no information about the hold in either direction.
+
+Every hold you raise must record, at raise time, the owner who may lift it and
+the condition under which that owner may lift it. The carrier records the
+effect; ownership and lift conditions ride alongside it in the same act. For a
+repo-wide hold over unattended draining, set and justify
+`dispatcher.wip_cap == 0` in `.livespec.jsonc`; the adjacent JSONC comment names
+the owner, the reason, and the lift condition. This holds the unattended loop
+and the routine `drive --action impl:<id>` path, but it does not bind the
+targeted `dispatch --item` override, so do not claim that it does. For a
+per-item hold, move every named work item to a lane other than `ready`, record
+the reason in the item state, and add a ledger comment naming the owner and lift
+condition. A per-factory loop hold cannot be issued today: no carrier exists for
+the selector to read at that scope. Re-express it as a repo-wide or per-item
+hold, or surface the absence of a per-factory carrier as the reason no loop hold
+has been effected.
+
 Do not add Phase E federation behavior; that phase is not built. Do not answer
 human prompts in another session except through the gated path above. Do not
 drive approval, acceptance, rejection, resolved-blocked, policy, capacity, or
