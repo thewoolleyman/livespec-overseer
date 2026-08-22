@@ -6,6 +6,7 @@ import os
 from typing import TYPE_CHECKING
 
 import _supervisor_evaluate
+import _supervisor_mapping_health
 import grooming_runtime
 import registry
 from _supervisor_view import RowView
@@ -31,17 +32,39 @@ def grooming_track(
     return None
 
 
-def grooming_evaluation_row(*, sup: Supervisor, repo: str, act: bool) -> RowView | None:
+def grooming_evaluation_row(
+    *,
+    sup: Supervisor,
+    repo: str,
+    act: bool,
+    null_added_at_keys: frozenset[_supervisor_mapping_health.MappingKey] = frozenset(),
+) -> RowView | None:
     track = grooming_track(repo=repo, store_path=sup.store_path)
     if track is None:
         return None
-    return _supervisor_evaluate.evaluate(sup=sup, track=track, act=act)
+    row = _supervisor_evaluate.evaluate(sup=sup, track=track, act=act)
+    if act:
+        return row
+    return _supervisor_mapping_health.apply_mapping_health(
+        track=track, row=row, null_added_at_keys=null_added_at_keys
+    )
 
 
-def grooming_rows(*, sup: Supervisor, repos: list[str], act: bool) -> list[RowView]:
+def grooming_rows(
+    *,
+    sup: Supervisor,
+    repos: list[str],
+    act: bool,
+    null_added_at_keys: frozenset[_supervisor_mapping_health.MappingKey] = frozenset(),
+) -> list[RowView]:
     rows: list[RowView] = []
     for repo in repos:
-        evaluation_row = grooming_evaluation_row(sup=sup, repo=repo, act=act)
+        evaluation_row = grooming_evaluation_row(
+            sup=sup,
+            repo=repo,
+            act=act,
+            null_added_at_keys=null_added_at_keys,
+        )
         if evaluation_row is not None:
             rows.append(evaluation_row)
     return rows

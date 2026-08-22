@@ -9,7 +9,14 @@ from pathlib import Path
 
 import pytest
 
-from overseer import claude_sessions, codex_sessions, registry, supervisor
+from overseer import (
+    claude_sessions,
+    codex_sessions,
+    foreman_runtime_identity,
+    grooming_runtime,
+    registry,
+    supervisor,
+)
 from overseer.test_supervisor_builders import (
     declare,
     idle_capture,
@@ -135,12 +142,49 @@ def test_snapshot_reports_daemon_package_provenance(*, tmp_path):
     }
 
 
-def test_list_json_reports_unusable_mapping_rows_and_not_healthy_rows(*, tmp_path):
+def _rewrite_last_added_at_to_null(*, store_path):
+    path = Path(store_path)
+    raw_rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    raw_rows[-1]["added_at"] = None
+    path.write_text("".join(f"{json.dumps(row)}\n" for row in raw_rows), encoding="utf-8")
+
+
+def _mapping_track(*, variant, repo, topic, tmux, epic):
+    if variant == "plan":
+        return registry.PlanTrack(topic=topic, repo=str(repo), tmux=tmux, epic=epic)
+    if variant == "foreman":
+        return registry.ForemanSeat(topic=topic, repo=str(repo), tmux=tmux, epic=epic)
+    if variant == "grooming":
+        return registry.GroomingSeat(topic=topic, repo=str(repo), tmux=tmux, epic=epic)
+    raise AssertionError(f"unexpected variant {variant}")
+
+
+def _mapping_topic(*, variant, repo, topic):
+    if variant == "foreman":
+        return foreman_runtime_identity.canonical_session_name(repo=repo)
+    if variant == "grooming":
+        return grooming_runtime.canonical_session_name(repo=repo)
+    return topic
+
+
+@pytest.mark.parametrize("variant", ["plan", "foreman", "grooming"])
+def test_list_json_reports_unusable_mapping_rows_and_not_healthy_rows(*, tmp_path, variant):
     module = snapshot_module()
-    healthy_repo, healthy_topic = make_plan(tmp_path=tmp_path, topic="healthy")
-    missing_added_repo, missing_added_topic = make_plan(tmp_path=tmp_path, topic="missing-added-at")
-    unresolved_epic_repo, unresolved_epic_topic = make_plan(
-        tmp_path=tmp_path, topic="unresolved-epic"
+    healthy_repo, healthy_plan_topic = make_plan(
+        tmp_path=tmp_path, repo_name=f"{variant}-healthy", topic="healthy"
+    )
+    missing_added_repo, missing_added_plan_topic = make_plan(
+        tmp_path=tmp_path, repo_name=f"{variant}-missing-added-at", topic="missing-added-at"
+    )
+    unresolved_epic_repo, unresolved_epic_plan_topic = make_plan(
+        tmp_path=tmp_path, repo_name=f"{variant}-unresolved-epic", topic="unresolved-epic"
+    )
+    healthy_topic = _mapping_topic(variant=variant, repo=healthy_repo, topic=healthy_plan_topic)
+    missing_added_topic = _mapping_topic(
+        variant=variant, repo=missing_added_repo, topic=missing_added_plan_topic
+    )
+    unresolved_epic_topic = _mapping_topic(
+        variant=variant, repo=unresolved_epic_repo, topic=unresolved_epic_plan_topic
     )
     sup = make_supervisor(
         tmp_path=tmp_path,
@@ -148,9 +192,10 @@ def test_list_json_reports_unusable_mapping_rows_and_not_healthy_rows(*, tmp_pat
         watch_repos=[str(healthy_repo), str(missing_added_repo), str(unresolved_epic_repo)],
     )
     registry.append_mapping(
-        track=registry.Track(
+        track=_mapping_track(
+            variant=variant,
             topic=healthy_topic,
-            repo=str(healthy_repo),
+            repo=healthy_repo,
             tmux="healthy",
             epic="overseer-healthy",
         ),
@@ -158,22 +203,21 @@ def test_list_json_reports_unusable_mapping_rows_and_not_healthy_rows(*, tmp_pat
         added_at="2026-08-22T08:00:00Z",
     )
     registry.append_mapping(
-        track=registry.Track(
+        track=_mapping_track(
+            variant=variant,
             topic=missing_added_topic,
-            repo=str(missing_added_repo),
+            repo=missing_added_repo,
             tmux="missing-added-at",
             epic="overseer-missing-added-at",
         ),
         store_path=sup.store_path,
     )
-    store_path = Path(sup.store_path)
-    raw_rows = [json.loads(line) for line in store_path.read_text(encoding="utf-8").splitlines()]
-    raw_rows[-1]["added_at"] = None
-    store_path.write_text("".join(f"{json.dumps(row)}\n" for row in raw_rows), encoding="utf-8")
+    _rewrite_last_added_at_to_null(store_path=sup.store_path)
     registry.append_mapping(
-        track=registry.Track(
+        track=_mapping_track(
+            variant=variant,
             topic=unresolved_epic_topic,
-            repo=str(unresolved_epic_repo),
+            repo=unresolved_epic_repo,
             tmux="unresolved-epic",
             epic="legacy-unresolved:unresolved-epic",
         ),

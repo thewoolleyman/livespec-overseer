@@ -69,7 +69,7 @@ def evaluate_ledger_invariants(
                 items=items,
                 item_details_by_id=item_details_by_id,
             ),
-            split_acceptance_label_pending(),
+            split_acceptance_label_pending(items=items),
             cross_repo_dependency_check(
                 repo=repo_path,
                 items=items,

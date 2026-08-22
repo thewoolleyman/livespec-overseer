@@ -78,3 +78,32 @@ def test_ensure_current_runtime_uses_the_current_versioned_prefix(*, monkeypatch
 
     assert mod.ensure_current_runtime() == tmp_path / "runtime" / "venv" / "bin" / "overseerd"
     assert seen == {"prefix": tmp_path / "runtime"}
+
+
+def test_release_runtime_prefix_is_keyed_by_resolved_release(*, tmp_path):
+    mod = importlib.import_module("overseer.runtime_prefix")
+
+    assert mod.release_runtime_prefix(release="abc123", home=tmp_path) == (
+        tmp_path / ".local" / "share" / "livespec-overseer" / "runtime" / "abc123"
+    )
+
+
+def test_ensure_release_runtime_installs_the_resolved_release_ref(*, monkeypatch, tmp_path):
+    mod = importlib.import_module("overseer.runtime_prefix")
+    seen: dict[str, object] = {}
+
+    def fake_ensure(*, prefix, install_source):
+        seen["prefix"] = prefix
+        seen["install_source"] = install_source
+        return prefix / "venv" / "bin" / "overseerd"
+
+    monkeypatch.setattr(mod, "release_runtime_prefix", lambda *, release: tmp_path / release)
+    monkeypatch.setattr(mod, "ensure_runtime", fake_ensure)
+
+    assert mod.ensure_release_runtime(release="abc123") == (
+        tmp_path / "abc123" / "venv" / "bin" / "overseerd"
+    )
+    assert seen == {
+        "prefix": tmp_path / "abc123",
+        "install_source": mod.runtime_install_source(ref="abc123"),
+    }

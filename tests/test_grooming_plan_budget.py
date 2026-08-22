@@ -43,6 +43,15 @@ def _anchor(*, item_id: str, slug: str, status: str = "open") -> dict[str, objec
     }
 
 
+def _child(*, item_id: str, parent: str, status: str = "ready") -> dict[str, object]:
+    return {
+        "id": item_id,
+        "issue_type": "feature",
+        "parent": parent,
+        "status": status,
+    }
+
+
 def test_worked_example_auto_budget_and_allowance(*, tmp_path):
     module = grooming_plan_budget()
     repo = _repo(tmp_path=tmp_path)
@@ -55,6 +64,7 @@ def test_worked_example_auto_budget_and_allowance(*, tmp_path):
     )
 
     assert result.path == "auto"
+    assert result.governing_path == "population-derived"
     assert result.drainable_population == 57
     assert result.raw_auto_budget == 5
     assert result.budget == 5
@@ -62,7 +72,7 @@ def test_worked_example_auto_budget_and_allowance(*, tmp_path):
     assert result.new_thread_allowance == 3
 
 
-def test_auto_budget_clamps_at_both_ends(*, tmp_path):
+def test_auto_budget_clamps_at_both_ends_and_reports_path(*, tmp_path):
     module = grooming_plan_budget()
     repo = _repo(tmp_path=tmp_path)
 
@@ -70,13 +80,48 @@ def test_auto_budget_clamps_at_both_ends(*, tmp_path):
     high = module.resolve_plan_budget(
         repo=repo,
         proposed_changes_count=0,
-        work_items=[_item(item_id=str(index)) for index in range(121)],
+        work_items=[_item(item_id=str(index)) for index in range(241)],
     )
 
     assert low.raw_auto_budget == 1
     assert low.budget == 2
-    assert high.raw_auto_budget == 11
-    assert high.budget == 8
+    assert low.governing_path == "min-clamped"
+    assert high.raw_auto_budget == 21
+    assert high.budget == 20
+    assert high.governing_path == "max-clamped"
+
+
+def test_default_max_leaves_recorded_fleet_populations_population_derived(*, tmp_path):
+    module = grooming_plan_budget()
+    repo = _repo(tmp_path=tmp_path)
+
+    examples = {
+        "livespec": 144,
+        "livespec-dev-tooling": 231,
+        "livespec-orchestrator-beads-fabro": 206,
+        "livespec-runtime": 16,
+        "livespec-console-beads-fabro": 38,
+        "livespec-overseer": 133,
+    }
+
+    results = {
+        name: module.resolve_plan_budget(
+            repo=repo,
+            proposed_changes_count=population,
+            work_items=[],
+        )
+        for name, population in examples.items()
+    }
+
+    assert [(name, result.raw_auto_budget) for name, result in results.items()] == [
+        ("livespec", 12),
+        ("livespec-dev-tooling", 20),
+        ("livespec-orchestrator-beads-fabro", 18),
+        ("livespec-runtime", 2),
+        ("livespec-console-beads-fabro", 4),
+        ("livespec-overseer", 12),
+    ]
+    assert all(result.governing_path == "population-derived" for result in results.values())
 
 
 def test_config_pinned_budget_overrides_different_auto_value(*, tmp_path):
@@ -90,11 +135,12 @@ def test_config_pinned_budget_overrides_different_auto_value(*, tmp_path):
     result = module.resolve_plan_budget(
         repo=repo,
         proposed_changes_count=0,
-        work_items=[_item(item_id=str(index)) for index in range(121)],
+        work_items=[_item(item_id=str(index)) for index in range(241)],
     )
 
     assert result.path == "explicit"
-    assert result.raw_auto_budget == 11
+    assert result.governing_path == "explicit"
+    assert result.raw_auto_budget == 21
     assert result.budget == 4
 
 
@@ -156,6 +202,71 @@ def test_allowance_floors_at_zero_when_live_threads_exceed_budget(*, tmp_path):
     assert result.budget == 5
     assert result.live_thread_count == 6
     assert result.new_thread_allowance == 0
+
+
+def test_reports_reclaimable_live_threads_by_distinct_plan_slug(*, tmp_path):
+    module = grooming_plan_budget()
+    repo = _repo(tmp_path=tmp_path)
+    (repo / "plan" / "alpha").mkdir()
+    (repo / "plan" / "empty").mkdir()
+    (repo / "plan" / "shared").mkdir()
+
+    result = module.resolve_plan_budget(
+        repo=repo,
+        proposed_changes_count=57,
+        work_items=[
+            _anchor(item_id="anchor-alpha", slug="alpha"),
+            _anchor(item_id="anchor-empty", slug="empty"),
+            _anchor(item_id="anchor-shared-1", slug="shared"),
+            _anchor(item_id="anchor-shared-2", slug="shared"),
+            _child(item_id="alpha-open", parent="anchor-alpha"),
+            _child(item_id="shared-closed", parent="anchor-shared-1", status="closed"),
+        ],
+    )
+
+    assert result.live_thread_slugs == ("alpha", "empty", "shared")
+    assert result.reclaimable_live_thread_slugs == ("empty", "shared")
+    assert result.reclaimable_live_thread_count == 2
+
+
+def test_reports_zero_reclaimable_when_every_live_thread_carries_open_work(*, tmp_path):
+    module = grooming_plan_budget()
+    repo = _repo(tmp_path=tmp_path)
+    (repo / "plan" / "alpha").mkdir()
+    (repo / "plan" / "beta").mkdir()
+
+    result = module.resolve_plan_budget(
+        repo=repo,
+        proposed_changes_count=57,
+        work_items=[
+            _anchor(item_id="anchor-alpha", slug="alpha"),
+            _anchor(item_id="anchor-beta", slug="beta"),
+            _child(item_id="alpha-open", parent="anchor-alpha"),
+            _child(item_id="beta-open", parent="anchor-beta"),
+        ],
+    )
+
+    assert result.reclaimable_live_thread_slugs == ()
+    assert result.reclaimable_live_thread_count == 0
+
+
+def test_reclaimable_reporting_does_not_mutate_live_plan_directories(*, tmp_path):
+    module = grooming_plan_budget()
+    repo = _repo(tmp_path=tmp_path)
+    live_dir = repo / "plan" / "empty"
+    live_dir.mkdir()
+    (live_dir / "handoff.md").write_text("still live\n", encoding="utf-8")
+    before = sorted(path.relative_to(repo).as_posix() for path in repo.rglob("*"))
+
+    result = module.resolve_plan_budget(
+        repo=repo,
+        proposed_changes_count=57,
+        work_items=[_anchor(item_id="anchor-empty", slug="empty")],
+    )
+
+    after = sorted(path.relative_to(repo).as_posix() for path in repo.rglob("*"))
+    assert result.reclaimable_live_thread_slugs == ("empty",)
+    assert after == before
 
 
 def test_counts_pending_proposed_changes_under_configured_spec_root(*, tmp_path):

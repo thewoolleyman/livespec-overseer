@@ -4,11 +4,31 @@
 action, handoff entries — lives on that epic and its child items. This note is
 write-once research and is never authoritative about what remains.
 
-**MEASURED AS OF vps-info `cc9c83e`** (re-pinned 2026-08-21). The source is a LIVE
-repo and it moved FIVE times while this thread was being opened — see
+**MEASURED AS OF vps-info `822e2be`** (re-pinned 2026-08-22, during
+`overseer-54k2za.14`'s STEP 0). The source is a LIVE repo and it moved FIVE times
+while this thread was being opened, and SIX more times after the previous pin — see
 "The source is a moving target" below. **Re-measure against that repo's HEAD
 before treating this list as complete, and update this pin when you do.** A
 carrier list with no as-of commit is a claim with no timestamp.
+
+**TWO CARRIERS CHANGED BETWEEN `cc9c83e` AND THIS PIN, and neither is cosmetic.**
+The previous pin's re-measure recorded "zero commits after it"; that was true when
+taken and false within hours, which is the whole reason this pin exists.
+
+- **NEW — `980a029` adds `resnapshot_active()`**, keeping the ACTIVE profile's
+  snapshot equal to the live credential every tick, with its own two log strings.
+  **The rebuild does not have it at all.** It is the complement of the X group,
+  which refreshes IDLE profiles and skips the active one, so neither substitutes
+  for the other. Carried as `overseer-54k2za.24`.
+- **CHANGED — `64bc24a` DISABLES keep-warm by default**, inverting the flag from
+  opt-out to opt-in: `NO_WARM = "--no-warm" in sys.argv` became
+  `NO_WARM = not ("--warm" in sys.argv or os.environ.get("CAAM_ROTATE_WARM") == "1")`.
+  The rebuild still carries the OLD shape and has neither `--warm` nor the env
+  read. **The source's stated reason — keep-warm being "the prime suspect" for the
+  orphans — was retracted the same day on measurement** (orphaning predates
+  keep-warm by 35 hours; a never-activated profile refreshed cleanly for ~50 hours
+  with keep-warm running). So this divergence is an open maintainer question
+  recorded on `overseer-54k2za.12`, NOT a gap to close reflexively.
 
 **RE-MEASURE ATTEMPT, 2026-08-21, overseer-54k2za.13.** The factory sandbox
 could not read the source repo: no `vps-info` checkout existed under the mounted
@@ -16,6 +36,11 @@ repo/workspace/project roots, unauthenticated `git ls-remote` could not prompt
 for credentials, and the sibling lookup through this sandbox's configured GitHub
 credential reported the repository unavailable. The pin above therefore remains
 the last verified source commit rather than a refreshed claim.
+
+**RE-MEASURED, 2026-08-22, overseer-54k2za.24.** The factory sandbox's GitHub CLI
+credential could read `vps-info`; `.claude/skills/caam-anthropic-loop/SKILL.md`
+at `822e2be` still carries the active-profile `resnapshot_active` behavior added
+at `980a029`. That behavior is now recorded as carrier group **AA**.
 
 ## Why this thread exists
 
@@ -851,6 +876,24 @@ from emptying.
   orphaned — that one needs a browser re-login. Three of four profiles live again,
   rotation unblocked. **An orphan-detection report is a feature, not a failure.**
 
+## AA — Re-snapshotting the active profile (added vps-info `980a029`, present at `822e2be`)
+
+- **AA1** Every tick, immediately after determining the active profile and before
+  usage polling, the program compares the live `~/.claude/.credentials.json`
+  token with `~/.local/share/caam/vault/claude/<active>/.credentials.json`.
+- **AA2** The pass is skipped under `--dry-run`, when the vault directory is
+  absent, when the live token is unreadable, or when the live token matches the
+  active snapshot.
+- **AA3** When the live token differs, it runs `caam backup claude <active>`.
+  Success logs exactly:
+  `resnapshot: <active> refreshed its token since the last snapshot; vault updated (prevents orphaning on the next switch)`.
+- **AA4** A failed backup does not retry, recover, verify, or copy by hand. It
+  logs exactly
+  `resnapshot: FAILED for <active> -- <stderr-or-stdout-truncated-to-120>`.
+- **AA5** This pass maintains only the ACTIVE profile. Keep-warm **X** maintains
+  idle profiles and deliberately skips the active one; neither behavior
+  substitutes for the other.
+
 ## Y — Operating rule: never keep a local copy of the program (vps-info `74429a7`)
 
 - **Y1** The source skill now requires the program be extracted **fresh from the
@@ -912,6 +955,8 @@ and this note landing, the source moved **twice** in about ninety minutes:
 | `74429a7` | forbid keeping or patching a local copy of the program | **new carrier Y**; an operating rule, reasoning carried not copied |
 | `0070050` | keep idle profiles warm so rotation cannot deadlock | **new carrier group X**, and it falsified **G9** — a recorded *deliberate accepted consequence* that was actually a deadlock |
 | `ee88266` | stop showing cached quota figures from before a reset | **new carrier group Z**; the table was misdirecting the human while the machine was correctly protected |
+| `980a029` | re-snapshot the active profile every tick | **NEW carrier group, absent from the rebuild entirely** — carried as `overseer-54k2za.24` |
+| `64bc24a` | disable keep-warm; "it is the likely cause of the orphans" | **inverts the X-group default to opt-in**, on a premise retracted the same day — open question on `overseer-54k2za.12` |
 | `3c0ad85` | report why keep-warm failed, and stop crying orphan | **revised X4 into X4a–X4e, and superseded D6** — the orphan diagnostic was wrong in *both* directions. **It made that diagnostic legible, not correct**: the same commit introduced the unsatisfiable margin pair recorded at **X4a-i**, so the success branch it added has never fired |
 
 The first was verified harmless by extracting the fenced program from both sides

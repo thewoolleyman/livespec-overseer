@@ -63,6 +63,47 @@ class Agent:
         return type("Process", (), {"stdout": self.stdout, "stderr": self.stderr})()
 
 
+class Caam:
+    def __init__(
+        self,
+        *,
+        home: Path,
+        replacement_credential: str = "live",
+        returncode: int = 0,
+        stdout: str = "",
+        stderr: str = "",
+    ) -> None:
+        self.home = home
+        self.replacement_credential = replacement_credential
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+        self.calls: list[tuple[str, ...]] = []
+
+    def __call__(self, *, args: tuple[str, ...]) -> object:
+        self.calls.append(args)
+        if self.returncode == 0:
+            write_creds(
+                path=(
+                    self.home
+                    / ".local"
+                    / "share"
+                    / "caam"
+                    / "vault"
+                    / "claude"
+                    / args[2]
+                    / ".credentials.json"
+                ),
+                bearer=self.replacement_credential,
+                expires_at_s=9000.0,
+            )
+        return type(
+            "Process",
+            (),
+            {"returncode": self.returncode, "stdout": self.stdout, "stderr": self.stderr},
+        )()
+
+
 def warm_config(
     *,
     module: ModuleType,
@@ -81,6 +122,119 @@ def warm_config(
 
 def ignore_log(message: str) -> None:
     del message
+
+
+def test_resnapshot_active_updates_only_active_vault_snapshot(*, tmp_path: Path):
+    module = caam_warm_module()
+    assert hasattr(module, "resnapshot_active")
+    active = write_snapshot(
+        home=tmp_path, name="active", credential="old-active", expires_at_s=1000.0
+    )
+    idle = write_snapshot(home=tmp_path, name="idle", credential="old-idle", expires_at_s=1000.0)
+    live = tmp_path / ".claude" / ".credentials.json"
+    write_creds(path=live, bearer="live-active", expires_at_s=9000.0)
+    caam = Caam(home=tmp_path, replacement_credential="live-active")
+    logs: list[str] = []
+
+    module.resnapshot_active(
+        active_name="active",
+        home=tmp_path,
+        dry_run=False,
+        caam_runner=caam,
+        logger=logs.append,
+    )
+
+    assert caam.calls == [("backup", "claude", "active")]
+    assert module.read_creds(path=active / ".credentials.json") == ("live-active", 9000.0)
+    assert module.read_creds(path=idle / ".credentials.json") == ("old-idle", 1000.0)
+    assert module.read_creds(path=live) == ("live-active", 9000.0)
+    assert logs == [
+        "resnapshot: active refreshed its token since the last snapshot; vault "
+        "updated (prevents orphaning on the next switch)"
+    ]
+
+
+def test_resnapshot_active_skips_dry_run_missing_vault_missing_live_and_matching_snapshot(
+    *, tmp_path: Path
+):
+    module = caam_warm_module()
+    assert hasattr(module, "resnapshot_active")
+    caam = Caam(home=tmp_path)
+    logs: list[str] = []
+
+    module.resnapshot_active(
+        active_name="active",
+        home=tmp_path,
+        dry_run=False,
+        caam_runner=caam,
+        logger=logs.append,
+    )
+
+    _ = write_snapshot(home=tmp_path, name="active", credential="snapshot", expires_at_s=1000.0)
+    module.resnapshot_active(
+        active_name="active",
+        home=tmp_path,
+        dry_run=True,
+        caam_runner=caam,
+        logger=logs.append,
+    )
+    module.resnapshot_active(
+        active_name="active",
+        home=tmp_path,
+        dry_run=False,
+        caam_runner=caam,
+        logger=logs.append,
+    )
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json",
+        bearer="snapshot",
+        expires_at_s=9000.0,
+    )
+    module.resnapshot_active(
+        active_name="active",
+        home=tmp_path,
+        dry_run=False,
+        caam_runner=caam,
+        logger=logs.append,
+    )
+
+    assert caam.calls == []
+    assert logs == []
+
+
+def test_resnapshot_active_logs_failed_backup_without_copying_or_retrying(*, tmp_path: Path):
+    module = caam_warm_module()
+    assert hasattr(module, "resnapshot_active")
+    active = write_snapshot(
+        home=tmp_path, name="active", credential="old-active", expires_at_s=1000.0
+    )
+    live = tmp_path / ".claude" / ".credentials.json"
+    write_creds(path=live, bearer="live-active", expires_at_s=9000.0)
+    caam = Caam(
+        home=tmp_path,
+        returncode=1,
+        stdout="stdout fallback",
+        stderr="backup failed with a long diagnostic that should be clipped after the source's "
+        "one hundred and twenty character limit",
+    )
+    logs: list[str] = []
+
+    module.resnapshot_active(
+        active_name="active",
+        home=tmp_path,
+        dry_run=False,
+        caam_runner=caam,
+        logger=logs.append,
+    )
+
+    assert caam.calls == [("backup", "claude", "active")]
+    assert module.read_creds(path=active / ".credentials.json") == ("old-active", 1000.0)
+    assert module.read_creds(path=live) == ("live-active", 9000.0)
+    assert logs == [
+        "resnapshot: FAILED for active -- "
+        "backup failed with a long diagnostic that should be clipped after the source's one "
+        "hundred and twenty character limit"
+    ]
 
 
 def test_warm_profile_delegates_refresh_to_agent_sandbox_and_copies_back(*, tmp_path: Path):

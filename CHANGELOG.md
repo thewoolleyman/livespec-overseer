@@ -1,5 +1,94 @@
 # Changelog
 
+## [1.39.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.38.2...v1.39.0) (2026-08-22)
+
+
+### Features
+
+* prove consensus floor split contract ([f83b5ef](https://github.com/thewoolleyman/livespec-overseer/commit/f83b5efd973db2a56ff130a477534b4fcc686123))
+
+## [1.38.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.38.1...v1.38.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **grooming:** reconcile unparented row provenance ([87ed9ca](https://github.com/thewoolleyman/livespec-overseer/commit/87ed9caf11687a76bca92f2b0c1142207f5dd103))
+
+## [1.38.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.38.0...v1.38.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* add roster work-state LLOC owner marker ([273d47a](https://github.com/thewoolleyman/livespec-overseer/commit/273d47af89861cc8291a62c0035fd4b1826a4d8a))
+* detect ledger-only roster work anchors ([ae79458](https://github.com/thewoolleyman/livespec-overseer/commit/ae7945840e8605320fe684f899b6bed9bdd98339))
+* harden roster ledger anchor lookup ([bd5d97d](https://github.com/thewoolleyman/livespec-overseer/commit/bd5d97d4627d38704258de9c023dc6bdb943ed84))
+
+## [1.38.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.14...v1.38.0) (2026-08-22)
+
+
+### Features
+
+* cover caam active resnapshot ([a76cd14](https://github.com/thewoolleyman/livespec-overseer/commit/a76cd14a5a96c7d8f3340fc341d7036027a84552))
+
+## [1.37.14](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.13...v1.37.14) (2026-08-22)
+
+
+### Bug Fixes
+
+* extract foreman act consensus records ([242f2ed](https://github.com/thewoolleyman/livespec-overseer/commit/242f2ed7b6425dc557cdd11706ccdf7c807f94a7))
+
+## [1.37.13](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.12...v1.37.13) (2026-08-22)
+
+
+### Bug Fixes
+
+* remove test-only rowview tick path ([a902a53](https://github.com/thewoolleyman/livespec-overseer/commit/a902a53e3edcc473eca0d39023e4d2aecabc39dc))
+* wire daemon release runtime seams ([c6f4aa1](https://github.com/thewoolleyman/livespec-overseer/commit/c6f4aa19c52a9321c04d0b1e7dfef7e7918848db))
+
+## [1.37.12](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.11...v1.37.12) (2026-08-22)
+
+
+### Bug Fixes
+
+* split registry store field updates ([c43b27f](https://github.com/thewoolleyman/livespec-overseer/commit/c43b27f02630e2f1bb042e137b35c397b02defbe))
+
+## [1.37.11](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.10...v1.37.11) (2026-08-22)
+
+
+### Bug Fixes
+
+* report reclaimable plan budget threads ([22ab28e](https://github.com/thewoolleyman/livespec-overseer/commit/22ab28ed94a4c44bb6d3d04145c0ce8664b8a5a8))
+
+## [1.37.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.9...v1.37.10) (2026-08-22)
+
+
+### Bug Fixes
+
+* surface unusable reserved seat mappings ([088cd93](https://github.com/thewoolleyman/livespec-overseer/commit/088cd93326969ea97e120102b29bd85db4e24ea5))
+
+## [1.37.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.8...v1.37.9) (2026-08-22)
+
+
+### Bug Fixes
+
+* arm grooming acceptance policy invariant ([fd6a57b](https://github.com/thewoolleyman/livespec-overseer/commit/fd6a57b6038e9b30eb9935f9d14522621977152a))
+
+## [1.37.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.7...v1.37.8) (2026-08-22)
+
+
+### Bug Fixes
+
+* split beside-test lloc margin residue ([2b8baa6](https://github.com/thewoolleyman/livespec-overseer/commit/2b8baa61f2bcb80a38d4559962af21ea53ee809f))
+
+## [1.37.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.6...v1.37.7) (2026-08-22)
+
+
+### Bug Fixes
+
+* correct grooming budget threshold prose ([636e84d](https://github.com/thewoolleyman/livespec-overseer/commit/636e84d84b5295b778ba0ccce484ceca28995765))
+* distinguish prose answer variance ([19af69f](https://github.com/thewoolleyman/livespec-overseer/commit/19af69f596e1db1ade2672513aaf5af888487f06))
+* report grooming budget governing path ([5695ac9](https://github.com/thewoolleyman/livespec-overseer/commit/5695ac960d030e18b7af6a894750e93229079228))
+
 ## [1.37.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.5...v1.37.6) (2026-08-22)
 
 

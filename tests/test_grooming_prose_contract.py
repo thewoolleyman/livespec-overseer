@@ -93,3 +93,24 @@ def test_grooming_prose_deferral_successors_do_not_weaken_invariant_one() -> Non
     assert "do not normalize the workaround into a new invariant exemption" in normalized
     assert "An ordinary unparented non-done item" in normalized
     assert "remains a genuine invariant-1 breach" in normalized
+
+
+def test_grooming_prose_reconciles_bucketing_blocked_unparented_rows() -> None:
+    text = PROSE.read_text(encoding="utf-8")
+    normalized = " ".join(text.split())
+
+    assert "BUCKETING-BLOCKED provenance for the pass report" in normalized
+    assert "not a ledger marker and not an invariant-1 exemption" in normalized
+    assert "Ledger Invariants section still requires the row to be reported" in normalized
+    assert "Bucketing-blocked rows are the other recognized unparented provenance" in normalized
+    assert "zero new-thread allowance and no existing thread is a truthful home" in normalized
+    assert "leave the row unparented and report the blocked bucketing decision" in normalized
+    assert "rather than manufacture untruthful membership" in normalized
+    assert "Nothing in the ledger substrate distinguishes that row" in normalized
+    assert "distinguishable only by the pass's own report" in normalized
+    assert "budget, live-thread count, overflow, and reclaimable thread list" in normalized
+    assert "reported rather than silently tolerated" in normalized
+    assert "not a license to stop reporting the row" in normalized
+    assert (
+        "no recognized provenance--neither deferral-successor nor bucketing-blocked" in normalized
+    )

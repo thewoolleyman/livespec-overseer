@@ -46,8 +46,22 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
             )
     views.extend(_supervisor_discovery.unindexed_codex_rows(sup=sup))
     repos = _supervisor_discovery.resolve_watch(sup=sup)
-    views.extend(_supervisor_foreman.foreman_rows(sup=sup, repos=repos, act=act))
-    views.extend(_supervisor_grooming.grooming_rows(sup=sup, repos=repos, act=act))
+    views.extend(
+        _supervisor_foreman.foreman_rows(
+            sup=sup,
+            repos=repos,
+            act=act,
+            null_added_at_keys=null_added_at_keys,
+        )
+    )
+    views.extend(
+        _supervisor_grooming.grooming_rows(
+            sup=sup,
+            repos=repos,
+            act=act,
+            null_added_at_keys=null_added_at_keys,
+        )
+    )
     currency = sup.currency_row()
     if currency is not None:
         views.append(currency)

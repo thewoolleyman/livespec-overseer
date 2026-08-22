@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import foreman_plan_roster
@@ -35,6 +36,23 @@ def _epic_anchor(*, repo: Path, topic: str, anchor: str) -> None:
         f"**Ledger anchor:** epic **`{anchor}`**\n",
         encoding="utf-8",
     )
+
+
+def _fake_bd(*, tmp_path: Path, payload: list[dict[str, object]]) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    bd = bin_dir / "bd"
+    bd.write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = list ]; then\n'
+        f"  printf '%s\\n' '{json.dumps(payload, sort_keys=True)}'\n"
+        "  exit 0\n"
+        "fi\n"
+        "exit 2\n",
+        encoding="utf-8",
+    )
+    bd.chmod(0o755)
+    return bin_dir
 
 
 def test_absent_plan_directory_emits_empty_roster(*, tmp_path):
@@ -159,6 +177,74 @@ def test_picker_session_state_and_legacy_anchor_work_state_edges(*, tmp_path):
     assert roster["rows"][0]["session_state"] == "picker-parked"
     assert roster["rows"][0]["work_state"] == "no-work-in-flight"
     assert foreman_plan_roster_work.plan_epic_anchor(repo=repo, plan="alpha") == "overseer-alpha"
+
+
+def test_plan_slug_ledger_anchor_detects_in_flight_without_epic_file(*, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
+    _plan(repo=repo, topic="alpha")
+    journal.parent.mkdir(parents=True)
+    journal.write_text(
+        json.dumps(
+            {
+                "stage": "dispatch-id",
+                "work_item_id": "overseer-alpha.8",
+                "dispatch_id": "ledger-only-run",
+                "at": "2026-08-22T09:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    _snapshot(
+        path=snapshot_path,
+        repo=repo,
+        rows=[{"repo": str(repo), "topic": "alpha", "status": "idle", "tmux": "alpha"}],
+    )
+    bin_dir = _fake_bd(
+        tmp_path=tmp_path,
+        payload=[
+            {
+                "id": "overseer-alpha",
+                "issue_type": "epic",
+                "status": "active",
+                "metadata": {"plan_slug": "alpha"},
+            }
+        ],
+    )
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ.get('PATH', '')}")
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["alpha"],
+        journal_path=journal,
+    )
+
+    assert roster["rows"][0]["work_state"] == "work-in-flight"
+    assert roster["rows"][0]["work_state_evidence"] == "anchor-resolved"
+
+
+def test_unresolved_anchor_is_emitted_separately_from_no_work(*, tmp_path):
+    repo = tmp_path / "repo"
+    snapshot_path = tmp_path / "status.json"
+    _plan(repo=repo, topic="alpha")
+    _snapshot(
+        path=snapshot_path,
+        repo=repo,
+        rows=[{"repo": str(repo), "topic": "alpha", "status": "idle", "tmux": "alpha"}],
+    )
+
+    roster = foreman_plan_roster.compose_roster(
+        repo=repo,
+        snapshot_path=snapshot_path,
+        tmux_sessions=["alpha"],
+        journal_path=repo / "tmp" / "missing-journal.jsonl",
+    )
+
+    assert roster["rows"][0]["work_state"] == "no-work-in-flight"
+    assert roster["rows"][0]["work_state_evidence"] == "anchor-unresolved"
 
 
 def test_anchorless_and_malformed_journal_records_are_non_running_edges(*, tmp_path):

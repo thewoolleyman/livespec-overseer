@@ -818,6 +818,84 @@ def test_recorded_picker_answer_majority_path_rejects_one_one_one_split(*, tmp_p
     assert result["reason"] == "typed_action_disagreement"
 
 
+@pytest.mark.parametrize("decision_rule", ["unanimous", "majority"])
+def test_prose_answer_variance_reports_typed_layer_agreement(*, tmp_path: Path, decision_rule: str):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = recorded_picker_reviewers()
+    set_recorded_picker_answers(
+        payload=payload,
+        answers=[
+            "Discard the redundant worktree and wait for ordinary green master.",
+            "Take none of the offered options; the staged fix already landed elsewhere.",
+            "Do not reconvene. The premise is stale, so discard the duplicate branch.",
+        ],
+    )
+
+    result = consensus.consensus(
+        request=request(repo=repo, question=f"prose variance {decision_rule}"),
+        responses=payload,
+        state_dir=tmp_path / f"state-prose-variance-{decision_rule}",
+        decision_rule=decision_rule,
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "prose_payload_variance"
+    assert result["typed_layer_agreed"] is True
+    assert result["action"] == {"action_id": "human_valve", "params": {}}
+
+
+@pytest.mark.parametrize("decision_rule", ["unanimous", "majority"])
+@pytest.mark.parametrize("answers", [["1", "2", "3"], ["1", "2", "4"]])
+def test_picker_answer_splits_remain_typed_action_disagreement(
+    *, tmp_path: Path, decision_rule: str, answers: list[str]
+):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = recorded_picker_reviewers()
+    set_recorded_picker_answers(payload=payload, answers=answers)
+
+    result = consensus.consensus(
+        request=request(repo=repo, question=f"picker split {decision_rule} {'-'.join(answers)}"),
+        responses=payload,
+        state_dir=tmp_path / f"state-picker-split-{decision_rule}-{'-'.join(answers)}",
+        decision_rule=decision_rule,
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "typed_action_disagreement"
+
+
+def test_missing_answer_payload_remains_typed_action_disagreement(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = recorded_picker_reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    for index, reviewer in enumerate(panel):
+        assert isinstance(reviewer, dict)
+        action = reviewer["action"]
+        assert isinstance(action, dict)
+        params = action["params"]
+        assert isinstance(params, dict)
+        if index == 0:
+            params["answer"] = "This is prose, but the peers omitted the answer field."
+        else:
+            params.pop("answer", None)
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="missing answer payload"),
+        responses=payload,
+        state_dir=tmp_path / "state-missing-answer-payload",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "typed_action_disagreement"
+
+
 def test_decision_rule_defaults_to_unanimous_without_repo():
     consensus = module("foreman_consensus")
 

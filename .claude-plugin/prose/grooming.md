@@ -85,7 +85,7 @@ drainable population =
 budget = clamp(ceil(drainable population / items per plan), minimum plans, maximum plans)
 ```
 
-Default `items per plan` is 12, default minimum is 2, and default maximum is 8.
+Default `items per plan` is 12, default minimum is 2, and default maximum is 20.
 Each value may be overridden under the same configuration key. Existing live plan
 threads count against the budget, so the pass may create at most:
 
@@ -95,12 +95,16 @@ new thread allowance = max(0, budget - live thread count)
 
 Live threads are the non-archived directories under `plan/`, cross-checked against
 plan-anchor epics carrying plan-slug metadata. Use both sources because they drift.
+Also report the reclaimable subset: distinct live plan slugs that carry zero open
+non-anchor work items. Reclaimable means "candidate for a maintainer archive
+decision", not permission to mutate it during grooming.
 
 The budget is a ceiling, not a target. Prefer the smallest number of coherent
 buckets that keeps each thread about one subject. Do not pad to the budget. If a
 pre-existing or later split pushes the repo over budget, report the overflow with
-the numbers. Do not fold a real thread back into another one; merged plan files,
-live sessions, and in-flight runs make that a maintainer decision.
+the numbers and name the reclaimable live threads. Do not fold a real thread back
+into another one; merged plan files, live sessions, and in-flight runs make that a
+maintainer decision.
 
 ## Six Stages
 
@@ -123,11 +127,20 @@ Compose and record:
 - the unparented subset;
 - pending proposed changes;
 - live plan threads from filesystem and plan-anchor metadata;
-- the resolved plan budget and new-thread allowance;
+- live plan threads carrying zero open work items, named by distinct plan slug;
+- the resolved plan budget, its governing path, and new-thread allowance;
 - the exact population scanned for each conformance claim.
 
 If a result is clean, state its scope beside the claim. A clean result with no
 scanned population is not evidence.
+
+The automatic plan budget is the drainable population divided into plan-sized
+buckets, then clamped by the configured minimum and maximum. With the shipped
+defaults (`items_per_plan = 12`, `min_plans = 2`, `max_plans = 20`), populations
+from 13 through 240 are population-derived; below 13 the minimum decides, and
+above 240 the maximum decides. A config-pinned `plan_budget` overrides the
+automatic value. Whenever you report a budget, name the governing path with the
+number: `explicit`, `population-derived`, `min-clamped`, or `max-clamped`.
 
 Register the grooming seat at entry, or use the shipped registration wrapper when
 one exists. The reserved entity topic is the repo slug plus the grooming suffix.
@@ -192,6 +205,13 @@ A pre-existing epic that is not a plan anchor may be folded in as a sub-epic rat
 than promoted to its own thread. That is how the budget is respected without
 orphaning real work.
 
+If the new-thread allowance is zero and no existing thread is a truthful home,
+leave the work unparented and report the blocked bucketing decision with the
+budget, live-thread count, overflow, and reclaimable thread list. This creates
+BUCKETING-BLOCKED provenance for the pass report, not a ledger marker and not an
+invariant-1 exemption; the Ledger Invariants section still requires the row to be
+reported until a truthful parent exists.
+
 Keep item comments rare. Ledger comments are assembled verbatim into future
 dispatch briefs and are append-only. Put durable per-item facts in editable fields.
 Put pass-level narrative on the plan epic. Comment on a dispatched item only when
@@ -246,9 +266,10 @@ Verify what this pass itself did:
 - status vocabulary is conforming;
 - no dispatchable item contains the template delimiter hazard described in words
   below;
-- acceptance split labels and acceptance shape agree both ways;
+- acceptance-policy labels and the merged `acceptance_policy` field agree,
+  while split acceptance shape remains unexpressed in the substrate;
 - cross-repo dependency edges resolve;
-- routing fields name the repo where the deliverable lands;
+- the tenant structurally pins the repo where admitted deliverables land;
 - new plan scope events and opening handoffs exist;
 - foreman proposals for missing sessions were accepted or refused with recorded
   reasons.
@@ -262,15 +283,19 @@ the run listing for the same server the dispatcher used, then read the dispatche
 journal when the run listing cannot explain the outcome.
 
 As measured on 2026-08-22 against merged master `08b2afd` and a 669-row
-projection, that sanctioned projection can answer the three implemented
+projection, that sanctioned projection used to answer three implemented
 invariants that need no optional evidence: plan-rollup, acceptance-present, and
-lifecycle-status. It can answer dispatchable-delimiter only with item detail text
-supplied for comments and notes, and cross-repo-dependencies only with sibling id
-sets supplied for every referenced sibling repo; otherwise the checker reports
-the narrower evidence base in the invariant scope. The remaining two invariants,
-split-acceptance-label and routing-field, are not implemented yet; their scanned
-population is zero because the checker has no canonical field to read, not
-because the tenant is clean. Revisit this paragraph when `bd-ib-m36re3` or its
+lifecycle-status. It now also answers the label-versus-policy half of
+split-acceptance-label through the merged `acceptance_policy` field. It can
+answer dispatchable-delimiter only with item detail text supplied for comments
+and notes, and cross-repo-dependencies only with sibling id sets supplied for
+every referenced sibling repo; otherwise the checker reports the narrower
+evidence base in the invariant scope. The remaining split-criteria shape half
+has no canonical field or convention to read, so the checker reports that
+limitation in the invariant scope rather than inventing one. `routing-field` is
+not a row measurement: the merged projection has no routing field naming a
+deliverable repository, and the tenant itself pins the repo structurally for
+admitted implementation work. Revisit this paragraph when `bd-ib-m36re3` or its
 successor changes the projection. Until then, any raw ledger read used to
 investigate an unimplemented invariant must carry the record-shape traps below
 beside the claim.
@@ -296,8 +321,9 @@ item.
 
 ## Ledger Invariants
 
-The pass must leave these seven invariants true, or report the breach with the
-population scanned:
+The pass must leave the ledger invariants below true. For invariants measured
+from rows, report any breach with the population scanned; the routing invariant
+is structural to the per-repo tenant rather than a row scan.
 
 1. Every non-done item rolls up to a plan epic. Only plan anchors are unparented.
    A deferral successor is still parented to the epic it defers from; it is
@@ -311,7 +337,16 @@ population scanned:
    `overseer-6bx5`, `overseer-cv06`, and `overseer-157q` as evidence of the
    archive-gate gap, then either parent the successor when doing so will not
    re-block an archive gate or record why the row is temporarily left as found.
-   An ordinary unparented non-done item with no deferral-successor provenance
+   Bucketing-blocked rows are the other recognized unparented provenance: when
+   the bucket step has zero new-thread allowance and no existing thread is a
+   truthful home, the sanctioned action is to leave the row unparented and report
+   the blocked bucketing decision rather than manufacture untruthful membership.
+   Nothing in the ledger substrate distinguishes that row from an ordinary
+   orphan today; it is distinguishable only by the pass's own report naming the
+   budget, live-thread count, overflow, and reclaimable thread list. That
+   provenance is reported rather than silently tolerated, and it is not a
+   license to stop reporting the row. An ordinary unparented non-done item with
+   no recognized provenance--neither deferral-successor nor bucketing-blocked--
    remains a genuine invariant-1 breach.
 2. Every open item carries acceptance criteria, read through the merged projection.
 3. Only lifecycle statuses exist: backlog, ready, pending-approval, active,
@@ -319,12 +354,16 @@ population scanned:
 4. No item in a dispatchable state carries an opening template delimiter:
    two opening braces, an opening brace followed by a percent sign, or an
    opening brace followed by a hash sign.
-5. An item labelled for human-verified acceptance has split acceptance criteria,
-   and an item with split acceptance carries the label.
+5. For the measured label half, an open item's acceptance-prefixed labels match
+   the singleton derived from its merged `acceptance_policy`, or both are empty.
+   The split-criteria shape half remains unexpressed in the substrate and must
+   not be invented by this pass.
 6. Every cross-repo dependency edge resolves against a real id in a repo the
    consuming manifest lists.
-7. An item's routing field names the repo its deliverable lands in, not the repo
-   where the filer happened to sit.
+7. For admitted implementation work, the per-repo tenant structurally pins the
+   deliverable repository. The merged projection has no routing field naming a
+   deliverable repo, so this invariant is not measured by parsing work-item
+   prose.
 
 ## Measured Traps
 
