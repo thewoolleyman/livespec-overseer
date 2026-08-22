@@ -147,7 +147,7 @@ def test_scenario_ordinary_worker_picker_is_promoted_and_alerted_but_not_pasted(
     assert_no_picker_answer_or_restart(fake=ordinary_fake)
 
 
-def test_scenario_charter_reminder_echo_does_not_rearm_but_external_change_does(
+def test_scenario_charter_reminder_stays_single_shot_across_external_redraw(
     *, tmp_path, monkeypatch
 ):
     topic = "picker-charter-supervisor"
@@ -164,16 +164,16 @@ def test_scenario_charter_reminder_echo_does_not_rearm_but_external_change_does(
         clock["t"] += 31.0
         still_stalled_after_echo = sup.evaluate(track=track, act=True)
         fake.panes[session] = picker_capture(ctx=79)
-        reset = sup.evaluate(track=track, act=True)
+        still_stalled_after_redraw = sup.evaluate(track=track, act=True)
         clock["t"] += 31.0
-        rearmed = sup.evaluate(track=track, act=True)
+        still_stalled_later = sup.evaluate(track=track, act=True)
 
     assert stalled.status == "picker-stalled"
     assert "Your supervisor charter already says:" in echoed_capture
     assert still_stalled_after_echo.status == "picker-stalled"
-    assert reset.status == "blocked:human"
-    assert rearmed.status == "picker-stalled"
-    assert len(fake.paste_texts()) == 2
+    assert still_stalled_after_redraw.status == "picker-stalled"
+    assert still_stalled_later.status == "picker-stalled"
+    assert len(fake.paste_texts()) == 1
     assert_no_picker_answer_or_restart(fake=fake)
 
 
