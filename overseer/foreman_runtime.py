@@ -83,7 +83,6 @@ class StepResult:
     loop_lapsed: bool
     heartbeat_age_seconds: float | None
     blocking_prompt_open: bool
-    tick_ended_with_blocking_prompt: bool
     llm_tick_interval_seconds: float
     auto_resume_interval_seconds: float | None
     full_autonomy: bool
@@ -214,6 +213,7 @@ class ForemanRuntime:
         blocking_prompt_open = foreman_blocking_prompt_open(
             payload=document,
             foreman_topic=canonical_session_name(repo=self.repo),
+            tick_started_at=now,
         )
         if blocking_prompt_open:
             record_blocking_prompt_escalation(
@@ -233,7 +233,6 @@ class ForemanRuntime:
             loop_lapsed=lapse.stale if lapse is not None else False,
             heartbeat_age_seconds=lapse.age_seconds if lapse is not None else None,
             blocking_prompt_open=blocking_prompt_open,
-            tick_ended_with_blocking_prompt=blocking_prompt_open,
             llm_tick_interval_seconds=interval_seconds,
             auto_resume_interval_seconds=auto_resume_interval_seconds,
             full_autonomy=autonomy.full_autonomy,

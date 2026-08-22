@@ -106,6 +106,7 @@ def test_foreman_runtime_reports_own_open_blocking_prompt_from_snapshot(*, tmp_p
     result = runtime.step(
         document={
             "snapshot": {
+                "written_at": "1970-01-01T00:16:40Z",
                 "rows": [
                     {
                         "topic": "repo-foreman",
@@ -113,13 +114,12 @@ def test_foreman_runtime_reports_own_open_blocking_prompt_from_snapshot(*, tmp_p
                         "picker_open": True,
                         "session_identity": "claude:current-foreman-seat",
                     }
-                ]
+                ],
             }
         }
     )
 
     assert result.blocking_prompt_open is True
-    assert result.tick_ended_with_blocking_prompt is True
     path = repo / "tmp" / "overseer" / "foreman" / "escalations" / "repo-foreman.json"
     assert json.loads(path.read_text(encoding="utf-8")) == {
         "reason": (
@@ -128,6 +128,70 @@ def test_foreman_runtime_reports_own_open_blocking_prompt_from_snapshot(*, tmp_p
         ),
         "session_identity": "claude:current-foreman-seat",
     }
+
+
+def test_stale_snapshot_open_prompt_writes_no_blocking_prompt_marker(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    runtime = module.ForemanRuntime(repo=repo, now=lambda: 1000.0)
+
+    result = runtime.step(
+        document={
+            "snapshot": {
+                "written_at": "1970-01-01T00:16:39Z",
+                "rows": [
+                    {
+                        "topic": "repo-foreman",
+                        "status": "blocked:human",
+                        "picker_open": True,
+                        "session_identity": "claude:resumed-seat",
+                    }
+                ],
+            }
+        }
+    )
+
+    assert result.blocking_prompt_open is False
+    path = repo / "tmp" / "overseer" / "foreman" / "escalations" / "repo-foreman.json"
+    assert not path.exists()
+
+
+def test_closed_prompt_and_missing_row_write_no_blocking_prompt_marker(*, tmp_path):
+    module = foreman_runtime()
+    closed_repo = make_repo(tmp_path=tmp_path, name="closed")
+    missing_repo = make_repo(tmp_path=tmp_path, name="missing")
+
+    closed = module.ForemanRuntime(repo=closed_repo, now=lambda: 1000.0)
+    closed_result = closed.step(
+        document={
+            "snapshot": {
+                "written_at": "1970-01-01T00:16:40Z",
+                "rows": [
+                    {
+                        "topic": "closed-foreman",
+                        "status": "idle",
+                        "picker_open": False,
+                    }
+                ],
+            }
+        }
+    )
+    missing = module.ForemanRuntime(repo=missing_repo, now=lambda: 1000.0)
+    missing_result = missing.step(
+        document={
+            "snapshot": {
+                "written_at": "1970-01-01T00:16:40Z",
+                "rows": [{"topic": "other", "status": "blocked:human", "picker_open": True}],
+            }
+        }
+    )
+
+    assert closed_result.blocking_prompt_open is False
+    assert missing_result.blocking_prompt_open is False
+    closed_path = closed_repo / "tmp" / "overseer" / "foreman" / "escalations"
+    missing_path = missing_repo / "tmp" / "overseer" / "foreman" / "escalations"
+    assert not closed_path.exists()
+    assert not missing_path.exists()
 
 
 def test_foreman_runtime_escalation_identity_extraction_controls(*, tmp_path):
@@ -195,6 +259,8 @@ def test_foreman_blocking_prompt_renders_distinct_report_only_attention(*, tmp_p
     assert row.picker_open is True
     assert "suppresses scheduled ticks" in (row.note or "")
     assert supervisor.needs_attention(row=row) is True
+    path = repo / "tmp" / "overseer" / "foreman" / "escalations" / "repo-foreman.json"
+    assert not path.exists()
     assert not fake.has(method="paste")
     assert not fake.has(method="keys")
     assert not fake.has(method="respawn")

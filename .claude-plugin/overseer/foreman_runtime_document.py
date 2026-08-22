@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import datetime
 
 import jsonio
 
@@ -84,7 +85,19 @@ def foreman_document(*, payload: dict[str, object]) -> ForemanDocument:
     )
 
 
-def foreman_blocking_prompt_open(*, payload: dict[str, object], foreman_topic: str) -> bool:
+def _timestamp_epoch(*, value: object) -> float | None:
+    if isinstance(value, str):
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    return None
+
+
+def foreman_blocking_prompt_open(
+    *, payload: dict[str, object], foreman_topic: str, tick_started_at: float = 0.0
+) -> bool:
+    snapshot = jsonio.as_object(value=payload.get("snapshot")) or {}
+    written_at = _timestamp_epoch(value=snapshot.get("written_at"))
+    if written_at is None or written_at < tick_started_at:
+        return False
     for row in _snapshot_rows(payload=payload):
         if row.get("topic") == foreman_topic and row.get("picker_open") is True:
             return True
