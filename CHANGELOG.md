@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.37.14](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.13...v1.37.14) (2026-08-22)
+
+
+### Bug Fixes
+
+* extract foreman act consensus records ([242f2ed](https://github.com/thewoolleyman/livespec-overseer/commit/242f2ed7b6425dc557cdd11706ccdf7c807f94a7))
+
 ## [1.37.13](https://github.com/thewoolleyman/livespec-overseer/compare/v1.37.12...v1.37.13) (2026-08-22)
 
 
