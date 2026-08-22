@@ -212,6 +212,16 @@ jobs:
       - name: Checkout
         if: needs.setup.outputs.py_changed == 'true'
         uses: actions/checkout@v4
+        with:
+          # fetch-depth 0: this job runs the pytest suite, and
+          # tests/test_release_please_pyproject_guard.py diffs HEAD against
+          # its PARENT. A depth-1 checkout leaves HEAD parentless, so git
+          # renders pyproject.toml as a whole-file addition and the guard
+          # reports a false clobber on every release commit (overseer-94f4).
+          # Skipping the guard when shallow would instead make it unfirable,
+          # because every job that runs the suite checks out shallow -- so
+          # the depth is the fix, not a depth-awareness skip.
+          fetch-depth: 0
 
       # GitHub-hosted routing keeps the baked `container:` image, so the
       # workspace is checked out as the runner uid (1001) on the host while
@@ -290,6 +300,16 @@ jobs:
       - name: Checkout
         if: needs.setup.outputs.py_changed == 'true'
         uses: actions/checkout@v4
+        with:
+          # fetch-depth 0: this job runs the pytest suite, and
+          # tests/test_release_please_pyproject_guard.py diffs HEAD against
+          # its PARENT. A depth-1 checkout leaves HEAD parentless, so git
+          # renders pyproject.toml as a whole-file addition and the guard
+          # reports a false clobber on every release commit (overseer-94f4).
+          # Skipping the guard when shallow would instead make it unfirable,
+          # because every job that runs the suite checks out shallow -- so
+          # the depth is the fix, not a depth-awareness skip.
+          fetch-depth: 0
 
       - name: Trust workspace for git (hosted container root-vs-checkout uid)
         if: needs.setup.outputs.py_changed == 'true'

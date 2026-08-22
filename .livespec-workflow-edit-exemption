@@ -1,2 +1,5 @@
-work_item=overseer-bnutz7
-reason=Carry the coverage provenance marker in the CI artifact and let both coverage jobs resolve the run id themselves, so check-coverage reuses the producer's data across the job boundary without trusting aggregate-local state, and rename the marker out of coverage's parallel-data namespace.
+# Per-change workflow edit exemption. One exemption, one reviewed change.
+# Consumed by scripts/check-no-workflow-edits.sh, which requires this file to be
+# authored in THIS branch's own diff rather than inherited from master.
+work_item=overseer-94f4
+reason=P0 stop-the-line. The pytest suite runs only in check-python and check-per-file-coverage, and both checked out at the actions/checkout default depth of 1. tests/test_release_please_pyproject_guard.py diffs HEAD against its parent, so a parentless shallow HEAD renders pyproject.toml as a whole-file addition and the guard reports a false clobber on EVERY release commit -- measured 7 of 7 consecutive releases red, which blocks all dispatch in this repo. The fix must be the checkout depth rather than a skip-when-shallow guard, because every job that runs the suite is shallow, so a skip would leave a release-clobber gate that can never fire.
