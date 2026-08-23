@@ -239,7 +239,8 @@ def test_read_only_list_reports_working_without_retiring_a_stale_block(*, tmp_pa
 
     # Teeth: the SAME tick with act=True is the one allowed to retire it.
     with contextlib.redirect_stderr(_io.StringIO()):
-        assert sup.evaluate(track=track, act=True).note is None
+        note = sup.evaluate(track=track, act=True).note
+    assert note is not None and "voided" in note and "waiting on a human" in note
     state = signals.read_state(repo=str(repo), topic=topic)
     assert state is not None and state.token == signals.STATE_BLOCKED_VOIDED
 
