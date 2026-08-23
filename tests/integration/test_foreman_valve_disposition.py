@@ -313,6 +313,13 @@ def test_full_autonomy_true_forces_consensus_majority_and_reports_conflict(*, tm
     assert shipped["conflict"] is True
     assert shipped["delegation_floor_violation"] is False
     assert shipped["warning"] == "full_autonomy_conflicts_with_foreman_valve_disposition"
+    assert shipped["plan_archive_authority"] == {
+        "authority": "session-performable",
+        "permitted": True,
+        "reserved_actor": None,
+        "full_autonomy": True,
+        "full_autonomy_source": str(report_only / ".livespec.jsonc"),
+    }
 
 
 def test_delegation_floor_report_is_on_valve_disposition_surface(*, tmp_path):
