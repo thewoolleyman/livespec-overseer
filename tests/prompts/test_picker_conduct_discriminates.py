@@ -577,6 +577,23 @@ def test_foreman_prose_carries_wait_premise_picker_rule() -> None:
     assert "Nothing here authorizes you to alter, withdraw,\nanswer, or select" in prose
 
 
+def test_foreman_prose_carries_wait_premise_reverification_rule() -> None:
+    """The re-check limb must not be dropped from the shipped foreman contract."""
+    prose = (Path(__file__).resolve().parents[2] / ".claude-plugin/prose/foreman.md").read_text(
+        encoding="utf-8"
+    )
+    inheritance_clause = "assumes responsibility for a raised question inherits"
+    silence_on_pass_clause = "If the re-verification passes, do not announce it"
+
+    assert "you owe the re-verification" in prose
+    assert "against\nits recorded evidence source" in prose
+    assert "by the record's re-check instant" in prose
+    assert inheritance_clause in prose
+    assert "fails, has expired, or cannot be tested" in prose
+    assert silence_on_pass_clause in prose
+    assert "healthy waits do not add a line to the tick report" in prose
+
+
 def test_a_tool_result_record_is_not_a_turn_boundary() -> None:
     """The guard a live transcript leans on hardest.
 

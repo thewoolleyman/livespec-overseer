@@ -243,6 +243,14 @@ question-raising actor; a picker raised by a supervised session's own harness is
 observed, never forbidden. Nothing here authorizes you to alter, withdraw,
 answer, or select an option once it has been raised.
 
+Recording is not enough. When you raise a question whose option identifies a
+wait-premise record, you owe the re-verification: re-check that premise against
+its recorded evidence source by the record's re-check instant. A foreman that
+assumes responsibility for a raised question inherits the same obligation. If
+the premise fails, has expired, or cannot be tested, surface that outcome where
+the question is being tracked. If the re-verification passes, do not announce it;
+healthy waits do not add a line to the tick report.
+
 A HOLD OVER A SEAT IS NOT A HOLD OVER THE DRAIN LOOP. A hold over a human seat
 is carried by being written where that seat reads. A hold described as covering
 an automated selector is carried only by state that selector reads; peer
