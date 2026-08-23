@@ -898,3 +898,64 @@ def test_measure_stage_is_reentrant_and_later_stage_derives_inputs(*, tmp_path: 
     assert _by_key(report=report.conformance, key="plan-rollup").breaching_item_ids == (
         "backlog-b",
     )
+
+
+def grooming_conformance_values() -> ModuleType:
+    assert MODULE_PATH.is_file()
+    if str(OVERSEER_DIR) not in sys.path:
+        _ = sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("grooming_conformance_values")
+
+
+def test_opening_delimiters_are_derived_from_the_template_grammar() -> None:
+    values = grooming_conformance_values()
+    opening = chr(123)
+
+    assert (opening, "%", "#") == values.TEMPLATE_CONSTRUCT_MARKERS
+    assert (
+        tuple(opening + marker for marker in values.TEMPLATE_CONSTRUCT_MARKERS)
+        == values.OPENING_TEMPLATE_DELIMITERS
+    )
+
+
+def test_delimiter_module_explains_why_closing_forms_stay_uncovered() -> None:
+    values = grooming_conformance_values()
+
+    doc = values.item_contains_delimiter.__doc__ or ""
+
+    assert "prose" in doc.lower()
+    assert "closing" in doc.lower()
+
+
+def test_delimiter_check_reports_every_opening_form_and_spares_plain_json(
+    *, tmp_path: Path
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    opening = chr(123)
+    closing = chr(125)
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            _item(item_id="double-opening"),
+            _item(item_id="hash-opening"),
+            _item(item_id="percent-opening"),
+            _item(item_id="closing-pair-only"),
+            _item(item_id="plain-json"),
+        ],
+        item_details_by_id={
+            "double-opening": ["variable starts " + opening + opening],
+            "hash-opening": ["comment starts " + opening + "#"],
+            "percent-opening": ["block starts " + opening + "%"],
+            "closing-pair-only": ["payload ends " + closing + closing],
+            "plain-json": [opening + '"key": "value"' + closing],
+        },
+    )
+
+    delimiter = _by_key(report=report, key="dispatchable-delimiter")
+
+    assert delimiter.breaching_item_ids == (
+        "double-opening",
+        "hash-opening",
+        "percent-opening",
+    )

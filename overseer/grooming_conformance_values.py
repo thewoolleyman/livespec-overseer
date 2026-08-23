@@ -29,10 +29,14 @@ __all__: list[str] = [
 ]
 
 TERMINAL_STATUSES = TERMINAL_WORK_ITEM_STATUSES
-OPENING_TEMPLATE_DELIMITERS = (
-    chr(123) * 2,
-    chr(123) + "%",
-    chr(123) + "#",
+TEMPLATE_OPENING_BRACE = chr(123)
+# The grammar opens every construct with the brace plus one marker: a second
+# brace for an expression, a percent for a statement, a hash for a comment.
+# Deriving the openers from the markers keeps this set a statement about the
+# grammar rather than a log of whichever sequence last broke a dispatch.
+TEMPLATE_CONSTRUCT_MARKERS = (TEMPLATE_OPENING_BRACE, "%", "#")
+OPENING_TEMPLATE_DELIMITERS = tuple(
+    TEMPLATE_OPENING_BRACE + marker for marker in TEMPLATE_CONSTRUCT_MARKERS
 )
 
 
@@ -49,6 +53,15 @@ def item_contains_delimiter(
     item: Mapping[str, object],
     detail_texts: Sequence[str],
 ) -> bool:
+    """Report whether an item carries a template-OPENING delimiter.
+
+    Closing forms are deliberately uncovered. The grammar rejects a closing
+    pair that opens nothing, and a record carrying one dispatches normally,
+    so flagging it would refuse text that is in fact fine.
+
+    No check catches every form. Describing delimiter and JSON shapes in
+    prose is the safer habit than quoting the literals into a record.
+    """
     return any(
         delimiter in text
         for text in item_texts(item=item, details=detail_texts)
