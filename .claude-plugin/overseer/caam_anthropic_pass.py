@@ -17,7 +17,6 @@ from caam_anthropic_status import EnforceModels, write_status
 from caam_decision import ProfileUsage
 from caam_enforcement import enforce_models as default_enforce_models
 from caam_profile_state import (
-    STATE_REL,
     caam_vault,
     load_state,
     poll_profiles,
@@ -25,6 +24,9 @@ from caam_profile_state import (
 )
 from caam_profile_state import (
     save_state as default_save_state,
+)
+from caam_profile_state import (
+    state_path as caam_state_path,
 )
 from caam_profiles import CaamRunner, active_profile
 from caam_switch import switch_account as default_switch_account
@@ -87,7 +89,7 @@ def run_pass(
     run_agent = _run_agent if agent_runner is None else agent_runner
     run_home = Path.home() if home is None else home
     checked_at = time.time() if now is None else now
-    state_path = run_home / STATE_REL
+    state_path = caam_state_path(home=run_home)
     state = load_state(state_path=state_path)
     vault = caam_vault(home=run_home)
     if not profile_names(vault=vault, active_name=None):

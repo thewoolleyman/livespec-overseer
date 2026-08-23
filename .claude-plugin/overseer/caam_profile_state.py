@@ -22,6 +22,7 @@ __all__: list[str] = [
     "poll_profiles",
     "profile_names",
     "save_state",
+    "state_path",
 ]
 
 _TOOL: Final = "claude"
@@ -55,6 +56,10 @@ def caam_vault(*, home: Path) -> Path:
 
 def live_creds_path(*, home: Path) -> Path:
     return home / _LIVE_CREDS_REL
+
+
+def state_path(*, home: Path) -> Path:
+    return home / STATE_REL
 
 
 def cache_max_age_s() -> float:
