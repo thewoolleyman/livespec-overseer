@@ -92,6 +92,27 @@ def observe_liveness_attention(*, request: ObserveRequest) -> LivenessAttention:
     _supervisor_observe.advance_condition(
         episode=request.istate.shell_episode, condition_now=shell_only, now=now
     )
+    if shell_only:
+        durable_shell_since = registry.read_shell_episode(
+            repo=request.track.repo,
+            topic=request.track.topic,
+            stamp_path=request.sup.stamp_path,
+        )
+        if durable_shell_since is None:
+            registry.record_shell_episode(
+                repo=request.track.repo,
+                topic=request.track.topic,
+                since=request.istate.shell_episode.since or now,
+                stamp_path=request.sup.stamp_path,
+            )
+        else:
+            request.istate.shell_episode.since = durable_shell_since
+    else:
+        registry.clear_shell_episode(
+            repo=request.track.repo,
+            topic=request.track.topic,
+            stamp_path=request.sup.stamp_path,
+        )
     starvation_age = (
         now - request.istate.winddown_starved_episode.since
         if request.istate.winddown_starved_episode.since is not None

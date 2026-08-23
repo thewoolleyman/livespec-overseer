@@ -90,6 +90,9 @@ from _registry_stamp_foreman_self_restart import (
 from _registry_stamp_foreman_self_restart import (
     record_foreman_self_restart as record_foreman_self_restart,
 )
+from _registry_stamp_shell import clear_shell_episode as clear_shell_episode
+from _registry_stamp_shell import read_shell_episode as read_shell_episode
+from _registry_stamp_shell import record_shell_episode as record_shell_episode
 from _registry_stamps import add_notified_band as add_notified_band
 from _registry_stamps import clear_injection_stamp as clear_injection_stamp
 from _registry_stamps import clear_picker_stall_episode as clear_picker_stall_episode
@@ -135,6 +138,7 @@ __all__: list[str] = [
     "atomic_write",
     "clear_injection_stamp",
     "clear_picker_stall_episode",
+    "clear_shell_episode",
     "colliding_topics",
     "consume_foreman_self_restart_notice",
     "discover_plans",
@@ -155,6 +159,7 @@ __all__: list[str] = [
     "read_resume_pending",
     "read_round_open_identity",
     "read_round_record",
+    "read_shell_episode",
     "read_valid_mapping",
     "record_derived_epic",
     "record_foreman_self_restart",
@@ -164,6 +169,7 @@ __all__: list[str] = [
     "record_picker_stall_episode",
     "record_post_respawn",
     "record_ready_expiry",
+    "record_shell_episode",
     "remove_mapping",
     "repo_root_present",
     "repo_slug",
