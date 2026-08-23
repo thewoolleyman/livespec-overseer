@@ -23,6 +23,7 @@ _GIT_TIMEOUT_SECONDS = 5.0
 _TERMINAL_STATUSES = frozenset({"failed", "error", "blocked", "canceled", "cancelled"})
 _DELIVERED_STATUSES = frozenset({"succeeded", "success", "merged", "closed", "done"})
 _REMOTE_FACTORIES = frozenset({"hp", "vps", "remote"})
+_LOCAL_FACTORIES = frozenset({"local"})
 
 
 def string_field(*, record: dict[str, object], key: str) -> str | None:
@@ -43,6 +44,17 @@ def remote_record(*, record: dict[str, object]) -> bool:
         or (factory or "").lower() in _REMOTE_FACTORIES
         or "factory=hp" in source
         or "factory=vps" in source
+    )
+
+
+def local_record(*, record: dict[str, object]) -> bool:
+    location = string_field(record=record, key="execution_location")
+    factory = string_field(record=record, key="dispatch_factory")
+    source = string_field(record=record, key="evidence_source") or ""
+    return (
+        location == "local"
+        or (factory or "").lower() in _LOCAL_FACTORIES
+        or source == "fabro ps -a --json"
     )
 
 
@@ -222,10 +234,10 @@ def verify_wait_target_record(
     if cache is not None and cache.checked_at == now:
         return cache
     target_id = string_field(record=record, key="target_id")
-    if target_id is None:
+    if target_id is None or record.get("kind") != "fabro-run":
         return WaitTargetCacheEntry(checked_at=now, status="present", note=None)
-    if remote_record(record=record):
-        status, note = remote_verdict(repo=repo, record=record, target_id=target_id)
-    else:
+    if local_record(record=record) and not remote_record(record=record):
         status, note = local_verdict(repo=repo, target_id=target_id)
+    else:
+        status, note = remote_verdict(repo=repo, record=record, target_id=target_id)
     return WaitTargetCacheEntry(checked_at=now, status=status, note=note)
