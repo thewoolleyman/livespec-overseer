@@ -14,6 +14,7 @@ from _caam_switch_host import caam_activate
 from caam_anthropic_decide import DecisionSeams, SwitchAccount, UsageFetcher, decide
 from caam_anthropic_finish import LineWriter, SaveState, finish
 from caam_anthropic_flags import Flags
+from caam_anthropic_revive import revive_pass_profiles
 from caam_anthropic_status import EnforceModels, write_status
 from caam_decision import ProfileUsage
 from caam_enforcement import enforce_models as default_enforce_models
@@ -170,6 +171,9 @@ def _pass_with_active(
     )
     profiles = _probe_snapshotless_profiles(
         context=context, profiles=profiles, fetcher=seams.fetcher
+    )
+    profiles = revive_pass_profiles(
+        active_name=active_name, context=context, profiles=profiles, seams=seams
     )
     current = next((profile.usage for profile in profiles if profile.name == active_name), None)
     if current is None:
