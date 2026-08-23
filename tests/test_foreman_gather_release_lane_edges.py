@@ -42,6 +42,7 @@ def test_collect_supervisor_handoff_compatibility_wrapper_covers_all_states(
 
 def test_release_lane_config_defaults_and_malformed_supplied_runs(*, tmp_path):
     module = overseer_module(name="foreman_gather_release_lane")
+    returns_pipeline = importlib.import_module("overseer._vendor.returns.pipeline")
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / ".livespec.jsonc").write_text(
@@ -65,6 +66,13 @@ def test_release_lane_config_defaults_and_malformed_supplied_runs(*, tmp_path):
     ) == Path("custom-cache.json")
     assert module.normalized_runs(value={}) is None
     assert module.normalized_runs(value=[17]) is None
+    assert not returns_pipeline.is_successful(
+        module.release_lane_runs(
+            repo=repo,
+            workflow="release-tag.yml",
+            options={"release_lane_runs": {}},
+        )
+    )
 
 
 def test_release_lane_unknown_without_cache_and_unreadable_cache(*, tmp_path, monkeypatch):
@@ -99,20 +107,59 @@ def test_release_lane_unknown_without_cache_and_unreadable_cache(*, tmp_path, mo
     )
 
 
+def test_release_lane_payload_surfaces_failure_with_stale_cache(*, tmp_path):
+    module = overseer_module(name="foreman_gather_release_lane")
+    errors = importlib.import_module("errors")
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    cache_path = tmp_path / "release-lane-watch.json"
+    cache_path.write_text(
+        json.dumps({"measured_at": "2026-08-20T07:00:00Z"}),
+        encoding="utf-8",
+    )
+
+    item, source = module.release_lane_payload(
+        repo=tmp_path,
+        options={
+            "release_lane_enabled": True,
+            "release_lane_fetcher": lambda: returns_io.IOFailure(
+                errors.OverseerSourceError(detail="release_lane could not fetch runs")
+            ),
+            "release_lane_cache_path": cache_path,
+        },
+        measured_at="2026-08-20T08:03:00Z",
+    )
+
+    assert item["kind"] == "release-lane-unknown"
+    assert item["title"].endswith("last successful measurement 2026-08-20T07:00:00Z")
+    assert source["last_successful_measurement_at"] == "2026-08-20T07:00:00Z"
+
+
 def test_release_lane_default_fetcher_is_used_when_no_history_is_supplied(*, tmp_path, monkeypatch):
     module = overseer_module(name="foreman_gather_release_lane")
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    returns_pipeline = importlib.import_module("overseer._vendor.returns.pipeline")
     repo = tmp_path / "repo"
     repo.mkdir()
 
     monkeypatch.setattr(
         module,
         "fetch_release_lane_runs",
-        lambda *, repo, workflow: [{"conclusion": "success", "created_at": workflow}],
+        lambda *, repo, workflow: returns_io.IOSuccess(
+            [{"conclusion": "success", "created_at": workflow}]
+        ),
     )
 
-    assert module.release_lane_runs(repo=repo, workflow="release-tag.yml", options={}) == [
-        {"conclusion": "success", "created_at": "release-tag.yml"}
-    ]
+    result = module.release_lane_runs(repo=repo, workflow="release-tag.yml", options={})
+
+    assert importlib.import_module("overseer._vendor.returns.unsafe").unsafe_perform_io(
+        result.unwrap()
+    ) == [{"conclusion": "success", "created_at": "release-tag.yml"}]
+    fetched = module.release_lane_runs(
+        repo=repo,
+        workflow="release-tag.yml",
+        options={"release_lane_fetcher": lambda: returns_io.IOFailure("nope")},
+    )
+    assert not returns_pipeline.is_successful(fetched)
 
 
 def test_release_lane_source_line_renders_unknown_reason():
@@ -142,6 +189,8 @@ def test_snapshot_supervisor_handoff_unknown_topic(*, tmp_path):
 
 def test_release_lane_source_fetches_workflow_scoped_runs(*, tmp_path, monkeypatch):
     sources = overseer_module(name="foreman_gather_sources")
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    returns_unsafe = importlib.import_module("overseer._vendor.returns.unsafe")
     repo = tmp_path / "repo"
     repo.mkdir()
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
@@ -150,17 +199,21 @@ def test_release_lane_source_fetches_workflow_scoped_runs(*, tmp_path, monkeypat
     def run_json_command(*, command, source_name):
         commands.append(command)
         assert source_name == "release_lane"
-        return {
-            "workflow_runs": [
-                {"conclusion": "success", "created_at": "2026-08-20T08:19:21Z"},
-                {"conclusion": None, "created_at": None},
-                17,
-            ]
-        }
+        return returns_io.IOSuccess(
+            {
+                "workflow_runs": [
+                    {"conclusion": "success", "created_at": "2026-08-20T08:19:21Z"},
+                    {"conclusion": None, "created_at": None},
+                    17,
+                ]
+            }
+        )
 
     monkeypatch.setattr(sources, "run_json_command", run_json_command)
 
-    assert sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml") == [
+    result = sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")
+
+    assert returns_unsafe.unsafe_perform_io(result.unwrap()) == [
         {"conclusion": "success", "created_at": "2026-08-20T08:19:21Z"},
         {"conclusion": "", "created_at": ""},
     ]
@@ -173,8 +226,54 @@ def test_release_lane_source_fetches_workflow_scoped_runs(*, tmp_path, monkeypat
     ]
 
 
+def test_release_lane_source_returns_success_for_empty_lane(*, tmp_path, monkeypatch):
+    sources = overseer_module(name="foreman_gather_sources")
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    returns_pipeline = importlib.import_module("overseer._vendor.returns.pipeline")
+    returns_unsafe = importlib.import_module("overseer._vendor.returns.unsafe")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setattr(
+        sources,
+        "run_json_command",
+        lambda *, command, source_name: returns_io.IOSuccess({"workflow_runs": []}),
+    )
+
+    result = sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")
+
+    assert returns_pipeline.is_successful(result)
+    assert returns_unsafe.unsafe_perform_io(result.unwrap()) == []
+
+
+def test_release_lane_source_returns_failure_for_malformed_fetch(*, tmp_path, monkeypatch):
+    sources = overseer_module(name="foreman_gather_sources")
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    returns_pipeline = importlib.import_module("overseer._vendor.returns.pipeline")
+    returns_unsafe = importlib.import_module("overseer._vendor.returns.unsafe")
+    errors = importlib.import_module("errors")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setattr(
+        sources,
+        "run_json_command",
+        lambda *, command, source_name: returns_io.IOFailure(
+            errors.OverseerSourceError(detail="release_lane produced malformed JSON")
+        ),
+    )
+
+    result = sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")
+
+    assert not returns_pipeline.is_successful(result)
+    error = returns_unsafe.unsafe_perform_io(result.failure())
+    assert error.detail == "release_lane produced malformed JSON"
+
+
 def test_release_lane_source_paginates_until_short_page_or_limit(*, tmp_path, monkeypatch):
     sources = overseer_module(name="foreman_gather_sources")
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    returns_unsafe = importlib.import_module("overseer._vendor.returns.unsafe")
     repo = tmp_path / "repo"
     repo.mkdir()
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
@@ -189,46 +288,60 @@ def test_release_lane_source_paginates_until_short_page_or_limit(*, tmp_path, mo
         del source_name
         endpoint = command[2]
         page = int(endpoint.rsplit("page=", maxsplit=1)[1])
-        return {"workflow_runs": pages[page - 1]}
+        return returns_io.IOSuccess({"workflow_runs": pages[page - 1]})
 
     monkeypatch.setattr(sources, "run_json_command", short_second_page)
 
-    assert len(sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")) == 101
+    short_result = sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")
+    assert len(returns_unsafe.unsafe_perform_io(short_result.unwrap())) == 101
 
     def always_full_page(*, command, source_name):
         del command, source_name
-        return {"workflow_runs": full_page}
+        return returns_io.IOSuccess({"workflow_runs": full_page})
 
     monkeypatch.setattr(sources, "run_json_command", always_full_page)
 
-    assert len(sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")) == 400
+    full_result = sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")
+    assert len(returns_unsafe.unsafe_perform_io(full_result.unwrap())) == 400
 
 
 def test_release_lane_source_fetch_fail_soft_edges(*, tmp_path, monkeypatch):
     sources = overseer_module(name="foreman_gather_sources")
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    returns_pipeline = importlib.import_module("overseer._vendor.returns.pipeline")
     repo = tmp_path / "repo"
     repo.mkdir()
     monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
 
-    assert sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml") is None
+    assert not returns_pipeline.is_successful(
+        sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")
+    )
 
     monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
-    monkeypatch.setattr(sources, "run_json_command", lambda *, command, source_name: None)
-    assert sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml") is None
+    monkeypatch.setattr(
+        sources, "run_json_command", lambda *, command, source_name: returns_io.IOSuccess(None)
+    )
+    assert not returns_pipeline.is_successful(
+        sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")
+    )
 
     monkeypatch.setattr(
         sources,
         "run_json_command",
-        lambda *, command, source_name: {"__skip_reason__": "exit 1"},
+        lambda *, command, source_name: returns_io.IOSuccess({"__skip_reason__": "exit 1"}),
     )
-    assert sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml") is None
+    assert not returns_pipeline.is_successful(
+        sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")
+    )
 
     monkeypatch.setattr(
         sources,
         "run_json_command",
-        lambda *, command, source_name: {"not_runs": []},
+        lambda *, command, source_name: returns_io.IOSuccess({"not_runs": []}),
     )
-    assert sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml") is None
+    assert not returns_pipeline.is_successful(
+        sources.fetch_release_lane_runs(repo=repo, workflow="release-tag.yml")
+    )
 
 
 def test_repo_slug_falls_back_to_git_remote(*, tmp_path, monkeypatch):
