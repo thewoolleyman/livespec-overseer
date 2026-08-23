@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.3...v1.44.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* keep slow otlp export off tick path ([93e0654](https://github.com/thewoolleyman/livespec-overseer/commit/93e06547e5124e2b35366597d5f11b94379429c6))
+
 ## [1.44.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.2...v1.44.3) (2026-08-23)
 
 
