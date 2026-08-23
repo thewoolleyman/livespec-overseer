@@ -656,8 +656,9 @@ only; it does not write that comment and it does not edit `.livespec.jsonc`.
 For an action proposal:
 
 ```bash
-"$PLUGIN_ROOT/bin/foreman-act" --proposal "$proposal_json"
+"$PLUGIN_ROOT/bin/foreman-act" --proposal "$proposal_json_path"
 ```
 
-The LLM may compose and explain the proposal. The executable decides whether it
+The LLM may compose and explain the proposal, then write that JSON object to a
+file and pass the file path to `--proposal`. The executable decides whether it
 is still valid and whether it may mutate.

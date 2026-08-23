@@ -1,19 +1,22 @@
 """Typed ledger mutations for the deterministic foreman actuator."""
+# livespec-lloc-soft-band-owner: overseer-au3pt3.11
 
 from __future__ import annotations
 
+import os
 import re
-import subprocess
 from pathlib import Path
 from typing import Final, Protocol
 
 import jsonio
+from foreman_act_dispatch_result import Runner, command_result
 from foreman_act_types import (
     FOREMAN_EPIC_CREATE,
     WORK_ITEM_COMMENT,
     WORK_ITEM_UPDATE,
     ActionId,
 )
+from foreman_gather_sources import parse_repo_config, string_list
 
 __all__: list[str] = [
     "LedgerMutation",
@@ -25,7 +28,7 @@ LedgerMutationResult = tuple[str, str]
 
 
 class LedgerMutation(Protocol):
-    def __call__(self, *, request: dict[str, object]) -> LedgerMutationResult: ...
+    def __call__(self, *, request: dict[str, object], run: Runner) -> LedgerMutationResult: ...
 
 
 _CONFIG_PREFIX: Final[re.Pattern[str]] = re.compile(
@@ -66,41 +69,54 @@ def ledger_request(
     return "malformed_ledger_mutation", None  # pragma: no cover
 
 
-def ledger_mutation(*, request: dict[str, object]) -> LedgerMutationResult:  # pragma: no cover
+def ledger_mutation(*, request: dict[str, object], run: Runner) -> LedgerMutationResult:
     argv = _command_for(request=request)
-    completed = subprocess.run(  # noqa: S603
-        argv, cwd=str(request["repo"]), check=False, capture_output=True, text=True
-    )
+    repo = Path(str(request["repo"]))
+    cwd = Path.cwd()
+    try:
+        os.chdir(repo)
+        completed = command_result(raw=run(argv=argv))
+    except OSError as exc:
+        raise RuntimeError(_credential_context(repo=repo, reason=str(exc))) from exc
+    finally:
+        os.chdir(cwd)
     if completed.returncode != 0:
         msg = completed.stderr.strip() or f"ledger subprocess exited {completed.returncode}"
-        raise RuntimeError(msg)
+        raise RuntimeError(_credential_context(repo=repo, reason=msg))
     return _subprocess_result(action_id=str(request["action_id"]), stdout=completed.stdout)
 
 
-def _command_for(*, request: dict[str, object]) -> list[str]:  # pragma: no cover
+def _command_for(*, request: dict[str, object]) -> list[str]:
     action_id = str(request["action_id"])
+    repo = Path(str(request["repo"]))
     if action_id == WORK_ITEM_UPDATE:
-        return _update_command(request=request)
+        return _with_credential_wrapper(repo=repo, command=_update_command(request=request))
     if action_id == WORK_ITEM_COMMENT:
-        return [
+        return _with_credential_wrapper(
+            repo=repo,
+            command=[
+                "bd",
+                "comment",
+                str(request["work_item_id"]),
+                str(request["text"]),
+            ],
+        )
+    return _with_credential_wrapper(
+        repo=repo,
+        command=[
             "bd",
-            "comment",
-            str(request["work_item_id"]),
-            str(request["text"]),
-        ]
-    return [
-        "bd",
-        "create",
-        str(request["title"]),
-        "--type",
-        "epic",
-        "--description",
-        str(request["description"]),
-        "--json",
-    ]
+            "create",
+            str(request["title"]),
+            "--type",
+            "epic",
+            "--description",
+            str(request["description"]),
+            "--json",
+        ],
+    )
 
 
-def _update_command(*, request: dict[str, object]) -> list[str]:  # pragma: no cover
+def _update_command(*, request: dict[str, object]) -> list[str]:
     command = ["bd", "update", str(request["work_item_id"])]
     priority = request.get("priority")
     parent = request.get("parent")
@@ -109,6 +125,25 @@ def _update_command(*, request: dict[str, object]) -> list[str]:  # pragma: no c
     if isinstance(parent, str):
         command.extend(["--parent", parent])
     return command
+
+
+def _credential_wrapper(*, repo: Path) -> list[str]:
+    config = parse_repo_config(repo=repo)
+    if config is None:
+        return []
+    wrapper = string_list(value=config.get("credential_wrapper"))
+    return wrapper if wrapper is not None else []
+
+
+def _with_credential_wrapper(*, repo: Path, command: list[str]) -> list[str]:
+    return [*_credential_wrapper(repo=repo), *command]
+
+
+def _credential_context(*, repo: Path, reason: str) -> str:
+    wrapper = _credential_wrapper(repo=repo)
+    if len(wrapper) == 0:
+        return f"credential_wrapper=none:{reason}"
+    return f"credential_wrapper={wrapper[0]}:{reason}"
 
 
 def _subprocess_result(*, action_id: str, stdout: str) -> LedgerMutationResult:  # pragma: no cover
@@ -229,4 +264,4 @@ def _tenant_prefix(*, repo: Path) -> str | None:
     except OSError:
         return "overseer"
     match = _CONFIG_PREFIX.search(text)  # pragma: no cover
-    return match.group(1) if match is not None else None  # pragma: no cover
+    return match.group(1) if match is not None else "overseer"  # pragma: no cover

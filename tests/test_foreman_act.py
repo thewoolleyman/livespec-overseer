@@ -840,7 +840,8 @@ def test_typed_ledger_actions_validate_own_tenant_and_journal_before_mutation(*,
     events: list[str] = []
     requests: list[dict[str, object]] = []
 
-    def mutate_ledger(*, request: dict[str, object]):
+    def mutate_ledger(*, request: dict[str, object], run):
+        _ = run
         events.append("mutate")
         requests.append(request)
         return "overseer-mutated", "updated"
@@ -883,7 +884,8 @@ def test_typed_ledger_comment_and_epic_create_use_the_ledger_mutation_seam(*, tm
     repo.mkdir()
     requests: list[dict[str, object]] = []
 
-    def mutate_ledger(*, request: dict[str, object]):
+    def mutate_ledger(*, request: dict[str, object], run):
+        _ = run
         requests.append(request)
         return "overseer-anchor", "created" if request[
             "action_id"
@@ -957,7 +959,7 @@ def test_typed_ledger_actions_refuse_foreign_ids_and_forbidden_mutations(*, tmp_
             seams=module.ActSeams(
                 gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
                 run=lambda *, argv: 99,
-                ledger_mutation=lambda *, request: calls.append(request) or ("bad", "bad"),
+                ledger_mutation=lambda *, request, run: calls.append(request) or ("bad", "bad"),
                 append_journal=lambda *, repo, record: None,
             ),
         )
@@ -965,6 +967,117 @@ def test_typed_ledger_actions_refuse_foreign_ids_and_forbidden_mutations(*, tmp_
         assert result["reason"] == reason
         assert result["mutated"] is False
     assert calls == []
+
+
+def test_typed_ledger_actions_prefix_bd_with_target_repo_credential_wrapper(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    repo.joinpath(".livespec.jsonc").write_text(
+        json.dumps({"credential_wrapper": ["/configured/wrapper", "--"]}),
+        encoding="utf-8",
+    )
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=work_item_comment_proposal(repo=repo),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: calls.append(argv) or module.CommandResult(returncode=0),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result["outcome"] == "acted"
+    assert result["reason"] == "ledger_updated:comment:commented"
+    assert calls == [
+        [
+            "/configured/wrapper",
+            "--",
+            "bd",
+            "comment",
+            "overseer-child",
+            "Corroborating foreman evidence.",
+        ]
+    ]
+
+
+def test_typed_ledger_actions_leave_bd_bare_without_credential_wrapper(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=work_item_comment_proposal(repo=repo),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: calls.append(argv) or module.CommandResult(returncode=0),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result["outcome"] == "acted"
+    assert calls == [
+        [
+            "bd",
+            "comment",
+            "overseer-child",
+            "Corroborating foreman evidence.",
+        ]
+    ]
+
+
+def test_ledger_access_denied_failure_reason_names_configured_wrapper(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    repo.joinpath(".livespec.jsonc").write_text(
+        json.dumps({"credential_wrapper": ["/configured/wrapper", "--"]}),
+        encoding="utf-8",
+    )
+
+    result = module.act(
+        proposal=work_item_comment_proposal(repo=repo),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: module.CommandResult(
+                returncode=1,
+                stderr="failed to open database: Error 1045 (28000): Access denied",
+            ),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result["outcome"] == "failed"
+    assert result["reason"] == (
+        "ledger_subprocess_failed:credential_wrapper=/configured/wrapper:"
+        "failed to open database: Error 1045 (28000): Access denied"
+    )
+
+
+def test_ledger_access_denied_failure_reason_names_missing_wrapper(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    result = module.act(
+        proposal=work_item_comment_proposal(repo=repo),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: module.CommandResult(
+                returncode=1,
+                stderr="failed to open database: Error 1045 (28000): Access denied",
+            ),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result["outcome"] == "failed"
+    assert result["reason"] == (
+        "ledger_subprocess_failed:credential_wrapper=none:"
+        "failed to open database: Error 1045 (28000): Access denied"
+    )
 
 
 def test_typed_work_item_filing_uses_intake_seam_and_journals_result(*, tmp_path):

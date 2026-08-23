@@ -84,10 +84,12 @@ class Gatherer(Protocol):
 
 def run_command(*, argv: list[str]) -> CommandResult:
     completed = subprocess.run(  # noqa: S603  # pragma: no cover
-        argv, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
+        argv, check=False, capture_output=True, text=True
     )
     return CommandResult(
-        returncode=int(completed.returncode), stderr=completed.stderr
+        returncode=int(completed.returncode),
+        stderr=completed.stderr,
+        stdout=completed.stdout,
     )  # pragma: no cover
 
 
