@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.51.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.4...v1.51.5) (2026-08-23)
+
+
+### Bug Fixes
+
+* distinguish unanimous needs-human panel summaries ([b76c6cc](https://github.com/thewoolleyman/livespec-overseer/commit/b76c6cce9b3e6c2ae04749653692d2a386bab676))
+* reject unenumerated typed rulings ([d44f8e1](https://github.com/thewoolleyman/livespec-overseer/commit/d44f8e1d28d89517fafbe4c04125a1a74681b137))
+
 ## [1.51.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.3...v1.51.4) (2026-08-23)
 
 
