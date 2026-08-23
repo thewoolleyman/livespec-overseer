@@ -10,6 +10,7 @@ from typing import Protocol
 
 import registry
 from _claude_sessions_registry import ClaudeSession
+from _signals_topics import foreman_topic
 
 __all__: list[str] = ["EntryGateResult", "canonical_session_name", "entry_gate"]
 
@@ -26,7 +27,7 @@ class EntryGateResult:
 
 
 def canonical_session_name(*, repo: str | os.PathLike[str]) -> str:
-    return f"{registry.repo_slug(repo=repo)}-foreman"
+    return foreman_topic(repo_slug=registry.repo_slug(repo=repo))
 
 
 def _repo_key(*, repo: str | os.PathLike[str]) -> str:

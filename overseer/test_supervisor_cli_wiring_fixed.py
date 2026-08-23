@@ -17,6 +17,7 @@ import pytest
 import registry
 import signals
 import supervisor
+from _signals_topics import foreman_topic, supervisor_entity_topic
 from test_supervisor_builders import (
     arm_ready_marker,
     declare,
@@ -63,12 +64,13 @@ def test_run_daemon_threads_warn_percent_into_the_supervisor(*, monkeypatch):
 def test_assignment_track_refuses_supervisor_seat_without_resolved_epic(*, tmp_path, monkeypatch):
     repo, topic = make_plan(tmp_path=tmp_path)
     monkeypatch.setattr(registry, "epic_from_plan_anchor", lambda *, repo, topic: None)
+    supervisor_topic = supervisor_entity_topic(topic=topic)
 
     with pytest.raises(ValueError, match="supervisor seat requires epic"):
         _supervisor_assignment.assignment_track(
             repo=str(repo),
-            topic=f"{topic}-supervisor",
-            session=f"{topic}-supervisor",
+            topic=supervisor_topic,
+            session=supervisor_topic,
             epic_source_topic=topic,
         )
 
@@ -76,12 +78,13 @@ def test_assignment_track_refuses_supervisor_seat_without_resolved_epic(*, tmp_p
 def test_assignment_track_refuses_foreman_seat_without_resolved_epic(*, tmp_path, monkeypatch):
     repo, _topic = make_plan(tmp_path=tmp_path)
     monkeypatch.setattr(registry, "epic_from_plan_anchor", lambda *, repo, topic: None)
+    topic = foreman_topic(repo_slug=repo.name)
 
     with pytest.raises(ValueError, match="foreman seat requires epic"):
         _supervisor_assignment.assignment_track(
             repo=str(repo),
-            topic=f"{repo.name}-foreman",
-            session=f"{repo.name}-foreman",
+            topic=topic,
+            session=topic,
         )
 
 

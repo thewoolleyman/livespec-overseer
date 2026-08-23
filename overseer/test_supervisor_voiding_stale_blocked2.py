@@ -15,6 +15,7 @@ import codex_sessions
 import pytest
 import registry
 import supervisor
+from _signals_topics import supervisor_entity_topic
 from test_supervisor_builders import (
     codex_idle_capture,
     idle_capture,
@@ -60,7 +61,7 @@ def test_supervisor_session_without_a_pane_is_not_running(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    supervisor_session = f"{session}-supervisor"
+    supervisor_session = supervisor_entity_topic(topic=session)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73))
@@ -77,15 +78,15 @@ def test_codex_supervisor_process_counts_as_running(*, tmp_path):
     agree on the supervisor tmux session and repository."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    supervisor_session = f"{session}-supervisor"
+    supervisor_session = supervisor_entity_topic(topic=session)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.serve(session=supervisor_session, repo=repo, capture=codex_idle_capture(ctx=73), cmd="bun")
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     sup.live_codex = {
-        (supervisor_session, f"{topic}-supervisor"): codex_sessions.CodexSession(
+        (supervisor_session, supervisor_entity_topic(topic=topic)): codex_sessions.CodexSession(
             pid=123,
-            name=f"{topic}-supervisor",
+            name=supervisor_entity_topic(topic=topic),
             cwd=str(repo),
             session_id="00000000-0000-0000-0000-000000000000",
         )
