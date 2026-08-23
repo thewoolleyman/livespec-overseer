@@ -6,15 +6,16 @@ from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from pathlib import Path
 
+from grooming_conformance_claims import held_claim_surface_check
 from grooming_conformance_external import (
     cross_repo_dependency_check,
     routing_field_pending,
     split_acceptance_label_pending,
 )
+from grooming_conformance_plan_anchors import plan_anchor_metadata_check
 from grooming_conformance_types import GroomingConformanceReport, InvariantCheck
 from grooming_conformance_values import (
     TERMINAL_STATUSES,
-    assignee,
     has_parent,
     is_open,
     item_contains_delimiter,
@@ -77,6 +78,7 @@ def evaluate_ledger_invariants(
                 items=items,
                 sibling_item_ids_by_repo=sibling_item_ids_by_repo,
             ),
+            plan_anchor_metadata_check(repo=repo_path, items=items),
             routing_field_pending(),
         ),
     )
@@ -188,36 +190,4 @@ def dispatchable_delimiter_scope(
     return (
         "dispatchable rows, native fields only; detail text not supplied, "
         "so comments and notes outside the bulk rows were not scanned"
-    )
-
-
-def held_claim_surface_check(*, items: Sequence[Mapping[str, object]]) -> InvariantCheck:
-    assigned_items = tuple(item for item in items if assignee(item=item) is not None)
-    terminal_count = sum(1 for item in assigned_items if not is_open(item=item))
-    held_count = len(assigned_items) - terminal_count
-    return InvariantCheck(
-        key="held-claim-surface",
-        title="Assignee scans are status-first",
-        status="structurally-guaranteed",
-        breaching_item_ids=(),
-        scanned_item_count=held_count,
-        scope=held_claim_surface_scope(
-            held_count=held_count,
-            terminal_count=terminal_count,
-        ),
-        reason=(
-            "chosen route (b): terminal assignees are kept as provenance; only "
-            "non-terminal assigned rows are held-claim candidates"
-        ),
-    )
-
-
-def held_claim_surface_scope(*, held_count: int, terminal_count: int) -> str:
-    held_row_word = "row" if held_count == 1 else "rows"
-    terminal_row_word = "row" if terminal_count == 1 else "rows"
-    terminal_be = "is" if terminal_count == 1 else "are"
-    return (
-        f"{held_count} non-terminal assigned {held_row_word} are held-claim candidates; "
-        f"{terminal_count} terminal assigned {terminal_row_word} {terminal_be} provenance, "
-        "not a held claim"
     )

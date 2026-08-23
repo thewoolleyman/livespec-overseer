@@ -246,6 +246,7 @@ check:
         check-doctor-static
         check-plugin-manifest-lockstep
         check-full-autonomy-config-conformance
+        check-plan-anchor-metadata
         # Repo-local Codex plugin runnable-artifact gate (overseer-g6z):
         # the materialized plugin root must contain executable launchers
         # plus the importable runtime package they need.
@@ -798,6 +799,9 @@ check-spec-governance-default-block:
 
 check-full-autonomy-config-conformance:
     uv run python scripts/check-full-autonomy-config-conformance.py
+
+check-plan-anchor-metadata:
+    uv run python scripts/check-plan-anchor-metadata.py
 
 # overseer-57f2 half (i): factory-authored commits (noreply@fabro.sh) must
 # never touch SPECIFICATION/ — no escape hatch (maintainer-ratified

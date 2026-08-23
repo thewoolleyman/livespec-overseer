@@ -226,6 +226,13 @@ what is deferred, why it is not in this thread, and where it will be reconsidere
 Then append an opening handoff with exactly one next action, the factory route, and
 a read-first chain.
 
+Tag the new anchor epic with metadata `plan_slug` equal to the plan directory
+name. That exact key is the lookup contract: `_registry_epic.epic_from_plan_anchor`
+uses it to resolve a track or seat's epic, `grooming_plan_budget` uses it to
+classify plan epics and live thread slugs, and `plan_epic_parity` uses it as the
+ledger-held plan-anchor invariant. A new thread whose epic lacks this metadata is
+silently undiscoverable from its directory name.
+
 Assign membership by parent-child edge. Never use a dependency edge for thread
 membership. A dependency edge participates in dispatch eligibility and can make
 the child permanently undispatchable.

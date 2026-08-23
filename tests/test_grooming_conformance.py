@@ -141,6 +141,18 @@ def _real_grooming_seat_anchor() -> dict[str, object]:
     }
 
 
+def _plan_anchor(*, item_id: str, slug: str, status: str = "backlog") -> dict[str, object]:
+    return {
+        "id": item_id,
+        "status": status,
+        "issue_type": "epic",
+        "title": f"Plan anchor for {slug}",
+        "metadata": {"plan_slug": slug},
+        "labels": [],
+        "dependencies": [],
+    }
+
+
 def _by_key(*, report: ReportView, key: str) -> InvariantView:
     return {result.key: result for result in report.invariants}[key]
 
@@ -211,6 +223,60 @@ def test_row_measured_invariants_stay_checked_and_surface_real_breaches(
         check = _by_key(report=report, key=key)
         assert check.status == "checked"
         assert check.breaching_item_ids == breaching_item_ids
+
+
+def test_plan_anchor_metadata_check_discriminates_missing_and_duplicate_anchors(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    (repo / "plan" / "missing").mkdir()
+    (repo / "plan" / "duplicate").mkdir()
+    (repo / "plan" / "tagged").mkdir()
+
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[
+            _plan_anchor(item_id="duplicate-1", slug="duplicate"),
+            _plan_anchor(item_id="duplicate-2", slug="duplicate"),
+            _plan_anchor(item_id="tagged-anchor", slug="tagged"),
+            _plan_anchor(item_id="closed-ignored", slug="missing", status="closed"),
+        ],
+    )
+
+    check = _by_key(report=report, key="plan-anchor-metadata")
+
+    assert check.status == "checked"
+    assert check.scanned_item_count == 4
+    assert check.breaching_item_ids == (
+        "duplicate-1",
+        "duplicate-2",
+        "plan/existing",
+        "plan/missing",
+    )
+    assert "exactly one same-tenant epic" in check.reason
+    assert "livespec-dev-tooling-aqmr" in check.reason
+
+
+def test_plan_anchor_metadata_check_passes_correctly_tagged_plan_directory(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    (repo / "plan" / "tagged").mkdir()
+
+    report = module.evaluate_ledger_invariants(
+        repo=repo,
+        work_items=[_plan_anchor(item_id="tagged-anchor", slug="tagged")],
+    )
+
+    check = _by_key(report=report, key="plan-anchor-metadata")
+
+    assert check.status == "checked"
+    assert check.scanned_item_count == 2
+    assert check.breaching_item_ids == ("plan/existing",)
 
 
 def test_held_claim_surface_reports_scope_without_a_breach_branch(
