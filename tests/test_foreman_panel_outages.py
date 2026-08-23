@@ -629,7 +629,8 @@ def test_convening_pins_reviewer_identity_over_self_reported_body(*, tmp_path: P
     written = json.loads(verdict_path.read_text(encoding="utf-8"))
 
     assert result["outcome"] == "unanimous"
-    assert result["decision_kind"] == "substantive_non_decision"
+    assert "decision_kind" not in result
+    assert "decision_kind" not in written
     assert [reviewer["reviewer_id"] for reviewer in written["reviewers"]] == [
         "fable",
         "opus",
@@ -995,6 +996,57 @@ def test_disagreement_remains_substantive_non_decision(*, tmp_path: Path):
     assert result["outcome"] == "escalate"
     assert result["reason"] == "typed_action_disagreement"
     assert result["decision_kind"] == "substantive_non_decision"
+
+
+def test_deciding_blocked_session_answer_panel_omits_non_decision_kind(*, tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    reviewer = tmp_path / "reviewer.py"
+    verdict_path = tmp_path / "verdict.json"
+    write_script(
+        path=reviewer,
+        body="""
+        import argparse
+        import json
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--reviewer-id", required=True)
+        parser.add_argument("--vendor", required=True)
+        parser.add_argument("--model", required=True)
+        parser.add_argument("--prompt-file", required=True)
+        _ = parser.parse_args()
+        print(
+            json.dumps(
+                {
+                    "reviewer_id": "ignored-self-report",
+                    "verdict": "unblock",
+                    "action": {
+                        "action_id": "blocked_session_answer",
+                        "params": {"answer": "2"},
+                    },
+                    "rationale": "Option 2 is the bounded authorized answer.",
+                }
+            )
+        )
+        """,
+    )
+
+    result = foreman_panel.convene_panel(
+        request=request(repo=repo),
+        state_dir=tmp_path / "state",
+        verdict_path=verdict_path,
+        reviewer_command=[sys.executable, str(reviewer)],
+    )
+    written = json.loads(verdict_path.read_text(encoding="utf-8"))
+
+    assert result["outcome"] == "unanimous"
+    assert result["reason"] == "three_typed_actions_equal"
+    assert result["action"] == {
+        "action_id": "blocked_session_answer",
+        "params": {"answer": "2"},
+    }
+    assert "decision_kind" not in result
+    assert "decision_kind" not in written
 
 
 def test_hint_guard_offsets_telegraphed_outcomes_but_allows_neutral_machinery():

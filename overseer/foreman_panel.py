@@ -28,6 +28,7 @@ __all__: list[str] = [
 ]
 
 DEFAULT_REVIEWER_TIMEOUT_SECONDS: Final[float] = 600.0
+DECIDED_OUTCOMES: Final[frozenset[str]] = frozenset({"majority", "unanimous"})
 
 default_reviewer_command = foreman_panel_reviewers.default_reviewer_command
 reviewer_argv = foreman_panel_reviewers.reviewer_argv
@@ -58,6 +59,10 @@ def reviewer_dossier_artifact_empty(*, dossier_dir: Path) -> bool:
     if not prompt_paths:
         return True
     return any(prompt_file_dossier_empty(prompt_path=prompt_path) for prompt_path in prompt_paths)
+
+
+def panel_reached_decision(*, verdict: dict[str, object]) -> bool:
+    return verdict.get("outcome") in DECIDED_OUTCOMES
 
 
 def convene_panel(
@@ -95,13 +100,16 @@ def convene_panel(
     response_reviewers = jsonio.as_list(value=responses.get("reviewers")) or []
     verdict_reviewers = jsonio.as_list(value=verdict.get("reviewers")) or []
     reviewers = verdict_reviewers if verdict.get("cache") == "hit" else response_reviewers
-    verdict["decision_kind"] = result_decision_kind(
-        reviewers=[reviewer for reviewer in reviewers if isinstance(reviewer, dict)],
-        verdict_reason=str_field(payload=verdict, key="reason"),
-        missing_request_fields=missing_request_fields(request=request),
-        reviewer_dossier_missing_fields=reviewer_dossier_missing_fields(request=request),
-        reviewer_dossier_artifact_empty=reviewer_dossier_artifact_empty(dossier_dir=panel_dir),
-    )
+    if panel_reached_decision(verdict=verdict):
+        _ = verdict.pop("decision_kind", None)
+    else:
+        verdict["decision_kind"] = result_decision_kind(
+            reviewers=[reviewer for reviewer in reviewers if isinstance(reviewer, dict)],
+            verdict_reason=str_field(payload=verdict, key="reason"),
+            missing_request_fields=missing_request_fields(request=request),
+            reviewer_dossier_missing_fields=reviewer_dossier_missing_fields(request=request),
+            reviewer_dossier_artifact_empty=reviewer_dossier_artifact_empty(dossier_dir=panel_dir),
+        )
     _ = write_json(path=panel_dir / "verdict.json", payload=verdict)
     _ = write_json(path=verdict_path, payload=verdict)
     return {
