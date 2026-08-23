@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from pathlib import Path
+from subprocess import CompletedProcess
 
 import _supervisor_wait_target as wait_target
+import _supervisor_wait_target_sources as sources
 import registry
 from _supervisor_records import InjectState, Observation
 from test_supervisor_builders import (
@@ -94,6 +96,20 @@ def write_journal(*, repo: Path, records: list[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     _ = path.write_text(
         "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
+        encoding="utf-8",
+    )
+
+
+def write_factory_config(*, repo: Path) -> None:
+    _ = (repo / ".livespec.jsonc").write_text(
+        json.dumps(
+            {
+                "livespec-orchestrator-beads-fabro": {
+                    "dispatcher": {"factories": {"hp": {"server": "https://factory.example"}}}
+                }
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -211,9 +227,15 @@ def test_wait_target_missing_does_not_relay_to_non_idle_pane(*, tmp_path):
     assert not list((repo / "tmp" / "overseer" / topic).glob("wait-target-missing-*.json"))
 
 
-def test_wait_target_missing_relay_records_remote_journal_requery(*, tmp_path):
+def test_wait_target_missing_relay_records_remote_journal_requery(*, tmp_path, monkeypatch):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
     sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    write_factory_config(repo=repo)
+    monkeypatch.setattr(
+        sources.subprocess,
+        "run",
+        lambda *args, **kwargs: CompletedProcess(args=args, returncode=0, stdout='{"runs": []}'),
+    )
     write_premise(
         repo=repo,
         topic=topic,
