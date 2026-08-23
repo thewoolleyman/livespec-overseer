@@ -937,7 +937,7 @@
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A human-waiting track on a stalled picker is published under a promoted status",
     "test": "tests.integration.test_picker_stall_charter_reminder.test_scenario_stalled_picker_publishes_promoted_status_with_human_wait_evidence",
-    "reason": "Pins the evaluated-versus-published status split and the inference it forbids -- the exact defect that made overseer-v7io a P1, where a consumer keyed on the blocked:human literal refused a valid gated answer on every promoted row. This integration-tier scenario drives a real daemon tick to the status snapshot, pins the actual published status literal `picker-stalled`, and asserts both consumer legs: blocked:human-only selection does not observe the row while picker_open selection does."
+    "reason": "Owned by overseer-tdfe.14. Pins the evaluated-versus-published status split and the inference it forbids -- the exact defect that made overseer-v7io a P1, where a consumer keyed on the blocked:human literal refused a valid gated answer on every promoted row. This integration-tier scenario drives a real daemon tick to the status snapshot, pins the actual published status literal `picker-stalled`, and asserts both consumer legs: blocked:human-only selection does not observe the row while picker_open selection does."
   },
   {
     "spec_root": "SPECIFICATION",

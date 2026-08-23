@@ -100,6 +100,7 @@ class InjectState:
     stall_watch_capture_since: float | None = None
     stall_watch_due_observations: int = 0
     wait_target_cache: dict[str, WaitTargetCacheEntry] = field(default_factory=dict)
+    wait_target_relayed_keys: set[str] = field(default_factory=set)
 
 
 @dataclass(frozen=True, kw_only=True)
