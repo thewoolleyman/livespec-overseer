@@ -28,6 +28,12 @@ import _supervisor_runtime_rollback  # noqa: E402
 import _supervisor_snapshot  # noqa: E402
 import registry  # noqa: E402
 
+_AMBIENT_OTEL_ENV = (
+    "HONEYCOMB_INGEST_KEY_LIVESPEC",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_SERVICE_NAME",
+)
+
 # Captured at IMPORT time, before any fixture or helper can redirect them. A test
 # that isolates itself repoints these module globals at a tmp path; the guard must
 # still know which paths are the operator's REAL ones.
@@ -53,6 +59,12 @@ _WRITE_BINDING_SITES = (
     _registry_stamps,
     registry,
 )
+
+
+@pytest.fixture(autouse=True)
+def _clear_ambient_otel_export_config(*, monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in _AMBIENT_OTEL_ENV:
+        monkeypatch.delenv(name, raising=False)
 
 
 @dataclass(frozen=True, kw_only=True)

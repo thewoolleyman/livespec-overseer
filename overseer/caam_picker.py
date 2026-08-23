@@ -10,6 +10,7 @@ import tmuxio
 
 __all__: list[str] = [
     "PickerRow",
+    "PickerTmux",
     "drive_model_picker",
     "highlighted_row_number",
     "pane_is_idle",
@@ -43,7 +44,7 @@ class PickerTmux(Protocol):
 
 
 class Sleep(Protocol):
-    def __call__(self, seconds: float) -> None: ...
+    def __call__(self, seconds: float, /) -> None: ...
 
 
 def real_picker_tmux() -> tmuxio.TmuxIO:
@@ -80,8 +81,10 @@ def row_for_model(*, rows: tuple[PickerRow, ...], want: str) -> PickerRow | None
     return label_match if label_match is not None else anywhere_match
 
 
-def drive_model_picker(*, tmux: PickerTmux, session: str, want: str, sleep: Sleep) -> None:
-    if not pane_is_idle(screen=tmux.capture_pane(session=session)):
+def drive_model_picker(
+    *, tmux: PickerTmux, session: str, want: str, sleep: Sleep, check_idle: bool = True
+) -> None:
+    if check_idle and not pane_is_idle(screen=tmux.capture_pane(session=session)):
         return
 
     _ = tmux.send_literal_keys(session=session, text="/model")

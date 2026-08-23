@@ -7,13 +7,14 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Protocol
+from typing import Final, Protocol, cast
 
 import claude_sessions
 import jsonio
 from _seams import PidToIntList, PidToOptionalBytes
 
 __all__: list[str] = [
+    "PaneCapture",
     "SessionModel",
     "descendant_pids",
     "discover_session_models",
@@ -36,11 +37,19 @@ _MODEL_PREFIXES: Final = {
 
 
 class PanePid(Protocol):
-    def __call__(self, *, session: str) -> int: ...
+    def __call__(self, *, session: str) -> int | None: ...
 
 
 class PaneCapture(Protocol):
     def __call__(self, *, session: str) -> str: ...
+
+
+class PaneModelReader(Protocol):
+    def __call__(self, *, home: Path, session_id: str) -> str | None: ...
+
+
+class PaneIdle(Protocol):
+    def __call__(self, *, session: str) -> bool: ...
 
 
 class ModelSetter(Protocol):
@@ -79,12 +88,16 @@ def discover_session_models(
     pane_pid: PanePid,
     children_of: PidToIntList = claude_sessions.proc_children,
     environ_of: PidToOptionalBytes = claude_sessions.proc_environ,
-    capture_pane: PaneCapture | None = None,
+    **discovery_options: object,
 ) -> tuple[SessionModel, ...]:
-    del capture_pane
+    _ = discovery_options.get("capture_pane")
+    model_reader = _pane_model_option(options=discovery_options)
+    read_model = pane_model if model_reader is None else model_reader
     panes: list[SessionModel] = []
     for session in session_names:
         pid = pane_pid(session=session)
+        if pid is None:
+            continue
         session_id = _session_id_from_tree(
             root=pid,
             children_of=children_of,
@@ -96,7 +109,7 @@ def discover_session_models(
             SessionModel(
                 session=session,
                 session_id=session_id,
-                model=pane_model(home=home, session_id=session_id),
+                model=read_model(home=home, session_id=session_id),
             )
         )
     return tuple(panes)
@@ -124,17 +137,27 @@ def enforce_session_models(
     want: str,
     now: float | None = None,
     set_model: ModelSetter,
+    **model_options: object,
 ) -> list[str]:
     checked_at = time.time() if now is None else now
+    pane_idle = _pane_idle_option(options=model_options)
+    dry_run = _bool_option(options=model_options, key="dry_run")
     messages: list[str] = []
     for pane in panes:
         if pane.model == want or recently_set(
             state=state, session=pane.session, want=want, now=checked_at
         ):
             continue
+        model = pane.model or "unknown"
+        if pane_idle is not None and not pane_idle(session=pane.session):
+            messages.append(f"{pane.session} busy({model}->{want})")
+            continue
+        if dry_run:
+            messages.append(f"{pane.session} would {model}->{want}")
+            continue
         set_model(session=pane.session, model=want)
         _record_model_set(state=state, session=pane.session, want=want, now=checked_at)
-        messages.append(f"model: {pane.session} -> {want}")
+        messages.append(f"{pane.session} {model}->{want}")
     return messages
 
 
@@ -206,3 +229,18 @@ def _record_model_set(*, state: dict[str, object], session: str, want: str, now:
     models = jsonio.as_object(value=state.get("models")) or {}
     state["models"] = models
     models[session] = {"want": want, "at": now}
+
+
+def _pane_idle_option(*, options: dict[str, object]) -> PaneIdle | None:
+    value = options.get("pane_idle")
+    return cast(PaneIdle, value) if callable(value) else None
+
+
+def _pane_model_option(*, options: dict[str, object]) -> PaneModelReader | None:
+    value = options.get("model_reader")
+    return cast(PaneModelReader, value) if callable(value) else None
+
+
+def _bool_option(*, options: dict[str, object], key: str) -> bool:
+    value = options.get(key)
+    return value if isinstance(value, bool) else False
