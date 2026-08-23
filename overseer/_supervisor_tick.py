@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_attention
 import _supervisor_discovery
 import _supervisor_dispatch_quiet
 import _supervisor_foreman
@@ -69,13 +70,16 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
     dispatch_quiet = _supervisor_dispatch_quiet.apply_dispatch_quiet_with_waiters(rows=views)
     if dispatch_quiet is not None:
         views.append(dispatch_quiet)
-    sup.render(rows=views)
+    surface_attention = _supervisor_attention.render_surface_attention(sup=sup, act=act)
+    _supervisor_render.render_table(sup=sup, rows=views, surface_attention=surface_attention)
     if act:
-        _finish_acting_tick(sup=sup, views=views)
+        _finish_acting_tick(sup=sup, views=views, surface_attention=surface_attention is not None)
     return views
 
 
-def _finish_acting_tick(*, sup: Supervisor, views: list[RowView]) -> None:
+def _finish_acting_tick(
+    *, sup: Supervisor, views: list[RowView], surface_attention: bool = False
+) -> None:
     """The DAEMON-only tail of an acting tick: badge, stamp, snapshot, then self-replace.
 
     Split out of :func:`run_tick` so that function stays inside the statement soft
@@ -84,9 +88,11 @@ def _finish_acting_tick(*, sup: Supervisor, views: list[RowView]) -> None:
     side effect of printing a table. Re-exec stays LAST so the process image is only
     replaced after this tick's snapshot has been published.
     """
-    _supervisor_render.refresh_window_name(
-        sup=sup, attention=sum(1 for view in views if needs_attention(row=view))
-    )
+    attention = sum(1 for view in views if needs_attention(row=view))
+    if surface_attention:
+        _supervisor_render.refresh_window_name(sup=sup, attention=attention, surface_attention=True)
+    else:
+        _supervisor_render.refresh_window_name(sup=sup, attention=attention)
     sup.tick_generation += 1
     try:
         sup.status_snapshot_writer(sup=sup, rows=views)

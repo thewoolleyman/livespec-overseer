@@ -29,6 +29,11 @@ from _supervisor_consensus_overdue import (
     ConsensusOverdueRequest,
     consensus_overdue_decision,
 )
+from _supervisor_surface_attention import (
+    SURFACE_HEADLESS_STATUS,
+    SurfaceAttention,
+    render_surface_attention,
+)
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -36,6 +41,7 @@ if TYPE_CHECKING:
 __all__: list[str] = [
     "CONSENSUS_OVERDUE_STATUS",
     "CONSENSUS_TOOLING_OUTAGE_STATUS",
+    "SURFACE_HEADLESS_STATUS",
     "AttentionDecision",
     "AttentionRequest",
     "ConsensusOverdueRequest",
@@ -44,11 +50,13 @@ __all__: list[str] = [
     "ObserveRequest",
     "ShellAlertRequest",
     "StarvationAlertRequest",
+    "SurfaceAttention",
     "blocked_starvation_decision",
     "consensus_overdue_decision",
     "escalation_exhausted_note",
     "observe_liveness_attention",
     "pre_busy_attention_decision",
+    "render_surface_attention",
     "shell_evidence_note",
     "starvation_evidence_note",
     "surface_escalation_exhausted_alert",
