@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.51.13](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.12...v1.51.13) (2026-08-23)
+
+
+### Bug Fixes
+
+* bound resume retry keystrokes ([4c4e288](https://github.com/thewoolleyman/livespec-overseer/commit/4c4e2883089808313ef1217fb546bdea0f77b730))
+* restore exact resume retry identity gate ([c1e7758](https://github.com/thewoolleyman/livespec-overseer/commit/c1e77588dd1cc8dc88b0b13dac499cff55771870))
+* scope resume retry attempt counter to its pending entry ([e1fcd10](https://github.com/thewoolleyman/livespec-overseer/commit/e1fcd1048a3ba42701172afe016fdcbd1382f4f3))
+
 ## [1.51.12](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.11...v1.51.12) (2026-08-23)
 
 
