@@ -56,6 +56,10 @@ def test_console_script_registers_the_caam_operation():
         (["--foreman-model= FABLE "], {"foreman_model": "fable"}),
         (["--foreman-model", " Opus "], {"foreman_model": "opus"}),
         (["--foreman-model= AUTO "], {"foreman_model": "auto"}),
+        (
+            ["--session-model= alpha-foreman = FABLE ", "--session-model", "beta= Opus "],
+            {"session_models": (("alpha-foreman", "fable"), ("beta", "opus"))},
+        ),
     ],
 )
 def test_flags_use_prefix_matching_lowercasing_and_absent_none(*, argv, expected):
@@ -67,6 +71,8 @@ def test_flags_use_prefix_matching_lowercasing_and_absent_none(*, argv, expected
         assert getattr(parsed, key) == value
     if "foreman_model" not in expected:
         assert parsed.foreman_model is None
+    if "session_models" not in expected:
+        assert parsed.session_models == ()
 
 
 def test_unexpected_exception_reports_fail_type_without_traceback():

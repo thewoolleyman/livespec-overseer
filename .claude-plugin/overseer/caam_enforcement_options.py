@@ -13,6 +13,8 @@ from caam_picker import Sleep, drive_model_picker, pane_is_idle
 from caam_profile_state import load_state
 from caam_sessions import ModelSetter, PaneIdle, PaneModelReader, PanePid
 
+_SESSION_MODEL_PARTS = 2
+
 __all__: list[str] = [
     "EnforcementTmux",
     "ModelContext",
@@ -49,6 +51,7 @@ class ModelContext:
     want_model: str | None
     active_fable: float | None
     foreman_model: str | None
+    session_models: tuple[tuple[str, str], ...]
     orchestrated: bool
     pane_pid: PanePid
     children_of: PidToIntList
@@ -86,12 +89,13 @@ def model_context(
         want_model=want_model,
         active_fable=_active_fable_option(options=options),
         foreman_model=_string_option(options=options, key="foreman_model"),
+        session_models=_session_models_setting(options=options),
         orchestrated=orchestrated,
         pane_pid=_pane_pid_option(options=options) or tmux.pane_pid,
         children_of=_children_option(options=options) or proc_children,
         environ_of=_environ_option(options=options) or proc_environ,
         model_reader=_pane_model_option(options=options),
-        state=_state_option(options=options) or load_state(state_path=state_path),
+        state=_loaded_state(options=options, state_path=state_path),
         run=ModelRun(
             now=_float_option(options=options, key="now"),
             set_model=set_model,
@@ -138,12 +142,35 @@ def _state_option(*, options: dict[str, object]) -> dict[str, object] | None:
     return cast(dict[str, object], value) if isinstance(value, dict) else None
 
 
+def _loaded_state(*, options: dict[str, object], state_path: Path) -> dict[str, object]:
+    state = _state_option(options=options)
+    return load_state(state_path=state_path) if state is None else state
+
+
 def _session_names_option(*, options: dict[str, object]) -> tuple[str, ...]:
     value = options.get("session_names")
     if not isinstance(value, tuple):
         return ()
     items = cast(tuple[object, ...], value)
     return tuple(item for item in items if isinstance(item, str))
+
+
+def _session_models_setting(*, options: dict[str, object]) -> tuple[tuple[str, str], ...]:
+    value = options.get("session_models")
+    if not isinstance(value, tuple):
+        return ()
+    items = cast(tuple[object, ...], value)
+    parsed: list[tuple[str, str]] = []
+    for item in items:
+        if not isinstance(item, tuple):
+            continue
+        parts = cast(tuple[object, ...], item)
+        if len(parts) != _SESSION_MODEL_PARTS:
+            continue
+        session, model = parts
+        if isinstance(session, str) and isinstance(model, str):
+            parsed.append((session, model))
+    return tuple(parsed)
 
 
 def _pane_pid_option(*, options: dict[str, object]) -> PanePid | None:

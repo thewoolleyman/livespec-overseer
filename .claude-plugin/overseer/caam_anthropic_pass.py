@@ -12,6 +12,7 @@ from typing import Protocol, cast
 from _caam_switch_host import caam_activate
 from caam_anthropic_decide import DecisionSeams, SwitchAccount, UsageFetcher, decide
 from caam_anthropic_finish import LineWriter, SaveState, finish
+from caam_anthropic_flags import Flags
 from caam_anthropic_status import EnforceModels, write_status
 from caam_decision import ProfileUsage
 from caam_enforcement import enforce_models as default_enforce_models
@@ -46,23 +47,6 @@ __all__: list[str] = [
 
 _EMPTY_VAULT = "FAIL no profiles found in the caam vault for claude"
 _ACTIVE_FAIL = "FAIL could not determine active claude profile"
-
-
-class Flags(Protocol):
-    @property
-    def force(self) -> bool: ...
-
-    @property
-    def dry_run(self) -> bool: ...
-
-    @property
-    def no_models(self) -> bool: ...
-
-    @property
-    def no_warm(self) -> bool: ...
-
-    @property
-    def foreman_model(self) -> str | None: ...
 
 
 class AgentRunner(Protocol):

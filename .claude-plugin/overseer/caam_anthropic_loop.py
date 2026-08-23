@@ -50,11 +50,13 @@ class Flags:
     no_models: bool
     no_warm: bool
     foreman_model: str | None
+    session_models: tuple[tuple[str, str], ...]
 
 
 def parse_flags(*, argv: list[str]) -> Flags:
     values = {name: False for name in ("scheduled", "force", "dry_run", "no_models", "no_warm")}
     foreman_model: str | None = None
+    session_models: list[tuple[str, str]] = []
     index = 0
     while index < len(argv):
         lowered = argv[index].strip().lower()
@@ -64,18 +66,37 @@ def parse_flags(*, argv: list[str]) -> Flags:
                 index += 1
                 value = argv[index]
             foreman_model = value.strip().lower()
-        elif lowered.startswith("--scheduled"):
-            values["scheduled"] = True
-        elif lowered.startswith("--force"):
-            values["force"] = True
-        elif lowered.startswith("--dry-run"):
-            values["dry_run"] = True
-        elif lowered.startswith("--no-models"):
-            values["no_models"] = True
-        elif lowered.startswith("--no-warm"):
-            values["no_warm"] = True
+        elif lowered.startswith("--session-model"):
+            index = _append_session_model(argv=argv, index=index, session_models=session_models)
+        else:
+            _apply_bool_flag(lowered=lowered, values=values)
         index += 1
-    return Flags(foreman_model=foreman_model, **values)
+    return Flags(foreman_model=foreman_model, session_models=tuple(session_models), **values)
+
+
+def _append_session_model(
+    *, argv: list[str], index: int, session_models: list[tuple[str, str]]
+) -> int:
+    value = argv[index].partition("=")[2]
+    if not value and index + 1 < len(argv):
+        index += 1
+        value = argv[index]
+    session, _separator, model = value.partition("=")
+    session_models.append((session.strip(), model.strip().lower()))
+    return index
+
+
+def _apply_bool_flag(*, lowered: str, values: dict[str, bool]) -> None:
+    if lowered.startswith("--scheduled"):
+        values["scheduled"] = True
+    elif lowered.startswith("--force"):
+        values["force"] = True
+    elif lowered.startswith("--dry-run"):
+        values["dry_run"] = True
+    elif lowered.startswith("--no-models"):
+        values["no_models"] = True
+    elif lowered.startswith("--no-warm"):
+        values["no_warm"] = True
 
 
 def main(
