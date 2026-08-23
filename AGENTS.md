@@ -1486,6 +1486,15 @@ the same asymmetric-discoverability shape as the `CLAUDE_CODE_OAUTH_TOKEN` versu
 one correct for the path in use. **Match the name exactly, `_E2E` suffix included, before
 concluding anything.**
 
+**THE PIN IS A PER-INVOCATION WORKAROUND, NOT A FIX, and the distinction matters
+because the callers still failing are the ones no relay reaches.** An automatic caller —
+the central autonomous loop — cannot learn an env var from a message to a seat, so
+unpinned dispatches keep being refused (observed again at 02:04:44Z on an unrelated item,
+identical stage and identical message, while this form was working here). Until the pin is
+set where that loop reads it, or the second installation is removed so discovery resolves
+with no pin anywhere, expect refusals from callers you do not control — and do not read
+one as evidence that your own invocation form is wrong.
+
 Signature, since it collides with nothing else in this section: `drive.py` exits non-zero,
 the envelope names stage `run-config-overlay` with `fabro_run_id: null`, no run is created,
 and — unlike the exhausted-credential refusal at the same stage — **no phantom claim is
