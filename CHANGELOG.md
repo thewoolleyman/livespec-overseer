@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.50.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.50.2...v1.50.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* stop publishing stale picker blocks ([604c791](https://github.com/thewoolleyman/livespec-overseer/commit/604c791284cbf14bbdc683a01b3f9649116e5b7a))
+
 ## [1.50.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.50.1...v1.50.2) (2026-08-23)
 
 
