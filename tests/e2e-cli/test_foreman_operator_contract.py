@@ -214,6 +214,13 @@ def _required_prohibition_errors(*, text: str) -> list[str]:
     return errors
 
 
+def _contract_with_normalised_fragment_removed(*, text: str, fragment: str) -> str:
+    normalised = _normalised_contract_text(text=text)
+    normalised_fragment = _normalised_contract_text(text=fragment)
+    assert normalised_fragment in normalised
+    return normalised.replace(normalised_fragment, "", 1)
+
+
 def _converged_prohibition_errors(*, text: str) -> list[str]:
     """The converged exit must FORBID a blocking picker, not merely offer an alternative.
 
@@ -334,8 +341,10 @@ def test_load_bearing_prohibitions_are_registered_as_a_contract_class() -> None:
     assert _required_prohibition_errors(text=text) == []
 
     for prohibition_id, deleted_text in _load_deletion_controls():
-        assert deleted_text in text
-        assert _required_prohibition_errors(text=text.replace(deleted_text, "")) == [prohibition_id]
+        without_prohibition = _contract_with_normalised_fragment_removed(
+            text=text, fragment=deleted_text
+        )
+        assert _required_prohibition_errors(text=without_prohibition) == [prohibition_id]
 
 
 def test_required_prohibitions_allow_cosmetic_contract_edits() -> None:
@@ -350,8 +359,32 @@ def test_required_prohibitions_allow_cosmetic_contract_edits() -> None:
         "factory runs are in flight. "
     )
 
+    cosmetically_edited = text.replace(original, reworded)
+
     assert original in text
-    assert _required_prohibition_errors(text=text.replace(original, reworded)) == []
+    assert _required_prohibition_errors(text=cosmetically_edited) == []
+
+
+def test_deletion_controls_allow_cosmetic_contract_rewraps() -> None:
+    text = PROSE.read_text(encoding="utf-8")
+    original = (
+        "Work state is whether\nfactory runs are in flight for that plan's children, sourced "
+        "from the dispatch\njournal, never from the pane and never from local process views. "
+    )
+    rewrapped = (
+        "Work state is whether factory runs are in flight for that plan's children,\n"
+        "sourced from the dispatch journal, never from the pane and never from local\n"
+        "process views. "
+    )
+    cosmetically_edited = text.replace(original, rewrapped)
+
+    assert original in text
+    assert _required_prohibition_errors(text=cosmetically_edited) == []
+    for prohibition_id, deleted_text in _load_deletion_controls():
+        without_prohibition = _contract_with_normalised_fragment_removed(
+            text=cosmetically_edited, fragment=deleted_text
+        )
+        assert _required_prohibition_errors(text=without_prohibition) == [prohibition_id]
 
 
 def test_the_converged_exit_forbids_a_blocking_picker_and_says_why() -> None:
