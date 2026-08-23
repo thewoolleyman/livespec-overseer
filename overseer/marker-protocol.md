@@ -34,6 +34,17 @@ responding** and is otherwise **left alone**. That is a bug in the SESSION (it
 was told, escalatingly, exactly what to write) — never a licence for the daemon
 to guess on its behalf.
 
+A foreman self-restart is not an exception to the operative half of this rule:
+it can fire only after the current foreman session has written the same
+filesystem `ready` declaration. Its difference is only the actor on a satisfied
+precondition: when that `ready` has sat uncertifiable for the named one-hour
+floor because the daemon did not consume it, the foreman pane may respawn itself
+once for that session lineage and must announce that fact. The round it opens
+for itself has no injection stamp behind it; that asymmetry is accepted here
+because a round surviving a session identity change is already rejected for
+every seat kind, and the one-shot lineage cap survives the restart in the
+daemon's stamp sidecar.
+
 This REPLACES the previously-shipped timer-based **force-restart** of an idle
 stalled session, which was a severe bug: it killed sessions the daemon had no way
 to prove were safe to kill. It is gone from the code (there is no
@@ -171,7 +182,8 @@ Then:
         overseer-declare ready
 
 After `overseer-declare ready`, stop immediately.
-if you are still in this conversation, no restart happened - never conclude otherwise.
+If this same conversation continues, no ordinary daemon restart happened; only a
+foreman self-restart may continue here, and it announces that fact explicitly.
 
 `ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
 restarted and NOT killed — you are reported to the human as not responding, and your

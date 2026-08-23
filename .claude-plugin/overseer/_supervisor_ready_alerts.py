@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import _supervisor_foreman_self_restart
 import registry
 import signals
 from _supervisor_config import CONDITION_CONTINUITY_GAP
@@ -104,6 +105,16 @@ def uncertifiable_ready_surface(
         ),
         condition="ready-uncertifiable",
     )
+    foreman_self_restart_condition = _supervisor_foreman_self_restart.maybe_self_restart_foreman(
+        sup=sup,
+        track=track,
+        session=session,
+        pane=pane,
+        obs=obs,
+        age=age,
+    )
+    if foreman_self_restart_condition is not None:
+        active_conditions.add(foreman_self_restart_condition)
     new_bands = [
         band
         for band in blocked_band_seconds(age=age)

@@ -81,6 +81,12 @@ from _registry_rounds import mark_expiry_notice_sent as mark_expiry_notice_sent
 from _registry_rounds import read_round_open_identity as read_round_open_identity
 from _registry_rounds import read_round_record as read_round_record
 from _registry_rounds import record_ready_expiry as record_ready_expiry
+from _registry_stamp_foreman_self_restart import (
+    read_foreman_self_restart as read_foreman_self_restart,
+)
+from _registry_stamp_foreman_self_restart import (
+    record_foreman_self_restart as record_foreman_self_restart,
+)
 from _registry_stamps import add_notified_band as add_notified_band
 from _registry_stamps import clear_injection_stamp as clear_injection_stamp
 from _registry_stamps import clear_picker_stall_episode as clear_picker_stall_episode
@@ -135,6 +141,7 @@ __all__: list[str] = [
     "mark_expiry_notice_sent",
     "norm",
     "plan_liveness_topic",
+    "read_foreman_self_restart",
     "read_injection_stamp",
     "read_launch_statusline_baseline",
     "read_mapping",
@@ -146,6 +153,7 @@ __all__: list[str] = [
     "read_round_record",
     "read_valid_mapping",
     "record_derived_epic",
+    "record_foreman_self_restart",
     "record_launch_statusline_baseline",
     "record_model_profile",
     "record_observed_session_identity",
