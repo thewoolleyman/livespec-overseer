@@ -6,10 +6,13 @@ from pathlib import Path
 
 __all__: list[str] = [
     "foreman_seat_accepts_explicit_epic",
+    "foreman_topic",
     "grooming_seat_accepts_explicit_epic",
+    "grooming_topic",
     "is_foreman_topic",
     "is_grooming_topic",
     "reserved_seat_accepts_explicit_epic",
+    "reserved_worker_kind",
     "reserved_worker_suffix",
     "supervisor_entity_topic",
     "supervisor_topic",
@@ -21,6 +24,11 @@ _SUPERVISOR_SUFFIX = "-supervisor"
 _FOREMAN_SUFFIX = "-foreman"
 _GROOMING_SUFFIX = "-grooming"
 _RESERVED_WORKER_SUFFIXES = (_SUPERVISOR_SUFFIX, _FOREMAN_SUFFIX, _GROOMING_SUFFIX)
+_RESERVED_WORKER_KINDS = {
+    _SUPERVISOR_SUFFIX: "supervisor",
+    _FOREMAN_SUFFIX: "foreman",
+    _GROOMING_SUFFIX: "grooming",
+}
 _FOREMAN_TOPIC_ERROR = "reserved -foreman topic has no supervised worker"
 _GROOMING_TOPIC_ERROR = "reserved -grooming topic has no supervised worker"
 
@@ -42,6 +50,12 @@ def reserved_worker_suffix(*, topic: str) -> str | None:
     return None
 
 
+def reserved_worker_kind(*, topic: str) -> str | None:
+    """The reserved worker-topic kind matched by ``topic``, if any."""
+    suffix = reserved_worker_suffix(topic=topic)
+    return None if suffix is None else _RESERVED_WORKER_KINDS[suffix]
+
+
 def is_foreman_topic(*, topic: str) -> bool:
     """True when a topic is the reserved foreman entity topic."""
     return topic.lower().endswith(_FOREMAN_SUFFIX)
@@ -52,10 +66,22 @@ def is_grooming_topic(*, topic: str) -> bool:
     return topic.lower().endswith(_GROOMING_SUFFIX)
 
 
+def foreman_topic(*, repo_slug: str) -> str:
+    """The reserved foreman topic for ``repo_slug``."""
+    return f"{repo_slug}{_FOREMAN_SUFFIX}"
+
+
+def grooming_topic(*, repo_slug: str) -> str:
+    """The reserved grooming topic for ``repo_slug``."""
+    return f"{repo_slug}{_GROOMING_SUFFIX}"
+
+
 def foreman_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | None) -> bool:
     """True for the repo's reserved foreman seat when the operator supplied an epic."""
     return (
-        epic is not None and is_foreman_topic(topic=topic) and topic == f"{Path(repo).name}-foreman"
+        epic is not None
+        and is_foreman_topic(topic=topic)
+        and topic == foreman_topic(repo_slug=Path(repo).name)
     )
 
 
@@ -64,7 +90,7 @@ def grooming_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | No
     return (
         epic is not None
         and is_grooming_topic(topic=topic)
-        and topic == f"{Path(repo).name}-grooming"
+        and topic == grooming_topic(repo_slug=Path(repo).name)
     )
 
 

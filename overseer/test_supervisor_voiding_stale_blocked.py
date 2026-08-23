@@ -15,6 +15,7 @@ import pytest
 import registry
 import signals
 import supervisor
+from _signals_topics import supervisor_entity_topic
 from test_supervisor_builders import (
     declare,
     idle_capture,
@@ -100,7 +101,7 @@ def test_running_supervisor_without_handoff_offers_capture_once(*, tmp_path):
     operator gets a capture offer, not silence."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    supervisor_session = f"{session}-supervisor"
+    supervisor_session = supervisor_entity_topic(topic=session)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73), cmd="node")
@@ -130,7 +131,7 @@ def test_handoff_without_running_supervisor_offers_start_once(*, tmp_path):
         second = sup.evaluate(track=track, act=True)
     assert first.status == "idle-with-context-left"
     assert second.status == "idle-with-context-left"
-    assert f"start tmux session '{session}-supervisor'" in err.getvalue()
+    assert f"start tmux session '{supervisor_entity_topic(topic=session)}'" in err.getvalue()
     assert err.getvalue().count("supervisor handoff exists") == 1
 
 
@@ -142,7 +143,12 @@ def test_dead_supervisor_tmux_name_still_offers_surface_b(*, tmp_path):
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
-    fake.serve(session=f"{session}-supervisor", repo=repo, capture=idle_capture(ctx=73), cmd="zsh")
+    fake.serve(
+        session=supervisor_entity_topic(topic=session),
+        repo=repo,
+        capture=idle_capture(ctx=73),
+        cmd="zsh",
+    )
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
@@ -201,7 +207,7 @@ def test_handoff_and_running_supervisor_is_silent_healthy_cell(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
     session = registry.tmux_id(repo=str(repo), topic=topic)
-    supervisor_session = f"{session}-supervisor"
+    supervisor_session = supervisor_entity_topic(topic=session)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
     fake.serve(session=supervisor_session, repo=repo, capture=idle_capture(ctx=73), cmd="node")

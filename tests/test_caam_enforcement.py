@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -10,12 +11,20 @@ from typing import Any
 
 import caam_enforcement
 import pytest
+from _signals_topics import reserved_worker_suffix
 from caam_anthropic_loop import Flags
 from caam_anthropic_pass import run_pass
 from caam_decision import UsageRecord
 from caam_profile_state import STATE_REL
 
 __all__: list[str] = []
+
+OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
+RESERVED_SUFFIX_VALUES = {
+    suffix
+    for topic in ("topic-supervisor", "topic-foreman", "topic-grooming")
+    if (suffix := reserved_worker_suffix(topic=topic)) is not None
+}
 
 
 @dataclass(kw_only=True)
@@ -224,6 +233,48 @@ def test_model_report_lines_match_source_oracle(*, tmp_path: Path) -> None:
         busy[-1] == "models: foremen want fable (active account Fable left); "
         "alpha-foreman busy(unknown->fable)"
     )
+
+
+def test_grooming_seat_receives_foreman_model_policy(*, tmp_path: Path) -> None:
+    calls: list[tuple[str, str]] = []
+
+    messages = caam_enforcement.enforce_models(
+        settings_path=Path("/missing/settings.json"),
+        no_models=False,
+        home=Path("/tmp"),
+        state_path=tmp_path / "state.json",
+        session_names=("alpha-foreman", "alpha-grooming", "worker"),
+        active_fable=42.0,
+        foreman_model="fable",
+        now=1234.0,
+        pane_pid=lambda **_: 101,
+        children_of=lambda **_: (),
+        environ_of=lambda **_: b"CLAUDE_CODE_SESSION_ID=sid-1\0",
+        pane_model=lambda **_: "opus",
+        pane_idle=lambda **_: True,
+        set_model=lambda *, session, model: calls.append((session, model)),
+        state={},
+    )
+
+    assert calls == [("alpha-foreman", "fable"), ("alpha-grooming", "fable")]
+    assert messages[-1] == (
+        "models: foremen want fable [pinned] (active account Fable left); "
+        "alpha-foreman opus->fable, alpha-grooming opus->fable"
+    )
+
+
+def test_reserved_suffix_literals_stay_inside_signals_topics() -> None:
+    offenders: list[str] = []
+
+    for path in sorted(OVERSEER_DIR.glob("*.py")):
+        if path.name == "_signals_topics.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and node.value in RESERVED_SUFFIX_VALUES:
+                offenders.append(f"{path.relative_to(OVERSEER_DIR.parent)}:{node.lineno}")
+
+    assert offenders == []
 
 
 def test_session_model_exception_outranks_foreman_pin_and_fable_resets(*, tmp_path: Path) -> None:

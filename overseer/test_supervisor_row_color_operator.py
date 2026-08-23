@@ -15,6 +15,7 @@ import json
 import pytest
 import registry
 import supervisor
+from _signals_topics import supervisor_entity_topic
 from test_supervisor_builders import (
     GREEN,
     RESET,
@@ -197,7 +198,12 @@ def test_alert_re_arms_after_the_track_recovers(*, tmp_path):
     # NOT an attention status, so the edge-triggered alert still re-arms.
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=90))
     (repo / "plan" / topic / "supervisor-handoff.md").write_text("supervise this\n")
-    fake.serve(session=f"{session}-supervisor", repo=repo, capture=idle_capture(ctx=90), cmd="node")
+    fake.serve(
+        session=supervisor_entity_topic(topic=session),
+        repo=repo,
+        capture=idle_capture(ctx=90),
+        cmd="node",
+    )
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     track = mapped_track(repo=repo, topic=topic, session=session)
 

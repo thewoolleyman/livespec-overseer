@@ -18,7 +18,7 @@ from _registry_track_variants import (
     UnassignedPlan,
     unresolved_plan_epic,
 )
-from _signals_topics import reserved_worker_suffix, topic_supervised_worker
+from _signals_topics import reserved_worker_kind, topic_supervised_worker
 
 __all__: list[str] = [
     "RowExtras",
@@ -70,14 +70,7 @@ def _row_kind(*, row: dict[str, object], topic: str) -> str:
     kind = row.get("kind")
     if isinstance(kind, str) and kind:
         return kind
-    suffix = reserved_worker_suffix(topic=topic)
-    if suffix == "-supervisor":
-        return "supervisor"
-    if suffix == "-foreman":
-        return "foreman"
-    if suffix == "-grooming":
-        return "grooming"
-    return "plan"
+    return reserved_worker_kind(topic=topic) or "plan"
 
 
 def track_from_mapping_row(

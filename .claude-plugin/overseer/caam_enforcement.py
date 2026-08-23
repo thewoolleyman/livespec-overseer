@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Final, cast
 
+from _signals_topics import is_foreman_topic, is_grooming_topic
 from caam_effort import enforce_effort_floor
 from caam_enforcement_options import ModelContext, ModelRun, model_context
 from caam_foreman_override import apply_foreman_model_override
@@ -161,7 +162,7 @@ def _actions_for_pane(
 
 
 def _wanted_model(*, session: str, fable_left: bool, want_foreman: str) -> str | None:
-    if session.endswith("-foreman"):
+    if is_foreman_topic(topic=session) or is_grooming_topic(topic=session):
         return want_foreman
     if not fable_left:
         return "opus"

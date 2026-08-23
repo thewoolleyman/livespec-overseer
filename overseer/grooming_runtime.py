@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import registry
+from _signals_topics import grooming_topic
 from _supervisor_config import iso_now
 
 __all__: list[str] = ["canonical_session_name", "register_grooming_track"]
@@ -13,7 +14,7 @@ __all__: list[str] = ["canonical_session_name", "register_grooming_track"]
 
 def canonical_session_name(*, repo: str | os.PathLike[str]) -> str:
     """The reserved tmux/topic identity for a repo's grooming pass."""
-    return f"{Path(repo).resolve().name}-grooming"
+    return grooming_topic(repo_slug=Path(repo).resolve().name)
 
 
 def register_grooming_track(
