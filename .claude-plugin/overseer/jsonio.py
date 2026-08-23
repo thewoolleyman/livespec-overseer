@@ -40,6 +40,7 @@ __all__: list[str] = [
     "as_list",
     "as_object",
     "is_parse_failure",
+    "parse_leading_object",
     "parse_object",
     "parse_object_line",
 ]
@@ -127,6 +128,21 @@ def parse_object(*, text: str) -> JsonObjectParse:
     except ValueError:
         return Failure(JsonParseError(message="malformed JSON"))
     return Success(as_object(value=parsed))
+
+
+def parse_leading_object(*, text: str) -> JsonObjectParse:
+    """Parse the first complete JSON value from ``text`` as an object.
+
+    Malformed leading JSON returns ``Failure(JsonParseError(...))``. A leading
+    JSON value that is not an object returns ``Success(None)``. A leading JSON
+    object returns ``Success(dict[str, object])`` and any trailing bytes are
+    deliberately ignored.
+    """
+    try:
+        parsed, _index = json.JSONDecoder().raw_decode(text)
+    except ValueError:
+        return Failure(JsonParseError(message="malformed JSON"))
+    return Success(as_object(value=cast("object", parsed)))
 
 
 def parse_object_line(*, line: str) -> JsonObjectParse:
