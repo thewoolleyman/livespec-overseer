@@ -141,7 +141,8 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
     # its default. Defer to the `resume_pending` retry, which reports the gate as
     # `blocked:human` and resumes once the human clears it (review SF4).
     fresh_capture = sup.tmux.capture_pane(session=target)
-    session_identity = f"claude:{_supervisor_launch.session_of(sup=sup, track=track)}:{track.topic}"
+    session = _supervisor_launch.session_of(sup=sup, track=track)
+    session_identity = sup.claude_identity_by_session.get((session, track.topic))
     if signals.is_structured_gate(capture_text=fresh_capture):
         registry.set_resume_pending(
             repo=track.repo,

@@ -27,10 +27,11 @@ def launch_attempt_message(
     result = sup.do_launch_result(track=track, session=session, start=True)
     if result.launched:
         if result.reason == "resume_submit_unverified":
+            sup.refresh_claude_status()
             registry.set_resume_pending(
                 repo=track.repo,
                 topic=track.topic,
-                session_identity=f"claude:{session}:{track.topic}",
+                session_identity=sup.claude_identity_by_session.get((session, track.topic)),
                 stamp_path=sup.stamp_path,
             )
             return StartLaunchMessage(

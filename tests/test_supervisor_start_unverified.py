@@ -1,6 +1,7 @@
 """Regression coverage for ``supervisor.py start`` slow-boot reporting."""
 
 import _registry_core
+import _registry_stamp_resume
 import registry
 import supervisor
 from test_supervisor_builders import isolate_store, make_plan
@@ -35,3 +36,9 @@ def test_cli_start_maps_a_live_launch_whose_resume_submission_is_unverified(
     rows = registry.read_valid_mapping(store_path=store)
     assert [(row.repo, row.topic, row.tmux) for row in rows] == [(str(repo), topic, session)]
     assert registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=stamp) is True
+    assert (
+        _registry_stamp_resume.read_resume_pending_identity(
+            repo=str(repo), topic=topic, stamp_path=stamp
+        )
+        is None
+    )
