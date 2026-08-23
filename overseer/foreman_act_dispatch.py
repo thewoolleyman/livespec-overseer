@@ -1,4 +1,5 @@
 """Dispatch already-authorized foreman-act proposals to deterministic mechanics."""
+# livespec-lloc-soft-band-owner: overseer-3h4s5w.6
 
 from __future__ import annotations
 

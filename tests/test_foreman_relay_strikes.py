@@ -178,3 +178,46 @@ def test_full_autonomy_false_keeps_count_but_never_marks_final(*, tmp_path):
     assert third.final is False
     assert "final" not in third.record
     assert third.final_sentence is None
+
+
+def test_blocked_answer_relay_counts_full_journal_not_capped_document(*, tmp_path):
+    module = relay_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".livespec.jsonc").write_text(
+        json.dumps({"livespec-overseer": {"full_autonomy": True}}),
+        encoding="utf-8",
+    )
+    row = {"epic": "overseer-plan", "session_identity": "claude:pid:alpha"}
+    payload = {"answer_text": "Take option 1.", "question_fingerprint": "question-1"}
+    fingerprint = module.ruling_fingerprint(payload=payload)
+    journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
+    journal.parent.mkdir(parents=True)
+    old_matching_records = [
+        {
+            "stage": "foreman-act-relay",
+            "work_item_id": "overseer-plan",
+            "ruling_fingerprint": fingerprint,
+        }
+        for _ in range(2)
+    ]
+    recent_noise = [
+        {"stage": "outcome", "outcome": {"work_item_id": f"overseer-noise-{index}"}}
+        for index in range(20)
+    ]
+    journal.write_text(
+        "\n".join(json.dumps(record) for record in [*old_matching_records, *recent_noise]) + "\n",
+        encoding="utf-8",
+    )
+
+    relay = module.prepare_blocked_answer_relay(
+        document={"dispatch_journal": recent_noise},
+        repo=str(repo),
+        topic="alpha",
+        row=row,
+        payload=payload,
+    )
+
+    assert relay.final is True
+    assert relay.objections_remaining == 0
+    assert relay.final_sentence == module.FINAL_RELAY_SENTENCE
