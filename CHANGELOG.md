@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.42.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.7...v1.42.8) (2026-08-23)
+
+
+### Bug Fixes
+
+* accept reviewer stdout with trailing bytes ([3d2b192](https://github.com/thewoolleyman/livespec-overseer/commit/3d2b1923ae55be4384718937a5b67b02481c9980))
+
 ## [1.42.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.6...v1.42.7) (2026-08-23)
 
 
