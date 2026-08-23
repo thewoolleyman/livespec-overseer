@@ -49,8 +49,7 @@ def test_pre_push_runs_plan_anchor_check_through_credential_wrapper(
     )
 
     assert completed.returncode == 0
-    assert "wrapper plan_anchor_env=true command=--" in log
-    assert "just check-plan-anchor-metadata" in log
+    assert "LIVESPEC_STRICT_PLAN_ANCHOR_METADATA=true just check-plan-anchor-metadata" in log
     assert "just command=check-plan-anchor-metadata plan_anchor_env=true" in log
     assert '"scanned_plan_directories":1' in completed.stdout
 
@@ -64,8 +63,7 @@ def test_pre_push_doc_only_path_runs_plan_anchor_check_through_credential_wrappe
     )
 
     assert completed.returncode == 0
-    assert "wrapper plan_anchor_env=true command=--" in log
-    assert "just check-plan-anchor-metadata" in log
+    assert "LIVESPEC_STRICT_PLAN_ANCHOR_METADATA=true just check-plan-anchor-metadata" in log
     assert "just command=check-plan-anchor-metadata plan_anchor_env=true" in log
     assert "just command=check-pre-commit-doc-only plan_anchor_env=<unset>" in log
     assert '"scanned_plan_directories":1' in completed.stdout
@@ -131,14 +129,16 @@ set -euo pipefail
 printf 'wrapper plan_anchor_env=%s command=%s\\n' \\
   "${{LIVESPEC_STRICT_PLAN_ANCHOR_METADATA:-<unset>}}" \\
   "$*" >> "{log_path}"
-if [[ "$*" != *"just check-plan-anchor-metadata" ]]; then
-  echo "unexpected wrapper invocation: $*" >&2
-  exit 99
-fi
 if [[ "${{1:-}}" == "--" ]]; then
   shift
 fi
-PATH="{_SCRUBBED_PATH}" exec "$@"
+# FAITHFUL to the real credential wrapper: its stage-1 hop is an `exec env -i` with a
+# short allowlist, so the inherited environment is DISCARDED. A stub that merely
+# exec-ed its arguments would inherit, and would therefore pass against a caller that
+# assigns the lever as a PREFIX on the wrapper -- the exact defect this control exists
+# to catch. The allowlisted PATH below is the one the real wrapper hands downstream,
+# and notably has no `just` on it.
+exec env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin "$@"
 """,
     )
     env = _scrub_coverage_env(env=os.environ.copy())
