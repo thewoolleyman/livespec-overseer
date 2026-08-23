@@ -11,6 +11,7 @@ capture or a constructed rendering.
 | `2.1.238.txt` | Live capture from the canonical Claude idle canary capture path. |
 | `2.1.239.txt` | Live capture from the canonical Claude idle canary capture path. |
 | `2.1.240.txt` | Live capture from the canonical Claude idle canary capture path. |
+| `2.1.241.txt` | Live capture, but from a LINKED WORKTREE rather than the canonical capture path, so it carries a longer cwd line, a repo-state warning row and an extra statusline row that its siblings do not. The predicate classifies it idle regardless, which is the property being registered; it is noted here so nobody reads the extra rows as drift in the build. |
 
 Do not recapture `2.1.235.txt` or `2.1.237.txt`; those installed builds are no
 longer available on the host. Add new installed builds by capturing a new
