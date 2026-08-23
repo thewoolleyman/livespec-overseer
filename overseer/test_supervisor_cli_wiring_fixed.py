@@ -10,6 +10,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 
 import contextlib
 import io as _io
+import os
 
 import _supervisor_assignment
 import pytest
@@ -36,6 +37,12 @@ __all__: list[str] = []
 @pytest.fixture(autouse=True)
 def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    claude = tmp_path / "test-bin" / "claude"
+    claude.parent.mkdir()
+    claude.write_text("#!/bin/sh\n", encoding="utf-8")
+    claude.chmod(0o755)
+    path = os.environ.get("PATH", "")
+    monkeypatch.setenv("PATH", f"{claude.parent}{os.pathsep}{path}" if path else str(claude.parent))
 
 
 def test_run_daemon_threads_warn_percent_into_the_supervisor(*, monkeypatch):
