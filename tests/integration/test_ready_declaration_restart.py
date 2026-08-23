@@ -86,8 +86,9 @@ def _respawns(*, fake):
 
 def test_recognition_timeout_after_successful_respawn_pends_resume_not_second_kill(*, tmp_path):
     """A successful respawn consumes the one `ready` authorization even if the bounded
-    recognition poll times out. The next tick must resume-retry the fresh pane instead
-    of re-entering the `ready` branch and respawn-killing it."""
+    recognition poll times out. The next tick must not re-enter the `ready` branch and
+    respawn-kill it; without a recorded live identity, the resume retry blocks for a
+    human instead of sending a keystroke into an unverified session."""
     repo, topic, session, fake, sup, track = _open_round(tmp_path=tmp_path)
     declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
     on_respawn(
@@ -111,12 +112,12 @@ def test_recognition_timeout_after_successful_respawn_pends_resume_not_second_ki
     with contextlib.redirect_stderr(_io.StringIO()):
         view2 = sup.evaluate(track=track, act=True)
 
-    assert view2.status == "restarting"
+    assert view2.status == "blocked:human"
     assert not fake.has(method="respawn")
-    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_RESTARTED
+    assert not any(call[0] == "keys" for call in fake.calls)
+    assert signals.read_state(repo=str(repo), topic=topic).token == signals.STATE_READY
     assert (
-        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
-        is False
+        registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) is True
     )
 
 

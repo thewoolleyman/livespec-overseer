@@ -102,7 +102,7 @@ def test_restart_keeps_the_marker_when_the_respawned_pane_never_becomes_claude(*
         _registry_stamp_resume.read_resume_pending_identity(
             repo=str(repo), topic=topic, stamp_path=sup.stamp_path
         )
-        == f"claude:{session}:{topic}"
+        is None
     )
     assert supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC) not in fake.paste_texts()
 
@@ -121,6 +121,12 @@ def test_freshly_restarted_pane_on_a_gate_pends_the_resume_instead_of_keystrokin
         fake=fake, after=lambda s: fake.panes.__setitem__(s, gate)
     )  # fresh TUI opens on a gate
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    live_identity = f"claude:123:456:{topic}"
+
+    def refresh_live_identity() -> None:
+        sup.claude_identity_by_session[(session, topic)] = live_identity
+
+    sup.refresh_claude_status = refresh_live_identity
     registry.write_injection_stamp(
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
@@ -140,6 +146,6 @@ def test_freshly_restarted_pane_on_a_gate_pends_the_resume_instead_of_keystrokin
         _registry_stamp_resume.read_resume_pending_identity(
             repo=str(repo), topic=topic, stamp_path=sup.stamp_path
         )
-        == f"claude:{session}:{topic}"
+        == live_identity
     )
     assert marker.exists()  # round left open for the retry
