@@ -63,6 +63,7 @@ ATTENTION_STATUSES = (
     "shell-prolonged",
     "supervisor-state-stale",
     "watch-target-gone",
+    "wait-target-missing",
     "winddown-starved",
 )
 
@@ -123,6 +124,7 @@ _STATUS_COLOR = {
     "shell-prolonged": _ANSI_YELLOW,
     "supervisor-state-stale": _ANSI_YELLOW,
     "watch-target-gone": _ANSI_YELLOW,
+    "wait-target-missing": _ANSI_YELLOW,
     "winddown-starved": _ANSI_YELLOW,
 }
 

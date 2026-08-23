@@ -22,6 +22,7 @@ __all__: list[str] = [
     "InjectState",
     "Observation",
     "PairStallState",
+    "WaitTargetCacheEntry",
 ]
 
 
@@ -43,6 +44,15 @@ class PairStallState:
     last_nudged_at: float | None = None
     consecutive_nudged_episodes: int = 0
     unstalled_since: float | None = None
+
+
+@dataclass(frozen=True, kw_only=True)
+class WaitTargetCacheEntry:
+    """One per-tick wait-target re-verification result."""
+
+    checked_at: float
+    status: str
+    note: str | None
 
 
 @dataclass
@@ -89,6 +99,7 @@ class InjectState:
     stall_watch_capture_hash: str | None = None
     stall_watch_capture_since: float | None = None
     stall_watch_due_observations: int = 0
+    wait_target_cache: dict[str, WaitTargetCacheEntry] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, kw_only=True)
