@@ -75,3 +75,6 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Stray in-tree probe worktree (detached at ac6d1e8b, created 2026-08-22); worktrees belong under ~/.worktrees/
+mprobe-x/
