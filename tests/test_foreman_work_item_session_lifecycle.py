@@ -207,7 +207,7 @@ def test_work_item_session_start_accepts_own_tenant_item_without_attention_surfa
     assert calls != []
 
 
-def test_work_item_session_ledger_lookup_uses_repo_credential_wrapper(*, tmp_path, monkeypatch):
+def test_read_work_item_accepts_bd_show_object_and_array_shapes(*, tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     repo.mkdir()
     repo.joinpath(".livespec.jsonc").write_text(
@@ -221,6 +221,10 @@ def test_work_item_session_ledger_lookup_uses_repo_credential_wrapper(*, tmp_pat
     )
     module = work_item_evidence()
     calls: list[list[str]] = []
+    outputs = [
+        json.dumps({"id": "overseer-vts4lo", "status": "ready"}),
+        json.dumps([{"id": "overseer-vts4lo", "status": "pending-approval"}]),
+    ]
 
     def fake_run(argv, **kwargs):
         calls.append(list(argv))
@@ -228,16 +232,19 @@ def test_work_item_session_ledger_lookup_uses_repo_credential_wrapper(*, tmp_pat
         return subprocess.CompletedProcess(
             args=argv,
             returncode=0,
-            stdout=json.dumps({"id": "overseer-vts4lo", "status": "ready"}),
+            stdout=outputs.pop(0),
             stderr="",
         )
 
     monkeypatch.setattr(module.subprocess, "run", fake_run)
 
     item, refusal = module.read_work_item(repo=repo, work_item_id="overseer-vts4lo")
+    array_item, array_refusal = module.read_work_item(repo=repo, work_item_id="overseer-vts4lo")
 
     assert refusal is None
     assert item == {"id": "overseer-vts4lo", "status": "ready"}
+    assert array_refusal is None
+    assert array_item == {"id": "overseer-vts4lo", "status": "pending-approval"}
     assert calls == [
         [
             "/usr/local/bin/with-livespec-env.sh",
@@ -246,8 +253,56 @@ def test_work_item_session_ledger_lookup_uses_repo_credential_wrapper(*, tmp_pat
             "show",
             "overseer-vts4lo",
             "--json",
-        ]
+        ],
+        [
+            "/usr/local/bin/with-livespec-env.sh",
+            "--",
+            "bd",
+            "show",
+            "overseer-vts4lo",
+            "--json",
+        ],
     ]
+
+
+def test_read_work_item_keeps_unavailable_and_missing_distinguishable(*, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    module = work_item_evidence()
+    outputs: list[tuple[int, str]] = [
+        (0, "{"),
+        (0, json.dumps([])),
+        (0, json.dumps([{"id": "overseer-vts4lo"}, {"id": "overseer-vts4lo"}])),
+        (1, ""),
+    ]
+
+    def fake_run(argv, **kwargs):
+        returncode, stdout = outputs.pop(0)
+        return subprocess.CompletedProcess(
+            args=argv, returncode=returncode, stdout=stdout, stderr=""
+        )
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+
+    malformed_item, malformed_refusal = module.read_work_item(
+        repo=repo, work_item_id="overseer-vts4lo"
+    )
+    empty_array_item, empty_array_refusal = module.read_work_item(
+        repo=repo, work_item_id="overseer-vts4lo"
+    )
+    multi_array_item, multi_array_refusal = module.read_work_item(
+        repo=repo, work_item_id="overseer-vts4lo"
+    )
+    missing_item, missing_refusal = module.read_work_item(repo=repo, work_item_id="overseer-vts4lo")
+
+    assert malformed_item is None
+    assert malformed_refusal == "work_item_evidence_unavailable"
+    assert empty_array_item is None
+    assert empty_array_refusal == "work_item_evidence_unavailable"
+    assert multi_array_item is None
+    assert multi_array_refusal == "work_item_evidence_unavailable"
+    assert missing_item is None
+    assert missing_refusal == "work_item_not_found"
 
 
 def test_work_item_session_refuses_missing_foreign_and_unadmitted_work_items(
