@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import jsonio
 import registry
@@ -77,7 +77,13 @@ def _capture_for_row(*, sup: Supervisor, row: RowView) -> str | None:
     tmux = getattr(sup, "tmux", None)
     if tmux is None:
         return None
-    return tmux.capture_pane(session=row.tmux)
+    # Mirror `latest_input_provenance`: a supervisor stand-in may carry a tmux that
+    # implements only the readers its own case needs, so probe for the method rather
+    # than assuming the full protocol.
+    reader = getattr(tmux, "capture_pane", None)
+    if not callable(reader):
+        return None
+    return cast("str | None", reader(session=row.tmux))
 
 
 def _restart_model_payload(
