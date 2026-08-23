@@ -75,6 +75,9 @@ fi
 if [[ "$*" == "check-pre-commit-doc-only" ]]; then
   exit 0
 fi
+if [[ "$*" == "check-plan-anchor-metadata" ]]; then
+  exit 0
+fi
 if [[ "$*" != "check" ]]; then
   echo "unexpected just invocation: $*" >&2
   exit 99
@@ -89,23 +92,18 @@ exit 0
 """,
     )
 
-    # ⛔ WITHOUT THIS STUB this test reaches for the OPERATOR HOST's real
-    # `with-livespec-env.sh`, because the gate resolves the wrapper by
-    # `command -v`. That made the test non-hermetic in the direction that hides
-    # a defect rather than inventing one: CI has no wrapper, so the gate takes
-    # its "remains unarmed" branch and the test is green there, while every
-    # operator host runs the real wrapper — whose `env -i` hop drops PATH — and
-    # sees `env: 'just': No such file or directory`, exit 127, before any LLOC
-    # assertion is reached. The double below reproduces the scrub, so the test
-    # now measures the same thing in both places.
     _write_executable(
         path=bin_dir / "with-livespec-env.sh",
-        body=f"""#!/usr/bin/env bash
+        body="""#!/usr/bin/env bash
 set -euo pipefail
-if [[ "${{1:-}}" == "--" ]]; then
+# Faithful to the real credential wrapper, whose stage-1 hop is an `exec env -i` with a
+# short allowlist: the inherited environment is DISCARDED. Stubbed here so this file's
+# subject -- the LLOC severity lever -- is exercised without reaching the real wrapper,
+# and so a caller that assigns variables as a PREFIX on the wrapper cannot pass.
+if [[ "${1:-}" == "--" ]]; then
   shift
 fi
-PATH="{_SCRUBBED_PATH}" exec "$@"
+exec env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin "$@"
 """,
     )
 
