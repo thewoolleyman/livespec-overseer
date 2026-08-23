@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.49.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.49.0...v1.49.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* pin reserved caam suffix policy ([c7ac782](https://github.com/thewoolleyman/livespec-overseer/commit/c7ac7823e4340765b1bddcf6117c0495a0610ab3))
+
 ## [1.49.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.5...v1.49.0) (2026-08-23)
 
 
