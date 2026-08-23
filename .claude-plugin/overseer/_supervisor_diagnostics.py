@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import _supervisor_otel
+import _supervisor_otel_report
 import registry
 import streams
 from _supervisor_config import iso_now, track_key
@@ -136,10 +137,15 @@ def _write_event(*, request: EventRequest) -> None:
     line = json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     streams.write_stderr(text=f"{line}\n")
     if request.sup is not None:
-        _ = _supervisor_otel.emit_daemon_event(
+        result = _supervisor_otel.emit_daemon_event(
             record=record,
             config=request.sup.otel.config,
             emitter=request.sup.otel.emitter,
+        )
+        _supervisor_otel_report.report_export_result(
+            sup=request.sup,
+            result=result,
+            state=request.sup.otel.failure_state,
         )
 
 
