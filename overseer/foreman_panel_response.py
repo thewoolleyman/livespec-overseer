@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import re
+
 import jsonio
+
+_FENCE_PATTERN = re.compile(r"```(?:json)?\n(.*?)\n```", re.DOTALL)
 
 __all__: list[str] = [
     "reviewer_response_object",
@@ -18,17 +22,40 @@ def _fenced_json_body(*, text: str) -> str | None:
     return None
 
 
+def _parsed_response(*, text: str, leading: bool = False) -> dict[str, object] | None:
+    result = jsonio.parse_leading_object(text=text) if leading else jsonio.parse_object(text=text)
+    return None if jsonio.is_parse_failure(result=result) else result.unwrap()
+
+
+def _embedded_fenced_response(*, text: str) -> dict[str, object] | None:
+    match = _FENCE_PATTERN.search(text)
+    if match is None:
+        return None
+    return _parsed_response(text=match.group(1))
+
+
+def _trailing_response(*, text: str) -> dict[str, object] | None:
+    start = len(text)
+    while True:
+        start = text.rfind("{", 0, start)
+        if start < 0:
+            return None
+        response = _parsed_response(text=text[start:])
+        if response is not None:
+            return response
+
+
 def reviewer_response_object(*, raw_stdout: str) -> dict[str, object] | None:
-    response_result = jsonio.parse_object(text=raw_stdout)
-    response = None if jsonio.is_parse_failure(result=response_result) else response_result.unwrap()
+    response = _parsed_response(text=raw_stdout)
     if response is not None:
         return response
-    leading_result = jsonio.parse_leading_object(text=raw_stdout)
-    leading = None if jsonio.is_parse_failure(result=leading_result) else leading_result.unwrap()
+    leading = _parsed_response(text=raw_stdout, leading=True)
     if leading is not None:
         return leading
     fenced_body = _fenced_json_body(text=raw_stdout)
-    if fenced_body is None:
-        return None
-    fenced_result = jsonio.parse_object(text=fenced_body)
-    return None if jsonio.is_parse_failure(result=fenced_result) else fenced_result.unwrap()
+    if fenced_body is not None:
+        return _parsed_response(text=fenced_body)
+    embedded_fenced = _embedded_fenced_response(text=raw_stdout)
+    if embedded_fenced is not None:
+        return embedded_fenced
+    return _trailing_response(text=raw_stdout)
