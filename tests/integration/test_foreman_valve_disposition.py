@@ -691,7 +691,7 @@ def test_consensus_floors_and_missing_evidence_escalate_without_mutation(*, tmp_
 
     for proposal, reason in [
         (hard_floor, "hard_floor:human-gated-by-design"),
-        (missing_evidence, "consensus_evidence_unavailable"),
+        (missing_evidence, "authorization_evidence_unavailable:maintainer_or_consensus"),
     ]:
         result = foreman_act.act(
             proposal=proposal,

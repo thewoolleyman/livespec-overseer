@@ -3256,6 +3256,98 @@ def test_recorded_next_action_answers_a_matching_picker_without_consensus_eviden
     assert authorizations[0]["source"] == "ledger:overseer-vx4ky3:plan-handoff-entry"
 
 
+def maintainer_decision_proposal(*, repo: Path) -> dict[str, object]:
+    proposal = blocked_answer_proposal(repo=repo)
+    del proposal["consensus"]
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["question_fingerprint"] = _pane_fingerprint(text="Approve the bounded retry?\n")
+    answer["maintainer_decision"] = {
+        "decided_by": "thewoolleyman",
+        "decided_at": "2026-08-23T18:40:00Z",
+        "surface": "AskUserQuestion",
+    }
+    return proposal
+
+
+def test_maintainer_decision_answers_picker_without_consensus_evidence(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    pane_claim = module("foreman_pane_claim")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    tmux = RecordedNextActionTmux(repo=repo)
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: tmux)
+    monkeypatch.setattr(pane_claim, "time_time", lambda: 1000.0)
+    records: list[dict[str, object]] = []
+
+    result = foreman_act.act(
+        proposal=maintainer_decision_proposal(repo=repo),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+                "panel must not be convened after a maintainer decision"
+            ),
+            append_journal=lambda *, repo, record: records.append(record),
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "answered_existing_prompt",
+    }
+    assert ("paste", "alpha", "Yes, proceed with the bounded retry.") in tmux.calls
+    authorizations = [
+        record for record in records if record.get("stage") == "foreman-maintainer-decision"
+    ]
+    assert len(authorizations) == 1
+    assert authorizations[0]["authority"] == "maintainer"
+    assert authorizations[0]["authorized_action_id"] == "blocked_session_answer"
+    assert authorizations[0]["maintainer_decision"] == {
+        "decided_by": "thewoolleyman",
+        "decided_at": "2026-08-23T18:40:00Z",
+        "surface": "AskUserQuestion",
+    }
+    assert records.index(authorizations[0]) < next(
+        index
+        for index, record in enumerate(records)
+        if record.get("stage") == "blocked-session-answer"
+    )
+
+
+def test_maintainer_decision_requires_complete_provenance(*, tmp_path):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo)
+    proposal = maintainer_decision_proposal(repo=repo)
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["maintainer_decision"] = {
+        "decided_by": "thewoolleyman",
+        "decided_at": "2026-08-23T18:40:00Z",
+    }
+
+    result = foreman_act.act(
+        proposal=proposal,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: pytest.fail("malformed provenance must not act"),
+            consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+                "malformed provenance without evidence must not convene a panel"
+            ),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "maintainer_decision_malformed"
+
+
 def test_recorded_next_action_refuses_when_no_picker_option_matches(*, tmp_path):
     foreman_act = module("foreman_act")
     repo = tmp_path / "repo"
@@ -3277,7 +3369,7 @@ def test_recorded_next_action_refuses_when_no_picker_option_matches(*, tmp_path)
     )
 
     assert result["outcome"] == "refused"
-    assert result["reason"] == "consensus_evidence_unavailable"
+    assert result["reason"] == "authorization_evidence_unavailable:maintainer_or_consensus"
 
 
 def test_recorded_next_action_refuses_a_handoff_naming_zero_next_actions(*, tmp_path):
@@ -3412,6 +3504,41 @@ def test_foreign_floor_refuses_under_full_autonomy_true_without_panel_or_journal
         ),
         append_journal=lambda *, repo, record: pytest.fail(
             "foreign floor must refuse before journal"
+        ),
+    )
+
+    assert action is None
+    assert refusal == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "hard_floor:human-gated-by-design",
+    }
+
+
+def test_blocked_answer_own_category_reaches_hard_floor_without_human_valve_block(*, tmp_path):
+    act_consensus = module("foreman_act_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    proposal = blocked_answer_proposal(repo=repo)
+    del proposal["human_valve"]
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["category"] = "human-gated-by-design"
+
+    action, refusal = act_consensus.prepare_consensus_action(
+        action_id="blocked_session_answer",
+        proposal=proposal,
+        disposition={
+            "effective": "consensus",
+            "full_autonomy": True,
+            "decision_rule": "majority",
+        },
+        consensus_panel=lambda *, request, responses, decision_rule=None: pytest.fail(
+            "blocked-answer hard floor must refuse before panel"
+        ),
+        append_journal=lambda *, repo, record: pytest.fail(
+            "blocked-answer hard floor must refuse before journal"
         ),
     )
 
