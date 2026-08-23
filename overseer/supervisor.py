@@ -117,6 +117,7 @@ def build_supervisor() -> Supervisor:
         watch_set_path=registry.DEFAULT_WATCH_SET_PATH,
         status_path=_supervisor_snapshot.DEFAULT_STATUS_PATH,
         own_pane=os.environ.get("TMUX_PANE"),
+        require_render_terminal=True,
     )
     adapter = _release_runtime_adapter(sup=sup)
     currency_check = adapter.currency_check

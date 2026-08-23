@@ -155,6 +155,7 @@ class Supervisor:
     # Resolved at CONSTRUCTION rather than at import, so a caller (or a test)
     # that redirects sys.stdout first still gets the stream it expects.
     out: IO[str] = field(default_factory=lambda: sys.stdout)
+    require_render_terminal: bool = True
     now: Callable[[], float] = time.time
     sleep: Callable[[float], None] = time.sleep
     # Claude session-registry adoption seams (default: real ~/.claude/sessions + /proc;

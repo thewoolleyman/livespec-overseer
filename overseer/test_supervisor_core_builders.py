@@ -10,6 +10,7 @@ __all__: list[str] = []
 
 def make_supervisor(*, tmp_path, fake, **kwargs):
     kwargs.setdefault("out", _io.StringIO())
+    kwargs.setdefault("require_render_terminal", False)
     kwargs.setdefault("now", lambda: 1000.0)  # overridable: pass now=lambda: clock["t"]
     kwargs.setdefault("sleep", lambda _s: None)
     # Hermetic Codex discovery by default (#6): an empty `/proc` scan + a non-existent
