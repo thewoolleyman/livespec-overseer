@@ -493,6 +493,22 @@ deliberately, and it also returns the interval to its configured default.
    panel. The actuator re-runs `foreman-consensus` and journals its own audit
    record before it mutates any session state. Set `question_fingerprint` to
    the gather row's `pane_content_hash`; it is not a caller-chosen answer ID.
+   Before a convene obligation can age, it must exist on disk: when you first
+   observe a panel-eligible blocked decision whose action is not `human_valve`
+   and whose human-valve category is not `truly-unresolvable` or
+   `human-gated-by-design`, call `foreman-convene-obligation obligation` with
+   the row's topic, `pane_content_hash`, intended action id, observed epoch,
+   category, and request JSON. That writes under
+   `tmp/overseer/foreman/convene-obligations/<topic>/`, which is the root the
+   daemon reads for `consensus-overdue`. If the obligation is discharged because
+   a panel/consensus path was actually convened or otherwise no longer applies,
+   call `foreman-convene-obligation discharge`; it writes under
+   `tmp/overseer/foreman/convene-discharges/<topic>/`. If convening cannot
+   proceed and must be surfaced instead, call
+   `foreman-convene-obligation escalation`; it writes under
+   `tmp/overseer/foreman/convene-escalations/<topic>/`. These records are
+   fail-soft: inability to write one does not authorize an unrecorded mutation,
+   but the tick report must name the missing carrier.
 
 5. Before acting, call `foreman-act` with the proposal. It performs fresh
    revalidation against the newest gather document. If it refuses, report the
