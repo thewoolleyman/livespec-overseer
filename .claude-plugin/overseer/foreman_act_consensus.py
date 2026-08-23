@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import inspect
 from pathlib import Path
-from typing import Final, Protocol, cast
+from typing import Protocol, cast
 
+import foreman_act_consensus_floor
 import jsonio
 from foreman_act_consensus_record import (
     consensus_audit_record,
+    prepare_maintainer_decision,
     prepare_recorded_next_action,
 )
 from foreman_act_journal import journal_reconcile_command
@@ -17,7 +19,7 @@ from foreman_act_types import HUMAN_VALVE, ActionId, ActResult
 from foreman_consensus_actions import authorized_action_id, typed_action
 from foreman_consensus_types import DecisionRule
 from foreman_typed_ruling import ruling_kind_defined
-from foreman_valve_policy import CONSENSUS, MAJORITY, UNANIMOUS
+from foreman_valve_policy import MAJORITY, UNANIMOUS
 
 __all__: list[str] = [
     "ConsensusPanel",
@@ -25,20 +27,15 @@ __all__: list[str] = [
     "prepare_consensus_action",
 ]
 
-_LOCAL_FLOORS: Final[frozenset[str]] = frozenset()
-_FOREIGN_FLOORS: Final[frozenset[str]] = frozenset({"truly-unresolvable", "human-gated-by-design"})
-FOREIGN_FLOOR_RELAXATION_RATIFIED: Final[bool] = False
-"""Foreign floor relaxation is unratified.
-
-Tracked by bd-ib-8jv8 for livespec-orchestrator-beads-fabro
-SPECIFICATION/contracts.md section "Every needs-human escalation still reaches
-a human", and livespec-38bk for livespec SPECIFICATION/spec.md section "Full
-autonomy and the decision rule". Flipping this requires citing ratified
-versions in both owning repos.
-
-Owning orchestrator section: "Every needs-human escalation still reaches a human".
-Owning livespec section: SPECIFICATION/spec.md section "Full autonomy and the decision rule".
-"""
+_LOCAL_FLOORS = foreman_act_consensus_floor.LOCAL_FLOORS
+_FOREIGN_FLOORS = foreman_act_consensus_floor.FOREIGN_FLOORS
+FOREIGN_FLOOR_RELAXATION_RATIFIED = foreman_act_consensus_floor.FOREIGN_FLOOR_RELAXATION_RATIFIED
+# Foreign floor relaxation is unratified. Tracked by bd-ib-8jv8 for
+# livespec-orchestrator-beads-fabro SPECIFICATION/contracts.md section
+# "Every needs-human escalation still reaches a human", and livespec-38bk
+# for livespec SPECIFICATION/spec.md section "Full autonomy and the decision rule".
+# Owning orchestrator section: "Every needs-human escalation still reaches a human".
+# Owning livespec section: SPECIFICATION/spec.md section "Full autonomy and the decision rule".
 
 
 class ConsensusPanel(Protocol):
@@ -106,12 +103,6 @@ def _panel_verdict(
     return consensus_panel(request=request, responses=responses)
 
 
-def _valve_category(*, proposal: dict[str, object]) -> str | None:
-    valve = jsonio.as_object(value=proposal.get("human_valve"))
-    value = None if valve is None else valve.get("category")
-    return value if isinstance(value, str) and value != "" else None
-
-
 def _consensus_evidence(
     *, proposal: dict[str, object]
 ) -> tuple[dict[str, object], dict[str, object]] | None:
@@ -148,25 +139,20 @@ def _authorized_panel_member(
     return authorized_action_id(action=action)
 
 
-def _pre_evidence_refusal(
-    *, action_id: ActionId, proposal: dict[str, object], disposition: dict[str, object]
-) -> ActResult | None:
-    """The gates that bind however the act is later authorized.
-
-    Both the disposition and the hard floors are evaluated BEFORE any
-    authorization path is considered, so no carve-out can reach past them.
-    """
-    if disposition.get("effective") != CONSENSUS:
-        reason = "human_action_report_only"
-        if disposition.get("recognized") is False:  # pragma: no cover
-            reason = "unrecognized_foreman_valve_disposition"
-        return _refused(action_id=action_id, reason=reason)
-    category = _valve_category(proposal=proposal)
-    if category in _FOREIGN_FLOORS and not FOREIGN_FLOOR_RELAXATION_RATIFIED:
-        return _refused(action_id=action_id, reason=f"hard_floor:{category}")
-    if category in _LOCAL_FLOORS and disposition.get("full_autonomy") is not True:
-        return _refused(action_id=action_id, reason=f"hard_floor:{category}")
-    return None
+def _prepare_evidence_bypass(
+    *,
+    action_id: ActionId,
+    proposal: dict[str, object],
+    append_journal: AppendJournal,
+) -> tuple[ActionId | None, ActResult | None] | None:
+    maintainer = prepare_maintainer_decision(
+        action_id=action_id, proposal=proposal, append_journal=append_journal
+    )
+    if maintainer is not None:
+        return maintainer
+    return prepare_recorded_next_action(
+        action_id=action_id, proposal=proposal, append_journal=append_journal
+    )
 
 
 def prepare_consensus_action(
@@ -177,19 +163,27 @@ def prepare_consensus_action(
     consensus_panel: ConsensusPanel,
     append_journal: AppendJournal,
 ) -> tuple[ActionId | None, ActResult | None]:
-    pre_evidence = _pre_evidence_refusal(
-        action_id=action_id, proposal=proposal, disposition=disposition
+    pre_evidence = foreman_act_consensus_floor.pre_evidence_refusal(
+        action_id=action_id,
+        proposal=proposal,
+        disposition=disposition,
+        local_floors=_LOCAL_FLOORS,
+        foreign_floors=_FOREIGN_FLOORS,
+        foreign_floor_relaxation_ratified=FOREIGN_FLOOR_RELAXATION_RATIFIED,
     )
     if pre_evidence is not None:
         return None, pre_evidence
-    carve_out = prepare_recorded_next_action(
+    bypass = _prepare_evidence_bypass(
         action_id=action_id, proposal=proposal, append_journal=append_journal
     )
-    if carve_out is not None:
-        return carve_out
+    if bypass is not None:
+        return bypass
     evidence = _consensus_evidence(proposal=proposal)
     if evidence is None:
-        return None, _refused(action_id=action_id, reason="consensus_evidence_unavailable")
+        return None, _refused(
+            action_id=action_id,
+            reason="authorization_evidence_unavailable:maintainer_or_consensus",
+        )
     request, responses = evidence
     decision_rule = _known_decision_rule(value=disposition.get("decision_rule"))
     verdict = _panel_verdict(

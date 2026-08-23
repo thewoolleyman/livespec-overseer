@@ -68,10 +68,33 @@ def test_foreman_act_consensus_record_helpers_are_extracted():
     extracted = importlib.import_module("foreman_act_consensus_record")
     assert extracted.__all__ == [
         "consensus_audit_record",
+        "maintainer_decision_action_record",
+        "maintainer_decision_audit_record",
+        "prepare_maintainer_decision",
         "prepare_recorded_next_action",
     ]
 
     consensus = importlib.import_module("foreman_act_consensus")
     assert not hasattr(consensus, "_audit_record")
+    assert not hasattr(consensus, "_maintainer_decision")
+    assert not hasattr(consensus, "_prepare_maintainer_decision")
     assert not hasattr(consensus, "_recorded_next_action_record")
     assert not hasattr(consensus, "_prepare_recorded_next_action")
+
+
+def test_consensus_floor_helper_ignores_blocked_answer_category_for_human_valve():
+    floor = importlib.import_module("foreman_act_consensus_floor")
+
+    assert (
+        floor.pre_evidence_refusal(
+            action_id="human_valve",
+            proposal={
+                "blocked_session_answer": {"category": "human-gated-by-design"},
+            },
+            disposition={
+                "effective": "consensus",
+                "full_autonomy": True,
+            },
+        )
+        is None
+    )
