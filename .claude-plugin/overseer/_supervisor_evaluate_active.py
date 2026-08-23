@@ -11,10 +11,11 @@ import _supervisor_blocked
 import _supervisor_busy
 import _supervisor_foreman_escalation
 import _supervisor_liveness
+import _supervisor_threshold
 import foreman_pane_claim
 import registry
 import signals
-from _supervisor_records import InjectState
+from _supervisor_records import InjectState, Observation
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -41,6 +42,7 @@ class ActiveRequest:
     session: str
     target: str
     attention: EvaluationAttention
+    obs: Observation
     capture: str
     busy: bool
     gate: bool
@@ -63,6 +65,26 @@ class ActiveRequest:
 
 def _ready_declared(*, request: ActiveRequest) -> bool:
     return request.declared is not None and request.declared.token == signals.STATE_READY
+
+
+def _maybe_deliver_foreman_escalation_wrapup(*, request: ActiveRequest) -> None:
+    if (
+        request.act
+        and request.idle
+        and request.eff_ctx is not None
+        and request.eff_ctx <= request.threshold
+    ):
+        _ = _supervisor_threshold.threshold(
+            request=_supervisor_threshold.ThresholdRequest(
+                sup=request.sup,
+                track=request.track,
+                session=request.session,
+                target=request.target,
+                threshold=request.threshold,
+                act=request.act,
+                obs=request.obs,
+            )
+        )
 
 
 def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
@@ -118,6 +140,7 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
         # than by assertion: a track that has not declared still resolves to
         # `foreman-escalated` below and is never restartable.
         if not request.ready:
+            _maybe_deliver_foreman_escalation_wrapup(request=request)
             return ActiveDecision(
                 status=foreman_escalation.status,
                 note=foreman_escalation.note,
