@@ -104,7 +104,6 @@ def latest_final_relay(
     records = _supervisor_final_ruling_sources.read_journal(repo=Path(request.track.repo))
     if records is None:
         return None
-    identity = request.obs.session_identity
     relays = tuple(
         relay
         for record in records
@@ -115,7 +114,7 @@ def latest_final_relay(
             )
         )
         is not None
-        and (identity is None or relay.session_identity in {None, identity})
+        and relay.item_id == request.track.epic
     )
     if not relays:
         return None

@@ -623,8 +623,15 @@ orders and records whether the pass-along exists. Full autonomy means recorded
 next actions are taken, pickers are not used as a stall shape, idle workers are
 driven through dispatch or resume, and a final third relay must be obeyed; it
 does not relax the cardinal rule, actuator-only mutation, `security_dissent`,
-journal-before-act, the delegation floor, or foreign floors. A
-`final-ruling-unheeded` condition is therefore routed to the foreman as a
+journal-before-act, the delegation floor, or foreign floors.
+
+A worker under a full-autonomy foreman MAY object in the `OBJECTION <fingerprint>:`
+ledger-comment shape at most twice per ruling on its plan epic, including across
+restarts; after a relay marked final it MUST take the action and MUST NOT stall,
+except for the closed infra, quota, and credential exemptions that define
+`final-ruling-unheeded`.
+
+The `final-ruling-unheeded` condition is therefore routed to the foreman as a
 dispatch target through `work_item_session_start` or
 `qualifying_session_resume`; a reported terminating condition is surfaced to the
 maintainer and never self-applied by the supervisor.

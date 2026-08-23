@@ -2027,6 +2027,47 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
     assert not pane_claim.claim_path(repo=repo, topic="alpha").exists()
 
 
+def test_blocked_answer_refuses_when_relay_strike_limit_is_reached(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    relay_strikes = module("foreman_relay_strikes")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo, full_autonomy=True)
+
+    def refused_relay(**kwargs: object):
+        _ = kwargs
+        return relay_strikes.RelayPreparation(
+            record={},
+            fingerprint="rule-1",
+            objections_remaining=0,
+            final=False,
+            final_sentence=None,
+            refusal="relay_strike_limit_reached",
+        )
+
+    monkeypatch.setattr(relay_strikes, "prepare_blocked_answer_relay", refused_relay)
+
+    result = foreman_act.act(
+        proposal=blocked_answer_proposal(repo=repo),
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_majority_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "refused",
+        "reason": "relay_strike_limit_reached",
+    }
+
+
 def test_blocked_answer_numbered_picker_selects_named_non_default_option(*, tmp_path, monkeypatch):
     assert PANE_CLAIM_PATH.is_file()
     pane_claim = module("foreman_pane_claim")
