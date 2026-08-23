@@ -35,7 +35,7 @@ def _run_pre_push(
     soft_owner_marked: bool,
 ) -> subprocess.CompletedProcess[str]:
     bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
+    bin_dir.mkdir(parents=True)
     log_path = tmp_path / "just.log"
     bash = shutil.which("bash")
     assert bash is not None
@@ -100,6 +100,106 @@ exit 0
         text=True,
         capture_output=True,
     )
+
+
+def _run_instructed_check(
+    *,
+    tmp_path: Path,
+    soft_owner_marked: bool,
+) -> subprocess.CompletedProcess[str]:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(parents=True)
+    log_path = tmp_path / "just-check.log"
+    just = shutil.which("just")
+    assert just is not None
+    _write_executable(
+        path=bin_dir / "uv",
+        body="""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == "sync --all-groups" ]]; then
+  exit 0
+fi
+if [[ "$*" == "run python -m livespec_dev_tooling.green_token write" ]]; then
+  exit 0
+fi
+if [[ "$*" == "run python -m livespec_dev_tooling.green_token check" ]]; then
+  exit 1
+fi
+echo "unexpected uv invocation: $*" >&2
+exit 99
+""",
+    )
+    _write_executable(
+        path=bin_dir / "just",
+        body=f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s env=%s\\n' "$*" "${{{_FAIL_ENV_VAR}:-<unset>}}" >> "{log_path}"
+if [[ "$*" == "check-no-lloc-soft-warnings" ]]; then
+  if [[ "${{{_FAIL_ENV_VAR}:-}}" == "true" && "${{SOFT_OWNER_MARKED}}" != "true" ]]; then
+    echo '{{"file":"overseer/foreman_act_dispatch.py","lloc":211,'\
+' "failing":true,'\
+'"expected_marker":"# livespec-lloc-soft-band-owner: <work-item-id>"}}' >&2
+    exit 1
+  fi
+  exit 0
+fi
+exit 0
+""",
+    )
+
+    env = _scrub_coverage_env(env=os.environ.copy())
+    env.update(
+        {
+            "PATH": f"{bin_dir}:{env['PATH']}",
+            "SOFT_OWNER_MARKED": "true" if soft_owner_marked else "false",
+        }
+    )
+    env.pop(_FAIL_ENV_VAR, None)
+    return subprocess.run(  # noqa: S603
+        [just, "check"],
+        cwd=_REPO_ROOT,
+        env=env,
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+
+
+def test_instructed_check_and_pre_push_refuse_unmarked_soft_band_python_change(
+    tmp_path: Path,
+) -> None:
+    instructed = _run_instructed_check(
+        tmp_path=tmp_path / "instructed",
+        soft_owner_marked=False,
+    )
+    pre_push = _run_pre_push(
+        tmp_path=tmp_path / "pre-push",
+        changed_files="overseer/foreman_act_dispatch.py",
+        soft_owner_marked=False,
+    )
+
+    assert instructed.returncode == 1
+    assert pre_push.returncode == 1
+    assert "check-no-lloc-soft-warnings" in instructed.stdout
+    assert '"failing":true' in instructed.stderr
+    assert '"failing":true' in pre_push.stderr
+
+
+def test_instructed_check_and_pre_push_accept_marked_soft_band_python_change(
+    tmp_path: Path,
+) -> None:
+    instructed = _run_instructed_check(
+        tmp_path=tmp_path / "instructed",
+        soft_owner_marked=True,
+    )
+    pre_push = _run_pre_push(
+        tmp_path=tmp_path / "pre-push",
+        changed_files="overseer/foreman_act_dispatch.py",
+        soft_owner_marked=True,
+    )
+
+    assert instructed.returncode == 0
+    assert pre_push.returncode == 0
 
 
 def test_pre_push_refuses_unmarked_soft_band_python_change(tmp_path: Path) -> None:

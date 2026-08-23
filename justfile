@@ -148,6 +148,9 @@ check:
     # Pre-push and CI invoke `just check` with no skip variable, so the
     # full aggregate stays the safety net.
     read -ra skip_targets <<< "${LIVESPEC_CHECK_SKIP:-}"
+    # The aggregate is the verification implementers are instructed to run,
+    # so it must report the same LLOC soft-band severity as pre-push/CI.
+    export LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST="${LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST:-true}"
     # Sync the environment ONCE per aggregate pass, then run every
     # target with UV_NO_SYNC=1 so the ~44 per-target `uv run`
     # invocations skip their redundant per-invocation re-sync
