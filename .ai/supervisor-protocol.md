@@ -388,6 +388,12 @@ NOT reasons to escalate. State the assumption and keep going.
 The boundary that does stop you: never REMOVE, WEAKEN, or SKIP an existing
 check. That is a property of the change, not of any file path.
 
+A worker under a full-autonomy foreman MAY object in the `OBJECTION <fingerprint>:`
+ledger-comment shape at most twice per ruling on its plan epic, including across
+restarts; after a relay marked final it MUST take the action and MUST NOT stall,
+except for the closed infra, quota, and credential exemptions that define
+`final-ruling-unheeded`.
+
 Every maintainer-facing action is an AskUserQuestion call carrying a
 recommendation. Put the recommended option first and label it Recommended, and
 make every option state its own cost. Use full repository names. Put `---` as

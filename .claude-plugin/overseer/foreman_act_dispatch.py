@@ -200,7 +200,12 @@ def act_authorized(
     ) is not None:
         result = _refused(action_id=action_id, reason=start_refusal)
     elif action_id == BLOCKED_SESSION_ANSWER:
-        result = act_blocked_session_answer(proposal=proposal, document=document, repo=repo)
+        result = act_blocked_session_answer(
+            proposal=proposal,
+            document=document,
+            repo=repo,
+            append_journal=seams.append_journal,
+        )
     elif action_id == WORK_ITEM_FILE:
         result = _act_filing(
             proposal=proposal,

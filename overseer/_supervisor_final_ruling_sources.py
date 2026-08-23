@@ -41,10 +41,11 @@ class LedgerItem:
 def relay_from_record(
     *, record: dict[str, object], fallback_item_id: str | None
 ) -> FinalRelay | None:
+    _ = fallback_item_id
     if record.get("final") is not True:
         return None
     at = timestamp(value=record.get("at"))
-    item_id = string_value(value=record.get("work_item_id")) or fallback_item_id
+    item_id = string_value(value=record.get("work_item_id"))
     if at is None or item_id is None:
         return None
     return FinalRelay(

@@ -4,13 +4,16 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import foreman_gate_state
 import foreman_gather_evidence
 import foreman_pane_claim
+import foreman_relay_strikes
 import jsonio
 import signals
 import tmuxio
+from foreman_act_record import AppendJournal
 from foreman_act_revalidate import str_field
 from foreman_act_types import BLOCKED_SESSION_ANSWER, ActResult
 
@@ -208,7 +211,11 @@ def _deliver_answer(
 
 
 def act_blocked_session_answer(
-    *, proposal: dict[str, object], document: dict[str, object], repo: str
+    *,
+    proposal: dict[str, object],
+    document: dict[str, object],
+    repo: str,
+    append_journal: AppendJournal,
 ) -> ActResult:
     reason, payload, row = _answer_refusal(proposal=proposal, document=document, repo=repo)
     if reason is not None or payload is None or row is None:
@@ -219,6 +226,16 @@ def act_blocked_session_answer(
     answer_text = _answer_text(payload=payload) or ""
     fp = _question_fingerprint(payload=payload) or ""
     session_identity = str_field(payload=row, key="session_identity") or ""
+    relay = foreman_relay_strikes.prepare_blocked_answer_relay(
+        document=document,
+        repo=repo,
+        topic=topic,
+        row=row,
+        payload=payload,
+    )
+    if relay.refusal is not None:
+        return _refused(reason=relay.refusal)
+    answer_text = foreman_relay_strikes.relay_text(answer_text=answer_text, relay=relay)
     tmux = tmuxio.TmuxIO()
     pane = tmux.pane_id(session=session)
     if pane is None:  # pragma: no cover
@@ -244,6 +261,10 @@ def act_blocked_session_answer(
         ),
     )
     try:
+        try:
+            append_journal(repo=Path(repo), record=relay.record)
+        except OSError:  # pragma: no cover
+            return _refused(reason="journal_append_failed")
         _persist_gate_state(
             repo=repo,
             topic=topic,
