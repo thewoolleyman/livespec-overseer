@@ -81,12 +81,13 @@ def plan_state_locator(*, repo: str, epic: str | None) -> str:
     text says exactly that rather than naming a plausible-looking pointer nobody can
     resolve.
     """
-    if epic is None:
+    resolved_epic = _resolved_epic(epic=epic)
+    if resolved_epic is None:
         return (
             f"this track's ledger-held plan state in repository {repo} — but NO plan epic "
             "id is recorded for this track, so ask the operator to record one"
         )
-    return f"the plan state held on ledger epic {epic} in repository {repo}"
+    return f"the plan state held on ledger epic {resolved_epic} in repository {repo}"
 
 
 def plan_epic_resume(*, repo: str, epic: str) -> str:
@@ -96,12 +97,13 @@ def plan_epic_resume(*, repo: str, epic: str) -> str:
 
 def _resume_line(*, repo: str, epic: str | None) -> str:
     """The exact prompt the fresh session will be handed, quoted back in the wrap-up."""
-    if epic is None:
+    resolved_epic = _resolved_epic(epic=epic)
+    if resolved_epic is None:
         return (
             "(no resume prompt can be built — this track records NO plan epic id, so it "
             "is surfaced for a human instead of respawned)"
         )
-    return plan_epic_resume(repo=repo, epic=epic)
+    return plan_epic_resume(repo=repo, epic=resolved_epic)
 
 
 def _resolved_epic(*, epic: str | None) -> str | None:
@@ -282,12 +284,13 @@ def foreman_epic_resume(*, repo: str, epic: str) -> str:
 
 def foreman_resume(*, repo: str, epic: str | None = None) -> str:
     """Resume prompt for a foreman entity, or explicit no-epic operator wording."""
-    if epic is None:
+    resolved_epic = _resolved_epic(epic=epic)
+    if resolved_epic is None:
         return (
             f"(no resume prompt can be built — this foreman track records NO foreman "
             f"ledger epic id for repository {repo}, so ask the operator to record one)"
         )
-    return foreman_epic_resume(repo=repo, epic=epic)
+    return foreman_epic_resume(repo=repo, epic=resolved_epic)
 
 
 def _foreman_state_locator(*, repo: str, epic: str | None) -> str:

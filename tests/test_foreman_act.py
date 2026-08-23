@@ -769,13 +769,21 @@ def test_supervisor_prompt_resume_builders_cover_ledger_and_no_epic_shapes(*, tm
     repo = str(tmp_path / "repo")
     topic = "alpha"
     epic = "overseer-test-epic"
+    unresolved_epic = registry.unresolved_plan_epic(topic=topic)
     worker = registry.Track(topic=topic, repo=repo, tmux=topic, epic=epic)
     worker_without_epic = registry.Track(topic=topic, repo=repo, tmux=topic, epic=None)
+    worker_with_unresolved_epic = registry.Track(
+        topic=topic,
+        repo=repo,
+        tmux=topic,
+        epic=unresolved_epic,
+    )
     supervisor = registry.Track(
         topic=f"{topic}-supervisor", repo=repo, tmux=f"{topic}-supervisor", epic=epic
     )
 
     assert prompts.plan_state_locator(repo=repo, epic=None).count("NO plan epic id") == 1
+    assert prompts.plan_state_locator(repo=repo, epic=unresolved_epic).count("NO plan epic id") == 1
     assert prompts.plan_state_locator(repo=repo, epic=epic) == (
         f"the plan state held on ledger epic {epic} in repository {repo}"
     )
@@ -784,6 +792,7 @@ def test_supervisor_prompt_resume_builders_cover_ledger_and_no_epic_shapes(*, tm
     )
     assert prompts.resume_for_track(track=worker) == prompts.plan_epic_resume(repo=repo, epic=epic)
     assert prompts.resume_for_track(track=worker_without_epic) is None
+    assert prompts.resume_for_track(track=worker_with_unresolved_epic) is None
     assert prompts.resume_for_track(track=supervisor) == prompts.supervisor_ledger_resume(
         repo=repo, topic=topic, epic=epic
     )
@@ -792,6 +801,7 @@ def test_supervisor_prompt_resume_builders_cover_ledger_and_no_epic_shapes(*, tm
     assert "NO plan epic id" in supervisor_without_epic_resume
     assert prompts.launch_resume(track=worker) == prompts.plan_epic_resume(repo=repo, epic=epic)
     assert "no plan epic id is recorded" in prompts.launch_resume(track=worker_without_epic)
+    assert "no plan epic id is recorded" in prompts.launch_resume(track=worker_with_unresolved_epic)
     assert (
         prompts.supervisor_handoff_path(repo=repo, topic=topic)
         .as_posix()
@@ -852,14 +862,47 @@ def test_foreman_resume_command_uses_ledger_prompt_instead_of_scratch_handoff(*,
     assert "plan/" not in prompt
 
 
+def test_plan_resume_command_rejects_legacy_unresolved_epic(*, tmp_path):
+    commands = module("foreman_act_commands")
+    registry = module("registry")
+    repo = str(tmp_path / "repo")
+    topic = "alpha"
+
+    command = commands.resume_command_from_payload(
+        payload={
+            "runtime": "codex",
+            "repo": repo,
+            "topic": topic,
+            "session_name": topic,
+            "session_id": "codex-session-id",
+            "epic": registry.unresolved_plan_epic(topic=topic),
+        }
+    )
+
+    assert command is not None
+    prompt = command[-1]
+    assert "legacy-unresolved:" not in prompt
+    assert prompt == (
+        f"continue the plan {topic} work in repository {repo} from your restored session"
+    )
+
+
 def test_supervisor_prompt_wrapup_builders_cover_ledger_and_no_epic_shapes(*, tmp_path):
     prompts = module("_supervisor_prompts")
+    registry = module("registry")
     repo = str(tmp_path / "repo")
     topic = "alpha"
     epic = "overseer-test-epic"
+    unresolved_epic = registry.unresolved_plan_epic(topic=topic)
 
     worker_wrap = prompts.wrapup_message(remaining=45, repo=repo, topic=topic, epic=epic)
     worker_wrap_no_epic = prompts.wrapup_message(remaining=20, repo=repo, topic=topic, epic=None)
+    worker_wrap_unresolved_epic = prompts.wrapup_message(
+        remaining=20,
+        repo=repo,
+        topic=topic,
+        epic=unresolved_epic,
+    )
     supervisor_wrap = prompts.supervisor_wrapup_message(
         remaining=45, repo=repo, topic=topic, epic=epic
     )
@@ -870,6 +913,8 @@ def test_supervisor_prompt_wrapup_builders_cover_ledger_and_no_epic_shapes(*, tm
     assert "Please start wrapping up" in worker_wrap
     assert "STOP AND WIND DOWN NOW" in worker_wrap_no_epic
     assert "NO plan epic id" in worker_wrap_no_epic
+    assert "NO plan epic id" in worker_wrap_unresolved_epic
+    assert "legacy-unresolved:" not in worker_wrap_unresolved_epic
     assert "supervisor handoff entries attributed to alpha-supervisor" in supervisor_wrap
     assert "NO plan epic id" in supervisor_wrap_no_epic
 
