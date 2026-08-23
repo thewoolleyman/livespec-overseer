@@ -168,6 +168,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
             busy=busy,
             gate=gate,
             idle=idle,
+            ctx_changed=obs.ctx_changed,
             codex_fallback=codex_fallback,
             claude_status=claude_status,
             eff_ctx=eff_ctx,

@@ -45,6 +45,7 @@ class ActiveRequest:
     busy: bool
     gate: bool
     idle: bool
+    ctx_changed: bool
     codex_fallback: bool
     claude_status: str | None
     eff_ctx: int | None
@@ -154,14 +155,24 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
     shell_only = request.attention.shell_only
     generating = request.attention.generating
     if (
-        request.busy
+        (
+            request.busy
+            or (
+                request.ctx_changed
+                and request.gate
+                and request.istate.blocked_human_stall_since is None
+            )
+        )
         and (
             request.ready
             or not (
                 shell_only and request.eff_ctx is not None and request.eff_ctx <= request.threshold
             )
         )
-        and not ((request.gate or request.blocked is not None) and not generating)
+        and not (
+            (request.gate or request.blocked is not None)
+            and not (generating or request.ctx_changed)
+        )
     ):
         busy_decision = _supervisor_busy.busy(
             request=_supervisor_busy.BusyRequest(
