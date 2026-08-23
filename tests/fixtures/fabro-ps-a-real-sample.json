@@ -1,0 +1,18 @@
+[
+  {
+    "run_id": "01M0REMOTEACTIVE",
+    "status": {
+      "kind": "running",
+      "reason": "agent active"
+    },
+    "goal": "Implement work-item overseer-1a31.5 in livespec-overseer."
+  },
+  {
+    "run_id": "01M0REMOTEDONE",
+    "status": {
+      "kind": "succeeded",
+      "reason": "completed"
+    },
+    "goal": "Implement work-item overseer-old in livespec-overseer."
+  }
+]

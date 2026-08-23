@@ -5,10 +5,14 @@ from __future__ import annotations
 import json
 import subprocess
 from dataclasses import dataclass
+from pathlib import Path
 
+import _supervisor_wait_target_liveness as liveness
 import _supervisor_wait_target_sources as sources
 
 __all__: list[str] = []
+
+_FIXTURE_ROOT = Path(__file__).parent / "fixtures"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -166,4 +170,55 @@ def test_remote_factory_liveness_distinguishes_absent_from_unreachable(*, tmp_pa
             target_id="dispatch-1",
         )
         is None
+    )
+
+
+def test_remote_liveness_helpers_accept_real_fabro_payload():
+    records = liveness.process_records_from_payload(
+        stdout=(_FIXTURE_ROOT / "fabro-ps-a-real-sample.json").read_text(encoding="utf-8")
+    )
+
+    assert records is not None
+    assert records[0]["run_id"] == "01M0REMOTEACTIVE"
+    assert records[1]["run_id"] == "01M0REMOTEDONE"
+    assert liveness.active_process(process_record=records[0])
+    assert not liveness.active_process(process_record=records[1])
+
+
+def test_remote_verdict_reports_absent_target_with_real_factory_payload(*, tmp_path, monkeypatch):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".livespec.jsonc").write_text(
+        """
+        {
+          "livespec-orchestrator-beads-fabro": {
+            "dispatcher": {
+              "factories": {
+                "hp": { "server": "https://factory.example" }
+              }
+            }
+          }
+        }
+        """,
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(sources, "publish_branch_present", lambda *, repo, branch: False)
+    monkeypatch.setattr(sources, "read_journal", lambda *, repo: [])
+    monkeypatch.setattr(sources, "forge_pull_request_present", lambda *, repo, branch: False)
+    monkeypatch.setattr(
+        sources.subprocess,
+        "run",
+        lambda *args, **kwargs: Completed(
+            returncode=0,
+            stdout=(_FIXTURE_ROOT / "fabro-ps-a-real-sample.json").read_text(encoding="utf-8"),
+        ),
+    )
+
+    assert sources.remote_verdict(
+        repo=repo,
+        record={"dispatch_factory": "hp", "work_item_id": "overseer-absent"},
+        target_id="ffffffffffffffffffffffffffffffff",
+    ) == (
+        "wait-target-missing",
+        "fabro-run ffffffffffffffffffffffffffffffff absent from every mandatory leg",
     )
