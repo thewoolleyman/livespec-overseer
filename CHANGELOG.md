@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.48.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.4...v1.48.5) (2026-08-23)
+
+
+### Bug Fixes
+
+* keep foreman self-restart notice one-shot ([83975ff](https://github.com/thewoolleyman/livespec-overseer/commit/83975ffaa12b839e4cc6c1b2e08fd485a32f2601))
+
 ## [1.48.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.3...v1.48.4) (2026-08-23)
 
 
