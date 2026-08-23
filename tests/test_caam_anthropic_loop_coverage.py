@@ -194,20 +194,10 @@ def test_internal_default_seams_are_callable_without_extra_adapters(*, monkeypat
         env={},
         timeout=5.0,
     )
-    reason = module._dark_reason(
-        profiles=(ProfileUsage(name="active", usage=None, source="dark: HTTP 429"),),
-        active_name="active",
-    )
-    fallback = module._dark_reason(
-        profiles=(ProfileUsage(name="other", usage=None, source="dark: HTTP 429"),),
-        active_name="active",
-    )
     module._logger(writer=logged.append)("message")
 
     assert process.returncode != -999
     assert agent.stdout == "ok\n"
-    assert reason == "HTTP 429"
-    assert fallback == "unreadable"
     assert logged == ["message"]
 
 

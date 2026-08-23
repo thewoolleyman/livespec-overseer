@@ -410,6 +410,41 @@ def test_keep_warm_skips_active_underscore_valid_and_backed_off_profiles(*, tmp_
     assert logs == ["warm: due refreshed, +5.6h"]
 
 
+def test_keep_warm_attempts_a_profile_whose_credentials_file_is_absent(*, tmp_path: Path):
+    """A snapshot with no credentials file FAILS LOUDLY rather than being skipped.
+
+    The source reads the credentials path unconditionally, so an absent file
+    falls through to the staleness branch, the profile is entered, and the
+    sandbox preparation fails -- which is REPORTED and recorded in the backoff
+    memo. A presence guard would turn that into silence, hiding exactly the
+    snapshots most likely to need attention, and would diverge from the oracle.
+    This test pins the absence of that guard.
+    """
+
+    module = caam_warm_module()
+    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    _ = write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=1000.0)
+    absent = write_snapshot(home=tmp_path, name="no-creds", credential="old", expires_at_s=1000.0)
+    (absent / ".credentials.json").unlink()
+    agent = Agent(refreshed_credential="new", after_expires_at_s=30_000.0)
+    logs: list[str] = []
+    state: dict[str, object] = {}
+
+    module.keep_warm(
+        state=state,
+        config=warm_config(module=module, active_name="active", home=tmp_path),
+        now=10_000.0,
+        agent_runner=agent,
+        logger=logs.append,
+    )
+
+    assert agent.calls == []
+    warm_memo = state["warm"]
+    assert isinstance(warm_memo, dict)
+    assert warm_memo["no-creds"]["ok"] is False
+    assert any("no-creds" in line for line in logs)
+
+
 def test_keep_warm_attempts_at_staleness_boundary_and_backs_off_success(*, tmp_path: Path):
     module = caam_warm_module()
     write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)

@@ -31,8 +31,8 @@ from caam_profile_state import (
     state_path as caam_state_path,
 )
 from caam_profiles import CaamRunner, active_profile
-from caam_rendering import RenderableProfileUsage, render_table
 from caam_protected_accounts import apply_protected_accounts
+from caam_rendering import RenderableProfileUsage, render_table
 from caam_switch import switch_account as default_switch_account
 from caam_usage import fetch_usage
 from caam_warm import (
@@ -44,12 +44,7 @@ from caam_warm import (
     resnapshot_active,
 )
 
-__all__: list[str] = [
-    "AgentRunner",
-    "Flags",
-    "PassContext",
-    "run_pass",
-]
+__all__: list[str] = ["AgentRunner", "Flags", "PassContext", "run_pass"]
 
 _EMPTY_VAULT = "FAIL no profiles found in the caam vault for claude"
 _ACTIVE_FAIL = "FAIL could not determine active claude profile"
