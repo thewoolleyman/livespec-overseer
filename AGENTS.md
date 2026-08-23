@@ -317,6 +317,56 @@ question comes up, finish and land it rather than discarding sunk, verified
 progress purely to redo it via the factory — the preference governs the NEXT
 piece of work, not a reflexive abort of work already done.
 
+## Every dispatch is a PLAN CHILD, and the plan's timeline must say so BEFORE launch
+
+Maintainer-directed 2026-08-23. Two obligations, and the second is the one that
+actually gets skipped.
+
+**1. Dispatch only a child of a plan-anchor epic.** An item with no plan parent has
+no scope event that admitted it, no archive gate that will force a reckoning with
+it, and no timeline a fresh session can read. Dispatching one is the "one-off
+dispatching" this rule exists to stop. A CARRIER EPIC IS NOT A PLAN: it has no plan
+directory, no scope event and no archive gate by construction. Check for
+`plan_slug` metadata on the parent rather than assuming any epic is a thread.
+
+**2. Append a handoff entry to that plan's epic BEFORE you launch**, naming the
+item, the route (`impl:<id>` or Dispatcher drain) and what you expect back.
+Handoffs are ledger-held comments on the plan epic — that is the plan's only state.
+A dispatch absent from the timeline is invisible to everyone reading the plan,
+including the next session on that thread and the maintainer.
+
+**Why BEFORE, not after.** Measured 2026-08-22: three items were dispatched from a
+debug pane and merged as PRs #1587, #1592 and #1597. Every one had a correct plan
+parent, so nothing was orphaned — and for the entire in-flight window both plans'
+timelines said nothing at all. One of the two epics had ZERO timeline entries. The
+gap was closed retroactively, which is luck rather than discipline: had the session
+ended mid-flight, the plans would have carried no trace of work running against
+them. Recording after the fact only works when nothing goes wrong in between.
+
+**The ledger row does not satisfy this.** A row at `active` with assignee `fabro`
+says a claim exists. It does not say which plan authorized the work, what it should
+produce, or what to do when it fails — and an `active` row is routinely wrong on its
+own terms; see the phantom-claim shapes in "Dispatch traps" above.
+
+**Mixed-tier items are not dispatchable at all — split them at FILING time.** An item
+whose deliverable spans a repository change AND a `SPECIFICATION/` change cannot be
+satisfied by the factory: `scripts/check-no-factory-spec-edits.sh` is a hard,
+no-escape-hatch gate rejecting any factory-authored commit touching `SPECIFICATION/`,
+and `just check` runs it in-sandbox. Measured 2026-08-21 on `overseer-lixhd3.1`: run
+`01M0K8TJFWAF6QEJPGC0MV5EJ2` spent FOUR HOURS and two fix-stage passes discovering
+that its own acceptance criterion required a file the sandbox forbids, then failed
+`deterministic`. That item's text had correctly read "supervised for the spec half,
+dispatch-safe for the code half" — accurate analysis, useless as a control, because
+it was filed as ONE unit. **A mixed-tier item is not dispatch-safe merely because
+part of it is.**
+
+The same trap has a second face, and it caught the very session writing this rule an
+hour after the post-mortem: any acceptance criterion naming a HOST-SIDE act the
+sandbox cannot perform — bouncing the daemon, mutating the beads ledger, answering a
+picker in another pane — is unsatisfiable in-sandbox and DEADLOCKS the run rather
+than failing fast. Bound the in-sandbox deliverable at a green merged PR and name the
+host-side step as a separate post-merge obligation on the item.
+
 ## Lifecycle statuses for `bd update --status`
 
 Use only the livespec lifecycle statuses when writing a work-item status:
