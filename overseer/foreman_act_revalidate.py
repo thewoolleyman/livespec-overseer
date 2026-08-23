@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Final
+from typing import Final, cast
 
 import jsonio
 from foreman_act_types import (
@@ -17,6 +17,7 @@ __all__: list[str] = [
     "int_field",
     "revalidate_identity",
     "revalidate_source",
+    "revalidate_start_identity",
     "str_field",
     "validate_proposal",
 ]
@@ -75,6 +76,38 @@ def revalidate_source(*, document: dict[str, object]) -> str | None:
 
 
 def revalidate_identity(*, proposal: dict[str, object], document: dict[str, object]) -> str | None:
+    reason, repo, topic, expected = _revalidate_snapshot_identity(
+        proposal=proposal, document=document
+    )
+    if reason is not None:
+        return reason  # pragma: no cover
+    expected_snapshot = cast(dict[str, object], expected)
+    row = _matching_row(document=document, repo=cast(str, repo), topic=cast(str, topic))
+    if row is None or row.get("session_identity") != expected_snapshot.get("session_identity"):
+        reason = "session_identity_changed"
+    return reason
+
+
+def revalidate_start_identity(
+    *, proposal: dict[str, object], document: dict[str, object]
+) -> str | None:
+    reason, repo, topic, expected = _revalidate_snapshot_identity(
+        proposal=proposal, document=document
+    )
+    if reason is not None:
+        return reason
+    expected_snapshot = cast(dict[str, object], expected)
+    row = _matching_row(document=document, repo=cast(str, repo), topic=cast(str, topic))
+    if row is not None and row.get("session_identity") != expected_snapshot.get("session_identity"):
+        reason = (
+            "session_identity_changed" if row.get("status") == "session-gone" else "already_started"
+        )
+    return reason
+
+
+def _revalidate_snapshot_identity(
+    *, proposal: dict[str, object], document: dict[str, object]
+) -> tuple[str | None, str | None, str | None, dict[str, object] | None]:
     repo = str_field(payload=proposal, key="repo")
     topic = str_field(payload=proposal, key="topic")
     expected = _proposal_snapshot(proposal=proposal)
@@ -88,11 +121,7 @@ def revalidate_identity(*, proposal: dict[str, object], document: dict[str, obje
         reason = "daemon_identity_changed"
     elif current.get("tick_generation") != expected.get("tick_generation"):
         reason = "tick_generation_changed"
-    else:
-        row = _matching_row(document=document, repo=repo, topic=topic)
-        if row is None or row.get("session_identity") != expected.get("session_identity"):
-            reason = "session_identity_changed"
-    return reason
+    return reason, repo, topic, expected
 
 
 def _known_action_id(*, value: object) -> ActionId | None:

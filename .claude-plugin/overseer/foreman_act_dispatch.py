@@ -13,7 +13,7 @@ from foreman_act_dispatch_result import CommandResult, ReturncodeRunner, Runner,
 from foreman_act_filing import FileWorkItem, filing_request
 from foreman_act_ledger import LedgerMutation, ledger_request
 from foreman_act_record import AppendJournal
-from foreman_act_revalidate import revalidate_identity, str_field
+from foreman_act_revalidate import revalidate_identity, revalidate_start_identity, str_field
 from foreman_act_types import (
     BLOCKED_SESSION_ANSWER,
     DISPATCH_JOURNAL_RECONCILE_MERGED,
@@ -120,6 +120,14 @@ def _is_ledger_mutation(*, action_id: ActionId) -> bool:
     return action_id in (FOREMAN_EPIC_CREATE, WORK_ITEM_COMMENT, WORK_ITEM_UPDATE)
 
 
+def _revalidate_action_identity(
+    *, action_id: ActionId, proposal: dict[str, object], document: dict[str, object]
+) -> str | None:
+    if action_id in _START_ACTIONS:
+        return revalidate_start_identity(proposal=proposal, document=document)
+    return revalidate_identity(proposal=proposal, document=document)
+
+
 def _act_ledger_mutation(
     *,
     proposal: dict[str, object],
@@ -194,7 +202,9 @@ def act_authorized(
             run=returncode_runner,
         )
     elif (
-        identity_refusal := revalidate_identity(proposal=proposal, document=document)
+        identity_refusal := _revalidate_action_identity(
+            action_id=action_id, proposal=proposal, document=document
+        )
     ) is not None:
         result = _refused(action_id=action_id, reason=identity_refusal)
     elif (
