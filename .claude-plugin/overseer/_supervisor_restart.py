@@ -201,6 +201,8 @@ def _successor_resume_prompt(*, sup: Supervisor, track: registry.Track) -> str:
     )
     if not self_restart.attempted or self_restart.reason is None:
         return resume
+    if not self_restart.notice_pending:
+        return resume
     return (
         "Your predecessor self-restarted this foreman seat.\n"
         f"Reason: {self_restart.reason}\n\n"

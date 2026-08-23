@@ -57,6 +57,50 @@ def self_restart_notices(*, fake):
     return [text for text in fake.paste_texts() if "Your predecessor self-restarted" in text]
 
 
+def arrange_foreman_ready(*, tmp_path, mtime: float):
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    track = foreman_track(repo=repo)
+    fake = FakeTmux()
+    fake.serve(session=track.tmux, repo=repo, capture=idle_capture(ctx=79))
+    declare(repo=repo, topic=track.topic, value=signals.STATE_READY, mtime=mtime)
+    return repo, track, fake
+
+
+def evaluate_silently(*, sup, track):
+    with contextlib.redirect_stderr(_io.StringIO()):
+        return sup.evaluate(track=track, act=True)
+
+
+def assert_first_self_restart_delivered(*, tmp_path):
+    repo, track, fake = arrange_foreman_ready(tmp_path=tmp_path, mtime=1000.0)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0 + 3601.0)
+
+    first = evaluate_silently(sup=sup, track=track)
+
+    assert first.status == "ready-uncertifiable"
+    assert_foreman_respawned_once(fake=fake, track=track, repo=repo)
+    assert len(self_restart_notices(fake=fake)) == 1
+    assert_self_restart_persisted(sup=sup, track=track, repo=repo)
+    return repo, track, fake, sup
+
+
+def perform_ordinary_restart_after_self_restart(*, repo, track, fake, sup, tmp_path):
+    fake.calls.clear()
+    registry.write_injection_stamp(
+        repo=str(repo), topic=track.topic, ts=4999.0, stamp_path=sup.stamp_path
+    )
+    declare(repo=repo, topic=track.topic, value=signals.STATE_READY, mtime=5000.0)
+    ordinary = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 5001.0)
+
+    restarted = evaluate_silently(sup=ordinary, track=track)
+
+    assert restarted.status == "restarting"
+    assert_foreman_respawned_once(fake=fake, track=track, repo=repo)
+    assert self_restart_notices(fake=fake) == []
+    assert_self_restart_persisted(sup=ordinary, track=track, repo=repo)
+    return ordinary
+
+
 def test_foreman_ready_below_self_restart_floor_does_not_respawn(*, tmp_path):
     repo, _topic = make_plan(tmp_path=tmp_path)
     track = foreman_track(repo=repo)
@@ -130,6 +174,25 @@ def test_foreman_self_restart_respawns_once_and_persists_loud_fact(*, tmp_path):
     assert len([call for call in fake.calls if call[0] == "respawn"]) == 1
     assert "foreman self-restart already used for this session lineage" in err.getvalue()
     assert len(self_restart_notices(fake=fake)) == 1
+
+
+def test_foreman_self_restart_notice_is_one_shot_but_cap_survives_ordinary_restart(*, tmp_path):
+    repo, track, fake, sup = assert_first_self_restart_delivered(tmp_path=tmp_path)
+    perform_ordinary_restart_after_self_restart(
+        repo=repo, track=track, fake=fake, sup=sup, tmp_path=tmp_path
+    )
+
+    fake.calls.clear()
+    declare(repo=repo, topic=track.topic, value=signals.STATE_READY, mtime=9000.0)
+    capped = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 9000.0 + 3601.0)
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        capped_view = capped.evaluate(track=track, act=True)
+
+    assert capped_view.status == "ready-uncertifiable"
+    assert not fake.has(method="respawn")
+    assert "foreman self-restart already used for this session lineage" in err.getvalue()
+    assert self_restart_notices(fake=fake) == []
 
 
 def test_foreman_self_restart_refuses_declared_hold_with_reason(*, tmp_path):

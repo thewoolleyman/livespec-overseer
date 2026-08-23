@@ -75,6 +75,12 @@ def clear_state(
         _ = write_state_diagnostic(
             sup=sup, track=track, token=diagnostic_token, detail=diagnostic_detail
         )
+    if isinstance(track, registry.ForemanSeat):
+        registry.consume_foreman_self_restart_notice(
+            repo=track.repo,
+            topic=track.topic,
+            stamp_path=sup.stamp_path,
+        )
     registry.clear_injection_stamp(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
 
