@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.48.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.1...v1.48.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* require explicit host dispatch tier ([5c4b2b0](https://github.com/thewoolleyman/livespec-overseer/commit/5c4b2b02b4deb7c836924dbe749565979453842e))
+* stamp added_at at seat row creation ([bbf19fb](https://github.com/thewoolleyman/livespec-overseer/commit/bbf19fb04727fa08f2c96ccd43031d25092a13f2))
+
 ## [1.48.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.0...v1.48.1) (2026-08-23)
 
 
