@@ -117,7 +117,7 @@ def _act_filing(
         return _refused(action_id=action_id, reason="malformed_filing")
     try:
         append_journal(
-            repo=Path(str(request["target_repo"])),
+            repo=Path(str(proposal["repo"])),
             record={
                 "stage": "foreman-act",
                 "action_id": action_id,
