@@ -296,9 +296,30 @@ open:
   without submitting, deliberately. So shape 2 could un-mute this loop only by
   doing the one thing the hard constraint forbids.
 - What shape 2 would genuinely fix is a loop that died while its session stayed
-  idle and responsive. That is already owned by `overseer-6tfncs.5` (its
-  acceptance criterion 8). Adopting shape 2 here would duplicate that scope and
-  still leave this defect open.
+  idle and responsive. That is **not** this thread's, and it would still leave
+  this defect open.
+
+  **CORRECTED 2026-08-23.** This bullet originally read "That is already owned by
+  `overseer-6tfncs.5` (its acceptance criterion 8)". That attribution was FALSE, and
+  correcting it discharges half of `overseer-5e5a` criterion 2. Criterion 8 reads "No
+  change here makes a dead loop restart itself; that is explicitly out of scope and
+  recorded as such", and that item's description adds "Whether a dead loop should
+  self-restart is a SEPARATE AND HARDER CALL; do NOT bundle it in." **A criterion that
+  disclaims work is not an owner of it** — and this epic's deferrals D3 and D6 carried
+  the same misreading, each citing the other and a disclaimer, so a reader of any of
+  the three concluded an owner existed when none did.
+
+  The subject is now genuinely owned: `overseer-5e5a`, under
+  `plan/foreman-liveness-and-escalation` (anchor `overseer-ll9d`). Its design question
+  was answered 2026-08-23 — the sanctioned response to a loop correctly identified as
+  dead is an **operator-initiated restore**, ordered behind `overseer-tdfe.5`; an
+  automatic daemon re-arm is deferred to `overseer-ll9d.1` and is **not** ruled out;
+  doing nothing was rejected, because the surface it relies on repeats identically
+  forever and so reaches nobody.
+
+  Note that the adjacent-items list earlier in this note says criterion 8 "explicitly
+  excludes self-restart". **That reading is correct and was deliberately left alone.**
+  Only the "already owned by" sentence was wrong.
 - Shape 2 also contradicts the loop's own scoping argument. The Loop Carrier
   section already argues, in refusing the generic loop skill's cloud-schedule
   question, that the loop is scoped to one tmux pane, one repo checkout, and that
