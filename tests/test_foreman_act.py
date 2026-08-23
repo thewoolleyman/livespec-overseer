@@ -171,6 +171,54 @@ def blocked_answer_majority_panel_result() -> dict[str, object]:
     return result
 
 
+class ReceivingPickerTmux:
+    def __init__(
+        self,
+        *,
+        repo: Path,
+        question: str,
+        answers: dict[str, str],
+        confirm: bool = True,
+    ) -> None:
+        self.repo = repo
+        self.question = question
+        self.answers = answers
+        self.confirm = confirm
+        self.calls: list[tuple[str, str, str | None]] = []
+        self.selected = "1"
+        self.recorded_answer: str | None = None
+
+    def pane_id(self, *, session: str):
+        self.calls.append(("pane_id", session, None))
+        return session
+
+    def pane_current_command(self, *, session: str):
+        self.calls.append(("cmd", session, None))
+        return "node"
+
+    def pane_current_path(self, *, session: str):
+        self.calls.append(("path", session, None))
+        return str(self.repo)
+
+    def capture_pane(self, *, session: str):
+        self.calls.append(("capture", session, None))
+        if self.recorded_answer is None or not self.confirm:
+            return self.question
+        return f"How should I dispose of them? -> {self.recorded_answer}\n"
+
+    def bracketed_paste(self, *, session: str, text: str):
+        self.calls.append(("paste", session, text))
+        return True
+
+    def send_keys(self, *, session: str, keys: str):
+        self.calls.append(("keys", session, keys))
+        if keys.isdigit():
+            self.selected = keys
+        elif keys == "Enter":
+            self.recorded_answer = self.answers[self.selected]
+        return True
+
+
 def typed_ruling_panel_result(*, kind: str = "relay-to-session") -> dict[str, object]:
     result = blocked_answer_panel_result()
     result["action"] = {
@@ -1739,6 +1787,144 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
     assert ("paste", "alpha", "Yes, proceed with the bounded retry.") in tmux.calls
     assert ("keys", "alpha", "Enter") in tmux.calls
     assert not pane_claim.claim_path(repo=repo, topic="alpha").exists()
+
+
+def test_blocked_answer_numbered_picker_selects_named_non_default_option(*, tmp_path, monkeypatch):
+    assert PANE_CLAIM_PATH.is_file()
+    pane_claim = module("foreman_pane_claim")
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo, full_autonomy=True)
+    question = (
+        "How should I dispose of them?\n"
+        "❯ 1. Leave active, fix the cause first (Recommended)\n"
+        "  2. Close as duplicate\n"
+        "  3. Re-parent under the follow-up\n"
+        "  4. Archive now\n"
+    )
+    proposal = blocked_answer_proposal(repo=repo)
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["answer_text"] = "4"
+    answer["question_fingerprint"] = _pane_fingerprint(text=question)
+
+    tmux = ReceivingPickerTmux(
+        repo=repo,
+        question=question,
+        answers={
+            "1": "Leave active, fix the cause first (Recommended)",
+            "4": "Archive now",
+        },
+    )
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: tmux)
+    monkeypatch.setattr(pane_claim, "time_time", lambda: 1000.0)
+
+    result = foreman_act.act(
+        proposal=proposal,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_majority_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": "answered_existing_prompt",
+    }
+    assert tmux.recorded_answer == "Archive now"
+    assert ("keys", "alpha", "4") in tmux.calls
+    assert ("keys", "alpha", "Enter") in tmux.calls
+    assert not any(call[0] == "paste" for call in tmux.calls)
+
+
+def test_blocked_answer_numbered_picker_default_arm_records_default(*, tmp_path, monkeypatch):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo, full_autonomy=True)
+    question = "How should I dispose of them?\n❯ 1. Leave active (Recommended)\n  2. Close\n"
+    proposal = blocked_answer_proposal(repo=repo)
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["answer_text"] = "1"
+    answer["question_fingerprint"] = _pane_fingerprint(text=question)
+
+    tmux = ReceivingPickerTmux(
+        repo=repo,
+        question=question,
+        answers={"1": "Leave active (Recommended)"},
+    )
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: tmux)
+
+    result = foreman_act.act(
+        proposal=proposal,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_majority_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result["outcome"] == "acted"
+    assert tmux.recorded_answer == "Leave active (Recommended)"
+
+
+def test_blocked_answer_numbered_picker_fails_when_named_option_not_confirmed(
+    *, tmp_path, monkeypatch
+):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo, full_autonomy=True)
+    question = "How should I dispose of them?\n❯ 1. Leave active (Recommended)\n  2. Close\n"
+    proposal = blocked_answer_proposal(repo=repo)
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["answer_text"] = "2"
+    answer["question_fingerprint"] = _pane_fingerprint(text=question)
+
+    tmux = ReceivingPickerTmux(
+        repo=repo,
+        question=question,
+        answers={"1": "Leave active (Recommended)", "2": "Close"},
+        confirm=False,
+    )
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: tmux)
+
+    result = foreman_act.act(
+        proposal=proposal,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_majority_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "failed",
+        "reason": "answer_confirmation_failed",
+    }
 
 
 def test_picker_stalled_open_picker_answer_revalidates_against_fresh_capture(
