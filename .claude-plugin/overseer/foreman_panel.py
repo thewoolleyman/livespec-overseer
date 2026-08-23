@@ -92,7 +92,9 @@ def convene_panel(
         limits=DEFAULT_PANEL_LIMITS,
         decision_rule=decision_rule,
     )
-    reviewers = jsonio.as_list(value=responses.get("reviewers")) or []
+    response_reviewers = jsonio.as_list(value=responses.get("reviewers")) or []
+    verdict_reviewers = jsonio.as_list(value=verdict.get("reviewers")) or []
+    reviewers = verdict_reviewers if verdict.get("cache") == "hit" else response_reviewers
     verdict["decision_kind"] = result_decision_kind(
         reviewers=[reviewer for reviewer in reviewers if isinstance(reviewer, dict)],
         verdict_reason=str_field(payload=verdict, key="reason"),
