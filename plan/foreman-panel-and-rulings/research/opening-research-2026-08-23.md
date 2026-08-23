@@ -111,9 +111,14 @@ and posted a correction. The one-command check is `daemon_package.version` again
 `git tag --contains <merge-sha>`; prefer it to any argument from process start times, and
 certainly to file dates, which are wrong here because this repo splits modules constantly.
 
-**What this changes for the thread.** R1's carrier is discharged; the reader-with-no-writer
-condition is closed. The convene criterion (`overseer-a3l6x2`) and the coverage item
-(`overseer-tdfe.17`) are now testable against a record that something actually writes.
+**What this changes for the thread.** R1's **first** carrier is discharged and the
+reader-with-no-writer condition is closed. **Its other two carriers remain open** —
+`overseer-a3l6x2` (the positive convene criterion) and `overseer-tdfe.17` (the coverage) —
+both of which are now testable against a record that something actually writes. R1 is not
+complete; one of its three carriers landed.
+
+`overseer-tdfe.2` itself is merged and live, parked at `acceptance` awaiting the human leg
+of `acceptance:ai-then-human` — not closed.
 The rest of the note stands as written — in particular the tier split, which is unchanged.
 
 **The primary record is the ledger.** `overseer-764a`'s timeline carries the merge, its
