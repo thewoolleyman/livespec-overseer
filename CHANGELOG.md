@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.42.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.3...v1.42.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* emit daemon events as OTLP spans on the fleet's conventions ([0723853](https://github.com/thewoolleyman/livespec-overseer/commit/07238536e91ace305e858bc6eaac0437f33980b1))
+
 ## [1.42.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.2...v1.42.3) (2026-08-23)
 
 
