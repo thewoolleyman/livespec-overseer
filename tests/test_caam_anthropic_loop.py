@@ -107,6 +107,15 @@ def test_console_script_registers_the_caam_operation():
             ["--session-model= alpha-foreman = FABLE ", "--session-model", "beta= Opus "],
             {"session_models": (("alpha-foreman", "fable"), ("beta", "opus"))},
         ),
+        (
+            [
+                "--protected-account= main = 12.5 ",
+                "--protected-account",
+                "backup",
+                "--protected-account=old=auto",
+            ],
+            {"protected_accounts": (("main", "12.5"), ("backup", ""), ("old", "auto"))},
+        ),
     ],
 )
 def test_flags_use_prefix_matching_lowercasing_and_absent_none(*, argv, expected):
@@ -120,6 +129,8 @@ def test_flags_use_prefix_matching_lowercasing_and_absent_none(*, argv, expected
         assert parsed.foreman_model is None
     if "session_models" not in expected:
         assert parsed.session_models == ()
+    if "protected_accounts" not in expected:
+        assert parsed.protected_accounts == ()
 
 
 def test_keep_warm_defaults_off_and_uses_exact_opt_in_names(*, monkeypatch):
@@ -561,3 +572,156 @@ def test_switch_path_returns_switch_result_and_preserves_switch_save(*, tmp_path
     assert result == 0
     assert out[-1] == "SWITCHED active -> target"
     assert saved
+
+
+def test_protected_accounts_persist_as_top_level_state_and_survive_empty_pass(
+    *, tmp_path: Path, monkeypatch
+):
+    monkeypatch.setenv("CAAM_ROTATE_PROTECTED_ACCOUNT_DEFAULT", "17.5")
+    module = caam_loop_module()
+    saved: list[dict[str, object]] = []
+    out: list[str] = []
+    for name in ("active", "main", "backup"):
+        (tmp_path / ".local/share/caam/vault/claude" / name).mkdir(parents=True)
+    state_path = tmp_path / ".local/state/caam-usage-rotate/state.json"
+
+    def fetcher(*, creds_path: Path, now: float | None = None):
+        del now
+        return usage(five_hour=10.0, seven_day=20.0), None
+
+    first = module.run_pass(
+        flags=module.parse_flags(
+            argv=["--protected-account=main=12.5", "--protected-account", "backup"]
+        ),
+        home=tmp_path,
+        now=1787395200.0,
+        stdout=out.append,
+        caam_runner=lambda *, args: FakeProcess(),
+        fetcher=fetcher,
+        save_state=lambda *, state, state_path: saved.append(dict(state)),
+        enforce_models=lambda **kwargs: [],
+    )
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text(
+        (
+            '{"foreman_model":"opus","protected-accounts":{"main":12.5,'
+            '"backup":17.5},"session-models":{"worker":"fable"}}'
+        ),
+        encoding="utf-8",
+    )
+    second = module.run_pass(
+        flags=module.parse_flags(argv=[]),
+        home=tmp_path,
+        now=1787395200.0,
+        stdout=out.append,
+        caam_runner=lambda *, args: FakeProcess(),
+        fetcher=fetcher,
+        save_state=lambda *, state, state_path: saved.append(dict(state)),
+        enforce_models=lambda **kwargs: [],
+    )
+
+    assert first == 0
+    assert second == 0
+    assert saved[0]["protected-accounts"] == {"main": 12.5, "backup": 17.5}
+    assert saved[-1]["protected-accounts"] == {"main": 12.5, "backup": 17.5}
+    assert saved[-1]["session-models"] == {"worker": "fable"}
+    assert saved[-1]["foreman_model"] == "opus"
+
+
+def test_protected_account_bad_values_report_and_leave_existing_state_unchanged(*, tmp_path: Path):
+    module = caam_loop_module()
+    saved: list[dict[str, object]] = []
+    out: list[str] = []
+    for name in ("active", "main"):
+        (tmp_path / ".local/share/caam/vault/claude" / name).mkdir(parents=True)
+    state_path = tmp_path / ".local/state/caam-usage-rotate/state.json"
+    state_path.parent.mkdir(parents=True)
+    state_path.write_text('{"protected-accounts":{"main":12.5}}', encoding="utf-8")
+
+    result = module.run_pass(
+        flags=module.parse_flags(
+            argv=[
+                "--protected-account=main=not-a-number",
+                "--protected-account=main=101",
+                "--protected-account==10",
+            ]
+        ),
+        home=tmp_path,
+        now=1787395200.0,
+        stdout=out.append,
+        caam_runner=lambda *, args: FakeProcess(),
+        fetcher=lambda *, creds_path, now=None: (usage(five_hour=10.0, seven_day=20.0), None),
+        save_state=lambda *, state, state_path: saved.append(dict(state)),
+        enforce_models=lambda **kwargs: [],
+    )
+
+    assert result == 0
+    assert saved[-1]["protected-accounts"] == {"main": 12.5}
+    assert "protected-accounts: ignoring --protected-account=main=not-a-number" in out
+    assert "protected-accounts: ignoring --protected-account=main=101" in out
+    assert "protected-accounts: ignoring --protected-account==10" in out
+
+
+def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp_path: Path):
+    module = caam_loop_module()
+    out: list[str] = []
+    for name in ("active", "main", "backup"):
+        (tmp_path / ".local/share/caam/vault/claude" / name).mkdir(parents=True)
+
+    result = module.run_pass(
+        flags=module.parse_flags(
+            argv=["--protected-account=main=12", "--protected-account=backup=5"]
+        ),
+        home=tmp_path,
+        now=1787395200.0,
+        stdout=out.append,
+        caam_runner=lambda *, args: FakeProcess(),
+        fetcher=lambda *, creds_path, now=None: (usage(five_hour=10.0, seven_day=20.0), None),
+        save_state=lambda *, state, state_path: None,
+        enforce_models=lambda **kwargs: [],
+    )
+
+    assert result == 0
+    assert "protected-accounts: main=12%, backup=5%" in out
+    assert out[:5] == [
+        "",
+        "PROFILE       CURRENT       5H      5H RESET      WEEK    WEEK RESET      "
+        "FABLE   FABLE RESET   SOURCE",
+        "active        ✅           90%        1h 20m       80%    1d 13h 20m       "
+        "90%    1d 13h 20m   live",
+        "backup                     90%        1h 20m       80%    1d 13h 20m       "
+        "90%    1d 13h 20m   live",
+        "main                       90%        1h 20m       80%    1d 13h 20m       "
+        "90%    1d 13h 20m   live",
+    ]
+
+
+def test_protected_account_reaches_decision_core_and_defers_to_unprotected_candidate(
+    *, tmp_path: Path
+):
+    module = caam_loop_module()
+    out: list[str] = []
+    for name in ("active", "protected", "unprotected"):
+        (tmp_path / ".local/share/caam/vault/claude" / name).mkdir(parents=True)
+
+    def fetcher(*, creds_path: Path, now: float | None = None):
+        del now
+        if creds_path == tmp_path / ".claude/.credentials.json":
+            return usage(five_hour=95.0, seven_day=95.0), None
+        if creds_path.parts[-2] == "protected":
+            return usage(five_hour=20.0, seven_day=20.0), None
+        return usage(five_hour=40.0, seven_day=30.0), None
+
+    result = module.run_pass(
+        flags=module.parse_flags(argv=["--dry-run", "--protected-account=protected=10"]),
+        home=tmp_path,
+        now=1787395200.0,
+        stdout=out.append,
+        caam_runner=lambda *, args: FakeProcess(),
+        fetcher=fetcher,
+        save_state=lambda *, state, state_path: None,
+        enforce_models=lambda **kwargs: [],
+    )
+
+    assert result == 0
+    assert any(line.startswith("DRY-RUN would switch active -> unprotected") for line in out)

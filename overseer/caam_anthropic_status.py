@@ -37,6 +37,9 @@ class Flags(Protocol):
     @property
     def session_models(self) -> tuple[tuple[str, str], ...]: ...
 
+    @property
+    def protected_accounts(self) -> tuple[tuple[str, str], ...]: ...
+
 
 class LineWriter(Protocol):
     def __call__(self, line: str) -> None: ...
@@ -79,6 +82,7 @@ def write_status(
     active_name: str,
     current: UsageRecord,
     enforce_models: EnforceModels,
+    extra_messages: tuple[str, ...] = (),
 ) -> None:
     now_dt = datetime.fromtimestamp(context.now, tz=timezone.utc)
     rows = cast(tuple[RenderableProfileUsage, ...], profiles)
@@ -86,6 +90,7 @@ def write_status(
     for line in (
         *lines,
         *model_messages(context=context, active_fable=current.fable, enforce_models=enforce_models),
+        *extra_messages,
     ):
         context.stdout(line)
     note = unverified_note(profiles=profiles)

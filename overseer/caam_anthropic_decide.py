@@ -3,10 +3,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Protocol
 
 from _caam_switch_host import acquire_switch_lock, caam_activate
 from caam_anthropic_finish import LineWriter, SaveState, finish
@@ -30,6 +30,7 @@ from caam_decision import (
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
 from caam_switch import SwitchRequest, SwitchResult
+from caam_target_summary import target_summary
 
 __all__: list[str] = [
     "DecisionContext",
@@ -95,10 +96,19 @@ def decide(
     profiles: tuple[ProfileUsage, ...],
     active_name: str,
     current: UsageRecord,
+    protection_floors: Mapping[str, float],
     seams: DecisionSeams,
 ) -> int:
-    dimension, spent, label = binding(usage=current)
-    if not context.flags.force and not triggered(usage=current):
+    dimension, spent, label = binding(
+        usage=current,
+        active_name=active_name,
+        protection_floors=protection_floors,
+    )
+    if not context.flags.force and not triggered(
+        usage=current,
+        active_name=active_name,
+        protection_floors=protection_floors,
+    ):
         return _hold_allowed(
             context=context,
             save_state=seams.save_state,
@@ -120,6 +130,7 @@ def decide(
             current=current,
             force=context.flags.force,
             dimension=dimension,
+            protection_floors=protection_floors,
         ).profiles
     )
     if not ranked:
@@ -205,7 +216,7 @@ def _dry_run(
 ) -> int:
     line = decision_dry_run(
         active_name=active_name,
-        target=_target_summary(target=target, now=context.now),
+        target=target_summary(target=target, now=context.now),
     )
     return finish(
         code=0,
@@ -264,19 +275,6 @@ def _trigger_line(
         spent=spent,
         weekly_remaining=weekly_left(usage=current),
         dimension=dimension,
-    )
-
-
-def _target_summary(*, target: ProfileUsage, now: float):
-    from caam_rendering import SwitchTargetSummary
-
-    usage = cast(UsageRecord, target.usage)
-    return SwitchTargetSummary(
-        name=target.name,
-        weekly_used=usage.seven_day,
-        weekly_reset=usage.seven_day_resets_at,
-        source=target.source,
-        now=datetime.fromtimestamp(now, tz=timezone.utc),
     )
 
 

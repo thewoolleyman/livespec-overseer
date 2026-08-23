@@ -27,3 +27,6 @@ class Flags(Protocol):
 
     @property
     def session_models(self) -> tuple[tuple[str, str], ...]: ...
+
+    @property
+    def protected_accounts(self) -> tuple[tuple[str, str], ...]: ...
