@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.48.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.0...v1.48.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* report foreman filing traceback causes ([ced785e](https://github.com/thewoolleyman/livespec-overseer/commit/ced785e25b5399c601eec1b44d7c07b7b1426586))
+
 ## [1.48.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.47.1...v1.48.0) (2026-08-23)
 
 
