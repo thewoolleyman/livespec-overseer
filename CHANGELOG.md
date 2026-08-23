@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.48.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.3...v1.48.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* carry caam cutover recovery notes ([ca2a5a3](https://github.com/thewoolleyman/livespec-overseer/commit/ca2a5a3b974fa8223d79c42b58b560f450986ae4))
+* escalate dead foreman heartbeat ([bce025d](https://github.com/thewoolleyman/livespec-overseer/commit/bce025de2ba7cce033e9e26550e1b3e9f5fe81e4))
+* guard caam session model state key ([2984325](https://github.com/thewoolleyman/livespec-overseer/commit/29843259187484b10407ae5f7b68e27925dabb6c))
+* verify blocked answer prose delivery ([f0066c0](https://github.com/thewoolleyman/livespec-overseer/commit/f0066c01f722a7fdc6a82ce6b0bad5d318b3aba8))
+
 ## [1.48.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.2...v1.48.3) (2026-08-23)
 
 
