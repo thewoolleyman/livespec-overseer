@@ -99,7 +99,10 @@ def add_resume_retry_attempts(
         entry = jsonio.as_object(value=data.get(key))
         if entry is None or entry.get("resume_pending") is not True:
             return
-        current = read_resume_retry_attempts(repo=repo, topic=topic, stamp_path=path)
+        stored = entry.get("resume_retry_attempts")
+        current = (
+            stored if isinstance(stored, int) and not isinstance(stored, bool) and stored > 0 else 0
+        )
         next_entry: dict[str, object] = dict(entry)
         next_entry["resume_retry_attempts"] = current + attempts
         data[key] = next_entry
