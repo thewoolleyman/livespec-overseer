@@ -215,6 +215,12 @@ class Supervisor:
     tick_generation: int = field(default=0, init=False)
     last_reexec_attempt_at: float = field(default=float("-inf"), init=False)
     status_snapshot_failed: bool = field(default=False, init=False)
+    # Per-track live bookkeeping only. A daemon restart intentionally loses it, so
+    # the stall-watch daemon-bounce re-key branch is test-only in today's
+    # production configuration: there is no stored pre-bounce daemon id to compare
+    # with the new process id. Do not persist this dict without re-auditing the
+    # stall-watch bounce branch and its watch-target-gone report path.
+    # Guard phrase: do not persist this dict without re-auditing the stall-watch bounce branch.
     inject: dict[tuple[str, str], InjectState] = field(default_factory=dict, init=False)
     pair_stalls: dict[tuple[str, str], PairStallState] = field(default_factory=dict, init=False)
     mapping_epics: dict[tuple[str, str], str] = field(default_factory=dict, init=False)
