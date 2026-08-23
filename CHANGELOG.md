@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.12](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.11...v1.51.12) (2026-08-23)
+
+
+### Bug Fixes
+
+* require verified wait-target relay delivery ([df30500](https://github.com/thewoolleyman/livespec-overseer/commit/df30500cd9ea32735ad5f9138ebae35e6a503b6f))
+
 ## [1.51.11](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.10...v1.51.11) (2026-08-23)
 
 
