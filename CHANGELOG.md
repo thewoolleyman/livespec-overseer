@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.49.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.5...v1.49.0) (2026-08-23)
+
+
+### Features
+
+* relay dead wait-target evidence without answering a picker ([9eef9ff](https://github.com/thewoolleyman/livespec-overseer/commit/9eef9ff9422fb7db31680ba07632003924d9b25f))
+
+
+### Bug Fixes
+
+* document dispatch journal reconcile invocation ([76b5bdf](https://github.com/thewoolleyman/livespec-overseer/commit/76b5bdfe948d9423f8a12be9c14b7f8136ac0991))
+* gate resume retry by session identity ([6f8df92](https://github.com/thewoolleyman/livespec-overseer/commit/6f8df92af2573b0cbc9bb08870bc17690251c9e9))
+* make caam keep-warm opt-in ([8aa6633](https://github.com/thewoolleyman/livespec-overseer/commit/8aa66331ecec5a3dd29f87c4396ae68070d8f194))
+* preserve raw unresolved foreman epics ([6bd388f](https://github.com/thewoolleyman/livespec-overseer/commit/6bd388f1e01d51db6f073d7e3fbd9c968287bd05))
+* record live resume identity ([056e087](https://github.com/thewoolleyman/livespec-overseer/commit/056e08762ea5e55f5bbb42a23bb84e9db4d01198))
+* recover foreman panel trailing verdict JSON ([093e3a4](https://github.com/thewoolleyman/livespec-overseer/commit/093e3a4f1745b6c14d90c3555b44340ae454c920))
+
 ## [1.48.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.4...v1.48.5) (2026-08-23)
 
 
