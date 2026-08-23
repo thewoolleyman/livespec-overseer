@@ -1,4 +1,5 @@
 """Authoritative-source readers for wait-premise target re-verification."""
+# livespec-lloc-soft-band-owner: overseer-tdfe.13
 
 from __future__ import annotations
 
