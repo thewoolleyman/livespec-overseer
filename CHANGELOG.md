@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.48.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.47.1...v1.48.0) (2026-08-23)
+
+
+### Features
+
+* cover caam protection floors ([40f7036](https://github.com/thewoolleyman/livespec-overseer/commit/40f703664e5869db22338d84540eb6f3dcc397f6))
+* surface missing wait targets ([8dd8ba7](https://github.com/thewoolleyman/livespec-overseer/commit/8dd8ba7a7751f81d7c53fd3a01670cf7b805529f))
+
+
+### Bug Fixes
+
+* own the wait-target soft-band debt on its three new files ([4c41e78](https://github.com/thewoolleyman/livespec-overseer/commit/4c41e781bd69211dc04b3a443e8d066455748257))
+* pin foreman panel cache outage classification ([c987e63](https://github.com/thewoolleyman/livespec-overseer/commit/c987e639f890ce97cae429a0541c977dfb6180a1))
+* tell foreman successors about self-restart ([eff0048](https://github.com/thewoolleyman/livespec-overseer/commit/eff0048c9a616994645faf636dda144c490cdb2b))
+
 ## [1.47.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.47.0...v1.47.1) (2026-08-23)
 
 
