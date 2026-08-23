@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.51.15](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.14...v1.51.15) (2026-08-23)
+
+
+### Bug Fixes
+
+* document dormant bounce rekey branch ([ce7cc92](https://github.com/thewoolleyman/livespec-overseer/commit/ce7cc92609129c710e54386927bbd9b6c4299030))
+* prevent resume retry keystroke into progress ([6b45ecc](https://github.com/thewoolleyman/livespec-overseer/commit/6b45ecc8f030bf84e39c77710925ce206c042069))
+
 ## [1.51.14](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.13...v1.51.14) (2026-08-23)
 
 
