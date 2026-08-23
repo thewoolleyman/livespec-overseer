@@ -2,17 +2,52 @@
 
 from __future__ import annotations
 
+import importlib
+import sys
 from pathlib import Path
+from types import ModuleType
+from typing import Protocol, cast
 
 __all__: list[str] = []
 
 ROOT = Path(__file__).resolve().parent.parent
 PROSE = ROOT / ".claude-plugin" / "prose" / "grooming.md"
+OVERSEER_DIR = ROOT / "overseer"
+MODULE_PATH = OVERSEER_DIR / "grooming_conformance.py"
 BINDINGS = (
     ROOT / ".claude-plugin" / "skills" / "grooming" / "SKILL.md",
     ROOT / ".claude-plugin" / ".codex-plugin" / "skills" / "grooming" / "SKILL.md",
     ROOT / ".claude-plugin" / ".pi-plugin" / "skills" / "livespec-overseer-grooming" / "SKILL.md",
 )
+
+
+class MeasurementView(Protocol):
+    untriaged_item_ids: tuple[str, ...]
+
+
+class GroomingConformanceModule(Protocol):
+    def measure_grooming_inputs(
+        self,
+        *,
+        repo: Path,
+        work_items: list[dict[str, object]],
+        proposed_changes_count: int,
+    ) -> MeasurementView: ...
+
+
+def grooming_conformance() -> GroomingConformanceModule:
+    assert MODULE_PATH.is_file()
+    if str(OVERSEER_DIR) not in sys.path:
+        _ = sys.path.insert(0, str(OVERSEER_DIR))
+    module: ModuleType = importlib.import_module("grooming_conformance")
+    return cast(GroomingConformanceModule, module)
+
+
+def _repo(*, tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    (repo / "plan").mkdir(parents=True)
+    (repo / "SPECIFICATION" / "proposed_changes").mkdir(parents=True)
+    return repo
 
 
 def test_grooming_prose_exists_and_carries_no_template_delimiters() -> None:
@@ -114,3 +149,69 @@ def test_grooming_prose_reconciles_bucketing_blocked_unparented_rows() -> None:
     assert (
         "no recognized provenance--neither deferral-successor nor bucketing-blocked" in normalized
     )
+
+
+def test_grooming_stage_three_freshness_guard_rechecks_preexisting_rows(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+    stale_snapshot = [
+        {
+            "id": "left-scope",
+            "status": "backlog",
+            "labels": [],
+            "metadata": {},
+            "dependencies": [],
+        },
+        {
+            "id": "still-scoped",
+            "status": "backlog",
+            "labels": [],
+            "metadata": {},
+            "dependencies": [],
+        },
+    ]
+    fresh_snapshot = [
+        {
+            "id": "left-scope",
+            "status": "closed",
+            "labels": [],
+            "metadata": {},
+            "dependencies": [],
+        },
+        {
+            "id": "still-scoped",
+            "status": "backlog",
+            "labels": [],
+            "metadata": {},
+            "dependencies": [],
+        },
+    ]
+
+    measured = module.measure_grooming_inputs(
+        repo=repo,
+        work_items=stale_snapshot,
+        proposed_changes_count=0,
+    )
+    refreshed = module.measure_grooming_inputs(
+        repo=repo,
+        work_items=fresh_snapshot,
+        proposed_changes_count=0,
+    )
+
+    assert measured.untriaged_item_ids == ("left-scope", "still-scoped")
+    assert refreshed.untriaged_item_ids == ("still-scoped",)
+
+    text = PROSE.read_text(encoding="utf-8")
+    normalized = " ".join(text.split())
+    assert "Before writing any status to a pre-existing row" in normalized
+    assert "re-read that row's current status" in normalized
+    assert "If the row has left the stage's declared scope" in normalized
+    assert "skip the write" in normalized
+    assert "report the skipped row explicitly in the round record" in normalized
+    assert "The round record must name skipped rows as well as written rows" in normalized
+    assert "a skip is otherwise unrecoverable" in normalized
+    assert "This narrows the stale-snapshot window; it does not make stage 3 atomic" in normalized
+    assert "between the freshness read and the status write" in normalized
