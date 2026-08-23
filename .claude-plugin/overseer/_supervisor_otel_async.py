@@ -86,7 +86,20 @@ class OtelAsyncExporter:
         )
         future.set_result(result)
 
-    def _drain(self, *, sup: Supervisor, timeout: float = 0.0) -> None:
+    def flush(self, *, sup: Supervisor) -> None:
+        """Wait for pending sends and report their results.
+
+        Normal export uses only the fast grace window so OTLP cannot block daemon
+        ticks. Tests call this barrier when they need deterministic observation of
+        asynchronous export results.
+        """
+        while True:
+            with self._lock:
+                if not self._pending:
+                    return
+            self._drain(sup=sup, timeout=None)
+
+    def _drain(self, *, sup: Supervisor, timeout: float | None = 0.0) -> None:
         with self._lock:
             pending = list(self._pending)
         if not pending:
