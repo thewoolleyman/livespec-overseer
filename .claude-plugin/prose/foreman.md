@@ -97,6 +97,13 @@ actuator-only mutation, `security_dissent`, journal-before-act, the delegation
 floor that keeps the foreman from performing a track's deliverable, and every
 foreign floor until the owning contract ratifies its own relaxation.
 
+The worker contract is emitted by `supervise-plan` and `.ai/supervisor-protocol.md`:
+a worker under a full-autonomy foreman MAY object in the `OBJECTION <fingerprint>:`
+ledger-comment shape at most twice per ruling on its plan epic, including across
+restarts; after a relay marked final it MUST take the action and MUST NOT stall,
+except for the closed infra, quota, and credential exemptions that define
+`final-ruling-unheeded`.
+
 Two full-autonomy attention conditions matter to this loop. A
 `foreman-picker-under-full-autonomy` row is a violation to surface, not a picker
 for the daemon or foreman to answer. A `final-ruling-unheeded` row is a dispatch

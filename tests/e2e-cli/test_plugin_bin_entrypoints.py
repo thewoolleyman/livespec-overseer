@@ -1070,9 +1070,13 @@ def _assert_unanimous_blocked_answer_act(
         .read_text(encoding="utf-8")
         .splitlines()
     ]
-    assert journal[-2]["stage"] == "foreman-consensus-act"
-    assert journal[-2]["authorized_action_id"] == "blocked_session_answer"
-    assert journal[-2]["panel_outcome"] == "unanimous"
+    assert journal[-3]["stage"] == "foreman-consensus-act"
+    assert journal[-3]["authorized_action_id"] == "blocked_session_answer"
+    assert journal[-3]["panel_outcome"] == "unanimous"
+    assert journal[-2]["stage"] == "foreman-act-relay"
+    assert journal[-2]["action_id"] == "blocked_session_answer"
+    assert journal[-2]["objections_remaining"] == 2
+    assert "final" not in journal[-2]
     assert journal[-1]["stage"] == "foreman-act"
     assert journal[-1]["reason"] == "answered_existing_prompt"
 
