@@ -996,3 +996,46 @@ implementation, while the source has moved underneath both, will certify a
 faithful reproduction of a superseded program and record durable evidence saying
 so. The review MUST begin by re-measuring the source and reconciling this file,
 not by trusting it.
+
+### PENDING on the source, NOT yet in the oracle — measured 2026-08-23
+
+**The pin above is still correct: vps-info `origin/master` is `822e2be`.** Two
+further changes have been reported against the source and neither is in the
+oracle — both live only on `origin/plan/caam-snapshot-orphaning`, the unmerged
+PR 59 branch. **Verified by an ancestry test against `origin/master`, not by
+reading the branch name**, because "the source moved" and "a branch exists" are
+different claims and only the first changes a carrier.
+
+| commit | change | status here |
+|---|---|---|
+| `d60f8d2` | `build_rows()` **revives a dark profile**: one `warm_profile()` sandbox refresh before writing the row off, then a re-probe; on success the row is `live` and eligible, logged with a `revive` line | **PENDING** — absent from the rebuild; carried BLOCKED as `overseer-54k2za.28` |
+| `d7a7dd5` | qualifies the LIVE-verified rule in the source's `AGENTS.md` | **PENDING** — already logged as pending; no code carrier |
+
+**Why the revive path exists, and why it bears on `overseer-54k2za.12`.**
+Eligibility requires a `live` source (**G8**). Once `64bc24a` disabled keep-warm,
+*nothing* refreshed an idle profile at all, so every non-active profile goes dark
+eight hours after its last activation and stays there — **the same deadlock the X
+group was added to prevent, reached from the other direction**. Measured live on
+2026-08-23T03:20Z: all three idle profiles dark, **none orphaned**, all three
+refreshed in ten seconds with no browser login. Revive is deliberately narrower
+than keep-warm — it fires only on an *already dark* profile and only when the loop
+needs one, never against every idle profile on a timer — so it is a **third
+option** the keep-warm question's recorded three do not contain.
+
+**It also makes a carrier we reproduce faithfully into a hazard we are copying.**
+**S4**'s note tells a human to activate an unverified profile; that is the
+operation that wrote a dead credential live and stopped eleven sessions on
+2026-08-19. The sandbox refresh establishes the same fact without installing
+anything, so the merged source may retire that guidance. Under the reproduction
+mandate the rebuild was *right* to carry it; the rebuild must follow the source in
+whichever direction it lands, and **must not diverge silently in either**.
+
+**And one interaction to preserve.** The revive path works *because* a genuinely
+expired snapshot takes the copy-back branch, so it depends on the unsatisfiable
+margin pair at **X4a-i** still being unfixed. A future fix to that guard must not
+regress the dark path.
+
+**The general rule this subsection is an instance of:** a change on an unmerged
+branch is **pending**, not a carrier gap. Record it, file a *blocked* successor so
+it cannot be forgotten, and do not reproduce it — a branch can change before it
+lands, and reproducing it would diverge from the oracle the mandate names.
