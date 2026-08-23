@@ -1309,32 +1309,32 @@ def test_ledger_access_denied_failure_reason_names_missing_wrapper(*, tmp_path):
 def test_typed_work_item_filing_uses_intake_seam_and_journals_before_result(*, tmp_path):
     module = foreman_act()
     repo = tmp_path / "repo"
+    target_repo = tmp_path / "target-repo"
     repo.mkdir()
+    target_repo.mkdir()
     filed: list[dict[str, object]] = []
-    journaled: list[dict[str, object]] = []
+    journaled: list[tuple[Path, dict[str, object]]] = []
     events: list[str] = []
+    pending_record = {
+        "stage": "foreman-act",
+        "action_id": "work_item_file",
+        "outcome": "pending",
+        "reason": "work_item_file_pending",
+        "mutated": False,
+    }
 
     def file_item(*, request: dict[str, object]):
         filed.append(request)
         events.append("file")
-        assert journaled == [
-            {
-                "stage": "foreman-act",
-                "action_id": "work_item_file",
-                "outcome": "pending",
-                "reason": "work_item_file_pending",
-                "mutated": False,
-            }
-        ]
+        assert journaled == [(repo, pending_record)]
         return "overseer-new", "ready"
 
     def append_record(*, repo: Path, record: dict[str, object]) -> None:
-        _ = repo
-        journaled.append(record)
+        journaled.append((repo, record))
         events.append(f"journal:{record['reason']}")
 
     result = module.act(
-        proposal=file_proposal(repo=repo),
+        proposal=file_proposal(repo=repo, target_repo=target_repo),
         seams=module.ActSeams(
             gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
             run=lambda *, argv: 99,
@@ -1351,7 +1351,7 @@ def test_typed_work_item_filing_uses_intake_seam_and_journals_before_result(*, t
     }
     assert filed == [
         {
-            "target_repo": str(repo),
+            "target_repo": str(target_repo),
             "title": "File the delegated fix",
             "description": "Capture this follow-up through intake.",
             "type": "feature",
@@ -1375,20 +1375,17 @@ def test_typed_work_item_filing_uses_intake_seam_and_journals_before_result(*, t
         "file",
         "journal:filed:overseer-new:ready",
     ]
-    assert journaled[0] == {
-        "stage": "foreman-act",
-        "action_id": "work_item_file",
-        "outcome": "pending",
-        "reason": "work_item_file_pending",
-        "mutated": False,
-    }
-    assert journaled[-1] == {
-        "stage": "foreman-act",
-        "action_id": "work_item_file",
-        "outcome": "acted",
-        "reason": "filed:overseer-new:ready",
-        "mutated": True,
-    }
+    assert journaled[0] == (repo, pending_record)
+    assert journaled[-1] == (
+        repo,
+        {
+            "stage": "foreman-act",
+            "action_id": "work_item_file",
+            "outcome": "acted",
+            "reason": "filed:overseer-new:ready",
+            "mutated": True,
+        },
+    )
 
 
 def test_work_item_filing_refuses_when_pending_journal_append_fails(*, tmp_path):
@@ -1401,7 +1398,7 @@ def test_work_item_filing_refuses_when_pending_journal_append_fails(*, tmp_path)
         pytest.fail("filing must not run when the pending journal cannot be written")
 
     def fail_append(*, repo: Path, record: dict[str, object]) -> None:
-        _ = repo
+        assert repo == repo_path
         assert record == {
             "stage": "foreman-act",
             "action_id": "work_item_file",
@@ -1411,8 +1408,9 @@ def test_work_item_filing_refuses_when_pending_journal_append_fails(*, tmp_path)
         }
         raise OSError("disk full")
 
+    repo_path = repo
     result = module.act(
-        proposal=file_proposal(repo=repo),
+        proposal=file_proposal(repo=repo_path),
         seams=module.ActSeams(
             gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
             run=lambda *, argv: 99,
@@ -1589,24 +1587,26 @@ def test_failed_work_item_filing_traceback_reason_names_final_cause(*, tmp_path)
 def test_malformed_work_item_filing_returns_failed_result(*, tmp_path):
     module = foreman_act()
     repo = tmp_path / "repo"
+    target_repo = tmp_path / "target-repo"
     repo.mkdir()
+    target_repo.mkdir()
     mutation_happened = False
-    journaled: list[dict[str, object]] = []
+    journaled: list[tuple[Path, dict[str, object]]] = []
 
     def malformed_filing(*, request: dict[str, object]):
         nonlocal mutation_happened
-        _ = request
+        assert request["target_repo"] == str(target_repo)
         mutation_happened = True
         msg = "filing subprocess returned malformed JSON"
         raise ValueError(msg)
 
     result = module.act(
-        proposal=file_proposal(repo=repo),
+        proposal=file_proposal(repo=repo, target_repo=target_repo),
         seams=module.ActSeams(
             gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
             run=lambda *, argv: 99,
             file_work_item=malformed_filing,
-            append_journal=lambda *, repo, record: journaled.append(record),
+            append_journal=lambda *, repo, record: journaled.append((repo, record)),
         ),
     )
 
@@ -1617,20 +1617,26 @@ def test_malformed_work_item_filing_returns_failed_result(*, tmp_path):
         "reason": "filing_subprocess_failed:filing subprocess returned malformed JSON",
     }
     assert mutation_happened is True
-    assert journaled[0] == {
-        "stage": "foreman-act",
-        "action_id": "work_item_file",
-        "outcome": "pending",
-        "reason": "work_item_file_pending",
-        "mutated": False,
-    }
-    assert journaled[-1] == {
-        "stage": "foreman-act",
-        "action_id": "work_item_file",
-        "outcome": "failed",
-        "reason": "filing_subprocess_failed:filing subprocess returned malformed JSON",
-        "mutated": False,
-    }
+    assert journaled[0] == (
+        repo,
+        {
+            "stage": "foreman-act",
+            "action_id": "work_item_file",
+            "outcome": "pending",
+            "reason": "work_item_file_pending",
+            "mutated": False,
+        },
+    )
+    assert journaled[-1] == (
+        repo,
+        {
+            "stage": "foreman-act",
+            "action_id": "work_item_file",
+            "outcome": "failed",
+            "reason": "filing_subprocess_failed:filing subprocess returned malformed JSON",
+            "mutated": False,
+        },
+    )
 
 
 def test_filing_bootstrap_resolves_configured_and_cache_plugin_roots(*, tmp_path, monkeypatch):
