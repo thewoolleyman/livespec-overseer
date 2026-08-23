@@ -1,6 +1,9 @@
 """Mechanics for answering an existing blocked pane prompt under a foreman claim."""
+# livespec-lloc-soft-band-owner: overseer-346xe6
 
 from __future__ import annotations
+
+import re
 
 import foreman_gate_state
 import foreman_gather_evidence
@@ -14,6 +17,7 @@ from foreman_act_types import BLOCKED_SESSION_ANSWER, ActResult
 __all__: list[str] = ["act_blocked_session_answer"]
 
 _CLAIM_TTL_SECONDS = foreman_pane_claim.CLAIM_TTL_SECONDS
+_PICKER_OPTION_RE = re.compile(r"^\s*[❯›]?\s*(\d+)\.\s+(.+?)\s*$")
 
 
 def _result(*, outcome: str, reason: str, mutated: bool) -> ActResult:
@@ -154,6 +158,55 @@ def _persist_gate_state(*, repo: str, topic: str, state: foreman_gate_state.Gate
     )
 
 
+def _picker_options(*, capture: str) -> dict[str, str]:
+    options: dict[str, str] = {}
+    for raw in capture.splitlines():
+        line = signals.strip_ansi(text=raw)
+        match = _PICKER_OPTION_RE.match(line)
+        if match is not None:
+            options[match.group(1)] = match.group(2)
+    return options
+
+
+def _confirmed_named_option(*, before: str, after: str, option_text: str) -> bool:
+    clean_after = signals.strip_ansi(text=after)
+    return after != before and option_text in clean_after
+
+
+def _answer_numbered_picker(
+    *, tmux: tmuxio.PaneDriver, pane: str, answer_text: str, capture: str
+) -> ActResult | None:
+    option_number = answer_text.strip()
+    if not option_number.isdigit():
+        return None
+    option_text = _picker_options(capture=capture).get(option_number, "\0")
+    if not tmux.send_keys(session=pane, keys=option_number):  # pragma: no cover
+        return _failed(reason="selection_failed")
+    if not tmux.send_keys(session=pane, keys="Enter"):  # pragma: no cover
+        return _failed(reason="submit_failed")
+    if not _confirmed_named_option(
+        before=capture, after=tmux.capture_pane(session=pane), option_text=option_text
+    ):
+        return _failed(reason="answer_confirmation_failed")
+    return _acted(reason="answered_existing_prompt")
+
+
+def _deliver_answer(
+    *, tmux: tmuxio.PaneDriver, pane: str, answer_text: str, capture: str
+) -> ActResult:
+    if (
+        picker_result := _answer_numbered_picker(
+            tmux=tmux, pane=pane, answer_text=answer_text, capture=capture
+        )
+    ) is not None:
+        return picker_result
+    if not tmux.bracketed_paste(session=pane, text=answer_text):  # pragma: no cover
+        return _failed(reason="paste_failed")
+    if not tmux.send_keys(session=pane, keys="Enter"):  # pragma: no cover
+        return _failed(reason="submit_failed")
+    return _acted(reason="answered_existing_prompt")
+
+
 def act_blocked_session_answer(
     *, proposal: dict[str, object], document: dict[str, object], repo: str
 ) -> ActResult:
@@ -202,10 +255,6 @@ def act_blocked_session_answer(
                 question_fingerprint=fp,
             ),
         )
-        if not tmux.bracketed_paste(session=pane, text=answer_text):  # pragma: no cover
-            return _failed(reason="paste_failed")
-        if not tmux.send_keys(session=pane, keys="Enter"):  # pragma: no cover
-            return _failed(reason="submit_failed")
-        return _acted(reason="answered_existing_prompt")
+        return _deliver_answer(tmux=tmux, pane=pane, answer_text=answer_text, capture=capture or "")
     finally:
         foreman_pane_claim.clear_pane_claim(repo=repo, topic=topic)
