@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.50.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.50.0...v1.50.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* document tmux capture provenance limits ([83e204f](https://github.com/thewoolleyman/livespec-overseer/commit/83e204fb82ab0bf5ccd353cc76dbdacf3dbe2548))
+
 ## [1.50.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.49.2...v1.50.0) (2026-08-23)
 
 
