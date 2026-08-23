@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.42.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.2...v1.42.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* refuse headless overseerd startup ([920269e](https://github.com/thewoolleyman/livespec-overseer/commit/920269e7996c0691e0445503c597c7ee955664f6))
+
 ## [1.42.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.1...v1.42.2) (2026-08-23)
 
 
