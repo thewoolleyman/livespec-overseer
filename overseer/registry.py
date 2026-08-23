@@ -76,6 +76,8 @@ from _registry_mapping_read import MappingInvalid as MappingInvalid
 from _registry_mapping_read import MappingValid as MappingValid
 from _registry_mapping_read import read_mapping as read_mapping
 from _registry_mapping_read import read_valid_mapping as read_valid_mapping
+from _registry_null_epic_audit import NullEpicAuditRow as NullEpicAuditRow
+from _registry_null_epic_audit import audit_null_epics as audit_null_epics
 from _registry_rounds import RoundRecord as RoundRecord
 from _registry_rounds import mark_expiry_notice_sent as mark_expiry_notice_sent
 from _registry_rounds import read_round_open_identity as read_round_open_identity
@@ -127,6 +129,7 @@ __all__: list[str] = [
     "MappingEntry",
     "MappingInvalid",
     "MappingValid",
+    "NullEpicAuditRow",
     "PlanTrack",
     "RoundRecord",
     "SupervisorSeat",
@@ -136,6 +139,7 @@ __all__: list[str] = [
     "append_mapping",
     "archived_or_gone",
     "atomic_write",
+    "audit_null_epics",
     "clear_injection_stamp",
     "clear_picker_stall_episode",
     "clear_shell_episode",
