@@ -49,6 +49,51 @@ If this runtime has no Cron tools, report that the recurring self-installation
 could not be performed in this harness, then continue the current pass. Do not
 invent an alternate scheduler.
 
+## Cutover Recovery Notes
+
+The legacy `vps-info` watcher used the same session-only schedule shape. Its
+last known job id before the livespec-overseer cutover was `9117bfe3`, firing at
+`7,37 * * * *` with prompt `/caam-anthropic-loop --scheduled`. That job lived
+only in the Claude session that owned the `caam-anthropic-loop-legacy` pane. It
+left no host cron entry, no user systemd timer, and no system systemd timer; a
+recurring job of that kind also auto-expires after seven days even if the pane
+stays open.
+
+If the legacy watcher must be restored before the cutover completes, open a
+Claude session in the `vps-info` checkout and invoke `/caam-anthropic-loop`
+there. The legacy project skill self-installs by listing recurring jobs and
+creating the same `7,37 * * * *` schedule with prompt
+`/caam-anthropic-loop --scheduled`. Confirm the new job id, leave that pane open,
+and cancel any replacement livespec-overseer schedule so exactly one
+implementation is scheduled. The first unmarked invocation is a manual forced
+pass; after an outage, that is expected because it immediately re-evaluates the
+active account. Do not wrap the recovery invocation in `/loop`, and do not keep a
+second watcher pane alive, because recurring jobs are per-session.
+
+Host schedule evidence was measured by the plan owner on 2026-08-23T06:5xZ and
+recorded on work-item `overseer-54k2za.31`: the user crontab had only two
+unrelated entries, no `/etc/cron*` file mentioned `caam`, the two user timers
+were unrelated, and no system unit name mentioned `caam` or account rotation.
+When re-checking that evidence, search for `caam` or the operation name, not for
+`rotate`; `sysstat-rotate.timer` and `logrotate.timer` are log rotation and are
+not account rotation.
+
+During the cutover, a `session-gone` row for topic `caam-anthropic-loop` may
+describe this repository's plan thread rather than the legacy watcher. The
+daemon resolves a topic by tmux name plus repository cwd; a pane named for this
+operation whose cwd is the `vps-info` checkout does not satisfy the
+livespec-overseer plan-thread identity. Do not repair that row by restarting the
+legacy watcher seat into this repository. The legacy slash command is a project
+skill under `vps-info`, so moving the seat here can silence the row while
+breaking the running watcher.
+
+A resumed session whose model reads as `unknown` is also expected in this
+operation. The model is read from the transcript, not the tmux status line, and a
+resumed session writes to a differently named transcript. Treat `unknown` as
+may-need-setting, bounded by the one-hour per-session memo, rather than as a
+fault to chase. The cutover record observed this with `homelab-foreman`: it read
+as unknown while genuinely running Fable.
+
 ## Invocation Mode
 
 Resolve the mode from the invocation text after the schedule check.
