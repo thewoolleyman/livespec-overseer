@@ -9,6 +9,7 @@ from subprocess import CompletedProcess
 
 import _supervisor_wait_target as wait_target
 import _supervisor_wait_target_sources as sources
+import _supervisor_wait_target_lifecycle as lifecycle
 import registry
 from _supervisor_records import InjectState, Observation
 from test_supervisor_builders import (
@@ -161,7 +162,7 @@ def test_wait_target_missing_relays_evidence_to_prose_waiting_pane(*, tmp_path):
 
 
 def test_wait_target_missing_relay_allowed_uses_structural_idle_pair():
-    assert wait_target._relay_allowed(request=relay_request(obs=observation()))
+    assert lifecycle.relay_allowed(idle=True, busy=False, gate=False)
     refused = [
         observation(gate=True),
         observation(busy=True, capture=busy_capture(ctx=90)),
@@ -169,7 +170,7 @@ def test_wait_target_missing_relay_allowed_uses_structural_idle_pair():
         observation(idle=False),
     ]
     for obs in refused:
-        assert not wait_target._relay_allowed(request=relay_request(obs=obs))
+        assert not lifecycle.relay_allowed(idle=obs.idle, busy=obs.busy, gate=obs.gate)
 
 
 def test_wait_target_missing_relay_allowed_reaches_codex_idle_pane():
@@ -180,7 +181,7 @@ def test_wait_target_missing_relay_allowed_reaches_codex_idle_pane():
         claude_status=None,
     )
 
-    assert wait_target._relay_allowed(request=relay_request(obs=obs))
+    assert lifecycle.relay_allowed(idle=obs.idle, busy=obs.busy, gate=obs.gate)
 
 
 def test_wait_target_missing_relay_allowed_refuses_codex_busy_pane():
@@ -192,7 +193,43 @@ def test_wait_target_missing_relay_allowed_refuses_codex_busy_pane():
         claude_status=None,
     )
 
-    assert not wait_target._relay_allowed(request=relay_request(obs=obs))
+    assert not lifecycle.relay_allowed(idle=obs.idle, busy=obs.busy, gate=obs.gate)
+
+
+def test_wait_target_lifecycle_helpers_cover_absence_and_failed_evidence(*, tmp_path):
+    calls: list[dict[str, object]] = []
+
+    def missing_evidence(**kwargs) -> None:
+        calls.append(kwargs)
+
+    assert lifecycle.recheck_by_epoch(record={}) == 0.0
+    assert (
+        lifecycle.expired_and_no_longer_waiting(
+            status="blocked:human",
+            observed_at=1_787_500_800.0,
+            record={"recheck_by": "2026-08-19T03:00:00Z"},
+        )
+        is False
+    )
+    lifecycle.remove_premise(repo=tmp_path, topic="topic", record={})
+    lifecycle.clear_premise_with_evidence(
+        repo=tmp_path,
+        topic="topic",
+        record={"kind": "fabro-run", "target_id": "run-1"},
+        key="key",
+        status="expired",
+        write_evidence=missing_evidence,
+    )
+    assert calls[0]["status"] == "expired"
+
+
+def test_wait_target_lifecycle_relay_text_defaults_unknown_fields(*, tmp_path):
+    assert "premise: unknown unknown" in lifecycle.relay_text(
+        record={},
+        note="missing",
+        evidence_path=tmp_path / "evidence.json",
+        evidence_source=None,
+    )
 
 
 def test_wait_target_missing_does_not_raw_paste_relay_to_picker_pane(*, tmp_path):
@@ -372,7 +409,7 @@ def test_wait_target_missing_relay_fail_soft_when_evidence_record_cannot_be_writ
     sup.claude_status_by_session = {track.tmux or "": "waiting"}
     write_premise(repo=repo, topic=topic)
     write_local_runs(repo=repo, records=[])
-    monkeypatch.setattr(wait_target, "_evidence_path", lambda **_kwargs: repo)
+    monkeypatch.setattr(lifecycle, "evidence_path", lambda **_kwargs: repo)
 
     view = sup.evaluate(track=track, act=True)
 
@@ -457,18 +494,3 @@ def test_wait_target_missing_relay_marks_key_only_after_verified_submit(*, tmp_p
 
     assert view.status == "wait-target-missing"
     assert len(fake.paste_texts()) == 2
-
-
-def relay_request(*, obs: Observation) -> wait_target.WaitTargetMissingRequest:
-    track = registry.Track(repo="/repo", topic="topic", tmux="session")
-    return wait_target.WaitTargetMissingRequest(
-        sup=object(),
-        track=track,
-        session="session",
-        pane="session",
-        status="idle",
-        note=None,
-        obs=obs,
-        active_conditions=set(),
-        act=True,
-    )

@@ -5,20 +5,22 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import _supervisor_launch
 import _supervisor_liveness
+import _supervisor_wait_target_lifecycle
 import _supervisor_wait_target_sources
 import jsonio
 import registry
 import wait_premises
 from _supervisor_view import MAX_REASON_IN_ALERT, elide
 from _supervisor_wait_target_status import (
+    WAIT_TARGET_EXPIRED_STATUS,
     WAIT_TARGET_MISSING_CONDITION,
     WAIT_TARGET_MISSING_STATUS,
+    WAIT_TARGET_SATISFIED_STATUS,
 )
 
 if TYPE_CHECKING:
@@ -74,11 +76,6 @@ def _surface(*, request: WaitTargetMissingRequest, note: str) -> None:
         ),
         condition=WAIT_TARGET_MISSING_CONDITION,
     )
-
-
-def _evidence_path(*, repo: Path, topic: str, key: str) -> Path:
-    digest = sha256(key.encode("utf-8")).hexdigest()[:16]
-    return repo / "tmp" / "overseer" / topic / f"wait-target-missing-{digest}.json"
 
 
 def _requery_output(*, repo: Path, record: dict[str, object]) -> object:
@@ -171,7 +168,7 @@ def _evidence_record(
 def _write_evidence(
     *, repo: Path, topic: str, key: str, record: dict[str, object], status: str, note: str
 ) -> Path | None:
-    path = _evidence_path(repo=repo, topic=topic, key=key)
+    path = _supervisor_wait_target_lifecycle.evidence_path(repo=repo, topic=topic, key=key)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         _ = path.write_text(
@@ -187,33 +184,6 @@ def _write_evidence(
     return path
 
 
-def _relay_text(
-    *, record: dict[str, object], note: str, evidence_path: Path, evidence_source: str | None
-) -> str:
-    kind = _supervisor_wait_target_sources.string_field(record=record, key="kind") or "unknown"
-    target_id = (
-        _supervisor_wait_target_sources.string_field(record=record, key="target_id") or "unknown"
-    )
-    source = evidence_source or "unknown"
-    return (
-        "wait-target-missing evidence relay\n"
-        f"premise: {kind} {target_id}\n"
-        f"re-query: {source}\n"
-        f"evidence record: {evidence_path}\n"
-        f"result: {note}\n\n"
-        "This delivers facts only. It does not choose your next action, does not "
-        "authorize a restart, and does not change the ready-file interlock."
-    )
-
-
-def _relay_allowed(*, request: WaitTargetMissingRequest) -> bool:
-    # Use the runtime-agnostic structural prompt state. A gate includes pickers, and
-    # relaying there would choose the session's next action; this relay delivers FACTS
-    # only. The relay text must also stay clear of Codex busy-marker substrings because
-    # the verified submit path confirms Codex delivery by reading busy over the capture.
-    return request.obs.idle and not request.obs.busy and not request.obs.gate
-
-
 def _deliver_relay(
     *,
     request: WaitTargetMissingRequest,
@@ -222,7 +192,12 @@ def _deliver_relay(
     note: str,
     repo: Path,
 ) -> None:
-    if key in request.obs.istate.wait_target_relayed_keys or not _relay_allowed(request=request):
+    if (
+        key in request.obs.istate.wait_target_relayed_keys
+        or not _supervisor_wait_target_lifecycle.relay_allowed(
+            idle=request.obs.idle, busy=request.obs.busy, gate=request.obs.gate
+        )
+    ):
         return
     evidence_source = _supervisor_wait_target_sources.string_field(
         record=record, key="evidence_source"
@@ -237,7 +212,7 @@ def _deliver_relay(
     )
     if path is None:
         return
-    text = _relay_text(
+    text = _supervisor_wait_target_lifecycle.relay_text(
         record=record, note=note, evidence_path=path, evidence_source=evidence_source
     )
     if not _supervisor_launch.submit_prompt(
@@ -262,6 +237,33 @@ def apply_wait_target_missing_attention(
             repo=repo, record=record, cache=cache.get(key), now=now
         )
         cache[key] = entry
+        if entry.status == WAIT_TARGET_SATISFIED_STATUS:
+            request.obs.istate.wait_target_relayed_keys.discard(key)
+            _supervisor_wait_target_lifecycle.clear_premise_with_evidence(
+                repo=repo,
+                topic=request.track.topic,
+                record=record,
+                key=key,
+                status=WAIT_TARGET_SATISFIED_STATUS,
+                write_evidence=_write_evidence,
+            )
+            continue
+        if (
+            entry.status == WAIT_TARGET_MISSING_STATUS
+            and _supervisor_wait_target_lifecycle.expired_and_no_longer_waiting(
+                status=request.status, observed_at=request.obs.observed_at, record=record
+            )
+        ):
+            request.obs.istate.wait_target_relayed_keys.discard(key)
+            _supervisor_wait_target_lifecycle.clear_premise_with_evidence(
+                repo=repo,
+                topic=request.track.topic,
+                record=record,
+                key=key,
+                status=WAIT_TARGET_EXPIRED_STATUS,
+                write_evidence=_write_evidence,
+            )
+            continue
         if entry.status != WAIT_TARGET_MISSING_STATUS or entry.note is None:
             request.obs.istate.wait_target_relayed_keys.discard(key)
             continue

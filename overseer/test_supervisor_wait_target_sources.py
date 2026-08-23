@@ -170,6 +170,8 @@ def test_wait_target_local_verdict_edges(*, tmp_path):
     repo = tmp_path / "repo"
     _write_local_runs(repo=repo, records=[{"dispatch_id": "run-1", "status": "running"}])
     assert sources.local_verdict(repo=repo, target_id="run-1") == ("present", None)
+    _write_local_runs(repo=repo, records=[{"dispatch_id": "run-1", "status": "succeeded"}])
+    assert sources.local_verdict(repo=repo, target_id="run-1") == ("satisfied", None)
     assert sources.local_verdict(repo=repo, target_id="other") == (
         "wait-target-missing",
         "fabro-run other absent from every mandatory leg",
@@ -215,4 +217,4 @@ def test_wait_target_verify_defaults_unknown_fabro_runs_to_remote_sources(*, tmp
         now=12.0,
     )
 
-    assert entry == WaitTargetCacheEntry(checked_at=12.0, status="present", note=None)
+    assert entry == WaitTargetCacheEntry(checked_at=12.0, status="satisfied", note=None)

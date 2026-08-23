@@ -111,7 +111,7 @@ def test_wait_target_remote_verdict_edges(*, tmp_path, monkeypatch):
     assert sources.remote_verdict(
         repo=repo, record={"publish_branch": "feat/x"}, target_id="r"
     ) == (
-        "present",
+        "satisfied",
         None,
     )
     assert forge_calls == []
@@ -142,7 +142,7 @@ def test_wait_target_remote_verdict_edges(*, tmp_path, monkeypatch):
             }
         ],
     )
-    assert sources.remote_verdict(repo=repo, record={}, target_id="r") == ("present", None)
+    assert sources.remote_verdict(repo=repo, record={}, target_id="r") == ("satisfied", None)
     monkeypatch.setattr(
         sources,
         "read_journal",
@@ -164,7 +164,7 @@ def test_wait_target_remote_verdict_edges(*, tmp_path, monkeypatch):
     )
     assert sources.remote_verdict(
         repo=repo, record={"publish_branch": "feat/x"}, target_id="r"
-    ) == ("present", None)
+    ) == ("satisfied", None)
     assert sources.remote_verdict(repo=repo, record={}, target_id="r") == (
         "wait-target-missing",
         "fabro-run r absent from every mandatory leg",

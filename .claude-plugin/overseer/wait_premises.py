@@ -33,16 +33,17 @@ import json
 import os
 import re
 import tempfile
-from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 
+import _wait_premise_validation
 import jsonio
 
 __all__: list[str] = [
     "SCHEMA_VERSION",
     "WAIT_PREMISE_KINDS",
     "read_wait_premises",
+    "remove_wait_premise",
     "wait_premise_dir",
     "wait_premise_path",
     "wait_premise_record",
@@ -64,10 +65,10 @@ def wait_premise_record(
     recheck_by: str,
 ) -> dict[str, object]:
     require_kind(kind=kind)
-    require_non_empty(field="target_id", value=target_id)
-    require_non_empty(field="evidence_source", value=evidence_source)
-    require_timestamp(field="recorded_at", value=recorded_at)
-    require_timestamp(field="recheck_by", value=recheck_by)
+    _wait_premise_validation.require_non_empty(field="target_id", value=target_id)
+    _wait_premise_validation.require_non_empty(field="evidence_source", value=evidence_source)
+    _wait_premise_validation.require_timestamp(field="recorded_at", value=recorded_at)
+    _wait_premise_validation.require_timestamp(field="recheck_by", value=recheck_by)
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": kind,
@@ -84,18 +85,32 @@ def write_wait_premise(
     topic: str,
     **fields: str,
 ) -> Path:
-    kind = required_field(fields=fields, field="kind")
-    target_id = required_field(fields=fields, field="target_id")
+    kind = _wait_premise_validation.required_field(fields=fields, field="kind")
+    target_id = _wait_premise_validation.required_field(fields=fields, field="target_id")
     record = wait_premise_record(
         kind=kind,
         target_id=target_id,
-        evidence_source=required_field(fields=fields, field="evidence_source"),
-        recorded_at=required_field(fields=fields, field="recorded_at"),
-        recheck_by=required_field(fields=fields, field="recheck_by"),
+        evidence_source=_wait_premise_validation.required_field(
+            fields=fields, field="evidence_source"
+        ),
+        recorded_at=_wait_premise_validation.required_field(fields=fields, field="recorded_at"),
+        recheck_by=_wait_premise_validation.required_field(fields=fields, field="recheck_by"),
     )
     record.update({key: value for key, value in fields.items() if key not in _REQUIRED_FIELDS})
     path = wait_premise_path(repo=repo, topic=topic, kind=kind, target_id=target_id)
     write_json_atomic(path=path, payload=record)
+    return path
+
+
+def remove_wait_premise(
+    *,
+    repo: str | os.PathLike[str],
+    topic: str,
+    kind: str,
+    target_id: str,
+) -> Path:
+    path = wait_premise_path(repo=repo, topic=topic, kind=kind, target_id=target_id)
+    path.unlink(missing_ok=True)
     return path
 
 
@@ -123,7 +138,7 @@ def wait_premise_path(
 ) -> Path:
     directory = wait_premise_dir(repo=repo, topic=topic)
     require_kind(kind=kind)
-    require_non_empty(field="target_id", value=target_id)
+    _wait_premise_validation.require_non_empty(field="target_id", value=target_id)
     safe_target = _SAFE_FILENAME.sub("-", target_id).strip(".-")
     if safe_target == "":
         safe_target = "target"
@@ -136,7 +151,7 @@ def wait_premise_dir(*, repo: str | os.PathLike[str], topic: str) -> Path:
     if str(repo_path) == "." or str(repo_path) == "":
         msg = "repo must be non-empty"
         raise ValueError(msg)
-    require_non_empty(field="topic", value=topic)
+    _wait_premise_validation.require_non_empty(field="topic", value=topic)
     return repo_path / "tmp" / "overseer" / topic / "wait-premises"
 
 
@@ -251,34 +266,8 @@ def write_json_atomic(*, path: Path, payload: dict[str, object]) -> None:
 
 
 def require_kind(*, kind: str) -> None:
-    if kind not in WAIT_PREMISE_KINDS:
-        msg = f"kind must be one of {', '.join(WAIT_PREMISE_KINDS)}"
-        raise ValueError(msg)
-
-
-def required_field(*, fields: dict[str, str], field: str) -> str:
-    try:
-        return fields[field]
-    except KeyError:
-        msg = f"{field} is required"
-        raise ValueError(msg) from None
-
-
-def require_non_empty(*, field: str, value: str) -> None:
-    if value == "":
-        msg = f"{field} must be non-empty"
-        raise ValueError(msg)
-
-
-def require_timestamp(*, field: str, value: str) -> None:
-    if not timestamp_valid(value=value):
-        msg = f"{field} must be an ISO-8601 timestamp"
-        raise ValueError(msg)
+    _wait_premise_validation.require_kind(kind=kind, kinds=WAIT_PREMISE_KINDS)
 
 
 def timestamp_valid(*, value: str) -> bool:
-    try:
-        _ = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return False
-    return True
+    return _wait_premise_validation.timestamp_valid(value=value)
