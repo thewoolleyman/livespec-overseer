@@ -1,0 +1,52 @@
+
+ ▐▛███▛█   Claude Code v2.1.241
+▝▜██████▀  Opus 5 (1M context) with high effort · Claude Max
+  ▝▝ ▝▝    ~/.worktrees/livespec-overseer/chore/claude-idle-canary-2-1-241
+
+ ⚠ CLAUDE.md is over the 150.0k-char limit (150.0k chars) · /memory to free up context
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                       ● high · /effort
+────────────────────────────────────────────────────────────────────────────────── overseer-idle-canary ─
+❯ 
+─────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Opus 5 (1M context) | ~/.worktrees/livespec-overseer/chore/claude-idle-canary-2-1-241 | chore/claude…
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← 1 agent
+                                                                                        /rc connecting…
