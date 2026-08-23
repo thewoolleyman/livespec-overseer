@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.47.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.47.0...v1.47.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* cover acceptance guard missing labels branch ([ea9ec4b](https://github.com/thewoolleyman/livespec-overseer/commit/ea9ec4b422a6914ec76da7a3f905164a900070be))
+* refuse dispatch items with empty acceptance bars ([da78d09](https://github.com/thewoolleyman/livespec-overseer/commit/da78d09a70ff0a4324caa5e0f5a0696a609dec2a))
+
 ## [1.47.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.46.0...v1.47.0) (2026-08-23)
 
 
