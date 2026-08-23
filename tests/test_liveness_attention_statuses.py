@@ -37,6 +37,19 @@ def test_watch_target_gone_needs_attention():
     assert supervisor.needs_attention(row=row) is True
 
 
+def test_bounce_rekey_is_documented_as_test_only_until_inject_is_persisted():
+    root = Path(__file__).resolve().parents[1]
+    branch_source = (root / "overseer" / "_supervisor_pane_still.py").read_text(encoding="utf-8")
+    core_source = (root / "overseer" / "_supervisor_core.py").read_text(encoding="utf-8")
+    records_source = (root / "overseer" / "_supervisor_records.py").read_text(encoding="utf-8")
+
+    assert "test-only in today's production configuration" in branch_source
+    assert "do not persist this dict without re-auditing the stall-watch bounce branch" in (
+        core_source
+    )
+    assert "if this record becomes durable" in records_source
+
+
 def test_working_pane_still_alert_requires_two_consecutive_due_observations(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = topic

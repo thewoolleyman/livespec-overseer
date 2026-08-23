@@ -81,8 +81,13 @@ def _resolve_watch_target(*, request: StallWatchRequest) -> str | None:
         return state.stall_watch_pane
 
     # overseer-7nb4sk: after a daemon bounce, re-key the report-only watch from
-    # the mapped tmux SESSION identity. Live Claude pane titles can be activity
-    # prefixed or task-summary drifted, so they are not a reliable identity.
+    # the mapped tmux SESSION identity. This branch is test-only in today's
+    # production configuration: the daemon id is immutable within one process,
+    # and InjectState is in-memory, so no stored pre-bounce id survives a real
+    # restart. If InjectState ever becomes durable, this is the intended
+    # anti-stranding path. Live Claude pane titles can be activity prefixed or
+    # task-summary drifted, so they are not a reliable identity.
+    # Guard phrase: test-only in today's production configuration.
     resolved = request.sup.tmux.pane_id(session=request.session)
     state.stall_watch_daemon_instance_id = daemon_instance_id
     state.stall_watch_pane = resolved

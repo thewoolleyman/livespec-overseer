@@ -70,6 +70,14 @@ class InjectState:
     already-notified escalation bands are DURABLE, in the injection-stamp sidecar
     (``registry.read_injection_stamp`` / ``read_notified_bands`` / ``add_notified_band``),
     so a daemon restart never re-spams a band it already sent — they are not in-memory here.
+
+    The stall-watch daemon id below shares that in-memory contract. It cannot observe a
+    production daemon bounce today because the current process id is immutable and this
+    record is discarded across a restart. If this record becomes durable, re-audit
+    ``_supervisor_pane_still``'s bounce re-key branch and ``watch-target-gone`` status
+    before landing the persistence change.
+
+    Guard phrase: if this record becomes durable, re-audit the bounce branch.
     """
 
     last_ctx: int | None = None
