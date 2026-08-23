@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.43.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.43.0...v1.43.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* select the named picker option instead of the default ([674bd8c](https://github.com/thewoolleyman/livespec-overseer/commit/674bd8c9248ef831bc32334184dc95534654a219))
+
 ## [1.43.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.8...v1.43.0) (2026-08-23)
 
 
