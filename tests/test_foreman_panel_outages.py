@@ -316,6 +316,91 @@ def test_convening_writes_tooling_outage_verdict_when_reviewer_times_out(*, tmp_
         reviewer["reviewer_id"] == "fable" and reviewer["verdict"] == "insufficient-information"
         for reviewer in written["reviewers"]
     )
+    assert written["panel_assembly"] == "failed"
+
+
+def test_convening_cache_hit_keeps_cached_decision_kind(*, monkeypatch, tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    panel_request = request(repo=repo)
+    calls = 0
+
+    def reviewer_round(
+        *,
+        request: dict[str, object],
+        dossier_dir: Path,
+        reviewer_command: list[str] | None,
+        reviewer_timeout_seconds: float,
+    ) -> dict[str, object]:
+        nonlocal calls
+        del request, reviewer_command, reviewer_timeout_seconds
+        calls += 1
+        for reviewer_id in ("fable", "opus", "gpt-sol"):
+            foreman_panel.write_json(
+                path=dossier_dir / "prompts" / f"{reviewer_id}.json",
+                payload={
+                    "reviewer_id": reviewer_id,
+                    "prompt": (
+                        "Review.\nDossier JSON:\n"
+                        '{"blocked_question":"Q","handoff_or_work_item":"H","repo_context":"R"}'
+                    ),
+                },
+            )
+        if calls == 1:
+            return {
+                "reviewers": [
+                    {
+                        "reviewer_id": reviewer_id,
+                        "verdict": "insufficient-information",
+                        "action": {
+                            "action_id": "human_valve",
+                            "params": {"reason": "insufficient_information"},
+                        },
+                        "rationale": "The evidence is present but the policy choice remains.",
+                    }
+                    for reviewer_id in ("fable", "opus", "gpt-sol")
+                ]
+            }
+        return {
+            "reviewers": [
+                {
+                    "reviewer_id": reviewer_id,
+                    "verdict": "insufficient-information",
+                    "action": {
+                        "action_id": "human_valve",
+                        "params": {"reason": "reviewer_command_failed"},
+                    },
+                    "rationale": "reviewer_command_failed",
+                }
+                for reviewer_id in ("fable", "opus", "gpt-sol")
+            ]
+        }
+
+    monkeypatch.setattr(foreman_panel, "reviewer_responses", reviewer_round)
+
+    first = foreman_panel.convene_panel(
+        request=panel_request,
+        state_dir=tmp_path / "state",
+        verdict_path=tmp_path / "first.json",
+    )
+    first_again = foreman_panel.result_decision_kind(
+        reviewers=[reviewer for reviewer in first["reviewers"] if isinstance(reviewer, dict)],
+        verdict_reason=str(first["reason"]),
+    )
+    second = foreman_panel.convene_panel(
+        request=panel_request,
+        state_dir=tmp_path / "state",
+        verdict_path=tmp_path / "second.json",
+    )
+
+    assert first["cache"] == "miss"
+    assert first["outcome"] == "escalate"
+    assert first["reason"] == "insufficient_information"
+    assert first["decision_kind"] == "substantive_non_decision"
+    assert first_again == first["decision_kind"]
+    assert second["cache"] == "hit"
+    assert second["decision_kind"] == "substantive_non_decision"
+    assert second["panel_assembly"] == "deliberated"
 
 
 def test_cli_accepts_its_own_written_dossier_as_request(*, tmp_path: Path, capsys):
@@ -800,6 +885,35 @@ def test_substantive_insufficient_information_stays_substantive_non_decision():
         )
         == "substantive_non_decision"
     )
+
+
+def test_malformed_reviewer_response_reason_is_tooling_outage():
+    result = foreman_panel.result_decision_kind(
+        reviewers=[
+            {
+                "reviewer_id": "fable",
+                "verdict": "insufficient-information",
+                "action": {
+                    "action_id": "human_valve",
+                    "params": {"reason": "reviewer_response_malformed"},
+                },
+                "rationale": "reviewer_response_malformed",
+            },
+            {
+                "reviewer_id": "opus",
+                "verdict": "unblock",
+                "action": {"action_id": "blocked_session_answer", "params": {"answer": 1}},
+            },
+            {
+                "reviewer_id": "gpt-sol",
+                "verdict": "unblock",
+                "action": {"action_id": "blocked_session_answer", "params": {"answer": 1}},
+            },
+        ],
+        verdict_reason="insufficient_information",
+    )
+
+    assert result == "tooling_outage"
 
 
 def test_measured_thin_dossier_classification_does_not_need_matching_rationale():

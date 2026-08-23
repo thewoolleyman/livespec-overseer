@@ -12,9 +12,19 @@ __all__: list[str] = [
     "action_is_rollback_bounded",
     "authorized_action_id",
     "model_for",
+    "panel_assembly_status",
     "review_record",
     "typed_action",
 ]
+
+TOOLING_ASSEMBLY_FAILURE_REASONS = frozenset(
+    {
+        "reviewer_command_missing",
+        "reviewer_command_failed",
+        "reviewer_response_malformed",
+        "reviewer_timeout",
+    }
+)
 
 
 def model_for(*, reviewer_id: str) -> dict[str, str] | None:
@@ -77,6 +87,15 @@ def action_is_rollback_bounded(*, action: object) -> bool:
     )
 
 
+def panel_assembly_status(*, reviewers: list[dict[str, object]]) -> str:
+    for reviewer in reviewers:
+        action = jsonio.as_object(value=reviewer.get("action")) or {}
+        params = jsonio.as_object(value=action.get("params")) or {}
+        if params.get("reason") in TOOLING_ASSEMBLY_FAILURE_REASONS:
+            return "failed"
+    return "deliberated"
+
+
 def review_record(*, reviewer: dict[str, object]) -> dict[str, object]:
     reviewer_id = str_field(payload=reviewer, key="reviewer_id")
     result = {
@@ -85,6 +104,9 @@ def review_record(*, reviewer: dict[str, object]) -> dict[str, object]:
         "verdict": reviewer.get("verdict"),
         "action": reviewer.get("action"),
     }
+    rationale = reviewer.get("rationale")
+    if isinstance(rationale, str):
+        result["rationale"] = rationale
     if "hard_risk" in reviewer:
         result["hard_risk"] = reviewer.get("hard_risk")
     if "risk_kind" in reviewer:
