@@ -1855,6 +1855,68 @@ verification is skipped precisely when the conclusion is about to be written dow
 an absence supports your hypothesis, that is the moment to check the instrument, not
 the moment to stop.
 
+## A deferral's successor must be reachable from BOTH ends, and the fix is on the RECORDING side
+
+Measured 2026-08-23 while archiving `overseer-6s3pk6`, and tested against live data
+rather than reasoned about.
+
+**The problem.** A plan defers work and must name a real successor — an unrecorded
+deferral is the defect `overseer-l7c6` was filed to cure. But the successor usually
+should NOT be a child of the deferring epic: it is deliberately out of that thread's
+scope, and a child is enumerated by the archive gate and would BLOCK the very archive
+it exists to unblock. So it is filed unparented — and an unparented row tied to a
+thread is invisible to a gate that then reads clean, which is its own defect shape.
+
+**The criterion: reference it from BOTH ends, and treat the two directions as
+separate facts.** Four shapes, and only one is correct:
+
+| epic→row | row→epic | shape |
+|---|---|---|
+| yes | yes | **correct** — either end reaches the other |
+| no | yes | **invisible** — the gate reads clean and the work is lost |
+| yes | no | **one-directional** — an archiver starting at the epic finds it; anyone starting at the row cannot place it |
+| no | no | an unrecorded deferral wearing a filed row |
+
+The third shape is easy to miss because it looks fine from the archiver's seat, which
+is the seat that usually checks.
+
+**The mechanism is item TEXT, and that is not a weak substitute for an edge — it is the
+correct instrument.** Filing thread membership as a `depends_on` is circular by
+construction (an epic cannot close before its children) and renders the item
+permanently undispatchable; this file documents that trap at length above. Name the
+thread in the row's prose and the row in the thread's archive record.
+
+**A criterion is only trustworthy once it has a PASSING control.** This one was run over
+eight live epic/row pairs on a fresh 807-row export, including a deliberately
+unparented, doubly-referenced successor as the control. Had the rule flagged that row,
+it would have been useless — a sweep that cannot distinguish a deliberate decision from
+an omission reports both and teaches readers to ignore it. The passing control is what
+makes it a criterion rather than a plausible-sounding rule. The same run also collapsed
+"three affected threads" into **one** offending row referenced from neither of the two
+threads it belonged to: name the thing to fix, not the places it surfaces.
+
+### The transferable half: write the falsifiable expectation into the record
+
+**A sweep cannot tell a deliberate decision from an omission, and that gap is fixed on
+the RECORDING side, not the detecting side.** No amount of detector cleverness
+distinguishes "this row is unparented because someone thought about it" from "this row
+is unparented because nobody did".
+
+So when you make a deliberate structural decision that will look like a defect to a
+later sweep, record it **as an expectation a reviewer can disprove**, not as a summary
+they must trust:
+
+- state what the next sweep is expected to see (*"this row will surface as unparented;
+  that is expected and here is why"*),
+- state **what the genuine finding would be instead** (*"the real defect would be this
+  entry present and the row absent, or the row present naming no thread"*),
+- and give the baseline figures that would falsify it.
+
+This costs a paragraph and converts a recurring false positive into a check. It also
+survives the thing socket messages and panes do not: a reviewer that re-verifies rather
+than inheriting conclusions — which is the correct posture for a reviewer — will not
+have your conversation, only your record.
+
 ## `check-no-lloc-soft-warnings` CANNOT FAIL when you run it by hand
 
 Measured 2026-08-22, after it rejected two pushes in a row while every attempt to
