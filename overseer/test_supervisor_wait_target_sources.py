@@ -101,6 +101,8 @@ def test_wait_target_source_helpers_cover_identity_and_journal_edges(*, tmp_path
     assert sources.remote_record(
         record={"evidence_source": "fabro ps --factory=vps", "target_id": "run-1"}
     )
+    assert sources.local_record(record={"evidence_source": "fabro ps -a --json"})
+    assert sources.local_record(record={"execution_location": "local"})
 
     assert sources.read_journal(repo=repo) == []
     _write_journal(repo=repo, records=[{"stage": "dispatch-id", "dispatch_id": "run-1"}])
@@ -261,3 +263,35 @@ def test_wait_target_verify_uses_cache_and_skips_malformed_target(*, tmp_path):
     )
     fresh = sources.verify_wait_target_record(repo=tmp_path, record={}, cache=cached, now=11.0)
     assert fresh == WaitTargetCacheEntry(checked_at=11.0, status="present", note=None)
+    non_fabro = sources.verify_wait_target_record(
+        repo=tmp_path,
+        record={"kind": "pr", "target_id": "123"},
+        cache=None,
+        now=12.0,
+    )
+    assert non_fabro == WaitTargetCacheEntry(checked_at=12.0, status="present", note=None)
+
+
+def test_wait_target_verify_defaults_unknown_fabro_runs_to_remote_sources(*, tmp_path, monkeypatch):
+    _write_local_runs(repo=tmp_path, records=[])
+    monkeypatch.setattr(sources, "publish_branch_present", lambda *, repo, branch: False)
+    monkeypatch.setattr(
+        sources,
+        "read_journal",
+        lambda *, repo: [
+            {
+                "stage": "outcome",
+                "outcome": {"dispatch_id": "remote-run", "status": "succeeded"},
+                "at": "2026-08-19T03:00:00Z",
+            }
+        ],
+    )
+
+    entry = sources.verify_wait_target_record(
+        repo=tmp_path,
+        record={"kind": "fabro-run", "target_id": "remote-run"},
+        cache=None,
+        now=12.0,
+    )
+
+    assert entry == WaitTargetCacheEntry(checked_at=12.0, status="present", note=None)
