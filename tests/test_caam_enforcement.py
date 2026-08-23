@@ -250,7 +250,7 @@ def test_session_model_exception_outranks_foreman_pin_and_fable_resets(*, tmp_pa
     )
 
     assert calls == [("alpha-foreman", "fable"), ("beta", "fable")]
-    assert state["session-models"] == {"alpha-foreman": "fable", "beta": "fable"}
+    assert state["session_models"] == {"alpha-foreman": "fable", "beta": "fable"}
     assert messages[-1] == (
         "models: foremen want opus [pinned] (active account Fable EXHAUSTED); "
         "alpha-foreman opus->fable, beta opus->fable; "
@@ -259,7 +259,7 @@ def test_session_model_exception_outranks_foreman_pin_and_fable_resets(*, tmp_pa
 
 
 def test_session_model_exception_clear_restores_lower_precedence_rule(*, tmp_path: Path) -> None:
-    state: dict[str, object] = {"session-models": {"alpha-foreman": "fable"}}
+    state: dict[str, object] = {"session_models": {"alpha-foreman": "fable"}}
     calls: list[tuple[str, str]] = []
 
     messages = caam_enforcement.enforce_models(
@@ -282,7 +282,7 @@ def test_session_model_exception_clear_restores_lower_precedence_rule(*, tmp_pat
     )
 
     assert calls == [("alpha-foreman", "opus")]
-    assert state["session-models"] == {}
+    assert state["session_models"] == {}
     assert "exceptions:" not in messages[-1]
 
 
@@ -335,7 +335,7 @@ def test_session_model_exception_persists_before_no_models_early_return(*, tmp_p
 
     assert messages == []
     assert json.loads(state_path.read_text(encoding="utf-8")) == {
-        "session-models": {"beta": "opus"}
+        "session_models": {"beta": "opus"}
     }
 
 
@@ -352,7 +352,7 @@ def test_session_model_exception_no_models_without_state_path_is_non_driving() -
 
 
 def test_session_model_exception_ignores_malformed_requests(*, tmp_path: Path) -> None:
-    state: dict[str, object] = {"session-models": {"alpha": "sonnet", "old": "opus"}}
+    state: dict[str, object] = {"session_models": {"alpha": "sonnet", "old": "opus"}}
 
     messages = caam_enforcement.enforce_models(
         settings_path=Path("/missing/settings.json"),
@@ -377,7 +377,7 @@ def test_session_model_exception_ignores_malformed_requests(*, tmp_path: Path) -
     assert (
         messages[1] == "models: ignoring --session-model=old=sonnet (expected fable/opus or auto)"
     )
-    assert state["session-models"] == {"old": "opus"}
+    assert state["session_models"] == {"old": "opus"}
 
 
 def test_session_model_option_parser_ignores_malformed_tuples(*, tmp_path: Path) -> None:
