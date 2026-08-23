@@ -1049,6 +1049,68 @@ def test_deciding_blocked_session_answer_panel_omits_non_decision_kind(*, tmp_pa
     assert "decision_kind" not in written
 
 
+def test_minority_override_panel_omits_non_decision_kind(*, monkeypatch, tmp_path: Path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    verdict_path = tmp_path / "verdict.json"
+    action = {
+        "action_id": "blocked_session_answer",
+        "params": {"answer": "2"},
+        "reversible": True,
+        "rollback": {"bounded": True},
+    }
+    reviewer_payload = {
+        "reviewers": [
+            {
+                "reviewer_id": "fable",
+                "verdict": "needs-human",
+                "action": {"action_id": "human_valve", "params": {"reason": "architecture"}},
+            },
+            {"reviewer_id": "opus", "verdict": "unblock", "action": action},
+            {"reviewer_id": "gpt-sol", "verdict": "unblock", "action": action},
+        ],
+        "minority_report_round": {
+            "holders": [
+                {"reviewer_id": "opus", "holds": True},
+                {"reviewer_id": "gpt-sol", "holds": True},
+            ],
+        },
+    }
+
+    def fake_reviewer_responses(**_kwargs: object) -> dict[str, object]:
+        return reviewer_payload
+
+    def fake_consensus(**_kwargs: object) -> dict[str, object]:
+        return {
+            "schema_version": 1,
+            "outcome": "minority_override",
+            "reason": "minority_report_both_holders_confirmed",
+            "decision_rule": "majority",
+            "action": action,
+            "dissent": {"reviewer_id": "fable"},
+            "minority_report_round": {"held_by": ["opus", "gpt-sol"]},
+            "reviewers": reviewer_payload["reviewers"],
+            "decision_kind": "substantive_non_decision",
+        }
+
+    monkeypatch.setattr(foreman_panel, "reviewer_responses", fake_reviewer_responses)
+    monkeypatch.setattr(foreman_panel, "consensus", fake_consensus)
+
+    result = foreman_panel.convene_panel(
+        request=request(repo=repo),
+        state_dir=tmp_path / "state",
+        verdict_path=verdict_path,
+        reviewer_command=[sys.executable, "-c", "raise SystemExit('unreachable')"],
+    )
+    written = json.loads(verdict_path.read_text(encoding="utf-8"))
+
+    assert result["outcome"] == "minority_override"
+    assert result["reason"] == "minority_report_both_holders_confirmed"
+    assert result["action"] == action
+    assert "decision_kind" not in result
+    assert "decision_kind" not in written
+
+
 def test_hint_guard_offsets_telegraphed_outcomes_but_allows_neutral_machinery():
     neutral = foreman_panel.refusal_for(
         request=request(
