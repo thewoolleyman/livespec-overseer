@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.19](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.18...v1.51.19) (2026-08-23)
+
+
+### Bug Fixes
+
+* record reserved seat launch profiles ([92951d7](https://github.com/thewoolleyman/livespec-overseer/commit/92951d740564270419765f176cd0393ca2aa9c3c))
+
 ## [1.51.18](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.17...v1.51.18) (2026-08-23)
 
 
