@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -22,18 +23,17 @@ __all__: list[str] = ["main"]
 
 _BD_LIST_COMMAND = ("bd", "list", "--type", "epic", "--status", "all", "--json")
 _BD_TIMEOUT_SECONDS = 30
+_STRICT_ENV_VAR = "LIVESPEC_STRICT_PLAN_ANCHOR_METADATA"
 
 
 def main(*, argv: Sequence[str] | None = None) -> int:
     args = tuple(sys.argv[1:] if argv is None else argv)
     repo = Path(args[0]).resolve() if args else _REPO_ROOT
     if shutil.which("bd") is None:
-        _ = sys.stdout.write("check-plan-anchor-metadata: bd not found; skipping live check\n")
-        return 0
+        return _skip_or_fail(reason="bd not found")
     items = read_epic_items(repo=repo)
     if items is None:
-        _ = sys.stdout.write("check-plan-anchor-metadata: bd read failed; skipping live check\n")
-        return 0
+        return _skip_or_fail(reason="bd read failed")
     check = plan_anchor_metadata_check(repo=repo, items=items)
     if check.breaching_item_ids == ():
         _ = sys.stdout.write(
@@ -64,6 +64,20 @@ def main(*, argv: Sequence[str] | None = None) -> int:
         + "\n"
     )
     return 1
+
+
+def _skip_or_fail(*, reason: str) -> int:
+    if os.environ.get(_STRICT_ENV_VAR) == "true":
+        _ = sys.stderr.write(
+            f"check-plan-anchor-metadata: {reason}; "
+            f"{_STRICT_ENV_VAR}=true requires live check\n"
+        )
+        return 1
+    _ = sys.stderr.write(
+        f"check-plan-anchor-metadata: {reason}; "
+        f"{_STRICT_ENV_VAR} unarmed; skipping live check\n"
+    )
+    return 0
 
 
 def read_epic_items(*, repo: Path) -> Sequence[dict[str, object]] | None:
