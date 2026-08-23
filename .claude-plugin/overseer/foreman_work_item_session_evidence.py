@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -65,13 +66,27 @@ def read_work_item(*, repo: Path, work_item_id: str) -> tuple[dict[str, object] 
         return None, "work_item_evidence_missing"
     if completed.returncode != 0:
         return None, "work_item_not_found"
-    parsed = jsonio.parse_object(text=completed.stdout)
-    if jsonio.is_parse_failure(result=parsed):  # pragma: no cover
-        return None, "work_item_evidence_unavailable"
-    item = parsed.unwrap()
+    item, refusal = _item_from_bd_show_json(text=completed.stdout)
+    if refusal is not None:
+        return None, refusal
     if item is None or str_field(payload=item, key="id") != work_item_id:  # pragma: no cover
         return None, "work_item_not_found"
     return item, None
+
+
+def _item_from_bd_show_json(*, text: str) -> tuple[dict[str, object] | None, str | None]:
+    try:
+        parsed: object = json.loads(text)
+    except ValueError:
+        return None, "work_item_evidence_unavailable"
+    item = jsonio.as_object(value=parsed)
+    if item is not None:
+        return item, None
+    items = jsonio.as_list(value=parsed)
+    if items is None or len(items) != 1:
+        return None, "work_item_evidence_unavailable"
+    item = jsonio.as_object(value=items[0])
+    return (item, None) if item is not None else (None, "work_item_evidence_unavailable")
 
 
 def _credential_wrapper(*, repo: Path) -> list[str]:
