@@ -68,8 +68,16 @@ def _request(*, tmp_path, obs: Observation) -> _supervisor_threshold.ThresholdRe
     )
 
 
-def _guard_result(*, tmp_path, monkeypatch, obs: Observation, require_below_threshold: bool):
+def _guard_result(
+    *,
+    tmp_path,
+    monkeypatch,
+    obs: Observation,
+    fresh_obs: Observation | None = None,
+    require_below_threshold: bool,
+):
     request = _request(tmp_path=tmp_path, obs=obs)
+    observed = obs if fresh_obs is None else fresh_obs
     monkeypatch.setattr(
         _supervisor_threshold_expiry._supervisor_observe,
         "pane_is_managed",
@@ -78,7 +86,7 @@ def _guard_result(*, tmp_path, monkeypatch, obs: Observation, require_below_thre
     monkeypatch.setattr(
         _supervisor_threshold_expiry._supervisor_observe,
         "observe",
-        lambda **_kw: obs,
+        lambda **_kw: observed,
     )
     return _supervisor_threshold_expiry.fresh_guarded_paste_observation(
         request=request,
@@ -104,6 +112,140 @@ def _assert_clause_refuses(*, tmp_path, monkeypatch, obs: Observation) -> None:
             require_below_threshold=True,
         )
         is None
+    )
+
+
+def _assert_authorization_change_refuses(
+    *, tmp_path, monkeypatch, settled: Observation, fresh: Observation
+) -> None:
+    assert (
+        _guard_result(
+            tmp_path=tmp_path,
+            monkeypatch=monkeypatch,
+            obs=_observation(),
+            fresh_obs=_observation(),
+            require_below_threshold=True,
+        )
+        is not None
+    )
+    assert (
+        _guard_result(
+            tmp_path=tmp_path,
+            monkeypatch=monkeypatch,
+            obs=settled,
+            fresh_obs=fresh,
+            require_below_threshold=True,
+        )
+        is None
+    )
+
+
+def test_guarded_paste_refuses_changed_capture(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(capture=idle_capture(ctx=39)),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_is_codex(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(is_codex=True),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_busy(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(busy=True),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_gate(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(gate=True),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_idle(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(idle=False),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_codex_fallback(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(codex_fallback=True),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_claude_status(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(claude_status="shell"),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_ready(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(ready=True),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_malformed(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(malformed=True),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_blocked(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(blocked="needs human"),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_acked(*, tmp_path, monkeypatch):
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(acked=True),
+        fresh=_observation(),
+    )
+
+
+def test_guarded_paste_refuses_changed_declaration_signature(*, tmp_path, monkeypatch):
+    declared = signals.TrackState(token=signals.STATE_WINDING_DOWN, detail="", mtime=1000.0)
+    _assert_authorization_change_refuses(
+        tmp_path=tmp_path,
+        monkeypatch=monkeypatch,
+        settled=_observation(declared=declared),
+        fresh=_observation(),
     )
 
 
