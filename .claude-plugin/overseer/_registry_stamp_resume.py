@@ -9,7 +9,13 @@ import jsonio
 from _registry_core import atomic_write, file_lock, resolve_stamp_store
 from _registry_stamp_core import read_stamp_data, stamp_key
 
-__all__: list[str] = ["read_resume_pending", "read_resume_pending_identity", "set_resume_pending"]
+__all__: list[str] = [
+    "add_resume_retry_attempts",
+    "read_resume_pending",
+    "read_resume_pending_identity",
+    "read_resume_retry_attempts",
+    "set_resume_pending",
+]
 
 
 def read_resume_pending(
@@ -58,6 +64,48 @@ def read_resume_pending_identity(
     return identity if isinstance(identity, str) and identity else None
 
 
+def read_resume_retry_attempts(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> int:
+    """Enter keystrokes already spent by this resume-pending episode."""
+    data = read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    value = data.get(stamp_key(repo=repo, topic=topic))
+    entry = jsonio.as_object(value=value)
+    if entry is None or entry.get("resume_pending") is not True:
+        return 0
+    attempts = entry.get("resume_retry_attempts")
+    if isinstance(attempts, int) and not isinstance(attempts, bool) and attempts > 0:
+        return attempts
+    return 0
+
+
+def add_resume_retry_attempts(
+    *,
+    repo: str,
+    topic: str,
+    attempts: int,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> None:
+    """Add spent Enter keystrokes to the current resume-pending episode."""
+    if attempts <= 0:
+        return
+    path = resolve_stamp_store(stamp_path=stamp_path)
+    with file_lock(target=path):
+        data = read_stamp_data(path=path)
+        key = stamp_key(repo=repo, topic=topic)
+        entry = jsonio.as_object(value=data.get(key))
+        if entry is None or entry.get("resume_pending") is not True:
+            return
+        current = read_resume_retry_attempts(repo=repo, topic=topic, stamp_path=path)
+        next_entry: dict[str, object] = dict(entry)
+        next_entry["resume_retry_attempts"] = current + attempts
+        data[key] = next_entry
+        atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+
 def set_resume_pending(
     *,
     repo: str,
@@ -89,6 +137,7 @@ def set_resume_pending(
             legacy = jsonio.as_float(value=value)
             entry = {} if legacy is None else {"at": legacy}
         entry["resume_pending"] = True
+        entry["resume_retry_attempts"] = 0
         if session_identity is not None:
             entry["resume_pending_session_identity"] = session_identity
         data[key] = entry

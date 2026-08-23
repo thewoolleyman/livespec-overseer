@@ -47,6 +47,7 @@ __all__: list[str] = [
     "launch_command",
     "pane_settled",
     "resend_enter",
+    "resend_enter_budgeted",
     "session_of",
     "submit_prompt",
     "submit_prompt_result",
@@ -189,6 +190,11 @@ def await_input_box(*, sup: Supervisor, target: str) -> bool:
 
 
 def resend_enter(*, sup: Supervisor, target: str) -> bool:
+    submitted, _ = resend_enter_budgeted(sup=sup, target=target, max_enters=SUBMIT_MAX_ENTERS)
+    return submitted
+
+
+def resend_enter_budgeted(*, sup: Supervisor, target: str, max_enters: int) -> tuple[bool, int]:
     """Re-send Enter (NEVER re-paste, NEVER re-respawn) until the resume submits.
 
     The retry half of the self-healing resume (R1): the resume line is ALREADY sitting
@@ -200,12 +206,14 @@ def resend_enter(*, sup: Supervisor, target: str) -> bool:
     false-confirm an un-submitted resume (review SF3). An extra Enter on an already-empty
     prompt is a harmless no-op.
     """
-    for _ in range(SUBMIT_MAX_ENTERS):
+    enters_sent = 0
+    for _ in range(max(0, max_enters)):
         _ = sup.tmux.send_keys(session=target, keys="Enter")
+        enters_sent += 1
         sup.sleep(SUBMIT_POLL)
         if signals.input_box_ready(capture_text=sup.tmux.capture_pane(session=target)):
-            return True
-    return False
+            return True, enters_sent
+    return False, enters_sent
 
 
 def submit_prompt(*, sup: Supervisor, target: str, text: str, expect_codex: bool = False) -> bool:

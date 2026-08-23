@@ -20,6 +20,7 @@ bare-scalar upgrade path.
 
 import json
 
+import _registry_stamp_resume
 import pytest
 import registry
 
@@ -102,6 +103,26 @@ def test_set_resume_pending_on_a_track_with_no_open_round(*, tmp_path):
     registry.set_resume_pending(repo="/r", topic="t", stamp_path=stamp)
     assert registry.read_resume_pending(repo="/r", topic="t", stamp_path=stamp) is True
     assert registry.read_injection_stamp(repo="/r", topic="t", stamp_path=stamp) is None
+
+
+def test_resume_retry_attempt_helpers_fail_soft_without_a_pending_episode(*, tmp_path):
+    stamp = tmp_path / "stamps.json"
+
+    assert (
+        _registry_stamp_resume.read_resume_retry_attempts(repo="/r", topic="t", stamp_path=stamp)
+        == 0
+    )
+    assert (
+        _registry_stamp_resume.read_resume_pending_identity(repo="/r", topic="t", stamp_path=stamp)
+        is None
+    )
+    _registry_stamp_resume.add_resume_retry_attempts(
+        repo="/r", topic="t", attempts=2, stamp_path=stamp
+    )
+    assert (
+        _registry_stamp_resume.read_resume_retry_attempts(repo="/r", topic="t", stamp_path=stamp)
+        == 0
+    )
 
 
 def test_set_resume_pending_upgrades_a_legacy_bare_scalar_value(*, tmp_path):

@@ -1,5 +1,6 @@
 """Repo-level tests for submit_prompt confirmation integrity."""
 
+import _supervisor_launch
 import pytest
 from _supervisor_config import SUBMIT_MAX_ENTERS
 from test_supervisor_builders import codex_busy_capture, idle_capture, make_supervisor
@@ -36,6 +37,19 @@ def test_claude_submit_does_not_confirm_empty_box_before_paste_was_seen(*, tmp_p
     enters = [c for c in fake.calls if c[0] == "keys" and c[2] == "Enter"]
     assert len(enters) == SUBMIT_MAX_ENTERS
     assert fake.paste_texts() == ["resume plan epic overseer-test-epic"]
+
+
+def test_resend_enter_legacy_wrapper_uses_the_full_submit_budget(*, tmp_path):
+    fake = FakeTmux()
+    session = "s"
+    fake.sessions.add(session)
+    fake.panes[session] = claude_composer_capture(text="read handoff.md")
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+
+    assert _supervisor_launch.resend_enter(sup=sup, target=session) is False
+
+    enters = [c for c in fake.calls if c[0] == "keys" and c[2] == "Enter"]
+    assert len(enters) == SUBMIT_MAX_ENTERS
 
 
 def test_claude_submit_confirms_after_visible_paste_clears(*, tmp_path):
