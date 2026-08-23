@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.18](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.17...v1.51.18) (2026-08-23)
+
+
+### Bug Fixes
+
+* authorize maintainer blocked-session answers ([7e9b391](https://github.com/thewoolleyman/livespec-overseer/commit/7e9b3910039f6d68291eb6037bc240adbd4a9031))
+
 ## [1.51.17](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.16...v1.51.17) (2026-08-23)
 
 
