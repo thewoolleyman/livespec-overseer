@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.45.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.2...v1.45.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* expose pre-push failing diagnostics ([c19da80](https://github.com/thewoolleyman/livespec-overseer/commit/c19da803f07a925ddbabbaacee83234000b0f7c7))
+
 ## [1.45.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.1...v1.45.2) (2026-08-23)
 
 
