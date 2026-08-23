@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.2...v1.44.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* require grooming triage freshness checks ([74a9d53](https://github.com/thewoolleyman/livespec-overseer/commit/74a9d5399de073093eaa7637f97abb9e9d7836f1))
+
 ## [1.44.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.1...v1.44.2) (2026-08-23)
 
 
