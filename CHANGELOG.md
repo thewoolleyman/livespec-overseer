@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.49.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.49.1...v1.49.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* co-locate filing intent journal ([1c6a849](https://github.com/thewoolleyman/livespec-overseer/commit/1c6a8495cd28bdc3143e2ee92c19da4a167cedb6))
+* require filing journal-before-act ([1841c89](https://github.com/thewoolleyman/livespec-overseer/commit/1841c89f098d1f97a708d4af573a2cf765d9f452))
+
 ## [1.49.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.49.0...v1.49.1) (2026-08-23)
 
 
