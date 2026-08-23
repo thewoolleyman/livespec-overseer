@@ -409,6 +409,10 @@ def test_panel_authorized_change_is_relayed_to_worker_not_implemented_by_foreman
     pasted: list[str] = []
 
     class ActTmux:
+        def __init__(self):
+            self.answer_text: str | None = None
+            self.submitted = False
+
         def pane_id(self, *, session: str):
             return session
 
@@ -419,14 +423,19 @@ def test_panel_authorized_change_is_relayed_to_worker_not_implemented_by_foreman
             return str(repo)
 
         def capture_pane(self, *, session: str):
+            if self.submitted and self.answer_text is not None:
+                return f"worker prompt\n{self.answer_text}\n"
             return "worker prompt"
 
         def bracketed_paste(self, *, session: str, text: str):
             pasted.append(text)
+            self.answer_text = text
             return True
 
         def send_keys(self, *, session: str, keys: str):
             pasted.append(keys)
+            if keys == "Enter":
+                self.submitted = True
             return True
 
     dispatch = module("foreman_act_dispatch")

@@ -2040,6 +2040,7 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
     class ActTmux:
         def __init__(self):
             self.calls: list[tuple[str, str, str | None]] = []
+            self.submitted = False
 
         def pane_id(self, *, session: str):
             self.calls.append(("pane_id", session, None))
@@ -2055,6 +2056,8 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
 
         def capture_pane(self, *, session: str):
             self.calls.append(("capture", session, None))
+            if self.submitted:
+                return "Approve the bounded retry?\n" "Yes, proceed with the bounded retry.\n"
             return "Approve the bounded retry?\n"
 
         def bracketed_paste(self, *, session: str, text: str):
@@ -2066,6 +2069,8 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
 
         def send_keys(self, *, session: str, keys: str):
             self.calls.append(("keys", session, keys))
+            if keys == "Enter":
+                self.submitted = True
             return True
 
     tmux = ActTmux()
@@ -2095,6 +2100,73 @@ def test_blocked_answer_existing_prompt_claims_pastes_and_cleans_up(*, tmp_path,
     assert ("paste", "alpha", "Yes, proceed with the bounded retry.") in tmux.calls
     assert ("keys", "alpha", "Enter") in tmux.calls
     assert not pane_claim.claim_path(repo=repo, topic="alpha").exists()
+
+
+def test_blocked_answer_existing_prompt_fails_when_answer_text_is_undelivered(
+    *, tmp_path, monkeypatch
+):
+    foreman_act = module("foreman_act")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    write_consensus_config(repo=repo, full_autonomy=True)
+    proposal = blocked_answer_proposal(repo=repo)
+    answer = proposal["blocked_session_answer"]
+    assert isinstance(answer, dict)
+    answer["question_fingerprint"] = _pane_fingerprint(text="Approve the bounded retry?\n")
+
+    class OrphanedPasteTmux:
+        def __init__(self):
+            self.calls: list[tuple[str, str, str | None]] = []
+
+        def pane_id(self, *, session: str):
+            self.calls.append(("pane_id", session, None))
+            return session
+
+        def pane_current_command(self, *, session: str):
+            self.calls.append(("cmd", session, None))
+            return "node"
+
+        def pane_current_path(self, *, session: str):
+            self.calls.append(("path", session, None))
+            return str(repo)
+
+        def capture_pane(self, *, session: str):
+            self.calls.append(("capture", session, None))
+            return "Approve the bounded retry?\n"
+
+        def bracketed_paste(self, *, session: str, text: str):
+            self.calls.append(("paste", session, text))
+            return True
+
+        def send_keys(self, *, session: str, keys: str):
+            self.calls.append(("keys", session, keys))
+            return True
+
+    tmux = OrphanedPasteTmux()
+    dispatch = module("foreman_act_dispatch")
+    monkeypatch.setattr(dispatch.tmuxio, "TmuxIO", lambda: tmux)
+
+    result = foreman_act.act(
+        proposal=proposal,
+        seams=foreman_act.ActSeams(
+            gather=lambda *, repo, snapshot_path: blocked_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            consensus_panel=lambda *,
+            request,
+            responses,
+            decision_rule=None: blocked_answer_majority_panel_result(),
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "blocked_session_answer",
+        "mutated": False,
+        "outcome": "failed",
+        "reason": "answer_text_undelivered",
+    }
+    assert ("paste", "alpha", "Yes, proceed with the bounded retry.") in tmux.calls
+    assert ("keys", "alpha", "Enter") in tmux.calls
 
 
 def test_blocked_answer_refuses_when_relay_strike_limit_is_reached(*, tmp_path, monkeypatch):
@@ -2192,6 +2264,10 @@ def test_blocked_answer_numbered_picker_selects_named_non_default_option(*, tmp_
     assert tmux.recorded_answer == "Archive now"
     assert ("keys", "alpha", "4") in tmux.calls
     assert ("keys", "alpha", "Enter") in tmux.calls
+    assert any(
+        call == ("capture", "alpha", None)
+        for call in tmux.calls[tmux.calls.index(("keys", "alpha", "Enter")) + 1 :]
+    )
     assert not any(call[0] == "paste" for call in tmux.calls)
 
 
@@ -2300,6 +2376,7 @@ def test_picker_stalled_open_picker_answer_revalidates_against_fresh_capture(
     class ActTmux:
         def __init__(self):
             self.calls: list[tuple[str, str, str | None]] = []
+            self.submitted = False
 
         def pane_id(self, *, session: str):
             self.calls.append(("pane_id", session, None))
@@ -2315,6 +2392,8 @@ def test_picker_stalled_open_picker_answer_revalidates_against_fresh_capture(
 
         def capture_pane(self, *, session: str):
             self.calls.append(("capture", session, None))
+            if self.submitted:
+                return f"{question}Yes, proceed with the bounded retry.\n"
             return question
 
         def bracketed_paste(self, *, session: str, text: str):
@@ -2326,6 +2405,8 @@ def test_picker_stalled_open_picker_answer_revalidates_against_fresh_capture(
 
         def send_keys(self, *, session: str, keys: str):
             self.calls.append(("keys", session, keys))
+            if keys == "Enter":
+                self.submitted = True
             return True
 
     tmux = ActTmux()
@@ -2787,6 +2868,8 @@ class RecordedNextActionTmux:
     def __init__(self, *, repo: Path):
         self.repo = repo
         self.calls: list[tuple[str, str, str | None]] = []
+        self.answer_text: str | None = None
+        self.submitted = False
 
     def pane_id(self, *, session: str):
         return session
@@ -2801,14 +2884,19 @@ class RecordedNextActionTmux:
 
     def capture_pane(self, *, session: str):
         del session
+        if self.submitted and self.answer_text is not None:
+            return f"Approve the bounded retry?\n{self.answer_text}\n"
         return "Approve the bounded retry?\n"
 
     def bracketed_paste(self, *, session: str, text: str):
         self.calls.append(("paste", session, text))
+        self.answer_text = text
         return True
 
     def send_keys(self, *, session: str, keys: str):
         self.calls.append(("keys", session, keys))
+        if keys == "Enter":
+            self.submitted = True
         return True
 
 
