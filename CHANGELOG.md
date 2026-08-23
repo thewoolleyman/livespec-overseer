@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.2...v1.51.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* **caam:** align the protected-accounts state key to the underscore convention ([eb22147](https://github.com/thewoolleyman/livespec-overseer/commit/eb221472267ee10f2e99bbd4cc15b49127616c52))
+
 ## [1.51.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.1...v1.51.2) (2026-08-23)
 
 
