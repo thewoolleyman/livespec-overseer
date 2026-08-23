@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import foreman_gather_evidence
+import pytest
 import registry
 from _supervisor_consensus_overdue import (
     CONSENSUS_OVERDUE_STATUS,
@@ -107,6 +108,7 @@ def test_convene_obligation_paths_do_not_collide_for_distinct_targets(*, tmp_pat
     assert first.parent == second.parent
 
 
+@pytest.mark.integration
 def test_convene_obligation_writer_supports_discharge_and_escalation_roots(*, tmp_path):
     module_path = (
         Path(__file__).resolve().parent.parent / "overseer" / "foreman_convene_obligations.py"

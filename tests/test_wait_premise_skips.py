@@ -12,6 +12,7 @@ import json
 
 import foreman_gather_evidence
 import foreman_gather_render
+import pytest
 import wait_premises
 from _supervisor_snapshot import SCHEMA_VERSION
 from foreman_gather_collect import compose_document
@@ -68,6 +69,7 @@ def test_migration_removes_the_legacy_file_rather_than_duplicating_it(*, tmp_pat
     ] == ["17"]
 
 
+@pytest.mark.integration
 def test_an_unknown_or_newer_record_is_skipped_and_surfaced(*, tmp_path):
     repo = tmp_path / "repo"
     directory = wait_premises.wait_premise_dir(repo=repo, topic="alpha")
@@ -138,6 +140,7 @@ def test_render_reports_skip_reasons_and_stays_quiet_without_them():
     assert foreman_gather_render.premise_skips_text(row={}) == ""
 
 
+@pytest.mark.integration
 def test_foreman_gather_surfaces_an_unusable_premise_on_the_row(*, tmp_path):
     repo = tmp_path / "repo"
     topic = "alpha"
