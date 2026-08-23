@@ -144,6 +144,268 @@ def test_min_gain_margin_makes_reverse_switch_impossible():
     )
 
 
+@pytest.mark.parametrize(
+    ("record", "floor", "expected"),
+    [
+        (usage(five_hour=10.0, seven_day=88.0), 10.0, 2.0),
+        (usage(five_hour=10.0, seven_day=90.0), 10.0, 0.0),
+        (usage(five_hour=10.0, seven_day=95.0), 10.0, 0.0),
+        (usage(five_hour=10.0, seven_day=88.0), 0.0, 12.0),
+    ],
+)
+def test_protection_floor_reduces_usable_weekly_headroom(*, record, floor, expected):
+    assert weekly_left(usage=record, protection_floor=floor) == expected
+
+
+def test_protected_candidate_uses_usable_weekly_headroom_for_eligibility():
+    current = usage(five_hour=10.0, seven_day=100.0)
+    candidate = usage(five_hour=10.0, seven_day=88.0)
+
+    assert is_eligible(
+        usage=candidate,
+        current=current,
+        gain_needed=10.0,
+        dimension="seven_day",
+    )
+    assert not is_eligible(
+        usage=candidate,
+        current=current,
+        gain_needed=10.0,
+        dimension="seven_day",
+        protection_floor=10.0,
+    )
+    assert not is_eligible(
+        usage=usage(five_hour=10.0, seven_day=90.0),
+        current=current,
+        gain_needed=0.01,
+        dimension="seven_day",
+        protection_floor=10.0,
+    )
+
+
+def test_protected_candidates_are_last_resort_and_keep_existing_ranking():
+    current = usage(five_hour=95.0, seven_day=95.0)
+    unprotected = ProfileUsage(
+        name="unprotected",
+        source="live",
+        usage=usage(
+            five_hour=40.0,
+            seven_day=40.0,
+            seven_day_resets_at="2026-08-27T00:00:00Z",
+        ),
+    )
+    protected_soon = ProfileUsage(
+        name="protected-soon",
+        source="live",
+        usage=usage(
+            five_hour=30.0,
+            seven_day=80.0,
+            seven_day_resets_at="2026-08-22T00:00:00Z",
+        ),
+    )
+    protected_later = ProfileUsage(
+        name="protected-later",
+        source="live",
+        usage=usage(
+            five_hour=20.0,
+            seven_day=70.0,
+            seven_day_resets_at="2026-08-24T00:00:00Z",
+        ),
+    )
+    floors = {"protected-soon": 10.0, "protected-later": 20.0}
+
+    with_unprotected = eligible_profiles(
+        profiles=(unprotected, protected_soon),
+        active_name="active",
+        current=current,
+        force=True,
+        dimension="five_hour",
+        protection_floors=floors,
+    )
+    assert [profile.name for profile in with_unprotected.profiles] == ["unprotected"]
+
+    only_protected = eligible_profiles(
+        profiles=(protected_later, protected_soon),
+        active_name="active",
+        current=current,
+        force=True,
+        dimension="seven_day",
+        protection_floors=floors,
+    )
+    assert [profile.name for profile in rank_profiles(profiles=only_protected.profiles)] == [
+        "protected-soon",
+        "protected-later",
+    ]
+
+
+def test_active_protected_account_triggers_at_its_floor_and_reports_protection_binding(
+    *, monkeypatch
+):
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85")
+    monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10")
+    active = usage(five_hour=40.0, seven_day=88.0)
+
+    assert triggered(usage=active, active_name="active", protection_floors={"active": 12.0})
+    assert not triggered(usage=active, active_name="active", protection_floors={})
+    assert binding(usage=active, active_name="active", protection_floors={"active": 12.0}) == (
+        "seven_day",
+        88.0,
+        "protection floor for active (12%)",
+    )
+
+
+def test_reserve_release_does_not_release_protection_floors(*, monkeypatch):
+    monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "15")
+    current = usage(five_hour=95.0, seven_day=95.0)
+    unprotected = ProfileUsage(
+        name="unprotected",
+        source="live",
+        usage=usage(five_hour=40.0, seven_day=90.0),
+    )
+    protected = ProfileUsage(
+        name="protected",
+        source="live",
+        usage=usage(five_hour=35.0, seven_day=92.0),
+    )
+
+    released = eligible_profiles(
+        profiles=(unprotected, protected),
+        active_name="active",
+        current=current,
+        force=True,
+        dimension="five_hour",
+        protection_floors={"protected": 10.0},
+    )
+    assert [profile.name for profile in released.profiles] == ["unprotected"]
+    assert released.reserve_released
+    assert released.note == "note: every account is under the 15% weekly reserve -- releasing it"
+
+    held = eligible_profiles(
+        profiles=(protected,),
+        active_name="active",
+        current=current,
+        force=True,
+        dimension="five_hour",
+        protection_floors={"protected": 10.0},
+    )
+    assert held.profiles == ()
+    assert not held.reserve_released
+    assert held.note == "hold: protected account floors reached: protected at 8% left (floor 10%)"
+
+
+def test_protection_inputs_are_explicit_and_ignore_environment(*, monkeypatch):
+    current = usage(five_hour=10.0, seven_day=100.0)
+    candidate = usage(five_hour=10.0, seven_day=88.0)
+
+    monkeypatch.setenv("CAAM_PROTECTED_ACCOUNTS", "candidate=10")
+    without_explicit_floor = is_eligible(
+        usage=candidate,
+        current=current,
+        gain_needed=10.0,
+        dimension="seven_day",
+    )
+    with_explicit_floor = is_eligible(
+        usage=candidate,
+        current=current,
+        gain_needed=10.0,
+        dimension="seven_day",
+        protection_floor=10.0,
+    )
+
+    assert without_explicit_floor
+    assert not with_explicit_floor
+
+
+@pytest.mark.parametrize(
+    ("current", "candidate", "gain_needed", "dimension"),
+    [
+        (
+            usage(five_hour=95.0, seven_day=95.0),
+            usage(five_hour=40.0, seven_day=95.0),
+            0.01,
+            "five_hour",
+        ),
+        (
+            usage(five_hour=10.0, seven_day=100.0),
+            usage(five_hour=10.0, seven_day=88.0),
+            10.0,
+            "seven_day",
+        ),
+        (
+            usage(five_hour=86.0, seven_day=25.0),
+            usage(five_hour=70.0, seven_day=25.0),
+            10.0,
+            "five_hour",
+        ),
+    ],
+)
+def test_absent_protection_preserves_current_eligibility(
+    *, current, candidate, gain_needed, dimension
+):
+    assert is_eligible(
+        usage=candidate,
+        current=current,
+        gain_needed=gain_needed,
+        dimension=dimension,
+    ) == is_eligible(
+        usage=candidate,
+        current=current,
+        gain_needed=gain_needed,
+        dimension=dimension,
+        protection_floor=0.0,
+        current_protection_floor=0.0,
+    )
+
+
+def test_absent_protection_preserves_current_candidate_decisions(*, monkeypatch):
+    monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10")
+    current = usage(five_hour=95.0, seven_day=95.0)
+    profiles = (
+        ProfileUsage(
+            name="below",
+            source="live",
+            usage=usage(five_hour=50.0, seven_day=95.0),
+        ),
+        ProfileUsage(
+            name="above",
+            source="live",
+            usage=usage(five_hour=50.0, seven_day=89.0),
+        ),
+    )
+
+    before = eligible_profiles(
+        profiles=profiles,
+        active_name="active",
+        current=current,
+        force=True,
+        dimension="five_hour",
+    )
+    after = eligible_profiles(
+        profiles=profiles,
+        active_name="active",
+        current=current,
+        force=True,
+        dimension="five_hour",
+        protection_floors={},
+    )
+
+    assert after == before
+
+
+def test_absent_protection_preserves_current_trigger_and_binding(*, monkeypatch):
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85")
+    monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10")
+    cases = (
+        usage(five_hour=85.0, seven_day=20.0),
+        usage(five_hour=84.9, seven_day=91.0),
+        usage(five_hour=40.0, seven_day=88.0),
+    )
+
+    for record in cases:
+        assert triggered(usage=record, protection_floors={}) == triggered(usage=record)
+        assert binding(usage=record, protection_floors={}) == binding(usage=record)
+
+
 def test_eligibility_and_ranking_do_not_consult_fable():
     """The two-tier Fable design was built and deliberately reverted."""
 
