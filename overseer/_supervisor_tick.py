@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import _supervisor_discovery
+import _supervisor_dispatch_quiet
 import _supervisor_foreman
 import _supervisor_grooming
 import _supervisor_mapping_health
@@ -65,6 +66,9 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
     currency = sup.currency_row()
     if currency is not None:
         views.append(currency)
+    dispatch_quiet = _supervisor_dispatch_quiet.apply_dispatch_quiet_with_waiters(rows=views)
+    if dispatch_quiet is not None:
+        views.append(dispatch_quiet)
     sup.render(rows=views)
     if act:
         _finish_acting_tick(sup=sup, views=views)
