@@ -858,9 +858,10 @@ def test_measure_stage_is_reentrant_and_later_stage_derives_inputs(*, tmp_path: 
     repo = _repo(tmp_path=tmp_path)
     items = [
         _with(
-            row=_item(item_id="ready-a"),
+            row=_item(item_id="gate-saw-bridge-filed"),
             updates={"labels": ["intake:triaged"]},
         ),
+        _item(item_id="ungated-bridge-filed"),
         _with(
             row=_item(item_id="label-field-string"),
             updates={"labels": "intake:triaged"},
@@ -893,8 +894,15 @@ def test_measure_stage_is_reentrant_and_later_stage_derives_inputs(*, tmp_path: 
     )
 
     assert first == second
-    assert first == second
     assert report.measurement == first
+    assert "gate-saw-bridge-filed" not in first.untriaged_item_ids
+    assert "ungated-bridge-filed" in first.untriaged_item_ids
+    assert first.untriaged_item_ids == (
+        "backlog-b",
+        "label-field-string",
+        "plan-epic",
+        "ungated-bridge-filed",
+    )
     assert _by_key(report=report.conformance, key="plan-rollup").breaching_item_ids == (
         "backlog-b",
     )
