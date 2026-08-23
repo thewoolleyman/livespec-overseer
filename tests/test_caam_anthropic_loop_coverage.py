@@ -86,7 +86,7 @@ def test_main_default_runner_uses_stdout_and_sys_argv_seams(*, monkeypatch) -> N
 
 def test_protected_account_helper_clears_and_reads_floors() -> None:
     module = caam_protected_accounts_module()
-    state: dict[str, object] = {"protected-accounts": {"main": 12.0, "old": 5.0}}
+    state: dict[str, object] = {"protected_accounts": {"main": 12.0, "old": 5.0}}
 
     protected = module.apply_protected_accounts(
         state=state,
@@ -96,7 +96,7 @@ def test_protected_account_helper_clears_and_reads_floors() -> None:
     assert protected.values == {"main": 12.0}
     assert protected.floor_for(account="main") == 12.0
     assert protected.floor_for(account="missing") == 0.0
-    assert state["protected-accounts"] == {"main": 12.0}
+    assert state["protected_accounts"] == {"main": 12.0}
 
 
 def test_run_pass_default_runner_resolves_active_profile(*, tmp_path: Path, monkeypatch) -> None:
