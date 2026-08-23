@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.17](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.16...v1.51.17) (2026-08-23)
+
+
+### Bug Fixes
+
+* lifecycle wait premises ([d7a9b24](https://github.com/thewoolleyman/livespec-overseer/commit/d7a9b248b29035fcd4930367409e28cb0acb369b))
+
 ## [1.51.16](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.15...v1.51.16) (2026-08-23)
 
 
