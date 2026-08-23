@@ -4,7 +4,8 @@
 action, handoff entries — lives on that epic and its child items. This note is
 write-once research and is never authoritative about what remains.
 
-**MEASURED AS OF vps-info `822e2be`** (re-pinned 2026-08-22, during
+**MEASURED AS OF vps-info `4ba602d`** (re-pinned 2026-08-23T06:2xZ, after PR 59
+merged as `f5fd345`; the previous pin was `822e2be`, set 2026-08-22 during
 `overseer-54k2za.14`'s STEP 0). The source is a LIVE repo and it moved FIVE times
 while this thread was being opened, and SIX more times after the previous pin — see
 "The source is a moving target" below. **Re-measure against that repo's HEAD
@@ -997,9 +998,14 @@ faithful reproduction of a superseded program and record durable evidence saying
 so. The review MUST begin by re-measuring the source and reconciling this file,
 not by trusting it.
 
-### PENDING on the source, NOT yet in the oracle — measured 2026-08-23
+### MERGED into the oracle 2026-08-23T06:20:17Z — this subsection is now history
 
-**The pin above is still correct: vps-info `origin/master` is `822e2be`.** Two
+**RE-TENSED. PR 59 MERGED as `f5fd345` at 2026-08-23T06:20:17Z and the pin above now
+reads `4ba602d`.** Everything below was written while these changes were pending, and
+the entries are kept because *the pending/merged distinction is the finding*, not
+bookkeeping: two separate sessions read "the source moved" off a branch and drew
+conclusions the oracle did not support. **All three commits are now ancestors of
+`master`, verified on the forge rather than from a peer's message.** Two
 further changes have been reported against the source and neither is in the
 oracle — both live only on `origin/plan/caam-snapshot-orphaning`, the unmerged
 PR 59 branch. **Verified by an ancestry test against `origin/master`, not by
@@ -1008,9 +1014,9 @@ different claims and only the first changes a carrier.
 
 | commit | change | status here |
 |---|---|---|
-| `d60f8d2` | `build_rows()` **revives a dark profile**: one `warm_profile()` sandbox refresh before writing the row off, then a re-probe; on success the row is `live` and eligible, logged with a `revive` line | **PENDING** — absent from the rebuild; carried BLOCKED as `overseer-54k2za.28` |
-| `d7a7dd5` | qualifies the LIVE-verified rule in the source's `AGENTS.md` | **PENDING** — already logged as pending; no code carrier |
-| `579462d` | **per-session model exception, "rule 0"**: `--session-model=<session>=<model>`, repeatable, persisted in state, applied ABOVE every existing model rule | **PENDING** — outranks the **V** foreman pin and both Fable-exhausted resets (**1b**, **2b**); carried BLOCKED as `overseer-54k2za.29` |
+| `d60f8d2` | `build_rows()` **revives a dark profile**: one `warm_profile()` sandbox refresh before writing the row off, then a re-probe; on success the row is `live` and eligible, logged with a `revive` line | **MERGED** — still absent from the rebuild; carried READY as `overseer-54k2za.28` |
+| `d7a7dd5` | qualifies the LIVE-verified rule in the source's `AGENTS.md` | **MERGED** — no code carrier |
+| `579462d` | **per-session model exception, "rule 0"**: `--session-model=<session>=<model>`, repeatable, persisted in state, applied ABOVE every existing model rule | **MERGED** — outranks the **V** foreman pin and both Fable-exhausted resets (**1b**, **2b**); carried BLOCKED as `overseer-54k2za.29` |
 
 **Rule 0 does not supersede the L-group precedence — it sits above it.** The
 reporting seat drew the opposite conclusion, that fixing enforcement against the
@@ -1055,3 +1061,29 @@ regress the dark path.
 branch is **pending**, not a carrier gap. Record it, file a *blocked* successor so
 it cannot be forgotten, and do not reproduce it — a branch can change before it
 lands, and reproducing it would diverge from the oracle the mandate names.
+
+## Two instrument traps that survive into the cutover — added 2026-08-23
+
+Both are properties of the SOURCE, faithfully reproduced, so neither is a rebuild
+defect and neither may be "fixed" here. They are recorded because a cutover hands
+this program to an operator who will read its output as evidence.
+
+**`live`-verified checks the WRONG TOKEN.** The liveness probe behind **G8** is a
+read-only GET against the usage endpoint, which exercises the **access** token. A
+token *family* that has been revoked keeps answering that probe for up to the full
+eight-hour access-token lifetime. So the safety rule "only switch onto a
+LIVE-verified account" can pass on an account whose refresh token is dead, and the
+failure appears only at the next refresh. **G8 is a real guard against a stale row
+and is not a guard against a revoked family.**
+
+**`dark` is not `orphaned`, and this system's tables cannot tell them apart.**
+*Dark* means the eight-hour access token lapsed; **one refresh recovers it with no
+browser login**. *Orphaned* means the token family was revoked and **only a browser
+login recovers it**. Every rendering in this program shows the same thing for both.
+Conflating them is what made 2026-08-23T03:20Z read as a credential disaster —
+three idle profiles dark — when all three came back in ten seconds.
+
+Both traps are instances of the class this thread keeps meeting: **a check that
+cannot fail**. The third instance is the rebuild's own model enforcement, which
+ships, is exported, is unit-tested against injected seams, and never executes on
+the production path (`overseer-54k2za.26`).
