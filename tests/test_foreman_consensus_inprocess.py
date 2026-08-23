@@ -36,6 +36,18 @@ CAPTURED_TRAILING_BYTES_STDOUT = (
     'PR-opening remain with the model-preserving-restarts session.","hard_risk":false}'
     ',"member_kind":"action"}\n'
 )
+CAPTURED_FABLE_RUN_2_STDOUT = (
+    "The dossier provides enough information to answer the blocked picker.\n\n"
+    "{"
+    '"reviewer_id":"fable",'
+    '"verdict":"unblock",'
+    '"action":{"action_id":"blocked_session_answer","params":{"answer":"1"}},'
+    '"rationale":"The repo guidance says a recorded next action is an instruction, '
+    "not a menu, and this session already identifies option 1 as its bounded next "
+    "step. The action is reversible and does not require a maintainer gate, so the "
+    'panel can answer the picker directly."'
+    "}\n"
+)
 
 __all__: list[str] = []
 
@@ -813,6 +825,63 @@ def test_captured_reviewer_stdout_with_complete_json_then_trailing_bytes_is_acce
     assert parsed["reviewer_id"] == "panel-reviewer-1"
     assert response.reviewer_response_object(raw_stdout='[],"member_kind":"action"}\n') is None
     assert response.reviewer_response_object(raw_stdout='{"verdict":"unblock"') is None
+
+
+def test_captured_fable_run_2_prose_then_json_stdout_is_accepted():
+    response = module("foreman_panel_response")
+
+    parsed = response.reviewer_response_object(raw_stdout=CAPTURED_FABLE_RUN_2_STDOUT)
+
+    assert parsed is not None
+    assert parsed["reviewer_id"] == "fable"
+    assert parsed["verdict"] == "unblock"
+    assert parsed["action"] == {
+        "action_id": "blocked_session_answer",
+        "params": {"answer": "1"},
+    }
+
+
+def test_reviewer_stdout_with_embedded_fenced_json_is_accepted():
+    response = module("foreman_panel_response")
+
+    parsed = response.reviewer_response_object(
+        raw_stdout=textwrap.dedent(
+            """
+            I can answer this from the dossier.
+
+            ```json
+            {
+              "reviewer_id": "fable",
+              "verdict": "unblock",
+              "action": {"action_id": "blocked_session_answer", "params": {"answer": "1"}},
+              "rationale": "The bounded action is supported."
+            }
+            ```
+            """
+        )
+    )
+
+    assert parsed is not None
+    assert parsed["verdict"] == "unblock"
+    assert parsed["action"] == {
+        "action_id": "blocked_session_answer",
+        "params": {"answer": "1"},
+    }
+
+
+def test_reviewer_stdout_with_no_json_object_is_rejected():
+    response = module("foreman_panel_response")
+
+    assert response.reviewer_response_object(raw_stdout="I cannot form a verdict.\n") is None
+
+
+def test_reviewer_stdout_with_truncated_trailing_json_object_is_rejected():
+    response = module("foreman_panel_response")
+
+    assert (
+        response.reviewer_response_object(raw_stdout='The answer follows.\n\n{"verdict":"unblock"')
+        is None
+    )
 
 
 def test_captured_trailing_bytes_panel_replay_changes_from_tooling_outage_to_decision(
