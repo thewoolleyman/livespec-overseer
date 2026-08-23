@@ -121,20 +121,26 @@ def is_busy(*, capture_text: str) -> bool:
 # picker MUST suppress injection or the paste would type into the `1/2` chooser.
 # Best-effort; documented markers.
 _GATE_CURSOR_RE = re.compile(r"[❯›]\s*\d+\.")
+_GATE_TAIL_LINES = 8
 
 
 def is_structured_gate(*, capture_text: str) -> bool:
     """True if the pane shows a structured permission-prompt / picker gate.
 
-    Best-effort. Keyed on two low-false-positive markers: a ``❯ N.`` numbered
+    Best-effort. Keyed on the pane tail, where live pickers render, using two
+    low-false-positive markers: a ``❯ N.`` numbered
     cursor option, or the literal permission question ``Do you want to
     proceed`` (case-insensitive). Used to SUPPRESS injection — never keystroke
     into a gate (adversarial-review blocker #6).
     """
     text = strip_ansi(text=capture_text)
-    if _GATE_CURSOR_RE.search(text):
+    if _input_box_present(text=text):
+        return False
+    lines = [line for line in text.splitlines() if line.strip()]
+    tail = "\n".join(lines[-_GATE_TAIL_LINES:])
+    if _GATE_CURSOR_RE.search(tail):
         return True
-    return "do you want to proceed" in text.lower()
+    return "do you want to proceed" in tail.lower()
 
 
 # The live idle input box is an EMPTY `❯` prompt line sandwiched between two
