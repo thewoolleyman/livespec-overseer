@@ -155,7 +155,11 @@ def test_due_restart_never_worked_attention_does_not_suppress_retry(*, tmp_path,
     repo, topic, _session, _resume, fake, sup, track = _stuck_post_respawn(
         tmp_path=tmp_path, clock=clock
     )
-    monkeypatch.setattr(_supervisor_launch, "resend_enter", lambda *, sup, target: False)
+    monkeypatch.setattr(
+        _supervisor_launch,
+        "resend_enter_budgeted",
+        lambda *, sup, target, max_enters: (False, 0),
+    )
 
     assert sup.evaluate(track=track, act=True).status == "restarting"
     registry.set_resume_pending(

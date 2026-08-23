@@ -37,7 +37,12 @@ import _supervisor_launch
 import _supervisor_state
 import registry
 import signals
-from _registry_stamp_resume import read_resume_pending_identity
+from _registry_stamp_resume import (
+    add_resume_retry_attempts,
+    read_resume_pending_identity,
+    read_resume_retry_attempts,
+)
+from _supervisor_config import SUBMIT_MAX_ENTERS
 from _supervisor_records import Observation
 from _supervisor_view import RESUME_PENDING_NOTE, RowView
 
@@ -86,7 +91,10 @@ def resume_retry(
     pending_identity = read_resume_pending_identity(
         repo=repo, topic=topic, stamp_path=sup.stamp_path
     )
-    if pending_identity is None or pending_identity != obs.session_identity:
+    identity_matches = pending_identity == obs.session_identity or (
+        pending_identity is not None and pending_identity.startswith(f"{obs.session_identity}:")
+    )
+    if pending_identity is None or not identity_matches:
         sup.alert(
             repo=repo,
             topic=topic,
@@ -140,11 +148,41 @@ def resume_retry(
     # pasted) — the round is done here; the rare paste-failure re-engages via the
     # idle-with-context nudge, not a double-kick. A box holding TEXT means the Enter
     # was dropped — re-send Enter ONLY (never re-paste; the text is already there).
-    resolved = (
-        True
-        if signals.input_box_ready(capture_text=obs.capture)
-        else _supervisor_launch.resend_enter(sup=sup, target=target)
-    )
+    if signals.input_box_ready(capture_text=obs.capture):
+        resolved = True
+    else:
+        spent = read_resume_retry_attempts(repo=repo, topic=topic, stamp_path=sup.stamp_path)
+        remaining = SUBMIT_MAX_ENTERS - spent
+        if remaining <= 0:
+            sup.alert(
+                repo=repo,
+                topic=topic,
+                session=session,
+                pane=target,
+                message=(
+                    "resume line STILL not submitted after restart — "
+                    "Enter retry budget exhausted"
+                ),
+                condition="restart-resume-enter-retry-exhausted",
+            )
+            return RowView(
+                topic=topic,
+                repo=repo,
+                tmux=session,
+                ctx=obs.eff_ctx,
+                status="restarting",
+                note=RESUME_PENDING_NOTE,
+                runtime=obs.runtime,
+            )
+        resolved, enters_sent = _supervisor_launch.resend_enter_budgeted(
+            sup=sup, target=target, max_enters=min(1, remaining)
+        )
+        add_resume_retry_attempts(
+            repo=repo,
+            topic=topic,
+            attempts=enters_sent,
+            stamp_path=sup.stamp_path,
+        )
     if resolved:
         _supervisor_state.clear_state(
             sup=sup,
