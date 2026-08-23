@@ -1,5 +1,13 @@
 # livespec-lloc-soft-band-owner: overseer-hgq4wi
-"""Dispatch-journal triage validation for the foreman actuator."""
+"""Dispatch-journal triage validation for the foreman actuator.
+
+Reconciliation is deliberately on-demand through a foreman-act proposal. The
+host-published failure case needs fresh forge evidence tying the merged pull
+request head ref back to the dispatch run's publish branch; a scheduler that
+only scans terminal journal opinions would either miss that proof or close the
+wrong item. Green-untransitioned journal records stay out of scope because the
+dispatcher owns that transition.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +16,17 @@ from pathlib import Path
 
 import jsonio
 
-__all__: list[str] = ["journal_reconcile_command"]
+__all__: list[str] = [
+    "JOURNAL_RECONCILE_INVOCATION_CONTRACT",
+    "journal_reconcile_command",
+]
+
+JOURNAL_RECONCILE_INVOCATION_CONTRACT: dict[str, str] = {
+    "invocation": "on_demand_foreman_act_proposal",
+    "reason": "host_published_failures_require_fresh_forge_trace",
+    "forge_discriminator": "merged_pull_request.head_ref_matches_outcome_publish_branch",
+    "excluded_scope": "green_untransitioned_records",
+}
 
 
 def _str_field(*, payload: dict[str, object], key: str) -> str | None:

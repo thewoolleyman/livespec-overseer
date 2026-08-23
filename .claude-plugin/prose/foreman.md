@@ -472,6 +472,15 @@ deliberately, and it also returns the interval to its configured default.
    `work_item_session_resume`, `work_item_session_finish`,
    `blocked_session_answer`, and `human_valve`.
 
+   Dispatch-journal reconciliation is intentionally on-demand through that
+   `dispatch_journal_reconcile_merged` proposal, not a scheduled cleanup pass.
+   For host-published failures the proposal must carry fresh forge evidence:
+   the merged pull request's `head_ref` has to match the journal outcome's
+   `publish_branch`, so an unrelated merged PR that merely names the same item
+   is refused rather than closed. The reconciliation input is the forge plus the
+   journal record, not the dispatcher's terminal opinion alone. Green
+   untransitioned records are excluded here; the dispatcher owns that transition.
+
    `supervisor_pair_start` is warranted only from gather evidence: the snapshot
    row for the tracked plan has `supervisor_handoff: "missing"` for the
    conventional `plan/<topic>/supervisor-handoff.md`, and the operator asked for
