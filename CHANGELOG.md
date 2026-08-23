@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.5...v1.51.6) (2026-08-23)
+
+
+### Bug Fixes
+
+* gate report-only artifact producer coverage ([43d990d](https://github.com/thewoolleyman/livespec-overseer/commit/43d990d25158a96e6b46bf9e313ea201efb06935))
+
 ## [1.51.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.4...v1.51.5) (2026-08-23)
 
 
