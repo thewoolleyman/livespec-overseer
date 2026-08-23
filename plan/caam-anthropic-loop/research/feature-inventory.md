@@ -1016,7 +1016,7 @@ different claims and only the first changes a carrier.
 
 | commit | change | status here |
 |---|---|---|
-| `d60f8d2` | `build_rows()` **revives a dark profile**: one `warm_profile()` sandbox refresh before writing the row off, then a re-probe; on success the row is `live` and eligible, logged with a `revive` line | **MERGED** — still absent from the rebuild; carried READY as `overseer-54k2za.28` |
+| `d60f8d2` | `build_rows()` **revives a dark profile**: one `warm_profile()` sandbox refresh before writing the row off, then a re-probe; on success the row is `live` and eligible, logged with a `revive` line | **MERGED** — reproduced by `overseer-54k2za.28` against merged head `4ba602d` |
 | `d7a7dd5` | qualifies the LIVE-verified rule in the source's `AGENTS.md` | **MERGED** — no code carrier |
 | `579462d` | **per-session model exception, "rule 0"**: `--session-model=<session>=<model>`, repeatable, persisted in state, applied ABOVE every existing model rule | **MERGED** — outranks the **V** foreman pin and both Fable-exhausted resets (**1b**, **2b**); carried BLOCKED as `overseer-54k2za.29` |
 
@@ -1050,14 +1050,18 @@ option** the keep-warm question's recorded three do not contain.
 **S4**'s note tells a human to activate an unverified profile; that is the
 operation that wrote a dead credential live and stopped eleven sessions on
 2026-08-19. The sandbox refresh establishes the same fact without installing
-anything, so the merged source may retire that guidance. Under the reproduction
-mandate the rebuild was *right* to carry it; the rebuild must follow the source in
-whichever direction it lands, and **must not diverge silently in either**.
+anything, but the merged source did **not** retire that guidance: measured on
+`master` at `4ba602d`, the unverified-rows branch still logs the same note and
+keeps the comment that frames the stall as deliberate. So the rebuild keeps the
+string unchanged, consciously inherited from upstream rather than as a local
+safety choice. Changing it belongs source-side first.
 
 **And one interaction to preserve.** The revive path works *because* a genuinely
 expired snapshot takes the copy-back branch, so it depends on the unsatisfiable
 margin pair at **X4a-i** still being unfixed. A future fix to that guard must not
-regress the dark path.
+regress the dark path; `tests/test_caam_anthropic_loop.py` now has a dark-profile
+revive control that fails if a margin-pair repair stops the on-demand refresh,
+re-probe, and `revive:` log line from firing only for already-dark rows.
 
 **The general rule this subsection is an instance of:** a change on an unmerged
 branch is **pending**, not a carrier gap. Record it, file a *blocked* successor so
