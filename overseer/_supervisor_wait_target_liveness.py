@@ -71,10 +71,12 @@ def dispatcher_config(*, repo: Path) -> dict[str, object] | None:
     config = parse_repo_config(repo=repo)
     if config is None:
         return None
-    overseer_config = jsonio.as_object(value=config.get("livespec-overseer"))
-    if overseer_config is None:
+    dispatcher_owner_config = jsonio.as_object(
+        value=config.get("livespec-orchestrator-beads-fabro")
+    )
+    if dispatcher_owner_config is None:
         return None
-    return jsonio.as_object(value=overseer_config.get("dispatcher"))
+    return jsonio.as_object(value=dispatcher_owner_config.get("dispatcher"))
 
 
 def factory_server(*, repo: Path, factory: str | None) -> str | None:

@@ -75,7 +75,7 @@ def test_remote_factory_liveness_resolves_server_and_matches_active_run(*, tmp_p
     (repo / ".livespec.jsonc").write_text(
         """
         {
-          "livespec-overseer": {
+          "livespec-orchestrator-beads-fabro": {
             "dispatcher": {
               "factories": {
                 "hp": { "server": "https://factory.example" }
@@ -130,7 +130,7 @@ def test_remote_factory_liveness_distinguishes_absent_from_unreachable(*, tmp_pa
     (repo / ".livespec.jsonc").write_text(
         """
         {
-          "livespec-overseer": {
+          "livespec-orchestrator-beads-fabro": {
             "dispatcher": {
               "factories": {
                 "hp": { "server": "https://factory.example" }

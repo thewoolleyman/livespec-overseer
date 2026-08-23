@@ -50,23 +50,29 @@ def test_factory_server_handles_missing_config_shapes(*, tmp_path):
     assert liveness.factory_server(repo=repo, factory="hp") is None
     write_config(repo=repo, text='{"other": {}}')
     assert liveness.factory_server(repo=repo, factory="hp") is None
-    write_config(repo=repo, text='{"livespec-overseer": {"other": {}}}')
-    assert liveness.factory_server(repo=repo, factory="hp") is None
-    write_config(repo=repo, text='{"livespec-overseer": {"dispatcher": {"factories": []}}}')
+    write_config(repo=repo, text='{"livespec-orchestrator-beads-fabro": {"other": {}}}')
     assert liveness.factory_server(repo=repo, factory="hp") is None
     write_config(
         repo=repo,
-        text='{"livespec-overseer": {"dispatcher": {"factories": {"vps": {}}}}}',
+        text='{"livespec-orchestrator-beads-fabro": {"dispatcher": {"factories": []}}}',
     )
     assert liveness.factory_server(repo=repo, factory="hp") is None
     write_config(
         repo=repo,
-        text='{"livespec-overseer": {"dispatcher": {"factories": {"hp": []}}}}',
+        text='{"livespec-orchestrator-beads-fabro": {"dispatcher": {"factories": {"vps": {}}}}}',
     )
     assert liveness.factory_server(repo=repo, factory="hp") is None
     write_config(
         repo=repo,
-        text='{"livespec-overseer": {"dispatcher": {"factories": {"hp": {"server": 7}}}}}',
+        text='{"livespec-orchestrator-beads-fabro": {"dispatcher": {"factories": {"hp": []}}}}',
+    )
+    assert liveness.factory_server(repo=repo, factory="hp") is None
+    write_config(
+        repo=repo,
+        text=(
+            '{"livespec-orchestrator-beads-fabro": {"dispatcher": {"factories": '
+            '{"hp": {"server": 7}}}}}'
+        ),
     )
     assert liveness.factory_server(repo=repo, factory="hp") is None
 
@@ -103,7 +109,7 @@ def test_remote_factory_liveness_fail_open_paths(*, tmp_path):
     write_config(
         repo=repo,
         text=(
-            '{"livespec-overseer": {"dispatcher": {"factories": '
+            '{"livespec-orchestrator-beads-fabro": {"dispatcher": {"factories": '
             '{"hp": {"server": "https://factory.example"}}}}}'
         ),
     )
