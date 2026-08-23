@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.42.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.5...v1.42.6) (2026-08-23)
+
+
+### Bug Fixes
+
+* let an escalated foreman's ready declaration certify ([5972289](https://github.com/thewoolleyman/livespec-overseer/commit/59722890cb1c9c0026f2aac0c3bd08056a140ac8))
+
 ## [1.42.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.4...v1.42.5) (2026-08-23)
 
 
