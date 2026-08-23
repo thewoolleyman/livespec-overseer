@@ -801,10 +801,18 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
-    "heading": "## Scenario: A foreman's own blocking question does not freeze supervision of other tracks",
+    "heading": "## Scenario: A foreman's own unresolved decision escalates without blocking",
     "test": "tests.integration.test_foreman_escalation_attention.test_scenario_foreman_escalation_is_report_only_attention",
-    "reason": "v017 non-blocking human-decision escalation for the daemon half of the foreman operator loop. Pins at integration tier that a foreman-owned escalation marker surfaces the affected track as report-only NEEDS YOU attention, badges the window, preserves a standing ready marker, and authorizes no paste, key, respawn, or new-session act.",
+    "reason": "v033 non-blocking human-decision escalation for the daemon half of the foreman operator loop, after the blocking-question permission was replaced by a prohibition. Pins at integration tier that a foreman-owned escalation marker surfaces the affected track as report-only NEEDS YOU attention, badges the window, preserves a standing ready marker, and authorizes no paste, key, respawn, or new-session act.",
     "work_item": "overseer-au3pt3.1"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A foreman tick that ends with its own blocking prompt outstanding is a reportable violation",
+    "test": "TODO",
+    "reason": "NOT YET WRITTEN -- owned by overseer-afaj. Ratified ahead of its test, deliberately. The covering test MUST resolve at INTEGRATION tier or above (never unit tier) and must prove that a foreman tick ending with its own blocking prompt outstanding is reported as a violation rather than treated as a permitted bounded wait. The only tests pinning the blocking-prompt condition today are unit tier, which direction 4 correctly refuses; the sibling entry above pins the non-blocking side and does NOT prove this one.",
+    "work_item": "overseer-afaj"
   },
   {
     "spec_root": "SPECIFICATION",
