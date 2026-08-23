@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.14](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.13...v1.51.14) (2026-08-23)
+
+
+### Bug Fixes
+
+* cover remote wait target liveness ([d8d8dcf](https://github.com/thewoolleyman/livespec-overseer/commit/d8d8dcf3511bc0ae90ce37f28e8f03b1e9353d58))
+
 ## [1.51.13](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.12...v1.51.13) (2026-08-23)
 
 
