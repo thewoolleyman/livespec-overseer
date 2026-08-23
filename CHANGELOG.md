@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.51.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.1...v1.51.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* omit panel decision kind on decided verdicts ([39afeec](https://github.com/thewoolleyman/livespec-overseer/commit/39afeec9207bd94b90a77954d0cfed4c711e60cc))
+* treat minority override as panel decision ([7d0cea3](https://github.com/thewoolleyman/livespec-overseer/commit/7d0cea31ef632c7957b6c076c500261729cd5d5f))
+
 ## [1.51.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.0...v1.51.1) (2026-08-23)
 
 
