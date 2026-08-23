@@ -93,13 +93,27 @@ def test_consensus_overdue_suppresses_when_matching_panel_record_exists(*, tmp_p
     capture = idle_capture(ctx=80, body="Should I answer option 1?")
     fingerprint = foreman_gather_evidence.pane_content_hash(text=capture)
     write_obligation(repo=repo, topic=topic, fingerprint=fingerprint)
+    unrelated = repo / "tmp" / "overseer" / "foreman" / "panels" / topic / "panel-aaa.json"
+    unrelated.parent.mkdir(parents=True)
+    unrelated.write_text(
+        json.dumps(
+            {
+                "kind": "foreman-consensus-panel",
+                "request": {"question_fingerprint": "other-question"},
+                "decision_kind": "substantive_non_decision",
+                "outcome": "majority",
+            }
+        ),
+        encoding="utf-8",
+    )
     panel = repo / "tmp" / "overseer" / "foreman" / "panels" / topic / "panel-abc.json"
-    panel.parent.mkdir(parents=True)
     panel.write_text(
         json.dumps(
             {
                 "kind": "foreman-consensus-panel",
                 "request": {"question_fingerprint": fingerprint},
+                "decision_kind": "substantive_non_decision",
+                "outcome": "majority",
             }
         ),
         encoding="utf-8",
@@ -112,6 +126,73 @@ def test_consensus_overdue_suppresses_when_matching_panel_record_exists(*, tmp_p
     assert row.status == "blocked:human"
     assert "unmet convene obligation" not in (row.note or "")
     assert "consensus overdue" not in err
+
+
+@pytest.mark.integration
+def test_consensus_overdue_reports_tooling_outage_panel_as_distinct_state(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    write_disposition(repo=repo, value="consensus")
+    capture = idle_capture(ctx=80, body="Should I answer option 1?")
+    fingerprint = foreman_gather_evidence.pane_content_hash(text=capture)
+    write_obligation(repo=repo, topic=topic, fingerprint=fingerprint)
+    panel = repo / "tmp" / "overseer" / "foreman" / "panels" / topic / "panel-abc.json"
+    panel.parent.mkdir(parents=True)
+    panel.write_text(
+        json.dumps(
+            {
+                "kind": "foreman-consensus-panel",
+                "request": {"question_fingerprint": fingerprint},
+                "decision_kind": "tooling_outage",
+                "outcome": "escalate",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    sup, _fake, row, err = evaluated_blocked_row(
+        tmp_path=tmp_path, repo=repo, topic=topic, capture=capture, now=1000.0 + 1801.0
+    )
+
+    assert row.status == "consensus-tooling-outage"
+    assert supervisor.needs_attention(row=row) is True
+    assert "convened but panel tooling failed" in (row.note or "")
+    assert "unmet convene obligation" not in (row.note or "")
+    assert "consensus overdue" not in err
+    assert (str(repo), topic, "consensus-overdue") not in sup.alerted
+    assert (str(repo), topic, "consensus-tooling-outage") in sup.alerted
+
+
+@pytest.mark.integration
+def test_consensus_overdue_does_not_raise_before_bound_for_tooling_outage_panel(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    write_disposition(repo=repo, value="consensus")
+    capture = idle_capture(ctx=80, body="Should I answer option 1?")
+    fingerprint = foreman_gather_evidence.pane_content_hash(text=capture)
+    write_obligation(repo=repo, topic=topic, fingerprint=fingerprint)
+    panel = repo / "tmp" / "overseer" / "foreman" / "panels" / topic / "panel-abc.json"
+    panel.parent.mkdir(parents=True)
+    panel.write_text(
+        json.dumps(
+            {
+                "kind": "foreman-consensus-panel",
+                "request": {"question_fingerprint": fingerprint},
+                "decision_kind": "tooling_outage",
+                "outcome": "escalate",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    sup, _fake, row, err = evaluated_blocked_row(
+        tmp_path=tmp_path, repo=repo, topic=topic, capture=capture, now=1000.0 + 1799.0
+    )
+
+    assert row.status == "blocked:human"
+    assert "unmet convene obligation" not in (row.note or "")
+    assert "convened but panel tooling failed" not in (row.note or "")
+    assert "consensus overdue" not in err
+    assert (str(repo), topic, "consensus-overdue") not in sup.alerted
+    assert (str(repo), topic, "consensus-tooling-outage") not in sup.alerted
 
 
 def test_consensus_overdue_alert_condition_clears_when_artifact_appears(*, tmp_path):
