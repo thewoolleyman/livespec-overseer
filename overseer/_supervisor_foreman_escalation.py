@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,6 +22,7 @@ __all__: list[str] = [
     "escalation_path",
     "read_escalation",
     "surface_foreman_escalation_alert",
+    "unbind_escalation",
 ]
 
 FOREMAN_ESCALATED_STATUS = "foreman-escalated"
@@ -87,6 +89,43 @@ def read_escalation(
     if not isinstance(reason, str) or not reason.strip():
         return ForemanEscalation(reason=None)
     return ForemanEscalation(reason=reason.strip(), session_identity=marker_identity)
+
+
+def unbind_escalation(*, repo: str, topic: str) -> bool:
+    """Drop a live escalation's SEAT BINDING so it outlives a daemon-performed restart.
+
+    A marker records the identity of the seat that raised it, and `_superseded`
+    treats a marker whose identity differs from the LIVE session identity as
+    belonging to a dead predecessor — correctly, because a successor's own
+    judgement should replace a stale one.
+
+    A restart the DAEMON performs is the case that rule does not fit. The seat
+    changes because the daemon replaced it, not because anyone reconsidered, so
+    the successor would inherit an escalation that reads as superseded: the
+    unanswered items would sit on disk with `resolved` false and surface
+    NOWHERE. That is worse than clearing the marker, which at least leaves an
+    absence someone might notice.
+
+    Unbinding is therefore performed at the moment of restart and nowhere else.
+    An unbound marker is never superseded, so the successor inherits the
+    escalation until a HUMAN answers it — which is the only thing that should
+    ever end one. This is what a seat previously had to do by hand, writing its
+    items into a durable handoff and trusting its successor to re-raise them.
+
+    Returns True when a binding was actually removed, so the caller can log a
+    real change rather than a no-op. A resolved, absent, unreadable or already
+    unbound marker is left exactly as it is.
+    """
+    path = escalation_path(repo=repo, topic=topic)
+    if not path.is_file():
+        return False
+    payload = _read_payload(path=path)
+    if payload is None or payload.get("resolved") is True:
+        return False
+    if payload.pop("session_identity", None) is None:
+        return False
+    registry.atomic_write(path=path, body=json.dumps(payload) + "\n")
+    return True
 
 
 def _note(*, escalation: ForemanEscalation) -> str:

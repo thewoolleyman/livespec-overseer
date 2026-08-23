@@ -101,16 +101,31 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
             act=request.act,
         )
     ) is not None:
+        # The escalation ALWAYS contributes its condition, whether or not it decides
+        # the status: that membership is what keeps an outstanding human decision on
+        # the attention surface, and it must not depend on the branch below.
         active_conditions.update(foreman_escalation.active_conditions)
-        return ActiveDecision(
-            status=foreman_escalation.status,
-            note=foreman_escalation.note,
-            ready=request.ready,
-            blocked=request.blocked,
-            blocked_age=request.blocked_age,
-            blocked_age_label=request.blocked_age_label,
-            active_conditions=active_conditions,
-        )
+        # ESCALATED AND READY ARE NOT MUTUALLY EXCLUSIVE. This branch used to RETURN
+        # unconditionally, carrying `ready` through untouched — so a foreman's valid
+        # declaration could never reach the only path that acts on one, and an
+        # escalated seat's sole route to a restart was to resolve its own unanswered
+        # maintainer items at exactly the moment blanking the record is cheapest.
+        #
+        # So it defers ONLY to a ready that has already CERTIFIED. `request.ready` is
+        # the same value the restart path itself keys on, so no new certification is
+        # introduced here and the cardinal rule is preserved BY CONSTRUCTION rather
+        # than by assertion: a track that has not declared still resolves to
+        # `foreman-escalated` below and is never restartable.
+        if not request.ready:
+            return ActiveDecision(
+                status=foreman_escalation.status,
+                note=foreman_escalation.note,
+                ready=request.ready,
+                blocked=request.blocked,
+                blocked_age=request.blocked_age,
+                blocked_age_label=request.blocked_age_label,
+                active_conditions=active_conditions,
+            )
     if (
         foreman_claim := foreman_pane_claim.active_pane_claim(
             repo=request.track.repo,

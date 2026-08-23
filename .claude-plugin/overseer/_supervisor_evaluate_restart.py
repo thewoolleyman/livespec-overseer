@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_foreman_escalation
 import _supervisor_liveness
 import _supervisor_restart
 import registry
@@ -91,6 +92,17 @@ def ready_restart_decision(*, request: ReadyRestartRequest) -> ReadyRestartDecis
     if track is None:
         return _missing_plan_epic_decision(request=request, note=request.note)
     if request.act:
+        # A restart replaces the seat, and a live escalation is bound to the seat that
+        # raised it. Unbind it FIRST, so the successor inherits an outstanding human
+        # decision instead of silently reading its predecessor's marker as superseded.
+        # Ordering matters: doing this before the respawn means a restart that dies
+        # part-way leaves the escalation surfacing rather than orphaned.
+        if _supervisor_foreman_escalation.unbind_escalation(repo=track.repo, topic=track.topic):
+            request.sup.log(
+                message=(
+                    "unbound foreman escalation across restart for " f"{track.repo}::{track.topic}"
+                )
+            )
         _supervisor_restart.do_restart(
             sup=request.sup,
             track=track,
