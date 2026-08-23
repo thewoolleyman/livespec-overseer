@@ -70,6 +70,27 @@ def test_above_threshold_shell_episode_resets_on_progress_or_idle(*, tmp_path):
     assert sup.inject[key_for(repo=repo, topic=topic)].shell_episode.since is None
 
 
+def test_above_threshold_shell_episode_survives_daemon_restart(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
+    clock = {"t": 1000.0}
+    first = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    first.claude_status_by_session = {session: "shell"}
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    assert first.evaluate(track=track, act=True).status == "working"
+
+    clock["t"] += _supervisor_config.SHELL_PROLONGED_AFTER + 1.0
+    recovered = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
+    recovered.claude_status_by_session = {session: "shell"}
+    view = recovered.evaluate(track=track, act=True)
+
+    assert view.status == "shell-prolonged"
+    assert view.note == "background shell 8h"
+
+
 def test_claude_registry_miss_with_subshell_does_not_accrue_shell_episode(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
