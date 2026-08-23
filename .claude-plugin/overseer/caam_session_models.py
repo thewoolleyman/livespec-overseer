@@ -13,7 +13,8 @@ __all__: list[str] = [
     "apply_session_model_exceptions",
 ]
 
-STATE_KEY: Final = "session-models"
+STATE_KEY: Final = "session_models"
+_LEGACY_STATE_KEY: Final = "session-models"
 _CLEAR_VALUES: Final = frozenset(("auto", "", "none"))
 
 
@@ -44,8 +45,9 @@ def apply_session_model_exceptions(
             requested_model=requested_model,
             messages=messages,
         )
-    if exceptions or requested_models or STATE_KEY in state:
+    if exceptions or requested_models or STATE_KEY in state or _LEGACY_STATE_KEY in state:
         state[STATE_KEY] = exceptions
+        _ = state.pop(_LEGACY_STATE_KEY, None)
     for session, model in exceptions.items():
         if model == "fable" and not fable_left:
             messages.append(
@@ -56,7 +58,9 @@ def apply_session_model_exceptions(
 
 
 def _stored_exceptions(*, state: dict[str, object]) -> dict[str, str]:
-    stored = jsonio.as_object(value=state.get(STATE_KEY)) or {}
+    stored = jsonio.as_object(value=state.get(STATE_KEY))
+    if stored is None:
+        stored = jsonio.as_object(value=state.get(_LEGACY_STATE_KEY)) or {}
     return {
         session: model
         for session, model in stored.items()

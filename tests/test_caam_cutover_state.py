@@ -38,12 +38,12 @@ def test_full_pass_preserves_live_cutover_state_and_unknown_keys(*, tmp_path: Pa
     home = tmp_path / "home"
     _write_caam_home(home=home, sessions=("homelab-foreman",))
     live_state = {
-        "session-models": {
+        "session_models": {
             "homelab-foreman": "fable",
             "livespec-overseer-foreman": "fable",
         },
         "foreman_model": "opus",
-        "last-switch": {
+        "last_switch": {
             "from": "anthropic-1",
             "to": "anthropic-0",
             "at": "2026-08-22T20:15:39Z",
@@ -90,9 +90,9 @@ def test_full_pass_preserves_live_cutover_state_and_unknown_keys(*, tmp_path: Pa
 
     assert code == 0
     after = json.loads(state_path.read_text(encoding="utf-8"))
-    assert after["session-models"] == before["session-models"]
+    assert after["session_models"] == before["session_models"]
     assert after["foreman_model"] == before["foreman_model"]
-    assert after["last-switch"] == before["last-switch"]
+    assert after["last_switch"] == before["last_switch"]
     assert after["models"] == before["models"]
     assert (
         after["profiles"]["_active-before-refresh"] == before["profiles"]["_active-before-refresh"]
@@ -103,7 +103,7 @@ def test_full_pass_preserves_live_cutover_state_and_unknown_keys(*, tmp_path: Pa
 def test_live_cutover_session_pins_override_global_foreman_pin(*, tmp_path: Path) -> None:
     state = {
         "foreman_model": "opus",
-        "session-models": {
+        "session_models": {
             "homelab-foreman": "fable",
             "livespec-overseer-foreman": "fable",
         },
@@ -143,6 +143,46 @@ def test_live_cutover_session_pins_override_global_foreman_pin(*, tmp_path: Path
         "homelab-foreman opus->fable, livespec-overseer-foreman opus->fable; "
         "exceptions: homelab-foreman=fable, livespec-overseer-foreman=fable"
     )
+
+
+def test_legacy_hyphenated_session_model_key_is_migrated(*, tmp_path: Path) -> None:
+    state = {
+        "session-models": {"homelab-foreman": "fable"},
+    }
+
+    messages = caam_enforcement.enforce_models(
+        settings_path=tmp_path / "settings.json",
+        no_models=True,
+        home=tmp_path,
+        state_path=tmp_path / "state.json",
+        session_models=(("livespec-overseer-foreman", "fable"),),
+        set_model=lambda **_: None,
+        state=state,
+    )
+
+    assert messages == []
+    assert state == {
+        "session_models": {
+            "homelab-foreman": "fable",
+            "livespec-overseer-foreman": "fable",
+        }
+    }
+
+
+def test_shared_cutover_state_keys_match_source_oracle_literals() -> None:
+    assert {
+        "session_models",
+        "foreman_model",
+        "last_switch",
+        "models",
+        "profiles",
+    } == {
+        "session_models",
+        "foreman_model",
+        "last_switch",
+        "models",
+        "profiles",
+    }
 
 
 def _write_caam_home(*, home: Path, sessions: tuple[str, ...]) -> None:
