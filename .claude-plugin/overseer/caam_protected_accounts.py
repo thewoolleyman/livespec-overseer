@@ -14,7 +14,7 @@ __all__: list[str] = [
     "protected_account_default",
 ]
 
-STATE_KEY: Final = "protected-accounts"
+STATE_KEY: Final = "protected_accounts"
 _CLEAR_VALUES: Final = frozenset(("auto", "none", "off"))
 _DEFAULT_ENV: Final = "CAAM_ROTATE_PROTECTED_ACCOUNT_DEFAULT"
 _DEFAULT_FLOOR: Final = "10"

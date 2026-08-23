@@ -1,4 +1,26 @@
-"""Profile enumeration, usage cache, and state persistence for caam rotation."""
+"""Profile enumeration, usage cache, and state persistence for caam rotation.
+
+STATE FILE KEY VOCABULARY. Every top-level key the program writes to
+``STATE_REL`` is listed here so the next key added does not have to be
+inferred from the ones already there:
+
+    foreman_model        caam_foreman_override  -- the persisted foreman pin
+    last_switch          caam_switch            -- from/to/at of the last switch
+    models               caam_sessions          -- the per-session set memo
+    profiles             caam_profile_state     -- the usage snapshot cache
+    protected_accounts   caam_protected_accounts-- per-account protection floors
+    session_models       caam_session_models    -- per-session model exceptions
+    warm                 caam_warm              -- the keep-warm memo
+
+THE CONVENTION IS UNDERSCORES, and it is load-bearing rather than
+cosmetic. ``session_models`` shipped hyphenated once (overseer-54k2za.36)
+and both maintainer model pins silently stopped applying while still
+APPEARING present in the file, because an unrecognised key is loaded and
+saved back untouched -- the program preserves it and simply never reads
+it. A misspelled key therefore fails silently in the one direction
+nobody checks. ``caam_session_models._LEGACY_STATE_KEY`` is the migration
+that repair needed; a new key spelled correctly needs no such thing.
+"""
 
 from __future__ import annotations
 

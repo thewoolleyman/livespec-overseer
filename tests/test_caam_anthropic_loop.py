@@ -604,7 +604,7 @@ def test_protected_accounts_persist_as_top_level_state_and_survive_empty_pass(
     state_path.parent.mkdir(parents=True)
     state_path.write_text(
         (
-            '{"foreman_model":"opus","protected-accounts":{"main":12.5,'
+            '{"foreman_model":"opus","protected_accounts":{"main":12.5,'
             '"backup":17.5},"session-models":{"worker":"fable"}}'
         ),
         encoding="utf-8",
@@ -622,8 +622,8 @@ def test_protected_accounts_persist_as_top_level_state_and_survive_empty_pass(
 
     assert first == 0
     assert second == 0
-    assert saved[0]["protected-accounts"] == {"main": 12.5, "backup": 17.5}
-    assert saved[-1]["protected-accounts"] == {"main": 12.5, "backup": 17.5}
+    assert saved[0]["protected_accounts"] == {"main": 12.5, "backup": 17.5}
+    assert saved[-1]["protected_accounts"] == {"main": 12.5, "backup": 17.5}
     assert saved[-1]["session-models"] == {"worker": "fable"}
     assert saved[-1]["foreman_model"] == "opus"
 
@@ -636,7 +636,7 @@ def test_protected_account_bad_values_report_and_leave_existing_state_unchanged(
         (tmp_path / ".local/share/caam/vault/claude" / name).mkdir(parents=True)
     state_path = tmp_path / ".local/state/caam-usage-rotate/state.json"
     state_path.parent.mkdir(parents=True)
-    state_path.write_text('{"protected-accounts":{"main":12.5}}', encoding="utf-8")
+    state_path.write_text('{"protected_accounts":{"main":12.5}}', encoding="utf-8")
 
     result = module.run_pass(
         flags=module.parse_flags(
@@ -656,7 +656,7 @@ def test_protected_account_bad_values_report_and_leave_existing_state_unchanged(
     )
 
     assert result == 0
-    assert saved[-1]["protected-accounts"] == {"main": 12.5}
+    assert saved[-1]["protected_accounts"] == {"main": 12.5}
     assert "protected-accounts: ignoring --protected-account=main=not-a-number" in out
     assert "protected-accounts: ignoring --protected-account=main=101" in out
     assert "protected-accounts: ignoring --protected-account==10" in out
@@ -725,3 +725,37 @@ def test_protected_account_reaches_decision_core_and_defers_to_unprotected_candi
 
     assert result == 0
     assert any(line.startswith("DRY-RUN would switch active -> unprotected") for line in out)
+
+
+def test_every_state_key_the_program_writes_uses_the_underscore_convention(*, tmp_path: Path):
+    """Leg 1 + leg 3 of overseer-54k2za.37.
+
+    The key spellings below are LITERALS on purpose. overseer-54k2za.36 shipped a
+    hyphenated key whose tests could not see the defect, because both sides of every
+    comparison were the same module constant -- a constant compares equal to itself
+    whatever it says. Reading the expected spelling from the module under test is the
+    one thing this test must not do.
+    """
+    module = caam_loop_module()
+    saved: list[dict[str, object]] = []
+    out: list[str] = []
+    for name in ("active", "main"):
+        (tmp_path / ".local/share/caam/vault/claude" / name).mkdir(parents=True)
+
+    result = module.run_pass(
+        flags=module.parse_flags(argv=["--protected-account=main=12.5"]),
+        home=tmp_path,
+        now=1787395200.0,
+        stdout=out.append,
+        caam_runner=lambda *, args: FakeProcess(),
+        fetcher=lambda *, creds_path, now=None: (usage(five_hour=10.0, seven_day=20.0), None),
+        save_state=lambda *, state, state_path: saved.append(dict(state)),
+        enforce_models=lambda **kwargs: [],
+    )
+
+    assert result == 0
+    assert "protected_accounts" in saved[-1]
+    assert saved[-1]["protected_accounts"] == {"main": 12.5}
+    # The convention itself, so the next key added to this file inherits it.
+    hyphenated = sorted(key for key in saved[-1] if "-" in key)
+    assert hyphenated == [], f"state keys must use underscores, found: {hyphenated}"
