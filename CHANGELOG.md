@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.9...v1.51.10) (2026-08-23)
+
+
+### Bug Fixes
+
+* cover remote wait target forge leg ([6c1517a](https://github.com/thewoolleyman/livespec-overseer/commit/6c1517af407c79591b5f0c93144b3bcdcaed72f4))
+
 ## [1.51.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.8...v1.51.9) (2026-08-23)
 
 
