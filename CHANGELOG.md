@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.48.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.2...v1.48.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* preserve caam unreadable usage table ([af10f55](https://github.com/thewoolleyman/livespec-overseer/commit/af10f55022af73f85342ef4078bdbe8d2387fa8c))
+
 ## [1.48.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.48.1...v1.48.2) (2026-08-23)
 
 
