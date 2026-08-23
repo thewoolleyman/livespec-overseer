@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import _supervisor_evaluate
+import _supervisor_foreman_dead
 import _supervisor_mapping_health
 import foreman_runtime_identity
 import foreman_stop_state
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "FOREMAN_BLOCKING_PROMPT_STATUS",
+    "FOREMAN_HEARTBEAT_DEAD_STATUS",
     "FOREMAN_HEARTBEAT_STALE_STATUS",
     "FOREMAN_TOPIC",
     "Heartbeat",
@@ -46,13 +48,17 @@ __all__: list[str] = [
 
 FOREMAN_TOPIC = "foreman"
 FOREMAN_BLOCKING_PROMPT_STATUS = "foreman-blocking-prompt"
-FOREMAN_HEARTBEAT_STALE_STATUS = "foreman-heartbeat-stale"
-FOREMAN_HEARTBEAT_HELD_STATUS = "foreman-heartbeat-held"
-FOREMAN_HEARTBEAT_COMPLETED_STATUS = "foreman-heartbeat-completed"
+FOREMAN_HEARTBEAT_DEAD_STATUS = _supervisor_foreman_dead.FOREMAN_HEARTBEAT_DEAD_STATUS
+FOREMAN_HEARTBEAT_STALE_STATUS = _supervisor_foreman_dead.FOREMAN_HEARTBEAT_STALE_STATUS
+FOREMAN_HEARTBEAT_HELD_STATUS = _supervisor_foreman_dead.FOREMAN_HEARTBEAT_HELD_STATUS
+FOREMAN_HEARTBEAT_COMPLETED_STATUS = _supervisor_foreman_dead.FOREMAN_HEARTBEAT_COMPLETED_STATUS
 _HEARTBEAT_FILE = "heartbeat.json"
 _STALE_FLOOR_SECONDS = 30.0 * 60.0
 _STALE_MULTIPLIER = 2.0
-_ALERT_CONDITION = "foreman-heartbeat-stale"
+_HEARTBEAT_ALERT_CONDITIONS = (
+    FOREMAN_HEARTBEAT_STALE_STATUS,
+    FOREMAN_HEARTBEAT_DEAD_STATUS,
+)
 _BLOCKING_PROMPT_CONDITION = "foreman-blocking-prompt"
 
 
@@ -127,12 +133,6 @@ def _stale_after(*, heartbeat: Heartbeat) -> float:
     return max(_STALE_FLOOR_SECONDS, _STALE_MULTIPLIER * heartbeat.tick_interval_seconds)
 
 
-def _interval_label(*, interval: float) -> str:
-    if interval.is_integer():
-        return str(int(interval))
-    return f"{interval:.3f}".rstrip("0").rstrip(".")
-
-
 @dataclass(frozen=True, kw_only=True)
 class HeartbeatLapse:
     age_seconds: float
@@ -168,31 +168,19 @@ def foreman_row(*, repo: str, now: Callable[[], float]) -> RowView | None:
     if heartbeat is None:
         return None
     age = _age_seconds(heartbeat=heartbeat, now=now)
-    if age <= _stale_after(heartbeat=heartbeat):
+    stale_after = _stale_after(heartbeat=heartbeat)
+    if age <= stale_after:
         return None
-    interval = _interval_label(interval=heartbeat.tick_interval_seconds)
     stop_state = foreman_stop_state.read_foreman_stop_state(repo=repo)
     state = stop_state.state if stop_state is not None else foreman_stop_state.FOREMAN_STOP_DIED
     reason = stop_state.reason if stop_state is not None else "tick-deadline-lapsed"
-    status = FOREMAN_HEARTBEAT_STALE_STATUS
-    human_wait = False
-    if state == foreman_stop_state.FOREMAN_STOP_HELD:
-        status = FOREMAN_HEARTBEAT_HELD_STATUS
-        human_wait = True
-    elif state == foreman_stop_state.FOREMAN_STOP_COMPLETED:
-        status = FOREMAN_HEARTBEAT_COMPLETED_STATUS
-    return RowView(
-        topic=FOREMAN_TOPIC,
+    return _supervisor_foreman_dead.heartbeat_row(
         repo=repo,
-        tmux=f"{registry.repo_slug(repo=repo)}-{FOREMAN_TOPIC}",
-        ctx=None,
-        status=status,
-        note=(
-            f"foreman heartbeat stale {int(age // 60)}m; state {state}; reason {reason}; "
-            f"pid {heartbeat.pid}; "
-            f"tick {heartbeat.tick_generation}; interval {interval}s"
-        ),
-        human_wait=human_wait,
+        age_seconds=age,
+        state=state,
+        reason=reason,
+        heartbeat=heartbeat,
+        stale_after_seconds=stale_after,
     )
 
 
@@ -246,7 +234,8 @@ def _blocking_prompt_row(*, row: RowView) -> RowView | None:
 
 
 def _clear_alert(*, sup: Supervisor, repo: str) -> None:
-    _ = sup.alerted.pop((*track_key(repo=repo, topic=FOREMAN_TOPIC), _ALERT_CONDITION), None)
+    for condition in _HEARTBEAT_ALERT_CONDITIONS:
+        _ = sup.alerted.pop((*track_key(repo=repo, topic=FOREMAN_TOPIC), condition), None)
 
 
 def _clear_blocking_prompt_alert(*, sup: Supervisor, repo: str) -> None:
@@ -263,7 +252,7 @@ def _surface_alert(*, sup: Supervisor, row: RowView) -> None:
         session=row.tmux,
         pane=None,
         message=f"{note} — inspect that operator surface",
-        condition=_ALERT_CONDITION,
+        condition=row.status,
     )
 
 
