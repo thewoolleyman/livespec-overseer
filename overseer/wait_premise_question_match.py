@@ -117,7 +117,7 @@ def typed_premise(*, option: str) -> tuple[str, str] | None:
     match = _TYPED_WAIT_PREMISE.search(option)
     if match is None:
         return None
-    return match.group("kind").lower(), match.group("target")
+    return match.group("kind").lower(), match.group("target").rstrip("),.")
 
 
 def matching_record(
