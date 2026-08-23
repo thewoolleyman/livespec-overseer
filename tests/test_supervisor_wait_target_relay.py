@@ -7,9 +7,8 @@ from collections.abc import Callable
 from pathlib import Path
 from subprocess import CompletedProcess
 
-import _supervisor_wait_target as wait_target
-import _supervisor_wait_target_sources as sources
 import _supervisor_wait_target_lifecycle as lifecycle
+import _supervisor_wait_target_sources as sources
 import registry
 from _supervisor_records import InjectState, Observation
 from test_supervisor_builders import (
