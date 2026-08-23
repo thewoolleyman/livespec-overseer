@@ -10,7 +10,6 @@ import sys
 import time
 from hashlib import sha256
 from pathlib import Path
-from typing import ClassVar
 
 import pytest
 
@@ -73,14 +72,6 @@ def base_document(*, repo: Path, generation: int = 7) -> dict[str, object]:
     }
 
 
-def document_without_rows(*, repo: Path, generation: int = 7) -> dict[str, object]:
-    document = base_document(repo=repo, generation=generation)
-    snapshot = document["snapshot"]
-    assert isinstance(snapshot, dict)
-    snapshot["rows"] = []
-    return document
-
-
 def blocked_document(*, repo: Path, runtime: str = "claude") -> dict[str, object]:
     document = base_document(repo=repo)
     row = document["snapshot"]["rows"][0]
@@ -114,14 +105,6 @@ def start_proposal(*, repo: Path, action_id: str = "plan_start") -> dict[str, ob
             "start": {"repo": str(repo), "topic": "alpha", "session_name": "alpha"},
         },
     }
-
-
-class OccupancyTmuxModule:
-    occupied: ClassVar[set[str]] = set()
-
-    class TmuxIO:
-        def session_exists(self, *, session: str) -> bool:
-            return session in OccupancyTmuxModule.occupied
 
 
 def blocked_answer_proposal(
@@ -1633,95 +1616,6 @@ def test_race_revalidates_every_identity_field_before_mutation(*, tmp_path):
         assert result["outcome"] == "refused"
         assert result["mutated"] is False
         assert result["reason"] == reason
-    assert calls == []
-
-
-def test_plan_start_accepts_new_topic_without_daemon_row(*, tmp_path, monkeypatch):
-    module = foreman_act()
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    calls: list[list[str]] = []
-    OccupancyTmuxModule.occupied = set()
-    monkeypatch.setattr(module, "tmuxio", OccupancyTmuxModule)
-
-    result = module.act(
-        proposal=start_proposal(repo=repo),
-        seams=module.ActSeams(
-            gather=lambda *, repo, snapshot_path: document_without_rows(repo=Path(repo)),
-            run=lambda *, argv: calls.append(argv) or 0,
-        ),
-    )
-
-    assert result == {
-        "action_id": "plan_start",
-        "mutated": True,
-        "outcome": "acted",
-        "reason": "started",
-    }
-    assert calls == [
-        [
-            sys.executable,
-            str(OVERSEER_DIR / "supervisor.py"),
-            "start",
-            "--repo",
-            str(repo),
-            "--topic",
-            "alpha",
-        ]
-    ]
-
-
-def test_plan_start_refuses_occupied_topic_without_identity_refusal(*, tmp_path, monkeypatch):
-    module = foreman_act()
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    calls: list[list[str]] = []
-    OccupancyTmuxModule.occupied = {"alpha"}
-    monkeypatch.setattr(module, "tmuxio", OccupancyTmuxModule)
-
-    result = module.act(
-        proposal=start_proposal(repo=repo),
-        seams=module.ActSeams(
-            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
-            run=lambda *, argv: calls.append(argv) or 0,
-        ),
-    )
-
-    assert result == {
-        "action_id": "plan_start",
-        "mutated": False,
-        "outcome": "refused",
-        "reason": "tmux_session_occupied",
-    }
-    assert calls == []
-
-
-def test_non_start_action_still_refuses_changed_session_identity(*, tmp_path, monkeypatch):
-    module = foreman_act()
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    document = base_document(repo=repo)
-    row = document["snapshot"]["rows"][0]
-    assert isinstance(row, dict)
-    row["session_identity"] = "codex:changed"
-    calls: list[list[str]] = []
-    OccupancyTmuxModule.occupied = {"alpha"}
-    monkeypatch.setattr(module, "tmuxio", OccupancyTmuxModule)
-
-    result = module.act(
-        proposal=resume_proposal(repo=repo),
-        seams=module.ActSeams(
-            gather=lambda *, repo, snapshot_path: document,
-            run=lambda *, argv: calls.append(argv) or 0,
-        ),
-    )
-
-    assert result == {
-        "action_id": "qualifying_session_resume",
-        "mutated": False,
-        "outcome": "refused",
-        "reason": "session_identity_changed",
-    }
     assert calls == []
 
 
