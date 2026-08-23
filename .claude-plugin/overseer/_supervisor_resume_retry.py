@@ -172,7 +172,7 @@ def resume_retry(
                 runtime=obs.runtime,
             )
         resolved, enters_sent = _supervisor_launch.resend_enter_budgeted(
-            sup=sup, target=target, max_enters=min(1, remaining)
+            sup=sup, target=target, max_enters=1
         )
         add_resume_retry_attempts(
             repo=repo,
