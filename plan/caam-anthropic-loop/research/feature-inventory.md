@@ -21,15 +21,17 @@ taken and false within hours, which is the whole reason this pin exists.
   **The rebuild does not have it at all.** It is the complement of the X group,
   which refreshes IDLE profiles and skips the active one, so neither substitutes
   for the other. Carried as `overseer-54k2za.24`.
-- **CHANGED — `64bc24a` DISABLES keep-warm by default**, inverting the flag from
+- **REPRODUCED — `64bc24a` DISABLES keep-warm by default**, inverting the flag from
   opt-out to opt-in: `NO_WARM = "--no-warm" in sys.argv` became
   `NO_WARM = not ("--warm" in sys.argv or os.environ.get("CAAM_ROTATE_WARM") == "1")`.
-  The rebuild still carries the OLD shape and has neither `--warm` nor the env
-  read. **The source's stated reason — keep-warm being "the prime suspect" for the
+  The rebuild now carries the source spelling and default: no warm attempt unless
+  `--warm` is present or `CAAM_ROTATE_WARM=1`; the legacy `--no-warm` flag remains
+  an explicit disable. **The source's stated reason — keep-warm being "the prime suspect" for the
   orphans — was retracted the same day on measurement** (orphaning predates
   keep-warm by 35 hours; a never-activated profile refreshed cleanly for ~50 hours
-  with keep-warm running). So this divergence is an open maintainer question
-  recorded on `overseer-54k2za.12`, NOT a gap to close reflexively.
+  with keep-warm running). Revive-on-demand later closed the dark-profile recovery
+  hole, so `overseer-54k2za.32` reproduced the source default after
+  `overseer-54k2za.28` landed.
 
 **RE-MEASURE ATTEMPT, 2026-08-21, overseer-54k2za.13.** The factory sandbox
 could not read the source repo: no `vps-info` checkout existed under the mounted
@@ -864,8 +866,9 @@ from emptying.
   keep-warm altered the LIVE credential -- this must never happen; investigate
   before trusting the next rotation`. Silently swapping the host's account would
   be worse than the bug being fixed.
-- **X9** The whole pass is skipped under `--no-warm`, under `--dry-run`, or when
-  the vault directory is absent.
+- **X9** The whole pass is disabled by default. It runs only when `--warm` is
+  present or `CAAM_ROTATE_WARM=1`, and is skipped under `--no-warm`, under
+  `--dry-run`, or when the vault directory is absent.
 - **X10** It skips underscore-prefixed entries (**D2**) and the **active** profile.
 - **X11** A profile still comfortably valid — expiry further out than
   `WARM_MARGIN_S` — is skipped.
@@ -874,7 +877,8 @@ from emptying.
 - **X13** It is invoked at **three** sites — both hold paths and after a successful
   switch, the last using the **new** active profile.
 - **X14** Tunables: `CAAM_ROTATE_WARM_MARGIN_S` (default **7200**),
-  `CAAM_ROTATE_WARM_RETRY_S` (default **3600**), and the `--no-warm` flag.
+  `CAAM_ROTATE_WARM_RETRY_S` (default **3600**), the `--warm` opt-in flag,
+  `CAAM_ROTATE_WARM=1`, and the legacy `--no-warm` explicit-disable flag.
 - **X15** First live run revived one profile by +8.0h and reported another as
   orphaned — that one needs a browser re-login. Three of four profiles live again,
   rotation unblocked. **An orphan-detection report is a feature, not a failure.**
@@ -959,7 +963,7 @@ and this note landing, the source moved **twice** in about ninety minutes:
 | `0070050` | keep idle profiles warm so rotation cannot deadlock | **new carrier group X**, and it falsified **G9** — a recorded *deliberate accepted consequence* that was actually a deadlock |
 | `ee88266` | stop showing cached quota figures from before a reset | **new carrier group Z**; the table was misdirecting the human while the machine was correctly protected |
 | `980a029` | re-snapshot the active profile every tick | **NEW carrier group, absent from the rebuild entirely** — carried as `overseer-54k2za.24` |
-| `64bc24a` | disable keep-warm; "it is the likely cause of the orphans" | **inverts the X-group default to opt-in**, on a premise retracted the same day — open question on `overseer-54k2za.12` |
+| `64bc24a` | disable keep-warm; "it is the likely cause of the orphans" | **inverts the X-group default to opt-in** — reproduced by `overseer-54k2za.32` after revive-on-demand made the ordering safe |
 | `3c0ad85` | report why keep-warm failed, and stop crying orphan | **revised X4 into X4a–X4e, and superseded D6** — the orphan diagnostic was wrong in *both* directions. **It made that diagnostic legible, not correct**: the same commit introduced the unsatisfiable margin pair recorded at **X4a-i**, so the success branch it added has never fired |
 
 The first was verified harmless by extracting the fenced program from both sides

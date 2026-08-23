@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -53,8 +55,14 @@ class Flags:
     session_models: tuple[tuple[str, str], ...]
 
 
-def parse_flags(*, argv: list[str]) -> Flags:
-    values = {name: False for name in ("scheduled", "force", "dry_run", "no_models", "no_warm")}
+_WARM_FLAG = "--warm"
+_WARM_ENV = "CAAM_ROTATE_WARM"
+
+
+def parse_flags(*, argv: list[str], environ: Mapping[str, str] | None = None) -> Flags:
+    run_environ = os.environ if environ is None else environ
+    values = {name: False for name in ("scheduled", "force", "dry_run", "no_models")}
+    values["no_warm"] = not (_WARM_FLAG in argv or run_environ.get(_WARM_ENV) == "1")
     foreman_model: str | None = None
     session_models: list[tuple[str, str]] = []
     index = 0

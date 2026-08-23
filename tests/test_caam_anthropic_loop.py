@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from types import ModuleType
 
@@ -119,6 +120,102 @@ def test_flags_use_prefix_matching_lowercasing_and_absent_none(*, argv, expected
         assert parsed.foreman_model is None
     if "session_models" not in expected:
         assert parsed.session_models == ()
+
+
+def test_keep_warm_defaults_off_and_uses_exact_opt_in_names(*, monkeypatch):
+    module = caam_loop_module()
+
+    monkeypatch.delenv("CAAM_ROTATE_WARM", raising=False)
+    monkeypatch.setenv("CAAM_ROTATE_WARM_MARGIN_S", "1")
+
+    assert module.parse_flags(argv=[]).no_warm is True
+    assert module.parse_flags(argv=["--warm"]).no_warm is False
+    assert module.parse_flags(argv=["--no-warm", "--warm"]).no_warm is True
+    assert module.parse_flags(argv=["--warm-margin=1"]).no_warm is True
+    assert module.parse_flags(argv=[], environ={"CAAM_ROTATE_WARM": "1"}).no_warm is False
+    assert module.parse_flags(argv=[], environ={"CAAM_ROTATE_WARM": "true"}).no_warm is True
+    assert module.parse_flags(argv=[], environ={"CAAM_ROTATE_WARM_MARGIN_S": "1"}).no_warm is True
+
+
+def test_default_run_makes_no_keep_warm_attempt(*, tmp_path: Path, monkeypatch):
+    module = caam_loop_module()
+    out: list[str] = []
+    write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=30_000.0)
+    write_snapshot(home=tmp_path, name="idle", credential="idle", expires_at_s=1_000.0)
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json",
+        bearer="active",
+        expires_at_s=30_000.0,
+    )
+    agent = RefreshingAgent(refreshed_credential="new-idle", after_expires_at_s=30_000.0)
+    monkeypatch.delenv("CAAM_ROTATE_WARM", raising=False)
+
+    def fetcher(*, creds_path: Path, now: float | None = None):
+        del now, creds_path
+        return usage(five_hour=20.0, seven_day=20.0), None
+
+    result = module.run_pass(
+        flags=module.parse_flags(argv=[]),
+        home=tmp_path,
+        now=2_000.0,
+        stdout=out.append,
+        caam_runner=lambda *, args: FakeProcess(),
+        fetcher=fetcher,
+        save_state=lambda *, state, state_path: None,
+        agent_runner=agent,
+        enforce_models=lambda **kwargs: [],
+    )
+
+    assert result == 0
+    assert agent.calls == []
+    assert not (tmp_path / ".local" / "state" / "caam-usage-rotate" / "warm").exists()
+
+
+@pytest.mark.parametrize(
+    ("argv", "environ"),
+    [
+        (["--warm"], {}),
+        ([], {"CAAM_ROTATE_WARM": "1"}),
+    ],
+)
+def test_keep_warm_opt_in_forms_attempt_due_idle_profile(
+    *, tmp_path: Path, argv: list[str], environ: Mapping[str, str]
+):
+    module = caam_loop_module()
+    out: list[str] = []
+    write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=30_000.0)
+    write_snapshot(home=tmp_path, name="idle", credential="idle", expires_at_s=1_000.0)
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json",
+        bearer="active",
+        expires_at_s=30_000.0,
+    )
+    agent = RefreshingAgent(refreshed_credential="new-idle", after_expires_at_s=30_000.0)
+
+    def fetcher(*, creds_path: Path, now: float | None = None):
+        del now, creds_path
+        return usage(five_hour=20.0, seven_day=20.0), None
+
+    result = module.run_pass(
+        flags=module.parse_flags(argv=argv, environ=environ),
+        home=tmp_path,
+        now=10_000.0,
+        stdout=out.append,
+        caam_runner=lambda *, args: FakeProcess(),
+        fetcher=fetcher,
+        save_state=lambda *, state, state_path: None,
+        agent_runner=agent,
+        enforce_models=lambda **kwargs: [],
+    )
+
+    assert result == 0
+    assert agent.calls == [
+        (
+            ("claude", "-p", "ok"),
+            tmp_path / ".local" / "state" / "caam-usage-rotate" / "warm" / "idle",
+            180.0,
+        )
+    ]
 
 
 def test_unexpected_exception_reports_fail_type_without_traceback():
