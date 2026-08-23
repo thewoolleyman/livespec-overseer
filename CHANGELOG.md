@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.20](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.19...v1.51.20) (2026-08-23)
+
+
+### Bug Fixes
+
+* enforce plan anchor check reachability ([7501085](https://github.com/thewoolleyman/livespec-overseer/commit/75010855a7b9fa0681da73d49ad8ad090e532c8f))
+
 ## [1.51.19](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.18...v1.51.19) (2026-08-23)
 
 
