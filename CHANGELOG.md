@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.42.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.0...v1.42.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* distinguish foreman heartbeat states ([8a6080c](https://github.com/thewoolleyman/livespec-overseer/commit/8a6080c8dffd886fb1dfa5634264c1cde7ca7ff5))
+
 ## [1.42.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.41.18...v1.42.0) (2026-08-22)
 
 
