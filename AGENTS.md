@@ -2323,6 +2323,51 @@ allows rebase-merge only, so that probe tree is precisely what CI evaluates. Use
 four times in one session here; each use replaced a guess that would otherwise have
 been committed.
 
+**AND RUN THE GATE, NOT ONLY THE REBASE: A TEXTUALLY CLEAN REBASE IS NOT EVIDENCE
+THAT BEHAVIOUR SURVIVED.** The probe above is worth its minute only if you execute
+the last third of it. A rebase that reports no conflict has established that git
+could merge the text, and nothing whatsoever about whether the result still does
+what the branch intended. Neither git nor the diff shows the difference, because
+there is no conflict and no marker to show.
+
+Measured twice on 2026-08-22, on two branches of one plan, from OPPOSITE
+directions — which is what makes it a class rather than an incident. Both were cut
+before a pin that narrowed an authorization helper, and both rebased onto the
+post-pin master with no conflict:
+
+| branch | how the revert arrived | what caught it |
+|---|---|---|
+| `overseer-3h4s5w.16` | SOURCE side: the rebase reinstated the branch's local action-id check over the 14-member superset and dropped the pin's `authorized_action_id` call | the pin's own unanimous-panel control |
+| `overseer-3h4s5w.5` | TEST side: its test read a constant through a module whose re-export the pin had removed | that test, on the rebased tree only |
+
+Neither branch was wrong when it was written; the base moved under both. `.16`'s run
+was dispatched **forty-seven seconds** before the pin merged, so the margin that
+produces this is seconds, not days — check whether a sibling PR is about to land
+before dispatching anything that touches the same file.
+
+**A green review stage is not evidence of a pure move either.** `.16`'s factory run
+reported its review stage succeeded on a branch carrying the regression above. A
+reviewer reading a diff that shows a clean extraction cannot see a semantic revert
+that the diff does not contain.
+
+**THE DISCRIMINATING CONTROL IS THREE-WAY, and it decides who is at fault.** Run the
+failing gate on the branch AT ITS OWN TIP, rebased onto the PRE-CHANGE master, and
+rebased onto CURRENT master. Passing at its own tip and failing on both rebases means
+the base moved under a sound branch; failing at its own tip means the branch. Without
+that control the natural reading is that whatever merged most recently broke it, which
+sends the repair at the wrong tree — on `.5` it would have blamed the extraction that
+had landed an hour earlier and was in fact innocent.
+
+**Two arithmetic traps that make a sound branch look disposable.** "N files behind
+master" is the two-dot view and says nothing about what the branch proposes; the
+merge-base (`origin/master...branch`) diff is what a rebase-merge replays, and it was
+5 files where the two-dot count was 66. And a commit that was reverted on master and
+sits BELOW the merge base is not replayed at all, so its presence in a branch's
+ancestry is not a reason to discard the branch. Both were cited on `.16` as grounds
+to close its PR and re-dispatch from scratch; the actual defect was 3 insertions and
+10 deletions, and relanding preserved verified work that a re-dispatch would have
+thrown away.
+
 ## The `overseerd` daemon may be restarted at any time, as long as it isn't broken
 
 Ratified by the maintainer 2026-08-17, superseding an earlier operator-gated
