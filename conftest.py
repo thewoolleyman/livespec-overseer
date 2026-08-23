@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -12,6 +13,11 @@ import pytest
 _PACKAGE_DIR = Path(__file__).resolve().parent / "overseer"
 if str(_PACKAGE_DIR) not in sys.path:
     sys.path.insert(0, str(_PACKAGE_DIR))
+
+# Dispatch sandboxes may carry host OTEL settings. Most tests assert stderr event
+# shapes and are not intending to exercise export behavior, so keep the suite
+# hermetic by default; OTEL-specific tests opt in with monkeypatch.setenv.
+os.environ.pop("OTEL_EXPORTER_OTLP_ENDPOINT", None)
 
 import _registry_core  # noqa: E402
 import _registry_rounds  # noqa: E402
