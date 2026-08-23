@@ -276,6 +276,9 @@ check:
         # charters. Not a canonical slug, so it belongs here rather
         # than interleaved into the canonical block above.
         check-prose-release-hygiene
+        # Repo-local report-only artifact producer gate (overseer-764a.1):
+        # a shipped durable-artifact reader must have a non-test producer.
+        check-report-only-artifact-producers
     )
     failed=()
     ran=0
@@ -921,6 +924,9 @@ check-no-shadow-ledger-body-typechecks:
 
 check-no-workflow-edits:
     scripts/check-no-workflow-edits.sh
+
+check-report-only-artifact-producers:
+    uv run python scripts/check-report-only-artifact-producers.py
 
 check-required-role-keys-declared:
     uv run python -m livespec_dev_tooling.checks.required_role_keys_declared
