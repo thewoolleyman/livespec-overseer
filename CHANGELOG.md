@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.43.1...v1.44.0) (2026-08-23)
+
+
+### Features
+
+* report failed otel exports ([4ede0e6](https://github.com/thewoolleyman/livespec-overseer/commit/4ede0e66deacfce0b8746ec1c78db75c6353e722))
+
 ## [1.43.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.43.0...v1.43.1) (2026-08-23)
 
 
