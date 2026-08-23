@@ -9,7 +9,7 @@ import jsonio
 from _registry_core import atomic_write, file_lock, resolve_stamp_store
 from _registry_stamp_core import read_stamp_data, stamp_key
 
-__all__: list[str] = ["read_resume_pending", "set_resume_pending"]
+__all__: list[str] = ["read_resume_pending", "read_resume_pending_identity", "set_resume_pending"]
 
 
 def read_resume_pending(
@@ -42,10 +42,27 @@ def read_resume_pending(
     return entry.get("resume_pending") is True
 
 
+def read_resume_pending_identity(
+    *,
+    repo: str,
+    topic: str,
+    stamp_path: str | os.PathLike[str] | None = None,
+) -> str | None:
+    """Identity of the session whose pending resume-submit may be retried."""
+    data = read_stamp_data(path=resolve_stamp_store(stamp_path=stamp_path))
+    value = data.get(stamp_key(repo=repo, topic=topic))
+    entry = jsonio.as_object(value=value)
+    if entry is None or entry.get("resume_pending") is not True:
+        return None
+    identity = entry.get("resume_pending_session_identity")
+    return identity if isinstance(identity, str) and identity else None
+
+
 def set_resume_pending(
     *,
     repo: str,
     topic: str,
+    session_identity: str | None = None,
     stamp_path: str | os.PathLike[str] | None = None,
 ) -> None:
     """Record that a restart respawned the fresh session but its resume did not submit.
@@ -72,5 +89,7 @@ def set_resume_pending(
             legacy = jsonio.as_float(value=value)
             entry = {} if legacy is None else {"at": legacy}
         entry["resume_pending"] = True
+        if session_identity is not None:
+            entry["resume_pending_session_identity"] = session_identity
         data[key] = entry
         atomic_write(path=path, body=json.dumps(data, indent=2, sort_keys=True) + "\n")

@@ -160,7 +160,12 @@ def test_pending_resume_on_a_gate_reports_blocked_human_and_sends_no_enter(*, tm
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
-    registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    registry.set_resume_pending(
+        repo=str(repo),
+        topic=topic,
+        session_identity=f"claude:{session}:{topic}",
+        stamp_path=sup.stamp_path,
+    )
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "blocked:human"
@@ -190,7 +195,12 @@ def test_pending_retry_does_not_false_close_on_hook_busy_with_text_in_box(*, tmp
         repo=str(repo), topic=topic, ts=1000.0, stamp_path=sup.stamp_path
     )
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
-    registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    registry.set_resume_pending(
+        repo=str(repo),
+        topic=topic,
+        session_identity=f"claude:{session}:{topic}",
+        stamp_path=sup.stamp_path,
+    )
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "restarting"

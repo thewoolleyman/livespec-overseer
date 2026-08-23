@@ -37,6 +37,7 @@ import _supervisor_launch
 import _supervisor_state
 import registry
 import signals
+from _registry_stamp_resume import read_resume_pending_identity
 from _supervisor_records import Observation
 from _supervisor_view import RESUME_PENDING_NOTE, RowView
 
@@ -82,6 +83,35 @@ def resume_retry(
         act and registry.read_resume_pending(repo=repo, topic=topic, stamp_path=sup.stamp_path)
     ):
         return None
+    pending_identity = read_resume_pending_identity(
+        repo=repo, topic=topic, stamp_path=sup.stamp_path
+    )
+    if pending_identity is None or pending_identity != obs.session_identity:
+        sup.alert(
+            repo=repo,
+            topic=topic,
+            session=session,
+            pane=target,
+            message="resume retry identity is stale or missing — inspect that pane",
+            condition="restart-resume-identity-mismatch",
+        )
+        note = (
+            "resume retry identity missing"
+            if pending_identity is None
+            else (
+                "resume retry identity differs from live session "
+                f"(pending={pending_identity}; live={obs.session_identity})"
+            )
+        )
+        return RowView(
+            topic=topic,
+            repo=repo,
+            tmux=session,
+            ctx=obs.eff_ctx,
+            status="blocked:human",
+            note=note,
+            runtime=obs.runtime,
+        )
     if obs.gate:
         # A fresh TUI showing a picker (trust / update / bypass-permissions confirm):
         # NEVER keystroke into a gate (blocker #6). Report it and keep the round open;

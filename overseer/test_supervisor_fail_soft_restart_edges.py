@@ -11,6 +11,7 @@ hard ceiling. The doubles and builders live in `test_supervisor_fakes` /
 import contextlib
 import io as _io
 
+import _registry_stamp_resume
 import pytest
 import registry
 import supervisor
@@ -97,6 +98,12 @@ def test_restart_keeps_the_marker_when_the_respawned_pane_never_becomes_claude(*
         registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
         == 1000.0
     )
+    assert (
+        _registry_stamp_resume.read_resume_pending_identity(
+            repo=str(repo), topic=topic, stamp_path=sup.stamp_path
+        )
+        == f"claude:{session}:{topic}"
+    )
     assert supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC) not in fake.paste_texts()
 
 
@@ -128,5 +135,11 @@ def test_freshly_restarted_pane_on_a_gate_pends_the_resume_instead_of_keystrokin
     assert not any(c[0] == "keys" for c in fake.calls)
     assert (
         registry.read_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path) is True
+    )
+    assert (
+        _registry_stamp_resume.read_resume_pending_identity(
+            repo=str(repo), topic=topic, stamp_path=sup.stamp_path
+        )
+        == f"claude:{session}:{topic}"
     )
     assert marker.exists()  # round left open for the retry
