@@ -9,6 +9,7 @@ from pathlib import Path
 
 import jsonio
 from _supervisor_records import WaitTargetCacheEntry
+from _supervisor_wait_target_forge import forge_pull_request_present_with
 from _supervisor_wait_target_status import (
     WAIT_TARGET_MISSING_STATUS,
 )
@@ -193,6 +194,10 @@ def publish_branch_present(*, repo: Path, branch: str | None) -> bool:
     return completed.returncode == 0 and bool(completed.stdout.strip())
 
 
+def forge_pull_request_present(*, repo: Path, branch: str | None) -> bool:
+    return forge_pull_request_present_with(repo=repo, branch=branch, run=subprocess.run)
+
+
 def local_verdict(*, repo: Path, target_id: str) -> tuple[str, str | None]:
     for record in local_process_records(repo=repo):
         if record_id(record=record) != target_id:
@@ -226,6 +231,8 @@ def remote_verdict(
             )
         if status in _DELIVERED_STATUSES or status is not None:
             return "present", None
+    if forge_pull_request_present(repo=repo, branch=branch):
+        return "present", None
     return WAIT_TARGET_MISSING_STATUS, f"fabro-run {target_id} absent from every mandatory leg"
 
 

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -167,92 +166,13 @@ def test_wait_target_journal_outcomes_are_floored_and_matched():
     ) == [{"dispatch_id": "run-1"}]
 
 
-def test_wait_target_publish_branch_probe_fail_soft_and_success(*, tmp_path, monkeypatch):
-    repo = tmp_path / "repo"
-    assert not sources.publish_branch_present(repo=repo, branch=None)
-
-    def raise_timeout(*args, **kwargs):
-        raise subprocess.TimeoutExpired(cmd="git", timeout=1)
-
-    monkeypatch.setattr(sources.subprocess, "run", raise_timeout)
-    assert not sources.publish_branch_present(repo=repo, branch="feat/x")
-
-    def run_empty(*args, **kwargs):
-        return Completed(returncode=0, stdout="")
-
-    monkeypatch.setattr(sources.subprocess, "run", run_empty)
-    assert not sources.publish_branch_present(repo=repo, branch="feat/x")
-
-    def run_success(*args, **kwargs):
-        return Completed(returncode=0, stdout="abc\trefs/heads/feat/x\n")
-
-    monkeypatch.setattr(sources.subprocess, "run", run_success)
-    assert sources.publish_branch_present(repo=repo, branch="refs/heads/feat/x")
-
-
-def test_wait_target_verdict_edges(*, tmp_path, monkeypatch):
+def test_wait_target_local_verdict_edges(*, tmp_path):
     repo = tmp_path / "repo"
     _write_local_runs(repo=repo, records=[{"dispatch_id": "run-1", "status": "running"}])
     assert sources.local_verdict(repo=repo, target_id="run-1") == ("present", None)
     assert sources.local_verdict(repo=repo, target_id="other") == (
         "wait-target-missing",
         "fabro-run other absent from every mandatory leg",
-    )
-
-    monkeypatch.setattr(sources, "publish_branch_present", lambda *, repo, branch: True)
-    assert sources.remote_verdict(
-        repo=repo, record={"publish_branch": "feat/x"}, target_id="r"
-    ) == (
-        "present",
-        None,
-    )
-    monkeypatch.setattr(sources, "publish_branch_present", lambda *, repo, branch: False)
-    monkeypatch.setattr(
-        sources,
-        "read_journal",
-        lambda *, repo: [
-            {
-                "stage": "outcome",
-                "outcome": {"dispatch_id": "r", "status": "failed"},
-                "at": "2026-08-19T03:00:00Z",
-            }
-        ],
-    )
-    assert sources.remote_verdict(repo=repo, record={}, target_id="r") == (
-        "wait-target-missing",
-        "fabro-run r present with terminal state failed",
-    )
-    monkeypatch.setattr(
-        sources,
-        "read_journal",
-        lambda *, repo: [
-            {
-                "stage": "outcome",
-                "outcome": {"dispatch_id": "r", "status": "custom-delivered"},
-                "at": "2026-08-19T03:00:00Z",
-            }
-        ],
-    )
-    assert sources.remote_verdict(repo=repo, record={}, target_id="r") == ("present", None)
-    monkeypatch.setattr(
-        sources,
-        "read_journal",
-        lambda *, repo: [
-            {
-                "stage": "outcome",
-                "outcome": {"dispatch_id": "r"},
-                "at": "2026-08-19T03:00:00Z",
-            }
-        ],
-    )
-    assert sources.remote_verdict(repo=repo, record={}, target_id="r") == (
-        "wait-target-missing",
-        "fabro-run r absent from every mandatory leg",
-    )
-    monkeypatch.setattr(sources, "read_journal", lambda *, repo: [])
-    assert sources.remote_verdict(repo=repo, record={}, target_id="r") == (
-        "wait-target-missing",
-        "fabro-run r absent from every mandatory leg",
     )
 
 

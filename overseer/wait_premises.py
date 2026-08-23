@@ -52,6 +52,7 @@ __all__: list[str] = [
 WAIT_PREMISE_KINDS = ("fabro-run", "pr", "ci-run", "work-item-close")
 SCHEMA_VERSION = 1
 _SAFE_FILENAME = re.compile(r"[^A-Za-z0-9._-]+")
+_REQUIRED_FIELDS = frozenset({"kind", "target_id", "evidence_source", "recorded_at", "recheck_by"})
 
 
 def wait_premise_record(
@@ -92,6 +93,7 @@ def write_wait_premise(
         recorded_at=required_field(fields=fields, field="recorded_at"),
         recheck_by=required_field(fields=fields, field="recheck_by"),
     )
+    record.update({key: value for key, value in fields.items() if key not in _REQUIRED_FIELDS})
     path = wait_premise_path(repo=repo, topic=topic, kind=kind, target_id=target_id)
     write_json_atomic(path=path, payload=record)
     return path

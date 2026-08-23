@@ -44,6 +44,36 @@ def test_wait_premise_helper_writes_typed_record_atomically(*, tmp_path):
     }
 
 
+def test_wait_premise_writer_preserves_verifier_optional_fields(*, tmp_path):
+    module_path = Path(__file__).resolve().parent.parent / "overseer" / "wait_premises.py"
+    assert module_path.is_file()
+    wait_premises = importlib.import_module("wait_premises")
+
+    repo = tmp_path / "repo"
+    _ = wait_premises.write_wait_premise(
+        repo=repo,
+        topic="alpha",
+        kind="fabro-run",
+        target_id="01M0RUN",
+        evidence_source="fabro ps -a --json --factory=hp",
+        recorded_at="2026-08-19T02:30:00Z",
+        recheck_by="2026-08-19T03:00:00Z",
+        publish_branch="feat/overseer-x",
+        work_item_id="overseer-x",
+    )
+
+    assert wait_premises.read_wait_premises(repo=repo, topic="alpha")[0] | {} == {
+        "schema_version": 1,
+        "kind": "fabro-run",
+        "target_id": "01M0RUN",
+        "evidence_source": "fabro ps -a --json --factory=hp",
+        "recorded_at": "2026-08-19T02:30:00Z",
+        "recheck_by": "2026-08-19T03:00:00Z",
+        "publish_branch": "feat/overseer-x",
+        "work_item_id": "overseer-x",
+    }
+
+
 @pytest.mark.parametrize("kind", ["fabro-run", "pr", "ci-run", "work-item-close"])
 def test_wait_premise_schema_accepts_declared_kinds(*, kind):
     module_path = Path(__file__).resolve().parent.parent / "overseer" / "wait_premises.py"
