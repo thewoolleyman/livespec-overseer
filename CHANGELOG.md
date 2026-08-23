@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.3...v1.51.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* derive delimiter openers from the template grammar ([9444ae8](https://github.com/thewoolleyman/livespec-overseer/commit/9444ae81e6321a7595748f6e8645aed1c402bdce))
+
 ## [1.51.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.2...v1.51.3) (2026-08-23)
 
 
