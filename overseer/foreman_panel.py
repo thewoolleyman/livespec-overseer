@@ -28,7 +28,7 @@ __all__: list[str] = [
 ]
 
 DEFAULT_REVIEWER_TIMEOUT_SECONDS: Final[float] = 600.0
-DECIDED_OUTCOMES: Final[frozenset[str]] = frozenset({"majority", "unanimous"})
+DECIDED_OUTCOMES: Final[frozenset[str]] = frozenset({"majority", "minority_override", "unanimous"})
 
 default_reviewer_command = foreman_panel_reviewers.default_reviewer_command
 reviewer_argv = foreman_panel_reviewers.reviewer_argv
