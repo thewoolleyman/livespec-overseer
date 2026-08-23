@@ -1,5 +1,5 @@
 """_supervisor_diagnostics — daemon event-history and operator alert lines."""
-# livespec-lloc-soft-band-owner: overseer-temi26.3
+# livespec-lloc-soft-band-owner: overseer-temi26.7
 
 from __future__ import annotations
 
@@ -9,8 +9,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-import _supervisor_otel
-import _supervisor_otel_report
 import registry
 import streams
 from _supervisor_config import iso_now, track_key
@@ -137,15 +135,11 @@ def _write_event(*, request: EventRequest) -> None:
     line = json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     streams.write_stderr(text=f"{line}\n")
     if request.sup is not None:
-        result = _supervisor_otel.emit_daemon_event(
+        request.sup.otel.exporter.export(
+            sup=request.sup,
             record=record,
             config=request.sup.otel.config,
             emitter=request.sup.otel.emitter,
-        )
-        _supervisor_otel_report.report_export_result(
-            sup=request.sup,
-            result=result,
-            state=request.sup.otel.failure_state,
         )
 
 

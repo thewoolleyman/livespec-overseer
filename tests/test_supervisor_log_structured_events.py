@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import contextlib
 import datetime
+import importlib
 import io as _io
 import json
+import time
 
 import registry
 from _supervisor_foreman import heartbeat_path
@@ -93,6 +95,74 @@ def test_successful_otel_export_is_silent(*, tmp_path):
 
     events = [json.loads(line) for line in err.getvalue().splitlines()]
     assert [event["event"] for event in events] == ["daemon-tick"]
+
+
+def test_slow_otel_export_does_not_block_daemon_event_log(*, tmp_path):
+    def slow_emit(_request: dict[str, object]) -> EmitResult:
+        time.sleep(0.25)
+        return EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
+
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=FakeTmux(),
+        otel=OtelSeam(
+            config=OtelConfig(
+                endpoint="https://api.honeycomb.io",
+                ingest_key="key",
+                service_name="svc",
+                service_namespace="ns",
+            ),
+            emitter=slow_emit,
+        ),
+    )
+
+    err = _io.StringIO()
+    started = time.monotonic()
+    with contextlib.redirect_stderr(err):
+        sup.log(message="tick 1 complete", event="daemon-tick")
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 0.05
+    assert [json.loads(line)["event"] for line in err.getvalue().splitlines()] == ["daemon-tick"]
+
+
+def test_otel_export_queue_overflow_is_reported_without_blocking(*, tmp_path, monkeypatch):
+    async_otel = importlib.import_module("_supervisor_otel_async")
+    monkeypatch.setattr(async_otel, "_MAX_IN_FLIGHT", 1)
+
+    def slow_emit(_request: dict[str, object]) -> EmitResult:
+        time.sleep(0.25)
+        return EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
+
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=FakeTmux(),
+        otel=OtelSeam(
+            config=OtelConfig(
+                endpoint="https://api.honeycomb.io",
+                ingest_key="key",
+                service_name="svc",
+                service_namespace="ns",
+            ),
+            emitter=slow_emit,
+        ),
+    )
+
+    err = _io.StringIO()
+    started = time.monotonic()
+    with contextlib.redirect_stderr(err):
+        sup.log(message="tick 1 complete", event="daemon-tick")
+        sup.log(message="tick 2 complete", event="daemon-tick")
+    elapsed = time.monotonic() - started
+
+    events = [json.loads(line) for line in err.getvalue().splitlines()]
+    assert elapsed < 0.05
+    assert [event["event"] for event in events] == [
+        "daemon-tick",
+        "daemon-tick",
+        "otel-export-failed",
+    ]
+    assert events[2]["error"] == "OTLP export queue full"
 
 
 def test_failed_otel_export_surfaces_cause_and_rejected_count(*, tmp_path):
