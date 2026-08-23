@@ -909,6 +909,12 @@ def test_supervisor_prompt_wrapup_builders_cover_ledger_and_no_epic_shapes(*, tm
     supervisor_wrap_no_epic = prompts.supervisor_wrapup_message(
         remaining=20, repo=repo, topic=topic, epic=None
     )
+    foreman_wrap_unresolved_epic = prompts.foreman_wrapup_message(
+        remaining=20,
+        repo=repo,
+        topic="repo-foreman",
+        epic=unresolved_epic,
+    )
 
     assert "Please start wrapping up" in worker_wrap
     assert "STOP AND WIND DOWN NOW" in worker_wrap_no_epic
@@ -917,6 +923,8 @@ def test_supervisor_prompt_wrapup_builders_cover_ledger_and_no_epic_shapes(*, tm
     assert "legacy-unresolved:" not in worker_wrap_unresolved_epic
     assert "supervisor handoff entries attributed to alpha-supervisor" in supervisor_wrap
     assert "NO plan epic id" in supervisor_wrap_no_epic
+    assert "NO foreman ledger epic id" in foreman_wrap_unresolved_epic
+    assert "legacy-unresolved:" not in foreman_wrap_unresolved_epic
 
 
 def test_supervisor_prompt_nudge_builders_cover_ledger_and_no_epic_shapes(*, tmp_path):
