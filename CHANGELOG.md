@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.42.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.6...v1.42.7) (2026-08-23)
+
+
+### Bug Fixes
+
+* cover wait premise semicolon punctuation ([252b667](https://github.com/thewoolleyman/livespec-overseer/commit/252b667f99091118b55d917d268c22900ee42724))
+* cover wait premise target punctuation ([24f7f24](https://github.com/thewoolleyman/livespec-overseer/commit/24f7f243e368592f279b4d3bd75f2b5e07190fbb))
+* resolve foreman filing plugin by version ([5bd9147](https://github.com/thewoolleyman/livespec-overseer/commit/5bd9147a36c7b739fde36b2425ce7a9a17119487))
+
 ## [1.42.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.5...v1.42.6) (2026-08-23)
 
 
