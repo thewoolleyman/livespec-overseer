@@ -34,6 +34,29 @@ def foreman_track(*, repo):
     )
 
 
+def assert_foreman_respawned_once(*, fake, track, repo):
+    respawns = [call for call in fake.calls if call[0] == "respawn"]
+    assert len(respawns) == 1
+    _method, pane, cwd, command, env = respawns[0]
+    assert pane == track.tmux
+    assert cwd == str(repo)
+    assert "claude " in command
+    assert f"-n {track.topic}" in command
+    assert env["LIVESPEC_PLAN_UNATTENDED"] == "1"
+
+
+def assert_self_restart_persisted(*, sup, track, repo):
+    persisted = registry.read_foreman_self_restart(
+        repo=str(repo), topic=track.topic, stamp_path=sup.stamp_path
+    )
+    assert persisted.attempted
+    assert persisted.reason == "daemon failed to act within 1h"
+
+
+def self_restart_notices(*, fake):
+    return [text for text in fake.paste_texts() if "Your predecessor self-restarted" in text]
+
+
 def test_foreman_ready_below_self_restart_floor_does_not_respawn(*, tmp_path):
     repo, _topic = make_plan(tmp_path=tmp_path)
     track = foreman_track(repo=repo)
@@ -91,20 +114,12 @@ def test_foreman_self_restart_respawns_once_and_persists_loud_fact(*, tmp_path):
         view = sup.evaluate(track=track, act=True)
 
     assert view.status == "ready-uncertifiable"
-    respawns = [call for call in fake.calls if call[0] == "respawn"]
-    assert len(respawns) == 1
-    _method, pane, cwd, command, env = respawns[0]
-    assert pane == track.tmux
-    assert cwd == str(repo)
-    assert "claude " in command
-    assert f"-n {track.topic}" in command
-    assert env["LIVESPEC_PLAN_UNATTENDED"] == "1"
+    assert_foreman_respawned_once(fake=fake, track=track, repo=repo)
     assert "daemon failed to act within 1h" in err.getvalue()
-    persisted = registry.read_foreman_self_restart(
-        repo=str(repo), topic=track.topic, stamp_path=sup.stamp_path
-    )
-    assert persisted.attempted
-    assert persisted.reason == "daemon failed to act within 1h"
+    assert_self_restart_persisted(sup=sup, track=track, repo=repo)
+    successor_prompt = fake.paste_texts()[-1]
+    assert "Your predecessor self-restarted this foreman seat." in successor_prompt
+    assert "Reason: daemon failed to act within 1h" in successor_prompt
 
     declare(repo=repo, topic=track.topic, value=signals.STATE_READY, mtime=5000.0)
     second = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 5000.0 + 3601.0)
@@ -114,6 +129,7 @@ def test_foreman_self_restart_respawns_once_and_persists_loud_fact(*, tmp_path):
     assert second_view.status == "ready-uncertifiable"
     assert len([call for call in fake.calls if call[0] == "respawn"]) == 1
     assert "foreman self-restart already used for this session lineage" in err.getvalue()
+    assert len(self_restart_notices(fake=fake)) == 1
 
 
 def test_foreman_self_restart_refuses_declared_hold_with_reason(*, tmp_path):
@@ -136,3 +152,4 @@ def test_foreman_self_restart_refuses_declared_hold_with_reason(*, tmp_path):
     assert "foreman self-restart refused because foreman loop is held: maintenance window" in (
         err.getvalue()
     )
+    assert self_restart_notices(fake=fake) == []
