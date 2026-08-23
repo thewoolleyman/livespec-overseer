@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.52.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.20...v1.52.0) (2026-08-23)
+
+
+### Features
+
+* audit documented null registry epics ([84029b7](https://github.com/thewoolleyman/livespec-overseer/commit/84029b75904dcb81633037ac1dd06c3c04cf4329))
+
 ## [1.51.20](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.19...v1.51.20) (2026-08-23)
 
 
