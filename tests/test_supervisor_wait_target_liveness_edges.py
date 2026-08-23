@@ -110,24 +110,61 @@ def test_payload_matching_and_active_status_helpers():
 
 def test_dispatch_journal_run_ids_bridge_dispatch_id_to_factory_run_id():
     records = [
-        {"stage": "ignored", "dispatch_id": "dispatch-1", "run_id": "run-ignored"},
-        {"stage": "dispatch-id", "dispatch_id": "other", "run_id": "run-other"},
-        {
-            "stage": "dispatch-id",
-            "dispatch_id": "dispatch-1",
-            "work_item_id": "wrong",
-            "run_id": "run-wrong",
-        },
         {
             "stage": "dispatch-id",
             "dispatch_id": "dispatch-1",
             "work_item_id": "overseer-x",
+            "at": "2026-08-23T19:00:00Z",
         },
         {
-            "stage": "dispatch-id",
+            "stage": "outcome",
             "dispatch_id": "dispatch-1",
-            "work_item_id": "overseer-x",
-            "run_id": "run-1",
+            "at": "2026-08-23T18:00:00Z",
+            "outcome": {
+                "dispatch_id": "dispatch-1",
+                "work_item_id": "overseer-x",
+                "fabro_run_id": "run-before-dispatch",
+            },
+        },
+        {
+            "stage": "outcome",
+            "at": "2026-08-23T20:00:00Z",
+            "outcome": [],
+        },
+        {
+            "stage": "outcome",
+            "at": "2026-08-23T20:00:00Z",
+            "outcome": {
+                "dispatch_id": "dispatch-1",
+                "work_item_id": "wrong",
+                "fabro_run_id": "run-wrong",
+            },
+        },
+        {
+            "stage": "outcome",
+            "at": "2026-08-23T20:00:00Z",
+            "outcome": {
+                "dispatch_id": "dispatch-1",
+                "work_item_id": "overseer-x",
+            },
+        },
+        {
+            "stage": "outcome",
+            "at": "2026-08-23T20:00:00Z",
+            "outcome": {
+                "dispatch_id": "other",
+                "work_item_id": "overseer-x",
+                "fabro_run_id": "run-other",
+            },
+        },
+        {
+            "stage": "outcome",
+            "at": "2026-08-23T20:00:00Z",
+            "outcome": {
+                "dispatch_id": "dispatch-1",
+                "work_item_id": "overseer-x",
+                "fabro_run_id": "run-1",
+            },
         },
     ]
 
@@ -136,6 +173,21 @@ def test_dispatch_journal_run_ids_bridge_dispatch_id_to_factory_run_id():
     )
 
     assert target_run_ids == frozenset({"run-1"})
+    assert (
+        liveness_journal.journal_run_ids(
+            records=records, target_id="missing", work_item_id="overseer-x"
+        )
+        is None
+    )
+    assert (
+        liveness_journal.journal_run_ids(
+            records=records, target_id="dispatch-1", work_item_id="wrong"
+        )
+        is None
+    )
+    assert liveness_journal.journal_run_ids(
+        records=records, target_id="dispatch-1", work_item_id=None
+    ) == frozenset({"run-1", "run-wrong"})
     assert liveness.run_matches_target(
         process_record={"run_id": "run-1"},
         target_id="dispatch-1",
@@ -143,6 +195,12 @@ def test_dispatch_journal_run_ids_bridge_dispatch_id_to_factory_run_id():
         target_run_ids=target_run_ids,
     )
     assert liveness.run_matches_target(
+        process_record={"goal": "Implement work item overseer-x."},
+        target_id="dispatch-1",
+        work_item_id="overseer-x",
+        target_run_ids=None,
+    )
+    assert not liveness.run_matches_target(
         process_record={"goal": "Implement work item overseer-x."},
         target_id="dispatch-1",
         work_item_id="overseer-x",
@@ -155,14 +213,12 @@ def test_dispatch_journal_reader_handles_missing_malformed_and_nonobject_lines(*
     journal = tmp_path / "tmp" / "fabro-dispatch-journal.jsonl"
     journal.parent.mkdir(parents=True)
     journal.write_text(
-        '{"stage": "dispatch-id", "dispatch_id": "dispatch-1", "run_id": "run-1"}\n'
-        "not-json\n"
-        "[]\n",
+        '{"stage": "dispatch-id", "dispatch_id": "dispatch-1"}\n' "not-json\n" "[]\n",
         encoding="utf-8",
     )
 
     assert liveness_journal.read_journal(repo=tmp_path) == [
-        {"stage": "dispatch-id", "dispatch_id": "dispatch-1", "run_id": "run-1"}
+        {"stage": "dispatch-id", "dispatch_id": "dispatch-1"}
     ]
 
 

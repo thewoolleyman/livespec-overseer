@@ -142,8 +142,8 @@ def run_matches_target(
         return True
     # Wait premises are keyed on dispatch id; remote factory rows are keyed on
     # run_id. Prefer the dispatch journal's structured bridge above. The goal
-    # text fallback exists only for older/local captures that have no journal row.
-    return target_run_ids == frozenset() and goal_mentions_work_item(
+    # text fallback exists only when no matching dispatch journal row exists.
+    return target_run_ids is None and goal_mentions_work_item(
         process_record=process_record, work_item_id=work_item_id
     )
 
