@@ -295,7 +295,14 @@ def foreman_resume(*, repo: str, epic: str | None = None) -> str:
 
 def _foreman_state_locator(*, repo: str, epic: str | None) -> str:
     """The foreman entity's ledger-held handoff timeline."""
-    return f"the foreman handoff timeline on ledger epic {epic} in repository {repo}"
+    resolved_epic = _resolved_epic(epic=epic)
+    if resolved_epic is None:
+        return (
+            f"this foreman handoff timeline in repository {repo} — but NO foreman "
+            "ledger epic id is recorded for this track, so ask the operator to "
+            "record one"
+        )
+    return f"the foreman handoff timeline on ledger epic {resolved_epic} in repository {repo}"
 
 
 def foreman_wrapup_message(
