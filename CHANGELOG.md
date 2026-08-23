@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.45.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.7...v1.45.0) (2026-08-23)
+
+
+### Features
+
+* honor caam session model exceptions ([7c22deb](https://github.com/thewoolleyman/livespec-overseer/commit/7c22deb3f0cb54ffbdf7b766a93d7adace7e38c7))
+
 ## [1.44.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.6...v1.44.7) (2026-08-23)
 
 
