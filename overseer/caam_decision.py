@@ -3,10 +3,23 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from collections.abc import Mapping
 from datetime import datetime
 from math import inf
 
+from caam_decision_models import EligibleProfiles, ProfileUsage, UsageRecord
+from caam_decision_protection import (
+    NO_PROTECTION_FLOORS,
+    CandidatePolicy,
+    candidate_allowed,
+    dimension_spent,
+    empty_release_note,
+    is_eligible,
+    protection_floor_for,
+    raw_weekly_left,
+    select_candidate_set,
+    weekly_left,
+)
 from caam_rendering import (
     SwitchTargetSummary,
     current_cell,
@@ -28,6 +41,7 @@ __all__: list[str] = [
     "SwitchTargetSummary",
     "UsageRecord",
     "binding",
+    "candidate_allowed",
     "current_cell",
     "decision_dry_run",
     "decision_forced",
@@ -35,6 +49,7 @@ __all__: list[str] = [
     "decision_hold_no_candidate",
     "decision_switched",
     "decision_trigger",
+    "dimension_spent",
     "eligible_profiles",
     "five_hour_threshold",
     "fmt_duration",
@@ -51,60 +66,37 @@ __all__: list[str] = [
 ]
 
 
-@dataclass(frozen=True, kw_only=True)
-class UsageRecord:
-    five_hour: float
-    seven_day: float
-    five_hour_resets_at: str | None
-    seven_day_resets_at: str | None
-    fable: float | None
-    fable_resets_at: str | None
-
-
-@dataclass(frozen=True, kw_only=True)
-class ProfileUsage:
-    name: str
-    source: str
-    usage: UsageRecord | None
-
-
-@dataclass(frozen=True, kw_only=True)
-class EligibleProfiles:
-    profiles: tuple[ProfileUsage, ...]
-    reserve_released: bool
-    note: str | None
-
-
-_FULLY_SPENT = 100.0
-
-
-def weekly_left(*, usage: UsageRecord) -> float:
-    return 100.0 - usage.seven_day
-
-
-def binding(*, usage: UsageRecord) -> tuple[str, float, str]:
+def binding(
+    *,
+    usage: UsageRecord,
+    active_name: str | None = None,
+    protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
+) -> tuple[str, float, str]:
+    protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
     if usage.five_hour >= five_hour_threshold():
         return ("five_hour", usage.five_hour, "5-hour window")
+    if protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor:
+        return (
+            "seven_day",
+            usage.seven_day,
+            f"protection floor for {active_name} ({protection_floor:g}%)",
+        )
     if weekly_left(usage=usage) < weekly_reserve():
         return ("seven_day", usage.seven_day, "weekly reserve")
     return ("five_hour", usage.five_hour, "5-hour window")
 
 
-def triggered(*, usage: UsageRecord) -> bool:
-    return usage.five_hour >= five_hour_threshold() or weekly_left(usage=usage) < weekly_reserve()
-
-
-def is_eligible(
-    *, usage: UsageRecord | None, current: UsageRecord, gain_needed: float, dimension: str
+def triggered(
+    *,
+    usage: UsageRecord,
+    active_name: str | None = None,
+    protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
 ) -> bool:
+    protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
     return (
-        usage is not None
-        and dimension in {"five_hour", "seven_day"}
-        and dimension_spent(usage=current, dimension=dimension)
-        - dimension_spent(usage=usage, dimension=dimension)
-        >= gain_needed
-        and usage.seven_day < _FULLY_SPENT
-        and usage.five_hour < _FULLY_SPENT
+        usage.five_hour >= five_hour_threshold()
+        or weekly_left(usage=usage) < weekly_reserve()
+        or (protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor)
     )
 
 
@@ -115,37 +107,52 @@ def eligible_profiles(
     current: UsageRecord,
     force: bool,
     dimension: str,
+    protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
 ) -> EligibleProfiles:
     gain_needed = 0.01 if force else min_headroom_gain()
-    eligible = tuple(
-        profile
-        for profile in profiles
-        if candidate_allowed(
-            profile=profile,
-            active_name=active_name,
+    reserve = weekly_reserve()
+    eligible = select_candidate_set(
+        profiles=profiles,
+        active_name=active_name,
+        policy=CandidatePolicy(
             current=current,
             gain_needed=gain_needed,
             dimension=dimension,
             enforce_reserve=True,
-        )
+            weekly_reserve=reserve,
+        ),
+        protection_floors=protection_floors,
     )
     if eligible or not every_live_account_under_reserve(profiles=profiles):
         return EligibleProfiles(profiles=eligible, reserve_released=False, note=None)
 
-    released = tuple(
-        profile
-        for profile in profiles
-        if candidate_allowed(
-            profile=profile,
-            active_name=active_name,
+    released = select_candidate_set(
+        profiles=profiles,
+        active_name=active_name,
+        policy=CandidatePolicy(
             current=current,
             gain_needed=gain_needed,
             dimension=dimension,
             enforce_reserve=False,
-        )
+            weekly_reserve=reserve,
+        ),
+        protection_floors=protection_floors,
     )
-    reserve = weekly_reserve()
-    note = f"note: every account is under the {reserve:g}% weekly reserve -- releasing it"
+    if not released:
+        return EligibleProfiles(
+            profiles=(),
+            reserve_released=False,
+            note=empty_release_note(
+                profiles=profiles,
+                protection_floors=protection_floors,
+                weekly_reserve=reserve,
+            ),
+        )
+    note = empty_release_note(
+        profiles=profiles,
+        protection_floors=protection_floors,
+        weekly_reserve=reserve,
+    )
     return EligibleProfiles(profiles=released, reserve_released=bool(released), note=note)
 
 
@@ -181,33 +188,6 @@ def weekly_reserve() -> float:
 
 def min_headroom_gain() -> float:
     return float(os.environ.get("CAAM_ROTATE_MIN_HEADROOM_GAIN", "10"))
-
-
-def dimension_spent(*, usage: UsageRecord, dimension: str) -> float:
-    return {"five_hour": usage.five_hour, "seven_day": usage.seven_day}.get(dimension, inf)
-
-
-def candidate_allowed(
-    *,
-    profile: ProfileUsage,
-    active_name: str,
-    current: UsageRecord,
-    gain_needed: float,
-    dimension: str,
-    enforce_reserve: bool,
-) -> bool:
-    return (
-        profile.name != active_name
-        and profile.source == "live"
-        and profile.usage is not None
-        and (not enforce_reserve or weekly_left(usage=profile.usage) >= weekly_reserve())
-        and is_eligible(
-            usage=profile.usage,
-            current=current,
-            gain_needed=gain_needed,
-            dimension=dimension,
-        )
-    )
 
 
 def every_live_account_under_reserve(*, profiles: tuple[ProfileUsage, ...]) -> bool:
