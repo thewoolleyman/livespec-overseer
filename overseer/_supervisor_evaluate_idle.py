@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_config
 import _supervisor_evaluate_ctx_stale
 import _supervisor_evaluate_restart
 import _supervisor_evaluate_threshold
@@ -95,6 +96,14 @@ def _fresh_foreman_within_contract(*, request: IdleRequest) -> bool:
     )
 
 
+def _fresh_foreman_above_danger(*, request: IdleRequest) -> bool:
+    return (
+        _fresh_foreman_within_contract(request=request)
+        and request.obs.eff_ctx is not None
+        and request.obs.eff_ctx > _supervisor_config.DANGER_CTX_REMAINING
+    )
+
+
 def idle_decision(*, request: IdleRequest) -> IdleDecision:
     active_conditions: set[str] = set()
     note = request.note
@@ -157,8 +166,6 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
             active_conditions=restart.active_conditions,
             settled_streaming_progress=False,
         )
-    elif _fresh_foreman_within_contract(request=request):
-        status = "idle"
     elif (
         request.obs.ctx_stale_age is not None
         and request.obs.stale_ctx is not None
@@ -181,6 +188,14 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         status = ctx_stale.status
         note = ctx_stale.note
         active_conditions.update(ctx_stale.active_conditions)
+    elif request.uncertifiable_ready is not None and (
+        request.obs.eff_ctx is None or request.obs.eff_ctx > request.threshold
+    ):
+        status = "ready-uncertifiable"
+        note, ready_conditions = request.uncertifiable_ready
+        active_conditions.update(ready_conditions)
+    elif _fresh_foreman_above_danger(request=request):
+        status = "idle"
     elif request.obs.eff_ctx is not None and request.obs.eff_ctx <= request.threshold:
         threshold = _supervisor_evaluate_threshold.idle_threshold_decision(
             request=_supervisor_evaluate_threshold.IdleThresholdRequest(
@@ -201,10 +216,6 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
             active_conditions=threshold.active_conditions,
             settled_streaming_progress=False,
         )
-    elif request.uncertifiable_ready is not None:
-        status = "ready-uncertifiable"
-        note, ready_conditions = request.uncertifiable_ready
-        active_conditions.update(ready_conditions)
     else:
         status, settled_streaming_progress = _idle_room_or_recovered(request=request)
         return IdleDecision(

@@ -8,7 +8,14 @@ from datetime import datetime, timezone
 import _supervisor_attention
 import _supervisor_foreman
 import registry
-from test_supervisor_builders import idle_capture, make_plan, make_supervisor, mapped_track
+import signals
+from test_supervisor_builders import (
+    declare,
+    idle_capture,
+    make_plan,
+    make_supervisor,
+    mapped_track,
+)
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -51,6 +58,35 @@ def test_foreman_with_fresh_heartbeat_does_not_enter_idle_escalation(*, tmp_path
     assert view.status == "idle"
     assert not fake.has(method="paste")
     assert _supervisor_foreman.foreman_row(repo=str(repo), now=sup.now) is None
+
+
+def test_foreman_with_fresh_heartbeat_still_receives_low_context_wrapup(*, tmp_path):
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    session = f"{repo.name}-foreman"
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=5))
+    _write_heartbeat(repo=repo, written_at=1000.0 - 60.0, tick_interval_seconds=3600.0)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0)
+
+    view = sup.evaluate(track=_foreman_track(repo=repo, session=session), act=True)
+
+    assert view.status == "danger"
+    assert fake.has(method="paste")
+    assert any("STOP AND WIND DOWN NOW" in text for text in fake.paste_texts())
+
+
+def test_foreman_with_fresh_heartbeat_still_surfaces_uncertifiable_ready(*, tmp_path):
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    session = f"{repo.name}-foreman"
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=79))
+    _write_heartbeat(repo=repo, written_at=1000.0 - 60.0, tick_interval_seconds=3600.0)
+    declare(repo=repo, topic=session, value=signals.STATE_READY, mtime=1000.0)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0)
+
+    view = sup.evaluate(track=_foreman_track(repo=repo, session=session), act=True)
+
+    assert view.status == "ready-uncertifiable"
 
 
 def test_foreman_past_twice_contract_cadence_is_still_lapsed(*, tmp_path):
