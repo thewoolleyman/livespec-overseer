@@ -1080,6 +1080,11 @@ for the marker's edge-triggered lifecycle.
   declaration`: `restart resume submitted` without that paired consumption, or any
   unrelated tick/status/render line, is not a completed respawn cycle and must not
   be counted.
+  **No mechanical guard was added for this verb set, deliberately.** A test asserting
+  that the verbs documented here match the verbs the daemon can actually emit would
+  have to enumerate those verbs a second time, and a guard that merely restates the
+  document asserts nothing about the code. The pairing rule above is therefore
+  carried as prose for a human auditor rather than as an automated check.
 
 ## Build / toolchain facts
 
