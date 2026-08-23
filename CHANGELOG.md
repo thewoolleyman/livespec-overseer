@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.6...v1.44.7) (2026-08-23)
+
+
+### Bug Fixes
+
+* dedup otel export failures by stable condition ([ddf9cbf](https://github.com/thewoolleyman/livespec-overseer/commit/ddf9cbfd7d7520217c029ea7b22cf2c81e4844db))
+
 ## [1.44.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.5...v1.44.6) (2026-08-23)
 
 
