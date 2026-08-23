@@ -10,6 +10,7 @@ __all__: list[str] = []
 ENUMERATED_LIVE_OWNER_PINS = frozenset(
     {
         "overseer-2jblyq.8",
+        "overseer-au3pt3.11",
         "overseer-au3pt3.15",
         "overseer-hgq4wi",
         "overseer-lixhd3.1",

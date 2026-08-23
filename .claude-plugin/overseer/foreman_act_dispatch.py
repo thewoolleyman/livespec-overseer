@@ -126,6 +126,7 @@ def _act_ledger_mutation(
     action_id: ActionId,
     ledger_mutation: LedgerMutation,
     append_journal: AppendJournal,
+    run: Runner,
 ) -> ActResult:
     refusal, request = ledger_request(proposal=proposal, action_id=action_id)
     if refusal is not None or request is None:
@@ -144,7 +145,7 @@ def _act_ledger_mutation(
     except OSError:  # pragma: no cover
         return _refused(action_id=action_id, reason="journal_append_failed")
     try:
-        item_id, verdict = ledger_mutation(request=request)
+        item_id, verdict = ledger_mutation(request=request, run=run)
     except RuntimeError as exc:  # pragma: no cover
         return _failed(
             action_id=action_id,
@@ -214,6 +215,7 @@ def act_authorized(
             action_id=action_id,
             ledger_mutation=seams.ledger_mutation,
             append_journal=seams.append_journal,
+            run=seams.run,
         )
     elif action_id == DISPATCH_JOURNAL_RECONCILE_MERGED:  # pragma: no cover
         returncode_runner = ReturncodeRunner(run=seams.run)

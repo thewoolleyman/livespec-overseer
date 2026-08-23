@@ -17,6 +17,7 @@ __all__: list[str] = [
 class CommandResult:
     returncode: int
     stderr: str = ""
+    stdout: str = ""
 
 
 class Runner(Protocol):
