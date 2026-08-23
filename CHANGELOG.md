@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.8...v1.51.9) (2026-08-23)
+
+
+### Bug Fixes
+
+* scope wait target evidence requery ([6b1f74a](https://github.com/thewoolleyman/livespec-overseer/commit/6b1f74a1133132f37afc5f9a4435da95bc104e8b))
+
 ## [1.51.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.7...v1.51.8) (2026-08-23)
 
 
