@@ -38,6 +38,7 @@ __all__: list[str] = [
 ]
 
 TRIAGED_LABEL = "intake:triaged"
+UNTRIAGED_SCOPE = "backlog/open item label-absence for intake:triaged; not gate-application"
 
 
 def measure_grooming_inputs(
@@ -75,6 +76,7 @@ def measure_grooming_inputs(
         repo=str(repo_path),
         open_item_ids=open_ids,
         untriaged_item_ids=untriaged_ids,
+        untriaged_scope=UNTRIAGED_SCOPE,
         unparented_item_ids=unparented_ids,
         live_thread_slugs=budget.live_thread_slugs,
         open_item_digest=digest(values=open_ids),

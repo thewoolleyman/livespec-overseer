@@ -134,7 +134,8 @@ clean readings.
 Compose and record:
 
 - the true open set;
-- the untriaged subset;
+- the label-absent triage subset, reported as label absence and not gate
+  application;
 - the unparented subset;
 - pending proposed changes;
 - live plan threads from filesystem and plan-anchor metadata;
@@ -180,6 +181,27 @@ files can pass a one-way pairing check while missing the actual decision record.
 
 Run the shared intake Definition-of-Ready checklist over every backlog item lacking
 the triaged label. Do not re-derive the gates.
+
+This scope is deliberately a label-absence scope, not a direct measurement of
+whether the checklist has ever run. `bd create inherits parent labels`; a row
+created under a parent carrying `intake:triaged` can be born carrying
+the marker without ever having passed the Definition-of-Ready checklist.
+The discriminating control is two-armed: a row created under a triaged parent
+WITHOUT an explicit labels argument carries the marker, and a row created under a
+non-triaged parent does not. Stage 3's count is a label-absence count, not a
+gate-application count. If a pass report uses the count, state that scope beside
+the number.
+
+Plainly: such a row carries `intake:triaged` without ever having passed the
+checklist.
+
+Historical tenant measurements that compare triaged children to triaged parents
+are upper-bound evidence only. The observed 381 is an upper bound only for rows
+whose marker could have arrived by inheritance; it is not a count of ungated
+rows, because a row can both have a triaged parent and have genuinely passed the
+checklist. Today no ledger field distinguishes those cases after the fact. Do
+not default to `--no-inherit-labels` as the remedy: it would drop every inherited
+label, not only `intake:triaged`.
 
 When a gate needs information the item is missing, fix the item first and then run
 the checklist. Do not mark an item blocked because it lacks the acceptance criteria

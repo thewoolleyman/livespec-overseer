@@ -23,6 +23,7 @@ BINDINGS = (
 
 class MeasurementView(Protocol):
     untriaged_item_ids: tuple[str, ...]
+    untriaged_scope: str
 
 
 class GroomingConformanceModule(Protocol):
@@ -215,3 +216,48 @@ def test_grooming_stage_three_freshness_guard_rechecks_preexisting_rows(
     assert "a skip is otherwise unrecoverable" in normalized
     assert "This narrows the stale-snapshot window; it does not make stage 3 atomic" in normalized
     assert "between the freshness read and the status write" in normalized
+
+
+def test_grooming_stage_three_reports_label_absence_not_gate_application(
+    *,
+    tmp_path: Path,
+) -> None:
+    module = grooming_conformance()
+    repo = _repo(tmp_path=tmp_path)
+
+    measured = module.measure_grooming_inputs(
+        repo=repo,
+        work_items=[
+            {
+                "id": "label-absent",
+                "status": "backlog",
+                "labels": [],
+                "metadata": {},
+                "dependencies": [],
+            },
+            {
+                "id": "inherited-triaged-label",
+                "status": "backlog",
+                "labels": ["intake:triaged"],
+                "metadata": {},
+                "dependencies": [],
+            },
+        ],
+        proposed_changes_count=0,
+    )
+
+    assert measured.untriaged_item_ids == ("label-absent",)
+    untriaged_scope = getattr(measured, "untriaged_scope", "")
+    assert "label-absence" in untriaged_scope
+    assert "not gate-application" in untriaged_scope
+
+    text = PROSE.read_text(encoding="utf-8")
+    normalized = " ".join(text.split())
+    assert "bd create inherits parent labels" in normalized
+    assert "WITHOUT an explicit labels argument" in normalized
+    assert "triaged parent" in normalized
+    assert "non-triaged parent" in normalized
+    assert "carries `intake:triaged` without ever having passed" in normalized
+    assert "Stage 3's count is a label-absence count, not a gate-application count" in normalized
+    assert "381 is an upper bound only" in normalized
+    assert "not a count of ungated rows" in normalized
