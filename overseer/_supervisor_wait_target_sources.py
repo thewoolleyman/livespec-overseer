@@ -13,6 +13,7 @@ from _supervisor_wait_target_forge import forge_pull_request_present_with
 from _supervisor_wait_target_liveness import remote_factory_run_present_with
 from _supervisor_wait_target_status import (
     WAIT_TARGET_MISSING_STATUS,
+    WAIT_TARGET_SATISFIED_STATUS,
 )
 
 __all__: list[str] = [
@@ -220,6 +221,8 @@ def local_verdict(*, repo: Path, target_id: str) -> tuple[str, str | None]:
                 WAIT_TARGET_MISSING_STATUS,
                 f"fabro-run {target_id} present with terminal state {status}",
             )
+        if status in _DELIVERED_STATUSES:
+            return WAIT_TARGET_SATISFIED_STATUS, None
         return "present", None
     return WAIT_TARGET_MISSING_STATUS, f"fabro-run {target_id} absent from every mandatory leg"
 
@@ -236,7 +239,7 @@ def remote_outcomes_verdict(
             f"fabro-run {target_id} present with terminal state {status}",
         )
     if status in _DELIVERED_STATUSES or status is not None:
-        return "present", None
+        return WAIT_TARGET_SATISFIED_STATUS, None
     return WAIT_TARGET_MISSING_STATUS, f"fabro-run {target_id} absent from every mandatory leg"
 
 
@@ -245,7 +248,7 @@ def remote_verdict(
 ) -> tuple[str, str | None]:
     branch = string_field(record=record, key="publish_branch")
     if publish_branch_present(repo=repo, branch=branch):
-        return "present", None
+        return WAIT_TARGET_SATISFIED_STATUS, None
     work_item_id = string_field(record=record, key="work_item_id")
     outcomes = journal_outcomes(
         records=read_journal(repo=repo), target_id=target_id, work_item_id=work_item_id
@@ -254,7 +257,7 @@ def remote_verdict(
     if outcomes_verdict is not None:
         return outcomes_verdict
     if forge_pull_request_present(repo=repo, branch=branch):
-        return "present", None
+        return WAIT_TARGET_SATISFIED_STATUS, None
     remote_liveness = remote_factory_run_present(repo=repo, record=record, target_id=target_id)
     if remote_liveness is True or (
         remote_liveness is None and string_field(record=record, key="dispatch_factory") is not None
