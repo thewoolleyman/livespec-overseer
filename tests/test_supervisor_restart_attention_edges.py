@@ -129,7 +129,12 @@ def test_resume_retry_re_evaluates_restart_never_worked_without_suppressing_retr
     clock["now"] += 61.0
     assert sup.evaluate(track=track, act=True).status == "restarting"
 
-    registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    registry.set_resume_pending(
+        repo=str(repo),
+        topic=topic,
+        session_identity=f"claude:{session}:{topic}",
+        stamp_path=sup.stamp_path,
+    )
     fake.panes[session] = _capture_with_resume(resume="changed composer", ctx=100)
     retry = sup.evaluate(track=track, act=True)
     assert retry.status == "restarting"
@@ -153,7 +158,12 @@ def test_due_restart_never_worked_attention_does_not_suppress_retry(*, tmp_path,
     monkeypatch.setattr(_supervisor_launch, "resend_enter", lambda *, sup, target: False)
 
     assert sup.evaluate(track=track, act=True).status == "restarting"
-    registry.set_resume_pending(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+    registry.set_resume_pending(
+        repo=str(repo),
+        topic=topic,
+        session_identity=f"claude:{_session}:{topic}",
+        stamp_path=sup.stamp_path,
+    )
     arm_ready_marker(repo=repo, topic=topic, mtime=1001.0)
     fake.calls.clear()
     clock["now"] += 61.0

@@ -29,8 +29,15 @@ def _post_respawn_claude_process_live(
 
 
 def claude_respawn_verified(*, sup: Supervisor, track: registry.Track, target: str) -> bool:
+    session = _supervisor_launch.session_of(sup=sup, track=track)
+    fallback_identity = f"claude:{session}:{track.topic}"
     if not _supervisor_launch.await_pane(sup=sup, target=target, is_ready=signals.pane_is_claude):
-        registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
+        registry.set_resume_pending(
+            repo=track.repo,
+            topic=track.topic,
+            session_identity=fallback_identity,
+            stamp_path=sup.stamp_path,
+        )
         sup.alert(
             repo=track.repo,
             topic=track.topic,
@@ -40,9 +47,13 @@ def claude_respawn_verified(*, sup: Supervisor, track: registry.Track, target: s
             condition="claude-post-respawn-not-ready",
         )
         return False
-    session = _supervisor_launch.session_of(sup=sup, track=track)
     if not _post_respawn_claude_process_live(sup=sup, track=track, session=session):
-        registry.set_resume_pending(repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path)
+        registry.set_resume_pending(
+            repo=track.repo,
+            topic=track.topic,
+            session_identity=fallback_identity,
+            stamp_path=sup.stamp_path,
+        )
         sup.alert(
             repo=track.repo,
             topic=track.topic,

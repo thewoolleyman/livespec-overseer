@@ -28,7 +28,10 @@ def launch_attempt_message(
     if result.launched:
         if result.reason == "resume_submit_unverified":
             registry.set_resume_pending(
-                repo=track.repo, topic=track.topic, stamp_path=sup.stamp_path
+                repo=track.repo,
+                topic=track.topic,
+                session_identity=f"claude:{session}:{track.topic}",
+                stamp_path=sup.stamp_path,
             )
             return StartLaunchMessage(
                 message=(
