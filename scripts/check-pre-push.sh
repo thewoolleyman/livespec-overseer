@@ -12,4 +12,14 @@ if [[ -z "$py_changed" ]]; then
 fi
 
 echo ":: pre-push: Python changes detected - arming LLOC soft-warning release tier"
-LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST=true just check
+failure_log="$(mktemp)"
+trap 'rm -f "$failure_log"' EXIT
+
+if ! LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST=true just check \
+  2> >(tee "$failure_log" >&2); then
+  echo ":: pre-push: failing diagnostics reported by the gate:" >&2
+  if ! grep -E '"failing"[[:space:]]*:[[:space:]]*true' "$failure_log" >&2; then
+    echo ":: pre-push: no structured failing=true diagnostics found in gate stderr" >&2
+  fi
+  exit 1
+fi

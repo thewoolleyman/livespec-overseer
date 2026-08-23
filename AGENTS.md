@@ -840,7 +840,7 @@ executes remotely.
 **THE WORK IS NOT GONE, AND THIS ENTRY SAID OTHERWISE FOR A WEEK. `fabro dump`
 RECOVERS IT — TRY THAT BEFORE REDOING ANYTHING.**
 
-    fabro dump <run-id> -o <dir>     # then read <dir>/stages/002-implement@1/diff.patch
+    fabro dump <run-id> -o <dir> [--server <factory-url>]
 
 The commit is unreachable, but the run's exported state carries the full
 implementation as a patch. Measured 2026-08-12 on two independent runs:
@@ -879,6 +879,24 @@ So the discriminator is whether `stages/*/diff.patch` exists:
 
 So the remedy below is still right about PREVENTION, but its premise about
 recovery was wrong: **dump first, redo only if the dump is genuinely empty.**
+
+**REMOTE FACTORY RUNS NEED THE FACTORY ENDPOINT.** Measured 2026-08-23 on
+run `01M0PJNQAT5X2M6AGX28XSNFN4`: a local `fabro dump <run-id> -o <dir>`
+reported no matching run because it queried the local server. The same command
+with the remote endpoint exported 74 files immediately:
+
+    fabro dump <run-id> -o <dir> --server https://hp-xubuntu.perch-rudd.ts.net:32276
+
+The same `--server` applies to `fabro attach` and `fabro ps`. For a run known to
+have been launched on a remote factory, "No run found" from a local `fabro` is a
+wrong-server tell, not evidence that the work is absent.
+
+**DO NOT TAKE THE LAST STAGE'S `diff.patch` AS THE DELIVERABLE.** On the same
+run, `stages/011-pr@1/diff.patch` was a 3,694-line diff against a stale base and
+included unrelated master work. The item-scoped deliverable was the union of
+`002-implement@1`, `004-fix@1`, and `008-review_fix@1`: eleven files, about 737
+lines. Recovery means reading every `stages/*/diff.patch` and selecting by file
+list against the item scope, not by stage order.
 
 **THE DISPATCHER'S EXIT IS NOT A REAP, AND THAT GAP IS THE RESCUE WINDOW.** The
 dispatcher gave up at ~37 minutes; the run stayed live and blocking for another
@@ -2192,6 +2210,17 @@ work-item, which is how its siblings already carry the debt — `grep -rn
 file the line goes. A split is what the HARD ceiling forces; the soft band asks
 only that the debt be owned. Crossing 200 is easy to do without noticing: adding
 ~25 lines to a 190-line module does it, and nothing warns you at edit time.
+
+Measured 2026-08-23 in the Fabro sandbox clone for `overseer-tdfe.27`, at
+unmodified `origin/master` (`9d59b1af`): `LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST=true
+just check-no-lloc-soft-warnings` exited 0. Every soft-band row carried
+`"failing": false`; the `.claude-plugin/overseer/*` mirror rows carried
+`"phase": "0-warn"` and `"newly_covered": true`. Docker was not available inside
+that sandbox, so the nested image command could not be run there, but the
+sandbox-side checkout measurement matched the operator-host baseline exactly.
+That rules out an unmodified-master non-hermetic failure for the incident; if a
+refused push reports this check now, read the hook's emitted `failing:true` lines
+and treat the named file as the actual crossing until proven otherwise.
 
 **Why this belongs beside the charter-gate entry below.** That one says to suspect
 the detector when a gate looks wrong. This is the mirror case — the detector is
