@@ -10,6 +10,7 @@ from pathlib import Path
 import jsonio
 from _supervisor_records import WaitTargetCacheEntry
 from _supervisor_wait_target_forge import forge_pull_request_present_with
+from _supervisor_wait_target_liveness import remote_factory_run_present_with
 from _supervisor_wait_target_status import (
     WAIT_TARGET_MISSING_STATUS,
 )
@@ -198,6 +199,17 @@ def forge_pull_request_present(*, repo: Path, branch: str | None) -> bool:
     return forge_pull_request_present_with(repo=repo, branch=branch, run=subprocess.run)
 
 
+def remote_factory_run_present(
+    *, repo: Path, record: dict[str, object], target_id: str
+) -> bool | None:
+    return remote_factory_run_present_with(
+        repo=repo,
+        record=record,
+        target_id=target_id,
+        run=subprocess.run,
+    )
+
+
 def local_verdict(*, repo: Path, target_id: str) -> tuple[str, str | None]:
     for record in local_process_records(repo=repo):
         if record_id(record=record) != target_id:
@@ -212,6 +224,22 @@ def local_verdict(*, repo: Path, target_id: str) -> tuple[str, str | None]:
     return WAIT_TARGET_MISSING_STATUS, f"fabro-run {target_id} absent from every mandatory leg"
 
 
+def remote_outcomes_verdict(
+    *, outcomes: list[dict[str, object]], target_id: str
+) -> tuple[str, str | None] | None:
+    if not outcomes:
+        return None
+    status = record_status(record=outcomes[-1])
+    if status in _TERMINAL_STATUSES:
+        return (
+            WAIT_TARGET_MISSING_STATUS,
+            f"fabro-run {target_id} present with terminal state {status}",
+        )
+    if status in _DELIVERED_STATUSES or status is not None:
+        return "present", None
+    return WAIT_TARGET_MISSING_STATUS, f"fabro-run {target_id} absent from every mandatory leg"
+
+
 def remote_verdict(
     *, repo: Path, record: dict[str, object], target_id: str
 ) -> tuple[str, str | None]:
@@ -222,16 +250,15 @@ def remote_verdict(
     outcomes = journal_outcomes(
         records=read_journal(repo=repo), target_id=target_id, work_item_id=work_item_id
     )
-    if outcomes:
-        status = record_status(record=outcomes[-1])
-        if status in _TERMINAL_STATUSES:
-            return (
-                WAIT_TARGET_MISSING_STATUS,
-                f"fabro-run {target_id} present with terminal state {status}",
-            )
-        if status in _DELIVERED_STATUSES or status is not None:
-            return "present", None
+    outcomes_verdict = remote_outcomes_verdict(outcomes=outcomes, target_id=target_id)
+    if outcomes_verdict is not None:
+        return outcomes_verdict
     if forge_pull_request_present(repo=repo, branch=branch):
+        return "present", None
+    remote_liveness = remote_factory_run_present(repo=repo, record=record, target_id=target_id)
+    if remote_liveness is True or (
+        remote_liveness is None and string_field(record=record, key="dispatch_factory") is not None
+    ):
         return "present", None
     return WAIT_TARGET_MISSING_STATUS, f"fabro-run {target_id} absent from every mandatory leg"
 
