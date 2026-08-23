@@ -14,6 +14,16 @@ def test_caam_operation_modules_are_outside_supervision_loop_network_audit():
     assert "operation is specified to poll Anthropic's usage endpoint" in constraints
 
 
+def test_otlp_emitter_is_the_only_supervision_loop_network_allowlist():
+    constraints = Path("overseer/test_package_constraints.py").read_text(encoding="utf-8")
+
+    assert (
+        '_SUPERVISION_NETWORK_ALLOWLIST = {"_supervisor_otel.py": ["http", "urllib"]}'
+        in constraints
+    )
+    assert "except the dedicated OTLP emitter" in constraints
+
+
 def test_daemon_runtime_dependency_guard_is_wired_with_a_control():
     constraints = Path("overseer/test_package_constraints.py").read_text(encoding="utf-8")
 

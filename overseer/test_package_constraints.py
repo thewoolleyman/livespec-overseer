@@ -43,7 +43,8 @@ _PACKAGE_ROOT = pathlib.Path(__file__).resolve().parent
 # `subprocess` is deliberately NOT here: the daemon drives tmux and git through
 # it, which constraints.md explicitly contemplates ("every acting mechanic
 # drives a real tmux"). The point of this set is that no PYTHON-level network
-# client is reachable from the supervision loop.
+# client is reachable from the supervision loop, except for the closed-catalog OTLP
+# emitter that exports the daemon's own event records.
 _NETWORK_MODULES = frozenset(
     {
         "asyncio",
@@ -64,6 +65,7 @@ _NETWORK_MODULES = frozenset(
 _OUT_OF_BAND_IMPORTS = {
     "homelab_charter_scan.py": frozenset({"livespec_dev_tooling"}),
 }
+_SUPERVISION_NETWORK_ALLOWLIST = {"_supervisor_otel.py": ["http", "urllib"]}
 
 
 def _product_modules() -> tuple[pathlib.Path, ...]:
@@ -199,15 +201,15 @@ def test_daemon_import_chain_reports_a_reachable_runtime_dependency(*, tmp_path)
     )
 
 
-def test_the_supervision_loop_cannot_make_model_calls():
+def test_the_supervision_loop_network_imports_are_limited_to_the_otlp_emitter():
     """The "Determinism boundary" rule of SPECIFICATION/constraints.md: the daemon "holds
     NO semantic judgment and makes no model calls", so "tokens are never spent by the
     watching loop".
 
     A model call needs a network client. The supervision-loop modules import NO
-    network-capable stdlib module at all, which is a stronger and far more durable
-    statement than auditing call sites: there is no client to call one with.
-    `caam_*` modules are operation code, not daemon supervision code; the account-usage
+    network-capable stdlib module except the dedicated OTLP emitter that ships the
+    daemon's closed catalog of local event records. `caam_*` modules are operation
+    code, not daemon supervision code; the account-usage
     operation is specified to poll Anthropic's usage endpoint.
 
     SABOTAGE-VERIFIED 2026-07-26: adding `import urllib.request` to
@@ -226,7 +228,9 @@ def test_the_supervision_loop_cannot_make_model_calls():
         if hits:
             reachable[path.name] = hits
 
-    assert reachable == {}, f"network-capable imports in a no-model-calls package: {reachable}"
+    assert (
+        reachable == _SUPERVISION_NETWORK_ALLOWLIST
+    ), f"unexpected network-capable imports in the supervision loop: {reachable}"
 
 
 def test_a_supervision_tick_never_opens_a_file_under_a_plan_tree(*, tmp_path, monkeypatch):
