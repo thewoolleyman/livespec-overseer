@@ -1503,6 +1503,55 @@ answer "is it still broken?" by grepping for your own fix's symbol: that instrum
 blind to every other repair of the same defect and will tell you the work is still
 needed when it is not.
 
+### A NINTH SHAPE: the run SUCCEEDED, the PR is OPEN, and a RED GATE is holding the merge
+
+Measured 2026-08-23 on `overseer-tdfe.13`, run `01M0PP1ZF673`. **Its discriminator is
+`pr_number` POPULATED with `merge_sha` NULL, and it sits exactly between two documented
+rows** — the janitor-post-merge shape has BOTH populated and means the work landed;
+every pre-merge shape has both null and means it did not. Here the work exists, is
+reviewable, and is one gate away from landing.
+
+    verdict.env      status=failed exit_code=1
+    fabro ps         absent from the live view
+    fabro ps -a      01M0PP1ZF673  SUCCEEDED  82m30s
+    envelope stage   merge-poll
+    envelope detail  "PR did not reach MERGED within the poll budget"
+    pr_number 1833   merge_sha null   fabro_run_id non-null
+    ledger           active / fabro
+
+Read either neighbour and you act wrongly: close it as landed when it has not merged, or
+release-and-re-dispatch against a live publish branch, which is the collision. **The
+remedy is to fix the gate that is holding the merge and let auto-merge land it** — do not
+touch the claim, and do not close the row.
+
+**THE CAUSE WILL RECUR ON ANY DISPATCHED ITEM THAT ADDS A SIZEABLE MODULE.**
+`check-no-lloc-soft-warnings` failed on three new modules in the 201-250 soft band with
+no owning marker. Every other check was green, and the run's own `review_fix` stage had
+tried the repair and failed. **So the factory can produce complete, green work and still
+be unable to land it over a mechanical debt gate**, after which the dispatcher reports
+failure about work that is fine.
+
+**And the marker alone is NOT sufficient.** `tests/test_lloc_owner_marker_liveness.py`
+refuses any marker naming an owner outside an ENUMERATED set, so the marker and its pin
+registration must land together. Worse, the pre-commit aggregate reported that failure as
+`check-per-file-coverage` and `check-coverage` **while coverage was 100.00%** — the real
+failure was one assertion inside a differently-named target. Same shape as the LLOC check
+itself: the reported target name points away from the cause.
+
+### THE ENVELOPE'S `status` DESCRIBES THE STAGE THAT GAVE UP, NOT THE RUN
+
+This supersedes the narrower "read the `detail`, not only the `status`" rule recorded
+above, and it is the generalisation two independently-measured shapes now support:
+
+- a **transport** `detail` (a timeout, a body read, a connection) means the envelope is
+  reporting on the DISPATCHER's health;
+- a **merge-poll** `detail` means it is reporting on the FORGE's state.
+
+Neither is evidence about the run. **The envelope's `status` is evidence about the run
+only when the stage that failed IS the run** — and only the `detail` says which stage that
+was. In every other case the run outcome comes from `fabro ps -a` on the owning factory,
+and whether the work landed comes from the forge.
+
 ### THE GITHUB APP INSTALLATION PIN CANNOT BE PASSED THE OBVIOUS WAY — the credential wrapper scrubs it
 
 Measured 2026-08-23T02:1xZ, dispatching `overseer-au3pt3.16.3`. This one refuses with a
