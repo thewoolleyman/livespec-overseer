@@ -810,8 +810,8 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A foreman tick that ends with its own blocking prompt outstanding is a reportable violation",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN -- owned by overseer-afaj. Ratified ahead of its test, deliberately. The covering test MUST resolve at INTEGRATION tier or above (never unit tier) and must prove that a foreman tick ending with its own blocking prompt outstanding is reported as a violation rather than treated as a permitted bounded wait. The only tests pinning the blocking-prompt condition today are unit tier, which direction 4 correctly refuses; the sibling entry above pins the non-blocking side and does NOT prove this one.",
+    "test": "tests.integration.test_foreman_escalation_attention.test_scenario_foreman_blocking_prompt_tick_is_reportable_violation",
+    "reason": "Integration-tier: drives the foreman runtime across two consecutive observations of its own still-open blocking picker, proving the tick is surfaced through a foreman escalation marker with seat identity instead of being accepted as a bounded wait or converted into restart/session state.",
     "work_item": "overseer-afaj"
   },
   {
