@@ -629,6 +629,30 @@ dispatch target through `work_item_session_start` or
 `qualifying_session_resume`; a reported terminating condition is surfaced to the
 maintainer and never self-applied by the supervisor.
 
+Plan archive authority is posture-derived and machine-readable. Before treating
+any acceptance-criteria sentence as reserving archive to a human, query the
+resolver from the target repo:
+
+```bash
+python - <<'PY'
+from pathlib import Path
+from overseer.foreman_valve_policy import effective_plan_archive_authority
+
+print(effective_plan_archive_authority(repo=Path.cwd()))
+PY
+```
+
+If `authority` is `session-performable` and the independent archive gates pass,
+the supervisor may archive the plan without a human or panel. If `authority` is
+`reserved`, the same passed gates are not enough; `reserved_actor` names who owns
+the archive decision. This rule deliberately covers existing epics whose
+acceptance criteria say "the maintainer for archive": those rows are not edited
+in place, and they are safe because the session now reads the posture resolver
+instead of interpreting that sentence as an unenforced prose gate. Do not
+generalize from completeness-review evidence records: an attester disclaiming
+their own authority in evidence is a different artifact from a plan epic's
+ratified acceptance criteria.
+
 ## No idle, no silent block
 
 A conflicting lane owned by another track is NOT a thread-wide blocked state. If
