@@ -33,11 +33,7 @@ from foreman_work_item_sessions import act_work_item_session, is_work_item_sessi
 
 __all__: list[str] = ["CommandResult", "DispatchSeams", "Runner", "act_authorized"]
 
-_START_ACTIONS: tuple[ActionId, ...] = (
-    PLAN_START,
-    QUALIFYING_SESSION_START,
-    SUPERVISOR_PAIR_START,
-)
+_START_ACTIONS: tuple[ActionId, ...] = (PLAN_START, QUALIFYING_SESSION_START, SUPERVISOR_PAIR_START)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -120,14 +116,6 @@ def _is_ledger_mutation(*, action_id: ActionId) -> bool:
     return action_id in (FOREMAN_EPIC_CREATE, WORK_ITEM_COMMENT, WORK_ITEM_UPDATE)
 
 
-def _revalidate_action_identity(
-    *, action_id: ActionId, proposal: dict[str, object], document: dict[str, object]
-) -> str | None:
-    if action_id in _START_ACTIONS:
-        return revalidate_start_identity(proposal=proposal, document=document)
-    return revalidate_identity(proposal=proposal, document=document)
-
-
 def _act_ledger_mutation(
     *,
     proposal: dict[str, object],
@@ -202,9 +190,9 @@ def act_authorized(
             run=returncode_runner,
         )
     elif (
-        identity_refusal := _revalidate_action_identity(
-            action_id=action_id, proposal=proposal, document=document
-        )
+        identity_refusal := revalidate_start_identity(proposal=proposal, document=document)
+        if action_id in _START_ACTIONS
+        else revalidate_identity(proposal=proposal, document=document)
     ) is not None:
         result = _refused(action_id=action_id, reason=identity_refusal)
     elif (
