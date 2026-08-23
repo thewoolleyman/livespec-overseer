@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_foreman_heartbeat
 import _supervisor_observe
 import registry
 import signals
@@ -66,6 +67,14 @@ def _no_session_declaration(*, declared: signals.TrackState | None) -> bool:
     return declared is None or declared.token == signals.STATE_IDLE_WITH_CONTEXT_LEFT
 
 
+def _fresh_foreman_within_contract(*, request: ObserveEscalationExhaustionRequest) -> bool:
+    return isinstance(
+        request.track, registry.ForemanSeat
+    ) and _supervisor_foreman_heartbeat.foreman_heartbeat_fresh(
+        repo=request.track.repo, now=request.sup.now
+    )
+
+
 def _active_now(*, request: ObserveEscalationExhaustionRequest) -> bool:
     return (
         request.round_record.at is not None
@@ -83,6 +92,7 @@ def _active_now(*, request: ObserveEscalationExhaustionRequest) -> bool:
         and not request.busy
         and not request.generating
         and not request.shell_only
+        and not _fresh_foreman_within_contract(request=request)
     )
 
 

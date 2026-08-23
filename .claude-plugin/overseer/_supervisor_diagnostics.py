@@ -214,6 +214,18 @@ def _alert_identity(*, request: AlertRequest, message: str) -> str:
             sort_keys=True,
             separators=(",", ":"),
         )
+    if request.condition == "escalation-exhausted":
+        return json.dumps(
+            {
+                "condition": request.condition,
+                "repo": request.repo,
+                "topic": request.topic,
+                "session": request.session,
+                "pane": request.pane,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
     return message
 
 
