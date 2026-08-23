@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 
 from overseer import _supervisor_foreman_escalation as foreman_escalation
-from overseer import registry, signals, supervisor
+from overseer import foreman_runtime, registry, signals, supervisor
 from overseer.test_supervisor_builders import (
     declare,
     idle_capture,
@@ -80,6 +80,38 @@ def test_scenario_foreman_escalation_is_report_only_attention(*, tmp_path):
     assert not fake.has(method="keys")
     assert not fake.has(method="respawn")
     assert not fake.has(method="new")
+
+
+def test_scenario_foreman_blocking_prompt_tick_is_reportable_violation(*, tmp_path):
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    runtime = foreman_runtime.ForemanRuntime(repo=repo, now=lambda: 1000.25)
+    document = {
+        "snapshot": {
+            "rows": [
+                {
+                    "topic": "repo-foreman",
+                    "status": "blocked:human",
+                    "picker_open": True,
+                    "session_identity": "claude:current-foreman-seat",
+                }
+            ],
+        }
+    }
+
+    first = runtime.step(document=document)
+    result = runtime.step(document=document)
+
+    marker = repo / "tmp" / "overseer" / "foreman" / "escalations" / "repo-foreman.json"
+    assert first.blocking_prompt_open is False
+    assert result.blocking_prompt_open is True
+    assert json.loads(marker.read_text(encoding="utf-8")) == {
+        "reason": (
+            "foreman tick ended with a blocking prompt; the decision must stay on "
+            "the non-blocking attention surface so the loop cadence can continue"
+        ),
+        "session_identity": "claude:current-foreman-seat",
+    }
+    assert not (repo / "tmp" / "overseer" / "repo-foreman" / ".overseer-state").exists()
 
 
 def test_foreman_escalation_clears_for_resolved_marker_while_outstanding_still_fires(*, tmp_path):
