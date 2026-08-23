@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.51.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.50.4...v1.51.0) (2026-08-23)
+
+
+### Features
+
+* cover caam protected account configuration ([fdd375b](https://github.com/thewoolleyman/livespec-overseer/commit/fdd375b40d6d48948e4565bd5d8cc3bde97ebc28))
+
+
+### Bug Fixes
+
+* resolve caam pass rebase and coverage ([95a0486](https://github.com/thewoolleyman/livespec-overseer/commit/95a0486dd6ca9fb0aed5688f5fab40476d322083))
+
 ## [1.50.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.50.3...v1.50.4) (2026-08-23)
 
 
