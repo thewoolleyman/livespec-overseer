@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.44.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.0...v1.44.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* resolve plan archive authority from posture ([5aa9eac](https://github.com/thewoolleyman/livespec-overseer/commit/5aa9eaca18bc2d0752b18ceac7a143c91f175c47))
+* use plugin root for plan archive resolver ([7592767](https://github.com/thewoolleyman/livespec-overseer/commit/75927674f80c7b246f72f477252d10933ad27b8f))
+
 ## [1.44.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.43.1...v1.44.0) (2026-08-23)
 
 
