@@ -1353,6 +1353,88 @@ QUANTIFY the blast radius, not to test the claim. **Quantifying a scope claim an
 testing it are the same act**; going to look for the boundary first would have
 filed it correctly.
 
+### AN EIGHTH SHAPE: the work MERGED and the POST-MERGE JANITOR failed — and the cause was the REPO, not the item
+
+Measured 2026-08-22 dispatching `overseer-temi26.6`. **This shape is dangerous for
+the same reason the fourth one is: its symptom is a `failed` dispatch with a phantom
+claim, which the table above maps onto queue eviction — whose remedy is to release and
+re-dispatch. Doing that here re-runs work that is already on master.**
+
+The dispatcher's own JSON envelope is unambiguous once read carefully:
+
+    "stage": "janitor-post-merge",  "status": "failed",
+    "pr_number": 1624,  "merge_sha": "5e2ba05f97c6…",
+    "detail": "post-merge janitor red in fresh checkout
+               /home/ubuntu/.worktrees/livespec-overseer/janitor-<item> (kept for diagnosis)"
+
+**`pr_number` AND `merge_sha` ARE POPULATED. That is the discriminator, and it is
+available immediately.** Every pre-merge shape in this section leaves both null,
+because no PR was ever merged. A stage that runs *after* the merge cannot be evidence
+about whether the merge happened — so `status: failed` here means "the repo was red
+when we checked afterwards", never "your work did not land".
+
+**THE CAUSE WAS ANOTHER TRACK'S COMMIT.** Master carried a standing ruff `PLR0915`
+breach — a function at 31 statements against a budget of 30 — arriving with a merge
+hours earlier on an unrelated track. A red master blocks every dispatch in this repo
+**and** fails the post-merge janitor of every item that merges into it, so the blast
+radius is every track at once while it lasts.
+
+**TWO CHECKS SETTLE IT, AND BOTH ARE CHEAP.**
+
+**The population.** Three post-merge janitors failed inside three minutes, on three
+unrelated items in two different repos. *A failure that lands on several unrelated
+items at once is a property of the repo, not of any of them.* Grep the dispatch
+journal for other `outcome` entries in the same window before diagnosing your own:
+
+    grep '"stage": "janitor-post-merge"' tmp/fabro-dispatch-journal.jsonl | tail
+
+**The direct control, and this is the part worth knowing.** The janitor **keeps its
+checkout** and names the path in the `detail` string. That is the exact tree the
+janitor judged, so re-running the aggregate there answers the question with a
+measurement rather than an argument — through the detached gate runner, since a bare
+backgrounded gate is refused:
+
+    cd <the kept janitor checkout>
+    mise exec -- just gate-start -- just check     # then gate-wait the printed run id
+
+Here it returned PASSED, exit 0, in 4m48s at the item's own merge sha. The item's tree
+was green; the repo was not.
+
+**REMEDY: CLOSE THE ITEM, FIX THE REPO.** Confirm the merge on the forge, record the
+verification, and close — never re-dispatch. Then fix master, because until it is
+green every subsequent dispatch is refused at the master-CI gate and every merge that
+slips through fails its janitor for a reason that has nothing to do with it.
+
+| | succeeded-untransitioned | **janitor-post-merge red** |
+|---|---|---|
+| `pr_number` / `merge_sha` | (not reported) | **both POPULATED** |
+| stage | — | **`janitor-post-merge`** |
+| others failing at once | no | **yes — several unrelated items** |
+| work landed | yes | **yes** |
+| remedy | close it | **close it, then fix master** |
+
+**AND NOTE WHAT THE JANITOR IS ACTUALLY FOR.** It is the only thing in this fleet that
+re-tests master *after* a merge; every other gate judges a branch *before* it lands.
+That is why a janitor failure is a report about MASTER first and about your item
+second — read it that way round.
+
+**How this particular breach got past the pre-merge gates was NOT established**, and
+the honest answer is that nobody looked: the repair was the urgent thing and the
+forensics were never done. Do not repeat the plausible-sounding story that two
+independently-green branches interacted — that is a hypothesis, and an unmeasured one.
+If it happens again, the question worth answering is whether the introducing branch's
+own CI ran against a merge that already contained the other half.
+
+**AND EXPECT THE REPAIR TO BE REDUNDANT BY THE TIME YOU LAND IT.** A red master is
+visible to every track at once, so several seats may fix it independently. Measured
+here: a fix written at 11:00Z was still uncommitted at 23:20Z, by which time the owning
+track had reverted, applied the *same* split, and re-landed on top — and had added a
+seam test under the *same filename* the other seat had chosen. **Re-run the failing
+check against current master immediately before committing a repair**, and do not
+answer "is it still broken?" by grepping for your own fix's symbol: that instrument is
+blind to every other repair of the same defect and will tell you the work is still
+needed when it is not.
+
 ### A DEFERRED item ANYWHERE in the tenant blocks EVERY dispatch in the repo
 
 Measured 2026-08-19. This trap is not about your item, and its error text names
