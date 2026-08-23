@@ -16,6 +16,7 @@ EXPECTED_FORWARDABLE_FLAGS = (
     "--dry-run",
     "--no-models",
     "--foreman-model=<fable|opus|auto>",
+    "--session-model=<session>=<fable|opus|auto>",
     "--no-warm",
 )
 
@@ -38,3 +39,11 @@ def test_caam_prose_explains_foreman_pin_persistence_and_clear() -> None:
     assert "pin persists" in prose
     assert "later scheduled ticks" in prose
     assert "`--foreman-model=auto` clears the pin" in prose
+
+
+def test_caam_prose_explains_session_model_exception_persistence() -> None:
+    prose = PROSE.read_text(encoding="utf-8")
+
+    assert "`--session-model=<session>=fable`" in prose
+    assert "`--session-model=<session>=auto` clears that session's exception" in prose
+    assert "reported in the table line as `exceptions:`" in prose

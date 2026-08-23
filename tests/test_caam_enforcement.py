@@ -71,6 +71,7 @@ def test_production_pass_reaches_tmux_discovery_and_model_picker(
             no_models=False,
             no_warm=True,
             foreman_model=None,
+            session_models=(),
         ),
         home=home,
         now=1234.0,
@@ -103,6 +104,7 @@ def test_dry_run_reports_would_line_and_sends_no_picker_keys(
             no_models=False,
             no_warm=True,
             foreman_model=None,
+            session_models=(),
         ),
         home=home,
         now=1234.0,
@@ -144,6 +146,7 @@ def test_busy_pane_reports_busy_without_recording_and_retries_next_tick(*, tmp_p
         set_model=lambda **_: None,
         state=state,
     )
+    after_first = dict(state)
     second = caam_enforcement.enforce_models(
         settings_path=Path("/missing/settings.json"),
         no_models=False,
@@ -166,7 +169,7 @@ def test_busy_pane_reports_busy_without_recording_and_retries_next_tick(*, tmp_p
         first[-1]
         == "models: foremen want fable (active account Fable left); alpha-foreman busy(opus->fable)"
     )
-    assert state == {}
+    assert after_first == {}
     assert (
         second[-1]
         == "models: foremen want fable (active account Fable left); alpha-foreman opus->fable"
@@ -220,6 +223,195 @@ def test_model_report_lines_match_source_oracle(*, tmp_path: Path) -> None:
     assert (
         busy[-1] == "models: foremen want fable (active account Fable left); "
         "alpha-foreman busy(unknown->fable)"
+    )
+
+
+def test_session_model_exception_outranks_foreman_pin_and_fable_resets(*, tmp_path: Path) -> None:
+    state: dict[str, object] = {}
+    calls: list[tuple[str, str]] = []
+
+    messages = caam_enforcement.enforce_models(
+        settings_path=Path("/missing/settings.json"),
+        no_models=False,
+        home=Path("/tmp"),
+        state_path=tmp_path / "state.json",
+        session_names=("alpha-foreman", "beta"),
+        active_fable=100.0,
+        foreman_model="opus",
+        session_models=(("alpha-foreman", "fable"), ("beta", "fable")),
+        now=1234.0,
+        pane_pid=lambda **_: 101,
+        children_of=lambda **_: (),
+        environ_of=lambda **_: b"CLAUDE_CODE_SESSION_ID=sid-1\0",
+        pane_model=lambda **_: "opus",
+        pane_idle=lambda **_: True,
+        set_model=lambda *, session, model: calls.append((session, model)),
+        state=state,
+    )
+
+    assert calls == [("alpha-foreman", "fable"), ("beta", "fable")]
+    assert state["session-models"] == {"alpha-foreman": "fable", "beta": "fable"}
+    assert messages[-1] == (
+        "models: foremen want opus [pinned] (active account Fable EXHAUSTED); "
+        "alpha-foreman opus->fable, beta opus->fable; "
+        "exceptions: alpha-foreman=fable, beta=fable"
+    )
+
+
+def test_session_model_exception_clear_restores_lower_precedence_rule(*, tmp_path: Path) -> None:
+    state: dict[str, object] = {"session-models": {"alpha-foreman": "fable"}}
+    calls: list[tuple[str, str]] = []
+
+    messages = caam_enforcement.enforce_models(
+        settings_path=Path("/missing/settings.json"),
+        no_models=False,
+        home=Path("/tmp"),
+        state_path=tmp_path / "state.json",
+        session_names=("alpha-foreman",),
+        active_fable=100.0,
+        foreman_model="opus",
+        session_models=(("alpha-foreman", "auto"),),
+        now=1234.0,
+        pane_pid=lambda **_: 101,
+        children_of=lambda **_: (),
+        environ_of=lambda **_: b"CLAUDE_CODE_SESSION_ID=sid-1\0",
+        pane_model=lambda **_: "fable",
+        pane_idle=lambda **_: True,
+        set_model=lambda *, session, model: calls.append((session, model)),
+        state=state,
+    )
+
+    assert calls == [("alpha-foreman", "opus")]
+    assert state["session-models"] == {}
+    assert "exceptions:" not in messages[-1]
+
+
+def test_session_model_exception_warns_but_does_not_fallback_when_fable_spent(
+    *, tmp_path: Path
+) -> None:
+    state: dict[str, object] = {}
+
+    messages = caam_enforcement.enforce_models(
+        settings_path=Path("/missing/settings.json"),
+        no_models=False,
+        home=Path("/tmp"),
+        state_path=tmp_path / "state.json",
+        session_names=("beta",),
+        active_fable=100.0,
+        foreman_model=None,
+        session_models=(("beta", "fable"),),
+        now=1234.0,
+        pane_pid=lambda **_: 101,
+        children_of=lambda **_: (),
+        environ_of=lambda **_: b"CLAUDE_CODE_SESSION_ID=sid-1\0",
+        pane_model=lambda **_: "fable",
+        pane_idle=lambda **_: True,
+        set_model=lambda **_: None,
+        state=state,
+    )
+
+    assert messages[0] == (
+        "models: WARNING beta pins fable but the active account's Fable is spent -- "
+        "that session will be blocked"
+    )
+    assert messages[-1] == (
+        "models: foremen want opus (active account Fable EXHAUSTED); nothing to change; "
+        "exceptions: beta=fable"
+    )
+
+
+def test_session_model_exception_persists_before_no_models_early_return(*, tmp_path: Path) -> None:
+    state_path = tmp_path / "state.json"
+
+    messages = caam_enforcement.enforce_models(
+        settings_path=Path("/missing/settings.json"),
+        no_models=True,
+        home=Path("/tmp"),
+        state_path=state_path,
+        session_models=(("beta", "opus"),),
+        set_model=lambda **_: pytest.fail("no picker keystroke expected"),
+        state={},
+    )
+
+    assert messages == []
+    assert json.loads(state_path.read_text(encoding="utf-8")) == {
+        "session-models": {"beta": "opus"}
+    }
+
+
+def test_session_model_exception_no_models_without_state_path_is_non_driving() -> None:
+    messages = caam_enforcement.enforce_models(
+        settings_path=Path("/missing/settings.json"),
+        no_models=True,
+        session_models=(("beta", "opus"),),
+        set_model=lambda **_: pytest.fail("no picker keystroke expected"),
+        state={},
+    )
+
+    assert messages == []
+
+
+def test_session_model_exception_ignores_malformed_requests(*, tmp_path: Path) -> None:
+    state: dict[str, object] = {"session-models": {"alpha": "sonnet", "old": "opus"}}
+
+    messages = caam_enforcement.enforce_models(
+        settings_path=Path("/missing/settings.json"),
+        no_models=False,
+        home=Path("/tmp"),
+        state_path=tmp_path / "state.json",
+        session_names=("old",),
+        active_fable=42.0,
+        foreman_model=None,
+        session_models=(("", "fable"), ("old", "sonnet")),
+        now=1234.0,
+        pane_pid=lambda **_: 101,
+        children_of=lambda **_: (),
+        environ_of=lambda **_: b"CLAUDE_CODE_SESSION_ID=sid-1\0",
+        pane_model=lambda **_: "opus",
+        pane_idle=lambda **_: True,
+        set_model=lambda **_: None,
+        state=state,
+    )
+
+    assert messages[0] == "models: ignoring --session-model==fable (expected session=model)"
+    assert (
+        messages[1] == "models: ignoring --session-model=old=sonnet (expected fable/opus or auto)"
+    )
+    assert state["session-models"] == {"old": "opus"}
+
+
+def test_session_model_option_parser_ignores_malformed_tuples(*, tmp_path: Path) -> None:
+    calls: list[tuple[str, str]] = []
+    mixed_session_models: tuple[object, ...] = (
+        "not-a-pair",
+        ("too-short",),
+        ("wrong-type", 1),
+        ("beta", "opus"),
+    )
+
+    messages = caam_enforcement.enforce_models(
+        settings_path=Path("/missing/settings.json"),
+        no_models=False,
+        home=Path("/tmp"),
+        state_path=tmp_path / "state.json",
+        session_names=("beta",),
+        active_fable=42.0,
+        foreman_model=None,
+        session_models=mixed_session_models,
+        now=1234.0,
+        pane_pid=lambda **_: 101,
+        children_of=lambda **_: (),
+        environ_of=lambda **_: b"CLAUDE_CODE_SESSION_ID=sid-1\0",
+        pane_model=lambda **_: "fable",
+        pane_idle=lambda **_: True,
+        set_model=lambda *, session, model: calls.append((session, model)),
+        state={},
+    )
+
+    assert calls == [("beta", "opus")]
+    assert messages[-1] == (
+        "models: foremen want fable (active account Fable left); beta fable->opus; "
+        "exceptions: beta=opus"
     )
 
 

@@ -11,7 +11,8 @@ from caam_effort import enforce_effort_floor
 from caam_enforcement_options import ModelContext, ModelRun, model_context
 from caam_foreman_override import apply_foreman_model_override
 from caam_picker import real_picker_tmux
-from caam_profile_state import save_state
+from caam_profile_state import load_state, save_state
+from caam_session_models import SessionModelExceptions, apply_session_model_exceptions
 from caam_sessions import (
     SessionModel,
     discover_session_models,
@@ -44,6 +45,7 @@ def enforce_models(
 ) -> list[str]:
     messages = enforce_effort_floor(settings_path=settings_path)
     if no_models:
+        _persist_session_model_requests(model_options=model_options)
         return messages
     context = model_context(
         options=model_options,
@@ -100,6 +102,11 @@ def _enforce_orchestrated_models(
         default_model="fable" if fable_left else "opus",
         fable_left=fable_left,
     )
+    session_exceptions = apply_session_model_exceptions(
+        state=context.state,
+        requested_models=context.session_models,
+        fable_left=fable_left,
+    )
     actions = [
         action
         for pane in panes
@@ -108,16 +115,20 @@ def _enforce_orchestrated_models(
             state=context.state,
             fable_left=fable_left,
             want_foreman=foreman.want_foreman,
+            session_exceptions=session_exceptions,
             run=context.run,
         )
     ]
     balance = "left" if fable_left else "EXHAUSTED"
     suffix = ", ".join(actions) if actions else "nothing to change"
     pinned = " [pinned]" if foreman.pinned else ""
+    exceptions = session_exceptions.summary()
+    summary_suffix = suffix if exceptions is None else f"{suffix}; {exceptions}"
     return [
+        *session_exceptions.messages,
         *foreman.messages,
         f"models: foremen want {foreman.want_foreman}{pinned} "
-        f"(active account Fable {balance}); {suffix}",
+        f"(active account Fable {balance}); {summary_suffix}",
     ]
 
 
@@ -127,9 +138,12 @@ def _actions_for_pane(
     state: dict[str, object],
     fable_left: bool,
     want_foreman: str,
+    session_exceptions: SessionModelExceptions,
     run: ModelRun,
 ) -> list[str]:
-    want = _wanted_model(session=pane.session, fable_left=fable_left, want_foreman=want_foreman)
+    want = session_exceptions.want_for(session=pane.session) or _wanted_model(
+        session=pane.session, fable_left=fable_left, want_foreman=want_foreman
+    )
     if want is None:
         return []
     try:
@@ -152,3 +166,27 @@ def _wanted_model(*, session: str, fable_left: bool, want_foreman: str) -> str |
     if not fable_left:
         return "opus"
     return None
+
+
+def _persist_session_model_requests(*, model_options: dict[str, object]) -> None:
+    requested = model_options.get("session_models")
+    if not isinstance(requested, tuple):
+        return
+    state_path = model_options.get("state_path")
+    if not isinstance(state_path, Path):
+        return
+    state = model_options.get("state")
+    current_state = (
+        cast(dict[str, object], state)
+        if isinstance(state, dict)
+        else load_state(state_path=state_path)
+    )
+    active_fable = model_options.get("active_fable")
+    fable_left = isinstance(active_fable, float) and active_fable < _FABLE_EXHAUSTED
+    _ = apply_session_model_exceptions(
+        state=current_state,
+        requested_models=cast(tuple[tuple[str, str], ...], requested),
+        fable_left=fable_left,
+    )
+    with contextlib.suppress(*_SAVE_ERRORS):
+        save_state(state=current_state, state_path=state_path)

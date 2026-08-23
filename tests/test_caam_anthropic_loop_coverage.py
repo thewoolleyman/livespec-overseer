@@ -54,6 +54,7 @@ class _Flags:
     no_models: bool = False
     no_warm: bool = True
     foreman_model: str | None = None
+    session_models: tuple[tuple[str, str], ...] = ()
 
 
 def test_main_default_runner_uses_stdout_and_sys_argv_seams(*, monkeypatch) -> None:

@@ -60,13 +60,19 @@ Resolve the mode from the invocation text after the schedule check.
   headroom than the current account and still refuses any account with zero
   weekly quota.
 - Forward only these operator flags when present: `--force`, `--dry-run`,
-  `--no-models`, `--foreman-model=<fable|opus|auto>`, and `--no-warm`.
+  `--no-models`, `--foreman-model=<fable|opus|auto>`,
+  `--session-model=<session>=<fable|opus|auto>`, and `--no-warm`.
   `--foreman-model=fable` and `--foreman-model=opus` pin the model enforced for
   sessions whose name carries the foreman suffix, and that pin persists in the
   operation state across later scheduled ticks until it is explicitly cleared.
   `--foreman-model=auto` clears the pin and restores the balance-derived
-  behavior. `--no-warm` skips the idle-profile keep-warm maintenance for this
-  pass.
+  behavior. `--session-model=<session>=fable` and
+  `--session-model=<session>=opus` pin one named session above every foreman and
+  Fable-balance rule; `--session-model=<session>=auto` clears that session's exception.
+  Session exceptions persist even when passed with `--no-models`, are
+  reported in the table line as `exceptions:`, and are absolute: a session pinned
+  to spent Fable is left there with a warning rather than silently moved. `--no-warm`
+  skips the idle-profile keep-warm maintenance for this pass.
 
 Do not add retry, recovery, alternate thresholds, or a manual fallback. The
 program owns the account decision.
