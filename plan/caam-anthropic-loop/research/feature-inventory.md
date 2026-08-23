@@ -1010,6 +1010,22 @@ different claims and only the first changes a carrier.
 |---|---|---|
 | `d60f8d2` | `build_rows()` **revives a dark profile**: one `warm_profile()` sandbox refresh before writing the row off, then a re-probe; on success the row is `live` and eligible, logged with a `revive` line | **PENDING** — absent from the rebuild; carried BLOCKED as `overseer-54k2za.28` |
 | `d7a7dd5` | qualifies the LIVE-verified rule in the source's `AGENTS.md` | **PENDING** — already logged as pending; no code carrier |
+| `579462d` | **per-session model exception, "rule 0"**: `--session-model=<session>=<model>`, repeatable, persisted in state, applied ABOVE every existing model rule | **PENDING** — outranks the **V** foreman pin and both Fable-exhausted resets (**1b**, **2b**); carried BLOCKED as `overseer-54k2za.29` |
+
+**Rule 0 does not supersede the L-group precedence — it sits above it.** The
+reporting seat drew the opposite conclusion, that fixing enforcement against the
+1a/1b/2a/2b order would land "correct against a superseded target". It would not:
+the oracle still *has* that order, and `overseer-54k2za.26` — which fixes model
+enforcement being unreachable on the production path at all — is a prerequisite
+either way. **Reproducing an unmerged branch is the divergence, not the fidelity.**
+
+Three design decisions in `579462d` are deliberate and each reads as a bug if you
+do not know that. The exception is **absolute by construction**: a session pinned
+to a model whose balance is spent is *left there and blocked*, logged as a
+WARNING, because a rule that could quietly override the exception would defeat the
+only mechanism for saying "leave this one alone". It is **persisted before the
+no-models early return**, so setting an exception and applying it are separate
+acts. And the table line carries an `exceptions:` field.
 
 **Why the revive path exists, and why it bears on `overseer-54k2za.12`.**
 Eligibility requires a `live` source (**G8**). Once `64bc24a` disabled keep-warm,
