@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.1...v1.44.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* retire archived full-autonomy seats ([b1100be](https://github.com/thewoolleyman/livespec-overseer/commit/b1100be3c4679df0a3e6aaa9f31dc2b8c9090e3f))
+
 ## [1.44.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.0...v1.44.1) (2026-08-23)
 
 
