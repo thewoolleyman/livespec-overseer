@@ -1211,7 +1211,11 @@ for the marker's edge-triggered lifecycle.
     `supervisor.run_daemon()`, which watches the whole fleet. It pins its own dir
     onto `sys.path` so `import supervisor` (and supervisor's siblings) resolve
     from any cwd. This is the ONLY thing the `/overseer` skill launches in the top
-    pane.
+    pane. The installed `.claude-plugin/bin/overseerd` launcher ends by `exec`ing
+    `python3 -m overseer.daemon "$@"`, so a healthy daemon's process title is the
+    Python module invocation, not `overseerd`; `pgrep -af overseerd` can return
+    empty while the singleton daemon is alive. Check for `python3 -m overseer.daemon`,
+    the singleton lock, and the growing daemon log instead.
   - **`supervisor.py`** — a **plain module** (NO shebang, NOT executable). It is the
     FAÇADE over `_supervisor_core` (which holds the `Supervisor` class) and holds
     `build_supervisor()` + `run_daemon()` + the one-shot track-management CLI

@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 
 import registry
 from _supervisor_config import WINDOW_NAME, iso_now
+from _supervisor_surface_attention import SurfaceAttention
 from _supervisor_view import (
     ANSI_RESET,
     MAX_NOTE_IN_TABLE,
@@ -46,7 +47,9 @@ __all__: list[str] = [
 ]
 
 
-def render_table(*, sup: Supervisor, rows: Iterable[RowView]) -> None:
+def render_table(
+    *, sup: Supervisor, rows: Iterable[RowView], surface_attention: SurfaceAttention | None = None
+) -> None:
     """Clear the screen and print the live ``Status · Topic · tmux · Ctx% · Repo`` table.
 
     Re-rendered from live captures every tick, and stamped with the current
@@ -96,13 +99,15 @@ def render_table(*, sup: Supervisor, rows: Iterable[RowView]) -> None:
         # status (not the note-decorated cell text).
         color = row_color(status=rows[i - 1].status) if use_color else ""
         lines.append(f"{color}{line}{ANSI_RESET}" if color else line)
-    lines.extend(attention_lines(rows=rows))
+    lines.extend(attention_lines(rows=rows, surface_attention=surface_attention))
     # Clear scrollback + screen + home, then the table.
     _ = sup.out.write("\x1b[3J\x1b[2J\x1b[H" + "\n".join(lines) + "\n")
     sup.out.flush()
 
 
-def attention_lines(*, rows: list[RowView]) -> list[str]:
+def attention_lines(
+    *, rows: list[RowView], surface_attention: SurfaceAttention | None = None
+) -> list[str]:
     """The ``NEEDS YOU`` block: the rows a human must act on, and where to go.
 
     THIS is the answer to "what needs attention?", and it lives here — in the daemon's
@@ -123,11 +128,14 @@ def attention_lines(*, rows: list[RowView]) -> list[str]:
     jump line (maintainer 2026-07-14).
     """
     attention = [row for row in rows if needs_attention(row=row)]
+    surface_count = 1 if surface_attention is not None else 0
     lines = [""]
-    if not attention:
+    if not attention and surface_attention is None:
         lines.append("NEEDS YOU: nothing — every tracked session is healthy.")
         return lines
-    lines.append(f"NEEDS YOU ({len(attention)}):")
+    lines.append(f"NEEDS YOU ({len(attention) + surface_count}):")
+    if surface_attention is not None:
+        lines.append(f"  ! daemon surface — {surface_attention.status} — {surface_attention.note}")
     for row in attention:
         # Elide the note here too: a session can write an arbitrarily long `blocked:`
         # reason, and the full text lives in the pane this line points at.
@@ -146,7 +154,9 @@ def attention_lines(*, rows: list[RowView]) -> list[str]:
     return lines
 
 
-def refresh_window_name(*, sup: Supervisor, attention: int) -> None:
+def refresh_window_name(
+    *, sup: Supervisor, attention: int, surface_attention: bool = False
+) -> None:
     """Badge the attention count onto the tmux WINDOW name (``overseer`` → ``overseer(2!)``).
 
     The only overseer surface visible WITHOUT looking at the overseer window: tmux
@@ -160,7 +170,10 @@ def refresh_window_name(*, sup: Supervisor, attention: int) -> None:
     pane = sup.own_pane
     if not pane:
         return
-    name = f"{WINDOW_NAME}({attention}!)" if attention else WINDOW_NAME
+    if surface_attention:
+        name = f"{WINDOW_NAME}(SURFACE!)"
+    else:
+        name = f"{WINDOW_NAME}({attention}!)" if attention else WINDOW_NAME
     if name == sup.last_window_name:
         return
     if sup.tmux.rename_window(pane=pane, name=name):
