@@ -18,6 +18,7 @@ from caam_anthropic_revive import revive_pass_profiles
 from caam_anthropic_status import EnforceModels, write_status
 from caam_decision import ProfileUsage
 from caam_enforcement import enforce_models as default_enforce_models
+from caam_pass_probe import probe_snapshotless_profiles
 from caam_profile_state import (
     caam_vault,
     load_state,
@@ -32,7 +33,7 @@ from caam_profile_state import (
 )
 from caam_profiles import CaamRunner, active_profile
 from caam_protected_accounts import apply_protected_accounts
-from caam_rendering import RenderableProfileUsage, render_table
+from caam_rendering import RenderableProfileUsage, render_table, trigger_header
 from caam_switch import switch_account as default_switch_account
 from caam_usage import fetch_usage
 from caam_warm import (
@@ -145,12 +146,23 @@ class PassSeams:
     caam_runner: ResnapshotRunner
 
 
+def _pass_stamp(*, now: float) -> str:
+    return datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def _pass_with_active(
     *,
     context: PassContext,
     active_name: str,
     seams: PassSeams,
 ) -> int:
+    # Carrier R12. The oracle emits this immediately after the active profile is
+    # resolved and BEFORE resnapshot, so it precedes the table on every pass and
+    # still appears when the pass later fails to read usage. It is the only line
+    # carrying the pass timestamp, and the thresholds it names are environment-
+    # overridable -- without it the table's numbers cannot be read against the
+    # decision. It shipped defined, exported and uncalled (overseer-54k2za.38).
+    context.stdout(trigger_header(stamp=_pass_stamp(now=context.now)))
     resnapshot_active(
         active_name=active_name,
         home=context.home,
@@ -165,8 +177,8 @@ def _pass_with_active(
         now=context.now,
         fetcher=seams.fetcher,
     )
-    profiles = _probe_snapshotless_profiles(
-        context=context, profiles=profiles, fetcher=seams.fetcher
+    profiles = probe_snapshotless_profiles(
+        home=context.home, now=context.now, profiles=profiles, fetcher=seams.fetcher
     )
     profiles = revive_pass_profiles(
         active_name=active_name, context=context, profiles=profiles, seams=seams
@@ -228,29 +240,6 @@ def _table_lines(
     now_dt = datetime.fromtimestamp(context.now, tz=timezone.utc)
     rows = cast(tuple[RenderableProfileUsage, ...], profiles)
     return tuple(render_table(rows=rows, active_name=active_name, now=now_dt).splitlines())
-
-
-def _probe_snapshotless_profiles(
-    *, context: PassContext, profiles: tuple[ProfileUsage, ...], fetcher: UsageFetcher
-) -> tuple[ProfileUsage, ...]:
-    return tuple(
-        _probe_snapshotless_profile(context=context, profile=profile, fetcher=fetcher)
-        for profile in profiles
-    )
-
-
-def _probe_snapshotless_profile(
-    *, context: PassContext, profile: ProfileUsage, fetcher: UsageFetcher
-) -> ProfileUsage:
-    if profile.usage is not None or profile.source != "dark: no snapshot":
-        return profile
-    usage, _ = fetcher(
-        creds_path=caam_vault(home=context.home) / profile.name / ".credentials.json",
-        now=context.now,
-    )
-    if usage is None:
-        return profile
-    return ProfileUsage(name=profile.name, source="live", usage=usage)
 
 
 def _run_caam(*, args: tuple[str, ...]):
