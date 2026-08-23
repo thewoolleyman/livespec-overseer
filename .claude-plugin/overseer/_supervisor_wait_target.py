@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -71,6 +73,109 @@ def _surface(*, request: WaitTargetMissingRequest, note: str) -> None:
     )
 
 
+def _evidence_path(*, repo: Path, topic: str, key: str) -> Path:
+    digest = sha256(key.encode("utf-8")).hexdigest()[:16]
+    return repo / "tmp" / "overseer" / topic / f"wait-target-missing-{digest}.json"
+
+
+def _requery_output(*, repo: Path, record: dict[str, object]) -> object:
+    if _supervisor_wait_target_sources.local_record(
+        record=record
+    ) and not _supervisor_wait_target_sources.remote_record(record=record):
+        return _supervisor_wait_target_sources.local_process_records(repo=repo)
+    return _supervisor_wait_target_sources.read_journal(repo=repo)
+
+
+def _evidence_record(
+    *, repo: Path, record: dict[str, object], status: str, note: str
+) -> dict[str, object]:
+    return {
+        "evidence_source": _supervisor_wait_target_sources.string_field(
+            record=record, key="evidence_source"
+        ),
+        "note": note,
+        "premise": record,
+        "requery_output": _requery_output(repo=repo, record=record),
+        "status": status,
+        "target_id": _supervisor_wait_target_sources.string_field(record=record, key="target_id"),
+    }
+
+
+def _write_evidence(
+    *, repo: Path, topic: str, key: str, record: dict[str, object], status: str, note: str
+) -> Path | None:
+    path = _evidence_path(repo=repo, topic=topic, key=key)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _ = path.write_text(
+            json.dumps(
+                _evidence_record(repo=repo, record=record, status=status, note=note),
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    except OSError:
+        return None
+    return path
+
+
+def _relay_text(
+    *, record: dict[str, object], note: str, evidence_path: Path, evidence_source: str | None
+) -> str:
+    kind = _supervisor_wait_target_sources.string_field(record=record, key="kind") or "unknown"
+    target_id = (
+        _supervisor_wait_target_sources.string_field(record=record, key="target_id") or "unknown"
+    )
+    source = evidence_source or "unknown"
+    return (
+        "wait-target-missing evidence relay\n"
+        f"premise: {kind} {target_id}\n"
+        f"re-query: {source}\n"
+        f"evidence record: {evidence_path}\n"
+        f"result: {note}\n\n"
+        "This delivers facts only. It does not choose your next action, does not "
+        "authorize a restart, and does not change the ready-file interlock."
+    )
+
+
+def _relay_allowed(*, request: WaitTargetMissingRequest) -> bool:
+    return request.obs.gate or request.obs.claude_status == "waiting"
+
+
+def _deliver_relay(
+    *,
+    request: WaitTargetMissingRequest,
+    record: dict[str, object],
+    key: str,
+    note: str,
+    repo: Path,
+) -> None:
+    if key in request.obs.istate.wait_target_relayed_keys or not _relay_allowed(request=request):
+        return
+    evidence_source = _supervisor_wait_target_sources.string_field(
+        record=record, key="evidence_source"
+    )
+    path = _write_evidence(
+        repo=repo,
+        topic=request.track.topic,
+        key=key,
+        record=record,
+        status=WAIT_TARGET_MISSING_STATUS,
+        note=note,
+    )
+    if path is None:
+        return
+    text = _relay_text(
+        record=record, note=note, evidence_path=path, evidence_source=evidence_source
+    )
+    if not request.sup.tmux.bracketed_paste(session=request.pane, text=text):
+        return
+    if not request.sup.tmux.send_keys(session=request.pane, keys="Enter"):
+        return
+    request.obs.istate.wait_target_relayed_keys.add(key)
+
+
 def apply_wait_target_missing_attention(
     *, request: WaitTargetMissingRequest
 ) -> WaitTargetMissingResult:
@@ -87,10 +192,18 @@ def apply_wait_target_missing_attention(
         )
         cache[key] = entry
         if entry.status != WAIT_TARGET_MISSING_STATUS or entry.note is None:
+            request.obs.istate.wait_target_relayed_keys.discard(key)
             continue
         note = _supervisor_liveness.append_note(note=request.note, extra=entry.note)
         if request.act:  # pragma: no branch
             _surface(request=request, note=entry.note)
+            _deliver_relay(
+                request=request,
+                record=record,
+                key=key,
+                note=entry.note,
+                repo=repo,
+            )
         return WaitTargetMissingResult(
             status=WAIT_TARGET_MISSING_STATUS,
             note=note,
