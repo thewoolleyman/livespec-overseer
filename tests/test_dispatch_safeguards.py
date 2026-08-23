@@ -814,6 +814,124 @@ def test_guard_passes_single_character_acceptance_bar(
     assert "dispatch acceptance guard: overseer-fake2 ok" in stdout
 
 
+def _host_tier_item(
+    *,
+    labels: list[str],
+    description: str = "Move the ledger row and update the plan timeline.",
+) -> dict[str, object]:
+    return {
+        "id": "overseer-host1",
+        "title": "ledger-only plan cleanup",
+        "description": description,
+        "acceptance_criteria": "Ledger row and plan timeline are updated on the host.",
+        "labels": labels,
+    }
+
+
+def test_guard_refuses_explicit_host_tier_before_sandbox_launch(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A positive dispatch-tier marker declares work no sandbox can perform."""
+    stub = _stub_bd(
+        root=tmp_path,
+        item=_host_tier_item(labels=["dispatch-tier:host", "acceptance:ai-then-human"]),
+    )
+
+    rc, _stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-host1", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 1, stderr
+    assert "host-tier" in stderr
+    assert "must never reach a sandbox" in stderr
+    assert "acceptance:ai-then-human" not in stderr
+
+
+def test_guard_refuses_malformed_dispatch_tier_label(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A malformed tier declaration fails closed instead of silently dispatching."""
+    stub = _stub_bd(
+        root=tmp_path,
+        item=_host_tier_item(labels=["dispatch-tier:hostish"]),
+    )
+
+    rc, _stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-host1", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 1, stderr
+    assert "malformed dispatch-tier label" in stderr
+    assert "dispatch-tier:hostish" in stderr
+    assert "dispatch-tier:host" in stderr
+
+
+def test_guard_refusal_text_distinguishes_host_tier_from_acceptance_parking(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Host-tier refusal and parking-label refusal answer different questions."""
+    host_root = tmp_path / "host"
+    parking_root = tmp_path / "parking"
+    host_root.mkdir()
+    parking_root.mkdir()
+    host_stub = _stub_bd(root=host_root, item=_host_tier_item(labels=["dispatch-tier:host"]))
+    parking_stub = _stub_bd(root=parking_root, item=_live_exercise_item(labels=["intake:triaged"]))
+
+    host_rc, _host_stdout, host_stderr = _run_guard(
+        stub=host_stub, item_id="overseer-host1", monkeypatch=monkeypatch, capsys=capsys
+    )
+    parking_rc, _parking_stdout, parking_stderr = _run_guard(
+        stub=parking_stub, item_id="overseer-fake1", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert host_rc == 1, host_stderr
+    assert parking_rc == 1, parking_stderr
+    assert "must never reach a sandbox" in host_stderr
+    assert "Label it first" not in host_stderr
+    assert "Label it first" in parking_stderr
+    assert host_stderr != parking_stderr
+
+
+def test_guard_passes_ordinary_unlabelled_dispatchable_work(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """No dispatch-tier label is ordinary dispatchable work, not implicit host-tier."""
+    stub = _stub_bd(
+        root=tmp_path,
+        item={
+            "id": "overseer-fake4",
+            "title": "tighten a parser branch",
+            "description": "Acceptance: unit tests and just check pass.",
+            "acceptance_criteria": "Unit tests and just check pass.",
+            "labels": ["intake:triaged"],
+        },
+    )
+
+    rc, stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-fake4", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 0, stderr
+    assert "dispatch acceptance guard: overseer-fake4 ok" in stdout
+
+
+def test_guard_covers_non_live_exercise_host_tier_ledger_edit(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A ledger-edit item has no live-exercise wording and is still host-tier."""
+    stub = _stub_bd(
+        root=tmp_path,
+        item=_host_tier_item(labels=["dispatch-tier:host"]),
+    )
+
+    rc, _stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-host1", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 1, stderr
+    assert "host-tier" in stderr
+
+
 def test_guard_refuses_live_exercise_item_missing_labels_field(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

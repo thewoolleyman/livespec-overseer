@@ -25,6 +25,10 @@ __all__: list[str] = []
 
 _LIVE_EXERCISE = re.compile(r"live[\s-]exercis|live[\s-]verif", re.IGNORECASE)
 _PARKING_LABELS = frozenset({"acceptance:ai-then-human", "acceptance:human-only"})
+_DISPATCH_TIER_PREFIX = "dispatch-tier:"
+_HOST_TIER_LABEL = "dispatch-tier:host"
+_SANDBOX_TIER_LABEL = "dispatch-tier:sandbox"
+_DISPATCH_TIER_LABELS = frozenset({_HOST_TIER_LABEL, _SANDBOX_TIER_LABEL})
 _TEXT_KEYS = ("title", "description", "notes", "design", "acceptance_criteria")
 _BD_ENV_OVERRIDE = "DISPATCH_ACCEPTANCE_GUARD_BD"
 
@@ -44,6 +48,9 @@ def main(argv: list[str] | None = None) -> int:
             return _EX_UNAVAILABLE
         if _missing_acceptance_bar(item=item):
             _ = sys.stderr.write(_acceptance_bar_refusal(item_id=item_id))
+            refused = True
+        elif (tier_refusal := _dispatch_tier_refusal(item=item, item_id=item_id)) is not None:
+            _ = sys.stderr.write(tier_refusal)
             refused = True
         elif _needs_parking_label(item=item):
             _ = sys.stderr.write(_refusal(item_id=item_id))
@@ -69,10 +76,43 @@ def _needs_parking_label(*, item: dict[str, object]) -> bool:
     return not (label_set & _PARKING_LABELS)
 
 
+def _dispatch_tier_refusal(*, item: dict[str, object], item_id: str) -> str | None:
+    labels = item.get("labels")
+    if not isinstance(labels, list):
+        return None
+    label_set = {label for label in labels if isinstance(label, str)}
+    tier_labels = {label for label in label_set if label.startswith(_DISPATCH_TIER_PREFIX)}
+    invalid = sorted(tier_labels - _DISPATCH_TIER_LABELS)
+    if invalid:
+        return _malformed_dispatch_tier_refusal(item_id=item_id, labels=invalid)
+    if _HOST_TIER_LABEL in tier_labels:
+        return _host_tier_refusal(item_id=item_id)
+    return None
+
+
 def _acceptance_bar_refusal(*, item_id: str) -> str:
     return (
         f"dispatch refused (overseer-uvbf): {item_id} is missing acceptance bar; "
         "acceptance_criteria must be non-empty before sandbox launch.\n"
+    )
+
+
+def _malformed_dispatch_tier_refusal(*, item_id: str, labels: list[str]) -> str:
+    joined = ", ".join(labels)
+    return (
+        f"dispatch refused (overseer-1sd0): {item_id} carries malformed dispatch-tier label(s): "
+        f"{joined}. Use dispatch-tier:host only for work that must never reach a sandbox; "
+        "use dispatch-tier:sandbox for explicit sandbox-performable work, or omit the tier "
+        "for ordinary dispatchable work.\n"
+    )
+
+
+def _host_tier_refusal(*, item_id: str) -> str:
+    return (
+        f"dispatch refused (overseer-1sd0): {item_id} is marked host-tier "
+        "with dispatch-tier:host and must never reach a sandbox. Perform it on "
+        "the host/operator side instead; acceptance parking labels do not make "
+        "host-tier work dispatchable.\n"
     )
 
 
