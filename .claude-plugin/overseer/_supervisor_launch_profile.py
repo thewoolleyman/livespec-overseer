@@ -1,9 +1,11 @@
 """Claude launch-profile planning for restart and reboot recovery."""
+# livespec-lloc-soft-band-owner: overseer-6m2h
 
 from __future__ import annotations
 
 import os
 import shlex
+import shutil
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -23,6 +25,7 @@ __all__: list[str] = [
     "LaunchProfileProblem",
     "claude_launch_plan",
     "codex_launch_plan",
+    "preflight_launch_command",
     "read_launch_profile",
     "rendered_statusline_model",
 ]
@@ -77,6 +80,35 @@ def _claude_command(*, topic: str, model: str | None) -> str:
     return f"claude {model_arg}--dangerously-skip-permissions -n {shlex.quote(topic)}"
 
 
+def _launch_search_path() -> str:
+    entries = os.environ.get("PATH", "")
+    home_local = Path.home() / ".local" / "bin"
+    return os.pathsep.join(part for part in (entries, str(home_local)) if part)
+
+
+def _binary_problem(*, binary: str, path: str) -> LaunchProfileProblem:
+    return LaunchProfileProblem(
+        message=("launch_binary_not_resolvable " f"binary={binary} path={path}")
+    )
+
+
+def preflight_launch_command(*, command: str) -> str | LaunchProfileProblem:
+    parts = shlex.split(command)
+    if not parts:
+        return _binary_problem(binary="", path=_launch_search_path())
+    binary = parts[0]
+    if Path(binary).is_absolute():
+        path = Path(binary)
+        if path.is_file() and os.access(path, os.X_OK):
+            return shlex.join(parts)
+        return _binary_problem(binary=binary, path=_launch_search_path())
+    search_path = _launch_search_path()
+    resolved = shutil.which(binary, path=search_path)
+    if resolved is None:
+        return _binary_problem(binary=binary, path=search_path)
+    return shlex.join([resolved, *parts[1:]])
+
+
 def _problem(*, track: registry.Track, reason: str) -> LaunchProfileProblem:
     return LaunchProfileProblem(
         message=f"stale launch profile for {track.repo}::{track.topic}: {reason}"
@@ -88,6 +120,33 @@ def _wrapper_problem(*, track: registry.Track, wrapper: str) -> LaunchProfilePro
     if path.is_file() and os.access(path, os.X_OK):
         return None
     return _problem(track=track, reason=f"wrapper {wrapper!r} does not exist or is not executable")
+
+
+def _claude_launch_plan(
+    *,
+    command: str,
+    env: Mapping[str, str | None],
+    daemon_restart: bool,
+    preflight: bool,
+) -> ClaudeLaunchPlan | LaunchProfileProblem:
+    if not preflight:
+        return ClaudeLaunchPlan(
+            command=command,
+            env=_with_unattended_restart_env(
+                env=env,
+                daemon_restart=daemon_restart,
+            ),
+        )
+    preflighted = preflight_launch_command(command=command)
+    if isinstance(preflighted, LaunchProfileProblem):
+        return preflighted
+    return ClaudeLaunchPlan(
+        command=preflighted,
+        env=_with_unattended_restart_env(
+            env=env,
+            daemon_restart=daemon_restart,
+        ),
+    )
 
 
 def claude_launch_plan(
@@ -103,14 +162,13 @@ def claude_launch_plan(
     """
     profile = track.model_profile
     if profile is None:
-        return ClaudeLaunchPlan(
+        return _claude_launch_plan(
             command=_claude_command(
                 topic=track.topic, model=DEFAULT_START_MODEL if start else None
             ),
-            env=_with_unattended_restart_env(
-                env=_scrubbed_env(),
-                daemon_restart=daemon_restart,
-            ),
+            env=_scrubbed_env(),
+            daemon_restart=daemon_restart,
+            preflight=start,
         )
     if profile["harness"] != "claude":
         return _problem(
@@ -121,26 +179,24 @@ def claude_launch_plan(
     env = _scrubbed_env()
     wrapper = profile["wrapper"]
     if wrapper is None:
-        return ClaudeLaunchPlan(
+        return _claude_launch_plan(
             command=_claude_command(topic=track.topic, model=model),
-            env=_with_unattended_restart_env(
-                env=MappingProxyType(env),
-                daemon_restart=daemon_restart,
-            ),
+            env=MappingProxyType(env),
+            daemon_restart=daemon_restart,
+            preflight=False,
         )
     wrapper_problem = _wrapper_problem(track=track, wrapper=wrapper)
     if wrapper_problem is not None:
         return wrapper_problem
     env["ANTHROPIC_MODEL"] = model
-    return ClaudeLaunchPlan(
+    return _claude_launch_plan(
         command=(
             f"{shlex.quote(wrapper)} "
             f"--dangerously-skip-permissions -n {shlex.quote(track.topic)}"
         ),
-        env=_with_unattended_restart_env(
-            env=MappingProxyType(env),
-            daemon_restart=daemon_restart,
-        ),
+        env=MappingProxyType(env),
+        daemon_restart=daemon_restart,
+        preflight=False,
     )
 
 

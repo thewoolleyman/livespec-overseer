@@ -1,5 +1,6 @@
 """Top-level regression tests for `supervisor.py start` launch diagnostics."""
 
+import _supervisor_launch_profile
 import pytest
 import registry
 import supervisor
@@ -12,6 +13,11 @@ __all__: list[str] = []
 @pytest.fixture(autouse=True)
 def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    claude = tmp_path / "bin" / "claude"
+    claude.parent.mkdir()
+    claude.write_text("#!/bin/sh\n", encoding="utf-8")
+    claude.chmod(0o755)
+    monkeypatch.setenv("PATH", str(claude.parent))
 
 
 def test_cli_start_reports_session_create_failure_as_a_step_reason(
@@ -40,6 +46,73 @@ def test_cli_start_reports_claude_launch_failure_as_a_step_reason(*, tmp_path, m
 
     assert "reason=claude_launch_failed" in capsys.readouterr().err
     assert registry.read_valid_mapping(store_path=store) == []
+
+
+def test_cli_start_resolves_claude_from_home_local_bin_when_path_is_sanitized(
+    *, tmp_path, monkeypatch, capsys
+):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    home = tmp_path / "home"
+    claude = home / ".local" / "bin" / "claude"
+    claude.parent.mkdir(parents=True)
+    claude.write_text("#!/bin/sh\n", encoding="utf-8")
+    claude.chmod(0o755)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin")
+    fake = FakeTmux()
+    monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
+
+    assert supervisor.main(argv=["start", "--repo", str(repo), "--topic", topic]) == 0
+
+    respawns = [call for call in fake.calls if call[0] == "respawn"]
+    assert len(respawns) == 1
+    assert respawns[0][3].startswith(f"{claude} --model 'opus[1m]' ")
+    assert f"{repo}::{topic}" in capsys.readouterr().out
+    assert len(registry.read_valid_mapping(store_path=store)) == 1
+
+
+def test_cli_start_refuses_before_respawn_when_claude_is_not_resolvable(
+    *, tmp_path, monkeypatch, capsys
+):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
+    monkeypatch.setenv("HOME", str(tmp_path / "empty-home"))
+    monkeypatch.setenv("PATH", str(tmp_path / "empty-bin"))
+    fake = FakeTmux()
+    monkeypatch.setattr(supervisor.tmuxio, "TmuxIO", lambda: fake)
+
+    assert supervisor.main(argv=["start", "--repo", str(repo), "--topic", topic]) == 1
+
+    err = capsys.readouterr().err
+    assert "reason=launch_binary_not_resolvable" in err
+    assert "binary=claude" in err
+    assert f"path={tmp_path / 'empty-bin'}" in err
+    assert not fake.has(method="respawn")
+    assert registry.read_valid_mapping(store_path=store) == []
+
+
+def test_launch_preflight_rewrites_an_absolute_executable(*, tmp_path):
+    binary = tmp_path / "claude"
+    binary.write_text("#!/bin/sh\n", encoding="utf-8")
+    binary.chmod(0o755)
+
+    assert (
+        _supervisor_launch_profile.preflight_launch_command(command=f"{binary} --version")
+        == f"{binary} --version"
+    )
+
+
+def test_launch_preflight_rejects_empty_and_nonexecutable_absolute_commands(*, tmp_path):
+    missing = tmp_path / "missing-claude"
+
+    empty = _supervisor_launch_profile.preflight_launch_command(command="")
+    nonexecutable = _supervisor_launch_profile.preflight_launch_command(command=str(missing))
+
+    assert isinstance(empty, _supervisor_launch_profile.LaunchProfileProblem)
+    assert "binary=" in empty.message
+    assert isinstance(nonexecutable, _supervisor_launch_profile.LaunchProfileProblem)
+    assert f"binary={missing}" in nonexecutable.message
 
 
 def test_cli_start_reports_resume_submit_failure_as_a_step_reason(*, tmp_path, monkeypatch, capsys):

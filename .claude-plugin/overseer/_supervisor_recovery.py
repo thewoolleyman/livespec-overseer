@@ -206,6 +206,7 @@ def do_launch_result(
         launch = _supervisor_launch.claude_launch_plan(track=track, start=start)
         if not isinstance(launch, ClaudeLaunchPlan):
             sup.surface(message=f"reboot-recovery: {launch.message}; skipping")
+            result = LaunchResult(launched=False, reason=launch.message)
         elif sup.tmux.respawn_pane(
             session=target,
             cwd=track.repo,

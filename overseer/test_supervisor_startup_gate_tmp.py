@@ -30,6 +30,12 @@ __all__: list[str] = []
 @pytest.fixture(autouse=True)
 def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    claude = tmp_path / "test-bin" / "claude"
+    claude.parent.mkdir()
+    claude.write_text("#!/bin/sh\n", encoding="utf-8")
+    claude.chmod(0o755)
+    path = os.environ.get("PATH", "")
+    monkeypatch.setenv("PATH", f"{claude.parent}{os.pathsep}{path}" if path else str(claude.parent))
 
 
 def test_start_refuses_running_claude_without_force(*, tmp_path, monkeypatch):
