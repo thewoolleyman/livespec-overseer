@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Protocol, cast
 
 from caam_decision import ProfileUsage, UsageRecord, render_table
-from caam_foreman_override import apply_foreman_model_override
 from caam_rendering import RenderableProfileUsage
 
 __all__: list[str] = [
@@ -23,10 +22,12 @@ _UNVERIFIED_NOTE = (
     "note: {names} could not be verified live and were not considered. "
     "Revive with: caam activate claude <name>; claude -p ok; caam backup claude <name>"
 )
-_FABLE_EXHAUSTED = 100.0
 
 
 class Flags(Protocol):
+    @property
+    def dry_run(self) -> bool: ...
+
     @property
     def no_models(self) -> bool: ...
 
@@ -97,20 +98,14 @@ def unverified_note(*, profiles: tuple[ProfileUsage, ...]) -> str | None:
 def model_messages(
     *, context: StatusContext, active_fable: float | None, enforce_models: EnforceModels
 ) -> tuple[str, ...]:
-    fable_left = active_fable is not None and active_fable < _FABLE_EXHAUSTED
-    foreman = apply_foreman_model_override(
-        state=context.state,
-        requested_model=context.flags.foreman_model,
-        default_model="fable" if fable_left else "opus",
-        fable_left=fable_left,
-    )
     messages = enforce_models(
         settings_path=context.home / ".claude/settings.json",
         no_models=context.flags.no_models,
         home=context.home,
         state_path=context.state_path,
         active_fable=active_fable,
-        foreman_model=foreman.want_foreman,
+        foreman_model=context.flags.foreman_model,
+        dry_run=context.flags.dry_run,
         now=None,
     )
-    return (*foreman.messages, *messages)
+    return tuple(messages)

@@ -3,26 +3,28 @@
 from __future__ import annotations
 
 import contextlib
+import time
 from pathlib import Path
 from typing import Final, cast
 
-from _seams import PidToIntList, PidToOptionalBytes
 from caam_effort import enforce_effort_floor
+from caam_enforcement_options import ModelContext, ModelRun, model_context
 from caam_foreman_override import apply_foreman_model_override
-from caam_profile_state import load_state, save_state
+from caam_picker import real_picker_tmux
+from caam_profile_state import save_state
 from caam_sessions import (
-    ModelSetter,
-    PanePid,
     SessionModel,
     discover_session_models,
     enforce_session_models,
 )
+from claude_sessions import proc_children, proc_environ
 
 __all__: list[str] = [
     "enforce_models",
 ]
 
 _FABLE_EXHAUSTED: Final = 100.0
+_sleep = time.sleep
 _ADVISORY_ERRORS: Final = (
     OSError,
     RuntimeError,
@@ -43,56 +45,37 @@ def enforce_models(
     messages = enforce_effort_floor(settings_path=settings_path)
     if no_models:
         return messages
-    home = _path_option(options=model_options, key="home")
-    state_path = _path_option(options=model_options, key="state_path")
-    session_names = _session_names_option(options=model_options)
-    want_model = _string_option(options=model_options, key="want_model")
-    active_fable = _active_fable_option(options=model_options)
-    foreman_model = _string_option(options=model_options, key="foreman_model")
-    now = _float_option(options=model_options, key="now")
-    pane_pid = _pane_pid_option(options=model_options)
-    children_of = _children_option(options=model_options)
-    environ_of = _environ_option(options=model_options)
-    set_model = _setter_option(options=model_options)
-    if (
-        home is None
-        or state_path is None
-        or (want_model is None and "active_fable" not in model_options)
-        or pane_pid is None
-        or children_of is None
-        or environ_of is None
-        or set_model is None
-    ):
+    context = model_context(
+        options=model_options,
+        real_picker_tmux=real_picker_tmux,
+        proc_children=proc_children,
+        proc_environ=proc_environ,
+        sleep=_sleep,
+    )
+    if context is None:
         return messages
 
-    state = load_state(state_path=state_path)
     try:
         panes = discover_session_models(
-            session_names=session_names,
-            home=home,
-            pane_pid=pane_pid,
-            children_of=children_of,
-            environ_of=environ_of,
+            session_names=context.session_names,
+            home=context.home,
+            pane_pid=context.pane_pid,
+            children_of=context.children_of,
+            environ_of=context.environ_of,
+            model_reader=context.model_reader,
         )
-        if "active_fable" in model_options:
-            messages.extend(
-                _enforce_orchestrated_models(
-                    panes=panes,
-                    state=state,
-                    active_fable=active_fable,
-                    foreman_model=foreman_model,
-                    now=now,
-                    set_model=set_model,
-                )
-            )
+        if context.orchestrated:
+            messages.extend(_enforce_orchestrated_models(panes=panes, context=context))
         else:
             messages.extend(
                 enforce_session_models(
                     panes=panes,
-                    state=state,
-                    want=cast(str, want_model),
-                    now=now,
-                    set_model=set_model,
+                    state=context.state,
+                    want=cast(str, context.want_model),
+                    now=context.run.now,
+                    set_model=context.run.set_model,
+                    pane_idle=context.run.pane_idle,
+                    dry_run=context.run.dry_run,
                 )
             )
     except _ADVISORY_ERRORS as exc:
@@ -101,73 +84,19 @@ def enforce_models(
             "table and rotation unaffected"
         )
     with contextlib.suppress(*_SAVE_ERRORS):
-        save_state(state=state, state_path=state_path)
+        save_state(state=context.state, state_path=context.state_path)
     return messages
-
-
-def _path_option(*, options: dict[str, object], key: str) -> Path | None:
-    value = options.get(key)
-    return value if isinstance(value, Path) else None
-
-
-def _string_option(*, options: dict[str, object], key: str) -> str | None:
-    value = options.get(key)
-    return value if isinstance(value, str) else None
-
-
-def _active_fable_option(*, options: dict[str, object]) -> float | None:
-    value = options.get("active_fable")
-    if isinstance(value, float):
-        return value
-    return None
-
-
-def _float_option(*, options: dict[str, object], key: str) -> float | None:
-    value = options.get(key)
-    return value if isinstance(value, float) else None
-
-
-def _session_names_option(*, options: dict[str, object]) -> tuple[str, ...]:
-    value = options.get("session_names")
-    if not isinstance(value, tuple):
-        return ()
-    items = cast(tuple[object, ...], value)
-    return tuple(item for item in items if isinstance(item, str))
-
-
-def _pane_pid_option(*, options: dict[str, object]) -> PanePid | None:
-    value = options.get("pane_pid")
-    return cast(PanePid, value) if callable(value) else None
-
-
-def _children_option(*, options: dict[str, object]) -> PidToIntList | None:
-    value = options.get("children_of")
-    return cast(PidToIntList, value) if callable(value) else None
-
-
-def _environ_option(*, options: dict[str, object]) -> PidToOptionalBytes | None:
-    value = options.get("environ_of")
-    return cast(PidToOptionalBytes, value) if callable(value) else None
-
-
-def _setter_option(*, options: dict[str, object]) -> ModelSetter | None:
-    value = options.get("set_model")
-    return cast(ModelSetter, value) if callable(value) else None
 
 
 def _enforce_orchestrated_models(
     *,
     panes: tuple[SessionModel, ...],
-    state: dict[str, object],
-    active_fable: float | None,
-    foreman_model: str | None,
-    now: float | None,
-    set_model: ModelSetter,
+    context: ModelContext,
 ) -> list[str]:
-    fable_left = active_fable is not None and active_fable < _FABLE_EXHAUSTED
+    fable_left = context.active_fable is not None and context.active_fable < _FABLE_EXHAUSTED
     foreman = apply_foreman_model_override(
-        state=state,
-        requested_model=foreman_model,
+        state=context.state,
+        requested_model=context.foreman_model,
         default_model="fable" if fable_left else "opus",
         fable_left=fable_left,
     )
@@ -176,11 +105,10 @@ def _enforce_orchestrated_models(
         for pane in panes
         for action in _actions_for_pane(
             pane=pane,
-            state=state,
+            state=context.state,
             fable_left=fable_left,
             want_foreman=foreman.want_foreman,
-            now=now,
-            set_model=set_model,
+            run=context.run,
         )
     ]
     balance = "left" if fable_left else "EXHAUSTED"
@@ -199,8 +127,7 @@ def _actions_for_pane(
     state: dict[str, object],
     fable_left: bool,
     want_foreman: str,
-    now: float | None,
-    set_model: ModelSetter,
+    run: ModelRun,
 ) -> list[str]:
     want = _wanted_model(session=pane.session, fable_left=fable_left, want_foreman=want_foreman)
     if want is None:
@@ -210,8 +137,10 @@ def _actions_for_pane(
             panes=(pane,),
             state=state,
             want=want,
-            now=now,
-            set_model=set_model,
+            now=run.now,
+            set_model=run.set_model,
+            pane_idle=run.pane_idle,
+            dry_run=run.dry_run,
         )
     except _ADVISORY_ERRORS as exc:
         return [f"{pane.session} SKIPPED({type(exc).__name__})"]

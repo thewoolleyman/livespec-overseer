@@ -169,6 +169,30 @@ def test_no_session_identifier_skips_pane_without_reading_status_line_or_setting
     assert capture_reads == []
 
 
+def test_missing_pane_pid_skips_session_without_reading_process_tree(*, tmp_path: Path) -> None:
+    module = caam_sessions_module()
+    process_reads: list[int] = []
+
+    def pane_pid(*, session: str) -> int | None:
+        del session
+        return None
+
+    def children_of(*, pid: int) -> list[int]:
+        process_reads.append(pid)
+        return []
+
+    panes = module.discover_session_models(
+        session_names=("worker-foreman",),
+        home=tmp_path,
+        pane_pid=pane_pid,
+        children_of=children_of,
+        environ_of=lambda *, pid: b"",
+    )
+
+    assert panes == ()
+    assert process_reads == []
+
+
 def test_transcript_is_resolved_by_session_identifier_not_newest_project_file(*, tmp_path: Path):
     module = caam_sessions_module()
     older = write_transcript(
@@ -224,7 +248,7 @@ def test_unreadable_model_is_treated_as_may_need_setting(*, tmp_path: Path):
         set_model=set_model,
     )
 
-    assert messages == ["model: worker-foreman -> fable"]
+    assert messages == ["worker-foreman unknown->fable"]
     assert set_calls == [("worker-foreman", "fable")]
 
 
@@ -301,7 +325,7 @@ def test_saved_memo_suppresses_repeat_within_window(*, tmp_path: Path):
             environ_of=environ_of,
             set_model=set_model,
         )
-        assert messages == ([] if now == 1001.0 else ["model: worker-foreman -> fable"])
+        assert messages == ([] if now == 1001.0 else ["worker-foreman unknown->fable"])
 
     saved = json.loads(state_path.read_text(encoding="utf-8"))
     assert saved["models"] == {"worker-foreman": {"at": 1000.0, "want": "fable"}}
@@ -350,7 +374,7 @@ def test_model_orchestration_precedence_foreman_gets_fable_when_fable_left(
     )
 
     assert messages == [
-        "models: foremen want fable (active account Fable left); " "model: alpha-foreman -> fable"
+        "models: foremen want fable (active account Fable left); alpha-foreman opus->fable"
     ]
     assert calls == [("alpha-foreman", "fable")]
 
@@ -398,7 +422,7 @@ def test_model_orchestration_precedence_every_session_gets_opus_when_fable_spent
 
     assert messages == [
         "models: foremen want opus (active account Fable EXHAUSTED); "
-        "model: alpha-foreman -> opus, model: alpha-worker -> opus"
+        "alpha-foreman fable->opus, alpha-worker sonnet->opus"
     ]
     assert calls == [("alpha-foreman", "opus"), ("alpha-worker", "opus")]
 
@@ -434,8 +458,7 @@ def test_model_orchestration_treats_missing_fable_limit_as_exhausted(*, tmp_path
     )
 
     assert messages == [
-        "models: foremen want opus (active account Fable EXHAUSTED); "
-        "model: alpha-foreman -> opus"
+        "models: foremen want opus (active account Fable EXHAUSTED); " "alpha-foreman fable->opus"
     ]
     assert calls == [("alpha-foreman", "opus")]
 
@@ -480,7 +503,7 @@ def test_model_orchestration_foreman_suffix_match_is_exact(*, tmp_path: Path) ->
     )
 
     assert messages == [
-        "models: foremen want fable (active account Fable left); " "model: alpha-foreman -> fable"
+        "models: foremen want fable (active account Fable left); alpha-foreman opus->fable"
     ]
     assert calls == [("alpha-foreman", "fable")]
 
@@ -523,7 +546,7 @@ def test_model_orchestration_records_per_session_failure_and_continues(*, tmp_pa
 
     assert messages == [
         "models: foremen want fable (active account Fable left); "
-        "alpha-foreman SKIPPED(RuntimeError), model: beta-foreman -> fable"
+        "alpha-foreman SKIPPED(RuntimeError), beta-foreman opus->fable"
     ]
     assert calls == [("beta-foreman", "fable")]
 
@@ -580,7 +603,7 @@ def test_foreman_model_override_persists_and_overrides_only_foremen(*, tmp_path:
     assert first == [
         "models: foreman override set to opus -- persists until --foreman-model=auto",
         "models: foremen want opus [pinned] (active account Fable left); "
-        "model: alpha-foreman -> opus",
+        "alpha-foreman fable->opus",
     ]
     assert second == [
         "models: foremen want opus [pinned] (active account Fable left); nothing to change"
@@ -704,7 +727,7 @@ def test_foreman_model_override_warns_but_honors_spent_fable_pin(*, tmp_path: Pa
         "models: WARNING foreman override pins fable but the active account's Fable is spent -- "
         "those sessions will be blocked",
         "models: foremen want fable [pinned] (active account Fable EXHAUSTED); "
-        "model: alpha-foreman -> fable, model: alpha-worker -> opus",
+        "alpha-foreman sonnet->fable, alpha-worker sonnet->opus",
     ]
     assert calls == [("alpha-foreman", "fable"), ("alpha-worker", "opus")]
 
