@@ -32,6 +32,13 @@ def foreman_act():
     return importlib.import_module("foreman_act")
 
 
+def foreman_act_journal():
+    assert (OVERSEER_DIR / "foreman_act_journal.py").is_file()
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("foreman_act_journal")
+
+
 def foreman_act_filing():
     assert (OVERSEER_DIR / "foreman_act_filing.py").is_file()
     if str(OVERSEER_DIR) not in sys.path:
@@ -1724,6 +1731,48 @@ def test_dispatch_journal_reconcile_merged_is_the_only_typed_triage_command(*, t
             "--item",
             "overseer-a",
             "--json",
+        ]
+    ]
+
+
+def test_dispatch_journal_reconcile_contract_keeps_on_demand_forge_gate(*, tmp_path):
+    module = foreman_act()
+    journal = foreman_act_journal()
+    repo = tmp_path / "repo"
+    dispatcher = repo / ".orchestrator" / "bin" / "dispatcher.py"
+    dispatcher.parent.mkdir(parents=True)
+    dispatcher.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+    records = host_published_journal_records()
+    calls: list[list[str]] = []
+
+    result = module.act(
+        proposal=start_proposal(repo=repo),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: journal_document(
+                repo=Path(repo), records=records
+            ),
+            run=lambda *, argv: calls.append(argv) or 0,
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert journal.JOURNAL_RECONCILE_INVOCATION_CONTRACT == {
+        "invocation": "on_demand_foreman_act_proposal",
+        "reason": "host_published_failures_require_fresh_forge_trace",
+        "forge_discriminator": "merged_pull_request.head_ref_matches_outcome_publish_branch",
+        "excluded_scope": "green_untransitioned_records",
+    }
+    assert result["outcome"] == "acted"
+    assert result["action_id"] == "plan_start"
+    assert calls == [
+        [
+            sys.executable,
+            str(OVERSEER_DIR / "supervisor.py"),
+            "start",
+            "--repo",
+            str(repo),
+            "--topic",
+            "alpha",
         ]
     ]
 
