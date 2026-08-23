@@ -1,4 +1,4 @@
-"""Self-adoption helper for the per-repo grooming operation."""
+"""Self-adoption helper for the per-repo foreman runtime."""
 
 from __future__ import annotations
 
@@ -7,26 +7,21 @@ from pathlib import Path
 
 import registry
 from _supervisor_config import iso_now
+from foreman_runtime_identity import canonical_session_name
 
-__all__: list[str] = ["canonical_session_name", "register_grooming_track"]
-
-
-def canonical_session_name(*, repo: str | os.PathLike[str]) -> str:
-    """The reserved tmux/topic identity for a repo's grooming pass."""
-    return f"{Path(repo).resolve().name}-grooming"
+__all__: list[str] = ["register_foreman_track"]
 
 
-def register_grooming_track(
+def register_foreman_track(
     *,
     repo: str | os.PathLike[str],
     epic: str | None = None,
     store_path: str | os.PathLike[str] | None = None,
 ) -> registry.Track:
-    """Ensure the grooming pass is supervised before it starts the drain."""
     repo_path = Path(repo).resolve()
     session_name = canonical_session_name(repo=repo_path)
     added_at = iso_now()
-    track = registry.GroomingSeat(
+    track = registry.ForemanSeat(
         topic=session_name,
         repo=str(repo_path),
         tmux=session_name,

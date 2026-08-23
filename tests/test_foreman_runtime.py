@@ -16,6 +16,7 @@ from _claude_sessions_registry import ClaudeSession
 
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
 MODULE_PATH = OVERSEER_DIR / "foreman_runtime.py"
+GROOMING_MODULE_PATH = OVERSEER_DIR / "grooming_runtime.py"
 EXECUTABLE_PATH = OVERSEER_DIR / "foreman-runtime"
 
 __all__: list[str] = []
@@ -34,6 +35,13 @@ def foreman_runtime():
     if str(OVERSEER_DIR) not in sys.path:
         sys.path.insert(0, str(OVERSEER_DIR))
     return importlib.import_module("foreman_runtime")
+
+
+def grooming_runtime():
+    assert GROOMING_MODULE_PATH.is_file()
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("grooming_runtime")
 
 
 def foreman_runtime_autonomy():
@@ -345,6 +353,9 @@ def test_foreman_track_registration_is_independent_of_plan_and_idempotent(*, tmp
 
     assert "register_foreman_track" in module.__all__
     module.register_foreman_track(repo=repo, store_path=store)
+    inserted = registry.read_valid_mapping(store_path=store)
+    assert len(inserted) == 1
+    assert inserted[0].added_at is not None
     registry.append_mapping(
         track=registry.Track(
             topic="repo-foreman",
@@ -409,6 +420,25 @@ def test_foreman_track_registration_preserves_existing_durable_fields(*, tmp_pat
     rows = [json.loads(line) for line in store.read_text(encoding="utf-8").splitlines()]
     assert len(rows) == 1
     assert rows[0]["model_profile"] == {"harness": "claude", "model": "opus", "wrapper": None}
+
+
+def test_grooming_track_registration_stamps_added_at_on_insert_and_preserves_it(*, tmp_path):
+    module = grooming_runtime()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    store = tmp_path / "map.jsonl"
+
+    module.register_grooming_track(repo=repo, store_path=store)
+    inserted = registry.read_valid_mapping(store_path=store)
+    assert len(inserted) == 1
+    assert inserted[0].added_at is not None
+
+    original_added_at = inserted[0].added_at
+    module.register_grooming_track(repo=repo, store_path=store)
+
+    tracks = registry.read_valid_mapping(store_path=store)
+    assert len(tracks) == 1
+    assert tracks[0].added_at == original_added_at
 
 
 def test_supported_foreman_epic_writer_survives_next_registration_step(*, tmp_path, monkeypatch):
