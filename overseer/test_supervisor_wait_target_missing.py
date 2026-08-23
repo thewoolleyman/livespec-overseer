@@ -122,6 +122,31 @@ def test_remote_delivered_run_does_not_raise_when_local_process_view_is_empty(*,
     assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
 
 
+def test_remote_delivered_run_with_deleted_branch_and_absent_journal_uses_forge(
+    *, tmp_path, monkeypatch
+):
+    repo, topic, _session, _fake, sup, track = _served_track(tmp_path=tmp_path)
+    _write_premise(
+        repo=repo,
+        topic=topic,
+        target_id="remote-run",
+        extra={
+            "execution_location": "remote",
+            "dispatch_factory": "hp",
+            "publish_branch": "feat/overseer-x",
+        },
+    )
+    _write_local_runs(repo=repo, records=[])
+    _write_journal(repo=repo, records=[])
+    monkeypatch.setattr(
+        "_supervisor_wait_target_sources.forge_pull_request_present",
+        lambda *, repo, branch: branch == "feat/overseer-x",
+        raising=False,
+    )
+
+    assert sup.evaluate(track=track, act=True).status == "idle-with-context-left"
+
+
 def test_local_terminal_run_state_raises_with_terminal_discriminator(*, tmp_path):
     repo, topic, _session, _fake, sup, track = _served_track(tmp_path=tmp_path)
     _write_premise(repo=repo, topic=topic)
