@@ -1203,6 +1203,49 @@ def test_needs_human_escalates_and_non_anthropic_dissent_is_non_overridable(*, t
     assert non_anthro_result["dissent"]["reviewer_id"] == "gpt-sol"
 
 
+def test_unanimous_needs_human_summary_differs_from_non_anthropic_split(*, tmp_path: Path):
+    decision = module("foreman_consensus_decision")
+    valve_policy = module("foreman_valve_policy")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    unanimous_payload = reviewers(action={"action_id": "human_valve", "params": {}})
+    unanimous_panel = unanimous_payload["reviewers"]
+    assert isinstance(unanimous_panel, list)
+    for reviewer in unanimous_panel:
+        assert isinstance(reviewer, dict)
+        reviewer["verdict"] = "needs-human"
+
+    split_payload = reviewers(action={"action_id": "human_valve", "params": {}})
+    split_panel = split_payload["reviewers"]
+    assert isinstance(split_panel, list)
+    split_dissent = split_panel[2]
+    assert isinstance(split_dissent, dict)
+    split_dissent["verdict"] = "needs-human"
+
+    unanimous_votes, unanimous_result = decision.reviewer_analysis(
+        request=request(repo=repo, question="unanimous needs human"),
+        reviewers=unanimous_panel,
+        decision_rule=valve_policy.UNANIMOUS,
+    )
+    split_votes, split_result = decision.reviewer_analysis(
+        request=request(repo=repo, question="split needs human"),
+        reviewers=split_panel,
+        decision_rule=valve_policy.UNANIMOUS,
+    )
+
+    assert unanimous_result is not None
+    assert split_result is not None
+    assert unanimous_result["outcome"] == split_result["outcome"] == "escalate"
+    assert unanimous_result["reason"] == "unanimous_needs_human"
+    assert split_result["reason"] == "non_anthropic_needs_human_dissent"
+    assert unanimous_result["reason"] != split_result["reason"]
+    assert unanimous_result["dissent"]["reviewer_id"] == "gpt-sol"
+    assert split_result["dissent"]["reviewer_id"] == "gpt-sol"
+    assert len(unanimous_votes.needs_human) == 3
+    assert len(split_votes.needs_human) == 1
+
+
 def test_minority_report_override_is_reachable_with_seed_panel(*, tmp_path: Path):
     consensus = module("foreman_consensus")
     repo = tmp_path / "repo"

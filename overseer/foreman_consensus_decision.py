@@ -109,6 +109,12 @@ def reviewer_validation_reason(
     )
 
 
+def non_anthropic_needs_human_reason(*, reviewers: list[dict[str, object]]) -> str:
+    if all(reviewer.get("verdict") == "needs-human" for reviewer in reviewers):
+        return "unanimous_needs_human"
+    return "non_anthropic_needs_human_dissent"
+
+
 def reviewer_analysis(
     *, request: dict[str, object], reviewers: list[dict[str, object]], decision_rule: DecisionRule
 ) -> tuple[
@@ -123,11 +129,18 @@ def reviewer_analysis(
         reason = reviewer_validation_reason(reviewer=reviewer, decision_rule=decision_rule)
         if reason == "non_anthropic_needs_human_dissent":
             result = dissent_result(
+                reason=non_anthropic_needs_human_reason(reviewers=reviewers),
                 request=request,
                 reviewers=reviewers,
                 dissent=reviewer,
                 decision_rule=decision_rule,
             )
+            needs_human = [
+                candidate for candidate in reviewers if candidate.get("verdict") == "needs-human"
+            ]
+            unblockers = [
+                candidate for candidate in reviewers if candidate.get("verdict") == "unblock"
+            ]
             break
         if reason is not None:
             result = escalation(
