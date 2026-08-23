@@ -82,6 +82,9 @@ from _registry_rounds import read_round_open_identity as read_round_open_identit
 from _registry_rounds import read_round_record as read_round_record
 from _registry_rounds import record_ready_expiry as record_ready_expiry
 from _registry_stamp_foreman_self_restart import (
+    consume_foreman_self_restart_notice as consume_foreman_self_restart_notice,
+)
+from _registry_stamp_foreman_self_restart import (
     read_foreman_self_restart as read_foreman_self_restart,
 )
 from _registry_stamp_foreman_self_restart import (
@@ -133,6 +136,7 @@ __all__: list[str] = [
     "clear_injection_stamp",
     "clear_picker_stall_episode",
     "colliding_topics",
+    "consume_foreman_self_restart_notice",
     "discover_plans",
     "epic_from_plan_anchor",
     "epic_is_resolved",
