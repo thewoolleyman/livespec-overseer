@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.47.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.46.0...v1.47.0) (2026-08-23)
+
+
+### Features
+
+* add worker relay strike controls ([3f1e47a](https://github.com/thewoolleyman/livespec-overseer/commit/3f1e47ae21adaa22e33d87cf0cc5ea82a8534fd0))
+
+
+### Bug Fixes
+
+* pin lloc soft-warning aggregate reachability ([10f3bdd](https://github.com/thewoolleyman/livespec-overseer/commit/10f3bdd9174c0d9483ca0023eb4a9cb59a848267))
+* prescribe the plan_slug anchor tag and check it ([eab83fd](https://github.com/thewoolleyman/livespec-overseer/commit/eab83fdf31ae51faa6d4ec818411ff5dd217cf97))
+* report filed work item verdict ([19e938b](https://github.com/thewoolleyman/livespec-overseer/commit/19e938b8d46aecd6fb3382af36764a9ae0aa5c6c))
+
 ## [1.46.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.4...v1.46.0) (2026-08-23)
 
 
