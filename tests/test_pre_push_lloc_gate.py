@@ -76,6 +76,7 @@ if [[ "$*" != "check" ]]; then
 fi
 if [[ "${{{_FAIL_ENV_VAR}:-}}" == "true" && "${{SOFT_OWNER_MARKED}}" != "true" ]]; then
   echo '{{"file":"overseer/foreman_act_dispatch.py","lloc":211,'\
+' "failing":true,'\
 '"expected_marker":"# livespec-lloc-soft-band-owner: <work-item-id>"}}' >&2
   exit 1
 fi
@@ -109,8 +110,10 @@ def test_pre_push_refuses_unmarked_soft_band_python_change(tmp_path: Path) -> No
     )
 
     assert completed.returncode == 1
+    assert ":: pre-push: failing diagnostics reported by the gate:" in completed.stderr
     assert "overseer/foreman_act_dispatch.py" in completed.stderr
     assert '"lloc":211' in completed.stderr
+    assert '"failing":true' in completed.stderr
     assert "# livespec-lloc-soft-band-owner: <work-item-id>" in completed.stderr
 
 
