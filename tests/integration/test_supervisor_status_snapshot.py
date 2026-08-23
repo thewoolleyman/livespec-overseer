@@ -6,6 +6,7 @@ import importlib
 import io as _io
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -913,3 +914,28 @@ def test_claude_session_api_exports_topic_scoped_identity_join(*, tmp_path):
     )
 
     assert identities == {(session, "topic"): "claude:101:12345:topic"}
+
+
+def test_restart_model_capture_probes_for_capture_pane_on_a_partial_tmux():
+    """A supervisor stand-in may carry a tmux implementing only its own readers.
+
+    Master's `latest_input_provenance` already probes with `getattr` for exactly this
+    reason, and `test_snapshot_row_falls_back_when_provenance_reader_is_malformed`
+    builds such a stand-in. The restart-model capture must be equally defensive or it
+    raises AttributeError on any row it is asked about.
+    """
+    module = snapshot_module()
+    row = supervisor.RowView(
+        topic="partial-tmux",
+        repo="/repo",
+        tmux="partial-tmux",
+        runtime="claude",
+        ctx=80,
+        status="blocked:human",
+    )
+
+    without_capture = SimpleNamespace(tmux=SimpleNamespace())
+    assert module.restart_model_payload(sup=without_capture, row=row)["verdict"] == "unknown"
+
+    with_capture = SimpleNamespace(tmux=SimpleNamespace(capture_pane=lambda *, session: ""))
+    assert module.restart_model_payload(sup=with_capture, row=row)["verdict"] == "unknown"
