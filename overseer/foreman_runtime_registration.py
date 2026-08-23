@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import registry
+from _runtime_registration_profile import registration_model_profile
 from _supervisor_config import iso_now
 from foreman_runtime_identity import canonical_session_name
 
@@ -27,6 +28,7 @@ def register_foreman_track(
         tmux=session_name,
         epic=epic or registry.unresolved_plan_epic(topic=session_name),
         added_at=added_at,
+        model_profile=registration_model_profile(),
     )
     _ = registry.upsert_mapping(track=track, store_path=store_path, added_at=added_at)
     return track

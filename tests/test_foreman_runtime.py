@@ -8,6 +8,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import _registry_core
 import registry
@@ -378,6 +379,55 @@ def test_foreman_track_registration_is_independent_of_plan_and_idempotent(*, tmp
     ]
 
 
+def test_foreman_track_registration_records_launch_profile_on_insert(*, tmp_path, monkeypatch):
+    module = foreman_runtime()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    store = tmp_path / "map.jsonl"
+    monkeypatch.setenv("ANTHROPIC_MODEL", "fable-5")
+
+    module.register_foreman_track(repo=repo, store_path=store)
+
+    tracks = registry.read_valid_mapping(store_path=store)
+    assert len(tracks) == 1
+    assert tracks[0].model_profile == {
+        "harness": "claude",
+        "model": "fable-5",
+        "wrapper": None,
+    }
+
+
+def test_restart_model_verdict_preserves_profiled_foreman_seat(*, tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    topic = "repo-foreman"
+    store = tmp_path / "map.jsonl"
+    module = importlib.import_module("_supervisor_restart_model_snapshot")
+    registry.append_mapping(
+        track=registry.ForemanSeat(
+            topic=topic,
+            repo=str(repo),
+            tmux=topic,
+            epic=registry.unresolved_plan_epic(topic=topic),
+            model_profile={
+                "harness": "claude",
+                "model": "fable-5",
+                "wrapper": None,
+                "statusline_model": "Fable 5",
+            },
+        ),
+        store_path=store,
+    )
+
+    payload = module.restart_model_payload(
+        sup=SimpleNamespace(store_path=store),
+        row=supervisor.RowView(topic=topic, repo=str(repo), tmux=topic, ctx=60, status="idle"),
+    )
+
+    assert payload["verdict"] == "profile-preserved"
+    assert payload["reason"] == "recorded-profile"
+
+
 def test_foreman_track_registration_preserves_existing_durable_fields(*, tmp_path):
     module = foreman_runtime()
     repo = tmp_path / "fakerepo"
@@ -439,6 +489,49 @@ def test_grooming_track_registration_stamps_added_at_on_insert_and_preserves_it(
     tracks = registry.read_valid_mapping(store_path=store)
     assert len(tracks) == 1
     assert tracks[0].added_at == original_added_at
+
+
+def test_grooming_track_registration_records_launch_profile_on_insert(*, tmp_path, monkeypatch):
+    module = grooming_runtime()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    store = tmp_path / "map.jsonl"
+    monkeypatch.setenv("ANTHROPIC_MODEL", "fable-5")
+
+    module.register_grooming_track(repo=repo, store_path=store)
+
+    tracks = registry.read_valid_mapping(store_path=store)
+    assert len(tracks) == 1
+    assert tracks[0].model_profile == {
+        "harness": "claude",
+        "model": "fable-5",
+        "wrapper": None,
+    }
+
+
+def test_grooming_track_registration_preserves_existing_model_profile(*, tmp_path):
+    module = grooming_runtime()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    topic = "repo-grooming"
+    store = tmp_path / "map.jsonl"
+    profile = {"harness": "claude", "model": "opus", "wrapper": None}
+    registry.append_mapping(
+        track=registry.GroomingSeat(
+            topic=topic,
+            repo=str(repo),
+            tmux="stale-grooming",
+            epic="overseer-PROOF",
+            model_profile=profile,
+        ),
+        store_path=store,
+    )
+
+    module.register_grooming_track(repo=repo, store_path=store)
+
+    tracks = registry.read_valid_mapping(store_path=store)
+    assert len(tracks) == 1
+    assert tracks[0].model_profile == profile
 
 
 def test_supported_foreman_epic_writer_survives_next_registration_step(*, tmp_path, monkeypatch):
