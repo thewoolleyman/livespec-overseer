@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.42.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.1...v1.42.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* compare restart defaults as statusline models ([ab561ab](https://github.com/thewoolleyman/livespec-overseer/commit/ab561abe49f376b4811923c5530d0993265b9b76))
+* probe for capture_pane rather than assuming the tmux protocol ([3ee0f12](https://github.com/thewoolleyman/livespec-overseer/commit/3ee0f1217858df3e790aef1843c80f969a4a056f))
+* resolve restart default display dynamically ([5670b27](https://github.com/thewoolleyman/livespec-overseer/commit/5670b27fe35209d622a162b6cf2ed94123dca885))
+* surface restart model verdicts ([1cd74dc](https://github.com/thewoolleyman/livespec-overseer/commit/1cd74dc6e65e99bd36148ab668213069ae3fbf16))
+
 ## [1.42.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.0...v1.42.1) (2026-08-23)
 
 
