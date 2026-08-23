@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.45.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.3...v1.45.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* gate instruction surface budget ([b626345](https://github.com/thewoolleyman/livespec-overseer/commit/b626345b03f73de2e1a4956477bb03b41a2ae09f))
+* honor instruction surface enforcement env ([99f2943](https://github.com/thewoolleyman/livespec-overseer/commit/99f29430468538dc912a44c010d303bef17a11c5))
+
 ## [1.45.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.2...v1.45.3) (2026-08-23)
 
 
