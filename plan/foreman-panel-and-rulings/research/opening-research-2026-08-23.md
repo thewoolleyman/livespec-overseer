@@ -85,3 +85,37 @@ source), so `overseer-tdfe.2`, `.17` and `.26` remain gate children of `overseer
 regardless of parent — bound to both gates. Expect them in a sweep of either thread;
 `overseer-tdfe.9` owns that inconsistency. The genuine finding would be a child of this
 anchor that `overseer-tdfe` can archive over.
+
+## UPDATE 2026-08-23, ~08:00Z — R1's first premise is CURED, not corrected
+
+**This is an UPDATE, not a correction.** The section above says the convene obligation
+has no producer, "so the condition built on it is dead", and that three further rows
+describe conditions built on a record nothing writes. That was true when this note was
+written at ~06:30Z. It stopped being true about ninety minutes later, and the two facts
+are different: nothing here was measured wrongly, the world moved.
+
+**What landed.** `overseer-tdfe.2` merged as PR 1824 (`merge_sha b3971358`), run
+`01M0PP3C1QXKWNBXFXNVZ5RW0R` on the hp factory, envelope stage `done` / status `green`
+with the post-merge janitor green. `overseer/foreman_convene_obligations.py` is on
+`origin/master`, confirmed directly rather than off the envelope.
+
+**And it is LIVE, which is the part that is easy to get wrong.** `git tag --contains
+b3971358` returns `v1.45.1` and `v1.45.2`, and the acting daemon reports
+`daemon_package.version` `1.45.2` in `~/.livespec-overseer-status.json`. The daemon
+self-updates on the release lane, so no bounce was owed.
+
+That last point is worth keeping as method rather than as trivia. The seat that measured
+it had first reasoned from a TRUE mechanism — the daemon imports `overseer.*` once and
+never hot-reloads — to a FALSE conclusion about the world, without measuring the world,
+and posted a correction. The one-command check is `daemon_package.version` against
+`git tag --contains <merge-sha>`; prefer it to any argument from process start times, and
+certainly to file dates, which are wrong here because this repo splits modules constantly.
+
+**What this changes for the thread.** R1's carrier is discharged; the reader-with-no-writer
+condition is closed. The convene criterion (`overseer-a3l6x2`) and the coverage item
+(`overseer-tdfe.17`) are now testable against a record that something actually writes.
+The rest of the note stands as written — in particular the tier split, which is unchanged.
+
+**The primary record is the ledger.** `overseer-764a`'s timeline carries the merge, its
+evidence and the correction above; this section points at it rather than restating it, so
+there is one authority and one pointer instead of two accounts to keep in step.
