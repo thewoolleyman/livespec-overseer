@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.6...v1.51.7) (2026-08-23)
+
+
+### Bug Fixes
+
+* report consensus tooling outage ([41f18d7](https://github.com/thewoolleyman/livespec-overseer/commit/41f18d7b4bdf0f9fc3b746edf580b8afbf97f39e))
+
 ## [1.51.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.5...v1.51.6) (2026-08-23)
 
 
