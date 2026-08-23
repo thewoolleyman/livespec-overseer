@@ -17,15 +17,18 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "CONSENSUS_OVERDUE_STATUS",
+    "CONSENSUS_TOOLING_OUTAGE_STATUS",
     "ConsensusOverdueDecision",
     "ConsensusOverdueRequest",
     "consensus_overdue_decision",
 ]
 
 CONSENSUS_OVERDUE_STATUS = "consensus-overdue"
+CONSENSUS_TOOLING_OUTAGE_STATUS = "consensus-tooling-outage"
 _CONVENE_BOUND_SECONDS = 30 * 60
 _FOREMAN_STATE = Path("tmp") / "overseer" / "foreman"
 _FLOOR_CATEGORIES = frozenset({"truly-unresolvable", "human-gated-by-design"})
+_TOOLING_OUTAGE_DECISION_KIND = "tooling_outage"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -73,6 +76,15 @@ def _matching_json_record(*, root: Path, question_fingerprint: str) -> dict[str,
     return None
 
 
+def _matching_json_records(*, root: Path, question_fingerprint: str) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    for path in _json_files(root=root):
+        record = _read_json_file(path=path)
+        if record is not None and _record_fingerprint(record=record) == question_fingerprint:
+            records.append(record)
+    return records
+
+
 def _obligation_record(
     *, repo: Path, topic: str, question_fingerprint: str
 ) -> dict[str, object] | None:
@@ -82,17 +94,29 @@ def _obligation_record(
     )
 
 
-def _consensus_artifact_exists(*, repo: Path, topic: str, question_fingerprint: str) -> bool:
+def _is_tooling_outage_panel(*, record: dict[str, object]) -> bool:
+    return record.get("decision_kind") == _TOOLING_OUTAGE_DECISION_KIND
+
+
+def _consensus_artifact_status(*, repo: Path, topic: str, question_fingerprint: str) -> str | None:
+    panels = _matching_json_records(
+        root=repo / _FOREMAN_STATE / "panels" / topic,
+        question_fingerprint=question_fingerprint,
+    )
+    tooling_outage_seen = any(_is_tooling_outage_panel(record=record) for record in panels)
+    if any(not _is_tooling_outage_panel(record=record) for record in panels):
+        return "satisfied"
     roots = (
-        repo / _FOREMAN_STATE / "panels" / topic,
         repo / _FOREMAN_STATE / "consensus",
         repo / _FOREMAN_STATE / "convene-escalations" / topic,
         repo / _FOREMAN_STATE / "convene-discharges" / topic,
     )
-    return any(
+    if any(
         _matching_json_record(root=root, question_fingerprint=question_fingerprint) is not None
         for root in roots
-    )
+    ):
+        return "satisfied"
+    return "tooling_outage" if tooling_outage_seen else None
 
 
 def _observed_at(*, record: dict[str, object]) -> float | None:
@@ -126,6 +150,14 @@ def _consensus_overdue_note(
     return append_note(note=note, extra=extra) or extra
 
 
+def _tooling_outage_note(*, topic: str, question_fingerprint: str, note: str | None) -> str:
+    extra = (
+        "convened but panel tooling failed: "
+        f"{topic} question_fingerprint={question_fingerprint[:12]}"
+    )
+    return append_note(note=note, extra=extra) or extra
+
+
 def _elapsed(*, request: ConsensusOverdueRequest, record: dict[str, object]) -> float:
     observed_at = _observed_at(record=record)
     return request.blocked_age or 0.0 if observed_at is None else request.sup.now() - observed_at
@@ -146,10 +178,36 @@ def consensus_overdue_decision(
     if obligation is None or not _obligation_applies(record=obligation):
         return None
     elapsed = _elapsed(request=request, record=obligation)
-    if elapsed < _CONVENE_BOUND_SECONDS or _consensus_artifact_exists(
-        repo=repo, topic=request.track.topic, question_fingerprint=question_fingerprint
-    ):
+    if elapsed < _CONVENE_BOUND_SECONDS:
         return None
+    artifact_status = _consensus_artifact_status(
+        repo=repo, topic=request.track.topic, question_fingerprint=question_fingerprint
+    )
+    if artifact_status == "satisfied":
+        return None
+    if artifact_status == "tooling_outage":
+        note = _tooling_outage_note(
+            topic=request.track.topic,
+            question_fingerprint=question_fingerprint,
+            note=request.note,
+        )
+        if request.act:  # pragma: no branch
+            request.sup.alert(
+                repo=request.track.repo,
+                topic=request.track.topic,
+                session=request.session,
+                pane=request.pane,
+                message=(
+                    "consensus panel tooling outage: "
+                    f"{request.track.topic} question_fingerprint={question_fingerprint[:12]}"
+                ),
+                condition=CONSENSUS_TOOLING_OUTAGE_STATUS,
+            )
+        return ConsensusOverdueDecision(
+            status=CONSENSUS_TOOLING_OUTAGE_STATUS,
+            note=note,
+            active_conditions={CONSENSUS_TOOLING_OUTAGE_STATUS},
+        )
     note = _consensus_overdue_note(
         topic=request.track.topic,
         question_fingerprint=question_fingerprint,

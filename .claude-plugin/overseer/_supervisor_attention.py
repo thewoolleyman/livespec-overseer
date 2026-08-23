@@ -25,6 +25,7 @@ from _supervisor_attention_observe import (
 )
 from _supervisor_consensus_overdue import (
     CONSENSUS_OVERDUE_STATUS,
+    CONSENSUS_TOOLING_OUTAGE_STATUS,
     ConsensusOverdueRequest,
     consensus_overdue_decision,
 )
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "CONSENSUS_OVERDUE_STATUS",
+    "CONSENSUS_TOOLING_OUTAGE_STATUS",
     "AttentionDecision",
     "AttentionRequest",
     "ConsensusOverdueRequest",
