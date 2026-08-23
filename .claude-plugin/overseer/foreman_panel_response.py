@@ -23,6 +23,10 @@ def reviewer_response_object(*, raw_stdout: str) -> dict[str, object] | None:
     response = None if jsonio.is_parse_failure(result=response_result) else response_result.unwrap()
     if response is not None:
         return response
+    leading_result = jsonio.parse_leading_object(text=raw_stdout)
+    leading = None if jsonio.is_parse_failure(result=leading_result) else leading_result.unwrap()
+    if leading is not None:
+        return leading
     fenced_body = _fenced_json_body(text=raw_stdout)
     if fenced_body is None:
         return None

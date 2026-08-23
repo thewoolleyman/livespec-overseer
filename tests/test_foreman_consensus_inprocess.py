@@ -13,6 +13,29 @@ import pytest
 
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "foreman-consensus"
+CAPTURED_TRAILING_BYTES_STDOUT = (
+    '{"reviewer_id":"panel-reviewer-1","verdict":"unblock","action":{"action_id":'
+    '"blocked_session_answer","params":{"answer":"1"}},"rationale":"Option 1 is the '
+    "session's own recommendation and is fully supported by the dossier's independently "
+    "measured facts. The forge query over ALL states returned empty, so this is a "
+    "never-published-as-PR case rather than merged-and-branch-deleted; the branch at "
+    "72d0f516 exists and rebases cleanly, so a fast-forward push needs no force-push. "
+    "The destructive step (fabro rm --force) is pre-authorized by the fleet's documented "
+    "recovery recipe because its ordering precondition is satisfied: the run is "
+    "claim-held, a dump is already taken (inspect leg done), and removal comes last. "
+    "Removing the blocked run is also what prevents the two-runs-one-branch publish-branch "
+    "collision the session correctly identifies. Option 2 is not free: the hermeticity "
+    "defect is backed by a genuine two-way control (same tree, only HOME varying, 24 pass "
+    "/ 1 fail) and is the CI-green/operator-red class that would block every agent's "
+    "commits on every operator host in this repo, which is materially worse than a short "
+    "delay. Option 3 stalls a track that has a sound recommendation in hand, contrary to "
+    "the standing orders that a decision with a sound recommendation is decided rather "
+    "than asked. No escalation trigger applies: this is a reversible, in-repo, two-way-door "
+    "engineering fix with a control already measured, not an architecture, tradeoff, or "
+    "high-impact UX call. The foreman answers the picker only; the fixing, pushing, and "
+    'PR-opening remain with the model-preserving-restarts session.","hard_risk":false}'
+    ',"member_kind":"action"}\n'
+)
 
 __all__: list[str] = []
 
@@ -774,6 +797,61 @@ def test_recorded_picker_answer_consensus_compares_actual_answers(*, tmp_path: P
 
     assert disagreement["outcome"] == "escalate"
     assert disagreement["reason"] == "typed_action_disagreement"
+
+
+def test_captured_reviewer_stdout_with_complete_json_then_trailing_bytes_is_accepted():
+    response = module("foreman_panel_response")
+
+    parsed = response.reviewer_response_object(raw_stdout=CAPTURED_TRAILING_BYTES_STDOUT)
+
+    assert parsed is not None
+    assert parsed["verdict"] == "unblock"
+    assert parsed["action"] == {
+        "action_id": "blocked_session_answer",
+        "params": {"answer": "1"},
+    }
+    assert parsed["reviewer_id"] == "panel-reviewer-1"
+    assert response.reviewer_response_object(raw_stdout='[],"member_kind":"action"}\n') is None
+    assert response.reviewer_response_object(raw_stdout='{"verdict":"unblock"') is None
+
+
+def test_captured_trailing_bytes_panel_replay_changes_from_tooling_outage_to_decision(
+    *, tmp_path: Path
+):
+    consensus_eval = module("foreman_consensus_eval")
+    response = module("foreman_panel_response")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    captured = response.reviewer_response_object(raw_stdout=CAPTURED_TRAILING_BYTES_STDOUT)
+    assert captured is not None
+    responses = recorded_picker_reviewers()
+    panel = responses["reviewers"]
+    assert isinstance(panel, list)
+    for reviewer in panel:
+        assert isinstance(reviewer, dict)
+    panel[1] = {
+        **captured,
+        "reviewer_id": "opus",
+        "model": {
+            "reviewer_id": "opus",
+            "vendor": "anthropic",
+            "model": "claude-opus-5",
+        },
+        "raw_stdout": CAPTURED_TRAILING_BYTES_STDOUT,
+    }
+
+    result = consensus_eval.evaluate_verdicts(
+        request=request(repo=repo, question="captured panel replay"),
+        responses=responses,
+        decision_rule="unanimous",
+    )
+
+    assert result["outcome"] == "unanimous"
+    assert result["reason"] == "three_typed_actions_equal"
+    assert result["action"]["action_id"] == "blocked_session_answer"
+    action_params = result["action"]["params"]
+    assert isinstance(action_params, dict)
+    assert action_params["answer"] == "1"
 
 
 def test_recorded_picker_answer_majority_path_authorizes_two_to_one_split(*, tmp_path: Path):
