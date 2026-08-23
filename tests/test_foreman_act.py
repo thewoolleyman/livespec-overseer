@@ -10,6 +10,7 @@ import subprocess
 import sys
 import textwrap
 import time
+import traceback
 from hashlib import sha256
 from pathlib import Path
 
@@ -1472,6 +1473,75 @@ def test_failed_work_item_filing_returns_failed_result_and_journals_attempt(*, t
     assert isinstance(result["reason"], str)
     assert len(result["reason"]) == 180
     assert result["reason"].endswith("...")
+
+
+def test_failed_work_item_filing_traceback_reason_names_final_cause(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    journaled: list[dict[str, object]] = []
+
+    def fail_with_traceback(*, request: dict[str, object]):
+        _ = request
+
+        def outer() -> None:
+            inner()
+
+        def inner() -> None:
+            message = (
+                "DistinctiveFilingFailure: final credential cause lives only "
+                "on the traceback tail"
+            )
+            raise RuntimeError(message)
+
+        try:
+            outer()
+        except RuntimeError as exc:
+            raise RuntimeError(traceback.format_exc()) from exc
+
+    result = module.act(
+        proposal=file_proposal(repo=repo),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            file_work_item=fail_with_traceback,
+            append_journal=lambda *, repo, record: journaled.append(record),
+        ),
+    )
+
+    assert result["outcome"] == "failed"
+    assert isinstance(result["reason"], str)
+    assert "DistinctiveFilingFailure" in result["reason"]
+    assert len(result["reason"]) == 180
+    assert journaled[-1]["reason"] == result["reason"]
+
+
+def test_malformed_work_item_filing_returns_failed_result(*, tmp_path):
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def malformed_filing(*, request: dict[str, object]):
+        _ = request
+        msg = "filing subprocess returned malformed JSON"
+        raise ValueError(msg)
+
+    result = module.act(
+        proposal=file_proposal(repo=repo),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: base_document(repo=Path(repo)),
+            run=lambda *, argv: 99,
+            file_work_item=malformed_filing,
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
+
+    assert result == {
+        "action_id": "work_item_file",
+        "mutated": False,
+        "outcome": "failed",
+        "reason": "filing_subprocess_failed:filing subprocess returned malformed JSON",
+    }
 
 
 def test_filing_bootstrap_resolves_configured_and_cache_plugin_roots(*, tmp_path, monkeypatch):
