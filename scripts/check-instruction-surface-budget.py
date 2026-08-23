@@ -50,7 +50,7 @@ def main(*, argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     root = args.root.resolve()
     report = measure_instruction_surface(root=root, budget=args.budget)
-    enforce = args.enforce or os.environ.get(_ENFORCE_ENV) == "1"
+    enforce = args.enforce or bool(os.environ.get(_ENFORCE_ENV))
     stream = sys.stderr if report.overflow > 0 else sys.stdout
 
     _write_report(report=report, enforce=enforce, stream=stream)
