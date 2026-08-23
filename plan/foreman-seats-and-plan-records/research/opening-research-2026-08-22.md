@@ -39,6 +39,9 @@ two places that nothing reconciles.
 (foreman-autonomy-hardening) is **closed and archived**, and the child was
 re-parented onto the junk drawer when that happened. It is a seat-identity
 measurement, so it lands here rather than staying with the actuator.
+The stale-session inventory on `overseer-ooro` is a historical 2026-08-20
+record, not a live population or an open drain obligation after the 2026-08-22
+natural-churn measurement recorded on that item.
 
 ## `overseer-bak` is this thread's spine, and it has a live consumer
 
