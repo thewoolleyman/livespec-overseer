@@ -38,6 +38,7 @@ class GroomingMeasurement:
     repo: str
     open_item_ids: tuple[str, ...]
     untriaged_item_ids: tuple[str, ...]
+    untriaged_scope: str
     unparented_item_ids: tuple[str, ...]
     live_thread_slugs: tuple[str, ...]
     open_item_digest: str
