@@ -6,6 +6,7 @@ from __future__ import annotations
 import subprocess
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -29,6 +30,7 @@ from caam_profile_state import (
     state_path as caam_state_path,
 )
 from caam_profiles import CaamRunner, active_profile
+from caam_rendering import RenderableProfileUsage, render_table
 from caam_switch import switch_account as default_switch_account
 from caam_usage import fetch_usage
 from caam_warm import (
@@ -178,8 +180,8 @@ def _pass_with_active(
             save=seams.save_state,
             stdout=context.stdout,
             lines=(
-                "FAIL could not read usage for active profile "
-                f"{active_name}: {_dark_reason(profiles=profiles, active_name=active_name)}",
+                *_table_lines(context=context, profiles=profiles, active_name=active_name),
+                f"FAIL cannot read usage for active profile {active_name}",
             ),
         )
     write_status(
@@ -214,11 +216,12 @@ def _pass_with_active(
     )
 
 
-def _dark_reason(*, profiles: tuple[ProfileUsage, ...], active_name: str) -> str:
-    for profile in profiles:
-        if profile.name == active_name and profile.source.startswith("dark: "):
-            return profile.source.removeprefix("dark: ")
-    return "unreadable"
+def _table_lines(
+    *, context: PassContext, profiles: tuple[ProfileUsage, ...], active_name: str
+) -> tuple[str, ...]:
+    now_dt = datetime.fromtimestamp(context.now, tz=timezone.utc)
+    rows = cast(tuple[RenderableProfileUsage, ...], profiles)
+    return tuple(render_table(rows=rows, active_name=active_name, now=now_dt).splitlines())
 
 
 def _probe_snapshotless_profiles(

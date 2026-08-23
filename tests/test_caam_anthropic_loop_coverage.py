@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 
-from caam_decision import ProfileUsage, UsageRecord
+from caam_decision import UsageRecord
 
 __all__: list[str] = []
 
@@ -171,19 +171,9 @@ def test_internal_default_seams_are_callable_without_extra_adapters(*, monkeypat
         env={},
         timeout=5.0,
     )
-    reason = module._dark_reason(
-        profiles=(ProfileUsage(name="active", usage=None, source="dark: HTTP 429"),),
-        active_name="active",
-    )
-    fallback = module._dark_reason(
-        profiles=(ProfileUsage(name="other", usage=None, source="dark: HTTP 429"),),
-        active_name="active",
-    )
 
     assert process.returncode != -999
     assert agent.stdout == "ok\n"
-    assert reason == "HTTP 429"
-    assert fallback == "unreadable"
 
 
 def test_switch_request_active_reader_uses_decision_default_caam_runner(

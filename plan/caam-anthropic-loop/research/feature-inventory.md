@@ -656,7 +656,9 @@ Fable balance.
 - **S8** The `FAIL` cases are exactly: no active profile (E5); no profiles found
   in the vault; usage unreadable for the active profile; the target credential
   fails its under-lock probe (I4); `caam activate` returns non-zero (I7); the
-  switch did not stick (I8).
+  switch did not stick (I8). When active-profile usage is unreadable, state is
+  saved, the full table is printed with the active row unreadable, then
+  `FAIL cannot read usage for active profile <name>` is printed before exit 2.
 - **S9** State is saved before every return path.
 
 ## T — Concurrency contract

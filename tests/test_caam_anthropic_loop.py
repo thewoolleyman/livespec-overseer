@@ -108,12 +108,18 @@ def test_empty_vault_fails_loud_and_saves_state(*, tmp_path: Path):
     assert saved == [{}]
 
 
-def test_active_usage_unreadable_fails_loud_and_saves_state(*, tmp_path: Path):
+def test_active_usage_unreadable_prints_table_then_source_fail(*, tmp_path: Path):
     module = caam_loop_module()
     saved: list[dict[str, object]] = []
     out: list[str] = []
-    vault_profile = tmp_path / ".local/share/caam/vault/claude/active"
-    vault_profile.mkdir(parents=True)
+    for name in ("active", "target"):
+        (tmp_path / ".local/share/caam/vault/claude" / name).mkdir(parents=True)
+
+    def fetcher(*, creds_path: Path, now: float | None = None):
+        del now
+        if creds_path == tmp_path / ".claude/.credentials.json":
+            return None, "HTTP 429"
+        return usage(five_hour=30.0, seven_day=40.0), None
 
     result = module.run_pass(
         flags=module.parse_flags(argv=["--scheduled"]),
@@ -121,13 +127,19 @@ def test_active_usage_unreadable_fails_loud_and_saves_state(*, tmp_path: Path):
         now=1787395200.0,
         stdout=out.append,
         caam_runner=lambda *, args: FakeProcess(),
-        fetcher=lambda *, creds_path, now=None: (None, "HTTP 429"),
+        fetcher=fetcher,
         save_state=lambda *, state, state_path: saved.append(dict(state)),
     )
 
     assert result == 2
-    assert out == ["FAIL could not read usage for active profile active: HTTP 429"]
-    assert saved == [{"profiles": {}}]
+    assert any("PROFILE" in line for line in out)
+    assert any(line.startswith("active") and "dark: HTTP 429" in line for line in out)
+    assert any(line.startswith("target") and "live" in line for line in out)
+    assert out[-1] == "FAIL cannot read usage for active profile active"
+    assert next(index for index, line in enumerate(out) if line.startswith("PROFILE")) < out.index(
+        "FAIL cannot read usage for active profile active"
+    )
+    assert saved
 
 
 def test_unverified_live_rows_are_not_considered_and_get_revive_note(*, tmp_path: Path):
