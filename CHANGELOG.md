@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.44.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.4...v1.44.5) (2026-08-23)
+
+
+### Bug Fixes
+
+* pin caam model enforcement production path ([908b192](https://github.com/thewoolleyman/livespec-overseer/commit/908b192fa948cab37f78c4c1a68ee0599d6d0162))
+
 ## [1.44.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.3...v1.44.4) (2026-08-23)
 
 
