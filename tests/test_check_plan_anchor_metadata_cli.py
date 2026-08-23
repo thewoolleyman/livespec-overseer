@@ -37,6 +37,37 @@ def _scrub_coverage_env(*, env: dict[str, str]) -> dict[str, str]:
 def test_pre_push_runs_plan_anchor_check_through_credential_wrapper(
     tmp_path: Path,
 ) -> None:
+    completed, log = _run_pre_push_with_plan_anchor_wrapper(
+        tmp_path=tmp_path,
+        changed_file="scripts/check-plan-anchor-metadata.py",
+    )
+
+    assert completed.returncode == 0
+    assert "wrapper plan_anchor_env=true command=-- just check-plan-anchor-metadata" in log
+    assert "just command=check-plan-anchor-metadata plan_anchor_env=true" in log
+    assert '"scanned_plan_directories":1' in completed.stdout
+
+
+def test_pre_push_doc_only_path_runs_plan_anchor_check_through_credential_wrapper(
+    tmp_path: Path,
+) -> None:
+    completed, log = _run_pre_push_with_plan_anchor_wrapper(
+        tmp_path=tmp_path,
+        changed_file="plan/new-thread/supervisor-handoff.md",
+    )
+
+    assert completed.returncode == 0
+    assert "wrapper plan_anchor_env=true command=-- just check-plan-anchor-metadata" in log
+    assert "just command=check-plan-anchor-metadata plan_anchor_env=true" in log
+    assert "just command=check-pre-commit-doc-only plan_anchor_env=<unset>" in log
+    assert '"scanned_plan_directories":1' in completed.stdout
+
+
+def _run_pre_push_with_plan_anchor_wrapper(
+    *,
+    tmp_path: Path,
+    changed_file: str,
+) -> tuple[subprocess.CompletedProcess[str], str]:
     repo_root = Path(__file__).resolve().parent.parent
     script = repo_root / "scripts" / "check-pre-push.sh"
     bin_dir = tmp_path / "bin"
@@ -49,7 +80,7 @@ def test_pre_push_runs_plan_anchor_check_through_credential_wrapper(
         body="""#!/usr/bin/env bash
 set -euo pipefail
 if [[ "$*" == "diff --name-only origin/master...HEAD" ]]; then
-  printf '%s\n' 'scripts/check-plan-anchor-metadata.py'
+  printf '%s\n' "$PRE_PUSH_CHANGED_FILE"
   exit 0
 fi
 echo "unexpected git invocation: $*" >&2
@@ -68,6 +99,9 @@ if [[ "$*" == "check-plan-anchor-metadata" ]]; then
   exit 0
 fi
 if [[ "$*" == "check" ]]; then
+  exit 0
+fi
+if [[ "$*" == "check-pre-commit-doc-only" ]]; then
   exit 0
 fi
 echo "unexpected just invocation: $*" >&2
@@ -90,6 +124,7 @@ exec "$@"
     )
     env = _scrub_coverage_env(env=os.environ.copy())
     env["PATH"] = f"{bin_dir}:{env['PATH']}"
+    env["PRE_PUSH_CHANGED_FILE"] = changed_file
 
     completed = subprocess.run(  # noqa: S603
         [bash, str(script)],
@@ -100,11 +135,7 @@ exec "$@"
         capture_output=True,
     )
 
-    log = log_path.read_text(encoding="utf-8")
-    assert completed.returncode == 0
-    assert "wrapper plan_anchor_env=true command=-- just check-plan-anchor-metadata" in log
-    assert "just command=check-plan-anchor-metadata plan_anchor_env=true" in log
-    assert '"scanned_plan_directories":1' in completed.stdout
+    return completed, log_path.read_text(encoding="utf-8")
 
 
 def test_missing_bd_binary_skips_live_check_to_stderr_when_strict_unarmed(
