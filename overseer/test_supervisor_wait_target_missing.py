@@ -80,7 +80,7 @@ def test_local_wait_premise_absent_from_process_view_raises_attention(*, tmp_pat
 
     assert view.status == "wait-target-missing"
     assert view.note == "fabro-run run-1 absent from every mandatory leg"
-    assert ("paste",) not in {call[:1] for call in fake.calls}
+    assert len(fake.paste_texts()) == 1
     assert ("respawn",) not in {call[:1] for call in fake.calls}
 
 

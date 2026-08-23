@@ -8,7 +8,11 @@ from pathlib import Path
 
 import _supervisor_wait_target as wait_target
 import registry
+from _supervisor_records import InjectState, Observation
 from test_supervisor_builders import (
+    busy_capture,
+    codex_busy_capture,
+    codex_idle_capture,
     idle_capture,
     make_plan,
     make_supervisor,
@@ -17,6 +21,42 @@ from test_supervisor_builders import (
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
+
+
+def observation(**overrides) -> Observation:
+    values = {
+        "capture": idle_capture(ctx=90),
+        "busy": False,
+        "gate": False,
+        "idle": True,
+        "is_codex": False,
+        "runtime": "claude",
+        "codex_fallback": False,
+        "claude_status": "idle",
+        "current_ctx": 90,
+        "eff_ctx": 90,
+        "ctx_stale_age": None,
+        "stale_ctx": None,
+        "injection_stamp": None,
+        "round_record": registry.RoundRecord(
+            at=None,
+            bands=[],
+            expired_at=None,
+            session_identity=None,
+            malformed_reason=None,
+        ),
+        "session_identity": "claude:session:topic",
+        "ready_uncertifiable_reason": None,
+        "istate": InjectState(),
+        "observed_at": 1000.0,
+        "declared": None,
+        "malformed": False,
+        "blocked": None,
+        "acked": False,
+        "ready": False,
+    }
+    values.update(overrides)
+    return Observation(**values)
 
 
 def write_premise(
@@ -72,7 +112,6 @@ def served_track(*, tmp_path: Path, now: Callable[[], float] | None = None):
 
 def test_wait_target_missing_relays_evidence_to_prose_waiting_pane(*, tmp_path):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
-    sup.claude_status_by_session = {track.tmux or "": "waiting"}
     write_premise(repo=repo, topic=topic)
     write_local_runs(repo=repo, records=[])
 
@@ -105,6 +144,41 @@ def test_wait_target_missing_relays_evidence_to_prose_waiting_pane(*, tmp_path):
     assert ("respawn",) not in {call[:1] for call in fake.calls}
 
 
+def test_wait_target_missing_relay_allowed_uses_structural_idle_pair():
+    assert wait_target._relay_allowed(request=relay_request(obs=observation()))
+    refused = [
+        observation(gate=True),
+        observation(busy=True, capture=busy_capture(ctx=90)),
+        observation(busy=True, claude_status="shell"),
+        observation(idle=False),
+    ]
+    for obs in refused:
+        assert not wait_target._relay_allowed(request=relay_request(obs=obs))
+
+
+def test_wait_target_missing_relay_allowed_reaches_codex_idle_pane():
+    obs = observation(
+        capture=codex_idle_capture(ctx=90),
+        is_codex=True,
+        runtime="codex",
+        claude_status=None,
+    )
+
+    assert wait_target._relay_allowed(request=relay_request(obs=obs))
+
+
+def test_wait_target_missing_relay_allowed_refuses_codex_busy_pane():
+    obs = observation(
+        capture=codex_busy_capture(ctx=90),
+        busy=True,
+        is_codex=True,
+        runtime="codex",
+        claude_status=None,
+    )
+
+    assert not wait_target._relay_allowed(request=relay_request(obs=obs))
+
+
 def test_wait_target_missing_does_not_raw_paste_relay_to_picker_pane(*, tmp_path):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
     sup.claude_status_by_session = {track.tmux or "": "waiting"}
@@ -124,8 +198,9 @@ def test_wait_target_missing_does_not_raw_paste_relay_to_picker_pane(*, tmp_path
     assert ("respawn",) not in {call[:1] for call in fake.calls}
 
 
-def test_wait_target_missing_does_not_relay_to_non_waiting_pane(*, tmp_path):
+def test_wait_target_missing_does_not_relay_to_non_idle_pane(*, tmp_path):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
+    fake.panes[track.tmux or ""] = "● prior response\nstill rendering\n  Ctx: 90% left\n"
     write_premise(repo=repo, topic=topic)
     write_local_runs(repo=repo, records=[])
 
@@ -314,3 +389,64 @@ def test_wait_target_missing_relay_fail_soft_when_submit_fails(*, tmp_path):
     assert view.status == "wait-target-missing"
     assert len(fake.paste_texts()) == 1
     assert not sup.inject[(str(repo), topic)].wait_target_relayed_keys
+
+
+def test_wait_target_missing_relay_marks_key_only_after_verified_submit(*, tmp_path):
+    repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
+    visible = (
+        "● prior response\n"
+        + ("─" * 40)
+        + "\n❯ wait-target-missing evidence relay\n"
+        + ("─" * 40)
+        + "\n"
+    )
+    fake.panes[track.tmux or ""] = [
+        idle_capture(ctx=90),
+        idle_capture(ctx=90),
+        idle_capture(ctx=90),
+        visible,
+        visible,
+        visible,
+    ]
+    write_premise(repo=repo, topic=topic)
+    write_local_runs(repo=repo, records=[])
+
+    view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "wait-target-missing"
+    assert len(fake.paste_texts()) == 1
+    assert not sup.inject[(str(repo), topic)].wait_target_relayed_keys
+
+    fake._cap_idx[track.tmux or ""] = 0
+    fake.panes[track.tmux or ""] = [
+        idle_capture(ctx=90),
+        idle_capture(ctx=90),
+        idle_capture(ctx=90),
+        visible,
+        idle_capture(ctx=90),
+    ]
+    view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "wait-target-missing"
+    assert len(fake.paste_texts()) == 2
+    assert sup.inject[(str(repo), topic)].wait_target_relayed_keys
+
+    view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "wait-target-missing"
+    assert len(fake.paste_texts()) == 2
+
+
+def relay_request(*, obs: Observation) -> wait_target.WaitTargetMissingRequest:
+    track = registry.Track(repo="/repo", topic="topic", tmux="session")
+    return wait_target.WaitTargetMissingRequest(
+        sup=object(),
+        track=track,
+        session="session",
+        pane="session",
+        status="idle",
+        note=None,
+        obs=obs,
+        active_conditions=set(),
+        act=True,
+    )
