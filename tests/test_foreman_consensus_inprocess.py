@@ -948,6 +948,109 @@ def test_recorded_picker_answer_majority_path_authorizes_two_to_one_split(*, tmp
     assert result["action"]["params"]["answer"] == "1"
 
 
+def test_unenumerated_typed_ruling_escalates_before_plain_majority(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".livespec.jsonc").write_text(
+        json.dumps(
+            {"livespec-overseer": {"foreman_valve_disposition": "consensus", "full_autonomy": True}}
+        ),
+        encoding="utf-8",
+    )
+    payload = recorded_picker_reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    opus = panel[1]
+    assert isinstance(opus, dict)
+    set_recorded_picker_answers(payload=payload, answers=["1", "1", "1"])
+    opus["action"] = {
+        "member_kind": "typed_ruling",
+        "ruling": {"kind": "blocked_session_answer", "answer": "1"},
+    }
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="untyped ruling in plain majority"),
+        responses=payload,
+        state_dir=tmp_path / "state-untyped-ruling-in-plain-majority",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "unenumerated_typed_ruling"
+    assert result["reason"] != "typed_action_disagreement"
+
+
+def test_measured_typed_ruling_shape_names_unenumerated_member(*, tmp_path: Path):
+    consensus = module("foreman_consensus")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".livespec.jsonc").write_text(
+        json.dumps(
+            {"livespec-overseer": {"foreman_valve_disposition": "consensus", "full_autonomy": True}}
+        ),
+        encoding="utf-8",
+    )
+    payload = recorded_picker_reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    opus = panel[1]
+    assert isinstance(opus, dict)
+    set_recorded_picker_answers(payload=payload, answers=["1", "1", "Proceed with option 1."])
+    opus["action"] = {
+        "member_kind": "typed_ruling",
+        "ruling": {"kind": "blocked_session_answer", "answer": "1"},
+    }
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="measured run three typed ruling"),
+        responses=payload,
+        state_dir=tmp_path / "state-measured-run-three-typed-ruling",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "unenumerated_typed_ruling"
+    assert result["reason"] != "typed_action_disagreement"
+
+
+def test_enumerated_typed_ruling_does_not_match_plain_action(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    consensus = module("foreman_consensus")
+    typed_ruling = module("foreman_typed_ruling")
+    monkeypatch.setattr(
+        typed_ruling,
+        "ruling_kind_defined",
+        lambda *, kind: kind == "blocked_session_answer",
+    )
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".livespec.jsonc").write_text(
+        json.dumps(
+            {"livespec-overseer": {"foreman_valve_disposition": "consensus", "full_autonomy": True}}
+        ),
+        encoding="utf-8",
+    )
+    payload = recorded_picker_reviewers()
+    panel = payload["reviewers"]
+    assert isinstance(panel, list)
+    opus = panel[1]
+    assert isinstance(opus, dict)
+    set_recorded_picker_answers(payload=payload, answers=["1", "1", "Proceed with option 1."])
+    opus["action"] = {
+        "member_kind": "typed_ruling",
+        "ruling": {"kind": "blocked_session_answer", "answer": "1"},
+    }
+
+    result = consensus.consensus(
+        request=request(repo=repo, question="enumerated ruling does not join plain action"),
+        responses=payload,
+        state_dir=tmp_path / "state-enumerated-ruling-does-not-join-plain-action",
+    )
+
+    assert result["outcome"] == "escalate"
+    assert result["reason"] == "typed_action_disagreement"
+
+
 def test_recorded_picker_answer_majority_path_rejects_one_one_one_split(*, tmp_path: Path):
     consensus = module("foreman_consensus")
     repo = tmp_path / "repo"

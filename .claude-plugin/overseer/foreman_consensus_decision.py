@@ -8,6 +8,7 @@ answer.
 
 from __future__ import annotations
 
+import foreman_typed_ruling
 import jsonio
 from foreman_consensus_actions import model_for, typed_action
 from foreman_consensus_matrix import ReviewerVotes
@@ -83,12 +84,22 @@ def typed_action_validation_reason(
     action = typed_action(action=reviewer.get("action"))
     if action is None:
         return "free_form_action"
+    if unenumerated_typed_ruling(action=action):
+        return "unenumerated_typed_ruling"
     if verdict == "needs-human" and decision_rule == UNANIMOUS:
         return "non_anthropic_needs_human_dissent" if identity["vendor"] != "anthropic" else None
     valid_verdicts = {"unblock", "needs-human"}
     if decision_rule == MAJORITY:
         valid_verdicts.add("insufficient-information")
     return None if verdict in valid_verdicts else "unknown_verdict"
+
+
+def unenumerated_typed_ruling(*, action: dict[str, object]) -> bool:
+    if action.get("member_kind") != "typed_ruling":
+        return False
+    ruling = jsonio.as_object(value=action.get("ruling")) or {}
+    kind = ruling.get("kind")
+    return not isinstance(kind, str) or not foreman_typed_ruling.ruling_kind_defined(kind=kind)
 
 
 def reviewer_validation_reason(
