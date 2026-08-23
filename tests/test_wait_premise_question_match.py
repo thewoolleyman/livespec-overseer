@@ -119,6 +119,17 @@ def test_typed_wait_premise_preserves_dotted_ids_while_trimming_sentence_period(
             "(wait-premise: kind=work-item-close target=overseer-au3pt3.16.1"
         )
     ) == ("work-item-close", "overseer-au3pt3.16.1")
+
+
+def test_typed_wait_premise_trims_trailing_semicolon():
+    module = _match_module()
+
+    assert module.typed_premise(
+        option=(
+            "Wait for work item close "
+            "(wait-premise: kind=work-item-close target=overseer-eplzam;"
+        )
+    ) == ("work-item-close", "overseer-eplzam")
     assert module.typed_premise(
         option=(
             "Wait for work item close "
