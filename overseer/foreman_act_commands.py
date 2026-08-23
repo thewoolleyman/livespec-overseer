@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Final
 
 import jsonio
+import registry
 import signals
 from _supervisor_prompts import (
     foreman_resume,
@@ -142,7 +143,7 @@ def _resume_prompt(*, repo: str, topic: str, brief: str | None, epic: str | None
         return foreman_resume(repo=repo, epic=epic)
     if brief is not None:
         return f"read {brief} and complete this bounded one-shot work-item session"
-    if epic is not None:
+    if epic is not None and registry.epic_is_resolved(epic=epic):
         return plan_epic_resume(repo=repo, epic=epic)
     return f"continue the plan {topic} work in repository {repo} from your restored session"
 
