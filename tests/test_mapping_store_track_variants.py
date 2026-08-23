@@ -255,6 +255,57 @@ def test_legacy_foreman_row_with_null_or_absent_epic_loads_with_unresolved_senti
     ]
 
 
+def test_identity_update_preserves_raw_null_and_absent_foreman_epic(*, tmp_path):
+    store = tmp_path / "map.jsonl"
+    store.write_text(
+        json.dumps(
+            {
+                "kind": "foreman",
+                "topic": "repo-foreman",
+                "repo": "/repo",
+                "tmux": "repo-foreman",
+                "epic": None,
+            }
+        )
+        + "\n"
+        + json.dumps(
+            {
+                "kind": "foreman",
+                "topic": "other-foreman",
+                "repo": "/repo",
+                "tmux": "other-foreman",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert registry.record_observed_session_identity(
+        repo="/repo",
+        topic="repo-foreman",
+        session_identity="session-a",
+        store_path=store,
+    )
+    assert registry.record_observed_session_identity(
+        repo="/repo",
+        topic="other-foreman",
+        session_identity="session-b",
+        store_path=store,
+    )
+
+    rows = [json.loads(line) for line in store.read_text(encoding="utf-8").splitlines()]
+    assert rows[0]["observed_session_identity"] == "session-a"
+    assert rows[0]["epic"] is None
+    assert rows[1]["observed_session_identity"] == "session-b"
+    assert "epic" not in rows[1]
+
+    tracks = registry.read_valid_mapping(store_path=store)
+    assert [(track.topic, track.epic) for track in tracks] == [
+        ("repo-foreman", registry.unresolved_plan_epic(topic="repo-foreman")),
+        ("other-foreman", registry.unresolved_plan_epic(topic="other-foreman")),
+    ]
+
+
 def test_foreman_ready_without_resolved_epic_never_queries_plan_anchor(*, tmp_path, monkeypatch):
     repo, _topic = make_plan(tmp_path=tmp_path)
     topic = "repo-foreman"

@@ -59,5 +59,10 @@ def validated_row(*, row: dict[str, object]) -> dict[str, object]:
         ),
     )
     serialized = track_to_row(track=track)
+    if row.get("epic") is None and serialized.get("epic") == track.epic:
+        if "epic" in row:
+            serialized["epic"] = None
+        else:
+            _ = serialized.pop("epic", None)
     known = set(serialized)
     return {**{key: value for key, value in row.items() if key not in known}, **serialized}
