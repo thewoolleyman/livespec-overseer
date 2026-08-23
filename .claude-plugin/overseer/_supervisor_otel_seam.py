@@ -15,9 +15,10 @@ It lives beside `_supervisor_otel` rather than inside it because that module was
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import _supervisor_otel
+import _supervisor_otel_report
 
 __all__: list[str] = ["OtelSeam", "from_env"]
 
@@ -28,6 +29,9 @@ class OtelSeam:
 
     config: _supervisor_otel.OtelConfig
     emitter: Callable[[dict[str, object]], object]
+    failure_state: _supervisor_otel_report.OtelExportFailureState = field(
+        default_factory=_supervisor_otel_report.OtelExportFailureState
+    )
 
 
 def from_env() -> OtelSeam:

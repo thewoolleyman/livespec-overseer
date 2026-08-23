@@ -9,6 +9,8 @@ import json
 
 import registry
 from _supervisor_foreman import heartbeat_path
+from _supervisor_otel import EmitResult, OtelConfig
+from _supervisor_otel_seam import OtelSeam
 from test_supervisor_builders import (
     declare,
     idle_capture,
@@ -63,6 +65,144 @@ def test_daemon_level_log_event_has_no_track_but_keeps_instance_and_tick(*, tmp_
         "tick_generation": 7,
         "ts": event["ts"],
     }
+
+
+def test_successful_otel_export_is_silent(*, tmp_path):
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=FakeTmux(),
+        otel=OtelSeam(
+            config=OtelConfig(
+                endpoint="https://api.honeycomb.io",
+                ingest_key="key",
+                service_name="svc",
+                service_namespace="ns",
+            ),
+            emitter=lambda _request: EmitResult(
+                sent=True,
+                span_count=1,
+                rejected_spans=0,
+                error=None,
+            ),
+        ),
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        sup.log(message="tick 1 complete", event="daemon-tick")
+
+    events = [json.loads(line) for line in err.getvalue().splitlines()]
+    assert [event["event"] for event in events] == ["daemon-tick"]
+
+
+def test_failed_otel_export_surfaces_cause_and_rejected_count(*, tmp_path):
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=FakeTmux(),
+        otel=OtelSeam(
+            config=OtelConfig(
+                endpoint="https://api.honeycomb.io",
+                ingest_key="bad-key",
+                service_name="svc",
+                service_namespace="ns",
+            ),
+            emitter=lambda _request: EmitResult(
+                sent=False,
+                span_count=3,
+                rejected_spans=3,
+                error="HTTP 401 Unauthorized",
+            ),
+        ),
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        sup.log(message="tick 1 complete", event="daemon-tick")
+
+    events = [json.loads(line) for line in err.getvalue().splitlines()]
+    assert [event["event"] for event in events] == [
+        "daemon-tick",
+        "otel-export-failed",
+    ]
+    alert = events[1]
+    assert alert["severity"] == "alert"
+    assert alert["error"] == "HTTP 401 Unauthorized"
+    assert alert["rejected_spans"] == 3
+    assert "HTTP 401 Unauthorized" in alert["message"]
+    assert "rejected_spans=3" in alert["message"]
+
+
+def test_persistent_otel_export_failure_reports_each_age_band_once(*, tmp_path):
+    clock = {"now": 1000.0}
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=FakeTmux(),
+        now=lambda: clock["now"],
+        otel=OtelSeam(
+            config=OtelConfig(
+                endpoint="https://api.honeycomb.io",
+                ingest_key="bad-key",
+                service_name="svc",
+                service_namespace="ns",
+            ),
+            emitter=lambda _request: EmitResult(
+                sent=False,
+                span_count=1,
+                rejected_spans=1,
+                error="OSError: offline",
+            ),
+        ),
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        sup.log(message="tick 1 complete", event="daemon-tick")
+        clock["now"] += 60.0
+        sup.log(message="tick 2 complete", event="daemon-tick")
+        clock["now"] += 10.0
+        sup.log(message="tick 3 complete", event="daemon-tick")
+
+    alert_events = [
+        event["event"]
+        for line in err.getvalue().splitlines()
+        if (event := json.loads(line))["severity"] == "alert"
+    ]
+    assert alert_events == [
+        "otel-export-failed",
+        "otel-export-failure-age-60",
+    ]
+
+
+def test_partially_rejected_otel_export_surfaces_rejected_count(*, tmp_path):
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=FakeTmux(),
+        otel=OtelSeam(
+            config=OtelConfig(
+                endpoint="https://api.honeycomb.io",
+                ingest_key="key",
+                service_name="svc",
+                service_namespace="ns",
+            ),
+            emitter=lambda _request: EmitResult(
+                sent=True,
+                span_count=4,
+                rejected_spans=2,
+                error=None,
+            ),
+        ),
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        sup.log(message="tick 1 complete", event="daemon-tick")
+
+    events = [json.loads(line) for line in err.getvalue().splitlines()]
+    assert [event["event"] for event in events] == [
+        "daemon-tick",
+        "otel-export-rejected",
+    ]
+    assert events[1]["rejected_spans"] == 2
 
 
 def test_foreman_stale_alert_dedups_when_age_and_tick_advance(*, tmp_path):

@@ -40,6 +40,7 @@ __all__: list[str] = [
     "IDLE_NUDGE_AFTER",
     "LOOP_INTERVAL_SECONDS",
     "MARKER_VOID_GRACE",
+    "OTEL_EXPORT_FAILURE_ALERT_BANDS",
     "PAIR_STALL_AFTER",
     "PANE_STILL_AFTER",
     "PICKER_STALL_AFTER",
@@ -173,6 +174,10 @@ SUPERVISOR_STATE_STALE_AFTER = 30 * 60.0
 # Standing blocked declarations escalate once at each crossed age band. Further daily
 # bands are derived from the same 24h cadence in the evaluator.
 BLOCKED_AGE_ALERT_BANDS = (4 * 3600.0, 24 * 3600.0)
+
+# Telemetry outages mean the fleet's observability is suspect, so they re-alert faster
+# than a human-blocked track without reporting on every tick.
+OTEL_EXPORT_FAILURE_ALERT_BANDS = (60.0, 5 * 60.0, 15 * 60.0)
 
 
 def default_gitignore_check(*, repo: str) -> bool:
