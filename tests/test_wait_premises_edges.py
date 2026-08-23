@@ -23,6 +23,7 @@ def test_reader_returns_empty_when_directory_glob_fails(*, monkeypatch, tmp_path
     assert wait_premises.read_wait_premises(repo=tmp_path / "repo", topic="alpha") == []
 
 
+@pytest.mark.integration
 def test_reader_skips_malformed_and_invalid_records(*, tmp_path):
     directory = wait_premises.wait_premise_dir(repo=tmp_path / "repo", topic="alpha")
     directory.mkdir(parents=True)
@@ -31,6 +32,27 @@ def test_reader_skips_malformed_and_invalid_records(*, tmp_path):
     (directory / "invalid.json").write_text('{"kind": "pr"}\n', encoding="utf-8")
 
     assert wait_premises.read_wait_premises(repo=tmp_path / "repo", topic="alpha") == []
+
+
+@pytest.mark.integration
+def test_reader_skips_malformed_record_without_dropping_valid_sibling(*, tmp_path):
+    repo = tmp_path / "repo"
+    directory = wait_premises.wait_premise_dir(repo=repo, topic="alpha")
+    directory.mkdir(parents=True)
+    (directory / "malformed.json").write_text("{oops}\n", encoding="utf-8")
+    valid_path = wait_premises.write_wait_premise(
+        repo=repo,
+        topic="alpha",
+        kind="pr",
+        target_id="17",
+        evidence_source="gh pr view 17 --json state",
+        recorded_at="2026-08-19T02:30:00Z",
+        recheck_by="2026-08-19T03:00:00Z",
+    )
+
+    records = wait_premises.read_wait_premises(repo=repo, topic="alpha")
+
+    assert records == [json.loads(valid_path.read_text(encoding="utf-8"))]
 
 
 def test_reader_migrates_legacy_record_and_returns_it_on_the_same_pass(*, tmp_path):

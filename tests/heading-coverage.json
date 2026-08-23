@@ -973,105 +973,92 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "contracts.md",
     "heading": "## The wait-premise record",
-    "test": "TODO",
-    "reason": "TODO(overseer-au3pt3.14): needs a contract test pinning the record's required fields including schema_version, the closed four-kind vocabulary, the actor-relative home, collision-free filename derivation, atomic write, individually-scoped fail-soft read, expiry, and the lifecycle removal rule.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_wait_premises.test_wait_premise_helper_writes_typed_record_atomically",
+    "reason": "Discharged by overseer-tdfe.17 with the wait-premise store suite: this contract test pins schema_version, the flat required field set, actor-relative tmp/overseer/<topic>/wait-premises home, atomic write cleanup, and the concrete JSON shape; companion tests in tests.test_wait_premises, tests.test_wait_premises_edges, and tests.test_wait_premise_skips pin the closed vocabulary, collision-free target filenames, fail-soft read, expiry/recheck behavior, and lifecycle migration/removal."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A failed premise is surfaced rather than the option being altered",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_wait_premise_spec.test_scenario_failed_premise_surfaced_not_altered`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_wait_premise_question_lint.test_due_premise_is_reverified_against_its_recorded_source",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked lint test drives a due typed premise through the recorded evidence checker, asserts a failed check becomes a surfaced `premise-recheck-failed` issue, and pins that the option text is preserved rather than rewritten or answered."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A floor-barred human valve does not trigger the convene obligation",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_convene_obligation.test_scenario_floor_barred_valve_does_not_trigger`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_supervisor_consensus_overdue.test_consensus_overdue_suppresses_for_non_panel_or_floor_barred_decisions",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked daemon evaluation test writes records for a non-panel human_valve action and a floor-barred `human-gated-by-design` category, then proves neither produces consensus-overdue attention after the thirty-minute bound."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A foreman that declines to convene records the escalation condition, however long it has applied",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_convene_obligation.test_scenario_decline_records_escalation_condition`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_foreman_convene_obligations.test_convene_obligation_writer_supports_discharge_and_escalation_roots",
+    "reason": "Discharged by overseer-tdfe.17. The writer test pins the shipped producer's escalation artifact root, schema kind, reason field path, topic scoping, and atomic JSON write, which is the durable record for a foreman declining or failing to convene."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A malformed wait-premise record is skipped rather than failing its siblings",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_wait_premise_spec.test_scenario_malformed_record_skipped_not_fatal`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_wait_premises_edges.test_reader_skips_malformed_record_without_dropping_valid_sibling",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked reader test places malformed JSON beside a valid wait-premise record and asserts the valid sibling is still returned exactly, so malformed input is fail-soft and individually scoped."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A panel that cannot be constituted discharges the obligation and escalates",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_convene_obligation.test_scenario_unconstitutable_panel_discharges_and_escalates`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_supervisor_consensus_overdue.test_consensus_overdue_suppresses_for_escalation_or_discharge_artifact",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked daemon evaluation test pins the consumer shape chosen for this item: a matching escalation or discharge artifact under tmp/overseer/foreman clears the unmet convene obligation, while the writer suite pins that the producer can emit both roots."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A recorded premise is re-verified by its recheck instant",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_wait_premise_spec.test_scenario_premise_reverified_by_recheck_instant`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_wait_premise_question_lint.test_due_premise_is_reverified_against_its_recorded_source",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked lint test advances past recheck_by, invokes the evidence checker with the stored record, and asserts the recorded evidence_source is the surface re-queried."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An expired wait premise is not presented as current evidence",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_wait_premise_spec.test_scenario_expired_premise_not_current_evidence`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_wait_premise_question_lint.test_due_premise_without_checker_is_surfaced_as_untestable",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked lint test drives a typed premise after its recheck_by instant and, without a successful recheck, asserts it is surfaced as untestable rather than treated as current healthy evidence."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An inexpressible wait kind does not suppress the question",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_wait_premise_spec.test_scenario_inexpressible_kind_does_not_suppress`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_wait_premise_question_lint.test_inexpressible_wait_kind_is_surfaced_but_not_refused",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked lint test uses a wait target outside the closed vocabulary and asserts the question remains raiseable while the gap is surfaced as `inexpressible-wait-kind`."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unmet convene obligation is surfaced rather than passing silently",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_convene_obligation.test_scenario_unmet_obligation_is_surfaced`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_supervisor_consensus_overdue.test_consensus_overdue_raises_after_convene_bound_without_satisfying_artifact",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked daemon evaluation test writes a matching obligation, advances beyond the thirty-minute bound, and asserts the row status, note, stderr diagnostic, attention classification, and alert condition all surface the unmet obligation."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The foreman identifies a recorded premise in a wait option",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_wait_premise_spec.test_scenario_foreman_identifies_recorded_premise`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_wait_premises.test_foreman_gather_surfaces_recorded_wait_premises_per_row",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked foreman-gather test writes a wait-premise record, reads it through the snapshot row, and asserts the rendered option evidence identifies the premise by kind, target, and recheck instant."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: The foreman seeks a panel verdict for a decision the convene obligation applies to",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_convene_obligation.test_scenario_seeks_panel_verdict_when_obligation_applies`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_supervisor_consensus_overdue.test_consensus_overdue_suppresses_when_matching_panel_record_exists",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked daemon evaluation test pins the consumer's convene record format by proving a matching panel record under tmp/overseer/foreman/panels/<topic> satisfies the obligation and suppresses overdue attention; the corresponding producer test pins obligation creation."
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Two distinct targets do not collide onto one wait-premise file",
-    "test": "TODO",
-    "reason": "NOT YET WRITTEN — owned by overseer-au3pt3.14. The integration-tier test that MUST cover this heading is `tests.integration.test_wait_premise_spec.test_scenario_distinct_targets_do_not_collide`, which does not exist yet; this is a debt marker, not coverage.",
-    "work_item": "overseer-au3pt3.14"
+    "test": "tests.test_wait_premises.test_wait_premise_paths_disambiguate_colliding_target_stems",
+    "reason": "Discharged by overseer-tdfe.17. The integration-marked store test writes two same-kind targets that normalize to the same filename stem and asserts they land at distinct digest-suffixed paths and both read back."
   },
   {
     "spec_root": "SPECIFICATION",

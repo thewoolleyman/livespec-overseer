@@ -8,6 +8,7 @@ import json
 
 import _supervisor_attention
 import foreman_gather_evidence
+import pytest
 import registry
 import supervisor
 from test_supervisor_builders import declare, idle_capture, make_plan, make_supervisor, mapped_track
@@ -61,6 +62,7 @@ def evaluated_blocked_row(*, tmp_path, repo, topic, capture: str, now: float):
     return sup, fake, row, err.getvalue()
 
 
+@pytest.mark.integration
 def test_consensus_overdue_raises_after_convene_bound_without_satisfying_artifact(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     write_disposition(repo=repo, value="consensus")
@@ -84,6 +86,7 @@ def test_consensus_overdue_raises_after_convene_bound_without_satisfying_artifac
     assert not fake.has(method="respawn")
 
 
+@pytest.mark.integration
 def test_consensus_overdue_suppresses_when_matching_panel_record_exists(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     write_disposition(repo=repo, value="consensus")
@@ -154,6 +157,7 @@ def test_consensus_overdue_suppresses_for_report_only_disposition(*, tmp_path):
     assert row.status == "blocked:human"
 
 
+@pytest.mark.integration
 def test_consensus_overdue_suppresses_for_non_panel_or_floor_barred_decisions(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     write_disposition(repo=repo, value="consensus")
@@ -182,6 +186,36 @@ def test_consensus_overdue_suppresses_for_non_panel_or_floor_barred_decisions(*,
         tmp_path=tmp_path, repo=repo, topic=topic, capture=capture, now=1000.0 + 1801.0
     )
     assert row.status == "blocked:human"
+
+
+@pytest.mark.integration
+def test_consensus_overdue_suppresses_for_escalation_or_discharge_artifact(*, tmp_path):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    write_disposition(repo=repo, value="consensus")
+    capture = idle_capture(ctx=80, body="Should I answer option 1?")
+    fingerprint = foreman_gather_evidence.pane_content_hash(text=capture)
+    write_obligation(repo=repo, topic=topic, fingerprint=fingerprint)
+
+    for root in ("convene-escalations", "convene-discharges"):
+        artifact = repo / "tmp" / "overseer" / "foreman" / root / topic / "result.json"
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_text(
+            json.dumps({"request": {"question_fingerprint": fingerprint}}),
+            encoding="utf-8",
+        )
+
+        _sup, _fake, row, err = evaluated_blocked_row(
+            tmp_path=tmp_path,
+            repo=repo,
+            topic=topic,
+            capture=capture,
+            now=1000.0 + 1801.0,
+        )
+
+        assert row.status == "blocked:human"
+        assert "unmet convene obligation" not in (row.note or "")
+        assert "consensus overdue" not in err
+        artifact.unlink()
 
 
 def test_consensus_overdue_clears_when_question_changes(*, tmp_path):

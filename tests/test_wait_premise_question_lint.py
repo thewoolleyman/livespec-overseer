@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
+import pytest
 import wait_premises
 
 __all__: list[str] = []
@@ -16,6 +17,7 @@ def _lint_module():
     return importlib.import_module("wait_premise_question_lint")
 
 
+@pytest.mark.integration
 def test_compliant_foreman_wait_question_passes(*, tmp_path):
     module = _lint_module()
     repo = tmp_path / "repo"
@@ -63,6 +65,7 @@ def test_expressible_wait_question_without_record_is_surfaced(*, tmp_path):
     assert [issue.reason for issue in report.issues] == ["missing-typed-premise"]
 
 
+@pytest.mark.integration
 def test_inexpressible_wait_kind_is_surfaced_but_not_refused(*, tmp_path):
     module = _lint_module()
     question = (
@@ -166,6 +169,7 @@ def test_typed_option_with_different_recorded_target_is_surfaced(*, tmp_path):
     assert [issue.reason for issue in report.issues] == ["missing-recorded-premise"]
 
 
+@pytest.mark.integration
 def test_due_premise_without_checker_is_surfaced_as_untestable(*, tmp_path):
     module = _lint_module()
     repo = tmp_path / "repo"
@@ -193,6 +197,7 @@ def test_due_premise_without_checker_is_surfaced_as_untestable(*, tmp_path):
     assert [issue.reason for issue in report.issues] == ["premise-recheck-untestable"]
 
 
+@pytest.mark.integration
 def test_due_premise_is_reverified_against_its_recorded_source(*, tmp_path):
     module = _lint_module()
     repo = tmp_path / "repo"
@@ -225,6 +230,9 @@ def test_due_premise_is_reverified_against_its_recorded_source(*, tmp_path):
 
     assert checked_sources == ["gh run view run-9 --json status,conclusion"]
     assert [issue.reason for issue in report.issues] == ["premise-recheck-failed"]
+    assert [issue.option for issue in report.issues] == [
+        "Wait for CI run run-9 to finish. wait-premise: kind=ci-run target=run-9"
+    ]
 
 
 def test_due_premise_passes_when_recorded_evidence_still_holds(*, tmp_path):

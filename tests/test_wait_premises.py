@@ -62,6 +62,7 @@ def test_wait_premise_schema_accepts_declared_kinds(*, kind):
     assert record["schema_version"] == 1
 
 
+@pytest.mark.integration
 def test_wait_premise_paths_disambiguate_colliding_target_stems(*, tmp_path):
     wait_premises = importlib.import_module("wait_premises")
 
@@ -193,6 +194,7 @@ def test_wait_premise_writer_fails_closed_on_empty_repo_or_topic(*, repo, topic,
         )
 
 
+@pytest.mark.integration
 def test_foreman_gather_surfaces_recorded_wait_premises_per_row(*, tmp_path):
     module_path = Path(__file__).resolve().parent.parent / "overseer" / "wait_premises.py"
     assert module_path.is_file()
