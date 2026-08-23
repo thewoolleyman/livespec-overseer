@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "acquire_singleton_lock",
+    "has_render_terminal",
     "release_singleton_lock",
     "run_acting_tick",
     "run_loop",
@@ -85,6 +86,12 @@ def unignored_tmp_repos(*, sup: Supervisor) -> list[str]:
         for repo in _supervisor_discovery.resolve_watch(sup=sup)
         if registry.repo_root_present(repo=repo) and not sup.gitignore_check(repo=repo)
     ]
+
+
+def has_render_terminal(*, sup: Supervisor) -> bool:
+    """Whether the live-table stream is a terminal pane rather than a plain file."""
+    isatty = getattr(sup.out, "isatty", None)
+    return callable(isatty) and bool(isatty())
 
 
 def unsupported_host_reasons(*, sup: Supervisor) -> list[str]:
@@ -159,6 +166,15 @@ def run_loop(
             + "; ".join(unsupported)
             + " (the overseer declares Linux + tmux as a REQUIREMENT and "
             "deliberately does not abstract the host boundary)"
+        )
+        return
+    if sup.require_render_terminal and not has_render_terminal(sup=sup):
+        sup.surface(
+            message=(
+                "refusing to start: no controlling terminal — the live table has nowhere "
+                "to render; start the daemon through /overseer's bootstrap, which splits "
+                "a top pane"
+            )
         )
         return
     offenders = unignored_tmp_repos(sup=sup)
