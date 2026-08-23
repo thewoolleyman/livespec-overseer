@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.50.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.49.2...v1.50.0) (2026-08-23)
+
+
+### Features
+
+* pin dispatch quiet waiters aggregate ([8f0ff9e](https://github.com/thewoolleyman/livespec-overseer/commit/8f0ff9e4dee2ad2c45f6299f5ee4389e098593e7))
+
 ## [1.49.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.49.1...v1.49.2) (2026-08-23)
 
 
