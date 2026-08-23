@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.50.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.50.3...v1.50.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* count the whole dispatch journal ([ee43eb5](https://github.com/thewoolleyman/livespec-overseer/commit/ee43eb57b3c994e01bf0a663da314a7ae456450b))
+* name aged out dispatch journal records ([32f614d](https://github.com/thewoolleyman/livespec-overseer/commit/32f614d4f395909440e1dfc24e9c74352baa3b2e))
+
 ## [1.50.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.50.2...v1.50.3) (2026-08-23)
 
 
