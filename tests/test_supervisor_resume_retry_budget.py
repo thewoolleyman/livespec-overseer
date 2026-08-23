@@ -88,7 +88,7 @@ def test_fresh_resume_pending_episode_gets_a_fresh_keystroke_budget(*, tmp_path)
     registry.set_resume_pending(
         repo=str(repo),
         topic=topic,
-        session_identity=f"claude:{session}:{topic}:second",
+        session_identity=f"claude:{session}:{topic}",
         stamp_path=sup.stamp_path,
     )
     fake.calls.clear()

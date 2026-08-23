@@ -91,10 +91,7 @@ def resume_retry(
     pending_identity = read_resume_pending_identity(
         repo=repo, topic=topic, stamp_path=sup.stamp_path
     )
-    identity_matches = pending_identity == obs.session_identity or (
-        pending_identity is not None and pending_identity.startswith(f"{obs.session_identity}:")
-    )
-    if pending_identity is None or not identity_matches:
+    if pending_identity is None or pending_identity != obs.session_identity:
         sup.alert(
             repo=repo,
             topic=topic,
