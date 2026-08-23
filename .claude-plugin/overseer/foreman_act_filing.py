@@ -7,7 +7,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, TypeAlias
 
 import jsonio
 
@@ -18,7 +18,7 @@ __all__: list[str] = [
     "filing_request",
 ]
 
-FiledWorkItem = tuple[str, str]
+FiledWorkItem: TypeAlias = tuple[str, str] | tuple[str, str, str]
 
 
 class FileWorkItem(Protocol):
@@ -122,6 +122,23 @@ def _is_orchestrator_plugin_root(*, path: Path) -> bool:
     ).is_dir()
 
 
+def _version_key(*, path: Path) -> tuple[int, ...] | None:
+    plugin_json = path / "plugin.json"
+    if not plugin_json.is_file():
+        return None
+    parsed_result = jsonio.parse_object(text=plugin_json.read_text(encoding="utf-8"))
+    parsed = None if jsonio.is_parse_failure(result=parsed_result) else parsed_result.unwrap()
+    if parsed is None:  # pragma: no cover
+        return None
+    version = _str_field(payload=parsed, key="version")
+    if version is None:  # pragma: no cover
+        return None
+    parts = version.split(".")
+    if not parts or any(not part.isdecimal() for part in parts):  # pragma: no cover
+        return None
+    return tuple(int(part) for part in parts)
+
+
 def _cache_root_candidates(*, plugin_root: Path) -> list[Path]:
     candidates: list[Path] = []
     for ancestor in plugin_root.parents:
@@ -145,20 +162,33 @@ def _orchestrator_plugin_root() -> Path | None:
         return configured
     plugin_root = Path(__file__).resolve().parent.parent
     for cache_root in _cache_root_candidates(plugin_root=plugin_root):
-        matches = sorted(
+        current: tuple[tuple[int, ...], Path] | None = None
+        valid_roots = [
             child for child in cache_root.iterdir() if _is_orchestrator_plugin_root(path=child)
-        )
-        if matches:
-            return matches[-1]
+        ]
+        for child in valid_roots:
+            version = _version_key(path=child)
+            if version is None:
+                continue
+            if current is None or version > current[0]:
+                current = (version, child)
+        if current is not None:
+            return current[1]
+        if len(valid_roots) == 1:
+            return valid_roots[0]
     return None
+
+
+def _pythonpath_entries_for_root(*, root: Path) -> list[str]:
+    scripts = root / "scripts"
+    return [str(scripts), str(scripts / "_vendor")]
 
 
 def _filing_pythonpath_entries() -> list[str]:
     root = _orchestrator_plugin_root()
     if root is None:
         return []
-    scripts = root / "scripts"
-    return [str(scripts), str(scripts / "_vendor")]
+    return _pythonpath_entries_for_root(root=root)
 
 
 def _filing_env() -> dict[str, str]:
@@ -173,6 +203,12 @@ def _filing_env() -> dict[str, str]:
 def file_work_item(*, request: dict[str, object]) -> FiledWorkItem:  # pragma: no cover
     """File a freeform item, then route it through the shared six-gate intake seam."""
     target_repo = str(request["target_repo"])
+    orchestrator_root = _orchestrator_plugin_root()
+    env = _filing_env() if orchestrator_root is None else os.environ.copy()
+    if orchestrator_root is not None:
+        entries = _pythonpath_entries_for_root(root=orchestrator_root)
+        inherited = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = os.pathsep.join([*entries, inherited] if inherited else entries)
     completed = subprocess.run(  # noqa: S603
         [sys.executable, "-c", _FILING_SCRIPT],
         input=json.dumps(request, sort_keys=True),
@@ -180,7 +216,7 @@ def file_work_item(*, request: dict[str, object]) -> FiledWorkItem:  # pragma: n
         capture_output=True,
         check=False,
         cwd=target_repo,
-        env=_filing_env(),
+        env=env,
     )
     if completed.returncode != 0:  # pragma: no cover
         msg = completed.stderr.strip() or f"filing subprocess exited {completed.returncode}"
@@ -195,7 +231,9 @@ def file_work_item(*, request: dict[str, object]) -> FiledWorkItem:  # pragma: n
     if item_id is None or verdict is None:  # pragma: no cover
         msg = "filing subprocess returned malformed fields"
         raise ValueError(msg)
-    return item_id, verdict
+    if orchestrator_root is None:
+        return item_id, verdict
+    return item_id, verdict, str(orchestrator_root)
 
 
 _FILING_SCRIPT = """

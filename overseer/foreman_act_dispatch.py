@@ -104,13 +104,16 @@ def _act_filing(
     if request is None:
         return _refused(action_id=action_id, reason="malformed_filing")
     try:
-        item_id, verdict = file_work_item(request=request)
+        filed = file_work_item(request=request)
     except RuntimeError as exc:
         return _failed(
             action_id=action_id,
             reason=_bounded_reason(prefix="filing_subprocess_failed", reason=str(exc)),
         )
-    return _acted(action_id=action_id, reason=f"filed:{item_id}:{verdict}")
+    item_id = filed[0]
+    verdict = filed[1]
+    root_suffix = ":".join(("", *filed[2:]))
+    return _acted(action_id=action_id, reason=f"filed:{item_id}:{verdict}{root_suffix}")
 
 
 def _is_ledger_mutation(*, action_id: ActionId) -> bool:

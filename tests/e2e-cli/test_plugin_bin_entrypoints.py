@@ -1364,6 +1364,12 @@ def test_foreman_act_files_work_item_from_plugin_cache_without_caller_pythonpath
     cache = tmp_path / "home" / ".claude" / "plugins" / "cache"
     overseer_plugin = _materialize_overseer_plugin(cache=cache)
     _materialize_orchestrator_plugin(cache=cache)
+    orchestrator_plugin = (
+        cache
+        / "livespec-orchestrator-beads-fabro"
+        / "livespec-orchestrator-beads-fabro"
+        / "test-build"
+    )
     repo = tmp_path / "repo"
     repo.mkdir()
     proposal_path = tmp_path / "proposal.json"
@@ -1394,7 +1400,7 @@ def test_foreman_act_files_work_item_from_plugin_cache_without_caller_pythonpath
         "action_id": "work_item_file",
         "mutated": True,
         "outcome": "acted",
-        "reason": "filed:overseer-filed:ready",
+        "reason": f"filed:overseer-filed:ready:{orchestrator_plugin}",
     }
     assert json.loads((repo / "tmp" / "fake-intake.json").read_text(encoding="utf-8")) == {
         "above_floor": True,
@@ -1408,7 +1414,7 @@ def test_foreman_act_files_work_item_from_plugin_cache_without_caller_pythonpath
         "stage": "foreman-act",
         "action_id": "work_item_file",
         "outcome": "acted",
-        "reason": "filed:overseer-filed:ready",
+        "reason": f"filed:overseer-filed:ready:{orchestrator_plugin}",
         "mutated": True,
     }
 

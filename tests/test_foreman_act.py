@@ -1116,6 +1116,33 @@ def test_filing_bootstrap_resolves_configured_and_cache_plugin_roots(*, tmp_path
     assert module._orchestrator_plugin_root() == discovered
 
 
+def test_filing_bootstrap_resolves_cache_plugin_root_by_manifest_version(*, tmp_path, monkeypatch):
+    module = foreman_act_filing()
+    cache = tmp_path / "home" / ".claude" / "plugins" / "cache"
+    plugin_root = cache / "livespec-overseer" / "livespec-overseer" / "test-build"
+    cache_root = cache / "livespec-orchestrator-beads-fabro" / "livespec-orchestrator-beads-fabro"
+    lexical_winner = cache_root / "ffff-old"
+    current = cache_root / "1111-current"
+    for root, version in ((lexical_winner, "0.30.3"), (current, "0.62.0")):
+        (root / "scripts" / "livespec_orchestrator_beads_fabro").mkdir(parents=True)
+        (root / "scripts" / "_vendor" / "livespec_runtime").mkdir(parents=True)
+        (root / "plugin.json").write_text(
+            json.dumps(
+                {
+                    "name": "livespec-orchestrator-beads-fabro",
+                    "version": version,
+                }
+            ),
+            encoding="utf-8",
+        )
+    (plugin_root / "overseer").mkdir(parents=True)
+
+    monkeypatch.delenv("LIVESPEC_ORCHESTRATOR_PLUGIN_ROOT", raising=False)
+    monkeypatch.setattr(module, "__file__", str(plugin_root / "overseer" / "foreman_act_filing.py"))
+
+    assert module._orchestrator_plugin_root() == current
+
+
 def test_filing_bootstrap_env_preserves_inherited_pythonpath(*, tmp_path, monkeypatch):
     module = foreman_act_filing()
     root = tmp_path / "orchestrator"
