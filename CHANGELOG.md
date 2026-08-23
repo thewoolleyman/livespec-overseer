@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.43.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.8...v1.43.0) (2026-08-23)
+
+
+### Features
+
+* document overseerd help contract ([31309c3](https://github.com/thewoolleyman/livespec-overseer/commit/31309c37d22e7964a9848ba4827fcb22f277cc68))
+
+
+### Bug Fixes
+
+* prefix foreman-act ledger argv with the target repo credential wrapper ([d208808](https://github.com/thewoolleyman/livespec-overseer/commit/d20880809c0f394cab5604eb3f4e3aa31bdadc51))
+
 ## [1.42.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.7...v1.42.8) (2026-08-23)
 
 
