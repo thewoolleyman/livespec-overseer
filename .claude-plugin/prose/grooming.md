@@ -197,6 +197,24 @@ then re-read the row. If you repair another thread's non-conforming row to unblo
 the tenant, record the correction on the item and relay the pattern to the owning
 thread; do not silently repair unrelated fields.
 
+Before writing any status to a pre-existing row, re-read that row's current
+status. Stage 3's declared scope is backlog rows lacking the triaged marker, so a
+row that was in the stage-1 snapshot but now reads closed, done, ready, active,
+acceptance, pending-approval, blocked, or otherwise outside that scope is no
+longer this stage's row to mutate. If the row has left the stage's declared scope,
+skip the write and report the skipped row explicitly in the round record. The
+round record must name skipped rows as well as written rows because a skip is
+otherwise unrecoverable: it leaves no status transition, comment, or ledger field
+for a later interaction-log replay to find. A row that still re-reads inside the
+declared scope is written normally.
+
+This narrows the stale-snapshot window; it does not make stage 3 atomic. A
+concurrent writer can still land between the freshness read and the status write,
+and the durable substrate-level refusal for out-of-scope writes belongs below this
+operation. This contract binds the grooming pass to re-check immediately before
+each pre-existing-row status write and to make every skip visible in its own round
+record.
+
 ### 4. Bucket
 
 Group every unparented non-done item into coherent plan threads within the budget.
