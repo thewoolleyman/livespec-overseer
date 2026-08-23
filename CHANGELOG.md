@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.46.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.4...v1.46.0) (2026-08-23)
+
+
+### Features
+
+* cover foreman self restart ([befba9c](https://github.com/thewoolleyman/livespec-overseer/commit/befba9c0faec8ae042e799bcd35c5ab512e69ceb))
+
+
+### Bug Fixes
+
+* preserve caam cutover state ([c0bee2c](https://github.com/thewoolleyman/livespec-overseer/commit/c0bee2cbda9494d52882f1d448b3569e74c9dbec))
+
 ## [1.45.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.3...v1.45.4) (2026-08-23)
 
 
