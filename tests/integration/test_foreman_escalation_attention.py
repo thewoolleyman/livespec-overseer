@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import contextlib
 import io as _io
 import json
 from pathlib import Path
 
 from overseer import _supervisor_foreman_escalation as foreman_escalation
 from overseer import registry, signals, supervisor
-from overseer.test_supervisor_builders import idle_capture, make_plan, make_supervisor, mapped_track
+from overseer.test_supervisor_builders import (
+    declare,
+    idle_capture,
+    make_plan,
+    make_supervisor,
+    mapped_track,
+)
 from overseer.test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -181,3 +188,125 @@ def test_foreman_escalation_reader_treats_unreadable_and_blank_reason_as_present
 
     unreadable = foreman_escalation.read_escalation(repo=str(repo), topic=topic)
     assert unreadable == foreman_escalation.ForemanEscalation(reason=None)
+
+
+def _open_foreman_round(*, tmp_path, topic, ctx=40):
+    """Drive a REAL wrap-up round for a foreman topic and return its handles.
+
+    The round is OPENED by the supervisor rather than seeded with
+    `write_injection_stamp`, so the stamp/declaration ordering that certifies a
+    `ready` is an observed consequence here, exactly as in the cardinal-rule
+    scenarios. That matters for these tests specifically: the defect they pin is
+    an INTERACTION between a live escalation and a CERTIFIABLE ready, and a
+    declaration that was never certifiable could not tell the two apart.
+    """
+    repo, topic = make_plan(tmp_path=tmp_path, topic=topic)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=ctx))
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0, out=_io.StringIO())
+    track = mapped_track(repo=repo, topic=topic, session=session)
+    opened = sup.evaluate(track=track, act=True)
+
+    assert opened.status == "warned"
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is not None
+    )
+    return repo, topic, session, fake, sup, track
+
+
+def test_scenario_escalated_foreman_ready_declaration_still_certifies(*, tmp_path):
+    """Scenario: an escalated foreman can wind down without retracting its escalation.
+
+    The defect: `active_decision` evaluated the foreman-escalation branch before any
+    path that can act on a declaration and RETURNED, carrying `ready` through
+    untouched. A foreman's valid declaration could therefore never certify while its
+    marker was live, and the seat's only route to a restart was to resolve its own
+    unanswered maintainer items.
+
+    Both conditions are required to see it. A test that exercises only one cannot
+    distinguish fixed from broken, because the defect lives in their interaction.
+    """
+    repo, topic, session, fake, sup, track = _open_foreman_round(
+        tmp_path=tmp_path, topic="foreman-winddown"
+    )
+    write_foreman_escalation(repo=repo, topic=topic, reason="ratification authorization")
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "restarting"
+    assert [call for call in fake.calls if call[0] == "respawn"] != []
+
+
+def test_escalated_foreman_without_a_declaration_is_never_restartable(*, tmp_path):
+    """The discriminating control for the fix above, and the cardinal rule's guard.
+
+    A branch reorder that simply let the escalation fall through would satisfy the
+    scenario above while making every escalated foreman look restartable. An
+    escalated foreman that has NOT declared must still resolve to `foreman-escalated`,
+    must stay in NEEDS YOU, and must never be respawned.
+    """
+    repo, topic, session, fake, sup, track = _open_foreman_round(
+        tmp_path=tmp_path, topic="escalated-foreman-no-ready"
+    )
+    write_foreman_escalation(repo=repo, topic=topic, reason="ratification authorization")
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "foreman-escalated"
+    assert supervisor.needs_attention(row=view) is True
+    assert not fake.has(method="respawn")
+
+
+def test_escalation_survives_the_restart_it_now_permits(*, tmp_path):
+    """The escalation must outlive the restart that certifying its `ready` triggers.
+
+    A marker is bound to the seat that raised it, and a marker whose identity differs
+    from the LIVE session identity reads as SUPERSEDED. A restart necessarily replaces
+    the seat, so permitting the restart without re-binding would let the successor see
+    no escalation at all: the unanswered items would sit on disk with `resolved` false
+    and surface nowhere. That is the same loss as blanking the marker, reached by a
+    different route — and reached by the fix meant to prevent it.
+
+    The daemon therefore UNBINDS the marker when it performs the restart. An unbound
+    marker is never superseded, so the successor inherits the escalation and it keeps
+    surfacing until a human answers it. A marker bound to a DIFFERENT LIVE seat is
+    still superseded, which is the stale-predecessor case that binding exists for.
+    """
+    repo, topic, session, fake, sup, track = _open_foreman_round(
+        tmp_path=tmp_path, topic="escalated-foreman-continuity"
+    )
+    seat = "claude:2359296:380695986:escalated-foreman-continuity"
+    write_foreman_escalation(
+        repo=repo,
+        topic=topic,
+        reason="sixteen unanswered maintainer items",
+        session_identity=seat,
+    )
+    declare(repo=repo, topic=topic, value=signals.STATE_READY, mtime=1001.0)
+    track = registry.Track(
+        repo=str(repo),
+        topic=topic,
+        tmux=session,
+        epic=track.epic,
+        observed_session_identity=seat,
+    )
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "restarting"
+
+    marker = Path(repo) / "tmp" / "overseer" / "foreman" / "escalations" / f"{topic}.json"
+    payload = json.loads(marker.read_text(encoding="utf-8"))
+    assert payload.get("resolved") is not True
+    assert "sixteen unanswered maintainer items" in payload["reason"]
+
+    successor = foreman_escalation.read_escalation(
+        repo=str(repo), topic=topic, live_session_identity="claude:9999:1234:successor"
+    )
+    assert successor is not None
