@@ -137,6 +137,17 @@ tmux capture-pane -p -t "$WORKER_TARGET" -S -40
 pane. It is NOT "the last 40 lines." Do NOT pipe to `tail -N`; `-N` is a
 placeholder and `tail` rejects it.
 
+The capture is a render surface, not an authorship source. It carries no
+provenance: inbound peer messages, earlier captures printed into the pane, and
+other displayed text are rendered inline with the worker's own output. When
+authorship matters, ask the worker directly; one peer message is the cheap
+discriminator and the worker's answer about its own work outranks a pane-derived
+reading. If capture is the only available source, mark conclusions from it
+`provenance-unverified` instead of asserting them back to the worker as its own
+words or measurements. For sweep tooling, write matches to a file and report
+only a count or path in-pane; never echo a matched marker line back into the
+searching pane unless it is transformed so it cannot match the next sweep.
+
 Peer answers to a picker need provenance. This contract implements candidate
 remedy (a) with a file-backed convention, not a daemon-enforced instrument:
 peer-injected input that may be mistaken for maintainer approval must go through
