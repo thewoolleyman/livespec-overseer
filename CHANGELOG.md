@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.50.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.50.1...v1.50.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* make otel async log tests wait explicitly ([cfe3d80](https://github.com/thewoolleyman/livespec-overseer/commit/cfe3d808cc302ecc030beae73062afd0472be9d4))
+
 ## [1.50.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.50.0...v1.50.1) (2026-08-23)
 
 
