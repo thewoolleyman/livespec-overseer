@@ -14,6 +14,7 @@ ENUMERATED_LIVE_OWNER_PINS = frozenset(
         "overseer-hgq4wi",
         "overseer-lixhd3.1",
         "overseer-temi26.2",
+        "overseer-temi26.3",
     }
 )
 MARKER_PREFIX = "# livespec-lloc-soft-band-owner: "

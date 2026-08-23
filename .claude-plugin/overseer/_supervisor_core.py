@@ -84,6 +84,7 @@ import _supervisor_launch
 import _supervisor_lifecycle
 import _supervisor_nudge
 import _supervisor_observe
+import _supervisor_otel_seam
 import _supervisor_recovery
 import _supervisor_render
 import _supervisor_restart
@@ -142,6 +143,7 @@ class Supervisor:
     )
     status_writer: _seams.StatusWriter = _supervisor_snapshot.default_status_writer
     status_snapshot_writer: Callable[..., None] = _supervisor_snapshot.write_status_snapshot
+    otel: _supervisor_otel_seam.OtelSeam = field(default_factory=_supervisor_otel_seam.from_env)
     currency_check: CurrencyCheck | None = None
     reexec_target: Callable[[], Path | None] = field(default_factory=lambda: lambda: None)
     argv: Callable[[], list[str]] = field(default_factory=lambda: lambda: sys.argv)
