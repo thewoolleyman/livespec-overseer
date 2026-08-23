@@ -7,6 +7,7 @@ import datetime
 import importlib
 import io as _io
 import json
+import threading
 import time
 
 import _supervisor_otel_report
@@ -125,8 +126,12 @@ def test_successful_otel_export_is_silent(*, tmp_path):
 
 
 def test_slow_otel_export_does_not_block_daemon_event_log(*, tmp_path):
+    entered = threading.Event()
+    release = threading.Event()
+
     def slow_emit(_request: dict[str, object]) -> EmitResult:
-        time.sleep(0.25)
+        entered.set()
+        release.wait(timeout=5.0)
         return EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
 
     sup = make_supervisor(
@@ -144,12 +149,22 @@ def test_slow_otel_export_does_not_block_daemon_event_log(*, tmp_path):
     )
 
     err = _io.StringIO()
-    started = time.monotonic()
-    with contextlib.redirect_stderr(err):
-        sup.log(message="tick 1 complete", event="daemon-tick")
-    elapsed = time.monotonic() - started
+    log_done = threading.Event()
 
-    assert elapsed < 0.05
+    def log_event() -> None:
+        with contextlib.redirect_stderr(err):
+            sup.log(message="tick 1 complete", event="daemon-tick")
+        log_done.set()
+
+    thread = threading.Thread(target=log_event)
+    thread.start()
+    assert entered.wait(timeout=1.0)
+    assert log_done.wait(timeout=1.0)
+    release.set()
+    thread.join(timeout=1.0)
+    assert not thread.is_alive()
+    with contextlib.redirect_stderr(err):
+        sup.otel.exporter.flush(sup=sup)
     assert [json.loads(line)["event"] for line in err.getvalue().splitlines()] == ["daemon-tick"]
 
 
@@ -292,10 +307,13 @@ def test_persistent_otel_export_failure_reports_each_age_band_once(*, tmp_path):
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         sup.log(message="tick 1 complete", event="daemon-tick")
+        sup.otel.exporter.flush(sup=sup)
         clock["now"] += 60.0
         sup.log(message="tick 2 complete", event="daemon-tick")
+        sup.otel.exporter.flush(sup=sup)
         clock["now"] += 10.0
         sup.log(message="tick 3 complete", event="daemon-tick")
+        sup.otel.exporter.flush(sup=sup)
 
     alert_events = [
         event["event"]
