@@ -257,6 +257,7 @@ check:
         # absent — see the recipe for why those deviations are declared there.
         check-codex-skill-picker
         check-claude-idle-canary
+        check-instruction-surface-budget
         check-spec-governance-default-block
         # Repo-local dispatch-safeguard gate (overseer-57f2 half i):
         # factory-authored commits must never touch SPECIFICATION/.
@@ -349,6 +350,9 @@ check-plugin-manifest-lockstep:
 
 check-claude-idle-canary:
     uv run python scripts/claude-idle-canary.py check
+
+check-instruction-surface-budget:
+    uv run python scripts/check-instruction-surface-budget.py
 
 capture-claude-idle-canary:
     uv run python scripts/capture-claude-idle-canary.py
