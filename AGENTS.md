@@ -1435,6 +1435,62 @@ answer "is it still broken?" by grepping for your own fix's symbol: that instrum
 blind to every other repair of the same defect and will tell you the work is still
 needed when it is not.
 
+### THE GITHUB APP INSTALLATION PIN CANNOT BE PASSED THE OBVIOUS WAY — the credential wrapper scrubs it
+
+Measured 2026-08-23T02:1xZ, dispatching `overseer-au3pt3.16.3`. This one refuses with a
+message that names the exact remedy you just applied, which is what makes it expensive.
+
+Since the App gained a second installation, `resolve_installation_id` fails closed on
+anything other than exactly one unless pinned, and every dispatch from this repo is
+refused before sandbox launch:
+
+```
+"detail": "C-mode dispatch refused: GitHub App token mint failed: the App has 2
+ installations; set GITHUB_APP_INSTALLATION_ID to pin the one to mint for",
+"stage": "run-config-overlay", "status": "failed", "fabro_run_id": null
+```
+
+**Setting the variable before `drive.py` does NOT work, and it fails silently.** `drive.py`
+re-execs itself under the `credential_wrapper` whenever credential env is absent, and the
+wrapper's stage-1 hop is an `exec env -i` with a short explicit allowlist. A caller-set
+`GITHUB_APP_INSTALLATION_ID` is scrubbed there and never reaches the dispatcher, so the
+refusal above is what you get back — telling you to do the thing you did.
+
+Its `OPENV_PRESERVE_VARS` allowlist does not rescue it either: measured, the exact name
+still does not survive, presumably dropped at the `sudo` hop before the allowlist is read.
+
+**THE WORKING FORM sets the variable INSIDE the wrapper invocation**, after the scrub, so
+`drive.py` never needs to re-exec at all:
+
+```
+scripts/detached-dispatch.sh "$run_dir" -- \
+  /usr/local/bin/with-livespec-env.sh -- \
+  env GITHUB_APP_INSTALLATION_ID=<id> \
+  python3 <build>/scripts/bin/drive.py --action impl:<id> --repo <repo> --json
+```
+
+**Probe either claim in one second, and probe rather than reasoning about it** — the two
+forms differ only in where four words sit:
+
+```
+GITHUB_APP_INSTALLATION_ID=<id> with-livespec-env.sh -- env | grep '^GITHUB_APP_INSTALLATION_ID='   # nothing
+with-livespec-env.sh -- env GITHUB_APP_INSTALLATION_ID=<id> env | grep '^GITHUB_APP_INSTALLATION_ID='  # the value
+```
+
+**THE NEAR-MISS NAME IS THE PART THAT WILL COST SOMEONE AN HOUR.** The wrapper DOES inject
+`GITHUB_APP_INSTALLATION_ID_E2E`, and its value is a DIFFERENT installation from the one
+this repo must mint for. So an investigator who dumps the environment finds a
+plausible-looking installation id already present and concludes the pin is set. That is
+the same asymmetric-discoverability shape as the `CLAUDE_CODE_OAUTH_TOKEN` versus
+`ANTHROPIC_API_KEY_LIVESPEC_E2E` trap above: two real credentials, adjacent names, only
+one correct for the path in use. **Match the name exactly, `_E2E` suffix included, before
+concluding anything.**
+
+Signature, since it collides with nothing else in this section: `drive.py` exits non-zero,
+the envelope names stage `run-config-overlay` with `fabro_run_id: null`, no run is created,
+and — unlike the exhausted-credential refusal at the same stage — **no phantom claim is
+left**; the item stays `ready` with no assignee.
+
 ### A DEFERRED item ANYWHERE in the tenant blocks EVERY dispatch in the repo
 
 Measured 2026-08-19. This trap is not about your item, and its error text names
