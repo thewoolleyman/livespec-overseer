@@ -140,7 +140,7 @@ def _relay_text(
 
 
 def _relay_allowed(*, request: WaitTargetMissingRequest) -> bool:
-    return request.obs.gate or request.obs.claude_status == "waiting"
+    return request.obs.claude_status == "waiting"
 
 
 def _deliver_relay(

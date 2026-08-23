@@ -105,7 +105,7 @@ def test_wait_target_missing_relays_evidence_to_prose_waiting_pane(*, tmp_path):
     assert ("respawn",) not in {call[:1] for call in fake.calls}
 
 
-def test_wait_target_missing_relays_evidence_to_picker_pane_once(*, tmp_path):
+def test_wait_target_missing_does_not_raw_paste_relay_to_picker_pane(*, tmp_path):
     repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
     fake.panes[track.tmux or ""] = (
         "The run you waited on is gone.\n❯ 1. Continue with evidence\n  2. Stop\n"
@@ -114,13 +114,12 @@ def test_wait_target_missing_relays_evidence_to_picker_pane_once(*, tmp_path):
     write_premise(repo=repo, topic=topic)
     write_local_runs(repo=repo, records=[])
 
-    first = sup.evaluate(track=track, act=True)
-    second = sup.evaluate(track=track, act=True)
+    view = sup.evaluate(track=track, act=True)
 
-    assert first.status == "wait-target-missing"
-    assert second.status == "wait-target-missing"
-    assert len(fake.paste_texts()) == 1
-    assert "This delivers facts only" in fake.paste_texts()[0]
+    assert view.status == "wait-target-missing"
+    assert not fake.has(method="paste")
+    assert ("keys", track.tmux, "Enter") not in fake.calls
+    assert not list((repo / "tmp" / "overseer" / topic).glob("wait-target-missing-*.json"))
     assert ("respawn",) not in {call[:1] for call in fake.calls}
 
 
