@@ -152,7 +152,7 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
             condition="claude-fresh-gate-after-restart",
         )
         return
-    resume = cast(str, resume_prompt(track=track))
+    resume = _successor_resume_prompt(sup=sup, track=track)
     registry.record_post_respawn(
         repo=track.repo,
         topic=track.topic,
@@ -187,6 +187,24 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
         pane=target,
         message="resume line NOT submitted after restart — will retry the Enter (no respawn)",
         condition="claude-resume-submit-failed",
+    )
+
+
+def _successor_resume_prompt(*, sup: Supervisor, track: registry.Track) -> str:
+    resume = cast(str, resume_prompt(track=track))
+    if not isinstance(track, registry.ForemanSeat):
+        return resume
+    self_restart = registry.read_foreman_self_restart(
+        repo=track.repo,
+        topic=track.topic,
+        stamp_path=sup.stamp_path,
+    )
+    if not self_restart.attempted or self_restart.reason is None:
+        return resume
+    return (
+        "Your predecessor self-restarted this foreman seat.\n"
+        f"Reason: {self_restart.reason}\n\n"
+        f"{resume}"
     )
 
 
