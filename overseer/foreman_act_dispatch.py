@@ -106,11 +106,28 @@ def _revalidate_start_tmux_occupancy(
 
 
 def _act_filing(
-    *, proposal: dict[str, object], action_id: ActionId, file_work_item: FileWorkItem
+    *,
+    proposal: dict[str, object],
+    action_id: ActionId,
+    file_work_item: FileWorkItem,
+    append_journal: AppendJournal,
 ) -> ActResult:
     request = filing_request(proposal=proposal)
     if request is None:
         return _refused(action_id=action_id, reason="malformed_filing")
+    try:
+        append_journal(
+            repo=Path(str(request["target_repo"])),
+            record={
+                "stage": "foreman-act",
+                "action_id": action_id,
+                "outcome": "pending",
+                "reason": "work_item_file_pending",
+                "mutated": False,
+            },
+        )
+    except OSError:
+        return _refused(action_id=action_id, reason="journal_append_failed")
     try:
         filed = file_work_item(request=request)
     except (RuntimeError, ValueError) as exc:
@@ -223,6 +240,7 @@ def act_authorized(
             proposal=proposal,
             action_id=action_id,
             file_work_item=seams.file_work_item,
+            append_journal=seams.append_journal,
         )
     elif _is_ledger_mutation(action_id=action_id):
         result = _act_ledger_mutation(

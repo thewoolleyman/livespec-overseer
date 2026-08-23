@@ -1411,9 +1411,19 @@ def test_foreman_act_files_work_item_from_plugin_cache_without_caller_pythonpath
         "item_id": "overseer-filed",
     }
     journal = repo / "tmp" / "fabro-dispatch-journal.jsonl"
-    record = json.loads(journal.read_text(encoding="utf-8"))
-    assert record["at"]
-    assert record | {"at": None} == {
+    records = [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()]
+    assert len(records) == 2
+    for record in records:
+        assert record["at"]
+    assert records[0] | {"at": None} == {
+        "at": None,
+        "stage": "foreman-act",
+        "action_id": "work_item_file",
+        "outcome": "pending",
+        "reason": "work_item_file_pending",
+        "mutated": False,
+    }
+    assert records[1] | {"at": None} == {
         "at": None,
         "stage": "foreman-act",
         "action_id": "work_item_file",
