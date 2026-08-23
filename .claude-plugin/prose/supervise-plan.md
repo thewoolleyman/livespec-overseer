@@ -634,7 +634,9 @@ any acceptance-criteria sentence as reserving archive to a human, query the
 shipped resolver from the target repo:
 
 ```bash
-./.claude-plugin/bin/foreman-valve-disposition --repo "$PWD"
+PLUGIN_ROOT="${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}"
+test -n "$PLUGIN_ROOT"
+"$PLUGIN_ROOT/bin/foreman-valve-disposition" --repo "$PWD"
 ```
 
 Read the `plan_archive_authority` object. If its `authority` is
