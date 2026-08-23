@@ -15,6 +15,7 @@ from overseer.test_supervisor_builders import (
     make_plan,
     make_supervisor,
     mapped_track,
+    wrapup_count,
 )
 from overseer.test_supervisor_fakes import FakeTmux
 
@@ -291,6 +292,34 @@ def test_escalated_foreman_without_a_declaration_is_never_restartable(*, tmp_pat
 
     assert view.status == "foreman-escalated"
     assert supervisor.needs_attention(row=view) is True
+    assert not fake.has(method="respawn")
+
+
+def test_escalated_foreman_without_a_declaration_still_gets_a_wrapup_round(*, tmp_path):
+    """A foreman escalation is an attention state, not a paste-suppression state.
+
+    This maps the historical ``round_delivered`` fixture field to the current
+    observable surface: a real wrap-up paste plus an injection stamp. The row must
+    still stay ``foreman-escalated`` and non-restartable in the same run.
+    """
+    repo, topic = make_plan(tmp_path=tmp_path, topic="escalated-foreman-first-round")
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    write_foreman_escalation(repo=repo, topic=topic, reason="ratification authorization")
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40, topic=topic))
+    sup = make_foreman_escalation_supervisor(tmp_path=tmp_path, repo=repo, fake=fake)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "foreman-escalated"
+    assert supervisor.needs_attention(row=view) is True
+    assert wrapup_count(fake=fake) == 1
+    assert (
+        registry.read_injection_stamp(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
+        is not None
+    )
     assert not fake.has(method="respawn")
 
 

@@ -164,6 +164,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
             session=session,
             target=target,
             attention=attention_prepared,
+            obs=obs,
             capture=capture,
             busy=busy,
             gate=gate,
