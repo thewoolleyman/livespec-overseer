@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+import foreman_stop_state
 import registry
 from _supervisor_foreman import heartbeat_lapse
 from foreman_act_record import AppendJournal, append_journal
@@ -33,7 +34,6 @@ from foreman_runtime_identity import EntryGateResult, canonical_session_name, en
 from foreman_runtime_lock import ForemanLock, LockResult
 from foreman_runtime_policy import exit_reason, stable_ticks
 from foreman_runtime_state import atomic_json, read_json_object, state_path
-from foreman_stop_state import record_runtime_stop_state, write_foreman_heartbeat
 
 __all__: list[str] = [
     "DEFAULT_HARD_TICK_BUDGET",
@@ -113,8 +113,7 @@ def register_foreman_track(
     return track
 
 
-def _default_llm_tick(*, document: ForemanDocument) -> bool:
-    del document
+def _default_llm_tick(**_kwargs: ForemanDocument) -> bool:
     return False
 
 
@@ -193,7 +192,7 @@ class ForemanRuntime:
             next_llm_tick_at = now + interval_seconds
             tick_generation = 0
             stable_tick_count = 0
-        record_runtime_stop_state(
+        foreman_stop_state.record_runtime_stop_state(
             repo=self.repo,
             lapse=lapse,
             exit_reason=reason,
@@ -211,7 +210,7 @@ class ForemanRuntime:
                 "blocking_prompt_observation_key": blocking_prompt_observation_key,
             }
         )
-        write_foreman_heartbeat(
+        foreman_stop_state.write_foreman_heartbeat(
             repo=self.repo,
             tick_generation=tick_generation,
             interval_seconds=interval_seconds,
@@ -254,6 +253,7 @@ class ForemanRuntime:
         )
 
     def resume(self) -> None:
+        foreman_stop_state.clear_foreman_stop_state(repo=self.repo)
         state = self._read_state()
         state["tick_generation"] = 0
         state["next_llm_tick_at"] = 0.0

@@ -82,6 +82,28 @@ def foreman_stop_json(*, repo: Path) -> dict[str, object]:
     )
 
 
+def test_resume_clears_prior_run_stop_state(*, tmp_path):
+    module = foreman_runtime()
+    repo = make_repo(tmp_path=tmp_path)
+    stop = repo / "tmp" / "overseer" / "foreman" / "stop.json"
+    stop.parent.mkdir(parents=True, exist_ok=True)
+    stop.write_text(
+        json.dumps(
+            {
+                "state": "completed-bounded-run",
+                "reason": "converged",
+                "observed_at": "1970-01-01T00:00:00Z",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    module.ForemanRuntime(repo=repo, now=lambda: 1000.0).resume()
+
+    assert not stop.exists()
+
+
 def test_runtime_reports_full_autonomy_disposition_and_attention_rows(*, tmp_path):
     module = foreman_runtime()
     repo = make_repo(tmp_path=tmp_path)

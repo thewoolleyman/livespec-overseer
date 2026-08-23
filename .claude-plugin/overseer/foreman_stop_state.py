@@ -17,6 +17,7 @@ __all__: list[str] = [
     "FOREMAN_STOP_DIED",
     "FOREMAN_STOP_HELD",
     "ForemanStopState",
+    "clear_foreman_stop_state",
     "foreman_hold_path",
     "foreman_stop_path",
     "read_foreman_stop_state",
@@ -60,6 +61,10 @@ def foreman_stop_path(*, repo: str | Path) -> Path:
 
 def foreman_hold_path(*, repo: str | Path) -> Path:
     return Path(repo) / "tmp" / "overseer" / _FOREMAN_DIR / _HOLD_FILE
+
+
+def clear_foreman_stop_state(*, repo: str | Path) -> None:
+    foreman_stop_path(repo=repo).unlink(missing_ok=True)
 
 
 def _heartbeat_path(*, repo: str | Path) -> Path:
