@@ -228,6 +228,21 @@ def _unsupported_refusal(*, record: dict[str, object], proposal: dict[str, objec
     return "unsupported_transition"
 
 
+def _missing_record_refusal(
+    *, document: dict[str, object], generation_refusal: str | None, records: list[dict[str, object]]
+) -> str:
+    if generation_refusal is not None:
+        return generation_refusal
+    reason = "journal_record_changed"
+    source = _journal_source(document=document)
+    current_records_read = (
+        None if source is None else _int_field(payload=source, key="records_read")
+    )
+    if current_records_read is not None and current_records_read > len(records):
+        reason = "journal_record_outside_gather_window"
+    return reason
+
+
 def _validated_reconcile(
     *, proposal: dict[str, object], document: dict[str, object]
 ) -> tuple[str | None, str | None]:
@@ -240,7 +255,14 @@ def _validated_reconcile(
         return _unsupported_refusal(record=proposed_record, proposal=proposal), None
     generation_refusal = _validate_generation(proposal=proposal, document=document)
     if proposed_record not in records:
-        return generation_refusal or "journal_record_changed", None
+        return (
+            _missing_record_refusal(
+                document=document,
+                generation_refusal=generation_refusal,
+                records=records,
+            ),
+            None,
+        )
     matches = _matching_qualified_records(
         records=records, work_item_id=work_item_id, proposal=proposal
     )
@@ -260,10 +282,6 @@ def _validate_generation(*, proposal: dict[str, object], document: dict[str, obj
     current_records_read = _int_field(payload=source, key="records_read")
     if source.get("status") != "ok" or current_records_read is None:  # pragma: no cover
         return "dispatch_journal_not_actable"
-    if _forge_merged_pull_request(proposal=proposal) is not None:
-        if current_records_read < expected_records_read:  # pragma: no cover
-            return "journal_generation_changed"
-        return None
     if current_records_read != expected_records_read:
         return "journal_generation_changed"
     return None
