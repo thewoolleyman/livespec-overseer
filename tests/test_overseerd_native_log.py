@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+import pytest
 import streams
 
 from overseer import daemon, start
@@ -64,3 +65,32 @@ def test_overseerd_native_log_prefers_checkout_when_installed_elsewhere(
 
     assert daemon._default_daemon_log_path() == checkout / "tmp" / "overseer" / "daemon.log"
     assert not (prefix / "tmp").exists()
+
+
+def test_overseerd_help_documents_log_export_and_warn_percent(
+    *, capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch
+) -> None:
+    """A source-free operator must be able to find logs and configure export."""
+    log_path = tmp_path / "tmp" / "overseer" / "daemon.log"
+    monkeypatch.setattr(daemon, "_default_daemon_log_path", lambda: log_path, raising=False)
+
+    with pytest.raises(SystemExit) as exc_info:
+        daemon.main(argv=["--help"])
+
+    assert exc_info.value.code == 0
+    help_text = capsys.readouterr().out
+    assert "--warn-percent N" in help_text
+    assert "default 50" in help_text
+    assert str(log_path) in help_text
+    assert "checkout tmp/overseer/daemon.log" in help_text
+    assert "daemon_package.package_dir" in help_text
+    assert "OTEL_EXPORTER_OTLP_ENDPOINT" in help_text
+    assert "OTEL_SERVICE_NAME" in help_text
+    assert "HONEYCOMB_INGEST_KEY_LIVESPEC" in help_text
+    assert "livespec-overseer" in help_text
+    assert "livespec-family" in help_text
+    assert "no endpoint" in help_text
+    assert "local only" in help_text
+    assert "host-local OTLP receiver" in help_text
+    assert "x-honeycomb-team" in help_text
+    assert "children inherit its environment" in help_text

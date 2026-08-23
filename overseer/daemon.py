@@ -78,10 +78,39 @@ def _warn_percent(value: str) -> int:
     return ivalue
 
 
+def _help_epilog() -> str:
+    log_path = _default_daemon_log_path()
+    return f"""\
+Daemon event history:
+  default log path: {log_path}
+  The path follows the checkout the daemon was imported from and resolves to that
+  checkout tmp/overseer/daemon.log, not the caller's current directory. If this
+  help output disagrees with the acting daemon, the status file's
+  daemon_package.package_dir names the checkout that daemon is actually running.
+
+OpenTelemetry export:
+  OTEL_EXPORTER_OTLP_ENDPOINT
+      OTLP/HTTP endpoint. With no endpoint set, export is disabled; the daemon
+      remains local only and emits its event history to daemon.log.
+  OTEL_SERVICE_NAME
+      Service name override. Default: livespec-overseer.
+      The service namespace is livespec-family.
+  HONEYCOMB_INGEST_KEY_LIVESPEC
+      Optional Honeycomb ingest key, sent as the x-honeycomb-team header.
+      Prefer pointing OTEL_EXPORTER_OTLP_ENDPOINT at a host-local OTLP receiver
+      and keeping this key out of the daemon environment. Direct-to-Honeycomb is
+      the fallback when no receiver exists. If you export the key before starting
+      overseerd, remember that overseerd's children inherit its environment; when
+      that invocation starts the tmux server, supervised panes can inherit it too.
+"""
+
+
 def main(*, argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="overseerd",
         description="the livespec overseer daemon (watches the whole fleet)",
+        epilog=_help_epilog(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     _ = parser.add_argument(
         "--warn-percent",
