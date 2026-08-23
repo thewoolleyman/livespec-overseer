@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.51.16](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.15...v1.51.16) (2026-08-23)
+
+
+### Bug Fixes
+
+* clarify grooming triage label measurement ([51022fd](https://github.com/thewoolleyman/livespec-overseer/commit/51022fdd78422a76c9f486fd849cf3ea5e4c0f73))
+* distinguish release lane fetch failure ([8b72c27](https://github.com/thewoolleyman/livespec-overseer/commit/8b72c27c870727f903735120b5f4686de51f5153))
+* guard foreman wrap-up locator epic ([0fb25ae](https://github.com/thewoolleyman/livespec-overseer/commit/0fb25ae07de2d4e7c0dbaaf6612f3e3b6f070220))
+* preserve prolonged shell attention across restart ([1d25a8a](https://github.com/thewoolleyman/livespec-overseer/commit/1d25a8a800502f10e9474ed90446bd73a75bf4ed))
+* preserve stale blocked reasons ([cef9ea5](https://github.com/thewoolleyman/livespec-overseer/commit/cef9ea5e826e27b57b130923ef4aa38f18f20de0))
+* reject unresolved plan epics in resume prompts ([a22dc3a](https://github.com/thewoolleyman/livespec-overseer/commit/a22dc3ace043649632df940f81cd956beddc6586))
+* repoint soft-band owner markers ([c3f4bc6](https://github.com/thewoolleyman/livespec-overseer/commit/c3f4bc6666b396d608c71f46f116d55dda4ef45f))
+* surface headless daemon table ([8e0515d](https://github.com/thewoolleyman/livespec-overseer/commit/8e0515dd3a93fa3c162de3b3f216e9e4bb85cbac))
+
 ## [1.51.15](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.14...v1.51.15) (2026-08-23)
 
 
