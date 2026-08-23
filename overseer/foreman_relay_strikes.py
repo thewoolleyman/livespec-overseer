@@ -1,4 +1,5 @@
 """Relay strike accounting for full-autonomy foreman rulings."""
+# livespec-lloc-soft-band-owner: overseer-3h4s5w.6
 
 from __future__ import annotations
 
@@ -8,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Final, cast
 
+import _supervisor_final_ruling_sources
 import foreman_valve_policy
 import jsonio
 
@@ -140,19 +142,17 @@ def prepare_blocked_answer_relay(
     row: dict[str, object],
     payload: dict[str, object],
 ) -> RelayPreparation:
-    disposition = foreman_valve_policy.effective_valve_disposition(repo=Path(repo))
-    records = jsonio.as_list(value=document.get("dispatch_journal")) or []
-    journal_records = [
-        record for raw in records if (record := jsonio.as_object(value=raw)) is not None
-    ]
+    _ = document
+    repo_path = Path(repo)
+    disposition = foreman_valve_policy.effective_valve_disposition(repo=repo_path)
     return prepare_relay(
-        repo=Path(repo),
+        repo=repo_path,
         action_id="blocked_session_answer",
         topic=topic,
         row=row,
         payload=payload,
         full_autonomy=disposition.get("full_autonomy") is True,
-        records=journal_records,
+        records=_supervisor_final_ruling_sources.read_journal(repo=repo_path) or (),
     )
 
 
