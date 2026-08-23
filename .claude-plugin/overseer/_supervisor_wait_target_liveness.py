@@ -141,12 +141,12 @@ def remote_factory_run_present_with(
     run: Callable[..., CompletedProcess[str]],
 ) -> bool | None:
     """Return remote liveness, or ``None`` when the factory cannot answer."""
-    server = factory_server(
-        repo=repo,
-        factory=string_field(record=record, key="dispatch_factory"),
-    )
-    if server is None:
+    dispatch_factory = string_field(record=record, key="dispatch_factory")
+    if dispatch_factory is None:
         return False
+    server = factory_server(repo=repo, factory=dispatch_factory)
+    if server is None:
+        return None
     try:
         completed = run(
             ["fabro", "ps", "-a", "--json", "--server", server],

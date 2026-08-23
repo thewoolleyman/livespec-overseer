@@ -122,6 +122,15 @@ def test_remote_factory_liveness_fail_open_paths(*, tmp_path):
             target_id="dispatch-1",
             run=lambda *args, **kwargs: Completed(returncode=0),
         )
+        is None
+    )
+    assert (
+        liveness.remote_factory_run_present_with(
+            repo=repo,
+            record={},
+            target_id="dispatch-1",
+            run=lambda *args, **kwargs: Completed(returncode=0),
+        )
         is False
     )
     assert (
