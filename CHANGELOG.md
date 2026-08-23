@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.45.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.0...v1.45.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* add convene obligation producer coverage ([636f138](https://github.com/thewoolleyman/livespec-overseer/commit/636f13861079338c48a96a3935b771dc9c7422f7))
+* add soft-band owner markers ([b397135](https://github.com/thewoolleyman/livespec-overseer/commit/b39713580a172a3b749353427df1e117eea97839))
+
 ## [1.45.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.44.7...v1.45.0) (2026-08-23)
 
 
