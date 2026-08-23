@@ -9,6 +9,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import _supervisor_launch
 import _supervisor_liveness
 import _supervisor_wait_target_sources
 import jsonio
@@ -206,10 +207,11 @@ def _relay_text(
 
 
 def _relay_allowed(*, request: WaitTargetMissingRequest) -> bool:
-    # `waiting` means "at a gate/prompt for the human" (_supervisor_observe), which
-    # INCLUDES a picker-parked pane. Relaying there would choose the session's next
-    # action, which this relay's floor forbids: it delivers FACTS only.
-    return request.obs.claude_status == "waiting" and not request.obs.gate
+    # Use the runtime-agnostic structural prompt state. A gate includes pickers, and
+    # relaying there would choose the session's next action; this relay delivers FACTS
+    # only. The relay text must also stay clear of Codex busy-marker substrings because
+    # the verified submit path confirms Codex delivery by reading busy over the capture.
+    return request.obs.idle and not request.obs.busy and not request.obs.gate
 
 
 def _deliver_relay(
@@ -238,9 +240,9 @@ def _deliver_relay(
     text = _relay_text(
         record=record, note=note, evidence_path=path, evidence_source=evidence_source
     )
-    if not request.sup.tmux.bracketed_paste(session=request.pane, text=text):
-        return
-    if not request.sup.tmux.send_keys(session=request.pane, keys="Enter"):
+    if not _supervisor_launch.submit_prompt(
+        sup=request.sup, target=request.pane, text=text, expect_codex=request.obs.is_codex
+    ):
         return
     request.obs.istate.wait_target_relayed_keys.add(key)
 
