@@ -1790,6 +1790,71 @@ Deliberately no mechanical enforcement is proposed here: a check that parses dec
 stamps out of handoff entries and diffs them against storage times is a real idea and
 a SEPARATE proposal, and folding it in would turn a guidance fix into a gate.
 
+### A SIXTH, AND IT IS THE ABSENCE OF A FIELD RATHER THAN ITS CONTENT: a silent log is not a silent subsystem
+
+Measured 2026-08-22 during the `overseer-6s3pk6` cutover, and recorded because the
+error was committed by a session that had spent the day applying the five rules
+above.
+
+**The shape.** A daemon was moved to run from an isolated runtime prefix. Asked
+whether its release-currency check was firing, the session read the log it had always
+read, found **no currency events at all**, and wrote that a clean adoption "is silent
+by design" — offering a plausible mechanism for the silence and closing the question.
+
+Both halves were wrong. The check was firing on **every** tick, and the log had simply
+**stopped being written**: moving the package relocated the log to a path derived from
+the daemon's own module location, so the file being read had been dead for ninety
+minutes. The live log was full of the very events reported as absent.
+
+**Why this is the worst member of the family.** The five rules above are about reading
+a field that describes the RECORD as though it described the WORLD. Here there was no
+field to misread — there was *nothing*, and nothing is the most accommodating evidence
+there is. A present value can contradict your expectation; an absent one never does.
+Worse, the session did not merely note the gap, it **explained** it, and the
+explanation was reasonable enough to survive its own review. An inference that makes a
+dead instrument look like a finding is harder to catch than a wrong number.
+
+**The rule: before concluding a subsystem is quiet, prove its instrument is live.**
+The same applies to an empty query result, a metric with no datapoints, and a status
+file nobody is updating.
+
+**But do NOT reach for the obvious check, because it is wrong here.** Comparing the
+log's mtime against the writer's tick rate looks like the one-command answer and is a
+trap: this is an **event-history** log — `daemon.py`'s own docstring says so — and it
+advances on EVENTS, not on ticks. Measured 2026-08-23T00:10Z on a completely healthy
+daemon: the status snapshot read `tick_generation` 36, written 10 seconds earlier,
+while the log's mtime was **17 minutes** old. An mtime rule reports that daemon as
+dead, and it does so precisely when the fleet is quiet — which is when nobody is
+watching. (A first draft of this very entry prescribed that check. It was caught in
+review before it landed.)
+
+**Two checks that do work.** For liveness and cadence, use a genuinely per-tick
+heartbeat — here the status snapshot's `tick_generation` and `written_at`, which
+advance every tick regardless of whether anything is worth logging. For "is this the
+file the writer is actually writing to", identify the writer and enumerate what it
+holds open, rather than trusting the path you happen to know:
+
+    ls -l /proc/<pid>/fd            # every open descriptor, not just the one you expect
+
+Note the second is stronger than checking `fd 2` alone: a process can redirect its own
+stderr to a path it computes at startup, so the descriptor you set on the command line
+is not necessarily the file it logs to. That was exactly the case here.
+
+**And normalize the clocks, or the check reports the opposite of the truth.** This host
+runs CEST (+0200), so `stat` and `find -printf` render local time while the ledger, the
+status file and `date -u` are all `Z`. A reviewer checking this same defect compared
+`find -printf` output against a UTC stamp and was two hours out **in the direction that
+would have confirmed a fixed defect as still broken**. This file already records that
+trap for `ps -o lstart`; it applies to `stat` and `find` identically. Put both sides in
+UTC or the comparison is a guess.
+
+**And distrust agreement most.** The session's own account of why it skipped the check:
+*the silence already agreed with a story I liked.* That is the whole mechanism. A
+measurement that confirms what you expect gets spent, not audited — so the cheap
+verification is skipped precisely when the conclusion is about to be written down. When
+an absence supports your hypothesis, that is the moment to check the instrument, not
+the moment to stop.
+
 ## `check-no-lloc-soft-warnings` CANNOT FAIL when you run it by hand
 
 Measured 2026-08-22, after it rejected two pushes in a row while every attempt to
