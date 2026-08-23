@@ -153,6 +153,24 @@ per-state side-effects (after the `·`) and the `(act)` guard fire ONLY when
 `act=True` (the daemon loop); the read-only `list` path (`act=False`) classifies
 without acting.
 
+The pane capture input is a render surface, not an authorship source. It carries
+no provenance: inbound peer messages from other seats, earlier captures printed
+into the pane, and any other text displayed there render inline with the
+occupant's own output. A capture can prove what the pane displayed; it cannot
+prove the occupant said, measured, or endorsed that text. When authorship
+matters, ask the seat directly; one peer message is the cheap discriminator, and
+the seat's answer about its own work outranks any pane-derived reading. If a
+capture is the only available source, mark conclusions from it
+`provenance-unverified` instead of asserting them back to the seat as its own
+words or measurements.
+
+This also applies to sweep tooling. A sweep that greps captures and prints
+matched lines into the searching pane contaminates that pane's future search
+corpus; each run can seed the next. Write sweep matches to a file and report
+only a count or path in-pane. If a matched line must be shown, transform it
+before display, for example by truncating past the marker or replacing the
+marker with a placeholder, so the displayed form cannot re-match.
+
 ```mermaid
 stateDiagram-v2
     direction TB
