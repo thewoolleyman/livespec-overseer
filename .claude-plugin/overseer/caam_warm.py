@@ -143,10 +143,7 @@ def keep_warm(
         name = profile_path.name
         if name.startswith("_") or name == config.active_name:
             continue
-        creds_path = profile_path / ".credentials.json"
-        if not creds_path.exists():
-            continue
-        _, expires_at = read_creds(path=creds_path)
+        _, expires_at = read_creds(path=profile_path / ".credentials.json")
         if expires_at is not None and expires_at - checked_at > warm_margin_s():
             continue
         last = _last_attempt_at(memo=memo, name=name)
