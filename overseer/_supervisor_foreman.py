@@ -6,7 +6,7 @@ daemon only observes one scratch file per watched repo and, when that PRESENT fi
 stale, renders a synthetic report-only row through the same table, NEEDS YOU block,
 window badge, and edge-triggered alert machinery every other attention member uses.
 """
-# livespec-lloc-soft-band-owner: overseer-lixhd3.1
+# livespec-lloc-soft-band-owner: overseer-n1ai.1
 
 from __future__ import annotations
 
