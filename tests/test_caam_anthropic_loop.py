@@ -683,7 +683,11 @@ def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp
 
     assert result == 0
     assert "protected-accounts: main=12%, backup=5%" in out
-    assert out[:5] == [
+    # Carrier R12's trigger header now leads every pass (overseer-54k2za.38), so the
+    # table starts one line later. The rows themselves are unchanged, which is what
+    # this test is actually about.
+    assert "  triggers: " in out[0]
+    assert out[1:6] == [
         "",
         "PROFILE       CURRENT       5H      5H RESET      WEEK    WEEK RESET      "
         "FABLE   FABLE RESET   SOURCE",
