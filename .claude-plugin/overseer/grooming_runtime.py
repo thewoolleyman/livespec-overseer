@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 import registry
+from _supervisor_config import iso_now
 
 __all__: list[str] = ["canonical_session_name", "register_grooming_track"]
 
@@ -24,11 +25,13 @@ def register_grooming_track(
     """Ensure the grooming pass is supervised before it starts the drain."""
     repo_path = Path(repo).resolve()
     session_name = canonical_session_name(repo=repo_path)
+    added_at = iso_now()
     track = registry.GroomingSeat(
         topic=session_name,
         repo=str(repo_path),
         tmux=session_name,
         epic=epic or registry.unresolved_plan_epic(topic=session_name),
+        added_at=added_at,
     )
-    _ = registry.upsert_mapping(track=track, store_path=store_path)
+    _ = registry.upsert_mapping(track=track, store_path=store_path, added_at=added_at)
     return track

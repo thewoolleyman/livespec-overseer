@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Protocol
 
 import foreman_stop_state
-import registry
 from _supervisor_foreman import heartbeat_lapse
 from foreman_act_record import AppendJournal, append_journal
 from foreman_runtime_autonomy import (
@@ -33,6 +32,7 @@ from foreman_runtime_escalation import foreman_session_identity, record_blocking
 from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
 from foreman_runtime_lock import ForemanLock, LockResult
 from foreman_runtime_policy import exit_reason, stable_ticks
+from foreman_runtime_registration import register_foreman_track
 from foreman_runtime_state import atomic_json, read_json_object, state_path
 
 __all__: list[str] = [
@@ -93,24 +93,6 @@ class StepResult:
     standing_orders: str | None
     standing_orders_recorded: bool | None
     full_autonomy_terminating_condition_reached: bool
-
-
-def register_foreman_track(
-    *,
-    repo: str | os.PathLike[str],
-    epic: str | None = None,
-    store_path: str | os.PathLike[str] | None = None,
-) -> registry.Track:
-    repo_path = Path(repo).resolve()
-    session_name = canonical_session_name(repo=repo_path)
-    track = registry.ForemanSeat(
-        topic=session_name,
-        repo=str(repo_path),
-        tmux=session_name,
-        epic=epic or registry.unresolved_plan_epic(topic=session_name),
-    )
-    _ = registry.upsert_mapping(track=track, store_path=store_path)
-    return track
 
 
 def _default_llm_tick(**_kwargs: ForemanDocument) -> bool:
