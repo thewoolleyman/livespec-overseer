@@ -109,13 +109,14 @@ def majority(
 
 def dissent_result(
     *,
+    reason: str,
     request: dict[str, object],
     reviewers: list[dict[str, object]],
     dissent: dict[str, object],
     decision_rule: DecisionRule,
 ) -> dict[str, object]:
     result = escalation(
-        reason="non_anthropic_needs_human_dissent",
+        reason=reason,
         request=request,
         reviewers=reviewers,
         decision_rule=decision_rule,
