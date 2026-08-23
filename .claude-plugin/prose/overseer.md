@@ -617,6 +617,13 @@ under `$PLUGIN_ROOT` as a setup failure.
   the plain-language bottom line first, then detail. **For a decision a TRACK owns,
   do not use a picker at all** — relay it as non-blocking text naming the session,
   pane, and jump command (see "Maintainer-owned gates" above).
+- **`foreman-act work_item_file` needs the ledger credential wrapper today.**
+  Until the actuator grows target-repo credential-wrapper resolution, a foreman
+  session that files work items must invoke the actuator through the wrapper and
+  preserve the caller's `PATH`, because the wrapper resets `PATH` and the
+  actuator launcher resolves `uv` from the caller's toolchain:
+  `/usr/local/bin/with-livespec-env.sh -- /usr/bin/env PATH="$PATH" "$PLUGIN_ROOT/bin/foreman-act" --proposal <path>`.
+  `--proposal` takes a path to a proposal JSON file, not inline JSON.
 
 ---
 

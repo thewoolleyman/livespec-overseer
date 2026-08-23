@@ -68,10 +68,21 @@ def _failed(*, action_id: str, reason: str) -> ActResult:
 
 
 def _bounded_reason(*, prefix: str, reason: str, limit: int = 180) -> str:
+    if reason.startswith("Traceback (most recent call last):") and len(reason) > limit:
+        return _bounded_traceback_reason(prefix=prefix, reason=reason, limit=limit)
     bounded = f"{prefix}:{reason}"
     if len(bounded) <= limit:
         return bounded
     return bounded[: limit - 3] + "..."
+
+
+def _bounded_traceback_reason(*, prefix: str, reason: str, limit: int) -> str:
+    header = f"{prefix}:Traceback (most recent call last):"
+    separator = "\n..."
+    available = limit - len(header) - len(separator)
+    if available <= 0:  # pragma: no cover
+        return header[: limit - 3] + "..."
+    return f"{header}{separator}{reason[-available:]}"
 
 
 def _supervisor_start_failure_reason(*, stderr: str) -> str | None:
@@ -102,7 +113,7 @@ def _act_filing(
         return _refused(action_id=action_id, reason="malformed_filing")
     try:
         filed = file_work_item(request=request)
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError) as exc:
         return _failed(
             action_id=action_id,
             reason=_bounded_reason(prefix="filing_subprocess_failed", reason=str(exc)),
