@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.7...v1.51.8) (2026-08-23)
+
+
+### Bug Fixes
+
+* quiet foreman idle escalation ([93392d2](https://github.com/thewoolleyman/livespec-overseer/commit/93392d256f72698118c8e8a0270ad491f3055653))
+
 ## [1.51.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.6...v1.51.7) (2026-08-23)
 
 
