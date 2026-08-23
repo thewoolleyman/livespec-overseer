@@ -190,4 +190,4 @@ def read_journal(
             return IOFailure(OverseerSourceError(detail=detail))
         records.append(parsed)
     tail = records[-limit:] if limit > 0 else []
-    return IOSuccess((tail, {"status": "ok", "path": str(path), "records_read": len(tail)}))
+    return IOSuccess((tail, {"status": "ok", "path": str(path), "records_read": len(records)}))

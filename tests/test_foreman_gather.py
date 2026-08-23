@@ -134,7 +134,7 @@ def test_composes_canonical_document_from_snapshot_attention_and_journal(*, tmp_
         "sources": {
             "dispatch_journal": {
                 "path": str(journal_path),
-                "records_read": 1,
+                "records_read": 2,
                 "status": "ok",
             },
             "needs_attention": {"command": ["/bin/cat", str(attention_path)], "status": "ok"},
@@ -1018,7 +1018,7 @@ def test_journal_reader_rejects_malformed_records_and_limits_to_zero(*, tmp_path
     assert isinstance(limited, returns_io.IOSuccess)
     assert returns_unsafe.unsafe_perform_io(limited.unwrap()) == (
         [],
-        {"path": str(journal), "records_read": 0, "status": "ok"},
+        {"path": str(journal), "records_read": 1, "status": "ok"},
     )
     journal.write_text("{}\nnot-json\n", encoding="utf-8")
     malformed = module.read_journal(path=journal, limit=20)
@@ -1030,6 +1030,29 @@ def test_journal_reader_rejects_malformed_records_and_limits_to_zero(*, tmp_path
     assert not returns_pipeline.is_successful(non_object)
     error = returns_unsafe.unsafe_perform_io(non_object.failure())
     assert error.detail == "dispatch_journal contains non-object JSONL"
+
+
+def test_journal_reader_reports_total_records_not_tail_length(*, tmp_path):
+    module = foreman_gather_sources()
+    returns_io = importlib.import_module("overseer._vendor.returns.io")
+    returns_unsafe = importlib.import_module("overseer._vendor.returns.unsafe")
+    journal = tmp_path / "journal.jsonl"
+    write_jsonl(
+        path=journal,
+        records=[
+            {"action": "one"},
+            {"action": "two"},
+            {"action": "three"},
+        ],
+    )
+
+    limited = module.read_journal(path=journal, limit=2)
+
+    assert isinstance(limited, returns_io.IOSuccess)
+    assert returns_unsafe.unsafe_perform_io(limited.unwrap()) == (
+        [{"action": "two"}, {"action": "three"}],
+        {"path": str(journal), "records_read": 3, "status": "ok"},
+    )
 
 
 def test_cli_emits_json_render_and_errors(*, tmp_path, capsys):
