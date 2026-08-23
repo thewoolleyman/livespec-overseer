@@ -336,6 +336,39 @@ def test_delegation_floor_report_is_on_valve_disposition_surface(*, tmp_path):
     assert resolved["delegation_floor_violation"] is True
 
 
+def test_plan_archive_authority_follows_full_autonomy_posture(*, tmp_path):
+    policy = module("foreman_valve_policy")
+    session_performable = tmp_path / "session-performable"
+    reserved = tmp_path / "reserved"
+    write_config(
+        repo=session_performable,
+        value="consensus",
+        full_autonomy=True,
+        include_full_autonomy=True,
+    )
+    write_config(
+        repo=reserved,
+        value="consensus",
+        full_autonomy=False,
+        include_full_autonomy=True,
+    )
+
+    assert policy.effective_plan_archive_authority(repo=session_performable) == {
+        "authority": "session-performable",
+        "permitted": True,
+        "reserved_actor": None,
+        "full_autonomy": True,
+        "full_autonomy_source": str(session_performable / ".livespec.jsonc"),
+    }
+    assert policy.effective_plan_archive_authority(repo=reserved) == {
+        "authority": "reserved",
+        "permitted": False,
+        "reserved_actor": "maintainer",
+        "full_autonomy": False,
+        "full_autonomy_source": str(reserved / ".livespec.jsonc"),
+    }
+
+
 def test_panel_authorized_change_is_relayed_to_worker_not_implemented_by_foreman(
     *, tmp_path, monkeypatch
 ):
