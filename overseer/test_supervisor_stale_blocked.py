@@ -36,24 +36,26 @@ def _isolate_cwd(*, tmp_path, monkeypatch):
 
 
 def test_stale_blocked_is_voided_when_the_session_resumes_generating(*, tmp_path):
-    """Past the grace + a real generation spinner ⇒ the declaration is provably dead."""
+    """Past the grace + a real generation spinner ⇒ the declaration is demoted."""
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=busy_capture())  # a real spinner: generating
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
+    reason = "a reason from a session that has moved on"
     declare(
         repo=repo,
         topic=topic,
-        value="blocked: a reason from a session that has moved on",
+        value=f"blocked: {reason}",
         mtime=800.0,
     )
     with contextlib.redirect_stderr(_io.StringIO()):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "working"
-    assert view.note is None  # the dead reason no longer rides the row
+    assert view.note is not None and "voided" in view.note and reason in view.note
     state = signals.read_state(repo=str(repo), topic=topic)
     assert state is not None and state.token == signals.STATE_BLOCKED_VOIDED
+    assert reason in state.detail
 
 
 def test_fresh_blocked_survives_the_declaring_turns_own_busy_tail(*, tmp_path):

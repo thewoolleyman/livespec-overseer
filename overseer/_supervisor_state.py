@@ -214,14 +214,18 @@ def void_stale_blocked(
     """
     if blocked is None or not generating:
         return blocked
+    if _latest_input_was_peer_injected(sup=sup, track=track):
+        return blocked
     state = signals.read_state(repo=track.repo, topic=track.topic)
     if state is None or state.token != signals.STATE_BLOCKED:
         return blocked  # unreadable, or no longer a block → leave it
     age = sup.now() - state.mtime
     if age <= MARKER_VOID_GRACE:
         return blocked  # the declaring turn's own tail (RB1)
-    detail = f"session resumed generating after {age:.0f}s; stale blocked declaration voided"
-    _ = write_state_diagnostic(
+    reason = state.detail or blocked
+    void_note = f"session resumed generating after {age:.0f}s; stale blocked declaration voided"
+    detail = f"{void_note}; original blocked reason: {reason}"
+    diagnostic_written = write_state_diagnostic(
         sup=sup,
         track=track,
         token=signals.STATE_BLOCKED_VOIDED,
@@ -231,4 +235,13 @@ def void_stale_blocked(
         message=f"voided stale blocked declaration for {track.repo}::{track.topic} "
         f"(age {age:.0f}s > {MARKER_VOID_GRACE:.0f}s grace; session resumed generating)"
     )
-    return None
+    return f"voided: {reason}" if diagnostic_written else None
+
+
+def _latest_input_was_peer_injected(*, sup: Supervisor, track: registry.Track) -> bool:
+    reader = getattr(sup.tmux, "input_provenance_status", None)
+    if reader is None:
+        return False
+    session = track.tmux or registry.tmux_id(repo=track.repo, topic=track.topic)
+    record = reader(session=session)
+    return record.get("peer_injected") is True

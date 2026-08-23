@@ -234,3 +234,22 @@ def test_stale_blocked_diagnostic_failure_is_logged_and_does_not_restore_block(
     assert blocked is None
     assert "could not write state diagnostic" in err.getvalue()
     assert signals.read_state(repo=str(repo), topic=topic) is not None
+
+
+def test_stale_blocked_voiding_tolerates_tmux_without_input_provenance(*, tmp_path, monkeypatch):
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    declare(repo=repo, topic=topic, value="blocked: stale", mtime=100.0)
+    monkeypatch.delattr(FakeTmux, "input_provenance_status")
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux(), now=lambda: 1000.0)
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    with contextlib.redirect_stderr(_io.StringIO()):
+        blocked = _supervisor_state.void_stale_blocked(
+            sup=sup,
+            track=track,
+            blocked="stale",
+            generating=True,
+        )
+
+    assert blocked == "voided: stale"
