@@ -1974,8 +1974,49 @@ unparented, doubly-referenced successor as the control. Had the rule flagged tha
 it would have been useless — a sweep that cannot distinguish a deliberate decision from
 an omission reports both and teaches readers to ignore it. The passing control is what
 makes it a criterion rather than a plausible-sounding rule. The same run also collapsed
-"three affected threads" into **one** offending row referenced from neither of the two
-threads it belonged to: name the thing to fix, not the places it surfaces.
+"three affected threads" into **one** offending row referenced from neither end of the
+one thread it belonged to: name the thing to fix, not the places it surfaces.
+
+### A mention is not a reference: it must be a DECLARATION, not a CITATION
+
+**The count-based reading of the table above does not survive contact with real rows,
+and the sentence above originally got this wrong** — it said the offending row belonged
+to *two* threads. It belongs to one. The apparent second tie was a **provenance
+citation**: a comment recording where a measurement had been taken.
+
+The contrast sits inside that single row, which is why it is the right specimen:
+
+| tie | where | text | verdict |
+|---|---|---|---|
+| → thread A | **title** | "carrier for `<epic>`'s fired deferral" | **declaration** |
+| → thread B | a comment | "measured separately today while reviewing `<other-epic>`" | citation |
+
+Counting mentions makes those identical. They are not, and the difference is not subtle
+once named: one asserts membership, the other records provenance.
+
+**Two discriminators, both cheap and both available:**
+
+- **WHERE it appears.** A tie in the **title or description** carries weight; a tie in a
+  comment mostly does not. Comments are where this fleet records evidence, so they are
+  full of other threads' ids by design.
+- **WHAT it says.** A carrier, successor, or thread-membership phrase — not a
+  measurement note.
+
+**Why an implementer will get this wrong anyway.** The prose above says *reference it
+from both ends*, which is correct and is not literally a count. But anyone building a
+gate from that table will count mentions, and counting produces a false positive
+whenever one thread's row cites another thread while measuring something — which is
+routine here. So the gate's two legs must be tightened **symmetrically**. The seat that
+found this had already tightened the epic→row leg — excluding anchor epics, requiring
+the tie in title or description — and left the row→epic leg counting bare mentions
+anywhere, comments included. It had approvingly quoted `test_plan_records_agree`'s own
+docstring hours earlier — *being mentioned is not being anchored* — and then applied it
+to one leg and not the other.
+
+**Five iterations of this criterion in one evening: unparented-is-the-defect, then
+unparented-AND-unreferenced, then the fourth shape where the row names nothing back,
+now a citation is not a reference. Every turn came from someone testing the previous
+version against a live row. Not one came from re-reading the rule.**
 
 ### The transferable half: write the falsifiable expectation into the record
 
