@@ -1,4 +1,5 @@
 """Report-only attention for wait-premise targets that can no longer be found."""
+# livespec-lloc-soft-band-owner: overseer-1a31.2.1
 
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import _supervisor_liveness
 import _supervisor_wait_target_sources
+import jsonio
 import registry
 import wait_premises
 from _supervisor_view import MAX_REASON_IN_ALERT, elide
@@ -79,11 +81,75 @@ def _evidence_path(*, repo: Path, topic: str, key: str) -> Path:
 
 
 def _requery_output(*, repo: Path, record: dict[str, object]) -> object:
+    target_id = _supervisor_wait_target_sources.string_field(record=record, key="target_id")
+    work_item_id = _supervisor_wait_target_sources.string_field(record=record, key="work_item_id")
+    target = target_id or ""
     if _supervisor_wait_target_sources.local_record(
         record=record
     ) and not _supervisor_wait_target_sources.remote_record(record=record):
-        return _supervisor_wait_target_sources.local_process_records(repo=repo)
-    return _supervisor_wait_target_sources.read_journal(repo=repo)
+        return _local_requery_records(
+            records=_supervisor_wait_target_sources.local_process_records(repo=repo),
+            target_id=target,
+            work_item_id=work_item_id,
+        )
+    return _journal_requery_records(
+        records=_supervisor_wait_target_sources.read_journal(repo=repo),
+        target_id=target,
+        work_item_id=work_item_id,
+    )
+
+
+def _work_item_matches(*, record: dict[str, object], work_item_id: str | None) -> bool:
+    record_work_item = _supervisor_wait_target_sources.string_field(
+        record=record, key="work_item_id"
+    )
+    return record_work_item is None or work_item_id is None or record_work_item == work_item_id
+
+
+def _local_requery_records(
+    *, records: list[dict[str, object]], target_id: str, work_item_id: str | None
+) -> list[dict[str, object]]:
+    return [
+        item
+        for item in records
+        if _supervisor_wait_target_sources.record_id(record=item) == target_id
+        and _work_item_matches(record=item, work_item_id=work_item_id)
+    ]
+
+
+def _journal_dispatch_matches(
+    *, record: dict[str, object], target_id: str, work_item_id: str | None
+) -> bool:
+    if record.get("stage") != "dispatch-id":
+        return False
+    if record.get("dispatch_id") != target_id and record.get("run_id") != target_id:
+        return False
+    return _work_item_matches(record=record, work_item_id=work_item_id)
+
+
+def _journal_outcome_matches(
+    *, record: dict[str, object], target_id: str, work_item_id: str | None
+) -> bool:
+    if record.get("stage") != "outcome":
+        return False
+    outcome = record.get("outcome")
+    outcome_record = jsonio.as_object(value=outcome)
+    if outcome_record is None:
+        return False
+    if outcome_record.get("dispatch_id") != target_id and outcome_record.get("run_id") != target_id:
+        return False
+    return _work_item_matches(record=outcome_record, work_item_id=work_item_id)
+
+
+def _journal_requery_records(
+    *, records: list[dict[str, object]], target_id: str, work_item_id: str | None
+) -> list[dict[str, object]]:
+    return [
+        item
+        for item in records
+        if _journal_dispatch_matches(record=item, target_id=target_id, work_item_id=work_item_id)
+        or _journal_outcome_matches(record=item, target_id=target_id, work_item_id=work_item_id)
+    ]
 
 
 def _evidence_record(

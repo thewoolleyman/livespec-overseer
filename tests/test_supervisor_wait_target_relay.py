@@ -178,6 +178,96 @@ def test_wait_target_missing_relay_records_remote_journal_requery(*, tmp_path):
     ]
 
 
+def test_wait_target_missing_relay_scopes_remote_journal_requery(*, tmp_path):
+    repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
+    sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    write_premise(
+        repo=repo,
+        topic=topic,
+        target_id="remote-run",
+        extra={
+            "execution_location": "remote",
+            "dispatch_factory": "hp",
+            "evidence_source": "fabro dispatch journal factory=hp",
+            "work_item_id": "overseer-x",
+        },
+    )
+    target_dispatch = {
+        "stage": "dispatch-id",
+        "work_item_id": "overseer-x",
+        "dispatch_id": "remote-run",
+        "at": "2026-08-19T02:31:00Z",
+    }
+    target_outcome = {
+        "stage": "outcome",
+        "outcome": {
+            "work_item_id": "overseer-x",
+            "dispatch_id": "remote-run",
+            "status": "failed",
+        },
+        "at": "2026-08-19T02:41:00Z",
+    }
+    unrelated = {
+        "stage": "dispatch-id",
+        "work_item_id": "overseer-y",
+        "dispatch_id": "other-run",
+        "at": "2026-08-19T02:30:00Z",
+    }
+    unrelated_outcome = {
+        "stage": "outcome",
+        "outcome": {
+            "work_item_id": "overseer-y",
+            "dispatch_id": "other-run",
+            "status": "failed",
+        },
+        "at": "2026-08-19T02:42:00Z",
+    }
+    malformed_outcome = {
+        "stage": "outcome",
+        "outcome": [],
+        "at": "2026-08-19T02:43:00Z",
+    }
+    write_journal(
+        repo=repo,
+        records=[
+            unrelated,
+            target_dispatch,
+            target_outcome,
+            unrelated_outcome,
+            malformed_outcome,
+        ],
+    )
+
+    view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "wait-target-missing"
+    [relay] = fake.paste_texts()
+    evidence_path = Path(relay.split("evidence record: ", maxsplit=1)[1].splitlines()[0])
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert payload["requery_output"] == [target_dispatch, target_outcome]
+    assert unrelated not in payload["requery_output"]
+    assert unrelated_outcome not in payload["requery_output"]
+    assert malformed_outcome not in payload["requery_output"]
+
+
+def test_wait_target_missing_relay_scopes_local_process_requery(*, tmp_path):
+    repo, topic, _session, fake, sup, track = served_track(tmp_path=tmp_path)
+    sup.claude_status_by_session = {track.tmux or "": "waiting"}
+    write_premise(repo=repo, topic=topic)
+    target = {"id": "run-1", "status": "failed", "work_item_id": "overseer-x"}
+    unrelated = {"id": "other-run", "status": "failed", "work_item_id": "overseer-y"}
+    write_local_runs(repo=repo, records=[unrelated, target])
+
+    view = sup.evaluate(track=track, act=True)
+
+    assert view.status == "wait-target-missing"
+    [relay] = fake.paste_texts()
+    evidence_path = Path(relay.split("evidence record: ", maxsplit=1)[1].splitlines()[0])
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert payload["requery_output"] == [target]
+    assert unrelated not in payload["requery_output"]
+
+
 def test_wait_target_missing_relay_fail_soft_when_evidence_record_cannot_be_written(
     *, tmp_path, monkeypatch
 ):
