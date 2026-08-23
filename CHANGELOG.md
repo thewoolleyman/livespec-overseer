@@ -5,6 +5,7 @@
 
 ### Bug Fixes
 
+* **caam:** emit carrier R12's trigger header from the production path ([526110f](https://github.com/thewoolleyman/livespec-overseer/commit/526110f8788a40a292d6adb0c2cc7c89de9152ee))
 * restore foreman wrapup precedence ([2dac4bf](https://github.com/thewoolleyman/livespec-overseer/commit/2dac4bf094c8eb2a088d800ce64c8c8f42e9612a))
 
 ## [1.51.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.9...v1.51.10) (2026-08-23)
