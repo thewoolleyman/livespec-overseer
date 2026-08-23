@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.42.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.4...v1.42.5) (2026-08-23)
+
+
+### Bug Fixes
+
+* carry wait premise reverification into foreman prose ([5a7ec37](https://github.com/thewoolleyman/livespec-overseer/commit/5a7ec3711bc140f38fac0770b27b16a90ac9c8c7))
+* gate foreman contract prohibitions ([86a0ae1](https://github.com/thewoolleyman/livespec-overseer/commit/86a0ae12e0020c4deccd77dffcc03a823826f530))
+
 ## [1.42.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.42.3...v1.42.4) (2026-08-23)
 
 
