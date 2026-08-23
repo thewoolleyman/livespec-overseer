@@ -50,6 +50,21 @@ def write_obligation(*, repo, topic: str, fingerprint: str, **fields: object) ->
     )
 
 
+def write_panel_record(*, repo, topic: str, fingerprint: str, **fields: object) -> None:
+    path = repo / "tmp" / "overseer" / "foreman" / "panels" / topic / "panel-abc.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "kind": "foreman-consensus-panel",
+                "request": {"question_fingerprint": fingerprint},
+                **fields,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def evaluated_blocked_row(*, tmp_path, repo, topic, capture: str, now: float):
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -160,6 +175,68 @@ def test_consensus_overdue_reports_tooling_outage_panel_as_distinct_state(*, tmp
     assert "consensus overdue" not in err
     assert (str(repo), topic, "consensus-overdue") not in sup.alerted
     assert (str(repo), topic, "consensus-tooling-outage") in sup.alerted
+
+
+@pytest.mark.integration
+def test_consensus_tooling_outage_reports_each_row_and_dedupes_repeat_alerts(*, tmp_path):
+    repo, first_topic = make_plan(tmp_path=tmp_path, topic="first-topic")
+    _repo, second_topic = make_plan(tmp_path=tmp_path, topic="second-topic")
+    write_disposition(repo=repo, value="consensus")
+    capture = idle_capture(ctx=80, body="Should I answer option 1?")
+    fingerprint = foreman_gather_evidence.pane_content_hash(text=capture)
+    for topic in (first_topic, second_topic):
+        write_obligation(repo=repo, topic=topic, fingerprint=fingerprint)
+        write_panel_record(
+            repo=repo,
+            topic=topic,
+            fingerprint=fingerprint,
+            decision_kind="tooling_outage",
+            outcome="escalate",
+        )
+        declare(repo=repo, topic=topic, value="blocked: choose the safe unblock", mtime=900.0)
+
+    fake = FakeTmux()
+    for topic in (first_topic, second_topic):
+        fake.serve(
+            session=registry.tmux_id(repo=str(repo), topic=topic),
+            repo=repo,
+            capture=capture,
+        )
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0 + 1801.0)
+
+    rows = [
+        sup.evaluate(
+            track=mapped_track(
+                repo=repo,
+                topic=topic,
+                session=registry.tmux_id(repo=str(repo), topic=topic),
+            ),
+            act=True,
+        )
+        for topic in (first_topic, second_topic)
+    ]
+
+    assert [row.status for row in rows] == [
+        "consensus-tooling-outage",
+        "consensus-tooling-outage",
+    ]
+    assert {
+        (str(repo), first_topic, "consensus-tooling-outage"),
+        (str(repo), second_topic, "consensus-tooling-outage"),
+    }.issubset(sup.alerted)
+    alerted_after_first_pass = dict(sup.alerted)
+
+    row = sup.evaluate(
+        track=mapped_track(
+            repo=repo,
+            topic=first_topic,
+            session=registry.tmux_id(repo=str(repo), topic=first_topic),
+        ),
+        act=True,
+    )
+
+    assert row.status == "consensus-tooling-outage"
+    assert sup.alerted == alerted_after_first_pass
 
 
 @pytest.mark.integration
