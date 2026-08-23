@@ -61,16 +61,13 @@ def report_export_result(
 
 
 def _identity(*, result: _supervisor_otel.EmitResult) -> str:
-    return json.dumps(
-        {
-            "error": result.error,
-            "rejected_spans": result.rejected_spans,
-            "span_count": result.span_count,
-            "sent": result.sent,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    )
+    # Identity follows the same rule as the stale-foreman alert dedup:
+    # key on the stable operator condition and keep volatile payload out.
+    # `error`, `rejected_spans`, `span_count`, and `sent` remain reported
+    # fields, but transport detail and counters can vary every tick without
+    # changing the operator response. `sent` is stable for the rejected path,
+    # but redundant once the condition has selected failed versus rejected.
+    return _condition(result=result)
 
 
 def _condition(*, result: _supervisor_otel.EmitResult) -> str:

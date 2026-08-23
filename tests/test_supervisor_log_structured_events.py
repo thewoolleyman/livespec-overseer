@@ -9,6 +9,7 @@ import io as _io
 import json
 import time
 
+import _supervisor_otel_report
 import registry
 from _supervisor_foreman import heartbeat_path
 from _supervisor_otel import EmitResult, OtelConfig
@@ -23,6 +24,32 @@ from test_supervisor_builders import (
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
+
+
+def _count_export_alerts(
+    *,
+    tmp_path,
+    results: list[EmitResult],
+    seconds_per_tick: float,
+) -> list[dict[str, object]]:
+    clock = {"now": 1000.0}
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=FakeTmux(),
+        now=lambda: clock["now"],
+    )
+    state = _supervisor_otel_report.OtelExportFailureState()
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        for result in results:
+            _supervisor_otel_report.report_export_result(
+                sup=sup,
+                result=result,
+                state=state,
+            )
+            clock["now"] += seconds_per_tick
+    return [json.loads(line) for line in err.getvalue().splitlines()]
 
 
 def test_daemon_log_lines_are_structured_events_with_shared_envelope(*, tmp_path):
@@ -165,6 +192,44 @@ def test_otel_export_queue_overflow_is_reported_without_blocking(*, tmp_path, mo
     assert events[2]["error"] == "OTLP export queue full"
 
 
+def test_otel_export_queue_overflow_dedups_fixed_queue_full_error(
+    *,
+    tmp_path,
+    monkeypatch,
+):
+    async_otel = importlib.import_module("_supervisor_otel_async")
+    monkeypatch.setattr(async_otel, "_MAX_IN_FLIGHT", 1)
+
+    def slow_emit(_request: dict[str, object]) -> EmitResult:
+        time.sleep(0.25)
+        return EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
+
+    sup = make_supervisor(
+        tmp_path=tmp_path,
+        fake=FakeTmux(),
+        otel=OtelSeam(
+            config=OtelConfig(
+                endpoint="https://api.honeycomb.io",
+                ingest_key="key",
+                service_name="svc",
+                service_namespace="ns",
+            ),
+            emitter=slow_emit,
+        ),
+    )
+
+    err = _io.StringIO()
+    with contextlib.redirect_stderr(err):
+        sup.log(message="tick 1 complete", event="daemon-tick")
+        for tick in range(16):
+            sup.log(message=f"tick {tick + 2} complete", event="daemon-tick")
+
+    events = [json.loads(line) for line in err.getvalue().splitlines()]
+    alerts = [event for event in events if event["event"] == "otel-export-failed"]
+    assert len(alerts) == 1
+    assert alerts[0]["error"] == "OTLP export queue full"
+
+
 def test_failed_otel_export_surfaces_cause_and_rejected_count(*, tmp_path):
     sup = make_supervisor(
         tmp_path=tmp_path,
@@ -240,6 +305,78 @@ def test_persistent_otel_export_failure_reports_each_age_band_once(*, tmp_path):
     assert alert_events == [
         "otel-export-failed",
         "otel-export-failure-age-60",
+    ]
+
+
+def test_otel_export_failure_realerting_counts_stable_conditions_not_payload(
+    *,
+    tmp_path,
+):
+    ticks = 20
+    seconds_per_tick = 60.0
+
+    identical_failure = _count_export_alerts(
+        tmp_path=tmp_path,
+        results=[
+            EmitResult(
+                sent=False,
+                span_count=1,
+                rejected_spans=1,
+                error="OSError: offline",
+            )
+            for _tick in range(ticks)
+        ],
+        seconds_per_tick=seconds_per_tick,
+    )
+    rejection = _count_export_alerts(
+        tmp_path=tmp_path,
+        results=[
+            EmitResult(sent=True, span_count=4, rejected_spans=2, error=None)
+            for _tick in range(ticks)
+        ],
+        seconds_per_tick=seconds_per_tick,
+    )
+    flapping = _count_export_alerts(
+        tmp_path=tmp_path,
+        results=[
+            (
+                EmitResult(
+                    sent=False,
+                    span_count=1,
+                    rejected_spans=1,
+                    error="OSError: offline",
+                )
+                if tick % 2 == 0
+                else EmitResult(sent=True, span_count=1, rejected_spans=0, error=None)
+            )
+            for tick in range(ticks)
+        ],
+        seconds_per_tick=seconds_per_tick,
+    )
+    varying_failure = _count_export_alerts(
+        tmp_path=tmp_path,
+        results=[
+            EmitResult(
+                sent=False,
+                span_count=tick + 1,
+                rejected_spans=tick + 1,
+                error=f"OSError: offline attempt {tick}",
+            )
+            for tick in range(ticks)
+        ],
+        seconds_per_tick=seconds_per_tick,
+    )
+
+    assert len(identical_failure) == 4
+    assert len(rejection) == 4
+    assert len(flapping) == 10
+    assert len(varying_failure) == 4
+    assert varying_failure[0]["error"] == "OSError: offline attempt 0"
+    assert [event["event"] for event in varying_failure] == [
+        "otel-export-failed",
+        "otel-export-failure-age-60",
+        "otel-export-failure-age-300",
+        "otel-export-failure-age-900",
     ]
 
 
