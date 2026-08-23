@@ -11,6 +11,7 @@ import _supervisor_pane_still
 import _supervisor_parked_delivery
 import _supervisor_picker_stall
 import _supervisor_settling_stuck
+import _supervisor_wait_target
 import _supervisor_working_low_context
 import registry
 
@@ -134,8 +135,8 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             act=request.act,
         )
     )
-    stall_watch = apply_stall_watch(
-        request=StallWatchRequest(
+    wait_target = _supervisor_wait_target.apply_wait_target_missing_attention(
+        request=_supervisor_wait_target.WaitTargetMissingRequest(
             sup=request.sup,
             track=request.track,
             session=request.session,
@@ -144,6 +145,19 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             note=settling_stuck.note,
             obs=request.obs,
             active_conditions=settling_stuck.active_conditions,
+            act=request.act,
+        )
+    )
+    stall_watch = apply_stall_watch(
+        request=StallWatchRequest(
+            sup=request.sup,
+            track=request.track,
+            session=request.session,
+            pane=request.pane,
+            status=wait_target.status,
+            note=wait_target.note,
+            obs=request.obs,
+            active_conditions=wait_target.active_conditions,
             act=request.act,
         )
     )
