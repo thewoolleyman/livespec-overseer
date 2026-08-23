@@ -168,7 +168,9 @@ def main(*, argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="foreman-valve-disposition")
     _ = parser.add_argument("--repo", required=True)
     args = parser.parse_args(argv)
-    result = effective_valve_disposition(repo=Path(args.repo).resolve())
+    repo = Path(args.repo).resolve()
+    result = effective_valve_disposition(repo=repo)
+    result["plan_archive_authority"] = effective_plan_archive_authority(repo=repo)
     streams.write_stdout(text=json.dumps(result, indent=2, sort_keys=True) + "\n")
     return 0
 
