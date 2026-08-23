@@ -9,11 +9,12 @@ from collections.abc import Sequence
 from pathlib import Path
 
 import jsonio
-from _foreman_source_result import source_value
 from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
 from errors import OverseerSourceError
 
 from overseer._vendor.returns.io import IOFailure, IOResult, IOSuccess
+from overseer._vendor.returns.pipeline import is_successful
+from overseer._vendor.returns.unsafe import unsafe_perform_io
 
 _ = VENDOR_PATHS_INSTALLED
 
@@ -95,24 +96,26 @@ def repo_slug(*, repo: Path) -> str | None:
     return "/".join(parts[-_REPO_SLUG_PARTS:]) if len(parts) >= _REPO_SLUG_PARTS else None
 
 
-def fetch_release_lane_runs(*, repo: Path, workflow: str) -> list[dict[str, str]] | None:
+def fetch_release_lane_runs(
+    *, repo: Path, workflow: str
+) -> IOResult[list[dict[str, str]], OverseerSourceError]:
     slug = repo_slug(repo=repo)
     if not slug:
-        return None
+        return IOFailure(OverseerSourceError(detail="release_lane could not determine repo slug"))
     collected: list[dict[str, str]] = []
     for page in range(1, _PAGES + 1):
         endpoint = (
             f"repos/{slug}/actions/workflows/{workflow}/runs" f"?per_page={_PER_PAGE}&page={page}"
         )
-        payload_raw: (
-            IOResult[dict[str, object] | None, OverseerSourceError] | dict[str, object] | None
-        ) = run_json_command(command=["gh", "api", endpoint], source_name="release_lane")
-        payload = source_value(result=payload_raw)
+        payload_raw = run_json_command(command=["gh", "api", endpoint], source_name="release_lane")
+        if not is_successful(payload_raw):
+            return IOFailure(unsafe_perform_io(payload_raw.failure()))
+        payload = unsafe_perform_io(payload_raw.unwrap())
         if payload is None or isinstance(payload.get("__skip_reason__"), str):
-            return None
+            return IOFailure(OverseerSourceError(detail="release_lane could not fetch runs"))
         runs = jsonio.as_list(value=payload.get("workflow_runs"))
         if runs is None:
-            return None
+            return IOFailure(OverseerSourceError(detail="release_lane produced missing runs list"))
         collected.extend(
             {
                 "conclusion": str(run.get("conclusion") or ""),
@@ -123,7 +126,7 @@ def fetch_release_lane_runs(*, repo: Path, workflow: str) -> list[dict[str, str]
         )
         if len(runs) < _PER_PAGE:
             break
-    return collected
+    return IOSuccess(collected)
 
 
 def command_skipped(*, command: Sequence[str], reason: str) -> dict[str, object]:

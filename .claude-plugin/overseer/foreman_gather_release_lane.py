@@ -8,8 +8,16 @@ from pathlib import Path
 from typing import Protocol, cast
 
 import jsonio
+from _foreman_vendor_path import VENDOR_PATHS_INSTALLED
+from errors import OverseerSourceError
 from foreman_gather_sources import fetch_release_lane_runs, parse_repo_config
 from release_lane_watch import lane_state, notice_text
+
+from overseer._vendor.returns.io import IOFailure, IOResult, IOSuccess
+from overseer._vendor.returns.pipeline import is_successful
+from overseer._vendor.returns.unsafe import unsafe_perform_io
+
+_ = VENDOR_PATHS_INSTALLED
 
 __all__: list[str] = ["attention_with_release_lane", "release_lane_payload"]
 
@@ -22,7 +30,7 @@ _UNKNOWN_REASON = "forge unreachable or unavailable"
 
 
 class RunsFetcher(Protocol):
-    def __call__(self) -> list[dict[str, str]] | None: ...
+    def __call__(self) -> IOResult[list[dict[str, str]], OverseerSourceError] | object: ...
 
 
 def release_lane_payload(
@@ -49,11 +57,12 @@ def release_lane_payload(
         default=_DEFAULT_LABEL,
     )
     cache_path = release_lane_cache_path(repo=repo, config=config, options=options)
-    runs = release_lane_runs(repo=repo, workflow=workflow, options=options)
-    if runs is None:
+    runs_result = release_lane_runs(repo=repo, workflow=workflow, options=options)
+    if not is_successful(runs_result):
         return unknown_item(label=label, cache_path=cache_path), unknown_source(
             workflow=label, cache_path=cache_path
         )
+    runs = unsafe_perform_io(runs_result.unwrap())
     state = lane_state(runs=runs)
     write_cache(path=cache_path, workflow=label, measured_at=measured_at, state=state)
     text = notice_text(workflow=label, state=state)
@@ -116,14 +125,31 @@ def release_lane_cache_path(
 
 def release_lane_runs(
     *, repo: Path, workflow: str, options: Mapping[str, object]
-) -> list[dict[str, str]] | None:
+) -> IOResult[list[dict[str, str]], OverseerSourceError]:
     supplied = options.get("release_lane_runs")
     if supplied is not None:
-        return normalized_runs(value=supplied)
+        return runs_result(value=supplied, detail="release_lane supplied invalid runs")
     fetcher = options.get("release_lane_fetcher")
     if fetcher is not None:
-        return cast("RunsFetcher", fetcher)()
+        return fetcher_runs_result(value=cast("RunsFetcher", fetcher)())
     return fetch_release_lane_runs(repo=repo, workflow=workflow)
+
+
+def runs_result(
+    *, value: object, detail: str
+) -> IOResult[list[dict[str, str]], OverseerSourceError]:
+    normalized = normalized_runs(value=value)
+    if normalized is None:
+        return IOFailure(OverseerSourceError(detail=detail))
+    return IOSuccess(normalized)
+
+
+def fetcher_runs_result(
+    *, value: IOResult[list[dict[str, str]], OverseerSourceError] | object
+) -> IOResult[list[dict[str, str]], OverseerSourceError]:
+    if value is None:
+        return IOFailure(OverseerSourceError(detail="release_lane fetcher returned no runs"))
+    return cast("IOResult[list[dict[str, str]], OverseerSourceError]", value)
 
 
 def normalized_runs(*, value: object) -> list[dict[str, str]] | None:
