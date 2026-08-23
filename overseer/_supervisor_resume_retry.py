@@ -145,7 +145,7 @@ def resume_retry(
     # pasted) — the round is done here; the rare paste-failure re-engages via the
     # idle-with-context nudge, not a double-kick. A box holding TEXT means the Enter
     # was dropped — re-send Enter ONLY (never re-paste; the text is already there).
-    if signals.input_box_ready(capture_text=obs.capture):
+    if _resume_is_progressing(obs=obs) or signals.input_box_ready(capture_text=obs.capture):
         resolved = True
     else:
         spent = read_resume_retry_attempts(repo=repo, topic=topic, stamp_path=sup.stamp_path)
@@ -214,4 +214,11 @@ def resume_retry(
         status="restarting",
         note=RESUME_PENDING_NOTE,
         runtime=obs.runtime,
+    )
+
+
+def _resume_is_progressing(*, obs: Observation) -> bool:
+    """Whether a resume-pending fresh session is already making model progress."""
+    return obs.claude_status == "busy" or (
+        obs.is_codex and signals.is_busy(capture_text=obs.capture)
     )
