@@ -12,17 +12,14 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import _supervisor_evaluate
 import _supervisor_foreman_dead
+import _supervisor_foreman_heartbeat
 import _supervisor_mapping_health
 import foreman_runtime_identity
 import foreman_stop_state
-import jsonio
 import registry
 from _supervisor_config import track_key
 from _supervisor_view import MAX_REASON_IN_ALERT, RowView, elide
@@ -46,121 +43,27 @@ __all__: list[str] = [
     "read_heartbeat",
 ]
 
-FOREMAN_TOPIC = "foreman"
+FOREMAN_TOPIC = _supervisor_foreman_heartbeat.FOREMAN_TOPIC
 FOREMAN_BLOCKING_PROMPT_STATUS = "foreman-blocking-prompt"
 FOREMAN_HEARTBEAT_DEAD_STATUS = _supervisor_foreman_dead.FOREMAN_HEARTBEAT_DEAD_STATUS
 FOREMAN_HEARTBEAT_STALE_STATUS = _supervisor_foreman_dead.FOREMAN_HEARTBEAT_STALE_STATUS
 FOREMAN_HEARTBEAT_HELD_STATUS = _supervisor_foreman_dead.FOREMAN_HEARTBEAT_HELD_STATUS
 FOREMAN_HEARTBEAT_COMPLETED_STATUS = _supervisor_foreman_dead.FOREMAN_HEARTBEAT_COMPLETED_STATUS
-_HEARTBEAT_FILE = "heartbeat.json"
-_STALE_FLOOR_SECONDS = 30.0 * 60.0
-_STALE_MULTIPLIER = 2.0
 _HEARTBEAT_ALERT_CONDITIONS = (
     FOREMAN_HEARTBEAT_STALE_STATUS,
     FOREMAN_HEARTBEAT_DEAD_STATUS,
 )
 _BLOCKING_PROMPT_CONDITION = "foreman-blocking-prompt"
 
-
-@dataclass(frozen=True, kw_only=True)
-class Heartbeat:
-    written_at: datetime
-    pid: int
-    tick_generation: int
-    tick_interval_seconds: float
-
-
-def heartbeat_path(*, repo: str) -> Path:
-    return Path(repo) / "tmp" / "overseer" / FOREMAN_TOPIC / _HEARTBEAT_FILE
-
-
-def _as_non_bool_int(*, value: object) -> int | None:
-    if isinstance(value, bool) or not isinstance(value, int):
-        return None
-    return value
-
-
-def _parse_timestamp(*, value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
-
-
-def read_heartbeat(*, repo: str) -> Heartbeat | None:
-    """Read a foreman heartbeat, treating unreadable or malformed content as absent.
-
-    Fail-closed includes valid JSON with the wrong shape or wrong field types. A torn
-    write can leave an array, scalar, numeric timestamp, or list-valued interval, and
-    none of those may escape into the daemon tick.
-    """
-    try:
-        parsed = jsonio.parse_object(text=heartbeat_path(repo=repo).read_text(encoding="utf-8"))
-        if jsonio.is_parse_failure(result=parsed):
-            return None
-        payload = parsed.unwrap()
-        if payload is None:
-            return None
-        written_raw = payload["written_at"]
-        if not isinstance(written_raw, str):
-            return None
-        written_at = _parse_timestamp(value=written_raw)
-        pid = _as_non_bool_int(value=payload["pid"])
-        tick_generation = _as_non_bool_int(value=payload["tick_generation"])
-        tick_interval_seconds = jsonio.as_float(value=payload["tick_interval_seconds"])
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
-        return None
-    if (
-        pid is not None
-        and tick_generation is not None
-        and tick_interval_seconds is not None
-        and tick_interval_seconds > 0
-    ):
-        return Heartbeat(
-            written_at=written_at,
-            pid=pid,
-            tick_generation=tick_generation,
-            tick_interval_seconds=tick_interval_seconds,
-        )
-    return None
+Heartbeat = _supervisor_foreman_heartbeat.Heartbeat
+HeartbeatLapse = _supervisor_foreman_heartbeat.HeartbeatLapse
+heartbeat_path = _supervisor_foreman_heartbeat.heartbeat_path
+read_heartbeat = _supervisor_foreman_heartbeat.read_heartbeat
+heartbeat_lapse = _supervisor_foreman_heartbeat.heartbeat_lapse
 
 
 def _age_seconds(*, heartbeat: Heartbeat, now: Callable[[], float]) -> float:
     return now() - heartbeat.written_at.timestamp()
-
-
-def _stale_after(*, heartbeat: Heartbeat) -> float:
-    return max(_STALE_FLOOR_SECONDS, _STALE_MULTIPLIER * heartbeat.tick_interval_seconds)
-
-
-@dataclass(frozen=True, kw_only=True)
-class HeartbeatLapse:
-    age_seconds: float
-    stale: bool
-    heartbeat_written_at: datetime
-    stale_after_seconds: float
-
-
-def heartbeat_lapse(*, repo: str, now: Callable[[], float]) -> HeartbeatLapse | None:
-    """Read the PRIOR heartbeat's staleness, before a caller overwrites it.
-
-    A `ForemanRuntime.step()` caller reads this before writing its own heartbeat, so a
-    lapsed recurring loop (no tick landed within `2x` its interval, floor 30 minutes —
-    the same threshold `foreman_row` uses for the daemon's NEEDS YOU alert) is visible
-    to THIS tick immediately, rather than only after the daemon's own poll notices it.
-    Returns None when no prior heartbeat exists (e.g. the very first tick ever).
-    """
-    heartbeat = read_heartbeat(repo=repo)
-    if heartbeat is None:
-        return None
-    age = _age_seconds(heartbeat=heartbeat, now=now)
-    stale_after = _stale_after(heartbeat=heartbeat)
-    return HeartbeatLapse(
-        age_seconds=age,
-        stale=age > stale_after,
-        heartbeat_written_at=heartbeat.written_at,
-        stale_after_seconds=stale_after,
-    )
 
 
 def foreman_row(*, repo: str, now: Callable[[], float]) -> RowView | None:
@@ -168,7 +71,7 @@ def foreman_row(*, repo: str, now: Callable[[], float]) -> RowView | None:
     if heartbeat is None:
         return None
     age = _age_seconds(heartbeat=heartbeat, now=now)
-    stale_after = _stale_after(heartbeat=heartbeat)
+    stale_after = _supervisor_foreman_heartbeat.stale_after(heartbeat=heartbeat)
     if age <= stale_after:
         return None
     stop_state = foreman_stop_state.read_foreman_stop_state(repo=repo)

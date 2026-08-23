@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import _supervisor_evaluate_ctx_stale
 import _supervisor_evaluate_restart
 import _supervisor_evaluate_threshold
+import _supervisor_foreman_heartbeat
 import _supervisor_idle
 import _supervisor_launch
 import _supervisor_observe
@@ -86,6 +87,14 @@ def _idle_room_or_recovered(*, request: IdleRequest) -> tuple[str, bool]:
     ), False
 
 
+def _fresh_foreman_within_contract(*, request: IdleRequest) -> bool:
+    return isinstance(
+        request.track, registry.ForemanSeat
+    ) and _supervisor_foreman_heartbeat.foreman_heartbeat_fresh(
+        repo=request.track.repo, now=request.sup.now
+    )
+
+
 def idle_decision(*, request: IdleRequest) -> IdleDecision:
     active_conditions: set[str] = set()
     note = request.note
@@ -148,6 +157,8 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
             active_conditions=restart.active_conditions,
             settled_streaming_progress=False,
         )
+    elif _fresh_foreman_within_contract(request=request):
+        status = "idle"
     elif (
         request.obs.ctx_stale_age is not None
         and request.obs.stale_ctx is not None
