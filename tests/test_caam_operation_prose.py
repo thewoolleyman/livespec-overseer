@@ -17,7 +17,9 @@ EXPECTED_FORWARDABLE_FLAGS = (
     "--no-models",
     "--foreman-model=<fable|opus|auto>",
     "--session-model=<session>=<fable|opus|auto>",
+    "--warm",
     "--no-warm",
+    "CAAM_ROTATE_WARM=1",
 )
 
 
