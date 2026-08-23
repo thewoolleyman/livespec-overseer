@@ -689,19 +689,22 @@ def _run_guard(
     item_id: str,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
-) -> tuple[int, str]:
+) -> tuple[int, str, str]:
     monkeypatch.setenv("DISPATCH_ACCEPTANCE_GUARD_BD", str(stub))
     module = _guard_module()
     rc = int(module.main([item_id]))
     captured = capsys.readouterr()
-    return rc, captured.err
+    return rc, captured.out, captured.err
 
 
-def _live_exercise_item(*, labels: list[str]) -> dict[str, object]:
+def _live_exercise_item(
+    *, labels: list[str], acceptance_criteria: object = "Evidence is recorded."
+) -> dict[str, object]:
     return {
         "id": "overseer-fake1",
         "title": "harden the restart leg",
         "description": "Acceptance: closure requires live-exercise evidence on the item.",
+        "acceptance_criteria": acceptance_criteria,
         "labels": labels,
     }
 
@@ -712,7 +715,7 @@ def test_guard_refuses_unlabeled_live_exercise_item(
     """Live-exercise criterion + no acceptance label -> refuse with the remedy."""
     stub = _stub_bd(root=tmp_path, item=_live_exercise_item(labels=["intake:triaged"]))
 
-    rc, stderr = _run_guard(
+    rc, _stdout, stderr = _run_guard(
         stub=stub, item_id="overseer-fake1", monkeypatch=monkeypatch, capsys=capsys
     )
 
@@ -730,32 +733,85 @@ def test_guard_passes_labeled_live_exercise_item(
         item=_live_exercise_item(labels=["intake:triaged", "acceptance:ai-then-human"]),
     )
 
-    rc, stderr = _run_guard(
+    rc, _stdout, stderr = _run_guard(
         stub=stub, item_id="overseer-fake1", monkeypatch=monkeypatch, capsys=capsys
     )
 
     assert rc == 0, stderr
 
 
-def test_guard_passes_item_without_live_exercise_criterion(
+def test_guard_refuses_empty_acceptance_bar(
     *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """An ordinary item needs no label."""
+    """An otherwise dispatchable item still needs a stated acceptance bar."""
     stub = _stub_bd(
         root=tmp_path,
         item={
             "id": "overseer-fake2",
             "title": "refactor a helper",
             "description": "Acceptance: just check green.",
+            "acceptance_criteria": "",
             "labels": ["intake:triaged"],
         },
     )
 
-    rc, stderr = _run_guard(
+    rc, _stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-fake2", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 1, stderr
+    assert "overseer-fake2" in stderr
+    assert "missing acceptance bar" in stderr
+
+
+@pytest.mark.parametrize("acceptance_criteria", [None, "", "   "])
+def test_guard_treats_blank_acceptance_bar_as_empty(
+    *,
+    acceptance_criteria: object,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Absent, null, empty, and whitespace-only criteria are all empty."""
+    item = {
+        "id": "overseer-fake2",
+        "title": "refactor a helper",
+        "description": "Acceptance: just check green.",
+        "labels": ["intake:triaged"],
+    }
+    if acceptance_criteria is not None:
+        item["acceptance_criteria"] = acceptance_criteria
+    stub = _stub_bd(root=tmp_path, item=item)
+
+    rc, _stdout, stderr = _run_guard(
+        stub=stub, item_id="overseer-fake2", monkeypatch=monkeypatch, capsys=capsys
+    )
+
+    assert rc == 1, stderr
+    assert "missing acceptance bar" in stderr
+
+
+def test_guard_passes_single_character_acceptance_bar(
+    *, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A one-character bar is content; the guard must discriminate."""
+    stub = _stub_bd(
+        root=tmp_path,
+        item={
+            "id": "overseer-fake2",
+            "title": "refactor a helper",
+            "description": "Acceptance: just check green.",
+            "acceptance_criteria": "x",
+            "labels": ["intake:triaged"],
+        },
+    )
+
+    rc, stdout, stderr = _run_guard(
         stub=stub, item_id="overseer-fake2", monkeypatch=monkeypatch, capsys=capsys
     )
 
     assert rc == 0, stderr
+    assert "dispatch acceptance guard: overseer-fake2 ok" in stdout
 
 
 def test_guard_refuses_live_exercise_item_missing_labels_field(
@@ -771,7 +827,7 @@ def test_guard_refuses_live_exercise_item_missing_labels_field(
         },
     )
 
-    rc, stderr = _run_guard(
+    rc, _stdout, stderr = _run_guard(
         stub=stub, item_id="overseer-fake3", monkeypatch=monkeypatch, capsys=capsys
     )
 
@@ -789,7 +845,7 @@ def test_guard_accepts_bare_dict_payload(
         body=f"#!/usr/bin/env bash\nprintf '%s\\n' '{payload}'\n",
     )
 
-    rc, stderr = _run_guard(
+    rc, _stdout, stderr = _run_guard(
         stub=stub, item_id="overseer-fake1", monkeypatch=monkeypatch, capsys=capsys
     )
 
@@ -816,7 +872,7 @@ def test_guard_fails_closed_when_bd_fails(
         body="#!/usr/bin/env bash\necho boom >&2\nexit 3\n",
     )
 
-    rc, stderr = _run_guard(
+    rc, _stdout, stderr = _run_guard(
         stub=stub, item_id="overseer-fake1", monkeypatch=monkeypatch, capsys=capsys
     )
 
@@ -839,10 +895,10 @@ def test_guard_fails_closed_on_unparseable_or_empty_output(
         body="#!/usr/bin/env bash\nprintf '%s\\n' '[]'\n",
     )
 
-    rc_unparseable, stderr_unparseable = _run_guard(
+    rc_unparseable, _stdout_unparseable, stderr_unparseable = _run_guard(
         stub=unparseable, item_id="overseer-fake1", monkeypatch=monkeypatch, capsys=capsys
     )
-    rc_empty, stderr_empty = _run_guard(
+    rc_empty, _stdout_empty, stderr_empty = _run_guard(
         stub=empty, item_id="overseer-fake1", monkeypatch=monkeypatch, capsys=capsys
     )
 
