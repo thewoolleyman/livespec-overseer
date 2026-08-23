@@ -18,6 +18,7 @@ __all__: list[str] = [
     "REPORT_ONLY",
     "ValveDisposition",
     "effective_full_autonomy",
+    "effective_plan_archive_authority",
     "effective_valve_disposition",
     "main",
 ]
@@ -148,6 +149,18 @@ def effective_full_autonomy(*, repo: Path) -> dict[str, object]:
         "configured": configured if isinstance(configured, bool) else None,
         "full_autonomy": configured is True,
         "source": "default" if configured is None else str(source),
+    }
+
+
+def effective_plan_archive_authority(*, repo: Path) -> dict[str, object]:
+    resolved = effective_valve_disposition(repo=repo)
+    full_autonomy = resolved.get("full_autonomy") is True
+    return {
+        "authority": "session-performable" if full_autonomy else "reserved",
+        "permitted": full_autonomy,
+        "reserved_actor": None if full_autonomy else "maintainer",
+        "full_autonomy": full_autonomy,
+        "full_autonomy_source": resolved.get("full_autonomy_source"),
     }
 
 
