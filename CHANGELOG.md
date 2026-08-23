@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.45.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.1...v1.45.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* admit new-topic plan starts ([3d1f65d](https://github.com/thewoolleyman/livespec-overseer/commit/3d1f65d38c0b1a8660f21651a1cc3152e430a1f1))
+* prove foreman start admits new topics ([459cd2e](https://github.com/thewoolleyman/livespec-overseer/commit/459cd2ef4f8a90ad6c1ef8a20718657a760e5c5e))
+
 ## [1.45.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.45.0...v1.45.1) (2026-08-23)
 
 
