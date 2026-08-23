@@ -1,0 +1,102 @@
+{
+  "required_prohibitions": [
+    {
+      "id": "shell-mutations-directly",
+      "term_groups": [
+        ["never execute shell mutations directly"],
+        ["foreman-act"]
+      ]
+    },
+    {
+      "id": "authority-self-alteration",
+      "term_groups": [
+        ["must not set, clear, or alter"],
+        ["full_autonomy"],
+        ["disposition"],
+        ["decision rule"]
+      ]
+    },
+    {
+      "id": "consensus-evidence-fail-closed",
+      "term_groups": [
+        ["escalate"],
+        ["do not act"],
+        ["consensus evidence", "panel evidence"],
+        ["unavailable", "insufficient", "fails the effective decision rule"]
+      ]
+    },
+    {
+      "id": "journal-before-act",
+      "term_groups": [
+        ["journal"],
+        ["before", "first"],
+        ["never after", "not after"]
+      ]
+    },
+    {
+      "id": "corroborating-evidence-not-authority-challenge",
+      "term_groups": [
+        ["corroborating evidence"],
+        ["authority-challenge"],
+        ["must not be escalated as one", "not be escalated as one"]
+      ]
+    },
+    {
+      "id": "canonical-escalation-filename",
+      "term_groups": [
+        ["tmp/overseer/foreman/escalations/<repo-slug>-foreman.json"],
+        ["only one the daemon reads"]
+      ]
+    },
+    {
+      "id": "work-state-from-dispatch-journal",
+      "term_groups": [
+        ["work state"],
+        ["dispatch journal"],
+        ["never from the pane", "not from the pane"],
+        ["never from local process views", "not from local process views"]
+      ]
+    },
+    {
+      "id": "converged-picker-prohibition",
+      "term_groups": [
+        ["Do not raise a blocking picker for this decision"],
+        ["no in-session clock left to bound it"]
+      ]
+    }
+  ],
+  "deletion_controls": [
+    {
+      "id": "shell-mutations-directly",
+      "deleted_text": "You never\nexecute shell mutations directly. "
+    },
+    {
+      "id": "authority-self-alteration",
+      "deleted_text": "The foreman MUST NOT set, clear, or alter `full_autonomy`, the disposition, or\nthe decision rule, and no report or roster answer may imply that it did.\n"
+    },
+    {
+      "id": "consensus-evidence-fail-closed",
+      "deleted_text": "Escalate, and do not\nact, whenever consensus evidence is unavailable or insufficient, the panel\nevidence fails the effective decision rule, a security dissent is present, or\nthe audit journal append fails. "
+    },
+    {
+      "id": "journal-before-act",
+      "deleted_text": "Journal before you act, never after."
+    },
+    {
+      "id": "corroborating-evidence-not-authority-challenge",
+      "deleted_text": "A request for corroborating evidence\nis not, by itself, an authority-challenge and must not be escalated as one.\n"
+    },
+    {
+      "id": "canonical-escalation-filename",
+      "deleted_text": "**That exact filename is the only one the daemon reads**"
+    },
+    {
+      "id": "work-state-from-dispatch-journal",
+      "deleted_text": "Work state is whether\nfactory runs are in flight for that plan's children, sourced from the dispatch\njournal, never from the pane and never from local process views. "
+    },
+    {
+      "id": "converged-picker-prohibition",
+      "deleted_text": "Do not raise a blocking picker for this decision; with the\nschedule cancelled there is no in-session clock left to bound it. "
+    }
+  ]
+}

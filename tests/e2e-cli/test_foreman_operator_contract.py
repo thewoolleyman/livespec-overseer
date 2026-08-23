@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from typing import TypeAlias, cast
 
 from foreman_act_types import ACTION_IDS
 
@@ -20,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_ROOT = ROOT / ".claude-plugin"
 PROSE = PLUGIN_ROOT / "prose" / "foreman.md"
 RUNTIME = PLUGIN_ROOT / "bin" / "foreman-runtime"
+PROHIBITIONS = Path(__file__).with_name("foreman_contract_prohibitions.json")
 
 
 def _scrubbed_env() -> dict[str, str]:
@@ -164,6 +166,52 @@ def _escalation_filename_errors(*, text: str) -> list[str]:
 
 CONVERGED_PICKER_PROHIBITION = "Do not raise a blocking picker for this decision"
 CONVERGED_PROHIBITION_REASON = "no in-session clock left to bound it"
+TermGroup: TypeAlias = tuple[str, ...]
+RequiredProhibition: TypeAlias = tuple[str, tuple[TermGroup, ...]]
+DeletionControl: TypeAlias = tuple[str, str]
+
+
+def _normalised_contract_text(*, text: str) -> str:
+    return " ".join(text.lower().replace("`", "").split())
+
+
+def _load_required_prohibitions() -> tuple[RequiredProhibition, ...]:
+    data = json.loads(PROHIBITIONS.read_text(encoding="utf-8"))
+    assert isinstance(data, dict)
+    prohibitions = data["required_prohibitions"]
+    assert isinstance(prohibitions, list)
+    return tuple(
+        (
+            cast(str, entry["id"]),
+            tuple(
+                tuple(cast(str, term) for term in group)
+                for group in cast(list[list[object]], entry["term_groups"])
+            ),
+        )
+        for entry in cast(list[dict[str, object]], prohibitions)
+    )
+
+
+def _load_deletion_controls() -> tuple[DeletionControl, ...]:
+    data = json.loads(PROHIBITIONS.read_text(encoding="utf-8"))
+    assert isinstance(data, dict)
+    controls = data["deletion_controls"]
+    assert isinstance(controls, list)
+    return tuple(
+        (cast(str, entry["id"]), cast(str, entry["deleted_text"]))
+        for entry in cast(list[dict[str, object]], controls)
+    )
+
+
+def _required_prohibition_errors(*, text: str) -> list[str]:
+    normalised = _normalised_contract_text(text=text)
+    errors: list[str] = []
+    for prohibition_id, term_groups in _load_required_prohibitions():
+        for group in term_groups:
+            if not any(_normalised_contract_text(text=term) in normalised for term in group):
+                errors.append(prohibition_id)
+                break
+    return errors
 
 
 def _converged_prohibition_errors(*, text: str) -> list[str]:
@@ -277,6 +325,33 @@ def test_the_contract_names_only_the_escalation_filename_the_daemon_reads() -> N
     assert _escalation_filename_errors(text=text + AMBIGUOUS_ESCALATION_PATH) == [
         "ambiguous-escalation-path-present"
     ]
+
+
+def test_load_bearing_prohibitions_are_registered_as_a_contract_class() -> None:
+    assert PROHIBITIONS.is_file()
+    text = PROSE.read_text(encoding="utf-8")
+
+    assert _required_prohibition_errors(text=text) == []
+
+    for prohibition_id, deleted_text in _load_deletion_controls():
+        assert deleted_text in text
+        assert _required_prohibition_errors(text=text.replace(deleted_text, "")) == [prohibition_id]
+
+
+def test_required_prohibitions_allow_cosmetic_contract_edits() -> None:
+    text = PROSE.read_text(encoding="utf-8")
+    original = (
+        "Work state is whether\nfactory runs are in flight for that plan's children, sourced "
+        "from the dispatch\njournal, never from the pane and never from local process views. "
+    )
+    reworded = (
+        "Work state is sourced from the dispatch journal for that plan's children,\n"
+        "never from local process views and never from the pane, and records whether\n"
+        "factory runs are in flight. "
+    )
+
+    assert original in text
+    assert _required_prohibition_errors(text=text.replace(original, reworded)) == []
 
 
 def test_the_converged_exit_forbids_a_blocking_picker_and_says_why() -> None:
