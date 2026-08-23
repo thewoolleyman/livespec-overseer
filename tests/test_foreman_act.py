@@ -5,8 +5,10 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import runpy
 import subprocess
 import sys
+import textwrap
 import time
 from hashlib import sha256
 from pathlib import Path
@@ -299,6 +301,181 @@ def file_proposal(*, repo: Path, target_repo: Path | None = None) -> dict[str, o
         },
     }
     return proposal
+
+
+def status_snapshot(*, repo: Path) -> dict[str, object]:
+    return {
+        "schema_version": 1,
+        "daemon_instance_id": "daemon-1",
+        "tick_generation": 7,
+        "written_at": "2026-08-23T00:00:00Z",
+        "rows": [
+            {
+                "repo": str(repo),
+                "topic": "alpha",
+                "tmux": "alpha",
+                "runtime": "codex",
+                "status": "session-gone",
+                "session_identity": f"none:{repo}:alpha",
+            }
+        ],
+    }
+
+
+def write_module(*, path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(textwrap.dedent(text).lstrip(), encoding="utf-8")
+
+
+def materialize_filing_orchestrator_plugin(*, root: Path, store_fails: bool = False) -> None:
+    scripts = root / "scripts"
+    package = scripts / "livespec_orchestrator_beads_fabro"
+    runtime = scripts / "_vendor" / "livespec_runtime" / "work_items"
+    write_module(path=package / "__init__.py", text="")
+    write_module(path=package / "commands" / "__init__.py", text="")
+    write_module(path=scripts / "_vendor" / "livespec_runtime" / "__init__.py", text="")
+    write_module(path=runtime / "__init__.py", text="")
+    write_module(
+        path=package / "_ids.py",
+        text='def new_work_item_id(*, prefix):\n    return f"{prefix}-filed"\n',
+    )
+    config_body = (
+        """
+        def resolve_store_config(*, cwd, work_items_arg):
+            _ = (cwd, work_items_arg)
+            raise RuntimeError("store cannot be resolved")
+        """
+        if store_fails
+        else """
+        from dataclasses import dataclass
+
+
+        @dataclass(frozen=True, kw_only=True)
+        class StoreConfig:
+            prefix: str
+            repo_root: object
+
+
+        def resolve_store_config(*, cwd, work_items_arg):
+            _ = work_items_arg
+            return StoreConfig(prefix="overseer", repo_root=cwd)
+        """
+    )
+    write_module(path=package / "commands" / "_config.py", text=config_body)
+    write_module(
+        path=package / "types.py",
+        text="""
+        from dataclasses import dataclass
+
+
+        @dataclass(frozen=True, kw_only=True)
+        class WorkItem:
+            id: str
+            type: str
+            status: str
+            title: str
+            description: str
+            origin: str
+            gap_id: object
+            rank: str
+            assignee: object
+            depends_on: object
+            captured_at: str
+            resolution: object
+            reason: object
+            audit: object
+            superseded_by: object
+            spec_commitment_hint: object
+            acceptance_criteria: object
+            notes: object
+        """,
+    )
+    write_module(
+        path=package / "store.py",
+        text="""
+        import json
+
+
+        def append_work_item(*, path, item):
+            marker = path.repo_root / "tmp" / "fake-store.jsonl"
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(json.dumps({"item_id": item.id}) + "\\n", encoding="utf-8")
+        """,
+    )
+    write_module(
+        path=package / "intake_dor.py",
+        text="""
+        import json
+        from dataclasses import dataclass
+
+        from returns.io import IOSuccess
+
+
+        @dataclass(frozen=True, kw_only=True)
+        class DefinitionOfReadyChecklist:
+            single_coherent_done: bool
+            autonomously_verifiable: bool
+            autonomy_tiered: bool
+            dependency_linked: bool
+            repo_targeted: bool
+            above_floor: bool
+
+
+        def apply_intake_dor(*, path, item_id, checklist):
+            marker = path.repo_root / "tmp" / "fake-intake.json"
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(
+                json.dumps(
+                    {
+                        "above_floor": checklist.above_floor,
+                        "item_id": item_id,
+                    },
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            return IOSuccess("pending-approval")
+        """,
+    )
+    write_module(
+        path=runtime / "rank.py",
+        text='def key_between(*, a, b):\n    _ = (a, b)\n    return "rank"\n',
+    )
+
+
+def run_foreman_act_entrypoint(
+    *,
+    tmp_path: Path,
+    repo: Path,
+    proposal: dict[str, object],
+    plugin_root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> tuple[int, str, str]:
+    proposal_path = tmp_path / "proposal.json"
+    snapshot_path = tmp_path / "snapshot.json"
+    proposal_path.write_text(json.dumps(proposal), encoding="utf-8")
+    snapshot_path.write_text(json.dumps(status_snapshot(repo=repo)), encoding="utf-8")
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("LIVESPEC_ORCHESTRATOR_PLUGIN_ROOT", str(plugin_root))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(EXECUTABLE_PATH),
+            "--proposal",
+            str(proposal_path),
+            "--snapshot-path",
+            str(snapshot_path),
+        ],
+    )
+    code = 0
+    try:
+        runpy.run_path(str(EXECUTABLE_PATH), run_name="__main__")
+    except SystemExit as exc:
+        code = int(exc.code) if isinstance(exc.code, int) else 1
+    captured = capsys.readouterr()
+    return code, captured.out, captured.err
 
 
 def work_item_update_proposal(*, repo: Path, item_id: str = "overseer-child") -> dict[str, object]:
@@ -1179,6 +1356,67 @@ def test_typed_work_item_filing_uses_intake_seam_and_journals_result(*, tmp_path
         "reason": "filed:overseer-new:ready",
         "mutated": True,
     }
+
+
+def test_work_item_file_entrypoint_reports_unwrapped_ioresult_success(
+    *, tmp_path, monkeypatch, capsys
+):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    plugin_root = tmp_path / "orchestrator"
+    materialize_filing_orchestrator_plugin(root=plugin_root)
+
+    code, stdout, stderr = run_foreman_act_entrypoint(
+        tmp_path=tmp_path,
+        repo=repo,
+        proposal=file_proposal(repo=repo),
+        plugin_root=plugin_root,
+        monkeypatch=monkeypatch,
+        capsys=capsys,
+    )
+
+    assert code == 0, stderr
+    assert "Traceback" not in stdout + stderr
+    assert json.loads(stdout) == {
+        "action_id": "work_item_file",
+        "mutated": True,
+        "outcome": "acted",
+        "reason": f"filed:overseer-filed:pending-approval:{plugin_root}",
+    }
+    assert json.loads((repo / "tmp" / "fake-intake.json").read_text(encoding="utf-8")) == {
+        "above_floor": True,
+        "item_id": "overseer-filed",
+    }
+
+
+def test_work_item_file_entrypoint_reports_store_resolution_failure_without_mutation(
+    *, tmp_path, monkeypatch, capsys
+):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    plugin_root = tmp_path / "orchestrator"
+    materialize_filing_orchestrator_plugin(root=plugin_root, store_fails=True)
+
+    code, stdout, stderr = run_foreman_act_entrypoint(
+        tmp_path=tmp_path,
+        repo=repo,
+        proposal=file_proposal(repo=repo),
+        plugin_root=plugin_root,
+        monkeypatch=monkeypatch,
+        capsys=capsys,
+    )
+
+    assert code == 0, stderr
+    result = json.loads(stdout)
+    assert result["action_id"] == "work_item_file"
+    assert result["mutated"] is False
+    assert result["outcome"] == "failed"
+    assert isinstance(result["reason"], str)
+    assert result["reason"].startswith(
+        "filing_subprocess_failed:Traceback (most recent call last):"
+    )
+    assert not (repo / "tmp" / "fake-store.jsonl").exists()
+    assert not (repo / "tmp" / "fake-intake.json").exists()
 
 
 def test_failed_work_item_filing_returns_failed_result_and_journals_attempt(*, tmp_path):

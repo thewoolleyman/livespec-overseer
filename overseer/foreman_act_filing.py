@@ -251,6 +251,7 @@ from livespec_orchestrator_beads_fabro.intake_dor import (
 from livespec_orchestrator_beads_fabro.store import append_work_item
 from livespec_orchestrator_beads_fabro.types import WorkItem
 from livespec_runtime.work_items.rank import key_between
+from returns.unsafe import unsafe_perform_io
 
 request = json.load(sys.stdin)
 target_repo = Path(request["target_repo"])
@@ -277,7 +278,7 @@ item = WorkItem(
 )
 append_work_item(path=config, item=item)
 checklist = request["checklist"]
-verdict = apply_intake_dor(
+raw_verdict = apply_intake_dor(
     path=config,
     item_id=item.id,
     checklist=DefinitionOfReadyChecklist(
@@ -288,6 +289,11 @@ verdict = apply_intake_dor(
         repo_targeted=checklist["repo_targeted"],
         above_floor=checklist["above_floor"],
     ),
+)
+verdict = (
+    unsafe_perform_io(raw_verdict.unwrap())
+    if hasattr(raw_verdict, "unwrap")
+    else raw_verdict
 )
 print(json.dumps({"item_id": item.id, "verdict": verdict}, sort_keys=True))
 """
