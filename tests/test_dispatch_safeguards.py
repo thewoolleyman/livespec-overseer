@@ -824,6 +824,7 @@ def test_guard_refuses_live_exercise_item_missing_labels_field(
             "id": "overseer-fake3",
             "title": "needs live-verification before close",
             "description": "Acceptance: observed on the production daemon.",
+            "acceptance_criteria": "Observed on the production daemon.",
         },
     )
 

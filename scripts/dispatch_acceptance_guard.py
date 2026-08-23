@@ -42,12 +42,20 @@ def main(argv: list[str] | None = None) -> int:
         item = _show_item(item_id=item_id)
         if item is None:
             return _EX_UNAVAILABLE
-        if _needs_parking_label(item=item):
+        if _missing_acceptance_bar(item=item):
+            _ = sys.stderr.write(_acceptance_bar_refusal(item_id=item_id))
+            refused = True
+        elif _needs_parking_label(item=item):
             _ = sys.stderr.write(_refusal(item_id=item_id))
             refused = True
         else:
             _ = sys.stdout.write(f"dispatch acceptance guard: {item_id} ok\n")
     return 1 if refused else 0
+
+
+def _missing_acceptance_bar(*, item: dict[str, object]) -> bool:
+    acceptance = item.get("acceptance_criteria")
+    return not (isinstance(acceptance, str) and acceptance.strip())
 
 
 def _needs_parking_label(*, item: dict[str, object]) -> bool:
@@ -59,6 +67,13 @@ def _needs_parking_label(*, item: dict[str, object]) -> bool:
         return True
     label_set = {label for label in labels if isinstance(label, str)}
     return not (label_set & _PARKING_LABELS)
+
+
+def _acceptance_bar_refusal(*, item_id: str) -> str:
+    return (
+        f"dispatch refused (overseer-uvbf): {item_id} is missing acceptance bar; "
+        "acceptance_criteria must be non-empty before sandbox launch.\n"
+    )
 
 
 def _refusal(*, item_id: str) -> str:
