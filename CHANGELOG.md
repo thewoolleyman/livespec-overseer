@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.51.11](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.10...v1.51.11) (2026-08-23)
+
+
+### Bug Fixes
+
+* restore foreman wrapup precedence ([2dac4bf](https://github.com/thewoolleyman/livespec-overseer/commit/2dac4bf094c8eb2a088d800ce64c8c8f42e9612a))
+
 ## [1.51.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.9...v1.51.10) (2026-08-23)
 
 
