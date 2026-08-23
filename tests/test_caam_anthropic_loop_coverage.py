@@ -26,6 +26,12 @@ def caam_pass_module() -> ModuleType:
     return importlib.import_module("caam_anthropic_pass")
 
 
+def caam_protected_accounts_module() -> ModuleType:
+    module_path = Path(__file__).resolve().parents[1] / "overseer" / "caam_protected_accounts.py"
+    assert module_path.is_file()
+    return importlib.import_module("caam_protected_accounts")
+
+
 def usage(*, five_hour: float = 20.0, seven_day: float = 30.0) -> UsageRecord:
     return UsageRecord(
         five_hour=five_hour,
@@ -55,6 +61,7 @@ class _Flags:
     no_warm: bool = True
     foreman_model: str | None = None
     session_models: tuple[tuple[str, str], ...] = ()
+    protected_accounts: tuple[tuple[str, str], ...] = ()
 
 
 def test_main_default_runner_uses_stdout_and_sys_argv_seams(*, monkeypatch) -> None:
@@ -75,6 +82,21 @@ def test_main_default_runner_uses_stdout_and_sys_argv_seams(*, monkeypatch) -> N
 
     assert out == ["ran\n"]
     assert seen[0].no_warm is True
+
+
+def test_protected_account_helper_clears_and_reads_floors() -> None:
+    module = caam_protected_accounts_module()
+    state: dict[str, object] = {"protected-accounts": {"main": 12.0, "old": 5.0}}
+
+    protected = module.apply_protected_accounts(
+        state=state,
+        requested_accounts=(("old", "off"),),
+    )
+
+    assert protected.values == {"main": 12.0}
+    assert protected.floor_for(account="main") == 12.0
+    assert protected.floor_for(account="missing") == 0.0
+    assert state["protected-accounts"] == {"main": 12.0}
 
 
 def test_run_pass_default_runner_resolves_active_profile(*, tmp_path: Path, monkeypatch) -> None:
@@ -159,6 +181,7 @@ def test_hold_path_returns_zero_and_saves_state(*, tmp_path: Path) -> None:
 
 def test_internal_default_seams_are_callable_without_extra_adapters(*, monkeypatch) -> None:
     module = caam_pass_module()
+    logged: list[str] = []
     monkeypatch.setattr(
         module,
         "caam_activate",
@@ -171,9 +194,21 @@ def test_internal_default_seams_are_callable_without_extra_adapters(*, monkeypat
         env={},
         timeout=5.0,
     )
+    reason = module._dark_reason(
+        profiles=(ProfileUsage(name="active", usage=None, source="dark: HTTP 429"),),
+        active_name="active",
+    )
+    fallback = module._dark_reason(
+        profiles=(ProfileUsage(name="other", usage=None, source="dark: HTTP 429"),),
+        active_name="active",
+    )
+    module._logger(writer=logged.append)("message")
 
     assert process.returncode != -999
     assert agent.stdout == "ok\n"
+    assert reason == "HTTP 429"
+    assert fallback == "unreadable"
+    assert logged == ["message"]
 
 
 def test_switch_request_active_reader_uses_decision_default_caam_runner(

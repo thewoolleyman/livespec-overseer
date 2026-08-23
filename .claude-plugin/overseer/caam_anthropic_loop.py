@@ -53,6 +53,7 @@ class Flags:
     no_warm: bool
     foreman_model: str | None
     session_models: tuple[tuple[str, str], ...]
+    protected_accounts: tuple[tuple[str, str], ...] = ()
 
 
 _WARM_FLAG = "--warm"
@@ -65,6 +66,7 @@ def parse_flags(*, argv: list[str], environ: Mapping[str, str] | None = None) ->
     values["no_warm"] = not (_WARM_FLAG in argv or run_environ.get(_WARM_ENV) == "1")
     foreman_model: str | None = None
     session_models: list[tuple[str, str]] = []
+    protected_accounts: list[tuple[str, str]] = []
     index = 0
     while index < len(argv):
         lowered = argv[index].strip().lower()
@@ -76,10 +78,21 @@ def parse_flags(*, argv: list[str], environ: Mapping[str, str] | None = None) ->
             foreman_model = value.strip().lower()
         elif lowered.startswith("--session-model"):
             index = _append_session_model(argv=argv, index=index, session_models=session_models)
+        elif lowered.startswith("--protected-account"):
+            index = _append_protected_account(
+                argv=argv,
+                index=index,
+                protected_accounts=protected_accounts,
+            )
         else:
             _apply_bool_flag(lowered=lowered, values=values)
         index += 1
-    return Flags(foreman_model=foreman_model, session_models=tuple(session_models), **values)
+    return Flags(
+        foreman_model=foreman_model,
+        session_models=tuple(session_models),
+        protected_accounts=tuple(protected_accounts),
+        **values,
+    )
 
 
 def _append_session_model(
@@ -91,6 +104,18 @@ def _append_session_model(
         value = argv[index]
     session, _separator, model = value.partition("=")
     session_models.append((session.strip(), model.strip().lower()))
+    return index
+
+
+def _append_protected_account(
+    *, argv: list[str], index: int, protected_accounts: list[tuple[str, str]]
+) -> int:
+    value = argv[index].partition("=")[2]
+    if not value and index + 1 < len(argv):
+        index += 1
+        value = argv[index]
+    account, _separator, floor = value.partition("=")
+    protected_accounts.append((account.strip(), floor.strip().lower()))
     return index
 
 

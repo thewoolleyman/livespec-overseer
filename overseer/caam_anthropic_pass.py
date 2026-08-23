@@ -32,6 +32,7 @@ from caam_profile_state import (
 )
 from caam_profiles import CaamRunner, active_profile
 from caam_rendering import RenderableProfileUsage, render_table
+from caam_protected_accounts import apply_protected_accounts
 from caam_switch import switch_account as default_switch_account
 from caam_usage import fetch_usage
 from caam_warm import (
@@ -175,6 +176,10 @@ def _pass_with_active(
     profiles = revive_pass_profiles(
         active_name=active_name, context=context, profiles=profiles, seams=seams
     )
+    protected_accounts = apply_protected_accounts(
+        state=context.state,
+        requested_accounts=context.flags.protected_accounts,
+    )
     current = next((profile.usage for profile in profiles if profile.name == active_name), None)
     if current is None:
         return finish(
@@ -194,6 +199,7 @@ def _pass_with_active(
         active_name=active_name,
         current=current,
         enforce_models=seams.enforce_models,
+        extra_messages=protected_accounts.messages,
     )
     keep_warm(
         state=context.state,
@@ -212,6 +218,7 @@ def _pass_with_active(
         profiles=profiles,
         active_name=active_name,
         current=current,
+        protection_floors=protected_accounts.values,
         seams=DecisionSeams(
             fetcher=seams.fetcher,
             save_state=seams.save_state,
