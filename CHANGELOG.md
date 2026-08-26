@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.53.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.52.1...v1.53.0) (2026-08-26)
+
+
+### Features
+
+* **registry:** validate mapping-store writes as a predicate on the write ([dd102b9](https://github.com/thewoolleyman/livespec-overseer/commit/dd102b935c8e7b27df78dfec2880063155a95b0a))
+
 ## [1.52.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.52.0...v1.52.1) (2026-08-26)
 
 
