@@ -258,15 +258,15 @@ the premise fails, has expired, or cannot be tested, surface that outcome where
 the question is being tracked. If the re-verification passes, do not announce it;
 healthy waits do not add a line to the tick report.
 
-A HOLD OVER A SEAT IS NOT A HOLD OVER THE DRAIN LOOP. A hold over a human seat
-is carried by being written where that seat reads. A hold described as covering
-an automated selector is carried only by state that selector reads; peer
-messages, plan handoff comments, track state files, and acceptance prose do not
-reach the dispatcher's drain loop. The drain loop selected from the ready set
-exactly as designed when no loop-readable hold was in force, so never describe
-that traffic as defiance of a hold it was not told about. Conversely, never read
-traffic on the lane as proof that an uncarried hold was lifted, because the
-traffic carries no information about the hold in either direction.
+A HOLD OVER A SEAT IS NOT A HOLD OVER THE AUTOMATED SELECTOR. A hold over a
+human seat is carried by being written where that seat reads. A hold described
+as covering an automated selector is carried only by state that selector reads;
+peer messages, plan handoff comments, track state files, and acceptance prose do
+not reach the dispatcher's selection pass. That selection pass took from the
+ready set exactly as designed when no loop-readable hold was in force, so never
+describe that traffic as defiance of a hold it was not told about. Conversely,
+never read traffic on the lane as proof that an uncarried hold was lifted,
+because the traffic carries no information about the hold in either direction.
 
 Every hold you raise must record, at raise time, the owner who may lift it and
 the condition under which that owner may lift it. The carrier records the
@@ -344,18 +344,18 @@ reason; waiting for the maintainer without naming the decision; saying
 not-yet-investigated or unclear, because research before gating makes that the
 action; waiting for the next tick; re-presenting a plan's single recorded next
 action as a menu; and repeating the one-action-budget answer past the
-starvation bound.
+UNROUTED-PLAN BOUND.
 
 Column 4 uses the resolver surface above and never an assumed configuration
 value. Full autonomy changes only three column-4 facts today: it forces the
 effective disposition to `consensus`, so the consensus narrowing applies
 regardless of the disposition key; it forces the effective decision rule to
 `majority`, so a panel may authorize an act without unanimity and the verdict
-must be recorded as a majority outcome; and it tightens the starvation bound.
+must be recorded as a majority outcome; and it tightens the UNROUTED-PLAN BOUND.
 It does not define a new floor, does not widen what the foreman may dispose,
 and does not let the foreman change its own authority.
 
-The starvation bound consumes the per-plan consecutive-unactioned counter
+The UNROUTED-PLAN BOUND consumes the per-plan consecutive-unactioned counter
 carried by the roster helper. A row past the bound must escalate rather than
 repeat the one-action-budget answer. The proposed values are maintainer-owned
 and not chosen by the foreman: 2 consecutive unactioned ticks when full
