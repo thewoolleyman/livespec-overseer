@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.54.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.54.0...v1.54.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **caam:** forward --protected-account and derive the prose flag gate ([5b5da63](https://github.com/thewoolleyman/livespec-overseer/commit/5b5da63654b6bbc5d58f1dbcad34860b85841558))
+
 ## [1.54.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.53.0...v1.54.0) (2026-08-26)
 
 
