@@ -1190,9 +1190,9 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A killed session start leaves an attempted-and-failed record naming its invoker",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Pins the ORDERING, which is the whole property: the spawn is interrupted between issue and return, so only a record written BEFORE the spawn can satisfy it — a control asserting the record's content cannot tell a pre-spawn record from a post-hoc one.",
-    "work_item": "overseer-zidpiu"
+    "test": "tests.integration.test_start_intent_before_spawn.test_a_killed_plan_start_leaves_an_attempted_and_failed_record_naming_its_invoker",
+    "reason": "Integration-tier: runs the actuator in a forked child whose spawn seam SIGKILLs that child, so the process is interrupted between issuing the spawn and returning from it. SIGKILL cannot be caught, handled, or deferred, which is what makes this an ORDERING control rather than a content one: no post-hoc write is possible, so a record nonetheless on file can only have preceded the spawn. It asserts the record names the action, the target track, and the invoker, and that it carries NO outcome — the attempted-and-failed signal that distinguishes a dead attempt both from live work and from a start never attempted. It drives plan_start deliberately, the half research note 002 measured as writing nothing before its spawn, since a fix scoped to the already-instrumented work-item path would leave this leg untouched; its sibling in the same module drives work_item_session_start, and a third asserts every start action has its intent on file by the time it spawns. SABOTAGE-VERIFIED 2026-08-26: moving the record write to after the spawn — the pre-change post-hoc shape — fails this test and its ordering siblings. Discharges the TODO filed by plan session-start-and-registry-integrity (anchor overseer-zidpiu); implemented by overseer-zidpiu.3.",
+    "work_item": "overseer-zidpiu.3"
   },
   {
     "spec_root": "SPECIFICATION",

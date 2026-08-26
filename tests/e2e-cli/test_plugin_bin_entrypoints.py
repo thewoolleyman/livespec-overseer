@@ -1430,6 +1430,7 @@ def test_foreman_act_files_work_item_from_plugin_cache_without_caller_pythonpath
         "outcome": "acted",
         "reason": f"filed:overseer-filed:ready:{orchestrator_plugin}",
         "mutated": True,
+        "invoker": "repo-foreman",
     }
 
 
