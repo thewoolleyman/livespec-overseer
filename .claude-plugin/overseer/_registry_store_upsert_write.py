@@ -17,8 +17,10 @@ def write_upsert_rows(
     path: os.PathLike[str],
 ) -> bool:
     try:
-        write_rows(rows=rows, store_path=store_path, raise_errors=True)
+        written = write_rows(rows=rows, store_path=store_path, raise_errors=True)
     except OSError as exc:
         warn(message=f"could not upsert mapping store {path}: {exc}")
         return False
-    return True
+    # A write the mapping-store contract refuses is reported as a failed upsert,
+    # not as a silent no-op: the caller's row was never persisted either way.
+    return written

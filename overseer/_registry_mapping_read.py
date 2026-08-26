@@ -74,7 +74,10 @@ def read_mapping(*, store_path: str | os.PathLike[str] | None = None) -> list[Ma
         with file_lock(target=path):
             rows = read_rows(store_path=store_path)
             _ = normalize_rows(rows=rows)
-            write_rows(rows=rows, store_path=store_path)
+            # Normalization rewrites `resume` and nothing else, so it can neither
+            # introduce a durable-key violation nor touch a recorded epic; the
+            # write-predicate has nothing here it can refuse.
+            _ = write_rows(rows=rows, store_path=store_path)
         records = read_row_records(store_path=store_path)
     return [_track_from_record(record=record) for record in records]
 

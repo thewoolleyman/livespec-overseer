@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import jsonio
 from _registry_core import atomic_write, resolve_store, warn
+from _registry_write_validation import store_rows_before_write, validate_mapping_write
 
 __all__: list[str] = [
     "RawMappingRow",
@@ -73,6 +74,23 @@ def write_rows(
     rows: Iterable[dict[str, object]],
     store_path: str | os.PathLike[str] | None = None,
     raise_errors: bool = False,
-) -> None:
-    body = "".join(json.dumps(row) + "\n" for row in rows)
-    atomic_write(path=resolve_store(store_path=store_path), body=body, raise_errors=raise_errors)
+) -> bool:
+    """Replace the store with ``rows``, refusing a write the contract forbids.
+
+    The single chokepoint for every store write, and therefore where the
+    write-predicate belongs: the CURRENT store content is re-read here and paired
+    with ``rows`` before anything is serialized, so a refused write leaves the
+    file byte-unchanged because nothing has been written at the point of refusal.
+    Returns whether the write was performed.
+    """
+    path = resolve_store(store_path=store_path)
+    pending = list(rows)
+    verdict = validate_mapping_write(before=store_rows_before_write(path=path), after=pending)
+    for message in verdict.carried_warnings:
+        warn(message=message)
+    if verdict.refusal is not None:
+        warn(message=verdict.refusal.message)
+        return False
+    body = "".join(json.dumps(row) + "\n" for row in pending)
+    atomic_write(path=path, body=body, raise_errors=raise_errors)
+    return True
