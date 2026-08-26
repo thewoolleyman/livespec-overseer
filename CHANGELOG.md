@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.54.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.53.0...v1.54.0) (2026-08-26)
+
+
+### Features
+
+* **foreman:** resolve the unrouted-plan bound from repository configuration ([9c62d6d](https://github.com/thewoolleyman/livespec-overseer/commit/9c62d6d70ad447eb4fb06fb70eaa31907b2e2ec8))
+* **registry:** stop persisting the read-time unresolved-epic projection ([1534b8a](https://github.com/thewoolleyman/livespec-overseer/commit/1534b8a02bceb0274a91a6687a885fa74d8775c6))
+
 ## [1.53.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.52.1...v1.53.0) (2026-08-26)
 
 
