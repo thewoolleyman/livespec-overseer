@@ -8,9 +8,15 @@ a fenced claim repeated without its fence and then acted on.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 FOREMAN_PROSE = Path(__file__).resolve().parents[1] / ".claude-plugin" / "prose" / "foreman.md"
+
+# The drain-daemon vocabulary sweep. No resident drain process exists in this
+# deployment — the drain is a bounded invocation — so prose that names one sends
+# a seat to escalate for infrastructure that was never built.
+DRAIN_DAEMON_VOCABULARY = re.compile(r"drain (?:loop|daemon|process)|resident drain", re.IGNORECASE)
 
 __all__: list[str] = []
 
@@ -43,7 +49,7 @@ def test_operational_holds_name_their_carrier_owner_and_lift_condition():
     text = prose()
     normalized = " ".join(text.split())
 
-    assert "A HOLD OVER A SEAT IS NOT A HOLD OVER THE DRAIN LOOP." in text
+    assert "A HOLD OVER A SEAT IS NOT A HOLD OVER THE AUTOMATED SELECTOR." in normalized
     assert "owner who may lift it" in text
     assert "condition under which that owner may lift it" in text
     assert "repo-wide hold over unattended draining" in text
@@ -53,4 +59,17 @@ def test_operational_holds_name_their_carrier_owner_and_lift_condition():
     assert "lane other than `ready`" in text
     assert "per-factory loop hold" in text
     assert "no carrier exists" in text
-    assert "The drain loop selected from the ready set exactly as designed" in normalized
+    assert "That selection pass took from the ready set exactly as designed" in normalized
+
+
+def test_the_hold_passage_carries_no_drain_daemon_vocabulary():
+    assert DRAIN_DAEMON_VOCABULARY.search(prose()) is None
+
+
+def test_the_unactioned_plan_condition_bound_uses_the_ratified_name():
+    text = prose()
+
+    assert "UNROUTED-PLAN BOUND" in text
+    # v035 prohibits naming this condition any form of "starvation": that term is
+    # bound to the unrelated daemon-side shell and wind-down liveness conditions.
+    assert "starv" not in text.lower()
