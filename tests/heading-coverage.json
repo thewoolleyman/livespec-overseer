@@ -1182,9 +1182,9 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: A read-time placeholder for an absent epic is never written back into the store",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Pins the prohibition measured live: once a read-time placeholder is persisted the row is no longer absent, so the audit that keys on absence reports the store clean while an unresolvable row sits in it.",
-    "work_item": "overseer-zidpiu"
+    "test": "tests.integration.test_mapping_store_epic_projection.test_a_read_project_write_round_trip_leaves_the_epic_absent_in_the_stored_row",
+    "reason": "Integration-tier: drives the ordinary link and upsert surfaces with the track a reader PROJECTED from a row carrying no recorded epic, and asserts the stored rows record none and the placeholder string appears nowhere in the store file. Asserting the projection really happened is what keeps it from passing vacuously — a round trip that never produced a placeholder proves nothing about writing one back. Its siblings in the same module carry the scenario's remaining clauses: an already-persisted placeholder retired by an unrelated identity update, a write introducing one refused at the raw store chokepoint against an absent-epic control, the null-epic audit reporting it rather than skipping it, and the restart interlock reading such a row as having no recorded epic — surfacing the track with its ready declaration preserved, while still admitting the one-shot re-derive that records a real id over it. Replaces the TODO filed by plan session-start-and-registry-integrity (anchor overseer-zidpiu); implemented by overseer-zidpiu.2.",
+    "work_item": "overseer-zidpiu.2"
   },
   {
     "spec_root": "SPECIFICATION",

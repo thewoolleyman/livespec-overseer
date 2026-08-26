@@ -6,6 +6,7 @@ from _registry_core import SupervisorSeat, Track
 from _registry_resume import normalize_resume_override
 from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
 from _registry_track_row_parse import RowExtras, track_from_mapping_row
+from _registry_track_variants import epic_is_resolved
 
 __all__: list[str] = ["track_to_row", "validated_row"]
 
@@ -22,7 +23,16 @@ def track_to_row(*, track: Track) -> dict[str, object]:
         "repo": track.repo,
         "tmux": track.tmux,
         "resume": track.resume,
-        "epic": track.epic,
+        # The reader substitutes an in-memory PLACEHOLDER for an ABSENT epic so
+        # downstream code has a value to carry. SPECIFICATION/contracts.md calls that
+        # a READ-TIME PROJECTION and forbids writing it back: absent and recorded are
+        # the only two persisted states, and the projection must not become a third.
+        # This is the single chokepoint every track-shaped write serializes through —
+        # `append_mapping` appends directly, ahead of the write predicate — so the
+        # projection is stripped HERE rather than at the store. A row that already
+        # carries a persisted placeholder is treated exactly as one with no recorded
+        # epic, so re-serializing it renders the same absent value.
+        "epic": track.epic if epic_is_resolved(epic=track.epic) else None,
         "pinned_session_id": track.pinned_session_id,
         "observed_session_identity": track.observed_session_identity,
         "added_at": track.added_at,
@@ -59,10 +69,11 @@ def validated_row(*, row: dict[str, object]) -> dict[str, object]:
         ),
     )
     serialized = track_to_row(track=track)
-    if row.get("epic") is None and serialized.get("epic") == track.epic:
-        if "epic" in row:
-            serialized["epic"] = None
-        else:
-            _ = serialized.pop("epic", None)
+    # `track_to_row` renders an absent epic, an explicit null, and a persisted
+    # placeholder identically as null, so only the KEY's presence in the source row
+    # distinguishes a row that never carried the key from one that carried it null.
+    # Preserve that distinction; everything else about an unrecorded epic is the same.
+    if serialized.get("epic") is None and "epic" not in row:
+        _ = serialized.pop("epic", None)
     known = set(serialized)
     return {**{key: value for key, value in row.items() if key not in known}, **serialized}

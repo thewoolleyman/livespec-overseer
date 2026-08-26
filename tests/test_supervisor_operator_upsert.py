@@ -258,4 +258,6 @@ def test_cli_add_atomic_write_failure_keeps_existing_live_row(*, tmp_path, monke
     assert rows[0]["topic"] == "alpha"
     assert rows[0]["repo"] == str(repo)
     assert rows[0]["tmux"] == "old-session"
-    assert rows[0]["epic"] == registry.unresolved_plan_epic(topic="alpha")
+    # The seeding track carried the reader's placeholder for an absent epic, which is a
+    # read-time projection the store never persists, so the surviving row records none.
+    assert rows[0]["epic"] is None
