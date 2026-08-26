@@ -16,6 +16,7 @@ from foreman_plan_roster_work import (
     work_state_documents_by_plan,
 )
 from foreman_unrouted_plan_bound import annotate_unactioned_past_bound
+from foreman_unrouted_plan_condition import annotate_unrouted_plan_condition
 
 __all__: list[str] = [
     "DONE_READY_TO_ARCHIVE",
@@ -224,6 +225,7 @@ def compose_roster(
     tmux_sessions: list[str],
     journal_path: Path | None = None,
     unactioned_counts: dict[str, int] | None = None,
+    attention: dict[str, object] | None = None,
 ) -> dict[str, object]:
     repo = repo.resolve()
     plan_names = active_plan_names(repo=repo)
@@ -251,11 +253,14 @@ def compose_roster(
         )
         for plan in plan_names
     ]
+    bound_document = annotate_unactioned_past_bound(repo=repo, rows=rows)
+    attention_document = annotate_unrouted_plan_condition(rows=rows, attention=attention)
     return {
         "schema_version": SCHEMA_VERSION,
         "repo": str(repo),
         "snapshot_path": str(snapshot_path),
-        "unrouted_plan_bound": annotate_unactioned_past_bound(repo=repo, rows=rows),
+        "attention_view": attention_document,
+        "unrouted_plan_bound": bound_document,
         "rows": rows,
         "name_identity_errors": _tmux_only_errors(
             plan_names=plan_name_set,

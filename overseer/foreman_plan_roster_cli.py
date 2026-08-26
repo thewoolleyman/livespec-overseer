@@ -9,6 +9,8 @@ from pathlib import Path
 import streams
 import tmuxio
 from _supervisor_snapshot import DEFAULT_STATUS_PATH
+from foreman_gather_collect import read_needs_attention
+from foreman_gather_sources import default_needs_attention_command
 from foreman_plan_roster import active_plan_names, compose_roster, mark_roster_tick
 
 __all__: list[str] = ["main"]
@@ -47,12 +49,16 @@ def main(*, argv: list[str] | None = None) -> int:
         )
         if unactioned_counts is None:
             return 0
+    attention, _attention_source = read_needs_attention(
+        command=default_needs_attention_command(repo=repo)
+    )
     roster = compose_roster(
         repo=repo,
         snapshot_path=Path(args.snapshot_path),
         tmux_sessions=tmux_sessions,
         journal_path=Path(args.journal_path) if args.journal_path is not None else None,
         unactioned_counts=unactioned_counts,
+        attention=attention,
     )
     if args.tick_identity is not None:
         roster["tick_identity"] = args.tick_identity
