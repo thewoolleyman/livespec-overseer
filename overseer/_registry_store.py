@@ -135,7 +135,11 @@ def rewrite_mapping(
         rows = read_rows(store_path=store_path)
         kept = [row for row in rows if keep(row=row)]
         if len(kept) != len(rows):
-            write_rows(rows=kept, store_path=store_path)
+            # Every kept row is carried VERBATIM and every dropped row is a whole
+            # row, so the write-predicate has nothing here it can refuse: removing
+            # a row entirely is not removing its epic. The result is ignored for
+            # that reason, not overlooked.
+            _ = write_rows(rows=kept, store_path=store_path)
         return len(rows) - len(kept)
 
 

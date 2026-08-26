@@ -66,7 +66,8 @@ def _update_matching_field(
                 row.update(validated)
                 changed = True
         if changed:
-            write_rows(rows=rows, store_path=store_path)
+            # A refused write persisted nothing, so the field did NOT change.
+            changed = write_rows(rows=rows, store_path=store_path)
         return changed
 
 

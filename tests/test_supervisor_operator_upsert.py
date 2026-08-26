@@ -26,7 +26,6 @@ def test_cli_add_epic_preserves_unsupplied_durable_fields(*, tmp_path, monkeypat
             repo=str(repo),
             tmux="old-session",
             resume="custom restart prompt",
-            epic="overseer-old",
             ctx_threshold=45,
             pinned_session_id="pinned-session",
             observed_session_identity="identity-1",
@@ -53,6 +52,17 @@ def test_cli_add_epic_preserves_unsupplied_durable_fields(*, tmp_path, monkeypat
     assert rows[0]["observed_session_identity"] == "identity-1"
     assert rows[0]["model_profile"] == {"harness": "claude", "model": "opus", "wrapper": None}
     assert rows[0]["added_at"] == "2026-08-19T07:42:57Z"
+
+    # The row is seeded with NO recorded epic because RECORDING one is the only
+    # epic write the mapping-store contract admits: once recorded, a write that
+    # replaces it is refused at this same operator surface, and the row stands.
+    assert (
+        supervisor.main(
+            argv=["add", "--repo", str(repo), "--topic", "alpha", "--epic", "overseer-newer"]
+        )
+        == 1
+    )
+    assert _rows(store=store)[0]["epic"] == "overseer-new"
 
 
 def test_cli_add_repairs_null_added_at_without_dropping_durable_fields(
@@ -153,7 +163,6 @@ def test_mapping_upsert_preserves_fields_not_named_by_the_update_spec(*, tmp_pat
             topic="alpha",
             repo="/repo",
             tmux="old-session",
-            epic="overseer-old",
             ctx_threshold=45,
         ),
         store_path=store,
@@ -217,7 +226,6 @@ def test_cli_add_atomic_write_failure_keeps_existing_live_row(*, tmp_path, monke
             topic="alpha",
             repo=str(repo),
             tmux="old-session",
-            epic="overseer-old",
         ),
         store_path=store,
     )
@@ -250,4 +258,4 @@ def test_cli_add_atomic_write_failure_keeps_existing_live_row(*, tmp_path, monke
     assert rows[0]["topic"] == "alpha"
     assert rows[0]["repo"] == str(repo)
     assert rows[0]["tmux"] == "old-session"
-    assert rows[0]["epic"] == "overseer-old"
+    assert rows[0]["epic"] == registry.unresolved_plan_epic(topic="alpha")
