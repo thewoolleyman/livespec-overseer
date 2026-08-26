@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.55.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.54.1...v1.55.0) (2026-08-26)
+
+
+### Features
+
+* **foreman:** determine the unrouted-plan condition and its enumerated remedy ([e153a7f](https://github.com/thewoolleyman/livespec-overseer/commit/e153a7f62b7cb053fe6f339cc368dd5c51428605))
+* **foreman:** record a start-intent before every tracked-session spawn ([b40797c](https://github.com/thewoolleyman/livespec-overseer/commit/b40797c7e4e458599a9a7be2947d8734d0c4c384))
+
 ## [1.54.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.54.0...v1.54.1) (2026-08-26)
 
 
