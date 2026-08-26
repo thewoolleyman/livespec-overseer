@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 __all__: list[str] = []
@@ -10,17 +11,37 @@ ROOT = Path(__file__).resolve().parent.parent
 PROSE = ROOT / ".claude-plugin" / "prose" / "caam-anthropic-loop.md"
 ENFORCEMENT_SOURCE = ROOT / "overseer" / "caam_enforcement.py"
 WARM_SOURCE = ROOT / "overseer" / "caam_warm.py"
+FLAG_SOURCE = ROOT / "overseer" / "caam_anthropic_loop.py"
 
-EXPECTED_FORWARDABLE_FLAGS = (
-    "--force",
-    "--dry-run",
-    "--no-models",
-    "--foreman-model=<fable|opus|auto>",
-    "--session-model=<session>=<fable|opus|auto>",
-    "--warm",
-    "--no-warm",
-    "CAAM_ROTATE_WARM=1",
-)
+# `--scheduled` is the invocation marker the harness itself supplies, not an
+# operator flag the prose forwards, so it is excluded from the derived set.
+NON_FORWARDABLE_FLAGS = frozenset(("--scheduled",))
+
+EXPECTED_ENV_FLAGS = ("CAAM_ROTATE_WARM=1",)
+
+
+def _parser_flags() -> frozenset[str]:
+    """Derive the operator flags `parse_flags` actually recognises, from its source.
+
+    Deliberately NOT a hand-maintained list. The two defects this gate exists to
+    catch -- `overseer-54k2za.22` and `overseer-54k2za.39` -- were both a flag
+    landing in the parser while the prose (and this gate's own allowlist) went on
+    not mentioning it. An allowlist can only catch a flag someone remembered to
+    add to it, so it could not have caught either, and would not catch a third.
+    """
+    source = FLAG_SOURCE.read_text(encoding="utf-8")
+    prefixed = set(re.findall(r'startswith\(\s*"(--[a-z0-9-]+)"', source))
+    # The boolean flags are the keys `parse_flags` seeds, plus the warm opt-in.
+    booleans: set[str] = set()
+    seeded = re.search(r"values = \{name: False for name in \(([^)]*)\)\}", source)
+    if seeded:
+        booleans = {
+            f"--{name.strip().strip(chr(34)).replace('_', '-')}"
+            for name in seeded.group(1).split(",")
+            if name.strip()
+        }
+    warm = set(re.findall(r'_WARM_FLAG(?::\s*Final)?\s*=\s*"(--[a-z0-9-]+)"', source))
+    return frozenset(prefixed | booleans | warm) - NON_FORWARDABLE_FLAGS
 
 
 def test_caam_prose_lists_every_source_backed_operator_flag() -> None:
@@ -31,8 +52,20 @@ def test_caam_prose_lists_every_source_backed_operator_flag() -> None:
 
     assert "foreman_model" in enforcement_source
     assert "no_warm" in warm_source
-    for flag in EXPECTED_FORWARDABLE_FLAGS:
-        assert flag in prose
+
+    derived = _parser_flags()
+    # Control: the derivation must actually find the flag surface. An empty or
+    # near-empty set would make every assertion below vacuously true, which is
+    # the failure mode that lets a check pass while checking nothing.
+    assert len(derived) >= 8, derived
+    assert "--protected-account" in derived, derived
+    assert "--foreman-model" in derived, derived
+
+    missing = sorted(flag for flag in derived if flag not in prose)
+    assert not missing, f"operator flags absent from the operation prose: {missing}"
+
+    for env_flag in EXPECTED_ENV_FLAGS:
+        assert env_flag in prose
 
 
 def test_caam_prose_explains_foreman_pin_persistence_and_clear() -> None:
