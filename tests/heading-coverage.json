@@ -1145,5 +1145,61 @@
     "test": "tests.integration.test_foreman_valve_disposition.test_delegation_floor_refuses_unanimous_foreman_authored_deliverable",
     "reason": "Integration-tier required, same tier and file as the sibling delegation-floor scenarios. Ratified ahead of its implementation by plan foreman-full-autonomy-option (anchor overseer-3h4s5w); the pinning test lands with child overseer-3h4s5w.15. This is the DISCRIMINATING leg of the three and must be able to fail for the right reason: the panel is UNANIMOUS in favour of the foreman making the change itself and the act is still refused as a floor violation. A divided-panel test would pass with the floor absent, because escalation there is the pre-existing behaviour.",
     "work_item": "overseer-3h4s5w.15"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A malformed mapping-store row is refused at write with its offending key named",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Pins the write-side refusal: the store is left byte-unchanged and the offending key is named, so a row no reader can act on never enters the store in the first place.",
+    "work_item": "overseer-zidpiu"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A pre-existing non-conforming row does not block an unrelated store rewrite",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Pins the SCOPING of that refusal, which is the half that makes the gate safe to arm: several maintenance paths rewrite the store wholesale, and refusing on a row they merely carry along would turn one narrow defect into a store-wide outage.",
+    "work_item": "overseer-zidpiu"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A write that strips a recorded epic is refused though the resulting row would conform",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. THE DISCRIMINATING CONTROL for the write-predicate. A stripped row satisfies the row contract exactly as a never-assigned row does, so this scenario can pass ONLY under a predicate evaluated over the write; an implementation validating the resulting row alone fails it. Without it the suite could not fail for the amendment's central obligation, which is the motivating defect itself — a hand repair does not hold because nothing refuses the write that undoes it.",
+    "work_item": "overseer-zidpiu"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A write that replaces a recorded epic with a different id is refused",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Completes the refusal disjunct: the clause forbids REMOVING or REPLACING a recorded epic, and replacement with a well-formed but different id is the leg no malformedness check reaches.",
+    "work_item": "overseer-zidpiu"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A read-time placeholder for an absent epic is never written back into the store",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Pins the prohibition measured live: once a read-time placeholder is persisted the row is no longer absent, so the audit that keys on absence reports the store clean while an unresolvable row sits in it.",
+    "work_item": "overseer-zidpiu"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A killed session start leaves an attempted-and-failed record naming its invoker",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Pins the ORDERING, which is the whole property: the spawn is interrupted between issue and return, so only a record written BEFORE the spawn can satisfy it — a control asserting the record's content cannot tell a pre-spawn record from a post-hoc one.",
+    "work_item": "overseer-zidpiu"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A spawn that fails and returns has its start-intent record amended with the error",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Pins the SATISFIABLE half of the reconciliation, which the first ratification round found uncovered: the killed-spawn scenario cannot exercise an amendment, because a dead surface writes nothing, so the failing-and-returning case needs its own control or the reconciliation MUST has none.",
+    "work_item": "overseer-zidpiu"
   }
 ]
