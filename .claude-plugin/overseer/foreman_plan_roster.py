@@ -15,6 +15,7 @@ from foreman_plan_roster_work import (
     WORK_STATES,
     work_state_documents_by_plan,
 )
+from foreman_unrouted_plan_bound import annotate_unactioned_past_bound
 
 __all__: list[str] = [
     "DONE_READY_TO_ARCHIVE",
@@ -254,6 +255,7 @@ def compose_roster(
         "schema_version": SCHEMA_VERSION,
         "repo": str(repo),
         "snapshot_path": str(snapshot_path),
+        "unrouted_plan_bound": annotate_unactioned_past_bound(repo=repo, rows=rows),
         "rows": rows,
         "name_identity_errors": _tmux_only_errors(
             plan_names=plan_name_set,
