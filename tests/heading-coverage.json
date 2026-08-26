@@ -1206,9 +1206,9 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: An unrouted plan yields the enumerated remedy as the foreman's own action",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. Pins the join that was missing: the condition is DETERMINED from the attention view and the consecutive-unactioned count, and the remedy the foreman identifies is the action it then takes or proposes — so an unactioned plan routes to an act rather than to a judgement call.",
-    "work_item": "overseer-7ranbh"
+    "test": "tests.integration.test_unrouted_plan_condition.test_an_unrouted_plan_yields_the_enumerated_remedy_as_the_foremans_own_action",
+    "reason": "Integration-tier: drives the shipped roster CLI over FOUR plans in ONE tick, one per session state, against a repository-configured bound of 1 and an attention view carrying an item for each. The condition is DETERMINED from the attention view and the consecutive-unactioned count, and each in-condition plan emits the session-lifecycle act the DELEGATION FLOOR enumerates for its state: plan_start where the plan has no session, qualifying_session_resume where it has an idle one, blocked_session_answer where the pane is parked at a gate. THE DISCRIMINATING CONTROL for 'no escalation is substituted for a remedy already available' is that the remedy mapping is asserted TOTAL over every session state other than `working` — the one state in which the condition cannot hold — so a plan in the condition can never lack a remedy and the foreman never reaches the position of escalating for want of one. A single-plan test cannot show that: it passes equally against an implementation that identifies one remedy and escalates for every other state, which is exactly the substitution the clause forbids. Each row also carries the inputs it was computed from, so the determination is re-checkable by a reader who did not perform it. Discharges the TODO filed by plan foreman-fact-consumption (anchor overseer-7ranbh); implemented by overseer-7ranbh.2.",
+    "work_item": "overseer-7ranbh.2"
   },
   {
     "spec_root": "SPECIFICATION",
@@ -1225,6 +1225,14 @@
     "test": "tests.integration.test_unrouted_plan_bound.test_an_unconfigured_bound_resolves_undetermined_never_absent_condition",
     "reason": "Integration-tier: drives a real roster tick against a repository that configures no bound, and asserts the determination resolves UNDETERMINED, that the reason is surfaced on both the row and the roster document, and — the direction that matters — that the verdict is not the boolean a determined, not-past-bound plan carries, so an unavailable input can never read as an absent condition. SCOPE, stated so the remaining obligation is not lost: the ratified clause names TWO unavailable inputs, and this test drives the one this slice owns, an unconfigured bound (its sibling test in the same file drives the unavailable count). The attention-view-fact leg has no carrier until the condition-composition slice under plan foreman-fact-consumption (anchor overseer-7ranbh) lands, and is owned there rather than here. Discharges the TODO filed by that plan for the input legs above.",
     "work_item": "overseer-7ranbh.1"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A missing required input yields undetermined, never absent-condition",
+    "test": "tests.integration.test_unrouted_plan_condition.test_a_missing_attention_view_fact_yields_undetermined_never_absent_condition",
+    "reason": "Integration-tier: carries the ATTENTION-VIEW leg of this scenario, which its sibling entry (tests.integration.test_unrouted_plan_bound) explicitly scoped out and deferred to the condition-composition slice under plan foreman-fact-consumption (anchor overseer-7ranbh). A real roster tick against a repository with no attention source resolves the condition UNDETERMINED, names attention_view_unavailable on both the row and the roster's own attention-view document, and emits no remedy. THE DISCRIMINATING CONTROL is the second tick: with the view AVAILABLE but carrying nothing for this plan, the very same repository resolves the condition ABSENT — so the UNDETERMINED above is caused by the missing input and not merely by there being no aging ready work, which is the conflation the clause forbids. Implemented by overseer-7ranbh.2.",
+    "work_item": "overseer-7ranbh.2"
   },
   {
     "spec_root": "SPECIFICATION",
