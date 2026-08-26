@@ -19,7 +19,9 @@ An ABSENT ``epic`` CONFORMS, and a write introducing such a row is accepted: the
 REQUIRED-for-restart sentence in the durable-key contract is a precondition for
 RESTARTING a track, never for WRITING its row. A row carrying a persisted
 read-time placeholder is treated exactly as a row with no recorded ``epic``, per
-the same contract, so it is neither an epic to remove nor one to replace.
+the same contract, so it is neither an epic to remove nor one to replace — and,
+for the same reason, a write may not INTRODUCE one: the placeholder is a read-time
+projection, and absent and recorded are the only two persisted states.
 
 Removing a ROW ENTIRELY is not removing its ``epic``, so the garbage collection
 of rows whose plan has been archived or deleted is never refused on that ground.
@@ -42,6 +44,7 @@ __all__: list[str] = [
     "MappingWriteRefusal",
     "MappingWriteVerdict",
     "is_ledger_epic_id",
+    "persisted_projection",
     "recorded_epic",
     "store_rows_before_write",
     "validate_mapping_write",
@@ -56,6 +59,10 @@ RowIdentity: TypeAlias = tuple[str, str]
 # persisted read-time placeholder can pass for an id.
 _LEDGER_EPIC_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*(?:\.[0-9]+)*")
 _MISSING_PREFIX = "missing_"
+_PROJECTION_REASON = (
+    "a write may not persist the read-time placeholder substituted for an absent "
+    "epic; absent and recorded are the only two persisted states"
+)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -82,6 +89,16 @@ class MappingWriteVerdict:
 def is_ledger_epic_id(*, value: str) -> bool:
     """Whether ``value`` has the shape of a plan's ledger epic id."""
     return _LEDGER_EPIC_ID.fullmatch(value) is not None
+
+
+def persisted_projection(*, row: dict[str, object]) -> bool:
+    """Whether the row's stored ``epic`` is a persisted read-time placeholder.
+
+    That state is not a third persisted state the store may hold: a write must not
+    introduce it, and a row already carrying one has no recorded epic at all.
+    """
+    value = row.get("epic")
+    return isinstance(value, str) and bool(value) and not epic_is_resolved(epic=value)
 
 
 def recorded_epic(*, row: dict[str, object]) -> str | None:
@@ -168,10 +185,18 @@ def _row_violations(*, row: dict[str, object]) -> frozenset[str]:
         _ = validated_row(row=row)
     except ValueError as exc:
         violations.add(_offending_key(reason=str(exc)))
+    if persisted_projection(row=row):
+        violations.add("epic")
     epic = recorded_epic(row=row)
     if epic is not None and not is_ledger_epic_id(value=epic):
         violations.add("epic")
     return frozenset(violations)
+
+
+def _introduced_reason(*, row: dict[str, object], key: str) -> str:
+    if key == "epic" and persisted_projection(row=row):
+        return _PROJECTION_REASON
+    return f"the written row does not satisfy the durable-key contract for {key}"
 
 
 def _epic_transition_refusal(
@@ -210,7 +235,7 @@ def _refuse_row(
             repo=repo,
             topic=topic,
             key=key,
-            reason=f"the written row does not satisfy the durable-key contract for {key}",
+            reason=_introduced_reason(row=row, key=key),
         )
     if pre_image is None:
         return None
