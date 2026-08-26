@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.52.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.52.0...v1.52.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **foreman:** drop drain-daemon vocabulary and adopt the UNROUTED-PLAN BOUND ([a2b0d06](https://github.com/thewoolleyman/livespec-overseer/commit/a2b0d06b2c5e23625ab0b7958454a4645d3a852a))
+
 ## [1.52.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.51.20...v1.52.0) (2026-08-23)
 
 
