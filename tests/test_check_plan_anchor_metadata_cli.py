@@ -21,6 +21,12 @@ def module() -> ModuleType:
     return loaded
 
 
+# The PATH the real credential wrapper leaves behind after its `env -i` hop,
+# measured on the operator host. A double that scrubs to anything wider would
+# prove less than the real thing imposes.
+_SCRUBBED_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+
 def _write_executable(*, path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IXUSR)
@@ -43,7 +49,8 @@ def test_pre_push_runs_plan_anchor_check_through_credential_wrapper(
     )
 
     assert completed.returncode == 0
-    assert "wrapper plan_anchor_env=true command=-- just check-plan-anchor-metadata" in log
+    assert "wrapper plan_anchor_env=true command=--" in log
+    assert "just check-plan-anchor-metadata" in log
     assert "just command=check-plan-anchor-metadata plan_anchor_env=true" in log
     assert '"scanned_plan_directories":1' in completed.stdout
 
@@ -57,7 +64,8 @@ def test_pre_push_doc_only_path_runs_plan_anchor_check_through_credential_wrappe
     )
 
     assert completed.returncode == 0
-    assert "wrapper plan_anchor_env=true command=-- just check-plan-anchor-metadata" in log
+    assert "wrapper plan_anchor_env=true command=--" in log
+    assert "just check-plan-anchor-metadata" in log
     assert "just command=check-plan-anchor-metadata plan_anchor_env=true" in log
     assert "just command=check-pre-commit-doc-only plan_anchor_env=<unset>" in log
     assert '"scanned_plan_directories":1' in completed.stdout
@@ -108,6 +116,14 @@ echo "unexpected just invocation: $*" >&2
 exit 99
 """,
     )
+    # This double SCRUBS PATH, because the real wrapper does: it re-execs
+    # through `sudo` + `env -i` with a short allowlist, so the caller's PATH
+    # does not survive the hop. The earlier double called `exec "$@"` with the
+    # caller's PATH intact, which made these two tests unable to fail for the
+    # one thing they are positioned to catch — whether the check is REACHABLE
+    # under the wrapper. With the scrub in place, the stub `just` below lives
+    # only on a path the scrub removes, so it is found at all only if the gate
+    # carried a usable PATH across the wrapper.
     _write_executable(
         path=bin_dir / "with-livespec-env.sh",
         body=f"""#!/usr/bin/env bash
@@ -115,11 +131,14 @@ set -euo pipefail
 printf 'wrapper plan_anchor_env=%s command=%s\\n' \\
   "${{LIVESPEC_STRICT_PLAN_ANCHOR_METADATA:-<unset>}}" \\
   "$*" >> "{log_path}"
-if [[ "$*" != "-- just check-plan-anchor-metadata" ]]; then
+if [[ "$*" != *"just check-plan-anchor-metadata" ]]; then
   echo "unexpected wrapper invocation: $*" >&2
   exit 99
 fi
-exec "$@"
+if [[ "${{1:-}}" == "--" ]]; then
+  shift
+fi
+PATH="{_SCRUBBED_PATH}" exec "$@"
 """,
     )
     env = _scrub_coverage_env(env=os.environ.copy())

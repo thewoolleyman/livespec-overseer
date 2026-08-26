@@ -13,6 +13,8 @@ __all__: list[str] = []
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SCRIPT = _REPO_ROOT / "scripts" / "check-pre-push.sh"
 _FAIL_ENV_VAR = "LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST"
+# The PATH the real credential wrapper leaves behind after its `env -i` hop.
+_SCRUBBED_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 
 def _write_executable(*, path: Path, body: str) -> None:
@@ -67,6 +69,9 @@ exit 99
         body=f"""#!/usr/bin/env bash
 set -euo pipefail
 printf '%s env=%s\\n' "$*" "${{{_FAIL_ENV_VAR}:-<unset>}}" >> "{log_path}"
+if [[ "$*" == "check-plan-anchor-metadata" ]]; then
+  exit 0
+fi
 if [[ "$*" == "check-pre-commit-doc-only" ]]; then
   exit 0
 fi
@@ -81,6 +86,26 @@ if [[ "${{{_FAIL_ENV_VAR}:-}}" == "true" && "${{SOFT_OWNER_MARKED}}" != "true" ]
   exit 1
 fi
 exit 0
+""",
+    )
+
+    # ⛔ WITHOUT THIS STUB this test reaches for the OPERATOR HOST's real
+    # `with-livespec-env.sh`, because the gate resolves the wrapper by
+    # `command -v`. That made the test non-hermetic in the direction that hides
+    # a defect rather than inventing one: CI has no wrapper, so the gate takes
+    # its "remains unarmed" branch and the test is green there, while every
+    # operator host runs the real wrapper — whose `env -i` hop drops PATH — and
+    # sees `env: 'just': No such file or directory`, exit 127, before any LLOC
+    # assertion is reached. The double below reproduces the scrub, so the test
+    # now measures the same thing in both places.
+    _write_executable(
+        path=bin_dir / "with-livespec-env.sh",
+        body=f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${{1:-}}" == "--" ]]; then
+  shift
+fi
+PATH="{_SCRUBBED_PATH}" exec "$@"
 """,
     )
 
