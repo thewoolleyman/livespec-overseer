@@ -106,7 +106,8 @@ Resolve the mode from the invocation text after the schedule check.
   weekly quota.
 - Forward only these operator flags when present: `--force`, `--dry-run`,
   `--no-models`, `--foreman-model=<fable|opus|auto>`,
-  `--session-model=<session>=<fable|opus|auto>`, `--warm`, and `--no-warm`.
+  `--session-model=<session>=<fable|opus|auto>`,
+  `--protected-account=<account>[=<percent>]`, `--warm`, and `--no-warm`.
   `--foreman-model=fable` and `--foreman-model=opus` pin the model enforced for
   sessions whose name carries the foreman suffix, and that pin persists in the
   operation state across later scheduled ticks until it is explicitly cleared.
@@ -116,7 +117,16 @@ Resolve the mode from the invocation text after the schedule check.
   Fable-balance rule; `--session-model=<session>=auto` clears that session's exception.
   Session exceptions persist even when passed with `--no-models`, are
   reported in the table line as `exceptions:`, and are absolute: a session pinned
-  to spent Fable is left there with a warning rather than silently moved. Idle-profile
+  to spent Fable is left there with a warning rather than silently moved.
+  `--protected-account=<account>=<percent>` marks one account as protected and
+  keeps a weekly floor beneath it; a bare `--protected-account=<account>` takes
+  the configurable default floor, and `=auto`, `=none` or `=off` clears that
+  account's protection. The flag is repeatable, so several accounts may be
+  protected at different floors. Protection persists in the operation state
+  across later scheduled ticks and is reported on the summary line as
+  `protected-accounts:`. A protected account is never selected while any
+  unprotected account is eligible, and its floor is not released by the
+  fleet-wide weekly reserve's release. Idle-profile
   keep-warm maintenance is off by default; opt in with `--warm` or
   `CAAM_ROTATE_WARM=1`. `--no-warm` explicitly keeps it disabled for this pass.
 
