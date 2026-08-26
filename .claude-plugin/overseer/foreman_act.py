@@ -50,6 +50,7 @@ from foreman_act_types import (
 from foreman_act_valve import act_with_human_valve
 from foreman_consensus import consensus as default_consensus
 from foreman_gather_collect import compose_document
+from foreman_start_intent import resolve_invoker
 
 __all__: list[str] = [
     "ACTION_IDS",
@@ -117,13 +118,20 @@ def _refused(*, action_id: str | None, reason: str) -> ActResult:
     return _result(action_id=action_id, outcome="refused", reason=reason, mutated=False)
 
 
-def _journal_record(*, result: ActResult) -> dict[str, object]:
+def _journal_record(*, result: ActResult, invoker: str) -> dict[str, object]:
+    """The disposition record this repository writes for its own acts.
+
+    It carries the invoker because the operator question a record must answer is
+    not only what was attempted but on whose behalf. This journal is owned here,
+    so adopting the orchestrator's own invoker field upstream would not reach it.
+    """
     return {
         "stage": "foreman-act",
         "action_id": result["action_id"],
         "outcome": result["outcome"],
         "reason": result["reason"],
         "mutated": result["mutated"],
+        "invoker": invoker,
     }
 
 
@@ -174,7 +182,13 @@ def act(
                 )
     repo_path = str_field(payload=proposal, key="repo")
     if repo_path is not None and result["reason"] != "journal_append_failed":  # pragma: no branch
-        seams.append_journal(repo=Path(repo_path), record=_journal_record(result=result))
+        seams.append_journal(
+            repo=Path(repo_path),
+            record=_journal_record(
+                result=result,
+                invoker=resolve_invoker(proposal=proposal, repo=Path(repo_path)),
+            ),
+        )
     return result
 
 

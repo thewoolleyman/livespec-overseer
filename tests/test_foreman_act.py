@@ -1450,6 +1450,7 @@ def test_typed_work_item_filing_uses_intake_seam_and_journals_before_result(*, t
             "outcome": "acted",
             "reason": "filed:overseer-new:ready",
             "mutated": True,
+            "invoker": "repo-foreman",
         },
     )
 
@@ -1591,6 +1592,7 @@ def test_failed_work_item_filing_returns_failed_result_and_journals_attempt(*, t
             "filing_subprocess_failed:" "filing subprocess failed because imports were unavailable"
         ),
         "mutated": False,
+        "invoker": "repo-foreman",
     }
 
     result = module.act(
@@ -1701,6 +1703,7 @@ def test_malformed_work_item_filing_returns_failed_result(*, tmp_path):
             "outcome": "failed",
             "reason": "filing_subprocess_failed:filing subprocess returned malformed JSON",
             "mutated": False,
+            "invoker": "repo-foreman",
         },
     )
 
@@ -2934,6 +2937,7 @@ def test_typed_ruling_escalates_while_governing_vocabulary_is_empty(*, tmp_path,
             "mutated": False,
             "outcome": "refused",
             "reason": "consensus_ruling_not_enumerated",
+            "invoker": "repo-foreman",
         }
     ]
     assert checked_kinds == ["relay-to-session"]

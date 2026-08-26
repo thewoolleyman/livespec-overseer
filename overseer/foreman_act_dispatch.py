@@ -30,6 +30,7 @@ from foreman_act_types import (
     ActResult,
 )
 from foreman_blocked_answer import act_blocked_session_answer
+from foreman_start_intent import record_start_intent
 from foreman_work_item_sessions import act_work_item_session, is_work_item_session_action
 
 __all__: list[str] = ["CommandResult", "DispatchSeams", "Runner", "act_authorized"]
@@ -202,6 +203,26 @@ def _act_command(*, action_id: ActionId, proposal: dict[str, object], run: Runne
     return result
 
 
+def _act_start_command(
+    *, action_id: ActionId, proposal: dict[str, object], repo: str, run: Runner
+) -> ActResult:
+    """Record the start-intent BEFORE the spawn, then spawn.
+
+    The ordering is the obligation, not an implementation detail: a surface that
+    does not survive its own spawn writes nothing afterwards, so the record has
+    to precede the act it describes. An intent that cannot be persisted refuses
+    the spawn rather than proceeding unrecorded.
+    """
+    if action_id in _START_ACTIONS and not record_start_intent(
+        repo=Path(repo),
+        action_id=action_id,
+        target=str(proposal.get("topic", "")),
+        proposal=proposal,
+    ):
+        return _refused(action_id=action_id, reason="start_intent_write_failed")
+    return _act_command(action_id=action_id, proposal=proposal, run=run)
+
+
 def act_authorized(
     *,
     action_id: ActionId,
@@ -260,5 +281,7 @@ def act_authorized(
             run=returncode_runner,
         )
     else:
-        result = _act_command(action_id=action_id, proposal=proposal, run=seams.run)
+        result = _act_start_command(
+            action_id=action_id, proposal=proposal, repo=repo, run=seams.run
+        )
     return result

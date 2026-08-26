@@ -13,6 +13,7 @@ from foreman_act_types import (
     ActionId,
     ActResult,
 )
+from foreman_start_intent import record_start_intent
 from foreman_work_item_session_commands import resume_command, start_command
 from foreman_work_item_session_evidence import work_item_session_refusal
 from foreman_work_item_session_store import (
@@ -144,6 +145,14 @@ def _act_start(
     handoff = write_handoff(repo=repo, payload=payload)
     if handoff is None:
         return _refused(action_id=action_id, reason="missing_handoff")
+    # The claim below is already a pre-spawn record, but it is per-work-item repo
+    # state carrying neither the action nor the invoker. The start-intent is the
+    # surface's own record of the attempt, and it goes first so a failure to
+    # persist it leaves no claim reading as live work behind it.
+    if not record_start_intent(
+        repo=repo, action_id=action_id, target=work_item_id, proposal=proposal
+    ):
+        return _refused(action_id=action_id, reason="start_intent_write_failed")
     attempt = _next_attempt(outcome=outcome)
     claim_payload: dict[str, object] = {
         "attempt": attempt,
