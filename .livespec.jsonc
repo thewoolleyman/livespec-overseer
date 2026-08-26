@@ -150,8 +150,19 @@
     "revise_decision_mode": "delegated",
     // ratification_review: "auto-spawn" is inert without a configured
     // reviewer model (effective.py's effective_ratification_review returns
-    // requires_input=True when ratification_reviewer_model is None) — set
-    // to "fable", matching livespec core's own convention.
+    // requires_input=True when ratification_reviewer_model is None).
+    //
+    // SUPERSEDED 2026-08-26 by PR #1973, which designated opus. The original
+    // text is kept verbatim below rather than rewritten, because the record of
+    // what was intended is worth keeping — it just must stop reading as a
+    // description of the current value:
+    //
+    //     set to "fable", matching livespec core's own convention.
+    //
+    // The value is now "opus". A migration is not finished when the value
+    // flips: this comment stayed green, dated and wrong for the interval
+    // between, and a reader checking the designation by reading the comment
+    // above the key would have got the wrong answer with nothing to warn them.
     "ratification_review": "auto-spawn",
     "ratification_reviewer_model": "opus",
     "spec_pr_merge": "auto-on-green",
