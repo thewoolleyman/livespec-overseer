@@ -1201,5 +1201,77 @@
     "test": "TODO",
     "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Pins the SATISFIABLE half of the reconciliation, which the first ratification round found uncovered: the killed-spawn scenario cannot exercise an amendment, because a dead surface writes nothing, so the failing-and-returning case needs its own control or the reconciliation MUST has none.",
     "work_item": "overseer-zidpiu"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unrouted plan yields the enumerated remedy as the foreman's own action",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. Pins the join that was missing: the condition is DETERMINED from the attention view and the consecutive-unactioned count, and the remedy the foreman identifies is the action it then takes or proposes — so an unactioned plan routes to an act rather than to a judgement call.",
+    "work_item": "overseer-7ranbh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A tick that actions a plan resets that plan's consecutive-unactioned count",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. THE DISCRIMINATING CONTROL for the reset obligation. Without it an implementation that never resets — making the count cumulative rather than consecutive — passes every other scenario and then fires the condition on plans that are being actively worked, which is the opposite of what the condition exists to detect.",
+    "work_item": "overseer-7ranbh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A missing required input yields undetermined, never absent-condition",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. Pins the direction of the fail: an unavailable input is not evidence that a plan is being worked, so the condition must resolve to UNDETERMINED — the term this section already ratifies for an unavailable picker state — surface, and fail closed rather than reading as healthy.",
+    "work_item": "overseer-7ranbh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: An escalation proposing repair of an absent component is refused with the available remedy named",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. Pins the mechanical leg of the fix. A prose sweep found the incident's escalation vocabulary nowhere in this repository, so it was composed at run time; only a refusal by the foreman itself closes that, and the refusal must name the available remedy to be actionable.",
+    "work_item": "overseer-7ranbh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A genuine report of missing infrastructure is still raised",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. Pins the refusal's BOUNDARY, without which the rule would let the foreman suppress true reports of missing infrastructure and become the arbiter of what exists.",
+    "work_item": "overseer-7ranbh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Capacity is stated from the composed verdict, not from raw statuses",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. Pins the lesson of three surfaces agreeing on a wrong capacity claim because each re-derived it from raw statuses: a verdict that exists and is not read produces confident agreement between observers sharing a mistake.",
+    "work_item": "overseer-7ranbh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: Capacity with no available verdict is stated as unknown, never inferred",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. THE DISCRIMINATING CONTROL for the capacity clause's absence branch, and the closest analogue of the motivating incident, in which three surfaces each inferred an occupied slot rather than reading a verdict. Without it an implementation that silently infers whenever no verdict exists passes every other scenario.",
+    "work_item": "overseer-7ranbh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A foreman wait is readable without opening its pane",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. Pins the visibility of the loop's own waits, which previously lived only in a pane and a private scratch area — the state in which a stall goes unnoticed.",
+    "work_item": "overseer-7ranbh"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A detection-staleness item is routed to an attended surface, never run",
+    "test": "TODO",
+    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. Pins routing as the ONLY correct response: those detections are consent-gated attended dialogues, so an unattended surface can neither give the consent nor hold the dialogue.",
+    "work_item": "overseer-7ranbh"
   }
 ]
