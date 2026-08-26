@@ -153,7 +153,7 @@
     // requires_input=True when ratification_reviewer_model is None) — set
     // to "fable", matching livespec core's own convention.
     "ratification_review": "auto-spawn",
-    "ratification_reviewer_model": "fable",
+    "ratification_reviewer_model": "opus",
     "spec_pr_merge": "auto-on-green",
     // Required companion of livespec-overseer.full_autonomy, enforced by
     // check-full-autonomy-config-conformance: with full autonomy on, an
