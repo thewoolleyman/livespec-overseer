@@ -7,7 +7,13 @@ import json
 from pathlib import Path
 from types import ModuleType
 
-from caam_decision import ProfileUsage, UsageRecord, eligible_profiles, rank_profiles
+from caam_decision import (
+    ActiveAccount,
+    ProfileUsage,
+    UsageRecord,
+    eligible_profiles,
+    rank_profiles,
+)
 
 __all__: list[str] = []
 
@@ -351,8 +357,7 @@ def test_cached_row_is_never_selected_even_when_it_would_rank_first():
 
     candidates = eligible_profiles(
         profiles=(cached_best, live_later),
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="five_hour",
     ).profiles
