@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.59.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.58.0...v1.59.0) (2026-08-27)
+
+
+### Features
+
+* **foreman:** source capacity from a verdict, recovered from a destroyed run ([81c0fbb](https://github.com/thewoolleyman/livespec-overseer/commit/81c0fbbc12058905802203e653dded4c28859acb))
+
 ## [1.58.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.57.1...v1.58.0) (2026-08-27)
 
 
