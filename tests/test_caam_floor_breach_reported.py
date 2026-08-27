@@ -7,11 +7,18 @@ exhausted, or unverifiable" -- none of which is "the active account is protected
 below its floor". The one condition protection exists to make visible was the one
 the hold line could not express.
 
-The floor breach itself is real and is NOT closed here: v037's ratification record
-established that triggering rotation does not stop the spend, because the margin
-still gates selection and nothing waives it for a protection trigger. This is the
-OBSERVABILITY repair. Closing the breach is overseer-54k2za.43, which needs its own
-oscillation analysis first.
+This began as the OBSERVABILITY repair alone, filed while the breach itself was
+still open: triggering rotation did not stop the spend, because the margin gated
+selection and nothing waived it for a protection trigger.
+
+overseer-54k2za.43 has since CLOSED that breach, by measuring the active account's
+headroom net of its own floor. So the configuration this file was written around --
+a protected active at 91 beside an unprotected candidate at 82 -- now rotates, and
+pinning a hold there would pin the defect back into place. The scenario below is
+therefore one where a hold is still CORRECT: the only other account is protected
+and sitting on its own floor, so nothing is eligible to move to and the pass must
+stay put and say why. What is being tested is unchanged -- that the hold line names
+a breached floor, and only when one is configured.
 """
 
 from __future__ import annotations
@@ -22,12 +29,16 @@ from caam_anthropic_decide import DecisionSeams, decide
 from caam_decision import ProfileUsage, UsageRecord, floor_breach
 from caam_rendering import decision_hold_no_candidate, floor_breach_reason
 
-# v037's worked breach case, at the shipped defaults (reserve 10, margin 10):
-# protected active A at seven_day 91 triggers; unprotected B at 82 clears the
-# reserve but fails is_eligible on 91-82=9 < 10; the pass HOLDS while A keeps
-# being spent below its floor.
+# At the shipped defaults (reserve 10, margin 10). Active A at seven_day 91 is on
+# its floor and triggers. The only other account, B, is itself protected and on ITS
+# floor, so it is disqualified as a candidate outright and clears the reserve on its
+# raw balance -- which keeps the reserve unreleased and the hold line free of a
+# release note. Nothing is eligible, so holding is the correct outcome rather than
+# the breach it once was.
 _ACTIVE_SEVEN_DAY = 91.0
 _FLOOR = 10.0
+_OTHER_SEVEN_DAY = 75.0
+_OTHER_FLOOR = 30.0
 
 
 def _usage(*, seven_day: float, five_hour: float = 40.0) -> UsageRecord:
@@ -59,13 +70,24 @@ class _Context:
         self.lines.append(line)
 
 
+def _floors(*, protect_active: bool) -> dict[str, float]:
+    """Protection configuration differing ONLY in whether the ACTIVE account has a floor.
+
+    B keeps its floor in both, which is what holds the candidate set empty on both
+    sides so the two hold lines remain comparable. Dropping B's floor as well would
+    make B eligible and the pass would switch, comparing two different outcomes.
+    """
+    floors = {"anthropic-b": _OTHER_FLOOR}
+    return {"anthropic-a": _FLOOR, **floors} if protect_active else floors
+
+
 def _run(*, tmp_path: Path, protection_floors: dict[str, float]) -> list[str]:
     """Drive a real decide() pass into the no-candidate hold and return its output."""
     context = _Context(home=tmp_path)
     current = _usage(seven_day=_ACTIVE_SEVEN_DAY)
     profiles = (
         ProfileUsage(name="anthropic-a", source="live", usage=current),
-        ProfileUsage(name="anthropic-b", source="live", usage=_usage(seven_day=82.0)),
+        ProfileUsage(name="anthropic-b", source="live", usage=_usage(seven_day=_OTHER_SEVEN_DAY)),
     )
     code = decide(
         context=context,
@@ -86,7 +108,7 @@ def _run(*, tmp_path: Path, protection_floors: dict[str, float]) -> list[str]:
 
 
 def test_the_hold_line_names_the_floor_that_was_just_crossed(tmp_path: Path) -> None:
-    lines = _run(tmp_path=tmp_path, protection_floors={"anthropic-a": _FLOOR})
+    lines = _run(tmp_path=tmp_path, protection_floors=_floors(protect_active=True))
     hold = [line for line in lines if line.startswith("hold:")]
     assert len(hold) == 1
     # The operator must be able to see WHY it held, not merely that a margin was unmet.
@@ -103,8 +125,8 @@ def test_with_no_floor_configured_the_hold_line_is_byte_identical(tmp_path: Path
     and must fail this one. Same inputs, same trigger, same empty candidate set --
     only the protection configuration differs.
     """
-    protected = _run(tmp_path=tmp_path, protection_floors={"anthropic-a": _FLOOR})
-    unprotected = _run(tmp_path=tmp_path, protection_floors={})
+    protected = _run(tmp_path=tmp_path, protection_floors=_floors(protect_active=True))
+    unprotected = _run(tmp_path=tmp_path, protection_floors=_floors(protect_active=False))
 
     protected_hold = next(line for line in protected if line.startswith("hold:"))
     unprotected_hold = next(line for line in unprotected if line.startswith("hold:"))
@@ -118,14 +140,17 @@ def test_with_no_floor_configured_the_hold_line_is_byte_identical(tmp_path: Path
     assert protected_hold.startswith(unprotected_hold)
 
 
-def test_the_pass_still_holds_rather_than_switching(tmp_path: Path) -> None:
-    """This item repairs REPORTING only; selection must be untouched.
+def test_the_pass_holds_because_nothing_is_eligible_to_move_to(tmp_path: Path) -> None:
+    """Holding here is the correct outcome, not the breach this file once pinned.
 
     The switch seam raises if called, so reaching the end proves no switch occurred
-    in either configuration -- the floor breach is still real and still open.
+    in either configuration. Since overseer-54k2za.43 the reason is that the only
+    other account is on its own floor and cannot be moved to -- NOT that a protected
+    active is being spent through its floor, which now rotates. The distinction
+    matters: a hold with a candidate available would be the defect returning.
     """
-    for floors in ({"anthropic-a": _FLOOR}, {}):
-        lines = _run(tmp_path=tmp_path, protection_floors=floors)
+    for protect_active in (True, False):
+        lines = _run(tmp_path=tmp_path, protection_floors=_floors(protect_active=protect_active))
         assert any(line.startswith("hold:") for line in lines)
         assert not any("would switch" in line or "switched" in line for line in lines)
 

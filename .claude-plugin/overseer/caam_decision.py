@@ -141,38 +141,39 @@ def eligible_profiles(
     dimension: str,
     protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
 ) -> EligibleProfiles:
-    gain_needed = 0.01 if force else min_headroom_gain()
     reserve = weekly_reserve()
-    ceiling = scoped_waiver_ceiling(active=active)
-    eligible = select_candidate_set(
-        profiles=profiles,
-        active_name=active.name,
-        policy=CandidatePolicy(
-            current=active.usage,
-            gain_needed=gain_needed,
-            dimension=dimension,
-            enforce_reserve=True,
-            weekly_reserve=reserve,
-            scoped_waiver_ceiling=ceiling,
-        ),
-        protection_floors=protection_floors,
-    )
+
+    def _select(*, enforce_reserve: bool) -> tuple[ProfileUsage, ...]:
+        """The candidate set under one reserve stance, everything else held fixed.
+
+        The two passes below differ in exactly that stance. Building both from
+        one place is what keeps them from drifting apart -- a field added to the
+        enforcing pass and forgotten on the releasing one would silently change
+        who is admitted only once every account has fallen under the reserve,
+        which is the least observed path in the whole selection.
+        """
+        return select_candidate_set(
+            profiles=profiles,
+            active_name=active.name,
+            policy=CandidatePolicy(
+                current=active.usage,
+                gain_needed=0.01 if force else min_headroom_gain(),
+                dimension=dimension,
+                enforce_reserve=enforce_reserve,
+                weekly_reserve=reserve,
+                scoped_waiver_ceiling=scoped_waiver_ceiling(active=active),
+                current_protection_floor=protection_floor_for(
+                    name=active.name, protection_floors=protection_floors
+                ),
+            ),
+            protection_floors=protection_floors,
+        )
+
+    eligible = _select(enforce_reserve=True)
     if eligible or not every_live_account_under_reserve(profiles=profiles):
         return EligibleProfiles(profiles=eligible, reserve_released=False, note=None)
 
-    released = select_candidate_set(
-        profiles=profiles,
-        active_name=active.name,
-        policy=CandidatePolicy(
-            current=active.usage,
-            gain_needed=gain_needed,
-            dimension=dimension,
-            enforce_reserve=False,
-            weekly_reserve=reserve,
-            scoped_waiver_ceiling=ceiling,
-        ),
-        protection_floors=protection_floors,
-    )
+    released = _select(enforce_reserve=False)
     if not released:
         return EligibleProfiles(
             profiles=(),
