@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "overseer"))
 
 import claude_sessions
+import codex_sessions
 import registry
 import streams
 import tmuxio
@@ -22,6 +23,10 @@ from foreman_runtime_state import LOCK_FILE, runtime_dir
 
 def _real_sessions():
     return claude_sessions.read_live_sessions(sessions_dir=claude_sessions.default_sessions_dir())
+
+
+def _real_codex_sessions():
+    return codex_sessions.read_live_codex_sessions()
 
 
 def main(*, argv=None):
@@ -37,6 +42,7 @@ def main(*, argv=None):
         watch_set_path=args.watch_set_path,
         tmux=tmuxio.TmuxIO(),
         sessions=_real_sessions(),
+        codex_sessions=_real_codex_sessions(),
     )
     if not gate.ok:
         streams.write_stderr(text=f"foreman-runtime: {gate.reason}\n")
