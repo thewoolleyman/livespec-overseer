@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.57.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.57.0...v1.57.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **caam:** let a pinned scoped-model allowance influence rotation target selection ([108f881](https://github.com/thewoolleyman/livespec-overseer/commit/108f881d2757efe9e318cf924de4614d814ac4c9))
+
 ## [1.57.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.56.0...v1.57.0) (2026-08-27)
 
 
