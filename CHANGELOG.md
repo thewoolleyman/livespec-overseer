@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.1...v1.62.2) (2026-08-27)
+
+
+### Bug Fixes
+
+* **caam:** hold when the pinned model cannot be served anywhere ([21e5879](https://github.com/thewoolleyman/livespec-overseer/commit/21e58790219a759afce9639ad0797463ca652381))
+
 ## [1.62.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.0...v1.62.1) (2026-08-27)
 
 
