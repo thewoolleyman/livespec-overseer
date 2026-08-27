@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.5...v1.62.6) (2026-08-27)
+
+
+### Bug Fixes
+
+* **caam:** warm the account a pass just left, in that same pass ([4d04617](https://github.com/thewoolleyman/livespec-overseer/commit/4d04617c804075f9d1cac47be67debd7113c8894))
+
 ## [1.62.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.4...v1.62.5) (2026-08-27)
 
 
