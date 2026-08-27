@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.0...v1.62.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **caam:** report why a pass held instead of discarding the reason ([38c0d60](https://github.com/thewoolleyman/livespec-overseer/commit/38c0d60ced533e65aadda4dbf8e09b11ec2ab641))
+
 ## [1.62.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.61.0...v1.62.0) (2026-08-27)
 
 
