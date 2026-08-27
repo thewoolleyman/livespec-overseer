@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import inspect
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 
 import codex_sessions
@@ -47,7 +46,9 @@ def codex_evidence(*, tmp_path, named_id, cwd):
 def test_a_live_codex_foreman_identity_enters_the_shared_gate_and_an_unindexed_one_refuses(
     *, tmp_path
 ):
-    assert "codex_sessions" in inspect.signature(foreman_runtime_identity.entry_gate).parameters
+    assert "codex_sessions" in {
+        field.name for field in fields(foreman_runtime_identity.RuntimeEvidence)
+    }
 
     repo = tmp_path / "repo"
     (repo / "plan" / "alpha").mkdir(parents=True)
@@ -58,13 +59,15 @@ def test_a_live_codex_foreman_identity_enters_the_shared_gate_and_an_unindexed_o
         "cwd": repo,
         "watch_set_path": watch_set,
         "tmux": FakeTmux(sessions=frozenset({FOREMAN_TOPIC})),
-        "sessions": [],
     }
     live = codex_evidence(tmp_path=tmp_path, named_id=OPEN_ROLLOUT_ID, cwd=str(repo))
     unindexed = codex_evidence(tmp_path=tmp_path, named_id=OTHER_ID, cwd=str(repo))
 
-    admitted = foreman_runtime_identity.entry_gate(**base, codex_sessions=live)
-    refused = foreman_runtime_identity.entry_gate(**base, codex_sessions=unindexed)
+    evidence = foreman_runtime_identity.RuntimeEvidence
+    admitted = foreman_runtime_identity.entry_gate(**base, evidence=evidence(codex_sessions=live))
+    refused = foreman_runtime_identity.entry_gate(
+        **base, evidence=evidence(codex_sessions=unindexed)
+    )
 
     assert [session.name for session in live] == [FOREMAN_TOPIC]
     assert unindexed == []
