@@ -6,12 +6,19 @@ from dataclasses import dataclass
 from typing import Final
 
 __all__: list[str] = [
+    "SCOPED_MODEL",
     "WANTED_MODELS",
     "ForemanModelChoice",
     "apply_foreman_model_override",
+    "scoped_model_pinned",
 ]
 
 WANTED_MODELS: Final = frozenset(("fable", "opus"))
+# The scoped-model allowance the specification names generically is this
+# product's Fable weekly allowance (see `caam_usage`, which identifies it as the
+# `weekly_scoped` limit on the model displayed as Fable). Pinning it is what puts
+# the scoped-model selection clause in effect; pinning the general model does not.
+SCOPED_MODEL: Final = "fable"
 _CLEAR_VALUES: Final = frozenset(("auto", "", "none"))
 
 
@@ -20,6 +27,17 @@ class ForemanModelChoice:
     want_foreman: str
     pinned: bool
     messages: tuple[str, ...]
+
+
+def scoped_model_pinned(*, state: dict[str, object]) -> bool:
+    """Whether the durable operator pin names the scoped model.
+
+    This reads the GLOBAL foreman-model pin only. Per-session model exceptions
+    are a separate, currently unspecified surface, and the ratified clause says
+    "an operator pin" in the singular; deciding that question either way is left
+    to a follow-up proposal rather than settled here by implication.
+    """
+    return state.get("foreman_model") == SCOPED_MODEL
 
 
 def apply_foreman_model_override(

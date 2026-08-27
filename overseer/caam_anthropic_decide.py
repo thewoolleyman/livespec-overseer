@@ -11,6 +11,7 @@ from typing import Protocol
 from _caam_switch_host import acquire_switch_lock, caam_activate
 from caam_anthropic_finish import LineWriter, SaveState, finish
 from caam_decision import (
+    ActiveAccount,
     ProfileUsage,
     UsageRecord,
     binding,
@@ -27,6 +28,7 @@ from caam_decision import (
     weekly_left,
     weekly_reserve,
 )
+from caam_foreman_override import scoped_model_pinned
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
 from caam_switch import SwitchRequest, SwitchResult
@@ -99,6 +101,7 @@ def decide(
     protection_floors: Mapping[str, float],
     seams: DecisionSeams,
 ) -> int:
+    scoped_pin = scoped_model_pinned(state=context.state)
     dimension, spent, label = binding(
         usage=current,
         active_name=active_name,
@@ -108,6 +111,7 @@ def decide(
         usage=current,
         active_name=active_name,
         protection_floors=protection_floors,
+        scoped_pin=scoped_pin,
     ):
         return _hold_allowed(
             context=context,
@@ -126,12 +130,12 @@ def decide(
     ranked = rank_profiles(
         profiles=eligible_profiles(
             profiles=profiles,
-            active_name=active_name,
-            current=current,
+            active=ActiveAccount(name=active_name, usage=current, scoped_pin=scoped_pin),
             force=context.flags.force,
             dimension=dimension,
             protection_floors=protection_floors,
-        ).profiles
+        ).profiles,
+        scoped_pin=scoped_pin,
     )
     if not ranked:
         return _hold_no_candidate(

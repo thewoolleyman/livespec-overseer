@@ -10,6 +10,7 @@ from caam_decision_models import ProfileUsage, UsageRecord
 
 __all__: list[str] = [
     "CandidatePolicy",
+    "can_serve_scoped_model",
     "candidate_allowed",
     "dimension_spent",
     "empty_release_note",
@@ -31,6 +32,26 @@ class CandidatePolicy:
     dimension: str
     enforce_reserve: bool
     weekly_reserve: float
+    # None disables the scoped-model waiver entirely, which is the state under
+    # every input that carries no operator pin on the scoped model and under
+    # every input where the ACTIVE account can still serve that pin. A float is
+    # the short-window ceiling a scoped-capable candidate must stay below to be
+    # admitted without clearing the relative-headroom margin, so the operation
+    # never moves onto an account it would immediately have to leave again.
+    scoped_waiver_ceiling: float | None = None
+
+
+def can_serve_scoped_model(*, usage: UsageRecord | None) -> bool:
+    """Whether this account's own scoped-model allowance can serve a pinned scoped model.
+
+    Determined from the BALANCE alone, mirroring the shipped enforcement
+    predicate: present and not fully spent. Fail-closed by construction — an
+    account whose scoped allowance cannot be read (no usage record at all, or a
+    record carrying no scoped figure) counts as unable to serve, never as able.
+    A model that is available but not answering for non-quota reasons is outside
+    what selection can observe and is the operator pin's concern, not this one's.
+    """
+    return usage is not None and usage.fable is not None and usage.fable < _FULLY_SPENT
 
 
 def weekly_left(*, usage: UsageRecord, protection_floor: float = 0.0) -> float:
@@ -136,11 +157,28 @@ def candidate_allowed(
         and is_eligible(
             usage=profile.usage,
             current=policy.current,
-            gain_needed=policy.gain_needed,
+            gain_needed=_gain_needed_for(policy=policy, usage=profile.usage),
             dimension=policy.dimension,
             protection_floor=protection_floor,
         )
     )
+
+
+def _gain_needed_for(*, policy: CandidatePolicy, usage: UsageRecord) -> float:
+    """The headroom margin this candidate must clear, waived only under the scoped clause.
+
+    The waiver is expressed as a margin of negative infinity rather than as a
+    branch around `is_eligible`, and that is load-bearing: every OTHER
+    disqualifier `is_eligible` applies -- the comparison dimension being one of
+    the two defined ones, a candidate at zero weekly remaining, a candidate at
+    its own protection floor, a candidate whose short-window allowance is fully
+    spent -- keeps applying unchanged. The clause waives the relative-headroom
+    margin and nothing else.
+    """
+    ceiling = policy.scoped_waiver_ceiling
+    if ceiling is not None and can_serve_scoped_model(usage=usage) and usage.five_hour < ceiling:
+        return -inf
+    return policy.gain_needed
 
 
 def empty_release_note(

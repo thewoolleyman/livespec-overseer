@@ -11,6 +11,7 @@ from pathlib import Path
 import caam_decision as caam_rendering
 import pytest
 from caam_decision import (
+    ActiveAccount,
     ProfileUsage,
     UsageRecord,
     binding,
@@ -216,8 +217,7 @@ def test_protected_candidates_are_last_resort_and_keep_existing_ranking():
 
     with_unprotected = eligible_profiles(
         profiles=(unprotected, protected_soon),
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="five_hour",
         protection_floors=floors,
@@ -226,8 +226,7 @@ def test_protected_candidates_are_last_resort_and_keep_existing_ranking():
 
     only_protected = eligible_profiles(
         profiles=(protected_later, protected_soon),
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="seven_day",
         protection_floors=floors,
@@ -270,8 +269,7 @@ def test_reserve_release_does_not_release_protection_floors(*, monkeypatch):
 
     released = eligible_profiles(
         profiles=(unprotected, protected),
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="five_hour",
         protection_floors={"protected": 10.0},
@@ -282,8 +280,7 @@ def test_reserve_release_does_not_release_protection_floors(*, monkeypatch):
 
     held = eligible_profiles(
         profiles=(protected,),
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="five_hour",
         protection_floors={"protected": 10.0},
@@ -375,15 +372,13 @@ def test_absent_protection_preserves_current_candidate_decisions(*, monkeypatch)
 
     before = eligible_profiles(
         profiles=profiles,
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="five_hour",
     )
     after = eligible_profiles(
         profiles=profiles,
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="five_hour",
         protection_floors={},
@@ -435,8 +430,7 @@ def test_eligibility_and_ranking_do_not_consult_fable():
 
     candidates = eligible_profiles(
         profiles=(exhausted_fable_soonest, has_fable_later),
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="five_hour",
     ).profiles
@@ -476,8 +470,7 @@ def test_reserve_release_retry_only_when_every_account_is_below_the_reserve(*, m
 
     protected = eligible_profiles(
         profiles=(below_reserve, above_reserve),
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="five_hour",
     )
@@ -486,8 +479,7 @@ def test_reserve_release_retry_only_when_every_account_is_below_the_reserve(*, m
 
     released = eligible_profiles(
         profiles=(below_reserve,),
-        active_name="active",
-        current=current,
+        active=ActiveAccount(name="active", usage=current),
         force=True,
         dimension="five_hour",
     )
