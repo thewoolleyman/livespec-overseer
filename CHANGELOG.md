@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.61.0...v1.62.0) (2026-08-27)
+
+
+### Features
+
+* **foreman:** route detection-staleness items, recovered from a destroyed run ([8ab3b73](https://github.com/thewoolleyman/livespec-overseer/commit/8ab3b7325cf51a0687ba2428ec937df8f2a8012b))
+
 ## [1.61.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.60.1...v1.61.0) (2026-08-27)
 
 
