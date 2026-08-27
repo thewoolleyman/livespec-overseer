@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.60.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.60.0...v1.60.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **caam:** name the breached protection floor on the no-candidate hold line ([f8a2d3d](https://github.com/thewoolleyman/livespec-overseer/commit/f8a2d3dce1969a47a14af403b0ff6630fa3b85cc))
+
 ## [1.60.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.59.0...v1.60.0) (2026-08-27)
 
 
