@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.57.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.56.0...v1.57.0) (2026-08-27)
+
+
+### Features
+
+* **foreman:** refuse an escalation naming an absent component, recovered from a destroyed run ([c05c026](https://github.com/thewoolleyman/livespec-overseer/commit/c05c026bdf6ad0d0c969e7239661c593bcc798b3))
+
 ## [1.56.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.55.0...v1.56.0) (2026-08-27)
 
 
