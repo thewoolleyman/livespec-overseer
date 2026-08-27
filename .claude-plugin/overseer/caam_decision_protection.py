@@ -40,6 +40,11 @@ class CandidatePolicy:
     # admitted without clearing the relative-headroom margin, so the operation
     # never moves onto an account it would immediately have to leave again.
     scoped_waiver_ceiling: float | None = None
+    # The ACTIVE account's own protection floor, so that both sides of the
+    # headroom comparison measure usable headroom net of the floor each account
+    # is actually subject to. Zero for an unprotected active, which is every
+    # comparison that predates protection and which must be unchanged by it.
+    current_protection_floor: float = 0.0
 
 
 def can_serve_scoped_model(*, usage: UsageRecord | None) -> bool:
@@ -86,6 +91,17 @@ def is_eligible(
     protection_floor: float = 0.0,
     current_protection_floor: float = 0.0,
 ) -> bool:
+    """Whether this candidate clears the margin over the account in use.
+
+    Each side is measured net of ITS OWN floor, which is what makes the margin
+    antisymmetric and therefore incapable of oscillating: leaving A for B needs
+    spend(A) - spend(B) to reach the margin, and coming back needs the same
+    difference with the signs reversed, so at most one of the two can hold.
+    Measuring only the candidate net of its floor -- which is what a zero
+    `current_protection_floor` does -- breaks that symmetry by comparing two
+    accounts under different rules, and lets a protected active be judged on
+    headroom it is not permitted to spend.
+    """
     return (
         usage is not None
         and dimension in {"five_hour", "seven_day"}
@@ -176,6 +192,7 @@ def candidate_allowed(
             gain_needed=_gain_needed_for(policy=policy, usage=profile.usage),
             dimension=policy.dimension,
             protection_floor=protection_floor,
+            current_protection_floor=policy.current_protection_floor,
         )
     )
 
