@@ -21,11 +21,24 @@ from foreman_consensus_types import DEFAULT_PANEL_LIMITS, DEFAULT_STATE_DIR
 from foreman_panel_decision_kind import result_decision_kind
 from foreman_panel_io import default_dossier_dir, load_request, write_json
 from foreman_panel_refusal import missing_request_fields, refusal_for, refused_result
+from foreman_wait_publication import (
+    PANEL_IN_PROGRESS,
+    WaitPublisher,
+    WaitState,
+    publish_wait_state,
+)
 
 __all__: list[str] = [
+    "WAIT_PUBLISHER",
     "convene_panel",
     "main",
 ]
+
+# The declared seam for the panel-in-progress publication in `convene_panel`. A
+# module binding rather than a parameter: that function already sits at the
+# argument ceiling, and it is read at CALL time, so redirecting it on THIS
+# module — the one that reads it — is what takes effect.
+WAIT_PUBLISHER: WaitPublisher = publish_wait_state
 
 DEFAULT_REVIEWER_TIMEOUT_SECONDS: Final[float] = 600.0
 DECIDED_OUTCOMES: Final[frozenset[str]] = frozenset({"majority", "minority_override", "unanimous"})
@@ -83,6 +96,18 @@ def convene_panel(
         dossier_dir if dossier_dir is not None else default_dossier_dir(request=request, key=key)
     )
     _ = write_json(path=panel_dir / "dossier.json", payload={"request": request})
+    # The panel is IN PROGRESS from here: the dossier exists and the reviewers
+    # are about to be run, which is the moment this wait is raised. Publishing
+    # before the reviewers rather than after is what makes a panel that never
+    # returns visible on the epic instead of only in the pane.
+    _ = WAIT_PUBLISHER(
+        repo=Path(str_field(payload=request, key="repo")),
+        wait=WaitState(
+            kind=PANEL_IN_PROGRESS,
+            plan=str_field(payload=request, key="topic"),
+            detail=str_field(payload=request, key="blocked_question"),
+        ),
+    )
     responses = reviewer_responses(
         request=request,
         dossier_dir=panel_dir,

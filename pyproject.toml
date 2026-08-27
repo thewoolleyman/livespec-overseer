@@ -463,6 +463,18 @@ omit = [
     # entrypoints. Host-installed tooling they shell out to can inherit that
     # setting too; it is not this repo's code and must not be measured.
     "/usr/local/*",
+    # Harness PLUGIN CACHES are the same class as the tooling above and were
+    # missing from this list rather than deliberately included. Under xdist the
+    # workers' subprocesses inherit COVERAGE_PROCESS_START, so hooks the harness
+    # fires during a run — codex_yolo_gate, supervisor_completion_gate,
+    # no_shadow_ledger and their siblings — get measured as though they were
+    # this repo's code. Measured 2026-08-27: fourteen such files entered the
+    # denominator at 11-69%, adding ~900 statements and dropping a serially-100%
+    # tree to 96.62%. Serially the same tree measures 100% with none of them
+    # present, which is what identifies this as a measurement artefact of
+    # parallel execution rather than a coverage gap in any file here.
+    "*/.codex/plugins/*",
+    "*/.claude/plugins/*",
     "*/.venv/*",
     "*/site-packages/*",
     "*/_vendor/*",
