@@ -31,6 +31,7 @@ dependencies = [
 [project.scripts]
 caam-anthropic-loop = "overseer.caam_anthropic_loop:main"
 foreman-act = "overseer.foreman_act:main"
+foreman-capacity = "overseer.foreman_capacity:main"
 foreman-consensus = "overseer.foreman_consensus:main"
 foreman-convene-obligation = "overseer.foreman_convene_obligations:main"
 foreman-escalate = "overseer.foreman_escalate:main"

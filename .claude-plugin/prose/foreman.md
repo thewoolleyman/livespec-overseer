@@ -394,6 +394,21 @@ been sent to them. Where the honest answer is that only the maintainer can act,
 say that plainly and say what decision is being asked for — that is naming an
 actor, not refusing.
 
+EVERY CAPACITY STATEMENT IS SOURCED FROM A CAPACITY VERDICT, AND UNKNOWN IS AN
+ANSWER. Anything you say about dispatch capacity — in a tick report, in an
+escalation, in a panel dossier, or on any other surface you author — comes from
+the verdict the attention view you composed carries, or from the equivalent
+verdict the dispatch machinery itself reports. The deterministic helper
+`foreman-capacity` reads both and renders one statement for every surface; state
+what it states. Never derive capacity from raw work-item statuses, and never
+assert that a slot is occupied or free on any other basis: a count of rows
+reading `active` does not know the cap, does not know what the machinery is
+holding, and in this fleet an `active` row is routinely a phantom claim behind
+which no run exists. Where no verdict is available, say that capacity is unknown
+and substitute nothing — an unknown that names its own absence is worth more
+than a confident number, because three surfaces once asserted the same wrong
+thing about capacity for the single reason that each had inferred it.
+
 ### Operational lessons that must survive cold opens
 
 Verify by content and source, never by proxy. An activity spinner, an idle-looking
