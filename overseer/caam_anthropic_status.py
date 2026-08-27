@@ -110,6 +110,7 @@ def model_messages(
         settings_path=context.home / ".claude/settings.json",
         no_models=context.flags.no_models,
         home=context.home,
+        state=context.state,
         state_path=context.state_path,
         active_fable=active_fable,
         foreman_model=context.flags.foreman_model,
