@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.58.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.57.1...v1.58.0) (2026-08-27)
+
+
+### Features
+
+* **foreman:** admit live Codex foreman identity through the shared entry gate ([668b7bd](https://github.com/thewoolleyman/livespec-overseer/commit/668b7bd21af923d0a79b2029fa81d90f0d75b5df))
+
 ## [1.57.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.57.0...v1.57.1) (2026-08-27)
 
 
