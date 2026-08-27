@@ -30,7 +30,7 @@ from foreman_act_types import (
     ActResult,
 )
 from foreman_blocked_answer import act_blocked_session_answer
-from foreman_start_intent import record_start_intent
+from foreman_start_intent import amend_start_intent, record_start_intent
 from foreman_work_item_sessions import act_work_item_session, is_work_item_session_action
 
 __all__: list[str] = ["CommandResult", "DispatchSeams", "Runner", "act_authorized"]
@@ -206,21 +206,28 @@ def _act_command(*, action_id: ActionId, proposal: dict[str, object], run: Runne
 def _act_start_command(
     *, action_id: ActionId, proposal: dict[str, object], repo: str, run: Runner
 ) -> ActResult:
-    """Record the start-intent BEFORE the spawn, then spawn.
+    """Record the start-intent BEFORE the spawn, spawn, then reconcile the record.
 
     The ordering is the obligation, not an implementation detail: a surface that
     does not survive its own spawn writes nothing afterwards, so the record has
     to precede the act it describes. An intent that cannot be persisted refuses
     the spawn rather than proceeding unrecorded.
+
+    Reaching the amendment at all proves the surface SURVIVED, which is what
+    makes the two failure cases distinguishable: a spawn that failed and resolved
+    carries its error, and one that never returned leaves the record as it was.
     """
-    if action_id in _START_ACTIONS and not record_start_intent(
-        repo=Path(repo),
-        action_id=action_id,
-        target=str(proposal.get("topic", "")),
-        proposal=proposal,
+    if action_id not in _START_ACTIONS:
+        return _act_command(action_id=action_id, proposal=proposal, run=run)
+    target = str(proposal.get("topic", ""))
+    if not record_start_intent(
+        repo=Path(repo), action_id=action_id, target=target, proposal=proposal
     ):
         return _refused(action_id=action_id, reason="start_intent_write_failed")
-    return _act_command(action_id=action_id, proposal=proposal, run=run)
+    result = _act_command(action_id=action_id, proposal=proposal, run=run)
+    error = None if result["outcome"] == "acted" else str(result["reason"])
+    amend_start_intent(repo=Path(repo), action_id=action_id, target=target, error=error)
+    return result
 
 
 def act_authorized(

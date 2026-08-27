@@ -15,6 +15,14 @@ describe an act that did not return. So the load-bearing tests run `act` in a
 forked child whose spawn seam SIGKILLs its own process: SIGKILL cannot be
 caught, handled, or deferred, so no post-hoc write is possible and a record that
 is nonetheless on file can only have been written before the spawn was issued.
+
+THE TWO FAILURE CASES ARE NOT THE SAME, AND THE RECONCILIATION TESTS BELOW COVER
+BOTH. A spawn that fails and RESOLVES leaves a surviving surface, which MUST
+amend its record with the failure and its error. A spawn that does not return
+leaves nobody to write anything, so the record stands outcome-less — and that
+empty field is read as ATTEMPTED-AND-FAILED, never as live work. Amending on
+BOTH resolutions is what keeps the empty field discriminating: were a successful
+start also left outcome-less, "no outcome" would mean nothing at all.
 """
 
 from __future__ import annotations
@@ -24,6 +32,7 @@ import json
 import os
 import signal
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -42,6 +51,12 @@ def foreman_act():
     if str(OVERSEER_DIR) not in sys.path:
         sys.path.insert(0, str(OVERSEER_DIR))
     return importlib.import_module("foreman_act")
+
+
+def foreman_start_intent():
+    if str(OVERSEER_DIR) not in sys.path:
+        sys.path.insert(0, str(OVERSEER_DIR))
+    return importlib.import_module("foreman_start_intent")
 
 
 def plan_document(*, repo: Path) -> dict[str, object]:
@@ -141,6 +156,31 @@ def sole_intent_record(*, repo: Path) -> dict[str, object]:
     parsed = json.loads(records[0].read_text(encoding="utf-8"))
     assert isinstance(parsed, dict)
     return parsed
+
+
+def claim_path(*, repo: Path) -> Path:
+    return repo / "tmp" / "overseer" / "foreman" / "work-items" / WORK_ITEM_ID / "claim.json"
+
+
+def claim_events(*, repo: Path) -> list[dict[str, object]]:
+    journal = claim_path(repo=repo).parent / "journal.jsonl"
+    lines = journal.read_text(encoding="utf-8").splitlines()
+    return [json.loads(line) for line in lines if line]
+
+
+def act_with(
+    *, proposal: dict[str, object], document: dict[str, object], run: Callable[..., int]
+) -> dict[str, object]:
+    """Drive the shipped actuator over one proposal with a caller-supplied spawn seam."""
+    module = foreman_act()
+    return module.act(
+        proposal=proposal,
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: document,
+            run=run,
+            append_journal=lambda *, repo, record: None,
+        ),
+    )
 
 
 def act_in_a_child_killed_at_the_spawn(
@@ -388,3 +428,175 @@ def test_the_foreman_act_disposition_record_names_the_invoker(*, tmp_path):
             "invoker": INVOKER,
         }
     ]
+
+
+@pytest.mark.integration
+def test_a_spawn_that_fails_and_returns_amends_its_intent_record_with_the_error(*, tmp_path):
+    """The scenario's own control: a surface that SURVIVES its spawn reconciles.
+
+    `plan_start` is the leg research note 002 measured as carrying no pre-spawn
+    record at all, so it is also the leg with nothing to amend until this lands.
+    The assertion is on the ERROR, not merely on the presence of an outcome: a
+    record amended with a bare "it failed" cannot tell the next reader whether
+    the spawn was refused, crashed, or never found its command.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    result = act_with(
+        proposal=plan_proposal(repo=repo),
+        document=plan_document(repo=repo),
+        run=lambda *, argv: 3,
+    )
+
+    assert result["outcome"] == "failed"
+    assert result["reason"] == "command_exit_3"
+    record = sole_intent_record(repo=repo)
+    assert record["action_id"] == "plan_start"
+    assert record["target"] == "alpha"
+    assert record["outcome"] == {"status": "failed", "error": "command_exit_3"}
+
+
+@pytest.mark.integration
+def test_a_failed_work_item_spawn_amends_its_record_and_releases_its_stale_claim(*, tmp_path):
+    """The other start family, whose failed spawn also leaves a claim behind.
+
+    Research note 002 measured that branch returning refused with `claim.json`
+    still in place, so a dead attempt read as live work — the phantom-claim shape
+    this fleet already documents on the dispatch side, reproduced locally. The
+    released claim is journaled rather than silently unlinked, so a later reader
+    can tell a reconciled attempt from one that never happened.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    result = act_with(
+        proposal=work_item_proposal(repo=repo),
+        document=work_item_document(repo=repo),
+        run=lambda *, argv: 7,
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "command_exit_7"
+    assert sole_intent_record(repo=repo)["outcome"] == {
+        "status": "failed",
+        "error": "command_exit_7",
+    }
+    assert not claim_path(repo=repo).exists()
+    assert claim_events(repo=repo)[-1] == {
+        "event": "claim_released",
+        "reason": "command_exit_7",
+        "work_item_id": WORK_ITEM_ID,
+    }
+
+
+@pytest.mark.integration
+def test_an_outcome_less_intent_record_does_not_read_as_live_work(*, tmp_path):
+    """The dead-surface half: nobody survived to amend, so the empty field speaks.
+
+    THE SECOND LEG IS THE DISCRIMINATING CONTROL. Without it this test passes
+    against an implementation that simply stopped refusing on a claim at all,
+    which is the opposite defect: a claim standing beside a RESOLVED start names
+    a session that really is live, and starting a second one against it is the
+    collision the claim exists to prevent.
+    """
+    dead = tmp_path / "dead"
+    dead.mkdir()
+    status = act_in_a_child_killed_at_the_spawn(
+        proposal=work_item_proposal(repo=dead), document=work_item_document(repo=dead)
+    )
+    assert_killed_at_the_spawn(status=status)
+    assert sole_intent_record(repo=dead)["outcome"] is None
+    assert claim_path(repo=dead).is_file()
+
+    revived = act_with(
+        proposal=work_item_proposal(repo=dead),
+        document=work_item_document(repo=dead),
+        run=lambda *, argv: 0,
+    )
+
+    assert revived["outcome"] == "acted"
+    assert revived["reason"] == "work_item_session_started"
+    assert {"event": "claim_released", "reason": "start_intent_attempted_and_failed"}.items() <= (
+        claim_events(repo=dead)[1].items()
+    )
+
+    live = tmp_path / "live"
+    live.mkdir()
+    started = act_with(
+        proposal=work_item_proposal(repo=live),
+        document=work_item_document(repo=live),
+        run=lambda *, argv: 0,
+    )
+    duplicate = act_with(
+        proposal=work_item_proposal(repo=live),
+        document=work_item_document(repo=live),
+        run=lambda *, argv: 0,
+    )
+
+    assert started["outcome"] == "acted"
+    assert sole_intent_record(repo=live)["outcome"] == {"status": "started", "error": None}
+    assert duplicate["outcome"] == "refused"
+    assert duplicate["reason"] == "work_item_claim_active"
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(("name", "body"), [("absent", None), ("corrupt", "{ not json")])
+def test_a_claim_whose_intent_record_says_nothing_still_reads_as_live_work(
+    *, tmp_path, name: str, body: str | None
+):
+    """The reader fails CLOSED on anything it cannot place.
+
+    An outcome-less record is a POSITIVE signal: an attempt was made and did not
+    resolve. No record at all, and a record that does not parse, are not that
+    signal — they say nothing — so the claim keeps whatever meaning it already
+    had and the start is still refused. Reading silence as permission is how a
+    reconciliation turns into a second session against live work.
+    """
+    repo = tmp_path / name
+    claim = claim_path(repo=repo)
+    claim.parent.mkdir(parents=True)
+    claim.write_text(json.dumps({"work_item_id": WORK_ITEM_ID}), encoding="utf-8")
+    if body is not None:
+        record = foreman_start_intent().start_intent_path(
+            repo=repo, action_id="work_item_session_start", target=WORK_ITEM_ID
+        )
+        record.parent.mkdir(parents=True)
+        record.write_text(body, encoding="utf-8")
+
+    result = act_with(
+        proposal=work_item_proposal(repo=repo),
+        document=work_item_document(repo=repo),
+        run=lambda *, argv: 0,
+    )
+
+    assert result["outcome"] == "refused"
+    assert result["reason"] == "work_item_claim_active"
+    assert claim.is_file()
+
+
+@pytest.mark.integration
+def test_an_intent_record_deleted_underneath_the_surface_is_not_resurrected(*, tmp_path):
+    """The amendment reconciles a record; it never fabricates one.
+
+    A surface that re-created a missing record while reconciling would be writing
+    evidence of an attempt from the wrong side of the spawn — exactly the
+    post-hoc shape the pre-spawn ordering exists to refuse.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def delete_the_record_then_fail(*, argv: list[str]) -> int:
+        assert argv
+        for record in intent_records(repo=repo):
+            record.unlink()
+        return 4
+
+    result = act_with(
+        proposal=plan_proposal(repo=repo),
+        document=plan_document(repo=repo),
+        run=delete_the_record_then_fail,
+    )
+
+    assert result["reason"] == "command_exit_4"
+    assert intent_records(repo=repo) == []

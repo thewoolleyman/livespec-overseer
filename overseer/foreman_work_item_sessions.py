@@ -24,6 +24,7 @@ from foreman_work_item_session_store import (
     write_handoff,
     write_json,
 )
+from foreman_work_item_start_reconcile import reconcile_spawn, released_stale_claim
 
 __all__: list[str] = ["WorkItemRunner", "act_work_item_session", "is_work_item_session_action"]
 
@@ -140,7 +141,9 @@ def _act_start(
     directory = state_dir(repo=repo, work_item_id=work_item_id)
     claim = directory / "claim.json"
     outcome = read_json(path=directory / "outcome.json")
-    if claim.exists():
+    if claim.exists() and not released_stale_claim(
+        repo=repo, action_id=action_id, work_item_id=work_item_id
+    ):
         return _refused(action_id=action_id, reason="work_item_claim_active")
     handoff = write_handoff(repo=repo, payload=payload)
     if handoff is None:
@@ -162,8 +165,9 @@ def _act_start(
     write_json(path=claim, payload=claim_payload)
     append_event(directory=directory, record={"event": "claim", **claim_payload})
     code = run(argv=start_command(repo=repo, session_name=work_item_id, handoff=handoff))
-    if code != 0:  # pragma: no cover
-        return _refused(action_id=action_id, reason=f"command_exit_{code}")
+    error = reconcile_spawn(repo=repo, action_id=action_id, work_item_id=work_item_id, code=code)
+    if error is not None:
+        return _refused(action_id=action_id, reason=error)
     return _acted(action_id=action_id, reason="work_item_session_started")
 
 
