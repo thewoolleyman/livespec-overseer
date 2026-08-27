@@ -328,7 +328,7 @@ def test_entry_and_identity_gates_fail_closed(*, tmp_path):
         "repo": repo,
         "watch_set_path": watch_set,
         "tmux": FakeTmux(sessions=frozenset({"repo-foreman"})),
-        "sessions": [session(repo=repo)],
+        "evidence": module.RuntimeEvidence(sessions=[session(repo=repo)]),
     }
 
     assert module.entry_gate(**base, cwd=other).ok is False
@@ -340,10 +340,14 @@ def test_entry_and_identity_gates_fail_closed(*, tmp_path):
     missing_tmux = module.entry_gate(**{**base, "tmux": FakeTmux(sessions=frozenset())}, cwd=repo)
     assert missing_tmux.ok is False
     wrong_name = module.entry_gate(
-        **{**base, "sessions": [session(repo=repo, name="foreman")]}, cwd=repo
+        **{
+            **base,
+            "evidence": module.RuntimeEvidence(sessions=[session(repo=repo, name="foreman")]),
+        },
+        cwd=repo,
     )
     assert wrong_name.ok is False
-    assert module.entry_gate(**{**base, "sessions": []}, cwd=repo).ok is False
+    assert module.entry_gate(**{**base, "evidence": module.RuntimeEvidence()}, cwd=repo).ok is False
 
 
 def test_foreman_track_registration_is_independent_of_plan_and_idempotent(*, tmp_path):

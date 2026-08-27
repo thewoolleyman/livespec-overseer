@@ -29,7 +29,12 @@ from foreman_runtime_document import (
     foreman_document,
 )
 from foreman_runtime_escalation import foreman_session_identity, record_blocking_prompt_escalation
-from foreman_runtime_identity import EntryGateResult, canonical_session_name, entry_gate
+from foreman_runtime_identity import (
+    EntryGateResult,
+    RuntimeEvidence,
+    canonical_session_name,
+    entry_gate,
+)
 from foreman_runtime_lock import ForemanLock, LockResult
 from foreman_runtime_policy import exit_reason, stable_ticks
 from foreman_runtime_registration import register_foreman_track
@@ -47,6 +52,7 @@ __all__: list[str] = [
     "ForemanLock",
     "ForemanRuntime",
     "LockResult",
+    "RuntimeEvidence",
     "StepResult",
     "canonical_session_name",
     "entry_gate",

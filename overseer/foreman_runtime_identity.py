@@ -11,7 +11,12 @@ from typing import Protocol
 import registry
 from _signals_topics import foreman_topic
 
-__all__: list[str] = ["EntryGateResult", "canonical_session_name", "entry_gate"]
+__all__: list[str] = [
+    "EntryGateResult",
+    "RuntimeEvidence",
+    "canonical_session_name",
+    "entry_gate",
+]
 
 
 class _SessionExists(Protocol):
@@ -23,10 +28,11 @@ class _RuntimeIdentity(Protocol):
 
     Deliberately the SMALLEST shape that answers the gate's question — the exact
     display name and the exact repository cwd — so Claude registry evidence
-    (``_claude_sessions_registry.ClaudeSession``) and Codex rollout-join evidence
-    (``_codex_session_models.CodexSession``) both satisfy it as they already stand.
+    (``_claude_sessions_registry.ClaudeSession``), Codex rollout-join evidence
+    (``_codex_session_models.CodexSession``) and Pi active-session evidence
+    (``pi_sessions.PiSession``) all satisfy it as they already stand.
     Generalizing the SHAPE rather than the CHECK is what keeps the exact
-    name-plus-repository identity test byte-for-byte the same for both runtimes;
+    name-plus-repository identity test byte-for-byte the same for every runtime;
     a runtime-branching gate could drift into admitting one on weaker evidence.
     """
 
@@ -35,6 +41,30 @@ class _RuntimeIdentity(Protocol):
 
     @property
     def cwd(self) -> str: ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class RuntimeEvidence:
+    """Live identity evidence, one already-read field per runtime that can supply it.
+
+    The three fields carry the SAME shape and are aggregated identically; the split is
+    provenance, so a caller wires each reader explicitly and a missing one is visibly
+    missing rather than silently folded into another runtime's list. All default empty
+    and the whole carrier defaults empty, so evidence must be supplied to be admitted.
+
+    Carrying them TOGETHER rather than as three parameters is what stops the gate's
+    signature growing by one every time the fleet gains a runtime — the growth this
+    replaced, at the third one. It also puts the "which runtime supplied it is not the
+    gate's business" rule in the type rather than only in the prose below.
+    """
+
+    sessions: Sequence[_RuntimeIdentity] = ()
+    codex_sessions: Sequence[_RuntimeIdentity] = ()
+    pi_sessions: Sequence[_RuntimeIdentity] = ()
+
+    def identities(self) -> tuple[_RuntimeIdentity, ...]:
+        """Every supplied identity, in runtime order — the gate's only read of this."""
+        return (*self.sessions, *self.codex_sessions, *self.pi_sessions)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -75,22 +105,24 @@ def entry_gate(
     cwd: str | os.PathLike[str],
     watch_set_path: str | os.PathLike[str],
     tmux: _SessionExists,
-    sessions: Sequence[_RuntimeIdentity],
-    codex_sessions: Sequence[_RuntimeIdentity] = (),
+    evidence: RuntimeEvidence,
 ) -> EntryGateResult:
     """Admit a foreman seat only on live, exactly-matching runtime identity evidence.
 
-    ``sessions`` is Claude registry evidence and ``codex_sessions`` is the live Codex
-    evidence a caller reads from ``codex_sessions.read_live_codex_sessions()``. The two
-    are AGGREGATED rather than tried in turn: a seat needs one live identity carrying
-    the canonical session name in this exact repository, and which runtime supplied it
-    is not the gate's business. Both default-empty and fail closed, so a caller that
-    supplies no evidence at all is refused rather than waved through.
+    ``evidence`` carries Claude registry evidence, the live Codex evidence a caller
+    reads from ``codex_sessions.read_live_codex_sessions()``, and the live Pi evidence
+    from ``pi_sessions.read_live_pi_sessions()``. They are AGGREGATED rather than tried
+    in turn: a seat needs one live identity carrying the canonical session name in this
+    exact repository, and which runtime supplied it is not the gate's business. Every
+    field defaults empty and fails closed, so a caller that supplies no evidence at all
+    is refused rather than waved through.
 
-    Codex evidence must arrive already read: this module deliberately duplicates no
-    process scan and no rollout discovery, and it accepts no unindexed session — the
-    reader drops those before the gate ever sees them, which is what keeps "a session
-    with no thread_name has no topic" a property of the join rather than a policy here.
+    Evidence must arrive already read: this module deliberately duplicates no process
+    scan, no rollout discovery and no session-file read, and it accepts no session its
+    reader declined to name — an unindexed Codex session and a Pi invocation lacking
+    the injected session variables are both dropped before the gate ever sees them.
+    That is what keeps "a session with no name has no topic" a property of each join
+    rather than a policy here.
     """
     repo_path = Path(repo).resolve()
     session_name = canonical_session_name(repo=repo_path)
@@ -102,7 +134,7 @@ def entry_gate(
     if not tmux.session_exists(session=session_name):
         return EntryGateResult(ok=False, session_name=session_name, reason="tmux session missing")
     if not _identity_matches(
-        repo=repo_path, session_name=session_name, identities=(*sessions, *codex_sessions)
+        repo=repo_path, session_name=session_name, identities=evidence.identities()
     ):
         return EntryGateResult(
             ok=False, session_name=session_name, reason="runtime registry mismatch"
