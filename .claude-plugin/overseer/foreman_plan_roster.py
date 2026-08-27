@@ -8,6 +8,7 @@ from pathlib import Path
 import jsonio
 import tmuxio
 from _supervisor_snapshot import read_status_snapshot
+from foreman_detection_staleness import detection_staleness_document
 from foreman_plan_roster_state import mark_roster_tick
 from foreman_plan_roster_work import (
     NO_WORK_IN_FLIGHT,
@@ -260,6 +261,9 @@ def compose_roster(
         "repo": str(repo),
         "snapshot_path": str(snapshot_path),
         "attention_view": attention_document,
+        "detection_staleness": detection_staleness_document(
+            rows=rows, attention=attention, repo=repo
+        ),
         "unrouted_plan_bound": bound_document,
         "rows": rows,
         "name_identity_errors": _tmux_only_errors(
