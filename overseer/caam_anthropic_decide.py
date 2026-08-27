@@ -4,12 +4,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Protocol
 
 from _caam_switch_host import acquire_switch_lock, caam_activate
-from caam_anthropic_finish import LineWriter, SaveState, finish
+from caam_anthropic_finish import SaveState, finish
+from caam_decide_context import (
+    DecisionContext,
+    DecisionSeams,
+    Flags,
+    SwitchAccount,
+    UsageFetcher,
+)
 from caam_decision import (
     ActiveAccount,
     ProfileUsage,
@@ -22,7 +26,9 @@ from caam_decision import (
     decision_trigger,
     eligible_profiles,
     five_hour_threshold,
+    floor_breach,
     min_headroom_gain,
+    protection_floor_for,
     rank_profiles,
     triggered,
     weekly_left,
@@ -31,7 +37,7 @@ from caam_decision import (
 from caam_foreman_override import scoped_model_pinned
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
-from caam_switch import SwitchRequest, SwitchResult
+from caam_switch import SwitchRequest
 from caam_target_summary import target_summary
 
 __all__: list[str] = [
@@ -42,54 +48,6 @@ __all__: list[str] = [
     "UsageFetcher",
     "decide",
 ]
-
-
-class Flags(Protocol):
-    @property
-    def force(self) -> bool: ...
-
-    @property
-    def dry_run(self) -> bool: ...
-
-
-class UsageFetcher(Protocol):
-    def __call__(
-        self,
-        *,
-        creds_path: Path,
-        now: float | None = None,
-    ) -> tuple[UsageRecord | None, str | None]: ...
-
-
-class SwitchAccount(Protocol):
-    def __call__(self, *, request: SwitchRequest) -> SwitchResult: ...
-
-
-class DecisionContext(Protocol):
-    @property
-    def flags(self) -> Flags: ...
-
-    @property
-    def home(self) -> Path: ...
-
-    @property
-    def now(self) -> float: ...
-
-    @property
-    def state(self) -> dict[str, object]: ...
-
-    @property
-    def state_path(self) -> Path: ...
-
-    @property
-    def stdout(self) -> LineWriter: ...
-
-
-@dataclass(frozen=True, kw_only=True)
-class DecisionSeams:
-    fetcher: UsageFetcher
-    save_state: SaveState
-    switch_account: SwitchAccount
 
 
 def decide(
@@ -144,6 +102,12 @@ def decide(
             decision_line=decision_line,
             dimension=dimension,
             active_name=active_name,
+            breached_floor=floor_breach(
+                usage=current,
+                protection_floor=protection_floor_for(
+                    name=active_name, protection_floors=protection_floors
+                ),
+            ),
         )
     if context.flags.dry_run:
         return _dry_run(
@@ -194,11 +158,13 @@ def _hold_no_candidate(
     decision_line: str,
     dimension: str,
     active_name: str,
+    breached_floor: tuple[float, float] | None = None,
 ) -> int:
     line = decision_hold_no_candidate(
         gain_needed=0.01 if context.flags.force else min_headroom_gain(),
         dimension=dimension,
         active_name=active_name,
+        breached_floor=breached_floor,
     )
     return finish(
         code=0,

@@ -123,10 +123,23 @@ def decision_trigger(*, label: str, spent: float, weekly_remaining: float, dimen
     )
 
 
-def decision_hold_no_candidate(*, gain_needed: float, dimension: str, active_name: str) -> str:
-    return (
+def decision_hold_no_candidate(
+    *,
+    gain_needed: float,
+    dimension: str,
+    active_name: str,
+    breached_floor: tuple[float, float] | None = None,
+) -> str:
+    line = (
         f"hold: no candidate has >={gain_needed:.2f} points more {dimension} headroom "
         f"than {active_name} (all similarly spent, exhausted, or unverifiable)"
+    )
+    if breached_floor is None:
+        return line
+    remaining, floor = breached_floor
+    return (
+        f"{line}; {active_name} is PROTECTED and past its floor -- "
+        f"{remaining:g}% weekly left, floor {floor:g}%"
     )
 
 

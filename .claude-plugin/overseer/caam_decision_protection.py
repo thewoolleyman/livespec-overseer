@@ -14,6 +14,7 @@ __all__: list[str] = [
     "candidate_allowed",
     "dimension_spent",
     "empty_release_note",
+    "floor_breach",
     "is_eligible",
     "protection_floor_for",
     "raw_weekly_left",
@@ -98,6 +99,21 @@ def is_eligible(
         and weekly_left(usage=usage, protection_floor=protection_floor) > 0.0
         and usage.five_hour < _FULLY_SPENT
     )
+
+
+def floor_breach(
+    *, usage: UsageRecord | None, protection_floor: float
+) -> tuple[float, float] | None:
+    """Remaining and floor for a protected account at or past its floor, else None.
+
+    Returns None whenever no floor is configured, so a caller can pass the result
+    straight through and an unprotected account renders byte-identically to before.
+    """
+    if usage is None or protection_floor <= 0.0:
+        return None
+    if weekly_left(usage=usage, protection_floor=protection_floor) > 0.0:
+        return None
+    return (raw_weekly_left(usage=usage), protection_floor)
 
 
 def is_protected(*, profile: ProfileUsage, protection_floors: Mapping[str, float]) -> bool:
