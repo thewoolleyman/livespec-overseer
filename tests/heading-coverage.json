@@ -1262,17 +1262,17 @@
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Capacity is stated from the composed verdict, not from raw statuses",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. Pins the lesson of three surfaces agreeing on a wrong capacity claim because each re-derived it from raw statuses: a verdict that exists and is not read produces confident agreement between observers sharing a mistake.",
-    "work_item": "overseer-7ranbh"
+    "test": "tests.integration.test_capacity_from_verdict.test_capacity_is_stated_from_the_composed_verdict_not_from_raw_statuses",
+    "reason": "Integration-tier: drives the shipped capacity surface over a real repository whose attention view the shipped gatherer COMPOSES, so the verdict read and the raw work-item statuses passed over arrive in the SAME document -- a statement matching the verdict is therefore a statement that declined statuses it had in hand. It asserts BOTH DIRECTIONS, which is what makes it discriminating: ten rows reading `active` against a cap of ten, where the verdict says four slots are free, and not one row reading `active` where the verdict says none is. An implementation keyed on raw statuses fails one half whichever way it guesses, and the statuses are the fleet's own phantom-claim shape rather than a strawman, since an `active` row here is routinely a claim behind which no run exists. It also asserts that every surface the clause names renders ONE sentence, which is the mechanism rather than the restatement: the incident was three surfaces each deriving their own, and a single statement leaves nothing for one surface to disagree with. Its sibling carries the absence branch. Discharges the TODO filed by plan foreman-fact-consumption (anchor overseer-7ranbh); implemented by overseer-7ranbh.4.",
+    "work_item": "overseer-7ranbh.4"
   },
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
     "heading": "## Scenario: Capacity with no available verdict is stated as unknown, never inferred",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan foreman-fact-consumption (anchor overseer-7ranbh); the pinning test lands with that plan's implementation child. THE DISCRIMINATING CONTROL for the capacity clause's absence branch, and the closest analogue of the motivating incident, in which three surfaces each inferred an occupied slot rather than reading a verdict. Without it an implementation that silently infers whenever no verdict exists passes every other scenario.",
-    "work_item": "overseer-7ranbh"
+    "test": "tests.integration.test_capacity_from_verdict.test_capacity_with_no_available_verdict_is_stated_as_unknown_never_inferred",
+    "reason": "Integration-tier: THE DISCRIMINATING CONTROL for the capacity clause's absence branch, and the closest analogue of the motivating incident, in which three surfaces each inferred an occupied slot rather than reading a verdict. Without it an implementation that silently infers whenever no verdict exists passes every other scenario. It drives the shipped surface over a repository carrying the SAME rows that would tempt an inference and no verdict anywhere -- none on the attention view, and none in the dispatch machinery's own journal -- and asserts the statement is unknown with the reason named. The assertion that actually bounds the clause is that no slot is asserted occupied or free: the free-slot count is ABSENT rather than zero, because zero is itself the claim that the queue is closed, and an implementation reporting unknown while carrying a zero would pass a verdict-string check. Its own control is the identical repository with a verdict added and nothing else changed, which states a determined answer, so the unknown is caused by the verdict's absence rather than by a path that never resolves. A sibling in the same module pins that the dispatch machinery's verdict is read where the view carries none, and that its LATEST report wins over an earlier one written after it. Discharges the TODO filed by plan foreman-fact-consumption (anchor overseer-7ranbh); implemented by overseer-7ranbh.4.",
+    "work_item": "overseer-7ranbh.4"
   },
   {
     "spec_root": "SPECIFICATION",
