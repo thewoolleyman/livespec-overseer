@@ -7,6 +7,8 @@ from datetime import datetime
 from math import inf
 from typing import Protocol
 
+from caam_foreman_override import SCOPED_MODEL
+
 __all__: list[str] = [
     "CURRENT_COL",
     "RenderableProfileUsage",
@@ -17,13 +19,16 @@ __all__: list[str] = [
     "decision_forced",
     "decision_hold_allowance",
     "decision_hold_no_candidate",
+    "decision_hold_unsatisfiable_pin",
     "decision_switched",
     "decision_trigger",
     "floor_breach_reason",
     "fmt_duration",
     "render_table",
     "trigger_header",
+    "unsatisfiable_pin_reason",
     "until",
+    "with_reasons",
 ]
 
 
@@ -137,6 +142,18 @@ def floor_breach_reason(
     )
 
 
+def with_reasons(*, line: str, reasons: tuple[str, ...]) -> str:
+    """Compose every reason for holding onto ONE line, in report order.
+
+    This is the single composition mechanism every hold line shares. Reasons
+    compose rather than each condition adding a mechanism of its own, and with
+    no reasons the line is returned byte-identical to what was passed in.
+    """
+    for reason in reasons:
+        line = f"{line}; {reason}"
+    return line
+
+
 def decision_hold_no_candidate(
     *,
     gain_needed: float,
@@ -144,18 +161,36 @@ def decision_hold_no_candidate(
     active_name: str,
     reasons: tuple[str, ...] = (),
 ) -> str:
-    """The no-candidate hold line, with any reasons the pass can give for holding.
-
-    Reasons COMPOSE onto one line rather than each adding a mechanism of its own.
-    With no reasons the line is byte-identical to the form that predates them.
-    """
-    line = (
-        f"hold: no candidate has >={gain_needed:.2f} points more {dimension} headroom "
-        f"than {active_name} (all similarly spent, exhausted, or unverifiable)"
+    """The hold line for a pass no candidate cleared the headroom margin for."""
+    return with_reasons(
+        line=(
+            f"hold: no candidate has >={gain_needed:.2f} points more {dimension} headroom "
+            f"than {active_name} (all similarly spent, exhausted, or unverifiable)"
+        ),
+        reasons=reasons,
     )
-    for reason in reasons:
-        line = f"{line}; {reason}"
-    return line
+
+
+def unsatisfiable_pin_reason() -> str:
+    """The hold reason for a pin no account within reach of this pass can serve."""
+    return (
+        f"the {SCOPED_MODEL} pin cannot currently be satisfied -- "
+        "no candidate can serve it either"
+    )
+
+
+def decision_hold_unsatisfiable_pin(*, active_name: str, reasons: tuple[str, ...] = ()) -> str:
+    """The hold line for a pass whose only reason to leave cannot be served elsewhere.
+
+    Candidates were AVAILABLE here, which is what separates this line from the
+    no-candidate one: rotating onto one of them would carry the unsatisfiable pin
+    along rather than resolve it, so the pass stays where it is and says so. The
+    pin itself is named by the reason composed onto the line, not restated here.
+    """
+    return with_reasons(
+        line=f"hold: staying on {active_name} -- rotating would not serve the pin",
+        reasons=reasons,
+    )
 
 
 def decision_dry_run(*, active_name: str, target: SwitchTargetSummary) -> str:
