@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.61.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.60.1...v1.61.0) (2026-08-27)
+
+
+### Features
+
+* **foreman:** publish the foreman's own wait states on the plan's ledger epic, recovered from a destroyed run ([96f8a48](https://github.com/thewoolleyman/livespec-overseer/commit/96f8a48e1cb608f6ff312260a2fc259ad9d786c4))
+
 ## [1.60.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.60.0...v1.60.1) (2026-08-27)
 
 
