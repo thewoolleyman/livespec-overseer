@@ -27,6 +27,7 @@ from caam_decision import (
     eligible_profiles,
     five_hour_threshold,
     floor_breach,
+    floor_breach_reason,
     min_headroom_gain,
     protection_floor_for,
     rank_profiles,
@@ -85,16 +86,14 @@ def decide(
         current=current,
         dimension=dimension,
     )
-    ranked = rank_profiles(
-        profiles=eligible_profiles(
-            profiles=profiles,
-            active=ActiveAccount(name=active_name, usage=current, scoped_pin=scoped_pin),
-            force=context.flags.force,
-            dimension=dimension,
-            protection_floors=protection_floors,
-        ).profiles,
-        scoped_pin=scoped_pin,
+    eligible = eligible_profiles(
+        profiles=profiles,
+        active=ActiveAccount(name=active_name, usage=current, scoped_pin=scoped_pin),
+        force=context.flags.force,
+        dimension=dimension,
+        protection_floors=protection_floors,
     )
+    ranked = rank_profiles(profiles=eligible.profiles, scoped_pin=scoped_pin)
     if not ranked:
         return _hold_no_candidate(
             context=context,
@@ -102,18 +101,18 @@ def decide(
             decision_line=decision_line,
             dimension=dimension,
             active_name=active_name,
-            breached_floor=floor_breach(
-                usage=current,
-                protection_floor=protection_floor_for(
-                    name=active_name, protection_floors=protection_floors
-                ),
+            reasons=_hold_reasons(
+                active_name=active_name,
+                current=current,
+                protection_floors=protection_floors,
+                note=eligible.note,
             ),
         )
     if context.flags.dry_run:
         return _dry_run(
             context=context,
             save_state=seams.save_state,
-            decision_line=decision_line,
+            decision_line=_with_note(line=decision_line, note=eligible.note),
             active_name=active_name,
             target=ranked[0],
         )
@@ -122,7 +121,7 @@ def decide(
         active_name=active_name,
         current=current,
         target=ranked[0],
-        decision_line=decision_line,
+        decision_line=_with_note(line=decision_line, note=eligible.note),
         seams=seams,
     )
 
@@ -158,13 +157,13 @@ def _hold_no_candidate(
     decision_line: str,
     dimension: str,
     active_name: str,
-    breached_floor: tuple[float, float] | None = None,
+    reasons: tuple[str, ...] = (),
 ) -> int:
     line = decision_hold_no_candidate(
         gain_needed=0.01 if context.flags.force else min_headroom_gain(),
         dimension=dimension,
         active_name=active_name,
-        breached_floor=breached_floor,
+        reasons=reasons,
     )
     return finish(
         code=0,
@@ -174,6 +173,31 @@ def _hold_no_candidate(
         stdout=context.stdout,
         lines=(decision_line, line),
     )
+
+
+def _with_note(*, line: str, note: str | None) -> str:
+    """Append an eligibility note to a decision line, if there is one."""
+    return line if note is None else f"{line}; {note}"
+
+
+def _hold_reasons(
+    *,
+    active_name: str,
+    current: UsageRecord,
+    protection_floors: Mapping[str, float],
+    note: str | None,
+) -> tuple[str, ...]:
+    """Every reason this pass can give for holding, in the order they are reported."""
+    breach = floor_breach_reason(
+        active_name=active_name,
+        breached_floor=floor_breach(
+            usage=current,
+            protection_floor=protection_floor_for(
+                name=active_name, protection_floors=protection_floors
+            ),
+        ),
+    )
+    return tuple(reason for reason in (breach, note) if reason is not None)
 
 
 def _dry_run(

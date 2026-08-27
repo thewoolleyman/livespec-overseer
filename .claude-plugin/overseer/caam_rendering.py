@@ -19,6 +19,7 @@ __all__: list[str] = [
     "decision_hold_no_candidate",
     "decision_switched",
     "decision_trigger",
+    "floor_breach_reason",
     "fmt_duration",
     "render_table",
     "trigger_header",
@@ -123,24 +124,38 @@ def decision_trigger(*, label: str, spent: float, weekly_remaining: float, dimen
     )
 
 
+def floor_breach_reason(
+    *, active_name: str, breached_floor: tuple[float, float] | None
+) -> str | None:
+    """The hold reason for an active account being spent past its protection floor."""
+    if breached_floor is None:
+        return None
+    remaining, floor = breached_floor
+    return (
+        f"{active_name} is PROTECTED and past its floor -- "
+        f"{remaining:g}% weekly left, floor {floor:g}%"
+    )
+
+
 def decision_hold_no_candidate(
     *,
     gain_needed: float,
     dimension: str,
     active_name: str,
-    breached_floor: tuple[float, float] | None = None,
+    reasons: tuple[str, ...] = (),
 ) -> str:
+    """The no-candidate hold line, with any reasons the pass can give for holding.
+
+    Reasons COMPOSE onto one line rather than each adding a mechanism of its own.
+    With no reasons the line is byte-identical to the form that predates them.
+    """
     line = (
         f"hold: no candidate has >={gain_needed:.2f} points more {dimension} headroom "
         f"than {active_name} (all similarly spent, exhausted, or unverifiable)"
     )
-    if breached_floor is None:
-        return line
-    remaining, floor = breached_floor
-    return (
-        f"{line}; {active_name} is PROTECTED and past its floor -- "
-        f"{remaining:g}% weekly left, floor {floor:g}%"
-    )
+    for reason in reasons:
+        line = f"{line}; {reason}"
+    return line
 
 
 def decision_dry_run(*, active_name: str, target: SwitchTargetSummary) -> str:
