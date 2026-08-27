@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.2...v1.62.3) (2026-08-27)
+
+
+### Bug Fixes
+
+* **caam:** measure a protected active net of its own floor ([8229d6f](https://github.com/thewoolleyman/livespec-overseer/commit/8229d6f69d8a0f2fa146cd15a18cd4f5db9bf7e6))
+
 ## [1.62.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.1...v1.62.2) (2026-08-27)
 
 
