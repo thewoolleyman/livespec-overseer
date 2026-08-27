@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.56.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.55.0...v1.56.0) (2026-08-27)
+
+
+### Features
+
+* **foreman:** reconcile a start-intent with its outcome, recovered from a destroyed run ([582c030](https://github.com/thewoolleyman/livespec-overseer/commit/582c030fbbd4e1393ab027bdb556a22bb3a0c415))
+
 ## [1.55.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.54.1...v1.55.0) (2026-08-26)
 
 
