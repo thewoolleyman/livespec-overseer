@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.4...v1.62.5) (2026-08-27)
+
+
+### Bug Fixes
+
+* **caam:** re-render the table after a switch so CURRENT is not stale ([637b936](https://github.com/thewoolleyman/livespec-overseer/commit/637b9367c7522d11b672a1341cf09ed3688f7112))
+
 ## [1.62.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.3...v1.62.4) (2026-08-27)
 
 
