@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.3...v1.62.4) (2026-08-27)
+
+
+### Bug Fixes
+
+* **caam:** persist a session-model exception the pass just changed ([fac9249](https://github.com/thewoolleyman/livespec-overseer/commit/fac924921227855dd9422ed9baa1e8e26bc878a5))
+
 ## [1.62.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.2...v1.62.3) (2026-08-27)
 
 
