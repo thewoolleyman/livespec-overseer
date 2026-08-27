@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.60.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.59.0...v1.60.0) (2026-08-27)
+
+
+### Features
+
+* **foreman:** admit live Pi foreman identity from active-session metadata ([f5f8679](https://github.com/thewoolleyman/livespec-overseer/commit/f5f86792d7ede77db253d8aa0dceae64eb04d3cf))
+
 ## [1.59.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.58.0...v1.59.0) (2026-08-27)
 
 
