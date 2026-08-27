@@ -20,7 +20,7 @@ from pathlib import Path
 
 from caam_anthropic_decide import DecisionSeams, decide
 from caam_decision import ProfileUsage, UsageRecord, floor_breach
-from caam_rendering import decision_hold_no_candidate
+from caam_rendering import decision_hold_no_candidate, floor_breach_reason
 
 # v037's worked breach case, at the shipped defaults (reserve 10, margin 10):
 # protected active A at seven_day 91 triggers; unprotected B at 82 clears the
@@ -156,7 +156,9 @@ def test_the_renderer_appends_nothing_when_given_no_breach() -> None:
             gain_needed=10.0,
             dimension="five_hour",
             active_name="active",
-            breached_floor=None,
+            reasons=(),
         )
         == plain
     )
+    # a breach that is not a breach contributes no reason, so nothing is appended
+    assert floor_breach_reason(active_name="active", breached_floor=None) is None

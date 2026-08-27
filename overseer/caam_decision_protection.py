@@ -202,9 +202,19 @@ def empty_release_note(
     profiles: tuple[ProfileUsage, ...],
     protection_floors: Mapping[str, float],
     weekly_reserve: float,
+    active_name: str = "",
 ) -> str:
-    held = protected_accounts_at_floor(profiles=profiles, protection_floors=protection_floors)
-    live_count = len(tuple(profile for profile in profiles if profile.source == "live"))
+    """Why the pass could not use the released reserve, in the operator's words.
+
+    The protected-floor branch is judged over the CANDIDATES -- every live account
+    other than the active one -- because the ratified clause is about every remaining
+    CANDIDATE being at its floor. Judging it over the full set silently demands that
+    the ACTIVE account be protected and at its floor too, which is a stricter and
+    different condition.
+    """
+    candidates = tuple(profile for profile in profiles if profile.name != active_name)
+    held = protected_accounts_at_floor(profiles=candidates, protection_floors=protection_floors)
+    live_count = len(tuple(profile for profile in candidates if profile.source == "live"))
     if held and len(held) == live_count:
         accounts = ", ".join(
             f"{name} at {remaining:g}% left (floor {floor:g}%)" for name, remaining, floor in held

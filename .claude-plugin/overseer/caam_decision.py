@@ -31,6 +31,7 @@ from caam_rendering import (
     decision_hold_no_candidate,
     decision_switched,
     decision_trigger,
+    floor_breach_reason,
     fmt_duration,
     render_table,
     trigger_header,
@@ -57,6 +58,7 @@ __all__: list[str] = [
     "eligible_profiles",
     "five_hour_threshold",
     "floor_breach",
+    "floor_breach_reason",
     "fmt_duration",
     "is_eligible",
     "min_headroom_gain",
@@ -175,12 +177,14 @@ def eligible_profiles(
                 profiles=profiles,
                 protection_floors=protection_floors,
                 weekly_reserve=reserve,
+                active_name=active.name,
             ),
         )
     note = empty_release_note(
         profiles=profiles,
         protection_floors=protection_floors,
         weekly_reserve=reserve,
+        active_name=active.name,
     )
     return EligibleProfiles(profiles=released, reserve_released=bool(released), note=note)
 
