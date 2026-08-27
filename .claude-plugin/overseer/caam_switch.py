@@ -72,6 +72,12 @@ class UsageFetcher(Protocol):
 class SwitchResult:
     exit_code: int
     lines: tuple[str, ...]
+    # True on the ONE path that actually moved the live credential. An exit code
+    # of zero does not mean that: a lock held by another pass, and an active
+    # account that changed while this pass was deciding, both hold successfully
+    # and return zero. Anything keyed on the code alone would treat those as
+    # switches.
+    switched: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -165,6 +171,7 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
     request.save(state=request.state)
     return SwitchResult(
         exit_code=0,
+        switched=True,
         lines=(
             decision_switched(
                 active_name=request.active_name,

@@ -176,6 +176,11 @@ def _switch_decision(
     )
     for line in (decision_line, *result.lines):
         context.stdout(line)
+    # Carrier R13, and note it runs AFTER the outcome line: the operator reads
+    # table, decision, outcome, corrected table. Keyed on `switched` rather than
+    # on the exit code, because two holds also succeed with zero.
+    if result.switched and seams.after_switch is not None:
+        seams.after_switch(active_name=target.name)
     return result.exit_code
 
 

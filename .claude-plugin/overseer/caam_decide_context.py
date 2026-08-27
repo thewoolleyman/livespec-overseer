@@ -11,6 +11,7 @@ from caam_decision import UsageRecord
 from caam_switch import SwitchRequest, SwitchResult
 
 __all__: list[str] = [
+    "AfterSwitch",
     "DecisionContext",
     "DecisionSeams",
     "Flags",
@@ -40,6 +41,17 @@ class SwitchAccount(Protocol):
     def __call__(self, *, request: SwitchRequest) -> SwitchResult: ...
 
 
+class AfterSwitch(Protocol):
+    """Called once, with the new active account, after a switch has succeeded.
+
+    The decision path knows a switch happened; only the pass above it holds the
+    polled profiles a table is drawn from. This seam carries the fact upward
+    rather than moving the rendering down, and it is never called on a hold.
+    """
+
+    def __call__(self, *, active_name: str) -> None: ...
+
+
 class DecisionContext(Protocol):
     @property
     def flags(self) -> Flags: ...
@@ -65,3 +77,4 @@ class DecisionSeams:
     fetcher: UsageFetcher
     save_state: SaveState
     switch_account: SwitchAccount
+    after_switch: AfterSwitch | None = None

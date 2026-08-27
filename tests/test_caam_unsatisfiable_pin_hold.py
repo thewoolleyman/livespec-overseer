@@ -46,6 +46,10 @@ def _usage(*, seven_day: float, five_hour: float, fable: float | None = _SPENT) 
 class _SwitchResult:
     lines: tuple[str, ...]
     exit_code: int
+    # Mirrors the real SwitchResult: the decision path reads this to decide
+    # whether a switch actually moved the credential. These fakes stand in for
+    # one that did, so they report it.
+    switched: bool = True
 
 
 class _Flags:

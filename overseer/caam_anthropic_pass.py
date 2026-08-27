@@ -220,6 +220,10 @@ def _pass_with_active(
         logger=_logger(writer=context.stdout),
         now=context.now,
     )
+
+    def _after_switch(*, active_name: str) -> None:
+        _emit_table(context=context, profiles=profiles, active_name=active_name)
+
     return decide(
         context=context,
         profiles=profiles,
@@ -230,8 +234,23 @@ def _pass_with_active(
             fetcher=seams.fetcher,
             save_state=seams.save_state,
             switch_account=seams.switch_account,
+            after_switch=_after_switch,
         ),
     )
+
+
+def _emit_table(
+    *, context: PassContext, profiles: tuple[ProfileUsage, ...], active_name: str
+) -> None:
+    """Re-render the table so its CURRENT column names the account now in use.
+
+    Carrier R13. The rows are the ones this pass ALREADY polled, so no request is
+    made: re-polling would cost one per switch and would also print figures that
+    disagree with the table above for reasons having nothing to do with the move.
+    Only the active marker is expected to differ between the two renderings.
+    """
+    for line in _table_lines(context=context, profiles=profiles, active_name=active_name):
+        context.stdout(line)
 
 
 def _table_lines(
