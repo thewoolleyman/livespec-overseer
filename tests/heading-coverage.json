@@ -1197,10 +1197,18 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: A killed session start leaves an attempted-and-failed record naming its invoker",
+    "test": "tests.integration.test_start_intent_before_spawn.test_an_outcome_less_intent_record_does_not_read_as_live_work",
+    "reason": "Integration-tier, and a SECOND entry against this heading because its sibling above pins the record's CONTENT while this one pins the clause that the track is not left reading as live work on the strength of that record. It kills a work_item_session_start in a forked child, leaving an outcome-less record beside the claim.json research note 002 measured being left in place, then drives a fresh start through the shipped actuator and asserts it ACTS — the dead attempt did not read as live work, and its stale claim was reconciled with the reason journalled. THE DISCRIMINATING CONTROL is the second leg, a start that RESOLVED: without it the test passes against an implementation that simply stopped refusing on a claim at all, which is the opposite defect, since a claim beside a resolved start names a session that really is live. Two further siblings pin the fail-closed direction: a claim whose intent record is absent, and one whose record does not parse, are silence rather than the attempted-and-failed signal and still refuse the start. Implemented by overseer-zidpiu.4.",
+    "work_item": "overseer-zidpiu.4"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A spawn that fails and returns has its start-intent record amended with the error",
-    "test": "TODO",
-    "reason": "Integration-tier required: this scenario is user-observable behaviour and must be pinned at tests/integration or above, never by a unit test. Ratified ahead of its implementation by plan session-start-and-registry-integrity (anchor overseer-zidpiu); the pinning test lands with that plan implementation child. Pins the SATISFIABLE half of the reconciliation, which the first ratification round found uncovered: the killed-spawn scenario cannot exercise an amendment, because a dead surface writes nothing, so the failing-and-returning case needs its own control or the reconciliation MUST has none.",
-    "work_item": "overseer-zidpiu"
+    "test": "tests.integration.test_start_intent_before_spawn.test_a_spawn_that_fails_and_returns_amends_its_intent_record_with_the_error",
+    "reason": "Integration-tier: drives the shipped actuator over a plan_start proposal whose spawn seam RETURNS non-zero, so the surface survives and owes the amendment — the SATISFIABLE half the killed-spawn scenario structurally cannot exercise, because a dead surface writes nothing. It asserts the amended outcome carries the ERROR and not merely a failure flag: a record saying only 'it failed' cannot tell the next reader whether the spawn was refused, crashed, or never found its command. It drives plan_start deliberately, the half research note 002 measured as carrying no pre-spawn record at all and therefore nothing to amend. Its siblings in the same module carry the rest of the reconciliation: the work_item_session_start family, whose failed spawn also releases the stale claim research note 002 measured being left in place; a control that an intent record deleted underneath the surface is reconciled rather than resurrected, since re-creating one from the wrong side of the spawn would fabricate evidence of an attempt. Replaces the TODO filed by plan session-start-and-registry-integrity (anchor overseer-zidpiu); implemented by overseer-zidpiu.4.",
+    "work_item": "overseer-zidpiu.4"
   },
   {
     "spec_root": "SPECIFICATION",
