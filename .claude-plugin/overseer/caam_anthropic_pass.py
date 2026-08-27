@@ -208,21 +208,42 @@ def _pass_with_active(
         enforce_models=seams.enforce_models,
         extra_messages=protected_accounts.messages,
     )
-    keep_warm(
-        state=context.state,
-        config=WarmConfig(
-            active_name=active_name,
-            home=context.home,
-            dry_run=context.flags.dry_run,
-            no_warm=context.flags.no_warm,
-        ),
-        agent_runner=seams.agent_runner,
-        logger=_logger(writer=context.stdout),
-        now=context.now,
-    )
+
+    def _warm_idle(*, active_name: str) -> None:
+        """Refresh every snapshot but this one, so rotation keeps somewhere to go.
+
+        Carrier X13. The oracle invokes this at three sites; hoisting it above the
+        decision covers both hold paths and the switch path from one place, which
+        three copies cannot be relied on to keep doing. What the hoist alone
+        cannot cover is the oracle's LAST site, which runs with the NEW active
+        profile -- and since this skips whichever account it is told is active,
+        the account a pass has just left is otherwise never a candidate in the
+        pass that left it. That matters exactly when the account being left is
+        already inside the warm margin, which is ordinary late in a five-hour
+        window and is the deadlock this whole slice exists to prevent.
+        """
+        keep_warm(
+            state=context.state,
+            config=WarmConfig(
+                active_name=active_name,
+                home=context.home,
+                dry_run=context.flags.dry_run,
+                no_warm=context.flags.no_warm,
+            ),
+            agent_runner=seams.agent_runner,
+            logger=_logger(writer=context.stdout),
+            now=context.now,
+        )
+
+    _warm_idle(active_name=active_name)
 
     def _after_switch(*, active_name: str) -> None:
         _emit_table(context=context, profiles=profiles, active_name=active_name)
+        # Runs only on a switch that moved the credential, so a hold still warms
+        # exactly once. It needs no re-poll: keep_warm reads each candidate's
+        # expiry from that profile's own vault snapshot, never from the rows this
+        # pass polled.
+        _warm_idle(active_name=active_name)
 
     return decide(
         context=context,
