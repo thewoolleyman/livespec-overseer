@@ -27,6 +27,7 @@ class ProfileUsage:
     name: str
     source: str
     usage: UsageRecord | None
+    credential_expired: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -119,10 +119,12 @@ def _revive_dark_profile(*, context: ReviveContext, profile: ProfileUsage) -> Pr
 
 def _should_revive(*, context: ReviveContext, profile: ProfileUsage, snapshot: Path) -> bool:
     return (
-        profile.usage is None
-        and profile.source.startswith("dark: ")
-        and profile.name != context.active_name
+        profile.name != context.active_name
         and snapshot.exists()
+        and (
+            profile.credential_expired
+            or (profile.usage is None and profile.source.startswith("dark: "))
+        )
     )
 
 
