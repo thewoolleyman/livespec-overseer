@@ -174,6 +174,7 @@ def _poll_profile(*, name: str, context: _PollContext) -> ProfileUsage:
         context.seen[name] = _cache_record(usage=usage, now=context.now)
         return ProfileUsage(name=name, usage=usage, source="live")
 
+    credential_expired = _credential_expired(why=why)
     cached = jsonio.as_object(value=context.seen.get(name))
     if cached is not None and _cache_age(cached=cached, now=context.now) <= cache_max_age_s():
         age = _cache_age(cached=cached, now=context.now)
@@ -181,8 +182,23 @@ def _poll_profile(*, name: str, context: _PollContext) -> ProfileUsage:
             name=name,
             usage=_usage_from_cache(cached=cached),
             source=f"cached {age / 3600:.1f}h",
+            credential_expired=credential_expired,
         )
-    return ProfileUsage(name=name, usage=None, source=f"dark: {why}")
+    return ProfileUsage(
+        name=name, usage=None, source=f"dark: {why}", credential_expired=credential_expired
+    )
+
+
+def _credential_expired(*, why: str | None) -> bool:
+    """Whether a failed usage read means the STORED CREDENTIAL is expired or absent.
+
+    True only for a credential the revive agent could refresh -- an expired token or
+    a snapshot with no token -- never a transient or policy failure (HTTP, network).
+    This lets revive act on the maintenance fact the instant it is known, rather than
+    an hour later when the cached figures age past the reporting ceiling
+    (overseer-54k2za.47).
+    """
+    return why is not None and (why.startswith("token expired") or why == "no token in snapshot")
 
 
 def _fetch_profile_usage(
