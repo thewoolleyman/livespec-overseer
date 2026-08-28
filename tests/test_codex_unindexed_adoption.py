@@ -128,10 +128,9 @@ def test_process_holding_only_unindexed_rollouts_still_surfaces_as_unnamed(tmp_p
 
     assert codex_sessions.read_live_codex_sessions(codex_home=home, **host) == []
     unindexed = codex_sessions.map_unindexed_codex_sessions(
-        codex_home=home,
         pane_pid_to_session={7001: "critical-path"},
         ppid_of=lambda *, pid: {9000: 7001}.get(pid),
-        **host,
+        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
     )
     assert [(session.tmux_session, session.session_id) for session in unindexed] == [
         ("critical-path", ID_B)

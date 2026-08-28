@@ -7,21 +7,12 @@ from dataclasses import dataclass
 
 import claude_sessions
 import codex_sessions
-from _seams import CommToPidList, PidToOptionalInt, PidToOptionalStr, PidToStrList
+from _seams import PidToOptionalInt, PidToOptionalStr
 
 __all__: list[str] = [
-    "CodexProfileReaders",
     "LaunchProfileSource",
     "live_profile_sources",
 ]
-
-
-@dataclass(frozen=True, kw_only=True)
-class CodexProfileReaders:
-    codex_home: str | os.PathLike[str] | None
-    pids_of_comm: CommToPidList
-    cwd_of: PidToOptionalStr
-    fd_targets_of: PidToStrList
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -71,7 +62,7 @@ def _codex_sources(
     *,
     pane_pid_to_session: dict[int, str],
     ppid_of: PidToOptionalInt,
-    readers: CodexProfileReaders,
+    readers: codex_sessions.CodexHostReaders,
 ) -> dict[tuple[str, str], LaunchProfileSource]:
     out: dict[tuple[str, str], LaunchProfileSource] = {}
     for session in codex_sessions.read_live_codex_sessions(
@@ -79,6 +70,7 @@ def _codex_sources(
         pids_of_comm=readers.pids_of_comm,
         cwd_of=readers.cwd_of,
         fd_targets_of=readers.fd_targets_of,
+        children_of=readers.children_of,
     ):
         tmux_session = claude_sessions.resolve_tmux_session(
             pid=session.pid,
@@ -103,7 +95,7 @@ def live_profile_sources(
     pane_pid_to_session: dict[int, str],
     ppid_of: PidToOptionalInt,
     starttime_of: PidToOptionalStr,
-    codex_readers: CodexProfileReaders,
+    codex_readers: codex_sessions.CodexHostReaders,
 ) -> dict[tuple[str, str], LaunchProfileSource]:
     """Return live launch-profile process sources keyed by ``(tmux_session, topic)``."""
     return _claude_sources(

@@ -9,18 +9,39 @@ runtimes uniformly and ``claude_sessions.resolve_tmux_session`` (already
 runtime-agnostic) joins either to its tmux session.
 
 **The join, and why it is exact rather than a heuristic.** Codex keeps no pid-keyed
-registry, which is why this looked hard. But a running codex process **holds its own
+registry, which is why this looked hard. But a running Codex session **holds its
 rollout file open**, and the rollout FILENAME embeds the session id, which
 ``session_index.jsonl`` maps to the ``thread_name`` — the plan topic::
 
     pid  --(comm == "codex")-->            a real Codex TUI process
     pid  --/proc/<pid>/fd/*-->             rollout-<ts>-<session id>.jsonl
+       (0.150: that fd is held by a HELPER the TUI spawned — see below)
     id   --session_index.jsonl-->          thread_name   == THE PLAN TOPIC
     pid  --/proc/<pid>/cwd-->              THE REPO
 
 Verified end-to-end live (2026-07-16) against a real 2-day-old codex TUI: pid 1682090
 → ``rollout-2026-07-12T06-19-39-019f548d-….jsonl`` → cwd ``/data/projects/openbrain``.
 See ``plan/overseer-rewrite/research/codex-ctx-and-restart-evidence.md``.
+
+**Codex 0.150 moved rollout OWNERSHIP off the TUI process, and the fix is a walk, not
+a weaker identity test.** Attended host evidence (work-item ``overseer-qmarlj``): a
+fresh real TUI in the exact repository persisted its ``/rename`` entry in
+``session_index.jsonl``, yet this module returned NO live record for it — while
+established sessions, started before the upgrade and still holding their own fd,
+remained discoverable. What changed is WHICH process holds the rollout: the session's
+persistence now runs in a helper the TUI spawns (Codex's app-server), so the TUI —
+the process that carries the identity, sits in the tmux pane, and whose ``cwd`` IS the
+repository — holds no rollout fd at all, and the helper's own ``cwd`` is not the
+repository. Both halves matter, and reading the helper as if it were the session would
+record the WRONG repo.
+
+So the carrier is unchanged (``comm == "codex"``, its ``/proc/<pid>/cwd``) and only the
+ROLLOUT lookup widened: :func:`carrier_rollout_ids` reads the carrier's own fds first,
+then those of the helper processes it spawned. The walk stops at any process that is
+ITSELF a carrier, so a ``codex resume`` launched from another session's shell tool
+keeps its own identity instead of being attributed to its parent. Nothing about the
+proof is weakened: an exact indexed name plus the carrier's own process cwd are still
+both required, and a session with neither is still dropped.
 
 **The adoption precondition: only INDEXED/NAMED sessions can be mapped to a plan.**
 An unnamed session carries no topic anywhere, so it cannot be joined to a plan. The
@@ -41,28 +62,53 @@ number, and ``signals.parse_ctx_remaining`` reads it exactly as it reads Claude'
 
 Stdlib-only, like every module in this folder. Every host coupling (``/proc`` reads)
 is injected so the beside-tests run with no codex process and no real ``~/.codex``.
+
+The ``/proc`` half — the readers themselves, the rollout-filename parse, and the
+carrier walk — lives in :mod:`_codex_proc` and is re-exported here, so this module is
+still the whole consumer surface. Patch those names through ``_codex_proc``, which
+DEFINES them: a façade re-export can be monkeypatched successfully while the real
+reader keeps its own binding, which is a green test over the live host.
 """
 
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
 
 import codex_session_index
+from _codex_proc import (
+    MAX_HELPER_PROCESSES,
+    CodexHostReaders,
+    carrier_rollout_ids,
+    open_rollout_id,
+    open_rollout_ids,
+    proc_cwd,
+    proc_fd_targets,
+    proc_pids_of_comm,
+    rollout_id,
+)
 from _codex_session_models import CODEX_COMM, CodexSession, UnindexedCodexSession
-from _seams import CommToPidList, PidToOptionalInt, PidToOptionalStr, PidToStrList
+from _seams import (
+    CommToPidList,
+    PidToIntList,
+    PidToOptionalInt,
+    PidToOptionalStr,
+    PidToStrList,
+)
 
-# `proc_comm` is a GENERIC /proc reader that happens to live in `claude_sessions`,
+# `proc_children` is a GENERIC /proc reader that happens to live in `claude_sessions`,
 # which already hosts the runtime-agnostic readers used for Codex (`has_active_subshell`
 # — the Codex busy fallback — is built on them). Reusing it beats duplicating a reader
 # into a sibling module.
-from claude_sessions import proc_comm, proc_ppid, resolve_tmux_session
+from claude_sessions import proc_children, proc_ppid, resolve_tmux_session
 
 __all__: list[str] = [
     "CODEX_COMM",
+    "MAX_HELPER_PROCESSES",
+    "CodexHostReaders",
     "CodexSession",
     "UnindexedCodexSession",
+    "carrier_rollout_ids",
     "codex_by_tmux_session",
     "default_codex_home",
     "latest_session_for_thread_name",
@@ -79,97 +125,10 @@ __all__: list[str] = [
     "rollout_id",
 ]
 
-# `rollout-<iso-ts>-<uuid>.jsonl`. Anchored on the trailing uuid + extension so a
-# rollout is never confused with a sibling file in the same tree.
-_ROLLOUT_RE = re.compile(
-    r"rollout-.*-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$"
-)
-
 
 def default_codex_home() -> Path:
     """``~/.codex`` — where Codex writes ``session_index.jsonl`` and ``sessions/``."""
     return Path.home() / ".codex"
-
-
-# --------------------------------------------------------------------------- #
-# Host couplings: /proc readers. Injected into the pure join below.
-# --------------------------------------------------------------------------- #
-
-
-def proc_fd_targets(*, pid: int) -> list[str]:
-    """Every open fd's target path for ``pid`` — fail-soft to [] (dead pid / EPERM)."""
-    out: list[str] = []
-    try:
-        entries = list(Path(f"/proc/{pid}/fd").iterdir())
-    except OSError:
-        return out
-    for entry in entries:
-        try:
-            out.append(str(entry.readlink()))
-        except OSError:
-            continue  # the fd closed underneath us; skip it
-    return out
-
-
-def proc_cwd(*, pid: int) -> str | None:
-    """``/proc/<pid>/cwd`` resolved, or None if unreadable."""
-    try:
-        return str(Path(f"/proc/{pid}/cwd").readlink())
-    except OSError:
-        return None
-
-
-def proc_pids_of_comm(*, comm: str) -> list[int]:
-    """Every live pid whose ``/proc/<pid>/comm`` equals ``comm`` — fail-soft to []."""
-    out: list[int] = []
-    try:
-        entries = list(Path("/proc").iterdir())
-    except OSError:
-        return out
-    for entry in entries:
-        if not entry.name.isdigit():
-            continue
-        pid = int(entry.name)
-        if proc_comm(pid=pid) == comm:
-            out.append(pid)
-    return sorted(out)
-
-
-# --------------------------------------------------------------------------- #
-# Pure readers + the join.
-# --------------------------------------------------------------------------- #
-
-
-def rollout_id(*, path: str) -> str | None:
-    """The session id embedded in a rollout FILENAME, or None if not a rollout."""
-    match = _ROLLOUT_RE.search(path or "")
-    return match.group(1) if match else None
-
-
-def open_rollout_ids(*, pid: int, fd_targets_of: PidToStrList = proc_fd_targets) -> list[str]:
-    """The session ids of all rollout files ``pid`` holds OPEN, in fd iteration order.
-
-    This is the structural liveness link Codex otherwise lacks. The fd table can hold
-    more than one rollout, so callers must decide which id is meaningful for their
-    purpose instead of treating the first fd as the process identity.
-    """
-    ids: list[str] = []
-    for target in fd_targets_of(pid=pid):
-        found = rollout_id(path=target)
-        if found is not None:
-            ids.append(found)
-    return ids
-
-
-def open_rollout_id(*, pid: int, fd_targets_of: PidToStrList = proc_fd_targets) -> str | None:
-    """The first rollout id ``pid`` holds OPEN, or None if it holds none.
-
-    Kept for callers/tests that need only the structural fact that a rollout fd is open.
-    Identity selection for named sessions must use :func:`open_rollout_ids` and prefer an
-    indexed id.
-    """
-    ids = open_rollout_ids(pid=pid, fd_targets_of=fd_targets_of)
-    return ids[0] if ids else None
 
 
 def read_thread_names(*, codex_home: str | os.PathLike[str]) -> dict[str, str]:
@@ -217,21 +176,26 @@ def read_live_codex_sessions(
     pids_of_comm: CommToPidList = proc_pids_of_comm,
     cwd_of: PidToOptionalStr = proc_cwd,
     fd_targets_of: PidToStrList = proc_fd_targets,
+    children_of: PidToIntList = proc_children,
 ) -> list[CodexSession]:
     """Every live, NAMED Codex TUI session, joined to its topic + repo.
 
-    Liveness is structural: the pid came from a ``/proc`` scan this instant and must
-    still hold an open rollout and a readable cwd — so there is no stale-file problem
-    to defeat (Claude's registry needs a ``procStart`` check precisely because its
-    files outlive their process; a rollout fd cannot).
+    Liveness is structural: the pid came from a ``/proc`` scan this instant, and the
+    session must still hold an open rollout — its own, or its helper's — and a readable
+    cwd. So there is no stale-file problem to defeat (Claude's registry needs a
+    ``procStart`` check precisely because its files outlive their process; an fd cannot).
 
     Skips, all deliberate and all fail-soft:
 
     - not ``comm == codex`` — including the ``bun`` launcher (holds no rollout anyway);
-    - holds no open rollout — cannot be joined to a session id;
+    - neither it nor its helpers hold an open rollout — no session id to join;
     - **its id is not in the index** — an UNNAMED session, which carries no topic
       anywhere and so cannot belong to a plan;
     - no readable cwd — the pid vanished mid-read.
+
+    The reported ``pid`` and ``cwd`` are always the CARRIER's, never a helper's: the
+    carrier is the process in the tmux pane, and its cwd is the repository the session
+    is running in (see :func:`carrier_rollout_ids`).
 
     ``Codex Companion Task: …`` threads are deliberately NOT filtered here: they fail
     the "is this an ACTIVE plan topic?" test at adoption, so the noise filters itself
@@ -239,12 +203,19 @@ def read_live_codex_sessions(
     """
     home = Path(codex_home) if codex_home is not None else default_codex_home()
     names = read_thread_names(codex_home=home)
+    carriers = pids_of_comm(comm=CODEX_COMM)
+    carrier_pids = frozenset(carriers)
     out: list[CodexSession] = []
-    for pid in pids_of_comm(comm=CODEX_COMM):
+    for pid in carriers:
         session_id = next(
             (
                 rollout
-                for rollout in open_rollout_ids(pid=pid, fd_targets_of=fd_targets_of)
+                for rollout in carrier_rollout_ids(
+                    pid=pid,
+                    carrier_pids=carrier_pids,
+                    fd_targets_of=fd_targets_of,
+                    children_of=children_of,
+                )
                 if names.get(rollout)
             ),
             None,
@@ -262,11 +233,8 @@ def read_live_codex_sessions(
 def map_codex_sessions(
     *,
     pane_pid_to_session: dict[int, str],
-    codex_home: str | os.PathLike[str] | None = None,
     ppid_of: PidToOptionalInt = proc_ppid,
-    pids_of_comm: CommToPidList = proc_pids_of_comm,
-    cwd_of: PidToOptionalStr = proc_cwd,
-    fd_targets_of: PidToStrList = proc_fd_targets,
+    readers: CodexHostReaders | None = None,
 ) -> list[tuple[str, str, str]]:
     """``[(tmux_session, name, cwd)]`` for every live NAMED codex session held in tmux.
 
@@ -281,12 +249,14 @@ def map_codex_sessions(
     pane is omitted: there is no pane to capture, inject, or respawn. Order follows the
     ``/proc`` pid scan, so the mapping is deterministic.
     """
+    host = readers if readers is not None else CodexHostReaders()
     mapped: list[tuple[str, str, str]] = []
     for session in read_live_codex_sessions(
-        codex_home=codex_home,
-        pids_of_comm=pids_of_comm,
-        cwd_of=cwd_of,
-        fd_targets_of=fd_targets_of,
+        codex_home=host.codex_home,
+        pids_of_comm=host.pids_of_comm,
+        cwd_of=host.cwd_of,
+        fd_targets_of=host.fd_targets_of,
+        children_of=host.children_of,
     ):
         tmux_session = resolve_tmux_session(
             pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of
@@ -300,11 +270,8 @@ def map_codex_sessions(
 def map_unindexed_codex_sessions(
     *,
     pane_pid_to_session: dict[int, str],
-    codex_home: str | os.PathLike[str] | None = None,
     ppid_of: PidToOptionalInt = proc_ppid,
-    pids_of_comm: CommToPidList = proc_pids_of_comm,
-    cwd_of: PidToOptionalStr = proc_cwd,
-    fd_targets_of: PidToStrList = proc_fd_targets,
+    readers: CodexHostReaders | None = None,
 ) -> list[UnindexedCodexSession]:
     """Live Codex sessions that have a rollout fd but no ``session_index`` name.
 
@@ -312,16 +279,31 @@ def map_unindexed_codex_sessions(
     the index. Returning them separately lets the supervisor make the gap visible
     without weakening the exact pid→rollout→name join and without reading rollout
     transcript contents.
+
+    "Has a rollout" is asked through :func:`carrier_rollout_ids`, exactly as the named
+    join asks it, so the two answers cannot disagree: a session whose rollout is held by
+    its helper is UNNAMED here only when that rollout is genuinely absent from the
+    index, never merely because ownership moved off the carrier's own fd table. Asking
+    the narrower question here would let one live session be reported as both named and
+    unindexed at once.
     """
-    home = Path(codex_home) if codex_home is not None else default_codex_home()
+    host = readers if readers is not None else CodexHostReaders()
+    home = Path(host.codex_home) if host.codex_home is not None else default_codex_home()
     names = read_thread_names(codex_home=home)
+    carriers = host.pids_of_comm(comm=CODEX_COMM)
+    carrier_pids = frozenset(carriers)
     unindexed: list[UnindexedCodexSession] = []
-    for pid in pids_of_comm(comm=CODEX_COMM):
-        rollout_ids = open_rollout_ids(pid=pid, fd_targets_of=fd_targets_of)
+    for pid in carriers:
+        rollout_ids = carrier_rollout_ids(
+            pid=pid,
+            carrier_pids=carrier_pids,
+            fd_targets_of=host.fd_targets_of,
+            children_of=host.children_of,
+        )
         if not rollout_ids or any(names.get(session_id) for session_id in rollout_ids):
             continue
         session_id = rollout_ids[0]
-        cwd = cwd_of(pid=pid)
+        cwd = host.cwd_of(pid=pid)
         if not cwd:
             continue
         tmux_session = resolve_tmux_session(
@@ -343,11 +325,8 @@ def map_unindexed_codex_sessions(
 def codex_by_tmux_session(
     *,
     pane_pid_to_session: dict[int, str],
-    codex_home: str | os.PathLike[str] | None = None,
     ppid_of: PidToOptionalInt = proc_ppid,
-    pids_of_comm: CommToPidList = proc_pids_of_comm,
-    cwd_of: PidToOptionalStr = proc_cwd,
-    fd_targets_of: PidToStrList = proc_fd_targets,
+    readers: CodexHostReaders | None = None,
 ) -> dict[tuple[str, str], CodexSession]:
     """``{(tmux_session, name): CodexSession}`` for every live NAMED codex session in tmux.
 
@@ -377,12 +356,14 @@ def codex_by_tmux_session(
     tmux session — keeps the FIRST by pid order (deterministic; the daemon drives one
     session per pane anyway).
     """
+    host = readers if readers is not None else CodexHostReaders()
     by_key: dict[tuple[str, str], CodexSession] = {}
     for session in read_live_codex_sessions(
-        codex_home=codex_home,
-        pids_of_comm=pids_of_comm,
-        cwd_of=cwd_of,
-        fd_targets_of=fd_targets_of,
+        codex_home=host.codex_home,
+        pids_of_comm=host.pids_of_comm,
+        cwd_of=host.cwd_of,
+        fd_targets_of=host.fd_targets_of,
+        children_of=host.children_of,
     ):
         tmux_session = resolve_tmux_session(
             pid=session.pid, pane_pid_to_session=pane_pid_to_session, ppid_of=ppid_of

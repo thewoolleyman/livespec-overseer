@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import _codex_proc
 import codex_session_index
 import codex_sessions
 from test_codex_sessions_fakes import (
@@ -41,10 +42,9 @@ def test_map_codex_sessions_emits_the_same_triple_as_the_claude_twin(*, tmp_path
         fds={4242: [fake_rollout(session_id=ID_A)]},
     )
     mapped = codex_sessions.map_codex_sessions(
-        codex_home=home,
         pane_pid_to_session={9000: "livespec3"},
         ppid_of=lambda *, pid: {4242: 9000}.get(pid),  # the codex pid's parent IS the pane pid
-        **host,
+        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
     )
     assert mapped == [("livespec3", "topic-a", "/data/projects/livespec")]
 
@@ -59,10 +59,9 @@ def test_map_codex_sessions_omits_a_session_not_inside_tmux(*, tmp_path):
         fds={4242: [fake_rollout(session_id=ID_A)]},
     )
     mapped = codex_sessions.map_codex_sessions(
-        codex_home=home,
         pane_pid_to_session={},  # no tmux panes at all
         ppid_of=lambda *, pid: None,
-        **host,
+        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
     )
     assert mapped == []
 
@@ -75,10 +74,9 @@ def test_map_codex_sessions_is_deterministic_across_sessions(*, tmp_path):
         fds={10: [fake_rollout(session_id=ID_A)], 20: [fake_rollout(session_id=ID_B)]},
     )
     mapped = codex_sessions.map_codex_sessions(
-        codex_home=home,
         pane_pid_to_session={101: "s-one", 202: "s-two"},
         ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
-        **host,
+        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
     )
     assert mapped == [  # pid order, like the Claude twin's sorted-registry order
         ("s-one", "topic-a", "/data/projects/one"),
@@ -105,9 +103,8 @@ def test_codex_by_tmux_session_keys_live_sessions_by_tmux_session_and_name(*, tm
     )
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={101: "s-one", 202: "s-two"},
-        codex_home=home,
         ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
-        **host,
+        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
     )
     assert set(by) == {("s-one", "topic-a"), ("s-two", "topic-b")}
     assert by[("s-one", "topic-a")].pid == 10
@@ -129,9 +126,8 @@ def test_codex_by_tmux_session_keeps_both_when_two_share_one_tmux_session(*, tmp
     # Both codex pids resolve (via their pane pids) to the SAME tmux session "shared".
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={101: "shared", 202: "shared"},
-        codex_home=home,
         ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
-        **host,
+        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
     )
     assert set(by) == {("shared", "topic-a"), ("shared", "topic-b")}
     assert by[("shared", "topic-a")].pid == 10
@@ -145,7 +141,8 @@ def test_codex_by_tmux_session_is_empty_with_no_codex_running(*, tmp_path):
     Must be an empty map, never an error, so `evaluate` can key off it unconditionally."""
     home = fake_index(tmp_path=tmp_path, records=[])
     by = codex_sessions.codex_by_tmux_session(
-        pane_pid_to_session={}, codex_home=home, **fake_host()
+        pane_pid_to_session={},
+        readers=codex_sessions.CodexHostReaders(codex_home=home, **fake_host()),
     )
     assert by == {}
 
@@ -156,7 +153,9 @@ def test_codex_by_tmux_session_omits_sessions_outside_tmux(*, tmp_path):
         comms={10: "codex"}, cwds={10: "/x"}, fds={10: [fake_rollout(session_id=ID_A)]}
     )
     by = codex_sessions.codex_by_tmux_session(
-        pane_pid_to_session={}, codex_home=home, ppid_of=lambda *, pid: None, **host
+        pane_pid_to_session={},
+        ppid_of=lambda *, pid: None,
+        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
     )
     assert by == {}
 
@@ -175,9 +174,8 @@ def test_codex_by_tmux_session_keeps_the_first_on_a_same_tmux_same_name_collisio
     )
     by = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session={101: "shared", 202: "shared"},
-        codex_home=home,
         ppid_of=lambda *, pid: {10: 101, 20: 202}.get(pid),
-        **host,
+        readers=codex_sessions.CodexHostReaders(codex_home=home, **host),
     )
     assert set(by) == {("shared", "topic-a")}
     assert by[("shared", "topic-a")].pid == 10  # the FIRST by pid order, not the last
@@ -207,6 +205,11 @@ def test_rollout_exists_is_false_when_the_sessions_tree_cannot_be_walked(*, monk
 # symlinks under tmp_path) with the module's hardcoded `/proc` prefix redirected
 # at it, and against a HOME pointed at tmp_path — no live process, no real
 # `~/.codex`.
+#
+# The redirection targets `_codex_proc`, which DEFINES these readers, not the
+# `codex_sessions` façade that re-exports them: patching a façade re-export
+# succeeds while the real reader keeps its own binding, which is a green test
+# over the live host.
 # --------------------------------------------------------------------------- #
 
 
@@ -224,7 +227,7 @@ def _fake_proc(*, tmp_path, monkeypatch, present=True):
             return root / text[len("/proc/") :]
         return Path(text)
 
-    monkeypatch.setattr(codex_sessions, "Path", _redirect)
+    monkeypatch.setattr(_codex_proc, "Path", _redirect)
     return root
 
 
@@ -283,7 +286,7 @@ def test_proc_pids_of_comm_scans_proc_for_matching_processes(*, tmp_path, monkey
     for name in ("20", "10", "30", "self", "cpuinfo"):
         (root / name).mkdir()
     monkeypatch.setattr(
-        codex_sessions, "proc_comm", lambda *, pid: {10: "codex", 20: "bun", 30: "codex"}.get(pid)
+        _codex_proc, "proc_comm", lambda *, pid: {10: "codex", 20: "bun", 30: "codex"}.get(pid)
     )
 
     assert codex_sessions.proc_pids_of_comm(comm="codex") == [10, 30]

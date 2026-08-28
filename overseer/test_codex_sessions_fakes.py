@@ -44,11 +44,18 @@ ID_A = "019f6a1e-266d-7fc2-8eb2-15ec9d324fb8"
 ID_B = "019f548d-6071-7893-9c2e-472cce81da02"
 
 
-def fake_host(*, comms=None, cwds=None, fds=None):
-    """Injected host readers: pid→comm, pid→cwd, pid→open fd targets."""
-    comms, cwds, fds = comms or {}, cwds or {}, fds or {}
+def fake_host(*, comms=None, cwds=None, fds=None, children=None):
+    """Injected host readers: pid→comm, pid→cwd, pid→open fd targets, pid→child pids.
+
+    `children` defaults to a childless host, which is both what every pre-0.150 shape
+    looked like and what keeps the walk over a session's helper processes hermetic:
+    without it that walk would fall back to the REAL `/proc` children reader for the
+    fake pids these tests invent.
+    """
+    comms, cwds, fds, children = comms or {}, cwds or {}, fds or {}, children or {}
     return {
         "pids_of_comm": lambda *, comm: sorted(p for p, c in comms.items() if c == comm),
         "cwd_of": lambda *, pid: cwds.get(pid),
         "fd_targets_of": lambda *, pid: fds.get(pid, []),
+        "children_of": lambda *, pid: list(children.get(pid, [])),
     }

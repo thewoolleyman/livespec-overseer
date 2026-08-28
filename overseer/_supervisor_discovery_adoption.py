@@ -10,10 +10,10 @@ import claude_sessions
 import codex_sessions
 import registry
 import signals
+from _supervisor_codex_adoption import codex_host_readers
 from _supervisor_config import iso_now
 from _supervisor_launch_profile import LaunchProfileProblem, read_launch_profile
 from _supervisor_launch_profile_sources import (
-    CodexProfileReaders,
     LaunchProfileSource,
     live_profile_sources,
 )
@@ -27,15 +27,6 @@ __all__: list[str] = [
     "profile_for_adoption",
     "sessions_dir",
 ]
-
-
-def _codex_profile_readers(*, sup: Supervisor) -> CodexProfileReaders:
-    return CodexProfileReaders(
-        codex_home=sup.codex_home,
-        pids_of_comm=sup.codex_pids_of_comm,
-        cwd_of=sup.codex_cwd_of,
-        fd_targets_of=sup.codex_fd_targets_of,
-    )
 
 
 def profile_for_adoption(
@@ -86,11 +77,8 @@ def _adoptable_live_sessions(
         starttime_of=sup.starttime_of,
     ) + codex_sessions.map_codex_sessions(
         pane_pid_to_session=pane_pids,
-        codex_home=sup.codex_home,
         ppid_of=sup.ppid_of,
-        pids_of_comm=sup.codex_pids_of_comm,
-        cwd_of=sup.codex_cwd_of,
-        fd_targets_of=sup.codex_fd_targets_of,
+        readers=codex_host_readers(sup=sup),
     )
 
 
@@ -104,7 +92,7 @@ def _live_profile_sources(
         pane_pid_to_session=pane_pids,
         ppid_of=sup.ppid_of,
         starttime_of=sup.starttime_of,
-        codex_readers=_codex_profile_readers(sup=sup),
+        codex_readers=codex_host_readers(sup=sup),
     )
 
 

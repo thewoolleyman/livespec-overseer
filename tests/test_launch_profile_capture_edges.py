@@ -10,6 +10,7 @@ import _claude_sessions_proc
 import _supervisor_discovery
 import _supervisor_launch_profile_refresh
 import _supervisor_restart
+import codex_sessions
 import registry
 import signals
 from _supervisor_launch_profile import (
@@ -17,7 +18,7 @@ from _supervisor_launch_profile import (
     read_launch_profile,
     rendered_statusline_model,
 )
-from _supervisor_launch_profile_sources import CodexProfileReaders, live_profile_sources
+from _supervisor_launch_profile_sources import live_profile_sources
 from test_codex_sessions_fakes import ID_A, fake_host, fake_index, fake_rollout
 from test_supervisor_builders import (
     arm_ready_marker,
@@ -436,7 +437,7 @@ def test_codex_profile_source_skips_live_session_outside_tmux(*, tmp_path):
             pane_pid_to_session={},
             ppid_of=lambda *, pid: None,
             starttime_of=lambda *, pid: None,
-            codex_readers=CodexProfileReaders(codex_home=codex_home, **host),
+            codex_readers=codex_sessions.CodexHostReaders(codex_home=codex_home, **host),
         )
         == {}
     )
