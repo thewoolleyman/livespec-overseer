@@ -8,12 +8,13 @@ from typing import TYPE_CHECKING
 import _supervisor_launch
 import claude_sessions
 import registry
+from _supervisor_codex_adoption import codex_host_readers
 from _supervisor_launch_profile import (
     LaunchProfileProblem,
     read_launch_profile,
     rendered_statusline_model,
 )
-from _supervisor_launch_profile_sources import CodexProfileReaders, live_profile_sources
+from _supervisor_launch_profile_sources import live_profile_sources
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
@@ -27,15 +28,6 @@ def _profile_sessions_dir(*, sup: Supervisor) -> str | os.PathLike[str]:
     if sup.sessions_dir is not None:
         return sup.sessions_dir
     return claude_sessions.default_sessions_dir()
-
-
-def _codex_profile_readers(*, sup: Supervisor) -> CodexProfileReaders:
-    return CodexProfileReaders(
-        codex_home=sup.codex_home,
-        pids_of_comm=sup.codex_pids_of_comm,
-        cwd_of=sup.codex_cwd_of,
-        fd_targets_of=sup.codex_fd_targets_of,
-    )
 
 
 def _stored_model_profile(
@@ -78,7 +70,7 @@ def refresh_launch_profile_at_wrapup(
         pane_pid_to_session=sup.tmux.pane_pid_sessions(),
         ppid_of=sup.ppid_of,
         starttime_of=sup.starttime_of,
-        codex_readers=_codex_profile_readers(sup=sup),
+        codex_readers=codex_host_readers(sup=sup),
     ).get((session, track.topic))
     rendered = rendered_statusline_model(capture=capture)
     stored_profile = _stored_model_profile(sup=sup, track=track)

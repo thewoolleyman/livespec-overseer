@@ -30,11 +30,10 @@ def test_map_unindexed_codex_sessions_skips_processes_that_cannot_be_joined(tmp_
     assert (
         codex_sessions.map_unindexed_codex_sessions(
             pane_pid_to_session={},
-            codex_home=home,
-            pids_of_comm=pids,
-            fd_targets_of=fds,
-            cwd_of=cwd,
             ppid_of=lambda *, pid: {1: 100, 2: 200, 3: 300}.get(pid),
+            readers=codex_sessions.CodexHostReaders(
+                codex_home=home, pids_of_comm=pids, fd_targets_of=fds, cwd_of=cwd
+            ),
         )
         == []
     )
@@ -45,7 +44,7 @@ def test_map_unindexed_codex_sessions_accepts_the_default_codex_home(monkeypatch
     assert (
         codex_sessions.map_unindexed_codex_sessions(
             pane_pid_to_session={},
-            pids_of_comm=lambda *, comm: [],
+            readers=codex_sessions.CodexHostReaders(pids_of_comm=lambda *, comm: []),
         )
         == []
     )

@@ -13,9 +13,26 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "bound_track_for_unindexed_codex",
+    "codex_host_readers",
     "codex_sessions_by_tmux_session",
     "store_bound_unindexed_codex_sessions",
 ]
+
+
+def codex_host_readers(*, sup: Supervisor) -> codex_sessions.CodexHostReaders:
+    """The supervisor's injected Codex host seams, as the one bundle the readers take.
+
+    Every Codex read the daemon performs goes through these five, and they are threaded
+    end-to-end rather than defaulted so the beside-tests stay hermetic: with the real
+    defaults a test would fall through to this host's ``/proc`` and ``~/.codex``.
+    """
+    return codex_sessions.CodexHostReaders(
+        codex_home=sup.codex_home,
+        pids_of_comm=sup.codex_pids_of_comm,
+        cwd_of=sup.codex_cwd_of,
+        fd_targets_of=sup.codex_fd_targets_of,
+        children_of=sup.children_of,
+    )
 
 
 def bound_track_for_unindexed_codex(
@@ -46,11 +63,8 @@ def store_bound_unindexed_codex_sessions(
     out: dict[tuple[str, str], codex_sessions.CodexSession] = {}
     for session in codex_sessions.map_unindexed_codex_sessions(
         pane_pid_to_session=pane_pid_to_session,
-        codex_home=sup.codex_home,
         ppid_of=sup.ppid_of,
-        pids_of_comm=sup.codex_pids_of_comm,
-        cwd_of=sup.codex_cwd_of,
-        fd_targets_of=sup.codex_fd_targets_of,
+        readers=codex_host_readers(sup=sup),
     ):
         track = bound_track_for_unindexed_codex(sup=sup, session=session)
         if track is None:
@@ -72,11 +86,8 @@ def codex_sessions_by_tmux_session(
     """Indexed Codex sessions plus store-bound unindexed sessions, keyed for evaluation."""
     out = codex_sessions.codex_by_tmux_session(
         pane_pid_to_session=pane_pid_to_session,
-        codex_home=sup.codex_home,
         ppid_of=sup.ppid_of,
-        pids_of_comm=sup.codex_pids_of_comm,
-        cwd_of=sup.codex_cwd_of,
-        fd_targets_of=sup.codex_fd_targets_of,
+        readers=codex_host_readers(sup=sup),
     )
     for key, session in store_bound_unindexed_codex_sessions(
         sup=sup, pane_pid_to_session=pane_pid_to_session

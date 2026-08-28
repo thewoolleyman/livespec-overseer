@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import codex_sessions
 import signals
-from _supervisor_codex_adoption import bound_track_for_unindexed_codex
+from _supervisor_codex_adoption import bound_track_for_unindexed_codex, codex_host_readers
 from _supervisor_view import RowView
 
 if TYPE_CHECKING:
@@ -26,11 +26,8 @@ def unindexed_codex_rows(*, sup: Supervisor, watch: list[str]) -> list[RowView]:
     rows: list[RowView] = []
     for session in codex_sessions.map_unindexed_codex_sessions(
         pane_pid_to_session=sup.tmux.pane_pid_sessions(),
-        codex_home=sup.codex_home,
         ppid_of=sup.ppid_of,
-        pids_of_comm=sup.codex_pids_of_comm,
-        cwd_of=sup.codex_cwd_of,
-        fd_targets_of=sup.codex_fd_targets_of,
+        readers=codex_host_readers(sup=sup),
     ):
         repo = next(
             (r for r in watch if signals.path_in_repo(pane_current_path=session.cwd, repo=r)), None
