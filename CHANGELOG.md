@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.6...v1.62.7) (2026-08-28)
+
+
+### Bug Fixes
+
+* join a fresh Codex 0.150 session through its rollout-holding helper ([6c252cb](https://github.com/thewoolleyman/livespec-overseer/commit/6c252cb5d7db7d142cd9c96de5057f493d4bc0fd))
+
 ## [1.62.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.5...v1.62.6) (2026-08-27)
 
 
