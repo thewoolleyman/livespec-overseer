@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.64.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.63.0...v1.64.0) (2026-08-29)
+
+
+### Features
+
+* add a per-track idle_nudge override and its add --idle-nudge CLI ([eeba673](https://github.com/thewoolleyman/livespec-overseer/commit/eeba673f20278879938f696e7b5c9d5000d3bcd4))
+
 ## [1.63.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.8...v1.63.0) (2026-08-29)
 
 
