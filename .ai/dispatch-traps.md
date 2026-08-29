@@ -4,6 +4,35 @@ Moved verbatim from `AGENTS.md`. Every shape here was measured live in this repo
 
 ## Dispatch traps whose error messages point AWAY from the fix
 
+## THE NINE SHAPES — one table, all of them
+
+Every shape below was measured live in this repo. **Identify the shape before you act:
+several are one step apart, and the remedy for a neighbour is routinely destructive** —
+releasing a claim over merged work re-runs it, and re-dispatching against a live publish
+branch collides with your own sibling.
+
+| shape | the observation that identifies it | work landed | remedy |
+|---|---|---|---|
+| double-brace token | `template_undefined_variable` naming a token that came from the item's own text | no | fix the dispatcher defect; do **NOT** edit the item |
+| queue eviction | `drive.py` exits **0**, run listed `runnable`, then absent from `fabro ps -a` **entirely** | no | release the claim and re-dispatch |
+| anchor-as-dependency | `not in the ready set`, **no** phantom claim, an unresolvable `depends_on` | no | resolve the edge against both tenants; unset only if it is mere thread membership |
+| succeeded-untransitioned | `fabro ps -a` says `succeeded` and the forge shows a **merged** PR | **yes — merged** | **close it** — never re-dispatch |
+| interview-destroyed | `Interview ended without an answer`; `ps -a` `failed` with wall = the full ceiling | no — done but never pushed | `fabro dump` the run and land the recovered patch; release the claim |
+| publish-branch collision | **two** runs: one `succeeded`, one `blocked` refusing to overwrite its sibling's branch | **yes — PR open** | close the duplicate; touch nothing else |
+| factory-host ENOSPC | immediate failure at stage `fabro-run`, ENOSPC `detail` naming the factory's storage path, `fabro_run_id` null | no | release the claim and re-try `hp` — the condition is intermittent |
+| janitor-post-merge red | stage `janitor-post-merge`, `pr_number` **and** `merge_sha` both populated, several unrelated items failing at once | **yes — merged** | close it, then fix master |
+| merge-poll | stage `merge-poll`, `pr_number` populated with `merge_sha` **null** | not yet — PR open | fix the gate holding the merge and let auto-merge land it; do not touch the claim |
+
+**Two rules the table cannot carry.** The absence of a phantom claim discriminates
+nothing by itself — several shapes leave none. And when the envelope's `detail`
+describes a TRANSPORT failure (a timeout, a body read, a connection), the envelope is
+reporting on the DISPATCHER's health rather than the run's: go to `fabro ps` on the
+owning factory and to the forge instead, using the `fabro_run_id` the failing envelope
+itself carries.
+
+Each shape's full measurement, with the controls that established it, follows below.
+
+
 Measured 2026-08-02 and 2026-08-04 while dispatching from this repo. Each fails in
 a way that makes the correct remedy look wrong, which is why they are here rather
 than only in a plan.
@@ -61,7 +90,9 @@ still read `active`/`fabro`. A sibling queued run in the same window
 (`livespec-dev-tooling-uzwqm6`) disappeared identically, so it is a queue
 property, not an item property.
 
-**Tell the two causes apart before diagnosing**, because the remedies differ:
+**Tell the two causes apart before diagnosing**, because the remedies differ. (These
+are the two causes of a phantom claim known when this entry was written; others leave
+one too — the nine-shape table at the top of this file is the complete set.)
 
 | symptom | `{{...}}` trap | queue eviction |
 |---|---|---|
@@ -340,17 +371,11 @@ item was 1959 chars with 5 enumerated parts and might exceed one unattended turn
 the agent completed it in ~37 minutes anyway. It was not too big to implement, it
 was too big to FINISH UNATTENDED. Splitting fixes neither defect.
 
-| | double-brace token | queue eviction | anchor-as-dependency | succeeded-untransitioned | interview-destroyed |
-|---|---|---|---|---|---|
-| `drive.py` exit | non-zero, immediate | **0** | **1** (dispatcher 3) | **0** | non-zero |
-| error text | `template_undefined_variable` | none | `not in the ready set` | none | `Interview ended without an answer` |
-| `fabro ps` after | never lists it | lists `runnable` | never lists it | ran, then gone | ran, then gone |
-| `fabro ps -a` later | never lists it | **absent entirely** | never lists it | **`succeeded`** | **`failed`, wall = the full ceiling** |
-| work landed | no | no | no | **yes — PR merged** | **no — done but never pushed** |
-| phantom claim | yes | yes | **no** | yes | yes |
-| remedy | fix the defect | release + re-dispatch | unset the dep edge | **close it** | **`fabro dump` the run and LAND the recovered patch; release the claim. Re-dispatch only if the dump is empty** |
+**These five are the shapes known when this entry was written; the complete set is
+the nine-shape table at the top of this file.** Succeeded-untransitioned and
+interview-destroyed are the pair to keep straight here:
 
-The last two columns are the pair to keep straight: both ran and both are absent
+Both ran and both are absent
 from the live `fabro ps`, but one merged its work and must be CLOSED while the
 other left its work unpushed and must be RECOVERED — `fabro dump`, not redone.
 `fabro ps -a` separates them — `succeeded` versus `failed` — and the forge
@@ -536,14 +561,11 @@ provisioned here, which is the exact record-versus-world error that
 `.ai/record-versus-world.md` documents at length — committed, this time, by the
 entry that was written to warn about a neighbouring one.
 
-| | double-brace | queue eviction | anchor-as-dep | succeeded-untransitioned | interview-destroyed | **publish-branch collision** |
-|---|---|---|---|---|---|---|
-| `fabro ps -a` | never lists it | absent | never lists it | `succeeded` | `failed` | **one `succeeded` + one `blocked`** |
-| work landed | no | no | no | yes | no | **YES — PR open** |
-| remedy | fix the defect | release + re-dispatch | unset the dep | close it | dump + land | **close the duplicate; touch nothing else** |
+**Six shapes were known when this entry was written; see the nine-shape table at the
+top of this file for the current set.**
 
-A **seventh** shape is documented further down rather than as an eighth column here,
-because it is discriminated by something no column in this table holds: the factory
+A **seventh** shape is documented further down, and it is discriminated by something
+the cumulative tables of that era did not hold: the factory
 host running out of disk, which fails at stage `fabro-run` with an ENOSPC `detail`
 naming a path on a machine this one cannot see. Local `df` and `fabro ps` both read
 clean while every dispatch fails.
