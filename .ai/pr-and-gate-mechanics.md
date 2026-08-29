@@ -158,7 +158,7 @@ command form the guard looks for, and that same prose — being ordinary English
 a defect — also contained "for" and "while". Both alternations hit inside a document
 that was merely *describing* the hazard.
 
-This is the same shape as the delimiter-token trap elsewhere in this file: **quoting
+This is the same shape as the delimiter-token trap in `.ai/dispatch-traps.md`: **quoting
 the evidence poisons the report.** A good write-up quotes the failing command
 verbatim, and here the quoted command *is* the poison. So when documenting this guard
 — in a PR body, a commit message, a ledger comment, or a file written by a heredoc —
