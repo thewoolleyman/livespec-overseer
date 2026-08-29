@@ -17,8 +17,8 @@ def test_overseerd_opens_native_daemon_log_without_shell_redirect(*, tmp_path, m
     the event history."""
     log_path = tmp_path / "tmp" / "overseer" / "daemon.log"
 
-    def _fake_run(*, warn_percent=None):
-        del warn_percent
+    def _fake_run(*, warn_percent=None, idle_nudge=True):
+        del warn_percent, idle_nudge
         streams.write_stderr(text="daemon event from bare launch\n")
         return 0
 
@@ -34,8 +34,8 @@ def test_overseerd_open_event_is_structured(*, tmp_path, monkeypatch):
     """The first daemon-log line is part of the event stream, not a prose preamble."""
     log_path = tmp_path / "tmp" / "overseer" / "daemon.log"
 
-    def _fake_run(*, warn_percent=None):
-        del warn_percent
+    def _fake_run(*, warn_percent=None, idle_nudge=True):
+        del warn_percent, idle_nudge
         return 0
 
     monkeypatch.setattr(daemon, "_default_daemon_log_path", lambda: log_path, raising=False)
