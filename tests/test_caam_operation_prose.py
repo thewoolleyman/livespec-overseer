@@ -17,7 +17,9 @@ FLAG_SOURCE = ROOT / "overseer" / "caam_anthropic_loop.py"
 # operator flag the prose forwards, so it is excluded from the derived set.
 NON_FORWARDABLE_FLAGS = frozenset(("--scheduled",))
 
-EXPECTED_ENV_FLAGS = ("CAAM_ROTATE_WARM=1",)
+# Keep-warm is on by design (overseer-54k2za.52); the `CAAM_ROTATE_WARM=1` opt-in
+# env is retired, so no env flag is required to appear in the prose.
+EXPECTED_ENV_FLAGS: tuple[str, ...] = ()
 
 
 def _parser_flags() -> frozenset[str]:
@@ -57,7 +59,7 @@ def test_caam_prose_lists_every_source_backed_operator_flag() -> None:
     # Control: the derivation must actually find the flag surface. An empty or
     # near-empty set would make every assertion below vacuously true, which is
     # the failure mode that lets a check pass while checking nothing.
-    assert len(derived) >= 8, derived
+    assert len(derived) >= 7, derived
     assert "--protected-account" in derived, derived
     assert "--foreman-model" in derived, derived
 

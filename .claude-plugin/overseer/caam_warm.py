@@ -1,11 +1,14 @@
 """Keep idle caam profiles warm enough to remain switchable."""
+# livespec-lloc-soft-band-owner: overseer-54k2za.52
 
 from __future__ import annotations
 
 import os
 import shutil
 import time
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final, Protocol, cast
 
@@ -20,17 +23,20 @@ __all__: list[str] = [
     "ResnapshotRunner",
     "WarmConfig",
     "WarmResult",
+    "emit_next_warm_wake",
+    "idle_snapshot_expiries",
     "keep_warm",
+    "next_warm_wake",
     "read_creds",
     "resnapshot_active",
     "token_of",
-    "warm_margin_s",
     "warm_profile",
     "warm_retry_s",
+    "warm_wake_delay_s",
 ]
 
-_WARM_MARGIN_DEFAULT_S = "7200"
 _WARM_RETRY_DEFAULT_S = "3600"
+_WARM_WAKE_DELAY_DEFAULT_S = "15"
 _AGENT_TIMEOUT_S = 180.0
 _TOOL: Final = "claude"
 _LIVE_CHANGED = (
@@ -82,12 +88,12 @@ class WarmResult:
     detail: str
 
 
-def warm_margin_s() -> float:
-    return float(os.environ.get("CAAM_ROTATE_WARM_MARGIN_S", _WARM_MARGIN_DEFAULT_S))
-
-
 def warm_retry_s() -> float:
     return float(os.environ.get("CAAM_ROTATE_WARM_RETRY_S", _WARM_RETRY_DEFAULT_S))
+
+
+def warm_wake_delay_s() -> float:
+    return float(os.environ.get("CAAM_ROTATE_WARM_WAKE_DELAY_S", _WARM_WAKE_DELAY_DEFAULT_S))
 
 
 def token_of(*, path: Path) -> str | None:
@@ -123,6 +129,10 @@ def resnapshot_active(
         logger(f"resnapshot: FAILED for {active_name} -- {detail}")
 
 
+def _is_idle_profile(*, name: str, active_name: str) -> bool:
+    return not name.startswith("_") and name != active_name
+
+
 def keep_warm(
     *,
     state: dict[str, object],
@@ -131,7 +141,17 @@ def keep_warm(
     logger: Logger,
     now: float | None = None,
 ) -> None:
-    """Refresh idle snapshots that are about to lapse, so they stay switchable."""
+    """Refresh idle snapshots whose access token has EXPIRED, so they stay switchable.
+
+    The refresh is EXPIRY-GATED, never pre-expiry: the delegated agent renews only
+    an already-expired credential, so an attempt on a still-valid token cannot
+    refresh it and merely burns an inference request (overseer-54k2za.47). A valid
+    snapshot is therefore skipped and left for the wake scheduled at its own expiry
+    (`next_warm_wake`). An expired snapshot is refreshed subject only to the
+    per-account rate backoff (`warm_retry_s`) that spec.md's actively-maintained
+    clause requires so a persistently unrefreshable account is neither abandoned
+    nor retried without limit on the rate.
+    """
 
     vault = caam_vault(home=config.home)
     if config.no_warm or config.dry_run or not vault.is_dir():
@@ -141,10 +161,10 @@ def keep_warm(
     memo = _warm_memo(state=state)
     for profile_path in sorted(vault.iterdir(), key=lambda path: path.name):
         name = profile_path.name
-        if name.startswith("_") or name == config.active_name:
+        if not _is_idle_profile(name=name, active_name=config.active_name):
             continue
         _, expires_at = read_creds(path=profile_path / ".credentials.json")
-        if expires_at is not None and expires_at - checked_at > warm_margin_s():
+        if expires_at is not None and expires_at > checked_at:
             continue
         last = _last_attempt_at(memo=memo, name=name)
         if checked_at - last < warm_retry_s():
@@ -158,6 +178,66 @@ def keep_warm(
         )
         memo[name] = {"at": checked_at, "ok": result.ok}
         logger(f"warm: {name} {result.detail if result.ok else 'FAILED -- ' + result.detail}")
+
+
+def idle_snapshot_expiries(*, home: Path, active_name: str) -> tuple[float | None, ...]:
+    """Each idle profile snapshot's stored expiry (None when unreadable/absent).
+
+    The active profile and the `_`-prefixed reserved profiles are excluded, so the
+    result names exactly the profiles `keep_warm` maintains. It is the input to
+    `next_warm_wake`.
+    """
+
+    vault = caam_vault(home=home)
+    if not vault.is_dir():
+        return ()
+    expiries: list[float | None] = []
+    for profile_path in sorted(vault.iterdir(), key=lambda path: path.name):
+        name = profile_path.name
+        if not _is_idle_profile(name=name, active_name=active_name):
+            continue
+        _, expires_at = read_creds(path=profile_path / ".credentials.json")
+        expiries.append(expires_at)
+    return tuple(expiries)
+
+
+def next_warm_wake(
+    *,
+    expiries: Iterable[float | None],
+    now: float,
+    delay_s: float | None = None,
+) -> float | None:
+    """When to next run maintenance so the soonest-expiring idle account is refreshed
+    within `delay_s` of its own expiry, rather than up to a full fixed tick later.
+
+    It is the earliest FUTURE expiry plus `delay_s` (a few seconds, so the token is
+    certainly expired by the time the wake fires). An already-expired or unknown
+    expiry drives no wake here -- an expired account is refreshed by the current
+    pass, and an unknown one is covered by the recurring backstop schedule. Returns
+    None when no idle account has a future expiry to wake for.
+    """
+
+    delay = warm_wake_delay_s() if delay_s is None else delay_s
+    future = [expiry for expiry in expiries if expiry is not None and expiry > now]
+    if not future:
+        return None
+    return min(future) + delay
+
+
+def emit_next_warm_wake(
+    *, home: Path, active_name: str, now: float, stdout: Callable[[str], None]
+) -> None:
+    """Emit the instant to next run maintenance, keyed to the soonest idle-account
+    expiry, so the operator surface can schedule a per-account wake there rather
+    than waiting for the coarse recurring tick. Silent when no idle account has a
+    future expiry to wake for.
+    """
+    wake = next_warm_wake(
+        expiries=idle_snapshot_expiries(home=home, active_name=active_name), now=now
+    )
+    if wake is not None:
+        stamp = datetime.fromtimestamp(wake, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        stdout(f"next-warm-wake: {stamp}")
 
 
 def warm_profile(
@@ -184,11 +264,7 @@ def warm_profile(
         said = _first_output_line(process=process)
         _, before = read_creds(path=vault_profile / ".credentials.json")
         _, after = read_creds(path=sandbox / ".credentials.json")
-        if (
-            after is not None
-            and after > checked_at + warm_margin_s()
-            and (before is None or after <= before)
-        ):
+        if after is not None and after > checked_at and (before is None or after <= before):
             return WarmResult(ok=True, detail="already valid, no refresh needed")
         if after is None or (before is not None and after <= before):
             return WarmResult(ok=False, detail=f"no refresh -- {said or 'no output'}")
