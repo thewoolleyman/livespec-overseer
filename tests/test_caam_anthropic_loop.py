@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import importlib
 import json
-from collections.abc import Mapping
 from pathlib import Path
 from types import ModuleType
 
@@ -133,22 +132,27 @@ def test_flags_use_prefix_matching_lowercasing_and_absent_none(*, argv, expected
         assert parsed.protected_accounts == ()
 
 
-def test_keep_warm_defaults_off_and_uses_exact_opt_in_names(*, monkeypatch):
+def test_keep_warm_is_on_by_default_and_opts_out_only_with_no_warm(*, monkeypatch):
+    """Keep-warm is on by design; only `--no-warm` disables it, and the retired
+    `--warm` / `CAAM_ROTATE_WARM` opt-in no longer governs it.
+    """
     module = caam_loop_module()
 
     monkeypatch.delenv("CAAM_ROTATE_WARM", raising=False)
-    monkeypatch.setenv("CAAM_ROTATE_WARM_MARGIN_S", "1")
 
-    assert module.parse_flags(argv=[]).no_warm is True
-    assert module.parse_flags(argv=["--warm"]).no_warm is False
+    assert module.parse_flags(argv=[]).no_warm is False
+    assert module.parse_flags(argv=["--no-warm"]).no_warm is True
     assert module.parse_flags(argv=["--no-warm", "--warm"]).no_warm is True
-    assert module.parse_flags(argv=["--warm-margin=1"]).no_warm is True
+    # The retired opt-in forms are inert: they neither enable nor disable warming.
+    assert module.parse_flags(argv=["--warm"]).no_warm is False
     assert module.parse_flags(argv=[], environ={"CAAM_ROTATE_WARM": "1"}).no_warm is False
-    assert module.parse_flags(argv=[], environ={"CAAM_ROTATE_WARM": "true"}).no_warm is True
-    assert module.parse_flags(argv=[], environ={"CAAM_ROTATE_WARM_MARGIN_S": "1"}).no_warm is True
+    assert module.parse_flags(argv=[], environ={"CAAM_ROTATE_WARM": "0"}).no_warm is False
 
 
-def test_default_run_makes_no_keep_warm_attempt(*, tmp_path: Path, monkeypatch):
+def test_no_warm_run_makes_no_keep_warm_attempt(*, tmp_path: Path, monkeypatch):
+    """`--no-warm` is the explicit escape: even a due (expired) idle profile is left
+    untouched.
+    """
     module = caam_loop_module()
     out: list[str] = []
     write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=30_000.0)
@@ -166,7 +170,7 @@ def test_default_run_makes_no_keep_warm_attempt(*, tmp_path: Path, monkeypatch):
         return usage(five_hour=20.0, seven_day=20.0), None
 
     result = module.run_pass(
-        flags=module.parse_flags(argv=[]),
+        flags=module.parse_flags(argv=["--no-warm"]),
         home=tmp_path,
         now=2_000.0,
         stdout=out.append,
@@ -182,16 +186,10 @@ def test_default_run_makes_no_keep_warm_attempt(*, tmp_path: Path, monkeypatch):
     assert not (tmp_path / ".local" / "state" / "caam-usage-rotate" / "warm").exists()
 
 
-@pytest.mark.parametrize(
-    ("argv", "environ"),
-    [
-        (["--warm"], {}),
-        ([], {"CAAM_ROTATE_WARM": "1"}),
-    ],
-)
-def test_keep_warm_opt_in_forms_attempt_due_idle_profile(
-    *, tmp_path: Path, argv: list[str], environ: Mapping[str, str]
-):
+def test_default_run_attempts_a_due_expired_idle_profile(*, tmp_path: Path):
+    """A default (unflagged) run refreshes a due idle profile whose token has expired,
+    and emits the next-warm-wake keyed to the refreshed profile's new expiry.
+    """
     module = caam_loop_module()
     out: list[str] = []
     write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=30_000.0)
@@ -208,7 +206,7 @@ def test_keep_warm_opt_in_forms_attempt_due_idle_profile(
         return usage(five_hour=20.0, seven_day=20.0), None
 
     result = module.run_pass(
-        flags=module.parse_flags(argv=argv, environ=environ),
+        flags=module.parse_flags(argv=[]),
         home=tmp_path,
         now=10_000.0,
         stdout=out.append,
@@ -227,6 +225,8 @@ def test_keep_warm_opt_in_forms_attempt_due_idle_profile(
             180.0,
         )
     ]
+    # The refreshed idle now expires at 30_000; the next wake is that plus the delay.
+    assert any(line.startswith("next-warm-wake: ") for line in out)
 
 
 def test_unexpected_exception_reports_fail_type_without_traceback():
@@ -591,7 +591,7 @@ def test_protected_accounts_persist_as_top_level_state_and_survive_empty_pass(
 
     first = module.run_pass(
         flags=module.parse_flags(
-            argv=["--protected-account=main=12.5", "--protected-account", "backup"]
+            argv=["--no-warm", "--protected-account=main=12.5", "--protected-account", "backup"]
         ),
         home=tmp_path,
         now=1787395200.0,
@@ -610,7 +610,7 @@ def test_protected_accounts_persist_as_top_level_state_and_survive_empty_pass(
         encoding="utf-8",
     )
     second = module.run_pass(
-        flags=module.parse_flags(argv=[]),
+        flags=module.parse_flags(argv=["--no-warm"]),
         home=tmp_path,
         now=1787395200.0,
         stdout=out.append,

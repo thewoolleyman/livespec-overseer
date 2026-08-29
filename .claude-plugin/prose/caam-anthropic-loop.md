@@ -45,6 +45,14 @@ overlapping jobs. The `7,37` minute marks are deliberate: they avoid the `:00` a
 manual side, so a lost marker degrades to an observable forced pass rather than a
 silent never-force pass.
 
+The recurring `7,37` job is a BACKSTOP, not the only refresh trigger. Because an
+idle account's access token is refreshed the instant it expires and the delegated
+agent will not renew a still-valid one, waiting up to a full 30-minute tick past
+an expiry leaves the account dark for that whole window. So each pass also prints
+a `next-warm-wake:` line naming the soonest idle-account expiry; schedule a
+per-expiry one-off wake from it as described under Reporting. Keep the recurring
+job regardless, so a missed one-off wake still degrades to a bounded delay.
+
 If this runtime has no Cron tools, report that the recurring self-installation
 could not be performed in this harness, then continue the current pass. Do not
 invent an alternate scheduler.
@@ -107,7 +115,7 @@ Resolve the mode from the invocation text after the schedule check.
 - Forward only these operator flags when present: `--force`, `--dry-run`,
   `--no-models`, `--foreman-model=<fable|opus|auto>`,
   `--session-model=<session>=<fable|opus|auto>`,
-  `--protected-account=<account>[=<percent>]`, `--warm`, and `--no-warm`.
+  `--protected-account=<account>[=<percent>]`, and `--no-warm`.
   `--foreman-model=fable` and `--foreman-model=opus` pin the model enforced for
   sessions whose name carries the foreman suffix, and that pin persists in the
   operation state across later scheduled ticks until it is explicitly cleared.
@@ -126,9 +134,12 @@ Resolve the mode from the invocation text after the schedule check.
   across later scheduled ticks and is reported on the summary line as
   `protected-accounts:`. A protected account is never selected while any
   unprotected account is eligible, and its floor is not released by the
-  fleet-wide weekly reserve's release. Idle-profile
-  keep-warm maintenance is off by default; opt in with `--warm` or
-  `CAAM_ROTATE_WARM=1`. `--no-warm` explicitly keeps it disabled for this pass.
+  fleet-wide weekly reserve's release. Idle-profile keep-warm maintenance is ON
+  BY DESIGN so idle accounts stay selectable: it refreshes an idle snapshot the
+  instant that snapshot's token expires, and never before, because the delegated
+  agent renews only an already-expired credential and a pre-expiry attempt merely
+  burns an inference request. `--no-warm` explicitly disables keep-warm for this
+  pass; the retired `--warm` / `CAAM_ROTATE_WARM=1` opt-in no longer governs it.
 
 Do not add retry, recovery, alternate thresholds, or a manual fallback. The
 program owns the account decision.
@@ -153,6 +164,15 @@ percentages rather than paraphrasing them.
 If the program prints a line beginning with `FAIL`, say plainly that the pass
 failed and stop. Do not retry with a lower threshold. Do not attempt `caam
 activate` by hand. Do not use a cached or dark account as a destination.
+
+If the program prints a `next-warm-wake: <timestamp>` line and Cron tools are
+available, schedule a one-off wake for it: delete any prior one-off wake you
+created for this operation, then `CronCreate` with `recurring: false`, a `cron`
+expression for that timestamp's minute, and prompt `/caam-anthropic-loop
+--scheduled`. This refreshes the soonest-expiring idle account within seconds of
+its token expiring rather than at the next 30-minute mark. If no `next-warm-wake:`
+line is printed, no idle account has a pending expiry to wake for; rely on the
+recurring backstop.
 
 For a successful scheduled, held, dry-run, forced, or switched pass, report the
 decision exactly as printed and then stop. To stop watching entirely, delete the

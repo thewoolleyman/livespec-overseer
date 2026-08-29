@@ -41,6 +41,7 @@ from caam_warm import (
     Logger,
     ResnapshotRunner,
     WarmConfig,
+    emit_next_warm_wake,
     keep_warm,
     resnapshot_active,
 )
@@ -236,6 +237,9 @@ def _pass_with_active(
         )
 
     _warm_idle(active_name=active_name)
+    emit_next_warm_wake(
+        home=context.home, active_name=active_name, now=context.now, stdout=context.stdout
+    )
 
     def _after_switch(*, active_name: str) -> None:
         _emit_table(context=context, profiles=profiles, active_name=active_name)

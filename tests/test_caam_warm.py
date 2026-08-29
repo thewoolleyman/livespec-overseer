@@ -294,7 +294,10 @@ def test_warm_profile_reports_no_refresh_with_agent_output_without_copying_back(
     assert not agent.calls[0][1].exists()
 
 
-def test_warm_profile_treats_still_comfortably_valid_snapshot_as_success(*, tmp_path: Path):
+def test_warm_profile_treats_still_valid_snapshot_as_success(*, tmp_path: Path):
+    """A sandbox token still valid into the future and no newer than the snapshot is
+    reported as already valid without copying, keyed on `now` rather than a margin.
+    """
     module = caam_warm_module()
     profile = write_snapshot(home=tmp_path, name="idle", credential="old", expires_at_s=20_000.0)
     write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
@@ -343,6 +346,18 @@ def test_warm_profile_reports_exception_removes_sandbox_and_checks_live_token(*,
     ]
 
 
+def test_the_pre_expiry_warm_margin_is_retired(*, tmp_path: Path):
+    """The pre-expiry warm-margin gate is gone: `warm_margin_s` no longer exists.
+
+    Its removal is what stops the wasted refresh of a still-valid token
+    (overseer-54k2za.47/.52). A lingering `warm_margin_s` would mean the old
+    pre-expiry attempt survived somewhere.
+    """
+    module = caam_warm_module()
+    assert not hasattr(module, "warm_margin_s")
+    assert "warm_margin_s" not in module.__all__
+
+
 def test_keep_warm_skips_disabled_dry_run_and_missing_vault(*, tmp_path: Path):
     module = caam_warm_module()
     agent = Agent(refreshed_credential="new", after_expires_at_s=30_000.0)
@@ -374,14 +389,104 @@ def test_keep_warm_skips_disabled_dry_run_and_missing_vault(*, tmp_path: Path):
     assert state == {}
 
 
-def test_keep_warm_skips_active_underscore_valid_and_backed_off_profiles(*, tmp_path: Path):
+def test_keep_warm_skips_a_still_valid_snapshot_inside_the_old_margin(*, tmp_path: Path):
+    """DISCRIMINATOR: a token still valid but within the OLD two-hour margin is now
+    SKIPPED, not refreshed.
+
+    Under the retired margin gate an idle snapshot expiring less than two hours out
+    was refreshed pre-emptively -- an attempt that cannot renew a valid token and
+    only burns an inference request. The expiry-gated rule leaves it for the wake
+    scheduled at its own expiry.
+    """
     module = caam_warm_module()
-    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=99_000.0
+    )
+    _ = write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=99_000.0)
+    # Expires one hour out: valid now, but well inside the old 7200s pre-expiry margin.
+    _ = write_snapshot(home=tmp_path, name="soon", credential="old", expires_at_s=13_600.0)
+    agent = Agent(refreshed_credential="new", after_expires_at_s=40_000.0)
+    logs: list[str] = []
+    state: dict[str, object] = {}
+
+    module.keep_warm(
+        state=state,
+        config=warm_config(module=module, active_name="active", home=tmp_path),
+        now=10_000.0,
+        agent_runner=agent,
+        logger=logs.append,
+    )
+
+    assert agent.calls == [], "a still-valid snapshot must not be refreshed pre-expiry"
+    assert state.get("warm", {}) == {}
+    assert logs == []
+
+
+def test_keep_warm_refreshes_an_expired_snapshot_and_backs_off(*, tmp_path: Path):
+    """An idle snapshot whose token has EXPIRED is refreshed, then rate-limited."""
+    module = caam_warm_module()
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=99_000.0
+    )
+    _ = write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=99_000.0)
+    _ = write_snapshot(home=tmp_path, name="expired", credential="old", expires_at_s=9_000.0)
+    agent = Agent(refreshed_credential="new", after_expires_at_s=40_000.0)
+    logs: list[str] = []
+    state: dict[str, object] = {}
+
+    module.keep_warm(
+        state=state,
+        config=warm_config(module=module, active_name="active", home=tmp_path),
+        now=10_000.0,
+        agent_runner=agent,
+        logger=logs.append,
+    )
+    module.keep_warm(
+        state=state,
+        config=warm_config(module=module, active_name="active", home=tmp_path),
+        now=10_500.0,
+        agent_runner=agent,
+        logger=logs.append,
+    )
+
+    assert [call[1].name for call in agent.calls] == ["expired"]
+    assert state["warm"] == {"expired": {"at": 10_000.0, "ok": True}}
+    assert logs == ["warm: expired refreshed, +8.3h"]
+
+
+def test_keep_warm_attempts_at_the_expiry_boundary_and_skips_just_before_it(*, tmp_path: Path):
+    """The gate turns exactly at expiry: expires == now is attempted; a hair before
+    it is skipped.
+    """
+    module = caam_warm_module()
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=99_000.0
+    )
+    _ = write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=99_000.0)
+    _ = write_snapshot(home=tmp_path, name="at-expiry", credential="old", expires_at_s=10_000.0)
+    _ = write_snapshot(home=tmp_path, name="not-yet", credential="old", expires_at_s=10_000.1)
+    agent = Agent(refreshed_credential="new", after_expires_at_s=40_000.0)
+    state: dict[str, object] = {}
+
+    module.keep_warm(
+        state=state,
+        config=warm_config(module=module, active_name="active", home=tmp_path),
+        now=10_000.0,
+        agent_runner=agent,
+        logger=ignore_log,
+    )
+
+    assert [call[1].name for call in agent.calls] == ["at-expiry"]
+
+
+def test_keep_warm_skips_active_underscore_and_backed_off_profiles(*, tmp_path: Path):
+    module = caam_warm_module()
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=99_000.0
+    )
     _ = write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=1000.0)
     _ = write_snapshot(home=tmp_path, name="_backup", credential="backup", expires_at_s=1000.0)
-    _ = write_snapshot(
-        home=tmp_path, name="valid-boundary", credential="valid", expires_at_s=17_200.1
-    )
+    _ = write_snapshot(home=tmp_path, name="valid", credential="valid", expires_at_s=50_000.0)
     _ = write_snapshot(home=tmp_path, name="backed-off", credential="old", expires_at_s=1000.0)
     due = write_snapshot(home=tmp_path, name="due", credential="old", expires_at_s=1000.0)
     (due / "settings.json").unlink()
@@ -413,16 +518,18 @@ def test_keep_warm_skips_active_underscore_valid_and_backed_off_profiles(*, tmp_
 def test_keep_warm_attempts_a_profile_whose_credentials_file_is_absent(*, tmp_path: Path):
     """A snapshot with no credentials file FAILS LOUDLY rather than being skipped.
 
-    The source reads the credentials path unconditionally, so an absent file
-    falls through to the staleness branch, the profile is entered, and the
-    sandbox preparation fails -- which is REPORTED and recorded in the backoff
-    memo. A presence guard would turn that into silence, hiding exactly the
-    snapshots most likely to need attention, and would diverge from the oracle.
-    This test pins the absence of that guard.
+    The source reads the credentials path unconditionally; an absent file reads as
+    an unknown (None) expiry, which is NOT treated as still-valid, so the profile
+    is entered, the sandbox preparation fails, and the failure is REPORTED and
+    recorded in the backoff memo. A presence guard would turn that into silence,
+    hiding exactly the snapshots most likely to need attention. This test pins the
+    absence of that guard.
     """
 
     module = caam_warm_module()
-    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=99_000.0
+    )
     _ = write_snapshot(home=tmp_path, name="active", credential="active", expires_at_s=1000.0)
     absent = write_snapshot(home=tmp_path, name="no-creds", credential="old", expires_at_s=1000.0)
     (absent / ".credentials.json").unlink()
@@ -445,35 +552,11 @@ def test_keep_warm_attempts_a_profile_whose_credentials_file_is_absent(*, tmp_pa
     assert any("no-creds" in line for line in logs)
 
 
-def test_keep_warm_attempts_at_staleness_boundary_and_backs_off_success(*, tmp_path: Path):
-    module = caam_warm_module()
-    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
-    _ = write_snapshot(home=tmp_path, name="boundary", credential="old", expires_at_s=17_200.0)
-    agent = Agent(refreshed_credential="new", after_expires_at_s=30_000.0)
-    state: dict[str, object] = {}
-
-    module.keep_warm(
-        state=state,
-        config=warm_config(module=module, active_name="active", home=tmp_path),
-        now=10_000.0,
-        agent_runner=agent,
-        logger=ignore_log,
-    )
-    module.keep_warm(
-        state=state,
-        config=warm_config(module=module, active_name="active", home=tmp_path),
-        now=10_001.0,
-        agent_runner=agent,
-        logger=ignore_log,
-    )
-
-    assert len(agent.calls) == 1
-    assert state["warm"] == {"boundary": {"at": 10_000.0, "ok": True}}
-
-
 def test_keep_warm_backoff_applies_after_failure_and_logs_survivable_failure(*, tmp_path: Path):
     module = caam_warm_module()
-    write_creds(path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=9000.0)
+    write_creds(
+        path=tmp_path / ".claude" / ".credentials.json", bearer="live", expires_at_s=99_000.0
+    )
     _ = write_snapshot(home=tmp_path, name="orphan", credential="old", expires_at_s=1000.0)
     agent = Agent(stdout="", stderr="You've hit your monthly spend limit\n")
     logs: list[str] = []
@@ -497,3 +580,63 @@ def test_keep_warm_backoff_applies_after_failure_and_logs_survivable_failure(*, 
     assert len(agent.calls) == 1
     assert state["warm"] == {"orphan": {"at": 10_000.0, "ok": False}}
     assert logs == ["warm: orphan FAILED -- no refresh -- You've hit your monthly spend limit"]
+
+
+def test_next_warm_wake_is_the_soonest_future_expiry_plus_the_delay(*, tmp_path: Path):
+    """The next maintenance wake is keyed to the soonest FUTURE expiry, so an account
+    is refreshed within `delay_s` of its own expiry rather than at a fixed tick.
+    """
+    module = caam_warm_module()
+
+    wake = module.next_warm_wake(
+        expiries=(10_500.0, 10_200.0, None, 20_000.0),
+        now=10_000.0,
+        delay_s=5.0,
+    )
+
+    assert wake == 10_205.0
+
+
+def test_next_warm_wake_ignores_past_and_unknown_expiries(*, tmp_path: Path):
+    """Already-expired and unknown expiries drive no wake: the current pass refreshes
+    an expired account, and the recurring backstop covers an unknown one.
+    """
+    module = caam_warm_module()
+
+    assert (
+        module.next_warm_wake(expiries=(9_000.0, None, 10_000.0), now=10_000.0, delay_s=5.0) is None
+    )
+    assert module.next_warm_wake(expiries=(), now=10_000.0, delay_s=5.0) is None
+
+
+def test_next_warm_wake_uses_the_configured_delay_default(
+    *, tmp_path: Path, monkeypatch: object
+) -> None:
+    module = caam_warm_module()
+    from _pytest.monkeypatch import MonkeyPatch
+
+    assert isinstance(monkeypatch, MonkeyPatch)
+    monkeypatch.setenv("CAAM_ROTATE_WARM_WAKE_DELAY_S", "30")
+
+    assert module.warm_wake_delay_s() == 30.0
+    assert module.next_warm_wake(expiries=(10_400.0,), now=10_000.0) == 10_430.0
+
+
+def test_idle_snapshot_expiries_names_only_idle_profiles(*, tmp_path: Path):
+    """idle_snapshot_expiries returns each idle snapshot's expiry, excluding the active
+    profile and the `_`-prefixed reserved profiles, and None for an unreadable one.
+    """
+    module = caam_warm_module()
+    _ = write_snapshot(home=tmp_path, name="active", credential="a", expires_at_s=5_000.0)
+    _ = write_snapshot(home=tmp_path, name="_reserved", credential="r", expires_at_s=6_000.0)
+    _ = write_snapshot(home=tmp_path, name="beta", credential="b", expires_at_s=7_000.0)
+    gamma = write_snapshot(home=tmp_path, name="gamma", credential="g", expires_at_s=8_000.0)
+    (gamma / ".credentials.json").unlink()
+
+    assert module.idle_snapshot_expiries(home=tmp_path, active_name="active") == (7_000.0, None)
+
+
+def test_idle_snapshot_expiries_is_empty_without_a_vault(*, tmp_path: Path):
+    module = caam_warm_module()
+
+    assert module.idle_snapshot_expiries(home=tmp_path, active_name="active") == ()

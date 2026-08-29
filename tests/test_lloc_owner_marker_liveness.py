@@ -19,6 +19,7 @@ ENUMERATED_LIVE_OWNER_PINS = frozenset(
         "overseer-au3pt3.11",
         "overseer-au3pt3.15",
         "overseer-hgq4wi",
+        "overseer-54k2za.52",
         "overseer-n1ai.1",
         "overseer-temi26.2",
         "overseer-temi26.3",

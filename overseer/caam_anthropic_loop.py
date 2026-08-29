@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from collections.abc import Mapping
@@ -56,14 +55,13 @@ class Flags:
     protected_accounts: tuple[tuple[str, str], ...] = ()
 
 
-_WARM_FLAG = "--warm"
-_WARM_ENV = "CAAM_ROTATE_WARM"
-
-
 def parse_flags(*, argv: list[str], environ: Mapping[str, str] | None = None) -> Flags:
-    run_environ = os.environ if environ is None else environ
-    values = {name: False for name in ("scheduled", "force", "dry_run", "no_models")}
-    values["no_warm"] = not (_WARM_FLAG in argv or run_environ.get(_WARM_ENV) == "1")
+    del environ
+    # Idle-profile keep-warm is ON BY DESIGN: expiry-scheduled maintenance is the
+    # mechanism that keeps idle accounts selectable (overseer-54k2za.52), so it is
+    # not an opt-in. `--no-warm` remains as an explicit escape for a pass that must
+    # not touch idle snapshots.
+    values = {name: False for name in ("scheduled", "force", "dry_run", "no_models", "no_warm")}
     foreman_model: str | None = None
     session_models: list[tuple[str, str]] = []
     protected_accounts: list[tuple[str, str]] = []
