@@ -1205,9 +1205,17 @@ for the marker's edge-triggered lifecycle.
   the shebang launch (there is no project sync to satisfy it).
 - **Invocation surface (daemon vs module split; 2026-07-13).** Two homes:
   - **`overseerd`** — the dedicated daemon **executable** (uv shebang above +
-    `chmod +x`). Run it with NO subcommands; its ONE option is `--warn-percent N`
-    (an int in [1, 99], the daemon-wide default wind-down threshold — a per-track
-    `ctx_threshold` override still wins; `overseer-start` threads it through). It calls
+    `chmod +x`). Run it with NO subcommands; it takes TWO options, both daemon-wide
+    defaults. `--warn-percent N` (an int in [1, 99], the default wind-down threshold —
+    a per-track `ctx_threshold` override still wins; `overseer-start` threads it
+    through), and `--idle-nudge {on,off}` (default `on`), which switches the
+    idle-with-context keep-going nudge for every track. `--idle-nudge` is resolved
+    through the ONE seam `_supervisor_idle_nudge_policy.resolve_idle_nudge` — the
+    per-track and per-repo overrides extend that function rather than the gate — and it
+    governs THAT NUDGE ALONE: the low-context wrap-up and the cardinal-rule
+    restart-on-`ready` have no off-switch and must never acquire one (a repo-level test
+    asserts `_supervisor_wrapup_injection` / `_supervisor_ready` / `_supervisor_restart`
+    never mention it). `overseer-start` does NOT thread `--idle-nudge` through yet. It calls
     `supervisor.run_daemon()`, which watches the whole fleet. It pins its own dir
     onto `sys.path` so `import supervisor` (and supervisor's siblings) resolve
     from any cwd. This is the ONLY thing the `/overseer` skill launches in the top
@@ -1229,7 +1237,7 @@ for the marker's edge-triggered lifecycle.
     command handlers stay here because operator tests and callers patch facade-local
     helpers such as `_cli_colliding`; moving those handlers would silently bypass
     those patches.
-  Beyond `--warn-percent`, there are **no config knobs**: store
+  Beyond `--warn-percent` and `--idle-nudge`, there are **no config knobs**: store
   (`~/.livespec-overseer.jsonl`) and injection-stamp
   (`~/.livespec-overseer-stamps.json`) paths are hard-coded via the `registry`
   defaults, and the watch-set is read from `~/.livespec-overseer-repos.json`

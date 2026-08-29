@@ -138,7 +138,8 @@ def test_overseerd_threads_and_validates_warn_percent(*, monkeypatch):
     mod = _load_overseerd()
     seen: dict[str, object] = {}
 
-    def _fake_run(*, warn_percent=None):
+    def _fake_run(*, warn_percent=None, idle_nudge=True):
+        del idle_nudge
         seen["wp"] = warn_percent
         return 0
 
@@ -159,7 +160,8 @@ def test_overseerd_console_entry_point_targets_importable_module(*, monkeypatch)
     mod = importlib.import_module("overseer.daemon")
     seen: dict[str, object] = {}
 
-    def _fake_run(*, warn_percent=None):
+    def _fake_run(*, warn_percent=None, idle_nudge=True):
+        del idle_nudge
         seen["wp"] = warn_percent
         return 0
 

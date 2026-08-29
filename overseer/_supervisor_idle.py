@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import _supervisor_idle_nudge_policy
 import _supervisor_nudge
 import _supervisor_offer
 import registry
@@ -77,12 +78,23 @@ def idle_room(*, request: IdleRequest) -> str:
         request.istate.idle_since is not None
         and (request.sup.now() - request.istate.idle_since) >= IDLE_NUDGE_AFTER
     )
+    # The operator's switch for this nudge — daemon-wide today
+    # (`overseerd --idle-nudge {on,off}`), extended per-track and per-repo by the
+    # later slices INSIDE `resolve_idle_nudge` rather than inline here, so this
+    # condition never has to learn the precedence. It gates the KEYSTROKE only,
+    # exactly as the 1-hour floor below does: the row still reads
+    # `idle-with-context-left`, because that status describes the track rather
+    # than reporting an act. And it reaches ONLY this nudge — the low-context
+    # wrap-up and the cardinal-rule restart-on-`ready` have no off-switch.
+    nudge_allowed = _supervisor_idle_nudge_policy.resolve_idle_nudge(
+        sup=request.sup, track=request.track
+    )
     # Fire the nudge ONLY after the session has been continuously idle for at
     # least `IDLE_NUDGE_AFTER` (maintainer 2026-07-18: the nudge was "too
     # aggressive, TOO SOON", interrupting sessions merely between turns). The
     # status still reads `idle-with-context-left` immediately (it is descriptive,
     # not an attention row); only the keystroke waits for the 1-hour floor.
-    if request.act and not nudged_already and idle_long_enough:
+    if request.act and nudge_allowed and not nudged_already and idle_long_enough:
         _supervisor_nudge.nudge_idle_with_context(
             sup=request.sup,
             track=request.track,

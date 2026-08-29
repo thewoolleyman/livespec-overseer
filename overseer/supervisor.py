@@ -141,7 +141,7 @@ def _cli_colliding() -> frozenset[str]:
     return _supervisor_cli_topic.cli_colliding()
 
 
-def run_daemon(*, warn_percent: int | None = None) -> int:
+def run_daemon(*, warn_percent: int | None = None, idle_nudge: bool = True) -> int:
     """Start the fleet daemon with fixed defaults — the ``overseerd`` entrypoint.
 
     Called by the dedicated ``overseerd`` executable: watch every fleet member
@@ -150,18 +150,23 @@ def run_daemon(*, warn_percent: int | None = None) -> int:
     interval. ``warn_percent`` (from ``overseerd --warn-percent N``) is the
     daemon-wide default remaining-% at which the first wrap-up fires; None means
     the built-in ``registry.DEFAULT_CTX_THRESHOLD``. A per-track ``ctx_threshold``
-    override still wins over it. ``recover=False`` keeps the daemon a pure
+    override still wins over it. ``idle_nudge`` (from
+    ``overseerd --idle-nudge {on,off}``) switches the idle-with-context keep-going
+    nudge daemon-wide; True is what an absent flag has always meant, and it governs
+    THAT nudge alone — the low-context wrap-up and the restart-on-``ready``
+    interlock are unaffected by it. ``recover=False`` keeps the daemon a pure
     surface-only watcher — it never auto-spawns/revives a session at startup;
     (re)launching a mapped-but-dead session is a deliberate ``start`` via the
     skill. This function does not return (the loop runs until the process is
     killed); the ``int`` is a formality so ``overseerd`` can ``raise SystemExit``.
     """
     supervisor = build_supervisor()
-    # Set the field after building (rather than threading it through
+    # Set the fields after building (rather than threading them through
     # `build_supervisor`) so the daemon keeps its single no-arg builder.
     supervisor.warn_percent = (
         warn_percent if warn_percent is not None else registry.DEFAULT_CTX_THRESHOLD
     )
+    supervisor.idle_nudge = idle_nudge
     supervisor.run(interval=LOOP_INTERVAL_SECONDS, once=False, recover=False)
     return 0
 

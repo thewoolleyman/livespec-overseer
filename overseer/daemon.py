@@ -1,11 +1,17 @@
 """Importable entry point for the dedicated overseer daemon.
 
 Run it with NO subcommands: it starts the deterministic supervisor daemon watching
-every livespec fleet member. Its ONE option is ``--warn-percent N`` (int in [1, 99],
-the daemon-wide default wind-down threshold; a per-track ``ctx_threshold`` still wins).
-The command IS the daemon — there is nothing else to type. (Track management — list /
-add / remove / unassign / start — is the supervisor MODULE, invoked one-shot from the
-``/overseer`` skill, NOT this executable.)
+every livespec fleet member. It takes TWO options, both daemon-wide defaults:
+``--warn-percent N`` (int in [1, 99], the wind-down threshold; a per-track
+``ctx_threshold`` still wins) and ``--idle-nudge {on,off}`` (whether an idle session
+still holding context gets the keep-going nudge). Neither is required, and the defaults
+are what the daemon has always done. The command IS the daemon — there is nothing else
+to type. (Track management — list / add / remove / unassign / start — is the supervisor
+MODULE, invoked one-shot from the ``/overseer`` skill, NOT this executable.)
+
+``--idle-nudge off`` switches off ONE keystroke and no more: the low-context wrap-up and
+the cardinal-rule restart-on-``ready`` are unconditional and stay that way. It is not a
+"stop typing into my pane" switch.
 
 Path discovery is self-contained so it "just works" from any working directory:
   * this module's own directory is pinned onto ``sys.path`` below, so
@@ -122,10 +128,23 @@ def main(*, argv: list[str] | None = None) -> int:
             "fires (default 50); a per-track override still wins"
         ),
     )
+    _ = parser.add_argument(
+        "--idle-nudge",
+        choices=["on", "off"],
+        default="on",
+        help=(
+            "daemon-wide switch for the keep-going nudge sent to a session that has "
+            "gone idle while still holding context (default on). `off` suppresses that "
+            "nudge for every track; the low-context wrap-up and the restart-on-ready "
+            "interlock are NOT affected and cannot be switched off"
+        ),
+    )
     args = parser.parse_args(argv)
     with _native_daemon_stderr(log_path=_default_daemon_log_path()):
         _supervisor_diagnostics.log(message="daemon log opened")
-        return supervisor.run_daemon(warn_percent=args.warn_percent)
+        return supervisor.run_daemon(
+            warn_percent=args.warn_percent, idle_nudge=args.idle_nudge == "on"
+        )
 
 
 if __name__ == "__main__":

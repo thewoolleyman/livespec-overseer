@@ -154,6 +154,14 @@ class Supervisor:
     # fires) for any track WITHOUT a per-track ``ctx_threshold`` override. Set from
     # ``overseerd --warn-percent`` via ``run_daemon``; a track's own override wins.
     warn_percent: int = registry.DEFAULT_CTX_THRESHOLD
+    # Daemon-wide switch for the idle-with-context keep-going nudge, set from
+    # ``overseerd --idle-nudge {on,off}`` via ``run_daemon``. The default True is
+    # what an absent flag has always meant, so nothing changes for an operator who
+    # never types it. It gates ONLY that nudge: the low-context wrap-up and the
+    # cardinal-rule restart-on-``ready`` stay unconditional. Read it through
+    # ``_supervisor_idle_nudge_policy.resolve_idle_nudge``, never directly — that
+    # is the one seam the per-track and per-repo slices extend.
+    idle_nudge: bool = True
     # Resolved at CONSTRUCTION rather than at import, so a caller (or a test)
     # that redirects sys.stdout first still gets the stream it expects.
     out: IO[str] = field(default_factory=lambda: sys.stdout)

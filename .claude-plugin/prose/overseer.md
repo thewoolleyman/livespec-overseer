@@ -239,7 +239,15 @@ does everything deterministically:
   threads it into the `overseerd` launch command
   (`overseerd --warn-percent N 2>> tmp/overseer/daemon.log`).
   `N` is an int in `[1, 99]`; a per-track `ctx_threshold` override in the mapping
-  still wins over this default. Aside from `--warn-percent`, `overseerd` watches
+  still wins over this default.
+- `overseerd` takes one further optional argument, **`--idle-nudge {on,off}`**
+  (default **on**) — the daemon-wide switch for the keep-going nudge sent to a
+  session that has gone idle while still holding context. `off` suppresses that
+  nudge for every track. It switches off ONE keystroke and no more: the
+  low-context wrap-up and the cardinal-rule restart-on-`ready` are unconditional
+  and cannot be switched off, so `off` is not "stop typing into my pane".
+  `overseer-start` does not thread this one through yet — pass it to `overseerd`
+  directly. Aside from these two, `overseerd` watches
   the whole fleet with the fixed store/stamp paths and the default loop interval,
   and does not auto-recover dead sessions at startup (surface-only: it never
   auto-spawns; re-launching a mapped-but-dead session is a deliberate `start` —
