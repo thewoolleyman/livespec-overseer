@@ -532,9 +532,9 @@ of a procedure, not about `ensurepip`.
 
 **Read the cured half as history and the rule as current.** A reader who takes the
 present-tense sentence at face value today will conclude the daemon cannot be
-provisioned here, which is the exact record-versus-world error this file documents
-at length elsewhere — committed, this time, by the entry that was written to warn
-about a neighbouring one.
+provisioned here, which is the exact record-versus-world error that
+`.ai/record-versus-world.md` documents at length — committed, this time, by the
+entry that was written to warn about a neighbouring one.
 
 | | double-brace | queue eviction | anchor-as-dep | succeeded-untransitioned | interview-destroyed | **publish-branch collision** |
 |---|---|---|---|---|---|---|
@@ -713,9 +713,9 @@ Clear a stale pin with
 and READ THE ITEM BACK. Do not use `bd update <id> --metadata @<file>` with an empty
 object to do it: measured the same day, that reports `✓ Updated issue` and leaves the
 key in place. `--unset-metadata` worked and the metadata read `null` afterwards. This
-is the same shape as the `added_at` defect recorded elsewhere in this file — a write
-path that reports success while writing nothing — and the remedy is the same: verify
-the read-back, never the exit message.
+is the same write-path shape recorded throughout this file — a path that reports
+success while writing nothing — and the remedy is the same: verify the read-back,
+never the exit message.
 
 Three things make a pin sweep read falsely clean. A default `bd list` omits `closed`
 and `backlog` items, so pinned items resting in either state are invisible and the
@@ -947,7 +947,8 @@ remedy is to fix the gate that is holding the merge and let auto-merge land it**
 touch the claim, and do not close the row.
 
 **THE CAUSE WILL RECUR ON ANY DISPATCHED ITEM THAT ADDS A SIZEABLE MODULE.**
-`check-no-lloc-soft-warnings` failed on three new modules in the 201-250 soft band with
+`check-no-lloc-soft-warnings` (see `.ai/pr-and-gate-mechanics.md`, which records why
+it cannot fail when run by hand) failed on three new modules in the 201-250 soft band with
 no owning marker. Every other check was green, and the run's own `review_fix` stage had
 tried the repair and failed. **So the factory can produce complete, green work and still
 be unable to land it over a mechanical debt gate**, after which the dispatcher reports

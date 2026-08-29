@@ -66,7 +66,7 @@ durable guidance is a claim that must STAY true. A mechanism read from source
 does not rot; a row does. The withdrawn candidate was observed at four different
 statuses in one day, twice flipping between `ready` and `blocked` inside four
 minutes across two sessions' reads — both correct at their instants, and any
-sentence written about it in this file would have been false within the hour.
+sentence written about it in durable guidance would have been false within the hour.
 **Cite the mechanism and give the reader a query; never pin durable guidance to
 live mutable state.**
 
@@ -112,6 +112,6 @@ Do not read such a row as awaiting a human.
 not what holds anything. The repair proposed for it, "read the labels instead",
 was **also wrong, and wrong in the dangerous direction**: it reads seven blocked
 items as takeable. The accurate rule is narrower than either. Same family as the
-entries above — `Updated:` is not activity, a PATH's age is not a BEHAVIOUR's
-age, a timestamp a session WROTE is not one that was MEASURED — with one
-addition: **the repair for an under-specified rule is not a shorter rule.**
+entries in `.ai/record-versus-world.md` — `Updated:` is not activity, a PATH's age
+is not a BEHAVIOUR's age, a timestamp a session WROTE is not one that was
+MEASURED — with one addition: **the repair for an under-specified rule is not a shorter rule.**

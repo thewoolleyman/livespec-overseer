@@ -30,7 +30,8 @@ is the seat that usually checks.
 **The mechanism is item TEXT, and that is not a weak substitute for an edge — it is the
 correct instrument.** Filing thread membership as a `depends_on` is circular by
 construction (an epic cannot close before its children) and renders the item
-permanently undispatchable; this file documents that trap at length above. Name the
+permanently undispatchable; `.ai/dispatch-traps.md` documents that trap at length.
+Name the
 thread in the row's prose and the row in the thread's archive record.
 
 **A criterion is only trustworthy once it has a PASSING control.** This one was run over

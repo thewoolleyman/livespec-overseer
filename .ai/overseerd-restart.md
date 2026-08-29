@@ -101,7 +101,8 @@ merged that afternoon was written to make certifiable.
 
 **Prefer this to reasoning from process start times or file dates.** Both were
 tried on that incident; the start-time argument was sound but laborious, and the
-file-date argument was outright wrong (see the symbol-history rule above). The
+file-date argument was outright wrong (see the file-history rule in
+`.ai/record-versus-world.md`). The
 version field settles it in one read and needs no argument about import semantics.
 
 **The asymmetry to expect, because it sends investigators at the wrong half.**

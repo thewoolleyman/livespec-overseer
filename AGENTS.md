@@ -73,7 +73,7 @@ The other two premises behind the CURRENT assurance were re-checked at the same 
 and BOTH STILL HOLD: **zero** `.claude/skills/overseer/` path references across all
 three documents, and the `.ai/` present-tense premise still passes its gate. Only the
 inventory aged. The `local-only` string still describes the externally-sandboxed
-HOST exactly as recorded below — but it has MOVED, from line 403 to line 505, which
+HOST exactly as recorded above — but it has MOVED, from line 403 to line 505, which
 is its own small lesson: **grep for the string, do not navigate to the cited line.**
 A line number is a measurement too, and this one aged in eighteen days while the
 claim it points at stayed true.
@@ -107,8 +107,14 @@ after 2026-07-30. (Whether the check should also detect absence is filed as
 
 Every `.ai/` file below except `supervisor-protocol.md` was moved VERBATIM out of
 this file on 2026-08-23, when it stood at 157,689 chars against the 150k limit.
-Their prose still says "this file", "above" and "below" in places; read those as
-references to the file they were written in.
+Their cross-file references were re-anchored on 2026-08-29, so a citation naming
+another topic names it explicitly; an "above" or "below" inside one of these files
+now means within that file. One casualty of that pass is worth knowing about: an
+`added_at` citation had pointed at "elsewhere in this file" since the day it was
+written, and no such entry ever existed in any of them. **Check that a citation
+resolves before you propagate it** — a plausible-sounding pointer costs a reader
+the search, and this one had survived unchallenged across a rewrite of the file it
+lived in.
 
 - **`.ai/supervisor-protocol.md`** — read BEFORE driving a worker as supervisor.
   The shared role-level contract that every generated per-plan binder is read
@@ -348,8 +354,8 @@ on its ledger item) purely because that is what the worker happened to already
 be doing, without ever weighing factory dispatch as the alternative. The
 maintainer had to say so explicitly.
 
-Check dispatch-safety before choosing (see "Dispatch traps" above and the
-ledger-edit-item note below it): no `{{...}}` template tokens in the item's
+Check dispatch-safety before choosing (see `.ai/dispatch-traps.md`, whose
+ledger-edit-item entry is the other half of this test): no `{{...}}` template tokens in the item's
 own text, no cross-repo `depends_on` pointing at its own parent epic, the
 target repo's master CI proven green, and the deliverable is a repository
 change rather than a beads-ledger mutation. If genuinely in-flight manual work
@@ -387,7 +393,7 @@ them. Recording after the fact only works when nothing goes wrong in between.
 **The ledger row does not satisfy this.** A row at `active` with assignee `fabro`
 says a claim exists. It does not say which plan authorized the work, what it should
 produce, or what to do when it fails — and an `active` row is routinely wrong on its
-own terms; see the phantom-claim shapes in "Dispatch traps" above.
+own terms; see the phantom-claim shapes in `.ai/dispatch-traps.md`.
 
 **Mixed-tier items are not dispatchable at all — split them at FILING time.** An item
 whose deliverable spans a repository change AND a `SPECIFICATION/` change cannot be
@@ -472,7 +478,8 @@ failure looks like a `bd` problem. Define a function instead:
 Thirteen sequential shows never finished, twice, with and without stdin
 attached. One `bd list --parent <epic> --json` returns every child's title,
 description, acceptance and status in a second and is the right instrument for
-scanning stored records (the doubled-brace token check above included) or
+scanning stored records (the doubled-brace token check in
+`.ai/dispatch-traps.md` included) or
 reading statuses. Parse a created id from the normal `Created issue: <id>`
 output line; `--silent` produced nothing usable through a pipe.
 
@@ -520,8 +527,9 @@ The guard does not create an env var, flag, or skip lever exception. Those
 remain absolutely prohibited here.
 
 **As of 2026-08-19 `CI_RUNNER_LABELS` is
-`["livespec-overseer-k3s"]`** — re-cut once the root cause below was found and
-fixed. The rollback history is kept because its triage lesson outlives it.
+`["livespec-overseer-k3s"]`** — re-cut once the root cause was found and fixed.
+The rollback history is kept because its triage lesson outlives it; both are in
+`.ai/ci-runner-routing-history.md`.
 
 The rollback history, the AppArmor root cause, the runner-pod-is-not-the-workflow-pod
 lesson and the triage lesson are in `.ai/ci-runner-routing-history.md`. Read it
