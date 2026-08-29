@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.62.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.7...v1.62.8) (2026-08-29)
+
+
+### Bug Fixes
+
+* **caam:** revive on credential expiry, not cache-figure staleness ([b138a9b](https://github.com/thewoolleyman/livespec-overseer/commit/b138a9b821d429748dde0f805177b7dfafabed4a))
+
 ## [1.62.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.6...v1.62.7) (2026-08-28)
 
 
