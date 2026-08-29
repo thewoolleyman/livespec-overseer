@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.65.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.64.0...v1.65.0) (2026-08-29)
+
+
+### Features
+
+* add a per-repo idle_nudge override and the three-tier precedence ([30003f1](https://github.com/thewoolleyman/livespec-overseer/commit/30003f178aa1f8ff032c1e10610c90c1fc2a7f88))
+
 ## [1.64.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.63.0...v1.64.0) (2026-08-29)
 
 
