@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.63.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.8...v1.63.0) (2026-08-29)
+
+
+### Features
+
+* add a daemon-wide --idle-nudge switch and its resolution seam ([4acab28](https://github.com/thewoolleyman/livespec-overseer/commit/4acab2809c897ee41b890c2de33b1e451059a7b8))
+
 ## [1.62.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.62.7...v1.62.8) (2026-08-29)
 
 
