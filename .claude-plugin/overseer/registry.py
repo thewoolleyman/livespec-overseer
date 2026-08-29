@@ -68,6 +68,7 @@ from _registry_discovery import archived_or_gone as archived_or_gone
 from _registry_discovery import discover_plans as discover_plans
 from _registry_discovery import join as join
 from _registry_discovery import plan_liveness_topic as plan_liveness_topic
+from _registry_discovery import repo_idle_nudge_from_config as repo_idle_nudge_from_config
 from _registry_discovery import repo_root_present as repo_root_present
 from _registry_discovery import watch_set_from_config as watch_set_from_config
 from _registry_epic import epic_from_plan_anchor as epic_from_plan_anchor
@@ -175,6 +176,7 @@ __all__: list[str] = [
     "record_ready_expiry",
     "record_shell_episode",
     "remove_mapping",
+    "repo_idle_nudge_from_config",
     "repo_root_present",
     "repo_slug",
     "repoint_tmux",

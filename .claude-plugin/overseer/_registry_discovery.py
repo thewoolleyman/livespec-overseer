@@ -1,20 +1,22 @@
-"""Plan discovery, the discovery ⋈ mapping join, the watch set, and archive-GC.
+"""Plan discovery, the discovery ⋈ mapping join, and archive-GC.
 
 Extracted from `registry.py` at its own section banner when that module crossed the
-250-LLOC hard ceiling. Also carries the small JSONC scanner the watch-set
-declaration is parsed with. `registry.py` re-exports this surface, so consumers keep
+250-LLOC hard ceiling. `registry.py` re-exports this surface, so consumers keep
 importing `registry`.
+
+The WATCH SET — the `~/.livespec-overseer-repos.json` declaration, its entry shapes and
+the small JSONC scanner it is parsed with — moved on to `_registry_watch_set.py` when
+this module crossed the 200-LLOC soft band; it was a second concern this docstring had
+always listed separately, and the scanner now sits with its only consumers. Both public
+readers are imported back below, so this module's own surface is unchanged.
 """
 
 from __future__ import annotations
 
-import json
 import os
-import re
 from collections.abc import Iterable
 from pathlib import Path
 
-import jsonio
 import signals
 from _registry_core import (
     Track,
@@ -24,12 +26,19 @@ from _registry_core import (
     tmux_id,
     warn,
 )
+from _registry_watch_set import (
+    repo_idle_nudge_from_config as repo_idle_nudge_from_config,
+)
+from _registry_watch_set import (
+    watch_set_from_config as watch_set_from_config,
+)
 
 __all__: list[str] = [
     "archived_or_gone",
     "discover_plans",
     "join",
     "plan_liveness_topic",
+    "repo_idle_nudge_from_config",
     "repo_root_present",
     "watch_set_from_config",
 ]
@@ -129,159 +138,6 @@ def join(
         result.append(mapped if mapped is not None else UnassignedPlan.make(repo=repo, topic=topic))
     result.sort(key=lambda t: (norm(repo=t.repo), t.topic))
     return result
-
-
-def _scan_string_literal(*, text: str, start: int) -> int:
-    """Index just past the JSON string literal opening at ``start``.
-
-    ``text[start]`` is the opening quote. Backslash escapes are honored, so an
-    escaped quote does not end the literal. An UNTERMINATED literal consumes to
-    the end of the input rather than raising: this is a comment stripper, not a
-    validator, and reporting malformed JSON is :func:`json.loads`'s job.
-    """
-    n = len(text)
-    i = start + 1
-    escape = False
-    while i < n:
-        ch = text[i]
-        if escape:
-            escape = False
-        elif ch == "\\":
-            escape = True
-        elif ch == '"':
-            return i + 1
-        i += 1
-    return n
-
-
-def _scan_line_comment(*, text: str, start: int) -> int:
-    """Index of the newline ending the ``//`` comment at ``start``.
-
-    The newline itself is NOT consumed, so stripping preserves line structure
-    (and therefore the line numbers in any downstream parse error).
-    """
-    end = text.find("\n", start)
-    return len(text) if end == -1 else end
-
-
-def _scan_block_comment(*, text: str, start: int) -> int:
-    """Index just past the ``/* */`` comment opening at ``start``.
-
-    An unterminated block comment consumes to the end of the input, matching
-    :func:`_scan_string_literal`'s fail-soft posture.
-    """
-    end = text.find("*/", start + 2)
-    return len(text) if end == -1 else end + 2
-
-
-def _strip_jsonc_comments(*, text: str) -> str:
-    """Strip ``//`` line and ``/* */`` block comments, string-literal-aware.
-
-    A hand-rolled scanner (not a regex) so a ``//`` or ``/*`` inside a JSON
-    string value is preserved. Avoids adding a JSONC/TOML/YAML dependency.
-
-    Each ``_scan_*`` helper takes the index where its construct begins and
-    returns the index just past it, so this loop stays a flat dispatch over
-    "what starts here?" rather than an interleaved multi-flag state machine.
-    """
-    out: list[str] = []
-    i = 0
-    n = len(text)
-    while i < n:
-        if text[i] == '"':
-            end = _scan_string_literal(text=text, start=i)
-            out.append(text[i:end])
-            i = end
-        elif text.startswith("//", i):
-            i = _scan_line_comment(text=text, start=i)
-        elif text.startswith("/*", i):
-            i = _scan_block_comment(text=text, start=i)
-        else:
-            out.append(text[i])
-            i += 1
-    return "".join(out)
-
-
-def _parse_jsonc(*, text: str) -> object:
-    stripped = _strip_jsonc_comments(text=text)
-    # Tolerate trailing commas before a closing brace/bracket (common in JSONC).
-    stripped = re.sub(r",(\s*[}\]])", r"\1", stripped)
-    return json.loads(stripped)
-
-
-def watch_set_from_config(
-    *,
-    config_path: str | os.PathLike[str],
-    extra_repos: Iterable[str | os.PathLike[str]] = (),
-) -> list[str]:
-    """Compute the watch-set from the ``$HOME`` declaration rather than a manifest.
-
-    This is the SOLE watch-set source, and it is what makes the overseer
-    relocatable. It REPLACED a manifest-seeded ``watch_set`` that resolved
-    ``.livespec-fleet-manifest.jsonc`` by walking UP from this file — which broke
-    the moment the package moved out of ``<core>/.claude/skills/``. That function
-    was REMOVED with the relocation and is defined nowhere in this package; no
-    non-test code reads the fleet manifest at all. Reading an absolute ``$HOME``
-    path instead is position-independent, and it drops the manifest dependency
-    D5 forbids a shipped overseer from carrying.
-
-    The document is ``{"repos": ["<checkout>", ...]}``, parsed as JSONC rather
-    than strict JSON: this is a HAND-EDITED operator file, so ``//`` comments
-    beside an entry ("paused while the migration lands") are worth more than
-    format purity, and the repo already carries the lenient parser.
-
-    Each entry is included only if the checkout exists AND has a ``plan/`` dir —
-    the SAME admission rule the superseded manifest seeding applied, so
-    relocating does not quietly widen or narrow what gets supervised.
-
-    Listing a repo that has no assigned track yet is the POINT, not an edge
-    case: discovery has to scan repos with zero mapping rows in order to surface
-    their unassigned plans at all. That is why the watch-set cannot be derived
-    from the mapping store's own rows — doing so would make a brand-new plan
-    invisible until someone had already assigned it.
-
-    Fail-soft in the same shape as the rest of this module: an absent,
-    unreadable, or malformed declaration warns and yields just the ``extra_repos``,
-    rather than taking the daemon down. An absent file is the ordinary
-    first-run state, so it warns without ceremony.
-    """
-    path = Path(config_path).expanduser()
-
-    selected: list[str] = []
-    seen: set[str] = set()
-
-    def _add(*, candidate: Path) -> None:
-        candidate_norm = norm(repo=candidate)
-        if candidate_norm not in seen:
-            seen.add(candidate_norm)
-            selected.append(candidate_norm)
-
-    declared: list[str] = []
-    try:
-        document = jsonio.as_object(value=_parse_jsonc(text=path.read_text(encoding="utf-8")))
-    # ValueError subsumes BOTH json.JSONDecodeError and the UnicodeDecodeError a
-    # non-UTF-8 watch-set raises, so the tuple gets shorter, not longer.
-    except (OSError, ValueError) as exc:
-        warn(message=f"unreadable/unparsable watch-set {path}: {exc}")
-        document = None
-    if document is not None:
-        entries = jsonio.as_list(value=document.get("repos"))
-        if entries is None:
-            warn(message=f"watch-set {path}: 'repos' is missing or not a list")
-        else:
-            declared = [entry for entry in entries if isinstance(entry, str)]
-
-    for name in declared:
-        candidate = Path(name).expanduser()
-        if candidate.is_dir() and (candidate / "plan").is_dir():
-            _add(candidate=candidate)
-
-    for extra in extra_repos:
-        candidate = Path(extra).expanduser()
-        if candidate.is_dir():
-            _add(candidate=candidate)
-
-    return selected
 
 
 def repo_root_present(*, repo: str) -> bool:

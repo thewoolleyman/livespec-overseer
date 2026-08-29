@@ -66,6 +66,22 @@ Which repos it supervises is declared in **`~/.livespec-overseer-repos.json`**:
 
 A listed repo is watched only if its checkout exists and has a `plan/` dir.
 
+An entry may also be an object, which is how a repo carries settings of its own:
+
+```jsonc
+{
+  "repos": [
+    "/data/projects/livespec",
+    { "path": "/data/projects/some-other-repo", "idle_nudge": false }
+  ]
+}
+```
+
+Both shapes mix freely in one file, so an existing bare-string declaration keeps
+working untouched. `idle_nudge` switches the idle-with-context keep-going nudge
+for every track in that repo which sets none of its own; omitting it means "no
+override" rather than "off", leaving the daemon-wide `--idle-nudge` in charge.
+
 **Listing a repo with no session assigned yet is the normal case, not an
 oversight** — that is exactly how a plan with no session surfaces as
 `unassigned` and therefore ready to start. The watch-set is deliberately
