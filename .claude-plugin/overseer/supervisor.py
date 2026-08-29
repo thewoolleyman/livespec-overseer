@@ -226,13 +226,16 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
             session=session,
             epic_source_topic=epic_source_topic,
             epic=epic,
-            ctx_threshold=_supervisor_cli_update.ctx_threshold_value(value=args.ctx_threshold),
+            overrides=_supervisor_assignment.TrackOverrides(
+                ctx_threshold=_supervisor_cli_update.ctx_threshold_value(value=args.ctx_threshold),
+                idle_nudge=_supervisor_cli_update.idle_nudge_value(value=args.idle_nudge),
+            ),
         )
     except ValueError as exc:
         streams.write_stderr(text=f"{' '.join(str(arg) for arg in exc.args)}\n")
         return 1
     update_fields = _supervisor_cli_update.add_update_fields(
-        epic=args.epic, ctx_threshold=args.ctx_threshold
+        epic=args.epic, ctx_threshold=args.ctx_threshold, idle_nudge=args.idle_nudge
     )
     if not _supervisor_cli_update.upsert_track(
         track=track,

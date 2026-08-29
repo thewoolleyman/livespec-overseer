@@ -243,7 +243,9 @@ does everything deterministically:
 - `overseerd` takes one further optional argument, **`--idle-nudge {on,off}`**
   (default **on**) — the daemon-wide switch for the keep-going nudge sent to a
   session that has gone idle while still holding context. `off` suppresses that
-  nudge for every track. It switches off ONE keystroke and no more: the
+  nudge for every track that carries no per-track override of its own — a track
+  set with `add --idle-nudge {on,off}` wins over this default in either
+  direction. It switches off ONE keystroke and no more: the
   low-context wrap-up and the cardinal-rule restart-on-`ready` are unconditional
   and cannot be switched off, so `off` is not "stop typing into my pane".
   `overseer-start` does not thread this one through yet — pass it to `overseerd`

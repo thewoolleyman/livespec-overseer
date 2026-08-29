@@ -130,6 +130,7 @@ ROW_KEYS = (
     "resume",
     "epic",
     "ctx_threshold",
+    "idle_nudge",
     "pinned_session_id",
     "observed_session_identity",
     "added_at",

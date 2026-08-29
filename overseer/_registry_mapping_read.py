@@ -8,7 +8,12 @@ from typing import TypeAlias
 
 from _registry_core import Track, file_lock, resolve_store, warn
 from _registry_resume import normalize_rows
-from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
+from _registry_row_fields import (
+    ctx_threshold_from_row,
+    idle_nudge_from_row,
+    model_profile_from_row,
+    opt_str_from_row,
+)
 from _registry_rows_io import RawMappingRow, read_row_records, read_rows, write_rows
 from _registry_track_row_parse import RowExtras, track_from_mapping_row
 
@@ -52,6 +57,7 @@ def _track_from_record(*, record: RawMappingRow) -> MappingEntry:
             extras=RowExtras(
                 resume=opt_str_from_row(row=row, key="resume"),
                 ctx_threshold=ctx_threshold_from_row(row=row),
+                idle_nudge=idle_nudge_from_row(row=row),
                 pinned_session_id=opt_str_from_row(row=row, key="pinned_session_id"),
                 observed_session_identity=opt_str_from_row(
                     row=row, key="observed_session_identity"

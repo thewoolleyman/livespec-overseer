@@ -255,6 +255,7 @@ def test_track_from_mapping_row_rejects_unknown_and_malformed_reserved_kinds():
     extras = row_parse.RowExtras(
         resume=None,
         ctx_threshold=None,
+        idle_nudge=None,
         pinned_session_id=None,
         observed_session_identity=None,
         added_at=None,

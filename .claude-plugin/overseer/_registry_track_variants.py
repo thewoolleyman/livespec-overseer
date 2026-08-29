@@ -76,6 +76,10 @@ class UnassignedPlan:
         return None
 
     @property
+    def idle_nudge(self) -> None:
+        return None
+
+    @property
     def pinned_session_id(self) -> None:
         return None
 
@@ -104,6 +108,7 @@ class PlanTrack:
     epic: str
     resume: str | None = None
     ctx_threshold: int | None = None
+    idle_nudge: bool | None = None
     pinned_session_id: str | None = None
     observed_session_identity: str | None = None
     added_at: str | None = None
@@ -134,6 +139,7 @@ class SupervisorSeat:
     supervised_topic: str
     resume: str | None = None
     ctx_threshold: int | None = None
+    idle_nudge: bool | None = None
     pinned_session_id: str | None = None
     observed_session_identity: str | None = None
     added_at: str | None = None
@@ -165,6 +171,7 @@ class ForemanSeat:
     epic: str
     resume: str | None = None
     ctx_threshold: int | None = None
+    idle_nudge: bool | None = None
     pinned_session_id: str | None = None
     observed_session_identity: str | None = None
     added_at: str | None = None
@@ -194,6 +201,7 @@ class GroomingSeat:
     epic: str
     resume: str | None = None
     ctx_threshold: int | None = None
+    idle_nudge: bool | None = None
     pinned_session_id: str | None = None
     observed_session_identity: str | None = None
     added_at: str | None = None
