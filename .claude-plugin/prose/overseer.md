@@ -243,9 +243,12 @@ does everything deterministically:
 - `overseerd` takes one further optional argument, **`--idle-nudge {on,off}`**
   (default **on**) — the daemon-wide switch for the keep-going nudge sent to a
   session that has gone idle while still holding context. `off` suppresses that
-  nudge for every track that carries no per-track override of its own — a track
-  set with `add --idle-nudge {on,off}` wins over this default in either
-  direction. It switches off ONE keystroke and no more: the
+  nudge for every track that carries no more specific override. Two tiers beat
+  it, most specific first: a track set with `add --idle-nudge {on,off}`, then an
+  `idle_nudge` declared beside that repo's checkout in the watch-set (below).
+  Each wins over the tiers under it in EITHER direction — so you can quiet one
+  repo under a daemon-wide `on`, and still opt one track inside it back in.
+  It switches off ONE keystroke and no more: the
   low-context wrap-up and the cardinal-rule restart-on-`ready` are unconditional
   and cannot be switched off, so `off` is not "stop typing into my pane".
   `overseer-start` does not thread this one through yet — pass it to `overseerd`
@@ -423,7 +426,10 @@ are fixed by construction:
   repo under watch, add its checkout path to that file's `repos` array; there is
   no per-run repo override. Declaring a repo that has no session assigned yet is
   the normal case, not an error — that is how an `unassigned` plan becomes
-  visible in the first place.
+  visible in the first place. An entry is either a bare path string or an object
+  `{"path": "<checkout>", "idle_nudge": false}` carrying per-repo settings; the
+  two mix freely in one file, so nothing already written has to change. Omitting
+  `idle_nudge` means "no override" rather than "off".
 
 ---
 

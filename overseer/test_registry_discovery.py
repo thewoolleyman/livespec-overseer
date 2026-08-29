@@ -4,7 +4,8 @@ Split out of `test_registry.py` at the section banners it already carried, when
 that module crossed the 250-LLOC hard ceiling. This module owns `discover_plans`,
 the LEFT JOIN that fills discovered plans from the mapping and marks the rest
 unassigned, and the manifest-JSONC watch set (including the JSONC parser
-underneath it). The store API itself lives in `test_registry.py`.
+underneath it, which now lives in `_registry_watch_set` beside its only
+consumers). The store API itself lives in `test_registry.py`.
 
 ``import registry`` resolves via conftest.py.
 """
@@ -12,7 +13,7 @@ underneath it). The store API itself lives in `test_registry.py`.
 import json
 from pathlib import Path
 
-import _registry_discovery
+import _registry_watch_set
 import pytest
 import registry
 from registry import Track
@@ -300,7 +301,7 @@ def test_parse_jsonc_is_string_aware_and_tolerates_trailing_comma():
         '  "items": ["a", "b",],\n'  # trailing comma
         "}\n"
     )
-    parsed = _registry_discovery._parse_jsonc(text=text)
+    parsed = _registry_watch_set._parse_jsonc(text=text)
     assert parsed["url"] == "http://example.com/a//b"  # // inside string preserved
     assert parsed["items"] == ["a", "b"]
 
@@ -309,7 +310,7 @@ def test_parse_jsonc_honors_backslash_escapes_inside_a_string_literal():
     # A BACKSLASH-ESCAPED quote does not end the literal, so the `//` and `/*` that
     # follow it are still INSIDE the string and must survive stripping. An escaped
     # backslash is likewise consumed as one character, not as an escape of the quote.
-    parsed = _registry_discovery._parse_jsonc(text=r'{"a": "x\"y // z /* w */", "b": "trailing\\"}')
+    parsed = _registry_watch_set._parse_jsonc(text=r'{"a": "x\"y // z /* w */", "b": "trailing\\"}')
     assert parsed["a"] == 'x"y // z /* w */'
     assert parsed["b"] == "trailing\\"
 
@@ -319,9 +320,9 @@ def test_strip_jsonc_comments_consumes_an_unterminated_string_literal():
     # the input, so the `//` inside it is preserved rather than treated as the
     # start of a comment. Reporting the malformed JSON is json.loads's job.
     text = '{"a": "unterminated // not-a-comment'
-    assert _registry_discovery._strip_jsonc_comments(text=text) == text
+    assert _registry_watch_set._strip_jsonc_comments(text=text) == text
     with pytest.raises(json.JSONDecodeError):
-        _registry_discovery._parse_jsonc(text=text)
+        _registry_watch_set._parse_jsonc(text=text)
 
 
 def test_archived_or_gone(*, tmp_path):

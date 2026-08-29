@@ -1213,10 +1213,16 @@ for the marker's edge-triggered lifecycle.
     override — `overseer add --idle-nudge {on,off,inherit}` sets one, and it wins in
     BOTH directions (quiet one track under a daemon-wide `on`, opt one track back in
     under a daemon-wide `off`); `inherit` clears it, exactly as `--ctx-threshold
-    inherit` does. `--idle-nudge` is resolved
-    through the ONE seam `_supervisor_idle_nudge_policy.resolve_idle_nudge` — the
-    per-track override extends that function rather than the gate, and the per-repo
-    override (slice C) is expected to extend it the same way — and it
+    inherit` does. BETWEEN those two sits a per-repo override declared beside the
+    checkout in the watch-set — a `repos[]` entry is now EITHER a bare path string or
+    an object `{"path": "<checkout>", "idle_nudge": <bool>}`, both admitted side by
+    side, so every existing bare-string declaration on the fleet keeps working
+    untouched (`registry.repo_idle_nudge_from_config` reads the overrides;
+    `registry.watch_set_from_config` reads the paths out of either shape). At all
+    three tiers an absent value means "no override", never "off". `--idle-nudge` is
+    resolved through the ONE seam `_supervisor_idle_nudge_policy.resolve_idle_nudge` —
+    all three slices landed by EXTENDING that function rather than the gate, which is
+    the property to preserve if a fourth tier is ever wanted — and it
     governs THAT NUDGE ALONE: the low-context wrap-up and the cardinal-rule
     restart-on-`ready` have no off-switch and must never acquire one (a repo-level test
     asserts `_supervisor_wrapup_injection` / `_supervisor_ready` / `_supervisor_restart`
