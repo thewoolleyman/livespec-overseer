@@ -20,7 +20,12 @@ def apply_upsert_update_fields(
             row[field] = value
             changed = True
     for field in update_fields:
-        if field == "ctx_threshold" and track.ctx_threshold is None:
+        # The two per-track OVERRIDE fields are cleared, not nulled: `inherit` removes
+        # the key so the row goes back to inheriting the daemon-wide default, which a
+        # persisted `null` would not do (a reader cannot tell it from a pinned value).
+        if (field == "ctx_threshold" and track.ctx_threshold is None) or (
+            field == "idle_nudge" and track.idle_nudge is None
+        ):
             if field in row:
                 del row[field]
                 changed = True

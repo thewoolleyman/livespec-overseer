@@ -1209,9 +1209,14 @@ for the marker's edge-triggered lifecycle.
     defaults. `--warn-percent N` (an int in [1, 99], the default wind-down threshold —
     a per-track `ctx_threshold` override still wins; `overseer-start` threads it
     through), and `--idle-nudge {on,off}` (default `on`), which switches the
-    idle-with-context keep-going nudge for every track. `--idle-nudge` is resolved
+    idle-with-context keep-going nudge for every track that carries no per-track
+    override — `overseer add --idle-nudge {on,off,inherit}` sets one, and it wins in
+    BOTH directions (quiet one track under a daemon-wide `on`, opt one track back in
+    under a daemon-wide `off`); `inherit` clears it, exactly as `--ctx-threshold
+    inherit` does. `--idle-nudge` is resolved
     through the ONE seam `_supervisor_idle_nudge_policy.resolve_idle_nudge` — the
-    per-track and per-repo overrides extend that function rather than the gate — and it
+    per-track override extends that function rather than the gate, and the per-repo
+    override (slice C) is expected to extend it the same way — and it
     governs THAT NUDGE ALONE: the low-context wrap-up and the cardinal-rule
     restart-on-`ready` have no off-switch and must never acquire one (a repo-level test
     asserts `_supervisor_wrapup_injection` / `_supervisor_ready` / `_supervisor_restart`

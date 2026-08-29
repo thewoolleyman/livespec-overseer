@@ -13,11 +13,11 @@ function from ``_supervisor_wrapup_injection``, ``_supervisor_ready`` or
 it, because "the daemon stops nudging me" and "the daemon stops winding me down" are
 very different promises and the second one is not on offer.
 
-This is a SEAM, deliberately wider than what it does today. Slice A resolves the
-daemon-wide default alone; the per-track (slice B) and per-repo (slice C) overrides
-extend THIS function, so the ``_supervisor_idle`` call site never has to be re-plumbed
-and the tri-state precedence lands in exactly one readable place rather than inline in
-the gate condition.
+This is a SEAM, deliberately wider than what it does today, and slice B is the first
+proof it works: the per-track override landed by EXTENDING this function, leaving the
+``_supervisor_idle`` call site untouched. The per-repo override (slice C) extends it the
+same way, so the precedence chain stays in exactly one readable place rather than inline
+in the gate condition.
 """
 
 from __future__ import annotations
@@ -35,14 +35,20 @@ __all__: list[str] = ["resolve_idle_nudge"]
 def resolve_idle_nudge(*, sup: Supervisor, track: registry.Track) -> bool:
     """The effective idle-nudge decision for one track: True = may nudge, False = do not.
 
-    Slice A consults ONLY the daemon-wide default — ``overseerd --idle-nudge {on,off}``,
-    carried on :attr:`Supervisor.idle_nudge` and defaulting to on, so an absent flag
-    preserves the behaviour the daemon has always had exactly.
+    The precedence chain, most specific first:
 
-    ``track`` is unused today and is in the signature ON PURPOSE: it is what slices B
-    and C need in order to consult a per-track override and the track's repo, and taking
-    it now is the difference between those slices extending this function and those
-    slices rewriting the call site.
+    1. the track's own ``idle_nudge`` override (``overseer add --idle-nudge {on,off}``),
+       which wins in BOTH directions — it can quiet one track under a daemon-wide ``on``
+       and opt one track back in under a daemon-wide ``off``;
+    2. the daemon-wide default — ``overseerd --idle-nudge {on,off}``, carried on
+       :attr:`Supervisor.idle_nudge` and defaulting to on, so an absent flag and an
+       override-free row together preserve exactly the behaviour the daemon always had.
+
+    ``None`` is what makes the first tier a genuine THREE-state field rather than a
+    boolean that has to pick a side: it means "no override", not "off". That is why
+    ``--idle-nudge inherit`` removes the row key instead of writing ``false`` — a
+    persisted ``false`` would pin today's answer to the daemon-wide question forever.
     """
-    del track  # slice A: the daemon-wide default is the whole precedence chain
+    if track.idle_nudge is not None:
+        return track.idle_nudge
     return sup.idle_nudge

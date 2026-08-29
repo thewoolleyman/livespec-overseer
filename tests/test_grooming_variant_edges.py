@@ -13,6 +13,7 @@ def _extras() -> RowExtras:
     return RowExtras(
         resume=None,
         ctx_threshold=None,
+        idle_nudge=None,
         pinned_session_id=None,
         observed_session_identity=None,
         added_at=None,

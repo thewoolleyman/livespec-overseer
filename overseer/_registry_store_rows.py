@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from _registry_core import SupervisorSeat, Track
 from _registry_resume import normalize_resume_override
-from _registry_row_fields import ctx_threshold_from_row, model_profile_from_row, opt_str_from_row
+from _registry_row_fields import (
+    ctx_threshold_from_row,
+    idle_nudge_from_row,
+    model_profile_from_row,
+    opt_str_from_row,
+)
 from _registry_track_row_parse import RowExtras, track_from_mapping_row
 from _registry_track_variants import epic_is_resolved
 
@@ -42,6 +47,11 @@ def track_to_row(*, track: Track) -> dict[str, object]:
     # explicit int override.
     if track.ctx_threshold is not None:
         row["ctx_threshold"] = track.ctx_threshold
+    # ``idle_nudge`` is omitted on the same terms and for the same reason: a row
+    # WITHOUT the key inherits the daemon-wide ``--idle-nudge``, and only an explicit
+    # per-track on/off is persisted.
+    if track.idle_nudge is not None:
+        row["idle_nudge"] = track.idle_nudge
     if track.model_profile is not None:
         row["model_profile"] = track.model_profile
     if isinstance(track, SupervisorSeat):
@@ -58,6 +68,7 @@ def validated_row(*, row: dict[str, object]) -> dict[str, object]:
         extras=RowExtras(
             resume=opt_str_from_row(row=row, key="resume"),
             ctx_threshold=ctx_threshold_from_row(row=row),
+            idle_nudge=idle_nudge_from_row(row=row),
             pinned_session_id=opt_str_from_row(row=row, key="pinned_session_id"),
             observed_session_identity=opt_str_from_row(row=row, key="observed_session_identity"),
             added_at=opt_str_from_row(row=row, key="added_at"),

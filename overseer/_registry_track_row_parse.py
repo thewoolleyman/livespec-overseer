@@ -60,6 +60,7 @@ def optional_model_profile(*, value: object) -> ModelProfile | None:
 class RowExtras:
     resume: str | None
     ctx_threshold: int | None
+    idle_nudge: bool | None
     pinned_session_id: str | None
     observed_session_identity: str | None
     added_at: str | None
@@ -89,6 +90,7 @@ def track_from_mapping_row(
             epic=optional_str(row=row, key="epic") or unresolved_plan_epic(topic=topic),
             resume=extras.resume,
             ctx_threshold=extras.ctx_threshold,
+            idle_nudge=extras.idle_nudge,
             pinned_session_id=extras.pinned_session_id,
             observed_session_identity=extras.observed_session_identity,
             added_at=extras.added_at,
@@ -108,6 +110,7 @@ def track_from_mapping_row(
             supervised_topic=supervised_topic,
             resume=extras.resume,
             ctx_threshold=extras.ctx_threshold,
+            idle_nudge=extras.idle_nudge,
             pinned_session_id=extras.pinned_session_id,
             observed_session_identity=extras.observed_session_identity,
             added_at=extras.added_at,
@@ -126,6 +129,7 @@ def track_from_mapping_row(
             epic=epic,
             resume=extras.resume,
             ctx_threshold=extras.ctx_threshold,
+            idle_nudge=extras.idle_nudge,
             pinned_session_id=extras.pinned_session_id,
             observed_session_identity=extras.observed_session_identity,
             added_at=extras.added_at,
@@ -144,6 +148,7 @@ def track_from_mapping_row(
             epic=epic,
             resume=extras.resume,
             ctx_threshold=extras.ctx_threshold,
+            idle_nudge=extras.idle_nudge,
             pinned_session_id=extras.pinned_session_id,
             observed_session_identity=extras.observed_session_identity,
             added_at=extras.added_at,
@@ -178,6 +183,11 @@ else:
                     ctx_threshold=(
                         kwargs.get("ctx_threshold")
                         if isinstance(kwargs.get("ctx_threshold"), int)
+                        else None
+                    ),
+                    idle_nudge=(
+                        kwargs.get("idle_nudge")
+                        if isinstance(kwargs.get("idle_nudge"), bool)
                         else None
                     ),
                     pinned_session_id=optional_str(row=kwargs, key="pinned_session_id"),

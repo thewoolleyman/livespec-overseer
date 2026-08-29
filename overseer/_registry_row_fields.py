@@ -9,6 +9,7 @@ from _registry_core import ModelProfile, warn
 
 __all__: list[str] = [
     "ctx_threshold_from_row",
+    "idle_nudge_from_row",
     "model_profile_from_row",
     "opt_str_from_row",
 ]
@@ -30,6 +31,17 @@ def ctx_threshold_from_row(*, row: dict[str, object]) -> int | None:
     # pinned the current default, defeating the daemon-wide ``--warn-percent``.
     threshold = row.get("ctx_threshold")
     return threshold if isinstance(threshold, int) else None
+
+
+def idle_nudge_from_row(*, row: dict[str, object]) -> bool | None:
+    # The ``ctx_threshold`` rule one field over, and for the same reason: a per-track
+    # override is present ONLY if the row carries a bool ``idle_nudge``; a missing (or
+    # non-bool) value means "no override" → None, so the daemon-wide ``--idle-nudge``
+    # applies. Do NOT default to True at read time — that would make a bare row
+    # indistinguishable from one that pinned today's default, which is exactly the
+    # distinction ``add --idle-nudge inherit`` exists to restore.
+    nudge = row.get("idle_nudge")
+    return nudge if isinstance(nudge, bool) else None
 
 
 def model_profile_from_row(
