@@ -20,6 +20,11 @@ WANTED_MODELS: Final = frozenset(("fable", "opus"))
 # the scoped-model selection clause in effect; pinning the general model does not.
 SCOPED_MODEL: Final = "fable"
 _CLEAR_VALUES: Final = frozenset(("auto", "", "none"))
+# The per-session enforced-model pins live under these state keys. They mirror
+# caam_session_models.STATE_KEY / _LEGACY_STATE_KEY, duplicated here rather than
+# imported because caam_session_models imports THIS module (the dependency runs
+# one way only); the legacy key is read for state not yet migrated by an apply.
+_SESSION_MODEL_KEYS: Final = ("session_models", "session-models")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -30,14 +35,22 @@ class ForemanModelChoice:
 
 
 def scoped_model_pinned(*, state: dict[str, object]) -> bool:
-    """Whether the durable operator pin names the scoped model.
+    """Whether an operator pin -- global OR per-session -- names the scoped model.
 
-    This reads the GLOBAL foreman-model pin only. Per-session model exceptions
-    are a separate, currently unspecified surface, and the ratified clause says
-    "an operator pin" in the singular; deciding that question either way is left
-    to a follow-up proposal rather than settled here by implication.
+    Per ratified SPECIFICATION v040, "an operator pin naming the scoped model"
+    is armed when EITHER the global foreman-model pin is the scoped model OR any
+    per-session pin (a `session_models` entry) names it. A per-session pin arms
+    the scoped-model selection clause exactly as the global pin does; the
+    precedence is unchanged (a protection floor still outranks the pin, which
+    waives only the relative-headroom margin, and anti-oscillation is preserved).
     """
-    return state.get("foreman_model") == SCOPED_MODEL
+    if state.get("foreman_model") == SCOPED_MODEL:
+        return True
+    for key in _SESSION_MODEL_KEYS:
+        pins = state.get(key)
+        if isinstance(pins, dict) and SCOPED_MODEL in pins.values():
+            return True
+    return False
 
 
 def apply_foreman_model_override(
