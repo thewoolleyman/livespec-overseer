@@ -71,18 +71,73 @@ subcommands disagree about existence versus pane resolution.
 
 ## HALT-first preconditions
 
-Run these checks before reading or writing any target repo plan file. Stop on the
-first failure, report the failing check plus the exact expected name, and include
-the literal labelled `REMEDY:` for what the operator should do next. Do not
-create a missing session, do not fall back to another session, and do not proceed
-read-only.
+The five preconditions are SPLIT BY PHASE. Authoring a charter gates on the
+ARTIFACT; driving one gates on the LIVE PAIR. Ratified 2026-08-23 under
+`overseer-2a1`, whose finding was an ordering assumption rather than a bad
+check: four of the five presupposed a session already working the topic, so a
+charter — most valuable BEFORE the first session opens — could not be authored
+for a newly created thread at all.
+
+| # | Precondition | Phase |
+|---|---|---|
+| 1 | `worker-session-exists` | drive |
+| 2 | `worker-pane-holds-live-agent` | drive |
+| 3 | `supervisor-session-live-and-distinct` | drive |
+| 4 | `plan-directory-exists` | authoring |
+| 5 | `worker-pane-cwd-inside-repo` | drive |
+
+EACH PRECONDITION IS GATED IN EXACTLY ONE PHASE. One gated in BOTH re-creates
+the ordering inversion for that check; one gated in NEITHER has been lost in the
+move, which is how a check quietly stops existing. Note which one is the
+artifact check: precondition 4 was always the only one a fresh thread could
+satisfy, and it is the only one about an ARTIFACT rather than about a live
+process. That is the seam the split cuts along.
+
+THE SPLIT IS NOT A WEAKENING. Nothing here removes, weakens or skips a check.
+The four live-session checks keep their exact commands, their exact HALT
+messages and their exact expected names; they move from authoring time to drive
+time and they do not soften. In NEITHER phase may anything create a missing
+session, fall back to another session, or proceed read-only in order to satisfy
+a gate — manufacturing state to pass a HALT check is the boundary named in the
+decision-vetting rubric below, and it is the reason this was never a bug in the
+checks.
 
 Every precondition below MUST emit a RUNNABLE command into the generated
 charter. A precondition that states a requirement and supplies no command forces
 a cold-open supervisor to invent one, and the two most load-bearing checks are
 exactly the ones that used to be prose.
 
-1. Supervised session exists:
+### Authoring phase
+
+Run this check — and ONLY this check — before reading or writing any target repo
+plan file, and before appending any binder entry. A thread with NO tmux sessions
+at all must be charterable: that window is precisely what a durable charter
+exists to cover, so the absence of a session is the EXPECTED authoring
+condition, never a finding.
+
+4. `plan-directory-exists`. The plan exists INSIDE the target repo. Resolve an
+ABSOLUTE path. A containment check rooted at the bare `plan/` directory is
+cwd-relative, and it PASSES while pointed at the wrong repository — nothing in
+this skill establishes a working directory, so the repo path must be spelled
+out:
+
+```bash
+test -d "<absolute-target-repo>/plan/<topic>" \
+  || { echo "HALT: missing plan <absolute-target-repo>/plan/<topic>"; echo "REMEDY: create or choose the correct plan topic before supervising"; exit 1; }
+```
+
+Do NOT run any drive-phase check here, and do not report a charter as
+unauthorable because no session exists yet.
+
+### Drive phase
+
+Run these before DRIVING a worker — never at authoring time. Stop on the first
+failure, report the failing check plus the exact expected name, and include the
+literal labelled `REMEDY:` for what the operator should do next. Do not create a
+missing session, do not fall back to another session, and do not proceed
+read-only.
+
+1. `worker-session-exists`. The supervised session exists:
 
 ```bash
 WORKER_TARGET='=<worker-session>:'
@@ -90,11 +145,11 @@ tmux has-session -t "$WORKER_TARGET" \
   || { echo "HALT: expected worker session '<worker-session>'"; echo "REMEDY: ask the maintainer whether to start that worker session"; exit 1; }
 ```
 
-2. The supervised session is really a live agent session: its pane process tree
-contains a `claude` or `codex` CLI process. A tmux session that is only a shell
-is a failure. Runtime identity comes from exact live process evidence, NEVER
-from a session name — a leftover session named like an agent proves nothing.
-Emit this, not a description of it:
+2. `worker-pane-holds-live-agent`. The supervised session is really a live agent
+session: its pane process tree contains a `claude` or `codex` CLI process. A
+tmux session that is only a shell is a failure. Runtime identity comes from
+exact live process evidence, NEVER from a session name — a leftover session
+named like an agent proves nothing. Emit this, not a description of it:
 
 ```bash
 WORKER_TARGET='=<worker-session>:'
@@ -109,12 +164,12 @@ ps -o pid=,comm=,args= --ppid "$pane_pid" --pid "$pane_pid" -H
 
 Report which driver was found.
 
-3. The supervisor session exists AND is really a live agent session. The same
-proof as precondition 2, for the same reason — existence by name proves nothing
-here either. A supervisor session holding only a shell is indistinguishable, to
-a name check, from a working supervisor, so the charter gets generated and
-reported as ready while nothing can act on it. Emit this, not a description of
-it:
+3. `supervisor-session-live-and-distinct`. The supervisor session exists AND is
+really a live agent session. The same proof as precondition 2, for the same
+reason — existence by name proves nothing here either. A supervisor session
+holding only a shell is indistinguishable, to a name check, from a working
+supervisor, so the charter gets generated and reported as ready while nothing
+can act on it. Emit this, not a description of it:
 
 ```bash
 WORKER_TARGET='=<worker-session>:'
@@ -136,18 +191,9 @@ ps -o pid=,comm=,args= --ppid "$supervisor_pane_pid" --pid "$supervisor_pane_pid
 Both pids are resolved in THIS block rather than inherited from precondition 2,
 so the check is self-contained and cannot silently pass on an unset variable.
 
-4. The plan exists INSIDE the target repo. Resolve an ABSOLUTE path. A
-containment check rooted at the bare `plan/` directory is cwd-relative, and it
-PASSES while pointed at the wrong repository — nothing in this skill establishes
-a working directory, so the repo path must be spelled out:
-
-```bash
-test -d "<absolute-target-repo>/plan/<topic>" \
-  || { echo "HALT: missing plan <absolute-target-repo>/plan/<topic>"; echo "REMEDY: create or choose the correct plan topic before supervising"; exit 1; }
-```
-
-5. The supervised pane's cwd resolves inside the target repo. `readlink -f`
-first — a symlinked path that merely LOOKS contained is a HALT:
+5. `worker-pane-cwd-inside-repo`. The supervised pane's cwd resolves inside the
+target repo. `readlink -f` first — a symlinked path that merely LOOKS contained
+is a HALT:
 
 ```bash
 WORKER_TARGET='=<worker-session>:'
@@ -401,9 +447,16 @@ exact target repo path. Tell the reader to verify those sessions and the live
 agent driver before doing anything else, and to stop on the first failure with a
 literal labelled `REMEDY:`.
 
-REPRODUCE the five precondition commands above verbatim, with the placeholders
-substituted. Do not paraphrase them into prose — a precondition without a command
-is the defect this contract exists to stop.
+REPRODUCE the four DRIVE-PHASE precondition commands above verbatim, with the
+placeholders substituted. Do not paraphrase them into prose — a precondition
+without a command is the defect this contract exists to stop.
+
+The authoring-phase check is NOT reproduced here. It gated the authoring of this
+binder, and a check that runs in both phases is gated in neither one place; the
+drive gate this binder carries is complete without it. A binder authored while
+no session existed is therefore a FULL binder, not a degraded one — the same
+four commands, the same HALT messages, the same expected names a cold-open
+supervisor would have got from a binder authored beside a running pair.
 
 ## Role
 

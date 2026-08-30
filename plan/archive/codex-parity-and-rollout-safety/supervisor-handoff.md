@@ -9,7 +9,12 @@
 > the topic, and its contract forbids creating one — so it cannot charter a
 > thread at the moment a charter is most useful. The sessions below were started
 > by the operator FIRST, then the skill was run. That satisfies the gate
-> honestly rather than by fabrication, but the defect stands for the next thread.
+> honestly rather than by fabrication.
+>
+> **SUPERSEDED 2026-08-23 — the defect no longer stands for the next thread.**
+> `overseer-2a1` split the preconditions by phase: the plan-directory check
+> gates AUTHORING, the four live-session checks gate DRIVING. Do not start two
+> sessions in order to author a charter; that recipe is retired.
 
 ## HALT-first preconditions
 
