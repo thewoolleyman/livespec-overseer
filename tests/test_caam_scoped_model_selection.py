@@ -390,3 +390,69 @@ def test_only_a_pin_naming_the_scoped_model_puts_the_clause_in_effect():
         state=state, requested_model="auto", default_model="opus", fable_left=False
     )
     assert not scoped_model_pinned(state=state)
+
+
+# ---------------------------------------------------------------------------
+# A PER-SESSION pin arms the same clause as the global pin (SPEC v040).
+# ---------------------------------------------------------------------------
+
+
+def test_a_per_session_pin_naming_the_scoped_model_arms_the_clause():
+    """A `session_models` entry equal to the scoped model is an operator pin too."""
+    state: dict[str, object] = {"session_models": {"livespec-overseer-foreman": "fable"}}
+
+    assert scoped_model_pinned(state=state)
+
+
+def test_a_per_session_pin_arms_the_clause_even_when_the_global_pin_is_not_scoped():
+    """The per-session pin arms selection though `foreman_model` is opus, not fable."""
+    state: dict[str, object] = {
+        "foreman_model": "opus",
+        "session_models": {"homelab-foreman": "fable"},
+    }
+
+    assert scoped_model_pinned(state=state)
+
+
+def test_a_per_session_pin_naming_the_general_model_does_not_arm_the_clause():
+    """A per-session opus pin is an operator pin, but it does NOT arm this clause."""
+    state: dict[str, object] = {"session_models": {"livespec-overseer-foreman": "opus"}}
+
+    assert not scoped_model_pinned(state=state)
+
+
+def test_a_per_session_scoped_pin_under_the_legacy_state_key_also_arms_the_clause():
+    """State not yet migrated off the legacy `session-models` key still arms selection."""
+    state: dict[str, object] = {"session-models": {"livespec-overseer-foreman": "fable"}}
+
+    assert scoped_model_pinned(state=state)
+
+
+def test_with_neither_a_global_nor_a_per_session_scoped_pin_the_clause_stays_off():
+    """The global-only path is unchanged: no pin of either kind leaves selection unarmed."""
+    assert not scoped_model_pinned(state={})
+    assert not scoped_model_pinned(state={"session_models": {}})
+    assert not scoped_model_pinned(
+        state={"foreman_model": "opus", "session_models": {"a-foreman": "opus"}}
+    )
+
+
+def test_a_per_session_fable_pin_does_not_breach_a_protected_floor():
+    """The per-session pin waives the relative-headroom margin only, never a protection floor."""
+    state: dict[str, object] = {"session_models": {"livespec-overseer-foreman": "fable"}}
+    scoped_pin = scoped_model_pinned(state=state)
+    active = ActiveAccount(
+        name="active", usage=usage(five_hour=40.0, scoped=100.0), scoped_pin=scoped_pin
+    )
+    at_its_floor = live(name="protected", record=usage(five_hour=50.0, seven_day=90.0, scoped=0.0))
+
+    assert (
+        eligible_profiles(
+            profiles=(at_its_floor,),
+            active=active,
+            force=False,
+            dimension="five_hour",
+            protection_floors={"protected": 10.0},
+        ).profiles
+        == ()
+    )
