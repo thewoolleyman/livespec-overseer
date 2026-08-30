@@ -1,25 +1,77 @@
-"""Authoritative sources for final-ruling attention."""
+"""Authoritative sources for final-ruling attention.
+
+THE PLAN-EPIC COMMENT CHANNEL IS READ LIVE, NOT FROM A CACHE. A predecessor
+sourced a seat's answer from ``<repo>/tmp/overseer/ledger-items/<item-id>.json``
+and its quota exemption from ``<repo>/tmp/overseer/caam-quota.json``. Measured
+2026-08-30 (work-item ``overseer-764a.8``): NOTHING in the tracked tree — no
+module, script, plugin bin or prose — has ever written either path, and neither
+existed in any of the fourteen watched repositories on the supervising host
+after weeks of live supervision. Both reads failed closed, so three shipped
+behaviours were structurally unreachable:
+
+* :func:`ledger_comment_moved` answered ``False`` for every seat, every ruling
+  and every epic, which meant ANSWERING A FINAL RULING ON THE LEDGER — the
+  documented way to respond — could never count as heeding it. Only a moved
+  branch could clear the condition.
+* :func:`exemption_label` could emit only two of its four labels;
+  ``infra-external`` and ``caam-quota-exhausted`` read the two dead roots.
+
+The comment channel now goes through :data:`LEDGER_COMMENTS`, the same live
+``bd comments`` seam ``foreman_relay_strikes`` adopted for the identical defect
+in its own reader, and :func:`ledger_comment_movement` keeps an UNREADABLE
+ledger distinguishable from a seat that genuinely never answered — conflating
+the two is how a reader with no input at all reported a confident verdict.
+
+THE TWO DEAD EXEMPTION BRANCHES WERE REMOVED RATHER THAN REWIRED, because
+neither has a producer to rewire them to.
+
+* ``infra-external`` gated on a work item's ``metadata.blocked_reason``. No live
+  item-metadata read is wired into this path, and ``.ai/ledger-valves-and-holds.md``
+  records that ``blocked_reason`` is a policy field serialised into an annotating
+  label — read only to NAME the reason on a row already ``blocked``, and
+  vestigial otherwise. Reinstating the branch means first MEASURING which field
+  ``bd show --json`` actually carries it under; writing a reader against a guessed
+  wire format is the very defect being repaired here.
+* ``caam-quota-exhausted`` gated on a per-repo CAAM quota surface that was
+  designed but never built. The thirty-odd ``caam_*`` modules keep their state
+  host-wide in ``$HOME/.local/state/caam-usage-rotate/state.json`` and project
+  nothing per repository, and the removed reader had no recency floor either, so
+  a stale file would have exempted a seat forever.
+
+Their design intent survives in ``plan/foreman-full-autonomy-option/research/``;
+``scripts/check-report-only-artifact-producers.py`` now registers both roots as
+RETIRED so a future reader of either fails the aggregate rather than shipping
+silent again.
+"""
 
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 import jsonio
+import ledger_comments
 
 __all__: list[str] = [
+    "LEDGER_COMMENTS",
     "FinalRelay",
+    "LedgerMovement",
     "branch_moved",
     "exemption_label",
     "ledger_comment_moved",
+    "ledger_comment_movement",
     "read_journal",
     "relay_from_record",
     "timestamp",
 ]
 
 _GIT_TIMEOUT_SECONDS = 5.0
+
+LEDGER_COMMENTS: ledger_comments.CommentReader = ledger_comments.read_comments
+"""The live plan-epic comment read. Patch THIS module's binding to redirect it."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -33,9 +85,11 @@ class FinalRelay:
 
 
 @dataclass(frozen=True, kw_only=True)
-class LedgerItem:
-    blocked_reason: str | None
-    latest_comment_at: float | None
+class LedgerMovement:
+    """Whether the seat answered after the ruling, and whether the ledger answered."""
+
+    moved: bool
+    source: str
 
 
 def relay_from_record(
@@ -59,13 +113,9 @@ def relay_from_record(
 
 
 def exemption_label(*, repo: Path, item_id: str, floor_at: float) -> str | None:
-    item = read_ledger_item(repo=repo, item_id=item_id)
-    if item is not None and item.blocked_reason == "infra-external":
-        return "infra-external"
+    """The closed exemption set, now exactly the branches that have a producer."""
     if credential_exhaustion_refusal(repo=repo, item_id=item_id, floor_at=floor_at):
         return "credential-exhaustion"
-    if caam_quota_exhausted(repo=repo):
-        return "caam-quota-exhausted"
     if factory_host_failure(repo=repo, item_id=item_id):
         return "factory-host-failure"
     return None
@@ -87,12 +137,28 @@ def branch_moved(*, repo: Path, relay: FinalRelay) -> bool:
     return completed.returncode == 0 and completed.stdout.strip() != relay.branch_head
 
 
-def ledger_comment_moved(*, repo: Path, relay: FinalRelay) -> bool:
-    item = read_ledger_item(repo=repo, item_id=relay.item_id)
-    if item is None or item.latest_comment_at is None:
+def ledger_comment_moved(*, relay: FinalRelay, comments: Sequence[object]) -> bool:
+    """Whether ``comments`` carries an answer newer than the ruling's floor.
+
+    A pure predicate over a comment set held in hand, so it can be proven both
+    ways without the store the caller happens to read from.
+    """
+    latest = timestamp(value=ledger_comments.latest_comment_at(comments=comments))
+    if latest is None:
         return False
     floor = relay.latest_plan_comment_at if relay.latest_plan_comment_at is not None else relay.at
-    return item.latest_comment_at > floor
+    return latest > floor
+
+
+def ledger_comment_movement(*, repo: Path, relay: FinalRelay) -> LedgerMovement:
+    """Read the plan epic's comments live, keeping an unreadable ledger its own case."""
+    comments = LEDGER_COMMENTS(repo=repo, work_item_id=relay.item_id)
+    if comments is None:
+        return LedgerMovement(moved=False, source=ledger_comments.SOURCE_UNAVAILABLE)
+    return LedgerMovement(
+        moved=ledger_comment_moved(relay=relay, comments=comments),
+        source=ledger_comments.SOURCE_LEDGER,
+    )
 
 
 def credential_exhaustion_refusal(*, repo: Path, item_id: str, floor_at: float) -> bool:
@@ -132,15 +198,6 @@ def dispatch_outcome_detail(*, record: dict[str, object]) -> str | None:
     return string_value(value=outcome.get("detail"))
 
 
-def caam_quota_exhausted(*, repo: Path) -> bool:
-    payload = read_json_object(path=repo / "tmp" / "overseer" / "caam-quota.json")
-    if payload is None:
-        return False
-    return (
-        payload.get("account_window_exhausted") is True or payload.get("window_exhausted") is True
-    )
-
-
 def factory_host_failure(*, repo: Path, item_id: str) -> bool:
     root = repo / "tmp" / "overseer" / "detached-dispatch"
     try:
@@ -171,34 +228,6 @@ def read_journal(*, repo: Path) -> tuple[dict[str, object], ...] | None:
             if record is not None:
                 records.append(record)
     return tuple(records)
-
-
-def read_ledger_item(*, repo: Path, item_id: str) -> LedgerItem | None:
-    payload = read_json_object(path=repo / "tmp" / "overseer" / "ledger-items" / f"{item_id}.json")
-    if payload is None:
-        return None
-    metadata = jsonio.as_object(value=payload.get("metadata")) or {}
-    comments = jsonio.as_list(value=payload.get("comments")) or []
-    timestamps = tuple(
-        parsed
-        for comment in (jsonio.as_object(value=value) for value in comments)
-        if comment is not None
-        and (parsed := timestamp(value=comment.get("created_at") or comment.get("at"))) is not None
-    )
-    return LedgerItem(
-        blocked_reason=string_value(value=metadata.get("blocked_reason")),
-        latest_comment_at=max(timestamps) if timestamps else None,
-    )
-
-
-def read_json_object(*, path: Path) -> dict[str, object] | None:
-    try:
-        parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
-    except OSError:
-        return None
-    if jsonio.is_parse_failure(result=parsed):
-        return None
-    return parsed.unwrap()
 
 
 def timestamp(*, value: object) -> float | None:
