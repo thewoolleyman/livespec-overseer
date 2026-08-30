@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.65.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.4...v1.65.5) (2026-08-30)
+
+
+### Bug Fixes
+
+* name the cause when a caam rotation pass has no candidate ([e217a97](https://github.com/thewoolleyman/livespec-overseer/commit/e217a9743104380fa49658de8804544a00b5b64b))
+
 ## [1.65.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.3...v1.65.4) (2026-08-30)
 
 
