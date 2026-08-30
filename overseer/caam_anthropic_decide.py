@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from _caam_switch_host import acquire_switch_lock, caam_activate
+from caam_candidate_diagnosis import CandidatePopulation
 from caam_decide_context import (
     DecisionContext,
     DecisionSeams,
@@ -112,8 +113,12 @@ def decide(
             context=context,
             save_state=seams.save_state,
             decision_line=decision_line,
-            dimension=dimension,
-            active_name=active_name,
+            population=CandidatePopulation(
+                profiles=profiles,
+                active_name=active_name,
+                dimension=dimension,
+                protection_floors=protection_floors,
+            ),
             reasons=reasons,
         )
     if pin_unsatisfiable:

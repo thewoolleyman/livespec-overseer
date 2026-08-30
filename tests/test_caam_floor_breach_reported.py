@@ -7,6 +7,11 @@ exhausted, or unverifiable" -- none of which is "the active account is protected
 below its floor". The one condition protection exists to make visible was the one
 the hold line could not express.
 
+(That fixed three-cause string is itself gone since overseer-54k2za.48: the hold
+line now says the candidate set was EMPTY and names the one cause that applied.
+Nothing this file tests changed -- the breach reason still composes onto whatever
+that line says, and still only when a floor is configured.)
+
 This began as the OBSERVABILITY repair alone, filed while the breach itself was
 still open: triggering rotation did not stop the spend, because the margin gated
 selection and nothing waived it for a protection trigger.
@@ -39,6 +44,9 @@ _ACTIVE_SEVEN_DAY = 91.0
 _FLOOR = 10.0
 _OTHER_SEVEN_DAY = 75.0
 _OTHER_FLOOR = 30.0
+# B is verified live and its own floor consumes what remains of its weekly balance,
+# so the candidate set empties on exhaustion rather than on the headroom margin.
+_EXHAUSTED_CAUSE = "every live-verified candidate is exhausted (anthropic-b)"
 
 
 def _usage(*, seven_day: float, five_hour: float = 40.0) -> UsageRecord:
@@ -131,9 +139,7 @@ def test_with_no_floor_configured_the_hold_line_is_byte_identical(tmp_path: Path
     protected_hold = next(line for line in protected if line.startswith("hold:"))
     unprotected_hold = next(line for line in unprotected if line.startswith("hold:"))
 
-    assert unprotected_hold == decision_hold_no_candidate(
-        gain_needed=10.0, dimension="seven_day", active_name="anthropic-a"
-    )
+    assert unprotected_hold == decision_hold_no_candidate(cause=_EXHAUSTED_CAUSE)
     assert "PROTECTED" not in unprotected_hold
     assert "floor" not in unprotected_hold
     assert protected_hold != unprotected_hold
@@ -169,21 +175,8 @@ def test_floor_breach_reports_only_an_account_at_or_past_its_floor() -> None:
 
 
 def test_the_renderer_appends_nothing_when_given_no_breach() -> None:
-    plain = decision_hold_no_candidate(
-        gain_needed=10.0, dimension="five_hour", active_name="active"
-    )
-    assert plain == (
-        "hold: no candidate has >=10.00 points more five_hour headroom than active "
-        "(all similarly spent, exhausted, or unverifiable)"
-    )
-    assert (
-        decision_hold_no_candidate(
-            gain_needed=10.0,
-            dimension="five_hour",
-            active_name="active",
-            reasons=(),
-        )
-        == plain
-    )
+    plain = decision_hold_no_candidate(cause=_EXHAUSTED_CAUSE)
+    assert plain == f"hold: the candidate set was empty -- {_EXHAUSTED_CAUSE}"
+    assert decision_hold_no_candidate(cause=_EXHAUSTED_CAUSE, reasons=()) == plain
     # a breach that is not a breach contributes no reason, so nothing is appended
     assert floor_breach_reason(active_name="active", breached_floor=None) is None

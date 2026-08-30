@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol, cast
 
+from caam_candidate_diagnosis import unverifiable_candidate_names
 from caam_decision import ProfileUsage, UsageRecord, render_table
 from caam_rendering import RenderableProfileUsage
 
@@ -93,13 +94,20 @@ def write_status(
         *extra_messages,
     ):
         context.stdout(line)
-    note = unverified_note(profiles=profiles)
+    note = unverified_note(profiles=profiles, active_name=active_name)
     if note is not None:
         context.stdout(note)
 
 
-def unverified_note(*, profiles: tuple[ProfileUsage, ...]) -> str | None:
-    names = tuple(profile.name for profile in profiles if profile.usage is None)
+def unverified_note(*, profiles: tuple[ProfileUsage, ...], active_name: str) -> str | None:
+    """Name every account excluded for want of a live verification, cached ones too.
+
+    This used to list only rows with NO usage at all -- the fully dark ones -- so a
+    table carrying three cached rows told the operator that exactly one account had
+    been excluded, while three more were excluded silently with their remembered
+    figures still rendered as if they were usable.
+    """
+    names = unverifiable_candidate_names(profiles=profiles, active_name=active_name)
     return None if not names else _UNVERIFIED_NOTE.format(names=", ".join(names))
 
 
