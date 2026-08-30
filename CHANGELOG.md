@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.66.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.66.0...v1.66.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* re-baseline statusline model at round open so a wrong record cannot veto forever ([a6ce374](https://github.com/thewoolleyman/livespec-overseer/commit/a6ce37410b1e7272bd4faa626b01a4f289d7a899))
+
 ## [1.66.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.5...v1.66.0) (2026-08-30)
 
 
