@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.6...v1.67.7) (2026-08-30)
+
+
+### Bug Fixes
+
+* import every console script from an installed package ([ad9ac15](https://github.com/thewoolleyman/livespec-overseer/commit/ad9ac15d89868a7fdb335467dfd1676855ceb5f1))
+
 ## [1.67.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.5...v1.67.6) (2026-08-30)
 
 
