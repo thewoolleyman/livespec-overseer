@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.66.2...v1.67.0) (2026-08-30)
+
+
+### Features
+
+* bound the model-enforcement exception to servability ([9dbee47](https://github.com/thewoolleyman/livespec-overseer/commit/9dbee479d0f77144486829df5652d2261d65a767))
+
 ## [1.66.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.66.1...v1.66.2) (2026-08-30)
 
 
