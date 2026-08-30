@@ -1,12 +1,15 @@
-"""caam enforcement respects an operator-set per-session model (overseer-q3cvsv.2).
+"""caam enforcement respects an operator-set per-session model (overseer-q3cvsv.2/.4).
 
-Per ratified SPECIFICATION v040: model enforcement MUST NOT re-drive a session
+Per ratified SPECIFICATION v043: model enforcement MUST NOT re-drive a session
 observed on a KNOWN non-default model that enforcement did not itself assign,
 distinguished from enforcement's own durable ``models`` set-record. The single
-exception is the scoped (Fable) allowance being unavailable on the active
-account, where enforcement MAY move sessions -- expressed here as
-``respect_operator_set=False`` (the orchestrator passes ``fable_left`` for it, so
-a Fable-exhausted pass keeps resetting every session to the general model).
+exception is bounded to the session's OWN model and keyed on SERVABILITY: where
+the active account cannot serve the model an operator set a session to,
+enforcement moves it to the general model; an operator-set model the account CAN
+serve is left alone even while the scoped (Fable) allowance is unavailable.
+``respect_operator_set`` is therefore decided PER SESSION by the orchestrator
+(v043 tightened v040, under which the whole path was gated globally on
+``fable_left`` and an exhausted pass reset every operator-set session).
 """
 
 from __future__ import annotations
@@ -158,8 +161,9 @@ def test_without_respect_the_fable_exhausted_exception_still_moves_a_session() -
 
 
 # ---------------------------------------------------------------------------
-# Orchestration wiring -- respect = fable_left AND the session is not explicitly
-# pinned via session_models (an explicit pin is honored by driving to it).
+# Orchestration wiring -- respect is decided PER SESSION: the session carries no
+# explicit session_models pin (an explicit pin is honored by driving to it) AND
+# the active account can still serve the session's own observed model.
 # ---------------------------------------------------------------------------
 
 
@@ -228,3 +232,129 @@ def test_orchestration_moves_an_operator_set_session_when_fable_is_exhausted() -
 
     assert calls == [("alpha-foreman", "opus")]
     assert actions == ["alpha-foreman fable->opus"]
+
+
+# ---------------------------------------------------------------------------
+# Servability bounds the exhaustion exception per session (overseer-q3cvsv.4).
+# ---------------------------------------------------------------------------
+
+
+def test_exhaustion_leaves_an_operator_set_session_on_a_servable_model() -> None:
+    """A spent Fable allowance says nothing about a session the operator put on sonnet.
+
+    Enforcement last set this worker to fable; the operator has since moved it
+    to sonnet. The active account can serve sonnet, so the exception the spent
+    scoped allowance opens does not reach this session and it is left alone.
+    """
+    enforcement = enforcement_module()
+    sessions = sessions_module()
+    exceptions = session_models_module().SessionModelExceptions(values={}, messages=())
+    calls: list[tuple[str, str]] = []
+    state: dict[str, object] = {"models": {"alpha-worker": {"want": "fable", "at": 500.0}}}
+    pane = sessions.SessionModel(session="alpha-worker", session_id="sid", model="sonnet")
+
+    actions = enforcement._actions_for_pane(
+        pane=pane,
+        state=state,
+        fable_left=False,
+        want_foreman="opus",
+        session_exceptions=exceptions,
+        run=_run(calls, now=1_000_000.0),
+    )
+
+    assert calls == []
+    assert actions == ["alpha-worker operator-set(sonnet) kept"]
+
+
+def test_exhaustion_leaves_an_operator_set_opus_session_under_a_fable_foreman_pin() -> None:
+    """The servable-model case the exhausted pass used to drive onto a blocked model.
+
+    With the foreman override pinned to fable and that allowance spent, the
+    derived want is fable. An operator-set opus session is servable, so it is
+    kept rather than driven onto the model the account cannot currently serve.
+    """
+    enforcement = enforcement_module()
+    sessions = sessions_module()
+    exceptions = session_models_module().SessionModelExceptions(values={}, messages=())
+    calls: list[tuple[str, str]] = []
+    state: dict[str, object] = {"models": {"alpha-foreman": {"want": "fable", "at": 500.0}}}
+    pane = sessions.SessionModel(session="alpha-foreman", session_id="sid", model="opus")
+
+    actions = enforcement._actions_for_pane(
+        pane=pane,
+        state=state,
+        fable_left=False,
+        want_foreman="fable",
+        session_exceptions=exceptions,
+        run=_run(calls, now=1_000_000.0),
+    )
+
+    assert calls == []
+    assert actions == ["alpha-foreman operator-set(opus) kept"]
+
+
+def test_exhaustion_moves_an_operator_set_session_off_the_unservable_scoped_model() -> None:
+    """The bounded exception itself: the session's OWN model is what became unservable."""
+    enforcement = enforcement_module()
+    sessions = sessions_module()
+    exceptions = session_models_module().SessionModelExceptions(values={}, messages=())
+    calls: list[tuple[str, str]] = []
+    state: dict[str, object] = {"models": {"alpha-worker": {"want": "opus", "at": 500.0}}}
+    pane = sessions.SessionModel(session="alpha-worker", session_id="sid", model="fable")
+
+    actions = enforcement._actions_for_pane(
+        pane=pane,
+        state=state,
+        fable_left=False,
+        want_foreman="opus",
+        session_exceptions=exceptions,
+        run=_run(calls, now=1_000_000.0),
+    )
+
+    assert calls == [("alpha-worker", "opus")]
+    assert actions == ["alpha-worker fable->opus"]
+
+
+def test_exhaustion_still_never_classifies_an_unknown_read_as_operator_set() -> None:
+    enforcement = enforcement_module()
+    sessions = sessions_module()
+    exceptions = session_models_module().SessionModelExceptions(values={}, messages=())
+    calls: list[tuple[str, str]] = []
+    state: dict[str, object] = {"models": {"alpha-worker": {"want": "fable", "at": 500.0}}}
+    pane = sessions.SessionModel(session="alpha-worker", session_id="sid", model=None)
+
+    actions = enforcement._actions_for_pane(
+        pane=pane,
+        state=state,
+        fable_left=False,
+        want_foreman="opus",
+        session_exceptions=exceptions,
+        run=_run(calls, now=1_000_000.0),
+    )
+
+    assert calls == [("alpha-worker", "opus")]
+    assert actions == ["alpha-worker unknown->opus"]
+
+
+def test_a_session_models_pin_still_wins_over_a_servable_operator_set_model() -> None:
+    """Servability widens nothing for an explicitly pinned session -- #2045 unchanged."""
+    enforcement = enforcement_module()
+    sessions = sessions_module()
+    exceptions = session_models_module().SessionModelExceptions(
+        values={"alpha-worker": "opus"}, messages=()
+    )
+    calls: list[tuple[str, str]] = []
+    state: dict[str, object] = {"models": {"alpha-worker": {"want": "fable", "at": 500.0}}}
+    pane = sessions.SessionModel(session="alpha-worker", session_id="sid", model="sonnet")
+
+    actions = enforcement._actions_for_pane(
+        pane=pane,
+        state=state,
+        fable_left=False,
+        want_foreman="opus",
+        session_exceptions=exceptions,
+        run=_run(calls, now=1_000_000.0),
+    )
+
+    assert calls == [("alpha-worker", "opus")]
+    assert actions == ["alpha-worker sonnet->opus"]
