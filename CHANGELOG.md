@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.65.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.3...v1.65.4) (2026-08-30)
+
+
+### Bug Fixes
+
+* preserve the recorded model across a Codex wrapper relaunch ([65c5521](https://github.com/thewoolleyman/livespec-overseer/commit/65c5521c040487849add252e66256fd873a27f7a))
+
 ## [1.65.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.2...v1.65.3) (2026-08-30)
 
 
