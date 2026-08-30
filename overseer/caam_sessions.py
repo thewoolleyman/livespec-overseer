@@ -1,8 +1,19 @@
-"""Claude pane session discovery and transcript model reading for caam."""
+"""Claude pane session discovery and model enforcement for caam.
+
+The transcript read itself lives in ``_caam_transcript_model``; this module
+owns what enforcement DOES with it. One rule keeps enforcement from re-driving
+a pane that is already on the wanted model (work-item overseer-o3t75c.1): an
+unknown (``None``) read is NOT evidence of a mismatch. It authorises ONE
+verifying drive per session and wanted model -- remembered under the
+``models_unknown`` state key, independently of the time-boxed ``models`` memo --
+and never re-authorises one while the read stays unknown. Settling the pane is
+left to the actuator, which dismisses the picker without switching when the
+model is already correct (``caam_picker.PICKER_ALREADY_SET``). A later KNOWN
+mismatch acts as usual and re-arms the verify.
+"""
 
 from __future__ import annotations
 
-import json
 import os
 import time
 from dataclasses import dataclass
@@ -11,6 +22,7 @@ from typing import Final, Protocol, cast
 
 import claude_sessions
 import jsonio
+from _caam_transcript_model import newest_project_model_for_test, pane_model
 from _seams import PidToIntList, PidToOptionalBytes
 
 __all__: list[str] = [
@@ -26,14 +38,7 @@ __all__: list[str] = [
 ]
 
 _SESSION_ENV_PREFIX: Final = "CLAUDE_CODE_SESSION_ID="
-_TRANSCRIPT_TAIL_BYTES: Final = 65_536
 _SET_SUPPRESS_DEFAULT_S: Final = "3600"
-_MODEL_PREFIXES: Final = {
-    "claude-fable": "fable",
-    "claude-opus": "opus",
-    "claude-sonnet": "sonnet",
-    "claude-haiku": "haiku",
-}
 
 
 class PanePid(Protocol):
@@ -115,12 +120,6 @@ def discover_session_models(
     return tuple(panes)
 
 
-def pane_model(*, home: Path, session_id: str) -> str | None:
-    for transcript in sorted((home / ".claude" / "projects").glob(f"*/{session_id}.jsonl")):
-        return _model_from_transcript(path=transcript)
-    return None
-
-
 def recently_set(*, state: dict[str, object], session: str, want: str, now: float) -> bool:
     models = jsonio.as_object(value=state.get("models")) or {}
     record = jsonio.as_object(value=models.get(session))
@@ -148,6 +147,9 @@ def enforce_session_models(
             state=state, session=pane.session, want=want, now=checked_at
         ):
             continue
+        unknown = pane.model is None
+        if unknown and _unknown_verified(state=state, session=pane.session, want=want):
+            continue
         model = pane.model or "unknown"
         if pane_idle is not None and not pane_idle(session=pane.session):
             messages.append(f"{pane.session} busy({model}->{want})")
@@ -157,18 +159,9 @@ def enforce_session_models(
             continue
         set_model(session=pane.session, model=want)
         _record_model_set(state=state, session=pane.session, want=want, now=checked_at)
+        _record_unknown_read(state=state, session=pane.session, want=want, unknown=unknown)
         messages.append(f"{pane.session} {model}->{want}")
     return messages
-
-
-def newest_project_model_for_test(*, home: Path, project: str) -> str | None:
-    """Test-only mirror of the rejected newest-in-project heuristic."""
-
-    transcripts = tuple((home / ".claude" / "projects" / project).glob("*.jsonl"))
-    _index, newest = max(
-        enumerate(transcripts), key=lambda item: (item[1].stat().st_mtime_ns, item[0])
-    )
-    return _model_from_transcript(path=newest)
 
 
 def _session_id_from_tree(
@@ -190,45 +183,26 @@ def _session_id_from_environ(*, environ: bytes | None) -> str | None:
     return None
 
 
-def _model_from_transcript(*, path: Path) -> str | None:
-    raw = _read_tail(path=path, size=_TRANSCRIPT_TAIL_BYTES)
-    found: str | None = None
-    for line in raw.decode(errors="replace").splitlines():
-        model = _model_from_line(line=line)
-        if model is not None:
-            found = model
-    return None if found is None else _mapped_model(model=found)
-
-
-def _read_tail(*, path: Path, size: int) -> bytes:
-    with path.open("rb") as handle:
-        _ = handle.seek(0, os.SEEK_END)
-        end = handle.tell()
-        _ = handle.seek(max(0, end - size))
-        return handle.read()
-
-
-def _model_from_line(*, line: str) -> str | None:
-    try:
-        parsed: object = json.loads(line)
-    except json.JSONDecodeError:
-        return None
-    body = jsonio.as_object(value=parsed)
-    message = jsonio.as_object(value=None if body is None else body.get("message"))
-    model = None if message is None else message.get("model")
-    return model if isinstance(model, str) else None
-
-
-def _mapped_model(*, model: str) -> str | None:
-    return next(
-        (short for prefix, short in _MODEL_PREFIXES.items() if model.startswith(prefix)), None
-    )
-
-
 def _record_model_set(*, state: dict[str, object], session: str, want: str, now: float) -> None:
     models = jsonio.as_object(value=state.get("models")) or {}
     state["models"] = models
     models[session] = {"want": want, "at": now}
+
+
+def _unknown_verified(*, state: dict[str, object], session: str, want: str) -> bool:
+    verified = jsonio.as_object(value=state.get("models_unknown")) or {}
+    return verified.get(session) == want
+
+
+def _record_unknown_read(
+    *, state: dict[str, object], session: str, want: str, unknown: bool
+) -> None:
+    verified = jsonio.as_object(value=state.get("models_unknown")) or {}
+    state["models_unknown"] = verified
+    if unknown:
+        verified[session] = want
+        return
+    _ = verified.pop(session, None)
 
 
 def _pane_idle_option(*, options: dict[str, object]) -> PaneIdle | None:
