@@ -12,15 +12,22 @@ plan's epic id, both of which the binder's own bindings table carries.
 
 ## HALT-first preconditions
 
-Before driving a worker, verify the worker session, supervisor session, live
-agent drivers, plan path, and worker cwd. Stop on the FIRST failure,
+Before driving a worker, verify the worker session, the supervisor session, the
+live agent drivers, and the worker cwd. Stop on the FIRST failure,
 report the failing check plus the exact expected name, and act on the labelled
 `REMEDY:`. Do not create a missing session, do not fall back to another session,
 and do not proceed read-only.
 
-Every precondition must be emitted as runnable commands in the per-thread binder
-with the thread's placeholders substituted. A precondition that states a
-requirement and supplies no command forces a cold-open supervisor to invent one.
+These four are the DRIVE-phase preconditions. The plan-directory check is the
+AUTHORING-phase one: it gated the binder's authoring and is deliberately not
+repeated here, because a check gated in both phases is gated in neither one
+place. A binder authored before any session existed is a full binder, not a
+degraded one — this drive gate is complete without the artifact check.
+
+Every drive-phase precondition must be emitted as runnable commands in the
+per-thread binder with the thread's placeholders substituted. A precondition
+that states a requirement and supplies no command forces a cold-open supervisor
+to invent one.
 
 ## Role
 
