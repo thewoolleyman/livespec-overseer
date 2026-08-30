@@ -160,6 +160,13 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
     if standing_statusline_veto:
         active_conditions.add(_supervisor_statusline_model.STATUSLINE_MISMATCH_CONDITION)
 
+    # A profiled track with no statusline baseline is unverified for as long as the
+    # baseline is missing, so its restart-time alert is registered ACTIVE on the same
+    # terms as the mismatch above: once per unbaselined EPISODE, not once per restart.
+    # It clears — and re-arms — the moment a baseline lands (invariant 10).
+    if _supervisor_statusline_model.statusline_baseline_absent(model_profile=track.model_profile):
+        active_conditions.add(_supervisor_statusline_model.STATUSLINE_BASELINE_ABSENT_CONDITION)
+
     # A `ready` declaration that outlived its maximum age EXPIRES here, after the
     # interlock inputs for this tick have already been read. That ordering is the
     # point: `obs` was gathered before this call, so the aged declaration is judged

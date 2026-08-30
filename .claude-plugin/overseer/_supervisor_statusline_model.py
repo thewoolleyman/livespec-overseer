@@ -13,9 +13,11 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "STATUSLINE_BASELINE_ABSENT_CONDITION",
     "STATUSLINE_MISMATCH_CONDITION",
     "rendered_statusline_model",
     "restart_blocked_by_statusline_mismatch",
+    "statusline_baseline_absent",
     "statusline_model_disagreement",
 ]
 
@@ -25,6 +27,14 @@ __all__: list[str] = [
 # every tick — `clear_alert_conditions` retains an alerted key only while its
 # condition is active, and re-arms it the moment the disagreement clears.
 STATUSLINE_MISMATCH_CONDITION = "statusline-model-mismatch"
+
+# The alert condition a PROFILED-but-UNBASELINED track raises at restart. DISTINCT
+# from both `STATUSLINE_MISMATCH_CONDITION` and `statusline-model-unreadable`,
+# deliberately: those two report a recorded-versus-rendered COMPARISON, and this
+# shape has no recorded side for a comparison to have happened against. Registered
+# as an ACTIVE condition by the evaluate cascade on the same terms as the mismatch,
+# so the alert fires once per unbaselined episode and re-arms when a baseline lands.
+STATUSLINE_BASELINE_ABSENT_CONDITION = "statusline-baseline-absent"
 
 _STATUSLINE_CTX_RE = re.compile(r"(?:Ctx:|Context)\s*\d+%\s*left")
 _MIN_STATUSLINE_PARTS = 3
@@ -85,6 +95,24 @@ def _recorded_statusline_model(*, model_profile: Mapping[str, str | None] | None
     return None if model_profile is None else model_profile.get("statusline_model")
 
 
+def _recorded_launch_model(*, model_profile: Mapping[str, str | None] | None) -> str | None:
+    return None if model_profile is None else model_profile.get("model")
+
+
+def statusline_baseline_absent(*, model_profile: Mapping[str, str | None] | None) -> bool:
+    """True for a track that HAS a launch profile but NO statusline baseline.
+
+    A row carrying NO recorded profile at all is a DIFFERENT case and is excluded
+    here: its relaunch is the fail-soft bare command, which re-asserts no model, so
+    there is nothing unverified to report about it. The population this admits is the
+    one the launch-profile text refuses to call verified — a reserved foreman or
+    grooming seat born from ``registration_model_profile`` (which emits harness, model
+    and wrapper and no baseline), a track adopted against an unreadable pane, or one
+    whose wrap-up refresh could never fill the key.
+    """
+    return model_profile is not None and not model_profile.get("statusline_model")
+
+
 def _alert_unreadable_statusline(
     *,
     sup: Supervisor,
@@ -105,6 +133,29 @@ def _alert_unreadable_statusline(
             "restart is proceeding fail-soft"
         ),
         condition="statusline-model-unreadable",
+    )
+
+
+def _alert_baseline_absent(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    target: str,
+    session: str,
+    launch_model: str | None,
+) -> None:
+    sup.alert(
+        repo=track.repo,
+        topic=track.topic,
+        session=session,
+        pane=target,
+        message=(
+            "statusline model unverified: "
+            f"{track.repo}::{track.topic} has no recorded statusline verification "
+            f"baseline, so the re-asserted launch model {launch_model!r} was never "
+            "checked against the running session; restart is proceeding unverified"
+        ),
+        condition=STATUSLINE_BASELINE_ABSENT_CONDITION,
     )
 
 
@@ -139,7 +190,16 @@ def restart_blocked_by_statusline_mismatch(
     target: str,
     session: str,
 ) -> bool:
-    """Surface and veto only a resolved recorded-vs-rendered model disagreement."""
+    """Surface and veto only a resolved recorded-vs-rendered model disagreement.
+
+    Three shapes reach here and they stay DISTINGUISHABLE. A resolved disagreement
+    vetoes. A recorded baseline whose render cannot be read raises
+    ``statusline-model-unreadable`` and proceeds. A track that carries a launch
+    profile but NO baseline raises ``STATUSLINE_BASELINE_ABSENT_CONDITION`` and
+    proceeds — never the unreadable alert, whose text reports a comparison that in
+    that shape never happened. A row with no recorded profile at all raises nothing;
+    it re-asserts no model, so it has nothing unverified to report.
+    """
     capture = sup.tmux.capture_pane(session=target)
     disagreement = statusline_model_disagreement(
         capture=capture,
@@ -157,8 +217,23 @@ def restart_blocked_by_statusline_mismatch(
         )
         return True
 
+    # An unbaselined track has nothing to compare against, so this can never be a
+    # veto — but it must not be SILENT either, which is what it used to be. Raise the
+    # distinct baseline-absent condition and still return False: the restart proceeds
+    # exactly as before, and nothing is mutated on the restart path.
+    if statusline_baseline_absent(model_profile=track.model_profile):
+        _alert_baseline_absent(
+            sup=sup,
+            track=track,
+            target=target,
+            session=session,
+            launch_model=_recorded_launch_model(model_profile=track.model_profile),
+        )
+        return False
+
     recorded = _recorded_statusline_model(model_profile=track.model_profile)
     if not recorded:
+        # No recorded profile at all — the separate fail-soft clause, deliberately silent.
         return False
 
     if rendered_statusline_model(capture=capture) is None:

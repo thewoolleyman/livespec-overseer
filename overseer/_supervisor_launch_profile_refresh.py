@@ -30,23 +30,33 @@ def _profile_sessions_dir(*, sup: Supervisor) -> str | os.PathLike[str]:
     return claude_sessions.default_sessions_dir()
 
 
-def _stored_model_profile(
+def _persisted_model_profile(
     *,
     sup: Supervisor,
     track: registry.Track,
 ) -> dict[str, str | None] | None:
-    if track.model_profile is not None:
-        return track.model_profile
+    """The profile the PERSISTED row carries, independent of the in-memory Track."""
     for candidate in registry.read_valid_mapping(store_path=sup.store_path):
         if candidate.repo == track.repo and candidate.topic == track.topic:
             return candidate.model_profile
     return None
 
 
+def _stored_model_profile(
+    *,
+    track: registry.Track,
+    persisted_profile: dict[str, str | None] | None,
+) -> dict[str, str | None] | None:
+    if track.model_profile is not None:
+        return track.model_profile
+    return persisted_profile
+
+
 def _with_statusline_baseline(
     *,
     profile: dict[str, str | None],
     stored_profile: dict[str, str | None] | None,
+    persisted_profile: dict[str, str | None] | None,
     rendered: str | None,
 ) -> dict[str, str | None]:
     # At round open the pane's rendered model is authoritative: nothing has
@@ -58,6 +68,15 @@ def _with_statusline_baseline(
     if rendered is not None:
         return {**profile, "statusline_model": rendered}
     recorded = None if stored_profile is None else stored_profile.get("statusline_model")
+    # REGRESSION GUARD: a write must never DROP a key the STORED ROW already carries.
+    # `_stored_model_profile` prefers the in-memory Track whenever its profile is
+    # non-None, and a reserved seat is BORN with a non-None but KEYLESS profile — so
+    # `recorded` can be None while the persisted row holds a real baseline, and this
+    # write would silently clear it. Guarding the key, not the VALUE, is deliberate:
+    # a readable render still re-bases the value above, which is the round-open
+    # behaviour and is untouched here.
+    if recorded is None:
+        recorded = None if persisted_profile is None else persisted_profile.get("statusline_model")
     if recorded is not None:
         return {**profile, "statusline_model": recorded}
     return profile
@@ -97,7 +116,8 @@ def refresh_launch_profile_at_wrapup(
         codex_readers=codex_host_readers(sup=sup),
     ).get((session, track.topic))
     rendered = rendered_statusline_model(capture=capture)
-    stored_profile = _stored_model_profile(sup=sup, track=track)
+    persisted_profile = _persisted_model_profile(sup=sup, track=track)
+    stored_profile = _stored_model_profile(track=track, persisted_profile=persisted_profile)
     if source is None:
         return
     profile = read_launch_profile(
@@ -140,6 +160,7 @@ def refresh_launch_profile_at_wrapup(
     profile = _with_statusline_baseline(
         profile=profile,
         stored_profile=stored_profile,
+        persisted_profile=persisted_profile,
         rendered=rendered,
     )
     if registry.record_model_profile(
