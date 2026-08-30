@@ -11,12 +11,13 @@ from typing import Final, cast
 
 import _supervisor_final_ruling_sources
 import foreman_valve_policy
-import jsonio
+import ledger_comments
 
 __all__: list[str] = [
     "FINAL_RELAY_SENTENCE",
     "RelayPreparation",
     "count_objections",
+    "plan_objections",
     "prepare_blocked_answer_relay",
     "prepare_relay",
     "relay_text",
@@ -58,6 +59,7 @@ class RelayContext:
     row: dict[str, object]
     plan_epic_id: str
     fingerprint: str
+    comments: ledger_comments.CommentReader
 
 
 def ruling_fingerprint(*, payload: dict[str, object]) -> str:
@@ -103,6 +105,7 @@ def prepare_relay(
             row=row,
             plan_epic_id=plan_epic_id,
             fingerprint=fingerprint,
+            comments=_comment_reader(value=options.get("comments")),
         ),
         objections_remaining=remaining,
         final=final,
@@ -116,16 +119,39 @@ def prepare_relay(
     )
 
 
-def count_objections(*, repo: Path, plan_epic_id: str, fingerprint: str) -> int:
-    item = _read_json_object(
-        path=repo / "tmp" / "overseer" / "ledger-items" / f"{plan_epic_id}.json"
+def plan_objections(
+    *,
+    repo: Path,
+    plan_epic_id: str,
+    fingerprint: str,
+    comments: ledger_comments.CommentReader = ledger_comments.read_comments,
+) -> ledger_comments.ObjectionTally:
+    """Objections against ``fingerprint`` recorded on the plan epic's ledger.
+
+    The tally keeps an unreadable ledger distinguishable from a plan epic that
+    carries no objection; a bare count cannot, and conflating them is what let
+    a counter with no input at all report a confident zero.
+    """
+    return ledger_comments.objection_tally(
+        comments=comments(repo=repo, work_item_id=plan_epic_id), fingerprint=fingerprint
     )
-    comments = jsonio.as_list(value=None if item is None else item.get("comments")) or []
-    return sum(
-        1
-        for comment in comments
-        if _is_matching_objection(comment=comment, fingerprint=fingerprint)
-    )
+
+
+def count_objections(
+    *,
+    repo: Path,
+    plan_epic_id: str,
+    fingerprint: str,
+    comments: ledger_comments.CommentReader = ledger_comments.read_comments,
+) -> int:
+    """How many recorded objections match ``fingerprint``.
+
+    Callers that must act on an unreadable ledger use :func:`plan_objections`,
+    which reports the source alongside the count.
+    """
+    return plan_objections(
+        repo=repo, plan_epic_id=plan_epic_id, fingerprint=fingerprint, comments=comments
+    ).count
 
 
 def relay_text(*, answer_text: str, relay: RelayPreparation) -> str:
@@ -162,6 +188,10 @@ def _relay_record(
     objections_remaining: int,
     final: bool,
 ) -> dict[str, object]:
+    # One ledger read serves both fields; they describe the same comment set,
+    # and reading it twice would let them disagree.
+    recorded = context.comments(repo=context.repo, work_item_id=context.plan_epic_id)
+    tally = ledger_comments.objection_tally(comments=recorded, fingerprint=context.fingerprint)
     record: dict[str, object] = {
         "stage": "foreman-act-relay",
         "action_id": context.action_id,
@@ -171,14 +201,9 @@ def _relay_record(
         "session_identity": _string_field(payload=context.row, key="session_identity"),
         "ruling_fingerprint": context.fingerprint,
         "objections_remaining": objections_remaining,
-        "matching_objections": count_objections(
-            repo=context.repo,
-            plan_epic_id=context.plan_epic_id,
-            fingerprint=context.fingerprint,
-        ),
-        "latest_plan_comment_at": _latest_plan_comment_at(
-            repo=context.repo, plan_epic_id=context.plan_epic_id
-        ),
+        "matching_objections": tally.count,
+        "objections_source": tally.source,
+        "latest_plan_comment_at": ledger_comments.latest_comment_at(comments=recorded),
     }
     branch = _string_field(payload=context.row, key="branch")
     branch_head = _string_field(payload=context.row, key="branch_head")
@@ -212,41 +237,14 @@ def _record_sequence(*, value: object) -> tuple[dict[str, object], ...]:
     return tuple(values)
 
 
-def _is_matching_objection(*, comment: object, fingerprint: str) -> bool:
-    payload = jsonio.as_object(value=comment)
-    text = "" if payload is None else _string_field(payload=payload, key="text") or ""
-    first = (text.splitlines() or [""])[0]
-    return first.startswith(f"OBJECTION {fingerprint}:")
-
-
-def _latest_plan_comment_at(*, repo: Path, plan_epic_id: str) -> str | None:
-    item = _read_json_object(
-        path=repo / "tmp" / "overseer" / "ledger-items" / f"{plan_epic_id}.json"
-    )
-    comments = jsonio.as_list(value=None if item is None else item.get("comments")) or []
-    timestamps = tuple(
-        value
-        for comment in (jsonio.as_object(value=raw) for raw in comments)
-        if comment is not None
-        and (
-            value := _string_field(payload=comment, key="created_at")
-            or _string_field(payload=comment, key="at")
-        )
-        is not None
-    )
-    return max(timestamps) if timestamps else None
+def _comment_reader(*, value: object) -> ledger_comments.CommentReader:
+    if value is None:
+        return ledger_comments.read_comments
+    return cast("ledger_comments.CommentReader", value)
 
 
 def _plan_epic_id(*, row: dict[str, object], topic: str) -> str:
     return _string_field(payload=row, key="epic") or f"unresolved-plan-epic:{topic}"
-
-
-def _read_json_object(*, path: Path) -> dict[str, object] | None:
-    try:
-        parsed = jsonio.parse_object(text=path.read_text(encoding="utf-8"))
-    except OSError:
-        return None
-    return None if jsonio.is_parse_failure(result=parsed) else parsed.unwrap()
 
 
 def _string_field(*, payload: dict[str, object], key: str) -> str | None:
