@@ -156,6 +156,12 @@ def _actions_for_pane(
             set_model=run.set_model,
             pane_idle=run.pane_idle,
             dry_run=run.dry_run,
+            # Respect an operator-set model only when Fable is still available AND
+            # the session carries no explicit session_models pin: an explicit pin
+            # is honored by driving to it, and a Fable-exhausted pass keeps the
+            # exception that resets every session to the general model.
+            respect_operator_set=fable_left
+            and session_exceptions.want_for(session=pane.session) is None,
         )
     except _ADVISORY_ERRORS as exc:
         return [f"{pane.session} SKIPPED({type(exc).__name__})"]
