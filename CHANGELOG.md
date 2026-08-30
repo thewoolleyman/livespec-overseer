@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.65.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.2...v1.65.3) (2026-08-30)
+
+
+### Bug Fixes
+
+* honor a per-session fable pin in caam scoped-model selection ([e0a0635](https://github.com/thewoolleyman/livespec-overseer/commit/e0a06350237aad1d1c6978db23a5533716fd4e1e))
+
 ## [1.65.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.1...v1.65.2) (2026-08-30)
 
 
