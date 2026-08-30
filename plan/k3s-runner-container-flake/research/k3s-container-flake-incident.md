@@ -250,6 +250,46 @@ after all. On the evidence gathered here it should not be exercised, and this no
 exists so that a later reader who arrives via the container annotation finds the
 refutation rather than repeating the trip.
 
+### The successor naming convention, pinned in advance
+
+Maintainer-confirmed 2026-08-30. Recorded here so the diagnosis session inherits
+it rather than inventing one under time pressure.
+
+**This plan stays in `livespec-overseer`.** It anchors three things and only these:
+the incident record, the re-green, and the diagnosis. It does not own any
+runner-infrastructure change.
+
+**If the diagnosis relocates the cause to runner infrastructure, it routes to
+`livespec-dev-tooling` in one of two shapes:**
+
+**(a) The likely shape — a work item in the `livespec-dev-tooling` tenant.** Its id
+is assigned at filing and cannot be predicted here. Once filed, record it on this
+plan's epic **from both ends**, per the rule in `.ai/deferral-successor-records.md`:
+this thread's archive record names the successor row, and the successor row's own
+**title or description** names this thread. Both directions are required and they
+are separate facts — a successor reachable from only one end is the
+one-directional shape that rule calls out, and it reads as fine from whichever
+seat happens to check. Note also that the tie must be a **declaration** of
+successorship, not a passing citation in a comment; a measurement note that merely
+mentions this thread does not satisfy it.
+
+**(b) If the fix is large enough to warrant its own plan over there, that plan MUST
+reuse the identical slug `k3s-runner-container-flake`.** The point of reusing the
+slug is that one grep locates both halves fleet-wide. Do not derive a variant name
+(no suffix, no repo prefix, no rewording) — a near-miss slug defeats the entire
+purpose, and this fleet already has a documented family of near-miss-name traps
+where two plausible adjacent names cost real time.
+
+**Related, and NOT the same thing:** the fleet's standing runner-pool plan is
+`fleet-ci-runner-pool`, in the `livespec` repo. That is where the AppArmor-era
+cutover work lived and it remains the fleet-level home for runner-pool strategy.
+It is context and precedent for a successor, not the successor itself — do not
+fold this incident into it by default.
+
+**Nothing is filed in another tenant from this thread.** Filing is the diagnosis
+session's act, and only if the diagnosis actually relocates the cause. On present
+evidence it does not.
+
 ## Method note
 
 The standing triage rule in `.ai/ci-runner-routing-history.md` — *a docs-only commit
