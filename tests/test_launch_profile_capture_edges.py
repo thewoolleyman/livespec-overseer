@@ -417,6 +417,7 @@ def test_statusline_baseline_helper_leaves_absent_rendered_signal_absent():
         _supervisor_launch_profile_refresh._with_statusline_baseline(
             profile=profile,
             stored_profile=None,
+            persisted_profile=None,
             rendered=None,
         )
         == profile
