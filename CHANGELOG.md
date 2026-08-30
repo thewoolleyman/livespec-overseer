@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.65.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.1...v1.65.2) (2026-08-30)
+
+
+### Bug Fixes
+
+* stop caam re-driving the model picker when the model is already set ([e412559](https://github.com/thewoolleyman/livespec-overseer/commit/e412559e5233b45d6a9095b7a0d34da87a46b1b7))
+
 ## [1.65.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.0...v1.65.1) (2026-08-30)
 
 
