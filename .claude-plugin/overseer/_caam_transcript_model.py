@@ -1,18 +1,27 @@
 """Transcript model reading for caam session model enforcement.
 
 The read scans BACKWARD in bounded steps, up to ``_SCAN_MAX_BYTES``, for the
-last assistant ``message.model`` line (work-item overseer-o3t75c.1). A
-``/model`` local command writes no such line, so an idle session accumulates a
-tail of model-free entries; reading only the final 64 KiB then reported an
-unknown model, which never equals the wanted one -- and every re-drive of the
-picker appended more model-free lines, making the unknown read
-self-perpetuating.
+last line that ATTESTS a model (work-item overseer-o3t75c.1). Two kinds of line
+do: an assistant entry's ``message.model``, and the answer a ``/model`` local
+command writes back ("Set model to Fable 5", "Kept model as Fable 5").
+
+Reading only the first kind is what made the spam self-perpetuating
+(overseer-o3t75c.2). An idle session accumulates a tail of ``/model``
+invocation entries, which carry no ``message.model``; once they push the last
+assistant entry past the scan bound the read is unknown, unknown never equals
+the wanted model, so enforcement drives the picker -- which appends yet more of
+them. Reading the ANSWER inverts that: the drive's own footprint states the
+model the pane is on, so the pass after a drive reads the wanted model and
+suppresses itself. The suppression is then a property of the pane's transcript
+rather than of a memo that has to survive to the next pass -- which the live
+memos measurably did not.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Final
 
@@ -32,6 +41,9 @@ _MODEL_PREFIXES: Final = {
     "claude-sonnet": "sonnet",
     "claude-haiku": "haiku",
 }
+_PREFIX_BY_FAMILY: Final = {family: prefix for prefix, family in _MODEL_PREFIXES.items()}
+_LOCAL_STDOUT_RE: Final = re.compile(r"<local-command-stdout>(.*?)</local-command-stdout>")
+_MODEL_ANSWER_RE: Final = re.compile(r"(?:set model to|kept model as)\s+(.+)", re.IGNORECASE)
 
 
 def pane_model(*, home: Path, session_id: str) -> str | None:
@@ -80,6 +92,13 @@ def _read_tail(*, path: Path, size: int) -> bytes:
 
 
 def _model_from_line(*, line: str) -> str | None:
+    """The model id one transcript line attests, or None if it attests none."""
+
+    assistant = _assistant_model(line=line)
+    return _answered_model(line=line) if assistant is None else assistant
+
+
+def _assistant_model(*, line: str) -> str | None:
     try:
         parsed: object = json.loads(line)
     except json.JSONDecodeError:
@@ -88,6 +107,27 @@ def _model_from_line(*, line: str) -> str | None:
     message = jsonio.as_object(value=None if body is None else body.get("message"))
     model = None if message is None else message.get("model")
     return model if isinstance(model, str) else None
+
+
+def _answered_model(*, line: str) -> str | None:
+    """The model id a ``/model`` local-command answer on ``line`` names.
+
+    Matched against the RAW line rather than the parsed message content: the
+    answer's own characters need no JSON escaping, so one pattern reads it
+    whichever shape the content takes (a bare string, or a list of blocks).
+    Requiring the full ``<local-command-stdout>`` wrapper AND the answer phrase
+    keeps a transcript that merely QUOTES such an answer from being read as one.
+    """
+
+    for stdout in _LOCAL_STDOUT_RE.finditer(line):
+        answer = _MODEL_ANSWER_RE.search(stdout.group(1))
+        if answer is None:
+            continue
+        label = answer.group(1).lower()
+        family = next((name for name in _MODEL_PREFIXES.values() if name in label), None)
+        if family is not None:
+            return _PREFIX_BY_FAMILY[family]
+    return None
 
 
 def _mapped_model(*, model: str) -> str | None:
