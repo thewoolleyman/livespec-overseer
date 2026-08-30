@@ -27,6 +27,25 @@ the stamped epic-parity check's job, and that check is armed-only and reads
 `handoff.md` alone. Only charters that DECLARE an anchor are checked; the
 pre-layered monolith charters in this repo declare none, and a rule that demanded
 one would be a unilateral requirement on other plans.
+
+WHAT POPULATION THE ANTI-VACUITY GUARD QUANTIFIES OVER — RATIFIED, not drifted
+into. `overseer-403`. The maintainer ratified on 2026-08-22T09:55Z that ARCHIVED
+plans may satisfy `test_at_least_one_plan_declares_a_charter_anchor`: the guard's
+job is to prove the anchor SHAPE remains READABLE somewhere in the
+live-and-archived population, NOT to assert that any LIVE plan is anchored. What
+was NOT ratified, and must never be read into it: the guard may not be made to
+tolerate an EMPTY anchored set. A tree in which no plan, live or archived,
+declares a readable anchor must still FAIL — two synthetic-tree controls below
+hold that line so the exemplar form cannot decay into a check that cannot fail.
+
+THE ACCEPTED BLIND SPOT, recorded so it is not rediscovered as a defect. Widening
+the population means NOTHING in this repo measures whether any LIVE plan is
+anchored, and none is. Measured 2026-08-30 against this tree: 11 live plans, 49
+archived; ZERO live plans carry both records at all, so zero are anchored; all 6
+plans in the anchored population are archived. (The ruling was taken on the same
+shape at a different size — 17 live / 27 archived, 9 anchored, 0 of them live.)
+That gap is a KNOWN, ACCEPTED consequence of the ruling, not an oversight. It is
+deliberately NOT gated here; if it should be tracked, that is a new work item.
 """
 
 from __future__ import annotations
@@ -211,15 +230,90 @@ def _charter_anchor_offences(*, root: Path = _REPO_ROOT) -> dict[str, tuple[str,
     }
 
 
+def _the_anchor_shape_remains_checkable(*, root: Path = _REPO_ROOT) -> bool:
+    """Does SOME plan — live or archived — declare an anchor this module can READ?
+
+    The guard's body, named so its two failing controls drive the same function
+    the guard asserts on and cannot drift away from it.
+    """
+    return _plans_with_a_charter_anchor(root=root) != []
+
+
 def test_at_least_one_plan_declares_a_charter_anchor() -> None:
     """A rule that skips every plan passes vacuously and proves nothing.
 
     Sabotage that reddens this: delete the `ledger_anchor` binding from every
     charter. Without this, that sabotage would look like a clean repo — which is
     the exact shape of the gap `overseer-bak` describes.
+
+    POPULATION: live AND archived, ratified 2026-08-22 (`overseer-403`, see the
+    module docstring). This asserts the anchor SHAPE is still readable somewhere,
+    NOT that any live plan is anchored — none is, and that is an accepted blind
+    spot rather than something this line covers for you.
     """
-    live_scan = _live_plan_record_scan()
-    assert live_scan.checkable or live_scan.unchecked
+    assert _the_anchor_shape_remains_checkable()
+
+
+def test_the_anchor_guard_fails_on_a_malformed_anchor_declaration(*, tmp_path: Path) -> None:
+    """CONTROL. Gesturing at an anchor must not satisfy the guard — only declaring one.
+
+    Without this leg the exemplar form is a check that cannot fail, which is the
+    very thing the refused naive remedy would have produced, reached by another
+    route: widen the population far enough and "some plan declares an anchor"
+    degrades into "some plan directory exists". Every charter below NAMES
+    `ledger_anchor` and an id, in a shape no extractor can read — no backticks in
+    the table, double quotes on the executable binding, no dash on the bullet.
+
+    Driven from a synthetic tree via `root` (the PR #486 pattern) so the control
+    does not itself quantify over repo state.
+
+    Sabotage that reddens this: relax any extractor to key on the PHRASE.
+    """
+    for plan in (tmp_path / "plan" / "live-one", tmp_path / "plan" / "archive" / "archived-one"):
+        plan.mkdir(parents=True)
+        (plan / "supervisor-handoff.md").write_text(
+            '| ledger_anchor | overseer-zz1 |\n\nledger_anchor="overseer-zz1"\n'
+            "- Ledger epic anchor `overseer-zz1`\n",
+            encoding="utf-8",
+        )
+        (plan / "handoff.md").write_text(
+            "**Ledger anchor:** epic `overseer-zz1`.\n", encoding="utf-8"
+        )
+
+    assert _plans_with_a_charter_anchor(root=tmp_path) == []
+    assert not _the_anchor_shape_remains_checkable(root=tmp_path)
+
+
+def test_the_anchor_guard_fails_on_an_empty_anchored_set_live_or_archived(
+    *, tmp_path: Path
+) -> None:
+    """CONTROL. The 2026-08-22 ruling widened the POPULATION, not the TOLERANCE.
+
+    Archived plans may satisfy the guard. An EMPTY anchored set may not — and
+    "empty" here means empty across BOTH halves of the widened population, so a
+    tree whose live plans and whose archive alike declare nothing still FAILS.
+    That is the line the refused naive remedy would have crossed.
+
+    Sabotage that reddens this: make the guard tolerate an empty anchored set.
+    """
+    (tmp_path / "plan" / "live-unanchored").mkdir(parents=True)
+    (tmp_path / "plan" / "live-unanchored" / "supervisor-handoff.md").write_text(
+        "a pre-layered monolith charter: prose, tmux forms, no anchor declared\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "plan" / "live-unanchored" / "handoff.md").write_text(
+        "plan prose only\n", encoding="utf-8"
+    )
+    (tmp_path / "plan" / "archive" / "archived-unanchored").mkdir(parents=True)
+    (tmp_path / "plan" / "archive" / "archived-unanchored" / "supervisor-handoff.md").write_text(
+        "archived, and it never declared one either\n", encoding="utf-8"
+    )
+    (tmp_path / "plan" / "archive" / "archived-unanchored" / "handoff.md").write_text(
+        "plan prose only\n", encoding="utf-8"
+    )
+    (tmp_path / "plan" / "ledger-held").mkdir()
+
+    assert not _the_anchor_shape_remains_checkable(root=tmp_path)
 
 
 def test_the_charter_anchor_is_one_the_handoff_actually_declares() -> None:
@@ -453,12 +547,18 @@ def test_every_scan_arc_is_reachable_on_a_synthetic_tree(*, tmp_path: Path) -> N
     safety. This leg drives every arc from a synthetic tree so no `git mv` of a
     plan can move this module's coverage again.
 
-    SCOPE, stated because the neighbouring rule is deliberately different:
-    `test_at_least_one_plan_declares_a_charter_anchor` still quantifies over
-    the LIVE set, and must — "at least one live plan declares an anchor" is a
-    real invariant that SHOULD fail when the last anchored plan archives.
-    This leg makes coverage independent of repo state; it does not make that
-    assertion tolerate an empty set.
+    SCOPE, stated because the neighbouring rule is deliberately different, and
+    CORRECTED 2026-08-30 (`overseer-403`) — this paragraph previously claimed
+    that `test_at_least_one_plan_declares_a_charter_anchor` "still quantifies
+    over the LIVE set", which was FALSE against the code beside it and would
+    have let a reader auditing the invariant believe a live-set guarantee was in
+    force. What that guard actually asserts is that the anchor SHAPE is still
+    readable somewhere in the LIVE-AND-ARCHIVED population (`_PLAN_DIR_PATTERNS`
+    spans both) — it makes NO claim about live plans, and today none is anchored.
+    That population widening was ratified 2026-08-22; see the module docstring
+    for the ruling and for the blind spot it knowingly accepts. This leg makes
+    COVERAGE independent of repo state; it does not make that assertion tolerate
+    an empty anchored set, and two controls beside it prove it still does not.
 
     Sabotage that reddens this: drop the `root` parameter and glob `_REPO_ROOT`
     unconditionally — this leg then stops reaching the no-anchor arc the moment
