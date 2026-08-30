@@ -136,6 +136,7 @@ def enforce_session_models(
     want: str,
     now: float | None = None,
     set_model: ModelSetter,
+    respect_operator_set: bool = False,
     **model_options: object,
 ) -> list[str]:
     checked_at = time.time() if now is None else now
@@ -149,6 +150,11 @@ def enforce_session_models(
             continue
         unknown = pane.model is None
         if unknown and _unknown_verified(state=state, session=pane.session, want=want):
+            continue
+        if respect_operator_set and _is_operator_set(
+            state=state, session=pane.session, observed=pane.model
+        ):
+            messages.append(f"{pane.session} operator-set({pane.model}) kept")
             continue
         model = pane.model or "unknown"
         if pane_idle is not None and not pane_idle(session=pane.session):
@@ -187,6 +193,29 @@ def _record_model_set(*, state: dict[str, object], session: str, want: str, now:
     models = jsonio.as_object(value=state.get("models")) or {}
     state["models"] = models
     models[session] = {"want": want, "at": now}
+
+
+def _is_operator_set(*, state: dict[str, object], session: str, observed: str | None) -> bool:
+    """Whether a KNOWN observed model was set by the operator, not by enforcement.
+
+    Called only after the observed model is known to differ from the wanted
+    model. A session is operator-set when its observed model is known and
+    differs from the model enforcement itself last set for it (its durable
+    ``models`` record's ``want``). Two boundaries follow the ratified clause,
+    which keys on "the model enforcement itself LAST SET": an unknown (None)
+    observed model is never evidence of an operator choice; and a session with
+    NO enforcement set-record has nothing for the observation to diverge from,
+    so enforcement establishes its baseline (drives it) rather than reading the
+    base default as a deliberate choice. Once enforcement has set a model, an
+    observation that no longer matches it is the operator's own pick.
+    """
+    if observed is None:
+        return False
+    models = jsonio.as_object(value=state.get("models")) or {}
+    record = jsonio.as_object(value=models.get(session))
+    if record is None:
+        return False
+    return observed != record.get("want")
 
 
 def _unknown_verified(*, state: dict[str, object], session: str, want: str) -> bool:
