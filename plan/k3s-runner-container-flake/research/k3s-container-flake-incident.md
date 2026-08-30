@@ -156,7 +156,22 @@ the discriminator, and it is named as work below.
 The 23 `CI` runs on `master` immediately preceding this one, between
 2026-08-30T02:10:32Z and 06:41:37Z, all concluded `success`, on the same
 `livespec-overseer-k3s` pool. Run `33298390930` is the first failure in that
-sequence.
+sequence. A five-run sample of those greens was checked job-by-job to confirm they
+actually EXECUTED `check-per-file-coverage` on k3s pod runners rather than skipping
+it, so the streak is about the same job on the same pool and not about runs that
+never reached the failing test.
+
+**The direct control arrived while this note was being written, and it is stronger
+than the streak.** The very next master run, `33298462732` on head `e905f46a`, ran
+`check-per-file-coverage` on runner `livespec-overseer-k3s-tjvgd-runner-2qjbs` from
+07:31:47Z to 07:37:40Z and concluded **success**. Same job, same suite, same pool,
+same day, no change to the test — pass. That is a same-conditions control against
+the failure, and it is what makes the non-determinism a measurement rather than an
+inference from a green streak.
+
+It also means the flake is ARMED rather than spent: nothing about the passing run
+repaired anything, so any master run can red at random until the bounded wait
+lands.
 
 This is the load-bearing difference from the 2026-08-17/18 AppArmor incident in
 `.ai/ci-runner-routing-history.md`. That one **deterministically** failed four
@@ -289,6 +304,38 @@ fold this incident into it by default.
 **Nothing is filed in another tenant from this thread.** Filing is the diagnosis
 session's act, and only if the diagnosis actually relocates the cause. On present
 evidence it does not.
+
+## Deferred: no silent workflow-level auto-retry
+
+Maintainer-confirmed 2026-08-30. **No automatic workflow-level retry is adopted,
+and this incident is the reasoning rather than a general dislike of retries.**
+
+The obvious reflex after a transient red is to make CI retry a failed job
+automatically, and the obvious trigger to key it on is the loudest thing in the
+log — the container-hook annotation. **That specific design would have masked this
+defect.** As established above, the hook emits that text after ANY non-zero script
+step, so a retry keyed on it does not fire on "the infrastructure hiccuped", it
+fires on *every* failing job, a genuine test failure included. Here it would have
+re-run a real race-condition defect until it happened to pass, reported green, and
+left the race armed on master with nothing recorded. The very property that makes
+the annotation useless as a diagnosis makes it dangerous as a trigger.
+
+The general form is worth keeping: **a retry predicate must be narrower than the
+symptom it responds to.** No predicate available in this incident was narrower —
+the failure was a plain non-zero exit from a plain test failure, and nothing in the
+log distinguished it from a deterministic one until a human read the pytest summary.
+
+**The deferred reconsideration is a VISIBLE operational response, not a silent
+one.** If genuinely-transient master reds recur, the shape to reconsider is a
+foreman-noticed **single** re-run, with **the evidence filed first** — the failing
+job, the runner, and the actual failing assertion recorded before anything is
+re-run. That ordering is the whole point: it preserves the diagnosis this incident
+depended on, and it keeps a human or a foreman seat in the loop rather than
+laundering repeated failures into a green check. Silent retry destroys the evidence;
+a noticed re-run with the evidence filed first does not.
+
+Reconsideration point: this plan, or its named successor under the convention
+above.
 
 ## Method note
 
