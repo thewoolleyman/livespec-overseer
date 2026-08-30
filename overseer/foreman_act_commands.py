@@ -149,18 +149,44 @@ def _resume_prompt(*, repo: str, topic: str, brief: str | None, epic: str | None
 
 
 def resume_command_from_payload(*, payload: dict[str, object]) -> list[str] | None:
+    """Resume the exact codex session INSIDE a detached tmux session named for the seat.
+
+    The `tmux new-session -d` wrapper is not decoration: `codex resume` is the
+    interactive TUI, and the actuator runs its command as a captured subprocess.
+    With stdin/stdout captured and no controlling terminal, codex-cli exits 1
+    before doing anything, so every exact-resume failed with an opaque
+    `command_exit_1` and no session was ever created (measured live 2026-08-30 on
+    plan repo-gates-and-test-integrity). Starts never had the defect because
+    `_start_command` already launched through the same wrapper.
+
+    Wrapping cannot collide with a live seat: the classifier reports
+    `tmux_session_occupied` rather than `exact_resume` whenever the session name is
+    already taken, so an argv built here always names a free one.
+    """
     runtime = _str_field(payload=payload, key="runtime")
     repo = _str_field(payload=payload, key="repo")
     topic = _str_field(payload=payload, key="topic")
+    session_name = _str_field(payload=payload, key="session_name")
     session_id = _str_field(payload=payload, key="session_id")
     brief = _str_field(payload=payload, key="handoff_path")
     epic = _str_field(payload=payload, key="epic")
     if (
-        runtime != "codex" or repo is None or topic is None or session_id is None
+        runtime != "codex"
+        or repo is None
+        or topic is None
+        or session_name is None
+        or session_id is None
     ):  # pragma: no cover
         return None
     prompt = _resume_prompt(repo=repo, topic=topic, brief=brief, epic=epic)
     return [
+        "tmux",
+        "new-session",
+        "-d",
+        "-s",
+        session_name,
+        "-c",
+        repo,
         "codex",
         "resume",
         "--dangerously-bypass-approvals-and-sandbox",

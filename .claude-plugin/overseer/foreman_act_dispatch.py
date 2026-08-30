@@ -185,10 +185,10 @@ def _act_command(*, action_id: ActionId, proposal: dict[str, object], run: Runne
     if command is None:  # pragma: no cover
         result = _refused(action_id=action_id, reason="classifier_mismatch")
     else:
-        result = command_result(raw=run(argv=command))
-        code = result.returncode
+        completed = command_result(raw=run(argv=command))
+        code = completed.returncode
         failed_reason = (
-            _supervisor_start_failure_reason(stderr=result.stderr)
+            _supervisor_start_failure_reason(stderr=completed.stderr)
             if action_id in _START_ACTIONS
             else None
         )
@@ -198,7 +198,10 @@ def _act_command(*, action_id: ActionId, proposal: dict[str, object], run: Runne
                 reason="resumed" if action_id == QUALIFYING_SESSION_RESUME else "started",
             )
             if code == 0
-            else _failed(action_id=action_id, reason=failed_reason or f"command_exit_{code}")
+            else {
+                **_failed(action_id=action_id, reason=failed_reason or f"command_exit_{code}"),
+                "command": completed.diagnostics(argv=command),
+            }
         )
     return result
 
