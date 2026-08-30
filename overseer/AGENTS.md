@@ -131,6 +131,34 @@ documentation on both.
 **Do not "fix" a capture problem by asking `local-llm` to stop using `exec`.**
 That was considered and rejected: the daemon must read what is actually there.
 
+**THE WRAPPERS ARE NOT SYMMETRIC ABOUT THE MODEL, and assuming they are cost a
+silent model downgrade on the Codex arm.** `claude-local-llm` DEFERS to an
+inherited `ANTHROPIC_MODEL` (`ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-…}"`), so on the
+Claude wrapper arm the controlled-env assignment happens to preserve the recorded
+model as well as scrub inherited values — the deference IS the mechanism, and it is
+`local-llm`'s to keep, not this repo's to assume. `codex-local-llm` has no
+counterpart: it execs `codex -c model_provider=local-llm-fleet "$@"`, mentions
+`ANTHROPIC_MODEL` nowhere, and its own header says Codex's normal model picker stays
+in charge. A wrapper-arm Codex relaunch carrying the model only in the environment
+therefore preserved the PROVIDER while silently dropping the MODEL — regression 1 on
+one arm, hidden behind regression 2 being closed. So `codex_launch_plan` re-asserts
+the model with `-m` through the wrapper's `"$@"`, the same flag the bare-codex arm
+uses, and the env assignment stays as the set-or-scrub rule it always was.
+
+**The test for this must reach the PROCESS, not the rendered string.** Every earlier
+test asserted command/env shape, and one of them proved the wrapper-arm command
+EXECUTES — which it did, while carrying an environment variable the real consumer
+ignores. The fabrication had moved out of the process shape and into the env, where
+shape assertions cannot see it.
+`tests/test_codex_wrapper_model_survives_relaunch.py` runs the rendered command
+through a stub that resolves its model the way Codex does, and asserts on what the
+stub actually ran under. Keep that level if you touch this arm.
+
+The corresponding annotation on the `local-llm` side — recording that
+`codex-local-llm`'s lack of deference is deliberate and that this repo now passes
+`-m` rather than relying on the env — is a change to THAT repo and cannot be made
+from here. It remains owed; the read stays one-directional either way.
+
 **A hardcoded path table is not an acceptable substitute either**, and the
 reasoning is recorded because it looked reasonable for one release. Keying a
 wrapper path off the harness alone, reached whenever `ANTHROPIC_BASE_URL` is

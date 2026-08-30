@@ -252,11 +252,24 @@ def codex_launch_plan(
     if wrapper_problem is not None:
         return wrapper_problem
     env = _scrubbed_env()
+    # BOTH mechanisms are here, and only ONE of them re-asserts the model on this arm.
+    #
+    # The env assignment is the set-or-scrub rule the specification binds to every
+    # relaunch of every harness: never inherit these passively. It is NOT what
+    # preserves the model here. The Claude wrapper arm gets model preservation from
+    # the same assignment for free, because `claude-local-llm` DEFERS to an inherited
+    # value — the deference IS the mechanism. `codex-local-llm` has no such deference:
+    # it execs `codex -c model_provider=local-llm-fleet "$@"` and never reads
+    # ANTHROPIC_MODEL, leaving Codex's own model picker in charge. Relying on the env
+    # alone preserved the PROVIDER while silently dropping the recorded MODEL.
+    #
+    # So the model rides `-m` through the wrapper's `"$@"`, exactly as on the bare
+    # codex arm — a mechanism the real consumer honours.
     env["ANTHROPIC_MODEL"] = model
     return CodexLaunchPlan(
         command=_codex_command(
             command=wrapper,
-            model=None,
+            model=model,
             session_id=session_id,
             resume=resume,
         ),

@@ -58,7 +58,8 @@ def test_recover_resumes_a_codex_track_with_its_recorded_wrapper_profile(*, tmp_
         "respawn",
         session,
         str(repo),
-        f"{wrapper} resume --dangerously-bypass-approvals-and-sandbox "
+        f"{wrapper} -m macmini/qwen3-coder-next "
+        "resume --dangerously-bypass-approvals-and-sandbox "
         f"{sid} {shlex.quote(supervisor.plan_epic_resume(repo=str(repo), epic=TEST_EPIC))}",
         {
             "ANTHROPIC_MODEL": "macmini/qwen3-coder-next",
