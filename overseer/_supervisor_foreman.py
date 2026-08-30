@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import _supervisor_evaluate
@@ -136,6 +137,39 @@ def _blocking_prompt_row(*, row: RowView) -> RowView | None:
     )
 
 
+def _seat_heartbeat_row(*, evaluation_row: RowView | None, heartbeat_row: RowView) -> RowView:
+    """The heartbeat row carrying the runtime the daemon OBSERVED for that same session.
+
+    A heartbeat row is built from a FILE, so it knows no runtime, and
+    `_supervisor_snapshot.session_identity` therefore falls through to its `tmux:` arm --
+    publishing a live Claude seat under a second identity scheme while that seat's own
+    evaluated row is published under `claude:`. One session then reads as two tracks.
+
+    Inheriting is not a guess: the runtime is this tick's own observation of the SAME
+    tmux session. When no evaluated row names that session there is nothing to inherit,
+    and the row keeps the scheme a heartbeat file alone can justify.
+    """
+    if evaluation_row is None or evaluation_row.tmux != heartbeat_row.tmux:
+        return heartbeat_row
+    return replace(heartbeat_row, runtime=evaluation_row.runtime)
+
+
+def _reconciled_row(*, prompt_row: RowView, heartbeat_row: RowView) -> RowView:
+    """ONE row for one seat: the open prompt, carrying the heartbeat lapse it absorbed.
+
+    The two rows are not independent facts about two tracks. An open prompt suppresses the
+    scheduled tick, so the lapsed heartbeat is its CONSEQUENCE -- and published side by
+    side the pair routes an operator two opposite ways: answer the prompt in that pane, or
+    treat the loop as dead and restore it. The prompt survives because its remedy is the
+    one that unblocks the loop; the heartbeat's own status and note are folded into the
+    surviving note rather than dropped, and its edge-triggered alert is unchanged, so the
+    stale heartbeat is still surfaced with coordinates.
+    """
+    return replace(
+        prompt_row, note=f"{prompt_row.note}; {heartbeat_row.status}: {heartbeat_row.note}"
+    )
+
+
 def _clear_alert(*, sup: Supervisor, repo: str) -> None:
     for condition in _HEARTBEAT_ALERT_CONDITIONS:
         _ = sup.alerted.pop((*track_key(repo=repo, topic=FOREMAN_TOPIC), condition), None)
@@ -171,6 +205,51 @@ def _surface_blocking_prompt_alert(*, sup: Supervisor, row: RowView) -> None:
     )
 
 
+def _repo_foreman_rows(
+    *,
+    sup: Supervisor,
+    repo: str,
+    act: bool,
+    null_added_at_keys: frozenset[_supervisor_mapping_health.MappingKey],
+) -> list[RowView]:
+    """One repository's foreman rows, with one row per SESSION on the `foreman` topic.
+
+    Two synthetic rows can arise for one repo -- an open blocking prompt on the mapped
+    seat, and a lapsed heartbeat file -- and they are reconciled ONLY when they name the
+    same tmux session. Rows naming different sessions are genuinely different seats and
+    are both published, so this is not a collapse on (repo, topic).
+    """
+    rows: list[RowView] = []
+    evaluation_row = foreman_evaluation_row(
+        sup=sup, repo=repo, act=act, null_added_at_keys=null_added_at_keys
+    )
+    prompt_row = None if evaluation_row is None else _blocking_prompt_row(row=evaluation_row)
+    if evaluation_row is not None:
+        rows.append(evaluation_row)
+    if prompt_row is None:
+        _clear_blocking_prompt_alert(sup=sup, repo=repo)
+    elif act:
+        _surface_blocking_prompt_alert(sup=sup, row=prompt_row)
+    heartbeat_row = foreman_row(repo=repo, now=sup.now)
+    if heartbeat_row is None:
+        _clear_alert(sup=sup, repo=repo)
+        if prompt_row is not None:
+            rows.append(prompt_row)
+        return rows
+    if act and heartbeat_row.status == FOREMAN_HEARTBEAT_STALE_STATUS:
+        _surface_alert(sup=sup, row=heartbeat_row)
+    else:
+        _clear_alert(sup=sup, repo=repo)
+    heartbeat_row = _seat_heartbeat_row(evaluation_row=evaluation_row, heartbeat_row=heartbeat_row)
+    if prompt_row is None:
+        rows.append(heartbeat_row)
+    elif prompt_row.tmux == heartbeat_row.tmux:
+        rows.append(_reconciled_row(prompt_row=prompt_row, heartbeat_row=heartbeat_row))
+    else:
+        rows.extend((prompt_row, heartbeat_row))
+    return rows
+
+
 def foreman_rows(
     *,
     sup: Supervisor,
@@ -180,30 +259,7 @@ def foreman_rows(
 ) -> list[RowView]:
     rows: list[RowView] = []
     for repo in repos:
-        evaluation_row = foreman_evaluation_row(
-            sup=sup,
-            repo=repo,
-            act=act,
-            null_added_at_keys=null_added_at_keys,
+        rows.extend(
+            _repo_foreman_rows(sup=sup, repo=repo, act=act, null_added_at_keys=null_added_at_keys)
         )
-        if evaluation_row is not None:
-            rows.append(evaluation_row)
-            prompt_row = _blocking_prompt_row(row=evaluation_row)
-            if prompt_row is not None:
-                rows.append(prompt_row)
-                if act:
-                    _surface_blocking_prompt_alert(sup=sup, row=prompt_row)
-            else:
-                _clear_blocking_prompt_alert(sup=sup, repo=repo)
-        else:
-            _clear_blocking_prompt_alert(sup=sup, repo=repo)
-        row = foreman_row(repo=repo, now=sup.now)
-        if row is None:
-            _clear_alert(sup=sup, repo=repo)
-            continue
-        rows.append(row)
-        if act and row.status == FOREMAN_HEARTBEAT_STALE_STATUS:
-            _surface_alert(sup=sup, row=row)
-        else:
-            _clear_alert(sup=sup, repo=repo)
     return rows
