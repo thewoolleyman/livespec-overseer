@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.6](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.5...v1.67.6) (2026-08-30)
+
+
+### Bug Fixes
+
+* split supervise-plan preconditions by phase ([e1fc24b](https://github.com/thewoolleyman/livespec-overseer/commit/e1fc24bd2001d7814258fb64cadddb0490289166))
+
 ## [1.67.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.4...v1.67.5) (2026-08-30)
 
 
