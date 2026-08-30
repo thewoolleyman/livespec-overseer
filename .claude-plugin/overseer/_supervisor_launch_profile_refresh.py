@@ -49,12 +49,36 @@ def _with_statusline_baseline(
     stored_profile: dict[str, str | None] | None,
     rendered: str | None,
 ) -> dict[str, str | None]:
+    # At round open the pane's rendered model is authoritative: nothing has
+    # been restarted yet, so whatever the session runs is what operator or
+    # enforcement authority left it running. Re-baseline the statusline_model
+    # from the live render so a wrong inherited baseline cannot veto restarts
+    # forever. Fail-soft: an unreadable render keeps the stored value rather
+    # than silently clearing it.
+    if rendered is not None:
+        return {**profile, "statusline_model": rendered}
     recorded = None if stored_profile is None else stored_profile.get("statusline_model")
     if recorded is not None:
         return {**profile, "statusline_model": recorded}
-    if rendered is not None:
-        return {**profile, "statusline_model": rendered}
     return profile
+
+
+def _surface_statusline_rebaseline(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    stored_profile: dict[str, str | None] | None,
+    rendered: str | None,
+) -> None:
+    recorded = None if stored_profile is None else stored_profile.get("statusline_model")
+    if rendered is None or recorded is None or rendered == recorded:
+        return
+    sup.log(
+        message=(
+            "statusline baseline re-based at round open for "
+            f"{track.repo}::{track.topic}: {recorded!r} -> {rendered!r}"
+        ),
+    )
 
 
 def refresh_launch_profile_at_wrapup(
@@ -107,6 +131,12 @@ def refresh_launch_profile_at_wrapup(
             ),
             condition="launch-profile-mismatch",
         )
+    _surface_statusline_rebaseline(
+        sup=sup,
+        track=track,
+        stored_profile=stored_profile,
+        rendered=rendered,
+    )
     profile = _with_statusline_baseline(
         profile=profile,
         stored_profile=stored_profile,
