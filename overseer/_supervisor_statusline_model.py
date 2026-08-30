@@ -13,10 +13,18 @@ if TYPE_CHECKING:
     from _supervisor_core import Supervisor
 
 __all__: list[str] = [
+    "STATUSLINE_MISMATCH_CONDITION",
     "rendered_statusline_model",
     "restart_blocked_by_statusline_mismatch",
     "statusline_model_disagreement",
 ]
+
+# The alert condition a standing recorded-vs-rendered disagreement raises. Named so
+# the evaluate cascade can register it as an ACTIVE condition while the disagreement
+# holds, which is what keeps the edge-triggered alert (invariant 10) from re-arming
+# every tick — `clear_alert_conditions` retains an alerted key only while its
+# condition is active, and re-arms it the moment the disagreement clears.
+STATUSLINE_MISMATCH_CONDITION = "statusline-model-mismatch"
 
 _STATUSLINE_CTX_RE = re.compile(r"(?:Ctx:|Context)\s*\d+%\s*left")
 _MIN_STATUSLINE_PARTS = 3
@@ -120,7 +128,7 @@ def _alert_statusline_mismatch(
             f"recorded model {recorded!r}, rendered model {rendered!r}; "
             "skipping restart and keeping the ready declaration"
         ),
-        condition="statusline-model-mismatch",
+        condition=STATUSLINE_MISMATCH_CONDITION,
     )
 
 

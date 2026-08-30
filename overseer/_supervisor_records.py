@@ -91,6 +91,12 @@ class InjectState:
     settling_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     shell_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
     restart_never_worked_episode: ConditionEpisode = field(default_factory=ConditionEpisode)
+    # A `ready` declaration held by a standing statusline-mismatch veto must not
+    # expire at the max age with only per-tick log lines to show for it: this flag
+    # marks that the current ready declaration is (or was) veto-held so expiry is
+    # skipped until the declaration is consumed by a restart or retracted. Reset the
+    # moment no ready declaration is present. See `_supervisor_state.expire_aged_ready`.
+    statusline_veto_holding: bool = False
     blocked_human_stall_since: float | None = None
     blocked_human_stall_capture: str | None = None
     picker_stall_nudged: bool = False
