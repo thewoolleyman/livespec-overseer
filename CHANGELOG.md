@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.8...v1.67.9) (2026-08-30)
+
+
+### Bug Fixes
+
+* source a seat's final-ruling answer from the live ledger ([c21e984](https://github.com/thewoolleyman/livespec-overseer/commit/c21e9846750d49b1b3b4f8eeed86d5deebb434f4))
+
 ## [1.67.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.7...v1.67.8) (2026-08-30)
 
 
