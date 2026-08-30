@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.0...v1.67.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* surface an unbaselined track's unverified re-assertion at restart ([9455ce8](https://github.com/thewoolleyman/livespec-overseer/commit/9455ce8e63f280f542e4f1f93ce9232721729f52))
+
 ## [1.67.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.66.2...v1.67.0) (2026-08-30)
 
 
