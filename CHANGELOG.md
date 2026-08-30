@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.1...v1.67.2) (2026-08-30)
+
+
+### Bug Fixes
+
+* cover picker marker quotation false positive ([9e222db](https://github.com/thewoolleyman/livespec-overseer/commit/9e222db643465d169a9d54a98026d5310c5164c1))
+
 ## [1.67.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.0...v1.67.1) (2026-08-30)
 
 
