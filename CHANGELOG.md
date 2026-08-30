@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.66.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.5...v1.66.0) (2026-08-30)
+
+
+### Features
+
+* caam enforcement respects an operator-set per-session model ([15d006a](https://github.com/thewoolleyman/livespec-overseer/commit/15d006a3482a7d89302fd123748e29ff461dd286))
+
 ## [1.65.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.4...v1.65.5) (2026-08-30)
 
 
