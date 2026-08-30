@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.8](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.7...v1.67.8) (2026-08-30)
+
+
+### Bug Fixes
+
+* launch a codex exact-resume inside a detached tmux session ([d59af55](https://github.com/thewoolleyman/livespec-overseer/commit/d59af55672496629bc67941cb9f837417ba3fd2e))
+
 ## [1.67.7](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.6...v1.67.7) (2026-08-30)
 
 
