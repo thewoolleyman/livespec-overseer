@@ -10,7 +10,7 @@ from typing import Final, cast
 from _signals_topics import is_foreman_topic, is_grooming_topic
 from caam_effort import enforce_effort_floor
 from caam_enforcement_options import ModelContext, ModelRun, model_context
-from caam_foreman_override import apply_foreman_model_override
+from caam_foreman_override import SCOPED_MODEL, apply_foreman_model_override
 from caam_picker import real_picker_tmux
 from caam_profile_state import load_state, save_state
 from caam_session_models import SessionModelExceptions, apply_session_model_exceptions
@@ -156,15 +156,47 @@ def _actions_for_pane(
             set_model=run.set_model,
             pane_idle=run.pane_idle,
             dry_run=run.dry_run,
-            # Respect an operator-set model only when Fable is still available AND
-            # the session carries no explicit session_models pin: an explicit pin
-            # is honored by driving to it, and a Fable-exhausted pass keeps the
-            # exception that resets every session to the general model.
-            respect_operator_set=fable_left
-            and session_exceptions.want_for(session=pane.session) is None,
+            respect_operator_set=_respect_operator_set(
+                pane=pane,
+                scoped_servable=fable_left,
+                session_exceptions=session_exceptions,
+            ),
         )
     except _ADVISORY_ERRORS as exc:
         return [f"{pane.session} SKIPPED({type(exc).__name__})"]
+
+
+def _respect_operator_set(
+    *,
+    pane: SessionModel,
+    scoped_servable: bool,
+    session_exceptions: SessionModelExceptions,
+) -> bool:
+    """Whether this session's operator-set model survives THIS pass.
+
+    Two bounds, both from the ratified clause. An explicit ``session_models``
+    pin is honored by DRIVING the session to it, so a pinned session is never
+    left on something else -- that path is unchanged.
+
+    The scoped-exhaustion exception is bounded to the session's OWN model and
+    keyed on SERVABILITY, not on the global scoped-allowance-exhausted
+    condition: enforcement moves an operator-set session only where the active
+    account cannot serve the model that session is actually on. ``scoped_servable``
+    is the pass's reading of the active account's scoped balance -- the same
+    "present and not fully spent" signal ``can_serve_scoped_model`` applies to a
+    usage record for the scoped-model selection clauses -- and it can only
+    disqualify a session observed on the scoped model itself. A session on any
+    other model is untouched by that allowance being spent, so no servability
+    concern reaches it and it is left alone; the exhausted pass resets the
+    derived and never-operator-set sessions, and must not sweep this one up with
+    them.
+
+    An unknown observed model needs no branch here: it is never classified as
+    operator-set downstream, so respecting it decides nothing.
+    """
+    if session_exceptions.want_for(session=pane.session) is not None:
+        return False
+    return scoped_servable or pane.model != SCOPED_MODEL
 
 
 def _wanted_model(*, session: str, fable_left: bool, want_foreman: str) -> str | None:
