@@ -35,7 +35,18 @@ def test_work_item_session_exact_crashed_resume_uses_the_recorded_handoff(*, tmp
 
     assert start["outcome"] == "acted"
     assert resume["reason"] == "work_item_session_resumed"
-    assert calls[1][:4] == [
+    # The resume rides the same detached-tmux wrapper the start already used:
+    # `codex resume` is the interactive TUI and cannot run captured with no tty.
+    assert calls[1][:7] == [
+        "tmux",
+        "new-session",
+        "-d",
+        "-s",
+        "overseer-vts4lo",
+        "-c",
+        str(repo),
+    ]
+    assert calls[1][7:11] == [
         "codex",
         "resume",
         "--dangerously-bypass-approvals-and-sandbox",

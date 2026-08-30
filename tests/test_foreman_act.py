@@ -686,6 +686,18 @@ def test_plan_start_failure_reason_names_the_supervisor_start_step(*, tmp_path):
         "mutated": False,
         "outcome": "failed",
         "reason": "claude_launch_failed",
+        "command": {
+            "argv": [
+                sys.executable,
+                str(OVERSEER_DIR / "supervisor.py"),
+                "start",
+                "--repo",
+                str(repo),
+                "--topic",
+                "alpha",
+            ],
+            "stderr": "start FAILED: reason=claude_launch_failed session=alpha\n",
+        },
     }
 
 
@@ -846,6 +858,7 @@ def test_foreman_resume_command_uses_ledger_prompt_instead_of_scratch_handoff(*,
             "runtime": "codex",
             "repo": repo,
             "topic": "repo-foreman",
+            "session_name": "repo-foreman",
             "session_id": "codex-session-id",
             "handoff_path": handoff,
             "epic": epic,
@@ -1026,6 +1039,13 @@ def test_resume_uses_exact_codex_session_id_and_the_ledger_epic_prompt(*, tmp_pa
 
     assert calls == [
         [
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            "alpha",
+            "-c",
+            str(repo),
             "codex",
             "resume",
             "--dangerously-bypass-approvals-and-sandbox",
@@ -1049,6 +1069,13 @@ def test_resume_without_a_recorded_epic_kicks_the_restored_session_naming_no_fil
 
     assert calls == [
         [
+            "tmux",
+            "new-session",
+            "-d",
+            "-s",
+            "alpha",
+            "-c",
+            str(repo),
             "codex",
             "resume",
             "--dangerously-bypass-approvals-and-sandbox",
@@ -1059,6 +1086,69 @@ def test_resume_without_a_recorded_epic_kicks_the_restored_session_naming_no_fil
     assert "handoff.md" not in calls[0][-1]
     # The control: the predicate DOES report a hit on a payload of the same shape.
     assert "handoff.md" in f"{calls[0][-1]} read {repo}/plan/alpha/handoff.md and follow it"
+
+
+def test_codex_exact_resume_launches_inside_a_detached_tmux_session(*, tmp_path):
+    """`codex resume` is the interactive TUI, so it needs the same wrapper a start uses.
+
+    Measured live 2026-08-30: the actuator ran the bare argv as a captured
+    subprocess with no controlling terminal, codex-cli exited 1 before doing
+    anything, and no tmux session was ever created — so the only codex-resume
+    route the foreman has was dead on arrival for every live restart. Starts
+    never had the defect because `_start_command` already wrapped its launch in
+    `tmux new-session -d`.
+    """
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    calls = _resume_calls(repo=repo, proposal=resume_proposal(repo=repo))
+
+    assert calls[0][:7] == ["tmux", "new-session", "-d", "-s", "alpha", "-c", str(repo)]
+    assert calls[0][7:11] == [
+        "codex",
+        "resume",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "019fc11c-68c4-78c3-824b-d9b97de55a78",
+    ]
+    # The control: the pre-fix bare `codex resume` argv is no longer emitted.
+    assert calls[0][:2] != ["codex", "resume"]
+
+
+def test_a_failed_launch_journals_the_argv_and_the_bounded_child_stderr(*, tmp_path):
+    """`command_exit_1` names the exit status and nothing else.
+
+    That opaque reason is all the 2026-08-30 measurement had to work with: a
+    journaled failure with no argv to reproduce and no message to read, for a
+    launch that could not have succeeded. The record now carries both, with the
+    stderr bounded so an unbounded child cannot write an unbounded journal line.
+    """
+    module = foreman_act()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    document = base_document(repo=repo)
+    row = document["snapshot"]["rows"][0]
+    assert isinstance(row, dict)
+    row["session_identity"] = "codex:019fc11c-68c4-78c3-824b-d9b97de55a78"
+    noise = "codex: no controlling terminal\n" * 400
+    records: list[dict[str, object]] = []
+
+    result = module.act(
+        proposal=resume_proposal(repo=repo),
+        seams=module.ActSeams(
+            gather=lambda *, repo, snapshot_path: document,
+            run=lambda *, argv: module.CommandResult(returncode=1, stderr=noise),
+            append_journal=lambda *, repo, record: records.append(record),
+        ),
+    )
+
+    assert result["outcome"] == "failed"
+    assert result["reason"] == "command_exit_1"
+    command = records[-1]["command"]
+    assert isinstance(command, dict)
+    assert command["argv"][:5] == ["tmux", "new-session", "-d", "-s", "alpha"]
+    assert len(noise) > 2000
+    assert command["stderr"] == noise[-2000:]
+    assert len(str(command["stderr"])) == 2000
 
 
 def test_refuses_stale_unknown_freeform_and_human_actions(*, tmp_path):

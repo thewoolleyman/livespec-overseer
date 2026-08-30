@@ -124,8 +124,11 @@ def _journal_record(*, result: ActResult, invoker: str) -> dict[str, object]:
     It carries the invoker because the operator question a record must answer is
     not only what was attempted but on whose behalf. This journal is owned here,
     so adopting the orchestrator's own invoker field upstream would not reach it.
+
+    A launch that exited non-zero also carries the argv that ran and the tail of
+    the child's stderr, so `command_exit_1` is never the whole record.
     """
-    return {
+    record: dict[str, object] = {
         "stage": "foreman-act",
         "action_id": result["action_id"],
         "outcome": result["outcome"],
@@ -133,6 +136,10 @@ def _journal_record(*, result: ActResult, invoker: str) -> dict[str, object]:
         "mutated": result["mutated"],
         "invoker": invoker,
     }
+    command = result.get("command")
+    if command is not None:
+        record["command"] = command
+    return record
 
 
 def act(
