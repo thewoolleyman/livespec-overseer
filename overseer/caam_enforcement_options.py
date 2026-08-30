@@ -212,7 +212,7 @@ def _production_pane_idle(*, tmux: EnforcementTmux) -> PaneIdle:
 
 def _production_set_model(*, tmux: EnforcementTmux, sleep: Sleep) -> ModelSetter:
     def set_model(*, session: str, model: str) -> None:
-        drive_model_picker(
+        _ = drive_model_picker(
             tmux=tmux,
             session=session,
             want=model,

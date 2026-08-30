@@ -1,4 +1,12 @@
-"""Model-picker driving for caam account rotation."""
+"""Model-picker driving for caam account rotation.
+
+``drive_model_picker`` is IDEMPOTENT (work-item overseer-o3t75c.1): the picker
+opens with its cursor on the pane's CURRENT model, so a wanted row that is
+already the highlighted row means there is nothing to switch. That case is
+dismissed with Escape and reported as ``PICKER_ALREADY_SET``; the switch key is
+never pressed. This is the last line of defence against re-driving a satisfied
+pane however the model was mis-read upstream.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +17,10 @@ from typing import Final, Protocol
 import tmuxio
 
 __all__: list[str] = [
+    "PICKER_ALREADY_SET",
+    "PICKER_DISMISSED",
+    "PICKER_NOT_IDLE",
+    "PICKER_SWITCHED",
     "PickerRow",
     "PickerTmux",
     "drive_model_picker",
@@ -18,6 +30,11 @@ __all__: list[str] = [
     "real_picker_tmux",
     "row_for_model",
 ]
+
+PICKER_ALREADY_SET: Final = "already-set"
+PICKER_DISMISSED: Final = "dismissed"
+PICKER_NOT_IDLE: Final = "not-idle"
+PICKER_SWITCHED: Final = "switched"
 
 _REAL_TMUX: Final = "/usr/bin/tmux"
 _MODEL_HEADER: Final = "Select model"
@@ -83,9 +100,9 @@ def row_for_model(*, rows: tuple[PickerRow, ...], want: str) -> PickerRow | None
 
 def drive_model_picker(
     *, tmux: PickerTmux, session: str, want: str, sleep: Sleep, check_idle: bool = True
-) -> None:
+) -> str:
     if check_idle and not pane_is_idle(screen=tmux.capture_pane(session=session)):
-        return
+        return PICKER_NOT_IDLE
 
     _ = tmux.send_literal_keys(session=session, text="/model")
     sleep(0.4)
@@ -98,7 +115,12 @@ def drive_model_picker(
     target = row_for_model(rows=rows, want=want)
     if here is None or target is None:
         _ = tmux.send_keys(session=session, keys="Escape")
-        return
+        return PICKER_DISMISSED
+    if target.number == here:
+        # The picker opens on the pane's current model, so the wanted model is
+        # already set: leave without ever pressing the switch key.
+        _ = tmux.send_keys(session=session, keys="Escape")
+        return PICKER_ALREADY_SET
 
     _move_down(tmux=tmux, session=session, count=(target.number - here) % len(rows))
     sleep(0.3)
@@ -107,6 +129,7 @@ def drive_model_picker(
 
     screen = tmux.capture_pane(session=session)
     _answer_switch_dialog(tmux=tmux, session=session, screen=screen, sleep=sleep)
+    return PICKER_SWITCHED
 
 
 def _answer_switch_dialog(*, tmux: PickerTmux, session: str, screen: str, sleep: Sleep) -> None:
