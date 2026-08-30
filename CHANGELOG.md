@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.5](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.4...v1.67.5) (2026-08-30)
+
+
+### Bug Fixes
+
+* decide supervisor-binder existence by what a binder is ([cc6429f](https://github.com/thewoolleyman/livespec-overseer/commit/cc6429f4ca979e277dfdd8793d8b2446288dc88f))
+
 ## [1.67.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.3...v1.67.4) (2026-08-30)
 
 
