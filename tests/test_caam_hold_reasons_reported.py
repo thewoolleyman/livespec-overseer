@@ -157,5 +157,9 @@ def test_the_hold_line_is_byte_identical_when_there_is_no_reason_to_give(
     )
     lines = _run(tmp_path=tmp_path, profiles=profiles, current=active, protection_floors={})
     hold = next(line for line in lines if line.startswith("hold:"))
-    assert hold.endswith("(all similarly spent, exhausted, or unverifiable)")
+    assert hold == (
+        "hold: the candidate set was empty -- none of the live-verified candidates "
+        "(anthropic-b) clears the >=10.00 point five_hour headroom margin over "
+        "anthropic-a within the weekly reserve"
+    )
     assert ";" not in hold

@@ -16,6 +16,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from caam_anthropic_finish import SaveState, finish
+from caam_candidate_diagnosis import CandidatePopulation, no_candidate_cause
 from caam_decide_context import DecisionContext, Flags
 from caam_decision import (
     ProfileUsage,
@@ -70,14 +71,21 @@ def hold_no_candidate(
     context: DecisionContext,
     save_state: SaveState,
     decision_line: str,
-    dimension: str,
-    active_name: str,
+    population: CandidatePopulation,
     reasons: tuple[str, ...] = (),
 ) -> int:
+    """Hold where the candidate set came out empty, with the cause that emptied it.
+
+    The rows are threaded in rather than a pre-computed verdict, because the cause
+    is derived from the same facts the candidate gate reads. Deriving it here keeps
+    the diagnosis off the selection path entirely: `decide` hands over exactly what
+    it selected FROM, and nothing computed for this line can reach the choice.
+    """
     line = decision_hold_no_candidate(
-        gain_needed=0.01 if context.flags.force else min_headroom_gain(),
-        dimension=dimension,
-        active_name=active_name,
+        cause=no_candidate_cause(
+            population=population,
+            gain_needed=0.01 if context.flags.force else min_headroom_gain(),
+        ),
         reasons=reasons,
     )
     return _report(context=context, save_state=save_state, lines=(decision_line, line))

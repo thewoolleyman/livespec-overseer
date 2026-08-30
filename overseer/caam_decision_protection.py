@@ -228,6 +228,14 @@ def empty_release_note(
     CANDIDATE being at its floor. Judging it over the full set silently demands that
     the ACTIVE account be protected and at its floor too, which is a stricter and
     different condition.
+
+    The release branch names LIVE-VERIFIED accounts because that is the population
+    `every_live_account_under_reserve` measures, and the predicate is right to
+    measure it: the release should turn on what is actually reachable. Saying
+    "every account" claimed a scope it never consulted, and claimed it in the
+    direction that makes a healthy fleet read as exhausted -- against the pass of
+    2026-08-28 the one live account was under the reserve while three cached rows
+    at 100%, 62% and 100% weekly were not, and were never asked.
     """
     candidates = tuple(profile for profile in profiles if profile.name != active_name)
     held = protected_accounts_at_floor(profiles=candidates, protection_floors=protection_floors)
@@ -237,7 +245,10 @@ def empty_release_note(
             f"{name} at {remaining:g}% left (floor {floor:g}%)" for name, remaining, floor in held
         )
         return f"hold: protected account floors reached: {accounts}"
-    return f"note: every account is under the {weekly_reserve:g}% weekly reserve -- releasing it"
+    return (
+        f"note: every live-verified account is under the {weekly_reserve:g}% "
+        "weekly reserve -- releasing it"
+    )
 
 
 def protected_accounts_at_floor(

@@ -204,7 +204,7 @@ def test_the_reason_composes_onto_the_no_candidate_hold_rather_than_replacing_it
     )
     assert outcome.held
     hold = outcome.hold_line()
-    assert hold.startswith("hold: no candidate has")
+    assert hold.startswith("hold: the candidate set was empty -- ")
     assert "cannot currently be satisfied" in hold
 
 

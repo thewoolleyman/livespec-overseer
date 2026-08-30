@@ -276,7 +276,9 @@ def test_reserve_release_does_not_release_protection_floors(*, monkeypatch):
     )
     assert [profile.name for profile in released.profiles] == ["unprotected"]
     assert released.reserve_released
-    assert released.note == "note: every account is under the 15% weekly reserve -- releasing it"
+    assert released.note == (
+        "note: every live-verified account is under the 15% weekly reserve -- releasing it"
+    )
 
     held = eligible_profiles(
         profiles=(protected,),
@@ -485,7 +487,9 @@ def test_reserve_release_retry_only_when_every_account_is_below_the_reserve(*, m
     )
     assert [profile.name for profile in released.profiles] == ["below"]
     assert released.reserve_released
-    assert released.note == "note: every account is under the 10% weekly reserve -- releasing it"
+    assert released.note == (
+        "note: every live-verified account is under the 10% weekly reserve -- releasing it"
+    )
 
 
 def test_ranking_uses_soonest_weekly_reset_and_unreadable_timestamps_sort_last():
@@ -712,13 +716,8 @@ def test_decision_lines_match_source_format_strings():
     )
     assert hasattr(caam_rendering, "decision_hold_no_candidate")
     assert caam_rendering.decision_hold_no_candidate(
-        gain_needed=10.0,
-        dimension="five_hour",
-        active_name="active",
-    ) == (
-        "hold: no candidate has >=10.00 points more five_hour headroom than active "
-        "(all similarly spent, exhausted, or unverifiable)"
-    )
+        cause="nothing to compare",
+    ) == ("hold: the candidate set was empty -- nothing to compare")
     assert hasattr(caam_rendering, "decision_switched")
     assert (
         caam_rendering.decision_switched(

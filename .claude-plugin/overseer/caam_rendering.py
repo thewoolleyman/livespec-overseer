@@ -154,21 +154,16 @@ def with_reasons(*, line: str, reasons: tuple[str, ...]) -> str:
     return line
 
 
-def decision_hold_no_candidate(
-    *,
-    gain_needed: float,
-    dimension: str,
-    active_name: str,
-    reasons: tuple[str, ...] = (),
-) -> str:
-    """The hold line for a pass no candidate cleared the headroom margin for."""
-    return with_reasons(
-        line=(
-            f"hold: no candidate has >={gain_needed:.2f} points more {dimension} headroom "
-            f"than {active_name} (all similarly spent, exhausted, or unverifiable)"
-        ),
-        reasons=reasons,
-    )
+def decision_hold_no_candidate(*, cause: str, reasons: tuple[str, ...] = ()) -> str:
+    """The hold line for a pass that ended with an EMPTY candidate set.
+
+    It states that the set was empty and hands over the one cause that applied,
+    rather than asserting a headroom margin. The margin is only one of the gates
+    that can empty the set, and where nothing could be verified live no margin was
+    measured against anything at all -- which is what made this line read as
+    contradicting a table showing accounts with plenty of headroom left.
+    """
+    return with_reasons(line=f"hold: the candidate set was empty -- {cause}", reasons=reasons)
 
 
 def unsatisfiable_pin_reason() -> str:
