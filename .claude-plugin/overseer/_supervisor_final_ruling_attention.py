@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 import _supervisor_config
 import _supervisor_final_ruling_sources
 import _supervisor_liveness
+import ledger_comments
 import registry
 
 if TYPE_CHECKING:
@@ -24,6 +25,10 @@ __all__: list[str] = [
 
 FINAL_RULING_UNHEEDED_STATUS = "final-ruling-unheeded"
 _BLOCKED_STATUSES = frozenset({"blocked:human", "picker-stalled", "pane-still"})
+# An unread ledger and a read-but-silent seat are BOTH unheeded, and the
+# operator's next move differs: one is a seat to inspect, the other is a source
+# to repair. Naming the uncertainty keeps them from rendering identically.
+_LEDGER_UNREADABLE = "ledger unreadable, so the seat's answer is unverified; "
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -55,15 +60,17 @@ def apply_final_ruling_attention(*, request: FinalRulingRequest) -> FinalRulingR
     )
     if exempt is not None:
         return _with_note(request=request, extra=f"final ruling exemption: {exempt}")
-    if not final_ruling_unheeded(request=request, relay=relay):
+    answer = final_ruling_unheeded(request=request, relay=relay)
+    if answer is None:
         return _unchanged(request=request)
 
     age = max(0.0, request.sup.now() - relay.at)
+    qualifier = _ledger_qualifier(answer=answer)
     note = _supervisor_liveness.append_note(
         note=request.note,
         extra=(
-            "final ruling unheeded "
-            f"{_supervisor_liveness.age_label(seconds=age)}; report-only, no restart authorized"
+            f"final ruling unheeded {_supervisor_liveness.age_label(seconds=age)}; "
+            f"{qualifier}report-only, no restart authorized"
         ),
     )
     if request.act:
@@ -74,7 +81,7 @@ def apply_final_ruling_attention(*, request: FinalRulingRequest) -> FinalRulingR
             pane=request.pane,
             message=(
                 "final ruling unheeded - inspect that pane and its plan epic; "
-                "report-only, no restart authorized"
+                f"{qualifier}report-only, no restart authorized"
             ),
             condition=FINAL_RULING_UNHEEDED_STATUS,
         )
@@ -87,15 +94,22 @@ def apply_final_ruling_attention(*, request: FinalRulingRequest) -> FinalRulingR
 
 def final_ruling_unheeded(
     *, request: FinalRulingRequest, relay: _supervisor_final_ruling_sources.FinalRelay
-) -> bool:
+) -> _supervisor_final_ruling_sources.LedgerAnswer | None:
+    """The seat's ledger answer when the ruling stands unheeded, else None.
+
+    Answering the LedgerAnswer rather than a bare bool is what carries the
+    unreadable-ledger case out to the surfaces: an unread ledger and a silent
+    seat both leave the ruling unheeded, and the operator needs to know which.
+    """
     if request.status not in _BLOCKED_STATUSES:
-        return False
+        return None
     if request.sup.now() - relay.at < _supervisor_config.FINAL_RULING_UNHEEDED_AFTER:
-        return False
+        return None
     repo = Path(request.track.repo)
-    return not _supervisor_final_ruling_sources.branch_moved(
-        repo=repo, relay=relay
-    ) and not _supervisor_final_ruling_sources.ledger_comment_moved(repo=repo, relay=relay)
+    if _supervisor_final_ruling_sources.branch_moved(repo=repo, relay=relay):
+        return None
+    answer = _supervisor_final_ruling_sources.ledger_comment_moved(repo=repo, relay=relay)
+    return None if answer.moved else answer
 
 
 def latest_final_relay(
@@ -119,6 +133,12 @@ def latest_final_relay(
     if not relays:
         return None
     return max(relays, key=lambda relay: relay.at)
+
+
+def _ledger_qualifier(*, answer: _supervisor_final_ruling_sources.LedgerAnswer) -> str:
+    if answer.source == ledger_comments.SOURCE_UNAVAILABLE:
+        return _LEDGER_UNREADABLE
+    return ""
 
 
 def _unchanged(*, request: FinalRulingRequest) -> FinalRulingResult:

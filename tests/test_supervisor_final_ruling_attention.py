@@ -1,10 +1,13 @@
 """Beside-tests for final-ruling and full-autonomy picker attention."""
 
 import json
+import subprocess
 
 import _supervisor_config
+import _supervisor_final_ruling_sources
 import _supervisor_snapshot
 import foreman_runtime_identity
+import ledger_comments
 import registry
 import supervisor
 from test_supervisor_builders import (
@@ -59,17 +62,25 @@ def final_relay(
     )
 
 
-def write_ledger_item(*, repo, item_id: str, blocked_reason: str | None = None) -> None:
-    item = {"id": item_id, "comments": [{"created_at": "1970-01-01T00:10:00Z"}]}
-    if blocked_reason is not None:
-        item["metadata"] = {"blocked_reason": blocked_reason}
-    path = repo / "tmp" / "overseer" / "ledger-items" / f"{item_id}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(item), encoding="utf-8")
+def stub_ledger(*, monkeypatch, comments) -> None:
+    """Point the live comment reader at a fixture.
+
+    The seat's answer is read from the LEDGER now, so these tests stub the one
+    seam that reaches it rather than writing a file no producer ever wrote.
+    ``comments=None`` is the ledger that could not be read at all.
+    """
+
+    def read(*, repo, work_item_id: str):
+        _ = repo
+        _ = work_item_id
+        return comments
+
+    monkeypatch.setattr(ledger_comments, "read_comments", read)
 
 
 def test_final_ruling_unheeded_raises_report_only_attention(*, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(_supervisor_config, "FINAL_RULING_UNHEEDED_AFTER", 30.0, raising=False)
+    stub_ledger(monkeypatch=monkeypatch, comments=())
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
@@ -77,7 +88,6 @@ def test_final_ruling_unheeded_raises_report_only_attention(*, tmp_path, monkeyp
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0)
     track = mapped_track(repo=repo, topic=topic, session=session)
     final_relay(repo=repo, session_identity=f"claude:{session}:{topic}")
-    write_ledger_item(repo=repo, item_id=TEST_EPIC)
 
     row = sup.evaluate(track=track, act=True)
     payload = _supervisor_snapshot.row_payload(sup=sup, row=row)
@@ -89,16 +99,44 @@ def test_final_ruling_unheeded_raises_report_only_attention(*, tmp_path, monkeyp
     assert supervisor.needs_attention(row=row) is True
     assert "report-only, no restart authorized" in capsys.readouterr().err
     assert "final ruling unheeded" in needs
+    assert "ledger unreadable" not in (row.note or "")
     assert not fake.has(method="paste")
     assert not fake.has(method="respawn")
 
 
+def test_an_unreadable_ledger_reports_differently_from_a_silent_seat(
+    *, tmp_path, monkeypatch, capsys
+):
+    """Both are unheeded; one is a seat to inspect, the other a source to repair."""
+    monkeypatch.setattr(_supervisor_config, "FINAL_RULING_UNHEEDED_AFTER", 30.0, raising=False)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=picker_capture())
+    final_relay(repo=repo, session_identity=f"claude:{session}:{topic}")
+    track = mapped_track(repo=repo, topic=topic, session=session)
+
+    stub_ledger(monkeypatch=monkeypatch, comments=())
+    silent = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0).evaluate(
+        track=track, act=False
+    )
+    stub_ledger(monkeypatch=monkeypatch, comments=None)
+    unreadable = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0).evaluate(
+        track=track, act=True
+    )
+
+    assert silent.status == "final-ruling-unheeded"
+    assert unreadable.status == "final-ruling-unheeded"
+    assert silent.note != unreadable.note
+    assert "ledger unreadable" in (unreadable.note or "")
+    assert "ledger unreadable" in capsys.readouterr().err
+
+
 def test_final_ruling_unheeded_suppresses_each_closed_exemption(*, tmp_path, monkeypatch):
     monkeypatch.setattr(_supervisor_config, "FINAL_RULING_UNHEEDED_AFTER", 30.0, raising=False)
+    stub_ledger(monkeypatch=monkeypatch, comments=())
     cases = (
-        ("infra-external", {"blocked_reason": "infra-external"}),
         ("credential-exhaustion", {"dispatch_reason": "HTTP 429 exhausted"}),
-        ("caam-quota-exhausted", {"caam": True}),
         ("factory-host-failure", {"output": "stage fabro-run: ENOSPC No space left on device"}),
     )
     for label, setup in cases:
@@ -108,11 +146,6 @@ def test_final_ruling_unheeded_suppresses_each_closed_exemption(*, tmp_path, mon
         fake.serve(session=session, repo=repo, capture=picker_capture())
         sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0)
         final_relay(repo=repo, session_identity=f"claude:{session}:{topic}")
-        write_ledger_item(
-            repo=repo,
-            item_id=TEST_EPIC,
-            blocked_reason=setup.get("blocked_reason"),
-        )
         if reason := setup.get("dispatch_reason"):
             with (repo / "tmp" / "fabro-dispatch-journal.jsonl").open("a", encoding="utf-8") as h:
                 _ = h.write(
@@ -146,13 +179,6 @@ def test_final_ruling_unheeded_suppresses_each_closed_exemption(*, tmp_path, mon
                     )
                     + "\n"
                 )
-        if setup.get("caam"):
-            (repo / "tmp" / "overseer" / "caam-quota.json").parent.mkdir(
-                parents=True, exist_ok=True
-            )
-            (repo / "tmp" / "overseer" / "caam-quota.json").write_text(
-                json.dumps({"account_window_exhausted": True}), encoding="utf-8"
-            )
         if output := setup.get("output"):
             run_dir = repo / "tmp" / "overseer" / "detached-dispatch" / f"{TEST_EPIC}-run"
             run_dir.mkdir(parents=True)
@@ -177,7 +203,7 @@ def test_final_ruling_unheeded_ignores_stale_credential_refusal_before_relay(
     fake.serve(session=session, repo=repo, capture=picker_capture())
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0)
     final_relay(repo=repo, session_identity=f"claude:{session}:{topic}")
-    write_ledger_item(repo=repo, item_id=TEST_EPIC)
+    stub_ledger(monkeypatch=monkeypatch, comments=())
     with (repo / "tmp" / "fabro-dispatch-journal.jsonl").open("a", encoding="utf-8") as h:
         _ = h.write(
             json.dumps(
@@ -213,11 +239,12 @@ def test_final_ruling_unheeded_clears_on_movement_and_unreadable_journal_fails_s
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=picker_capture())
     final_relay(repo=repo, session_identity=f"claude:{session}:{topic}")
-    write_ledger_item(repo=repo, item_id=TEST_EPIC)
-    item_path = repo / "tmp" / "overseer" / "ledger-items" / f"{TEST_EPIC}.json"
-    item = json.loads(item_path.read_text(encoding="utf-8"))
-    item["comments"].append({"created_at": "1970-01-01T00:12:00Z"})
-    item_path.write_text(json.dumps(item), encoding="utf-8")
+    # The seat ANSWERED on the ledger after the ruling was relayed. Before this
+    # was sourced live, that answer was invisible and the seat read as ignoring.
+    stub_ledger(
+        monkeypatch=monkeypatch,
+        comments=({"text": "acknowledged", "created_at": "1970-01-01T00:12:00Z"},),
+    )
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0)
 
     moved = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=False)
@@ -228,6 +255,37 @@ def test_final_ruling_unheeded_clears_on_movement_and_unreadable_journal_fails_s
 
     assert moved.status != "final-ruling-unheeded"
     assert unreadable.status != "final-ruling-unheeded"
+
+
+def test_final_ruling_unheeded_clears_when_the_branch_moved_without_reading_the_ledger(
+    *, tmp_path, monkeypatch
+):
+    """A moved branch settles it; the ledger is never consulted."""
+    monkeypatch.setattr(_supervisor_config, "FINAL_RULING_UNHEEDED_AFTER", 30.0, raising=False)
+    repo, topic = make_plan(tmp_path=tmp_path)
+    session = registry.tmux_id(repo=str(repo), topic=topic)
+    fake = FakeTmux()
+    fake.serve(session=session, repo=repo, capture=picker_capture())
+    final_relay(repo=repo, session_identity=f"claude:{session}:{topic}")
+
+    def refuse(*, repo, work_item_id: str):
+        _ = repo
+        _ = work_item_id
+        raise AssertionError("the ledger must not be read once the branch has moved")
+
+    monkeypatch.setattr(ledger_comments, "read_comments", refuse)
+
+    def head_after_the_ruling(*args, **kwargs):
+        _ = args
+        _ = kwargs
+        return subprocess.CompletedProcess(args=(), returncode=0, stdout="after\n")
+
+    monkeypatch.setattr(_supervisor_final_ruling_sources.subprocess, "run", head_after_the_ruling)
+    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: 1000.0)
+
+    row = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=False)
+
+    assert row.status != "final-ruling-unheeded"
 
 
 def test_foreman_picker_under_full_autonomy_raises_and_clears(*, tmp_path, capsys):
