@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.2...v1.67.3) (2026-08-30)
+
+
+### Bug Fixes
+
+* publish one live foreman seat as one row ([e8e54de](https://github.com/thewoolleyman/livespec-overseer/commit/e8e54de144dc384470a940242569adad794e3e2d))
+
 ## [1.67.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.1...v1.67.2) (2026-08-30)
 
 
