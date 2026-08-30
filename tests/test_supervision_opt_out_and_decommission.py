@@ -40,7 +40,13 @@ def test_supervision_none_sidecar_makes_migrated_epic_track_quiet(*, tmp_path):
 
 
 def test_unmarked_migrated_epic_track_still_requires_supervisor(*, tmp_path):
-    """The opt-out is per track: an unmarked migrated plan still raises Surface B."""
+    """The opt-out is per track: an unmarked migrated plan still raises Surface B.
+
+    The marker, not `epic.md`, is what quiets a track. Which ARM of Surface B fires
+    moved with `overseer-ow7c.4` — `epic.md` records a migrated WORKER handoff's ledger
+    anchor, so an unmarked migrated plan with no binder is now told to CREATE one rather
+    than to start a session against a durable prompt that was never authored.
+    """
     repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / "epic.md").write_text("ledger anchor `overseer-test-epic`\n")
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -50,7 +56,9 @@ def test_unmarked_migrated_epic_track_still_requires_supervisor(*, tmp_path):
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "idle-with-context-left"
-    assert f"start tmux session '{session}-supervisor'" in err.getvalue()
+    emitted = err.getvalue()
+    assert "/livespec-overseer:supervise-plan" in emitted
+    assert f"start tmux session '{session}-supervisor'" not in emitted
 
 
 def test_cli_remove_operates_on_reserved_entity_topics(*, tmp_path, monkeypatch):

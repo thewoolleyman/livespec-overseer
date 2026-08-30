@@ -127,8 +127,17 @@ def test_migrated_supervisor_ready_without_recorded_epic_still_refuses(*, tmp_pa
     assert signals.read_state(repo=str(repo), topic=f"{topic}-supervisor").token == "ready"
 
 
-def test_migrated_epic_and_running_supervisor_is_silent_healthy_cell(*, tmp_path, monkeypatch):
-    """The migrated ledger-backed binder is a durable supervisor prompt too."""
+def test_migrated_epic_beside_a_running_supervisor_still_offers_capture(*, tmp_path, monkeypatch):
+    """`epic.md` cannot silence the capture offer either (`overseer-ow7c.4`).
+
+    The running-arm face of the same correction: this file used to assert that a
+    migrated `epic.md` beside a live supervisor was a silent healthy cell, which read
+    `epic.md` — a migrated WORKER handoff's ledger anchor — as a supervisor record.
+    There is now ONE definition of a binder for both arms, and the daemon cannot
+    observe a ledger-held one; see `_supervisor_offer`'s module docstring for that rule
+    and for the false negative it accepts on purpose. Both arms of the accepted
+    false negative point at `supervise-plan`, which is the recoverable direction.
+    """
     monkeypatch.chdir(tmp_path)
     repo, topic = make_plan(tmp_path=tmp_path)
     (repo / "plan" / topic / "epic.md").write_text(
@@ -145,8 +154,8 @@ def test_migrated_epic_and_running_supervisor_is_silent_healthy_cell(*, tmp_path
     with contextlib.redirect_stderr(_io.StringIO()) as err:
         _supervisor_offer.surface_supervision_offer(sup=sup, track=track, act=True)
         _supervisor_offer.surface_supervision_offer(sup=sup, track=track, act=False)
-    assert sup.alerted == {}
-    assert "supervisor" not in err.getvalue()
+    assert {key[2] for key in sup.alerted} == {"supervision-capture-offer"}
+    assert "has no durable prompt" in err.getvalue()
 
 
 def test_symlinked_state_file_is_refused(*, tmp_path):
