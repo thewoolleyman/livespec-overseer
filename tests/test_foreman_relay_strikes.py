@@ -4,12 +4,31 @@ from __future__ import annotations
 
 import importlib
 import json
+import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
 
 __all__: list[str] = []
+
+
+@pytest.fixture(autouse=True)
+def _ledger_is_unreachable(monkeypatch):
+    """Keep the default live-ledger reader hermetic.
+
+    Objections are read from the beads ledger with ``bd comments``. A test that
+    does not inject its own comment reader must not reach a real ``bd`` on the
+    host, so the spawn is refused here exactly as an absent ``bd`` refuses it.
+    """
+
+    def run(*, args, **kwargs):
+        del args, kwargs
+        raise FileNotFoundError
+
+    monkeypatch.setattr(subprocess, "run", run)
 
 
 def relay_module():
@@ -118,31 +137,97 @@ def test_relay_strikes_key_by_epic_and_fingerprint_and_refuse_fourth(*, tmp_path
     assert fresh.final is False
 
 
-def test_relay_strikes_ignore_non_matching_objection_comments(*, tmp_path):
+def test_count_objections_counts_a_recorded_objection_and_zero_when_none_match(*, tmp_path):
     module = relay_module()
     repo = tmp_path / "repo"
     repo.mkdir()
     payload = {"answer_text": "Take option 1.", "question_fingerprint": "question-1"}
     fingerprint = module.ruling_fingerprint(payload=payload)
-    item = repo / "tmp" / "overseer" / "ledger-items" / "overseer-plan.json"
-    item.parent.mkdir(parents=True)
-    item.write_text(
-        json.dumps(
-            {
-                "comments": [
-                    {"text": f"OBJECTION other-{fingerprint}: wrong ruling"},
-                    {"text": f"OBJECTION {fingerprint}: matching ruling"},
-                ]
-            }
-        ),
+    recorded = (
+        {"text": f"OBJECTION other-{fingerprint}: wrong ruling"},
+        {"text": f"OBJECTION {fingerprint}: matching ruling"},
+    )
+
+    objected = module.count_objections(
+        repo=repo,
+        plan_epic_id="overseer-plan",
+        fingerprint=fingerprint,
+        comments=lambda *, repo, work_item_id: recorded,
+    )
+    silent = module.count_objections(
+        repo=repo,
+        plan_epic_id="overseer-plan",
+        fingerprint=fingerprint,
+        comments=lambda *, repo, work_item_id: ({"text": "no objection here"},),
+    )
+
+    assert objected == 1
+    assert silent == 0
+
+
+def test_count_objections_never_reads_the_local_ledger_item_cache(*, tmp_path):
+    module = relay_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    payload = {"answer_text": "Take option 1.", "question_fingerprint": "question-1"}
+    fingerprint = module.ruling_fingerprint(payload=payload)
+    cache = repo / "tmp" / "overseer" / "ledger-items" / "overseer-plan.json"
+    cache.parent.mkdir(parents=True)
+    cache.write_text(
+        json.dumps({"comments": [{"text": f"OBJECTION {fingerprint}: cached objection"}]}),
         encoding="utf-8",
     )
 
     objections = module.count_objections(
-        repo=repo, plan_epic_id="overseer-plan", fingerprint=fingerprint
+        repo=repo,
+        plan_epic_id="overseer-plan",
+        fingerprint=fingerprint,
+        comments=lambda *, repo, work_item_id: (),
     )
 
-    assert objections == 1
+    assert objections == 0
+
+
+def test_the_relay_record_distinguishes_an_unreadable_ledger_from_no_objections(*, tmp_path):
+    module = relay_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    row = {"epic": "overseer-plan", "session_identity": "claude:pid:alpha"}
+    payload = {"answer_text": "Take option 1.", "question_fingerprint": "question-1"}
+    fingerprint = module.ruling_fingerprint(payload=payload)
+
+    def prepared(*, comments):
+        return module.prepare_relay(
+            repo=repo,
+            action_id="blocked_session_answer",
+            topic="alpha",
+            row=row,
+            payload=payload,
+            full_autonomy=True,
+            records=[],
+            comments=comments,
+        )
+
+    unavailable = prepared(comments=lambda *, repo, work_item_id: None)
+    quiet = prepared(comments=lambda *, repo, work_item_id: ())
+    objected = prepared(
+        comments=lambda *, repo, work_item_id: (
+            {
+                "text": f"OBJECTION {fingerprint}: not my call to make",
+                "created_at": "2026-08-30T02:00:00Z",
+            },
+        )
+    )
+
+    assert unavailable.record["matching_objections"] == 0
+    assert unavailable.record["objections_source"] == "unavailable"
+    assert unavailable.record["latest_plan_comment_at"] is None
+    assert quiet.record["matching_objections"] == 0
+    assert quiet.record["objections_source"] == "ledger"
+    assert unavailable.record["objections_source"] != quiet.record["objections_source"]
+    assert objected.record["matching_objections"] == 1
+    assert objected.record["objections_source"] == "ledger"
+    assert objected.record["latest_plan_comment_at"] == "2026-08-30T02:00:00Z"
 
 
 def test_full_autonomy_false_keeps_count_but_never_marks_final(*, tmp_path):
