@@ -241,6 +241,40 @@ def test_scenario_stale_launch_profile_is_surfaced_and_restart_is_skipped(*, tmp
     )
 
 
+def test_scenario_unread_verification_signal_on_a_baselined_row_is_surfaced(*, tmp_path):
+    """Scenario: an unread verification signal is surfaced as unread, never as agreement.
+
+    Both legs are asserted together because the obligation is a DISTINCTION:
+    one leg alone cannot show that silence and agreement are told apart.
+    """
+    baselined = {
+        "harness": "claude",
+        "model": "claude-opus-4-1-20250805",
+        "statusline_model": "Opus 4.8 (1M context)",
+        "wrapper": None,
+    }
+
+    _repo, _topic, _session, unread_fake, _sup, unread_view, unread_err = _restart_with_profile(
+        tmp_path=tmp_path / "unread",
+        model_profile=baselined,
+        restart_capture=idle_capture(ctx=40).replace("/x/repo", "x/repo"),
+    )
+
+    assert unread_view.status == "restarting"
+    assert _respawns(fake=unread_fake) != []
+    assert "statusline model unreadable" in unread_err
+
+    _repo, _topic, _session, agreed_fake, _sup, agreed_view, agreed_err = _restart_with_profile(
+        tmp_path=tmp_path / "agreed",
+        model_profile=baselined,
+        restart_capture=idle_capture(ctx=40),
+    )
+
+    assert agreed_view.status == "restarting"
+    assert _respawns(fake=agreed_fake) != []
+    assert "statusline model unreadable" not in agreed_err
+
+
 def test_scenario_track_without_recorded_launch_profile_restarts_unaffected(*, tmp_path):
     repo, topic, session, fake, _sup, view, _err = _restart_with_profile(
         tmp_path=tmp_path,
