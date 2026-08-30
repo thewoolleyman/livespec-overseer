@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.66.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.66.1...v1.66.2) (2026-08-30)
+
+
+### Bug Fixes
+
+* keep a veto-held ready declaration un-expired and edge-trigger its alert ([de28b78](https://github.com/thewoolleyman/livespec-overseer/commit/de28b783c32bccdaa7653cc2d4ddc7f6cd618c32))
+
 ## [1.66.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.66.0...v1.66.1) (2026-08-30)
 
 
