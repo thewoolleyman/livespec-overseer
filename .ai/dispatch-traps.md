@@ -4,7 +4,7 @@ Moved verbatim from `AGENTS.md`. Every shape here was measured live in this repo
 
 ## Dispatch traps whose error messages point AWAY from the fix
 
-## THE NINE SHAPES — one table, all of them
+## THE TEN SHAPES — one table, all of them
 
 Every shape below was measured live in this repo. **Identify the shape before you act:
 several are one step apart, and the remedy for a neighbour is routinely destructive** —
@@ -22,6 +22,7 @@ branch collides with your own sibling.
 | factory-host ENOSPC | immediate failure at stage `fabro-run`, ENOSPC `detail` naming the factory's storage path, `fabro_run_id` null | no | release the claim and re-try `hp` — the condition is intermittent |
 | janitor-post-merge red | stage `janitor-post-merge`, `pr_number` **and** `merge_sha` both populated, several unrelated items failing at once | **yes — merged** | close it, then fix master |
 | merge-poll | stage `merge-poll`, `pr_number` populated with `merge_sha` **null** | not yet — PR open | fix the gate holding the merge and let auto-merge land it; do not touch the claim |
+| acceptance-valve rework | envelope **green** through `done`, PR merged — and the row reads `active` with label **`rework:pending`** | **yes — merged** | read the FAIL reason in the journal and fix the acceptance TEXT; do **NOT** re-dispatch first |
 
 **Two rules the table cannot carry.** The absence of a phantom claim discriminates
 nothing by itself — several shapes leave none. And when the envelope's `detail`
@@ -45,6 +46,36 @@ reads as a problem with the item. Measured 2026-08-04: this repo's master was re
 for hours — one plan handoff declared its ledger anchor as prose ("The epic anchor
 is `x`") where the gate's regex requires the literal "ledger anchor" phrase before
 the backticked id, so `test_plan_records_agree` failed. One line fixed it.
+
+**THE SAME GATE HAS AN IN-PROGRESS VARIANT WHOSE REMEDY IS THE OPPOSITE — WAIT, DO NOT
+GO LOOKING FOR A BROKEN GATE.** Measured 2026-08-30 dispatching `overseer-ow7c.4`. The
+refusal reads almost identically to the red-master one above, and the paragraph above is
+exactly what a reader pattern-matches it onto — sending them hunting a repo defect that
+does not exist:
+
+```
+ERROR: the latest `master` run of workflow `CI` is not proven green at aggregate job
+ `ci-green`; refusing dispatch before sandbox work.
+Run databaseId: 33317477525
+Reason: the latest run 33317477525 is still in_progress
+Remedy: retry the dispatch when the run concludes.
+```
+
+**The gate is not "master CI is green". It is "the LATEST master CI run has CONCLUDED,
+and green".** An in-progress run fails it exactly as a red one does. Read the `Reason:`
+line — it is the only thing distinguishing the two, and it names the actual condition.
+
+**Checking the most recent COMPLETED run is the wrong check and will mislead you**, because
+it is green precisely when the gate is refusing. On the day this was measured the newest
+completed run was green while two newer commits sat queued and in-progress; the dispatch
+was refused three seconds in, having created no run and left no claim.
+
+**This costs more here than it looks, because master churns.** Every merge in this repo is
+followed by a release-please commit whose own CI must conclude before the next dispatch
+passes the gate. Three dispatches on 2026-08-30 each waited on a release commit's CI, and
+master moved four times in one afternoon. Budget a wait after every merge rather than
+treating it as an anomaly, and re-check that the run you waited for is still the LATEST
+before launching.
 
 ### A `{{...}}` token anywhere in a work-item's text makes it UNDISPATCHABLE
 
@@ -1311,3 +1342,106 @@ minutes apart: `overseer-vr3ym4.1` went out on build `15a4ae9aff88` at
 resolved at the top of a session — or even one that worked a quarter of an hour
 ago — is not evidence about the next dispatch. Re-read `ensure-plugins` per
 dispatch, not per session.
+
+### A TENTH SHAPE: the envelope says GREEN, the PR is MERGED, and the row still reads `active`
+
+Measured 2026-08-30, twice in one afternoon, dispatching `overseer-2a1` and `overseer-403`
+from this repo. Both returned `stage: done`, `status: green`,
+`detail: "merged, post-merge janitor green"`, exit 0. Both PRs merged (2081/`e1fc24bd`,
+2083/`874db41d`). Both rows then read `active` with assignee `fabro`.
+
+**DO NOT READ THIS AS A STRANDED CLAIM.** That is the expensive misdiagnosis, and it is
+the one this section exists to prevent — the documented hygiene for a REFUSED dispatch is
+to release the claim by hand, and applying it here is wrong in a way that hides the real
+condition. The discriminator is a LABEL, not the status:
+
+| | label on the row | meaning |
+|---|---|---|
+| accepted | `resolution:completed` | the valve passed it; the row closes normally |
+| **failed by the valve** | **`rework:pending`** | the post-merge acceptance valve FAILED it |
+
+`rework:pending` is stamped by exactly two entries — "the under-cap dispositive FAIL of the
+post-merge acceptance valve" and the human `reject:<id>:rework` valve — per
+`_store_rework_mutations.py`, which owns the vocabulary. `active` is then the row's CORRECT
+state: the ratified contract keeps `acceptance → active` and makes fix-forward executable
+through the marker, which is the rework drain's selection input.
+
+**That module also carries a standing invariant: an item whose status is not `active` MUST
+NOT carry the marker.** So "tidying" such a row to `acceptance` or `closed` creates a
+forbidden state and takes it out of the drain. Measured: doing exactly that to
+`overseer-2a1` had to be reverted.
+
+**THE ENVELOPE CANNOT TELL YOU ANY OF THIS.** It reports through the janitor stage only;
+the acceptance valve runs afterwards, outside the envelope, and can fail work the envelope
+already called green. **Check the row's LABELS after every dispatch, not just its status
+and the envelope.**
+
+#### The reason is in the JOURNAL and nowhere else
+
+`_dispatcher_acceptance_rework.py` routes both disposition records through
+`JournalFile.append`, so a failed pass leaves `rework:pending` on the row with **no readable
+reason on the ledger at all**. Read `tmp/fabro-dispatch-journal.jsonl` and find the record
+carrying a `criteria` key for the item; its `checks` array gives per-criterion `passed` and
+`reason`:
+
+```
+python3 - <<'PY'
+import json
+WID = "overseer-403"
+for line in open("tmp/fabro-dispatch-journal.jsonl"):
+    line = line.strip()
+    if not line:
+        continue
+    rec = json.loads(line)
+    if rec.get("work_item_id") != WID or "criteria" not in rec:
+        continue
+    for check in rec["criteria"].get("checks", []):
+        if not check.get("passed"):
+            print(check.get("reason"), "|", check.get("text")[:100])
+PY
+```
+
+#### What it actually fails on, and why re-dispatching first is destructive
+
+Both 2026-08-30 failures were on fragments that are **not requirements at all**:
+
+```
+"AUTONOMY TIER: factory."                 no merged diff or telemetry evidence
+"AUTONOMY TIER: dispatch-safe."           insufficient merged diff evidence
+"NO WEAKENING IS INTRODUCED BY THE FIX."  no merged diff or telemetry evidence
+```
+
+The third is a section HEADING whose substantive body is the next sentence and passed. The
+implementations were correct — verified independently: 27 tests across those merges run
+green on the operator host.
+
+**Measured over 1,975 graded checks in this repo's journal, the driver is FRAGMENT LENGTH**,
+not category. Failed checks have median 66 characters against 97 for passed; fragments under
+40 characters fail at **46.9% against a 10.2% baseline**. Two tempting explanations were
+tested and BOTH FAILED, so do not re-derive them: a metadata prefix appears in 3.9% of passed
+and 4.0% of failed checks (no signal), and negation — the theory that a prohibition cannot be
+evidenced by a positive diff — runs the WRONG WAY, appearing in 51.3% of passed checks against
+31.2% of failed. The likely mechanism is token overlap: a short fragment carries too few
+distinctive tokens to match the merged diff, which is the literal reason string on 143 of 202
+failures. The refinement is in one item's own pass: `overseer-403` FAILED
+`"NO WEAKENING IS INTRODUCED BY THE FIX."` (38 chars) while PASSING
+`"THE FALSE DOCSTRING IS CORRECTED."` (33 chars) — the shorter one passed, because
+`docstring` is in that diff.
+
+**Fix the acceptance TEXT before any rework re-dispatch.** The disposition record says so
+itself: the rework dispatch "deliberately reaches acceptance again, so an unfixed criteria
+fragment re-fails there and spends another `acceptance_rework_cap` attempt — on the last
+attempt converting a recoverable state into blocked / needs-human." The cap is 2. A
+re-dispatch that changes only code burns the last attempt on the same fragment.
+
+**Pre-screen before dispatching** rather than discovering this after the fact: scan the
+item's acceptance field for standalone sentences under ~60 characters whose vocabulary the
+diff will not contain — headings and routing metadata are the usual carriers. Relocating a
+routing line into the DESCRIPTION avoids it entirely; the description is not graded, which is
+why a sibling dispatched the same day on the same build passed with its tier recorded there.
+
+Upstream carrier for the evaluator defect: `bd-ib-vbm7` in the
+`livespec-orchestrator-beads-fabro` tenant. It is a new member of a family already fixed
+twice — `bd-ib-mhhg` (segments on line breaks) and `bd-ib-ujihbw.12` (fuses across a trailing
+abbreviation boundary), both CLOSED — so verify the current behaviour rather than assuming
+either fix covers this.
