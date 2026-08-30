@@ -841,6 +841,13 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: An unread verification signal is surfaced as unread, never as agreement",
+    "test": "tests.integration.test_model_preserving_restarts.test_scenario_unread_verification_signal_on_a_baselined_row_is_surfaced",
+    "reason": "Integration-tier, and it asserts the DISTINCTION rather than either half of it: a baselined row whose statusline no longer parses restarts anyway AND raises the unreadable alert, while the same baseline rendering in agreement restarts with no such alert. One leg alone cannot show that silence and agreement are told apart, which is the whole obligation. Mutation-verified: the test fails if the alert is never raised, if it is raised unconditionally, and if an unreadable render is made to veto the restart. Scoped deliberately to a BASELINED row, because restart_blocked_by_statusline_mismatch returns early with no alert at all when no baseline was recorded -- that unbaselined residue is outside this scenario by design, is named in the ratified text as explicitly NOT blessed, and is enumerated and tracked on overseer-ebik5q.2 rather than here, so this reason does not carry a sizing claim that would rot."
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A track with no recorded launch profile restarts unaffected",
     "test": "tests.integration.test_model_preserving_restarts.test_scenario_track_without_recorded_launch_profile_restarts_unaffected",
     "reason": "Integration-tier: opens a real wrap-up round for a track with no model_profile, declares ready, and asserts the respawn still uses the bare Claude command while explicitly scrubbing the controlled Anthropic/Claude context env vars.",
