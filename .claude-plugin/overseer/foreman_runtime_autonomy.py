@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Protocol, cast
+from typing import Final, Protocol
 
 import jsonio
-from foreman_gather_sources import parse_repo_config, string_list
+import ledger_comments
 from foreman_runtime_identity import canonical_session_name
 from foreman_valve_policy import effective_valve_disposition
 
@@ -66,56 +64,20 @@ class SeatComments(Protocol):
 
 
 def default_seat_comments(*, repo: Path, work_item_id: str) -> Sequence[dict[str, object]]:
-    config = parse_repo_config(repo=repo)
-    wrapper = string_list(value=config.get("credential_wrapper")) if config is not None else None
-    prefix = wrapper if wrapper is not None else []
-    try:
-        completed = subprocess.run(
-            args=[*prefix, "bd", "comments", work_item_id, "--json"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=10.0,
-        )
-    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
-        return ()
-    if completed.returncode != 0:
-        return ()
-    parsed = jsonio.parse_object(text=completed.stdout)
-    if not jsonio.is_parse_failure(result=parsed):
-        payload = parsed.unwrap()
-        if payload is not None:
-            return _comments_from_object(payload=payload)
-    try:
-        raw = cast("object", json.loads(completed.stdout))
-    except ValueError:
-        return ()
-    return _comment_objects(values=jsonio.as_list(value=raw) or [])
+    """The seat anchor's ledger comments; an unreadable ledger reads as none.
 
-
-def _comments_from_object(*, payload: dict[str, object]) -> Sequence[dict[str, object]]:
-    comments = jsonio.as_list(value=payload.get("comments")) or []
-    return _comment_objects(values=comments)
-
-
-def _comment_objects(*, values: Sequence[object]) -> Sequence[dict[str, object]]:
-    return tuple(
-        comment for comment in (jsonio.as_object(value=value) for value in values) if comment
-    )
-
-
-def _comment_text(*, comment: dict[str, object]) -> str | None:
-    for key in ("text", "body", "content"):
-        value = comment.get(key)
-        if isinstance(value, str):
-            return value
-    return None
+    This surface reports only whether the standing orders were recorded, and an
+    absent record and an unreadable ledger both mean "not proven recorded" here.
+    A caller that must tell those apart reads
+    :func:`ledger_comments.read_comments` directly, which keeps them distinct.
+    """
+    return ledger_comments.read_comments(repo=repo, work_item_id=work_item_id) or ()
 
 
 def _standing_orders_recorded(*, comments: Sequence[dict[str, object]]) -> bool:
     return any(
         text.startswith(STANDING_ORDERS_MARKER)
-        for text in (_comment_text(comment=comment) for comment in comments)
+        for text in (ledger_comments.comment_text(comment=comment) for comment in comments)
         if text is not None
     )
 
