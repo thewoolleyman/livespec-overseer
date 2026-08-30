@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.67.4](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.3...v1.67.4) (2026-08-30)
+
+
+### Bug Fixes
+
+* read ledger comments from the ledger, not a phantom cache ([c4cdfa9](https://github.com/thewoolleyman/livespec-overseer/commit/c4cdfa9c32eff3870b2b7d78ac5953e546c3b151))
+* settle the caam model drive on the pane's own transcript ([9cf2af8](https://github.com/thewoolleyman/livespec-overseer/commit/9cf2af8bf797d41986bedf3cbfa183c65babc350))
+* source relay objections from the ledger so one can be counted ([fcd86cf](https://github.com/thewoolleyman/livespec-overseer/commit/fcd86cf9f4ffd66e089262508a1a797e21c94b4c))
+
 ## [1.67.3](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.2...v1.67.3) (2026-08-30)
 
 
