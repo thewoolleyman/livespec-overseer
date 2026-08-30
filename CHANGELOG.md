@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.65.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.65.0...v1.65.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* expiry-schedule caam keep-warm so idle accounts refresh at expiry ([d252413](https://github.com/thewoolleyman/livespec-overseer/commit/d2524132671010b6d84bed0408b74e042648f589))
+
 ## [1.65.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.64.0...v1.65.0) (2026-08-29)
 
 
