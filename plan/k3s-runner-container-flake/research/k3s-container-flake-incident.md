@@ -109,10 +109,7 @@ Nothing pre-creates it. Its absence therefore means the stub had not yet consume
 a line — not that anything wrote the wrong content.
 
 The assertion that failed runs immediately after `_run_foreman_act`, which is a
-`subprocess.run` of the shipped `foreman-act` binary. That binary delivers the
-answer into the pane and exits; it returns as soon as tmux has accepted the
-keystrokes, and it cannot wait for a *different* process — the stub in the pane —
-to be scheduled, read its stdin, and flush a file. The test then reads the file
+`subprocess.run` of the shipped `foreman-act` binary. The test then reads the file
 with `Path.read_text` and no retry at all.
 
 The assertions immediately BEFORE the failing one all passed: `acted.returncode ==
@@ -121,8 +118,24 @@ The assertions immediately BEFORE the failing one all passed: `acted.returncode 
     {"action_id": "blocked_session_answer", "mutated": true,
      "outcome": "acted", "reason": "answered_existing_prompt"}
 
-So the product code found the pane and reported that it delivered the answer. What
-had not yet happened was the stub's side of it.
+**That verdict is not evidence against the race — it is confirmation at a
+different layer, and this is the objection most readers will raise, so it is worth
+being precise about.** `overseer/foreman_blocked_answer.py::_deliver_answer` does
+not paste blindly and exit. It sends the keys, then RE-CAPTURES the pane and
+requires the answer text to be visible in it (`_confirmed_answer_text`), returning
+`answer_text_undelivered` if it is not. The numbered-picker branch above it does
+the same against the chosen option's text.
+
+But a tmux pane echoes input at the terminal independently of whether the child
+process has read it from stdin. So `_confirmed_answer_text` establishes that the
+text reached the PANE; it says nothing about whether the stub has been scheduled,
+consumed the line, and flushed its log. Those are two distinct layers, and the
+actuator can only confirm the first.
+
+An `acted` verdict and an absent log file are therefore perfectly consistent, and
+the product code is behaving correctly in both respects. The test is the component
+that conflates the two layers: it accepts a pane-layer confirmation and then
+immediately asserts on a process-layer effect, with nothing bridging the gap.
 
 **The same file already contains the correct pattern, and the test uses it in the
 setup leg but not the assertion leg.** `_prepare_blocked_session` waits for the
