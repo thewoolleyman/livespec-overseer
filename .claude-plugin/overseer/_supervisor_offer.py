@@ -4,6 +4,53 @@ A private collaborator of :mod:`supervisor`; see that module's header for the wh
 split. Two operator-facing surfaces that answer questions about a track the daemon
 canNOT drive: whether a plan has a SUPERVISOR session it could be handed to, and
 what to report when the mapped tmux pane is gone but the work may not be.
+
+WHAT A SUPERVISOR BINDER IS, AND WHICH OF THREE DISAGREEING ACCOUNTS WINS
+(`overseer-ow7c.4`). The three were:
+
+1. THE PROSE — `.claude-plugin/prose/supervise-plan.md`: the binder "is published as
+   SUPERVISOR HANDOFF ENTRIES appended to the governed plan's ledger epic, never as a
+   file under `plan/<topic>/`", and "a supervisor handoff entry is one attributed to
+   the plan's supervisor entity — attribution, not a separate store, is what
+   distinguishes it".
+2. THE CODE, until this module was fixed: a binder existed iff
+   ``supervisor_epic_path`` — `plan/<topic>/epic.md` — existed.
+3. THE ARTIFACT account 2 read: `epic.md` says of ITSELF that it "preserves the legacy
+   handoff's immutable epic anchor", a migrated WORKER record. Nothing in it concerns
+   supervision, and it never claimed to be a binder.
+
+THE PROSE WINS, and `epic.md` is no longer read as evidence of a supervisor record.
+Account 2's cost was measured: the one live plan carrying `epic.md` with no supervisor
+of any kind was routed to the ``supervisor-missing`` arm — "start tmux session
+'<topic>-supervisor'" — pointing the operator at a durable prompt that does not exist,
+instead of the ``supervision-offer`` arm that would have had them CREATE one. The two
+arms differ in exactly one input, so reading it off an unrelated record decided the
+whole surface wrongly, and wrongly in the expensive direction.
+
+THE SUBSTITUTE RULE, since the prose's own test is not available here. Deciding binder
+existence by ATTRIBUTION means reading the plan's ledger epic — a ``bd comments``
+subprocess (:func:`ledger_comments.read_comments`, a ten-second timeout) per plan track
+per tick, on the daemon's unattended evaluate path. That is refused twice over: the
+specification grants the DAEMON exactly one bounded plan-tree READ (the supervisor
+resume-artifact certification) and otherwise only existence-only STAT probes, and
+putting the supervision loop behind an external process that can hang is a failure mode
+worse than the one being fixed. So this surface decides on the only evidence a STAT can
+give it: **an artifact whose OWN SUBJECT is this plan's supervision.** Exactly one such
+name exists — the retired ``supervisor_handoff_path``, `plan/<topic>/supervisor-handoff.md`.
+
+WHAT THAT RULE GIVES UP, STATED RATHER THAN HIDDEN. A binder that lives ONLY on the
+ledger is invisible to the daemon by construction, so a plan that has one still reads as
+having none and is offered supervision it already has. That false negative is accepted
+deliberately, because it routes to the RECOVERABLE instruction: running
+`/livespec-overseer:supervise-plan` against a supervised plan re-publishes a binder that
+already exists, whereas starting a session against a binder that does not exist strands
+the operator in front of a fresh agent with nothing to read. A plan deliberately managed
+without a pair silences the offer outright with the ``.no-supervisor`` marker.
+
+`epic.md` KEEPS ITS OWN JOB, untouched: it remains the write-once ledger-epic anchor read
+at track ASSIGNMENT (:mod:`_registry_epic`) and the migrated shape the supervisor RESTART
+interlock certifies against (:mod:`_supervisor_restart_binder`). Only this surface's
+supervision predicate stopped reading it as something it is not.
 """
 
 from __future__ import annotations
@@ -16,7 +63,7 @@ import claude_sessions
 import registry
 import signals
 from _supervisor_config import SUPERVISION_CONDITIONS, track_key
-from _supervisor_prompts import supervisor_epic_path, supervisor_handoff_path
+from _supervisor_prompts import supervisor_handoff_path
 from _supervisor_view import RowView
 
 if TYPE_CHECKING:
@@ -87,15 +134,21 @@ def clear_supervision_alerts(*, sup: Supervisor, repo: str, topic: str) -> None:
     }
 
 
-def _migrated_supervisor_handoff_exists(*, track: registry.Track) -> bool:
-    """Return whether the migrated ledger-backed binder exists."""
-    return supervisor_epic_path(repo=track.repo, topic=track.topic).exists()
+def _supervisor_binder_exists(*, track: registry.Track) -> bool:
+    """Whether a supervisor binder is OBSERVABLE to the daemon for this plan.
+
+    The module docstring holds what a binder is, why this is an existence-only STAT of
+    the one artifact whose own subject is supervision rather than the prose's own
+    attribution test, and which false negative that substitution accepts. It is NOT a
+    probe of `plan/<topic>/epic.md`, which records a migrated WORKER handoff's anchor.
+    """
+    return supervisor_handoff_path(repo=track.repo, topic=track.topic).exists()
 
 
 def _supervision_opted_out(*, track: registry.Track) -> bool:
     """Return whether this plan is explicitly managed without a supervisor pair."""
     return (
-        supervisor_epic_path(repo=track.repo, topic=track.topic).parent / _NO_SUPERVISOR_MARKER
+        supervisor_handoff_path(repo=track.repo, topic=track.topic).parent / _NO_SUPERVISOR_MARKER
     ).exists()
 
 
@@ -108,9 +161,7 @@ def surface_supervision_offer(*, sup: Supervisor, track: registry.Track, act: bo
     repo, topic = track.repo, track.topic
     session = _supervisor_launch.session_of(sup=sup, track=track)
     supervisor_session = supervisor_session_of(sup=sup, track=track)
-    handoff_exists = supervisor_handoff_path(
-        repo=repo, topic=topic
-    ).exists() or _migrated_supervisor_handoff_exists(track=track)
+    handoff_exists = _supervisor_binder_exists(track=track)
     running = supervisor_running(sup=sup, session=supervisor_session, repo=repo)
     if handoff_exists and running:
         if act:
