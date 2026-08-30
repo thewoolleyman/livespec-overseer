@@ -322,6 +322,30 @@ def _wait_for_pane_capture(*, socket: Path, session: str, expected: str) -> str:
     return capture
 
 
+def _wait_for_log_content(*, log: Path, expected: str) -> str:
+    """Poll a lazily-created stub log for `expected` against a bounded deadline.
+
+    The blocked-claude stub written by `_write_blocked_claude` creates its input
+    log LAZILY, inside its stdin loop, on the first line it receives — so a bare
+    `read_text` races the stub's scheduling: the file may not exist yet, or exist
+    but not yet hold the delivered line. This mirrors the setup leg's
+    `_wait_for_pane_capture`: same 5.0s deadline polled every 50ms, returning the
+    last-seen text (possibly empty) on timeout so the caller asserts and names
+    what it waited for.
+    """
+    deadline = time.monotonic() + 5.0
+    text = ""
+    while time.monotonic() < deadline:
+        try:
+            text = log.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            text = ""
+        if expected in text:
+            return text
+        time.sleep(0.05)
+    return text
+
+
 def _pane_fingerprint(*, text: str) -> str:
     return sha256(text.encode("utf-8")).hexdigest()
 
@@ -1063,7 +1087,11 @@ def _assert_unanimous_blocked_answer_act(
         "outcome": "acted",
         "reason": "answered_existing_prompt",
     }
-    assert "Yes, proceed with the bounded retry.\n" in log.read_text(encoding="utf-8")
+    answered = _wait_for_log_content(log=log, expected="Yes, proceed with the bounded retry.\n")
+    assert "Yes, proceed with the bounded retry.\n" in answered, (
+        "blocked stub never recorded the delivered answer "
+        f"'Yes, proceed with the bounded retry.\\n' within the deadline; log held: {answered!r}"
+    )
     journal = [
         json.loads(line)
         for line in (context.act.repo / "tmp" / "fabro-dispatch-journal.jsonl")
@@ -1116,7 +1144,17 @@ def _assert_blocked_consensus_sabotage_refuses(
         "outcome": "refused",
         "reason": "consensus_not_unanimous:non_anthropic_needs_human_dissent",
     }
-    assert "SABOTAGE SHOULD NOT PASTE" not in log.read_text(encoding="utf-8")
+    # The negative below is only meaningful against a log that is present and
+    # settled: a not-yet-written or empty file would satisfy `not in ""` vacuously.
+    # The prior unanimous leg wrote "Yes, proceed with the bounded retry.\n"; wait
+    # for that known content so absence of the sabotage string is a real refusal,
+    # not a race the assertion cannot see.
+    settled = _wait_for_log_content(log=log, expected="Yes, proceed with the bounded retry.\n")
+    assert "Yes, proceed with the bounded retry.\n" in settled, (
+        "blocked stub log not present and settled before the sabotage check; "
+        f"log held: {settled!r}"
+    )
+    assert "SABOTAGE SHOULD NOT PASTE" not in settled
 
 
 def _assert_blocked_consensus_chain(*, context: ForemanE2EContext) -> None:
