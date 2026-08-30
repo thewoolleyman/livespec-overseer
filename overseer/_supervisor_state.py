@@ -17,6 +17,7 @@ from _supervisor_config import MARKER_VOID_GRACE, READY_ARM_MAX_AGE, track_key
 
 if TYPE_CHECKING:
     from _supervisor_core import Supervisor
+    from _supervisor_records import InjectState
 
 __all__: list[str] = [
     "clear_state",
@@ -85,13 +86,29 @@ def clear_state(
     _ = sup.inject.pop(track_key(repo=track.repo, topic=track.topic), None)
 
 
-def expire_aged_ready(*, sup: Supervisor, track: registry.Track, act: bool = True) -> bool:
+def expire_aged_ready(
+    *,
+    sup: Supervisor,
+    track: registry.Track,
+    act: bool = True,
+    istate: InjectState | None = None,
+    standing_statusline_veto: bool = False,
+) -> bool:
     """Expire a ``ready`` declaration that outlived ``READY_ARM_MAX_AGE``.
 
     Activity never voids a `ready` — the restart branch already refuses to act on a
     pane that is not verified settled-idle. The only bound on a stale declaration is
     this maximum age, and crossing it clears the DECLARATION ONLY: the round keeps its
     key, its notified bands and its open status.
+
+    A declaration whose ONLY obstacle to a restart is a standing statusline-mismatch
+    veto is the one exception: the daemon itself is what refuses the restart, so
+    expiring the declaration would silently strand an unblocked worker (measured live
+    2026-08-29). While the veto holds — tracked on ``istate.statusline_veto_holding``,
+    which is set here whenever the veto is active over a ready declaration and only
+    reset once no ready declaration remains — the declaration stays armed so the normal
+    restart path consumes it the moment the disagreement clears. The cardinal rule is
+    untouched: this only PAUSES the expiry bookkeeping, it never authorizes a restart.
 
     The two writes are ORDERED because they fail in opposite directions across a
     crash. Recording the floor FIRST leaves, at worst, a raised floor beside a
@@ -102,7 +119,11 @@ def expire_aged_ready(*, sup: Supervisor, track: registry.Track, act: bool = Tru
         return False
     state = signals.read_state(repo=track.repo, topic=track.topic)
     if state is None or state.token != signals.STATE_READY:
+        if istate is not None:
+            istate.statusline_veto_holding = False
         return False
+    if istate is not None and standing_statusline_veto:
+        istate.statusline_veto_holding = True
     age = sup.now() - state.mtime
     if age <= READY_ARM_MAX_AGE:
         return False
@@ -113,6 +134,10 @@ def expire_aged_ready(*, sup: Supervisor, track: registry.Track, act: bool = Tru
     # record cannot be read, has no round to expire within: it stays put and stays
     # surfaced under the separate standing-declaration rule.
     if record.at is None or record.malformed_reason is not None:
+        return False
+    # Held by a standing statusline-mismatch veto: keep the declaration armed rather
+    # than expiring it, so it is collected the moment the disagreement clears.
+    if istate is not None and istate.statusline_veto_holding:
         return False
     floor_recorded = _record_ready_expiry(sup=sup, track=track, state=state, record=record)
     detail = f"ready declaration exceeded {READY_ARM_MAX_AGE:.0f}s maximum age " f"(age {age:.0f}s)"

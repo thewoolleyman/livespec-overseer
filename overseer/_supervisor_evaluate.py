@@ -29,6 +29,7 @@ import _supervisor_progress
 import _supervisor_restart_attention
 import _supervisor_stall_watch
 import _supervisor_state
+import _supervisor_statusline_model
 import registry
 from _supervisor_view import RowView
 
@@ -145,12 +146,32 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
         _ready_note, ready_conditions = uncertifiable_ready
         active_conditions.update(ready_conditions)
 
+    # A standing recorded-vs-rendered statusline disagreement is a daemon-held veto:
+    # it refuses the restart itself. Register it as an ACTIVE condition so its alert
+    # edge-triggers (invariant 10) instead of re-arming every tick, and hand it to the
+    # expiry pass so a declaration it holds is not silently expired out from under an
+    # unblocked worker.
+    standing_statusline_veto = (
+        _supervisor_statusline_model.statusline_model_disagreement(
+            capture=capture, model_profile=track.model_profile
+        )
+        is not None
+    )
+    if standing_statusline_veto:
+        active_conditions.add(_supervisor_statusline_model.STATUSLINE_MISMATCH_CONDITION)
+
     # A `ready` declaration that outlived its maximum age EXPIRES here, after the
     # interlock inputs for this tick have already been read. That ordering is the
     # point: `obs` was gathered before this call, so the aged declaration is judged
     # uncertifiable by precondition 3's own age backstop in the SAME observation that
     # expires it — never certifiable in the window before the expiry is recorded.
-    _ = _supervisor_state.expire_aged_ready(sup=sup, track=track, act=act)
+    _ = _supervisor_state.expire_aged_ready(
+        sup=sup,
+        track=track,
+        act=act,
+        istate=istate,
+        standing_statusline_veto=standing_statusline_veto,
+    )
 
     # Precedence, top to bottom. Single-capture `busy` and the human gates
     # are checked first. For an apparently-idle track that would ACT
