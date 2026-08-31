@@ -3,14 +3,14 @@
 
 from __future__ import annotations
 
-import subprocess
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Protocol, cast
+from typing import cast
 
-from _caam_switch_host import caam_activate
+from _caam_pass_span import Clock, PassEventEmitter, PassSpan, open_pass_span
+from _caam_span_seam import emitter_from_env
 from caam_anthropic_decide import DecisionSeams, SwitchAccount, UsageFetcher, decide
 from caam_anthropic_finish import LineWriter, SaveState, finish
 from caam_anthropic_flags import Flags
@@ -19,6 +19,12 @@ from caam_anthropic_status import EnforceModels, write_status
 from caam_decision import ProfileUsage
 from caam_enforcement import enforce_models as default_enforce_models
 from caam_pass_probe import probe_snapshotless_profiles
+from caam_pass_seams import (
+    AgentRunner,
+    default_agent_runner,
+    default_caam_runner,
+    line_logger,
+)
 from caam_profile_state import (
     caam_vault,
     load_state,
@@ -37,8 +43,6 @@ from caam_rendering import RenderableProfileUsage, render_table, trigger_header
 from caam_switch import switch_account as default_switch_account
 from caam_usage import fetch_usage
 from caam_warm import (
-    AgentProcess,
-    Logger,
     ResnapshotRunner,
     WarmConfig,
     emit_next_warm_wake,
@@ -52,16 +56,6 @@ _EMPTY_VAULT = "FAIL no profiles found in the caam vault for claude"
 _ACTIVE_FAIL = "FAIL could not determine active claude profile"
 
 
-class AgentRunner(Protocol):
-    def __call__(
-        self,
-        *,
-        args: tuple[str, ...],
-        env: dict[str, str],
-        timeout: float,
-    ) -> AgentProcess: ...
-
-
 @dataclass(frozen=True, kw_only=True)
 class PassContext:
     flags: Flags
@@ -70,6 +64,7 @@ class PassContext:
     state: dict[str, object]
     state_path: Path
     stdout: LineWriter
+    span: PassSpan
 
 
 def run_pass(
@@ -80,14 +75,47 @@ def run_pass(
     stdout: LineWriter,
     **overrides: object,
 ) -> int:
+    """Run one rotation pass, wrapped in exactly ONE `caam.enforcement.pass` span.
+
+    The span is opened BEFORE the pass and closed after it, on every path -- an
+    empty vault, an unresolved active profile, and a full enforcing pass all emit
+    one record. That is the point: a pass that ended before it reached enforcement
+    is the shape an operator most needs to see, and a span emitted only from the
+    enforcing branch would be silent exactly there. What such a pass could not
+    observe is NAMED absent rather than defaulted, so the key set never varies.
+
+    The span's trace is also the parent of this pass's `caam.enforcement.pane`
+    spans: the emitter handed down to enforcement is the SAME one the span will
+    close on, wrapped so every pane record carries this trace and this span as its
+    parent. One pass and its per-pane decisions therefore form one trace.
+    """
+    span = open_pass_span(
+        dry_run=flags.dry_run,
+        clock=cast(Clock, overrides.get("clock", time.time)),
+        emit=cast(PassEventEmitter, overrides.get("emit_pass_event")) or emitter_from_env(),
+    )
+    code = _run_pass(flags=flags, home=home, now=now, stdout=stdout, span=span, overrides=overrides)
+    span.close(code=code)
+    return code
+
+
+def _run_pass(
+    *,
+    flags: Flags,
+    home: Path | None,
+    now: float | None,
+    stdout: LineWriter,
+    span: PassSpan,
+    overrides: dict[str, object],
+) -> int:
     caam_runner = cast(CaamRunner | None, overrides.get("caam_runner"))
     fetcher = cast(UsageFetcher, overrides.get("fetcher", fetch_usage))
     save_state = cast(SaveState, overrides.get("save_state", default_save_state))
     switch_account = cast(SwitchAccount, overrides.get("switch_account", default_switch_account))
     enforce_models = cast(EnforceModels, overrides.get("enforce_models", default_enforce_models))
     agent_runner = cast(AgentRunner | None, overrides.get("agent_runner"))
-    run_caam = _run_caam if caam_runner is None else caam_runner
-    run_agent = _run_agent if agent_runner is None else agent_runner
+    run_caam = default_caam_runner if caam_runner is None else caam_runner
+    run_agent = default_agent_runner if agent_runner is None else agent_runner
     run_home = Path.home() if home is None else home
     checked_at = time.time() if now is None else now
     state_path = caam_state_path(home=run_home)
@@ -116,6 +144,7 @@ def run_pass(
             stdout=stdout,
             lines=(_ACTIVE_FAIL,),
         )
+    span.note_account(name=active_name)
     return _pass_with_active(
         context=PassContext(
             flags=flags,
@@ -124,6 +153,7 @@ def run_pass(
             state=state,
             state_path=state_path,
             stdout=stdout,
+            span=span,
         ),
         active_name=active_name,
         seams=PassSeams(
@@ -169,7 +199,7 @@ def _pass_with_active(
         home=context.home,
         dry_run=context.flags.dry_run,
         caam_runner=seams.caam_runner,
-        logger=_logger(writer=context.stdout),
+        logger=line_logger(writer=context.stdout),
     )
     profiles = poll_profiles(
         active_name=active_name,
@@ -232,7 +262,7 @@ def _pass_with_active(
                 no_warm=context.flags.no_warm,
             ),
             agent_runner=seams.agent_runner,
-            logger=_logger(writer=context.stdout),
+            logger=line_logger(writer=context.stdout),
             now=context.now,
         )
 
@@ -284,32 +314,3 @@ def _table_lines(
     now_dt = datetime.fromtimestamp(context.now, tz=timezone.utc)
     rows = cast(tuple[RenderableProfileUsage, ...], profiles)
     return tuple(render_table(rows=rows, active_name=active_name, now=now_dt).splitlines())
-
-
-def _run_caam(*, args: tuple[str, ...]):
-    return caam_activate(args=args, timeout=60.0)
-
-
-def _logger(*, writer: LineWriter) -> Logger:
-    return _LineLogger(writer=writer)
-
-
-@dataclass(frozen=True, kw_only=True)
-class _LineLogger:
-    writer: LineWriter
-
-    def __call__(self, message: str) -> None:
-        self.writer(message)
-
-
-def _run_agent(
-    *, args: tuple[str, ...], env: dict[str, str], timeout: float
-) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # noqa: S603
-        args,
-        env=env,
-        timeout=timeout,
-        check=False,
-        capture_output=True,
-        text=True,
-    )

@@ -29,8 +29,14 @@ def sessions_module() -> ModuleType:
 
 
 def enforcement_module() -> ModuleType:
-    assert (ROOT / "overseer" / "caam_enforcement.py").is_file()
-    return importlib.import_module("caam_enforcement")
+    """The orchestrated model policy, which is where ``_actions_for_pane`` lives.
+
+    It moved out of ``caam_enforcement`` with the rest of that policy when the
+    pass span landed (work-item overseer-m7qrgp.3); ``caam_enforcement`` kept the
+    pass orchestration and the ``--no-models`` path.
+    """
+    assert (ROOT / "overseer" / "caam_enforcement_orchestrated.py").is_file()
+    return importlib.import_module("caam_enforcement_orchestrated")
 
 
 def options_module() -> ModuleType:

@@ -40,6 +40,13 @@ A caam event is instantaneous, so the span is zero-duration
 `severity` rides as an ordinary attribute. `status.code` 2 is reserved for records
 carrying an `error`: an alert-severity rotation hold is a correct observation correctly
 reported, and marking it failed would make a healthy enforcement pass look broken.
+
+PARENTAGE RIDES ON THREE RESERVED RECORD KEYS (work-item overseer-m7qrgp.3). A record
+may name its own `trace.id` / `span.id` and its parent's `span.parent_id`; each is
+otherwise minted fresh, exactly as before, so an unlinked record is unchanged on the
+wire. They are stripped from `_attributes` rather than shipped as ordinary attributes:
+OTLP already carries all three as span FIELDS, and duplicating them would make a
+Honeycomb reader group traces by an attribute that only sometimes exists.
 """
 
 from __future__ import annotations
@@ -54,11 +61,22 @@ from _supervisor_otel import EmitResult, OtelConfig
 __all__: list[str] = [
     "CAAM_SCOPE_NAME",
     "CAAM_SCOPE_VERSION",
+    "PARENT_SPAN_ID_KEY",
+    "SPAN_ID_KEY",
+    "TRACE_ID_KEY",
     "emit_caam_event",
+    "iso_timestamp",
 ]
 
 CAAM_SCOPE_NAME: Final = "livespec.overseer.caam"
 CAAM_SCOPE_VERSION: Final = "1.0.0"
+
+TRACE_ID_KEY: Final = "trace.id"
+SPAN_ID_KEY: Final = "span.id"
+PARENT_SPAN_ID_KEY: Final = "span.parent_id"
+_LINK_KEYS: Final = frozenset({TRACE_ID_KEY, SPAN_ID_KEY, PARENT_SPAN_ID_KEY})
+_TRACE_ID_BYTES: Final = 16
+_SPAN_ID_BYTES: Final = 8
 
 _TRACES_PATH: Final = "/v1/traces"
 _JSON_HEADER: Final = "application/json"
@@ -132,9 +150,9 @@ def _request(
 def _payload(*, record: Mapping[str, object], config: OtelConfig) -> CaamSpanPayload:
     nanos = _unix_nanos(record=record)
     span = {
-        "traceId": secrets.token_hex(16),
-        "spanId": secrets.token_hex(8),
-        "parentSpanId": "",
+        "traceId": _minted(record=record, key=TRACE_ID_KEY, width=_TRACE_ID_BYTES),
+        "spanId": _minted(record=record, key=SPAN_ID_KEY, width=_SPAN_ID_BYTES),
+        "parentSpanId": _parent(record=record),
         "name": _required_str(record=record, key="event"),
         "kind": _SPAN_KIND_INTERNAL,
         "startTimeUnixNano": nanos,
@@ -162,9 +180,25 @@ def _payload(*, record: Mapping[str, object], config: OtelConfig) -> CaamSpanPay
     }
 
 
+def _minted(*, record: Mapping[str, object], key: str, width: int) -> str:
+    """The id the record named, or a fresh one -- an unlinked record is unchanged."""
+
+    value = record.get(key)
+    return value if isinstance(value, str) and value else secrets.token_hex(width)
+
+
+def _parent(*, record: Mapping[str, object]) -> str:
+    """A root span's parent is the empty string, which is what OTLP expects."""
+
+    value = record.get(PARENT_SPAN_ID_KEY)
+    return value if isinstance(value, str) else ""
+
+
 def _attributes(*, record: Mapping[str, object]) -> list[dict[str, object]]:
     return [
-        _attribute(key=key, value=value) for key, value in sorted(record.items()) if key != "event"
+        _attribute(key=key, value=value)
+        for key, value in sorted(record.items())
+        if key != "event" and key not in _LINK_KEYS
     ]
 
 
@@ -185,6 +219,19 @@ def _value(*, value: object) -> dict[str, object]:
             values.append(_value(value=item))
         return {"arrayValue": {"values": values}}
     return {"stringValue": str(value)}
+
+
+def iso_timestamp(*, at: float) -> str:
+    """A pass's own checked-at instant, as the ISO-8601 `ts` this builder consumes.
+
+    Shared by both caam record builders so one convention describes the wire. The
+    pass clock is used rather than a fresh reading so every record from one pass
+    carries the SAME instant: each span is a statement about that pass, and the
+    records within it must be groupable by it.
+    """
+
+    moment = datetime.datetime.fromtimestamp(at, tz=datetime.timezone.utc)
+    return moment.isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
 def _unix_nanos(*, record: Mapping[str, object]) -> str:

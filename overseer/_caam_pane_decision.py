@@ -28,10 +28,11 @@ cannot be grouped -- so ``caam.transcript.path``, ``model.read`` and
 
 from __future__ import annotations
 
-import datetime
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final, Protocol
+
+import _caam_span
 
 __all__: list[str] = [
     "DECISION_BUSY",
@@ -106,7 +107,7 @@ def pane_decision_record(
     """The one record a pass emits about one pane."""
 
     return {
-        "ts": _timestamp(at=at),
+        "ts": _caam_span.iso_timestamp(at=at),
         "event": PANE_DECISION_EVENT,
         "caam.session": subject.session,
         "caam.session_id": subject.session_id,
@@ -122,15 +123,3 @@ def pane_decision_record(
 
 def _named(*, value: str | None, absent: str) -> str:
     return absent if value is None else value
-
-
-def _timestamp(*, at: float) -> str:
-    """The pass's own checked-at instant, as the ISO-8601 `ts` the span builder needs.
-
-    The pass clock is used rather than a fresh reading so every pane in one pass
-    carries the SAME instant: the span is a statement about that pass, and panes
-    within it must be groupable by it.
-    """
-
-    moment = datetime.datetime.fromtimestamp(at, tz=datetime.timezone.utc)
-    return moment.isoformat(timespec="microseconds").replace("+00:00", "Z")

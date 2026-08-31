@@ -9,7 +9,13 @@ __all__: list[str] = []
 
 ROOT = Path(__file__).resolve().parent.parent
 PROSE = ROOT / ".claude-plugin" / "prose" / "caam-anthropic-loop.md"
-ENFORCEMENT_SOURCE = ROOT / "overseer" / "caam_enforcement.py"
+# Both halves of enforcement, because which one consumes the flag is an internal
+# split (`caam_enforcement` orchestrates, `caam_enforcement_orchestrated` holds the
+# model policy) and this control is about the flag reaching enforcement AT ALL.
+ENFORCEMENT_SOURCES = (
+    ROOT / "overseer" / "caam_enforcement.py",
+    ROOT / "overseer" / "caam_enforcement_orchestrated.py",
+)
 WARM_SOURCE = ROOT / "overseer" / "caam_warm.py"
 FLAG_SOURCE = ROOT / "overseer" / "caam_anthropic_loop.py"
 
@@ -49,7 +55,7 @@ def _parser_flags() -> frozenset[str]:
 def test_caam_prose_lists_every_source_backed_operator_flag() -> None:
     """Source-backed operator flags must not land after prose and stay hidden."""
     prose = PROSE.read_text(encoding="utf-8")
-    enforcement_source = ENFORCEMENT_SOURCE.read_text(encoding="utf-8")
+    enforcement_source = "".join(path.read_text(encoding="utf-8") for path in ENFORCEMENT_SOURCES)
     warm_source = WARM_SOURCE.read_text(encoding="utf-8")
 
     assert "foreman_model" in enforcement_source

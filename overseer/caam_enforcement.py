@@ -7,25 +7,19 @@ import time
 from pathlib import Path
 from typing import Final, cast
 
-from _signals_topics import is_foreman_topic, is_grooming_topic
 from caam_effort import enforce_effort_floor
-from caam_enforcement_options import ModelContext, ModelRun, model_context
-from caam_foreman_override import SCOPED_MODEL, apply_foreman_model_override
+from caam_enforcement_options import model_context
+from caam_enforcement_orchestrated import enforce_orchestrated_models, fable_left
 from caam_picker import real_picker_tmux
 from caam_profile_state import load_state, save_state
-from caam_session_models import SessionModelExceptions, apply_session_model_exceptions
-from caam_sessions import (
-    SessionModel,
-    discover_session_models,
-    enforce_session_models,
-)
+from caam_session_models import apply_session_model_exceptions
+from caam_sessions import discover_session_models, enforce_session_models
 from claude_sessions import proc_children, proc_environ
 
 __all__: list[str] = [
     "enforce_models",
 ]
 
-_FABLE_EXHAUSTED: Final = 100.0
 _sleep = time.sleep
 _ADVISORY_ERRORS: Final = (
     OSError,
@@ -68,7 +62,7 @@ def enforce_models(
             model_reader=context.model_reader,
         )
         if context.orchestrated:
-            messages.extend(_enforce_orchestrated_models(panes=panes, context=context))
+            messages.extend(enforce_orchestrated_models(panes=panes, context=context))
         else:
             messages.extend(
                 enforce_session_models(
@@ -92,123 +86,6 @@ def enforce_models(
     return messages
 
 
-def _enforce_orchestrated_models(
-    *,
-    panes: tuple[SessionModel, ...],
-    context: ModelContext,
-) -> list[str]:
-    fable_left = context.active_fable is not None and context.active_fable < _FABLE_EXHAUSTED
-    foreman = apply_foreman_model_override(
-        state=context.state,
-        requested_model=context.foreman_model,
-        default_model="fable" if fable_left else "opus",
-        fable_left=fable_left,
-    )
-    session_exceptions = apply_session_model_exceptions(
-        state=context.state,
-        requested_models=context.session_models,
-        fable_left=fable_left,
-    )
-    actions = [
-        action
-        for pane in panes
-        for action in _actions_for_pane(
-            pane=pane,
-            state=context.state,
-            fable_left=fable_left,
-            want_foreman=foreman.want_foreman,
-            session_exceptions=session_exceptions,
-            run=context.run,
-        )
-    ]
-    balance = "left" if fable_left else "EXHAUSTED"
-    suffix = ", ".join(actions) if actions else "nothing to change"
-    pinned = " [pinned]" if foreman.pinned else ""
-    exceptions = session_exceptions.summary()
-    summary_suffix = suffix if exceptions is None else f"{suffix}; {exceptions}"
-    return [
-        *session_exceptions.messages,
-        *foreman.messages,
-        f"models: foremen want {foreman.want_foreman}{pinned} "
-        f"(active account Fable {balance}); {summary_suffix}",
-    ]
-
-
-def _actions_for_pane(
-    *,
-    pane: SessionModel,
-    state: dict[str, object],
-    fable_left: bool,
-    want_foreman: str,
-    session_exceptions: SessionModelExceptions,
-    run: ModelRun,
-) -> list[str]:
-    want = session_exceptions.want_for(session=pane.session) or _wanted_model(
-        session=pane.session, fable_left=fable_left, want_foreman=want_foreman
-    )
-    if want is None:
-        return []
-    try:
-        return enforce_session_models(
-            panes=(pane,),
-            state=state,
-            want=want,
-            now=run.now,
-            set_model=run.set_model,
-            pane_idle=run.pane_idle,
-            dry_run=run.dry_run,
-            emit_event=run.emit_event,
-            respect_operator_set=_respect_operator_set(
-                pane=pane,
-                scoped_servable=fable_left,
-                session_exceptions=session_exceptions,
-            ),
-        )
-    except _ADVISORY_ERRORS as exc:
-        return [f"{pane.session} SKIPPED({type(exc).__name__})"]
-
-
-def _respect_operator_set(
-    *,
-    pane: SessionModel,
-    scoped_servable: bool,
-    session_exceptions: SessionModelExceptions,
-) -> bool:
-    """Whether this session's operator-set model survives THIS pass.
-
-    Two bounds, both from the ratified clause. An explicit ``session_models``
-    pin is honored by DRIVING the session to it, so a pinned session is never
-    left on something else -- that path is unchanged.
-
-    The scoped-exhaustion exception is bounded to the session's OWN model and
-    keyed on SERVABILITY, not on the global scoped-allowance-exhausted
-    condition: enforcement moves an operator-set session only where the active
-    account cannot serve the model that session is actually on. ``scoped_servable``
-    is the pass's reading of the active account's scoped balance -- the same
-    "present and not fully spent" signal ``can_serve_scoped_model`` applies to a
-    usage record for the scoped-model selection clauses -- and it can only
-    disqualify a session observed on the scoped model itself. A session on any
-    other model is untouched by that allowance being spent, so no servability
-    concern reaches it and it is left alone; the exhausted pass resets the
-    derived and never-operator-set sessions, and must not sweep this one up with
-    them.
-
-    An unknown observed model needs no branch here: it is never classified as
-    operator-set downstream, so respecting it decides nothing.
-    """
-    if session_exceptions.want_for(session=pane.session) is not None:
-        return False
-    return scoped_servable or pane.model != SCOPED_MODEL
-
-
-def _wanted_model(*, session: str, fable_left: bool, want_foreman: str) -> str | None:
-    if is_foreman_topic(topic=session) or is_grooming_topic(topic=session):
-        return want_foreman
-    if not fable_left:
-        return "opus"
-    return None
-
-
 def _persist_session_model_requests(*, model_options: dict[str, object]) -> None:
     requested = model_options.get("session_models")
     if not isinstance(requested, tuple):
@@ -223,11 +100,12 @@ def _persist_session_model_requests(*, model_options: dict[str, object]) -> None
         else load_state(state_path=state_path)
     )
     active_fable = model_options.get("active_fable")
-    fable_left = isinstance(active_fable, float) and active_fable < _FABLE_EXHAUSTED
     _ = apply_session_model_exceptions(
         state=current_state,
         requested_models=cast(tuple[tuple[str, str], ...], requested),
-        fable_left=fable_left,
+        fable_left=fable_left(
+            active_fable=active_fable if isinstance(active_fable, float) else None
+        ),
     )
     with contextlib.suppress(*_SAVE_ERRORS):
         save_state(state=current_state, state_path=state_path)

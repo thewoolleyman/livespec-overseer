@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol, cast
 
+from _caam_pass_span import PassSpan, linked_emitter
 from caam_candidate_diagnosis import unverifiable_candidate_names
 from caam_decision import ProfileUsage, UsageRecord, render_table
 from caam_rendering import RenderableProfileUsage
@@ -64,6 +65,11 @@ class StatusContext(Protocol):
 
     @property
     def stdout(self) -> LineWriter: ...
+
+    # The pass's open span, when the caller is a span-carrying rotation pass. A
+    # direct `write_status` caller has none, and enforcement then reports nothing.
+    @property
+    def span(self) -> PassSpan | None: ...
 
 
 class EnforceModels(Protocol):
@@ -125,5 +131,23 @@ def model_messages(
         session_models=context.flags.session_models,
         dry_run=context.flags.dry_run,
         now=None,
+        **_span_options(span=context.span),
     )
     return tuple(messages)
+
+
+def _span_options(*, span: PassSpan | None) -> dict[str, object]:
+    """The pass span's two hooks into enforcement, or nothing at all without one.
+
+    `emit_event` is the pass's OWN emitter, wrapped so each pane record hangs
+    under the pass span -- deliberately the same object the pass will close on,
+    so one pass reads its OTLP configuration once. `note_facts` is the return
+    path for the four pass-wide conditions only enforcement can observe.
+    """
+
+    if span is None:
+        return {}
+    return {
+        "emit_event": linked_emitter(emit=span.emit, trace=span.trace),
+        "note_facts": span.note_facts,
+    }
