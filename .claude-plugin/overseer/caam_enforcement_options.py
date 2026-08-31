@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, cast
 
+import _caam_span_seam
+from _caam_pane_decision import PaneEventEmitter
 from _seams import PidToIntList, PidToOptionalBytes
 from caam_picker import Sleep, drive_model_picker, pane_is_idle
 from caam_profile_state import load_state
@@ -41,6 +43,7 @@ class ModelRun:
     set_model: ModelSetter
     pane_idle: PaneIdle
     dry_run: bool
+    emit_event: PaneEventEmitter
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -101,6 +104,10 @@ def model_context(
             set_model=set_model,
             pane_idle=pane_idle or _always_idle,
             dry_run=_bool_option(options=options, key="dry_run"),
+            # Resolved ONCE per context so every pane in a pass ships through the
+            # same configuration, and so an unconfigured host pays for reading the
+            # environment once rather than per pane.
+            emit_event=_emitter_option(options=options) or _caam_span_seam.emitter_from_env(),
         ),
     )
 
@@ -198,6 +205,11 @@ def _pane_idle_option(*, options: dict[str, object]) -> PaneIdle | None:
     return cast(PaneIdle, value) if callable(value) else None
 
 
+def _emitter_option(*, options: dict[str, object]) -> PaneEventEmitter | None:
+    value = options.get("emit_event")
+    return cast(PaneEventEmitter, value) if callable(value) else None
+
+
 def _pane_model_option(*, options: dict[str, object]) -> PaneModelReader | None:
     value = options.get("pane_model")
     return cast(PaneModelReader, value) if callable(value) else None
@@ -211,8 +223,11 @@ def _production_pane_idle(*, tmux: EnforcementTmux) -> PaneIdle:
 
 
 def _production_set_model(*, tmux: EnforcementTmux, sleep: Sleep) -> ModelSetter:
-    def set_model(*, session: str, model: str) -> None:
-        _ = drive_model_picker(
+    def set_model(*, session: str, model: str) -> str:
+        # The picker's own verdict is the answer -- `already-set` in particular, which
+        # is the actuator catching a mis-read upstream and is exactly what the decision
+        # span needs to distinguish from a real switch.
+        return drive_model_picker(
             tmux=tmux,
             session=session,
             want=model,

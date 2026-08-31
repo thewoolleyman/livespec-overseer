@@ -79,6 +79,7 @@ def enforce_models(
                     set_model=context.run.set_model,
                     pane_idle=context.run.pane_idle,
                     dry_run=context.run.dry_run,
+                    emit_event=context.run.emit_event,
                 )
             )
     except _ADVISORY_ERRORS as exc:
@@ -156,6 +157,7 @@ def _actions_for_pane(
             set_model=run.set_model,
             pane_idle=run.pane_idle,
             dry_run=run.dry_run,
+            emit_event=run.emit_event,
             respect_operator_set=_respect_operator_set(
                 pane=pane,
                 scoped_servable=fable_left,

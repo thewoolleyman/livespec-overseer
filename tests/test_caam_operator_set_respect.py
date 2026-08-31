@@ -51,7 +51,16 @@ def _run(calls: list[tuple[str, str]], *, now: float):
         _ = session
         return True
 
-    return options.ModelRun(now=now, set_model=set_model, pane_idle=pane_idle, dry_run=False)
+    def emit_event(*, record: object) -> None:
+        _ = record
+
+    return options.ModelRun(
+        now=now,
+        set_model=set_model,
+        pane_idle=pane_idle,
+        dry_run=False,
+        emit_event=emit_event,
+    )
 
 
 # ---------------------------------------------------------------------------

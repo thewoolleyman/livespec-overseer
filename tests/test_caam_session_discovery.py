@@ -284,8 +284,16 @@ def test_narrow_truncated_status_line_does_not_control_agent_classification(*, t
         capture_pane=capture_pane,
     )
 
+    # The read's PROVENANCE rides along with it (overseer-m7qrgp.2), so the pane also
+    # names the transcript it was resolved from and the kind of line that attested it.
     assert panes == (
-        module.SessionModel(session="worker-foreman", session_id="sid-narrow", model="opus"),
+        module.SessionModel(
+            session="worker-foreman",
+            session_id="sid-narrow",
+            model="opus",
+            source="assistant-message",
+            transcript=str(tmp_path / ".claude" / "projects" / "-work" / "sid-narrow.jsonl"),
+        ),
     )
 
 
