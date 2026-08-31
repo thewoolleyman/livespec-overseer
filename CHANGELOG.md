@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.71.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.70.0...v1.71.0) (2026-08-31)
+
+
+### Features
+
+* emit caam.warm and caam.rotation spans for the pass's other half ([a557f76](https://github.com/thewoolleyman/livespec-overseer/commit/a557f766497482b1e9df1d7728386f228f482413))
+
 ## [1.70.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.69.0...v1.70.0) (2026-08-31)
 
 
