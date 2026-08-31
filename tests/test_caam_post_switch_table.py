@@ -131,6 +131,7 @@ class _Switched:
 
     exit_code: int = 0
     switched: bool = True
+    reason: str = "switched"
     lines: tuple[str, ...] = (
         f"SWITCHED {_ACTIVE} -> {_TARGET} (5h left was 5%; target has 80% week left)",
     )

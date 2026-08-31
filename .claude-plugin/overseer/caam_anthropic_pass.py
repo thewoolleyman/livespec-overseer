@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import cast
 
 from _caam_pass_span import Clock, PassEventEmitter, PassSpan, open_pass_span
+from _caam_rotation_span import rotation_sink
 from _caam_span_seam import emitter_from_env
 from caam_anthropic_decide import DecisionSeams, SwitchAccount, UsageFetcher, decide
 from caam_anthropic_finish import LineWriter, SaveState, finish
@@ -25,6 +26,7 @@ from caam_pass_seams import (
     default_caam_runner,
     line_logger,
 )
+from caam_pass_warm import WarmStage, run_warm_stage, warm_idle
 from caam_profile_state import (
     caam_vault,
     load_state,
@@ -42,13 +44,7 @@ from caam_protected_accounts import apply_protected_accounts
 from caam_rendering import RenderableProfileUsage, render_table, trigger_header
 from caam_switch import switch_account as default_switch_account
 from caam_usage import fetch_usage
-from caam_warm import (
-    ResnapshotRunner,
-    WarmConfig,
-    emit_next_warm_wake,
-    keep_warm,
-    resnapshot_active,
-)
+from caam_warm import ResnapshotRunner, resnapshot_active
 
 __all__: list[str] = ["AgentRunner", "Flags", "PassContext", "run_pass"]
 
@@ -240,44 +236,25 @@ def _pass_with_active(
         extra_messages=protected_accounts.messages,
     )
 
-    def _warm_idle(*, active_name: str) -> None:
-        """Refresh every snapshot but this one, so rotation keeps somewhere to go.
-
-        Carrier X13. The oracle invokes this at three sites; hoisting it above the
-        decision covers both hold paths and the switch path from one place, which
-        three copies cannot be relied on to keep doing. What the hoist alone
-        cannot cover is the oracle's LAST site, which runs with the NEW active
-        profile -- and since this skips whichever account it is told is active,
-        the account a pass has just left is otherwise never a candidate in the
-        pass that left it. That matters exactly when the account being left is
-        already inside the warm margin, which is ordinary late in a five-hour
-        window and is the deadlock this whole slice exists to prevent.
-        """
-        keep_warm(
-            state=context.state,
-            config=WarmConfig(
-                active_name=active_name,
-                home=context.home,
-                dry_run=context.flags.dry_run,
-                no_warm=context.flags.no_warm,
-            ),
-            agent_runner=seams.agent_runner,
-            logger=line_logger(writer=context.stdout),
-            now=context.now,
-        )
-
-    _warm_idle(active_name=active_name)
-    emit_next_warm_wake(
-        home=context.home, active_name=active_name, now=context.now, stdout=context.stdout
+    warm = WarmStage(
+        span=context.span,
+        home=context.home,
+        state=context.state,
+        dry_run=context.flags.dry_run,
+        no_warm=context.flags.no_warm,
+        agent_runner=seams.agent_runner,
+        stdout=context.stdout,
+        now=context.now,
     )
+    run_warm_stage(stage=warm, active_name=active_name)
 
     def _after_switch(*, active_name: str) -> None:
         _emit_table(context=context, profiles=profiles, active_name=active_name)
         # Runs only on a switch that moved the credential, so a hold still warms
         # exactly once. It needs no re-poll: keep_warm reads each candidate's
         # expiry from that profile's own vault snapshot, never from the rows this
-        # pass polled.
-        _warm_idle(active_name=active_name)
+        # pass polled. It records NO second span -- see `run_warm_stage`.
+        _ = warm_idle(stage=warm, active_name=active_name)
 
     return decide(
         context=context,
@@ -290,6 +267,7 @@ def _pass_with_active(
             save_state=seams.save_state,
             switch_account=seams.switch_account,
             after_switch=_after_switch,
+            emit_rotation=rotation_sink(span=context.span, at=context.now),
         ),
     )
 

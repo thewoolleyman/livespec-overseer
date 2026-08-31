@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from _caam_rotation_span import RotationSink
 from caam_anthropic_finish import LineWriter, SaveState
 from caam_decision import UsageRecord
 from caam_switch import SwitchRequest, SwitchResult
@@ -78,3 +79,7 @@ class DecisionSeams:
     save_state: SaveState
     switch_account: SwitchAccount
     after_switch: AfterSwitch | None = None
+    # Where a `caam.rotation.switch` record goes. Absent for every caller that is
+    # not a span-carrying rotation pass -- a direct `decide` caller has no trace to
+    # hang one from, and reports nothing rather than emitting an orphan record.
+    emit_rotation: RotationSink | None = None
