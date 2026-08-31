@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.11](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.10...v1.67.11) (2026-08-31)
+
+
+### Bug Fixes
+
+* gate the two retired final-ruling artifact roots ([d4f1c00](https://github.com/thewoolleyman/livespec-overseer/commit/d4f1c004d8be285db7ead82eb8008e4f881f879a))
+
 ## [1.67.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.9...v1.67.10) (2026-08-31)
 
 
