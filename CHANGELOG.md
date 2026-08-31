@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.69.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.68.0...v1.69.0) (2026-08-31)
+
+
+### Features
+
+* emit one caam.enforcement.pane decision span per pane ([b3db92f](https://github.com/thewoolleyman/livespec-overseer/commit/b3db92f2cf7a5b990c9db995d5d2fe1c6ff9c1ec))
+
 ## [1.68.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.11...v1.68.0) (2026-08-31)
 
 
