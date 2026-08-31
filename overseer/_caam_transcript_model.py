@@ -15,6 +15,15 @@ model the pane is on, so the pass after a drive reads the wanted model and
 suppresses itself. The suppression is then a property of the pane's transcript
 rather than of a memo that has to survive to the next pass -- which the live
 memos measurably did not.
+
+``pane_read`` reports the same read with its PROVENANCE attached: which file was
+resolved, and which of the two kinds of line attested the model (work-item
+overseer-m7qrgp.2). ``pane_model`` keeps the bare answer for callers that only
+decide with it. The provenance exists because an unknown read has two very
+different causes that the bare answer collapses into one: a transcript that was
+never located, and a transcript that WAS located but whose scanned tail carries
+no attesting line. Both read as ``None`` and both drive the picker; only the
+resolved path tells them apart afterwards.
 """
 
 from __future__ import annotations
@@ -22,15 +31,25 @@ from __future__ import annotations
 import json
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
 import jsonio
 
 __all__: list[str] = [
+    "READ_SOURCE_ANSWER",
+    "READ_SOURCE_ASSISTANT",
+    "READ_SOURCE_NONE",
+    "PaneRead",
     "newest_project_model_for_test",
     "pane_model",
+    "pane_read",
 ]
+
+READ_SOURCE_ASSISTANT: Final = "assistant-message"
+READ_SOURCE_ANSWER: Final = "model-answer"
+READ_SOURCE_NONE: Final = "none"
 
 _TAIL_BYTES: Final = 65_536
 _SCAN_MAX_BYTES: Final = 1_048_576
@@ -46,10 +65,28 @@ _LOCAL_STDOUT_RE: Final = re.compile(r"<local-command-stdout>(.*?)</local-comman
 _MODEL_ANSWER_RE: Final = re.compile(r"(?:set model to|kept model as)\s+(.+)", re.IGNORECASE)
 
 
-def pane_model(*, home: Path, session_id: str) -> str | None:
+@dataclass(frozen=True, kw_only=True)
+class PaneRead:
+    """What a pane's transcript attested, how it was read, and from where.
+
+    ``source`` is ``READ_SOURCE_NONE`` whenever ``model`` is None -- an unknown read
+    has no source by construction -- and ``transcript`` is None only when no file
+    matched the session id at all.
+    """
+
+    model: str | None
+    source: str
+    transcript: str | None
+
+
+def pane_read(*, home: Path, session_id: str) -> PaneRead:
     for transcript in sorted((home / ".claude" / "projects").glob(f"*/{session_id}.jsonl")):
-        return _model_from_transcript(path=transcript)
-    return None
+        return _read_transcript(path=transcript)
+    return PaneRead(model=None, source=READ_SOURCE_NONE, transcript=None)
+
+
+def pane_model(*, home: Path, session_id: str) -> str | None:
+    return pane_read(home=home, session_id=session_id).model
 
 
 def newest_project_model_for_test(*, home: Path, project: str) -> str | None:
@@ -59,27 +96,31 @@ def newest_project_model_for_test(*, home: Path, project: str) -> str | None:
     _index, newest = max(
         enumerate(transcripts), key=lambda item: (item[1].stat().st_mtime_ns, item[0])
     )
-    return _model_from_transcript(path=newest)
+    return _read_transcript(path=newest).model
 
 
-def _model_from_transcript(*, path: Path) -> str | None:
+def _read_transcript(*, path: Path) -> PaneRead:
     size = _TAIL_BYTES
     while True:
         raw = _read_tail(path=path, size=size)
         found = _last_model_in(raw=raw)
         if found is not None:
-            return _mapped_model(model=found)
+            model = _mapped_model(model=found[0])
+            # An attesting line naming a model family this reader does not map is
+            # still an unknown read, so it carries no source either.
+            source = READ_SOURCE_NONE if model is None else found[1]
+            return PaneRead(model=model, source=source, transcript=str(path))
         if len(raw) < size or size >= _SCAN_MAX_BYTES:
-            return None
+            return PaneRead(model=None, source=READ_SOURCE_NONE, transcript=str(path))
         size = min(size * _SCAN_GROWTH, _SCAN_MAX_BYTES)
 
 
-def _last_model_in(*, raw: bytes) -> str | None:
-    found: str | None = None
+def _last_model_in(*, raw: bytes) -> tuple[str, str] | None:
+    found: tuple[str, str] | None = None
     for line in raw.decode(errors="replace").splitlines():
-        model = _model_from_line(line=line)
-        if model is not None:
-            found = model
+        attested = _model_from_line(line=line)
+        if attested is not None:
+            found = attested
     return found
 
 
@@ -91,11 +132,14 @@ def _read_tail(*, path: Path, size: int) -> bytes:
         return handle.read()
 
 
-def _model_from_line(*, line: str) -> str | None:
-    """The model id one transcript line attests, or None if it attests none."""
+def _model_from_line(*, line: str) -> tuple[str, str] | None:
+    """The model id one transcript line attests and its source, or None for neither."""
 
     assistant = _assistant_model(line=line)
-    return _answered_model(line=line) if assistant is None else assistant
+    if assistant is not None:
+        return (assistant, READ_SOURCE_ASSISTANT)
+    answered = _answered_model(line=line)
+    return None if answered is None else (answered, READ_SOURCE_ANSWER)
 
 
 def _assistant_model(*, line: str) -> str | None:
