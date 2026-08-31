@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.67.10](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.9...v1.67.10) (2026-08-31)
+
+
+### Bug Fixes
+
+* verify every wait premise in one pass ([1606304](https://github.com/thewoolleyman/livespec-overseer/commit/16063046b8b1b3429f11532d0f97b6f9cc29195e))
+
 ## [1.67.9](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.8...v1.67.9) (2026-08-30)
 
 
