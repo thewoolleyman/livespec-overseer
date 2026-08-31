@@ -237,7 +237,9 @@ def test_switch_request_active_reader_uses_decision_default_caam_runner(
 
     def switch_account(*, request):
         assert request.active_reader() == "active"
-        return module.SwitchResult(exit_code=0, lines=("SWITCHED active -> target",))
+        return module.SwitchResult(
+            exit_code=0, reason="switched", lines=("SWITCHED active -> target",)
+        )
 
     result = module.run_pass(
         flags=module.parse_flags(argv=["--force"]),

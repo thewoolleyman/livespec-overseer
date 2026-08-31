@@ -117,7 +117,9 @@ def _decide(
         if switched is None:
             raise AssertionError(f"must not switch: this case must HOLD (target {name})")
         switched.append(name)
-        return SwitchResult(exit_code=0, lines=(f"SWITCHED -> {name}",), switched=True)
+        return SwitchResult(
+            exit_code=0, reason="switched", lines=(f"SWITCHED -> {name}",), switched=True
+        )
 
     decide(
         context=context,

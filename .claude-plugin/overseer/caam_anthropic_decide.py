@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 
+from _caam_rotation_span import RotationOutcome, switch_trigger
 from _caam_switch_host import acquire_switch_lock, caam_activate
 from caam_candidate_diagnosis import CandidatePopulation
 from caam_decide_context import (
@@ -139,21 +141,34 @@ def decide(
         )
     return _switch_decision(
         context=context,
-        active_name=active_name,
-        current=current,
-        target=ranked[0],
-        decision_line=with_note(line=decision_line, note=eligible.note),
+        plan=_SwitchPlan(
+            active_name=active_name,
+            current=current,
+            target=ranked[0],
+            decision_line=with_note(line=decision_line, note=eligible.note),
+            # The dimension that BOUND is what made this pass leave, and it is
+            # known only here -- the switch itself never sees why it was asked.
+            trigger=switch_trigger(force=context.flags.force, dimension=dimension),
+        ),
         seams=seams,
     )
+
+
+@dataclass(frozen=True, kw_only=True)
+class _SwitchPlan:
+    """Everything the decision resolved, handed to the one step that executes it."""
+
+    active_name: str
+    current: UsageRecord
+    target: ProfileUsage
+    decision_line: str
+    trigger: str
 
 
 def _switch_decision(
     *,
     context: DecisionContext,
-    active_name: str,
-    current: UsageRecord,
-    target: ProfileUsage,
-    decision_line: str,
+    plan: _SwitchPlan,
     seams: DecisionSeams,
 ) -> int:
     def save(*, state: dict[str, object]) -> None:
@@ -162,9 +177,9 @@ def _switch_decision(
     save(state=context.state)
     result = seams.switch_account(
         request=SwitchRequest(
-            active_name=active_name,
-            target=target,
-            current=current,
+            active_name=plan.active_name,
+            target=plan.target,
+            current=plan.current,
             state=context.state,
             home=context.home,
             now=context.now,
@@ -179,13 +194,27 @@ def _switch_decision(
             save=save,
         )
     )
-    for line in (decision_line, *result.lines):
+    for line in (plan.decision_line, *result.lines):
         context.stdout(line)
+    # Emitted for a HOLD as well as a move: `switched` is the attribute that
+    # separates them, and a record only on the moving path would leave the two
+    # zero-exit holds invisible -- the exact shape an operator asks about.
+    if seams.emit_rotation is not None:
+        seams.emit_rotation(
+            outcome=RotationOutcome(
+                from_account=plan.active_name,
+                to_account=plan.target.name,
+                switched=result.switched,
+                reason=result.reason,
+                trigger=plan.trigger,
+                exit_code=result.exit_code,
+            )
+        )
     # Carrier R13, and note it runs AFTER the outcome line: the operator reads
     # table, decision, outcome, corrected table. Keyed on `switched` rather than
     # on the exit code, because two holds also succeed with zero.
     if result.switched and seams.after_switch is not None:
-        seams.after_switch(active_name=target.name)
+        seams.after_switch(active_name=plan.target.name)
     return result.exit_code
 
 

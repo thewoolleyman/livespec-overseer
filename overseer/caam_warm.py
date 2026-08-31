@@ -14,6 +14,7 @@ from typing import Final, Protocol, cast
 
 from caam_profile_state import STATE_REL, caam_vault, live_creds_path
 from caam_usage import read_creds
+from caam_warm_records import WarmOutcome, WarmSchedule
 
 __all__: list[str] = [
     "AgentProcess",
@@ -22,9 +23,11 @@ __all__: list[str] = [
     "ResnapshotProcess",
     "ResnapshotRunner",
     "WarmConfig",
+    "WarmOutcome",
     "WarmResult",
+    "WarmSchedule",
     "emit_next_warm_wake",
-    "idle_snapshot_expiries",
+    "idle_snapshots",
     "keep_warm",
     "next_warm_wake",
     "read_creds",
@@ -140,7 +143,7 @@ def keep_warm(
     agent_runner: AgentRunner,
     logger: Logger,
     now: float | None = None,
-) -> None:
+) -> WarmOutcome:
     """Refresh idle snapshots whose access token has EXPIRED, so they stay switchable.
 
     The refresh is EXPIRY-GATED, never pre-expiry: the delegated agent renews only
@@ -151,14 +154,20 @@ def keep_warm(
     per-account rate backoff (`warm_retry_s`) that spec.md's actively-maintained
     clause requires so a persistently unrefreshable account is neither abandoned
     nor retried without limit on the rate.
+
+    Returns what the pass did, for the `caam.warm.schedule` span. `maintained` is
+    false only on the early return below, so a warm stage that was switched off is
+    never mistaken for one that looked and found nothing to do.
     """
 
     vault = caam_vault(home=config.home)
     if config.no_warm or config.dry_run or not vault.is_dir():
-        return
+        return WarmOutcome(maintained=False, attempted=0, refreshed=0)
 
     checked_at = time.time() if now is None else now
     memo = _warm_memo(state=state)
+    attempted = 0
+    refreshed = 0
     for profile_path in sorted(vault.iterdir(), key=lambda path: path.name):
         name = profile_path.name
         if not _is_idle_profile(name=name, active_name=config.active_name):
@@ -176,29 +185,34 @@ def keep_warm(
             agent_runner=agent_runner,
             logger=logger,
         )
+        attempted += 1
+        refreshed += int(result.ok)
         memo[name] = {"at": checked_at, "ok": result.ok}
         logger(f"warm: {name} {result.detail if result.ok else 'FAILED -- ' + result.detail}")
+    return WarmOutcome(maintained=True, attempted=attempted, refreshed=refreshed)
 
 
-def idle_snapshot_expiries(*, home: Path, active_name: str) -> tuple[float | None, ...]:
-    """Each idle profile snapshot's stored expiry (None when unreadable/absent).
+def idle_snapshots(*, home: Path, active_name: str) -> tuple[tuple[str, float | None], ...]:
+    """Each idle profile snapshot as (profile, stored expiry); None when unreadable.
 
     The active profile and the `_`-prefixed reserved profiles are excluded, so the
     result names exactly the profiles `keep_warm` maintains. It is the input to
-    `next_warm_wake`.
+    `next_warm_wake`, and it carries the NAMES because the wake belongs to a
+    specific account: reporting the instant without it leaves an operator unable to
+    say which snapshot the schedule was built around.
     """
 
     vault = caam_vault(home=home)
     if not vault.is_dir():
         return ()
-    expiries: list[float | None] = []
+    snapshots: list[tuple[str, float | None]] = []
     for profile_path in sorted(vault.iterdir(), key=lambda path: path.name):
         name = profile_path.name
         if not _is_idle_profile(name=name, active_name=active_name):
             continue
         _, expires_at = read_creds(path=profile_path / ".credentials.json")
-        expiries.append(expires_at)
-    return tuple(expiries)
+        snapshots.append((name, expires_at))
+    return tuple(snapshots)
 
 
 def next_warm_wake(
@@ -226,18 +240,25 @@ def next_warm_wake(
 
 def emit_next_warm_wake(
     *, home: Path, active_name: str, now: float, stdout: Callable[[str], None]
-) -> None:
+) -> WarmSchedule:
     """Emit the instant to next run maintenance, keyed to the soonest idle-account
     expiry, so the operator surface can schedule a per-account wake there rather
     than waiting for the coarse recurring tick. Silent when no idle account has a
     future expiry to wake for.
+
+    Returns that schedule -- the wake AND the account it belongs to -- so the pass's
+    warm span carries the same instant this line printed, from one reading of the
+    vault rather than a second that could disagree with it.
     """
-    wake = next_warm_wake(
-        expiries=idle_snapshot_expiries(home=home, active_name=active_name), now=now
+    snapshots = idle_snapshots(home=home, active_name=active_name)
+    wake = next_warm_wake(expiries=[expiry for _, expiry in snapshots], now=now)
+    soonest = sorted(
+        (expiry, name) for name, expiry in snapshots if expiry is not None and expiry > now
     )
     if wake is not None:
         stamp = datetime.fromtimestamp(wake, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         stdout(f"next-warm-wake: {stamp}")
+    return WarmSchedule(profile=soonest[0][1] if soonest else None, wake=wake)
 
 
 def warm_profile(

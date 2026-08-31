@@ -622,8 +622,8 @@ def test_next_warm_wake_uses_the_configured_delay_default(
     assert module.next_warm_wake(expiries=(10_400.0,), now=10_000.0) == 10_430.0
 
 
-def test_idle_snapshot_expiries_names_only_idle_profiles(*, tmp_path: Path):
-    """idle_snapshot_expiries returns each idle snapshot's expiry, excluding the active
+def test_idle_snapshots_name_only_idle_profiles(*, tmp_path: Path):
+    """idle_snapshots pairs each idle snapshot with its expiry, excluding the active
     profile and the `_`-prefixed reserved profiles, and None for an unreadable one.
     """
     module = caam_warm_module()
@@ -633,10 +633,13 @@ def test_idle_snapshot_expiries_names_only_idle_profiles(*, tmp_path: Path):
     gamma = write_snapshot(home=tmp_path, name="gamma", credential="g", expires_at_s=8_000.0)
     (gamma / ".credentials.json").unlink()
 
-    assert module.idle_snapshot_expiries(home=tmp_path, active_name="active") == (7_000.0, None)
+    assert module.idle_snapshots(home=tmp_path, active_name="active") == (
+        ("beta", 7_000.0),
+        ("gamma", None),
+    )
 
 
-def test_idle_snapshot_expiries_is_empty_without_a_vault(*, tmp_path: Path):
+def test_idle_snapshots_are_empty_without_a_vault(*, tmp_path: Path):
     module = caam_warm_module()
 
-    assert module.idle_snapshot_expiries(home=tmp_path, active_name="active") == ()
+    assert module.idle_snapshots(home=tmp_path, active_name="active") == ()

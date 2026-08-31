@@ -367,6 +367,7 @@ def test_dark_profile_is_revived_reprobed_and_becomes_eligible(*, tmp_path: Path
         agent_runner=agent,
         switch_account=lambda *, request: module.SwitchResult(
             exit_code=0,
+            reason="switched",
             lines=(f"SWITCHED {request.active_name} -> {request.target.name}",),
         ),
         enforce_models=lambda **kwargs: [],
@@ -564,6 +565,7 @@ def test_switch_path_returns_switch_result_and_preserves_switch_save(*, tmp_path
         save_state=lambda *, state, state_path: saved.append(dict(state)),
         switch_account=lambda *, request: module.SwitchResult(
             exit_code=0,
+            reason="switched",
             lines=("SWITCHED active -> target",),
         ),
         enforce_models=lambda **kwargs: [],

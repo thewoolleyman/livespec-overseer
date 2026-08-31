@@ -21,6 +21,13 @@ from caam_usage import read_creds
 __all__: list[str] = [
     "ACTIVATE_TIMEOUT_S",
     "LOCK_REL",
+    "REASON_FAIL_ACTIVATE",
+    "REASON_FAIL_DID_NOT_STICK",
+    "REASON_FAIL_ERROR",
+    "REASON_FAIL_TARGET_CREDENTIAL",
+    "REASON_HOLD_ACTIVE_CHANGED",
+    "REASON_HOLD_LOCK_HELD",
+    "REASON_SWITCHED",
     "ActivateRunner",
     "ActiveReader",
     "CaamProcess",
@@ -39,6 +46,19 @@ ACTIVATE_TIMEOUT_S: Final = 60.0
 LOCK_REL: Final = Path(".local/state/caam-usage-rotate/switch.lock")
 _TOOL: Final = "claude"
 _HOLD_LOCKED: Final = "hold: another caam-anthropic-loop holds the switch lock"
+
+# The seven outcomes a switch attempt can reach, named HERE rather than
+# reconstructed downstream from the operator lines below. Two of them exit ZERO
+# without moving anything and three exit two for entirely different causes, so a
+# reader keyed on the exit code alone cannot tell a lock contention from a
+# credential that would have broken every running session.
+REASON_SWITCHED: Final = "switched"
+REASON_HOLD_LOCK_HELD: Final = "hold-lock-held"
+REASON_HOLD_ACTIVE_CHANGED: Final = "hold-active-changed"
+REASON_FAIL_TARGET_CREDENTIAL: Final = "fail-target-credential"
+REASON_FAIL_ACTIVATE: Final = "fail-activate"
+REASON_FAIL_DID_NOT_STICK: Final = "fail-did-not-stick"
+REASON_FAIL_ERROR: Final = "fail-error"
 
 
 class CaamProcess(Protocol):
@@ -72,6 +92,10 @@ class UsageFetcher(Protocol):
 class SwitchResult:
     exit_code: int
     lines: tuple[str, ...]
+    # Which of the seven outcomes above this is. Required rather than defaulted:
+    # every branch that builds a result knows why it got there, and a default would
+    # let a new one ship reporting somebody else's reason.
+    reason: str
     # True on the ONE path that actually moved the live credential. An exit code
     # of zero does not mean that: a lock held by another pass, and an active
     # account that changed while this pass was deciding, both hold successfully
@@ -100,14 +124,18 @@ def switch_account(*, request: SwitchRequest) -> SwitchResult:
         return _switch_account_uncaught(request=request)
     except (OSError, RuntimeError, subprocess.SubprocessError, TypeError, ValueError) as exc:
         request.save(state=request.state)
-        return SwitchResult(exit_code=2, lines=(f"FAIL {type(exc).__name__}: {exc}",))
+        return SwitchResult(
+            exit_code=2,
+            reason=REASON_FAIL_ERROR,
+            lines=(f"FAIL {type(exc).__name__}: {exc}",),
+        )
 
 
 def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
     lock = request.lock_factory(lock_path=request.home / LOCK_REL)
     if lock is None:
         request.save(state=request.state)
-        return SwitchResult(exit_code=0, lines=(_HOLD_LOCKED,))
+        return SwitchResult(exit_code=0, reason=REASON_HOLD_LOCK_HELD, lines=(_HOLD_LOCKED,))
 
     with lock:
         active_under_lock = request.active_reader()
@@ -115,6 +143,7 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
             request.save(state=request.state)
             return SwitchResult(
                 exit_code=0,
+                reason=REASON_HOLD_ACTIVE_CHANGED,
                 lines=(
                     "hold: active changed "
                     f"{request.active_name} -> {active_under_lock} while deciding; "
@@ -130,6 +159,7 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
             request.save(state=request.state)
             return SwitchResult(
                 exit_code=2,
+                reason=REASON_FAIL_TARGET_CREDENTIAL,
                 lines=(
                     "FAIL refusing to switch to "
                     f"{request.target.name} -- its stored credential does not work right now "
@@ -145,6 +175,7 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
             request.save(state=request.state)
             return SwitchResult(
                 exit_code=2,
+                reason=REASON_FAIL_ACTIVATE,
                 lines=(
                     f"FAIL caam activate {request.target.name}: "
                     f"{_process_message(process=process)}",
@@ -155,6 +186,7 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
         request.save(state=request.state)
         return SwitchResult(
             exit_code=2,
+            reason=REASON_FAIL_DID_NOT_STICK,
             lines=(
                 "FAIL switch to "
                 f"{request.target.name} did not stick -- the live credential no longer matches "
@@ -171,6 +203,7 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
     request.save(state=request.state)
     return SwitchResult(
         exit_code=0,
+        reason=REASON_SWITCHED,
         switched=True,
         lines=(
             decision_switched(
