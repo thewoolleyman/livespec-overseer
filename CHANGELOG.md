@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.70.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.69.0...v1.70.0) (2026-08-31)
+
+
+### Features
+
+* emit one caam.enforcement.pass span wrapping run_pass ([cc1c2ef](https://github.com/thewoolleyman/livespec-overseer/commit/cc1c2ef71ba98e89d9ce48710c74c084866786b5))
+
 ## [1.69.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.68.0...v1.69.0) (2026-08-31)
 
 
