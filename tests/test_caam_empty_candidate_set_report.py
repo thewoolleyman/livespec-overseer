@@ -36,6 +36,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from _caam_pass_span import PassSpan
 from caam_anthropic_decide import DecisionSeams, decide
 from caam_anthropic_status import unverified_note, write_status
 from caam_decision import ActiveAccount, ProfileUsage, UsageRecord, eligible_profiles
@@ -93,6 +94,9 @@ class _Context:
         self.state: dict[str, object] = {}
         self.state_path = home / "state.json"
         self.lines: list[str] = []
+        # This file drives `write_status` directly rather than through a rotation
+        # pass, so there is no open pass span and enforcement reports no facts.
+        self.span: PassSpan | None = None
 
     def stdout(self, line: str) -> None:
         self.lines.append(line)

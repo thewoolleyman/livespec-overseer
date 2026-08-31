@@ -26,6 +26,18 @@ def caam_pass_module() -> ModuleType:
     return importlib.import_module("caam_anthropic_pass")
 
 
+def caam_pass_seams_module() -> ModuleType:
+    """The pass's production host seams, split out of `caam_anthropic_pass`.
+
+    They moved when the pass span landed (work-item overseer-m7qrgp.3), which is
+    also when they became public: a seam a sibling module binds cannot be a
+    private helper.
+    """
+    module_path = Path(__file__).resolve().parents[1] / "overseer" / "caam_pass_seams.py"
+    assert module_path.is_file()
+    return importlib.import_module("caam_pass_seams")
+
+
 def caam_protected_accounts_module() -> ModuleType:
     module_path = Path(__file__).resolve().parents[1] / "overseer" / "caam_protected_accounts.py"
     assert module_path.is_file()
@@ -106,7 +118,7 @@ def test_run_pass_default_runner_resolves_active_profile(*, tmp_path: Path, monk
     (tmp_path / ".local/share/caam/vault/claude/active").mkdir(parents=True)
 
     monkeypatch.setattr(
-        module,
+        caam_pass_seams_module(),
         "caam_activate",
         lambda *, args, timeout: FakeProcess(),
     )
@@ -180,7 +192,7 @@ def test_hold_path_returns_zero_and_saves_state(*, tmp_path: Path) -> None:
 
 
 def test_internal_default_seams_are_callable_without_extra_adapters(*, monkeypatch) -> None:
-    module = caam_pass_module()
+    module = caam_pass_seams_module()
     logged: list[str] = []
     monkeypatch.setattr(
         module,
@@ -188,13 +200,13 @@ def test_internal_default_seams_are_callable_without_extra_adapters(*, monkeypat
         lambda *, args, timeout: FakeProcess(),
     )
 
-    process = module._run_caam(args=("status", "--json"))
-    agent = module._run_agent(
+    process = module.default_caam_runner(args=("status", "--json"))
+    agent = module.default_agent_runner(
         args=(sys.executable, "-c", "print('ok')"),
         env={},
         timeout=5.0,
     )
-    module._logger(writer=logged.append)("message")
+    module.line_logger(writer=logged.append)("message")
 
     assert process.returncode != -999
     assert agent.stdout == "ok\n"

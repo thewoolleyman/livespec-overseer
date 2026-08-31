@@ -10,6 +10,7 @@ from typing import Protocol, cast
 
 import _caam_span_seam
 from _caam_pane_decision import PaneEventEmitter
+from _caam_pass_span import PassFactsSink
 from _seams import PidToIntList, PidToOptionalBytes
 from caam_picker import Sleep, drive_model_picker, pane_is_idle
 from caam_profile_state import load_state
@@ -62,6 +63,9 @@ class ModelContext:
     model_reader: PaneModelReader | None
     state: dict[str, object]
     run: ModelRun
+    # Absent for every caller that is not a span-carrying rotation pass, which is
+    # every direct `enforce_models` caller and every test that wants no telemetry.
+    note_facts: PassFactsSink | None
 
 
 def model_context(
@@ -99,6 +103,7 @@ def model_context(
         environ_of=_environ_option(options=options) or proc_environ,
         model_reader=_pane_model_option(options=options),
         state=_loaded_state(options=options, state_path=state_path),
+        note_facts=_note_facts_option(options=options),
         run=ModelRun(
             now=_float_option(options=options, key="now"),
             set_model=set_model,
@@ -208,6 +213,11 @@ def _pane_idle_option(*, options: dict[str, object]) -> PaneIdle | None:
 def _emitter_option(*, options: dict[str, object]) -> PaneEventEmitter | None:
     value = options.get("emit_event")
     return cast(PaneEventEmitter, value) if callable(value) else None
+
+
+def _note_facts_option(*, options: dict[str, object]) -> PassFactsSink | None:
+    value = options.get("note_facts")
+    return cast(PassFactsSink, value) if callable(value) else None
 
 
 def _pane_model_option(*, options: dict[str, object]) -> PaneModelReader | None:
