@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.68.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.11...v1.68.0) (2026-08-31)
+
+
+### Features
+
+* emit caam events as OTLP spans on a fail-open, env-gated seam ([b53ed63](https://github.com/thewoolleyman/livespec-overseer/commit/b53ed63420e2674465ead3e6d0d88b42605475b9))
+
 ## [1.67.11](https://github.com/thewoolleyman/livespec-overseer/compare/v1.67.10...v1.67.11) (2026-08-31)
 
 
