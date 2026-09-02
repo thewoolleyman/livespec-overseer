@@ -6,10 +6,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from _seams import PidToOptionalBytes, PidToOptionalInt
+from _seams import PidToOptionalBytes, PidToOptionalInt, PidToOptionalStr
 
 __all__: list[str] = [
     "LaunchProfileProblem",
+    "apply_runtime_model",
     "read_launch_profile",
 ]
 
@@ -47,6 +48,33 @@ def _model_from_argv(*, argv: list[str]) -> str | None:
         if value.startswith("--model="):
             return value.partition("=")[2]
     return None
+
+
+def _base_model(*, token: str) -> str:
+    """A model token with any trailing bracketed variant suffix (e.g. ``[1m]``) removed.
+
+    The transcript records the base token (``claude-opus-4-8``) where the launch argv
+    carries a context-window variant (``claude-opus-4-8[1m]``), so the two are compared
+    on their base to tell a genuine model change from the same model named without its
+    variant.
+    """
+    return token.split("[", 1)[0]
+
+
+def _preferred_model(*, runtime: str | None, launch: str | None) -> str | None:
+    """Prefer the transcript token only when it names a DIFFERENT base model.
+
+    Where the transcript names the same base model as the launch source, the launch
+    token is retained so a context-window or other launch-token variant is never
+    silently dropped by a source that does not carry it.
+    """
+    if runtime is None:
+        return launch
+    if launch is None:
+        return runtime
+    if _base_model(token=runtime) != _base_model(token=launch):
+        return runtime
+    return launch
 
 
 def _non_anthropic_base_url(*, base_url: str | None) -> bool:
@@ -104,6 +132,29 @@ def _closed_profile(
     return {"harness": harness, "model": model, "wrapper": wrapper}
 
 
+def apply_runtime_model(
+    *,
+    profile: dict[str, str | None] | LaunchProfileProblem,
+    harness: str,
+    pid: int,
+    runtime_model_of: PidToOptionalStr,
+) -> dict[str, str | None] | LaunchProfileProblem:
+    """Prefer the Claude transcript's runtime model over the captured launch model.
+
+    For a Claude-harness track the session's conversation transcript is an additional
+    permitted source for the model: its latest top-level assistant-message token is
+    preferred over the launch model captured by :func:`read_launch_profile` when it
+    names a DIFFERENT base model (a mid-session ``/model`` switch), and ignored when it
+    names the same base model so a launch-token variant such as ``[1m]`` is retained.
+    The transcript source is fail-soft, and this is a no-op for any other harness (a
+    Codex rollout body is never read here) or for an errored profile.
+    """
+    if isinstance(profile, LaunchProfileProblem) or harness != "claude":
+        return profile
+    profile["model"] = _preferred_model(runtime=runtime_model_of(pid=pid), launch=profile["model"])
+    return profile
+
+
 def read_launch_profile(
     *,
     pid: int,
@@ -113,7 +164,13 @@ def read_launch_profile(
     environ_of: PidToOptionalBytes,
     ppid_of: PidToOptionalInt,
 ) -> dict[str, str | None] | LaunchProfileProblem:
-    """Read a live process's restart launch profile from ``/proc`` seams."""
+    """Read a live process's restart launch profile from ``/proc`` seams.
+
+    This captures the LAUNCH model (``--model`` in argv, else ``ANTHROPIC_MODEL``). A
+    Claude track's runtime model — the model it is actually running after a mid-session
+    ``/model`` switch — is layered on by :func:`apply_runtime_model` at the capture
+    call sites.
+    """
     argv = _split_nul_bytes(data=cmdline_of(pid=pid))
     env = _env_from_bytes(data=environ_of(pid=pid))
     model = _model_from_argv(argv=argv) or env.get("ANTHROPIC_MODEL")

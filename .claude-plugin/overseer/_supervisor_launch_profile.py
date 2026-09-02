@@ -13,7 +13,11 @@ from types import MappingProxyType
 from typing import cast
 
 import registry
-from _supervisor_launch_profile_capture import LaunchProfileProblem, read_launch_profile
+from _supervisor_launch_profile_capture import (
+    LaunchProfileProblem,
+    apply_runtime_model,
+    read_launch_profile,
+)
 from _supervisor_statusline_model import rendered_statusline_model
 
 __all__: list[str] = [
@@ -23,6 +27,7 @@ __all__: list[str] = [
     "ClaudeLaunchPlan",
     "CodexLaunchPlan",
     "LaunchProfileProblem",
+    "apply_runtime_model",
     "claude_launch_plan",
     "codex_launch_plan",
     "preflight_launch_command",
