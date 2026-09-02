@@ -825,6 +825,22 @@
   {
     "spec_root": "SPECIFICATION",
     "spec_file": "scenarios.md",
+    "heading": "## Scenario: The launch profile captures a mid-session model change from the transcript",
+    "test": "tests.integration.test_runtime_model_permitted_source.test_scenario_captures_a_mid_session_model_change_from_the_transcript",
+    "reason": "Integration-tier: drives the real adoption capture path (sup.adopt_sessions()) with an injected transcript reader whose latest top-level token names a different base model than the launch argv, and asserts the persisted model_profile records the transcript token.",
+    "work_item": "overseer-baevoy"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
+    "heading": "## Scenario: A same-base transcript model retains the launch token's context-window variant",
+    "test": "tests.integration.test_runtime_model_permitted_source.test_scenario_a_same_base_transcript_model_retains_the_launch_token_variant",
+    "reason": "Integration-tier: drives the real adoption capture path with a transcript token naming the same base model as the launch argv variant claude-opus-4-8[1m], and asserts the persisted model_profile retains the [1m] launch token rather than dropping the variant.",
+    "work_item": "overseer-baevoy"
+  },
+  {
+    "spec_root": "SPECIFICATION",
+    "spec_file": "scenarios.md",
     "heading": "## Scenario: A restart re-asserts a local-llm track's wrapper and env",
     "test": "tests.integration.test_model_preserving_restarts.test_scenario_restart_reasserts_a_local_llm_wrapper_and_env",
     "reason": "Integration-tier: opens a real wrap-up round for a wrapper-profiled Claude track, declares ready, and asserts the respawn invokes the recorded wrapper with the autonomy flags and sets ANTHROPIC_MODEL to the recorded model while explicitly scrubbing the other controlled env vars.",
