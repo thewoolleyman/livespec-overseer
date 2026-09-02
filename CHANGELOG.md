@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.72.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.71.0...v1.72.0) (2026-09-02)
+
+
+### Features
+
+* capture a Claude track's runtime model as a permitted launch-profile source ([d0e3eab](https://github.com/thewoolleyman/livespec-overseer/commit/d0e3eab45193c608e0d60d954c9f3db146b48a46))
+
 ## [1.71.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.70.0...v1.71.0) (2026-08-31)
 
 
