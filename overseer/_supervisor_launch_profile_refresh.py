@@ -11,6 +11,7 @@ import registry
 from _supervisor_codex_adoption import codex_host_readers
 from _supervisor_launch_profile import (
     LaunchProfileProblem,
+    apply_runtime_model,
     read_launch_profile,
     rendered_statusline_model,
 )
@@ -120,13 +121,18 @@ def refresh_launch_profile_at_wrapup(
     stored_profile = _stored_model_profile(track=track, persisted_profile=persisted_profile)
     if source is None:
         return
-    profile = read_launch_profile(
-        pid=source.pid,
+    profile = apply_runtime_model(
+        profile=read_launch_profile(
+            pid=source.pid,
+            harness=source.harness,
+            pane_pid=source.pane_pid,
+            cmdline_of=sup.cmdline_of,
+            environ_of=sup.environ_of,
+            ppid_of=sup.ppid_of,
+        ),
         harness=source.harness,
-        pane_pid=source.pane_pid,
-        cmdline_of=sup.cmdline_of,
-        environ_of=sup.environ_of,
-        ppid_of=sup.ppid_of,
+        pid=source.pid,
+        runtime_model_of=sup.runtime_model_of,
     )
     if isinstance(profile, LaunchProfileProblem):
         sup.alert(

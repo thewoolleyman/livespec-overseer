@@ -75,6 +75,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import IO
 
+import _claude_runtime_model
 import _seams
 import _supervisor_currency
 import _supervisor_diagnostics
@@ -108,8 +109,6 @@ from _supervisor_view import RowView
 __all__: list[str] = ["Supervisor"]
 
 CodexSessionMap = dict[tuple[str, str], codex_sessions.CodexSession]
-MaybeStr = str | None
-CurrencyCheck = Callable[[], Mapping[str, object] | None]
 
 
 def _process_execv(*, path: str, argv: list[str]) -> None:  # pragma: no cover
@@ -144,7 +143,7 @@ class Supervisor:
     status_writer: _seams.StatusWriter = _supervisor_snapshot.default_status_writer
     status_snapshot_writer: Callable[..., None] = _supervisor_snapshot.write_status_snapshot
     otel: _supervisor_otel_seam.OtelSeam = field(default_factory=_supervisor_otel_seam.from_env)
-    currency_check: CurrencyCheck | None = None
+    currency_check: Callable[[], Mapping[str, object] | None] | None = None
     reexec_target: Callable[[], Path | None] = field(default_factory=lambda: lambda: None)
     argv: Callable[[], list[str]] = field(default_factory=lambda: lambda: sys.argv)
     execv: Callable[..., None] = _process_execv
@@ -175,6 +174,11 @@ class Supervisor:
     starttime_of: _seams.PidToOptionalStr = claude_sessions.proc_starttime
     cmdline_of: _seams.PidToOptionalBytes = claude_sessions.proc_cmdline
     environ_of: _seams.PidToOptionalBytes = claude_sessions.proc_environ
+    # Claude runtime-model seam (default: read the real ~/.claude transcript; the
+    # beside-tests inject a fake reader). Supplies the launch profile's model from the
+    # latest top-level assistant-message token so a mid-session `/model` switch survives
+    # a restart. Claude-only by construction — the capture reader gates it on the harness.
+    runtime_model_of: _seams.PidToOptionalStr = _claude_runtime_model.runtime_model_of
     # Background-subshell detection seams (default: real /proc; the beside-tests
     # inject fake process-tree readers). A tracked session sitting at an empty
     # prompt but with a later `Bash(run_in_background)` command still running has a
@@ -396,7 +400,7 @@ class Supervisor:
         return _supervisor_launch.session_of(sup=self, track=track)
 
     def _is_codex_track(
-        self, *, session: MaybeStr, repo: str, topic: str, target: MaybeStr = None
+        self, *, session: str | None, repo: str, topic: str, target: str | None = None
     ) -> bool:
         """See :func:`_supervisor_observe.is_codex_track`."""
         return _supervisor_observe.is_codex_track(
@@ -412,8 +416,8 @@ class Supervisor:
         return _supervisor_state.expire_aged_ready(sup=self, track=track)
 
     def _void_stale_blocked(
-        self, *, track: registry.Track, blocked: MaybeStr, generating: bool
-    ) -> MaybeStr:
+        self, *, track: registry.Track, blocked: str | None, generating: bool
+    ) -> str | None:
         """See :func:`_supervisor_state.void_stale_blocked`."""
         return _supervisor_state.void_stale_blocked(
             sup=self, track=track, blocked=blocked, generating=generating

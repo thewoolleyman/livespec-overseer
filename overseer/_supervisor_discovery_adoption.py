@@ -12,7 +12,11 @@ import registry
 import signals
 from _supervisor_codex_adoption import codex_host_readers
 from _supervisor_config import iso_now
-from _supervisor_launch_profile import LaunchProfileProblem, read_launch_profile
+from _supervisor_launch_profile import (
+    LaunchProfileProblem,
+    apply_runtime_model,
+    read_launch_profile,
+)
 from _supervisor_launch_profile_sources import (
     LaunchProfileSource,
     live_profile_sources,
@@ -39,13 +43,18 @@ def profile_for_adoption(
 ) -> dict[str, str | None] | None:
     if source is None:
         return None
-    profile = read_launch_profile(
-        pid=source.pid,
+    profile = apply_runtime_model(
+        profile=read_launch_profile(
+            pid=source.pid,
+            harness=source.harness,
+            pane_pid=source.pane_pid,
+            cmdline_of=sup.cmdline_of,
+            environ_of=sup.environ_of,
+            ppid_of=sup.ppid_of,
+        ),
         harness=source.harness,
-        pane_pid=source.pane_pid,
-        cmdline_of=sup.cmdline_of,
-        environ_of=sup.environ_of,
-        ppid_of=sup.ppid_of,
+        pid=source.pid,
+        runtime_model_of=sup.runtime_model_of,
     )
     if isinstance(profile, LaunchProfileProblem):
         sup.log(message=profile.message)
