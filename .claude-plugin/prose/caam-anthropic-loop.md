@@ -144,6 +144,21 @@ Resolve the mode from the invocation text after the schedule check.
 Do not add retry, recovery, alternate thresholds, or a manual fallback. The
 program owns the account decision.
 
+## Rotation Threshold Configuration
+
+The short-window rotation knob is `CAAM_ROTATE_FIVE_HOUR_REMAINING`, default `15`.
+It names percent REMAINING, like every quota figure this operation stores, prints
+and compares: a pass rotates once the active account's 5-hour window has that
+percent or less LEFT.
+
+MIGRATION FOR OPERATORS. It replaces `CAAM_ROTATE_FIVE_HOUR_THRESHOLD`, which named
+percent SPENT, and there is no backward-compatible alias -- an environment still
+exporting the retired name is ignored outright and the default applies, silently.
+Transform a customised value by subtracting it from 100: the old default `85`
+spent becomes `15` remaining, and `CAAM_ROTATE_FIVE_HOUR_THRESHOLD=90` becomes
+`CAAM_ROTATE_FIVE_HOUR_REMAINING=10`. `CAAM_ROTATE_WEEKLY_RESERVE` (default `10`)
+already named a remaining balance and is unchanged.
+
 ## Running The Program
 
 Run the shipped account-rotation program from the resolved plugin root for this

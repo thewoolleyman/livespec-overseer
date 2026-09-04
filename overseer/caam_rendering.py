@@ -100,9 +100,9 @@ def render_table(
 
 
 def trigger_header(*, stamp: str) -> str:
-    # The floor is imported rather than complemented here: the ONE bridge from
-    # the still-spent-direction knob lives in `caam_decision`, so no display
-    # surface turns a percentage around on its own.
+    # Deferred because `caam_decision` imports this module: the three knob readers
+    # live there, and every one of them now reports the same direction the header
+    # prints, so no display surface turns a percentage around on its own.
     from caam_decision import five_hour_remaining_floor, min_headroom_gain, weekly_reserve
 
     return (
@@ -121,8 +121,14 @@ def decision_hold_allowance(
     )
 
 
-def decision_forced(*, threshold: float) -> str:
-    return f"forced: ignoring the {threshold:.0f}% trigger, rotating to the best target now"
+def decision_forced(*, remaining_floor: float) -> str:
+    # The figure is named for the direction it now runs in, and the line says so:
+    # "the 15% trigger" would read as 15% SPENT to an operator who last saw the
+    # spent-direction knob, which is the confusion the rename exists to end.
+    return (
+        f"forced: ignoring the {remaining_floor:.0f}%-remaining trigger, "
+        "rotating to the best target now"
+    )
 
 
 def decision_trigger(

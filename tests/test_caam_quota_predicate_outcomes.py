@@ -30,7 +30,7 @@ as a floor on what a candidate must still have rather than a ceiling on what it 
 spent. That rename is visible in the import list and in one assertion, and nowhere else.
 
 Figures are written as REMAINING throughout, and deliberately stay well clear of the
-configured thresholds (85 spent / 15 remaining short-window, 10 weekly reserve): a
+configured thresholds (15 remaining short-window, 10 weekly reserve): a
 threshold's own NUMBER moves with the representation, so a test pressed against the
 boundary would be pinning the constant rather than the outcome. The exhaustion boundary
 IS pinned, because "nothing left" is zero remaining under either representation.
