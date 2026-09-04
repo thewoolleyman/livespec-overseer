@@ -28,17 +28,10 @@ __all__: list[str] = []
 
 SHARED_HELPER_NAMES = {
     "five_hour_remaining_floor",
-    "five_hour_threshold",
     "min_headroom_gain",
     "resets_at",
     "weekly_reserve",
 }
-# The subset `caam_rendering` reads. `five_hour_threshold` is deliberately not in
-# it: that knob is still expressed as percent SPENT, and the ONE bridge turning it
-# into the REMAINING floor everything else compares against lives in
-# `caam_decision`. Rendering imports the floor, so no surface beyond that bridge
-# has to complement anything of its own.
-RENDERING_SHARED_HELPER_NAMES = SHARED_HELPER_NAMES - {"five_hour_threshold"}
 
 
 def left(*, spent: float) -> float:
@@ -84,7 +77,6 @@ def test_shared_caam_helpers_have_one_decision_owned_definition():
 
     assert definitions == {
         "five_hour_remaining_floor": ["caam_decision.py"],
-        "five_hour_threshold": ["caam_decision.py"],
         "min_headroom_gain": ["caam_decision.py"],
         "resets_at": ["caam_decision.py"],
         "weekly_reserve": ["caam_decision.py"],
@@ -101,34 +93,38 @@ def test_rendering_imports_shared_caam_helpers_from_decision_module():
         for alias in node.names
     }
 
-    assert imported_names >= RENDERING_SHARED_HELPER_NAMES
+    assert imported_names >= SHARED_HELPER_NAMES
 
 
+# The short-window knob names REMAINING too, so its configured value is the
+# complement of the spent figures these scenarios are written in: `15` below is
+# the same boundary the retired `CAAM_ROTATE_FIVE_HOUR_THRESHOLD=85` named, and
+# every expectation is unchanged because the boundary is.
 @pytest.mark.parametrize(
-    ("record", "threshold", "reserve", "expected"),
+    ("record", "remaining_floor", "reserve", "expected"),
     [
         (
             usage(five_hour=85.0, seven_day=20.0),
-            "85",
+            "15",
             "10",
             ("five_hour", left(spent=85.0), "5-hour window"),
         ),
         (
             usage(five_hour=84.9, seven_day=91.0),
-            "85",
+            "15",
             "10",
             ("seven_day", left(spent=91.0), "weekly reserve"),
         ),
         (
             usage(five_hour=84.9, seven_day=90.0),
-            "85",
+            "15",
             "10",
             ("five_hour", left(spent=84.9), "5-hour window"),
         ),
     ],
 )
 def test_binding_selects_the_triggering_allowance_at_call_time(
-    *, monkeypatch, record, threshold, reserve, expected
+    *, monkeypatch, record, remaining_floor, reserve, expected
 ):
     """The reported figure is the binding allowance's REMAINING balance.
 
@@ -136,7 +132,7 @@ def test_binding_selects_the_triggering_allowance_at_call_time(
     reported alongside it changed ends, and it is the same reading the table and
     the trigger line now print.
     """
-    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", threshold)
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_REMAINING", remaining_floor)
     monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", reserve)
 
     assert binding(usage=record) == expected
@@ -145,10 +141,10 @@ def test_binding_selects_the_triggering_allowance_at_call_time(
 def test_trigger_configuration_is_resolved_at_call_time(*, monkeypatch):
     record = usage(five_hour=70.0, seven_day=20.0)
 
-    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "80")
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_REMAINING", "20")
     assert not triggered(usage=record)
 
-    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "70")
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_REMAINING", "30")
     assert triggered(usage=record)
 
 
@@ -157,7 +153,7 @@ def test_weekly_left_derives_remaining_percent_from_weekly_usage():
 
 
 def test_eligibility_is_relative_instead_of_an_absolute_threshold(*, monkeypatch):
-    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "50")
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_REMAINING", "50")
     current = usage(five_hour=55.0, seven_day=25.0)
     candidate = usage(five_hour=51.0, seven_day=25.0)
 
@@ -282,7 +278,7 @@ def test_protected_candidates_are_last_resort_and_keep_existing_ranking():
 def test_active_protected_account_triggers_at_its_floor_and_reports_protection_binding(
     *, monkeypatch
 ):
-    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85")
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_REMAINING", "15")
     monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10")
     active = usage(five_hour=40.0, seven_day=88.0)
 
@@ -432,7 +428,7 @@ def test_absent_protection_preserves_current_candidate_decisions(*, monkeypatch)
 
 
 def test_absent_protection_preserves_current_trigger_and_binding(*, monkeypatch):
-    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85")
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_REMAINING", "15")
     monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10")
     cases = (
         usage(five_hour=85.0, seven_day=20.0),
@@ -701,7 +697,7 @@ def test_cached_row_past_reset_renders_unknown_and_stale_source():
 
 
 def test_trigger_header_matches_source_format_string(*, monkeypatch):
-    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85.5")
+    monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_REMAINING", "14.5")
     monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", "10.6")
     monkeypatch.setenv("CAAM_ROTATE_MIN_HEADROOM_GAIN", "9.6")
 
@@ -733,8 +729,8 @@ def test_decision_lines_match_source_format_strings():
         "(weekly 34%, reserve 11%)"
     )
     assert hasattr(caam_rendering, "decision_forced")
-    assert caam_rendering.decision_forced(threshold=85.5) == (
-        "forced: ignoring the 86% trigger, rotating to the best target now"
+    assert caam_rendering.decision_forced(remaining_floor=14.5) == (
+        "forced: ignoring the 14%-remaining trigger, rotating to the best target now"
     )
     assert hasattr(caam_rendering, "decision_trigger")
     assert (

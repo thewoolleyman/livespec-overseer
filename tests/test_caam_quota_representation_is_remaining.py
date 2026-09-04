@@ -36,15 +36,18 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "overseer"
 FULL_ALLOWANCE = 100.0
 
-# The two functions allowed to turn a spent-direction percentage into a remaining
-# one, each named for exactly that job. Everything else in the quota path reads a
-# stored figure that already runs the right way.
+# The ONE function allowed to turn a spent-direction percentage into a remaining
+# one, named for exactly that job. Everything else in the quota path reads a
+# stored figure or a knob that already runs the right way.
+#
+# It was two until the five-hour knob's clean-break rename: the second entry was a
+# bridge complementing `CAAM_ROTATE_FIVE_HOUR_THRESHOLD`, which named percent SPENT.
+# With the knob itself flipped to `CAAM_ROTATE_FIVE_HOUR_REMAINING` there is nothing
+# left for it to turn around, so the allowlist shrank rather than being rewritten --
+# which is the direction this set is only ever allowed to move in.
 COMPLEMENT_SITES = {
     # The parse boundary: the Anthropic usage response reports utilization.
     ("caam_usage.py", "remaining_from_utilization"),
-    # The knob bridge: `CAAM_ROTATE_FIVE_HOUR_THRESHOLD` is still exported as
-    # percent SPENT, and its clean-break rename is its own change.
-    ("caam_decision.py", "five_hour_remaining_floor"),
 }
 
 
@@ -204,7 +207,7 @@ def _complement_sites(*, path: Path) -> set[tuple[str, str]]:
 
 
 def test_the_spent_to_remaining_complement_happens_only_where_it_is_named():
-    """Two named boundaries, and nothing else in the quota path may complement.
+    """One named boundary, and nothing else in the quota path may complement.
 
     Scoped to the caam modules deliberately: the supervisor tree does its own
     percentage arithmetic about CONTEXT headroom, which is a different quantity

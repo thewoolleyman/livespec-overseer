@@ -60,7 +60,6 @@ __all__: list[str] = [
     "dimension_remaining",
     "eligible_profiles",
     "five_hour_remaining_floor",
-    "five_hour_threshold",
     "floor_breach",
     "floor_breach_reason",
     "fmt_duration",
@@ -231,23 +230,24 @@ def resets_at(*, timestamp: str | None) -> float:
     return parsed.timestamp()
 
 
-def five_hour_threshold() -> float:
-    return float(os.environ.get("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85"))
-
-
 def five_hour_remaining_floor() -> float:
     """The short-window balance at or below which a pass rotates.
 
-    THE BRIDGE, and the only complement left in the decision path. Every stored
-    figure and every predicate now runs in the REMAINING direction, but the
-    operator knob `CAAM_ROTATE_FIVE_HOUR_THRESHOLD` is still published as percent
-    SPENT, so exactly one function turns it around and everything else -- the
-    trigger, the binding allowance, the scoped waiver bound, the rendered trigger
-    header -- compares against this. Its clean-break rename to a remaining-named
-    knob is a change of its own; until that lands, this is where the two
-    directions meet and the only place they are allowed to.
+    NO BRIDGE, and no complement anywhere in the decision path. The operator knob
+    is published in the same direction every stored figure and every predicate
+    runs in, so this reads it and hands it straight to the trigger, the binding
+    allowance, the scoped waiver bound and the rendered trigger header.
+
+    The clean break is deliberate and has no alias: `CAAM_ROTATE_FIVE_HOUR_REMAINING`
+    is the only name read, and the retired spent-direction name it replaces is not
+    consulted even as a fallback. Honouring both would put the two directions back in
+    circulation under one number, which is the whole defect the remaining-everywhere
+    ruling removes -- and it would hide at the default, where the two readings
+    describe the same account. The rename and its value transform are documented for
+    operators in `.claude-plugin/prose/caam-anthropic-loop.md`, which is the only
+    place the retired name survives.
     """
-    return 100.0 - five_hour_threshold()
+    return float(os.environ.get("CAAM_ROTATE_FIVE_HOUR_REMAINING", "15"))
 
 
 def weekly_reserve() -> float:

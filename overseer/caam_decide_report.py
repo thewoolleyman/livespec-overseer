@@ -27,7 +27,7 @@ from caam_decision import (
     decision_hold_no_candidate,
     decision_hold_unsatisfiable_pin,
     decision_trigger,
-    five_hour_threshold,
+    five_hour_remaining_floor,
     floor_breach,
     floor_breach_reason,
     min_headroom_gain,
@@ -156,7 +156,7 @@ def trigger_line(
     *, flags: Flags, label: str, remaining: float, current: UsageRecord, dimension: str
 ) -> str:
     if flags.force:
-        return decision_forced(threshold=five_hour_threshold())
+        return decision_forced(remaining_floor=five_hour_remaining_floor())
     return decision_trigger(
         label=label,
         remaining=remaining,
