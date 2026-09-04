@@ -60,7 +60,15 @@ def enforce_orchestrated_models(
     panes: tuple[SessionModel, ...],
     context: ModelContext,
 ) -> list[str]:
-    has_fable = fable_left(active_fable=context.active_fable)
+    # Per ratified v045 the reading that decides the foreman default, the derived
+    # want and operator-set respect is FLEET-WIDE selectable servability of the
+    # scoped model when the rotation pass supplies it; the active account's own
+    # balance remains the reading for every caller that supplies nothing.
+    has_fable = (
+        context.scoped_servable
+        if context.scoped_servable is not None
+        else fable_left(active_fable=context.active_fable)
+    )
     foreman = apply_foreman_model_override(
         state=context.state,
         requested_model=context.foreman_model,

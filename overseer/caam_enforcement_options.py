@@ -66,6 +66,11 @@ class ModelContext:
     # Absent for every caller that is not a span-carrying rotation pass, which is
     # every direct `enforce_models` caller and every test that wants no telemetry.
     note_facts: PassFactsSink | None
+    # Per ratified v045: whether some SELECTABLE account in the fleet can serve the
+    # scoped model. The rotation pass computes it over every polled profile and
+    # passes it in; a caller that passes nothing keeps the active-account reading,
+    # so every direct `enforce_models` caller and test is untouched.
+    scoped_servable: bool | None = None
 
 
 def model_context(
@@ -104,6 +109,7 @@ def model_context(
         model_reader=_pane_model_option(options=options),
         state=_loaded_state(options=options, state_path=state_path),
         note_facts=_note_facts_option(options=options),
+        scoped_servable=_scoped_servable_option(options=options),
         run=ModelRun(
             now=_float_option(options=options, key="now"),
             set_model=set_model,
@@ -137,6 +143,16 @@ def _active_fable_option(*, options: dict[str, object]) -> float | None:
     if isinstance(value, float):
         return value
     return None
+
+
+def _scoped_servable_option(*, options: dict[str, object]) -> bool | None:
+    """The fleet-wide scoped servability reading, or None when the caller gave none.
+
+    Distinct from `_bool_option`, which folds an absent key into False: here
+    absence must mean "consult the active account", never "nothing can serve".
+    """
+    value = options.get("scoped_servable")
+    return value if isinstance(value, bool) else None
 
 
 def _float_option(*, options: dict[str, object], key: str) -> float | None:

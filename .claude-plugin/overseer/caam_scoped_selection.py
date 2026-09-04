@@ -16,14 +16,27 @@ unaware of the pass-level question they are asked in service of.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from math import inf
 
-from caam_decision import triggered
+from caam_decision import (
+    every_live_account_under_reserve,
+    min_headroom_gain,
+    triggered,
+    weekly_reserve,
+)
 from caam_decision_models import ProfileUsage, UsageRecord
-from caam_decision_protection import NO_PROTECTION_FLOORS, can_serve_scoped_model
+from caam_decision_protection import (
+    NO_PROTECTION_FLOORS,
+    CandidatePolicy,
+    can_serve_scoped_model,
+    protection_floor_for,
+    select_candidate_set,
+)
 
 __all__: list[str] = [
     "none_can_serve_scoped_model",
     "scoped_alone_trigger",
+    "scoped_servable_fleet_wide",
 ]
 
 
@@ -61,3 +74,52 @@ def none_can_serve_scoped_model(*, profiles: tuple[ProfileUsage, ...]) -> bool:
     candidate at all has none that can serve the pin either.
     """
     return not any(can_serve_scoped_model(usage=profile.usage) for profile in profiles)
+
+
+def scoped_servable_fleet_wide(
+    *,
+    profiles: tuple[ProfileUsage, ...],
+    active_name: str,
+    current: UsageRecord,
+    protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
+) -> bool:
+    """Whether some SELECTABLE account in the fleet can serve the scoped model.
+
+    Per ratified SPECIFICATION v045 "quota for the scoped model" is fleet-wide and
+    keyed on selectability: an account counts only if this section's rotation
+    rules could actually choose it -- not excluded by a per-account protection
+    floor, the zero-weekly disqualifier, the weekly-reserve rule or the
+    live-verification rule. The relative-headroom margin is deliberately NOT a
+    selectability test: the candidate policy below sets the scoped waiver ceiling
+    unbounded, so every Fable-capable candidate is judged on those exclusions
+    alone, exactly as the scoped clause waives the margin in the stranding case.
+    The ACTIVE account is never a candidate, so it counts whenever its own scoped
+    allowance can serve. The reserve is released only when every live account
+    sits under it, mirroring `eligible_profiles`, so a fleet entirely under the
+    reserve still finds its Fable holder rather than resetting every session.
+    """
+    if can_serve_scoped_model(usage=current):
+        return True
+
+    def _selectable(*, enforce_reserve: bool) -> tuple[ProfileUsage, ...]:
+        return select_candidate_set(
+            profiles=profiles,
+            active_name=active_name,
+            policy=CandidatePolicy(
+                current=current,
+                gain_needed=min_headroom_gain(),
+                dimension="five_hour",
+                enforce_reserve=enforce_reserve,
+                weekly_reserve=weekly_reserve(),
+                scoped_waiver_ceiling=inf,
+                current_protection_floor=protection_floor_for(
+                    name=active_name, protection_floors=protection_floors
+                ),
+            ),
+            protection_floors=protection_floors,
+        )
+
+    candidates = _selectable(enforce_reserve=True)
+    if not candidates and every_live_account_under_reserve(profiles=profiles):
+        candidates = _selectable(enforce_reserve=False)
+    return not none_can_serve_scoped_model(profiles=candidates)

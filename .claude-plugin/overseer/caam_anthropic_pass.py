@@ -234,6 +234,7 @@ def _pass_with_active(
         current=current,
         enforce_models=seams.enforce_models,
         extra_messages=protected_accounts.messages,
+        protection_floors=protected_accounts.values,
     )
 
     warm = WarmStage(
