@@ -250,13 +250,22 @@ def test_pre_push_accepts_marked_soft_band_python_change(tmp_path: Path) -> None
     assert completed.returncode == 0
 
 
-def test_pre_push_doc_only_fast_path_does_not_arm_lloc_release_tier(
+def test_pre_push_arms_lloc_release_tier_even_for_a_doc_only_push(
     tmp_path: Path,
 ) -> None:
+    # PR gate ≡ master gate (livespec plan pr-gate-master-parity R3, livespec-citqsd):
+    # the retired zero-.py branch used to short-circuit a doc-only push to the
+    # doc-only subset, which did NOT arm the LLOC release tier. With that branch
+    # gone, EVERY push — a doc-only changeset included — runs the full armed
+    # `just check`, so an unmarked soft-band crossing is refused with the same
+    # diagnostic it would raise on a Python-touching push. There is no longer a
+    # doc-only fast path that runs fewer gates than master.
     completed = _run_pre_push(
         tmp_path=tmp_path,
         changed_files="README.md",
         soft_owner_marked=False,
     )
 
-    assert completed.returncode == 0
+    assert completed.returncode == 1
+    assert ":: pre-push: failing diagnostics reported by the gate:" in completed.stderr
+    assert '"failing":true' in completed.stderr
