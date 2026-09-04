@@ -235,7 +235,8 @@ def test_fetch_usage_extracts_fable_only_from_matching_weekly_scope(*, tmp_path:
 
     assert why is None
     assert usage is not None
-    assert usage.fable == 92.0
+    # The response reports this limit 92% spent; the record stores what is LEFT.
+    assert usage.fable_remaining == 8.0
     assert usage.fable_resets_at == "fable-reset"
 
 
@@ -252,7 +253,7 @@ def test_absent_fable_limit_is_not_an_error(*, tmp_path: Path):
 
     assert why is None
     assert usage is not None
-    assert usage.fable is None
+    assert usage.fable_remaining is None
     assert usage.fable_resets_at is None
 
 

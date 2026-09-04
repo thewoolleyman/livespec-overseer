@@ -47,11 +47,11 @@ _SESSION = "livespec-overseer-foreman"
 
 def _usage() -> UsageRecord:
     return UsageRecord(
-        five_hour=20.0,
-        seven_day=30.0,
+        five_hour_remaining=80.0,
+        seven_day_remaining=70.0,
         five_hour_resets_at="2026-08-22T12:00:00Z",
         seven_day_resets_at="2026-08-24T00:00:00Z",
-        fable=10.0,
+        fable_remaining=90.0,
         fable_resets_at="2026-08-24T00:00:00Z",
     )
 

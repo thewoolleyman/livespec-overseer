@@ -31,7 +31,12 @@ __all__: list[str] = [
     "fable_left",
 ]
 
-_FABLE_EXHAUSTED: Final = 100.0
+# The scoped balance at which the allowance is gone. `active_fable` is a percent
+# REMAINING reading, like every other quota figure in the caam path, so
+# exhaustion is zero rather than a full hundred spent. This constant is
+# deliberately local: nothing here imports the decision core, and duplicating one
+# named zero is cheaper than an import edge from enforcement into selection.
+_FABLE_EXHAUSTED: Final = 0.0
 # The same advisory-error tuple `caam_enforcement` catches around a pass, narrowed to
 # the per-pane action this module takes. Named types, not `except Exception`: the
 # broad-catch gate grants a program exactly one boundary catch, in `main()`.
@@ -48,11 +53,13 @@ _ADVISORY_ERRORS: Final = (
 def fable_left(*, active_fable: float | None) -> bool:
     """Whether the active account can still serve the scoped model.
 
+    ``active_fable`` is the account's REMAINING scoped percentage, so the reading
+    is "something left", mirroring ``can_serve_scoped_model`` over a usage record.
     One reading of one policy threshold, shared with the ``--no-models`` path in
     ``caam_enforcement`` so a pass that only persists an exception judges the
     balance exactly as an enforcing pass does.
     """
-    return active_fable is not None and active_fable < _FABLE_EXHAUSTED
+    return active_fable is not None and active_fable > _FABLE_EXHAUSTED
 
 
 def enforce_orchestrated_models(

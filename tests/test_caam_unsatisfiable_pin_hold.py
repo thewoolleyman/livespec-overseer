@@ -33,11 +33,11 @@ _SERVES = 10.0
 
 def _usage(*, seven_day: float, five_hour: float, fable: float | None = _SPENT) -> UsageRecord:
     return UsageRecord(
-        five_hour=five_hour,
-        seven_day=seven_day,
+        five_hour_remaining=100.0 - five_hour,
+        seven_day_remaining=100.0 - seven_day,
         five_hour_resets_at=None,
         seven_day_resets_at=None,
-        fable=fable,
+        fable_remaining=None if fable is None else 100.0 - fable,
         fable_resets_at=None,
     )
 

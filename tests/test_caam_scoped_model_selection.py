@@ -41,11 +41,11 @@ def usage(
 ) -> UsageRecord:
     """A usage record in the stored SPENT convention; `scoped` is the Fable allowance."""
     return UsageRecord(
-        five_hour=five_hour,
-        seven_day=seven_day,
+        five_hour_remaining=100.0 - five_hour,
+        seven_day_remaining=100.0 - seven_day,
         five_hour_resets_at="2026-08-21T12:00:00Z",
         seven_day_resets_at=seven_day_resets_at,
-        fable=scoped,
+        fable_remaining=None if scoped is None else 100.0 - scoped,
         fable_resets_at="2026-08-23T12:00:00Z",
     )
 
@@ -196,20 +196,20 @@ def test_with_no_pin_in_effect_ranking_stays_on_soonest_weekly_reset_alone():
 
 
 def test_no_scoped_dimension_ever_reaches_the_comparison_helpers(*, monkeypatch):
-    """`dimension_spent` returns inf outside five_hour/seven_day and `is_eligible` gates on
-    that same set, so a "scoped" dimension would make EVERY candidate ineligible -- rotation
-    frozen, the exact opposite of this rule's purpose. An earlier spec draft specified it
-    before review caught it, so the absence is pinned rather than assumed.
+    """`dimension_remaining` answers negative infinity outside five_hour/seven_day and
+    `is_eligible` gates on that same set, so a "scoped" dimension would make EVERY candidate
+    ineligible -- rotation frozen, the exact opposite of this rule's purpose. An earlier spec
+    draft specified it before review caught it, so the absence is pinned rather than assumed.
     """
     seen: list[str] = []
-    real_dimension_spent = protection.dimension_spent
+    real_dimension_remaining = protection.dimension_remaining
     real_is_eligible = protection.is_eligible
 
-    def recording_dimension_spent(
+    def recording_dimension_remaining(
         *, usage: UsageRecord, dimension: str, protection_floor: float = 0.0
     ) -> float:
         seen.append(dimension)
-        return real_dimension_spent(
+        return real_dimension_remaining(
             usage=usage, dimension=dimension, protection_floor=protection_floor
         )
 
@@ -217,11 +217,11 @@ def test_no_scoped_dimension_ever_reaches_the_comparison_helpers(*, monkeypatch)
         seen.append(str(kwargs["dimension"]))
         return real_is_eligible(**kwargs)  # pyright: ignore[reportArgumentType]
 
-    monkeypatch.setattr(protection, "dimension_spent", recording_dimension_spent)
+    monkeypatch.setattr(protection, "dimension_remaining", recording_dimension_remaining)
     monkeypatch.setattr(protection, "is_eligible", recording_is_eligible)
 
     active = usage(five_hour=40.0, scoped=100.0)
-    dimension, _spent, _label = binding(usage=active)
+    dimension, _remaining, _label = binding(usage=active)
     assert dimension == "five_hour"
 
     assert selected(

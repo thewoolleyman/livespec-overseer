@@ -1,33 +1,37 @@
-"""Outcome-level pins for the quota predicates the "remaining everywhere" flip will rewrite.
+"""Outcome-level pins for the quota predicates the "remaining everywhere" flip rewrote.
 
 `plan/quota-percentages-say-remaining/research/used-versus-remaining.md` records the
 maintainer ruling that these percentages must say REMAINING in labels and in keys,
 and names option (b) -- store remaining -- as what that literally asks for. Option
-(b) inverts every comparison in the selection path at once: `can_serve_scoped_model`,
-`fable_left`, `weekly_left`, the `_FULLY_SPENT` / `_FABLE_EXHAUSTED` sentinels and the
-short-window threshold tests all flip together, and a single missed inversion silently
-reverses a rotation rule.
+(b) inverted every comparison in the selection path at once: `can_serve_scoped_model`,
+`fable_left`, `weekly_left`, the exhaustion sentinels and the short-window threshold
+tests all flipped together, and a single missed inversion would have silently reversed
+a rotation rule.
 
-This file is the safety net that makes the flip PROVABLY outcome-preserving, covering
+This file is the safety net that made the flip PROVABLY outcome-preserving, covering
 the predicates the blast-radius inventory found with no direct coverage:
-`raw_weekly_left` (through the floor-breach report it produces), `scoped_waiver_ceiling`,
-each leg of `triggered`, `scoped_alone_trigger`, and all four exhaustion-sentinel
+`raw_weekly_left` (through the floor-breach report it produces), the scoped waiver
+bound, each leg of `triggered`, `scoped_alone_trigger`, and all four exhaustion-sentinel
 comparisons.
 
-TWO PROPERTIES MAKE IT SURVIVE THE FLIP UNCHANGED, and both are load-bearing:
+TWO PROPERTIES CARRIED IT THROUGH THE FLIP, and both are load-bearing:
 
 * **Every assertion is about a DECISION OUTCOME** -- does this account rotate, is this
   candidate eligible, can this account serve the pin, is a breach reported, is the hold
   licensed -- never about the direction a field stores. Nothing here asserts a stored
-  percentage, and the one figure it does assert (`floor_breach`'s reported remaining) is
-  already a REMAINING quantity today and stays one after the flip.
+  percentage, and the one figure it does assert (`floor_breach`'s reported remaining)
+  was already a REMAINING quantity before the flip and is one after it.
 * **Every input goes through ONE seam**, `stored_reading`, which is the only place in
-  this file that knows which direction a record stores. After the flip its body becomes
-  `return remaining` and not one test above it changes.
+  this file that knows which direction a record stores. Its body became `return
+  remaining` and not one test above it changed.
 
-Figures are therefore written as REMAINING throughout, and deliberately stay well clear
-of the configured thresholds (85 spent / 15 remaining short-window, 10 weekly reserve):
-a threshold's own NUMBER may move with the representation, so a test pressed against the
+The flip did move one SYMBOL that this file names: the scoped waiver bound, which reads
+as a floor on what a candidate must still have rather than a ceiling on what it may have
+spent. That rename is visible in the import list and in one assertion, and nowhere else.
+
+Figures are written as REMAINING throughout, and deliberately stay well clear of the
+configured thresholds (85 spent / 15 remaining short-window, 10 weekly reserve): a
+threshold's own NUMBER moves with the representation, so a test pressed against the
 boundary would be pinning the constant rather than the outcome. The exhaustion boundary
 IS pinned, because "nothing left" is zero remaining under either representation.
 """
@@ -45,10 +49,10 @@ from caam_decision import (
     binding,
     can_serve_scoped_model,
     eligible_profiles,
-    five_hour_threshold,
+    five_hour_remaining_floor,
     floor_breach,
     is_eligible,
-    scoped_waiver_ceiling,
+    scoped_waiver_floor,
     triggered,
 )
 from caam_enforcement_orchestrated import fable_left
@@ -57,18 +61,18 @@ from caam_scoped_selection import scoped_alone_trigger
 __all__: list[str] = []
 
 _RESETS_AT = "2026-09-06T12:00:00Z"
-_FULL_ALLOWANCE = 100.0
 
 
 def stored_reading(*, remaining: float) -> float:
     """THE ONE PLACE that knows which direction a usage figure is stored in.
 
-    Today the records hold percent SPENT, so a reading with `remaining` left is
-    stored as its complement. When the "remaining everywhere" flip lands this body
-    becomes `return remaining` and every test in this file keeps passing untouched --
-    which is the whole point of routing every input through here.
+    The records now hold percent REMAINING, so this is the identity it was
+    designed to become. It stays as a named seam rather than being inlined,
+    because the value of routing every input through one place was never that the
+    body was interesting -- it was that a later change of direction has exactly
+    one line to touch, and that no test above it has to be rewritten to find out.
     """
-    return _FULL_ALLOWANCE - remaining
+    return remaining
 
 
 def account(
@@ -84,11 +88,13 @@ def account(
     fully available.
     """
     return UsageRecord(
-        five_hour=stored_reading(remaining=short_window_remaining),
-        seven_day=stored_reading(remaining=weekly_remaining),
+        five_hour_remaining=stored_reading(remaining=short_window_remaining),
+        seven_day_remaining=stored_reading(remaining=weekly_remaining),
         five_hour_resets_at=_RESETS_AT,
         seven_day_resets_at=_RESETS_AT,
-        fable=None if scoped_remaining is None else stored_reading(remaining=scoped_remaining),
+        fable_remaining=(
+            None if scoped_remaining is None else stored_reading(remaining=scoped_remaining)
+        ),
         fable_resets_at=_RESETS_AT,
     )
 
@@ -214,19 +220,24 @@ def _active(*, scoped_remaining: float | None, scoped_pin: bool) -> ActiveAccoun
 
 
 def test_no_waiver_is_offered_while_no_pin_names_the_scoped_model():
-    assert scoped_waiver_ceiling(active=_active(scoped_remaining=0.0, scoped_pin=False)) is None
+    assert scoped_waiver_floor(active=_active(scoped_remaining=0.0, scoped_pin=False)) is None
 
 
 def test_no_waiver_is_offered_while_the_active_account_can_still_serve_the_pin():
-    assert scoped_waiver_ceiling(active=_active(scoped_remaining=0.1, scoped_pin=True)) is None
+    assert scoped_waiver_floor(active=_active(scoped_remaining=0.1, scoped_pin=True)) is None
 
 
 def test_a_stranded_pin_offers_a_waiver_bounded_at_the_rotation_threshold():
     """The bound is the rotation threshold itself, so the waiver can never admit an
-    account the pass would immediately have to leave again."""
-    assert scoped_waiver_ceiling(
+    account the pass would immediately have to leave again.
+
+    Named for what a candidate must still HAVE rather than what it may have spent,
+    which is the same bound read from the other end -- the one place in this file
+    where the flip moved a symbol rather than only a body.
+    """
+    assert scoped_waiver_floor(
         active=_active(scoped_remaining=0.0, scoped_pin=True)
-    ) == pytest.approx(five_hour_threshold())
+    ) == pytest.approx(five_hour_remaining_floor())
 
 
 def test_the_waiver_admits_a_scoped_capable_candidate_that_fails_the_headroom_margin():

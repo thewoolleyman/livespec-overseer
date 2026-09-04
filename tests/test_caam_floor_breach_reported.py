@@ -51,11 +51,11 @@ _EXHAUSTED_CAUSE = "every live-verified candidate is exhausted (anthropic-b)"
 
 def _usage(*, seven_day: float, five_hour: float = 40.0) -> UsageRecord:
     return UsageRecord(
-        five_hour=five_hour,
-        seven_day=seven_day,
+        five_hour_remaining=100.0 - five_hour,
+        seven_day_remaining=100.0 - seven_day,
         five_hour_resets_at=None,
         seven_day_resets_at=None,
-        fable=None,
+        fable_remaining=None,
         fable_resets_at=None,
     )
 

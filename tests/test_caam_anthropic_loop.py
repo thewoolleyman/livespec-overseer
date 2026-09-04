@@ -26,11 +26,11 @@ def usage(
     seven_day_resets_at: str | None = "2026-08-24T00:00:00Z",
 ) -> UsageRecord:
     return UsageRecord(
-        five_hour=five_hour,
-        seven_day=seven_day,
+        five_hour_remaining=100.0 - five_hour,
+        seven_day_remaining=100.0 - seven_day,
         five_hour_resets_at="2026-08-22T12:00:00Z",
         seven_day_resets_at=seven_day_resets_at,
-        fable=10.0,
+        fable_remaining=90.0,
         fable_resets_at="2026-08-24T00:00:00Z",
     )
 
@@ -691,8 +691,8 @@ def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp
     assert "  triggers: " in out[0]
     assert out[1:6] == [
         "",
-        "PROFILE       CURRENT       5H      5H RESET      WEEK    WEEK RESET      "
-        "FABLE   FABLE RESET   SOURCE",
+        "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
+        "FABLE LEFT   FABLE RESET   SOURCE",
         "active        ✅           90%        1h 20m       80%    1d 13h 20m       "
         "90%    1d 13h 20m   live",
         "backup                     90%        1h 20m       80%    1d 13h 20m       "

@@ -33,11 +33,11 @@ __all__: list[str] = [
 
 
 class RenderableUsageRecord(Protocol):
-    five_hour: float
-    seven_day: float
+    five_hour_remaining: float
+    seven_day_remaining: float
     five_hour_resets_at: str | None
     seven_day_resets_at: str | None
-    fable: float | None
+    fable_remaining: float | None
     fable_resets_at: str | None
 
 
@@ -50,7 +50,7 @@ class RenderableProfileUsage(Protocol):
 @dataclass(frozen=True, kw_only=True)
 class SwitchTargetSummary:
     name: str
-    weekly_used: float
+    weekly_remaining: float
     weekly_reset: str | None
     source: str
     now: datetime
@@ -91,8 +91,8 @@ def render_table(
 ) -> str:
     lines = [
         "",
-        f"{'PROFILE':<13} {'CURRENT':<{CURRENT_COL}} {'5H':>7} {'5H RESET':>13} "
-        f"{'WEEK':>9} {'WEEK RESET':>13} {'FABLE':>10} {'FABLE RESET':>13}   SOURCE",
+        f"{'PROFILE':<13} {'CURRENT':<{CURRENT_COL}} {'5H LEFT':>7} {'5H RESET':>13} "
+        f"{'WEEK LEFT':>9} {'WEEK RESET':>13} {'FABLE LEFT':>10} {'FABLE RESET':>13}   SOURCE",
     ]
     lines.extend(row_line(row=row, active_name=active_name, now=now) for row in rows)
     lines.append("")
@@ -100,20 +100,23 @@ def render_table(
 
 
 def trigger_header(*, stamp: str) -> str:
-    from caam_decision import five_hour_threshold, min_headroom_gain, weekly_reserve
+    # The floor is imported rather than complemented here: the ONE bridge from
+    # the still-spent-direction knob lives in `caam_decision`, so no display
+    # surface turns a percentage around on its own.
+    from caam_decision import five_hour_remaining_floor, min_headroom_gain, weekly_reserve
 
     return (
-        f"{stamp}  triggers: 5h-remaining < {100 - five_hour_threshold():.0f}% or "
+        f"{stamp}  triggers: 5h-remaining < {five_hour_remaining_floor():.0f}% or "
         f"weekly-remaining < {weekly_reserve():.0f}% "
         f"(candidate must gain >={min_headroom_gain():.0f} pts)"
     )
 
 
 def decision_hold_allowance(
-    *, label: str, spent: float, weekly_remaining: float, reserve: float
+    *, label: str, remaining: float, weekly_remaining: float, reserve: float
 ) -> str:
     return (
-        f"hold: {label} is the binding allowance and still has {100 - spent:.0f}% left "
+        f"hold: {label} is the binding allowance and still has {remaining:.0f}% left "
         f"(weekly {weekly_remaining:.0f}%, reserve {reserve:.0f}%)"
     )
 
@@ -122,9 +125,11 @@ def decision_forced(*, threshold: float) -> str:
     return f"forced: ignoring the {threshold:.0f}% trigger, rotating to the best target now"
 
 
-def decision_trigger(*, label: str, spent: float, weekly_remaining: float, dimension: str) -> str:
+def decision_trigger(
+    *, label: str, remaining: float, weekly_remaining: float, dimension: str
+) -> str:
     return (
-        f"trigger: {label} -- {spent:.0f}% spent, weekly {weekly_remaining:.0f}% left -- "
+        f"trigger: {label} -- {remaining:.0f}% left, weekly {weekly_remaining:.0f}% left -- "
         f"comparing candidates on {dimension}"
     )
 
@@ -191,18 +196,18 @@ def decision_hold_unsatisfiable_pin(*, active_name: str, reasons: tuple[str, ...
 def decision_dry_run(*, active_name: str, target: SwitchTargetSummary) -> str:
     return (
         f"DRY-RUN would switch {active_name} -> {target.name} "
-        f"({100 - target.weekly_used:.0f}% week left, resets in "
+        f"({target.weekly_remaining:.0f}% week left, resets in "
         f"{until(timestamp=target.weekly_reset, now=target.now)} -- soonest, {target.source})"
     )
 
 
 def decision_switched(
-    *, active_name: str, current_five_hour_used: float, target: SwitchTargetSummary
+    *, active_name: str, current_five_hour_remaining: float, target: SwitchTargetSummary
 ) -> str:
     return (
         f"SWITCHED {active_name} -> {target.name} "
-        f"(5h left was {100 - current_five_hour_used:.0f}%; target has "
-        f"{100 - target.weekly_used:.0f}% week left resetting in "
+        f"(5h left was {current_five_hour_remaining:.0f}%; target has "
+        f"{target.weekly_remaining:.0f}% week left resetting in "
         f"{until(timestamp=target.weekly_reset, now=target.now)} -- soonest, {target.source})"
     )
 
@@ -219,12 +224,15 @@ def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) ->
             f"{'?':>7} {'reset':>13} {'?':>9} {'reset':>13} {'?':>10} {'reset':>13}   "
             f"{row.source}, stale"
         )
-    fable = f"{100 - row.usage.fable:.0f}%" if row.usage.fable is not None else "-"
+    # Every cell is the stored figure printed as it stands: the record already
+    # holds what each allowance has LEFT, which is what these columns are named
+    # for and what the operator reads them as.
+    fable = f"{row.usage.fable_remaining:.0f}%" if row.usage.fable_remaining is not None else "-"
     return (
         f"{row.name:<13} {current_cell(is_active=row.name == active_name)} "
-        f"{100 - row.usage.five_hour:6.0f}% "
+        f"{row.usage.five_hour_remaining:6.0f}% "
         f"{until(timestamp=row.usage.five_hour_resets_at, now=now):>13} "
-        f"{100 - row.usage.seven_day:8.0f}% "
+        f"{row.usage.seven_day_remaining:8.0f}% "
         f"{until(timestamp=row.usage.seven_day_resets_at, now=now):>13} "
         f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13}   "
         f"{row.source}"

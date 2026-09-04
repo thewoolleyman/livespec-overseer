@@ -402,11 +402,11 @@ def caam_home(*, tmp_path: Path, model: str) -> Path:
 
 def usage_fetcher(*, fable: float) -> Callable[..., tuple[UsageRecord | None, str | None]]:
     record = UsageRecord(
-        five_hour=10.0,
-        seven_day=10.0,
+        five_hour_remaining=90.0,
+        seven_day_remaining=90.0,
         five_hour_resets_at=None,
         seven_day_resets_at=None,
-        fable=fable,
+        fable_remaining=None if fable is None else 100.0 - fable,
         fable_resets_at=None,
     )
 

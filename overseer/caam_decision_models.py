@@ -14,11 +14,26 @@ __all__: list[str] = [
 
 @dataclass(frozen=True, kw_only=True)
 class UsageRecord:
-    five_hour: float
-    seven_day: float
+    """What each of an account's allowances has LEFT, as a percentage.
+
+    The field names carry the direction, which is the whole point of them: a
+    field called `five_hour` said nothing about which way its number ran, so
+    every reader had to trace it back to the response it was parsed from. The
+    figures are still DERIVED from the usage response's utilization percentages,
+    exactly as the specification requires; the complement happens once, at the
+    parse boundary that is named for doing it (`caam_usage`), and the two
+    directions never travel together past that point.
+
+    `fable_remaining` is None for an account whose scoped-model allowance could
+    not be read at all, which is a different fact from zero remaining and is
+    kept distinct: every predicate downstream fails closed on the None.
+    """
+
+    five_hour_remaining: float
+    seven_day_remaining: float
     five_hour_resets_at: str | None
     seven_day_resets_at: str | None
-    fable: float | None
+    fable_remaining: float | None
     fable_resets_at: str | None
 
 

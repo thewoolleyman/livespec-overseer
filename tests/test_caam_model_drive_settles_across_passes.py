@@ -141,7 +141,7 @@ def run_pass(*, module: ModuleType, tmp_path: Path, state_path: Path, now: float
         home=tmp_path,
         state_path=state_path,
         session_names=(SESSION,),
-        active_fable=10.0,
+        active_fable=90.0,
         foreman_model=None,
         session_models=(),
         dry_run=False,

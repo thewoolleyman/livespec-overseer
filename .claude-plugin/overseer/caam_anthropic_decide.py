@@ -60,7 +60,7 @@ def decide(
     seams: DecisionSeams,
 ) -> int:
     scoped_pin = scoped_model_pinned(state=context.state)
-    dimension, spent, label = binding(
+    dimension, remaining, label = binding(
         usage=current,
         active_name=active_name,
         protection_floors=protection_floors,
@@ -75,7 +75,7 @@ def decide(
             context=context,
             save_state=seams.save_state,
             label=label,
-            spent=spent,
+            remaining=remaining,
             current=current,
         )
     # Provenance, not just capability: the hold below is licensed only where the
@@ -90,7 +90,7 @@ def decide(
     decision_line = trigger_line(
         flags=context.flags,
         label=label,
-        spent=spent,
+        remaining=remaining,
         current=current,
         dimension=dimension,
     )
