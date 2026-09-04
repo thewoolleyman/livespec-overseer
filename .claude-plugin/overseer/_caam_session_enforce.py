@@ -98,6 +98,12 @@ def recently_set(*, state: dict[str, object], session: str, want: str, now: floa
     return at is not None and now - at <= set_suppress_s()
 
 
+# Mirrors caam_foreman_override.OBSERVED_MODELS_KEY, duplicated here rather than
+# imported for the same reason that module duplicates the session-model keys: the
+# dependency between them runs one way only.
+_OBSERVED_MODELS_KEY = "observed_models"
+
+
 def enforce_session_models(
     *,
     panes: tuple[SessionModel, ...],
@@ -113,6 +119,13 @@ def enforce_session_models(
     dry_run = _bool_option(options=model_options, key="dry_run")
     reporter = _PaneReporter(emit=_emitter_option(options=model_options), want=want, at=checked_at)
     messages: list[str] = []
+    # Per ratified v045 a session observed on the scoped model arms the rotation
+    # trigger, and the decision runs after this pass; record every KNOWN observed
+    # model, rebuilt from this pass alone so a session that went unreadable or
+    # away stops arming rather than lingering on a stale reading.
+    state[_OBSERVED_MODELS_KEY] = {
+        pane.session: pane.model for pane in panes if pane.model is not None
+    }
     for pane in panes:
         held = _held_decision(pane=pane, state=state, want=want, at=checked_at)
         if held is not None:

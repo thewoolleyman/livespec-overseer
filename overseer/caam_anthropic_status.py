@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol, cast
@@ -9,7 +10,9 @@ from typing import Protocol, cast
 from _caam_pass_span import PassSpan, linked_emitter
 from caam_candidate_diagnosis import unverifiable_candidate_names
 from caam_decision import ProfileUsage, UsageRecord, render_table
+from caam_decision_protection import NO_PROTECTION_FLOORS
 from caam_rendering import RenderableProfileUsage
+from caam_scoped_selection import scoped_servable_fleet_wide
 
 __all__: list[str] = [
     "EnforceModels",
@@ -82,7 +85,7 @@ class EnforceModels(Protocol):
     ) -> list[str]: ...
 
 
-def write_status(
+def write_status(  # noqa: PLR0913 — one kw-only argument per rotation-pass input the status line renders.
     *,
     context: StatusContext,
     profiles: tuple[ProfileUsage, ...],
@@ -90,13 +93,29 @@ def write_status(
     current: UsageRecord,
     enforce_models: EnforceModels,
     extra_messages: tuple[str, ...] = (),
+    protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
 ) -> None:
     now_dt = datetime.fromtimestamp(context.now, tz=timezone.utc)
     rows = cast(tuple[RenderableProfileUsage, ...], profiles)
     lines = render_table(rows=rows, active_name=active_name, now=now_dt).splitlines()
+    # Per ratified v045 enforcement consults FLEET-WIDE selectable servability of
+    # the scoped model, computed here over every profile this pass polled, rather
+    # than the active account's balance alone -- so a session on the scoped model
+    # is left for rotation to serve while any selectable account still can.
+    servable = scoped_servable_fleet_wide(
+        profiles=profiles,
+        active_name=active_name,
+        current=current,
+        protection_floors=protection_floors,
+    )
     for line in (
         *lines,
-        *model_messages(context=context, active_fable=current.fable, enforce_models=enforce_models),
+        *model_messages(
+            context=context,
+            active_fable=current.fable,
+            enforce_models=enforce_models,
+            scoped_servable=servable,
+        ),
         *extra_messages,
     ):
         context.stdout(line)
@@ -118,7 +137,11 @@ def unverified_note(*, profiles: tuple[ProfileUsage, ...], active_name: str) -> 
 
 
 def model_messages(
-    *, context: StatusContext, active_fable: float | None, enforce_models: EnforceModels
+    *,
+    context: StatusContext,
+    active_fable: float | None,
+    enforce_models: EnforceModels,
+    scoped_servable: bool | None = None,
 ) -> tuple[str, ...]:
     messages = enforce_models(
         settings_path=context.home / ".claude/settings.json",
@@ -127,6 +150,7 @@ def model_messages(
         state=context.state,
         state_path=context.state_path,
         active_fable=active_fable,
+        scoped_servable=scoped_servable,
         foreman_model=context.flags.foreman_model,
         session_models=context.flags.session_models,
         dry_run=context.flags.dry_run,

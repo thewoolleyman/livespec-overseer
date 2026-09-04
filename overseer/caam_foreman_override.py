@@ -6,12 +6,19 @@ from dataclasses import dataclass
 from typing import Final
 
 __all__: list[str] = [
+    "OBSERVED_MODELS_KEY",
     "SCOPED_MODEL",
     "WANTED_MODELS",
     "ForemanModelChoice",
     "apply_foreman_model_override",
     "scoped_model_pinned",
 ]
+
+# Enforcement records every pane's KNOWN observed model here each pass (it runs
+# before the rotation decision in the same pass), so the decision can see that a
+# tracked session is currently running the scoped model. Per ratified v045 that
+# observation arms the scoped-model trigger exactly as a pin does.
+OBSERVED_MODELS_KEY: Final = "observed_models"
 
 WANTED_MODELS: Final = frozenset(("fable", "opus"))
 # The scoped-model allowance the specification names generically is this
@@ -39,10 +46,15 @@ def scoped_model_pinned(*, state: dict[str, object]) -> bool:
 
     Per ratified SPECIFICATION v040, "an operator pin naming the scoped model"
     is armed when EITHER the global foreman-model pin is the scoped model OR any
-    per-session pin (a `session_models` entry) names it. A per-session pin arms
-    the scoped-model selection clause exactly as the global pin does; the
-    precedence is unchanged (a protection floor still outranks the pin, which
-    waives only the relative-headroom margin, and anti-oscillation is preserved).
+    per-session pin (a `session_models` entry) names it. Per v045 it is ALSO
+    armed when any tracked session is currently observed running the scoped
+    model, whether it arrived there by pin, by an operator's choice, or as the
+    default -- enforcement records those observations under OBSERVED_MODELS_KEY.
+    Every arming route arms the scoped-model selection clause exactly as the
+    global pin does; the precedence is unchanged (a protection floor still
+    outranks the pin, which waives only the relative-headroom margin, and
+    anti-oscillation is preserved). An unreadable model is never recorded, so it
+    arms nothing.
     """
     if state.get("foreman_model") == SCOPED_MODEL:
         return True
@@ -50,7 +62,8 @@ def scoped_model_pinned(*, state: dict[str, object]) -> bool:
         pins = state.get(key)
         if isinstance(pins, dict) and SCOPED_MODEL in pins.values():
             return True
-    return False
+    observed = state.get(OBSERVED_MODELS_KEY)
+    return isinstance(observed, dict) and SCOPED_MODEL in observed.values()
 
 
 def apply_foreman_model_override(

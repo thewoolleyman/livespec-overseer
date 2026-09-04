@@ -178,7 +178,9 @@ def test_busy_pane_reports_busy_without_recording_and_retries_next_tick(*, tmp_p
         first[-1]
         == "models: foremen want fable (active account Fable left); alpha-foreman busy(opus->fable)"
     )
-    assert after_first == {}
+    # A busy pane gets NO set-record (that is what lets the next tick retry it);
+    # per ratified v045 enforcement still records every pane's observed model.
+    assert "models" not in after_first
     assert (
         second[-1]
         == "models: foremen want fable (active account Fable left); alpha-foreman opus->fable"
