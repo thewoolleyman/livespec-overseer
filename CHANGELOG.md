@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.73.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.73.0...v1.73.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **dispatch:** declare prepare_toolchain + conformance premises to unblock the factory sandbox ([42aaa54](https://github.com/thewoolleyman/livespec-overseer/commit/42aaa54e770281eeb14e7873efd49404c980abe2))
+
 ## [1.73.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.72.0...v1.73.0) (2026-09-04)
 
 
