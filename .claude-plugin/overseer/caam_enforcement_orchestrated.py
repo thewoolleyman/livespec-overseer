@@ -189,16 +189,18 @@ def _respect_operator_set(
 
     The scoped-exhaustion exception is bounded to the session's OWN model and
     keyed on SERVABILITY, not on the global scoped-allowance-exhausted
-    condition: enforcement moves an operator-set session only where the active
-    account cannot serve the model that session is actually on. ``scoped_servable``
-    is the pass's reading of the active account's scoped balance -- the same
-    "present and not fully spent" signal ``can_serve_scoped_model`` applies to a
-    usage record for the scoped-model selection clauses -- and it can only
-    disqualify a session observed on the scoped model itself. A session on any
-    other model is untouched by that allowance being spent, so no servability
-    concern reaches it and it is left alone; the exhausted pass resets the
-    derived and never-operator-set sessions, and must not sweep this one up with
-    them.
+    condition: enforcement moves an operator-set session only where no
+    selectable account in the fleet can serve the model that session is
+    actually on. ``scoped_servable`` is the pass's FLEET-WIDE
+    scoped-servability reading -- what the caller supplies when the rotation
+    pass has one, with the ACTIVE account's own scoped balance ("present and
+    not fully spent", the same signal ``can_serve_scoped_model`` applies to a
+    usage record for the scoped-model selection clauses) read only as the
+    fallback -- and it can only disqualify a session observed on the scoped
+    model itself. A session on any other model is untouched by that allowance
+    being spent, so no servability concern reaches it and it is left alone; the
+    exhausted pass resets the derived and never-operator-set sessions, and must
+    not sweep this one up with them.
 
     An unknown observed model needs no branch here: it is never classified as
     operator-set downstream, so respecting it decides nothing.
