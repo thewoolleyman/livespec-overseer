@@ -13,7 +13,7 @@ from caam_decision_protection import (
     CandidatePolicy,
     can_serve_scoped_model,
     candidate_allowed,
-    dimension_spent,
+    dimension_remaining,
     empty_release_note,
     floor_breach,
     is_eligible,
@@ -57,8 +57,9 @@ __all__: list[str] = [
     "decision_hold_unsatisfiable_pin",
     "decision_switched",
     "decision_trigger",
-    "dimension_spent",
+    "dimension_remaining",
     "eligible_profiles",
+    "five_hour_remaining_floor",
     "five_hour_threshold",
     "floor_breach",
     "floor_breach_reason",
@@ -68,7 +69,7 @@ __all__: list[str] = [
     "rank_profiles",
     "render_table",
     "resets_at",
-    "scoped_waiver_ceiling",
+    "scoped_waiver_floor",
     "trigger_header",
     "triggered",
     "unsatisfiable_pin_reason",
@@ -85,17 +86,17 @@ def binding(
     protection_floors: Mapping[str, float] = NO_PROTECTION_FLOORS,
 ) -> tuple[str, float, str]:
     protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
-    if usage.five_hour >= five_hour_threshold():
-        return ("five_hour", usage.five_hour, "5-hour window")
+    if usage.five_hour_remaining <= five_hour_remaining_floor():
+        return ("five_hour", usage.five_hour_remaining, "5-hour window")
     if protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor:
         return (
             "seven_day",
-            usage.seven_day,
+            usage.seven_day_remaining,
             f"protection floor for {active_name} ({protection_floor:g}%)",
         )
     if weekly_left(usage=usage) < weekly_reserve():
-        return ("seven_day", usage.seven_day, "weekly reserve")
-    return ("five_hour", usage.five_hour, "5-hour window")
+        return ("seven_day", usage.seven_day_remaining, "weekly reserve")
+    return ("five_hour", usage.five_hour_remaining, "5-hour window")
 
 
 def triggered(
@@ -112,15 +113,19 @@ def triggered(
     # scoped allowance, which the same clause still forbids.
     protection_floor = protection_floor_for(name=active_name, protection_floors=protection_floors)
     return (
-        usage.five_hour >= five_hour_threshold()
+        usage.five_hour_remaining <= five_hour_remaining_floor()
         or weekly_left(usage=usage) < weekly_reserve()
         or (protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor)
         or (scoped_pin and not can_serve_scoped_model(usage=usage))
     )
 
 
-def scoped_waiver_ceiling(*, active: ActiveAccount) -> float | None:
-    """The short-window ceiling under which the headroom margin may be waived, if at all.
+def scoped_waiver_floor(*, active: ActiveAccount) -> float | None:
+    """The short-window balance a candidate must still have for the margin to be waived.
+
+    The same bound the spent direction called a ceiling, read from the other end:
+    "may have spent less than the rotation threshold" and "must still have more
+    left than the rotation floor" name one line.
 
     None means no waiver, and it is the answer in the two cases the ratified
     clause draws a line between: no operator pin names the scoped model, or the
@@ -129,7 +134,7 @@ def scoped_waiver_ceiling(*, active: ActiveAccount) -> float | None:
     whose whole purpose is to make oscillation impossible.
     """
     if active.scoped_pin and not can_serve_scoped_model(usage=active.usage):
-        return five_hour_threshold()
+        return five_hour_remaining_floor()
     return None
 
 
@@ -161,7 +166,7 @@ def eligible_profiles(
                 dimension=dimension,
                 enforce_reserve=enforce_reserve,
                 weekly_reserve=reserve,
-                scoped_waiver_ceiling=scoped_waiver_ceiling(active=active),
+                scoped_waiver_floor=scoped_waiver_floor(active=active),
                 current_protection_floor=protection_floor_for(
                     name=active.name, protection_floors=protection_floors
                 ),
@@ -228,6 +233,21 @@ def resets_at(*, timestamp: str | None) -> float:
 
 def five_hour_threshold() -> float:
     return float(os.environ.get("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", "85"))
+
+
+def five_hour_remaining_floor() -> float:
+    """The short-window balance at or below which a pass rotates.
+
+    THE BRIDGE, and the only complement left in the decision path. Every stored
+    figure and every predicate now runs in the REMAINING direction, but the
+    operator knob `CAAM_ROTATE_FIVE_HOUR_THRESHOLD` is still published as percent
+    SPENT, so exactly one function turns it around and everything else -- the
+    trigger, the binding allowance, the scoped waiver bound, the rendered trigger
+    header -- compares against this. Its clean-break rename to a remaining-named
+    knob is a change of its own; until that lands, this is where the two
+    directions meet and the only place they are allowed to.
+    """
+    return 100.0 - five_hour_threshold()
 
 
 def weekly_reserve() -> float:

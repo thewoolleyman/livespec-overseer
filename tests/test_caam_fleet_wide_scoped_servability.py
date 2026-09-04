@@ -43,11 +43,11 @@ def _module(name: str) -> ModuleType:
 def _usage(*, five_hour: float, seven_day: float = 10.0, scoped: float | None) -> object:
     models = _module("caam_decision_models")
     return models.UsageRecord(
-        five_hour=five_hour,
-        seven_day=seven_day,
+        five_hour_remaining=100.0 - five_hour,
+        seven_day_remaining=100.0 - seven_day,
         five_hour_resets_at=None,
         seven_day_resets_at=None,
-        fable=scoped,
+        fable_remaining=None if scoped is None else 100.0 - scoped,
         fable_resets_at=None,
     )
 
@@ -236,7 +236,7 @@ def test_a_fable_session_is_left_alone_when_the_scoped_model_is_servable_fleet_w
     """Active account spent, but a selectable account can serve: rotation, not a model change."""
     calls: list[tuple[str, str]] = []
 
-    _ = _enforce(calls=calls, active_fable=100.0, scoped_servable=True)
+    _ = _enforce(calls=calls, active_fable=0.0, scoped_servable=True)
 
     assert calls == []
 
@@ -244,7 +244,7 @@ def test_a_fable_session_is_left_alone_when_the_scoped_model_is_servable_fleet_w
 def test_a_fable_session_is_moved_when_the_scoped_model_is_unservable_fleet_wide() -> None:
     calls: list[tuple[str, str]] = []
 
-    _ = _enforce(calls=calls, active_fable=100.0, scoped_servable=False)
+    _ = _enforce(calls=calls, active_fable=0.0, scoped_servable=False)
 
     assert calls == [("alpha-worker", "opus")]
 
@@ -253,6 +253,6 @@ def test_without_a_fleet_wide_reading_the_active_account_reading_still_governs()
     """Every caller that passes no fleet-wide reading keeps the pre-change behaviour."""
     calls: list[tuple[str, str]] = []
 
-    _ = _enforce(calls=calls, active_fable=100.0)
+    _ = _enforce(calls=calls, active_fable=0.0)
 
     assert calls == [("alpha-worker", "opus")]

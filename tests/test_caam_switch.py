@@ -31,11 +31,11 @@ def usage(
     seven_day_resets_at: str | None = "2026-08-22T00:00:00Z",
 ) -> UsageRecord:
     return UsageRecord(
-        five_hour=five_hour,
-        seven_day=seven_day,
+        five_hour_remaining=100.0 - five_hour,
+        seven_day_remaining=100.0 - seven_day,
         five_hour_resets_at="2026-08-21T12:00:00Z",
         seven_day_resets_at=seven_day_resets_at,
-        fable=None,
+        fable_remaining=None,
         fable_resets_at=None,
     )
 

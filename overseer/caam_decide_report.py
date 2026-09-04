@@ -54,12 +54,12 @@ def hold_allowed(
     context: DecisionContext,
     save_state: SaveState,
     label: str,
-    spent: float,
+    remaining: float,
     current: UsageRecord,
 ) -> int:
     line = decision_hold_allowance(
         label=label,
-        spent=spent,
+        remaining=remaining,
         weekly_remaining=weekly_left(usage=current),
         reserve=weekly_reserve(),
     )
@@ -153,13 +153,13 @@ def hold_reasons(
 
 
 def trigger_line(
-    *, flags: Flags, label: str, spent: float, current: UsageRecord, dimension: str
+    *, flags: Flags, label: str, remaining: float, current: UsageRecord, dimension: str
 ) -> str:
     if flags.force:
         return decision_forced(threshold=five_hour_threshold())
     return decision_trigger(
         label=label,
-        spent=spent,
+        remaining=remaining,
         weekly_remaining=weekly_left(usage=current),
         dimension=dimension,
     )

@@ -134,11 +134,11 @@ def _cache_profile(*, state: dict[str, object], name: str, usage: UsageRecord, n
     state["profiles"] = profiles
     profiles[name] = {
         "at": now,
-        "five_hour": usage.five_hour,
-        "seven_day": usage.seven_day,
+        "five_hour_remaining": usage.five_hour_remaining,
+        "seven_day_remaining": usage.seven_day_remaining,
         "five_hour_resets_at": usage.five_hour_resets_at,
         "seven_day_resets_at": usage.seven_day_resets_at,
-        "fable": usage.fable,
+        "fable_remaining": usage.fable_remaining,
         "fable_resets_at": usage.fable_resets_at,
     }
 

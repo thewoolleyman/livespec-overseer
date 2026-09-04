@@ -20,12 +20,27 @@ __all__: list[str] = [
     "fetch_usage",
     "live_token",
     "read_creds",
+    "remaining_from_utilization",
 ]
 
 USAGE_URL: Final = "https://api.anthropic.com/api/oauth/usage"
 _REQUEST_TIMEOUT_S: Final = 30.0
 _EXPIRY_SKEW_S: Final = 60.0
 _HTTP_ERROR_MINIMUM: Final = 400
+_FULL_ALLOWANCE: Final = 100.0
+
+
+def remaining_from_utilization(*, utilization: float) -> float:
+    """THE boundary between the two directions a quota percentage can run in.
+
+    The usage response reports UTILIZATION -- how much of an allowance has been
+    spent -- and everything past this call holds and says REMAINING. Deriving
+    from utilization is what the specification requires and is unchanged; what
+    this function buys is that the derivation happens in exactly one named
+    place, so a reader never has to work out which way an unlabelled figure runs
+    and the two directions cannot circulate side by side unannounced.
+    """
+    return _FULL_ALLOWANCE - utilization
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -175,19 +190,23 @@ def _usage_record(*, body: dict[str, object]) -> tuple[UsageRecord | None, str |
     try:
         five_hour = _limit_object(body=body, key="five_hour")
         seven_day = _limit_object(body=body, key="seven_day")
-        five_hour_usage = _required_float(value=five_hour.get("utilization"))
-        seven_day_usage = _required_float(value=seven_day.get("utilization"))
+        five_hour_left = remaining_from_utilization(
+            utilization=_required_float(value=five_hour.get("utilization"))
+        )
+        seven_day_left = remaining_from_utilization(
+            utilization=_required_float(value=seven_day.get("utilization"))
+        )
     except ValueError:
         return None, "unexpected response shape"
 
-    fable, fable_resets_at = _fable_limit(body=body)
+    fable_left, fable_resets_at = _fable_limit(body=body)
     return (
         UsageRecord(
-            five_hour=five_hour_usage,
-            seven_day=seven_day_usage,
+            five_hour_remaining=five_hour_left,
+            seven_day_remaining=seven_day_left,
             five_hour_resets_at=_optional_string(value=five_hour.get("resets_at")),
             seven_day_resets_at=_optional_string(value=seven_day.get("resets_at")),
-            fable=fable,
+            fable_remaining=fable_left,
             fable_resets_at=fable_resets_at,
         ),
         None,
@@ -213,7 +232,7 @@ def _fable_limit(*, body: dict[str, object]) -> tuple[float | None, str | None]:
     for limit_value in limits:
         limit = jsonio.as_object(value=limit_value)
         if limit is not None and _is_fable_limit(limit=limit):
-            return _fable_percent(limit=limit), _optional_string(value=limit.get("resets_at"))
+            return _fable_remaining(limit=limit), _optional_string(value=limit.get("resets_at"))
     return None, None
 
 
@@ -227,5 +246,13 @@ def _optional_string(*, value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _fable_percent(*, limit: dict[str, object]) -> float:
-    return jsonio.as_float(value=limit.get("percent")) or 0.0
+def _fable_remaining(*, limit: dict[str, object]) -> float:
+    """What the scoped allowance has left, from the spent share the limit reports.
+
+    An unreadable or absent `percent` reads as nothing spent, hence a full
+    allowance -- the same OUTCOME the spent-direction default carried, since an
+    account with an untouched scoped allowance can serve the pin either way.
+    """
+    return remaining_from_utilization(
+        utilization=jsonio.as_float(value=limit.get("percent")) or 0.0
+    )

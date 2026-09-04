@@ -120,7 +120,7 @@ def test_live_cutover_session_pins_override_global_foreman_pin(*, tmp_path: Path
             "livespec-overseer-foreman",
             "other-foreman",
         ),
-        active_fable=42.0,
+        active_fable=58.0,
         foreman_model=None,
         session_models=(),
         now=1787395200.0,
@@ -215,11 +215,11 @@ def _usage_fetcher():
         del creds_path, now
         return (
             UsageRecord(
-                five_hour=20.0,
-                seven_day=30.0,
+                five_hour_remaining=80.0,
+                seven_day_remaining=70.0,
                 five_hour_resets_at="2026-08-22T12:00:00Z",
                 seven_day_resets_at="2026-08-24T00:00:00Z",
-                fable=42.0,
+                fable_remaining=58.0,
                 fable_resets_at="2026-08-24T00:00:00Z",
             ),
             None,

@@ -26,7 +26,8 @@ __all__: list[str] = [
     "unverifiable_candidate_names",
 ]
 
-_FULLY_SPENT = 100.0
+# Every allowance is measured in what it has LEFT, so exhaustion is zero.
+_NOTHING_LEFT = 0.0
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -113,9 +114,9 @@ def _exhausted(*, profile: ProfileUsage, protection_floors: Mapping[str, float])
     """Whether this candidate has nothing left to move onto, on either window.
 
     These are `is_eligible`'s two ABSOLUTE disqualifiers -- no weekly allowance
-    left net of the account's own protection floor, or a fully-spent short window
-    -- as opposed to its relative margin, which is a comparison rather than a
-    property of the account and so cannot be reported per-account.
+    left net of the account's own protection floor, or nothing left on the short
+    window -- as opposed to its relative margin, which is a comparison rather
+    than a property of the account and so cannot be reported per-account.
     """
     usage = profile.usage
     return usage is None or (
@@ -126,5 +127,5 @@ def _exhausted(*, profile: ProfileUsage, protection_floors: Mapping[str, float])
             ),
         )
         <= 0.0
-        or usage.five_hour >= _FULLY_SPENT
+        or usage.five_hour_remaining <= _NOTHING_LEFT
     )

@@ -27,11 +27,31 @@ __all__: list[str] = []
 
 
 SHARED_HELPER_NAMES = {
+    "five_hour_remaining_floor",
     "five_hour_threshold",
     "min_headroom_gain",
     "resets_at",
     "weekly_reserve",
 }
+# The subset `caam_rendering` reads. `five_hour_threshold` is deliberately not in
+# it: that knob is still expressed as percent SPENT, and the ONE bridge turning it
+# into the REMAINING floor everything else compares against lives in
+# `caam_decision`. Rendering imports the floor, so no surface beyond that bridge
+# has to complement anything of its own.
+RENDERING_SHARED_HELPER_NAMES = SHARED_HELPER_NAMES - {"five_hour_threshold"}
+
+
+def left(*, spent: float) -> float:
+    """THE ONE PLACE this file knows which direction a stored figure runs.
+
+    Its scenarios are written as percent SPENT, which is the convention they were
+    pinned under, while the record now stores percent REMAINING. Complementing
+    once here keeps every scenario below meaning the same account it always meant
+    -- rewriting the figures instead would have replaced the ruler this flip is
+    measured against. Expectations that report a stored figure back go through the
+    same call, so the arithmetic on both sides is literally the same expression.
+    """
+    return 100.0 - spent
 
 
 def usage(
@@ -44,11 +64,11 @@ def usage(
     fable_resets_at: str | None = "2026-08-23T12:00:00Z",
 ) -> UsageRecord:
     return UsageRecord(
-        five_hour=five_hour,
-        seven_day=seven_day,
+        five_hour_remaining=left(spent=five_hour),
+        seven_day_remaining=left(spent=seven_day),
         five_hour_resets_at=five_hour_resets_at,
         seven_day_resets_at=seven_day_resets_at,
-        fable=fable,
+        fable_remaining=None if fable is None else left(spent=fable),
         fable_resets_at=fable_resets_at,
     )
 
@@ -63,6 +83,7 @@ def test_shared_caam_helpers_have_one_decision_owned_definition():
                 definitions[node.name].append(path.name)
 
     assert definitions == {
+        "five_hour_remaining_floor": ["caam_decision.py"],
         "five_hour_threshold": ["caam_decision.py"],
         "min_headroom_gain": ["caam_decision.py"],
         "resets_at": ["caam_decision.py"],
@@ -80,20 +101,41 @@ def test_rendering_imports_shared_caam_helpers_from_decision_module():
         for alias in node.names
     }
 
-    assert imported_names >= SHARED_HELPER_NAMES
+    assert imported_names >= RENDERING_SHARED_HELPER_NAMES
 
 
 @pytest.mark.parametrize(
     ("record", "threshold", "reserve", "expected"),
     [
-        (usage(five_hour=85.0, seven_day=20.0), "85", "10", ("five_hour", 85.0, "5-hour window")),
-        (usage(five_hour=84.9, seven_day=91.0), "85", "10", ("seven_day", 91.0, "weekly reserve")),
-        (usage(five_hour=84.9, seven_day=90.0), "85", "10", ("five_hour", 84.9, "5-hour window")),
+        (
+            usage(five_hour=85.0, seven_day=20.0),
+            "85",
+            "10",
+            ("five_hour", left(spent=85.0), "5-hour window"),
+        ),
+        (
+            usage(five_hour=84.9, seven_day=91.0),
+            "85",
+            "10",
+            ("seven_day", left(spent=91.0), "weekly reserve"),
+        ),
+        (
+            usage(five_hour=84.9, seven_day=90.0),
+            "85",
+            "10",
+            ("five_hour", left(spent=84.9), "5-hour window"),
+        ),
     ],
 )
 def test_binding_selects_the_triggering_allowance_at_call_time(
     *, monkeypatch, record, threshold, reserve, expected
 ):
+    """The reported figure is the binding allowance's REMAINING balance.
+
+    Which allowance binds, and under which reason, is unchanged; only the number
+    reported alongside it changed ends, and it is the same reading the table and
+    the trigger line now print.
+    """
     monkeypatch.setenv("CAAM_ROTATE_FIVE_HOUR_THRESHOLD", threshold)
     monkeypatch.setenv("CAAM_ROTATE_WEEKLY_RESERVE", reserve)
 
@@ -248,7 +290,7 @@ def test_active_protected_account_triggers_at_its_floor_and_reports_protection_b
     assert not triggered(usage=active, active_name="active", protection_floors={})
     assert binding(usage=active, active_name="active", protection_floors={"active": 12.0}) == (
         "seven_day",
-        88.0,
+        left(spent=88.0),
         "protection floor for active (12%)",
     )
 
@@ -620,8 +662,8 @@ def test_table_renders_remaining_quota_reset_durations_and_source_text():
     assert hasattr(caam_rendering, "render_table")
     assert caam_rendering.render_table(rows=rows, active_name="active", now=now) == (
         "\n"
-        "PROFILE       CURRENT       5H      5H RESET      WEEK    WEEK RESET      "
-        "FABLE   FABLE RESET   SOURCE\n"
+        "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
+        "FABLE LEFT   FABLE RESET   SOURCE\n"
         "active        ✅           80%        2h 30m       70%     2d 3h 12m       "
         "60%      1d 0h 5m   live\n"
         "dark                         -             -         -             -          -"
@@ -650,8 +692,8 @@ def test_cached_row_past_reset_renders_unknown_and_stale_source():
     assert hasattr(caam_rendering, "render_table")
     assert caam_rendering.render_table(rows=(row,), active_name="active", now=now) == (
         "\n"
-        "PROFILE       CURRENT       5H      5H RESET      WEEK    WEEK RESET      "
-        "FABLE   FABLE RESET   SOURCE\n"
+        "PROFILE       CURRENT  5H LEFT      5H RESET WEEK LEFT    WEEK RESET "
+        "FABLE LEFT   FABLE RESET   SOURCE\n"
         "cached                       ?         reset         ?         reset          ?"
         "         reset   cached 1.0h, stale\n"
         "\n"
@@ -674,7 +716,7 @@ def test_decision_lines_match_source_format_strings():
     assert hasattr(caam_rendering, "SwitchTargetSummary")
     target = caam_rendering.SwitchTargetSummary(
         name="target",
-        weekly_used=65.0,
+        weekly_remaining=left(spent=65.0),
         weekly_reset="2026-08-22T12:00:00+00:00",
         source="live",
         now=datetime.fromisoformat("2026-08-21T12:00:00+00:00"),
@@ -683,7 +725,7 @@ def test_decision_lines_match_source_format_strings():
     assert (
         caam_rendering.decision_hold_allowance(
             label="5-hour window",
-            spent=21.0,
+            remaining=left(spent=21.0),
             weekly_remaining=34.0,
             reserve=10.6,
         )
@@ -698,11 +740,11 @@ def test_decision_lines_match_source_format_strings():
     assert (
         caam_rendering.decision_trigger(
             label="weekly reserve",
-            spent=92.0,
+            remaining=left(spent=92.0),
             weekly_remaining=8.0,
             dimension="seven_day",
         )
-        == "trigger: weekly reserve -- 92% spent, weekly 8% left -- comparing "
+        == "trigger: weekly reserve -- 8% left, weekly 8% left -- comparing "
         "candidates on seven_day"
     )
     assert hasattr(caam_rendering, "decision_dry_run")
@@ -722,7 +764,7 @@ def test_decision_lines_match_source_format_strings():
     assert (
         caam_rendering.decision_switched(
             active_name="active",
-            current_five_hour_used=21.0,
+            current_five_hour_remaining=left(spent=21.0),
             target=target,
         )
         == "SWITCHED active -> target (5h left was 79%; target has 35% week "

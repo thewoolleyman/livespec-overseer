@@ -220,13 +220,21 @@ def _fetch_profile_usage(
 
 
 def _cache_record(*, usage: UsageRecord, now: float) -> dict[str, object]:
+    """The remembered row, keyed for what it holds.
+
+    The keys carry the direction for the same reason the record's fields do: a
+    cache is read by a later pass that has no access to the response it came
+    from. The old direction-free keys are deliberately neither written nor read,
+    which is what makes a row written before the flip degrade in the SAFE
+    direction -- see `_usage_from_cache`.
+    """
     return {
         "at": now,
-        "five_hour": usage.five_hour,
-        "seven_day": usage.seven_day,
+        "five_hour_remaining": usage.five_hour_remaining,
+        "seven_day_remaining": usage.seven_day_remaining,
         "five_hour_resets_at": usage.five_hour_resets_at,
         "seven_day_resets_at": usage.seven_day_resets_at,
-        "fable": usage.fable,
+        "fable_remaining": usage.fable_remaining,
         "fable_resets_at": usage.fable_resets_at,
     }
 
@@ -236,12 +244,21 @@ def _cache_age(*, cached: dict[str, object], now: float) -> float:
 
 
 def _usage_from_cache(*, cached: dict[str, object]) -> UsageRecord:
+    """A remembered row read back, with an unreadable balance meaning nothing left.
+
+    The missing-key default is zero under both representations, but it means the
+    opposite thing under each -- and the remaining direction is the one that
+    fails CLOSED. A row written before this flip carries no `*_remaining` key, so
+    it reads as an exhausted account and is simply not selected, rather than as a
+    fully-available one that the pass would then rotate onto. It self-heals on
+    that account's next live poll.
+    """
     return UsageRecord(
-        five_hour=jsonio.as_float(value=cached.get("five_hour")) or 0.0,
-        seven_day=jsonio.as_float(value=cached.get("seven_day")) or 0.0,
+        five_hour_remaining=jsonio.as_float(value=cached.get("five_hour_remaining")) or 0.0,
+        seven_day_remaining=jsonio.as_float(value=cached.get("seven_day_remaining")) or 0.0,
         five_hour_resets_at=_optional_string(value=cached.get("five_hour_resets_at")),
         seven_day_resets_at=_optional_string(value=cached.get("seven_day_resets_at")),
-        fable=jsonio.as_float(value=cached.get("fable")),
+        fable_remaining=jsonio.as_float(value=cached.get("fable_remaining")),
         fable_resets_at=_optional_string(value=cached.get("fable_resets_at")),
     )
 

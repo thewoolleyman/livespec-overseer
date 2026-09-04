@@ -46,11 +46,11 @@ _TARGET = "idle"
 
 def _usage(*, five_hour: float, seven_day: float) -> UsageRecord:
     return UsageRecord(
-        five_hour=five_hour,
-        seven_day=seven_day,
+        five_hour_remaining=100.0 - five_hour,
+        seven_day_remaining=100.0 - seven_day,
         five_hour_resets_at="2026-08-22T12:00:00Z",
         seven_day_resets_at="2026-08-24T00:00:00Z",
-        fable=10.0,
+        fable_remaining=90.0,
         fable_resets_at="2026-08-24T00:00:00Z",
     )
 

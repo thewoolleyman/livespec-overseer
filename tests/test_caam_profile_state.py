@@ -30,11 +30,11 @@ def usage(
     fable_resets_at: str | None = "2026-08-25T12:00:00Z",
 ) -> UsageRecord:
     return UsageRecord(
-        five_hour=five_hour,
-        seven_day=seven_day,
+        five_hour_remaining=100.0 - five_hour,
+        seven_day_remaining=100.0 - seven_day,
         five_hour_resets_at=five_hour_resets_at,
         seven_day_resets_at=seven_day_resets_at,
-        fable=fable,
+        fable_remaining=None if fable is None else 100.0 - fable,
         fable_resets_at=fable_resets_at,
     )
 
@@ -87,23 +87,27 @@ def test_poll_profiles_uses_live_creds_for_active_and_snapshot_for_others(*, tmp
         home / ".claude" / ".credentials.json",
         vault / "other" / ".credentials.json",
     ]
+    # The cached row is keyed for what it holds: percent REMAINING, under keys
+    # that say so. The old direction-free keys are not read back, so a row written
+    # before the flip reads as an account with nothing left rather than as its own
+    # complement -- the fail-closed direction, self-healing on the next live poll.
     assert state["profiles"] == {
         "active": {
             "at": 7200.0,
-            "five_hour": 10.0,
-            "seven_day": 30.0,
+            "five_hour_remaining": 90.0,
+            "seven_day_remaining": 70.0,
             "five_hour_resets_at": "2026-08-21T12:00:00Z",
             "seven_day_resets_at": "2026-08-25T12:00:00Z",
-            "fable": 40.0,
+            "fable_remaining": 60.0,
             "fable_resets_at": "2026-08-25T12:00:00Z",
         },
         "other": {
             "at": 7200.0,
-            "five_hour": 20.0,
-            "seven_day": 30.0,
+            "five_hour_remaining": 80.0,
+            "seven_day_remaining": 70.0,
             "five_hour_resets_at": "2026-08-21T12:00:00Z",
             "seven_day_resets_at": "2026-08-25T12:00:00Z",
-            "fable": 40.0,
+            "fable_remaining": 60.0,
             "fable_resets_at": "2026-08-25T12:00:00Z",
         },
     }
@@ -119,11 +123,11 @@ def test_failed_poll_uses_cache_inside_age_bound_and_dark_outside(*, monkeypatch
         "profiles": {
             "active": {
                 "at": 3600.0,
-                "five_hour": 12.0,
-                "seven_day": 34.0,
+                "five_hour_remaining": 88.0,
+                "seven_day_remaining": 66.0,
                 "five_hour_resets_at": "2026-08-21T12:00:00Z",
                 "seven_day_resets_at": "2026-08-25T12:00:00Z",
-                "fable": None,
+                "fable_remaining": None,
                 "fable_resets_at": None,
             }
         }

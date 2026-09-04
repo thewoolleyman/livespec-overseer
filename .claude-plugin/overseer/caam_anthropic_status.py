@@ -112,7 +112,7 @@ def write_status(  # noqa: PLR0913 — one kw-only argument per rotation-pass in
         *lines,
         *model_messages(
             context=context,
-            active_fable=current.fable,
+            active_fable=current.fable_remaining,
             enforce_models=enforce_models,
             scoped_servable=servable,
         ),

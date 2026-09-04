@@ -90,9 +90,13 @@ def scoped_servable_fleet_wide(
     rules could actually choose it -- not excluded by a per-account protection
     floor, the zero-weekly disqualifier, the weekly-reserve rule or the
     live-verification rule. The relative-headroom margin is deliberately NOT a
-    selectability test: the candidate policy below sets the scoped waiver ceiling
-    unbounded, so every Fable-capable candidate is judged on those exclusions
-    alone, exactly as the scoped clause waives the margin in the stranding case.
+    selectability test: the candidate policy below sets the scoped waiver floor
+    unbounded BELOW, so every Fable-capable candidate is judged on those
+    exclusions alone, exactly as the scoped clause waives the margin in the
+    stranding case. The bound is negative infinity rather than positive because
+    the waiver now asks how much a candidate has LEFT -- "more left than nothing
+    conceivable" is the same admit-everything test the spent direction wrote as
+    "less spent than anything conceivable".
     The ACTIVE account is never a candidate, so it counts whenever its own scoped
     allowance can serve. The reserve is released only when every live account
     sits under it, mirroring `eligible_profiles`, so a fleet entirely under the
@@ -111,7 +115,7 @@ def scoped_servable_fleet_wide(
                 dimension="five_hour",
                 enforce_reserve=enforce_reserve,
                 weekly_reserve=weekly_reserve(),
-                scoped_waiver_ceiling=inf,
+                scoped_waiver_floor=-inf,
                 current_protection_floor=protection_floor_for(
                     name=active_name, protection_floors=protection_floors
                 ),

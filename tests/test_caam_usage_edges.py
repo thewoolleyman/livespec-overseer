@@ -85,7 +85,13 @@ def test_non_object_and_bad_numeric_usage_shapes_are_unexpected(*, tmp_path: Pat
     assert why == "unexpected response shape"
 
 
-def test_fable_match_without_percent_defaults_to_zero(*, tmp_path: Path):
+def test_fable_match_without_percent_defaults_to_a_full_allowance(*, tmp_path: Path):
+    """A scoped limit reporting no spent share reads as nothing spent, hence all left.
+
+    The OUTCOME is unchanged by the remaining flip -- an account with an unspent
+    scoped allowance can serve the pin either way. Only the figure that expresses
+    it moved ends, from zero spent to a hundred left.
+    """
     module = caam_usage_module()
     creds = tmp_path / ".credentials.json"
     write_creds(path=creds, bearer="tok", expires_at_ms=9_000_000)
@@ -117,7 +123,7 @@ def test_fable_match_without_percent_defaults_to_zero(*, tmp_path: Path):
     usage, why = module.fetch_usage(creds_path=creds, now=1000.0, transport=transport)
     assert why is None
     assert usage is not None
-    assert usage.fable == 0.0
+    assert usage.fable_remaining == 100.0
 
 
 def test_default_https_transport_success_and_http_error(*, monkeypatch, tmp_path: Path):

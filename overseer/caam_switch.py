@@ -208,7 +208,7 @@ def _switch_account_uncaught(*, request: SwitchRequest) -> SwitchResult:
         lines=(
             decision_switched(
                 active_name=request.active_name,
-                current_five_hour_used=request.current.five_hour,
+                current_five_hour_remaining=request.current.five_hour_remaining,
                 target=_target_summary(target=request.target, now=request.now),
             ),
         ),
@@ -234,7 +234,7 @@ def _target_summary(*, target: ProfileUsage, now: float):
     usage = cast(UsageRecord, target.usage)
     return SwitchTargetSummary(
         name=target.name,
-        weekly_used=usage.seven_day,
+        weekly_remaining=usage.seven_day_remaining,
         weekly_reset=usage.seven_day_resets_at,
         source=target.source,
         now=datetime.fromtimestamp(now, tz=timezone.utc),

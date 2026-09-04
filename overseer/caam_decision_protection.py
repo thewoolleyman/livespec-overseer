@@ -12,7 +12,7 @@ __all__: list[str] = [
     "CandidatePolicy",
     "can_serve_scoped_model",
     "candidate_allowed",
-    "dimension_spent",
+    "dimension_remaining",
     "empty_release_note",
     "floor_breach",
     "is_eligible",
@@ -22,7 +22,9 @@ __all__: list[str] = [
     "weekly_left",
 ]
 
-_FULLY_SPENT = 100.0
+# Every allowance in this module is measured in what it has LEFT, so the
+# exhaustion boundary is zero rather than a full hundred spent.
+_NOTHING_LEFT = 0.0
 NO_PROTECTION_FLOORS: Mapping[str, float] = {}
 
 
@@ -36,10 +38,11 @@ class CandidatePolicy:
     # None disables the scoped-model waiver entirely, which is the state under
     # every input that carries no operator pin on the scoped model and under
     # every input where the ACTIVE account can still serve that pin. A float is
-    # the short-window ceiling a scoped-capable candidate must stay below to be
-    # admitted without clearing the relative-headroom margin, so the operation
-    # never moves onto an account it would immediately have to leave again.
-    scoped_waiver_ceiling: float | None = None
+    # the short-window balance a scoped-capable candidate must still have LEFT
+    # to be admitted without clearing the relative-headroom margin, so the
+    # operation never moves onto an account it would immediately have to leave
+    # again.
+    scoped_waiver_floor: float | None = None
     # The ACTIVE account's own protection floor, so that both sides of the
     # headroom comparison measure usable headroom net of the floor each account
     # is actually subject to. Zero for an unprotected active, which is every
@@ -51,27 +54,41 @@ def can_serve_scoped_model(*, usage: UsageRecord | None) -> bool:
     """Whether this account's own scoped-model allowance can serve a pinned scoped model.
 
     Determined from the BALANCE alone, mirroring the shipped enforcement
-    predicate: present and not fully spent. Fail-closed by construction — an
+    predicate: present and something still left. Fail-closed by construction — an
     account whose scoped allowance cannot be read (no usage record at all, or a
     record carrying no scoped figure) counts as unable to serve, never as able.
     A model that is available but not answering for non-quota reasons is outside
     what selection can observe and is the operator pin's concern, not this one's.
     """
-    return usage is not None and usage.fable is not None and usage.fable < _FULLY_SPENT
+    return (
+        usage is not None
+        and usage.fable_remaining is not None
+        and usage.fable_remaining > _NOTHING_LEFT
+    )
 
 
 def weekly_left(*, usage: UsageRecord, protection_floor: float = 0.0) -> float:
-    return max(0.0, 100.0 - usage.seven_day - protection_floor)
+    return max(0.0, usage.seven_day_remaining - protection_floor)
 
 
 def raw_weekly_left(*, usage: UsageRecord) -> float:
-    return 100.0 - usage.seven_day
+    return usage.seven_day_remaining
 
 
-def dimension_spent(*, usage: UsageRecord, dimension: str, protection_floor: float = 0.0) -> float:
+def dimension_remaining(
+    *, usage: UsageRecord, dimension: str, protection_floor: float = 0.0
+) -> float:
+    """What this account has LEFT on the named window, net of its own floor.
+
+    An unrecognised dimension answers negative infinity — the worst possible
+    balance — which is the same disqualifying answer the spent-direction form
+    gave with positive infinity, read from the other end. `is_eligible` gates on
+    the dimension set before ever calling this, so the value is a backstop rather
+    than a path anything reaches.
+    """
     if dimension == "seven_day":
-        return 100.0 - weekly_left(usage=usage, protection_floor=protection_floor)
-    return {"five_hour": usage.five_hour}.get(dimension, inf)
+        return weekly_left(usage=usage, protection_floor=protection_floor)
+    return {"five_hour": usage.five_hour_remaining}.get(dimension, -inf)
 
 
 def protection_floor_for(
@@ -95,25 +112,29 @@ def is_eligible(
 
     Each side is measured net of ITS OWN floor, which is what makes the margin
     antisymmetric and therefore incapable of oscillating: leaving A for B needs
-    spend(A) - spend(B) to reach the margin, and coming back needs the same
+    left(B) - left(A) to reach the margin, and coming back needs the same
     difference with the signs reversed, so at most one of the two can hold.
     Measuring only the candidate net of its floor -- which is what a zero
     `current_protection_floor` does -- breaks that symmetry by comparing two
     accounts under different rules, and lets a protected active be judged on
     headroom it is not permitted to spend.
+
+    The subtraction runs candidate-minus-active because both sides now say what
+    is LEFT; under the spent direction it ran active-minus-candidate, and the two
+    are the same quantity -- spent(A) - spent(B) is exactly left(B) - left(A).
     """
     return (
         usage is not None
         and dimension in {"five_hour", "seven_day"}
-        and dimension_spent(
+        and dimension_remaining(usage=usage, dimension=dimension, protection_floor=protection_floor)
+        - dimension_remaining(
             usage=current,
             dimension=dimension,
             protection_floor=current_protection_floor,
         )
-        - dimension_spent(usage=usage, dimension=dimension, protection_floor=protection_floor)
         >= gain_needed
         and weekly_left(usage=usage, protection_floor=protection_floor) > 0.0
-        and usage.five_hour < _FULLY_SPENT
+        and usage.five_hour_remaining > _NOTHING_LEFT
     )
 
 
@@ -204,12 +225,16 @@ def _gain_needed_for(*, policy: CandidatePolicy, usage: UsageRecord) -> float:
     branch around `is_eligible`, and that is load-bearing: every OTHER
     disqualifier `is_eligible` applies -- the comparison dimension being one of
     the two defined ones, a candidate at zero weekly remaining, a candidate at
-    its own protection floor, a candidate whose short-window allowance is fully
-    spent -- keeps applying unchanged. The clause waives the relative-headroom
-    margin and nothing else.
+    its own protection floor, a candidate with nothing left on its short window
+    -- keeps applying unchanged. The clause waives the relative-headroom margin
+    and nothing else.
     """
-    ceiling = policy.scoped_waiver_ceiling
-    if ceiling is not None and can_serve_scoped_model(usage=usage) and usage.five_hour < ceiling:
+    floor = policy.scoped_waiver_floor
+    if (
+        floor is not None
+        and can_serve_scoped_model(usage=usage)
+        and usage.five_hour_remaining > floor
+    ):
         return -inf
     return policy.gain_needed
 
