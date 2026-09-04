@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.73.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.73.1...v1.73.2) (2026-09-04)
+
+
+### Bug Fixes
+
+* **caam:** correct stale _respect_operator_set scoped_servable docstring ([7b54bdd](https://github.com/thewoolleyman/livespec-overseer/commit/7b54bdd58dccb47223ea84ecd9cf19bc690bd962))
+
 ## [1.73.1](https://github.com/thewoolleyman/livespec-overseer/compare/v1.73.0...v1.73.1) (2026-09-04)
 
 
