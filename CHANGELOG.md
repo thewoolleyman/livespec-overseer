@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.73.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.72.0...v1.73.0) (2026-09-04)
+
+
+### Features
+
+* fleet-wide scoped servability feeds caam enforcement; on-Fable sessions arm rotation ([1a768fd](https://github.com/thewoolleyman/livespec-overseer/commit/1a768fd4a16cbd7cfbad665d8a61493c9c7eb08b))
+
 ## [1.72.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.71.0...v1.72.0) (2026-09-02)
 
 
