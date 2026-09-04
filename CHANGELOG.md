@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.74.0...v2.0.0) (2026-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **caam:** flip the five-hour rotation knob to remaining-semantics
+
+### Features
+
+* **caam:** flip the five-hour rotation knob to remaining-semantics ([a5f53c0](https://github.com/thewoolleyman/livespec-overseer/commit/a5f53c0330100b0353a9cb6b44a80fd29cb10be0))
+
 ## [1.74.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.73.2...v1.74.0) (2026-09-04)
 
 
