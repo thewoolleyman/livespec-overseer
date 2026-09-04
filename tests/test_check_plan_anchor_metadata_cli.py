@@ -54,9 +54,14 @@ def test_pre_push_runs_plan_anchor_check_through_credential_wrapper(
     assert '"scanned_plan_directories":1' in completed.stdout
 
 
-def test_pre_push_doc_only_path_runs_plan_anchor_check_through_credential_wrapper(
+def test_pre_push_doc_only_push_runs_plan_anchor_check_then_full_check_not_doc_only_subset(
     tmp_path: Path,
 ) -> None:
+    # PR gate ≡ master gate (livespec plan pr-gate-master-parity R3, livespec-citqsd):
+    # the retired zero-.py branch used to delegate a doc-only push to
+    # `just check-pre-commit-doc-only`. With that branch gone, a doc-only push now
+    # runs the plan-anchor check through the wrapper AND the FULL `just check`, so
+    # pre-push no longer runs fewer gates than master on a doc-only changeset.
     completed, log = _run_pre_push_with_plan_anchor_wrapper(
         tmp_path=tmp_path,
         changed_file="plan/new-thread/supervisor-handoff.md",
@@ -65,7 +70,8 @@ def test_pre_push_doc_only_path_runs_plan_anchor_check_through_credential_wrappe
     assert completed.returncode == 0
     assert "LIVESPEC_STRICT_PLAN_ANCHOR_METADATA=true just check-plan-anchor-metadata" in log
     assert "just command=check-plan-anchor-metadata plan_anchor_env=true" in log
-    assert "just command=check-pre-commit-doc-only plan_anchor_env=<unset>" in log
+    assert "just command=check plan_anchor_env=<unset>" in log
+    assert "check-pre-commit-doc-only" not in log
     assert '"scanned_plan_directories":1' in completed.stdout
 
 

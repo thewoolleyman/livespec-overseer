@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Three dots: diff against the MERGE-BASE, so commits that arrived on master
-# after this branch forked are not attributed to the push.
-changeset="$(git diff --name-only origin/master...HEAD)"
-
 run_plan_anchor_metadata_check() {
   if ! command -v with-livespec-env.sh >/dev/null 2>&1; then
     echo ":: pre-push: with-livespec-env.sh not found; plan-anchor metadata check remains unarmed" >&2
@@ -26,14 +22,12 @@ run_plan_anchor_metadata_check() {
 
 run_plan_anchor_metadata_check
 
-py_changed="$(printf '%s\n' "$changeset" | grep -E '\.py$' || true)"
-if [[ -z "$py_changed" ]]; then
-  echo ":: doc-only push detected (zero .py changes vs the origin/master merge-base): running check-pre-commit-doc-only"
-  just check-pre-commit-doc-only
-  exit $?
-fi
-
-echo ":: pre-push: Python changes detected - arming LLOC soft-warning release tier"
+# PR gate ≡ master gate (livespec plan pr-gate-master-parity R3, livespec-citqsd):
+# pre-push runs the FULL `just check` unconditionally. The prior zero-.py branch,
+# which delegated a doc-only push to the check-pre-commit-doc-only subset, is
+# retired — it was the local mirror of the ci.yml `detect-py-changes` skip this
+# plan removes, and it let a doc-only push run fewer gates than master.
+echo ":: pre-push: arming LLOC soft-warning release tier; running full just check"
 failure_log="$(mktemp)"
 trap 'rm -f "$failure_log"' EXIT
 
