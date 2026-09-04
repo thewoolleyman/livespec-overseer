@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.74.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.73.2...v1.74.0) (2026-09-04)
+
+
+### Features
+
+* **caam:** say REMAINING everywhere in the quota path ([5b85ad9](https://github.com/thewoolleyman/livespec-overseer/commit/5b85ad91ead9ebccaf1ca734efaa043edba3cc7f))
+
 ## [1.73.2](https://github.com/thewoolleyman/livespec-overseer/compare/v1.73.1...v1.73.2) (2026-09-04)
 
 
