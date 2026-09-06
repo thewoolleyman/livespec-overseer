@@ -24,6 +24,19 @@ __all__: list[str] = [
 
 _FREEFORM_COMMAND_FIELDS: Final[tuple[str, ...]] = ("argv", "command", "shell")
 
+# The row statuses that mean NOTHING OF OURS IS RUNNING for this track: the mapped session
+# is gone, or its tmux NAME is held by a pane working in a different repo
+# (`overseer-5p6d6g`, which split the second case out of the first). Either way a row whose
+# identity no longer matches the proposal's is evidence the SNAPSHOT moved on, never
+# evidence that something already started this track — so the start path must keep
+# refusing with `session_identity_changed` rather than `already_started`.
+_NO_SESSION_OF_OURS_STATUSES: Final[frozenset[str]] = frozenset(
+    {
+        "name-collision",
+        "session-gone",
+    }
+)
+
 
 def str_field(*, payload: dict[str, object], key: str) -> str | None:
     value = payload.get(key)
@@ -100,7 +113,9 @@ def revalidate_start_identity(
     row = _matching_row(document=document, repo=cast(str, repo), topic=cast(str, topic))
     if row is not None and row.get("session_identity") != expected_snapshot.get("session_identity"):
         reason = (
-            "session_identity_changed" if row.get("status") == "session-gone" else "already_started"
+            "session_identity_changed"
+            if row.get("status") in _NO_SESSION_OF_OURS_STATUSES
+            else "already_started"
         )
     return reason
 

@@ -58,6 +58,10 @@ ATTENTION_STATUSES = (
     "pane-still",
     "parked-delivery",
     "mapping-unusable",
+    # `name-collision` IS attention, and nothing else will raise it: the track has no pane
+    # of its own to alert about, so this block is the only surface that can say the topic's
+    # tmux name is held by a pane in another repo (`overseer-5p6d6g`).
+    "name-collision",
     "ready-uncertifiable",
     "restart-never-worked",
     "picker-stalled",
@@ -122,6 +126,9 @@ _STATUS_COLOR = {
     "pane-still": _ANSI_YELLOW,
     "parked-delivery": _ANSI_YELLOW,
     "mapping-unusable": _ANSI_YELLOW,
+    # Yellow, not red: nothing was lost, a NAME needs disentangling. `session-gone` stays
+    # the only red status.
+    "name-collision": _ANSI_YELLOW,
     "ready-uncertifiable": _ANSI_YELLOW,
     "restart-never-worked": _ANSI_YELLOW,
     "picker-stalled": _ANSI_YELLOW,
