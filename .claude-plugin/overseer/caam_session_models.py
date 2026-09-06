@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Final
 
 import jsonio
-from caam_scoped_model import WANTED_MODELS
+from caam_foreman_override import WANTED_MODELS
 
 __all__: list[str] = [
     "SessionModelExceptions",
