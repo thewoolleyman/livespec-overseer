@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.6](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.5...v2.0.6) (2026-09-06)
+
+
+### Bug Fixes
+
+* **overseer:** name the live busy-evidence blocker in wrap-up and expiry notice ([692752a](https://github.com/thewoolleyman/livespec-overseer/commit/692752a9926137dfac05bcf308f51863473e44f6))
+
 ## [2.0.5](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.4...v2.0.5) (2026-09-06)
 
 
