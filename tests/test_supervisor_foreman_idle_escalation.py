@@ -57,7 +57,6 @@ def test_foreman_with_fresh_heartbeat_does_not_enter_idle_escalation(*, tmp_path
 
     assert view.status == "idle"
     assert not fake.has(method="paste")
-    assert _supervisor_foreman.foreman_row(repo=str(repo), now=sup.now) is None
 
 
 def test_foreman_with_fresh_heartbeat_still_receives_low_context_wrapup(*, tmp_path):
@@ -87,17 +86,6 @@ def test_foreman_with_fresh_heartbeat_still_surfaces_uncertifiable_ready(*, tmp_
     view = sup.evaluate(track=_foreman_track(repo=repo, session=session), act=True)
 
     assert view.status == "ready-uncertifiable"
-
-
-def test_foreman_past_twice_contract_cadence_is_still_lapsed(*, tmp_path):
-    repo, _topic = make_plan(tmp_path=tmp_path)
-    _write_heartbeat(repo=repo, written_at=1000.0 - 7201.0, tick_interval_seconds=3600.0)
-
-    row = _supervisor_foreman.foreman_row(repo=str(repo), now=lambda: 1000.0)
-
-    assert row is not None
-    assert row.status == _supervisor_foreman.FOREMAN_HEARTBEAT_STALE_STATUS
-    assert "foreman heartbeat stale 120m" in (row.note or "")
 
 
 def test_worker_idle_escalation_is_unchanged(*, tmp_path):

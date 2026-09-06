@@ -10,7 +10,6 @@ import foreman_consensus_record
 import foreman_gather_collect
 import foreman_gather_render
 import foreman_gather_snapshot
-import foreman_runtime
 import foreman_session_classifier
 import pytest
 
@@ -81,21 +80,6 @@ def test_scenario_foreman_reads_evidence_without_writing_session_state(*, tmp_pa
     assert document["sources"]["snapshot"]["status"] == "skipped"
     assert not (repo / ".overseer-state").exists()
     assert not (repo / "tmp" / "overseer" / "state").exists()
-
-
-@pytest.mark.integration
-def test_scenario_foreman_uses_canonical_name_on_both_identity_surfaces(*, tmp_path):
-    import _supervisor_foreman
-
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    store_path = tmp_path / "store.json"
-    registered = foreman_runtime.register_foreman_track(repo=repo, store_path=store_path)
-    track = _supervisor_foreman.foreman_track(repo=str(repo), store_path=store_path)
-
-    assert registered.topic == "repo-foreman"
-    assert registered.tmux == "repo-foreman"
-    assert track == registered
 
 
 @pytest.mark.integration

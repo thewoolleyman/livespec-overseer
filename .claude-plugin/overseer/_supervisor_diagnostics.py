@@ -21,10 +21,8 @@ __all__: list[str] = ["AlertRequest", "alert", "log", "log_claude_build", "surfa
 _REPO_TOPIC_RE = re.compile(r"(?P<repo>\S+)::(?P<topic>[A-Za-z0-9_.-]+)")
 _CTX_RE = re.compile(r"\bctx (?P<ctx>\d+)%")
 _BANDS_RE = re.compile(r"\bbands \[(?P<bands>[0-9, ]*)\]")
-_AGE_RE = re.compile(r"\b(?:age |after |stale )(?P<age>\d+)m\b")
 _PID_RE = re.compile(r"\bpid (?P<pid>\d+)\b")
 _TICK_RE = re.compile(r"\btick (?P<tick>\d+)\b")
-_INTERVAL_RE = re.compile(r"\binterval (?P<interval>\d+(?:\.\d+)?)s\b")
 
 
 def _slugify_event(*, text: str) -> str:
@@ -38,13 +36,6 @@ def _int_field(*, match: re.Match[str] | None, name: str) -> int | None:
     return int(match.group(name))
 
 
-def _number_field(*, match: re.Match[str] | None, name: str) -> int | float | None:
-    if match is None:
-        return None
-    raw = match.group(name)
-    return float(raw) if "." in raw else int(raw)
-
-
 def _fields_from_message(*, message: str) -> dict[str, object]:
     fields: dict[str, object] = {}
     ctx = _int_field(match=_CTX_RE.search(message), name="ctx")
@@ -54,18 +45,12 @@ def _fields_from_message(*, message: str) -> dict[str, object]:
     if bands is not None:
         raw_bands = [part.strip() for part in bands.group("bands").split(",")]
         fields["bands"] = [int(part) for part in raw_bands if part]
-    age = _int_field(match=_AGE_RE.search(message), name="age")
-    if age is not None:
-        fields["age_minutes"] = age
     pid = _int_field(match=_PID_RE.search(message), name="pid")
     if pid is not None:
         fields["pid"] = pid
     tick = _int_field(match=_TICK_RE.search(message), name="tick")
     if tick is not None:
         fields["tick"] = tick
-    interval = _number_field(match=_INTERVAL_RE.search(message), name="interval")
-    if interval is not None:
-        fields["interval"] = interval
     if ": " in message and ("FAILED" in message or "could not" in message):
         fields["error"] = message.rsplit(": ", maxsplit=1)[-1]
     return fields
@@ -207,13 +192,6 @@ def surface(
 
 
 def _alert_identity(*, request: AlertRequest, message: str) -> str:
-    fields = _fields_from_message(message=request.message)
-    if request.condition == "foreman-heartbeat-stale":
-        return json.dumps(
-            {"pid": fields.get("pid"), "interval": fields.get("interval")},
-            sort_keys=True,
-            separators=(",", ":"),
-        )
     if request.condition == "escalation-exhausted":
         return json.dumps(
             {

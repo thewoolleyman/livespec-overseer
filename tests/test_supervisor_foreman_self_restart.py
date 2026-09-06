@@ -216,3 +216,34 @@ def test_foreman_self_restart_refuses_declared_hold_with_reason(*, tmp_path):
         err.getvalue()
     )
     assert self_restart_notices(fake=fake) == []
+
+
+def test_successor_resume_prompt_prepends_pending_self_restart_notice(*, tmp_path):
+    import _supervisor_restart
+
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    track = foreman_track(repo=repo)
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
+    registry.record_foreman_self_restart(
+        repo=str(repo),
+        topic=track.topic,
+        reason="daemon failed to act within 1h",
+        stamp_path=sup.stamp_path,
+    )
+
+    prompt = _supervisor_restart._successor_resume_prompt(sup=sup, track=track)
+
+    assert "Your predecessor self-restarted this foreman seat." in prompt
+    assert "daemon failed to act within 1h" in prompt
+
+
+def test_successor_resume_prompt_without_self_restart_is_plain(*, tmp_path):
+    import _supervisor_restart
+
+    repo, _topic = make_plan(tmp_path=tmp_path)
+    track = foreman_track(repo=repo)
+    sup = make_supervisor(tmp_path=tmp_path, fake=FakeTmux())
+
+    prompt = _supervisor_restart._successor_resume_prompt(sup=sup, track=track)
+
+    assert "Your predecessor self-restarted this foreman seat." not in prompt

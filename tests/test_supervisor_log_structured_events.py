@@ -12,7 +12,6 @@ import time
 
 import _supervisor_otel_report
 import registry
-from _supervisor_foreman import heartbeat_path
 from _supervisor_otel import EmitResult, OtelConfig
 from _supervisor_otel_seam import OtelSeam
 from test_supervisor_builders import (
@@ -421,6 +420,10 @@ def test_partially_rejected_otel_export_surfaces_rejected_count(*, tmp_path):
     err = _io.StringIO()
     with contextlib.redirect_stderr(err):
         sup.log(message="tick 1 complete", event="daemon-tick")
+        # The rejection is surfaced by the ASYNC exporter; drain it before reading
+        # stderr so the event ordering is deterministic (matches the flush other
+        # cases in this file use, e.g. test_slow_otel_export_*).
+        sup.otel.exporter.flush(sup=sup)
 
     events = [json.loads(line) for line in err.getvalue().splitlines()]
     assert [event["event"] for event in events] == [
@@ -428,47 +431,3 @@ def test_partially_rejected_otel_export_surfaces_rejected_count(*, tmp_path):
         "otel-export-rejected",
     ]
     assert events[1]["rejected_spans"] == 2
-
-
-def test_foreman_stale_alert_dedups_when_age_and_tick_advance(*, tmp_path):
-    repo, _topic = make_plan(tmp_path=tmp_path)
-    path = heartbeat_path(repo=str(repo))
-    path.parent.mkdir(parents=True)
-    path.write_text(
-        json.dumps(
-            {
-                "written_at": "1970-01-01T00:00:00Z",
-                "pid": 309170,
-                "tick_generation": 42,
-                "tick_interval_seconds": 10,
-            }
-        ),
-        encoding="utf-8",
-    )
-    clock = {"now": 60 * 60.0}
-    sup = make_supervisor(
-        tmp_path=tmp_path,
-        fake=FakeTmux(),
-        now=lambda: clock["now"],
-        watch_repos=[str(repo)],
-        watch_set_path=None,
-    )
-
-    err = _io.StringIO()
-    with contextlib.redirect_stderr(err):
-        _ = sup.tick(act=True)
-        clock["now"] += 60.0
-        sup.tick_generation += 1
-        _ = sup.tick(act=True)
-
-    events = [json.loads(line) for line in err.getvalue().splitlines()]
-    assert len(events) == 1
-    event = events[0]
-    assert event["event"] == "foreman-heartbeat-stale"
-    assert event["repo"] == "repo"
-    assert event["topic"] == "foreman"
-    assert event["age_minutes"] == 60
-    assert event["pid"] == 309170
-    assert event["tick"] == 42
-    assert event["interval"] == 10
-    assert "foreman heartbeat stale: foreman heartbeat stale" not in event["message"]
