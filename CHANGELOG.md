@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.4](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.3...v2.0.4) (2026-09-06)
+
+
+### Bug Fixes
+
+* **overseer:** report headroom with its provenance so a picker cannot blind the daemon ([05c2baa](https://github.com/thewoolleyman/livespec-overseer/commit/05c2baa73c51681192d289568d1b5fb0e3562cfc))
+
 ## [2.0.3](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.2...v2.0.3) (2026-09-06)
 
 
