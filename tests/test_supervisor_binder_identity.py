@@ -68,7 +68,7 @@ def test_migrated_epic_without_a_binder_is_offered_supervision(*, tmp_path):
     conditions, emitted = _offer_conditions(sup=sup, track=track)
 
     assert conditions == {"supervision-offer"}
-    assert "/livespec-overseer:supervise-plan" in emitted
+    assert "publish a supervisor handoff" in emitted
     assert "start tmux session" not in emitted
 
 

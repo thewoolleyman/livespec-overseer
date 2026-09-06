@@ -57,7 +57,7 @@ def test_unmarked_migrated_epic_track_still_requires_supervisor(*, tmp_path):
         view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
     assert view.status == "idle-with-context-left"
     emitted = err.getvalue()
-    assert "/livespec-overseer:supervise-plan" in emitted
+    assert "publish a supervisor handoff" in emitted
     assert f"start tmux session '{session}-supervisor'" not in emitted
 
 

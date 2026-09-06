@@ -78,7 +78,7 @@ def test_nudge_marker_is_not_an_attention_status():
     assert supervisor.needs_attention(row=view) is False
 
 
-def test_live_track_without_supervisor_handoff_offers_supervise_plan_once(*, tmp_path):
+def test_live_track_without_supervisor_handoff_offers_publication_once(*, tmp_path):
     """Surface A: a live matching session with no durable supervisor prompt is surfaced
     once, not re-alerted every tick."""
     repo, topic = make_plan(tmp_path=tmp_path)
@@ -92,8 +92,8 @@ def test_live_track_without_supervisor_handoff_offers_supervise_plan_once(*, tmp
         second = sup.evaluate(track=track, act=True)
     assert first.status == "idle-with-context-left"
     assert second.status == "idle-with-context-left"
-    assert "run /livespec-overseer:supervise-plan" in err.getvalue()
-    assert err.getvalue().count("run /livespec-overseer:supervise-plan") == 1
+    assert "publish a supervisor handoff" in err.getvalue()
+    assert err.getvalue().count("publish a supervisor handoff") == 1
 
 
 def test_running_supervisor_without_handoff_offers_capture_once(*, tmp_path):

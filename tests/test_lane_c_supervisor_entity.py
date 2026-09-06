@@ -136,7 +136,7 @@ def test_migrated_epic_beside_a_running_supervisor_still_offers_capture(*, tmp_p
     There is now ONE definition of a binder for both arms, and the daemon cannot
     observe a ledger-held one; see `_supervisor_offer`'s module docstring for that rule
     and for the false negative it accepts on purpose. Both arms of the accepted
-    false negative point at `supervise-plan`, which is the recoverable direction.
+    false negative point at PUBLISHING a handoff, which is the recoverable direction.
     """
     monkeypatch.chdir(tmp_path)
     repo, topic = make_plan(tmp_path=tmp_path)

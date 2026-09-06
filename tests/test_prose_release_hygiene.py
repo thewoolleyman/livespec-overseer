@@ -39,8 +39,8 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _JUSTFILE = _REPO_ROOT / "justfile"
-_PROSE_FILE = ".claude-plugin/prose/supervise-plan.md"
-_SKILL_FILE = ".claude-plugin/skills/supervise-plan/SKILL.md"
+_PROSE_FILE = ".claude-plugin/prose/overseer.md"
+_SKILL_FILE = ".claude-plugin/skills/overseer/SKILL.md"
 _PLUGIN_MANIFEST = ".claude-plugin/plugin.json"
 _CODEX_PLUGIN_MANIFEST = ".claude-plugin/.codex-plugin/plugin.json"
 _PLUGIN_VERSION = ".claude-plugin/overseer/version.json"
@@ -88,7 +88,7 @@ def _make_repo(
     """A repo with a `basepoint` ref and one commit on top of it."""
     repo = root / name
     (repo / ".claude-plugin" / "prose").mkdir(parents=True)
-    (repo / ".claude-plugin" / "skills" / "supervise-plan").mkdir(parents=True)
+    (repo / ".claude-plugin" / "skills" / "overseer").mkdir(parents=True)
     (repo / _PROSE_FILE).write_text("base prose\n")
     (repo / _SKILL_FILE).write_text("base binding\n")
     (repo / "README.md").write_text("base readme\n")
@@ -270,7 +270,7 @@ def test_plugin_binding_changed_under_a_docs_subject_is_rejected(tmp_path):
     repo = _make_repo(
         tmp_path,
         "binding",
-        subject="docs(skill): clarify the supervise-plan binding",
+        subject="docs(skill): clarify the overseer binding",
         touch_prose=False,
         touch_plugin_binding=True,
     )
@@ -279,7 +279,7 @@ def test_plugin_binding_changed_under_a_docs_subject_is_rejected(tmp_path):
     assert "NO release-triggering commit" in result.stderr
     assert _SKILL_FILE in result.stderr
     assert "Repository: binding" in result.stderr
-    assert "docs(skill): clarify the supervise-plan binding" in result.stderr
+    assert "docs(skill): clarify the overseer binding" in result.stderr
 
 
 def test_prose_changed_under_a_fix_subject_is_accepted(tmp_path):
