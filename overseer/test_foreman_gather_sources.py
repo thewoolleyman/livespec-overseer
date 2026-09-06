@@ -3,7 +3,7 @@
 These re-home coverage the foreman-test deletion took with it. The foreman seat was
 retired whole by SPECIFICATION v047 and its tests went with it, but three readers
 survived because bucket-1 code still calls them: `_registry_epic` and `ledger_comments`
-read `parse_repo_config` and `string_list`, and the grooming conformance readers plus
+read `parse_repo_config` and `string_list`, and
 `scripts/check-full-autonomy-config-conformance.py` read `parse_repo_config`. The
 JSONC line-comment stripper behind `parse_repo_config` is the interesting one — a `//`
 inside a JSON string VALUE is data, not a comment, and stripping it silently truncates

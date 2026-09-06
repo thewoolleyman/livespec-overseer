@@ -74,18 +74,8 @@ def test_cli_remove_operates_on_reserved_entity_topics(*, tmp_path, monkeypatch)
         ),
         store_path=store,
     )
-    registry.append_mapping(
-        track=registry.GroomingSeat(
-            repo=repo,
-            topic="repo-grooming",
-            tmux="repo-grooming",
-            epic="overseer-grooming-epic",
-        ),
-        store_path=store,
-    )
 
     assert supervisor.main(argv=["remove", "--repo", repo, "--topic", "alpha-supervisor"]) == 0
-    assert supervisor.main(argv=["remove", "--repo", repo, "--topic", "repo-grooming"]) == 0
 
     assert registry.read_valid_mapping(store_path=store) == []
 

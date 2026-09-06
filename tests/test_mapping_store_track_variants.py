@@ -39,25 +39,17 @@ def test_the_track_variants_are_distinct_records():
             epic="overseer-alpha",
             supervised_topic="alpha",
         ),
-        registry.GroomingSeat(
-            topic="repo-grooming",
-            repo="/repo",
-            tmux="repo-grooming",
-            epic="overseer-grooming",
-        ),
     ]
 
     assert [type(variant).__name__ for variant in variants] == [
         "UnassignedPlan",
         "PlanTrack",
         "SupervisorSeat",
-        "GroomingSeat",
     ]
     assert [variant.kind for variant in variants] == [
         "unassigned_plan",
         "plan",
         "supervisor",
-        "grooming",
     ]
     assert "tmux" not in inspect.signature(registry.UnassignedPlan).parameters
     assert "epic" not in inspect.signature(registry.UnassignedPlan).parameters
@@ -66,10 +58,6 @@ def test_the_track_variants_are_distinct_records():
     )
     assert (
         inspect.signature(registry.SupervisorSeat).parameters["epic"].default
-        is inspect.Parameter.empty
-    )
-    assert (
-        inspect.signature(registry.GroomingSeat).parameters["epic"].default
         is inspect.Parameter.empty
     )
 

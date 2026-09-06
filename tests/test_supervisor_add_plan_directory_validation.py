@@ -7,7 +7,7 @@ import io
 
 import registry
 import supervisor
-from test_supervisor_builders import TEST_EPIC, isolate_store, make_plan
+from test_supervisor_builders import isolate_store, make_plan
 
 __all__: list[str] = []
 
@@ -33,20 +33,3 @@ def test_cli_add_plan_directory_validation_keeps_allowed_controls(*, tmp_path, m
 
     assert supervisor.main(argv=["add", "--repo", str(repo), "--topic", topic]) == 0
     assert len(registry.read_valid_mapping(store_path=store)) == 1
-
-    assert (
-        supervisor.main(
-            argv=[
-                "add",
-                "--repo",
-                str(repo),
-                "--topic",
-                "repo-grooming",
-                "--epic",
-                TEST_EPIC,
-            ]
-        )
-        == 0
-    )
-    tracks = registry.read_valid_mapping(store_path=store)
-    assert [type(track).__name__ for track in tracks] == ["PlanTrack", "GroomingSeat"]

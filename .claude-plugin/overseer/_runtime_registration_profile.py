@@ -12,7 +12,7 @@ __all__: list[str] = ["registration_model_profile"]
 def registration_model_profile() -> dict[str, str | None]:
     """Return the initial profile a reserved seat records at row birth.
 
-    Reserved foreman/grooming seats self-register before the daemon's wrap-up-time
+    A reserved seat self-registers before the daemon's wrap-up-time
     live-process refresh can run, so registration owns the non-null initial profile.
     The refresh path remains the owner of later live re-reads and statusline baselines.
     """

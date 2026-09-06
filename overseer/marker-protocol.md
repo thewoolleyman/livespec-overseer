@@ -468,7 +468,7 @@ bands, expiry floor, expiry-notice flag, and round-open identity, and logs both
 the predecessor and live identities. The state diagnostic is left visible. The
 next below-threshold observation opens a fresh current-session round and sends
 the 50% wrap-up to the successor. The same closure applies to plan tracks and to
-grooming and supervisor seats.
+supervisor seats.
 
 **Ready arms until idle, then EXPIRES.** If a session declares `ready` and then
 emits more output, the declaration is not voided. The restart path is still gated
@@ -613,38 +613,6 @@ tick, so when the human answers in the tracked pane, the alert simply stops.
 correct there. See `.claude-plugin/prose/overseer.md`, the single-source operator
 contract. (Corrected 2026-07-26: this pointed at `SKILL.md`, which is now only a
 compatibility pointer and carries no operator prose.)
-
-## The reserved grooming entity is not a plan-shaped track
-
-A per-repo **grooming** session (the bounded drain pass that runs
-`/livespec-overseer:grooming`) is a DIFFERENT shape of entity from a plan track: it
-measures and routes a whole repo's work rather than being one track itself, and it
-has no `plan/<topic>/` directory of its own. It is the reserved-worker-topic
-pattern, generalized from the `-supervisor` pattern rather than built as a parallel
-mechanism.
-
-Its canonical topic and tmux session are `<repo-slug>-grooming`, registered through
-`grooming_runtime.register_grooming_track`, and the suffix is part of
-`signals._RESERVED_WORKER_SUFFIXES` so no plan worker can collide with it. Unlike a
-`-supervisor` entity, it has no supervised worker counterpart:
-`signals.supervisor_topic` refuses it, and `signals.topic_supervised_worker`
-returns `None`.
-
-Registration runs idempotently by existence, independent of any `plan/` directory:
-one row exists afterwards for topic `<repo-slug>-grooming`,
-`tmux=<repo-slug>-grooming`, and the watched repo, and an existing row's durable
-contents are preserved — so the overseer-never-touches-`plan/` invariant holds by
-construction rather than by a new guard.
-
-The cardinal rule is unchanged for grooming. A grooming session writes the SAME
-`tmp/overseer/<topic>/.overseer-state` file and the SAME
-`ready`/`blocked:`/`winding-down` tokens as every other tracked session, and the
-daemon restarts it ONLY after its own fresh `ready` declaration certifies. Its
-resume prompt is intentionally small: re-enter the grooming operation and
-re-measure the repository before acting. Its wrap-up text does not ask the
-session to drain the backlog before restart; it asks the session to finish only
-the single ledger mutation already in progress, record any already-formed
-judgement onto the relevant plan epic or item, and then declare state.
 
 ## Plan state may adopt the `blocked:` convention
 

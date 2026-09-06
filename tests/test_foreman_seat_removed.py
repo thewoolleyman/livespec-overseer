@@ -23,9 +23,10 @@ PLUGIN = ROOT / ".claude-plugin"
 CARRIER = PLUGIN / "overseer"
 
 # The three name-matched modules with live bucket-1 consumers, measured
-# 2026-09-06: jsonio reaches _foreman_vendor_path; _registry_epic, ledger_comments
-# and the grooming seat reach foreman_gather_sources; the caam-anthropic-loop
-# reaches caam_foreman_override.
+# 2026-09-06: jsonio reaches _foreman_vendor_path; _registry_epic and
+# ledger_comments reach foreman_gather_sources; the caam-anthropic-loop reaches
+# caam_foreman_override. The grooming conformance readers were a fourth consumer
+# of foreman_gather_sources until the grooming seat was retired alongside this one.
 KEPT_MODULES = (
     "_foreman_vendor_path.py",
     "caam_foreman_override.py",

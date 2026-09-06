@@ -33,7 +33,7 @@ def explicit_null_added_at_keys(
 def _unusable_reason(
     *, track: registry.Track, null_added_at_keys: frozenset[MappingKey]
 ) -> str | None:
-    if not isinstance(track, registry.PlanTrack | registry.GroomingSeat):
+    if not isinstance(track, registry.PlanTrack):
         return None
     key = (registry.norm(repo=track.repo), track.topic)
     if key in null_added_at_keys:

@@ -36,9 +36,8 @@ Claude Code and/or OpenAI Codex as the supervised agent runtimes.
 Install both shipped surfaces for the family that will run the overseer:
 
 1. Install the `livespec-overseer` Claude Code plugin from this repository's
-   plugin marketplace entry so the interactive commands
-   `/livespec-overseer:overseer` and `/livespec-overseer:grooming` are
-   available.
+   plugin marketplace entry so the interactive command
+   `/livespec-overseer:overseer` is available.
 2. Install the `livespec-overseer` Python package into the operator
    environment so the `overseerd` and `overseer-start` entry points are on
    `PATH`.
@@ -93,26 +92,6 @@ session to it.
 There is no `--repos` / `--manifest` / `--store` / `--stamp` flag. The
 invocation surface is deliberately knob-free; all durable state lives in `$HOME`
 beside the declaration above.
-
-## The grooming pane
-
-Beside the overseer pane, the plugin ships a **per-repository operator
-surface**. It runs in its own tmux pane as an ordinary tracked session — the
-same `.overseer-state` file, the same three tokens, the same cardinal rule — but
-it is not a plan track: it uses a reserved session name and has no
-`plan/<topic>/` directory of its own, so no plan worker can collide with it.
-
-- **the grooming pane** — a session named `<repo-slug>-grooming`, driven by
-  invoking `/livespec-overseer:grooming` in that pane. It is a **bounded one-shot
-  drain pass**, not a loop: it measures the whole work-item tenant, drains the
-  pending spec-proposal lane, triages untriaged backlog items, buckets unparented
-  work into coherent plan threads within a plan budget, reports what it queued,
-  and exits. It routes work; it does not implement, dispatch, approve, archive,
-  or restart anything.
-
-The surface may not restart a tracked session, and the cardinal rule is
-unchanged for it: it writes its own `ready` declaration and is restarted by the
-daemon only once it has.
 
 ## Relationship to the rest of livespec
 

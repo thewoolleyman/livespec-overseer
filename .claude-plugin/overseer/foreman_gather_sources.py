@@ -3,9 +3,10 @@
 WHY THE NAME OUTLIVED ITS SUBJECT. The foreman seat was retired whole by
 SPECIFICATION v047, and every gatherer that drove this module went with it. Two
 functions did NOT, because bucket-1 code reaches them: `_registry_epic` and
-`ledger_comments` read `parse_repo_config` and `string_list`, the grooming
-conformance readers and `scripts/check-full-autonomy-config-conformance.py`
-read `parse_repo_config`. The module keeps its name so those imports stay
+`ledger_comments` read `parse_repo_config` and `string_list`, and
+`scripts/check-full-autonomy-config-conformance.py` reads `parse_repo_config`.
+The grooming conformance readers were a third consumer until the grooming seat
+was retired alongside the foreman one. The module keeps its name so those imports stay
 byte-stable across the cut rather than churning call sites for cosmetics.
 
 WHAT LEFT WITH THE SEAT, so nobody reconstructs it from the name: the GitHub
