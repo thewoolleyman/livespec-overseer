@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "handle_uncertified_restart_binder",
-    "missing_foreman_epic_message",
     "missing_plan_epic_message",
     "missing_restart_epic_message",
 ]
@@ -25,15 +24,9 @@ def missing_plan_epic_message() -> str:
     return "ready cannot respawn: no plan epic recorded"
 
 
-def missing_foreman_epic_message() -> str:
-    """Surface text for a ready foreman whose mapping row lacks its ledger epic."""
-    return "ready cannot respawn: no foreman epic recorded"
-
-
 def missing_restart_epic_message(*, track: registry.Track) -> str:
     """Surface text for a ready track whose restart binder cannot resolve an epic."""
-    if isinstance(track, registry.ForemanSeat):
-        return missing_foreman_epic_message()
+    del track
     return missing_plan_epic_message()
 
 
@@ -115,27 +108,8 @@ def _handle_uncertified_supervisor_binder(
     return True
 
 
-def _handle_uncertified_foreman_binder(
-    *, sup: Supervisor, track: registry.Track, target: str
-) -> bool:
-    """Alert (and report True) when a foreman track has no restartable epic."""
-    if not isinstance(track, registry.ForemanSeat) or registry.epic_is_resolved(epic=track.epic):
-        return False
-    sup.alert(
-        repo=track.repo,
-        topic=track.topic,
-        session=_supervisor_launch.session_of(sup=sup, track=track),
-        pane=target,
-        message=missing_foreman_epic_message(),
-        condition="restart-foreman-epic-missing",
-    )
-    return True
-
-
 def handle_uncertified_restart_binder(
     *, sup: Supervisor, track: registry.Track, target: str
 ) -> bool:
     """Alert (and report True) when an entity track cannot certify a restart."""
-    return _handle_uncertified_supervisor_binder(
-        sup=sup, track=track, target=target
-    ) or _handle_uncertified_foreman_binder(sup=sup, track=track, target=target)
+    return _handle_uncertified_supervisor_binder(sup=sup, track=track, target=target)

@@ -1,12 +1,10 @@
-"""Topic-name helpers for supervisor, foreman, and grooming entity suffixes."""
+"""Topic-name helpers for supervisor and grooming entity suffixes."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 __all__: list[str] = [
-    "foreman_seat_accepts_explicit_epic",
-    "foreman_topic",
     "grooming_seat_accepts_explicit_epic",
     "grooming_topic",
     "is_foreman_topic",
@@ -21,15 +19,18 @@ __all__: list[str] = [
 ]
 
 _SUPERVISOR_SUFFIX = "-supervisor"
+# Retained for the caam account-rotation loop ALONE (bucket 1). The foreman SEAT is
+# gone, so `-foreman` is no longer a reserved worker suffix and no seat is derived
+# from it; SPECIFICATION/spec.md still points a session whose name carries this
+# suffix at the scoped model, and that exact-suffix match is the only surviving
+# reader. With no foreman sessions it matches nothing.
 _FOREMAN_SUFFIX = "-foreman"
 _GROOMING_SUFFIX = "-grooming"
-_RESERVED_WORKER_SUFFIXES = (_SUPERVISOR_SUFFIX, _FOREMAN_SUFFIX, _GROOMING_SUFFIX)
+_RESERVED_WORKER_SUFFIXES = (_SUPERVISOR_SUFFIX, _GROOMING_SUFFIX)
 _RESERVED_WORKER_KINDS = {
     _SUPERVISOR_SUFFIX: "supervisor",
-    _FOREMAN_SUFFIX: "foreman",
     _GROOMING_SUFFIX: "grooming",
 }
-_FOREMAN_TOPIC_ERROR = "reserved -foreman topic has no supervised worker"
 _GROOMING_TOPIC_ERROR = "reserved -grooming topic has no supervised worker"
 
 
@@ -43,8 +44,6 @@ def reserved_worker_suffix(*, topic: str) -> str | None:
     topic_lower = topic.lower()
     if topic_lower.endswith(_GROOMING_SUFFIX):
         return _GROOMING_SUFFIX
-    if topic_lower.endswith(_FOREMAN_SUFFIX):
-        return _FOREMAN_SUFFIX
     if topic_lower.endswith(_SUPERVISOR_SUFFIX):
         return _SUPERVISOR_SUFFIX
     return None
@@ -57,7 +56,7 @@ def reserved_worker_kind(*, topic: str) -> str | None:
 
 
 def is_foreman_topic(*, topic: str) -> bool:
-    """True when a topic is the reserved foreman entity topic."""
+    """True when a session name carries the caam-matched foreman suffix."""
     return topic.lower().endswith(_FOREMAN_SUFFIX)
 
 
@@ -66,23 +65,9 @@ def is_grooming_topic(*, topic: str) -> bool:
     return topic.lower().endswith(_GROOMING_SUFFIX)
 
 
-def foreman_topic(*, repo_slug: str) -> str:
-    """The reserved foreman topic for ``repo_slug``."""
-    return f"{repo_slug}{_FOREMAN_SUFFIX}"
-
-
 def grooming_topic(*, repo_slug: str) -> str:
     """The reserved grooming topic for ``repo_slug``."""
     return f"{repo_slug}{_GROOMING_SUFFIX}"
-
-
-def foreman_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | None) -> bool:
-    """True for the repo's reserved foreman seat when the operator supplied an epic."""
-    return (
-        epic is not None
-        and is_foreman_topic(topic=topic)
-        and topic == foreman_topic(repo_slug=Path(repo).name)
-    )
 
 
 def grooming_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | None) -> bool:
@@ -96,9 +81,7 @@ def grooming_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | No
 
 def reserved_seat_accepts_explicit_epic(*, repo: str, topic: str, epic: str | None) -> bool:
     """True for a repo-owned reserved supervisor seat with an explicit epic."""
-    return foreman_seat_accepts_explicit_epic(
-        repo=repo, topic=topic, epic=epic
-    ) or grooming_seat_accepts_explicit_epic(repo=repo, topic=topic, epic=epic)
+    return grooming_seat_accepts_explicit_epic(repo=repo, topic=topic, epic=epic)
 
 
 def supervisor_entity_topic(*, topic: str) -> str:
@@ -108,8 +91,6 @@ def supervisor_entity_topic(*, topic: str) -> str:
 
 def supervisor_topic(*, entity_topic: str) -> str:
     """The worker topic owned by a suffixed supervisor entity topic."""
-    if is_foreman_topic(topic=entity_topic):
-        raise ValueError(_FOREMAN_TOPIC_ERROR)
     if is_grooming_topic(topic=entity_topic):
         raise ValueError(_GROOMING_TOPIC_ERROR)
     if not entity_topic.lower().endswith(_SUPERVISOR_SUFFIX):
@@ -121,7 +102,7 @@ def topic_supervised_worker(*, topic: str) -> str | None:
     """The worker topic a `-supervisor`-suffixed entity topic supervises.
 
     Precise about the SUFFIX: returns None for a plain worker topic AND for a
-    `-foreman`- or `-grooming`-suffixed one (reserved entities have no
+    `-grooming`-suffixed one (reserved entities have no
     supervised-worker counterpart), never a mis-stripped string.
     """
     if is_grooming_topic(topic=topic):

@@ -72,39 +72,16 @@ class RetiredArtifactRoot:
     reason: str
 
 
-DEFAULT_CONTRACTS: tuple[ArtifactContract, ...] = (
-    ArtifactContract(
-        name="convene-obligations",
-        reader_paths=("overseer/_supervisor_consensus_overdue.py",),
-        reader_needles=("convene-obligations",),
-        producer_paths=(
-            "overseer/foreman_convene_obligations.py",
-            ".claude-plugin/bin/foreman-convene-obligation",
-            ".claude-plugin/prose/foreman.md",
-            "pyproject.toml",
-        ),
-        producer_needles=(
-            "write_convene_obligation",
-            "foreman-convene-obligation obligation",
-            "tmp/overseer/foreman/convene-obligations/<topic>/",
-            "foreman-convene-obligation =",
-        ),
-    ),
-    ArtifactContract(
-        name="final-ruling-relay",
-        reader_paths=("overseer/_supervisor_final_ruling_attention.py",),
-        reader_needles=("latest_final_relay", "relay_from_record"),
-        producer_paths=(
-            "overseer/foreman_relay_strikes.py",
-            "overseer/foreman_blocked_answer.py",
-        ),
-        producer_needles=(
-            "final=final",
-            'record["final"] = True',
-            "append_journal(repo=Path(repo), record=relay.record)",
-        ),
-    ),
-)
+# EMPTY BY RATIFIED RETIREMENT, not by oversight. Both contracts this table
+# carried -- `convene-obligations` and `final-ruling-relay` -- described a
+# report-only reader in the daemon fed by a FOREMAN-written artifact. The
+# foreman seat was retired whole by SPECIFICATION v047, so both readers
+# (`_supervisor_consensus_overdue`, `_supervisor_final_ruling_attention`) were
+# deleted alongside their producers rather than left shipping with nothing to
+# read. The MECHANISM below stays armed for the next report-only reader: a
+# contract added here still fails the gate if its reader ships without a
+# non-test producer.
+DEFAULT_CONTRACTS: tuple[ArtifactContract, ...] = ()
 
 
 DEFAULT_RETIRED_ROOTS: tuple[RetiredArtifactRoot, ...] = (

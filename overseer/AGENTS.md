@@ -719,37 +719,7 @@ for the marker's edge-triggered lifecycle.
     walks back into history #1 (the context-blowing inline worker). The answer is fewer
     LLM refreshes, not more.
 
-11. **Foreman entities are a reserved-worker-topic pattern (`overseerd-auto-restart`,
-    2026-08-18), generalized from the existing `-supervisor` pattern rather than
-    given a parallel evaluate() branch.** `signals._RESERVED_WORKER_SUFFIXES`
-    already carried both `-supervisor` and `-foreman` before this track, and three
-    call sites already treated both as reserved — the actual gap was that nothing
-    ever created a `registry.Track` row for the canonical `<repo-slug>-foreman`
-    identity (`foreman_runtime_identity.canonical_session_name`), and
-    `signals.supervisor_topic` mis-truncated a `-foreman` topic if ever called on
-    one. `evaluate()` itself needed NO new branch: a foreman track flows through
-    the SAME cascade as any other track — busy/gate/idle/ready/threshold are all
-    topic-agnostic — with only the message-selection and binder-certification
-    LEAVES branching on `signals.is_foreman_topic`
-    (`foreman_wrapup_message`/`foreman_resume` in `_supervisor_prompts.py`, a
-    binder-certification guard parallel to `_handle_uncertified_supervisor_binder`
-    in `_supervisor_restart.py`). Registration
-    (`foreman_runtime.register_foreman_track`) runs idempotently by existence on
-    every `foreman-runtime` step, independent of any `plan/` directory: one row
-    exists afterwards for the canonical foreman topic/repo/tmux, and an existing
-    row's durable contents are preserved. Invariant 1 holds by construction, not
-    by a new guard. The trigger is UNCHANGED: the
-    existing ctx-threshold `maybe_inject` path. `ForemanRuntime`'s own
-    `hard_tick_budget`/`converged` exit reasons and the `foreman-heartbeat-stale`
-    alert (`_supervisor_foreman.py`) remain daemon-observed SUGGESTIONS at most —
-    NEITHER is nor may become a restart trigger; invariant 7's cardinal rule is
-    not narrowed for this entity shape. Full contract in `marker-protocol.md`'s
-    "Foreman entities" section, including the recorded 2026-08-18 finding that
-    THIS repo's own live foreman session still runs under the legacy ad-hoc
-    `foreman` plan-topic rather than the canonical `livespec-overseer-foreman`
-    identity — a follow-up migration, not done inline against a live session.
-
-12. **Lifecycle helper inventory, updated narrowly 2026-08-21
+11. **Lifecycle helper inventory, updated narrowly 2026-08-21
     (`overseer-hgq4wi.3.2`).** The restart/liveness/stall-watch trio is no
     longer wholly inside the three legacy aggregate modules. `_supervisor_restart`
     keeps the runtime-dispatched respawn path and imports the escalating
@@ -761,7 +731,7 @@ for the marker's edge-triggered lifecycle.
     `_supervisor_pane_still`. This is a local map for these lifecycle helpers,
     not a refreshed inventory of every `_supervisor_*.py` module.
 
-13. **Facade/core helper inventory, updated narrowly 2026-08-21
+12. **Facade/core helper inventory, updated narrowly 2026-08-21
     (`overseer-hgq4wi.3.4`).** The final facade slice keeps `supervisor.py` as
     the executable script/facade and `_supervisor_core.py` as the `Supervisor`
     class, but moved three cohesive helper bodies out of the soft band:
@@ -1503,7 +1473,7 @@ symlinked in, so the cardinal rule is protected structurally rather than by care
 (Recorded because a 2026-08-19 exercise did it the hard way instead: it added a
 throwaway repo to the **real** watch-set and let the **fleet** daemon adopt it.
 Nothing was harmed and every artifact was torn down, but it put exercise rows in
-front of every operator and foreman for half an hour for no reason. The scratch
+front of every operator seat then running for half an hour for no reason. The scratch
 `HOME` was already documented directly above. Use it.)
 
 Launch two throwaway tracks in the scratch tree — one cloud, one through the

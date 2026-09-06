@@ -16,15 +16,15 @@ from overseer.test_supervisor_builders import (
 )
 from overseer.test_supervisor_fakes import FakeTmux
 
-PREDECESSOR = "claude:1521187:354055360:livespec-overseer-foreman"
-SUCCESSOR = "claude:2407774:357160598:livespec-overseer-foreman"
+PREDECESSOR = "claude:1521187:354055360:livespec-overseer-grooming"
+SUCCESSOR = "claude:2407774:357160598:livespec-overseer-grooming"
 
 
 def _record(*, repo, topic, sup):
     return registry.read_round_record(repo=str(repo), topic=topic, stamp_path=sup.stamp_path)
 
 
-def _open_measured_foreman_round(*, sup, repo, topic):
+def _open_measured_round(*, sup, repo, topic):
     registry.write_injection_stamp(
         repo=str(repo),
         topic=topic,
@@ -47,13 +47,6 @@ def _open_measured_foreman_round(*, sup, repo, topic):
 
 
 def _entity_track(*, repo, topic, session, kind):
-    if kind == "foreman":
-        return registry.ForemanSeat(
-            topic=topic,
-            repo=str(repo),
-            tmux=session,
-            epic="overseer-foreman-epic",
-        )
     if kind == "grooming":
         return registry.GroomingSeat(
             topic=topic,
@@ -85,7 +78,7 @@ def _entity_fixture(
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=ctx, topic=topic))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     track = _entity_track(repo=repo, topic=topic, session=session, kind=kind)
-    _open_measured_foreman_round(sup=sup, repo=repo, topic=topic)
+    _open_measured_round(sup=sup, repo=repo, topic=topic)
     if state_token is not None:
         declare(repo=repo, topic=topic, value=state_token, mtime=1787201194.0)
     if live_identity is not None:
@@ -108,7 +101,7 @@ def _entity_fixture(
     return repo, topic, fake, sup, track, request
 
 
-@pytest.mark.parametrize("kind", ["foreman", "grooming", "supervisor"])
+@pytest.mark.parametrize("kind", ["grooming", "supervisor"])
 def test_entity_seats_close_recovered_rounds_with_no_session_token(*, tmp_path, kind):
     repo, topic, fake, sup, _track, request = _entity_fixture(
         tmp_path=tmp_path,
@@ -128,12 +121,12 @@ def test_entity_seats_close_recovered_rounds_with_no_session_token(*, tmp_path, 
     assert not fake.has(method="respawn")
 
 
-def test_measured_foreman_successor_identity_resets_stale_daemon_written_round(*, tmp_path):
+def test_measured_successor_identity_resets_stale_daemon_written_round(*, tmp_path):
     repo, topic, _fake, sup, _track, request = _entity_fixture(
         tmp_path=tmp_path,
-        kind="foreman",
+        kind="grooming",
         ctx=14,
-        topic="livespec-overseer-foreman",
+        topic="livespec-overseer-grooming",
         state_token=signals.STATE_READY_EXPIRED,
         live_identity=SUCCESSOR,
     )
@@ -159,9 +152,9 @@ def test_measured_foreman_successor_identity_resets_stale_daemon_written_round(*
 def test_below_threshold_identity_reset_opens_current_session_round(*, tmp_path):
     repo, topic, fake, sup, track, _request = _entity_fixture(
         tmp_path=tmp_path,
-        kind="foreman",
+        kind="grooming",
         ctx=14,
-        topic="livespec-overseer-foreman",
+        topic="livespec-overseer-grooming",
         state_token=signals.STATE_READY_EXPIRED,
         live_identity=SUCCESSOR,
     )
@@ -181,9 +174,9 @@ def test_below_threshold_identity_reset_opens_current_session_round(*, tmp_path)
 def test_matching_identity_does_not_reset_below_threshold_round(*, tmp_path):
     repo, topic, _fake, sup, _track, request = _entity_fixture(
         tmp_path=tmp_path,
-        kind="foreman",
+        kind="grooming",
         ctx=14,
-        topic="livespec-overseer-foreman",
+        topic="livespec-overseer-grooming",
         state_token=signals.STATE_READY_EXPIRED,
         live_identity=PREDECESSOR,
     )
@@ -199,9 +192,9 @@ def test_matching_identity_does_not_reset_below_threshold_round(*, tmp_path):
 def test_successor_ready_declaration_keeps_identity_refusal_surface(*, tmp_path):
     repo, topic, _fake, sup, _track, request = _entity_fixture(
         tmp_path=tmp_path,
-        kind="foreman",
+        kind="grooming",
         ctx=14,
-        topic="livespec-overseer-foreman",
+        topic="livespec-overseer-grooming",
         state_token=signals.STATE_READY,
         live_identity=SUCCESSOR,
     )

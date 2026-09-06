@@ -60,7 +60,9 @@ KNOWN_NON_RUNTIME_ENTRYPOINTS: dict[str, str] = {
 # A parse that silently yielded nothing would make every parametrized test below
 # vanish, and a suite with no cases passes. Anchor the floor to the inventory
 # measured when this harness was written so a pyproject reshuffle fails loudly.
-_MINIMUM_DECLARED_SCRIPTS = 10
+# Re-anchored 2026-09-06 when the foreman seat was retired (SPECIFICATION v047):
+# nine `foreman-*` scripts left [project.scripts], taking the inventory 14 -> 5.
+_MINIMUM_DECLARED_SCRIPTS = 5
 
 
 def _declared_console_scripts() -> dict[str, str]:

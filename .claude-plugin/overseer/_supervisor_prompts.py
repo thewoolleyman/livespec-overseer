@@ -48,9 +48,6 @@ __all__: list[str] = [
     "busy_blocker_callout",
     "charter_authorized_unblock_nudge_message",
     "expiry_notice_message",
-    "foreman_epic_resume",
-    "foreman_resume",
-    "foreman_wrapup_message",
     "grooming_resume",
     "grooming_wrapup_message",
     "idle_nudge_message",
@@ -137,9 +134,6 @@ def resume_for_track(*, track: registry.Track) -> str | None:
             topic=track.supervised_topic,
             epic=track.epic,
         )
-    if isinstance(track, registry.ForemanSeat):
-        epic = _resolved_epic(epic=track.epic)
-        return foreman_resume(repo=track.repo, epic=epic) if epic is not None else None
     if isinstance(track, registry.GroomingSeat):
         return grooming_resume(repo=track.repo)
     if not isinstance(track, registry.PlanTrack):
@@ -231,8 +225,7 @@ Then:
         overseer-declare ready
 
 After `overseer-declare ready`, stop immediately.
-If this same conversation continues, no ordinary daemon restart happened; only a
-foreman self-restart may continue here, and it announces that fact explicitly.
+If this same conversation continues, no ordinary daemon restart happened.
 
 `ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
 restarted and NOT killed — you are reported to the human as not responding, and your
@@ -284,51 +277,6 @@ def wrapup_message(
     return f"{busy_blocker_callout(blocker=blocker)}{body}"
 
 
-def foreman_epic_resume(*, repo: str, epic: str) -> str:
-    """Resume prompt for a per-watched-repo foreman entity's ledger timeline."""
-    return (
-        f"resume foreman ledger epic {epic} in repository {repo}; "
-        "read its ledger-held foreman handoff timeline"
-    )
-
-
-def foreman_resume(*, repo: str, epic: str | None = None) -> str:
-    """Resume prompt for a foreman entity, or explicit no-epic operator wording."""
-    resolved_epic = _resolved_epic(epic=epic)
-    if resolved_epic is None:
-        return (
-            f"(no resume prompt can be built — this foreman track records NO foreman "
-            f"ledger epic id for repository {repo}, so ask the operator to record one)"
-        )
-    return foreman_epic_resume(repo=repo, epic=resolved_epic)
-
-
-def _foreman_state_locator(*, repo: str, epic: str | None) -> str:
-    """The foreman entity's ledger-held handoff timeline."""
-    resolved_epic = _resolved_epic(epic=epic)
-    if resolved_epic is None:
-        return (
-            f"this foreman handoff timeline in repository {repo} — but NO foreman "
-            "ledger epic id is recorded for this track, so ask the operator to "
-            "record one"
-        )
-    return f"the foreman handoff timeline on ledger epic {resolved_epic} in repository {repo}"
-
-
-def foreman_wrapup_message(
-    *, remaining: int, repo: str, topic: str, epic: str | None = None, blocker: str | None = None
-) -> str:
-    """Wrap-up text for a foreman entity using the shared cardinal-rule body."""
-    body = f"{_wrapup_head(remaining=remaining)}\n\n{_WRAPUP_BODY}".format(
-        n=remaining,
-        marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
-        state_file=str(signals.state_path(repo=repo, topic=topic)),
-        read_first=_foreman_state_locator(repo=repo, epic=epic),
-        resume=foreman_resume(repo=repo, epic=epic),
-    )
-    return f"{busy_blocker_callout(blocker=blocker)}{body}"
-
-
 def grooming_resume(*, repo: str) -> str:
     """Resume prompt for a per-watched-repo grooming entity."""
     return f"re-enter the grooming operation for repository {repo}; re-measure before acting"
@@ -364,8 +312,7 @@ Then:
         overseer-declare ready
 
 After `overseer-declare ready`, stop immediately.
-If this same conversation continues, no ordinary daemon restart happened; only a
-foreman self-restart may continue here, and it announces that fact explicitly.
+If this same conversation continues, no ordinary daemon restart happened.
 
 `ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
 restarted and NOT killed — you are reported to the human as not responding, and your

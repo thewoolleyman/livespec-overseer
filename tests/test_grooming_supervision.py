@@ -9,7 +9,6 @@ import json
 import sys
 from pathlib import Path
 
-import foreman_runtime
 import grooming_runtime as grooming_runtime_module
 import pytest
 import registry
@@ -97,12 +96,11 @@ def test_grooming_resume_ignores_plan_epic_resolution():
     )
 
 
-def test_grooming_wrapup_is_not_worker_or_foreman_text(*, tmp_path):
+def test_grooming_wrapup_is_not_worker_text(*, tmp_path):
     repo, worker_topic = make_plan(tmp_path=tmp_path, repo_name="repo", topic="plain")
     grooming_topic = "repo-grooming"
-    foreman_topic = "repo-foreman"
     fake = FakeTmux()
-    for session in (grooming_topic, foreman_topic, worker_topic):
+    for session in (grooming_topic, worker_topic):
         fake.serve(session=session, repo=repo, capture=idle_capture(ctx=40))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     grooming = registry.GroomingSeat(
@@ -111,22 +109,14 @@ def test_grooming_wrapup_is_not_worker_or_foreman_text(*, tmp_path):
         tmux=grooming_topic,
         epic=registry.unresolved_plan_epic(topic=grooming_topic),
     )
-    foreman = registry.ForemanSeat(
-        topic=foreman_topic,
-        repo=str(repo),
-        tmux=foreman_topic,
-        epic=registry.unresolved_plan_epic(topic=foreman_topic),
-    )
     worker = mapped_track(repo=repo, topic=worker_topic, session=worker_topic)
 
     sup.evaluate(track=grooming, act=True)
-    sup.evaluate(track=foreman, act=True)
     sup.evaluate(track=worker, act=True)
-    grooming_text, foreman_text, worker_text = fake.paste_texts()
+    grooming_text, worker_text = fake.paste_texts()
     assert "complete the single ledger write" in grooming_text
     assert "record onto the relevant plan epic or item" in grooming_text
     assert "finish the drain" not in grooming_text.lower()
-    assert "foreman handoff timeline" in foreman_text
     assert "Bring your OWN work" in worker_text
 
 
@@ -160,12 +150,12 @@ def test_grooming_restart_waits_for_ready_then_restarts_without_plan_epic(*, tmp
     assert "re-enter the grooming operation" in ready_fake.paste_texts()[-1]
 
 
-def test_daemon_tick_no_longer_publishes_foreman_or_grooming_rows(*, tmp_path, monkeypatch):
-    """The overseerd daemon table no longer carries foreman or grooming seat rows.
+def test_daemon_tick_no_longer_publishes_grooming_rows(*, tmp_path, monkeypatch):
+    """The overseerd daemon table no longer carries grooming seat rows.
 
-    The foreman and grooming operator SKILLS are unaffected; only the daemon's
-    report-only row surface was removed. A plan row still renders; the registered
-    foreman and grooming seats produce no row.
+    The grooming operator SKILL is unaffected; only the daemon's report-only row
+    surface was removed. A plan row still renders; the registered grooming seat
+    produces no row.
     """
     monkeypatch.chdir(tmp_path)
     repo, plan_topic = make_plan(tmp_path=tmp_path, repo_name="repo", topic="plain")
@@ -173,9 +163,8 @@ def test_daemon_tick_no_longer_publishes_foreman_or_grooming_rows(*, tmp_path, m
     sup = make_supervisor(tmp_path=tmp_path, fake=fake, watch_repos=[str(repo)])
     plan = mapped_track(repo=repo, topic=plan_topic, session=plan_topic)
     registry.append_mapping(track=plan, store_path=sup.store_path)
-    foreman = foreman_runtime.register_foreman_track(repo=repo, store_path=sup.store_path)
     grooming = grooming_runtime_module.register_grooming_track(repo=repo, store_path=sup.store_path)
-    for track in (plan, foreman, grooming):
+    for track in (plan, grooming):
         fake.serve(session=track.tmux, repo=repo, capture=idle_capture(ctx=60, topic=track.topic))
 
     with contextlib.redirect_stderr(io.StringIO()):
@@ -183,5 +172,4 @@ def test_daemon_tick_no_longer_publishes_foreman_or_grooming_rows(*, tmp_path, m
 
     topics = [view.topic for view in views]
     assert plan.topic in topics
-    assert foreman.topic not in topics
     assert grooming.topic not in topics

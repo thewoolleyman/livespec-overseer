@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import _supervisor_final_ruling_attention
-import _supervisor_foreman_picker_autonomy
 import _supervisor_pane_still
 import _supervisor_parked_delivery
 import _supervisor_picker_stall
@@ -85,8 +83,8 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             act=request.act,
         )
     )
-    foreman_picker = _supervisor_foreman_picker_autonomy.apply_foreman_picker_autonomy_attention(
-        request=_supervisor_foreman_picker_autonomy.ForemanPickerAutonomyRequest(
+    low_context = _supervisor_working_low_context.apply_working_low_context_attention(
+        request=_supervisor_working_low_context.WorkingLowContextRequest(
             sup=request.sup,
             track=request.track,
             session=request.session,
@@ -95,32 +93,6 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             note=parked_delivery.note,
             obs=request.obs,
             active_conditions=parked_delivery.active_conditions,
-            act=request.act,
-        )
-    )
-    final_ruling = _supervisor_final_ruling_attention.apply_final_ruling_attention(
-        request=_supervisor_final_ruling_attention.FinalRulingRequest(
-            sup=request.sup,
-            track=request.track,
-            session=request.session,
-            pane=request.pane,
-            status=foreman_picker.status,
-            note=foreman_picker.note,
-            obs=request.obs,
-            active_conditions=foreman_picker.active_conditions,
-            act=request.act,
-        )
-    )
-    low_context = _supervisor_working_low_context.apply_working_low_context_attention(
-        request=_supervisor_working_low_context.WorkingLowContextRequest(
-            sup=request.sup,
-            track=request.track,
-            session=request.session,
-            pane=request.pane,
-            status=final_ruling.status,
-            note=final_ruling.note,
-            obs=request.obs,
-            active_conditions=final_ruling.active_conditions,
             act=request.act,
         )
     )

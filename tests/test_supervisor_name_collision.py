@@ -147,67 +147,6 @@ def test_a_session_of_that_name_with_no_resolvable_pane_stays_session_gone(*, tm
     assert view.status == "session-gone"
 
 
-def start_revalidation_inputs(*, repo, row_status):
-    """A stale `plan_start` proposal and the daemon document that now disagrees with it.
-
-    The proposal was built while a LIVE session held the row; the row now carries no
-    identity at all, which is the disagreement `revalidate_start_identity` judges.
-    """
-    snapshot = {"daemon_instance_id": "daemon-1", "tick_generation": 7}
-    document = {
-        "schema_version": 1,
-        "repo": str(repo),
-        "sources": {"snapshot": {"status": "ok", "mode": "daemon-snapshot"}},
-        "snapshot": {
-            **snapshot,
-            "rows": [
-                {
-                    "repo": str(repo),
-                    "topic": TOPIC,
-                    "tmux": TOPIC,
-                    "runtime": "claude",
-                    "status": row_status,
-                    "session_identity": f"none:{repo}:{TOPIC}",
-                }
-            ],
-        },
-        "dispatch_journal": [],
-    }
-    proposal = {
-        "schema_version": 1,
-        "action_id": "plan_start",
-        "repo": str(repo),
-        "topic": TOPIC,
-        "session_name": TOPIC,
-        "snapshot": {**snapshot, "session_identity": f"claude:{repo}:{TOPIC}"},
-    }
-    return proposal, document
-
-
-def test_a_name_collision_row_refuses_a_stale_start_as_a_changed_identity(*, tmp_path):
-    """A `name-collision` row says nothing of OURS is running — exactly what `session-gone`
-    says. So the foreman's start revalidation must keep refusing with
-    `session_identity_changed` rather than `already_started`, which means "this track is
-    already up". Without this the new status silently re-labels an existing refusal.
-
-    The `session-gone` leg is the control: it is the behaviour being PRESERVED, not a new
-    one, so a discriminator that only widened the reason for the new status would still
-    have to keep it true for the old.
-    """
-    assert MODULE_PATH.is_file()
-    revalidate = importlib.import_module("foreman_act_revalidate")
-    module = importlib.import_module("_supervisor_name_collision")
-    repo = tmp_path / "livespec-overseer"
-    repo.mkdir()
-
-    for status in ("session-gone", module.NAME_COLLISION_STATUS):
-        proposal, document = start_revalidation_inputs(repo=repo, row_status=status)
-        assert (
-            revalidate.revalidate_start_identity(proposal=proposal, document=document)
-            == "session_identity_changed"
-        ), status
-
-
 def test_a_pane_of_that_name_inside_the_tracked_repo_is_not_a_collision(*, tmp_path):
     """THE FOURTH control — the CURED state the host reached by renaming. A pane of the
     topic's name sitting in the track's OWN repo is an ordinary no-managed-pane case (our

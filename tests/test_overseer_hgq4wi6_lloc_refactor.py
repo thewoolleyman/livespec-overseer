@@ -18,7 +18,6 @@ SCOPED_FILES = (
     "overseer/test_supervisor_builders.py",
     "overseer/test_supervisor_warned_stamp_written.py",
     "overseer/test_supervisor_archive_gc.py",
-    "overseer/test_foreman_session_classifier.py",
 )
 
 
@@ -77,7 +76,6 @@ def test_hgq4wi6_scoped_beside_tests_keep_refactor_margin():
         "overseer/test_supervisor_builders.py": 102,
         "overseer/test_supervisor_warned_stamp_written.py": 153,
         "overseer/test_supervisor_archive_gc.py": 86,
-        "overseer/test_foreman_session_classifier.py": 37,
     }
     assert all(count <= 180 for count in measured.values())
 

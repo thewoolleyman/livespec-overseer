@@ -6,7 +6,7 @@ derive an epic from, and `supervisor.py add` refused the reserved `-supervisor`
 suffix outright — a supervisor track could never record a plan epic id, so it
 could never be respawned. This fix derives the epic from the SUPERVISED
 worker topic's plan directory instead, only when that directory exists. A later
-fix lets an operator explicitly set the matching foreman seat's epic, while the
+fix lets an operator explicitly set the matching grooming seat's epic, while the
 guard must still refuse a genuine worker-topic collision with a reserved suffix.
 """
 
@@ -68,32 +68,6 @@ def test_supervisor_topic_with_no_supervised_plan_still_refused(*, tmp_path, mon
     assert not store.exists()
 
 
-def test_foreman_seat_accepts_an_explicit_epic(*, tmp_path, monkeypatch):
-    """POSITIVE: `add --epic` can record the repo's reserved foreman seat epic."""
-    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
-    repo = tmp_path / "repo"
-    repo.mkdir()
-
-    rc = supervisor.main(
-        argv=[
-            "add",
-            "--repo",
-            str(repo),
-            "--topic",
-            "repo-foreman",
-            "--epic",
-            TEST_EPIC,
-        ]
-    )
-
-    assert rc == 0
-    rows = [line for line in store.read_text(encoding="utf-8").splitlines() if line.strip()]
-    assert len(rows) == 1
-    assert '"topic": "repo-foreman"' in rows[0]
-    assert '"tmux": "repo-foreman"' in rows[0]
-    assert f'"epic": "{TEST_EPIC}"' in rows[0]
-
-
 def test_grooming_seat_accepts_an_explicit_epic(*, tmp_path, monkeypatch):
     """POSITIVE: `add --epic` can record the repo's reserved grooming seat epic."""
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
@@ -133,30 +107,6 @@ def test_grooming_assignment_requires_an_epic(*, tmp_path):
         )
 
 
-def test_non_seat_foreman_topic_still_refused_with_an_explicit_epic(*, tmp_path, monkeypatch):
-    """CONTROL: explicit epics do not launder worker topics ending in `-foreman`."""
-    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
-    repo = tmp_path / "repo"
-    repo.mkdir()
-
-    with contextlib.redirect_stderr(_io.StringIO()) as err:
-        rc = supervisor.main(
-            argv=[
-                "add",
-                "--repo",
-                str(repo),
-                "--topic",
-                "topic-foreman",
-                "--epic",
-                TEST_EPIC,
-            ]
-        )
-
-    assert rc == 1
-    assert "refusing reserved supervisor topic" in err.getvalue()
-    assert not store.exists()
-
-
 def test_non_seat_grooming_topic_still_refused_with_an_explicit_epic(*, tmp_path, monkeypatch):
     """CONTROL: explicit epics do not launder worker topics ending in `-grooming`."""
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
@@ -185,11 +135,11 @@ def test_non_seat_grooming_topic_still_refused_with_an_explicit_epic(*, tmp_path
     ("topic", "suffix"),
     [
         ("topic-supervisor", "-supervisor"),
-        ("topic-foreman", "-foreman"),
+        ("topic-grooming", "-grooming"),
     ],
 )
 def test_reserved_topic_refusal_names_the_matched_suffix(*, tmp_path, monkeypatch, topic, suffix):
-    """The CLI refusal must not report `-supervisor` for a `-foreman` collision."""
+    """The CLI refusal must not report `-supervisor` for a `-grooming` collision."""
     _ = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -202,16 +152,16 @@ def test_reserved_topic_refusal_names_the_matched_suffix(*, tmp_path, monkeypatc
 
 
 def test_topic_supervised_worker_precise_about_the_suffix():
-    """CONTROL: the new signals helper distinguishes -supervisor from -foreman and plain."""
+    """CONTROL: the new signals helper distinguishes -supervisor from -grooming and plain."""
     assert signals.topic_supervised_worker(topic="topic-supervisor") == "topic"
-    assert signals.topic_supervised_worker(topic="topic-foreman") is None
+    assert signals.topic_supervised_worker(topic="topic-grooming") is None
     assert signals.topic_supervised_worker(topic="topic") is None
 
 
-def test_foreman_topic_helper_precise_and_supervisor_topic_fails_closed():
-    assert signals.is_foreman_topic(topic="topic-foreman") is True
-    assert signals.is_foreman_topic(topic="topic-supervisor") is False
-    assert signals.is_foreman_topic(topic="topic") is False
+def test_grooming_topic_helper_precise_and_supervisor_topic_fails_closed():
+    assert signals.is_grooming_topic(topic="topic-grooming") is True
+    assert signals.is_grooming_topic(topic="topic-supervisor") is False
+    assert signals.is_grooming_topic(topic="topic") is False
 
-    with pytest.raises(ValueError, match="-foreman"):
-        signals.supervisor_topic(entity_topic="topic-foreman")
+    with pytest.raises(ValueError, match="-grooming"):
+        signals.supervisor_topic(entity_topic="topic-grooming")

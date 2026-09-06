@@ -62,8 +62,7 @@ Then:
         overseer-declare ready
 
 After `overseer-declare ready`, stop immediately.
-If this same conversation continues, no ordinary daemon restart happened; only a
-foreman self-restart may continue here, and it announces that fact explicitly.
+If this same conversation continues, no ordinary daemon restart happened.
 
 `ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
 restarted and NOT killed — you are reported to the human as not responding, and your

@@ -8,7 +8,6 @@ from typing import Literal, TypeAlias, overload
 
 __all__: list[str] = [
     "LEGACY_UNRESOLVED_EPIC_PREFIX",
-    "ForemanSeat",
     "GroomingSeat",
     "ModelProfile",
     "PlanTrack",
@@ -21,7 +20,7 @@ __all__: list[str] = [
 ]
 
 ModelProfile: TypeAlias = dict[str, str | None]
-TrackKind: TypeAlias = Literal["unassigned_plan", "plan", "supervisor", "foreman", "grooming"]
+TrackKind: TypeAlias = Literal["unassigned_plan", "plan", "supervisor", "grooming"]
 LEGACY_UNRESOLVED_EPIC_PREFIX = "legacy-unresolved:"
 MISSING_TMUX = "missing_tmux"
 MISSING_EPIC = "missing_epic"
@@ -31,8 +30,6 @@ PLAN_REQUIRES_EPIC = "plan track requires epic"
 SUPERVISOR_REQUIRES_TMUX = "supervisor seat requires tmux"
 SUPERVISOR_REQUIRES_EPIC = "supervisor seat requires epic"
 SUPERVISOR_REQUIRES_TOPIC = "supervisor seat requires supervised topic"
-FOREMAN_REQUIRES_TMUX = "foreman seat requires tmux"
-FOREMAN_REQUIRES_EPIC = "foreman seat requires epic"
 GROOMING_REQUIRES_TMUX = "grooming seat requires tmux"
 GROOMING_REQUIRES_EPIC = "grooming seat requires epic"
 
@@ -164,36 +161,6 @@ class SupervisorSeat:
 
 
 @dataclass(frozen=True, kw_only=True)
-class ForemanSeat:
-    topic: str
-    repo: str
-    tmux: str
-    epic: str
-    resume: str | None = None
-    ctx_threshold: int | None = None
-    idle_nudge: bool | None = None
-    pinned_session_id: str | None = None
-    observed_session_identity: str | None = None
-    added_at: str | None = None
-    model_profile: ModelProfile | None = None
-    kind: Literal["foreman"] = field(default="foreman", init=False)
-
-    def __post_init__(self) -> None:
-        if not self.tmux:
-            raise ValueError(FOREMAN_REQUIRES_TMUX)
-        if not self.epic:
-            raise ValueError(FOREMAN_REQUIRES_EPIC)
-
-    @property
-    def assigned(self) -> bool:
-        return True
-
-    @property
-    def is_unassigned(self) -> bool:
-        return False
-
-
-@dataclass(frozen=True, kw_only=True)
 class GroomingSeat:
     topic: str
     repo: str
@@ -223,7 +190,7 @@ class GroomingSeat:
         return False
 
 
-TrackRecord: TypeAlias = UnassignedPlan | PlanTrack | SupervisorSeat | ForemanSeat | GroomingSeat
+TrackRecord: TypeAlias = UnassignedPlan | PlanTrack | SupervisorSeat | GroomingSeat
 
 
 @overload
@@ -236,10 +203,6 @@ def track_with_epic(*, track: PlanTrack, epic: str) -> PlanTrack: ...
 
 @overload
 def track_with_epic(*, track: SupervisorSeat, epic: str) -> SupervisorSeat: ...
-
-
-@overload
-def track_with_epic(*, track: ForemanSeat, epic: str) -> ForemanSeat: ...
 
 
 def track_with_epic(*, track: TrackRecord, epic: str) -> TrackRecord:
