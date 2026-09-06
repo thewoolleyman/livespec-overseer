@@ -515,13 +515,22 @@ GOVERNED here, not forbidden: the full `just check` aggregate invokes
 `check-no-workflow-edits`, and that gate grants a per-change exemption through
 a tracked declaration file named `.livespec-workflow-edit-exemption`.
 
-That declaration must be authored in the branch's own diff rather than
+The recipe delegates to the worktree pack's single canonical body,
+`dev-tooling/check-no-workflow-edits.sh` (livespec-dev-tooling fy02), installed
+untracked by `just install-worktree-pack`; this repo carries no guard copy of
+its own. That declaration must be authored in the branch's own diff rather than
 inherited from master, so one reviewed exemption cannot disable the guard for
-later branches. It must contain exactly one `work_item=` line and exactly one
-non-empty `reason=` line. The narrow mechanical allowance is only for lines the
-automated pin-bump lane or canonical CI-matrix reconciler can produce: pin
-reference lines in workflow files, plus canonical slug lines emitted into
-`.github/workflows/ci.yml`. Any other workflow edit needs the declaration above.
+later branches. It must contain exactly one `work_item=` line naming a ledger id
+and exactly one non-empty `reason=` line. The declaration alone is NOT the
+authorization: this repo has a ledger, so the named work item must ALSO carry
+the label `approval:workflow-edit`, which a HUMAN sets from their own terminal
+(`bd label add <ledger-id> approval:workflow-edit`); agents cannot set it, and
+an unreachable ledger fails closed. There is no mechanical pin/reconciler
+allowance: the guard is a local and janitor authorship control that exits 0 as
+a no-op in CI (`GITHUB_ACTIONS` set), where the bot lanes legitimately rewrite
+workflow files, so its `check-metadata-batch` invocation in
+`.github/workflows/ci.yml` is a documented no-op pending a later declared
+workflow edit.
 
 The guard does not create an env var, flag, or skip lever exception. Those
 remain absolutely prohibited here.
