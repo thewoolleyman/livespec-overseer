@@ -10,6 +10,7 @@ cannot quietly delete the residue the daemon and the caam loop still import.
 
 from __future__ import annotations
 
+import importlib
 import json
 import re
 from pathlib import Path
@@ -74,6 +75,15 @@ def test_the_kept_modules_are_still_reached_by_their_bucket_one_consumers() -> N
     assert "caam_foreman_override" in (PACKAGE / "caam_session_models.py").read_text(
         encoding="utf-8"
     )
+
+
+def test_caam_foreman_override_remains_a_compatibility_wrapper() -> None:
+    module = importlib.import_module("caam_foreman_override")
+    scoped = importlib.import_module("caam_scoped_model")
+    assert module.OBSERVED_MODELS_KEY == scoped.OBSERVED_MODELS_KEY
+    assert module.SCOPED_MODEL == scoped.SCOPED_MODEL
+    assert module.WANTED_MODELS == scoped.WANTED_MODELS
+    assert module.scoped_model_pinned is scoped.scoped_model_pinned
 
 
 def test_the_foreman_skill_surfaces_are_deleted() -> None:

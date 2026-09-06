@@ -44,6 +44,8 @@ def _isolate_cwd(*, tmp_path, monkeypatch):
 def test_grooming_topic_contract_reserves_the_entity_suffix():
     assert signals.reserved_worker_suffix(topic="repo-grooming") == "-grooming"
     assert signals.is_grooming_topic(topic="repo-grooming") is True
+    assert signals.is_foreman_topic(topic="repo-foreman") is True
+    assert signals.is_foreman_topic(topic="repo-grooming") is False
     assert signals.topic_supervised_worker(topic="repo-grooming") is None
     with pytest.raises(ValueError, match="reserved -grooming topic has no supervised worker"):
         signals.supervisor_topic(entity_topic="repo-grooming")
