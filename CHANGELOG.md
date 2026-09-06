@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.7...v2.1.0) (2026-09-06)
+
+
+### Features
+
+* **overseer:** remove foreman and grooming seat rows from the overseerd daemon ([154f22d](https://github.com/thewoolleyman/livespec-overseer/commit/154f22d17c5192982e026b939410701eff450b28))
+
 ## [2.0.7](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.6...v2.0.7) (2026-09-06)
 
 
