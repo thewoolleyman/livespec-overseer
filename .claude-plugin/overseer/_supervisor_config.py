@@ -55,6 +55,8 @@ __all__: list[str] = [
     "SUBMIT_POLL",
     "SUPERVISION_CONDITIONS",
     "SUPERVISOR_STATE_STALE_AFTER",
+    "UNDECLARED_IDLE_AFTER",
+    "UNDECLARED_IDLE_REPORTED_UNTIL",
     "WINDDOWN_STARVED_AFTER",
     "WINDOW_NAME",
     "default_gitignore_check",
@@ -170,6 +172,27 @@ PICKER_STALL_AFTER = 30 * 60.0
 FINAL_RULING_UNHEEDED_AFTER = 10 * 60.0
 SETTLING_STUCK_AFTER = 10 * 60.0
 SUPERVISOR_STATE_STALE_AFTER = 30 * 60.0
+
+# The non-declaration report window (`overseer-j2vbcq`). A session idle above its
+# wind-down threshold that has declared NOTHING is invisible: the daemon cannot tell
+# "genuinely nothing pending" from "pending but undeclared", which is how a session
+# holding a prose-posed human authorization keeps rendering healthy.
+#
+# The FLOOR sits past `IDLE_NUDGE_AFTER` deliberately, so the keep-going nudge — and
+# its escape hatch telling the session to write `blocked: <reason>` instead — has
+# already had its chance before the daemon reports the silence. Reporting sooner would
+# report every session that is merely between turns.
+#
+# The CEILING is the part that is not optional. This subject already carries two
+# unbounded-shield defects (`overseer-t6m`, `overseer-94fs`), where a condition once
+# raised stands forever with nothing forcing a resolution; an unbounded report here
+# would be the third. Past this age the row stops being held and the condition cannot
+# re-raise without an intervening non-idle episode. The report is not lost by that:
+# the alert it already emitted is HISTORY in the daemon log, which is the surface that
+# answers "when?" — the table answers "what is true now", and after the ceiling the
+# truth it should tell is that nobody acted on the report.
+UNDECLARED_IDLE_AFTER = 2 * 3600.0
+UNDECLARED_IDLE_REPORTED_UNTIL = 8 * 3600.0
 
 # Standing blocked declarations escalate once at each crossed age band. Further daily
 # bands are derived from the same 24h cadence in the evaluator.

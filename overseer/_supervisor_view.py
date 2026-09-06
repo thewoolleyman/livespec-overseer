@@ -73,6 +73,11 @@ ATTENTION_STATUSES = (
     "session-gone",
     "shell-prolonged",
     "supervisor-state-stale",
+    # A session idle above threshold that has declared NOTHING. It is attention because
+    # the daemon cannot tell "nothing pending" from "a human decision pending but
+    # undeclared", and the second is invisible on every other field (`overseer-j2vbcq`).
+    # Bounded by `UNDECLARED_IDLE_REPORTED_UNTIL`, so it cannot hold a row forever.
+    "undeclared-idle",
     "watch-target-gone",
     "wait-target-missing",
     "winddown-starved",
@@ -140,6 +145,7 @@ _STATUS_COLOR = {
     "session-gone": _ANSI_RED,
     "shell-prolonged": _ANSI_YELLOW,
     "supervisor-state-stale": _ANSI_YELLOW,
+    "undeclared-idle": _ANSI_YELLOW,
     "watch-target-gone": _ANSI_YELLOW,
     "wait-target-missing": _ANSI_YELLOW,
     "winddown-starved": _ANSI_YELLOW,
