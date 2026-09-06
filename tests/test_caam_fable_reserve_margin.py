@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 from caam_anthropic_decide import DecisionSeams, decide
 from caam_decision import ProfileUsage, UsageRecord
-from caam_foreman_override import OBSERVED_MODELS_KEY
+from caam_scoped_model import OBSERVED_MODELS_KEY
 
 __all__: list[str] = []
 

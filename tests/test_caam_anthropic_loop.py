@@ -99,12 +99,9 @@ def test_console_script_registers_the_caam_operation():
         (["--scheduled"], {"scheduled": True, "force": False, "dry_run": False}),
         (["--force", "--dry-run"], {"scheduled": False, "force": True, "dry_run": True}),
         (["--NO-MODELS", "--no-warm"], {"no_models": True, "no_warm": True}),
-        (["--foreman-model= FABLE "], {"foreman_model": "fable"}),
-        (["--foreman-model", " Opus "], {"foreman_model": "opus"}),
-        (["--foreman-model= AUTO "], {"foreman_model": "auto"}),
         (
-            ["--session-model= alpha-foreman = FABLE ", "--session-model", "beta= Opus "],
-            {"session_models": (("alpha-foreman", "fable"), ("beta", "opus"))},
+            ["--session-model= alpha = FABLE ", "--session-model", "beta= Opus "],
+            {"session_models": (("alpha", "fable"), ("beta", "opus"))},
         ),
         (
             [
@@ -124,8 +121,6 @@ def test_flags_use_prefix_matching_lowercasing_and_absent_none(*, argv, expected
 
     for key, value in expected.items():
         assert getattr(parsed, key) == value
-    if "foreman_model" not in expected:
-        assert parsed.foreman_model is None
     if "session_models" not in expected:
         assert parsed.session_models == ()
     if "protected_accounts" not in expected:

@@ -37,9 +37,6 @@ class Flags(Protocol):
     def no_models(self) -> bool: ...
 
     @property
-    def foreman_model(self) -> str | None: ...
-
-    @property
     def session_models(self) -> tuple[tuple[str, str], ...]: ...
 
     @property
@@ -151,7 +148,6 @@ def model_messages(
         state_path=context.state_path,
         active_fable=active_fable,
         scoped_servable=scoped_servable,
-        foreman_model=context.flags.foreman_model,
         session_models=context.flags.session_models,
         dry_run=context.flags.dry_run,
         now=None,

@@ -47,7 +47,6 @@ def _flags() -> Flags:
         dry_run=False,
         no_models=True,
         no_warm=True,
-        foreman_model=None,
         session_models=(),
         protected_accounts=(),
     )

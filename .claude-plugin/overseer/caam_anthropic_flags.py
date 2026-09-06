@@ -23,9 +23,6 @@ class Flags(Protocol):
     def no_warm(self) -> bool: ...
 
     @property
-    def foreman_model(self) -> str | None: ...
-
-    @property
     def session_models(self) -> tuple[tuple[str, str], ...]: ...
 
     @property

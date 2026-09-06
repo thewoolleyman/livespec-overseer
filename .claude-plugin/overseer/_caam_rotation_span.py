@@ -1,7 +1,7 @@
 """The ROTATION half of caam observability: keeping accounts warm, and moving between them.
 
 ``_caam_pane_decision`` and ``_caam_pass_span`` cover the ENFORCEMENT half -- what a
-pass decided about each foreman pane, and under what conditions. Neither says
+pass decided about each pane, and under what conditions. Neither says
 anything about the other half of the same pass: whether the idle accounts rotation
 depends on are still switchable, when the next keep-warm wake is due, and what
 happened when the pass actually tried to move. Those are the questions an

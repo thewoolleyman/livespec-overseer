@@ -54,7 +54,6 @@ class ModelContext:
     session_names: tuple[str, ...]
     want_model: str | None
     active_fable: float | None
-    foreman_model: str | None
     session_models: tuple[tuple[str, str], ...]
     orchestrated: bool
     pane_pid: PanePid
@@ -100,7 +99,6 @@ def model_context(
         session_names=_session_names(options=options, tmux=tmux),
         want_model=want_model,
         active_fable=_active_fable_option(options=options),
-        foreman_model=_string_option(options=options, key="foreman_model"),
         session_models=_session_models_setting(options=options),
         orchestrated=orchestrated,
         pane_pid=_pane_pid_option(options=options) or tmux.pane_pid,

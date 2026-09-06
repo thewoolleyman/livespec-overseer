@@ -24,7 +24,7 @@ from caam_decision import (
     rank_profiles,
     triggered,
 )
-from caam_foreman_override import apply_foreman_model_override, scoped_model_pinned
+from caam_scoped_model import scoped_model_pinned
 
 __all__: list[str] = []
 
@@ -370,70 +370,46 @@ def test_serve_capability_is_read_from_the_scoped_balance_alone(
     assert can_serve_scoped_model(usage=record) is expected
 
 
-def test_only_a_pin_naming_the_scoped_model_puts_the_clause_in_effect():
-    """The general-model pin is an operator pin too, and it does NOT arm this clause."""
-    state: dict[str, object] = {}
-
-    assert not scoped_model_pinned(state=state)
-
-    _ = apply_foreman_model_override(
-        state=state, requested_model="opus", default_model="opus", fable_left=False
-    )
-    assert not scoped_model_pinned(state=state)
-
-    _ = apply_foreman_model_override(
-        state=state, requested_model="fable", default_model="opus", fable_left=False
-    )
-    assert scoped_model_pinned(state=state)
-
-    _ = apply_foreman_model_override(
-        state=state, requested_model="auto", default_model="opus", fable_left=False
-    )
-    assert not scoped_model_pinned(state=state)
-
-
 # ---------------------------------------------------------------------------
-# A PER-SESSION pin arms the same clause as the global pin (SPEC v040).
+# A PER-SESSION pin (or an OBSERVED scoped session) arms the clause; caam no
+# longer has a global name-derived pin (plan overseer-54k2za.53).
 # ---------------------------------------------------------------------------
 
 
 def test_a_per_session_pin_naming_the_scoped_model_arms_the_clause():
     """A `session_models` entry equal to the scoped model is an operator pin too."""
-    state: dict[str, object] = {"session_models": {"livespec-overseer-foreman": "fable"}}
+    state: dict[str, object] = {"session_models": {"some-session": "fable"}}
 
     assert scoped_model_pinned(state=state)
 
 
-def test_a_per_session_pin_arms_the_clause_even_when_the_global_pin_is_not_scoped():
-    """The per-session pin arms selection though `foreman_model` is opus, not fable."""
-    state: dict[str, object] = {
-        "foreman_model": "opus",
-        "session_models": {"homelab-foreman": "fable"},
-    }
+def test_an_observed_scoped_session_arms_the_clause():
+    """A tracked session observed running the scoped model arms selection, pin or not."""
+    state: dict[str, object] = {"observed_models": {"some-session": "fable"}}
 
     assert scoped_model_pinned(state=state)
 
 
 def test_a_per_session_pin_naming_the_general_model_does_not_arm_the_clause():
     """A per-session opus pin is an operator pin, but it does NOT arm this clause."""
-    state: dict[str, object] = {"session_models": {"livespec-overseer-foreman": "opus"}}
+    state: dict[str, object] = {"session_models": {"some-session": "opus"}}
 
     assert not scoped_model_pinned(state=state)
 
 
 def test_a_per_session_scoped_pin_under_the_legacy_state_key_also_arms_the_clause():
     """State not yet migrated off the legacy `session-models` key still arms selection."""
-    state: dict[str, object] = {"session-models": {"livespec-overseer-foreman": "fable"}}
+    state: dict[str, object] = {"session-models": {"some-session": "fable"}}
 
     assert scoped_model_pinned(state=state)
 
 
-def test_with_neither_a_global_nor_a_per_session_scoped_pin_the_clause_stays_off():
-    """The global-only path is unchanged: no pin of either kind leaves selection unarmed."""
+def test_with_no_scoped_pin_or_observation_the_clause_stays_off():
+    """No per-session scoped pin and no observed scoped session leaves selection unarmed."""
     assert not scoped_model_pinned(state={})
     assert not scoped_model_pinned(state={"session_models": {}})
     assert not scoped_model_pinned(
-        state={"foreman_model": "opus", "session_models": {"a-foreman": "opus"}}
+        state={"session_models": {"a": "opus"}, "observed_models": {"b": "opus"}}
     )
 
 

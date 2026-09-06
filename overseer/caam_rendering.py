@@ -7,7 +7,7 @@ from datetime import datetime
 from math import inf
 from typing import Protocol
 
-from caam_foreman_override import SCOPED_MODEL
+from caam_scoped_model import SCOPED_MODEL
 
 __all__: list[str] = [
     "CURRENT_COL",

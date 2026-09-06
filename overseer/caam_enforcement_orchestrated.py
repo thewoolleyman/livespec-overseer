@@ -5,14 +5,20 @@ Split out of ``caam_enforcement`` (work-item overseer-m7qrgp.3), which crossed t
 cohesion: ``caam_enforcement`` orchestrates a pass -- resolve the context, discover
 the panes, save the state, and honour ``--no-models`` -- while everything here is
 the POLICY that pass applies when the caller passed an ``active_fable`` reading:
-what the foremen want, which sessions are exceptions to it, whose operator-set
-model survives, and what the pass therefore did.
+which sessions carry an operator-set model, whose operator-set model survives, and
+what the pass therefore did.
 
-That is also the seam the pass span sits on. These four conditions -- the Fable
-balance, the foreman want, the pane count, and the exceptions in effect -- are
-identical for every pane in a pass and are dropped entirely by the operator
-message list, so they are reported to the pass on ``ModelContext.note_facts``
-here, at the one point where all four are known.
+The operation does NOT derive any session's model from its name (plan
+overseer-54k2za.53 decoupled caam from the foreman and grooming seats). A pane is
+driven only when an operator set a per-session model for it, or -- the
+name-independent servability reset -- when the scoped model it is on cannot be
+served by any selectable account, in which case it is reset to the general model.
+
+That is also the seam the pass span sits on. These three conditions -- the Fable
+balance, the pane count, and the exceptions in effect -- are identical for every
+pane in a pass and are dropped entirely by the operator message list, so they are
+reported to the pass on ``ModelContext.note_facts`` here, at the one point where
+all three are known.
 """
 
 from __future__ import annotations
@@ -20,9 +26,8 @@ from __future__ import annotations
 from typing import Final
 
 from _caam_pass_span import PassFacts
-from _signals_topics import is_foreman_topic, is_grooming_topic
 from caam_enforcement_options import ModelContext, ModelRun
-from caam_foreman_override import SCOPED_MODEL, apply_foreman_model_override
+from caam_scoped_model import SCOPED_MODEL
 from caam_session_models import SessionModelExceptions, apply_session_model_exceptions
 from caam_sessions import SessionModel, enforce_session_models
 
@@ -67,20 +72,14 @@ def enforce_orchestrated_models(
     panes: tuple[SessionModel, ...],
     context: ModelContext,
 ) -> list[str]:
-    # Per ratified v045 the reading that decides the foreman default, the derived
-    # want and operator-set respect is FLEET-WIDE selectable servability of the
-    # scoped model when the rotation pass supplies it; the active account's own
-    # balance remains the reading for every caller that supplies nothing.
+    # The reading that decides operator-set respect and the servability reset is
+    # FLEET-WIDE selectable servability of the scoped model when the rotation pass
+    # supplies it; the active account's own balance remains the reading for every
+    # caller that supplies nothing.
     has_fable = (
         context.scoped_servable
         if context.scoped_servable is not None
         else fable_left(active_fable=context.active_fable)
-    )
-    foreman = apply_foreman_model_override(
-        state=context.state,
-        requested_model=context.foreman_model,
-        default_model="fable" if has_fable else "opus",
-        fable_left=has_fable,
     )
     session_exceptions = apply_session_model_exceptions(
         state=context.state,
@@ -94,29 +93,24 @@ def enforce_orchestrated_models(
             pane=pane,
             state=context.state,
             fable_left=has_fable,
-            want_foreman=foreman.want_foreman,
             session_exceptions=session_exceptions,
             run=context.run,
         )
     ]
     balance = "left" if has_fable else "EXHAUSTED"
     suffix = ", ".join(actions) if actions else "nothing to change"
-    pinned = " [pinned]" if foreman.pinned else ""
     exceptions = session_exceptions.summary()
     summary_suffix = suffix if exceptions is None else f"{suffix}; {exceptions}"
     _note_pass_facts(
         context=context,
         has_fable=has_fable,
-        want_foreman=foreman.want_foreman,
         pane_count=len(panes),
         exceptions=exceptions,
         outcome=suffix,
     )
     return [
         *session_exceptions.messages,
-        *foreman.messages,
-        f"models: foremen want {foreman.want_foreman}{pinned} "
-        f"(active account Fable {balance}); {summary_suffix}",
+        f"models: active account Fable {balance}; {summary_suffix}",
     ]
 
 
@@ -124,12 +118,11 @@ def _note_pass_facts(
     *,
     context: ModelContext,
     has_fable: bool,
-    want_foreman: str,
     pane_count: int,
     exceptions: str | None,
     outcome: str,
 ) -> None:
-    """Hand the pass the four conditions only this function ever sees.
+    """Hand the pass the conditions only this function ever sees.
 
     A pass with no open span notes nothing, which is the ordinary case for a
     direct ``enforce_models`` caller and for every test that does not ask for
@@ -140,7 +133,6 @@ def _note_pass_facts(
     context.note_facts(
         facts=PassFacts(
             fable_left=has_fable,
-            foreman_want=want_foreman,
             pane_count=pane_count,
             exceptions=exceptions,
             outcome=outcome,
@@ -153,13 +145,10 @@ def _actions_for_pane(
     pane: SessionModel,
     state: dict[str, object],
     fable_left: bool,
-    want_foreman: str,
     session_exceptions: SessionModelExceptions,
     run: ModelRun,
 ) -> list[str]:
-    want = session_exceptions.want_for(session=pane.session) or _wanted_model(
-        session=pane.session, fable_left=fable_left, want_foreman=want_foreman
-    )
+    want = session_exceptions.want_for(session=pane.session) or _wanted_model(fable_left=fable_left)
     if want is None:
         return []
     try:
@@ -206,8 +195,8 @@ def _respect_operator_set(
     fallback -- and it can only disqualify a session observed on the scoped
     model itself. A session on any other model is untouched by that allowance
     being spent, so no servability concern reaches it and it is left alone; the
-    exhausted pass resets the derived and never-operator-set sessions, and must
-    not sweep this one up with them.
+    exhausted pass resets the never-operator-set sessions, and must not sweep
+    this one up with them.
 
     An unknown observed model needs no branch here: it is never classified as
     operator-set downstream, so respecting it decides nothing.
@@ -217,9 +206,13 @@ def _respect_operator_set(
     return scoped_servable or pane.model != SCOPED_MODEL
 
 
-def _wanted_model(*, session: str, fable_left: bool, want_foreman: str) -> str | None:
-    if is_foreman_topic(topic=session) or is_grooming_topic(topic=session):
-        return want_foreman
+def _wanted_model(*, fable_left: bool) -> str | None:
+    """The name-independent servability reset: general model when scoped is unservable.
+
+    No session's model is derived from its name. A session with no operator-set
+    pin is left alone (``None``) while the scoped model is servable, and reset to
+    the general model only when no selectable account can serve it.
+    """
     if not fable_left:
         return "opus"
     return None

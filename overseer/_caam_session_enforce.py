@@ -98,7 +98,7 @@ def recently_set(*, state: dict[str, object], session: str, want: str, now: floa
     return at is not None and now - at <= set_suppress_s()
 
 
-# Mirrors caam_foreman_override.OBSERVED_MODELS_KEY, duplicated here rather than
+# Mirrors caam_scoped_model.OBSERVED_MODELS_KEY, duplicated here rather than
 # imported for the same reason that module duplicates the session-model keys: the
 # dependency between them runs one way only.
 _OBSERVED_MODELS_KEY = "observed_models"

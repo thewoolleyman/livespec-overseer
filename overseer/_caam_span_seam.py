@@ -14,7 +14,7 @@ concerns to accumulate.
 WHY THE SEND IS SYNCHRONOUS HERE, where the daemon's is not. The daemon exports
 from its tick path, so a blackholing endpoint holding a worker for the transport
 timeout would cost it timely supervision -- hence `_supervisor_otel_async`. Model
-enforcement runs on the rotation cadence over a handful of foreman panes, and its
+enforcement runs on the rotation cadence over a handful of panes, and its
 own actuator already spends seconds per pane driving a tmux picker, so an
 in-line send is not the thing that would make it late. The far commoner case
 costs nothing at all: with no `OTEL_EXPORTER_OTLP_ENDPOINT` set,

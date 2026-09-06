@@ -75,7 +75,6 @@ def test_full_pass_preserves_live_cutover_state_and_unknown_keys(*, tmp_path: Pa
             dry_run=False,
             no_models=False,
             no_warm=True,
-            foreman_model=None,
             session_models=(),
         ),
         home=home,
@@ -100,9 +99,8 @@ def test_full_pass_preserves_live_cutover_state_and_unknown_keys(*, tmp_path: Pa
     assert after["future-key"] == before["future-key"]
 
 
-def test_live_cutover_session_pins_override_global_foreman_pin(*, tmp_path: Path) -> None:
+def test_live_cutover_session_pins_drive_their_sessions(*, tmp_path: Path) -> None:
     state = {
-        "foreman_model": "opus",
         "session_models": {
             "homelab-foreman": "fable",
             "livespec-overseer-foreman": "fable",
@@ -121,7 +119,6 @@ def test_live_cutover_session_pins_override_global_foreman_pin(*, tmp_path: Path
             "other-foreman",
         ),
         active_fable=58.0,
-        foreman_model=None,
         session_models=(),
         now=1787395200.0,
         pane_pid=lambda **_: 101,
@@ -139,7 +136,7 @@ def test_live_cutover_session_pins_override_global_foreman_pin(*, tmp_path: Path
     ]
     assert "other-foreman" not in {session for session, _model in calls}
     assert messages[-1] == (
-        "models: foremen want opus [pinned] (active account Fable left); "
+        "models: active account Fable left; "
         "homelab-foreman opus->fable, livespec-overseer-foreman opus->fable; "
         "exceptions: homelab-foreman=fable, livespec-overseer-foreman=fable"
     )

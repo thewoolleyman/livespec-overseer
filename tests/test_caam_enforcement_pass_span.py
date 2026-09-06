@@ -112,7 +112,7 @@ def test_one_enforcing_pass_emits_exactly_one_span_carrying_its_conditions(
     code = drive_pass(
         module=module,
         home=home,
-        flags=flags(),
+        flags=flags(session_models=(("alpha-foreman", "fable"),)),
         fable=42.0,
         records=records,
     )
@@ -123,9 +123,8 @@ def test_one_enforcing_pass_emits_exactly_one_span_carrying_its_conditions(
     assert span["caam.account"] == "active"
     assert span["caam.enforcement.reached"] is True
     assert span["caam.fable.balance"] == "left"
-    assert span["model.want.foreman"] == "fable"
     assert span["caam.pane.count"] == 1
-    assert span["caam.session_models.exceptions"] == "none"
+    assert span["caam.session_models.exceptions"] == "exceptions: alpha-foreman=fable"
     assert span["caam.outcome"] == "alpha-foreman opus->fable"
     assert span["caam.exit_code"] == 0
     assert span["caam.wall_clock_seconds"] == CLOSE_AT - OPEN_AT
@@ -143,7 +142,13 @@ def test_the_pane_spans_of_a_pass_hang_from_its_pass_span(
     home = caam_home(tmp_path=tmp_path, model="claude-opus-5")
     patch_production_model_boundaries(monkeypatch=monkeypatch)
 
-    _ = drive_pass(module=module, home=home, flags=flags(), fable=42.0, records=records)
+    _ = drive_pass(
+        module=module,
+        home=home,
+        flags=flags(session_models=(("alpha-foreman", "fable"),)),
+        fable=42.0,
+        records=records,
+    )
 
     span = only_pass_span(records=records)
     panes = pane_spans(records=records)
@@ -185,7 +190,6 @@ def test_a_dry_run_reports_an_exhausted_balance_and_the_exceptions_in_effect(
     assert code == 0
     span = only_pass_span(records=records)
     assert span["caam.fable.balance"] == "exhausted"
-    assert span["model.want.foreman"] == "opus"
     assert span["caam.session_models.exceptions"] == "exceptions: alpha-foreman=opus"
     assert span["caam.outcome"] == "alpha-foreman would fable->opus"
     assert span["caam.dry_run"] is True
@@ -205,7 +209,7 @@ def test_a_pass_that_resolves_no_active_profile_still_emits_one_named_absent_spa
     (tmp_path / ".local/share/caam/vault/claude/active").mkdir(parents=True)
 
     code = module.run_pass(
-        flags=flags(),
+        flags=flags(session_models=(("alpha-foreman", "fable"),)),
         home=tmp_path,
         now=1234.0,
         stdout=[].append,
@@ -221,7 +225,6 @@ def test_a_pass_that_resolves_no_active_profile_still_emits_one_named_absent_spa
     assert span["caam.account"] == spans.ACCOUNT_NONE
     assert span["caam.enforcement.reached"] is False
     assert span["caam.fable.balance"] == spans.FABLE_UNKNOWN
-    assert span["model.want.foreman"] == spans.FOREMAN_WANT_NONE
     assert span["caam.pane.count"] == 0
     assert span["caam.session_models.exceptions"] == spans.EXCEPTIONS_NONE
     assert span["caam.outcome"] == spans.OUTCOME_NOT_REACHED
@@ -253,7 +256,7 @@ def test_the_production_seam_exports_the_pass_span_as_the_parent_of_its_pane_spa
     patch_production_model_boundaries(monkeypatch=monkeypatch)
 
     code = module.run_pass(
-        flags=flags(),
+        flags=flags(session_models=(("alpha-foreman", "fable"),)),
         home=home,
         now=1234.0,
         stdout=[].append,
@@ -298,7 +301,6 @@ def flags(
         dry_run=dry_run,
         no_models=False,
         no_warm=True,
-        foreman_model=None,
         session_models=session_models,
     )
 

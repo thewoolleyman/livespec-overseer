@@ -50,7 +50,6 @@ class Flags:
     dry_run: bool
     no_models: bool
     no_warm: bool
-    foreman_model: str | None
     session_models: tuple[tuple[str, str], ...]
     protected_accounts: tuple[tuple[str, str], ...] = ()
 
@@ -62,19 +61,12 @@ def parse_flags(*, argv: list[str], environ: Mapping[str, str] | None = None) ->
     # not an opt-in. `--no-warm` remains as an explicit escape for a pass that must
     # not touch idle snapshots.
     values = {name: False for name in ("scheduled", "force", "dry_run", "no_models", "no_warm")}
-    foreman_model: str | None = None
     session_models: list[tuple[str, str]] = []
     protected_accounts: list[tuple[str, str]] = []
     index = 0
     while index < len(argv):
         lowered = argv[index].strip().lower()
-        if lowered.startswith("--foreman-model"):
-            value = argv[index].partition("=")[2]
-            if not value and index + 1 < len(argv):
-                index += 1
-                value = argv[index]
-            foreman_model = value.strip().lower()
-        elif lowered.startswith("--session-model"):
+        if lowered.startswith("--session-model"):
             index = _append_session_model(argv=argv, index=index, session_models=session_models)
         elif lowered.startswith("--protected-account"):
             index = _append_protected_account(
@@ -86,7 +78,6 @@ def parse_flags(*, argv: list[str], environ: Mapping[str, str] | None = None) ->
             _apply_bool_flag(lowered=lowered, values=values)
         index += 1
     return Flags(
-        foreman_model=foreman_model,
         session_models=tuple(session_models),
         protected_accounts=tuple(protected_accounts),
         **values,

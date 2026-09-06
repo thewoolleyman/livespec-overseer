@@ -11,9 +11,9 @@ was implemented on master before the incident: an ACTIVE account that cannot
 serve the scoped model triggers rotation on its own, a candidate that CAN serve
 it is ranked ahead and its relative-headroom margin waived, and a per-account
 protection floor is never relaxed to reach one. But the existing ``decide()``
-coverage arms that clause through an EXPLICIT ``foreman_model`` pin
+coverage arms that clause through an EXPLICIT per-session pin
 (``test_caam_unsatisfiable_pin_hold``), while the incident's arming route is the
-OTHER one v045 added and the one an unpinned foreman on default Fable actually
+OTHER one v045 added and the one an unpinned session on default Fable actually
 takes: a session merely OBSERVED running the scoped model. That route is pinned
 only at the ``scoped_model_pinned`` unit level, and the protection-floor
 exclusion only at the pure-helper level; neither is exercised end-to-end through
@@ -33,7 +33,7 @@ from pathlib import Path
 
 from caam_anthropic_decide import DecisionSeams, decide
 from caam_decision import ProfileUsage, UsageRecord
-from caam_foreman_override import OBSERVED_MODELS_KEY
+from caam_scoped_model import OBSERVED_MODELS_KEY
 
 __all__: list[str] = []
 

@@ -113,16 +113,15 @@ Resolve the mode from the invocation text after the schedule check.
   headroom than the current account and still refuses any account with zero
   weekly quota.
 - Forward only these operator flags when present: `--force`, `--dry-run`,
-  `--no-models`, `--foreman-model=<fable|opus|auto>`,
-  `--session-model=<session>=<fable|opus|auto>`,
+  `--no-models`, `--session-model=<session>=<fable|opus|auto>`,
   `--protected-account=<account>[=<percent>]`, and `--no-warm`.
-  `--foreman-model=fable` and `--foreman-model=opus` pin the model enforced for
-  sessions whose name carries the foreman suffix, and that pin persists in the
-  operation state across later scheduled ticks until it is explicitly cleared.
-  `--foreman-model=auto` clears the pin and restores the balance-derived
-  behavior. `--session-model=<session>=fable` and
-  `--session-model=<session>=opus` pin one named session above every foreman and
-  Fable-balance rule; `--session-model=<session>=auto` clears that session's exception.
+  The operation does not derive any session's model from its name: it enforces
+  only an operator-set per-session model, plus the servability reset that moves a
+  session off a scoped model no selectable account can serve.
+  `--session-model=<session>=fable` and `--session-model=<session>=opus` pin one
+  named session above the Fable-balance rule and persist in the operation state
+  across later scheduled ticks;
+  `--session-model=<session>=auto` clears that session's exception.
   Session exceptions persist even when passed with `--no-models`, are
   reported in the table line as `exceptions:`, and are absolute: a session pinned
   to spent Fable is left there with a warning rather than silently moved.
