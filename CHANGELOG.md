@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v2.1.1...v3.0.0) (2026-09-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **overseer:** remove the foreman seat — skill, prose, entry points, modules
+
+### Features
+
+* **overseer:** remove the foreman seat — skill, prose, entry points, modules ([b773755](https://github.com/thewoolleyman/livespec-overseer/commit/b773755a9391bae9656f39b2227c568d284e4bef))
+
+
+### Bug Fixes
+
+* **overseer:** restore caam foreman compatibility module ([35ed6f5](https://github.com/thewoolleyman/livespec-overseer/commit/35ed6f51a216dca6c554d2f19bd8d437e3b01eb4))
+
 ## [2.1.1](https://github.com/thewoolleyman/livespec-overseer/compare/v2.1.0...v2.1.1) (2026-09-06)
 
 
