@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.1...v2.0.2) (2026-09-06)
+
+
+### Bug Fixes
+
+* **overseer:** carry the parked-delivery sender to snapshot consumers ([df334e1](https://github.com/thewoolleyman/livespec-overseer/commit/df334e1a0f90028d34bf0f92e8da15babd5f20db))
+
 ## [2.0.1](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.0...v2.0.1) (2026-09-06)
 
 
