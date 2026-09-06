@@ -1,13 +1,30 @@
 # livespec-overseer — repo orientation
 
-livespec-overseer is the Control-Plane operator tool for livespec: a
-two-pane tmux supervisor that watches every tracked agent session's
-remaining context headroom, injects an escalating wrap-up at threshold, and
-atomically restarts a session ONLY once that session has declared itself
-`ready` on the filesystem. Repo class: `control-plane-tool` — a peer of the
-operator console, never a component of it, and an ordinary pin-consuming
-fleet member (its enforcement gates come from the pinned
-`livespec-dev-tooling` release).
+livespec-overseer is the Control-Plane operator tool for livespec. It ships
+exactly TWO operator surfaces, and nothing else:
+
+- **`overseer`** — the two-pane overseer daemon (`overseerd`), which watches
+  every tracked agent session's remaining context headroom, injects an
+  escalating wrap-up at threshold, and atomically restarts a session ONLY once
+  that session has declared itself `ready` on the filesystem.
+- **`caam-anthropic-loop`** — the caam-managed Claude Max quota watcher, which
+  observes account usage and rotates accounts safely.
+
+The foreman, grooming and supervise-plan seats this repo used to carry were
+retired by SPECIFICATION v047 (maintainer ruling 2026-09-06) and removed in
+releases 3.0.0, 4.0.0 and 5.0.0. **No seat ships from this repo any more** — if
+you find prose here describing one as live, it is stale and should be cut. The
+cut was by CONSUMER, not by name prefix, so a handful of `foreman`-named
+modules (`_foreman_vendor_path`, `foreman_gather_sources`,
+`caam_foreman_override`) legitimately SURVIVE because the daemon and the caam
+loop still reach them; `tests/test_foreman_seat_removed.py` pins exactly that
+set. The daemon's own `_supervisor_*` loop and its supervisor pair-member
+protocol are likewise NOT the retired supervise-plan seat — the supervisor loop
+IS the daemon.
+
+Repo class: `control-plane-tool` — a peer of the operator console, never a
+component of it, and an ordinary pin-consuming fleet member (its enforcement
+gates come from the pinned `livespec-dev-tooling` release).
 
 ## Layout
 
@@ -335,11 +352,14 @@ sixteen hours parked on a picker whose option 1 was its own recorded next
 action, and escalated five self-decidable engineering calls as standing
 maintainer questions. Those sessions were reading an `AGENTS.md` that never
 told them what they were allowed to decide. The surfaces most exposed to that
-failure are the ones that end a bounded pass by presenting options. Two of the
-three originally named here — `/livespec-overseer:foreman` and `:grooming` — have
-since been retired outright, leaving `:supervise-plan`; the guidance is kept
-because the failure shape is a property of the option-presenting pattern, not of
-those particular seats.
+failure are the ones that end a bounded pass by presenting options. ALL THREE
+originally named here — `/livespec-overseer:foreman`, `:grooming` and
+`:supervise-plan` — have since been retired outright, so no option-presenting
+seat ships from this repo any more. The guidance is kept anyway, because the
+failure shape is a property of the option-presenting PATTERN rather than of
+those particular seats: the `overseer` pane still ends bounded passes by
+presenting what needs attention, and any session reading this file can stall
+the same way.
 
 - **Drive authorized work to completion; do not over-ask.** When the maintainer
   names a goal and says to finish or continue it, execute the WHOLE arc —
