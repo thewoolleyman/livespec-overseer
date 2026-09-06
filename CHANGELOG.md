@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.0...v2.0.1) (2026-09-06)
+
+
+### Performance
+
+* **pre-push:** short-circuit the full aggregate on a byte-identical tree via the green token (overseer-h200) ([901daeb](https://github.com/thewoolleyman/livespec-overseer/commit/901daeb9535927fa300ded5a9d1aecaea7eaf080))
+
 ## [2.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v1.74.0...v2.0.0) (2026-09-04)
 
 
