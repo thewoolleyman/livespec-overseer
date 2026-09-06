@@ -105,10 +105,10 @@ def statusline_baseline_absent(*, model_profile: Mapping[str, str | None] | None
     A row carrying NO recorded profile at all is a DIFFERENT case and is excluded
     here: its relaunch is the fail-soft bare command, which re-asserts no model, so
     there is nothing unverified to report about it. The population this admits is the
-    one the launch-profile text refuses to call verified — a reserved foreman or
-    grooming seat born from ``registration_model_profile`` (which emits harness, model
-    and wrapper and no baseline), a track adopted against an unreadable pane, or one
-    whose wrap-up refresh could never fill the key.
+    one the launch-profile text refuses to call verified — a reserved seat born from
+    ``registration_model_profile`` (which emits harness, model and wrapper and no
+    baseline), a track adopted against an unreadable pane, or one whose wrap-up refresh
+    could never fill the key.
     """
     return model_profile is not None and not model_profile.get("statusline_model")
 

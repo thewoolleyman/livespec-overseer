@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import datetime as dt
+
 import _supervisor_observe
 import _supervisor_round_recovery
-import pytest
 import registry
 import signals
 
@@ -16,8 +17,8 @@ from overseer.test_supervisor_builders import (
 )
 from overseer.test_supervisor_fakes import FakeTmux
 
-PREDECESSOR = "claude:1521187:354055360:livespec-overseer-grooming"
-SUCCESSOR = "claude:2407774:357160598:livespec-overseer-grooming"
+PREDECESSOR = "claude:1521187:354055360:livespec-overseer-supervisor"
+SUCCESSOR = "claude:2407774:357160598:livespec-overseer-supervisor"
 
 
 def _record(*, repo, topic, sup):
@@ -46,14 +47,24 @@ def _open_measured_round(*, sup, repo, topic):
     )
 
 
-def _entity_track(*, repo, topic, session, kind):
-    if kind == "grooming":
-        return registry.GroomingSeat(
-            topic=topic,
-            repo=str(repo),
-            tmux=session,
-            epic="overseer-grooming-epic",
-        )
+def _write_fresh_supervisor_state(*, repo, supervised_topic, now=1000.0):
+    """Give the seat a current `.supervisor-state` marker.
+
+    A SupervisorSeat is judged `supervisor-state-stale` when this marker is missing,
+    and that branch runs BEFORE the threshold cascade — so without it `evaluate`
+    never reaches the round-identity behaviour these tests exist to pin. The grooming
+    seat this suite used to drive had no such marker requirement.
+    """
+    path = signals.marker_dir(repo=str(repo), topic=supervised_topic) / ".supervisor-state"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    stamp = dt.datetime.fromtimestamp(now, tz=dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    path.write_text(
+        f"topic: {supervised_topic}\nupdated_at: {stamp}\nopen_obligations: []\n",
+        encoding="utf-8",
+    )
+
+
+def _entity_track(*, repo, topic, session):
     return registry.SupervisorSeat(
         topic=topic,
         repo=str(repo),
@@ -66,18 +77,18 @@ def _entity_track(*, repo, topic, session, kind):
 def _entity_fixture(
     *,
     tmp_path,
-    kind,
     ctx=80,
     topic=None,
     state_token=None,
     live_identity=None,
 ):
-    repo, topic = make_plan(tmp_path=tmp_path, topic=topic or f"repo-{kind}")
+    repo, topic = make_plan(tmp_path=tmp_path, topic=topic or "repo-supervisor")
     session = topic
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=ctx, topic=topic))
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
-    track = _entity_track(repo=repo, topic=topic, session=session, kind=kind)
+    track = _entity_track(repo=repo, topic=topic, session=session)
+    _write_fresh_supervisor_state(repo=repo, supervised_topic=track.supervised_topic)
     _open_measured_round(sup=sup, repo=repo, topic=topic)
     if state_token is not None:
         declare(repo=repo, topic=topic, value=state_token, mtime=1787201194.0)
@@ -101,11 +112,9 @@ def _entity_fixture(
     return repo, topic, fake, sup, track, request
 
 
-@pytest.mark.parametrize("kind", ["grooming", "supervisor"])
-def test_entity_seats_close_recovered_rounds_with_no_session_token(*, tmp_path, kind):
+def test_entity_seats_close_recovered_rounds_with_no_session_token(*, tmp_path):
     repo, topic, fake, sup, _track, request = _entity_fixture(
         tmp_path=tmp_path,
-        kind=kind,
         state_token=signals.STATE_READY_EXPIRED,
     )
 
@@ -124,9 +133,8 @@ def test_entity_seats_close_recovered_rounds_with_no_session_token(*, tmp_path, 
 def test_measured_successor_identity_resets_stale_daemon_written_round(*, tmp_path):
     repo, topic, _fake, sup, _track, request = _entity_fixture(
         tmp_path=tmp_path,
-        kind="grooming",
         ctx=14,
-        topic="livespec-overseer-grooming",
+        topic="livespec-overseer-supervisor",
         state_token=signals.STATE_READY_EXPIRED,
         live_identity=SUCCESSOR,
     )
@@ -152,9 +160,8 @@ def test_measured_successor_identity_resets_stale_daemon_written_round(*, tmp_pa
 def test_below_threshold_identity_reset_opens_current_session_round(*, tmp_path):
     repo, topic, fake, sup, track, _request = _entity_fixture(
         tmp_path=tmp_path,
-        kind="grooming",
         ctx=14,
-        topic="livespec-overseer-grooming",
+        topic="livespec-overseer-supervisor",
         state_token=signals.STATE_READY_EXPIRED,
         live_identity=SUCCESSOR,
     )
@@ -174,9 +181,8 @@ def test_below_threshold_identity_reset_opens_current_session_round(*, tmp_path)
 def test_matching_identity_does_not_reset_below_threshold_round(*, tmp_path):
     repo, topic, _fake, sup, _track, request = _entity_fixture(
         tmp_path=tmp_path,
-        kind="grooming",
         ctx=14,
-        topic="livespec-overseer-grooming",
+        topic="livespec-overseer-supervisor",
         state_token=signals.STATE_READY_EXPIRED,
         live_identity=PREDECESSOR,
     )
@@ -192,9 +198,8 @@ def test_matching_identity_does_not_reset_below_threshold_round(*, tmp_path):
 def test_successor_ready_declaration_keeps_identity_refusal_surface(*, tmp_path):
     repo, topic, _fake, sup, _track, request = _entity_fixture(
         tmp_path=tmp_path,
-        kind="grooming",
         ctx=14,
-        topic="livespec-overseer-grooming",
+        topic="livespec-overseer-supervisor",
         state_token=signals.STATE_READY,
         live_identity=SUCCESSOR,
     )

@@ -55,12 +55,8 @@ def _declaration_signature(*, obs: Observation) -> tuple[str, str, float] | None
     return (obs.declared.token, obs.declared.detail, obs.declared.mtime)
 
 
-def _claude_status_unavailable(*, request: ThresholdRequest, fresh: Observation) -> bool:
-    return (
-        not fresh.is_codex
-        and fresh.claude_status is None
-        and not isinstance(request.track, registry.GroomingSeat)
-    )
+def _claude_status_unavailable(*, fresh: Observation) -> bool:
+    return not fresh.is_codex and fresh.claude_status is None
 
 
 def _authorization_inputs_changed(*, request: ThresholdRequest, fresh: Observation) -> bool:
@@ -100,7 +96,7 @@ def fresh_guarded_paste_observation(
         target=request.target,
         key=track_key(repo=request.track.repo, topic=request.track.topic),
     )
-    if _claude_status_unavailable(request=request, fresh=fresh):
+    if _claude_status_unavailable(fresh=fresh):
         return None
     if fresh.claude_status is not None and fresh.claude_status not in _KNOWN_CLAUDE_STATUSES:
         return None

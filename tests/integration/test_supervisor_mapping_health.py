@@ -99,22 +99,33 @@ def test_missing_added_at_key_is_reported_like_explicit_null(*, tmp_path: Path):
     )
 
 
-def test_mapping_health_keeps_reserved_seat_coverage_and_unassigned_control(*, tmp_path: Path):
+def test_mapping_health_covers_plan_tracks_and_spares_the_other_variants(*, tmp_path: Path):
+    """Only a PlanTrack carries the missing-added_at note.
+
+    This was `..._keeps_reserved_seat_coverage_and_unassigned_control` and drove a
+    pair of grooming rows, because the grooming seat was the one reserved seat
+    `apply_mapping_health` admitted. It was retired with the rest of the grooming
+    cut, so the admitted set is now PlanTrack alone; the SupervisorSeat and
+    UnassignedPlan arms below are the controls that pin the narrowing.
+    """
     store_path = tmp_path / "mapping.jsonl"
     rows: list[dict[str, object]] = [
         {
-            "kind": "grooming",
-            "topic": "repo-grooming",
+            "kind": "plan",
+            "topic": "repo-plan",
             "repo": "/data/projects/homelab",
-            "tmux": "repo-grooming",
+            "tmux": "repo-plan",
             "epic": "homelab-epic",
             "added_at": None,
         },
         {
-            "kind": "grooming",
-            "topic": "repo-grooming-unresolved",
+            "kind": "supervisor",
+            "topic": "repo-plan-supervisor",
             "repo": "/data/projects/homelab",
-            "tmux": "repo-grooming-unresolved",
+            "tmux": "repo-plan-supervisor",
+            "epic": "homelab-epic",
+            "supervised_topic": "repo-plan",
+            "added_at": None,
         },
     ]
     write_rows(store_path=store_path, rows=rows)
@@ -125,19 +136,19 @@ def test_mapping_health_keeps_reserved_seat_coverage_and_unassigned_control(*, t
 
     assert (
         apply_mapping_health(
-            track=tracks["repo-grooming"],
-            row=row_view(topic="repo-grooming"),
+            track=tracks["repo-plan"],
+            row=row_view(topic="repo-plan"),
             null_added_at_keys=keys,
         ).note
         == "mapping row missing added_at; no-round ready cannot certify"
     )
     assert (
         apply_mapping_health(
-            track=tracks["repo-grooming-unresolved"],
-            row=row_view(topic="repo-grooming-unresolved"),
+            track=tracks["repo-plan-supervisor"],
+            row=row_view(topic="repo-plan-supervisor"),
             null_added_at_keys=keys,
         ).note
-        == "mapping row missing added_at; no-round ready cannot certify"
+        == ""
     )
     assert (
         apply_mapping_health(

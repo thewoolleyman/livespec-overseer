@@ -11,7 +11,7 @@ from typing import Any
 
 import caam_enforcement
 import pytest
-from _signals_topics import reserved_worker_suffix
+from _signals_topics import is_foreman_topic, reserved_worker_suffix
 from caam_anthropic_loop import Flags
 from caam_anthropic_pass import run_pass
 from caam_decision import UsageRecord
@@ -22,9 +22,21 @@ __all__: list[str] = []
 OVERSEER_DIR = Path(__file__).resolve().parents[1] / "overseer"
 RESERVED_SUFFIX_VALUES = {
     suffix
-    for topic in ("topic-supervisor", "topic-foreman", "topic-grooming")
+    for topic in ("topic-supervisor", "topic-foreman")
     if (suffix := reserved_worker_suffix(topic=topic)) is not None
 }
+
+
+def test_is_foreman_topic_matches_only_the_caam_suffix():
+    """Bucket-1 residue: the caam loop's exact-suffix match, kept when the seat went.
+
+    Its only coverage was `tests/test_grooming_supervision.py`, deleted with the
+    grooming seat, so it is pinned here beside the loop that actually reads it.
+    """
+    assert is_foreman_topic(topic="repo-foreman") is True
+    assert is_foreman_topic(topic="REPO-FOREMAN") is True
+    assert is_foreman_topic(topic="repo-supervisor") is False
+    assert is_foreman_topic(topic="repo") is False
 
 
 @dataclass(kw_only=True)

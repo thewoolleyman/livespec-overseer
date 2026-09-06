@@ -49,7 +49,6 @@ from _registry_core import DEFAULT_CTX_THRESHOLD as DEFAULT_CTX_THRESHOLD
 from _registry_core import DEFAULT_STAMP_PATH as DEFAULT_STAMP_PATH
 from _registry_core import DEFAULT_STORE_PATH as DEFAULT_STORE_PATH
 from _registry_core import DEFAULT_WATCH_SET_PATH as DEFAULT_WATCH_SET_PATH
-from _registry_core import GroomingSeat as GroomingSeat
 from _registry_core import PlanTrack as PlanTrack
 from _registry_core import SupervisorSeat as SupervisorSeat
 from _registry_core import Track as Track
@@ -115,7 +114,6 @@ __all__: list[str] = [
     "DEFAULT_STAMP_PATH",
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
-    "GroomingSeat",
     "MappingEntry",
     "MappingInvalid",
     "MappingValid",

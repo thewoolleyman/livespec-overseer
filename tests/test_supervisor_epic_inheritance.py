@@ -5,8 +5,7 @@ Regression for overseer-h6e0: a supervisor track can never have its own
 derive an epic from, and `supervisor.py add` refused the reserved `-supervisor`
 suffix outright — a supervisor track could never record a plan epic id, so it
 could never be respawned. This fix derives the epic from the SUPERVISED
-worker topic's plan directory instead, only when that directory exists. A later
-fix lets an operator explicitly set the matching grooming seat's epic, while the
+worker topic's plan directory instead, only when that directory exists. The
 guard must still refuse a genuine worker-topic collision with a reserved suffix.
 """
 
@@ -17,11 +16,8 @@ import io as _io
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "overseer"))
 
-import _supervisor_assignment
 import signals
 import supervisor
 from test_supervisor_builders import TEST_EPIC, isolate_store
@@ -68,100 +64,26 @@ def test_supervisor_topic_with_no_supervised_plan_still_refused(*, tmp_path, mon
     assert not store.exists()
 
 
-def test_grooming_seat_accepts_an_explicit_epic(*, tmp_path, monkeypatch):
-    """POSITIVE: `add --epic` can record the repo's reserved grooming seat epic."""
-    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
-    repo = tmp_path / "repo"
-    repo.mkdir()
+def test_reserved_topic_refusal_names_the_matched_suffix(*, tmp_path, monkeypatch):
+    """The CLI refusal must name the suffix it actually matched.
 
-    rc = supervisor.main(
-        argv=[
-            "add",
-            "--repo",
-            str(repo),
-            "--topic",
-            "repo-grooming",
-            "--epic",
-            TEST_EPIC,
-        ]
-    )
-
-    assert rc == 0
-    rows = [line for line in store.read_text(encoding="utf-8").splitlines() if line.strip()]
-    assert len(rows) == 1
-    assert '"kind": "grooming"' in rows[0]
-    assert '"topic": "repo-grooming"' in rows[0]
-    assert '"tmux": "repo-grooming"' in rows[0]
-    assert f'"epic": "{TEST_EPIC}"' in rows[0]
-
-
-def test_grooming_assignment_requires_an_epic(*, tmp_path):
-    repo = tmp_path / "repo"
-    repo.mkdir()
-
-    with pytest.raises(ValueError, match="grooming seat requires epic"):
-        _supervisor_assignment.assignment_track(
-            repo=str(repo),
-            topic="repo-grooming",
-            session="repo-grooming",
-        )
-
-
-def test_non_seat_grooming_topic_still_refused_with_an_explicit_epic(*, tmp_path, monkeypatch):
-    """CONTROL: explicit epics do not launder worker topics ending in `-grooming`."""
-    store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
-    repo = tmp_path / "repo"
-    repo.mkdir()
-
-    with contextlib.redirect_stderr(_io.StringIO()) as err:
-        rc = supervisor.main(
-            argv=[
-                "add",
-                "--repo",
-                str(repo),
-                "--topic",
-                "topic-grooming",
-                "--epic",
-                TEST_EPIC,
-            ]
-        )
-
-    assert rc == 1
-    assert "refusing reserved supervisor topic" in err.getvalue()
-    assert not store.exists()
-
-
-@pytest.mark.parametrize(
-    ("topic", "suffix"),
-    [
-        ("topic-supervisor", "-supervisor"),
-        ("topic-grooming", "-grooming"),
-    ],
-)
-def test_reserved_topic_refusal_names_the_matched_suffix(*, tmp_path, monkeypatch, topic, suffix):
-    """The CLI refusal must not report `-supervisor` for a `-grooming` collision."""
+    This was a two-arm parametrize until the grooming seat was retired; `-supervisor`
+    is now the only reserved worker suffix, so the discrimination it proved has one
+    side left. The assertion is kept because the refusal text is still derived from
+    the matched suffix rather than hardcoded.
+    """
     _ = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     repo = tmp_path / "repo"
     repo.mkdir()
 
     with contextlib.redirect_stderr(_io.StringIO()) as err:
-        rc = supervisor.main(argv=["add", "--repo", str(repo), "--topic", topic])
+        rc = supervisor.main(argv=["add", "--repo", str(repo), "--topic", "topic-supervisor"])
 
     assert rc == 1
-    assert f"worker topics may not end in {suffix}" in err.getvalue()
+    assert "worker topics may not end in -supervisor" in err.getvalue()
 
 
 def test_topic_supervised_worker_precise_about_the_suffix():
-    """CONTROL: the new signals helper distinguishes -supervisor from -grooming and plain."""
+    """CONTROL: the signals helper distinguishes -supervisor from a plain topic."""
     assert signals.topic_supervised_worker(topic="topic-supervisor") == "topic"
-    assert signals.topic_supervised_worker(topic="topic-grooming") is None
     assert signals.topic_supervised_worker(topic="topic") is None
-
-
-def test_grooming_topic_helper_precise_and_supervisor_topic_fails_closed():
-    assert signals.is_grooming_topic(topic="topic-grooming") is True
-    assert signals.is_grooming_topic(topic="topic-supervisor") is False
-    assert signals.is_grooming_topic(topic="topic") is False
-
-    with pytest.raises(ValueError, match="-grooming"):
-        signals.supervisor_topic(entity_topic="topic-grooming")

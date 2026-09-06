@@ -26,7 +26,6 @@ from _signals_delivery import queued_cross_session_delivery_sender
 from _signals_pane_identity import pane_is_claude, pane_is_codex, pane_is_shell, path_in_repo
 from _signals_topics import (
     is_foreman_topic,
-    is_grooming_topic,
     reserved_worker_suffix,
     supervisor_entity_topic,
     supervisor_topic,
@@ -51,7 +50,6 @@ __all__: list[str] = [
     "is_busy",
     "is_codex_idle_input",
     "is_foreman_topic",
-    "is_grooming_topic",
     "is_idle_input",
     "is_structured_gate",
     "marker_dir",

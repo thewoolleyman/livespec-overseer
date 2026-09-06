@@ -9,7 +9,8 @@ which sessions carry an operator-set model, whose operator-set model survives, a
 what the pass therefore did.
 
 The operation does NOT derive any session's model from its name (plan
-overseer-54k2za.53 decoupled caam from the foreman and grooming seats). A pane is
+overseer-54k2za.53 decoupled caam from the foreman and grooming seats, both since
+retired whole). A pane is
 driven only when an operator set a per-session model for it, or -- the
 name-independent servability reset -- when the scoped model it is on cannot be
 served by any selectable account, in which case it is reset to the general model.

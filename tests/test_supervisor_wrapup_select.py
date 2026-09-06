@@ -41,21 +41,6 @@ def _selected(*, track: registry.Track) -> str:
     )
 
 
-def test_select_wrapup_message_selects_the_grooming_variant_text():
-    track = registry.Track(
-        topic="repo-grooming",
-        repo=REPO,
-        tmux="repo-grooming",
-        epic=EPIC,
-    )
-
-    assert _selected(track=track) == _supervisor_prompts.grooming_wrapup_message(
-        remaining=REMAINING,
-        repo=REPO,
-        topic="repo-grooming",
-    )
-
-
 def test_select_wrapup_message_selects_the_supervisor_variant_text():
     track = registry.Track(
         topic="alpha-supervisor",
@@ -89,9 +74,16 @@ def test_select_wrapup_message_selects_the_plan_variant_text():
 
 
 def test_select_wrapup_message_uses_loaded_variant_before_topic_suffix():
+    """Selection reads the LOADED record type, never the topic's suffix.
+
+    The vehicle is a `plan` row whose topic nonetheless ends in `-supervisor`: if
+    selection sniffed the suffix it would pick the supervisor variant, and it must
+    pick the plan one. This used to be spelled with a grooming row and is respelled
+    rather than dropped, because the precedence it pins is unchanged by that cut.
+    """
     track = track_from_mapping_row(
         row={
-            "kind": "grooming",
+            "kind": "plan",
             "topic": "alpha-supervisor",
             "repo": REPO,
             "tmux": "alpha-supervisor",
@@ -99,10 +91,11 @@ def test_select_wrapup_message_uses_loaded_variant_before_topic_suffix():
         },
         extras=_extras(),
     )
-    assert isinstance(track, registry.GroomingSeat)
+    assert isinstance(track, registry.PlanTrack)
 
-    assert _selected(track=track) == _supervisor_prompts.grooming_wrapup_message(
+    assert _selected(track=track) == _supervisor_prompts.wrapup_message(
         remaining=REMAINING,
         repo=REPO,
         topic="alpha-supervisor",
+        epic=EPIC,
     )

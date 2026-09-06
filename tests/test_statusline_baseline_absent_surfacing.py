@@ -82,7 +82,7 @@ def _baselined_profile(*, statusline_model: str = _RENDERED) -> dict[str, str | 
 
 def _unbaselined_profile() -> dict[str, str | None]:
     # Exactly the three keys `registration_model_profile` emits for a reserved
-    # foreman/grooming seat: a launch profile with NO verification baseline.
+    # a reserved seat: a launch profile with NO verification baseline.
     return {"harness": "claude", "model": _LAUNCH_MODEL, "wrapper": None}
 
 

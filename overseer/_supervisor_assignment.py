@@ -11,7 +11,6 @@ import signals
 __all__: list[str] = ["NO_OVERRIDES", "TrackOverrides", "assignment_track"]
 
 SUPERVISOR_SEAT_EPIC_ERROR = "supervisor seat requires epic"
-GROOMING_SEAT_EPIC_ERROR = "grooming seat requires epic"
 PLAN_TRACK_DIRECTORY_ERROR = "plan track requires directory"
 
 
@@ -69,17 +68,6 @@ def assignment_track(
         if epic is not None
         else registry.epic_from_plan_anchor(repo=repo, topic=epic_source_topic or topic)
     )
-    if signals.is_grooming_topic(topic=topic):
-        if resolved_epic is None:
-            raise ValueError(GROOMING_SEAT_EPIC_ERROR)
-        return registry.GroomingSeat(
-            topic=topic,
-            repo=repo,
-            tmux=session,
-            epic=resolved_epic,
-            ctx_threshold=overrides.ctx_threshold,
-            idle_nudge=overrides.idle_nudge,
-        )
     supervised_topic = signals.topic_supervised_worker(topic=topic)
     if supervised_topic is not None:
         if resolved_epic is None:

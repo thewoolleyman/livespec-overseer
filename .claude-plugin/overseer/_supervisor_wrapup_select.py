@@ -7,7 +7,6 @@ from typing import cast
 
 import registry
 from _supervisor_prompts import (
-    grooming_wrapup_message,
     supervisor_wrapup_message,
 )
 
@@ -39,13 +38,6 @@ def select_wrapup_message(
             repo=track.repo,
             topic=track.supervised_topic,
             epic=track.epic,
-            blocker=blocker,
-        )
-    if isinstance(track, registry.GroomingSeat):
-        return grooming_wrapup_message(
-            remaining=remaining,
-            repo=track.repo,
-            topic=track.topic,
             blocker=blocker,
         )
     plan_track = cast("registry.PlanTrack", track)

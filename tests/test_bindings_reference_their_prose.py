@@ -24,7 +24,6 @@ PLUGIN_ROOT = ROOT / ".claude-plugin"
 
 OPERATIONS = (
     "overseer",
-    "grooming",
     "caam-anthropic-loop",
 )
 
@@ -66,11 +65,11 @@ def test_gate_reports_a_binding_that_dropped_its_prose_reference() -> None:
     and must be reported. A gate that cannot separate these two is not measuring
     anything.
     """
-    referencing = 'Read the contract:\n\n```bash\ncat "$PLUGIN_ROOT/prose/grooming.md"\n```\n'
-    self_contained = "# grooming\n\nStage 1: measure the tenant. Stage 2: drain the spec lane.\n"
+    referencing = 'Read the contract:\n\n```bash\ncat "$PLUGIN_ROOT/prose/overseer.md"\n```\n'
+    self_contained = "# overseer\n\nStage 1: split the pane. Stage 2: render the table.\n"
 
-    assert not _missing_prose_reference(body=referencing, operation="grooming")
-    assert _missing_prose_reference(body=self_contained, operation="grooming")
+    assert not _missing_prose_reference(body=referencing, operation="overseer")
+    assert _missing_prose_reference(body=self_contained, operation="overseer")
 
 
 def test_bindings_carry_their_harness_specific_shape() -> None:

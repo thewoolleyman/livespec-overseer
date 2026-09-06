@@ -60,7 +60,6 @@ import registry
 import streams
 import tmuxio
 from _seams import SubcommandHandler
-from _signals_topics import reserved_seat_accepts_explicit_epic
 from _supervisor_config import DANGER_CTX_REMAINING as DANGER_CTX_REMAINING
 from _supervisor_config import LOOP_INTERVAL_SECONDS as LOOP_INTERVAL_SECONDS
 from _supervisor_config import default_gitignore_check as default_gitignore_check
@@ -213,7 +212,7 @@ def _cmd_add(*, args: argparse.Namespace) -> int:
     epic = _supervisor_cli_update.optional_str_value(value=args.epic)
     allow_reserved = (
         epic_source_topic := _inheritable_supervisor_epic_source(repo=repo, topic=args.topic)
-    ) is not None or reserved_seat_accepts_explicit_epic(repo=repo, topic=args.topic, epic=epic)
+    ) is not None
     if not allow_reserved and _refuse_reserved_topic(repo=repo, topic=args.topic):
         return 1
     session = _derive_tmux_or_refuse(repo=repo, topic=args.topic, allow_reserved=allow_reserved)

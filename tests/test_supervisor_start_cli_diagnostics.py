@@ -181,17 +181,27 @@ def test_cli_start_ignores_nonmatching_existing_mapping(*, tmp_path, monkeypatch
     assert {row.topic for row in rows} == {"other", topic}
 
 
-def test_cli_start_force_respawns_existing_grooming_seat_mapping(*, tmp_path, monkeypatch, capsys):
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    topic = "repo-grooming"
+def test_cli_start_force_respawns_an_existing_supervisor_seat_mapping(
+    *, tmp_path, monkeypatch, capsys
+):
+    """`start --force` reuses the mapping row it finds instead of deriving a new one.
+
+    This pins `_existing_start_track`'s hit branch, whose only coverage was
+    `test_cli_start_force_respawns_existing_grooming_seat_mapping` — deleted with the
+    grooming seat. The seat kind was never what the branch turned on: it looks up a
+    row by normalized repo + topic and reuses it, so the surviving SupervisorSeat
+    exercises the same path.
+    """
+    repo, worker_topic = make_plan(tmp_path=tmp_path)
+    topic = f"{worker_topic}-supervisor"
     store = isolate_store(tmp_path=tmp_path, monkeypatch=monkeypatch)
     registry.append_mapping(
-        track=registry.GroomingSeat(
+        track=registry.SupervisorSeat(
             topic=topic,
             repo=str(repo),
             tmux=topic,
-            epic="overseer-grooming",
+            epic="overseer-supervisor",
+            supervised_topic=worker_topic,
         ),
         store_path=store,
         added_at="2026-08-21T00:00:00Z",
@@ -206,5 +216,5 @@ def test_cli_start_force_respawns_existing_grooming_seat_mapping(*, tmp_path, mo
     assert f"started {repo}::{topic}" in capsys.readouterr().out
     rows = registry.read_valid_mapping(store_path=store)
     assert len(rows) == 1
-    assert rows[0].kind == "grooming"
-    assert rows[0].epic == "overseer-grooming"
+    assert rows[0].kind == "supervisor"
+    assert rows[0].epic == "overseer-supervisor"

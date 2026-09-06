@@ -2,11 +2,12 @@
 
 Relocated out of the retired ``caam_foreman_override`` module (plan
 overseer-54k2za.53) when the caam operation was decoupled from the foreman and
-grooming seats. This module holds only what is NOT foreman/grooming-specific:
-the scoped-model constants and the "an operator pin names the scoped model"
-detection, whose per-session-pin and observed-running arms arm the scoped-model
-rotation trigger (overseer-dyt6). The foreman-suffix derivation and the global
-``--foreman-model`` operator pin that used to live here are gone.
+grooming seats, both of which have since been retired whole. This module holds
+only the seat-independent surface: the scoped-model constants and the "an
+operator pin names the scoped model" detection, whose per-session-pin and
+observed-running arms arm the scoped-model rotation trigger (overseer-dyt6). The
+foreman-suffix derivation and the global ``--foreman-model`` operator pin that
+used to live here are gone.
 """
 
 from __future__ import annotations

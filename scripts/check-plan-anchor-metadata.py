@@ -17,7 +17,7 @@ _OVERSEER_DIR = _REPO_ROOT / "overseer"
 if str(_OVERSEER_DIR) not in sys.path:
     sys.path.insert(0, str(_OVERSEER_DIR))
 
-from grooming_conformance_plan_anchors import plan_anchor_metadata_check  # noqa: E402
+from plan_anchor_metadata import plan_anchor_metadata_check  # noqa: E402
 
 __all__: list[str] = ["main"]
 

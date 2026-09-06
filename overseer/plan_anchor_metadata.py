@@ -1,15 +1,50 @@
-"""Plan-anchor metadata conformance for the grooming drain pass."""
+"""Plan-anchor metadata conformance for the live plan directories of a repo.
+
+This check outlived the grooming seat that once housed it. It was
+``grooming_conformance_plan_anchors``, one of ten grooming-named modules, but the
+only consumer it ever had outside that family is ``scripts/check-plan-anchor-metadata.py``
+— a gate in the ``just check`` aggregate that asserts a repository-wide invariant
+about ``plan/`` directories and ledger epics, and has nothing to do with the drain
+pass. So when SPECIFICATION v047 retired the grooming seat and its siblings were
+deleted, this body moved here rather than going with them, carrying the two names
+it read from those siblings: ``InvariantCheck`` (from the conformance result models)
+and ``TERMINAL_WORK_ITEM_STATUSES`` (from the plan-thread classifier). Both are
+inlined below because nothing else defines them any more.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import jsonio
-from grooming_conformance_types import InvariantCheck
-from grooming_plan_budget import TERMINAL_WORK_ITEM_STATUSES
 
-__all__: list[str] = ["plan_anchor_metadata_check"]
+__all__: list[str] = [
+    "TERMINAL_WORK_ITEM_STATUSES",
+    "InvariantCheck",
+    "anchor_breaches",
+    "is_open_epic",
+    "item_id",
+    "item_status",
+    "live_plan_directory_slugs",
+    "metadata_plan_slug",
+    "plan_anchor_epic_ids_by_slug",
+    "plan_anchor_metadata_check",
+]
+
+TERMINAL_WORK_ITEM_STATUSES = frozenset({"closed", "done"})
+
+
+@dataclass(frozen=True, kw_only=True)
+class InvariantCheck:
+    key: str
+    title: str
+    status: str
+    breaching_item_ids: tuple[str, ...]
+    scanned_item_count: int
+    scope: str
+    reason: str = ""
 
 
 def plan_anchor_metadata_check(

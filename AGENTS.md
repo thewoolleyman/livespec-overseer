@@ -334,10 +334,12 @@ escalate.
 sixteen hours parked on a picker whose option 1 was its own recorded next
 action, and escalated five self-decidable engineering calls as standing
 maintainer questions. Those sessions were reading an `AGENTS.md` that never
-told them what they were allowed to decide. This repo's own surfaces —
-`/livespec-overseer:foreman`, `:grooming`, `:supervise-plan` — are the most
-exposed to that failure, because each ends a bounded pass by presenting
-options.
+told them what they were allowed to decide. The surfaces most exposed to that
+failure are the ones that end a bounded pass by presenting options. Two of the
+three originally named here — `/livespec-overseer:foreman` and `:grooming` — have
+since been retired outright, leaving `:supervise-plan`; the guidance is kept
+because the failure shape is a property of the option-presenting pattern, not of
+those particular seats.
 
 - **Drive authorized work to completion; do not over-ask.** When the maintainer
   names a goal and says to finish or continue it, execute the WHOLE arc —
