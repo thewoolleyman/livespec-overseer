@@ -11,6 +11,7 @@ import _supervisor_pane_still
 import _supervisor_parked_delivery
 import _supervisor_picker_stall
 import _supervisor_settling_stuck
+import _supervisor_undeclared_idle
 import _supervisor_wait_target
 import _supervisor_working_low_context
 import registry
@@ -136,8 +137,12 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             act=request.act,
         )
     )
-    wait_target = _supervisor_wait_target.apply_wait_target_missing_attention(
-        request=_supervisor_wait_target.WaitTargetMissingRequest(
+    # The non-declaration report sits here, AFTER every monitor that can promote a row
+    # off the idle-above-threshold leaf: it fires only on a row still reading
+    # `idle-with-context-left`, so a track with a sharper reason to want the operator
+    # keeps that reason and is never re-labelled as merely undeclared.
+    undeclared_idle = _supervisor_undeclared_idle.apply_undeclared_idle_attention(
+        request=_supervisor_undeclared_idle.UndeclaredIdleRequest(
             sup=request.sup,
             track=request.track,
             session=request.session,
@@ -146,6 +151,19 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
             note=settling_stuck.note,
             obs=request.obs,
             active_conditions=settling_stuck.active_conditions,
+            act=request.act,
+        )
+    )
+    wait_target = _supervisor_wait_target.apply_wait_target_missing_attention(
+        request=_supervisor_wait_target.WaitTargetMissingRequest(
+            sup=request.sup,
+            track=request.track,
+            session=request.session,
+            pane=request.pane,
+            status=undeclared_idle.status,
+            note=undeclared_idle.note,
+            obs=request.obs,
+            active_conditions=undeclared_idle.active_conditions,
             act=request.act,
         )
     )

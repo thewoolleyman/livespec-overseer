@@ -307,6 +307,51 @@ inferred from a runtime name, launch mode, or approval/sandbox policy — and
 forbids making the `blocked:` declaration conditional on such a feature being
 enabled, suitable, or available in the current harness.
 
+### Non-declaration is itself reported: `undeclared-idle` (`overseer-j2vbcq`)
+
+**The obligation above was audited and needs NO strengthening. That conclusion is
+recorded here rather than left implied, because the audit was asked for and
+"nothing changed" is a finding, not a skipped step.** The passage already covers
+the exact shape that motivated the audit — a human authorization posed as PROSE at
+a free prompt, which no structured gate can carry — it already names `blocked:
+<reason>` as what to write, and `SPECIFICATION/spec.md` already forbids
+conditioning that declaration on structured-question capability. There is no
+loophole to close and no wording that a session could read as excusing it.
+
+**What was missing was not the obligation but its OBSERVABILITY.** A session that
+simply never writes the file is indistinguishable, to the daemon, from a session
+with genuinely nothing pending: both are idle with context left and no
+declaration. So a track holding an unanswerable human decision rendered healthy
+indefinitely, and the operator learned of it only because that session mentioned
+it to a peer.
+
+The daemon now reports the silence itself. A track that stays on the
+`idle-with-context-left` leaf — idle, above its wind-down threshold, and having
+written no `ready` / `blocked` / `winding-down` — past `UNDECLARED_IDLE_AFTER`
+becomes the `undeclared-idle` status: an `ATTENTION_STATUSES` member, so it enters
+the `NEEDS YOU` block and the published snapshot row, with one edge-triggered
+alert.
+
+Three properties of that report are load-bearing:
+
+- **It reads NOTHING from the pane.** The condition is derived from the row status
+  and the clock. Inferring a pending human decision from the natural-language
+  content of a capture is forbidden outright, not merely controlled — see
+  `plan/archive/supervision-safety-and-attention-truth/research/prose-question-detector-inversion.md`
+  and the `_supervisor_undeclared_idle.py` module docstring.
+- **It is REPORT-ONLY.** It never pastes, never keystrokes, and authorizes no
+  restart. The keep-going nudge above is the one message a session gets about this,
+  and it already carries the `blocked:` escape hatch; a second ladder aimed at a
+  session that ignored the first is the defect `overseer-w2nwx5` records.
+- **It is BOUNDED** by `UNDECLARED_IDLE_REPORTED_UNTIL`. Past that age the row
+  stops being held and the condition cannot raise again without an intervening
+  non-idle episode. A report that stands forever is a shield rather than a signal,
+  and this repo already carries two of those.
+
+**The remedy therefore rests on sessions declaring, and that has not changed.** The
+report says a session is out of contract; it does not substitute for the
+declaration, and nothing in it makes `blocked: <reason>` optional.
+
 ## What a tracked session must WRITE
 
 ONE file — `<repo>/tmp/overseer/<topic>/.overseer-state` (the repo's gitignored
