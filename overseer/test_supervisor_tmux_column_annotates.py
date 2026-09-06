@@ -38,6 +38,24 @@ def _isolate_cwd(*, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
 
+def _attention_block(*, out):
+    """The rendered NEEDS YOU block ALONE — its heading down to the table's stamp line.
+
+    The block prints ABOVE the table, so it is BOUNDED by the table rather than running
+    to the end of the render: splitting on `NEEDS YOU` alone would sweep every table row
+    into the segment under test.
+    """
+    lines = out.splitlines()
+    head = next(i for i, ln in enumerate(lines) if "NEEDS YOU" in ln)
+    # The render's first line carries a clear sequence ahead of the table's own stamp.
+    stamp = next(
+        i
+        for i, ln in enumerate(lines)
+        if ln.removeprefix("\x1b[3J\x1b[2J\x1b[H").startswith("overseer — ")
+    )
+    return "\n".join(lines[head:stamp])
+
+
 def test_evaluate_derives_codex_runtime_and_annotates_the_tmux_cell(*, tmp_path):
     """END-TO-END: `evaluate` derives `runtime="codex"` for a track adopted in `live_codex`
     on a `bun` pane, and the rendered tmux cell reads `<session> (codex)`. Sabotage
@@ -157,8 +175,9 @@ def test_attention_block_excludes_unassigned_plans(*, tmp_path):
     ] + [supervisor.RowView(topic="stuck", repo="/r", tmux="s", ctx=9, status="danger")]
     out = render_of(sup=sup, views=views)
     assert "NEEDS YOU (1):" in out  # the ONE danger row, not 21
-    assert "stuck" in out.split("NEEDS YOU")[1]
-    assert "plan0" not in out.split("NEEDS YOU")[1]
+    block = _attention_block(out=out)
+    assert "stuck" in block
+    assert "plan0" not in block
 
 
 def test_attention_block_includes_a_malformed_state_file(*, tmp_path):

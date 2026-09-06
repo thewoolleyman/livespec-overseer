@@ -11,6 +11,10 @@ WRAPUP_SENTINEL = "Declare your state by writing ONE line"
 GREEN = "\x1b[32m"
 RESET = "\x1b[0m"
 _ANCHORED_HANDOFF = f"HANDOFF v1\n\n**Ledger anchor:** `{TEST_EPIC}`\n".encode()
+# The daemon prints the NEEDS YOU block ABOVE the table, and every one of its lines can
+# carry a topic too (`  ! topic: <topic> | tmux: … `). These are the prefixes a "find the
+# line holding TOPIC" scan has to step over to reach the real data row.
+ATTENTION_MARKERS = ("!", "jump:", "NEEDS YOU")
 
 
 def nudge_count(*, fake):
@@ -31,8 +35,18 @@ def render_of(*, sup, views):
 
 
 def row_line(*, out, topic):
-    """The single rendered line for TOPIC (the data row, not the header)."""
-    return next(ln for ln in out.splitlines() if topic in ln and "Topic" not in ln)
+    """The single rendered TABLE line for TOPIC — not the header, and not an attention line.
+
+    A table row is a line that carries the topic, is not the `Topic` header, and does not
+    start with one of the `ATTENTION_MARKERS`. That last clause is what the block moving
+    above the table costs: a bare "first line containing the topic" scan now returns the
+    attention line for any attention-status row instead of its data row.
+    """
+    return next(
+        ln
+        for ln in out.splitlines()
+        if topic in ln and "Topic" not in ln and not ln.lstrip().startswith(ATTENTION_MARKERS)
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -56,8 +70,8 @@ def wrapup_count(*, fake):
 
 
 def cell_row(*, out, topic):
-    """The single rendered DATA line for TOPIC (skipping the header row)."""
-    return next(ln for ln in out.splitlines() if topic in ln and "Topic" not in ln)
+    """The single rendered DATA line for TOPIC (skipping the header and attention lines)."""
+    return row_line(out=out, topic=topic)
 
 
 # --------------------------------------------------------------------------- #
