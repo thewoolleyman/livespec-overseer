@@ -164,9 +164,13 @@ def test_an_unserveable_scoped_pin_rotates_only_while_the_pin_is_in_effect():
     assert not triggered(usage=exhausted)
 
 
-def test_a_scoped_pin_the_account_can_still_serve_does_not_rotate():
+def test_a_scoped_pin_the_account_holds_above_the_reserve_does_not_rotate():
+    # 60% scoped remaining is comfortably above the default scoped-model reserve
+    # (15%), so the pin is satisfiable where it is and no scoped trigger fires. At
+    # a reserve of zero this is the ratified can-serve boundary; the margin only
+    # moves the line up from full exhaustion.
     assert not triggered(
-        usage=account(short_window_remaining=60.0, scoped_remaining=0.1), scoped_pin=True
+        usage=account(short_window_remaining=60.0, scoped_remaining=60.0), scoped_pin=True
     )
 
 
@@ -223,8 +227,10 @@ def test_no_waiver_is_offered_while_no_pin_names_the_scoped_model():
     assert scoped_waiver_floor(active=_active(scoped_remaining=0.0, scoped_pin=False)) is None
 
 
-def test_no_waiver_is_offered_while_the_active_account_can_still_serve_the_pin():
-    assert scoped_waiver_floor(active=_active(scoped_remaining=0.1, scoped_pin=True)) is None
+def test_no_waiver_is_offered_while_the_active_account_holds_above_the_reserve():
+    # Above the scoped-model reserve the pin is comfortably satisfiable where it is,
+    # so no waiver is offered (reduces to the can-serve boundary at reserve 0).
+    assert scoped_waiver_floor(active=_active(scoped_remaining=60.0, scoped_pin=True)) is None
 
 
 def test_a_stranded_pin_offers_a_waiver_bounded_at_the_rotation_threshold():
@@ -294,12 +300,14 @@ def test_being_at_a_protection_floor_denies_the_hold():
     )
 
 
-def test_no_hold_is_licensed_without_a_pin_or_while_the_pin_is_still_serveable():
+def test_no_hold_is_licensed_without_a_pin_or_while_the_active_holds_above_the_reserve():
     assert not scoped_alone_trigger(
         usage=account(short_window_remaining=60.0, scoped_remaining=0.0)
     )
+    # Above the reserve the scoped leg is silent, so it cannot be the sole reason to
+    # leave (reduces to the can-serve boundary at reserve 0).
     assert not scoped_alone_trigger(
-        usage=account(short_window_remaining=60.0, scoped_remaining=0.1), scoped_pin=True
+        usage=account(short_window_remaining=60.0, scoped_remaining=60.0), scoped_pin=True
     )
 
 
