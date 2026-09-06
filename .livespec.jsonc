@@ -355,6 +355,24 @@
       // correct now and remains a valid override after that lands.
       //
       // EDIT THIS BLOCK BY HAND — the set-config caveat above applies here too.
+      // Per-node ACP turn ceilings (orchestrator contracts.md "ACP node
+      // timeouts"). Absent, every node runs at the 1800 s default.
+      // MEASURED 2026-09-06, hp run 01M1VWNNBP7QEHRC5J0GVNQKQF
+      // (overseer-5ugiuj.1, the foreman-seat code cut): the implement node
+      // hit `ACP turn timed out` at 1800033 ms and again at 1800039 ms, then
+      // the engine's checkpoint commit died in this repo's 260 s pre-commit
+      // aggregate on a half-finished tree (check-coverage,
+      // check-per-file-coverage, check-doctor-static red), so 64 minutes of
+      // work were lost with no preserved diff. A multi-module cut plus this
+      // repo's own `just check` cannot fit one 30-minute turn; these values
+      // are the ones the console tenant measured and declared for the same
+      // shape (livespec-console-beads-fabro .livespec.jsonc, 2026-09-01).
+      "node_timeouts": {
+        "implement": 14400,
+        "janitor": 3600,
+        "fix": 3600,
+        "review_fix": 3600
+      },
       "prepare_toolchain": {
         "mise": ["sh", "-c", "mise trust && env -u GITHUB_TOKEN -u GH_TOKEN -u GITHUB_API_TOKEN mise install --quiet"],
         "lefthook": ["uv", "run", "lefthook", "install"]
