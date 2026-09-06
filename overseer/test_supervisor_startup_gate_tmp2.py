@@ -138,8 +138,14 @@ def test_render_header_includes_pinned_release_version(*, tmp_path):
     sup = make_supervisor(tmp_path=tmp_path, fake=fake)
     out = render_of(sup=sup, views=[])
 
-    first_line = out.splitlines()[0].removeprefix("\x1b[3J\x1b[2J\x1b[H")
-    assert first_line.endswith(f" — 0 track(s) - {supervisor.APP_VERSION}")
+    # The stamp is the TABLE's first line, which is no longer the RENDER's first line:
+    # the NEEDS YOU block prints above it. Find it by its own prefix, not by index.
+    stamp = next(
+        ln.removeprefix("\x1b[3J\x1b[2J\x1b[H")
+        for ln in out.splitlines()
+        if ln.removeprefix("\x1b[3J\x1b[2J\x1b[H").startswith("overseer — ")
+    )
+    assert stamp.endswith(f" — 0 track(s) - {supervisor.APP_VERSION}")
 
 
 def test_table_row_cells_follow_the_header_order(*, tmp_path):

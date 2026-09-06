@@ -2,7 +2,7 @@
 
 A private collaborator of :mod:`supervisor`; see that module's header for the whole
 split. This module owns the two SURFACES the daemon paints each tick — the
-``Status · Topic · tmux · Ctx% · Repo`` table, and the ``NEEDS YOU`` block under it —
+``Status · Topic · tmux · Ctx% · Repo`` table, and the ``NEEDS YOU`` block above it —
 plus the tmux window-name badge, which is the only overseer surface visible without
 looking at the overseer window.
 
@@ -72,7 +72,7 @@ def render_table(
     for row in rows:
         # Elide the session-authored note so an over-long / multi-line value cannot
         # blow up the Status column width or break the row (the full note still
-        # reaches the NEEDS YOU block below).
+        # reaches the NEEDS YOU block above).
         note = elide(text=row.note, limit=MAX_NOTE_IN_TABLE) if row.note else None
         table.append(
             (
@@ -103,9 +103,12 @@ def render_table(
         # status (not the note-decorated cell text).
         color = row_color(status=rows[i - 1].status) if use_color else ""
         lines.append(f"{color}{line}{ANSI_RESET}" if color else line)
-    lines.extend(attention_lines(rows=rows, surface_attention=surface_attention))
-    # Clear scrollback + screen + home, then the table.
-    _ = sup.out.write("\x1b[3J\x1b[2J\x1b[H" + "\n".join(lines) + "\n")
+    attention = attention_lines(rows=rows, surface_attention=surface_attention)
+    # Clear scrollback + screen + home, then the NEEDS YOU block, then the table. The
+    # block goes FIRST so the table is the LAST thing written: the daemon repaints the
+    # whole pane from home every tick, so a pane too short to hold the render loses what
+    # was written earliest — and the table is the surface the operator scans.
+    _ = sup.out.write("\x1b[3J\x1b[2J\x1b[H" + "\n".join([*attention, *lines]) + "\n")
     sup.out.flush()
 
 
