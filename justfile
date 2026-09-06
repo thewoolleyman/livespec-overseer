@@ -923,8 +923,15 @@ check-plan-epic-parity:
 check-no-shadow-ledger-body-typechecks:
     uv run python -m livespec_dev_tooling.checks.no_shadow_ledger_body_typechecks
 
+# Delegates to the worktree pack's single canonical body (livespec-dev-tooling
+# fy02): dev-tooling/check-no-workflow-edits.sh is installed untracked by
+# `just install-worktree-pack` and byte-verified against the pinned package, so
+# no per-repo guard copy or escape exists here. The pack body is a local /
+# janitor authorship control and exits 0 as a no-op when GITHUB_ACTIONS is set,
+# so the CI invocation of this recipe (ci.yml check-metadata-batch) is now a
+# documented no-op, to be removed in a later declared workflow edit.
 check-no-workflow-edits:
-    scripts/check-no-workflow-edits.sh
+    bash dev-tooling/check-no-workflow-edits.sh
 
 check-report-only-artifact-producers:
     uv run python scripts/check-report-only-artifact-producers.py
