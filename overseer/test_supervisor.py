@@ -171,15 +171,26 @@ def test_missing_tmux_session_also_never_names_a_tmux_session(*, tmp_path):
     assert view.tmux is None
 
 
-def test_a_foreign_pane_is_session_gone_not_a_status_of_its_own(*, tmp_path):
-    """A live Claude in a DIFFERENT repo is not "not-claude" — from this plan's point of
-    view the fact is identical to a bare shell: its session is NOT IN THIS TMUX. The plan
-    was assigned to something once, so it is `session-gone`.
+def test_a_foreign_pane_is_not_not_claude_and_names_the_repo_it_is_working_in(*, tmp_path):
+    """A live Claude in a DIFFERENT repo is not "not-claude" — that status named the
+    identity gate's return value rather than anything an operator needs, and it is
+    DELETED. What replaced it here was a plain `session-gone`, and that has since been
+    split: the row now reads `name-collision` and NAMES the repo the holder is working in
+    (`overseer-5p6d6g`, and `tests/test_supervisor_name_collision.py` is where the split
+    itself is pinned, negative controls included).
 
-    The mapping ROW is kept — it is the memory of having seen the session, which is what
-    separates `session-gone` from `unassigned` (maintainer-declared 2026-07-17: "KEEP
-    session-gone if you've ever seen the session, only use unassigned if you've never
-    seen it"). And no dead terminal is named: tmux is None.
+    **This assertion changed deliberately, and the old one is worth knowing about.** It
+    read `session-gone` on the ground that a foreign pane and a bare shell are the same
+    fact about the track — no pane the daemon can drive. That is still true, and the
+    identity gate is unchanged, so the acting side of this test is untouched. What was
+    NOT true is that the two want the same ROW: a reader could not tell "this topic has
+    no session" from "this topic's name is taken", and the second reading invites the
+    destructive remedy of restarting a live foreign process.
+
+    The mapping ROW is still kept either way — it is the memory of having seen the
+    session, which is what separates both statuses from `unassigned` (maintainer-declared
+    2026-07-17: "KEEP session-gone if you've ever seen the session, only use unassigned if
+    you've never seen it"). And no dead terminal is named: tmux is None.
     """
     repo, topic = make_plan(tmp_path=tmp_path)
     other = tmp_path / "elsewhere"
@@ -191,7 +202,8 @@ def test_a_foreign_pane_is_session_gone_not_a_status_of_its_own(*, tmp_path):
     sessions_dir.mkdir()
     sup = adopt_sup(tmp_path=tmp_path, fake=fake, sessions_dir=sessions_dir, ppid={}, starttimes={})
     view = sup.evaluate(track=mapped_track(repo=repo, topic=topic, session=session), act=True)
-    assert view.status == "session-gone"
+    assert view.status == "name-collision"
+    assert view.note is not None and str(other) in view.note
     assert view.tmux is None  # never name the pane it is wrongly pointed at
     assert not fake.has(method="paste")  # the identity gate still guards every act
 

@@ -59,6 +59,7 @@ from typing import TYPE_CHECKING
 
 import _supervisor_discovery
 import _supervisor_launch
+import _supervisor_name_collision
 import claude_sessions
 import registry
 import signals
@@ -294,7 +295,7 @@ def live_session_outside_tmux(
 
 
 def no_managed_pane_row(*, sup: Supervisor, track: registry.Track, session: str) -> RowView:
-    """The row for a track with NO live managed pane: ``live-outside-tmux`` or ``session-gone``.
+    """The row for a track with NO live managed pane — ``session-gone`` and its softeners.
 
     The single home for "this track has no pane we can drive". Reached THREE ways —
     the mapped tmux session is gone; or it survives but its session exited to a bare
@@ -391,4 +392,13 @@ def no_managed_pane_row(*, sup: Supervisor, track: registry.Track, session: str)
             status="wound-down",
             note="declared the wind-down and its session is gone — an orderly teardown",
         )
+    # `overseer-5p6d6g`. The LAST discriminator, and it narrows only the `session-gone`
+    # fallthrough: everything above it is a fact about THIS track's own session (alive
+    # outside tmux, alive under a derived name, or an orderly wind-down it declared
+    # itself), and each of those outranks a fact about who merely holds the NAME. What is
+    # left here is a track with nothing of its own anywhere — and that is exactly the row
+    # that could not say whether its name was free or taken.
+    collision = _supervisor_name_collision.name_collision_row(sup=sup, track=track, session=session)
+    if collision is not None:
+        return collision
     return RowView(topic=topic, repo=repo, tmux=None, ctx=None, status="session-gone")
