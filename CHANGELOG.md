@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v4.0.0...v5.0.0) (2026-09-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **overseer:** remove the grooming seat — skill, prose, conformance modules
+
+### Features
+
+* **overseer:** remove the grooming seat — skill, prose, conformance modules ([7f1fd75](https://github.com/thewoolleyman/livespec-overseer/commit/7f1fd75bd1e9a3903a5a0c69c091713c6b27c7a6))
+
 ## [4.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v3.0.0...v4.0.0) (2026-09-06)
 
 
