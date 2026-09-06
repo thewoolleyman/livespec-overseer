@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.5](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.4...v2.0.5) (2026-09-06)
+
+
+### Bug Fixes
+
+* **caam:** configurable Fable-remaining margin on the scoped rotation trigger (overseer-dyt6) ([18b10eb](https://github.com/thewoolleyman/livespec-overseer/commit/18b10eb1a0ab3d2f21a564ec5db1fb7113258513))
+* **overseer:** render the attention block above the status table ([44ce3b1](https://github.com/thewoolleyman/livespec-overseer/commit/44ce3b17acf4cda33b5ce59356d7e3ea6393b9ec))
+
 ## [2.0.4](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.3...v2.0.4) (2026-09-06)
 
 
