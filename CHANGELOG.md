@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.3](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.2...v2.0.3) (2026-09-06)
+
+
+### Bug Fixes
+
+* **overseer:** distinguish a squatted tmux name from an absent session ([4cc6991](https://github.com/thewoolleyman/livespec-overseer/commit/4cc6991081675fcc15a345cd9867287bde10a7f0))
+
 ## [2.0.2](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.1...v2.0.2) (2026-09-06)
 
 
