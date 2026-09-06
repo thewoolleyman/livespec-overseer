@@ -1,14 +1,21 @@
 # livespec-overseer
 
 The **Control-Plane operator tool** for the livespec fleet: a two-pane tmux
-supervisor that keeps multiple parallel sessions moving.
+supervisor that keeps multiple parallel sessions moving, plus a quota loop that
+keeps the accounts behind them usable.
 
-- **`overseerd`** — a deterministic daemon that watches every tracked tmux
-  session's remaining context, injects an escalating wrap-up at threshold, and
-  atomically restarts a session **only once that session has declared itself
-  ready**.
-- **the overseer pane** — a thin interactive surface that starts the daemon,
-  manages the tracked-session list, and relays what needs attention.
+It ships exactly two operator surfaces:
+
+- **`overseer`** — the two-pane supervisor.
+  - **`overseerd`** — a deterministic daemon that watches every tracked tmux
+    session's remaining context, injects an escalating wrap-up at threshold, and
+    atomically restarts a session **only once that session has declared itself
+    ready**.
+  - **the overseer pane** — a thin interactive surface that starts the daemon,
+    manages the tracked-session list, and relays what needs attention.
+- **`caam-anthropic-loop`** — watches caam-managed Claude Max account usage and
+  rotates accounts safely, so a quota exhaustion surfaces as a rotation rather
+  than as a fleet-wide stall.
 
 ## The cardinal rule
 
@@ -36,8 +43,9 @@ Claude Code and/or OpenAI Codex as the supervised agent runtimes.
 Install both shipped surfaces for the family that will run the overseer:
 
 1. Install the `livespec-overseer` Claude Code plugin from this repository's
-   plugin marketplace entry so the interactive command
-   `/livespec-overseer:overseer` is available.
+   plugin marketplace entry so the interactive commands
+   `/livespec-overseer:overseer` and `/livespec-overseer:caam-anthropic-loop`
+   are available. Those two are the whole shipped command surface.
 2. Install the `livespec-overseer` Python package into the operator
    environment so the `overseerd` and `overseer-start` entry points are on
    `PATH`.
