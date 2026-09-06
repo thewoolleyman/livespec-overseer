@@ -183,6 +183,15 @@ class RowView:
     ``live-outside-tmux``) carry ``tmux=None`` and leave it ``None`` — those cells
     render a bare ``—`` with no ``(...)`` (there is no live session, and for the first
     two no runtime either).
+
+    ``parked_delivery_sender`` is the seat a queued cross-session delivery is FROM,
+    carried as its own machine-readable field for the same reason ``picker_open`` is:
+    a consumer must be able to answer "whose message is stuck behind this picker?"
+    without keying on prose. The detector already extracted it and the operator pane
+    already rendered it, but its only route to the status snapshot was inside ``note``
+    — and a note is elided at a DISPLAY width, so the attribution survived or vanished
+    on the wording of the day. It is set exactly when this tick observed a queued
+    delivery; a parked pane with a picker and no delivery leaves it ``None``.
     """
 
     topic: str
@@ -199,6 +208,7 @@ class RowView:
     picker_open: bool = False
     stall_seconds: int = 0
     supervisor_state_stale: bool = False
+    parked_delivery_sender: str | None = None
 
 
 def needs_attention(*, row: RowView) -> bool:

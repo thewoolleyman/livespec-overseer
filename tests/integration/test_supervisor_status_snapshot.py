@@ -196,6 +196,7 @@ def test_tick_writes_round_trippable_status_snapshot(*, tmp_path, monkeypatch):
         "progress_now": False,
         "human_wait": False,
         "picker_open": False,
+        "parked_delivery_sender": None,
         "stall_seconds": 0,
         "supervisor_state_stale": False,
         "round_open": False,

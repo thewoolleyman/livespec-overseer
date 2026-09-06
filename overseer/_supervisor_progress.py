@@ -32,6 +32,7 @@ class RowViewRequest:
     settled_streaming_progress: bool
     picker_stall: PickerStallView
     supervisor_state_stale: bool
+    parked_delivery_sender: str | None
 
 
 def blocked_human_stall_seconds(
@@ -136,6 +137,7 @@ def row_view(*, request: RowViewRequest) -> RowView:
         picker_open=request.picker_stall.picker_open,
         stall_seconds=request.picker_stall.stall_seconds,
         supervisor_state_stale=request.supervisor_state_stale,
+        parked_delivery_sender=request.parked_delivery_sender,
     )
 
 

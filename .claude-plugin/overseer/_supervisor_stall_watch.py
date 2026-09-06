@@ -41,6 +41,7 @@ class EvaluationMonitorResult:
     note: str | None
     active_conditions: set[str]
     picker_stall: _supervisor_picker_stall.PickerStallDecision
+    parked_delivery_sender: str | None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -166,4 +167,5 @@ def apply_evaluation_monitors(*, request: EvaluationMonitorRequest) -> Evaluatio
         note=stall_watch.note,
         active_conditions=stall_watch.active_conditions,
         picker_stall=picker_stall,
+        parked_delivery_sender=parked_delivery.sender,
     )
