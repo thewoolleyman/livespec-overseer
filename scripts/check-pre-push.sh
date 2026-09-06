@@ -22,6 +22,24 @@ run_plan_anchor_metadata_check() {
 
 run_plan_anchor_metadata_check
 
+# Advisory-local green-token short-circuit (overseer-h200): when the working
+# tree is byte-identical to the last successful full `just check` run, the
+# aggregate would only reproduce the same green result, so skip it. This brings
+# pre-push in line with every other fleet member (livespec's check-pre-push).
+# It is valid here because the `check` recipe itself exports
+# LIVESPEC_FAIL_IF_LLOC_SOFT_WARNINGS_EXIST defaulting to true, so the gate and
+# pre-push run the IDENTICAL check set and the token records that same set
+# (contracts.md v217: memoization of the identical check set is not subsetting).
+# STRICTLY advisory-local: CI remains authoritative — any token miss, a dirty
+# worktree, a missing token, or an absent `uv` falls through to the full
+# aggregate below with no behavior change. The plan-anchor metadata check above
+# is deliberately left OUTSIDE this skip: it is cheap and ledger-dependent (its
+# verdict can change with no tree change), so it must keep running every push.
+if uv run python -m livespec_dev_tooling.green_token check 2>&1; then
+  echo ":: pre-push: green token matched - tree byte-identical to last green check; skipping full aggregate (CI is authoritative)"
+  exit 0
+fi
+
 # PR gate ≡ master gate (livespec plan pr-gate-master-parity R3, livespec-citqsd):
 # pre-push runs the FULL `just check` unconditionally. The prior zero-.py branch,
 # which delegated a doc-only push to the check-pre-commit-doc-only subset, is
