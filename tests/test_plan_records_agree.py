@@ -70,12 +70,10 @@ _RETIRED_VOCABULARY = (
 _LIVE_VOCABULARY_CARRIERS = (
     "AGENTS.md",
     ".ai/supervisor-protocol.md",
-    ".claude-plugin/prose/supervise-plan.md",
     "overseer/marker-protocol.md",
     "overseer/_registry_epic.py",
     "tests/e2e-cli/test_codex_skill_picker.py",
     "tests/prompts/test_charters_carry_no_known_defects.py",
-    "tests/prompts/test_generated_supervisor_handoff_contract.py",
     "tests/test_charter_correction_counts_are_current.py",
 )
 

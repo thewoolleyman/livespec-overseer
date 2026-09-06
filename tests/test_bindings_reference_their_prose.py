@@ -24,7 +24,6 @@ PLUGIN_ROOT = ROOT / ".claude-plugin"
 
 OPERATIONS = (
     "overseer",
-    "supervise-plan",
     "grooming",
     "caam-anthropic-loop",
 )

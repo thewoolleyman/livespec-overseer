@@ -8,11 +8,13 @@ what to report when the mapped tmux pane is gone but the work may not be.
 WHAT A SUPERVISOR BINDER IS, AND WHICH OF THREE DISAGREEING ACCOUNTS WINS
 (`overseer-ow7c.4`). The three were:
 
-1. THE PROSE — `.claude-plugin/prose/supervise-plan.md`: the binder "is published as
-   SUPERVISOR HANDOFF ENTRIES appended to the governed plan's ledger epic, never as a
-   file under `plan/<topic>/`", and "a supervisor handoff entry is one attributed to
+1. THE PROSE — the generator prose of the retired supervisor authoring seat, deleted
+   with that seat by SPECIFICATION v047 (`overseer-5ugiuj.3`): the binder "is published
+   as SUPERVISOR HANDOFF ENTRIES appended to the governed plan's ledger epic, never as
+   a file under `plan/<topic>/`", and "a supervisor handoff entry is one attributed to
    the plan's supervisor entity — attribution, not a separate store, is what
-   distinguishes it".
+   distinguishes it". The ruling it settled outlives the prose, which is why it is
+   quoted here rather than cited.
 2. THE CODE, until this module was fixed: a binder existed iff
    ``supervisor_epic_path`` — `plan/<topic>/epic.md` — existed.
 3. THE ARTIFACT account 2 read: `epic.md` says of ITSELF that it "preserves the legacy
@@ -41,11 +43,11 @@ name exists — the retired ``supervisor_handoff_path``, `plan/<topic>/superviso
 WHAT THAT RULE GIVES UP, STATED RATHER THAN HIDDEN. A binder that lives ONLY on the
 ledger is invisible to the daemon by construction, so a plan that has one still reads as
 having none and is offered supervision it already has. That false negative is accepted
-deliberately, because it routes to the RECOVERABLE instruction: running
-`/livespec-overseer:supervise-plan` against a supervised plan re-publishes a binder that
-already exists, whereas starting a session against a binder that does not exist strands
-the operator in front of a fresh agent with nothing to read. A plan deliberately managed
-without a pair silences the offer outright with the ``.no-supervisor`` marker.
+deliberately, because it routes to the RECOVERABLE instruction: publishing a handoff for
+a plan that already has one re-states a binder that exists, whereas starting a session
+against a binder that does not exist strands the operator in front of a fresh agent with
+nothing to read. A plan deliberately managed without a pair silences the offer outright
+with the ``.no-supervisor`` marker.
 
 `epic.md` KEEPS ITS OWN JOB, untouched: it remains the write-once ledger-epic anchor read
 at track ASSIGNMENT (:mod:`_registry_epic`) and the migrated shape the supervisor RESTART
@@ -176,14 +178,14 @@ def surface_supervision_offer(*, sup: Supervisor, track: registry.Track, act: bo
         condition = "supervisor-missing"
     elif running:
         message = (
-            "supervision is running but has no durable prompt — capture it with "
-            "/livespec-overseer:supervise-plan"
+            "supervision is running but has no durable prompt — "
+            "publish a supervisor handoff to capture it"
         )
         condition = "supervision-capture-offer"
     else:
         message = (
-            "no supervisor handoff and no supervisor is running — run "
-            "/livespec-overseer:supervise-plan for this live track"
+            "no supervisor handoff and no supervisor is running — "
+            "publish a supervisor handoff for this live track"
         )
         condition = "supervision-offer"
     if act:

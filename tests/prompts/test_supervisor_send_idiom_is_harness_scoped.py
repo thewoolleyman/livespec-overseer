@@ -17,10 +17,7 @@ _STOP_RULE_NEEDLES = (
     "after two failed keystrokes",
     "durable file",
 )
-_SEND_IDIOM_FILES = (
-    _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md",
-    _REPO_ROOT / ".ai" / "supervisor-protocol.md",
-)
+_SEND_IDIOM_FILES = (_REPO_ROOT / ".ai" / "supervisor-protocol.md",)
 
 
 def _text_for(*, path: Path) -> str:

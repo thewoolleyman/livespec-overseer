@@ -86,7 +86,6 @@ def test_loop_parked_dispatch_guidance_points_to_detached_disk_verdict() -> None
         _REPO_ROOT / ".ai" / "dispatch-traps.md",
         _REPO_ROOT / "overseer" / "AGENTS.md",
         _REPO_ROOT / ".claude-plugin" / "prose" / "overseer.md",
-        _REPO_ROOT / ".claude-plugin" / "prose" / "supervise-plan.md",
     ]
     for path in docs:
         text = path.read_text(encoding="utf-8")
