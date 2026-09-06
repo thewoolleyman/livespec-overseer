@@ -4,7 +4,10 @@ The live table remains the daemon's primary operator surface. This module writes
 read-only JSON projection of that same row set so deterministic consumers can observe
 the daemon without scraping tmux output. It deliberately serializes only bounded row
 notes: a session-authored ``blocked:`` reason is evidence, not an instruction channel,
-and the snapshot must not become another unelided pane-text surface.
+and the snapshot must not become another unelided pane-text surface. Every other
+pane-derived string it carries is bounded on the same reasoning and for the same
+reason — but each by a limit sized to what that string IS, so a display width chosen
+for prose can never silently govern a machine-readable identity.
 """
 
 from __future__ import annotations
@@ -29,6 +32,7 @@ __all__: list[str] = [
     "DEFAULT_STATUS_PATH",
     "SCHEMA_VERSION",
     "SNAPSHOT_NOTE_LIMIT",
+    "SNAPSHOT_SENDER_LIMIT",
     "SnapshotFreshness",
     "StatusSnapshotRead",
     "default_status_writer",
@@ -39,6 +43,14 @@ __all__: list[str] = [
 
 SCHEMA_VERSION = 1
 SNAPSHOT_NOTE_LIMIT = 48
+# The parked-delivery sender is pane-derived, so it is bounded like every other
+# pane-derived string this module serializes — but bounded as an IDENTITY, not as
+# prose. That distinction is the whole point of carrying it in its own field: a
+# note's limit is a display width and moves with wording, while a seat name is a
+# session identity whose plausible length does not. This bound is deliberately far
+# above any real `<repo-slug>-<topic>` so it can never be the thing that elides an
+# attribution, and it governs this field alone.
+SNAPSHOT_SENDER_LIMIT = 128
 DEFAULT_STATUS_PATH = Path.home() / ".livespec-overseer-status.json"
 
 
@@ -86,6 +98,12 @@ def _snapshot_note(*, row: RowView) -> str | None:
     return text
 
 
+def _snapshot_parked_delivery_sender(*, row: RowView) -> str | None:
+    if row.parked_delivery_sender is None:
+        return None
+    return elide(text=row.parked_delivery_sender, limit=SNAPSHOT_SENDER_LIMIT)
+
+
 def _track_for_row(*, sup: Supervisor, row: RowView) -> registry.Track | None:
     if not hasattr(sup, "store_path"):
         return None
@@ -113,6 +131,7 @@ def row_payload(*, sup: Supervisor, row: RowView) -> dict[str, object]:
         "round_open": row.round_open,
         "acked": row.acked,
         "picker_open": row.picker_open,
+        "parked_delivery_sender": _snapshot_parked_delivery_sender(row=row),
         "stall_seconds": row.stall_seconds,
         "supervisor_state_stale": row.supervisor_state_stale,
         "session_identity": session_identity(sup=sup, row=row),

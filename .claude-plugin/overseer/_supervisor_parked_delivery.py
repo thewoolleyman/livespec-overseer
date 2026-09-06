@@ -28,6 +28,7 @@ class ParkedDeliveryDecision:
     status: str
     note: str | None
     active_conditions: set[str]
+    sender: str | None
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -70,12 +71,17 @@ def apply_parked_delivery_attention(*, request: ParkedDeliveryRequest) -> Parked
         status=PARKED_DELIVERY_STATUS,
         note=note,
         active_conditions=active_conditions,
+        sender=sender,
     )
 
 
 def _unchanged(*, request: ParkedDeliveryRequest) -> ParkedDeliveryDecision:
+    # Both no-delivery exits land here — no open picker, and a picker with nothing
+    # queued behind it — so the sender is absent by construction rather than by a
+    # separate guard. A field that is always populated would be worse than none.
     return ParkedDeliveryDecision(
         status=request.status,
         note=request.note,
         active_conditions=set(request.active_conditions),
+        sender=None,
     )

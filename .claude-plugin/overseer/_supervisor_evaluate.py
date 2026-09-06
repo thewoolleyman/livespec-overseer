@@ -273,6 +273,7 @@ def evaluate(  # noqa: PLR0915 — see "On the size of this function"
             settled_streaming_progress=settled_streaming_progress,
             picker_stall=monitors.picker_stall.view,
             supervisor_state_stale=attention.supervisor_state_stale,
+            parked_delivery_sender=monitors.parked_delivery_sender,
         )
     )
     # Re-arm edge-triggered alerts per condition, not per row: a track can stay in

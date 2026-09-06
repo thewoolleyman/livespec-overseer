@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import contextlib
 import io as _io
+import json
+from pathlib import Path
 
-from overseer import registry, signals, supervisor
+from overseer import _supervisor_snapshot, registry, signals, supervisor
 from overseer.test_supervisor_builders import (
     idle_capture,
     make_plan,
@@ -73,6 +75,26 @@ def make_parked_delivery_track(*, tmp_path, capture: str):
     write_fresh_supervisor_state(repo=repo, topic=topic)
     registry.append_mapping(track=track, store_path=sup.store_path, added_at="t")
     return repo, topic, session, fake, sup, track
+
+
+def published_row(*, sup, topic: str):
+    """The row a snapshot consumer reads, taken from the file the tick wrote."""
+    document = json.loads(Path(sup.status_path).read_text(encoding="utf-8"))
+    return next(row for row in document["rows"] if row["topic"] == topic)
+
+
+def sender_row(*, note: str | None, sender: str | None):
+    return supervisor.RowView(
+        topic="test-and-gate-integrity",
+        repo="/repo",
+        tmux="test-and-gate-integrity",
+        runtime="claude",
+        ctx=80,
+        status="parked-delivery",
+        note=note,
+        picker_open=True,
+        parked_delivery_sender=sender,
+    )
 
 
 def queued_sender(*, capture: str) -> str | None:
@@ -168,3 +190,75 @@ def test_scenario_open_picker_with_nothing_queued_is_not_parked_delivery_attenti
     assert fake.window_name == "overseer(1!)"
     assert not fake.has(method="paste")
     assert not fake.has(method="respawn")
+
+
+# --------------------------------------------------------------------------- #
+# The SENDER reaches a snapshot consumer (overseer-zljboi).
+#
+# The detector already extracts the sender and the daemon's own pane renders it in
+# full; what a snapshot consumer got was the sender's fate inside the elided
+# `note`, which is prose bounded by a DISPLAY width. These are the two-way control
+# over the same real captured panes the detector was built from: a parked pane WITH
+# a queued delivery must expose the sender, and a parked pane with a picker and NO
+# delivery must expose none.
+# --------------------------------------------------------------------------- #
+
+
+def test_scenario_parked_delivery_sender_reaches_a_snapshot_consumer(*, tmp_path):
+    _repo, topic, _session, _fake, sup, _track = make_parked_delivery_track(
+        tmp_path=tmp_path, capture=parked_delivery_capture()
+    )
+
+    rows = sup.tick(act=True)
+    row = next(item for item in rows if item.topic == topic)
+    published = published_row(sup=sup, topic=topic)
+
+    assert row.status == "parked-delivery"
+    assert published["status"] == "parked-delivery"
+    assert published.get("parked_delivery_sender") == "livespec-console-beads-fabro-foreman"
+
+
+def test_scenario_open_picker_with_nothing_queued_publishes_no_sender(*, tmp_path):
+    _repo, topic, _session, _fake, sup, _track = make_parked_delivery_track(
+        tmp_path=tmp_path, capture=picker_only_capture()
+    )
+
+    rows = sup.tick(act=True)
+    row = next(item for item in rows if item.topic == topic)
+    published = published_row(sup=sup, topic=topic)
+
+    assert row.status == "blocked:human"
+    assert published["status"] == "blocked:human"
+    assert "parked_delivery_sender" in published
+    assert published["parked_delivery_sender"] is None
+
+
+def test_the_sender_field_survives_a_note_elision_that_destroys_the_attribution():
+    assert "parked_delivery_sender" in supervisor.RowView.__dataclass_fields__
+
+    sender = "livespec-console-beads-fabro-foreman"
+    full_note = f"picker stalled 15h; queued delivery from {sender}"
+    payload = _supervisor_snapshot.row_payload(
+        sup=object(), row=sender_row(note=full_note, sender=sender)
+    )
+
+    note = payload["note"]
+    assert isinstance(note, str)
+    assert len(note) <= _supervisor_snapshot.SNAPSHOT_NOTE_LIMIT
+    assert note != full_note
+    assert sender not in note
+    assert payload["parked_delivery_sender"] == sender
+
+
+def test_a_pane_derived_sender_is_length_bounded_before_it_reaches_the_snapshot():
+    assert "SNAPSHOT_SENDER_LIMIT" in _supervisor_snapshot.__all__
+
+    limit = _supervisor_snapshot.SNAPSHOT_SENDER_LIMIT
+    payload = _supervisor_snapshot.row_payload(
+        sup=object(), row=sender_row(note=None, sender="x" * (limit + 40))
+    )
+
+    published = payload["parked_delivery_sender"]
+    assert isinstance(published, str)
+    assert len(published) == limit
+    assert limit > _supervisor_snapshot.SNAPSHOT_NOTE_LIMIT
