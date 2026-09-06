@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/thewoolleyman/livespec-overseer/compare/v2.1.0...v2.1.1) (2026-09-06)
+
+
+### Bug Fixes
+
+* **caam:** decouple the account-rotation operation from the foreman/grooming seats ([994dc17](https://github.com/thewoolleyman/livespec-overseer/commit/994dc17a9e8ba7b5ea1d0e014cb3229bd697d69c))
+
 ## [2.1.0](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.7...v2.1.0) (2026-09-06)
 
 
