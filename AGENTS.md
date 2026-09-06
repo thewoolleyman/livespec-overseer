@@ -182,12 +182,56 @@ into SKILL prose. Both harnesses read the same harness-neutral `prose/`.
 `.agents/plugins/marketplace.json`, no `.claude-plugin/`) and is **not** a model
 to copy.
 
+## Repository mutation protocol
+
+Every repo change uses a **worktree → PR → merge → cleanup** path. Leaving
+dirty state, committing on the primary checkout, or asking whether to commit
+are failures of the workflow, not acceptable stopping points. The
+commit-refuse hooks are armed on the primary checkout and `master` is
+protected behind `ci-green`, so the discipline applies without exception:
+
+1. Confirm the primary checkout before editing (a primary checkout's git-dir
+   equals its git-common-dir; a secondary worktree's differs).
+2. Create a dedicated worktree from `master` under the per-user root
+   `~/.worktrees/livespec-overseer/<branch>` — never as a peer of the clones
+   under `/data/projects`. **Create it with `just worktree-create <branch>
+   [base_ref]`, NOT with `git worktree add`.** The recipe adds the worktree
+   under that root, provisions the gitignored worktree-discipline pack into
+   `dev-tooling/`, and runs the hydrate hook (run it from the primary
+   checkout):
+
+   ```bash
+   mise exec -- just worktree-create <branch>
+   ```
+
+   The pack is no longer the reason to prefer the recipe: since 2026-09-06
+   (`livespec-ltthxr`, livespec `SPECIFICATION/contracts.md` §"Pre-commit
+   step ordering", v219) the FIRST command of both the pre-commit and the
+   pre-push hook is `00-install-worktree-pack`, which runs
+   `just install-worktree-pack` before any gate reads the pack. So a worktree
+   created by raw `mise exec -- git -C /data/projects/livespec-overseer
+   worktree add -b <branch> "$HOME/.worktrees/livespec-overseer/<branch>"
+   master` CAN commit and push — the hook installs the pack, from the package
+   that checkout resolves, and no `just bootstrap` is needed — and the
+   byte-identity verifier still asserts the installed result afterwards. The
+   remaining reason to use the recipe is hydration, which raw
+   `git worktree add` skips.
+3. Use `mise exec -- git commit ...` / `mise exec -- git push ...` so the
+   mise-managed lefthook hooks actually run. **Never** pass `--no-verify`;
+   if a hook fails, fix the cause or halt with the failure.
+4. Open a PR, wait for `ci-green`, and merge through the PR under the repo's
+   rebase-merge discipline.
+5. After merge, refresh the primary checkout to `origin/master`, remove the
+   feature worktree, delete the local branch, and verify clean status on
+   `master`.
+
 ## Working discipline
 
-Fleet-standard rules apply: every tracked-file change goes worktree → PR →
-rebase-merge (never commit on the primary checkout; hooks refuse it);
-product `.py` changes follow the red-green-replay commit ritual; never pass
-`--no-verify`; use `mise exec -- git …` so hooks fire. Work-items live in
+Fleet-standard rules apply: every tracked-file change follows the
+§"Repository mutation protocol" above (never commit on the primary checkout;
+hooks refuse it); product `.py` changes follow the red-green-replay commit
+ritual; never pass `--no-verify`; use `mise exec -- git …` so hooks fire.
+Work-items live in
 the `livespec-overseer` beads tenant (`bd` via the fleet credential
 wrapper). Durable agent guidance belongs in this file — never in any
 harness-private memory store.
@@ -199,19 +243,6 @@ skips, so the Red commit can skip only the gate whose broken state it is
 proving. Do not carry that exported skip into the Green/full-suite
 verification; the final commit still owes the full aggregate with nothing
 skipped.
-
-**Create worktrees with `just worktree-create <branch> [base_ref]`, NOT with
-`git worktree add`.** The recipe provisions the worktree-discipline pack into
-`dev-tooling/` and hydrates; raw `git worktree add` does neither. The pack is
-no longer the reason to prefer the recipe: since 2026-09-06 (`livespec-ltthxr`,
-livespec `SPECIFICATION/contracts.md` §"Pre-commit step ordering", v219) the
-FIRST command of both the pre-commit and the pre-push hook is
-`00-install-worktree-pack`, which runs `just install-worktree-pack` before any
-gate reads the pack. So a worktree created by raw `git worktree add` CAN commit
-and push — the hook installs the pack, from the package that checkout resolves,
-and no `just bootstrap` is needed — and the byte-identity verifier still
-asserts the installed result afterwards. The remaining reason to use the recipe
-is hydration, which raw `git worktree add` skips.
 
 Before the hooks installed the pack first, a worktree without it could neither
 commit a `.py` change nor push at all —
