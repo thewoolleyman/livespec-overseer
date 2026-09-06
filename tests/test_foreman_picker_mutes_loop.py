@@ -8,9 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-import registry
-import supervisor
-from test_supervisor_builders import make_plan, make_supervisor, mapped_track
+from test_supervisor_builders import make_supervisor
 from test_supervisor_fakes import FakeTmux
 
 __all__: list[str] = []
@@ -250,31 +248,3 @@ def test_record_blocking_prompt_escalation_can_write_unstamped_fail_closed_marke
             "the non-blocking attention surface so the loop cadence can continue"
         )
     }
-
-
-def test_foreman_blocking_prompt_renders_distinct_report_only_attention(*, tmp_path):
-    repo, _topic = make_plan(tmp_path=tmp_path)
-    foreman_topic = "repo-foreman"
-    fake = FakeTmux()
-    fake.serve(session=foreman_topic, repo=repo, capture=picker_capture())
-    sup = make_tick_supervisor(tmp_path=tmp_path, fake=fake, repo=repo, now=2000.0)
-    registry.append_mapping(
-        track=mapped_track(repo=repo, topic=foreman_topic, session=foreman_topic),
-        store_path=sup.store_path,
-        added_at="t",
-    )
-
-    rows = sup.tick(act=True)
-    row = next(item for item in rows if item.status == "foreman-blocking-prompt")
-
-    assert row.topic == "foreman"
-    assert row.tmux == foreman_topic
-    assert row.picker_open is True
-    assert "suppresses scheduled ticks" in (row.note or "")
-    assert supervisor.needs_attention(row=row) is True
-    path = repo / "tmp" / "overseer" / "foreman" / "escalations" / "repo-foreman.json"
-    assert not path.exists()
-    assert not fake.has(method="paste")
-    assert not fake.has(method="keys")
-    assert not fake.has(method="respawn")
-    assert not fake.has(method="new")

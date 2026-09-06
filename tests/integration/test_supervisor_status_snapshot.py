@@ -13,8 +13,6 @@ import pytest
 from overseer import (
     claude_sessions,
     codex_sessions,
-    foreman_runtime_identity,
-    grooming_runtime,
     registry,
     supervisor,
 )
@@ -559,22 +557,14 @@ def _rewrite_last_added_at_to_null(*, store_path):
 def _mapping_track(*, variant, repo, topic, tmux, epic):
     if variant == "plan":
         return registry.PlanTrack(topic=topic, repo=str(repo), tmux=tmux, epic=epic)
-    if variant == "foreman":
-        return registry.ForemanSeat(topic=topic, repo=str(repo), tmux=tmux, epic=epic)
-    if variant == "grooming":
-        return registry.GroomingSeat(topic=topic, repo=str(repo), tmux=tmux, epic=epic)
     raise AssertionError(f"unexpected variant {variant}")
 
 
 def _mapping_topic(*, variant, repo, topic):
-    if variant == "foreman":
-        return foreman_runtime_identity.canonical_session_name(repo=repo)
-    if variant == "grooming":
-        return grooming_runtime.canonical_session_name(repo=repo)
     return topic
 
 
-@pytest.mark.parametrize("variant", ["plan", "foreman", "grooming"])
+@pytest.mark.parametrize("variant", ["plan"])
 def test_list_json_reports_unusable_mapping_rows_and_not_healthy_rows(*, tmp_path, variant):
     module = snapshot_module()
     healthy_repo, healthy_plan_topic = make_plan(

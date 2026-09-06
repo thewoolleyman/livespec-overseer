@@ -69,6 +69,26 @@ def test_missing_stop_json_is_absent(*, tmp_path: Path):
     assert module.read_foreman_stop_state(repo=tmp_path / "repo") is None
 
 
+@pytest.mark.parametrize("state", ["died", "completed-bounded-run"])
+def test_well_formed_stop_json_is_read(*, tmp_path: Path, state: str):
+    module = foreman_stop_state()
+    repo = tmp_path / "repo"
+    path = repo / "tmp" / "overseer" / "foreman" / "stop.json"
+    path.parent.mkdir(parents=True)
+    _ = path.write_text(
+        json.dumps({"state": state, "reason": "bounded run over", "observed_at": "t"}),
+        encoding="utf-8",
+    )
+
+    result = module.read_foreman_stop_state(repo=repo)
+
+    assert result is not None
+    assert result.state == state
+    assert result.reason == "bounded run over"
+    assert result.observed_at == "t"
+    assert result.lapsed_at is None
+
+
 def test_runtime_stop_state_does_nothing_for_auto_resume(*, tmp_path: Path):
     module = foreman_stop_state()
     repo = tmp_path / "repo"

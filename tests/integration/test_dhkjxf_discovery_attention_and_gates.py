@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 import registry
 import signals
-import supervisor
 from test_supervisor_builders import declare, idle_capture, make_plan, make_supervisor, mapped_track
 from test_supervisor_fakes import FakeTmux
 
@@ -83,24 +82,6 @@ def test_scenario_reserved_name_live_session_is_not_adopted_as_worker(*, tmp_pat
     assert sup.build_rows(act=True) == []
     assert registry.read_valid_mapping(store_path=sup.store_path) == []
     assert "NEEDS YOU" not in sup.out.getvalue()
-
-
-@pytest.mark.integration
-def test_scenario_stale_foreman_heartbeat_is_surfaced_as_attention(*, tmp_path):
-    repo, _topic = make_plan(tmp_path=tmp_path)
-    _write_heartbeat(repo=repo)
-    fake = FakeTmux()
-    sup = _tick_supervisor(tmp_path=tmp_path, fake=fake, repo=repo, now=1801.0)
-
-    rows = sup.tick(act=True)
-    output = sup.out.getvalue()
-
-    assert any(row.topic == "foreman" and supervisor.needs_attention(row=row) for row in rows)
-    assert "NEEDS YOU (1):" in output
-    assert "foreman-heartbeat-stale" in output
-    assert not fake.has(method="paste")
-    assert not fake.has(method="keys")
-    assert not fake.has(method="respawn")
 
 
 @pytest.mark.integration

@@ -7,8 +7,6 @@ from typing import TYPE_CHECKING
 import _supervisor_attention
 import _supervisor_discovery
 import _supervisor_dispatch_quiet
-import _supervisor_foreman
-import _supervisor_grooming
 import _supervisor_mapping_health
 import _supervisor_pair
 import _supervisor_reexec
@@ -47,23 +45,6 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
                 act=act,
             )
     views.extend(_supervisor_discovery.unindexed_codex_rows(sup=sup))
-    repos = _supervisor_discovery.resolve_watch(sup=sup)
-    views.extend(
-        _supervisor_foreman.foreman_rows(
-            sup=sup,
-            repos=repos,
-            act=act,
-            null_added_at_keys=null_added_at_keys,
-        )
-    )
-    views.extend(
-        _supervisor_grooming.grooming_rows(
-            sup=sup,
-            repos=repos,
-            act=act,
-            null_added_at_keys=null_added_at_keys,
-        )
-    )
     currency = sup.currency_row()
     if currency is not None:
         views.append(currency)
