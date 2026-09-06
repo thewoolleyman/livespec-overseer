@@ -48,8 +48,10 @@ __all__: list[str] = [
 wrapup_message = _wrapup_message
 
 
-def _restart_wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -> str:
-    return wrapup_message(remaining=remaining, repo=repo, topic=topic, epic=epic)
+def _restart_wrapup_message(
+    *, remaining: int, repo: str, topic: str, epic: str | None, blocker: str | None = None
+) -> str:
+    return wrapup_message(remaining=remaining, repo=repo, topic=topic, epic=epic, blocker=blocker)
 
 
 _supervisor_wrapup_injection.wrapup_message_provider = _restart_wrapup_message

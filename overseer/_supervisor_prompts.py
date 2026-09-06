@@ -26,6 +26,7 @@ from __future__ import annotations
 import registry
 import signals
 from _supervisor_prompts_notices import (
+    busy_blocker_callout,
     expiry_notice_message,
     supervisor_epic_path,
     supervisor_handoff_path,
@@ -44,6 +45,7 @@ from _supervisor_prompts_supervisor import (
 )
 
 __all__: list[str] = [
+    "busy_blocker_callout",
     "charter_authorized_unblock_nudge_message",
     "expiry_notice_message",
     "foreman_epic_resume",
@@ -241,7 +243,9 @@ def _wrapup_head(*, remaining: int) -> str:
     return _WRAPUP_INSIST_HEAD if remaining <= _INSIST_AT else _WRAPUP_SUGGEST_HEAD
 
 
-def wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -> str:
+def wrapup_message(
+    *, remaining: int, repo: str, topic: str, epic: str | None, blocker: str | None = None
+) -> str:
     """The wrap-up text injected when a track crosses a ctx warn band.
 
     ESCALATES with the band (maintainer 2026-07-14): a suggestion while there is still
@@ -264,14 +268,20 @@ def wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -
     the session's declaration the sole authorization: no ``ready``, no restart. And
     because a file written to disk was repeatedly mistaken for a saved handoff, step 2
     says outright that an un-appended entry is invisible to the successor.
+
+    ``blocker`` names concrete busy evidence the daemon observed for this track at the
+    moment of the paste (see :func:`busy_blocker_callout`). Step 3 already tells the
+    session to stop its background subprocesses; the callout makes it specific — a
+    lingering background shell is what will otherwise hold the restart interlock open.
     """
-    return f"{_wrapup_head(remaining=remaining)}\n\n{_WRAPUP_BODY}".format(
+    body = f"{_wrapup_head(remaining=remaining)}\n\n{_WRAPUP_BODY}".format(
         n=remaining,
         marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
         state_file=str(signals.state_path(repo=repo, topic=topic)),
         read_first=plan_state_locator(repo=repo, epic=epic),
         resume=_resume_line(repo=repo, epic=epic),
     )
+    return f"{busy_blocker_callout(blocker=blocker)}{body}"
 
 
 def foreman_epic_resume(*, repo: str, epic: str) -> str:
@@ -306,16 +316,17 @@ def _foreman_state_locator(*, repo: str, epic: str | None) -> str:
 
 
 def foreman_wrapup_message(
-    *, remaining: int, repo: str, topic: str, epic: str | None = None
+    *, remaining: int, repo: str, topic: str, epic: str | None = None, blocker: str | None = None
 ) -> str:
     """Wrap-up text for a foreman entity using the shared cardinal-rule body."""
-    return f"{_wrapup_head(remaining=remaining)}\n\n{_WRAPUP_BODY}".format(
+    body = f"{_wrapup_head(remaining=remaining)}\n\n{_WRAPUP_BODY}".format(
         n=remaining,
         marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
         state_file=str(signals.state_path(repo=repo, topic=topic)),
         read_first=_foreman_state_locator(repo=repo, epic=epic),
         resume=foreman_resume(repo=repo, epic=epic),
     )
+    return f"{busy_blocker_callout(blocker=blocker)}{body}"
 
 
 def grooming_resume(*, repo: str) -> str:
@@ -361,14 +372,17 @@ restarted and NOT killed — you are reported to the human as not responding, an
 track sits there until a person intervenes. Do not do that to them: write the file."""
 
 
-def grooming_wrapup_message(*, remaining: int, repo: str, topic: str) -> str:
+def grooming_wrapup_message(
+    *, remaining: int, repo: str, topic: str, blocker: str | None = None
+) -> str:
     """Wrap-up text for a grooming entity using the shared cardinal-rule interlock."""
-    return f"{_wrapup_head(remaining=remaining)}\n\n{_GROOMING_WRAPUP_BODY}".format(
+    body = f"{_wrapup_head(remaining=remaining)}\n\n{_GROOMING_WRAPUP_BODY}".format(
         n=remaining,
         marker_dir=str(signals.marker_dir(repo=repo, topic=topic)),
         state_file=str(signals.state_path(repo=repo, topic=topic)),
         resume=grooming_resume(repo=repo),
     )
+    return f"{busy_blocker_callout(blocker=blocker)}{body}"
 
 
 _IDLE_NUDGE = """\

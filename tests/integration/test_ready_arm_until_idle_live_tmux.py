@@ -467,8 +467,12 @@ def _assert_restart_diagnostic(*, repo: Path, topic: str, err: str) -> None:
     assert err.count("consumed ready declaration") == 1
 
 
-def _legacy_wrapup_message(*, remaining: int, repo: str, topic: str, epic: str | None) -> str:
-    current = supervisor.wrapup_message(remaining=remaining, repo=repo, topic=topic, epic=epic)
+def _legacy_wrapup_message(
+    *, remaining: int, repo: str, topic: str, epic: str | None, blocker: str | None = None
+) -> str:
+    current = supervisor.wrapup_message(
+        remaining=remaining, repo=repo, topic=topic, epic=epic, blocker=blocker
+    )
     return current.replace(
         "Declare done, and stop. The command that declares ready is your FINAL act:",
         "Declare done, and stop:",

@@ -22,7 +22,7 @@ __all__: list[str] = [
 wrapup_message_provider = _default_wrapup_message
 
 
-def maybe_inject(
+def maybe_inject(  # noqa: PLR0913 — one paste site; the wrap-up needs all of these facts
     *,
     sup: Supervisor,
     track: registry.Track,
@@ -30,6 +30,7 @@ def maybe_inject(
     eff_ctx: int,
     threshold: int,
     is_codex: bool = False,
+    blocker: str | None = None,
 ) -> None:
     """Escalating, spam-proof wrap-up injection: warn once per crossed band.
 
@@ -49,6 +50,10 @@ def maybe_inject(
     ``is_codex`` selects the runtime-appropriate submit verification — this is the
     change that makes the escalating wrap-up (the daemon's ONLY lever now that
     nothing is force-killed) reach a Codex track, not just a Claude one.
+
+    ``blocker`` names concrete busy evidence the caller observed for this track in the
+    same guarded re-read that authorized the paste; when set it is surfaced in the
+    wrap-up so the session reaps the real obstacle before declaring ``ready``.
     """
     repo, topic = track.repo, track.topic
     bands = sorted({threshold} | {b for b in (40, 30, 20, 10) if b < threshold}, reverse=True)
@@ -107,7 +112,9 @@ def maybe_inject(
             repo=repo,
             topic=topic,
             epic=epic,
+            blocker=blocker,
         ),
+        blocker=blocker,
     )
     if _supervisor_launch.submit_prompt(
         sup=sup, target=target, text=message, expect_codex=is_codex

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from _supervisor_threshold import ThresholdRequest
 
 __all__: list[str] = [
+    "busy_evidence_blocker",
     "close_round_if_no_longer_current",
     "fresh_guarded_paste_observation",
     "maybe_send_expiry_notice",
@@ -24,6 +25,28 @@ __all__: list[str] = [
 
 
 _KNOWN_CLAUDE_STATUSES = frozenset({"busy", "idle", "shell", "waiting"})
+
+
+def busy_evidence_blocker(*, obs: Observation) -> str | None:
+    """Name the concrete busy evidence that is blocking ready-certification, or None.
+
+    The guarded-paste predicate (:func:`fresh_guarded_paste_observation`) only ever
+    pastes into an idle, settled, non-generating pane, so the SOLE busy class that can
+    still be live when a wrap-up or an expiry notice actually lands is a background
+    shell: for Claude the adopted session's registry status is exactly ``shell``; for
+    Codex the descendant-shell fallback is the only busy evidence. That is exactly the
+    evidence that keeps a ``ready`` from ever certifying (the restart interlock requires
+    no live background shell under the pane), so it is what the message must name.
+
+    Every other busy class — a generating turn, an in-process sub-agent (Claude
+    ``busy``), or any non-shell busy — fails that predicate and is never reached at a
+    paste, so naming it would describe a state the message cannot be sent in. This reads
+    only observed facts and decides nothing: it does not authorize a restart and does not
+    weaken the cardinal rule.
+    """
+    if obs.claude_status == "shell" or obs.codex_fallback:
+        return "a background shell is still running under this pane"
+    return None
 
 
 def _declaration_signature(*, obs: Observation) -> tuple[str, str, float] | None:
@@ -160,7 +183,11 @@ def maybe_send_expiry_notice(*, request: ThresholdRequest) -> bool:
     fresh = _fresh_expiry_notice_observation(request=request)
     if fresh is None:
         return False
-    message = expiry_notice_message(repo=request.track.repo, topic=request.track.topic)
+    message = expiry_notice_message(
+        repo=request.track.repo,
+        topic=request.track.topic,
+        blocker=busy_evidence_blocker(obs=fresh),
+    )
     sent = _supervisor_launch.submit_prompt(
         sup=request.sup,
         target=request.target,

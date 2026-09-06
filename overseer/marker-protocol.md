@@ -118,6 +118,18 @@ status, malformed state, typed input, generating/sub-agent evidence, gate,
 human wait, `ready`, `blocked:`, or fresh `winding-down` cancels the paste for
 that tick.
 
+**When that background-shell evidence is present, the wrap-up NAMES it.** Because
+the guarded predicate above admits no other busy class at a paste, a live
+background shell is the one concrete blocker the daemon can still hold when the
+message lands — and it is exactly what keeps a subsequent `ready` from ever
+certifying (the restart interlock requires no live background shell). So the
+message opens with a callout — "BLOCKING YOUR RESTART RIGHT NOW: a background
+shell is still running under this pane" — telling the session to reap it before
+declaring, rather than only to reach "a clean stopping point". The callout is
+CONDITIONAL: with no such evidence the message is unchanged, the blocker line is
+never invented, and it authorizes nothing — the daemon still restarts on nothing
+but a fresh certifiable `ready`.
+
 It fires **once per 10%-band** — the threshold itself, then each lower band
 (40 / 30 / 20 / 10) — and each band fires **at most once per round**, durably
 (the notified-band set lives in the same sidecar, so a daemon restart never
@@ -454,6 +466,14 @@ durable in the sidecar, so a daemon restart never re-sends it. A round closed as
 recovered before the notice lands sends none — the fresh round's own wrap-up
 re-teaches the protocol instead. The notice re-opens no round, resets no notified
 band, and authorizes nothing.
+
+Like the wrap-up, when the daemon holds background-shell evidence at the paste the
+notice NAMES it in the same leading callout. This is the loop this repair exists to
+break: a `ready` armed but could never fire while a live background shell held the
+interlock open, it expired at the maximum age, the notice arrived saying only to
+reach "a clean stopping point", the session re-declared `ready`, and it repeated.
+Naming the shell turns the daemon's only lever into an actionable one without
+weakening the cardinal rule.
 
 ## The restart mechanics (unchanged trigger, profile-preserving launch)
 

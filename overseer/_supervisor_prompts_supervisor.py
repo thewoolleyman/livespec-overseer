@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import signals
+from _supervisor_prompts_notices import busy_blocker_callout
 
 __all__: list[str] = [
     "supervisor_idle_nudge_message",
@@ -150,7 +151,7 @@ def supervisor_resume(*, repo: str, topic: str, epic: str | None = None) -> str:
 
 
 def supervisor_wrapup_message(
-    *, remaining: int, repo: str, topic: str, epic: str | None = None
+    *, remaining: int, repo: str, topic: str, epic: str | None = None, blocker: str | None = None
 ) -> str:
     """Wrap-up text for a supervisor pair member.
 
@@ -159,15 +160,20 @@ def supervisor_wrapup_message(
     ledger epic. This is a whole text VARIANT rather than parameter substitution on the
     worker body: the supervisor entity names its attributed entries, but both entities now
     use the sanctioned plan surface rather than authoring files under ``plan/``.
+
+    ``blocker`` names concrete busy evidence the daemon holds at the paste (see
+    :func:`busy_blocker_callout`), prepended so the callout stays identical across every
+    wrap-up variant.
     """
     entity_topic = signals.supervisor_entity_topic(topic=topic)
-    return f"{_wrapup_head(remaining=remaining)}\n\n{_SUPERVISOR_WRAPUP_BODY}".format(
+    body = f"{_wrapup_head(remaining=remaining)}\n\n{_SUPERVISOR_WRAPUP_BODY}".format(
         n=remaining,
         marker_dir=str(signals.marker_dir(repo=repo, topic=entity_topic)),
         state_file=str(signals.state_path(repo=repo, topic=entity_topic)),
         read_first=_supervisor_state_locator(repo=repo, topic=topic, epic=epic),
         resume=_supervisor_resume_line(repo=repo, topic=topic, epic=epic),
     )
+    return f"{busy_blocker_callout(blocker=blocker)}{body}"
 
 
 def supervisor_idle_nudge_message(

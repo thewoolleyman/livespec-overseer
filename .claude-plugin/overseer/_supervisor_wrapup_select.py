@@ -22,15 +22,25 @@ WorkerWrapup = Callable[[int, str, str, str | None], str]
 
 
 def select_wrapup_message(
-    *, track: registry.Track, remaining: int, worker_wrapup: WorkerWrapup
+    *,
+    track: registry.Track,
+    remaining: int,
+    worker_wrapup: WorkerWrapup,
+    blocker: str | None = None,
 ) -> str:
-    """Return the low-context wrap-up matching the track's entity kind."""
+    """Return the low-context wrap-up matching the track's entity kind.
+
+    ``blocker`` names concrete busy evidence the daemon holds at the paste. The worker
+    path receives it through ``worker_wrapup`` (its caller closes over the value), so the
+    callback signature stays unchanged; the entity variants take it directly here.
+    """
     if isinstance(track, registry.SupervisorSeat):
         return supervisor_wrapup_message(
             remaining=remaining,
             repo=track.repo,
             topic=track.supervised_topic,
             epic=track.epic,
+            blocker=blocker,
         )
     if isinstance(track, registry.ForemanSeat):
         return foreman_wrapup_message(
@@ -38,12 +48,14 @@ def select_wrapup_message(
             repo=track.repo,
             topic=track.topic,
             epic=track.epic,
+            blocker=blocker,
         )
     if isinstance(track, registry.GroomingSeat):
         return grooming_wrapup_message(
             remaining=remaining,
             repo=track.repo,
             topic=track.topic,
+            blocker=blocker,
         )
     plan_track = cast("registry.PlanTrack", track)
     return worker_wrapup(remaining, plan_track.repo, plan_track.topic, plan_track.epic)
