@@ -159,6 +159,17 @@ spent becomes `15` remaining, and `CAAM_ROTATE_FIVE_HOUR_THRESHOLD=90` becomes
 `CAAM_ROTATE_FIVE_HOUR_REMAINING=10`. `CAAM_ROTATE_WEEKLY_RESERVE` (default `10`)
 already named a remaining balance and is unchanged.
 
+The scoped-model (Fable) rotation knob is `CAAM_ROTATE_FABLE_REMAINING`, default
+`15`, also percent REMAINING. While a Fable-dependent session is active -- one
+pinned to Fable or simply observed running it -- a pass rotates once the active
+account's Fable has that percent or less LEFT, moving the session onto an account
+that still holds Fable ABOVE the reserve BEFORE the active account's Fable is fully
+drained, rather than only at exhaustion. It never fires when no session depends on
+Fable, so it strands no weekly balance for accounts that have no Fable sessions, and
+it never selects a protected account below its floor. `CAAM_ROTATE_FABLE_REMAINING=0`
+restores the earlier behaviour exactly: rotate only when the active account's Fable
+is fully spent.
+
 ## Running The Program
 
 Run the shipped account-rotation program from the resolved plugin root for this

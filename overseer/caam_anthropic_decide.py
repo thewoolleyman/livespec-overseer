@@ -32,12 +32,13 @@ from caam_decision import (
     binding,
     eligible_profiles,
     rank_profiles,
+    scoped_reserve,
     triggered,
 )
 from caam_foreman_override import scoped_model_pinned
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
-from caam_scoped_selection import none_can_serve_scoped_model, scoped_alone_trigger
+from caam_scoped_selection import none_holds_scoped_above_reserve, scoped_alone_trigger
 from caam_switch import SwitchRequest
 
 __all__: list[str] = [
@@ -102,7 +103,9 @@ def decide(
         protection_floors=protection_floors,
     )
     ranked = rank_profiles(profiles=eligible.profiles, scoped_pin=scoped_pin)
-    pin_unsatisfiable = scoped_alone and none_can_serve_scoped_model(profiles=ranked)
+    pin_unsatisfiable = scoped_alone and none_holds_scoped_above_reserve(
+        profiles=ranked, reserve=scoped_reserve()
+    )
     reasons = hold_reasons(
         active_name=active_name,
         current=current,

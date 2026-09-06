@@ -21,6 +21,7 @@ from math import inf
 from caam_decision import (
     every_live_account_under_reserve,
     min_headroom_gain,
+    scoped_reserve,
     triggered,
     weekly_reserve,
 )
@@ -28,13 +29,16 @@ from caam_decision_models import ProfileUsage, UsageRecord
 from caam_decision_protection import (
     NO_PROTECTION_FLOORS,
     CandidatePolicy,
+    active_at_or_below_scoped_reserve,
     can_serve_scoped_model,
+    candidate_holds_scoped_above_reserve,
     protection_floor_for,
     select_candidate_set,
 )
 
 __all__: list[str] = [
     "none_can_serve_scoped_model",
+    "none_holds_scoped_above_reserve",
     "scoped_alone_trigger",
     "scoped_servable_fleet_wide",
 ]
@@ -55,10 +59,14 @@ def scoped_alone_trigger(
     rotate for THOSE reasons even while a pin happens to be unsatisfiable
     everywhere -- holding there would strand it for a reason no clause allows.
     So this asks the other legs directly, with no pin, and requires their silence.
+
+    "Scoped unsatisfiability" is now the reserve form: the active account being at
+    or below the scoped-model reserve, which at a reserve of zero is exactly
+    cannot-serve, so this reduces to the ratified sole-trigger test.
     """
     return (
         scoped_pin
-        and not can_serve_scoped_model(usage=usage)
+        and active_at_or_below_scoped_reserve(usage=usage, reserve=scoped_reserve())
         and not triggered(
             usage=usage,
             active_name=active_name,
@@ -71,9 +79,27 @@ def none_can_serve_scoped_model(*, profiles: tuple[ProfileUsage, ...]) -> bool:
     """Whether no profile in this set can serve the pinned model.
 
     Vacuously true of an empty set, which is the correct reading: a pass with no
-    candidate at all has none that can serve the pin either.
+    candidate at all has none that can serve the pin either. This is the
+    ENFORCEMENT-side servability test, keyed on the exhaustion boundary (can serve),
+    NOT the reserve; the rotation-side hold uses `none_holds_scoped_above_reserve`.
     """
     return not any(can_serve_scoped_model(usage=profile.usage) for profile in profiles)
+
+
+def none_holds_scoped_above_reserve(*, profiles: tuple[ProfileUsage, ...], reserve: float) -> bool:
+    """Whether no profile in this set holds the scoped allowance above the reserve.
+
+    The rotation-side unsatisfiability test: where the scoped-model reserve is the
+    sole reason for leaving and this is true of the ranked candidates, the pass
+    MUST hold rather than move onto an account at or below the reserve that would
+    itself immediately re-trigger. Vacuously true of an empty set. At a reserve of
+    zero "holds above the reserve" is exactly "can serve", so this reduces to
+    `none_can_serve_scoped_model`.
+    """
+    return not any(
+        candidate_holds_scoped_above_reserve(usage=profile.usage, reserve=reserve)
+        for profile in profiles
+    )
 
 
 def scoped_servable_fleet_wide(

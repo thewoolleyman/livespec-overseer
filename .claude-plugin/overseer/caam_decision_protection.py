@@ -10,8 +10,10 @@ from caam_decision_models import ProfileUsage, UsageRecord
 
 __all__: list[str] = [
     "CandidatePolicy",
+    "active_at_or_below_scoped_reserve",
     "can_serve_scoped_model",
     "candidate_allowed",
+    "candidate_holds_scoped_above_reserve",
     "dimension_remaining",
     "empty_release_note",
     "floor_breach",
@@ -48,6 +50,13 @@ class CandidatePolicy:
     # is actually subject to. Zero for an unprotected active, which is every
     # comparison that predates protection and which must be unchanged by it.
     current_protection_floor: float = 0.0
+    # The scoped-model reserve (percent REMAINING) a candidate must hold ABOVE to
+    # be admitted under the scoped waiver, so a margin-triggered move never lands
+    # on an account that would itself immediately re-trigger. Zero -- the default,
+    # which every non-rotation caller (enforcement servability) leaves untouched --
+    # makes "holds above the reserve" collapse to "can serve", so those paths keep
+    # the ratified cannot-serve boundary byte for byte.
+    scoped_reserve: float = 0.0
 
 
 def can_serve_scoped_model(*, usage: UsageRecord | None) -> bool:
@@ -64,6 +73,34 @@ def can_serve_scoped_model(*, usage: UsageRecord | None) -> bool:
         usage is not None
         and usage.fable_remaining is not None
         and usage.fable_remaining > _NOTHING_LEFT
+    )
+
+
+def active_at_or_below_scoped_reserve(*, usage: UsageRecord | None, reserve: float) -> bool:
+    """Whether the ACTIVE account is at or below the scoped-model reserve.
+
+    The margin form of "cannot serve": an absent scoped allowance counts as at or
+    below any reserve (fully unable, the fail-closed reading `can_serve_scoped_model`
+    already takes), and a present balance counts when it has the reserve or less
+    LEFT. At a reserve of zero this reduces exactly to `not can_serve_scoped_model`,
+    because a remaining balance cannot go negative, so `<= 0` is `== 0` is fully
+    spent.
+    """
+    return usage is None or usage.fable_remaining is None or usage.fable_remaining <= reserve
+
+
+def candidate_holds_scoped_above_reserve(*, usage: UsageRecord | None, reserve: float) -> bool:
+    """Whether a CANDIDATE holds the scoped allowance strictly above the reserve.
+
+    The margin form of "can serve", and the destination test that makes a
+    margin-triggered move non-oscillating: the account moved onto must hold enough
+    scoped allowance that it will not itself immediately re-trigger. At a reserve of
+    zero this reduces exactly to `can_serve_scoped_model` (present and greater than
+    nothing), so every caller that leaves the reserve at its zero default keeps the
+    ratified boundary unchanged.
+    """
+    return (
+        usage is not None and usage.fable_remaining is not None and usage.fable_remaining > reserve
     )
 
 
@@ -232,7 +269,7 @@ def _gain_needed_for(*, policy: CandidatePolicy, usage: UsageRecord) -> float:
     floor = policy.scoped_waiver_floor
     if (
         floor is not None
-        and can_serve_scoped_model(usage=usage)
+        and candidate_holds_scoped_above_reserve(usage=usage, reserve=policy.scoped_reserve)
         and usage.five_hour_remaining > floor
     ):
         return -inf

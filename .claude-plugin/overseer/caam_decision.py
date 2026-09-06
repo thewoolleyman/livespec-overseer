@@ -1,4 +1,5 @@
 """Pure decision helpers for caam account rotation."""
+# livespec-lloc-soft-band-owner: overseer-dyt6
 
 from __future__ import annotations
 
@@ -11,8 +12,10 @@ from caam_decision_models import ActiveAccount, EligibleProfiles, ProfileUsage, 
 from caam_decision_protection import (
     NO_PROTECTION_FLOORS,
     CandidatePolicy,
+    active_at_or_below_scoped_reserve,
     can_serve_scoped_model,
     candidate_allowed,
+    candidate_holds_scoped_above_reserve,
     dimension_remaining,
     empty_release_note,
     floor_breach,
@@ -46,9 +49,11 @@ __all__: list[str] = [
     "ProfileUsage",
     "SwitchTargetSummary",
     "UsageRecord",
+    "active_at_or_below_scoped_reserve",
     "binding",
     "can_serve_scoped_model",
     "candidate_allowed",
+    "candidate_holds_scoped_above_reserve",
     "current_cell",
     "decision_dry_run",
     "decision_forced",
@@ -68,6 +73,7 @@ __all__: list[str] = [
     "rank_profiles",
     "render_table",
     "resets_at",
+    "scoped_reserve",
     "scoped_waiver_floor",
     "trigger_header",
     "triggered",
@@ -115,7 +121,7 @@ def triggered(
         usage.five_hour_remaining <= five_hour_remaining_floor()
         or weekly_left(usage=usage) < weekly_reserve()
         or (protection_floor > 0 and raw_weekly_left(usage=usage) <= protection_floor)
-        or (scoped_pin and not can_serve_scoped_model(usage=usage))
+        or (scoped_pin and active_at_or_below_scoped_reserve(usage=usage, reserve=scoped_reserve()))
     )
 
 
@@ -128,11 +134,15 @@ def scoped_waiver_floor(*, active: ActiveAccount) -> float | None:
 
     None means no waiver, and it is the answer in the two cases the ratified
     clause draws a line between: no operator pin names the scoped model, or the
-    ACTIVE account can still serve that pin. In the second case the pin is
-    satisfiable where it already is, so no capability justifies relaxing a margin
-    whose whole purpose is to make oscillation impossible.
+    ACTIVE account is still ABOVE the scoped-model reserve on that pin. In the
+    second case the pin is comfortably satisfiable where it already is, so no
+    capability justifies relaxing a margin whose whole purpose is to make
+    oscillation impossible. At a reserve of zero "above the reserve" is exactly
+    "can still serve", so this is byte-identical to the ratified behaviour.
     """
-    if active.scoped_pin and not can_serve_scoped_model(usage=active.usage):
+    if active.scoped_pin and active_at_or_below_scoped_reserve(
+        usage=active.usage, reserve=scoped_reserve()
+    ):
         return five_hour_remaining_floor()
     return None
 
@@ -165,6 +175,7 @@ def eligible_profiles(
                 dimension=dimension,
                 enforce_reserve=enforce_reserve,
                 weekly_reserve=reserve,
+                scoped_reserve=scoped_reserve(),
                 scoped_waiver_floor=scoped_waiver_floor(active=active),
                 current_protection_floor=protection_floor_for(
                     name=active.name, protection_floors=protection_floors
@@ -201,16 +212,21 @@ def eligible_profiles(
 def rank_profiles(
     *, profiles: tuple[ProfileUsage, ...], scoped_pin: bool = False
 ) -> tuple[ProfileUsage, ...]:
-    # Serve-capability is a HIGHER-PRIORITY ordering than soonest weekly reset,
-    # never a replacement for it: soonest reset remains the ordering among
-    # candidates equal on that test. With no pin every candidate scores the same
-    # on the leading key, and Python's stable sort leaves the pre-change order
-    # byte-identical.
+    # Holding the scoped allowance ABOVE THE RESERVE is a HIGHER-PRIORITY ordering
+    # than soonest weekly reset, never a replacement for it: soonest reset remains
+    # the ordering among candidates equal on that test. With no pin every candidate
+    # scores the same on the leading key, and Python's stable sort leaves the
+    # pre-change order byte-identical. At a reserve of zero "holds above the
+    # reserve" is exactly "can serve", so the ordering is unchanged from ratified.
+    reserve = scoped_reserve()
     return tuple(
         sorted(
             profiles,
             key=lambda profile: (
-                0 if scoped_pin and can_serve_scoped_model(usage=profile.usage) else 1,
+                0
+                if scoped_pin
+                and candidate_holds_scoped_above_reserve(usage=profile.usage, reserve=reserve)
+                else 1,
                 resets_at(
                     timestamp=None if profile.usage is None else profile.usage.seven_day_resets_at
                 ),
@@ -252,6 +268,21 @@ def five_hour_remaining_floor() -> float:
 
 def weekly_reserve() -> float:
     return float(os.environ.get("CAAM_ROTATE_WEEKLY_RESERVE", "10"))
+
+
+def scoped_reserve() -> float:
+    """The scoped-model reserve: the scoped-allowance percent REMAINING at or below
+    which a Fable-dependent active account rotates, and strictly above which a
+    candidate must hold to be a valid destination.
+
+    Published in the same remaining direction every quota figure this operation
+    stores and compares. The default is a nonzero margin so a Fable-dependent
+    session is moved before its allowance is fully drained -- the five-hour
+    window's margin, applied to the scoped allowance. `CAAM_ROTATE_FABLE_REMAINING=0`
+    reduces every scoped-selection rule to the fully-spent boundary, restoring the
+    ratified cannot-serve-only behaviour exactly.
+    """
+    return float(os.environ.get("CAAM_ROTATE_FABLE_REMAINING", "15"))
 
 
 def min_headroom_gain() -> float:
