@@ -9,10 +9,6 @@ from typing import TYPE_CHECKING
 import _supervisor_attention
 import _supervisor_blocked
 import _supervisor_busy
-import _supervisor_foreman_escalation
-import _supervisor_liveness
-import _supervisor_threshold
-import foreman_pane_claim
 import registry
 import signals
 from _supervisor_records import InjectState, Observation
@@ -67,26 +63,6 @@ def _ready_declared(*, request: ActiveRequest) -> bool:
     return request.declared is not None and request.declared.token == signals.STATE_READY
 
 
-def _maybe_deliver_foreman_escalation_wrapup(*, request: ActiveRequest) -> None:
-    if (
-        request.act
-        and request.idle
-        and request.eff_ctx is not None
-        and request.eff_ctx <= request.threshold
-    ):
-        _ = _supervisor_threshold.threshold(
-            request=_supervisor_threshold.ThresholdRequest(
-                sup=request.sup,
-                track=request.track,
-                session=request.session,
-                target=request.target,
-                threshold=request.threshold,
-                act=request.act,
-                obs=request.obs,
-            )
-        )
-
-
 def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
     active_conditions: set[str] = set()
     attention_request = _supervisor_attention.AttentionRequest(
@@ -114,66 +90,6 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
             blocked_age=request.blocked_age,
             blocked_age_label=request.blocked_age_label,
             active_conditions=active_conditions,
-        )
-    if (
-        foreman_escalation := _supervisor_foreman_escalation.attention_decision(
-            sup=request.sup,
-            track=request.track,
-            session=request.session,
-            pane=request.target,
-            act=request.act,
-        )
-    ) is not None:
-        # The escalation ALWAYS contributes its condition, whether or not it decides
-        # the status: that membership is what keeps an outstanding human decision on
-        # the attention surface, and it must not depend on the branch below.
-        active_conditions.update(foreman_escalation.active_conditions)
-        # ESCALATED AND READY ARE NOT MUTUALLY EXCLUSIVE. This branch used to RETURN
-        # unconditionally, carrying `ready` through untouched — so a foreman's valid
-        # declaration could never reach the only path that acts on one, and an
-        # escalated seat's sole route to a restart was to resolve its own unanswered
-        # maintainer items at exactly the moment blanking the record is cheapest.
-        #
-        # So it defers ONLY to a ready that has already CERTIFIED. `request.ready` is
-        # the same value the restart path itself keys on, so no new certification is
-        # introduced here and the cardinal rule is preserved BY CONSTRUCTION rather
-        # than by assertion: a track that has not declared still resolves to
-        # `foreman-escalated` below and is never restartable.
-        if not request.ready:
-            _maybe_deliver_foreman_escalation_wrapup(request=request)
-            return ActiveDecision(
-                status=foreman_escalation.status,
-                note=foreman_escalation.note,
-                ready=request.ready,
-                blocked=request.blocked,
-                blocked_age=request.blocked_age,
-                blocked_age_label=request.blocked_age_label,
-                active_conditions=active_conditions,
-            )
-    if (
-        foreman_claim := foreman_pane_claim.active_pane_claim(
-            repo=request.track.repo,
-            topic=request.track.topic,
-            session=request.session,
-            pane=request.target,
-            now=request.sup.now(),
-        )
-    ) is not None:
-        note = _supervisor_liveness.append_note(
-            note=request.note,
-            extra=(
-                "foreman owns this pane"
-                f" ({foreman_claim.runtime}, {foreman_claim.question_fingerprint})"
-            ),
-        )
-        return ActiveDecision(
-            status="blocked:human",
-            note=note,
-            ready=request.ready,
-            blocked=request.blocked,
-            blocked_age=request.blocked_age,
-            blocked_age_label=request.blocked_age_label,
-            active_conditions={"blocked-human"},
         )
     shell_only = request.attention.shell_only
     generating = request.attention.generating
@@ -241,30 +157,10 @@ def active_decision(*, request: ActiveRequest) -> ActiveDecision | None:
                 act=request.act,
             )
         )
-        consensus_overdue = _supervisor_attention.consensus_overdue_decision(
-            request=_supervisor_attention.ConsensusOverdueRequest(
-                sup=request.sup,
-                track=request.track,
-                session=request.session,
-                pane=request.target,
-                capture=request.capture,
-                blocked_age=request.blocked_age,
-                note=blocked_decision.note,
-                act=request.act,
-            )
-        )
-        if consensus_overdue is not None:
-            active_conditions.update(blocked_decision.active_conditions)
-            active_conditions.update(consensus_overdue.active_conditions)
-            status = consensus_overdue.status
-            note = consensus_overdue.note
-        else:
-            active_conditions.update(blocked_decision.active_conditions)
-            status = "blocked:human"
-            note = blocked_decision.note
+        active_conditions.update(blocked_decision.active_conditions)
         return ActiveDecision(
-            status=status,
-            note=note,
+            status="blocked:human",
+            note=blocked_decision.note,
             ready=blocked_decision.ready,
             blocked=request.blocked,
             blocked_age=request.blocked_age,

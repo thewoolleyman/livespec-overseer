@@ -5,11 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import _supervisor_config
 import _supervisor_evaluate_ctx_stale
 import _supervisor_evaluate_restart
 import _supervisor_evaluate_threshold
-import _supervisor_foreman_heartbeat
 import _supervisor_idle
 import _supervisor_launch
 import _supervisor_observe
@@ -86,22 +84,6 @@ def _idle_room_or_recovered(*, request: IdleRequest) -> tuple[str, bool]:
             is_codex=request.obs.is_codex,
         )
     ), False
-
-
-def _fresh_foreman_within_contract(*, request: IdleRequest) -> bool:
-    return isinstance(
-        request.track, registry.ForemanSeat
-    ) and _supervisor_foreman_heartbeat.foreman_heartbeat_fresh(
-        repo=request.track.repo, now=request.sup.now
-    )
-
-
-def _fresh_foreman_above_danger(*, request: IdleRequest) -> bool:
-    return (
-        _fresh_foreman_within_contract(request=request)
-        and request.obs.eff_ctx is not None
-        and request.obs.eff_ctx > _supervisor_config.DANGER_CTX_REMAINING
-    )
 
 
 def idle_decision(*, request: IdleRequest) -> IdleDecision:
@@ -194,8 +176,6 @@ def idle_decision(*, request: IdleRequest) -> IdleDecision:
         status = "ready-uncertifiable"
         note, ready_conditions = request.uncertifiable_ready
         active_conditions.update(ready_conditions)
-    elif _fresh_foreman_above_danger(request=request):
-        status = "idle"
     elif request.obs.eff_ctx is not None and request.obs.eff_ctx <= request.threshold:
         threshold = _supervisor_evaluate_threshold.idle_threshold_decision(
             request=_supervisor_evaluate_threshold.IdleThresholdRequest(

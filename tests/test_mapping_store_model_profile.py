@@ -239,16 +239,16 @@ def test_track_variant_constructor_failures_are_covered():
         supervised_topic="t",
     )
     assert supervisor.assigned is True
-    with pytest.raises(ValueError, match="foreman seat requires tmux"):
-        registry.ForemanSeat(topic="repo-foreman", repo="/r", tmux="", epic="overseer-f")
-    foreman = registry.ForemanSeat(
-        topic="repo-foreman",
+    with pytest.raises(ValueError, match="grooming seat requires tmux"):
+        registry.GroomingSeat(topic="repo-grooming", repo="/r", tmux="", epic="overseer-g")
+    grooming = registry.GroomingSeat(
+        topic="repo-grooming",
         repo="/r",
-        tmux="repo-foreman",
-        epic="overseer-f",
+        tmux="repo-grooming",
+        epic="overseer-g",
     )
-    assert foreman.assigned is True
-    assert foreman.is_unassigned is False
+    assert grooming.assigned is True
+    assert grooming.is_unassigned is False
 
 
 def test_track_from_mapping_row_rejects_unknown_and_malformed_reserved_kinds():

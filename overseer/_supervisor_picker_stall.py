@@ -89,7 +89,7 @@ def apply_picker_stall(*, request: PickerStallRequest) -> PickerStallDecision:
                 stall_seconds=stall_seconds,
             )
         )
-        if isinstance(request.track, registry.SupervisorSeat | registry.ForemanSeat):
+        if isinstance(request.track, registry.SupervisorSeat):
             _supervisor_nudge.nudge_charter_authorized_picker_stall(
                 sup=request.sup,
                 track=request.track,

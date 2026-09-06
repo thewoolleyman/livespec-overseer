@@ -17,7 +17,7 @@ import pytest
 import registry
 import signals
 import supervisor
-from _signals_topics import foreman_topic, supervisor_entity_topic
+from _signals_topics import supervisor_entity_topic
 from test_supervisor_builders import (
     arm_ready_marker,
     declare,
@@ -72,19 +72,6 @@ def test_assignment_track_refuses_supervisor_seat_without_resolved_epic(*, tmp_p
             topic=supervisor_topic,
             session=supervisor_topic,
             epic_source_topic=topic,
-        )
-
-
-def test_assignment_track_refuses_foreman_seat_without_resolved_epic(*, tmp_path, monkeypatch):
-    repo, _topic = make_plan(tmp_path=tmp_path)
-    monkeypatch.setattr(registry, "epic_from_plan_anchor", lambda *, repo, topic: None)
-    topic = foreman_topic(repo_slug=repo.name)
-
-    with pytest.raises(ValueError, match="foreman seat requires epic"):
-        _supervisor_assignment.assignment_track(
-            repo=str(repo),
-            topic=topic,
-            session=topic,
         )
 
 

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import importlib
 import json
 from pathlib import Path
 from typing import NoReturn
 
-import foreman_gather_evidence
 import pytest
 import wait_premises
 
@@ -70,7 +68,7 @@ def test_reader_migrates_legacy_record_and_returns_it_on_the_same_pass(*, tmp_pa
 
     # The migrated record belongs to the pass that migrated it: withholding it
     # until the next read made a single read report NO premises for a record
-    # that plainly exists, and the foreman gather reads exactly once per tick.
+    # that plainly exists, and a reader reads exactly once per tick.
     assert wait_premises.read_wait_premises(repo=repo, topic="alpha") == [
         {**legacy, "schema_version": 1}
     ]
@@ -179,22 +177,6 @@ def test_atomic_writer_cleans_temp_file_when_replace_fails(*, monkeypatch, tmp_p
 
     assert target.parent.is_dir()
     assert list(target.parent.iterdir()) == []
-
-
-def test_gather_evidence_returns_no_premises_for_malformed_row_identity():
-    assert foreman_gather_evidence.row_wait_premises(row={"repo": "", "topic": "alpha"}) == []
-    assert foreman_gather_evidence.row_wait_premises(row={"repo": "/repo", "topic": ""}) == []
-
-
-def test_skip_reader_returns_empty_when_directory_glob_fails(*, monkeypatch, tmp_path):
-    wait_premise_skips = importlib.import_module("wait_premise_skips")
-
-    def raise_glob(self: Path, pattern: str) -> NoReturn:
-        raise OSError("glob failed")
-
-    monkeypatch.setattr(wait_premises.Path, "glob", raise_glob)
-
-    assert wait_premise_skips.read_wait_premise_skips(repo=tmp_path / "r", topic="alpha") == []
 
 
 def test_migration_is_a_no_op_when_the_record_already_sits_at_its_own_path(*, tmp_path):

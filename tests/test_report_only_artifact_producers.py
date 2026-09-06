@@ -57,6 +57,40 @@ def test_test_only_writer_does_not_satisfy_a_shipped_report_only_artifact_reader
     assert missing == ("synthetic-root",)
 
 
+def test_a_reader_with_a_non_test_producer_beside_it_is_reported_as_satisfied(
+    *, tmp_path: pathlib.Path
+):
+    """The pass arc for a contract that is actually checked.
+
+    Re-homes coverage the foreman-test deletion took with it: both registered contracts
+    described foreman-written artifacts and were retired with the seat, so
+    `DEFAULT_CONTRACTS` is now legitimately empty and the default call never enters the
+    loop at all. Passing a satisfied contract explicitly keeps the satisfied case
+    exercised, so a later change that started reporting a shipped producer as missing
+    would be caught rather than masked by an empty registry.
+    """
+    checker = _checker()
+    contract = checker.ArtifactContract(
+        name="synthetic-root",
+        reader_paths=("overseer/_supervisor_reader.py",),
+        reader_needles=("tmp/overseer/synthetic-root/",),
+        producer_paths=("overseer/_supervisor_writer.py",),
+        producer_needles=("tmp/overseer/synthetic-root/",),
+    )
+    _write_module(
+        repo=tmp_path,
+        relative_path="overseer/_supervisor_reader.py",
+        source='READ = "tmp/overseer/synthetic-root/"\n',
+    )
+    _write_module(
+        repo=tmp_path,
+        relative_path="overseer/_supervisor_writer.py",
+        source='WRITE = "tmp/overseer/synthetic-root/"\n',
+    )
+
+    assert checker.find_missing_producers(repo=tmp_path, contracts=(contract,)) == ()
+
+
 def test_report_only_artifact_producer_gate_is_wired_into_the_aggregate():
     source = _JUSTFILE.read_text(encoding="utf-8")
     recipe = re.search(r"^check:\n(.*?)^\S", source, re.MULTILINE | re.DOTALL)
@@ -152,9 +186,9 @@ def test_both_retired_final_ruling_roots_are_registered():
 def test_the_shipped_tree_reads_no_retired_artifact_root():
     """The exit-0 side, measured against the real repository.
 
-    The live tree still DOCUMENTS both roots — `_supervisor_final_ruling_sources`
-    and `ledger_comments` name them in their module docstrings — so a pass here
-    is simultaneously the prose-is-not-a-read demonstration on real files.
+    The live tree still DOCUMENTS both roots — `ledger_comments` names them in its
+    module docstring — so a pass here is simultaneously the prose-is-not-a-read
+    demonstration on real files.
     """
     checker = _checker()
     find_retired_root_reads = _retired_root_gate(checker)

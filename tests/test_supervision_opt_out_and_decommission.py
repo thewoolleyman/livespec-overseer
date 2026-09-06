@@ -25,7 +25,7 @@ def test_supervision_none_sidecar_makes_migrated_epic_track_quiet(*, tmp_path):
     repo, topic = make_plan(tmp_path=tmp_path)
     plan = repo / "plan" / topic
     (plan / "epic.md").write_text("ledger anchor `overseer-test-epic`\n")
-    (plan / ".no-supervisor").write_text("direct foreman management\n")
+    (plan / ".no-supervisor").write_text("direct operator management\n")
     session = registry.tmux_id(repo=str(repo), topic=topic)
     fake = FakeTmux()
     fake.serve(session=session, repo=repo, capture=idle_capture(ctx=73))
@@ -75,17 +75,17 @@ def test_cli_remove_operates_on_reserved_entity_topics(*, tmp_path, monkeypatch)
         store_path=store,
     )
     registry.append_mapping(
-        track=registry.ForemanSeat(
+        track=registry.GroomingSeat(
             repo=repo,
-            topic="repo-foreman",
-            tmux="repo-foreman",
-            epic="overseer-foreman-epic",
+            topic="repo-grooming",
+            tmux="repo-grooming",
+            epic="overseer-grooming-epic",
         ),
         store_path=store,
     )
 
     assert supervisor.main(argv=["remove", "--repo", repo, "--topic", "alpha-supervisor"]) == 0
-    assert supervisor.main(argv=["remove", "--repo", repo, "--topic", "repo-foreman"]) == 0
+    assert supervisor.main(argv=["remove", "--repo", repo, "--topic", "repo-grooming"]) == 0
 
     assert registry.read_valid_mapping(store_path=store) == []
 

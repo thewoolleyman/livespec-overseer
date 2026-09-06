@@ -96,24 +96,3 @@ def test_picker_stall_nudge_stays_single_shot_after_non_daemon_capture_change(
         assert sup.evaluate(track=track, act=True).status == "picker-stalled"
 
     assert len(fake.paste_texts()) == 1
-
-
-def test_foreman_picker_stall_gets_same_reserved_entity_nudge(*, tmp_path, monkeypatch):
-    monkeypatch.setattr(_supervisor_config, "PICKER_STALL_AFTER", 30.0)
-    repo, _worker_topic = make_plan(tmp_path=tmp_path)
-    topic = f"{repo.name}-foreman"
-    fake = FakeTmux()
-    install_picker_paste_echo(fake=fake)
-    fake.serve(session=topic, repo=repo, capture=picker_capture())
-    clock = {"t": 1000.0}
-    sup = make_supervisor(tmp_path=tmp_path, fake=fake, now=lambda: clock["t"])
-    track = mapped_track(repo=repo, topic=topic, session=topic)
-
-    with contextlib.redirect_stderr(_io.StringIO()):
-        assert sup.evaluate(track=track, act=True).status == "blocked:human"
-        clock["t"] += 31.0
-        stalled = sup.evaluate(track=track, act=True)
-
-    assert stalled.status == "picker-stalled"
-    assert len(fake.paste_texts()) == 1
-    assert not any(call[0] == "keys" and call[2] in {"Enter", "1", "2"} for call in fake.calls)

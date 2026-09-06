@@ -1,11 +1,9 @@
-"""Integration coverage for discovery, foreman heartbeat, and gate scenarios."""
+"""Integration coverage for discovery, adoption, and gate scenarios."""
 
 from __future__ import annotations
 
 import contextlib
 import io as _io
-import json
-from pathlib import Path
 
 import pytest
 import registry
@@ -16,60 +14,30 @@ from test_supervisor_fakes import FakeTmux
 from tests.integration.test_parked_delivery_attention import picker_only_capture
 
 
-def _heartbeat_path(*, repo: Path) -> Path:
-    return repo / "tmp" / "overseer" / "foreman" / "heartbeat.json"
-
-
-def _write_heartbeat(*, repo, tick_interval_seconds: int = 600) -> None:
-    path = _heartbeat_path(repo=repo)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(
-            {
-                "written_at": "1970-01-01T00:00:00Z",
-                "pid": 1234,
-                "tick_generation": 7,
-                "tick_interval_seconds": tick_interval_seconds,
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-
-def _tick_supervisor(*, tmp_path, fake, repo, now: float):
-    return make_supervisor(
-        tmp_path=tmp_path,
-        fake=fake,
-        own_pane="%7",
-        watch_repos=[str(repo)],
-        now=lambda: now,
-        status_writer=lambda *, path, body: None,
-    )
-
-
 @pytest.mark.integration
-def test_scenario_collision_derived_worker_name_ending_in_foreman_is_refused(*, tmp_path, capsys):
-    repo_a, _ = make_plan(tmp_path=tmp_path, repo_name="alpha", topic="foreman")
-    repo_b, _ = make_plan(tmp_path=tmp_path, repo_name="beta", topic="foreman")
+def test_scenario_collision_derived_worker_name_ending_in_supervisor_is_refused(
+    *, tmp_path, capsys
+):
+    repo_a, _ = make_plan(tmp_path=tmp_path, repo_name="alpha", topic="supervisor")
+    repo_b, _ = make_plan(tmp_path=tmp_path, repo_name="beta", topic="supervisor")
 
     assert registry.discover_plans(watch_repos=[repo_a, repo_b]) == []
 
     err = capsys.readouterr().err
-    assert "alpha-foreman" in err
-    assert "beta-foreman" in err
+    assert "alpha-supervisor" in err
+    assert "beta-supervisor" in err
 
 
 @pytest.mark.integration
 def test_scenario_reserved_name_live_session_is_not_adopted_as_worker(*, tmp_path):
     from test_supervisor_builders import adopt_sup, write_session
 
-    repo, _topic = make_plan(tmp_path=tmp_path, repo_name="repo-slug", topic="repo-slug-foreman")
+    repo, _topic = make_plan(tmp_path=tmp_path, repo_name="repo-slug", topic="repo-slug-supervisor")
     sessions_dir = tmp_path / "sessions"
     sessions_dir.mkdir()
-    write_session(sessions_dir=sessions_dir, pid=100, name="repo-slug-foreman", cwd=repo)
+    write_session(sessions_dir=sessions_dir, pid=100, name="repo-slug-supervisor", cwd=repo)
     fake = FakeTmux()
-    fake.pane_pids[101] = "foreman-pane"
+    fake.pane_pids[101] = "supervisor-pane"
     sup = adopt_sup(
         tmp_path=tmp_path,
         fake=fake,
@@ -82,18 +50,6 @@ def test_scenario_reserved_name_live_session_is_not_adopted_as_worker(*, tmp_pat
     assert sup.build_rows(act=True) == []
     assert registry.read_valid_mapping(store_path=sup.store_path) == []
     assert "NEEDS YOU" not in sup.out.getvalue()
-
-
-@pytest.mark.integration
-def test_scenario_absent_foreman_heartbeat_is_silent(*, tmp_path):
-    repo, _topic = make_plan(tmp_path=tmp_path)
-    sup = _tick_supervisor(tmp_path=tmp_path, fake=FakeTmux(), repo=repo, now=4000.0)
-
-    rows = sup.tick(act=True)
-
-    assert all(row.topic != "foreman" for row in rows)
-    assert "foreman" not in sup.out.getvalue()
-    assert "NEEDS YOU: nothing" in sup.out.getvalue()
 
 
 @pytest.mark.integration

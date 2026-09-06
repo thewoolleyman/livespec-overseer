@@ -24,7 +24,6 @@ from _supervisor_prompts import resume_for_track
 from _supervisor_prompts import wrapup_message as _wrapup_message
 from _supervisor_restart_binder import (
     handle_uncertified_restart_binder,
-    missing_foreman_epic_message,
     missing_plan_epic_message,
     missing_restart_epic_message,
 )
@@ -38,7 +37,6 @@ __all__: list[str] = [
     "do_codex_restart",
     "do_restart",
     "maybe_inject",
-    "missing_foreman_epic_message",
     "missing_plan_epic_message",
     "missing_restart_epic_message",
     "rederive_epic_if_stale",
@@ -161,7 +159,7 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
             condition="claude-fresh-gate-after-restart",
         )
         return
-    resume = _successor_resume_prompt(sup=sup, track=track)
+    resume = cast(str, resume_prompt(track=track))
     registry.record_post_respawn(
         repo=track.repo,
         topic=track.topic,
@@ -201,26 +199,6 @@ def _do_claude_restart(*, sup: Supervisor, track: registry.Track, target: str) -
         pane=target,
         message="resume line NOT submitted after restart — will retry the Enter (no respawn)",
         condition="claude-resume-submit-failed",
-    )
-
-
-def _successor_resume_prompt(*, sup: Supervisor, track: registry.Track) -> str:
-    resume = cast(str, resume_prompt(track=track))
-    if not isinstance(track, registry.ForemanSeat):
-        return resume
-    self_restart = registry.read_foreman_self_restart(
-        repo=track.repo,
-        topic=track.topic,
-        stamp_path=sup.stamp_path,
-    )
-    if not self_restart.attempted or self_restart.reason is None:
-        return resume
-    if not self_restart.notice_pending:
-        return resume
-    return (
-        "Your predecessor self-restarted this foreman seat.\n"
-        f"Reason: {self_restart.reason}\n\n"
-        f"{resume}"
     )
 
 

@@ -49,7 +49,6 @@ from _registry_core import DEFAULT_CTX_THRESHOLD as DEFAULT_CTX_THRESHOLD
 from _registry_core import DEFAULT_STAMP_PATH as DEFAULT_STAMP_PATH
 from _registry_core import DEFAULT_STORE_PATH as DEFAULT_STORE_PATH
 from _registry_core import DEFAULT_WATCH_SET_PATH as DEFAULT_WATCH_SET_PATH
-from _registry_core import ForemanSeat as ForemanSeat
 from _registry_core import GroomingSeat as GroomingSeat
 from _registry_core import PlanTrack as PlanTrack
 from _registry_core import SupervisorSeat as SupervisorSeat
@@ -84,15 +83,6 @@ from _registry_rounds import mark_expiry_notice_sent as mark_expiry_notice_sent
 from _registry_rounds import read_round_open_identity as read_round_open_identity
 from _registry_rounds import read_round_record as read_round_record
 from _registry_rounds import record_ready_expiry as record_ready_expiry
-from _registry_stamp_foreman_self_restart import (
-    consume_foreman_self_restart_notice as consume_foreman_self_restart_notice,
-)
-from _registry_stamp_foreman_self_restart import (
-    read_foreman_self_restart as read_foreman_self_restart,
-)
-from _registry_stamp_foreman_self_restart import (
-    record_foreman_self_restart as record_foreman_self_restart,
-)
 from _registry_stamp_shell import clear_shell_episode as clear_shell_episode
 from _registry_stamp_shell import read_shell_episode as read_shell_episode
 from _registry_stamp_shell import record_shell_episode as record_shell_episode
@@ -125,7 +115,6 @@ __all__: list[str] = [
     "DEFAULT_STAMP_PATH",
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
-    "ForemanSeat",
     "GroomingSeat",
     "MappingEntry",
     "MappingInvalid",
@@ -145,7 +134,6 @@ __all__: list[str] = [
     "clear_picker_stall_episode",
     "clear_shell_episode",
     "colliding_topics",
-    "consume_foreman_self_restart_notice",
     "discover_plans",
     "epic_from_plan_anchor",
     "epic_is_resolved",
@@ -154,7 +142,6 @@ __all__: list[str] = [
     "mark_expiry_notice_sent",
     "norm",
     "plan_liveness_topic",
-    "read_foreman_self_restart",
     "read_injection_stamp",
     "read_launch_statusline_baseline",
     "read_mapping",
@@ -167,7 +154,6 @@ __all__: list[str] = [
     "read_shell_episode",
     "read_valid_mapping",
     "record_derived_epic",
-    "record_foreman_self_restart",
     "record_launch_statusline_baseline",
     "record_model_profile",
     "record_observed_session_identity",

@@ -41,22 +41,6 @@ def _selected(*, track: registry.Track) -> str:
     )
 
 
-def test_select_wrapup_message_selects_the_foreman_variant_text():
-    track = registry.Track(
-        topic="repo-foreman",
-        repo=REPO,
-        tmux="repo-foreman",
-        epic=EPIC,
-    )
-
-    assert _selected(track=track) == _supervisor_prompts.foreman_wrapup_message(
-        remaining=REMAINING,
-        repo=REPO,
-        topic="repo-foreman",
-        epic=EPIC,
-    )
-
-
 def test_select_wrapup_message_selects_the_grooming_variant_text():
     track = registry.Track(
         topic="repo-grooming",
@@ -107,7 +91,7 @@ def test_select_wrapup_message_selects_the_plan_variant_text():
 def test_select_wrapup_message_uses_loaded_variant_before_topic_suffix():
     track = track_from_mapping_row(
         row={
-            "kind": "foreman",
+            "kind": "grooming",
             "topic": "alpha-supervisor",
             "repo": REPO,
             "tmux": "alpha-supervisor",
@@ -115,11 +99,10 @@ def test_select_wrapup_message_uses_loaded_variant_before_topic_suffix():
         },
         extras=_extras(),
     )
-    assert isinstance(track, registry.ForemanSeat)
+    assert isinstance(track, registry.GroomingSeat)
 
-    assert _selected(track=track) == _supervisor_prompts.foreman_wrapup_message(
+    assert _selected(track=track) == _supervisor_prompts.grooming_wrapup_message(
         remaining=REMAINING,
         repo=REPO,
         topic="alpha-supervisor",
-        epic=EPIC,
     )

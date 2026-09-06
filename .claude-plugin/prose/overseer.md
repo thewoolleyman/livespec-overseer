@@ -306,10 +306,10 @@ will see:
 | `live-outside-tmux` | the mapped tmux session is gone, but a live Claude session for this topic is running in a NON-tmux terminal (e.g. a bare SSH shell) — alive and working, but the daemon cannot capture/inject/respawn it. **Informational, not an alarm** (not in `NEEDS YOU`) |
 
 The discovered plan rows are not the whole mapping store. The daemon can also
-carry reserved non-plan entity rows, currently `<repo-slug>-foreman` and
-`<repo-slug>-grooming`, when those operations register themselves. They use the
+carry reserved non-plan entity rows, currently `<repo-slug>-grooming`, when that
+operation registers itself. Such a row uses the
 same status vocabulary, same state file, and same `ready` restart interlock as
-plan rows, but they are not discovered from `plan/` and have no supervised worker
+plan rows, but it is not discovered from `plan/` and has no supervised worker
 topic. A grooming row's wrap-up asks it to finish only the single ledger write in
 progress, record any already-formed judgement onto the relevant plan epic or item,
 and declare state; the restarted grooming pass re-measures before acting.
@@ -633,13 +633,6 @@ under `$PLUGIN_ROOT` as a setup failure.
   the plain-language bottom line first, then detail. **For a decision a TRACK owns,
   do not use a picker at all** — relay it as non-blocking text naming the session,
   pane, and jump command (see "Maintainer-owned gates" above).
-- **`foreman-act work_item_file` needs the ledger credential wrapper today.**
-  Until the actuator grows target-repo credential-wrapper resolution, a foreman
-  session that files work items must invoke the actuator through the wrapper and
-  preserve the caller's `PATH`, because the wrapper resets `PATH` and the
-  actuator launcher resolves `uv` from the caller's toolchain:
-  `/usr/local/bin/with-livespec-env.sh -- /usr/bin/env PATH="$PATH" "$PLUGIN_ROOT/bin/foreman-act" --proposal <path>`.
-  `--proposal` takes a path to a proposal JSON file, not inline JSON.
 
 ---
 

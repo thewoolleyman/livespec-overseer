@@ -34,17 +34,6 @@ responding** and is otherwise **left alone**. That is a bug in the SESSION (it
 was told, escalatingly, exactly what to write) — never a licence for the daemon
 to guess on its behalf.
 
-A foreman self-restart is not an exception to the operative half of this rule:
-it can fire only after the current foreman session has written the same
-filesystem `ready` declaration. Its difference is only the actor on a satisfied
-precondition: when that `ready` has sat uncertifiable for the named one-hour
-floor because the daemon did not consume it, the foreman pane may respawn itself
-once for that session lineage and must announce that fact. The round it opens
-for itself has no injection stamp behind it; that asymmetry is accepted here
-because a round surviving a session identity change is already rejected for
-every seat kind, and the one-shot lineage cap survives the restart in the
-daemon's stamp sidecar.
-
 This REPLACES the previously-shipped timer-based **force-restart** of an idle
 stalled session, which was a severe bug: it killed sessions the daemon had no way
 to prove were safe to kill. It is gone from the code (there is no
@@ -194,8 +183,7 @@ Then:
         overseer-declare ready
 
 After `overseer-declare ready`, stop immediately.
-If this same conversation continues, no ordinary daemon restart happened; only a
-foreman self-restart may continue here, and it announces that fact explicitly.
+If this same conversation continues, no ordinary daemon restart happened.
 
 `ready` is the ONLY thing that restarts you. If you write nothing at all, you are NOT
 restarted and NOT killed — you are reported to the human as not responding, and your
@@ -480,7 +468,7 @@ bands, expiry floor, expiry-notice flag, and round-open identity, and logs both
 the predecessor and live identities. The state diagnostic is left visible. The
 next below-threshold observation opens a fresh current-session round and sends
 the 50% wrap-up to the successor. The same closure applies to plan tracks and to
-foreman, grooming, and supervisor seats.
+grooming and supervisor seats.
 
 **Ready arms until idle, then EXPIRES.** If a session declares `ready` and then
 emits more output, the declaration is not voided. The restart path is still gated
@@ -626,73 +614,27 @@ correct there. See `.claude-plugin/prose/overseer.md`, the single-source operato
 contract. (Corrected 2026-07-26: this pointed at `SKILL.md`, which is now only a
 compatibility pointer and carries no operator prose.)
 
-## Reserved foreman and grooming entities are not plan-shaped tracks
+## The reserved grooming entity is not a plan-shaped track
 
-A per-repo **foreman** session (the operator loop, e.g. `livespec-overseer-foreman`,
-that runs `/livespec-overseer:foreman`) is a DIFFERENT shape of entity from a plan
-track: it supervises a whole repo's plan tracks rather than being one itself, and it
-has no `plan/<topic>/` directory of its own. Track `overseerd-auto-restart`
-(2026-08-18) extended the cardinal rule to cover it, by GENERALIZING the existing
-`-supervisor` reserved-worker-topic pattern rather than building a parallel
-mechanism: `signals._RESERVED_WORKER_SUFFIXES` already carried both `-supervisor`
-and `-foreman`, and `foreman_runtime_identity.canonical_session_name` already
-computed `<repo-slug>-foreman` as the canonical identity — the gap was that nothing
-ever created a `registry.Track` row with that topic, and `signals.supervisor_topic`
-mis-truncated a `-foreman` topic if ever called on one (a latent bug, never hit
-because no such row had ever existed).
+A per-repo **grooming** session (the bounded drain pass that runs
+`/livespec-overseer:grooming`) is a DIFFERENT shape of entity from a plan track: it
+measures and routes a whole repo's work rather than being one track itself, and it
+has no `plan/<topic>/` directory of its own. It is the reserved-worker-topic
+pattern, generalized from the `-supervisor` pattern rather than built as a parallel
+mechanism.
 
-What now exists, all reusing the SAME `.overseer-state` file, the SAME
-`ready`/`blocked:`/`winding-down` tokens, and the SAME `ready_valid` restart
-interlock described above — a foreman entity writes and is restarted through
-**exactly** the mechanics this document already specifies, with only the
-resume/wrap-up TEXT differing:
-
-- **Registration** (`foreman_runtime.register_foreman_track`) — the
-  `foreman-runtime` executable registers a `Track` row idempotently by existence
-  on every step, independent of any `plan/` directory: one row exists afterwards
-  for topic `<repo-slug>-foreman`, `tmux=<repo-slug>-foreman`, and the watched repo,
-  and an existing row's durable contents are preserved, so the
-  overseer-never-touches-`plan/` invariant holds by construction rather than by a
-  new guard.
-- **Resume surface** — a foreman entity's `{read_first}`/`{resume}` point at a
-  **ledger-held foreman epic** (`foreman_epic_resume`/`foreman_resume` in
-  `_supervisor_prompts.py`), never a plan epic and never the file-based
-  `tmp/overseer/foreman/foreman-session-handoff.md` this document used to be the
-  only rotation surface for. A foreman track with no recorded epic gets the same
-  refuse-and-surface treatment as an epic-less plan track (`missing_foreman_epic_message`,
-  and a binder-certification guard parallel to `_handle_uncertified_supervisor_binder`)
-  — a `ready` declared with no resolvable foreman epic never respawns anything.
-- **Wrap-up text** — `foreman_wrapup_message` supplies foreman-specific head text
-  (no "plan epic" wording); the shared cardinal-rule body (the three tokens, the
-  `overseer-declare ready` final act) is byte-identical to `_WRAPUP_BODY` above.
-- **Trigger** — unchanged: the existing ctx-threshold-driven `maybe_inject` path,
-  selected on `signals.is_foreman_topic`. **No new trigger exists or should ever
-  exist for a foreman entity.** In particular, `ForemanRuntime`'s own
-  `hard_tick_budget`/`converged` exit reasons (`foreman_runtime.py`) and the
-  `foreman-heartbeat-stale` attention alert (`_supervisor_foreman.py`) stay a
-  daemon-observed SUGGESTION surfaced to a human at most — neither one is nor may
-  become a restart trigger. The cardinal rule is not narrowed for this entity
-  shape: a foreman is restarted ONLY on its own fresh `ready`, exactly like any
-  other tracked session.
-
-**Known gap, recorded rather than silently left implicit:** as of 2026-08-18 this
-repo's OWN live foreman session is still tracked under the legacy ad-hoc topic
-`foreman` (a `plan/foreman/`-shaped track with its own ordinary plan epic,
-`overseer-z5fo4y`) rather than the canonical `livespec-overseer-foreman` reserved
-topic described above — so it already gets ordinary plan-track cardinal-rule
-auto-restart, but not the foreman-specific wrap-up text or the epic-less binder
-guard this section describes. Migrating that live, actively-working production
-track to the canonical identity is deliberately NOT done as part of landing this
-pattern (too disruptive to attempt inline against a live session); it is tracked
-as a follow-up work item on epic `overseer-w4epaq`.
-
-A per-repo **grooming** session is the same reserved-entity pattern with a
-different job. Its canonical topic and tmux session are `<repo-slug>-grooming`,
-registered through `grooming_runtime.register_grooming_track`, and the suffix is
-part of `signals._RESERVED_WORKER_SUFFIXES` so no plan worker can collide with
-it. Like a foreman entity, it has no supervised worker counterpart:
+Its canonical topic and tmux session are `<repo-slug>-grooming`, registered through
+`grooming_runtime.register_grooming_track`, and the suffix is part of
+`signals._RESERVED_WORKER_SUFFIXES` so no plan worker can collide with it. Unlike a
+`-supervisor` entity, it has no supervised worker counterpart:
 `signals.supervisor_topic` refuses it, and `signals.topic_supervised_worker`
 returns `None`.
+
+Registration runs idempotently by existence, independent of any `plan/` directory:
+one row exists afterwards for topic `<repo-slug>-grooming`,
+`tmux=<repo-slug>-grooming`, and the watched repo, and an existing row's durable
+contents are preserved — so the overseer-never-touches-`plan/` invariant holds by
+construction rather than by a new guard.
 
 The cardinal rule is unchanged for grooming. A grooming session writes the SAME
 `tmp/overseer/<topic>/.overseer-state` file and the SAME

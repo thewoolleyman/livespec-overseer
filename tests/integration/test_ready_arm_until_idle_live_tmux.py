@@ -478,8 +478,7 @@ def _legacy_wrapup_message(
         "Declare done, and stop:",
     ).replace(
         "\n\nAfter `overseer-declare ready`, stop immediately.\n"
-        "If this same conversation continues, no ordinary daemon restart happened; only a\n"
-        "foreman self-restart may continue here, and it announces that fact explicitly.",
+        "If this same conversation continues, no ordinary daemon restart happened.",
         "",
     )
 

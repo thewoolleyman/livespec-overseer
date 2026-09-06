@@ -35,7 +35,7 @@ def containment_relay_text(*, evidence: str) -> str:
         "from the recorded evidence, and continue non-dispatch work that does not "
         "depend on those premises.\n\n"
         "This template delivers facts only. It authorizes no restart, no daemon "
-        "interlock change, and no act outside the existing foreman floors."
+        "interlock change, and no act outside the daemon's existing acting floors."
     )
 
 
@@ -47,7 +47,7 @@ def all_clear_relay_text(*, evidence: str) -> str:
         "At least one previously failed dispatch premise re-verified, so the aggregate "
         "fleet-level condition is clear.\n\n"
         "This template delivers facts only. It authorizes no restart, no daemon "
-        "interlock change, and no act outside the existing foreman floors."
+        "interlock change, and no act outside the daemon's existing acting floors."
     )
 
 

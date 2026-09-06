@@ -27,7 +27,6 @@ import signals
 import streams
 from _registry_track_row_parse import Track
 from _registry_track_variants import (
-    ForemanSeat,
     GroomingSeat,
     ModelProfile,
     PlanTrack,
@@ -45,7 +44,6 @@ __all__: list[str] = [
     "DEFAULT_STORE_PATH",
     "DEFAULT_WATCH_SET_PATH",
     "ROW_KEYS",
-    "ForemanSeat",
     "GroomingSeat",
     "ModelProfile",
     "PlanTrack",
@@ -163,7 +161,7 @@ def _reserved_session_refusal(*, repo: str | os.PathLike[str], topic: str, sessi
     return (
         f"refusing reserved supervisor session name {session} "
         f"for {norm(repo=repo)}::{topic}; "
-        "worker sessions may not end in -supervisor, -foreman, or -grooming"
+        "worker sessions may not end in -supervisor or -grooming"
     )
 
 

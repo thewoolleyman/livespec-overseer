@@ -41,7 +41,7 @@ def test_cli_add_plan_directory_validation_keeps_allowed_controls(*, tmp_path, m
                 "--repo",
                 str(repo),
                 "--topic",
-                "repo-foreman",
+                "repo-grooming",
                 "--epic",
                 TEST_EPIC,
             ]
@@ -49,4 +49,4 @@ def test_cli_add_plan_directory_validation_keeps_allowed_controls(*, tmp_path, m
         == 0
     )
     tracks = registry.read_valid_mapping(store_path=store)
-    assert [type(track).__name__ for track in tracks] == ["PlanTrack", "ForemanSeat"]
+    assert [type(track).__name__ for track in tracks] == ["PlanTrack", "GroomingSeat"]

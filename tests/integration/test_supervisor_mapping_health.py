@@ -103,25 +103,12 @@ def test_mapping_health_keeps_reserved_seat_coverage_and_unassigned_control(*, t
     store_path = tmp_path / "mapping.jsonl"
     rows: list[dict[str, object]] = [
         {
-            "kind": "foreman",
-            "topic": "repo-foreman",
-            "repo": "/data/projects/homelab",
-            "tmux": "repo-foreman",
-            "epic": "homelab-epic",
-        },
-        {
             "kind": "grooming",
             "topic": "repo-grooming",
             "repo": "/data/projects/homelab",
             "tmux": "repo-grooming",
             "epic": "homelab-epic",
             "added_at": None,
-        },
-        {
-            "kind": "foreman",
-            "topic": "repo-foreman-unresolved",
-            "repo": "/data/projects/homelab",
-            "tmux": "repo-foreman-unresolved",
         },
         {
             "kind": "grooming",
@@ -138,24 +125,8 @@ def test_mapping_health_keeps_reserved_seat_coverage_and_unassigned_control(*, t
 
     assert (
         apply_mapping_health(
-            track=tracks["repo-foreman"],
-            row=row_view(topic="repo-foreman"),
-            null_added_at_keys=keys,
-        ).note
-        == "mapping row missing added_at; no-round ready cannot certify"
-    )
-    assert (
-        apply_mapping_health(
             track=tracks["repo-grooming"],
             row=row_view(topic="repo-grooming"),
-            null_added_at_keys=keys,
-        ).note
-        == "mapping row missing added_at; no-round ready cannot certify"
-    )
-    assert (
-        apply_mapping_health(
-            track=tracks["repo-foreman-unresolved"],
-            row=row_view(topic="repo-foreman-unresolved"),
             null_added_at_keys=keys,
         ).note
         == "mapping row missing added_at; no-round ready cannot certify"

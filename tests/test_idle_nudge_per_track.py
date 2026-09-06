@@ -50,7 +50,6 @@ __all__: list[str] = []
 ASSIGNED_VARIANTS = (
     registry.PlanTrack,
     registry.SupervisorSeat,
-    registry.ForemanSeat,
     registry.GroomingSeat,
 )
 
@@ -92,9 +91,9 @@ def _idling_past_the_floor(*, tmp_path, per_track, daemon_default=True, name="on
 
 
 def test_every_assigned_track_variant_carries_the_per_track_override():
-    """The field is a SIBLING of `ctx_threshold` on all four assigned variants, not a
-    plan-track special case: a supervisor, foreman or grooming seat is just as capable of
-    being an operator's "leave this one alone" as a plan is."""
+    """The field is a SIBLING of `ctx_threshold` on every assigned variant, not a
+    plan-track special case: a supervisor or grooming seat is just as capable of being
+    an operator's "leave this one alone" as a plan is."""
     for variant in ASSIGNED_VARIANTS:
         fields = {field.name: field for field in dataclasses.fields(variant)}
         assert "idle_nudge" in fields, (
