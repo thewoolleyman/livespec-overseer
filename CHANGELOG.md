@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.7](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.6...v2.0.7) (2026-09-06)
+
+
+### Bug Fixes
+
+* **caam:** require the account table verbatim on every loop pass (overseer-dyt6 follow-up) ([3bfebe1](https://github.com/thewoolleyman/livespec-overseer/commit/3bfebe1454ef2e7eaf523cd0ebe767dff713c73d))
+* **overseer:** surface an undeclared idle session on the attention surface ([b8e232d](https://github.com/thewoolleyman/livespec-overseer/commit/b8e232d440bfd449ed8286c2109548d427295915))
+
 ## [2.0.6](https://github.com/thewoolleyman/livespec-overseer/compare/v2.0.5...v2.0.6) (2026-09-06)
 
 
