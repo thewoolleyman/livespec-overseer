@@ -183,9 +183,13 @@ the implementation inside the binding.
 
 ## Reporting
 
-Show the account table verbatim. It is the point of the turn, not a detail to
-summarize. After the table, add the decision line from the program and quote its
-percentages rather than paraphrasing them.
+Show the account table verbatim on EVERY pass -- scheduled, held, dry-run,
+forced or switched, and whether or not anything changed since the previous pass.
+It is the point of the turn, not a detail to summarize, and an unchanged held pass
+is NOT an exception: paste the program's full table output, never a one-line
+digest such as "Held on <account> (5h=.., weekly=.., Fable=..)". After the table,
+add the decision line from the program and quote its percentages rather than
+paraphrasing them.
 
 If the program prints a line beginning with `FAIL`, say plainly that the pass
 failed and stop. Do not retry with a lower threshold. Do not attempt `caam
@@ -201,5 +205,7 @@ line is printed, no idle account has a pending expiry to wake for; rely on the
 recurring backstop.
 
 For a successful scheduled, held, dry-run, forced, or switched pass, report the
-decision exactly as printed and then stop. To stop watching entirely, delete the
-recurring job id with `CronDelete`.
+table and the decision exactly as printed -- both, every time, per Reporting's
+first rule above -- and then stop. "Report the decision" never licenses dropping
+the table: a held or unchanged pass shows the same full table as a switching one.
+To stop watching entirely, delete the recurring job id with `CronDelete`.
