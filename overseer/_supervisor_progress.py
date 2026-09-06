@@ -119,7 +119,12 @@ def row_view(*, request: RowViewRequest) -> RowView:
         topic=request.track.topic,
         repo=request.track.repo,
         tmux=request.session,
-        ctx=request.obs.eff_ctx,
+        # The OPERATOR projection, not the cascade's `eff_ctx`: it carries a retained
+        # reading however old and marks it as retained, where `eff_ctx` drops one past
+        # `CTX_STALE_AFTER` so nothing stale can ever authorize an act.
+        ctx=request.obs.ctx_reading.value,
+        ctx_source=request.obs.ctx_reading.source,
+        ctx_age_seconds=request.obs.ctx_reading.age_seconds,
         status=request.status,
         note=request.note,
         runtime=request.obs.runtime,

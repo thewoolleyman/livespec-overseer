@@ -112,6 +112,13 @@ def test_stale_last_known_ctx_demotes_to_unknown_and_surfaces_low_track(*, tmp_p
 
     The low last-known value still surfaces as attention because losing sight of a
     low-context track is itself actionable. A fresh parse restores normal ctx gates.
+
+    The DEMOTION is of the gate, not of the report (`overseer-62mgxr`). The stale
+    reading is still refused as a decision input — nothing is pasted and the row is
+    `ctx-stale` — while the row now REPORTS the last known value marked `retained`
+    with its age, so the operator can tell a track near exhaustion from one with most
+    of its window left. Reporting it silently as though it were current, or dropping
+    it and reporting nothing, are the two failures this shape sits between.
     """
     repo, topic = make_plan(tmp_path=tmp_path)
     session = registry.tmux_id(repo=str(repo), topic=topic)
@@ -132,7 +139,8 @@ def test_stale_last_known_ctx_demotes_to_unknown_and_surfaces_low_track(*, tmp_p
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(track=track, act=True)
     assert view.status == "ctx-stale"
-    assert view.ctx is None
+    assert view.ctx == 40
+    assert view.ctx_source == "retained"
     assert "ctx unreadable (1h)" in (view.note or "")
     assert not fake.has(method="paste")
     assert "context unreadable for 1h" in err.getvalue()
@@ -159,7 +167,10 @@ def test_stale_above_threshold_ctx_is_a_note_not_attention(*, tmp_path):
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(track=track, act=True)
     assert view.status == "idle"
-    assert view.ctx is None
+    # The reading is CARRIED and MARKED rather than dropped (`overseer-62mgxr`); the
+    # note still records that the pane itself has rendered nothing for an hour.
+    assert view.ctx == 70
+    assert view.ctx_source == "retained"
     assert "ctx unreadable (1h)" in (view.note or "")
     assert "overseer[SURFACE]" not in err.getvalue()
     assert signals.read_state(repo=str(repo), topic=topic) is None

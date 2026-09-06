@@ -18,7 +18,12 @@ import registry
 import signals
 
 __all__: list[str] = [
+    "CTX_SOURCE_LIVE",
+    "CTX_SOURCE_RETAINED",
+    "CTX_SOURCE_UNREADABLE",
+    "UNREADABLE_CTX_READING",
     "ConditionEpisode",
+    "CtxReading",
     "InjectState",
     "Observation",
     "PairStallState",
@@ -53,6 +58,49 @@ class WaitTargetCacheEntry:
     checked_at: float
     status: str
     note: str | None
+
+
+# --------------------------------------------------------------------------- #
+# Context-headroom readings and their provenance (`overseer-62mgxr`).
+# --------------------------------------------------------------------------- #
+
+# HOW a reported headroom was obtained. `live` is the statusline the pane is
+# rendering right now. `retained` is the last reading this daemon actually took for
+# the track, carried forward WITH ITS AGE because the pane is no longer rendering
+# one — the shape an open picker produces, its overlay displacing the statusline out
+# of the capture. `unreadable` is the honest absence: no reading was ever taken, so
+# there is nothing to carry and nothing is invented.
+CTX_SOURCE_LIVE = "live"
+CTX_SOURCE_RETAINED = "retained"
+CTX_SOURCE_UNREADABLE = "unreadable"
+
+
+@dataclass(frozen=True, kw_only=True)
+class CtxReading:
+    """A headroom reading together with the provenance that makes it judgeable.
+
+    ``value`` alone is not reportable. A stale headroom presented as current is worse
+    than none — an operator reading `42%` cannot tell "the pane says 42%" from "the
+    pane said 42% four hours ago and has said nothing since", and those are opposite
+    operational situations. So a retained value ALWAYS travels with ``source`` and
+    with ``age_seconds``, the age of the observation it came from.
+
+    ``age_seconds`` is set EXACTLY for a retained reading; a live one and an absent
+    one both carry None, for opposite reasons — there is no age to state, and there
+    is no value to age. Surfaces may therefore treat the presence of an age as the
+    retained marker.
+    """
+
+    value: int | None
+    source: str
+    age_seconds: float | None
+
+
+# The reading for a track this daemon has nothing to say about. Frozen, so one shared
+# instance is safe as a field default — and the default is deliberately this one: a
+# construction that forgets to supply a reading reports "we do not know" rather than a
+# number nobody observed, which is the direction this whole record exists to protect.
+UNREADABLE_CTX_READING = CtxReading(value=None, source=CTX_SOURCE_UNREADABLE, age_seconds=None)
 
 
 @dataclass
@@ -142,6 +190,11 @@ class Observation:
     claude_status: str | None
     current_ctx: int | None
     eff_ctx: int | None
+    # The OPERATOR-facing projection of the same headroom knowledge. It is deliberately
+    # NOT `eff_ctx`: the cascade decides on `eff_ctx`, which drops a reading older than
+    # `CTX_STALE_AFTER` so a stale number can never cross a threshold, while this one
+    # carries the reading however old and SAYS how old. See `_supervisor_ctx_reading`.
+    ctx_reading: CtxReading = UNREADABLE_CTX_READING
     ctx_changed: bool = False
     ctx_stale_age: float | None
     stale_ctx: int | None

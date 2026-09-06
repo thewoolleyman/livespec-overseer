@@ -96,7 +96,10 @@ def test_ctx_stale_projection_is_read_only_when_listing(*, tmp_path):
     with contextlib.redirect_stderr(err):
         view = sup.evaluate(track=track, act=False)
     assert view.status == "ctx-stale"
-    assert view.ctx is None
+    # The stale reading is refused as a DECISION input and still reported to the
+    # operator, marked `retained` (`overseer-62mgxr`) — the row is not blinded.
+    assert view.ctx == 40
+    assert view.ctx_source == "retained"
     assert "overseer[SURFACE]" not in err.getvalue()
 
 

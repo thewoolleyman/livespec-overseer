@@ -126,6 +126,13 @@ def row_payload(*, sup: Supervisor, row: RowView) -> dict[str, object]:
         "status": row.status,
         "note": _snapshot_note(row=row),
         "ctx": row.ctx,
+        # ADDITIVE, and deliberately without a `SCHEMA_VERSION` bump: readers gate on
+        # `schema != SCHEMA_VERSION` and REJECT the whole document on a mismatch, so
+        # bumping for an added key would blind every older reader to a newer daemon's
+        # snapshot — the exact failure this row exists to fix, re-created one layer up.
+        # A reader that does not know these keys ignores them and is no worse off.
+        "ctx_source": row.ctx_source,
+        "ctx_age_seconds": (None if row.ctx_age_seconds is None else int(row.ctx_age_seconds)),
         "progress_now": row.progress_now,
         "human_wait": row.human_wait,
         "round_open": row.round_open,
