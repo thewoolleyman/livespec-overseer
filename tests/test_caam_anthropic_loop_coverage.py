@@ -71,7 +71,6 @@ class _Flags:
     dry_run: bool = False
     no_models: bool = False
     no_warm: bool = True
-    foreman_model: str | None = None
     session_models: tuple[tuple[str, str], ...] = ()
     protected_accounts: tuple[tuple[str, str], ...] = ()
 

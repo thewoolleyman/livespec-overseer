@@ -25,7 +25,7 @@ from pathlib import Path
 
 from caam_anthropic_decide import DecisionSeams, decide
 from caam_decision import ProfileUsage, UsageRecord
-from caam_foreman_override import SCOPED_MODEL
+from caam_scoped_model import SCOPED_MODEL
 
 _SPENT = 100.0
 _SERVES = 10.0
@@ -63,7 +63,9 @@ class _Context:
         self.flags = flags
         self.home = home
         self.now = 1_787_000_000.0
-        self.state: dict[str, object] = {"foreman_model": SCOPED_MODEL} if pinned else {}
+        self.state: dict[str, object] = (
+            {"session_models": {"pinned-session": SCOPED_MODEL}} if pinned else {}
+        )
         self.state_path = home / "state.json"
         self.lines: list[str] = []
 

@@ -9,8 +9,8 @@ overseer-m7qrgp.2). A pane span answers "what did enforcement decide here"; it
 cannot answer "under what conditions". The 2026-08-30/31
 "livespec-overseer-foreman unknown->fable" incident turned on conditions the
 pane spans never carry: which account was active, whether that account still had
-Fable, what the foremen were therefore wanted on, and whether a `session_models`
-exception was in effect. Those are properties of the PASS, identical for every
+Fable, and whether a `session_models` exception was in effect. Those are properties
+of the PASS, identical for every
 pane in it, and duplicating them onto each pane span would both bloat the record
 and lose the very grouping -- one pass -- that makes them meaningful.
 
@@ -49,7 +49,6 @@ __all__: list[str] = [
     "FABLE_EXHAUSTED",
     "FABLE_LEFT",
     "FABLE_UNKNOWN",
-    "FOREMAN_WANT_NONE",
     "OUTCOME_NOT_REACHED",
     "ROTATION_EVENT",
     "Clock",
@@ -69,7 +68,6 @@ ROTATION_EVENT: Final = "caam.enforcement.pass"
 
 ACCOUNT_NONE: Final = "none"
 EXCEPTIONS_NONE: Final = "none"
-FOREMAN_WANT_NONE: Final = "none"
 FABLE_LEFT: Final = "left"
 FABLE_EXHAUSTED: Final = "exhausted"
 FABLE_UNKNOWN: Final = "unknown"
@@ -116,7 +114,6 @@ class PassFacts:
     """
 
     fable_left: bool
-    foreman_want: str
     pane_count: int
     exceptions: str | None
     outcome: str
@@ -164,7 +161,6 @@ class PassSpan:
                 "caam.account": ACCOUNT_NONE if self.account is None else self.account,
                 "caam.enforcement.reached": facts is not None,
                 "caam.fable.balance": _balance(facts=facts),
-                "model.want.foreman": FOREMAN_WANT_NONE if facts is None else facts.foreman_want,
                 "caam.pane.count": 0 if facts is None else facts.pane_count,
                 "caam.session_models.exceptions": _exceptions(facts=facts),
                 "caam.outcome": OUTCOME_NOT_REACHED if facts is None else facts.outcome,

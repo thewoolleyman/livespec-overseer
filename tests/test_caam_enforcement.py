@@ -79,8 +79,7 @@ def test_production_pass_reaches_tmux_discovery_and_model_picker(
             dry_run=False,
             no_models=False,
             no_warm=True,
-            foreman_model=None,
-            session_models=(),
+            session_models=(("alpha-foreman", "fable"),),
         ),
         home=home,
         now=1234.0,
@@ -112,8 +111,7 @@ def test_dry_run_reports_would_line_and_sends_no_picker_keys(
             dry_run=True,
             no_models=False,
             no_warm=True,
-            foreman_model=None,
-            session_models=(),
+            session_models=(("alpha-foreman", "fable"),),
         ),
         home=home,
         now=1234.0,
@@ -129,9 +127,9 @@ def test_dry_run_reports_would_line_and_sends_no_picker_keys(
     assert tmux.send_keys_calls == []
     assert tmux.send_literal_keys_calls == []
     assert (
-        "models: foremen want fable (active account Fable left); alpha-foreman would opus->fable"
-        in lines
-    )
+        "models: active account Fable left; alpha-foreman would opus->fable; "
+        "exceptions: alpha-foreman=fable"
+    ) in lines
 
 
 def test_busy_pane_reports_busy_without_recording_and_retries_next_tick(*, tmp_path: Path) -> None:
@@ -145,7 +143,7 @@ def test_busy_pane_reports_busy_without_recording_and_retries_next_tick(*, tmp_p
         state_path=state_path,
         session_names=("alpha-foreman",),
         active_fable=58.0,
-        foreman_model=None,
+        session_models=(("alpha-foreman", "fable"),),
         now=1234.0,
         pane_pid=lambda **_: 101,
         children_of=lambda **_: (),
@@ -163,7 +161,6 @@ def test_busy_pane_reports_busy_without_recording_and_retries_next_tick(*, tmp_p
         state_path=state_path,
         session_names=("alpha-foreman",),
         active_fable=58.0,
-        foreman_model=None,
         now=1244.0,
         pane_pid=lambda **_: 101,
         children_of=lambda **_: (),
@@ -174,16 +171,16 @@ def test_busy_pane_reports_busy_without_recording_and_retries_next_tick(*, tmp_p
         state=state,
     )
 
-    assert (
-        first[-1]
-        == "models: foremen want fable (active account Fable left); alpha-foreman busy(opus->fable)"
+    assert first[-1] == (
+        "models: active account Fable left; alpha-foreman busy(opus->fable); "
+        "exceptions: alpha-foreman=fable"
     )
     # A busy pane gets NO set-record (that is what lets the next tick retry it);
     # per ratified v045 enforcement still records every pane's observed model.
     assert "models" not in after_first
-    assert (
-        second[-1]
-        == "models: foremen want fable (active account Fable left); alpha-foreman opus->fable"
+    assert second[-1] == (
+        "models: active account Fable left; alpha-foreman opus->fable; "
+        "exceptions: alpha-foreman=fable"
     )
 
 
@@ -198,7 +195,7 @@ def test_model_report_lines_match_source_oracle(*, tmp_path: Path) -> None:
         state_path=state_path,
         session_names=("alpha-foreman",),
         active_fable=58.0,
-        foreman_model=None,
+        session_models=(("alpha-foreman", "fable"),),
         now=1234.0,
         pane_pid=lambda **_: 101,
         children_of=lambda **_: (),
@@ -216,7 +213,7 @@ def test_model_report_lines_match_source_oracle(*, tmp_path: Path) -> None:
         state_path=state_path,
         session_names=("alpha-foreman",),
         active_fable=58.0,
-        foreman_model=None,
+        session_models=(("alpha-foreman", "fable"),),
         now=1234.0,
         pane_pid=lambda **_: 101,
         children_of=lambda **_: (),
@@ -228,40 +225,12 @@ def test_model_report_lines_match_source_oracle(*, tmp_path: Path) -> None:
     )
 
     assert (
-        would[-1] == "models: foremen want fable (active account Fable left); "
-        "alpha-foreman would unknown->fable"
+        would[-1] == "models: active account Fable left; "
+        "alpha-foreman would unknown->fable; exceptions: alpha-foreman=fable"
     )
     assert (
-        busy[-1] == "models: foremen want fable (active account Fable left); "
-        "alpha-foreman busy(unknown->fable)"
-    )
-
-
-def test_grooming_seat_receives_foreman_model_policy(*, tmp_path: Path) -> None:
-    calls: list[tuple[str, str]] = []
-
-    messages = caam_enforcement.enforce_models(
-        settings_path=Path("/missing/settings.json"),
-        no_models=False,
-        home=Path("/tmp"),
-        state_path=tmp_path / "state.json",
-        session_names=("alpha-foreman", "alpha-grooming", "worker"),
-        active_fable=58.0,
-        foreman_model="fable",
-        now=1234.0,
-        pane_pid=lambda **_: 101,
-        children_of=lambda **_: (),
-        environ_of=lambda **_: b"CLAUDE_CODE_SESSION_ID=sid-1\0",
-        pane_model=lambda **_: "opus",
-        pane_idle=lambda **_: True,
-        set_model=lambda *, session, model: calls.append((session, model)),
-        state={},
-    )
-
-    assert calls == [("alpha-foreman", "fable"), ("alpha-grooming", "fable")]
-    assert messages[-1] == (
-        "models: foremen want fable [pinned] (active account Fable left); "
-        "alpha-foreman opus->fable, alpha-grooming opus->fable"
+        busy[-1] == "models: active account Fable left; "
+        "alpha-foreman busy(unknown->fable); exceptions: alpha-foreman=fable"
     )
 
 
@@ -279,7 +248,7 @@ def test_reserved_suffix_literals_stay_inside_signals_topics() -> None:
     assert offenders == []
 
 
-def test_session_model_exception_outranks_foreman_pin_and_fable_resets(*, tmp_path: Path) -> None:
+def test_session_model_exception_drives_pinned_sessions_and_fable_resets(*, tmp_path: Path) -> None:
     state: dict[str, object] = {}
     calls: list[tuple[str, str]] = []
 
@@ -290,7 +259,6 @@ def test_session_model_exception_outranks_foreman_pin_and_fable_resets(*, tmp_pa
         state_path=tmp_path / "state.json",
         session_names=("alpha-foreman", "beta"),
         active_fable=0.0,
-        foreman_model="opus",
         session_models=(("alpha-foreman", "fable"), ("beta", "fable")),
         now=1234.0,
         pane_pid=lambda **_: 101,
@@ -305,7 +273,7 @@ def test_session_model_exception_outranks_foreman_pin_and_fable_resets(*, tmp_pa
     assert calls == [("alpha-foreman", "fable"), ("beta", "fable")]
     assert state["session_models"] == {"alpha-foreman": "fable", "beta": "fable"}
     assert messages[-1] == (
-        "models: foremen want opus [pinned] (active account Fable EXHAUSTED); "
+        "models: active account Fable EXHAUSTED; "
         "alpha-foreman opus->fable, beta opus->fable; "
         "exceptions: alpha-foreman=fable, beta=fable"
     )
@@ -322,7 +290,6 @@ def test_session_model_exception_clear_restores_lower_precedence_rule(*, tmp_pat
         state_path=tmp_path / "state.json",
         session_names=("alpha-foreman",),
         active_fable=0.0,
-        foreman_model="opus",
         session_models=(("alpha-foreman", "auto"),),
         now=1234.0,
         pane_pid=lambda **_: 101,
@@ -351,7 +318,6 @@ def test_session_model_exception_warns_but_does_not_fallback_when_fable_spent(
         state_path=tmp_path / "state.json",
         session_names=("beta",),
         active_fable=0.0,
-        foreman_model=None,
         session_models=(("beta", "fable"),),
         now=1234.0,
         pane_pid=lambda **_: 101,
@@ -368,8 +334,7 @@ def test_session_model_exception_warns_but_does_not_fallback_when_fable_spent(
         "that session will be blocked"
     )
     assert messages[-1] == (
-        "models: foremen want opus (active account Fable EXHAUSTED); nothing to change; "
-        "exceptions: beta=fable"
+        "models: active account Fable EXHAUSTED; nothing to change; " "exceptions: beta=fable"
     )
 
 
@@ -414,7 +379,6 @@ def test_session_model_exception_ignores_malformed_requests(*, tmp_path: Path) -
         state_path=tmp_path / "state.json",
         session_names=("old",),
         active_fable=58.0,
-        foreman_model=None,
         session_models=(("", "fable"), ("old", "sonnet")),
         now=1234.0,
         pane_pid=lambda **_: 101,
@@ -449,7 +413,6 @@ def test_session_model_option_parser_ignores_malformed_tuples(*, tmp_path: Path)
         state_path=tmp_path / "state.json",
         session_names=("beta",),
         active_fable=58.0,
-        foreman_model=None,
         session_models=mixed_session_models,
         now=1234.0,
         pane_pid=lambda **_: 101,
@@ -463,8 +426,7 @@ def test_session_model_option_parser_ignores_malformed_tuples(*, tmp_path: Path)
 
     assert calls == [("beta", "opus")]
     assert messages[-1] == (
-        "models: foremen want fable (active account Fable left); beta fable->opus; "
-        "exceptions: beta=opus"
+        "models: active account Fable left; beta fable->opus; " "exceptions: beta=opus"
     )
 
 

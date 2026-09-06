@@ -55,33 +55,23 @@ def _parser_flags() -> frozenset[str]:
 def test_caam_prose_lists_every_source_backed_operator_flag() -> None:
     """Source-backed operator flags must not land after prose and stay hidden."""
     prose = PROSE.read_text(encoding="utf-8")
-    enforcement_source = "".join(path.read_text(encoding="utf-8") for path in ENFORCEMENT_SOURCES)
     warm_source = WARM_SOURCE.read_text(encoding="utf-8")
 
-    assert "foreman_model" in enforcement_source
     assert "no_warm" in warm_source
 
     derived = _parser_flags()
     # Control: the derivation must actually find the flag surface. An empty or
     # near-empty set would make every assertion below vacuously true, which is
     # the failure mode that lets a check pass while checking nothing.
-    assert len(derived) >= 7, derived
+    assert len(derived) >= 6, derived
     assert "--protected-account" in derived, derived
-    assert "--foreman-model" in derived, derived
+    assert "--session-model" in derived, derived
 
     missing = sorted(flag for flag in derived if flag not in prose)
     assert not missing, f"operator flags absent from the operation prose: {missing}"
 
     for env_flag in EXPECTED_ENV_FLAGS:
         assert env_flag in prose
-
-
-def test_caam_prose_explains_foreman_pin_persistence_and_clear() -> None:
-    prose = PROSE.read_text(encoding="utf-8")
-
-    assert "pin persists" in prose
-    assert "later scheduled ticks" in prose
-    assert "`--foreman-model=auto` clears the pin" in prose
 
 
 def test_caam_prose_explains_session_model_exception_persistence() -> None:

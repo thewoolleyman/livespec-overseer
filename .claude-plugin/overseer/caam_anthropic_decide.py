@@ -35,9 +35,9 @@ from caam_decision import (
     scoped_reserve,
     triggered,
 )
-from caam_foreman_override import scoped_model_pinned
 from caam_profile_state import caam_vault
 from caam_profiles import active_profile
+from caam_scoped_model import scoped_model_pinned
 from caam_scoped_selection import none_holds_scoped_above_reserve, scoped_alone_trigger
 from caam_switch import SwitchRequest
 

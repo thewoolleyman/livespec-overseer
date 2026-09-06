@@ -68,7 +68,7 @@ def _pane(session: str, model: str | None) -> object:
 
 
 def test_scoped_model_pinned_is_armed_by_a_session_observed_on_the_scoped_model() -> None:
-    override = _module("caam_foreman_override")
+    override = _module("caam_scoped_model")
 
     state: dict[str, object] = {"observed_models": {"poweredge-raid-array": "fable"}}
 
@@ -76,7 +76,7 @@ def test_scoped_model_pinned_is_armed_by_a_session_observed_on_the_scoped_model(
 
 
 def test_scoped_model_pinned_is_not_armed_by_sessions_observed_on_other_models() -> None:
-    override = _module("caam_foreman_override")
+    override = _module("caam_scoped_model")
 
     state: dict[str, object] = {"observed_models": {"alpha-worker": "opus", "beta": "sonnet"}}
 
@@ -219,7 +219,6 @@ def _enforce(*, calls: list[tuple[str, str]], active_fable: float, **extra: obje
         state_path=Path("/tmp/does-not-matter-state.json"),
         session_names=("alpha-worker",),
         active_fable=active_fable,
-        foreman_model=None,
         now=1234.0,
         pane_pid=lambda **_: 101,
         children_of=lambda **_: (),

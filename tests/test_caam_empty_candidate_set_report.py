@@ -81,7 +81,6 @@ class _Flags:
     force = False
     dry_run = False
     no_models = False
-    foreman_model: str | None = None
     session_models: tuple[tuple[str, str], ...] = ()
     protected_accounts: tuple[tuple[str, str], ...] = ()
 

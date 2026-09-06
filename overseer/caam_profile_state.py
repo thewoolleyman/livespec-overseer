@@ -4,7 +4,6 @@ STATE FILE KEY VOCABULARY. Every top-level key the program writes to
 ``STATE_REL`` is listed here so the next key added does not have to be
 inferred from the ones already there:
 
-    foreman_model        caam_foreman_override  -- the persisted foreman pin
     last_switch          caam_switch            -- from/to/at of the last switch
     models               caam_sessions          -- the per-session set memo
     profiles             caam_profile_state     -- the usage snapshot cache

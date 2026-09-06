@@ -187,22 +187,21 @@ def test_orchestration_skips_an_operator_set_derived_session_while_fable_is_left
     sessions = sessions_module()
     exceptions = session_models_module().SessionModelExceptions(values={}, messages=())
     calls: list[tuple[str, str]] = []
-    # Enforcement last set this session to fable; the operator has since moved it
-    # to opus (e.g. Opus 5 1M for a long-context task), which reads as `opus`.
-    state: dict[str, object] = {"models": {"alpha-foreman": {"want": "fable", "at": 500.0}}}
-    pane = sessions.SessionModel(session="alpha-foreman", session_id="sid", model="opus")
+    # No operator-set pin and no name-derived want: with Fable still servable the
+    # session has no wanted model at all, so enforcement never evaluates it.
+    state: dict[str, object] = {"models": {"alpha-session": {"want": "fable", "at": 500.0}}}
+    pane = sessions.SessionModel(session="alpha-session", session_id="sid", model="opus")
 
     actions = enforcement._actions_for_pane(
         pane=pane,
         state=state,
         fable_left=True,
-        want_foreman="fable",
         session_exceptions=exceptions,
         run=_run(calls, now=1_000_000.0),
     )
 
     assert calls == []
-    assert actions == ["alpha-foreman operator-set(opus) kept"]
+    assert actions == []
 
 
 def test_orchestration_still_drives_a_session_models_pinned_session_to_its_pin() -> None:
@@ -219,7 +218,6 @@ def test_orchestration_still_drives_a_session_models_pinned_session_to_its_pin()
         pane=pane,
         state=state,
         fable_left=True,
-        want_foreman="fable",
         session_exceptions=exceptions,
         run=_run(calls, now=1000.0),
     )
@@ -240,7 +238,6 @@ def test_orchestration_moves_an_operator_set_session_when_fable_is_exhausted() -
         pane=pane,
         state=state,
         fable_left=False,
-        want_foreman="opus",
         session_exceptions=exceptions,
         run=_run(calls, now=1000.0),
     )
@@ -272,40 +269,12 @@ def test_exhaustion_leaves_an_operator_set_session_on_a_servable_model() -> None
         pane=pane,
         state=state,
         fable_left=False,
-        want_foreman="opus",
         session_exceptions=exceptions,
         run=_run(calls, now=1_000_000.0),
     )
 
     assert calls == []
     assert actions == ["alpha-worker operator-set(sonnet) kept"]
-
-
-def test_exhaustion_leaves_an_operator_set_opus_session_under_a_fable_foreman_pin() -> None:
-    """The servable-model case the exhausted pass used to drive onto a blocked model.
-
-    With the foreman override pinned to fable and that allowance spent, the
-    derived want is fable. An operator-set opus session is servable, so it is
-    kept rather than driven onto the model the account cannot currently serve.
-    """
-    enforcement = enforcement_module()
-    sessions = sessions_module()
-    exceptions = session_models_module().SessionModelExceptions(values={}, messages=())
-    calls: list[tuple[str, str]] = []
-    state: dict[str, object] = {"models": {"alpha-foreman": {"want": "fable", "at": 500.0}}}
-    pane = sessions.SessionModel(session="alpha-foreman", session_id="sid", model="opus")
-
-    actions = enforcement._actions_for_pane(
-        pane=pane,
-        state=state,
-        fable_left=False,
-        want_foreman="fable",
-        session_exceptions=exceptions,
-        run=_run(calls, now=1_000_000.0),
-    )
-
-    assert calls == []
-    assert actions == ["alpha-foreman operator-set(opus) kept"]
 
 
 def test_exhaustion_moves_an_operator_set_session_off_the_unservable_scoped_model() -> None:
@@ -321,7 +290,6 @@ def test_exhaustion_moves_an_operator_set_session_off_the_unservable_scoped_mode
         pane=pane,
         state=state,
         fable_left=False,
-        want_foreman="opus",
         session_exceptions=exceptions,
         run=_run(calls, now=1_000_000.0),
     )
@@ -342,7 +310,6 @@ def test_exhaustion_still_never_classifies_an_unknown_read_as_operator_set() -> 
         pane=pane,
         state=state,
         fable_left=False,
-        want_foreman="opus",
         session_exceptions=exceptions,
         run=_run(calls, now=1_000_000.0),
     )
@@ -366,7 +333,6 @@ def test_a_session_models_pin_still_wins_over_a_servable_operator_set_model() ->
         pane=pane,
         state=state,
         fable_left=False,
-        want_foreman="opus",
         session_exceptions=exceptions,
         run=_run(calls, now=1_000_000.0),
     )
