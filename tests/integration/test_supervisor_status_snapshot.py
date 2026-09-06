@@ -193,6 +193,11 @@ def test_tick_writes_round_trippable_status_snapshot(*, tmp_path, monkeypatch):
         "status": "idle-with-context-left",
         "note": None,
         "ctx": 73,
+        # The reading's PROVENANCE ships beside its value (`overseer-62mgxr`): a
+        # consumer that cannot tell a live reading from a four-hour-old one cannot
+        # judge either. `live` here — the pane rendered its statusline this tick.
+        "ctx_source": "live",
+        "ctx_age_seconds": None,
         "progress_now": False,
         "human_wait": False,
         "picker_open": False,

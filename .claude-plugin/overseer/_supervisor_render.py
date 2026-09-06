@@ -30,6 +30,7 @@ from _supervisor_view import (
     MAX_NOTE_IN_TABLE,
     MAX_REASON_IN_ALERT,
     RowView,
+    ctx_cell,
     elide,
     needs_attention,
     row_color,
@@ -82,7 +83,10 @@ def render_table(
                 # already-annotated string (the `max(len(...))` over `table`), so the
                 # column stays aligned — never widen it from the bare name.
                 tmux_cell(row=row),
-                "—" if row.ctx is None else f"{row.ctx}%",
+                # The Ctx% cell marks a RETAINED reading with its age (`62%~4h`), so the
+                # column width below must be computed from this already-marked string —
+                # never from the bare percentage — or the column misaligns.
+                ctx_cell(row=row),
                 registry.repo_slug(repo=row.repo),
             )
         )

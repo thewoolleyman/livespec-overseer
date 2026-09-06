@@ -125,6 +125,8 @@ def _blocking_prompt_row(*, row: RowView) -> RowView | None:
         repo=row.repo,
         tmux=row.tmux,
         ctx=row.ctx,
+        ctx_source=row.ctx_source,
+        ctx_age_seconds=row.ctx_age_seconds,
         status=FOREMAN_BLOCKING_PROMPT_STATUS,
         note=(
             "foreman blocking prompt open; an open prompt suppresses scheduled ticks; "

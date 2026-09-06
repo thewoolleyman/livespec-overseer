@@ -17,6 +17,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from _supervisor_liveness_time import age_label
+from _supervisor_records import CTX_SOURCE_UNREADABLE
+
 __all__: list[str] = [
     "ANSI_RESET",
     "ATTENTION_STATUSES",
@@ -24,6 +27,7 @@ __all__: list[str] = [
     "MAX_REASON_IN_ALERT",
     "RESUME_PENDING_NOTE",
     "RowView",
+    "ctx_cell",
     "elide",
     "needs_attention",
     "row_color",
@@ -199,6 +203,13 @@ class RowView:
     — and a note is elided at a DISPLAY width, so the attribution survived or vanished
     on the wording of the day. It is set exactly when this tick observed a queued
     delivery; a parked pane with a picker and no delivery leaves it ``None``.
+
+    ``ctx`` is the reported remaining-context percent and ``ctx_source`` /
+    ``ctx_age_seconds`` are the provenance that makes it judgeable — see
+    :class:`_supervisor_records.CtxReading`, which is where the three are derived
+    together. They default to the honest absence, which is correct for the
+    no-managed-pane rows: there was no pane to read a statusline from, so nothing was
+    retained and nothing is claimed.
     """
 
     topic: str
@@ -206,6 +217,8 @@ class RowView:
     tmux: str | None
     ctx: int | None
     status: str
+    ctx_source: str = CTX_SOURCE_UNREADABLE
+    ctx_age_seconds: float | None = None
     note: str | None = None
     runtime: str | None = None
     progress_now: bool = False
@@ -260,3 +273,26 @@ def tmux_cell(*, row: RowView) -> str:
     if row.runtime is None:
         return row.tmux
     return f"{row.tmux} ({row.runtime})"
+
+
+def ctx_cell(*, row: RowView) -> str:
+    """The ``Ctx%`` column value: a live reading, a MARKED retained one, or a dash.
+
+    A retained reading renders ``62%~4h`` — the value, then ``~`` and the age of the
+    observation it came from — so a number the pane is no longer rendering can never be
+    read as one it is. That marking is not decoration: an unmarked stale headroom is
+    worse than none, because ``62%`` and ``62% as of four hours ago`` are opposite
+    operational situations and the operator acts on the difference.
+
+    An unreadable row still renders the bare ``—``. This cell NEVER invents a value, so
+    a dash keeps meaning exactly what it always meant — the daemon does not know.
+
+    Keyed on ``ctx_age_seconds``, which :class:`_supervisor_records.CtxReading` sets for
+    a retained reading and for no other, so the age's presence IS the retained marker
+    and the cell cannot render a mark without the age that justifies it.
+    """
+    if row.ctx is None:
+        return "—"
+    if row.ctx_age_seconds is None:
+        return f"{row.ctx}%"
+    return f"{row.ctx}%~{age_label(seconds=row.ctx_age_seconds)}"

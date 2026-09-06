@@ -26,6 +26,11 @@ from _supervisor_config import (
     CONDITION_CONTINUITY_GAP,
     CTX_STALE_AFTER,
 )
+
+# Re-exported so `_supervisor_observe.observed_stale_ctx_age` keeps resolving for the
+# callers that already reach it here; the body moved to the module that owns the whole
+# "how current is our headroom knowledge" concern alongside the operator projection.
+from _supervisor_ctx_reading import ctx_reading, observed_stale_ctx_age
 from _supervisor_records import ConditionEpisode, InjectState, Observation
 
 if TYPE_CHECKING:
@@ -33,6 +38,7 @@ if TYPE_CHECKING:
 
 __all__: list[str] = [
     "advance_condition",
+    "ctx_reading",
     "effective_ctx",
     "is_codex_track",
     "observe",
@@ -73,18 +79,6 @@ def effective_ctx(
     if state.last_ctx_seen is not None and (now - state.last_ctx_seen) >= CTX_STALE_AFTER:
         return None
     return state.last_ctx
-
-
-def observed_stale_ctx_age(
-    *, state: InjectState, current: int | None, eff_ctx: int | None, now: float
-) -> float | None:
-    """Age of stale last-known ctx, or None while ctx knowledge is fresh/absent."""
-    if current is not None or eff_ctx is not None or state.last_ctx_seen is None:
-        return None
-    age = max(0.0, now - state.last_ctx_seen)
-    if age < CTX_STALE_AFTER:
-        return None
-    return age
 
 
 def update_idle_episode(*, state: InjectState, idle: bool, busy: bool, now: float) -> None:
@@ -342,6 +336,7 @@ def observe(
         claude_status=claude_status,
         current_ctx=current_ctx,
         eff_ctx=eff_ctx,
+        ctx_reading=ctx_reading(state=istate, current=current_ctx, now=now),
         ctx_changed=ctx_changed,
         ctx_stale_age=ctx_stale_age,
         stale_ctx=stale_ctx,
