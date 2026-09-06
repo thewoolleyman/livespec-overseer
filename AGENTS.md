@@ -202,23 +202,33 @@ skipped.
 
 **Create worktrees with `just worktree-create <branch> [base_ref]`, NOT with
 `git worktree add`.** The recipe provisions the worktree-discipline pack into
-`dev-tooling/` and hydrates; raw `git worktree add` does neither, and a
-worktree without that pack **can neither commit a `.py` change nor push at
-all** — `check-primary-checkout-commit-refuse-hook-installed` fails with
-`worktree_pack_absent` in both the pre-commit and pre-push aggregates. Observed
-both ways on 2026-07-27: a `.py` commit rejected, and a DOCS-ONLY branch
-rejected at push, so do not assume the doc-only fast path exempts you.
+`dev-tooling/` and hydrates; raw `git worktree add` does neither. The pack is
+no longer the reason to prefer the recipe: since 2026-09-06 (`livespec-ltthxr`,
+livespec `SPECIFICATION/contracts.md` §"Pre-commit step ordering", v219) the
+FIRST command of both the pre-commit and the pre-push hook is
+`00-install-worktree-pack`, which runs `just install-worktree-pack` before any
+gate reads the pack. So a worktree created by raw `git worktree add` CAN commit
+and push — the hook installs the pack, from the package that checkout resolves,
+and no `just bootstrap` is needed — and the byte-identity verifier still
+asserts the installed result afterwards. The remaining reason to use the recipe
+is hydration, which raw `git worktree add` skips.
 
-Two things make it expensive to learn the hard way. The check is only reachable
-through a full `just check`, so it fires at COMMIT or PUSH time — after the work
-is done — rather than at worktree-creation time. And the rejected `git commit`
-leaves the change STAGED, so a following `git log` shows some other track's
-commit at HEAD and reads as success. **Check `git status`, not `git log`, after
-a hook-gated commit.** To rescue an
-already-created worktree, run `just install-worktree-pack` inside it — but note
-it also writes a `worktree_discipline` key into `.livespec.jsonc`, a tracked
-file; that key only makes the existing default explicit, so discard it unless
-you mean to land it.
+Before the hooks installed the pack first, a worktree without it could neither
+commit a `.py` change nor push at all —
+`check-primary-checkout-commit-refuse-hook-installed` failed with
+`worktree_pack_absent` in both the pre-commit and pre-push aggregates. Observed
+both ways on 2026-07-27: a `.py` commit rejected,
+and a DOCS-ONLY branch rejected at push, so the doc-only fast path did not exempt
+you. The check was only reachable through a full `just check`, so it fired at
+COMMIT or PUSH time — after the work was done — rather than at
+worktree-creation time; that is the cost the hook-first installer removes. One
+thing from that episode still holds for EVERY hook-gated commit: a rejected
+`git commit` leaves the change STAGED, so a following `git log` shows some other
+track's commit at HEAD and reads as success. **Check `git status`, not
+`git log`, after a hook-gated commit.** Running `just install-worktree-pack` by
+hand remains a valid standalone repair; it writes only gitignored files (the
+`worktree_discipline` key it also asserts in `.livespec.jsonc` is already
+committed, so that write is a no-op here).
 
 The lifecycle has recipes for the rest too: `just worktree-hydrate`,
 `just worktree-land [base_ref]`, and `just worktree-reap [--execute]` for
@@ -257,18 +267,23 @@ MECHANISM as the hazard and the measurement as evidence for it; a threshold is a
 property of the broken code, and it stops meaning anything the moment that code
 changes.
 
-**Re-run `just install-worktree-pack` in ANY worktree created across a pin bump.**
+**A worktree created across a pin bump is re-installed by the hook, not by you.**
 `worktree-create` provisions the pack by COPYING it from the PRIMARY checkout, whose
 copy came from the pin the primary resolved. A worktree on a branch that BUMPS the
 pin resolves the NEW package, whose canonical pack bodies differ — and the pack is
-byte-verified, so the worktree is born failing. Measured twice on 2026-08-04
-(`livespec-dev-tooling-ov9o`), and the failures NAME THE WRONG THING:
-`check-shell-quality` reports `just-interpolation` against recipes named
-`worktree-create`/`worktree-land`/`worktree-reap`, which arrive via
-`import? 'dev-tooling/worktree.just'` and are therefore attributed to the consumer's
-own `justfile`. Both repos went red-to-green on that one command with no other edit.
-Note also that `worktree_pack_body_mismatch`'s hint says to run `just bootstrap`,
-which is the wrong verb in a LINKED worktree.
+byte-verified, so the copied pack is stale the moment the pin changes. The
+`00-install-worktree-pack` hook command re-installs the pack from the package the
+worktree NOW resolves before any gate reads it, so the stale copy is refreshed at
+the next commit or push with no manual step; `just install-worktree-pack` by hand
+does the same thing earlier if you want the `worktree-*` recipes current before
+then. Before the hook ran the installer first, such a worktree was born failing:
+measured twice on 2026-08-04 (`livespec-dev-tooling-ov9o`), and the failures NAMED
+THE WRONG THING — `check-shell-quality` reported `just-interpolation` against
+recipes named `worktree-create`/`worktree-land`/`worktree-reap`, which arrive via
+`import? 'dev-tooling/worktree.just'` and are therefore attributed to the
+consumer's own `justfile`. Both repos went red-to-green on that one command with
+no other edit. Note also that `worktree_pack_body_mismatch`'s hint says to run
+`just bootstrap`, which is the wrong verb in a LINKED worktree.
 
 **`just worktree-reap` essentially never fires here** (`livespec-dev-tooling-teje`):
 it judges merged-ness by ANCESTRY into `origin/master`, which is false for every

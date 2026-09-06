@@ -1,10 +1,20 @@
 # lefthook.yml — livespec-overseer git hook configuration.
 #
 # Authority: livespec/SPECIFICATION/contracts.md
-#   §"Pre-commit step ordering" — pre-commit runs three commands in
-#   order (00-lint-autofix-staged, 01-commit-pairs-source-and-test,
-#   02-check-pre-commit); commit-msg runs no-commit-on-master then
-#   red-green-replay (v034 D3); pre-push runs the full aggregate.
+#   §"Pre-commit step ordering" (v219) — pre-commit runs four commands
+#   in order (00-install-worktree-pack, 01-lint-autofix-staged,
+#   02-commit-pairs-source-and-test, 03-check-pre-commit); commit-msg
+#   runs no-commit-on-master then red-green-replay (v034 D3); pre-push
+#   runs 00-install-worktree-pack then the full aggregate.
+#
+# Why the installer runs first at both pre-commit and pre-push: the
+# worktree-discipline pack under dev-tooling/ is gitignored-and-installed,
+# so a worktree created by raw `git worktree add` (or one predating a
+# livespec-dev-tooling pin bump) would otherwise reach the gate with the
+# pack absent or stale and fail `worktree_pack_absent` only after the whole
+# aggregate had run. The installer is idempotent, writes only ignored
+# files, installs from the package THIS checkout resolves, and the
+# byte-identity verifier still asserts the result afterwards.
 #
 # Authority: livespec/SPECIFICATION/non-functional-requirements.md
 #   §"Toolchain pins" — `run:` fields MUST delegate to `just <target>`
@@ -29,11 +39,13 @@
 
 pre-commit:
   commands:
-    00-lint-autofix-staged:
+    00-install-worktree-pack:
+      run: just install-worktree-pack
+    01-lint-autofix-staged:
       run: just lint-autofix-staged
-    01-commit-pairs-source-and-test:
+    02-commit-pairs-source-and-test:
       run: just check-commit-pairs-source-and-test
-    02-check-pre-commit:
+    03-check-pre-commit:
       run: just check-pre-commit
 
 commit-msg:
@@ -51,5 +63,7 @@ commit-msg:
 
 pre-push:
   commands:
-    check:
+    00-install-worktree-pack:
+      run: just install-worktree-pack
+    01-check-pre-push:
       run: just check-pre-push
