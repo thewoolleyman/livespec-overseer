@@ -1,5 +1,16 @@
 # Changelog
 
+## [4.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v3.0.0...v4.0.0) (2026-09-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **overseer:** remove the supervise-plan seat — skill, prose, binder/handoff code
+
+### Features
+
+* **overseer:** remove the supervise-plan seat — skill, prose, binder/handoff code ([32e771a](https://github.com/thewoolleyman/livespec-overseer/commit/32e771af18c442dece2f065c36e373a7a6e19b7e))
+
 ## [3.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v2.1.1...v3.0.0) (2026-09-06)
 
 
