@@ -77,75 +77,75 @@ def _absent_or_consensus() -> Required:
     )
 
 
+_FA_NOTE = "plan/archive/foreman-full-autonomy-option/research/opening-research-2026-08-22.md"
+
+
 FULL_AUTONOMY_LEVERS: tuple[Lever, ...] = (
     Lever(
         dotted_path="spec_governance.propose_change_mode",
         required=_equals(value="batch"),
         owning_plugin="livespec",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D5",
+        citation=f"{_FA_NOTE} D5",
     ),
     Lever(
         dotted_path="spec_governance.critique_mode",
         required=_equals(value="batch"),
         owning_plugin="livespec",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D5",
+        citation=f"{_FA_NOTE} D5",
     ),
     Lever(
         dotted_path="spec_governance.in_flight_alignment",
         required=_equals(value="default-align"),
         owning_plugin="livespec",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D5",
+        citation=f"{_FA_NOTE} D5",
     ),
     Lever(
         dotted_path="spec_governance.revise_decision_mode",
         required=_equals(value="delegated"),
         owning_plugin="livespec",
-        citation=(
-            "plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md "
-            "D5; consensus inert until livespec core consensus tier exists"
-        ),
+        citation=(f"{_FA_NOTE} " "D5; consensus inert until livespec core consensus tier exists"),
     ),
     Lever(
         dotted_path="spec_governance.ratification_review",
         required=_equals(value="auto-spawn"),
         owning_plugin="livespec",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D5",
+        citation=f"{_FA_NOTE} D5",
     ),
     Lever(
         dotted_path="spec_governance.ratification_reviewer_model",
         required=_non_empty_string(),
         owning_plugin="livespec",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D5",
+        citation=f"{_FA_NOTE} D5",
     ),
     Lever(
         dotted_path="spec_governance.spec_pr_merge",
         required=_equals(value="auto-on-green"),
         owning_plugin="livespec",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D5",
+        citation=f"{_FA_NOTE} D5",
     ),
     Lever(
         dotted_path="spec_governance.drift_acceptance_mode",
         required=_equals(value="consensus"),
         owning_plugin="livespec",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D5",
+        citation=f"{_FA_NOTE} D5",
     ),
     Lever(
         dotted_path="livespec-orchestrator-beads-fabro.dispatcher.acceptance_mode",
         required=_equals(value="ai-only"),
         owning_plugin="livespec-orchestrator-beads-fabro",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D5",
+        citation=f"{_FA_NOTE} D5",
     ),
     Lever(
         dotted_path="livespec-orchestrator-beads-fabro.dispatcher.auto_approve_ready",
         required=_equals(value=True),
         owning_plugin="livespec-orchestrator-beads-fabro",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D5",
+        citation=f"{_FA_NOTE} D5",
     ),
     Lever(
         dotted_path="livespec-overseer.foreman_valve_disposition",
         required=_absent_or_consensus(),
         owning_plugin="livespec-overseer",
-        citation="plan/foreman-full-autonomy-option/research/opening-research-2026-08-22.md D2/D5",
+        citation=f"{_FA_NOTE} D2/D5",
     ),
 )
 
