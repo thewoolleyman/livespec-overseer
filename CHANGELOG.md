@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.2](https://github.com/thewoolleyman/livespec-overseer/compare/v5.0.1...v5.0.2) (2026-09-07)
+
+
+### Bug Fixes
+
+* **overseer:** eagerly heal derivable-but-null plan epics (overseer-fdau) ([94a4d29](https://github.com/thewoolleyman/livespec-overseer/commit/94a4d2963dc1e49bd804e6e19610b9fd84497d47))
+
 ## [5.0.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.0.0...v5.0.1) (2026-09-07)
 
 
