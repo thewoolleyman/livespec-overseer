@@ -219,36 +219,60 @@ def decision_switched(
 
 
 def row_line(*, row: RenderableProfileUsage, active_name: str, now: datetime) -> str:
+    is_active = row.name == active_name
+    source = _display_source(source=row.source, is_active=is_active)
     if row.usage is None:
         return (
-            f"{row.name:<13} {current_cell(is_active=row.name == active_name)} "
-            f"{'-':>7} {'-':>13} {'-':>9} {'-':>13} {'-':>10} {'-':>13}   {row.source}"
+            f"{row.name:<13} {current_cell(is_active=is_active)} "
+            f"{'-':>7} {'-':>13} {'-':>9} {'-':>13} {'-':>10} {'-':>13}   {source}"
         )
-    if stale_past_reset(usage=row.usage, source=row.source, now=now):
+    if stale_past_reset(usage=row.usage, source=row.source, now=now, is_active=is_active):
         return (
-            f"{row.name:<13} {current_cell(is_active=row.name == active_name)} "
+            f"{row.name:<13} {current_cell(is_active=is_active)} "
             f"{'?':>7} {'reset':>13} {'?':>9} {'reset':>13} {'?':>10} {'reset':>13}   "
-            f"{row.source}, stale"
+            f"{source}, stale"
         )
     # Every cell is the stored figure printed as it stands: the record already
     # holds what each allowance has LEFT, which is what these columns are named
     # for and what the operator reads them as.
     fable = f"{row.usage.fable_remaining:.0f}%" if row.usage.fable_remaining is not None else "-"
     return (
-        f"{row.name:<13} {current_cell(is_active=row.name == active_name)} "
+        f"{row.name:<13} {current_cell(is_active=is_active)} "
         f"{row.usage.five_hour_remaining:6.0f}% "
         f"{until(timestamp=row.usage.five_hour_resets_at, now=now):>13} "
         f"{row.usage.seven_day_remaining:8.0f}% "
         f"{until(timestamp=row.usage.seven_day_resets_at, now=now):>13} "
         f"{fable:>9} {until(timestamp=row.usage.fable_resets_at, now=now):>13}   "
-        f"{row.source}"
+        f"{source}"
     )
 
 
-def stale_past_reset(*, usage: RenderableUsageRecord, source: str, now: datetime) -> bool:
+def _display_source(*, source: str, is_active: bool) -> str:
+    """The provenance shown in the SOURCE column.
+
+    ``source == "live"`` means the account's credential was exercised
+    successfully this pass -- what the DECISION path reads as live-verified. For
+    a NON-active account that exercise went through the account's STORED SNAPSHOT
+    credential (the Observation clause), not the active login, so its figure is a
+    snapshot reading rather than the active account's live poll and MUST NOT be
+    asserted as ``live`` on the operator-facing report.
+    """
+    if source == "live" and not is_active:
+        return "snapshot"
+    return source
+
+
+def stale_past_reset(
+    *, usage: RenderableUsageRecord, source: str, now: datetime, is_active: bool
+) -> bool:
     from caam_decision import resets_at
 
-    if source == "live":
+    # Only the ACTIVE account's live-credential poll is a genuinely current
+    # reading that can never be stale. A NON-active account is exercised through
+    # its stored snapshot credential (the Observation clause); "live-verified"
+    # there does not mean the figure is current, so it stays subject to the
+    # reset-window staleness check below rather than short-circuiting as fresh.
+    if source == "live" and is_active:
         return False
     now_timestamp = now.timestamp()
     return any(

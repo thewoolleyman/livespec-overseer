@@ -283,7 +283,7 @@ def test_active_usage_unreadable_prints_table_then_source_fail(*, tmp_path: Path
     assert result == 2
     assert any("PROFILE" in line for line in out)
     assert any(line.startswith("active") and "dark: HTTP 429" in line for line in out)
-    assert any(line.startswith("target") and "live" in line for line in out)
+    assert any(line.startswith("target") and "snapshot" in line for line in out)
     assert out[-1] == "FAIL cannot read usage for active profile active"
     assert next(index for index, line in enumerate(out) if line.startswith("PROFILE")) < out.index(
         "FAIL cannot read usage for active profile active"
@@ -691,9 +691,9 @@ def test_protected_accounts_summary_reports_floors_and_table_is_unchanged(*, tmp
         "active        ✅           90%        1h 20m       80%    1d 13h 20m       "
         "90%    1d 13h 20m   live",
         "backup                     90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m   live",
+        "90%    1d 13h 20m   snapshot",
         "main                       90%        1h 20m       80%    1d 13h 20m       "
-        "90%    1d 13h 20m   live",
+        "90%    1d 13h 20m   snapshot",
     ]
 
 
