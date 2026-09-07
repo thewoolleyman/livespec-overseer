@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import _supervisor_attention
 import _supervisor_discovery
 import _supervisor_dispatch_quiet
+import _supervisor_epic_heal
 import _supervisor_mapping_health
 import _supervisor_pair
 import _supervisor_reexec
@@ -27,7 +28,17 @@ def run_tick(*, sup: Supervisor, act: bool = True) -> list[RowView]:
         if not act
         else frozenset()
     )
-    for track in sup.build_rows(act=act):
+    tracks = sup.build_rows(act=act)
+    if act:
+        # Heal a derivable-but-null plan epic EAGERLY, before evaluation — persist the
+        # anchor-derived epic so no track has to reach the restart-interlock boundary
+        # (which a session-gone/idle-and-fine track never does) before its
+        # mapping-unusable row is cured (overseer-fdau). Kept OUT of `build_rows`
+        # because that discovery pass must stay directory-only and never read a
+        # `plan/<topic>/` anchor file; the read-only `list` tick (act=False) never
+        # heals, so it too stays plan-file-free. Bounded to one anchor read per null row.
+        tracks = _supervisor_epic_heal.heal_derivable_epics(sup=sup, rows=tracks)
+    for track in tracks:
         row = sup.evaluate(track=track, act=act)
         if not act:
             row = _supervisor_mapping_health.apply_mapping_health(
