@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.1](https://github.com/thewoolleyman/livespec-overseer/compare/v5.0.0...v5.0.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **caam:** stop labeling a non-active account's snapshot reading as SOURCE=live ([dc08726](https://github.com/thewoolleyman/livespec-overseer/commit/dc08726b14768caaa120d3f46b75decd705a6d44))
+
 ## [5.0.0](https://github.com/thewoolleyman/livespec-overseer/compare/v4.0.0...v5.0.0) (2026-09-06)
 
 
