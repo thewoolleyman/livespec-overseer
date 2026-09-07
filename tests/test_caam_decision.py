@@ -665,7 +665,7 @@ def test_table_renders_remaining_quota_reset_durations_and_source_text():
         "dark                         -             -         -             -          -"
         "             -   dark: no token\n"
         "nofable                    10%            1m        5%         1h 0m         -"
-        "             -   live\n"
+        "             -   snapshot\n"
         "\n"
     )
 
