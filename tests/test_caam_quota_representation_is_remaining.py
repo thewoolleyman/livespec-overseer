@@ -145,7 +145,13 @@ def test_an_unreadable_scoped_allowance_stays_distinct_from_nothing_left(*, tmp_
 
 
 def test_every_quota_field_on_the_record_is_named_for_what_it_holds():
-    """The names ARE the contract -- a field called `five_hour` said nothing."""
+    """The names ARE the contract -- a field called `five_hour` said nothing.
+
+    The three dollar-meter fields are held to the same rule from the other side:
+    a percentage field says which DIRECTION it runs in, and a dollar field says
+    it is dollars rather than percent, so no reader has to work out which ruler a
+    bare figure was measured with. The percentage set below is unchanged.
+    """
     names = {field.name for field in dataclasses.fields(models_module().UsageRecord)}
 
     assert names == {
@@ -155,6 +161,9 @@ def test_every_quota_field_on_the_record_is_named_for_what_it_holds():
         "seven_day_resets_at",
         "fable_remaining",
         "fable_resets_at",
+        "extra_usage",
+        "five_hour_dollars",
+        "seven_day_dollars",
     }
 
 

@@ -14,6 +14,7 @@ from typing import Final, Protocol
 
 import jsonio
 from caam_decision import UsageRecord
+from caam_extra_usage import extra_usage_from, window_dollars_from
 
 __all__: list[str] = [
     "USAGE_URL",
@@ -208,6 +209,13 @@ def _usage_record(*, body: dict[str, object]) -> tuple[UsageRecord | None, str |
             seven_day_resets_at=_optional_string(value=seven_day.get("resets_at")),
             fable_remaining=fable_left,
             fable_resets_at=fable_resets_at,
+            # The dollar meter rides on the SAME response, and is read here rather
+            # than through a second request: an account can be stopped by it while
+            # every percentage above still reads healthy, so a record carrying only
+            # the percentages describes an account it cannot account for.
+            extra_usage=extra_usage_from(body=body),
+            five_hour_dollars=window_dollars_from(window=five_hour),
+            seven_day_dollars=window_dollars_from(window=seven_day),
         ),
         None,
     )
